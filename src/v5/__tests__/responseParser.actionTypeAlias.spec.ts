@@ -178,21 +178,31 @@ describe('parseV5Response — action_type alias normalisation', () => {
     }
   })
 
-  it('(9) extractPhase3FromV5Response recovers >=1 review_card raw block from the parsed response', async () => {
+  it('(9) extractPhase3FromV5Response recovers all 4 review_card raw blocks with non-empty title and body', async () => {
     const result = await parseV5Response(makeResponse(loadFixture()))
     if (result.kind !== 'response') throw new Error('expected response')
     const phase3 = extractPhase3FromV5Response(result.response)
     const reviewCards = phase3.rawBlocks.filter((b) => b.type === 'review_card')
-    expect(reviewCards.length).toBeGreaterThanOrEqual(1)
-    // The verbatim payload carries v1.3 fields the bridge inspects. title is
-    // always a string on this real-staging fixture; body fields (description /
-    // body / summary) happen to be null on every review_card in this specific
-    // CEE response (see debug bundle b82c89dd). The bridge refuses to render
-    // when body is empty — verified by test (10a) below — which is the
-    // correct "no fabricated copy" behaviour. CEE-side: the absent body
-    // content is a separate workstream and not in scope for this parser fix.
-    expect(typeof reviewCards[0].raw.title).toBe('string')
-    expect(reviewCards[0].raw.title).toBe('A load-bearing assumption')
+    expect(reviewCards).toHaveLength(4)
+    // Every review_card in the live response carries real body content
+    // (the v1.3 emit shape uses `body`, not `summary`/`description`).
+    // The bridge adapter resolves body via the `description ?? body ?? summary`
+    // precedence, so `body` is selected here.
+    for (const rc of reviewCards) {
+      expect(typeof rc.raw.title).toBe('string')
+      expect((rc.raw.title as string).length).toBeGreaterThan(0)
+      expect(typeof rc.raw.body).toBe('string')
+      expect((rc.raw.body as string).length).toBeGreaterThan(0)
+    }
+    // Verbatim preservation spot-check on the highest-priority entry
+    // (lowest priority_rank = highest priority).
+    const sorted = [...reviewCards].sort(
+      (a, b) => (a.raw.priority_rank as number) - (b.raw.priority_rank as number),
+    )
+    expect(sorted[0].raw.priority_rank).toBe(71)
+    expect(sorted[0].raw.body).toBe(
+      'The relationship between Technical Leadership Capacity and overall throughput remains stable.',
+    )
   })
 
   // (10a, 10b) bridge wiring assertions are in

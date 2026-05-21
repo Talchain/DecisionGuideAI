@@ -12,14 +12,6 @@
  * function lives) from within `src/v5/**` would drag the entire conversation
  * graph into the tsconfig.ci.json typecheck scope (which is intentionally
  * limited to v5/**), surfacing pre-existing type errors in unrelated files.
- *
- * Brief assertions covered here:
- *   10a. On the real fixture (review_cards with null body), the bridge
- *        refuses to render — returns mappedBlocks unchanged. No fabricated
- *        copy. The empty body is a separate CEE-side issue not in scope.
- *   10b. When CEE emits a usable review_card body (synthetic — the same
- *        shape CEE will emit upstream once the null-body issue is fixed),
- *        the bridge appends review_card after v5_analysis_result.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -27,7 +19,10 @@ import { resolve } from 'node:path'
 
 import { parseV5Response } from '../../../v5/responseParser'
 import { extractPhase3FromV5Response } from '../../../v5/extractPhase3FromV5Response'
-import { composePhase3BridgedBlocks } from '../useConversation'
+import {
+  composePhase3BridgedBlocks,
+  adaptPhase3ReviewCard,
+} from '../useConversation'
 import type { ConversationBlock } from '../types'
 
 const FIXTURE_PATH = resolve(
@@ -46,65 +41,79 @@ function makeResponse(body: unknown, status = 200): Response {
   })
 }
 
+const V5_ANALYSIS_RESULT_BLOCK: ConversationBlock = {
+  type: 'v5_analysis_result',
+  summary: 'Ran analysis on your current scenario.',
+  leading_option_id: 'opt_tech_lead',
+  win_probabilities: { 'Hire One Tech Lead': 0.94325 },
+}
+
 describe('PR #175 bridge — live fixture (cee-response-b82c89dd)', () => {
-  it('(10a) on the real fixture (review_cards with null body) the bridge refuses to render — returns mappedBlocks unchanged, no fabricated copy', async () => {
-    // The live CEE staging response b82c89dd emitted review_cards with
-    // null summary/body/description. The bridge's "refuse empty body" rule
-    // means no review_card appends — exactly the correct behaviour per the
-    // PR #175 brief's "no fabricated copy" requirement. This test locks
-    // that down so future regressions don't silently start rendering
-    // empty cards.
+  it('parse → extract → bridge appends the highest-priority review_card after v5_analysis_result', async () => {
+    // Full live chain. The live response carries 4 review_card top-level
+    // blocks (priority_rank 71-74) and 6 coaching blocks (priority_rank
+    // 101-202), all with non-empty body content. The bridge picks the
+    // lowest-priority_rank (= highest priority) review_card and appends
+    // it after the V5 mapped blocks.
     const result = await parseV5Response(makeResponse(loadFixture()))
-    if (result.kind !== 'response') throw new Error('expected response')
+    expect(result.kind).toBe('response')
+    if (result.kind !== 'response') return
+
     const phase3 = extractPhase3FromV5Response(result.response)
+    const reviewCards = phase3.rawBlocks.filter((b) => b.type === 'review_card')
+    expect(reviewCards).toHaveLength(4)
 
-    const mappedBlocks: ConversationBlock[] = [
-      {
-        type: 'v5_analysis_result',
-        summary: 'Ran analysis on your current scenario.',
-        leading_option_id: 'opt_tech_lead',
-        win_probabilities: { 'Hire One Tech Lead': 0.94325 },
-      },
-    ]
-    const finalBlocks = composePhase3BridgedBlocks(true, phase3.rawBlocks, mappedBlocks)
-    expect(finalBlocks.map((b) => b.type)).toEqual(['v5_analysis_result'])
-    expect(finalBlocks.some((b) => b.type === 'review_card')).toBe(false)
-  })
-
-  it('(10b) when CEE emits a usable review_card body, the bridge appends after v5_analysis_result', async () => {
-    // Substitute a non-null summary on one rawBlock — the same shape CEE
-    // will emit upstream once the null-body issue is resolved. All other
-    // fields preserved verbatim from the live CEE response.
-    const result = await parseV5Response(makeResponse(loadFixture()))
-    if (result.kind !== 'response') throw new Error('expected response')
-    const phase3 = extractPhase3FromV5Response(result.response)
-
-    const realReviewCard = phase3.rawBlocks.find((b) => b.type === 'review_card')
-    expect(realReviewCard).toBeDefined()
-    const usableRawBlocks = phase3.rawBlocks.map((b) =>
-      b === realReviewCard
-        ? {
-            ...b,
-            raw: { ...b.raw, summary: 'Hiring a Tech Lead remains robust under the modelled uncertainty.' },
-          }
-        : b,
+    const finalBlocks = composePhase3BridgedBlocks(
+      true,
+      phase3.rawBlocks,
+      [V5_ANALYSIS_RESULT_BLOCK],
     )
 
-    const mappedBlocks: ConversationBlock[] = [
-      {
-        type: 'v5_analysis_result',
-        summary: 'Ran analysis on your current scenario.',
-        leading_option_id: 'opt_tech_lead',
-        win_probabilities: { 'Hire One Tech Lead': 0.94325 },
-      },
-    ]
-    const finalBlocks = composePhase3BridgedBlocks(true, usableRawBlocks, mappedBlocks)
+    // Order: v5_analysis_result first (preserved), review_card appended.
     expect(finalBlocks.map((b) => b.type)).toEqual([
       'v5_analysis_result',
       'review_card',
     ])
-    const card = finalBlocks[1] as { type: 'review_card'; title: string; body: string }
+
+    // The bridge selects priority_rank 71 (lowest = highest priority) and
+    // adapts the verbatim CEE shape to the typed ReviewCardBlock.
+    const card = finalBlocks[1] as {
+      type: 'review_card'
+      title: string
+      body: string
+      variant: 'info' | 'alert'
+    }
     expect(card.title).toBe('A load-bearing assumption')
-    expect(card.body).toBe('Hiring a Tech Lead remains robust under the modelled uncertainty.')
+    expect(card.body).toBe(
+      'The relationship between Technical Leadership Capacity and overall throughput remains stable.',
+    )
+    // No tone/variant emitted on this CEE response → defaults to 'info'
+    // per the bridge's wrapped-block-parity defaults.
+    expect(card.variant).toBe('info')
+  })
+
+  it('cap respected end-to-end: only one review_card surfaces even though 4 are available', async () => {
+    const result = await parseV5Response(makeResponse(loadFixture()))
+    if (result.kind !== 'response') throw new Error('expected response')
+    const phase3 = extractPhase3FromV5Response(result.response)
+    const finalBlocks = composePhase3BridgedBlocks(
+      true,
+      phase3.rawBlocks,
+      [V5_ANALYSIS_RESULT_BLOCK],
+    )
+    expect(finalBlocks.filter((b) => b.type === 'review_card')).toHaveLength(1)
+  })
+
+  it('negative — synthetic null-body card is refused (no fabricated copy)', () => {
+    // Unit assertion of the bridge's empty-body refusal, independent of
+    // the live fixture. Kept here as a guard so a future regression that
+    // started fabricating body content would be caught.
+    const adapted = adaptPhase3ReviewCard({
+      title: 'A load-bearing assumption',
+      body: null,
+      summary: null,
+      description: null,
+    })
+    expect(adapted).toBeNull()
   })
 })

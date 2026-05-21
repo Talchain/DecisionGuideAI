@@ -93,7 +93,9 @@
       "freshness": "fresh",
       "card_kind": "assumption",
       "title": "A load-bearing assumption",
-      "summary": null,
+      "body": "The relationship between Technical Leadership Capacity and overall throughput remains stable.",
+      "severity": "info",
+      "priority_rank": 71,
       "target_refs": []
     },
     {
@@ -105,7 +107,9 @@
       "freshness": "fresh",
       "card_kind": "assumption",
       "title": "A load-bearing assumption",
-      "summary": null,
+      "body": "Team Maturity continues to support higher output as expected.",
+      "severity": "info",
+      "priority_rank": 72,
       "target_refs": []
     },
     {
@@ -117,7 +121,9 @@
       "freshness": "fresh",
       "card_kind": "assumption",
       "title": "A load-bearing assumption",
-      "summary": null,
+      "body": "Hiring costs are predictable and do not introduce significant new risks.",
+      "severity": "info",
+      "priority_rank": 73,
       "target_refs": []
     },
     {
@@ -129,7 +135,9 @@
       "freshness": "fresh",
       "card_kind": "assumption",
       "title": "A load-bearing assumption",
-      "summary": null,
+      "body": "Coordination overhead does not increase disproportionately with new hires.",
+      "severity": "info",
+      "priority_rank": 74,
       "target_refs": []
     },
     {
@@ -141,8 +149,10 @@
       "freshness": "fresh",
       "coaching_kind": "assumption_check",
       "title": "An assumption to check",
-      "summary": null,
+      "body": "The relationship between Technical Leadership Capacity and overall throughput remains stable.",
+      "source": "decision_review",
       "action_intent": "confirm_factor",
+      "action_label": "Confirm this assumption",
       "priority_rank": 101,
       "target_refs": []
     },
@@ -155,8 +165,10 @@
       "freshness": "fresh",
       "coaching_kind": "assumption_check",
       "title": "An assumption to check",
-      "summary": null,
+      "body": "Team Maturity continues to support higher output as expected.",
+      "source": "decision_review",
       "action_intent": "confirm_factor",
+      "action_label": "Confirm this assumption",
       "priority_rank": 102,
       "target_refs": []
     },
@@ -169,8 +181,10 @@
       "freshness": "fresh",
       "coaching_kind": "assumption_check",
       "title": "An assumption to check",
-      "summary": null,
+      "body": "Hiring costs are predictable and do not introduce significant new risks.",
+      "source": "decision_review",
       "action_intent": "confirm_factor",
+      "action_label": "Confirm this assumption",
       "priority_rank": 103,
       "target_refs": []
     },
@@ -183,8 +197,10 @@
       "freshness": "fresh",
       "coaching_kind": "assumption_check",
       "title": "An assumption to check",
-      "summary": null,
+      "body": "Coordination overhead does not increase disproportionately with new hires.",
+      "source": "decision_review",
       "action_intent": "confirm_factor",
+      "action_label": "Confirm this assumption",
       "priority_rank": 104,
       "target_refs": []
     },
@@ -197,8 +213,10 @@
       "freshness": "fresh",
       "coaching_kind": "calibration_prompt",
       "title": "Disconfirmation prompt",
-      "summary": null,
+      "body": "What would make you switch from hiring a Tech Lead to hiring Two Developers?",
+      "source": "decision_review",
       "action_intent": "start_guided_chat",
+      "action_label": "Try this prompt",
       "priority_rank": 201,
       "target_refs": []
     },
@@ -211,8 +229,10 @@
       "freshness": "fresh",
       "coaching_kind": "calibration_prompt",
       "title": "Pre-mortem prompt",
-      "summary": null,
+      "body": "If this choice fails to increase productivity, what will have gone wrong?",
+      "source": "decision_review",
       "action_intent": "start_guided_chat",
+      "action_label": "Try this prompt",
       "priority_rank": 202,
       "target_refs": []
     }
