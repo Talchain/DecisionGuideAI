@@ -1,13 +1,21 @@
 /**
- * FF-off parity for aiPanelV2.
+ * Flag default + rollback parity for aiPanelV2.
  *
- * Combines the flag-default check with render-level assertions:
- *  - When flag is OFF, OUTPUT_TABS_FOR_PARITY contains no 'olumi' tab.
- *  - When flag is OFF, the new aiPanelV2 surfaces (PersistentInputStrip,
- *    FloatingOlumiPanel, FirstUseComposer) all early-return null OR fail
- *    safely without a ConversationProvider in scope — guaranteeing they
- *    cannot leak into the legacy DraftChat experience.
- *  - When flag is ON, OUTPUT_TABS contains 'olumi'.
+ * As of this PR the aiPanelV2 flag's in-code default is ON — the
+ * floating-first AI Panel v2 is the primary composer surface. The
+ * legacy DraftChat path stays reachable via explicit FF-off override
+ * (`localStorage.setItem('feature.aiPanelV2', 'false')` or
+ * `VITE_FEATURE_AI_PANEL_V2=false`) so emergency rollback works.
+ *
+ * Tests assert:
+ *  - Flag defaults to TRUE when no env/localStorage override is set.
+ *  - localStorage="false" forces the flag OFF (rollback escape hatch).
+ *  - localStorage="true" keeps it ON.
+ *  - When flag is OFF, OUTPUT_TABS contains no 'olumi' tab (legacy path).
+ *  - When flag is ON (default), OUTPUT_TABS contains 'olumi'.
+ *  - Surfaces that should be invisible without an active selection /
+ *    stale analysis (SelectionPill, StaleAnalysisBadge) still render
+ *    nothing in the default state.
  *
  * We do NOT mount full OutputsDock here — the surrounding canvas store
  * setup is too heavy and the supabase/threadService dependency chain
@@ -51,7 +59,7 @@ vi.mock('../../hooks/useV2Run', () => ({
   useV2Run: () => ({ runV2Analysis: () => Promise.resolve() }),
 }))
 
-describe('FF-off parity (aiPanelV2 default)', () => {
+describe('aiPanelV2 default (round-12: default-ON, rollback via localStorage="false")', () => {
   beforeEach(() => {
     try {
       window.localStorage.removeItem('feature.aiPanelV2')
@@ -59,18 +67,18 @@ describe('FF-off parity (aiPanelV2 default)', () => {
     useFloatingPanelState.getState().reset()
   })
 
-  it('flag defaults to false when no env/localStorage override is set', async () => {
+  it('flag defaults to TRUE when no env/localStorage override is set', async () => {
     const flags = await import('../../../flags')
-    expect(flags.isAiPanelV2Enabled()).toBe(false)
+    expect(flags.isAiPanelV2Enabled()).toBe(true)
   })
 
-  it('localStorage="true" flips the flag', async () => {
+  it('localStorage="true" keeps the flag on (idempotent with default)', async () => {
     window.localStorage.setItem('feature.aiPanelV2', 'true')
     const flags = await import('../../../flags')
     expect(flags.isAiPanelV2Enabled()).toBe(true)
   })
 
-  it('localStorage="false" keeps the flag off', async () => {
+  it('localStorage="false" forces the flag OFF (rollback escape hatch)', async () => {
     window.localStorage.setItem('feature.aiPanelV2', 'false')
     const flags = await import('../../../flags')
     expect(flags.isAiPanelV2Enabled()).toBe(false)
@@ -95,8 +103,11 @@ describe('FF-off parity (aiPanelV2 default)', () => {
       vi.resetModules()
     })
 
-    it('OUTPUT_TABS list does NOT include "olumi" when flag is off', async () => {
-      window.localStorage.removeItem('feature.aiPanelV2')
+    it('OUTPUT_TABS list does NOT include "olumi" when flag is explicitly disabled (rollback)', async () => {
+      // Round-12: default is ON, so the FF-off path is only entered with
+      // an explicit localStorage="false" override (or env=false). This
+      // test exercises that rollback escape hatch.
+      window.localStorage.setItem('feature.aiPanelV2', 'false')
       const { getOutputTabsForParity } = await import('../OutputsDock')
       const ids = getOutputTabsForParity().map((t) => t.id)
       expect(ids).not.toContain('olumi')
@@ -106,8 +117,9 @@ describe('FF-off parity (aiPanelV2 default)', () => {
       expect(ids).toEqual(expect.arrayContaining(['results', 'diagnostics']))
     })
 
-    it('OUTPUT_TABS list DOES include "olumi" when flag is on', async () => {
-      window.localStorage.setItem('feature.aiPanelV2', 'true')
+    it('OUTPUT_TABS list DOES include "olumi" by default (flag default-ON)', async () => {
+      // Round-12: no override needed — default is ON.
+      window.localStorage.removeItem('feature.aiPanelV2')
       const { getOutputTabsForParity } = await import('../OutputsDock')
       const ids = getOutputTabsForParity().map((t) => t.id)
       expect(ids).toContain('olumi')

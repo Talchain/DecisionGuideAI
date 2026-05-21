@@ -355,7 +355,10 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
 
 describe('SuggestedChips — FF-off legacy parity (no polish)', () => {
   beforeEach(() => {
-    try { localStorage.removeItem('feature.aiPanelV2') } catch {}
+    // Round-12: aiPanelV2 flag now defaults to TRUE, so `removeItem` no
+    // longer engages the FF-off path. Explicit "false" override drives
+    // the legacy parity branch.
+    try { localStorage.setItem('feature.aiPanelV2', 'false') } catch {}
     vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', '')
     setAnalysisState('current')
   })
