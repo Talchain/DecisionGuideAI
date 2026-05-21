@@ -28,6 +28,7 @@ import { applyV5State } from '../../v5/applyV5State'
 import {
   extractPhase3FromV5Response,
   v5ResponseHasRunAnalysisFact,
+  type Phase3RawBlock,
 } from '../../v5/extractPhase3FromV5Response'
 import { FAILURE_USER_TEXT } from '@talchain/schemas/boundary'
 import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled } from '../../flags'
@@ -63,6 +64,7 @@ import type {
   ProposalReviewItem,
   RelatedElementRef,
   BaseRateChipSet,
+  ReviewCardBlock,
 } from './types'
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
 import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPatch'
@@ -795,6 +797,141 @@ function extractRawBlockType(block: unknown): string | null {
   if (typeof obj.block_type === 'string') return obj.block_type
   if (typeof obj.type === 'string') return obj.type
   return null
+}
+
+/**
+ * adaptPhase3ReviewCard — lossless mapper from a verbatim CEE Phase 3
+ * review_card raw payload (see `extractPhase3FromV5Response.rawBlocks[].raw`)
+ * to the UI's typed `ReviewCardBlock` shape.
+ *
+ * Mapping mirrors the existing wrapped-block path (`adaptCEEBlock` review_card
+ * branch above) so the bridge surfaces no different defaults than CEE wrapped
+ * blocks would today:
+ *   - title    ← raw.title                                    (required)
+ *   - body     ← raw.body ?? raw.description ?? raw.summary   (required)
+ *   - variant  ← tone='challenger'→'alert', tone='facilitator'→'info';
+ *                else raw.variant when 'alert'/'info'; else 'info'
+ *   - tone     ← passthrough when 'challenger'/'facilitator'
+ *   - priority ← passthrough when 'critical'/'high'/'medium'/'low'
+ *
+ * Returns null when title or body would be empty — the bridge refuses to
+ * render an empty card. No fallback copy, no semantic rewriting.
+ */
+export function adaptPhase3ReviewCard(
+  raw: Record<string, unknown>,
+): ReviewCardBlock | null {
+  const title =
+    typeof raw.title === 'string' && raw.title.trim().length > 0
+      ? raw.title
+      : ''
+  if (!title) return null
+
+  const body =
+    typeof raw.body === 'string' && raw.body.length > 0
+      ? raw.body
+      : typeof raw.description === 'string' && raw.description.length > 0
+        ? raw.description
+        : typeof raw.summary === 'string' && raw.summary.length > 0
+          ? raw.summary
+          : ''
+  if (!body) return null
+
+  const tone =
+    raw.tone === 'challenger' || raw.tone === 'facilitator'
+      ? (raw.tone as 'challenger' | 'facilitator')
+      : undefined
+  const variantDirect: 'info' | 'alert' | undefined =
+    raw.variant === 'alert' ? 'alert' : raw.variant === 'info' ? 'info' : undefined
+  const variantFromTone: 'info' | 'alert' | undefined =
+    tone === 'challenger' ? 'alert' : tone === 'facilitator' ? 'info' : undefined
+  const variant: 'info' | 'alert' = variantFromTone ?? variantDirect ?? 'info'
+
+  const priority =
+    raw.priority === 'critical' ||
+    raw.priority === 'high' ||
+    raw.priority === 'medium' ||
+    raw.priority === 'low'
+      ? (raw.priority as 'critical' | 'high' | 'medium' | 'low')
+      : undefined
+
+  return {
+    type: 'review_card',
+    title,
+    body,
+    variant,
+    ...(tone ? { tone } : {}),
+    ...(priority ? { priority } : {}),
+  }
+}
+
+/**
+ * selectTopPhase3ReviewCard — pick the highest-priority review_card from
+ * extractPhase3FromV5Response's verbatim rawBlocks list.
+ *
+ * Ranking: CEE v1.3 §0 emits an optional `priority_rank: number` on Phase 3
+ * blocks where lower values mean higher priority. When at least one candidate
+ * carries it, sort ascending by priority_rank; ties and missing values
+ * preserve harvest order. No new ranking is invented.
+ */
+export function selectTopPhase3ReviewCard(
+  rawBlocks: readonly Phase3RawBlock[],
+): Phase3RawBlock | null {
+  const candidates = rawBlocks.filter((b) => b.type === 'review_card')
+  if (candidates.length === 0) return null
+
+  const indexed = candidates.map((b, i) => ({
+    block: b,
+    rank:
+      typeof b.raw.priority_rank === 'number' && Number.isFinite(b.raw.priority_rank)
+        ? (b.raw.priority_rank as number)
+        : Number.POSITIVE_INFINITY,
+    order: i,
+  }))
+  indexed.sort((a, b) => a.rank - b.rank || a.order - b.order)
+  return indexed[0]?.block ?? null
+}
+
+/**
+ * composePhase3BridgedBlocks — pure composition of the Phase 3 review_card
+ * bridge applied at the V5 assistant-turn rendering site.
+ *
+ * Inputs:
+ *   - factPresent: whether the current response carries a successful
+ *     run_analysis fact (computed by v5ResponseHasRunAnalysisFact).
+ *   - phase3RawBlocks: verbatim Phase 3 blocks harvested by
+ *     extractPhase3FromV5Response.
+ *   - mappedBlocks: V5 schema-strict blocks already produced by mapV5Blocks.
+ *
+ * Returns the final ordered blocks array for the assistant turn:
+ *   [...mappedBlocks, ...top-1 review_card when eligible]
+ *
+ * Eligibility:
+ *   - factPresent must be true (gates out conversational follow-ups and stale
+ *     responses).
+ *   - At least one rawBlock of type 'review_card' must adapt to a usable
+ *     ReviewCardBlock (non-empty title + body).
+ *   - No review_card is already present in mappedBlocks (defensive dedupe;
+ *     mapV5Blocks does not emit review_card today).
+ *
+ * Cap: 1 review_card (top by priority_rank, ties by harvest order).
+ *
+ * Evidence and coaching rawBlocks are intentionally NOT surfaced:
+ *   - evidence: v1.3 shape mismatch with EvidenceBlockRenderer (tracked as a
+ *     follow-up issue).
+ *   - coaching: no InlineBlocks renderer; remains in GuidanceStore.
+ */
+export function composePhase3BridgedBlocks(
+  factPresent: boolean,
+  phase3RawBlocks: readonly Phase3RawBlock[],
+  mappedBlocks: readonly ConversationBlock[],
+): ConversationBlock[] {
+  if (!factPresent) return [...mappedBlocks]
+  const topReview = selectTopPhase3ReviewCard(phase3RawBlocks)
+  if (!topReview) return [...mappedBlocks]
+  const adapted = adaptPhase3ReviewCard(topReview.raw)
+  if (!adapted) return [...mappedBlocks]
+  if (mappedBlocks.some((b) => b.type === 'review_card')) return [...mappedBlocks]
+  return [...mappedBlocks, adapted]
 }
 
 export function adaptCEEBlock(raw: unknown): ConversationBlock {
@@ -2879,6 +3016,18 @@ export function useConversation(): UseConversationReturn {
 
             const mappedBlocks =
               target.kind === 'blocks' ? mapV5Blocks(target.response.blocks) : []
+
+            // Phase 3 review_card bridge — surface CEE-produced post-analysis
+            // review_card prose in the AI panel after Run analysis. Reuses the
+            // existing ReviewCardBlockRenderer; no schema / parser / CEE change.
+            // Gating, cap, dedupe, and evidence/coaching exclusion documented
+            // on composePhase3BridgedBlocks above.
+            const finalBlocks = composePhase3BridgedBlocks(
+              factPresent,
+              phase3.rawBlocks,
+              mappedBlocks,
+            )
+
             // V5 suggested_actions → ActionChip. CEE caps count server-side;
             // UI additionally caps rendering per DS v5 §21.4 in SuggestedChips.
             // action_type when present drives deterministic routing on next click.
@@ -2893,7 +3042,7 @@ export function useConversation(): UseConversationReturn {
               id: crypto.randomUUID(),
               role: 'assistant',
               content: target.response.assistant_text,
-              ...(mappedBlocks.length > 0 ? { blocks: mappedBlocks } : {}),
+              ...(finalBlocks.length > 0 ? { blocks: finalBlocks } : {}),
               ...(actionChips.length > 0 ? { actionChips } : {}),
               timestamp: new Date(),
             })
