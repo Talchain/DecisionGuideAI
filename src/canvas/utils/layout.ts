@@ -85,33 +85,7 @@ export async function layoutGraph(
   }
   const maxTierCount = Math.max(...tierCounts.values())
 
-  // Panel-aware visible canvas. OutputsDock is a position:fixed overlay so
-  // canvasSize.width (the .react-flow container) does not shrink when the dock
-  // is mounted. Query the dock and the canvas container and use their bounding
-  // rects to compute the visible canvas right boundary in canvas-local coords
-  // (dockLeft − rfLeft). This naturally captures both the dock's width and its
-  // `right` margin (the rect's `.left` already reflects them), avoiding the
-  // off-by-12 error of `canvasSize.width − dockWidth`.
-  //
-  // SSR-guarded; in jsdom tests without both elements mocked, querySelector
-  // returns null for at least one → fallback to canvasSize.width → behaviour
-  // identical to the pre-change pipeline.
-  const MIN_BOX_W = NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X
-  let visibleCanvasWidth = canvasSize.width
-  if (typeof document !== 'undefined') {
-    const dockEl = document.querySelector('[data-testid="outputs-dock"]')
-    const rfEl = document.querySelector('.react-flow')
-    if (dockEl && rfEl) {
-      const dockLeft = dockEl.getBoundingClientRect().left
-      const rfLeft = rfEl.getBoundingClientRect().left
-      const computed = dockLeft - rfLeft
-      if (computed > 0) visibleCanvasWidth = computed
-    }
-  }
-  visibleCanvasWidth = Math.max(MIN_BOX_W, visibleCanvasWidth)
-
-  const availableWidth = Math.max(MIN_BOX_W, visibleCanvasWidth * 0.85)
-
+  const availableWidth = canvasSize.width * 0.85
   const isDownLayout = direction === 'DOWN'
 
   let elkBoxW: number
@@ -121,19 +95,7 @@ export async function layoutGraph(
   if (isDownLayout && maxTierCount > 1) {
     const unclampedElkBoxW = Math.floor((availableWidth - (maxTierCount - 1) * MIN_GAP) / maxTierCount)
 
-    // Max-single fires when per-box min width fits the (panel-aware)
-    // availableWidth. The dock-aware visibleCanvasWidth above tightens
-    // availableWidth when the dock is open, so the per-box check still
-    // forces min-width at narrow viewports where the row genuinely can't
-    // fit. At wider viewports the row may visibly overflow the canvas /
-    // dock — that overflow is accepted as the trade-off for keeping
-    // cards at NODE_CARD_MAX_W. (Prior to restoring NODE_CARD_MAX_W to
-    // 320, a second gate `maxSingleVisibleRowEnd <= visibleCanvasWidth`
-    // also forced min-width when the rendered row wouldn't fit visibly;
-    // that gate is removed because at NODE_CARD_MAX_W=320 it would fail
-    // at most viewports and the resulting 140px cards were judged too
-    // compressed.)
-    if (unclampedElkBoxW >= MIN_BOX_W) {
+    if (unclampedElkBoxW >= NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X) {
       elkBoxW = NODE_CARD_MAX_W + LAYOUT_PADDING_X
       gap = effectiveNodeSpacing
     } else {
