@@ -246,18 +246,11 @@ describe('normaliseTierRows — direct fixture (I.2)', () => {
       } as Node
     })
 
-    // Use a wider canvas so the 5-factor tier fits in max-width branch even
-    // with NODE_LAYOUT_MIN_W=200 (raised from 140). At 200, 5 factors need
-    // unclamped ≥ 224 → availableWidth ≥ 1240 → canvasSize.width ≥ 1459.
-    // 1500 leaves margin. The test's purpose is to verify intra-tier Y
-    // normalisation when ELK introduces Y noise — that requires the tier
-    // to be a single row.
-    const WIDE_CANVAS_5_FACTOR: CanvasSize = { width: 1500, height: 750 }
     const result = await layoutGraph(
       nodesWithHeights,
       fixture.edges as Edge[],
       {},
-      WIDE_CANVAS_5_FACTOR,
+      STD_CANVAS,
     )
 
     const optionYs = result.nodes
@@ -535,13 +528,17 @@ describe('constants contract', () => {
     expect(LAYOUT_BOX_MIN_W).toBe(NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X)
   })
 
-  it('NODE_CARD_MAX_W is 320, NODE_LAYOUT_MIN_W is 200', () => {
+  it('NODE_CARD_MAX_W is 320, NODE_LAYOUT_MIN_W is 140', () => {
     expect(NODE_CARD_MAX_W).toBe(320)
-    expect(NODE_LAYOUT_MIN_W).toBe(200)
+    expect(NODE_LAYOUT_MIN_W).toBe(140)
   })
 
   it('COLLISION_GAP < expected node-node gap', () => {
-    expect(COLLISION_GAP).toBeLessThan(60)
+    // Default node-node gap is `Math.max(20, spacing=30) = 30` (default
+    // spacing was reduced from 60 → 30; see layout.ts:54). COLLISION_GAP
+    // = 20 < 30 so the post-layout collision guard only fires when ELK /
+    // multi-row splitting leaves nodes closer than the intended gap.
+    expect(COLLISION_GAP).toBeLessThan(30)
   })
 
   it('DEFAULT_NODE_HEIGHT + LAYOUT_PADDING_Y is a reasonable fallback', () => {
