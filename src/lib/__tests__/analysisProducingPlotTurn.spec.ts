@@ -39,22 +39,36 @@ describe('findAnalysisProducingPlotTurn — happy path', () => {
     expect(out.selected_is_usable_live_evidence).toBe(true)
   })
 
-  it('V1 engine beats V2 even when V2 is more recent', () => {
+  it('round-5: newer V2 beats older V1 engine when no hash anchor (recency dominates tier)', () => {
+    // Round-5 strict-lex precedence: hash > recency > tier. Without
+    // a resultsHash, recency wins outright — a fresh V2 trace at
+    // idx 0 beats a stale V1 engine at idx 1. Previous additive
+    // scoring would have inverted this (tier added +3 vs recency
+    // delta of +1). The reviewer's expected ordering is the only
+    // honest semantic when the user just ran analysis and the
+    // freshest trace is the V2 path.
     const out = findAnalysisProducingPlotTurn([
       // most-recent-first ordering, per trace-store convention
       plotEntry({ id: 'tp-v2', endpoint: '/v2/run' }),
       plotEntry({ id: 'tp-v1', endpoint: '/bff/engine/v1/run' }),
     ])
+    expect(out.selected?.id).toBe('tp-v2')
+    expect(out.tier).toBe('v2_run')
+  })
+
+  it('round-5: V1 engine beats V2 ONLY when more recent (recency dominates)', () => {
+    // Symmetric to the test above: when V1 engine IS the most
+    // recent trace, it wins on recency. Tier alone is no longer
+    // enough — V1 engine has to actually be fresher.
+    const out = findAnalysisProducingPlotTurn([
+      plotEntry({ id: 'tp-v1', endpoint: '/bff/engine/v1/run' }),
+      plotEntry({ id: 'tp-v2', endpoint: '/v2/run' }),
+    ])
     expect(out.selected?.id).toBe('tp-v1')
     expect(out.tier).toBe('v1_engine')
   })
 
-  it('V1 stream beats V2 when V1 engine is absent (equal recency → tier breaks tie)', () => {
-    // Round-4 ranking: recency > tier. When V1 stream is MORE
-    // recent than V2 (lower index), V1 stream wins both on recency
-    // AND tier. Putting V1 stream at the front of the array
-    // demonstrates the new design: a fresh V1 stream beats a
-    // stale V2.
+  it('V1 stream beats V2 when V1 stream is more recent (recency dominates)', () => {
     const out = findAnalysisProducingPlotTurn([
       plotEntry({
         id: 'tp-v1-stream',
@@ -192,11 +206,14 @@ describe('findAnalysisProducingPlotTurn — tier-fallback when no usable entry e
     expect(out.selected_is_usable_live_evidence).toBe(false)
   })
 
-  it('V1 engine has only failed; V1 stream has a usable entry → V1 stream picked over V1 engine fallback', () => {
-    // Tier ranking: V1 engine WITH usable wins over V1 stream
-    // with usable. But V1 engine WITHOUT usable does NOT block V1
-    // stream's usable from winning — the helper looks at each tier
-    // for usable first.
+  it('round-5: V1 engine failed at idx 0 wins on recency over V1 stream usable at idx 1 — flagged non-usable', () => {
+    // Pre-round-5 the selector swapped a failed-but-recent attempt
+    // for a succeeded-but-stale one. That hid the most recent
+    // failure from reviewers. Strict-lex precedence now keeps the
+    // freshest attempt and reports usability honestly: the bundle
+    // sees `selected_is_usable_live_evidence: false` and refuses
+    // to label `analysis_evidence_source = live_*`. The user sees
+    // the actual failure, not a misleading older success.
     const out = findAnalysisProducingPlotTurn([
       plotEntry({ id: 'tp-eng-500', endpoint: '/bff/engine/v1/run', status: 500 }),
       plotEntry({
@@ -206,9 +223,9 @@ describe('findAnalysisProducingPlotTurn — tier-fallback when no usable entry e
         response: { headers: {}, body: { run_id: 'r', factor_sensitivity: [] } },
       }),
     ])
-    expect(out.selected?.id).toBe('tp-stream-ok')
-    expect(out.tier).toBe('v1_stream')
-    expect(out.selected_is_usable_live_evidence).toBe(true)
+    expect(out.selected?.id).toBe('tp-eng-500')
+    expect(out.tier).toBe('v1_engine')
+    expect(out.selected_is_usable_live_evidence).toBe(false)
   })
 })
 
@@ -255,7 +272,11 @@ describe('findAnalysisProducingPlotTurn — round-4 P1 #1: hash match overrides 
     expect(out.selected_is_usable_live_evidence).toBe(true)
   })
 
-  it('no hash match → falls back to tier ranking', () => {
+  it('round-5: no hash match → falls back to recency (V2 at idx 0 beats V1 at idx 1)', () => {
+    // Strict-lex precedence: when no candidate's response_hash
+    // matches the supplied anchor, hash is not a discriminator
+    // and recency takes over. The newer V2 trace wins; the older
+    // V1 engine does NOT clamber back by tier alone.
     const out = findAnalysisProducingPlotTurn(
       [
         {
@@ -283,8 +304,8 @@ describe('findAnalysisProducingPlotTurn — round-4 P1 #1: hash match overrides 
       ],
       'no-match-hash',
     )
-    expect(out.selected?.id).toBe('tp-v1')
-    expect(out.tier).toBe('v1_engine')
+    expect(out.selected?.id).toBe('tp-v2')
+    expect(out.tier).toBe('v2_run')
   })
 
   it('reads response_hash from meta-level when root absent', () => {
@@ -318,7 +339,7 @@ describe('findAnalysisProducingPlotTurn — round-4 P1 #1: hash match overrides 
     expect(out.selected?.id).toBe('tp-meta-hash')
   })
 
-  it('no resultsHash supplied → behaves like pre-round-4 (tier wins)', () => {
+  it('round-5: no resultsHash supplied → recency wins (V2 at idx 0 beats V1 at idx 1)', () => {
     const out = findAnalysisProducingPlotTurn([
       {
         id: 'tp-v2',
@@ -337,7 +358,220 @@ describe('findAnalysisProducingPlotTurn — round-4 P1 #1: hash match overrides 
         response: { headers: {}, body: { factor_sensitivity: [] } },
       },
     ])
-    // No hash anchor — V1 engine still wins on tier.
-    expect(out.selected?.id).toBe('tp-v1')
+    // No hash anchor → recency wins; V2 (idx 0) over V1 (idx 1).
+    expect(out.selected?.id).toBe('tp-v2')
+    expect(out.tier).toBe('v2_run')
+  })
+
+  it('round-5: tier is only a tiebreaker when recency AND hash match are equal', () => {
+    // Two candidates at distinct indices with no hash anchor:
+    // recency decides, NOT tier. (Equal-recency tiebreaks are
+    // synthetic — the trace store doesn't issue duplicate idx
+    // values — but assert tier resolves them deterministically.)
+    const out = findAnalysisProducingPlotTurn([
+      // Both at the same physical idx is not possible from the
+      // store, but we can verify tier ordering by inserting two
+      // candidates whose only differentiator is tier. The selector
+      // sees them at idx 0 and idx 1, so recency picks idx 0.
+      // To assert pure-tier ordering, we need an indirect path:
+      // confirm that swapping the order swaps the winner.
+      {
+        id: 'tp-stream-newer',
+        service: 'PLoT',
+        endpoint: '/bff/engine/v1/stream',
+        status: 200,
+        completed: true,
+        response: { headers: {}, body: { factor_sensitivity: [] } },
+      },
+      {
+        id: 'tp-engine-older',
+        service: 'PLoT',
+        endpoint: '/bff/engine/v1/run',
+        status: 200,
+        completed: true,
+        response: { headers: {}, body: { factor_sensitivity: [] } },
+      },
+    ])
+    // The newer V1 stream wins over older V1 engine — recency
+    // dominates tier even though tier rank (engine=3) > tier rank
+    // (stream=2). This is the core round-5 invariant.
+    expect(out.selected?.id).toBe('tp-stream-newer')
+    expect(out.tier).toBe('v1_stream')
+  })
+})
+
+// =====================================================================
+// PR #156 round-5 BLOCKING — strict-lex hash > recency > tier
+//
+// Reviewer required a test "proving a newer V2 or V1-stream analysis
+// trace beats an older V1-engine trace when no candidate hash matches
+// or resultsHash is unavailable." The cases below cover both axes
+// (newer V2, newer V1 stream) under both conditions (no anchor, anchor
+// supplied but no candidate matches).
+// =====================================================================
+
+describe('findAnalysisProducingPlotTurn — round-5 BLOCKING: strict-lex precedence', () => {
+  it('newer V2 beats older V1 engine when no resultsHash supplied', () => {
+    const out = findAnalysisProducingPlotTurn([
+      {
+        id: 'tp-v2-newer',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        response: { headers: {}, body: { response_hash: 'h-v2', factor_sensitivity: [] } },
+      },
+      {
+        id: 'tp-v1-older',
+        service: 'PLoT',
+        endpoint: '/bff/engine/v1/run',
+        status: 200,
+        completed: true,
+        response: { headers: {}, body: { response_hash: 'h-v1', factor_sensitivity: [] } },
+      },
+    ])
+    expect(out.selected?.id).toBe('tp-v2-newer')
+    expect(out.tier).toBe('v2_run')
+    expect(out.selected_is_usable_live_evidence).toBe(true)
+  })
+
+  it('newer V2 beats older V1 engine when resultsHash supplied but no candidate matches', () => {
+    const out = findAnalysisProducingPlotTurn(
+      [
+        {
+          id: 'tp-v2-newer',
+          service: 'PLoT',
+          endpoint: '/v2/run',
+          status: 200,
+          completed: true,
+          response: { headers: {}, body: { response_hash: 'h-v2', factor_sensitivity: [] } },
+        },
+        {
+          id: 'tp-v1-older',
+          service: 'PLoT',
+          endpoint: '/bff/engine/v1/run',
+          status: 200,
+          completed: true,
+          response: { headers: {}, body: { response_hash: 'h-v1', factor_sensitivity: [] } },
+        },
+      ],
+      'anchor-that-matches-nothing',
+    )
+    expect(out.selected?.id).toBe('tp-v2-newer')
+    expect(out.tier).toBe('v2_run')
+  })
+
+  it('newer V1 stream beats older V1 engine when no resultsHash supplied', () => {
+    const out = findAnalysisProducingPlotTurn([
+      {
+        id: 'tp-stream-newer',
+        service: 'PLoT',
+        endpoint: '/bff/engine/v1/stream',
+        status: 200,
+        completed: true,
+        response: { headers: {}, body: { response_hash: 'h-stream', factor_sensitivity: [] } },
+      },
+      {
+        id: 'tp-engine-older',
+        service: 'PLoT',
+        endpoint: '/bff/engine/v1/run',
+        status: 200,
+        completed: true,
+        response: { headers: {}, body: { response_hash: 'h-engine', factor_sensitivity: [] } },
+      },
+    ])
+    expect(out.selected?.id).toBe('tp-stream-newer')
+    expect(out.tier).toBe('v1_stream')
+    expect(out.selected_is_usable_live_evidence).toBe(true)
+  })
+
+  it('newer V1 stream beats older V1 engine when resultsHash supplied but no candidate matches', () => {
+    const out = findAnalysisProducingPlotTurn(
+      [
+        {
+          id: 'tp-stream-newer',
+          service: 'PLoT',
+          endpoint: '/bff/engine/v1/stream',
+          status: 200,
+          completed: true,
+          response: { headers: {}, body: { response_hash: 'h-stream', factor_sensitivity: [] } },
+        },
+        {
+          id: 'tp-engine-older',
+          service: 'PLoT',
+          endpoint: '/bff/engine/v1/run',
+          status: 200,
+          completed: true,
+          response: { headers: {}, body: { response_hash: 'h-engine', factor_sensitivity: [] } },
+        },
+      ],
+      'anchor-that-matches-nothing',
+    )
+    expect(out.selected?.id).toBe('tp-stream-newer')
+    expect(out.tier).toBe('v1_stream')
+  })
+
+  it('hash match still overrides recency (V1 with matching hash at idx 5 beats V2 at idx 0)', () => {
+    // Anchor invariant: when a hash actually matches, it wins
+    // regardless of recency or tier. This is the highest-priority
+    // signal because it ties the trace to the currently-rendered
+    // results. Round-5 keeps this behaviour from round-4.
+    const out = findAnalysisProducingPlotTurn(
+      [
+        // idx 0..4 — unrelated fresher entries
+        {
+          id: 'tp-v2-fresh',
+          service: 'PLoT',
+          endpoint: '/v2/run',
+          status: 200,
+          completed: true,
+          response: { headers: {}, body: { response_hash: 'no-match', factor_sensitivity: [] } },
+        },
+        {
+          id: 'tp-noise-1',
+          service: 'PLoT',
+          endpoint: '/v2/run',
+          status: 200,
+          completed: true,
+          response: { headers: {}, body: { response_hash: 'noise-1', factor_sensitivity: [] } },
+        },
+        {
+          id: 'tp-noise-2',
+          service: 'PLoT',
+          endpoint: '/bff/engine/v1/run',
+          status: 200,
+          completed: true,
+          response: { headers: {}, body: { response_hash: 'noise-2', factor_sensitivity: [] } },
+        },
+        {
+          id: 'tp-noise-3',
+          service: 'PLoT',
+          endpoint: '/v2/run',
+          status: 200,
+          completed: true,
+          response: { headers: {}, body: { response_hash: 'noise-3', factor_sensitivity: [] } },
+        },
+        {
+          id: 'tp-noise-4',
+          service: 'PLoT',
+          endpoint: '/v2/run',
+          status: 200,
+          completed: true,
+          response: { headers: {}, body: { response_hash: 'noise-4', factor_sensitivity: [] } },
+        },
+        // idx 5 — the matching trace, deep in the ring buffer
+        {
+          id: 'tp-v1-match',
+          service: 'PLoT',
+          endpoint: '/bff/engine/v1/run',
+          status: 200,
+          completed: true,
+          response: { headers: {}, body: { response_hash: 'rendered-results', factor_sensitivity: [] } },
+        },
+      ],
+      'rendered-results',
+    )
+    expect(out.selected?.id).toBe('tp-v1-match')
+    expect(out.tier).toBe('v1_engine')
   })
 })

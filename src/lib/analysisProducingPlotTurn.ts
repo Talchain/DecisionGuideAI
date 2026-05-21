@@ -131,36 +131,50 @@ const TIER_RANK: Record<PlotTraceTier, number> = {
 /**
  * Pick the analysis-producing PLoT trace from a snapshot.
  *
- * PR #156 round-4 (reviewer P1 #1): ranking is now
+ * PR #156 round-5 (reviewer BLOCKING): ordering is now strictly
+ * lexicographic — each criterion is fully resolved before the
+ * next is consulted. Earlier rounds used additive scoring
+ * (hash bonus + tier weight + recency bonus), which let tier
+ * displace recency when no hash matched (e.g. a stale V1 engine
+ * trace beating a fresher V2 trace by only one recency step).
  *
- *   1. Hash match — when the caller supplies `resultsHash`, a
- *      candidate whose `response_hash` equals it wins. This stops
- *      a stale V1 entry in the 20-entry ring buffer from
- *      displacing the V2 trace that actually produced the
- *      currently-rendered results.
- *   2. Usable + recency + tier — among candidates with body
- *      evidence (2xx completed + non-empty object body), prefer
- *      the most-recent (index 0 in the most-recent-first array);
- *      ties broken by tier (V1 engine > V1 stream > V2).
- *   3. Tier fallback — when NO candidate has body evidence, pick
- *      the most-recent in-tier entry (V1 engine > V1 stream > V2)
- *      so reviewers see the attempt; flagged non-usable so the
- *      bundle labels honestly.
- *   4. None — no analysis-class entry in any tier.
+ * New precedence (strictly lexicographic):
+ *
+ *   1. Hash match — if `resultsHash` is supplied AND a candidate's
+ *      `response_hash` equals it, that candidate wins outright.
+ *      Anchors the selection to the currently-rendered results.
+ *   2. Recency — among remaining candidates (or when no hash is
+ *      supplied / no candidate matches), the most-recent
+ *      analysis-producing trace wins. Most-recent = lowest index
+ *      in the most-recent-first array. The most recent attempt is
+ *      the trace most likely to correspond to what the user sees
+ *      on screen, even if it failed.
+ *   3. Tier — only used as a tiebreaker when two candidates share
+ *      both hash status and recency (rare in practice; possible
+ *      with synthetic fixtures). V1 engine > V1 stream > V2 run.
+ *
+ * Usability (`completed-2xx + body present`) is NOT part of the
+ * ordering. It is surfaced separately via the
+ * `selected_is_usable_live_evidence` flag so the bundle can label
+ * honestly: the most-recent attempt is shown even when it failed,
+ * and the flag tells downstream classifiers whether to claim live
+ * raw evidence. This avoids silently swapping a failed-but-recent
+ * trace for a succeeded-but-stale one.
  *
  * The `payloads` array is assumed most-recent-first (matches the
  * trace store's `payloads: [newest, ...]` convention).
  *
  * The `resultsHash` argument is optional — when null/undefined,
- * the selector skips step 1 (preserves pre-round-4 behaviour for
- * tests/callers that don't have a results hash to anchor on).
+ * step 1 is skipped and the selector falls straight through to
+ * recency + tier.
  */
 export function findAnalysisProducingPlotTurn<T extends PlotSelectorTracedPayload>(
   payloads: ReadonlyArray<T>,
   resultsHash: string | null = null,
 ): PlotSelectionResult<T> {
-  // Filter to analysis-class candidates only. Tag with their index
-  // so the recency tiebreaker is deterministic.
+  // Filter to analysis-class candidates only (excludes /v1/validate,
+  // /v1/limits, etc.). Tag with their index so recency comparisons
+  // are deterministic.
   type Candidate = { p: T; idx: number; tier: PlotTraceTier }
   const candidates: Candidate[] = []
   payloads.forEach((p, idx) => {
@@ -171,32 +185,37 @@ export function findAnalysisProducingPlotTurn<T extends PlotSelectorTracedPayloa
     return { selected: null, tier: null, selected_is_usable_live_evidence: false }
   }
 
-  // Score every candidate. Highest score wins.
-  //   +1000 when both hashes present and EQUAL (top signal)
-  //   +50   when 2xx completed AND body usable
-  //   +tier (3/2/1 for engine/stream/v2)
-  //   +max(0, 9 - idx)  recency tiebreaker
-  const usableNorm = (c: Candidate): boolean =>
-    is2xxCompleted(c.p) && hasUsableResponseBody(c.p)
-  const score = (c: Candidate): number => {
-    let s = 0
-    if (resultsHash !== null && resultsHash.length > 0) {
-      const ch = readPlotResponseHash(c.p)
-      if (ch !== null && ch === resultsHash) s += 1000
-    }
-    if (usableNorm(c)) s += 50
-    s += TIER_RANK[c.tier]
-    s += Math.max(0, 9 - c.idx)
-    return s
+  // Pre-compute hash-match flag once per candidate.
+  const anchorHash =
+    typeof resultsHash === 'string' && resultsHash.length > 0
+      ? resultsHash
+      : null
+  const hashMatched = (c: Candidate): boolean => {
+    if (anchorHash === null) return false
+    const ch = readPlotResponseHash(c.p)
+    return ch !== null && ch === anchorHash
   }
 
-  const ranked = candidates
-    .map((c) => ({ c, s: score(c) }))
-    .sort((a, b) => b.s - a.s)
-  const winner = ranked[0].c
+  // Strict lexicographic comparator.
+  //   1. hashMatched desc (true wins)
+  //   2. recency asc       (lower idx wins — more recent)
+  //   3. tier desc         (higher rank wins — engine > stream > v2)
+  // Returns negative when `a` should come before `b`.
+  const compare = (a: Candidate, b: Candidate): number => {
+    const ah = hashMatched(a)
+    const bh = hashMatched(b)
+    if (ah !== bh) return ah ? -1 : 1
+    if (a.idx !== b.idx) return a.idx - b.idx
+    return TIER_RANK[b.tier] - TIER_RANK[a.tier]
+  }
+
+  const ranked = candidates.slice().sort(compare)
+  const winner = ranked[0]
+  const winnerUsable =
+    is2xxCompleted(winner.p) && hasUsableResponseBody(winner.p)
   return {
     selected: winner.p,
     tier: winner.tier,
-    selected_is_usable_live_evidence: usableNorm(winner),
+    selected_is_usable_live_evidence: winnerUsable,
   }
 }
