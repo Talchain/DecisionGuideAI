@@ -107,14 +107,33 @@ function makeData(overrides: {
   } as ResultsSectionDataReturn
 }
 
-/** Build a DriverItem stub with the influence corroboration field populated. */
-function makeDriver(factorKey: string, factorLabel: string, normalisedInfluence: number): DriverItem {
+/**
+ * Build a DriverItem stub with the influence corroboration fields populated.
+ *
+ * In real data (`useResultsSectionData.computeNormalisedInfluences`) the
+ * top driver always has `normalisedInfluence === 1.0` when any real
+ * elasticity exists. Tests should respect that invariant — pass realistic
+ * ratios (top1=1.0, top2 < 1.0 reflecting the actual rank-1 vs rank-2
+ * elasticity gap) rather than arbitrary values that real normalisation
+ * could not produce.
+ *
+ * `influenceScore` (optional in DriverItem) is the absolute ISL structural
+ * causal influence on a 0–1 scale; the dependency-line gate prefers it
+ * when present.
+ */
+function makeDriver(
+  factorKey: string,
+  factorLabel: string,
+  normalisedInfluence: number,
+  options: { rank?: number; influenceScore?: number } = {},
+): DriverItem {
   return {
     factorKey,
     factorLabel,
     rawElasticity: normalisedInfluence,
     normalisedInfluence,
-    rank: 1,
+    influenceScore: options.influenceScore,
+    rank: options.rank ?? 1,
     semanticLabel: 'biggest',
     canFocus: true,
   } as DriverItem
@@ -538,22 +557,59 @@ describe('buildAnalysisHeroViewModel', () => {
     // `data.drivers.dominantFactor*`, which the hero deliberately does not
     // read.
     //
-    // Three additional gates (2026-05-21 review):
+    // Gates (rewritten 2026-05-21 after review-feedback round 2):
     //  1. dominantFactorId + dominantFactorLabel both populated
-    //  2. matching driver in data.drivers.drivers[] has normalisedInfluence >= 0.5
-    //     (corroborates against M1 emissions without confidence + tie cases)
-    //  3. cleaned label passes the glossary banned-term gate
+    //  2. named factor is the RANK-1 driver in data.drivers.drivers[]
+    //  3. Dominance check:
+    //       - influenceScore >= 0.5 (absolute) when present, OR
+    //       - top1/top2 normalisedInfluence ratio >= 2.0 (relative gap)
+    //  4. cleaned label passes the glossary banned-term gate
+    //
+    // **Important invariant**: in real data
+    // (`useResultsSectionData.computeNormalisedInfluences`) the top driver
+    // ALWAYS has `normalisedInfluence === 1.0` when any real elasticity
+    // exists. Tests below honour that invariant — top1=1.0, top2 in (0..1]
+    // expresses the actual rank-1-vs-rank-2 gap.
 
-    it('renders "The result depends most on {factor}." when dominantFactor matches a driver with influence >= 0.5', () => {
+    it('renders dependency line when influenceScore >= 0.5 (absolute-scale dominance)', () => {
       const data = makeData({
         winnerLabel: 'Tech Lead',
         stability: 0.7,
-        drivers: [makeDriver('n_lead', 'Technical Leadership Capacity', 0.62)],
+        drivers: [
+          makeDriver('n_lead', 'Technical Leadership Capacity', 1.0, { rank: 1, influenceScore: 0.7 }),
+          makeDriver('n_other', 'Other', 0.4, { rank: 2, influenceScore: 0.2 }),
+        ],
       })
       ;(data.recommendation as any).dominantFactorId = 'n_lead'
       ;(data.recommendation as any).dominantFactorLabel = 'Technical Leadership Capacity'
       const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
       expect(vm.dependencyLine).toBe('The result depends most on Technical Leadership Capacity.')
+    })
+
+    it('renders dependency line when influenceScore is absent and top1/top2 normalisedInfluence ratio >= 2.0', () => {
+      // No influenceScore → falls back to ratio gate. top1=1.0, top2=0.4 → ratio 2.5.
+      const data = makeData({
+        stability: 0.7,
+        drivers: [
+          makeDriver('n_lead', 'Tech Lead', 1.0, { rank: 1 }),
+          makeDriver('n_other', 'Other', 0.4, { rank: 2 }),
+        ],
+      })
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBe('The result depends most on Tech Lead.')
+    })
+
+    it('renders when there is only ONE driver with non-zero influence (no top-2 to compare against)', () => {
+      const data = makeData({
+        stability: 0.7,
+        drivers: [makeDriver('n_lead', 'Tech Lead', 1.0, { rank: 1 })],
+      })
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBe('The result depends most on Tech Lead.')
     })
 
     it('omits the dependency line when no dominantFactor is supplied (no fabrication)', () => {
@@ -565,20 +621,20 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.dependencyLine).toBeNull()
     })
 
-    it('omits the dependency line when dominantFactorId is present but label is missing', () => {
+    it('omits when dominantFactorId is present but label is missing', () => {
       const data = makeData({
         stability: 0.7,
-        drivers: [makeDriver('n_lead', 'Tech Lead', 0.7)],
+        drivers: [makeDriver('n_lead', 'Tech Lead', 1.0, { rank: 1, influenceScore: 0.7 })],
       })
       ;(data.recommendation as any).dominantFactorId = 'n_lead'
       const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
       expect(vm.dependencyLine).toBeNull()
     })
 
-    it('omits the dependency line when the factor label contains a banned glossary term', () => {
+    it('omits when the factor label contains a banned glossary term', () => {
       const data = makeData({
         stability: 0.7,
-        drivers: [makeDriver('n_w', 'the winning capacity', 0.7)],
+        drivers: [makeDriver('n_w', 'the winning capacity', 1.0, { rank: 1, influenceScore: 0.7 })],
       })
       ;(data.recommendation as any).dominantFactorId = 'n_w'
       ;(data.recommendation as any).dominantFactorLabel = 'the winning capacity'
@@ -589,7 +645,7 @@ describe('buildAnalysisHeroViewModel', () => {
     it('strips encoding notation from the factor label before rendering', () => {
       const data = makeData({
         stability: 0.7,
-        drivers: [makeDriver('n_lead', 'Tech Lead Capacity', 0.7)],
+        drivers: [makeDriver('n_lead', 'Tech Lead Capacity', 1.0, { rank: 1, influenceScore: 0.7 })],
       })
       ;(data.recommendation as any).dominantFactorId = 'n_lead'
       ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead Capacity (0/1)'
@@ -597,53 +653,192 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.dependencyLine).toBe('The result depends most on Tech Lead Capacity.')
     })
 
-    it('omits the dependency line when the matching driver has low influence (<0.5) — suppresses M1 emissions without confidence', () => {
-      const data = makeData({
-        stability: 0.7,
-        drivers: [makeDriver('n_lead', 'Tech Lead', 0.45)],
-      })
-      ;(data.recommendation as any).dominantFactorId = 'n_lead'
-      ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead'
-      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
-      expect(vm.dependencyLine).toBeNull()
-    })
-
-    it('omits the dependency line when no driver matches the dominantFactorId (stale or inconsistent state)', () => {
-      const data = makeData({
-        stability: 0.7,
-        drivers: [makeDriver('n_other', 'Other Factor', 0.9)],
-      })
-      ;(data.recommendation as any).dominantFactorId = 'n_lead'
-      ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead'
-      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
-      expect(vm.dependencyLine).toBeNull()
-    })
-
-    it('omits the dependency line in a tie (neither top driver crosses 0.5)', () => {
+    it('omits when the rank-1 driver has influenceScore < 0.5 (M1 emission without genuine dominance)', () => {
       const data = makeData({
         stability: 0.7,
         drivers: [
-          makeDriver('n_a', 'Factor A', 0.48),
-          makeDriver('n_b', 'Factor B', 0.46),
+          makeDriver('n_lead', 'Tech Lead', 1.0, { rank: 1, influenceScore: 0.3 }),
+          makeDriver('n_other', 'Other', 0.95, { rank: 2, influenceScore: 0.28 }),
         ],
       })
-      // Even if recommendation names one of them as dominant, the
-      // 0.5 corroboration floor isn't met → omit.
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBeNull()
+    })
+
+    it('omits in a tie: top1=1.0 and top2=0.95 → ratio 1.05 (< 2.0), no influenceScore', () => {
+      // Realistic near-tie shape: normaliser always sets top1=1.0, so the
+      // tie signal lives in how close top2 is to top1.
+      const data = makeData({
+        stability: 0.7,
+        drivers: [
+          makeDriver('n_a', 'Factor A', 1.0, { rank: 1 }),
+          makeDriver('n_b', 'Factor B', 0.95, { rank: 2 }),
+        ],
+      })
       ;(data.recommendation as any).dominantFactorId = 'n_a'
       ;(data.recommendation as any).dominantFactorLabel = 'Factor A'
       const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
       expect(vm.dependencyLine).toBeNull()
     })
 
-    it('renders at the exact 0.5 boundary (>= 0.5 is enough)', () => {
+    it('omits when dominantFactorId does not match the rank-1 driver (inconsistent state)', () => {
       const data = makeData({
         stability: 0.7,
-        drivers: [makeDriver('n_lead', 'Tech Lead', 0.5)],
+        drivers: [
+          makeDriver('n_other', 'Other Factor', 1.0, { rank: 1, influenceScore: 0.9 }),
+          makeDriver('n_lead', 'Tech Lead', 0.3, { rank: 2, influenceScore: 0.2 }),
+        ],
+      })
+      // Recommendation claims n_lead is dominant but the rank-1 driver is n_other.
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBeNull()
+    })
+
+    it('renders at the influenceScore 0.5 boundary (>= 0.5 is enough)', () => {
+      const data = makeData({
+        stability: 0.7,
+        drivers: [makeDriver('n_lead', 'Tech Lead', 1.0, { rank: 1, influenceScore: 0.5 })],
       })
       ;(data.recommendation as any).dominantFactorId = 'n_lead'
       ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead'
       const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
       expect(vm.dependencyLine).toBe('The result depends most on Tech Lead.')
+    })
+
+    it('renders at the ratio 2.0 boundary (top1=1.0, top2=0.5) when influenceScore is absent', () => {
+      const data = makeData({
+        stability: 0.7,
+        drivers: [
+          makeDriver('n_lead', 'Tech Lead', 1.0, { rank: 1 }),
+          makeDriver('n_other', 'Other', 0.5, { rank: 2 }),
+        ],
+      })
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBe('The result depends most on Tech Lead.')
+    })
+
+    it('omits just below the ratio 2.0 boundary (top1=1.0, top2=0.51 → ratio ~1.96)', () => {
+      const data = makeData({
+        stability: 0.7,
+        drivers: [
+          makeDriver('n_lead', 'Tech Lead', 1.0, { rank: 1 }),
+          makeDriver('n_other', 'Other', 0.51, { rank: 2 }),
+        ],
+      })
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBeNull()
+    })
+
+    // ── Integration-style: drivers built via real normalisation ─────────
+    //
+    // The unit tests above set normalisedInfluence values by hand. The
+    // helpers below match the production formula
+    // (`useResultsSectionData.computeNormalisedInfluences`) exactly, so
+    // these scenarios prove the gate behaves correctly against the
+    // realistic data shape (top1 always 1.0) — not just against arbitrary
+    // numbers a test author might invent.
+
+    /**
+     * Mirror of `computeNormalisedInfluences` at
+     * `useResultsSectionData.ts:420–446`. If any of these constants drift,
+     * update both here and the test that asserts the invariants below.
+     */
+    function buildDriversFromRawElasticities(
+      raws: Array<{ id: string; label: string; elasticity: number; influenceScore?: number }>,
+    ): DriverItem[] {
+      const abs = raws.map(r => Math.abs(r.elasticity))
+      const actualMax = Math.max(...abs)
+      const sorted = [...raws].sort((a, b) => Math.abs(b.elasticity) - Math.abs(a.elasticity))
+      return sorted.map((r, i) => {
+        const ni = actualMax < 0.001 ? 0 : Math.min(1, Math.abs(r.elasticity) / actualMax)
+        return {
+          factorKey: r.id,
+          factorLabel: r.label,
+          rawElasticity: r.elasticity,
+          normalisedInfluence: ni,
+          influenceScore: r.influenceScore,
+          rank: i + 1,
+          semanticLabel: i === 0 ? 'biggest' : ni >= 0.5 ? 'strong' : ni >= 0.2 ? 'moderate' : 'minor',
+          canFocus: true,
+        } as DriverItem
+      })
+    }
+
+    it('integration: real normalisation invariants — top driver always 1.0 when elasticity is non-zero', () => {
+      const drivers = buildDriversFromRawElasticities([
+        { id: 'n_a', label: 'A', elasticity: 0.8 },
+        { id: 'n_b', label: 'B', elasticity: 0.3 },
+        { id: 'n_c', label: 'C', elasticity: 0.1 },
+      ])
+      // Sanity guard for the test itself: the production normaliser
+      // pegs the top driver at 1.0, no matter the absolute elasticity.
+      expect(drivers[0].normalisedInfluence).toBe(1)
+      expect(drivers[1].normalisedInfluence).toBeCloseTo(0.375, 3)
+      expect(drivers[2].normalisedInfluence).toBeCloseTo(0.125, 3)
+    })
+
+    it('integration: clear dominance from real elasticities (0.8 vs 0.3 → ratio 2.67) renders', () => {
+      const drivers = buildDriversFromRawElasticities([
+        { id: 'n_a', label: 'Factor A', elasticity: 0.8 },
+        { id: 'n_b', label: 'Factor B', elasticity: 0.3 },
+      ])
+      const data = makeData({ stability: 0.7, drivers })
+      ;(data.recommendation as any).dominantFactorId = 'n_a'
+      ;(data.recommendation as any).dominantFactorLabel = 'Factor A'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBe('The result depends most on Factor A.')
+    })
+
+    it('integration: near-tie from real elasticities (0.80 vs 0.78 → ratio 1.025) omits', () => {
+      const drivers = buildDriversFromRawElasticities([
+        { id: 'n_a', label: 'Factor A', elasticity: 0.80 },
+        { id: 'n_b', label: 'Factor B', elasticity: 0.78 },
+      ])
+      // Real ratio is 1.025 even though top driver's normalisedInfluence
+      // is the maximum value 1.0. The gate must catch this.
+      expect(drivers[0].normalisedInfluence).toBe(1)
+      expect(drivers[1].normalisedInfluence).toBeCloseTo(0.975, 3)
+      const data = makeData({ stability: 0.7, drivers })
+      ;(data.recommendation as any).dominantFactorId = 'n_a'
+      ;(data.recommendation as any).dominantFactorLabel = 'Factor A'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBeNull()
+    })
+
+    it('integration: dominant by influenceScore but not by ratio — influenceScore wins', () => {
+      // Real ratio is only 1.5 (below 2.0 gate), but influenceScore for
+      // top1 is 0.7 (≥ 0.5 absolute floor), so the line should render.
+      const drivers = buildDriversFromRawElasticities([
+        { id: 'n_a', label: 'Factor A', elasticity: 0.6, influenceScore: 0.7 },
+        { id: 'n_b', label: 'Factor B', elasticity: 0.4, influenceScore: 0.25 },
+      ])
+      const data = makeData({ stability: 0.7, drivers })
+      ;(data.recommendation as any).dominantFactorId = 'n_a'
+      ;(data.recommendation as any).dominantFactorLabel = 'Factor A'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBe('The result depends most on Factor A.')
+    })
+
+    it('integration: tiny absolute elasticities (all below 0.001) → normaliser returns 0 → omit', () => {
+      const drivers = buildDriversFromRawElasticities([
+        { id: 'n_a', label: 'A', elasticity: 0.0005 },
+        { id: 'n_b', label: 'B', elasticity: 0.0002 },
+      ])
+      // The normaliser early-returns all zeros when actualMax < 0.001.
+      expect(drivers.every(d => d.normalisedInfluence === 0)).toBe(true)
+      const data = makeData({ stability: 0.7, drivers })
+      ;(data.recommendation as any).dominantFactorId = 'n_a'
+      ;(data.recommendation as any).dominantFactorLabel = 'A'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBeNull()
     })
   })
 

@@ -426,3 +426,41 @@ npx vitest run src/components/results/analysisHeroV17/__tests__ \
 # 2. Load a scenario that produces an orphaned plot result and a normal result.
 # 3. Confirm acceptance criteria 1–7.
 ```
+
+---
+
+# Implementation appendix (2026-05-21)
+
+This appendix captures decisions made **during implementation** that diverge from estimates in the body of the report above. The body is preserved as written so the reasoning is traceable; this appendix is what future agents should rely on for current state.
+
+## A1. Banner height: 44 px floor, not 36 px
+
+Task 1 estimated the slim banner at ~36 px. The actual floor is **~46 px** (44 px button + ~2 px border). The 36 px estimate didn't account for WCAG 2.1 AA target size (44×44 px minimum), which is non-negotiable for the "Run analysis" button. Implementation drops container vertical padding entirely (`px-3` only) so the visible row floors at the button's `min-h-[44px]`. Visual reduction is still meaningful (was ~64 px → now ~46 px, –28 %) but smaller than the body of this report claims.
+
+**Do not chase 36 px** without breaking the touch target — that path is closed.
+
+## A2. Dependency-line dominance gate: rank-1 + ratio, not `normalisedInfluence >= 0.5`
+
+Task 3 implied a simple corroboration via `normalisedInfluence` could suffice. It can't. `computeNormalisedInfluences` at `useResultsSectionData.ts:420–446` always pegs the top driver at `1.0` when any real elasticity exists ("top factor = 100%, others proportional"). A `>= 0.5` gate on the top driver is therefore trivially satisfied — it cannot detect ties.
+
+Final implementation in `buildDependencyLine` (after review-feedback round 2):
+
+1. `data.recommendation.dominantFactorId` + `dominantFactorLabel` populated.
+2. Named factor IS the **rank-1 driver** in `data.drivers.drivers[]` (consistency check).
+3. Dominance gate: prefer `influenceScore >= 0.5` (absolute ISL structural causal influence) when available; otherwise require `top1/top2 normalisedInfluence ratio >= 2.0` (the same 2:1 threshold the legacy heuristic uses, applied here as a guard, not a selector).
+4. Glossary banned-term gate on the cleaned label.
+
+The "safe alternative path" wording in Task 3 referred to the absence of the legacy heuristic in the `recommendation` source path. That's still true — but it does NOT guarantee dominance is real, only that the source isn't the worst-case heuristic. The ratio/`influenceScore` gates above are what actually protect against M1 emissions without confidence checks and tie cases.
+
+## A3. Key question card: `reviewStatus === 'complete'` gate added
+
+Task 5 listed three conditions for rendering the Key question card. A fourth was added during implementation: **`data.confidence.reviewStatus === 'complete'`**. Upstream selector at `useResultsSectionData.ts:2524–2532` exposes `m2DecisionQualityPrompts` without that gate (comment on line 2512 explicitly defers gating to consumers). Without the gate, partial / in-progress / stale prompts could surface. The new gate mirrors the one `m2NarrativeSummary` uses (line 1461).
+
+## A4. Stop condition resolution (Task 3 stop condition)
+
+The Task 3 stop condition asked: "stop if the UI cannot distinguish safe `dominant_factor` sources from legacy heuristic output without modifying `useResultsSectionData.ts`." The implementation resolves this by reading from `data.recommendation.dominantFactor*` rather than `data.drivers.dominantFactor*`. The `recommendation` aggregate is populated only from PLoT B1 or M1 `key_drivers` (see `useResultsSectionData.ts:1465–1476`) — the legacy heuristic only contaminates `data.drivers.dominantFactor*`, which the hero deliberately does NOT read. No modification to `useResultsSectionData.ts` was needed.
+
+## A5. Vertical-height table revision
+
+The body of this report estimates ~140 px reduction above the input rows. With the 44 px banner floor (A1) and the dependency line at ~22 px (only when data is safe), the actual reduction is closer to ~120 px in the typical M1 case. The qualitative argument stands — two non-actionable pills, a redundant header label, and a generic question card all vanish — but the precise pixel target should be measured in-browser, not predicted from the table at line 309.
+

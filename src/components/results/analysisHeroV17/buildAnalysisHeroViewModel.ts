@@ -159,34 +159,39 @@ function buildReasonLine(data: ResultsSectionDataReturn): string | null {
 /**
  * Dependency line: "The result depends most on {factor}."
  *
- * Source gates (post review-feedback 2026-05-21):
+ * Source + corroboration gates (rewritten 2026-05-21 after review):
  *
- *   1. `data.recommendation.dominantFactorId` / `dominantFactorLabel`
- *      must both be populated. That `recommendation` path in
- *      `useResultsSectionData.ts:1465–1476` collapses two safe sources —
+ *   1. `data.recommendation.dominantFactorId` + `dominantFactorLabel` must
+ *      both be populated. That `recommendation` path
+ *      (`useResultsSectionData.ts:1465–1476`) collapses two safe sources —
  *      PLoT B1 (`report.dominant_factor`) and M1
  *      (`m1Coaching.key_drivers.dominant_factor`) — and never emits the
  *      legacy heuristic (which only contaminates
- *      `data.drivers.dominantFactor*`, which this function deliberately
- *      does NOT read).
+ *      `data.drivers.dominantFactor*`, deliberately not read here).
  *
- *   2. Corroboration check: the matching driver in `data.drivers.drivers[]`
- *      must have `normalisedInfluence >= 0.5`. This is the same threshold
- *      PLoT B1 uses internally to classify dominance. The check guards
- *      against three failure modes:
- *        - M1 emits `key_drivers.dominant_factor` without verifying actual
- *          dominance (no confidence gate upstream)
- *        - Tie cases (top-2 factors near-equal → neither >= 0.5 in
- *          normalised influence)
- *        - Stale or inconsistent state where `recommendation` claims a
- *          dominant factor but the underlying drivers don't support it
- *      The influence-score field is NOT tainted by the legacy heuristic;
- *      the heuristic only affects `data.drivers.dominantFactorId` selection,
- *      not the per-driver `normalisedInfluence` values.
+ *   2. Rank-1 consistency: the named factor MUST be the top-ranked driver
+ *      in `data.drivers.drivers[]`. If `dominantFactorId` doesn't match
+ *      the rank-1 driver, the recommendation and the underlying driver
+ *      array disagree — render nothing rather than over-claim.
  *
- *   3. Cleaned factor label passes the glossary banned-term gate.
+ *   3. Dominance gate. `normalisedInfluence` is relative — the top driver
+ *      is ALWAYS 1.0 when any real elasticity exists
+ *      (`computeNormalisedInfluences` at `useResultsSectionData.ts:420–446`),
+ *      so it can't distinguish dominance from a near-tie on its own.
+ *      Two checks:
+ *        (a) prefer `influenceScore` when present — that's the ISL
+ *            structural causal influence on an absolute 0–1 scale;
+ *            require `>= 0.5` (genuine dominance, not just "more than
+ *            half of the max");
+ *        (b) otherwise fall back to the top1/top2 normalisedInfluence
+ *            ratio `>= 2.0` — the same 2:1 threshold the legacy
+ *            heuristic uses, applied here as a guard (NOT a selector,
+ *            so it doesn't taint anything).
+ *      Either guard satisfies dominance; both failing omits the line.
  *
- * Returns `null` when any gate fails — the result-context block then
+ *   4. Cleaned factor label passes the glossary banned-term gate.
+ *
+ * Returns `null` whenever any gate fails — the result-context block then
  * renders the result line alone.
  */
 function buildDependencyLine(data: ResultsSectionDataReturn): string | null {
@@ -194,15 +199,35 @@ function buildDependencyLine(data: ResultsSectionDataReturn): string | null {
   const id = rec?.dominantFactorId
   const rawLabel = rec?.dominantFactorLabel
   if (!id || !rawLabel) return null
-  // Corroboration: the named factor must actually be dominant in the
-  // underlying drivers array. Match by factorKey (the driver's canonical
-  // id resolved from node_id / factor_id / id / normalised(label) per
-  // DriverItem definition).
-  const driver = data?.drivers?.drivers?.find(d => d.factorKey === id)
-  const influence = driver?.normalisedInfluence
-  if (typeof influence !== 'number' || !Number.isFinite(influence) || influence < 0.5) {
-    return null
+
+  const drivers = data?.drivers?.drivers
+  if (!drivers || drivers.length === 0) return null
+
+  // Rank-1 consistency. Sort defensively rather than trusting source order.
+  const sorted = [...drivers].sort((a, b) => a.rank - b.rank)
+  const top1 = sorted[0]
+  if (!top1 || top1.factorKey !== id) return null
+
+  // Dominance gate.
+  let isDominant = false
+  if (typeof top1.influenceScore === 'number' && Number.isFinite(top1.influenceScore)) {
+    // Absolute scale (ISL structural causal influence): 0.5 floor.
+    isDominant = top1.influenceScore >= 0.5
+  } else {
+    // Relative-only data: require a clear gap between top-1 and top-2.
+    const ni1 = top1.normalisedInfluence
+    if (!Number.isFinite(ni1) || ni1 <= 0) return null
+    const top2 = sorted[1]
+    const ni2 = top2?.normalisedInfluence ?? 0
+    if (ni2 > 0) {
+      isDominant = (ni1 / ni2) >= 2.0
+    } else {
+      // Only one driver with non-zero influence — genuinely dominant.
+      isDominant = true
+    }
   }
+  if (!isDominant) return null
+
   const cleaned = stripEncodingNotation(rawLabel)
   if (!cleaned) return null
   if (containsBannedTerm(cleaned)) return null
