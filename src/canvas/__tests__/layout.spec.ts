@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { layoutGraph, groupByYRow, applyCollisionGuard } from '../utils/layout'
 import type { CanvasSize } from '../utils/layout'
 import {
@@ -484,6 +484,209 @@ describe('ELK Layout', () => {
     expect(dY).toBeLessThan(o1Y)
     expect(o1Y).toBeLessThan(f1Y)
     expect(f1Y).toBeLessThan(gY)
+  })
+
+  // ---------------------------------------------------------------------------
+  // Panel-aware width regression tests
+  //
+  // layoutGraph queries both [data-testid="outputs-dock"] and .react-flow at
+  // the start of every call, then computes visibleCanvasWidth as
+  // (dockEl.left − rfEl.left) — the dock's left edge in canvas-local
+  // coordinates. Naturally captures the dock's width AND its `right:12` CSS
+  // offset because the rect's `.left` already reflects them. Without both
+  // elements mocked (the default in jsdom), querySelector returns null for at
+  // least one → fallback to canvasSize.width → behaviour identical to the
+  // pre-change pipeline.
+  //
+  // Max-width branch fires only when BOTH:
+  //   (a) unclampedElkBoxW ≥ NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X  (existing)
+  //   (b) maxSingleVisibleRowEnd ≤ visibleCanvasWidth              (new)
+  //
+  // Where, for the widest tier of size N:
+  //   maxSingleVisibleRowEnd
+  //     = CANVAS_MARGIN
+  //       + (N − 1) * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + spacing)
+  //       + NODE_CARD_MAX_W
+  // (derived from actual placement geometry — not coupled to the incidental
+  // equality CANVAS_MARGIN === LAYOUT_PADDING_X).
+  //
+  // With current constants (NODE_CARD_MAX_W=256, LAYOUT_PADDING_X=24,
+  // spacing=60, CANVAS_MARGIN=24):
+  //   4-node maxSingleVisibleRowEnd = 24 + 3*340 + 256 = 1300
+  //   5-node maxSingleVisibleRowEnd = 24 + 4*340 + 256 = 1640
+  //
+  // IMPORTANT — "min-width branch fires" ≠ "tier splits into multiple rows".
+  // The min-width branch lowers per-box elkBoxW from 280 to 164 and sets a
+  // nodesPerRow ceiling. Actual row splitting only happens downstream in
+  // `applyTierRowSplitting`, gated by `tierSize > nodesPerRow`. For 4-node
+  // tiers, nodesPerRow ≥ 4 keeps them single-row even when the min-width
+  // branch fires. These tests assert both the branch choice (via
+  // `layoutNodeWidth`) AND the actual visible row count (via
+  // `factorRowCount(laid)`) to keep the distinction explicit.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Count distinct Y-rows occupied by the factor tier. Round to integer to
+   * absorb sub-pixel rounding; row separation is at least
+   * DEFAULT_NODE_HEIGHT + subRowSpacing ≫ 1px, so rounding is safe.
+   */
+  function factorRowCount(nodes: Node[]): number {
+    return new Set(
+      nodes.filter(n => n.type === 'factor').map(n => Math.round(n.position.y)),
+    ).size
+  }
+
+  /**
+   * Mock both the .react-flow container and the [data-testid="outputs-dock"]
+   * element so layoutGraph's panel-aware branch fires deterministically.
+   * Mirrors the real OutputsDock CSS: `position: fixed; right: <offset>;
+   * width: <dockWidth>`. The dock's left position in canvas-local coords is
+   * therefore `canvasWidth - dockRightOffset - dockWidth`.
+   */
+  function mockDockAndCanvas(opts: {
+    canvasWidth: number
+    dockWidth: number
+    dockRightOffset?: number
+    rfLeft?: number
+  }): void {
+    const { canvasWidth, dockWidth, dockRightOffset = 12, rfLeft = 0 } = opts
+    const dockLeft = rfLeft + canvasWidth - dockRightOffset - dockWidth
+    const rfRect = { left: rfLeft, width: canvasWidth, right: rfLeft + canvasWidth } as DOMRect
+    const dockRect = { left: dockLeft, width: dockWidth, right: dockLeft + dockWidth } as DOMRect
+    const rfEl = { getBoundingClientRect: () => rfRect } as unknown as Element
+    const dockEl = { getBoundingClientRect: () => dockRect } as unknown as Element
+    const original = document.querySelector.bind(document)
+    vi.spyOn(document, 'querySelector').mockImplementation((selector: string) => {
+      if (selector === '[data-testid="outputs-dock"]') return dockEl
+      if (selector === '.react-flow') return rfEl
+      return original(selector)
+    })
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('panel-aware: 4-factor tier @ 1300px with 480px dock → min-width branch + splits into 2 rows', async () => {
+    // dockLeft = 1300 − 12 − 480 = 808 → visibleCanvasWidth = 808.
+    // maxSingleVisibleRowEnd = 1300 > 808 → condition (b) fails → min-width
+    // branch. nodesPerRow = floor((max(164, 808*0.85) + 60) / (164 + 60))
+    //   = floor((686 + 60) / 224) = 3. Tier size 4 > 3 → applyTierRowSplitting
+    // genuinely splits the tier into 2 rows of 2.
+    // Locks the brief's Task 6 outcome: a dock-occupied 1300px canvas no
+    // longer renders a 1300px row.
+    mockDockAndCanvas({ canvasWidth: 1300, dockWidth: 480 })
+    const nodes: Node[] = [
+      makeNode('d', 'decision'),
+      makeNode('o1', 'option'),
+      makeNode('f1', 'factor'), makeNode('f2', 'factor'),
+      makeNode('f3', 'factor'), makeNode('f4', 'factor'),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'),
+      makeEdge('e2', 'o1', 'f1'), makeEdge('e3', 'o1', 'f2'),
+      makeEdge('e4', 'o1', 'f3'), makeEdge('e5', 'o1', 'f4'),
+    ]
+    const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, TEST_CANVAS)
+    expect(layoutNodeWidth).toBe(NODE_LAYOUT_MIN_W)
+    expect(factorRowCount(laid)).toBe(2)
+  })
+
+  it('panel-aware: 4-factor tier @ 1440px with 416px dock → min-width branch fires; tier stays single row (typical laptop)', async () => {
+    // dockLeft = 1440 − 12 − 416 = 1012 → visibleCanvasWidth = 1012.
+    // maxSingleVisibleRowEnd = 1300 > 1012 → min-width branch. nodesPerRow
+    // = floor((max(164, 1012*0.85) + 60) / (164 + 60)) = floor((860 + 60) /
+    // 224) = 4. Tier size 4 ≤ 4 → NO actual row split (applyTierRowSplitting
+    // skips). Outcome: 4 nodes on one row at NODE_LAYOUT_MIN_W (140) — all
+    // visible (row span = 4 * 164 + 3 * 60 = 836 fits in 1012), but each
+    // card is narrower than the dock-closed max (256).
+    //
+    // This case demonstrates the smarter threshold: the brief's panel-aware
+    // availableWidth change alone would NOT trigger min-width fallback here
+    // (per-box min check still passes: avail = 860; per-box = floor((860-90)
+    // /4) = 192 ≥ 164). Only the new max-row-fits check forces fallback.
+    mockDockAndCanvas({ canvasWidth: 1440, dockWidth: 416 })
+    const nodes: Node[] = [
+      makeNode('d', 'decision'),
+      makeNode('o1', 'option'),
+      makeNode('f1', 'factor'), makeNode('f2', 'factor'),
+      makeNode('f3', 'factor'), makeNode('f4', 'factor'),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'),
+      makeEdge('e2', 'o1', 'f1'), makeEdge('e3', 'o1', 'f2'),
+      makeEdge('e4', 'o1', 'f3'), makeEdge('e5', 'o1', 'f4'),
+    ]
+    const { nodes: laid, layoutNodeWidth } = await layoutGraph(
+      nodes,
+      edges,
+      {},
+      { width: 1440, height: 900 },
+    )
+    expect(layoutNodeWidth).toBe(NODE_LAYOUT_MIN_W)
+    expect(factorRowCount(laid)).toBe(1)
+  })
+
+  it('panel-aware: 4-factor tier @ 1920px with 416px dock → max-width branch fires; tier stays single row', async () => {
+    // dockLeft = 1920 − 12 − 416 = 1492 → visibleCanvasWidth = 1492.
+    // maxSingleVisibleRowEnd = 1300 ≤ 1492 → max-width branch fires (no
+    // min-width fallback). Locks the high-end behaviour so we do not
+    // accidentally over-trigger the min-width fallback at wide viewports
+    // where the row genuinely fits the visible canvas.
+    mockDockAndCanvas({ canvasWidth: 1920, dockWidth: 416 })
+    const nodes: Node[] = [
+      makeNode('d', 'decision'),
+      makeNode('o1', 'option'),
+      makeNode('f1', 'factor'), makeNode('f2', 'factor'),
+      makeNode('f3', 'factor'), makeNode('f4', 'factor'),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'),
+      makeEdge('e2', 'o1', 'f1'), makeEdge('e3', 'o1', 'f2'),
+      makeEdge('e4', 'o1', 'f3'), makeEdge('e5', 'o1', 'f4'),
+    ]
+    const { nodes: laid, layoutNodeWidth } = await layoutGraph(
+      nodes,
+      edges,
+      {},
+      { width: 1920, height: 1080 },
+    )
+    expect(layoutNodeWidth).toBe(NODE_CARD_MAX_W)
+    expect(factorRowCount(laid)).toBe(1)
+  })
+
+  it('panel-aware: 4-factor tier @ 1300px with 40px collapsed-rail dock → min-width branch fires; tier stays single row', async () => {
+    // The OutputsDock is always mounted: when closed it collapses to a 40px
+    // rail (CSS var --dock-right-collapsed). With NODE_CARD_MAX_W=256 the
+    // 4-node row is sized to exactly fit a 1300px canvas — so even a thin
+    // 40px rail at the right makes the rendered row overflow into the rail.
+    //
+    // dockLeft = 1300 − 12 − 40 = 1248 → visibleCanvasWidth = 1248.
+    // maxSingleVisibleRowEnd = 1300 > 1248 → min-width branch fires.
+    // nodesPerRow = floor((max(164, 1248*0.85) + 60) / (164 + 60))
+    //   = floor((1060 + 60) / 224) = 5. Tier size 4 ≤ 5 → NO row split.
+    // Outcome: 4 nodes on one row at NODE_LAYOUT_MIN_W; row span = 4 * 164 +
+    // 3 * 60 = 836 fits within visibleCanvasWidth (1248).
+    //
+    // Locks this behaviour explicitly. The trade-off (lose ~116px of card
+    // width to avoid 52px of overlap with the thin rail) is the cost of the
+    // exact-fit NODE_CARD_MAX_W from PR #157; if a future change wants to
+    // tolerate small rail overlap, this test will surface the inversion.
+    mockDockAndCanvas({ canvasWidth: 1300, dockWidth: 40 })
+    const nodes: Node[] = [
+      makeNode('d', 'decision'),
+      makeNode('o1', 'option'),
+      makeNode('f1', 'factor'), makeNode('f2', 'factor'),
+      makeNode('f3', 'factor'), makeNode('f4', 'factor'),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'),
+      makeEdge('e2', 'o1', 'f1'), makeEdge('e3', 'o1', 'f2'),
+      makeEdge('e4', 'o1', 'f3'), makeEdge('e5', 'o1', 'f4'),
+    ]
+    const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, TEST_CANVAS)
+    expect(layoutNodeWidth).toBe(NODE_LAYOUT_MIN_W)
+    expect(factorRowCount(laid)).toBe(1)
   })
 })
 
