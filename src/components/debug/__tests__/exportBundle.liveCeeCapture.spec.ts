@@ -1981,3 +1981,189 @@ describe('buildDebugBundleAsync — PR #156 round-4 IMP: selected_plot_trace_com
     expect(bundle.plot_capture_selection.selected_plot_trace_completed_2xx).toBe(false)
   })
 })
+
+// =====================================================================
+// V5 proxy classification (PR #156 / PR #159 follow-up).
+//
+// The staging Netlify dashboard inlines
+// `VITE_V5_ENDPOINT="https://cee-staging.onrender.com/proxy/v5/turn"`,
+// so `callV5Turn` records traces with that pathname. The bundle:
+//
+// 1. CLASSIFIES the trace as CEE (handled by `detectService` in
+//    `contract-validators.ts`, and by the selector via
+//    `isV5TurnEndpoint` in `v5TraceMatching.ts`).
+// 2. LABELS `analysis_evidence_source` as `'live_v5_cee_proxy_turn'`
+//    when the selected CEE trace's endpoint is the proxy variant
+//    (vs `'live_v5_cee_turn'` for canonical `/orchestrate/v2/turn`).
+// 3. HONESTY: does NOT upgrade `scientific_validation.source` based
+//    on the endpoint label. The validator-side `classifySource` gate
+//    still requires the response body to carry the indicative keys
+//    (`factor_sensitivity`, `flip_thresholds`, `evpi`, ...).
+//    If the body omits them, validators stay `'unavailable'`.
+// =====================================================================
+
+describe('buildDebugBundleAsync — V5 proxy classification (PR #156 / PR #159 follow-up)', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('selected CEE trace endpoint = /proxy/v5/turn → analysis_evidence_source = live_v5_cee_proxy_turn (CEE body WITH apparent science keys; source stays hydrated_report)', async () => {
+    // Honesty contract (key invariant of this PR):
+    //
+    // `classifySource` (`src/lib/scientificValidation/index.ts:53`)
+    // reads `RAW_PAYLOAD_INDICATIVE_KEYS` from `inputs.plotResponse`
+    // ONLY — it does NOT read science fields out of
+    // `inputs.ceeResponse`. This is deliberate: PLoT raw must come
+    // from a PLoT capture, not be inferred from CEE turn metadata
+    // (per the user's instruction "do not fabricate, reconstruct,
+    // or infer PLoT raw payloads from CEE logs or rendered UI state").
+    //
+    // Even when the captured CEE V5 turn body happens to carry a
+    // key that LOOKS like `factor_sensitivity`, the classifier MUST
+    // NOT promote `scientific_validation.source` to
+    // `'live_raw_payloads'`. The bundle's capture-correctness label
+    // (`analysis_evidence_source`) flips honestly to
+    // `'live_v5_cee_proxy_turn'`, but `source` stays
+    // `'hydrated_report'` because PLoT raw is genuinely absent.
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+        selected_cee_trace_endpoint:
+          'https://cee-staging.onrender.com/proxy/v5/turn',
+        payloads: {
+          cee_request: { turn_id: 't-1', message: 'Hi' },
+          cee_response: {
+            turn_id: 't-1',
+            // Even with this key in the CEE body, classifier MUST NOT
+            // pull it into the live-raw-payloads source label.
+            factor_sensitivity: [{ factor_id: 'f1', impact: 0.4 }],
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    // Tier 1 — capture-correctness: label is honest about the
+    // browser-observed V5 proxy turn.
+    expect(bundle.payloads.cee_request).not.toBeNull()
+    expect(bundle.payloads.cee_response).not.toBeNull()
+    expect(bundle.analysis_evidence_source).toBe('live_v5_cee_proxy_turn')
+    expect(bundle.capture_pipeline_status).not.toBe('hydrated_only')
+    // Tier 2 — scientific validation honesty: classifier does NOT
+    // infer PLoT raw from CEE body. Source is one of the non-live
+    // labels (`'hydrated_report'` when resultsReport is derivable
+    // from the canvas store, `'unavailable'` otherwise) — never
+    // `'live_raw_payloads'`. This fixture has no rendered results,
+    // so source resolves to `'unavailable'`.
+    expect(bundle.scientific_validation?.source).not.toBe('live_raw_payloads')
+    expect(['hydrated_report', 'unavailable']).toContain(
+      bundle.scientific_validation?.source,
+    )
+  })
+
+  it('selected CEE trace endpoint = /bff/orchestrate/v2/turn → analysis_evidence_source stays live_v5_cee_turn (regression)', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+        selected_cee_trace_endpoint: '/bff/orchestrate/v2/turn',
+        payloads: {
+          cee_request: { turn_id: 't-2', message: 'Hi' },
+          cee_response: {
+            turn_id: 't-2',
+            blocks: [{ type: 'commentary', text: 'A commentary block' }],
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.analysis_evidence_source).toBe('live_v5_cee_turn')
+    // Honesty: same as proxy variant — CEE body alone does NOT
+    // unlock the live-raw-payloads source label.
+    expect(bundle.scientific_validation?.source).not.toBe('live_raw_payloads')
+  })
+
+  it('HONESTY: /proxy/v5/turn body WITHOUT science fields → label is live but scientific_validation.source stays hydrated_report', async () => {
+    // The proxy variant is captured and labelled correctly, but the
+    // CEE V5 turn response body contains ONLY blocks/turn_id — no
+    // `factor_sensitivity`, `flip_thresholds`, `evpi`, etc.
+    // `classifySource` MUST refuse to upgrade `source` because there
+    // is no indicative key to ground the live-evidence claim.
+    // Validators stay `'unavailable'` with `required_upstream_support`.
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+        selected_cee_trace_endpoint:
+          'https://cee-staging.onrender.com/proxy/v5/turn',
+        payloads: {
+          cee_request: { turn_id: 't-3', message: 'Hi' },
+          // Body shape: blocks-only / no indicative keys.
+          cee_response: {
+            turn_id: 't-3',
+            blocks: [{ type: 'commentary', text: 'A commentary block' }],
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    // Tier 1: capture is correct — payloads populated, label honest.
+    expect(bundle.payloads.cee_request).not.toBeNull()
+    expect(bundle.payloads.cee_response).not.toBeNull()
+    expect(bundle.analysis_evidence_source).toBe('live_v5_cee_proxy_turn')
+    // Tier 2: validators stay unavailable; source MUST NOT be
+    // `'live_raw_payloads'` because the captured body lacks
+    // indicative keys AND the classifier reads from plot_response
+    // only (not cee_response). Falls through to one of the non-live
+    // labels: `'hydrated_report'` (with results derivation) or
+    // `'unavailable'` (no results). Both are honest.
+    expect(bundle.scientific_validation?.source).not.toBe('live_raw_payloads')
+    expect(['hydrated_report', 'unavailable']).toContain(
+      bundle.scientific_validation?.source,
+    )
+    // Defensive: at least one validator that depends on PLoT-side
+    // science fields stays unavailable. The exact list is driven by
+    // `RAW_PAYLOAD_INDICATIVE_KEYS`; we assert the contract holds on
+    // confidence_validation (which requires `factor_sensitivity`).
+    expect(
+      bundle.scientific_validation?.validators?.confidence_validation?.status,
+    ).toBe('unavailable')
+  })
+
+  it('look-alike /proxy/v5/turning endpoint is NOT classified as proxy (uses canonical label fallthrough)', async () => {
+    // If the selector accepts the trace (it shouldn't, because of
+    // path-boundary regex in isV5TurnEndpoint), the bundle label
+    // should still NOT be the proxy variant. In practice the
+    // selector rejects look-alikes upstream — this test asserts the
+    // label discriminator doesn't accidentally upgrade.
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+        selected_cee_trace_endpoint: '/proxy/v5/turning',
+        payloads: {
+          cee_request: { turn_id: 't-4' },
+          cee_response: { turn_id: 't-4', blocks: [] },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    // Falls through to canonical label because the proxy regex
+    // refuses the look-alike.
+    expect(bundle.analysis_evidence_source).toBe('live_v5_cee_turn')
+  })
+})

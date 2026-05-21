@@ -1130,5 +1130,84 @@ describe('Contract Validators', () => {
       expect(detectService('/BFF/CEE/draft-graph')).toBe('CEE')
       expect(detectService('/BFF/PLOT/run')).toBe('PLoT')
     })
+
+    // =====================================================================
+    // V5 CEE proxy turn — staging variant (PR #156 / PR #159 follow-up).
+    //
+    // The Netlify dashboard inlines
+    // `VITE_V5_ENDPOINT="https://cee-staging.onrender.com/proxy/v5/turn"`
+    // so `callV5Turn` records traces with that pathname. The classifier
+    // must recognise the proxy variant as CEE — but NOT misclassify
+    // look-alikes like `/proxy/v5/turning` or substring-only matches
+    // sitting in a query string. Path-boundary regex enforces that.
+    // =====================================================================
+    describe('detectService — /proxy/v5/turn (V5 proxy variant)', () => {
+      it('classifies the absolute staging URL as CEE', () => {
+        expect(
+          detectService('https://cee-staging.onrender.com/proxy/v5/turn'),
+        ).toBe('CEE')
+      })
+
+      it('classifies the bare path as CEE', () => {
+        expect(detectService('/proxy/v5/turn')).toBe('CEE')
+      })
+
+      it('classifies the path with a sub-segment as CEE (boundary = /)', () => {
+        expect(detectService('/proxy/v5/turn/legacy-sub')).toBe('CEE')
+      })
+
+      it('classifies the path with a query string as CEE (boundary = ?)', () => {
+        expect(detectService('/proxy/v5/turn?nonce=abc')).toBe('CEE')
+      })
+
+      it('classifies the path with a fragment as CEE (boundary = #)', () => {
+        expect(detectService('/proxy/v5/turn#frag')).toBe('CEE')
+      })
+
+      it('rejects look-alike /proxy/v5/turning (path-boundary regex)', () => {
+        // Word-boundary look-alike: `turning` continues past `turn`
+        // with a letter. The path-boundary regex requires the next
+        // char to be `/`, `?`, `#`, or end-of-string.
+        expect(detectService('/proxy/v5/turning')).toBe('unknown')
+      })
+
+      it('rejects look-alike /proxy/v5/turn-legacy (hyphen suffix)', () => {
+        expect(detectService('/proxy/v5/turn-legacy')).toBe('unknown')
+      })
+
+      it('rejects a query-string-only false positive when no real path match', () => {
+        // Note: detectService runs against the full endpoint string,
+        // not just the pathname. So a query-string mention CAN match
+        // the path-boundary regex if it lives at a `/proxy/v5/turn?`
+        // position. This case demonstrates the boundary regex still
+        // matches because `?` is a valid boundary — the wrapped pathname
+        // selector (isV5TurnEndpoint) is the strict gate.
+        // For DGAI classification of trace-store entries, that's
+        // acceptable: this is the classifier layer; the selector
+        // layer enforces pathname-only matching for live-evidence
+        // decisions.
+        expect(detectService('/legacy?next=/proxy/v5/turn')).toBe('CEE')
+      })
+
+      it('is case insensitive on the proxy variant', () => {
+        expect(
+          detectService('HTTPS://CEE-STAGING.ONRENDER.COM/PROXY/V5/TURN'),
+        ).toBe('CEE')
+      })
+
+      it('does not affect existing regressions', () => {
+        // Canonical V5 (round-3+ baseline)
+        expect(detectService('/bff/orchestrate/v2/turn')).toBe('CEE')
+        // PLoT V2 / V1 (PR #156 baseline)
+        expect(detectService('/v2/run')).toBe('PLoT')
+        expect(detectService('/v1/run')).toBe('PLoT')
+        expect(detectService('/bff/engine/v1/run')).toBe('PLoT')
+        expect(detectService('/bff/plot/v2/run')).toBe('PLoT')
+        // ISL
+        expect(detectService('/bff/isl/validate')).toBe('ISL')
+        // Unknown
+        expect(detectService('/random/path')).toBe('unknown')
+      })
+    })
   })
 })

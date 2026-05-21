@@ -529,12 +529,36 @@ export function validatePLoTResponse(response: unknown, sentRequestId?: string):
 // ============================================================================
 
 /**
+ * Path-boundary regex for the V5 CEE proxy turn endpoint, e.g.
+ * `https://cee-staging.onrender.com/proxy/v5/turn`. Required because
+ * a loose substring `lower.includes('proxy/v5/turn')` would also
+ * match look-alikes like `/proxy/v5/turning` and incorrectly classify
+ * them as CEE. The boundary chars are `/`, `?`, `#`, or end-of-string
+ * — anything that terminates a URL pathname segment.
+ *
+ * Mirrors the path-boundary invariant in
+ * `src/lib/v5TraceMatching.ts :: V5_TURN_PROXY_PATHNAME_RE` so the
+ * two layers (classifier here + selector there) cannot drift.
+ */
+const PROXY_V5_TURN_RE = /\/proxy\/v5\/turn(?:\/|$|\?|#)/
+
+/**
  * Detect which service a request is for based on endpoint
  */
 export function detectService(endpoint: string): 'CEE' | 'PLoT' | 'ISL' | 'BFF' | 'M2' | 'unknown' {
   const lower = endpoint.toLowerCase()
   // CEE / orchestrator endpoints — includes /bff/orchestrate/ proxy path
-  if (lower.includes('/cee/') || lower.includes('assist') || lower.includes('draft-graph') || lower.includes('orchestrate')) {
+  // AND the staging V5 proxy turn endpoint (`/proxy/v5/turn`) set via
+  // `VITE_V5_ENDPOINT` in the Netlify dashboard. The proxy variant
+  // uses a path-boundary regex so look-alikes (`/proxy/v5/turning`)
+  // are NOT misclassified as CEE.
+  if (
+    lower.includes('/cee/') ||
+    lower.includes('assist') ||
+    lower.includes('draft-graph') ||
+    lower.includes('orchestrate') ||
+    PROXY_V5_TURN_RE.test(lower)
+  ) {
     return 'CEE'
   }
   if (lower.includes('/plot/') || lower.includes('/engine/') || lower.includes('/v2/run') || lower.includes('/v1/run')) {
