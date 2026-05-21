@@ -53,6 +53,13 @@ export const typography = {
   panelBody: 'text-xs font-sans leading-relaxed',                 // 12px — body text, descriptions, bullets, card content
   panelMeta: 'text-[11px] font-sans leading-snug',                // 11px — badges, pills, axis labels, tertiary metadata
 
+  // AI Panel v2 first-use hero heading. Inter, 24px, semibold, calm rhythm.
+  // Used exclusively by the FirstUseComposer welcome surface so the hero
+  // reads as a prominent invitation without breaking the strict panel-text
+  // hierarchy used elsewhere. Neutral letter spacing — display tightening
+  // (tracking-tight) felt off on this hero scale.
+  welcomeHeading: 'text-[24px] font-semibold font-sans leading-snug', // 24px — AI Panel v2 hero only
+
   // Utility
   screenReaderOnly: 'sr-only',
 } as const

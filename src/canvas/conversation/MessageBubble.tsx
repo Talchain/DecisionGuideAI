@@ -4,23 +4,27 @@
  * Renders user messages (right-aligned, info bg) and assistant messages
  * (left-aligned, panel bg) with optional inline blocks and action chips.
  *
- * Progressive disclosure: long assistant text (>300 chars, no blocks, not
- * synthetic) is clamped to ~6 lines with a "Show more" toggle.
+ * Progressive disclosure: long assistant text (>CLAMP_CHAR_THRESHOLD=3000
+ * chars, no blocks, not synthetic) is clamped at a natural paragraph or
+ * sentence boundary with a "Show more" toggle. The threshold is a SAFETY
+ * NET for outlier responses — ordinary assistant turns render in full
+ * (see the round-3 UX correction; the prior 600-char threshold was found
+ * to cut typical responses too aggressively).
  *
  * Streaming: when `message.isStreaming` is true, text renders incrementally
  * with a blinking cursor. Provisional tool-backed turns render at reduced
  * opacity until `turn_complete`.
  */
 
-import { memo, useState, useMemo } from 'react'
+import { memo, useState, useMemo, useRef } from 'react'
 import { typography } from '../../styles/typography'
 import { safeRichText } from '../utils/safeRichText'
 import { InlineBlocks } from './InlineBlocks'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, ListPlus, AlignLeft } from 'lucide-react'
 import { BaseRateChipRow } from './BaseRateChipRow'
 import { FeedbackRow } from './FeedbackRow'
 import { StalenessPill, type StalenessFreshness } from './StalenessPill'
-import { isOrchestratorRenderingV2Enabled, isDeterministicCeeEnabled } from '../../flags'
+import { isOrchestratorRenderingV2Enabled, isDeterministicCeeEnabled, isAiPanelV2Enabled } from '../../flags'
 import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { FALLBACK_TEXT } from './validateResponse'
@@ -50,8 +54,15 @@ function sanitiseFactorIds(text: string, labelMap: Map<string, string>): string 
   })
 }
 
-/** Character threshold for applying progressive disclosure. */
-const CLAMP_CHAR_THRESHOLD = 600
+/**
+ * Character threshold for applying progressive disclosure. Round-3 UX pass
+ * raised this from 600 → 3000 because the prior threshold cut typical
+ * assistant responses too aggressively, hiding genuinely useful core
+ * content behind a Show more click. The toggle remains as a safety net
+ * for outlier responses (multi-thousand-character explanations); for
+ * everyday turns the message renders in full.
+ */
+const CLAMP_CHAR_THRESHOLD = 3000
 /** Minimum characters that must be hidden for truncation to be worthwhile. */
 const MIN_HIDDEN_CHARS = 150
 /**
@@ -286,6 +297,18 @@ export const MessageBubble = memo(function MessageBubble({
           disabled={isStreaming}
         />
       )}
+      {/* Explain more + Summarise are AI Panel v2 affordances only — MessageBubble
+          is shared with the FF-off legacy DraftChat surface, and we must not
+          change FF-off parity. The flag guard is the single source of truth. */}
+      {isAiPanelV2Enabled()
+        && !isUser
+        && !message.synthetic
+        && !isStreaming
+        && displayContent.trim().length > 0
+        && displayContent !== FALLBACK_TEXT
+        && onArtefactMessage && (
+        <FollowUpActions onSendFollowUp={onArtefactMessage} />
+      )}
       {!isUser && !message.synthetic && displayContent !== FALLBACK_TEXT && onFeedback && (
         <FeedbackRow turnId={message.clientTurnId} onFeedback={onFeedback} />
       )}
@@ -293,6 +316,57 @@ export const MessageBubble = memo(function MessageBubble({
     </>
   )
 })
+
+/**
+ * FollowUpActions — subtle Explain more + Summarise icon row on assistant
+ * messages. Routes through the existing conversation send path (the same
+ * onArtefactMessage callback used by InsightsStrip actions), so no new
+ * prompt/PMS/backend wiring is required. User-facing copy is visible in
+ * the resulting user-message bubble so nothing internal leaks.
+ *
+ * Subtle by design — same visual weight as the feedback thumbs row, never
+ * a large CTA. Per-row single-flight guard so a double-click can't fire
+ * the same follow-up twice.
+ */
+function FollowUpActions({ onSendFollowUp }: { onSendFollowUp: (text: string) => void }) {
+  const sentRef = useRef(false)
+  const dispatch = (text: string) => {
+    if (sentRef.current) return
+    sentRef.current = true
+    onSendFollowUp(text)
+    // Re-enable after a short window so the user can still ask
+    // a different follow-up on the same message later.
+    setTimeout(() => { sentRef.current = false }, 500)
+  }
+  return (
+    <div
+      className="flex items-center gap-1 mt-1"
+      data-testid="message-follow-up-actions"
+      aria-label="Follow up on this response"
+    >
+      <button
+        type="button"
+        onClick={() => dispatch('Please explain that in more detail.')}
+        className="inline-flex items-center justify-center w-6 h-6 rounded text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+        aria-label="Explain in more detail"
+        title="Explain more"
+        data-testid="message-action-explain-more"
+      >
+        <ListPlus className="w-3.5 h-3.5" aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        onClick={() => dispatch('Please summarise that as concise bullets.')}
+        className="inline-flex items-center justify-center w-6 h-6 rounded text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+        aria-label="Summarise this response"
+        title="Summarise"
+        data-testid="message-action-summarise"
+      >
+        <AlignLeft className="w-3.5 h-3.5" aria-hidden="true" />
+      </button>
+    </div>
+  )
+}
 
 /** Map insight type → action chip config with optional deterministic action routing. */
 interface InsightAction {

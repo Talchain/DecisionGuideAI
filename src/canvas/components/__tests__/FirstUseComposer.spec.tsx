@@ -1,17 +1,18 @@
 /**
- * FirstUseComposer — auto-dock receipt + reduced-motion verification.
+ * FirstUseComposer — auto-reposition receipt + reduced-motion verification.
  *
- * Closes verification gaps #1 and #3 from the integration sign-off:
+ * Round-3 UX correction: the post-graph behaviour is now REPOSITION (not
+ * close). The floating panel stays open, slides to a bottom-right anchor
+ * near the Analysis dock, and the Analysis tab activates so the user can
+ * see AI and analysis side by side.
  *
- *   1. The auto-dock effect itself MUST trigger the "Model drafted. Review
- *      readiness." receipt via useTransitionReceipt.show. The browser
- *      walkthrough re-triggered the receipt manually after expiry — this
- *      test proves the actual auto-dock transition fires it.
+ *   1. The auto-reposition effect MUST trigger the "Model drafted. Review
+ *      readiness." receipt via useTransitionReceipt.show.
  *
- *   3. When prefers-reduced-motion is set, auto-dock fires synchronously
- *      (no 300 ms setTimeout). This test asserts the receipt + dock-close
- *      both happen WITHIN the same render tick, without advancing fake
- *      timers.
+ *   3. When prefers-reduced-motion is set, auto-reposition fires
+ *      synchronously (no 300 ms setTimeout). This test asserts the
+ *      receipt + reposition both happen WITHIN the same render tick,
+ *      without advancing fake timers.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -36,13 +37,20 @@ const canvasMockState: {
   _internal: { graphHash?: string }
   selection: null
 } = { nodes: [], edges: [], results: { status: 'idle' }, _internal: {}, selection: null }
-vi.mock('../../store', () => ({
-  useCanvasStore: (selector: (s: any) => any) => selector(canvasMockState),
-  selectResultsStatus: (s: any) => s.results?.status,
-  selectReport: (s: any) => s.results?.report,
-  selectError: (s: any) => s.results?.error,
-  selectResultsSource: (s: any) => s.results?.source,
-}))
+vi.mock('../../store', () => {
+  // The mock acts both as a selector hook AND exposes getState() so the
+  // FirstUseComposer's reset-debounce effect (which reads live state via
+  // useCanvasStore.getState()) can observe the current node count.
+  const useCanvasStore: any = (selector: (s: any) => any) => selector(canvasMockState)
+  useCanvasStore.getState = () => canvasMockState
+  return {
+    useCanvasStore,
+    selectResultsStatus: (s: any) => s.results?.status,
+    selectReport: (s: any) => s.results?.report,
+    selectError: (s: any) => s.results?.error,
+    selectResultsSource: (s: any) => s.results?.source,
+  }
+})
 vi.mock('../../hooks/useStageAwarePlaceholder', () => ({
   useStageAwarePlaceholder: () => 'Describe your decision…',
 }))
@@ -145,12 +153,12 @@ function driveUserSubmittedViaFirstUse(): { rerender: (ui: React.ReactElement) =
   return { rerender }
 }
 
-describe('FirstUseComposer — auto-dock fires the transition receipt (gap #1)', () => {
+describe('FirstUseComposer — auto-reposition fires the transition receipt (gap #1)', () => {
   it('shows the receipt after the 300 ms slide delay when reduced motion is off', () => {
     vi.useFakeTimers()
     const { rerender } = driveUserSubmittedViaFirstUse()
 
-    // 0 → 2 nodes: triggers the auto-dock effect.
+    // 0 → 2 nodes: triggers the auto-reposition effect.
     act(() => {
       canvasMockState.nodes = [{ id: 'n1' }, { id: 'n2' }]
     })
@@ -160,20 +168,52 @@ describe('FirstUseComposer — auto-dock fires the transition receipt (gap #1)',
     expect(useTransitionReceipt.getState().receipt).toBeNull()
     expect(useFloatingPanelState.getState().isOpen).toBe(true)
     expect(useUIStore.getState().activeOutputTabVersion).toBe(0)
+    // Position not yet repositioned either.
+    expect(useFloatingPanelState.getState().position).toBeNull()
 
-    // Advance past the slide delay.
+    // Advance past the slide delay (300ms for performReposition to run) +
+    // rAF deferral (jsdom's rAF is implemented as a ~16ms timer) so the
+    // position write committed inside requestAnimationFrame is observable.
     act(() => {
       vi.advanceTimersByTime(300)
     })
-
-    // performDock has now committed all three side effects together:
+    // performReposition has run: receipt is committed, isAutoRepositioning
+    // is true, but position is still pending the rAF.
     expect(useTransitionReceipt.getState().receipt).toBe('model-drafted')
-    expect(useFloatingPanelState.getState().isOpen).toBe(false)
+    expect(useFloatingPanelState.getState().isAutoRepositioning).toBe(true)
+    // Flush the rAF + the 450ms clear timeout that owner-clears the flag.
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+
+    // All four side effects now committed:
+    //   - receipt fired
+    //   - Analysis tab activated (forceActivateOutputTab → version++)
+    //   - floating panel stays OPEN, position set to a bottom-right anchor
+    //   - isAutoRepositioning has been owner-cleared after the slide window
+    expect(useTransitionReceipt.getState().receipt).toBe('model-drafted')
+    expect(useFloatingPanelState.getState().isOpen).toBe(true)
     expect(useUIStore.getState().activeOutputTab).toBe('results')
     expect(useUIStore.getState().activeOutputTabVersion).toBe(1)
+    expect(useFloatingPanelState.getState().isAutoRepositioning).toBe(false)
+    // Position is now set (was null before) and exactly equals the
+    // dock-aware bottom-right anchor. This proves the rAF-deferred write
+    // inside performAutoReposition actually ran — not just that some
+    // value landed.
+    // jsdom default viewport: 1024×768. Default panel size: 400×550.
+    // dockInset = 0 (no aria-label="Outputs dock" in this test render).
+    //   anchorRaw.x = 1024 - 0 - 400 - 16 = 608
+    //   anchorRaw.y = 768 - 550 - 16 = 202
+    // clampPositionToViewport leaves both unchanged (both within margins).
+    const pos = useFloatingPanelState.getState().position
+    expect(pos).toEqual({ x: 608, y: 202 })
+    // userRepositioned must NOT flip — automatic reposition uses direct
+    // setState, not the setPosition setter, so canAutoDock on subsequent
+    // transitions still respects the system-vs-user origin.
+    expect(useFloatingPanelState.getState().userRepositioned).toBe(false)
   })
 
-  it('does NOT trigger the receipt when userRepositioned blocks auto-dock', () => {
+  it('does NOT trigger the receipt when userRepositioned blocks auto-reposition', () => {
     vi.useFakeTimers()
     const { rerender } = driveUserSubmittedViaFirstUse()
 
@@ -201,7 +241,7 @@ describe('FirstUseComposer — auto-dock fires the transition receipt (gap #1)',
 })
 
 describe('FirstUseComposer — reduced motion (gap #3)', () => {
-  it('auto-docks synchronously without the 300 ms slide delay when prefers-reduced-motion is set', () => {
+  it('auto-repositions synchronously without the 300 ms slide delay when prefers-reduced-motion is set', () => {
     reducedMotionState.value = true
     // Critical: use REAL timers. The reduced-motion branch should not call
     // setTimeout at all — if it does, the test would still pass under fake
@@ -217,11 +257,14 @@ describe('FirstUseComposer — reduced motion (gap #3)', () => {
     })
     rerender(<FirstUseComposer onCogClick={() => {}} />)
 
-    // No setTimeout means all three side effects commit synchronously.
+    // No setTimeout means all side effects commit synchronously: receipt
+    // shows, Analysis tab activated, floating panel stays open and is
+    // repositioned to bottom-right.
     expect(useTransitionReceipt.getState().receipt).toBe('model-drafted')
-    expect(useFloatingPanelState.getState().isOpen).toBe(false)
+    expect(useFloatingPanelState.getState().isOpen).toBe(true)
     expect(useUIStore.getState().activeOutputTab).toBe('results')
     expect(useUIStore.getState().activeOutputTabVersion).toBe(1)
+    expect(useFloatingPanelState.getState().position).not.toBeNull()
   })
 })
 
@@ -242,8 +285,8 @@ describe('FirstUseComposer — responsive width (P1.2)', () => {
   })
 })
 
-describe('FirstUseComposer — focused start card (UX correction P0.4)', () => {
-  it('uses the concise guidance copy and content-fit height', () => {
+describe('FirstUseComposer — welcome hero (round-3 UX correction)', () => {
+  it('uses the concise guidance copy and hero min-height', () => {
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
     const dialog = screen.getByTestId('first-use-composer') as HTMLElement
 
@@ -256,21 +299,59 @@ describe('FirstUseComposer — focused start card (UX correction P0.4)', () => {
       screen.queryByText(/Describe your decision, the options you're weighing/i),
     ).toBeNull()
 
-    // Content-fit: the dialog has `min-height` (not a fixed `height`).
-    // jsdom can't evaluate the layout but the inline style proves the
-    // chosen sizing strategy.
+    // Hero min-height: 460px floor so the welcome surface reads as a
+    // prominent invitation rather than a small utility panel. The cap is
+    // 70vh (max-height) so it never dominates tall screens.
     const style = dialog.getAttribute('style') ?? ''
-    expect(style).toMatch(/min-height:\s*108px/i)
+    expect(style).toMatch(/min-height:\s*460px/i)
+    expect(style).toMatch(/max-height:\s*70vh/i)
     expect(style).not.toMatch(/(^|[^-])height:\s*\d+px/i)
+  })
+
+  it('renders the welcome heading "What are you deciding?"', () => {
+    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    const heading = screen.getByTestId('first-use-heading')
+    expect(heading).toBeInTheDocument()
+    expect(heading.textContent).toBe('What are you deciding?')
+    expect(heading.tagName).toBe('H2')
+  })
+
+  it('renders the six ambient drift shapes behind the hero content', () => {
+    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    const shapeContainer = screen.getByTestId('first-use-ambient-shapes')
+    expect(shapeContainer).toBeInTheDocument()
+    expect(shapeContainer.getAttribute('aria-hidden')).toBe('true')
+    // Six shapes — goal, decision, option, factor, risk, outcome.
+    const kinds = Array.from(shapeContainer.querySelectorAll('[data-shape]'))
+      .map((el) => el.getAttribute('data-shape'))
+    expect(kinds.sort()).toEqual(
+      ['decision', 'factor', 'goal', 'option', 'outcome', 'risk'],
+    )
+  })
+
+  it('renders the Olumi logo as decorative imagery above the heading', () => {
+    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    const dialog = screen.getByTestId('first-use-composer')
+    const img = dialog.querySelector('img[src*="olumi-logo"]') as HTMLImageElement | null
+    expect(img).not.toBeNull()
+    // Logo is decorative — heading carries the semantic label.
+    expect(img?.getAttribute('aria-hidden')).toBe('true')
+  })
+
+  it('uses the welcome variant of AIInputBar (three visible lines at rest)', () => {
+    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    const textarea = screen.getByTestId('first-use-input-bar-textarea') as HTMLTextAreaElement
+    // Welcome variant sets minHeight: 18 * 3 + 16 = 70px.
+    expect(textarea.style.minHeight).toBe('70px')
   })
 
   it('does NOT render prompt-suggestion chips (explicitly excluded)', () => {
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
     expect(screen.queryByTestId('suggested-chips')).toBeNull()
-    // Defensive: no buttons claiming to seed a prompt suggestion.
+    // Defensive: no buttons claiming to seed a prompt suggestion. The hero
+    // has only the AIInputBar's cog + send buttons.
     const dialog = screen.getByTestId('first-use-composer')
     const buttons = dialog.querySelectorAll('button')
-    // Only the AIInputBar's cog + send buttons may be present.
     const labels = Array.from(buttons).map((b) => b.getAttribute('aria-label') ?? '')
     expect(labels.every((l) => /^(Settings|Send)$/.test(l))).toBe(true)
   })
@@ -382,7 +463,7 @@ describe('FirstUseComposer — auto-dock does NOT misfire on hydration/import (r
     expect(useUIStore.getState().activeOutputTabVersion).toBe(0)
   })
 
-  it('AUTO-DOCKS when the user submits BEFORE nodes appear (the legitimate first-use path)', () => {
+  it('AUTO-REPOSITIONS when the user submits BEFORE nodes appear (the legitimate first-use path)', () => {
     vi.useFakeTimers()
     const { rerender } = driveUserSubmittedViaFirstUse()
     // onAfterSend has flipped userSentFromFirstUseRef. Now graph builds.
@@ -390,14 +471,87 @@ describe('FirstUseComposer — auto-dock does NOT misfire on hydration/import (r
       canvasMockState.nodes = [{ id: 'n1' }, { id: 'n2' }]
     })
     rerender(<FirstUseComposer onCogClick={() => {}} />)
+    // 300ms slide trigger + 16ms rAF + 450ms owner-clear → 800ms total to
+    // observe the full reposition completion.
     act(() => {
-      vi.advanceTimersByTime(300)
+      vi.advanceTimersByTime(800)
     })
 
-    // Auto-dock fires — proves the explicit-signal guard does not break the
-    // legitimate first-use path.
+    // Auto-reposition fires — proves the explicit-signal guard does not
+    // break the legitimate first-use path. Floating stays OPEN (round-3
+    // change from auto-close to auto-reposition).
     expect(useTransitionReceipt.getState().receipt).toBe('model-drafted')
-    expect(useFloatingPanelState.getState().isOpen).toBe(false)
+    expect(useFloatingPanelState.getState().isOpen).toBe(true)
+    expect(useFloatingPanelState.getState().position).not.toBeNull()
     expect(useUIStore.getState().activeOutputTabVersion).toBe(1)
+  })
+})
+
+describe('FirstUseComposer — canvas reset debounce (round-3 robustness)', () => {
+  // Round-3 raised concern: the reset effect was firing on any N→0
+  // transition, including transient hydration/import clears where the
+  // canvas store briefly reports zero nodes before the new graph
+  // populates. The debounce waits 500ms and re-reads live state — if a
+  // new graph has already loaded, the reset is treated as transient and
+  // skipped.
+  //
+  // Tests start with a NON-empty canvas so the one-shot initial auto-open
+  // guard (`hasAutoOpenedRef`) doesn't fire on mount and conflate the
+  // reset re-engage with the initial open. The floating panel's source is
+  // pre-flipped to 'user' so we can observe whether the reset effect
+  // flips it back to 'system-first-use'.
+
+  it('does NOT re-engage the hero when nodes re-populate within the debounce window (transient hydration)', () => {
+    vi.useFakeTimers()
+    // Initial state: canvas has nodes (skips initial auto-open). Floating
+    // panel was previously opened by the user (so source='user').
+    canvasMockState.nodes = [{ id: 'n1' }, { id: 'n2' }]
+    useFloatingPanelState.getState().open('user')
+    const { rerender } = render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    expect(useFloatingPanelState.getState().source).toBe('user')
+
+    // Transient: nodes briefly clear (scenario switch / import).
+    act(() => {
+      canvasMockState.nodes = []
+    })
+    rerender(<FirstUseComposer onCogClick={() => {}} />)
+    // ...then repopulate before the 500ms debounce expires.
+    act(() => {
+      vi.advanceTimersByTime(200)
+      canvasMockState.nodes = [{ id: 'n3' }]
+    })
+    rerender(<FirstUseComposer onCogClick={() => {}} />)
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+
+    // The debounce checks live state — nodeCount === 1 so re-engage is
+    // skipped. Source stays 'user' (not flipped back to 'system-first-use'
+    // by the reset effect).
+    expect(useFloatingPanelState.getState().source).toBe('user')
+  })
+
+  it('DOES re-engage the hero when nodes stay at 0 past the debounce window (intentional reset)', () => {
+    vi.useFakeTimers()
+    // Initial state: canvas has nodes, floating was opened by user.
+    canvasMockState.nodes = [{ id: 'n1' }]
+    useFloatingPanelState.getState().open('user')
+    const { rerender } = render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    expect(useFloatingPanelState.getState().source).toBe('user')
+
+    // Intentional canvas reset: nodes clear and stay cleared.
+    act(() => {
+      canvasMockState.nodes = []
+    })
+    rerender(<FirstUseComposer onCogClick={() => {}} />)
+    // Past the debounce window with zero nodes still live.
+    act(() => {
+      vi.advanceTimersByTime(600)
+    })
+
+    // The debounce confirmed empty state — re-engage fired and flipped
+    // source back to 'system-first-use' so the hero re-appears.
+    expect(useFloatingPanelState.getState().isOpen).toBe(true)
+    expect(useFloatingPanelState.getState().source).toBe('system-first-use')
   })
 })
