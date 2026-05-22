@@ -77,10 +77,25 @@ function HeroInputRow({ row, dispatchRowAction, chatPrefillAvailable }: HeroInpu
       <div className="flex items-start gap-3 justify-between">
         <div className="flex flex-col gap-1 min-w-0 flex-1">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${CATEGORY_DOT_CLASS[row.category]}`} aria-hidden="true" />
-            <p className={`${typography.panelHeader} text-text-header truncate min-w-0 flex-1`} title={row.title}>{row.title}</p>
+            <span
+              className={`w-2 h-2 rounded-full flex-shrink-0 ${CATEGORY_DOT_CLASS[row.category]}`}
+              aria-hidden="true"
+              data-testid="hero-v17-row-dot"
+            />
+            <p
+              className={`${typography.panelHeader} text-text-header truncate min-w-0 flex-1`}
+              title={row.title}
+              data-testid="hero-v17-row-title"
+            >
+              {row.title}
+            </p>
           </div>
-          <p className={`${typography.panelBody} text-text-body line-clamp-2`}>{row.reason}</p>
+          <p
+            className={`${typography.panelBody} text-text-body line-clamp-2`}
+            data-testid="hero-v17-row-reason"
+          >
+            {row.reason}
+          </p>
         </div>
         <HeroActionRow
           actions={row.actions}

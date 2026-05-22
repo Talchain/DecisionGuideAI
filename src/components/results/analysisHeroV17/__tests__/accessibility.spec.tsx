@@ -164,15 +164,19 @@ describe('AnalysisHeroV17 — accessibility', () => {
     const rowRoot = screen.getByTestId('hero-v17-input-rows')
     // Each visible row has a category dot (aria-hidden span carrying
     // the colour class) — non-colour signal is the verb-led title.
+    // Targets the stable hero-v17-row-dot and hero-v17-row-title test
+    // IDs rather than first-`<p>` / first-`span[aria-hidden]` selectors,
+    // which would have matched arbitrary DOM nodes if the row markup
+    // evolved.
     const rows = rowRoot.querySelectorAll('article')
     expect(rows.length).toBeGreaterThan(0)
     for (const row of Array.from(rows)) {
       // Dot present (colour channel for sighted users).
-      const dot = row.querySelector('span[aria-hidden="true"]')
+      const dot = row.querySelector('[data-testid="hero-v17-row-dot"]')
       expect(dot).toBeTruthy()
       // Verb-led title present (text channel — encodes category for
       // colour-blind / screen-reader users without depending on hue).
-      const titleEl = row.querySelector('p')
+      const titleEl = row.querySelector('[data-testid="hero-v17-row-title"]')
       const titleText = titleEl?.textContent ?? ''
       const startsWithVerb = /^(Verify|Challenge|Add)\s+/.test(titleText)
         || titleText === 'Add an alternative option'

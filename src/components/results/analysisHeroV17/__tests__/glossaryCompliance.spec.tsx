@@ -145,8 +145,11 @@ describe('AnalysisHeroV17 — glossary compliance (VM output)', () => {
       acc.push(r.title, r.reason, r.priority, r.chatPrompt)
     }
     vm.alsoLinks.forEach(a => { acc.push(a.label); acc.push(a.chatPrompt) })
-    vm.footerChecks.forEach(c => acc.push(c.label))
-    acc.push(vm.footerHint, vm.footerCta.label, vm.footerCta.chatPrompt)
+    // `footerChecks` + `footerHint` are deprecated (no longer rendered
+    // by HeroFooter post 2026-05-21 corrections pass). They remain on
+    // the VM with @deprecated JSDoc, but are not user-visible copy and
+    // should not be scanned by the user-visible-copy glossary sweep.
+    acc.push(vm.footerCta.label, vm.footerCta.chatPrompt)
     return acc
   }
 
@@ -443,8 +446,10 @@ describe('AnalysisHeroV17 — comprehensive banned-term sweep through user label
       acc.push(r.reason, r.priority, r.chatPrompt)
     }
     vm.alsoLinks.forEach(a => { acc.push(a.label); acc.push(a.chatPrompt) })
-    vm.footerChecks.forEach(c => acc.push(c.label))
-    acc.push(vm.footerHint, vm.footerCta.label, vm.footerCta.chatPrompt)
+    // `footerChecks` + `footerHint` are deprecated (no longer rendered
+    // post 2026-05-21 corrections pass) — see the parallel helper above
+    // for the same skip.
+    acc.push(vm.footerCta.label, vm.footerCta.chatPrompt)
     return acc
   }
 

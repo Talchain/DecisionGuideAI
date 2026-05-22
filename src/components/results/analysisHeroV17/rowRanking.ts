@@ -114,15 +114,29 @@ function actionsForCategory(category: RowCategory, hasTarget: boolean): RowActio
   }
 }
 
-/** Glossary-aligned reason copy template. Ground → Propose. */
+/**
+ * Glossary-aligned reason copy template. Ground → Propose.
+ *
+ * 2026-05-21 correction pass: the `${band} evidence priority. ` lede was
+ * removed alongside the priority pill + mini-bar. Row order communicates
+ * priority; the reason explains why the row matters, not what its band
+ * is. Without this change, evidence rows still emitted
+ *   "High evidence priority. Check whether this estimate matches your
+ *    experience."
+ * which preserved the priority-band vocabulary the pill removal was
+ * meant to retire.
+ *
+ * `band` is still passed through (used by downstream
+ * `priority`/`priorityWidth` fields on the row VM, retained for forward-
+ * compat with tests that exercise the data layer), but it no longer
+ * influences the rendered reason copy.
+ */
 function buildReason(
-  category: RowCategory,
-  band: PriorityBand,
+  _category: RowCategory,
+  _band: PriorityBand,
   ground: string,
 ): string {
-  // Ground → Propose minimum. Band labelled per glossary §8.
-  const priorityLede = band === 'Ready' ? '' : `${band} evidence priority. `
-  return `${priorityLede}${ground}`.trim()
+  return ground.trim()
 }
 
 /**
