@@ -131,9 +131,15 @@ function buildReason(
  * phrase BEFORE interpolation. The row's own `title` field still preserves
  * the user's exact label — we do not rewrite user data, only the
  * generated prompt that names it.
+ *
+ * Defensive guard (2026-05-21 self-review): trim the label and fall back
+ * to the generic phrase when the cleaned label is empty. `safeRowLabel`
+ * only filters banned terms, so whitespace-only inputs would otherwise
+ * pass through and produce `"Help me with    ."`.
  */
 function chatPromptFor(title: string, fallback = 'this factor'): string {
-  const safe = safeRowLabel(title, fallback)
+  const trimmed = (title ?? '').trim()
+  const safe = trimmed ? safeRowLabel(trimmed, fallback) : fallback
   return `Help me with ${safe}. Ask one focused question first, then suggest the smallest useful update.`
 }
 

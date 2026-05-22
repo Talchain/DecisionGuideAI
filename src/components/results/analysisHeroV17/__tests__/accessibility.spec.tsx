@@ -138,7 +138,22 @@ describe('AnalysisHeroV17 — accessibility', () => {
     expect(screen.getByTestId('hero-v17-hidden-rows')).toBeInTheDocument()
   })
 
-  it('input rows expose category via both colour dot AND text label (colour is never the only signal)', () => {
+  it('input rows expose category via colour dot AND verb-led title (colour is never the only signal)', () => {
+    // Updated contract (2026-05-21 corrections pass): priority text
+    // labels were removed alongside the mini-bar. Category is now
+    // conveyed by:
+    //   1. The category dot (visible, accessible via the row's testid),
+    //      keyed by `CATEGORY_DOT_CLASS[row.category]`.
+    //   2. The verb-led title ("Verify ...", "Challenge ...", "Add ...")
+    //      which encodes the category intent in plain language.
+    //   3. The row reason copy.
+    //
+    // Note on the prior test: it asserted `/High|Medium|Low|Ready/`
+    // appeared in row text and was passing accidentally because
+    // `buildReason` produces `"High evidence priority. ..."` strings —
+    // i.e. the band literal was inside the reason copy, NOT in a
+    // priority pill. That signal is no longer load-bearing for
+    // category communication.
     render(
       <AnalysisHeroV17
         data={makeData({ stability: 0.7, gaps: [gap('Cost', 'n_c', 0.6)] })}
@@ -146,12 +161,49 @@ describe('AnalysisHeroV17 — accessibility', () => {
         fragileEdgeCount={0}
       />,
     )
-    // Every visible row carries a priority text label inside its priority span.
     const rowRoot = screen.getByTestId('hero-v17-input-rows')
-    const priorityText = rowRoot.textContent ?? ''
-    // At least one of the band labels must appear.
-    const hasBandLabel = /High|Medium|Low|Ready/.test(priorityText)
-    expect(hasBandLabel).toBe(true)
+    // Each visible row has a category dot (aria-hidden span carrying
+    // the colour class) — non-colour signal is the verb-led title.
+    const rows = rowRoot.querySelectorAll('article')
+    expect(rows.length).toBeGreaterThan(0)
+    for (const row of Array.from(rows)) {
+      // Dot present (colour channel for sighted users).
+      const dot = row.querySelector('span[aria-hidden="true"]')
+      expect(dot).toBeTruthy()
+      // Verb-led title present (text channel — encodes category for
+      // colour-blind / screen-reader users without depending on hue).
+      const titleEl = row.querySelector('p')
+      const titleText = titleEl?.textContent ?? ''
+      const startsWithVerb = /^(Verify|Challenge|Add)\s+/.test(titleText)
+        || titleText === 'Add an alternative option'
+        || titleText === 'Create decision brief'
+      expect(startsWithVerb, `Row title "${titleText}" should be verb-led`).toBe(true)
+    }
+  })
+
+  it('input rows do NOT render a priority text pill (anti-drift on the removed channel)', () => {
+    // Sibling guard for the contract above: the prior priority pill
+    // (`<span title="Evidence priority">{High|Medium|Low|Ready}</span>`)
+    // is absent. This protects against accidental resurrection of the
+    // removed channel — the reason text containing words like "High
+    // evidence priority" is allowed (that's reason copy), but no span
+    // should hold ONLY a bare band label.
+    render(
+      <AnalysisHeroV17
+        data={makeData({ stability: 0.7, gaps: [gap('Cost', 'n_c', 0.6)] })}
+        vm={makeVm()}
+        fragileEdgeCount={0}
+      />,
+    )
+    const rowRoot = screen.getByTestId('hero-v17-input-rows')
+    // No tooltip-equipped priority span.
+    expect(rowRoot.querySelector('span[title="Evidence priority"]')).toBeNull()
+    // No span whose entire text content equals a bare band label.
+    const spans = rowRoot.querySelectorAll('span')
+    for (const s of Array.from(spans)) {
+      const t = (s.textContent ?? '').trim()
+      expect(['High', 'Medium', 'Low', 'Ready']).not.toContain(t)
+    }
   })
 
   it('legend list (4 dimension labels) renders visible text alongside coloured dots', () => {
@@ -182,26 +234,9 @@ describe('AnalysisHeroV17 — accessibility', () => {
     expect(ctx.className).not.toMatch(/(^|\s)(p-|px-|py-|pt-|pb-)\d/)
   })
 
-  it('row markup does not render priority text pill or mini-bar', () => {
-    render(
-      <AnalysisHeroV17
-        data={makeData({ stability: 0.7, gaps: [gap('Cost', 'n_c', 0.5)] })}
-        vm={makeVm()}
-        fragileEdgeCount={0}
-      />,
-    )
-    const rowRoot = screen.getByTestId('hero-v17-input-rows')
-    // No tooltip-equipped priority pill span (previous container carried
-    // `title="Evidence priority"`).
-    const priorityPill = rowRoot.querySelector('span[title="Evidence priority"]')
-    expect(priorityPill).toBeNull()
-    // Spans inside rows must NOT carry only the band-name text content.
-    const spans = rowRoot.querySelectorAll('span')
-    for (const s of Array.from(spans)) {
-      const t = (s.textContent ?? '').trim()
-      expect(['High', 'Medium', 'Low', 'Ready']).not.toContain(t)
-    }
-  })
+  // (priority-pill anti-drift consolidated into the "input rows do NOT
+  // render a priority text pill" assertion higher up — keeping just one
+  // anti-drift test to avoid duplicate coverage)
 
   it('footer does not render the 4-check row (Result clear / Stability / Evidence / Framing)', () => {
     render(

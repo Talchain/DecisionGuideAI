@@ -13,7 +13,7 @@ import {
 import type { ElementType } from 'react'
 import type { IconBtn } from '@/canvas/components/pre-analysis/primitives/IconBtn'
 import type {
-  DimensionSegment, HeroRow, FooterCheck, RowAction,
+  DimensionSegment, HeroRow, RowAction,
 } from './analysisHeroVM.types'
 
 export const STRIP_FILL_CLASS: Record<DimensionSegment['token'], string> = {
@@ -41,14 +41,9 @@ export const CATEGORY_DOT_CLASS: Record<HeroRow['category'], string> = {
   ready: 'bg-success',
 }
 
-export const PRIORITY_FILL_CLASS: Record<HeroRow['category'], string> = CATEGORY_DOT_CLASS
-
-export const FOOTER_CHECK_CLASS: Record<FooterCheck['tone'], string> = {
-  ok: 'text-success',
-  warn: 'text-warning',
-  danger: 'text-danger',
-  reflect: 'text-option',
-}
+// `PRIORITY_FILL_CLASS` and `FOOTER_CHECK_CLASS` were removed in the
+// 2026-05-21 correction pass alongside the priority-pill mini-bar and
+// the footer-checks block. No remaining renderer consumes them.
 
 interface ActionIconDef {
   Icon: ElementType

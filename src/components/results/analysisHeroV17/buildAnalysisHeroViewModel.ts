@@ -3,13 +3,13 @@
  *
  * Source of truth: docs/investigations/analysis-hero-v17.md §9–§11
  * (initial) + docs/investigations/analysis-hero-v17-top-section.md
- * (2026-05-21 top-section optimisation pass).
+ * (2026-05-21 top-section optimisation passes).
  *
  * This function is pure and deterministic. The component must consume the
  * VM and render — no further computation in JSX. State selection lives in
- * `stateSelection.ts`; row ranking + category lives in `rowRanking.ts`;
- * this module wires them together and resolves the key question, dimensions,
- * dependency line, footer checks, and CTA.
+ * `stateSelection.ts`; row ranking + category + verb-led title composition
+ * lives in `rowRanking.ts`; this module wires them together and resolves
+ * the key question, dimensions, dependency line, and CTA.
  *
  * v1 fallbacks (per Paul's approved direction):
  *   - The fourth strip segment is labelled "Verified" (not "User input")
@@ -26,11 +26,25 @@
  *   - Result line uses probabilistic framing: "{label} comes out ahead
  *     most often." A dependency line "The result depends most on {factor}."
  *     renders below only when `recommendation.dominantFactor*` is populated
- *     AND a matching driver has `normalisedInfluence >= 0.5` (corroboration
- *     against the same threshold PLoT B1 uses internally — suppresses
- *     low-confidence M1 emissions and tie cases).
- *   - Stability/evidence meta pills were removed entirely; those signals
- *     surface in `footerChecks` instead.
+ *     AND the named factor IS the rank-1 driver AND a dominance check
+ *     passes: prefer `influenceScore >= 0.5` (absolute ISL structural
+ *     causal influence) when present, else require `top1/top2
+ *     normalisedInfluence ratio >= 2.0` (the same 2:1 threshold the
+ *     legacy heuristic uses internally, applied here as a guard not a
+ *     selector). Suppresses low-confidence M1 emissions and tie cases.
+ *     See `buildDependencyLine` below for the full gate.
+ *   - Stability/evidence meta pills were removed entirely. The
+ *     `footerChecks` and `footerHint` VM fields are also no longer
+ *     rendered by HeroFooter (corrections pass) — they remain on the VM
+ *     with `@deprecated` JSDoc, scheduled for removal in the next major
+ *     VM bump. Stability + evidence signals continue to surface via the
+ *     readiness colour-strip at the top of the hero.
+ *   - Row titles are verb-led ("Verify {factor}", "Challenge {bias type}",
+ *     "Add an alternative option"); see `verbLeadTitle` in rowRanking.ts.
+ *     User labels are preserved verbatim after the verb prefix.
+ *   - Footer CTA (moderate state only) mirrors Row 1 via a cleaned
+ *     `targetLabel` derived from Row 1's verb-led title; weak / reflect /
+ *     strong keep state-specific CTAs. See `buildFooterCta` below.
  *   - Key-question card renders only when a real `m2DecisionQualityPrompts[0]`
  *     is present, `reviewStatus === 'complete'`, and the prompt passes the
  *     glossary gate. No category-driven template fallback — generic
