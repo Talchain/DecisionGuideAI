@@ -40,6 +40,51 @@ function bandFromVoi(voi: number | null | undefined): { band: PriorityBand; widt
 }
 
 /**
+ * Verb-led title composition.
+ *
+ * Row TITLES preserve the user's verbatim label (`gap.factorLabel`,
+ * `fragile.fromLabel`, `f.type`) — we never rewrite user data. The verb
+ * is prepended; the underlying user-supplied string flows through
+ * unchanged. The TITLE field is the only place this preservation applies;
+ * generated copy (reason, chatPrompt) still uses `safeRowLabel`.
+ *
+ * Verb mapping (locked 2026-05-21):
+ *   evidence / risk / causal  →  Verify  (estimate to check)
+ *   reflect                    →  Challenge  (framing / result challenge)
+ *   coverage                   →  Add  (missing structural element — special-cased)
+ *   ready                      →  (existing imperative literal — no prefix)
+ *
+ * Validate ("evidence/source to validate") is documented but unused; no
+ * current row category resolves to a citable-source shape. Add the branch
+ * when an explicit evidence-source row exists.
+ */
+function verbLeadTitle(category: RowCategory, label: string): string {
+  // Defensive: never compose a prefix-with-empty-label like "Verify "
+  // (trailing space, no factor name). Generic fallbacks below produce
+  // sensible copy if upstream data is degenerate. In normal data,
+  // factor labels are always non-empty by the time we reach a row
+  // builder, so these fallbacks are belt-and-braces.
+  const trimmed = (label ?? '').trim()
+  switch (category) {
+    case 'evidence':
+    case 'risk':
+    case 'causal':
+      return trimmed ? `Verify ${trimmed}` : 'Verify this factor'
+    case 'reflect':
+      return trimmed ? `Challenge ${trimmed}` : 'Challenge this assumption'
+    case 'coverage':
+      // The coverage row's underlying source isn't a noun phrase that
+      // composes with "Add " (the literal was 'Option coverage'), so
+      // substitute a verb-led title. No user data is interpolated here.
+      return 'Add an alternative option'
+    case 'ready':
+      // Existing 'Create decision brief' is already imperative — keep
+      // the row builder's literal verbatim.
+      return label
+  }
+}
+
+/**
  * Action set per row category. Right-aligned cluster on every row.
  *
  * (Fix 4) Standardised ordering: positions 1-2 are always `ai` + `discuss`,
@@ -69,15 +114,29 @@ function actionsForCategory(category: RowCategory, hasTarget: boolean): RowActio
   }
 }
 
-/** Glossary-aligned reason copy template. Ground → Propose. */
+/**
+ * Glossary-aligned reason copy template. Ground → Propose.
+ *
+ * 2026-05-21 correction pass: the `${band} evidence priority. ` lede was
+ * removed alongside the priority pill + mini-bar. Row order communicates
+ * priority; the reason explains why the row matters, not what its band
+ * is. Without this change, evidence rows still emitted
+ *   "High evidence priority. Check whether this estimate matches your
+ *    experience."
+ * which preserved the priority-band vocabulary the pill removal was
+ * meant to retire.
+ *
+ * `band` is still passed through (used by downstream
+ * `priority`/`priorityWidth` fields on the row VM, retained for forward-
+ * compat with tests that exercise the data layer), but it no longer
+ * influences the rendered reason copy.
+ */
 function buildReason(
-  category: RowCategory,
-  band: PriorityBand,
+  _category: RowCategory,
+  _band: PriorityBand,
   ground: string,
 ): string {
-  // Ground → Propose minimum. Band labelled per glossary §8.
-  const priorityLede = band === 'Ready' ? '' : `${band} evidence priority. `
-  return `${priorityLede}${ground}`.trim()
+  return ground.trim()
 }
 
 /**
@@ -86,9 +145,15 @@ function buildReason(
  * phrase BEFORE interpolation. The row's own `title` field still preserves
  * the user's exact label — we do not rewrite user data, only the
  * generated prompt that names it.
+ *
+ * Defensive guard (2026-05-21 self-review): trim the label and fall back
+ * to the generic phrase when the cleaned label is empty. `safeRowLabel`
+ * only filters banned terms, so whitespace-only inputs would otherwise
+ * pass through and produce `"Help me with    ."`.
  */
 function chatPromptFor(title: string, fallback = 'this factor'): string {
-  const safe = safeRowLabel(title, fallback)
+  const trimmed = (title ?? '').trim()
+  const safe = trimmed ? safeRowLabel(trimmed, fallback) : fallback
   return `Help me with ${safe}. Ask one focused question first, then suggest the smallest useful update.`
 }
 
@@ -97,13 +162,12 @@ function chatPromptFor(title: string, fallback = 'this factor'): string {
 function fragileEdgeRow(data: ResultsSectionDataReturn): HeroRow | null {
   const fragile = data?.confidence?.topFragileEdge ?? data?.confidence?.m1CoachingTopFragileEdge
   if (!fragile) return null
-  const title = fragile.fromLabel
+  // Verbed display title vs. raw label for chat prompt — `chatPromptFor`
+  // uses the user's underlying label, NOT the "Verify "-prefixed title.
+  const rawLabel = fragile.fromLabel
+  const title = verbLeadTitle('risk', rawLabel)
   const { band, width } = bandFromVoi(0.6) // fragile edges are inherently high-priority
-  // Short, complete sentence — the priority bar already shows "High",
-  // so the `High evidence priority. ` lede `buildReason` would prepend
-  // pushes the visible copy to two lines and truncates mid-sentence on
-  // the current panel width. Render the bare ground string so it fits
-  // on one line as-rendered.
+  // Short, complete sentence — kept from earlier rounds.
   const reason = 'Check this first. It could change the result.'
   return {
     key: `risk-${fragile.fromId}`,
@@ -114,7 +178,7 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): HeroRow | null {
     category: 'risk',
     actions: actionsForCategory('risk', !!fragile.fromId),
     targetNodeId: fragile.fromId,
-    chatPrompt: chatPromptFor(title),
+    chatPrompt: chatPromptFor(rawLabel),
   }
 }
 
@@ -142,7 +206,9 @@ function evidenceGapRows(data: ResultsSectionDataReturn): HeroRow[] {
       : fallbackGround
     return {
       key: `evidence-${gap.factorId}`,
-      title: gap.factorLabel,
+      // Verbed display title; chatPrompt continues to interpolate the
+      // raw user label (not the "Verify "-prefixed title).
+      title: verbLeadTitle('evidence', gap.factorLabel),
       reason: buildReason('evidence', band, ground),
       priority: band,
       priorityWidth: width,
@@ -158,7 +224,10 @@ function coverageRow(data: ResultsSectionDataReturn): HeroRow | null {
   const optionCount = data?.recommendation?.allOptions?.length ?? 0
   if (optionCount >= 2) return null
   // Single-option model: coverage row prompting to add an alternative.
-  const title = 'Option coverage'
+  // `verbLeadTitle('coverage', ...)` ignores its label argument and
+  // returns the special-cased 'Add an alternative option' literal — see
+  // the verb-mapping comment above.
+  const title = verbLeadTitle('coverage', '')
   return {
     key: 'coverage-options',
     title,
@@ -187,7 +256,8 @@ function reflectRows(data: ResultsSectionDataReturn): HeroRow[] {
       : (f.description ?? 'Worth considering whether this pattern is influencing the framing.')
     return {
       key: `reflect-${i}`,
-      title: rawTitle,
+      // Verbed display title; chatPrompt continues to use the raw label.
+      title: verbLeadTitle('reflect', rawTitle),
       reason: buildReason('reflect', 'Medium', safeReason),
       priority: 'Medium' as const,
       priorityWidth: 60,

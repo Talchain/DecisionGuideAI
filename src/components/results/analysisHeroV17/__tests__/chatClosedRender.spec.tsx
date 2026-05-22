@@ -250,7 +250,26 @@ describe('AnalysisHeroV17 — chat-closed render mode', () => {
       expect(screen.queryByTestId('hero-v17-footer-cta')).toBeNull()
     })
 
-    it('moderate state CTA: VISIBLE with label "Focus key estimate" when chat is closed', () => {
+    it('weak state + chat closed: hero-v17-footer section skipped entirely (no stray border-t)', () => {
+      // Anti-drift on the self-review fix (2026-05-21): when both the
+      // also-line and the CTA are hidden, the whole <section> is
+      // skipped so the `pt-2 border-t` wrapper doesn't render an empty
+      // horizontal divider line.
+      const data: ResultsSectionDataReturn = {
+        ...makeData({ gaps: [gap('A', 'a', 0.4), gap('B', 'b', 0.3), gap('C', 'c', 0.2), gap('D', 'd', 0.1)] }),
+        recommendation: { ...makeData().recommendation, recommendedOption: null, allOptions: [] },
+      } as ResultsSectionDataReturn
+      render(
+        <AnalysisHeroV17
+          data={data}
+          vm={makeVm({ decisionState: 'indeterminate' })}
+          fragileEdgeCount={0}
+        />,
+      )
+      expect(screen.queryByTestId('hero-v17-footer')).toBeNull()
+    })
+
+    it('moderate state CTA: VISIBLE with "Focus {target}" mirror when chat is closed', () => {
       render(
         <AnalysisHeroV17
           data={makeData({ gaps: [gap('Cost', 'n_c', 0.5)] })}
@@ -259,7 +278,24 @@ describe('AnalysisHeroV17 — chat-closed render mode', () => {
         />,
       )
       const cta = screen.getByTestId('hero-v17-footer-cta')
-      expect(cta.textContent).toBe('Focus key estimate')
+      // CTA mirror policy (2026-05-21): chat-closed flips to
+      // "Focus {targetLabel}" using the cleaned Row 1 target.
+      expect(cta.textContent).toBe('Focus Cost')
+    })
+
+    it('moderate state CTA: chat-closed + no Row 1 → "Focus top estimate" fallback', () => {
+      // Moderate state with no rows: no fragile edge, no evidence gaps,
+      // 2 options, no bias findings → moderate, empty inputRows.
+      // topRow is undefined → CTA falls back to "Focus top estimate".
+      render(
+        <AnalysisHeroV17
+          data={makeData({ stability: 0.7 })}
+          vm={makeVm()}
+          fragileEdgeCount={0}
+        />,
+      )
+      const cta = screen.getByTestId('hero-v17-footer-cta')
+      expect(cta.textContent).toBe('Focus top estimate')
     })
 
     it('reflect state CTA: hidden when chat is closed (prefill-only post-Fix-9)', () => {
@@ -284,7 +320,7 @@ describe('AnalysisHeroV17 — chat-closed render mode', () => {
       expect(screen.queryByTestId('hero-v17-footer-cta')).toBeNull()
     })
 
-    it('moderate CTA flips back to "Test the result"-ish full label when chat opens', () => {
+    it('moderate CTA flips to "Check {target}" mirror when chat opens', () => {
       useGuidanceStore.setState({ _prefillChat: () => {}, _sendMessage: () => {} })
       render(
         <AnalysisHeroV17
@@ -294,7 +330,8 @@ describe('AnalysisHeroV17 — chat-closed render mode', () => {
         />,
       )
       const cta = screen.getByTestId('hero-v17-footer-cta')
-      expect(cta.textContent).toBe('Check key estimate')
+      // CTA mirror policy (2026-05-21): chat-open uses "Check {targetLabel}".
+      expect(cta.textContent).toBe('Check Cost')
     })
   })
 })

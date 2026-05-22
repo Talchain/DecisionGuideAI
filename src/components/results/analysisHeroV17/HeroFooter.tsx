@@ -1,5 +1,5 @@
 /**
- * HeroFooter — also-line + footer check glyphs + state-dependent CTA.
+ * HeroFooter — also-line + state-dependent CTA.
  *
  * No auto-send paths after Fix 9 — every state's CTA is prefill-only.
  * The caller (`AnalysisHeroV17.handleCtaClick`) dispatches through
@@ -13,20 +13,28 @@
  * surfaces hide:
  *   - Also-line is hidden entirely (every link is prefill)
  *   - Footer CTA is hidden for weak / reflect / strong states
- *   - Moderate CTA stays visible with a softer label "Focus key
- *     estimate" because its focus side-effect is still useful without
- *     chat — onFocusNode runs even when prefill no-ops.
+ *   - Moderate CTA stays visible because its focus side-effect is still
+ *     useful without chat — onFocusNode runs even when prefill no-ops.
+ *
+ * 2026-05-21 correction pass:
+ *   - Footer-checks block (Result clear / Sensitive assumption /
+ *     Evidence gaps / Framing OK) REMOVED — duplicated the readiness
+ *     strip above and added cognitive load.
+ *   - Hint line ("Check the highest-priority input") REMOVED — duplicated
+ *     Row 1.
+ *   - Chat-closed CTA label flip now mirrors the CTA's `targetLabel`
+ *     ("Focus {target}" / "Focus top estimate") so closed/open copy is
+ *     consistent and there's no per-mode rename.
+ *   - The `footerChecks` and `footerHint` props are no longer consumed by
+ *     this component; the VM fields are retained with `@deprecated` JSDoc
+ *     (data-layer surgery is out of scope for this pass).
  */
 
-import { Check, X } from 'lucide-react'
 import { typography } from '@/styles/typography'
-import type { AlsoLink, FooterCheck, FooterCta } from './analysisHeroVM.types'
-import { FOOTER_CHECK_CLASS } from './tokens'
+import type { AlsoLink, FooterCta } from './analysisHeroVM.types'
 
 interface Props {
   alsoLinks: AlsoLink[]
-  footerChecks: FooterCheck[]
-  footerHint: string
   footerCta: FooterCta
   onAlsoClick: (link: AlsoLink) => void
   onCtaClick: () => void
@@ -34,20 +42,31 @@ interface Props {
   chatPrefillAvailable: boolean
 }
 
-export function HeroFooter({ alsoLinks, footerChecks, footerHint, footerCta, onAlsoClick, onCtaClick, chatPrefillAvailable }: Props) {
-  // Also-line visibility: minimum-items rule (Fix 7) AND chat
-  // availability (Fix 6). Need both ≥ 2 safe items AND chat open.
+export function HeroFooter({ alsoLinks, footerCta, onAlsoClick, onCtaClick, chatPrefillAvailable }: Props) {
+  // Also-line visibility: minimum-items rule AND chat availability.
   const showAlsoLine = chatPrefillAvailable && alsoLinks.length >= 2
 
-  // CTA visibility (Fix 6):
+  // CTA visibility:
   //   - moderate (check-key-estimate): always visible; focus side-effect
-  //     remains useful without chat. Label flips to "Focus key estimate"
+  //     remains useful without chat. Label flips to a "Focus" variant
   //     when chat is closed.
   //   - all other states: prefill-only — hide when chat is closed.
   const showCta = chatPrefillAvailable || footerCta.kind === 'check-key-estimate'
+
+  // Chat-closed label flip — mirrors the cleaned target derived in
+  // buildFooterCta. `targetLabel` is `null` for non-mirroring states or
+  // when Row 1's underlying label was unsafe / non-Verify; in that case
+  // we fall back to "Focus top estimate" (parallel to "Check top
+  // estimate" in chat-open mode).
   const ctaLabel = !chatPrefillAvailable && footerCta.kind === 'check-key-estimate'
-    ? 'Focus key estimate'
+    ? (footerCta.targetLabel ? `Focus ${footerCta.targetLabel}` : 'Focus top estimate')
     : footerCta.label
+
+  // Skip the whole section when neither child would render. Without
+  // this guard, weak / reflect / strong states with chat closed (CTA
+  // hidden, also-line hidden) would still emit the `pt-2 border-t`
+  // wrapper — a stray horizontal divider line with no content.
+  if (!showAlsoLine && !showCta) return null
 
   return (
     <section className="flex flex-col gap-2 pt-2 border-t border-panel-border" data-testid="hero-v17-footer">
@@ -68,23 +87,8 @@ export function HeroFooter({ alsoLinks, footerChecks, footerHint, footerCta, onA
           ))}
         </div>
       )}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex flex-col gap-0.5 min-w-0">
-          <div className={`flex items-center gap-2 flex-wrap ${typography.panelMeta}`}>
-            {footerChecks.map(c => (
-              <span key={c.label} className={`inline-flex items-center gap-1 ${FOOTER_CHECK_CLASS[c.tone]}`}>
-                {c.tone === 'ok'
-                  ? <Check size={11} aria-hidden="true" />
-                  : c.tone === 'reflect'
-                    ? <span className="text-[10px]" aria-hidden="true">◌</span>
-                    : <X size={11} aria-hidden="true" />}
-                {c.label}
-              </span>
-            ))}
-          </div>
-          <p className={`${typography.panelMeta} text-text-light`}>{footerHint}</p>
-        </div>
-        {showCta && (
+      {showCta && (
+        <div className="flex items-center justify-end">
           <button
             type="button"
             onClick={onCtaClick}
@@ -93,8 +97,8 @@ export function HeroFooter({ alsoLinks, footerChecks, footerHint, footerCta, onA
           >
             {ctaLabel}
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </section>
   )
 }

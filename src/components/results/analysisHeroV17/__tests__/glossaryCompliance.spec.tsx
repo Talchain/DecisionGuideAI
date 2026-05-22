@@ -145,8 +145,11 @@ describe('AnalysisHeroV17 — glossary compliance (VM output)', () => {
       acc.push(r.title, r.reason, r.priority, r.chatPrompt)
     }
     vm.alsoLinks.forEach(a => { acc.push(a.label); acc.push(a.chatPrompt) })
-    vm.footerChecks.forEach(c => acc.push(c.label))
-    acc.push(vm.footerHint, vm.footerCta.label, vm.footerCta.chatPrompt)
+    // `footerChecks` + `footerHint` are deprecated (no longer rendered
+    // by HeroFooter post 2026-05-21 corrections pass). They remain on
+    // the VM with @deprecated JSDoc, but are not user-visible copy and
+    // should not be scanned by the user-visible-copy glossary sweep.
+    acc.push(vm.footerCta.label, vm.footerCta.chatPrompt)
     return acc
   }
 
@@ -168,8 +171,10 @@ describe('AnalysisHeroV17 — glossary compliance (VM output)', () => {
       vm: makeVm(),
       ...HERO_DEFAULTS,
     })
-    // Row title preserves the user's label — we do not rewrite user data.
-    expect(vm.inputRows[0].title).toBe('the winning team')
+    // Row title preserves the user's label after the Verify prefix
+    // (2026-05-21 corrections pass) — we do not rewrite user data, we
+    // only prepend a verb.
+    expect(vm.inputRows[0].title).toBe('Verify the winning team')
     // No DQP is present in this fixture, so the card is hidden — the
     // templated fallback was removed (2026-05-21). The banned-term-in-label
     // never reaches the key-question text because that path no longer exists.
@@ -441,8 +446,10 @@ describe('AnalysisHeroV17 — comprehensive banned-term sweep through user label
       acc.push(r.reason, r.priority, r.chatPrompt)
     }
     vm.alsoLinks.forEach(a => { acc.push(a.label); acc.push(a.chatPrompt) })
-    vm.footerChecks.forEach(c => acc.push(c.label))
-    acc.push(vm.footerHint, vm.footerCta.label, vm.footerCta.chatPrompt)
+    // `footerChecks` + `footerHint` are deprecated (no longer rendered
+    // post 2026-05-21 corrections pass) — see the parallel helper above
+    // for the same skip.
+    acc.push(vm.footerCta.label, vm.footerCta.chatPrompt)
     return acc
   }
 
@@ -460,9 +467,14 @@ describe('AnalysisHeroV17 — comprehensive banned-term sweep through user label
         ...HERO_DEFAULTS,
       })
 
-      // Row title preserves the user's label verbatim — we never rewrite
-      // user data. That's intentional.
-      expect(vm.inputRows[0].title).toBe(factorLabel)
+      // Row title preserves the user's label verbatim AFTER the verb
+      // prefix (2026-05-21 corrections pass): risk/evidence/causal rows
+      // are prepended with "Verify ". We never rewrite the user's label,
+      // we only prepend a verb. The user-data preservation guarantee is
+      // unchanged — the factor label still flows through unchanged as the
+      // suffix of the title.
+      expect(vm.inputRows[0].title).toBe(`Verify ${factorLabel}`)
+      expect(vm.inputRows[0].title.endsWith(factorLabel)).toBe(true)
 
       // But every piece of GENERATED copy must be clean of the banned term.
       const offenders: Array<{ field: string; text: string }> = []

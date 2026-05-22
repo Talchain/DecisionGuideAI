@@ -101,10 +101,11 @@ describe('rankHeroRows', () => {
       'moderate',
     )
     expect(rows[0].category).toBe('risk')
-    expect(rows[0].title).toBe('Hiring rate')
+    // Verb-led title (2026-05-21 corrections): risk → 'Verify {raw label}'.
+    expect(rows[0].title).toBe('Verify Hiring rate')
   })
 
-  it('evidence gaps sorted by VOI descending', () => {
+  it('evidence gaps sorted by VOI descending — titles carry the Verify prefix', () => {
     const rows = rankHeroRows(
       makeData({
         gaps: [
@@ -115,7 +116,11 @@ describe('rankHeroRows', () => {
       }),
       'moderate',
     )
-    expect(rows.map(r => r.title)).toEqual(['High priority', 'Mid priority', 'Low priority'])
+    expect(rows.map(r => r.title)).toEqual([
+      'Verify High priority',
+      'Verify Mid priority',
+      'Verify Low priority',
+    ])
   })
 
   it('VOI band: ≥0.5 → High, ≥0.2 → Medium, else Low', () => {
@@ -157,9 +162,11 @@ describe('rankHeroRows', () => {
       }),
       'moderate',
     )
-    const fragileRow = rows.find(r => r.title === 'Hiring rate')
-    const evidenceRow = rows.find(r => r.title === 'Evidence factor')
-    const reflectRow = rows.find(r => r.title === 'Sunk cost')
+    // Verb-led titles per 2026-05-21 corrections pass: risk/evidence get
+    // "Verify " prefix; reflect gets "Challenge " prefix.
+    const fragileRow = rows.find(r => r.title === 'Verify Hiring rate')
+    const evidenceRow = rows.find(r => r.title === 'Verify Evidence factor')
+    const reflectRow = rows.find(r => r.title === 'Challenge Sunk cost')
     expect(fragileRow?.category).toBe('risk')
     expect(evidenceRow?.category).toBe('evidence')
     expect(reflectRow?.category).toBe('reflect')
@@ -230,5 +237,34 @@ describe('rankHeroRows — polish pass: fragile/risk row shape', () => {
     const coverageRow = rows.find(r => r.category === 'coverage')
     expect(coverageRow).toBeTruthy()
     expect(coverageRow!.actions).toContain('add')
+  })
+
+  // ── verbLeadTitle defensive behaviour (2026-05-21 self-review) ─────────
+  it('verb prefix never composes with an empty user label — falls back to generic phrase', () => {
+    // Degenerate upstream data (empty fragile-edge fromLabel). The
+    // verbLeadTitle helper trims and falls back rather than producing
+    // "Verify " (trailing space, no factor name).
+    const rows = rankHeroRows(
+      makeData({
+        fragile: { fromId: 'n_f', fromLabel: '', alternativeWinnerLabel: 'B' },
+      }),
+      'moderate',
+    )
+    const riskRow = rows.find(r => r.category === 'risk')
+    expect(riskRow).toBeTruthy()
+    expect(riskRow!.title).toBe('Verify this factor')
+    expect(riskRow!.title).not.toMatch(/Verify\s*$/) // never trailing-space empty
+  })
+
+  it('verb prefix handles whitespace-only user labels by falling back', () => {
+    const rows = rankHeroRows(
+      makeData({
+        fragile: { fromId: 'n_f', fromLabel: '   ', alternativeWinnerLabel: 'B' },
+      }),
+      'moderate',
+    )
+    const riskRow = rows.find(r => r.category === 'risk')
+    expect(riskRow).toBeTruthy()
+    expect(riskRow!.title).toBe('Verify this factor')
   })
 })
