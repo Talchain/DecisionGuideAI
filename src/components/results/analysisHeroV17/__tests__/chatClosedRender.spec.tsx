@@ -250,6 +250,25 @@ describe('AnalysisHeroV17 — chat-closed render mode', () => {
       expect(screen.queryByTestId('hero-v17-footer-cta')).toBeNull()
     })
 
+    it('weak state + chat closed: hero-v17-footer section skipped entirely (no stray border-t)', () => {
+      // Anti-drift on the self-review fix (2026-05-21): when both the
+      // also-line and the CTA are hidden, the whole <section> is
+      // skipped so the `pt-2 border-t` wrapper doesn't render an empty
+      // horizontal divider line.
+      const data: ResultsSectionDataReturn = {
+        ...makeData({ gaps: [gap('A', 'a', 0.4), gap('B', 'b', 0.3), gap('C', 'c', 0.2), gap('D', 'd', 0.1)] }),
+        recommendation: { ...makeData().recommendation, recommendedOption: null, allOptions: [] },
+      } as ResultsSectionDataReturn
+      render(
+        <AnalysisHeroV17
+          data={data}
+          vm={makeVm({ decisionState: 'indeterminate' })}
+          fragileEdgeCount={0}
+        />,
+      )
+      expect(screen.queryByTestId('hero-v17-footer')).toBeNull()
+    })
+
     it('moderate state CTA: VISIBLE with "Focus {target}" mirror when chat is closed', () => {
       render(
         <AnalysisHeroV17

@@ -59,20 +59,27 @@ function bandFromVoi(voi: number | null | undefined): { band: PriorityBand; widt
  * when an explicit evidence-source row exists.
  */
 function verbLeadTitle(category: RowCategory, label: string): string {
+  // Defensive: never compose a prefix-with-empty-label like "Verify "
+  // (trailing space, no factor name). Generic fallbacks below produce
+  // sensible copy if upstream data is degenerate. In normal data,
+  // factor labels are always non-empty by the time we reach a row
+  // builder, so these fallbacks are belt-and-braces.
+  const trimmed = (label ?? '').trim()
   switch (category) {
     case 'evidence':
     case 'risk':
     case 'causal':
-      return `Verify ${label}`
+      return trimmed ? `Verify ${trimmed}` : 'Verify this factor'
     case 'reflect':
-      return `Challenge ${label}`
+      return trimmed ? `Challenge ${trimmed}` : 'Challenge this assumption'
     case 'coverage':
       // The coverage row's underlying source isn't a noun phrase that
       // composes with "Add " (the literal was 'Option coverage'), so
       // substitute a verb-led title. No user data is interpolated here.
       return 'Add an alternative option'
     case 'ready':
-      // Existing 'Create decision brief' is already imperative — keep.
+      // Existing 'Create decision brief' is already imperative — keep
+      // the row builder's literal verbatim.
       return label
   }
 }

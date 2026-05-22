@@ -238,4 +238,33 @@ describe('rankHeroRows — polish pass: fragile/risk row shape', () => {
     expect(coverageRow).toBeTruthy()
     expect(coverageRow!.actions).toContain('add')
   })
+
+  // ── verbLeadTitle defensive behaviour (2026-05-21 self-review) ─────────
+  it('verb prefix never composes with an empty user label — falls back to generic phrase', () => {
+    // Degenerate upstream data (empty fragile-edge fromLabel). The
+    // verbLeadTitle helper trims and falls back rather than producing
+    // "Verify " (trailing space, no factor name).
+    const rows = rankHeroRows(
+      makeData({
+        fragile: { fromId: 'n_f', fromLabel: '', alternativeWinnerLabel: 'B' },
+      }),
+      'moderate',
+    )
+    const riskRow = rows.find(r => r.category === 'risk')
+    expect(riskRow).toBeTruthy()
+    expect(riskRow!.title).toBe('Verify this factor')
+    expect(riskRow!.title).not.toMatch(/Verify\s*$/) // never trailing-space empty
+  })
+
+  it('verb prefix handles whitespace-only user labels by falling back', () => {
+    const rows = rankHeroRows(
+      makeData({
+        fragile: { fromId: 'n_f', fromLabel: '   ', alternativeWinnerLabel: 'B' },
+      }),
+      'moderate',
+    )
+    const riskRow = rows.find(r => r.category === 'risk')
+    expect(riskRow).toBeTruthy()
+    expect(riskRow!.title).toBe('Verify this factor')
+  })
 })

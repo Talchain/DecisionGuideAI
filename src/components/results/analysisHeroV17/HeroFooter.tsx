@@ -62,6 +62,12 @@ export function HeroFooter({ alsoLinks, footerCta, onAlsoClick, onCtaClick, chat
     ? (footerCta.targetLabel ? `Focus ${footerCta.targetLabel}` : 'Focus top estimate')
     : footerCta.label
 
+  // Skip the whole section when neither child would render. Without
+  // this guard, weak / reflect / strong states with chat closed (CTA
+  // hidden, also-line hidden) would still emit the `pt-2 border-t`
+  // wrapper — a stray horizontal divider line with no content.
+  if (!showAlsoLine && !showCta) return null
+
   return (
     <section className="flex flex-col gap-2 pt-2 border-t border-panel-border" data-testid="hero-v17-footer">
       {showAlsoLine && (
