@@ -164,6 +164,95 @@ describe('AnalysisHeroV17 — accessibility', () => {
     expect(text).toContain('Verified')
   })
 
+  // ── 2026-05-21 corrections pass: row/footer cleanup anti-drift ──────────
+
+  it('result context has no nested-card chrome (no border / rounded / padding)', () => {
+    render(
+      <AnalysisHeroV17
+        data={makeData({ stability: 0.7, gaps: [gap('Cost', 'n_c', 0.5)] })}
+        vm={makeVm()}
+        fragileEdgeCount={0}
+      />,
+    )
+    const ctx = screen.getByTestId('hero-v17-result-context')
+    // The section's own border/rounded/padding classes were removed —
+    // it leans on the outer hero card's `p-3 space-y-3`.
+    expect(ctx.className).not.toMatch(/(^|\s)border(\s|$)/)
+    expect(ctx.className).not.toMatch(/(^|\s)rounded-/)
+    expect(ctx.className).not.toMatch(/(^|\s)(p-|px-|py-|pt-|pb-)\d/)
+  })
+
+  it('row markup does not render priority text pill or mini-bar', () => {
+    render(
+      <AnalysisHeroV17
+        data={makeData({ stability: 0.7, gaps: [gap('Cost', 'n_c', 0.5)] })}
+        vm={makeVm()}
+        fragileEdgeCount={0}
+      />,
+    )
+    const rowRoot = screen.getByTestId('hero-v17-input-rows')
+    // No tooltip-equipped priority pill span (previous container carried
+    // `title="Evidence priority"`).
+    const priorityPill = rowRoot.querySelector('span[title="Evidence priority"]')
+    expect(priorityPill).toBeNull()
+    // Spans inside rows must NOT carry only the band-name text content.
+    const spans = rowRoot.querySelectorAll('span')
+    for (const s of Array.from(spans)) {
+      const t = (s.textContent ?? '').trim()
+      expect(['High', 'Medium', 'Low', 'Ready']).not.toContain(t)
+    }
+  })
+
+  it('footer does not render the 4-check row (Result clear / Stability / Evidence / Framing)', () => {
+    render(
+      <AnalysisHeroV17
+        data={makeData({ stability: 0.7, gaps: [gap('Cost', 'n_c', 0.5)] })}
+        vm={makeVm()}
+        fragileEdgeCount={0}
+      />,
+    )
+    const footer = screen.getByTestId('hero-v17-footer')
+    const text = footer.textContent ?? ''
+    expect(text).not.toContain('Result clear')
+    expect(text).not.toContain('Stability limited')
+    expect(text).not.toContain('Sensitive assumption')
+    expect(text).not.toContain('Evidence gaps')
+    expect(text).not.toContain('Evidence covered')
+    expect(text).not.toContain('Framing OK')
+  })
+
+  it('footer does not render the hint line', () => {
+    render(
+      <AnalysisHeroV17
+        data={makeData({ stability: 0.7, gaps: [gap('Cost', 'n_c', 0.5)] })}
+        vm={makeVm()}
+        fragileEdgeCount={0}
+      />,
+    )
+    const footer = screen.getByTestId('hero-v17-footer')
+    const text = footer.textContent ?? ''
+    expect(text).not.toContain('Check the highest-priority input')
+    expect(text).not.toContain('Improve inputs first')
+    expect(text).not.toContain('Challenge before deciding')
+    expect(text).not.toContain('Ready to brief')
+  })
+
+  it('row action icons distinguish AI (Work through with AI) from Discuss (Discuss with AI) via aria-label', () => {
+    render(
+      <AnalysisHeroV17
+        data={makeData({ stability: 0.7, gaps: [gap('Cost', 'n_c', 0.5)] })}
+        vm={makeVm()}
+        fragileEdgeCount={0}
+      />,
+    )
+    const rowRoot = screen.getByTestId('hero-v17-input-rows')
+    const aiBtn = rowRoot.querySelector('[aria-label="Work through with AI"]')
+    const discussBtn = rowRoot.querySelector('[aria-label="Discuss with AI"]')
+    expect(aiBtn).toBeTruthy()
+    expect(discussBtn).toBeTruthy()
+    expect(aiBtn).not.toBe(discussBtn)
+  })
+
   it('Actions menu items are keyboard-accessible — focus visible on click', () => {
     render(<AnalysisHeroV17 data={makeData()} vm={makeVm()} fragileEdgeCount={0} />)
     const toggle = screen.getByTestId('hero-v17-actions-toggle')

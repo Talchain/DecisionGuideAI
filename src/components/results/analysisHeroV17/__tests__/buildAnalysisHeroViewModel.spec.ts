@@ -496,7 +496,7 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.keyQuestion).toBeNull()
     })
 
-    it('user-supplied factor label containing banned term → row title preserves user data; key question hidden on fallback', () => {
+    it('user-supplied factor label containing banned term → row title preserves user data after Verify prefix; key question hidden on fallback', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({
@@ -505,8 +505,10 @@ describe('buildAnalysisHeroViewModel', () => {
         }),
         vm: makeVm({ decisionState: 'sensitive' }),
       })
-      // Row title preserves the user's label (we never rewrite user data).
-      expect(vm.inputRows[0].title).toBe('the winning team')
+      // Row title preserves the user's label after the Verify prefix —
+      // we never rewrite user data, we only prepend a verb (2026-05-21
+      // corrections pass).
+      expect(vm.inputRows[0].title).toBe('Verify the winning team')
       // No DQP → card hidden. The banned-term-in-label never reaches the
       // question text path because that path no longer exists.
       expect(vm.keyQuestion).toBeNull()
@@ -868,7 +870,7 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.footerCta.label).toBe('Review weak inputs')
     })
 
-    it('moderate → check-key-estimate with topRow focusTargetId', () => {
+    it('moderate → check-key-estimate, CTA label mirrors Row 1 verb-led target', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.7, gaps: [gap('Cost', 'n_cost', 0.5)] }),
@@ -876,10 +878,17 @@ describe('buildAnalysisHeroViewModel', () => {
       })
       expect(vm.footerCta.kind).toBe('check-key-estimate')
       expect(vm.footerCta.focusTargetId).toBe('n_cost')
+      // CTA mirror: Row 1 title is 'Verify Cost' → CTA label is 'Check Cost'
+      expect(vm.footerCta.label).toBe('Check Cost')
+      // targetLabel exposes the cleaned (no-Verify-prefix) underlying label.
+      expect(vm.footerCta.targetLabel).toBe('Cost')
+      // chatPrompt uses the same cleaned label — anti-drift on the Verify
+      // interpolation flaw (must NOT contain 'Verify' anywhere).
       expect(vm.footerCta.chatPrompt).toContain('Cost')
+      expect(vm.footerCta.chatPrompt).not.toContain('Verify ')
     })
 
-    it('moderate with no topRow → focusTargetId undefined, generic prompt', () => {
+    it('moderate with no topRow → focusTargetId undefined, fallback label and generic prompt', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.7 }),
@@ -887,6 +896,51 @@ describe('buildAnalysisHeroViewModel', () => {
       })
       expect(vm.footerCta.kind).toBe('check-key-estimate')
       expect(vm.footerCta.focusTargetId).toBeUndefined()
+      expect(vm.footerCta.label).toBe('Check top estimate')
+      expect(vm.footerCta.targetLabel).toBeNull()
+    })
+
+    // CTA mirror policy + safety guards (2026-05-21 corrections).
+    // NOTE on coverage / reflect Row-1 cases: state selection forces
+    // 'weak' when optionCount < 2 (the coverage-row trigger), and
+    // 'reflect' when bias findings appear in a robust decision. So a
+    // moderate-state CTA with a non-Verify Row 1 is structurally hard
+    // to construct. The simpler reachable case — moderate state with
+    // no topRow at all — is covered by the existing "moderate with no
+    // topRow" test above, which already asserts the 'Check top
+    // estimate' fallback + null targetLabel.
+
+    it('CTA chatPrompt never contains the "Verify " prefix (anti-drift on interpolation flaw)', () => {
+      // Bug guarded against: prior gate composed chatPrompt as
+      //   "Check whether the estimate for ${row1Title} ..."
+      // which would interpolate "Verify Tech Lead in Place" verbatim.
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({ stability: 0.7, gaps: [gap('Tech Lead in Place', 'n_t', 0.6)] }),
+        vm: makeVm(),
+      })
+      expect(vm.footerCta.chatPrompt).not.toContain('Verify ')
+      expect(vm.footerCta.chatPrompt).toContain('Tech Lead in Place')
+      expect(vm.footerCta.label).toBe('Check Tech Lead in Place')
+    })
+
+    it('moderate with banned-term user label → CTA falls back to "Check top estimate", banned term not amplified', () => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({
+          stability: 0.7,
+          gaps: [gap('the winning team', 'n_w', 0.6)],
+        }),
+        vm: makeVm({ decisionState: 'sensitive' }),
+      })
+      // Row 1 title still preserves the user label after verb prefix:
+      // 'Verify the winning team'. But the underlying stripped label
+      // ('the winning team') contains a banned term → CTA falls back.
+      expect(vm.inputRows[0].title).toBe('Verify the winning team')
+      expect(vm.footerCta.label).toBe('Check top estimate')
+      expect(vm.footerCta.targetLabel).toBeNull()
+      expect(vm.footerCta.label.toLowerCase()).not.toContain('winning')
+      expect(vm.footerCta.chatPrompt.toLowerCase()).not.toContain('winning')
     })
 
     it('reflect → challenge-result kind, "Test the result" label (Fix 9)', () => {

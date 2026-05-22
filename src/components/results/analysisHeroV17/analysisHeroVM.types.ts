@@ -97,6 +97,16 @@ export interface FooterCta {
   chatPrompt: string
   /** Factor to focus (moderate state only). */
   focusTargetId: string | undefined
+  /**
+   * Cleaned target label used for the chat-closed "Focus {target}"
+   * variant (moderate state only). `null` when the CTA does not mirror
+   * Row 1 — either the state is not moderate, or Row 1's underlying
+   * user label was unsafe (banned-term) / non-Verify-prefixed. The
+   * `label` and `chatPrompt` fields are already composed from this
+   * value upstream; `HeroFooter` reads `targetLabel` directly to avoid
+   * re-parsing `label`. Added 2026-05-21 corrections pass.
+   */
+  targetLabel: string | null
 }
 
 /**
@@ -141,9 +151,20 @@ export interface AnalysisHeroVM {
   hiddenRows: HeroRow[]
   /** "Also:" footer links (up to 3). */
   alsoLinks: AlsoLink[]
-  /** Footer check glyphs. */
+  /**
+   * @deprecated 2026-05-21 corrections pass: no longer rendered by
+   * HeroFooter (the 4-check row duplicated the readiness strip above
+   * and added cognitive load). Retained on the VM for forward-compat
+   * with a potential debug surface; scheduled for removal in the next
+   * major VM bump if no consumer emerges.
+   */
   footerChecks: FooterCheck[]
-  /** Footer hint line above the CTA. */
+  /**
+   * @deprecated 2026-05-21 corrections pass: no longer rendered by
+   * HeroFooter (the hint duplicated Row 1's title). Retained on the
+   * VM for forward-compat; scheduled for removal in the next major
+   * VM bump.
+   */
   footerHint: string
   /** State-dependent CTA. */
   footerCta: FooterCta

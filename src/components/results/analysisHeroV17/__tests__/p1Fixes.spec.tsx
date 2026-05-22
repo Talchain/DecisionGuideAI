@@ -117,8 +117,9 @@ describe('AnalysisHeroV17 — P1.1: prefillChat never auto-sends', () => {
     const cta = screen.getByTestId('hero-v17-footer-cta') as HTMLButtonElement
     // The moderate-state CTA stays visible even when chat is closed
     // (Fix 6) because its focus side-effect is still useful. The label
-    // flips to "Focus key estimate" to be honest about what works.
-    expect(cta.textContent).toBe('Focus key estimate')
+    // flips to "Focus {target}" mirror (2026-05-21 corrections) — Row 1
+    // is 'Verify Cost', so the cleaned target is 'Cost'.
+    expect(cta.textContent).toBe('Focus Cost')
     fireEvent.click(cta)
     expect(focusSpy).toHaveBeenCalledWith('n_c')  // focus runs
     expect(sendSpy).not.toHaveBeenCalled()        // never auto-sends
@@ -286,9 +287,13 @@ describe('rowRanking — P1.4: row chatPrompts use safe fallback for banned labe
     })
     const rows = rankHeroRows(data, 'moderate')
     const row = rows[0]
-    // Title preserves the user's exact label — we do not rewrite user data.
-    expect(row.title).toBe('the winning team')
-    // But the generated chatPrompt must NOT contain the banned term.
+    // Verb-led title (2026-05-21 corrections): evidence → 'Verify {raw
+    // label}'. The user's exact label is preserved verbatim after the
+    // verb prefix — we don't rewrite user data, we just prepend a verb.
+    expect(row.title).toBe('Verify the winning team')
+    // But the generated chatPrompt must NOT contain the banned term —
+    // chatPrompt continues to interpolate the raw label via safeRowLabel,
+    // which substitutes 'this factor' when the underlying label is unsafe.
     expect(row.chatPrompt.toLowerCase()).not.toContain('winning')
     expect(row.chatPrompt).toContain('this factor')
   })

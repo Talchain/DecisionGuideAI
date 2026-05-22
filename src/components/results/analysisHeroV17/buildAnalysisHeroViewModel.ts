@@ -332,8 +332,15 @@ function buildFooterChecks(
 }
 
 function buildFooterCta(state: HeroState, topRow: HeroRow | undefined): FooterCta {
-  // Source of truth: investigation §11.4 + brief §3 step 6. Sequencing is
-  // enforced at the call site (component dispatches via prop handlers).
+  // Source of truth: investigation §11.4 + 2026-05-21 corrections pass.
+  // Sequencing is enforced at the call site (component dispatches via
+  // prop handlers).
+  //
+  // CTA mirroring policy (corrections pass §7a):
+  //   - weak / reflect / strong → state-specific CTA (intent isn't
+  //     "check one estimate"; mirroring would produce mismatched copy).
+  //   - moderate → mirror Row 1's verb-led title via a cleaned
+  //     `targetLabel`. See §7 in the plan for the derivation.
   switch (state) {
     case 'weak':
       return {
@@ -341,16 +348,38 @@ function buildFooterCta(state: HeroState, topRow: HeroRow | undefined): FooterCt
         kind: 'review-weak-inputs',
         chatPrompt: 'Walk me through the highest-priority inputs one at a time. Ask what I know before suggesting changes.',
         focusTargetId: undefined,
+        targetLabel: null,
       }
-    case 'moderate':
+    case 'moderate': {
+      // Step 1: strip the "Verify " prefix Row 1 carries, so the result
+      // composes with "Check " / "Focus " without producing
+      // "Check Verify Tech Lead in Place".
+      const row1Title = topRow?.title ?? ''
+      const stripped = row1Title.startsWith('Verify ')
+        ? row1Title.slice('Verify '.length)
+        : ''
+      // Step 2: glossary-safe handling on the stripped label. If the
+      // underlying user label trips the banned-term scanner, fall back
+      // to the safe generic — never amplify the banned term into CTA
+      // copy or the chat prompt.
+      const safeTargetLabel = stripped && !containsBannedTerm(stripped)
+        ? stripped
+        : null
+      // Step 3: compose label + chatPrompt from the single safe target.
+      const label = safeTargetLabel
+        ? `Check ${safeTargetLabel}`
+        : 'Check top estimate'
+      const chatPrompt = safeTargetLabel
+        ? `Check whether the estimate for ${safeTargetLabel} matches my experience.`
+        : 'Check whether the highest-priority estimate matches my experience.'
       return {
-        label: 'Check key estimate',
+        label,
         kind: 'check-key-estimate',
-        chatPrompt: topRow?.title
-          ? `Check whether the estimate for ${safeLabel(topRow.title, 'this factor')} matches my experience.`
-          : 'Check whether the highest-priority estimate matches my experience.',
+        chatPrompt,
         focusTargetId: topRow?.targetNodeId,
+        targetLabel: safeTargetLabel,
       }
+    }
     case 'reflect':
       return {
         // Internal kind retained for compatibility; user-facing copy is
@@ -362,6 +391,7 @@ function buildFooterCta(state: HeroState, topRow: HeroRow | undefined): FooterCt
         kind: 'challenge-result',
         chatPrompt: 'Challenge the current leading option. Make the strongest case for the next closest option.',
         focusTargetId: undefined,
+        targetLabel: null,
       }
     case 'strong':
       return {
@@ -369,6 +399,7 @@ function buildFooterCta(state: HeroState, topRow: HeroRow | undefined): FooterCt
         kind: 'create-decision-brief',
         chatPrompt: 'Help me capture the result, rationale, key assumptions and caveats as a decision brief.',
         focusTargetId: undefined,
+        targetLabel: null,
       }
   }
 }

@@ -9,7 +9,7 @@
 import { useState } from 'react'
 import { typography } from '@/styles/typography'
 import type { HeroRow, RowAction } from './analysisHeroVM.types'
-import { ROW_TINT_CLASS, CATEGORY_DOT_CLASS, PRIORITY_FILL_CLASS } from './tokens'
+import { ROW_TINT_CLASS, CATEGORY_DOT_CLASS } from './tokens'
 import { HeroActionRow } from './HeroActionRow'
 
 interface HeroInputRowsProps {
@@ -69,19 +69,16 @@ function HeroInputRow({ row, dispatchRowAction, chatPrefillAvailable }: HeroInpu
       className={`px-2.5 py-2 border-b border-panel-border last:border-b-0 ${ROW_TINT_CLASS[row.category]}`}
       data-testid={`hero-v17-row-${row.category}`}
     >
-      {/* (Fix 5) gap-2 → gap-3 to give the right-aligned action cluster
-          breathing room from the priority pill. */}
+      {/* Priority pill (text + mini bar) removed in the 2026-05-21
+          correction pass: row order communicates priority and the verb-led
+          title + reason carry the actionable signal. `row.priority` and
+          `row.priorityWidth` stay on the VM type (still consumed by
+          buildResultsVM tests) but are not rendered. */}
       <div className="flex items-start gap-3 justify-between">
         <div className="flex flex-col gap-1 min-w-0 flex-1">
           <div className="flex items-center gap-1.5 min-w-0">
             <span className={`w-2 h-2 rounded-full flex-shrink-0 ${CATEGORY_DOT_CLASS[row.category]}`} aria-hidden="true" />
             <p className={`${typography.panelHeader} text-text-header truncate min-w-0 flex-1`} title={row.title}>{row.title}</p>
-            <span className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-light flex-shrink-0`} title="Evidence priority">
-              <span className="w-6 h-[3px] rounded-full bg-panel-hover overflow-hidden">
-                <span className={`block h-full rounded-full ${PRIORITY_FILL_CLASS[row.category]}`} style={{ width: `${row.priorityWidth}%` }} />
-              </span>
-              {row.priority}
-            </span>
           </div>
           <p className={`${typography.panelBody} text-text-body line-clamp-2`}>{row.reason}</p>
         </div>

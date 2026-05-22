@@ -267,8 +267,6 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
 
         <HeroFooter
           alsoLinks={heroVm.alsoLinks}
-          footerChecks={heroVm.footerChecks}
-          footerHint={heroVm.footerHint}
           footerCta={heroVm.footerCta}
           onAlsoClick={handleAlsoClick}
           onCtaClick={handleCtaClick}
