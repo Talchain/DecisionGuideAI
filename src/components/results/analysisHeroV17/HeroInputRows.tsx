@@ -83,7 +83,7 @@ function HeroInputRow({ row, dispatchRowAction, chatPrefillAvailable }: HeroInpu
               data-testid="hero-v17-row-dot"
             />
             <p
-              className={`${typography.panelHeader} text-text-header truncate min-w-0 flex-1`}
+              className={`${typography.panelHeader} text-text-header line-clamp-2 break-words min-w-0 flex-1`}
               title={row.title}
               data-testid="hero-v17-row-title"
             >

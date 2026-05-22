@@ -242,6 +242,44 @@ describe('AnalysisHeroV17 — accessibility', () => {
   // render a priority text pill" assertion higher up — keeping just one
   // anti-drift test to avoid duplicate coverage)
 
+  it('row title wraps to two lines instead of single-line truncating (verb prefix preservation)', () => {
+    // Anti-drift on the 2026-05-22 truncation fix. Long verb-led titles
+    // like "Verify Technical Leadership Capacity" exceeded the available
+    // column width in OutputsDock and clipped the factor label after the
+    // verb. The fix replaces `truncate` (single-line ellipsis) with
+    // `line-clamp-2` (allow wrap to 2 lines, ellipsis only beyond that)
+    // + `break-words`. The verb prefix stays on the first line, the
+    // factor label wraps; the `title` attribute remains for the rare
+    // case where 2 lines still aren't enough.
+    render(
+      <AnalysisHeroV17
+        data={makeData({
+          stability: 0.7,
+          gaps: [gap('Technical Leadership Capacity', 'n_lead', 0.6)],
+        })}
+        vm={makeVm()}
+        fragileEdgeCount={0}
+      />,
+    )
+    const rowRoot = screen.getByTestId('hero-v17-input-rows')
+    const title = rowRoot.querySelector('[data-testid="hero-v17-row-title"]') as HTMLElement
+    expect(title).toBeTruthy()
+    // Sanity: the title text carries the verb prefix + the user label.
+    expect(title.textContent).toBe('Verify Technical Leadership Capacity')
+    // Anti-drift on the regression: `truncate` is single-line clip and
+    // must not be on the title element.
+    expect(title.className).not.toMatch(/(^|\s)truncate(\s|$)/)
+    // Positive assertion: the new wrap behaviour is in place.
+    expect(title.className).toMatch(/(^|\s)line-clamp-2(\s|$)/)
+    // Layout context unchanged: title still claims the available column
+    // width inside the dot+title flex row (so action icons stay
+    // right-aligned in the parent flex).
+    expect(title.className).toMatch(/(^|\s)flex-1(\s|$)/)
+    expect(title.className).toMatch(/(^|\s)min-w-0(\s|$)/)
+    // Tooltip stays for the rare overflow-beyond-two-lines case.
+    expect(title.getAttribute('title')).toBe('Verify Technical Leadership Capacity')
+  })
+
   it('footer does not render the 4-check row (Result clear / Stability / Evidence / Framing)', () => {
     render(
       <AnalysisHeroV17
