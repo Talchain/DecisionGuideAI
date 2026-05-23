@@ -55,11 +55,15 @@ import type {
 // Evidence-bearing selector types — used to type the bundle's
 // `analysis_evidence_trace` block (sibling of `evidence_resolution`).
 // The selector itself is consumed by `useDebugData`; here we only
-// need the type aliases so the bundle interface mirrors the hook's
-// output without re-declaring the enum.
-import type {
-  EvidenceSelectionReason,
-  EvidenceSelectionDiagnostics,
+// need the type aliases + shared empty-diagnostics default so the
+// bundle interface mirrors the hook's output without re-declaring
+// the enum AND the bundle assembler's defensive fallback doesn't
+// inline the 10-field shape (which would drift if fields are added).
+import {
+  EMPTY_EVIDENCE_SELECTION_DIAGNOSTICS,
+  type AnalysisEvidenceTraceSource,
+  type EvidenceSelectionReason,
+  type EvidenceSelectionDiagnostics,
 } from '../../../lib/evidenceBearingCeeTurn'
 import {
   derivePipelineStatus,
@@ -1262,10 +1266,7 @@ interface DebugBundle {
    */
   analysis_evidence_trace?: {
     trace_id: string | null
-    source:
-      | 'selected_cee_turn'
-      | 'recovered_earlier_cee_turn'
-      | 'unavailable'
+    source: AnalysisEvidenceTraceSource
     selected_reason: EvidenceSelectionReason
     response_hash: string | null
     response_hash_source: ResponseHashSource | null
@@ -4177,18 +4178,8 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       hash_mismatch_observed:
         data.analysis_evidence_hash_mismatch_observed ?? false,
       selection_diagnostics:
-        data.analysis_evidence_selection_diagnostics ?? {
-          cee_candidate_count: 0,
-          v5_endpoint_candidate_count: 0,
-          analysis_producing_candidate_count: 0,
-          evidence_bearing_candidate_count: 0,
-          rejected_scenario_mismatch_count: 0,
-          used_missing_scenario_fallback: false,
-          selected_via_primary_path: false,
-          selected_reason: 'no_cee_candidate',
-          hash_match_status: 'no_candidate',
-          scenario_status: 'no_candidate',
-        },
+        data.analysis_evidence_selection_diagnostics ??
+        EMPTY_EVIDENCE_SELECTION_DIAGNOSTICS,
       // `response_body` carries the raw recovered body so reviewers
       // can audit it; null when the evidence trace is the same as
       // the conversational trace (`source === 'selected_cee_turn'`)

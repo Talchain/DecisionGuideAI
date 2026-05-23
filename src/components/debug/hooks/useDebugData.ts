@@ -66,6 +66,7 @@ import {
 // follow-up chip).
 import {
   findLatestEvidenceBearingCeeTurn,
+  type AnalysisEvidenceTraceSource,
   type EvidenceSelectionReason,
   type EvidenceSelectionDiagnostics,
 } from '../../../lib/evidenceBearingCeeTurn'
@@ -988,10 +989,7 @@ export interface DebugData {
    * auditability.
    */
   analysis_evidence_trace_id?: string | null
-  analysis_evidence_trace_source?:
-    | 'selected_cee_turn'
-    | 'recovered_earlier_cee_turn'
-    | 'unavailable'
+  analysis_evidence_trace_source?: AnalysisEvidenceTraceSource
   analysis_evidence_selected_reason?: EvidenceSelectionReason
   analysis_evidence_response_hash?: string | null
   analysis_evidence_response_hash_source?: ResponseHashSource | null
@@ -3835,10 +3833,7 @@ export function useDebugData(): DebugData {
     const analysisEvidenceTraceId = evidenceBearing.selected_trace_id
     const analysisEvidenceCeeResponseBody: unknown =
       evidenceBearing.selected?.response?.body ?? null
-    let analysisEvidenceTraceSource:
-      | 'selected_cee_turn'
-      | 'recovered_earlier_cee_turn'
-      | 'unavailable'
+    let analysisEvidenceTraceSource: AnalysisEvidenceTraceSource
     if (evidenceBearing.selected === undefined) {
       analysisEvidenceTraceSource = 'unavailable'
     } else if (

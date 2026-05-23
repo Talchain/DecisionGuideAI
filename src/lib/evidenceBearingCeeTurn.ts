@@ -68,6 +68,35 @@ import { RAW_PAYLOAD_INDICATIVE_KEYS } from './v5EvidenceKeys'
 export type { SelectorTracedPayload, ResponseHashSource, HashMatchStatus }
 
 /**
+ * Trichotomy describing the relationship between the conversational
+ * CEE trace (drives `bundle.payloads.cee_*`) and the analysis-
+ * evidence trace (drives `evidence_resolution` and the body fed to
+ * `resolveScientificEvidence`).
+ *
+ *   - `'selected_cee_turn'`           — both selectors picked the
+ *                                       same trace. The recovered
+ *                                       body lives in
+ *                                       `payloads.cee_response` (no
+ *                                       duplication on the bundle).
+ *   - `'recovered_earlier_cee_turn'`  — selectors disagreed; an
+ *                                       earlier CEE turn is used as
+ *                                       the evidence trace. Its
+ *                                       response body is surfaced
+ *                                       under
+ *                                       `analysis_evidence_trace.response_body`.
+ *   - `'unavailable'`                 — no evidence-bearing CEE
+ *                                       trace was found.
+ *
+ * Exported here so the hook (DebugData), bundle (DebugBundle), and
+ * scientific-validation orchestrator (ValidatorInputs) all share a
+ * single source of truth.
+ */
+export type AnalysisEvidenceTraceSource =
+  | 'selected_cee_turn'
+  | 'recovered_earlier_cee_turn'
+  | 'unavailable'
+
+/**
  * Why a candidate was selected (or why no candidate was selected).
  *
  *   - `'hash_matched'`                  — selected because its captured
@@ -184,6 +213,28 @@ export interface EvidenceBearingSelectionResult {
 }
 
 /**
+ * Empty diagnostics shape — exported so the bundle assembler can use
+ * it as a safe default when threading `data.analysis_evidence_selection_diagnostics`
+ * is undefined (legacy callers). Lives next to the type so the two
+ * cannot drift if fields are added.
+ *
+ * Frozen so callers can't accidentally mutate the shared default.
+ */
+export const EMPTY_EVIDENCE_SELECTION_DIAGNOSTICS: EvidenceSelectionDiagnostics =
+  Object.freeze({
+    cee_candidate_count: 0,
+    v5_endpoint_candidate_count: 0,
+    analysis_producing_candidate_count: 0,
+    evidence_bearing_candidate_count: 0,
+    rejected_scenario_mismatch_count: 0,
+    used_missing_scenario_fallback: false,
+    selected_via_primary_path: false,
+    selected_reason: 'no_cee_candidate',
+    hash_match_status: 'no_candidate',
+    scenario_status: 'no_candidate',
+  })
+
+/**
  * Defensive: is the value a plain non-array object?
  */
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -262,6 +313,22 @@ function findFirstAnalysisResultBlock(
 }
 
 /**
+ * Helper: read a found `analysis_result` block's `enrichment` field
+ * and return true iff it's a plain object with evidence-bearing
+ * signals. Factored out so `hasEvidenceBearingEnrichment`'s top-level
+ * and wrapper branches stay DRY.
+ */
+function blockEnrichmentIsEvidenceBearing(
+  block: Record<string, unknown>,
+): boolean {
+  const enrichment = block.enrichment
+  return (
+    isPlainObject(enrichment) &&
+    enrichmentIsEvidenceBearing(enrichment as Record<string, unknown>)
+  )
+}
+
+/**
  * True iff the trace's response body carries an `analysis_result`
  * block whose enrichment is evidence-bearing, USING THE SAME PROBE
  * ORDER as the resolver's `findAnalysisResultBlock`:
@@ -277,6 +344,20 @@ function findFirstAnalysisResultBlock(
  * This mirrors the resolver exactly so selector and resolver agree
  * on what counts as evidence-bearing. See `findFirstAnalysisResultBlock`
  * JSDoc above for the rationale.
+ *
+ * Selector contract vs resolver per-kind gates (subtle): the
+ * resolver applies an indicative-keys gate to `plot_response`
+ * lifting specifically — `_meta.payloads.plot_response` without
+ * indicative keys won't be promoted. This selector treats a
+ * non-empty `_meta.payloads.plot_response` as evidence-bearing
+ * regardless, on the principle that "evidence-bearing" means "the
+ * resolver can lift at least one kind." A malformed trace where
+ * `_meta.payloads.plot_response = {x:1}` is the ONLY signal would
+ * therefore be selected here but produce `evidence_resolution.*.source
+ * = 'unavailable'` downstream — the bundle is honestly explicit about
+ * that partial-recovery state rather than hiding it. In practice CEE
+ * never emits this shape; the sidecar always carries a real PLoT
+ * response with indicative keys.
  */
 export function hasEvidenceBearingEnrichment(p: SelectorTracedPayload): boolean {
   const body = p.response?.body
@@ -286,25 +367,13 @@ export function hasEvidenceBearingEnrichment(p: SelectorTracedPayload): boolean 
   //    fall through to `raw.blocks` even if this block's enrichment
   //    is non-evidence-bearing — the resolver wouldn't either.
   const top = findFirstAnalysisResultBlock(body.blocks)
-  if (top !== null) {
-    const enrichment = top.enrichment
-    return (
-      isPlainObject(enrichment) &&
-      enrichmentIsEvidenceBearing(enrichment as Record<string, unknown>)
-    )
-  }
+  if (top !== null) return blockEnrichmentIsEvidenceBearing(top)
   // 2. Parse-error wrapper — `body.raw.blocks[*]`. Only reached when
   //    `body.blocks` had NO analysis_result block at all.
   const raw = body.raw
   if (isPlainObject(raw)) {
     const wrapped = findFirstAnalysisResultBlock(raw.blocks)
-    if (wrapped !== null) {
-      const enrichment = wrapped.enrichment
-      return (
-        isPlainObject(enrichment) &&
-        enrichmentIsEvidenceBearing(enrichment as Record<string, unknown>)
-      )
-    }
+    if (wrapped !== null) return blockEnrichmentIsEvidenceBearing(wrapped)
   }
   return false
 }

@@ -13,6 +13,8 @@
  * `details` is a per-validator opaque object documented inline below.
  */
 
+import type { AnalysisEvidenceTraceSource } from '../evidenceBearingCeeTurn'
+
 export type ValidationStatus = 'pass' | 'fail' | 'unavailable' | 'partial'
 
 export type ClaimStrength = 'observed' | 'derived' | 'inferred' | 'unavailable'
@@ -204,10 +206,7 @@ export interface ValidatorInputs {
    *
    * Both default to undefined / false; legacy callers see no change.
    */
-  evidenceTraceSource?:
-    | 'selected_cee_turn'
-    | 'recovered_earlier_cee_turn'
-    | 'unavailable'
+  evidenceTraceSource?: AnalysisEvidenceTraceSource
   evidenceHashMismatchObserved?: boolean
 }
 
