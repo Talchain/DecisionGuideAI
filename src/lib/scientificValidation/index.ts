@@ -172,10 +172,63 @@ export function runScientificValidation(
 
   const source = classifySource(inputs)
   const overall_status = classifyOverall(validators, source)
+  const evidence_limitations = buildEvidenceLimitations(inputs, source)
 
   return {
     overall_status,
     source,
     validators,
+    evidence_limitations,
   }
+}
+
+/**
+ * Build orchestrator-level evidence limitations. Cross-cutting
+ * concerns about the evidence itself — not per-validator findings.
+ *
+ * Only fires when the validators actually consumed LIVE evidence
+ * (`live_raw_payloads` / `live_v5_cee_embedded`); on
+ * `hydrated_report` / `debug_fallback` / `unavailable` the evidence
+ * trace split is moot.
+ *
+ * Honesty contract:
+ *   - Limitations are ADDITIVE warnings; they do NOT downgrade
+ *     per-validator statuses. The orchestrator surfaces them so
+ *     reviewers see the recovered-evidence context without claiming
+ *     the validators failed.
+ *   - Recovered-from-earlier-trace fires only when the source is
+ *     `'recovered_earlier_cee_turn'`. `'selected_cee_turn'` means
+ *     conversational == evidence, no special note needed.
+ *   - Hash-mismatch fires regardless of recovery as long as live
+ *     evidence was consumed.
+ */
+function buildEvidenceLimitations(
+  inputs: ValidatorInputs,
+  source: ScientificValidation['source'],
+): string[] {
+  const limitations: string[] = []
+  const liveEvidence =
+    source === 'live_raw_payloads' || source === 'live_v5_cee_embedded'
+  if (!liveEvidence) return limitations
+  if (inputs.evidenceTraceSource === 'recovered_earlier_cee_turn') {
+    limitations.push(
+      'Scientific evidence was recovered from an earlier CEE turn ' +
+        '(analysis_evidence_trace.source = recovered_earlier_cee_turn) ' +
+        'because the latest conversational turn carried no analysis ' +
+        'evidence. The recovered body is surfaced on the bundle as ' +
+        '`analysis_evidence_trace.response_body` and the evidence-' +
+        'resolution paths point at that location.',
+    )
+  }
+  if (inputs.evidenceHashMismatchObserved === true) {
+    limitations.push(
+      "Recovered CEE evidence trace's captured response_hash " +
+        'disagrees with the current results.hash. The recovered ' +
+        'evidence may not match the currently-rendered analysis. ' +
+        'See `analysis_evidence_trace.hash_mismatch_observed` and ' +
+        '`analysis_evidence_trace.response_hash` for the captured ' +
+        'hash.',
+    )
+  }
+  return limitations
 }

@@ -744,3 +744,129 @@ describe('resolveScientificEvidence — parse-error wrapper (PR #169)', () => {
     })
   })
 })
+
+describe('resolveScientificEvidence — ceeResponseBasePath parameter (evidence-trace split)', () => {
+  // Workstream: DGAI debug output — preserve latest analysis
+  // evidence after follow-up turns (2026-05-23). The bundle exposes
+  // a recovered earlier CEE turn body under
+  // `analysis_evidence_trace.response_body`. The resolver accepts
+  // an optional `ceeResponseBasePath` so emitted `path` strings
+  // truthfully point at the body it inspected — `'payloads.cee_response'`
+  // by default (conversational), `'analysis_evidence_trace.response_body'`
+  // when the caller routes a recovered body.
+  const enrichmentBody = {
+    blocks: [
+      {
+        type: 'analysis_result',
+        enrichment: {
+          factor_sensitivity: [{ factor_id: 'evidence-f1' }],
+        },
+      },
+    ],
+  }
+
+  it('default base path: paths start with `payloads.cee_response.` (regression)', () => {
+    const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, enrichmentBody)
+    expect(r.resolution.plot_response.source).toBe('cee_embedded')
+    expect(r.resolution.plot_response.path).toBe(
+      'payloads.cee_response.blocks[0].enrichment',
+    )
+  })
+
+  it('explicit default param: behaves identically to omitted', () => {
+    const r = resolveScientificEvidence(
+      EMPTY_TOP_LEVEL,
+      enrichmentBody,
+      'payloads.cee_response',
+    )
+    expect(r.resolution.plot_response.path).toBe(
+      'payloads.cee_response.blocks[0].enrichment',
+    )
+  })
+
+  it('custom base path: paths start with `analysis_evidence_trace.response_body.`', () => {
+    const r = resolveScientificEvidence(
+      EMPTY_TOP_LEVEL,
+      enrichmentBody,
+      'analysis_evidence_trace.response_body',
+    )
+    expect(r.resolution.plot_response.source).toBe('cee_embedded')
+    expect(r.resolution.plot_response.path).toBe(
+      'analysis_evidence_trace.response_body.blocks[0].enrichment',
+    )
+  })
+
+  it('custom base path + _meta.payloads sidecar: nested path inherits the base', () => {
+    const bodyWithSidecar = {
+      blocks: [
+        {
+          type: 'analysis_result',
+          enrichment: {
+            // bare body lacks indicative keys to force sidecar path
+            _meta: {
+              payloads: {
+                plot_response: {
+                  factor_sensitivity: [{ factor_id: 'sidecar-f1' }],
+                },
+                isl_response: {
+                  some: 'isl-body',
+                },
+              },
+            },
+          },
+        },
+      ],
+    }
+    const r = resolveScientificEvidence(
+      EMPTY_TOP_LEVEL,
+      bodyWithSidecar,
+      'analysis_evidence_trace.response_body',
+    )
+    expect(r.resolution.plot_response.path).toBe(
+      'analysis_evidence_trace.response_body.blocks[0].enrichment._meta.payloads.plot_response',
+    )
+    expect(r.resolution.isl_response.path).toBe(
+      'analysis_evidence_trace.response_body.blocks[0].enrichment._meta.payloads.isl_response',
+    )
+  })
+
+  it('custom base path + parse-error wrapper: `raw.blocks` segment preserved', () => {
+    const wrappedBody = {
+      kind: 'parse_error',
+      reason: 'schema mismatch',
+      raw: {
+        blocks: [
+          {
+            type: 'analysis_result',
+            enrichment: {
+              factor_sensitivity: [{ factor_id: 'wrapped-f1' }],
+            },
+          },
+        ],
+      },
+    }
+    const r = resolveScientificEvidence(
+      EMPTY_TOP_LEVEL,
+      wrappedBody,
+      'analysis_evidence_trace.response_body',
+    )
+    expect(r.resolution.plot_response.source).toBe('cee_embedded')
+    expect(r.resolution.plot_response.path).toBe(
+      'analysis_evidence_trace.response_body.raw.blocks[0].enrichment',
+    )
+  })
+
+  it('custom base path: top-level payloads still take precedence (paths unchanged)', () => {
+    const r = resolveScientificEvidence(
+      {
+        ...EMPTY_TOP_LEVEL,
+        plot_response: { factor_sensitivity: [{ factor_id: 'top' }] },
+      },
+      enrichmentBody,
+      'analysis_evidence_trace.response_body',
+    )
+    // Top-level beats embedded regardless of base path.
+    expect(r.resolution.plot_response.source).toBe('top_level')
+    expect(r.resolution.plot_response.path).toBe('payloads.plot_response')
+  })
+})

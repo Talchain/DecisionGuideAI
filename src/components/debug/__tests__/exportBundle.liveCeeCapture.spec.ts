@@ -2746,3 +2746,444 @@ describe('buildDebugBundleAsync — evidence resolver (post-PR #162)', () => {
     expect(bundle.scientific_validation?.source).not.toBe('live_raw_payloads')
   })
 })
+
+// =============================================================================
+// Workstream: DGAI debug output — preserve latest analysis evidence
+// after follow-up turns (2026-05-23). Bug repro + regression tests
+// for the conversational vs analysis-evidence trace split.
+// =============================================================================
+
+describe('buildDebugBundleAsync — analysis_evidence_trace split (workstream 2026-05-23)', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  // Real-shape enrichment (mirror of v5-analysis-result.staging-real-shape).
+  const evidenceBearingCeeResponse = {
+    blocks: [
+      { type: 'text', text: 'Ran analysis.' },
+      {
+        type: 'analysis_result',
+        summary: 'Ran analysis on your current scenario.',
+        enrichment: {
+          option_comparison: [{ id: 'opt_a', win_probability: 0.72 }],
+          factor_sensitivity: [
+            { factor_id: 'f1', sensitivity_score: 0.4, importance_rank: 1 },
+          ],
+          robustness: { fragile_edges: [], level: 'high' },
+        },
+      },
+    ],
+  }
+  const proseFollowUpCeeResponse = {
+    blocks: [
+      {
+        type: 'text',
+        text: 'Here is what would change the outcome of your analysis…',
+      },
+    ],
+  }
+
+  // ----------------------------------------------------------------
+  // BUG REPRO — matches the failing staging bundle.
+  // ----------------------------------------------------------------
+  it('BUG REPRO: follow-up chip after run_analysis → recovered earlier CEE turn drives evidence resolution', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        // Conversational selector picked the prose follow-up.
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+        cee_capture_selected_trace_id: 'follow-up-trace-id',
+        conversational_trace_id: 'follow-up-trace-id',
+        conversational_trace_source: 'analysis_producing_v5_turn',
+        // Evidence-bearing selector recovered the earlier
+        // run_analysis trace.
+        analysis_evidence_trace_id: 'run-analysis-trace-id',
+        analysis_evidence_trace_source: 'recovered_earlier_cee_turn',
+        analysis_evidence_selected_reason: 'evidence_bearing_recency',
+        analysis_evidence_response_hash: null,
+        analysis_evidence_response_hash_source: null,
+        analysis_evidence_hash_mismatch_observed: false,
+        analysis_evidence_cee_response_body: evidenceBearingCeeResponse,
+        analysis_evidence_selection_diagnostics: {
+          cee_candidate_count: 2,
+          v5_endpoint_candidate_count: 2,
+          analysis_producing_candidate_count: 2,
+          evidence_bearing_candidate_count: 1,
+          rejected_scenario_mismatch_count: 0,
+          used_missing_scenario_fallback: false,
+          selected_via_primary_path: true,
+          selected_reason: 'evidence_bearing_recency',
+          hash_match_status: 'both_absent',
+          scenario_status: 'scenario_unknown',
+        },
+        payloads: {
+          cee_request: { turn_id: 'follow-up', message: 'What could change…' },
+          cee_response: proseFollowUpCeeResponse,
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+
+    // Conversational truth preserved: bundle.payloads.cee_response is
+    // still the follow-up body. Top-level PLoT/ISL payloads stay null.
+    expect(bundle.payloads.cee_response).toEqual(proseFollowUpCeeResponse)
+    expect(bundle.payloads.plot_response).toBeNull()
+    expect(bundle.payloads.isl_response).toBeNull()
+    expect(bundle.payloads.plot_request).toBeNull()
+    expect(bundle.payloads.isl_request).toBeNull()
+
+    // The conversational vs evidence split is exposed on the bundle.
+    expect(bundle.analysis_evidence_trace).toBeDefined()
+    expect(bundle.analysis_evidence_trace?.source).toBe(
+      'recovered_earlier_cee_turn',
+    )
+    expect(bundle.analysis_evidence_trace?.trace_id).toBe(
+      'run-analysis-trace-id',
+    )
+    expect(bundle.analysis_evidence_trace?.response_body).toEqual(
+      evidenceBearingCeeResponse,
+    )
+    expect(bundle.conversational_trace_id).toBe('follow-up-trace-id')
+    expect(bundle.conversational_trace_id).not.toBe(
+      bundle.analysis_evidence_trace?.trace_id,
+    )
+
+    // Evidence resolver inspected the RECOVERED body — paths point
+    // there, not at `payloads.cee_response`.
+    expect(bundle.evidence_resolution?.plot_response.source).toBe('cee_embedded')
+    expect(bundle.evidence_resolution?.plot_response.path).toMatch(
+      /^analysis_evidence_trace\.response_body\.blocks\[1\]\.enrichment$/,
+    )
+
+    // Scientific validation runs against the recovered evidence.
+    expect(bundle.scientific_validation?.source).toBe('live_v5_cee_embedded')
+    expect(bundle.scientific_validation?.overall_status).not.toBe('unavailable')
+    // Orchestrator-level evidence limitation records the recovery.
+    expect(bundle.scientific_validation?.evidence_limitations).toBeDefined()
+    expect(
+      bundle.scientific_validation?.evidence_limitations.some((s) =>
+        s.includes('recovered_earlier_cee_turn'),
+      ),
+    ).toBe(true)
+  })
+
+  // ----------------------------------------------------------------
+  // REGRESSION — immediate post-analysis export must behave exactly
+  // as before.
+  // ----------------------------------------------------------------
+  it('REGRESSION: immediate post-analysis export (no follow-up) — paths still point at payloads.cee_response', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+        cee_capture_selected_trace_id: 'run-analysis-trace-id',
+        conversational_trace_id: 'run-analysis-trace-id',
+        conversational_trace_source: 'analysis_producing_v5_turn',
+        analysis_evidence_trace_id: 'run-analysis-trace-id',
+        analysis_evidence_trace_source: 'selected_cee_turn',
+        analysis_evidence_selected_reason: 'evidence_bearing_recency',
+        analysis_evidence_response_hash: null,
+        analysis_evidence_response_hash_source: null,
+        analysis_evidence_hash_mismatch_observed: false,
+        analysis_evidence_cee_response_body: evidenceBearingCeeResponse,
+        analysis_evidence_selection_diagnostics: {
+          cee_candidate_count: 1,
+          v5_endpoint_candidate_count: 1,
+          analysis_producing_candidate_count: 1,
+          evidence_bearing_candidate_count: 1,
+          rejected_scenario_mismatch_count: 0,
+          used_missing_scenario_fallback: false,
+          selected_via_primary_path: true,
+          selected_reason: 'evidence_bearing_recency',
+          hash_match_status: 'both_absent',
+          scenario_status: 'scenario_unknown',
+        },
+        payloads: {
+          cee_request: { turn_id: 'run-1' },
+          cee_response: evidenceBearingCeeResponse,
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+
+    expect(bundle.analysis_evidence_trace?.source).toBe('selected_cee_turn')
+    expect(bundle.analysis_evidence_trace?.trace_id).toBe(
+      bundle.conversational_trace_id,
+    )
+    // `response_body` is null when the evidence trace IS the
+    // conversational trace — the body already lives in
+    // `payloads.cee_response`. Avoid duplication on the bundle.
+    expect(bundle.analysis_evidence_trace?.response_body).toBeNull()
+    // Paths still anchor at `payloads.cee_response.*` — regression
+    // contract for all existing callers.
+    expect(bundle.evidence_resolution?.plot_response.source).toBe('cee_embedded')
+    expect(bundle.evidence_resolution?.plot_response.path).toMatch(
+      /^payloads\.cee_response\.blocks\[1\]\.enrichment$/,
+    )
+    expect(bundle.scientific_validation?.source).toBe('live_v5_cee_embedded')
+    // No recovered-evidence limitation when source === 'selected_cee_turn'.
+    expect(
+      bundle.scientific_validation?.evidence_limitations.some((s) =>
+        s.includes('recovered_earlier_cee_turn'),
+      ),
+    ).toBe(false)
+  })
+
+  // ----------------------------------------------------------------
+  // NO EVIDENCE — prose-only traces only; everything stays
+  // honestly unavailable.
+  // ----------------------------------------------------------------
+  it('NO EVIDENCE: trace store has no evidence-bearing trace → analysis_evidence_trace.source = unavailable', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+        cee_capture_selected_trace_id: 'prose-only-trace',
+        conversational_trace_id: 'prose-only-trace',
+        conversational_trace_source: 'analysis_producing_v5_turn',
+        analysis_evidence_trace_id: null,
+        analysis_evidence_trace_source: 'unavailable',
+        analysis_evidence_selected_reason: 'no_evidence_bearing_candidate',
+        analysis_evidence_response_hash: null,
+        analysis_evidence_response_hash_source: null,
+        analysis_evidence_hash_mismatch_observed: false,
+        analysis_evidence_cee_response_body: null,
+        analysis_evidence_selection_diagnostics: {
+          cee_candidate_count: 1,
+          v5_endpoint_candidate_count: 1,
+          analysis_producing_candidate_count: 1,
+          evidence_bearing_candidate_count: 0,
+          rejected_scenario_mismatch_count: 0,
+          used_missing_scenario_fallback: false,
+          selected_via_primary_path: false,
+          selected_reason: 'no_evidence_bearing_candidate',
+          hash_match_status: 'no_candidate',
+          scenario_status: 'no_candidate',
+        },
+        payloads: {
+          cee_request: { turn_id: 'prose' },
+          cee_response: proseFollowUpCeeResponse,
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+
+    expect(bundle.analysis_evidence_trace?.source).toBe('unavailable')
+    expect(bundle.analysis_evidence_trace?.response_body).toBeNull()
+    expect(bundle.analysis_evidence_trace?.selected_reason).toBe(
+      'no_evidence_bearing_candidate',
+    )
+    // Evidence resolver looked at conversational body (the prose-only
+    // turn) — no analysis_result block → unavailable.
+    expect(bundle.evidence_resolution?.plot_response.source).toBe('unavailable')
+    expect(bundle.scientific_validation?.source).not.toBe(
+      'live_v5_cee_embedded',
+    )
+    expect(bundle.scientific_validation?.source).not.toBe('live_raw_payloads')
+  })
+
+  // ----------------------------------------------------------------
+  // HASH MISMATCH HONESTY — recovered evidence's hash disagrees
+  // with results.hash.
+  // ----------------------------------------------------------------
+  it('HASH MISMATCH: recovered evidence trace hash disagrees with results.hash → evidence_limitations warns; live label preserved', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+        cee_capture_selected_trace_id: 'follow-up-trace-id',
+        conversational_trace_id: 'follow-up-trace-id',
+        conversational_trace_source: 'analysis_producing_v5_turn',
+        analysis_evidence_trace_id: 'run-analysis-trace-id',
+        analysis_evidence_trace_source: 'recovered_earlier_cee_turn',
+        analysis_evidence_selected_reason: 'evidence_bearing_recency',
+        analysis_evidence_response_hash: 'hash-recovered',
+        analysis_evidence_response_hash_source: 'body_root_response_hash',
+        analysis_evidence_hash_mismatch_observed: true,
+        analysis_evidence_cee_response_body: evidenceBearingCeeResponse,
+        analysis_evidence_selection_diagnostics: {
+          cee_candidate_count: 2,
+          v5_endpoint_candidate_count: 2,
+          analysis_producing_candidate_count: 2,
+          evidence_bearing_candidate_count: 1,
+          rejected_scenario_mismatch_count: 0,
+          used_missing_scenario_fallback: false,
+          selected_via_primary_path: true,
+          selected_reason: 'evidence_bearing_recency',
+          hash_match_status: 'mismatched',
+          scenario_status: 'scenario_unknown',
+        },
+        // Conversational trace also independently disagrees with
+        // results.hash — distinct signal, distinct field.
+        cee_capture_response_hash_mismatch: true,
+        cee_capture_selected_response_hash: 'hash-conversational',
+        cee_capture_selected_response_hash_source: 'body_root_response_hash',
+        payloads: {
+          cee_request: { turn_id: 'follow-up' },
+          cee_response: proseFollowUpCeeResponse,
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+
+    expect(bundle.analysis_evidence_trace?.hash_mismatch_observed).toBe(true)
+    expect(bundle.analysis_evidence_trace?.response_hash).toBe('hash-recovered')
+    // The conversational hash mismatch is exposed independently via
+    // the existing `capture_response_hash_mismatch_with_results`
+    // coherence issue on `v5_canonical_turn_diagnostics`. Independent
+    // signal — distinct from `analysis_evidence_trace.hash_mismatch_observed`.
+    const coherenceIssues =
+      bundle.v5_canonical_turn_diagnostics?.coherence?.issues ?? []
+    expect(coherenceIssues).toContain(
+      'capture_response_hash_mismatch_with_results',
+    )
+    // Scientific validation still surfaces live evidence (we recovered
+    // it) — NOT silently upgraded. The orchestrator-level
+    // limitation records the hash-disagreement warning.
+    expect(bundle.scientific_validation?.source).toBe('live_v5_cee_embedded')
+    expect(
+      bundle.scientific_validation?.evidence_limitations.some((s) =>
+        s.includes('response_hash'),
+      ),
+    ).toBe(true)
+  })
+
+  // ----------------------------------------------------------------
+  // FOLLOW-UP WITH OWN ENRICHMENT — newer turn carries evidence.
+  // ----------------------------------------------------------------
+  it('FOLLOW-UP WITH OWN ENRICHMENT: newer follow-up carries evidence → analysis_evidence_trace.source = selected_cee_turn', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+        cee_capture_selected_trace_id: 'follow-up-with-evidence',
+        conversational_trace_id: 'follow-up-with-evidence',
+        conversational_trace_source: 'analysis_producing_v5_turn',
+        analysis_evidence_trace_id: 'follow-up-with-evidence',
+        analysis_evidence_trace_source: 'selected_cee_turn',
+        analysis_evidence_selected_reason: 'evidence_bearing_recency',
+        analysis_evidence_response_hash: null,
+        analysis_evidence_response_hash_source: null,
+        analysis_evidence_hash_mismatch_observed: false,
+        analysis_evidence_cee_response_body: evidenceBearingCeeResponse,
+        analysis_evidence_selection_diagnostics: {
+          cee_candidate_count: 1,
+          v5_endpoint_candidate_count: 1,
+          analysis_producing_candidate_count: 1,
+          evidence_bearing_candidate_count: 1,
+          rejected_scenario_mismatch_count: 0,
+          used_missing_scenario_fallback: false,
+          selected_via_primary_path: true,
+          selected_reason: 'evidence_bearing_recency',
+          hash_match_status: 'both_absent',
+          scenario_status: 'scenario_unknown',
+        },
+        payloads: {
+          cee_request: { turn_id: 'follow-up-with-evidence' },
+          cee_response: evidenceBearingCeeResponse,
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+
+    expect(bundle.analysis_evidence_trace?.source).toBe('selected_cee_turn')
+    expect(bundle.analysis_evidence_trace?.response_body).toBeNull()
+    expect(bundle.evidence_resolution?.plot_response.path).toMatch(
+      /^payloads\.cee_response\./,
+    )
+    expect(bundle.scientific_validation?.source).toBe('live_v5_cee_embedded')
+  })
+
+  // ----------------------------------------------------------------
+  // RAW PAYLOAD HONESTY — across all scenarios.
+  // ----------------------------------------------------------------
+  it('RAW PAYLOAD HONESTY: recovered evidence path NEVER mutates top-level payloads.plot_response or payloads.isl_response', async () => {
+    const enrichmentWithFullSidecar = {
+      blocks: [
+        {
+          type: 'analysis_result',
+          enrichment: {
+            option_comparison: [{ id: 'opt_a' }],
+            factor_sensitivity: [{ factor_id: 'f1' }],
+            _meta: {
+              payloads: {
+                plot_response: { factor_sensitivity: [{ factor_id: 'sidecar' }] },
+                isl_response: { some: 'isl-body' },
+              },
+            },
+          },
+        },
+      ],
+    }
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+        conversational_trace_id: 'follow-up',
+        conversational_trace_source: 'analysis_producing_v5_turn',
+        analysis_evidence_trace_id: 'recovered',
+        analysis_evidence_trace_source: 'recovered_earlier_cee_turn',
+        analysis_evidence_selected_reason: 'evidence_bearing_recency',
+        analysis_evidence_response_hash: null,
+        analysis_evidence_response_hash_source: null,
+        analysis_evidence_hash_mismatch_observed: false,
+        analysis_evidence_cee_response_body: enrichmentWithFullSidecar,
+        analysis_evidence_selection_diagnostics: {
+          cee_candidate_count: 2,
+          v5_endpoint_candidate_count: 2,
+          analysis_producing_candidate_count: 2,
+          evidence_bearing_candidate_count: 1,
+          rejected_scenario_mismatch_count: 0,
+          used_missing_scenario_fallback: false,
+          selected_via_primary_path: true,
+          selected_reason: 'evidence_bearing_recency',
+          hash_match_status: 'both_absent',
+          scenario_status: 'scenario_unknown',
+        },
+        payloads: {
+          cee_request: null,
+          cee_response: proseFollowUpCeeResponse,
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+
+    // Top-level PLoT/ISL payload slots stay null regardless of
+    // recovered evidence richness.
+    expect(bundle.payloads.plot_response).toBeNull()
+    expect(bundle.payloads.plot_request).toBeNull()
+    expect(bundle.payloads.isl_request).toBeNull()
+    expect(bundle.payloads.isl_response).toBeNull()
+    // Recovered body surfaced under `analysis_evidence_trace.response_body`
+    // (the only place the body appears at top-level on the bundle).
+    expect(bundle.analysis_evidence_trace?.response_body).toEqual(
+      enrichmentWithFullSidecar,
+    )
+    // Evidence-resolution paths anchor at the recovered body.
+    expect(bundle.evidence_resolution?.plot_response.path).toMatch(
+      /^analysis_evidence_trace\.response_body\./,
+    )
+    expect(bundle.evidence_resolution?.isl_response.path).toMatch(
+      /^analysis_evidence_trace\.response_body\./,
+    )
+  })
+})

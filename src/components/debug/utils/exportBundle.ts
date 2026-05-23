@@ -50,7 +50,17 @@ import {
 import type {
   SelectionReason,
   HashMatchStatus,
+  ResponseHashSource,
 } from '../../../lib/analysisProducingCeeTurn'
+// Evidence-bearing selector types — used to type the bundle's
+// `analysis_evidence_trace` block (sibling of `evidence_resolution`).
+// The selector itself is consumed by `useDebugData`; here we only
+// need the type aliases so the bundle interface mirrors the hook's
+// output without re-declaring the enum.
+import type {
+  EvidenceSelectionReason,
+  EvidenceSelectionDiagnostics,
+} from '../../../lib/evidenceBearingCeeTurn'
 import {
   derivePipelineStatus,
   type PipelineStatus,
@@ -1198,6 +1208,94 @@ interface DebugBundle {
    * evidence kind — never inferred, never fabricated.
    */
   evidence_resolution?: EvidenceResolutionReport
+
+  /**
+   * Conversational/analysis-evidence trace split.
+   *
+   * The CEE selector that drives `bundle.payloads.cee_*` ranks by
+   * request-side signals (hash, scenario, completion, recency). After
+   * a user runs analysis and then clicks a follow-up chip such as
+   * "What could change the outcome?", the latest conversational turn
+   * is prose-only (`blocks: []`) with no analysis evidence. The
+   * `analysis_evidence_trace` block records WHICH trace was used to
+   * resolve scientific evidence — distinct from the conversational
+   * turn when the conversational one carries no evidence:
+   *
+   *   - `source = 'selected_cee_turn'`           — evidence trace IS
+   *                                                 the conversational
+   *                                                 trace. `response_body`
+   *                                                 is null (the body
+   *                                                 already lives in
+   *                                                 `payloads.cee_response`).
+   *   - `source = 'recovered_earlier_cee_turn'`  — evidence was
+   *                                                 recovered from an
+   *                                                 earlier CEE turn.
+   *                                                 `response_body`
+   *                                                 carries the raw
+   *                                                 earlier response
+   *                                                 body so reviewers
+   *                                                 can audit the exact
+   *                                                 evidence inspected
+   *                                                 by validators.
+   *                                                 `evidence_resolution.<kind>.path`
+   *                                                 strings will start
+   *                                                 with `'analysis_evidence_trace.response_body.'`
+   *                                                 instead of `'payloads.cee_response.'`.
+   *   - `source = 'unavailable'`                 — no evidence-bearing
+   *                                                 CEE trace found.
+   *                                                 `response_body` is
+   *                                                 null. Scientific
+   *                                                 validation honestly
+   *                                                 reports unavailable.
+   *
+   * `hash_mismatch_observed` fires when the recovered trace's
+   * captured `response_hash` disagrees with the canvas store's
+   * `results.hash`. Independent from the conversational
+   * `cee_capture_response_hash_mismatch_with_results` signal — both
+   * are exposed so reviewers can see when the recovered evidence may
+   * not match the currently-rendered analysis.
+   *
+   * Raw-payload honesty contract: top-level
+   * `payloads.plot_response` / `payloads.isl_response` are NEVER
+   * populated from the recovered body. Embedded bodies feed
+   * scientific validators only.
+   */
+  analysis_evidence_trace?: {
+    trace_id: string | null
+    source:
+      | 'selected_cee_turn'
+      | 'recovered_earlier_cee_turn'
+      | 'unavailable'
+    selected_reason: EvidenceSelectionReason
+    response_hash: string | null
+    response_hash_source: ResponseHashSource | null
+    hash_mismatch_observed: boolean
+    selection_diagnostics: EvidenceSelectionDiagnostics
+    /**
+     * Raw response body of the recovered earlier CEE turn. Non-null
+     * ONLY when `source === 'recovered_earlier_cee_turn'`; null when
+     * `source` is `'selected_cee_turn'` (body equals
+     * `payloads.cee_response`) or `'unavailable'`.
+     */
+    response_body: unknown
+  }
+
+  /**
+   * Alias of `cee_capture_selected_trace_id`. Surfaced under the
+   * `conversational_*` name so reviewers can read the
+   * conversational/evidence split alongside `analysis_evidence_trace`.
+   */
+  conversational_trace_id?: string | null
+  /**
+   * Alias of `cee_capture_provenance`. Surfaced under the
+   * `conversational_*` name so reviewers can read the
+   * conversational/evidence split alongside `analysis_evidence_trace`.
+   */
+  conversational_trace_source?:
+    | 'analysis_producing_v5_turn'
+    | 'fallback_v5_turn'
+    | 'fallback_legacy_cee'
+    | 'none'
 
   // Enhancement sections (Debug Panel V2.1)
 
@@ -4023,6 +4121,30 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     // `bundle.payloads.*` (which stays raw-capture truth). The
     // resolved view is also exposed on `bundle.evidence_resolution`
     // for reviewer transparency.
+    // Conversational/evidence trace split (workstream: DGAI debug
+    // output, 2026-05-23). When the latest conversational CEE turn
+    // is prose-only (e.g. a `what_would_flip` follow-up chip), the
+    // evidence-bearing selector recovers an earlier `run_analysis`
+    // trace whose response body carries the actual analysis
+    // evidence. We route the recovered body into the resolver AND
+    // pass a matching `ceeResponseBasePath` so emitted `path`
+    // strings truthfully point at `analysis_evidence_trace.response_body`
+    // rather than `payloads.cee_response`.
+    //
+    // Raw-payload honesty: `bundle.payloads.cee_response` is NOT
+    // reassigned — the conversational truth stays intact. Top-level
+    // `payloads.plot_response` / `isl_response` are likewise never
+    // touched here.
+    const useRecoveredCeeBody =
+      data.analysis_evidence_trace_source === 'recovered_earlier_cee_turn' &&
+      data.analysis_evidence_cee_response_body !== null &&
+      data.analysis_evidence_cee_response_body !== undefined
+    const ceeBodyForResolver = useRecoveredCeeBody
+      ? data.analysis_evidence_cee_response_body
+      : bundle.payloads.cee_response
+    const ceeResponseBasePath = useRecoveredCeeBody
+      ? 'analysis_evidence_trace.response_body'
+      : 'payloads.cee_response'
     const resolvedEvidence = resolveScientificEvidence(
       {
         plot_request: bundle.payloads.plot_request,
@@ -4030,13 +4152,55 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
         isl_request: bundle.payloads.isl_request,
         isl_response: bundle.payloads.isl_response,
       },
-      bundle.payloads.cee_response,
+      ceeBodyForResolver,
+      ceeResponseBasePath,
     )
     // `bundle.evidence_resolution` exposes METADATA ONLY (no bodies).
     // Bodies live in `bundle.payloads.*` (raw browser capture) AND
     // are routed into validators below. Reviewers can trace each
-    // resolved body via `evidence_resolution.<kind>.path`.
+    // resolved body via `evidence_resolution.<kind>.path` — paths
+    // start with `'analysis_evidence_trace.response_body.'` when
+    // evidence was recovered from an earlier CEE turn.
     bundle.evidence_resolution = resolvedEvidence.resolution
+
+    // Surface the conversational/evidence split on the bundle —
+    // includes the recovered response body (when applicable) so
+    // reviewers can inspect the exact evidence used by validation.
+    bundle.analysis_evidence_trace = {
+      trace_id: data.analysis_evidence_trace_id ?? null,
+      source: data.analysis_evidence_trace_source ?? 'unavailable',
+      selected_reason:
+        data.analysis_evidence_selected_reason ?? 'no_cee_candidate',
+      response_hash: data.analysis_evidence_response_hash ?? null,
+      response_hash_source:
+        data.analysis_evidence_response_hash_source ?? null,
+      hash_mismatch_observed:
+        data.analysis_evidence_hash_mismatch_observed ?? false,
+      selection_diagnostics:
+        data.analysis_evidence_selection_diagnostics ?? {
+          cee_candidate_count: 0,
+          v5_endpoint_candidate_count: 0,
+          analysis_producing_candidate_count: 0,
+          evidence_bearing_candidate_count: 0,
+          rejected_scenario_mismatch_count: 0,
+          used_missing_scenario_fallback: false,
+          selected_via_primary_path: false,
+          selected_reason: 'no_cee_candidate',
+          hash_match_status: 'no_candidate',
+          scenario_status: 'no_candidate',
+        },
+      // `response_body` carries the raw recovered body so reviewers
+      // can audit it; null when the evidence trace is the same as
+      // the conversational trace (`source === 'selected_cee_turn'`)
+      // or when no evidence-bearing trace was found
+      // (`source === 'unavailable'`).
+      response_body: useRecoveredCeeBody
+        ? data.analysis_evidence_cee_response_body
+        : null,
+    }
+    bundle.conversational_trace_id = data.conversational_trace_id ?? null
+    bundle.conversational_trace_source =
+      data.conversational_trace_source ?? 'none'
 
     // Reviewer Blocker 2: gate `'live_v5_cee_embedded'` on a
     // SELECTED analysis-producing V5 CEE turn — not just on
@@ -4059,7 +4223,16 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     //   - `'none'`                       — no CEE candidate at all.
     //   - undefined                      — provenance not threaded.
     const ceeProvenance = data.cee_capture_provenance
+    // Evidence-trace split (workstream: DGAI debug output, 2026-05-23):
+    // also accept the evidence-bearing selector's verdict. The
+    // evidence selector is a strict subset of the analysis-producing
+    // selector + evidence-bearing + V5 endpoint + scenario gate, so
+    // any non-`'unavailable'` evidence trace is by construction an
+    // analysis-producing V5 turn — safe to accept regardless of the
+    // conversational provenance label.
     const ceeIsSelectedV5 =
+      data.analysis_evidence_trace_source === 'selected_cee_turn' ||
+      data.analysis_evidence_trace_source === 'recovered_earlier_cee_turn' ||
       ceeProvenance === 'analysis_producing_v5_turn' ||
       ceeProvenance === 'fallback_v5_turn'
 
@@ -4067,7 +4240,10 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       plotRequest: resolvedEvidence.bodies.plot_request,
       // Resolver output: top-level capture when present, else
       // embedded `_meta.payloads` sidecar, else embedded
-      // `analysis_result.enrichment` body, else null.
+      // `analysis_result.enrichment` body, else null. The resolver
+      // may have inspected `bundle.payloads.cee_response` OR the
+      // recovered earlier CEE turn body (see `useRecoveredCeeBody`
+      // above).
       plotResponse: resolvedEvidence.bodies.plot_response,
       ceeRequest: bundle.payloads.cee_request,
       ceeResponse: bundle.payloads.cee_response,
@@ -4093,6 +4269,15 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       // `classifySource` emit `'live_v5_cee_embedded'`.
       plotResponseSource: resolvedEvidence.resolution.plot_response.source,
       ceeCaptureIsSelectedV5Turn: ceeIsSelectedV5,
+      // Evidence-trace split — surfaces orchestrator-level
+      // limitations in `scientific_validation.evidence_limitations`
+      // when validators consumed RECOVERED evidence (informational)
+      // or when the recovered trace's response_hash disagrees with
+      // results.hash (warning). Does NOT alter per-validator
+      // statuses — additive warning channel only.
+      evidenceTraceSource: data.analysis_evidence_trace_source,
+      evidenceHashMismatchObserved:
+        data.analysis_evidence_hash_mismatch_observed,
     })
   } catch {
     // All four sections are additive — keep partial state on failure.
@@ -4129,6 +4314,21 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
         path: 'scientific_validation',
         present: bundle.scientific_validation !== undefined,
         reason_if_omitted: 'validators_bailed',
+      },
+      {
+        path: 'analysis_evidence_trace',
+        present: bundle.analysis_evidence_trace !== undefined,
+        reason_if_omitted: 'evidence_resolver_bailed_or_legacy_missing',
+      },
+      {
+        path: 'conversational_trace_id',
+        present: bundle.conversational_trace_id !== undefined,
+        reason_if_omitted: 'evidence_resolver_bailed_or_legacy_missing',
+      },
+      {
+        path: 'conversational_trace_source',
+        present: bundle.conversational_trace_source !== undefined,
+        reason_if_omitted: 'evidence_resolver_bailed_or_legacy_missing',
       },
     ])
   } catch {
