@@ -232,40 +232,79 @@ function enrichmentIsEvidenceBearing(
 }
 
 /**
- * Walk a `blocks[]` array looking for an `analysis_result` block
- * whose enrichment is evidence-bearing. Returns true on first hit.
- * Returns false for missing/non-array blocks or no-match.
+ * Find the FIRST `analysis_result` block in a `blocks[]` array,
+ * regardless of whether its enrichment is usable. Mirrors the
+ * resolver's `findInBlocks` semantics exactly. Returns null when
+ * the array is missing/non-array or no analysis_result block exists.
+ *
+ * Honesty contract: the resolver's `findAnalysisResultBlock` returns
+ * the FIRST analysis_result block from `body.blocks` and only falls
+ * back to `body.raw.blocks` when `body.blocks` had NO analysis_result
+ * at all. The selector must use the same probe order so that
+ * "selector says evidence-bearing" implies "resolver will resolve
+ * evidence." Iterating ALL blocks (and accepting later evidence-
+ * bearing blocks when earlier ones lack enrichment) would let the
+ * selector accept a trace the resolver then reports as unavailable —
+ * misleading: the bundle would record
+ * `analysis_evidence_trace.source = 'recovered_earlier_cee_turn'`
+ * while `scientific_validation.source = 'unavailable'`. We don't want
+ * that.
  */
-function blocksHaveEvidenceBearingAnalysisResult(blocks: unknown): boolean {
-  if (!Array.isArray(blocks)) return false
+function findFirstAnalysisResultBlock(
+  blocks: unknown,
+): Record<string, unknown> | null {
+  if (!Array.isArray(blocks)) return null
   for (const b of blocks) {
     if (!isPlainObject(b)) continue
-    if (b.type !== 'analysis_result') continue
-    const enrichment = (b as Record<string, unknown>).enrichment
-    if (!isPlainObject(enrichment)) continue
-    if (enrichmentIsEvidenceBearing(enrichment as Record<string, unknown>)) {
-      return true
-    }
+    if (b.type === 'analysis_result') return b
   }
-  return false
+  return null
 }
 
 /**
  * True iff the trace's response body carries an `analysis_result`
- * block (either at top-level or under the parse-error `raw.blocks`
- * wrapper) whose enrichment is evidence-bearing. Mirrors the
- * resolver's `findAnalysisResultBlock` probe order
- * (`v5EmbeddedEvidence.ts`).
+ * block whose enrichment is evidence-bearing, USING THE SAME PROBE
+ * ORDER as the resolver's `findAnalysisResultBlock`:
+ *
+ *   1. The FIRST analysis_result block in `body.blocks` (if any).
+ *      If its enrichment is missing or non-evidence-bearing → false.
+ *      We do NOT iterate to later analysis_result blocks; the
+ *      resolver only inspects the first.
+ *   2. Only when `body.blocks` had NO analysis_result block at all,
+ *      fall back to the FIRST analysis_result block in
+ *      `body.raw.blocks` (parse-error wrapper).
+ *
+ * This mirrors the resolver exactly so selector and resolver agree
+ * on what counts as evidence-bearing. See `findFirstAnalysisResultBlock`
+ * JSDoc above for the rationale.
  */
 export function hasEvidenceBearingEnrichment(p: SelectorTracedPayload): boolean {
   const body = p.response?.body
   if (!isPlainObject(body)) return false
-  // 1. Top-level (unwrapped) shape.
-  if (blocksHaveEvidenceBearingAnalysisResult(body.blocks)) return true
-  // 2. Parse-error wrapper: `body.raw.blocks[*]`.
+  // 1. Top-level (unwrapped) shape — first analysis_result wins,
+  //    regardless of enrichment quality. If found here, we DO NOT
+  //    fall through to `raw.blocks` even if this block's enrichment
+  //    is non-evidence-bearing — the resolver wouldn't either.
+  const top = findFirstAnalysisResultBlock(body.blocks)
+  if (top !== null) {
+    const enrichment = top.enrichment
+    return (
+      isPlainObject(enrichment) &&
+      enrichmentIsEvidenceBearing(enrichment as Record<string, unknown>)
+    )
+  }
+  // 2. Parse-error wrapper — `body.raw.blocks[*]`. Only reached when
+  //    `body.blocks` had NO analysis_result block at all.
   const raw = body.raw
   if (isPlainObject(raw)) {
-    if (blocksHaveEvidenceBearingAnalysisResult(raw.blocks)) return true
+    const wrapped = findFirstAnalysisResultBlock(raw.blocks)
+    if (wrapped !== null) {
+      const enrichment = wrapped.enrichment
+      return (
+        isPlainObject(enrichment) &&
+        enrichmentIsEvidenceBearing(enrichment as Record<string, unknown>)
+      )
+    }
   }
   return false
 }

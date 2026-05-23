@@ -517,3 +517,109 @@ describe('findLatestEvidenceBearingCeeTurn — case O: indicative-key parity', (
     })
   }
 })
+
+// --- P. Selector / resolver parity: first analysis_result block wins -
+
+describe('findLatestEvidenceBearingCeeTurn — case P: selector/resolver parity (first analysis_result block wins)', () => {
+  // The resolver's `findAnalysisResultBlock` returns the FIRST
+  // analysis_result block from `body.blocks` regardless of whether
+  // its enrichment is usable, and only falls back to
+  // `body.raw.blocks` when `body.blocks` had no analysis_result
+  // block at all. The selector mirrors that exactly so reviewers
+  // never see `analysis_evidence_trace.source = recovered_earlier_cee_turn`
+  // paired with `scientific_validation.source = unavailable`.
+
+  it('REJECTS a candidate whose FIRST analysis_result block lacks enrichment, even if a LATER block carries evidence', () => {
+    const turn = ceeTurn({
+      id: 'first-empty-second-full',
+      responseBody: {
+        blocks: [
+          { type: 'analysis_result', enrichment: {} }, // first — no evidence
+          analysisResultBlock(), // second — full enrichment
+        ],
+      },
+    })
+    const r = findLatestEvidenceBearingCeeTurn([turn], 'scn-1', null)
+    // Resolver would also pick the first (empty) block and report
+    // unavailable. Selector matches.
+    expect(r.selected).toBeUndefined()
+    expect(r.selection_diagnostics.selected_reason).toBe(
+      'no_evidence_bearing_candidate',
+    )
+  })
+
+  it('REJECTS a candidate whose body.blocks has a non-evidence-bearing analysis_result, even if body.raw.blocks has evidence', () => {
+    // body.blocks has an analysis_result block (no enrichment), so
+    // the resolver returns THAT block and never inspects raw.blocks.
+    // The selector must match.
+    const turn = ceeTurn({
+      id: 'top-empty-raw-full',
+      responseBody: {
+        blocks: [{ type: 'analysis_result', enrichment: {} }],
+        raw: { blocks: [analysisResultBlock()] },
+      },
+    })
+    const r = findLatestEvidenceBearingCeeTurn([turn], 'scn-1', null)
+    expect(r.selected).toBeUndefined()
+    expect(r.selection_diagnostics.selected_reason).toBe(
+      'no_evidence_bearing_candidate',
+    )
+  })
+
+  it('ACCEPTS the parse-error wrapper only when body.blocks has NO analysis_result block at all', () => {
+    // body.blocks present but no analysis_result block → falls
+    // through to raw.blocks. Resolver behaves the same way.
+    const turn = ceeTurn({
+      id: 'fall-through-to-raw',
+      responseBody: {
+        blocks: [{ type: 'commentary', text: 'prose' }],
+        raw: { blocks: [analysisResultBlock()] },
+      },
+    })
+    const r = findLatestEvidenceBearingCeeTurn([turn], 'scn-1', null)
+    expect(r.selected_trace_id).toBe('fall-through-to-raw')
+  })
+
+  it('ACCEPTS when the FIRST analysis_result block has evidence (later blocks irrelevant)', () => {
+    const turn = ceeTurn({
+      id: 'first-full',
+      responseBody: {
+        blocks: [
+          analysisResultBlock(), // first — full enrichment
+          { type: 'analysis_result', enrichment: {} }, // second — empty
+        ],
+      },
+    })
+    const r = findLatestEvidenceBearingCeeTurn([turn], 'scn-1', null)
+    expect(r.selected_trace_id).toBe('first-full')
+  })
+})
+
+// --- Q. Null-id defensive coverage -----------------------------------
+
+describe('findLatestEvidenceBearingCeeTurn — case Q: candidate with no `id` field', () => {
+  it('selects the trace; returns null `selected_trace_id` rather than fabricating one', () => {
+    // Defensive: trace-store entries are recorded with `id` set, but
+    // the SelectorTracedPayload type permits the field to be absent.
+    // The selector should not throw and should expose `selected_trace_id: null`
+    // so callers can detect the situation explicitly.
+    //
+    // Bypass the `ceeTurn` builder's default id assignment by
+    // constructing the SelectorTracedPayload literal here.
+    const turn: SelectorTracedPayload = {
+      service: 'CEE',
+      endpoint: '/bff/orchestrate/v2/turn',
+      status: 200,
+      completed: true,
+      turnType: 'run_analysis',
+      request: { headers: {}, body: { scenario_id: 'scn-1' } },
+      response: {
+        headers: {},
+        body: { blocks: [analysisResultBlock()] },
+      },
+    }
+    const r = findLatestEvidenceBearingCeeTurn([turn], 'scn-1', null)
+    expect(r.selected).toBeDefined()
+    expect(r.selected_trace_id).toBeNull()
+  })
+})

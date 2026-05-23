@@ -3112,6 +3112,67 @@ describe('buildDebugBundleAsync — analysis_evidence_trace split (workstream 20
   })
 
   // ----------------------------------------------------------------
+  // SELECTED CEE TURN with null trace id (defensive).
+  // ----------------------------------------------------------------
+  it('SELECTED CEE TURN with null trace id: still labelled selected_cee_turn (not recovered_earlier_cee_turn)', async () => {
+    // Defensive: the trace store should always set `id` at record
+    // time, but if for some reason both selectors picked a trace
+    // with no id, the bundle must still correctly label them as
+    // the SAME trace — not as a recovered earlier turn. The hook
+    // uses reference-identity comparison to handle this; here we
+    // assert the bundle-level effect: when DebugData reports
+    // `analysis_evidence_trace_source: 'selected_cee_turn'`, the
+    // bundle propagates it verbatim and `response_body` is null
+    // (no duplication; body already in `payloads.cee_response`).
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+        cee_capture_selected_trace_id: null,
+        conversational_trace_id: null,
+        conversational_trace_source: 'analysis_producing_v5_turn',
+        analysis_evidence_trace_id: null,
+        analysis_evidence_trace_source: 'selected_cee_turn',
+        analysis_evidence_selected_reason: 'evidence_bearing_recency',
+        analysis_evidence_response_hash: null,
+        analysis_evidence_response_hash_source: null,
+        analysis_evidence_hash_mismatch_observed: false,
+        analysis_evidence_cee_response_body: evidenceBearingCeeResponse,
+        analysis_evidence_selection_diagnostics: {
+          cee_candidate_count: 1,
+          v5_endpoint_candidate_count: 1,
+          analysis_producing_candidate_count: 1,
+          evidence_bearing_candidate_count: 1,
+          rejected_scenario_mismatch_count: 0,
+          used_missing_scenario_fallback: false,
+          selected_via_primary_path: true,
+          selected_reason: 'evidence_bearing_recency',
+          hash_match_status: 'both_absent',
+          scenario_status: 'scenario_unknown',
+        },
+        payloads: {
+          cee_request: null,
+          cee_response: evidenceBearingCeeResponse,
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+
+    expect(bundle.analysis_evidence_trace?.source).toBe('selected_cee_turn')
+    expect(bundle.analysis_evidence_trace?.trace_id).toBeNull()
+    expect(bundle.conversational_trace_id).toBeNull()
+    // Body not duplicated under analysis_evidence_trace.response_body —
+    // the conversational response already lives at `payloads.cee_response`.
+    expect(bundle.analysis_evidence_trace?.response_body).toBeNull()
+    // Evidence paths still anchor at the conversational body.
+    expect(bundle.evidence_resolution?.plot_response.path).toMatch(
+      /^payloads\.cee_response\./,
+    )
+  })
+
+  // ----------------------------------------------------------------
   // RAW PAYLOAD HONESTY — across all scenarios.
   // ----------------------------------------------------------------
   it('RAW PAYLOAD HONESTY: recovered evidence path NEVER mutates top-level payloads.plot_response or payloads.isl_response', async () => {

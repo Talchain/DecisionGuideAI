@@ -3842,8 +3842,18 @@ export function useDebugData(): DebugData {
     if (evidenceBearing.selected === undefined) {
       analysisEvidenceTraceSource = 'unavailable'
     } else if (
-      analysisEvidenceTraceId !== null &&
-      analysisEvidenceTraceId === selectedCeeTraceId
+      // Reference identity FIRST — both selectors operate on the
+      // same `tracedPayloads` array, so when they pick the same
+      // trace they return the same object. This handles the edge
+      // case where both have null `id` (defensive — trace store
+      // should always set id at record time, but the type permits
+      // null).
+      evidenceBearing.selected === ceePayload ||
+      // Fall back to id-equality when references differ but ids
+      // match — strictly belt-and-braces: in practice references
+      // and ids agree.
+      (analysisEvidenceTraceId !== null &&
+        analysisEvidenceTraceId === selectedCeeTraceId)
     ) {
       analysisEvidenceTraceSource = 'selected_cee_turn'
     } else {
