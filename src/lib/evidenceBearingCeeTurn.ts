@@ -159,6 +159,31 @@ export type EvidenceSelectionReason =
  *                                          scenario mismatch is
  *                                          surfaced as a diagnostic
  *                                          rather than a rejection.
+ *   - `'scenario_missing_overridden_by_hash'`
+ *                                       — candidate has NO scenario_id
+ *                                          but its captured
+ *                                          `response_hash` matched
+ *                                          `resultsHash` exactly. The
+ *                                          scenario-missing fallback
+ *                                          would have deprioritised
+ *                                          this candidate when a
+ *                                          scenario-matched candidate
+ *                                          (without hash match) existed
+ *                                          — the hash override
+ *                                          elevates it back so the
+ *                                          actual source of the
+ *                                          rendered results wins per
+ *                                          brief preference (a).
+ *                                          Distinct from
+ *                                          `scenario_missing_on_candidate`
+ *                                          (which means we fell back
+ *                                          to missing-scenario because
+ *                                          nothing else was eligible)
+ *                                          and from
+ *                                          `scenario_conflict_overridden_by_hash`
+ *                                          (which means an explicit
+ *                                          scenario mismatch was
+ *                                          overridden).
  *   - `'no_candidate'`                 — no candidate was selected.
  */
 export type EvidenceScenarioStatus =
@@ -166,6 +191,7 @@ export type EvidenceScenarioStatus =
   | 'scenario_missing_on_candidate'
   | 'scenario_unknown'
   | 'scenario_conflict_overridden_by_hash'
+  | 'scenario_missing_overridden_by_hash'
   | 'no_candidate'
 
 /**
@@ -466,24 +492,26 @@ function emptyResult(
  *      enrichment is evidence-bearing (indicative key OR sidecar)
  *
  * Scenario gate (when `currentScenarioId !== null`):
+ *   - Hash match is checked FIRST per the brief's preference order.
+ *     A candidate whose captured `response_hash` matches `resultsHash`
+ *     bypasses scenario rejection AND scenario-missing fallback
+ *     deprioritisation regardless of whether its scenario_id is
+ *     matched, mismatched, or missing — the trace IS the source of
+ *     the rendered results, so any other resolution would discard
+ *     the actual evidence.
+ *   - `scenario_status` on the selected candidate distinguishes:
+ *       * `'scenario_matched'`                       — sid === currentScenarioId
+ *       * `'scenario_missing_overridden_by_hash'`    — sid absent + hash match overrode fallback
+ *       * `'scenario_conflict_overridden_by_hash'`   — sid !== currentScenarioId + hash match overrode rejection
+ *       * `'scenario_missing_on_candidate'`          — sid absent + fallback (no hash match)
  *   - Reject candidates whose explicit `scenario_id` differs from
- *     `currentScenarioId` (counted in
- *     `rejected_scenario_mismatch_count`) — UNLESS the candidate's
- *     captured `response_hash` matches `resultsHash` exactly. Per
- *     the brief's preference order (hash match > scenario match), a
- *     hash-matched candidate IS the source of the rendered results;
- *     rejecting it because of a stale `scenario_id` would discard
- *     the actual evidence. The override is surfaced via
- *     `scenario_status = 'scenario_conflict_overridden_by_hash'` so
- *     reviewers see the canvas-state inconsistency rather than have
- *     it silently swept under the rug.
- *   - Prefer candidates that match `currentScenarioId` (combined
- *     with hash-match overrides in the scoring pool — the hash
- *     bonus +1000 makes hash-matched conflicts outrank
- *     non-hash-matched scenario matches per brief preference).
- *     Only if no matched or hash-override candidate exists, fall
- *     back to candidates with no `scenario_id` and set
- *     `used_missing_scenario_fallback = true`.
+ *     `currentScenarioId` outright (counted in
+ *     `rejected_scenario_mismatch_count`) when they DON'T hash-match.
+ *   - Prefer candidates from hashMatched ∪ scenarioMatched buckets
+ *     (the scoring +1000 hash bonus makes hash-matched candidates
+ *     outrank scenario-matched non-hash-matched ones per brief
+ *     preference). Only if neither bucket is non-empty, fall back
+ *     to scenarioMissing and set `used_missing_scenario_fallback = true`.
  *
  * Scoring within the surviving set (same formula as
  * `findLatestAnalysisProducingCeeTurn` for trace-pinning parity):
@@ -571,11 +599,19 @@ export function findLatestEvidenceBearingCeeTurn(
     return reading !== null && reading.hash === resultsHash
   }
 
-  // (6) Scenario gate. Hash-matched candidates bypass explicit
-  //     scenario rejection (see comment above); they're kept in a
-  //     separate bucket and merged into the scoring pool so reviewers
-  //     can see the scenario-conflict-override via the
-  //     `scenario_conflict_overridden_by_hash` status code.
+  // (6) Scenario gate. Hash match is checked FIRST per the brief's
+  //     preference order — a hash-matched candidate is the actual
+  //     source of the rendered results, so it bypasses scenario
+  //     rejection AND scenario-missing fallback deprioritisation
+  //     regardless of whether its scenario_id is matched, mismatched,
+  //     or missing. The override is surfaced via
+  //     `scenario_status` on the selected candidate:
+  //       - matched      → 'scenario_matched' (no override needed)
+  //       - mismatched   → 'scenario_conflict_overridden_by_hash'
+  //       - missing      → 'scenario_missing_overridden_by_hash'
+  //     A non-hash-matched candidate with explicit scenario mismatch
+  //     is still rejected outright; missing-scenario candidates remain
+  //     a fallback when no scenario-matched candidate exists.
   let rejectedScenarioMismatchCount = 0
   let scenarioMatchedCandidates: Array<{ p: SelectorTracedPayload; idx: number }> = []
   let scenarioMissingCandidates: Array<{ p: SelectorTracedPayload; idx: number }> = []
@@ -585,34 +621,40 @@ export function findLatestEvidenceBearingCeeTurn(
 
   if (currentScenarioId !== null) {
     for (const c of evidenceBearing) {
+      // Hash match FIRST — regardless of scenario. The bucket
+      // captures every hash-matched candidate so the scoring pool
+      // is guaranteed to consider them, and the `scenario_status`
+      // for the winner correctly reflects whether the override
+      // resolved a mismatch or a missing scenario.
+      if (isExactHashMatch(c.p)) {
+        hashMatchOverrideCandidates.push(c)
+        continue
+      }
       const sid = readScenarioId(c.p)
       if (sid === currentScenarioId) {
         scenarioMatchedCandidates.push(c)
       } else if (sid === null) {
         scenarioMissingCandidates.push(c)
-      } else if (isExactHashMatch(c.p)) {
-        // Explicit scenario mismatch but exact hash match — keep,
-        // and flag via scenario_conflict_overridden_by_hash on the
-        // selected candidate's diagnostic. Per brief preference (a).
-        hashMatchOverrideCandidates.push(c)
       } else {
+        // Explicit scenario mismatch, no hash match — reject.
         rejectedScenarioMismatchCount += 1
       }
     }
     // Scoring pool precedence:
-    //   - scenarioMatched ∪ hashMatchOverride (combined; scoring +1000
-    //     hash bonus ensures the hash-matched conflict outranks
-    //     a non-hash-matched scenario-matched candidate, mirroring
-    //     the brief's preference order);
-    //   - else scenarioMissing (fallback);
+    //   - hashMatched ∪ scenarioMatched (combined; the scoring +1000
+    //     hash bonus ensures hash-matched candidates outrank
+    //     scenario-matched non-hash-matched candidates, mirroring
+    //     the brief's preference order a > b);
+    //   - else scenarioMissing (fallback — only when no eligible
+    //     candidate above);
     //   - else no candidate.
     if (
-      scenarioMatchedCandidates.length > 0 ||
-      hashMatchOverrideCandidates.length > 0
+      hashMatchOverrideCandidates.length > 0 ||
+      scenarioMatchedCandidates.length > 0
     ) {
       scenarioGateAppliedCandidates = [
-        ...scenarioMatchedCandidates,
         ...hashMatchOverrideCandidates,
+        ...scenarioMatchedCandidates,
       ]
     } else if (scenarioMissingCandidates.length > 0) {
       usedMissingScenarioFallback = true
@@ -687,25 +729,46 @@ export function findLatestEvidenceBearingCeeTurn(
     hashMatchStatus = 'both_absent'
   }
 
-  // Scenario status for the selected candidate. After the gate, the
-  // selected candidate is one of:
-  //   - scenario_matched (selectedScenarioId === currentScenarioId)
-  //   - scenario_missing_on_candidate (selectedScenarioId === null)
-  //   - scenario_conflict_overridden_by_hash (selectedScenarioId
-  //     differs from currentScenarioId AND hash match overrode
-  //     rejection — only reachable when isExactHashMatch was true).
+  // Scenario status for the selected candidate. The gate places the
+  // candidate into one of three buckets — hashMatched, scenarioMatched,
+  // or scenarioMissing (fallback) — so the status decision combines
+  // the candidate's scenario relationship with WHICH bucket selected it:
+  //
+  //   currentScenarioId === null
+  //                                  → 'scenario_unknown'
+  //   selected from hashMatched bucket:
+  //     sid === currentScenarioId    → 'scenario_matched'
+  //     sid === null                 → 'scenario_missing_overridden_by_hash'
+  //     sid !== currentScenarioId    → 'scenario_conflict_overridden_by_hash'
+  //   selected from scenarioMatched bucket:
+  //                                  → 'scenario_matched'
+  //   selected from scenarioMissing bucket (fallback):
+  //                                  → 'scenario_missing_on_candidate'
+  //
+  // The override codes fire only when hash match was the entry path —
+  // a candidate that's both scenario-matched AND hash-matched lands
+  // in the hashMatched bucket and reports 'scenario_matched' (no
+  // override needed because the scenario was actually matched).
   let scenarioStatus: EvidenceScenarioStatus
   if (currentScenarioId === null) {
     scenarioStatus = 'scenario_unknown'
-  } else if (selectedScenarioId === currentScenarioId) {
-    scenarioStatus = 'scenario_matched'
-  } else if (selectedScenarioId === null) {
-    scenarioStatus = 'scenario_missing_on_candidate'
   } else {
-    // Explicit scenario mismatch survived because of hash match.
-    // (Guaranteed by the scenario gate: explicit mismatches without
-    // hash match were rejected.)
-    scenarioStatus = 'scenario_conflict_overridden_by_hash'
+    const selectedIsHashMatch = isExactHashMatch(selected)
+    if (selectedScenarioId === currentScenarioId) {
+      scenarioStatus = 'scenario_matched'
+    } else if (selectedScenarioId === null) {
+      // Missing scenario. Distinguish hash-override path from
+      // genuine fallback path so reviewers see when hash recovered
+      // the actual evidence trace from a missing-scenario candidate.
+      scenarioStatus = selectedIsHashMatch
+        ? 'scenario_missing_overridden_by_hash'
+        : 'scenario_missing_on_candidate'
+    } else {
+      // Explicit scenario mismatch survived because of hash match.
+      // Guaranteed by the gate: explicit mismatches without hash
+      // match were rejected.
+      scenarioStatus = 'scenario_conflict_overridden_by_hash'
+    }
   }
 
   return {

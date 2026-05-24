@@ -643,6 +643,92 @@ describe('findLatestEvidenceBearingCeeTurn — case L2: hash match overrides sce
     ).toBe(1)
   })
 
+  it('hash match overrides missing-scenario fallback when scenario-matched non-hash candidate exists (FB2-P1)', () => {
+    // Bug fix per second reviewer pass: previously a
+    // missing-scenario candidate went into the scenarioMissing
+    // fallback bucket and was invisible whenever any
+    // scenario-matched (non-hash) candidate existed. So a
+    // hash-matched candidate without scenario_id would lose to a
+    // scenario-matched no-hash candidate — violating the brief's
+    // preference order (a) hash > (b) scenario. Fix restructures
+    // the partition to check hash match FIRST.
+    const matchedNoHash = evidenceBearingRunAnalysis({
+      id: 'matched-no-hash',
+      scenarioId: 'scn-1',
+      // no responseHash
+    })
+    const missingWithHash: SelectorTracedPayload = {
+      // Construct directly so scenario_id is omitted from request body.
+      id: 'missing-with-hash',
+      service: 'CEE',
+      endpoint: '/bff/orchestrate/v2/turn',
+      status: 200,
+      completed: true,
+      turnType: 'run_analysis',
+      request: { headers: {}, body: {} }, // no scenario_id
+      response: {
+        headers: {},
+        body: {
+          response_hash: 'hash-abc',
+          blocks: [analysisResultBlock()],
+        },
+      },
+    }
+    const r = findLatestEvidenceBearingCeeTurn(
+      [matchedNoHash, missingWithHash],
+      'scn-1',
+      'hash-abc',
+    )
+    expect(r.selected_trace_id).toBe('missing-with-hash')
+    expect(r.selection_diagnostics.selected_reason).toBe('hash_matched')
+    expect(r.selection_diagnostics.scenario_status).toBe(
+      'scenario_missing_overridden_by_hash',
+    )
+    // Override path — NOT a fallback. The fallback flag is false
+    // because the candidate won via hash bucket, not the missing-
+    // scenario fallback bucket.
+    expect(
+      r.selection_diagnostics.used_missing_scenario_fallback,
+    ).toBe(false)
+    expect(
+      r.selection_diagnostics.rejected_scenario_mismatch_count,
+    ).toBe(0)
+  })
+
+  it('missing-scenario WITHOUT hash match remains a fallback (no override)', () => {
+    // Sanity check: the override only fires for hash-matched
+    // candidates. A missing-scenario no-hash candidate competing
+    // with a scenario-matched no-hash candidate still loses (the
+    // matched one wins via the scenarioMatched bucket — fallback
+    // is only reached when matched is empty).
+    const matchedNoHash = evidenceBearingRunAnalysis({
+      id: 'matched',
+      scenarioId: 'scn-1',
+    })
+    const missingNoHash: SelectorTracedPayload = {
+      id: 'missing',
+      service: 'CEE',
+      endpoint: '/bff/orchestrate/v2/turn',
+      status: 200,
+      completed: true,
+      turnType: 'run_analysis',
+      request: { headers: {}, body: {} },
+      response: {
+        headers: {},
+        body: { blocks: [analysisResultBlock()] },
+      },
+    }
+    const r = findLatestEvidenceBearingCeeTurn(
+      [matchedNoHash, missingNoHash],
+      'scn-1',
+      null,
+    )
+    expect(r.selected_trace_id).toBe('matched')
+    expect(r.selection_diagnostics.scenario_status).toBe(
+      'scenario_matched',
+    )
+  })
+
   it('hash match when scenario is unknown (currentScenarioId=null): scenario_status=scenario_unknown', () => {
     // Edge: hash match plus no scenario gate. Should still pick
     // the hash-matched candidate; status reflects scenario_unknown
