@@ -113,10 +113,18 @@ export interface EvidenceResolutionEntry {
    * Concrete pathname pointing at WHERE the resolved body lives,
    * for reviewer transparency. Examples:
    *   - `'payloads.plot_response'`                                   (top-level)
-   *   - `'payloads.cee_response.blocks[3].enrichment'`               (cee_embedded — bare enrichment)
+   *   - `'payloads.cee_response.blocks[3].enrichment'`               (cee_embedded — bare enrichment from conversational turn)
    *   - `'payloads.cee_response.blocks[3].enrichment._meta.payloads.plot_response'`
-   *                                                                  (cee_embedded — meta sidecar)
+   *                                                                  (cee_embedded — meta sidecar from conversational turn)
+   *   - `'analysis_evidence_trace.response_body.blocks[0].enrichment'`
+   *                                                                  (cee_embedded — recovered earlier CEE turn body)
    *   - `null`                                                       (unavailable)
+   *
+   * The `payloads.cee_response.*` prefix indicates evidence was
+   * resolved from the conversational CEE response (default base
+   * path). The `analysis_evidence_trace.response_body.*` prefix
+   * indicates evidence was resolved from a recovered earlier CEE
+   * turn, surfaced on the bundle at `analysis_evidence_trace.response_body`.
    */
   path: string | null
   /** Convenience: `source !== 'unavailable'`. */
@@ -166,14 +174,11 @@ export interface ResolvedEvidence {
   resolution: EvidenceResolutionReport
 }
 
-/** Indicative keys that gate `plot_response` promotion. */
-const RAW_PAYLOAD_INDICATIVE_KEYS = [
-  'option_comparison',
-  'factor_sensitivity',
-  'm1_coaching',
-  'flip_thresholds',
-  'robustness',
-] as const
+// Indicative keys that gate `plot_response` promotion. Imported from
+// the shared `v5EvidenceKeys` module so the resolver and the
+// evidence-bearing selector (src/lib/evidenceBearingCeeTurn.ts) agree
+// exactly on what counts as "real" evidence.
+import { RAW_PAYLOAD_INDICATIVE_KEYS } from './v5EvidenceKeys'
 
 /** Required-upstream-support copy (shared, single source of truth). */
 const REQ_PLOT_REQUEST =
@@ -241,6 +246,7 @@ function findInBlocks(
  */
 function findAnalysisResultBlock(
   ceeResponse: unknown,
+  ceeResponseBasePath: string,
 ): {
   block: Record<string, unknown>
   index: number
@@ -252,7 +258,7 @@ function findAnalysisResultBlock(
   if (top !== null) {
     return {
       ...top,
-      pathPrefix: `payloads.cee_response.blocks[${top.index}]`,
+      pathPrefix: `${ceeResponseBasePath}.blocks[${top.index}]`,
     }
   }
   // 2. Fall back to the parse-error wrapper. We don't require
@@ -265,7 +271,7 @@ function findAnalysisResultBlock(
     if (wrapped !== null) {
       return {
         ...wrapped,
-        pathPrefix: `payloads.cee_response.raw.blocks[${wrapped.index}]`,
+        pathPrefix: `${ceeResponseBasePath}.raw.blocks[${wrapped.index}]`,
       }
     }
   }
@@ -333,6 +339,17 @@ function probeMetaPayloadsKind(
  *   4. For `isl_response` only: `enrichment.downstream_calls.isl.response`.
  *   5. `'unavailable'`.
  *
+ * `ceeResponseBasePath` controls the prefix used when emitting
+ * `path` strings in the metadata report. Defaults to
+ * `'payloads.cee_response'` — the canonical bundle location for
+ * the captured CEE response body. When the caller resolves
+ * evidence against a recovered earlier CEE turn (surfaced on the
+ * bundle as `analysis_evidence_trace.response_body`), it should
+ * pass `'analysis_evidence_trace.response_body'` so emitted paths
+ * truthfully point at the actual bundle location of the body that
+ * was inspected — not at `payloads.cee_response`, which still
+ * carries the conversational (later) turn.
+ *
  * Pure function. Defensive on malformed input.
  */
 export function resolveScientificEvidence(
@@ -343,8 +360,9 @@ export function resolveScientificEvidence(
     isl_response: unknown
   },
   ceeResponse: unknown,
+  ceeResponseBasePath: string = 'payloads.cee_response',
 ): ResolvedEvidence {
-  const found = findAnalysisResultBlock(ceeResponse)
+  const found = findAnalysisResultBlock(ceeResponse, ceeResponseBasePath)
   const enrichment =
     found !== null && isPlainObject(found.block.enrichment)
       ? (found.block.enrichment as Record<string, unknown>)

@@ -1824,4 +1824,231 @@ describe('useDebugData', () => {
       expect(result.current.cee_capture_selected_trace_id).toBeNull()
     })
   })
+
+  // ============================================================
+  // Workstream: DGAI debug output — preserve latest analysis
+  // evidence after follow-up turns (2026-05-23).
+  //
+  // End-to-end hook coverage for the analysis_evidence_trace split.
+  // The selector unit tests cover behaviour in isolation; the bundle
+  // integration tests inject DebugData fields directly. Neither
+  // covers the wiring from `usePayloadTraceStore` → the new
+  // selector → DebugData fields. These tests close that gap.
+  // ============================================================
+  describe('analysis_evidence_trace split — hook wiring (workstream 2026-05-23)', () => {
+    // Canonical evidence-bearing CEE response.
+    const evidenceBearingCeeResponse = {
+      blocks: [
+        { type: 'text', text: 'Ran analysis.' },
+        {
+          type: 'analysis_result',
+          enrichment: {
+            option_comparison: [{ id: 'opt_a', win_probability: 0.72 }],
+            factor_sensitivity: [{ factor_id: 'f1' }],
+            robustness: { level: 'high' },
+          },
+        },
+      ],
+    }
+    const proseFollowUpCeeResponse = {
+      blocks: [{ type: 'text', text: 'Here is what would flip…' }],
+    }
+
+    it('BUG REPRO (hook level): older run_analysis + newer follow-up → analysis_evidence_trace_source = recovered_earlier_cee_turn; conversational trace differs', () => {
+      // Trace store as the user would see after running analysis then
+      // clicking "What could change the outcome?": newest (idx 0) is
+      // the prose-only follow-up, older (idx 1) is the run_analysis.
+      const followUpTrace = {
+        id: 'tp-follow-up',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        status: 200,
+        completed: true,
+        turnType: 'explain',
+        request: {
+          body: {
+            scenario_id: 'scn-1',
+            chip: { action_type: 'what_would_flip' },
+          },
+        },
+        response: { body: proseFollowUpCeeResponse },
+      }
+      const runAnalysisTrace = {
+        id: 'tp-run-analysis',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        status: 200,
+        completed: true,
+        turnType: 'run_analysis',
+        request: { body: { scenario_id: 'scn-1' } },
+        response: { body: evidenceBearingCeeResponse },
+      }
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [followUpTrace, runAnalysisTrace] }),
+      )
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector({
+          ceePipelineTrace: null,
+          nodes: [],
+          edges: [],
+          runMeta: null,
+          currentScenarioId: 'scn-1',
+          results: null,
+        }),
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      // Conversational trace = the prose follow-up (existing
+      // selector chose it on recency).
+      expect(result.current.conversational_trace_id).toBe('tp-follow-up')
+      expect(result.current.cee_capture_selected_trace_id).toBe(
+        'tp-follow-up',
+      )
+      // Evidence trace = the earlier run_analysis (new selector
+      // recovered it because the follow-up has no enrichment).
+      expect(result.current.analysis_evidence_trace_id).toBe(
+        'tp-run-analysis',
+      )
+      expect(result.current.analysis_evidence_trace_source).toBe(
+        'recovered_earlier_cee_turn',
+      )
+      // Recovered body is threaded through DebugData so the bundle
+      // can surface it for reviewer audit.
+      expect(
+        result.current.analysis_evidence_cee_response_body,
+      ).toEqual(evidenceBearingCeeResponse)
+      // Diagnostics surface the evidence-bearing selector's view.
+      expect(
+        result.current.analysis_evidence_selection_diagnostics
+          ?.evidence_bearing_candidate_count,
+      ).toBe(1)
+      expect(
+        result.current.analysis_evidence_selection_diagnostics
+          ?.analysis_producing_candidate_count,
+      ).toBe(2)
+    })
+
+    it('IMMEDIATE POST-ANALYSIS (hook level): single run_analysis → analysis_evidence_trace_source = selected_cee_turn; trace ids match', () => {
+      const runAnalysisTrace = {
+        id: 'tp-run-only',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        status: 200,
+        completed: true,
+        turnType: 'run_analysis',
+        request: { body: { scenario_id: 'scn-1' } },
+        response: { body: evidenceBearingCeeResponse },
+      }
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [runAnalysisTrace] }),
+      )
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector({
+          ceePipelineTrace: null,
+          nodes: [],
+          edges: [],
+          runMeta: null,
+          currentScenarioId: 'scn-1',
+          results: null,
+        }),
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.analysis_evidence_trace_source).toBe(
+        'selected_cee_turn',
+      )
+      expect(result.current.analysis_evidence_trace_id).toBe(
+        result.current.conversational_trace_id,
+      )
+    })
+
+    it('NO EVIDENCE (hook level): only prose turns → analysis_evidence_trace_source = unavailable', () => {
+      const proseOnlyTrace = {
+        id: 'tp-prose',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        status: 200,
+        completed: true,
+        turnType: 'explain',
+        request: { body: { scenario_id: 'scn-1' } },
+        response: { body: proseFollowUpCeeResponse },
+      }
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [proseOnlyTrace] }),
+      )
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector({
+          ceePipelineTrace: null,
+          nodes: [],
+          edges: [],
+          runMeta: null,
+          currentScenarioId: 'scn-1',
+          results: null,
+        }),
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.analysis_evidence_trace_source).toBe(
+        'unavailable',
+      )
+      expect(result.current.analysis_evidence_trace_id).toBeNull()
+      expect(
+        result.current.analysis_evidence_cee_response_body,
+      ).toBeNull()
+      expect(result.current.analysis_evidence_selected_reason).toBe(
+        'no_evidence_bearing_candidate',
+      )
+    })
+
+    it('HASH MATCH OVERRIDES SCENARIO REJECTION (hook level): cross-scenario hash-matched trace is selected; scenario_status = scenario_conflict_overridden_by_hash', () => {
+      // Edge case from FB-P1-1: canvas results.hash points at an
+      // analysis from a different scenario (canvas state
+      // inconsistency). Hash match still wins so we recover the
+      // ACTUAL evidence trace, surfaced via scenario_status.
+      const crossScenarioRun = {
+        id: 'tp-cross-scenario',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        status: 200,
+        completed: true,
+        turnType: 'run_analysis',
+        request: { body: { scenario_id: 'scn-other' } },
+        response: {
+          body: {
+            ...evidenceBearingCeeResponse,
+            response_hash: 'hash-abc',
+          },
+        },
+      }
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [crossScenarioRun] }),
+      )
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector({
+          ceePipelineTrace: null,
+          nodes: [],
+          edges: [],
+          runMeta: null,
+          currentScenarioId: 'scn-current',
+          results: { hash: 'hash-abc' },
+        }),
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.analysis_evidence_trace_id).toBe(
+        'tp-cross-scenario',
+      )
+      expect(result.current.analysis_evidence_selected_reason).toBe(
+        'hash_matched',
+      )
+      expect(
+        result.current.analysis_evidence_selection_diagnostics
+          ?.scenario_status,
+      ).toBe('scenario_conflict_overridden_by_hash')
+    })
+  })
 })

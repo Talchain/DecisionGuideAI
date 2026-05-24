@@ -13,6 +13,8 @@
  * `details` is a per-validator opaque object documented inline below.
  */
 
+import type { AnalysisEvidenceTraceSource } from '../evidenceBearingCeeTurn'
+
 export type ValidationStatus = 'pass' | 'fail' | 'unavailable' | 'partial'
 
 export type ClaimStrength = 'observed' | 'derived' | 'inferred' | 'unavailable'
@@ -75,6 +77,28 @@ export interface ScientificValidation {
     | 'unavailable'
   /** Validators keyed by name for easy lookup. */
   validators: Record<ValidatorName, ValidatorResult>
+  /**
+   * Orchestrator-level limitations / informational notes that span
+   * all validators. Distinct from per-validator
+   * `validators[*].limitations` — those describe what a single
+   * validator could or could not conclude, while these describe
+   * cross-cutting concerns about the EVIDENCE itself.
+   *
+   * Examples:
+   *   - "Scientific evidence was recovered from an earlier CEE
+   *      turn (analysis_evidence_trace.source =
+   *      recovered_earlier_cee_turn) because the latest conversational
+   *      turn carried no analysis evidence."
+   *   - "Recovered CEE evidence trace's response_hash disagrees with
+   *      the current results.hash; the recovered evidence may not
+   *      match the currently-rendered analysis."
+   *
+   * Always present (defaults to `[]`) so consumers don't have to
+   * undefined-check. The orchestrator NEVER alters per-validator
+   * statuses to communicate these — limitations are an additive
+   * warning channel, not a status downgrade.
+   */
+  evidence_limitations: string[]
 }
 
 /**
@@ -158,6 +182,32 @@ export interface ValidatorInputs {
    * default doesn't change behaviour for them).
    */
   ceeCaptureIsSelectedV5Turn?: boolean
+  /**
+   * Evidence-trace split (workstream: DGAI debug output, 2026-05-23).
+   *
+   * The bundle now distinguishes the CONVERSATIONAL CEE turn
+   * (`bundle.payloads.cee_response`) from the ANALYSIS-EVIDENCE CEE
+   * turn (the body fed into `resolveScientificEvidence`). When the
+   * conversational turn is prose-only (e.g. a `what_would_flip`
+   * follow-up chip), the bundle may recover scientific evidence from
+   * an earlier `run_analysis` trace. These optional flags let the
+   * orchestrator surface that situation honestly in
+   * `evidence_limitations` without altering per-validator statuses:
+   *
+   *   - `evidenceTraceSource === 'recovered_earlier_cee_turn'` →
+   *     append an informational note recording that the validators
+   *     consumed RECOVERED evidence, not the conversational turn's
+   *     body.
+   *   - `evidenceHashMismatchObserved === true` →
+   *     append a warning that the recovered evidence trace's
+   *     captured `response_hash` disagrees with the canvas store's
+   *     `results.hash`; the recovered evidence may not match the
+   *     currently-rendered analysis.
+   *
+   * Both default to undefined / false; legacy callers see no change.
+   */
+  evidenceTraceSource?: AnalysisEvidenceTraceSource
+  evidenceHashMismatchObserved?: boolean
 }
 
 /**

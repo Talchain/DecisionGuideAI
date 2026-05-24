@@ -55,7 +55,21 @@ import {
   findLatestAnalysisProducingCeeTurn,
   type SelectionReason,
   type HashMatchStatus,
+  type ResponseHashSource,
 } from '../../../lib/analysisProducingCeeTurn'
+// Evidence-bearing selector — stricter sibling of the
+// analysis-producing selector. Filters analysis-producing V5 turns
+// further by requiring their response body to carry an
+// `analysis_result` block with evidence-bearing enrichment. Used to
+// recover scientific evidence from an earlier CEE turn when the
+// latest conversational turn is prose-only (e.g. a `what_would_flip`
+// follow-up chip).
+import {
+  findLatestEvidenceBearingCeeTurn,
+  type AnalysisEvidenceTraceSource,
+  type EvidenceSelectionReason,
+  type EvidenceSelectionDiagnostics,
+} from '../../../lib/evidenceBearingCeeTurn'
 // PR #156 round-3 (reviewer BLOCKING #2): analysis-producing PLoT
 // selector. Replaces generic `findBestPayload(tracedPayloads, 'PLoT')`
 // so a later non-analysis PLoT entry can't displace the actual run
@@ -953,6 +967,44 @@ export interface DebugData {
    * `determineCaptureTier`'s gate on `bundle_payloads` promotion.
    */
   cee_capture_provenance?:
+    | 'analysis_producing_v5_turn'
+    | 'fallback_v5_turn'
+    | 'fallback_legacy_cee'
+    | 'none'
+
+  /**
+   * Analysis-evidence selector results — sibling of the
+   * conversational/`cee_capture_*` selector above. The conversational
+   * selector decides which CEE turn drives `bundle.payloads.cee_*`
+   * (raw-capture truth for the latest turn). This evidence selector
+   * decides which CEE turn is fed into the scientific-evidence
+   * resolver, allowing the bundle to recover evidence from an earlier
+   * evidence-bearing `run_analysis` trace when the latest
+   * conversational turn (e.g. a `what_would_flip` follow-up) carries
+   * no analysis evidence.
+   *
+   * `analysis_evidence_cee_response_body` is the raw response body of
+   * the recovered earlier trace — surfaced on the bundle as
+   * `analysis_evidence_trace.response_body` for reviewer
+   * auditability.
+   */
+  analysis_evidence_trace_id?: string | null
+  analysis_evidence_trace_source?: AnalysisEvidenceTraceSource
+  analysis_evidence_selected_reason?: EvidenceSelectionReason
+  analysis_evidence_response_hash?: string | null
+  analysis_evidence_response_hash_source?: ResponseHashSource | null
+  analysis_evidence_hash_mismatch_observed?: boolean
+  analysis_evidence_selection_diagnostics?: EvidenceSelectionDiagnostics
+  analysis_evidence_cee_response_body?: unknown
+
+  /**
+   * Aliases of `cee_capture_selected_trace_id` and
+   * `cee_capture_provenance` — surfaced on the bundle under the
+   * `conversational_*` name so reviewers can read the
+   * conversational/evidence split as a single concept.
+   */
+  conversational_trace_id?: string | null
+  conversational_trace_source?:
     | 'analysis_producing_v5_turn'
     | 'fallback_v5_turn'
     | 'fallback_legacy_cee'
@@ -3654,6 +3706,20 @@ export function useDebugData(): DebugData {
       currentScenarioId,
       resultsHash,
     )
+    // Evidence-bearing selector — see module docs in
+    // `evidenceBearingCeeTurn.ts`. Strict subset of the
+    // analysis-producing selector: same V5 endpoint scoping, same
+    // action-type filter, plus (a) response body MUST carry an
+    // evidence-bearing `analysis_result` block, and (b) explicit
+    // scenario-id mismatches are rejected outright. Drives the
+    // bundle's `analysis_evidence_trace` block and the body fed into
+    // `resolveScientificEvidence` when the conversational turn is
+    // prose-only.
+    const evidenceBearing = findLatestEvidenceBearingCeeTurn(
+      tracedPayloads,
+      currentScenarioId,
+      resultsHash,
+    )
     // Fallback path: when the analysis-producing V5 selector returns
     // undefined, fall through to `findBestPayload` so V1 / non-analysis
     // V5 turns still surface honestly.
@@ -3736,6 +3802,57 @@ export function useDebugData(): DebugData {
       }
     } else {
       ceeCaptureProvenance = 'none'
+    }
+
+    // Analysis-evidence selector results. The selector returns a
+    // SelectorTracedPayload (or undefined). We compute three derived
+    // values:
+    //   - analysisEvidenceTraceId: trace store id of the selected
+    //     evidence trace (or null);
+    //   - analysisEvidenceCeeResponseBody: raw response body of the
+    //     selected evidence trace — surfaced on the bundle as
+    //     `analysis_evidence_trace.response_body` so reviewers can
+    //     inspect the EXACT evidence used by scientific validation;
+    //   - analysisEvidenceTraceSource: trichotomy describing the
+    //     relationship to the conversational trace:
+    //       'unavailable'              — no evidence-bearing trace found
+    //       'selected_cee_turn'        — evidence trace IS the
+    //                                    conversational trace (no
+    //                                    recovery needed; body lives
+    //                                    in `payloads.cee_response`)
+    //       'recovered_earlier_cee_turn'
+    //                                  — evidence trace is an earlier
+    //                                    CEE turn distinct from the
+    //                                    conversational one; body
+    //                                    surfaces under
+    //                                    `analysis_evidence_trace.response_body`
+    //                                    on the bundle so the
+    //                                    evidence path is auditable
+    //                                    without mutating the raw
+    //                                    `payloads.cee_response` capture.
+    const analysisEvidenceTraceId = evidenceBearing.selected_trace_id
+    const analysisEvidenceCeeResponseBody: unknown =
+      evidenceBearing.selected?.response?.body ?? null
+    let analysisEvidenceTraceSource: AnalysisEvidenceTraceSource
+    if (evidenceBearing.selected === undefined) {
+      analysisEvidenceTraceSource = 'unavailable'
+    } else if (
+      // Reference identity FIRST — both selectors operate on the
+      // same `tracedPayloads` array, so when they pick the same
+      // trace they return the same object. This handles the edge
+      // case where both have null `id` (defensive — trace store
+      // should always set id at record time, but the type permits
+      // null).
+      evidenceBearing.selected === ceePayload ||
+      // Fall back to id-equality when references differ but ids
+      // match — strictly belt-and-braces: in practice references
+      // and ids agree.
+      (analysisEvidenceTraceId !== null &&
+        analysisEvidenceTraceId === selectedCeeTraceId)
+    ) {
+      analysisEvidenceTraceSource = 'selected_cee_turn'
+    } else {
+      analysisEvidenceTraceSource = 'recovered_earlier_cee_turn'
     }
     // PR #156 round-3 (reviewer BLOCKING #2) + round-4 (reviewer
     // P1 #1): use the analysis-producing PLoT selector. Pre-round-3
@@ -4121,6 +4238,26 @@ export function useDebugData(): DebugData {
       },
       // Round-3 review (P1): provenance of bundle.payloads.cee_*.
       cee_capture_provenance: ceeCaptureProvenance,
+      // Analysis-evidence selector results — see the DebugData
+      // interface JSDoc above and the `evidenceBearingCeeTurn.ts`
+      // module docs for the conversational/evidence split rationale.
+      analysis_evidence_trace_id: analysisEvidenceTraceId,
+      analysis_evidence_trace_source: analysisEvidenceTraceSource,
+      analysis_evidence_selected_reason:
+        evidenceBearing.selection_diagnostics.selected_reason,
+      analysis_evidence_response_hash: evidenceBearing.selected_response_hash,
+      analysis_evidence_response_hash_source:
+        evidenceBearing.selected_response_hash_source,
+      analysis_evidence_hash_mismatch_observed:
+        evidenceBearing.hash_mismatch_observed,
+      analysis_evidence_selection_diagnostics:
+        evidenceBearing.selection_diagnostics,
+      analysis_evidence_cee_response_body: analysisEvidenceCeeResponseBody,
+      // Aliases for the conversational selector's id + provenance —
+      // surfaced under the `conversational_*` name so reviewers can
+      // read the conversational/evidence split as a single concept.
+      conversational_trace_id: selectedCeeTraceId,
+      conversational_trace_source: ceeCaptureProvenance,
       // V5 proxy classification (follow-up to PR #156 / PR #159):
       // selected CEE trace endpoint string — used by the bundle
       // assembler to choose between `live_v5_cee_turn` (canonical
