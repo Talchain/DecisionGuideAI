@@ -140,12 +140,32 @@ export type EvidenceSelectionReason =
  *                                          `used_missing_scenario_fallback`).
  *   - `'scenario_unknown'`             — `currentScenarioId === null`,
  *                                         scenario gate not applied.
+ *   - `'scenario_conflict_overridden_by_hash'`
+ *                                       — candidate's scenario_id
+ *                                          explicitly differs from
+ *                                          `currentScenarioId`, but the
+ *                                          candidate was selected
+ *                                          anyway because its captured
+ *                                          `response_hash` matched
+ *                                          `resultsHash` exactly. Per
+ *                                          the workstream brief's
+ *                                          preference order, hash
+ *                                          match (a) trumps scenario
+ *                                          rejection (b) — the trace
+ *                                          IS the source of the
+ *                                          rendered results, so
+ *                                          ignoring it would discard
+ *                                          the actual evidence. The
+ *                                          scenario mismatch is
+ *                                          surfaced as a diagnostic
+ *                                          rather than a rejection.
  *   - `'no_candidate'`                 — no candidate was selected.
  */
 export type EvidenceScenarioStatus =
   | 'scenario_matched'
   | 'scenario_missing_on_candidate'
   | 'scenario_unknown'
+  | 'scenario_conflict_overridden_by_hash'
   | 'no_candidate'
 
 /**
@@ -255,20 +275,40 @@ function isNonEmptyObject(v: unknown): v is Record<string, unknown> {
  * The indicative-keys list is shared with the resolver via
  * `v5EvidenceKeys.ts` so selector and resolver cannot drift.
  */
+/** True iff the object carries any indicative scientific key. */
+function hasIndicativeKey(o: Record<string, unknown>): boolean {
+  for (const k of RAW_PAYLOAD_INDICATIVE_KEYS) {
+    if (o[k] !== undefined && o[k] !== null) return true
+  }
+  return false
+}
+
 function enrichmentIsEvidenceBearing(
   enrichment: Record<string, unknown>,
 ): boolean {
-  for (const k of RAW_PAYLOAD_INDICATIVE_KEYS) {
-    if (enrichment[k] !== undefined && enrichment[k] !== null) return true
-  }
+  if (hasIndicativeKey(enrichment)) return true
   const meta = enrichment._meta
   if (isPlainObject(meta)) {
     const payloads = (meta as Record<string, unknown>).payloads
     if (isPlainObject(payloads)) {
-      if (isNonEmptyObject((payloads as Record<string, unknown>).plot_response)) return true
-      if (isNonEmptyObject((payloads as Record<string, unknown>).plot_request)) return true
-      if (isNonEmptyObject((payloads as Record<string, unknown>).isl_request)) return true
-      if (isNonEmptyObject((payloads as Record<string, unknown>).isl_response)) return true
+      const p = payloads as Record<string, unknown>
+      // plot_response sidecar: MUST carry indicative keys — mirrors
+      // the resolver's `probeMetaPayloadsKind` gate
+      // (v5EmbeddedEvidence.ts:317). Without this gate, a sidecar
+      // shaped like `{ x: 1 }` would let the selector accept a trace
+      // the resolver cannot lift anything from, producing the
+      // misleading bundle `analysis_evidence_trace.source =
+      // recovered_earlier_cee_turn` + `evidence_resolution.*.source
+      // = unavailable`.
+      if (isNonEmptyObject(p.plot_response) && hasIndicativeKey(p.plot_response)) {
+        return true
+      }
+      // plot_request / isl_request / isl_response sidecars: the
+      // resolver requires only a non-empty plain object (no
+      // indicative-key gate), so the selector matches.
+      if (isNonEmptyObject(p.plot_request)) return true
+      if (isNonEmptyObject(p.isl_request)) return true
+      if (isNonEmptyObject(p.isl_response)) return true
     }
   }
   const downstream = enrichment.downstream_calls
@@ -345,19 +385,15 @@ function blockEnrichmentIsEvidenceBearing(
  * on what counts as evidence-bearing. See `findFirstAnalysisResultBlock`
  * JSDoc above for the rationale.
  *
- * Selector contract vs resolver per-kind gates (subtle): the
- * resolver applies an indicative-keys gate to `plot_response`
- * lifting specifically — `_meta.payloads.plot_response` without
- * indicative keys won't be promoted. This selector treats a
- * non-empty `_meta.payloads.plot_response` as evidence-bearing
- * regardless, on the principle that "evidence-bearing" means "the
- * resolver can lift at least one kind." A malformed trace where
- * `_meta.payloads.plot_response = {x:1}` is the ONLY signal would
- * therefore be selected here but produce `evidence_resolution.*.source
- * = 'unavailable'` downstream — the bundle is honestly explicit about
- * that partial-recovery state rather than hiding it. In practice CEE
- * never emits this shape; the sidecar always carries a real PLoT
- * response with indicative keys.
+ * Per-kind gating in `enrichmentIsEvidenceBearing` matches the
+ * resolver's `probeMetaPayloadsKind`: `plot_response` (both bare
+ * enrichment and `_meta.payloads.plot_response` sidecar) requires
+ * indicative scientific keys; `plot_request`, `isl_request`,
+ * `isl_response` sidecars and `downstream_calls.isl.response` just
+ * need a non-empty plain object. This guarantees "selector accepts
+ * ⇒ resolver lifts at least one kind", so the bundle never reports
+ * `analysis_evidence_trace.source = recovered_earlier_cee_turn`
+ * paired with `evidence_resolution.*.source = unavailable`.
  */
 export function hasEvidenceBearingEnrichment(p: SelectorTracedPayload): boolean {
   const body = p.response?.body
@@ -431,11 +467,23 @@ function emptyResult(
  *
  * Scenario gate (when `currentScenarioId !== null`):
  *   - Reject candidates whose explicit `scenario_id` differs from
- *     `currentScenarioId` outright (counted in
- *     `rejected_scenario_mismatch_count`).
- *   - Prefer candidates that match `currentScenarioId`. Only if
- *     none match, fall back to candidates with no `scenario_id`
- *     and set `used_missing_scenario_fallback = true`.
+ *     `currentScenarioId` (counted in
+ *     `rejected_scenario_mismatch_count`) — UNLESS the candidate's
+ *     captured `response_hash` matches `resultsHash` exactly. Per
+ *     the brief's preference order (hash match > scenario match), a
+ *     hash-matched candidate IS the source of the rendered results;
+ *     rejecting it because of a stale `scenario_id` would discard
+ *     the actual evidence. The override is surfaced via
+ *     `scenario_status = 'scenario_conflict_overridden_by_hash'` so
+ *     reviewers see the canvas-state inconsistency rather than have
+ *     it silently swept under the rug.
+ *   - Prefer candidates that match `currentScenarioId` (combined
+ *     with hash-match overrides in the scoring pool — the hash
+ *     bonus +1000 makes hash-matched conflicts outrank
+ *     non-hash-matched scenario matches per brief preference).
+ *     Only if no matched or hash-override candidate exists, fall
+ *     back to candidates with no `scenario_id` and set
+ *     `used_missing_scenario_fallback = true`.
  *
  * Scoring within the surviving set (same formula as
  * `findLatestAnalysisProducingCeeTurn` for trace-pinning parity):
@@ -448,8 +496,9 @@ function emptyResult(
  *      down to +0 at index 9)
  *
  * Scenario term is intentionally NOT in the score — it's a hard
- * filter above. Hash match is a SOFT preference: a missing hash on
- * either side NEVER discards a candidate.
+ * filter above (with hash-match override). Hash match is a SOFT
+ * preference in scoring: a missing hash on either side NEVER
+ * discards a candidate.
  *
  * Returns `{ selected: undefined, ... }` with a documented
  * `selected_reason` when no candidate survives.
@@ -503,10 +552,34 @@ export function findLatestEvidenceBearingCeeTurn(
     })
   }
 
-  // (5) Scenario gate.
+  // (5) Pre-compute hash readings for ALL evidence-bearing candidates.
+  //     Hash evidence is the strongest selection signal per the brief's
+  //     preference order: (a) hash match, (b) scenario match, (c)
+  //     evidence-bearing recency. So we read hashes BEFORE the scenario
+  //     gate so we can exempt hash-matched candidates from explicit
+  //     scenario rejection (their hash equals `resultsHash` — the trace
+  //     IS the source of the currently-rendered results; rejecting it
+  //     because of a stale `scenario_id` would discard the actual
+  //     evidence).
+  const candidateHashes = new Map<SelectorTracedPayload, ResponseHashReading | null>()
+  for (const c of evidenceBearing) {
+    candidateHashes.set(c.p, readResponseHashWithSource(c.p))
+  }
+  const isExactHashMatch = (p: SelectorTracedPayload): boolean => {
+    if (resultsHash === null) return false
+    const reading = candidateHashes.get(p) ?? null
+    return reading !== null && reading.hash === resultsHash
+  }
+
+  // (6) Scenario gate. Hash-matched candidates bypass explicit
+  //     scenario rejection (see comment above); they're kept in a
+  //     separate bucket and merged into the scoring pool so reviewers
+  //     can see the scenario-conflict-override via the
+  //     `scenario_conflict_overridden_by_hash` status code.
   let rejectedScenarioMismatchCount = 0
   let scenarioMatchedCandidates: Array<{ p: SelectorTracedPayload; idx: number }> = []
   let scenarioMissingCandidates: Array<{ p: SelectorTracedPayload; idx: number }> = []
+  let hashMatchOverrideCandidates: Array<{ p: SelectorTracedPayload; idx: number }> = []
   let usedMissingScenarioFallback = false
   let scenarioGateAppliedCandidates: Array<{ p: SelectorTracedPayload; idx: number }>
 
@@ -517,18 +590,37 @@ export function findLatestEvidenceBearingCeeTurn(
         scenarioMatchedCandidates.push(c)
       } else if (sid === null) {
         scenarioMissingCandidates.push(c)
+      } else if (isExactHashMatch(c.p)) {
+        // Explicit scenario mismatch but exact hash match — keep,
+        // and flag via scenario_conflict_overridden_by_hash on the
+        // selected candidate's diagnostic. Per brief preference (a).
+        hashMatchOverrideCandidates.push(c)
       } else {
         rejectedScenarioMismatchCount += 1
       }
     }
-    if (scenarioMatchedCandidates.length > 0) {
-      scenarioGateAppliedCandidates = scenarioMatchedCandidates
+    // Scoring pool precedence:
+    //   - scenarioMatched ∪ hashMatchOverride (combined; scoring +1000
+    //     hash bonus ensures the hash-matched conflict outranks
+    //     a non-hash-matched scenario-matched candidate, mirroring
+    //     the brief's preference order);
+    //   - else scenarioMissing (fallback);
+    //   - else no candidate.
+    if (
+      scenarioMatchedCandidates.length > 0 ||
+      hashMatchOverrideCandidates.length > 0
+    ) {
+      scenarioGateAppliedCandidates = [
+        ...scenarioMatchedCandidates,
+        ...hashMatchOverrideCandidates,
+      ]
     } else if (scenarioMissingCandidates.length > 0) {
       usedMissingScenarioFallback = true
       scenarioGateAppliedCandidates = scenarioMissingCandidates
     } else {
-      // Every evidence-bearing candidate was rejected by scenario
-      // mismatch. Honest: no eligible evidence for this scenario.
+      // Every evidence-bearing candidate was rejected by explicit
+      // scenario mismatch AND none had a hash match. Honest: no
+      // eligible evidence for this scenario.
       return emptyResult('no_evidence_bearing_candidate', {
         cee_candidate_count: ceeTurns.length,
         v5_endpoint_candidate_count: v5Turns.length,
@@ -541,12 +633,6 @@ export function findLatestEvidenceBearingCeeTurn(
     // Scenario gate not applied — every evidence-bearing candidate
     // is in the running.
     scenarioGateAppliedCandidates = evidenceBearing
-  }
-
-  // Pre-compute hash readings.
-  const candidateHashes = new Map<SelectorTracedPayload, ResponseHashReading | null>()
-  for (const c of scenarioGateAppliedCandidates) {
-    candidateHashes.set(c.p, readResponseHashWithSource(c.p))
   }
 
   // Scoring — same shape as `findLatestAnalysisProducingCeeTurn` so
@@ -601,17 +687,25 @@ export function findLatestEvidenceBearingCeeTurn(
     hashMatchStatus = 'both_absent'
   }
 
-  // Scenario status for the selected candidate.
+  // Scenario status for the selected candidate. After the gate, the
+  // selected candidate is one of:
+  //   - scenario_matched (selectedScenarioId === currentScenarioId)
+  //   - scenario_missing_on_candidate (selectedScenarioId === null)
+  //   - scenario_conflict_overridden_by_hash (selectedScenarioId
+  //     differs from currentScenarioId AND hash match overrode
+  //     rejection — only reachable when isExactHashMatch was true).
   let scenarioStatus: EvidenceScenarioStatus
   if (currentScenarioId === null) {
     scenarioStatus = 'scenario_unknown'
   } else if (selectedScenarioId === currentScenarioId) {
     scenarioStatus = 'scenario_matched'
-  } else {
-    // The scenario gate guarantees the selected candidate is either
-    // scenario_matched or scenario_missing — explicit mismatches
-    // were rejected above.
+  } else if (selectedScenarioId === null) {
     scenarioStatus = 'scenario_missing_on_candidate'
+  } else {
+    // Explicit scenario mismatch survived because of hash match.
+    // (Guaranteed by the scenario gate: explicit mismatches without
+    // hash match were rejected.)
+    scenarioStatus = 'scenario_conflict_overridden_by_hash'
   }
 
   return {

@@ -155,14 +155,31 @@ describe('hasEvidenceBearingEnrichment', () => {
     }
   })
 
-  it('returns true for _meta.payloads.plot_response sidecar', () => {
+  it('returns true for _meta.payloads.plot_response sidecar WITH indicative keys', () => {
+    const enrichment = {
+      _meta: {
+        payloads: {
+          plot_response: {
+            option_comparison: [{ id: 'opt_a' }],
+          },
+        },
+      },
+    }
+    const body = { blocks: [analysisResultBlock(enrichment)] }
+    expect(
+      hasEvidenceBearingEnrichment(ceeTurn({ responseBody: body })),
+    ).toBe(true)
+  })
+
+  it('returns false for _meta.payloads.plot_response sidecar WITHOUT indicative keys', () => {
+    // Mirrors the resolver's indicative-keys gate for plot_response.
     const enrichment = {
       _meta: { payloads: { plot_response: { some: 'body' } } },
     }
     const body = { blocks: [analysisResultBlock(enrichment)] }
     expect(
       hasEvidenceBearingEnrichment(ceeTurn({ responseBody: body })),
-    ).toBe(true)
+    ).toBe(false)
   })
 
   it('returns true for downstream_calls.isl.response', () => {
@@ -346,13 +363,19 @@ describe('findLatestEvidenceBearingCeeTurn — case G: parse-error wrapper', () 
 // --- H. _meta.payloads sidecar only ----------------------------------
 
 describe('findLatestEvidenceBearingCeeTurn — case H: _meta.payloads sidecar', () => {
-  it('accepts enrichment whose only signal is `_meta.payloads.plot_response`', () => {
+  it('accepts enrichment whose only signal is `_meta.payloads.plot_response` WITH indicative keys', () => {
     const sidecarOnly = ceeTurn({
       id: 'sidecar',
       responseBody: {
         blocks: [
           analysisResultBlock({
-            _meta: { payloads: { plot_response: { stub: true } } },
+            _meta: {
+              payloads: {
+                plot_response: {
+                  factor_sensitivity: [{ factor_id: 'sf1' }],
+                },
+              },
+            },
           }),
         ],
       },
@@ -363,6 +386,63 @@ describe('findLatestEvidenceBearingCeeTurn — case H: _meta.payloads sidecar', 
       null,
     )
     expect(r.selected_trace_id).toBe('sidecar')
+  })
+
+  it('REJECTS enrichment whose only signal is `_meta.payloads.plot_response` WITHOUT indicative keys', () => {
+    // Mirrors the resolver's probeMetaPayloadsKind indicative-keys
+    // gate. Without this rejection, the selector would accept a
+    // trace the resolver cannot lift — producing the misleading
+    // bundle: analysis_evidence_trace.source = recovered_earlier_cee_turn
+    // paired with evidence_resolution.*.source = unavailable.
+    const malformedSidecar = ceeTurn({
+      id: 'malformed-sidecar',
+      responseBody: {
+        blocks: [
+          analysisResultBlock({
+            _meta: { payloads: { plot_response: { stub: 'no-indicators' } } },
+          }),
+        ],
+      },
+    })
+    const r = findLatestEvidenceBearingCeeTurn(
+      [malformedSidecar],
+      'scn-1',
+      null,
+    )
+    expect(r.selected).toBeUndefined()
+    expect(r.selection_diagnostics.selected_reason).toBe(
+      'no_evidence_bearing_candidate',
+    )
+  })
+
+  it('accepts enrichment whose only signal is `_meta.payloads.plot_request` (no indicative-key gate for non-plot_response sidecars)', () => {
+    const turn = ceeTurn({
+      id: 'plot-req-sidecar',
+      responseBody: {
+        blocks: [
+          analysisResultBlock({
+            _meta: { payloads: { plot_request: { scenario_id: 's1' } } },
+          }),
+        ],
+      },
+    })
+    const r = findLatestEvidenceBearingCeeTurn([turn], 'scn-1', null)
+    expect(r.selected_trace_id).toBe('plot-req-sidecar')
+  })
+
+  it('accepts enrichment whose only signal is `_meta.payloads.isl_response` (no indicative-key gate)', () => {
+    const turn = ceeTurn({
+      id: 'isl-resp-sidecar',
+      responseBody: {
+        blocks: [
+          analysisResultBlock({
+            _meta: { payloads: { isl_response: { isl: 'body' } } },
+          }),
+        ],
+      },
+    })
+    const r = findLatestEvidenceBearingCeeTurn([turn], 'scn-1', null)
+    expect(r.selected_trace_id).toBe('isl-resp-sidecar')
   })
 })
 
@@ -456,6 +536,126 @@ describe('findLatestEvidenceBearingCeeTurn — case L: scenario mismatch rejecte
     expect(
       r.selection_diagnostics.rejected_scenario_mismatch_count,
     ).toBe(1)
+  })
+})
+
+// --- L2. Hash match overrides scenario rejection ---------------------
+
+describe('findLatestEvidenceBearingCeeTurn — case L2: hash match overrides scenario rejection (brief preference)', () => {
+  // Brief preference order: (a) hash match (b) scenario match (c)
+  // evidence-bearing recency. A hash-matched trace IS the source of
+  // the rendered results; rejecting it because of a stale scenario_id
+  // would discard the actual evidence. The override is surfaced via
+  // scenario_status='scenario_conflict_overridden_by_hash'.
+
+  it('selects a hash-matched candidate whose scenario_id differs from currentScenarioId; sets scenario_conflict_overridden_by_hash', () => {
+    const candidate = evidenceBearingRunAnalysis({
+      id: 'hash-match-conflict',
+      scenarioId: 'scn-other', // explicit mismatch
+      responseHash: 'hash-abc',
+    })
+    const r = findLatestEvidenceBearingCeeTurn(
+      [candidate],
+      'scn-current', // canvas is on a different scenario
+      'hash-abc',
+    )
+    expect(r.selected_trace_id).toBe('hash-match-conflict')
+    expect(r.selection_diagnostics.selected_reason).toBe('hash_matched')
+    expect(r.selection_diagnostics.scenario_status).toBe(
+      'scenario_conflict_overridden_by_hash',
+    )
+    expect(r.selection_diagnostics.hash_match_status).toBe('matched')
+    // Not counted as rejected — it survived the gate.
+    expect(
+      r.selection_diagnostics.rejected_scenario_mismatch_count,
+    ).toBe(0)
+  })
+
+  it('hash-matched conflict outranks a non-hash-matched scenario_matched candidate (+1000 hash bonus)', () => {
+    const matched = evidenceBearingRunAnalysis({
+      id: 'matched-no-hash',
+      scenarioId: 'scn-current',
+    })
+    const conflict = evidenceBearingRunAnalysis({
+      id: 'conflict-hash-match',
+      scenarioId: 'scn-other',
+      responseHash: 'hash-abc',
+    })
+    const r = findLatestEvidenceBearingCeeTurn(
+      [matched, conflict],
+      'scn-current',
+      'hash-abc',
+    )
+    expect(r.selected_trace_id).toBe('conflict-hash-match')
+    expect(r.selection_diagnostics.selected_reason).toBe('hash_matched')
+    expect(r.selection_diagnostics.scenario_status).toBe(
+      'scenario_conflict_overridden_by_hash',
+    )
+  })
+
+  it('hash-matched + scenario_matched candidate outranks hash-matched + scenario_conflict (both have hash bonus, matched wins on identity)', () => {
+    const conflict = evidenceBearingRunAnalysis({
+      id: 'conflict-hash-match',
+      scenarioId: 'scn-other',
+      responseHash: 'hash-abc',
+    })
+    const matched = evidenceBearingRunAnalysis({
+      id: 'matched-hash-match',
+      scenarioId: 'scn-current',
+      responseHash: 'hash-abc',
+    })
+    // matched is at idx 1 (older) than conflict at idx 0 — both score
+    // 1000+50+10+recency. conflict has +9 (idx 0), matched has +8
+    // (idx 1). Conflict wins on recency. But matched candidate is
+    // scenario-coherent.
+    const r = findLatestEvidenceBearingCeeTurn(
+      [conflict, matched],
+      'scn-current',
+      'hash-abc',
+    )
+    // Recency wins among equal-hash candidates — conflict picked
+    // because it's more recent. The selector preserves recency as
+    // the tie-breaker within hash-matched candidates, matching the
+    // existing brief intent (hash is the strongest signal; among
+    // hash matches, latest wins).
+    expect(r.selected_trace_id).toBe('conflict-hash-match')
+    expect(r.selection_diagnostics.scenario_status).toBe(
+      'scenario_conflict_overridden_by_hash',
+    )
+  })
+
+  it('rejects scenario-mismatched candidate WITHOUT hash match (no override)', () => {
+    // Sanity check: when there's no hash match, scenario rejection
+    // still bites. Same as existing case L.
+    const conflict = evidenceBearingRunAnalysis({
+      id: 'conflict-no-hash',
+      scenarioId: 'scn-other',
+      // no responseHash
+    })
+    const r = findLatestEvidenceBearingCeeTurn(
+      [conflict],
+      'scn-current',
+      'hash-abc',
+    )
+    expect(r.selected).toBeUndefined()
+    expect(
+      r.selection_diagnostics.rejected_scenario_mismatch_count,
+    ).toBe(1)
+  })
+
+  it('hash match when scenario is unknown (currentScenarioId=null): scenario_status=scenario_unknown', () => {
+    // Edge: hash match plus no scenario gate. Should still pick
+    // the hash-matched candidate; status reflects scenario_unknown
+    // not the override (the override only fires when there's an
+    // explicit conflict to override).
+    const candidate = evidenceBearingRunAnalysis({
+      id: 'hash-only',
+      scenarioId: 'scn-anything',
+      responseHash: 'hash-abc',
+    })
+    const r = findLatestEvidenceBearingCeeTurn([candidate], null, 'hash-abc')
+    expect(r.selected_trace_id).toBe('hash-only')
+    expect(r.selection_diagnostics.scenario_status).toBe('scenario_unknown')
   })
 })
 

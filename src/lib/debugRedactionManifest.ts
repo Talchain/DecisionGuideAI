@@ -181,6 +181,35 @@ export function buildDebugRedactionManifest(
   if (bundle?.payloads) {
     collectRedactedPaths(bundle.payloads, 'payloads', redacted)
   }
+  // Also scan `analysis_evidence_trace.response_body` (workstream:
+  // DGAI debug output, 2026-05-23). The body is a raw CEE response
+  // recovered from the trace store, which applies the same redactor
+  // at record time as the bodies in `bundle.payloads.*`. Scanning it
+  // here surfaces concrete redaction markers in the manifest so
+  // reviewers can verify the recovered body did not bypass redaction
+  // — instead of having to take it on trust. Only the
+  // `'recovered_earlier_cee_turn'` case carries a non-null body; the
+  // other source states leave `response_body = null`, so this scan is
+  // a no-op in those cases.
+  const evidenceTrace = bundle?.analysis_evidence_trace
+  if (
+    evidenceTrace &&
+    typeof evidenceTrace === 'object' &&
+    !Array.isArray(evidenceTrace)
+  ) {
+    const evidenceBody = (evidenceTrace as Record<string, unknown>).response_body
+    if (
+      evidenceBody !== null &&
+      evidenceBody !== undefined &&
+      typeof evidenceBody === 'object'
+    ) {
+      collectRedactedPaths(
+        evidenceBody,
+        'analysis_evidence_trace.response_body',
+        redacted,
+      )
+    }
+  }
 
   return {
     redacted,

@@ -189,7 +189,7 @@ describe('buildDebugRedactionManifest — top-level assembler', () => {
     ])
   })
 
-  it('scopes redacted scan to bundle.payloads.* (not the whole bundle)', () => {
+  it('scopes redacted scan to bundle.payloads.* and bundle.analysis_evidence_trace.response_body (not the whole bundle)', () => {
     const manifest = buildDebugRedactionManifest(
       {
         payloads: {
@@ -198,7 +198,8 @@ describe('buildDebugRedactionManifest — top-level assembler', () => {
           },
         },
         // Sibling object containing a marker — must NOT appear in the
-        // manifest because the scan is scoped to payloads.
+        // manifest because the scan is scoped (payloads + recovered
+        // evidence body only).
         meta: {
           something: { __redacted: true },
         },
@@ -213,6 +214,73 @@ describe('buildDebugRedactionManifest — top-level assembler', () => {
       path: expect.stringContaining('meta'),
       reason: expect.anything(),
     })
+  })
+
+  it('scans analysis_evidence_trace.response_body for redaction markers (workstream 2026-05-23)', () => {
+    // The recovered earlier CEE turn body lives under
+    // analysis_evidence_trace.response_body. It was redacted at
+    // trace-store record time using the same redactor as
+    // bundle.payloads.cee_response. The manifest surfaces these
+    // markers so reviewers can verify the recovered body did not
+    // bypass redaction.
+    const manifest = buildDebugRedactionManifest(
+      {
+        payloads: {
+          cee_response: {
+            blocks: [{ type: 'text', text: 'follow-up prose' }],
+          },
+        },
+        analysis_evidence_trace: {
+          trace_id: 'run-analysis-1',
+          source: 'recovered_earlier_cee_turn',
+          response_body: {
+            request_headers: {
+              authorization: '[REDACTED]',
+            },
+            blocks: [
+              {
+                type: 'analysis_result',
+                enrichment: {
+                  factor_sensitivity: [{ factor_id: 'f1' }],
+                  __redacted: true,
+                },
+              },
+            ],
+          },
+        },
+      },
+      [],
+    )
+    expect(manifest.redacted).toContainEqual({
+      path: 'analysis_evidence_trace.response_body.request_headers.authorization',
+      reason: 'sensitive_key',
+    })
+    expect(manifest.redacted).toContainEqual({
+      path: 'analysis_evidence_trace.response_body.blocks[0].enrichment',
+      reason: 'max_depth_or_unserialisable',
+    })
+  })
+
+  it('no-op scan when analysis_evidence_trace.response_body is null (selected_cee_turn or unavailable case)', () => {
+    const manifest = buildDebugRedactionManifest(
+      {
+        payloads: {},
+        analysis_evidence_trace: {
+          trace_id: null,
+          source: 'unavailable',
+          response_body: null,
+        },
+      },
+      [],
+    )
+    expect(manifest.redacted).toEqual([])
+  })
+
+  it('handles missing analysis_evidence_trace gracefully (legacy bundle)', () => {
+    // Legacy bundle without the analysis_evidence_trace block —
+    // manifest still works.
+    const manifest = buildDebugRedactionManifest({ payloads: {} }, [])
+    expect(manifest.redacted).toEqual([])
   })
 
   it('returns empty redacted list when nothing is marked', () => {
