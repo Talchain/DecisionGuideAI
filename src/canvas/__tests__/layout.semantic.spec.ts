@@ -534,14 +534,15 @@ describe('constants contract', () => {
   })
 
   it('COLLISION_GAP < expected node-node gap', () => {
-    // Default node-node gap is `Math.max(20, spacing=20) = 20` (default
-    // spacing reduction chain 60 → 30 → 20; see layout.ts:54). At the
-    // current default, COLLISION_GAP=20 equals the intended gap, so the
-    // post-layout collision guard is essentially inert — it only fires when
-    // ELK/multi-row splitting drives nodes closer than 20px. The looser
-    // `toBeLessThan(30)` bound is kept deliberately: a tighter
-    // `toBeLessThan(20)` would fail (20 < 20 is false) and reduce headroom
-    // for future spacing tweaks.
+    // Default node-node gap is `Math.max(20, spacing=15) = 20` after the
+    // chain 60 → 30 → 20 → 15 (see layout.ts:54). The layoutGraph default
+    // is now 15, but the pre-ELK `Math.max(20, …)` floor and COLLISION_GAP
+    // both stay at 20, so the rendered gap is still 20. COLLISION_GAP=20
+    // equals the rendered gap, so the post-layout collision guard is
+    // essentially inert — it only fires when ELK/multi-row splitting drives
+    // nodes closer than 20px. The looser `toBeLessThan(30)` bound is kept
+    // deliberately: tightening to `toBeLessThan(20)` would fail (20 < 20 is
+    // false) and reduce headroom for future spacing tweaks.
     expect(COLLISION_GAP).toBeLessThan(30)
   })
 

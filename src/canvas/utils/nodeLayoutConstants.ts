@@ -39,8 +39,16 @@ export const DEFAULT_NODE_HEIGHT = 100
 
 // ─── Spacing ─────────────────────────────────────────────────────────────────
 
-/** Minimum horizontal gap between nodes in the same tier. */
-export const MIN_GAP = 30
+/**
+ * Width-calc safety reserve used in `floor((availableWidth - (N-1)*MIN_GAP) / N)`
+ * to decide whether a tier renders at NODE_CARD_MAX_W or compresses to
+ * NODE_LAYOUT_MIN_W with multi-row splitting. NOT a visual floor on the
+ * rendered gap — the actual rendered gap is `effectiveNodeSpacing` in
+ * `layout.ts`, clamped by `Math.max(20, spacing)` and the post-layout
+ * `applyCollisionGuard` (COLLISION_GAP). Lowering this value relaxes the
+ * width-calc threshold (more tiers render at MAX_W).
+ */
+export const MIN_GAP = 15
 
 /**
  * Post-layout safety gap. Smaller than `MIN_GAP` because it only fires when

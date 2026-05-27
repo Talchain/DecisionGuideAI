@@ -262,23 +262,26 @@ describe('ELK Layout', () => {
 
   it('4-factor tier on 1300px canvas: max-single fires; row overflows canvas (regression-lock for NODE_CARD_MAX_W=320)', async () => {
     // After restoring NODE_CARD_MAX_W to 320 and tightening the default
-    // spacing to 20 (chain 60 → 30 → 20), a 4-node tier on a 1300px canvas
-    // falls into the max-single branch and the rendered row visibly overflows
-    // the canvas. Math:
+    // spacing to 15 (chain 60 → 30 → 20 → 15), a 4-node tier on a 1300px
+    // canvas falls into the max-single branch and the rendered row visibly
+    // overflows the canvas. The pre-ELK `Math.max(20, spacing)` floor in
+    // layout.ts clamps effective spacing to 20 even when the caller passes
+    // 15, so the rendered last-edge stays at 1436 (was 1466 at spacing=30,
+    // 1556 at spacing=60). Math:
     //
+    //   effectiveSpacing = Math.max(20, SPACING) = 20
     //   rightEdge = CANVAS_MARGIN
-    //             + (N-1) * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + spacing)
+    //             + (N-1) * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + effectiveSpacing)
     //             + NODE_CARD_MAX_W
     //             = 24 + 3 * (320 + 24 + 20) + 320
     //             = 24 + 3 * 364 + 320
     //             = 1436
     //
-    // 1436 > 1300 → 136px overflow past the canvas right edge (was 166px
-    // with spacing=30, was 256px with spacing=60). The test exercises the
-    // production-default spacing path by passing spacing: SPACING where
-    // SPACING matches the layoutGraph default. Any future tweak of
-    // NODE_CARD_MAX_W, LAYOUT_PADDING_X, default spacing, or CANVAS_MARGIN
-    // surfaces here.
+    // 1436 > 1300 → 136px overflow past the canvas right edge. The test
+    // exercises the production-default spacing path by passing SPACING that
+    // matches the layoutGraph default; EFFECTIVE_SPACING below makes the
+    // pre-ELK floor explicit in the assertion so a future change to either
+    // value surfaces here.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'),
@@ -290,7 +293,8 @@ describe('ELK Layout', () => {
       makeEdge('e2', 'o1', 'f1'), makeEdge('e3', 'o1', 'f2'),
       makeEdge('e4', 'o1', 'f3'), makeEdge('e5', 'o1', 'f4'),
     ]
-    const SPACING = 20
+    const SPACING = 15
+    const EFFECTIVE_SPACING = Math.max(20, SPACING)
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(
       nodes,
       edges,
@@ -298,7 +302,8 @@ describe('ELK Layout', () => {
       TEST_CANVAS,
     )
 
-    // max-single fires: unclamped = floor((1300*0.85 - 90)/4) = 253 ≥ 164.
+    // max-single fires: unclamped = floor((1300*0.85 - 3*MIN_GAP)/4)
+    //                             = floor((1105 - 45)/4) = 265 ≥ 164.
     expect(layoutNodeWidth).toBe(NODE_CARD_MAX_W)
 
     const factors = laid
@@ -309,7 +314,7 @@ describe('ELK Layout', () => {
     // Symbolic placement formula — resilient to future constant tweaks.
     const lastVisibleRightEdge = factors[3].position.x + NODE_CARD_MAX_W
     expect(lastVisibleRightEdge).toBe(
-      CANVAS_MARGIN + 3 * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + SPACING) + NODE_CARD_MAX_W,
+      CANVAS_MARGIN + 3 * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + EFFECTIVE_SPACING) + NODE_CARD_MAX_W,
     )
 
     // Outcome: row overflows the canvas. If any contributing constant
