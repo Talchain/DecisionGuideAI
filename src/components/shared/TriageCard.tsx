@@ -89,6 +89,14 @@ export interface TriageCardProps {
    * Use to apply section-based colouring (Task 9) instead of category colouring.
    */
   badgeColor?: string
+  /**
+   * Optional override for the disclosure toggle copy on subtitle overflow.
+   * Forwarded to `ExpandableCoachingText`. Defaults to its internal
+   * `{ more: 'More', less: 'Less' }` so results-panel consumers are
+   * unchanged; pre-analysis call-sites pass `{ more: 'Show more', less:
+   * 'Show less' }` per pre-analysis-power-v1 Task 6.
+   */
+  disclosureLabels?: { more: string; less: string }
 }
 
 // ── Badge colours ───────────────────────────────────────────────────────────
@@ -296,7 +304,7 @@ function InlineValueControls({
 
 // ── Compact variant (quick-fix rows, ranks 4-6) ─────────────────────────────
 
-function CompactTriageCard({ title, ordinal, category, badgeColor, influence, evoiImpact, onHoverEnter, onHoverLeave, action, onConfirm, onEdit, onUpdateEdgeStrength, sourcePill, subtitle }: TriageCardProps) {
+function CompactTriageCard({ title, ordinal, category, badgeColor, influence, evoiImpact, onHoverEnter, onHoverLeave, action, onConfirm, onEdit, onUpdateEdgeStrength, sourcePill, subtitle, disclosureLabels }: TriageCardProps) {
   const influencePct = influence != null ? Math.round(influence * 100) : null
   const resolvedBadgeColor = badgeColor ?? BADGE_COLORS[category]
   const isEdge = action?.targetType === 'edge'
@@ -359,6 +367,7 @@ function CompactTriageCard({ title, ordinal, category, badgeColor, influence, ev
             <ExpandableCoachingText
               text={subtitle}
               className="text-text-light"
+              disclosureLabels={disclosureLabels}
             />
           )}
           {isEdge && action?.targetId && onUpdateEdgeStrength && (
@@ -416,6 +425,7 @@ export function TriageCard(props: TriageCardProps) {
     onHoverLeave,
     onUpdateEdgeStrength,
     aiDiscussSlot,
+    disclosureLabels,
   } = props
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -504,6 +514,7 @@ export function TriageCard(props: TriageCardProps) {
           <ExpandableCoachingText
             text={subtitle || displayDetail}
             className="text-text-light"
+            disclosureLabels={disclosureLabels}
           />
           {editorConfig ? (
             <div className="flex justify-end">
@@ -548,6 +559,7 @@ export function TriageCard(props: TriageCardProps) {
               <ExpandableCoachingText
                 text={subtitle || displayDetail}
                 className="text-text-light"
+                disclosureLabels={disclosureLabels}
               />
             </div>
           )}

@@ -96,10 +96,12 @@ export const ModelHealthCard = memo(function ModelHealthCard({
   //      deleted in the bias-and-headline brief)
   const coaching = coachingSummary ?? dynamicHeadline ?? null
 
-  // Compact mode (v2 panel): ring + dimension bars + dynamic coaching headline
-  // (panelBody / text-text-body / max 2 lines per the brief). The status
-  // banner above the panel still carries the read-state colour, but the
-  // headline tells the user *which* item is most important next.
+  // Compact mode (v2 panel): ring + dimension bars + static readiness reframe.
+  // Headline + subline are fixed copy from the pre-analysis-power-v1 brief —
+  // they honestly signal that the model is ready to run a first pass, not
+  // ready to trust the result. Dynamic coaching strings (coachingSummary,
+  // dynamicHeadline) are no longer rendered here; the new sentence is the
+  // single trust-anchor.
   if (compact) {
     return (
       <div className="space-y-2" data-testid="decision-readiness-card">
@@ -113,14 +115,14 @@ export const ModelHealthCard = memo(function ModelHealthCard({
           testId="model-health-card"
           hideTitle
         />
-        {coaching && (
-          <p
-            className={`${typography.panelBody} text-text-body line-clamp-2`}
-            data-testid="model-health-card-headline"
-          >
-            {coaching}
+        <div data-testid="model-health-card-headline">
+          <p className={`${typography.panelHeader} text-text-header`}>
+            Ready for provisional analysis
           </p>
-        )}
+          <p className={`${typography.panelMeta} text-text-light line-clamp-2 mt-0.5`}>
+            Good enough to run, but results will be assumption-led until you confirm the highest-impact inputs.
+          </p>
+        </div>
         {children}
       </div>
     )

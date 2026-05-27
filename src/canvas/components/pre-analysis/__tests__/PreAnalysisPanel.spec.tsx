@@ -1457,7 +1457,7 @@ describe('PreAnalysisPanel', () => {
       ],
     })
 
-    it('renders "[Must fix label]. Address before analysis." when Must fix has items', () => {
+    it('always renders the static "Ready for provisional analysis" reframe regardless of bucket state (pre-analysis-power-v1 Task 1 — no dynamic headline)', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         ...cleanBaselineMock(),
         isReady: false,
@@ -1476,10 +1476,12 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       const headline = screen.getByTestId('model-health-card-headline')
-      expect(headline).toHaveTextContent('Add baseline option. Address before analysis.')
+      expect(headline).toHaveTextContent('Ready for provisional analysis')
+      // The old dynamic copy must NOT appear — it was the trust-leak source.
+      expect(headline).not.toHaveTextContent('Add baseline option. Address before analysis.')
     })
 
-    it('does not render a headline when ready with improve-confidence items only (StatusBanner already communicates readiness)', () => {
+    it('renders the static reframe even with improve-confidence items only', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         ...cleanBaselineMock(),
         improvementsByCategory: {
@@ -1501,14 +1503,14 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.queryByTestId('model-health-card-headline')).not.toBeInTheDocument()
+      expect(screen.getByTestId('model-health-card-headline')).toHaveTextContent('Ready for provisional analysis')
     })
 
-    it('does not render a headline in a fully clean state (StatusBanner already communicates readiness)', () => {
+    it('renders the static reframe in a fully clean state', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData(cleanBaselineMock()))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.queryByTestId('model-health-card-headline')).not.toBeInTheDocument()
+      expect(screen.getByTestId('model-health-card-headline')).toHaveTextContent('Ready for provisional analysis')
     })
 
     it('does NOT render the deleted static "Your expertise makes the analysis more reliable" fallback', () => {
@@ -1588,6 +1590,88 @@ describe('PreAnalysisPanel', () => {
         typeof c[0] === 'string' && c[0].includes('[PreAnalysis] pickStartHere')
       )
       expect(calls).toHaveLength(1)
+    })
+  })
+
+  // ── pre-analysis-power-v1 brief regression guards ────────────────────────
+
+  describe('pre-analysis-power-v1 Task 2 — coaching headline', () => {
+    it('renders the static coaching headline above the priority list and does NOT contain "14"', () => {
+      const v1 = { key: 'v1', category: 'verify' as const, label: 'Velocity', detail: 'Confirm or edit the AI estimate' }
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        improvementsByCategory: {
+          fix: [],
+          verify: [v1],
+          add_evidence: [],
+          strengthen: [],
+        },
+        triageActions: { top3: [v1], quickFix: [] },
+      }))
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      const bridge = screen.getByTestId('t1-narrative-bridge')
+      expect(bridge.textContent).toMatch(/Strengthen this model before analysis/)
+      expect(bridge.textContent).toMatch(/Confirm the inputs most likely to change the result\./)
+      expect(bridge.textContent).not.toContain('14')
+      expect(bridge.textContent).not.toMatch(/relationships worth reviewing/)
+    })
+  })
+
+  describe('pre-analysis-power-v1 Task 6 — disclosure-verb panel wiring', () => {
+    it('triggers the "Show more" verb on priority cards when subtitle overflow fires', () => {
+      // Force overflow geometry so ExpandableCoachingText renders its
+      // disclosure button. Without this jsdom returns 0 for both heights
+      // and the toggle never renders, so the assertion would be vacuous.
+      const longSubtitle =
+        'This is a long CEE coaching string that crosses the eighty-character threshold so the disclosure toggle actually renders for the user inside a priority card.'
+      Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, get: () => 100 })
+      Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => 30 })
+      try {
+        const v1 = {
+          key: 'v1',
+          category: 'verify' as const,
+          label: 'Velocity',
+          detail: 'Confirm or edit the AI estimate',
+          hint: longSubtitle,
+        }
+        mockUsePreAnalysisData.mockReturnValue(createMockData({
+          improvementsByCategory: {
+            fix: [],
+            verify: [v1],
+            add_evidence: [],
+            strengthen: [],
+          },
+          triageActions: { top3: [v1], quickFix: [] },
+        }))
+        render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+        const panel = screen.getByTestId('t1-decision-readiness-card')
+        // Wired disclosure verb is "Show more" (pre-analysis override).
+        expect(within(panel).getAllByRole('button', { name: /^show more$/i }).length).toBeGreaterThan(0)
+        // The default DriversSection verb must NOT leak into the
+        // pre-analysis panel.
+        expect(within(panel).queryByRole('button', { name: /^more$/i })).toBeNull()
+      } finally {
+        delete (HTMLElement.prototype as unknown as { scrollHeight?: number }).scrollHeight
+        delete (HTMLElement.prototype as unknown as { clientHeight?: number }).clientHeight
+      }
+    })
+  })
+
+  describe('pre-analysis-power-v1 Test 10 — glossary regression guard (panel-scoped)', () => {
+    it('does not render banned glossary terms inside t1-decision-readiness-card', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        improvementsByCategory: {
+          fix: [],
+          verify: [{ key: 'v1', category: 'verify', label: 'Velocity', detail: 'Confirm or edit the AI estimate' }],
+          add_evidence: [],
+          strengthen: [],
+        },
+      }))
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      const panel = screen.getByTestId('t1-decision-readiness-card')
+      // Banned in the Olumi Communication Glossary v1 — panel-scoped only.
+      // EVPI and VOI are excluded from this guard (they may appear in
+      // implementation labels outside user-visible copy).
+      expect(panel.textContent ?? '').not.toMatch(/\b(recommended|recommendation|winner|winning|graph|node|edge)\b/i)
     })
   })
 })

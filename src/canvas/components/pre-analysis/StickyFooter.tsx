@@ -16,22 +16,8 @@
  */
 
 import { CheckCircle, XCircle, Loader2, AlertTriangle } from 'lucide-react'
-import { Tooltip } from '../Tooltip'
 import { AnalysisFooter } from '../../shared/AnalysisFooter'
 import { useAnalysisDisplayState } from '../../hooks/useAnalysisDisplayState'
-
-/** Derive source distribution tooltip from raw counts */
-function getReviewedTooltip(nonAiCount?: number, totalCount?: number): string {
-  if (totalCount == null || totalCount === 0) {
-    return "Number of factor values you've confirmed or marked as assumptions"
-  }
-  const briefCount = nonAiCount ?? 0
-  const ratio = briefCount / totalCount
-  if (ratio === 0) return 'All values estimated by AI'
-  if (ratio < 0.5) return 'Most values estimated by AI'
-  if (ratio < 1) return 'Most values from your brief'
-  return 'All values from your brief'
-}
 
 interface StickyFooterProps {
   /** Whether analysis can run */
@@ -50,16 +36,6 @@ interface StickyFooterProps {
   isLoading?: boolean
   /** Whether retry is in progress */
   isRetrying?: boolean
-  /** Number of reviewed (user-confirmed) factors */
-  reviewedCount?: number
-  /** Total number of reviewable factors */
-  totalReviewableCount?: number
-  /** Factors NOT from AI sources — used to build source-distribution tooltip */
-  evidenceNonAiCount?: number
-  /** Total factor count — used to build source-distribution tooltip */
-  evidenceTotalCount?: number
-  /** Fraction (0–1) of total factor influence covered by user-reviewed factors */
-  weightedInfluenceReviewed?: number
 }
 
 export function StickyFooter({
@@ -71,11 +47,6 @@ export function StickyFooter({
   blockedReason,
   isLoading = false,
   isRetrying = false,
-  reviewedCount,
-  totalReviewableCount,
-  evidenceNonAiCount,
-  evidenceTotalCount,
-  weightedInfluenceReviewed: _weightedInfluenceReviewed,
 }: StickyFooterProps) {
   // Brief 5.8A D6: when calibration is incomplete the CTA reads "Analyse
   // anyway" and remains clickable so the user can run with provisional
@@ -115,29 +86,18 @@ export function StickyFooter({
     statusText = 'Not yet calibrated'
   }
 
-  // Brief 5.8A D6: meta line — "{N}/{M} addressed · Results will be provisional"
-  // when calibration is incomplete, "All addressed" when complete. Tooltip
-  // preserved by wrapping the count in <Tooltip>. The "Results will be
-  // provisional" suffix only renders when the analysis is not yet ready —
-  // it sets expectations about provisional output.
-  const allReviewed = totalReviewableCount != null && totalReviewableCount > 0 &&
-    (reviewedCount ?? 0) >= totalReviewableCount
-
-  const reviewedTooltip = getReviewedTooltip(evidenceNonAiCount, evidenceTotalCount)
+  // Pre-analysis-power-v1 Task 5: the "N/M addressed" counter has been
+  // removed from the sticky footer. The top priority-progress counter
+  // (T1ContributionRow → "First pass confidence: N of M priority
+  // assumptions confirmed.") is now the single source of truth for
+  // confirmation progress; rendering it twice with a different denominator
+  // was the trust leak the brief targets. We keep a meta line for
+  // "Results will be provisional" so the user still sees the provisional
+  // warning under the CTA when calibration is incomplete.
   const metaText = (() => {
-    if (isRetrying || totalReviewableCount == null || totalReviewableCount === 0) return undefined
-    const countLabel = allReviewed
-      ? 'All addressed'
-      : `${reviewedCount ?? 0}/${totalReviewableCount} addressed`
-    const showProvisional = !isReady && !allReviewed
-    return (
-      <Tooltip content={reviewedTooltip}>
-        <span className="cursor-help">
-          {countLabel}
-          {showProvisional ? ' · Results will be provisional' : ''}
-        </span>
-      </Tooltip>
-    )
+    if (isRetrying) return undefined
+    if (isReady) return undefined
+    return <span>Results will be provisional</span>
   })()
 
   // Brief 5.8A D6: CTA copy aligned to the wireframe — "Analyse now" when

@@ -254,30 +254,31 @@ describe('Brief 5.8A D3a — T1 Decision readiness card', () => {
     expect(screen.queryByTestId('t1-check-no-target')).not.toBeInTheDocument()
   })
 
-  it('renders the narrative bridge with strong-bolded counts and meta line', () => {
+  it('renders the static coaching headline (pre-analysis-power-v1 Task 2) with no count strong-bolds or meta line', () => {
+    const v1 = stubVerifyItem('v1', 'Velocity')
+    const e1 = stubAddEvidenceItem('e1', 'Talent → Throughput')
+    const e2 = stubAddEvidenceItem('e2', 'Team → Coordination')
     mockUsePreAnalysisData.mockReturnValue(baseData({
       improvementsByCategory: {
         fix: [],
-        verify: [stubVerifyItem('v1', 'Velocity')],
-        add_evidence: [
-          stubAddEvidenceItem('e1', 'Talent → Throughput'),
-          stubAddEvidenceItem('e2', 'Team → Coordination'),
-        ],
+        verify: [v1],
+        add_evidence: [e1, e2],
         strengthen: [],
       },
+      // Pre-analysis-power-v1 Task 2: header gated on showTopThree.
+      triageActions: { top3: [v1, e1, e2], quickFix: [] },
       successThreshold: 100,
     }))
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
     const bridge = screen.getByTestId('t1-narrative-bridge')
     expect(bridge).toBeInTheDocument()
-    expect(within(bridge).getByText('1')).toBeInTheDocument()
-    expect(within(bridge).getByText('2')).toBeInTheDocument()
-    // Brief 5.8B D0 #2: tail trimmed; the colon-introducer "These are the
-    // highest-priority items to review:" was redundant with the meta line
-    // "Ranked by priority" + the unified queue rendered immediately below.
-    expect(bridge.textContent).toMatch(/1 unverified estimate and 2 relationships worth reviewing\./)
-    expect(bridge.textContent).not.toMatch(/These are the highest-priority items to review/)
-    expect(within(bridge).getByTestId('t1-narrative-meta')).toHaveTextContent('Ranked by priority')
+    expect(bridge.textContent).toMatch(/Strengthen this model before analysis/)
+    expect(bridge.textContent).toMatch(/Confirm the inputs most likely to change the result\./)
+    // The legacy counts and meta line are gone — they were the trust-leak
+    // source (visible "14 relationships" while the panel listed only 3).
+    expect(bridge.textContent).not.toMatch(/unverified estimate/)
+    expect(bridge.textContent).not.toMatch(/relationships worth reviewing/)
+    expect(within(bridge).queryByTestId('t1-narrative-meta')).not.toBeInTheDocument()
   })
 
   it('suppresses the narrative bridge entirely when goal target is unset and no items exist (Brief 5.8B D0 #2)', () => {

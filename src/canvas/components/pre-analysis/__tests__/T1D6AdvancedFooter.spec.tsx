@@ -215,7 +215,10 @@ describe('Brief 5.8A D6 — T3 Advanced accordion', () => {
 })
 
 describe('Brief 5.8A D6 — sticky footer layout + CTA copy', () => {
-  it('renders the stacked status + meta block on the left', () => {
+  it('renders the stacked status + provisional meta block on the left (no addressed counter)', () => {
+    // Pre-analysis-power-v1 Task 5: the "N/M addressed" counter has been
+    // removed from the sticky-footer meta line. Only the provisional
+    // warning remains when calibration is incomplete.
     mockUsePreAnalysisData.mockReturnValue(baseData({
       reviewedFactorsCount: 1,
       totalReviewableFactorsCount: 3,
@@ -224,8 +227,7 @@ describe('Brief 5.8A D6 — sticky footer layout + CTA copy', () => {
     }))
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
     const meta = screen.getByTestId('sticky-footer-meta')
-    // Meta line includes the addressed count + provisional suffix when not ready.
-    expect(meta.textContent).toContain('1/3 addressed')
+    expect(meta.textContent).not.toMatch(/\d+\/\d+ addressed/)
     expect(meta.textContent).toContain('Results will be provisional')
   })
 

@@ -39,7 +39,7 @@ afterEach(() => {
 })
 
 describe('coaching.summary end-to-end (raw response → adapter → applyDraftResult → render)', () => {
-  it('renders the summary in ModelHealthCard after a draft completes', () => {
+  it('still writes coaching.summary into the store, even though ModelHealthCard now renders the static reframe instead (pre-analysis-power-v1 Task 1)', () => {
     const raw = {
       schema_version: '2.2',
       quality_overall: 7,
@@ -60,6 +60,9 @@ describe('coaching.summary end-to-end (raw response → adapter → applyDraftRe
 
     applyDraftResult(adapted as Parameters<typeof applyDraftResult>[0])
 
+    // Store contract preserved — the adapter still copies coaching.summary
+    // through to ceeAnalysisReady.coaching_summary so any other consumer
+    // (e.g. results panel) keeps working.
     const ar = useCanvasStore.getState().ceeAnalysisReady as { coaching_summary?: string } | null
     expect(ar).not.toBeNull()
     expect(ar!.coaching_summary).toBe('You have three options to weigh.')
@@ -79,7 +82,10 @@ describe('coaching.summary end-to-end (raw response → adapter → applyDraftRe
         hasGoalNode
       />,
     )
-    expect(screen.getByText('You have three options to weigh.')).toBeInTheDocument()
+    // The dynamic summary is no longer rendered in the pre-analysis hero —
+    // the static reframe is the single trust-anchor for this surface.
+    expect(screen.queryByText('You have three options to weigh.')).not.toBeInTheDocument()
+    expect(screen.getByText('Ready for provisional analysis')).toBeInTheDocument()
   })
 
   it('does not write coaching_summary when coaching.summary is absent', () => {

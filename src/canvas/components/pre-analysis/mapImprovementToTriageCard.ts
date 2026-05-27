@@ -90,6 +90,7 @@ function deriveSensitivityContext(item: ImprovementItem): string | undefined {
  * coaching about it.
  */
 function deriveSubtitle(item: ImprovementItem): string | undefined {
+  // TODO(pre-analysis-power-v2): per-card "why this matters" structural-impact line — deferred for tier B brief pending payload field
   const structural = deriveStructuralContext(item)
   if (structural) return structural
   const { text } = resolveTriageBodyText({
@@ -112,13 +113,22 @@ export function mapImprovementToTriageCard(
       }
     : undefined
 
-  // Source pill: AI estimate, From brief, or No data (for fix items without a source badge)
+  // Source pill — pre-analysis-power-v1 brief Task 4 (partial):
+  //   'ai'    → "Olumi's estimate" (renamed from "AI estimate")
+  //   'brief' → "From brief" (unchanged)
+  //   absent + no-value-state + edge → "Needs judgement"
+  //   absent + no-value-state + node → "Needs value"
+  // TODO(pre-analysis-power-v2): "External assumption" badge variant — deferred for tier B brief pending payload field
+  const isNoValueState =
+    item.category === 'fix' || item.detail === 'No observed data' || item.detail === 'No evidence'
   const sourcePill = item.sourceBadge === 'ai'
-    ? { label: 'AI estimate', borderClass: 'border-info/30' }
+    ? { label: "Olumi's estimate", borderClass: 'border-info/30' }
     : item.sourceBadge === 'brief'
       ? { label: 'From brief', borderClass: 'border-success/30' }
-      : (item.category === 'fix' || item.detail === 'No observed data' || item.detail === 'No evidence')
-        ? { label: 'No data', borderClass: 'border-danger/30' }
+      : isNoValueState
+        ? item.focus?.type === 'edge'
+          ? { label: 'Needs judgement', borderClass: 'border-warning/30' }
+          : { label: 'Needs value', borderClass: 'border-warning/30' }
         : null
 
   // Subtitle: action-oriented one-liner explaining what to do

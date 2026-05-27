@@ -92,3 +92,68 @@ describe('mapImprovementToTriageCard — P0-1 "0 scale" guard', () => {
     },
   )
 })
+
+// ── pre-analysis-power-v1 Task 4 — sourcePill branches ────────────────────
+
+describe('mapImprovementToTriageCard — sourcePill (pre-analysis-power-v1 Task 4)', () => {
+  it('renames "AI estimate" to "Olumi\'s estimate" for sourceBadge="ai"', () => {
+    const card = mapImprovementToTriageCard(makeFactorItem({ sourceBadge: 'ai' }), 0.5)
+    expect(card.sourcePill?.label).toBe("Olumi's estimate")
+    // Regression guard: the legacy literal must not appear.
+    expect(card.sourcePill?.label).not.toBe('AI estimate')
+    expect(card.sourcePill?.borderClass).toBe('border-info/30')
+  })
+
+  it('keeps "From brief" unchanged for sourceBadge="brief"', () => {
+    const card = mapImprovementToTriageCard(makeFactorItem({ sourceBadge: 'brief' }), 0.5)
+    expect(card.sourcePill?.label).toBe('From brief')
+    expect(card.sourcePill?.borderClass).toBe('border-success/30')
+  })
+
+  it('routes no-value node items (category=fix) to "Needs value"', () => {
+    const card = mapImprovementToTriageCard(
+      makeFactorItem({ sourceBadge: undefined, category: 'fix', detail: 'No observed data' }),
+      0.5,
+    )
+    expect(card.sourcePill?.label).toBe('Needs value')
+    expect(card.sourcePill?.borderClass).toBe('border-warning/30')
+  })
+
+  it('routes no-value edge items (category=fix, focus.type=edge) to "Needs judgement"', () => {
+    const card = mapImprovementToTriageCard(
+      makeEdgeItem({ sourceBadge: undefined, category: 'fix', detail: 'No observed data' }),
+      0.5,
+    )
+    expect(card.sourcePill?.label).toBe('Needs judgement')
+    expect(card.sourcePill?.borderClass).toBe('border-warning/30')
+  })
+
+  it('triggers "Needs judgement" when detail is "No evidence" on an edge', () => {
+    const card = mapImprovementToTriageCard(
+      makeEdgeItem({ sourceBadge: undefined, category: 'verify', detail: 'No evidence' }),
+      0.5,
+    )
+    expect(card.sourcePill?.label).toBe('Needs judgement')
+  })
+
+  it('returns null sourcePill when there is no badge, no fix category, and no missing-data detail', () => {
+    const card = mapImprovementToTriageCard(
+      makeFactorItem({ sourceBadge: undefined, category: 'verify', detail: 'Confirm or edit the AI estimate' }),
+      0.5,
+    )
+    expect(card.sourcePill).toBeNull()
+  })
+
+  it('never emits the legacy "No data" label (replaced by "Needs value" / "Needs judgement")', () => {
+    const nodeCard = mapImprovementToTriageCard(
+      makeFactorItem({ sourceBadge: undefined, category: 'fix', detail: 'No observed data' }),
+      0.5,
+    )
+    const edgeCard = mapImprovementToTriageCard(
+      makeEdgeItem({ sourceBadge: undefined, category: 'fix', detail: 'No observed data' }),
+      0.5,
+    )
+    expect(nodeCard.sourcePill?.label).not.toBe('No data')
+    expect(edgeCard.sourcePill?.label).not.toBe('No data')
+  })
+})

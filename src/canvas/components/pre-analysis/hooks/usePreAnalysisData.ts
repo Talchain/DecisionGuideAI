@@ -39,6 +39,10 @@ import type { CeeQualityDimensions } from '../../../store'
 import type { ValidationMetadata } from '../../../domain/validation'
 // Import diversity dedup for triage top-3
 import { diversifyTriageItems } from '../utils/diversifyTriageItems'
+// `isReviewedByUser` lives in ../utils/isReviewedByUser.ts so this hook
+// and the pre-analysis priority-progress counter (`buildPriorityProgress`)
+// share one `observed_state.source ∈ user_*` contract — no drift.
+import { isReviewedByUser } from '../utils/isReviewedByUser'
 import type { DiversifiedTriage } from '../utils/diversifyTriageItems'
 // Import expertise groups for actionableCount computation
 import { deriveExpertiseGroups } from './deriveExpertiseGroups'
@@ -367,17 +371,6 @@ function isAiSource(node: Node): boolean {
   return source !== undefined && AI_SOURCES.has(source)
 }
 
-/**
- * Check if a factor has been reviewed by user (confirmed or marked as assumption)
- */
-const REVIEWED_SOURCES = new Set(['user_confirmed', 'user_assumption', 'user_override'])
-
-function isReviewedByUser(node: Node): boolean {
-  const data = node.data as { observed_state?: { source?: string }; observedState?: { source?: string }; source?: string }
-  const observedState = data?.observed_state ?? data?.observedState
-  const source = observedState?.source ?? data?.source
-  return source !== undefined && REVIEWED_SOURCES.has(source)
-}
 
 /**
  * Check if a factor has category === 'controllable'
@@ -446,34 +439,6 @@ function hasInterventionTargeting(
       if (unwrapInterventionValue(interventions[factorId]).value != null) return true
     }
   }
-  return false
-}
-
-/**
- * Check if a factor needs user review
- *
- * v1.1: brief_extraction factors are now reviewable (user can confirm extracted values)
- *
- * Returns true if:
- * - Source is AI (ai, cee_inference, inferred) - needs review
- * - Source is brief_extraction - user-provided but should be confirmed
- * - Source is user-reviewed (user_confirmed, user_assumption) - was reviewable, now reviewed
- */
-function needsReview(node: Node): boolean {
-  const data = node.data as { observed_state?: { source?: string }; observedState?: { source?: string }; source?: string }
-  const observedState = data?.observed_state ?? data?.observedState
-  const source = observedState?.source ?? data?.source
-  if (!source) return false
-
-  // AI sources that need review
-  if (AI_SOURCES.has(source)) return true
-
-  // brief_extraction: user-provided via brief, should be confirmed
-  if (source === 'brief_extraction') return true
-
-  // User-reviewed sources (were reviewable, user took action)
-  if (REVIEWED_SOURCES.has(source)) return true
-
   return false
 }
 

@@ -328,41 +328,22 @@ describe('Brief 5.8A D3c — WhatOlumiAddedSection slot', () => {
   })
 })
 
-describe('Brief 5.8A D3c — contribution row + spectrum bar', () => {
-  it('renders the row with verified count and total derived from factor sources', () => {
-    mockNodes = [
-      factor('f1', 'A', 'user_confirmed'),
-      factor('f2', 'B', 'user_confirmed'),
-      factor('f3', 'C', 'brief_extraction'),
-      factor('f4', 'D', 'cee_inference'),
-    ]
-    mockUsePreAnalysisData.mockReturnValue(baseData({
-      nodesByKind: {
-        goal: [{ id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } }],
-        decision: [],
-        option: [],
-        factor: mockNodes,
-        risk: [],
-        outcome: [],
-      },
-    }))
-
-    render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
-    const t1Card = screen.getByTestId('t1-decision-readiness-card')
-    const row = within(t1Card).getByTestId('t1-contribution-row')
-    expect(row.textContent).toMatch(/2 of 4 inputs confirmed/)
-    expect(within(t1Card).getByTestId('t1-contribution-spectrum')).toBeInTheDocument()
-  })
-
-  it('suppresses the contribution row when there are no factors with values', () => {
+// Pre-analysis-power-v1 Task 5 — the row is now sourced from the top-3
+// priority items (not all factor nodes) and renders a single-segment
+// confirmation bar. The detailed copy / progress bar behaviour is locked
+// by direct unit tests on `buildPriorityProgress` in `utils/__tests__/`;
+// the integration test below confirms the row suppresses cleanly when
+// there is no top-3 list.
+describe('pre-analysis-power-v1 Task 5 — priority-confirmation row (integration)', () => {
+  it('suppresses the priority-confirmation row when the top-3 is empty', () => {
     mockUsePreAnalysisData.mockReturnValue(baseData())
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
     expect(screen.queryByTestId('t1-contribution-row')).not.toBeInTheDocument()
   })
 })
 
-describe('Brief 5.8A D3c — checks footer', () => {
-  it('renders "N/M verified" plus the missing-knowledge prompt when factors exist', () => {
+describe('pre-analysis-power-v1 Task 5 — checks footer no longer renders inline verified count', () => {
+  it('renders no "N/M verified" inline counter (duplicate of top priority counter)', () => {
     mockNodes = [
       factor('f1', 'A', 'user_confirmed'),
       factor('f2', 'B', 'cee_inference'),
@@ -380,8 +361,7 @@ describe('Brief 5.8A D3c — checks footer', () => {
 
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
     const t1Card = screen.getByTestId('t1-decision-readiness-card')
-    const footer = within(t1Card).getByTestId('t1-checks-footer')
-    expect(footer.textContent).toMatch(/1\/2 verified/)
+    expect(within(t1Card).queryByText(/\d+\/\d+ verified/)).not.toBeInTheDocument()
   })
 })
 

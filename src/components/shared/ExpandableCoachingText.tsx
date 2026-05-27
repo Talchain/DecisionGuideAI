@@ -31,6 +31,14 @@ interface ExpandableCoachingTextProps {
   className?: string
   /** Hint passed to the native `title` attribute (defaults to `text`). */
   titleAttr?: string
+  /**
+   * Optional override for the disclosure toggle copy. Defaults to
+   * `{ more: 'More', less: 'Less' }` so existing consumers (e.g.
+   * DriversSection in the post-analysis results panel) are unchanged. The
+   * pre-analysis panel passes `{ more: 'Show more', less: 'Show less' }`
+   * to match the DS v5 §20 disclosure convention.
+   */
+  disclosureLabels?: { more: string; less: string }
 }
 
 export function ExpandableCoachingText({
@@ -38,6 +46,7 @@ export function ExpandableCoachingText({
   maxLinesCollapsed = 2,
   className,
   titleAttr,
+  disclosureLabels = { more: 'More', less: 'Less' },
 }: ExpandableCoachingTextProps) {
   const [expanded, setExpanded] = useState(false)
   const [overflows, setOverflows] = useState(false)
@@ -95,11 +104,11 @@ export function ExpandableCoachingText({
         >
           {expanded ? (
             <>
-              Less <ChevronUp size={12} aria-hidden="true" />
+              {disclosureLabels.less} <ChevronUp size={12} aria-hidden="true" />
             </>
           ) : (
             <>
-              More <ChevronDown size={12} aria-hidden="true" />
+              {disclosureLabels.more} <ChevronDown size={12} aria-hidden="true" />
             </>
           )}
         </button>

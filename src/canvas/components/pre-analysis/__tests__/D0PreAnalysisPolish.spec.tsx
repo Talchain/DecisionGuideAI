@@ -224,19 +224,26 @@ describe('Brief 5.8B D0 #2 — narrative bridge clean (no prefix, trimmed tail)'
     )
   })
 
-  it('trims the colon-introducer tail from the narrative bridge', () => {
+  it('replaces the dynamic narrative bridge with the static reframe copy (pre-analysis-power-v1 Task 2)', () => {
+    const v1 = verifyItem('v1', 'Velocity')
     mockUsePreAnalysisData.mockReturnValue(baseData({
       improvementsByCategory: {
         fix: [],
-        verify: [verifyItem('v1', 'Velocity')],
+        verify: [v1],
         add_evidence: [],
         strengthen: [],
       },
+      // Pre-analysis-power-v1 Task 2: the static header is gated on
+      // showTopThree, so the fixture must populate triageActions.top3 too.
+      triageActions: { top3: [v1], quickFix: [] },
       successThreshold: 100,
     }))
     const { container } = render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
     expect(container.innerHTML).not.toMatch(/These are the highest-priority items to review/)
-    expect(container.innerHTML).toMatch(/worth reviewing\./)
+    expect(container.innerHTML).not.toMatch(/worth reviewing/)
+    expect(container.innerHTML).not.toMatch(/Ranked by priority/)
+    expect(container.innerHTML).toMatch(/Strengthen this model before analysis/)
+    expect(container.innerHTML).toMatch(/Confirm the inputs most likely to change the result\./)
   })
 })
 

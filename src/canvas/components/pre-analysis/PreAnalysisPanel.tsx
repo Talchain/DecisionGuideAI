@@ -57,13 +57,12 @@ import { typography } from '@/styles/typography'
 import { MissingKnowledgePrompt } from '@/components/shared/MissingKnowledgePrompt'
 import { resolveEditorRawValue, resolveCapHintSubtitle } from './utils/resolveEditorRawValue'
 import { decisionShapeScore } from './utils/decisionShapeScore'
-import { buildNarrativeBridge } from './utils/buildNarrativeBridge'
 import {
   buildStrengthenOverlayMap,
   findStrengthenOverlay,
   type StrengthenOverlay,
 } from './utils/applyStrengthenOverlay'
-import { buildContributionBreakdown, type ContributionBreakdown } from './utils/buildContributionBreakdown'
+import { buildPriorityProgress, type PriorityProgress } from './utils/buildPriorityProgress'
 import { formatValueWithUnit } from '../../utils/formatValueWithUnit'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
@@ -575,39 +574,38 @@ function T1BiasNudgeRow({
 }
 
 /**
- * Brief 5.8A D3c — contribution row + three-state spectrum bar.
+ * Pre-analysis-power-v1 Task 5 — single-segment priority-confirmation row.
  *
- * Compact one-line indicator. Wording: "N of M inputs confirmed" — N counts
- * factors with a verified source (user / user_confirmed / user_assumption)
- * per the brief's "re-derive cleanly" decision. The bar visualises all
- * three buckets (verified / brief / estimated) so the user sees the
- * grounding mix at a glance.
+ * REPLACES (does not supplement) the previous three-segment contribution bar
+ * that ran over ALL factor nodes via `buildContributionBreakdown`. The new
+ * derivation reflects ONLY the top-3 priority-list confirmation state, so
+ * the visible denominator matches the visible item list and the two
+ * counters in the panel can no longer disagree.
+ *
+ * Confirmation predicate: `isReviewedByUser` from
+ * `./utils/isReviewedByUser`, the same predicate that powers the existing
+ * `reviewedFactorsCount` derivation in `usePreAnalysisData`.
  */
-function T1ContributionRow({ breakdown }: { breakdown: ContributionBreakdown }) {
-  const { verified, brief, estimated, total } = breakdown
-  const verifiedPct = total === 0 ? 0 : (verified / total) * 100
-  const briefPct = total === 0 ? 0 : (brief / total) * 100
-  const estimatedPct = total === 0 ? 0 : (estimated / total) * 100
+function T1ContributionRow({ progress }: { progress: PriorityProgress }) {
+  const { confirmed, total } = progress
+  const confirmedPct = total === 0 ? 0 : (confirmed / total) * 100
   return (
     <div className="flex flex-col gap-1" data-testid="t1-contribution-row">
       <div className="flex items-center gap-2">
         <span className={`${typography.panelMeta} text-text-light flex-1`}>
-          <strong className="text-text-body font-medium">{verified}</strong> of{' '}
-          <strong className="text-text-body font-medium">{total}</strong> inputs confirmed
+          First pass confidence: <strong className="text-text-body font-medium">{confirmed}</strong> of{' '}
+          <strong className="text-text-body font-medium">{total}</strong> priority assumptions confirmed.
         </span>
       </div>
-      {/* Three-state spectrum bar — Verified (success) | Brief (info) | Estimated (warning).
-          Zero-total renders as a single neutral track so the slot stays visually
-          present without misleading colour. */}
+      {/* Single-segment bar — empty at zero (no misleading partial fill), fills
+          as the user confirms priority items. */}
       <div
         className="flex h-1 w-full rounded-full overflow-hidden bg-panel-border"
         role="img"
-        aria-label={`Contribution mix: ${verified} verified, ${brief} from brief, ${estimated} estimated`}
+        aria-label={`${confirmed} of ${total} priority assumptions confirmed`}
         data-testid="t1-contribution-spectrum"
       >
-        {verified > 0 && <span className="bg-success" style={{ width: `${verifiedPct}%` }} />}
-        {brief > 0 && <span className="bg-info" style={{ width: `${briefPct}%` }} />}
-        {estimated > 0 && <span className="bg-warning" style={{ width: `${estimatedPct}%` }} />}
+        {confirmed > 0 && <span className="bg-success" style={{ width: `${confirmedPct}%` }} />}
       </div>
     </div>
   )
@@ -702,6 +700,11 @@ interface T1Handlers {
   onBiasHoverLeave: () => void
 }
 
+// Pre-analysis-power-v1 Task 6 — disclosure verb override for the pre-analysis
+// panel's TriageCard call-sites. ExpandableCoachingText's default
+// ("More" / "Less") is preserved for the post-analysis DriversSection.
+const PRE_ANALYSIS_DISCLOSURE_LABELS = { more: 'Show more', less: 'Show less' } as const
+
 const BIAS_NUDGE_VISIBLE_LIMIT = 2
 
 const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
@@ -717,13 +720,11 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
   hasGoalNode,
   hasGoalTarget,
   failingChecks,
-  unverifiedEstimateCount,
-  relationshipsToReviewCount,
   topThree,
   alsoConsider,
   handlers,
   biasNudges,
-  contributionBreakdown,
+  priorityProgress,
   onShowAllBias,
   wideningSlot,
   missingKnowledgeSlot,
@@ -745,15 +746,13 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
    * the T1 failing-checks block. Order is consumer-controlled.
    */
   failingChecks: T1FailingCheckEntry[]
-  unverifiedEstimateCount: number
-  relationshipsToReviewCount: number
   topThree: UnifiedQueueEntryProp[]
   alsoConsider: UnifiedQueueEntryProp[]
   handlers: T1Handlers
   /** Brief 5.8A D3c — bias triggers from the D2-filtered list (single source) */
   biasNudges: NormalisedBiasTrigger[]
-  /** Brief 5.8A D3c — three-bucket contribution breakdown */
-  contributionBreakdown: ContributionBreakdown
+  /** Pre-analysis-power-v1 Task 5 — top-3 priority confirmation counter (replaces the legacy three-bucket contribution breakdown). */
+  priorityProgress: PriorityProgress
   /** Action when the "+N more" link is clicked (expand or scroll) */
   onShowAllBias?: () => void
   /** Brief 5.8A D3c — WhatOlumiAddedSection rendered as a slot so the card stays composable */
@@ -761,24 +760,22 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
   /** Brief 5.8A D3c — MissingKnowledgePrompt slot for the checks footer */
   missingKnowledgeSlot: React.ReactNode
 }) {
-  const narrative = useMemo(
-    () => buildNarrativeBridge({
-      unverifiedEstimateCount,
-      relationshipsToReviewCount,
-      hasGoalTarget,
-    }),
-    [unverifiedEstimateCount, relationshipsToReviewCount, hasGoalTarget],
-  )
-
+  // Narrative-bridge derivation removed in pre-analysis-power-v1: the
+  // priority-list header is now a static reframe ("Strengthen this model
+  // before analysis") gated on showTopThree only. buildNarrativeBridge is
+  // retained as a util in case a future workstream reuses it.
   const showFailingChecks = failingChecks.length > 0
-  const showNarrativeBlock = narrative.prefix !== null || narrative.bridge !== null
   const showTopThree = topThree.length > 0
   const showAlsoConsider = alsoConsider.length > 0
   const visibleBias = biasNudges.slice(0, BIAS_NUDGE_VISIBLE_LIMIT)
   const overflowBias = Math.max(0, biasNudges.length - BIAS_NUDGE_VISIBLE_LIMIT)
   const showBiasBlock = visibleBias.length > 0
-  const showContribution = contributionBreakdown.total > 0
-  const showChecksFooter = contributionBreakdown.total > 0 || missingKnowledgeSlot != null
+  const showContribution = priorityProgress.total > 0
+  // Pre-analysis-power-v1 out-of-brief decision: the legacy "0/N verified"
+  // counter inside the checks footer is a duplicate of the top
+  // priority-progress counter (same trust-leak family the brief targets).
+  // The footer now only renders when a missingKnowledgeSlot is supplied.
+  const showChecksFooter = missingKnowledgeSlot != null
 
   return (
     <div
@@ -814,27 +811,16 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
           </div>
         </>
       )}
-      {showNarrativeBlock && (
+      {showTopThree && (
         <>
           <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
           <div className="flex flex-col gap-0.5" data-testid="t1-narrative-bridge">
-            <p className={`${typography.panelMeta} text-text-light leading-snug`}>
-              {narrative.prefix && <>{narrative.prefix} </>}
-              {narrative.bridge && (
-                <>
-                  <strong className="text-text-body font-medium">{narrative.bridge.estimateCount}</strong>
-                  {narrative.bridge.estimateSuffix} and{' '}
-                  <strong className="text-text-body font-medium">{narrative.bridge.relationshipCount}</strong>
-                  {narrative.bridge.relationshipSuffix}
-                  {narrative.bridge.tail}
-                </>
-              )}
+            <p className={`${typography.panelHeader} text-text-header`}>
+              Strengthen this model before analysis
             </p>
-            {narrative.meta && (
-              <p className={`${typography.panelMeta} text-text-light`} data-testid="t1-narrative-meta">
-                {narrative.meta}
-              </p>
-            )}
+            <p className={`${typography.panelBody} text-text-light`}>
+              Confirm the inputs most likely to change the result.
+            </p>
           </div>
         </>
       )}
@@ -865,6 +851,7 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
                   sourcePill={entry.card.sourcePill}
                   passiveLabels={passiveLabels}
                   aiDiscussSlot={handlers.buildAiDiscuss(entry)}
+                  disclosureLabels={PRE_ANALYSIS_DISCLOSURE_LABELS}
                   onConfirm={handlers.onConfirm}
                   onEdit={handlers.onEdit}
                   onUpdateEdgeStrength={handlers.onUpdateEdgeStrength}
@@ -897,6 +884,7 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
                     editorConfig={entry.card.editorConfig ?? null}
                     sourcePill={entry.card.sourcePill}
                     aiDiscussSlot={handlers.buildAiDiscuss(entry)}
+                    disclosureLabels={PRE_ANALYSIS_DISCLOSURE_LABELS}
                     variant="compact"
                     onConfirm={handlers.onConfirm}
                     onEdit={handlers.onEdit}
@@ -945,21 +933,16 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
       {showContribution && (
         <>
           <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
-          <T1ContributionRow breakdown={contributionBreakdown} />
+          <T1ContributionRow progress={priorityProgress} />
         </>
       )}
       {showChecksFooter && (
         <>
           <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
           <div
-            className="flex items-center justify-between gap-2"
+            className="flex items-center justify-end gap-2"
             data-testid="t1-checks-footer"
           >
-            {contributionBreakdown.total > 0 && (
-              <span className={`text-[10px] text-text-light`}>
-                {contributionBreakdown.verified}/{contributionBreakdown.total} verified
-              </span>
-            )}
             {missingKnowledgeSlot && (
               <div className="flex-shrink-0">{missingKnowledgeSlot}</div>
             )}
@@ -1184,27 +1167,9 @@ export function PreAnalysisPanel({
     return entries.length > 0 ? new Map(entries) : undefined
   }, [preAnalysisSensitivity])
 
-  // Weighted influence reviewed — fraction of total influence covered by user-reviewed factors
-  const weightedInfluenceReviewed = useMemo(() => {
-    if (!factorInfluenceMap || factorInfluenceMap.size === 0) return undefined
-    const reviewedIds = new Set<string>()
-    for (const node of nodes) {
-      const nd = node.data as Record<string, unknown>
-      if (nd.kind !== 'factor' && node.type !== 'factor') continue
-      const os = (nd.observedState ?? nd.observed_state) as Record<string, unknown> | undefined
-      const source = os?.source as string | undefined
-      if (source === 'user_confirmed' || source === 'user_assumption' || source === 'user_override') {
-        reviewedIds.add(node.id)
-      }
-    }
-    let reviewedSum = 0
-    let totalSum = 0
-    for (const [id, influence] of factorInfluenceMap) {
-      totalSum += influence
-      if (reviewedIds.has(id)) reviewedSum += influence
-    }
-    return totalSum > 0 ? reviewedSum / totalSum : 0
-  }, [factorInfluenceMap, nodes])
+  // Pre-analysis-power-v1 Task 5: weightedInfluenceReviewed derivation
+  // removed alongside the StickyFooter "N/M addressed" counter that was
+  // its sole consumer.
 
   // === INTERACTIVE ACTION HANDLERS ===
 
@@ -1860,13 +1825,13 @@ export function PreAnalysisPanel({
   const unifiedTopThree = useMemo(() => unifiedTriageQueue.slice(0, 3), [unifiedTriageQueue])
   const unifiedAlsoConsider = useMemo(() => unifiedTriageQueue.slice(3), [unifiedTriageQueue])
 
-  // Brief 5.8A D3c — three-bucket contribution breakdown derived from the
-  // current factor nodes. Counts only, no inference. The render layer uses
-  // `verified` and `total` for the "N of M inputs confirmed" copy and all
-  // three buckets for the spectrum bar.
-  const contributionBreakdown = useMemo<ContributionBreakdown>(
-    () => buildContributionBreakdown(data.nodesByKind.factor),
-    [data.nodesByKind.factor],
+  // Pre-analysis-power-v1 Task 5 — single-segment priority-confirmation
+  // counter. Counts how many of the visible top-3 priority items have been
+  // confirmed by the user (replaces the previous three-bucket
+  // contribution breakdown that ran over ALL factor nodes).
+  const priorityProgress = useMemo<PriorityProgress>(
+    () => buildPriorityProgress(unifiedTopThree, data.nodesByKind.factor),
+    [unifiedTopThree, data.nodesByKind.factor],
   )
 
   // Brief 5.8A holistic-review pass: stable slot ReactNodes for the memoised
@@ -2211,13 +2176,11 @@ export function PreAnalysisPanel({
                 hasGoalNode={hasGoalNode}
                 hasGoalTarget={hasGoalTarget}
                 failingChecks={failingChecks}
-                unverifiedEstimateCount={data.improvementsByCategory.verify.length}
-                relationshipsToReviewCount={data.improvementsByCategory.add_evidence.length}
                 topThree={unifiedTopThree}
                 alsoConsider={unifiedAlsoConsider}
                 handlers={t1Handlers}
                 biasNudges={biasTriggers}
-                contributionBreakdown={contributionBreakdown}
+                priorityProgress={priorityProgress}
                 wideningSlot={wideningSlot}
                 missingKnowledgeSlot={missingKnowledgeSlot}
               />
@@ -2444,11 +2407,6 @@ export function PreAnalysisPanel({
         blockedReason={blockedReason}
         isLoading={data.isLoading}
         isRetrying={isRetrying}
-        reviewedCount={data.reviewedFactorsCount}
-        totalReviewableCount={data.totalReviewableFactorsCount}
-        evidenceNonAiCount={data.evidenceQuality.nonAiCount}
-        evidenceTotalCount={data.evidenceQuality.totalCount}
-        weightedInfluenceReviewed={weightedInfluenceReviewed}
       />
     </div>
   )
