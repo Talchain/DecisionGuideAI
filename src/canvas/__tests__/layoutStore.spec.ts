@@ -87,6 +87,30 @@ describe('layoutStore — v4 → v5 migration', () => {
     expect(state.layerSpacing).toBe(48)
   })
 
+  it('fills missing v5 fields from defaults when entry is partial', async () => {
+    // Locks in the `??` fallback: if a v5 entry has only some fields
+    // (manual edit, partial write, future-version subset), absent fields
+    // come from the current defaults rather than crashing or leaking
+    // `undefined` to ELK.
+    localStorage.setItem(KEY_V5, JSON.stringify({ direction: 'RIGHT', nodeSpacing: 25 }))
+    const state = await loadStore()
+    expect(state.direction).toBe('RIGHT')
+    expect(state.nodeSpacing).toBe(25)
+    expect(state.layerSpacing).toBe(48)
+    expect(state.respectLocked).toBe(true)
+  })
+
+  it('fills missing v4 fields from defaults while migrating', async () => {
+    // Same `??` fallback contract on the v4 → v5 migration path.
+    // nodeSpacing=30 still migrates; absent fields use v5 defaults.
+    localStorage.setItem(KEY_V4, JSON.stringify({ direction: 'RIGHT', nodeSpacing: 30 }))
+    const state = await loadStore()
+    expect(state.direction).toBe('RIGHT')
+    expect(state.nodeSpacing).toBe(20)
+    expect(state.layerSpacing).toBe(48)
+    expect(state.respectLocked).toBe(true)
+  })
+
   it('returns defaults when v5 is malformed and no v4 entry exists', async () => {
     localStorage.setItem(KEY_V5, '{not valid json')
     const state = await loadStore()
