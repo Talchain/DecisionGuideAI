@@ -262,22 +262,23 @@ describe('ELK Layout', () => {
 
   it('4-factor tier on 1300px canvas: max-single fires; row overflows canvas (regression-lock for NODE_CARD_MAX_W=320)', async () => {
     // After restoring NODE_CARD_MAX_W to 320 and tightening the default
-    // spacing to 30 (was 60), a 4-node tier on a 1300px canvas falls into
-    // the max-single branch and the rendered row visibly overflows the
-    // canvas. Math:
+    // spacing to 20 (chain 60 → 30 → 20), a 4-node tier on a 1300px canvas
+    // falls into the max-single branch and the rendered row visibly overflows
+    // the canvas. Math:
     //
     //   rightEdge = CANVAS_MARGIN
     //             + (N-1) * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + spacing)
     //             + NODE_CARD_MAX_W
-    //             = 24 + 3 * (320 + 24 + 30) + 320
-    //             = 24 + 3 * 374 + 320
-    //             = 1466
+    //             = 24 + 3 * (320 + 24 + 20) + 320
+    //             = 24 + 3 * 364 + 320
+    //             = 1436
     //
-    // 1466 > 1300 → 166px overflow past the canvas right edge (was 256px
-    // overflow with spacing=60). The test exercises the production-default
-    // spacing path by passing spacing: SPACING where SPACING matches the
-    // layoutGraph default. Any future tweak of NODE_CARD_MAX_W,
-    // LAYOUT_PADDING_X, default spacing, or CANVAS_MARGIN surfaces here.
+    // 1436 > 1300 → 136px overflow past the canvas right edge (was 166px
+    // with spacing=30, was 256px with spacing=60). The test exercises the
+    // production-default spacing path by passing spacing: SPACING where
+    // SPACING matches the layoutGraph default. Any future tweak of
+    // NODE_CARD_MAX_W, LAYOUT_PADDING_X, default spacing, or CANVAS_MARGIN
+    // surfaces here.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'),
@@ -289,7 +290,7 @@ describe('ELK Layout', () => {
       makeEdge('e2', 'o1', 'f1'), makeEdge('e3', 'o1', 'f2'),
       makeEdge('e4', 'o1', 'f3'), makeEdge('e5', 'o1', 'f4'),
     ]
-    const SPACING = 30
+    const SPACING = 20
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(
       nodes,
       edges,
