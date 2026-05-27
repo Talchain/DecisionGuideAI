@@ -7,11 +7,17 @@
  */
 
 import '@testing-library/jest-dom/vitest'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { CompactOptionSpread } from '../CompactOptionSpread'
+import { CompactOptionSpread, canRenderCompactOptionSpread } from '../CompactOptionSpread'
 import { useUIStore } from '../../../stores/uiStore'
 import type { OptionResult } from '../types'
+
+vi.mock('../../../canvas/utils/sandboxTelemetry', () => ({
+  trackCompareOpened: vi.fn(),
+  trackIssuesOpened: vi.fn(),
+}))
+import { trackCompareOpened } from '../../../canvas/utils/sandboxTelemetry'
 
 function opt(id: string, label: string, winProbability: number | null): OptionResult {
   return {
@@ -29,6 +35,7 @@ function opt(id: string, label: string, winProbability: number | null): OptionRe
 
 beforeEach(() => {
   useUIStore.setState({ activeOutputTab: 'results' })
+  vi.mocked(trackCompareOpened).mockClear()
 })
 
 describe('CompactOptionSpread', () => {
@@ -92,6 +99,15 @@ describe('CompactOptionSpread', () => {
     expect(useUIStore.getState().activeOutputTab).toBe('compare')
   })
 
+  it('Compare options button fires trackCompareOpened telemetry (code-review P2 #2: parity with OutputsDock tab-click)', () => {
+    render(
+      <CompactOptionSpread options={[opt('a', 'A', 0.6), opt('b', 'B', 0.4)]} />,
+    )
+    expect(trackCompareOpened).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByTestId('compact-option-spread-compare'))
+    expect(trackCompareOpened).toHaveBeenCalledTimes(1)
+  })
+
   it('sorts options by descending win probability regardless of input order', () => {
     render(
       <CompactOptionSpread
@@ -131,5 +147,27 @@ describe('CompactOptionSpread', () => {
       <CompactOptionSpread options={[opt('a', 'A', 0.6), nanOpt]} />,
     )
     expect(container.firstChild).toBeNull()
+  })
+})
+
+describe('canRenderCompactOptionSpread helper (code-review P1 #1)', () => {
+  it('returns true when at least two options carry finite probabilities', () => {
+    expect(canRenderCompactOptionSpread([opt('a', 'A', 0.6), opt('b', 'B', 0.4)]))
+      .toBe(true)
+  })
+
+  it('returns false when fewer than two options carry probability at all', () => {
+    expect(canRenderCompactOptionSpread([opt('a', 'A', 0.6), opt('b', 'B', null)]))
+      .toBe(false)
+  })
+
+  it('returns false when all probabilities are non-finite (NaN / Infinity)', () => {
+    const nanOpt = { ...opt('x', 'X', 0), winProbability: NaN } as OptionResult
+    const infOpt = { ...opt('y', 'Y', 0), winProbability: Infinity } as OptionResult
+    expect(canRenderCompactOptionSpread([nanOpt, infOpt])).toBe(false)
+  })
+
+  it('returns false for an empty options array', () => {
+    expect(canRenderCompactOptionSpread([])).toBe(false)
   })
 })

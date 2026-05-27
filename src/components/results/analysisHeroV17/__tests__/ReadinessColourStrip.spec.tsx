@@ -47,7 +47,7 @@ describe('ReadinessColourStrip — dimension tooltips', () => {
       .toBe('Verified: 50% (3 inputs verified) — Inputs you have confirmed')
   })
 
-  it('Verified aria-label mirrors the title (with checkedCount + description) — accessibility surface unchanged otherwise', () => {
+  it('every segment carries an aria-label mirroring its title (code-review P2 #1: descriptions reach screen readers, not just hover)', () => {
     render(
       <ReadinessColourStrip
         checkedCount="No inputs verified"
@@ -57,10 +57,14 @@ describe('ReadinessColourStrip — dimension tooltips', () => {
     // Visible legend text stays plain (label only), no description.
     expect(screen.getByText('Structure')).toBeInTheDocument()
     expect(screen.getByText('Evidence')).toBeInTheDocument()
-    // aria-label is set on the Verified segment to surface the count to
-    // assistive tech; with the V17 power pass the description rides along.
-    const verifiedNode = screen.getByTestId('strip-verified')
-    expect(verifiedNode.getAttribute('aria-label'))
+    // aria-label set on all four segments; Verified additionally carries checkedCount.
+    expect(screen.getByTestId('strip-structure').getAttribute('aria-label'))
+      .toBe('Structure: 75% — Goal, options, factors, connections present')
+    expect(screen.getByTestId('strip-evidence').getAttribute('aria-label'))
+      .toBe('Evidence: 50% — How much the result depends on uncertain inputs')
+    expect(screen.getByTestId('strip-coverage').getAttribute('aria-label'))
+      .toBe('Coverage: 25% — Alternatives and risks represented')
+    expect(screen.getByTestId('strip-verified').getAttribute('aria-label'))
       .toBe('Verified: 50% (No inputs verified) — Inputs you have confirmed')
   })
 

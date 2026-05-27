@@ -6,9 +6,11 @@
  * label once per-factor provenance is plumbed.
  *
  * `checkedCount` (e.g. "No inputs verified" / "3 inputs verified") is
- * surfaced on the Verified segment's tooltip + aria-label only — never
- * rendered as visible text (see docs/investigations/analysis-hero-v17-top-section.md
- * task 2).
+ * surfaced on the Verified segment only (see docs/investigations/analysis-hero-v17-top-section.md
+ * task 2). It is never rendered as visible text. Per-dimension descriptions
+ * (V17 power pass) ride on the title attribute for sighted users AND on
+ * aria-label for assistive-tech users — applied to all four segments so
+ * the description is not desktop-hover-only.
  */
 
 import { typography } from '@/styles/typography'
@@ -31,8 +33,9 @@ export function ReadinessColourStrip({ checkedCount, dimensions }: Props) {
           const pct = Math.round(d.value * 100)
           const isVerified = d.label === 'Verified'
           // V17 power pass: append the dimension description to the hover
-          // tooltip. Visible legend text and the aria-label structure stay
-          // unchanged — the description is hover-only.
+          // tooltip AND to aria-label on every segment. Code-review P2 #1:
+          // the prior implementation only set aria-label on Verified, which
+          // hid Structure/Evidence/Coverage descriptions from screen readers.
           const description = DIMENSION_DESCRIPTION[d.label]
           const base = isVerified && checkedCount
             ? `${d.label}: ${pct}% (${checkedCount})`
@@ -43,7 +46,7 @@ export function ReadinessColourStrip({ checkedCount, dimensions }: Props) {
               key={d.label}
               className="h-1.5 rounded-full bg-panel-hover overflow-hidden"
               title={composite}
-              aria-label={isVerified ? composite : undefined}
+              aria-label={composite}
               data-testid={`strip-${d.label.toLowerCase()}`}
             >
               <div

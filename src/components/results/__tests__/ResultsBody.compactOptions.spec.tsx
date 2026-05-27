@@ -191,4 +191,49 @@ describe('ResultsBody — V17 compact "Your options"', () => {
     expect(screen.queryByTestId('compact-option-spread')).not.toBeInTheDocument()
     expect(screen.queryByTestId('option-cards')).not.toBeInTheDocument()
   })
+
+  it('V17 on + no finite winProbability on any option: falls back to legacy OptionCards (no orphan "Your options" header)', () => {
+    // Code-review P1 #1: when CompactOptionSpread cannot render a spread,
+    // the parent must NOT leave the bordered Section 2 with just a header.
+    // Fallback is the legacy WinGauge/OptionCards block so users always see
+    // option data when options exist.
+    vi.mocked(isAnalysisHeroV17Enabled).mockReturnValue(true)
+    const noProbData = makeData({
+      options: [
+        {
+          id: 'opt_a',
+          label: 'Option A',
+          isRecommended: true,
+          expected: null,
+          outcome: { p10: null, p50: null, p90: null },
+          p10: null,
+          p50: null,
+          p90: null,
+        } as OptionResult,
+        {
+          id: 'opt_b',
+          label: 'Option B',
+          isRecommended: false,
+          expected: null,
+          outcome: { p10: null, p50: null, p90: null },
+          p10: null,
+          p50: null,
+          p90: null,
+        } as OptionResult,
+      ],
+    })
+    render(
+      <ResultsBody
+        resultsSectionData={noProbData}
+        tornadoData={{ rows: [], expectedOutcome: null }}
+        onSendMessage={() => {}}
+      />,
+    )
+    // Section header present (options exist) but compact spread cannot
+    // render → must NOT leave the section with only a header.
+    expect(screen.getByTestId('section-header-options')).toBeInTheDocument()
+    expect(screen.queryByTestId('compact-option-spread')).not.toBeInTheDocument()
+    // Legacy OptionCards must render as the fallback.
+    expect(screen.getByTestId('option-cards')).toBeInTheDocument()
+  })
 })

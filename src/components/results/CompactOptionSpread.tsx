@@ -12,12 +12,30 @@
  */
 
 import { useUIStore } from '../../stores/uiStore'
+import { trackCompareOpened } from '../../canvas/utils/sandboxTelemetry'
 import { formatPercent } from '../../utils/formatPercent'
 import { typography } from '../../styles/typography'
 import type { OptionResult } from './types'
 
 interface Props {
   options: OptionResult[]
+}
+
+/**
+ * Returns true when CompactOptionSpread will render a visible spread for
+ * the given options. Mirrors the in-component filter so the parent can
+ * decide whether to render the section wrapper at all, avoiding an orphan
+ * "Your options" header when no finite probabilities are available.
+ */
+export function canRenderCompactOptionSpread(options: OptionResult[]): boolean {
+  let finite = 0
+  for (const o of options) {
+    if (typeof o.winProbability === 'number' && Number.isFinite(o.winProbability)) {
+      finite += 1
+      if (finite >= 2) return true
+    }
+  }
+  return false
 }
 
 export function CompactOptionSpread({ options }: Props) {
@@ -54,7 +72,13 @@ export function CompactOptionSpread({ options }: Props) {
       </p>
       <button
         type="button"
-        onClick={() => useUIStore.getState().setActiveOutputTab('compare')}
+        onClick={() => {
+          // Fire the same telemetry the Compare tab-click handler emits
+          // (sandbox.compare.opened). Without this, switching tabs via the
+          // hero link silently bypasses compare-open measurement.
+          trackCompareOpened()
+          useUIStore.getState().setActiveOutputTab('compare')
+        }}
         className={`flex-shrink-0 text-info hover:underline ${typography.panelBody} cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2 rounded`}
         data-testid="compact-option-spread-compare"
       >

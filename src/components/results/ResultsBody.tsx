@@ -27,7 +27,7 @@ import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWit
 import { DecisionConfidencePanel } from './DecisionConfidencePanel'
 import { AnalysisHeroV17 } from './AnalysisHeroV17'
 import { AnalysisOrphanBanner } from './AnalysisOrphanBanner'
-import { CompactOptionSpread } from './CompactOptionSpread'
+import { CompactOptionSpread, canRenderCompactOptionSpread } from './CompactOptionSpread'
 import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled } from '@/flags'
 
 export interface StrengthCorrectionDisplay {
@@ -238,7 +238,12 @@ export const ResultsBody = memo(function ResultsBody({
           OptionCards block is replaced with a one-line spread + Compare-
           options link. The Compare tab retains the full cards via
           CompareTabBodyV2. Section wrapper + header are lifted above the
-          branch so both modes share the same container. */}
+          branch so both modes share the same container.
+          Code-review P1 #1: when V17 is on but no two options carry a
+          finite winProbability, CompactOptionSpread returns null and would
+          leave an orphan "Your options" header. Fall back to the legacy
+          WinGauge/OptionCards block so users always see option data when
+          options exist. */}
       {!resultsSectionData.recommendation.isSingleOption &&
        resultsSectionData.recommendation.allOptions.length > 1 && (
         <SectionErrorBoundary section="Options comparison">
@@ -248,7 +253,7 @@ export const ResultsBody = memo(function ResultsBody({
               testId="section-header-options"
               sectionColorMarker="bg-option"
             />
-            {showV17 && !showCompare ? (
+            {showV17 && !showCompare && canRenderCompactOptionSpread(resultsSectionData.recommendation.allOptions) ? (
               <CompactOptionSpread options={resultsSectionData.recommendation.allOptions} />
             ) : (
               <>
