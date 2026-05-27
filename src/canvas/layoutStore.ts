@@ -30,6 +30,11 @@ interface LayoutOptions {
 // now equals COLLISION_GAP=20, so the post-layout collision guard is inert at
 // the default spacing — it only fires when ELK/multi-row splitting drives
 // nodes closer than 20 px.
+// v5 also introduces v4→v5 migration in loadPersistedOptions: default-like
+// nodeSpacing=30 maps to the new default 20; other v4 settings (custom
+// nodeSpacing, direction, layerSpacing, respectLocked) carry over unchanged.
+// Earlier bumps (v3→v4, etc.) read only the current key and so reset all
+// customisation; this is the first revision with an explicit migration.
 // v4: nodeSpacing reduced 60 → 30 — horizontal gap tightened so 4-node tiers
 // fit a tighter footprint at typical laptop viewports. Layer (vertical)
 // spacing left at 48 from v3; the horizontal change addresses the observed
@@ -38,21 +43,40 @@ interface LayoutOptions {
 // v3: layerSpacing reduced 90 → 48 (cumulative −47 % across two passes:
 // 90 → 68 (−25 %), then 68 → 48 (−30 %)) so tiers sit closer vertically.
 // Earlier bump: v1 → v2 changed 80/120 → 60/90.
-// Bumping the key migrates returning users who never customised spacing.
 const KEY = 'canvas-layout-options-v5'
+const KEY_V4 = 'canvas-layout-options-v4'
 
 function loadPersistedOptions(): Pick<LayoutOptions, 'direction' | 'nodeSpacing' | 'layerSpacing' | 'respectLocked'> {
   const defaults = { direction: 'DOWN' as Direction, nodeSpacing: 20, layerSpacing: 48, respectLocked: true }
   try {
-    const saved = localStorage.getItem(KEY)
-    if (!saved) return defaults
-    const parsed = JSON.parse(saved)
-    return {
-      direction: parsed.direction ?? defaults.direction,
-      nodeSpacing: parsed.nodeSpacing ?? defaults.nodeSpacing,
-      layerSpacing: parsed.layerSpacing ?? defaults.layerSpacing,
-      respectLocked: parsed.respectLocked ?? defaults.respectLocked,
+    // v5 (current) — written by persist() after any user change since this revision.
+    const savedV5 = localStorage.getItem(KEY)
+    if (savedV5) {
+      const parsed = JSON.parse(savedV5)
+      return {
+        direction: parsed.direction ?? defaults.direction,
+        nodeSpacing: parsed.nodeSpacing ?? defaults.nodeSpacing,
+        layerSpacing: parsed.layerSpacing ?? defaults.layerSpacing,
+        respectLocked: parsed.respectLocked ?? defaults.respectLocked,
+      }
     }
+    // v4 → v5 migration: map default-like nodeSpacing=30 to the new default
+    // 20; custom nodeSpacing (≠ 30), direction, layerSpacing, and
+    // respectLocked carry over unchanged. The v4 entry is left in place
+    // until the next persist() call writes v5.
+    const savedV4 = localStorage.getItem(KEY_V4)
+    if (savedV4) {
+      const parsed = JSON.parse(savedV4)
+      return {
+        direction: parsed.direction ?? defaults.direction,
+        nodeSpacing: parsed.nodeSpacing === 30
+          ? defaults.nodeSpacing
+          : (parsed.nodeSpacing ?? defaults.nodeSpacing),
+        layerSpacing: parsed.layerSpacing ?? defaults.layerSpacing,
+        respectLocked: parsed.respectLocked ?? defaults.respectLocked,
+      }
+    }
+    return defaults
   } catch {
     return defaults
   }
