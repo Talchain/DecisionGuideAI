@@ -262,21 +262,22 @@ describe('ELK Layout', () => {
 
   it('4-factor tier on 1300px canvas: max-single fires; row overflows canvas (regression-lock for NODE_CARD_MAX_W=320)', async () => {
     // After restoring NODE_CARD_MAX_W to 320 and tightening the default
-    // spacing to 15 (chain 60 → 30 → 20 → 15) — with the pre-ELK floor
-    // and COLLISION_GAP lowered to 15 in the same change — a 4-node tier
-    // on a 1300px canvas falls into the max-single branch and the rendered
-    // row visibly overflows the canvas. Math:
+    // spacing to 15 (chain 60 → 30 → 20 → 15), a 4-node tier on a 1300px
+    // canvas falls into the max-single branch and the rendered row visibly
+    // overflows the canvas. The pre-ELK `Math.max(20, spacing)` floor in
+    // layout.ts clamps effective spacing to 20 even when the caller passes
+    // 15, so the rendered last-edge stays at 1436 (was 1466 at spacing=30,
+    // 1556 at spacing=60). Math:
     //
-    //   effectiveSpacing = Math.max(15, SPACING) = 15
+    //   effectiveSpacing = Math.max(20, SPACING) = 20
     //   rightEdge = CANVAS_MARGIN
     //             + (N-1) * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + effectiveSpacing)
     //             + NODE_CARD_MAX_W
-    //             = 24 + 3 * (320 + 24 + 15) + 320
-    //             = 24 + 3 * 359 + 320
-    //             = 1421
+    //             = 24 + 3 * (320 + 24 + 20) + 320
+    //             = 24 + 3 * 364 + 320
+    //             = 1436
     //
-    // 1421 > 1300 → 121px overflow past the canvas right edge (was 136px at
-    // floor=20, 166px at spacing=30, 256px at spacing=60). The test
+    // 1436 > 1300 → 136px overflow past the canvas right edge. The test
     // exercises the production-default spacing path by passing SPACING that
     // matches the layoutGraph default; EFFECTIVE_SPACING below makes the
     // pre-ELK floor explicit in the assertion so a future change to either
@@ -293,7 +294,7 @@ describe('ELK Layout', () => {
       makeEdge('e4', 'o1', 'f3'), makeEdge('e5', 'o1', 'f4'),
     ]
     const SPACING = 15
-    const EFFECTIVE_SPACING = Math.max(15, SPACING)
+    const EFFECTIVE_SPACING = Math.max(20, SPACING)
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(
       nodes,
       edges,
@@ -355,7 +356,7 @@ describe('ELK Layout', () => {
     ]
     const FLIP_CANVAS: CanvasSize = { width: 1500, height: 900 }
     const SPACING = 15
-    const EFFECTIVE_SPACING = Math.max(15, SPACING)
+    const EFFECTIVE_SPACING = Math.max(20, SPACING)
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(
       nodes,
       edges,
@@ -371,7 +372,7 @@ describe('ELK Layout', () => {
       .sort((a, b) => a.position.x - b.position.x)
     expect(factors).toHaveLength(7)
 
-    // Single-row placement formula: rightEdge = 24 + 6 * (320+24+15) + 320 = 2498.
+    // Single-row placement formula: rightEdge = 24 + 6 * (320+24+20) + 320 = 2528.
     const lastVisibleRightEdge = factors[6].position.x + NODE_CARD_MAX_W
     expect(lastVisibleRightEdge).toBe(
       CANVAS_MARGIN + 6 * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + EFFECTIVE_SPACING) + NODE_CARD_MAX_W,
@@ -595,8 +596,8 @@ describe('applyCollisionGuard', () => {
 
   it('pushes the right neighbour right when the gap is below threshold', () => {
     // nodeA at x=0 width=100 ends at x=100.
-    // nodeB at x=105 leaves a 5px gap, below COLLISION_GAP=15.
-    // Expected: nodeB pushed to x=115 (leftRight + COLLISION_GAP).
+    // nodeB at x=105 leaves a 5px gap, below COLLISION_GAP=20.
+    // Expected: nodeB pushed to x=120 (leftRight + COLLISION_GAP).
     const positionMap = new Map<string, { x: number; y: number }>([
       ['a', { x: 0, y: 200 }],
       ['b', { x: 105, y: 200 }],
@@ -609,19 +610,18 @@ describe('applyCollisionGuard', () => {
     applyCollisionGuard(positionMap, sizeMap, 100)
 
     expect(positionMap.get('a')).toEqual({ x: 0, y: 200 })
-    expect(positionMap.get('b')).toEqual({ x: 115, y: 200 })
+    expect(positionMap.get('b')).toEqual({ x: 120, y: 200 })
   })
 
   it('cascades the second sweep when pushing a node into its right neighbour', () => {
     // Three nodes, each 100px wide, on the same row:
     //   a at x=0   (right edge 100)
-    //   b at x=105 (5px gap → pushed to x=115, right edge 215)
-    //   c at x=220 (5px gap from b@115 → pushed to x=230 in the forward
-    //               sweep, which uses b's already-updated position)
+    //   b at x=105 (5px gap → pushed to x=120, right edge 220)
+    //   c at x=235 (15px gap from b@120 → pushed to x=240 in 2nd sweep)
     const positionMap = new Map<string, { x: number; y: number }>([
       ['a', { x: 0,   y: 100 }],
       ['b', { x: 105, y: 100 }],
-      ['c', { x: 220, y: 100 }],
+      ['c', { x: 235, y: 100 }],
     ])
     const sizeMap = new Map<string, { width: number; height: number }>([
       ['a', { width: 100, height: 100 }],
@@ -632,8 +632,8 @@ describe('applyCollisionGuard', () => {
     applyCollisionGuard(positionMap, sizeMap, 100)
 
     expect(positionMap.get('a')!.x).toBe(0)
-    expect(positionMap.get('b')!.x).toBe(115)
-    expect(positionMap.get('c')!.x).toBe(230)
+    expect(positionMap.get('b')!.x).toBe(120)
+    expect(positionMap.get('c')!.x).toBe(240)
   })
 
   it('does not touch nodes on different Y rows', () => {

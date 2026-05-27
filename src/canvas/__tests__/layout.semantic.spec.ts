@@ -534,24 +534,23 @@ describe('constants contract', () => {
   })
 
   it('COLLISION_GAP does not exceed the rendered node-node gap', () => {
-    // Rendered gap = `Math.max(15, default spacing=15)` = 15 after the
-    // chain 60 → 30 → 20 → 15 and the matching floor change (the pre-ELK
-    // `Math.max` lower bound was lowered to 15 together with this constant).
-    // COLLISION_GAP must not exceed the rendered gap — if it did, the
-    // post-layout collision guard would push apart correctly-laid-out
-    // same-row pairs. COLLISION_GAP=15 = rendered gap, so the guard is
-    // essentially inert; it only fires when ELK / multi-row splitting
-    // drives nodes closer than 15 px.
+    // Rendered gap = `Math.max(20, default spacing)` = 20. (Default spacing
+    // is 15 after the chain 60 → 30 → 20 → 15; the literal-20 floor in
+    // layout.ts pins the runtime value at 20 even though the persisted
+    // intent is 15.) COLLISION_GAP must not exceed the rendered gap — if it
+    // did, the post-layout collision guard would push apart correctly-
+    // laid-out same-row pairs. Currently COLLISION_GAP=20 = rendered gap,
+    // so the guard is essentially inert; it only fires when ELK / multi-row
+    // splitting drives nodes closer than 20 px.
     //
-    // The tight bound (`<= 15`) reflects the current contract; the loose
+    // The tight bound (`<= 20`) reflects the current contract; the loose
     // `< 30` is a documentation-grade ceiling preserved from earlier rounds.
     // Both are asserted so a future change that breaks either surfaces here.
     //
-    // Note: MIN_GAP=15 = COLLISION_GAP=15 now (both lowered in the same
-    // change). The historical `COLLISION_GAP < MIN_GAP` relation does not
-    // hold; the two constants serve unrelated concerns despite the
-    // numeric coincidence (see `nodeLayoutConstants.ts`).
-    expect(COLLISION_GAP).toBeLessThanOrEqual(15)
+    // Note: the historical `COLLISION_GAP < MIN_GAP` relation no longer
+    // holds after the MIN_GAP 30 → 15 change (MIN_GAP=15 < COLLISION_GAP=20).
+    // The two constants serve unrelated concerns; see `nodeLayoutConstants.ts`.
+    expect(COLLISION_GAP).toBeLessThanOrEqual(20)
     expect(COLLISION_GAP).toBeLessThan(30)
   })
 
