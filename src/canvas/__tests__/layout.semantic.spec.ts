@@ -533,16 +533,24 @@ describe('constants contract', () => {
     expect(NODE_LAYOUT_MIN_W).toBe(140)
   })
 
-  it('COLLISION_GAP < expected node-node gap', () => {
-    // Default node-node gap is `Math.max(20, spacing=15) = 20` after the
-    // chain 60 → 30 → 20 → 15 (see layout.ts:54). The layoutGraph default
-    // is now 15, but the pre-ELK `Math.max(20, …)` floor and COLLISION_GAP
-    // both stay at 20, so the rendered gap is still 20. COLLISION_GAP=20
-    // equals the rendered gap, so the post-layout collision guard is
-    // essentially inert — it only fires when ELK/multi-row splitting drives
-    // nodes closer than 20px. The looser `toBeLessThan(30)` bound is kept
-    // deliberately: tightening to `toBeLessThan(20)` would fail (20 < 20 is
-    // false) and reduce headroom for future spacing tweaks.
+  it('COLLISION_GAP does not exceed the rendered node-node gap', () => {
+    // Rendered gap = `Math.max(20, default spacing)` = 20. (Default spacing
+    // is 15 after the chain 60 → 30 → 20 → 15; the literal-20 floor in
+    // layout.ts pins the runtime value at 20 even though the persisted
+    // intent is 15.) COLLISION_GAP must not exceed the rendered gap — if it
+    // did, the post-layout collision guard would push apart correctly-
+    // laid-out same-row pairs. Currently COLLISION_GAP=20 = rendered gap,
+    // so the guard is essentially inert; it only fires when ELK / multi-row
+    // splitting drives nodes closer than 20 px.
+    //
+    // The tight bound (`<= 20`) reflects the current contract; the loose
+    // `< 30` is a documentation-grade ceiling preserved from earlier rounds.
+    // Both are asserted so a future change that breaks either surfaces here.
+    //
+    // Note: the historical `COLLISION_GAP < MIN_GAP` relation no longer
+    // holds as of v6 (MIN_GAP=15 < COLLISION_GAP=20). The two constants
+    // serve unrelated concerns; see `nodeLayoutConstants.ts`.
+    expect(COLLISION_GAP).toBeLessThanOrEqual(20)
     expect(COLLISION_GAP).toBeLessThan(30)
   })
 

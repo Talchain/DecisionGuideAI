@@ -51,9 +51,13 @@ export const DEFAULT_NODE_HEIGHT = 100
 export const MIN_GAP = 15
 
 /**
- * Post-layout safety gap. Smaller than `MIN_GAP` because it only fires when
- * ELK / multi-row splitting leaves two same-row nodes closer than this
- * threshold (rare; rounding-induced).
+ * Post-layout safety gap. Fires when ELK / multi-row splitting leaves two
+ * same-row nodes closer than this threshold (rare; rounding-induced). Note
+ * that as of v6 (MIN_GAP 30 → 15) this no longer satisfies
+ * `COLLISION_GAP < MIN_GAP` — MIN_GAP is now a width-calc safety reserve
+ * only, while COLLISION_GAP matches the rendered node-node gap
+ * (`Math.max(20, spacing)` in layout.ts). The two constants serve unrelated
+ * concerns despite the historical numeric ordering.
  */
 export const COLLISION_GAP = 20
 
