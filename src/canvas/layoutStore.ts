@@ -46,40 +46,48 @@ interface LayoutOptions {
 const KEY = 'canvas-layout-options-v5'
 const KEY_V4 = 'canvas-layout-options-v4'
 
+type PersistedOptions = Partial<Pick<LayoutOptions, 'direction' | 'nodeSpacing' | 'layerSpacing' | 'respectLocked'>>
+
+function tryParse(key: string): PersistedOptions | null {
+  try {
+    const saved = localStorage.getItem(key)
+    if (!saved) return null
+    return JSON.parse(saved) as PersistedOptions
+  } catch {
+    return null
+  }
+}
+
 function loadPersistedOptions(): Pick<LayoutOptions, 'direction' | 'nodeSpacing' | 'layerSpacing' | 'respectLocked'> {
   const defaults = { direction: 'DOWN' as Direction, nodeSpacing: 20, layerSpacing: 48, respectLocked: true }
-  try {
-    // v5 (current) — written by persist() after any user change since this revision.
-    const savedV5 = localStorage.getItem(KEY)
-    if (savedV5) {
-      const parsed = JSON.parse(savedV5)
-      return {
-        direction: parsed.direction ?? defaults.direction,
-        nodeSpacing: parsed.nodeSpacing ?? defaults.nodeSpacing,
-        layerSpacing: parsed.layerSpacing ?? defaults.layerSpacing,
-        respectLocked: parsed.respectLocked ?? defaults.respectLocked,
-      }
+
+  // v5 (current) — written by persist() after any user change since this revision.
+  const v5 = tryParse(KEY)
+  if (v5) {
+    return {
+      direction: v5.direction ?? defaults.direction,
+      nodeSpacing: v5.nodeSpacing ?? defaults.nodeSpacing,
+      layerSpacing: v5.layerSpacing ?? defaults.layerSpacing,
+      respectLocked: v5.respectLocked ?? defaults.respectLocked,
     }
-    // v4 → v5 migration: map default-like nodeSpacing=30 to the new default
-    // 20; custom nodeSpacing (≠ 30), direction, layerSpacing, and
-    // respectLocked carry over unchanged. The v4 entry is left in place
-    // until the next persist() call writes v5.
-    const savedV4 = localStorage.getItem(KEY_V4)
-    if (savedV4) {
-      const parsed = JSON.parse(savedV4)
-      return {
-        direction: parsed.direction ?? defaults.direction,
-        nodeSpacing: parsed.nodeSpacing === 30
-          ? defaults.nodeSpacing
-          : (parsed.nodeSpacing ?? defaults.nodeSpacing),
-        layerSpacing: parsed.layerSpacing ?? defaults.layerSpacing,
-        respectLocked: parsed.respectLocked ?? defaults.respectLocked,
-      }
-    }
-    return defaults
-  } catch {
-    return defaults
   }
+  // v4 → v5 migration: map default-like nodeSpacing=30 to the new default
+  // 20; custom nodeSpacing (≠ 30), direction, layerSpacing, and
+  // respectLocked carry over unchanged. Parsed independently of v5 so a
+  // corrupt v5 entry still falls back to a valid v4 entry. The v4 entry is
+  // left in place until the next persist() call writes v5.
+  const v4 = tryParse(KEY_V4)
+  if (v4) {
+    return {
+      direction: v4.direction ?? defaults.direction,
+      nodeSpacing: v4.nodeSpacing === 30
+        ? defaults.nodeSpacing
+        : (v4.nodeSpacing ?? defaults.nodeSpacing),
+      layerSpacing: v4.layerSpacing ?? defaults.layerSpacing,
+      respectLocked: v4.respectLocked ?? defaults.respectLocked,
+    }
+  }
+  return defaults
 }
 
 function persist(state: Pick<LayoutOptions, 'direction' | 'nodeSpacing' | 'layerSpacing' | 'respectLocked'>): void {

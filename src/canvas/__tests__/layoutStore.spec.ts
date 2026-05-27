@@ -74,10 +74,11 @@ describe('layoutStore — v4 → v5 migration', () => {
     expect(state.respectLocked).toBe(false)
   })
 
-  it('does not mutate v4 nodeSpacing during migration when value is exactly the v4 default 30 but only that field changes', async () => {
-    // Sanity: migration is field-targeted — nodeSpacing=30 → 20, but other
-    // fields with default-equal values stay literal (not "snapped" by the
-    // migration). layerSpacing=48 was the v4 default; migration leaves it.
+  it('migrates only nodeSpacing and preserves other default-like fields', async () => {
+    // Sanity: the 30 → 20 rule is targeted to nodeSpacing alone. Other v4
+    // fields that happen to equal a v4 default (e.g. layerSpacing=48) are
+    // left literal — they are not "snapped" to the v5 default by the
+    // migration. Only nodeSpacing has a value-driven remap.
     localStorage.setItem(KEY_V4, JSON.stringify({
       direction: 'DOWN', nodeSpacing: 30, layerSpacing: 48, respectLocked: true,
     }))
@@ -86,7 +87,7 @@ describe('layoutStore — v4 → v5 migration', () => {
     expect(state.layerSpacing).toBe(48)
   })
 
-  it('returns defaults when v5 JSON is malformed', async () => {
+  it('returns defaults when v5 is malformed and no v4 entry exists', async () => {
     localStorage.setItem(KEY_V5, '{not valid json')
     const state = await loadStore()
     expect(state.direction).toBe('DOWN')
@@ -95,10 +96,32 @@ describe('layoutStore — v4 → v5 migration', () => {
     expect(state.respectLocked).toBe(true)
   })
 
+  it('falls back to v4 migration when v5 is malformed but v4 is valid', async () => {
+    localStorage.setItem(KEY_V5, '{not valid json')
+    localStorage.setItem(KEY_V4, JSON.stringify({
+      direction: 'RIGHT', nodeSpacing: 30, layerSpacing: 60, respectLocked: false,
+    }))
+    const state = await loadStore()
+    expect(state.direction).toBe('RIGHT')
+    expect(state.nodeSpacing).toBe(20)
+    expect(state.layerSpacing).toBe(60)
+    expect(state.respectLocked).toBe(false)
+  })
+
   it('returns defaults when v4 JSON is malformed and no v5 entry exists', async () => {
     localStorage.setItem(KEY_V4, '{not valid json')
     const state = await loadStore()
     expect(state.direction).toBe('DOWN')
     expect(state.nodeSpacing).toBe(20)
+  })
+
+  it('returns defaults when both v5 and v4 are malformed', async () => {
+    localStorage.setItem(KEY_V5, '{not valid')
+    localStorage.setItem(KEY_V4, '{also not valid')
+    const state = await loadStore()
+    expect(state.direction).toBe('DOWN')
+    expect(state.nodeSpacing).toBe(20)
+    expect(state.layerSpacing).toBe(48)
+    expect(state.respectLocked).toBe(true)
   })
 })
