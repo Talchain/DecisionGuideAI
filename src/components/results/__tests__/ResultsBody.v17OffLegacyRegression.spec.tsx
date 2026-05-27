@@ -6,12 +6,18 @@
  * before the V17 power pass:
  *
  *   - Section 2 ("Your options") renders the full OptionCards block — NOT
- *     the new one-line CompactOptionSpread.
+ *     the deprecated one-line CompactOptionSpread.
  *   - WinGauge + RiskAppetiteFilter render alongside OptionCards.
  *   - DecisionConfidencePanel renders (the legacy hero), NOT AnalysisHeroV17.
  *   - The legacy panel's lower-section cards (T1FlipRiskCallout,
  *     T1DominantNudge, T1ChecksFooter) all render — none of the V17-only
  *     dedup suppression should affect them.
+ *
+ * Section 2 contract is now flag-agnostic: after the urgent revert of the
+ * compact-options swap (2026-05-27), `OptionCards` renders identically
+ * regardless of the V17 flag. The "V17 on also shows full OptionCards"
+ * case below locks that contract so any future re-introduction of a
+ * compact replacement requires deliberate test edits.
  *
  * `AnalysisFooter` lives in OutputsDock and isn't reachable from ResultsBody
  * alone, so the legacy footer-vs-orphan-banner state is asserted as a unit
@@ -231,9 +237,27 @@ describe('ResultsBody — V17 power pass: V17-off legacy regression', () => {
         onSendMessage={() => {}}
       />,
     )
-    // The mocked flag accessor was called at least once (gating Section 2)
-    // and always returned false. This asserts the gating branch was taken.
-    expect(vi.mocked(isAnalysisHeroV17Enabled)).toHaveBeenCalled()
+    // Asserts the flag-off branch was the one taken at render time.
     expect(vi.mocked(isAnalysisHeroV17Enabled).mock.results.every(r => r.value === false)).toBe(true)
+  })
+
+  it('V17 on: Section 2 still renders the FULL OptionCards block (revert lock)', () => {
+    // Locks the post-revert contract — Section 2 is flag-agnostic. If the
+    // compact-options swap ever returns, this test must be updated
+    // deliberately. CompactOptionSpread (the component) is intentionally
+    // kept in the repo as a future supplementary affordance and is NOT
+    // mounted by ResultsBody under any flag combination today.
+    vi.mocked(isAnalysisHeroV17Enabled).mockReturnValue(true)
+    render(
+      <ResultsBody
+        resultsSectionData={makeData()}
+        tornadoData={{ rows: [], expectedOutcome: null }}
+        onSendMessage={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('section-header-options')).toBeInTheDocument()
+    expect(screen.getByTestId('option-cards')).toBeInTheDocument()
+    expect(screen.queryByTestId('compact-option-spread')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('compact-option-spread-compare')).not.toBeInTheDocument()
   })
 })
