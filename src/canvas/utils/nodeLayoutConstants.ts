@@ -44,7 +44,7 @@ export const DEFAULT_NODE_HEIGHT = 100
  * to decide whether a tier renders at NODE_CARD_MAX_W or compresses to
  * NODE_LAYOUT_MIN_W with multi-row splitting. NOT a visual floor on the
  * rendered gap — the actual rendered gap is `effectiveNodeSpacing` in
- * `layout.ts`, clamped by `Math.max(15, spacing)` and the post-layout
+ * `layout.ts`, clamped by `Math.max(20, spacing)` and the post-layout
  * `applyCollisionGuard` (COLLISION_GAP). Lowering this value relaxes the
  * width-calc threshold (more tiers render at MAX_W).
  */
@@ -54,14 +54,13 @@ export const MIN_GAP = 15
  * Post-layout safety gap. Fires when ELK / multi-row splitting leaves two
  * same-row nodes closer than this threshold (rare; rounding-induced).
  *
- * Matches the rendered node-node gap (`Math.max(15, spacing)` in
- * layout.ts) and is tracked together with it — if the pre-ELK floor
- * changes, this must change with it so the collision guard does not
- * push apart correctly-laid-out same-row pairs. Equal to MIN_GAP after
- * both were lowered to 15 in the same change; the two constants still
- * serve unrelated concerns despite the numeric coincidence.
+ * Note: now larger than `MIN_GAP` (15) after the MIN_GAP 30 → 15 change.
+ * The historical `COLLISION_GAP < MIN_GAP` relation no longer holds and
+ * is not required — the two constants serve unrelated concerns. MIN_GAP
+ * is a width-calc safety reserve only; COLLISION_GAP matches the
+ * rendered node-node gap (`Math.max(20, spacing)` in layout.ts).
  */
-export const COLLISION_GAP = 15
+export const COLLISION_GAP = 20
 
 /**
  * Minimum px from graph edge to canvas origin after global translation.
