@@ -13,7 +13,7 @@
 
 import { typography } from '@/styles/typography'
 import type { DimensionSegment } from './analysisHeroVM.types'
-import { STRIP_FILL_CLASS } from './tokens'
+import { STRIP_FILL_CLASS, DIMENSION_DESCRIPTION } from './tokens'
 
 interface Props {
   checkedCount: string | null
@@ -30,9 +30,14 @@ export function ReadinessColourStrip({ checkedCount, dimensions }: Props) {
         {dimensions.map(d => {
           const pct = Math.round(d.value * 100)
           const isVerified = d.label === 'Verified'
-          const composite = isVerified && checkedCount
+          // V17 power pass: append the dimension description to the hover
+          // tooltip. Visible legend text and the aria-label structure stay
+          // unchanged — the description is hover-only.
+          const description = DIMENSION_DESCRIPTION[d.label]
+          const base = isVerified && checkedCount
             ? `${d.label}: ${pct}% (${checkedCount})`
             : `${d.label}: ${pct}%`
+          const composite = description ? `${base} — ${description}` : base
           return (
             <div
               key={d.label}

@@ -151,13 +151,28 @@ function makeVm(overrides: Partial<ResultsVM> = {}): ResultsVM {
   } as ResultsVM
 }
 
-function gap(label: string, factorId: string, voi: number): EvidenceGapItem {
+function gap(
+  label: string,
+  factorId: string,
+  voi: number,
+  // V17 power pass (2026-05-27): rowRanking now drops evidence rows whose
+  // suggestion is empty, banned-term, or the generic "Gather data on X to
+  // reduce uncertainty" template. Default to a hand-crafted suggestion so
+  // existing tests in this file (which exercise row positioning + key
+  // question selection rather than the generic-row filter) keep producing
+  // evidence rows.  The label is intentionally NOT interpolated so a label
+  // containing a banned term (e.g. "the winning team") can still drive a
+  // row that exercises title preservation — those tests check that user
+  // data flows through the row TITLE, not the generated suggestion copy.
+  suggestion: string | undefined = 'Compare this estimate against recent data.',
+): EvidenceGapItem {
   return {
     factorId,
     factorLabel: label,
     confidence: 50,
     voi,
     evpiPp: voi * 50,
+    suggestion,
     targetNodeId: factorId,
   } as EvidenceGapItem
 }

@@ -73,14 +73,25 @@ function makeData(overrides: Partial<{
   } as ResultsSectionDataReturn
 }
 
-function gap(label: string, factorId: string, voi: number): EvidenceGapItem {
+function gap(
+  label: string,
+  factorId: string,
+  voi: number,
+  // Default to a non-generic, non-banned, non-"Gather data on X" suggestion so
+  // the strict generic-row rule (V17 power pass 2026-05-27) doesn't filter
+  // these helper-built gaps out. Tests that exercise the filter pass explicit
+  // suggestion strings — empty, banned, or the Gather-data template. The
+  // label is NOT interpolated so labels containing banned terms (e.g. "the
+  // winning team") still produce evidence rows via this default.
+  suggestion: string | undefined = 'Compare this estimate against recent data.',
+): EvidenceGapItem {
   return {
     factorId,
     factorLabel: label,
     confidence: 50,
     voi,
     evpiPp: voi * 50,
-    suggestion: undefined,
+    suggestion,
     targetNodeId: factorId,
   } as EvidenceGapItem
 }
@@ -266,5 +277,109 @@ describe('rankHeroRows — polish pass: fragile/risk row shape', () => {
     const riskRow = rows.find(r => r.category === 'risk')
     expect(riskRow).toBeTruthy()
     expect(riskRow!.title).toBe('Verify this factor')
+  })
+})
+
+// V17 power pass (2026-05-27): strict generic-row rule on evidence rows.
+// Rows only render when CEE provides a specific, non-banned, non-template
+// suggestion. The previous "Check whether this estimate matches your
+// experience." fallback is gone — rows without genuine coaching are dropped.
+describe('rankHeroRows — V17 power pass: strict generic-row rule on evidence gaps', () => {
+  it('renders evidence row when CEE provides a specific, hand-crafted suggestion', () => {
+    const rows = rankHeroRows(
+      makeData({
+        gaps: [gap('Engineering Capacity', 'n_e', 0.6, 'Compare your past hiring cohorts against this estimate.')],
+      }),
+      'moderate',
+    )
+    const evidenceRow = rows.find(r => r.category === 'evidence')
+    expect(evidenceRow).toBeTruthy()
+    expect(evidenceRow!.title).toBe('Verify Engineering Capacity')
+    expect(evidenceRow!.reason).toBe('Compare your past hiring cohorts against this estimate.')
+  })
+
+  it('hides evidence row whose only suggestion is the generic "Gather data on X to reduce uncertainty" template', () => {
+    const rows = rankHeroRows(
+      makeData({
+        gaps: [gap('Engineering Capacity', 'n_e', 0.6, 'Gather data on "Engineering Capacity" to reduce uncertainty')],
+      }),
+      'moderate',
+    )
+    expect(rows.find(r => r.category === 'evidence')).toBeUndefined()
+  })
+
+  it('hides evidence row whose template suggestion ends with a period', () => {
+    const rows = rankHeroRows(
+      makeData({
+        gaps: [gap('Engineering Capacity', 'n_e', 0.6, 'Gather data on "Engineering Capacity" to reduce uncertainty.')],
+      }),
+      'moderate',
+    )
+    expect(rows.find(r => r.category === 'evidence')).toBeUndefined()
+  })
+
+  it('hides evidence row when suggestion is missing (undefined)', () => {
+    // Construct gap inline so the helper default does not substitute a
+    // non-empty suggestion when `undefined` is passed positionally.
+    const gapWithNoSuggestion: EvidenceGapItem = {
+      factorId: 'n_e',
+      factorLabel: 'Engineering Capacity',
+      confidence: 50,
+      voi: 0.6,
+      evpiPp: 30,
+      targetNodeId: 'n_e',
+    } as EvidenceGapItem
+    const rows = rankHeroRows(
+      makeData({ gaps: [gapWithNoSuggestion] }),
+      'moderate',
+    )
+    expect(rows.find(r => r.category === 'evidence')).toBeUndefined()
+  })
+
+  it('hides evidence row when suggestion is empty / whitespace-only', () => {
+    const rows = rankHeroRows(
+      makeData({
+        gaps: [gap('Engineering Capacity', 'n_e', 0.6, '   ')],
+      }),
+      'moderate',
+    )
+    expect(rows.find(r => r.category === 'evidence')).toBeUndefined()
+  })
+
+  it('hides evidence row when suggestion contains a banned term', () => {
+    // 'recommendation' is on the banned-term list — confirm the existing
+    // banned-term guard still drops the row (was previously falling back to
+    // a generic literal; now strict).
+    const rows = rankHeroRows(
+      makeData({
+        gaps: [gap('Engineering Capacity', 'n_e', 0.6, 'This could change the recommendation if it shifts.')],
+      }),
+      'moderate',
+    )
+    expect(rows.find(r => r.category === 'evidence')).toBeUndefined()
+  })
+
+  it('mixed batch: keeps only the row with a specific suggestion', () => {
+    const missing: EvidenceGapItem = {
+      factorId: 'n_m',
+      factorLabel: 'Missing',
+      confidence: 50,
+      voi: 0.5,
+      evpiPp: 25,
+      targetNodeId: 'n_m',
+    } as EvidenceGapItem
+    const rows = rankHeroRows(
+      makeData({
+        gaps: [
+          gap('Specific', 'n_s', 0.9, 'Pull last quarter\'s capacity numbers from the staffing tracker.'),
+          gap('Template', 'n_t', 0.7, 'Gather data on "Template" to reduce uncertainty'),
+          missing,
+        ],
+      }),
+      'moderate',
+    )
+    const evidenceRows = rows.filter(r => r.category === 'evidence')
+    expect(evidenceRows).toHaveLength(1)
+    expect(evidenceRows[0].title).toBe('Verify Specific')
   })
 })

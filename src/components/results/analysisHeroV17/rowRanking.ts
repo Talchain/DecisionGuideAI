@@ -182,6 +182,16 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): HeroRow | null {
   }
 }
 
+/**
+ * Strict generic-row rule (V17 power pass, 2026-05-27): the CEE-emitted
+ * suggestion `Gather data on "<label>" to reduce uncertainty` is a content-
+ * free template — it interpolates the factor name but adds no coaching
+ * beyond the row's existing "Verify <label>" title. Rows whose only
+ * suggestion is this template are dropped rather than surfaced with
+ * redundant copy. Fewer useful rows is preferred over more generic rows.
+ */
+const GATHER_DATA_TEMPLATE = /^\s*Gather data on .* to reduce uncertainty\.?\s*$/i
+
 function evidenceGapRows(data: ResultsSectionDataReturn): HeroRow[] {
   const gaps = data?.confidence?.topEvidenceGaps ?? data?.confidence?.evidenceGaps ?? []
   // Sort by VOI desc (deterministic; alphabetical tie-break).
@@ -191,33 +201,35 @@ function evidenceGapRows(data: ResultsSectionDataReturn): HeroRow[] {
     if (aVoi !== bVoi) return bVoi - aVoi
     return a.factorLabel.localeCompare(b.factorLabel)
   })
-  return sorted.map(gap => {
+  const rows: HeroRow[] = []
+  for (const gap of sorted) {
     const targetId = gap.targetNodeId ?? gap.factorId
     const { band, width } = bandFromVoi(gap.voi)
-    // (Fix 3) Tightened fallback ground — no longer duplicates "This
-    // factor influences the outcome", which was redundant when paired
-    // with the priority lede. Suggestion may carry pre-existing
-    // upstream copy that contains a banned term (e.g. legacy "could
-    // change the recommendation"). Fall back to the clean ground when
-    // the upstream prose is unsafe.
-    const fallbackGround = 'Check whether this estimate matches your experience.'
-    const ground = gap.suggestion && !rowContainsBannedTerm(gap.suggestion)
-      ? gap.suggestion
-      : fallbackGround
-    return {
+    const suggestion = gap.suggestion?.trim() ?? ''
+    // Only render rows whose CEE suggestion carries factor-specific
+    // coaching. Drop empty, banned-term, and the generic "Gather data on
+    // X" template — those rows would be noise with no actionable signal
+    // beyond the verb-led row title.
+    const isUseful =
+      suggestion.length > 0
+      && !rowContainsBannedTerm(suggestion)
+      && !GATHER_DATA_TEMPLATE.test(suggestion)
+    if (!isUseful) continue
+    rows.push({
       key: `evidence-${gap.factorId}`,
       // Verbed display title; chatPrompt continues to interpolate the
       // raw user label (not the "Verify "-prefixed title).
       title: verbLeadTitle('evidence', gap.factorLabel),
-      reason: buildReason('evidence', band, ground),
+      reason: buildReason('evidence', band, suggestion),
       priority: band,
       priorityWidth: width,
-      category: 'evidence' as const,
+      category: 'evidence',
       actions: actionsForCategory('evidence', !!targetId),
       targetNodeId: targetId,
       chatPrompt: chatPromptFor(gap.factorLabel),
-    }
-  })
+    })
+  }
+  return rows
 }
 
 function coverageRow(data: ResultsSectionDataReturn): HeroRow | null {

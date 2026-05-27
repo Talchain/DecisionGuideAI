@@ -75,10 +75,19 @@ function makeVm(overrides: Partial<ResultsVM> = {}): ResultsVM {
   } as ResultsVM
 }
 
-function gap(label: string, factorId: string, voi: number): EvidenceGapItem {
+function gap(
+  label: string,
+  factorId: string,
+  voi: number,
+  // V17 power pass (2026-05-27): rowRanking drops evidence rows whose
+  // suggestion is empty / banned / the "Gather data on X" template.
+  // Default to a safe non-interpolating suggestion so chat-closed tests
+  // can find an actual evidence row to inspect.
+  suggestion: string | undefined = 'Compare this estimate against recent data.',
+): EvidenceGapItem {
   return {
     factorId, factorLabel: label, confidence: 60, voi, evpiPp: voi * 50,
-    targetNodeId: factorId,
+    suggestion, targetNodeId: factorId,
   } as EvidenceGapItem
 }
 

@@ -58,12 +58,18 @@ function makeData(overrides: {
     coachingReadinessDimensions: { evidence: 0.6, robustness: 0.7, clarity: 0.65 },
   } as DecisionResultData
 
+  // V17 power pass (2026-05-27): rowRanking drops evidence rows whose
+  // suggestion is empty / banned-term / the "Gather data on X" template.
+  // Glossary-compliance tests exercise label preservation under banned-term
+  // pressure, so we supply a non-interpolating safe suggestion that lets
+  // every gap produce a row regardless of label content.
   const gaps: EvidenceGapItem[] = (overrides.gapLabels ?? []).map((label, i) => ({
     factorId: `n_${i}`,
     factorLabel: label,
     confidence: 60,
     voi: 0.5 - i * 0.1,
     evpiPp: 25,
+    suggestion: 'Compare this estimate against recent data.',
     targetNodeId: `n_${i}`,
   } as EvidenceGapItem))
 

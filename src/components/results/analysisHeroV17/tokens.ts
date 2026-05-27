@@ -23,6 +23,18 @@ export const STRIP_FILL_CLASS: Record<DimensionSegment['token'], string> = {
   option: 'bg-option',
 }
 
+/**
+ * Hover-only descriptions appended to each dimension segment's title attribute
+ * (V17 power pass, 2026-05-27). Visible legend text is unchanged — the
+ * descriptions surface only via the native tooltip on hover.
+ */
+export const DIMENSION_DESCRIPTION: Record<DimensionSegment['label'], string> = {
+  Structure: 'Goal, options, factors, connections present',
+  Evidence: 'How much the result depends on uncertain inputs',
+  Coverage: 'Alternatives and risks represented',
+  Verified: 'Inputs you have confirmed',
+}
+
 export const ROW_TINT_CLASS: Record<HeroRow['category'], string> = {
   evidence: 'bg-warning/[0.07]',
   risk: 'bg-danger/[0.07]',

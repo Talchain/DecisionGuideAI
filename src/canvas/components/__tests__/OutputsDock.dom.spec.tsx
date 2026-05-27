@@ -29,6 +29,7 @@ vi.mock('../../../flags', () => ({
   isOrchestratorV2Enabled: mockIsOrchestratorV2Enabled,
   isLegacyDirectRunEnabled: mockIsLegacyDirectRunEnabled,
   isJourneyTabEnabled: vi.fn(() => false),
+  isAnalysisHeroV17Enabled: vi.fn(() => false),
 }))
 
 vi.mock('../../hooks/useV2Run', () => ({

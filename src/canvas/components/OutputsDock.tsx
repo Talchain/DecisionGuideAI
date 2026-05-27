@@ -37,7 +37,7 @@ import {
   trackAutoFixSuccess,
   trackAutoFixFailed,
 } from '../utils/sandboxTelemetry'
-import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled, isV5CanonicalAnalysisEnabled } from '../../flags'
+import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled, isV5CanonicalAnalysisEnabled, isAnalysisHeroV17Enabled } from '../../flags'
 import { OlumiTabBody } from './OlumiTabBody'
 import { PersistentInputStrip } from './PersistentInputStrip'
 import { SelectionPill } from './SelectionPill'
@@ -97,6 +97,7 @@ import { AnalysisFooter } from '../shared/AnalysisFooter'
 import { derivePostFooterStatus, derivePostFooterMeta } from './utils/postAnalysisFooter'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
+import { useAnalysisStateSource } from '../hooks/useAnalysisStateSource'
 
 /**
  * Map API critique format (CritiqueItemV1) to ValidationPanel format
@@ -618,6 +619,13 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
   const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
   const { readiness } = useGraphReadiness()
+
+  // V17 + orphan-banner suppression: when the top Refresh-analysis banner is
+  // visible (V5 canonical-analysis flag on with no V5 fact), the bottom
+  // AnalysisFooter would carry duplicate stale messaging. Gate is V17-only
+  // so the legacy DecisionConfidencePanel path is unaffected.
+  const { showOrphanBanner } = useAnalysisStateSource()
+  const suppressAnalysisFooterForOrphanBanner = isAnalysisHeroV17Enabled() && showOrphanBanner
 
   // Unified run gating — same function used by ConversationPanel/ChatComposer.
   const hasValidationBlockers = useCanvasStore(s =>
@@ -2009,8 +2017,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 )}
                 </div>
                 {/* Brief 5.4 Phase 11: "Create decision brief" placeholder removed.
-                    "Rerun analysis" is the sole primary action in AnalysisFooter. */}
-                {!isPreRun && hasInlineSummary && resultsSectionData && (
+                    "Rerun analysis" is the sole primary action in AnalysisFooter.
+                    V17 power pass: suppressed when the top Refresh-analysis banner
+                    is showing — avoids double stale messaging. */}
+                {!isPreRun && hasInlineSummary && resultsSectionData && !suppressAnalysisFooterForOrphanBanner && (
                   <AnalysisFooter
                     statusIcon={postRunFooter.icon}
                     statusIconClassName={postRunFooter.iconClass}
