@@ -52,18 +52,16 @@ export async function layoutGraph(
   const {
     direction = 'DOWN',
     // Default horizontal node-node spacing. Reduction chain 60 → 30 → 20 → 15.
-    // The Math.max(20, …) floor on line 64 is deliberately retained, so the
-    // rendered gap is still 20 px — `spacing=15` documents the intended value
-    // but is clamped at runtime. To genuinely render at 15, a future change
-    // would need to lower both that floor AND `COLLISION_GAP` (currently 20).
-    // 4-node max-width row at NODE_CARD_MAX_W=320: 1556 → 1466 → 1436 → 1436
-    // (no change in rendered width at gap=15 because of the floor).
+    // Both runtime floors (the `Math.max(15, …)` clamp on line 64 and
+    // COLLISION_GAP in nodeLayoutConstants.ts) were lowered to 15 together
+    // with this default so the value is no longer clamped at runtime.
+    // 4-node max-width row at NODE_CARD_MAX_W=320: 1556 → 1466 → 1436 → 1421.
     spacing = 15,
     layerSpacing,
     preserveLocked = true
   } = options
 
-  const effectiveNodeSpacing = Math.max(20, spacing)
+  const effectiveNodeSpacing = Math.max(15, spacing)
   const effectiveLayerSpacing = Math.max(30, layerSpacing ?? spacing * 1.5)
 
   const unlocked = preserveLocked

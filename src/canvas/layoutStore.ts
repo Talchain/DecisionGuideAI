@@ -24,11 +24,11 @@ interface LayoutOptions {
   setLayoutNodeWidth: (width: number) => void
 }
 
-// v6: nodeSpacing reduced 20 → 15 (intended). The rendered gap stays at 20 px
-// because layout.ts retains its `Math.max(20, spacing)` pre-ELK floor and the
-// post-ELK `applyCollisionGuard` keeps COLLISION_GAP=20. This bump records the
-// intended value and migrates returning users' persisted state; the floors
-// would need to be lowered separately to make the rendered gap match.
+// v6: nodeSpacing reduced 20 → 15. Initially deployed (PR #182) with both
+// runtime floors held at 20, so the persisted intent and rendered gap did
+// not match. A follow-up lowered the pre-ELK floor on layout.ts:64
+// (`Math.max(20, …)` → `Math.max(15, …)`) and `COLLISION_GAP` 20 → 15
+// together so the rendered gap now matches the persisted intent.
 // Migration policy: v5 default-like nodeSpacing=20 maps to v6 default 15; v4
 // default-like nodeSpacing=30 also maps to 15 (a direct v4 → v6 user skips
 // the intermediate v5 default). All other persisted fields carry over.
