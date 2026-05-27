@@ -39,13 +39,26 @@ export const DEFAULT_NODE_HEIGHT = 100
 
 // ─── Spacing ─────────────────────────────────────────────────────────────────
 
-/** Minimum horizontal gap between nodes in the same tier. */
-export const MIN_GAP = 30
+/**
+ * Width-calc safety reserve used in `floor((availableWidth - (N-1)*MIN_GAP) / N)`
+ * to decide whether a tier renders at NODE_CARD_MAX_W or compresses to
+ * NODE_LAYOUT_MIN_W with multi-row splitting. NOT a visual floor on the
+ * rendered gap — the actual rendered gap is `effectiveNodeSpacing` in
+ * `layout.ts`, clamped by `Math.max(20, spacing)` and the post-layout
+ * `applyCollisionGuard` (COLLISION_GAP). Lowering this value relaxes the
+ * width-calc threshold (more tiers render at MAX_W).
+ */
+export const MIN_GAP = 15
 
 /**
- * Post-layout safety gap. Smaller than `MIN_GAP` because it only fires when
- * ELK / multi-row splitting leaves two same-row nodes closer than this
- * threshold (rare; rounding-induced).
+ * Post-layout safety gap. Fires when ELK / multi-row splitting leaves two
+ * same-row nodes closer than this threshold (rare; rounding-induced).
+ *
+ * Note: now larger than `MIN_GAP` (15) after the MIN_GAP 30 → 15 change.
+ * The historical `COLLISION_GAP < MIN_GAP` relation no longer holds and
+ * is not required — the two constants serve unrelated concerns. MIN_GAP
+ * is a width-calc safety reserve only; COLLISION_GAP matches the
+ * rendered node-node gap (`Math.max(20, spacing)` in layout.ts).
  */
 export const COLLISION_GAP = 20
 

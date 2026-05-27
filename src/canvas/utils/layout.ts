@@ -51,12 +51,14 @@ export async function layoutGraph(
 ): Promise<{ nodes: Node[]; edges: Edge[]; layoutNodeWidth: number }> {
   const {
     direction = 'DOWN',
-    // Default horizontal node-node spacing. Reduction chain 60 → 30 → 20.
-    // At spacing=20 the max-width 4-node row drops from 1556 (spacing=60) to
-    // 1466 (spacing=30) to 1436 (spacing=20) at NODE_CARD_MAX_W=320. The
-    // Math.max(20, …) floor below still clamps any caller passing a smaller
-    // value; effectiveNodeSpacing now equals COLLISION_GAP=20.
-    spacing = 20,
+    // Default horizontal node-node spacing. Reduction chain 60 → 30 → 20 → 15.
+    // The Math.max(20, …) floor on line 64 is deliberately retained, so the
+    // rendered gap is still 20 px — `spacing=15` documents the intended value
+    // but is clamped at runtime. To genuinely render at 15, a future change
+    // would need to lower both that floor AND `COLLISION_GAP` (currently 20).
+    // 4-node max-width row at NODE_CARD_MAX_W=320: 1556 → 1466 → 1436 → 1436
+    // (no change in rendered width at gap=15 because of the floor).
+    spacing = 15,
     layerSpacing,
     preserveLocked = true
   } = options

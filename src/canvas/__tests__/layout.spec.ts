@@ -262,23 +262,26 @@ describe('ELK Layout', () => {
 
   it('4-factor tier on 1300px canvas: max-single fires; row overflows canvas (regression-lock for NODE_CARD_MAX_W=320)', async () => {
     // After restoring NODE_CARD_MAX_W to 320 and tightening the default
-    // spacing to 20 (chain 60 → 30 → 20), a 4-node tier on a 1300px canvas
-    // falls into the max-single branch and the rendered row visibly overflows
-    // the canvas. Math:
+    // spacing to 15 (chain 60 → 30 → 20 → 15), a 4-node tier on a 1300px
+    // canvas falls into the max-single branch and the rendered row visibly
+    // overflows the canvas. The pre-ELK `Math.max(20, spacing)` floor in
+    // layout.ts clamps effective spacing to 20 even when the caller passes
+    // 15, so the rendered last-edge stays at 1436 (was 1466 at spacing=30,
+    // 1556 at spacing=60). Math:
     //
+    //   effectiveSpacing = Math.max(20, SPACING) = 20
     //   rightEdge = CANVAS_MARGIN
-    //             + (N-1) * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + spacing)
+    //             + (N-1) * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + effectiveSpacing)
     //             + NODE_CARD_MAX_W
     //             = 24 + 3 * (320 + 24 + 20) + 320
     //             = 24 + 3 * 364 + 320
     //             = 1436
     //
-    // 1436 > 1300 → 136px overflow past the canvas right edge (was 166px
-    // with spacing=30, was 256px with spacing=60). The test exercises the
-    // production-default spacing path by passing spacing: SPACING where
-    // SPACING matches the layoutGraph default. Any future tweak of
-    // NODE_CARD_MAX_W, LAYOUT_PADDING_X, default spacing, or CANVAS_MARGIN
-    // surfaces here.
+    // 1436 > 1300 → 136px overflow past the canvas right edge. The test
+    // exercises the production-default spacing path by passing SPACING that
+    // matches the layoutGraph default; EFFECTIVE_SPACING below makes the
+    // pre-ELK floor explicit in the assertion so a future change to either
+    // value surfaces here.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'),
@@ -290,7 +293,8 @@ describe('ELK Layout', () => {
       makeEdge('e2', 'o1', 'f1'), makeEdge('e3', 'o1', 'f2'),
       makeEdge('e4', 'o1', 'f3'), makeEdge('e5', 'o1', 'f4'),
     ]
-    const SPACING = 20
+    const SPACING = 15
+    const EFFECTIVE_SPACING = Math.max(20, SPACING)
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(
       nodes,
       edges,
@@ -298,7 +302,8 @@ describe('ELK Layout', () => {
       TEST_CANVAS,
     )
 
-    // max-single fires: unclamped = floor((1300*0.85 - 90)/4) = 253 ≥ 164.
+    // max-single fires: unclamped = floor((1300*0.85 - 3*MIN_GAP)/4)
+    //                             = floor((1105 - 45)/4) = 265 ≥ 164.
     expect(layoutNodeWidth).toBe(NODE_CARD_MAX_W)
 
     const factors = laid
@@ -309,7 +314,7 @@ describe('ELK Layout', () => {
     // Symbolic placement formula — resilient to future constant tweaks.
     const lastVisibleRightEdge = factors[3].position.x + NODE_CARD_MAX_W
     expect(lastVisibleRightEdge).toBe(
-      CANVAS_MARGIN + 3 * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + SPACING) + NODE_CARD_MAX_W,
+      CANVAS_MARGIN + 3 * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + EFFECTIVE_SPACING) + NODE_CARD_MAX_W,
     )
 
     // Outcome: row overflows the canvas. If any contributing constant
@@ -317,6 +322,62 @@ describe('ELK Layout', () => {
     // gets clipped to min-width via a re-introduced smarter threshold),
     // this assertion flips and forces a deliberate review.
     expect(lastVisibleRightEdge).toBeGreaterThan(TEST_CANVAS.width)
+  })
+
+  it('7-factor tier on 1500px canvas: MIN_GAP=15 flips max-single ON (regression-lock for MIN_GAP)', async () => {
+    // MIN_GAP behaviour-flip lock. The `unclamped >= NODE_LAYOUT_MIN_W +
+    // LAYOUT_PADDING_X` gate decides max-single vs multi-row branch; MIN_GAP
+    // is the only knob that moves this threshold without touching widths.
+    //
+    //   unclamped = floor((1500*0.85 - 6*MIN_GAP) / 7)
+    //
+    // At MIN_GAP=30 (prior): floor((1275 - 180)/7) = floor(1095/7) = 156.
+    //   156 < 164 (= MIN_W + PADDING_X) → multi-row branch, nodes compress
+    //   to NODE_LAYOUT_MIN_W=140, the row fits the canvas at ~1268px.
+    // At MIN_GAP=15 (current): floor((1275 - 90)/7) = floor(1185/7) = 169.
+    //   169 >= 164 → max-single fires, every node at NODE_CARD_MAX_W=320,
+    //   the row visibly overflows by ~1028px.
+    //
+    // If MIN_GAP rises back to ~25+ this assertion flips and forces a
+    // deliberate review of whether 7-factor tiers should overflow at MAX_W
+    // or compress to fit.
+    const nodes: Node[] = [
+      makeNode('d', 'decision'),
+      makeNode('o1', 'option'),
+      makeNode('f1', 'factor'), makeNode('f2', 'factor'), makeNode('f3', 'factor'),
+      makeNode('f4', 'factor'), makeNode('f5', 'factor'), makeNode('f6', 'factor'),
+      makeNode('f7', 'factor'),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'),
+      makeEdge('e2', 'o1', 'f1'), makeEdge('e3', 'o1', 'f2'), makeEdge('e4', 'o1', 'f3'),
+      makeEdge('e5', 'o1', 'f4'), makeEdge('e6', 'o1', 'f5'), makeEdge('e7', 'o1', 'f6'),
+      makeEdge('e8', 'o1', 'f7'),
+    ]
+    const FLIP_CANVAS: CanvasSize = { width: 1500, height: 900 }
+    const SPACING = 15
+    const EFFECTIVE_SPACING = Math.max(20, SPACING)
+    const { nodes: laid, layoutNodeWidth } = await layoutGraph(
+      nodes,
+      edges,
+      { spacing: SPACING },
+      FLIP_CANVAS,
+    )
+
+    // max-single fired: nodes at MAX_W (proves MIN_GAP threshold relaxed).
+    expect(layoutNodeWidth).toBe(NODE_CARD_MAX_W)
+
+    const factors = laid
+      .filter(n => n.type === 'factor')
+      .sort((a, b) => a.position.x - b.position.x)
+    expect(factors).toHaveLength(7)
+
+    // Single-row placement formula: rightEdge = 24 + 6 * (320+24+20) + 320 = 2528.
+    const lastVisibleRightEdge = factors[6].position.x + NODE_CARD_MAX_W
+    expect(lastVisibleRightEdge).toBe(
+      CANVAS_MARGIN + 6 * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + EFFECTIVE_SPACING) + NODE_CARD_MAX_W,
+    )
+    expect(lastVisibleRightEdge).toBeGreaterThan(FLIP_CANVAS.width)
   })
 
   it('nodeW stays at NODE_CARD_MAX_W when widest tier overflows the viewport', async () => {
