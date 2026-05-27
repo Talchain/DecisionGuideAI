@@ -107,4 +107,29 @@ describe('CompactOptionSpread', () => {
     expect(text.indexOf('A 70%')).toBeLessThan(text.indexOf('B 28%'))
     expect(text.indexOf('B 28%')).toBeLessThan(text.indexOf('others 2%'))
   })
+
+  it('filters out NaN and Infinity probabilities (defensive against degenerate upstream)', () => {
+    const nanOpt = { ...opt('x', 'NaN-opt', 0), winProbability: NaN } as OptionResult
+    const infOpt = { ...opt('y', 'Inf-opt', 0), winProbability: Infinity } as OptionResult
+    render(
+      <CompactOptionSpread
+        options={[nanOpt, opt('a', 'A', 0.6), infOpt, opt('b', 'B', 0.4)]}
+      />,
+    )
+    const text = screen.getByTestId('compact-option-spread').textContent ?? ''
+    expect(text).toContain('A 60%')
+    expect(text).toContain('B 40%')
+    expect(text).not.toContain('NaN')
+    expect(text).not.toContain('Infinity')
+    // Two finite options + two degenerate → no "others" segment.
+    expect(text).not.toContain('others')
+  })
+
+  it('returns null when fewer than two finite probabilities remain after NaN filter', () => {
+    const nanOpt = { ...opt('x', 'NaN-opt', 0), winProbability: NaN } as OptionResult
+    const { container } = render(
+      <CompactOptionSpread options={[opt('a', 'A', 0.6), nanOpt]} />,
+    )
+    expect(container.firstChild).toBeNull()
+  })
 })

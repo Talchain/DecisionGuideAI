@@ -21,8 +21,13 @@ interface Props {
 }
 
 export function CompactOptionSpread({ options }: Props) {
+  // Number.isFinite excludes NaN / Infinity in case upstream emits a
+  // degenerate probability — a NaN would otherwise corrupt the sort and
+  // render as "NaN%".
   const sorted = options
-    .filter((o): o is OptionResult & { winProbability: number } => typeof o.winProbability === 'number')
+    .filter((o): o is OptionResult & { winProbability: number } =>
+      typeof o.winProbability === 'number' && Number.isFinite(o.winProbability),
+    )
     .sort((a, b) => b.winProbability - a.winProbability)
   if (sorted.length < 2) return null
 
@@ -32,7 +37,10 @@ export function CompactOptionSpread({ options }: Props) {
     `${first.label} ${formatPercent(first.winProbability, { fromDecimal: true })}`,
     `${second.label} ${formatPercent(second.winProbability, { fromDecimal: true })}`,
   ]
-  if (rest.length > 0 && restPct > 0.005) {
+  // Only surface "others" when the rolled-up rest rounds to ≥1% — anything
+  // ≤0.5% would format as "0%", which reads as missing data rather than a
+  // negligible tail.
+  if (restPct > 0.005) {
     parts.push(`others ${formatPercent(restPct, { fromDecimal: true })}`)
   }
 

@@ -234,69 +234,66 @@ export const ResultsBody = memo(function ResultsBody({
 
       {/* ── SECTION 2: OPTIONS COMPARISON ────────────────────────── */}
       {/* V17 power pass: in V17 mode (excluding compare mode where both
-          panels render side-by-side for internal review), replace the full
-          OptionCards block with a one-line spread + Compare-options link.
-          The Compare tab retains the full cards via CompareTabBodyV2. */}
+          panels render side-by-side for internal review), the full
+          OptionCards block is replaced with a one-line spread + Compare-
+          options link. The Compare tab retains the full cards via
+          CompareTabBodyV2. Section wrapper + header are lifted above the
+          branch so both modes share the same container. */}
       {!resultsSectionData.recommendation.isSingleOption &&
        resultsSectionData.recommendation.allOptions.length > 1 && (
         <SectionErrorBoundary section="Options comparison">
-          {showV17 && !showCompare ? (
-            <div className="space-y-2 border border-panel-border rounded-lg p-3">
-              <SectionHeader
-                title="Your options"
-                testId="section-header-options"
-                sectionColorMarker="bg-option"
-              />
+          <div className="space-y-2 border border-panel-border rounded-lg p-3">
+            <SectionHeader
+              title="Your options"
+              testId="section-header-options"
+              sectionColorMarker="bg-option"
+            />
+            {showV17 && !showCompare ? (
               <CompactOptionSpread options={resultsSectionData.recommendation.allOptions} />
-            </div>
-          ) : (
-            <div className="space-y-2 border border-panel-border rounded-lg p-3">
-              <SectionHeader
-                title="Your options"
-                testId="section-header-options"
-                sectionColorMarker="bg-option"
-              />
-              {/* Brief 5.8B follow-up (P1.5): risk-appetite display filter
-                  relocated here from Advanced. Keeps the option-level toggle
-                  co-located with the option cards it reweights. */}
-              {resultsSectionData.recommendation.allOptions.some(o => (o.outcome?.p10 ?? o.p10) != null) && (
-                <RiskAppetiteFilter value={riskAppetite} onChange={setRiskAppetite} />
-              )}
-              {/* WinGauge — moved from hero to top of options section */}
-              <WinGauge
-                shares={resultsSectionData.recommendation.allOptions
-                  .filter((o): o is typeof o & { winProbability: number } => typeof o.winProbability === 'number')
-                  .map(o => ({
-                    id: o.id,
-                    label: o.label,
-                    winProbability: o.winProbability,
-                    isWinner: o.isRecommended,
-                  }))}
-                decisionState={vm.decisionState}
-              />
-              <OptionCards
-                options={resultsSectionData.recommendation.allOptions}
-                winnerId={riskWinnerId ?? resultsSectionData.recommendation.recommendedOption?.id}
-                onSendMessage={onSendMessage}
-                hasGoalThreshold={resultsSectionData.recommendation.goalThreshold != null}
-                storyHeadlines={resultsSectionData.recommendation.storyHeadlines}
-                cardRefMap={optionCardRefs}
-                decisionState={riskAppetite === 'neutral' ? vm.decisionState : undefined}
-                hinge={riskAppetite === 'neutral' ? vm.hinge : null}
-                runnerId={
-                  // V12.2 Fix 1: Runner-up is highest by win_probability excluding winner
-                  [...resultsSectionData.recommendation.allOptions]
-                    .filter(o => o.id !== (riskWinnerId ?? resultsSectionData.recommendation.recommendedOption?.id))
-                    .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]?.id
-                }
-                expertMode={expertMode}
-                confidenceTier={resultsSectionData.confidence.tier.tier}
-                recommendationStability={resultsSectionData.recommendation.recommendationStability}
-                leadingOptionDownsideFlag={resultsSectionData.recommendation.leadingOptionDownsideFlag}
-              />
-              {/* TippingPoints removed — superseded by TornadoChart (Brief 5.4 Phase 1) */}
-            </div>
-          )}
+            ) : (
+              <>
+                {/* Brief 5.8B follow-up (P1.5): risk-appetite display filter
+                    relocated here from Advanced. Keeps the option-level toggle
+                    co-located with the option cards it reweights. */}
+                {resultsSectionData.recommendation.allOptions.some(o => (o.outcome?.p10 ?? o.p10) != null) && (
+                  <RiskAppetiteFilter value={riskAppetite} onChange={setRiskAppetite} />
+                )}
+                {/* WinGauge — moved from hero to top of options section */}
+                <WinGauge
+                  shares={resultsSectionData.recommendation.allOptions
+                    .filter((o): o is typeof o & { winProbability: number } => typeof o.winProbability === 'number')
+                    .map(o => ({
+                      id: o.id,
+                      label: o.label,
+                      winProbability: o.winProbability,
+                      isWinner: o.isRecommended,
+                    }))}
+                  decisionState={vm.decisionState}
+                />
+                <OptionCards
+                  options={resultsSectionData.recommendation.allOptions}
+                  winnerId={riskWinnerId ?? resultsSectionData.recommendation.recommendedOption?.id}
+                  onSendMessage={onSendMessage}
+                  hasGoalThreshold={resultsSectionData.recommendation.goalThreshold != null}
+                  storyHeadlines={resultsSectionData.recommendation.storyHeadlines}
+                  cardRefMap={optionCardRefs}
+                  decisionState={riskAppetite === 'neutral' ? vm.decisionState : undefined}
+                  hinge={riskAppetite === 'neutral' ? vm.hinge : null}
+                  runnerId={
+                    // V12.2 Fix 1: Runner-up is highest by win_probability excluding winner
+                    [...resultsSectionData.recommendation.allOptions]
+                      .filter(o => o.id !== (riskWinnerId ?? resultsSectionData.recommendation.recommendedOption?.id))
+                      .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]?.id
+                  }
+                  expertMode={expertMode}
+                  confidenceTier={resultsSectionData.confidence.tier.tier}
+                  recommendationStability={resultsSectionData.recommendation.recommendationStability}
+                  leadingOptionDownsideFlag={resultsSectionData.recommendation.leadingOptionDownsideFlag}
+                />
+                {/* TippingPoints removed — superseded by TornadoChart (Brief 5.4 Phase 1) */}
+              </>
+            )}
+          </div>
         </SectionErrorBoundary>
       )}
 
