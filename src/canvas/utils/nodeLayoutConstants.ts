@@ -52,12 +52,13 @@ export const MIN_GAP = 15
 
 /**
  * Post-layout safety gap. Fires when ELK / multi-row splitting leaves two
- * same-row nodes closer than this threshold (rare; rounding-induced). Note
- * that as of v6 (MIN_GAP 30 → 15) this no longer satisfies
- * `COLLISION_GAP < MIN_GAP` — MIN_GAP is now a width-calc safety reserve
- * only, while COLLISION_GAP matches the rendered node-node gap
- * (`Math.max(20, spacing)` in layout.ts). The two constants serve unrelated
- * concerns despite the historical numeric ordering.
+ * same-row nodes closer than this threshold (rare; rounding-induced).
+ *
+ * Note: now larger than `MIN_GAP` (15) after the MIN_GAP 30 → 15 change.
+ * The historical `COLLISION_GAP < MIN_GAP` relation no longer holds and
+ * is not required — the two constants serve unrelated concerns. MIN_GAP
+ * is a width-calc safety reserve only; COLLISION_GAP matches the
+ * rendered node-node gap (`Math.max(20, spacing)` in layout.ts).
  */
 export const COLLISION_GAP = 20
 

@@ -548,8 +548,8 @@ describe('constants contract', () => {
     // Both are asserted so a future change that breaks either surfaces here.
     //
     // Note: the historical `COLLISION_GAP < MIN_GAP` relation no longer
-    // holds as of v6 (MIN_GAP=15 < COLLISION_GAP=20). The two constants
-    // serve unrelated concerns; see `nodeLayoutConstants.ts`.
+    // holds after the MIN_GAP 30 → 15 change (MIN_GAP=15 < COLLISION_GAP=20).
+    // The two constants serve unrelated concerns; see `nodeLayoutConstants.ts`.
     expect(COLLISION_GAP).toBeLessThanOrEqual(20)
     expect(COLLISION_GAP).toBeLessThan(30)
   })
