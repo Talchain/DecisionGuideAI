@@ -46,6 +46,13 @@ export function ReadinessColourStrip({ checkedCount, dimensions }: Props) {
               key={d.label}
               className="h-1.5 rounded-full bg-panel-hover overflow-hidden"
               title={composite}
+              // Code-review P2 #1 (round 3): aria-label on a plain div is
+              // unreliable across screen readers. role="img" gives the
+              // label a semantic anchor that AT consistently announces —
+              // each segment reads as a labelled image. Lighter touch than
+              // role="progressbar" (which needs a full aria-valuenow /
+              // -valuemin / -valuemax contract and is more verbose).
+              role="img"
               aria-label={composite}
               data-testid={`strip-${d.label.toLowerCase()}`}
             >

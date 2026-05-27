@@ -192,6 +192,70 @@ describe('ResultsBody — V17 compact "Your options"', () => {
     expect(screen.queryByTestId('option-cards')).not.toBeInTheDocument()
   })
 
+  it('V17 on + NaN/Infinity winProbability mix: compact suppressed, legacy fallback receives sanitised options (no NaN% in DOM)', () => {
+    // Code-review P1 #1 round 3: when V17 cannot render the compact spread
+    // because at least one option carries a non-finite winProbability, the
+    // legacy fallback must not propagate NaN/Infinity into width styles or
+    // probability labels.
+    vi.mocked(isAnalysisHeroV17Enabled).mockReturnValue(true)
+    const mixedData = makeData({
+      options: [
+        {
+          id: 'opt_a',
+          label: 'Option A',
+          winProbability: 0.6,
+          isRecommended: true,
+          expected: 1,
+          outcome: { p10: 0.5, p50: 0.6, p90: 0.7 },
+          p10: 0.5,
+          p50: 0.6,
+          p90: 0.7,
+        } as OptionResult,
+        // NaN — must be normalised to undefined before reaching OptionCards.
+        {
+          id: 'opt_b',
+          label: 'Option B',
+          winProbability: NaN,
+          isRecommended: false,
+          expected: 0.5,
+          outcome: { p10: 0.3, p50: 0.5, p90: 0.7 },
+          p10: 0.3,
+          p50: 0.5,
+          p90: 0.7,
+        } as OptionResult,
+        // Infinity — also sanitised.
+        {
+          id: 'opt_c',
+          label: 'Option C',
+          winProbability: Infinity,
+          isRecommended: false,
+          expected: 0.4,
+          outcome: { p10: 0.2, p50: 0.4, p90: 0.6 },
+          p10: 0.2,
+          p50: 0.4,
+          p90: 0.6,
+        } as OptionResult,
+      ],
+    })
+    const { container } = render(
+      <ResultsBody
+        resultsSectionData={mixedData}
+        tornadoData={{ rows: [], expectedOutcome: null }}
+        onSendMessage={() => {}}
+      />,
+    )
+    // Compact spread suppressed (only one finite probability).
+    expect(screen.queryByTestId('compact-option-spread')).not.toBeInTheDocument()
+    // Legacy fallback renders.
+    expect(screen.getByTestId('option-cards')).toBeInTheDocument()
+    // No "NaN%" text leaked anywhere in the rendered DOM. (covers both the
+    // probability label and the fill-bar percent width emitted as inline CSS).
+    const html = container.outerHTML
+    expect(html).not.toMatch(/NaN%/)
+    expect(html).not.toMatch(/NaN/)
+    expect(html).not.toMatch(/Infinity/)
+  })
+
   it('V17 on + no finite winProbability on any option: falls back to legacy OptionCards (no orphan "Your options" header)', () => {
     // Code-review P1 #1: when CompactOptionSpread cannot render a spread,
     // the parent must NOT leave the bordered Section 2 with just a header.

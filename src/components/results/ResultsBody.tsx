@@ -27,7 +27,7 @@ import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWit
 import { DecisionConfidencePanel } from './DecisionConfidencePanel'
 import { AnalysisHeroV17 } from './AnalysisHeroV17'
 import { AnalysisOrphanBanner } from './AnalysisOrphanBanner'
-import { CompactOptionSpread, canRenderCompactOptionSpread } from './CompactOptionSpread'
+import { CompactOptionSpread, canRenderCompactOptionSpread, isFiniteWinProb } from './CompactOptionSpread'
 import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled } from '@/flags'
 
 export interface StrengthCorrectionDisplay {
@@ -239,11 +239,17 @@ export const ResultsBody = memo(function ResultsBody({
           options link. The Compare tab retains the full cards via
           CompareTabBodyV2. Section wrapper + header are lifted above the
           branch so both modes share the same container.
-          Code-review P1 #1: when V17 is on but no two options carry a
-          finite winProbability, CompactOptionSpread returns null and would
-          leave an orphan "Your options" header. Fall back to the legacy
-          WinGauge/OptionCards block so users always see option data when
-          options exist. */}
+          Code-review P1 #1 (round 2): when V17 is on but no two options
+          carry a finite winProbability, CompactOptionSpread returns null
+          and would leave an orphan "Your options" header. Fall back to
+          the legacy WinGauge/OptionCards block so users always see option
+          data when options exist.
+          Code-review P1 #1 (round 3): the legacy WinGauge/OptionCards
+          components don't reject NaN/Infinity winProbability values —
+          they'd render "NaN%" widths and labels. The compact path is
+          strict about finite probabilities, so the V17 fallback path
+          sanitises options at the boundary to match. Legacy mode (V17
+          off) keeps its existing behaviour unchanged. */}
       {!resultsSectionData.recommendation.isSingleOption &&
        resultsSectionData.recommendation.allOptions.length > 1 && (
         <SectionErrorBoundary section="Options comparison">
@@ -253,51 +259,68 @@ export const ResultsBody = memo(function ResultsBody({
               testId="section-header-options"
               sectionColorMarker="bg-option"
             />
-            {showV17 && !showCompare && canRenderCompactOptionSpread(resultsSectionData.recommendation.allOptions) ? (
-              <CompactOptionSpread options={resultsSectionData.recommendation.allOptions} />
-            ) : (
-              <>
-                {/* Brief 5.8B follow-up (P1.5): risk-appetite display filter
-                    relocated here from Advanced. Keeps the option-level toggle
-                    co-located with the option cards it reweights. */}
-                {resultsSectionData.recommendation.allOptions.some(o => (o.outcome?.p10 ?? o.p10) != null) && (
-                  <RiskAppetiteFilter value={riskAppetite} onChange={setRiskAppetite} />
-                )}
-                {/* WinGauge — moved from hero to top of options section */}
-                <WinGauge
-                  shares={resultsSectionData.recommendation.allOptions
-                    .filter((o): o is typeof o & { winProbability: number } => typeof o.winProbability === 'number')
-                    .map(o => ({
-                      id: o.id,
-                      label: o.label,
-                      winProbability: o.winProbability,
-                      isWinner: o.isRecommended,
-                    }))}
-                  decisionState={vm.decisionState}
-                />
-                <OptionCards
-                  options={resultsSectionData.recommendation.allOptions}
-                  winnerId={riskWinnerId ?? resultsSectionData.recommendation.recommendedOption?.id}
-                  onSendMessage={onSendMessage}
-                  hasGoalThreshold={resultsSectionData.recommendation.goalThreshold != null}
-                  storyHeadlines={resultsSectionData.recommendation.storyHeadlines}
-                  cardRefMap={optionCardRefs}
-                  decisionState={riskAppetite === 'neutral' ? vm.decisionState : undefined}
-                  hinge={riskAppetite === 'neutral' ? vm.hinge : null}
-                  runnerId={
-                    // V12.2 Fix 1: Runner-up is highest by win_probability excluding winner
-                    [...resultsSectionData.recommendation.allOptions]
-                      .filter(o => o.id !== (riskWinnerId ?? resultsSectionData.recommendation.recommendedOption?.id))
-                      .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]?.id
-                  }
-                  expertMode={expertMode}
-                  confidenceTier={resultsSectionData.confidence.tier.tier}
-                  recommendationStability={resultsSectionData.recommendation.recommendationStability}
-                  leadingOptionDownsideFlag={resultsSectionData.recommendation.leadingOptionDownsideFlag}
-                />
-                {/* TippingPoints removed — superseded by TornadoChart (Brief 5.4 Phase 1) */}
-              </>
-            )}
+            {(() => {
+              const allOptions = resultsSectionData.recommendation.allOptions
+              const v17Active = showV17 && !showCompare
+              if (v17Active && canRenderCompactOptionSpread(allOptions)) {
+                return <CompactOptionSpread options={allOptions} />
+              }
+              // V17 fallback path: ensure the legacy block never sees a
+              // non-finite winProbability. Sanitisation creates new option
+              // objects with non-finite values normalised to undefined; the
+              // rest of the option shape (id, label, outcome, etc.) is
+              // preserved. Pure pass-through when V17 is off.
+              const sectionOptions = v17Active
+                ? allOptions.map(o => (
+                    isFiniteWinProb(o) ? o : { ...o, winProbability: undefined }
+                  ))
+                : allOptions
+              const recommendedId = resultsSectionData.recommendation.recommendedOption?.id
+              const winnerId = riskWinnerId ?? recommendedId
+              return (
+                <>
+                  {/* Brief 5.8B follow-up (P1.5): risk-appetite display filter
+                      relocated here from Advanced. Keeps the option-level toggle
+                      co-located with the option cards it reweights. */}
+                  {sectionOptions.some(o => (o.outcome?.p10 ?? o.p10) != null) && (
+                    <RiskAppetiteFilter value={riskAppetite} onChange={setRiskAppetite} />
+                  )}
+                  {/* WinGauge — moved from hero to top of options section */}
+                  <WinGauge
+                    shares={sectionOptions
+                      .filter((o): o is typeof o & { winProbability: number } => typeof o.winProbability === 'number')
+                      .map(o => ({
+                        id: o.id,
+                        label: o.label,
+                        winProbability: o.winProbability,
+                        isWinner: o.isRecommended,
+                      }))}
+                    decisionState={vm.decisionState}
+                  />
+                  <OptionCards
+                    options={sectionOptions}
+                    winnerId={winnerId}
+                    onSendMessage={onSendMessage}
+                    hasGoalThreshold={resultsSectionData.recommendation.goalThreshold != null}
+                    storyHeadlines={resultsSectionData.recommendation.storyHeadlines}
+                    cardRefMap={optionCardRefs}
+                    decisionState={riskAppetite === 'neutral' ? vm.decisionState : undefined}
+                    hinge={riskAppetite === 'neutral' ? vm.hinge : null}
+                    runnerId={
+                      // V12.2 Fix 1: Runner-up is highest by win_probability excluding winner
+                      [...sectionOptions]
+                        .filter(o => o.id !== winnerId)
+                        .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]?.id
+                    }
+                    expertMode={expertMode}
+                    confidenceTier={resultsSectionData.confidence.tier.tier}
+                    recommendationStability={resultsSectionData.recommendation.recommendationStability}
+                    leadingOptionDownsideFlag={resultsSectionData.recommendation.leadingOptionDownsideFlag}
+                  />
+                  {/* TippingPoints removed — superseded by TornadoChart (Brief 5.4 Phase 1) */}
+                </>
+              )
+            })()}
           </div>
         </SectionErrorBoundary>
       )}

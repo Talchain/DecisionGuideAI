@@ -1,8 +1,8 @@
 /**
- * ReadinessColourStrip — V17 power pass: dimension-tooltip descriptions.
- *
- * Hover-only descriptions appended to each segment's `title` attribute.
- * Visible legend text and aria-label structure remain unchanged.
+ * ReadinessColourStrip — V17 power pass: dimension descriptions surface
+ * both as native tooltips (title) and to assistive tech (aria-label on
+ * every segment, anchored by role="img"). Visible legend text remains
+ * label-only — descriptions are NOT rendered as visible body copy.
  */
 
 import '@testing-library/jest-dom/vitest'
@@ -66,6 +66,14 @@ describe('ReadinessColourStrip — dimension tooltips', () => {
       .toBe('Coverage: 25% — Alternatives and risks represented')
     expect(screen.getByTestId('strip-verified').getAttribute('aria-label'))
       .toBe('Verified: 50% (No inputs verified) — Inputs you have confirmed')
+  })
+
+  it('each segment carries role="img" so the aria-label is reliably announced (code-review P2 #1 round 3)', () => {
+    render(<ReadinessColourStrip checkedCount={null} dimensions={dims()} />)
+    for (const label of ['structure', 'evidence', 'coverage', 'verified']) {
+      const seg = screen.getByTestId(`strip-${label}`)
+      expect(seg.getAttribute('role')).toBe('img')
+    }
   })
 
   it('visible legend text remains plain labels (no description leak)', () => {

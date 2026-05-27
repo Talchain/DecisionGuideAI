@@ -22,15 +22,27 @@ interface Props {
 }
 
 /**
+ * Shared finite-probability predicate. Used by both the gating helper and
+ * the component itself so the "can we render?" and "what do we render?"
+ * answers cannot drift apart. NaN / Infinity are rejected — they would
+ * otherwise corrupt the sort and render as "NaN%".
+ */
+export function isFiniteWinProb(
+  option: OptionResult,
+): option is OptionResult & { winProbability: number } {
+  return typeof option.winProbability === 'number' && Number.isFinite(option.winProbability)
+}
+
+/**
  * Returns true when CompactOptionSpread will render a visible spread for
- * the given options. Mirrors the in-component filter so the parent can
- * decide whether to render the section wrapper at all, avoiding an orphan
- * "Your options" header when no finite probabilities are available.
+ * the given options. The parent uses this to avoid leaving an orphan
+ * "Your options" header (and to decide whether to fall back to the legacy
+ * options block).
  */
 export function canRenderCompactOptionSpread(options: OptionResult[]): boolean {
   let finite = 0
   for (const o of options) {
-    if (typeof o.winProbability === 'number' && Number.isFinite(o.winProbability)) {
+    if (isFiniteWinProb(o)) {
       finite += 1
       if (finite >= 2) return true
     }
@@ -39,13 +51,8 @@ export function canRenderCompactOptionSpread(options: OptionResult[]): boolean {
 }
 
 export function CompactOptionSpread({ options }: Props) {
-  // Number.isFinite excludes NaN / Infinity in case upstream emits a
-  // degenerate probability — a NaN would otherwise corrupt the sort and
-  // render as "NaN%".
   const sorted = options
-    .filter((o): o is OptionResult & { winProbability: number } =>
-      typeof o.winProbability === 'number' && Number.isFinite(o.winProbability),
-    )
+    .filter(isFiniteWinProb)
     .sort((a, b) => b.winProbability - a.winProbability)
   if (sorted.length < 2) return null
 
