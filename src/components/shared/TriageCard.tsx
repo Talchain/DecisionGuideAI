@@ -177,7 +177,7 @@ const STRENGTH_BANDS = [
   { label: 'Strong', value: 1.2 },
 ] as const
 
-/** Inline edge-strength quick-select: three pill buttons */
+/** Inline edge-strength quick-select: three pill buttons with a "Strength:" lead-in. */
 function EdgeStrengthQuickSelect({
   edgeId,
   onUpdateEdgeStrength,
@@ -186,17 +186,20 @@ function EdgeStrengthQuickSelect({
   onUpdateEdgeStrength: (edgeId: string, value: number) => void
 }) {
   return (
-    <div className="flex items-center gap-1">
-      {STRENGTH_BANDS.map(b => (
-        <button
-          key={b.label}
-          type="button"
-          onClick={() => onUpdateEdgeStrength(edgeId, b.value)}
-          className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
-        >
-          {b.label}
-        </button>
-      ))}
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className={`${typography.panelMeta} text-text-light`}>Strength:</span>
+      <div className="flex items-center gap-1">
+        {STRENGTH_BANDS.map(b => (
+          <button
+            key={b.label}
+            type="button"
+            onClick={() => onUpdateEdgeStrength(edgeId, b.value)}
+            className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
+          >
+            {b.label}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
@@ -247,7 +250,7 @@ function InlineValueControls({
   const isCurrencyPrefix = isSymbolPrefix || isIsoPrefix
 
   return (
-    <div className="flex items-center gap-2 flex-shrink-0">
+    <div className="flex items-center gap-1.5 flex-shrink-0">
       {/* gap-0 for symbols (£49), gap-0.5 for ISO codes (GBP 49) */}
       <div className={`inline-flex items-center ${isSymbolPrefix ? 'gap-0' : 'gap-0.5'}`}>
         {isCurrencyPrefix && unitDisplay && (
@@ -261,15 +264,15 @@ function InlineValueControls({
           onKeyDown={e => {
             if (e.key === 'Enter') handleUpdate()
           }}
-          className={`w-20 px-1.5 py-0.5 ${typography.panelMeta} border border-panel-border rounded bg-panel text-text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
+          className={`w-16 px-1.5 py-0.5 ${typography.panelMeta} border border-panel-border rounded bg-panel text-text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
           aria-label={`Value for ${title}`}
-          placeholder="Set value"
+          placeholder="Value"
         />
         {!isCurrencyPrefix && unitDisplay && (
           <span className={`${typography.panelMeta} text-text-light`}>{unitDisplay}</span>
         )}
       </div>
-      <div className="inline-flex items-center gap-2" data-testid="triage-card-icon-group">
+      <div className="inline-flex items-center gap-1.5" data-testid="triage-card-icon-group">
         <IconActionButton
           icon={Pencil}
           tooltip="Edit value"
@@ -490,43 +493,48 @@ export function TriageCard(props: TriageCardProps) {
         )}
       </div>
 
-      {/* Coaching line + value controls row.
-          The coaching text uses ExpandableCoachingText so long CEE strings
-          aren't silently truncated — two lines visible by default, full text
-          on "More". Right-side controls stay vertically centred with the
-          text block (controls hug the column's middle via items-center). */}
+      {/* Coaching line + value controls — stacked.
+          Subtitle takes its own full-width row on top so it can wrap naturally
+          at narrow panel widths (280–480px). Value controls render on a
+          right-aligned row below. Brings parity with the edge-card layout
+          (see `isEdge` block below) and removes the horizontal squeeze that
+          forced spurious More/Less toggles on short subtitles. */}
       {!isEdge && (subtitle || displayDetail) && (
-        <div className={`flex items-start gap-2 mt-0.5 min-w-0 ${ordinal != null ? 'pl-7' : ''}`}>
+        <div className={`flex flex-col gap-1 mt-0.5 min-w-0 ${ordinal != null ? 'pl-7' : ''}`}>
           <ExpandableCoachingText
             text={subtitle || displayDetail}
             className="text-text-light"
           />
           {editorConfig ? (
-            <InlineValueControls
-              editorConfig={editorConfig}
-              onConfirm={action?.targetId && onConfirm ? () => onConfirm!(action!.targetId!) : undefined}
-              title={title}
-            />
+            <div className="flex justify-end">
+              <InlineValueControls
+                editorConfig={editorConfig}
+                onConfirm={action?.targetId && onConfirm ? () => onConfirm!(action!.targetId!) : undefined}
+                title={title}
+              />
+            </div>
           ) : action ? (
-            <div className="inline-flex items-center gap-2 flex-shrink-0" data-testid="triage-card-icon-group">
-              {action.kind === 'confirm' && onConfirm && action.targetId && (
-                <IconActionButton
-                  icon={Check}
-                  tooltip="Confirm AI estimate"
-                  hoverClass="hover:text-success"
-                  onClick={() => onConfirm!(action!.targetId!)}
-                  aria-label="Confirm AI estimate"
-                />
-              )}
-              {action.kind === 'edit' && onEdit && action.targetId && (
-                <IconActionButton
-                  icon={Pencil}
-                  tooltip="Edit value"
-                  hoverClass="hover:text-text-body"
-                  onClick={() => onEdit!(action!.targetId!)}
-                  aria-label="Edit value"
-                />
-              )}
+            <div className="flex justify-end">
+              <div className="inline-flex items-center gap-1.5 flex-shrink-0" data-testid="triage-card-icon-group">
+                {action.kind === 'confirm' && onConfirm && action.targetId && (
+                  <IconActionButton
+                    icon={Check}
+                    tooltip="Confirm AI estimate"
+                    hoverClass="hover:text-success"
+                    onClick={() => onConfirm!(action!.targetId!)}
+                    aria-label="Confirm AI estimate"
+                  />
+                )}
+                {action.kind === 'edit' && onEdit && action.targetId && (
+                  <IconActionButton
+                    icon={Pencil}
+                    tooltip="Edit value"
+                    hoverClass="hover:text-text-body"
+                    onClick={() => onEdit!(action!.targetId!)}
+                    aria-label="Edit value"
+                  />
+                )}
+              </div>
             </div>
           ) : null}
         </div>

@@ -14,6 +14,15 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { typography } from '@/styles/typography'
 
+/**
+ * Below this character threshold, the line-clamp and More/Less toggle are
+ * both skipped — the paragraph wraps naturally. Structural placeholders like
+ * "Connects to 1 downstream relationship" and "No data yet. Set a value to
+ * include in analysis." fall under this; only genuine multi-sentence CEE
+ * coaching strings (100–180 chars) cross the threshold and get disclosure UI.
+ */
+const SHORT_TEXT_THRESHOLD = 80
+
 interface ExpandableCoachingTextProps {
   text: string
   /** Number of lines visible when collapsed (default 2). */
@@ -33,6 +42,7 @@ export function ExpandableCoachingText({
   const [expanded, setExpanded] = useState(false)
   const [overflows, setOverflows] = useState(false)
   const ref = useRef<HTMLParagraphElement | null>(null)
+  const isShortText = text.length < SHORT_TEXT_THRESHOLD
 
   const measureOverflow = useCallback(() => {
     const el = ref.current
@@ -43,16 +53,21 @@ export function ExpandableCoachingText({
   }, [])
 
   useLayoutEffect(() => {
+    if (isShortText) {
+      setOverflows(false)
+      return
+    }
     measureOverflow()
-  }, [text, maxLinesCollapsed, measureOverflow])
+  }, [text, maxLinesCollapsed, measureOverflow, isShortText])
 
   useEffect(() => {
+    if (isShortText) return
     const handler = () => measureOverflow()
     window.addEventListener('resize', handler)
     return () => window.removeEventListener('resize', handler)
-  }, [measureOverflow])
+  }, [measureOverflow, isShortText])
 
-  const clampStyle: React.CSSProperties = expanded
+  const clampStyle: React.CSSProperties = expanded || isShortText
     ? {}
     : {
       display: '-webkit-box',

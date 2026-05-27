@@ -148,8 +148,8 @@ describe('TriageCard — optional ordinal badge (Brief 4 hotfix Task 4)', () => 
   })
 })
 
-describe('TriageCard — icon-group spacing (P1.3)', () => {
-  it('default variant action-icon group uses gap-2 (8px)', () => {
+describe('TriageCard — icon-group spacing (P1.3, tightened in pre-analysis layout pass)', () => {
+  it('default variant action-icon group uses gap-1.5 (6px) — tightened to recover width for the subtitle row', () => {
     render(
       <TriageCard
         cardKey="k1"
@@ -165,7 +165,7 @@ describe('TriageCard — icon-group spacing (P1.3)', () => {
       />,
     )
     const iconGroup = screen.getByTestId('triage-card-icon-group')
-    expect(iconGroup.className).toContain('gap-2')
+    expect(iconGroup.className).toContain('gap-1.5')
     // Guard against regression to the old 4px gap
     expect(iconGroup.className).not.toContain('gap-1 ')
   })
@@ -432,3 +432,154 @@ describe.each(['default', 'compact'] as const)(
     })
   },
 )
+
+// ── Pre-analysis narrow-panel layout invariants ─────────────────────────────
+//
+// Locks the surgical layout fixes applied after the three priority cards in
+// the pre-analysis panel were observed wrapping awkwardly inside the 280–480px
+// resizable right dock. Each describe block targets one invariant so a future
+// agent that regresses one of them sees a single, named failure.
+
+describe('TriageCard — default variant stacks subtitle above value controls', () => {
+  it('places subtitle and InlineValueControls in a flex-col container (not the legacy items-start gap-2 row)', () => {
+    render(
+      <TriageCard
+        cardKey="k-stack"
+        ordinal={1}
+        title="Hiring and Salary Spend"
+        detail="Detail"
+        subtitle="Connects to 1 downstream relationship"
+        category="verify"
+        action={{ kind: 'set_value', label: 'Set value', targetId: 'n1', targetType: 'node' }}
+        editorConfig={{ kind: 'factor', rawValue: 0, cap: null, unit: 'GBP', onSave: () => {}, onCancel: () => {} }}
+        onConfirm={() => {}}
+        onEdit={() => {}}
+      />,
+    )
+    const input = screen.getByLabelText('Value for Hiring and Salary Spend')
+    // Walk up to the body wrapper (the div directly under the card root that
+    // contains both ExpandableCoachingText and InlineValueControls).
+    let parent: HTMLElement | null = input
+    while (parent && !parent.className.includes('flex-col')) {
+      parent = parent.parentElement
+    }
+    expect(parent).not.toBeNull()
+    expect(parent!.className).toContain('flex-col')
+    // Guard against regression to the old horizontal squeeze.
+    expect(parent!.className).not.toContain('items-start gap-2')
+  })
+
+  it('routes the action-icon branch through a right-aligned wrapper too', () => {
+    render(
+      <TriageCard
+        cardKey="k-stack-action"
+        ordinal={1}
+        title="Factor A"
+        detail="Detail"
+        subtitle="Calibrate this factor for the outcome you expect"
+        category="verify"
+        action={{ kind: 'confirm', label: 'Confirm', targetId: 'n1', targetType: 'node' }}
+        onConfirm={() => {}}
+        onEdit={() => {}}
+      />,
+    )
+    const iconGroup = screen.getByTestId('triage-card-icon-group')
+    expect(iconGroup.parentElement?.className).toContain('justify-end')
+  })
+
+  it('default-variant input is w-16 (tightened from w-20) and uses the "Value" placeholder', () => {
+    render(
+      <TriageCard
+        cardKey="k-tight"
+        ordinal={1}
+        title="Factor A"
+        detail="Detail"
+        subtitle="Connects to 1 downstream relationship"
+        category="verify"
+        action={{ kind: 'set_value', label: 'Set value', targetId: 'n1', targetType: 'node' }}
+        editorConfig={{ kind: 'factor', rawValue: null, cap: null, unit: '', onSave: () => {}, onCancel: () => {} }}
+      />,
+    )
+    const input = screen.getByLabelText('Value for Factor A') as HTMLInputElement
+    expect(input.className).toContain('w-16')
+    expect(input.className).not.toContain('w-20')
+    expect(input.placeholder).toBe('Value')
+  })
+})
+
+describe('TriageCard — edge strength pills carry a "Strength:" lead-in', () => {
+  it('renders the Strength: label before the Weak / Moderate / Strong group', () => {
+    render(
+      <TriageCard
+        cardKey="k-edge-strength"
+        ordinal={2}
+        title="Budget Constraint Severity → Budget Overrun Risk"
+        detail="Edge coaching"
+        subtitle="How strongly does Budget Constraint Severity affect Budget Overrun Risk?"
+        category="verify"
+        action={{ kind: 'edit', label: 'Edit', targetId: 'e1', targetType: 'edge' }}
+        onUpdateEdgeStrength={() => {}}
+      />,
+    )
+    expect(screen.getByText('Strength:')).toBeInTheDocument()
+    // All three band labels still render
+    expect(screen.getByText('Weak')).toBeInTheDocument()
+    expect(screen.getByText('Moderate')).toBeInTheDocument()
+    expect(screen.getByText('Strong')).toBeInTheDocument()
+  })
+})
+
+describe('TriageCard — short subtitles render without a More/Less disclosure', () => {
+  // The three real strings observed in the pre-analysis panel screenshots.
+  // All are under the 80-char SHORT_TEXT_THRESHOLD and must render in full
+  // with no disclosure toggle on the narrow right-dock width.
+  const BRIEF_EXAMPLES = [
+    { name: 'connects-to-relationship', text: 'Connects to 1 downstream relationship' },
+    { name: 'edge-question', text: 'How strongly does Launch Deadline Pressure affect Launch Delay Risk?' },
+    { name: 'no-data-placeholder', text: 'No data yet. Set a value to include in analysis.' },
+  ] as const
+
+  it.each(BRIEF_EXAMPLES)('"$name" renders without a More or Less toggle', ({ text }) => {
+    render(
+      <TriageCard
+        cardKey="k-short"
+        ordinal={1}
+        title="Factor A"
+        detail="Detail"
+        subtitle={text}
+        category="verify"
+        action={{ kind: 'set_value', label: 'Set value', targetId: 'n1', targetType: 'node' }}
+        editorConfig={{ kind: 'factor', rawValue: null, cap: null, unit: '', onSave: () => {}, onCancel: () => {} }}
+      />,
+    )
+    expect(screen.getByText(text)).toBeInTheDocument()
+    // Disclosure-toggle button must not exist — short text always renders in full.
+    expect(screen.queryByRole('button', { name: /^More$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Less$/i })).not.toBeInTheDocument()
+  })
+
+  // Positive guard: long CEE coaching strings (the actual disclosure use-case)
+  // must still preserve the threshold path. Without this, a future agent
+  // could raise SHORT_TEXT_THRESHOLD to a huge number and the negative tests
+  // above would silently pass while real coaching strings stopped being
+  // disclosure-aware. We assert the long-text path keeps the underlying
+  // measurement infrastructure attached (line-clamp style on the <p>).
+  it('long CEE coaching strings (>= 80 chars) still receive the clamp style for disclosure measurement', () => {
+    const longText =
+      'Resolving this factor could improve confidence by 1.8pp because it directly drives the leading option ranking under the current evidence. Verify the underlying assumption before locking it in.'
+    render(
+      <TriageCard
+        cardKey="k-long"
+        ordinal={1}
+        title="Factor A"
+        detail="Detail"
+        subtitle={longText}
+        category="verify"
+      />,
+    )
+    const paragraph = screen.getByText(longText)
+    // Threshold gate must remain wired up — long text gets the line-clamp
+    // style applied inline so ExpandableCoachingText can measure overflow.
+    expect(paragraph.style.webkitLineClamp).toBe('2')
+  })
+})
