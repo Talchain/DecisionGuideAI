@@ -598,9 +598,12 @@ function T1ContributionRow({ progress }: { progress: PriorityProgress }) {
         </span>
       </div>
       {/* Single-segment bar — empty at zero (no misleading partial fill), fills
-          as the user confirms priority items. */}
+          as the user confirms priority items. Track uses bg-canvas-fill so
+          the empty state reads unambiguously neutral (the prior
+          bg-panel-border could read as a thin accent line on some themes). */}
       <div
-        className="flex h-1 w-full rounded-full overflow-hidden bg-panel-border"
+        className="flex h-1.5 w-full rounded-full overflow-hidden"
+        style={{ backgroundColor: 'var(--surface-canvas-fill, #F0EBDD)' }}
         role="img"
         aria-label={`${confirmed} of ${total} priority assumptions confirmed`}
         data-testid="t1-contribution-spectrum"
@@ -939,13 +942,13 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
       {showChecksFooter && (
         <>
           <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
-          <div
-            className="flex items-center justify-end gap-2"
-            data-testid="t1-checks-footer"
-          >
-            {missingKnowledgeSlot && (
-              <div className="flex-shrink-0">{missingKnowledgeSlot}</div>
-            )}
+          {/* Post-deploy fix: the prior `flex justify-end` + `flex-shrink-0`
+              wrapper pushed the missing-knowledge prompt (≈450px of copy)
+              off the left edge of the 353-wide panel. With only one child
+              now (legacy "N/M verified" counter removed) the wrapper is
+              unnecessary — let the slot fill the panel width and wrap. */}
+          <div className="min-w-0" data-testid="t1-checks-footer">
+            {missingKnowledgeSlot}
           </div>
         </>
       )}

@@ -13,30 +13,26 @@
  * `./isReviewedByUser` — the same predicate that powers the existing
  * `reviewedFactorsCount` derivation, so the two counters cannot drift.
  *
- * **Edge-type entries are excluded from both numerator AND denominator.**
- * Edge cards in the top-3 are answered via the Weak / Moderate / Strong
- * quick-select; the handler at
- * `PreAnalysisPanel.tsx` (`onUpdateEdgeStrength`) writes `weight` and
- * clears `strength_mean` but does NOT set a `source` field that
- * `isReviewedByUser` could read. Counting them in the denominator would
- * mean a top-3 containing any "Needs judgement" edge card can never reach
- * 100% confirmation, no matter what the user clicks. Excluding them from
- * both sides keeps the visible bar honest until an edge-reviewed
- * predicate is added (deferred to a tier B brief). The edge cards still
- * render in the list and remain actionable; they just don't gate the
- * "First pass confidence" count.
+ * **Denominator alignment (post-deploy review fix):** every visible top-3
+ * entry counts toward `total` so the counter reads "N of M" against the
+ * exact set of cards rendered above it. An edge entry today writes
+ * `edge.data.weight` but no `source` marker, so it cannot reach
+ * `confirmed`. We accept the trade-off: a top-3 with a "Needs judgement"
+ * edge entry caps at `(visible nodes confirmed) of (visible count)`
+ * until either (a) the edge card resolves and leaves the queue once the
+ * user picks a strength, or (b) an edge-reviewed predicate is added in a
+ * tier B brief. Hiding the edge from the count entirely (the prior
+ * behaviour) produced a worse trust leak — viewers saw three cards but
+ * a denominator of two with no visible explanation.
  */
 
 import type { Node } from '@xyflow/react'
 import { isReviewedByUser } from './isReviewedByUser'
 
 export interface PriorityProgress {
-  /** Number of top-3 NODE-type entries whose underlying node has been confirmed by the user. */
+  /** Number of top-3 entries whose underlying node has been confirmed by the user. Edge entries cannot reach `confirmed` today (no source marker on the write path). */
   confirmed: number
-  /**
-   * Number of top-3 NODE-type entries (edge entries are excluded from
-   * both numerator and denominator — see header comment).
-   */
+  /** Total visible top-3 entries — matches the rendered card count exactly. */
   total: number
 }
 
@@ -57,18 +53,17 @@ export function buildPriorityProgress(
   for (const node of factorNodes) nodesById.set(node.id, node)
 
   let confirmed = 0
-  let total = 0
   for (const entry of topThree) {
     const action = entry.card.action
-    // Skip entries that cannot be confirmed via the predicate today: edge
-    // entries (no equivalent edge predicate) and node entries without a
-    // targetId (cannot resolve the underlying node).
-    if (!action || action.targetType !== 'node' || !action.targetId) continue
-    total++
-    const node = nodesById.get(action.targetId)
-    if (!node) continue
-    if (isReviewedByUser(node)) confirmed++
+    // Confirmation is node-only today. Edge entries count toward total
+    // (so the visible denominator matches the card list) but cannot
+    // reach `confirmed` because the edge quick-select writes no
+    // `source` marker.
+    if (action?.targetType === 'node' && action.targetId) {
+      const node = nodesById.get(action.targetId)
+      if (node && isReviewedByUser(node)) confirmed++
+    }
   }
 
-  return { confirmed, total }
+  return { confirmed, total: topThree.length }
 }

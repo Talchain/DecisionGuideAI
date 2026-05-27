@@ -10,7 +10,7 @@
  */
 
 import { useState, useCallback, useRef, type ReactNode } from 'react'
-import { Check, Pencil } from 'lucide-react'
+import { CheckCircle2, Pencil } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { evaluativeVar } from '@/styles/evaluative'
 import type { ScientificEditorProps } from './ScientificEditor'
@@ -122,9 +122,10 @@ const BADGE_COLORS: Record<TriageCardCategory, string> = {
 function renderTriageTitle(title: string, className: string) {
   const arrowIdx = title.indexOf(' → ')
   if (arrowIdx < 0) {
-    // Non-edge title: plain truncating paragraph.
+    // Non-edge title: allow two-line wrap. Single-line `truncate` produced
+    // unhelpful "Additional Developer Capaci…" ellipsis on narrow panels.
     return (
-      <p className={`${className} truncate`} title={title}>
+      <p className={`${className} line-clamp-2 break-words`} title={title}>
         {title}
       </p>
     )
@@ -135,7 +136,7 @@ function renderTriageTitle(title: string, className: string) {
   const parts = title.split(' → ')
   const target = parts[parts.length - 1]
   return (
-    <p className={`${className} truncate`} title={title}>
+    <p className={`${className} line-clamp-2 break-words`} title={title}>
       {target}
     </p>
   )
@@ -290,7 +291,7 @@ function InlineValueControls({
         />
         {onConfirm && (
           <IconActionButton
-            icon={Check}
+            icon={CheckCircle2}
             tooltip="Confirm AI estimate"
             hoverClass="hover:text-success"
             onClick={onConfirm}
@@ -379,7 +380,7 @@ function CompactTriageCard({ title, ordinal, category, badgeColor, influence, ev
             <div className="inline-flex items-center gap-2 flex-shrink-0" data-testid="triage-card-icon-group">
               {action.kind === 'confirm' && onConfirm && action.targetId && (
                 <IconActionButton
-                  icon={Check}
+                  icon={CheckCircle2}
                   tooltip="Confirm AI estimate"
                   hoverClass="hover:text-success"
                   onClick={() => onConfirm!(action!.targetId!)}
@@ -529,7 +530,7 @@ export function TriageCard(props: TriageCardProps) {
               <div className="inline-flex items-center gap-1.5 flex-shrink-0" data-testid="triage-card-icon-group">
                 {action.kind === 'confirm' && onConfirm && action.targetId && (
                   <IconActionButton
-                    icon={Check}
+                    icon={CheckCircle2}
                     tooltip="Confirm AI estimate"
                     hoverClass="hover:text-success"
                     onClick={() => onConfirm!(action!.targetId!)}

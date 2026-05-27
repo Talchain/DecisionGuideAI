@@ -1,22 +1,21 @@
 /**
  * buildPriorityProgress — direct unit tests for the pre-analysis priority
- * confirmation counter (pre-analysis-power-v1 Task 5 + addendum fixes).
+ * confirmation counter (pre-analysis-power-v1 Task 5 + post-deploy
+ * denominator alignment).
  *
  * Contract locked by this spec:
- *   - In scope: any top-3 entry with `action.targetType === 'node'` and
- *     a defined `targetId`. The underlying node is looked up by id and
- *     its `observed_state.source` is checked against `REVIEWED_SOURCES`
- *     in `isReviewedByUser`.
- *   - Node entries whose `targetId` cannot be resolved to a present
- *     factor node (deleted, mid-render, fixture mismatch) still count
- *     toward `total` but never toward `confirmed`. Treating an
- *     unresolved reference as a soft "unconfirmed" signal is safer than
- *     silently dropping it.
- *   - Edge entries are excluded from BOTH numerator and denominator
- *     (addendum fix). Today the edge handler writes `weight` but no
- *     `source` field, so counting them would lock a top-3 with any edge
- *     entry below 100% forever. Excluding them keeps the visible bar
- *     honest until an edge-reviewed predicate exists.
+ *   - `total` equals `topThree.length` — every visible card is in the
+ *     denominator so the rendered "N of M" matches the visible list
+ *     exactly. Anything else produces a trust leak (denominator < cards).
+ *   - `confirmed` counts node-type entries whose underlying node's
+ *     `observed_state.source` is in `REVIEWED_SOURCES` (see
+ *     `isReviewedByUser`). Edge entries today have no equivalent
+ *     `source` write on `onUpdateEdgeStrength`, so they count toward
+ *     `total` but cannot reach `confirmed`. Tier B follow-up: add an
+ *     edge-reviewed predicate so the edge quick-select fills `confirmed`.
+ *   - Node entries whose `targetId` cannot be resolved (deleted,
+ *     mid-render, fixture mismatch) count toward `total` but never
+ *     toward `confirmed` — same "denominator alignment" rule.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -95,23 +94,23 @@ describe('buildPriorityProgress — node entries', () => {
   )
 })
 
-describe('buildPriorityProgress — edge entries (addendum fix for Blocking 1)', () => {
-  it('excludes edge entries from BOTH numerator and denominator', () => {
-    // 1 node confirmed + 1 edge in top-3 → 1/1, NOT 1/2 (the legacy
-    // behaviour locked a "Needs judgement" edge below 100% forever).
+describe('buildPriorityProgress — edge entries (post-deploy denominator alignment)', () => {
+  it('counts edge entries toward total so denominator matches visible cards', () => {
+    // 1 node confirmed + 1 edge → 1/2. The denominator must equal the
+    // visible card count or viewers see a mystery exclusion.
     const factorNodes = [node('n1', 'user_confirmed')]
     const topThree = [nodeEntry('a', 'n1'), edgeEntry('b', 'e1')]
-    expect(buildPriorityProgress(topThree, factorNodes)).toEqual({ confirmed: 1, total: 1 })
+    expect(buildPriorityProgress(topThree, factorNodes)).toEqual({ confirmed: 1, total: 2 })
   })
 
-  it('returns { 0, 0 } when the top-3 consists entirely of edge entries', () => {
+  it('edges count toward total but never toward confirmed (no edge-reviewed predicate yet)', () => {
     const topThree = [edgeEntry('a', 'e1'), edgeEntry('b', 'e2'), edgeEntry('c', 'e3')]
-    expect(buildPriorityProgress(topThree, [])).toEqual({ confirmed: 0, total: 0 })
+    expect(buildPriorityProgress(topThree, [])).toEqual({ confirmed: 0, total: 3 })
   })
 
-  it('a confirmed node alongside three unconfirmable edges still reads 1/1', () => {
+  it('a confirmed node alongside two edges reads 1/3 — top-3 denominator preserved', () => {
     const factorNodes = [node('n1', 'user_confirmed')]
     const topThree = [nodeEntry('a', 'n1'), edgeEntry('b', 'e1'), edgeEntry('c', 'e2')]
-    expect(buildPriorityProgress(topThree, factorNodes)).toEqual({ confirmed: 1, total: 1 })
+    expect(buildPriorityProgress(topThree, factorNodes)).toEqual({ confirmed: 1, total: 3 })
   })
 })
