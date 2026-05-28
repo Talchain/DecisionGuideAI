@@ -12,8 +12,9 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, act } from '@testing-library/react'
+import { render, act, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
+import { DiscussWithAiButton } from '../pre-analysis/DiscussWithAiButton'
 
 // Mock ConversationContext so we control message count directly.
 const conversationState = {
@@ -140,5 +141,64 @@ describe('OlumiTabBody — callback re-registration lifecycle', () => {
     expect(send).not.toBeNull()
     send!('discuss this')
     expect(conversationState.sendMessage).toHaveBeenCalledWith('discuss this')
+  })
+})
+
+// ── Visible-render integration (post-deploy review missed opportunity) ──
+//
+// The 5 tests above lock the guidance-store CONTRACT. This block adds a
+// thin integration check: render the REAL `DiscussWithAiButton`
+// alongside OlumiTabBody and assert the visible sparkle survives the
+// populated → empty cycle. Catches a class of regression the
+// contract-only tests can't see — e.g. if DiscussWithAiButton's
+// subscriber stops re-running after a store flip, the button would
+// disappear even with the contract intact.
+describe('OlumiTabBody + DiscussWithAiButton — visible-sparkle integration', () => {
+  function Harness() {
+    return (
+      <>
+        <OlumiTabBody />
+        <DiscussWithAiButton element={{ kind: 'factor', label: 'Test factor' }} />
+      </>
+    )
+  }
+
+  it('renders the sparkle on initial mount (empty conversation)', () => {
+    render(<Harness />)
+    expect(screen.queryByTestId('discuss-with-ai')).not.toBeNull()
+  })
+
+  it('keeps the sparkle visible across populated → empty → populated cycles', () => {
+    const { rerender } = render(<Harness />)
+    expect(screen.queryByTestId('discuss-with-ai')).not.toBeNull()
+
+    // Empty → populated: ConversationPanel mounts and re-registers.
+    act(() => {
+      conversationState.messages = [{ synthetic: false }]
+    })
+    rerender(<Harness />)
+    expect(screen.queryByTestId('discuss-with-ai')).not.toBeNull()
+
+    // Populated → empty: ConversationPanel cleanup nulls callbacks;
+    // OlumiTabBody's effect re-runs (realMessageCount dep) and
+    // re-registers. The visible button MUST stay rendered.
+    act(() => {
+      conversationState.messages = []
+    })
+    rerender(<Harness />)
+    expect(screen.queryByTestId('discuss-with-ai')).not.toBeNull()
+
+    // Cycle once more to lock the multi-transition contract.
+    act(() => {
+      conversationState.messages = [{ synthetic: false }]
+    })
+    rerender(<Harness />)
+    expect(screen.queryByTestId('discuss-with-ai')).not.toBeNull()
+
+    act(() => {
+      conversationState.messages = []
+    })
+    rerender(<Harness />)
+    expect(screen.queryByTestId('discuss-with-ai')).not.toBeNull()
   })
 })
