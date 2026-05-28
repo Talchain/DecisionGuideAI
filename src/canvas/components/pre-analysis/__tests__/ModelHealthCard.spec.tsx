@@ -1,9 +1,12 @@
 /**
- * ModelHealthCard — pre-analysis-power-v1 Task 1 regression tests.
+ * ModelHealthCard — pre-analysis-power-v1 (post-deploy correction pass).
  *
- * Locks the compact-mode readiness reframe: the ring + dimension bars
- * stay, the dynamic coaching summary / bucket-derived dynamic headline is
- * no longer rendered, and a fixed two-line copy replaces them.
+ * Locks the compact-mode behaviour: the ring + dimension bars stay, the
+ * dynamic coaching summary / bucket-derived dynamic headline is no longer
+ * rendered, and the previous "Ready for provisional analysis" block is
+ * also dropped (collapsed into the "Strengthen this model before
+ * analysis" headline in `T1DecisionReadinessCard` to avoid double-billing
+ * the same idea — P0 #4 of the correction pass).
  */
 
 import { render, screen } from '@testing-library/react'
@@ -21,8 +24,8 @@ const baseProps = {
   hasGoalNode: true,
 }
 
-describe('ModelHealthCard — compact mode renders the static readiness reframe', () => {
-  it('renders "Ready for provisional analysis" + the assumption-led subline', () => {
+describe('ModelHealthCard — compact mode (post-deploy headline dedupe)', () => {
+  it('does NOT render the deduped "Ready for provisional analysis" block beneath the ring', () => {
     render(
       <ModelHealthCard
         compact
@@ -31,14 +34,25 @@ describe('ModelHealthCard — compact mode renders the static readiness reframe'
         dynamicHeadline={null}
       />,
     )
-    const headline = screen.getByTestId('model-health-card-headline')
-    expect(headline).toHaveTextContent('Ready for provisional analysis')
-    expect(headline).toHaveTextContent(
-      'Good enough to run, but results will be assumption-led until you confirm the highest-impact inputs.',
-    )
+    expect(screen.queryByText('Ready for provisional analysis')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('model-health-card-headline')).not.toBeInTheDocument()
   })
 
-  it('renders the static copy even when coachingSummary is provided (dynamic copy no longer rendered)', () => {
+  it('does NOT render the assumption-led subline either (deduped)', () => {
+    render(
+      <ModelHealthCard
+        compact
+        {...baseProps}
+        coachingSummary={null}
+        dynamicHeadline={null}
+      />,
+    )
+    expect(
+      screen.queryByText(/Good enough to run, but results will be assumption-led/),
+    ).not.toBeInTheDocument()
+  })
+
+  it('still drops the dynamic coachingSummary in compact mode', () => {
     render(
       <ModelHealthCard
         compact
@@ -47,13 +61,12 @@ describe('ModelHealthCard — compact mode renders the static readiness reframe'
         dynamicHeadline={null}
       />,
     )
-    expect(screen.getByTestId('model-health-card-headline')).toHaveTextContent('Ready for provisional analysis')
     expect(
       screen.queryByText('A dynamic coaching summary that should not appear in the hero.'),
     ).not.toBeInTheDocument()
   })
 
-  it('renders the static copy even when dynamicHeadline is provided', () => {
+  it('still drops the bucket-derived dynamicHeadline in compact mode', () => {
     render(
       <ModelHealthCard
         compact
@@ -62,7 +75,6 @@ describe('ModelHealthCard — compact mode renders the static readiness reframe'
         dynamicHeadline="Velocity has the biggest impact. Review before running."
       />,
     )
-    expect(screen.getByTestId('model-health-card-headline')).toHaveTextContent('Ready for provisional analysis')
     expect(
       screen.queryByText('Velocity has the biggest impact. Review before running.'),
     ).not.toBeInTheDocument()

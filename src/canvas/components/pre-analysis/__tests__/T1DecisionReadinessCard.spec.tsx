@@ -273,7 +273,10 @@ describe('Brief 5.8A D3a — T1 Decision readiness card', () => {
     const bridge = screen.getByTestId('t1-narrative-bridge')
     expect(bridge).toBeInTheDocument()
     expect(bridge.textContent).toMatch(/Strengthen this model before analysis/)
-    expect(bridge.textContent).toMatch(/Confirm the inputs most likely to change the result\./)
+    // Subline updated in the post-deploy correction pass (P0 #4 dedupe) —
+    // absorbs the assumption-led messaging that previously lived in a
+    // separate "Ready for provisional analysis" block beneath the ring.
+    expect(bridge.textContent).toMatch(/You can run a first pass now, but confirming the priority assumptions below/)
     // The legacy counts and meta line are gone — they were the trust-leak
     // source (visible "14 relationships" while the panel listed only 3).
     expect(bridge.textContent).not.toMatch(/unverified estimate/)

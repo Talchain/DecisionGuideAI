@@ -1165,13 +1165,10 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // OptionPreview is collapsed by default — expand it first.
-      fireEvent.click(screen.getByTestId('option-preview-toggle'))
-
-      // v2 panel passes collapseInterventionsByDefault — interventions are hidden
-      // behind a per-option disclosure. Click the disclosure first to reveal "Ad spend".
-      const interventionToggle = screen.queryByTestId('option-interventions-toggle-opt_expand')
-      if (interventionToggle) fireEvent.click(interventionToggle)
+      // Post-deploy correction P0 #1 / #3: OptionPreview defaults to expanded
+      // AND `collapseInterventionsByDefault` was dropped from the call site,
+      // so the per-option intervention list (incl. "Ad spend") renders on
+      // first render without any disclosure clicks.
 
       // Click the factor label "Ad spend" — should target the factor node, not the option
       fireEvent.click(screen.getByText('Ad spend'))
@@ -1194,9 +1191,8 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // OptionPreview is collapsed by default — expand it first.
-      fireEvent.click(screen.getByTestId('option-preview-toggle'))
-
+      // OptionPreview defaults to expanded post-deploy correction — option
+      // name is clickable on render.
       fireEvent.click(screen.getByText('Expand Now'))
 
       expect(mockSelectNodeWithoutHistory).toHaveBeenCalledWith('opt_expand')
@@ -1457,7 +1453,7 @@ describe('PreAnalysisPanel', () => {
       ],
     })
 
-    it('always renders the static "Ready for provisional analysis" reframe regardless of bucket state (pre-analysis-power-v1 Task 1 — no dynamic headline)', () => {
+    it('no longer renders the "Ready for provisional analysis" block (deduped in post-deploy correction P0 #4)', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         ...cleanBaselineMock(),
         isReady: false,
@@ -1475,13 +1471,14 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      const headline = screen.getByTestId('model-health-card-headline')
-      expect(headline).toHaveTextContent('Ready for provisional analysis')
-      // The old dynamic copy must NOT appear — it was the trust-leak source.
-      expect(headline).not.toHaveTextContent('Add baseline option. Address before analysis.')
+      // The "Ready for provisional analysis" block beneath the ring is gone;
+      // the intro headline now lives only in t1-narrative-bridge.
+      expect(screen.queryByTestId('model-health-card-headline')).not.toBeInTheDocument()
+      // The old dynamic copy is still suppressed.
+      expect(screen.queryByText('Add baseline option. Address before analysis.')).not.toBeInTheDocument()
     })
 
-    it('renders the static reframe even with improve-confidence items only', () => {
+    it('renders no readiness-headline block in improve-confidence-only state either', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         ...cleanBaselineMock(),
         improvementsByCategory: {
@@ -1503,14 +1500,14 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByTestId('model-health-card-headline')).toHaveTextContent('Ready for provisional analysis')
+      expect(screen.queryByTestId('model-health-card-headline')).not.toBeInTheDocument()
     })
 
-    it('renders the static reframe in a fully clean state', () => {
+    it('renders no readiness-headline block in a fully clean state', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData(cleanBaselineMock()))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByTestId('model-health-card-headline')).toHaveTextContent('Ready for provisional analysis')
+      expect(screen.queryByTestId('model-health-card-headline')).not.toBeInTheDocument()
     })
 
     it('does NOT render the deleted static "Your expertise makes the analysis more reliable" fallback', () => {
@@ -1610,7 +1607,10 @@ describe('PreAnalysisPanel', () => {
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       const bridge = screen.getByTestId('t1-narrative-bridge')
       expect(bridge.textContent).toMatch(/Strengthen this model before analysis/)
-      expect(bridge.textContent).toMatch(/Confirm the inputs most likely to change the result\./)
+      // Updated subline (P0 #4 post-deploy correction). Absorbs the
+      // assumption-led messaging that previously lived in a separate
+      // "Ready for provisional analysis" block beneath the ring.
+      expect(bridge.textContent).toMatch(/You can run a first pass now, but confirming the priority assumptions below/)
       expect(bridge.textContent).not.toContain('14')
       expect(bridge.textContent).not.toMatch(/relationships worth reviewing/)
     })

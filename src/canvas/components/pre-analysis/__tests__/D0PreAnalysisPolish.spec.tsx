@@ -243,7 +243,8 @@ describe('Brief 5.8B D0 #2 — narrative bridge clean (no prefix, trimmed tail)'
     expect(container.innerHTML).not.toMatch(/worth reviewing/)
     expect(container.innerHTML).not.toMatch(/Ranked by priority/)
     expect(container.innerHTML).toMatch(/Strengthen this model before analysis/)
-    expect(container.innerHTML).toMatch(/Confirm the inputs most likely to change the result\./)
+    // Subline updated in the post-deploy correction pass (P0 #4 dedupe).
+    expect(container.innerHTML).toMatch(/You can run a first pass now, but confirming the priority assumptions below/)
   })
 })
 
@@ -257,6 +258,9 @@ describe('Brief 5.8B D0 #4 — OptionPreview collapsed state stacks names vertic
         ]}
       />,
     )
+    // Post-deploy correction P0 #1 / #3: OptionPreview defaults to expanded.
+    // Collapse first to reach the collapsed-names list this test guards.
+    fireEvent.click(screen.getByTestId('option-preview-toggle'))
     const list = screen.getByTestId('option-preview-collapsed-names')
     expect(list.className).toMatch(/flex-col/)
     expect(list.className).not.toMatch(/flex-wrap/)
@@ -291,7 +295,8 @@ describe('Brief 5.8B D0 #5 — duplicate Explore chip removed', () => {
         onSendMessage={sendMessage}
       />,
     )
-    fireEvent.click(screen.getByTestId('option-preview-toggle'))
+    // Post-deploy correction P0 #1 / #3: OptionPreview defaults to expanded
+    // so the Explore CTA is visible without an extra click.
     expect(screen.getByTestId('option-preview-explore-strategies')).toBeInTheDocument()
   })
 })
@@ -311,6 +316,10 @@ describe('Brief 5.8B D0 #6 — SharpenYourThinking previewLine wired', () => {
     }
     mockUsePreAnalysisData.mockReturnValue(baseData())
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
+    // Post-deploy correction P0 #3: SharpenYourThinking defaults to expanded,
+    // so the preview line is only relevant once the user collapses. The wiring
+    // contract (preview renders when collapsed) still holds — collapse first.
+    fireEvent.click(screen.getByRole('button', { name: /sharpen your thinking/i }))
     expect(screen.getByTestId('accordion-preview-line')).toBeInTheDocument()
   })
 })

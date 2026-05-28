@@ -189,6 +189,7 @@ export function SharpenYourThinking(props: SharpenYourThinkingProps) {
     <Accordion
       title="Sharpen your thinking"
       testId="sharpen-your-thinking"
+      defaultExpanded
       rightContent={
         <span className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full border border-panel-border text-text-body">
           {cards.length}

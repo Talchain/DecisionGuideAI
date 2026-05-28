@@ -13,10 +13,20 @@ function makeOption(overrides: Partial<OptionPreviewData> & { interventions: Opt
   }
 }
 
-// Helper: OptionPreview defaults to collapsed (isExpanded=false).
-// Tests that need intervention content must expand first.
-function expandOptionPreview() {
+// Post-deploy correction P0 #1 + #3: OptionPreview now defaults to
+// EXPANDED so per-option interventions render under each option without
+// an extra click, and the expanded-state icon matches the visible
+// expanded content. Use `collapseOptionPreview()` to test the collapsed
+// state; `expandOptionPreview()` is kept as a no-op helper for tests
+// that explicitly expect the previously-required click sequence.
+function collapseOptionPreview() {
   fireEvent.click(screen.getByTestId('option-preview-toggle'))
+}
+function expandOptionPreview() {
+  // No-op now that expanded is the default. Kept so old tests still read.
+  const toggle = screen.queryByTestId('option-preview-toggle')
+  const ariaExpanded = toggle?.getAttribute('aria-expanded')
+  if (ariaExpanded === 'false') fireEvent.click(toggle!)
 }
 
 describe('OptionPreview — narrow-framing coaching (Brief 4 hotfix Task 6)', () => {
@@ -299,8 +309,8 @@ describe('OptionPreview — intervention display', () => {
   })
 })
 
-describe('OptionPreview — collapsed state (UI-BUG-3)', () => {
-  it('shows option names without expanding', () => {
+describe('OptionPreview — collapsed state (UI-BUG-3) — post-deploy correction', () => {
+  it('shows option names + interventions by default (expanded), and the collapsed-names list only appears after user-collapse', () => {
     render(
       <OptionPreview
         options={[
@@ -309,21 +319,23 @@ describe('OptionPreview — collapsed state (UI-BUG-3)', () => {
         ]}
       />,
     )
-    const nameList = screen.getByTestId('option-preview-collapsed-names')
-    expect(nameList).toBeInTheDocument()
+    // Expanded by default — option labels still present, collapsed-names
+    // testid is NOT (that's the explicit collapsed-state markup).
     expect(screen.getByText('Hire Now')).toBeInTheDocument()
     expect(screen.getByText('Outsource')).toBeInTheDocument()
+    expect(screen.queryByTestId('option-preview-collapsed-names')).not.toBeInTheDocument()
+    // Now collapse to reach the legacy collapsed state.
+    collapseOptionPreview()
+    expect(screen.getByTestId('option-preview-collapsed-names')).toBeInTheDocument()
   })
 
-  it('shows coaching line when hasSameLeversCheck is true', () => {
+  it('shows coaching line when hasSameLeversCheck is true (state-agnostic)', () => {
     render(
       <OptionPreview
         options={[makeOption({ id: 'opt1', label: 'A', interventions: [] })]}
         hasSameLeversCheck
       />,
     )
-    // Brief 4 hotfix Task 6: unified copy (collapsed and expanded states share
-    // the same sentence). Match by testid which both states render.
     expect(screen.getByTestId('option-quality-narrow-framing')).toBeInTheDocument()
   })
 
@@ -336,25 +348,28 @@ describe('OptionPreview — collapsed state (UI-BUG-3)', () => {
     expect(screen.queryByTestId('option-quality-narrow-framing')).not.toBeInTheDocument()
   })
 
-  it('shows a collapsed chevron (ChevronRight) in the header toggle', () => {
+  it('default chevron is ChevronDown (expanded state) — icon matches visible content', () => {
     render(
       <OptionPreview
         options={[makeOption({ id: 'opt1', label: 'A', interventions: [] })]}
       />,
     )
     const toggle = screen.getByTestId('option-preview-toggle')
-    // ChevronRight renders when collapsed, ChevronDown when expanded
-    expect(toggle).toBeInTheDocument()
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    expect(toggle.querySelector('svg')?.getAttribute('class')).toContain('chevron-down')
   })
 
-  it('hides option names after expanding (expanded state shows full detail)', () => {
+  it('clicking the toggle collapses to a ChevronRight + the collapsed-names list', () => {
     render(
       <OptionPreview
         options={[makeOption({ id: 'opt1', label: 'Hire Now', interventions: [] })]}
       />,
     )
-    expandOptionPreview()
-    expect(screen.queryByTestId('option-preview-collapsed-names')).not.toBeInTheDocument()
+    collapseOptionPreview()
+    const toggle = screen.getByTestId('option-preview-toggle')
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(toggle.querySelector('svg')?.getAttribute('class')).toContain('chevron-right')
+    expect(screen.getByTestId('option-preview-collapsed-names')).toBeInTheDocument()
   })
 })
 
@@ -376,6 +391,9 @@ describe('OptionPreview — sharedFactorLabels (Brief 5.3 Task 3)', () => {
     const optA = makeOption({ id: 'a', label: 'A', interventions: [makeIntervention('rev', 'Revenue'), makeIntervention('cost', 'Cost')] })
     const optB = makeOption({ id: 'b', label: 'B', interventions: [makeIntervention('rev', 'Revenue'), makeIntervention('staff', 'Staffing')] })
     render(<OptionPreview options={[optA, optB]} hasSameLeversCheck />)
+    // Post-deploy correction P0 #1 / #3: overlap label lives in the
+    // collapsed-state markup only. Default is now expanded, so collapse.
+    collapseOptionPreview()
     const el = screen.getByTestId('option-preview-overlap-factors')
     expect(el).toHaveTextContent('All options route through Revenue.')
   })
@@ -385,6 +403,7 @@ describe('OptionPreview — sharedFactorLabels (Brief 5.3 Task 3)', () => {
     const optB = makeOption({ id: 'b', label: 'B', interventions: [makeIntervention('mkt', 'Marketing'), makeIntervention('prod', 'Product')] })
     const optC = makeOption({ id: 'c', label: 'C', interventions: [makeIntervention('mkt', 'Marketing'), makeIntervention('prod', 'Product'), makeIntervention('hr', 'HR')] })
     render(<OptionPreview options={[optA, optB, optC]} hasSameLeversCheck />)
+    collapseOptionPreview()
     const el = screen.getByTestId('option-preview-overlap-factors')
     // Intl.ListFormat('en-GB', conjunction): 2 items → "A and B", 3+ → "A, B, and C"
     expect(el).toHaveTextContent('All options route through Marketing and Product.')

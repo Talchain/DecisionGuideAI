@@ -96,12 +96,12 @@ export const ModelHealthCard = memo(function ModelHealthCard({
   //      deleted in the bias-and-headline brief)
   const coaching = coachingSummary ?? dynamicHeadline ?? null
 
-  // Compact mode (v2 panel): ring + dimension bars + static readiness reframe.
-  // Headline + subline are fixed copy from the pre-analysis-power-v1 brief —
-  // they honestly signal that the model is ready to run a first pass, not
-  // ready to trust the result. Dynamic coaching strings (coachingSummary,
-  // dynamicHeadline) are no longer rendered here; the new sentence is the
-  // single trust-anchor.
+  // Compact mode (v2 panel): ring + dimension bars only. The previous
+  // "Ready for provisional analysis" block beneath the ring duplicated the
+  // intent of the "Strengthen this model before analysis" headline rendered
+  // by `T1DecisionReadinessCard` immediately below, so it has been removed
+  // (pre-analysis-power-v1 correction pass — P0 #4 headline dedupe). The
+  // single intro block lives in `PreAnalysisPanel.tsx`'s narrative slot.
   if (compact) {
     return (
       <div className="space-y-2" data-testid="decision-readiness-card">
@@ -115,14 +115,6 @@ export const ModelHealthCard = memo(function ModelHealthCard({
           testId="model-health-card"
           hideTitle
         />
-        <div data-testid="model-health-card-headline">
-          <p className={`${typography.panelHeader} text-text-header`}>
-            Ready for provisional analysis
-          </p>
-          <p className={`${typography.panelMeta} text-text-light line-clamp-2 mt-0.5`}>
-            Good enough to run, but results will be assumption-led until you confirm the highest-impact inputs.
-          </p>
-        </div>
         {children}
       </div>
     )

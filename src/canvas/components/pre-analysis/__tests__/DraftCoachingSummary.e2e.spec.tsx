@@ -83,9 +83,12 @@ describe('coaching.summary end-to-end (raw response → adapter → applyDraftRe
       />,
     )
     // The dynamic summary is no longer rendered in the pre-analysis hero —
-    // the static reframe is the single trust-anchor for this surface.
+    // and the static "Ready for provisional analysis" block was deduped in
+    // the post-deploy correction pass (P0 #4). The compact ModelHealthCard
+    // now renders ring + dimension bars only; the intro headline lives in
+    // T1DecisionReadinessCard's narrative slot.
     expect(screen.queryByText('You have three options to weigh.')).not.toBeInTheDocument()
-    expect(screen.getByText('Ready for provisional analysis')).toBeInTheDocument()
+    expect(screen.queryByText('Ready for provisional analysis')).not.toBeInTheDocument()
   })
 
   it('does not write coaching_summary when coaching.summary is absent', () => {

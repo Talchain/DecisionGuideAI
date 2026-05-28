@@ -211,9 +211,8 @@ describe('Brief 5.8A D4 — T1 Your options card', () => {
     mockUsePreAnalysisData.mockReturnValue(baseData())
     render(<PreAnalysisPanel onAnalyse={vi.fn()} onSendMessage={sendMessage} />)
 
-    // Expand the card so the explore button mounts
-    const toggle = screen.getByTestId('option-preview-toggle')
-    fireEvent.click(toggle)
+    // Post-deploy correction P0 #1 / #3: OptionPreview defaults to expanded
+    // so the Explore button mounts on render.
     const exploreButton = screen.getByTestId('option-preview-explore-strategies')
     fireEvent.click(exploreButton)
     expect(sendMessage).toHaveBeenCalledTimes(1)
@@ -238,12 +237,12 @@ describe('Brief 5.8A D4 — T1 Your options card', () => {
 })
 
 describe('Brief 5.8A D4 — accessibility', () => {
-  it('toggle button exposes aria-expanded', () => {
+  it('toggle button exposes aria-expanded (defaults to expanded post-deploy correction P0 #3)', () => {
     mockUsePreAnalysisData.mockReturnValue(baseData())
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
     const toggle = screen.getByTestId('option-preview-toggle')
-    expect(toggle.getAttribute('aria-expanded')).toBe('false')
-    fireEvent.click(toggle)
     expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
   })
 })

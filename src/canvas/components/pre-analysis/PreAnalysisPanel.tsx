@@ -598,12 +598,15 @@ function T1ContributionRow({ progress }: { progress: PriorityProgress }) {
         </span>
       </div>
       {/* Single-segment bar — empty at zero (no misleading partial fill), fills
-          as the user confirms priority items. Track uses bg-canvas-fill so
-          the empty state reads unambiguously neutral (the prior
-          bg-panel-border could read as a thin accent line on some themes). */}
+          as the user confirms priority items. Track uses `bg-black/[0.06]`
+          (the Tailwind pattern used elsewhere for neutral overlays — see
+          `BaseNode.tsx` and `ToastContext.tsx`). Earlier cream tokens
+          (`bg-panel-border`, `--surface-canvas-fill`) read as a fill
+          colour against the light panel and the user perceived the empty
+          state as "still has a coloured fill". A neutral track outline
+          token would be ideal once one exists. */}
       <div
-        className="flex h-1.5 w-full rounded-full overflow-hidden"
-        style={{ backgroundColor: 'var(--surface-canvas-fill, #F0EBDD)' }}
+        className="flex h-1.5 w-full rounded-full overflow-hidden bg-black/[0.06]"
         role="img"
         aria-label={`${confirmed} of ${total} priority assumptions confirmed`}
         data-testid="t1-contribution-spectrum"
@@ -822,7 +825,7 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
               Strengthen this model before analysis
             </p>
             <p className={`${typography.panelBody} text-text-light`}>
-              Confirm the inputs most likely to change the result.
+              You can run a first pass now, but confirming the priority assumptions below will make the result more trustworthy.
             </p>
           </div>
         </>
@@ -2196,6 +2199,12 @@ export function PreAnalysisPanel({
               coaching line is still gated inside the component itself. */}
           {data.optionPreviews.length > 0 && (
             <SectionErrorBoundary section="Your options">
+              {/* Post-deploy correction P0 #1: drop
+                  `collapseInterventionsByDefault` so each option's
+                  intervention deltas render under the option name on
+                  first render (no per-option "Show N changes" click).
+                  `opt.interventions` data is already in the payload —
+                  this is a rendering toggle, not a contract change. */}
               <OptionPreview
                 options={data.optionPreviews}
                 onFocusNode={handleFocusNode}
@@ -2203,7 +2212,6 @@ export function PreAnalysisPanel({
                 onHoverLeave={handleHoverClear}
                 onSendMessage={onSendMessage}
                 hasSameLeversCheck={data.qualityChecks.some(c => c.id === 'same_levers')}
-                collapseInterventionsByDefault
               />
             </SectionErrorBoundary>
           )}

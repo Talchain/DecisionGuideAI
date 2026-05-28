@@ -348,7 +348,12 @@ export function OptionPreview({
   hasSameLeversCheck = false,
   collapseInterventionsByDefault = false,
 }: OptionPreviewProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
+  // Default expanded so per-option interventions render under each option
+  // without an extra click (pre-analysis-power-v1 correction pass — P0 #1
+  // restores meaningful option-change rendering by default, and P0 #3
+  // resolves the chevron/content contradiction by making the expanded-state
+  // icon match the visible expanded content).
+  const [isExpanded, setIsExpanded] = useState(true)
 
   if (options.length === 0) return null
 

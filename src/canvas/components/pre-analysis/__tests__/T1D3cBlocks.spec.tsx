@@ -340,6 +340,88 @@ describe('pre-analysis-power-v1 Task 5 — priority-confirmation row (integratio
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
     expect(screen.queryByTestId('t1-contribution-row')).not.toBeInTheDocument()
   })
+
+  // Post-deploy correction P0 #2: at 0 confirmed the bar must render only
+  // the neutral track — no bg-success segment, no legacy three-segment
+  // styling. Guard against a future regression that wires confirmed=0 to
+  // a 0%-width segment which still adds a coloured stripe.
+  it('renders no bg-success segment when confirmed = 0', () => {
+    const verifyItem = (key: string, label: string, targetId: string) => ({
+      key,
+      category: 'verify' as const,
+      label,
+      detail: 'Confirm or edit the AI estimate',
+      focus: { id: targetId, type: 'node' as const, label },
+      action: { kind: 'confirm' as const, label: 'Confirm', targetId, targetType: 'node' as const },
+    })
+    mockNodes = [factor('f1', 'A', 'cee_inference')]
+    mockUsePreAnalysisData.mockReturnValue(baseData({
+      nodesByKind: {
+        goal: [{ id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } }],
+        decision: [],
+        option: [],
+        factor: mockNodes,
+        risk: [],
+        outcome: [],
+      },
+      improvementsByCategory: {
+        fix: [],
+        verify: [verifyItem('v1', 'A', 'f1')],
+        add_evidence: [],
+        strengthen: [],
+      },
+      triageActions: { top3: [verifyItem('v1', 'A', 'f1')], quickFix: [] },
+    }))
+    render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
+    const bar = screen.getByTestId('t1-contribution-spectrum')
+    // No child segments — the bar is the empty neutral track.
+    expect(bar.children.length).toBe(0)
+    expect(bar.querySelector('.bg-success')).toBeNull()
+    // Guard against the legacy three-segment styling re-emerging.
+    expect(bar.querySelector('.bg-info')).toBeNull()
+    expect(bar.querySelector('.bg-warning')).toBeNull()
+  })
+
+  it('renders a bg-success segment proportional to confirmed/total when confirmed > 0', () => {
+    const verifyItem = (key: string, label: string, targetId: string) => ({
+      key,
+      category: 'verify' as const,
+      label,
+      detail: 'Confirm or edit the AI estimate',
+      focus: { id: targetId, type: 'node' as const, label },
+      action: { kind: 'confirm' as const, label: 'Confirm', targetId, targetType: 'node' as const },
+    })
+    mockNodes = [
+      factor('f1', 'A', 'user_confirmed'),
+      factor('f2', 'B', 'cee_inference'),
+    ]
+    mockUsePreAnalysisData.mockReturnValue(baseData({
+      nodesByKind: {
+        goal: [{ id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } }],
+        decision: [],
+        option: [],
+        factor: mockNodes,
+        risk: [],
+        outcome: [],
+      },
+      improvementsByCategory: {
+        fix: [],
+        verify: [verifyItem('v1', 'A', 'f1'), verifyItem('v2', 'B', 'f2')],
+        add_evidence: [],
+        strengthen: [],
+      },
+      triageActions: {
+        top3: [verifyItem('v1', 'A', 'f1'), verifyItem('v2', 'B', 'f2')],
+        quickFix: [],
+      },
+    }))
+    render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
+    const bar = screen.getByTestId('t1-contribution-spectrum')
+    const segment = bar.querySelector('.bg-success') as HTMLElement | null
+    expect(segment).not.toBeNull()
+    // 1 of 2 confirmed → 50% fill width.
+    expect(segment!.style.width).toBe('50%')
+  })
 })
 
 describe('pre-analysis-power-v1 Task 5 — checks footer no longer renders inline verified count', () => {

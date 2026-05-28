@@ -63,7 +63,7 @@ describe('Brief 5.8A D5 — SharpenYourThinking', () => {
     expect(container.firstChild).toBeNull()
   })
 
-  it('renders the bias preview line when at least one trigger exists', () => {
+  it('renders the bias preview line when collapsed and at least one trigger exists', () => {
     render(
       <SharpenYourThinking
         biasTriggers={[trigger({ title: 'Authority bias', subtitle: 'Watch for authority bias on Engineering velocity. Senior stakeholder estimates anchored your figure.' })]}
@@ -74,12 +74,15 @@ describe('Brief 5.8A D5 — SharpenYourThinking', () => {
         onSetTarget={vi.fn()}
       />,
     )
+    // Post-deploy correction P0 #3: defaults to expanded. Collapse to reach
+    // the preview line.
+    fireEvent.click(screen.getByRole('button', { name: /sharpen your thinking/i }))
     const preview = screen.getByTestId('accordion-preview-line')
     expect(preview.textContent).toContain('Authority bias:')
     expect(preview.textContent).toContain('Watch for authority bias on Engineering velocity.')
   })
 
-  it('renders the framing preview when no bias triggers but a framing condition fires', () => {
+  it('renders the framing preview when collapsed and a framing condition fires (no bias)', () => {
     render(
       <SharpenYourThinking
         biasTriggers={[]}
@@ -90,6 +93,7 @@ describe('Brief 5.8A D5 — SharpenYourThinking', () => {
         onSetTarget={vi.fn()}
       />,
     )
+    fireEvent.click(screen.getByRole('button', { name: /sharpen your thinking/i }))
     const preview = screen.getByTestId('accordion-preview-line')
     expect(preview.textContent).toContain('Framing:')
     expect(preview.textContent).toContain('No baseline value set on the goal.')
@@ -106,7 +110,8 @@ describe('Brief 5.8A D5 — SharpenYourThinking', () => {
         onSetTarget={vi.fn()}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: /sharpen your thinking/i }))
+    // Post-deploy correction P0 #3: SharpenYourThinking defaults to
+    // expanded so bias / framing cards are visible without a click.
     // Brief 5.8A post-D7 round 2: bias card testids use a local index now,
     // not trigger.id (which can carry CEE-supplied prefixes). The first
     // bias card is at index 0.
@@ -136,7 +141,8 @@ describe('Brief 5.8A D5 — SharpenYourThinking', () => {
         onSetTarget={vi.fn()}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: /sharpen your thinking/i }))
+    // Post-deploy correction P0 #3: SharpenYourThinking defaults to
+    // expanded so bias / framing cards are visible without a click.
     // Bias cards mount under the new index-based testid.
     expect(screen.getByTestId('sharpen-bias-0')).toBeInTheDocument()
     expect(screen.getByTestId('sharpen-bias-1')).toBeInTheDocument()
@@ -160,7 +166,8 @@ describe('Brief 5.8A D5 — SharpenYourThinking', () => {
         onSetTarget={vi.fn()}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: /sharpen your thinking/i }))
+    // Post-deploy correction P0 #3: SharpenYourThinking defaults to
+    // expanded so bias / framing cards are visible without a click.
     // Match the bias card testids (sharpen-bias-{index}) and framing card
     // testids (sharpen-framing-{kind}) — at most 4 cards rendered total
     // because TOTAL_CARD_BUDGET caps the merged list.
@@ -180,7 +187,8 @@ describe('Brief 5.8A D5 — SharpenYourThinking', () => {
         onSetTarget={vi.fn()}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: /sharpen your thinking/i }))
+    // Post-deploy correction P0 #3: SharpenYourThinking defaults to
+    // expanded so bias / framing cards are visible without a click.
     const card = screen.getByTestId('sharpen-framing-no_baseline')
     fireEvent.click(within(card).getByRole('button', { name: 'Set current value' }))
     expect(onSetCurrentValue).toHaveBeenCalledTimes(1)
@@ -198,13 +206,14 @@ describe('Brief 5.8A D5 — SharpenYourThinking', () => {
         onSetTarget={onSetTarget}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: /sharpen your thinking/i }))
+    // Post-deploy correction P0 #3: SharpenYourThinking defaults to
+    // expanded so bias / framing cards are visible without a click.
     const card = screen.getByTestId('sharpen-framing-no_target')
     fireEvent.click(within(card).getByRole('button', { name: 'Set target' }))
     expect(onSetTarget).toHaveBeenCalledTimes(1)
   })
 
-  it('exposes aria-expanded on the trigger', () => {
+  it('defaults to expanded so the chevron matches the visible content (post-deploy correction P0 #3)', () => {
     render(
       <SharpenYourThinking
         biasTriggers={[trigger()]}
@@ -216,7 +225,12 @@ describe('Brief 5.8A D5 — SharpenYourThinking', () => {
       />,
     )
     const button = screen.getByRole('button', { name: /sharpen your thinking/i })
+    // Defaults to expanded (chevron-down + content visible).
+    expect(button.getAttribute('aria-expanded')).toBe('true')
+    // Click toggles to collapsed.
+    fireEvent.click(button)
     expect(button.getAttribute('aria-expanded')).toBe('false')
+    // Click again returns to expanded.
     fireEvent.click(button)
     expect(button.getAttribute('aria-expanded')).toBe('true')
   })
@@ -258,7 +272,8 @@ describe('Brief 5.8A D5 — SharpenYourThinking', () => {
         onSetTarget={vi.fn()}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: /sharpen your thinking/i }))
+    // Post-deploy correction P0 #3: SharpenYourThinking defaults to
+    // expanded so bias / framing cards are visible without a click.
     const html = container.innerHTML
     expect(html).not.toMatch(/\bfac_/)
     expect(html).not.toMatch(/\bopt_/)
