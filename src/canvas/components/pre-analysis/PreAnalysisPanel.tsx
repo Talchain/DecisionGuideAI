@@ -37,6 +37,7 @@ import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, Frame, ShieldAlert, G
 import { useUIStore } from '@/stores/uiStore'
 import { getCausalEdges } from '../../domain/edgeUtils'
 import type { EdgeData } from '../../domain/edges'
+import type { Edge } from '@xyflow/react'
 import { TriageCard } from '@/components/shared/TriageCard'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { mapImprovementToTriageCard } from './mapImprovementToTriageCard'
@@ -598,15 +599,12 @@ function T1ContributionRow({ progress }: { progress: PriorityProgress }) {
         </span>
       </div>
       {/* Single-segment bar — empty at zero (no misleading partial fill), fills
-          as the user confirms priority items. Track uses `bg-black/[0.06]`
-          (the Tailwind pattern used elsewhere for neutral overlays — see
-          `BaseNode.tsx` and `ToastContext.tsx`). Earlier cream tokens
-          (`bg-panel-border`, `--surface-canvas-fill`) read as a fill
-          colour against the light panel and the user perceived the empty
-          state as "still has a coloured fill". A neutral track outline
-          token would be ideal once one exists. */}
+          as the user confirms priority items. Track uses the
+          `bg-track-neutral` design-system token (defined in
+          `src/styles/brand.css` as `--track-neutral`), which reads as a
+          clearly neutral container outline against light panels. */}
       <div
-        className="flex h-1.5 w-full rounded-full overflow-hidden bg-black/[0.06]"
+        className="flex h-1.5 w-full rounded-full overflow-hidden bg-track-neutral"
         role="img"
         aria-label={`${confirmed} of ${total} priority assumptions confirmed`}
         data-testid="t1-contribution-spectrum"
@@ -1249,7 +1247,9 @@ export function PreAnalysisPanel({
     const { updateEdgeData } = useCanvasStore.getState()
     // Write weight through updateEdgeData (clamped). Clear strength_mean so
     // computeSignedMean falls through to weight + direction (the canvas schema path).
-    updateEdgeData(edgeId, { weight: value, strength_mean: undefined })
+    // Mark `userReviewedStrength: true` so `buildPriorityProgress` recognises
+    // the edge as confirmed in the top-3 priority counter (pre-analysis-power-v2).
+    updateEdgeData(edgeId, { weight: value, strength_mean: undefined, userReviewedStrength: true })
   }, [])
 
   // Brief 5.8A D3b/D3c — bundle of T1 handlers. Stable identity so the
@@ -1836,8 +1836,8 @@ export function PreAnalysisPanel({
   // confirmed by the user (replaces the previous three-bucket
   // contribution breakdown that ran over ALL factor nodes).
   const priorityProgress = useMemo<PriorityProgress>(
-    () => buildPriorityProgress(unifiedTopThree, data.nodesByKind.factor),
-    [unifiedTopThree, data.nodesByKind.factor],
+    () => buildPriorityProgress(unifiedTopThree, data.nodesByKind.factor, edges),
+    [unifiedTopThree, data.nodesByKind.factor, edges],
   )
 
   // Brief 5.8A holistic-review pass: stable slot ReactNodes for the memoised

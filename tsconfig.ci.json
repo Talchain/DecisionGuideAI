@@ -17,7 +17,20 @@
     "src/components/RunHistoryDrawer.tsx",
     "src/components/RunReportDrawer.tsx",
     "src/v5/**/*.ts",
-    "src/v5/**/*.tsx"
+    "src/v5/**/*.tsx",
+
+    // pre-analysis-power-v2: widen the CI gate to cover the leaf util
+    // files where recent extractions live. Adding broader source globs
+    // here pulls transitive imports (adapters, store, etc.) into the
+    // typecheck and surfaces ~1000 pre-existing errors unrelated to this
+    // work — that needs its own brief. These three utils are leaf-ish
+    // (only import @xyflow/react types) so they typecheck cleanly and
+    // guard the predicates / progress-derivation against
+    // undefined-symbol regressions like the earlier `REVIEWED_SOURCES`
+    // reference.
+    "src/canvas/components/pre-analysis/utils/isReviewedByUser.ts",
+    "src/canvas/components/pre-analysis/utils/isAiSource.ts",
+    "src/canvas/components/pre-analysis/utils/buildPriorityProgress.ts"
   ],
   "exclude": [
     "src/components/teams/**",

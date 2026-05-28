@@ -11,8 +11,8 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import type { Node } from '@xyflow/react'
-import { isReviewedByUser, isReviewedSource } from '../isReviewedByUser'
+import type { Edge, Node } from '@xyflow/react'
+import { isReviewedByUser, isReviewedEdge, isReviewedSource } from '../isReviewedByUser'
 
 const makeNode = (data: Record<string, unknown>): Node => ({
   id: 'n1',
@@ -90,6 +90,37 @@ describe('isReviewedByUser — field-level fallback (addendum Blocking 2)', () =
       observedState: {},
     })
     expect(isReviewedByUser(node)).toBe(false)
+  })
+})
+
+describe('isReviewedEdge — edge-level predicate (pre-analysis-power-v2)', () => {
+  const makeEdge = (data?: Record<string, unknown>): Edge => ({
+    id: 'e1',
+    source: 's',
+    target: 't',
+    data,
+  })
+
+  it('returns true when data.userReviewedStrength === true', () => {
+    expect(isReviewedEdge(makeEdge({ userReviewedStrength: true }))).toBe(true)
+  })
+
+  it('returns false when data.userReviewedStrength is false', () => {
+    expect(isReviewedEdge(makeEdge({ userReviewedStrength: false }))).toBe(false)
+  })
+
+  it('returns false when the marker is absent (legacy edges, fresh-from-CEE)', () => {
+    expect(isReviewedEdge(makeEdge({}))).toBe(false)
+    expect(isReviewedEdge(makeEdge({ weight: 0.7 }))).toBe(false)
+  })
+
+  it('returns false when data itself is undefined', () => {
+    expect(isReviewedEdge(makeEdge())).toBe(false)
+  })
+
+  it('only the literal `true` counts (strict equality, not truthy)', () => {
+    expect(isReviewedEdge(makeEdge({ userReviewedStrength: 1 as unknown as boolean }))).toBe(false)
+    expect(isReviewedEdge(makeEdge({ userReviewedStrength: 'true' as unknown as boolean }))).toBe(false)
   })
 })
 

@@ -223,8 +223,6 @@ describe('PreAnalysisPanel', () => {
       thresholdSourceBadge: null,
       assumptionsLedger: null,
       triageActions: { top3: [], quickFix: [] },
-      actionableCount: 0,
-      addressedActionableCount: 0,
       ...overrides,
     }
   }
@@ -393,8 +391,6 @@ describe('PreAnalysisPanel', () => {
         totalReviewableFactorsCount: 5,
         ceeQuality: { structure: 8 },
         successThreshold: 0.7,
-        addressedActionableCount: 2,
-        actionableCount: 3,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
@@ -562,8 +558,6 @@ describe('PreAnalysisPanel', () => {
       // v2 brief: "Remove '0/N addressed' (redundant with section counts)"
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         evidenceQuality: { level: 'low', ratio: 0.2, nonAiCount: 0, totalCount: 5 },
-        addressedActionableCount: 0,
-        actionableCount: 5,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
@@ -573,8 +567,6 @@ describe('PreAnalysisPanel', () => {
     it('does not show "All addressed" in v2 footer (redundant with section counts)', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         evidenceQuality: { level: 'high', ratio: 1, nonAiCount: 5, totalCount: 5 },
-        addressedActionableCount: 5,
-        actionableCount: 5,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
@@ -855,8 +847,6 @@ describe('PreAnalysisPanel', () => {
         // v2 brief: "Remove '0/N addressed' (redundant with section counts)"
         mockUsePreAnalysisData.mockReturnValue(createMockData({
           evidenceQuality: { level: 'medium', ratio: 0.5, nonAiCount: 2, totalCount: 4 },
-          addressedActionableCount: 2,
-          actionableCount: 4,
         }))
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)

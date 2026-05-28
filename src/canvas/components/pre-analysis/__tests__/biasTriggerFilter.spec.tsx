@@ -170,8 +170,6 @@ const baseData = (): PreAnalysisData => ({
   thresholdSourceBadge: null,
   assumptionsLedger: null,
   triageActions: { top3: [], quickFix: [] },
-  actionableCount: 0,
-  addressedActionableCount: 0,
 })
 
 beforeEach(() => {

@@ -19,7 +19,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import type { Node } from '@xyflow/react'
+import type { Edge, Node } from '@xyflow/react'
 import { buildPriorityProgress } from '../buildPriorityProgress'
 
 const node = (id: string, source: string): Node => ({
@@ -94,23 +94,53 @@ describe('buildPriorityProgress — node entries', () => {
   )
 })
 
-describe('buildPriorityProgress — edge entries (post-deploy denominator alignment)', () => {
+describe('buildPriorityProgress — edge entries (pre-analysis-power-v2: edge predicate landed)', () => {
+  const reviewedEdge = (id: string): Edge => ({
+    id,
+    source: 's',
+    target: 't',
+    data: { userReviewedStrength: true } as Record<string, unknown>,
+  })
+  const unreviewedEdge = (id: string): Edge => ({
+    id,
+    source: 's',
+    target: 't',
+    data: { weight: 0.5 } as Record<string, unknown>,
+  })
+
   it('counts edge entries toward total so denominator matches visible cards', () => {
-    // 1 node confirmed + 1 edge → 1/2. The denominator must equal the
-    // visible card count or viewers see a mystery exclusion.
+    // 1 node confirmed + 1 unreviewed edge → 1/2.
     const factorNodes = [node('n1', 'user_confirmed')]
     const topThree = [nodeEntry('a', 'n1'), edgeEntry('b', 'e1')]
-    expect(buildPriorityProgress(topThree, factorNodes)).toEqual({ confirmed: 1, total: 2 })
+    expect(buildPriorityProgress(topThree, factorNodes, [unreviewedEdge('e1')])).toEqual({ confirmed: 1, total: 2 })
   })
 
-  it('edges count toward total but never toward confirmed (no edge-reviewed predicate yet)', () => {
+  it('counts a reviewed edge toward confirmed (userReviewedStrength === true)', () => {
+    // 1 confirmed node + 1 user-reviewed edge → 2/2.
+    const factorNodes = [node('n1', 'user_confirmed')]
+    const topThree = [nodeEntry('a', 'n1'), edgeEntry('b', 'e1')]
+    expect(
+      buildPriorityProgress(topThree, factorNodes, [reviewedEdge('e1')]),
+    ).toEqual({ confirmed: 2, total: 2 })
+  })
+
+  it('unreviewed edges still count toward total but not confirmed', () => {
     const topThree = [edgeEntry('a', 'e1'), edgeEntry('b', 'e2'), edgeEntry('c', 'e3')]
-    expect(buildPriorityProgress(topThree, [])).toEqual({ confirmed: 0, total: 3 })
+    expect(
+      buildPriorityProgress(topThree, [], [unreviewedEdge('e1'), unreviewedEdge('e2'), unreviewedEdge('e3')]),
+    ).toEqual({ confirmed: 0, total: 3 })
   })
 
-  it('a confirmed node alongside two edges reads 1/3 — top-3 denominator preserved', () => {
+  it('mixed: a confirmed node + 1 reviewed edge + 1 unreviewed edge reads 2/3', () => {
     const factorNodes = [node('n1', 'user_confirmed')]
     const topThree = [nodeEntry('a', 'n1'), edgeEntry('b', 'e1'), edgeEntry('c', 'e2')]
-    expect(buildPriorityProgress(topThree, factorNodes)).toEqual({ confirmed: 1, total: 3 })
+    expect(
+      buildPriorityProgress(topThree, factorNodes, [reviewedEdge('e1'), unreviewedEdge('e2')]),
+    ).toEqual({ confirmed: 2, total: 3 })
+  })
+
+  it('edge entries with no matching id in edges[] count toward total only (defensive)', () => {
+    const topThree = [edgeEntry('a', 'missing-edge-id')]
+    expect(buildPriorityProgress(topThree, [], [])).toEqual({ confirmed: 0, total: 1 })
   })
 })

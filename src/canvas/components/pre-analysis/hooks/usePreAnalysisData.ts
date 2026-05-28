@@ -43,9 +43,15 @@ import { diversifyTriageItems } from '../utils/diversifyTriageItems'
 // and the pre-analysis priority-progress counter (`buildPriorityProgress`)
 // share one `observed_state.source ∈ user_*` contract — no drift.
 import { isReviewedByUser } from '../utils/isReviewedByUser'
+// `isAiSourceFromNode` extracted to ../utils/isAiSource.ts; mirrors the
+// isReviewedByUser pattern. Field-level fallback fixes the legacy
+// object-level `observed_state ?? observedState` bug that produced
+// silent false negatives when an empty snake-case shell existed.
+import { isAiSourceFromNode } from '../utils/isAiSource'
 import type { DiversifiedTriage } from '../utils/diversifyTriageItems'
-// Import expertise groups for actionableCount computation
-import { deriveExpertiseGroups } from './deriveExpertiseGroups'
+// `deriveExpertiseGroups` import removed alongside the actionableCount
+// derivation in pre-analysis-power-v2. The util file itself is kept —
+// other test specs still exercise it directly.
 
 // ============================================================================
 // ISL inference warning labels (Task 8)
@@ -271,10 +277,6 @@ export interface PreAnalysisData {
   totalReviewableFactorsCount: number
   /** Diversified triage actions: top 3 from unique source factors + quick-fix overflow */
   triageActions: DiversifiedTriage
-  /** Count of actionable items (contested + AI-estimated + missing-data) */
-  actionableCount: number
-  /** Count of actionable items user has addressed (confirmed/resolved) */
-  addressedActionableCount: number
   /** Enriched blockers from usePreRunValidation, sorted by priority */
   enrichedBlockers: EnrichedBlocker[]
   /** Informational (non-blocking) items like constraint_dropped — shown but don't prevent run */
@@ -344,32 +346,13 @@ function getNodeLabel(node: Node): string {
  * Blocklist approach — everything NOT listed is treated as non-AI. Keeping both
  * isAiInferred and isAiSource routed through the same Set prevents drift.
  */
-const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred', 'engine', 'ai_estimate'])
-
-/**
- * Check if a factor has AI-inferred source (used by the verify section and
- * the "Not set" / isInferred detection path).
- */
-function isAiInferred(node: Node): boolean {
-  // Check both snake_case (observed_state) and camelCase (observedState) for compatibility
-  // DraftChat stores as observedState, but tests and CEE response may use observed_state
-  const data = node.data as { observed_state?: { source?: string }; observedState?: { source?: string }; source?: string }
-  const observedState = data?.observed_state ?? data?.observedState
-  const source = observedState?.source ?? data?.source
-  return source !== undefined && AI_SOURCES.has(source)
-}
-
-/**
- * Check if a factor has AI-inferred source (used by evidence quality scoring).
- */
-function isAiSource(node: Node): boolean {
-  // Check both snake_case (observed_state) and camelCase (observedState) for compatibility
-  const data = node.data as { observed_state?: { source?: string }; observedState?: { source?: string }; source?: string }
-  const observedState = data?.observed_state ?? data?.observedState
-  const source = observedState?.source ?? data?.source
-  // Only explicit AI sources return true; undefined/unknown = NOT AI
-  return source !== undefined && AI_SOURCES.has(source)
-}
+// pre-analysis-power-v2: `AI_SOURCES` and the inline `isAiInferred` /
+// `isAiSource` predicates were extracted to ../utils/isAiSource.ts.
+// They were functionally identical and both carried the legacy
+// object-level fallback bug fixed there.
+// Local references below now use the node-level helper.
+const isAiInferred = isAiSourceFromNode
+const isAiSource = isAiSourceFromNode
 
 
 /**
@@ -1158,37 +1141,11 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     return ei ? new Map(Object.entries(ei)) : undefined
   }, [preAnalysisSensitivity?.edge_influence])
 
-  const { actionableCount, addressedActionableCount } = useMemo(() => {
-    const groups = deriveExpertiseGroups(
-      improvementsByCategory,
-      contestedEdges,
-      nodes,
-      edges,
-      factorInfluenceMap,
-      edgeInfluenceMap,
-    )
-    // Count addressed actionable items:
-    // - AI-estimated/missing-data factors: addressed when source is user_confirmed/user_assumption/user_override
-    // - Contested edges: addressed when user_action is set on validation metadata
-    let addressed = 0
-    for (const item of groups.aiEstimated) {
-      if (item.focus?.type === 'node') {
-        const node = nodes.find(n => n.id === item.focus!.id)
-        if (node && isReviewedByUser(node)) addressed++
-      }
-    }
-    for (const item of groups.missingData) {
-      if (item.focus?.type === 'node') {
-        const node = nodes.find(n => n.id === item.focus!.id)
-        if (node && isReviewedByUser(node)) addressed++
-      }
-    }
-    for (const ce of contestedEdges) {
-      const val = ce.validation as ValidationMetadata | undefined
-      if (val?.user_action) addressed++
-    }
-    return { actionableCount: groups.actionableCount, addressedActionableCount: addressed }
-  }, [improvementsByCategory, contestedEdges, nodes, edges, factorInfluenceMap, edgeInfluenceMap])
+  // pre-analysis-power-v2: `actionableCount` / `addressedActionableCount`
+  // derivation removed alongside the StickyFooter "N/M addressed" counter
+  // that was its sole consumer. The single source-of-truth confirmation
+  // counter now lives in `buildPriorityProgress` (top-3 only).
+
 
   // Input confidence (formerly evidence quality)
   // Formula: nonAiFactors / totalFactors
@@ -1968,8 +1925,6 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     reviewedFactorsCount,
     totalReviewableFactorsCount,
     triageActions,
-    actionableCount,
-    addressedActionableCount,
     enrichedBlockers,
     informationalBlockers,
     modelAdjustments,

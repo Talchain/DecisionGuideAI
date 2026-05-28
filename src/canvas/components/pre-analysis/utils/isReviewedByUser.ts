@@ -45,7 +45,7 @@
  *   `isReviewedSource`. Use this when you only have a node in hand.
  */
 
-import type { Node } from '@xyflow/react'
+import type { Edge, Node } from '@xyflow/react'
 
 const REVIEWED_SOURCES = new Set<string>([
   'user_confirmed',
@@ -75,4 +75,23 @@ export function isReviewedByUser(node: Node): boolean {
   const source =
     data?.observed_state?.source ?? data?.observedState?.source ?? data?.source
   return isReviewedSource(source)
+}
+
+/**
+ * isReviewedEdge — edge-level "user has judged this relationship" predicate.
+ *
+ * Returns true when the edge's `data.userReviewedStrength === true`. This
+ * marker is set by the pre-analysis Weak / Moderate / Strong quick-select
+ * (`handleUpdateEdgeStrength` in `PreAnalysisPanel.tsx`). The field is
+ * UI-only — preserved through the EdgeData schema's `passthrough()`
+ * parser, not forwarded to PLoT/CEE wire formats.
+ *
+ * Symmetric counterpart to `isReviewedByUser` for the
+ * `buildPriorityProgress` counter — so an edge in the top-3 can now
+ * count toward `confirmed` once the user picks a strength, instead of
+ * being permanently denominator-only.
+ */
+export function isReviewedEdge(edge: Edge): boolean {
+  const data = edge.data as { userReviewedStrength?: boolean } | undefined
+  return data?.userReviewedStrength === true
 }

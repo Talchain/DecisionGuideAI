@@ -1,8 +1,9 @@
-import { memo, useCallback } from 'react'
+import { memo, useCallback, useEffect } from 'react'
 import { ExternalLink } from 'lucide-react'
 import { typo } from '../../styles/typography'
 import { useConversationContext } from '../conversation/ConversationContext'
 import { ConversationPanel } from '../conversation/ConversationPanel'
+import { useGuidanceStore } from '../stores/guidanceStore'
 
 interface OlumiTabBodyProps {
   /** Opens the floating Olumi panel for the user (manual float-out from
@@ -29,6 +30,27 @@ interface OlumiTabBodyProps {
 export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabBodyProps) {
   const conversation = useConversationContext()
   const realMessageCount = conversation.messages.filter((m) => !m.synthetic).length
+
+  // pre-analysis-power-v2 fix: register minimal guidance-store callbacks
+  // (sendMessage + prefillChat) at the OlumiTabBody level so consumers
+  // like `DiscussWithAiButton` (the priority-card sparkles in the
+  // Analysis tab) work without requiring ConversationPanel to be mounted.
+  // Before this fix, the empty-conversation early return below kept
+  // ConversationPanel unmounted; its `registerConversationCallbacks`
+  // useEffect never fired; sparkles rendered `null` on first load.
+  // ConversationPanel still re-registers the full callback set
+  // (sendChip / runAnalysis / scrollToPatch / dispatchAction) once it
+  // mounts via the populated branch — that overwrite is idempotent.
+  const { sendMessage, setDraft } = conversation
+  useEffect(() => {
+    useGuidanceStore.setState({
+      _sendMessage: sendMessage,
+      _prefillChat: (text: string) => setDraft(text),
+    })
+    // No cleanup: OlumiTabBody stays mounted across tab switches (visibility
+    // toggled via the parent `hidden` class), so the callbacks should
+    // persist for the duration of the canvas session.
+  }, [sendMessage, setDraft])
 
   const handleCollapse = useCallback(() => {
     // The dock's own collapse button handles this; ChatTopBar is hidden anyway.

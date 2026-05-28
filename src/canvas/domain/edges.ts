@@ -257,12 +257,21 @@ export const EdgeDataSchema = z.object({
 }).passthrough() // CIL 0.2: passthrough preserves additive CIL fields through Zod parse
 
 /**
- * EdgeData with typed validation metadata overlay.
- * The Zod infer type carries validation as `unknown`; this intersection
+ * EdgeData with typed validation metadata overlay and pre-analysis-only
+ * user-review marker.
+ *
+ * The Zod infer type carries `validation` as `unknown`; this intersection
  * provides the concrete type for UI code.
+ *
+ * `userReviewedStrength` is a UI-only marker set by the pre-analysis
+ * priority quick-select (Weak / Moderate / Strong) so the
+ * `buildPriorityProgress` counter can recognise edges the user has
+ * judged. Preserved through the schema's `passthrough()` parser; not
+ * forwarded to PLoT/CEE wire formats.
  */
 export type EdgeData = z.infer<typeof EdgeDataSchema> & {
   validation?: ValidationMetadata
+  userReviewedStrength?: boolean
 }
 
 /**

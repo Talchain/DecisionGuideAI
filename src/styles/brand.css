@@ -84,6 +84,12 @@
   /* Border emphasis (stronger than --border-default) */
   --border-emphasis: #DDD4C4;
 
+  /* Neutral track fill (for empty progress-bar tracks and similar
+     "outline of a container" surfaces). Reads as clearly neutral
+     against light panels — distinct from --border-default which
+     resolves to a sandy cream and can be misread as a filled colour. */
+  --track-neutral: rgba(0, 0, 0, 0.06);
+
   /* ============================================
      NODE-SPECIFIC COLORS
      ============================================ */

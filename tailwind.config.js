@@ -53,6 +53,11 @@ export default {
           emphasis: 'var(--border-emphasis)',
         },
 
+        // Neutral track fill (empty progress bars, container outlines)
+        track: {
+          neutral: 'var(--track-neutral)',
+        },
+
         // Legacy neutral (for gradual migration)
         ink: {
           900: 'var(--text-header)',
