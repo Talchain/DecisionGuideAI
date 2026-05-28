@@ -38,6 +38,15 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
   // Before this fix, the empty-conversation early return below kept
   // ConversationPanel unmounted; its `registerConversationCallbacks`
   // useEffect never fired; sparkles rendered `null` on first load.
+  //
+  // `realMessageCount` is in the dep array so the effect re-runs when
+  // the conversation transitions populated → empty (clearHistory,
+  // scenario reset, hydration failure). ConversationPanel's cleanup
+  // nulls the callbacks on unmount; this effect re-registers them on
+  // the same render pass. React runs the child-cleanup before the
+  // parent-effect-setup when deps change, so the end state is always
+  // "registered" while OlumiTabBody is mounted.
+  //
   // ConversationPanel still re-registers the full callback set
   // (sendChip / runAnalysis / scrollToPatch / dispatchAction) once it
   // mounts via the populated branch — that overwrite is idempotent.
@@ -50,7 +59,7 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
     // No cleanup: OlumiTabBody stays mounted across tab switches (visibility
     // toggled via the parent `hidden` class), so the callbacks should
     // persist for the duration of the canvas session.
-  }, [sendMessage, setDraft])
+  }, [sendMessage, setDraft, realMessageCount])
 
   const handleCollapse = useCallback(() => {
     // The dock's own collapse button handles this; ChatTopBar is hidden anyway.

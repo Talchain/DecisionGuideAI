@@ -337,20 +337,17 @@ function getNodeLabel(node: Node): string {
 }
 
 /**
- * AI sources blocklist — shared by isAiInferred and isAiSource.
+ * AI-source predicates — single source of truth lives in
+ * `../utils/isAiSource.ts`. Do NOT re-derive the source list here —
+ * `AI_SOURCES`, the field-level fallback chain, and the disjoint-with-
+ * `REVIEWED_SOURCES` guarantee are all locked in that module's tests.
  *
- * Canonical source types for observed_state.source (from CEE/adapters):
- * - AI sources: 'ai' | 'cee_inference' | 'inferred' | 'engine' | 'ai_estimate'
- * - Non-AI sources: 'brief_extraction', 'user', 'user_confirmed', 'user_assumption', 'default', undefined
- *
- * Blocklist approach — everything NOT listed is treated as non-AI. Keeping both
- * isAiInferred and isAiSource routed through the same Set prevents drift.
+ * `isAiInferred` and `isAiSource` were functionally identical inline
+ * predicates carrying the legacy object-level fallback bug. They are
+ * now thin local aliases over the shared `isAiSourceFromNode` helper —
+ * kept under their original names so existing call sites in this hook
+ * read unchanged.
  */
-// pre-analysis-power-v2: `AI_SOURCES` and the inline `isAiInferred` /
-// `isAiSource` predicates were extracted to ../utils/isAiSource.ts.
-// They were functionally identical and both carried the legacy
-// object-level fallback bug fixed there.
-// Local references below now use the node-level helper.
 const isAiInferred = isAiSourceFromNode
 const isAiSource = isAiSourceFromNode
 

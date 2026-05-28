@@ -144,3 +144,47 @@ describe('buildPriorityProgress — edge entries (pre-analysis-power-v2: edge pr
     expect(buildPriorityProgress(topThree, [], [])).toEqual({ confirmed: 0, total: 1 })
   })
 })
+
+describe('buildPriorityProgress — malformed entries (missing action / targetId)', () => {
+  it('counts entries with no action at all toward total only', () => {
+    // Defensive: a queue entry whose card carries no `action` field
+    // (e.g. an informational item that slipped into the top-3) still
+    // contributes to the visible denominator so the counter matches
+    // the rendered card count.
+    const topThree = [{ card: { /* action omitted */ } }]
+    expect(buildPriorityProgress(topThree, [], [])).toEqual({ confirmed: 0, total: 1 })
+  })
+
+  it('counts node entries with missing targetId toward total only', () => {
+    const factorNodes = [node('n1', 'user_confirmed')]
+    const topThree = [
+      { card: { action: { targetType: 'node' as const /* targetId omitted */ } } },
+      nodeEntry('b', 'n1'),
+    ]
+    expect(buildPriorityProgress(topThree, factorNodes, [])).toEqual({ confirmed: 1, total: 2 })
+  })
+
+  it('counts edge entries with missing targetId toward total only', () => {
+    const topThree = [
+      { card: { action: { targetType: 'edge' as const /* targetId omitted */ } } },
+    ]
+    expect(buildPriorityProgress(topThree, [], [])).toEqual({ confirmed: 0, total: 1 })
+  })
+
+  it('counts entries with an action but no targetType toward total only', () => {
+    const topThree = [
+      { card: { action: { targetId: 'whatever' /* targetType omitted */ } } },
+    ]
+    expect(buildPriorityProgress(topThree, [], [])).toEqual({ confirmed: 0, total: 1 })
+  })
+
+  it('mixed malformed + valid entries — total counts every visible card, confirmed counts only resolvable', () => {
+    const factorNodes = [node('n1', 'user_confirmed')]
+    const topThree = [
+      { card: {} }, // no action
+      { card: { action: {} } }, // empty action
+      nodeEntry('c', 'n1'), // valid + confirmed
+    ]
+    expect(buildPriorityProgress(topThree, factorNodes, [])).toEqual({ confirmed: 1, total: 3 })
+  })
+})
