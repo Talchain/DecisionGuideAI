@@ -61,11 +61,12 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: F
   // Round-12: during the first-use generating window (user submitted a
   // brief, no graph yet) the composer freezes, its placeholder swaps to
   // "Generating your decision model…", and the chromeless hero would
-  // otherwise sit silent. Render the existing ThinkingIndicator (six
+  // otherwise sit silent. Overlay the existing ThinkingIndicator (six
   // node shapes pulsing in a horizontal wave — main → light → main, 3s
-  // loop, 0.5s stagger) below the composer so the user has visual
-  // evidence Olumi is working on it. The indicator unmounts as soon as
-  // the first graph appears (nodeCount > 0 → hero unmounts entirely).
+  // loop, 0.5s stagger) on top of the composer so the user has visual
+  // evidence Olumi is working on it and doesn't try to type. The
+  // indicator unmounts as soon as the first graph appears (nodeCount > 0
+  // → hero unmounts entirely).
   const isGenerating = isThinking && nodeCount === 0
 
   const isOpen = useFloatingPanelState((s) => s.isOpen)
@@ -232,7 +233,7 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: F
         style={{ height: 'auto' }}
         draggable={false}
       />
-      <div className="w-full max-w-2xl">
+      <div className="relative w-full max-w-2xl">
         <AIInputBar
           ref={inputBarRef}
           variant="welcome"
@@ -243,15 +244,25 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: F
           testId="first-use-input-bar"
           onAfterSend={handleAfterSend}
         />
+        {isGenerating ? (
+          // Overlay positioned to mirror the welcome variant's known
+          // geometry: pr-24 (96px) matches AIInputBar's icon-stack inset
+          // (cog + send) so the shapes never collide with them; pt-9
+          // (36px = 8 outer pt-2 + 8 textarea py-2 + 18 line-height +
+          // 2 gap) drops the shape row onto line 2 of the textbox,
+          // immediately below the "Generating your decision model…"
+          // placeholder. If the welcome variant's padding or line
+          // height ever changes in AIInputBar, update these classes.
+          <div
+            role="status"
+            aria-live="polite"
+            data-testid="first-use-thinking"
+            className="pointer-events-none absolute inset-0 flex items-start justify-center pt-9 pr-24"
+          >
+            <ThinkingIndicator />
+          </div>
+        ) : null}
       </div>
-      {isGenerating ? (
-        <div
-          aria-live="polite"
-          data-testid="first-use-thinking"
-        >
-          <ThinkingIndicator />
-        </div>
-      ) : null}
     </div>,
     document.body,
   )
