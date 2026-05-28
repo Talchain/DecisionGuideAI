@@ -91,7 +91,7 @@ function HeroInputRow({ row, dispatchRowAction, chatPrefillAvailable }: HeroInpu
             </p>
           </div>
           <p
-            className={`${typography.panelBody} text-text-body line-clamp-2`}
+            className={`${typography.panelBody} text-text-body line-clamp-2 break-words`}
             data-testid="hero-v17-row-reason"
           >
             {row.reason}

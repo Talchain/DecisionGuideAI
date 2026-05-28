@@ -78,7 +78,7 @@ export function HeroFooter({ alsoLinks, footerCta, onAlsoClick, onCtaClick, chat
               <button
                 type="button"
                 onClick={() => onAlsoClick(link)}
-                className="text-text-body hover:text-info focus-visible:outline-none focus-visible:underline cursor-pointer"
+                className="text-text-body hover:text-info focus-visible:outline-none focus-visible:underline cursor-pointer break-words text-left"
               >
                 {link.label}
               </button>
@@ -92,7 +92,7 @@ export function HeroFooter({ alsoLinks, footerCta, onAlsoClick, onCtaClick, chat
           <button
             type="button"
             onClick={onCtaClick}
-            className={`px-3 py-1.5 rounded-full bg-primary text-text-on-color border border-primary hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info ${typography.panelMeta} font-medium flex-shrink-0`}
+            className={`px-3 py-1.5 rounded-full bg-primary text-text-on-color border border-primary hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info ${typography.panelMeta} font-medium flex-shrink-0 break-words`}
             data-testid="hero-v17-footer-cta"
           >
             {ctaLabel}

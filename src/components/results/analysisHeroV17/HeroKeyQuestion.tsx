@@ -51,7 +51,7 @@ export function HeroKeyQuestion({ keyQuestion, onPrefillChat, chatPrefillAvailab
         )}
       </div>
       <p
-        className={`${typography.panelHeader} text-text-header`}
+        className={`${typography.panelHeader} text-text-header line-clamp-2 break-words`}
         data-testid="hero-v17-key-question-text"
       >
         {keyQuestion.text}
@@ -66,7 +66,7 @@ export function HeroKeyQuestion({ keyQuestion, onPrefillChat, chatPrefillAvailab
               key={chip}
               type="button"
               onClick={() => onPrefillChat(`${keyQuestion.text} My answer: ${chip}`)}
-              className={`px-2 py-0.5 rounded-full border border-panel-border bg-transparent ${typography.panelMeta} text-text-body hover:border-info hover:text-info focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
+              className={`px-2 py-0.5 rounded-full border border-panel-border bg-transparent ${typography.panelMeta} text-text-body hover:border-info hover:text-info focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info break-words`}
             >
               {chip}
             </button>
@@ -76,7 +76,7 @@ export function HeroKeyQuestion({ keyQuestion, onPrefillChat, chatPrefillAvailab
       {expanded && keyQuestion.extras.length > 0 && (
         <div className="flex flex-col gap-1.5 pt-1.5 border-t border-panel-border" data-testid="hero-v17-extra-questions">
           {keyQuestion.extras.map((q, i) => (
-            <p key={i} className={`${typography.panelBody} text-text-body`}>{q}</p>
+            <p key={i} className={`${typography.panelBody} text-text-body break-words`}>{q}</p>
           ))}
         </div>
       )}

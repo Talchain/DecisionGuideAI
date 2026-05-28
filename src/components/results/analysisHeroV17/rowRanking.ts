@@ -167,8 +167,19 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): HeroRow | null {
   const rawLabel = fragile.fromLabel
   const title = verbLeadTitle('risk', rawLabel)
   const { band, width } = bandFromVoi(0.6) // fragile edges are inherently high-priority
-  // Short, complete sentence — kept from earlier rounds.
-  const reason = 'Check this first. It could change the result.'
+  // V17 power pass (2026-05-27): the earlier generic reason
+  //   "Check this first. It could change the result."
+  // read as "this is the most important factor", which conflicts with the
+  // hero's dependency line ("The result depends most on {dominant factor}")
+  // whenever the fragile-edge factor differs from the dominant driver.
+  // Naming the factor and the consequence explicitly disambiguates the
+  // fragility signal from the dominance signal: this row is about what
+  // happens if THIS particular factor's estimate shifts, not about it
+  // being the strongest cause. The dominant driver still surfaces on the
+  // dependency line above.
+  const trimmedLabel = (rawLabel ?? '').trim()
+  const safeFromLabel = trimmedLabel ? safeRowLabel(trimmedLabel, 'this factor') : 'this factor'
+  const reason = `If ${safeFromLabel} changes, the leading option could change.`
   return {
     key: `risk-${fragile.fromId}`,
     title,

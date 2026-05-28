@@ -67,6 +67,7 @@ import {
   type CoverageSignals,
 } from './canvasSignals'
 import { stripEncodingNotation } from '../utils/cleanFactorLabel'
+import { shouldSoftenPhrasing } from '../utils/certaintyCopy'
 import type {
   AnalysisHeroVM,
   DimensionSegment,
@@ -156,6 +157,23 @@ function buildResultLine(data: ResultsSectionDataReturn): string {
   const winner = data?.recommendation?.recommendedOption
   if (!winner) return 'No option currently comes out ahead clearly.'
   const label = safeLabel(winner.label, 'The leading option')
+  // V17 power pass (2026-05-27): when the same softening gate the
+  // AnalysisFooter uses (`shouldSoftenPhrasing`: tier ∈ {needs_work, fair}
+  // AND stability < 0.85) fires AND a fragile edge is present, append a
+  // clarifying clause so the hero headline no longer reads as
+  // unconditional. Without this, a 74% stability + fragile-edge case
+  // shows "X comes out ahead most often." at the top of the panel while
+  // the footer says "Stability sensitive" — the two surfaces contradict.
+  // Gate reuses certaintyCopy.shouldSoftenPhrasing so the hero and the
+  // footer share the exact same threshold.
+  const tier = data?.confidence?.tier?.tier
+  const stability = data?.recommendation?.recommendationStability
+  const hasFragile = !!(
+    data?.confidence?.topFragileEdge ?? data?.confidence?.m1CoachingTopFragileEdge
+  )
+  if (shouldSoftenPhrasing(tier, stability ?? undefined) && hasFragile) {
+    return `${label} comes out ahead most often, but the result is sensitive to assumptions.`
+  }
   return `${label} comes out ahead most often.`
 }
 

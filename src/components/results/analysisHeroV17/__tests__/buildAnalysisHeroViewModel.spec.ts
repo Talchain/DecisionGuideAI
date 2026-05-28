@@ -39,6 +39,12 @@ function makeData(overrides: {
   reviewStatus?: string
   /** Drivers list for dependency-line corroboration. */
   drivers?: DriverItem[]
+  /**
+   * Confidence tier override for stability/sensitivity tests. Defaults to
+   * 'fair' to match the pre-existing fixture; pass 'strong' to verify the
+   * result line skips the sensitivity nuance.
+   */
+  tier?: 'strong' | 'fair' | 'needs_work' | 'unknown'
 } = {}): ResultsSectionDataReturn {
   const winner = overrides.winnerLabel === null
     ? null
@@ -58,8 +64,9 @@ function makeData(overrides: {
     coachingReadinessDimensions: overrides.dimensions ?? { evidence: 0.6, robustness: 0.7, clarity: 0.65 },
   } as DecisionResultData
 
+  const tierValue = overrides.tier ?? 'fair'
   const confidence: ConfidenceSectionData = {
-    tier: { tier: 'fair', icon: 'AlertTriangle', label: 'Fair', description: 'd' },
+    tier: { tier: tierValue, icon: 'AlertTriangle', label: tierValue, description: 'd' },
     qualityScore: 60,
     uncertainties: [],
     topUncertainties: [],
@@ -531,10 +538,96 @@ describe('buildAnalysisHeroViewModel', () => {
   })
 
   describe('result + reason + dependency lines', () => {
-    it('result line uses winner label with "comes out ahead most often" framing', () => {
+    it('result line uses winner label with "comes out ahead most often" framing — strong tier, no nuance', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
-        data: makeData({ winnerLabel: 'Tech Lead' }),
+        data: makeData({ winnerLabel: 'Tech Lead', tier: 'strong', stability: 0.9 }),
+        vm: makeVm(),
+      })
+      expect(vm.resultLine).toBe('Tech Lead comes out ahead most often.')
+    })
+
+    it('result line appends sensitivity nuance when softening gate fires AND a fragile edge exists (V17 power pass 2026-05-27)', () => {
+      // Codex review case: 74% stability + fair tier + topFragileEdge.
+      // shouldSoftenPhrasing returns true (tier ∈ {fair, needs_work} AND
+      // stability < 0.85); fragile-edge presence completes the gate. The
+      // hero headline must NOT read as unconditional when downstream
+      // signals say the result is sensitive.
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({
+          winnerLabel: 'Tech Lead',
+          tier: 'fair',
+          stability: 0.74,
+          fragile: {
+            fromId: 'n_h',
+            fromLabel: 'Hiring rate',
+            toId: 'n_o',
+            toLabel: 'Outcome',
+            switchProbability: 0.42,
+            alternativeWinnerLabel: 'Two Developers',
+          } as FragileEdgeItem,
+        }),
+        vm: makeVm(),
+      })
+      expect(vm.resultLine).toBe('Tech Lead comes out ahead most often, but the result is sensitive to assumptions.')
+    })
+
+    it('result line nuance is suppressed when stability is high (≥ 0.85), even with a fragile edge', () => {
+      // Robust analysis: stability above the softening threshold → no
+      // nuance regardless of fragile-edge presence.
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({
+          winnerLabel: 'Tech Lead',
+          tier: 'fair',
+          stability: 0.9,
+          fragile: {
+            fromId: 'n_h',
+            fromLabel: 'Hiring rate',
+            toId: 'n_o',
+            toLabel: 'Outcome',
+            switchProbability: 0.42,
+            alternativeWinnerLabel: 'Two Developers',
+          } as FragileEdgeItem,
+        }),
+        vm: makeVm(),
+      })
+      expect(vm.resultLine).toBe('Tech Lead comes out ahead most often.')
+    })
+
+    it('result line nuance is suppressed when tier is strong, even with low stability + fragile edge', () => {
+      // Strong tier short-circuits the softening gate.
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({
+          winnerLabel: 'Tech Lead',
+          tier: 'strong',
+          stability: 0.5,
+          fragile: {
+            fromId: 'n_h',
+            fromLabel: 'Hiring rate',
+            toId: 'n_o',
+            toLabel: 'Outcome',
+            switchProbability: 0.42,
+            alternativeWinnerLabel: 'Two Developers',
+          } as FragileEdgeItem,
+        }),
+        vm: makeVm(),
+      })
+      expect(vm.resultLine).toBe('Tech Lead comes out ahead most often.')
+    })
+
+    it('result line nuance is suppressed when no fragile edge is present, even under a sensitive tier+stability combo', () => {
+      // shouldSoftenPhrasing alone is not enough — without a concrete
+      // fragile signal there is no actionable nuance to surface.
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({
+          winnerLabel: 'Tech Lead',
+          tier: 'fair',
+          stability: 0.6,
+        }),
         vm: makeVm(),
       })
       expect(vm.resultLine).toBe('Tech Lead comes out ahead most often.')

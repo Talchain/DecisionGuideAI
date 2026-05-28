@@ -307,18 +307,21 @@ describe('rowRanking — P1.4: row chatPrompts use safe fallback for banned labe
     expect(row.chatPrompt).toContain('this factor')
   })
 
-  it('fragile edge row with banned-term fromLabel → reason is the action-oriented copy (no interpolation of the user label)', () => {
+  it('fragile edge row with banned-term fromLabel → reason swaps to the generic fallback ("this factor"), no upstream label leak', () => {
+    // 'graph' is a banned glossary term — the full label "graph traversal
+    // cost" therefore trips safeRowLabel, which returns the fallback
+    // "this factor" before interpolation. The rendered reason then names
+    // a safe stand-in instead of the user data. (V17 power pass 2026-05-27:
+    // the reason now names the factor specifically when safe; the
+    // banned-term path falls back to the generic phrase.)
     const data = makeData({ fragileFromLabel: 'graph traversal cost' })
     const rows = rankHeroRows(data, 'moderate')
     const riskRow = rows.find(r => r.category === 'risk')
     expect(riskRow).toBeTruthy()
-    // The risk row's reason no longer interpolates the upstream factor
-    // label at all — it's a static action-oriented one-liner. So the
-    // banned-term issue is moot by construction.
+    // Upstream label MUST NOT appear in the rendered reason.
     expect(riskRow!.reason.toLowerCase()).not.toContain('graph traversal')
-    // Polish-pass: shortened to single sentence that fits one rendered
-    // line. The priority bar already shows the band, so no lede.
-    expect(riskRow!.reason).toBe('Check this first. It could change the result.')
+    // Exact fallback copy.
+    expect(riskRow!.reason).toBe('If this factor changes, the leading option could change.')
     // chatPrompt still uses safeRowLabel, so the banned-term label
     // becomes "this factor" in generated copy.
     expect(riskRow!.chatPrompt.toLowerCase()).not.toContain('graph traversal')
@@ -430,7 +433,11 @@ describe('AnalysisHeroV17 — polish pass: fragile/risk row rendered DOM', () =>
     useCanvasStore.setState({ nodes: [], confirmedNodeIds: new Set<string>() })
   })
 
-  it('top-ranked risk row renders the short reason verbatim with no ellipsis', () => {
+  it('top-ranked risk row renders the factor-specific reason verbatim with no ellipsis', () => {
+    // V17 power pass (2026-05-27): the risk-row reason now names the
+    // factor explicitly so users don't conflate fragility with dominance.
+    // The earlier "Check this first. It could change the result." was
+    // generic and read like a dominance claim.
     const { container } = render(
       <AnalysisHeroV17
         data={makeData({ stability: 0.7, fragileFromLabel: 'Technical Leadership Capacity' })}
@@ -439,8 +446,10 @@ describe('AnalysisHeroV17 — polish pass: fragile/risk row rendered DOM', () =>
       />,
     )
     const text = container.textContent ?? ''
-    expect(text).toContain('Check this first. It could change the result.')
-    // Anti-drift on the previous longer copy that caused the truncation.
+    expect(text).toContain('If Technical Leadership Capacity changes, the leading option could change.')
+    // Anti-drift on the previous shorter copy.
+    expect(text).not.toContain('Check this first. It could change the result.')
+    // Anti-drift on the older longer copy that caused the truncation.
     expect(text).not.toContain('Highest-priority assumption')
     expect(text).not.toContain('Most likely to change which option leads')
     // Anti-drift on text-level ellipsis (CSS line-clamp uses '…' as the

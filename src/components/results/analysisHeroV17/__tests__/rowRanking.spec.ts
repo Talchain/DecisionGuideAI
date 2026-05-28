@@ -205,7 +205,7 @@ describe('rankHeroRows', () => {
 })
 
 describe('rankHeroRows — polish pass: fragile/risk row shape', () => {
-  it('fragile/risk row reason is the short final copy with no priority lede', () => {
+  it('fragile/risk row reason names the factor explicitly to disambiguate from dominance signal (V17 power pass 2026-05-27)', () => {
     const rows = rankHeroRows(
       makeData({
         fragile: { fromId: 'n_f', fromLabel: 'Hiring rate', alternativeWinnerLabel: 'Option B' },
@@ -214,15 +214,70 @@ describe('rankHeroRows — polish pass: fragile/risk row shape', () => {
     )
     const riskRow = rows.find(r => r.category === 'risk')
     expect(riskRow).toBeTruthy()
-    // Exact rendered string — the priority bar already shows "High", so
-    // the `High evidence priority. ` lede that `buildReason` would have
-    // prepended is deliberately suppressed for this row to avoid mid-
-    // sentence truncation at current panel width.
-    expect(riskRow!.reason).toBe('Check this first. It could change the result.')
+    // New factor-specific copy: makes it clear Row 1 is about result
+    // fragility when THIS factor shifts — not about being the strongest
+    // driver. The earlier generic "Check this first" left the framing
+    // ambiguous and conflicted with the hero's dependency line whenever
+    // the fragile factor differs from the dominant one.
+    expect(riskRow!.reason).toBe('If Hiring rate changes, the leading option could change.')
+    // Anti-drift on the prior copy + glossary regressions.
+    expect(riskRow!.reason).not.toContain('Check this first')
     expect(riskRow!.reason).not.toContain('evidence priority')
-    // Anti-drift on the prior copy.
     expect(riskRow!.reason).not.toContain('Highest-priority assumption')
     expect(riskRow!.reason).not.toContain('Most likely to change')
+    expect(riskRow!.reason).not.toMatch(/winner|winning|recommendation/i)
+  })
+
+  it('fragile/risk row reason falls back to "this factor" when the upstream label is empty or whitespace-only', () => {
+    const empty = rankHeroRows(
+      makeData({ fragile: { fromId: 'n_f', fromLabel: '', alternativeWinnerLabel: 'B' } }),
+      'moderate',
+    )
+    expect(empty.find(r => r.category === 'risk')!.reason)
+      .toBe('If this factor changes, the leading option could change.')
+    const whitespace = rankHeroRows(
+      makeData({ fragile: { fromId: 'n_f', fromLabel: '   ', alternativeWinnerLabel: 'B' } }),
+      'moderate',
+    )
+    expect(whitespace.find(r => r.category === 'risk')!.reason)
+      .toBe('If this factor changes, the leading option could change.')
+  })
+
+  it('fragile/risk row reason swaps a banned-term label for the generic fallback', () => {
+    // safeRowLabel filters banned glossary terms (e.g. "winning") and
+    // substitutes the generic phrase before interpolation, so the rendered
+    // copy never amplifies a forbidden term.
+    const rows = rankHeroRows(
+      makeData({
+        fragile: { fromId: 'n_f', fromLabel: 'the winning team', alternativeWinnerLabel: 'B' },
+      }),
+      'moderate',
+    )
+    const riskRow = rows.find(r => r.category === 'risk')
+    expect(riskRow).toBeTruthy()
+    expect(riskRow!.reason).toBe('If this factor changes, the leading option could change.')
+  })
+
+  it('fixture: when Row 1 is a fragile-edge factor and the dominant driver is different, Row 1 reason MUST name the fragile factor — not imply dominance', () => {
+    // Canonical fixture matching the Codex review concern: fragile-edge
+    // factor = Hiring rate (Row 1), dominant driver = Technical Leadership.
+    // The hero surfaces the dominant driver separately via the dependency
+    // line; Row 1's reason must read as fragility, not dominance.
+    const rows = rankHeroRows(
+      makeData({
+        fragile: { fromId: 'n_hiring', fromLabel: 'Hiring rate', alternativeWinnerLabel: 'Two Developers' },
+        gaps: [gap('Salary Cost', 'n_sal', 0.6), gap('Technical Leadership', 'n_tl', 0.4)],
+      }),
+      'moderate',
+    )
+    expect(rows[0].category).toBe('risk')
+    expect(rows[0].title).toBe('Verify Hiring rate')
+    expect(rows[0].reason).toBe('If Hiring rate changes, the leading option could change.')
+    // Critically: the reason text must NOT imply "main driver".
+    expect(rows[0].reason.toLowerCase()).not.toContain('dominant')
+    expect(rows[0].reason.toLowerCase()).not.toContain('most important')
+    expect(rows[0].reason.toLowerCase()).not.toContain('main driver')
+    expect(rows[0].reason.toLowerCase()).not.toContain('strongest')
   })
 
   it('fragile/risk row action set drops the Plus (add) icon', () => {

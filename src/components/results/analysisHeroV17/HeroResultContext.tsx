@@ -25,16 +25,20 @@ interface Props {
 }
 
 export function HeroResultContext({ resultLine, dependencyLine }: Props) {
+  // V17 power pass (2026-05-27): `break-words` prevents mid-word truncation
+  // when the result/dependency line includes long CEE-emitted user labels
+  // (e.g. URL-like factor names) at narrow panel widths. No clamp — these
+  // are short single sentences and should wrap naturally.
   return (
     <section
       className="flex flex-col gap-1"
       aria-label="Result context"
       data-testid="hero-v17-result-context"
     >
-      <p className={`${typography.panelHeader} text-text-header`}>{resultLine}</p>
+      <p className={`${typography.panelHeader} text-text-header break-words`}>{resultLine}</p>
       {dependencyLine && (
         <p
-          className={`${typography.panelBody} text-text-body`}
+          className={`${typography.panelBody} text-text-body break-words`}
           data-testid="hero-v17-dependency-line"
         >
           {dependencyLine}
