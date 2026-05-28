@@ -727,7 +727,7 @@ describe('buildAnalysisHeroViewModel', () => {
       const row1 = vm.inputRows[0]
       expect(row1.category).toBe('risk')
       expect(row1.title).toBe('Verify Hiring rate')
-      expect(row1.reason).toBe('If the estimate for Hiring rate changes, the leading option could change.')
+      expect(row1.reason).toBe('If the estimate changes for Hiring rate, the leading option could change.')
     })
 
     it('hero result line carries the sensitivity nuance (74% stability + fragile + fair tier)', () => {

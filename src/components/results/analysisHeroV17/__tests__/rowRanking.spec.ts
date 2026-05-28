@@ -214,15 +214,19 @@ describe('rankHeroRows — polish pass: fragile/risk row shape', () => {
     )
     const riskRow = rows.find(r => r.category === 'risk')
     expect(riskRow).toBeTruthy()
-    // Codex round-3 P2 #4: verb is anchored on `estimate`, not on the
-    // user label, so labels that themselves end in "changes" / "shifts"
-    // never produce mid-sentence repetition.
-    expect(riskRow!.reason).toBe('If the estimate for Hiring rate changes, the leading option could change.')
-    // Anti-drift on the prior copy + glossary regressions.
+    // Codex round-4 P2 #1: the label is the final noun phrase, so it
+    // can NEVER land adjacent to the verb. Earlier forms ("If {label}
+    // changes" and "If the estimate for {label} changes") both produced
+    // mid-sentence "changes changes" repetition for labels ending in
+    // "changes".
+    expect(riskRow!.reason).toBe('If the estimate changes for Hiring rate, the leading option could change.')
+    // Anti-drift on every prior copy + glossary regressions.
     expect(riskRow!.reason).not.toContain('Check this first')
     expect(riskRow!.reason).not.toContain('evidence priority')
     expect(riskRow!.reason).not.toContain('Highest-priority assumption')
     expect(riskRow!.reason).not.toContain('Most likely to change')
+    expect(riskRow!.reason).not.toContain('If Hiring rate changes')
+    expect(riskRow!.reason).not.toContain('If the estimate for Hiring rate changes')
     expect(riskRow!.reason).not.toMatch(/winner|winning|recommendation/i)
   })
 
@@ -232,13 +236,13 @@ describe('rankHeroRows — polish pass: fragile/risk row shape', () => {
       'moderate',
     )
     expect(empty.find(r => r.category === 'risk')!.reason)
-      .toBe('If the estimate for this factor changes, the leading option could change.')
+      .toBe('If the estimate changes for this factor, the leading option could change.')
     const whitespace = rankHeroRows(
       makeData({ fragile: { fromId: 'n_f', fromLabel: '   ', alternativeWinnerLabel: 'B' } }),
       'moderate',
     )
     expect(whitespace.find(r => r.category === 'risk')!.reason)
-      .toBe('If the estimate for this factor changes, the leading option could change.')
+      .toBe('If the estimate changes for this factor, the leading option could change.')
   })
 
   it('fragile/risk row reason swaps a banned-term label for the generic fallback', () => {
@@ -253,27 +257,31 @@ describe('rankHeroRows — polish pass: fragile/risk row shape', () => {
     )
     const riskRow = rows.find(r => r.category === 'risk')
     expect(riskRow).toBeTruthy()
-    expect(riskRow!.reason).toBe('If the estimate for this factor changes, the leading option could change.')
+    expect(riskRow!.reason).toBe('If the estimate changes for this factor, the leading option could change.')
   })
 
-  it('fragile/risk row reason structure is robust to labels that themselves end in "changes" / "shifts" (Codex round-3 P2 #4)', () => {
-    // Awkward label that previously would have read "If hiring changes
-    // changes, ..." — now parses cleanly because `estimate` is the
-    // grammatical subject of the verb. We are NOT trying to make the
-    // sentence pretty for every conceivable label, just to prevent
-    // mid-sentence verb repetition.
-    const rows = rankHeroRows(
-      makeData({
-        fragile: { fromId: 'n_x', fromLabel: 'hiring changes', alternativeWinnerLabel: 'B' },
-      }),
-      'moderate',
-    )
-    const riskRow = rows.find(r => r.category === 'risk')!
-    expect(riskRow.reason).toBe('If the estimate for hiring changes changes, the leading option could change.')
-    // Critical regression: the reason MUST NOT collapse into "If hiring
-    // changes, the leading option could change." which would silently
-    // truncate the user label.
-    expect(riskRow.reason).toContain('hiring changes changes')
+  it('fragile/risk row reason is structurally free of "changes changes" / "shifts shifts" adjacency, even for labels that end in those verbs (Codex round-4 P2 #1)', () => {
+    // Awkward labels: "hiring changes", "salary shifts", "weekly changes"
+    // — all previously produced mid-sentence verb repetition. The new
+    // copy puts the label at the END of the clause as the object of `for`,
+    // so no word ever sits next to the verb. The label is preserved
+    // verbatim — we never silently truncate user data.
+    const labels = ['hiring changes', 'salary shifts', 'weekly changes', 'changes']
+    for (const label of labels) {
+      const rows = rankHeroRows(
+        makeData({
+          fragile: { fromId: 'n_x', fromLabel: label, alternativeWinnerLabel: 'B' },
+        }),
+        'moderate',
+      )
+      const riskRow = rows.find(r => r.category === 'risk')!
+      expect(riskRow.reason).toBe(`If the estimate changes for ${label}, the leading option could change.`)
+      // The label must appear verbatim — no silent truncation.
+      expect(riskRow.reason).toContain(label)
+      // Critical regression: no adjacent-word repetition of the verb.
+      expect(riskRow.reason).not.toMatch(/changes\s+changes/)
+      expect(riskRow.reason).not.toMatch(/shifts\s+shifts/)
+    }
   })
 
   it('fixture: when Row 1 is a fragile-edge factor and the dominant driver is different, Row 1 reason MUST name the fragile factor — not imply dominance', () => {
@@ -291,7 +299,7 @@ describe('rankHeroRows — polish pass: fragile/risk row shape', () => {
     )
     expect(rows[0].category).toBe('risk')
     expect(rows[0].title).toBe('Verify Hiring rate')
-    expect(rows[0].reason).toBe('If the estimate for Hiring rate changes, the leading option could change.')
+    expect(rows[0].reason).toBe('If the estimate changes for Hiring rate, the leading option could change.')
     // Critically: the reason text must NOT imply "main driver".
     expect(rows[0].reason.toLowerCase()).not.toContain('dominant')
     expect(rows[0].reason.toLowerCase()).not.toContain('most important')

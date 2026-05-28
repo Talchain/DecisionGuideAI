@@ -174,17 +174,20 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): HeroRow | null {
   // whenever the fragile-edge factor differs from the dominant driver.
   // Naming the factor and the consequence explicitly disambiguates the
   // fragility signal from the dominance signal: this row is about what
-  // happens if the estimate for THIS particular factor shifts, not about
-  // it being the strongest cause. The dominant driver still surfaces on
-  // the dependency line above.
+  // happens if the estimate shifts, not about THIS factor being the
+  // strongest cause. The dominant driver still surfaces on the dependency
+  // line above.
   //
-  // (Codex round-3 P2 #4): the verb is anchored on `estimate` rather than
-  // on the user label so a label that itself ends in "changes" / "shifts"
-  // doesn't produce mid-sentence repetition. The structure parses cleanly
-  // even for awkward labels because `estimate` is the unambiguous subject.
+  // (Codex round-4 P2 #1): the label now sits as the object of `for` at
+  // the end of the clause, so no word ever lands adjacent to the verb.
+  // Earlier forms ("If {label} changes, ..." and "If the estimate for
+  // {label} changes, ...") both produced mid-sentence repetition for
+  // labels that themselves end in "changes" or "shifts" (e.g. "hiring
+  // changes"). With the verb leading and the label trailing, the awkward
+  // adjacency is structurally impossible.
   const trimmedLabel = (rawLabel ?? '').trim()
   const safeFromLabel = trimmedLabel ? safeRowLabel(trimmedLabel, 'this factor') : 'this factor'
-  const reason = `If the estimate for ${safeFromLabel} changes, the leading option could change.`
+  const reason = `If the estimate changes for ${safeFromLabel}, the leading option could change.`
   return {
     key: `risk-${fragile.fromId}`,
     title,

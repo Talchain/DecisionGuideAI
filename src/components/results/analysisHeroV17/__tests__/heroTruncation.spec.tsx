@@ -8,6 +8,26 @@
  * Scope is the hero subtree ONLY — lower-section truncation (e.g. the
  * dominant-factor nudge `truncate min-w-0 flex-1` row) is intentionally
  * NOT touched by this pass. These tests do NOT mount TriageActionCardsBody.
+ *
+ * ── Testing-environment limitation (acknowledged) ─────────────────────────
+ * These assertions check CSS class **presence** + the **absence** of
+ * conflicting classes (e.g. `flex-shrink-0` next to `max-w-full`).  jsdom
+ * does NOT compute layout — `offsetWidth`, flex shrink/grow, overflow,
+ * and `getBoundingClientRect` are all faked. A real "does the CTA actually
+ * wrap inside a 240px container?" test requires Playwright or another
+ * browser-driven runner (out of scope for this unit-spec).
+ *
+ * What the class contract DOES guarantee:
+ *   - Future edits that drop `max-w-full`, `whitespace-normal`, `text-left`,
+ *     or `break-words` from the CTA fail this spec immediately.
+ *   - Future edits that re-introduce `flex-shrink-0` to the CTA fail.
+ *   - The wrapper's `min-w-0` (which lets the flex container actually
+ *     shrink its child) is asserted at the parent element level.
+ *
+ * What the class contract does NOT guarantee:
+ *   - That a sufficiently long CTA label visually wraps without overflow
+ *     in a real browser. Visual confirmation lives in the
+ *     post-deploy staging walkthrough or a future Playwright e2e.
  */
 
 import '@testing-library/jest-dom/vitest'

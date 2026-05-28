@@ -318,8 +318,8 @@ describe('rowRanking — P1.4: row chatPrompts use safe fallback for banned labe
     expect(riskRow).toBeTruthy()
     // Upstream label MUST NOT appear in the rendered reason.
     expect(riskRow!.reason.toLowerCase()).not.toContain('graph traversal')
-    // Exact fallback copy (Codex round-3 P2 #4 form).
-    expect(riskRow!.reason).toBe('If the estimate for this factor changes, the leading option could change.')
+    // Exact fallback copy (Codex round-4 P2 #1 form — label trailing).
+    expect(riskRow!.reason).toBe('If the estimate changes for this factor, the leading option could change.')
     // chatPrompt still uses safeRowLabel, so the banned-term label
     // becomes "this factor" in generated copy.
     expect(riskRow!.chatPrompt.toLowerCase()).not.toContain('graph traversal')
@@ -444,10 +444,11 @@ describe('AnalysisHeroV17 — polish pass: fragile/risk row rendered DOM', () =>
       />,
     )
     const text = container.textContent ?? ''
-    expect(text).toContain('If the estimate for Technical Leadership Capacity changes, the leading option could change.')
-    // Anti-drift on the previous shorter copy.
+    expect(text).toContain('If the estimate changes for Technical Leadership Capacity, the leading option could change.')
+    // Anti-drift on every previous copy form.
     expect(text).not.toContain('Check this first. It could change the result.')
     expect(text).not.toContain('If Technical Leadership Capacity changes, the leading option could change.')
+    expect(text).not.toContain('If the estimate for Technical Leadership Capacity changes, the leading option could change.')
     // Anti-drift on the older longer copy that caused the truncation.
     expect(text).not.toContain('Highest-priority assumption')
     expect(text).not.toContain('Most likely to change which option leads')
