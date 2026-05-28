@@ -138,7 +138,7 @@ describe('Hero text truncation — break-words / line-clamp guardrails', () => {
       }
     })
 
-    it('footer CTA carries break-words', () => {
+    it('footer CTA carries the full wrap contract — max-w-full, whitespace-normal, text-left, break-words; NO flex-shrink-0 (Codex round-3 P1 #1)', () => {
       render(
         <HeroFooter
           alsoLinks={LINKS}
@@ -149,7 +149,32 @@ describe('Hero text truncation — break-words / line-clamp guardrails', () => {
         />,
       )
       const cta = screen.getByTestId('hero-v17-footer-cta')
+      // break-words alone is insufficient: without max-w-full the button
+      // keeps its content width, and without whitespace-normal the
+      // browser may not insert wrap opportunities at spaces. text-left
+      // makes wrapped lines readable. flex-shrink-0 MUST be absent so
+      // the parent flex container can actually shrink the child.
       expect(cta.className).toContain('break-words')
+      expect(cta.className).toContain('max-w-full')
+      expect(cta.className).toContain('whitespace-normal')
+      expect(cta.className).toContain('text-left')
+      expect(cta.className).not.toContain('flex-shrink-0')
+    })
+
+    it('footer CTA wrapper carries min-w-0 so the flex container shrinks long buttons (Codex round-3 P1 #1)', () => {
+      render(
+        <HeroFooter
+          alsoLinks={LINKS}
+          footerCta={CTA}
+          onAlsoClick={() => {}}
+          onCtaClick={() => {}}
+          chatPrefillAvailable
+        />,
+      )
+      // The CTA wrapper is the immediate parent of the button.
+      const wrapper = screen.getByTestId('hero-v17-footer-cta').parentElement
+      expect(wrapper).not.toBeNull()
+      expect(wrapper!.className).toContain('min-w-0')
     })
   })
 })

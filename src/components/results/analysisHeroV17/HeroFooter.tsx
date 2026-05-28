@@ -88,11 +88,20 @@ export function HeroFooter({ alsoLinks, footerCta, onAlsoClick, onCtaClick, chat
         </div>
       )}
       {showCta && (
-        <div className="flex items-center justify-end">
+        // V17 power pass (Codex round-3 P1 #1): the CTA can become
+        // "Focus {very-long-target-label}" when chat is closed in moderate
+        // state. Without these constraints `break-words` cannot help
+        // because `flex-shrink-0` keeps the button at its content width
+        // and the surrounding `justify-end` flex container overflows.
+        // `min-w-0` lets the wrapper actually shrink its child; the
+        // button itself drops `flex-shrink-0` and gains `max-w-full
+        // whitespace-normal text-left` so long labels wrap on word
+        // boundaries inside the rounded-full chrome.
+        <div className="flex items-center justify-end min-w-0">
           <button
             type="button"
             onClick={onCtaClick}
-            className={`px-3 py-1.5 rounded-full bg-primary text-text-on-color border border-primary hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info ${typography.panelMeta} font-medium flex-shrink-0 break-words`}
+            className={`px-3 py-1.5 rounded-full bg-primary text-text-on-color border border-primary hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info ${typography.panelMeta} font-medium max-w-full whitespace-normal text-left break-words`}
             data-testid="hero-v17-footer-cta"
           >
             {ctaLabel}

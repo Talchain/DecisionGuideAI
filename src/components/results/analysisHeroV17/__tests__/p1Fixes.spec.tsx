@@ -311,17 +311,15 @@ describe('rowRanking — P1.4: row chatPrompts use safe fallback for banned labe
     // 'graph' is a banned glossary term — the full label "graph traversal
     // cost" therefore trips safeRowLabel, which returns the fallback
     // "this factor" before interpolation. The rendered reason then names
-    // a safe stand-in instead of the user data. (V17 power pass 2026-05-27:
-    // the reason now names the factor specifically when safe; the
-    // banned-term path falls back to the generic phrase.)
+    // a safe stand-in instead of the user data.
     const data = makeData({ fragileFromLabel: 'graph traversal cost' })
     const rows = rankHeroRows(data, 'moderate')
     const riskRow = rows.find(r => r.category === 'risk')
     expect(riskRow).toBeTruthy()
     // Upstream label MUST NOT appear in the rendered reason.
     expect(riskRow!.reason.toLowerCase()).not.toContain('graph traversal')
-    // Exact fallback copy.
-    expect(riskRow!.reason).toBe('If this factor changes, the leading option could change.')
+    // Exact fallback copy (Codex round-3 P2 #4 form).
+    expect(riskRow!.reason).toBe('If the estimate for this factor changes, the leading option could change.')
     // chatPrompt still uses safeRowLabel, so the banned-term label
     // becomes "this factor" in generated copy.
     expect(riskRow!.chatPrompt.toLowerCase()).not.toContain('graph traversal')
@@ -446,9 +444,10 @@ describe('AnalysisHeroV17 — polish pass: fragile/risk row rendered DOM', () =>
       />,
     )
     const text = container.textContent ?? ''
-    expect(text).toContain('If Technical Leadership Capacity changes, the leading option could change.')
+    expect(text).toContain('If the estimate for Technical Leadership Capacity changes, the leading option could change.')
     // Anti-drift on the previous shorter copy.
     expect(text).not.toContain('Check this first. It could change the result.')
+    expect(text).not.toContain('If Technical Leadership Capacity changes, the leading option could change.')
     // Anti-drift on the older longer copy that caused the truncation.
     expect(text).not.toContain('Highest-priority assumption')
     expect(text).not.toContain('Most likely to change which option leads')

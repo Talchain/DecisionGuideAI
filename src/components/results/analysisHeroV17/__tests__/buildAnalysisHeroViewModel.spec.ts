@@ -45,6 +45,14 @@ function makeData(overrides: {
    * result line skips the sensitivity nuance.
    */
   tier?: 'strong' | 'fair' | 'needs_work' | 'unknown'
+  /**
+   * Dominant-factor recommendation fields used by `buildDependencyLine`.
+   * Set BOTH alongside a corroborating `drivers[]` whose rank-1 element
+   * has the same `factorKey` and a credible `influenceScore` (>= 0.5) so
+   * the dependency-line gate at buildAnalysisHeroViewModel:211 passes.
+   */
+  dominantFactorId?: string
+  dominantFactorLabel?: string
 } = {}): ResultsSectionDataReturn {
   const winner = overrides.winnerLabel === null
     ? null
@@ -62,6 +70,8 @@ function makeData(overrides: {
     analysisStatus: 'computed',
     recommendationStability: overrides.stability,
     coachingReadinessDimensions: overrides.dimensions ?? { evidence: 0.6, robustness: 0.7, clarity: 0.65 },
+    dominantFactorId: overrides.dominantFactorId,
+    dominantFactorLabel: overrides.dominantFactorLabel,
   } as DecisionResultData
 
   const tierValue = overrides.tier ?? 'fair'
@@ -631,6 +641,113 @@ describe('buildAnalysisHeroViewModel', () => {
         vm: makeVm(),
       })
       expect(vm.resultLine).toBe('Tech Lead comes out ahead most often.')
+    })
+
+    it('result line nuance fires when stability is missing AND tier is fair AND a fragile edge exists — footer parity (Codex round-3 P2 #2)', () => {
+      // shouldSoftenPhrasing treats null/undefined stability as weak (see
+      // certaintyCopy:120). This means a bundle that lacks a numeric
+      // stability value still produces "Stability sensitive" downstream
+      // when paired with a soft tier. Documenting that the hero matches
+      // the footer's behaviour here so any future tightening is a
+      // deliberate, jointly-applied change.
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({
+          winnerLabel: 'Tech Lead',
+          tier: 'fair',
+          stability: undefined,
+          fragile: {
+            fromId: 'n_h',
+            fromLabel: 'Hiring rate',
+            toId: 'n_o',
+            toLabel: 'Outcome',
+            switchProbability: 0.42,
+            alternativeWinnerLabel: 'Two Developers',
+          } as FragileEdgeItem,
+        }),
+        vm: makeVm(),
+      })
+      expect(vm.resultLine).toBe('Tech Lead comes out ahead most often, but the result is sensitive to assumptions.')
+    })
+  })
+
+  describe('Codex canonical fixture: dependency line vs Row 1 are independent signals (round-3 P2 #1)', () => {
+    // Lock the contract that drives Fix 2's UX claim. With a corroborated
+    // dominant-driver (Technical Leadership) AND a fragile-edge factor
+    // (Hiring rate), the hero must:
+    //   - render the dominant driver via the dependency line, AND
+    //   - surface the fragile factor as Row 1 with the fragility-framed
+    //     reason (not the dominance-implying generic copy).
+    // The two signals are orthogonal; neither overrides the other.
+    function makeCanonicalFixture(): ResultsSectionDataReturn {
+      // Drivers: rank-1 = Technical Leadership (the dominant factor, with
+      // a credible absolute influenceScore that passes the >=0.5 gate);
+      // rank-2 = Hiring rate (corroboration that the dominance is real,
+      // top1/top2 normalisedInfluence ratio is well above 2:1 anyway).
+      const drivers = [
+        makeDriver('n_tl', 'Technical Leadership', 1.0, { rank: 1, influenceScore: 0.85 }),
+        makeDriver('n_hiring', 'Hiring rate', 0.45, { rank: 2 }),
+      ]
+      return makeData({
+        winnerLabel: 'Tech Lead',
+        stability: 0.74,
+        tier: 'fair',
+        drivers,
+        dominantFactorId: 'n_tl',
+        dominantFactorLabel: 'Technical Leadership',
+        fragile: {
+          fromId: 'n_hiring',
+          fromLabel: 'Hiring rate',
+          toId: 'n_o',
+          toLabel: 'Outcome',
+          switchProbability: 0.42,
+          alternativeWinnerLabel: 'Two Developers',
+        } as FragileEdgeItem,
+      })
+    }
+
+    it('dependency line names the dominant driver (Technical Leadership)', () => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeCanonicalFixture(),
+        vm: makeVm(),
+      })
+      expect(vm.dependencyLine).not.toBeNull()
+      expect(vm.dependencyLine).toContain('Technical Leadership')
+      expect(vm.dependencyLine!.toLowerCase()).toContain('depends most on')
+    })
+
+    it('Row 1 stays the fragility-led check on Hiring rate with the new factor-specific reason', () => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeCanonicalFixture(),
+        vm: makeVm(),
+      })
+      expect(vm.inputRows.length).toBeGreaterThan(0)
+      const row1 = vm.inputRows[0]
+      expect(row1.category).toBe('risk')
+      expect(row1.title).toBe('Verify Hiring rate')
+      expect(row1.reason).toBe('If the estimate for Hiring rate changes, the leading option could change.')
+    })
+
+    it('hero result line carries the sensitivity nuance (74% stability + fragile + fair tier)', () => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeCanonicalFixture(),
+        vm: makeVm(),
+      })
+      expect(vm.resultLine).toBe('Tech Lead comes out ahead most often, but the result is sensitive to assumptions.')
+    })
+
+    it('Row 1 reason MUST NOT reference Technical Leadership — the dominant signal lives on the dependency line, not on Row 1', () => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeCanonicalFixture(),
+        vm: makeVm(),
+      })
+      const row1 = vm.inputRows[0]
+      expect(row1.reason).not.toContain('Technical Leadership')
+      expect(row1.title).not.toContain('Technical Leadership')
     })
 
     it('reason line derived from topFragileEdge stays on the VM (rendered in Row 1, not result context)', () => {

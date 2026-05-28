@@ -214,12 +214,10 @@ describe('rankHeroRows — polish pass: fragile/risk row shape', () => {
     )
     const riskRow = rows.find(r => r.category === 'risk')
     expect(riskRow).toBeTruthy()
-    // New factor-specific copy: makes it clear Row 1 is about result
-    // fragility when THIS factor shifts — not about being the strongest
-    // driver. The earlier generic "Check this first" left the framing
-    // ambiguous and conflicted with the hero's dependency line whenever
-    // the fragile factor differs from the dominant one.
-    expect(riskRow!.reason).toBe('If Hiring rate changes, the leading option could change.')
+    // Codex round-3 P2 #4: verb is anchored on `estimate`, not on the
+    // user label, so labels that themselves end in "changes" / "shifts"
+    // never produce mid-sentence repetition.
+    expect(riskRow!.reason).toBe('If the estimate for Hiring rate changes, the leading option could change.')
     // Anti-drift on the prior copy + glossary regressions.
     expect(riskRow!.reason).not.toContain('Check this first')
     expect(riskRow!.reason).not.toContain('evidence priority')
@@ -234,13 +232,13 @@ describe('rankHeroRows — polish pass: fragile/risk row shape', () => {
       'moderate',
     )
     expect(empty.find(r => r.category === 'risk')!.reason)
-      .toBe('If this factor changes, the leading option could change.')
+      .toBe('If the estimate for this factor changes, the leading option could change.')
     const whitespace = rankHeroRows(
       makeData({ fragile: { fromId: 'n_f', fromLabel: '   ', alternativeWinnerLabel: 'B' } }),
       'moderate',
     )
     expect(whitespace.find(r => r.category === 'risk')!.reason)
-      .toBe('If this factor changes, the leading option could change.')
+      .toBe('If the estimate for this factor changes, the leading option could change.')
   })
 
   it('fragile/risk row reason swaps a banned-term label for the generic fallback', () => {
@@ -255,14 +253,35 @@ describe('rankHeroRows — polish pass: fragile/risk row shape', () => {
     )
     const riskRow = rows.find(r => r.category === 'risk')
     expect(riskRow).toBeTruthy()
-    expect(riskRow!.reason).toBe('If this factor changes, the leading option could change.')
+    expect(riskRow!.reason).toBe('If the estimate for this factor changes, the leading option could change.')
+  })
+
+  it('fragile/risk row reason structure is robust to labels that themselves end in "changes" / "shifts" (Codex round-3 P2 #4)', () => {
+    // Awkward label that previously would have read "If hiring changes
+    // changes, ..." — now parses cleanly because `estimate` is the
+    // grammatical subject of the verb. We are NOT trying to make the
+    // sentence pretty for every conceivable label, just to prevent
+    // mid-sentence verb repetition.
+    const rows = rankHeroRows(
+      makeData({
+        fragile: { fromId: 'n_x', fromLabel: 'hiring changes', alternativeWinnerLabel: 'B' },
+      }),
+      'moderate',
+    )
+    const riskRow = rows.find(r => r.category === 'risk')!
+    expect(riskRow.reason).toBe('If the estimate for hiring changes changes, the leading option could change.')
+    // Critical regression: the reason MUST NOT collapse into "If hiring
+    // changes, the leading option could change." which would silently
+    // truncate the user label.
+    expect(riskRow.reason).toContain('hiring changes changes')
   })
 
   it('fixture: when Row 1 is a fragile-edge factor and the dominant driver is different, Row 1 reason MUST name the fragile factor — not imply dominance', () => {
     // Canonical fixture matching the Codex review concern: fragile-edge
     // factor = Hiring rate (Row 1), dominant driver = Technical Leadership.
     // The hero surfaces the dominant driver separately via the dependency
-    // line; Row 1's reason must read as fragility, not dominance.
+    // line (covered in buildAnalysisHeroViewModel.spec.ts); Row 1's reason
+    // must read as fragility, not dominance.
     const rows = rankHeroRows(
       makeData({
         fragile: { fromId: 'n_hiring', fromLabel: 'Hiring rate', alternativeWinnerLabel: 'Two Developers' },
@@ -272,7 +291,7 @@ describe('rankHeroRows — polish pass: fragile/risk row shape', () => {
     )
     expect(rows[0].category).toBe('risk')
     expect(rows[0].title).toBe('Verify Hiring rate')
-    expect(rows[0].reason).toBe('If Hiring rate changes, the leading option could change.')
+    expect(rows[0].reason).toBe('If the estimate for Hiring rate changes, the leading option could change.')
     // Critically: the reason text must NOT imply "main driver".
     expect(rows[0].reason.toLowerCase()).not.toContain('dominant')
     expect(rows[0].reason.toLowerCase()).not.toContain('most important')
