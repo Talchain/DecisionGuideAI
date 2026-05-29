@@ -140,21 +140,30 @@ function buildReason(
 }
 
 /**
- * Single-row chat prefill — matches the v17 prototype template, glossary-safe.
- * User-supplied labels that trip the scanner are swapped for a generic
- * phrase BEFORE interpolation. The row's own `title` field still preserves
- * the user's exact label — we do not rewrite user data, only the
- * generated prompt that names it.
+ * Trim a user-supplied label, run it through the glossary safeRowLabel
+ * filter, and fall back to a generic phrase when the result is empty or
+ * the input was a banned term. Used by every row builder that interpolates
+ * a user label into generated copy (chatPromptFor, fragileEdgeRow, etc.)
+ * so the trim+fallback+glossary chain stays in one place.
  *
- * Defensive guard (2026-05-21 self-review): trim the label and fall back
- * to the generic phrase when the cleaned label is empty. `safeRowLabel`
- * only filters banned terms, so whitespace-only inputs would otherwise
- * pass through and produce `"Help me with    ."`.
+ * Without the trim guard, whitespace-only inputs would slip past
+ * `safeRowLabel` (which only filters banned terms) and produce strings
+ * like `"Help me with    ."`.
+ */
+function safeOrFallback(label: string | null | undefined, fallback = 'this factor'): string {
+  const trimmed = (label ?? '').trim()
+  return trimmed ? safeRowLabel(trimmed, fallback) : fallback
+}
+
+/**
+ * Single-row chat prefill — matches the v17 prototype template, glossary-safe.
+ * User-supplied labels that trip the scanner are swapped for the generic
+ * phrase via `safeOrFallback` BEFORE interpolation. The row's own `title`
+ * field still preserves the user's exact label — we do not rewrite user
+ * data, only the generated prompt that names it.
  */
 function chatPromptFor(title: string, fallback = 'this factor'): string {
-  const trimmed = (title ?? '').trim()
-  const safe = trimmed ? safeRowLabel(trimmed, fallback) : fallback
-  return `Help me with ${safe}. Ask one focused question first, then suggest the smallest useful update.`
+  return `Help me with ${safeOrFallback(title, fallback)}. Ask one focused question first, then suggest the smallest useful update.`
 }
 
 // ── Source-specific builders ────────────────────────────────────────────────
@@ -185,8 +194,7 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): HeroRow | null {
   // labels that themselves end in "changes" or "shifts" (e.g. "hiring
   // changes"). With the verb leading and the label trailing, the awkward
   // adjacency is structurally impossible.
-  const trimmedLabel = (rawLabel ?? '').trim()
-  const safeFromLabel = trimmedLabel ? safeRowLabel(trimmedLabel, 'this factor') : 'this factor'
+  const safeFromLabel = safeOrFallback(rawLabel)
   const reason = `If the estimate changes for ${safeFromLabel}, the leading option could change.`
   return {
     key: `risk-${fragile.fromId}`,
