@@ -2,8 +2,9 @@
 
 **Date:** 2026-05-30 · **Risk tier:** B (touches Tailwind config + ESLint + pre-push/CI
 enforcement infrastructure; product-semantics risk low, delivery/tooling blast radius moderate).
-**Rollout:** all new enforcement ships **report-only / soak** (non-blocking) per Paul's decision.
-**Authority:** `docs/Design/Olumi_Design_System_v5.md`. Commit is **local only — not pushed.**
+**Rollout:** DS-violation enforcement ships **report-only / soak** (non-blocking) per Paul's decision;
+a missing/corrupt baseline fails as a guard **misconfiguration** (not DS debt).
+**Authority:** `docs/Design/Olumi_Design_System_v5.md`. **Status:** pushed — PR #185 open against `staging` (head `fa11fb49`).
 
 Two decisions Paul made before the build: (1) **migrate the core production emoji now** (accepting
 small string→element edits); (2) **report-only soak** for the gate (promote to blocking in a
@@ -11,7 +12,7 @@ follow-up). Both are reflected below.
 
 ---
 
-## Review round 1 — fixes applied (2026-05-30, follow-up commit; no push, still report-only)
+## Review round 1 — fixes applied (2026-05-30, follow-up commit; report-only for DS violations)
 
 A code review (approve-with-fixes) raised 5 items (3 Medium, 2 Low). All were judged valid and addressed:
 
@@ -74,9 +75,10 @@ Tested by `tests/eslint-rules/no-bare-light-bg.spec.ts` (Linter API, runner-agno
 ### 2b. Ratchet guard `tools/ci-guards/check-ds-compliance.mjs` (grep-based)
 Scans `src/`, computes an occurrence **signature per `class :: file :: token`** with a count,
 compares to the baseline, and reports **net-new** (count above baseline, or a new signature).
-Modes: default = **report-only/soak** (prints, always exit 0); `--enforce` (exit 1 on net-new —
-used by the self-test + future promotion); `--update` (regenerate baseline); `--root`/`--baseline`
-(fixture testing). Classes:
+Modes: default = **report-only/soak** for detected violations (prints, exit 0) — but a
+**missing/corrupt baseline always exits 1** (guard misconfiguration, not DS debt); `--enforce`
+(exit 1 on net-new — used by the self-test + future promotion); `--update` (regenerate baseline);
+`--root`/`--baseline` (fixture testing). Classes:
 
 | Class | Mode | Baseline | What it catches |
 |---|---|---|---|

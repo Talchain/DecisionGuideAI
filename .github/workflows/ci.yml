@@ -214,7 +214,8 @@ jobs:
 
       # Design System v5 drift ratchet — REPORT-ONLY soak (Stage 2a). Surfaces
       # net-new legacy tokens / raw hex / all-caps / panel-typography vs the
-      # committed baseline but does not fail CI. Promote to ci:guard:ds:enforce
+      # committed baseline; DS debt does NOT fail CI, but a missing/corrupt baseline
+      # DOES (guard misconfiguration). Promote DS-debt detection to ci:guard:ds:enforce
       # in a follow-up once the baseline has soaked.
       - name: Design System v5 drift (report-only soak)
         run: pnpm run ci:guard:ds

@@ -76,4 +76,12 @@ describe('DS v5 compliance ratchet guard', () => {
     expect(status).not.toBe(0)
     expect(out).toMatch(/misconfiguration|missing or unreadable/i)
   })
+
+  it('MISCONFIG: a corrupt (unparseable) baseline FAILS even in report-only (default) mode', () => {
+    const corrupt = path.join(tmp, 'corrupt.json')
+    writeFileSync(corrupt, '{ this is not valid json ]')
+    const { status, out } = run(['--root', `${FX}/clean`, '--baseline', corrupt]) // default = report-only
+    expect(status).not.toBe(0)
+    expect(out).toMatch(/misconfiguration|missing or unreadable/i)
+  })
 })
