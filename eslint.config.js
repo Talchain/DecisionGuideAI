@@ -213,9 +213,10 @@ export default [
       }],
 
       // DS v5 §3.2: no bare bg-*-light on cards/banners/pills/badges (report-only
-      // soak — 'warn'). Production code has zero occurrences (Stage 1's 4 were fixed),
-      // so this is silent now and only fires on regressions. Promote to 'error' in a
-      // follow-up once the baseline has soaked. hover:/focus: variants are allowed.
+      // soak — 'warn'). It currently emits exactly 2 warnings, both on
+      // EvidenceGapBadge.tsx (intentional escalation fills, left for review); tests
+      // and the node-fill map src/canvas/nodes/colors.ts are exempted below. Promote
+      // to 'error' only AFTER EvidenceGapBadge is resolved/exempted. hover:/focus: ok.
       'brand-tokens/no-bare-light-bg': 'warn',
 
       // Keep security guardrails as hard errors

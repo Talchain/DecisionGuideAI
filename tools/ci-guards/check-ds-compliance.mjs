@@ -12,10 +12,11 @@
  * same-token add+remove is net-zero and is not flagged (it is not an "elsewhere" hide).
  *
  * ── Modes (Stage 2a ships REPORT-ONLY / soak) ──────────────────────────────
- *   (default)    Scan `src`, compare to baseline, PRINT net-new + summary,
- *                always exit 0. This is the soak rollout: it surfaces drift
- *                without blocking pushes. A follow-up flips the default to
- *                --enforce once the baseline has soaked.
+ *   (default)    Scan `src`, compare to baseline, PRINT net-new + summary, exit 0
+ *                for detected violations. This is the soak rollout: it surfaces drift
+ *                without blocking pushes. A follow-up flips the default to --enforce
+ *                once the baseline has soaked. (A missing/corrupt baseline is a
+ *                misconfiguration and ALWAYS exits 1 — even here.)
  *   --enforce    exit 1 if any net-new violation exists. Used by the guard's
  *                own fixture self-test to PROVE the ratchet/hard-fail logic,
  *                and by the future promotion to a blocking gate.
@@ -234,9 +235,17 @@ async function main() {
     return
   }
 
-  let baseline = { classes: {} }
-  try { baseline = JSON.parse(await fs.readFile(baselinePath, 'utf8')) } catch {
-    console.error('No baseline found. Run with --update first.'); process.exit(enforce ? 1 : 0)
+  // A missing/corrupt baseline is a guard MISCONFIGURATION, not DS debt, so it FAILS
+  // unconditionally — even in report-only mode. Otherwise removing or breaking the
+  // baseline file would silently drop the ratchet (a false negative). Report-only
+  // applies only to detected violations, never to an absent/unreadable baseline.
+  let baseline
+  try {
+    baseline = JSON.parse(await fs.readFile(baselinePath, 'utf8'))
+  } catch (e) {
+    console.error(`DS-compliance: baseline missing or unreadable at ${path.relative(ROOT, baselinePath)} — ${e?.message || e}`)
+    console.error('This is a guard misconfiguration (not DS debt). Run `npm run ci:guard:ds:update` to regenerate.')
+    process.exit(1)
   }
 
   const netNew = diff(current, baseline)

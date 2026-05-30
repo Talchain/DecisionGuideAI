@@ -69,4 +69,11 @@ describe('DS v5 compliance ratchet guard', () => {
     expect(status).toBe(0)
     expect(out).toMatch(/production-hex \[ratchet\]: 1\b/)
   })
+
+  it('MISCONFIG: a missing/unreadable baseline FAILS even in report-only (default) mode', () => {
+    const missing = path.join(tmp, 'does-not-exist.json')
+    const { status, out } = run(['--root', `${FX}/clean`, '--baseline', missing]) // default = report-only
+    expect(status).not.toBe(0)
+    expect(out).toMatch(/misconfiguration|missing or unreadable/i)
+  })
 })
