@@ -9,6 +9,12 @@
  * variant-prefixed form (`hover:bg-*-light`, `group-hover:…`, `focus:…`) is the
  * allowed panel-hover case and is NOT flagged.
  *
+ * Scope note: the rule matches by content (string/template literals), so it cannot
+ * tell a node-fill class from a card class. Two legitimate uses of bg-{entity}-light
+ * are therefore exempted at the eslint.config.js level, not here: (1) test files,
+ * and (2) the canvas node-fill colour map src/canvas/nodes/colors.ts (DS v5 §3.2
+ * allows light shades as canvas node fills). Everything else stays covered.
+ *
  * Stage 2a ships this as a WARNING (report-only soak). A follow-up promotes it to
  * `error` once the baseline has soaked. The production code already has zero bare
  * occurrences (the 4 found in Stage 1 were fixed), so this currently produces no

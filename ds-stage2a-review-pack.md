@@ -11,6 +11,18 @@ follow-up). Both are reflected below.
 
 ---
 
+## Review round 1 — fixes applied (2026-05-30, follow-up commit; no push, still report-only)
+
+A code review (approve-with-fixes) raised 5 items (3 Medium, 2 Low). All were judged valid and addressed:
+
+- **M1 — ESLint rule over-fired** (26 warnings incl. the canvas node-fill map + test files): scoped via `eslint.config.js` — `brand-tokens/no-bare-light-bg` is now `off` for test files and for the node-fill map `src/canvas/nodes/colors.ts` (DS §3.2 allows light shades as canvas node fills). Lint now emits exactly **2** warnings, both on `EvidenceGapBadge.tsx` (the genuine review item, §5). *Not* scoped to JSX-className only — the real cases are object-literal class strings (EvidenceGapBadge/colors.ts), which JSX-scoping would miss.
+- **M2 — guard exclusions + `--root`**: `path.join`→`path.resolve` (absolute roots now honoured); per-class exclusion policy documented explicitly in `check-ds-compliance.mjs`; added `__fixtures__/.../excluded/` fixtures + a self-test proving `production-hex` ignores debug-path / `var()` fallback / `.module.css` hex. The debug/poc/theme asymmetry is **intentional** (hex-only, per brief scoping #1) and is now documented — scan behaviour unchanged.
+- **M3 — NodeBadge colour/a11y**: icons now carry a semantic `iconClass` (`text-warning`/`text-danger`/`text-info`) so severity reads via the colour channel, and the button has `aria-label={badge.label}`.
+- **L4 — signature comment**: file header now matches the actual `class :: file :: token` + count scheme (no line hash) and states the within-file same-token net-zero tradeoff.
+- **L5 — ConstraintNode chip**: `bg-panel` (invisible on the `bg-panel` node) → outlined `border border-danger/30` (DS-approved, keeps affordance).
+
+Correction: the "2 warnings" figure in §2a/§4 below was inaccurate at first commit (`5acb7415`) — it was actually 26. The M1 scoping fix makes it genuinely 2.
+
 ## 1. Exact files changed
 
 ### Modified — fixes (swap-only / small refactors)
@@ -52,10 +64,12 @@ follow-up). Both are reflected below.
 ### 2a. ESLint rule `brand-tokens/no-bare-light-bg` (DS §3.2)
 AST rule over string/template literals. Flags **bare** `bg-{semantic}-light` (preceded by
 start/space/quote/brace — i.e. no variant), but **allows** `hover:`/`focus:`/`group-hover:`
-forms (the permitted panel-hover case). Registered as **`warn`** during the soak — currently
-emits **2 warnings** on `EvidenceGapBadge.tsx` (left for review, see §6), nothing else. Promote
-to `error` in the follow-up. Tested by `tests/eslint-rules/no-bare-light-bg.spec.ts` (Linter API,
-runner-agnostic): 3 negative + 5 positive fixtures.
+forms (the permitted panel-hover case). Registered as **`warn`** during the soak, and **scoped
+in `eslint.config.js`** to skip test files and the node-fill map `src/canvas/nodes/colors.ts`
+(§3.2 allows light shades as canvas node fills). After scoping it emits exactly **2 warnings**,
+both on `EvidenceGapBadge.tsx` (left for review, see §5). Promote to `error` in the follow-up.
+Tested by `tests/eslint-rules/no-bare-light-bg.spec.ts` (Linter API, runner-agnostic): 3 negative
++ 5 positive fixtures.
 
 ### 2b. Ratchet guard `tools/ci-guards/check-ds-compliance.mjs` (grep-based)
 Scans `src/`, computes an occurrence **signature per `class :: file :: token`** with a count,

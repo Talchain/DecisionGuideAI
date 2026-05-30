@@ -1,0 +1,3 @@
+/* FIXTURE — hex in a CSS module. production-hex scans .ts/.tsx only, so .module.css
+   is excluded by extension and this must NOT be flagged. */
+.swatch { color: #AB12CD; }

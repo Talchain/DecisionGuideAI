@@ -231,6 +231,9 @@ export default [
     files: ['tests/**/*.{ts,tsx}', '**/*.spec.ts', '**/*.spec.tsx', '**/*.test.ts', '**/*.test.tsx'],
     rules: {
       'brand-tokens/no-raw-colors': 'off',
+      // Tests legitimately contain bg-*-light strings (assertions, fixtures, and
+      // the no-bare-light-bg rule's own negative cases).
+      'brand-tokens/no-bare-light-bg': 'off',
       'no-console': 'off',
       'no-restricted-syntax': 'off',
     },
@@ -260,6 +263,15 @@ export default [
     files: ['src/canvas/**/*.{tsx}'],
     rules: {
       'brand-tokens/no-raw-colors': 'error',
+    },
+  },
+  // Canvas node-fill colour map: DS v5 §3.2 ALLOWS bg-{entity}-light as canvas
+  // node fills. This file is the node-type → fill-colour map, so exempt it from
+  // no-bare-light-bg. Component cards/banners/pills/badges remain covered.
+  {
+    files: ['src/canvas/nodes/colors.ts'],
+    rules: {
+      'brand-tokens/no-bare-light-bg': 'off',
     },
   },
   ...storybook.configs["flat/recommended"],

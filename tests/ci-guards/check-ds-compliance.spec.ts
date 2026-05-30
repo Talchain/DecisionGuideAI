@@ -60,4 +60,10 @@ describe('DS v5 compliance ratchet guard', () => {
     const { status } = run(['--root', `${FX}/dirty`, '--baseline', empty])
     expect(status).toBe(0)
   })
+
+  it('EXCLUSIONS: production-hex ignores debug-path, var() fallback, and .module.css hex', () => {
+    const { status, out } = run(['--root', `${FX}/excluded`, '--baseline', empty, '--enforce'])
+    expect(status).toBe(0)
+    expect(out).toMatch(/production-hex \[ratchet\]: 0/)
+  })
 })

@@ -2,12 +2,14 @@
 /**
  * check-ds-compliance.mjs — Design System v5 drift ratchet (Stage 2a).
  *
- * Occurrence-SIGNATURE ratchet (not a count-only gate). Each violation is
- * keyed by {class, file, offending-token, trimmed-line-hash} with a per-signature
- * count. The gate compares the current scan to a committed baseline and reports
- * NET-NEW signatures (or counts above baseline). Because every (file, token, line)
- * is tracked independently, a new violation in file B cannot be hidden by removing
- * an old one in file A — the brief's core requirement.
+ * Occurrence-SIGNATURE ratchet (not a count-only gate). Each violation is keyed by
+ * {class, file, offending-token} with a per-signature COUNT — there is NO line hash
+ * (it was rejected as it produced a ~1.2 MB churny baseline; see sigKey). The gate
+ * compares the current scan to a committed baseline and reports NET-NEW signatures
+ * (counts above baseline). Because every (class, file, token) count is tracked
+ * independently, a new violation in file B cannot be hidden by removing an old one in
+ * file A — the brief's core requirement. Deliberate tradeoff: a within-file,
+ * same-token add+remove is net-zero and is not flagged (it is not an "elsewhere" hide).
  *
  * ── Modes (Stage 2a ships REPORT-ONLY / soak) ──────────────────────────────
  *   (default)    Scan `src`, compare to baseline, PRINT net-new + summary,
@@ -52,6 +54,18 @@ const under = (p, dir) => p === dir || p.startsWith(dir + '/')
 /**
  * Each class: how to decide file scope (inScope) and what tokens a line yields
  * (lineTokens). Returning [] means "no violation on this line".
+ *
+ * Exclusion policy — deliberately PER-CLASS, not global (documented so the contract
+ * is explicit; see the exclusion fixtures in __fixtures__/ds-compliance/excluded):
+ *  - Tests/fixtures (.spec/.test/__tests__/__fixtures__): excluded from ALL classes
+ *    via isTest() — not product code.
+ *  - components/debug, poc, canvas/theme dirs + var(--token,#hex) fallbacks: excluded
+ *    ONLY from `production-hex` (brief scoping decision #1 — that dev/throwaway UI
+ *    legitimately uses raw hex, and fallbacks are token-first). They are intentionally
+ *    NOT excluded from legacy-token / uppercase / panel-typography / emoji: those drift
+ *    types must not be (re)introduced anywhere, including dev tooling.
+ *  - .css / .module.css: only `legacy-tailwind-token` scans .css at all; the other
+ *    classes scan .ts/.tsx only, so CSS modules are excluded by extension.
  */
 const CLASSES = [
   {
@@ -210,7 +224,8 @@ async function main() {
     ? path.resolve(ROOT, args[blIdx + 1])
     : path.join(ROOT, 'tools/ci-guards/ds-compliance-baseline.json')
 
-  const current = await scan(path.join(ROOT, scanRoot))
+  // path.resolve (not join) so an absolute --root is honoured, not misresolved.
+  const current = await scan(path.resolve(ROOT, scanRoot))
 
   if (update) {
     await fs.writeFile(baselinePath, JSON.stringify(fmtBaseline(current), null, 2) + '\n')
