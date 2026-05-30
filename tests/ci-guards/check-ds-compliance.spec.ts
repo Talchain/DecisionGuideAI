@@ -61,9 +61,12 @@ describe('DS v5 compliance ratchet guard', () => {
     expect(status).toBe(0)
   })
 
-  it('EXCLUSIONS: production-hex ignores debug-path, var() fallback, and .module.css hex', () => {
-    const { status, out } = run(['--root', `${FX}/excluded`, '--baseline', empty, '--enforce'])
+  it('EXCLUSIONS + positive control: ignores debug-path / var() / .module.css hex but still detects an included path', () => {
+    // excluded/ holds 3 excluded hex (debug-path, var() fallback, .module.css) PLUS
+    // included-sample.tsx. A correct scan counts exactly the 1 included one — proving
+    // exclusions work AND the scanner is not silently excluding the whole root.
+    const { status, out } = run(['--root', `${FX}/excluded`, '--baseline', empty])
     expect(status).toBe(0)
-    expect(out).toMatch(/production-hex \[ratchet\]: 0/)
+    expect(out).toMatch(/production-hex \[ratchet\]: 1\b/)
   })
 })

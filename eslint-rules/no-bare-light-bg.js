@@ -15,10 +15,11 @@
  * and (2) the canvas node-fill colour map src/canvas/nodes/colors.ts (DS v5 §3.2
  * allows light shades as canvas node fills). Everything else stays covered.
  *
- * Stage 2a ships this as a WARNING (report-only soak). A follow-up promotes it to
- * `error` once the baseline has soaked. The production code already has zero bare
- * occurrences (the 4 found in Stage 1 were fixed), so this currently produces no
- * output — it exists to prevent regressions.
+ * Stage 2a ships this as a WARNING (report-only soak). It currently emits exactly
+ * 2 warnings, both on src/canvas/nodes/EvidenceGapBadge.tsx — that file's escalation-
+ * badge light fills are intentional and left for review. A follow-up promotes the rule
+ * to `error` ONLY AFTER those 2 are resolved or explicitly exempted; everything else
+ * is already clean.
  *
  * Fix: use `bg-panel` or a transparent background with a `border-{colour}/30`
  * outline and `text-{colour}` (the colour channel still conveys state).

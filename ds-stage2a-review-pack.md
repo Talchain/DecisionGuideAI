@@ -145,6 +145,13 @@ typography tokens (size normalisation); and the 3 emoji→Lucide migrations (Pau
   section numbers) + `DESIGN_SYSTEM.md`/`CLAUDE.md` (project knowledge) — left for Paul.
 
 ## 7. Promotion path (follow-up)
-After soak: flip ESLint `no-bare-light-bg` `warn`→`error`; change pre-push Check 8 + CI step to
-`ci:guard:ds:enforce` (exit 1 on net-new). Re-run `ci:guard:ds:update` whenever debt is intentionally
-paid down. Snapshot infra unchanged (no CI visual-regression gate exists — finding only).
+After soak, in order:
+1. **First resolve or explicitly exempt** the 2 remaining `EvidenceGapBadge.tsx` bare `bg-*-light`
+   (the escalation-badge review item, §5) — otherwise the next step fails lint. Either change those
+   fills (e.g. to `bg-panel` + border/text, with the 2 EvidenceGapBadge tests updated) or add an
+   `eslint.config.js` override exempting that file (as done for `colors.ts`).
+2. Then flip ESLint `brand-tokens/no-bare-light-bg` `warn`→`error`.
+3. Change pre-push Check 8 + the CI step from `ci:guard:ds` to `ci:guard:ds:enforce` (exit 1 on net-new).
+
+Re-run `ci:guard:ds:update` whenever debt is intentionally paid down. Snapshot infra unchanged
+(no CI visual-regression gate exists — finding only).
