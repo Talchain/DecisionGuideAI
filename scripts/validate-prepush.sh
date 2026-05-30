@@ -226,6 +226,20 @@ else
   fi
 fi
 
+# ─── Check 8: Design System v5 drift (report-only soak) ──────────────
+# Stage 2a ships the DS v5 compliance ratchet in REPORT-ONLY mode: it surfaces
+# net-new legacy tokens / raw hex / all-caps / panel-typography drift vs the
+# committed baseline (tools/ci-guards/ds-compliance-baseline.json) but does NOT
+# block the push on DS debt. (A missing/corrupt baseline DOES fail — that is a guard
+# misconfiguration, not DS debt.) A follow-up promotes DS-debt detection to a
+# blocking gate once the baseline has soaked.
+header "Check 8 — Design System v5 drift (report-only soak)"
+if node "$REPO_ROOT/tools/ci-guards/check-ds-compliance.mjs"; then
+  pass "DS v5 ratchet ran (report-only — informational, does not block this push)"
+else
+  fail "DS v5 compliance guard failed — crash or baseline misconfiguration (see above)"
+fi
+
 # ─── Summary ──────────────────────────────────────────────────────────
 header "Summary"
 

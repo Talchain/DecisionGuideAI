@@ -333,7 +333,7 @@ export const ResultsBody = memo(function ResultsBody({
                 no new colour or component. */}
             {resultsSectionData.recommendation.flipThresholdsStatus === 'all_no_effect' && (
               <p
-                className="text-sm text-text-light mb-3"
+                className={`${typography.panelBody} text-text-light mb-3`}
                 data-testid="flip-thresholds-status-note"
                 role="note"
               >
@@ -342,7 +342,7 @@ export const ResultsBody = memo(function ResultsBody({
             )}
             {resultsSectionData.recommendation.flipThresholdsStatus === 'partial_no_effect' && (
               <p
-                className="text-sm text-text-light mb-3"
+                className={`${typography.panelBody} text-text-light mb-3`}
                 data-testid="flip-thresholds-status-note"
                 role="note"
               >

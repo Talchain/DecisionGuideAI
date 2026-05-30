@@ -6,6 +6,7 @@ import tseslint from '@typescript-eslint/eslint-plugin'
 import parser from '@typescript-eslint/parser'
 import reactHooks from 'eslint-plugin-react-hooks'
 import noRawColors from './eslint-rules/no-raw-colors.js'
+import noBareLightBg from './eslint-rules/no-bare-light-bg.js'
 import noPayloadLogging from './eslint-rules/no-payload-logging.js'
 import noDangerousBrowser from './eslint-rules/no-dangerous-browser.js'
 import noCorsWildcard from './eslint-rules/no-cors-wildcard.js'
@@ -163,6 +164,7 @@ export default [
       'brand-tokens': {
         rules: {
           'no-raw-colors': noRawColors,
+          'no-bare-light-bg': noBareLightBg,
         },
       },
       'security': {
@@ -210,6 +212,13 @@ export default [
         message: 'Use structured logging (e.g., console.warn/error or a logger) instead of console.log.'
       }],
 
+      // DS v5 §3.2: no bare bg-*-light on cards/banners/pills/badges (report-only
+      // soak — 'warn'). It currently emits exactly 2 warnings, both on
+      // EvidenceGapBadge.tsx (intentional escalation fills, left for review); tests
+      // and the node-fill map src/canvas/nodes/colors.ts are exempted below. Promote
+      // to 'error' only AFTER EvidenceGapBadge is resolved/exempted. hover:/focus: ok.
+      'brand-tokens/no-bare-light-bg': 'warn',
+
       // Keep security guardrails as hard errors
       'security/no-payload-logging': 'error',
       'security/no-dangerous-browser': 'error',
@@ -223,6 +232,9 @@ export default [
     files: ['tests/**/*.{ts,tsx}', '**/*.spec.ts', '**/*.spec.tsx', '**/*.test.ts', '**/*.test.tsx'],
     rules: {
       'brand-tokens/no-raw-colors': 'off',
+      // Tests legitimately contain bg-*-light strings (assertions, fixtures, and
+      // the no-bare-light-bg rule's own negative cases).
+      'brand-tokens/no-bare-light-bg': 'off',
       'no-console': 'off',
       'no-restricted-syntax': 'off',
     },
@@ -252,6 +264,15 @@ export default [
     files: ['src/canvas/**/*.{tsx}'],
     rules: {
       'brand-tokens/no-raw-colors': 'error',
+    },
+  },
+  // Canvas node-fill colour map: DS v5 §3.2 ALLOWS bg-{entity}-light as canvas
+  // node fills. This file is the node-type → fill-colour map, so exempt it from
+  // no-bare-light-bg. Component cards/banners/pills/badges remain covered.
+  {
+    files: ['src/canvas/nodes/colors.ts'],
+    rules: {
+      'brand-tokens/no-bare-light-bg': 'off',
     },
   },
   ...storybook.configs["flat/recommended"],

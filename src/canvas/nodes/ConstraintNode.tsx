@@ -86,7 +86,7 @@ export const ConstraintNode = memo((props: NodeProps) => {
 
       {/* Header with icon */}
       <div className="flex items-center gap-2 mb-2">
-        <div className="p-1.5 rounded bg-danger-light">
+        <div className="p-1.5 rounded border border-danger/30">
           <Shield className="h-4 w-4 text-danger" aria-hidden="true" />
         </div>
         <div className="flex-1 min-w-0">
@@ -95,7 +95,7 @@ export const ConstraintNode = memo((props: NodeProps) => {
           </span>
         </div>
         {!isHard && (
-          <span className={`${typography.caption} px-1.5 py-0.5 rounded bg-warning-light text-text-body`}>
+          <span className={`${typography.caption} px-1.5 py-0.5 rounded border border-warning/30 text-text-body`}>
             Soft
           </span>
         )}

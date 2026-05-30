@@ -1,0 +1,166 @@
+# Design System v5 — Stage 2a Review Pack (fix + enforce)
+
+**Date:** 2026-05-30 · **Risk tier:** B (touches Tailwind config + ESLint + pre-push/CI
+enforcement infrastructure; product-semantics risk low, delivery/tooling blast radius moderate).
+**Rollout:** DS-violation enforcement ships **report-only / soak** (non-blocking) per Paul's decision;
+a missing/corrupt baseline fails as a guard **misconfiguration** (not DS debt).
+**Authority:** `docs/Design/Olumi_Design_System_v5.md`. **Status:** pushed — PR #185 open against `staging` (head `fa11fb49`).
+
+Two decisions Paul made before the build: (1) **migrate the core production emoji now** (accepting
+small string→element edits); (2) **report-only soak** for the gate (promote to blocking in a
+follow-up). Both are reflected below.
+
+---
+
+## Review round 1 — fixes applied (2026-05-30, follow-up commit; report-only for DS violations)
+
+A code review (approve-with-fixes) raised 5 items (3 Medium, 2 Low). All were judged valid and addressed:
+
+- **M1 — ESLint rule over-fired** (26 warnings incl. the canvas node-fill map + test files): scoped via `eslint.config.js` — `brand-tokens/no-bare-light-bg` is now `off` for test files and for the node-fill map `src/canvas/nodes/colors.ts` (DS §3.2 allows light shades as canvas node fills). Lint now emits exactly **2** warnings, both on `EvidenceGapBadge.tsx` (the genuine review item, §5). *Not* scoped to JSX-className only — the real cases are object-literal class strings (EvidenceGapBadge/colors.ts), which JSX-scoping would miss.
+- **M2 — guard exclusions + `--root`**: `path.join`→`path.resolve` (absolute roots now honoured); per-class exclusion policy documented explicitly in `check-ds-compliance.mjs`; added `__fixtures__/.../excluded/` fixtures + a self-test proving `production-hex` ignores debug-path / `var()` fallback / `.module.css` hex. The debug/poc/theme asymmetry is **intentional** (hex-only, per brief scoping #1) and is now documented — scan behaviour unchanged.
+- **M3 — NodeBadge colour/a11y**: icons now carry a semantic `iconClass` (`text-warning`/`text-danger`/`text-info`) so severity reads via the colour channel, and the button has `aria-label={badge.label}`.
+- **L4 — signature comment**: file header now matches the actual `class :: file :: token` + count scheme (no line hash) and states the within-file same-token net-zero tradeoff.
+- **L5 — ConstraintNode chip**: `bg-panel` (invisible on the `bg-panel` node) → outlined `border border-danger/30` (DS-approved, keeps affordance).
+
+Correction: the "2 warnings" figure in §2a/§4 below was inaccurate at first commit (`5acb7415`) — it was actually 26. The M1 scoping fix makes it genuinely 2.
+
+## 1. Exact files changed
+
+### Modified — fixes (swap-only / small refactors)
+| File | Change |
+|---|---|
+| `tailwind.config.js` | Added `chart: { 1..6 }` colour mapping (→ `bg/text/border/fill/stroke-chart-N`); v4→v5 comment |
+| `src/canvas/components/NodeBadge.tsx` | Emoji icons (⚠️/↻/🔍) → Lucide `AlertTriangle`/`RotateCw`/`Search`; `icon: string`→`LucideIcon` |
+| `src/canvas/components/StructuralHealth.tsx` | Emoji (⚠️/↻) → Lucide `AlertTriangle`/`RotateCw`; `WarningCard.icon` → `LucideIcon` |
+| `src/components/results/ImprovementsSection.tsx` | Emoji (🎯/📊/💡) → Lucide `Target`/`BarChart3`/`Lightbulb`; `SOURCE_CONFIG.icon` → `LucideIcon` |
+| `src/canvas/nodes/ConstraintNode.tsx` | Icon-chip `bg-danger-light`→outlined `border-danger/30`; "Soft" pill `bg-warning-light`→outlined `border-warning/30` (DS §3.2 / pill rule). *(chip was briefly `bg-panel` in `5acb7415`; round-1 review L5 → outlined)* |
+| `src/canvas/panels/IssuesPanel.tsx` | "Graph Issues" `font-semibold`→`typography.panelHeader` (§2.4) |
+| `src/components/results/ResultsBody.tsx` | 2 flip-threshold notes `text-sm`→`typography.panelBody` (§2.4) |
+| `src/styles/typography.ts`, `src/index.css`, `src/styles/brand.css` | v4→v5 comment/spec-pointer corrections (comments only) |
+
+### Modified — enforcement wiring
+| File | Change |
+|---|---|
+| `eslint.config.js` | Import + register `brand-tokens/no-bare-light-bg`; enabled as **`warn`** (report-only soak) |
+| `package.json` | `ci:guard:ds` (report-only), `ci:guard:ds:enforce`, `ci:guard:ds:update`; added `ci:guard:ds` to `ci:all` |
+| `scripts/validate-prepush.sh` | New **Check 8 — DS v5 drift (report-only soak)** (runs guard; only fails if the guard crashes) |
+| `.github/workflows/ci.yml` | New step "Design System v5 drift (report-only soak)" → `pnpm run ci:guard:ds` |
+
+### New
+| File | Purpose |
+|---|---|
+| `eslint-rules/no-bare-light-bg.js` | ESLint rule: bare `bg-*-light` on cards/banners/pills (DS §3.2) |
+| `tools/ci-guards/check-ds-compliance.mjs` | Occurrence-signature ratchet guard (grep-based) |
+| `tools/ci-guards/ds-compliance-baseline.json` | Committed baseline (361 KB) |
+| `tools/ci-guards/__fixtures__/ds-compliance/{clean,dirty,report-only}/…` | Isolated +/- fixtures |
+| `tests/ci-guards/check-ds-compliance.spec.ts` | Guard self-test (7 cases) |
+| `tests/eslint-rules/no-bare-light-bg.spec.ts` | ESLint rule test (+/- fixtures) |
+
+`src/generated/validators.js` was regenerated by `npm run build` (timestamp only) and **reverted** — not in the diff.
+
+---
+
+## 2. Checks added & how each works
+
+### 2a. ESLint rule `brand-tokens/no-bare-light-bg` (DS §3.2)
+AST rule over string/template literals. Flags **bare** `bg-{semantic}-light` (preceded by
+start/space/quote/brace — i.e. no variant), but **allows** `hover:`/`focus:`/`group-hover:`
+forms (the permitted panel-hover case). Registered as **`warn`** during the soak, and **scoped
+in `eslint.config.js`** to skip test files and the node-fill map `src/canvas/nodes/colors.ts`
+(§3.2 allows light shades as canvas node fills). After scoping it emits exactly **2 warnings**,
+both on `EvidenceGapBadge.tsx` (left for review, see §5). Promote to `error` in the follow-up.
+Tested by `tests/eslint-rules/no-bare-light-bg.spec.ts` (Linter API, runner-agnostic): 3 negative
++ 5 positive fixtures.
+
+### 2b. Ratchet guard `tools/ci-guards/check-ds-compliance.mjs` (grep-based)
+Scans `src/`, computes an occurrence **signature per `class :: file :: token`** with a count,
+compares to the baseline, and reports **net-new** (count above baseline, or a new signature).
+Modes: default = **report-only/soak** for detected violations (prints, exit 0) — but a
+**missing/corrupt baseline always exits 1** (guard misconfiguration, not DS debt); `--enforce`
+(exit 1 on net-new — used by the self-test + future promotion); `--update` (regenerate baseline);
+`--root`/`--baseline` (fixture testing). Classes:
+
+| Class | Mode | Baseline | What it catches |
+|---|---|---|---|
+| `legacy-tailwind-token` | ratchet | 2524 | `sand/ink/paper/sun/mint/sky/carrot/lilac` Tailwind classes |
+| `production-hex` | ratchet | 437 | raw `#hex` in prod `.ts/.tsx` (excl. debug/poc/theme/tests + `var()` fallbacks) |
+| `uppercase-text` | ratchet | 82 | `uppercase` class (sentence-case rule) |
+| `panel-typography-scoped` | ratchet | 14 | raw `text-/font-` in results/panels/EdgeInspector |
+| `emoji-icon` | **report** | 28 | emoji/symbol as `icon:` — **never gates**, even under `--enforce` |
+
+**Signature-scheme note (deviation, per brief item 1 "propose the safest alternative"):** a
+per-line SHA was rejected — it produced a churny **1.2 MB** baseline. Keying by
+`class::file::token` + count is **361 KB** and still satisfies the stated requirement ("a new
+violation must not be hidden by removing an old one **elsewhere**": a cross-file move pushes the
+target file's count above baseline → flagged). Only within-file same-token relocation is net-zero
+(not an "elsewhere" hide). The trimmed line is kept as a non-keyed `sample` for review.
+
+---
+
+## 3. Baseline — path & summary
+`tools/ci-guards/ds-compliance-baseline.json` (361 KB). `_meta` documents purpose + `--update`
+regeneration. Per class: `mode`, `description`, `total`, `byFile` (human rollup), `signatures`
+(`class::file::token` → `{count, file, token, sample}`). Totals: legacy 2524 · hex 437 ·
+uppercase 82 · panel-typo 14 · emoji 28 (report).
+
+## 4. Fixtures (positive + negative) — isolated
+Under `tools/ci-guards/__fixtures__/ds-compliance/` (outside `src/`; ESLint ignores `tools/**`;
+not built/typechecked; **production guard scans `src/` only — never these**):
+- **positive (clean):** `clean/clean-sample.tsx` — zero violations.
+- **negative (dirty, gating):** `dirty/legacy-sample.tsx`, `dirty/hex-sample.tsx`,
+  `dirty/caps-sample.tsx`, `dirty/components/results/typo-sample.tsx`.
+- **negative (report-only):** `report-only/emoji-sample.tsx`.
+- **exclusion controls:** `excluded/components/debug/debug-sample.tsx`,
+  `excluded/var-fallback-sample.tsx`, `excluded/styles.module.css` (must NOT be flagged) +
+  `excluded/included-sample.tsx` (POSITIVE control — a non-excluded hex that MUST be flagged, so a
+  total-scan-breakage can't pass the exclusion test silently).
+ESLint-rule fixtures are the inline valid/invalid cases in `tests/eslint-rules/no-bare-light-bg.spec.ts`.
+
+## 5. Proof
+All run this session:
+- **Self-test `tests/ci-guards/check-ds-compliance.spec.ts` — 7/7 pass:**
+  - HARD-FAIL: dirty vs empty baseline `--enforce` → **exit 1** (catches reintroduced violations).
+  - CLEAN: clean tree `--enforce` → exit 0.
+  - RATCHET: current == baseline → exit 0 (passes baseline); net-new (proof 1) → exit 1.
+  - REPORT-ONLY: emoji-only dir `--enforce` → exit 0 (never gates).
+  - SOAK: default mode with violations → exit 0 (never blocks).
+  - EXCLUSIONS + positive control: mixed `excluded/` dir → `production-hex` counts exactly 1
+    (3 excluded ignored, 1 included detected).
+  - MISCONFIG: a missing/unreadable baseline → **exit 1 even in report-only** (guard misconfig fails).
+- **ESLint rule test — 3/3 pass** (flags bare; allows hover/outlined; emits §3.2 message).
+- **Manual:** dirty `--enforce` printed `NET-NEW … would block under --enforce` (legacy+3, hex+1,
+  uppercase+1, panel-typo+2); clean `--enforce` exit 0; **production `src` scan exit 0, zero net-new**.
+- Gates: `tsc -p tsconfig.app.json` **exit 0** · `npm run lint` **exit 0** · `npm run build` **exit 0** ·
+  at-risk component tests **33 pass** · results consumer tests **24 pass**.
+
+## 6. Confirmations & ambiguous items left for review
+**No change to:** brand.css token **values** (v4→v5 edits are comment-only; `--primary`/`--info`
+untouched), schemas, prompts, CEE/PLoT/ISL/service logic, data flow, layout, hierarchy, copy meaning,
+or behaviour/logic. The only **visual** changes are sanctioned token swaps: ConstraintNode icon-chip
+→ outlined `border-danger/30` + "Soft" pill→outlined (§3.2/pill rule, brief item 3); IssuesPanel/ResultsBody
+→ panel typography tokens (size normalisation); and the 3 emoji→Lucide migrations (Paul-authorised).
+
+**Left for review (not changed):**
+- **Emoji migration deferred** for `useRiskProfile.RISK_PRESETS` (shared config: 6+ render sites
+  across RiskTolerancePanel/RiskProfileSelector incl. a template-string interpolation that can't hold
+  a component, + ~10 `getByText('🛡️')` test assertions — exceeds "small edit"), and for
+  sandbox-guide/debug/test-fixture emoji (brief says not to hard-fail those). Surfaced report-only.
+- **`EvidenceGapBadge.tsx`** (2 bare `bg-*-light`): canvas-node-attached escalation badge with
+  **intentional, tested** light fills → left for review per brief item 3 ("leave ambiguous canvas-node
+  cases for review rather than force a visual change"). Surfaced as the 2 report-only ESLint warnings.
+- **14 panel-typography occurrences** that are weight-overrides / glyph-sizing (restructuring per
+  item 5) — ratcheted, not forced. **3 recharts `stroke="var(--chart-N)"`** left inline (allowed §3.9;
+  recharts prop→class not verified-safe). **v4 references** in canvas inline comments (unverified
+  section numbers) + `DESIGN_SYSTEM.md`/`CLAUDE.md` (project knowledge) — left for Paul.
+
+## 7. Promotion path (follow-up)
+After soak, in order:
+1. **First resolve or explicitly exempt** the 2 remaining `EvidenceGapBadge.tsx` bare `bg-*-light`
+   (the escalation-badge review item, §5) — otherwise the next step fails lint. Either change those
+   fills (e.g. to `bg-panel` + border/text, with the 2 EvidenceGapBadge tests updated) or add an
+   `eslint.config.js` override exempting that file (as done for `colors.ts`).
+2. Then flip ESLint `brand-tokens/no-bare-light-bg` `warn`→`error`.
+3. Change pre-push Check 8 + the CI step from `ci:guard:ds` to `ci:guard:ds:enforce` (exit 1 on net-new).
+
+Re-run `ci:guard:ds:update` whenever debt is intentionally paid down. Snapshot infra unchanged
+(no CI visual-regression gate exists — finding only).

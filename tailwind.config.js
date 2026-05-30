@@ -175,13 +175,29 @@ export default {
         },
 
         // ============================================
-        // PRIMARY (Maps to Info Blue — v4 §3.10)
+        // PRIMARY (Maps to Info Blue — v5 §3.10)
         // ============================================
         primary: {
           DEFAULT: 'var(--primary)',
           hover: 'var(--primary-hover)',
           active: 'var(--primary-active)',
           disabled: 'var(--primary-disabled)',
+        },
+
+        // ============================================
+        // CHART COLOURS (Data Visualisation — DS v5 §3.9)
+        // Ordinal only, no semantic meaning. Aliases of brand.css --chart-N.
+        // Mapping these enables bg/text/border/fill/stroke-chart-N utilities
+        // so components no longer need inline style={{ fill: 'var(--chart-N)' }}.
+        // Only chart-1..6 exist (chart-7/8 are planned, not implemented).
+        // ============================================
+        chart: {
+          1: 'var(--chart-1)',
+          2: 'var(--chart-2)',
+          3: 'var(--chart-3)',
+          4: 'var(--chart-4)',
+          5: 'var(--chart-5)',
+          6: 'var(--chart-6)',
         },
 
         // ============================================
