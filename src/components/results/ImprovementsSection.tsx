@@ -14,6 +14,8 @@
  */
 
 import { useState } from 'react'
+import { Target, BarChart3, Lightbulb } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import type { ImprovementsSectionData, ImprovementItem } from './types'
 import { EMPTY_STATES } from './emptyStates'
@@ -29,7 +31,7 @@ const SOURCE_CONFIG: Record<
     bgColor: string
     borderColor: string
     textColor: string
-    icon: string
+    icon: LucideIcon
     label: string
   }
 > = {
@@ -37,21 +39,21 @@ const SOURCE_CONFIG: Record<
     bgColor: 'bg-panel',
     borderColor: 'border-option/30',
     textColor: 'text-option',
-    icon: '🎯',
+    icon: Target,
     label: 'Bias finding',
   },
   quality_factor: {
     bgColor: 'bg-panel',
     borderColor: 'border-info/30',
     textColor: 'text-info',
-    icon: '📊',
+    icon: BarChart3,
     label: 'Quality factor',
   },
   improvement_guidance: {
     bgColor: 'bg-panel',
     borderColor: 'border-panel-border',
     textColor: 'text-text-body',
-    icon: '💡',
+    icon: Lightbulb,
     label: 'Suggestion',
   },
 }
@@ -62,7 +64,7 @@ function ImprovementRow({ item }: { item: ImprovementItem }) {
   return (
     <div className={`p-3 rounded-lg border ${config.bgColor} ${config.borderColor}`}>
       <div className="flex items-start gap-2">
-        <span className={`${typography.panelBody} flex-shrink-0 mt-0.5`}>{config.icon}</span>
+        <config.icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${config.textColor}`} aria-hidden="true" />
         <div className="flex-1 min-w-0">
           {/* Source badge for bias findings */}
           {item.source === 'bias' && (

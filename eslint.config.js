@@ -6,6 +6,7 @@ import tseslint from '@typescript-eslint/eslint-plugin'
 import parser from '@typescript-eslint/parser'
 import reactHooks from 'eslint-plugin-react-hooks'
 import noRawColors from './eslint-rules/no-raw-colors.js'
+import noBareLightBg from './eslint-rules/no-bare-light-bg.js'
 import noPayloadLogging from './eslint-rules/no-payload-logging.js'
 import noDangerousBrowser from './eslint-rules/no-dangerous-browser.js'
 import noCorsWildcard from './eslint-rules/no-cors-wildcard.js'
@@ -163,6 +164,7 @@ export default [
       'brand-tokens': {
         rules: {
           'no-raw-colors': noRawColors,
+          'no-bare-light-bg': noBareLightBg,
         },
       },
       'security': {
@@ -209,6 +211,12 @@ export default [
         selector: "CallExpression[callee.object.name='console'][callee.property.name='log']",
         message: 'Use structured logging (e.g., console.warn/error or a logger) instead of console.log.'
       }],
+
+      // DS v5 §3.2: no bare bg-*-light on cards/banners/pills/badges (report-only
+      // soak — 'warn'). Production code has zero occurrences (Stage 1's 4 were fixed),
+      // so this is silent now and only fires on regressions. Promote to 'error' in a
+      // follow-up once the baseline has soaked. hover:/focus: variants are allowed.
+      'brand-tokens/no-bare-light-bg': 'warn',
 
       // Keep security guardrails as hard errors
       'security/no-payload-logging': 'error',

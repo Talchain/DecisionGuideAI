@@ -1,3 +1,5 @@
+import { AlertTriangle, RotateCw, Search } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import type { CEEStructuralWarning } from '../../adapters/cee/types'
 import { typography } from '../../styles/typography'
 
@@ -9,7 +11,7 @@ interface NodeBadgeProps {
 }
 
 interface Badge {
-  icon: string
+  icon: LucideIcon
   label: string
   color: string
   priority: number // Higher = render first
@@ -42,7 +44,7 @@ export function NodeBadge({ nodeId, ceeWarnings, islAffected, onClick }: NodeBad
 
   if (isOrphan) {
     badges.push({
-      icon: '⚠️',
+      icon: AlertTriangle,
       label: 'Orphan node – not connected',
       color: 'sun-500',
       priority: 3,
@@ -51,7 +53,7 @@ export function NodeBadge({ nodeId, ceeWarnings, islAffected, onClick }: NodeBad
 
   if (inCycle) {
     badges.push({
-      icon: '↻',
+      icon: RotateCw,
       label: 'Circular dependency detected',
       color: 'sun-500',
       priority: 3,
@@ -60,7 +62,7 @@ export function NodeBadge({ nodeId, ceeWarnings, islAffected, onClick }: NodeBad
 
   if (hasLogicIssue) {
     badges.push({
-      icon: '⚠️',
+      icon: AlertTriangle,
       label: 'Logic issue: decision after outcome',
       color: 'carrot-500',
       priority: 2,
@@ -70,7 +72,7 @@ export function NodeBadge({ nodeId, ceeWarnings, islAffected, onClick }: NodeBad
   // ISL validation
   if (islAffected) {
     badges.push({
-      icon: '🔍',
+      icon: Search,
       label: 'Affected by identifiability issue',
       color: 'sky-500',
       priority: 1,
@@ -97,7 +99,7 @@ export function NodeBadge({ nodeId, ceeWarnings, islAffected, onClick }: NodeBad
             hover:scale-110 transition-transform cursor-pointer
           `}
         >
-          {badge.icon}
+          <badge.icon className="w-3.5 h-3.5" aria-hidden="true" />
         </button>
       ))}
     </div>

@@ -52,7 +52,7 @@ export function IssuesPanel({ issues, onFixIssue, onFixAll, onClose }: IssuesPan
       {/* Header */}
       <div className="px-4 py-3 border-b border-panel-border">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-text-header">Graph Issues</h3>
+          <h3 className={`${typography.panelHeader} text-text-header`}>Graph Issues</h3>
           <button onClick={onClose} className="p-1 hover:bg-panel-hover rounded" aria-label="Close issues panel">
             <X className="w-4 h-4 text-text-body" />
           </button>

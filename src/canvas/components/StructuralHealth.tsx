@@ -1,4 +1,5 @@
-import { CheckCircle } from 'lucide-react'
+import { CheckCircle, AlertTriangle, RotateCw } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useCEEInsights } from '../../hooks/useCEEInsights'
 import { typography } from '../../styles/typography'
 import type { CEEInsightsResponse } from '../../adapters/cee/types'
@@ -38,7 +39,7 @@ export function StructuralHealthSection({ insights: insightsProp }: StructuralHe
       <div className="space-y-2">
         {orphans.length > 0 && (
           <WarningCard
-            icon="⚠️"
+            icon={AlertTriangle}
             title="Orphan Nodes"
             description={`${orphans.length} node${orphans.length !== 1 ? 's' : ''} not connected to graph`}
             action="Highlight on graph"
@@ -47,7 +48,7 @@ export function StructuralHealthSection({ insights: insightsProp }: StructuralHe
 
         {cycles.length > 0 && (
           <WarningCard
-            icon="↻"
+            icon={RotateCw}
             title="Circular Dependencies"
             description={`${cycles.length} cycle${cycles.length !== 1 ? 's' : ''} detected`}
             action="Show cycles"
@@ -56,7 +57,7 @@ export function StructuralHealthSection({ insights: insightsProp }: StructuralHe
 
         {logicIssues.length > 0 && (
           <WarningCard
-            icon="⚠️"
+            icon={AlertTriangle}
             title="Logic Issues"
             description="Decision nodes appear after outcome nodes"
             action="View details"
@@ -68,16 +69,16 @@ export function StructuralHealthSection({ insights: insightsProp }: StructuralHe
 }
 
 interface WarningCardProps {
-  icon: string
+  icon: LucideIcon
   title: string
   description: string
   action: string
 }
 
-function WarningCard({ icon, title, description, action }: WarningCardProps) {
+function WarningCard({ icon: Icon, title, description, action }: WarningCardProps) {
   return (
     <div className="flex items-start gap-2 p-2 bg-sun-50 rounded">
-      <span className="text-lg">{icon}</span>
+      <Icon className="w-4 h-4 flex-shrink-0 text-warning" aria-hidden="true" />
       <div className="flex-1">
         <p className={`${typography.label} text-sun-800`}>{title}</p>
         <p className={`${typography.bodySmall} text-ink-900/70`}>{description}</p>

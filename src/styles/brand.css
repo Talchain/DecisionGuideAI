@@ -132,7 +132,7 @@
      (Derived from main colors)
      ============================================ */
 
-  /* Primary (Info Blue — v4 §3.10: hover shifts to success green "ready to act") */
+  /* Primary (Info Blue — v5 §3.10: hover shifts to success green "ready to act") */
   --primary: #52A3C8;
   --primary-hover: #67C89E;
   --primary-active: #5AA88A;
