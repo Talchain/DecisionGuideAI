@@ -53,10 +53,18 @@ export interface V5CeeCapture {
   /** Why parsing failed; null on success. */
   parse_failure_kind: ParseFailureKind | null
   /**
-   * Offending block `type` values when parse_failure_kind is
-   * `unknown_block_types`. Null otherwise.
+   * Unknown `blocks[]` type labels (unique, sorted).
+   *   - Success path (defensive tolerance, 2026-06): the types dropped from
+   *     `blocks[]` and recorded in the `unknown_blocks` sidecar.
+   *   - Legacy parse-error path: null (unknown blocks no longer hard-fail).
+   * Null when no unknown blocks were present.
    */
   unknown_block_types: string[] | null
+  /**
+   * Count of unknown `blocks[]` entries tolerated (dropped) by the parser on
+   * the success path. 0 when none. Mirrors `phase3_blocks_tolerated_count`.
+   */
+  unknown_blocks_tolerated_count: number
   /**
    * Whether top-level additive extensions (NOT phase 3 blocks-array
    * entries) were detected. Phase 3 blocks have dedicated fields below.

@@ -12,8 +12,10 @@
  * existing exportBundle specs use the same imports).
  *
  * Acceptance points covered:
- *   - Parse-error envelope flows into v5_cee_capture with parse_ok:false
- *     and the offending unknown block types enumerated.
+ *   - Unknown blocks[] types are TOLERATED (defensive hardening, 2026-06):
+ *     v5_cee_capture stays parse_ok:true and surfaces unknown_block_types +
+ *     unknown_blocks_tolerated_count from the sidecar. A genuine parse
+ *     failure (malformed known block) still reports parse_ok:false.
  *   - End-to-end callV5Turn → recordResponsePayload → redactor → bundle
  *     preserves the Phase 3 sidecar through the trace store's
  *     Object.keys-based redactor.
@@ -216,57 +218,93 @@ beforeEach(() => {
   } as any)
 })
 
-describe('v5_cee_capture — parse-failure path', () => {
-  it('(10) parse-error envelope flows into v5_cee_capture with parse_ok=false + enumerated types', async () => {
-    const fixture = ceeFixture()
-    ;(fixture.blocks as unknown[]).push({ type: 'totally_unknown_future_type' })
-    const parsed = await parseV5Response(makeResponse(fixture))
-    expect(parsed.kind).toBe('parse_error')
-
-    const data = makeDebugData({
+describe('v5_cee_capture — unknown-block tolerance path', () => {
+  // Build a success-path DebugData from a parsed OlumiResponse body. Mirrors
+  // the proven `success path honest semantics` pattern below: passing
+  // `parsed.response` (object reference) keeps the NON-ENUMERABLE
+  // `__additive__` sidecar accessible to the capture builder.
+  function successData(responseBody: Record<string, unknown>) {
+    return makeDebugData({
+      services: {
+        cee: {
+          name: 'CEE',
+          status: 200,
+          success: true,
+          duration_ms: 200,
+          endpoint: '/bff/orchestrate/v2/turn',
+        },
+        plot: null,
+        isl: null,
+      },
       payloads: {
         cee_request: { kind: 'message', message: 'run' },
-        cee_response: parsed as unknown as Record<string, unknown>,
+        cee_response: responseBody,
         plot_request: null,
         plot_response: null,
         isl_request: null,
         isl_response: null,
       },
     })
+  }
 
-    const bundle = await buildDebugBundleAsync(data)
-    expect(bundle.v5_canonical_analysis).toBeDefined()
-    const diag = bundle.v5_canonical_analysis!
-    expect(diag.v5_cee_capture).not.toBeNull()
-    const capture = diag.v5_cee_capture!
-
-    expect(capture.parse_ok).toBe(false)
-    expect(capture.response_present).toBe(true)
-    expect(capture.raw_response_present).toBe(true)
-    expect(capture.parse_failure_kind).toBe('unknown_block_types')
-    expect(capture.unknown_block_types).toEqual(['totally_unknown_future_type'])
-    expect(capture.parse_error ?? '').toContain('totally_unknown_future_type')
-    expect(capture.response_top_level_keys).toEqual(
-      expect.arrayContaining(['response_version', 'assistant_text', 'blocks']),
-    )
-    expect(diag.debug_capture_status).toBe('parse_failed')
-  })
-
-  it('mixed blocks (Phase 3 + unknown) → parse fails AND phase3 count populated from raw fallback', async () => {
-    // Pin the design: when CEE emits both tolerated Phase 3 blocks AND a
-    // truly-unknown block type inside `blocks[]`, the parser hard-fails
-    // (the unknown type dominates) — but the debug bundle must still
-    // surface the Phase 3 blocks the parser would have tolerated, sourced
-    // from the captured raw envelope. That lets reviewers see "CEE did
-    // emit review_card + coaching, the unknown_future_type is the
-    // offender" rather than collapsing both signals into a single
-    // failure with no Phase 3 visibility.
-    const fixture = ceeFixture() // includes analysis_result + review_card + coaching
+  it('(5,6) an unknown block is tolerated: v5_cee_capture is parse_ok=true and surfaces unknown_block_types + unknown_blocks_tolerated_count from the sidecar', async () => {
+    const fixture = ceeFixture()
     ;(fixture.blocks as unknown[]).push({
       type: 'totally_unknown_future_type',
       payload: { whatever: 1 },
     })
     const parsed = await parseV5Response(makeResponse(fixture))
+    expect(parsed.kind).toBe('response')
+    if (parsed.kind !== 'response') throw new Error('unreachable')
+
+    const bundle = await buildDebugBundleAsync(
+      successData(parsed.response as unknown as Record<string, unknown>),
+    )
+    const diag = bundle.v5_canonical_analysis!
+    expect(diag.v5_cee_capture).not.toBeNull()
+    const capture = diag.v5_cee_capture!
+
+    // Tolerated — NOT a parse failure.
+    expect(capture.parse_ok).toBe(true)
+    expect(capture.parse_failure_kind).toBeNull()
+    expect(diag.debug_capture_status).toBe('complete')
+
+    // (6) Structured, observable diagnostic on the capture object.
+    expect(capture.unknown_block_types).toEqual(['totally_unknown_future_type'])
+    expect(capture.unknown_blocks_tolerated_count).toBe(1)
+
+    // (7) No raw block payload leaks into the structured capture.
+    expect(JSON.stringify(capture)).not.toContain('whatever')
+  })
+
+  it('mixed blocks (Phase 3 + unknown) → tolerated: phase3 counts AND unknown counts both surface', async () => {
+    const fixture = ceeFixture() // analysis_result + review_card + coaching
+    ;(fixture.blocks as unknown[]).push({
+      type: 'totally_unknown_future_type',
+      payload: { whatever: 1 },
+    })
+    const parsed = await parseV5Response(makeResponse(fixture))
+    expect(parsed.kind).toBe('response')
+    if (parsed.kind !== 'response') throw new Error('unreachable')
+
+    const bundle = await buildDebugBundleAsync(
+      successData(parsed.response as unknown as Record<string, unknown>),
+    )
+    const capture = bundle.v5_canonical_analysis!.v5_cee_capture!
+
+    expect(capture.parse_ok).toBe(true)
+    // Phase 3 tolerated blocks still enumerated...
+    expect(capture.phase3_blocks_tolerated_count).toBe(2)
+    expect(capture.phase3_block_types).toEqual(['coaching', 'review_card'])
+    // ...alongside the unknown-block diagnostic.
+    expect(capture.unknown_block_types).toEqual(['totally_unknown_future_type'])
+    expect(capture.unknown_blocks_tolerated_count).toBe(1)
+  })
+
+  it('(12) a genuine parse failure (malformed KNOWN block) still flows into v5_cee_capture with parse_ok=false', async () => {
+    const fixture = ceeFixture()
+    ;(fixture.blocks as unknown[]).push({ type: 'text' /* required content missing */ })
+    const parsed = await parseV5Response(makeResponse(fixture))
     expect(parsed.kind).toBe('parse_error')
 
     const data = makeDebugData({
@@ -281,23 +319,12 @@ describe('v5_cee_capture — parse-failure path', () => {
     })
 
     const bundle = await buildDebugBundleAsync(data)
-    const capture = bundle.v5_canonical_analysis!.v5_cee_capture!
-
-    // Parse failure still dominates the capture status.
+    const diag = bundle.v5_canonical_analysis!
+    const capture = diag.v5_cee_capture!
     expect(capture.parse_ok).toBe(false)
-    expect(capture.parse_failure_kind).toBe('unknown_block_types')
-    expect(capture.unknown_block_types).toEqual(['totally_unknown_future_type'])
-
-    // But the Phase 3 blocks the parser WOULD have tolerated must still
-    // be visible to the reviewer — sourced from the parse_error
-    // envelope's `raw.blocks[]` via the bundle's raw fallback path.
-    expect(capture.phase3_blocks_tolerated_count).toBe(2)
-    expect(capture.phase3_block_types).toEqual(['coaching', 'review_card'])
-
-    // raw_response_present remains true here — the parse_error envelope
-    // preserved the verbatim pre-validation JSON, which is the basis for
-    // the raw fallback enumeration.
+    expect(capture.parse_failure_kind).toBe('schema_mismatch')
     expect(capture.raw_response_present).toBe(true)
+    expect(diag.debug_capture_status).toBe('parse_failed')
   })
 })
 

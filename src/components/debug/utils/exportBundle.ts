@@ -127,6 +127,7 @@ import {
   ORIGINAL_TOP_LEVEL_KEYS_KEY,
   PHASE3_SIDECAR_BLOCKS_KEY,
   PHASE3_TOLERATED_BLOCK_TYPES,
+  UNKNOWN_BLOCKS_KEY,
   V5_PARSE_ERROR_KIND,
   type ParseFailureKind,
 } from '../../../v5/responseParser'
@@ -3423,6 +3424,33 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       ),
     ).sort()
 
+    // Unknown `blocks[]` entries tolerated (dropped) by the parser on the
+    // success path (defensive hardening, 2026-06). Read from the parsed
+    // response's sidecar `unknown_blocks` slot; carries ONLY type labels +
+    // a count — never raw payload (the parser guarantees this). Mirrors the
+    // phase3 sidecar read above.
+    const unknownBlocksSidecar = (() => {
+      if (ceeResponseObject === null || ceeIsParseErrorEnvelope) return null
+      const sidecar = (ceeResponseObject as Record<string | symbol, unknown>)[
+        ADDITIVE_EXTENSIONS_KEY as unknown as string
+      ]
+      if (!sidecar || typeof sidecar !== 'object' || Array.isArray(sidecar)) return null
+      const slot = (sidecar as Record<string, unknown>)[UNKNOWN_BLOCKS_KEY]
+      return slot && typeof slot === 'object' && !Array.isArray(slot)
+        ? (slot as Record<string, unknown>)
+        : null
+    })()
+    const unknownBlockTypesTolerated: string[] | null =
+      unknownBlocksSidecar && Array.isArray(unknownBlocksSidecar.types)
+        ? (unknownBlocksSidecar.types as unknown[]).filter(
+            (t): t is string => typeof t === 'string',
+          )
+        : null
+    const unknownBlocksToleratedCount: number =
+      unknownBlocksSidecar && typeof unknownBlocksSidecar.count === 'number'
+        ? unknownBlocksSidecar.count
+        : 0
+
     // ceeService is no longer the gate — payload-trace evidence
     // (cee_request / cee_response) is sufficient to emit a capture object,
     // and parse failures must populate the diagnostic even when the
@@ -3514,6 +3542,7 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       for (const k of Object.keys(successSidecar)) {
         if (k === PHASE3_SIDECAR_BLOCKS_KEY) continue
         if (k === ORIGINAL_TOP_LEVEL_KEYS_KEY) continue
+        if (k === UNKNOWN_BLOCKS_KEY) continue
         return true
       }
       return false
@@ -3633,7 +3662,8 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
             response_top_level_keys: responseTopLevelKeys,
             raw_response_present: rawResponsePresent,
             parse_failure_kind: parseFailureKind,
-            unknown_block_types: unknownBlockTypes,
+            unknown_block_types: unknownBlockTypes ?? unknownBlockTypesTolerated,
+            unknown_blocks_tolerated_count: unknownBlocksToleratedCount,
             has_additive_extensions: hasAdditiveExtensions,
             phase3_blocks_tolerated_count: phase3Source.length,
             phase3_block_types: phase3BlockTypes,
