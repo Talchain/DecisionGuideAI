@@ -723,6 +723,14 @@ export function DriversSection({
         driversStatus,
         hasMagnitudeData,
         islError,
+        // Track S: factor value provenance — verification-only. Gated behind
+        // window.__OLUMI_DEBUG; never rendered to the DOM or shown to users.
+        provenance: drivers.map(d => ({
+          factorKey: d.factorKey,
+          valueSource: d.valueSource,
+          valueExtractionType: d.valueExtractionType,
+          valueDefaulted: d.valueDefaulted,
+        })),
       })
     }
   }, [drivers, driversStatus, hasMagnitudeData, islError])

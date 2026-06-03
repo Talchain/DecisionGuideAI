@@ -280,6 +280,11 @@ export function pickFactorSensitivityForUi(v2Response: V2RunResponse): FactorSen
         // VOI Fix: Pass through value_of_information for driver confidence display
         value_of_information: f.value_of_information as number | undefined,
         confidence_components: f.confidence_components as V2FactorSensitivity['confidence_components'],
+        // Track S: pass through factor value provenance. Guarded extraction keeps
+        // the adapter boundary safe and preserves explicit `false` (never coerces absent).
+        value_source: typeof f.value_source === 'string' ? f.value_source : undefined,
+        value_extraction_type: typeof f.value_extraction_type === 'string' ? f.value_extraction_type : undefined,
+        value_defaulted: typeof f.value_defaulted === 'boolean' ? f.value_defaulted : undefined,
       }))
       return { factors, _source_path: 'downstream_calls.isl' }
     }
@@ -330,6 +335,11 @@ export function pickFactorSensitivityForUi(v2Response: V2RunResponse): FactorSen
         // VOI Fix: Pass through value_of_information for driver confidence display
         value_of_information: f.value_of_information as number | undefined,
         confidence_components: f.confidence_components as V2FactorSensitivity['confidence_components'],
+        // Track S: pass through factor value provenance. Guarded extraction keeps
+        // the adapter boundary safe and preserves explicit `false` (never coerces absent).
+        value_source: typeof f.value_source === 'string' ? f.value_source : undefined,
+        value_extraction_type: typeof f.value_extraction_type === 'string' ? f.value_extraction_type : undefined,
+        value_defaulted: typeof f.value_defaulted === 'boolean' ? f.value_defaulted : undefined,
       }))
       return { factors, _source_path: 'enrichment' }
     }
