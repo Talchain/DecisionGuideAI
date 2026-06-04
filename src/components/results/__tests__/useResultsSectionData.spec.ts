@@ -1228,6 +1228,78 @@ describe('useResultsSectionData runtime safety', () => {
 })
 
 // =============================================================================
+// Track S — factor value provenance survives into data.drivers
+// =============================================================================
+
+describe('useResultsSectionData — Track S value provenance into data.drivers', () => {
+  beforeEach(() => {
+    useCanvasStore.setState({
+      results: { status: 'idle', progress: 0 } as any,
+      runMeta: {},
+      nodes: [],
+      edges: [],
+      hasCompletedFirstRun: false,
+      currentScenarioFraming: null,
+      ceeAnalysisReady: undefined,
+    })
+  })
+
+  const setReportWithFactor = (factor: Record<string, unknown>) => {
+    useCanvasStore.setState({
+      results: {
+        status: 'complete',
+        progress: 100,
+        report: {
+          run: { critique: [] },
+          robustness: { fragile_edges: [] },
+          option_comparison: [],
+          factor_sensitivity: [factor],
+        },
+      } as any,
+      hasCompletedFirstRun: true,
+      nodes: [],
+      edges: [],
+    })
+  }
+
+  it('carries value_source / value_extraction_type / value_defaulted=true onto the driver', () => {
+    setReportWithFactor({
+      factor_id: 'fac_a',
+      label: 'Factor A',
+      sensitivity_score: 0.5,
+      value_source: 'brief_extraction',
+      value_extraction_type: 'inferred',
+      value_defaulted: true,
+    })
+
+    const { result } = renderHook(() => useResultsSectionData())
+    const driver = result.current.drivers.drivers[0]
+
+    expect(driver).toBeDefined()
+    expect(driver?.valueSource).toBe('brief_extraction')
+    expect(driver?.valueExtractionType).toBe('inferred')
+    expect(driver?.valueDefaulted).toBe(true)
+  })
+
+  it('preserves explicit value_defaulted=false and leaves absent fields absent', () => {
+    setReportWithFactor({
+      factor_id: 'fac_a',
+      label: 'Factor A',
+      sensitivity_score: 0.5,
+      value_defaulted: false,
+      // value_source / value_extraction_type intentionally omitted
+    })
+
+    const { result } = renderHook(() => useResultsSectionData())
+    const driver = result.current.drivers.drivers[0]
+
+    expect(driver?.valueDefaulted).toBe(false)
+    expect(driver?.valueSource).toBeUndefined()
+    expect(driver?.valueExtractionType).toBeUndefined()
+  })
+})
+
+// =============================================================================
 // Baseline Resolution Tests (Task 2.1)
 // =============================================================================
 

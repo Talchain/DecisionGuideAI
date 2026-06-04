@@ -234,6 +234,12 @@ export interface V2FactorSensitivity {
   attribution_stability?: string
   /** Rank flip rate from PLoT bootstrap */
   rank_flip_rate?: number
+  /** Track S: provenance of the factor value (where it came from). Optional/additive; absent on pre-Track-S payloads. */
+  value_source?: string
+  /** Track S: how the value was obtained (explicit / inferred / …). Optional/additive. */
+  value_extraction_type?: string
+  /** Track S: true when the value was assumed/defaulted rather than provided. Optional/additive. */
+  value_defaulted?: boolean
 }
 
 /**

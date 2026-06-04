@@ -444,6 +444,12 @@ export interface DriverItem {
   evpi?: number
   /** ISL EVPI: expected improvement in percentage points */
   evpiPercentagePoints?: number
+  /** Track S: provenance of the factor value. Optional; absent on pre-Track-S payloads. */
+  valueSource?: string
+  /** Track S: how the value was obtained (explicit / inferred / …). Optional. */
+  valueExtractionType?: string
+  /** Track S: true when the value was assumed/defaulted. Distinct from isDefaultedConfidence (a confidence signal). */
+  valueDefaulted?: boolean
 }
 
 export interface DriversSectionData {
@@ -759,6 +765,12 @@ export interface RawFactorSensitivity {
   rank_flip_rate?: number
   evpi?: number
   evpi_percentage_points?: number
+  /** Track S: provenance of the factor value. Optional/additive; mirrors V2FactorSensitivity. */
+  value_source?: string
+  /** Track S: how the value was obtained (explicit / inferred / …). Optional/additive. */
+  value_extraction_type?: string
+  /** Track S: true when the value was assumed/defaulted. Optional/additive. */
+  value_defaulted?: boolean
 }
 
 export interface UiFactorSensitivity {
@@ -790,6 +802,12 @@ export interface UiFactorSensitivity {
   rankFlipRate?: number
   evpi?: number
   evpiPercentagePoints?: number
+  /** Track S: provenance of the factor value. Optional; absent on pre-Track-S payloads. */
+  valueSource?: string
+  /** Track S: how the value was obtained (explicit / inferred / …). Optional. */
+  valueExtractionType?: string
+  /** Track S: true when the value was assumed/defaulted. Distinct from isDefaultedConfidence (a confidence signal). */
+  valueDefaulted?: boolean
 }
 
 // =============================================================================

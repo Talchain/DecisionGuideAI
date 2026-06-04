@@ -384,6 +384,12 @@ export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<strin
       }
     : undefined
 
+  // Track S: factor value provenance — preserve only when present. Strict typeof
+  // guards keep an explicit `false` and never coerce an absent value → false.
+  const valueSource = typeof typed.value_source === 'string' ? typed.value_source : undefined
+  const valueExtractionType = typeof typed.value_extraction_type === 'string' ? typed.value_extraction_type : undefined
+  const valueDefaulted = typeof typed.value_defaulted === 'boolean' ? typed.value_defaulted : undefined
+
   return {
     factorId: rawId ?? label,
     label,
@@ -398,6 +404,9 @@ export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<strin
     confidenceSource,
     samplingStability,
     confidenceProvenance,
+    valueSource,
+    valueExtractionType,
+    valueDefaulted,
     attributionStability: (typed.attribution_stability === 'high' || typed.attribution_stability === 'moderate' || typed.attribution_stability === 'low' || typed.attribution_stability === 'negligible') ? typed.attribution_stability : undefined,
     rankFlipRate: typeof typed.rank_flip_rate === 'number' ? typed.rank_flip_rate : undefined,
     evpi: typeof typed.evpi === 'number' ? typed.evpi : undefined,
@@ -1780,6 +1789,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           }),
           // Audit A1-PRIMARY: plumb provenance through for the column-header marker.
           confidenceProvenance: f.raw.confidenceProvenance,
+          // Track S: factor value provenance — carried into the driver model for
+          // verification only (exposed via the __OLUMI_DEBUG diagnostic, not the DOM).
+          valueSource: f.raw.valueSource,
+          valueExtractionType: f.raw.valueExtractionType,
+          valueDefaulted: f.raw.valueDefaulted,
         }
       })
       .sort((a, b) => a.rank - b.rank) // Sort by rank
