@@ -236,7 +236,8 @@ jobs:
           # teardown/worker OOM signature — the exact string ERR_WORKER_OUT_OF_MEMORY
           # documented in docs/ops/vitest-full-suite-oom-diagnosis.md and matched by
           # the local pre-push gate (scripts/pre-push-validate.sh), so CI and local
-          # share one definition. Kept deliberately narrow: erring narrow fails SAFE —
+          # share one OOM signature (the CI pass/fail evaluator is otherwise
+          # stricter). Kept deliberately narrow: erring narrow fails SAFE —
           # an unmatched OOM yields a false FAILURE (gate red, artifact kept for a
           # human) rather than a false PASS. A broader match (e.g. bare "JavaScript
           # heap out of memory") could tolerate a parent-process heap death that
