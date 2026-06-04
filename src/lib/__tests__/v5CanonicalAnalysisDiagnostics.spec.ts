@@ -30,6 +30,7 @@ function capture(overrides: Partial<V5CeeCapture> = {}): V5CeeCapture {
     has_additive_extensions: false,
     phase3_blocks_tolerated_count: 0,
     phase3_block_types: [],
+    unknown_blocks_tolerated_count: 0,
     source: 'proxy_v5_turn',
     ...overrides,
   }

@@ -29,8 +29,17 @@
  *   `blocks[]` into known-to-schema, phase3-tolerated, and truly-unknown
  *   before validation. Known blocks go to strict validation; phase3 blocks
  *   are attached to the sidecar under `phase3_blocks_from_blocks_array`;
- *   truly-unknown types still produce a `parse_error` whose `reason`
- *   enumerates the offending types. Nested product schemas remain strict.
+ *   truly-unknown block types are NO LONGER fatal (defensive hardening,
+ *   2026-06): they are dropped from the validated `blocks[]`, the rest of
+ *   the response still parses/renders, and a privacy-safe
+ *   `{ types, count, by_type }` diagnostic is stashed in the sidecar under
+ *   `unknown_blocks`. Nested product schemas remain strict — a malformed
+ *   KNOWN block still hard-fails as `schema_mismatch`.
+ *
+ *   Contract rule: unknown-block tolerance is a SAFETY NET, not a rendering
+ *   contract. Dropped != rendered. A new user-facing block type requires an
+ *   explicit allowlist + mapper + renderer + visibility tests before CEE
+ *   relies on it being shown to the user.
  */
 import {
   OlumiResponseSchema,
@@ -73,9 +82,30 @@ export const ORIGINAL_TOP_LEVEL_KEYS_KEY = '__original_top_level_keys__' as cons
 export const ACTION_TYPE_ALIASES_APPLIED_KEY = 'action_type_aliases_applied' as const;
 
 /**
- * Whitelist of v1.3 Phase 3 block types tolerated inside `blocks[]`. Any
- * other unknown `type` discriminator inside `blocks[]` still hard-fails the
- * parse so accidental schema drift is detected.
+ * Sidecar key carrying the privacy-safe diagnostic for unknown `blocks[]`
+ * entries that were dropped by the defensive-hardening tolerance (2026-06).
+ *
+ * Value shape: `{ types: string[]; count: number; by_type: Record<string, number> }`.
+ *   - `types`: unique, sorted block-type labels (incl. shape descriptors
+ *     `'array'` / `'null'` / `'<missing-type>'`).
+ *   - `count`: total number of unknown entries dropped.
+ *   - `by_type`: per-type drop counts.
+ *
+ * Diagnostic-only and deliberately content-free: it NEVER carries the raw
+ * block payload, labels, IDs, values, or any user content. Recorded only
+ * when at least one unknown block was dropped (consistent with the other
+ * sidecar emission rules).
+ */
+export const UNKNOWN_BLOCKS_KEY = 'unknown_blocks' as const;
+
+/**
+ * Whitelist of v1.3 Phase 3 block types tolerated inside `blocks[]` and
+ * stashed verbatim in the sidecar (vs. legacy-known types, which continue to
+ * strict validation). Since the defensive-hardening change (2026-06) any
+ * OTHER `type` discriminator inside `blocks[]` is no longer fatal — it is
+ * dropped from the validated `blocks[]` and recorded in the `unknown_blocks`
+ * sidecar diagnostic. This whitelist therefore distinguishes "preserve
+ * verbatim for downstream Phase 3 consumers" from "drop + diagnose".
  *
  * Exported as `ReadonlySet` to prevent accidental mutation of the
  * tolerated-type allowlist at consumer boundaries (.add/.delete are not
@@ -183,9 +213,9 @@ function splitAdditiveExtensions(raw: unknown): {
  * union for `blocks[]`. Source: dist/boundary/blocks.js inside the vendored
  * tarball. Kept as a DGAI-side mirror so the parser can classify entries
  * BEFORE strict validation and give a precise diagnostic on truly unknown
- * types. If the schema package adds a block type, add it here too; a missed
- * type produces a clear parse_error (the offender is named in
- * `unknown_block_types`), which the tests will catch.
+ * types. If the schema package adds a block type, add it here too so it is
+ * strict-validated; an unlisted type is now tolerated (dropped + recorded in
+ * the `unknown_blocks` sidecar diagnostic) rather than fatal.
  */
 const LEGACY_SCHEMA_KNOWN_BLOCK_TYPES: ReadonlySet<string> = new Set([
   'text',
@@ -199,6 +229,24 @@ const LEGACY_SCHEMA_KNOWN_BLOCK_TYPES: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Defensive bound on the `type` label stored in the `unknown_blocks`
+ * diagnostic. `type` is a producer-controlled discriminator and legitimate
+ * values are short (e.g. `analysis_result`); but if a future CEE/model bug
+ * emitted a pathologically long or user-content-like discriminator, the
+ * diagnostic must not preserve it unbounded. Cap to a generous discriminator
+ * length so the diagnostic stays small and content-free. Drop counts are
+ * unaffected. Real type names are well under the cap, so this is a no-op for
+ * legitimate input.
+ */
+export const MAX_UNKNOWN_BLOCK_TYPE_LABEL_LENGTH = 64;
+
+function boundUnknownBlockTypeLabel(label: string): string {
+  return label.length <= MAX_UNKNOWN_BLOCK_TYPE_LABEL_LENGTH
+    ? label
+    : `${label.slice(0, MAX_UNKNOWN_BLOCK_TYPE_LABEL_LENGTH)}...[truncated]`;
+}
+
+/**
  * Classify the entries of `blocks[]` against the v1.3 contract:
  *   - `known`: entries with a `type` in the legacy schema. Forwarded to
  *     strict validation as-is.
@@ -207,8 +255,11 @@ const LEGACY_SCHEMA_KNOWN_BLOCK_TYPES: ReadonlySet<string> = new Set([
  *   - `unknownTypes`: a deduped + sorted list of offending `type` labels
  *     (or shape descriptors like `'array'` / `'<missing-type>'`) for any
  *     entry that is neither legacy-known nor in the Phase 3 whitelist.
- *     The parser hard-fails when this list is non-empty and surfaces it
- *     verbatim via `unknown_block_types` for the debug bundle.
+ *     The parser now TOLERATES these (defensive hardening): they are
+ *     dropped from the validated `blocks[]` and surfaced verbatim via the
+ *     `unknown_blocks` sidecar diagnostic for the debug bundle.
+ *   - `unknownCount`: total number of dropped unknown entries.
+ *   - `unknownByType`: per-type drop counts.
  *
  * Original input is NOT mutated. The returned arrays are new arrays of the
  * same entries (referential to the original block objects).
@@ -217,26 +268,36 @@ function splitBlocksTolerance(blocks: unknown[]): {
   known: unknown[];
   phase3: unknown[];
   unknownTypes: string[];
+  unknownCount: number;
+  unknownByType: Record<string, number>;
 } {
   const known: unknown[] = [];
   const phase3: unknown[] = [];
   const unknownTypeSet = new Set<string>();
+  const unknownByType: Record<string, number> = {};
+  let unknownCount = 0;
+  const addUnknown = (rawLabel: string): void => {
+    const label = boundUnknownBlockTypeLabel(rawLabel);
+    unknownTypeSet.add(label);
+    unknownByType[label] = (unknownByType[label] ?? 0) + 1;
+    unknownCount += 1;
+  };
   for (const entry of blocks) {
     if (entry === null || entry === undefined) {
-      unknownTypeSet.add(entry === null ? 'null' : 'undefined');
+      addUnknown(entry === null ? 'null' : 'undefined');
       continue;
     }
     if (Array.isArray(entry)) {
-      unknownTypeSet.add('array');
+      addUnknown('array');
       continue;
     }
     if (typeof entry !== 'object') {
-      unknownTypeSet.add(typeof entry);
+      addUnknown(typeof entry);
       continue;
     }
     const type = (entry as { type?: unknown }).type;
     if (typeof type !== 'string') {
-      unknownTypeSet.add('<missing-type>');
+      addUnknown('<missing-type>');
       continue;
     }
     if (PHASE3_TOLERATED_BLOCK_TYPES.has(type as Phase3ToleratedBlockType)) {
@@ -247,13 +308,13 @@ function splitBlocksTolerance(blocks: unknown[]): {
       known.push(entry);
       continue;
     }
-    unknownTypeSet.add(type);
+    addUnknown(type);
   }
-  // Dedupe + sort so multiple unknown blocks of the same type don't bloat
-  // the parse_error reason / debug bundle, and the ordering is stable for
-  // reviewers diffing two captures.
+  // Dedupe + sort so multiple unknown blocks of the same type produce a
+  // stable, compact diagnostic; `unknownByType` retains per-type counts and
+  // `unknownCount` the total number of dropped entries.
   const unknownTypes = [...unknownTypeSet].sort();
-  return { known, phase3, unknownTypes };
+  return { known, phase3, unknownTypes, unknownCount, unknownByType };
 }
 
 /**
@@ -420,6 +481,12 @@ export type ParseFailureKind =
   | 'non_json'
   | 'non_ok_non_boundary'
   | 'schema_mismatch'
+  /**
+   * @deprecated No longer produced. Unknown `blocks[]` types are now tolerated
+   * (dropped + recorded in the `unknown_blocks` sidecar) instead of failing
+   * the parse. Retained for back-compat with diagnostics consumers that still
+   * reference the literal.
+   */
   | 'unknown_block_types'
 
 /**
@@ -445,7 +512,11 @@ export type V5ParseResult =
       diagnosticHeaders?: DiagnosticHeaders
       /** Why parsing failed; populated for all parse_error branches. */
       parse_failure_kind?: ParseFailureKind
-      /** Populated when parse_failure_kind === 'unknown_block_types'. */
+      /**
+       * @deprecated Unknown blocks are now tolerated (see the `unknown_blocks`
+       * sidecar on the success path); this no longer populates from `blocks[]`
+       * tolerance. Kept on the type for back-compat with existing consumers.
+       */
       unknown_block_types?: string[]
     };
 
@@ -518,6 +589,9 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
   // Phase 3 whitelist entries get stashed in the sidecar; truly unknown
   // entries trigger a hard parse_error that names the offending types.
   let phase3Blocks: readonly unknown[] = []
+  let unknownBlockTypes: readonly string[] = []
+  let unknownBlockCount = 0
+  let unknownBlocksByType: Record<string, number> = {}
   let knownForValidation: unknown = known
   if (
     known !== null &&
@@ -528,29 +602,27 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
     const split = splitBlocksTolerance(
       (known as Record<string, unknown>).blocks as unknown[],
     )
-    if (split.unknownTypes.length > 0) {
-      // Hard-fail when truly unknown block types appear. The raw response
-      // is preserved verbatim so reviewers can inspect the offending
-      // payload via the debug bundle.
-      return {
-        kind: 'parse_error',
-        reason: `unknown block type(s) in blocks[]: ${split.unknownTypes.join(', ')}`,
-        http_status: res.status,
-        raw,
-        diagnosticHeaders: captureDiagnosticHeaders(res),
-        parse_failure_kind: 'unknown_block_types',
-        unknown_block_types: split.unknownTypes,
-      }
-    }
-    // Replace blocks for validation with the legacy-known slice, leaving
-    // the raw input untouched. We build a shallow clone of the known
-    // surface (which is itself already a shallow clone of raw produced by
-    // splitAdditiveExtensions).
+    // Defensive hardening (2026-06): truly-unknown block types are NO LONGER
+    // fatal. Only `split.known` continues to strict validation; unknown
+    // entries are dropped from the validated `blocks[]`, the rest of the
+    // response parses normally, and a privacy-safe { types, count, by_type }
+    // diagnostic is stashed in the sidecar under `unknown_blocks` below. This
+    // converts a future-additive CEE block from a whole-turn INTERNAL_ERROR
+    // into an observable, non-fatal compatibility event. Tolerance is a
+    // safety net, not a rendering contract — dropped blocks are never
+    // rendered. Malformed KNOWN blocks still hard-fail via strict zod
+    // (nested product schemas remain strict). Raw input is not mutated; the
+    // known surface is already a shallow clone from splitAdditiveExtensions.
     knownForValidation = {
       ...(known as Record<string, unknown>),
       blocks: split.known,
     }
     phase3Blocks = split.phase3
+    if (split.unknownTypes.length > 0) {
+      unknownBlockTypes = split.unknownTypes
+      unknownBlockCount = split.unknownCount
+      unknownBlocksByType = split.unknownByType
+    }
   }
 
   // Tolerance step 3 (action_type alias drift): the runtime dispatch map
@@ -570,7 +642,8 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
     const hasTopLevelExt = Object.keys(extensions).length > 0
     const hasPhase3 = phase3Blocks.length > 0
     const hasAliasRewrites = aliasRewrites.length > 0
-    if (!hasTopLevelExt && !hasPhase3 && !hasAliasRewrites) {
+    const hasUnknownBlocks = unknownBlockCount > 0
+    if (!hasTopLevelExt && !hasPhase3 && !hasAliasRewrites && !hasUnknownBlocks) {
       return { kind: 'response', response: parsed.data }
     }
     // Compose the sidecar payload. Top-level additive keys keep their
@@ -588,6 +661,17 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
     }
     if (hasAliasRewrites) {
       sidecar[ACTION_TYPE_ALIASES_APPLIED_KEY] = Object.freeze(aliasRewrites.slice())
+    }
+    if (hasUnknownBlocks) {
+      // Privacy-safe diagnostic ONLY — type labels + counts, NEVER raw block
+      // payload or user content. Rides the __additive__ sidecar into the
+      // debug bundle via v5Adapter; surfaced structurally on V5CeeCapture by
+      // exportBundle (unknown_block_types + unknown_blocks_tolerated_count).
+      sidecar[UNKNOWN_BLOCKS_KEY] = Object.freeze({
+        types: Object.freeze(unknownBlockTypes.slice()),
+        count: unknownBlockCount,
+        by_type: Object.freeze({ ...unknownBlocksByType }),
+      })
     }
     if (raw !== null && typeof raw === 'object' && !Array.isArray(raw)) {
       sidecar[ORIGINAL_TOP_LEVEL_KEYS_KEY] = Object.freeze(

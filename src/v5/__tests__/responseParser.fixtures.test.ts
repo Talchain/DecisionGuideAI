@@ -8,7 +8,11 @@
  * parser has drifted or the schema version is wrong.
  */
 import { describe, it, expect } from 'vitest'
-import { parseV5Response } from '../responseParser'
+import {
+  parseV5Response,
+  ADDITIVE_EXTENSIONS_KEY,
+  UNKNOWN_BLOCKS_KEY,
+} from '../responseParser'
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -262,9 +266,11 @@ describe('parseV5Response fixtures — parse_error paths', () => {
     }
   })
 
-  it('v0.6.0-shape response (unknown block type) → parse_error (defensive)', async () => {
-    // v0.6.0 didn't have this block type, but adding a guard against a
-    // hypothetical older CEE emitting a shape the strict schema rejects.
+  it('response carrying an unknown block type → tolerated (dropped + recorded in sidecar), NOT a parse_error', async () => {
+    // Defensive hardening (2026-06): an unknown block type is no longer
+    // fatal. The unknown block is dropped from the validated blocks[], the
+    // rest of the response parses, and the drop is recorded in the
+    // `unknown_blocks` sidecar so it stays observable.
     const body = {
       response_version: 2,
       assistant_text: 'hi',
@@ -274,6 +280,17 @@ describe('parseV5Response fixtures — parse_error paths', () => {
       stage_indicator: 'frame',
     }
     const r = await parseV5Response(jsonResponse(200, body))
-    expect(r.kind).toBe('parse_error')
+    expect(r.kind).toBe('response')
+    if (r.kind !== 'response') throw new Error('unreachable')
+    // Unknown block dropped; known fields preserved.
+    expect(r.response.blocks).toHaveLength(0)
+    expect(r.response.assistant_text).toBe('hi')
+    // Recorded in the sidecar diagnostic (type + count, no payload).
+    const sidecar = (r.response as Record<string | symbol, unknown>)[
+      ADDITIVE_EXTENSIONS_KEY
+    ] as Record<string, unknown>
+    const unknown = sidecar[UNKNOWN_BLOCKS_KEY] as { types: string[]; count: number }
+    expect(unknown.types).toEqual(['unknown_new_block'])
+    expect(unknown.count).toBe(1)
   })
 })

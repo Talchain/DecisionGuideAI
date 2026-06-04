@@ -221,8 +221,9 @@ export interface V5CanonicalTurnDiagnostics {
     parse_failure_kind: ParseFailureKind | null
     raw_response_present: boolean
     response_top_level_keys: string[] | null
-    /** Offending block `type` values when parse_failure_kind is
-     *  `unknown_block_types`; null otherwise. */
+    /** Unknown `blocks[]` type labels — the tolerated/dropped types from the
+     *  `unknown_blocks` sidecar on success, or null. The legacy parse-error
+     *  path no longer populates this (unknown blocks are now tolerated). */
     unknown_block_types: string[] | null
   }
   analysis_fact: {

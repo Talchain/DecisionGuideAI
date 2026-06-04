@@ -14,8 +14,9 @@
  * truly-unknown buckets before strict validation. Legacy-known entries
  * go through strict zod; Phase 3 entries are preserved verbatim and
  * stashed in the sidecar under `phase3_blocks_from_blocks_array`;
- * truly-unknown entries still hard-fail and are named in the debug
- * bundle.
+ * truly-unknown entries are tolerated (defensive hardening, 2026-06):
+ * dropped from the validated blocks[] and recorded in the `unknown_blocks`
+ * sidecar diagnostic instead of failing the whole turn.
  *
  * NOTE: debug-bundle integration assertions live in
  *   src/components/debug/__tests__/v5-cee-capture.phase3-tolerance.spec.ts
@@ -47,6 +48,8 @@ import {
   ADDITIVE_EXTENSIONS_KEY,
   PHASE3_SIDECAR_BLOCKS_KEY,
   PHASE3_TOLERATED_BLOCK_TYPES,
+  UNKNOWN_BLOCKS_KEY,
+  MAX_UNKNOWN_BLOCK_TYPE_LABEL_LENGTH,
   type OlumiResponseWithExtensions,
 } from '../responseParser'
 import {
@@ -467,8 +470,10 @@ describe('LEGACY_SCHEMA_KNOWN_BLOCK_TYPES drift guard', () => {
    * The parser hardcodes the legacy block-type whitelist from
    * @talchain/schemas (currently v0.8.1). If the schema package is
    * upgraded — new block types added, existing renamed/removed — the
-   * parser's classifier silently misroutes them: new types end up in the
-   * `unknown` bucket and hard-fail parse. This drift guard introspects
+   * parser's classifier silently misroutes them: new types fall into the
+   * `unknown` bucket and (since the 2026-06 tolerance change) are dropped
+   * into the `unknown_blocks` sidecar rather than rendered. This drift
+   * guard introspects
    * the strict `BlockSchema` discriminated union and asserts the parser
    * mirror stays in sync. When this fires, update
    * LEGACY_SCHEMA_KNOWN_BLOCK_TYPES in src/v5/responseParser.ts.
@@ -552,14 +557,16 @@ describe('LEGACY_SCHEMA_KNOWN_BLOCK_TYPES drift guard', () => {
 
   /**
    * Stronger drift guard: every declared block type must round-trip
-   * through DGAI's `parseV5Response`, not just through zod's
-   * `BlockSchema.safeParse`. The parser's `splitBlocksTolerance` keeps a
-   * separate hand-mirrored set (`LEGACY_SCHEMA_KNOWN_BLOCK_TYPES`); a
-   * type that the vendored schema accepts but the mirror omits would be
-   * misrouted into the `unknown` bucket and hard-fail at runtime even
-   * though the BlockSchema check above passes.
+   * through DGAI's `parseV5Response` INTO THE VALIDATED `blocks[]`, not
+   * just parse successfully. The parser's `splitBlocksTolerance` keeps a
+   * separate hand-mirrored set (`LEGACY_SCHEMA_KNOWN_BLOCK_TYPES`); a type
+   * the vendored schema accepts but the mirror omits would — since the
+   * defensive-hardening change (2026-06) — be silently DROPPED into the
+   * `unknown_blocks` sidecar instead of hard-failing. So `kind ===
+   * 'response'` alone is no longer sufficient proof of recognition; we
+   * assert the block actually survives into `response.blocks`.
    */
-  it('round-trips every declared block type through parseV5Response', async () => {
+  it('round-trips every declared block type into validated blocks[] (not dropped as unknown)', async () => {
     const def = (BlockSchema as unknown as { _def: { optionsMap?: Map<string, unknown> } })._def
     const declaredTypes = [...(def.optionsMap!.keys())]
     const minimalEachType: Record<string, Record<string, unknown>> = {
@@ -617,6 +624,25 @@ describe('LEGACY_SCHEMA_KNOWN_BLOCK_TYPES drift guard', () => {
               : '') +
             ')',
         )
+        continue
+      }
+      // Tolerance-era strengthening: parsing successfully is no longer
+      // sufficient. A declared type missing from
+      // LEGACY_SCHEMA_KNOWN_BLOCK_TYPES would now be silently DROPPED into
+      // the unknown_blocks sidecar rather than hard-failing — so assert the
+      // block actually survived into the validated blocks[].
+      const survived = result.response.blocks.some(
+        (b) => (b as { type?: unknown }).type === decl,
+      )
+      if (!survived) {
+        const sidecar = (result.response as Record<string | symbol, unknown>)[
+          ADDITIVE_EXTENSIONS_KEY
+        ] as Record<string, unknown> | undefined
+        const dropped =
+          (sidecar?.[UNKNOWN_BLOCKS_KEY] as { types?: string[] } | undefined)?.types ?? []
+        misrouted.push(
+          `${decl} (parsed but DROPPED → unknown_blocks: ${JSON.stringify(dropped)})`,
+        )
       }
     }
     if (misrouted.length > 0) {
@@ -629,27 +655,61 @@ describe('LEGACY_SCHEMA_KNOWN_BLOCK_TYPES drift guard', () => {
   })
 })
 
-// ── Negative paths — unknown and malformed blocks ─────────────────────
+// ── Defensive tolerance — unknown blocks (2026-06) + malformed-known ───
+//
+// Unknown `blocks[]` types are NO LONGER fatal: they are dropped from the
+// validated blocks[], the rest of the response still parses, and a
+// privacy-safe { types, count, by_type } diagnostic lands in the
+// `unknown_blocks` sidecar. A malformed KNOWN block still hard-fails.
 
-describe('parser strictness — unknown and malformed blocks', () => {
-  it('(8) unknown block type inside blocks[] still fails parse with enumerated types', async () => {
+describe('parser tolerance — unknown blocks (defensive hardening)', () => {
+  type UnknownSidecar = { types: string[]; count: number; by_type: Record<string, number> }
+  const readUnknown = (result: Awaited<ReturnType<typeof parseV5Response>>): UnknownSidecar => {
+    if (result.kind !== 'response') throw new Error('expected a parsed response')
+    const sidecar = (result.response as Record<string | symbol, unknown>)[ADDITIVE_EXTENSIONS_KEY] as
+      | Record<string, unknown>
+      | undefined
+    return sidecar?.[UNKNOWN_BLOCKS_KEY] as UnknownSidecar
+  }
+
+  it('(3,4) an unknown block type is tolerated: response parses, known blocks survive, unknown is dropped + recorded in the sidecar', async () => {
     const fixture = ceeFixture()
     ;(fixture.blocks as unknown[]).push({
       type: 'totally_unknown_future_type',
       payload: { whatever: 1 },
     })
     const result = await parseV5Response(makeResponse(fixture))
-    expect(result.kind).toBe('parse_error')
-    if (result.kind !== 'parse_error') throw new Error('unreachable')
-    expect(result.parse_failure_kind).toBe('unknown_block_types')
-    expect(result.unknown_block_types).toEqual(['totally_unknown_future_type'])
-    expect(result.reason).toContain('totally_unknown_future_type')
-    // Original raw response preserved for diagnostics.
-    expect(result.raw).toBeTruthy()
-    expect((result.raw as Record<string, unknown>).blocks).toBeTruthy()
+    expect(result.kind).toBe('response')
+    if (result.kind !== 'response') throw new Error('unreachable')
+
+    // Known block survives; unknown is NOT in the validated blocks[].
+    expect(result.response.blocks).toHaveLength(1)
+    expect(result.response.blocks[0].type).toBe('analysis_result')
+    expect(result.response.blocks.map((b) => b.type)).not.toContain(
+      'totally_unknown_future_type',
+    )
+
+    // (5,6) Observable diagnostic — type + count, deduped.
+    const unknown = readUnknown(result)
+    expect(unknown).toBeDefined()
+    expect(unknown.types).toEqual(['totally_unknown_future_type'])
+    expect(unknown.count).toBe(1)
+    expect(unknown.by_type).toEqual({ totally_unknown_future_type: 1 })
+
+    // (7) NO raw payload / user content leaks into the diagnostic.
+    expect(JSON.stringify(unknown)).not.toContain('whatever')
   })
 
-  it('multiple unknown blocks of the same type dedupe to a single entry in unknown_block_types', async () => {
+  it('(8,9) routeV5Response renders the known content — NOT a typed error — when an unknown block is present', async () => {
+    const fixture = ceeFixture()
+    ;(fixture.blocks as unknown[]).push({ type: 'totally_unknown_future_type', a: 1 })
+    const result = await parseV5Response(makeResponse(fixture))
+    const target = routeV5Response(result)
+    expect(target.kind).not.toBe('typed_error')
+    expect(target.kind).toBe('blocks')
+  })
+
+  it('(10) multiple unknown blocks: types deduped + sorted; count reflects EVERY dropped entry', async () => {
     const fixture = ceeFixture()
     ;(fixture.blocks as unknown[]).push(
       { type: 'totally_unknown_future_type', a: 1 },
@@ -657,28 +717,87 @@ describe('parser strictness — unknown and malformed blocks', () => {
       { type: 'another_unknown_type', b: 3 },
     )
     const result = await parseV5Response(makeResponse(fixture))
-    expect(result.kind).toBe('parse_error')
-    if (result.kind !== 'parse_error') throw new Error('unreachable')
-    // Dedupe + sort so reviewers see a clean, stable list — not a bloated
-    // one with each unknown block duplicated.
-    expect(result.unknown_block_types).toEqual([
-      'another_unknown_type',
-      'totally_unknown_future_type',
-    ])
+    expect(result.kind).toBe('response')
+    if (result.kind !== 'response') throw new Error('unreachable')
+    const unknown = readUnknown(result)
+    expect(unknown.types).toEqual(['another_unknown_type', 'totally_unknown_future_type'])
+    expect(unknown.count).toBe(3)
+    expect(unknown.by_type).toEqual({
+      totally_unknown_future_type: 2,
+      another_unknown_type: 1,
+    })
+    // Known block still survives alongside the dropped unknowns.
+    expect(result.response.blocks).toHaveLength(1)
   })
 
-  it('an array entry inside blocks[] is classified as `array`, not `object`', async () => {
+  it('(11) array / missing-type entries are tolerated (classified `array` / `<missing-type>`), not fatal', async () => {
     const fixture = ceeFixture()
-    ;(fixture.blocks as unknown[]).push(['not', 'a', 'block'])
+    ;(fixture.blocks as unknown[]).push(['not', 'a', 'block'], { no: 'type' })
     const result = await parseV5Response(makeResponse(fixture))
-    expect(result.kind).toBe('parse_error')
-    if (result.kind !== 'parse_error') throw new Error('unreachable')
-    expect(result.parse_failure_kind).toBe('unknown_block_types')
-    expect(result.unknown_block_types).toContain('array')
-    expect(result.unknown_block_types).not.toContain('object')
+    expect(result.kind).toBe('response')
+    if (result.kind !== 'response') throw new Error('unreachable')
+    const unknown = readUnknown(result)
+    expect(unknown.types).toContain('array')
+    expect(unknown.types).toContain('<missing-type>')
+    expect(unknown.types).not.toContain('object')
+    expect(unknown.count).toBe(2)
   })
 
-  it('(9) malformed-known block still fails parse — nested product schemas remain strict', async () => {
+  it('a response whose ONLY block is unknown still parses (empty validated blocks[]) and routes to text', async () => {
+    const result = await parseV5Response(
+      makeResponse({
+        response_version: 2,
+        assistant_text: 'Here is some prose.',
+        blocks: [{ type: 'totally_unknown_future_type', a: 1 }],
+        suggested_actions: [],
+        insights: [],
+        stage_indicator: 'analyse',
+      }),
+    )
+    expect(result.kind).toBe('response')
+    if (result.kind !== 'response') throw new Error('unreachable')
+    expect(result.response.blocks).toHaveLength(0)
+    expect(readUnknown(result).count).toBe(1)
+    expect(routeV5Response(result).kind).toBe('text_only')
+  })
+
+  it('(13) FactBlock is NOT a supported V5 blocks[] type — a `fact` block is tolerated-and-dropped, never promoted to a known block', async () => {
+    const fixture = ceeFixture()
+    ;(fixture.blocks as unknown[]).push({ type: 'fact', label: 'ROI', value: '42%' })
+    const result = await parseV5Response(makeResponse(fixture))
+    expect(result.kind).toBe('response')
+    if (result.kind !== 'response') throw new Error('unreachable')
+    // fact is dropped from validated blocks[] (not rendered as a known block).
+    // (Cast to string: the strict OlumiResponse block union legitimately has
+    // no 'fact' member — proving at runtime that the parser dropped it.)
+    expect(result.response.blocks.map((b) => b.type as string)).not.toContain('fact')
+    const unknown = readUnknown(result)
+    expect(unknown.types).toContain('fact')
+    // The block value is NOT leaked into the diagnostic.
+    expect(JSON.stringify(unknown)).not.toContain('42%')
+  })
+
+  it('bounds a pathologically long unknown type label (defensive privacy cap)', async () => {
+    const longType = 'x'.repeat(500)
+    const fixture = ceeFixture()
+    ;(fixture.blocks as unknown[]).push({ type: longType, payload: { whatever: 1 } })
+    const result = await parseV5Response(makeResponse(fixture))
+    expect(result.kind).toBe('response')
+    if (result.kind !== 'response') throw new Error('unreachable')
+    const unknown = readUnknown(result)
+    expect(unknown.count).toBe(1)
+    // The 500-char discriminator is NOT preserved verbatim — it is bounded so
+    // a buggy/user-content-like type can't dump unbounded content into the
+    // diagnostic (which flows to the debug bundle).
+    expect(unknown.types[0]).not.toBe(longType)
+    expect(unknown.types[0]).toContain('[truncated]')
+    expect(unknown.types[0].length).toBeLessThanOrEqual(
+      MAX_UNKNOWN_BLOCK_TYPE_LABEL_LENGTH + '...[truncated]'.length,
+    )
+    expect(JSON.stringify(unknown)).not.toContain(longType)
+  })
+
+  it('(12) a malformed KNOWN block still hard-fails — nested product schemas remain strict', async () => {
     const fixture = ceeFixture()
     ;(fixture.blocks as unknown[]).push({ type: 'text' /* required `content` missing */ })
     const result = await parseV5Response(makeResponse(fixture))
