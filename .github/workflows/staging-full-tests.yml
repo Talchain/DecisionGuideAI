@@ -126,24 +126,71 @@ jobs:
           path: node_modules
           key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
+      # Bounded so a teardown hang (mode A) fails fast at 35 min instead of
+      # running to GitHub's 6-hour default. Normal runtime is ~15 min (≈45s
+      # tests + ≈850s teardown — see docs/ops/vitest-full-suite-oom-diagnosis.md).
+      #
+      # We capture vitest's REAL exit code (PIPESTATUS[0], not tee's) and force
+      # the step to exit 0 so the "Evaluate" step below is the single pass/fail
+      # arbiter. On a timeout the runner kills this step mid-command, so the
+      # exit_code echo never runs and steps.vitest.outputs.exit_code is empty —
+      # that empty value is how Evaluate distinguishes a timeout/kill from a
+      # completed-but-non-zero run.
       - name: Run full test suite
-        run: pnpm exec vitest run --reporter=verbose 2>&1 | tee vitest-output.txt
+        id: vitest
+        timeout-minutes: 35
+        run: |
+          set +e
+          pnpm exec vitest run --reporter=verbose 2>&1 | tee vitest-output.txt
+          code=${PIPESTATUS[0]}
+          echo "exit_code=${code}" >> "$GITHUB_OUTPUT"
+          echo "vitest exited with code ${code}"
+          exit 0
         env:
           NODE_OPTIONS: "--max-old-space-size=7168"
 
-      # Defence-in-depth against bail-like under-reporting regressions.
-      # Failure mode: vitest hits --bail=N and marks all files queued-but-
-      # never-started as "skipped" in the summary. The total stays high
-      # (~754) but skipped balloons (~653 from the 2026-04-18 audit).
-      # Healthy suite skips ~4 files (real it.skip()). Assert both the
-      # minimum total AND an upper bound on skipped to catch either
-      # (a) config-level exclusions removing files OR (b) bail reintroduced.
-      # if: always() so this still fires when vitest itself exits non-zero.
-      - name: Assert healthy test-file coverage (no bail-like under-reporting)
+      # Preserve the test log on every outcome (pass, fail, timeout, cancel) so
+      # a hung/cancelled run is still diagnosable. Test log only — no secrets or
+      # environment dumps. Placed before Evaluate so it survives a non-zero gate.
+      - name: Upload vitest output
         if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-output
+          path: vitest-output.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      # Single pass/fail arbiter for the Full Test Suite job. Combines:
+      #  - timeout/kill detection (empty exit_code from the step above),
+      #  - genuine test-failure detection (failed counts in the summary),
+      #  - defence-in-depth against bail-like under-reporting (file-count
+      #    thresholds — vitest hitting --bail=N marks queued-but-never-started
+      #    files as "skipped"; healthy suite skips ~4, the 2026-04-18 audit saw
+      #    ~653), and
+      #  - tolerance for the KNOWN teardown ERR_WORKER_OUT_OF_MEMORY signature
+      #    (mode B) — and ONLY that signature — when zero tests failed.
+      # if: always() so it still fires when vitest exits non-zero or is killed.
+      - name: Evaluate test results
+        if: always()
+        env:
+          VITEST_EXIT: ${{ steps.vitest.outputs.exit_code }}
         run: |
+          # Disable errexit: grep "no match" assignments (e.g. the no-failures
+          # fallback summary) exit non-zero and, under the runner's default
+          # `bash -eo pipefail`, a failing `var=$(grep ... | tail)` would abort
+          # the step before we reach our explicit checks. Every failure path
+          # below ends in an explicit `exit`, so this cannot mask a real failure.
+          set +e
           if [ ! -f vitest-output.txt ]; then
-            echo "::error::vitest-output.txt missing — cannot verify test-file coverage"
+            echo "::error::vitest-output.txt missing — the test step failed to start."
+            exit 1
+          fi
+          # Empty exit_code => the step was killed before it could report its
+          # exit (35-min timeout or runner cancellation). Mode A.
+          if [ -z "${VITEST_EXIT}" ]; then
+            echo "::error::Full Test Suite did not complete — it timed out (35 min) or was cancelled before reporting. This is a CI hang, not a test failure; inspect the 'vitest-output' artifact to see how far it got."
+            tail -30 vitest-output.txt || true
             exit 1
           fi
           # Summary line shape: " Test Files  14 failed | 734 passed | 4 skipped (755)"
@@ -153,24 +200,47 @@ jobs:
             summary=$(grep -oE '^\s*Test Files +[0-9]+ passed \| [0-9]+ skipped \([0-9]+\)' vitest-output.txt | tail -1)
           fi
           if [ -z "$summary" ]; then
-            echo "::error::could not parse 'Test Files' summary from vitest output"
+            echo "::error::could not parse 'Test Files' summary from vitest output (crash before summary?). Exit code was ${VITEST_EXIT}."
             tail -30 vitest-output.txt
             exit 1
           fi
           echo "Parsed summary: ${summary}"
           total=$(echo "$summary" | grep -oE '\([0-9]+\)' | tr -d '()')
           skipped=$(echo "$summary" | grep -oE '[0-9]+ skipped' | grep -oE '[0-9]+')
+          files_failed=$(echo "$summary" | grep -oE '[0-9]+ failed' | grep -oE '[0-9]+' | tail -1)
+          files_failed=${files_failed:-0}
+          # Individual-test failures: " Tests  3 failed | 6215 passed | 1 skipped (6219)"
+          tests_failed=$(grep -oE '^\s*Tests +[0-9]+ failed' vitest-output.txt | grep -oE '[0-9]+ failed' | grep -oE '[0-9]+' | tail -1)
+          tests_failed=${tests_failed:-0}
+          has_oom=$(grep -c 'ERR_WORKER_OUT_OF_MEMORY' vitest-output.txt || true)
+          has_oom=${has_oom:-0}
           min_total=700
           max_skipped=50
-          echo "total=${total} skipped=${skipped} (thresholds: total>=${min_total}, skipped<=${max_skipped})"
+          echo "exit=${VITEST_EXIT} files_failed=${files_failed} tests_failed=${tests_failed} total=${total} skipped=${skipped} oom=${has_oom} (thresholds: total>=${min_total}, skipped<=${max_skipped})"
           fail=0
-          if [ "$total" -lt "$min_total" ]; then
+          # Genuine test failures are NEVER tolerated.
+          if [ "${files_failed}" -gt 0 ] || [ "${tests_failed}" -gt 0 ]; then
+            echo "::error::Test failures detected: ${files_failed} file(s), ${tests_failed} test(s). This is a real failure, not an infra issue."
+            fail=1
+          fi
+          # Defence-in-depth against bail-like under-reporting / over-exclusion.
+          if [ "${total}" -lt "${min_total}" ]; then
             echo "::error::Discovered ${total} test files, below minimum ${min_total}. Likely cause: config exclusions expanded or files removed from src/tests."
             fail=1
           fi
-          if [ "$skipped" -gt "$max_skipped" ]; then
+          if [ "${skipped}" -gt "${max_skipped}" ]; then
             echo "::error::${skipped} test files reported as skipped (max ${max_skipped}). Likely cause: --bail=N reintroduced (see docs/ui/ci-test-coverage-audit.md §1) or large it.skip() block added."
             fail=1
+          fi
+          # A non-zero exit with zero failures is tolerated ONLY for the known
+          # teardown/worker OOM signature — not for any other non-zero exit.
+          if [ "${VITEST_EXIT}" -ne 0 ] && [ "${fail}" -eq 0 ]; then
+            if [ "${has_oom}" -gt 0 ]; then
+              echo "::warning::vitest exited ${VITEST_EXIT} but every test passed; tolerating the known teardown ERR_WORKER_OUT_OF_MEMORY (see docs/ops/vitest-full-suite-oom-diagnosis.md)."
+            else
+              echo "::error::vitest exited ${VITEST_EXIT} with zero reported failures and no ERR_WORKER_OUT_OF_MEMORY signature — unexplained non-zero exit, not tolerated."
+              fail=1
+            fi
           fi
           exit $fail
 
@@ -213,13 +283,23 @@ jobs:
     steps:
       - name: Check all jobs passed
         run: |
+          echo "Job results:"
+          echo "  tsc:    ${{ needs.tsc.result }}"
+          echo "  vitest: ${{ needs.vitest.result }}"
+          echo "  build:  ${{ needs.build.result }}"
           if [ "${{ needs.tsc.result }}" != "success" ] || \
              [ "${{ needs.vitest.result }}" != "success" ] || \
              [ "${{ needs.build.result }}" != "success" ]; then
-            echo "One or more jobs failed:"
-            echo "  tsc:    ${{ needs.tsc.result }}"
-            echo "  vitest: ${{ needs.vitest.result }}"
-            echo "  build:  ${{ needs.build.result }}"
+            echo "::error::Staging Gate failed — one or more jobs did not succeed (see results above)."
+            # The Full Test Suite job is the authority on test outcome: its
+            # "Evaluate test results" step prints a precise reason and the
+            # 'vitest-output' artifact preserves the log on every outcome.
+            # A timeout/hang ('failure'/'cancelled' with an "did not complete"
+            # error), an OOM-tolerated pass ('success' + a ::warning::), and a
+            # genuine test failure all look different there — check it first.
+            if [ "${{ needs.vitest.result }}" != "success" ]; then
+              echo "::error::vitest is '${{ needs.vitest.result }}'. Open the Full Test Suite job logs + download the 'vitest-output' artifact to tell a CI hang/timeout apart from a real test failure."
+            fi
             exit 1
           fi
           echo "All jobs passed."
