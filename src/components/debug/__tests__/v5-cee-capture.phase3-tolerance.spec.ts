@@ -417,6 +417,70 @@ describe('v5_cee_capture — end-to-end through redactor', () => {
     // blocks present, no top-level additives → false).
     expect(capture.has_additive_extensions).toBe(true)
   })
+
+  it('callV5Turn → trace-store redactor → bundle preserves the unknown_blocks diagnostic', async () => {
+    // Companion to the Phase 3 test above: the unknown_blocks diagnostic
+    // rides the SAME non-enumerable __additive__ sidecar, so it must
+    // likewise survive the trace store's Object.keys-based redactor (via
+    // v5Adapter's enumerable-clone promotion) end-to-end into the bundle —
+    // not just the synthetic object-ref path used by the tolerance tests.
+    usePayloadTraceStore.setState({ payloads: [], selectedId: null } as any)
+
+    const fixture = ceeFixture()
+    ;(fixture.blocks as unknown[]).push({
+      type: 'totally_unknown_future_type',
+      payload: { whatever: 1 },
+    })
+    const fetchImpl: typeof fetch = async () =>
+      new Response(JSON.stringify(fixture), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+    const result = await callV5Turn(
+      { kind: 'message', message: 'run analysis' } as never,
+      { fetchImpl },
+    )
+    expect(result.kind).toBe('response')
+
+    const traced = usePayloadTraceStore.getState().payloads
+    expect(traced).toHaveLength(1)
+    const tracedBody = traced[0].response?.body as Record<string, unknown>
+
+    const data = makeDebugData({
+      services: {
+        cee: {
+          name: 'CEE',
+          status: 200,
+          success: true,
+          duration_ms: 312,
+          endpoint: '/bff/orchestrate/v2/turn',
+        },
+        plot: null,
+        isl: null,
+      },
+      payloads: {
+        cee_request: traced[0].request?.body as Record<string, unknown> | null,
+        cee_response: tracedBody,
+        plot_request: null,
+        plot_response: null,
+        isl_request: null,
+        isl_response: null,
+      },
+    })
+
+    const bundle = await buildDebugBundleAsync(data)
+    const capture = bundle.v5_canonical_analysis!.v5_cee_capture!
+
+    // Survived the REAL redactor (not just the synthetic object-ref path).
+    expect(capture.parse_ok).toBe(true)
+    expect(capture.unknown_block_types).toEqual(['totally_unknown_future_type'])
+    expect(capture.unknown_blocks_tolerated_count).toBe(1)
+    // Phase 3 tolerated blocks still present alongside.
+    expect(capture.phase3_blocks_tolerated_count).toBe(2)
+    // No raw payload leaked through the redactor into the capture.
+    expect(JSON.stringify(capture)).not.toContain('whatever')
+  })
 })
 
 describe('v5_cee_capture — success path honest semantics', () => {

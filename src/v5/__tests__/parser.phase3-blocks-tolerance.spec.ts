@@ -554,14 +554,16 @@ describe('LEGACY_SCHEMA_KNOWN_BLOCK_TYPES drift guard', () => {
 
   /**
    * Stronger drift guard: every declared block type must round-trip
-   * through DGAI's `parseV5Response`, not just through zod's
-   * `BlockSchema.safeParse`. The parser's `splitBlocksTolerance` keeps a
-   * separate hand-mirrored set (`LEGACY_SCHEMA_KNOWN_BLOCK_TYPES`); a
-   * type that the vendored schema accepts but the mirror omits would be
-   * misrouted into the `unknown` bucket and hard-fail at runtime even
-   * though the BlockSchema check above passes.
+   * through DGAI's `parseV5Response` INTO THE VALIDATED `blocks[]`, not
+   * just parse successfully. The parser's `splitBlocksTolerance` keeps a
+   * separate hand-mirrored set (`LEGACY_SCHEMA_KNOWN_BLOCK_TYPES`); a type
+   * the vendored schema accepts but the mirror omits would — since the
+   * defensive-hardening change (2026-06) — be silently DROPPED into the
+   * `unknown_blocks` sidecar instead of hard-failing. So `kind ===
+   * 'response'` alone is no longer sufficient proof of recognition; we
+   * assert the block actually survives into `response.blocks`.
    */
-  it('round-trips every declared block type through parseV5Response', async () => {
+  it('round-trips every declared block type into validated blocks[] (not dropped as unknown)', async () => {
     const def = (BlockSchema as unknown as { _def: { optionsMap?: Map<string, unknown> } })._def
     const declaredTypes = [...(def.optionsMap!.keys())]
     const minimalEachType: Record<string, Record<string, unknown>> = {
@@ -618,6 +620,25 @@ describe('LEGACY_SCHEMA_KNOWN_BLOCK_TYPES drift guard', () => {
               ? `, failure_kind=${result.parse_failure_kind ?? 'n/a'}, reason="${result.reason}"`
               : '') +
             ')',
+        )
+        continue
+      }
+      // Tolerance-era strengthening: parsing successfully is no longer
+      // sufficient. A declared type missing from
+      // LEGACY_SCHEMA_KNOWN_BLOCK_TYPES would now be silently DROPPED into
+      // the unknown_blocks sidecar rather than hard-failing — so assert the
+      // block actually survived into the validated blocks[].
+      const survived = result.response.blocks.some(
+        (b) => (b as { type?: unknown }).type === decl,
+      )
+      if (!survived) {
+        const sidecar = (result.response as Record<string | symbol, unknown>)[
+          ADDITIVE_EXTENSIONS_KEY
+        ] as Record<string, unknown> | undefined
+        const dropped =
+          (sidecar?.[UNKNOWN_BLOCKS_KEY] as { types?: string[] } | undefined)?.types ?? []
+        misrouted.push(
+          `${decl} (parsed but DROPPED → unknown_blocks: ${JSON.stringify(dropped)})`,
         )
       }
     }

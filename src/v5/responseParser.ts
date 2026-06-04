@@ -99,9 +99,13 @@ export const ACTION_TYPE_ALIASES_APPLIED_KEY = 'action_type_aliases_applied' as 
 export const UNKNOWN_BLOCKS_KEY = 'unknown_blocks' as const;
 
 /**
- * Whitelist of v1.3 Phase 3 block types tolerated inside `blocks[]`. Any
- * other unknown `type` discriminator inside `blocks[]` still hard-fails the
- * parse so accidental schema drift is detected.
+ * Whitelist of v1.3 Phase 3 block types tolerated inside `blocks[]` and
+ * stashed verbatim in the sidecar (vs. legacy-known types, which continue to
+ * strict validation). Since the defensive-hardening change (2026-06) any
+ * OTHER `type` discriminator inside `blocks[]` is no longer fatal — it is
+ * dropped from the validated `blocks[]` and recorded in the `unknown_blocks`
+ * sidecar diagnostic. This whitelist therefore distinguishes "preserve
+ * verbatim for downstream Phase 3 consumers" from "drop + diagnose".
  *
  * Exported as `ReadonlySet` to prevent accidental mutation of the
  * tolerated-type allowlist at consumer boundaries (.add/.delete are not
