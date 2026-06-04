@@ -229,6 +229,24 @@ const LEGACY_SCHEMA_KNOWN_BLOCK_TYPES: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Defensive bound on the `type` label stored in the `unknown_blocks`
+ * diagnostic. `type` is a producer-controlled discriminator and legitimate
+ * values are short (e.g. `analysis_result`); but if a future CEE/model bug
+ * emitted a pathologically long or user-content-like discriminator, the
+ * diagnostic must not preserve it unbounded. Cap to a generous discriminator
+ * length so the diagnostic stays small and content-free. Drop counts are
+ * unaffected. Real type names are well under the cap, so this is a no-op for
+ * legitimate input.
+ */
+export const MAX_UNKNOWN_BLOCK_TYPE_LABEL_LENGTH = 64;
+
+function boundUnknownBlockTypeLabel(label: string): string {
+  return label.length <= MAX_UNKNOWN_BLOCK_TYPE_LABEL_LENGTH
+    ? label
+    : `${label.slice(0, MAX_UNKNOWN_BLOCK_TYPE_LABEL_LENGTH)}...[truncated]`;
+}
+
+/**
  * Classify the entries of `blocks[]` against the v1.3 contract:
  *   - `known`: entries with a `type` in the legacy schema. Forwarded to
  *     strict validation as-is.
@@ -258,7 +276,8 @@ function splitBlocksTolerance(blocks: unknown[]): {
   const unknownTypeSet = new Set<string>();
   const unknownByType: Record<string, number> = {};
   let unknownCount = 0;
-  const addUnknown = (label: string): void => {
+  const addUnknown = (rawLabel: string): void => {
+    const label = boundUnknownBlockTypeLabel(rawLabel);
     unknownTypeSet.add(label);
     unknownByType[label] = (unknownByType[label] ?? 0) + 1;
     unknownCount += 1;

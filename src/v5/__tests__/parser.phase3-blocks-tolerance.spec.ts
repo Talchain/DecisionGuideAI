@@ -49,6 +49,7 @@ import {
   PHASE3_SIDECAR_BLOCKS_KEY,
   PHASE3_TOLERATED_BLOCK_TYPES,
   UNKNOWN_BLOCKS_KEY,
+  MAX_UNKNOWN_BLOCK_TYPE_LABEL_LENGTH,
   type OlumiResponseWithExtensions,
 } from '../responseParser'
 import {
@@ -469,8 +470,10 @@ describe('LEGACY_SCHEMA_KNOWN_BLOCK_TYPES drift guard', () => {
    * The parser hardcodes the legacy block-type whitelist from
    * @talchain/schemas (currently v0.8.1). If the schema package is
    * upgraded — new block types added, existing renamed/removed — the
-   * parser's classifier silently misroutes them: new types end up in the
-   * `unknown` bucket and hard-fail parse. This drift guard introspects
+   * parser's classifier silently misroutes them: new types fall into the
+   * `unknown` bucket and (since the 2026-06 tolerance change) are dropped
+   * into the `unknown_blocks` sidecar rather than rendered. This drift
+   * guard introspects
    * the strict `BlockSchema` discriminated union and asserts the parser
    * mirror stays in sync. When this fires, update
    * LEGACY_SCHEMA_KNOWN_BLOCK_TYPES in src/v5/responseParser.ts.
@@ -772,6 +775,26 @@ describe('parser tolerance — unknown blocks (defensive hardening)', () => {
     expect(unknown.types).toContain('fact')
     // The block value is NOT leaked into the diagnostic.
     expect(JSON.stringify(unknown)).not.toContain('42%')
+  })
+
+  it('bounds a pathologically long unknown type label (defensive privacy cap)', async () => {
+    const longType = 'x'.repeat(500)
+    const fixture = ceeFixture()
+    ;(fixture.blocks as unknown[]).push({ type: longType, payload: { whatever: 1 } })
+    const result = await parseV5Response(makeResponse(fixture))
+    expect(result.kind).toBe('response')
+    if (result.kind !== 'response') throw new Error('unreachable')
+    const unknown = readUnknown(result)
+    expect(unknown.count).toBe(1)
+    // The 500-char discriminator is NOT preserved verbatim — it is bounded so
+    // a buggy/user-content-like type can't dump unbounded content into the
+    // diagnostic (which flows to the debug bundle).
+    expect(unknown.types[0]).not.toBe(longType)
+    expect(unknown.types[0]).toContain('[truncated]')
+    expect(unknown.types[0].length).toBeLessThanOrEqual(
+      MAX_UNKNOWN_BLOCK_TYPE_LABEL_LENGTH + '...[truncated]'.length,
+    )
+    expect(JSON.stringify(unknown)).not.toContain(longType)
   })
 
   it('(12) a malformed KNOWN block still hard-fails — nested product schemas remain strict', async () => {
