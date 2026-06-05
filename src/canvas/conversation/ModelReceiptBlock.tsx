@@ -47,6 +47,11 @@ export const ModelReceiptBlock = memo(function ModelReceiptBlock({ data }: Model
   const [detailsExpanded, setDetailsExpanded] = useState(false)
   const [adjustmentsExpanded, setAdjustmentsExpanded] = useState(false)
 
+  // No coaching summary = no card (brief invariant). The coaching IS the card's
+  // value; without it there is nothing to show. Enforced here so the component
+  // is correct for any caller, and again at the InlineBlocks dispatch.
+  if (!data.coachingSummary || data.coachingSummary.trim().length === 0) return null
+
   const countsLine = [
     data.factorCount > 0 ? `${data.factorCount} factor${data.factorCount !== 1 ? 's' : ''}` : null,
     `${data.edgeCount} relationship${data.edgeCount !== 1 ? 's' : ''}`,
@@ -89,7 +94,7 @@ export const ModelReceiptBlock = memo(function ModelReceiptBlock({ data }: Model
           onClick={() => setDetailsExpanded(!detailsExpanded)}
           className={`${typography.panelMeta} text-text-light inline-flex items-center gap-1 hover:text-text-body transition-colors`}
           aria-expanded={detailsExpanded}
-          aria-controls="receipt-details"
+          aria-controls={detailsExpanded ? 'receipt-details' : undefined}
         >
           Model details
           {detailsExpanded
@@ -116,7 +121,7 @@ export const ModelReceiptBlock = memo(function ModelReceiptBlock({ data }: Model
             onClick={() => setAdjustmentsExpanded(!adjustmentsExpanded)}
             className={`${typography.panelMeta} text-text-light inline-flex items-center gap-1 hover:text-text-body transition-colors`}
             aria-expanded={adjustmentsExpanded}
-            aria-controls="receipt-adjustments"
+            aria-controls={adjustmentsExpanded ? 'receipt-adjustments' : undefined}
           >
             <Wrench className="w-3 h-3" aria-hidden="true" />
             Olumi made {data.adjustments.length} adjustment{data.adjustments.length !== 1 ? 's' : ''} to keep the model valid

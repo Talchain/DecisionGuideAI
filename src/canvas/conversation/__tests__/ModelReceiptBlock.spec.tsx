@@ -59,12 +59,18 @@ describe('ModelReceiptBlock', () => {
     expect(screen.getByText(/Ready to run/)).toBeInTheDocument()
   })
 
-  it('renders the headline and nudge even when there is no coaching (defensive)', () => {
-    render(<ModelReceiptBlock data={{ ...fullData, coachingSummary: null }} />)
+  it('renders nothing when there is no coaching summary (null or blank)', () => {
+    // Brief invariant: no coaching = no card. The coaching is the card's value,
+    // so the component must not show a headline/nudge shell without it.
+    const { container, rerender } = render(
+      <ModelReceiptBlock data={{ ...fullData, coachingSummary: null }} />,
+    )
+    expect(container).toBeEmptyDOMElement()
+    expect(screen.queryByText('Check this before analysis')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('model-receipt-block')).not.toBeInTheDocument()
 
-    expect(screen.getByText('Check this before analysis')).toBeInTheDocument()
-    expect(screen.getByText('Review or strengthen this before running analysis.')).toBeInTheDocument()
-    expect(screen.queryByText(fullData.coachingSummary!)).not.toBeInTheDocument()
+    rerender(<ModelReceiptBlock data={{ ...fullData, coachingSummary: '   ' }} />)
+    expect(container).toBeEmptyDOMElement()
   })
 
   it('renders adjustments collapsed by default and expands on click', () => {
