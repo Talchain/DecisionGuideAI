@@ -31,7 +31,8 @@ import {
   type Phase3RawBlock,
 } from '../../v5/extractPhase3FromV5Response'
 import { FAILURE_USER_TEXT } from '@talchain/schemas/boundary'
-import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled } from '../../flags'
+import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled, isPreAnalysisEnrichedEnabled } from '../../flags'
+import { maybeBuildModelReceiptBlock } from '../adapters/modelCardAdapter'
 import { assembleAnalysisInputsSummary } from '../analysis/assembleAnalysisInputsSummary'
 import { useResultsStore } from '../stores/resultsStore'
 import { hydrateMessagesFromThread, formatSessionBoundary } from './utils/hydrateThread'
@@ -2970,9 +2971,15 @@ export function useConversation(): UseConversationReturn {
             )
             const inlineNodeCount = (inlineGraph?.nodes as unknown[] | undefined)?.length ?? 0
 
+            // F1 PR B: track whether THIS turn applied a fresh inline draft graph.
+            // Used below to construct the post-draft model_receipt card exactly
+            // once — later conversational turns leave the canvas non-empty, so
+            // this branch does not re-run and no second receipt is emitted.
+            let draftAppliedThisTurn = false
             if (inlineGraph && inlineNodeCount > 0 && canvasIsEmpty) {
               if (useCanvasStore.getState().currentScenarioId === scenarioIdAtDispatch) {
                 applyDraftResult(inlineGraph as any)
+                draftAppliedThisTurn = true
                 if (import.meta.env.DEV) {
                   console.log('[sendTurn V5] graph applied from inline response:', inlineNodeCount, 'nodes')
                 }
@@ -3039,6 +3046,18 @@ export function useConversation(): UseConversationReturn {
               mappedBlocks,
             )
 
+            // F1 PR B: append the client-synthesised pre-analysis model receipt
+            // on the turn that applied a fresh draft graph, after applyDraftResult
+            // committed nodes/edges + ceeAnalysisReady (incl coaching_summary) to
+            // the store synchronously above. Gated on the flag + a non-empty
+            // coaching summary; the block is local-only (no CEE/wire/parser change).
+            const receipt = maybeBuildModelReceiptBlock({
+              enabled: isPreAnalysisEnrichedEnabled(),
+              isDraftTurn: draftAppliedThisTurn,
+              store: useCanvasStore.getState(),
+            })
+            const renderBlocks = receipt ? [...finalBlocks, receipt] : finalBlocks
+
             // V5 suggested_actions → ActionChip. CEE caps count server-side;
             // UI additionally caps rendering per DS v5 §21.4 in SuggestedChips.
             // action_type when present drives deterministic routing on next click.
@@ -3053,7 +3072,7 @@ export function useConversation(): UseConversationReturn {
               id: crypto.randomUUID(),
               role: 'assistant',
               content: target.response.assistant_text,
-              ...(finalBlocks.length > 0 ? { blocks: finalBlocks } : {}),
+              ...(renderBlocks.length > 0 ? { blocks: renderBlocks } : {}),
               ...(actionChips.length > 0 ? { actionChips } : {}),
               timestamp: new Date(),
             })
