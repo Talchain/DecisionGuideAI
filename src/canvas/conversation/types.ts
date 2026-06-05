@@ -377,13 +377,16 @@ export interface EvidenceBlock {
   query: string
 }
 
-// Phase 2B: Model receipt block — structured summary after graph generation
+// Phase 2B: Model receipt block — structured summary after graph generation.
+// F1 PR B: action-first pre-analysis card. `coachingSummary` is the CEE-owned
+// (analysis_ready.coaching_summary) main content; DGAI adds only static chrome.
 export interface ModelReceiptBlockType {
   type: 'model_receipt'
   factorCount: number
   edgeCount: number
   optionCount: number
   goalLabel: string | null
+  coachingSummary: string | null
   topInsight: string | null
   topEvidenceGap: string | null
   readiness: 'ready' | 'blocked' | 'incomplete' | 'unknown'

@@ -7,6 +7,7 @@
  */
 
 import type { Node, Edge } from '@xyflow/react'
+import type { ModelReceiptBlockType } from '../conversation/types'
 
 // ---------------------------------------------------------------------------
 // § 1 — Types
@@ -45,6 +46,12 @@ export interface ModelReceiptData {
   edgeCount: number
   optionCount: number
   goalLabel: string | null
+  /**
+   * CEE-owned coaching (analysis_ready.coaching_summary), verbatim. This is the
+   * card's main content (F1 PR B). DGAI never rewrites or augments it — it is
+   * displayed as-is and is intentionally exempt from the DGAI copy/glossary gate.
+   */
+  coachingSummary: string | null
   topInsight: string | null
   topEvidenceGap: string | null
   readiness: 'ready' | 'blocked' | 'incomplete' | 'unknown'
@@ -222,7 +229,7 @@ export function selectModelCardData(store: StoreSlice): ModelCardData {
 // § 7 — selectModelReceiptData (store → view-model for conversation block)
 // ---------------------------------------------------------------------------
 
-interface ReceiptStoreSlice {
+export interface ReceiptStoreSlice {
   nodes: Node[]
   edges: Edge[]
   ceeAnalysisReady: {
@@ -230,7 +237,9 @@ interface ReceiptStoreSlice {
     coaching_summary?: string | null
     model_critiques?: Array<{ message: string }> | null
   } | null
-  repairsApplied: RawRepair[] | null
+  // `| undefined` so the full canvas store (where repairs_applied is optional)
+  // is structurally assignable; formatRepairs already tolerates null/undefined.
+  repairsApplied: RawRepair[] | null | undefined
 }
 
 export function selectModelReceiptData(store: ReceiptStoreSlice): ModelReceiptData | null {
@@ -276,9 +285,48 @@ export function selectModelReceiptData(store: ReceiptStoreSlice): ModelReceiptDa
     edgeCount: store.edges.length,
     optionCount: counts.option,
     goalLabel: goalLabel ?? null,
+    // CEE coaching, verbatim and untruncated (distinct from `topInsight`, which
+    // takes only the first sentence). This is the card's main content.
+    coachingSummary: coaching ?? null,
     topInsight,
     topEvidenceGap,
     readiness,
     adjustments: formatRepairs(store.repairsApplied, store.nodes),
   }
+}
+
+// ---------------------------------------------------------------------------
+// § 8 — maybeBuildModelReceiptBlock (post-draft receipt gate)
+// ---------------------------------------------------------------------------
+
+/**
+ * F1 PR B — construct the client-synthesised model_receipt block for the
+ * post-draft assistant message, or return null.
+ *
+ * Pure and path-agnostic: it only reads the canvas store, so the same gate
+ * serves the V5 live path (the one wired today) and a future V4 wiring. It
+ * centralises the race/order rules so they are unit-testable in isolation.
+ *
+ * No receipt is better than a partial one (brief). A receipt is produced only
+ * when ALL hold:
+ *   - the flag is enabled;
+ *   - this turn applied a fresh draft graph (`isDraftTurn`) — so the card fires
+ *     once, on the generative turn, never on later conversational updates;
+ *   - the graph is in the store (selectModelReceiptData returns non-null);
+ *   - analysis_ready has been normalised into the store (`ceeAnalysisReady`);
+ *   - CEE coaching survived into the store (`coachingSummary` is non-empty) —
+ *     the coaching IS the card's value, so without it there is no card.
+ */
+export function maybeBuildModelReceiptBlock(args: {
+  enabled: boolean
+  isDraftTurn: boolean
+  store: ReceiptStoreSlice
+}): ModelReceiptBlockType | null {
+  const { enabled, isDraftTurn, store } = args
+  if (!enabled || !isDraftTurn) return null
+  const data = selectModelReceiptData(store)
+  if (!data) return null
+  if (!store.ceeAnalysisReady) return null
+  if (!data.coachingSummary || data.coachingSummary.trim().length === 0) return null
+  return { type: 'model_receipt', ...data }
 }

@@ -230,6 +230,11 @@ function BlockRenderer({
 
     case 'model_receipt':
       if (!isPreAnalysisEnrichedEnabled()) return null
+      // No coaching summary = no card (brief invariant). The construction gate
+      // (maybeBuildModelReceiptBlock) already enforces this on the live path;
+      // guard the render path too so a coaching-less block (e.g. a hydrated or
+      // legacy one) can never show a headline/nudge shell.
+      if (!block.coachingSummary?.trim()) return null
       return <ModelReceiptBlock data={block} />
 
     case 'evidence':

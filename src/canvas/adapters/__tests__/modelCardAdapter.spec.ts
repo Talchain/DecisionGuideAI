@@ -13,6 +13,8 @@ import {
   deriveConfidenceLabel,
   selectModelCardData,
   selectModelReceiptData,
+  maybeBuildModelReceiptBlock,
+  type ReceiptStoreSlice,
 } from '../modelCardAdapter'
 
 // ---------------------------------------------------------------------------
@@ -256,6 +258,9 @@ describe('selectModelReceiptData', () => {
     expect(data!.optionCount).toBe(1)
     expect(data!.goalLabel).toBe('Profit')
     expect(data!.readiness).toBe('ready')
+    // coachingSummary is the CEE summary, verbatim (distinct from topInsight,
+    // which here is the first critique).
+    expect(data!.coachingSummary).toBe('The model looks good. Consider adding evidence.')
     expect(data!.topInsight).toBe('Missing time horizon')
     expect(data!.topEvidenceGap).toContain('Revenue')
     expect(data!.adjustments).toHaveLength(1)
@@ -271,7 +276,98 @@ describe('selectModelReceiptData', () => {
       },
       repairsApplied: null,
     })
+    // topInsight truncates to the first sentence; coachingSummary keeps the full
+    // CEE text. They MUST differ for a multi-sentence summary.
     expect(data!.topInsight).toBe('First sentence.')
+    expect(data!.coachingSummary).toBe('First sentence. Second sentence.')
+    expect(data!.coachingSummary).not.toBe(data!.topInsight)
     expect(data!.readiness).toBe('incomplete')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// § maybeBuildModelReceiptBlock (post-draft receipt gate — branch matrix)
+// ---------------------------------------------------------------------------
+
+describe('maybeBuildModelReceiptBlock', () => {
+  // A complete, valid post-draft store slice (graph + analysis_ready + coaching).
+  const readyStore: ReceiptStoreSlice = {
+    nodes: [
+      { id: '1', data: { kind: 'factor', label: 'Revenue', observedState: { value: 1 } } },
+      { id: '2', data: { kind: 'goal', label: 'Profit' } },
+      { id: '3', data: { kind: 'option', label: 'Option A' } },
+    ] as any[],
+    edges: [{ id: 'e1' }] as any[],
+    ceeAnalysisReady: {
+      status: 'ready',
+      coaching_summary: 'One assumption worth checking: assess team expertise first.',
+    },
+    repairsApplied: null,
+  }
+
+  it('returns null when the flag is disabled', () => {
+    expect(
+      maybeBuildModelReceiptBlock({ enabled: false, isDraftTurn: true, store: readyStore }),
+    ).toBeNull()
+  })
+
+  it('returns null when this is not a draft turn', () => {
+    expect(
+      maybeBuildModelReceiptBlock({ enabled: true, isDraftTurn: false, store: readyStore }),
+    ).toBeNull()
+  })
+
+  it('returns null when the graph is not in the store (no nodes)', () => {
+    expect(
+      maybeBuildModelReceiptBlock({
+        enabled: true,
+        isDraftTurn: true,
+        store: { ...readyStore, nodes: [] },
+      }),
+    ).toBeNull()
+  })
+
+  it('returns null when analysis_ready has not been normalised into the store', () => {
+    expect(
+      maybeBuildModelReceiptBlock({
+        enabled: true,
+        isDraftTurn: true,
+        store: { ...readyStore, ceeAnalysisReady: null },
+      }),
+    ).toBeNull()
+  })
+
+  it('returns null when coaching_summary did not survive (empty / whitespace)', () => {
+    expect(
+      maybeBuildModelReceiptBlock({
+        enabled: true,
+        isDraftTurn: true,
+        store: { ...readyStore, ceeAnalysisReady: { status: 'ready', coaching_summary: '   ' } },
+      }),
+    ).toBeNull()
+    expect(
+      maybeBuildModelReceiptBlock({
+        enabled: true,
+        isDraftTurn: true,
+        store: { ...readyStore, ceeAnalysisReady: { status: 'ready', coaching_summary: null } },
+      }),
+    ).toBeNull()
+  })
+
+  it('builds the block when the flag is on, it is a draft turn, and coaching is present', () => {
+    const block = maybeBuildModelReceiptBlock({
+      enabled: true,
+      isDraftTurn: true,
+      store: readyStore,
+    })
+    expect(block).not.toBeNull()
+    expect(block!.type).toBe('model_receipt')
+    expect(block!.coachingSummary).toBe('One assumption worth checking: assess team expertise first.')
+  })
+
+  it('returns selectModelReceiptData output plus the block type discriminant', () => {
+    const data = selectModelReceiptData(readyStore)
+    const block = maybeBuildModelReceiptBlock({ enabled: true, isDraftTurn: true, store: readyStore })
+    expect(block).toEqual({ type: 'model_receipt', ...data })
   })
 })
