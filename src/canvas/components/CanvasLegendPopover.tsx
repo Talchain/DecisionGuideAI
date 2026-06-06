@@ -6,10 +6,11 @@
  * string is brief/amendment-approved (A4) — no Claude-authored copy, and no
  * "node/edge/graph" wording. If more copy is ever needed here, stop and ask Paul.
  */
-import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
+import { useRef, useEffect, useCallback, type ReactNode } from 'react'
 import { HelpCircle, ArrowUp, ArrowDown } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
+import { useLegendDisclosure } from '../stores/legendDisclosureStore'
 
 interface LegendRow {
   label: string
@@ -72,10 +73,18 @@ function LegendGroup({ rows }: { rows: LegendRow[] }) {
 }
 
 export function CanvasLegendPopover() {
-  const [open, setOpen] = useState(false)
+  // Open-state lives in a shared store so the post-analysis edge-thickness
+  // legend can yield while this legend is open (avoids the two bottom-left
+  // legends overlapping). Display-only; not persisted.
+  const open = useLegendDisclosure(s => s.isLegendOpen)
+  const setLegendOpen = useLegendDisclosure(s => s.setLegendOpen)
   const wrapRef = useRef<HTMLDivElement>(null)
 
-  const close = useCallback(() => setOpen(false), [])
+  const close = useCallback(() => setLegendOpen(false), [setLegendOpen])
+
+  // Reset the shared flag on unmount so the edge-thickness legend is never left
+  // suppressed if this control unmounts while open.
+  useEffect(() => () => setLegendOpen(false), [setLegendOpen])
 
   useEffect(() => {
     if (!open) return
@@ -97,8 +106,8 @@ export function CanvasLegendPopover() {
     <div ref={wrapRef} className="relative">
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
-        onFocus={() => setOpen(true)}
+        onClick={() => setLegendOpen(!open)}
+        onFocus={() => setLegendOpen(true)}
         className="w-7 h-7 inline-flex items-center justify-center rounded-full text-text-light hover:text-text-body transition-colors focus-visible:outline-2 focus-visible:outline-info focus-visible:outline-offset-2"
         aria-label="How to read this"
         aria-haspopup="dialog"
