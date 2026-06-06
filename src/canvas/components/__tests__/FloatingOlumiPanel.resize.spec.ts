@@ -31,6 +31,7 @@ import { computeCornerResize } from '../FloatingOlumiPanel'
 
 const VIEWPORT = { w: 1200, h: 800 }
 const MARGIN = 16
+const SIDE_TAB = 36 // SIDE_TAB_WIDTH — leftward width cap reserves this column
 const MIN_W = 320
 const MIN_H = 300
 
@@ -109,13 +110,14 @@ describe('computeCornerResize — bottom-left (BL)', () => {
     expect(next.x).toBe(START.left + START.w - MIN_W)
   })
 
-  it('honours computeMaxSize cap (60% vw) when dragging outward to the left', () => {
-    // Negative dx (drag left) wants to grow width to the viewport margin
-    // (884px). But computeMaxSize caps at 60% vw = 720px first. With the
-    // right edge fixed at startLeft + startW = 900, the new x lands at
-    // 900 - 720 = 180. Both edges remain inside the viewport (margin 16).
+  it('grows leftward to the margin + side-tab cap (no artificial 60% cap)', () => {
+    // Negative dx (drag left) grows width with the right edge fixed at
+    // startLeft + startW = 900. The cap is now the viewport margin + the
+    // side-tab column: 900 - 16 - 36 = 848 (previously an artificial 60% vw =
+    // 720). New x = 900 - 848 = 52, which still clears MARGIN + the side tab.
     const next = computeCornerResize('bl', START.left, START.top, START.w, START.h, -10000, 0, VIEWPORT.w, VIEWPORT.h)
-    expect(next.w).toBe(Math.floor(VIEWPORT.w * 0.6))
+    expect(next.w).toBe(START.left + START.w - MARGIN - SIDE_TAB)
+    expect(next.w).toBe(848)
     expect(next.x).toBe(START.left + START.w - next.w)
     // Right edge stays put.
     expect(next.x + next.w).toBe(START.left + START.w)
@@ -146,17 +148,17 @@ describe('computeCornerResize — top-left (TL)', () => {
     expect(next.y).toBe(START.top + START.h - MIN_H)
   })
 
-  it('respects computeMaxSize caps when dragging outward', () => {
-    // Large negative dx/dy: width and height want to grow. Caps:
-    //   - width:  min(computeMaxSize=720, marginCap=884) = 720
-    //   - height: min(computeMaxSize=640, marginCap=584) = 584
-    // x = (startLeft + startW) - w = 900 - 720 = 180.
-    // y = (startTop + startH) - h = 600 - 584 = 16 (= MARGIN floor).
+  it('grows to the edge caps when dragging outward (no artificial 60%/80% cap)', () => {
+    // Large negative dx/dy: width and height grow to the edge caps with the
+    // bottom-right corner fixed at (900, 600):
+    //   - width:  startLeft + startW - MARGIN - SIDE_TAB = 900 - 16 - 36 = 848
+    //   - height: startTop  + startH - MARGIN            = 600 - 16      = 584
+    // x = 900 - 848 = 52; y = 600 - 584 = 16 (= MARGIN floor).
     const next = computeCornerResize('tl', START.left, START.top, START.w, START.h, -10000, -10000, VIEWPORT.w, VIEWPORT.h)
-    expect(next.w).toBe(Math.floor(VIEWPORT.w * 0.6))         // 720
-    expect(next.h).toBe(START.top + START.h - MARGIN)         // 584
-    expect(next.x).toBe(START.left + START.w - next.w)        // 180
-    expect(next.y).toBe(START.top + START.h - next.h)         // 16 (== MARGIN)
+    expect(next.w).toBe(START.left + START.w - MARGIN - SIDE_TAB) // 848
+    expect(next.h).toBe(START.top + START.h - MARGIN)             // 584
+    expect(next.x).toBe(START.left + START.w - next.w)            // 52
+    expect(next.y).toBe(START.top + START.h - next.h)             // 16 (== MARGIN)
     // Bottom-right still fixed.
     expect(next.x + next.w).toBe(START.left + START.w)
     expect(next.y + next.h).toBe(START.top + START.h)
@@ -208,5 +210,34 @@ describe('computeCornerResize — sub-minimum invariant', () => {
       expect(next.w).toBeGreaterThanOrEqual(MIN_W)
       expect(next.h).toBeGreaterThanOrEqual(MIN_H)
     }
+  })
+})
+
+describe('computeCornerResize — top-bar inset (gap below the top menu)', () => {
+  it('TL upward stops below the top bar when topInset is provided', () => {
+    // topInset = 73 (57px TopBar + 16 margin). Dragging the top edge up must
+    // stop at y = 73, not the viewport margin (16). Bottom-right fixed at
+    // (900, 600): h = 600 - 73 = 527, y = 73.
+    const next = computeCornerResize('tl', START.left, START.top, START.w, START.h, 0, -10000, VIEWPORT.w, VIEWPORT.h, 0, 73)
+    expect(next.y).toBe(73)
+    expect(next.h).toBe(START.top + START.h - 73)
+    expect(next.y + next.h).toBe(START.top + START.h) // bottom edge stays fixed
+  })
+
+  it('defaults to the margin floor (16) when no topInset is passed', () => {
+    const next = computeCornerResize('tl', START.left, START.top, START.w, START.h, 0, -10000, VIEWPORT.w, VIEWPORT.h)
+    expect(next.y).toBe(MARGIN)
+  })
+})
+
+describe('left side tab — width-only resize (bl with dy = 0)', () => {
+  it('grows width with the right edge fixed and leaves height/top untouched', () => {
+    // The left tab maps to a bottom-left resize with dy pinned to 0, so only
+    // width and the left edge change; height and the top edge stay put.
+    const next = computeCornerResize('bl', START.left, START.top, START.w, START.h, -120, 0, VIEWPORT.w, VIEWPORT.h)
+    expect(next.h).toBe(START.h)                        // height unchanged
+    expect(next.y).toBe(START.top)                      // top unchanged
+    expect(next.w).toBe(START.w + 120)                  // width grew by |dx|
+    expect(next.x + next.w).toBe(START.left + START.w)  // right edge fixed
   })
 })
