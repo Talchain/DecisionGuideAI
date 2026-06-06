@@ -123,8 +123,8 @@ describe('aiPanelV2 default (round-12: default-ON, rollback via localStorage="fa
       const { getOutputTabsForParity } = await import('../OutputsDock')
       const ids = getOutputTabsForParity().map((t) => t.id)
       expect(ids).toContain('olumi')
-      // Olumi appears at the end (last position).
-      expect(ids[ids.length - 1]).toBe('olumi')
+      // Olumi appears at the start (first position).
+      expect(ids[0]).toBe('olumi')
     })
   })
 })
