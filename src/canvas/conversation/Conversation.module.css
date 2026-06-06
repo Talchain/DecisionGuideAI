@@ -140,10 +140,11 @@
 /* § 2b — V2 assistant text rhythm (ORCHESTRATOR_RENDERING_V2) */
 .v2AssistantText {
   line-height: 1.65;
-  max-width: 65ch;
 }
 .v2AssistantText li {
-  margin-bottom: 16px;
+  /* List items sit closer than the 12px inter-block gap (md-gap / ul margins)
+     so a list reads as one cohesive group, not separate paragraphs. */
+  margin-bottom: 8px;
 }
 .v2AssistantText li:last-child {
   margin-bottom: 0;

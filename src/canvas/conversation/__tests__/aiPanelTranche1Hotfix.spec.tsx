@@ -347,9 +347,18 @@ describe('Hotfix item 7 — safeRichText join-logic transition matrix', () => {
 
   const matrix: Transition[] = [
     {
-      label: 'body → body (no blank)',
+      // Updated 2026-06-06: CEE delimits paragraphs with SINGLE newlines, so a
+      // line ending a sentence is now a paragraph break (md-gap), not a tight
+      // soft-wrap <br>. This is the fix for the "paragraphs have no space"
+      // report. See the sentence-end clause in safeRichText's join logic.
+      label: 'body → body, prev ends a sentence (paragraph gap)',
       input: 'First sentence.\nSecond sentence.',
-      expectation: /First sentence\.<br>Second sentence\./,
+      expectation: /First sentence\.<br class="md-gap">Second sentence\./,
+    },
+    {
+      label: 'body → body, soft wrap with no terminal punctuation stays tight',
+      input: 'a wrapped clause\ncontinues on the next line',
+      expectation: /a wrapped clause<br>continues on the next line/,
     },
     {
       label: 'body → bold-lead',
@@ -392,10 +401,11 @@ describe('Hotfix item 7 — safeRichText join-logic transition matrix', () => {
     expect(safeRichText(input)).toMatch(expectation)
   })
 
-  it('body → body emits no md-gap (negative assertion — bounds over-spacing)', () => {
-    // Complements the matrix: verifies that the bold-lead widening did NOT
-    // accidentally make every <br> a gap. Two plain body lines stay tight.
-    const html = safeRichText('First.\nSecond.')
+  it('soft-wrap body → body emits no md-gap (negative assertion — bounds over-spacing)', () => {
+    // Complements the matrix: verifies the gap conditions did NOT make every
+    // <br> a gap. A continuation line with no terminal punctuation (a true soft
+    // wrap) stays tight. Sentence-ending lines DO gap — see the matrix above.
+    const html = safeRichText('a wrapped clause that keeps going\nand finishes the thought')
     expect(html).not.toContain('<br class="md-gap">')
     expect(html).toContain('<br>')
   })

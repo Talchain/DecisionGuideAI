@@ -217,10 +217,17 @@ export function safeRichText(markdown: string): string {
       tableHeaderConfirmed = false
     }
 
-    if (trimmed.startsWith('- ') || trimmed === '-') {
-      // Bullet item — strip the leading "- " prefix
-      const itemText = trimmed.startsWith('- ') ? trimmed.slice(2) : ''
-      bulletGroup.push(itemText)
+    // Bullet markers: markdown "- " plus dedicated bullet glyphs CEE may emit
+    // (• ‣ ◦). A trailing space is required so inline emphasis (*italic*,
+    // **bold**) and prose hyphens are never mistaken for list items. Middle-dot
+    // "·" and "*" are deliberately excluded — both have non-bullet uses (inline
+    // separator / emphasis); CEE uses "•" for bullets.
+    const bulletMatch = trimmed.match(/^[-•‣◦]\s+(.+)$/)
+    if (bulletMatch) {
+      bulletGroup.push(bulletMatch[1])
+    } else if (trimmed === '-') {
+      // Bare marker with no content — preserve prior empty-bullet behaviour
+      bulletGroup.push('')
     } else {
       // Non-bullet line — flush any pending bullet group first
       flushBullets()
@@ -266,10 +273,15 @@ export function safeRichText(markdown: string): string {
         //   · blank line was seen (explicit paragraph break)
         //   · the following part starts with a bold lead (header-style)
         //   · the preceding part was a bold lead (header → body transition)
+        //   · the preceding part ends a sentence (. ! ? :, optionally followed
+        //     by a closing quote/bracket incl. curly ” ’) — CEE delimits
+        //     paragraphs with SINGLE newlines, so a sentence-ending line is a
+        //     paragraph boundary, not a soft wrap. Without this such lines
+        //     collapse to a gap-less <br>.
         // Hotfix item 7: the second condition was missing, so streamed
         //   "**Header**\nbody\n**Next header**\nbody" rendered with plain
         //   <br> between header and body. DS v5 §2.4 requires ~12–16px.
-        const useGap = blankSeen || isBoldLead(part) || isBoldLead(prevPart)
+        const useGap = blankSeen || isBoldLead(part) || isBoldLead(prevPart) || /[.!?:]["'”’)\]]?$/.test(prevPart)
         result += useGap ? '<br class="md-gap">' : '<br>'
       }
       blankSeen = false
