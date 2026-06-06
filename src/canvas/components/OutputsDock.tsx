@@ -192,11 +192,14 @@ export function deriveNextDockIsOpen(isFirstUse: boolean, storedIsOpen: boolean)
  *  required for the gating to reflect the new flag state. */
 export function getOutputTabsForParity(): { id: OutputsDockTab; label: string }[] {
   return [
+    // Olumi leads the strip as the first (leftmost) tab by product decision —
+    // keep it first. The default-SELECTED tab is independent: it stays
+    // 'results' (Analysis) via the state initialiser, not array position.
+    ...(isAiPanelV2Enabled() ? [{ id: 'olumi' as const, label: 'Olumi' }] : []),
     { id: 'results', label: 'Analysis' },
     ...(isCompareTabEnabled() ? [{ id: 'compare' as const, label: 'Compare' }] : []),
     { id: 'diagnostics', label: 'Model' },
     ...(isJourneyTabEnabled() ? [{ id: 'journey' as const, label: 'Journey' }] : []),
-    ...(isAiPanelV2Enabled() ? [{ id: 'olumi' as const, label: 'Olumi' }] : []),
   ]
 }
 
