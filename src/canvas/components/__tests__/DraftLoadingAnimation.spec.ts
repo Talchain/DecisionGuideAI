@@ -25,27 +25,26 @@ describe('messageForElapsed', () => {
     expect(messageForElapsed(29)).toBe('Mapping factors and causal relationships…')
   })
 
-  it('returns stage 3 message at 30 seconds', () => {
-    expect(messageForElapsed(30)).toBe(
-      'This is a complex decision — building a thorough model…'
-    )
+  it('returns stage 3 message at 30 and 44 seconds', () => {
+    expect(messageForElapsed(30)).toBe('Assessing options, risks and potential outcomes')
+    expect(messageForElapsed(44)).toBe('Assessing options, risks and potential outcomes')
   })
 
-  it('returns stage 3 message at 59 seconds', () => {
+  it('returns stage 4 message at 45 and 59 seconds', () => {
+    expect(messageForElapsed(45)).toBe(
+      'This is a complex decision - building a thorough model…'
+    )
     expect(messageForElapsed(59)).toBe(
-      'This is a complex decision — building a thorough model…'
+      'This is a complex decision - building a thorough model…'
     )
   })
 
-  it('returns stage 4 message at 60 seconds', () => {
+  it('returns stage 5 message at 60 and 120 seconds', () => {
     expect(messageForElapsed(60)).toBe(
-      'Still working — complex briefs can take up to two minutes. You can keep waiting or simplify your brief and try again.'
+      'Still working - complex briefs can take up to two minutes.'
     )
-  })
-
-  it('returns stage 4 message at 120 seconds', () => {
     expect(messageForElapsed(120)).toBe(
-      'Still working — complex briefs can take up to two minutes. You can keep waiting or simplify your brief and try again.'
+      'Still working - complex briefs can take up to two minutes.'
     )
   })
 
@@ -55,8 +54,8 @@ describe('messageForElapsed', () => {
 })
 
 describe('PROGRESSIVE_STAGES', () => {
-  it('has exactly 4 stages', () => {
-    expect(PROGRESSIVE_STAGES).toHaveLength(4)
+  it('has exactly 5 stages', () => {
+    expect(PROGRESSIVE_STAGES).toHaveLength(5)
   })
 
   it('stages are in ascending order by afterSeconds', () => {
