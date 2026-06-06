@@ -10,6 +10,7 @@ coverage/
 # Playwright
 .playwright/
 .playwright-cli/
+.playwright-mcp/
 playwright-report/
 test-results/
 
@@ -32,6 +33,7 @@ Thumbs.db
 **/* 2.tsx
 **/* 2.css
 **/* 2.md
+**/* 2.json
 
 # IDE
 .vscode/
