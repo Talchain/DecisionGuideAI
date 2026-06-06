@@ -313,18 +313,19 @@ describe('Render matrix — OptionNode × view × phase', () => {
     },
   })
 
-  it('Standard pre non-baseline: shows "What could go wrong?" chip + differentiator line', () => {
+  it('Standard pre non-baseline: shows "What could go wrong?" chip + from→to chip (footer de-duped)', () => {
     applyStore(twoOptionTopology('standard', 'pre'))
     const { container } = renderOption({})
     expect(screen.getByText('What could go wrong?')).toBeDefined()
-    // Both options share the same top factor → disambiguated with value
-    // (option-1 at 0.9 on engineers cap=10 → "Hiring rate → 9 engineers")
-    // The differentiator renders in a <p> with text-text-light class.
+    // Both options share the top factor (option-1 at 0.9 on engineers cap=10 →
+    // "9 engineers"). Brief scope 7: that value shows in the from→to chip
+    // ("3 engineers → 9 engineers"), so the duplicate differentiator footer <p>
+    // is dropped.
+    const chip = screen.getByText((t: string) => t.includes('9 engineers') && t.includes('→'))
+    expect(chip).toBeDefined()
     const allPs = container.querySelectorAll('p')
     const differentiatorP = Array.from(allPs).find(p => p.textContent?.includes('→'))
-    expect(differentiatorP).toBeDefined()
-    // compactFactorLabel strips "rate" suffix → "Hiring → 9 engineers"
-    expect(differentiatorP!.textContent).toMatch(/hiring/i)
+    expect(differentiatorP).toBeUndefined()
   })
 
   it('Standard pre: identical shared-factor values suppress differentiator on both options', () => {

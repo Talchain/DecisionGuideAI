@@ -9,6 +9,7 @@ import { memo } from 'react'
 import { ZoomOut, ZoomIn, Maximize2, LayoutGrid } from 'lucide-react'
 import { useStore } from '@xyflow/react'
 import Tooltip from '../Tooltip'
+import { CanvasLegendPopover } from '../../canvas/components/CanvasLegendPopover'
 
 interface CanvasViewportControlsProps {
   onZoomIn: () => void
@@ -103,6 +104,12 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
           <LayoutGrid size={16} aria-hidden="true" />
         </button>
       </Tooltip>
+
+      {/* Separator */}
+      <div className="h-px w-4 bg-border-default" aria-hidden="true" />
+
+      {/* "How to read this" legend — presentational disclosure (click/focus to open) */}
+      <CanvasLegendPopover />
     </nav>
   )
 })

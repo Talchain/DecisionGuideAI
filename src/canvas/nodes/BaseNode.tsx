@@ -184,6 +184,13 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // When controllability is undefined or 'unknown', use solid (we don't claim anything)
   const controllability = nodeType === 'factor' ? (data?.controllability as Controllability | undefined) : undefined
   const borderStyle = (() => {
+    // Scope 5 (display-only): external factors — keyed ONLY on the explicit
+    // `category` field — get the dashed "outside your control" treatment.
+    // No inference/reclassification; the controllability-derived styling below
+    // is untouched (its graphDisplayCalculations behaviour is unchanged).
+    if (nodeType === 'factor' && data?.category === 'external') {
+      return 'border-dashed'
+    }
     if (nodeType === 'factor' && controllability) {
       return getControllabilityBorderStyle(controllability)
     }
@@ -211,10 +218,13 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     }, 100)
   }, [id, description, updateNodeInternals])
 
-  // P6: Factor border width — 1px baseline (no category), 2px when category is explicit
-  // All other node types always use border-2 (their category is inherent to their type)
+  // Wireframes v4 hierarchy (display-only): decision/options 1px, factors 0.5px.
+  // Risk/outcome/goal/constraint/action keep 2px. The isCausalLens / isIncomplete
+  // width overrides in the className below still take precedence — e.g. an
+  // unset "goal gap" renders 2px dashed warning via the isIncomplete path.
   const borderWidth = (() => {
-    if (nodeType === 'factor' && !controllability) return 'border'
+    if (nodeType === 'factor') return 'border-[0.5px]'
+    if (nodeType === 'decision' || nodeType === 'option') return 'border'
     return 'border-2'
   })()
 

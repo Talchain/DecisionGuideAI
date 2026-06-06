@@ -190,11 +190,11 @@ export const OutcomeNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* Pre-analysis: influence percentage */}
+        {/* Pre-analysis: assumed strength percentage */}
         {!isPostAnalysis && bridgeEdgeData?.bridgeStrengthPct != null && (
           <div className="mt-1 inline-flex items-center gap-1">
             <span className={`${typography.nodeLabel} font-semibold text-success`}>{bridgeEdgeData.bridgeStrengthPct}%</span>
-            <span className={`${typography.edgeLabel} text-text-light`}>influence</span>
+            <span className={`${typography.edgeLabel} text-text-light`}>assumed strength</span>
           </div>
         )}
 

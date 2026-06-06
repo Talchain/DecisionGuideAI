@@ -212,16 +212,18 @@ describe('OptionNode', () => {
         },
         nodes: [{
           id: 'factor-1',
-          data: { label: 'Hiring rate (0–1 scale)', observedState: { unit: 'fraction' } },
+          // observedState.value provides the baseline so the from→to chip renders
+          // (brief scope 7: a chip needs both a baseline and an intervention value).
+          data: { label: 'Hiring rate (0–1 scale)', observedState: { unit: 'fraction', value: 0.2 } },
         }],
       }) as any)
     )
     renderOption()
     // cleanFactorLabel strips "(0–1 scale)", stripFactorSuffixes strips "rate"
-    // arrow format: label and value are separate spans (multiple "Hiring" texts may exist)
+    // from → to format: label and value live in separate spans.
     expect(screen.getAllByText('Hiring').length).toBeGreaterThan(0)
-    // formatInterventionValue(0.6, 'fraction') → '60%'
-    expect(screen.getByText('60%')).toBeDefined()
+    // from → to chip: baseline 0.2 → intervention 0.6, both formatted as '%'.
+    expect(screen.getByText((t: string) => t.includes('60%') && t.includes('→'))).toBeDefined()
   })
 
   it('has displayName set', () => {
@@ -1174,16 +1176,15 @@ describe('OptionNode — QA Brief C-series', () => {
         }) as any),
       )
       renderOption({ label: 'Hire Tech Lead' })
-      // Shared factor → value appended. option-1 has value 0.9 on % factor → "90%"
-      // The differentiator is in a <p> element, the chip also contains the factor name.
-      // Use getAllByText and find the differentiator paragraph specifically.
+      // Shared factor → option-1 at 0.9 on a % factor → "90%". Brief scope 7:
+      // the from→to chip already shows that value (e.g. "50% → 90%"), so the
+      // duplicate differentiator footer is dropped — the disambiguating value
+      // lives in the chip, not a repeated <p>.
+      const valueChip = screen.getByText((t: string) => t.includes('90%') && t.includes('→'))
+      expect(valueChip).toBeDefined()
+      // No separate differentiator <p> repeating the same value.
       const matches = screen.getAllByText(/tech lead hired/i)
-      const differentiatorP = matches.find(el => el.tagName === 'P')
-      expect(differentiatorP).toBeDefined()
-      expect(differentiatorP!.textContent).toContain('→')
-      expect(differentiatorP!.textContent).toContain('90%')
-      // Should NOT say "is the key difference" — value-disambiguated form
-      expect(differentiatorP!.textContent).not.toContain('key difference')
+      expect(matches.find(el => el.tagName === 'P')).toBeUndefined()
     })
 
     it('suppresses differentiator when two options share same factor with identical values', () => {

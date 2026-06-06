@@ -7,7 +7,7 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, isCurrencyUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, placeholderDirectionLabel, isTierLabel } from '../utils/labelUtils'
+import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, placeholderDirectionLabel, isTierLabel } from '../utils/labelUtils'
 import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
@@ -40,8 +40,8 @@ function stripFactorSuffixes(label: string): string {
 function computeAllDifferentiators(
   nodes: readonly { id: string; type?: string; data?: any }[],
   ceeAnalysisReady: { options?: { id: string; interventions?: Record<string, unknown> }[] } | null,
-): Map<string, string | null> {
-  const result = new Map<string, string | null>()
+): Map<string, { label: string; factorId: string } | null> {
+  const result = new Map<string, { label: string; factorId: string } | null>()
 
   const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
   if (optionNodes.length < 2) return result
@@ -180,7 +180,10 @@ function computeAllDifferentiators(
     if ((labelCount.get(label) ?? 0) > 1) {
       result.set(optionId, null)
     } else {
-      result.set(optionId, label)
+      const factorId = bestFactors.get(optionId)?.factorId
+      // Carry the factorId so the option card can drop this footer line when
+      // the same factor is already shown as a visible "from → to" chip.
+      result.set(optionId, factorId ? { label, factorId } : null)
     }
   }
 
@@ -251,9 +254,10 @@ interface InterventionChip {
 interface StructuredDelta {
   factorId: string
   label: string
-  direction: 'up' | 'down' | 'equal'
-  /** Formatted numeric delta (e.g. "+2") or null for non-numeric changes */
-  numericDelta?: string
+  direction: 'up' | 'down'
+  /** Formatted "baseline → intervention" — real-world where the payload
+   * supports it, else normalised percentages (brief scope 7). */
+  fromTo: string
 }
 
 export const OptionNode = memo((props: NodeProps) => {
@@ -369,7 +373,8 @@ export const OptionNode = memo((props: NodeProps) => {
         }]
       })
       .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
-      .slice(0, 3)
+      // Brief scope 7: cap visible chips at 4 (was 3).
+      .slice(0, 4)
   }, [ceeAnalysisReady, props.id, nodes])
 
   const hasInterventions = useMemo(() => {
@@ -430,7 +435,7 @@ export const OptionNode = memo((props: NodeProps) => {
     )
   }, [isBaselineOption, ceeAnalysisReady, nodes, props.id])
 
-  // Structured deltas per spec Section 13
+  // Structured deltas per spec Section 13 — rendered as guarded "from → to" chips.
   const structuredDeltas = useMemo<StructuredDelta[]>(() => {
     if (interventionChips.length === 0) return []
     return interventionChips
@@ -442,42 +447,27 @@ export const OptionNode = memo((props: NodeProps) => {
         // card; revisit if the card width changes materially.
         const shortLabel = compactFactorLabel(c.label, 22)
 
-        if (baseline === undefined) {
-          // No baseline to compare — show as "up" (intervention exists)
-          return { factorId: c.factorId, label: shortLabel, direction: 'up' as const }
-        }
+        // Brief scope 7 guard (+ A2): both the baseline and the intervention
+        // value must already exist. A missing baseline ⇒ omit the chip — never
+        // a one-sided or fabricated value, and never a throw.
+        if (baseline === undefined) return null
 
         const diff = c.value - baseline
         if (Math.abs(diff) < 1e-6) return null // no change
-
         const direction: 'up' | 'down' = diff > 0 ? 'up' : 'down'
 
-        // For quantitative factors with units, show formatted numeric delta (e.g. "£55,000").
-        // Graph v1.1 polish 4 Task 1: a unit of "scale" with no raw_value is a
-        // normalised number with no real-world meaning — suppress the numeric
-        // delta entirely so the pill renders as just "↑ factor".
-        const effectiveUnit = c.unit && !isSuppressedUnit(c.unit) ? c.unit : null
-        const isScaleUnit = effectiveUnit?.toLowerCase().trim() === 'scale'
-        const hasRawAnchor = c.observedRawValue != null
-        let numericDelta: string | undefined
-        if (effectiveUnit && !(isScaleUnit && !hasRawAnchor)) {
-          const scaleBase = inferInterventionScaleBase(c.cap, c.observedValue, c.observedRawValue)
-          if (scaleBase != null) {
-            const denormedTarget = denormaliseInterventionValue(c.value, c.cap, c.observedValue, c.observedRawValue)
-            const rounded = Math.round(denormedTarget)
-            // Format with unit symbol
-            if (isCurrencyUnit(effectiveUnit)) {
-              numericDelta = `${effectiveUnit}${rounded.toLocaleString('en-GB')}`
-            } else if (effectiveUnit === '%') {
-              numericDelta = `${rounded}%`
-            } else {
-              numericDelta = `${rounded.toLocaleString('en-GB')} ${effectiveUnit}`
-            }
-          }
-        }
-        // No unit (or meaningless "scale" unit) → direction + label only
+        // Format BOTH sides with the existing trusted formatter (real-world
+        // where the payload supports it — same helper the post-analysis list
+        // uses). When either side can't be formatted to real-world, fall back
+        // to normalised percentages for BOTH sides — the only safe shared
+        // scale. No new denormalisation logic is introduced.
+        const targetFormatted = formatChipValue(c)
+        const baselineFormatted = formatChipValue({ ...c, value: baseline, displayValue: undefined })
+        const fromTo = baselineFormatted && targetFormatted
+          ? `${baselineFormatted} → ${targetFormatted}`
+          : `${Math.round(baseline * 100)}% → ${Math.round(c.value * 100)}%`
 
-        return { factorId: c.factorId, label: shortLabel, direction, numericDelta }
+        return { factorId: c.factorId, label: shortLabel, direction, fromTo }
       })
       .filter((d): d is StructuredDelta => d !== null)
   }, [interventionChips, baselineOptionInterventions])
@@ -490,12 +480,24 @@ export const OptionNode = memo((props: NodeProps) => {
    * one pass. See that helper's docblock for the algorithm, thresholds, and
    * deduplication logic. Returns null for baseline/post-analysis.
    */
-  const differentiatorLabel = useMemo<string | null>(() => {
+  const differentiator = useMemo<{ label: string; factorId: string } | null>(() => {
     if (isPostAnalysis) return null
     if (isBaselineOption) return null
     const allDiffs = computeAllDifferentiators(nodes, ceeAnalysisReady)
     return allDiffs.get(props.id) ?? null
   }, [isPostAnalysis, isBaselineOption, ceeAnalysisReady, nodes, props.id])
+
+  // Brief scope 7: drop the differentiator footer only when it repeats a value
+  // already shown in a visible from→to chip — same factor AND the same value
+  // text. A differentiator carrying a value the chip doesn't show (e.g. a CEE
+  // display_value where the chip fell back to "%") is kept, so no info is lost.
+  const differentiatorDuplicatesChip = !!differentiator
+    && differentiator.label.includes('→')
+    && structuredDeltas.some(d => {
+      if (d.factorId !== differentiator.factorId) return false
+      const diffValue = (differentiator.label.split('→')[1] ?? '').trim()
+      return diffValue.length > 0 && d.fromTo.includes(diffValue)
+    })
 
   const handleMouseEnter = useMemo(() => () => {
     if (hasInterventions) setHoveredOption(props.id)
@@ -965,7 +967,8 @@ export const OptionNode = memo((props: NodeProps) => {
                 ) : (
                   <ArrowDown size={10} className="text-danger flex-shrink-0" />
                 )}
-                {d.numericDelta ? `${d.numericDelta} ` : ''}{d.label}
+                <span>{d.label}</span>
+                <span className="text-text-light">{d.fromTo}</span>
               </span>
             ))}
           </div>
@@ -974,9 +977,10 @@ export const OptionNode = memo((props: NodeProps) => {
         {/* Polish 4 Task 5: differentiator line — what's strategically unique
             about this option vs the others. Standard view only (Detailed
             already shows the full intervention list). */}
-        {!isPostAnalysis && !isBaselineOption && !isDetailed && differentiatorLabel && (
+        {!isPostAnalysis && !isBaselineOption && !isDetailed && differentiator
+          && !differentiatorDuplicatesChip && (
           <p className={`${typography.edgeLabel} text-text-light mt-1 m-0`}>
-            {differentiatorLabel}
+            {differentiator.label}
           </p>
         )}
 

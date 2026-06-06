@@ -234,11 +234,19 @@ export const GoalNode = memo((props: NodeProps) => {
           </>
         )}
 
-        {/* No target, pre-analysis: chip only (spec says no body text for incomplete goals) */}
+        {/* No target, pre-analysis: the "goal gap". Surface the missing target
+            clearly (Paul-authored copy — brief primary + A1 secondary), then keep
+            the existing coaching chip. */}
         {!hasThreshold && !isPostAnalysis && (
-          <div className="mt-1.5">
-            <NodeChip label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
-          </div>
+          <>
+            <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>Goal target missing</p>
+            <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
+              Add a measurable success target, e.g. metric, threshold or deadline
+            </p>
+            <div className="mt-1.5">
+              <NodeChip label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
+            </div>
+          </>
         )}
 
         {/* With target: display it */}
