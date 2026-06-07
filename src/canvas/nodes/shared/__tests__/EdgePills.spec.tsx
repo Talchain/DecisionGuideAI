@@ -87,4 +87,25 @@ describe('EdgePills', () => {
     render(<EdgePills nodeId="f1" />)
     expect(screen.getByText(longLabel)).toBeDefined()
   })
+
+  // A11y: the arrow glyph is aria-hidden, so direction is exposed to screen
+  // readers via visually-hidden approved "Raises"/"Lowers" text. Visible UI
+  // is unchanged (the text is sr-only / out of flow).
+  it('exposes direction to screen readers as "Raises"/"Lowers"', () => {
+    mockStore(makeState({
+      edges: [
+        { id: 'e1', source: 'f1', target: 'o1', data: { weight: 0.45, direction: 'positive' } },
+        { id: 'e2', source: 'f1', target: 'r1', data: { weight: 0.65, direction: 'negative' } },
+      ],
+      nodes: [
+        { id: 'o1', type: 'outcome', data: { label: 'Revenue Growth' } },
+        { id: 'r1', type: 'risk', data: { label: 'Cash Runway Pressure' } },
+      ],
+    }))
+    const { container } = render(<EdgePills nodeId="f1" />)
+    expect(screen.getByText('Raises')).toBeDefined()
+    expect(screen.getByText('Lowers')).toBeDefined()
+    // Visually hidden (sr-only) — present for assistive tech, out of visible flow.
+    expect(container.querySelector('.sr-only')).toBeTruthy()
+  })
 })

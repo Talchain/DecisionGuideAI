@@ -66,6 +66,11 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
           key={p.id}
           className="inline-flex items-center gap-0.5 text-[10px] font-sans leading-tight px-[5px] py-[1px] rounded-[10px] border-[0.5px] border-panel-border text-text-light"
         >
+          {/* Direction for screen readers — the arrow glyph below is aria-hidden,
+              so without this the pill would announce only the % and label.
+              Uses the approved "Raises"/"Lowers" vocabulary. `sr-only` is out of
+              flow, so the visible pill layout is unchanged. */}
+          <span className="sr-only">{p.direction === 'up' ? 'Raises' : 'Lowers'}</span>
           <NodeShapeIndicator nodeKind={p.kind} size={9} />
           {p.direction === 'up' ? (
             <ArrowUp size={9} className="text-success shrink-0" aria-hidden="true" />
