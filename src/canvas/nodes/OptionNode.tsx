@@ -7,7 +7,7 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, placeholderDirectionLabel, isTierLabel } from '../utils/labelUtils'
+import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, unwrapInterventionValue, classifyUnit, isCountUnit, formatWinProbability, placeholderDirectionLabel, isTierLabel } from '../utils/labelUtils'
 import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
@@ -212,7 +212,11 @@ function formatChipValue(chip: { label: string; value: number; displayValue?: st
   const effectiveUnit = chip.unit && !isSuppressedUnit(chip.unit) ? chip.unit : null
   let rawValue: number | string | null = null
   if (effectiveUnit && chip.cap != null && chip.cap > 1) {
-    rawValue = chip.value * chip.cap
+    const raw = chip.value * chip.cap
+    // Clean float-precision artefacts (e.g. 16.080000000000002): count/headcount
+    // units render as whole numbers; other units keep ≤2 decimals. Display-only —
+    // underlying value/cap and denormalisation semantics are unchanged.
+    rawValue = isCountUnit(effectiveUnit) ? Math.round(raw) : Math.round(raw * 100) / 100
   }
   const contextual = formatFactorDisplayValue({
     label: chip.label,

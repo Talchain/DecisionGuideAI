@@ -85,3 +85,24 @@ export function classifyUnit(unit: string | null | undefined): { kind: UnitClass
 
   return { kind: 'other', canonical: trimmed }
 }
+
+/**
+ * Count / headcount units — whole, countable things (developers, engineers,
+ * people, …). Display formatters round these to whole numbers so a denormalised
+ * value × cap (which can carry float-precision noise, e.g. 16.080000000000002)
+ * renders as a sensible count. Display-only convention — does NOT change any
+ * underlying value, cap, or denormalisation semantics.
+ */
+export const COUNT_UNITS: ReadonlySet<string> = new Set([
+  'developer', 'developers', 'dev', 'devs', 'engineer', 'engineers',
+  'hire', 'hires', 'employee', 'employees', 'person', 'people',
+  'staff', 'headcount', 'fte', 'ftes', 'member', 'members',
+  'customer', 'customers', 'user', 'users', 'seat', 'seats',
+  'role', 'roles', 'team', 'teams',
+])
+
+/** True when `unit` denotes a whole-number count (see COUNT_UNITS). */
+export function isCountUnit(unit: string | null | undefined): boolean {
+  if (unit == null) return false
+  return COUNT_UNITS.has(unit.trim().toLowerCase())
+}

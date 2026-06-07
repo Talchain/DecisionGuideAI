@@ -226,6 +226,27 @@ describe('OptionNode', () => {
     expect(screen.getByText((t: string) => t.includes('60%') && t.includes('→'))).toBeDefined()
   })
 
+  // Float-cleanup: count-unit chip values denormalise to floats (0.804 × 20 =
+  // 16.080000000000002). They must render as whole numbers with no artefact.
+  it('renders count-unit chip values as whole numbers (no float artefact)', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        ceeAnalysisReady: {
+          options: [{ id: 'option-1', interventions: { 'factor-1': 0.804 } }],
+        },
+        nodes: [{
+          id: 'factor-1',
+          data: { label: 'Developer Headcount', observedState: { unit: 'developers', value: 0.3, cap: 20 } },
+        }],
+      }) as any)
+    )
+    renderOption()
+    // 0.3 × 20 = 6 baseline, 0.804 × 20 = 16.08… → rounded whole counts.
+    expect(screen.getByText('6 developers → 16 developers')).toBeDefined()
+    // No float-precision artefact leaks anywhere.
+    expect(screen.queryByText((t: string) => t.includes('16.080'))).toBeNull()
+  })
+
   it('has displayName set', () => {
     expect(OptionNode.displayName).toBe('OptionNode')
   })

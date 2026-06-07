@@ -287,7 +287,9 @@ export {
   GENERIC_PLACEHOLDER_UNITS,
   CURRENCY_SYMBOLS,
   ISO_CURRENCY_CODES,
+  COUNT_UNITS,
   classifyUnit,
+  isCountUnit,
 } from '@/utils/unitClassifier'
 export type { UnitClass } from '@/utils/unitClassifier'
 
