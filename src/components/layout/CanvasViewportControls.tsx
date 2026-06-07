@@ -108,7 +108,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
       {/* Separator */}
       <div className="h-px w-4 bg-border-default" aria-hidden="true" />
 
-      {/* "How to read this" legend — presentational disclosure (click/focus to open) */}
+      {/* "How to read this" legend — presentational disclosure (click / keyboard to open) */}
       <CanvasLegendPopover />
     </nav>
   )

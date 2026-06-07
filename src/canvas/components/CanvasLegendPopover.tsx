@@ -2,7 +2,8 @@
  * CanvasLegendPopover — a compact "How to read this" toolbar disclosure.
  *
  * Presentational only: reads nothing from the graph and triggers no actions.
- * Opens on click/focus (dismissible via outside-click or Esc). Every rendered
+ * Opens on click (keyboard: Enter/Space activates); dismissed via outside-click
+ * or Esc. Focus alone does not open it. Every rendered
  * string is brief/amendment-approved (A4) — no Claude-authored copy, and no
  * "node/edge/graph" wording. If more copy is ever needed here, stop and ask Paul.
  */

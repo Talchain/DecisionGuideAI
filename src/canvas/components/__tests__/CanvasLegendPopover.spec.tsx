@@ -1,6 +1,6 @@
 /**
  * CanvasLegendPopover — brief scope 4: a "How to read this" toolbar disclosure
- * that opens on click/focus, is dismissible, and renders ONLY the approved
+ * that opens on click (keyboard: Enter/Space), is dismissible, and renders ONLY the approved
  * legend strings (A4) with no Claude-authored copy and no "node/edge/graph"
  * vocabulary.
  */
