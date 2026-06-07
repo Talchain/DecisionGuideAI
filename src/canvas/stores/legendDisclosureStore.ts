@@ -11,9 +11,13 @@ import { create } from 'zustand'
 interface LegendDisclosureState {
   isLegendOpen: boolean
   setLegendOpen: (open: boolean) => void
+  toggleLegend: () => void
 }
 
 export const useLegendDisclosure = create<LegendDisclosureState>((set) => ({
   isLegendOpen: false,
   setLegendOpen: (open) => set({ isLegendOpen: open }),
+  // Functional toggle — reads the live value at call time, so the trigger is
+  // immune to focus-before-click closure staleness on a real mouse click.
+  toggleLegend: () => set((s) => ({ isLegendOpen: !s.isLegendOpen })),
 }))

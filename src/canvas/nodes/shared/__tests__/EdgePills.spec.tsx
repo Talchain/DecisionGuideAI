@@ -75,4 +75,16 @@ describe('EdgePills', () => {
     const { container } = render(<EdgePills nodeId="f1" />)
     expect(container.textContent).toBe('')
   })
+
+  // Brief amendment A6: target labels render VERBATIM — never truncated,
+  // abbreviated, or rewritten. A long label must appear in full.
+  it('renders a long target label verbatim (no truncation)', () => {
+    const longLabel = 'Founder Equity Dilution Across Multiple Funding Rounds'
+    mockStore(makeState({
+      edges: [{ id: 'e1', source: 'f1', target: 'o1', data: { weight: 0.45, direction: 'positive' } }],
+      nodes: [{ id: 'o1', type: 'risk', data: { label: longLabel } }],
+    }))
+    render(<EdgePills nodeId="f1" />)
+    expect(screen.getByText(longLabel)).toBeDefined()
+  })
 })

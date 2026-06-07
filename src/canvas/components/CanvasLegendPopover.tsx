@@ -78,6 +78,7 @@ export function CanvasLegendPopover() {
   // legends overlapping). Display-only; not persisted.
   const open = useLegendDisclosure(s => s.isLegendOpen)
   const setLegendOpen = useLegendDisclosure(s => s.setLegendOpen)
+  const toggleLegend = useLegendDisclosure(s => s.toggleLegend)
   const wrapRef = useRef<HTMLDivElement>(null)
 
   const close = useCallback(() => setLegendOpen(false), [setLegendOpen])
@@ -106,8 +107,7 @@ export function CanvasLegendPopover() {
     <div ref={wrapRef} className="relative">
       <button
         type="button"
-        onClick={() => setLegendOpen(!open)}
-        onFocus={() => setLegendOpen(true)}
+        onClick={toggleLegend}
         className="w-7 h-7 inline-flex items-center justify-center rounded-full text-text-light hover:text-text-body transition-colors focus-visible:outline-2 focus-visible:outline-info focus-visible:outline-offset-2"
         aria-label="How to read this"
         aria-haspopup="dialog"
