@@ -44,6 +44,73 @@ const DEFAULT_MARGIN = 16
 const SIDE_TAB_WIDTH = 36
 const DRAG_HANDLE_HEIGHT = 6
 
+/** V4 "one continuous shape" geometry: the floating panel and its top-left tab
+ *  bump are drawn as ONE rounded outline so every corner shares a single radius
+ *  (no pointed bottom-left) and the tab joins the body via concave fillets (no
+ *  seam). SHAPE_RADIUS = convex corner radius; SHAPE_FILLET = concave join
+ *  radius; the bump sits TAB_BUMP_TOP below the top, TAB_BUMP_HEIGHT tall. */
+const SHAPE_RADIUS = 10
+const SHAPE_FILLET = 9
+const TAB_BUMP_TOP = 16
+const TAB_BUMP_HEIGHT = 104
+
+/** Build the SVG `d` for the panel+tab outline. The body occupies
+ *  x in [tabW, tabW+panelW], y in [0, panelH]; the tab occupies x in [0, tabW],
+ *  y in [tabTop, tabTop+tabH]. Exported for tests. */
+export function buildPanelShapePath(
+  panelW: number,
+  panelH: number,
+  tabW: number,
+  tabTop: number,
+  tabH: number,
+  r: number,
+  cf: number,
+): string {
+  const w = tabW + panelW
+  const h = panelH
+  const tb = tabTop + tabH
+  return [
+    `M ${tabW + r} 0`,
+    `H ${w - r}`,
+    `A ${r} ${r} 0 0 1 ${w} ${r}`,
+    `V ${h - r}`,
+    `A ${r} ${r} 0 0 1 ${w - r} ${h}`,
+    `H ${tabW + r}`,
+    `A ${r} ${r} 0 0 1 ${tabW} ${h - r}`,
+    `V ${tb + cf}`,
+    `A ${cf} ${cf} 0 0 0 ${tabW - cf} ${tb}`,
+    `H ${r}`,
+    `A ${r} ${r} 0 0 1 0 ${tb - r}`,
+    `V ${tabTop + r}`,
+    `A ${r} ${r} 0 0 1 ${r} ${tabTop}`,
+    `H ${tabW - cf}`,
+    `A ${cf} ${cf} 0 0 0 ${tabW} ${tabTop - cf}`,
+    `V ${r}`,
+    `A ${r} ${r} 0 0 1 ${tabW + r} 0`,
+    'Z',
+  ].join(' ')
+}
+
+/** Imperatively size the shape SVG + refresh its path to the current panel
+ *  size. Called from the layout effect, the window-resize re-clamp, and the
+ *  resize-drag rAF so the outline tracks the panel on every size path. */
+function applyPanelShape(
+  svg: SVGSVGElement | null,
+  path: SVGPathElement | null,
+  panelW: number,
+  panelH: number,
+): void {
+  if (!svg || !path) return
+  const totalW = SIDE_TAB_WIDTH + panelW
+  svg.setAttribute('width', `${totalW}`)
+  svg.setAttribute('height', `${panelH}`)
+  svg.setAttribute('viewBox', `0 0 ${totalW} ${panelH}`)
+  path.setAttribute(
+    'd',
+    buildPanelShapePath(panelW, panelH, SIDE_TAB_WIDTH, TAB_BUMP_TOP, TAB_BUMP_HEIGHT, SHAPE_RADIUS, SHAPE_FILLET),
+  )
+}
+
 /** Which of the four corners is being dragged for resize. */
 type ResizeCorner = 'tl' | 'tr' | 'bl' | 'br'
 
@@ -332,6 +399,8 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   const isAutoRepositioning = useFloatingPanelState((s) => s.isAutoRepositioning)
 
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const shapeRef = useRef<SVGSVGElement | null>(null)
+  const pathRef = useRef<SVGPathElement | null>(null)
   const inputBarRef = useRef<AIInputBarHandle | null>(null)
   const rafRef = useRef<number | null>(null)
   const dragStateRef = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null)
@@ -416,6 +485,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     el.style.height = `${h}px`
     el.style.left = `${pos.x}px`
     el.style.top = `${pos.y}px`
+    applyPanelShape(shapeRef.current, pathRef.current, w, h)
     // Commit the centred default the FIRST time the panel opens so the
     // minimise pill anchor isn't null. Stored-position clamping is reapplied
     // on every render via this same effect, so we don't need to write back —
@@ -510,6 +580,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
       el.style.height = `${h}px`
       el.style.left = `${x}px`
       el.style.top = `${y}px`
+      applyPanelShape(shapeRef.current, pathRef.current, w, h)
     }
     window.addEventListener('resize', handle)
     // Track the dock element across mounts/unmounts so we re-clamp when
@@ -630,6 +701,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         el.style.height = `${next.h}px`
         el.style.left = `${next.x}px`
         el.style.top = `${next.y}px`
+        applyPanelShape(shapeRef.current, pathRef.current, next.w, next.h)
       }
     })
   }, [])
@@ -722,6 +794,17 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     }
   }, [])
 
+  // The compact side tab doubles as a top-left resize grip: dragging its body
+  // resizes the panel from the top-left corner. Pointer-downs on the
+  // minimise/dock buttons are ignored so their clicks still fire.
+  const handleSideTabPointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if ((e.target as HTMLElement).closest('button')) return
+      handleResizePointerDown('tl')(e)
+    },
+    [handleResizePointerDown],
+  )
+
   const handleMinimise = useCallback(() => {
     minimise()
   }, [minimise])
@@ -768,9 +851,10 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
       role="dialog"
       aria-label="Olumi conversation"
       data-testid="floating-olumi-panel"
-      /* No left border: the full-height side tab supplies the left edge, so
-         the tab + panel read as one seamless rounded surface (no mid-seam). */
-      className="fixed bg-panel border-y border-r border-panel-border rounded-r-lg shadow-2 flex flex-col"
+      /* V4 "one continuous shape": the body + the top-left tab bump are drawn
+         as a single rounded SVG outline (below), so this container is
+         transparent — no bg/border/radius of its own. */
+      className="fixed flex flex-col"
       style={{
         zIndex: 300,
         width: 400,
@@ -783,6 +867,29 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         overflow: 'visible',
       }}
     >
+      {/* V4 "one continuous shape": panel body + the top-left tab bump as a
+         single rounded outline (every corner = SHAPE_RADIUS, the bump joins
+         via concave fillets). Decorative + pointer-events-none so clicks fall
+         through to the content and side tab; size/path tracked by
+         applyPanelShape (layout effect, re-clamp, resize rAF). */}
+      <svg
+        ref={shapeRef}
+        aria-hidden="true"
+        width={SIDE_TAB_WIDTH + 400}
+        height={550}
+        viewBox={`0 0 ${SIDE_TAB_WIDTH + 400} 550`}
+        className="absolute top-0 pointer-events-none"
+        style={{ left: -SIDE_TAB_WIDTH, overflow: 'visible', zIndex: -1, filter: 'drop-shadow(var(--shadow-2))' }}
+      >
+        <path
+          ref={pathRef}
+          d={buildPanelShapePath(400, 550, SIDE_TAB_WIDTH, TAB_BUMP_TOP, TAB_BUMP_HEIGHT, SHAPE_RADIUS, SHAPE_FILLET)}
+          style={{ fill: 'var(--bg-panel)', stroke: 'var(--border-default)' }}
+          strokeWidth={1}
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+
       {/* Thin top drag handle. Replaces the previous bulky h-8 header — saves
          conversation height while keeping a clear, pointer-driven drag
          affordance. Decorative for assistive tech: not focusable, not
@@ -803,65 +910,45 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         />
       </div>
 
-      {/* Full-height side tab (OUTSIDE the panel's left edge). It supplies the
-         panel's left edge — the panel root has no left border — so the tab and
-         panel read as ONE seamless rounded surface instead of two boxes with a
-         mid-seam. Top: the minimise + dock controls. Below: a drag-to-resize
-         grip that resizes the WHOLE panel's width (the panel grows leftward;
-         the right edge stays put). Positioned at `left: -SIDE_TAB_WIDTH`;
-         clampPositionToViewport reserves that width so it never lands
-         off-screen. The panel root uses `overflow: visible` so it isn't
-         clipped. */}
+      {/* Side tab (OUTSIDE the panel, anchored to its top-left): the three
+         icons (mark + minimise + dock). V4: the tab's visual (the bump) is
+         drawn by the shape SVG above — this div is just the transparent
+         hit-area for the icons and a drag-to-resize grip (top-left corner), so
+         it has no background or border of its own. `left: -SIDE_TAB_WIDTH` +
+         overflow-visible keep it on the bump; clampPositionToViewport reserves
+         SIDE_TAB_WIDTH so it never lands off-screen. */}
       <div
-        className="absolute top-0 bottom-0 bg-panel border border-panel-border border-r-0 rounded-l-lg flex flex-col items-center select-none"
-        style={{ width: SIDE_TAB_WIDTH, left: -SIDE_TAB_WIDTH, zIndex: 1 }}
+        onPointerDown={handleSideTabPointerDown}
+        className="absolute flex flex-col items-center justify-center gap-1.5 select-none cursor-nwse-resize"
+        style={{ width: SIDE_TAB_WIDTH, left: -SIDE_TAB_WIDTH, top: TAB_BUMP_TOP, height: TAB_BUMP_HEIGHT, zIndex: 2 }}
         data-testid="floating-olumi-panel-side-tab"
+        title="Drag to resize"
       >
-        {/* Control cluster (top) */}
-        <div className="flex flex-col items-center gap-1" style={{ paddingTop: 8 }}>
-          <MessageSquare
-            className="w-4 h-4 text-text-light flex-shrink-0"
-            aria-hidden="true"
-            data-testid="floating-olumi-panel-side-mark"
-          />
-          <button
-            type="button"
-            onClick={handleMinimise}
-            className="inline-flex items-center justify-center w-8 h-8 rounded text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info mt-1"
-            aria-label="Minimise"
-            data-testid="floating-olumi-panel-minimise"
-            title="Minimise"
-          >
-            <Minus className="w-4 h-4" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={onDock}
-            className="inline-flex items-center justify-center w-8 h-8 rounded text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
-            aria-label="Dock to panel"
-            data-testid="floating-olumi-panel-dock"
-            title="Dock to panel"
-          >
-            <PanelRight className="w-4 h-4" aria-hidden="true" />
-          </button>
-        </div>
-        {/* Drag-to-resize grip — fills the rest of the tab. Dragging it resizes
-            the whole panel's width (right edge held fixed). The 8×8 buttons
-            above keep their own click handlers; the grip owns the empty space
-            below them. */}
-        <div
-          onPointerDown={handleResizePointerDown('l')}
-          className="group flex-1 w-full flex items-center justify-center cursor-ew-resize"
-          style={{ touchAction: 'none' }}
-          data-testid="floating-olumi-panel-resize-handle-left"
+        <MessageSquare
+          className="w-4 h-4 text-text-light flex-shrink-0"
           aria-hidden="true"
-          title="Drag to resize"
+          data-testid="floating-olumi-panel-side-mark"
+        />
+        <button
+          type="button"
+          onClick={handleMinimise}
+          className="inline-flex items-center justify-center w-8 h-8 rounded cursor-pointer text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+          aria-label="Minimise"
+          data-testid="floating-olumi-panel-minimise"
+          title="Minimise"
         >
-          <span
-            aria-hidden="true"
-            className="block w-0.5 h-10 rounded-full bg-panel-border transition-colors group-hover:bg-text-light"
-          />
-        </div>
+          <Minus className="w-4 h-4" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          onClick={onDock}
+          className="inline-flex items-center justify-center w-8 h-8 rounded cursor-pointer text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+          aria-label="Dock to panel"
+          data-testid="floating-olumi-panel-dock"
+          title="Dock to panel"
+        >
+          <PanelRight className="w-4 h-4" aria-hidden="true" />
+        </button>
       </div>
 
       {/* Main content column. Sits to the right of the side tab and below
