@@ -45,6 +45,7 @@ import { StaleAnalysisBadge } from './StaleAnalysisBadge'
 import { CogPopover } from './CogPopover'
 import { useConversationContext, useOptionalConversationContext } from '../conversation/ConversationContext'
 import { useFloatingPanelState } from '../hooks/useFloatingPanelState'
+import { dockHostsOlumi } from './olumiSurface'
 import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { focusFloating } from '../hooks/useFloatingFocus'
 import { isV5Eligible } from '../../v5/eligibility'
@@ -154,6 +155,25 @@ export function readPersistedActiveDockTab(): OutputsDockTab | null {
       return tab
     }
     return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Render-time read of the persisted dock OPEN-state from sessionStorage.
+ * Mirrors readPersistedActiveDockTab so FloatingOlumiPanel can decide whether
+ * the dock is actually hosting Olumi (dockHostsOlumi) without a render-time
+ * dependency on OutputsDock's component state. Returns null when sessionStorage
+ * is unavailable or the persisted payload is missing/invalid.
+ */
+export function readPersistedDockOpen(): boolean | null {
+  if (typeof sessionStorage === 'undefined') return null
+  try {
+    const raw = sessionStorage.getItem(OUTPUTS_DOCK_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<OutputsDockState>
+    return typeof parsed?.isOpen === 'boolean' ? parsed.isOpen : null
   } catch {
     return null
   }
@@ -425,6 +445,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // logic); intentionally does NOT participate in isFirstUse.
   void realMessageCount
 
+  // Visual open state: first-use forces the collapsed rail WITHOUT writing the
+  // persisted preference (a returning user with an empty canvas must still get
+  // the rail). Defined once here and reused by the docked-Olumi close-effect
+  // below, the --dock-right-offset effect, and render.
+  const effectiveIsOpen = isFirstUse ? false : state.isOpen
+
   // Round 3 UX correction: clicking the Olumi tab CLOSES the floating panel
   // and shows the docked Olumi conversation (see handleTabClick). For the
   // non-click paths (programmatic setActiveOutputTab, persisted state on
@@ -441,16 +467,19 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   useEffect(() => {
     if (state.activeTab !== 'olumi') lastNonOlumiTabRef.current = state.activeTab
   }, [state.activeTab])
-  // Close the floating panel whenever the docked Olumi tab becomes active
-  // (covers programmatic + restored-state paths that bypass handleTabClick).
-  // The singleton ConversationContext preserves draft + message state, so
-  // closing here is purely a surface switch with no data loss.
+  // Retire the floating/hero Olumi surface ONLY when the docked composer will
+  // actually take over — i.e. dockHostsOlumi: the Olumi tab is selected AND the
+  // dock is showing its body (effectiveIsOpen), not the empty-canvas/collapsed
+  // rail. Closing it whenever the tab is merely selected (the old behaviour)
+  // strands the user with zero composers on the rail. The singleton
+  // ConversationContext preserves draft + message state, so this is a clean
+  // surface switch with no data loss. Single source of truth: olumiSurface.ts.
   useEffect(() => {
-    if (state.activeTab !== 'olumi') return
+    if (!dockHostsOlumi({ dockEffectiveOpen: effectiveIsOpen, dockTab: state.activeTab })) return
     if (useFloatingPanelState.getState().isOpen) {
       useFloatingPanelState.getState().close()
     }
-  }, [state.activeTab])
+  }, [state.activeTab, effectiveIsOpen])
   const openFloatingByUser = useFloatingPanelState((s) => s.open)
 
   // Round-14: coordinates a user-initiated float-out from ANY trigger
@@ -1390,10 +1419,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // When an overlay panel is active, keep mounted (preserve scroll position,
   // tab state, effect continuity) but hide visually via CSS.
 
-  // Effective open state: when aiPanelV2 first-use, force collapsed rail
-  // without writing to the persisted state.isOpen — otherwise a returning
-  // user with an empty canvas would see the rail forever.
-  const effectiveIsOpen = isFirstUse ? false : state.isOpen
+  // effectiveIsOpen is defined once near isFirstUse (above) and reused here.
 
   const asideStyle: React.CSSProperties = {
     position: 'fixed',

@@ -21,7 +21,8 @@ import { AIInputBar, type AIInputBarHandle } from './AIInputBar'
 import { registerFloatingFocus } from '../hooks/useFloatingFocus'
 import { useUIStore } from '../../stores/uiStore'
 import { isAiPanelV2Enabled } from '../../flags'
-import { readPersistedActiveDockTab } from './OutputsDock'
+import { readPersistedActiveDockTab, readPersistedDockOpen } from './OutputsDock'
+import { dockHostsOlumi, type OlumiDockTab } from './olumiSurface'
 
 interface FloatingOlumiPanelProps {
   /** Called when the user clicks the Dock button. The host should switch the
@@ -290,7 +291,17 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   const activeOutputTab = useUIStore((s) => s.activeOutputTab)
   const persistedDockTab = readPersistedActiveDockTab()
   const effectiveDockTab = persistedDockTab ?? activeOutputTab
-  const yieldToDockedOlumi = isAiPanelV2Enabled() && effectiveDockTab === 'olumi'
+  // Yield to the docked Olumi composer ONLY when it can actually be on screen
+  // (dockHostsOlumi) — otherwise suppressing this surface would strand the user.
+  // On an empty canvas the dock is always the collapsed first-use rail, so it
+  // never hosts the composer. On a populated canvas the persisted isOpen
+  // reflects the real open state (the rail override applies only to the empty
+  // canvas); default true to match the dock's own default before anything is
+  // persisted. Mirrors OutputsDock's close-effect — both derive from olumiSurface.ts.
+  const dockEffectiveOpen = nodeCount > 0 ? (readPersistedDockOpen() ?? true) : false
+  const yieldToDockedOlumi =
+    isAiPanelV2Enabled() &&
+    dockHostsOlumi({ dockEffectiveOpen, dockTab: effectiveDockTab as OlumiDockTab })
 
   // Post-graph auto-reposition: when FirstUseComposer commits the bottom-right
   // anchor, it flags `isAutoRepositioning` so the panel applies a scoped CSS
