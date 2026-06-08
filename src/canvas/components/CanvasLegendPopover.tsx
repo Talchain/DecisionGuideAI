@@ -7,11 +7,10 @@
  * string is brief/amendment-approved (A4) — no Claude-authored copy, and no
  * "node/edge/graph" wording. If more copy is ever needed here, stop and ask Paul.
  */
-import { useRef, useEffect, useCallback, type ReactNode } from 'react'
+import { useRef, useEffect, useState, useCallback, type ReactNode } from 'react'
 import { HelpCircle, ArrowUp, ArrowDown } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
-import { useLegendDisclosure } from '../stores/legendDisclosureStore'
 
 interface LegendRow {
   label: string
@@ -55,6 +54,35 @@ const CONNECTION_ROWS: LegendRow[] = [
   { label: 'Dashed connection: less certain', swatch: <LineSwatch dashed /> },
 ]
 
+function ThicknessSwatch({ width }: { width: number }) {
+  // Height grows with the stroke so the thickest sample isn't clipped; the line
+  // is inset by the max half-width so its round caps stay inside the 24px swatch.
+  const h = Math.max(width + 2, 8)
+  return (
+    <svg width={24} height={h} aria-hidden="true" style={{ flexShrink: 0 }}>
+      <line
+        x1={4}
+        y1={h / 2}
+        x2={20}
+        y2={h / 2}
+        stroke="var(--text-body)"
+        strokeWidth={width}
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+// Thickness = influence. Stroke widths mirror importanceToStrokeWidth() in
+// graphDisplayCalculations.ts (normalised importance [0,1] → [1,8]): Weak ≈ 0.15
+// → 2, Moderate ≈ 0.5 → 4.5, Strong ≈ 1.0 → 8. Folded in from the former
+// standalone EdgeThicknessLegend so the two bottom-left legends are now one key.
+const THICKNESS_ROWS: LegendRow[] = [
+  { label: 'Weak influence', swatch: <ThicknessSwatch width={2} /> },
+  { label: 'Moderate influence', swatch: <ThicknessSwatch width={4.5} /> },
+  { label: 'Strong influence', swatch: <ThicknessSwatch width={8} /> },
+]
+
 const DIRECTION_ROWS: LegendRow[] = [
   { label: 'Raises', swatch: <ArrowUp size={12} className="text-success shrink-0" aria-hidden="true" /> },
   { label: 'Lowers', swatch: <ArrowDown size={12} className="text-danger shrink-0" aria-hidden="true" /> },
@@ -74,19 +102,17 @@ function LegendGroup({ rows }: { rows: LegendRow[] }) {
 }
 
 export function CanvasLegendPopover() {
-  // Open-state lives in a shared store so the post-analysis edge-thickness
-  // legend can yield while this legend is open (avoids the two bottom-left
-  // legends overlapping). Display-only; not persisted.
-  const open = useLegendDisclosure(s => s.isLegendOpen)
-  const setLegendOpen = useLegendDisclosure(s => s.setLegendOpen)
-  const toggleLegend = useLegendDisclosure(s => s.toggleLegend)
+  // Local open-state — this is now the only canvas legend (the edge-thickness
+  // scale is folded in below), so there's no second legend to coordinate with.
+  // Display-only; not persisted.
+  const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
 
-  const close = useCallback(() => setLegendOpen(false), [setLegendOpen])
-
-  // Reset the shared flag on unmount so the edge-thickness legend is never left
-  // suppressed if this control unmounts while open.
-  useEffect(() => () => setLegendOpen(false), [setLegendOpen])
+  const close = useCallback(() => setOpen(false), [])
+  // Functional updater stays immune to focus-before-click staleness: a real mouse
+  // click fires focus (mousedown) before click, so the toggle must read the live
+  // value. No onFocus — keyboard users open via Enter/Space → click.
+  const toggle = useCallback(() => setOpen(o => !o), [])
 
   useEffect(() => {
     if (!open) return
@@ -108,7 +134,7 @@ export function CanvasLegendPopover() {
     <div ref={wrapRef} className="relative">
       <button
         type="button"
-        onClick={toggleLegend}
+        onClick={toggle}
         className="w-7 h-7 inline-flex items-center justify-center rounded-full text-text-light hover:text-text-body transition-colors focus-visible:outline-2 focus-visible:outline-info focus-visible:outline-offset-2"
         aria-label="How to read this"
         aria-haspopup="dialog"
@@ -130,6 +156,8 @@ export function CanvasLegendPopover() {
           <LegendGroup rows={TYPE_ROWS} />
           <div className="h-px bg-panel-border my-2" aria-hidden="true" />
           <LegendGroup rows={CONNECTION_ROWS} />
+          <div className="h-px bg-panel-border my-2" aria-hidden="true" />
+          <LegendGroup rows={THICKNESS_ROWS} />
           <div className="h-px bg-panel-border my-2" aria-hidden="true" />
           <LegendGroup rows={DIRECTION_ROWS} />
         </div>

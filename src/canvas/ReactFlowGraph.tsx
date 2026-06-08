@@ -6,7 +6,6 @@ import '@xyflow/react/dist/style.css'
 // Use individual selectors instead (see React #185 fix comment below)
 import { useCanvasStore } from './store'
 import { useComparisonStore } from './stores/comparisonStore'
-import { useLegendDisclosure } from './stores/legendDisclosureStore'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS } from './domain/edges'
 import { parseRunHash } from './utils/shareLink'
 import { useInitialLayoutGuard } from './hooks/useInitialLayoutGuard'
@@ -62,7 +61,6 @@ import { useEscapePanel } from './hooks/useEscapePanel'
 import { loadRuns, generateGraphHash } from './store/runHistory'
 // HealthStatusBar removed - validation consolidated into OutputsDock panel
 import { DegradedBanner } from './components/DegradedBanner'
-import { EdgeThicknessLegend } from './components/EdgeThicknessLegend'
 import { LayoutProgressBanner } from './components/LayoutProgressBanner'
 import { handleLayoutWithRecovery } from './layout/handleLayoutWithRecovery'
 const IssuesPanel = lazy(() => import(/* webpackChunkName: "issues-panel" */ './panels/IssuesPanel').then(m => ({ default: m.IssuesPanel })))
@@ -304,9 +302,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const provenanceRedactionEnabled = useCanvasStore(s => s.provenanceRedactionEnabled)
   const reconnecting = useCanvasStore(s => s.reconnecting)
   const resultsStatus = useCanvasStore(s => s.results.status)
-  // Suppress the bottom-left edge-thickness legend while the "How to read this"
-  // legend is open, so the two never overlap (display-only).
-  const isLegendOpen = useLegendDisclosure(s => s.isLegendOpen)
   // Week 3: AI Clarifier
   const showAIClarifier = useCanvasStore(s => s.showAIClarifier)
   const setShowAIClarifier = useCanvasStore(s => s.setShowAIClarifier)
@@ -2015,10 +2010,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
       {/* Highlight layer for Results drivers (keyed off global showResultsPanel flag) */}
       <HighlightLayer isResultsOpen={showResultsPanel} />
-
-      {/* D3: Edge thickness legend — post-analysis only; yields while the
-          "How to read this" legend is open so the two don't overlap. */}
-      <EdgeThicknessLegend visible={resultsStatus === 'complete' && !isLegendOpen} />
 
       {showAlignmentGuides && isDragging && <AlignmentGuides nodes={nodes} draggingNodeIds={draggingNodeIds} isActive={isDragging} />}
       {contextMenuTarget && <CanvasContextMenu target={contextMenuTarget} onClose={handleCloseContextMenu} screenToFlowPosition={screenToFlowPosition} />}

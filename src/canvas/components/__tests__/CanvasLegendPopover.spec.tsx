@@ -7,11 +7,11 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { CanvasLegendPopover } from '../CanvasLegendPopover'
-import { useLegendDisclosure } from '../../stores/legendDisclosureStore'
 
 const APPROVED = [
   'Decision', 'Option', 'Factor', 'Outcome', 'Risk', 'Goal', 'Outside your control',
   'Raises', 'Lowers', 'Solid connection: established', 'Dashed connection: less certain',
+  'Weak influence', 'Moderate influence', 'Strong influence',
 ]
 
 describe('CanvasLegendPopover', () => {
@@ -60,11 +60,24 @@ describe('CanvasLegendPopover', () => {
     expect(btn.getAttribute('aria-expanded')).toBe('true')
   })
 
-  it('resets the shared open flag when the control unmounts', () => {
-    const { unmount } = render(<CanvasLegendPopover />)
+  // A second click closes it again — local open-state toggles cleanly without a
+  // shared store (the former edge-thickness suppression flag is gone).
+  it('toggles closed on a second click', () => {
+    render(<CanvasLegendPopover />)
+    const btn = screen.getByRole('button', { name: 'How to read this' })
+    fireEvent.click(btn)
+    expect(screen.getByRole('dialog', { name: 'How to read this' })).toBeDefined()
+    fireEvent.click(btn)
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  // The folded-in influence scale renders its three samples (was the standalone
+  // EdgeThicknessLegend; now one consolidated key).
+  it('renders the influence-thickness scale', () => {
+    render(<CanvasLegendPopover />)
     fireEvent.click(screen.getByRole('button', { name: 'How to read this' }))
-    expect(useLegendDisclosure.getState().isLegendOpen).toBe(true)
-    unmount()
-    expect(useLegendDisclosure.getState().isLegendOpen).toBe(false)
+    expect(screen.getByText('Weak influence')).toBeDefined()
+    expect(screen.getByText('Moderate influence')).toBeDefined()
+    expect(screen.getByText('Strong influence')).toBeDefined()
   })
 })
