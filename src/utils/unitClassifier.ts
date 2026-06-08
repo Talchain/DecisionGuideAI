@@ -92,11 +92,15 @@ export function classifyUnit(unit: string | null | undefined): { kind: UnitClass
  * value × cap (which can carry float-precision noise, e.g. 16.080000000000002)
  * renders as a sensible count. Display-only convention — does NOT change any
  * underlying value, cap, or denormalisation semantics.
+ *
+ * NOTE: FTE is deliberately EXCLUDED — it is fractional by design (0.5, 1.5 FTE),
+ * so whole-number rounding would corrupt its meaning. FTE (and any other
+ * non-count unit) instead gets the cleaned ≤2-decimal display path.
  */
 export const COUNT_UNITS: ReadonlySet<string> = new Set([
   'developer', 'developers', 'dev', 'devs', 'engineer', 'engineers',
   'hire', 'hires', 'employee', 'employees', 'person', 'people',
-  'staff', 'headcount', 'fte', 'ftes', 'member', 'members',
+  'staff', 'headcount', 'member', 'members',
   'customer', 'customers', 'user', 'users', 'seat', 'seats',
   'role', 'roles', 'team', 'teams',
 ])

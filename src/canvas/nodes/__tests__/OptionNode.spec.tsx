@@ -247,6 +247,27 @@ describe('OptionNode', () => {
     expect(screen.queryByText((t: string) => t.includes('16.080'))).toBeNull()
   })
 
+  // FTE is fractional by design — the count-rounding must NOT apply, so a
+  // half-FTE intervention keeps its decimal (1.5 FTE, never "2 FTE").
+  it('preserves fractional non-count units like FTE (no whole-number rounding)', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        ceeAnalysisReady: {
+          options: [{ id: 'option-1', interventions: { 'factor-1': 0.15 } }],
+        },
+        nodes: [{
+          id: 'factor-1',
+          data: { label: 'Engineering Capacity', observedState: { unit: 'FTE', value: 0.1, cap: 10 } },
+        }],
+      }) as any)
+    )
+    renderOption()
+    // 0.1 × 10 = 1 baseline, 0.15 × 10 = 1.5 → FTE keeps the fraction.
+    expect(screen.getByText((t: string) => t.includes('1 FTE') && t.includes('1.5 FTE'))).toBeDefined()
+    // It must NOT be rounded to a whole number.
+    expect(screen.queryByText((t: string) => /\b2 FTE\b/.test(t))).toBeNull()
+  })
+
   it('has displayName set', () => {
     expect(OptionNode.displayName).toBe('OptionNode')
   })
