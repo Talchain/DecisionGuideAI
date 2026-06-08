@@ -56,6 +56,24 @@ export interface FactorDisplayInput {
 }
 
 /**
+ * Read a factor's CEE `display_value` from node data, honouring the canonical
+ * priority: top-level `display_value` (CEE wire shape, see
+ * golden-path-staging-2026-04-05.json) THEN `observedState.display_value`
+ * (legacy / in-flight shapes). Single source of truth so every consumer
+ * (factorDisplayText below, OptionNode's binary baseline label) shares one
+ * priority rule instead of re-implementing it. Returns undefined when neither
+ * is a non-empty string.
+ */
+export function readFactorDisplayValue(
+  data: Record<string, unknown> | null | undefined,
+): string | undefined {
+  if (!data || typeof data !== 'object') return undefined
+  const observedState = data.observedState as Record<string, unknown> | undefined
+  const v = (data.display_value as unknown) ?? observedState?.display_value
+  return typeof v === 'string' ? v : undefined
+}
+
+/**
  * Render the CEE-canonical factor display text for a node's data.
  *
  * Shared entry point for BOTH graph (FactorNode), inspector-v2 factor panels,
@@ -86,14 +104,10 @@ export function factorDisplayText(
   const rawValueForFormatter: number | string | null =
     rawValueUnwrapped ??
     (typeof observedState?.raw_value === 'string' ? (observedState!.raw_value as string) : null)
-  // `display_value` may arrive at either top level (CEE wire shape, see
-  // golden-path-staging-2026-04-05.json) or inside observedState. Prefer
-  // top-level (canonical CEE emission) and fall back to observedState for
-  // legacy/in-flight shapes.
-  const displayValue =
-    (data.display_value as string | null | undefined) ??
-    (observedState?.display_value as string | null | undefined) ??
-    null
+  // `display_value` may arrive at either top level (CEE wire shape) or inside
+  // observedState. Shared priority via readFactorDisplayValue (top-level →
+  // observedState); `?? null` preserves this function's prior null contract.
+  const displayValue = readFactorDisplayValue(data) ?? null
   return formatFactorDisplayValue({
     label,
     value: valueUnwrapped,

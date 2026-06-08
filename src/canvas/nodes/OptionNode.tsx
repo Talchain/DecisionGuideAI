@@ -8,7 +8,7 @@ import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, unwrapInterventionValue, classifyUnit, isCountUnit, formatWinProbability, placeholderDirectionLabel, isTierLabel } from '../utils/labelUtils'
-import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
+import { formatFactorDisplayValue, readFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodeChip, ActionIcons, BriefIcon, MetricPills, NodePopover, ScienceIcon } from './shared'
@@ -375,11 +375,9 @@ export const OptionNode = memo((props: NodeProps) => {
         } | undefined
         const unit = (factorNode?.data?.unit as string | undefined) ?? observedState?.unit
         // Scope A: the factor's OWN display_value labels its observed (baseline)
-        // state (e.g. "No tech lead in place"). Sourced from the payload only —
-        // top-level then observedState, mirroring factorDisplayText's priority.
-        const baselineDisplayValue =
-          (factorNode?.data?.display_value as string | undefined) ??
-          (observedState as { display_value?: string } | undefined)?.display_value
+        // state (e.g. "No tech lead in place"). Payload-only, via the shared
+        // readFactorDisplayValue (top-level → observedState priority).
+        const baselineDisplayValue = readFactorDisplayValue(factorNode?.data as Record<string, unknown> | undefined)
         return [{
           factorId, label: cleanedLabel, value, displayValue: displayValue ?? undefined, unit,
           factorType: observedState?.factor_type, cap: observedState?.cap,
@@ -478,6 +476,12 @@ export const OptionNode = memo((props: NodeProps) => {
         // baseline value (baseline === observed value). Both labels come from
         // the payload — none is derived or invented. When labels are absent the
         // numeric path below is used unchanged (no "0% → 100%" → label guess).
+        // Conservative limitation: when the baseline comes from a baseline
+        // OPTION's intervention (baseline !== observed value) we do NOT use the
+        // factor's observed display_value (it labels a different value), and we
+        // do not yet read the baseline option's own intervention display_value
+        // (baselineOptionInterventions is values-only) — those cases fall to the
+        // numeric path. Tracked as a follow-up; never shows a mismatched label.
         const isBinaryPair = (c.value === 0 || c.value === 1) && (baseline === 0 || baseline === 1)
         const baselineLabel = baseline === c.observedValue ? c.baselineDisplayValue : undefined
         if (isBinaryPair && c.displayValue && baselineLabel) {

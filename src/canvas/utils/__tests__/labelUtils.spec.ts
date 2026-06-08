@@ -118,6 +118,16 @@ describe('compactFactorLabel', () => {
     expect(compactFactorLabel('technical leadership presence')).toBe('leadership')
   })
 
+  // Contract lock (Codex review): a lookup hit returns its canonical form
+  // VERBATIM and is NOT bounded by maxLength — the form is authored to be brief
+  // and truncating it would corrupt it. maxLength caps only the fallback path.
+  it('returns lookup canonical forms verbatim, ignoring maxLength', () => {
+    // 'Developer headcount' is 19 chars; even with maxLength 15 the lookup wins.
+    expect(compactFactorLabel('Developer headcount capacity', 15)).toBe('Developer headcount')
+    // 'MRR' is short regardless of cap.
+    expect(compactFactorLabel('Monthly recurring revenue', 15)).toBe('MRR')
+  })
+
   it('strips known generic suffixes when no lookup matches', () => {
     // "Sales rate" -> strip "rate" -> "Sales" (within cap, no truncate)
     expect(compactFactorLabel('Sales rate')).toBe('Sales')

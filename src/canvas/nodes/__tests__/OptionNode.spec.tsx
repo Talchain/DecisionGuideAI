@@ -316,6 +316,52 @@ describe('OptionNode', () => {
     expect(screen.queryByText((t: string) => t.includes('→ Tech lead in place'))).toBeNull()
   })
 
+  // Scope A edge case (Codex review): a 1 → 0 binary REVERSAL (removing the
+  // factor) renders the baseline (value=1) label → target (value=0) label, in
+  // that order, from the payload.
+  it('renders both payload labels in order for a 1 → 0 binary reversal', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        ceeAnalysisReady: {
+          options: [{ id: 'option-1', interventions: { 'factor-tl': { value: 0, display_value: 'No tech lead in place' } } }],
+        },
+        nodes: [{
+          id: 'factor-tl',
+          data: {
+            label: 'Tech lead in place',
+            display_value: 'Tech lead in place', // factor observed at value=1 (baseline)
+            observedState: { value: 1 },
+          },
+        }],
+      }) as any)
+    )
+    renderOption()
+    expect(screen.getByText('Tech lead in place → No tech lead in place')).toBeDefined()
+  })
+
+  // Scope A edge case (Codex review): the baseline label may live under
+  // observedState.display_value (legacy/in-flight shape) rather than top-level.
+  // readFactorDisplayValue honours both, so the chip still renders labels.
+  it('reads the baseline label from observedState.display_value when top-level is absent', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        ceeAnalysisReady: {
+          options: [{ id: 'option-1', interventions: { 'factor-tl': { value: 1, display_value: 'Tech lead in place' } } }],
+        },
+        nodes: [{
+          id: 'factor-tl',
+          data: {
+            label: 'Tech lead in place',
+            // No top-level display_value — only nested in observedState.
+            observedState: { value: 0, display_value: 'No tech lead in place' },
+          },
+        }],
+      }) as any)
+    )
+    renderOption()
+    expect(screen.getByText('No tech lead in place → Tech lead in place')).toBeDefined()
+  })
+
   it('has displayName set', () => {
     expect(OptionNode.displayName).toBe('OptionNode')
   })

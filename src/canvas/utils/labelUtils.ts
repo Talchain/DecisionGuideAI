@@ -130,8 +130,17 @@ function truncateLabelAtWord(text: string, maxLength: number): string {
  * Wireframe v4 (OptionWinnerPre) shows pills like "↑ Leadership" / "+1 dev"
  * rather than full factor labels. Order: lookup table → suffix strip → truncate.
  *
+ * Contract note: a COMPACT_LABEL_LOOKUP hit returns its canonical replacement
+ * VERBATIM and is NOT bounded by `maxLength` — these forms are hand-authored to
+ * be brief (e.g. "MRR", "Developer headcount") and truncating them would corrupt
+ * them. `maxLength` therefore caps ONLY the fallback suffix-strip + truncate
+ * path. Keep every lookup value short (current max ≈ 19 chars); all real callers
+ * pass 20–22. See compactFactorLabel('Developer headcount capacity', 15) in the
+ * spec, which locks this verbatim-lookup behaviour.
+ *
  * @param label - Raw factor label (already cleaned of scale metadata)
- * @param maxLength - Truncation cap (default 15 per spec)
+ * @param maxLength - Cap for the FALLBACK truncate path only (default 15);
+ *                    lookup-table hits are returned verbatim regardless.
  */
 export function compactFactorLabel(label: string, maxLength = 15): string {
   if (!label) return label
