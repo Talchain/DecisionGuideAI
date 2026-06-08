@@ -229,15 +229,3 @@ describe('computeCornerResize — top-bar inset (gap below the top menu)', () =>
     expect(next.y).toBe(MARGIN)
   })
 })
-
-describe('left side tab — width-only resize (bl with dy = 0)', () => {
-  it('grows width with the right edge fixed and leaves height/top untouched', () => {
-    // The left tab maps to a bottom-left resize with dy pinned to 0, so only
-    // width and the left edge change; height and the top edge stay put.
-    const next = computeCornerResize('bl', START.left, START.top, START.w, START.h, -120, 0, VIEWPORT.w, VIEWPORT.h)
-    expect(next.h).toBe(START.h)                        // height unchanged
-    expect(next.y).toBe(START.top)                      // top unchanged
-    expect(next.w).toBe(START.w + 120)                  // width grew by |dx|
-    expect(next.x + next.w).toBe(START.left + START.w)  // right edge fixed
-  })
-})

@@ -111,13 +111,9 @@ function applyPanelShape(
   )
 }
 
-/** Which of the four corners is being dragged for resize. */
+/** Which of the four corners is being dragged for resize. The compact side
+ *  tab drives a top-left ('tl') resize; there are no other handle kinds. */
 type ResizeCorner = 'tl' | 'tr' | 'bl' | 'br'
-
-/** Resize affordances: the four corners plus the left side tab ('l'), which
- *  resizes WIDTH only (right edge held fixed — drag the tab leftward to grow
- *  the panel toward the canvas). */
-type ResizeHandle = ResizeCorner | 'l'
 
 const noop = () => {}
 
@@ -410,7 +406,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   // start left/top so the fixed (opposite) corner can stay put.
   const resizeStateRef = useRef<{
     pointerId: number
-    corner: ResizeHandle
+    corner: ResizeCorner
     startX: number
     startY: number
     startLeft: number
@@ -680,18 +676,14 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         // `max` here, which is fine — both call computeMaxSize on the
         // same inputs).
         void max
-        // The left side tab ('l') resizes WIDTH only: reuse the bottom-left
-        // corner math with dy pinned to 0 so height and the top edge stay put.
-        // The `=== 'l'` comparisons (rather than a precomputed boolean) let the
-        // type checker narrow the else branch to a ResizeCorner.
         const next = computeCornerResize(
-          resize.corner === 'l' ? 'bl' : resize.corner,
+          resize.corner,
           resize.startLeft,
           resize.startTop,
           resize.startW,
           resize.startH,
           dx,
-          resize.corner === 'l' ? 0 : dy,
+          dy,
           vw,
           vh,
           dockInset,
@@ -768,9 +760,9 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   }, [isOpen, handlePointerMove, handlePointerUp])
 
   // Resize handle pointer-down. Captures the panel's current rect AND the
-  // identity of the dragged handle (corner or left side tab) so pointermove
-  // can compute the new geometry with the opposite edge/corner held fixed.
-  const handleResizePointerDown = useCallback((corner: ResizeHandle) => {
+  // identity of the dragged corner so pointermove can compute the new
+  // geometry with the opposite corner held fixed.
+  const handleResizePointerDown = useCallback((corner: ResizeCorner) => {
     return (e: ReactPointerEvent<HTMLDivElement>) => {
       const el = containerRef.current
       if (!el) return
@@ -879,7 +871,16 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         height={550}
         viewBox={`0 0 ${SIDE_TAB_WIDTH + 400} 550`}
         className="absolute top-0 pointer-events-none"
-        style={{ left: -SIDE_TAB_WIDTH, overflow: 'visible', zIndex: -1, filter: 'drop-shadow(var(--shadow-2))' }}
+        style={{
+          left: -SIDE_TAB_WIDTH,
+          overflow: 'visible',
+          zIndex: -1,
+          // drop-shadow() requires a SINGLE, spread-less shadow. --shadow-2 is
+          // `0 4px 12px rgba(...)` today, which qualifies; if that token ever
+          // gains a spread radius or a second layer, this filter silently
+          // renders NOTHING. Use a dedicated drop-shadow token if that changes.
+          filter: 'drop-shadow(var(--shadow-2))',
+        }}
       >
         <path
           ref={pathRef}

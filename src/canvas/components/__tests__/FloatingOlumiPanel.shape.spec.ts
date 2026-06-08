@@ -1,4 +1,19 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+
+// buildPanelShapePath is a pure helper, but it's exported from the component
+// module, whose transitive imports pull in supabase + the markdown renderer.
+// Stub both so this geometry test is hermetic (passes without external env),
+// mirroring FloatingOlumiPanel.resize.spec.ts.
+vi.mock('../../../lib/supabase', () => ({
+  supabase: { from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null }) }) }) }) },
+  isSupabaseAvailable: () => false,
+}))
+vi.mock('dompurify', () => ({ default: { sanitize: (s: string) => s } }))
+vi.mock('../../utils/markdown', () => ({
+  renderMarkdown: (s: string) => s,
+  sanitiseMarkdown: (s: string) => s,
+}))
+
 import { buildPanelShapePath } from '../FloatingOlumiPanel'
 
 // V4 "one continuous shape": the panel + its top-left tab bump are one rounded
