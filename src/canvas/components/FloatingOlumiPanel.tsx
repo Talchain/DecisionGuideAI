@@ -298,6 +298,13 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   // reflects the real open state (the rail override applies only to the empty
   // canvas); default true to match the dock's own default before anything is
   // persisted. Mirrors OutputsDock's close-effect — both derive from olumiSurface.ts.
+  //
+  // Caveat (tracked follow-up): this is a render-time sessionStorage READ, not a
+  // live subscription, so a dock open/close that happens WHILE this panel stays
+  // open won't re-render it until some other subscribed value does. All current
+  // reachable flows re-render via `activeOutputTab` / nodeCount changes, so it's
+  // not a live bug; a future path that mutates dock-open in isolation would need
+  // the dock's open state lifted into a subscribable store.
   const dockEffectiveOpen = nodeCount > 0 ? (readPersistedDockOpen() ?? true) : false
   const yieldToDockedOlumi =
     isAiPanelV2Enabled() &&

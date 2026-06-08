@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatFactorDisplayValue, factorDisplayText } from '../formatFactorDisplayValue'
+import { formatFactorDisplayValue, factorDisplayText, readFactorDisplayValue } from '../formatFactorDisplayValue'
 
 describe('formatFactorDisplayValue', () => {
   it('formats raw_value with currency unit: £40,000', () => {
@@ -564,5 +564,37 @@ describe('factorDisplayText (shared entry point — FactorNode / inspectors / de
         raw_value: 26000,
       },
     })).toBe('26,000')
+  })
+})
+
+describe('readFactorDisplayValue (shared top-level → observedState priority)', () => {
+  it('returns the top-level display_value when present', () => {
+    expect(readFactorDisplayValue({ display_value: 'Tech lead in place' })).toBe('Tech lead in place')
+  })
+
+  it('falls back to observedState.display_value when top-level is absent', () => {
+    expect(readFactorDisplayValue({ observedState: { display_value: 'No tech lead in place' } }))
+      .toBe('No tech lead in place')
+  })
+
+  it('top-level wins over observedState', () => {
+    expect(readFactorDisplayValue({
+      display_value: 'top',
+      observedState: { display_value: 'nested' },
+    })).toBe('top')
+  })
+
+  // Codex review: doc promises a NON-EMPTY string — an empty display_value must
+  // resolve to undefined (every caller treats '' as falsy anyway).
+  it('returns undefined for an empty-string display_value', () => {
+    expect(readFactorDisplayValue({ display_value: '' })).toBeUndefined()
+    expect(readFactorDisplayValue({ observedState: { display_value: '' } })).toBeUndefined()
+  })
+
+  it('returns undefined when no display_value is present, or for non-string / non-object inputs', () => {
+    expect(readFactorDisplayValue({ observedState: { value: 0 } })).toBeUndefined()
+    expect(readFactorDisplayValue({ display_value: 42 as unknown as string })).toBeUndefined()
+    expect(readFactorDisplayValue(null)).toBeUndefined()
+    expect(readFactorDisplayValue(undefined)).toBeUndefined()
   })
 })

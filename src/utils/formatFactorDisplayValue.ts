@@ -70,7 +70,11 @@ export function readFactorDisplayValue(
   if (!data || typeof data !== 'object') return undefined
   const observedState = data.observedState as Record<string, unknown> | undefined
   const v = (data.display_value as unknown) ?? observedState?.display_value
-  return typeof v === 'string' ? v : undefined
+  // Empty string → undefined so the helper matches its "non-empty" contract.
+  // Behaviour-preserving: every caller already treats '' as falsy, and
+  // factorDisplayText's `?? null` makes null/'' identical to the formatter's
+  // `display_value != null && display_value !== ''` gate.
+  return typeof v === 'string' && v !== '' ? v : undefined
 }
 
 /**
