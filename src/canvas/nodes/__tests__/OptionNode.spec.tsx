@@ -268,6 +268,54 @@ describe('OptionNode', () => {
     expect(screen.queryByText((t: string) => /\b2 FTE\b/.test(t))).toBeNull()
   })
 
+  // Scope A: a binary factor (0→1) with CEE display labels on BOTH sides —
+  // intervention display_value (target) AND the factor's own display_value
+  // (baseline state) — renders the payload labels verbatim. Never the
+  // "0% → 100%" numeric fallback, never an invented "No X" heuristic.
+  it('renders payload display labels on both sides for a binary chip when present', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        ceeAnalysisReady: {
+          options: [{ id: 'option-1', interventions: { 'factor-tl': { value: 1, display_value: 'Tech lead in place' } } }],
+        },
+        nodes: [{
+          id: 'factor-tl',
+          data: {
+            label: 'Tech lead in place',
+            display_value: 'No tech lead in place',
+            observedState: { value: 0 },
+          },
+        }],
+      }) as any)
+    )
+    renderOption()
+    expect(screen.getByText('No tech lead in place → Tech lead in place')).toBeDefined()
+    // Neither the numeric fallback nor an invented "… active" heuristic appears.
+    expect(screen.queryByText((t: string) => t.includes('0%') && t.includes('100%'))).toBeNull()
+  })
+
+  // Scope A guard: a binary chip WITHOUT payload labels keeps its existing
+  // numeric "0% → 100%" rendering — Scope A's label path must NOT fabricate a
+  // target label. (This mirrors the reported Hiring case: factor_type is set,
+  // so the legacy value-only heuristic is suppressed and both sides are %.)
+  it('keeps numeric 0% → 100% for a binary chip when payload labels are absent (never invents a target label)', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        ceeAnalysisReady: {
+          options: [{ id: 'option-1', interventions: { 'factor-tl': 1 } }],
+        },
+        nodes: [{
+          id: 'factor-tl',
+          data: { label: 'Tech lead in place', observedState: { value: 0, factor_type: 'quality' } },
+        }],
+      }) as any)
+    )
+    renderOption()
+    expect(screen.getByText((t: string) => t.includes('0%') && t.includes('100%') && t.includes('→'))).toBeDefined()
+    // Scope A's both-labels branch did NOT fire: no fabricated target label.
+    expect(screen.queryByText((t: string) => t.includes('→ Tech lead in place'))).toBeNull()
+  })
+
   it('has displayName set', () => {
     expect(OptionNode.displayName).toBe('OptionNode')
   })

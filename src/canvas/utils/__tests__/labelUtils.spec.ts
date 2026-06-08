@@ -91,10 +91,12 @@ describe('compactFactorLabel', () => {
   it('returns the canonical short form for known wireframe phrases', () => {
     expect(compactFactorLabel('Technical leadership presence')).toBe('leadership')
     expect(compactFactorLabel('Technical leadership in place')).toBe('leadership')
-    expect(compactFactorLabel('Developer headcount capacity')).toBe('dev headcount')
-    expect(compactFactorLabel('Developer headcount level')).toBe('dev headcount')
+    // Concise sentence-case form (node label minus the suffix); fits the 20–22
+    // char chip/factor budgets used by every real caller.
+    expect(compactFactorLabel('Developer headcount capacity')).toBe('Developer headcount')
+    expect(compactFactorLabel('Developer headcount level')).toBe('Developer headcount')
     // Polish 4 Task 2: "added" variant from staging screenshots.
-    expect(compactFactorLabel('Developer headcount added')).toBe('dev headcount')
+    expect(compactFactorLabel('Developer headcount added')).toBe('Developer headcount')
     expect(compactFactorLabel('Monthly recurring revenue')).toBe('MRR')
     expect(compactFactorLabel('Advertising spend')).toBe('ad spend')
   })

@@ -96,7 +96,9 @@ const COMPACT_LABEL_LOOKUP: ReadonlyArray<readonly [RegExp, string]> = [
   [/^technical leadership (presence|in place)$/i, 'leadership'],
   // Polish 4 Task 2: developer headcount variants seen in staging screenshots.
   // "added" is the new variant alongside the original "capacity"/"level".
-  [/^developer headcount (capacity|level|added)$/i, 'dev headcount'],
+  // Concise sentence-case form (node label minus the "Capacity/Level/Added"
+  // suffix) — fits every caller's 20–22 char budget. Not authored copy.
+  [/^developer headcount (capacity|level|added)$/i, 'Developer headcount'],
   [/^monthly recurring revenue$/i, 'MRR'],
   [/^advertising spend$/i, 'ad spend'],
   // Polish 4 Task 2: marketing-graph factor labels from staging screenshots.

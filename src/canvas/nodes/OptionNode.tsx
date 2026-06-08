@@ -244,9 +244,13 @@ interface InterventionChip {
   factorId: string
   label: string
   value: number
-  /** CEE-provided display_value, if present. Rendered verbatim in preference
-   * to numeric formatting (see formatChipValue). */
+  /** CEE-provided display_value for the INTERVENTION (target) value, if present.
+   * Rendered verbatim in preference to numeric formatting (see formatChipValue). */
   displayValue?: string
+  /** The FACTOR's own CEE display_value — labels its observed (baseline) state.
+   * Scope A: used as the "from" label for binary chips when both payload labels
+   * exist. Never derived/invented. */
+  baselineDisplayValue?: string
   unit?: string
   factorType?: string
   cap?: number
@@ -370,10 +374,17 @@ export const OptionNode = memo((props: NodeProps) => {
           unit?: string; factor_type?: string; cap?: number; value?: number; raw_value?: string | number
         } | undefined
         const unit = (factorNode?.data?.unit as string | undefined) ?? observedState?.unit
+        // Scope A: the factor's OWN display_value labels its observed (baseline)
+        // state (e.g. "No tech lead in place"). Sourced from the payload only —
+        // top-level then observedState, mirroring factorDisplayText's priority.
+        const baselineDisplayValue =
+          (factorNode?.data?.display_value as string | undefined) ??
+          (observedState as { display_value?: string } | undefined)?.display_value
         return [{
           factorId, label: cleanedLabel, value, displayValue: displayValue ?? undefined, unit,
           factorType: observedState?.factor_type, cap: observedState?.cap,
           observedValue: observedState?.value, observedRawValue: observedState?.raw_value,
+          baselineDisplayValue,
         }]
       })
       .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
@@ -459,6 +470,19 @@ export const OptionNode = memo((props: NodeProps) => {
         const diff = c.value - baseline
         if (Math.abs(diff) < 1e-6) return null // no change
         const direction: 'up' | 'down' = diff > 0 ? 'up' : 'down'
+
+        // Scope A — binary/encoded factor with payload display labels on BOTH
+        // sides. Fires ONLY when: the pair is strictly {0,1}; the intervention
+        // carries a CEE display_value (target label); AND the factor's own
+        // display_value (baseline label) is present and corresponds to the
+        // baseline value (baseline === observed value). Both labels come from
+        // the payload — none is derived or invented. When labels are absent the
+        // numeric path below is used unchanged (no "0% → 100%" → label guess).
+        const isBinaryPair = (c.value === 0 || c.value === 1) && (baseline === 0 || baseline === 1)
+        const baselineLabel = baseline === c.observedValue ? c.baselineDisplayValue : undefined
+        if (isBinaryPair && c.displayValue && baselineLabel) {
+          return { factorId: c.factorId, label: shortLabel, direction, fromTo: `${baselineLabel} → ${c.displayValue}` }
+        }
 
         // Format BOTH sides with the existing trusted formatter (real-world
         // where the payload supports it — same helper the post-analysis list
