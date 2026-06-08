@@ -47,6 +47,17 @@
 .markdownContent ol {
   margin: 6px 0 12px;
   padding-left: 16px;
+  /* Re-enable list markers: Tailwind's preflight (@tailwind base) resets
+     ul/ol to `list-style: none`, which otherwise hides the bullet discs even
+     though the list is correctly indented. The markers sit in the 16px
+     padding gutter (list-style-position: outside). */
+  list-style-position: outside;
+}
+.markdownContent ul {
+  list-style-type: disc;
+}
+.markdownContent ol {
+  list-style-type: decimal;
 }
 .markdownContent li {
   margin-bottom: 2px;

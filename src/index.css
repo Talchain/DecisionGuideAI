@@ -357,6 +357,22 @@
   animation: progress-sweep 2s ease-in-out infinite;
 }
 
+/* Gentle, opacity-only breathe for the in-composer generation status line.
+   Soft enough to stay readable while signalling that work is ongoing. */
+@keyframes gentle-text-flash {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+.animate-gentle-text-flash {
+  animation: gentle-text-flash 1.8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-gentle-text-flash {
+    animation: none;
+    opacity: 0.85;
+  }
+}
+
 /* Canvas Focus Animation */
 .node-focused,
 .react-flow__node.node-focused {

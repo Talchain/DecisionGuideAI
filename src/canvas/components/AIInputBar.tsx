@@ -2,9 +2,11 @@ import {
   forwardRef,
   memo,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useLayoutEffect,
   useRef,
+  useState,
   type KeyboardEvent,
 } from 'react'
 import { ArrowUp, ChevronUp, Settings } from 'lucide-react'
@@ -12,6 +14,7 @@ import { typo } from '../../styles/typography'
 import { useCanvasStore } from '../store'
 import { useConversationContext } from '../conversation/ConversationContext'
 import { useStageAwarePlaceholder } from '../hooks/useStageAwarePlaceholder'
+import { messageForElapsed } from './DraftLoadingAnimation'
 
 export type AIInputBarVariant = 'strip' | 'docked-tab' | 'floating' | 'first-use' | 'welcome'
 
@@ -133,6 +136,28 @@ export const AIInputBar = memo(
     const isFloating = variant === 'floating'
     const isStrip = variant === 'strip'
 
+    // Empty canvas + isThinking === a model-generation turn is in flight.
+    // The composer freezes and shows a gently-pulsing, time-escalating status
+    // line where the placeholder normally sits. Tick once a second so the
+    // message advances through PROGRESSIVE_STAGES (0/15/30/45/60s).
+    const isGenerating = isThinking && nodeCount === 0
+    // Store the resolved MESSAGE (not raw seconds): the 1s tick then only
+    // triggers a re-render when the stage actually advances — React bails on an
+    // unchanged string — instead of re-rendering the composer every second for
+    // up to two minutes.
+    const [generatingMessage, setGeneratingMessage] = useState(() => messageForElapsed(0))
+    useEffect(() => {
+      if (!isGenerating) {
+        setGeneratingMessage(messageForElapsed(0))
+        return
+      }
+      const start = Date.now()
+      const id = window.setInterval(() => {
+        setGeneratingMessage(messageForElapsed(Math.floor((Date.now() - start) / 1000)))
+      }, 1000)
+      return () => window.clearInterval(id)
+    }, [isGenerating])
+
     useImperativeHandle(
       ref,
       () => ({
@@ -216,15 +241,14 @@ export const AIInputBar = memo(
       }
     })()
 
-    // Empty canvas + isThinking === a model-generation turn is in flight.
-    // The brief: composer must not invite a new decision while generating.
-    // Disable typing, cog, chevron, send, and replace the placeholder. Chat-mode
-    // thinking (nodeCount > 0) keeps the existing behaviour — Enter blocked
-    // via handleSend, typing allowed so follow-ups can be composed.
-    const isGenerating = isThinking && nodeCount === 0
+    // While generating, the composer must not invite a new decision: disable
+    // typing, cog, chevron and send, and clear the placeholder so the
+    // gently-pulsing status overlay (rendered below) owns the text box.
+    // Chat-mode thinking (nodeCount > 0) keeps the existing behaviour — Enter
+    // blocked via handleSend, typing allowed so follow-ups can be composed.
     const inputDisabled = disabled || isGenerating
     const effectivePlaceholder = isGenerating
-      ? 'Generating your decision model…'
+      ? ''
       : placeholder ?? stagePlaceholder
     const canSend = draft.trim().length > 0 && !inputDisabled && !isThinking
 
@@ -274,6 +298,22 @@ export const AIInputBar = memo(
             )}
             style={{ minHeight: minHeightPx, maxHeight: maxHeightPx }}
           />
+          {/* In-composer generation status: a gently-pulsing, time-escalating
+              line sitting exactly where the placeholder text would (py-2 pl-3
+              mirrors the textarea's text inset). pointer-events-none — the
+              textarea underneath is disabled during generation anyway. */}
+          {isGenerating && (
+            <div
+              role="status"
+              aria-live="polite"
+              data-testid={`${testId ?? `ai-input-bar-${variant}`}-generating`}
+              className={`pointer-events-none absolute left-0 top-0 py-2 pl-3 ${textareaRightPad}`}
+            >
+              <span className={typo('panelBody', 'text-text-light animate-gentle-text-flash')}>
+                {generatingMessage}
+              </span>
+            </div>
+          )}
           <div className={`absolute ${stackInset} flex flex-col items-center ${stackGap}`}>
             {onCogClick ? (
               <button

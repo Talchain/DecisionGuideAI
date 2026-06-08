@@ -45,7 +45,75 @@ const DEFAULT_MARGIN = 16
 const SIDE_TAB_WIDTH = 36
 const DRAG_HANDLE_HEIGHT = 6
 
-/** Which of the four corners is being dragged for resize. */
+/** V4 "one continuous shape" geometry: the floating panel and its top-left tab
+ *  bump are drawn as ONE rounded outline so every corner shares a single radius
+ *  (no pointed bottom-left) and the tab joins the body via concave fillets (no
+ *  seam). SHAPE_RADIUS = convex corner radius; SHAPE_FILLET = concave join
+ *  radius; the bump sits TAB_BUMP_TOP below the top, TAB_BUMP_HEIGHT tall. */
+const SHAPE_RADIUS = 10
+const SHAPE_FILLET = 9
+const TAB_BUMP_TOP = 16
+const TAB_BUMP_HEIGHT = 104
+
+/** Build the SVG `d` for the panel+tab outline. The body occupies
+ *  x in [tabW, tabW+panelW], y in [0, panelH]; the tab occupies x in [0, tabW],
+ *  y in [tabTop, tabTop+tabH]. Exported for tests. */
+export function buildPanelShapePath(
+  panelW: number,
+  panelH: number,
+  tabW: number,
+  tabTop: number,
+  tabH: number,
+  r: number,
+  cf: number,
+): string {
+  const w = tabW + panelW
+  const h = panelH
+  const tb = tabTop + tabH
+  return [
+    `M ${tabW + r} 0`,
+    `H ${w - r}`,
+    `A ${r} ${r} 0 0 1 ${w} ${r}`,
+    `V ${h - r}`,
+    `A ${r} ${r} 0 0 1 ${w - r} ${h}`,
+    `H ${tabW + r}`,
+    `A ${r} ${r} 0 0 1 ${tabW} ${h - r}`,
+    `V ${tb + cf}`,
+    `A ${cf} ${cf} 0 0 0 ${tabW - cf} ${tb}`,
+    `H ${r}`,
+    `A ${r} ${r} 0 0 1 0 ${tb - r}`,
+    `V ${tabTop + r}`,
+    `A ${r} ${r} 0 0 1 ${r} ${tabTop}`,
+    `H ${tabW - cf}`,
+    `A ${cf} ${cf} 0 0 0 ${tabW} ${tabTop - cf}`,
+    `V ${r}`,
+    `A ${r} ${r} 0 0 1 ${tabW + r} 0`,
+    'Z',
+  ].join(' ')
+}
+
+/** Imperatively size the shape SVG + refresh its path to the current panel
+ *  size. Called from the layout effect, the window-resize re-clamp, and the
+ *  resize-drag rAF so the outline tracks the panel on every size path. */
+function applyPanelShape(
+  svg: SVGSVGElement | null,
+  path: SVGPathElement | null,
+  panelW: number,
+  panelH: number,
+): void {
+  if (!svg || !path) return
+  const totalW = SIDE_TAB_WIDTH + panelW
+  svg.setAttribute('width', `${totalW}`)
+  svg.setAttribute('height', `${panelH}`)
+  svg.setAttribute('viewBox', `0 0 ${totalW} ${panelH}`)
+  path.setAttribute(
+    'd',
+    buildPanelShapePath(panelW, panelH, SIDE_TAB_WIDTH, TAB_BUMP_TOP, TAB_BUMP_HEIGHT, SHAPE_RADIUS, SHAPE_FILLET),
+  )
+}
+
+/** Which of the four corners is being dragged for resize. The compact side
+ *  tab drives a top-left ('tl') resize; there are no other handle kinds. */
 type ResizeCorner = 'tl' | 'tr' | 'bl' | 'br'
 
 const noop = () => {}
@@ -56,10 +124,17 @@ function clamp(value: number, min: number, max: number): number {
   return value
 }
 
+/**
+ * Absolute max size: the panel may grow to (nearly) the whole screen — the
+ * full viewport minus edge margins and the side-tab column. The per-edge
+ * caps in computeCornerResize further bound this at drag time by the dock
+ * (right) and the top bar (top), so the panel keeps a minimal gap from the
+ * surrounding chrome. (Previously hard-capped at 60% × 80%.)
+ */
 function computeMaxSize(viewportW: number, viewportH: number): FloatingPanelSize {
   return {
-    width: Math.floor(viewportW * 0.6),
-    height: Math.floor(viewportH * 0.8),
+    width: Math.max(MIN_WIDTH, viewportW - 2 * DEFAULT_MARGIN - SIDE_TAB_WIDTH),
+    height: Math.max(MIN_HEIGHT, viewportH - 2 * DEFAULT_MARGIN),
   }
 }
 
@@ -91,12 +166,14 @@ export function clampPositionToViewport(
   viewportW: number,
   viewportH: number,
   rightInset: number = 0,
+  topInset: number = DEFAULT_MARGIN,
 ): FloatingPanelPosition {
   const xMin = DEFAULT_MARGIN + SIDE_TAB_WIDTH
   const maxX = Math.max(xMin, viewportW - size.width - DEFAULT_MARGIN - rightInset)
+  const yMin = Math.max(DEFAULT_MARGIN, topInset)
   return {
     x: clamp(pos.x, xMin, maxX),
-    y: clamp(pos.y, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, viewportH - size.height - DEFAULT_MARGIN)),
+    y: clamp(pos.y, yMin, Math.max(yMin, viewportH - size.height - DEFAULT_MARGIN)),
   }
 }
 
@@ -167,6 +244,7 @@ export function computeCornerResize(
   viewportW: number,
   viewportH: number,
   rightInset: number = 0,
+  topInset: number = DEFAULT_MARGIN,
 ): { x: number; y: number; w: number; h: number } {
   const max = computeMaxSize(viewportW, viewportH)
   const fixedRight = startLeft + startW
@@ -184,7 +262,9 @@ export function computeCornerResize(
   const maxW = (corner === 'br' || corner === 'tr') ? wRoomFromLeftFixed : wRoomFromRightFixed
 
   const hRoomFromTopFixed = Math.max(0, viewportH - startTop - DEFAULT_MARGIN)
-  const hRoomFromBottomFixed = Math.max(0, fixedBottom - DEFAULT_MARGIN)
+  // Top edge growing upward (TL/TR) must stop below the top bar, not just at
+  // the viewport margin — keeps a gap from the top menu.
+  const hRoomFromBottomFixed = Math.max(0, fixedBottom - Math.max(DEFAULT_MARGIN, topInset))
   const maxH = (corner === 'br' || corner === 'bl') ? hRoomFromTopFixed : hRoomFromBottomFixed
 
   // Target dimensions from the pointer delta. Sign flips when the dragged
@@ -235,6 +315,19 @@ export function measureDockInset(): number {
   if (rect.width === 0 || rect.height === 0) return 0
   const inset = window.innerWidth - rect.left
   return inset > 0 ? inset : 0
+}
+
+/**
+ * Top inset the panel must clear so it keeps a small gap below the app's
+ * TopBar. Reads the `--topbar-h` CSS variable (set by TopBar; `0px` when no
+ * fixed top bar). Returns the bar height + a margin, or DEFAULT_MARGIN when
+ * there is no top bar. Mirrors measureDockInset for the top edge.
+ */
+export function measureTopInset(): number {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return DEFAULT_MARGIN
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')
+  const h = parseFloat(raw) || 0
+  return h > 0 ? h + DEFAULT_MARGIN : DEFAULT_MARGIN
 }
 
 /**
@@ -320,6 +413,8 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   const isAutoRepositioning = useFloatingPanelState((s) => s.isAutoRepositioning)
 
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const shapeRef = useRef<SVGSVGElement | null>(null)
+  const pathRef = useRef<SVGPathElement | null>(null)
   const inputBarRef = useRef<AIInputBarHandle | null>(null)
   const rafRef = useRef<number | null>(null)
   const dragStateRef = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null)
@@ -392,7 +487,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     // handlePointerMove's drag-time clamp so the same bounds apply across
     // entry points.
     const rawPos = position ?? defaultCentredPosition({ width: w, height: h }, vw - dockInset, vh)
-    const pos = clampPositionToViewport(rawPos, { width: w, height: h }, vw, vh, dockInset)
+    const pos = clampPositionToViewport(rawPos, { width: w, height: h }, vw, vh, dockInset, measureTopInset())
     // Apply the slide transition INLINE (not via React style prop) so the
     // browser sees: old el.style.left value → transition declaration → new
     // el.style.left value, animating between them. Setting it on the React
@@ -404,6 +499,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     el.style.height = `${h}px`
     el.style.left = `${pos.x}px`
     el.style.top = `${pos.y}px`
+    applyPanelShape(shapeRef.current, pathRef.current, w, h)
     // Commit the centred default the FIRST time the panel opens so the
     // minimise pill anchor isn't null. Stored-position clamping is reapplied
     // on every render via this same effect, so we don't need to write back —
@@ -488,12 +584,17 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
       // Round-10: xMin includes SIDE_TAB_WIDTH so the side tab (positioned
       // at left:-SIDE_TAB_WIDTH relative to the panel) stays on-screen.
       const xMin = DEFAULT_MARGIN + SIDE_TAB_WIDTH
+      // Keep the panel below the top bar on window resize too (mirrors the
+      // drag clamp + clampPositionToViewport). topInset defaults to
+      // DEFAULT_MARGIN when there is no top bar, so behaviour is unchanged then.
+      const topInset = measureTopInset()
       const x = clamp(parseFloat(el.style.left || '0'), xMin, Math.max(xMin, vw - w - DEFAULT_MARGIN - dockInset))
-      const y = clamp(parseFloat(el.style.top || '0'), DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vh - h - DEFAULT_MARGIN))
+      const y = clamp(parseFloat(el.style.top || '0'), topInset, Math.max(topInset, vh - h - DEFAULT_MARGIN))
       el.style.width = `${w}px`
       el.style.height = `${h}px`
       el.style.left = `${x}px`
       el.style.top = `${y}px`
+      applyPanelShape(shapeRef.current, pathRef.current, w, h)
     }
     window.addEventListener('resize', handle)
     // Track the dock element across mounts/unmounts so we re-clamp when
@@ -562,6 +663,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
       const vw = window.innerWidth
       const vh = window.innerHeight
       const dockInset = measureDockInset()
+      const topInset = measureTopInset()
       const max = computeMaxSize(vw, vh)
 
       if (drag) {
@@ -569,7 +671,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         const h = parseFloat(el.style.height || '550')
         const xMin = DEFAULT_MARGIN + SIDE_TAB_WIDTH
         const x = clamp(e.clientX - drag.offsetX, xMin, Math.max(xMin, vw - w - DEFAULT_MARGIN - dockInset))
-        const y = clamp(e.clientY - drag.offsetY, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vh - h - DEFAULT_MARGIN))
+        const y = clamp(e.clientY - drag.offsetY, topInset, Math.max(topInset, vh - h - DEFAULT_MARGIN))
         el.style.left = `${x}px`
         el.style.top = `${y}px`
       } else if (resize) {
@@ -603,11 +705,13 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
           vw,
           vh,
           dockInset,
+          topInset,
         )
         el.style.width = `${next.w}px`
         el.style.height = `${next.h}px`
         el.style.left = `${next.x}px`
         el.style.top = `${next.y}px`
+        applyPanelShape(shapeRef.current, pathRef.current, next.w, next.h)
       }
     })
   }, [])
@@ -700,6 +804,17 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     }
   }, [])
 
+  // The compact side tab doubles as a top-left resize grip: dragging its body
+  // resizes the panel from the top-left corner. Pointer-downs on the
+  // minimise/dock buttons are ignored so their clicks still fire.
+  const handleSideTabPointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if ((e.target as HTMLElement).closest('button')) return
+      handleResizePointerDown('tl')(e)
+    },
+    [handleResizePointerDown],
+  )
+
   const handleMinimise = useCallback(() => {
     minimise()
   }, [minimise])
@@ -746,7 +861,10 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
       role="dialog"
       aria-label="Olumi conversation"
       data-testid="floating-olumi-panel"
-      className="fixed bg-panel border border-panel-border rounded-r-lg shadow-2 flex flex-col"
+      /* V4 "one continuous shape": the body + the top-left tab bump are drawn
+         as a single rounded SVG outline (below), so this container is
+         transparent — no bg/border/radius of its own. */
+      className="fixed flex flex-col"
       style={{
         zIndex: 300,
         width: 400,
@@ -759,6 +877,38 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         overflow: 'visible',
       }}
     >
+      {/* V4 "one continuous shape": panel body + the top-left tab bump as a
+         single rounded outline (every corner = SHAPE_RADIUS, the bump joins
+         via concave fillets). Decorative + pointer-events-none so clicks fall
+         through to the content and side tab; size/path tracked by
+         applyPanelShape (layout effect, re-clamp, resize rAF). */}
+      <svg
+        ref={shapeRef}
+        aria-hidden="true"
+        width={SIDE_TAB_WIDTH + 400}
+        height={550}
+        viewBox={`0 0 ${SIDE_TAB_WIDTH + 400} 550`}
+        className="absolute top-0 pointer-events-none"
+        style={{
+          left: -SIDE_TAB_WIDTH,
+          overflow: 'visible',
+          zIndex: -1,
+          // drop-shadow() requires a SINGLE, spread-less shadow. --shadow-2 is
+          // `0 4px 12px rgba(...)` today, which qualifies; if that token ever
+          // gains a spread radius or a second layer, this filter silently
+          // renders NOTHING. Use a dedicated drop-shadow token if that changes.
+          filter: 'drop-shadow(var(--shadow-2))',
+        }}
+      >
+        <path
+          ref={pathRef}
+          d={buildPanelShapePath(400, 550, SIDE_TAB_WIDTH, TAB_BUMP_TOP, TAB_BUMP_HEIGHT, SHAPE_RADIUS, SHAPE_FILLET)}
+          style={{ fill: 'var(--bg-panel)', stroke: 'var(--border-default)' }}
+          strokeWidth={1}
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+
       {/* Thin top drag handle. Replaces the previous bulky h-8 header — saves
          conversation height while keeping a clear, pointer-driven drag
          affordance. Decorative for assistive tech: not focusable, not
@@ -779,20 +929,19 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         />
       </div>
 
-      {/* Side tab (OUTSIDE the panel, anchored to its top-left): hosts the
-         minimise + dock controls in a 36px column that hugs its three
-         icons (Olumi mark + minimise + dock).
-         Round-10: positioned with `left: -SIDE_TAB_WIDTH` so the tab
-         sticks out of the panel's left edge instead of overlaying the
-         conversation. The panel root uses `overflow: visible` so the tab
-         is not clipped. The position-clamp logic in clampPositionToViewport
-         reserves SIDE_TAB_WIDTH on the left so the tab never lands off-
-         screen. The tab visually butts against the panel's left border
-         (border-r aligns with the panel's left border seam). */}
+      {/* Side tab (OUTSIDE the panel, anchored to its top-left): the three
+         icons (mark + minimise + dock). V4: the tab's visual (the bump) is
+         drawn by the shape SVG above — this div is just the transparent
+         hit-area for the icons and a drag-to-resize grip (top-left corner), so
+         it has no background or border of its own. `left: -SIDE_TAB_WIDTH` +
+         overflow-visible keep it on the bump; clampPositionToViewport reserves
+         SIDE_TAB_WIDTH so it never lands off-screen. */}
       <div
-        className="absolute top-0 bg-panel border border-panel-border border-r-0 rounded-l-lg flex flex-col items-center pt-2 pb-2 gap-1 select-none"
-        style={{ width: SIDE_TAB_WIDTH, left: -SIDE_TAB_WIDTH, paddingTop: 8, zIndex: 1 }}
+        onPointerDown={handleSideTabPointerDown}
+        className="absolute flex flex-col items-center justify-center gap-1.5 select-none cursor-nwse-resize"
+        style={{ width: SIDE_TAB_WIDTH, left: -SIDE_TAB_WIDTH, top: TAB_BUMP_TOP, height: TAB_BUMP_HEIGHT, zIndex: 2 }}
         data-testid="floating-olumi-panel-side-tab"
+        title="Drag to resize"
       >
         <MessageSquare
           className="w-4 h-4 text-text-light flex-shrink-0"
@@ -802,7 +951,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         <button
           type="button"
           onClick={handleMinimise}
-          className="inline-flex items-center justify-center w-8 h-8 rounded text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info mt-1"
+          className="inline-flex items-center justify-center w-8 h-8 rounded cursor-pointer text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
           aria-label="Minimise"
           data-testid="floating-olumi-panel-minimise"
           title="Minimise"
@@ -812,7 +961,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         <button
           type="button"
           onClick={onDock}
-          className="inline-flex items-center justify-center w-8 h-8 rounded text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+          className="inline-flex items-center justify-center w-8 h-8 rounded cursor-pointer text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
           aria-label="Dock to panel"
           data-testid="floating-olumi-panel-dock"
           title="Dock to panel"

@@ -8,8 +8,9 @@
  * Stages:
  *   0–15 s  "Generating your decision model…"
  *  15–30 s  "Mapping factors and causal relationships…"
- *  30–60 s  "This is a complex decision — building a thorough model…"
- *  60–120 s "Still working — complex briefs can take up to two minutes. You can keep waiting or simplify your brief and try again."
+ *  30–45 s  "Assessing options, risks and potential outcomes"
+ *  45–60 s  "This is a complex decision - building a thorough model…"
+ *  60 s+    "Still working - complex briefs can take up to two minutes."
  */
 
 import { useEffect, useState, useRef } from 'react'
@@ -19,8 +20,9 @@ import { typography } from '../../styles/typography'
 export const PROGRESSIVE_STAGES = [
   { afterSeconds: 0,  message: 'Generating your decision model…' },
   { afterSeconds: 15, message: 'Mapping factors and causal relationships…' },
-  { afterSeconds: 30, message: 'This is a complex decision — building a thorough model…' },
-  { afterSeconds: 60, message: 'Still working — complex briefs can take up to two minutes. You can keep waiting or simplify your brief and try again.' },
+  { afterSeconds: 30, message: 'Assessing options, risks and potential outcomes' },
+  { afterSeconds: 45, message: 'This is a complex decision - building a thorough model…' },
+  { afterSeconds: 60, message: 'Still working - complex briefs can take up to two minutes.' },
 ] as const
 
 /** Resolve the current message for a given elapsed time (seconds) */

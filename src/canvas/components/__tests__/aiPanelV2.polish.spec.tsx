@@ -128,11 +128,14 @@ describe('Item 4 — AIInputBar generating state (isThinking + empty canvas)', (
     canvasMockState.nodes = []
   })
 
-  it('shows "Generating your decision model…" placeholder and disables typing during a generate turn', () => {
+  it('shows the gently-flashing generation status in the composer and disables typing during a generate turn', () => {
     conversationMockState.isThinking = true
     render(<AIInputBar variant="first-use" hideChevron testId="gen" onCogClick={() => {}} />, { wrapper: Wrapper })
     const textarea = screen.getByTestId('gen-textarea') as HTMLTextAreaElement
-    expect(textarea.placeholder).toBe('Generating your decision model…')
+    // The placeholder is cleared so the pulsing status overlay owns the text
+    // box; the first-stage message renders in that status line instead.
+    expect(textarea.placeholder).toBe('')
+    expect(screen.getByTestId('gen-generating')).toHaveTextContent('Generating your decision model…')
     expect(textarea).toBeDisabled()
     expect(textarea).toHaveAttribute('aria-disabled', 'true')
     // Cog + send must also lock during generation so the user can't open
@@ -143,6 +146,26 @@ describe('Item 4 — AIInputBar generating state (isThinking + empty canvas)', (
     const send = screen.getByTestId('gen-send')
     expect(send).toBeDisabled()
     expect(send).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('escalates the status message through all stages as time elapses', () => {
+    vi.useFakeTimers()
+    try {
+      conversationMockState.isThinking = true
+      render(<AIInputBar variant="first-use" hideChevron testId="gen" onCogClick={() => {}} />, { wrapper: Wrapper })
+      const status = screen.getByTestId('gen-generating')
+      expect(status).toHaveTextContent('Generating your decision model…')
+      act(() => { vi.advanceTimersByTime(15_000) })
+      expect(status).toHaveTextContent('Mapping factors and causal relationships…')
+      act(() => { vi.advanceTimersByTime(15_000) })
+      expect(status).toHaveTextContent('Assessing options, risks and potential outcomes')
+      act(() => { vi.advanceTimersByTime(15_000) })
+      expect(status).toHaveTextContent('This is a complex decision - building a thorough model…')
+      act(() => { vi.advanceTimersByTime(15_000) })
+      expect(status).toHaveTextContent('Still working - complex briefs can take up to two minutes.')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('locks the chevron on the strip variant during a generate turn', () => {
