@@ -55,9 +55,12 @@ function allStates(): OlumiSurfaceInput[] {
   return out
 }
 
-/** Is an Olumi surface currently engaged (open floating/hero, or hosted in the dock)? */
+/** Is an Olumi composer currently engaged? An EMPTY canvas is always engaged —
+ *  the first-use hero is its always-on entry point (re-engaged if nothing else
+ *  is open), so an empty canvas must never resolve to 'none'. Otherwise: a
+ *  floating/hero surface is open, or the dock is hosting Olumi. */
 function olumiEngaged(s: OlumiSurfaceInput): boolean {
-  return s.floatingOpen || dockHostsOlumi(s)
+  return s.isEmptyCanvas || s.floatingOpen || dockHostsOlumi(s)
 }
 
 describe('resolveOlumiSurface — invariants over the full state matrix', () => {
@@ -164,7 +167,7 @@ describe('Healthy states (must stay correct through the refactor)', () => {
     ).toBe('floating')
   })
 
-  it('empty canvas, no surface engaged → none (idle, not a dead end)', () => {
+  it('empty canvas, nothing open → hero (first-use is always available, never a dead end)', () => {
     expect(
       resolveOlumiSurface({
         isEmptyCanvas: true,
@@ -173,7 +176,23 @@ describe('Healthy states (must stay correct through the refactor)', () => {
         floatingOpen: false,
         floatingSource: 'user',
       }),
-    ).toBe('none')
+    ).toBe('hero')
+  })
+
+  // D4 — the open-dock-on-Olumi → close-dock dead-end (reported live). Empty
+  // canvas, the dock has collapsed back to the rail (dockEffectiveOpen=false) so
+  // dockHostsOlumi=false, the hero was retired and nothing is open. On an empty
+  // canvas this MUST re-engage the hero, not strand the user with no composer.
+  it('D4: empty + olumi tab + dock collapsed + nothing open → hero (re-engages)', () => {
+    expect(
+      resolveOlumiSurface({
+        isEmptyCanvas: true,
+        dockTab: 'olumi',
+        dockEffectiveOpen: false,
+        floatingOpen: false,
+        floatingSource: 'user',
+      }),
+    ).toBe('hero')
   })
 
   it('docked wins even if a floating surface is also (transiently) open', () => {

@@ -480,6 +480,23 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       useFloatingPanelState.getState().close()
     }
   }, [state.activeTab, effectiveIsOpen])
+  // Symmetric RE-ENGAGE (empty-canvas never-zero guarantee). When the dock is
+  // NOT hosting the Olumi composer (collapsed rail or a non-Olumi tab) and no
+  // surface is open, an EMPTY canvas must re-open the first-use hero. Without
+  // this, opening the dock to Olumi and then collapsing it strands the user
+  // with zero composers: the close-effect above retired the hero, and
+  // FirstUseComposer's one-shot auto-open won't re-fire. Empty-canvas only — a
+  // populated canvas keeps the deliberate "collapsed; reopen from the rail"
+  // state (resolveOlumiSurface → 'none'). A user-opened floating panel (isOpen
+  // already true) is left untouched. Mirrors the close-effect; together they
+  // keep exactly one Olumi composer on an empty canvas. SoT: olumiSurface.ts.
+  useEffect(() => {
+    if (hasGraphContent) return
+    if (dockHostsOlumi({ dockEffectiveOpen: effectiveIsOpen, dockTab: state.activeTab })) return
+    if (!useFloatingPanelState.getState().isOpen) {
+      useFloatingPanelState.getState().open('system-first-use')
+    }
+  }, [hasGraphContent, state.activeTab, effectiveIsOpen])
   const openFloatingByUser = useFloatingPanelState((s) => s.open)
 
   // Round-14: coordinates a user-initiated float-out from ANY trigger

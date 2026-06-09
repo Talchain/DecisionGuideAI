@@ -189,7 +189,16 @@ describe('Olumi tab click while floating is open', () => {
     const { fireEvent } = await import('@testing-library/react')
     const { useFloatingPanelState } = await import('../../hooks/useFloatingPanelState')
     const { useUIStore } = await import('../../../stores/uiStore')
+    const { useCanvasStore } = await import('../../store')
     const { OutputsDock } = await import('../OutputsDock')
+
+    // Populated canvas so the dock can ACTUALLY host Olumi (dockHostsOlumi=true)
+    // — only then does clicking Olumi retire the floating. On the empty-canvas
+    // first-use rail the dock can't host it and the surface is re-engaged
+    // instead (covered separately below). Explicit so the test isn't
+    // order-dependent on a leaked canvas state.
+    useCanvasStore.getState().resetCanvas()
+    useCanvasStore.getState().addNode(undefined, 'decision')
 
     // Pre-state: Analysis tab is active in the global store, and the
     // floating panel is open.
@@ -198,15 +207,16 @@ describe('Olumi tab click while floating is open', () => {
     useFloatingPanelState.getState().open('user')
     expect(useFloatingPanelState.getState().isOpen).toBe(true)
 
-    const { findByLabelText } = render(
+    const { findByTestId } = render(
       <Wrapper>
         <OutputsDock />
       </Wrapper>,
     )
 
-    // Round-3 UX correction: tab labels are text-only, no "Olumi is open"
-    // accessible state. Find by the plain label.
-    const olumiTab = (await findByLabelText('Olumi')) as HTMLElement
+    // On a populated canvas the dock is expanded and the tab strip renders the
+    // text-only Olumi tab (no aria-label) — find it by testid (the rail's
+    // icon-button label query only applies to the collapsed first-use rail).
+    const olumiTab = (await findByTestId('outputs-dock-tab-olumi')) as HTMLElement
     expect(olumiTab).toBeTruthy()
     fireEvent.click(olumiTab)
 
@@ -215,6 +225,8 @@ describe('Olumi tab click while floating is open', () => {
     // the surface switch (no data loss).
     expect(useFloatingPanelState.getState().isOpen).toBe(false)
     expect(useUIStore.getState().activeOutputTab).toBe('olumi')
+
+    useCanvasStore.getState().resetCanvas() // cleanup for any later tests
   })
 
   it('persisted activeTab=olumi + floating open on a POPULATED canvas → floating closes, docked surface hosts (no duplicate)', async () => {

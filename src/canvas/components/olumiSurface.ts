@@ -61,22 +61,31 @@ export function dockHostsOlumi(
  * The single Olumi composer surface that should be visible for a given state.
  * Total (always returns a value) and mutually exclusive (one surface).
  *
- *   1. docked composer on screen        → 'docked'
- *   2. no floating/hero surface open     → 'none'   (idle/redirect, or the user
- *                                                     collapsed the dock — reachable
- *                                                     via the rail, NOT a dead end)
- *   3. empty canvas + system first-use   → 'hero'
- *   4. otherwise                         → 'floating'
+ *   1. docked composer on screen     → 'docked'
+ *   2. EMPTY canvas (first-use)       → 'floating' if a USER-opened window is up,
+ *                                       else 'hero' (the always-on entry point —
+ *                                       NEVER 'none', incl. when nothing is open:
+ *                                       the re-engage effect opens it)
+ *   3. a floating/hero surface open   → 'floating'
+ *   4. otherwise (populated, idle)    → 'none' (user dismissed; reopen from rail)
  *
- * The invariant this guarantees: whenever a floating/hero surface is open
- * (`floatingOpen`) OR the dock is hosting Olumi, a composer is visible — never
- * zero. The previous code could reach zero because it retired the open surface
- * whenever the Olumi tab was merely *selected*, regardless of whether the dock
- * could actually host it (`dockHostsOlumi`).
+ * The invariant: on an empty canvas a composer is ALWAYS available, and whenever
+ * a floating surface is open OR the dock is hosting Olumi, a composer is visible
+ * — never zero. Two earlier dead-ends are closed here:
+ *   - retiring the open surface when the Olumi tab was merely *selected* even
+ *     though the dock couldn't host it (`dockHostsOlumi`); and
+ *   - leaving an empty canvas with NO composer after the dock that hosted Olumi
+ *     was collapsed back to the rail (open-dock → close-dock). On an empty
+ *     canvas that is 'hero', not 'none'.
+ *
+ * 'none' is reserved for a POPULATED canvas the user has deliberately left idle
+ * (dock collapsed, no floating) — reachable again via the rail, not a dead end.
  */
 export function resolveOlumiSurface(i: OlumiSurfaceInput): OlumiSurface {
   if (dockHostsOlumi(i)) return 'docked'
-  if (!i.floatingOpen) return 'none'
-  if (i.isEmptyCanvas && i.floatingSource === 'system-first-use') return 'hero'
-  return 'floating'
+  if (i.isEmptyCanvas) {
+    return i.floatingOpen && i.floatingSource === 'user' ? 'floating' : 'hero'
+  }
+  if (i.floatingOpen) return 'floating'
+  return 'none'
 }
