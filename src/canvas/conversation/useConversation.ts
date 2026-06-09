@@ -8,6 +8,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useCanvasStore } from '../store'
+import { setCurrentScenarioId } from '../store/scenarios'
 import { useDraftStore } from '../stores/draftStore'
 import { generateGraphHash } from '../utils/graphHash'
 import { callOrchestratorTurn, streamOrchestratorTurn, OrchestratorError } from './turnService'
@@ -1597,8 +1598,9 @@ export function useConversation(): UseConversationReturn {
       const store = useCanvasStore.getState()
       const { nodeIds, edgeIds } = store.selection
       // Lazy UUID allocation: generate a fresh UUID when store has no scenario_id or a
-      // legacy non-UUID format (e.g. "scenario-1709827200000-abc"). Persist to store so
-      // subsequent turns in the same session reuse the same ID.
+      // legacy non-UUID format (e.g. "scenario-1709827200000-abc"). Persist to store AND
+      // through the localStorage current-scenario writer so the same conversation reuses
+      // the same ID across a page refresh / store re-init (scenario/thread continuity).
       let scenarioId = store.currentScenarioId
       if (!scenarioId || !isUUID(scenarioId)) {
         const newId = crypto.randomUUID()
@@ -1607,6 +1609,7 @@ export function useConversation(): UseConversationReturn {
         }
         scenarioId = newId
         useCanvasStore.setState({ currentScenarioId: scenarioId })
+        setCurrentScenarioId(scenarioId)
       }
       const conversationHistory = buildHistory(messagesRef.current, 5)
       const selectedElements: SelectedElementsPayload | undefined =
@@ -2695,9 +2698,10 @@ export function useConversation(): UseConversationReturn {
           })
         }
 
-        // Lazy UUID allocation — mirrors V4 buildRequest (line 1403-1413).
+        // Lazy UUID allocation — mirrors V4 buildRequest above.
         // If the store has no scenario_id or a legacy non-UUID format, generate
-        // one client-side and persist it so subsequent turns reuse the same ID.
+        // one client-side and persist it (store + localStorage writer) so subsequent
+        // turns — including after a page refresh / re-init — reuse the same ID.
         let currentScenarioId = useCanvasStore.getState().currentScenarioId
         if (!currentScenarioId || !isUUID(currentScenarioId)) {
           const newId = crypto.randomUUID()
@@ -2706,6 +2710,7 @@ export function useConversation(): UseConversationReturn {
           }
           currentScenarioId = newId
           useCanvasStore.setState({ currentScenarioId: newId })
+          setCurrentScenarioId(newId)
         }
 
         const resolvedTurnType: TurnType = isSystemEvent
