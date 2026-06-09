@@ -272,10 +272,13 @@ export const AIInputBar = memo(
         ? 'right-4 bottom-2'
         : 'right-1.5 bottom-1'
     const stackGap = isWelcome ? 'gap-1' : 'gap-0.5'
-    // Right padding on textarea reserves room for the cog+send cluster.
-    // Strip variant reserves a touch more so typed text doesn't drift
-    // under the icons when the stack is pushed inward by 10px.
-    const textareaRightPad = isWelcome ? 'pr-24' : isStrip ? 'pr-20' : 'pr-16'
+    // Right padding on textarea reserves JUST enough room for the cog+send
+    // cluster plus a minimal gap, so the placeholder/typed text uses as much
+    // width as possible (desktop space is tight). The cluster sits at
+    // right-2/right-4/right-1.5 + a w-8/w-7 button ≈ 40/44/34px from the right
+    // edge; the pad leaves ~8–12px of breathing room beyond that. Strip keeps a
+    // touch more so text never drifts under the icons or an internal scrollbar.
+    const textareaRightPad = isWelcome ? 'pr-12' : isStrip ? 'pr-14' : 'pr-12'
 
     return (
       <div className={containerClasses} data-testid={testId ?? `ai-input-bar-${variant}`}>

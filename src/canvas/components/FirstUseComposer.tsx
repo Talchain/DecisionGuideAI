@@ -239,7 +239,7 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: F
           variant="welcome"
           onCogClick={onCogClick}
           hideChevron
-          placeholder="Describe the decision, options, goal and constraints."
+          placeholder="Describe your decision, goal, options, and any assumptions, risks or constraints you’re aware of."
           ariaLabel="Describe your decision"
           testId="first-use-input-bar"
           onAfterSend={handleAfterSend}

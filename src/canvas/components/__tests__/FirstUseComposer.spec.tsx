@@ -297,14 +297,14 @@ describe('FirstUseComposer — responsive width (P1.2)', () => {
 })
 
 describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
-  it('uses the concise guidance copy as the textarea placeholder and is content-fit (no min-height floor)', () => {
+  it('uses the guidance copy as the textarea placeholder and is content-fit (no min-height floor)', () => {
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
     const dialog = screen.getByTestId('first-use-composer') as HTMLElement
 
     // The guidance copy lives in the textarea's placeholder (round-8) —
     // the textarea is the visual home of the guidance prompt.
     expect(
-      screen.getByPlaceholderText(/Describe the decision, options, goal and constraints\./i),
+      screen.getByPlaceholderText(/Describe your decision, goal, options, and any assumptions, risks or constraints/i),
     ).toBeInTheDocument()
     // No legacy standalone guidance <p>.
     expect(screen.queryByTestId('first-use-guidance')).toBeNull()

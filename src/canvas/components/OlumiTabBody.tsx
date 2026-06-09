@@ -92,7 +92,7 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
         {floatOutIcon}
         <div className="flex flex-1 items-center justify-center px-6 py-6">
           <p className={typo('panelBody', 'text-text-light text-center max-w-xs')}>
-            Start a conversation with Olumi using the input below.
+            Describe your decision, goal, options, and any assumptions, risks or constraints you’re aware of.
           </p>
         </div>
       </div>
