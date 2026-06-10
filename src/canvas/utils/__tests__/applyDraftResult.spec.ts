@@ -21,6 +21,7 @@ const mockSetCeePipelineTrace = vi.fn()
 const mockSetCeeQuality = vi.fn()
 const mockSetGoalConstraints = vi.fn()
 const mockSetDraftCoaching = vi.fn()
+const mockSetPreAnalysisSensitivity = vi.fn()
 
 let storeNodes: any[] = []
 let storeEdges: any[] = []
@@ -42,6 +43,7 @@ vi.mock('../../store', () => ({
         setCeeQuality: mockSetCeeQuality,
         setGoalConstraints: mockSetGoalConstraints,
         setDraftCoaching: mockSetDraftCoaching,
+        setPreAnalysisSensitivity: mockSetPreAnalysisSensitivity,
         currentScenarioId: null,
         // Diff-aware batch updater mirroring store.batchUpdateNodes. Preserves
         // identity for untouched nodes and no-ops when nothing changes.
@@ -199,6 +201,64 @@ describe('applyDraftResult', () => {
     expect(result.nodeCount).toBe(0)
     expect(result.edgeCount).toBe(0)
     expect(mockPushHistory).not.toHaveBeenCalled()
+  })
+
+  it('commits pre_analysis_sensitivity from analysis_ready', () => {
+    const sensitivity = {
+      factor_influence: { f1: 0.8, f2: 0.2 },
+      edge_influence: { 'f1::g1': 0.5 },
+      method: 'linear',
+    }
+    const draftData = {
+      nodes: [{ id: 'g1', kind: 'goal', label: 'Revenue' }],
+      edges: [],
+      analysis_ready: {
+        options: [{ id: 'o1', status: 'ready' }],
+        goal_node_id: 'g1',
+        status: 'ready',
+        pre_analysis_sensitivity: sensitivity,
+      },
+    } as any
+
+    applyDraftResult(draftData)
+    expect(mockSetPreAnalysisSensitivity).toHaveBeenCalledWith(sensitivity)
+  })
+
+  it('commits pre_analysis_sensitivity from the response root when analysis_ready lacks it', () => {
+    const sensitivity = {
+      factor_influence: { f1: 1 },
+      edge_influence: {},
+      method: 'linear',
+    }
+    const draftData = {
+      nodes: [{ id: 'f1', kind: 'factor', label: 'A' }],
+      edges: [],
+      pre_analysis_sensitivity: sensitivity,
+    } as any
+
+    applyDraftResult(draftData)
+    expect(mockSetPreAnalysisSensitivity).toHaveBeenCalledWith(sensitivity)
+  })
+
+  it('clears pre_analysis_sensitivity to null when the draft carries none', () => {
+    const draftData = {
+      nodes: [{ id: 'f1', kind: 'factor', label: 'A' }],
+      edges: [],
+    } as any
+
+    applyDraftResult(draftData)
+    expect(mockSetPreAnalysisSensitivity).toHaveBeenCalledWith(null)
+  })
+
+  it('clears pre_analysis_sensitivity when the payload lacks factor_influence', () => {
+    const draftData = {
+      nodes: [{ id: 'f1', kind: 'factor', label: 'A' }],
+      edges: [],
+      pre_analysis_sensitivity: { method: 'linear' },
+    } as any
+
+    applyDraftResult(draftData)
+    expect(mockSetPreAnalysisSensitivity).toHaveBeenCalledWith(null)
   })
 
   it('infers negative direction from negative weight', () => {

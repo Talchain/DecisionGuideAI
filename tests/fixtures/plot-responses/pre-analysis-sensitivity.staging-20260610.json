@@ -1,0 +1,28 @@
+{
+  "factor_influence": {
+    "fac_engineer_capacity": 0.27015870471304904,
+    "fac_legacy_maintenance_cost": 0.20102596986213528,
+    "fac_migration_effort": 1,
+    "fac_vendor_reliability": 0.39108688682269954,
+    "fac_vendor_spend": 0.5828791279256171
+  },
+  "edge_influence": {
+    "fac_engineer_capacity::out_invoicing_continuity": 0.2986443381180223,
+    "out_invoicing_continuity::goal_billing": 0.4778309409888357,
+    "fac_engineer_capacity::risk_capacity_breach": 0.23891547049441786,
+    "risk_capacity_breach::goal_billing": 0.30717703349282305,
+    "fac_legacy_maintenance_cost::out_maintenance_cost_reduction": 0.4,
+    "out_maintenance_cost_reduction::goal_billing": 1,
+    "fac_migration_effort::out_maintenance_cost_reduction": 1,
+    "fac_migration_effort::risk_capacity_breach": 0.30717703349282305,
+    "fac_migration_effort::risk_migration_disruption": 0.6826156299840511,
+    "risk_migration_disruption::goal_billing": 0.6826156299840511,
+    "fac_vendor_reliability::out_invoicing_continuity": 0.4778309409888357,
+    "fac_vendor_reliability::risk_migration_disruption": 0.30035087719298253,
+    "fac_vendor_spend::out_maintenance_cost_reduction": 0.5454545454545454,
+    "fac_vendor_spend::risk_budget_overrun": 0.614354066985646,
+    "risk_budget_overrun::goal_billing": 0.614354066985646
+  },
+  "method": "linear",
+  "computation_ms": 1
+}

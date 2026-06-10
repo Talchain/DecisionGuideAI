@@ -254,6 +254,14 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_PRE_ANALYSIS_ENRICHED',
     storageKey: 'feature.preAnalysisEnriched',
   },
+  // Pre-analysis panel v3: outcome-centred panel (four health bars, best-next-step
+  // ladder, influence-ranked estimates) replacing the readiness-first panel in the
+  // Analysis tab pre-run slot. Legacy panel reinstates on flag off.
+  // See docs/pre-analysis-panel-solution-design-v1.md §14.
+  preAnalysisV3: {
+    envKey: 'VITE_FEATURE_PRE_ANALYSIS_V3',
+    storageKey: 'feature.preAnalysisV3',
+  },
   // Phase 3A: Evidence gap badge on factor nodes with no observed data
   graphBadges: {
     envKey: 'VITE_FEATURE_GRAPH_BADGES',
@@ -399,6 +407,7 @@ const flags = {
   threadHydrate: makeFlag(FLAGS_CONFIG.threadHydrate),
   bil: makeFlag(FLAGS_CONFIG.bil),
   preAnalysisEnriched: makeFlag(FLAGS_CONFIG.preAnalysisEnriched),
+  preAnalysisV3: makeFlag(FLAGS_CONFIG.preAnalysisV3),
   graphBadges: makeFlag(FLAGS_CONFIG.graphBadges),
   crossHighlight: makeFlag(FLAGS_CONFIG.crossHighlight),
   graphLens: makeFlag(FLAGS_CONFIG.graphLens),
@@ -461,6 +470,7 @@ export const isThreadPersistEnabled = flags.threadPersist
 export const isThreadHydrateEnabled = flags.threadHydrate
 export const isBilPreviewEnabled = flags.bil
 export const isPreAnalysisEnrichedEnabled = flags.preAnalysisEnriched
+export const isPreAnalysisV3Enabled = flags.preAnalysisV3
 export const isGraphBadgesEnabled = flags.graphBadges
 export const isCrossHighlightEnabled = flags.crossHighlight
 export const isGraphLensEnabled = flags.graphLens

@@ -57,6 +57,10 @@ import { useDebugShortcut } from '../hooks/useDebugShortcut'
 import { IdentifiabilityBadge, normalizeIdentifiabilityTag } from './IdentifiabilityBadge'
 import { ValidationPanel, type CritiqueItem } from './ValidationPanel'
 import { PreAnalysisPanel } from './pre-analysis'
+import {
+  computeInfluenceCoverage,
+  isTransitionBridgeReviewed,
+} from './pre-analysis-v3/selectors/computeInfluenceCoverage'
 import { useConversation } from '../conversation/useConversation'
 import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../utils/canRunAnalysis'
 import { WarningBanner } from './WarningBanner'
@@ -706,31 +710,11 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     if (!canRunAnalysis) return
     // Capture pre-analysis review progress for transition bridge
     const storeState = useCanvasStore.getState()
-    const storeNodes = storeState.nodes
-    const reviewedIds = new Set<string>()
-    let verifiedCount = 0
-    for (const node of storeNodes) {
-      const nd = node.data as Record<string, unknown>
-      if (nd.kind !== 'factor' && node.type !== 'factor') continue
-      const os = (nd.observedState ?? nd.observed_state) as Record<string, unknown> | undefined
-      const source = os?.source as string | undefined
-      if (source === 'user_confirmed' || source === 'user_assumption' || source === 'user_override' || source === 'user_edited') {
-        reviewedIds.add(node.id)
-        verifiedCount++
-      }
-    }
-    // Compute influence coverage from pre-analysis sensitivity data
-    let influenceCoverage = 0
-    const sensitivity = storeState.preAnalysisSensitivity as { factor_influence?: Record<string, number> } | null
-    if (sensitivity?.factor_influence) {
-      let reviewedSum = 0
-      let totalSum = 0
-      for (const [id, influence] of Object.entries(sensitivity.factor_influence)) {
-        totalSum += influence
-        if (reviewedIds.has(id)) reviewedSum += influence
-      }
-      influenceCoverage = totalSum > 0 ? reviewedSum / totalSum : 0
-    }
+    const { verifiedCount, influenceCoverage } = computeInfluenceCoverage(
+      storeState.nodes,
+      storeState.preAnalysisSensitivity?.factor_influence ?? null,
+      isTransitionBridgeReviewed,
+    )
     transitionBridgeRef.current = { verifiedCount, influenceCoverage }
     // P0.8: Track run started
     trackRunStarted({

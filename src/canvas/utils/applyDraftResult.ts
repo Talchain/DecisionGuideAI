@@ -268,6 +268,15 @@ export function applyDraftResult(
   // Commit CEE coaching payload (typed, type-guarded by adapter). Null when absent.
   commitDraftCoachingToStore((draftData as CEEDraftResponse).draftCoaching ?? null)
 
+  // Commit pre-analysis sensitivity (mirrors DraftChat). Always overwrite —
+  // a draft replaces the graph, so influence keyed to the previous draft's
+  // node ids must not survive; absent payload clears to null.
+  const rawSensitivity = (draftData as any).analysis_ready?.pre_analysis_sensitivity
+    ?? (draftData as any).pre_analysis_sensitivity
+  useCanvasStore.getState().setPreAnalysisSensitivity(
+    rawSensitivity?.factor_influence ? rawSensitivity : null
+  )
+
   return { nodeCount: nodes.length, edgeCount: edges.length }
 }
 

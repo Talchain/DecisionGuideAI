@@ -1,0 +1,852 @@
+{
+  "response_version": 2,
+  "assistant_text": "I've built a first decision model for \"Increase Delivery Output by 20%\".\n\nOptions compared\n• Hire One Senior Developer (Reduced\n• Keep Current Team (Status Quo)\n• Hire a Tech Lead\n• Hire Two Mid-Level Developers\n\nWhat the model is weighing\n• Main trade-off: Developer Headcount Added balanced against Total Hiring Cost\n• Assumption to check: Diagnose the bottleneck first\n• Worth a look: Contractor bridge option\n\nYour brief covered the main points; adding detail on the lighter areas would sharpen the comparison.\n\nNext, run the analysis to see how the options compare and what could shift the outcome.",
+  "blocks": [],
+  "suggested_actions": [
+    {
+      "id": "chip_action_run_analysis",
+      "label": "Run analysis",
+      "message": "Run analysis.",
+      "action_type": "run_analysis"
+    },
+    {
+      "id": "chip_prompt_review_model",
+      "label": "Review model",
+      "message": "Walk me through the model so I can review it before running the analysis."
+    },
+    {
+      "id": "chip_prompt_assumptions",
+      "label": "What assumptions matter most?",
+      "message": "Which assumptions in this model matter most to check before I run the analysis?"
+    }
+  ],
+  "insights": [],
+  "stage_indicator": "analyse",
+  "draft_graph": {
+    "nodes": [
+      {
+        "id": "dec_hiring",
+        "kind": "decision",
+        "label": "Engineering Hiring Strategy",
+        "provenance": "ai_inferred"
+      },
+      {
+        "id": "fac_dev_headcount",
+        "kind": "factor",
+        "label": "Developer Headcount Added",
+        "observed_state": {
+          "value": 0,
+          "source": "cee_inference",
+          "extractionType": "inferred",
+          "factor_type": "other",
+          "uncertainty_drivers": [
+            "Candidate pipeline depth",
+            "Onboarding speed varies by experience level"
+          ]
+        },
+        "category": "controllable",
+        "encoding_map": {
+          "0": "No new developers",
+          "1": "Two mid-level developers",
+          "0.5": "One senior developer"
+        },
+        "display_value": "No additional developers hired",
+        "provenance": "ai_inferred"
+      },
+      {
+        "id": "fac_hiring_cost",
+        "kind": "factor",
+        "label": "Total Hiring Cost",
+        "observed_state": {
+          "value": 0,
+          "unit": "£",
+          "source": "cee_inference",
+          "raw_value": 0,
+          "cap": 150000,
+          "extractionType": "inferred",
+          "factor_type": "cost",
+          "uncertainty_drivers": [
+            "Salary expectations vary by candidate",
+            "Recruiter fees not specified"
+          ]
+        },
+        "category": "controllable",
+        "display_value": "No cost allocated",
+        "provenance": "ai_inferred"
+      },
+      {
+        "id": "fac_onboarding_drag",
+        "kind": "factor",
+        "label": "Onboarding Drag",
+        "category": "external",
+        "prior": {
+          "distribution": "uniform",
+          "range_min": 0.15,
+          "range_max": 0.44999999999999996
+        },
+        "extractionType": "inferred",
+        "display_value": "0.15 to 0.45",
+        "provenance": "ai_inferred"
+      },
+      {
+        "id": "fac_tech_lead",
+        "kind": "factor",
+        "label": "Tech Lead in Place",
+        "observed_state": {
+          "value": 0,
+          "source": "cee_inference",
+          "extractionType": "inferred",
+          "factor_type": "other",
+          "uncertainty_drivers": [
+            "Availability of qualified candidates",
+            "Time to hire and ramp-up"
+          ]
+        },
+        "category": "controllable",
+        "encoding_map": {
+          "0": "No tech lead",
+          "1": "Tech lead hired"
+        },
+        "display_value": "No tech lead in place",
+        "provenance": "ai_inferred"
+      },
+      {
+        "id": "goal_delivery",
+        "kind": "goal",
+        "label": "Increase Delivery Output by 20%",
+        "goal_threshold": 0.8,
+        "goal_threshold_raw": 20,
+        "goal_threshold_unit": "%",
+        "goal_threshold_cap": 25,
+        "provenance": "ai_inferred"
+      },
+      {
+        "id": "opt_one_dev",
+        "kind": "option",
+        "label": "Hire One Senior Developer (Reduced Scope)",
+        "interventions": {
+          "fac_tech_lead": {
+            "value": 0,
+            "source": "brief_extraction",
+            "target_match": {
+              "node_id": "fac_tech_lead",
+              "match_type": "exact_id",
+              "confidence": "high"
+            },
+            "value_confidence": "high",
+            "reasoning": "Direct from V4 prompt data.interventions"
+          },
+          "fac_dev_headcount": {
+            "value": 0.5,
+            "source": "brief_extraction",
+            "target_match": {
+              "node_id": "fac_dev_headcount",
+              "match_type": "exact_id",
+              "confidence": "high"
+            },
+            "value_confidence": "high",
+            "reasoning": "Direct from V4 prompt data.interventions"
+          }
+        },
+        "is_baseline": false,
+        "provenance": "ai_inferred"
+      },
+      {
+        "id": "opt_status_quo",
+        "kind": "option",
+        "label": "Keep Current Team (Status Quo)",
+        "interventions": {
+          "fac_tech_lead": {
+            "value": 0,
+            "source": "brief_extraction",
+            "target_match": {
+              "node_id": "fac_tech_lead",
+              "match_type": "exact_id",
+              "confidence": "high"
+            },
+            "value_confidence": "high",
+            "reasoning": "Direct from V4 prompt data.interventions"
+          },
+          "fac_dev_headcount": {
+            "value": 0,
+            "source": "brief_extraction",
+            "target_match": {
+              "node_id": "fac_dev_headcount",
+              "match_type": "exact_id",
+              "confidence": "high"
+            },
+            "value_confidence": "high",
+            "reasoning": "Direct from V4 prompt data.interventions"
+          }
+        },
+        "is_baseline": true,
+        "provenance": "ai_inferred"
+      },
+      {
+        "id": "opt_tech_lead",
+        "kind": "option",
+        "label": "Hire a Tech Lead",
+        "interventions": {
+          "fac_tech_lead": {
+            "value": 1,
+            "source": "brief_extraction",
+            "target_match": {
+              "node_id": "fac_tech_lead",
+              "match_type": "exact_id",
+              "confidence": "high"
+            },
+            "value_confidence": "high",
+            "reasoning": "Direct from V4 prompt data.interventions"
+          },
+          "fac_dev_headcount": {
+            "value": 0,
+            "source": "brief_extraction",
+            "target_match": {
+              "node_id": "fac_dev_headcount",
+              "match_type": "exact_id",
+              "confidence": "high"
+            },
+            "value_confidence": "high",
+            "reasoning": "Direct from V4 prompt data.interventions"
+          }
+        },
+        "is_baseline": false,
+        "provenance": "ai_inferred"
+      },
+      {
+        "id": "opt_two_devs",
+        "kind": "option",
+        "label": "Hire Two Mid-Level Developers",
+        "interventions": {
+          "fac_tech_lead": {
+            "value": 0,
+            "source": "brief_extraction",
+            "target_match": {
+              "node_id": "fac_tech_lead",
+              "match_type": "exact_id",
+              "confidence": "high"
+            },
+            "value_confidence": "high",
+            "reasoning": "Direct from V4 prompt data.interventions"
+          },
+          "fac_dev_headcount": {
+            "value": 1,
+            "source": "brief_extraction",
+            "target_match": {
+              "node_id": "fac_dev_headcount",
+              "match_type": "exact_id",
+              "confidence": "high"
+            },
+            "value_confidence": "high",
+            "reasoning": "Direct from V4 prompt data.interventions"
+          }
+        },
+        "is_baseline": false,
+        "provenance": "ai_inferred"
+      },
+      {
+        "id": "out_delivery_throughput",
+        "kind": "outcome",
+        "label": "Delivery Throughput Gain",
+        "provenance": "ai_inferred"
+      },
+      {
+        "id": "out_team_capability",
+        "kind": "outcome",
+        "label": "Team Technical Capability",
+        "provenance": "ai_inferred"
+      },
+      {
+        "id": "risk_budget_overrun",
+        "kind": "risk",
+        "label": "Budget Overrun Risk",
+        "observed_state": {
+          "value": 0,
+          "unit": "£",
+          "source": "cee_inference",
+          "raw_value": 0,
+          "cap": 150000,
+          "extractionType": "inferred"
+        },
+        "display_value": "No budget pressure currently",
+        "provenance": "ai_inferred"
+      },
+      {
+        "id": "risk_hiring_delay",
+        "kind": "risk",
+        "label": "Hiring Delay Risk",
+        "provenance": "ai_inferred"
+      },
+      {
+        "id": "risk_onboarding_delay",
+        "kind": "risk",
+        "label": "Onboarding and Productivity Drag",
+        "provenance": "ai_inferred"
+      }
+    ],
+    "edges": [
+      {
+        "from": "dec_hiring",
+        "to": "opt_one_dev",
+        "strength": {
+          "mean": 1,
+          "std": 0.01
+        },
+        "exists_probability": 1,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "dec_hiring",
+        "to": "opt_status_quo",
+        "strength": {
+          "mean": 1,
+          "std": 0.01
+        },
+        "exists_probability": 1,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "dec_hiring",
+        "to": "opt_tech_lead",
+        "strength": {
+          "mean": 1,
+          "std": 0.01
+        },
+        "exists_probability": 1,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "dec_hiring",
+        "to": "opt_two_devs",
+        "strength": {
+          "mean": 1,
+          "std": 0.01
+        },
+        "exists_probability": 1,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "fac_dev_headcount",
+        "to": "out_delivery_throughput",
+        "strength": {
+          "mean": 0.5,
+          "std": 0.14
+        },
+        "exists_probability": 0.85,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "fac_dev_headcount",
+        "to": "risk_hiring_delay",
+        "strength": {
+          "mean": 0.22,
+          "std": 0.12
+        },
+        "exists_probability": 0.75,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "fac_dev_headcount",
+        "to": "risk_onboarding_delay",
+        "strength": {
+          "mean": 0.45,
+          "std": 0.15
+        },
+        "exists_probability": 0.88,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "fac_hiring_cost",
+        "to": "risk_budget_overrun",
+        "strength": {
+          "mean": 0.65,
+          "std": 0.12
+        },
+        "exists_probability": 0.88,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "fac_onboarding_drag",
+        "to": "risk_onboarding_delay",
+        "strength": {
+          "mean": 0.3,
+          "std": 0.1
+        },
+        "exists_probability": 0.9,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "fac_tech_lead",
+        "to": "out_delivery_throughput",
+        "strength": {
+          "mean": 0.28,
+          "std": 0.14
+        },
+        "exists_probability": 0.75,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "fac_tech_lead",
+        "to": "out_team_capability",
+        "strength": {
+          "mean": 0.55,
+          "std": 0.15
+        },
+        "exists_probability": 0.82,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "fac_tech_lead",
+        "to": "risk_hiring_delay",
+        "strength": {
+          "mean": 0.35,
+          "std": 0.18
+        },
+        "exists_probability": 0.8,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "opt_one_dev",
+        "to": "fac_dev_headcount",
+        "strength": {
+          "mean": 1,
+          "std": 0.01
+        },
+        "exists_probability": 1,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "opt_one_dev",
+        "to": "fac_hiring_cost",
+        "strength": {
+          "mean": 1,
+          "std": 0.01
+        },
+        "exists_probability": 1,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "opt_status_quo",
+        "to": "fac_dev_headcount",
+        "strength": {
+          "mean": 1,
+          "std": 0.01
+        },
+        "exists_probability": 1,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "opt_status_quo",
+        "to": "fac_tech_lead",
+        "strength": {
+          "mean": 1,
+          "std": 0.01
+        },
+        "exists_probability": 1,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "opt_tech_lead",
+        "to": "fac_hiring_cost",
+        "strength": {
+          "mean": 1,
+          "std": 0.01
+        },
+        "exists_probability": 1,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "opt_tech_lead",
+        "to": "fac_tech_lead",
+        "strength": {
+          "mean": 1,
+          "std": 0.01
+        },
+        "exists_probability": 1,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "opt_two_devs",
+        "to": "fac_dev_headcount",
+        "strength": {
+          "mean": 1,
+          "std": 0.01
+        },
+        "exists_probability": 1,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "opt_two_devs",
+        "to": "fac_hiring_cost",
+        "strength": {
+          "mean": 1,
+          "std": 0.01
+        },
+        "exists_probability": 1,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "out_delivery_throughput",
+        "to": "goal_delivery",
+        "strength": {
+          "mean": 0.6,
+          "std": 0.1
+        },
+        "exists_probability": 0.95,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "out_team_capability",
+        "to": "goal_delivery",
+        "strength": {
+          "mean": 0.25,
+          "std": 0.12
+        },
+        "exists_probability": 0.8,
+        "effect_direction": "positive",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "risk_budget_overrun",
+        "to": "goal_delivery",
+        "strength": {
+          "mean": -0.18,
+          "std": 0.1
+        },
+        "exists_probability": 0.72,
+        "effect_direction": "negative",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "risk_hiring_delay",
+        "to": "goal_delivery",
+        "strength": {
+          "mean": -0.28,
+          "std": 0.14
+        },
+        "exists_probability": 0.85,
+        "effect_direction": "negative",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      },
+      {
+        "from": "risk_onboarding_delay",
+        "to": "goal_delivery",
+        "strength": {
+          "mean": -0.35,
+          "std": 0.12
+        },
+        "exists_probability": 0.88,
+        "effect_direction": "negative",
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "provenance_display": "ai_inferred",
+        "origin": "ai"
+      }
+    ],
+    "node_count": 15,
+    "edge_count": 25
+  },
+  "analysis_ready": {
+    "options": [
+      {
+        "option_id": "opt_one_dev",
+        "label": "Hire One Senior Developer (Reduced Scope)",
+        "status": "ready",
+        "interventions": {
+          "fac_tech_lead": 0,
+          "fac_dev_headcount": 0.5,
+          "fac_hiring_cost": 0
+        },
+        "intervention_details": {
+          "fac_tech_lead": {
+            "display_value": "Low (0)",
+            "normalised_value": 0
+          },
+          "fac_dev_headcount": {
+            "display_value": "No additional developers hired",
+            "normalised_value": 0.5
+          },
+          "fac_hiring_cost": {
+            "display_value": "No cost allocated",
+            "normalised_value": 0,
+            "raw_value": 0,
+            "unit": "£"
+          }
+        },
+        "extraction_metadata": {
+          "source": "brief_extraction",
+          "confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "status_reason": "2 intervention(s) ready for analysis"
+      },
+      {
+        "option_id": "opt_status_quo",
+        "label": "Keep Current Team (Status Quo)",
+        "status": "ready",
+        "interventions": {
+          "fac_tech_lead": 0,
+          "fac_dev_headcount": 0
+        },
+        "is_baseline": true,
+        "intervention_details": {
+          "fac_tech_lead": {
+            "display_value": "Low (0)",
+            "normalised_value": 0
+          },
+          "fac_dev_headcount": {
+            "display_value": "No additional developers hired",
+            "normalised_value": 0
+          }
+        },
+        "extraction_metadata": {
+          "source": "brief_extraction",
+          "confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "status_reason": "2 intervention(s) ready for analysis"
+      },
+      {
+        "option_id": "opt_tech_lead",
+        "label": "Hire a Tech Lead",
+        "status": "ready",
+        "interventions": {
+          "fac_tech_lead": 1,
+          "fac_dev_headcount": 0,
+          "fac_hiring_cost": 0
+        },
+        "intervention_details": {
+          "fac_tech_lead": {
+            "display_value": "Very high (1)",
+            "normalised_value": 1
+          },
+          "fac_dev_headcount": {
+            "display_value": "No additional developers hired",
+            "normalised_value": 0
+          },
+          "fac_hiring_cost": {
+            "display_value": "No cost allocated",
+            "normalised_value": 0,
+            "raw_value": 0,
+            "unit": "£"
+          }
+        },
+        "extraction_metadata": {
+          "source": "brief_extraction",
+          "confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "status_reason": "2 intervention(s) ready for analysis"
+      },
+      {
+        "option_id": "opt_two_devs",
+        "label": "Hire Two Mid-Level Developers",
+        "status": "ready",
+        "interventions": {
+          "fac_tech_lead": 0,
+          "fac_dev_headcount": 1,
+          "fac_hiring_cost": 0
+        },
+        "intervention_details": {
+          "fac_tech_lead": {
+            "display_value": "Low (0)",
+            "normalised_value": 0
+          },
+          "fac_dev_headcount": {
+            "display_value": "No additional developers hired",
+            "normalised_value": 1
+          },
+          "fac_hiring_cost": {
+            "display_value": "No cost allocated",
+            "normalised_value": 0,
+            "raw_value": 0,
+            "unit": "£"
+          }
+        },
+        "extraction_metadata": {
+          "source": "brief_extraction",
+          "confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "status_reason": "2 intervention(s) ready for analysis"
+      }
+    ],
+    "goal_node_id": "goal_delivery",
+    "status": "ready",
+    "model_adjustments": [
+      {
+        "code": "category_reclassified",
+        "node_id": "fac_onboarding_drag",
+        "field": "nodes[fac_onboarding_drag].category",
+        "reason": "Reclassified unreachable factor \"Onboarding Drag\" to external with synthesised prior [0.15, 0.44999999999999996]",
+        "source": "deterministic_sweep"
+      }
+    ],
+    "goal_threshold": 0.8,
+    "bias_findings": [
+      {
+        "id": "authority_high_degree_node",
+        "category": "other",
+        "severity": "medium",
+        "node_ids": [
+          "fac_tech_lead",
+          "opt_tech_lead",
+          "dec_hiring",
+          "out_delivery_throughput",
+          "out_team_capability",
+          "risk_hiring_delay",
+          "opt_status_quo",
+          "fac_hiring_cost"
+        ],
+        "explanation": "One or more authority-labelled nodes are highly connected in the decision graph; this may overweight senior opinions.",
+        "code": "AUTHORITY_BIAS",
+        "targets": {
+          "node_ids": [
+            "fac_tech_lead",
+            "opt_tech_lead",
+            "dec_hiring",
+            "out_delivery_throughput",
+            "out_team_capability",
+            "risk_hiring_delay",
+            "opt_status_quo",
+            "fac_hiring_cost"
+          ]
+        },
+        "structural_pattern": "Authority-labelled node has connections to three or more other nodes",
+        "confidence_band": "medium",
+        "mechanism": "Tendency to attribute greater accuracy to opinions of authority figures, regardless of content.",
+        "citation": "Milgram (1963) - Journal of Abnormal and Social Psychology",
+        "micro_intervention": {
+          "steps": [
+            "Collect input anonymously before revealing who said what",
+            "Explicitly ask junior team members to share their view first"
+          ],
+          "estimated_minutes": 3
+        }
+      }
+    ],
+    "coaching_summary": "One assumption worth checking: Diagnose the bottleneck first.",
+    "computed_at": "2026-06-10T19:54:18.642Z",
+    "freshness": "none",
+    "freshness_reason": "no_successful_run_analysis_fact",
+    "current_graph_hash": "3c59984098df176e"
+  }
+}
