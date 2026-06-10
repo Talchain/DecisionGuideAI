@@ -11,6 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useConversation } from '../useConversation'
 import { useCanvasStore } from '../../store'
+import { getCurrentScenarioId } from '../../store/scenarios'
 import { useResultsStore } from '../../stores/resultsStore'
 import { _clearTraces, getInteractionChains, recordUiSurfaceState } from '../../../lib/debug-state'
 
@@ -1678,6 +1679,75 @@ describe('null-initial scenario_id lifecycle', () => {
 
     const request = mockStreamTurn.mock.calls[0][0]
     expect(UUID_RE.test(request.client_turn_id)).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// scenario_id persistence + continuity (scenario/thread continuity fix)
+// Proves the lazily-allocated conversation UUID is PERSISTED through the
+// localStorage current-scenario writer and reused across a simulated refresh,
+// and that every turn type in one session shares the same UUID.
+// ---------------------------------------------------------------------------
+
+describe('scenario_id persistence + continuity', () => {
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  const LS_KEY = 'olumi-canvas-current-scenario-id'
+
+  beforeEach(() => {
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult())
+    // Start each test with a clean current-scenario storage slot + null store id.
+    localStorage.removeItem(LS_KEY)
+    useCanvasStore.setState({ currentScenarioId: null as any })
+  })
+
+  it('persists the lazily allocated UUID through the current-scenario storage writer', async () => {
+    expect(localStorage.getItem(LS_KEY)).toBeNull()
+    mockCallTurn.mockResolvedValueOnce({ assistant_text: 'ok', client_turn_id: 'resp-persist' })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('hello') })
+
+    const sentId = mockStreamTurn.mock.calls[0][0].scenario_id
+    expect(UUID_RE.test(sentId)).toBe(true)
+    // The storage writer was called — not just in-memory setState.
+    expect(getCurrentScenarioId()).toBe(sentId)
+    expect(localStorage.getItem(LS_KEY)).toBe(sentId)
+  })
+
+  it('reuses the persisted UUID after a simulated refresh — no fresh allocation', async () => {
+    mockCallTurn.mockResolvedValue({ assistant_text: 'ok', client_turn_id: 'resp-refresh' })
+
+    const hook1 = renderHook(() => useConversation())
+    await act(async () => { await hook1.result.current.sendMessage('first') })
+    const firstId = mockStreamTurn.mock.calls[0][0].scenario_id
+    expect(UUID_RE.test(firstId)).toBe(true)
+
+    // Simulate a page refresh: in-memory store is recreated and rehydrates the
+    // current-scenario id from localStorage (mirrors store init at store.ts:1199).
+    useCanvasStore.setState({ currentScenarioId: getCurrentScenarioId() as any })
+    const hook2 = renderHook(() => useConversation())
+    await act(async () => { await hook2.result.current.sendMessage('after refresh') })
+    const secondId = mockStreamTurn.mock.calls[1][0].scenario_id
+
+    expect(secondId).toBe(firstId)
+    expect(getCurrentScenarioId()).toBe(firstId)
+  })
+
+  it('in-session: message → run_analysis → graph edit → explain all share one UUID', async () => {
+    mockCallTurn.mockResolvedValue({ assistant_text: 'ok', client_turn_id: 'resp-session' })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('normal message') })
+    await act(async () => { await result.current.sendMessage('run it', { turnType: 'run_analysis' }) })
+    await act(async () => {
+      await result.current.sendSystemEvent({ type: 'direct_graph_edit', payload: { changed_node_ids: [] } })
+    })
+    await act(async () => { await result.current.sendMessage('why?', { turnType: 'explain' }) })
+
+    const ids = mockStreamTurn.mock.calls.map((c: any) => c[0].scenario_id)
+    expect(ids).toHaveLength(4)
+    expect(new Set(ids).size).toBe(1)
+    expect(UUID_RE.test(ids[0])).toBe(true)
   })
 })
 

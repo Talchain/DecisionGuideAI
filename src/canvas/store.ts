@@ -2982,10 +2982,18 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // P0-2: Set saving state
     set({ isSaving: true })
 
+    // Does a saved record already exist for the current ID? `currentScenarioId` can be
+    // a lazily-allocated conversation UUID (set by the first CEE turn) that has NO record
+    // yet. In that case we must ADOPT that UUID as the new record's ID rather than mint a
+    // replacement — otherwise updateScenario() would silently no-op and the model would be
+    // lost. This keeps model identity == CEE conversation identity across a save.
+    const hasExistingRecord =
+      currentScenarioId != null && scenarios.getScenario(currentScenarioId) != null
+
     try {
-      if (currentScenarioId) {
-        // Update existing scenario
-        scenarios.updateScenario(currentScenarioId, {
+      if (hasExistingRecord) {
+        // Update existing scenario (ID preserved)
+        scenarios.updateScenario(currentScenarioId!, {
           name,
           graph: { nodes, edges },
           framing: currentScenarioFraming || undefined,
@@ -3011,15 +3019,18 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           isSaving: false,
           lastSavedAt: Date.now()
         })
-        return currentScenarioId
+        return currentScenarioId!
       } else {
-        // Create new scenario - auto-generate name if not provided
+        // No record yet. Create one, ADOPTING the existing conversation UUID when present
+        // (so the saved model reuses the same ID); otherwise createScenario mints a fresh
+        // UUID. Auto-generate a name if not provided.
         const scenarioName = name
           || currentScenarioFraming?.title
           || `Decision - ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
 
         const scenario = scenarios.createScenario({
           name: scenarioName,
+          id: currentScenarioId ?? undefined,
           nodes,
           edges,
           framing: currentScenarioFraming || undefined,

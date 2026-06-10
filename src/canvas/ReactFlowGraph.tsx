@@ -17,6 +17,7 @@ import { useKeyboardShortcuts } from './useKeyboardShortcuts'
 import { loadState, saveState } from './persist'
 import * as scenarios from './store/scenarios'
 import type { Scenario } from './store/scenarios'
+import { isUUID } from '../services/turn-request-builder'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
 import type { CEEAnalysisReady } from '../adapters/cee/types'
 import { CanvasContextMenu } from './contextMenu/CanvasContextMenu'
@@ -1430,9 +1431,18 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           nodes: autosave.nodes,
           edges: autosave.edges,
         })
-        // Clear stale scenario ID - user is now in draft mode
-        scenarios.clearCurrentScenarioId()
-        useCanvasStore.setState({ currentScenarioId: null })
+        // Scenario/thread continuity: preserve a UUID-format current-scenario ID across
+        // the refresh so the in-flight CEE conversation keeps the same scenario_id. The
+        // periodic autosave stamps this same ID into the autosave slot, so the recovered
+        // graph and the preserved conversation belong together. Only a missing or legacy
+        // (non-UUID) ID is cleared to drop into draft mode.
+        const persistedScenarioId = scenarios.getCurrentScenarioId()
+        if (persistedScenarioId && isUUID(persistedScenarioId)) {
+          useCanvasStore.setState({ currentScenarioId: persistedScenarioId })
+        } else {
+          scenarios.clearCurrentScenarioId()
+          useCanvasStore.setState({ currentScenarioId: null })
+        }
         // FIX: Do NOT clear autosave after consuming it.
         // Keep autosave data until user explicitly saves (scenario save) or next autosave cycle.
         // This ensures if browser crashes again before manual save, data can still be recovered.

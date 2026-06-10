@@ -65,10 +65,16 @@ function isLocalStorageAvailable(): boolean {
 }
 
 /**
- * Generate a unique ID for scenarios
+ * Generate a unique ID for scenarios.
+ *
+ * Uses crypto.randomUUID() so new scenario/model IDs are UUID-format and pass the
+ * orchestrator's isUUID() wire guard — keeping model identity and CEE conversation
+ * identity on the same stable ID. Legacy "scenario-{ts}-{rand}" IDs already saved in
+ * localStorage are NOT migrated; they still load and function, and receive a fresh
+ * UUID on their next CEE turn via the lazy-allocation guard in useConversation.
  */
 function generateId(): string {
-  return `scenario-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  return crypto.randomUUID()
 }
 
 /**
@@ -283,6 +289,13 @@ export function createScenario(params: {
   name: string
   nodes: Node[]
   edges: Edge[]
+  /**
+   * Optional explicit record ID. When omitted, a fresh UUID is generated.
+   * Used by saveCurrentScenario to ADOPT an already-allocated conversation UUID
+   * (the lazily-assigned scenario_id) when first persisting an unsaved model, so
+   * the saved record reuses the same ID rather than minting a replacement.
+   */
+  id?: string
   source_template_id?: string
   source_template_version?: string
   framing?: ScenarioFraming
@@ -295,7 +308,7 @@ export function createScenario(params: {
   const now = Date.now()
   const { nodes, edges } = deepCloneGraph(params.nodes, params.edges)
   const scenario: Scenario = {
-    id: generateId(),
+    id: params.id ?? generateId(),
     name: params.name,
     createdAt: now,
     updatedAt: now,
