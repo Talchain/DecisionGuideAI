@@ -195,6 +195,17 @@ Deliberate deviations from the prototype HTML (it forks the system; we do not):
 5. Click a spark. Expect the prompt sent to Olumi immediately with the panel's label in the bubble.
 6. `localStorage.setItem('feature.preAnalysisV3', '0')`, reload. Expect the current panel exactly as today.
 
+## 17a. Build verification results (2026-06-10, local dev server)
+
+Live browser smoke on the worktree dev server (PLoT proxied to staging, CEE dummied):
+- Flag on: v3 panel renders (bars, hero, signals with correct entity shapes, footer).
+- `POST /bff/engine/v1/pre-analysis-sensitivity` fired through the existing proxy and returned live influence (f1 1, f2 1, f3 0.5); ranking consumed it (tie broken by label: "Check Ramp-up time").
+- Success commit: typing wrote nothing; Enter committed once; field re-rendered "25%", the Olumi-estimate pill flipped to user attribution, Frame bar, ladder and footer updated in the same pass.
+- Calibrate: drill-in saved 45 → row "checked by you", Estimates bar moved to exactly 40% (the factor's influence share), the estimates signal re-pointed at the next factor.
+- Flag off + reload: legacy panel restored, v3 absent (reinstatement lever proven).
+- Production build green; the v3 panel is a separate lazy chunk (flag-off users do not load it).
+- A temporary gitignored `.env.local` remains in the worktree for Paul's in-browser review (delete after; see memory note on worktree dev env).
+
 ## 18. Test matrix
 
 See plan §Test plan; in brief: pure selector suites (bars honest-fill, ladder rungs and precedence, ranking with sensitivity/fallback/stale fixtures, coverage characterisation), signal registry matrix (including banned-id and dead-end-intent static assertions, glossary scan of all copy), session ledger, component suites (three states, one-pass resolution, coaching present/absent/partial fixtures from `tests/fixtures/cee-responses/` plus a staging-derived V5 smoke fixture, no-layout-shift row counts, footer `readiness_level` absence assertion, flag-gate spec), `applyDraftResult` ingestion cases, DS guard, lint, typecheck (ci + full app tsconfig), legacy pre-analysis suite unchanged.

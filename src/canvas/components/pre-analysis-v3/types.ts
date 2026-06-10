@@ -85,7 +85,7 @@ export interface EstimateRowModel {
   /**
    * Value-scale guard: false when only a normalised model-scale value exists
    * with no display-scale anchor — the row degrades to confirm-only with no
-   * numeric display (cee-plot-flip value-scale boundary, #246 species).
+   * numeric display (cee-plot-flip value-scale boundary, issue 246 species).
    */
   canEditValue: boolean
   /** True when the factor has no value at all (copy: needs a value). */

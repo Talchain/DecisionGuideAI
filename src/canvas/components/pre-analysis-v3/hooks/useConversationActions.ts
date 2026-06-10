@@ -1,6 +1,6 @@
 /**
  * useConversationActions — null-checked wrappers over the guidance-store
- * conversation callbacks (the same dispatch surface PR #173 pins; no new
+ * conversation callbacks (the same dispatch surface PR 173 pins; no new
  * convention). Sparks send the prefilled prompt immediately (approved
  * decision): the short label shows in the bubble, the fuller prompt goes to
  * Olumi. When no conversation surface is registered the action degrades to a
