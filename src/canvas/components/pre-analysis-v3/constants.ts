@@ -112,10 +112,10 @@ export const SIGNAL_COPY = {
     lead: `Olumi estimated ${n === 1 ? 'one value' : `${n} values`} from your brief.`,
     emphasis: topLabel
       ? `${topLabel} may matter most to the analysis, check it first.`
-      : 'Replacing them with your judgement sharpens the analysis.',
+      : 'Replacing them with your judgement usually helps the analysis.',
   }),
   estimatesRationale:
-    'Calibration: replacing the highest-influence estimates with your judgement usually improves the analysis most. Influence comes from a quick structural pass of your model.',
+    'Checking estimates: replacing the highest-influence estimates with your judgement usually helps the analysis. Influence comes from a quick structural pass of your model.',
   ceeBiasRationale:
     'A reflective check from Olumi, based on the structure of your model. Worth a thought, not a verdict.',
 } as const
@@ -160,7 +160,7 @@ export const MODEL_VIEW_COPY = {
 export const FOOTER_COPY = {
   ready: 'Analysis available',
   readySubSuccessUnset: 'First pass will be provisional until success is defined',
-  readySubEstimates: 'Checking top estimates will sharpen the result',
+  readySubEstimates: 'Checking top estimates usually sharpens the result',
   readySubAllSet: 'Ready when you are',
   notReady: 'Not ready for analysis yet',
   notReadySubFallback: 'Add a decision, a goal and at least two options',
@@ -219,8 +219,8 @@ export const ACTIONS_MENU: ReadonlyArray<ActionsMenuItem> = [
   },
   {
     id: 'calibrate_estimates',
-    label: 'Calibrate estimates',
-    prompt: 'Help me calibrate the estimates that matter most to the analysis.',
+    label: 'Check estimates',
+    prompt: 'Help me check the estimates that matter most to the analysis.',
   },
   {
     id: 'compare_view',
@@ -244,8 +244,8 @@ export const SPARK_PROMPTS = {
     prompt: 'Run a pre-mortem with me: imagine this choice failed a year from now. What went wrong?',
   },
   calibrate: {
-    label: 'Calibrate estimates',
-    prompt: 'Help me calibrate the estimates that matter most to the analysis.',
+    label: 'Check estimates',
+    prompt: 'Help me check the estimates that matter most to the analysis.',
   },
   pressureTestFrame: {
     label: 'Pressure-test the frame',

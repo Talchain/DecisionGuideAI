@@ -52,10 +52,10 @@ export const EstimateRow = memo(function EstimateRow({ row, expanded, onToggle }
             <Check className="h-3.5 w-3.5 text-success" />
           </span>
         ) : (
-          <Tooltip content="Calibrate: replace this estimate with your judgement" delay={300}>
+          <Tooltip content="Check this estimate: replace it with your judgement" delay={300}>
             <PanelIconButton
               variant="ghost"
-              aria-label={`Calibrate ${row.label}`}
+              aria-label={`Check ${row.label}`}
               aria-expanded={expanded}
               onClick={() => onToggle(row.nodeId)}
             >

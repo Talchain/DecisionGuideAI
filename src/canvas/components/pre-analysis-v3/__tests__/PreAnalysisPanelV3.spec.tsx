@@ -14,7 +14,7 @@
 import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import type { Node, Edge } from '@xyflow/react'
+import type { Node } from '@xyflow/react'
 import { PreAnalysisPanelV3 } from '../PreAnalysisPanelV3'
 import { ToastProvider } from '../../../ToastContext'
 import { useCanvasStore } from '../../../store'
@@ -32,8 +32,14 @@ function node(
   return { id, type: kind, position: { x: 0, y: 0 }, data: { kind, label, ...data } } as Node
 }
 
-function edge(source: string, target: string): Edge {
-  return { id: `${source}->${target}`, source, target } as Edge
+type StoreEdge = Parameters<typeof useCanvasStore.setState>[0] extends infer S
+  ? S extends { edges?: Array<infer E> | undefined }
+    ? E
+    : never
+  : never
+
+function edge(source: string, target: string): StoreEdge {
+  return { id: `${source}->${target}`, source, target, data: {} } as StoreEdge
 }
 
 const SENSITIVITY: PreAnalysisSensitivity = {
@@ -157,7 +163,7 @@ describe('single source of truth — one success commit updates everything', () 
     )
     expect(screen.getByTestId('pre-analysis-v3-next-step')).toHaveTextContent('Tech lead impact')
     expect(screen.getByTestId('pre-analysis-v3-footer')).toHaveTextContent(
-      'Checking top estimates will sharpen the result',
+      'Checking top estimates usually sharpens the result',
     )
   })
 
@@ -240,7 +246,7 @@ describe('calibrate flow (canonical observed-state writes)', () => {
   it('saving a value writes raw_value + user_override and moves the estimates bar', () => {
     renderPanel()
     fireEvent.click(screen.getByRole('button', { name: /Your decision/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Calibrate Tech lead impact' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Check Tech lead impact' }))
 
     const input = screen.getByLabelText('Your estimate for Tech lead impact')
     fireEvent.change(input, { target: { value: '40' } })
@@ -259,7 +265,7 @@ describe('calibrate flow (canonical observed-state writes)', () => {
   it('confirm as is writes user_confirmed without touching the value', () => {
     renderPanel()
     fireEvent.click(screen.getByRole('button', { name: /Your decision/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Calibrate Tech lead impact' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Check Tech lead impact' }))
     fireEvent.click(screen.getByTestId('pre-analysis-v3-confirm-as-is'))
 
     const f1 = useCanvasStore.getState().nodes.find(n => n.id === 'f1')!
