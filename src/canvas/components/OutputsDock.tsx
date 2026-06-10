@@ -23,7 +23,7 @@
  * - Slow-run feedback messages (20s/40s thresholds)
  */
 
-import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
+import { useEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
 import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, XCircle, MessageCircle, MessageSquare, CheckCircle } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
@@ -37,7 +37,7 @@ import {
   trackAutoFixSuccess,
   trackAutoFixFailed,
 } from '../utils/sandboxTelemetry'
-import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled, isV5CanonicalAnalysisEnabled, isAnalysisHeroV17Enabled } from '../../flags'
+import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled, isV5CanonicalAnalysisEnabled, isAnalysisHeroV17Enabled, isPreAnalysisV3Enabled } from '../../flags'
 import { OlumiTabBody } from './OlumiTabBody'
 import { PersistentInputStrip } from './PersistentInputStrip'
 import { SelectionPill } from './SelectionPill'
@@ -61,6 +61,8 @@ import {
   computeInfluenceCoverage,
   isTransitionBridgeReviewed,
 } from './pre-analysis-v3/selectors/computeInfluenceCoverage'
+// Lazy: flag-off users never pay the v3 bundle cost.
+const PreAnalysisPanelV3 = lazy(() => import('./pre-analysis-v3'))
 import { useConversation } from '../conversation/useConversation'
 import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../utils/canRunAnalysis'
 import { WarningBanner } from './WarningBanner'
@@ -1817,17 +1819,33 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 {/* v7: Rerun + Compare buttons moved to sticky footer below */}
                 {/* Pre-run state: Show consolidated guidance and Run button */}
                 {isPreRun && nodes.length > 0 && (
-                  <div className="flex-1 min-h-0 flex flex-col" data-testid="outputs-pre-run">
-                    {/* Pre-Analysis Panel - M1 rebuild with new component architecture */}
-                    {/* Goal node selector and threshold are now inside AnalysisSettings accordion */}
-                    <PreAnalysisPanel
-                      onAnalyse={handleRunAnalysis}
-                      isAnalysing={isRunning}
-                      blockedReason={runBlockedTooltip}
-                      onSendMessage={sendMessage}
-                      expertMode={expertMode}
-                    />
-                  </div>
+                  isPreAnalysisV3Enabled() ? (
+                    /* Pre-analysis panel v3 (flag preAnalysisV3): outcome-centred
+                       panel, lazy-loaded so flag-off users pay no bundle cost.
+                       Reinstatement: flag off restores the legacy branch below,
+                       byte-identical. See docs/pre-analysis-panel-solution-design-v1.md §14. */
+                    <div className="flex-1 min-h-0 flex flex-col" data-testid="outputs-pre-run-v3">
+                      <Suspense fallback={null}>
+                        <PreAnalysisPanelV3
+                          onAnalyse={handleRunAnalysis}
+                          isAnalysing={isRunning}
+                          blockedReason={runBlockedTooltip}
+                        />
+                      </Suspense>
+                    </div>
+                  ) : (
+                    <div className="flex-1 min-h-0 flex flex-col" data-testid="outputs-pre-run">
+                      {/* Pre-Analysis Panel - M1 rebuild with new component architecture */}
+                      {/* Goal node selector and threshold are now inside AnalysisSettings accordion */}
+                      <PreAnalysisPanel
+                        onAnalyse={handleRunAnalysis}
+                        isAnalysing={isRunning}
+                        blockedReason={runBlockedTooltip}
+                        onSendMessage={sendMessage}
+                        expertMode={expertMode}
+                      />
+                    </div>
+                  )
                 )}
                 {/* Phase 2 Sprint 1B: Slow-run UX feedback */}
                 {slowRunMessage && (

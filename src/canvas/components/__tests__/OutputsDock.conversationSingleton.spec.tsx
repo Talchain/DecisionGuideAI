@@ -54,6 +54,7 @@ vi.mock('../../../flags', () => ({
   isAiPanelV2Enabled: () => flagState.aiPanelV2,
   isV5CanonicalAnalysisEnabled: () => false,
   isAnalysisHeroV17Enabled: () => false,
+  isPreAnalysisV3Enabled: () => false,
 }))
 
 // THE counter: every time the real useConversation hook executes, we

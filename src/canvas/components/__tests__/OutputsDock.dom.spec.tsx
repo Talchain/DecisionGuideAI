@@ -30,6 +30,9 @@ vi.mock('../../../flags', () => ({
   isLegacyDirectRunEnabled: mockIsLegacyDirectRunEnabled,
   isJourneyTabEnabled: vi.fn(() => false),
   isAnalysisHeroV17Enabled: vi.fn(() => false),
+  // Pre-analysis v3 gate stays off here: this spec pins the LEGACY pre-run
+  // panel; the v3 panel has its own suite under pre-analysis-v3/__tests__.
+  isPreAnalysisV3Enabled: vi.fn(() => false),
 }))
 
 vi.mock('../../hooks/useV2Run', () => ({
