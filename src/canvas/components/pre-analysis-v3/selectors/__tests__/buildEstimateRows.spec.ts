@@ -120,6 +120,20 @@ describe('buildEstimateRows — value-scale guard', () => {
     expect(topUncalibrated(rows)).toBeNull()
   })
 
+  it('aiSourced reflects the actual source (no false Olumi badge on unknown provenance)', () => {
+    const rows = buildEstimateRows(
+      [
+        factor('f1', 'A', { raw_value: 5, unit: '%', source: 'cee_inference' }),
+        factor('f2', 'B', { raw_value: 9, unit: '%' }), // value, no source
+      ],
+      ranking(['f1', 'f2']),
+      null,
+    )
+    expect(rows[0].aiSourced).toBe(true)
+    expect(rows[1].aiSourced).toBe(false)
+    expect(rows[1].needsValue).toBe(false)
+  })
+
   it('priority labels sequence over unreviewed rows only (a checked row never reads check first)', () => {
     const rows = buildEstimateRows(
       [

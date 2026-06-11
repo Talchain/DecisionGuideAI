@@ -7,7 +7,7 @@
  * in the panel tree is uncommitted input text.
  */
 
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useCanvasStore } from '../../../store'
 import { useGraphReadiness } from '../../../hooks/useGraphReadiness'
 import { isReviewedByUser } from '../../pre-analysis/utils/isReviewedByUser'
@@ -76,16 +76,14 @@ export function usePreAnalysisModel(): PreAnalysisModel {
   const { readiness } = useGraphReadiness()
   const seen = useSignalSessionStore(s => s.seen)
   const markSeen = useSignalSessionStore(s => s.markSeen)
-  const resetLedger = useSignalSessionStore(s => s.reset)
+  const ensureScenario = useSignalSessionStore(s => s.ensureScenario)
 
-  // Session ledger resets when the scenario changes (not on first mount).
-  const prevScenarioRef = useRef(scenarioId)
+  // Bind the ledger to the scenario. The store-side check also covers
+  // scenario switches that happened while the panel was unmounted (the
+  // module-level ledger outlives mounts).
   useEffect(() => {
-    if (prevScenarioRef.current !== scenarioId) {
-      prevScenarioRef.current = scenarioId
-      resetLedger()
-    }
-  }, [scenarioId, resetLedger])
+    ensureScenario(scenarioId)
+  }, [scenarioId, ensureScenario])
 
   const facts = useMemo(() => computeGraphFacts(nodes), [nodes])
 
@@ -202,12 +200,17 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     if (derived.newlySeen.length > 0) markSeen(derived.newlySeen, Date.now())
   }, [derived.newlySeen, markSeen])
 
-  const rawCoachingText =
-    draftCoaching?.summary?.trim() ||
-    ((analysisReady as { coaching_summary?: string | null } | null)?.coaching_summary?.trim() ?? '')
-  const coachingText = rawCoachingText
-    ? guardCeeText(rawCoachingText, CEE_FALLBACK_COPY.heroCoaching).text
-    : ''
+  const coaching = useMemo(() => {
+    const raw =
+      draftCoaching?.summary?.trim() ||
+      ((analysisReady as { coaching_summary?: string | null } | null)?.coaching_summary?.trim() ??
+        '')
+    if (!raw) return null
+    return {
+      text: guardCeeText(raw, CEE_FALLBACK_COPY.heroCoaching).text,
+      attribution: { kind: 'olumi' } as Attribution,
+    }
+  }, [draftCoaching, analysisReady])
 
   const options = useMemo(
     () =>
@@ -272,41 +275,55 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     }
   }, [canRun, success.isSet, top, readiness?.confidence_explanation])
 
-  const decisionLabel = facts.decisionNode
-    ? ((facts.decisionNode.data as Record<string, unknown>)?.label as string | undefined)
-    : undefined
-  // The user's own question outranks the drafted decision label (item 6).
-  const briefTitle = currentBriefText?.trim()
-  const goalLabel = facts.goalNode
-    ? ((facts.goalNode.data as Record<string, unknown>)?.label as string | undefined)
-    : undefined
-
-  return {
-    hero: {
+  // Memoised slices so the memo()'d sections actually bail out when their
+  // inputs are unchanged (a fresh object tree every render defeats them).
+  const hero = useMemo(() => {
+    const decisionLabel = facts.decisionNode
+      ? ((facts.decisionNode.data as Record<string, unknown>)?.label as string | undefined)
+      : undefined
+    // The user's own question outranks the drafted decision label (item 6).
+    const briefTitle = currentBriefText?.trim()
+    const goalLabel = facts.goalNode
+      ? ((facts.goalNode.data as Record<string, unknown>)?.label as string | undefined)
+      : undefined
+    return {
       decisionTitle: briefTitle && briefTitle.length > 0 ? briefTitle : decisionLabel ?? null,
       goal: facts.goalNode ? { nodeId: facts.goalNode.id, label: goalLabel ?? '' } : null,
       success,
       goalNodeId: facts.goalNode?.id ?? null,
-      coaching: coachingText ? { text: coachingText, attribution: { kind: 'olumi' } } : null,
-    },
-    bars,
-    ladder,
-    sharpen: derived.sharpen,
-    estimates: {
-      rows,
-      rankingSource: ranking.source,
-      ...rowCounts,
-    },
-    options,
-    risks,
-    advanced: {
+      coaching,
+    }
+  }, [facts.decisionNode, facts.goalNode, currentBriefText, success, coaching])
+
+  const estimates = useMemo(
+    () => ({ rows, rankingSource: ranking.source, ...rowCounts }),
+    [rows, ranking.source, rowCounts],
+  )
+
+  const advanced = useMemo(
+    () => ({
       factorCount: facts.factorNodes.length,
       connectionCount: edges.length,
       readinessScore: readiness?.readiness_score ?? null,
       canRun,
       aiEstimatedCount: provenance.aiEstimatedCount,
       reviewedCount: provenance.reviewedCount,
-    },
-    footer,
-  }
+    }),
+    [facts.factorNodes.length, edges.length, readiness?.readiness_score, canRun, provenance],
+  )
+
+  return useMemo(
+    () => ({
+      hero,
+      bars,
+      ladder,
+      sharpen: derived.sharpen,
+      estimates,
+      options,
+      risks,
+      advanced,
+      footer,
+    }),
+    [hero, bars, ladder, derived.sharpen, estimates, options, risks, advanced, footer],
+  )
 }

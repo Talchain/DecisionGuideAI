@@ -11,6 +11,13 @@
  * - A successful commit shows a brief saved tick; the committed, formatted
  *   value flows back down from the derivation hook in the same pass.
  * - Escape reverts to the committed value and clears any hint.
+ *
+ * Commit gating: a commit only happens while user input is pending
+ * (`pendingInputRef`). This makes Enter commit exactly once (the follow-up
+ * blur no-ops), makes Escape genuinely revert (the blur it triggers cannot
+ * commit), and prevents a blur from writing a stale draft over an external
+ * update the user never touched. A failed commit keeps the input pending so
+ * Save can retry without refocusing.
  */
 
 import { memo, useEffect, useRef, useState, type ReactNode } from 'react'
@@ -49,12 +56,14 @@ export const InlineField = memo(function InlineField({
   const [draft, setDraft] = useState(value)
   const [hint, setHint] = useState<string | null>(null)
   const [justSaved, setJustSaved] = useState(false)
-  const editingRef = useRef(false)
+  /** True while the user has typed something not yet committed or reverted. */
+  const pendingInputRef = useRef(false)
+  const focusedRef = useRef(false)
   const savedTimerRef = useRef<number | null>(null)
 
-  // Reflect external commits unless the user is mid-edit.
+  // Reflect external commits unless the user has pending input.
   useEffect(() => {
-    if (!editingRef.current) setDraft(value)
+    if (!pendingInputRef.current) setDraft(value)
   }, [value])
 
   useEffect(
@@ -67,13 +76,17 @@ export const InlineField = memo(function InlineField({
   const dirty = draft !== value
 
   const commit = () => {
-    editingRef.current = false
+    // Only user-typed input commits: Enter's follow-up blur, Escape's blur,
+    // and blurs after an external update all no-op here.
+    if (!pendingInputRef.current) return
     if (draft === value) {
+      pendingInputRef.current = false
       setHint(null)
       return
     }
     const result = onCommit(draft)
     if (result === true) {
+      pendingInputRef.current = false
       setHint(null)
       setJustSaved(true)
       if (savedTimerRef.current !== null) window.clearTimeout(savedTimerRef.current)
@@ -81,13 +94,14 @@ export const InlineField = memo(function InlineField({
       // The committed value flows back via the value prop; re-anchor to it.
       setDraft(value)
     } else {
-      // Keep the user's text and explain — never silently snap back.
+      // Keep the user's text (and the pending flag, so Save can retry) and
+      // explain — never silently snap back.
       setHint(result)
     }
   }
 
   const revert = () => {
-    editingRef.current = false
+    pendingInputRef.current = false
     setDraft(value)
     setHint(null)
   }
@@ -109,14 +123,17 @@ export const InlineField = memo(function InlineField({
           value={draft}
           placeholder={placeholder}
           onFocus={() => {
-            editingRef.current = true
+            focusedRef.current = true
           }}
           onChange={e => {
-            editingRef.current = true
+            pendingInputRef.current = true
             setDraft(e.target.value)
             if (hint) setHint(null)
           }}
-          onBlur={commit}
+          onBlur={() => {
+            focusedRef.current = false
+            commit()
+          }}
           onKeyDown={e => {
             if (e.key === 'Enter') {
               commit()

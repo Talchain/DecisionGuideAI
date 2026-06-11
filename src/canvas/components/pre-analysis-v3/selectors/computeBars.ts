@@ -5,7 +5,7 @@
  * Colour is semantic state only (UI-SEM-051 thresholds).
  */
 
-import { barStateFor, OPTIONS_SATURATION_COUNT, RISKS_SATURATION_COUNT } from '../constants'
+import { BAR_STATE_WORDS, barStateFor, OPTIONS_SATURATION_COUNT, RISKS_SATURATION_COUNT } from '../constants'
 import type { BarModel, BarsInput } from '../types'
 
 function clamp01(n: number): number {
@@ -45,6 +45,7 @@ export function computeBars(input: BarsInput): BarsModel {
       key: 'frame',
       fill: frameFill,
       state: barStateFor(frameFill),
+      cue: BAR_STATE_WORDS[barStateFor(frameFill)],
       tooltip:
         frameMissing.length === 0
           ? 'Decision, goal and success measure set'
@@ -54,6 +55,7 @@ export function computeBars(input: BarsInput): BarsModel {
       key: 'options',
       fill: optionsFill,
       state: barStateFor(optionsFill),
+      cue: BAR_STATE_WORDS[barStateFor(optionsFill)],
       tooltip:
         optionCount === 0
           ? 'No options yet'
@@ -63,6 +65,7 @@ export function computeBars(input: BarsInput): BarsModel {
       key: 'risks',
       fill: risksFill,
       state: barStateFor(risksFill),
+      cue: BAR_STATE_WORDS[barStateFor(risksFill)],
       tooltip:
         riskCount === 0
           ? 'No risks captured yet'
@@ -73,6 +76,9 @@ export function computeBars(input: BarsInput): BarsModel {
       fill: estimatesFill,
       // No estimates to check is neutral, not alarming.
       state: checkableCount === 0 ? 'building' : barStateFor(estimatesFill),
+      // No cue when there is nothing to measure — an empty bar captioned
+      // "medium" would contradict its own tooltip.
+      cue: checkableCount === 0 ? null : BAR_STATE_WORDS[barStateFor(estimatesFill)],
       tooltip:
         checkableCount === 0
           ? `No estimates yet${needsValueSuffix}`

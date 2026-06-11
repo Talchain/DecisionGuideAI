@@ -5,8 +5,11 @@
  * check, actions hidden). Never-seen, non-detecting signals are absent —
  * no phantom confirmations.
  *
- * Returns the FULL priority-ordered row list (bounded by the registry, ≤4
- * sharpen rows). The visible cap and "Show N more" reveal live in
+ * Returns the FULL row list (bounded by the registry, ≤4 sharpen rows),
+ * ordered deterministically: LIVE rows first (registry priority), then
+ * resolved quiet confirmations (registry priority). A greyed confirmation
+ * can therefore never occupy a default-visible slot while an actionable
+ * signal hides behind "Show N more". The visible cap and the reveal live in
  * SharpenSection — CEE rows hold their deterministic priority slot, so an
  * enrichment row can never push the visible set beyond the cap.
  */
@@ -27,7 +30,8 @@ export function deriveSignalViews(
   input: SignalDetectionInput,
   seen: Partial<Record<PanelSignalId, { firstSeenAt: number }>>,
 ): DerivedSignals {
-  const sharpen: SignalView[] = []
+  const live: SignalView[] = []
+  const resolved: SignalView[] = []
   const hero: SignalView[] = []
   const newlySeen: PanelSignalId[] = []
 
@@ -37,9 +41,9 @@ export function deriveSignalViews(
       if (!seen[def.signal_id]) newlySeen.push(def.signal_id)
       const view: SignalView = { detection, status: 'live' }
       if (def.surface === 'hero') hero.push(view)
-      else sharpen.push(view)
+      else live.push(view)
     } else if (seen[def.signal_id] && def.surface === 'sharpen' && def.resolvedCopy) {
-      sharpen.push({
+      resolved.push({
         detection: {
           signal_id: def.signal_id,
           copy: { lead: def.resolvedCopy, emphasis: '' },
@@ -51,5 +55,5 @@ export function deriveSignalViews(
     }
   }
 
-  return { sharpen, hero, newlySeen }
+  return { sharpen: [...live, ...resolved], hero, newlySeen }
 }

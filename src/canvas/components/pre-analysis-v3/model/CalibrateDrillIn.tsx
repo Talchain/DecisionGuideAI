@@ -15,6 +15,7 @@ import { memo, useState } from 'react'
 import { Check } from 'lucide-react'
 import Tooltip from '../../../../components/Tooltip'
 import { typography, typo } from '../../../../styles/typography'
+import { FIELD_FEEDBACK_COPY } from '../constants'
 import { useCanvasStore } from '../../../store'
 import { withObservedStateUpdate } from '../../../utils/observedStateHelpers'
 import { PanelIconButton } from '../ui/PanelIconButton'
@@ -53,10 +54,17 @@ function commitConfirm(nodeId: string): void {
 
 export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: CalibrateDrillInProps) {
   const [draft, setDraft] = useState(row.rawPrefill != null ? String(row.rawPrefill) : '')
+  const [hint, setHint] = useState<string | null>(null)
 
   const save = () => {
-    const parsed = Number.parseFloat(draft.replace(/,/g, ''))
-    if (!Number.isFinite(parsed)) return
+    // Lenient like the hero field: extract the number from natural phrasing;
+    // hint (never a silent no-op) when none exists.
+    const cleaned = draft.replace(/[^0-9.,-]/g, '').replace(/,/g, '')
+    const parsed = cleaned.trim() === '' ? NaN : Number.parseFloat(cleaned)
+    if (!Number.isFinite(parsed)) {
+      setHint(FIELD_FEEDBACK_COPY.numberHint)
+      return
+    }
     commitValue(row.nodeId, parsed, row.cap)
     onDone()
   }
@@ -70,8 +78,12 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
             inputMode="decimal"
             className={`${typography.panelBody} h-7 w-28 rounded-lg border border-panel-border bg-panel px-2 text-text-header outline-none placeholder:text-text-light focus:border-info focus:ring-2 focus:ring-info/20`}
             placeholder="Set value"
+            aria-invalid={hint ? true : undefined}
             value={draft}
-            onChange={e => setDraft(e.target.value)}
+            onChange={e => {
+              setDraft(e.target.value)
+              if (hint) setHint(null)
+            }}
             onKeyDown={e => {
               if (e.key === 'Enter') save()
               if (e.key === 'Escape') onDone()
@@ -99,6 +111,11 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
         >
           Confirm as is
         </button>
+      )}
+      {hint && (
+        <span className={`${typography.panelMeta} text-warning`} role="status">
+          {hint}
+        </span>
       )}
     </div>
   )

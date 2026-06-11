@@ -7,26 +7,30 @@
  * Behaviour:
  * - Debounced 500ms on a structural fingerprint (ids, kinds, connections) —
  *   value edits never refetch; structure changes do.
+ * - The fetched fingerprint is stamped (ref): a payload is only treated as
+ *   current when BOTH its factor ids match AND it was fetched for this exact
+ *   structure. Edge-only changes (connect, rewire, delete a connection)
+ *   therefore refetch — factor-id matching alone would keep serving influence
+ *   computed for a different topology. A payload already in the store on
+ *   mount (draft ingestion) is adopted for the current structure once.
  * - The graph is built by the existing V2 request builder (normalised ids);
  *   response influence keys are mapped back to canvas ids before storing.
- * - Skips when the current store payload already matches the graph (a fresh
- *   draft ingestion or a previous fetch), when there is no goal, or when
- *   there are no factors.
- * - On failure the store is left untouched: the stale-sensitivity guard in
+ *   A response that lands after an abort (structure changed mid-flight) is
+ *   discarded.
+ * - On failure the store is left untouched: the stale-id guard in
  *   computeEstimateRanking degrades ranking to degree weighting, so a failed
  *   refresh can never surface a mismatched payload.
  *
  * Mounted only inside PreAnalysisPanelV3 — flag off means this never runs.
  */
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../../../store'
 import { plotProxyBase } from '../../../../lib/config'
 import { buildV2Request } from '../../../../adapters/plot/v2/adapter'
 import type { PreAnalysisSensitivity } from '../../../../adapters/cee/types'
-import { computeGraphFacts } from '../selectors/graphFacts'
+import { computeGraphFacts, kindOf } from '../selectors/graphFacts'
 import { sensitivityMatchesGraph } from '../selectors/computeEstimateRanking'
-import { kindOf } from '../selectors/graphFacts'
 import type { Node } from '@xyflow/react'
 import type { Edge } from '@xyflow/react'
 
@@ -65,6 +69,8 @@ export function useSensitivityRanking(enabled: boolean): void {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const fingerprint = enabled ? structuralFingerprint(nodes, edges) : ''
+  /** The structure the current store payload is known to belong to. */
+  const stampedFingerprintRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!enabled || fingerprint === '') return
@@ -73,10 +79,20 @@ export function useSensitivityRanking(enabled: boolean): void {
     const facts = computeGraphFacts(state.nodes)
     if (!facts.goalNode || facts.factorNodes.length === 0) return
 
-    // Already consistent (draft ingestion or a previous fetch) — no call.
     const existing = state.preAnalysisSensitivity
-    if (existing?.factor_influence && sensitivityMatchesGraph(existing.factor_influence, facts.factorNodes)) {
-      return
+    const idsMatch =
+      existing?.factor_influence != null &&
+      sensitivityMatchesGraph(existing.factor_influence, facts.factorNodes)
+
+    if (idsMatch) {
+      // Adopt an unstamped payload (draft ingestion / first mount) for the
+      // current structure exactly once; afterwards a fingerprint change
+      // refetches even though factor ids still match (edge-only changes).
+      if (stampedFingerprintRef.current === null) {
+        stampedFingerprintRef.current = fingerprint
+        return
+      }
+      if (stampedFingerprintRef.current === fingerprint) return
     }
 
     const controller = new AbortController()
@@ -102,12 +118,16 @@ export function useSensitivityRanking(enabled: boolean): void {
           return
         }
         const body = (await res.json()) as PreAnalysisSensitivity
+        // The structure may have changed while the body streamed in; a
+        // cleanup-aborted request must not stamp or store a stale payload.
+        if (controller.signal.aborted) return
         if (!body?.factor_influence) return
         const remapped: PreAnalysisSensitivity = {
           factor_influence: remapKeys(body.factor_influence, reverseIdMap, false),
           edge_influence: remapKeys(body.edge_influence ?? {}, reverseIdMap, true),
           method: body.method,
         }
+        stampedFingerprintRef.current = fingerprint
         useCanvasStore.getState().setPreAnalysisSensitivity(remapped)
       } catch (err) {
         if ((err as Error)?.name === 'AbortError') return

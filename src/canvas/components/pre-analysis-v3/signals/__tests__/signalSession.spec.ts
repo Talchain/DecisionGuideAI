@@ -76,6 +76,17 @@ describe('deriveSignalViews — lifecycle', () => {
     ])
   })
 
+  it('live rows come before resolved confirmations (a quiet check never displaces an actionable signal)', () => {
+    // option_breadth was seen and has resolved (3 options); risk + estimates are live.
+    const seen = { sig_option_breadth: { firstSeenAt: 1 } }
+    const derived = deriveSignalViews(input({ optionCount: 3 }), seen)
+    expect(derived.sharpen.map(v => `${v.detection.signal_id}:${v.status}`)).toEqual([
+      'sig_risk_count:live',
+      'sig_estimates:live',
+      'sig_option_breadth:resolved',
+    ])
+  })
+
   it('hero-surface signals never occupy sharpen rows', () => {
     const derived = deriveSignalViews(input({ goalPresent: false, successSet: false }), {})
     expect(derived.hero.map(v => v.detection.signal_id)).toEqual(['sig_goal_missing'])
@@ -113,6 +124,17 @@ describe('signalSessionStore — ledger', () => {
     const store = useSignalSessionStore
     store.getState().markSeen(['sig_estimates', 'sig_risk_count'], 100)
     store.getState().reset()
+    expect(store.getState().seen).toEqual({})
+  })
+
+  it('ensureScenario clears the ledger on a scenario mismatch, keeps it on a match', () => {
+    const store = useSignalSessionStore
+    store.getState().ensureScenario('scenario-a')
+    store.getState().markSeen(['sig_estimates'], 100)
+    store.getState().ensureScenario('scenario-a')
+    expect(store.getState().seen.sig_estimates).toEqual({ firstSeenAt: 100 })
+    // A different scenario — even after an unmounted switch — starts clean.
+    store.getState().ensureScenario('scenario-b')
     expect(store.getState().seen).toEqual({})
   })
 })

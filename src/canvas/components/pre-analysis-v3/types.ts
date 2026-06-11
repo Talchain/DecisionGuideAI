@@ -33,6 +33,13 @@ export interface BarModel {
   /** 0..1 honest fill — live signals only, affordances never inflate. */
   fill: number
   state: BarState
+  /**
+   * Compact state cue (low / medium / good), derived from the same state as
+   * the fill colour so the two can never disagree. Null when there is
+   * nothing to measure yet (e.g. no estimates) — no cue beats a misleading
+   * "medium" on an empty bar.
+   */
+  cue: string | null
   tooltip: string
 }
 
@@ -71,6 +78,8 @@ export interface EstimateRowModel {
   /** Relative weight used for the Estimates bar movement. */
   weight: number
   reviewed: boolean
+  /** True when the value's source is AI-supplied (drives the "Olumi estimate" pill). */
+  aiSourced: boolean
   attribution: Attribution
   /**
    * Display-scale text via the canonical factorDisplayText chain

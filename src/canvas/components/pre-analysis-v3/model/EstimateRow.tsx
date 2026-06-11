@@ -30,8 +30,11 @@ export const EstimateRow = memo(function EstimateRow({ row, expanded, onToggle }
     <Pill variant="success" size="small">{ATTRIBUTION_COPY.checkedByYou}</Pill>
   ) : row.needsValue ? (
     <Pill variant="warning" size="small">{ATTRIBUTION_COPY.needsValue}</Pill>
-  ) : (
+  ) : row.aiSourced ? (
     <Pill variant="default" size="small">{ATTRIBUTION_COPY.olumiEstimate}</Pill>
+  ) : (
+    // Unknown/non-AI provenance: an honest neutral, never a false Olumi badge.
+    <Pill variant="default" size="small">{ATTRIBUTION_COPY.unchecked}</Pill>
   )
 
   const action = row.reviewed ? (

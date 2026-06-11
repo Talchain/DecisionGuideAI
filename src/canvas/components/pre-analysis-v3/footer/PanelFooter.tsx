@@ -11,6 +11,7 @@
 import { memo } from 'react'
 import { typography, typo } from '../../../../styles/typography'
 import { FOOTER_COPY } from '../constants'
+import { guardCeeText } from '../signals/ceeTextGuard'
 import type { PreAnalysisModel } from '../hooks/usePreAnalysisModel'
 
 const DOT_CLASSES: Record<PreAnalysisModel['footer']['dot'], string> = {
@@ -38,16 +39,26 @@ export const PanelFooter = memo(function PanelFooter({
 }: PanelFooterProps) {
   const disabled = isAnalysing || !canRun
 
+  // blockedReason can carry CEE-authored readiness text via OutputsDock's
+  // tooltip — guard it like every other CEE-rendered string in the panel.
+  const safeBlockedReason = blockedReason
+    ? guardCeeText(blockedReason, FOOTER_COPY.notReadySubFallback).text
+    : undefined
+
   // Single gate authority: dot, copy and button all derive from canRun.
   // The tooltip string is advisory while the gate is open (footer diagnosis:
   // treating it as a gate made an enabled-looking state read as disabled).
-  const display = !canRun
-    ? {
-        dot: 'muted' as const,
-        headline: FOOTER_COPY.notReady,
-        subline: blockedReason || FOOTER_COPY.notReadySubFallback,
-      }
-    : footer
+  // While a run is in flight the gate reports blocked ("analysis is
+  // currently running") — say that, not "not ready".
+  const display = isAnalysing
+    ? { dot: 'success' as const, headline: FOOTER_COPY.running, subline: FOOTER_COPY.runningSub }
+    : !canRun
+      ? {
+          dot: 'muted' as const,
+          headline: FOOTER_COPY.notReady,
+          subline: safeBlockedReason || FOOTER_COPY.notReadySubFallback,
+        }
+      : footer
 
   return (
     <div
@@ -66,7 +77,7 @@ export const PanelFooter = memo(function PanelFooter({
         type="button"
         onClick={onAnalyse}
         disabled={disabled}
-        title={!isAnalysing && !canRun ? blockedReason || FOOTER_COPY.notReadySubFallback : undefined}
+        title={!isAnalysing && !canRun ? safeBlockedReason || FOOTER_COPY.notReadySubFallback : undefined}
         className={typo(
           'buttonSmall',
           'flex-none whitespace-nowrap rounded-full bg-primary px-4 py-2 text-text-on-color transition-colors hover:bg-primary-hover focus-visible:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 disabled:cursor-not-allowed disabled:opacity-40',

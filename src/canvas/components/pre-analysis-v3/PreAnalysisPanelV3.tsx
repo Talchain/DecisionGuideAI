@@ -9,6 +9,9 @@
 
 import { memo, useCallback, useState } from 'react'
 import { CanvasErrorBoundary } from '../../ErrorBoundary'
+import { useShowToast } from '../../ToastContext'
+import { FOOTER_COPY } from './constants'
+import { guardCeeText } from './signals/ceeTextGuard'
 import { usePreAnalysisModel } from './hooks/usePreAnalysisModel'
 import { useConversationActions } from './hooks/useConversationActions'
 import { useSensitivityRanking } from './hooks/useSensitivityRanking'
@@ -35,7 +38,24 @@ export interface PreAnalysisPanelV3Props {
 function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason }: PreAnalysisPanelV3Props) {
   const model = usePreAnalysisModel()
   const { sendPrompt } = useConversationActions()
+  const showToast = useShowToast()
   useSensitivityRanking(true)
+
+  // The ladder gates on CEE readiness, but OutputsDock's gate also covers
+  // validation blockers and in-flight runs — a "run" action against a closed
+  // gate must explain itself, never silently no-op.
+  const runOrExplain = useCallback(() => {
+    if (canRun && !isAnalysing) {
+      onAnalyse()
+      return
+    }
+    showToast(
+      blockedReason
+        ? guardCeeText(blockedReason, FOOTER_COPY.notReadySubFallback).text
+        : FOOTER_COPY.notReadySubFallback,
+      'info',
+    )
+  }, [canRun, isAnalysing, onAnalyse, blockedReason, showToast])
 
   const [estimateFocus, setEstimateFocus] = useState<{ nodeId: string; seq: number } | null>(null)
 
@@ -54,14 +74,14 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason }: PreAnalysi
           }
           break
         case 'run_first':
-          onAnalyse()
+          runOrExplain()
           break
         case 'readiness_blocker':
           // The copy itself names the gap (CEE explanation); nothing to focus.
           break
       }
     },
-    [onAnalyse],
+    [runOrExplain],
   )
 
   const handleSignalAction = useCallback(
@@ -85,11 +105,11 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason }: PreAnalysi
           sendPrompt(action.label, action.prompt)
           break
         case 'run_analysis':
-          onAnalyse()
+          runOrExplain()
           break
       }
     },
-    [onAnalyse, sendPrompt],
+    [runOrExplain, sendPrompt],
   )
 
   return (

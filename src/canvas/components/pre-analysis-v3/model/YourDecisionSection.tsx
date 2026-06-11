@@ -19,7 +19,7 @@ import { typography, typo } from '../../../../styles/typography'
 import { useCanvasStore } from '../../../store'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { Pill } from '../../pre-analysis/primitives/Pill'
-import { ATTRIBUTION_COPY, MODEL_VIEW_COPY, PANEL_COPY, SPARK_PROMPTS } from '../constants'
+import { ATTRIBUTION_COPY, FIELD_FEEDBACK_COPY, MODEL_VIEW_COPY, PANEL_COPY, SPARK_PROMPTS } from '../constants'
 import { kindOf } from '../selectors/graphFacts'
 import { PanelIconButton } from '../ui/PanelIconButton'
 import { PanelDisclosure } from '../ui/PanelDisclosure'
@@ -125,18 +125,30 @@ const AddRow = memo(function AddRow({
   testId: string
 }) {
   const [draft, setDraft] = useState('')
+  const [hint, setHint] = useState<string | null>(null)
   const submit = () => {
     if (draft.trim() === '') return
-    if (onAdd(draft)) setDraft('')
+    if (onAdd(draft)) {
+      setDraft('')
+      setHint(null)
+    } else {
+      // The only rejection path with text present is the node limit —
+      // explain, never silently keep the text.
+      setHint(FIELD_FEEDBACK_COPY.modelSizeLimit)
+    }
   }
   return (
-    <div className="mb-2 ml-6 mt-1 flex items-center gap-2" data-testid={testId}>
+    <div className="mb-2 ml-6 mt-1 flex flex-wrap items-center gap-2" data-testid={testId}>
       <input
         aria-label={placeholder}
         className={`${typography.panelBody} h-7 w-full rounded-lg border border-panel-border bg-panel px-2 text-text-header outline-none placeholder:text-text-light focus:border-info focus:ring-2 focus:ring-info/20`}
         placeholder={placeholder}
         value={draft}
-        onChange={e => setDraft(e.target.value)}
+        aria-invalid={hint ? true : undefined}
+        onChange={e => {
+          setDraft(e.target.value)
+          if (hint) setHint(null)
+        }}
         onKeyDown={e => {
           if (e.key === 'Enter') submit()
         }}
@@ -155,6 +167,11 @@ const AddRow = memo(function AddRow({
           <Sparkles className="h-3.5 w-3.5" aria-hidden />
         </PanelIconButton>
       </Tooltip>
+      {hint && (
+        <span className={`${typography.panelMeta} w-full text-warning`} role="status">
+          {hint}
+        </span>
+      )}
     </div>
   )
 })

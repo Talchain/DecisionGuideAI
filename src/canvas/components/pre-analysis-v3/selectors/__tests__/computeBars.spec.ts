@@ -70,10 +70,19 @@ describe('computeBars — honest fill', () => {
     expect(Number.isNaN(bars.estimates.fill)).toBe(false)
   })
 
-  it('no estimates is neutral building, not warning', () => {
+  it('no estimates is neutral building, not warning — and carries no cue word', () => {
     const bars = computeBars(input({ estimates: { coverage: 0, checkedCount: 0, checkableCount: 0, needsValueCount: 0 } }))
     expect(bars.estimates.state).toBe('building')
     expect(bars.estimates.tooltip).toBe('No estimates yet')
+    // An empty bar captioned "medium" would contradict its own tooltip.
+    expect(bars.estimates.cue).toBeNull()
+  })
+
+  it('every populated bar carries the cue word matching its state', () => {
+    const bars = computeBars(input())
+    for (const bar of [bars.frame, bars.options, bars.risks, bars.estimates]) {
+      expect(bar.cue).toBe(BAR_STATE_WORDS[bar.state])
+    }
   })
 
   it('state cue words align exactly with the UI-SEM-051 thresholds (word and colour share one state)', () => {

@@ -59,7 +59,7 @@ export const HeroSection = memo(function HeroSection({
       }
       // No goal yet: create one, then name it.
       const limit = store.addNode(undefined, 'goal')
-      if (limit) return 'The model is at its size limit'
+      if (limit) return FIELD_FEEDBACK_COPY.modelSizeLimit
       const created = useCanvasStore
         .getState()
         .nodes.filter(n => kindOf(n) === 'goal')

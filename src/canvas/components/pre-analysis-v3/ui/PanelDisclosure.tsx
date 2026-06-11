@@ -45,11 +45,9 @@ export const PanelDisclosure = memo(function PanelDisclosure({
           <span className={`${typography.panelMeta} ml-auto truncate text-text-light`}>{meta}</span>
         )}
       </button>
-      {open && (
-        <div id={bodyId} className="px-4 pb-3">
-          {children}
-        </div>
-      )}
+      <div id={bodyId} hidden={!open} className="px-4 pb-3">
+        {children}
+      </div>
     </div>
   )
 })

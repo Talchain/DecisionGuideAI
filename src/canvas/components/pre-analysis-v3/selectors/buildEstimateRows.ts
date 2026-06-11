@@ -14,6 +14,7 @@ import type { Node } from '@xyflow/react'
 import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 import { unwrapInterventionValue } from '../../../utils/labelUtils'
 import { getObservedState } from '../../../utils/observedStateHelpers'
+import { isAiSource } from '../../pre-analysis/utils/isAiSource'
 import { isReviewedByUser } from '../../pre-analysis/utils/isReviewedByUser'
 import type { Attribution, EstimateRowModel, RankingResult, RankLabel } from '../types'
 
@@ -47,6 +48,7 @@ export function buildEstimateRows(
       const valueUnwrapped = unwrapInterventionValue(observed.value).value
       const cap = unwrapInterventionValue(observed.cap).value ?? null
       const reviewed = isReviewedByUser(node)
+      const aiSourced = isAiSource(typeof observed.source === 'string' ? observed.source : null)
 
       const needsValue =
         displayText == null && rawUnwrapped == null && valueUnwrapped == null
@@ -65,6 +67,7 @@ export function buildEstimateRows(
         rankLabel,
         weight: ranking.weights[id] ?? 0,
         reviewed,
+        aiSourced,
         attribution: reviewed
           ? currentUser ?? { kind: 'person', displayName: 'You' }
           : { kind: 'olumi' },

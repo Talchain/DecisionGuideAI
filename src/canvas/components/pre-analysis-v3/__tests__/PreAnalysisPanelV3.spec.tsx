@@ -548,3 +548,67 @@ describe('CEE glossary guard at render time', () => {
     )
   })
 })
+
+describe('assessment-pass regressions', () => {
+  it('the footer says the analysis is running while it runs (not "not ready")', () => {
+    renderPanel({ isAnalysing: true, canRun: false, blockedReason: 'Analysis is currently running' })
+    const footer = screen.getByTestId('pre-analysis-v3-footer')
+    expect(footer).toHaveTextContent('Analysis running')
+    expect(footer).not.toHaveTextContent('Not ready for analysis yet')
+    expect(screen.getByTestId('pre-analysis-v3-analyse')).toHaveTextContent('Analysing…')
+  })
+
+  it('an unsafe CEE string arriving via blockedReason is guarded in the footer', () => {
+    renderPanel({
+      canRun: false,
+      blockedReason: 'Two nodes in the decision graph need values',
+    })
+    const footer = screen.getByTestId('pre-analysis-v3-footer')
+    expect(footer).not.toHaveTextContent('decision graph')
+    expect(footer).toHaveTextContent('Add a decision, a goal and at least two options')
+  })
+
+  it('the run rung explains itself instead of silently no-opping when the dock gate is closed', () => {
+    // Readiness says runnable and everything is set, so the ladder reads
+    // "run first" — but the dock gate is closed (e.g. a validation blocker).
+    seedGraph({ successSet: true, reviewedAll: true })
+    const onAnalyse = vi.fn()
+    renderPanel({ onAnalyse, canRun: false, blockedReason: 'One option needs a target value' })
+    expect(screen.getByTestId('pre-analysis-v3-next-step')).toHaveTextContent(
+      'Run your first analysis',
+    )
+    const before = screen.getAllByText('One option needs a target value').length // footer subline
+    fireEvent.click(screen.getByRole('button', { name: 'Act on best next step' }))
+    expect(onAnalyse).not.toHaveBeenCalled()
+    // The click adds a toast carrying the same explanation.
+    expect(screen.getAllByText('One option needs a target value').length).toBe(before + 1)
+  })
+
+  it('the actions menu follows the menu keyboard contract', () => {
+    renderPanel()
+    const trigger = screen.getByTestId('pre-analysis-v3-actions')
+    fireEvent.click(trigger)
+    const items = screen.getAllByRole('menuitem')
+    expect(items[0]).toHaveFocus()
+    fireEvent.keyDown(items[0], { key: 'ArrowDown' })
+    expect(items[1]).toHaveFocus()
+    fireEvent.keyDown(items[1], { key: 'End' })
+    expect(items[items.length - 1]).toHaveFocus()
+    fireEvent.keyDown(items[items.length - 1], { key: 'ArrowDown' })
+    expect(items[0]).toHaveFocus()
+    fireEvent.keyDown(items[0], { key: 'Escape' })
+    expect(screen.queryAllByRole('menuitem')).toHaveLength(0)
+    expect(trigger).toHaveFocus()
+  })
+
+  it('an empty estimates bar shows no cue word (caption cannot contradict the tooltip)', () => {
+    useCanvasStore.setState({
+      nodes: useCanvasStore.getState().nodes.filter(n => (n.data as { kind?: string }).kind !== 'factor'),
+      preAnalysisSensitivity: null,
+    })
+    renderPanel()
+    const bar = screen.getByTestId('pre-analysis-v3-bar-estimates')
+    expect(bar).toHaveAccessibleName('Estimates: No estimates yet')
+    expect(bar).not.toHaveTextContent('medium')
+  })
+})

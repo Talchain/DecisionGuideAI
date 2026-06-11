@@ -137,6 +137,7 @@ export const ATTRIBUTION_COPY = {
   olumiEstimate: 'Olumi estimate',
   checkedByYou: 'checked by you',
   needsValue: 'needs a value',
+  unchecked: 'not checked yet',
   set: 'set',
   needsSetting: 'needs setting',
 } as const
@@ -178,6 +179,8 @@ export const FOOTER_COPY = {
   readySubAllSet: 'Ready when you are',
   notReady: 'Not ready for analysis yet',
   notReadySubFallback: 'Add a decision, a goal and at least two options',
+  running: 'Analysis running',
+  runningSub: 'Hold on while the first pass completes',
   analyse: 'Analyse first pass',
 } as const
 
@@ -197,6 +200,8 @@ export const FIELD_FEEDBACK_COPY = {
   successFormatHint: 'Enter a number, like 20 or 15%',
   successNeedsGoalHint: 'Set the goal first, then define success',
   goalEmptyHint: 'Enter a name for the goal',
+  numberHint: 'Enter a number, like 20 or 15%',
+  modelSizeLimit: 'The model is at its size limit',
   saved: 'Saved',
   olumiUnavailable: 'Olumi is unavailable right now. Open the Olumi panel and try again.',
   addValue: 'Add value',
