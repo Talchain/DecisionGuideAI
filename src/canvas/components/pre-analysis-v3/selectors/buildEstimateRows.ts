@@ -30,8 +30,13 @@ export function buildEstimateRows(
 ): EstimateRowModel[] {
   const byId = new Map(factorNodes.map(n => [n.id, n]))
 
+  // Priority labels sequence over rows still to check: a reviewed row never
+  // reads "check first", and the top unreviewed row always does — matching
+  // the ladder and the estimates signal.
+  let uncheckedPosition = 0
+
   return ranking.ordered
-    .map((id, position): EstimateRowModel | null => {
+    .map((id): EstimateRowModel | null => {
       const node = byId.get(id)
       if (!node) return null
       const data = node.data as Record<string, unknown>
@@ -51,10 +56,13 @@ export function buildEstimateRows(
       const scaleAmbiguous =
         valueUnwrapped != null && rawUnwrapped == null && displayText == null
 
+      const rankLabel = reviewed ? 'lower' : rankLabelFor(uncheckedPosition)
+      if (!reviewed) uncheckedPosition++
+
       return {
         nodeId: node.id,
         label: typeof data.label === 'string' ? data.label : node.id,
-        rankLabel: rankLabelFor(position),
+        rankLabel,
         weight: ranking.weights[id] ?? 0,
         reviewed,
         attribution: reviewed

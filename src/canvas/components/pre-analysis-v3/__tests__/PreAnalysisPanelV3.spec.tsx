@@ -95,7 +95,12 @@ function seedReadiness(canRun = true, explanation = 'Looks consistent.') {
 function renderPanel(props: Partial<Parameters<typeof PreAnalysisPanelV3>[0]> = {}) {
   return render(
     <ToastProvider>
-      <PreAnalysisPanelV3 onAnalyse={props.onAnalyse ?? vi.fn()} isAnalysing={props.isAnalysing ?? false} blockedReason={props.blockedReason} />
+      <PreAnalysisPanelV3
+        onAnalyse={props.onAnalyse ?? vi.fn()}
+        isAnalysing={props.isAnalysing ?? false}
+        canRun={props.canRun ?? true}
+        blockedReason={props.blockedReason}
+      />
     </ToastProvider>,
   )
 }
@@ -140,7 +145,7 @@ describe('setup state', () => {
     const sharpen = screen.getByTestId('pre-analysis-v3-sharpen')
     expect(sharpen).toHaveTextContent('You are comparing two options.')
     expect(sharpen).toHaveTextContent("2 risks captured, all Olumi's so far.")
-    expect(sharpen).toHaveTextContent('Tech lead impact may matter most to the analysis')
+    expect(sharpen).toHaveTextContent('Check Tech lead impact first, it may matter most.')
   })
 })
 
@@ -290,7 +295,9 @@ describe('spark dispatch', () => {
   it('degrades to a toast when no conversation surface is registered (no dead end)', () => {
     renderPanel()
     fireEvent.click(screen.getByRole('button', { name: 'Pressure-test the frame with Olumi' }))
-    expect(screen.getByText('Open the Olumi panel to ask this')).toBeInTheDocument()
+    expect(
+      screen.getByText('Olumi is unavailable right now. Open the Olumi panel and try again.'),
+    ).toBeInTheDocument()
   })
 })
 
@@ -303,10 +310,19 @@ describe('footer readiness', () => {
     expect(footer).toHaveTextContent('Two options need target values before analysis.')
   })
 
-  it('the analyse button obeys the external gate authority (blockedReason)', () => {
+  it('the analyse button obeys the external gate authority (canRun)', () => {
     const onAnalyse = vi.fn()
-    renderPanel({ onAnalyse, blockedReason: 'Add a goal first' })
+    renderPanel({ onAnalyse, canRun: false, blockedReason: 'Add a goal first' })
     expect(screen.getByTestId('pre-analysis-v3-analyse')).toBeDisabled()
+  })
+
+  it('an advisory tooltip never disables the button while the gate is open (footer diagnosis)', () => {
+    renderPanel({ canRun: true, blockedReason: 'Analysis available - consider improvements for better results' })
+    const button = screen.getByTestId('pre-analysis-v3-analyse')
+    expect(button).toBeEnabled()
+    const footer = screen.getByTestId('pre-analysis-v3-footer')
+    expect(footer).toHaveTextContent('Analysis available')
+    expect(footer).not.toHaveTextContent('Not ready for analysis yet')
   })
 
   it('runs the analysis through the provided callback when enabled', () => {
@@ -314,5 +330,60 @@ describe('footer readiness', () => {
     renderPanel({ onAnalyse })
     fireEvent.click(screen.getByTestId('pre-analysis-v3-analyse'))
     expect(onAnalyse).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('no silent failures (diagnose-and-fix pass)', () => {
+  it('footer is coherent when the run gate is blocked: copy, dot and button agree', () => {
+    renderPanel({ canRun: false, blockedReason: 'Add a goal before running the analysis' })
+    const footer = screen.getByTestId('pre-analysis-v3-footer')
+    expect(footer).toHaveTextContent('Not ready for analysis yet')
+    expect(footer).toHaveTextContent('Add a goal before running the analysis')
+    expect(footer).not.toHaveTextContent('Analysis available')
+    expect(screen.getByTestId('pre-analysis-v3-analyse')).toBeDisabled()
+  })
+
+  it('unusable success input keeps the text and shows a format hint (no silent snap-back)', () => {
+    renderPanel()
+    const input = screen.getByLabelText('Success measure')
+    fireEvent.change(input, { target: { value: 'better vibes' } })
+    fireEvent.blur(input)
+    expect(input).toHaveValue('better vibes')
+    expect(screen.getByText('Enter a number, like 20 or 15%')).toBeInTheDocument()
+    expect(useCanvasStore.getState().goalThreshold).toBeNull()
+  })
+
+  it('a dirty field shows a Save affordance; saving commits and confirms', () => {
+    renderPanel()
+    const input = screen.getByLabelText('Success measure')
+    fireEvent.change(input, { target: { value: 'ship 25% faster' } })
+    const save = screen.getByRole('button', { name: 'Save success' })
+    fireEvent.click(save)
+    expect(useCanvasStore.getState().goalThreshold).toBe(25)
+    expect(screen.getByText('Saved')).toBeInTheDocument()
+  })
+
+  it('rows without a value get an Add value affordance, no check tick, and the meta counts them', () => {
+    useCanvasStore.setState({
+      nodes: [
+        ...useCanvasStore.getState().nodes,
+        node('f4', 'factor', 'Team morale', {
+          provenance: 'ai_inferred',
+          observedState: { source: 'cee_inference' },
+        }),
+      ],
+      preAnalysisSensitivity: null,
+    })
+    renderPanel()
+    fireEvent.click(screen.getByRole('button', { name: /Your decision/ }))
+    expect(screen.getByTestId('pre-analysis-v3-add-value-f4')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Check Team morale' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('pre-analysis-v3-your-decision')).toHaveTextContent(
+      '0 of 3 checked · 1 needs a value',
+    )
+    // The Add value affordance opens the editor without a confirm-as-is action.
+    fireEvent.click(screen.getByTestId('pre-analysis-v3-add-value-f4'))
+    expect(screen.getByLabelText('Your estimate for Team morale')).toBeInTheDocument()
+    expect(screen.queryByTestId('pre-analysis-v3-confirm-as-is')).not.toBeInTheDocument()
   })
 })

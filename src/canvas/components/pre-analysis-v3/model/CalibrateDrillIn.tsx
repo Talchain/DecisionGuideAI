@@ -62,7 +62,7 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
   }
 
   return (
-    <div className="mb-1.5 ml-5 flex items-center gap-1.5" data-testid="pre-analysis-v3-drill">
+    <div className="mb-2 ml-6 flex items-center gap-2" data-testid="pre-analysis-v3-drill">
       {row.canEditValue && (
         <>
           <input

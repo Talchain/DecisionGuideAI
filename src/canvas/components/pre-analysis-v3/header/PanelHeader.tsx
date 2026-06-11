@@ -17,8 +17,8 @@ interface PanelHeaderProps {
 
 export const PanelHeader = memo(function PanelHeader({ bars, onAction }: PanelHeaderProps) {
   return (
-    <div className="border-b border-panel-border px-4 pb-3 pt-3">
-      <div className="mb-2.5 flex items-center gap-2">
+    <div className="border-b border-panel-border px-4 py-3">
+      <div className="mb-2 flex items-center gap-2">
         <span className={`${typography.panelMeta} tracking-wide text-text-light`}>
           {PANEL_COPY.eyebrow}
         </span>

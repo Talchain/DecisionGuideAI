@@ -13,8 +13,9 @@ import type { BarsModel } from '../selectors/computeBars'
 
 const FILL_CLASSES: Record<BarState, string> = {
   warning: 'bg-warning',
-  // Neutral grey from the text palette — deliberately not an entity colour.
-  building: 'bg-text-light/50',
+  // Solid neutral grey from the text palette — clearly visible against the
+  // bg-panel-hover track, deliberately not an entity or semantic colour.
+  building: 'bg-text-light',
   success: 'bg-success',
 }
 

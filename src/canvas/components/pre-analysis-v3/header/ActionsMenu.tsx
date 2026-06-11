@@ -45,7 +45,7 @@ export const ActionsMenu = memo(function ActionsMenu({ onAction }: ActionsMenuPr
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen(v => !v)}
-        className={`${typography.panelMeta} flex items-center gap-1 rounded-full border border-panel-border bg-transparent px-2.5 py-1 text-text-light outline-none transition-colors hover:bg-panel-hover hover:text-text-header focus-visible:bg-panel-hover focus-visible:text-text-header focus-visible:ring-2 focus-visible:ring-info/40`}
+        className={`${typography.panelMeta} flex items-center gap-1 rounded-full border border-panel-border bg-transparent px-3 py-1 text-text-light outline-none transition-colors hover:bg-panel-hover hover:text-text-header focus-visible:bg-panel-hover focus-visible:text-text-header focus-visible:ring-2 focus-visible:ring-info/40`}
         data-testid="pre-analysis-v3-actions"
       >
         Actions
@@ -54,7 +54,7 @@ export const ActionsMenu = memo(function ActionsMenu({ onAction }: ActionsMenuPr
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-40 mt-1.5 w-60 rounded-xl border border-panel-border bg-panel p-1 shadow-lg"
+          className="absolute right-0 top-full z-40 mt-2 w-60 rounded-xl border border-panel-border bg-panel p-1 shadow-lg"
         >
           {ACTIONS_MENU.map(item => (
             <button
@@ -65,7 +65,7 @@ export const ActionsMenu = memo(function ActionsMenu({ onAction }: ActionsMenuPr
                 setOpen(false)
                 onAction(item.label, item.prompt)
               }}
-              className={`${typography.panelBody} flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-text-body outline-none transition-colors hover:bg-panel-hover focus-visible:bg-panel-hover`}
+              className={`${typography.panelBody} flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-text-body outline-none transition-colors hover:bg-panel-hover focus-visible:bg-panel-hover`}
             >
               <Sparkles className="h-3.5 w-3.5 flex-none text-info" aria-hidden />
               {item.label}

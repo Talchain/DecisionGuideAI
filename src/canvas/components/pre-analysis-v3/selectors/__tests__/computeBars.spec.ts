@@ -9,7 +9,7 @@ function input(overrides: Partial<BarsInput> = {}): BarsInput {
     successSet: false,
     optionCount: 2,
     riskCount: 2,
-    estimates: { coverage: 0, estimableCount: 6, reviewedCount: 0 },
+    estimates: { coverage: 0, checkedCount: 0, checkableCount: 6, needsValueCount: 0 },
     ...overrides,
   }
 }
@@ -42,15 +42,26 @@ describe('computeBars — honest fill', () => {
 
   it('estimates bar is the influence-weighted coverage', () => {
     const bars = computeBars(
-      input({ estimates: { coverage: 0.34, estimableCount: 6, reviewedCount: 1 } }),
+      input({ estimates: { coverage: 0.34, checkedCount: 1, checkableCount: 6, needsValueCount: 0 } }),
     )
     expect(bars.estimates.fill).toBeCloseTo(0.34, 10)
     expect(bars.estimates.tooltip).toBe('1 of 6 checked')
   })
 
+  it('tooltip appends the needs-values count when rows lack values', () => {
+    const bars = computeBars(
+      input({ estimates: { coverage: 0.2, checkedCount: 1, checkableCount: 2, needsValueCount: 1 } }),
+    )
+    expect(bars.estimates.tooltip).toBe('1 of 2 checked · 1 needs a value')
+    const barsPlural = computeBars(
+      input({ estimates: { coverage: 0.2, checkedCount: 1, checkableCount: 2, needsValueCount: 3 } }),
+    )
+    expect(barsPlural.estimates.tooltip).toBe('1 of 2 checked · 3 need values')
+  })
+
   it('zero denominators yield 0 fill, never NaN', () => {
     const bars = computeBars(
-      input({ optionCount: 0, riskCount: 0, estimates: { coverage: NaN, estimableCount: 0, reviewedCount: 0 } }),
+      input({ optionCount: 0, riskCount: 0, estimates: { coverage: NaN, checkedCount: 0, checkableCount: 0, needsValueCount: 0 } }),
     )
     expect(bars.options.fill).toBe(0)
     expect(bars.risks.fill).toBe(0)
@@ -59,7 +70,7 @@ describe('computeBars — honest fill', () => {
   })
 
   it('no estimates is neutral building, not warning', () => {
-    const bars = computeBars(input({ estimates: { coverage: 0, estimableCount: 0, reviewedCount: 0 } }))
+    const bars = computeBars(input({ estimates: { coverage: 0, checkedCount: 0, checkableCount: 0, needsValueCount: 0 } }))
     expect(bars.estimates.state).toBe('building')
     expect(bars.estimates.tooltip).toBe('No estimates yet')
   })

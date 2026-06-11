@@ -166,7 +166,7 @@ describe('glossary — every copy string passes the banned-terms scan', () => {
   })
   push('ATTRIBUTION_COPY', ATTRIBUTION_COPY)
   push('RANK_LABEL_COPY', RANK_LABEL_COPY)
-  push('MODEL_VIEW_COPY', { ...MODEL_VIEW_COPY, estimatesMeta: MODEL_VIEW_COPY.estimatesMeta(1, 6), goalRow: MODEL_VIEW_COPY.goalRow('Increase output') })
+  push('MODEL_VIEW_COPY', { ...MODEL_VIEW_COPY, estimatesMeta: MODEL_VIEW_COPY.estimatesMeta(1, 6, 0), goalRow: MODEL_VIEW_COPY.goalRow('Increase output') })
   push('FOOTER_COPY', FOOTER_COPY)
   push('HERO_COPY', HERO_COPY)
   push('ACTIONS_MENU', ACTIONS_MENU)

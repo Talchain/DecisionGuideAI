@@ -141,8 +141,11 @@ export interface BarsInput {
   estimates: {
     /** Influence-weighted 0..1 coverage of reviewed estimates. */
     coverage: number
-    /** Factors carrying any observed source (the honest denominator). */
-    estimableCount: number
-    reviewedCount: number
+    /** Rows checked by the user. */
+    checkedCount: number
+    /** Rows with a value to check (excludes rows that still need a value). */
+    checkableCount: number
+    /** Rows with no value at all (shown as "M need values"). */
+    needsValueCount: number
   }
 }

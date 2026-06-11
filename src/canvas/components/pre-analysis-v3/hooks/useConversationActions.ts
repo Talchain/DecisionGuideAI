@@ -1,39 +1,85 @@
 /**
- * useConversationActions — null-checked wrappers over the guidance-store
- * conversation callbacks (the same dispatch surface PR 173 pins; no new
- * convention). Sparks send the prefilled prompt immediately (approved
- * decision): the short label shows in the bubble, the fuller prompt goes to
- * Olumi. When no conversation surface is registered the action degrades to a
- * composer prefill, then to a toast — never a silent dead end.
+ * useConversationActions — delivers prefilled prompts to Olumi from the
+ * pre-analysis panel, with the result always visible.
+ *
+ * Primary path: the ConversationContext directly (the panel renders inside
+ * the provider). This avoids the guidance-store registration race that left
+ * every callback null in the Analysis-tab + empty-conversation + floating-
+ * closed state (ConversationPanel's unmount cleanup nulls the registry and
+ * OlumiTabBody's register effect does not re-run) — the root cause of the
+ * "spark does nothing" bug found in local testing.
+ *
+ * After a successful send the Olumi surface is revealed (focus the floating
+ * panel if open, else activate the docked Olumi tab) so the user sees the
+ * message land. If no delivery path exists at all, a toast says so — never
+ * a silent no-op.
  */
 
 import { useCallback } from 'react'
+import { useOptionalConversationContext } from '../../../conversation/ConversationContext'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { useShowToast } from '../../../ToastContext'
+import { useUIStore } from '../../../../stores/uiStore'
+import { focusFloating } from '../../../hooks/useFloatingFocus'
+import { isAiPanelV2Enabled } from '../../../../flags'
+import { FIELD_FEEDBACK_COPY } from '../constants'
 
 export interface ConversationActions {
   /** Send a prefilled prompt now. Returns false when no surface accepted it. */
   sendPrompt: (label: string, prompt: string) => boolean
 }
 
+/**
+ * Bring the conversation into view. The panel lives in the dock, so the
+ * docked Olumi tab is the canonical reveal — forceActivateOutputTab also
+ * triggers the dock's floating/docked singleton reconciliation. A minimised
+ * floating panel keeps its focus callback registered, so focusFloating()
+ * alone is NOT a reliable reveal (live-diagnosed); it runs after as a
+ * best-effort focus when a visible floating panel ends up hosting the chat.
+ */
+function revealOlumiSurface(): void {
+  if (isAiPanelV2Enabled()) {
+    useUIStore.getState().forceActivateOutputTab('olumi')
+  }
+  focusFloating()
+}
+
 export function useConversationActions(): ConversationActions {
   const showToast = useShowToast()
+  const conversation = useOptionalConversationContext()
 
   const sendPrompt = useCallback(
     (label: string, prompt: string): boolean => {
+      // 1. Live conversation context — no registration race possible.
+      if (conversation) {
+        conversation
+          .sendChip({ id: `pre-analysis-v3-${Date.now()}`, label, message: prompt, intent: 'primary' })
+          .catch(() => showToast(FIELD_FEEDBACK_COPY.olumiUnavailable, 'error'))
+        revealOlumiSurface()
+        return true
+      }
+      // 2. Guidance-store bridge (host without the provider).
       const callbacks = useGuidanceStore.getState()
       if (callbacks._sendChip) {
         callbacks._sendChip(label, prompt)
+        revealOlumiSurface()
+        return true
+      }
+      if (callbacks._sendMessage) {
+        callbacks._sendMessage(prompt)
+        revealOlumiSurface()
         return true
       }
       if (callbacks._prefillChat) {
         callbacks._prefillChat(prompt)
+        revealOlumiSurface()
         return true
       }
-      showToast('Open the Olumi panel to ask this', 'info')
+      // 3. Nothing can deliver — say so.
+      showToast(FIELD_FEEDBACK_COPY.olumiUnavailable, 'info')
       return false
     },
-    [showToast],
+    [conversation, showToast],
   )
 
   return { sendPrompt }

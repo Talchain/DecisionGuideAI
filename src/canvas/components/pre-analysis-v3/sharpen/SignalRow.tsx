@@ -31,7 +31,7 @@ export const SignalRow = memo(function SignalRow({ view, onSendPrompt, onAction 
 
   return (
     <div
-      className="grid grid-cols-[18px_1fr_auto] items-start gap-2 border-t border-panel-border py-2.5 first:border-t-0"
+      className="grid grid-cols-[16px_1fr_auto] items-start gap-2 border-t border-panel-border py-3 first:border-t-0"
       data-testid={`pre-analysis-v3-signal-${detection.signal_id}`}
       data-signal-status={status}
     >
@@ -71,7 +71,7 @@ export const SignalRow = memo(function SignalRow({ view, onSendPrompt, onAction 
             <Tooltip content={detection.rationale} delay={300}>
               <PanelIconButton
                 variant="ghost"
-                className="opacity-60 hover:opacity-100 focus-visible:opacity-100"
+                className="opacity-50 hover:opacity-100 focus-visible:opacity-100"
                 aria-label="Why this matters"
               >
                 <Info className="h-3.5 w-3.5" aria-hidden />

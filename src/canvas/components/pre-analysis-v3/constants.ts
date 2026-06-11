@@ -111,7 +111,7 @@ export const SIGNAL_COPY = {
   estimates: (n: number, topLabel: string | null) => ({
     lead: `Olumi estimated ${n === 1 ? 'one value' : `${n} values`} from your brief.`,
     emphasis: topLabel
-      ? `${topLabel} may matter most to the analysis, check it first.`
+      ? `Check ${topLabel} first, it may matter most.`
       : 'Replacing them with your judgement usually helps the analysis.',
   }),
   estimatesRationale:
@@ -131,8 +131,8 @@ export const ATTRIBUTION_COPY = {
 } as const
 
 export const RANK_LABEL_COPY = {
-  top: 'top priority',
-  next: 'next to check',
+  top: 'check first',
+  next: 'check next',
   lower: 'lower priority',
 } as const
 
@@ -152,7 +152,10 @@ export const MODEL_VIEW_COPY = {
     'Ordered by how connected each factor is in your model. Replace estimates with your judgement, starting at the top.',
   effectStrengthGate:
     'Effect strengths appear here once value handling is finalised.',
-  estimatesMeta: (checked: number, total: number) => `${checked} of ${total} checked`,
+  estimatesMeta: (checked: number, checkable: number, needValues: number) =>
+    `${checked} of ${checkable} checked${
+      needValues > 0 ? ` · ${needValues === 1 ? '1 needs a value' : `${needValues} need values`}` : ''
+    }`,
   goalRow: (label: string) => `Goal: ${label}`,
   successRow: 'Success measure',
 } as const
@@ -165,6 +168,15 @@ export const FOOTER_COPY = {
   notReady: 'Not ready for analysis yet',
   notReadySubFallback: 'Add a decision, a goal and at least two options',
   analyse: 'Analyse first pass',
+} as const
+
+export const FIELD_FEEDBACK_COPY = {
+  successFormatHint: 'Enter a number, like 20 or 15%',
+  successNeedsGoalHint: 'Set the goal first, then define success',
+  goalEmptyHint: 'Enter a name for the goal',
+  saved: 'Saved',
+  olumiUnavailable: 'Olumi is unavailable right now. Open the Olumi panel and try again.',
+  addValue: 'Add value',
 } as const
 
 export const HERO_COPY = {

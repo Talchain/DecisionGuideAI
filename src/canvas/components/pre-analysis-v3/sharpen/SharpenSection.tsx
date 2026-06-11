@@ -23,7 +23,7 @@ export const SharpenSection = memo(function SharpenSection({
 }: SharpenSectionProps) {
   if (signals.length === 0) return null
   return (
-    <div className="px-4 pb-1 pt-2.5" data-testid="pre-analysis-v3-sharpen">
+    <div className="px-4 pb-1 pt-3" data-testid="pre-analysis-v3-sharpen">
       <div className="flex items-baseline justify-between">
         <h2 className={`${typography.panelHeader} text-text-header`}>{PANEL_COPY.sharpenTitle}</h2>
         <span className={`${typography.panelMeta} text-text-light`}>

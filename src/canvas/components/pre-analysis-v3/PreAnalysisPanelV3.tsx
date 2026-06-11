@@ -23,10 +23,16 @@ import type { LadderStep, SignalView } from './types'
 export interface PreAnalysisPanelV3Props {
   onAnalyse: () => void
   isAnalysing: boolean
+  /** The run gate (OutputsDock's canRunAnalysis). The single gate authority. */
+  canRun: boolean
+  /**
+   * OutputsDock's run tooltip. Advisory when canRun is true (ignored for
+   * gating); the blocked explanation when canRun is false.
+   */
   blockedReason?: string
 }
 
-function PanelBody({ onAnalyse, isAnalysing, blockedReason }: PreAnalysisPanelV3Props) {
+function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason }: PreAnalysisPanelV3Props) {
   const model = usePreAnalysisModel()
   const { sendPrompt } = useConversationActions()
   useSensitivityRanking(true)
@@ -88,7 +94,9 @@ function PanelBody({ onAnalyse, isAnalysing, blockedReason }: PreAnalysisPanelV3
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="pre-analysis-v3">
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      {/* No flex-1: content sits at natural height (footer follows it), and
+          shrinks to keep the footer visible only when it overflows. */}
+      <div className="min-h-0 overflow-y-auto">
         <PanelHeader bars={model.bars} onAction={sendPrompt} />
         <HeroSection
           hero={model.hero}
@@ -108,6 +116,7 @@ function PanelBody({ onAnalyse, isAnalysing, blockedReason }: PreAnalysisPanelV3
         footer={model.footer}
         onAnalyse={onAnalyse}
         isAnalysing={isAnalysing}
+        canRun={canRun}
         blockedReason={blockedReason}
       />
     </div>

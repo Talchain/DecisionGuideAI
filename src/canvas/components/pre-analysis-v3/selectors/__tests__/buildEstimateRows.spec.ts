@@ -119,4 +119,19 @@ describe('buildEstimateRows — value-scale guard', () => {
     )
     expect(topUncalibrated(rows)).toBeNull()
   })
+
+  it('priority labels sequence over unreviewed rows only (a checked row never reads check first)', () => {
+    const rows = buildEstimateRows(
+      [
+        factor('f1', 'A', { raw_value: 5, unit: '%', source: 'user_confirmed' }),
+        factor('f2', 'B', { raw_value: 9, unit: '%', source: 'cee_inference' }),
+        factor('f3', 'C', { raw_value: 9, unit: '%', source: 'cee_inference' }),
+      ],
+      ranking(['f1', 'f2', 'f3']),
+      null,
+    )
+    expect(rows[0].reviewed).toBe(true)
+    expect(rows[1].rankLabel).toBe('top') // the top unreviewed row reads check first
+    expect(rows[2].rankLabel).toBe('next')
+  })
 })

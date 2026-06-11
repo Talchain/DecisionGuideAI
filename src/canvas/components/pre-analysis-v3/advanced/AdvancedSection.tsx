@@ -5,10 +5,10 @@
  * until a live settings surface backs them (no invented values).
  */
 
-import { memo } from 'react'
-import { Accordion } from '../../../../components/results/Accordion'
+import { memo, useState } from 'react'
 import { typography } from '../../../../styles/typography'
 import { PANEL_COPY } from '../constants'
+import { PanelDisclosure } from '../ui/PanelDisclosure'
 import type { PreAnalysisModel } from '../hooks/usePreAnalysisModel'
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -25,10 +25,16 @@ export const AdvancedSection = memo(function AdvancedSection({
 }: {
   advanced: PreAnalysisModel['advanced']
 }) {
+  const [open, setOpen] = useState(false)
   return (
-    <div className="border-t border-panel-border" data-testid="pre-analysis-v3-advanced">
-      <Accordion title={PANEL_COPY.advancedTitle} subtitle={PANEL_COPY.advancedMeta}>
-        <div className="px-1">
+    <PanelDisclosure
+      title={PANEL_COPY.advancedTitle}
+      meta={PANEL_COPY.advancedMeta}
+      open={open}
+      onOpenChange={setOpen}
+      testId="pre-analysis-v3-advanced"
+    >
+      <div>
           <Row
             label="Model size"
             value={`${advanced.factorCount} ${advanced.factorCount === 1 ? 'factor' : 'factors'} · ${advanced.connectionCount} ${advanced.connectionCount === 1 ? 'connection' : 'connections'}`}
@@ -43,8 +49,7 @@ export const AdvancedSection = memo(function AdvancedSection({
             label="Provenance"
             value={`${advanced.aiEstimatedCount} Olumi ${advanced.aiEstimatedCount === 1 ? 'estimate' : 'estimates'} · ${advanced.reviewedCount} checked by you`}
           />
-        </div>
-      </Accordion>
-    </div>
+      </div>
+    </PanelDisclosure>
   )
 })

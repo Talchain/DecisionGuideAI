@@ -33,8 +33,12 @@ export function computeBars(input: BarsInput): BarsModel {
   const optionsFill = clamp01(optionCount / OPTIONS_SATURATION_COUNT)
   const risksFill = clamp01(riskCount / RISKS_SATURATION_COUNT)
 
-  const { coverage, estimableCount, reviewedCount } = estimates
-  const estimatesFill = estimableCount > 0 ? clamp01(coverage) : 0
+  const { coverage, checkedCount, checkableCount, needsValueCount } = estimates
+  const estimatesFill = checkableCount > 0 ? clamp01(coverage) : 0
+  const needsValueSuffix =
+    needsValueCount > 0
+      ? ` · ${needsValueCount === 1 ? '1 needs a value' : `${needsValueCount} need values`}`
+      : ''
 
   return {
     frame: {
@@ -68,11 +72,11 @@ export function computeBars(input: BarsInput): BarsModel {
       key: 'estimates',
       fill: estimatesFill,
       // No estimates to check is neutral, not alarming.
-      state: estimableCount === 0 ? 'building' : barStateFor(estimatesFill),
+      state: checkableCount === 0 ? 'building' : barStateFor(estimatesFill),
       tooltip:
-        estimableCount === 0
-          ? 'No estimates yet'
-          : `${reviewedCount} of ${estimableCount} checked`,
+        checkableCount === 0
+          ? `No estimates yet${needsValueSuffix}`
+          : `${checkedCount} of ${checkableCount} checked${needsValueSuffix}`,
     },
   }
 }

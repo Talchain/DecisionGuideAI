@@ -43,8 +43,9 @@ export interface PreAnalysisModel {
   estimates: {
     rows: EstimateRowModel[]
     rankingSource: RankingSource
-    reviewedCount: number
-    estimableCount: number
+    checkedCount: number
+    checkableCount: number
+    needsValueCount: number
   }
   options: Array<{ nodeId: string; label: string }>
   risks: Array<{ nodeId: string; label: string; attribution: Attribution }>
@@ -114,6 +115,15 @@ export function usePreAnalysisModel(): PreAnalysisModel {
 
   const top = useMemo(() => topUncalibrated(rows), [rows])
 
+  const rowCounts = useMemo(() => {
+    const needsValueCount = rows.filter(r => r.needsValue).length
+    return {
+      checkedCount: rows.filter(r => r.reviewed).length,
+      checkableCount: rows.length - needsValueCount,
+      needsValueCount,
+    }
+  }, [rows])
+
   const coverage = useMemo(
     () => computeInfluenceCoverage(facts.factorNodes, ranking.weights, isReviewedByUser),
     [facts.factorNodes, ranking.weights],
@@ -132,11 +142,10 @@ export function usePreAnalysisModel(): PreAnalysisModel {
         riskCount: facts.riskCount,
         estimates: {
           coverage: coverage.influenceCoverage,
-          estimableCount: provenance.estimableCount,
-          reviewedCount: provenance.reviewedCount,
+          ...rowCounts,
         },
       }),
-    [decisionPresent, facts, success.isSet, coverage.influenceCoverage, provenance],
+    [decisionPresent, facts, success.isSet, coverage.influenceCoverage, rowCounts],
   )
 
   const ladder = useMemo(
@@ -253,13 +262,15 @@ export function usePreAnalysisModel(): PreAnalysisModel {
   const decisionLabel = facts.decisionNode
     ? ((facts.decisionNode.data as Record<string, unknown>)?.label as string | undefined)
     : undefined
+  // The user's own question outranks the drafted decision label (item 6).
+  const briefTitle = currentBriefText?.trim()
   const goalLabel = facts.goalNode
     ? ((facts.goalNode.data as Record<string, unknown>)?.label as string | undefined)
     : undefined
 
   return {
     hero: {
-      decisionTitle: decisionLabel ?? null,
+      decisionTitle: briefTitle && briefTitle.length > 0 ? briefTitle : decisionLabel ?? null,
       goal: facts.goalNode ? { nodeId: facts.goalNode.id, label: goalLabel ?? '' } : null,
       success,
       goalNodeId: facts.goalNode?.id ?? null,
@@ -271,8 +282,7 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     estimates: {
       rows,
       rankingSource: ranking.source,
-      reviewedCount: provenance.reviewedCount,
-      estimableCount: provenance.estimableCount,
+      ...rowCounts,
     },
     options,
     risks,

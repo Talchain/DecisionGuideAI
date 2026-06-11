@@ -1829,6 +1829,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                         <PreAnalysisPanelV3
                           onAnalyse={handleRunAnalysis}
                           isAnalysing={isRunning}
+                          canRun={canRunAnalysis}
                           blockedReason={runBlockedTooltip}
                         />
                       </Suspense>

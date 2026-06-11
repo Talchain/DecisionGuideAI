@@ -16,7 +16,7 @@ import { typography } from '../../../../styles/typography'
 import { useCanvasStore } from '../../../store'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { Pill } from '../../pre-analysis/primitives/Pill'
-import { ATTRIBUTION_COPY, HERO_COPY, SPARK_PROMPTS } from '../constants'
+import { ATTRIBUTION_COPY, FIELD_FEEDBACK_COPY, HERO_COPY, SPARK_PROMPTS } from '../constants'
 import { kindOf } from '../selectors/graphFacts'
 import { PanelIconButton } from '../ui/PanelIconButton'
 import { BestNextStep } from './BestNextStep'
@@ -49,33 +49,36 @@ export const HeroSection = memo(function HeroSection({
   onLadderAct,
 }: HeroSectionProps) {
   const commitGoal = useCallback(
-    (raw: string) => {
+    (raw: string): true | string => {
       const label = raw.trim()
-      if (label === '') return
+      if (label === '') return FIELD_FEEDBACK_COPY.goalEmptyHint
       const store = useCanvasStore.getState()
       if (hero.goal) {
         store.updateNodeLabel(hero.goal.nodeId, label)
-        return
+        return true
       }
       // No goal yet: create one, then name it.
       const limit = store.addNode(undefined, 'goal')
-      if (limit) return
+      if (limit) return 'The model is at its size limit'
       const created = useCanvasStore
         .getState()
         .nodes.filter(n => kindOf(n) === 'goal')
         .at(-1)
-      if (created) useCanvasStore.getState().updateNodeLabel(created.id, label)
+      if (!created) return FIELD_FEEDBACK_COPY.goalEmptyHint
+      useCanvasStore.getState().updateNodeLabel(created.id, label)
+      return true
     },
     [hero.goal],
   )
 
   const commitSuccess = useCallback(
-    (raw: string) => {
+    (raw: string): true | string => {
       const goalNodeId = hero.goalNodeId
-      if (!goalNodeId) return
+      if (!goalNodeId) return FIELD_FEEDBACK_COPY.successNeedsGoalHint
       const parsed = parseDisplayNumber(raw)
-      if (parsed === null) return
+      if (parsed === null) return FIELD_FEEDBACK_COPY.successFormatHint
       useCanvasStore.getState().setGoalThresholdAndUpdateNode(goalNodeId, parsed)
+      return true
     },
     [hero.goalNodeId],
   )
@@ -88,12 +91,15 @@ export const HeroSection = memo(function HeroSection({
     ) : null
 
   return (
-    <div className="border-b border-panel-border px-4 pb-3.5 pt-3" data-testid="pre-analysis-v3-hero">
+    <div className="border-b border-panel-border px-4 py-3" data-testid="pre-analysis-v3-hero">
       <div className="flex items-start gap-2">
         <span className="mt-0.5 flex-none">
           <NodeShapeIndicator nodeKind="decision" size={14} />
         </span>
-        <h1 className={`${typography.panelHeader} line-clamp-2 min-w-0 flex-1 text-text-header`}>
+        <h1
+          className={`${typography.panelHeader} line-clamp-2 min-w-0 flex-1 text-text-header`}
+          title={hero.decisionTitle ?? undefined}
+        >
           {hero.decisionTitle ?? HERO_COPY.decisionFallback}
         </h1>
         <Tooltip content={HERO_COPY.pressureTestDecision} delay={300}>
@@ -109,7 +115,7 @@ export const HeroSection = memo(function HeroSection({
         </Tooltip>
       </div>
 
-      <div className="mt-2.5 grid gap-1.5">
+      <div className="mt-3 grid gap-2">
         <InlineField
           inputId={GOAL_INPUT_ID}
           label={HERO_COPY.goalFieldLabel}
