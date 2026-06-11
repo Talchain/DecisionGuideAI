@@ -30,6 +30,13 @@ export const BAR_LABELS: Record<BarKey, string> = {
  */
 export const BAR_STATE_THRESHOLDS = { warning: 0.4, success: 0.75 } as const
 
+/** Compact state cues per bar state (no percentages; counts stay in the tooltip). */
+export const BAR_STATE_WORDS: Record<BarState, string> = {
+  warning: 'low',
+  building: 'medium',
+  success: 'good',
+}
+
 export function barStateFor(fill: number): BarState {
   if (fill >= BAR_STATE_THRESHOLDS.success) return 'success'
   if (fill < BAR_STATE_THRESHOLDS.warning) return 'warning'
@@ -49,8 +56,8 @@ export const OPTIONS_SATURATION_COUNT = 3
 export const RISKS_SATURATION_COUNT = 3
 export const DEGREE_FALLBACK_BASE_WEIGHT = 1
 
-/** Sharpen section shows at most three signal rows. */
-export const MAX_SHARPEN_ROWS = 3
+/** Sharpen shows this many rows by default; the rest sit behind "Show N more". */
+export const SHARPEN_DEFAULT_VISIBLE = 2
 
 // ---------------------------------------------------------------------------
 // Copy
@@ -61,6 +68,10 @@ export const PANEL_COPY = {
   sharpenTitle: 'Sharpen your thinking',
   sharpenMeta: (n: number) => `${n} ${n === 1 ? 'item' : 'items'}`,
   yourDecisionTitle: 'Your decision',
+  showMore: (n: number) => `Show ${n} more`,
+  showFewer: 'Show fewer',
+  expandAll: 'Expand all',
+  collapseAll: 'Collapse all',
   advancedTitle: 'Advanced',
   advancedMeta: 'analysis set-up',
   bestNextStep: 'Best next step',
@@ -168,6 +179,18 @@ export const FOOTER_COPY = {
   notReady: 'Not ready for analysis yet',
   notReadySubFallback: 'Add a decision, a goal and at least two options',
   analyse: 'Analyse first pass',
+} as const
+
+/**
+ * Safe coaching fallbacks for CEE text degraded by the runtime glossary
+ * guard (signals/ceeTextGuard.ts). Each line still reads as coaching with
+ * Olumi attribution at the render site — never a dead or empty row.
+ */
+export const CEE_FALLBACK_COPY = {
+  /** Hero slot renders "Olumi:" + this text. */
+  heroCoaching: 'something in this set-up is worth a closer look before analysis.',
+  /** Bias row renders "Olumi noticed" + this text. */
+  biasRow: 'a pattern worth checking before you run the analysis.',
 } as const
 
 export const FIELD_FEEDBACK_COPY = {

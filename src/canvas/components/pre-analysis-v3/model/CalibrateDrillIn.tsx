@@ -68,7 +68,7 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
           <input
             aria-label={`Your estimate for ${row.label}`}
             inputMode="decimal"
-            className={`${typography.panelMeta} h-7 w-28 rounded-lg border border-panel-border bg-panel px-2 text-text-header outline-none placeholder:text-text-light focus:border-info focus:ring-2 focus:ring-info/20`}
+            className={`${typography.panelBody} h-7 w-28 rounded-lg border border-panel-border bg-panel px-2 text-text-header outline-none placeholder:text-text-light focus:border-info focus:ring-2 focus:ring-info/20`}
             placeholder="Set value"
             value={draft}
             onChange={e => setDraft(e.target.value)}

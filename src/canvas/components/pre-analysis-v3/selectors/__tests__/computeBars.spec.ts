@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { computeBars } from '../computeBars'
+import { BAR_STATE_WORDS, barStateFor } from '../../constants'
 import type { BarsInput } from '../../types'
 
 function input(overrides: Partial<BarsInput> = {}): BarsInput {
@@ -73,6 +74,17 @@ describe('computeBars — honest fill', () => {
     const bars = computeBars(input({ estimates: { coverage: 0, checkedCount: 0, checkableCount: 0, needsValueCount: 0 } }))
     expect(bars.estimates.state).toBe('building')
     expect(bars.estimates.tooltip).toBe('No estimates yet')
+  })
+
+  it('state cue words align exactly with the UI-SEM-051 thresholds (word and colour share one state)', () => {
+    expect(BAR_STATE_WORDS[barStateFor(0.39)]).toBe('low')
+    expect(BAR_STATE_WORDS[barStateFor(0.4)]).toBe('medium')
+    expect(BAR_STATE_WORDS[barStateFor(0.74)]).toBe('medium')
+    expect(BAR_STATE_WORDS[barStateFor(0.75)]).toBe('good')
+    expect(BAR_STATE_WORDS[barStateFor(0)]).toBe('low')
+    expect(BAR_STATE_WORDS[barStateFor(1)]).toBe('good')
+    // "strong" is deliberately not used (pre-analysis setup signal, not a judgement).
+    expect(Object.values(BAR_STATE_WORDS)).toEqual(['low', 'medium', 'good'])
   })
 
   it('state thresholds: warning below 0.40, success at or above 0.75 (UI-SEM-051)', () => {

@@ -7,7 +7,7 @@
 import { memo } from 'react'
 import Tooltip from '../../../../components/Tooltip'
 import { typography } from '../../../../styles/typography'
-import { BAR_LABELS } from '../constants'
+import { BAR_LABELS, BAR_STATE_WORDS } from '../constants'
 import type { BarModel, BarState } from '../types'
 import type { BarsModel } from '../selectors/computeBars'
 
@@ -25,7 +25,7 @@ const Bar = memo(function Bar({ bar }: { bar: BarModel }) {
       <div
         tabIndex={0}
         role="img"
-        aria-label={`${BAR_LABELS[bar.key]}: ${bar.tooltip}`}
+        aria-label={`${BAR_LABELS[bar.key]}: ${BAR_STATE_WORDS[bar.state]}. ${bar.tooltip}`}
         className="min-w-0 rounded outline-none focus-visible:ring-2 focus-visible:ring-info/40"
         data-testid={`pre-analysis-v3-bar-${bar.key}`}
       >
@@ -37,6 +37,12 @@ const Bar = memo(function Bar({ bar }: { bar: BarModel }) {
             className={`h-full rounded-full transition-all duration-300 ${FILL_CLASSES[bar.state]}`}
             style={{ width: `${Math.round(bar.fill * 100)}%` }}
           />
+        </div>
+        {/* Cue and fill colour both derive from bar.state — they can never
+            disagree. Caption row keeps the label full-width (no truncation
+            at panel width). */}
+        <div className={`${typography.panelMeta} mt-1 text-text-light`}>
+          {BAR_STATE_WORDS[bar.state]}
         </div>
       </div>
     </Tooltip>

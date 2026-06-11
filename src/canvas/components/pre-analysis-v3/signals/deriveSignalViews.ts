@@ -4,14 +4,18 @@
  * whose detection has cleared render as quiet confirmations (greyed copy +
  * check, actions hidden). Never-seen, non-detecting signals are absent —
  * no phantom confirmations.
+ *
+ * Returns the FULL priority-ordered row list (bounded by the registry, ≤4
+ * sharpen rows). The visible cap and "Show N more" reveal live in
+ * SharpenSection — CEE rows hold their deterministic priority slot, so an
+ * enrichment row can never push the visible set beyond the cap.
  */
 
-import { MAX_SHARPEN_ROWS } from '../constants'
 import type { PanelSignalId, SignalView } from '../types'
 import { SIGNAL_REGISTRY, type SignalDetectionInput } from './registry'
 
 export interface DerivedSignals {
-  /** ≤ MAX_SHARPEN_ROWS rows for the Sharpen section, priority-ordered. */
+  /** All sharpen rows, priority-ordered (registry order is the priority). */
   sharpen: SignalView[]
   /** Hero-surface detections (drive field attention, not rows). */
   hero: SignalView[]
@@ -47,5 +51,5 @@ export function deriveSignalViews(
     }
   }
 
-  return { sharpen: sharpen.slice(0, MAX_SHARPEN_ROWS), hero, newlySeen }
+  return { sharpen, hero, newlySeen }
 }

@@ -72,6 +72,7 @@ function seedGraph(opts: { successSet?: boolean; reviewedAll?: boolean } = {}) {
     ],
     edges: [edge('f1', 'g1'), edge('f2', 'g1'), edge('f3', 'g1')],
     preAnalysisSensitivity: SENSITIVITY,
+    ceeAnalysisReady: null,
     draftCoaching: null,
     currentBriefText: null,
     goalThreshold: null,
@@ -129,7 +130,7 @@ describe('setup state', () => {
       expect(screen.getByTestId(`pre-analysis-v3-bar-${key}`)).toBeInTheDocument()
     }
     expect(screen.getByTestId('pre-analysis-v3-bar-estimates')).toHaveAccessibleName(
-      'Estimates: 0 of 3 checked',
+      'Estimates: low. 0 of 3 checked',
     )
   })
 
@@ -140,12 +141,54 @@ describe('setup state', () => {
     )
   })
 
-  it('shows the three deterministic signals with hedged estimate copy', () => {
+  it('shows the top two signals by default with the rest behind a reveal', () => {
     renderPanel()
     const sharpen = screen.getByTestId('pre-analysis-v3-sharpen')
     expect(sharpen).toHaveTextContent('You are comparing two options.')
     expect(sharpen).toHaveTextContent("2 risks captured, all Olumi's so far.")
+    // The estimates signal sits behind the reveal.
+    expect(sharpen).not.toHaveTextContent('Check Tech lead impact first')
+    expect(screen.getAllByTestId(/pre-analysis-v3-signal-/)).toHaveLength(2)
+
+    fireEvent.click(screen.getByTestId('pre-analysis-v3-sharpen-reveal'))
     expect(sharpen).toHaveTextContent('Check Tech lead impact first, it may matter most.')
+    expect(screen.getAllByTestId(/pre-analysis-v3-signal-/)).toHaveLength(3)
+    expect(screen.getByTestId('pre-analysis-v3-sharpen-reveal')).toHaveTextContent('Show fewer')
+  })
+
+  it('a live CEE row counts within the cap and never pushes the visible set beyond it', () => {
+    useCanvasStore.setState({
+      ceeAnalysisReady: {
+        options: [],
+        goal_node_id: 'g1',
+        status: 'ready',
+        bias_findings: [
+          {
+            id: 'b1',
+            type: 'authority',
+            severity: 'medium',
+            description: 'x',
+            affectedNodes: [],
+            interventions: [],
+            // Live wire shape carries `explanation` (typed shape lags the wire).
+            explanation: 'A reflective check on how this model leans.',
+          },
+        ],
+      } as unknown as import('../../../../adapters/cee/types').CEEAnalysisReady,
+    })
+    renderPanel()
+    expect(screen.getAllByTestId(/pre-analysis-v3-signal-/)).toHaveLength(2)
+    expect(screen.getByTestId('pre-analysis-v3-sharpen-reveal')).toHaveTextContent('Show 2 more')
+    fireEvent.click(screen.getByTestId('pre-analysis-v3-sharpen-reveal'))
+    const ids = screen
+      .getAllByTestId(/pre-analysis-v3-signal-/)
+      .map(el => el.getAttribute('data-testid'))
+    expect(ids).toEqual([
+      'pre-analysis-v3-signal-sig_option_breadth',
+      'pre-analysis-v3-signal-sig_risk_count',
+      'pre-analysis-v3-signal-sig_estimates',
+      'pre-analysis-v3-signal-sig_cee_bias',
+    ])
   })
 })
 
@@ -164,9 +207,14 @@ describe('single source of truth — one success commit updates everything', () 
 
     expect(useCanvasStore.getState().goalThreshold).toBe(25)
     expect(screen.getByTestId('pre-analysis-v3-bar-frame')).toHaveAccessibleName(
-      'Frame: Decision, goal and success measure set',
+      'Frame: good. Decision, goal and success measure set',
     )
-    expect(screen.getByTestId('pre-analysis-v3-next-step')).toHaveTextContent('Tech lead impact')
+    // The commit's invalidateAnalysisReady clears the seeded sensitivity, so
+    // ranking legitimately degrades to the degree fallback here; the invariant
+    // is that the ladder moved to a check-estimate rung in the same pass.
+    expect(screen.getByTestId('pre-analysis-v3-next-step')).toHaveTextContent(
+      /Check .+, it may matter most to the analysis\./,
+    )
     expect(screen.getByTestId('pre-analysis-v3-footer')).toHaveTextContent(
       'Checking top estimates usually sharpens the result',
     )
@@ -235,6 +283,7 @@ describe('signal resolution', () => {
     useSignalSessionStore.getState().markSeen(['sig_estimates'], 1)
     seedGraph({ reviewedAll: true })
     renderPanel()
+    fireEvent.click(screen.getByTestId('pre-analysis-v3-sharpen-reveal'))
     const row = screen.getByTestId('pre-analysis-v3-signal-sig_estimates')
     expect(row).toHaveAttribute('data-signal-status', 'resolved')
     expect(row).toHaveTextContent('Top estimates checked.')
@@ -251,6 +300,7 @@ describe('calibrate flow (canonical observed-state writes)', () => {
   it('saving a value writes raw_value + user_override and moves the estimates bar', () => {
     renderPanel()
     fireEvent.click(screen.getByRole('button', { name: /Your decision/ }))
+    fireEvent.click(screen.getByRole('button', { name: /What this depends on/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Check Tech lead impact' }))
 
     const input = screen.getByLabelText('Your estimate for Tech lead impact')
@@ -263,13 +313,14 @@ describe('calibrate flow (canonical observed-state writes)', () => {
     expect(observed.source).toBe('user_override')
 
     expect(screen.getByTestId('pre-analysis-v3-bar-estimates')).toHaveAccessibleName(
-      'Estimates: 1 of 3 checked',
+      'Estimates: medium. 1 of 3 checked',
     )
   })
 
   it('confirm as is writes user_confirmed without touching the value', () => {
     renderPanel()
     fireEvent.click(screen.getByRole('button', { name: /Your decision/ }))
+    fireEvent.click(screen.getByRole('button', { name: /What this depends on/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Check Tech lead impact' }))
     fireEvent.click(screen.getByTestId('pre-analysis-v3-confirm-as-is'))
 
@@ -376,6 +427,7 @@ describe('no silent failures (diagnose-and-fix pass)', () => {
     })
     renderPanel()
     fireEvent.click(screen.getByRole('button', { name: /Your decision/ }))
+    fireEvent.click(screen.getByRole('button', { name: /What this depends on/ }))
     expect(screen.getByTestId('pre-analysis-v3-add-value-f4')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Check Team morale' })).not.toBeInTheDocument()
     expect(screen.getByTestId('pre-analysis-v3-your-decision')).toHaveTextContent(
@@ -385,5 +437,114 @@ describe('no silent failures (diagnose-and-fix pass)', () => {
     fireEvent.click(screen.getByTestId('pre-analysis-v3-add-value-f4'))
     expect(screen.getByLabelText('Your estimate for Team morale')).toBeInTheDocument()
     expect(screen.queryByTestId('pre-analysis-v3-confirm-as-is')).not.toBeInTheDocument()
+  })
+})
+
+describe('Your decision — per-group collapse', () => {
+  it('groups are collapsed by default with counts visible; Expand all opens every group', () => {
+    renderPanel()
+    fireEvent.click(screen.getByRole('button', { name: /Your decision/ }))
+    // Collapsed: group headers visible (with meta), bodies hidden.
+    expect(screen.getByRole('button', { name: /What this depends on/ })).toBeInTheDocument()
+    expect(screen.queryByTestId('pre-analysis-v3-estimate-f1')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Add another option')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('pre-analysis-v3-groups-toggle-all'))
+    expect(screen.getByTestId('pre-analysis-v3-estimate-f1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Add another option')).toBeInTheDocument()
+    expect(screen.getByTestId('pre-analysis-v3-groups-toggle-all')).toHaveTextContent('Collapse all')
+
+    fireEvent.click(screen.getByTestId('pre-analysis-v3-groups-toggle-all'))
+    expect(screen.queryByTestId('pre-analysis-v3-estimate-f1')).not.toBeInTheDocument()
+  })
+
+  it('a single group toggles independently', () => {
+    renderPanel()
+    fireEvent.click(screen.getByRole('button', { name: /Your decision/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Risks and upside/ }))
+    expect(screen.getByLabelText('Add a risk')).toBeInTheDocument()
+    expect(screen.queryByTestId('pre-analysis-v3-estimate-f1')).not.toBeInTheDocument()
+  })
+})
+
+describe('CEE glossary guard at render time', () => {
+  it('unsafe hero coaching degrades to the safe fallback, still attributed to Olumi', () => {
+    useCanvasStore.setState({
+      draftCoaching: {
+        summary: 'One or more authority-labelled nodes are highly connected in the decision graph.',
+        strengthenItems: [],
+        wideningLog: [],
+        biasSignals: [],
+      },
+    })
+    renderPanel()
+    const slot = screen.getByTestId('pre-analysis-v3-coaching-slot')
+    expect(slot).toHaveTextContent('Olumi:')
+    expect(slot).toHaveTextContent('something in this set-up is worth a closer look before analysis.')
+    expect(slot).not.toHaveTextContent('nodes')
+    expect(slot).not.toHaveTextContent('decision graph')
+  })
+
+  it('an unsafe CEE bias row renders the coaching fallback, never the raw text', () => {
+    useCanvasStore.setState({
+      ceeAnalysisReady: {
+        options: [],
+        goal_node_id: 'g1',
+        status: 'ready',
+        bias_findings: [
+          {
+            id: 'b1',
+            type: 'authority',
+            severity: 'medium',
+            description: 'x',
+            affectedNodes: [],
+            interventions: [],
+            // Live wire shape carries `explanation` (typed shape lags the wire).
+            explanation:
+              'One or more authority-labelled nodes are highly connected in the decision graph; this may overweight senior opinions.',
+          },
+        ],
+      } as unknown as import('../../../../adapters/cee/types').CEEAnalysisReady,
+    })
+    renderPanel()
+    fireEvent.click(screen.getByTestId('pre-analysis-v3-sharpen-reveal'))
+    const row = screen.getByTestId('pre-analysis-v3-signal-sig_cee_bias')
+    expect(row).toHaveTextContent('Olumi noticed')
+    expect(row).toHaveTextContent('a pattern worth checking before you run the analysis.')
+    expect(row).not.toHaveTextContent('nodes')
+    expect(row).not.toHaveTextContent('decision graph')
+  })
+
+  it('an unsafe narrow-framing swap falls back to the deterministic option copy', () => {
+    useCanvasStore.setState({
+      draftCoaching: {
+        summary: null,
+        strengthenItems: [],
+        wideningLog: [],
+        biasSignals: [
+          { type: 'narrow_framing', detail: 'Both options share one node in the graph.' },
+        ],
+      },
+    })
+    renderPanel()
+    const row = screen.getByTestId('pre-analysis-v3-signal-sig_option_breadth')
+    expect(row).toHaveTextContent('You are comparing two options.')
+    expect(row).not.toHaveTextContent('Olumi noticed')
+    expect(row).not.toHaveTextContent('graph')
+  })
+
+  it('safe CEE text still renders verbatim', () => {
+    useCanvasStore.setState({
+      draftCoaching: {
+        summary: 'The core tension is leadership against added delivery capacity.',
+        strengthenItems: [],
+        wideningLog: [],
+        biasSignals: [],
+      },
+    })
+    renderPanel()
+    expect(screen.getByTestId('pre-analysis-v3-coaching-slot')).toHaveTextContent(
+      'The core tension is leadership against added delivery capacity.',
+    )
   })
 })

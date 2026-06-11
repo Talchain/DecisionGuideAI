@@ -1,12 +1,14 @@
 /**
- * SharpenSection — up to three signal-backed coaching items. CEE enrichment
- * swaps copy inside existing rows (never adds rows mid-session), so coaching
- * arrival causes no layout shift.
+ * SharpenSection — signal-backed coaching items, density-managed: the top
+ * SHARPEN_DEFAULT_VISIBLE rows show by default and the rest sit behind a
+ * "Show N more" reveal. Ordering is the registry's deterministic priority;
+ * CEE enrichment swaps copy inside existing rows or holds its own priority
+ * slot, so it never pushes the visible set beyond the cap.
  */
 
-import { memo } from 'react'
-import { typography } from '../../../../styles/typography'
-import { PANEL_COPY } from '../constants'
+import { memo, useState } from 'react'
+import { typography, typo } from '../../../../styles/typography'
+import { PANEL_COPY, SHARPEN_DEFAULT_VISIBLE } from '../constants'
 import { SignalRow } from './SignalRow'
 import type { SignalView } from '../types'
 
@@ -21,7 +23,12 @@ export const SharpenSection = memo(function SharpenSection({
   onSendPrompt,
   onAction,
 }: SharpenSectionProps) {
+  const [revealed, setRevealed] = useState(false)
   if (signals.length === 0) return null
+
+  const visible = revealed ? signals : signals.slice(0, SHARPEN_DEFAULT_VISIBLE)
+  const hiddenCount = signals.length - SHARPEN_DEFAULT_VISIBLE
+
   return (
     <div className="px-4 pb-1 pt-3" data-testid="pre-analysis-v3-sharpen">
       <div className="flex items-baseline justify-between">
@@ -31,7 +38,7 @@ export const SharpenSection = memo(function SharpenSection({
         </span>
       </div>
       <div>
-        {signals.map(view => (
+        {visible.map(view => (
           <SignalRow
             key={view.detection.signal_id}
             view={view}
@@ -40,6 +47,20 @@ export const SharpenSection = memo(function SharpenSection({
           />
         ))}
       </div>
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          aria-expanded={revealed}
+          onClick={() => setRevealed(v => !v)}
+          className={typo(
+            'panelMeta',
+            'mb-2 rounded text-text-light outline-none transition-colors hover:text-text-header focus-visible:text-text-header focus-visible:ring-2 focus-visible:ring-info/40',
+          )}
+          data-testid="pre-analysis-v3-sharpen-reveal"
+        >
+          {revealed ? PANEL_COPY.showFewer : PANEL_COPY.showMore(hiddenCount)}
+        </button>
+      )}
     </div>
   )
 })

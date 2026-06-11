@@ -49,20 +49,22 @@ describe('deriveSignalViews — lifecycle', () => {
     expect(derived.sharpen.map(v => v.detection.signal_id)).not.toContain('sig_estimates')
   })
 
-  it('caps the sharpen section at three rows, priority-ordered', () => {
+  it('returns the full priority-ordered list; CEE rows hold their slot, never jump the queue', () => {
     const derived = deriveSignalViews(
       input({ biasFindingExplanation: 'A reflective check.' }),
       {},
     )
-    expect(derived.sharpen).toHaveLength(3)
+    // The visible cap lives in SharpenSection (SHARPEN_DEFAULT_VISIBLE); the
+    // deriver orders deterministically with CEE enrichment last.
     expect(derived.sharpen.map(v => v.detection.signal_id)).toEqual([
       'sig_option_breadth',
       'sig_risk_count',
       'sig_estimates',
+      'sig_cee_bias',
     ])
   })
 
-  it('the CEE bias row fills a free slot when fewer than three deterministic signals are live', () => {
+  it('ordering is stable when a deterministic signal clears', () => {
     const derived = deriveSignalViews(
       input({ optionCount: 3, biasFindingExplanation: 'A reflective check.' }),
       {},

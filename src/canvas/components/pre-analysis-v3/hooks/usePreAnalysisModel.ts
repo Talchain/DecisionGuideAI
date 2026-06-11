@@ -20,7 +20,8 @@ import { computeSuccessState, type SuccessState } from '../selectors/computeSucc
 import { buildEstimateRows, topUncalibrated } from '../selectors/buildEstimateRows'
 import { deriveSignalViews } from '../signals/deriveSignalViews'
 import { useSignalSessionStore } from '../signals/signalSessionStore'
-import { FOOTER_COPY } from '../constants'
+import { CEE_FALLBACK_COPY, FOOTER_COPY, LADDER_COPY } from '../constants'
+import { guardCeeText, guardCeeTextOrNull } from '../signals/ceeTextGuard'
 import type {
   Attribution,
   EstimateRowModel,
@@ -155,21 +156,27 @@ export function usePreAnalysisModel(): PreAnalysisModel {
         successSet: success.isSet,
         topUncalibrated: top,
         canRunAnalysis: readiness ? readiness.can_run_analysis : null,
-        readinessExplanation: readiness?.confidence_explanation ?? null,
+        readinessExplanation: readiness?.confidence_explanation
+          ? guardCeeText(readiness.confidence_explanation, LADDER_COPY.readiness_fallback).text
+          : null,
       }),
     [facts.goalNode, success.isSet, top, readiness],
   )
 
   const narrowFramingDetail = useMemo(() => {
     const signal = draftCoaching?.biasSignals?.find(b => b.type === 'narrow_framing')
-    return signal?.detail && signal.detail.trim().length > 0 ? signal.detail : null
+    const detail = signal?.detail && signal.detail.trim().length > 0 ? signal.detail : null
+    // Glossary guard: an unsafe swap degrades to the deterministic copy.
+    return guardCeeTextOrNull(detail)
   }, [draftCoaching])
 
   const biasFindingExplanation = useMemo(() => {
     const findings = (analysisReady as { bias_findings?: Array<{ explanation?: string }> } | null)
       ?.bias_findings
     const first = findings?.find(f => typeof f.explanation === 'string' && f.explanation.length > 0)
-    return first?.explanation ?? null
+    if (!first?.explanation) return null
+    // Glossary guard: unsafe CEE wording degrades to a safe coaching line.
+    return guardCeeText(first.explanation, CEE_FALLBACK_COPY.biasRow).text
   }, [analysisReady])
 
   const derived = useMemo(
@@ -195,9 +202,12 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     if (derived.newlySeen.length > 0) markSeen(derived.newlySeen, Date.now())
   }, [derived.newlySeen, markSeen])
 
-  const coachingText =
+  const rawCoachingText =
     draftCoaching?.summary?.trim() ||
     ((analysisReady as { coaching_summary?: string | null } | null)?.coaching_summary?.trim() ?? '')
+  const coachingText = rawCoachingText
+    ? guardCeeText(rawCoachingText, CEE_FALLBACK_COPY.heroCoaching).text
+    : ''
 
   const options = useMemo(
     () =>
@@ -239,10 +249,13 @@ export function usePreAnalysisModel(): PreAnalysisModel {
   const canRun = readiness ? readiness.can_run_analysis : null
   const footer = useMemo(() => {
     if (canRun === false) {
+      const explanation = readiness?.confidence_explanation?.trim()
       return {
         dot: 'muted' as const,
         headline: FOOTER_COPY.notReady,
-        subline: readiness?.confidence_explanation?.trim() || FOOTER_COPY.notReadySubFallback,
+        subline: explanation
+          ? guardCeeText(explanation, FOOTER_COPY.notReadySubFallback).text
+          : FOOTER_COPY.notReadySubFallback,
       }
     }
     if (!success.isSet) {
