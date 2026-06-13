@@ -211,6 +211,7 @@ npm run build                      # production build (separate concern)
 | UI-SEM-050 | `src/components/results/useResultsSectionData.ts` | Leading-option downside flag — true when leading option's `outcome.p10 < 0`, drives one qualifying sentence on the leader card (display-only, never affects ranking or forwarded values) | Keep — display formatting (legitimate) |
 | UI-SEM-051 | `src/canvas/components/pre-analysis-v3/constants.ts` | Pre-analysis v3 bar state colour thresholds (warning <0.40, success >=0.75) | Keep — display formatting (legitimate) |
 | UI-SEM-052 | `src/canvas/components/pre-analysis-v3/constants.ts` | Pre-analysis v3 bar fill denominators (options/risks saturate at 3; frame thirds; estimates degree-fallback base weight 1) | Keep — display formatting (legitimate) |
+| UI-SEM-053 | `src/canvas/components/pre-analysis-v3/constants.ts` | Pre-analysis v3 gauge segment quantisation (continuous fill → lit-of-N discrete segments: round(fill·N), clamp [1,N] for positive fill, 0 when empty) | Keep — display formatting (legitimate) |
 
 - Check for stale `.js` files co-located with `.ts`/`.tsx` source files in `src/` when debugging unexpected behaviour.
 - This is a React app — check for stale component state, missing dependency arrays in hooks, and incorrect memoisation when debugging rendering issues.

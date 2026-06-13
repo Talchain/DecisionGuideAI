@@ -1,11 +1,12 @@
 /**
- * PanelHeader — "Before analysis" eyebrow, four health bars and the actions
- * overflow menu.
+ * PanelHeader — the four setup-review meters and the actions overflow menu on
+ * a single compact row. The "before analysis" framing is carried by context
+ * (this panel only mounts pre-run), so no separate eyebrow row is needed; the
+ * meters sit to the left of the menu and wrap to a second line only when the
+ * panel is dragged narrow.
  */
 
 import { memo } from 'react'
-import { typography } from '../../../../styles/typography'
-import { PANEL_COPY } from '../constants'
 import { ActionsMenu } from './ActionsMenu'
 import { HealthBars } from './HealthBars'
 import type { BarsModel } from '../selectors/computeBars'
@@ -17,14 +18,9 @@ interface PanelHeaderProps {
 
 export const PanelHeader = memo(function PanelHeader({ bars, onAction }: PanelHeaderProps) {
   return (
-    <div className="border-b border-panel-border px-4 pb-4 pt-3">
-      <div className="mb-2 flex items-center gap-2">
-        <span className={`${typography.panelMeta} tracking-wide text-text-light`}>
-          {PANEL_COPY.eyebrow}
-        </span>
-        <ActionsMenu onAction={onAction} />
-      </div>
+    <div className="flex items-center gap-3 border-b border-panel-border px-4 py-2.5">
       <HealthBars bars={bars} />
+      <ActionsMenu onAction={onAction} />
     </div>
   )
 })

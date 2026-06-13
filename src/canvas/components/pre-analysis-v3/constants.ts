@@ -56,6 +56,22 @@ export const OPTIONS_SATURATION_COUNT = 3
 export const RISKS_SATURATION_COUNT = 3
 export const DEGREE_FALLBACK_BASE_WEIGHT = 1
 
+/**
+ * UI-SEM-053: segment quantisation of bar fill (display formatting). Each bar
+ * renders as a vertical stack of GAUGE_SEGMENTS discrete segments; the lit
+ * count is round(fill * segments), clamped to [1, segments] for any positive
+ * fill and 0 when the bar is empty — an empty gauge reads as "nothing yet",
+ * mirroring an empty continuous bar (no state colour shown at zero, same as
+ * today). Discrete steps make the level easier to read at a glance than a
+ * continuous height. Keep — display formatting (legitimate).
+ */
+export const GAUGE_SEGMENTS = 5
+
+export function litSegments(fill: number, segments: number = GAUGE_SEGMENTS): number {
+  if (!(fill > 0)) return 0
+  return Math.min(segments, Math.max(1, Math.round(fill * segments)))
+}
+
 /** Sharpen shows this many rows by default; the rest sit behind "Show N more". */
 export const SHARPEN_DEFAULT_VISIBLE = 2
 
