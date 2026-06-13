@@ -25,7 +25,7 @@ export const CoachingSlot = memo(function CoachingSlot({ coaching }: CoachingSlo
       : `${coaching.attribution.displayName}:`
   return (
     <div
-      className="mt-3 flex items-start gap-2"
+      className="mt-4 flex items-start gap-2"
       data-testid="pre-analysis-v3-coaching-slot"
     >
       <Sparkles className="mt-0.5 h-3.5 w-3.5 flex-none text-info" aria-hidden />

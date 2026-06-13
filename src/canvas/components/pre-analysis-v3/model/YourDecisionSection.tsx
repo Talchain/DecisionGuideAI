@@ -81,7 +81,7 @@ const Group = memo(function Group({
   children: ReactNode
 }) {
   return (
-    <div data-testid={`pre-analysis-v3-group-${groupKey}`}>
+    <div className="mt-3 first:mt-0" data-testid={`pre-analysis-v3-group-${groupKey}`}>
       <button
         type="button"
         aria-expanded={open}
@@ -100,7 +100,7 @@ const Group = memo(function Group({
       </button>
       {open && (
         <>
-          <p className={`${typography.panelMeta} mb-1 ml-6 text-text-light`}>{coach}</p>
+          <p className={`${typography.panelMeta} mb-1.5 ml-6 italic text-text-light`}>{coach}</p>
           {children}
         </>
       )}
@@ -219,7 +219,7 @@ export const YourDecisionSection = memo(function YourDecisionSection({
       onOpenChange={setOpen}
       testId="pre-analysis-v3-your-decision"
     >
-      <div className="flex justify-end">
+      <div className="mb-2 flex justify-end">
         <button
           type="button"
           onClick={() => setAll(!allOpen)}
@@ -243,7 +243,7 @@ export const YourDecisionSection = memo(function YourDecisionSection({
         onToggle={toggleGroup}
       >
         {model.hero.goal && (
-          <div className="ml-6 grid min-h-7 grid-cols-[1fr_auto] items-center gap-2">
+          <div className="ml-6 grid min-h-7 grid-cols-[1fr_auto] items-center gap-2 py-0.5">
             <span className="flex min-w-0 items-center gap-2">
               <span className={`${typography.panelBody} truncate text-text-body`}>
                 {MODEL_VIEW_COPY.goalRow(model.hero.goal.label)}
@@ -252,7 +252,7 @@ export const YourDecisionSection = memo(function YourDecisionSection({
             </span>
           </div>
         )}
-        <div className="ml-6 grid min-h-7 grid-cols-[1fr_auto] items-center gap-2">
+        <div className="ml-6 grid min-h-7 grid-cols-[1fr_auto] items-center gap-2 py-0.5">
           <span className="flex min-w-0 items-center gap-2">
             <span className={`${typography.panelBody} truncate text-text-body`}>
               {MODEL_VIEW_COPY.successRow}
@@ -287,7 +287,7 @@ export const YourDecisionSection = memo(function YourDecisionSection({
         onToggle={toggleGroup}
       >
         {model.options.map(option => (
-          <div key={option.nodeId} className="ml-6 grid min-h-7 grid-cols-[1fr_auto] items-center gap-2">
+          <div key={option.nodeId} className="ml-6 grid min-h-7 grid-cols-[1fr_auto] items-center gap-2 py-0.5">
             <span className="flex min-w-0 items-center gap-2">
               <span className={`${typography.panelBody} truncate text-text-body`}>{option.label}</span>
             </span>
@@ -313,7 +313,7 @@ export const YourDecisionSection = memo(function YourDecisionSection({
         onToggle={toggleGroup}
       >
         {model.risks.map(risk => (
-          <div key={risk.nodeId} className="ml-6 grid min-h-7 grid-cols-[1fr_auto] items-center gap-2">
+          <div key={risk.nodeId} className="ml-6 grid min-h-7 grid-cols-[1fr_auto] items-center gap-2 py-0.5">
             <span className="flex min-w-0 items-center gap-2">
               <span className={`${typography.panelBody} truncate text-text-body`}>{risk.label}</span>
               {risk.attribution.kind === 'olumi' && (
@@ -349,6 +349,9 @@ export const YourDecisionSection = memo(function YourDecisionSection({
         open={openGroups.estimates}
         onToggle={toggleGroup}
       >
+        {/* No space-y here: EstimateRow's own py-1 gives an ~8px inter-row
+            gap (the denser two-line-row deviation, matching Sharpen's py-2);
+            adding space-y-1 on top double-gapped this group vs the others. */}
         <div className="ml-6">
           {model.estimates.rows.map(row => (
             <div key={row.nodeId}>

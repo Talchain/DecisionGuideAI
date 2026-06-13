@@ -91,7 +91,7 @@ export const HeroSection = memo(function HeroSection({
     ) : null
 
   return (
-    <div className="border-b border-panel-border px-4 py-3" data-testid="pre-analysis-v3-hero">
+    <div className="px-4 py-4" data-testid="pre-analysis-v3-hero">
       <div className="flex items-start gap-2">
         <span className="mt-0.5 flex-none">
           <NodeShapeIndicator nodeKind="decision" size={14} />
@@ -115,7 +115,7 @@ export const HeroSection = memo(function HeroSection({
         </Tooltip>
       </div>
 
-      <div className="mt-3 grid gap-2">
+      <div className="mt-4 grid gap-2">
         <InlineField
           inputId={GOAL_INPUT_ID}
           label={HERO_COPY.goalFieldLabel}

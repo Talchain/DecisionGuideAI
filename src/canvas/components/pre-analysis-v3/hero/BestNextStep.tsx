@@ -17,7 +17,7 @@ interface BestNextStepProps {
 
 export const BestNextStep = memo(function BestNextStep({ ladder, onAct }: BestNextStepProps) {
   return (
-    <div className="mt-3 flex items-center gap-2.5 border-t border-panel-border pt-3">
+    <div className="mt-4 flex items-center gap-2.5 border-t border-panel-border pt-4">
       <div className="min-w-0">
         <div className={`${typography.panelMeta} tracking-wide text-text-light`}>
           {PANEL_COPY.bestNextStep}

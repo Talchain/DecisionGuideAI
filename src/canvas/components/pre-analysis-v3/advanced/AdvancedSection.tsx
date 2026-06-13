@@ -34,21 +34,21 @@ export const AdvancedSection = memo(function AdvancedSection({
       onOpenChange={setOpen}
       testId="pre-analysis-v3-advanced"
     >
-      <div>
+      <div className="space-y-1">
+        <Row
+          label="Model size"
+          value={`${advanced.factorCount} ${advanced.factorCount === 1 ? 'factor' : 'factors'} · ${advanced.connectionCount} ${advanced.connectionCount === 1 ? 'connection' : 'connections'}`}
+        />
+        {advanced.readinessScore != null && (
           <Row
-            label="Model size"
-            value={`${advanced.factorCount} ${advanced.factorCount === 1 ? 'factor' : 'factors'} · ${advanced.connectionCount} ${advanced.connectionCount === 1 ? 'connection' : 'connections'}`}
+            label="Readiness detail"
+            value={`score ${advanced.readinessScore}${advanced.canRun ? ' · analysis available' : ''}`}
           />
-          {advanced.readinessScore != null && (
-            <Row
-              label="Readiness detail"
-              value={`score ${advanced.readinessScore}${advanced.canRun ? ' · analysis available' : ''}`}
-            />
-          )}
-          <Row
-            label="Provenance"
-            value={`${advanced.aiEstimatedCount} Olumi ${advanced.aiEstimatedCount === 1 ? 'estimate' : 'estimates'} · ${advanced.reviewedCount} checked by you`}
-          />
+        )}
+        <Row
+          label="Provenance"
+          value={`${advanced.aiEstimatedCount} Olumi ${advanced.aiEstimatedCount === 1 ? 'estimate' : 'estimates'} · ${advanced.reviewedCount} checked by you`}
+        />
       </div>
     </PanelDisclosure>
   )

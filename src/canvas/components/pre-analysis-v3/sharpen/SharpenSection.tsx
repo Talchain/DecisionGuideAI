@@ -30,8 +30,8 @@ export const SharpenSection = memo(function SharpenSection({
   const hiddenCount = signals.length - SHARPEN_DEFAULT_VISIBLE
 
   return (
-    <div className="px-4 pb-1 pt-3" data-testid="pre-analysis-v3-sharpen">
-      <div className="flex items-baseline justify-between">
+    <div className="border-t border-panel-border px-4 py-4" data-testid="pre-analysis-v3-sharpen">
+      <div className="-mx-4 -mt-4 mb-3 flex items-baseline justify-between bg-panel-hover px-4 py-2">
         <h2 className={`${typography.panelHeader} text-text-header`}>{PANEL_COPY.sharpenTitle}</h2>
         <span className={`${typography.panelMeta} text-text-light`}>
           {PANEL_COPY.sharpenMeta(signals.length)}

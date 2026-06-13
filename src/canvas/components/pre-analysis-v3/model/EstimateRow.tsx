@@ -86,7 +86,7 @@ export const EstimateRow = memo(function EstimateRow({ row, expanded, onToggle }
           {pill}
           {/* Priority is a to-do label; a checked row's pill already says done. */}
           {!row.reviewed && (
-            <span className="whitespace-nowrap">{RANK_LABEL_COPY[row.rankLabel]}</span>
+            <span className="whitespace-nowrap opacity-70">{RANK_LABEL_COPY[row.rankLabel]}</span>
           )}
         </span>
       </span>
