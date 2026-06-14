@@ -1,13 +1,12 @@
 /**
  * HealthBars — the four setup-review meters, laid out inline beside the Actions
- * menu (wrapping to a second line when the panel is narrow). Each item is a
- * "Title · state" label (low / medium / good — the visible state word) followed
- * by a short segmented bar: discrete filled-vs-empty segments give the level at
- * a glance. State is shown two ways — the word and the fill colour (semantic
- * state only: warning / neutral building / success; entity colour never appears
- * here) — so it stays legible without relying on colour alone. The exact counts
- * live in the bar's accessible name and tooltip (hover/focus). When there is
- * nothing to measure (no estimates) the cue is null and the bare label shows.
+ * menu (one row at the panel's working width; wraps only when dragged very
+ * narrow). Each item is a "Title:" label followed by a short segmented bar:
+ * discrete filled-vs-empty segments give the level at a glance. State is shown
+ * by the fill colour (semantic state only: warning / neutral building / success;
+ * entity colour never appears here); the exact state word (low / medium / good)
+ * and counts live in the bar's accessible name and tooltip (hover/focus) — kept
+ * off the visible label so the four meters stay on one line.
  */
 
 import { memo } from 'react'
@@ -44,7 +43,7 @@ const Gauge = memo(function Gauge({ bar }: { bar: BarModel }) {
       {Array.from({ length: GAUGE_SEGMENTS }, (_, i) => (
         <span
           key={i}
-          className={`h-2 w-1 rounded-[1px] ${i < lit ? FILL_CLASSES[bar.state] : 'bg-panel-border'}`}
+          className={`h-2 w-[3px] rounded-[1px] ${i < lit ? FILL_CLASSES[bar.state] : 'bg-panel-border'}`}
         />
       ))}
     </div>
@@ -58,16 +57,14 @@ const Bar = memo(function Bar({ bar }: { bar: BarModel }) {
         tabIndex={0}
         role="img"
         aria-label={bar.cue ? `${BAR_LABELS[bar.key]}: ${bar.cue}. ${bar.tooltip}` : `${BAR_LABELS[bar.key]}: ${bar.tooltip}`}
-        className="flex items-center gap-1 rounded outline-none focus-visible:ring-2 focus-visible:ring-info/40"
+        className="flex items-center gap-0.5 rounded outline-none focus-visible:ring-2 focus-visible:ring-info/40"
         data-testid={`pre-analysis-v3-bar-${bar.key}`}
       >
-        {/* Visible state word beside the label (low/medium/good), so state is
-            legible without relying on the gauge colour alone. Null cue (no
-            estimates to measure) shows the bare label — never a misleading
-            word. */}
+        {/* Label only (no visible state word) so the four meters stay on one
+            line; state is the gauge colour, with the word + counts in the
+            accessible name / tooltip. */}
         <span className={`${typography.panelMeta} whitespace-nowrap text-text-body`}>
-          {BAR_LABELS[bar.key]}
-          {bar.cue ? ` · ${bar.cue}` : ''}
+          {BAR_LABELS[bar.key]}:
         </span>
         <Gauge bar={bar} />
       </div>

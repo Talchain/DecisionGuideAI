@@ -100,12 +100,13 @@ describe('pre-analysis v3 — single-row status header', () => {
     expect(screen.getByTestId('pre-analysis-v3-gauge-risks').getAttribute('data-lit')).toBe('1')
   })
 
-  it('shows the visible state word beside each label and keeps the accessible name', () => {
+  it('keeps the state word in the accessible name, not the visible label (one line)', () => {
     renderPanel()
-    // Risks = 1 of 3 → fill 0.33 < 0.40 → "low" (deterministic).
-    expect(screen.getByTestId('pre-analysis-v3-bar-risks')).toHaveTextContent('Risks · low')
-    expect(screen.getByTestId('pre-analysis-v3-bar-frame')).toHaveTextContent(/Frame · (low|medium|good)/)
-    // Accessible name still carries the cue + the count tooltip.
+    // No visible state word — the label stays "Risks:" so the meters stay on one line.
+    expect(screen.getByTestId('pre-analysis-v3-bar-risks')).toHaveTextContent('Risks:')
+    expect(screen.getByTestId('pre-analysis-v3-bar-risks')).not.toHaveTextContent('low')
+    expect(screen.getByTestId('pre-analysis-v3-bar-frame')).not.toHaveTextContent('good')
+    // The state word + count still live in the accessible name (Risks = 1 of 3 → low).
     expect(screen.getByTestId('pre-analysis-v3-bar-risks')).toHaveAccessibleName(/^Risks: low\. /)
   })
 })
