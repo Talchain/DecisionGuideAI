@@ -87,7 +87,7 @@ describe('pre-analysis v3 — single-row status header', () => {
       const gauge = screen.getByTestId(`pre-analysis-v3-gauge-${key}`)
       const segs = gauge.querySelectorAll(':scope > span')
       expect(segs).toHaveLength(GAUGE_SEGMENTS)
-      const lit = [...segs].filter(s => !s.classList.contains('bg-panel-border')).length
+      const lit = [...segs].filter(s => !s.classList.contains('bg-track-neutral')).length
       expect(String(lit)).toBe(gauge.getAttribute('data-lit'))
     }
   })
