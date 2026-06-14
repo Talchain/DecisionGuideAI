@@ -4,19 +4,19 @@
  *   line 2: value · provenance pill · priority label.
  *
  * Action column (no false affordances):
- *   - reviewed       → quiet success check (no button)
- *   - needs a value  → "Add value" affordance (opens the editor; no check tick)
- *   - otherwise      → check affordance (opens the editor)
+ *   - reviewed       → quiet success tick (the only tick; signals "done")
+ *   - needs a value  → "Add value" affordance (opens the editor)
+ *   - otherwise      → "Check" text affordance (opens the editor; never a tick,
+ *                       which would read as already completed)
  */
 
 import { memo } from 'react'
-import { Check, Plus } from 'lucide-react'
+import { Check, Plus, Pencil } from 'lucide-react'
 import Tooltip from '../../../../components/Tooltip'
 import { typography, typo } from '../../../../styles/typography'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { Pill } from '../../pre-analysis/primitives/Pill'
 import { ATTRIBUTION_COPY, FIELD_FEEDBACK_COPY, RANK_LABEL_COPY } from '../constants'
-import { PanelIconButton } from '../ui/PanelIconButton'
 import type { EstimateRowModel } from '../types'
 
 interface EstimateRowProps {
@@ -58,14 +58,20 @@ export const EstimateRow = memo(function EstimateRow({ row, expanded, onToggle }
     </button>
   ) : (
     <Tooltip content="Check this estimate: replace it with your judgement" delay={300}>
-      <PanelIconButton
-        variant="ghost"
-        aria-label={`Check ${row.label}`}
-        aria-expanded={expanded}
+      <button
+        type="button"
         onClick={() => onToggle(row.nodeId)}
+        aria-expanded={expanded}
+        aria-label={`Check ${row.label}`}
+        className={typo(
+          'panelMeta',
+          'inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-panel-border bg-transparent px-2 py-1 text-text-body outline-none transition-colors hover:bg-panel-hover focus-visible:bg-panel-hover focus-visible:ring-2 focus-visible:ring-info/40',
+        )}
+        data-testid={`pre-analysis-v3-check-${row.nodeId}`}
       >
-        <Check className="h-3.5 w-3.5" aria-hidden />
-      </PanelIconButton>
+        <Pencil className="h-3 w-3" aria-hidden />
+        {FIELD_FEEDBACK_COPY.check}
+      </button>
     </Tooltip>
   )
 

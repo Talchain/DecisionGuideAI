@@ -1,11 +1,13 @@
 /**
- * HealthBars — the four compact setup-review meters, laid out inline so the
- * whole status sits on one row beside the Actions menu. Each item is a label
- * plus a vertical segmented gauge: discrete stacked segments make the level
- * easy to read at a glance (you count the lit segments). Colour is semantic
- * state only (warning, neutral building, success); entity colour never appears
- * here. The cue word and exact counts live in the bar's accessible name and
- * tooltip (hover/focus), not a visible caption, to keep the row compact.
+ * HealthBars — the four setup-review meters, laid out inline beside the Actions
+ * menu (wrapping to a second line when the panel is narrow). Each item is a
+ * "Title · state" label (low / medium / good — the visible state word) followed
+ * by a short segmented bar: discrete filled-vs-empty segments give the level at
+ * a glance. State is shown two ways — the word and the fill colour (semantic
+ * state only: warning / neutral building / success; entity colour never appears
+ * here) — so it stays legible without relying on colour alone. The exact counts
+ * live in the bar's accessible name and tooltip (hover/focus). When there is
+ * nothing to measure (no estimates) the cue is null and the bare label shows.
  */
 
 import { memo } from 'react'
@@ -24,16 +26,17 @@ const FILL_CLASSES: Record<BarState, string> = {
 }
 
 /**
- * Vertical segmented gauge. Rendered bottom-up (flex-col-reverse), the lowest
- * `lit` segments carry the state colour and the rest stay a quiet neutral, so
- * the meter reads like a battery/level indicator. Decorative: the parent bar
- * carries the accessible name, so the gauge is aria-hidden.
+ * Compact level meter: a row of thin vertical strokes, filled left to right.
+ * The leftmost `lit` strokes carry the state colour and the rest stay a quiet
+ * neutral, so it reads like a segmented level indicator (count the lit
+ * strokes) while staying narrow enough for all four meters to share one row.
+ * Decorative: the parent bar carries the accessible name, so it is aria-hidden.
  */
 const Gauge = memo(function Gauge({ bar }: { bar: BarModel }) {
   const lit = litSegments(bar.fill, GAUGE_SEGMENTS)
   return (
     <div
-      className="flex flex-col-reverse gap-[2px]"
+      className="flex items-end gap-[2px]"
       aria-hidden="true"
       data-testid={`pre-analysis-v3-gauge-${bar.key}`}
       data-lit={lit}
@@ -41,7 +44,7 @@ const Gauge = memo(function Gauge({ bar }: { bar: BarModel }) {
       {Array.from({ length: GAUGE_SEGMENTS }, (_, i) => (
         <span
           key={i}
-          className={`h-[3px] w-2.5 rounded-[1px] ${i < lit ? FILL_CLASSES[bar.state] : 'bg-panel-border'}`}
+          className={`h-2 w-1 rounded-[1px] ${i < lit ? FILL_CLASSES[bar.state] : 'bg-panel-border'}`}
         />
       ))}
     </div>
@@ -55,11 +58,16 @@ const Bar = memo(function Bar({ bar }: { bar: BarModel }) {
         tabIndex={0}
         role="img"
         aria-label={bar.cue ? `${BAR_LABELS[bar.key]}: ${bar.cue}. ${bar.tooltip}` : `${BAR_LABELS[bar.key]}: ${bar.tooltip}`}
-        className="flex items-center gap-1.5 rounded outline-none focus-visible:ring-2 focus-visible:ring-info/40"
+        className="flex items-center gap-1 rounded outline-none focus-visible:ring-2 focus-visible:ring-info/40"
         data-testid={`pre-analysis-v3-bar-${bar.key}`}
       >
+        {/* Visible state word beside the label (low/medium/good), so state is
+            legible without relying on the gauge colour alone. Null cue (no
+            estimates to measure) shows the bare label — never a misleading
+            word. */}
         <span className={`${typography.panelMeta} whitespace-nowrap text-text-body`}>
           {BAR_LABELS[bar.key]}
+          {bar.cue ? ` · ${bar.cue}` : ''}
         </span>
         <Gauge bar={bar} />
       </div>
@@ -70,7 +78,12 @@ const Bar = memo(function Bar({ bar }: { bar: BarModel }) {
 export const HealthBars = memo(function HealthBars({ bars }: { bars: BarsModel }) {
   return (
     <div
-      className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1.5"
+      // Inline gaps: this project's Tailwind scale has no 10px column-gap step
+      // and won't emit gap-x-[10px]; the row sits ~6px from wrapping (with the
+      // scrollbar) at the panel's working width, so 10px column / 6px row is
+      // the breathing room that fits. Keep in sync if the strip layout changes.
+      className="flex min-w-0 flex-1 flex-wrap items-center"
+      style={{ columnGap: 10, rowGap: 6 }}
       aria-label="Setup review"
     >
       <Bar bar={bars.frame} />

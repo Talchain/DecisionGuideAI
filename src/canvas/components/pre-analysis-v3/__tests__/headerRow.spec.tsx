@@ -94,15 +94,18 @@ describe('pre-analysis v3 — single-row status header', () => {
 
   it('maps count-driven fills to the right number of lit segments', () => {
     renderPanel()
-    // Options: 2 of 3 → 0.667 → round(3.33) = 3 lit. Risks: 1 of 3 → 0.333 → 2 lit.
+    // 4-segment gauge. Options: 2 of 3 → 0.667 → round(2.67) = 3 lit.
+    // Risks: 1 of 3 → 0.333 → round(1.33) = 1 lit.
     expect(screen.getByTestId('pre-analysis-v3-gauge-options').getAttribute('data-lit')).toBe('3')
-    expect(screen.getByTestId('pre-analysis-v3-gauge-risks').getAttribute('data-lit')).toBe('2')
+    expect(screen.getByTestId('pre-analysis-v3-gauge-risks').getAttribute('data-lit')).toBe('1')
   })
 
-  it('keeps the bar accessible name (cue + tooltip) despite no visible caption', () => {
+  it('shows the visible state word beside each label and keeps the accessible name', () => {
     renderPanel()
-    // Cue lives in the accessible name only now; no visible "medium"/"low" text.
-    expect(screen.getByTestId('pre-analysis-v3-bar-risks')).toHaveAccessibleName(/^Risks: /)
-    expect(screen.getByTestId('pre-analysis-v3-bar-frame')).not.toHaveTextContent('good')
+    // Risks = 1 of 3 → fill 0.33 < 0.40 → "low" (deterministic).
+    expect(screen.getByTestId('pre-analysis-v3-bar-risks')).toHaveTextContent('Risks · low')
+    expect(screen.getByTestId('pre-analysis-v3-bar-frame')).toHaveTextContent(/Frame · (low|medium|good)/)
+    // Accessible name still carries the cue + the count tooltip.
+    expect(screen.getByTestId('pre-analysis-v3-bar-risks')).toHaveAccessibleName(/^Risks: low\. /)
   })
 })

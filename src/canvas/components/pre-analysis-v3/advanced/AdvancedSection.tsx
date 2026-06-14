@@ -50,6 +50,11 @@ export const AdvancedSection = memo(function AdvancedSection({
           value={`${advanced.aiEstimatedCount} Olumi ${advanced.aiEstimatedCount === 1 ? 'estimate' : 'estimates'} · ${advanced.reviewedCount} checked by you`}
         />
       </div>
+      {/* User-facing, non-roadmap note (moved off the default estimates surface).
+          No value-scale or implementation wording. */}
+      <p className={`${typography.panelMeta} mt-2 text-text-light`}>
+        {PANEL_COPY.advancedRelationshipNote}
+      </p>
     </PanelDisclosure>
   )
 })

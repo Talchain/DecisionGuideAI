@@ -21,7 +21,7 @@ import { buildEstimateRows, topUncalibrated } from '../selectors/buildEstimateRo
 import { deriveSignalViews } from '../signals/deriveSignalViews'
 import { useSignalSessionStore } from '../signals/signalSessionStore'
 import { CEE_FALLBACK_COPY, FOOTER_COPY, LADDER_COPY } from '../constants'
-import { guardCeeText, guardCeeTextOrNull } from '../signals/ceeTextGuard'
+import { guardCeeText, guardCeeTextOrNull, categoriseCoaching } from '../signals/ceeTextGuard'
 import type {
   Attribution,
   EstimateRowModel,
@@ -206,8 +206,19 @@ export function usePreAnalysisModel(): PreAnalysisModel {
       ((analysisReady as { coaching_summary?: string | null } | null)?.coaching_summary?.trim() ??
         '')
     if (!raw) return null
+    // Sanitise in place first; only if a residual term has no safe substitute
+    // do we fall back, and then to a fallback matched to the coaching's theme.
+    const category = categoriseCoaching(raw)
+    const fallback =
+      category === 'framing'
+        ? CEE_FALLBACK_COPY.heroFraming
+        : category === 'assumption'
+          ? CEE_FALLBACK_COPY.heroAssumption
+          : category === 'comparison'
+            ? CEE_FALLBACK_COPY.heroComparison
+            : CEE_FALLBACK_COPY.heroCoaching
     return {
-      text: guardCeeText(raw, CEE_FALLBACK_COPY.heroCoaching).text,
+      text: guardCeeText(raw, fallback).text,
       attribution: { kind: 'olumi' } as Attribution,
     }
   }, [draftCoaching, analysisReady])

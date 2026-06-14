@@ -468,7 +468,7 @@ describe('Your decision — per-group collapse', () => {
 })
 
 describe('CEE glossary guard at render time', () => {
-  it('unsafe hero coaching degrades to the safe fallback, still attributed to Olumi', () => {
+  it('sanitises unsafe hero coaching in place, still attributed to Olumi', () => {
     useCanvasStore.setState({
       draftCoaching: {
         summary: 'One or more authority-labelled nodes are highly connected in the decision graph.',
@@ -480,12 +480,32 @@ describe('CEE glossary guard at render time', () => {
     renderPanel()
     const slot = screen.getByTestId('pre-analysis-v3-coaching-slot')
     expect(slot).toHaveTextContent('Olumi:')
-    expect(slot).toHaveTextContent('something in this set-up is worth a closer look before analysis.')
+    // In-place substitution keeps the meaning instead of discarding the whole line.
+    expect(slot).toHaveTextContent('factors')
+    expect(slot).toHaveTextContent('decision model')
     expect(slot).not.toHaveTextContent('nodes')
     expect(slot).not.toHaveTextContent('decision graph')
+    // It did not need the generic fallback.
+    expect(slot).not.toHaveTextContent('something in this set-up is worth a closer look')
   })
 
-  it('an unsafe CEE bias row renders the coaching fallback, never the raw text', () => {
+  it('falls back to a category-aware hero line when coaching cannot be sanitised', () => {
+    useCanvasStore.setState({
+      draftCoaching: {
+        summary: 'High elasticity dominates the framing of both options.',
+        strengthenItems: [],
+        wideningLog: [],
+        biasSignals: [],
+      },
+    })
+    renderPanel()
+    const slot = screen.getByTestId('pre-analysis-v3-coaching-slot')
+    // "elasticity" has no safe substitute, so it degrades — to the framing line.
+    expect(slot).toHaveTextContent('a framing pattern here is worth a closer look before analysis.')
+    expect(slot).not.toHaveTextContent('elasticity')
+  })
+
+  it('an unsafe CEE bias row sanitises in place, never the raw term', () => {
     useCanvasStore.setState({
       ceeAnalysisReady: {
         options: [],
@@ -510,12 +530,15 @@ describe('CEE glossary guard at render time', () => {
     fireEvent.click(screen.getByTestId('pre-analysis-v3-sharpen-reveal'))
     const row = screen.getByTestId('pre-analysis-v3-signal-sig_cee_bias')
     expect(row).toHaveTextContent('Olumi noticed')
-    expect(row).toHaveTextContent('a pattern worth checking before you run the analysis.')
+    // Sanitised in place: the warning survives with safe vocabulary.
+    expect(row).toHaveTextContent('factors')
+    expect(row).toHaveTextContent('decision model')
+    expect(row).toHaveTextContent('overweight senior opinions')
     expect(row).not.toHaveTextContent('nodes')
     expect(row).not.toHaveTextContent('decision graph')
   })
 
-  it('an unsafe narrow-framing swap falls back to the deterministic option copy', () => {
+  it('an unsafe narrow-framing swap sanitises in place', () => {
     useCanvasStore.setState({
       draftCoaching: {
         summary: null,
@@ -528,8 +551,9 @@ describe('CEE glossary guard at render time', () => {
     })
     renderPanel()
     const row = screen.getByTestId('pre-analysis-v3-signal-sig_option_breadth')
-    expect(row).toHaveTextContent('You are comparing two options.')
-    expect(row).not.toHaveTextContent('Olumi noticed')
+    // Sanitised CEE detail renders (render-if-live), with safe vocabulary.
+    expect(row).toHaveTextContent('Both options share one factor in the model.')
+    expect(row).not.toHaveTextContent('node')
     expect(row).not.toHaveTextContent('graph')
   })
 
@@ -558,14 +582,15 @@ describe('assessment-pass regressions', () => {
     expect(screen.getByTestId('pre-analysis-v3-analyse')).toHaveTextContent('Analysing…')
   })
 
-  it('an unsafe CEE string arriving via blockedReason is guarded in the footer', () => {
+  it('an unsafe CEE string arriving via blockedReason is sanitised in the footer', () => {
     renderPanel({
       canRun: false,
       blockedReason: 'Two nodes in the decision graph need values',
     })
     const footer = screen.getByTestId('pre-analysis-v3-footer')
     expect(footer).not.toHaveTextContent('decision graph')
-    expect(footer).toHaveTextContent('Add a decision, a goal and at least two options')
+    expect(footer).not.toHaveTextContent('nodes')
+    expect(footer).toHaveTextContent('Two factors in the decision model need values')
   })
 
   it('the run rung explains itself instead of silently no-opping when the dock gate is closed', () => {

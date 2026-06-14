@@ -220,12 +220,17 @@ export const YourDecisionSection = memo(function YourDecisionSection({
       testId="pre-analysis-v3-your-decision"
     >
       <div className="mb-2 flex justify-end">
+        {/* Quiet meta action: low-emphasis text with no button chrome at rest,
+            darkening + underlining on hover (link affordance). Keyboard focus
+            shows the panel's standard focus-visible ring (consistent and
+            accessible) — focus-visible only, so a mouse click never paints a
+            button-like box. */}
         <button
           type="button"
           onClick={() => setAll(!allOpen)}
           className={typo(
             'panelMeta',
-            'rounded text-text-light outline-none transition-colors hover:text-text-header focus-visible:text-text-header focus-visible:ring-2 focus-visible:ring-info/40',
+            'rounded-sm text-text-light underline-offset-2 outline-none transition-colors hover:text-text-header hover:underline focus-visible:text-text-header focus-visible:ring-2 focus-visible:ring-info/40',
           )}
           data-testid="pre-analysis-v3-groups-toggle-all"
         >
@@ -367,11 +372,6 @@ export const YourDecisionSection = memo(function YourDecisionSection({
               )}
             </div>
           ))}
-          {model.estimates.rows.length > 0 && (
-            <p className={`${typography.panelMeta} mb-1 mt-2 italic text-text-light`}>
-              {MODEL_VIEW_COPY.effectStrengthGate}
-            </p>
-          )}
         </div>
       </Group>
     </PanelDisclosure>

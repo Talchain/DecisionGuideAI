@@ -18,7 +18,7 @@ interface PanelHeaderProps {
 
 export const PanelHeader = memo(function PanelHeader({ bars, onAction }: PanelHeaderProps) {
   return (
-    <div className="flex items-center gap-3 border-b border-panel-border px-4 py-2.5">
+    <div className="flex items-center gap-2 border-b border-panel-border px-4 py-2.5">
       <HealthBars bars={bars} />
       <ActionsMenu onAction={onAction} />
     </div>

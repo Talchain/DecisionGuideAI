@@ -65,7 +65,7 @@ export const DEGREE_FALLBACK_BASE_WEIGHT = 1
  * today). Discrete steps make the level easier to read at a glance than a
  * continuous height. Keep — display formatting (legitimate).
  */
-export const GAUGE_SEGMENTS = 5
+export const GAUGE_SEGMENTS = 4
 
 export function litSegments(fill: number, segments: number = GAUGE_SEGMENTS): number {
   if (!(fill > 0)) return 0
@@ -90,6 +90,7 @@ export const PANEL_COPY = {
   collapseAll: 'Collapse all',
   advancedTitle: 'Advanced',
   advancedMeta: 'analysis set-up',
+  advancedRelationshipNote: 'More technical relationship detail will appear here when available.',
   bestNextStep: 'Best next step',
 } as const
 
@@ -178,8 +179,6 @@ export const MODEL_VIEW_COPY = {
     "Ranked by likely influence on your goal. Replace Olumi's estimates with your judgement, starting at the top.",
   estimatesCoachFallback:
     'Ordered by how connected each factor is in your model. Replace estimates with your judgement, starting at the top.',
-  effectStrengthGate:
-    'Effect strengths appear here once value handling is finalised.',
   estimatesMeta: (checked: number, checkable: number, needValues: number) =>
     `${checked} of ${checkable} checked${
       needValues > 0 ? ` · ${needValues === 1 ? '1 needs a value' : `${needValues} need values`}` : ''
@@ -206,8 +205,14 @@ export const FOOTER_COPY = {
  * Olumi attribution at the render site — never a dead or empty row.
  */
 export const CEE_FALLBACK_COPY = {
-  /** Hero slot renders "Olumi:" + this text. */
+  /** Hero slot renders "Olumi:" + this text. Generic fallback. */
   heroCoaching: 'something in this set-up is worth a closer look before analysis.',
+  /** Category-aware hero fallbacks (chosen from the original coaching's theme
+   *  when it cannot be sanitised in place). All render after the "Olumi:"
+   *  prefix and assert no verdict, only that something is worth a look. */
+  heroFraming: 'a framing pattern here is worth a closer look before analysis.',
+  heroAssumption: 'an assumption here is worth a closer look before analysis.',
+  heroComparison: 'a comparison pattern here is worth a closer look before analysis.',
   /** Bias row renders "Olumi noticed" + this text. */
   biasRow: 'a pattern worth checking before you run the analysis.',
 } as const
@@ -221,6 +226,7 @@ export const FIELD_FEEDBACK_COPY = {
   saved: 'Saved',
   olumiUnavailable: 'Olumi is unavailable right now. Open the Olumi panel and try again.',
   addValue: 'Add value',
+  check: 'Check',
 } as const
 
 export const HERO_COPY = {
