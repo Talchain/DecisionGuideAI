@@ -23,6 +23,8 @@ Two follow-up clarifications (16 June 2026), each refining one of the amendments
 6. **Migration window covers the CEE service-role write paths** (§15.1, §20, §21): refines amendment 4. `append_turn_atomic`, `ensure_scenario_exists`, and `store_draft_graph` bypass RLS, so any scenario or child row they create during the expand/backfill/switch window must receive a valid `workspace_id` immediately through the approved server-side resolution path; the final delta backfill and assertion gate cover rows written by both user-callable RPCs and CEE service-role RPCs.
 7. **First implementation brief fixed as graph-mutation-free** (§22, §23): refines amendment 5. The first slice is fixed at workspace context, workspace switcher, members list, invite lifecycle skeleton, and scenario presence, with no graph mutation; graph-mutation work cannot enter the first slice. Three additional hard blockers (CEE service-role verification as a cross-repo workstream, a rehearsal environment, and an executable security matrix) are added to the migration/cutover gate.
 
+Codex delta-check amendment (16 June 2026): the readiness gate is split into three explicit tiers (documentation-merge, first implementation, and migration and cutover), and an explicit first-implementation gate is added: no collaboration implementation brief, code, schema, migration, or SQL begins until the single-user PoC and V5 golden journey is clean. The note that the workspace-foundation first slice itself performs the tenancy RLS cutover (so the Tier 3 gates apply to it) replaces an earlier looser reading (§22, §23).
+
 Everything else from v1.6 (environment and namespace findings; live-schema corrections; the migration gates and expanded preflight; H-1+ hardening; SECURITY DEFINER helper hardening; the service-role `p_workspace_id` trust rule and scenario-creation semantics; owner-atomic workspace creation; member/invite lifecycle boundaries; invite privacy hardening; the signed-off role matrix; child-consistency and `workspace_id` immutability; the public brief allowlist; Realtime channel authorisation; the thread decision and conversation-store open choice; the TAE checkpoint closure) is carried forward unchanged.
 
 ---
@@ -258,29 +260,43 @@ v1.7 additions:
 
 ---
 
-## 22. Migration-readiness verdict (amendment 5)
+## 22. Migration-readiness verdict (amendment 5; gate tiers clarified 16 June 2026)
 
 - **Ready for Codex delta-check: yes**, on **v1.7**.
-- **Ready for implementation: no.** Codex review findings (this v1.7 amendment set) must be addressed and the delta-check clean before implementation briefing. Implementation also remains blocked until the deployed `VITE_SUPABASE_URL` is confirmed and a rehearsal environment is provisioned or approved.
-- **First implementation brief is graph-mutation-free.** Codex review findings (this v1.7 amendment set) must be addressed before implementation briefing. Graph-mutation work cannot enter the first slice. The first slice is fixed: workspace context, workspace switcher, members list, invite lifecycle skeleton, scenario presence, and no graph mutation. The edit-lock, guarded-save, suggestion-queue, and `accept_suggestion` work (all graph-mutating) come in later slices, behind the absolute graph-mutation gate.
-- **Migration and cutover hard blockers (promoted, 16 June 2026).** Migration implementation and cutover are additionally blocked until each of the following holds. The spec may be approved before they are satisfied, but no migration implementation or cutover may proceed without them:
-  - **CEE service-role workspace-resolution verified.** That `append_turn_atomic`, `ensure_scenario_exists`, and `store_draft_graph` derive `workspace_id` server-side (including during the migration window, §15.1, §20) is a separate cross-repo workstream in `olumi-assistants-service`; this repository can specify the requirement but cannot prove it. Any implementation brief touching migration, service-role writes, or tenancy cutover must include CEE verification or explicitly wait for that workstream.
-  - **Rehearsal environment provisioned or approved.** A rehearsal Supabase environment or approved clone is required before any destructive or canonical tenancy migration work (none exists today, §3).
-  - **Executable security matrix.** The SEC/TEN matrix (§21) must be executable before cutover is considered safe. If CI cannot currently run the relevant security and RLS matrix, that is a hard implementation and cutover blocker, not a documentation concern.
-- Ready for SQL or code: no.
+- **Ready for SQL or code: no.** Readiness is split into three explicit gate tiers, so the earlier single "ready for implementation" line cannot be read too loosely.
+
+**Tier 1, documentation-merge gate (this spec as a baseline).** The Codex review of v1.7 (the five amendments and the two follow-up clarifications) is clean. Nothing else is required to treat this spec as the documentation baseline. (Merging is a separate decision for Paul; this document performs no merge.)
+
+**Tier 2, first-implementation gate (before any collaboration implementation brief, code, schema, migration, or SQL begins).** No collaboration implementation starts until both hold:
+- the current single-user PoC and V5 golden journey is clean (Paul confirms), so collaboration work does not destabilise or pull focus from the pilot-critical path; and
+- the deployed `VITE_SUPABASE_URL` is confirmed (environment identity).
+The first implementation brief remains graph-mutation-free; graph-mutation work cannot enter the first slice. The first slice is fixed: workspace context, workspace switcher, members list, invite lifecycle skeleton, scenario presence, and no graph mutation. The edit-lock, guarded-save, suggestion-queue, and `accept_suggestion` work (all graph-mutating) come in later slices, behind the absolute graph-mutation gate.
+
+**Tier 3, migration and cutover gate (before the tenancy RLS cutover and any destructive step).** Because the workspace-foundation first slice converts scenarios to workspace-scoped RLS, it performs the tenancy cutover; these Tier 3 gates therefore apply to the foundation slice as soon as it touches canonical data, not only to the later collaboration slices. The cutover is additionally blocked until each holds:
+- **CEE service-role workspace-resolution verified.** That `append_turn_atomic`, `ensure_scenario_exists`, and `store_draft_graph` derive `workspace_id` server-side (including during the migration window, §15.1, §20) is a separate cross-repo workstream in `olumi-assistants-service`; this repository can specify the requirement but cannot prove it. Any brief touching migration, service-role writes, or tenancy cutover must include CEE verification or explicitly wait for that workstream.
+- **Rehearsal environment provisioned or approved.** A rehearsal Supabase environment or approved clone is required before any destructive or canonical tenancy migration work (none exists today, §3).
+- **Executable security matrix.** The SEC/TEN matrix (§21) must be executable before cutover is considered safe. If CI cannot currently run the relevant security and RLS matrix, that is a hard cutover blocker, not a documentation concern.
 
 ---
 
-## 23. Manual blockers (carried plus amendment 5)
+## 23. Manual blockers (carried plus amendment 5; grouped by gate tier, §22)
 
+**Tier 1, documentation-merge:**
 1. Codex delta-check on v1.7 is clean (the five amendments and the two follow-up clarifications addressed).
-2. Paul confirms the deployed `VITE_SUPABASE_URL`.
-3. Paul provisions or approves a rehearsal environment (hard migration/cutover blocker, §22).
-4. The `conversation_turns` choice is made in the conversation implementation brief (the `scenarios.thread` portion is abandoned, §18).
-5. The first implementation brief remains graph-mutation-free (the fixed first slice, §22).
-6. CEE service-role workspace-resolution is verified as a cross-repo workstream in `olumi-assistants-service` before any migration, service-role-write, or cutover brief proceeds (hard migration/cutover blocker, §15.1, §20, §22).
-7. The SEC/TEN security matrix is executable (working CI) before cutover; a CI that cannot run the security and RLS matrix is itself a hard cutover blocker (§21, §22).
-8. Any remaining v1.2 source-reference markers are resolved if the source documents are supplied.
+
+**Tier 2, first implementation (before any collaboration implementation brief, code, schema, migration, or SQL starts):**
+2. The single-user PoC and V5 golden journey is clean (Paul confirms) before any collaboration implementation begins.
+3. Paul confirms the deployed `VITE_SUPABASE_URL`.
+4. The first implementation brief remains graph-mutation-free (the fixed first slice, §22).
+
+**Tier 3, migration and cutover (apply to the foundation slice as soon as it touches canonical data):**
+5. Paul provisions or approves a rehearsal environment.
+6. CEE service-role workspace-resolution is verified as a cross-repo workstream in `olumi-assistants-service` before any migration, service-role-write, or cutover brief proceeds (§15.1, §20).
+7. The SEC/TEN security matrix is executable (working CI) before cutover; a CI that cannot run the security and RLS matrix is itself a hard cutover blocker (§21).
+
+**Cross-cutting and open:**
+8. The `conversation_turns` choice is made in the conversation implementation brief (the `scenarios.thread` portion is abandoned, §18).
+9. Any remaining v1.2 source-reference markers are resolved if the source documents are supplied.
 
 The role and capability matrix is signed off (v1.6 §2.1 / §11); no open matrix cells remain.
 

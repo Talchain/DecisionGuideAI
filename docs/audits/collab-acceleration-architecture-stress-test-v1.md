@@ -15,7 +15,7 @@
 
 **We are mostly designing the fastest safe path, with one correctable over-sequencing.** The graph-mutation-free first slice is correctly cautious, because last-write-wins graph saves are live and current (`src/services/scenarioService.ts:152`, re-verified 16 June, high confidence). The single change worth making is to stop treating the first user-visible collaboration value (comments) as a step that waits behind the edit-lock gate. Comments are graph-mutation-free and, on the evidence below, can ship as **comments-on-refetch** without even depending on the Realtime substrate in their first iteration.
 
-**Recommendation (B10, restated up front): keep the first implementation slice graph-mutation-free, and run comments as a parallel value track immediately after the workspace foundation lands, delivered first as comments-on-refetch.** This overturns no locked decision (the first slice stays graph-mutation-free; comments are graph-mutation-free too). It is a sequencing recommendation for Paul and ChatGPT to ratify. Implementation and cutover remain blocked on the standing hard gates (deployed `VITE_SUPABASE_URL`, rehearsal environment, cross-repo CEE service-role verification, and an executable security matrix).
+**Recommendation (B10, restated up front): keep the first implementation slice graph-mutation-free, and run comments as a parallel value track immediately after the workspace foundation lands, delivered first as comments-on-refetch.** This overturns no locked decision (the first slice stays graph-mutation-free; comments are graph-mutation-free too). It is a sequencing recommendation for Paul and ChatGPT to ratify. The gate tiers in the readiness section apply: no collaboration implementation begins until the single-user PoC and V5 golden journey is clean and `VITE_SUPABASE_URL` is confirmed; and the tenancy cutover that the foundation slice performs additionally requires the rehearsal environment, cross-repo CEE service-role verification, and an executable security matrix.
 
 ---
 
@@ -103,18 +103,18 @@ Classification: **pull into first slice**, **parallel after foundation**, **keep
 This sequence keeps the locked graph-mutation-free first slice and adds comments as a parallel value track. The change from the design recommendations' build order (`collab-multiuser-design-recommendations-v1.md` §2) is that comments move ahead of the edit-lock gate, because they are independent of it.
 
 ### Phase 0: final spec and environment gates
-- **Objective:** clear the blockers before any implementation brief.
-- **Included:** Codex delta-check on v1.7; confirm deployed `VITE_SUPABASE_URL`; provision or approve a rehearsal environment; open the cross-repo CEE service-role verification workstream; confirm the security matrix is executable in CI.
+- **Objective:** clear the gate-tier blockers before any implementation brief.
+- **Included:** Codex delta-check on v1.7 (Tier 1); confirm the single-user PoC and V5 golden journey is clean and confirm deployed `VITE_SUPABASE_URL` (Tier 2); provision or approve a rehearsal environment, open the cross-repo CEE service-role verification workstream, and confirm the security matrix is executable in CI (Tier 3).
 - **Hard exclusions:** any code, schema, migration, or SQL.
-- **Acceptance evidence:** clean delta-check; `VITE_SUPABASE_URL` confirmed; rehearsal environment available; CEE workstream scoped; CI able to run the SEC/TEN matrix.
-- **Why this ordering:** these are independent of build order and several are long-lead (rehearsal environment, cross-repo CEE). Starting them now removes them from the critical path later.
+- **Acceptance evidence:** clean delta-check; V5 golden journey confirmed clean; `VITE_SUPABASE_URL` confirmed; rehearsal environment available; CEE workstream scoped; CI able to run the SEC/TEN matrix.
+- **Why this ordering:** these are independent of build order and several are long-lead (rehearsal environment, cross-repo CEE). The V5-golden-journey gate protects the pilot-critical path: collaboration implementation does not begin until the single-user product is clean. Starting these now removes them from the critical path later.
 
 ### Phase 1: first implementation slice (workspace foundation)
 - **Objective:** workspace tenancy and identity, with no graph mutation.
 - **Included:** `workspaces` / `workspace_members` / `workspace_invites` and lifecycle RPCs (spec §8); `WorkspaceProvider` and switcher in `AppPoC`; members panel; invite lifecycle skeleton (harvesting the `ManageTeamMembersModal` and `send-team-invite` patterns, port-pattern-only); the Realtime substrate and provider; scenario presence (focused-element, dedicated presence store).
-- **Hard exclusions:** any graph mutation; the edit lock; the guarded save; suggestions.
-- **Acceptance evidence:** non-member cannot read workspace scenarios or join a channel (SEC-25 to SEC-28); personal-workspace default leaves single users unaffected; lifecycle RPC tests (TEN matrix).
-- **Why faster or safer:** independently shippable and testable; gates everything else; no exposure to the last-write-wins hazard.
+- **Hard exclusions:** any graph mutation; the edit lock; the guarded save; suggestions. Note: this slice converts scenarios to workspace-scoped RLS, so it performs the tenancy cutover and is gated by the Tier 3 migration and cutover gates (rehearsal environment, cross-repo CEE verification, executable security matrix), not only by Tier 2.
+- **Acceptance evidence:** non-member cannot read workspace scenarios or join a channel (SEC-25 to SEC-28); personal-workspace default leaves single users unaffected; lifecycle RPC tests (TEN matrix); the migration-window and cutover assertion gates pass on the rehearsal environment (TEN-15 to TEN-19).
+- **Why faster or safer:** independently shippable and testable; gates everything else; no exposure to the last-write-wins hazard (it adds no graph-mutation surface).
 
 ### Phase 2: first visible collaboration value (comments)
 - **Objective:** deliver and validate real multi-user collaboration on a low-blast-radius surface.
@@ -245,14 +245,20 @@ This does not change the locked tenancy model and adds no MVP scope; it is an an
 
 ## Readiness and blocker section (mirrors v1.7 §22 and §23)
 
-The spec may be approved now. **Migration implementation and cutover are blocked until all of the following hold:**
+Readiness is split into three gate tiers, so the "ready for implementation" line is not read too loosely.
 
-1. Deployed `VITE_SUPABASE_URL` confirmed (environment identity gate).
-2. Rehearsal Supabase environment provisioned or approved (none exists today).
-3. CEE service-role workspace-resolution verified as a separate cross-repo workstream in `olumi-assistants-service`. This repo can specify the requirement but cannot prove it. Any brief touching migration, service-role writes, or tenancy cutover must include CEE verification or wait for that workstream.
-4. The SEC/TEN security matrix executable in CI. A CI that cannot run the security and RLS matrix is a hard cutover blocker, not a documentation concern.
+**Tier 1, documentation-merge.** A clean Codex review of v1.7 (the five amendments and the two follow-up clarifications). This spec and this audit can then serve as the documentation baseline. Merging PR #190 is Paul's decision; this audit performs no merge.
 
-The first implementation brief (workspace foundation) and the Phase 2 comments track do not depend on items 2 to 4 and can proceed once item 1 and the Codex delta-check are clear, because they are graph-mutation-free and do not perform a tenancy cutover.
+**Tier 2, first implementation (before any collaboration implementation brief, code, schema, migration, or SQL begins):**
+- the single-user PoC and V5 golden journey is clean (Paul confirms), so collaboration work does not destabilise or pull focus from the pilot-critical path; and
+- the deployed `VITE_SUPABASE_URL` is confirmed.
+
+**Tier 3, migration and cutover (before the tenancy RLS cutover and any destructive step):**
+- a rehearsal Supabase environment or approved clone (none exists today);
+- cross-repo CEE service-role workspace-resolution verified in `olumi-assistants-service` (this repo can specify the requirement but cannot prove it; any brief touching migration, service-role writes, or tenancy cutover must include CEE verification or wait for that workstream);
+- the SEC/TEN matrix executable in CI (a CI that cannot run the security and RLS matrix is itself a hard cutover blocker).
+
+**Correction to a loose reading.** The workspace-foundation first slice converts scenarios to workspace-scoped RLS, so it performs the tenancy cutover. Its briefing and UI design can begin once Tier 1 and Tier 2 are met, but its migration execution (and therefore the workspace and RLS foundation that comments-on-refetch depends on) requires the Tier 3 gates. Comments-on-refetch is then a parallel track once that foundation exists; it adds no Realtime dependency, but it does depend on the foundation being in place.
 
 ---
 
@@ -285,13 +291,13 @@ Ready-to-brief: yes / no / partial. Risk tier: T1 (highest) to T3.
 - It directly answers the too-timid concern: the plan is correctly cautious where it must be (graph mutation) and faster where it safely can be (comments, ahead of the lock gate, and without a hard Realtime dependency).
 - It is a sequencing recommendation for Paul and ChatGPT to ratify, not a unilateral change.
 
-Block migration implementation and cutover on the four hard gates in the readiness section. Do not exit Phase 0 on those gates before they are evidenced.
+Apply the gate tiers in the readiness section. No collaboration implementation begins until the single-user PoC and V5 golden journey is clean and `VITE_SUPABASE_URL` is confirmed (Tier 2). The tenancy cutover that the foundation slice performs is additionally blocked on the rehearsal environment, cross-repo CEE service-role verification, and an executable security matrix (Tier 3). Do not exit Phase 0 on these gates before they are evidenced.
 
 ---
 
 ## Paul-side attention-risk note
 
-This documentation and design track creates **no technical dependency** on the V5 golden journey or pilot-critical path. The work is documentation-only on an isolated PR branch with zero code, schema, or migration changes, and the design holds an absolute graph-mutation gate, so nothing here can alter the live V5 demo behaviour. The collaboration foundation can proceed safely as a parallel documentation and design track. The only real risk is reviewer attention and time, not a runtime or build dependency. No blocking issue was found.
+This documentation and design track creates **no technical dependency** on the V5 golden journey or pilot-critical path. The work is documentation-only on an isolated PR branch with zero code, schema, or migration changes, and the design holds an absolute graph-mutation gate, so nothing here can alter the live V5 demo behaviour. The collaboration foundation can proceed safely as a parallel documentation and design track. The only real risk is reviewer attention and time, not a runtime or build dependency. No blocking issue was found. To formalise this priority, the readiness section now adds an explicit Tier 2 gate: no collaboration implementation begins until the single-user PoC and V5 golden journey is clean, so the documentation track never converts into implementation focus while the pilot path still needs it.
 
 ---
 
