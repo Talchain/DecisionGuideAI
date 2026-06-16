@@ -1,9 +1,9 @@
 # Tenancy and collaboration migration spec v1.7 (draft)
 
 **Status:** Draft for Codex delta-check. Specification only. No migration has been started.
-**Date:** 2026-06-04
+**Date:** 2026-06-04 (follow-up clarifications folded in 2026-06-16).
 **Supersedes:** v1.6 (`docs/specs/tenancy-collab-migration-spec-v1_6-draft.md`, kept for history). **v1.7 is the working baseline.**
-**Reason for v1.7:** Codex reviewed v1.6 and returned approve with required amendments. The core security model is sound; v1.7 is a narrow precision pass addressing five gaps before implementation briefs. All v1.6 content is carried unless amended below; all v1.5/v1.6 security invariants are preserved.
+**Reason for v1.7:** Codex reviewed v1.6 and returned approve with required amendments. The core security model is sound; v1.7 is a narrow precision pass addressing five gaps before implementation briefs, plus two follow-up clarifications requested on 16 June 2026: the migration window must explicitly cover the CEE service-role write paths, and the first implementation brief is fixed as graph-mutation-free. All v1.6 content is carried unless amended below; all v1.5/v1.6 security invariants are preserved.
 **Scope:** specification and decision record only. No code, schema, migration, prompt, package, lockfile, generated, test, config, or SQL changes. Illustrative SQL is documentation, not a migration file.
 
 ---
@@ -17,6 +17,11 @@ Five Codex-required amendments:
 3. **`element_comment_reads` privacy and parent consistency specified** (§12.1, §21): per-user metadata, server-derived immutable `user_id`, own-only mutation, unique `(comment_id, user_id)`, parentage derived through `element_comments` and its scenario.
 4. **New-write handling during the migration window defined** (§20): a write freeze or a dual-compatible/trigger-derived assignment, a final delta backfill and assertion gate, and an abort on any NULL or mismatched `workspace_id`; no mixed state at cutover.
 5. **Readiness blockers expanded** (§22, §23): Codex findings must be addressed before implementation briefing; the first implementation brief remains graph-mutation-free, with the first slice fixed; existing blockers retained.
+
+Two follow-up clarifications (16 June 2026), each refining one of the amendments above:
+
+6. **Migration window covers the CEE service-role write paths** (§15.1, §20, §21): refines amendment 4. `append_turn_atomic`, `ensure_scenario_exists`, and `store_draft_graph` bypass RLS, so any scenario or child row they create during the expand/backfill/switch window must receive a valid `workspace_id` immediately through the approved server-side resolution path; the final delta backfill and assertion gate cover rows written by both user-callable RPCs and CEE service-role RPCs.
+7. **First implementation brief fixed as graph-mutation-free** (§22, §23): refines amendment 5. The first slice is fixed at workspace context, workspace switcher, members list, invite lifecycle skeleton, and scenario presence, with no graph mutation; graph-mutation work cannot enter the first slice. Three additional hard blockers (CEE service-role verification as a cross-repo workstream, a rehearsal environment, and an executable security matrix) are added to the migration/cutover gate.
 
 Everything else from v1.6 (environment and namespace findings; live-schema corrections; the migration gates and expanded preflight; H-1+ hardening; SECURITY DEFINER helper hardening; the service-role `p_workspace_id` trust rule and scenario-creation semantics; owner-atomic workspace creation; member/invite lifecycle boundaries; invite privacy hardening; the signed-off role matrix; child-consistency and `workspace_id` immutability; the public brief allowlist; Realtime channel authorisation; the thread decision and conversation-store open choice; the TAE checkpoint closure) is carried forward unchanged.
 
@@ -140,6 +145,8 @@ For `v5_conversation_turns` and `v5_handler_facts`: add FORCE RLS; SELECT policy
 
 CEE never trusts `p_workspace_id`: resolve `scenario_id` to `workspace_id` server-side, verify membership, reject mismatch. `ensure_scenario_exists` resolves an authorised workspace server-side for both exists and not-exists paths. Applies to `append_turn_atomic`, `ensure_scenario_exists`, `store_draft_graph`, and `build-turn-context.ts` fact reads (filter `user_id = current_user`).
 
+These three service-role paths bypass RLS, so they also govern the migration window: any scenario or child row they write during expand/backfill/switch must receive a valid `workspace_id` at insert time through this same server-side resolution path, never a client- or caller-supplied value (§20). The three RPCs are confirmed present and live in the target project by live database introspection (environment and namespace audit, 2026-06-04); their implementation bodies live in the `olumi-assistants-service` repository, not in this repository's migrations, so the server-side workspace-resolution behaviour they require is a cross-repo verification item, not a repo-migration fact (§22, §23).
+
 ### 15.2 Per-RPC permission table (amendment 1 applied to `accept_suggestion`)
 
 | RPC | workspace_id derivation | Required role/capability | Child consistency | Notes |
@@ -169,7 +176,7 @@ CEE never trusts `p_workspace_id`: resolve `scenario_id` to `workspace_id` serve
 
 All canonical graph mutations append to `scenarios.events` through one shared, attributed core, and all obey the guarded-mutation contract:
 - **Manual host edits** via `save_graph_guarded` (lock holder, OCC, attributed event).
-- **Accepted suggestions** via `accept_suggestion`, which is itself a **guarded mutation RPC**: owner/admin permission alone is not sufficient; it must hold the active scenario edit lock or internally acquire and validate the same lock contract, **reject if another valid lock exists**, revalidate the suggestion, check `base_event_seq` and `base_graph_hash`, apply optimistic concurrency, and append a logged attributed event. This prevents a second graph-mutation path running while another user holds the lock.
+- **Accepted suggestions** via `accept_suggestion`, which is itself a **guarded mutation RPC**: owner/admin permission alone is not sufficient; the RPC is the authority and client-side lock state is never trusted. It validates the current scenario edit lock server-side, and if another valid lock exists it rejects. If the caller holds the valid lock, the RPC validates that server-side; if the RPC supports internal lock acquisition, that acquisition is atomic and fails if any competing valid lock exists. The same `event_seq` and `graph_hash` optimistic-concurrency checks apply before mutation, the suggestion is revalidated before applying, and the mutation appends a logged, attributed event. This prevents a second graph-mutation path running while another user holds the lock.
 - **AI patches** via `apply_patch_and_log` (lock holder, attributed event).
 
 Validate-patch remains mandatory on every structural change. `reject_suggestion` does not mutate the graph but still requires owner/admin and records an attributed resolution. The suggestion queue does not ship until all canonical mutation sources use this consistent guarded, attributed path.
@@ -212,7 +219,18 @@ Rehearse on a clone or fresh project before touching canonical data (none exists
 - A **final delta backfill and an assertion gate run immediately before the policy switch**, catching any late writes.
 - The **switch aborts** if any in-scope table has `workspace_id IS NULL` or a parent/child `workspace_id` mismatch. **No mixed state is allowed at cutover.**
 
-**Abort criteria:** rehearsal failure, NULL backfill, count mismatch, any cross-user denial test failure, or any NULL/mismatched `workspace_id` at the pre-switch assertion gate. **Proceed criteria:** rehearsal green, all SEC/TEN tests pass, reconciliation exact, the delta backfill clean, and the environment gate signed off.
+**CEE service-role write paths during the window (follow-up clarification, 16 June 2026).** The strategy above must explicitly cover the CEE service-role write paths, because they bypass RLS: `append_turn_atomic`, `ensure_scenario_exists`, and `store_draft_graph`.
+- Every scenario or child row created by these service-role paths during the expand, backfill, and switch window must receive a valid `workspace_id` immediately, derived through the approved server-side workspace resolution path (§15.1, §15.3), never a client- or caller-supplied value.
+- The final delta backfill and assertion gate must cover rows written by **both** user-callable RPCs and CEE service-role RPCs. A row written by CEE during the window is in scope for the pre-switch assertion gate exactly as a user-written row is.
+- Because the service-role RPC bodies live in `olumi-assistants-service` (not this repository), the proof that they derive `workspace_id` server-side during the window is a cross-repo verification item and a hard migration/cutover blocker (§22, §23). This repository can specify the requirement but cannot prove it alone.
+
+**Rehearsal checks (follow-up clarification).** The rehearsal on the clone or fresh project must assert each of:
+- rows created during the migration window receive a `workspace_id`;
+- service-role writes (the three CEE RPCs) receive a `workspace_id`;
+- the delta backfill catches late writes;
+- the policy switch aborts on any NULL or mismatched `workspace_id`.
+
+**Abort criteria:** rehearsal failure, NULL backfill, count mismatch, any cross-user denial test failure, or any NULL/mismatched `workspace_id` at the pre-switch assertion gate (for user-callable or CEE service-role writes). **Proceed criteria:** rehearsal green (including the four rehearsal checks above), all SEC/TEN tests pass, reconciliation exact, the delta backfill clean, and the environment gate signed off.
 
 ---
 
@@ -235,6 +253,8 @@ v1.7 additions:
 | TEN-15 | Row created during the migration window | receives a valid `workspace_id` immediately |
 | TEN-16 | Delta backfill before switch | catches all late writes |
 | TEN-17 | Policy switch with any `workspace_id IS NULL` or parent/child mismatch | aborts |
+| TEN-18 | CEE service-role write (`append_turn_atomic`, `ensure_scenario_exists`, `store_draft_graph`) during the migration window | receives a valid `workspace_id` via server-side resolution; covered by the pre-switch delta backfill and assertion gate |
+| TEN-19 | Pre-switch assertion gate over both user-callable and CEE service-role writes | no NULL or mismatched `workspace_id` from either source; otherwise aborts |
 
 ---
 
@@ -242,19 +262,25 @@ v1.7 additions:
 
 - **Ready for Codex delta-check: yes**, on **v1.7**.
 - **Ready for implementation: no.** Codex review findings (this v1.7 amendment set) must be addressed and the delta-check clean before implementation briefing. Implementation also remains blocked until the deployed `VITE_SUPABASE_URL` is confirmed and a rehearsal environment is provisioned or approved.
-- **First implementation brief is graph-mutation-free.** Graph-mutation work cannot enter the first slice. The first slice is fixed: workspace context, workspace switcher, members list, invite lifecycle skeleton, scenario presence, and no graph mutation. The edit-lock, guarded-save, suggestion-queue, and `accept_suggestion` work (all graph-mutating) come in later slices, behind the absolute graph-mutation gate.
+- **First implementation brief is graph-mutation-free.** Codex review findings (this v1.7 amendment set) must be addressed before implementation briefing. Graph-mutation work cannot enter the first slice. The first slice is fixed: workspace context, workspace switcher, members list, invite lifecycle skeleton, scenario presence, and no graph mutation. The edit-lock, guarded-save, suggestion-queue, and `accept_suggestion` work (all graph-mutating) come in later slices, behind the absolute graph-mutation gate.
+- **Migration and cutover hard blockers (promoted, 16 June 2026).** Migration implementation and cutover are additionally blocked until each of the following holds. The spec may be approved before they are satisfied, but no migration implementation or cutover may proceed without them:
+  - **CEE service-role workspace-resolution verified.** That `append_turn_atomic`, `ensure_scenario_exists`, and `store_draft_graph` derive `workspace_id` server-side (including during the migration window, §15.1, §20) is a separate cross-repo workstream in `olumi-assistants-service`; this repository can specify the requirement but cannot prove it. Any implementation brief touching migration, service-role writes, or tenancy cutover must include CEE verification or explicitly wait for that workstream.
+  - **Rehearsal environment provisioned or approved.** A rehearsal Supabase environment or approved clone is required before any destructive or canonical tenancy migration work (none exists today, §3).
+  - **Executable security matrix.** The SEC/TEN matrix (§21) must be executable before cutover is considered safe. If CI cannot currently run the relevant security and RLS matrix, that is a hard implementation and cutover blocker, not a documentation concern.
 - Ready for SQL or code: no.
 
 ---
 
 ## 23. Manual blockers (carried plus amendment 5)
 
-1. Codex delta-check on v1.7 is clean (the five amendments addressed).
+1. Codex delta-check on v1.7 is clean (the five amendments and the two follow-up clarifications addressed).
 2. Paul confirms the deployed `VITE_SUPABASE_URL`.
-3. Paul provisions or approves a rehearsal environment.
+3. Paul provisions or approves a rehearsal environment (hard migration/cutover blocker, §22).
 4. The `conversation_turns` choice is made in the conversation implementation brief (the `scenarios.thread` portion is abandoned, §18).
 5. The first implementation brief remains graph-mutation-free (the fixed first slice, §22).
-6. Any remaining v1.2 source-reference markers are resolved if the source documents are supplied.
+6. CEE service-role workspace-resolution is verified as a cross-repo workstream in `olumi-assistants-service` before any migration, service-role-write, or cutover brief proceeds (hard migration/cutover blocker, §15.1, §20, §22).
+7. The SEC/TEN security matrix is executable (working CI) before cutover; a CI that cannot run the security and RLS matrix is itself a hard cutover blocker (§21, §22).
+8. Any remaining v1.2 source-reference markers are resolved if the source documents are supplied.
 
 The role and capability matrix is signed off (v1.6 §2.1 / §11); no open matrix cells remain.
 
@@ -262,13 +288,13 @@ The role and capability matrix is signed off (v1.6 §2.1 / §11); no open matrix
 
 ## Appendix A: source reconciliation
 
-v1.2 source documents not on disk; requirements reconstructed from the audits, the design recommendations, and the Codex reviews; `[v1.2 ref pending]` markers to resolve when supplied. SEC/TEN identifiers are this document's own. The v1.6 Codex review (approve with required amendments) is addressed by the five amendments here; the earlier reviews are folded in v1.5/v1.6.
+v1.2 source documents not on disk; requirements reconstructed from the audits, the design recommendations, and the Codex reviews; `[v1.2 ref pending]` markers to resolve when supplied. SEC/TEN identifiers are this document's own. The v1.6 Codex review (approve with required amendments) is addressed by the five amendments here, and the two follow-up clarifications of 16 June 2026 (CEE service-role coverage in the migration window; the fixed graph-mutation-free first slice) are folded in; the earlier reviews are folded in v1.5/v1.6.
 
 ## Appendix B: base commits and lineage
 
-- **Branch:** `claude/tenancy-collab-spec-v1_7` content is added on `claude/tenancy-collab-spec-v1_6` (PR #190). This change adds exactly one file (this v1.7 draft); v1.6 is retained unchanged. No merge.
+- **Branch:** v1.7 content lives on `claude/tenancy-collab-spec-v1_6` (PR #190). The original v1.7 commit (`afb94975`) added this draft; the 16 June 2026 revision folds the two follow-up clarifications into this same file and adds a companion read-only audit (`docs/audits/collab-acceleration-architecture-stress-test-v1.md`). v1.6 is retained unchanged. No merge.
 - **Lineage:** v1.6 (`7b1496de`), v1.5 (`9d670e76`), design (`2bf8b774`), environment (`22b8135e`), v1.4 (`e62e5f11`), v1.3 (`7b2ce689`), teams disposition (`a9d80d12`), surface-recon (`5c98a57c`), phase-0 (`1e1028bf`).
-- **Live introspection (2026-06-04, read-only, `etmmuzwxtcjipwphdola`):** as v1.6; new collaboration tables confirmed absent (greenfield).
+- **Live introspection (2026-06-04, read-only, `etmmuzwxtcjipwphdola`):** as v1.6; new collaboration tables confirmed absent (greenfield); the three CEE service-role RPCs confirmed present live (their workspace-resolution behaviour is a cross-repo verification item, §15.1). Load-bearing live-code claims re-verified on the staging head, 2026-06-16.
 - **Method:** specification only; no code, schema, migration, prompt, package, lockfile, generated, test, config, or SQL files changed.
 
 ---
