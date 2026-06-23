@@ -1,17 +1,15 @@
 /**
  * AnalysisHeroV17 — fallback-safety guards.
  *
- * Locks in the EXISTING safe degradation of the live hero across data states
- * (full / partial / missing robustness / no winner / coaching unavailable /
- * unsupported sections absent). No source change — these are regression guards
- * over behaviour the hero already has.
+ * Locks in the EXISTING safe degradation of the live hero across data states.
+ * No source change — regression guards over behaviour the hero already has.
  *
  * Assertions are BEHAVIOUR-LEVEL via structural hooks (testids + check state),
- * NOT specific copy: they verify the absence of a positive robustness/winner
- * claim and the absence of unsupported/coaching sections, so they do not freeze
- * wording that robustness reconciliation / canonical freshness / the Decision
- * Data Spine may change. Contract-safe: no new fields, no freshness chip, no new
- * robustness wording.
+ * not specific copy, so they don't freeze wording that robustness reconciliation
+ * / canonical freshness / the Decision Data Spine may change. Where the guard is
+ * "a section/claim is absent", it is paired with the PRESENT case (a differential)
+ * so the absence can't pass vacuously. Contract-safe: no new fields, no freshness
+ * chip, no new robustness wording.
  */
 import type { ReactElement } from 'react'
 import { describe, it, expect } from 'vitest'
@@ -20,6 +18,7 @@ import { configureAxe } from 'vitest-axe'
 import { AnalysisHeroV17 } from '../AnalysisHeroV17'
 import { buildResultsVM } from '../buildResultsVM'
 import { normalisedFixture } from '../../../__fixtures__/resultsPanelV7.normalised.hook'
+import { sensitiveFixture } from '../../../__fixtures__/resultsPanelV7.sensitive.hook'
 import { minimalFixture } from '../../../__fixtures__/resultsPanelV7.minimal.hook'
 import * as heroStories from '../AnalysisHeroV17.stories'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
@@ -51,6 +50,7 @@ function over(
 const STATES: Record<string, RSD> = {
   full: normalisedFixture,
   partial: minimalFixture,
+  sensitive: sensitiveFixture, // close margin, low stability — winner present but flagged
   missingRobustness: over(normalisedFixture, {
     recommendation: {
       recommendationStability: undefined,
@@ -76,9 +76,6 @@ const STATES: Record<string, RSD> = {
       topFragileEdge: undefined,
       conditionalWinners: undefined,
     },
-  }),
-  unsupportedHidden: over(minimalFixture, {
-    confidence: { conditionalWinners: undefined, topFragileEdge: undefined },
   }),
 }
 
@@ -116,31 +113,48 @@ describe('AnalysisHeroV17 — safe degradation (behaviour, not copy)', () => {
     expect(checkIsPositive('checks-winner')).toBe(false)
   })
 
-  it('omits the coaching sections when coaching inputs are unavailable', () => {
-    renderHero(STATES.coachingUnavailable)
-    expect(screen.getByTestId('analysis-hero-v17')).toBeInTheDocument()
-    expect(screen.queryByTestId('hero-v17-input-rows')).toBeNull()
-    expect(screen.queryByTestId('hero-v17-key-question')).toBeNull()
-  })
-
-  it('omits unsupported sections when their data is absent', () => {
-    renderHero(STATES.unsupportedHidden)
-    expect(screen.getByTestId('analysis-hero-v17')).toBeInTheDocument()
-    expect(screen.queryByTestId('conditional-winner-cards')).toBeNull()
+  it('treats a close-margin result as a sensitive winner, NOT "no clear leader"', () => {
+    // Guards the sensitive-vs-no-winner distinction: a sensitive result still
+    // has a winner (positive winner check) but is flagged sensitive (robust not positive).
+    renderHero(STATES.sensitive)
+    expect(checkIsPositive('checks-winner')).toBe(true)
+    expect(checkIsPositive('checks-robust')).toBe(false)
   })
 })
 
-describe('AnalysisHeroV17 — positive claims render when warranted', () => {
-  // Differential: proves the not-positive assertions above are meaningful (the
-  // checks CAN be positive), so they cannot pass vacuously.
-  it('shows positive winner + robustness when the data supports them', () => {
-    renderHero(
-      over(normalisedFixture, {
-        recommendation: { recommendationStability: 0.95, robustnessLevel: 'high' },
-      }),
-    )
+describe('AnalysisHeroV17 — differential guards (present ⇄ absent)', () => {
+  it('shows positive winner + robustness only when the data supports them', () => {
+    const a = renderHero(over(normalisedFixture, {
+      recommendation: { recommendationStability: 0.95, robustnessLevel: 'high' },
+    }))
     expect(checkIsPositive('checks-winner')).toBe(true)
     expect(checkIsPositive('checks-robust')).toBe(true)
+    a.unmount()
+    // …and not when stability is absent / there is no winner (proves the above isn't vacuous).
+    renderHero(STATES.missingRobustness)
+    expect(checkIsPositive('checks-robust')).toBe(false)
+  })
+
+  it('renders the coaching input-rows when present and omits them when coaching is unavailable', () => {
+    const a = renderHero(normalisedFixture)
+    expect(a.getByTestId('hero-v17-input-rows')).toBeInTheDocument()
+    a.unmount()
+    const b = renderHero(STATES.coachingUnavailable)
+    expect(b.queryByTestId('hero-v17-input-rows')).toBeNull()
+    expect(b.queryByTestId('hero-v17-key-question')).toBeNull()
+  })
+
+  it('renders the fragile-risk callout when present and hides it when its data is omitted', () => {
+    // normalisedFixture HAS topFragileEdge, so the callout renders; omitting it hides it.
+    const a = renderHero(normalisedFixture)
+    expect(a.getByTestId('t1-flip-risk-callout')).toBeInTheDocument()
+    a.unmount()
+    const b = renderHero(
+      over(normalisedFixture, {
+        confidence: { topFragileEdge: undefined, m1CoachingTopFragileEdge: undefined },
+      }),
+    )
+    expect(b.queryByTestId('t1-flip-risk-callout')).toBeNull()
   })
 })
 

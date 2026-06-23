@@ -97,13 +97,21 @@ export const PartialData: Story = () => (
 )
 PartialData.storyName = '2 · Partial data (minimal)'
 
-// ── 3. Close call (no clear leader) ──────────────────────────────────────────
-export const CloseCall: Story = () => (
-  <PanelWrapper note="Near-tie: the existing clarity gate reports no clear leader; the hero makes no positive winner claim.">
+// ── 3. No clear leader (no winner) ───────────────────────────────────────────
+export const NoClearLeader: Story = () => (
+  <PanelWrapper note="No winner: with no options to compare, the hero shows its neutral no-winner result context and makes no positive winner claim.">
+    <Hero data={over(normalisedFixture, { recommendation: { recommendedOption: null, allOptions: [] } })} />
+  </PanelWrapper>
+)
+NoClearLeader.storyName = '3 · No clear leader (no winner)'
+
+// ── 4. Sensitive result (close margin, winner present) ───────────────────────
+export const SensitiveResult: Story = () => (
+  <PanelWrapper note="Sensitive result: a close margin and low stability. The hero still presents the leading option, but the robustness check flags it as sensitive — this is a sensitive-result state, NOT a no-clear-leader state.">
     <Hero data={sensitiveFixture} />
   </PanelWrapper>
 )
-CloseCall.storyName = '3 · Close call (no clear leader)'
+SensitiveResult.storyName = '4 · Sensitive result (winner, flagged sensitive)'
 
 // ── 4. Missing robustness ────────────────────────────────────────────────────
 export const MissingRobustness: Story = () => (
@@ -120,7 +128,7 @@ export const MissingRobustness: Story = () => (
     />
   </PanelWrapper>
 )
-MissingRobustness.storyName = '4 · Missing robustness (no overclaim)'
+MissingRobustness.storyName = '5 · Missing robustness (no overclaim)'
 
 // ── 5. Coaching unavailable ──────────────────────────────────────────────────
 export const CoachingUnavailable: Story = () => (
@@ -144,16 +152,9 @@ export const CoachingUnavailable: Story = () => (
     />
   </PanelWrapper>
 )
-CoachingUnavailable.storyName = '5 · Coaching unavailable'
+CoachingUnavailable.storyName = '6 · Coaching unavailable'
 
-// ── 6. Unsupported field hidden safely ───────────────────────────────────────
-export const UnsupportedFieldHidden: Story = () => (
-  <PanelWrapper note="Unsupported / contract-dependent sections (conditional scenarios, target-probability bars) are not rendered when their data is absent — no placeholder, no invented values.">
-    <Hero
-      data={over(minimalFixture, {
-        confidence: { conditionalWinners: undefined, topFragileEdge: undefined },
-      })}
-    />
-  </PanelWrapper>
-)
-UnsupportedFieldHidden.storyName = '6 · Unsupported field hidden safely'
+// Note: an "unsupported field hidden" story was intentionally NOT added — it
+// would be visually identical to PartialData (minimalFixture already lacks the
+// optional surfaces). The hide-on-absent behaviour is proven instead by a
+// present→absent differential in the fallback spec (the flip-risk callout).
