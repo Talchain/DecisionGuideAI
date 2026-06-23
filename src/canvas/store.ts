@@ -1117,6 +1117,11 @@ function hasAnalyticalNodeChange(
   const ANALYTICAL_NODE_DATA_FIELDS = [
     'observedState', 'interventions', 'is_baseline',
     'prior', 'kind', 'success_threshold', 'goalThreshold',
+    // goal_threshold_raw is the user-edited goal target (GoalSection inline edit
+    // + inspector); the V2 adapter derives the PLoT goal_threshold from it, so a
+    // change IS analysis-affecting. Without these, an inline goal-target edit
+    // neither invalidated readiness nor dirtied the freshness verdict.
+    'goal_threshold_raw', 'goal_threshold',
   ] as const
 
   for (const field of ANALYTICAL_NODE_DATA_FIELDS) {

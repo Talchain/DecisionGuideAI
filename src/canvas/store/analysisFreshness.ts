@@ -39,6 +39,17 @@ function nonEmptyString(v: unknown): string | undefined {
   return typeof v === 'string' && v.length > 0 ? v : undefined
 }
 
+/** Field-wise equality — used to treat a re-delivered identical payload as a no-op. */
+function sameVerdict(a: AnalysisFreshnessState, b: AnalysisFreshnessState): boolean {
+  return (
+    a.freshness === b.freshness &&
+    a.freshnessReason === b.freshnessReason &&
+    a.graphHashAtRun === b.graphHashAtRun &&
+    a.currentGraphHash === b.currentGraphHash &&
+    a.computedAt === b.computedAt
+  )
+}
+
 /**
  * Pure reducer for the analysis-freshness slice. See module doc for the rules.
  * `rawAnalysisReady` is the verbatim `response.analysis_ready` (or null/undefined
@@ -67,18 +78,30 @@ export function deriveAnalysisFreshnessUpdate(
 
   // Order by computed_at: ignore a strictly-older (or equal) payload when both
   // timestamps are present. When the new payload has no computed_at we cannot
-  // order it, so we apply it as the latest turn's verdict.
+  // order it, so we fall through to the content check below.
   if (prev?.computedAt && computedAt && computedAt <= prev.computedAt) {
     return prev
   }
 
-  return {
+  const next: AnalysisFreshnessState = {
     freshness,
     freshnessReason: nonEmptyString(o.freshness_reason),
     graphHashAtRun: nonEmptyString(o.graph_hash_at_run),
     currentGraphHash: nonEmptyString(o.current_graph_hash),
     computedAt,
   }
+
+  // Echo guard: a re-delivered payload identical to the stored verdict is a no-op
+  // (returns the same reference). This matters because `computed_at` is not part
+  // of the CEE analysis_ready contract today — without this, every re-delivered
+  // analysis_ready (e.g. echoed on a conversational turn) would look like a new
+  // verdict and wrongly clear the local dirty overlay. With it, a reference
+  // change reliably means "a genuinely new/changed verdict".
+  if (prev && sameVerdict(prev, next)) {
+    return prev
+  }
+
+  return next
 }
 
 /**

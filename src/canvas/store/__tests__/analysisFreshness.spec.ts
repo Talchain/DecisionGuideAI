@@ -71,6 +71,27 @@ describe('deriveAnalysisFreshnessUpdate', () => {
     expect(next?.freshness).toBe('stale')
   })
 
+  it('echo guard: a re-delivered identical payload is a no-op (same reference)', () => {
+    // computed_at is not part of the CEE contract today, so an echoed analysis_ready
+    // (no computed_at) must NOT look like a new verdict — otherwise it would clear
+    // the local dirty overlay. Identical content → same reference returned.
+    const p = prev({ freshness: 'fresh', freshnessReason: 'graph_hash_match', computedAt: undefined })
+    const echoed = deriveAnalysisFreshnessUpdate(p, {
+      freshness: 'fresh',
+      freshness_reason: 'graph_hash_match',
+    })
+    expect(echoed).toBe(p) // no change → dirty overlay would be retained
+
+    // A genuinely different verdict (or different run hash) IS applied.
+    const changed = deriveAnalysisFreshnessUpdate(p, {
+      freshness: 'fresh',
+      freshness_reason: 'graph_hash_match',
+      current_graph_hash: 'new-hash',
+    })
+    expect(changed).not.toBe(p)
+    expect(changed?.currentGraphHash).toBe('new-hash')
+  })
+
   it('captures supporting fields (reason/hashes) when present', () => {
     const next = deriveAnalysisFreshnessUpdate(null, {
       freshness: 'fresh',

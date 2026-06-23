@@ -104,6 +104,17 @@ describe('dirty overlay — analysis-affecting edits downgrade a retained fresh 
     expect(displayed()).toBe('unknown')
   })
 
+  it('#2e inline goal-target edit (goal_threshold_raw) → displayed unknown', () => {
+    // The live Model-tab GoalSection writes goal_threshold_raw via updateNode; the
+    // V2 adapter derives the PLoT goal_threshold from it, so this is analytical.
+    applyFresh()
+    useCanvasStore.getState().updateNode('n1', {
+      data: { goal_threshold_raw: 80, threshold_source: 'user', threshold_confirmed: false } as Node['data'],
+    })
+    expect(dirty()).toBe(true)
+    expect(displayed()).toBe('unknown')
+  })
+
   it('#3 undo of an analysis-affecting edit → displayed unknown', () => {
     applyFresh()
     useCanvasStore.getState().updateNode('n1', { data: { observedState: { value: 0.7 } } as Node['data'] })
@@ -159,6 +170,18 @@ describe('dirty overlay — verdict lifecycle', () => {
     useCanvasStore.getState().setAnalysisFreshness({ freshness: 'fresh', computed_at: T2 })
     expect(dirty()).toBe(false)
     expect(displayed()).toBe('fresh')
+  })
+
+  it('#6b a re-delivered (echoed) analysis_ready does NOT clear the dirty overlay', () => {
+    // computed_at is absent from the CEE contract; an echoed identical payload on a
+    // conversational turn must not flip the notice back to fresh after a real edit.
+    const payload = { freshness: 'fresh' as const, freshness_reason: 'graph_hash_match' }
+    useCanvasStore.getState().setAnalysisFreshness(payload)
+    useCanvasStore.getState().updateNode('n1', { data: { observedState: { value: 0.7 } } as Node['data'] })
+    expect(dirty()).toBe(true)
+    useCanvasStore.getState().setAnalysisFreshness(payload) // echo of the same run
+    expect(dirty()).toBe(true) // overlay retained
+    expect(displayed()).toBe('unknown')
   })
 
   it('#7 a CEE stale verdict is never downgraded, even after a local edit', () => {
