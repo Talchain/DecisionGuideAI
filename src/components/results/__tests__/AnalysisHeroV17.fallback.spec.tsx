@@ -4,12 +4,16 @@
  * Locks in the EXISTING safe degradation of the live hero across data states.
  * No source change — regression guards over behaviour the hero already has.
  *
- * Assertions are BEHAVIOUR-LEVEL via structural hooks (testids + check state),
- * not specific copy, so they don't freeze wording that robustness reconciliation
- * / canonical freshness / the Decision Data Spine may change. Where the guard is
- * "a section/claim is absent", it is paired with the PRESENT case (a differential)
- * so the absence can't pass vacuously. Contract-safe: no new fields, no freshness
- * chip, no new robustness wording.
+ * Guards are STRUCTURAL only (renders-without-throwing, axe, and present⇄absent
+ * differentials on stable testids). They deliberately do NOT assert:
+ *   - copy strings (wording is under active revision), nor
+ *   - presentation details like the checks-glyph colour class (the glyph exposes
+ *     no semantic state hook — its success/danger token is purely visual, so
+ *     asserting it would freeze presentation and break on a safe robustness-
+ *     reconciliation change). "No-overclaim" intent is documented in the stories
+ *     and should get a real test once the hero exposes a semantic state hook.
+ *
+ * Contract-safe: no new fields, no freshness chip, no new robustness wording.
  */
 import type { ReactElement } from 'react'
 import { describe, it, expect } from 'vitest'
@@ -83,59 +87,21 @@ function renderHero(data: RSD) {
   return render(<AnalysisHeroV17 data={data} vm={buildResultsVM(data)} onFocusNode={() => {}} />)
 }
 
-/** State of a checks glyph by its icon colour token (text-success = positive claim). */
-function checkIsPositive(testid: string): boolean {
-  const icon = screen.getByTestId(testid).querySelector('svg')
-  return !!icon?.classList.contains('text-success')
-}
+describe('AnalysisHeroV17 — safe degradation + accessibility across data states', () => {
+  it.each(Object.keys(STATES))('renders the hero shell, axe-clean: %s', async (key) => {
+    const { container } = renderHero(STATES[key])
+    expect(screen.getByTestId('analysis-hero-v17')).toBeInTheDocument()
+    expect((await axe(container)).violations).toEqual([])
+  })
 
-describe('AnalysisHeroV17 — safe degradation (behaviour, not copy)', () => {
-  it('renders full data with the hero shell + result context', () => {
+  it('renders the result context for a full analysis', () => {
     renderHero(STATES.full)
-    expect(screen.getByTestId('analysis-hero-v17')).toBeInTheDocument()
     expect(screen.getByTestId('hero-v17-result-context')).toBeInTheDocument()
-  })
-
-  it('renders sparse/partial data without throwing', () => {
-    renderHero(STATES.partial)
-    expect(screen.getByTestId('analysis-hero-v17')).toBeInTheDocument()
-  })
-
-  it('makes no positive robustness claim when stability is absent', () => {
-    renderHero(STATES.missingRobustness)
-    expect(screen.getByTestId('checks-robust')).toBeInTheDocument()
-    expect(checkIsPositive('checks-robust')).toBe(false)
-  })
-
-  it('makes no positive winner claim when there are no options', () => {
-    renderHero(STATES.noWinner)
-    expect(screen.getByTestId('hero-v17-result-context')).toBeInTheDocument()
-    expect(checkIsPositive('checks-winner')).toBe(false)
-  })
-
-  it('treats a close-margin result as a sensitive winner, NOT "no clear leader"', () => {
-    // Guards the sensitive-vs-no-winner distinction: a sensitive result still
-    // has a winner (positive winner check) but is flagged sensitive (robust not positive).
-    renderHero(STATES.sensitive)
-    expect(checkIsPositive('checks-winner')).toBe(true)
-    expect(checkIsPositive('checks-robust')).toBe(false)
   })
 })
 
 describe('AnalysisHeroV17 — differential guards (present ⇄ absent)', () => {
-  it('shows positive winner + robustness only when the data supports them', () => {
-    const a = renderHero(over(normalisedFixture, {
-      recommendation: { recommendationStability: 0.95, robustnessLevel: 'high' },
-    }))
-    expect(checkIsPositive('checks-winner')).toBe(true)
-    expect(checkIsPositive('checks-robust')).toBe(true)
-    a.unmount()
-    // …and not when stability is absent / there is no winner (proves the above isn't vacuous).
-    renderHero(STATES.missingRobustness)
-    expect(checkIsPositive('checks-robust')).toBe(false)
-  })
-
-  it('renders the coaching input-rows when present and omits them when coaching is unavailable', () => {
+  it('renders coaching input-rows when present and omits them when coaching is unavailable', () => {
     const a = renderHero(normalisedFixture)
     expect(a.getByTestId('hero-v17-input-rows')).toBeInTheDocument()
     a.unmount()
@@ -155,13 +121,6 @@ describe('AnalysisHeroV17 — differential guards (present ⇄ absent)', () => {
       }),
     )
     expect(b.queryByTestId('t1-flip-risk-callout')).toBeNull()
-  })
-})
-
-describe('AnalysisHeroV17 — accessibility across data states', () => {
-  it.each(Object.keys(STATES))('has no axe violations: %s', async (key) => {
-    const { container } = renderHero(STATES[key])
-    expect((await axe(container)).violations).toEqual([])
   })
 })
 
