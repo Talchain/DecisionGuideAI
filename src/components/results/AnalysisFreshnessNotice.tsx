@@ -15,9 +15,10 @@
 import { AlertTriangle, CheckCircle2, HelpCircle } from 'lucide-react'
 import { useCanvasStore } from '@/canvas/store'
 import { typography } from '@/styles/typography'
-import type {
-  AnalysisFreshnessState,
-  AnalysisFreshnessValue,
+import {
+  resolveDisplayedFreshness,
+  type AnalysisFreshnessState,
+  type AnalysisFreshnessValue,
 } from '@/canvas/store/analysisFreshness'
 
 /** Cautious, non-scientific copy. One short line per state. */
@@ -38,24 +39,35 @@ const ICON: Record<AnalysisFreshnessValue, typeof AlertTriangle> = {
 export interface AnalysisFreshnessNoticeProps {
   /** Override the store slice (tests / Storybook). `undefined` → read the store. */
   state?: AnalysisFreshnessState | null
+  /** Override the local dirty overlay (tests / Storybook). `undefined` → read the store. */
+  dirty?: boolean
   className?: string
 }
 
-export function AnalysisFreshnessNotice({ state: stateProp, className = '' }: AnalysisFreshnessNoticeProps) {
+export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, className = '' }: AnalysisFreshnessNoticeProps) {
   const storeState = useCanvasStore((s) => s.analysisFreshness)
+  const storeDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
   const state = stateProp !== undefined ? stateProp : storeState
+  const dirty = dirtyProp !== undefined ? dirtyProp : storeDirty
 
   // No verdict yet → no notice (never claim a freshness state we don't hold).
   if (!state) return null
 
-  const { freshness } = state
+  // CEE verdict is the source of truth; the local dirty overlay may only
+  // downgrade a retained 'fresh' to cannot-confirm (never fabricate 'stale').
+  const freshness = resolveDisplayedFreshness(state, dirty) as AnalysisFreshnessValue
   const isStale = freshness === 'stale'
   const Icon = ICON[freshness]
+  // Mark when the displayed verdict differs from CEE's because of a local edit —
+  // technical signal for tests/debug only, not user copy.
+  const downgraded = state.freshness === 'fresh' && freshness === 'unknown'
 
   return (
     <div
       data-testid="analysis-freshness-notice"
       data-freshness={freshness}
+      data-cee-freshness={state.freshness}
+      data-freshness-dirty={downgraded ? 'true' : undefined}
       data-freshness-reason={state.freshnessReason}
       className={`flex items-center gap-2 rounded-md border px-3 py-2 bg-panel ${isStale ? 'border-warning/30' : 'border-panel-border'} ${className}`.trim()}
     >

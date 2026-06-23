@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   deriveAnalysisFreshnessUpdate,
+  resolveDisplayedFreshness,
   type AnalysisFreshnessState,
 } from '../analysisFreshness'
 
@@ -85,5 +86,47 @@ describe('deriveAnalysisFreshnessUpdate', () => {
       currentGraphHash: 'abc',
       computedAt: '2026-06-23T10:00:00.000Z',
     })
+  })
+})
+
+describe('resolveDisplayedFreshness (local dirty overlay display rule)', () => {
+  const fresh = prev({ freshness: 'fresh' })
+
+  it('returns null when there is no verdict (renders nothing)', () => {
+    expect(resolveDisplayedFreshness(null, false)).toBeNull()
+    expect(resolveDisplayedFreshness(null, true)).toBeNull()
+  })
+
+  it('passes a clean fresh verdict through unchanged', () => {
+    expect(resolveDisplayedFreshness(fresh, false)).toBe('fresh')
+  })
+
+  it('downgrades fresh → unknown when the local dirty overlay is set', () => {
+    expect(resolveDisplayedFreshness(fresh, true)).toBe('unknown')
+  })
+
+  it('never downgrades a CEE stale verdict (stays stale even when dirty)', () => {
+    const stale = prev({ freshness: 'stale' })
+    expect(resolveDisplayedFreshness(stale, true)).toBe('stale')
+    expect(resolveDisplayedFreshness(stale, false)).toBe('stale')
+  })
+
+  it('leaves unknown / none verdicts untouched regardless of dirty', () => {
+    for (const f of ['unknown', 'none'] as const) {
+      const s = prev({ freshness: f })
+      expect(resolveDisplayedFreshness(s, true)).toBe(f)
+      expect(resolveDisplayedFreshness(s, false)).toBe(f)
+    }
+  })
+
+  it('never fabricates stale and never upgrades (only fresh→unknown is possible)', () => {
+    // Exhaustive: the only state→display change the overlay can produce is
+    // fresh→unknown. Everything else is identity.
+    for (const f of ['fresh', 'stale', 'unknown', 'none'] as const) {
+      const out = resolveDisplayedFreshness(prev({ freshness: f }), true)
+      if (f === 'fresh') expect(out).toBe('unknown')
+      else expect(out).toBe(f)
+      expect(out).not.toBe('stale-fabricated') // sanity: no invented values
+    }
   })
 })

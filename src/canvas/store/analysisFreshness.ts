@@ -80,3 +80,26 @@ export function deriveAnalysisFreshnessUpdate(
     computedAt,
   }
 }
+
+/**
+ * Local dirty-overlay display rule.
+ *
+ * CEE's verdict (`state.freshness`) is the source of truth. The local dirty
+ * overlay is set by analysis-affecting local edits (see the store wiring) and
+ * cleared when a new `analysis_ready` arrives or the scenario resets.
+ *
+ * The ONLY thing the overlay may do is downgrade a retained `fresh` verdict to
+ * `unknown` (cannot-confirm) — it never fabricates `stale`, never upgrades, and
+ * never touches a CEE `stale`/`unknown`/`none` verdict. Returns the value to
+ * display, or null when there is no verdict to show.
+ */
+export function resolveDisplayedFreshness(
+  state: AnalysisFreshnessState | null,
+  dirty: boolean,
+): AnalysisFreshnessValue | null {
+  if (!state) return null
+  // Suppress a stale-since-edit 'fresh' verdict to cannot-confirm. CEE 'stale'
+  // stays 'stale'; everything else passes through unchanged.
+  if (state.freshness === 'fresh' && dirty) return 'unknown'
+  return state.freshness
+}

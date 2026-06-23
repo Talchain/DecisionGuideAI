@@ -17,9 +17,9 @@ function Wrapper({ children }: { children: React.ReactNode }) {
   )
 }
 
-const story = (state: AnalysisFreshnessState | null) => () => (
+const story = (state: AnalysisFreshnessState | null, dirty = false) => () => (
   <Wrapper>
-    <AnalysisFreshnessNotice state={state} />
+    <AnalysisFreshnessNotice state={state} dirty={dirty} />
   </Wrapper>
 )
 
@@ -36,6 +36,15 @@ Unknown.storyName = '3 · unknown'
 
 export const None: Story = story({ freshness: 'none' })
 None.storyName = '4 · none'
+
+// CEE verdict is 'fresh' but a local analysis-affecting edit set the dirty
+// overlay → the notice shows the cannot-confirm (unknown) message instead.
+export const FreshButDirty: Story = story({ freshness: 'fresh' }, true)
+FreshButDirty.storyName = '6 · fresh + local edit (downgraded to cannot-confirm)'
+
+// CEE 'stale' is never downgraded by the overlay, even after an edit.
+export const StaleStaysStale: Story = story({ freshness: 'stale' }, true)
+StaleStaysStale.storyName = '7 · stale + local edit (stays stale)'
 
 export const Unset: Story = () => (
   <Wrapper>
