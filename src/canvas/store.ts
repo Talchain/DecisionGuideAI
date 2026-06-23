@@ -2054,6 +2054,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       showDraftChat: false,
       currentBriefText: null,
       draftComposerText: null,
+      // Full graph replaced on import — clear the freshness verdict (it described
+      // the previous graph; never carry it onto an imported model).
+      analysisFreshness: null,
       // Graph Lens: auto-reset on canvas import (full graph replaced)
       lens: createDefaultLensState(),
     })
@@ -2921,6 +2924,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // causing buildRequest to ship stale analysis on the first turn.
       analysisStateReady: false,
       rawV2Response: null,
+      // Freshness verdict is per-scenario and session-derived — clear on switch
+      // so a verdict from the previous scenario cannot leak into this one.
+      analysisFreshness: null,
       isDirty: false,
       history: { past: [], future: [] },
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
@@ -4153,6 +4159,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       updates.history = { past: [], future: [] }
       updates.selection = { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null }
       updates.touchedNodeIds = new Set()
+      // A loaded graph is a new context — clear the freshness verdict so it can't
+      // leak from the previous graph/scenario.
+      updates.analysisFreshness = null
     }
 
     // Apply updates without clobbering panels/results/other slices

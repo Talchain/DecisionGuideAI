@@ -178,8 +178,15 @@ export interface DecisionResultData {
   winProbability?: number
   /** How the winner was determined - for honest labelling */
   determinedBy?: WinnerDeterminedBy
-  /** Robustness level from PLoT */
+  /** Robustness level from PLoT (may be UI-SEM-005 stability fallback when CEE omits it) */
   robustnessLevel?: RobustnessLevel
+  /**
+   * CEE-provided structured robustness level ONLY — undefined when CEE omitted
+   * it (no UI-local stability fallback applied). Use this, not `robustnessLevel`,
+   * for any single-source robustness verdict that must read "unknown" when CEE
+   * provides nothing.
+   */
+  robustnessLevelExplicit?: RobustnessLevel
   /** Robustness label from PLoT (fallback when level missing) */
   robustnessLabel?: RobustnessLabel
   /** Goal text from scenario framing */

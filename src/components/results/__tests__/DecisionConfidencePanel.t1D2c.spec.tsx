@@ -73,6 +73,7 @@ interface MakeOpts {
   fragile?: FragileEdgeItem | undefined
   recommendationStability?: number | undefined
   robustnessLevel?: DecisionResultData['robustnessLevel']
+  robustnessLevelExplicit?: DecisionResultData['robustnessLevelExplicit']
   gaps?: EvidenceGapItem[]
 }
 
@@ -99,7 +100,13 @@ function makeData(opts: MakeOpts = {}): ResultsSectionDataReturn {
     analysisStatus: 'computed',
     recommendationStability:
       'recommendationStability' in opts ? opts.recommendationStability : 0.92,
+    // robustnessLevel is the fallback-inclusive field (may be derived from
+    // recommendationStability via UI-SEM-005). robustnessLevelExplicit is the
+    // CEE-only field the checks glyph reads — they are set independently here so
+    // a test can prove the glyph ignores the fallback field.
     robustnessLevel: 'robustnessLevel' in opts ? opts.robustnessLevel : 'high',
+    robustnessLevelExplicit:
+      'robustnessLevelExplicit' in opts ? opts.robustnessLevelExplicit : 'high',
     coachingReadiness: 'ready',
   } as DecisionResultData
 
@@ -239,14 +246,35 @@ describe('DecisionConfidencePanel — Brief 5.8B D2c T1 flip-risk + nudge + chec
     // Robustness single source: the glyph follows CEE's categorical level, not a
     // UI-local recommendationStability >= 0.85 threshold.
     render(
-      <DecisionConfidencePanel data={makeData({ robustnessLevel: 'moderate' })} />,
+      <DecisionConfidencePanel
+        data={makeData({ robustnessLevelExplicit: 'moderate' })}
+      />,
     )
     expect(screen.getByTestId('checks-robust')).toHaveTextContent('Sensitive')
   })
 
   it('shows "Robustness unknown" when CEE provides no robustness level', () => {
     render(
-      <DecisionConfidencePanel data={makeData({ robustnessLevel: undefined })} />,
+      <DecisionConfidencePanel
+        data={makeData({ robustnessLevelExplicit: undefined })}
+      />,
+    )
+    expect(screen.getByTestId('checks-robust')).toHaveTextContent('Robustness unknown')
+  })
+
+  it('ignores the UI-local fallback robustness level for the glyph (renders unknown)', () => {
+    // Proof of single source: even when the fallback-inclusive robustnessLevel is
+    // 'high' (e.g. derived from recommendationStability via UI-SEM-005), the glyph
+    // must read only the CEE-provided robustnessLevelExplicit. With that absent,
+    // the glyph stays "Robustness unknown" — it never promotes the fallback.
+    render(
+      <DecisionConfidencePanel
+        data={makeData({
+          robustnessLevel: 'high',
+          robustnessLevelExplicit: undefined,
+          recommendationStability: 0.99,
+        })}
+      />,
     )
     expect(screen.getByTestId('checks-robust')).toHaveTextContent('Robustness unknown')
   })

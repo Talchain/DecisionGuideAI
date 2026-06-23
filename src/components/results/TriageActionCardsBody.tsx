@@ -402,10 +402,11 @@ function T1ChecksFooter({
   useV17Copy?: boolean
 }) {
   const hasWinner = !!data.recommendation.recommendedOption
-  // Robustness single source: CEE's categorical robustness level (not a UI-local
-  // recommendationStability >= 0.85 threshold). 'high' = robust; any other known
-  // level = sensitive; absent = robustness unknown. One verdict, no competing read.
-  const robustnessLevel = data.recommendation.robustnessLevel
+  // Robustness single source: CEE's categorical robustness level ONLY
+  // (robustnessLevelExplicit — never the UI-SEM-005 stability fallback, and never
+  // a UI-local recommendationStability >= 0.85 threshold). 'high' = robust; any
+  // other CEE level = sensitive; CEE omitted = robustness unknown.
+  const robustnessLevel = data.recommendation.robustnessLevelExplicit
   const robustOk = robustnessLevel === 'high'
   const robustKnown = robustnessLevel != null
   const gaps = data.confidence.topEvidenceGaps ?? data.confidence.evidenceGaps ?? []

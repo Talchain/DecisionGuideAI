@@ -1372,6 +1372,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       determinedBy,
       // Task 1.5: Robustness level and label
       robustnessLevel,
+      // CEE-only structured robustness (no UI-SEM-005 stability fallback): present
+      // only when CEE actually provided a level. Drives single-source verdicts.
+      robustnessLevelExplicit: hasExplicitLevel ? robustnessLevel : undefined,
       robustnessLabel,
       // Task 1.7: Goal text from framing
       goalText,
