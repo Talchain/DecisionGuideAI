@@ -27,6 +27,7 @@ import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWit
 import { DecisionConfidencePanel } from './DecisionConfidencePanel'
 import { AnalysisHeroV17 } from './AnalysisHeroV17'
 import { AnalysisOrphanBanner } from './AnalysisOrphanBanner'
+import { AnalysisFreshnessNotice } from './AnalysisFreshnessNotice'
 import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled } from '@/flags'
 
 export interface StrengthCorrectionDisplay {
@@ -217,6 +218,10 @@ export const ResultsBody = memo(function ResultsBody({
           fact for the scenario. Renders only when canonical flag is ON and
           there is no V5 fact attached. */}
       <AnalysisOrphanBanner />
+
+      {/* Freshness/staleness — CEE analysis_ready.freshness verdict. Renders
+          nothing until a verdict exists; never asserts a state we don't hold. */}
+      <AnalysisFreshnessNotice />
 
       {/* ── DECISION CONFIDENCE TRIAGE ────────────────────────────── */}
       {/* Comparison mode: v17 ABOVE legacy panel. Opt-in only. */}

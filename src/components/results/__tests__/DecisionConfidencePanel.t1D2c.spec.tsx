@@ -72,6 +72,7 @@ interface MakeOpts {
   dominantFactorId?: string
   fragile?: FragileEdgeItem | undefined
   recommendationStability?: number | undefined
+  robustnessLevel?: DecisionResultData['robustnessLevel']
   gaps?: EvidenceGapItem[]
 }
 
@@ -98,7 +99,7 @@ function makeData(opts: MakeOpts = {}): ResultsSectionDataReturn {
     analysisStatus: 'computed',
     recommendationStability:
       'recommendationStability' in opts ? opts.recommendationStability : 0.92,
-    robustnessLevel: 'high',
+    robustnessLevel: 'robustnessLevel' in opts ? opts.robustnessLevel : 'high',
     coachingReadiness: 'ready',
   } as DecisionResultData
 
@@ -234,11 +235,20 @@ describe('DecisionConfidencePanel — Brief 5.8B D2c T1 flip-risk + nudge + chec
     expect(screen.getByTestId('checks-addressed')).toHaveTextContent('1/1 addressed')
   })
 
-  it('flips Robust to "Sensitive" when stability < 0.85', () => {
+  it('flips Robust to "Sensitive" when CEE robustness level is not high', () => {
+    // Robustness single source: the glyph follows CEE's categorical level, not a
+    // UI-local recommendationStability >= 0.85 threshold.
     render(
-      <DecisionConfidencePanel data={makeData({ recommendationStability: 0.6 })} />,
+      <DecisionConfidencePanel data={makeData({ robustnessLevel: 'moderate' })} />,
     )
     expect(screen.getByTestId('checks-robust')).toHaveTextContent('Sensitive')
+  })
+
+  it('shows "Robustness unknown" when CEE provides no robustness level', () => {
+    render(
+      <DecisionConfidencePanel data={makeData({ robustnessLevel: undefined })} />,
+    )
+    expect(screen.getByTestId('checks-robust')).toHaveTextContent('Robustness unknown')
   })
 
   it('flips Evidence to "Evidence gaps" when any review-card confidence < 50%', () => {

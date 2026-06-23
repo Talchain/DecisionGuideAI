@@ -14,6 +14,7 @@ import type { V2RunResponse } from '../adapters/plot/v2/types'
 import type { PLoTEnrichment } from '../adapters/plot/enrichment'
 import { trackResultsViewed, trackIssuesOpened } from './utils/sandboxTelemetry'
 import { addRun, generateGraphHash, loadRuns, type StoredRun } from './store/runHistory'
+import { deriveAnalysisFreshnessUpdate, type AnalysisFreshnessState } from './store/analysisFreshness'
 import * as scenarios from './store/scenarios'
 import type { ScenarioFraming } from './store/scenarios'
 import type { GraphHealth, ValidationIssue, NeedleMover } from './validation/types'
@@ -381,6 +382,9 @@ interface CanvasState {
   // CEE V3: analysis_ready payload from last draft
   // Used by useV2Run to build requests with resolved interventions
   ceeAnalysisReady: CEEAnalysisReady | null
+  // Analysis freshness verdict from CEE analysis_ready.freshness — retained
+  // across turns; sourced independently of ceeAnalysisReady / v5AnalysisFact.
+  analysisFreshness: AnalysisFreshnessState | null
   // CEE coaching payload from last /assist/v1/draft-graph response (build a555cf7b+).
   // Session-local — never persisted; cleared on new draft start and scenario reset.
   draftCoaching: CEEDraftCoaching | null
@@ -638,6 +642,8 @@ interface CanvasState {
    * no-analysis / orphan / reset states.
    */
   setV5AnalysisFact: (fact: V5AnalysisFactState | null) => void
+  /** Update the freshness slice from a raw response.analysis_ready (retain / order-by-computed_at / never absence→fresh). */
+  setAnalysisFreshness: (rawAnalysisReady: unknown) => void
   setDraftCoaching: (coaching: CEEDraftCoaching | null) => void
   setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => void
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => void
@@ -1228,6 +1234,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
   // CEE V3: analysis_ready payload
   ceeAnalysisReady: null,
+  // Freshness verdict — null until CEE emits analysis_ready (UI shows nothing).
+  analysisFreshness: null,
   ceeAnalysisReadyNodeIds: null,
   // V5 canonical analysis fact (v5-canonical-analysis brief)
   v5AnalysisFact: null,
@@ -2263,6 +2271,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       nextEdgeId: 1,
       // Clear CEE analysis_ready payload, pipeline trace, quality, and constraints
       ceeAnalysisReady: null,
+      analysisFreshness: null,
       ceeAnalysisReadyNodeIds: null,
       // V5 canonical analysis fact — clear on scenario reset (the fact does
       // not survive a graph reset; rerun analysis to mint a fresh one).
@@ -3300,6 +3309,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   setV5AnalysisFact: (fact: V5AnalysisFactState | null) => {
     set({ v5AnalysisFact: fact })
+  },
+
+  setAnalysisFreshness: (rawAnalysisReady: unknown) => {
+    set((state) => {
+      const next = deriveAnalysisFreshnessUpdate(state.analysisFreshness, rawAnalysisReady)
+      return next === state.analysisFreshness ? {} : { analysisFreshness: next }
+    })
   },
 
   setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => {

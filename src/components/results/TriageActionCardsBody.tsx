@@ -402,9 +402,12 @@ function T1ChecksFooter({
   useV17Copy?: boolean
 }) {
   const hasWinner = !!data.recommendation.recommendedOption
-  const stability = data.recommendation.recommendationStability
-  const robustOk = typeof stability === 'number' && Number.isFinite(stability) && stability >= 0.85
-  const robustKnown = typeof stability === 'number' && Number.isFinite(stability)
+  // Robustness single source: CEE's categorical robustness level (not a UI-local
+  // recommendationStability >= 0.85 threshold). 'high' = robust; any other known
+  // level = sensitive; absent = robustness unknown. One verdict, no competing read.
+  const robustnessLevel = data.recommendation.robustnessLevel
+  const robustOk = robustnessLevel === 'high'
+  const robustKnown = robustnessLevel != null
   const gaps = data.confidence.topEvidenceGaps ?? data.confidence.evidenceGaps ?? []
   const evidenceWeak = gaps.some(g => typeof g.confidence === 'number' && g.confidence < 50)
   const evidenceKnown = gaps.length > 0

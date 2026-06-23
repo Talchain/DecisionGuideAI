@@ -57,6 +57,8 @@ export interface V5ApplicatorStore {
   setRunMeta: (meta: { ceeReviewV1: CeeDecisionReviewPayloadV1 | null }) => void
   /** Write (or clear) the CEE analysis_ready payload that gates the run. */
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
+  /** Optional: update the freshness slice from a raw response.analysis_ready (retain / order / never absence→fresh). */
+  setAnalysisFreshness?: (rawAnalysisReady: unknown) => void
   /**
    * Results hydration (V5-exclusive path). When the response carries an
    * analysis_result block, the applicator builds a ReportV1 via
@@ -515,6 +517,9 @@ export function applyV5State(
   // Stale-turn guard lives at the top of applyV5State (before step 1) so
   // it covers stage, graph_patch, and runMeta writes as well as this step.
   const rawAnalysisReady = (response as { analysis_ready?: unknown }).analysis_ready
+  // Freshness slice: retain on absence, order by computed_at, never absence→fresh.
+  // Independent of ceeAnalysisReady (which clears on analyse-turns-without-analysis_ready).
+  store.setAnalysisFreshness?.(rawAnalysisReady)
   if (rawAnalysisReady !== undefined) {
     const normalised = normaliseV5AnalysisReady(rawAnalysisReady)
     if (normalised) {
