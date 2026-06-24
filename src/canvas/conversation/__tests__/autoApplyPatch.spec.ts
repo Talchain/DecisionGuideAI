@@ -34,6 +34,7 @@ const mocks = {
   setPendingLayout: vi.fn(),
   setOutcomeNode: vi.fn(),
   pushHistory: vi.fn(),
+  markAnalysisFreshnessDirty: vi.fn(),
 }
 
 vi.mock('../../store', () => ({
@@ -44,6 +45,7 @@ vi.mock('../../store', () => ({
       setPendingLayout: mocks.setPendingLayout,
       setOutcomeNode: mocks.setOutcomeNode,
       pushHistory: mocks.pushHistory,
+      markAnalysisFreshnessDirty: mocks.markAnalysisFreshnessDirty,
     }),
     setState: (update: any) => {
       if (update.nodes !== undefined) storeState.nodes = update.nodes
@@ -134,6 +136,19 @@ describe('sortPatchOperations', () => {
 // ---------------------------------------------------------------------------
 // applyAutoApplyPatch — node insertion
 // ---------------------------------------------------------------------------
+
+describe('applyAutoApplyPatch — freshness dirty overlay (#3 auto-apply path)', () => {
+  it('marks the freshness overlay dirty after an op-replay graph mutation', () => {
+    const patch = makePatchBlock([
+      op('add_node', 'factor-1', { kind: 'factor', label: 'Market size' }),
+    ])
+    applyAutoApplyPatch(patch)
+    // Auto-apply / op-replay bypasses the edit chokepoints (bare setState), so the
+    // overlay must be marked dirty here; applyAnalysisReadyPatch (run after accept)
+    // clears it iff the patch supplies a fresh new verdict.
+    expect(mocks.markAnalysisFreshnessDirty).toHaveBeenCalled()
+  })
+})
 
 describe('applyAutoApplyPatch — node insertion', () => {
   it('inserts nodes with correct IDs and types from kind field', () => {

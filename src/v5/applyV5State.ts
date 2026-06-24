@@ -59,6 +59,8 @@ export interface V5ApplicatorStore {
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
   /** Optional: update the freshness slice from a raw response.analysis_ready (retain / order / never absence→fresh). */
   setAnalysisFreshness?: (rawAnalysisReady: unknown) => void
+  /** Optional: clear the local dirty overlay when a genuinely new analysis run completes (new analysis_result response_hash). */
+  clearAnalysisFreshnessDirty?: () => void
   /**
    * Results hydration (V5-exclusive path). When the response carries an
    * analysis_result block, the applicator builds a ReportV1 via
@@ -627,6 +629,14 @@ export function applyV5State(
           rawV2Response: null,
         })
         applied.push('analysis_result:results_hydrated')
+        // Reliable run identity: a NEW analysis_result response_hash (hash !==
+        // prevHash) means a genuinely new analysis completed — not a re-delivered
+        // analysis_ready echo. Clear the local dirty overlay here so a real rerun
+        // resolves the verdict even when the analysis_ready payload is byte-
+        // identical (the CEE contract carries no computed_at / run id on
+        // analysis_ready, so the reducer's echo-guard alone cannot distinguish a
+        // rerun from an echo). An echoed result (same hash) skips this branch.
+        store.clearAnalysisFreshnessDirty?.()
         logV5StateStep({
           step_number: 5,
           step_name: 'results_hydration',

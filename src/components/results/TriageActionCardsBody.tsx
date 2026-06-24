@@ -402,11 +402,12 @@ function T1ChecksFooter({
   useV17Copy?: boolean
 }) {
   const hasWinner = !!data.recommendation.recommendedOption
-  // Robustness single source: CEE's categorical robustness level ONLY
-  // (robustnessLevelExplicit — never the UI-SEM-005 stability fallback, and never
-  // a UI-local recommendationStability >= 0.85 threshold). 'high' = robust; any
-  // other CEE level = sensitive; CEE omitted = robustness unknown.
-  const robustnessLevel = data.recommendation.robustnessLevelExplicit
+  // Robustness glyph: driven ONLY by the display-safe robustness verdict
+  // (`robustnessVerdict`) — never PLoT `report.robustness.level`, never the
+  // UI-SEM-005 stability fallback, never a recommendationStability threshold.
+  // No display-safe verdict exists in the contract today, so this is undefined
+  // and the glyph renders "Robustness unknown". See ROBUSTNESS-VERDICT-CONTRACT.
+  const robustnessLevel = data.recommendation.robustnessVerdict
   const robustOk = robustnessLevel === 'high'
   const robustKnown = robustnessLevel != null
   const gaps = data.confidence.topEvidenceGaps ?? data.confidence.evidenceGaps ?? []

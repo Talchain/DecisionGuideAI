@@ -363,6 +363,12 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
     // Non-critical
   }
 
+  // Op-replay graph mutation bypasses the edit chokepoints (bare setState), so
+  // mark the freshness overlay dirty (see applyValidatedGraph). The accept flow's
+  // applyAnalysisReadyPatch clears it iff the patch supplies a fresh new verdict.
+  // Optional-chained so partial store doubles in tests don't break.
+  useCanvasStore.getState().markAnalysisFreshnessDirty?.()
+
   return result
 }
 
@@ -382,6 +388,11 @@ export function applyValidatedGraph(validated: { nodes: unknown[]; edges: unknow
     edges: validated.edges as any,
   })
   validateNodesBatch(validated.nodes as any)
+  // This full-graph replace bypasses the edit chokepoints (bare setState), so the
+  // freshness overlay must be marked dirty here. applyAnalysisReadyPatch (called
+  // after accept) clears it iff the patch supplies a fresh new verdict.
+  // Optional-chained so partial store doubles in tests don't break.
+  useCanvasStore.getState().markAnalysisFreshnessDirty?.()
 }
 
 // ---------------------------------------------------------------------------

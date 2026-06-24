@@ -253,3 +253,47 @@ describe('applyV5State — step 5: results hydration', () => {
     expect(callArgs.report.confidence.why).toContain('8 robust edges')
   })
 })
+
+// ---------------------------------------------------------------------------
+// #4: clearing the local freshness dirty overlay on a genuine new run.
+// The CEE analysis_ready contract carries no computed_at / run id, so the
+// reducer's echo-guard cannot distinguish a same-verdict rerun from an echo.
+// The reliable run identity is the analysis_result response_hash dedupe: a NEW
+// hash means a completed run → clear the overlay; a duplicate hash or a turn with
+// no analysis_result block (conversational echo) must NOT clear it.
+// ---------------------------------------------------------------------------
+
+describe('applyV5State — step 5: dirty overlay clear (run identity)', () => {
+  it('clears the overlay when a new analysis_result hydrates (new response_hash)', () => {
+    const clearAnalysisFreshnessDirty = vi.fn()
+    const { store } = makeStore({ clearAnalysisFreshnessDirty, currentResultsHash: null })
+
+    applyV5State(baseResponse({ blocks: [validAnalysisBlock] }), store)
+
+    expect(clearAnalysisFreshnessDirty).toHaveBeenCalledTimes(1)
+  })
+
+  it('does NOT clear the overlay for a duplicate analysis_result (same response_hash = echo)', () => {
+    // Discover the hydrated hash via a probe run, then re-run with currentResultsHash set to it.
+    const probeResultsComplete = vi.fn()
+    const probe = makeStore({ resultsComplete: probeResultsComplete })
+    applyV5State(baseResponse({ blocks: [validAnalysisBlock] }), probe.store)
+    const hydratedHash = (probeResultsComplete.mock.calls[0]?.[0] as { hash: string }).hash
+    expect(hydratedHash).toBeTruthy()
+
+    const clearAnalysisFreshnessDirty = vi.fn()
+    const { store } = makeStore({ clearAnalysisFreshnessDirty, currentResultsHash: hydratedHash })
+    applyV5State(baseResponse({ blocks: [validAnalysisBlock] }), store)
+
+    expect(clearAnalysisFreshnessDirty).not.toHaveBeenCalled()
+  })
+
+  it('does NOT clear the overlay on a turn with no analysis_result block (conversational echo)', () => {
+    const clearAnalysisFreshnessDirty = vi.fn()
+    const { store } = makeStore({ clearAnalysisFreshnessDirty })
+
+    applyV5State(baseResponse({ blocks: [] }), store)
+
+    expect(clearAnalysisFreshnessDirty).not.toHaveBeenCalled()
+  })
+})

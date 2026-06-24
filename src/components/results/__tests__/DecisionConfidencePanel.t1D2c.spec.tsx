@@ -73,7 +73,7 @@ interface MakeOpts {
   fragile?: FragileEdgeItem | undefined
   recommendationStability?: number | undefined
   robustnessLevel?: DecisionResultData['robustnessLevel']
-  robustnessLevelExplicit?: DecisionResultData['robustnessLevelExplicit']
+  robustnessVerdict?: DecisionResultData['robustnessVerdict']
   gaps?: EvidenceGapItem[]
 }
 
@@ -100,13 +100,14 @@ function makeData(opts: MakeOpts = {}): ResultsSectionDataReturn {
     analysisStatus: 'computed',
     recommendationStability:
       'recommendationStability' in opts ? opts.recommendationStability : 0.92,
-    // robustnessLevel is the fallback-inclusive field (may be derived from
-    // recommendationStability via UI-SEM-005). robustnessLevelExplicit is the
-    // CEE-only field the checks glyph reads — they are set independently here so
-    // a test can prove the glyph ignores the fallback field.
+    // robustnessLevel is the structured PLoT/fallback field (NOT display-safe).
+    // robustnessVerdict is the display-safe verdict the glyph reads — they are
+    // set independently here so a test can prove the glyph ignores the structured
+    // field. Production never populates robustnessVerdict today (always undefined);
+    // tests set it to simulate a future display-safe robustness contract.
     robustnessLevel: 'robustnessLevel' in opts ? opts.robustnessLevel : 'high',
-    robustnessLevelExplicit:
-      'robustnessLevelExplicit' in opts ? opts.robustnessLevelExplicit : 'high',
+    robustnessVerdict:
+      'robustnessVerdict' in opts ? opts.robustnessVerdict : 'high',
     coachingReadiness: 'ready',
   } as DecisionResultData
 
@@ -242,36 +243,36 @@ describe('DecisionConfidencePanel — Brief 5.8B D2c T1 flip-risk + nudge + chec
     expect(screen.getByTestId('checks-addressed')).toHaveTextContent('1/1 addressed')
   })
 
-  it('flips Robust to "Sensitive" when CEE robustness level is not high', () => {
-    // Robustness single source: the glyph follows CEE's categorical level, not a
-    // UI-local recommendationStability >= 0.85 threshold.
+  it('flips Robust to "Sensitive" when the display-safe verdict is not high', () => {
+    // The glyph follows the display-safe robustnessVerdict, not a UI-local
+    // recommendationStability threshold or the structured PLoT level.
     render(
       <DecisionConfidencePanel
-        data={makeData({ robustnessLevelExplicit: 'moderate' })}
+        data={makeData({ robustnessVerdict: 'moderate' })}
       />,
     )
     expect(screen.getByTestId('checks-robust')).toHaveTextContent('Sensitive')
   })
 
-  it('shows "Robustness unknown" when CEE provides no robustness level', () => {
+  it('shows "Robustness unknown" when there is no display-safe verdict', () => {
     render(
       <DecisionConfidencePanel
-        data={makeData({ robustnessLevelExplicit: undefined })}
+        data={makeData({ robustnessVerdict: undefined })}
       />,
     )
     expect(screen.getByTestId('checks-robust')).toHaveTextContent('Robustness unknown')
   })
 
-  it('ignores the UI-local fallback robustness level for the glyph (renders unknown)', () => {
-    // Proof of single source: even when the fallback-inclusive robustnessLevel is
-    // 'high' (e.g. derived from recommendationStability via UI-SEM-005), the glyph
-    // must read only the CEE-provided robustnessLevelExplicit. With that absent,
-    // the glyph stays "Robustness unknown" — it never promotes the fallback.
+  it('ignores the structured PLoT/fallback robustnessLevel for the glyph (renders unknown)', () => {
+    // Proof of provenance: even when the structured robustnessLevel is 'high'
+    // (PLoT report.robustness.level, or derived from recommendationStability via
+    // UI-SEM-005), the glyph must read ONLY robustnessVerdict. With that absent —
+    // as production always sets it today — the glyph stays "Robustness unknown".
     render(
       <DecisionConfidencePanel
         data={makeData({
           robustnessLevel: 'high',
-          robustnessLevelExplicit: undefined,
+          robustnessVerdict: undefined,
           recommendationStability: 0.99,
         })}
       />,

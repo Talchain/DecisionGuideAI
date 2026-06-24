@@ -20,10 +20,6 @@ import type { EdgeData } from '../../domain/edges'
 import { resolveDisplayedFreshness } from '../analysisFreshness'
 import { createScenario } from '../scenarios'
 
-const T1 = '2026-06-23T10:00:00.000Z'
-const T2 = '2026-06-23T12:00:00.000Z'
-const T3 = '2026-06-23T14:00:00.000Z'
-
 const node = (id: string): Node =>
   ({ id, type: 'factor', position: { x: 0, y: 0 }, data: { label: id } }) as Node
 const edge = (id: string, source: string, target: string): Edge<EdgeData> =>
@@ -41,9 +37,18 @@ function seed(nodes: Node[] = [node('n1'), node('n2')], edges: Edge<EdgeData>[] 
   })
 }
 
-/** Apply a CEE 'fresh' verdict (and clear any pending overlay, as a real run does). */
-function applyFresh(computedAt = T1) {
-  useCanvasStore.getState().setAnalysisFreshness({ freshness: 'fresh', computed_at: computedAt })
+/**
+ * Apply a CEE 'fresh' verdict using the ACTUAL supported payload shape
+ * (freshness + freshness_reason only — the CEE contract carries no computed_at
+ * or graph-hash on analysis_ready).
+ */
+function applyFresh() {
+  useCanvasStore.getState().setAnalysisFreshness({ freshness: 'fresh', freshness_reason: 'graph_hash_match' })
+}
+
+/** Reset the dirty overlay for test isolation (a real store action, not a synthetic field). */
+function clearDirty() {
+  useCanvasStore.getState().clearAnalysisFreshnessDirty()
 }
 
 const dirty = () => useCanvasStore.getState().analysisFreshnessDirty
@@ -115,10 +120,22 @@ describe('dirty overlay — analysis-affecting edits downgrade a retained fresh 
     expect(displayed()).toBe('unknown')
   })
 
+  it('#2f Backspace/Delete edge removal via onEdgesChange → displayed unknown, never stale', () => {
+    // React Flow's built-in delete (default deleteKeyCode = Backspace) routes edge
+    // removals through onEdgesChange ONLY — not deleteEdgeById/deleteSelected.
+    seed([node('n1'), node('n2')], [edge('e1', 'n1', 'n2')])
+    applyFresh()
+    useCanvasStore.getState().onEdgesChange([{ type: 'remove', id: 'e1' }])
+    expect(useCanvasStore.getState().edges).toHaveLength(0) // edge actually removed
+    expect(dirty()).toBe(true)
+    expect(displayed()).toBe('unknown')
+    expect(displayed()).not.toBe('stale') // overlay never fabricates 'stale'
+  })
+
   it('#3 undo of an analysis-affecting edit → displayed unknown', () => {
     applyFresh()
     useCanvasStore.getState().updateNode('n1', { data: { observedState: { value: 0.7 } } as Node['data'] })
-    applyFresh(T2) // a fresh re-run clears the overlay so we isolate undo's effect
+    clearDirty() // reset for isolation (a real store action, not a synthetic verdict)
     expect(dirty()).toBe(false)
     useCanvasStore.getState().undo()
     expect(dirty()).toBe(true)
@@ -126,11 +143,10 @@ describe('dirty overlay — analysis-affecting edits downgrade a retained fresh 
   })
 
   it('#3b redo of an analysis-affecting edit → displayed unknown', () => {
-    applyFresh(T1)
+    applyFresh()
     useCanvasStore.getState().updateNode('n1', { data: { observedState: { value: 0.7 } } as Node['data'] })
-    applyFresh(T2) // newer run clears the overlay
     useCanvasStore.getState().undo()
-    applyFresh(T3) // newer-still run clears again, to isolate redo's effect
+    clearDirty() // reset for isolation
     expect(dirty()).toBe(false)
     useCanvasStore.getState().redo()
     expect(dirty()).toBe(true)
@@ -163,17 +179,23 @@ describe('dirty overlay — verdict lifecycle', () => {
     expect(displayed()).toBe('fresh')
   })
 
-  it('#6 a new analysis_ready clears the dirty overlay', () => {
+  it('#6 a new analysis_ready with a CHANGED verdict clears the overlay (real payload shape)', () => {
+    // Honest path: when the rerun's verdict CONTENT differs (here fresh→stale,
+    // freshness-only shape), the reducer applies it and clears the overlay. No
+    // synthetic computed_at. (The same-verdict rerun case is the run-identity
+    // clear in applyV5State — see applyV5State.results-hydration.test.ts.)
     applyFresh()
     useCanvasStore.getState().updateNode('n1', { data: { observedState: { value: 0.7 } } as Node['data'] })
     expect(dirty()).toBe(true)
-    useCanvasStore.getState().setAnalysisFreshness({ freshness: 'fresh', computed_at: T2 })
+    useCanvasStore.getState().setAnalysisFreshness({ freshness: 'stale', freshness_reason: 'graph_changed' })
     expect(dirty()).toBe(false)
-    expect(displayed()).toBe('fresh')
+    expect(verdict()).toBe('stale')
+    expect(displayed()).toBe('stale')
   })
 
-  it('#6b a re-delivered (echoed) analysis_ready does NOT clear the dirty overlay', () => {
-    // computed_at is absent from the CEE contract; an echoed identical payload on a
+  it('#6b a re-delivered (echoed) identical analysis_ready does NOT clear the overlay', () => {
+    // Actual supported payload shape (freshness + freshness_reason only). With no
+    // computed_at / run id on analysis_ready, an echoed identical payload on a
     // conversational turn must not flip the notice back to fresh after a real edit.
     const payload = { freshness: 'fresh' as const, freshness_reason: 'graph_hash_match' }
     useCanvasStore.getState().setAnalysisFreshness(payload)
@@ -185,7 +207,7 @@ describe('dirty overlay — verdict lifecycle', () => {
   })
 
   it('#7 a CEE stale verdict is never downgraded, even after a local edit', () => {
-    useCanvasStore.getState().setAnalysisFreshness({ freshness: 'stale', computed_at: T1 })
+    useCanvasStore.getState().setAnalysisFreshness({ freshness: 'stale', freshness_reason: 'graph_changed' })
     useCanvasStore.getState().updateNode('n1', { data: { observedState: { value: 0.7 } } as Node['data'] })
     expect(dirty()).toBe(true) // overlay set...
     expect(verdict()).toBe('stale')

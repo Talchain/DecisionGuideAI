@@ -650,6 +650,10 @@ interface CanvasState {
   setV5AnalysisFact: (fact: V5AnalysisFactState | null) => void
   /** Update the freshness slice from a raw response.analysis_ready (retain / order-by-computed_at / never absence→fresh). */
   setAnalysisFreshness: (rawAnalysisReady: unknown) => void
+  /** Public dirty-overlay setter for external graph mutators (e.g. accepted CEE graph patches) that bypass the internal edit chokepoints. */
+  markAnalysisFreshnessDirty: () => void
+  /** Clear the dirty overlay when a genuinely new analysis run completes (reliable run identity, e.g. a new analysis_result response_hash). */
+  clearAnalysisFreshnessDirty: () => void
   setDraftCoaching: (coaching: CEEDraftCoaching | null) => void
   setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => void
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => void
@@ -1624,12 +1628,23 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Guard no-op changes
     if (!changes || changes.length === 0) return
 
-    // Note: Edge changes do NOT invalidate ceeAnalysisReady
-    // Only deletion of critical nodes (goal, option, intervention targets) invalidates
-    // Causal path validation is handled separately by usePreRunValidation
-
     const isSelectOnly = changes.every(c => c.type === 'select')
     const hasSelectChange = changes.some(c => c.type === 'select')
+
+    // Edge removals via React Flow's built-in delete (default deleteKeyCode =
+    // Backspace/Delete) reach the store ONLY through this handler — they never go
+    // through deleteEdgeById / deleteSelected. Route the removed edges through the
+    // edge-delete chokepoint so they mark the freshness overlay dirty (and
+    // invalidate readiness for critical edges), matching every other edge-delete
+    // path. Resolve the removed edges from the PRE-change edge list.
+    const removedEdgeChanges = changes.filter((c) => c.type === 'remove')
+    if (removedEdgeChanges.length > 0) {
+      const edgesBefore = get().edges
+      for (const change of removedEdgeChanges) {
+        const removed = edgesBefore.find((e) => e.id === (change as { id: string }).id)
+        if (removed) maybeInvalidateOnEdgeDelete(get, set, removed)
+      }
+    }
 
     set((s) => {
       const updatedEdges = applyEdgeChanges(changes, s.edges) as Edge<EdgeData>[]
@@ -3400,6 +3415,17 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       if (state.analysisFreshnessDirty) updates.analysisFreshnessDirty = false
       return updates
     })
+  },
+
+  // Public dirty-overlay API. Internal edits use the module helper of the same
+  // name (folded into invalidateAnalysisReady / the delete chokepoints); these
+  // actions exist for EXTERNAL mutators that bypass those chokepoints — accepted
+  // CEE graph patches (bare-setState graph writes) and the V5 applicator.
+  markAnalysisFreshnessDirty: () => {
+    if (!get().analysisFreshnessDirty) set(() => ({ analysisFreshnessDirty: true }))
+  },
+  clearAnalysisFreshnessDirty: () => {
+    if (get().analysisFreshnessDirty) set(() => ({ analysisFreshnessDirty: false }))
   },
 
   setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => {

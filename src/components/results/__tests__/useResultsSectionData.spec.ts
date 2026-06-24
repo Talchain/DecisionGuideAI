@@ -1300,6 +1300,71 @@ describe('useResultsSectionData — Track S value provenance into data.drivers',
 })
 
 // =============================================================================
+// Robustness glyph provenance — PLoT level must NOT drive the display-safe verdict
+// =============================================================================
+
+describe('robustness verdict provenance (glyph is not PLoT-driven)', () => {
+  beforeEach(() => {
+    useCanvasStore.setState({
+      results: { status: 'idle', progress: 0 } as any,
+      runMeta: {},
+      nodes: [],
+      edges: [],
+      hasCompletedFirstRun: false,
+      currentScenarioFraming: null,
+      ceeAnalysisReady: undefined,
+    })
+  })
+
+  it('a PLoT robustness.level=high alone does NOT render Robust (robustnessVerdict stays undefined)', () => {
+    useCanvasStore.setState({
+      results: {
+        status: 'complete',
+        progress: 100,
+        report: {
+          run: { critique: [] },
+          robustness: { level: 'high', recommendation_stability: 0.99, fragile_edges: [] },
+          option_comparison: [],
+        },
+      } as any,
+      hasCompletedFirstRun: true,
+      runMeta: {},
+      nodes: [],
+      edges: [],
+    })
+
+    const { result } = renderHook(() => useResultsSectionData())
+
+    // The structured PLoT level is preserved for qualified/detailed display...
+    expect(result.current.recommendation.robustnessLevel).toBe('high')
+    // ...but the display-safe verdict that drives the Robust/Sensitive glyph is
+    // NOT populated from it — so the glyph renders "Robustness unknown".
+    expect(result.current.recommendation.robustnessVerdict).toBeUndefined()
+  })
+
+  it('even a UI-SEM-005 fallback (no level, high stability) does NOT populate the verdict', () => {
+    useCanvasStore.setState({
+      results: {
+        status: 'complete',
+        progress: 100,
+        report: {
+          run: { critique: [] },
+          robustness: { recommendation_stability: 0.99, fragile_edges: [] }, // no level → fallback derives one
+          option_comparison: [],
+        },
+      } as any,
+      hasCompletedFirstRun: true,
+      runMeta: {},
+      nodes: [],
+      edges: [],
+    })
+
+    const { result } = renderHook(() => useResultsSectionData())
+    expect(result.current.recommendation.robustnessVerdict).toBeUndefined()
+  })
+})
+
+// =============================================================================
 // Baseline Resolution Tests (Task 2.1)
 // =============================================================================
 
