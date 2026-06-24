@@ -272,10 +272,7 @@ describe('applyV5State — step 5: dirty overlay clear (run identity + explicit 
     const { store } = makeStore({ clearAnalysisFreshnessDirty, currentResultsHash: null })
 
     applyV5State(
-      baseResponse({
-        blocks: [validAnalysisBlock],
-        analysis_ready: { freshness: 'fresh' },
-      } as Partial<OlumiResponse>),
+      baseResponse({ blocks: [validAnalysisBlock], analysis_ready: { freshness: 'fresh' } as never }),
       store,
     )
 
@@ -297,7 +294,7 @@ describe('applyV5State — step 5: dirty overlay clear (run identity + explicit 
     const probeResultsComplete = vi.fn()
     const probe = makeStore({ resultsComplete: probeResultsComplete })
     applyV5State(
-      baseResponse({ blocks: [validAnalysisBlock], analysis_ready: { freshness: 'fresh' } } as Partial<OlumiResponse>),
+      baseResponse({ blocks: [validAnalysisBlock], analysis_ready: { freshness: 'fresh' } as never }),
       probe.store,
     )
     const hydratedHash = (probeResultsComplete.mock.calls[0]?.[0] as { hash: string }).hash
@@ -306,7 +303,7 @@ describe('applyV5State — step 5: dirty overlay clear (run identity + explicit 
     const clearAnalysisFreshnessDirty = vi.fn()
     const { store } = makeStore({ clearAnalysisFreshnessDirty, currentResultsHash: hydratedHash })
     applyV5State(
-      baseResponse({ blocks: [validAnalysisBlock], analysis_ready: { freshness: 'fresh' } } as Partial<OlumiResponse>),
+      baseResponse({ blocks: [validAnalysisBlock], analysis_ready: { freshness: 'fresh' } as never }),
       store,
     )
 

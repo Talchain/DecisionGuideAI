@@ -103,4 +103,36 @@ describe('applyAnalysisReadyPatch — freshness source of truth', () => {
     expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
     expect(displayed()).toBe('fresh')
   })
+
+  it('a FRESH verdict with POPULATED option interventions survives the backfill (no false-dirty)', () => {
+    // Regression: the intervention backfill (batchUpdateNodes) runs AFTER the
+    // fresh verdict is ingested. It writes CEE's own data back onto option nodes
+    // and must NOT re-dirty / wipe the just-set fresh verdict.
+    useCanvasStore.setState({
+      nodes: [{ id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1', kind: 'option' } } as never],
+      edges: [],
+      analysisFreshness: null,
+      analysisFreshnessDirty: false,
+      ceeAnalysisReady: null,
+    })
+    applyAnalysisReadyPatch(
+      {
+        ceeAnalysisReady: {
+          options: [{ id: 'opt1', label: 'Option 1', interventions: { fac1: { value: 1 } } }],
+          goal_node_id: 'g1',
+          freshness: 'fresh',
+          freshness_reason: 'reanalysed',
+        } as never,
+      },
+      {},
+    )
+    // The backfill ran (interventions written) but the fresh verdict is intact.
+    expect(
+      (useCanvasStore.getState().nodes[0].data as { interventions?: unknown }).interventions,
+    ).toBeDefined()
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
+    expect(useCanvasStore.getState().analysisFreshness?.freshness).toBe('fresh')
+    expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+    expect(displayed()).toBe('fresh')
+  })
 })

@@ -8,11 +8,13 @@ vi.mock('../../../adapters/plot', () => ({
 }))
 
 // Mock the canvas store
+const markAnalysisFreshnessDirty = vi.fn()
 vi.mock('../../store', () => {
   const state = {
     nodes: [{ id: 'n1', type: 'factor', data: { label: 'Test' } }],
     edges: [],
     pushHistory: vi.fn(),
+    markAnalysisFreshnessDirty: () => markAnalysisFreshnessDirty(),
   }
   return {
     useCanvasStore: {
@@ -52,6 +54,11 @@ describe('commitValidatedMutation', () => {
     await commitValidatedMutation(ops, localApply, showToast)
 
     expect(showToast).not.toHaveBeenCalled()
+  })
+
+  it('marks the freshness overlay dirty on a successful mutation (covers bare-setState localApply e.g. insert-factor-between)', async () => {
+    await commitValidatedMutation(ops, localApply, showToast)
+    expect(markAnalysisFreshnessDirty).toHaveBeenCalled()
   })
 
   it('falls back to localApply when adapter import throws', async () => {

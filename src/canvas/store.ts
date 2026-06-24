@@ -1474,11 +1474,6 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     for (const u of updates) updatesById.set(u.id, u.data)
 
     let changedCount = 0
-    // Mirror updateNode: track whether any node's change touched an analytical
-    // field so this producer path (e.g. applyDraftResult intervention backfill)
-    // invalidates readiness and dirties the freshness overlay, instead of
-    // silently mutating analytical state under a retained 'fresh' verdict.
-    let anyAnalyticalChange = false
     const nextNodes = currentNodes.map(n => {
       const patch = updatesById.get(n.id)
       if (!patch) return n // preserve identity for untouched nodes
@@ -1490,7 +1485,6 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       }
       if (!changed) return n
       changedCount += 1
-      if (hasAnalyticalNodeChange(n, { data: patch as Node['data'] })) anyAnalyticalChange = true
       return { ...n, data: merged }
     })
 
@@ -1498,9 +1492,14 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
     pushToHistory(get, set, label ?? `Batch updated ${changedCount} node${changedCount !== 1 ? 's' : ''}`)
     set(() => ({ nodes: nextNodes }))
-    if (anyAnalyticalChange) {
-      invalidateAnalysisReady(get, set, `batch_update_nodes analytical (${changedCount})`)
-    }
+    // NOTE (freshness overlay): batchUpdateNodes is, today, exclusively the CEE
+    // intervention-backfill producer (applyDraftResult / mirrorAnalysisReady). It
+    // writes CEE's OWN analysis_ready data back onto option nodes for consistency
+    // — NOT a user model edit — so it must NOT dirty/invalidate the freshness
+    // verdict it was just ingested with (doing so wiped a fresh verdict). The
+    // producer's real model change (the graph replace) is dirtied by
+    // applyDraftResult/DraftChat. A future user-edit caller must route through
+    // updateNode (gated by hasAnalyticalNodeChange) rather than dirtying here.
     return { updatedCount: changedCount }
   },
 
