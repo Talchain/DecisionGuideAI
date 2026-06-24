@@ -32,9 +32,11 @@ function makeStore(
   store: V5ApplicatorStore
   resultsComplete: ReturnType<typeof vi.fn>
   setRunMeta: ReturnType<typeof vi.fn>
+  setAnalysisFreshness: ReturnType<typeof vi.fn>
 } {
   const resultsComplete = vi.fn()
   const setRunMeta = vi.fn()
+  const setAnalysisFreshness = vi.fn()
   return {
     store: {
       setCurrentStage: vi.fn(),
@@ -42,6 +44,7 @@ function makeStore(
       updateEdgeData: vi.fn(),
       setRunMeta,
       setCeeAnalysisReady: vi.fn(),
+      setAnalysisFreshness,
       resultsComplete,
       nodes: [],
       edges: [],
@@ -50,6 +53,7 @@ function makeStore(
     },
     resultsComplete,
     setRunMeta,
+    setAnalysisFreshness,
   }
 }
 
@@ -317,5 +321,33 @@ describe('applyV5State — step 5: dirty overlay clear (run identity + explicit 
     applyV5State(baseResponse({ blocks: [] }), store)
 
     expect(clearAnalysisFreshnessDirty).not.toHaveBeenCalled()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Step 4: analysis_ready → freshness reducer ingress. setAnalysisFreshness is
+// called UNCONDITIONALLY every turn (retain-on-absence lives in the reducer), so
+// the slice always sees the raw payload (or undefined). Asserted directly so the
+// optional-chained call can't silently no-op (the round-3 too-loose-mock trap).
+// ---------------------------------------------------------------------------
+
+describe('applyV5State — step 4: setAnalysisFreshness ingress', () => {
+  it('routes an explicit analysis_ready.freshness verdict to the reducer', () => {
+    const { store, setAnalysisFreshness } = makeStore()
+    applyV5State(baseResponse({ analysis_ready: { freshness: 'fresh' } as never }), store)
+    expect(setAnalysisFreshness).toHaveBeenCalledTimes(1)
+    expect(setAnalysisFreshness).toHaveBeenCalledWith({ freshness: 'fresh' })
+  })
+
+  it('still routes a present payload that lacks freshness (reducer degrades to unknown)', () => {
+    const { store, setAnalysisFreshness } = makeStore()
+    applyV5State(baseResponse({ analysis_ready: { goal_node_id: 'g1' } as never }), store)
+    expect(setAnalysisFreshness).toHaveBeenCalledWith({ goal_node_id: 'g1' })
+  })
+
+  it('routes undefined when the turn carries no analysis_ready (reducer retains)', () => {
+    const { store, setAnalysisFreshness } = makeStore()
+    applyV5State(baseResponse({ blocks: [] }), store)
+    expect(setAnalysisFreshness).toHaveBeenCalledWith(undefined)
   })
 })

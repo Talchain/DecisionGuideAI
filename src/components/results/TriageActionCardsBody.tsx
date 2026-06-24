@@ -407,9 +407,9 @@ function T1ChecksFooter({
   // UI-SEM-005 stability fallback, never a recommendationStability threshold.
   // No display-safe verdict exists in the contract today, so this is undefined
   // and the glyph renders "Robustness unknown". See ROBUSTNESS-VERDICT-CONTRACT.
-  const robustnessLevel = data.recommendation.robustnessVerdict
-  const robustOk = robustnessLevel === 'high'
-  const robustKnown = robustnessLevel != null
+  const robustnessVerdict = data.recommendation.robustnessVerdict
+  const robustOk = robustnessVerdict === 'high'
+  const robustKnown = robustnessVerdict != null
   const gaps = data.confidence.topEvidenceGaps ?? data.confidence.evidenceGaps ?? []
   const evidenceWeak = gaps.some(g => typeof g.confidence === 'number' && g.confidence < 50)
   const evidenceKnown = gaps.length > 0

@@ -159,6 +159,19 @@ describe('applyAutoApplyPatch — freshness dirty overlay (#3 auto-apply path)',
     expect(result.modifiedIds).toHaveLength(0)
     expect(mocks.markAnalysisFreshnessDirty).not.toHaveBeenCalled()
   })
+
+  it('marks dirty on a modify-only batch (modifiedIds > 0, no adds) — pins the OR-guard disjunct', () => {
+    storeState.nodes = [
+      { id: 'fac-1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Price', kind: 'factor' } },
+    ]
+    const patch = makePatchBlock([
+      op('update_node', 'fac-1', { label: 'Unit price' }),
+    ])
+    const result = applyAutoApplyPatch(patch)
+    expect(result.addedNodeCount).toBe(0)
+    expect(result.modifiedIds.length).toBeGreaterThan(0)
+    expect(mocks.markAnalysisFreshnessDirty).toHaveBeenCalled()
+  })
 })
 
 describe('applyAutoApplyPatch — node insertion', () => {

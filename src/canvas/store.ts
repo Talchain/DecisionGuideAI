@@ -979,9 +979,11 @@ function logConstraintClearIfPresent(
  * Set the local freshness dirty overlay. Idempotent — only writes (and so only
  * triggers a re-render) on the false→true transition. Called from the proven
  * analysis-affecting edit recognition (invalidateAnalysisReady, the delete
- * chokepoints, and undo/redo) — never an independent edit detector. The display
- * rule (resolveDisplayedFreshness) uses it only to downgrade a retained 'fresh'
- * verdict to cannot-confirm; it never fabricates 'stale'.
+ * chokepoints, setOutcomeNode/setGoalThreshold) and via the public store action
+ * for external mutators — never an independent edit detector. (undo/redo/undoDraft
+ * set the flag INLINE in their atomic graph-swap set(), not through this helper.)
+ * The display rule (resolveDisplayedFreshness) uses it only to downgrade a
+ * retained 'fresh' verdict to cannot-confirm; it never fabricates 'stale'.
  */
 function markAnalysisFreshnessDirty(
   get: () => CanvasState,
@@ -3439,13 +3441,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     })
   },
 
-  // Public dirty-overlay API. Internal edits use the module helper of the same
-  // name (folded into invalidateAnalysisReady / the delete chokepoints); these
-  // actions exist for EXTERNAL mutators that bypass those chokepoints — accepted
-  // CEE graph patches (bare-setState graph writes) and the V5 applicator.
-  markAnalysisFreshnessDirty: () => {
-    if (!get().analysisFreshnessDirty) set(() => ({ analysisFreshnessDirty: true }))
-  },
+  // Public dirty-overlay API for EXTERNAL mutators that bypass the internal edit
+  // chokepoints — accepted CEE graph patches (bare-setState graph writes), the
+  // context-menu commit path, and the draft producers. Delegates to the module
+  // helper so the idempotent set lives in one place (no drift between the two).
+  markAnalysisFreshnessDirty: () => markAnalysisFreshnessDirty(get, set),
   clearAnalysisFreshnessDirty: () => {
     if (get().analysisFreshnessDirty) set(() => ({ analysisFreshnessDirty: false }))
   },

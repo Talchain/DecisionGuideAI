@@ -242,6 +242,14 @@ describe('dirty overlay — additional analysis-affecting mutations (review roun
     expect(displayed()).toBe('unknown')
   })
 
+  it('setOutcomeNode no-op (same node) does not dirty', () => {
+    useCanvasStore.setState({ outcomeNodeId: 'n1' })
+    applyFresh()
+    useCanvasStore.getState().setOutcomeNode('n1') // unchanged → no dirty
+    expect(dirty()).toBe(false)
+    expect(displayed()).toBe('fresh')
+  })
+
   it('batchUpdateNodes does NOT dirty — it is the CEE intervention-backfill producer, not a user edit', () => {
     // batchUpdateNodes writes CEE's own analysis_ready data (interventions) back
     // onto option nodes for consistency, right after a fresh verdict is ingested.
