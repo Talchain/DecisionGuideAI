@@ -5,6 +5,7 @@ import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportC
 import { setsEqual, mapsEqual } from './store/utils'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS, type EdgeData } from './domain/edges'
 import { NODE_REGISTRY, type NodeType, type NodeData } from './domain/nodes'
+import { hasAnalyticalNodeChange, hasAnalyticalEdgeChange } from './domain/analyticalChange'
 import { applyLayout, applyLayoutWithPolicy } from './layout'
 import { mergePolicy } from './layout/policy'
 import { policyToPreset, policyToSpacing } from './layout/adapters'
@@ -1075,68 +1076,11 @@ function maybeInvalidateOnEdgeDelete(
   return false
 }
 
-/**
- * Detect whether an edge update touches analytically meaningful fields.
- * Used to decide if ceeAnalysisReady should be invalidated.
- */
-function hasAnalyticalEdgeChange(
-  oldEdge: Edge<EdgeData>,
-  updates: Partial<Edge<EdgeData>>,
-): boolean {
-  // Top-level endpoint changes (defence-in-depth; primary path is updateEdgeEndpoints)
-  if (updates.source !== undefined && updates.source !== oldEdge.source) return true
-  if (updates.target !== undefined && updates.target !== oldEdge.target) return true
-
-  const oldData = oldEdge.data ?? {}
-  const newData = updates.data
-  if (!newData) return false
-
-  const ANALYTICAL_EDGE_FIELDS = [
-    'weight', 'direction', 'strengthStd',
-    'confidence', 'beliefExists', 'beliefStrength', 'belief',
-    'exists_probability',
-  ] as const
-
-  for (const field of ANALYTICAL_EDGE_FIELDS) {
-    if (field in newData && (newData as Record<string, unknown>)[field] !== (oldData as Record<string, unknown>)[field]) {
-      return true
-    }
-  }
-  return false
-}
-
-/**
- * Detect whether a node update touches analytically meaningful fields.
- * Checks both node-level fields (type/kind) and data-level fields.
- */
-function hasAnalyticalNodeChange(
-  oldNode: Node,
-  updates: Partial<Node>,
-): boolean {
-  // Node-level: kind change (ReactFlow type field)
-  if (updates.type !== undefined && updates.type !== oldNode.type) return true
-
-  const oldData = (oldNode.data ?? {}) as Record<string, unknown>
-  const newData = updates.data as Record<string, unknown> | undefined
-  if (!newData) return false
-
-  const ANALYTICAL_NODE_DATA_FIELDS = [
-    'observedState', 'interventions', 'is_baseline',
-    'prior', 'kind', 'success_threshold', 'goalThreshold',
-    // goal_threshold_raw is the user-edited goal target (GoalSection inline edit
-    // + inspector); the V2 adapter derives the PLoT goal_threshold from it, so a
-    // change IS analysis-affecting. Without these, an inline goal-target edit
-    // neither invalidated readiness nor dirtied the freshness verdict.
-    'goal_threshold_raw', 'goal_threshold',
-  ] as const
-
-  for (const field of ANALYTICAL_NODE_DATA_FIELDS) {
-    if (field in newData && newData[field] !== oldData[field]) {
-      return true
-    }
-  }
-  return false
-}
+// hasAnalyticalEdgeChange / hasAnalyticalNodeChange — the "is this graph edit
+// analysis-affecting?" taxonomy now lives in domain/analyticalChange.ts so the
+// store edit chokepoints (updateNode/updateEdge) and the raw patch-apply path
+// (applyAutoApplyPatch) share ONE definition with SEMANTIC (by-value) comparison.
+// Imported at the top of this module.
 
 function getMaxNumericId(ids: string[]): number {
   return ids.reduce((max, id) => {

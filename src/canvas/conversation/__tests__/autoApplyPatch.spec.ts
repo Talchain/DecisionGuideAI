@@ -160,17 +160,46 @@ describe('applyAutoApplyPatch — freshness dirty overlay (#3 auto-apply path)',
     expect(mocks.markAnalysisFreshnessDirty).not.toHaveBeenCalled()
   })
 
-  it('marks dirty on a modify-only batch (modifiedIds > 0, no adds) — pins the OR-guard disjunct', () => {
+  it('marks dirty on a modify-only batch that changes an ANALYTICAL field (no adds) — pins the OR-guard disjunct', () => {
     storeState.nodes = [
-      { id: 'fac-1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Price', kind: 'factor' } },
+      { id: 'fac-1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Price', kind: 'factor', observedState: { value: 100 } } },
     ]
     const patch = makePatchBlock([
-      op('update_node', 'fac-1', { label: 'Unit price' }),
+      // observed_state is analysis-affecting (the V2 adapter forwards it to PLoT).
+      op('update_node', 'fac-1', { observed_state: { value: 200 } }),
     ])
     const result = applyAutoApplyPatch(patch)
     expect(result.addedNodeCount).toBe(0)
     expect(result.modifiedIds.length).toBeGreaterThan(0)
     expect(mocks.markAnalysisFreshnessDirty).toHaveBeenCalled()
+  })
+
+  // P1: cosmetic-only edits are NOT analysis-affecting — a label/body rename must
+  // not fabricate a persistent 'unknown'. The shared analyticalChange taxonomy
+  // excludes label, so the patch path matches the store edit chokepoints exactly.
+  it('does NOT dirty a label-only (cosmetic) update_node despite modifiedIds > 0', () => {
+    storeState.nodes = [
+      { id: 'fac-1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Price', kind: 'factor' } },
+    ]
+    const patch = makePatchBlock([op('update_node', 'fac-1', { label: 'Unit price' })])
+    const result = applyAutoApplyPatch(patch)
+    expect(result.modifiedIds.length).toBeGreaterThan(0) // id was pushed...
+    expect(mocks.markAnalysisFreshnessDirty).not.toHaveBeenCalled() // ...but only cosmetic
+  })
+
+  // P1: a re-normalised structured field that is a NEW object reference with
+  // IDENTICAL content (e.g. CEE re-emitting the same observed_state, keys reordered)
+  // is a shallow-reference difference, not a value change — semantic comparison must
+  // treat it as a no-op so it does not over-dirty.
+  it('does NOT dirty a same-content observed_state re-send (shallow-reference, not a value change)', () => {
+    storeState.nodes = [
+      { id: 'fac-1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Price', kind: 'factor', observedState: { value: 100, unit: 'USD' } } },
+    ]
+    // New object literal, identical content, keys in a different order.
+    const patch = makePatchBlock([op('update_node', 'fac-1', { observed_state: { unit: 'USD', value: 100 } })])
+    const result = applyAutoApplyPatch(patch)
+    expect(result.modifiedIds.length).toBeGreaterThan(0)
+    expect(mocks.markAnalysisFreshnessDirty).not.toHaveBeenCalled()
   })
 
   // P1: dirty must reflect an ACTUAL graph delta, not the inflated modifiedIds

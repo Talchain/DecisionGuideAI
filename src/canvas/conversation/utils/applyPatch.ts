@@ -10,6 +10,7 @@ import { useCanvasStore } from '../../store'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import { saveAutosave } from '../../store/scenarios'
 import { validateNodesBatch } from '../../domain/nodes'
+import { hasAnalyticalNodeChange, hasAnalyticalEdgeChange } from '../../domain/analyticalChange'
 import type { PatchOperation, GraphPatchBlock } from '../types'
 import type { EffectDirection, CEEAnalysisReady, CEEInterventionV3 } from '../../../adapters/cee/types'
 
@@ -367,31 +368,37 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
   // mark the freshness overlay dirty (see applyValidatedGraph). The accept flow's
   // applyAnalysisReadyPatch clears it iff the patch supplies a fresh new verdict.
   //
-  // Dirty ONLY on an ACTUAL graph delta — `modifiedIds` is inflated (every update/
-  // remove op pushes an id before confirming the target exists or a value changed),
-  // so a same-value update, an absent update target, or a remove of an absent id
-  // must NOT create a spurious persistent 'unknown'. Compute the real delta from
-  // adds, present-target removals, and value-changing updates. Optional-chained so
-  // partial store doubles in tests don't break.
+  // Dirty ONLY on an ACTUAL, ANALYSIS-AFFECTING graph delta. `modifiedIds` is
+  // inflated (every update/remove op pushes an id before confirming the target
+  // exists or a value changed), so it cannot drive dirtying. Two over-dirty traps
+  // to avoid:
+  //   1. absent targets / same-value re-sends → no real change.
+  //   2. cosmetic (label/body) edits, or a re-normalised structured field that is
+  //      a new object reference with IDENTICAL content (e.g. CEE re-emitting the
+  //      same observed_state) → not analysis-affecting.
+  // Both are handled by the SHARED analysis-affecting taxonomy (domain/
+  // analyticalChange) with SEMANTIC (by-value) comparison — the same predicate the
+  // store edit chokepoints use, so the patch path can never diverge from them.
+  // Adds and present-target removals are inherently structural (topology change).
+  // Optional-chained markDirty so partial store doubles in tests don't break.
   const hadRealAdd = newNodes.length > 0 || newEdges.length > 0
   const hadRealRemove =
     existingNodes.some((n) => removeNodeIds.has(n.id)) ||
     existingEdges.some((e) => removeEdgeIds.has(e.id))
   const hadRealNodeUpdate = existingNodes.some((n) => {
     const u = nodeUpdates.get(n.id)
-    return !!u && Object.keys(u).some((k) => (n.data as Record<string, unknown> | undefined)?.[k] !== u[k])
+    return !!u && hasAnalyticalNodeChange(n, { data: u })
   })
   const hadRealEdgeUpdate = existingEdges.some((e) => {
     const u = edgeUpdates.get(e.id)
     if (!u) return false
     const { _rewireSource, _rewireTarget, ...dataUpdate } = u as Record<string, unknown>
-    const endpointChanged =
-      (typeof _rewireSource === 'string' && _rewireSource !== e.source) ||
-      (typeof _rewireTarget === 'string' && _rewireTarget !== e.target)
-    const dataChanged = Object.keys(dataUpdate).some(
-      (k) => (e.data as Record<string, unknown> | undefined)?.[k] !== dataUpdate[k],
-    )
-    return endpointChanged || dataChanged
+    const endpointUpdates = {
+      ...(typeof _rewireSource === 'string' ? { source: _rewireSource } : {}),
+      ...(typeof _rewireTarget === 'string' ? { target: _rewireTarget } : {}),
+      data: dataUpdate,
+    }
+    return hasAnalyticalEdgeChange(e, endpointUpdates)
   })
   const mutated = hadRealAdd || hadRealRemove || hadRealNodeUpdate || hadRealEdgeUpdate
   if (mutated) {

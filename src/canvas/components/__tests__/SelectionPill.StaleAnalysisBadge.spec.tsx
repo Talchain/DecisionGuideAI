@@ -17,17 +17,10 @@ import { fireEvent, render, screen } from '@testing-library/react'
 
 // Mutable hook mocks the tests reconfigure.
 const selectionState: { value: { id: string; label: string; kind: 'node' | 'edge' } | null } = { value: null }
-const staleState: { analysisState: 'none' | 'current' | 'stale'; isStale: boolean } = {
-  analysisState: 'none',
-  isStale: false,
-}
 const runV2Spy = vi.fn()
 
 vi.mock('../../hooks/useSelectionContext', () => ({
   useSelectionContext: () => selectionState.value,
-}))
-vi.mock('../../ui/inspector-v2/useStaleGuard', () => ({
-  useStaleGuard: () => staleState,
 }))
 vi.mock('../../hooks/useV2Run', () => ({
   useV2Run: () => ({ runV2Analysis: runV2Spy }),
@@ -35,6 +28,7 @@ vi.mock('../../hooks/useV2Run', () => ({
 
 import { SelectionPill } from '../SelectionPill'
 import { StaleAnalysisBadge } from '../StaleAnalysisBadge'
+import { useCanvasStore } from '../../store'
 
 describe('SelectionPill — gap #2', () => {
   it('renders nothing when no element is selected', () => {
@@ -59,21 +53,29 @@ describe('SelectionPill — gap #2', () => {
   })
 })
 
-describe('StaleAnalysisBadge — gap #2', () => {
+describe('StaleAnalysisBadge — gap #2 (CEE-derived, single source)', () => {
+  // The badge now derives from the CEE freshness verdict + local dirty overlay
+  // (resolveDisplayedFreshness), NOT the legacy useStaleGuard graph-hash path.
   beforeEach(() => {
     runV2Spy.mockClear()
+    useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false })
   })
 
-  it('renders nothing when analysis is not stale', () => {
-    staleState.analysisState = 'none'
-    staleState.isStale = false
+  it('renders nothing when there is no CEE verdict yet', () => {
     const { container } = render(<StaleAnalysisBadge />)
     expect(container.firstChild).toBeNull()
   })
 
-  it('renders "Analysis stale · Rerun" when isStale is true', () => {
-    staleState.analysisState = 'stale'
-    staleState.isStale = true
+  it('renders nothing on a fresh-but-locally-edited verdict (cannot-confirm) — never fabricates stale', () => {
+    useCanvasStore.getState().setAnalysisFreshness({ freshness: 'fresh', freshness_reason: 'graph_hash_match' })
+    useCanvasStore.getState().markAnalysisFreshnessDirty()
+    // displayed = 'unknown' (cannot-confirm), NOT 'stale' → badge stays hidden.
+    const { container } = render(<StaleAnalysisBadge />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('renders "Analysis stale · Rerun" only on a genuine CEE stale verdict', () => {
+    useCanvasStore.getState().setAnalysisFreshness({ freshness: 'stale', freshness_reason: 'graph_changed' })
     render(<StaleAnalysisBadge />)
     const badge = screen.getByTestId('ai-panel-stale-badge')
     expect(badge).toBeInTheDocument()
@@ -84,13 +86,13 @@ describe('StaleAnalysisBadge — gap #2', () => {
   })
 
   it('clicking Rerun invokes the EXISTING useV2Run() runV2Analysis, not a second path', () => {
-    staleState.isStale = true
+    useCanvasStore.getState().setAnalysisFreshness({ freshness: 'stale', freshness_reason: 'graph_changed' })
     render(<StaleAnalysisBadge />)
     fireEvent.click(screen.getByTestId('ai-panel-stale-badge-rerun'))
     expect(runV2Spy).toHaveBeenCalledTimes(1)
-    // The mocked useV2Run hook is the SAME hook called by OutputsDock at
-    // line 404 and ConversationPanel at line 129. The badge holds no
-    // alternative analysis route of its own — it is a thin wrapper over
-    // the canonical run trigger, so green here proves no second route.
+    // The mocked useV2Run hook is the SAME hook called by OutputsDock and
+    // ConversationPanel. The badge holds no alternative analysis route of its
+    // own — it is a thin wrapper over the canonical run trigger, so green here
+    // proves no second route.
   })
 })

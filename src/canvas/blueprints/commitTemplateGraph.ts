@@ -16,16 +16,16 @@
  */
 
 import type { Edge, Node } from '@xyflow/react'
-import { useCanvasStore } from '../store'
 import type { EdgeData } from '../domain/edges'
+import { commitGraphMutation } from '../mutations/commitGraphMutation'
 
 export function commitTemplateGraphReplace(
   nodes: Node[],
   edges: Edge<EdgeData>[],
 ): void {
-  const store = useCanvasStore.getState()
-  store.pushHistory()
-  useCanvasStore.setState({ nodes, edges })
-  // Optional-chained so partial store doubles in tests don't break.
-  useCanvasStore.getState().markAnalysisFreshnessDirty?.()
+  // Template insert/replace is a full graph replace. Delegate to the shared
+  // graph-mutation commit so it converges on the same dirty-overlay path as every
+  // other raw-setState graph route (TemplatesPanel merge, …) rather than
+  // re-implementing pushHistory + setState + markDirty here.
+  commitGraphMutation(() => ({ nodes, edges }), { pushHistory: true })
 }

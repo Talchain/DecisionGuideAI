@@ -24,13 +24,14 @@
  */
 
 import { useEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
-import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, XCircle, MessageCircle, MessageSquare, CheckCircle } from 'lucide-react'
+import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, XCircle, MessageCircle, MessageSquare, CheckCircle } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource } from '../store'
 import { resolveDisplayedFreshness } from '../store/analysisFreshness'
+import { deriveResultsTabFreshness } from './resultsTabFreshness'
 import { typography, typo } from '../../styles/typography'
 import {
   trackCompareOpened,
@@ -50,7 +51,6 @@ import { dockHostsOlumi } from './olumiSurface'
 import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { focusFloating } from '../hooks/useFloatingFocus'
 import { isV5Eligible } from '../../v5/eligibility'
-import { useStaleGuard } from '../ui/inspector-v2/useStaleGuard'
 import { countFactorsToVerify } from './model-tab/utils'
 import { getGoalDirection } from '../utils/getObjectiveText'
 import { deriveVerdict } from '../utils/interpretOutcome'
@@ -1413,10 +1413,19 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     window.addEventListener('mouseup', handleUp)
   }
 
-  // AI panel v2: stale-aware warning indicator on the Results tab label.
+  // AI panel v2: freshness indicator on the Results tab label. Driven by the CEE
+  // freshness verdict + local dirty overlay (displayedFreshness), NOT the legacy
+  // useStaleGuard graph-hash path (_internal.graphHash is never written, so its
+  // isStale can never fire and would contradict the CEE-derived Results state).
   // Strictly FF-gated — no behaviour change when FF_AI_PANEL_V2 is off.
-  const { isStale } = useStaleGuard()
-  const showResultsTabStaleWarning = isAiPanelV2Enabled() && isStale
+  //
+  // It MUST distinguish a genuine CEE 'stale' verdict (warning glyph + stale label)
+  // from the cannot-confirm overlay state ('unknown' — produced when local edits
+  // downgrade a retained 'fresh'), which gets a NEUTRAL glyph + neutral label,
+  // mirroring AnalysisFreshnessNotice. Rendering the stale glyph/label for
+  // cannot-confirm would fabricate 'stale', which the overlay never does.
+  const { reallyStale: resultsTabReallyStale, showIcon: showResultsTabFreshnessIcon } =
+    deriveResultsTabFreshness(isAiPanelV2Enabled(), displayedFreshness)
 
   // Task C: Panel coordination — hide OutputsDock when an overlay panel is active
   const activeRightPanel = useUIStore(s => s.activeRightPanel)
@@ -1510,14 +1519,22 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                       : undefined
                   }
                 >
-                  <span className={`inline-flex items-center gap-1${tab.id === 'results' && showResultsTabStaleWarning ? ' text-warning' : ''}`}>
+                  <span className={`inline-flex items-center gap-1${tab.id === 'results' && resultsTabReallyStale ? ' text-warning' : ''}`}>
                     {tab.label}
-                    {tab.id === 'results' && showResultsTabStaleWarning && (
-                      <AlertTriangle
-                        className="w-3 h-3 text-warning"
-                        aria-label="Analysis is stale"
-                        data-testid="results-tab-stale-icon"
-                      />
+                    {tab.id === 'results' && showResultsTabFreshnessIcon && (
+                      resultsTabReallyStale ? (
+                        <AlertTriangle
+                          className="w-3 h-3 text-warning"
+                          aria-label="Analysis is stale"
+                          data-testid="results-tab-stale-icon"
+                        />
+                      ) : (
+                        <HelpCircle
+                          className="w-3 h-3 text-text-light"
+                          aria-label="Cannot confirm whether this analysis is current."
+                          data-testid="results-tab-cannot-confirm-icon"
+                        />
+                      )
                     )}
                     {tab.id === 'diagnostics' && factorsToVerify > 0 && (
                       <span
