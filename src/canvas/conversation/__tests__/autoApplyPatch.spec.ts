@@ -172,6 +172,34 @@ describe('applyAutoApplyPatch — freshness dirty overlay (#3 auto-apply path)',
     expect(result.modifiedIds.length).toBeGreaterThan(0)
     expect(mocks.markAnalysisFreshnessDirty).toHaveBeenCalled()
   })
+
+  // P1: dirty must reflect an ACTUAL graph delta, not the inflated modifiedIds
+  // (every update/remove op pushes an id before confirming a real change).
+  it('does NOT dirty a same-value update_node (no real delta despite modifiedIds > 0)', () => {
+    storeState.nodes = [
+      { id: 'fac-1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Price', kind: 'factor' } },
+    ]
+    const patch = makePatchBlock([op('update_node', 'fac-1', { label: 'Price' })]) // same value
+    const result = applyAutoApplyPatch(patch)
+    expect(result.modifiedIds.length).toBeGreaterThan(0) // id was pushed...
+    expect(mocks.markAnalysisFreshnessDirty).not.toHaveBeenCalled() // ...but nothing changed
+  })
+
+  it('does NOT dirty an update_node for an absent target', () => {
+    storeState.nodes = []
+    const patch = makePatchBlock([op('update_node', 'ghost', { label: 'X' })])
+    const result = applyAutoApplyPatch(patch)
+    expect(result.modifiedIds.length).toBeGreaterThan(0)
+    expect(mocks.markAnalysisFreshnessDirty).not.toHaveBeenCalled()
+  })
+
+  it('does NOT dirty a remove_node for an absent target', () => {
+    storeState.nodes = []
+    const patch = makePatchBlock([{ op: 'remove_node', target_id: 'ghost', data: {} }])
+    const result = applyAutoApplyPatch(patch)
+    expect(result.modifiedIds.length).toBeGreaterThan(0)
+    expect(mocks.markAnalysisFreshnessDirty).not.toHaveBeenCalled()
+  })
 })
 
 describe('applyAutoApplyPatch — node insertion', () => {

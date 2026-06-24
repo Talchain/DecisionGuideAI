@@ -1210,6 +1210,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       nodes: newNodes,
       edges: newEdges
     }))
+    // Template insert/replace is a full graph mutation via bare setState (bypasses
+    // the edit chokepoints), so mark the freshness overlay dirty — a retained CEE
+    // 'fresh' verdict must not survive starting-from / replacing-with a template.
+    // Covers both insertBlueprint (start-from) and handleConfirmReplace (which
+    // calls insertBlueprint after pruning the existing template).
+    useCanvasStore.getState().markAnalysisFreshnessDirty?.()
 
     showToast(`Started from "${blueprint.name}" template.`, 'success')
 

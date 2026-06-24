@@ -104,6 +104,22 @@ describe('applyAnalysisReadyPatch — freshness source of truth', () => {
     expect(displayed()).toBe('fresh')
   })
 
+  it('graph-patch + CEE-fresh → the Results-surface stale chrome is NOT stale (no contradiction with the notice)', () => {
+    // Regression for the dual-staleness contradiction: OutputsDock derives its
+    // stale banner/dimming from the CEE slice (analysisStale = displayed is
+    // 'stale'|'unknown'), NOT graphEditedSinceLastRun. After a validated patch +
+    // CEE 'fresh', the notice shows 'fresh' AND the dock derivation must agree.
+    applyValidatedGraph({ nodes: [factorNode], edges: [] })
+    applyAnalysisReadyPatch(
+      { ceeAnalysisReady: { options: [], goal_node_id: 'g1', freshness: 'fresh', freshness_reason: 'reanalysed' } as any },
+      {},
+    )
+    const display = displayed()
+    expect(display).toBe('fresh')
+    // OutputsDock: const analysisStale = displayed === 'stale' || displayed === 'unknown'
+    expect(display === 'stale' || display === 'unknown').toBe(false)
+  })
+
   it('a FRESH verdict with POPULATED option interventions survives the backfill (no false-dirty)', () => {
     // Regression: the intervention backfill (batchUpdateNodes) runs AFTER the
     // fresh verdict is ingested. It writes CEE's own data back onto option nodes

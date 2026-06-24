@@ -30,6 +30,7 @@ import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource } from '../store'
+import { resolveDisplayedFreshness } from '../store/analysisFreshness'
 import { typography, typo } from '../../styles/typography'
 import {
   trackCompareOpened,
@@ -576,9 +577,18 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     isPersistenceActive: _isPersistenceActive,
   } = useScenario()
 
-  // C.1b: Show stale banner whenever graph is edited after a completed run,
-  // regardless of whether Supabase persistence is active (canvas store is unconditional)
-  const analysisStale = useCanvasStore(s => s.graphEditedSinceLastRun)
+  // Results-surface staleness is driven by the CEE freshness slice (the single
+  // source of truth) via the same fresh→unknown dirty rule as AnalysisFreshnessNotice
+  // — NOT by the local `graphEditedSinceLastRun` flag, which fabricated 'stale' and
+  // could contradict the CEE-only notice (e.g. a validated patch + CEE 'fresh' showed
+  // "reflects the current model" alongside "may not reflect your current graph").
+  // The results may be outdated when the displayed verdict is 'stale' (CEE) or
+  // 'unknown' (cannot-confirm: a local edit downgraded a fresh verdict, or CEE
+  // could not determine freshness). 'fresh'/'none'/null → not stale.
+  const ceeFreshness = useCanvasStore(s => s.analysisFreshness)
+  const freshnessDirty = useCanvasStore(s => s.analysisFreshnessDirty)
+  const displayedFreshness = resolveDisplayedFreshness(ceeFreshness, freshnessDirty)
+  const analysisStale = displayedFreshness === 'stale' || displayedFreshness === 'unknown'
 
   // Build persistence object only when Supabase persistence is active
   const v2Persistence = useMemo<V2RunPersistence | undefined>(() => {

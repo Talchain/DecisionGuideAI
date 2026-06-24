@@ -366,11 +366,34 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
   // Op-replay graph mutation bypasses the edit chokepoints (bare setState), so
   // mark the freshness overlay dirty (see applyValidatedGraph). The accept flow's
   // applyAnalysisReadyPatch clears it iff the patch supplies a fresh new verdict.
-  // Only dirty when something ACTUALLY changed — a no-op or fully-rejected
-  // operation batch must not create a spurious persistent 'unknown'. Optional-
-  // chained so partial store doubles in tests don't break.
-  const mutated =
-    result.addedNodeCount > 0 || result.addedEdgeCount > 0 || result.modifiedIds.length > 0
+  //
+  // Dirty ONLY on an ACTUAL graph delta — `modifiedIds` is inflated (every update/
+  // remove op pushes an id before confirming the target exists or a value changed),
+  // so a same-value update, an absent update target, or a remove of an absent id
+  // must NOT create a spurious persistent 'unknown'. Compute the real delta from
+  // adds, present-target removals, and value-changing updates. Optional-chained so
+  // partial store doubles in tests don't break.
+  const hadRealAdd = newNodes.length > 0 || newEdges.length > 0
+  const hadRealRemove =
+    existingNodes.some((n) => removeNodeIds.has(n.id)) ||
+    existingEdges.some((e) => removeEdgeIds.has(e.id))
+  const hadRealNodeUpdate = existingNodes.some((n) => {
+    const u = nodeUpdates.get(n.id)
+    return !!u && Object.keys(u).some((k) => (n.data as Record<string, unknown> | undefined)?.[k] !== u[k])
+  })
+  const hadRealEdgeUpdate = existingEdges.some((e) => {
+    const u = edgeUpdates.get(e.id)
+    if (!u) return false
+    const { _rewireSource, _rewireTarget, ...dataUpdate } = u as Record<string, unknown>
+    const endpointChanged =
+      (typeof _rewireSource === 'string' && _rewireSource !== e.source) ||
+      (typeof _rewireTarget === 'string' && _rewireTarget !== e.target)
+    const dataChanged = Object.keys(dataUpdate).some(
+      (k) => (e.data as Record<string, unknown> | undefined)?.[k] !== dataUpdate[k],
+    )
+    return endpointChanged || dataChanged
+  })
+  const mutated = hadRealAdd || hadRealRemove || hadRealNodeUpdate || hadRealEdgeUpdate
   if (mutated) {
     useCanvasStore.getState().markAnalysisFreshnessDirty?.()
   }
