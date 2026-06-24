@@ -148,6 +148,17 @@ describe('applyAutoApplyPatch — freshness dirty overlay (#3 auto-apply path)',
     // clears it iff the patch supplies a fresh new verdict.
     expect(mocks.markAnalysisFreshnessDirty).toHaveBeenCalled()
   })
+
+  it('does NOT dirty when the op batch is a no-op (all ops skipped → nothing mutated)', () => {
+    // A fully-rejected / no-op batch must not create a spurious persistent 'unknown'.
+    const patch = makePatchBlock([
+      { op: 'add_node', target_id: '', data: { kind: 'factor', label: 'No ID' } }, // skipped (empty id)
+    ])
+    const result = applyAutoApplyPatch(patch)
+    expect(result.addedNodeCount).toBe(0)
+    expect(result.modifiedIds).toHaveLength(0)
+    expect(mocks.markAnalysisFreshnessDirty).not.toHaveBeenCalled()
+  })
 })
 
 describe('applyAutoApplyPatch — node insertion', () => {

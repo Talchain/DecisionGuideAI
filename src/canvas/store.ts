@@ -576,7 +576,7 @@ interface CanvasState {
   // Outcome node
   setOutcomeNode: (nodeId: string | null) => void
   // Goal threshold for probability_of_goal
-  setGoalThreshold: (threshold: number | null) => void
+  setGoalThreshold: (threshold: number | null, opts?: { fromCeeSync?: boolean }) => void
   /** Unified threshold + node data update. Prefer over calling setGoalThreshold + updateNode separately. */
   setGoalThresholdAndUpdateNode: (goalNodeId: string, value: number | null) => void
   // Results actions
@@ -1474,6 +1474,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     for (const u of updates) updatesById.set(u.id, u.data)
 
     let changedCount = 0
+    // Mirror updateNode: track whether any node's change touched an analytical
+    // field so this producer path (e.g. applyDraftResult intervention backfill)
+    // invalidates readiness and dirties the freshness overlay, instead of
+    // silently mutating analytical state under a retained 'fresh' verdict.
+    let anyAnalyticalChange = false
     const nextNodes = currentNodes.map(n => {
       const patch = updatesById.get(n.id)
       if (!patch) return n // preserve identity for untouched nodes
@@ -1485,6 +1490,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       }
       if (!changed) return n
       changedCount += 1
+      if (hasAnalyticalNodeChange(n, { data: patch as Node['data'] })) anyAnalyticalChange = true
       return { ...n, data: merged }
     })
 
@@ -1492,6 +1498,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
     pushToHistory(get, set, label ?? `Batch updated ${changedCount} node${changedCount !== 1 ? 's' : ''}`)
     set(() => ({ nodes: nextNodes }))
+    if (anyAnalyticalChange) {
+      invalidateAnalysisReady(get, set, `batch_update_nodes analytical (${changedCount})`)
+    }
     return { updatedCount: changedCount }
   },
 
@@ -2515,11 +2524,23 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   setOutcomeNode: (nodeId) => {
+    // Changing which node is the goal/outcome is analysis-affecting → dirty the
+    // freshness overlay on a real change. (Producer paths that also call this —
+    // applyDraftResult / applyAutoApplyPatch — dirty via their own mutation marks;
+    // load/scenario paths set outcomeNodeId directly and reset the overlay.)
+    const changed = get().outcomeNodeId !== nodeId
     set({ outcomeNodeId: nodeId })
+    if (changed) markAnalysisFreshnessDirty(get, set)
   },
 
-  setGoalThreshold: (threshold) => {
+  setGoalThreshold: (threshold, opts) => {
+    // The goal threshold is sent to PLoT, so a user change is analysis-affecting
+    // → dirty the freshness overlay on a real change. The CEE-sync caller inside
+    // setCeeAnalysisReady passes { fromCeeSync: true } so an ingestion write does
+    // NOT self-dirty.
+    const changed = get().goalThreshold !== threshold
     set({ goalThreshold: threshold })
+    if (changed && !opts?.fromCeeSync) markAnalysisFreshnessDirty(get, set)
   },
 
   setGoalThresholdAndUpdateNode: (goalNodeId, value) => {
@@ -3377,7 +3398,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Sync goal threshold from CEE to store (fixes "?" badge on goals with thresholds)
       const ceeThreshold = (analysisReady as any).goal_threshold ?? (analysisReady as any).goal_threshold_raw
       if (ceeThreshold != null && get().goalThreshold == null) {
-        get().setGoalThreshold(typeof ceeThreshold === 'number' ? ceeThreshold : Number(ceeThreshold))
+        // Producer write (syncing the threshold FROM the analysis) — must not
+        // self-dirty the freshness overlay.
+        get().setGoalThreshold(typeof ceeThreshold === 'number' ? ceeThreshold : Number(ceeThreshold), { fromCeeSync: true })
       }
       // Persist to sessionStorage for tab-refresh survival (with node IDs for validation)
       try {

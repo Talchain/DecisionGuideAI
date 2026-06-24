@@ -17,7 +17,7 @@
  */
 
 import { useMemo, memo, useState, type ReactNode } from 'react'
-import { AlertTriangle, Check, ChevronDown, ChevronRight, X } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, ChevronRight, HelpCircle, X } from 'lucide-react'
 import { ConditionalWinnerCards } from './ConditionalWinnerCards'
 import { resolveTriageBodyText } from '@/components/shared/resolveTriageBodyText'
 import { dedupTriageItems } from './utils/dedupTriageItems'
@@ -432,6 +432,7 @@ function T1ChecksFooter({
         />
         <ChecksGlyph
           ok={robustOk}
+          unknown={!robustKnown}
           okLabel="Robust"
           notOkLabel={robustKnown ? 'Sensitive' : 'Robustness unknown'}
           dataTestid="checks-robust"
@@ -457,19 +458,30 @@ function ChecksGlyph({
   ok,
   okLabel,
   notOkLabel,
+  unknown = false,
   dataTestid,
 }: {
   ok: boolean
   okLabel: string
   notOkLabel: string
+  /**
+   * Neutral third state: the check could not be determined (e.g. no
+   * display-safe robustness verdict). Renders a muted help glyph, NOT the red
+   * "X" — an unknown is not a failure.
+   */
+  unknown?: boolean
   dataTestid: string
 }) {
-  const Icon = ok ? Check : X
-  const colour = ok ? 'text-success' : 'text-danger'
+  const Icon = unknown ? HelpCircle : ok ? Check : X
+  // Neutral muted colour for unknown (NOT the red danger used for not-ok) — an
+  // undetermined check is not a failure. Class-based so snapshot guards that strip
+  // classes are unaffected.
+  const colour = unknown ? 'text-text-light' : ok ? 'text-success' : 'text-danger'
+  const label = unknown ? notOkLabel : ok ? okLabel : notOkLabel
   return (
     <span className="inline-flex items-center gap-1" data-testid={dataTestid}>
       <Icon size={12} className={`${colour} flex-shrink-0`} aria-hidden="true" />
-      <span>{ok ? okLabel : notOkLabel}</span>
+      <span>{label}</span>
     </span>
   )
 }

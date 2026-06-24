@@ -145,6 +145,12 @@ export function applyDraftResult(
   // shape drift is logged via devWarn in DEV builds only.
   validateNodesBatch(nodes)
 
+  // Draft application replaces the graph via bare setState (bypasses the edit
+  // chokepoints), so mark the freshness overlay dirty. If the draft carries an
+  // analysis_ready verdict it is routed through setAnalysisFreshness below, which
+  // clears the overlay only when a genuine fresh verdict accompanies it.
+  useCanvasStore.getState().markAnalysisFreshnessDirty?.()
+
   // Defer layout until React Flow has measured the inserted nodes (D2 of
   // layout-stabilisation brief). The measurement hook in ReactFlowGraph
   // runs applyLayout once every unlocked node has measured.width/height,
@@ -178,6 +184,11 @@ export function applyDraftResult(
       ? { ...draftData.analysis_ready, coaching_summary: coachingSummary }
       : draftData.analysis_ready
     useCanvasStore.getState().setCeeAnalysisReady(analysisReadyWithCoaching)
+    // Route the draft's analysis_ready through the freshness source of truth
+    // (mirrors the accepted-patch path). A draft is readiness, not a run — it
+    // typically carries no `freshness`, so the reducer degrades to 'unknown'
+    // rather than leaving a prior 'fresh' verdict showing false-fresh.
+    useCanvasStore.getState().setAnalysisFreshness?.(analysisReadyWithCoaching)
 
     // Backfill interventions onto option nodes. CEE publishes intervention data
     // via analysis_ready.options[], not via graph_patch add_node operations, so

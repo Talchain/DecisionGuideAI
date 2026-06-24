@@ -366,8 +366,14 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
   // Op-replay graph mutation bypasses the edit chokepoints (bare setState), so
   // mark the freshness overlay dirty (see applyValidatedGraph). The accept flow's
   // applyAnalysisReadyPatch clears it iff the patch supplies a fresh new verdict.
-  // Optional-chained so partial store doubles in tests don't break.
-  useCanvasStore.getState().markAnalysisFreshnessDirty?.()
+  // Only dirty when something ACTUALLY changed — a no-op or fully-rejected
+  // operation batch must not create a spurious persistent 'unknown'. Optional-
+  // chained so partial store doubles in tests don't break.
+  const mutated =
+    result.addedNodeCount > 0 || result.addedEdgeCount > 0 || result.modifiedIds.length > 0
+  if (mutated) {
+    useCanvasStore.getState().markAnalysisFreshnessDirty?.()
+  }
 
   return result
 }

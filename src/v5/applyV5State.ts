@@ -631,12 +631,28 @@ export function applyV5State(
         applied.push('analysis_result:results_hydrated')
         // Reliable run identity: a NEW analysis_result response_hash (hash !==
         // prevHash) means a genuinely new analysis completed — not a re-delivered
-        // analysis_ready echo. Clear the local dirty overlay here so a real rerun
+        // analysis_ready echo. Clear the local dirty overlay so a real rerun
         // resolves the verdict even when the analysis_ready payload is byte-
         // identical (the CEE contract carries no computed_at / run id on
         // analysis_ready, so the reducer's echo-guard alone cannot distinguish a
-        // rerun from an echo). An echoed result (same hash) skips this branch.
-        store.clearAnalysisFreshnessDirty?.()
+        // rerun from an echo).
+        //
+        // BUT only clear when THIS response also carries an explicit
+        // analysis_ready.freshness verdict. A new analysis_result with NO CEE
+        // freshness would otherwise un-dirty a RETAINED prior 'fresh' verdict and
+        // re-show false-fresh — so without a freshness verdict we keep the overlay
+        // dirty (the retained 'fresh' stays displayed as cannot-confirm).
+        const ar =
+          rawAnalysisReady && typeof rawAnalysisReady === 'object'
+            ? (rawAnalysisReady as { freshness?: unknown })
+            : null
+        const hasExplicitFreshness =
+          !!ar &&
+          typeof ar.freshness === 'string' &&
+          (['fresh', 'stale', 'unknown', 'none'] as const).includes(ar.freshness as 'fresh')
+        if (hasExplicitFreshness) {
+          store.clearAnalysisFreshnessDirty?.()
+        }
         logV5StateStep({
           step_number: 5,
           step_name: 'results_hydration',

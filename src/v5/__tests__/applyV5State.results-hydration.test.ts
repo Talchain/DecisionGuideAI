@@ -259,31 +259,56 @@ describe('applyV5State — step 5: results hydration', () => {
 // The CEE analysis_ready contract carries no computed_at / run id, so the
 // reducer's echo-guard cannot distinguish a same-verdict rerun from an echo.
 // The reliable run identity is the analysis_result response_hash dedupe: a NEW
-// hash means a completed run → clear the overlay; a duplicate hash or a turn with
-// no analysis_result block (conversational echo) must NOT clear it.
+// hash means a completed run. BUT the overlay is cleared ONLY when that same
+// response ALSO carries an explicit analysis_ready.freshness verdict — otherwise
+// clearing would re-show a retained 'fresh' verdict despite the new result
+// asserting no CEE freshness (false-fresh). Duplicate hash / no analysis_result
+// block (conversational echo) never clear.
 // ---------------------------------------------------------------------------
 
-describe('applyV5State — step 5: dirty overlay clear (run identity)', () => {
-  it('clears the overlay when a new analysis_result hydrates (new response_hash)', () => {
+describe('applyV5State — step 5: dirty overlay clear (run identity + explicit freshness)', () => {
+  it('clears the overlay when a new analysis_result hydrates WITH an explicit freshness verdict', () => {
     const clearAnalysisFreshnessDirty = vi.fn()
     const { store } = makeStore({ clearAnalysisFreshnessDirty, currentResultsHash: null })
 
-    applyV5State(baseResponse({ blocks: [validAnalysisBlock] }), store)
+    applyV5State(
+      baseResponse({
+        blocks: [validAnalysisBlock],
+        analysis_ready: { freshness: 'fresh' },
+      } as Partial<OlumiResponse>),
+      store,
+    )
 
     expect(clearAnalysisFreshnessDirty).toHaveBeenCalledTimes(1)
+  })
+
+  it('does NOT clear the overlay when the new analysis_result carries NO freshness verdict (would be false-fresh)', () => {
+    const clearAnalysisFreshnessDirty = vi.fn()
+    const { store } = makeStore({ clearAnalysisFreshnessDirty, currentResultsHash: null })
+
+    // New result hydrates (new hash) but the response has no analysis_ready.freshness.
+    applyV5State(baseResponse({ blocks: [validAnalysisBlock] }), store)
+
+    expect(clearAnalysisFreshnessDirty).not.toHaveBeenCalled()
   })
 
   it('does NOT clear the overlay for a duplicate analysis_result (same response_hash = echo)', () => {
     // Discover the hydrated hash via a probe run, then re-run with currentResultsHash set to it.
     const probeResultsComplete = vi.fn()
     const probe = makeStore({ resultsComplete: probeResultsComplete })
-    applyV5State(baseResponse({ blocks: [validAnalysisBlock] }), probe.store)
+    applyV5State(
+      baseResponse({ blocks: [validAnalysisBlock], analysis_ready: { freshness: 'fresh' } } as Partial<OlumiResponse>),
+      probe.store,
+    )
     const hydratedHash = (probeResultsComplete.mock.calls[0]?.[0] as { hash: string }).hash
     expect(hydratedHash).toBeTruthy()
 
     const clearAnalysisFreshnessDirty = vi.fn()
     const { store } = makeStore({ clearAnalysisFreshnessDirty, currentResultsHash: hydratedHash })
-    applyV5State(baseResponse({ blocks: [validAnalysisBlock] }), store)
+    applyV5State(
+      baseResponse({ blocks: [validAnalysisBlock], analysis_ready: { freshness: 'fresh' } } as Partial<OlumiResponse>),
+      store,
+    )
 
     expect(clearAnalysisFreshnessDirty).not.toHaveBeenCalled()
   })

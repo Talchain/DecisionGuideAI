@@ -153,7 +153,37 @@ function makeData(opts: MakeOpts = {}): ResultsSectionDataReturn {
 }
 
 beforeEach(() => {
-  useCanvasStore.setState({ draftCoaching: null })
+  useCanvasStore.setState({ draftCoaching: null, analysisFreshness: null, analysisFreshnessDirty: false })
+})
+
+describe('DecisionConfidencePanel — hero freshness qualifier is CEE-only (never fabricated stale)', () => {
+  it('shows a freshness qualifier for a genuine CEE stale verdict', () => {
+    useCanvasStore.setState({
+      analysisFreshness: { freshness: 'stale', freshnessReason: 'graph_hash_match' },
+      analysisFreshnessDirty: false,
+    })
+    const { container } = render(<DecisionConfidencePanel data={makeData()} />)
+    expect(container.querySelector('[data-qualifier-source="freshness"]')).not.toBeNull()
+  })
+
+  it('does NOT fabricate a stale qualifier from a local edit (CEE fresh + dirty → no freshness qualifier)', () => {
+    // The legacy useAnalysisFreshnessState path turned graphEditedSinceLastRun into
+    // a fabricated 'stale'. The hero now reads the CEE-only slice via
+    // resolveDisplayedFreshness, which can only downgrade fresh→unknown — and
+    // HeroQualifier renders the freshness qualifier only for a genuine 'stale'.
+    useCanvasStore.setState({
+      analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' },
+      analysisFreshnessDirty: true,
+    })
+    const { container } = render(<DecisionConfidencePanel data={makeData()} />)
+    expect(container.querySelector('[data-qualifier-source="freshness"]')).toBeNull()
+  })
+
+  it('shows no freshness qualifier when there is no CEE verdict', () => {
+    useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false })
+    const { container } = render(<DecisionConfidencePanel data={makeData()} />)
+    expect(container.querySelector('[data-qualifier-source="freshness"]')).toBeNull()
+  })
 })
 
 describe('DecisionConfidencePanel — Brief 5.8B D2c T1 flip-risk + nudge + checks', () => {
@@ -254,13 +284,29 @@ describe('DecisionConfidencePanel — Brief 5.8B D2c T1 flip-risk + nudge + chec
     expect(screen.getByTestId('checks-robust')).toHaveTextContent('Sensitive')
   })
 
-  it('shows "Robustness unknown" when there is no display-safe verdict', () => {
+  const glyphIconClass = (testid: string) =>
+    screen.getByTestId(testid).querySelector('svg')?.getAttribute('class') ?? ''
+
+  it('shows "Robustness unknown" as a NEUTRAL state (not a red failure)', () => {
     render(
       <DecisionConfidencePanel
         data={makeData({ robustnessVerdict: undefined })}
       />,
     )
     expect(screen.getByTestId('checks-robust')).toHaveTextContent('Robustness unknown')
+    // Unknown renders the muted neutral glyph, NOT the red danger "X" that would
+    // falsely imply "not robust".
+    expect(glyphIconClass('checks-robust')).toContain('text-text-light')
+    expect(glyphIconClass('checks-robust')).not.toContain('text-danger')
+  })
+
+  it('renders Robust (success) and Sensitive (danger) distinctly from unknown', () => {
+    const { rerender } = render(
+      <DecisionConfidencePanel data={makeData({ robustnessVerdict: 'high' })} />,
+    )
+    expect(glyphIconClass('checks-robust')).toContain('text-success')
+    rerender(<DecisionConfidencePanel data={makeData({ robustnessVerdict: 'moderate' })} />)
+    expect(glyphIconClass('checks-robust')).toContain('text-danger')
   })
 
   it('ignores the structured PLoT/fallback robustnessLevel for the glyph (renders unknown)', () => {

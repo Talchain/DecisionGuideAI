@@ -215,6 +215,50 @@ describe('dirty overlay — verdict lifecycle', () => {
   })
 })
 
+describe('dirty overlay — additional analysis-affecting mutations (review round)', () => {
+  it('user setGoalThreshold dirties; CEE-sync write does not', () => {
+    applyFresh()
+    useCanvasStore.getState().setGoalThreshold(50) // user change
+    expect(dirty()).toBe(true)
+    expect(displayed()).toBe('unknown')
+
+    // CEE-sync producer write must NOT self-dirty.
+    useCanvasStore.setState({ analysisFreshnessDirty: false, goalThreshold: null })
+    useCanvasStore.getState().setGoalThreshold(80, { fromCeeSync: true })
+    expect(dirty()).toBe(false)
+  })
+
+  it('setGoalThreshold no-op (same value) does not dirty', () => {
+    useCanvasStore.setState({ goalThreshold: 50 })
+    applyFresh()
+    useCanvasStore.getState().setGoalThreshold(50) // unchanged
+    expect(dirty()).toBe(false)
+  })
+
+  it('setOutcomeNode change dirties (goal/outcome reselection)', () => {
+    applyFresh()
+    useCanvasStore.getState().setOutcomeNode('n2')
+    expect(dirty()).toBe(true)
+    expect(displayed()).toBe('unknown')
+  })
+
+  it('batchUpdateNodes dirties on an analytical change, not a cosmetic one', () => {
+    applyFresh()
+    useCanvasStore.getState().batchUpdateNodes(
+      [{ id: 'n1', data: { observedState: { value: 0.7 } } as Node['data'] }],
+      'analytical',
+    )
+    expect(dirty()).toBe(true)
+
+    useCanvasStore.setState({ analysisFreshnessDirty: false })
+    useCanvasStore.getState().batchUpdateNodes(
+      [{ id: 'n1', data: { label: 'Renamed' } as Node['data'] }],
+      'cosmetic',
+    )
+    expect(dirty()).toBe(false)
+  })
+})
+
 describe('dirty overlay — scenario / reset boundaries', () => {
   it('#8 loadScenario resets BOTH the CEE verdict and the dirty overlay', () => {
     const s = createScenario({ name: 'Scenario A', nodes: [node('s1')], edges: [] })
