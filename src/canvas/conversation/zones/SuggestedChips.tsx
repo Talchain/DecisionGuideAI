@@ -20,7 +20,7 @@ import { logV5StateEvent } from '../../../v5/debugLog'
 import { isAiPanelV2Enabled } from '../../../flags'
 import { useAnalysisStatus } from '../../hooks/useAnalysisReady'
 import { useCanvasStore } from '../../store'
-import { classifyFreshnessForDisplay } from '../../store/analysisFreshness'
+import { classifyFreshnessForDisplay, type FreshnessDisplaySemantic } from '../../store/analysisFreshness'
 import type { ActionChip } from '../types'
 
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
@@ -73,32 +73,42 @@ function isRunAnalysisAffordance(chip: ActionChip): boolean {
 
 /**
  * Product rule for the run-analysis affordance under aiPanelV2:
- *   - no analysis exists                       → keep chip as-is ("Run analysis")
- *   - confirmed-current analysis exists        → suppress chip entirely
- *   - complete but NOT confirmed-current       → relabel chip to "Rerun"
- *     (stale, cannot-confirm, OR no freshness verdict)
+ *   - no analysis exists            → keep chip as-is ("Run analysis")
+ *   - confirmed-current analysis    → suppress chip entirely
+ *   - stale / cannot-confirm        → relabel chip to "Rerun" (may bypass the V5
+ *                                     readiness gate — a prior analysis exists and
+ *                                     a rerun re-derives inputs from the graph)
+ *   - complete, NO freshness verdict→ keep ("Run analysis"), SUBJECT to the gate
  *
- * Suppression is the ONLY branch that requires a positive signal — a CONFIRMED
- * CURRENT verdict (classifyFreshnessForDisplay === 'current'). A completed
- * analysis with no freshness verdict ('none') is NOT confirmed current, so it
- * keeps the rerun affordance available rather than being suppressed as if current
- * — matching how useStageAwarePlaceholder treats the same state (not "latest").
+ * Two positive-signal branches:
+ *   - SUPPRESS requires a CONFIRMED-CURRENT verdict (semantic === 'current').
+ *   - the readiness-gate-bypassing 'relabel-rerun' requires a REAL freshness
+ *     verdict ('changed' / 'cannot_confirm'), which implies a prior analysis that
+ *     a rerun can re-derive from the current graph.
+ * A completed analysis with NO freshness verdict ('none') gets neither: it is not
+ * confirmed current (so not suppressed — matching useStageAwarePlaceholder, which
+ * treats it as not-"latest"), but it has nothing rerunnable to justify bypassing
+ * the readiness gate. Relabelling it to "Rerun" would let a run_analysis chip
+ * survive the gate even when ceeAnalysisReady is missing, and a click then falls
+ * back to a conversation turn ("promises action, delivers chat"). So it stays a
+ * plain 'keep' chip, shown only when the readiness gate is satisfied.
  *
  * This replaces the legacy `isStale` from useStaleGuard, whose production input
- * `_internal.graphHash` is never written, so it never fired — leaving the rerun
- * affordance suppressed even after a graph edit, while the Results surface
- * correctly showed cannot-confirm.
+ * `_internal.graphHash` is never written, so it never fired.
  */
 type RunAnalysisPolish = 'suppress' | 'relabel-rerun' | 'keep'
 
 function decideRunAnalysisPolish(
   resultsComplete: boolean,
-  confirmedCurrent: boolean,
+  freshnessSemantic: FreshnessDisplaySemantic,
 ): RunAnalysisPolish {
-  if (!resultsComplete) return 'keep'      // no analysis yet
-  if (confirmedCurrent) return 'suppress'  // confirmed-current analysis owns the action
-  return 'relabel-rerun'                    // complete but not confirmed-current
-                                            // (stale / cannot-confirm / no verdict) → offer rerun
+  if (!resultsComplete) return 'keep'                     // no analysis yet
+  if (freshnessSemantic === 'current') return 'suppress'  // confirmed-current owns the action
+  if (freshnessSemantic === 'changed' || freshnessSemantic === 'cannot_confirm') {
+    return 'relabel-rerun'  // real verdict: prior analysis exists → offer rerun (gate-bypassing)
+  }
+  return 'keep'  // 'none': complete but no verdict → not current, but no rerunnable
+                 // analysis to justify a gate bypass; the readiness gate decides visibility
 }
 
 interface SuggestedChipsProps {
@@ -134,13 +144,13 @@ export function SuggestedChips({
   // aiPanelV2 polish: once an analysis has been RUN (results exist), the
   // canonical place for re-running it is the Analysis/readiness panel.
   // Decision is via `decideRunAnalysisPolish` (product rule, see helper above):
-  // no analysis → keep; confirmed-current → suppress; everything else complete
-  // (stale / cannot-confirm / no verdict) → "Rerun". `confirmedCurrent` uses the
-  // shared freshness display semantic, NOT the dead useStaleGuard graph-hash path.
+  // no analysis → keep; confirmed-current → suppress; stale/cannot-confirm →
+  // "Rerun" (gate-bypassing); complete-but-no-verdict → keep (gate decides).
+  // `freshnessSemantic` is the shared freshness display semantic, NOT the dead
+  // useStaleGuard graph-hash path.
   const ceeFreshness = useCanvasStore((s) => s.analysisFreshness)
   const freshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
   const freshnessSemantic = classifyFreshnessForDisplay(ceeFreshness, freshnessDirty)
-  const confirmedCurrent = freshnessSemantic === 'current'
   const resultsComplete = useCanvasStore((s) => s.results?.status === 'complete')
   const aiPanelV2On = isAiPanelV2Enabled()
   useEffect(() => {
@@ -163,7 +173,7 @@ export function SuggestedChips({
   // change to either branch from re-introducing "filtered before
   // relabel" behaviour.
   const runAnalysisPolish: RunAnalysisPolish = aiPanelV2On
-    ? decideRunAnalysisPolish(resultsComplete, confirmedCurrent)
+    ? decideRunAnalysisPolish(resultsComplete, freshnessSemantic)
     : 'keep'
 
   // Filter rule (V5 active):

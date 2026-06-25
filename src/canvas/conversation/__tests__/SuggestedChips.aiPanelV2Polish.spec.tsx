@@ -150,10 +150,13 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
     expect(chip).not.toHaveTextContent(/Run analysis/i)
   })
 
-  it('relabels to "Rerun" when results are complete but there is NO freshness verdict (not confirmed-current → not suppressed)', () => {
+  it('keeps (does NOT suppress) the run-analysis chip when complete but NO freshness verdict — V5 off, no readiness gate', () => {
     // A completed analysis with no freshness verdict is NOT confirmed-current, so
-    // it must keep the rerun affordance rather than be suppressed as if current.
-    // Mirrors useStageAwarePlaceholder, which treats this state as not-"latest".
+    // it must NOT be suppressed as if current (mirrors useStageAwarePlaceholder,
+    // which treats this state as not-"latest"). It is NOT relabelled to "Rerun"
+    // either — that label carries a readiness-gate bypass reserved for a real
+    // verdict; with no verdict the chip stays a plain 'keep' that the gate governs.
+    // V5 is off in this suite, so no gate applies → the chip renders as-is.
     setAnalysisState('no-verdict')
     render(
       <SuggestedChips
@@ -162,8 +165,8 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
       />,
     )
     const chip = screen.getByTestId('suggested-chip-nv1')
-    expect(chip).toHaveTextContent(/^\s*Rerun\s*$/i)
-    expect(chip).not.toHaveTextContent(/Run analysis/i)
+    expect(chip).toBeInTheDocument() // not suppressed
+    expect(chip).toHaveTextContent(/Run analysis/i) // kept, not relabelled to "Rerun"
   })
 
   it('leaves the Run analysis chip unchanged when no analysis has been run yet', () => {
