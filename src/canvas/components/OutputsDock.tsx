@@ -588,7 +588,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const ceeFreshness = useCanvasStore(s => s.analysisFreshness)
   const freshnessDirty = useCanvasStore(s => s.analysisFreshnessDirty)
   const displayedFreshness = resolveDisplayedFreshness(ceeFreshness, freshnessDirty)
-  const analysisStale = displayedFreshness === 'stale' || displayedFreshness === 'unknown'
+  const analysisNotConfirmedFresh = displayedFreshness === 'stale' || displayedFreshness === 'unknown'
   // Within the not-fresh window, distinguish a model that definitely CHANGED since
   // the run (CEE 'stale' or a local edit that downgraded a retained 'fresh') from a
   // CANNOT-CONFIRM state where CEE could not determine freshness — so the stale
@@ -2003,7 +2003,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     run (CEE 'stale' or a local edit) from a CANNOT-CONFIRM state (CEE
                     could not determine freshness) — the latter must not claim the user
                     edited the model. */}
-                {analysisStale && !isError && report && (
+                {analysisNotConfirmedFresh && !isError && report && (
                   <div
                     className="px-3 py-2.5 rounded-lg border border-warning/30"
                     style={{ backgroundColor: 'rgb(255 166 86 / 0.05)' }}
@@ -2058,8 +2058,8 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     ====================================================================== */}
                 {!isPreRun && hasInlineSummary && resultsSectionData && (
                   <div
-                    style={{ opacity: analysisStale && !isError ? 0.6 : 1 }}
-                    aria-disabled={analysisStale && !isError ? true : undefined}
+                    style={{ opacity: analysisNotConfirmedFresh && !isError ? 0.6 : 1 }}
+                    aria-disabled={analysisNotConfirmedFresh && !isError ? true : undefined}
                     data-testid="results-body-stale-wrapper"
                   >
                   <ResultsBody
@@ -2098,7 +2098,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     onSetFactorValue={handleTriageSetValue}
                     expertMode={expertMode}
                     nodeValueLookup={nodeValueLookup}
-                    isStale={analysisStale && !isError}
+                    isStale={analysisNotConfirmedFresh && !isError}
                   />
                   </div>
                 )}

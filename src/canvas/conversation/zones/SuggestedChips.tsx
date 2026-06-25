@@ -20,7 +20,7 @@ import { logV5StateEvent } from '../../../v5/debugLog'
 import { isAiPanelV2Enabled } from '../../../flags'
 import { useAnalysisStatus } from '../../hooks/useAnalysisReady'
 import { useCanvasStore } from '../../store'
-import { resolveDisplayedFreshness } from '../../store/analysisFreshness'
+import { classifyFreshnessForDisplay } from '../../store/analysisFreshness'
 import type { ActionChip } from '../types'
 
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
@@ -75,12 +75,12 @@ function isRunAnalysisAffordance(chip: ActionChip): boolean {
  * Product rule for the run-analysis affordance under aiPanelV2:
  *   - no analysis exists       → keep chip as-is ("Run analysis")
  *   - current analysis exists  → suppress chip entirely
- *   - stale analysis exists    → relabel chip to "Rerun"
+ *   - stale / cannot-confirm analysis exists → relabel chip to "Rerun"
  *
  * The decision keys off `results.status === 'complete'` (analysis has produced
- * results at least once) plus `rerunRecommended` — the CEE freshness verdict +
- * local dirty overlay (resolveDisplayedFreshness) being 'stale' or 'unknown'
- * (cannot-confirm). This replaces the legacy `isStale` from useStaleGuard, whose
+ * results at least once) plus `rerunRecommended` — the shared freshness display
+ * semantic (classifyFreshnessForDisplay) being 'changed' or 'cannot_confirm'.
+ * This replaces the legacy `isStale` from useStaleGuard, whose
  * production input `_internal.graphHash` is never written, so it never fired —
  * leaving the rerun affordance suppressed even after a graph edit, while the
  * Results surface correctly showed cannot-confirm.
@@ -130,12 +130,12 @@ export function SuggestedChips({
   // canonical place for re-running it is the Analysis/readiness panel.
   // Decision is via `decideRunAnalysisPolish` (product rule, see helper above):
   // no analysis → keep; confirmed-current → suppress; stale/cannot-confirm →
-  // "Rerun". `rerunRecommended` is the CEE freshness verdict + local dirty overlay
-  // (resolveDisplayedFreshness), NOT the dead useStaleGuard graph-hash path.
+  // "Rerun". `rerunRecommended` uses the shared freshness display semantic, NOT
+  // the dead useStaleGuard graph-hash path.
   const ceeFreshness = useCanvasStore((s) => s.analysisFreshness)
   const freshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
-  const displayedFreshness = resolveDisplayedFreshness(ceeFreshness, freshnessDirty)
-  const rerunRecommended = displayedFreshness === 'stale' || displayedFreshness === 'unknown'
+  const freshnessSemantic = classifyFreshnessForDisplay(ceeFreshness, freshnessDirty)
+  const rerunRecommended = freshnessSemantic === 'changed' || freshnessSemantic === 'cannot_confirm'
   const resultsComplete = useCanvasStore((s) => s.results?.status === 'complete')
   const aiPanelV2On = isAiPanelV2Enabled()
   useEffect(() => {
@@ -164,9 +164,9 @@ export function SuggestedChips({
   // Filter rule (V5 active):
   //   action_type === 'run_analysis' → gated by analysisStatus === 'ready',
   //                                    EXCEPT when aiPanelV2 will relabel to
-  //                                    "Rerun" (stale), in which case the chip
-  //                                    must survive the gate so the polish can
-  //                                    apply.
+  //                                    "Rerun" (stale/cannot-confirm), in which
+  //                                    case the chip must survive the gate so the
+  //                                    polish can apply.
   //   action_type absent              → pass through (conversational)
   //   action_type in V5_ENABLED_ACTIONS but NOT readiness-gated → pass through
   //   action_type present but unknown → hide (treat as potentially executable
