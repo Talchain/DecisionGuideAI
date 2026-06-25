@@ -20,7 +20,7 @@ import { logV5StateEvent } from '../../../v5/debugLog'
 import { isAiPanelV2Enabled } from '../../../flags'
 import { useAnalysisStatus } from '../../hooks/useAnalysisReady'
 import { useCanvasStore } from '../../store'
-import { useStaleGuard } from '../../ui/inspector-v2/useStaleGuard'
+import { resolveDisplayedFreshness } from '../../store/analysisFreshness'
 import type { ActionChip } from '../types'
 
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
@@ -77,20 +77,23 @@ function isRunAnalysisAffordance(chip: ActionChip): boolean {
  *   - current analysis exists  → suppress chip entirely
  *   - stale analysis exists    → relabel chip to "Rerun"
  *
- * The decision keys off `results.status === 'complete'` (analysis has
- * produced results at least once) plus `isStale` from the stale guard.
- * This avoids the fragile `analysisState === 'current'` path which can
- * race on staging when the hash compare lags by one tick.
+ * The decision keys off `results.status === 'complete'` (analysis has produced
+ * results at least once) plus `rerunRecommended` — the CEE freshness verdict +
+ * local dirty overlay (resolveDisplayedFreshness) being 'stale' or 'unknown'
+ * (cannot-confirm). This replaces the legacy `isStale` from useStaleGuard, whose
+ * production input `_internal.graphHash` is never written, so it never fired —
+ * leaving the rerun affordance suppressed even after a graph edit, while the
+ * Results surface correctly showed cannot-confirm.
  */
 type RunAnalysisPolish = 'suppress' | 'relabel-rerun' | 'keep'
 
 function decideRunAnalysisPolish(
   resultsComplete: boolean,
-  isStale: boolean,
+  rerunRecommended: boolean,
 ): RunAnalysisPolish {
-  if (!resultsComplete) return 'keep'   // no analysis yet
-  if (isStale) return 'relabel-rerun'   // graph drifted since last analysis
-  return 'suppress'                     // current analysis owns the action
+  if (!resultsComplete) return 'keep'        // no analysis yet
+  if (rerunRecommended) return 'relabel-rerun' // stale / cannot-confirm since last run
+  return 'suppress'                          // confirmed-current analysis owns the action
 }
 
 interface SuggestedChipsProps {
@@ -125,11 +128,14 @@ export function SuggestedChips({
   const analysisStatus = useAnalysisStatus()
   // aiPanelV2 polish: once an analysis has been RUN (results exist), the
   // canonical place for re-running it is the Analysis/readiness panel.
-  // Decision is via `decideRunAnalysisPolish` (product rule, see helper
-  // above): no analysis → keep; current → suppress; stale → "Rerun".
-  // Keys off results.status === 'complete' rather than the fragile
-  // analysisState === 'current' path (which can race on staging).
-  const { isStale } = useStaleGuard()
+  // Decision is via `decideRunAnalysisPolish` (product rule, see helper above):
+  // no analysis → keep; confirmed-current → suppress; stale/cannot-confirm →
+  // "Rerun". `rerunRecommended` is the CEE freshness verdict + local dirty overlay
+  // (resolveDisplayedFreshness), NOT the dead useStaleGuard graph-hash path.
+  const ceeFreshness = useCanvasStore((s) => s.analysisFreshness)
+  const freshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
+  const displayedFreshness = resolveDisplayedFreshness(ceeFreshness, freshnessDirty)
+  const rerunRecommended = displayedFreshness === 'stale' || displayedFreshness === 'unknown'
   const resultsComplete = useCanvasStore((s) => s.results?.status === 'complete')
   const aiPanelV2On = isAiPanelV2Enabled()
   useEffect(() => {
@@ -152,7 +158,7 @@ export function SuggestedChips({
   // change to either branch from re-introducing "filtered before
   // relabel" behaviour.
   const runAnalysisPolish: RunAnalysisPolish = aiPanelV2On
-    ? decideRunAnalysisPolish(resultsComplete, isStale)
+    ? decideRunAnalysisPolish(resultsComplete, rerunRecommended)
     : 'keep'
 
   // Filter rule (V5 active):

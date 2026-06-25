@@ -30,7 +30,7 @@ import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource } from '../store'
-import { resolveDisplayedFreshness } from '../store/analysisFreshness'
+import { resolveDisplayedFreshness, classifyFreshnessForDisplay } from '../store/analysisFreshness'
 import { deriveResultsTabFreshness } from './resultsTabFreshness'
 import { typography, typo } from '../../styles/typography'
 import {
@@ -589,6 +589,11 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const freshnessDirty = useCanvasStore(s => s.analysisFreshnessDirty)
   const displayedFreshness = resolveDisplayedFreshness(ceeFreshness, freshnessDirty)
   const analysisStale = displayedFreshness === 'stale' || displayedFreshness === 'unknown'
+  // Within the not-fresh window, distinguish a model that definitely CHANGED since
+  // the run (CEE 'stale' or a local edit that downgraded a retained 'fresh') from a
+  // CANNOT-CONFIRM state where CEE could not determine freshness — so the stale
+  // banner never claims "you've updated the model" for a CEE-sourced 'unknown'.
+  const analysisChangedSinceRun = classifyFreshnessForDisplay(ceeFreshness, freshnessDirty) === 'changed'
 
   // Build persistence object only when Supabase persistence is active
   const v2Persistence = useMemo<V2RunPersistence | undefined>(() => {
@@ -1989,24 +1994,30 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     </span>
                   </div>
                 )}
-                {/* Brief 4 Task 13: top-level stale card.
-                    Full border-warning/30 + bg-warning/5; the results body
-                    below dims to 0.6 so the user sees stale data but can't
-                    miss that it's stale. Scroll and selection remain usable
-                    (no pointer-events:none) — only mutation affordances are
-                    disabled inside ResultsBody via aria-disabled. */}
+                {/* Brief 4 Task 13: top-level "results may be outdated" card.
+                    Shows when the analysis is not confirmed-fresh; the results body
+                    below dims to 0.6 so the user can't miss it. Scroll and selection
+                    remain usable (no pointer-events:none) — only mutation affordances
+                    are disabled inside ResultsBody via aria-disabled.
+                    Header copy distinguishes a model that definitely CHANGED since the
+                    run (CEE 'stale' or a local edit) from a CANNOT-CONFIRM state (CEE
+                    could not determine freshness) — the latter must not claim the user
+                    edited the model. */}
                 {analysisStale && !isError && report && (
                   <div
                     className="px-3 py-2.5 rounded-lg border border-warning/30"
                     style={{ backgroundColor: 'rgb(255 166 86 / 0.05)' }}
                     role="status"
                     data-testid="graph-stale-banner"
+                    data-banner-variant={analysisChangedSinceRun ? 'changed' : 'cannot-confirm'}
                   >
                     <div className="flex items-start gap-2">
                       <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-1" aria-hidden="true" />
                       <div className="flex-1 min-w-0">
                         <p className={`${typography.panelHeader} text-text-header`}>
-                          You've updated the model since this analysis ran
+                          {analysisChangedSinceRun
+                            ? "You've updated the model since this analysis ran"
+                            : "Can't confirm this analysis is current"}
                         </p>
                         <p className={`${typography.panelBody} text-text-light`}>
                           Results may not reflect your current graph.

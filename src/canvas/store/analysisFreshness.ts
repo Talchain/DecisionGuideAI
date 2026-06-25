@@ -126,3 +126,34 @@ export function resolveDisplayedFreshness(
   if (state.freshness === 'fresh' && dirty) return 'unknown'
   return state.freshness
 }
+
+/** Copy-oriented classification of the displayed freshness. */
+export type FreshnessDisplaySemantic = 'current' | 'changed' | 'cannot_confirm' | 'none'
+
+/**
+ * Classify the displayed freshness for COPY decisions across the visible
+ * AI-panel surfaces (composer placeholder, Results stale banner, chip relabel).
+ * Single source so those surfaces can't drift from each other or from the CEE
+ * verdict — and so none of them re-derive currentness from the dead useStaleGuard.
+ *
+ * Distinguishes a model that definitely CHANGED since the run — a CEE 'stale'
+ * verdict, OR a local edit that downgraded a retained 'fresh' (the dirty overlay)
+ * — from a CANNOT-CONFIRM state where CEE itself could not determine freshness
+ * (a present analysis_ready with missing/invalid freshness → 'unknown'). The two
+ * warrant different copy: "you've changed the model" vs the neutral "can't confirm
+ * this is current". 'changed' must never be claimed for a CEE-sourced 'unknown'.
+ */
+export function classifyFreshnessForDisplay(
+  state: AnalysisFreshnessState | null,
+  dirty: boolean,
+): FreshnessDisplaySemantic {
+  const displayed = resolveDisplayedFreshness(state, dirty)
+  if (displayed === null || displayed === 'none') return 'none'
+  if (displayed === 'fresh') return 'current'
+  if (displayed === 'stale') return 'changed'
+  // displayed === 'unknown': only the dirty-overlay downgrade of a retained
+  // 'fresh' verdict means the user definitely changed the model since the run.
+  // A CEE-sourced 'unknown' (state.freshness === 'unknown') is cannot-confirm.
+  if (state?.freshness === 'fresh' && dirty) return 'changed'
+  return 'cannot_confirm'
+}

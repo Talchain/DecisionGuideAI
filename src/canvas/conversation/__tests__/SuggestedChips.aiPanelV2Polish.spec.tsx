@@ -2,14 +2,16 @@
  * aiPanelV2 UX polish — Run analysis chip suppression/relabel.
  *
  * Product rule (only when aiPanelV2 is ON):
- *   - no analysis exists       → keep chip as-is ("Run analysis")
- *   - current analysis exists  → SUPPRESS chip entirely
- *                                (Analysis/readiness panel owns rerun)
- *   - stale analysis exists    → RELABEL to "Rerun"
+ *   - no analysis exists                 → keep chip as-is ("Run analysis")
+ *   - confirmed-current analysis exists  → SUPPRESS chip entirely
+ *                                          (Analysis/readiness panel owns rerun)
+ *   - stale / cannot-confirm analysis    → RELABEL to "Rerun"
  *
- * Decision keys off `results.status === 'complete'` + `isStale` from the
- * stale guard. This is the loosened path — the old `analysisState ===
- * 'current'` predicate raced on staging when the hash compare lagged.
+ * Decision keys off `results.status === 'complete'` + the CEE freshness verdict +
+ * local dirty overlay (resolveDisplayedFreshness being 'stale' or 'unknown').
+ * This replaces the legacy `isStale` from useStaleGuard, whose production input
+ * `_internal.graphHash` is never written — so the rerun affordance never appeared
+ * after a graph edit even though the Results surface showed cannot-confirm.
  *
  * Detection covers both V2 chips (`action_type === 'run_analysis'`) and
  * legacy / prompt-style chips matched by the tolerant regex
@@ -36,23 +38,39 @@ function makeChip(overrides: Partial<ActionChip> = {}): ActionChip {
   }
 }
 
-/** Drive useStaleGuard's three return shapes via the canvas store. */
-function setAnalysisState(state: 'none' | 'current' | 'stale') {
+/**
+ * Drive the run-analysis polish input via the CEE freshness verdict + dirty
+ * overlay (the production source), NOT the dead useStaleGuard graph-hash path.
+ *   none          → no analysis (idle, no verdict)
+ *   current       → complete + CEE 'fresh', clean
+ *   stale         → complete + CEE 'stale'
+ *   cannot-confirm→ complete + CEE 'fresh' downgraded by a local edit (dirty)
+ */
+function setAnalysisState(state: 'none' | 'current' | 'stale' | 'cannot-confirm') {
   if (state === 'none') {
     useCanvasStore.setState({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       results: { status: 'idle' } as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      _internal: { graphHash: undefined } as any,
+      analysisFreshness: null,
+      analysisFreshnessDirty: false,
     })
     return
   }
   useCanvasStore.setState({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     results: { status: 'complete', graphHash: 'abc123' } as any,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    _internal: { graphHash: state === 'current' ? 'abc123' : 'xyz999' } as any,
+    analysisFreshness: null,
+    analysisFreshnessDirty: false,
   })
+  if (state === 'stale') {
+    useCanvasStore.getState().setAnalysisFreshness({ freshness: 'stale', freshness_reason: 'graph_changed' })
+    return
+  }
+  // current + cannot-confirm both start from a CEE 'fresh' verdict.
+  useCanvasStore.getState().setAnalysisFreshness({ freshness: 'fresh', freshness_reason: 'graph_hash_match' })
+  if (state === 'cannot-confirm') {
+    useCanvasStore.getState().markAnalysisFreshnessDirty()
+  }
 }
 
 describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
@@ -92,6 +110,21 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
       />,
     )
     const chip = screen.getByTestId('suggested-chip-r1')
+    expect(chip).toHaveTextContent(/^\s*Rerun\s*$/i)
+    expect(chip).not.toHaveTextContent(/Run analysis/i)
+  })
+
+  it('relabels to "Rerun" when a fresh analysis is cannot-confirm after a local edit', () => {
+    // The key production regression: before, isStale (dead useStaleGuard) never
+    // fired, so a post-edit cannot-confirm state kept the rerun chip suppressed.
+    setAnalysisState('cannot-confirm')
+    render(
+      <SuggestedChips
+        chips={[makeChip({ id: 'cc1', action_type: 'run_analysis', label: 'Run analysis' })]}
+        onChipClick={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    const chip = screen.getByTestId('suggested-chip-cc1')
     expect(chip).toHaveTextContent(/^\s*Rerun\s*$/i)
     expect(chip).not.toHaveTextContent(/Run analysis/i)
   })

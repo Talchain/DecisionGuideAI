@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest'
 import {
   deriveAnalysisFreshnessUpdate,
   resolveDisplayedFreshness,
+  classifyFreshnessForDisplay,
   type AnalysisFreshnessState,
 } from '../analysisFreshness'
 
@@ -149,5 +150,32 @@ describe('resolveDisplayedFreshness (local dirty overlay display rule)', () => {
       else expect(out).toBe(f)
       expect(out).not.toBe('stale-fabricated') // sanity: no invented values
     }
+  })
+})
+
+describe('classifyFreshnessForDisplay (copy semantic across AI-panel surfaces)', () => {
+  it('no verdict → none', () => {
+    expect(classifyFreshnessForDisplay(null, false)).toBe('none')
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'none' }), false)).toBe('none')
+  })
+
+  it('clean fresh → current', () => {
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'fresh' }), false)).toBe('current')
+  })
+
+  it('CEE stale → changed', () => {
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'stale' }), true)).toBe('changed')
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'stale' }), false)).toBe('changed')
+  })
+
+  it('dirty-overlay downgrade of a retained fresh → changed (user definitely edited)', () => {
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'fresh' }), true)).toBe('changed')
+  })
+
+  it('CEE-sourced unknown → cannot_confirm, NEVER changed (no false "you edited" claim)', () => {
+    // A present analysis_ready with missing/invalid freshness degrades to 'unknown'
+    // (deriveAnalysisFreshnessUpdate). That is cannot-confirm, not a user edit.
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'unknown' }), false)).toBe('cannot_confirm')
+    expect(classifyFreshnessForDisplay(prev({ freshness: 'unknown' }), true)).toBe('cannot_confirm')
   })
 })
