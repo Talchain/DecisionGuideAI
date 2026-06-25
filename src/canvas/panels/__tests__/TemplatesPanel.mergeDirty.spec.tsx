@@ -16,8 +16,13 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { TemplatesPanel } from '../TemplatesPanel'
 import * as plotAdapter from '../../../adapters/plot'
 
-const markAnalysisFreshnessDirty = vi.fn()
-const pushHistory = vi.fn()
+// vi.hoisted so the vi.mock factory (hoisted above these) can reference the spies
+// eagerly — setState is read as a property at factory-eval time, not lazily.
+const { markAnalysisFreshnessDirty, pushHistory, setState } = vi.hoisted(() => ({
+  markAnalysisFreshnessDirty: vi.fn(),
+  pushHistory: vi.fn(),
+  setState: vi.fn(),
+}))
 let createSeq = 0
 
 vi.mock('../../../adapters/plot', () => ({
@@ -44,7 +49,7 @@ vi.mock('../../store', () => ({
       createNodeId: vi.fn(() => `n-${++createSeq}`),
       createEdgeId: vi.fn(() => `e-${++createSeq}`),
     })),
-    setState: vi.fn(),
+    setState,
   },
 }))
 
@@ -77,5 +82,15 @@ describe('TemplatesPanel — "Merge into Current" dirties the freshness overlay'
     // commitGraphMutation: pushHistory + setState + markAnalysisFreshnessDirty.
     await waitFor(() => expect(markAnalysisFreshnessDirty).toHaveBeenCalled())
     expect(pushHistory).toHaveBeenCalled()
+
+    // Prove the merge COMMITS the expected graph mutation, not just that it
+    // dirties: setState receives a functional updater that, run against a current
+    // graph, APPENDS the template's nodes/edges (preserving the existing ones).
+    const updater = setState.mock.calls.at(-1)?.[0]
+    expect(typeof updater).toBe('function')
+    const existing = { id: 'existing-node', type: 'goal', position: { x: 0, y: 0 }, data: {} }
+    const next = updater({ nodes: [existing], edges: [] })
+    expect(next.nodes.map((n: { id: string }) => n.id)).toEqual(['existing-node', 'n-1'])
+    expect(next.edges).toEqual([]) // template had no edges; existing edges preserved
   })
 })

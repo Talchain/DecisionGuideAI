@@ -73,27 +73,32 @@ function isRunAnalysisAffordance(chip: ActionChip): boolean {
 
 /**
  * Product rule for the run-analysis affordance under aiPanelV2:
- *   - no analysis exists       → keep chip as-is ("Run analysis")
- *   - current analysis exists  → suppress chip entirely
- *   - stale / cannot-confirm analysis exists → relabel chip to "Rerun"
+ *   - no analysis exists                       → keep chip as-is ("Run analysis")
+ *   - confirmed-current analysis exists        → suppress chip entirely
+ *   - complete but NOT confirmed-current       → relabel chip to "Rerun"
+ *     (stale, cannot-confirm, OR no freshness verdict)
  *
- * The decision keys off `results.status === 'complete'` (analysis has produced
- * results at least once) plus `rerunRecommended` — the shared freshness display
- * semantic (classifyFreshnessForDisplay) being 'changed' or 'cannot_confirm'.
- * This replaces the legacy `isStale` from useStaleGuard, whose
- * production input `_internal.graphHash` is never written, so it never fired —
- * leaving the rerun affordance suppressed even after a graph edit, while the
- * Results surface correctly showed cannot-confirm.
+ * Suppression is the ONLY branch that requires a positive signal — a CONFIRMED
+ * CURRENT verdict (classifyFreshnessForDisplay === 'current'). A completed
+ * analysis with no freshness verdict ('none') is NOT confirmed current, so it
+ * keeps the rerun affordance available rather than being suppressed as if current
+ * — matching how useStageAwarePlaceholder treats the same state (not "latest").
+ *
+ * This replaces the legacy `isStale` from useStaleGuard, whose production input
+ * `_internal.graphHash` is never written, so it never fired — leaving the rerun
+ * affordance suppressed even after a graph edit, while the Results surface
+ * correctly showed cannot-confirm.
  */
 type RunAnalysisPolish = 'suppress' | 'relabel-rerun' | 'keep'
 
 function decideRunAnalysisPolish(
   resultsComplete: boolean,
-  rerunRecommended: boolean,
+  confirmedCurrent: boolean,
 ): RunAnalysisPolish {
-  if (!resultsComplete) return 'keep'        // no analysis yet
-  if (rerunRecommended) return 'relabel-rerun' // stale / cannot-confirm since last run
-  return 'suppress'                          // confirmed-current analysis owns the action
+  if (!resultsComplete) return 'keep'      // no analysis yet
+  if (confirmedCurrent) return 'suppress'  // confirmed-current analysis owns the action
+  return 'relabel-rerun'                    // complete but not confirmed-current
+                                            // (stale / cannot-confirm / no verdict) → offer rerun
 }
 
 interface SuggestedChipsProps {
@@ -129,13 +134,13 @@ export function SuggestedChips({
   // aiPanelV2 polish: once an analysis has been RUN (results exist), the
   // canonical place for re-running it is the Analysis/readiness panel.
   // Decision is via `decideRunAnalysisPolish` (product rule, see helper above):
-  // no analysis → keep; confirmed-current → suppress; stale/cannot-confirm →
-  // "Rerun". `rerunRecommended` uses the shared freshness display semantic, NOT
-  // the dead useStaleGuard graph-hash path.
+  // no analysis → keep; confirmed-current → suppress; everything else complete
+  // (stale / cannot-confirm / no verdict) → "Rerun". `confirmedCurrent` uses the
+  // shared freshness display semantic, NOT the dead useStaleGuard graph-hash path.
   const ceeFreshness = useCanvasStore((s) => s.analysisFreshness)
   const freshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
   const freshnessSemantic = classifyFreshnessForDisplay(ceeFreshness, freshnessDirty)
-  const rerunRecommended = freshnessSemantic === 'changed' || freshnessSemantic === 'cannot_confirm'
+  const confirmedCurrent = freshnessSemantic === 'current'
   const resultsComplete = useCanvasStore((s) => s.results?.status === 'complete')
   const aiPanelV2On = isAiPanelV2Enabled()
   useEffect(() => {
@@ -158,7 +163,7 @@ export function SuggestedChips({
   // change to either branch from re-introducing "filtered before
   // relabel" behaviour.
   const runAnalysisPolish: RunAnalysisPolish = aiPanelV2On
-    ? decideRunAnalysisPolish(resultsComplete, rerunRecommended)
+    ? decideRunAnalysisPolish(resultsComplete, confirmedCurrent)
     : 'keep'
 
   // Filter rule (V5 active):

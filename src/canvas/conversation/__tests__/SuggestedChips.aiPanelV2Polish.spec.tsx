@@ -46,8 +46,9 @@ function makeChip(overrides: Partial<ActionChip> = {}): ActionChip {
  *   stale         → complete + CEE 'stale'
  *   cannot-confirm→ complete + CEE 'fresh' downgraded by a local edit (dirty)
  *   cee-unknown   → complete + CEE-sourced unknown (cannot confirm, no edit claim)
+ *   no-verdict    → complete but NO freshness verdict at all (legacy / non-CEE run)
  */
-function setAnalysisState(state: 'none' | 'current' | 'stale' | 'cannot-confirm' | 'cee-unknown') {
+function setAnalysisState(state: 'none' | 'current' | 'stale' | 'cannot-confirm' | 'cee-unknown' | 'no-verdict') {
   if (state === 'none') {
     useCanvasStore.setState({
       results: { status: 'idle' } as any,
@@ -61,6 +62,10 @@ function setAnalysisState(state: 'none' | 'current' | 'stale' | 'cannot-confirm'
     analysisFreshness: null,
     analysisFreshnessDirty: false,
   })
+  if (state === 'no-verdict') {
+    // results complete but no analysis_ready freshness ever set → slice stays null.
+    return
+  }
   if (state === 'stale') {
     useCanvasStore.getState().setAnalysisFreshness({ freshness: 'stale', freshness_reason: 'graph_changed' })
     return
@@ -141,6 +146,22 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
       />,
     )
     const chip = screen.getByTestId('suggested-chip-cu1')
+    expect(chip).toHaveTextContent(/^\s*Rerun\s*$/i)
+    expect(chip).not.toHaveTextContent(/Run analysis/i)
+  })
+
+  it('relabels to "Rerun" when results are complete but there is NO freshness verdict (not confirmed-current → not suppressed)', () => {
+    // A completed analysis with no freshness verdict is NOT confirmed-current, so
+    // it must keep the rerun affordance rather than be suppressed as if current.
+    // Mirrors useStageAwarePlaceholder, which treats this state as not-"latest".
+    setAnalysisState('no-verdict')
+    render(
+      <SuggestedChips
+        chips={[makeChip({ id: 'nv1', action_type: 'run_analysis', label: 'Run analysis' })]}
+        onChipClick={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    const chip = screen.getByTestId('suggested-chip-nv1')
     expect(chip).toHaveTextContent(/^\s*Rerun\s*$/i)
     expect(chip).not.toHaveTextContent(/Run analysis/i)
   })
