@@ -42,17 +42,12 @@ const EDGES = [
   { id: 'edge_morale_to_outcome', source: 'fac_team_morale', target: 'goal_outcome' },
 ]
 
-vi.mock('../../canvas/store', () => ({
-  useCanvasStore: (selector: (s: { nodes: unknown; edges: unknown }) => unknown) =>
-    selector({ nodes: NODES, edges: EDGES }),
-}))
-
-// ─── Freshness hook mock ──────────────────────────────────────────────────
+// ─── Freshness mock ───────────────────────────────────────────────────────
 //
-// Each test sets the verdict the freshness derivation would produce given
-// the canvas-store ceeAnalysisReady (written by applyV5State a moment
-// earlier). We assert on whether the hint appears, not on the
-// derivation itself — the derivation is unit-tested separately.
+// Each test sets the verdict the CEE freshness slice holds. The
+// V5GraphPatchBlock hint now derives from that slice via
+// classifyFreshnessForDisplay (=== 'changed'); we assert on whether the hint
+// appears, not on the derivation itself — that is unit-tested separately.
 
 const mockFreshnessState = vi.fn<[], AnalysisFreshnessState>(() => ({
   freshness: 'unknown',
@@ -61,8 +56,21 @@ const mockFreshnessState = vi.fn<[], AnalysisFreshnessState>(() => ({
   inputsMissing: [],
 }))
 
-vi.mock('../../lib/useAnalysisFreshnessState', () => ({
-  useAnalysisFreshnessState: () => mockFreshnessState(),
+vi.mock('../../canvas/store', () => ({
+  useCanvasStore: (
+    selector: (s: {
+      nodes: unknown
+      edges: unknown
+      analysisFreshness: { freshness: string } | null
+      analysisFreshnessDirty: boolean
+    }) => unknown,
+  ) =>
+    selector({
+      nodes: NODES,
+      edges: EDGES,
+      analysisFreshness: { freshness: mockFreshnessState().freshness },
+      analysisFreshnessDirty: false,
+    }),
 }))
 
 const { V5GraphPatchBlock } = await import('../blocks/V5GraphPatchBlock')

@@ -22,7 +22,7 @@
 import { useMemo, type ReactElement } from 'react'
 import { typography } from '../../styles/typography'
 import { useCanvasStore } from '../../canvas/store'
-import { useAnalysisFreshnessState } from '../../lib/useAnalysisFreshnessState'
+import { classifyFreshnessForDisplay } from '../../canvas/store/analysisFreshness'
 import type { V5GraphPatchBlock as V5GraphPatchBlockType } from '../../canvas/conversation/types'
 import { buildV5PatchReceipt, buildV5PatchDeps } from './v5GraphPatchDescription'
 
@@ -43,15 +43,22 @@ export function V5GraphPatchBlock({ block }: V5GraphPatchBlockProps): ReactEleme
   )
 
   // Workstream 1, Phase 3c — distinct freshness vs structural readiness.
-  // When the mutation just landed AND a prior analysis is now out of date,
-  // surface a small hint inline with the receipt so the user understands
-  // the impact without navigating to the results panel. We deliberately
-  // only surface the 'stale' verdict here; 'fresh' / 'none' / 'unknown'
-  // would be redundant noise alongside the run/rerun chip the CEE already
-  // emits.
-  const freshness = useAnalysisFreshnessState()
+  // When the mutation just landed AND the analysis is now definitely out of
+  // date, surface a small hint inline with the receipt so the user understands
+  // the impact without navigating to the results panel.
+  //
+  // Sourced from the CEE freshness slice + local dirty overlay via the shared
+  // `classifyFreshnessForDisplay` (NOT the legacy `useAnalysisFreshnessState`,
+  // whose reducer could fabricate 'stale' from `graphEditedSinceLastRun` when
+  // wire freshness was absent/unknown). We deliberately only surface the
+  // 'changed' semantic here (CEE 'stale' OR a retained-fresh-now-dirtied);
+  // 'cannot_confirm' / 'current' / 'none' would be redundant noise alongside
+  // the run/rerun chip the CEE already emits.
+  const analysisFreshness = useCanvasStore((s) => s.analysisFreshness)
+  const analysisFreshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
   const showStaleHint =
-    receipt.status === 'applied' && freshness.freshness === 'stale'
+    receipt.status === 'applied' &&
+    classifyFreshnessForDisplay(analysisFreshness, analysisFreshnessDirty) === 'changed'
 
   const isApplied = receipt.status === 'applied'
 

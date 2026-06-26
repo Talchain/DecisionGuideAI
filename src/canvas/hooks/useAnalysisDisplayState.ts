@@ -11,6 +11,7 @@
  */
 
 import { useCanvasStore } from '../store'
+import { classifyFreshnessForDisplay } from '../store/analysisFreshness'
 import {
   deriveAnalysisDisplayState,
   type AnalysisDisplayStateView,
@@ -18,15 +19,21 @@ import {
 
 export function useAnalysisDisplayState(): AnalysisDisplayStateView {
   // Defensive optional chaining: legacy test fixtures mock a partial store
-  // shape that omits `results` and/or `graphEditedSinceLastRun`. The runtime
-  // store always provides them (initial state at store.ts:1113, 1128).
+  // shape that omits `results`. The runtime store always provides it.
   const ceeAnalysisReadyStatus = useCanvasStore((s) => s.ceeAnalysisReady?.status)
   const hasReport = useCanvasStore((s) => s.results?.report != null)
-  const graphEditedSinceLastRun = useCanvasStore((s) => s.graphEditedSinceLastRun ?? false)
+  // "Results may be outdated" must reflect the CEE freshness verdict + local
+  // dirty overlay (the shared display semantic being 'changed'), NOT the local
+  // `graphEditedSinceLastRun` flag — so a CEE-sourced 'unknown' (cannot-confirm)
+  // never fabricates a stale claim here.
+  const analysisFreshness = useCanvasStore((s) => s.analysisFreshness)
+  const analysisFreshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
+  const analysisChanged =
+    classifyFreshnessForDisplay(analysisFreshness, analysisFreshnessDirty) === 'changed'
 
   return deriveAnalysisDisplayState({
     ceeAnalysisReadyStatus,
     hasReport,
-    graphEditedSinceLastRun,
+    analysisChanged,
   })
 }

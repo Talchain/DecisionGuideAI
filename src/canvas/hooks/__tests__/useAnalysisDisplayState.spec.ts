@@ -4,6 +4,10 @@
  * deriveAnalysisDisplayState.spec.ts; these tests cover the store-to-helper
  * wiring (which selectors fire, which fields the helper sees) using a
  * minimal Zustand vanilla store as a stand-in for useCanvasStore.
+ *
+ * Staleness is sourced from the CEE freshness slice + local dirty overlay via
+ * the shared classifyFreshnessForDisplay (=== 'changed'), NOT the legacy
+ * graphEditedSinceLastRun flag. The real classifier runs against the mock store.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -13,7 +17,9 @@ import { create, type StoreApi, type UseBoundStore } from 'zustand'
 interface MockCanvasState {
   ceeAnalysisReady: { status?: string } | null
   results: { status: string; report: unknown } | null
-  graphEditedSinceLastRun: boolean
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  analysisFreshness: any
+  analysisFreshnessDirty: boolean
 }
 
 let store: UseBoundStore<StoreApi<MockCanvasState>>
@@ -32,7 +38,8 @@ function makeStore(initial: Partial<MockCanvasState> = {}) {
   return create<MockCanvasState>(() => ({
     ceeAnalysisReady: null,
     results: { status: 'idle', report: null },
-    graphEditedSinceLastRun: false,
+    analysisFreshness: null,
+    analysisFreshnessDirty: false,
     ...initial,
   }))
 }
@@ -50,11 +57,12 @@ describe('useAnalysisDisplayState', () => {
     expect(result.current.cta).toEqual({ kind: 'primary', label: 'Run analysis' })
   })
 
-  it('returns complete view when results.report is populated and graph is unedited', () => {
+  it('returns complete view when results.report is populated and freshness is current', () => {
     store = makeStore({
       ceeAnalysisReady: { status: 'ready' },
       results: { status: 'complete', report: { option_comparison: [] } },
-      graphEditedSinceLastRun: false,
+      analysisFreshness: { freshness: 'fresh' },
+      analysisFreshnessDirty: false,
     })
     const { result } = renderHook(() => useAnalysisDisplayState())
     expect(result.current.state).toBe('complete')
@@ -62,15 +70,38 @@ describe('useAnalysisDisplayState', () => {
     expect(result.current.cta).toBeNull()
   })
 
-  it('returns results_stale view when graph was edited after the last run', () => {
+  it('returns results_stale view when the CEE freshness verdict is stale (changed)', () => {
     store = makeStore({
       ceeAnalysisReady: { status: 'ready' },
       results: { status: 'complete', report: { option_comparison: [] } },
-      graphEditedSinceLastRun: true,
+      analysisFreshness: { freshness: 'stale' },
     })
     const { result } = renderHook(() => useAnalysisDisplayState())
     expect(result.current.state).toBe('results_stale')
     expect(result.current.cta).toEqual({ kind: 'secondary', label: 'Rerun analysis' })
+  })
+
+  it('returns results_stale when a retained fresh verdict is dirtied by a local edit (changed)', () => {
+    store = makeStore({
+      ceeAnalysisReady: { status: 'ready' },
+      results: { status: 'complete', report: { option_comparison: [] } },
+      analysisFreshness: { freshness: 'fresh' },
+      analysisFreshnessDirty: true,
+    })
+    const { result } = renderHook(() => useAnalysisDisplayState())
+    expect(result.current.state).toBe('results_stale')
+  })
+
+  it('CEE-sourced unknown (cannot-confirm) → complete, NOT results_stale (no fabricated "outdated")', () => {
+    store = makeStore({
+      ceeAnalysisReady: { status: 'ready' },
+      results: { status: 'complete', report: { option_comparison: [] } },
+      analysisFreshness: { freshness: 'unknown' },
+      analysisFreshnessDirty: true,
+    })
+    const { result } = renderHook(() => useAnalysisDisplayState())
+    expect(result.current.state).toBe('complete')
+    expect(result.current.headline).toBe('Analysis complete')
   })
 
   it('returns not_ready view when CEE status is missing/non-ready', () => {
@@ -86,7 +117,6 @@ describe('useAnalysisDisplayState', () => {
     store = makeStore({
       ceeAnalysisReady: { status: 'needs_user_mapping' },
       results: { status: 'complete', report: { option_comparison: [] } },
-      graphEditedSinceLastRun: false,
     })
     const { result } = renderHook(() => useAnalysisDisplayState())
     expect(result.current.state).toBe('not_ready')
@@ -99,7 +129,6 @@ describe('useAnalysisDisplayState', () => {
     store = makeStore({
       ceeAnalysisReady: { status: 'ready' },
       results: { status: 'complete', report: null },
-      graphEditedSinceLastRun: false,
     })
     const { result } = renderHook(() => useAnalysisDisplayState())
     expect(result.current.state).toBe('ready_to_analyse')
@@ -107,9 +136,8 @@ describe('useAnalysisDisplayState', () => {
   })
 
   it('tolerates partial-mock store shapes (legacy fixtures omit fields)', () => {
-    // Some legacy test fixtures mock the store without `results` or
-    // `graphEditedSinceLastRun`. The hook must not crash; it falls back
-    // to safe defaults.
+    // Some legacy test fixtures mock the store without `results` or the
+    // freshness slices. The hook must not crash; it falls back to safe defaults.
     store = create<Partial<MockCanvasState>>(() => ({
       ceeAnalysisReady: { status: 'ready' },
     })) as unknown as UseBoundStore<StoreApi<MockCanvasState>>

@@ -2419,6 +2419,9 @@ export async function captureDisplayState(): Promise<DisplayState> {
     const { deriveAnalysisDisplayState } = await import(
       '../../../canvas/utils/deriveAnalysisDisplayState'
     )
+    const { classifyFreshnessForDisplay } = await import(
+      '../../../canvas/store/analysisFreshness'
+    )
     const state = useCanvasStore.getState()
 
     const nodes = state.nodes ?? []
@@ -2620,13 +2623,17 @@ export async function captureDisplayState(): Promise<DisplayState> {
     const ceeStatus = (state as { ceeAnalysisReady?: { status?: string } | null })
       .ceeAnalysisReady?.status
     const hasReport = Boolean((results as { report?: unknown } | null | undefined)?.report)
-    const graphEditedSinceLastRun = Boolean(
-      (state as { graphEditedSinceLastRun?: boolean }).graphEditedSinceLastRun,
-    )
+    // CEE-sourced staleness (shared display semantic === 'changed'), mirroring
+    // the runtime hook — NOT the local graphEditedSinceLastRun flag.
+    const analysisChanged =
+      classifyFreshnessForDisplay(
+        (state as { analysisFreshness?: Parameters<typeof classifyFreshnessForDisplay>[0] }).analysisFreshness ?? null,
+        Boolean((state as { analysisFreshnessDirty?: boolean }).analysisFreshnessDirty),
+      ) === 'changed'
     const displayView = deriveAnalysisDisplayState({
       ceeAnalysisReadyStatus: ceeStatus,
       hasReport,
-      graphEditedSinceLastRun,
+      analysisChanged,
     })
 
     return {

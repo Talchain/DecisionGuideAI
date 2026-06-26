@@ -41,8 +41,22 @@ import type { V5GraphPatchBlock as V5GraphPatchBlockType } from '../../canvas/co
 // ─── Mock the canvas store + freshness hook for V5GraphPatchBlock ────────
 
 vi.mock('../../canvas/store', () => ({
-  useCanvasStore: (selector: (s: { nodes: unknown; edges: unknown }) => unknown) =>
-    selector({ nodes: [], edges: [] }),
+  useCanvasStore: (
+    selector: (s: {
+      nodes: unknown
+      edges: unknown
+      analysisFreshness: { freshness: string } | null
+      analysisFreshnessDirty: boolean
+    }) => unknown,
+  ) =>
+    // The V5GraphPatchBlock hint now derives from the CEE freshness slice via
+    // classifyFreshnessForDisplay; mirror the controllable verdict into the slice.
+    selector({
+      nodes: [],
+      edges: [],
+      analysisFreshness: { freshness: mockFreshnessState().freshness },
+      analysisFreshnessDirty: false,
+    }),
 }))
 
 const mockFreshnessState = vi.fn(() => ({

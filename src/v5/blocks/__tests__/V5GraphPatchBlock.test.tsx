@@ -28,13 +28,10 @@ const EDGES = [
   { id: 'edge_morale_to_outcome', source: 'fac_morale', target: 'goal_outcome' },
 ]
 
-vi.mock('../../../canvas/store', () => ({
-  useCanvasStore: (selector: (s: { nodes: unknown; edges: unknown }) => unknown) =>
-    selector({ nodes: NODES, edges: EDGES }),
-}))
-
-// Mock the freshness hook so each test can control the verdict
-// independently. Default is the neutral 'unknown' verdict (no hint).
+// Each test controls the CEE freshness verdict independently. The component
+// reads the `analysisFreshness` slice (+ dirty overlay) from the store and runs
+// the real `classifyFreshnessForDisplay`; the hint shows only on 'changed'
+// (CEE 'stale' OR a retained-fresh-now-dirtied). Default 'unknown' → no hint.
 import type { AnalysisFreshnessState } from '../../../lib/analysisFreshnessState'
 
 const mockFreshnessState = vi.fn<[], AnalysisFreshnessState>(() => ({
@@ -43,9 +40,25 @@ const mockFreshnessState = vi.fn<[], AnalysisFreshnessState>(() => ({
   recommendedAction: 'continue_editing',
   inputsMissing: [],
 }))
+// Controls the dirty overlay (default clean; set true to exercise the
+// fresh→changed downgrade path).
+let mockAnalysisFreshnessDirty = false
 
-vi.mock('../../../lib/useAnalysisFreshnessState', () => ({
-  useAnalysisFreshnessState: () => mockFreshnessState(),
+vi.mock('../../../canvas/store', () => ({
+  useCanvasStore: (
+    selector: (s: {
+      nodes: unknown
+      edges: unknown
+      analysisFreshness: { freshness: string } | null
+      analysisFreshnessDirty: boolean
+    }) => unknown,
+  ) =>
+    selector({
+      nodes: NODES,
+      edges: EDGES,
+      analysisFreshness: { freshness: mockFreshnessState().freshness },
+      analysisFreshnessDirty: mockAnalysisFreshnessDirty,
+    }),
 }))
 
 // Import AFTER the mock so the component uses the mocked store.
@@ -65,6 +78,7 @@ function expectNoLeakInDOM(): void {
 
 beforeEach(() => {
   cleanup()
+  mockAnalysisFreshnessDirty = false
   mockFreshnessState.mockReturnValue({
     freshness: 'unknown',
     reason: null,

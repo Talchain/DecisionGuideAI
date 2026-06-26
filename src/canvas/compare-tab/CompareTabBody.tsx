@@ -6,6 +6,7 @@
  */
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useCanvasStore } from '../store'
+import { classifyFreshnessForDisplay } from '../store/analysisFreshness'
 import { useAnalysisSnapshotStore, selectSnapshots } from '../stores/analysisSnapshotStore'
 import { useUIStore } from '../../stores/uiStore'
 import { deriveCompareState } from './deriveCompareState'
@@ -28,7 +29,13 @@ const EXPERT_STORAGE_KEY = 'feature.compareExpert'
 export function CompareTabBody({ onRunAnalysis }: CompareTabBodyProps) {
   // Snapshot data
   const snapshots = useAnalysisSnapshotStore(selectSnapshots)
-  const graphIsStale = useCanvasStore(s => s.graphEditedSinceLastRun)
+  // "Results outdated" must reflect the CEE freshness verdict + local dirty
+  // overlay (the shared display semantic being 'changed' — CEE 'stale' OR a
+  // retained-fresh-now-dirtied), NOT the local `graphEditedSinceLastRun` flag,
+  // which would independently fabricate a stale state.
+  const analysisFreshness = useCanvasStore(s => s.analysisFreshness)
+  const analysisFreshnessDirty = useCanvasStore(s => s.analysisFreshnessDirty)
+  const graphIsStale = classifyFreshnessForDisplay(analysisFreshness, analysisFreshnessDirty) === 'changed'
 
   // UI state
   const [preset, setPreset] = useState<RunPreset>('prev')

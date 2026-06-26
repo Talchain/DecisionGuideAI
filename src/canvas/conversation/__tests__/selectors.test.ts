@@ -33,7 +33,8 @@ function makeInput(overrides: Partial<ConversationStatusInput> = {}): Conversati
     nodeCount: 0,
     resultsStatus: 'idle',
     hasCompletedFirstRun: false,
-    graphEditedSinceLastRun: false,
+    analysisFreshness: null,
+    analysisFreshnessDirty: false,
     guidance: {
       guidanceItems: [],
       activeGuidanceItemId: null,
@@ -133,23 +134,23 @@ describe('selectConversationStatus', () => {
     expect(result.status).toBe('analysis_running')
   })
 
-  it('returns analysis_ready when complete and not stale', () => {
+  it('returns analysis_ready when complete and freshness is current', () => {
     const result = selectConversationStatus(makeInput({
       nodeCount: 3,
       resultsStatus: 'complete',
       hasCompletedFirstRun: true,
-      graphEditedSinceLastRun: false,
+      analysisFreshness: { freshness: 'fresh' },
     }))
     expect(result.status).toBe('analysis_ready')
     expect(result.ctaKind).toBe('view_results')
   })
 
-  it('returns analysis_stale when graph edited since last run', () => {
+  it('returns analysis_stale when the CEE freshness verdict is stale (changed)', () => {
     const result = selectConversationStatus(makeInput({
       nodeCount: 3,
       resultsStatus: 'complete',
       hasCompletedFirstRun: true,
-      graphEditedSinceLastRun: true,
+      analysisFreshness: { freshness: 'stale' },
     }))
     expect(result.status).toBe('analysis_stale')
     expect(result.ctaKind).toBe('view_results')
@@ -217,7 +218,7 @@ describe('selectConversationStatus', () => {
       nodeCount: 3,
       resultsStatus: 'complete',
       hasCompletedFirstRun: true,
-      graphEditedSinceLastRun: false,
+      analysisFreshness: { freshness: 'fresh' },
     })).ctaKind).toBe('view_results')
 
     // brief_ready → view_brief
@@ -233,63 +234,72 @@ describe('selectConversationStatus', () => {
     })).ctaKind).toBeNull()
   })
 
-  // P0 V5 golden-path repair (Wave 3 wiring): wire freshness wins over
-  // local edit signal. Pin the precedence so future changes don't drift
-  // back to local-only derivation.
-  describe('wire freshness precedence (Wave 3)', () => {
-    it('wireFreshness="stale" → analysis_stale even when local says no edits', () => {
+  // Single source of truth: staleness is the CEE freshness verdict + local dirty
+  // overlay via classifyFreshnessForDisplay (=== 'changed'). Pin the mapping so it
+  // never drifts back to independently deriving stale from graphEditedSinceLastRun.
+  describe('freshness classifier (single source)', () => {
+    it('CEE stale verdict → analysis_stale', () => {
       const result = selectConversationStatus(
         makeInput({
           nodeCount: 5,
           resultsStatus: 'complete',
           hasCompletedFirstRun: true,
-          graphEditedSinceLastRun: false,
-          wireFreshness: 'stale',
+          analysisFreshness: { freshness: 'stale' },
         }),
       )
       expect(result.status).toBe('analysis_stale')
     })
 
-    it('wireFreshness="fresh" → analysis_ready even when local says edited', () => {
-      // Pre-Wave-3, the local signal alone would have flagged this as
-      // stale. The wire is authoritative — the round-trip already
-      // absorbed the edit.
+    it('CEE fresh + clean → analysis_ready', () => {
       const result = selectConversationStatus(
         makeInput({
           nodeCount: 5,
           resultsStatus: 'complete',
           hasCompletedFirstRun: true,
-          graphEditedSinceLastRun: true,
-          wireFreshness: 'fresh',
+          analysisFreshness: { freshness: 'fresh' },
+          analysisFreshnessDirty: false,
         }),
       )
       expect(result.status).toBe('analysis_ready')
     })
 
-    it('wireFreshness="unknown" or absent → falls back to local edit signal', () => {
-      // Unknown is CEE saying "I couldn't decide". Local signal then
-      // takes over, preserving pre-Wave-3 behaviour for legacy turns.
-      const stale = selectConversationStatus(
+    it('CEE fresh downgraded by a local edit (dirty) → analysis_stale (changed)', () => {
+      // The dirty overlay correctly flags a model edited since the fresh verdict.
+      const result = selectConversationStatus(
         makeInput({
           nodeCount: 5,
           resultsStatus: 'complete',
           hasCompletedFirstRun: true,
-          graphEditedSinceLastRun: true,
-          wireFreshness: 'unknown',
+          analysisFreshness: { freshness: 'fresh' },
+          analysisFreshnessDirty: true,
         }),
       )
-      expect(stale.status).toBe('analysis_stale')
+      expect(result.status).toBe('analysis_stale')
+    })
 
-      const ready = selectConversationStatus(
+    it('CEE-sourced unknown (cannot-confirm) → analysis_ready, NOT analysis_stale (no fabrication)', () => {
+      const result = selectConversationStatus(
         makeInput({
           nodeCount: 5,
           resultsStatus: 'complete',
           hasCompletedFirstRun: true,
-          graphEditedSinceLastRun: false,
-          wireFreshness: null,
+          analysisFreshness: { freshness: 'unknown' },
+          analysisFreshnessDirty: true,
         }),
       )
-      expect(ready.status).toBe('analysis_ready')
+      expect(result.status).toBe('analysis_ready')
+    })
+
+    it('no freshness verdict + complete → analysis_ready', () => {
+      const result = selectConversationStatus(
+        makeInput({
+          nodeCount: 5,
+          resultsStatus: 'complete',
+          hasCompletedFirstRun: true,
+          analysisFreshness: null,
+        }),
+      )
+      expect(result.status).toBe('analysis_ready')
     })
   })
 })
