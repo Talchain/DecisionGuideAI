@@ -32,13 +32,13 @@ const EDGES = [
 // reads the `analysisFreshness` slice (+ dirty overlay) from the store and runs
 // the real `classifyFreshnessForDisplay`; the hint shows only on 'changed'
 // (CEE 'stale' OR a retained-fresh-now-dirtied). Default 'unknown' → no hint.
-import type { AnalysisFreshnessState } from '../../../lib/analysisFreshnessState'
+import type { AnalysisFreshnessValue } from '../../../canvas/store/analysisFreshness'
 
-const mockFreshnessState = vi.fn<[], AnalysisFreshnessState>(() => ({
+// Drives the CEE freshness slice the component actually reads
+// (analysisFreshness.freshness). The component runs the real
+// classifyFreshnessForDisplay over this.
+const mockFreshnessState = vi.fn<[], { freshness: AnalysisFreshnessValue }>(() => ({
   freshness: 'unknown',
-  reason: null,
-  recommendedAction: 'continue_editing',
-  inputsMissing: [],
 }))
 // Controls the dirty overlay (default clean; set true to exercise the
 // fresh→changed downgrade path).
@@ -79,12 +79,7 @@ function expectNoLeakInDOM(): void {
 beforeEach(() => {
   cleanup()
   mockAnalysisFreshnessDirty = false
-  mockFreshnessState.mockReturnValue({
-    freshness: 'unknown',
-    reason: null,
-    recommendedAction: 'continue_editing',
-    inputsMissing: [],
-  })
+  mockFreshnessState.mockReturnValue({ freshness: 'unknown' })
 })
 
 describe('V5GraphPatchBlock — clean receipt rendering', () => {
@@ -182,12 +177,7 @@ describe('V5GraphPatchBlock — clean receipt rendering', () => {
   })
 
   it('shows freshness hint when applied and prior analysis is now stale', () => {
-    mockFreshnessState.mockReturnValue({
-      freshness: 'stale',
-      reason: 'graph_hash_diverged',
-      recommendedAction: 'rerun_analysis',
-      inputsMissing: [],
-    })
+    mockFreshnessState.mockReturnValue({ freshness: 'stale' })
     const block: V5GraphPatchBlockType = {
       type: 'v5_graph_patch',
       status: 'applied',
@@ -205,12 +195,7 @@ describe('V5GraphPatchBlock — clean receipt rendering', () => {
 
   it('does NOT show freshness hint when freshness is fresh / none / unknown', () => {
     for (const freshness of ['fresh', 'none', 'unknown'] as const) {
-      mockFreshnessState.mockReturnValue({
-        freshness,
-        reason: null,
-        recommendedAction: freshness === 'fresh' ? 'view_results' : 'continue_editing',
-        inputsMissing: [],
-      })
+      mockFreshnessState.mockReturnValue({ freshness })
       const block: V5GraphPatchBlockType = {
         type: 'v5_graph_patch',
         status: 'applied',
@@ -226,12 +211,7 @@ describe('V5GraphPatchBlock — clean receipt rendering', () => {
   })
 
   it('does NOT show freshness hint on noop status (no impact change to surface)', () => {
-    mockFreshnessState.mockReturnValue({
-      freshness: 'stale',
-      reason: 'graph_hash_diverged',
-      recommendedAction: 'rerun_analysis',
-      inputsMissing: [],
-    })
+    mockFreshnessState.mockReturnValue({ freshness: 'stale' })
     const block: V5GraphPatchBlockType = {
       type: 'v5_graph_patch',
       status: 'noop',
@@ -419,17 +399,7 @@ describe('V5GraphPatchBlock — G2 freshness no-leak across all four verdicts', 
   it.each(FRESHNESS_VERDICTS)(
     'outerHTML stays clean when freshness verdict is "%s"',
     (verdict) => {
-      mockFreshnessState.mockReturnValue({
-        freshness: verdict,
-        reason: null,
-        recommendedAction:
-          verdict === 'stale'
-            ? 'rerun_analysis'
-            : verdict === 'fresh'
-              ? 'view_results'
-              : 'continue_editing',
-        inputsMissing: [],
-      })
+      mockFreshnessState.mockReturnValue({ freshness: verdict })
       const block: V5GraphPatchBlockType = {
         type: 'v5_graph_patch',
         status: 'applied',
@@ -447,12 +417,7 @@ describe('V5GraphPatchBlock — G2 freshness no-leak across all four verdicts', 
     // 'none' means no analysis has run yet — the receipt must not say
     // "out of date" / "rerun" / "analysis", which would imply prior
     // results the user could view.
-    mockFreshnessState.mockReturnValue({
-      freshness: 'none',
-      reason: 'no_options_yet',
-      recommendedAction: 'continue_editing',
-      inputsMissing: [],
-    })
+    mockFreshnessState.mockReturnValue({ freshness: 'none' })
     const block: V5GraphPatchBlockType = {
       type: 'v5_graph_patch',
       status: 'applied',
@@ -475,12 +440,7 @@ describe('V5GraphPatchBlock — G2 freshness no-leak across all four verdicts', 
   it('on freshness=unknown, the receipt avoids false certainty', () => {
     // 'unknown' means the verdict cannot be derived — the receipt must
     // not assert either "up to date" OR "out of date".
-    mockFreshnessState.mockReturnValue({
-      freshness: 'unknown',
-      reason: null,
-      recommendedAction: 'continue_editing',
-      inputsMissing: [],
-    })
+    mockFreshnessState.mockReturnValue({ freshness: 'unknown' })
     const block: V5GraphPatchBlockType = {
       type: 'v5_graph_patch',
       status: 'applied',

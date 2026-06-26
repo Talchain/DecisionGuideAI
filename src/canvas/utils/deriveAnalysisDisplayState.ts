@@ -80,10 +80,10 @@ function isExplicitNotReady(status: string | undefined): boolean {
  *      needs_user_input) → 'not_ready' even when a prior report exists.
  *   2. hasReport && !analysisChanged → 'complete'
  *      Works even when readiness is briefly absent (undefined / 'missing'),
- *      because a populated, current report stands on its own — readiness
- *      gating only matters before a successful run lands. (Includes the
- *      CEE-unknown 'cannot_confirm' case: 'Analysis complete' is a completion
- *      fact, not a freshness claim, so it is the correct neutral fallback.)
+ *      because a populated report stands on its own — readiness gating only
+ *      matters before a successful run lands. 'Analysis complete' is a completion
+ *      fact, not a currentness claim, so this is also the correct neutral
+ *      fallback for the CEE-unknown 'cannot_confirm' case (which is NOT 'changed').
  *   3. hasReport && analysisChanged → 'results_stale'
  *   4. ceeAnalysisReadyStatus === 'ready' (no report) → 'ready_to_analyse'
  *   5. else (no report, no readiness signal) → 'not_ready'

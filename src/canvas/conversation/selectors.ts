@@ -166,8 +166,8 @@ export function selectConversationStatus(input: ConversationStatusInput): Conver
     return { status: 'brief_ready', topGuidanceItem, guidanceCount, ctaKind: 'view_brief' }
   }
 
-  // Analysis completed — check staleness via the unified isStale signal
-  // above (wire freshness wins, local edit signal is fallback).
+  // Analysis completed — check staleness via the CEE-derived isStale signal
+  // above (classifyFreshnessForDisplay === 'changed'; no local-flag fallback).
   if (hasCompletedFirstRun && resultsStatus === 'complete') {
     if (isStale) {
       return { status: 'analysis_stale', topGuidanceItem, guidanceCount, ctaKind: 'view_results' }
