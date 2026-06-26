@@ -24,12 +24,14 @@
  */
 
 import { useEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
-import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, XCircle, MessageCircle, MessageSquare, CheckCircle } from 'lucide-react'
+import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, XCircle, MessageCircle, MessageSquare, CheckCircle } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource } from '../store'
+import { resolveDisplayedFreshness, classifyFreshnessForDisplay } from '../store/analysisFreshness'
+import { deriveResultsTabFreshness } from './resultsTabFreshness'
 import { typography, typo } from '../../styles/typography'
 import {
   trackCompareOpened,
@@ -49,7 +51,6 @@ import { dockHostsOlumi } from './olumiSurface'
 import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { focusFloating } from '../hooks/useFloatingFocus'
 import { isV5Eligible } from '../../v5/eligibility'
-import { useStaleGuard } from '../ui/inspector-v2/useStaleGuard'
 import { countFactorsToVerify } from './model-tab/utils'
 import { getGoalDirection } from '../utils/getObjectiveText'
 import { deriveVerdict } from '../utils/interpretOutcome'
@@ -576,9 +577,23 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     isPersistenceActive: _isPersistenceActive,
   } = useScenario()
 
-  // C.1b: Show stale banner whenever graph is edited after a completed run,
-  // regardless of whether Supabase persistence is active (canvas store is unconditional)
-  const analysisStale = useCanvasStore(s => s.graphEditedSinceLastRun)
+  // Results-surface staleness is driven by the CEE freshness slice (the single
+  // source of truth) via the same fresh→unknown dirty rule as AnalysisFreshnessNotice
+  // — NOT by the local `graphEditedSinceLastRun` flag, which fabricated 'stale' and
+  // could contradict the CEE-only notice (e.g. a validated patch + CEE 'fresh' showed
+  // "reflects the current model" alongside "may not reflect your current graph").
+  // The results may be outdated when the displayed verdict is 'stale' (CEE) or
+  // 'unknown' (cannot-confirm: a local edit downgraded a fresh verdict, or CEE
+  // could not determine freshness). 'fresh'/'none'/null → not stale.
+  const ceeFreshness = useCanvasStore(s => s.analysisFreshness)
+  const freshnessDirty = useCanvasStore(s => s.analysisFreshnessDirty)
+  const displayedFreshness = resolveDisplayedFreshness(ceeFreshness, freshnessDirty)
+  const analysisNotConfirmedFresh = displayedFreshness === 'stale' || displayedFreshness === 'unknown'
+  // Within the not-fresh window, distinguish a model that definitely CHANGED since
+  // the run (CEE 'stale' or a local edit that downgraded a retained 'fresh') from a
+  // CANNOT-CONFIRM state where CEE could not determine freshness — so the stale
+  // banner never claims "you've updated the model" for a CEE-sourced 'unknown'.
+  const analysisChangedSinceRun = classifyFreshnessForDisplay(ceeFreshness, freshnessDirty) === 'changed'
 
   // Build persistence object only when Supabase persistence is active
   const v2Persistence = useMemo<V2RunPersistence | undefined>(() => {
@@ -1403,10 +1418,19 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     window.addEventListener('mouseup', handleUp)
   }
 
-  // AI panel v2: stale-aware warning indicator on the Results tab label.
+  // AI panel v2: freshness indicator on the Results tab label. Driven by the CEE
+  // freshness verdict + local dirty overlay (displayedFreshness), NOT the legacy
+  // useStaleGuard graph-hash path (_internal.graphHash is never written, so its
+  // isStale can never fire and would contradict the CEE-derived Results state).
   // Strictly FF-gated — no behaviour change when FF_AI_PANEL_V2 is off.
-  const { isStale } = useStaleGuard()
-  const showResultsTabStaleWarning = isAiPanelV2Enabled() && isStale
+  //
+  // It MUST distinguish a genuine CEE 'stale' verdict (warning glyph + stale label)
+  // from the cannot-confirm overlay state ('unknown' — produced when local edits
+  // downgrade a retained 'fresh'), which gets a NEUTRAL glyph + neutral label,
+  // mirroring AnalysisFreshnessNotice. Rendering the stale glyph/label for
+  // cannot-confirm would fabricate 'stale', which the overlay never does.
+  const { reallyStale: resultsTabReallyStale, showIcon: showResultsTabFreshnessIcon } =
+    deriveResultsTabFreshness(isAiPanelV2Enabled(), displayedFreshness)
 
   // Task C: Panel coordination — hide OutputsDock when an overlay panel is active
   const activeRightPanel = useUIStore(s => s.activeRightPanel)
@@ -1500,14 +1524,22 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                       : undefined
                   }
                 >
-                  <span className={`inline-flex items-center gap-1${tab.id === 'results' && showResultsTabStaleWarning ? ' text-warning' : ''}`}>
+                  <span className={`inline-flex items-center gap-1${tab.id === 'results' && resultsTabReallyStale ? ' text-warning' : ''}`}>
                     {tab.label}
-                    {tab.id === 'results' && showResultsTabStaleWarning && (
-                      <AlertTriangle
-                        className="w-3 h-3 text-warning"
-                        aria-label="Analysis is stale"
-                        data-testid="results-tab-stale-icon"
-                      />
+                    {tab.id === 'results' && showResultsTabFreshnessIcon && (
+                      resultsTabReallyStale ? (
+                        <AlertTriangle
+                          className="w-3 h-3 text-warning"
+                          aria-label="Analysis is stale"
+                          data-testid="results-tab-stale-icon"
+                        />
+                      ) : (
+                        <HelpCircle
+                          className="w-3 h-3 text-text-light"
+                          aria-label="Cannot confirm whether this analysis is current."
+                          data-testid="results-tab-cannot-confirm-icon"
+                        />
+                      )
                     )}
                     {tab.id === 'diagnostics' && factorsToVerify > 0 && (
                       <span
@@ -1962,24 +1994,30 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     </span>
                   </div>
                 )}
-                {/* Brief 4 Task 13: top-level stale card.
-                    Full border-warning/30 + bg-warning/5; the results body
-                    below dims to 0.6 so the user sees stale data but can't
-                    miss that it's stale. Scroll and selection remain usable
-                    (no pointer-events:none) — only mutation affordances are
-                    disabled inside ResultsBody via aria-disabled. */}
-                {analysisStale && !isError && report && (
+                {/* Brief 4 Task 13: top-level "results may be outdated" card.
+                    Shows when the analysis is not confirmed-fresh; the results body
+                    below dims to 0.6 so the user can't miss it. Scroll and selection
+                    remain usable (no pointer-events:none) — only mutation affordances
+                    are disabled inside ResultsBody via aria-disabled.
+                    Header copy distinguishes a model that definitely CHANGED since the
+                    run (CEE 'stale' or a local edit) from a CANNOT-CONFIRM state (CEE
+                    could not determine freshness) — the latter must not claim the user
+                    edited the model. */}
+                {analysisNotConfirmedFresh && !isError && report && (
                   <div
                     className="px-3 py-2.5 rounded-lg border border-warning/30"
                     style={{ backgroundColor: 'rgb(255 166 86 / 0.05)' }}
                     role="status"
                     data-testid="graph-stale-banner"
+                    data-banner-variant={analysisChangedSinceRun ? 'changed' : 'cannot-confirm'}
                   >
                     <div className="flex items-start gap-2">
                       <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-1" aria-hidden="true" />
                       <div className="flex-1 min-w-0">
                         <p className={`${typography.panelHeader} text-text-header`}>
-                          You've updated the model since this analysis ran
+                          {analysisChangedSinceRun
+                            ? "You've updated the model since this analysis ran"
+                            : "Can't confirm this analysis is current"}
                         </p>
                         <p className={`${typography.panelBody} text-text-light`}>
                           Results may not reflect your current graph.
@@ -2020,8 +2058,8 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     ====================================================================== */}
                 {!isPreRun && hasInlineSummary && resultsSectionData && (
                   <div
-                    style={{ opacity: analysisStale && !isError ? 0.6 : 1 }}
-                    aria-disabled={analysisStale && !isError ? true : undefined}
+                    style={{ opacity: analysisNotConfirmedFresh && !isError ? 0.6 : 1 }}
+                    aria-disabled={analysisNotConfirmedFresh && !isError ? true : undefined}
                     data-testid="results-body-stale-wrapper"
                   >
                   <ResultsBody
@@ -2060,7 +2098,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     onSetFactorValue={handleTriageSetValue}
                     expertMode={expertMode}
                     nodeValueLookup={nodeValueLookup}
-                    isStale={analysisStale && !isError}
+                    isStale={analysisNotConfirmedFresh && !isError}
                   />
                   </div>
                 )}

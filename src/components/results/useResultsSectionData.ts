@@ -1370,8 +1370,17 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       winProbability,
       // Task 1.4: How winner was determined
       determinedBy,
-      // Task 1.5: Robustness level and label
+      // Task 1.5: Robustness level and label. `robustnessLevel` is STRUCTURED
+      // DATA (PLoT report.robustness.level, or the UI-SEM-005 fallback) — kept for
+      // qualified/detailed display, NOT for the binary glyph.
       robustnessLevel,
+      // Display-safe robustness verdict for the Robust/Sensitive glyph. PLoT
+      // `report.robustness.level` is deliberately NOT a display-safe verdict
+      // (PLoT-level semantics are not contractually safe to binarise), so it must
+      // not drive the glyph. No display-safe robustness field exists in the
+      // CEE/UI contract today → always undefined → glyph renders "Robustness
+      // unknown". See ROBUSTNESS-VERDICT-CONTRACT follow-up.
+      robustnessVerdict: undefined,
       robustnessLabel,
       // Task 1.7: Goal text from framing
       goalText,

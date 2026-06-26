@@ -16,7 +16,8 @@ import Tooltip from '@/components/Tooltip'
 import { TriageHealthHeader } from '@/components/shared/TriageHealthHeader'
 import type { DecisionHealthRingDimensions } from '@/components/shared/DecisionHealthRing'
 import { HeroQualifier } from './HeroQualifier'
-import { useAnalysisFreshnessState } from '@/lib/useAnalysisFreshnessState'
+import { useCanvasStore } from '@/canvas/store'
+import { resolveDisplayedFreshness } from '@/canvas/store/analysisFreshness'
 import { buildCertaintyCopy } from './utils/certaintyCopy'
 import { typography } from '@/styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
@@ -92,11 +93,17 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   onSendMessage,
   aiAffordance,
 }: DecisionConfidencePanelProps) {
-  // P0 V5 golden-path repair (Wave 3 wiring, third-round follow-up):
-  // single-source freshness verdict consumed by HeroQualifier alongside
-  // completeness reasons and dimension scores. Stale wire freshness
-  // wins above the other two qualifier sources.
-  const freshnessState = useAnalysisFreshnessState()
+  // Freshness for the hero qualifier comes from the CEE-only freshness slice
+  // (the single source of truth), routed through the same display rule as the
+  // AnalysisFreshnessNotice. This deliberately replaces the legacy
+  // useAnalysisFreshnessState path, which fabricated 'stale' from a local edit
+  // signal — the UI must never fabricate 'stale', and a fabricated stale qualifier
+  // contradicted the CEE-only notice. The hero now surfaces ONLY a genuine CEE
+  // 'stale' verdict (resolveDisplayedFreshness can only ever downgrade fresh→unknown,
+  // never invent stale).
+  const ceeFreshness = useCanvasStore((s) => s.analysisFreshness)
+  const freshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
+  const displayedFreshness = resolveDisplayedFreshness(ceeFreshness, freshnessDirty)
 
   // Audit B3 (P0): visible auto-noise disclosure marker. Renders only when
   // PLoT explicitly emitted `applied=true` with a provisional calibration
@@ -290,24 +297,17 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
           ringCaption={hasWinProbability ? 'win probability' : undefined}
           secondaryIndicator={stabilityIndicator}
           qualifier={
-            // P0 V5 golden-path repair:
-            //   Wave 3 (third-round follow-up): pass `freshness` and
-            //     `freshnessReason` from `useAnalysisFreshnessState`
-            //     so a stale CEE verdict surfaces ahead of completeness
-            //     and dimension qualifiers. Stale results are the
-            //     highest-impact warning the panel can give.
-            //   Wave 4: pass `completenessReasons` alongside dimensions.
-            //     Partial source data is more critical than a low
-            //     evidence dimension.
-            //   Existing: dimensions remain the lowest-priority qualifier.
+            // Qualifier precedence: a genuine CEE 'stale' verdict is the
+            // highest-impact warning, then completeness reasons, then dimensions.
+            // Freshness is the CEE-only verdict (never a fabricated local stale).
             readinessDimensions ||
             (data.completeness?.reasons?.length ?? 0) > 0 ||
-            freshnessState.freshness === 'stale' ? (
+            displayedFreshness === 'stale' ? (
               <HeroQualifier
                 dimensions={readinessDimensions}
                 completenessReasons={data.completeness?.reasons}
-                freshness={freshnessState.freshness}
-                freshnessReason={freshnessState.reason}
+                freshness={displayedFreshness ?? undefined}
+                freshnessReason={ceeFreshness?.freshnessReason}
               />
             ) : undefined
           }

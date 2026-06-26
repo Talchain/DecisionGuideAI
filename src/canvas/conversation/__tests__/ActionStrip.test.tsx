@@ -45,7 +45,8 @@ beforeEach(() => {
     nodes: [{ id: 'n1', position: { x: 0, y: 0 }, data: {} }] as any,
     results: { status: 'idle', progress: 0 },
     hasCompletedFirstRun: false,
-    graphEditedSinceLastRun: false,
+    analysisFreshness: null,
+    analysisFreshnessDirty: false,
   })
 })
 
@@ -130,12 +131,13 @@ describe('ActionStrip', () => {
     expect(screen.getByTestId('action-strip-badge')).toHaveTextContent('Analysing\u2026')
   })
 
-  it('state badge shows "Results outdated" when stale', () => {
+  it('state badge shows "Results outdated" when the CEE freshness verdict is stale (changed)', () => {
     useGuidanceStore.getState().setGuidanceItems([makeItem()])
     useCanvasStore.setState({
       results: { status: 'complete', progress: 100 },
       hasCompletedFirstRun: true,
-      graphEditedSinceLastRun: true,
+      analysisFreshness: { freshness: 'stale' } as any,
+      analysisFreshnessDirty: false,
     })
 
     render(

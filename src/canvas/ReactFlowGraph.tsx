@@ -49,6 +49,7 @@ import { useOnboarding } from './onboarding/useOnboarding'
 import { useCanvasKeyboardShortcuts } from './hooks/useCanvasKeyboardShortcuts'
 import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
+import { commitTemplateGraphReplace } from './blueprints/commitTemplateGraph'
 import { InfluenceExplainer, useInfluenceExplainer } from '../components/assistants/InfluenceExplainer'
 // DraftChat is mounted directly below (FF off path); the aiPanelV2
 // floating-first host is mounted as a sibling when the flag is on.
@@ -1202,14 +1203,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       }
     })
 
-    // Batch update store - REPLACE existing graph, not merge
-    // This matches the user expectation from "Start from Template" confirmation
-    const store = useCanvasStore.getState()
-    store.pushHistory()
-    useCanvasStore.setState(() => ({
-      nodes: newNodes,
-      edges: newEdges
-    }))
+    // Batch update store — REPLACE existing graph, not merge (matches the "Start
+    // from Template" confirmation). commitTemplateGraphReplace pushes one history
+    // frame, replaces the graph, AND marks the freshness overlay dirty — a retained
+    // CEE 'fresh' verdict must not survive starting-from / replacing-with a template.
+    // Covers handleConfirmReplace too (it calls insertBlueprint after pruning).
+    commitTemplateGraphReplace(newNodes, newEdges)
 
     showToast(`Started from "${blueprint.name}" template.`, 'success')
 

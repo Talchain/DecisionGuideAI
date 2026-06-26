@@ -97,6 +97,11 @@ function makeData(opts: FixtureOpts = { withFragile: true, withDominant: true, w
     analysisStatus: 'computed',
     recommendationStability: 0.92,
     robustnessLevel: 'high',
+    // Display-safe verdict drives the Robust/Sensitive glyph (production never
+    // populates this from PLoT — set here so this rendered-HTML regression guard
+    // keeps exercising the populated "Robust" glyph; see the provenance test in
+    // useResultsSectionData.spec.ts).
+    robustnessVerdict: 'high',
     coachingReadiness: 'ready',
     coachingReadinessDimensions: { evidence: 0.8, robustness: 0.75, clarity: 0.85 },
   } as DecisionResultData

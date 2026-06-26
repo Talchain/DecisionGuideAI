@@ -22,6 +22,8 @@ const mockSetCeeQuality = vi.fn()
 const mockSetGoalConstraints = vi.fn()
 const mockSetDraftCoaching = vi.fn()
 const mockSetPreAnalysisSensitivity = vi.fn()
+const mockMarkAnalysisFreshnessDirty = vi.fn()
+const mockSetAnalysisFreshness = vi.fn()
 
 let storeNodes: any[] = []
 let storeEdges: any[] = []
@@ -39,6 +41,8 @@ vi.mock('../../store', () => ({
         setPendingLayout: mockSetPendingLayout,
         setOutcomeNode: mockSetOutcomeNode,
         setCeeAnalysisReady: mockSetCeeAnalysisReady,
+        markAnalysisFreshnessDirty: mockMarkAnalysisFreshnessDirty,
+        setAnalysisFreshness: mockSetAnalysisFreshness,
         setCeePipelineTrace: mockSetCeePipelineTrace,
         setCeeQuality: mockSetCeeQuality,
         setGoalConstraints: mockSetGoalConstraints,
@@ -192,6 +196,35 @@ describe('applyDraftResult', () => {
 
     applyDraftResult(draftData)
     expect(mockSetCeeAnalysisReady).toHaveBeenCalledWith(draftData.analysis_ready)
+  })
+
+  it('marks the freshness overlay dirty on the draft graph replace (no false-fresh)', () => {
+    const draftData = {
+      nodes: [{ id: 'g1', kind: 'goal', label: 'Revenue' }],
+      edges: [],
+    } as any
+    applyDraftResult(draftData)
+    // Draft replaces the graph via bare setState (bypasses the edit chokepoints),
+    // so the overlay must be marked dirty — a draft after a fresh analysis must not
+    // keep showing 'fresh'.
+    expect(mockMarkAnalysisFreshnessDirty).toHaveBeenCalled()
+  })
+
+  it('routes the draft analysis_ready through the freshness reducer', () => {
+    const draftData = {
+      nodes: [{ id: 'g1', kind: 'goal', label: 'Revenue' }],
+      edges: [],
+      analysis_ready: {
+        options: [{ id: 'o1', status: 'ready', interventions: {} }],
+        goal_node_id: 'g1',
+        status: 'ready',
+        // no `freshness` — a draft is readiness, not a run; reducer degrades to unknown
+      },
+    } as any
+    applyDraftResult(draftData)
+    // The patch's analysis_ready is routed to the freshness reducer (not just
+    // setCeeAnalysisReady), carrying the same payload so a stale 'fresh' can't survive.
+    expect(mockSetAnalysisFreshness).toHaveBeenCalledWith(draftData.analysis_ready)
   })
 
   it('returns zero counts for empty graph', () => {

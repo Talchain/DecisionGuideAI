@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import type { Node, Edge } from '@xyflow/react'
 import { Search, Layout } from 'lucide-react'
 import { plot, adapterName } from '../../adapters/plot'
 import { typography } from '../../styles/typography'
@@ -17,6 +18,7 @@ import { PanelShell } from './_shared/PanelShell'
 import { coerceNodes, toUiKind, type BackendNode } from '../adapters/backendKinds'
 import { PanelSection } from './_shared/PanelSection'
 import { useCanvasStore } from '../store'
+import { commitGraphMutation } from '../mutations/commitGraphMutation'
 import { createScenario, saveScenarios, loadScenarios, setCurrentScenarioId } from '../store/scenarios'
 import { TemplateSkeleton } from '../components/TemplateSkeleton'
 import { trackRunAttempt } from '../utils/sandboxTelemetry'
@@ -324,9 +326,10 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         }
       })
 
-      // Directly append to store
-      state.pushHistory()
-      useCanvasStore.setState(currentState => ({
+      // Directly append to store via the shared graph-mutation commit so this
+      // analysis-affecting structural change dirties the freshness overlay
+      // (a bare setState would leave a retained CEE 'fresh' verdict falsely intact).
+      commitGraphMutation(currentState => ({
         nodes: [...currentState.nodes, ...newNodes],
         edges: [...currentState.edges, ...newEdges]
       }))
@@ -505,9 +508,10 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         }
       })
 
-      // Directly append to store bypassing existing template check
-      state.pushHistory()
-      useCanvasStore.setState(currentState => ({
+      // Directly append to store (bypassing existing-template check) via the
+      // shared graph-mutation commit so this analysis-affecting structural change
+      // dirties the freshness overlay rather than leaving a retained 'fresh' verdict.
+      commitGraphMutation(currentState => ({
         nodes: [...currentState.nodes, ...newNodes],
         edges: [...currentState.edges, ...newEdges]
       }))

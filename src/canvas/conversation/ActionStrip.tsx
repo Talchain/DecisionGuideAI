@@ -72,13 +72,12 @@ export function ActionStrip({ messages, patchBlockStates, onNavigate }: ActionSt
   const nodeCount = useCanvasStore((s) => s.nodes.length)
   const resultsStatus = useCanvasStore((s) => s.results.status)
   const hasCompletedFirstRun = useCanvasStore((s) => s.hasCompletedFirstRun)
-  const graphEditedSinceLastRun = useCanvasStore((s) => s.graphEditedSinceLastRun)
-  // P0 V5 golden-path repair (Wave 3 wiring): wire freshness signal
-  // from the most recent CEE turn. When present, takes precedence over
-  // the local edit signal so this surface stays in sync with whatever
-  // the wire said — eliminating the multi-surface drift the brief
-  // flagged.
-  const wireFreshness = useCanvasStore((s) => s.ceeAnalysisReady?.freshness ?? null)
+  // Freshness comes from the CEE slice + local dirty overlay (the shared display
+  // semantic), NOT the dead/local `graphEditedSinceLastRun` flag — so the
+  // "Results outdated" badge stays in sync with the rest of the analysis trust
+  // surface and never independently fabricates stale.
+  const analysisFreshness = useCanvasStore((s) => s.analysisFreshness)
+  const analysisFreshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
   const guidanceItems = useGuidanceStore((s) => s.guidanceItems)
   const activeGuidanceItemId = useGuidanceStore((s) => s.activeGuidanceItemId)
 
@@ -87,12 +86,12 @@ export function ActionStrip({ messages, patchBlockStates, onNavigate }: ActionSt
     nodeCount,
     resultsStatus,
     hasCompletedFirstRun,
-    graphEditedSinceLastRun,
-    wireFreshness,
+    analysisFreshness,
+    analysisFreshnessDirty,
     guidance: { guidanceItems, activeGuidanceItemId, _sendMessage: null, _scrollToPatch: null },
     messages,
     patchBlockStates,
-  }), [nodeCount, resultsStatus, hasCompletedFirstRun, graphEditedSinceLastRun, wireFreshness, guidanceItems, activeGuidanceItemId, messages, patchBlockStates])
+  }), [nodeCount, resultsStatus, hasCompletedFirstRun, analysisFreshness, analysisFreshnessDirty, guidanceItems, activeGuidanceItemId, messages, patchBlockStates])
 
   const { status, topGuidanceItem, guidanceCount, ctaKind } = useMemo(
     () => selectConversationStatus(input),

@@ -10,7 +10,7 @@ function makeInput(
   return {
     ceeAnalysisReadyStatus: undefined,
     hasReport: false,
-    graphEditedSinceLastRun: false,
+    analysisChanged: false,
     ...overrides,
   }
 }
@@ -30,12 +30,12 @@ describe('deriveAnalysisDisplayState', () => {
   })
 
   describe('complete', () => {
-    it('CEE ready + hasReport && !graphEditedSinceLastRun → complete', () => {
+    it('CEE ready + hasReport && !analysisChanged → complete', () => {
       const view = deriveAnalysisDisplayState(
         makeInput({
           ceeAnalysisReadyStatus: 'ready',
           hasReport: true,
-          graphEditedSinceLastRun: false,
+          analysisChanged: false,
         }),
       )
       expect(view.state).toBe('complete')
@@ -47,12 +47,12 @@ describe('deriveAnalysisDisplayState', () => {
   })
 
   describe('results_stale', () => {
-    it('CEE ready + hasReport && graphEditedSinceLastRun → results_stale', () => {
+    it('CEE ready + hasReport && analysisChanged → results_stale', () => {
       const view = deriveAnalysisDisplayState(
         makeInput({
           ceeAnalysisReadyStatus: 'ready',
           hasReport: true,
-          graphEditedSinceLastRun: true,
+          analysisChanged: true,
         }),
       )
       expect(view.state).toBe('results_stale')
@@ -91,7 +91,7 @@ describe('deriveAnalysisDisplayState', () => {
             makeInput({
               ceeAnalysisReadyStatus: status,
               hasReport: true,
-              graphEditedSinceLastRun: stale,
+              analysisChanged: stale,
             }),
           )
           expect(view.state).toBe('not_ready')
@@ -121,7 +121,7 @@ describe('deriveAnalysisDisplayState', () => {
         makeInput({
           ceeAnalysisReadyStatus: undefined,
           hasReport: true,
-          graphEditedSinceLastRun: false,
+          analysisChanged: false,
         }),
       )
       expect(view.state).toBe('complete')
@@ -133,7 +133,7 @@ describe('deriveAnalysisDisplayState', () => {
         makeInput({
           ceeAnalysisReadyStatus: 'missing',
           hasReport: true,
-          graphEditedSinceLastRun: false,
+          analysisChanged: false,
         }),
       )
       expect(view.state).toBe('complete')
@@ -144,7 +144,7 @@ describe('deriveAnalysisDisplayState', () => {
         makeInput({
           ceeAnalysisReadyStatus: undefined,
           hasReport: true,
-          graphEditedSinceLastRun: true,
+          analysisChanged: true,
         }),
       )
       expect(view.state).toBe('results_stale')
@@ -157,7 +157,7 @@ describe('deriveAnalysisDisplayState', () => {
         makeInput({
           ceeAnalysisReadyStatus: 'some_future_value',
           hasReport: true,
-          graphEditedSinceLastRun: false,
+          analysisChanged: false,
         }),
       )
       expect(view.state).toBe('complete')
@@ -175,7 +175,7 @@ describe('deriveAnalysisDisplayState', () => {
         makeInput({
           ceeAnalysisReadyStatus: 'ready',
           hasReport: false,
-          graphEditedSinceLastRun: false,
+          analysisChanged: false,
         }),
       )
       expect(view.state).toBe('ready_to_analyse')
@@ -188,7 +188,7 @@ describe('deriveAnalysisDisplayState', () => {
         makeInput({
           ceeAnalysisReadyStatus: undefined,
           hasReport: false,
-          graphEditedSinceLastRun: false,
+          analysisChanged: false,
         }),
       )
       expect(view.state).toBe('not_ready')
@@ -205,7 +205,7 @@ describe('deriveAnalysisDisplayState', () => {
         makeInput({
           ceeAnalysisReadyStatus: 'ready',
           hasReport: true,
-          graphEditedSinceLastRun: false,
+          analysisChanged: false,
         }),
       )
       expect(before.state).toBe('ready_to_analyse')
@@ -217,14 +217,14 @@ describe('deriveAnalysisDisplayState', () => {
         makeInput({
           ceeAnalysisReadyStatus: 'ready',
           hasReport: true,
-          graphEditedSinceLastRun: false,
+          analysisChanged: false,
         }),
       )
       const after = deriveAnalysisDisplayState(
         makeInput({
           ceeAnalysisReadyStatus: 'ready',
           hasReport: true,
-          graphEditedSinceLastRun: true,
+          analysisChanged: true,
         }),
       )
       expect(before.state).toBe('complete')
@@ -236,14 +236,14 @@ describe('deriveAnalysisDisplayState', () => {
         makeInput({
           ceeAnalysisReadyStatus: 'ready',
           hasReport: true,
-          graphEditedSinceLastRun: false,
+          analysisChanged: false,
         }),
       )
       const after = deriveAnalysisDisplayState(
         makeInput({
           ceeAnalysisReadyStatus: 'needs_user_mapping',
           hasReport: true,
-          graphEditedSinceLastRun: true,
+          analysisChanged: true,
         }),
       )
       expect(before.state).toBe('complete')

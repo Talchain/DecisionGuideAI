@@ -5,6 +5,7 @@ import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportC
 import { setsEqual, mapsEqual } from './store/utils'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS, type EdgeData } from './domain/edges'
 import { NODE_REGISTRY, type NodeType, type NodeData } from './domain/nodes'
+import { hasAnalyticalNodeChange, hasAnalyticalEdgeChange } from './domain/analyticalChange'
 import { applyLayout, applyLayoutWithPolicy } from './layout'
 import { mergePolicy } from './layout/policy'
 import { policyToPreset, policyToSpacing } from './layout/adapters'
@@ -14,6 +15,7 @@ import type { V2RunResponse } from '../adapters/plot/v2/types'
 import type { PLoTEnrichment } from '../adapters/plot/enrichment'
 import { trackResultsViewed, trackIssuesOpened } from './utils/sandboxTelemetry'
 import { addRun, generateGraphHash, loadRuns, type StoredRun } from './store/runHistory'
+import { deriveAnalysisFreshnessUpdate, type AnalysisFreshnessState } from './store/analysisFreshness'
 import * as scenarios from './store/scenarios'
 import type { ScenarioFraming } from './store/scenarios'
 import type { GraphHealth, ValidationIssue, NeedleMover } from './validation/types'
@@ -381,6 +383,15 @@ interface CanvasState {
   // CEE V3: analysis_ready payload from last draft
   // Used by useV2Run to build requests with resolved interventions
   ceeAnalysisReady: CEEAnalysisReady | null
+  // Analysis freshness verdict from CEE analysis_ready.freshness — retained
+  // across turns; sourced independently of ceeAnalysisReady / v5AnalysisFact.
+  analysisFreshness: AnalysisFreshnessState | null
+  // Local dirty overlay: set true by an analysis-affecting local edit (reusing
+  // the existing invalidateAnalysisReady / delete / undo-redo recognition), so the
+  // UI can downgrade a retained CEE 'fresh' verdict to cannot-confirm WITHOUT
+  // fabricating 'stale'. Cleared when a new analysis_ready arrives or on
+  // scenario switch/load/import/reset. NOT a graph hash; see analysisFreshness.ts.
+  analysisFreshnessDirty: boolean
   // CEE coaching payload from last /assist/v1/draft-graph response (build a555cf7b+).
   // Session-local — never persisted; cleared on new draft start and scenario reset.
   draftCoaching: CEEDraftCoaching | null
@@ -566,7 +577,7 @@ interface CanvasState {
   // Outcome node
   setOutcomeNode: (nodeId: string | null) => void
   // Goal threshold for probability_of_goal
-  setGoalThreshold: (threshold: number | null) => void
+  setGoalThreshold: (threshold: number | null, opts?: { fromCeeSync?: boolean }) => void
   /** Unified threshold + node data update. Prefer over calling setGoalThreshold + updateNode separately. */
   setGoalThresholdAndUpdateNode: (goalNodeId: string, value: number | null) => void
   // Results actions
@@ -638,6 +649,12 @@ interface CanvasState {
    * no-analysis / orphan / reset states.
    */
   setV5AnalysisFact: (fact: V5AnalysisFactState | null) => void
+  /** Update the freshness slice from a raw response.analysis_ready (retain / order-by-computed_at / never absence→fresh). */
+  setAnalysisFreshness: (rawAnalysisReady: unknown) => void
+  /** Public dirty-overlay setter for external graph mutators (e.g. accepted CEE graph patches) that bypass the internal edit chokepoints. */
+  markAnalysisFreshnessDirty: () => void
+  /** Clear the dirty overlay when a genuinely new analysis run completes (reliable run identity, e.g. a new analysis_result response_hash). */
+  clearAnalysisFreshnessDirty: () => void
   setDraftCoaching: (coaching: CEEDraftCoaching | null) => void
   setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => void
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => void
@@ -959,11 +976,36 @@ function logConstraintClearIfPresent(
   }
 }
 
+/**
+ * Set the local freshness dirty overlay. Idempotent — only writes (and so only
+ * triggers a re-render) on the false→true transition. Called from the proven
+ * analysis-affecting edit recognition (invalidateAnalysisReady, the delete
+ * chokepoints, setOutcomeNode/setGoalThreshold) and via the public store action
+ * for external mutators — never an independent edit detector. (undo/redo/undoDraft
+ * set the flag INLINE in their atomic graph-swap set(), not through this helper.)
+ * The display rule (resolveDisplayedFreshness) uses it only to downgrade a
+ * retained 'fresh' verdict to cannot-confirm; it never fabricates 'stale'.
+ */
+function markAnalysisFreshnessDirty(
+  get: () => CanvasState,
+  set: (fn: (s: CanvasState) => Partial<CanvasState>) => void,
+) {
+  if (!get().analysisFreshnessDirty) {
+    set(() => ({ analysisFreshnessDirty: true }))
+  }
+}
+
 function invalidateAnalysisReady(
   get: () => CanvasState,
   set: (fn: (s: CanvasState) => Partial<CanvasState>) => void,
   reason?: string
 ) {
+  // Local dirty overlay: every analysis-affecting edit that reaches this
+  // invalidation marks the retained CEE freshness verdict as no-longer-
+  // confirmable. Set unconditionally (independent of whether ceeAnalysisReady is
+  // currently present) — the display rule only acts on a retained 'fresh'
+  // verdict, and a new analysis_ready clears the overlay.
+  markAnalysisFreshnessDirty(get, set)
   const { ceeAnalysisReady } = get()
   if (ceeAnalysisReady) {
     if (import.meta.env.DEV) {
@@ -986,6 +1028,11 @@ function maybeInvalidateOnNodeDelete(
   set: (fn: (s: CanvasState) => Partial<CanvasState>) => void,
   deletedNodeIds: string[]
 ): boolean {
+  // Dirty overlay fires on ANY structural node removal (taxonomy: "structural
+  // node remove"), not just the critical subset that clears ceeAnalysisReady.
+  // This only sets the dirty flag — it deliberately does NOT widen the existing
+  // critical-gating of ceeAnalysisReady invalidation.
+  if (deletedNodeIds.length > 0) markAnalysisFreshnessDirty(get, set)
   const { ceeAnalysisReady } = get()
   if (shouldInvalidateOnNodeDelete(deletedNodeIds, ceeAnalysisReady)) {
     invalidateAnalysisReady(get, set, `Deleted critical node(s): ${deletedNodeIds.join(', ')}`)
@@ -1018,6 +1065,9 @@ function maybeInvalidateOnEdgeDelete(
   set: (fn: (s: CanvasState) => Partial<CanvasState>) => void,
   edge: { source: string; target: string }
 ): boolean {
+  // Dirty overlay fires on ANY structural edge removal (taxonomy: "structural
+  // edge remove"), not just edges touching the critical subset.
+  markAnalysisFreshnessDirty(get, set)
   const { ceeAnalysisReady } = get()
   if (shouldInvalidateOnEdgeDelete(edge, ceeAnalysisReady)) {
     invalidateAnalysisReady(get, set, `Deleted edge connecting critical nodes: ${edge.source} → ${edge.target}`)
@@ -1026,63 +1076,11 @@ function maybeInvalidateOnEdgeDelete(
   return false
 }
 
-/**
- * Detect whether an edge update touches analytically meaningful fields.
- * Used to decide if ceeAnalysisReady should be invalidated.
- */
-function hasAnalyticalEdgeChange(
-  oldEdge: Edge<EdgeData>,
-  updates: Partial<Edge<EdgeData>>,
-): boolean {
-  // Top-level endpoint changes (defence-in-depth; primary path is updateEdgeEndpoints)
-  if (updates.source !== undefined && updates.source !== oldEdge.source) return true
-  if (updates.target !== undefined && updates.target !== oldEdge.target) return true
-
-  const oldData = oldEdge.data ?? {}
-  const newData = updates.data
-  if (!newData) return false
-
-  const ANALYTICAL_EDGE_FIELDS = [
-    'weight', 'direction', 'strengthStd',
-    'confidence', 'beliefExists', 'beliefStrength', 'belief',
-    'exists_probability',
-  ] as const
-
-  for (const field of ANALYTICAL_EDGE_FIELDS) {
-    if (field in newData && (newData as Record<string, unknown>)[field] !== (oldData as Record<string, unknown>)[field]) {
-      return true
-    }
-  }
-  return false
-}
-
-/**
- * Detect whether a node update touches analytically meaningful fields.
- * Checks both node-level fields (type/kind) and data-level fields.
- */
-function hasAnalyticalNodeChange(
-  oldNode: Node,
-  updates: Partial<Node>,
-): boolean {
-  // Node-level: kind change (ReactFlow type field)
-  if (updates.type !== undefined && updates.type !== oldNode.type) return true
-
-  const oldData = (oldNode.data ?? {}) as Record<string, unknown>
-  const newData = updates.data as Record<string, unknown> | undefined
-  if (!newData) return false
-
-  const ANALYTICAL_NODE_DATA_FIELDS = [
-    'observedState', 'interventions', 'is_baseline',
-    'prior', 'kind', 'success_threshold', 'goalThreshold',
-  ] as const
-
-  for (const field of ANALYTICAL_NODE_DATA_FIELDS) {
-    if (field in newData && newData[field] !== oldData[field]) {
-      return true
-    }
-  }
-  return false
-}
+// hasAnalyticalEdgeChange / hasAnalyticalNodeChange — the "is this graph edit
+// analysis-affecting?" taxonomy now lives in domain/analyticalChange.ts so the
+// store edit chokepoints (updateNode/updateEdge) and the raw patch-apply path
+// (applyAutoApplyPatch) share ONE definition with SEMANTIC (by-value) comparison.
+// Imported at the top of this module.
 
 function getMaxNumericId(ids: string[]): number {
   return ids.reduce((max, id) => {
@@ -1228,6 +1226,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
   // CEE V3: analysis_ready payload
   ceeAnalysisReady: null,
+  // Freshness verdict — null until CEE emits analysis_ready (UI shows nothing).
+  analysisFreshness: null,
+  // Local dirty overlay — false at cold start (no edits to invalidate a verdict).
+  analysisFreshnessDirty: false,
   ceeAnalysisReadyNodeIds: null,
   // V5 canonical analysis fact (v5-canonical-analysis brief)
   v5AnalysisFact: null,
@@ -1436,6 +1438,14 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
     pushToHistory(get, set, label ?? `Batch updated ${changedCount} node${changedCount !== 1 ? 's' : ''}`)
     set(() => ({ nodes: nextNodes }))
+    // NOTE (freshness overlay): batchUpdateNodes is, today, exclusively the CEE
+    // intervention-backfill producer (applyDraftResult / mirrorAnalysisReady). It
+    // writes CEE's OWN analysis_ready data back onto option nodes for consistency
+    // — NOT a user model edit — so it must NOT dirty/invalidate the freshness
+    // verdict it was just ingested with (doing so wiped a fresh verdict). The
+    // producer's real model change (the graph replace) is dirtied by
+    // applyDraftResult/DraftChat. A future user-edit caller must route through
+    // updateNode (gated by hasAnalyticalNodeChange) rather than dirtying here.
     return { updatedCount: changedCount }
   },
 
@@ -1572,12 +1582,23 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Guard no-op changes
     if (!changes || changes.length === 0) return
 
-    // Note: Edge changes do NOT invalidate ceeAnalysisReady
-    // Only deletion of critical nodes (goal, option, intervention targets) invalidates
-    // Causal path validation is handled separately by usePreRunValidation
-
     const isSelectOnly = changes.every(c => c.type === 'select')
     const hasSelectChange = changes.some(c => c.type === 'select')
+
+    // Edge removals via React Flow's built-in delete (default deleteKeyCode =
+    // Backspace/Delete) reach the store ONLY through this handler — they never go
+    // through deleteEdgeById / deleteSelected. Route the removed edges through the
+    // edge-delete chokepoint so they mark the freshness overlay dirty (and
+    // invalidate readiness for critical edges), matching every other edge-delete
+    // path. Resolve the removed edges from the PRE-change edge list.
+    const removedEdgeChanges = changes.filter((c) => c.type === 'remove')
+    if (removedEdgeChanges.length > 0) {
+      const edgesBefore = get().edges
+      for (const change of removedEdgeChanges) {
+        const removed = edgesBefore.find((e) => e.id === (change as { id: string }).id)
+        if (removed) maybeInvalidateOnEdgeDelete(get, set, removed)
+      }
+    }
 
     set((s) => {
       const updatedEdges = applyEdgeChanges(changes, s.edges) as Edge<EdgeData>[]
@@ -1747,9 +1768,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const past = history.past.slice(0, -1)
     // Preserve label from the entry being undone so redo can show it
     const future = [{ nodes, edges, label: prev.label }, ...history.future]
-    // Clear full readiness bundle + reset lens on undo (graph shape changed)
+    // Clear full readiness bundle + reset lens on undo (graph shape changed).
+    // The freshness verdict is RETAINED across undo (intentionally not in
+    // READINESS_CLEAR_FIELDS), so the reverted graph no longer matches it →
+    // set the dirty overlay so a retained 'fresh' verdict shows cannot-confirm.
     logConstraintClearIfPresent(get, 'undo')
-    set({ nodes: prev.nodes, edges: prev.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, lens: createDefaultLensState() })
+    set({ nodes: prev.nodes, edges: prev.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, analysisFreshnessDirty: true, lens: createDefaultLensState() })
     // Reset hash after undo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -1761,9 +1785,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const next = history.future[0]
     const past = [...history.past, { nodes, edges, label: next.label }]
     const future = history.future.slice(1)
-    // Clear full readiness bundle + reset lens on redo (graph shape changed)
+    // Clear full readiness bundle + reset lens on redo (graph shape changed).
+    // Verdict is retained → reapplied graph no longer matches it → dirty overlay.
     logConstraintClearIfPresent(get, 'redo')
-    set({ nodes: next.nodes, edges: next.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, lens: createDefaultLensState() })
+    set({ nodes: next.nodes, edges: next.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, analysisFreshnessDirty: true, lens: createDefaultLensState() })
     // Reset hash after redo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -1792,6 +1817,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
       outcomeNodeId: shouldClearOutcome ? null : s.outcomeNodeId,
     }))
+
+    // Local dirty overlay: any structural removal here (node and/or edge,
+    // critical or not) makes a retained 'fresh' verdict no-longer-confirmable.
+    // The ceeAnalysisReady invalidation below keeps its existing critical-gating;
+    // this only sets the dirty flag and also covers the edge-only branch that is
+    // otherwise gated on ceeAnalysisReady being present.
+    if (selection.nodeIds.size > 0 || deletedEdges.length > 0) {
+      markAnalysisFreshnessDirty(get, set)
+    }
 
     // Check node deletions for invalidation
     if (selection.nodeIds.size > 0) {
@@ -1948,6 +1982,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null }
     }))
 
+    // Local dirty overlay: mirror deleteSelected — any structural removal marks
+    // the retained verdict no-longer-confirmable, independent of critical-gating.
+    if (selection.nodeIds.size > 0 || deletedEdges.length > 0) {
+      markAnalysisFreshnessDirty(get, set)
+    }
+
     // Mirror deleteSelected invalidation: check nodes first, then edges
     if (selection.nodeIds.size > 0) {
       maybeInvalidateOnNodeDelete(get, set, [...selection.nodeIds])
@@ -2046,6 +2086,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       showDraftChat: false,
       currentBriefText: null,
       draftComposerText: null,
+      // Full graph replaced on import — clear the freshness verdict (it described
+      // the previous graph; never carry it onto an imported model) and its dirty
+      // overlay (no pending edit applies to a brand-new graph).
+      analysisFreshness: null,
+      analysisFreshnessDirty: false,
       // Graph Lens: auto-reset on canvas import (full graph replaced)
       lens: createDefaultLensState(),
     })
@@ -2263,6 +2308,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       nextEdgeId: 1,
       // Clear CEE analysis_ready payload, pipeline trace, quality, and constraints
       ceeAnalysisReady: null,
+      analysisFreshness: null,
+      analysisFreshnessDirty: false,
       ceeAnalysisReadyNodeIds: null,
       // V5 canonical analysis fact — clear on scenario reset (the fact does
       // not survive a graph reset; rerun analysis to mint a fresh one).
@@ -2422,11 +2469,23 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   setOutcomeNode: (nodeId) => {
+    // Changing which node is the goal/outcome is analysis-affecting → dirty the
+    // freshness overlay on a real change. (Producer paths that also call this —
+    // applyDraftResult / applyAutoApplyPatch — dirty via their own mutation marks;
+    // load/scenario paths set outcomeNodeId directly and reset the overlay.)
+    const changed = get().outcomeNodeId !== nodeId
     set({ outcomeNodeId: nodeId })
+    if (changed) markAnalysisFreshnessDirty(get, set)
   },
 
-  setGoalThreshold: (threshold) => {
+  setGoalThreshold: (threshold, opts) => {
+    // The goal threshold is sent to PLoT, so a user change is analysis-affecting
+    // → dirty the freshness overlay on a real change. The CEE-sync caller inside
+    // setCeeAnalysisReady passes { fromCeeSync: true } so an ingestion write does
+    // NOT self-dirty.
+    const changed = get().goalThreshold !== threshold
     set({ goalThreshold: threshold })
+    if (changed && !opts?.fromCeeSync) markAnalysisFreshnessDirty(get, set)
   },
 
   setGoalThresholdAndUpdateNode: (goalNodeId, value) => {
@@ -2912,6 +2971,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // causing buildRequest to ship stale analysis on the first turn.
       analysisStateReady: false,
       rawV2Response: null,
+      // Freshness verdict is per-scenario and session-derived — clear on switch
+      // so a verdict (and any pending dirty overlay) from the previous scenario
+      // cannot leak into this one.
+      analysisFreshness: null,
+      analysisFreshnessDirty: false,
       isDirty: false,
       history: { past: [], future: [] },
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
@@ -3246,6 +3310,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       draftChatPreDraftSnapshot: null,
       // Clear full readiness bundle + pipeline trace on draft undo
       ...READINESS_CLEAR_FIELDS,
+      // Verdict is retained → reverted graph no longer matches it → dirty overlay.
+      analysisFreshnessDirty: true,
       ceePipelineTrace: null,
       // Graph Lens: auto-reset on draft undo (graph shape changed)
       lens: createDefaultLensState(),
@@ -3277,7 +3343,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Sync goal threshold from CEE to store (fixes "?" badge on goals with thresholds)
       const ceeThreshold = (analysisReady as any).goal_threshold ?? (analysisReady as any).goal_threshold_raw
       if (ceeThreshold != null && get().goalThreshold == null) {
-        get().setGoalThreshold(typeof ceeThreshold === 'number' ? ceeThreshold : Number(ceeThreshold))
+        // Producer write (syncing the threshold FROM the analysis) — must not
+        // self-dirty the freshness overlay.
+        get().setGoalThreshold(typeof ceeThreshold === 'number' ? ceeThreshold : Number(ceeThreshold), { fromCeeSync: true })
       }
       // Persist to sessionStorage for tab-refresh survival (with node IDs for validation)
       try {
@@ -3300,6 +3368,30 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   setV5AnalysisFact: (fact: V5AnalysisFactState | null) => {
     set({ v5AnalysisFact: fact })
+  },
+
+  setAnalysisFreshness: (rawAnalysisReady: unknown) => {
+    set((state) => {
+      const next = deriveAnalysisFreshnessUpdate(state.analysisFreshness, rawAnalysisReady)
+      // A newly-applied analysis_ready verdict supersedes any pending local edits:
+      // clear the dirty overlay. `next !== prev` is true only when the reducer
+      // accepted a present payload (newer/unorderable) — absent or strictly-older
+      // payloads retain BOTH the verdict and the dirty overlay.
+      const verdictChanged = next !== state.analysisFreshness
+      if (!verdictChanged) return {}
+      const updates: Partial<CanvasState> = { analysisFreshness: next }
+      if (state.analysisFreshnessDirty) updates.analysisFreshnessDirty = false
+      return updates
+    })
+  },
+
+  // Public dirty-overlay API for EXTERNAL mutators that bypass the internal edit
+  // chokepoints — accepted CEE graph patches (bare-setState graph writes), the
+  // context-menu commit path, and the draft producers. Delegates to the module
+  // helper so the idempotent set lives in one place (no drift between the two).
+  markAnalysisFreshnessDirty: () => markAnalysisFreshnessDirty(get, set),
+  clearAnalysisFreshnessDirty: () => {
+    if (get().analysisFreshnessDirty) set(() => ({ analysisFreshnessDirty: false }))
   },
 
   setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => {
@@ -4137,6 +4229,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       updates.history = { past: [], future: [] }
       updates.selection = { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null }
       updates.touchedNodeIds = new Set()
+      // A loaded graph is a new context — clear the freshness verdict and its
+      // dirty overlay so neither leaks from the previous graph/scenario.
+      updates.analysisFreshness = null
+      updates.analysisFreshnessDirty = false
     }
 
     // Apply updates without clobbering panels/results/other slices

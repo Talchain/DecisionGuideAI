@@ -20,7 +20,7 @@ import { logV5StateEvent } from '../../../v5/debugLog'
 import { isAiPanelV2Enabled } from '../../../flags'
 import { useAnalysisStatus } from '../../hooks/useAnalysisReady'
 import { useCanvasStore } from '../../store'
-import { useStaleGuard } from '../../ui/inspector-v2/useStaleGuard'
+import { classifyFreshnessForDisplay, type FreshnessDisplaySemantic } from '../../store/analysisFreshness'
 import type { ActionChip } from '../types'
 
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
@@ -73,24 +73,42 @@ function isRunAnalysisAffordance(chip: ActionChip): boolean {
 
 /**
  * Product rule for the run-analysis affordance under aiPanelV2:
- *   - no analysis exists       → keep chip as-is ("Run analysis")
- *   - current analysis exists  → suppress chip entirely
- *   - stale analysis exists    → relabel chip to "Rerun"
+ *   - no analysis exists            → keep chip as-is ("Run analysis")
+ *   - confirmed-current analysis    → suppress chip entirely
+ *   - stale / cannot-confirm        → relabel chip to "Rerun" (may bypass the V5
+ *                                     readiness gate — a prior analysis exists and
+ *                                     a rerun re-derives inputs from the graph)
+ *   - complete, NO freshness verdict→ keep ("Run analysis"), SUBJECT to the gate
  *
- * The decision keys off `results.status === 'complete'` (analysis has
- * produced results at least once) plus `isStale` from the stale guard.
- * This avoids the fragile `analysisState === 'current'` path which can
- * race on staging when the hash compare lags by one tick.
+ * Two positive-signal branches:
+ *   - SUPPRESS requires a CONFIRMED-CURRENT verdict (semantic === 'current').
+ *   - the readiness-gate-bypassing 'relabel-rerun' requires a REAL freshness
+ *     verdict ('changed' / 'cannot_confirm'), which implies a prior analysis that
+ *     a rerun can re-derive from the current graph.
+ * A completed analysis with NO freshness verdict ('none') gets neither: it is not
+ * confirmed current (so not suppressed — matching useStageAwarePlaceholder, which
+ * treats it as not-"latest"), but it has nothing rerunnable to justify bypassing
+ * the readiness gate. Relabelling it to "Rerun" would let a run_analysis chip
+ * survive the gate even when ceeAnalysisReady is missing, and a click then falls
+ * back to a conversation turn ("promises action, delivers chat"). So it stays a
+ * plain 'keep' chip, shown only when the readiness gate is satisfied.
+ *
+ * This replaces the legacy `isStale` from useStaleGuard, whose production input
+ * `_internal.graphHash` is never written, so it never fired.
  */
 type RunAnalysisPolish = 'suppress' | 'relabel-rerun' | 'keep'
 
 function decideRunAnalysisPolish(
   resultsComplete: boolean,
-  isStale: boolean,
+  freshnessSemantic: FreshnessDisplaySemantic,
 ): RunAnalysisPolish {
-  if (!resultsComplete) return 'keep'   // no analysis yet
-  if (isStale) return 'relabel-rerun'   // graph drifted since last analysis
-  return 'suppress'                     // current analysis owns the action
+  if (!resultsComplete) return 'keep'                     // no analysis yet
+  if (freshnessSemantic === 'current') return 'suppress'  // confirmed-current owns the action
+  if (freshnessSemantic === 'changed' || freshnessSemantic === 'cannot_confirm') {
+    return 'relabel-rerun'  // real verdict: prior analysis exists → offer rerun (gate-bypassing)
+  }
+  return 'keep'  // 'none': complete but no verdict → not current, but no rerunnable
+                 // analysis to justify a gate bypass; the readiness gate decides visibility
 }
 
 interface SuggestedChipsProps {
@@ -125,11 +143,14 @@ export function SuggestedChips({
   const analysisStatus = useAnalysisStatus()
   // aiPanelV2 polish: once an analysis has been RUN (results exist), the
   // canonical place for re-running it is the Analysis/readiness panel.
-  // Decision is via `decideRunAnalysisPolish` (product rule, see helper
-  // above): no analysis → keep; current → suppress; stale → "Rerun".
-  // Keys off results.status === 'complete' rather than the fragile
-  // analysisState === 'current' path (which can race on staging).
-  const { isStale } = useStaleGuard()
+  // Decision is via `decideRunAnalysisPolish` (product rule, see helper above):
+  // no analysis → keep; confirmed-current → suppress; stale/cannot-confirm →
+  // "Rerun" (gate-bypassing); complete-but-no-verdict → keep (gate decides).
+  // `freshnessSemantic` is the shared freshness display semantic, NOT the dead
+  // useStaleGuard graph-hash path.
+  const ceeFreshness = useCanvasStore((s) => s.analysisFreshness)
+  const freshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
+  const freshnessSemantic = classifyFreshnessForDisplay(ceeFreshness, freshnessDirty)
   const resultsComplete = useCanvasStore((s) => s.results?.status === 'complete')
   const aiPanelV2On = isAiPanelV2Enabled()
   useEffect(() => {
@@ -152,15 +173,15 @@ export function SuggestedChips({
   // change to either branch from re-introducing "filtered before
   // relabel" behaviour.
   const runAnalysisPolish: RunAnalysisPolish = aiPanelV2On
-    ? decideRunAnalysisPolish(resultsComplete, isStale)
+    ? decideRunAnalysisPolish(resultsComplete, freshnessSemantic)
     : 'keep'
 
   // Filter rule (V5 active):
   //   action_type === 'run_analysis' → gated by analysisStatus === 'ready',
   //                                    EXCEPT when aiPanelV2 will relabel to
-  //                                    "Rerun" (stale), in which case the chip
-  //                                    must survive the gate so the polish can
-  //                                    apply.
+  //                                    "Rerun" (stale/cannot-confirm), in which
+  //                                    case the chip must survive the gate so the
+  //                                    polish can apply.
   //   action_type absent              → pass through (conversational)
   //   action_type in V5_ENABLED_ACTIONS but NOT readiness-gated → pass through
   //   action_type present but unknown → hide (treat as potentially executable

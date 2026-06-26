@@ -178,8 +178,24 @@ export interface DecisionResultData {
   winProbability?: number
   /** How the winner was determined - for honest labelling */
   determinedBy?: WinnerDeterminedBy
-  /** Robustness level from PLoT */
+  /**
+   * Structured robustness level from the analysis report (PLoT
+   * report.robustness.level), or the UI-SEM-005 stability fallback when the
+   * report omits it. This is STRUCTURED DATA — safe to surface in detailed,
+   * qualified contexts, but it must NOT drive the binary Robust/Sensitive glyph
+   * (PLoT-level semantics are not a display-safe verdict). Use `robustnessVerdict`
+   * for the glyph.
+   */
   robustnessLevel?: RobustnessLevel
+  /**
+   * Display-safe robustness verdict that drives the binary Robust/Sensitive
+   * glyph. Sourced ONLY from an explicit display-safe robustness verdict — never
+   * from PLoT `report.robustness.level` and never from the UI-SEM-005 stability
+   * fallback. No such display-safe field exists in the CEE/UI contract today, so
+   * this is currently always `undefined` → the glyph renders "Robustness unknown".
+   * See the "display-safe robustness verdict contract" follow-up (ROBUSTNESS-VERDICT-CONTRACT).
+   */
+  robustnessVerdict?: RobustnessLevel
   /** Robustness label from PLoT (fallback when level missing) */
   robustnessLabel?: RobustnessLabel
   /** Goal text from scenario framing */

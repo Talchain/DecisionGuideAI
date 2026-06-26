@@ -80,6 +80,11 @@ interface MockCanvasState {
   ceeAnalysisReady: { status?: string } | null
   results: { status: string; report: unknown } | null
   graphEditedSinceLastRun: boolean
+  // Freshness now drives the display state (via classifyFreshnessForDisplay);
+  // graphEditedSinceLastRun is retained on the mock but no longer read by the hook.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  analysisFreshness: any
+  analysisFreshnessDirty: boolean
 }
 
 let mockCanvasState: MockCanvasState
@@ -190,6 +195,8 @@ describe('PreAnalysisPanel.StatusBanner — DOM rendering across four helper sta
       ceeAnalysisReady: null,
       results: { status: 'idle', report: null },
       graphEditedSinceLastRun: false,
+      analysisFreshness: null,
+      analysisFreshnessDirty: false,
     }
   })
 
@@ -218,7 +225,7 @@ describe('PreAnalysisPanel.StatusBanner — DOM rendering across four helper sta
   it('results_stale: orphan StatusBanner is suppressed (Brief 5.8B D0 #1)', () => {
     mockCanvasState.ceeAnalysisReady = { status: 'ready' }
     mockCanvasState.results = { status: 'complete', report: { option_comparison: [] } }
-    mockCanvasState.graphEditedSinceLastRun = true
+    mockCanvasState.analysisFreshness = { freshness: 'stale' }
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
     expect(screen.queryByTestId('pre-analysis-status-banner')).not.toBeInTheDocument()
   })
@@ -249,7 +256,7 @@ describe('PreAnalysisPanel.StatusBanner — DOM rendering across four helper sta
   it('results_stale: footer CTA shows "Rerun analysis"', () => {
     mockCanvasState.ceeAnalysisReady = { status: 'ready' }
     mockCanvasState.results = { status: 'complete', report: { option_comparison: [] } }
-    mockCanvasState.graphEditedSinceLastRun = true
+    mockCanvasState.analysisFreshness = { freshness: 'stale' }
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
     // Helper drives the label — stale state surfaces "Rerun analysis"
     expect(
@@ -260,7 +267,7 @@ describe('PreAnalysisPanel.StatusBanner — DOM rendering across four helper sta
   it('results_stale: footer CTA renders the secondary outlined variant', () => {
     mockCanvasState.ceeAnalysisReady = { status: 'ready' }
     mockCanvasState.results = { status: 'complete', report: { option_comparison: [] } }
-    mockCanvasState.graphEditedSinceLastRun = true
+    mockCanvasState.analysisFreshness = { freshness: 'stale' }
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
     const button = screen.getByRole('button', { name: /rerun analysis/i })
     // Variant is exposed via data-action-variant for both DOM tests and
@@ -275,7 +282,7 @@ describe('PreAnalysisPanel.StatusBanner — DOM rendering across four helper sta
   it('results_stale: footer aria-label matches the visible "Rerun analysis"', () => {
     mockCanvasState.ceeAnalysisReady = { status: 'ready' }
     mockCanvasState.results = { status: 'complete', report: { option_comparison: [] } }
-    mockCanvasState.graphEditedSinceLastRun = true
+    mockCanvasState.analysisFreshness = { freshness: 'stale' }
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
     const button = screen.getByRole('button', { name: /rerun analysis/i })
     expect(button).toHaveAttribute('aria-label', 'Rerun analysis')

@@ -2,14 +2,16 @@
  * aiPanelV2 UX polish — Run analysis chip suppression/relabel.
  *
  * Product rule (only when aiPanelV2 is ON):
- *   - no analysis exists       → keep chip as-is ("Run analysis")
- *   - current analysis exists  → SUPPRESS chip entirely
- *                                (Analysis/readiness panel owns rerun)
- *   - stale analysis exists    → RELABEL to "Rerun"
+ *   - no analysis exists                 → keep chip as-is ("Run analysis")
+ *   - confirmed-current analysis exists  → SUPPRESS chip entirely
+ *                                          (Analysis/readiness panel owns rerun)
+ *   - stale / cannot-confirm analysis    → RELABEL to "Rerun"
  *
- * Decision keys off `results.status === 'complete'` + `isStale` from the
- * stale guard. This is the loosened path — the old `analysisState ===
- * 'current'` predicate raced on staging when the hash compare lagged.
+ * Decision keys off `results.status === 'complete'` + the shared freshness display
+ * semantic (`changed` or `cannot_confirm`).
+ * This replaces the legacy `isStale` from useStaleGuard, whose production input
+ * `_internal.graphHash` is never written — so the rerun affordance never appeared
+ * after a graph edit even though the Results surface showed cannot-confirm.
  *
  * Detection covers both V2 chips (`action_type === 'run_analysis'`) and
  * legacy / prompt-style chips matched by the tolerant regex
@@ -36,23 +38,47 @@ function makeChip(overrides: Partial<ActionChip> = {}): ActionChip {
   }
 }
 
-/** Drive useStaleGuard's three return shapes via the canvas store. */
-function setAnalysisState(state: 'none' | 'current' | 'stale') {
+/**
+ * Drive the run-analysis polish input via the CEE freshness verdict + dirty
+ * overlay (the production source), NOT the dead useStaleGuard graph-hash path.
+ *   none          → no analysis (idle, no verdict)
+ *   current       → complete + CEE 'fresh', clean
+ *   stale         → complete + CEE 'stale'
+ *   cannot-confirm→ complete + CEE 'fresh' downgraded by a local edit (dirty)
+ *   cee-unknown   → complete + CEE-sourced unknown (cannot confirm, no edit claim)
+ *   no-verdict    → complete but NO freshness verdict at all (legacy / non-CEE run)
+ */
+function setAnalysisState(state: 'none' | 'current' | 'stale' | 'cannot-confirm' | 'cee-unknown' | 'no-verdict') {
   if (state === 'none') {
     useCanvasStore.setState({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       results: { status: 'idle' } as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      _internal: { graphHash: undefined } as any,
+      analysisFreshness: null,
+      analysisFreshnessDirty: false,
     })
     return
   }
   useCanvasStore.setState({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     results: { status: 'complete', graphHash: 'abc123' } as any,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    _internal: { graphHash: state === 'current' ? 'abc123' : 'xyz999' } as any,
+    analysisFreshness: null,
+    analysisFreshnessDirty: false,
   })
+  if (state === 'no-verdict') {
+    // results complete but no analysis_ready freshness ever set → slice stays null.
+    return
+  }
+  if (state === 'stale') {
+    useCanvasStore.getState().setAnalysisFreshness({ freshness: 'stale', freshness_reason: 'graph_changed' })
+    return
+  }
+  if (state === 'cee-unknown') {
+    useCanvasStore.getState().setAnalysisFreshness({ freshness: 'unknown', freshness_reason: 'no_hash' })
+    return
+  }
+  // current + cannot-confirm both start from a CEE 'fresh' verdict.
+  useCanvasStore.getState().setAnalysisFreshness({ freshness: 'fresh', freshness_reason: 'graph_hash_match' })
+  if (state === 'cannot-confirm') {
+    useCanvasStore.getState().markAnalysisFreshnessDirty()
+  }
 }
 
 describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
@@ -94,6 +120,53 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
     const chip = screen.getByTestId('suggested-chip-r1')
     expect(chip).toHaveTextContent(/^\s*Rerun\s*$/i)
     expect(chip).not.toHaveTextContent(/Run analysis/i)
+  })
+
+  it('relabels to "Rerun" when a fresh analysis is cannot-confirm after a local edit', () => {
+    // The key production regression: before, isStale (dead useStaleGuard) never
+    // fired, so a post-edit cannot-confirm state kept the rerun chip suppressed.
+    setAnalysisState('cannot-confirm')
+    render(
+      <SuggestedChips
+        chips={[makeChip({ id: 'cc1', action_type: 'run_analysis', label: 'Run analysis' })]}
+        onChipClick={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    const chip = screen.getByTestId('suggested-chip-cc1')
+    expect(chip).toHaveTextContent(/^\s*Rerun\s*$/i)
+    expect(chip).not.toHaveTextContent(/Run analysis/i)
+  })
+
+  it('relabels to "Rerun" when CEE reports cannot-confirm freshness', () => {
+    setAnalysisState('cee-unknown')
+    render(
+      <SuggestedChips
+        chips={[makeChip({ id: 'cu1', action_type: 'run_analysis', label: 'Run analysis' })]}
+        onChipClick={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    const chip = screen.getByTestId('suggested-chip-cu1')
+    expect(chip).toHaveTextContent(/^\s*Rerun\s*$/i)
+    expect(chip).not.toHaveTextContent(/Run analysis/i)
+  })
+
+  it('keeps (does NOT suppress) the run-analysis chip when complete but NO freshness verdict — V5 off, no readiness gate', () => {
+    // A completed analysis with no freshness verdict is NOT confirmed-current, so
+    // it must NOT be suppressed as if current (mirrors useStageAwarePlaceholder,
+    // which treats this state as not-"latest"). It is NOT relabelled to "Rerun"
+    // either — that label carries a readiness-gate bypass reserved for a real
+    // verdict; with no verdict the chip stays a plain 'keep' that the gate governs.
+    // V5 is off in this suite, so no gate applies → the chip renders as-is.
+    setAnalysisState('no-verdict')
+    render(
+      <SuggestedChips
+        chips={[makeChip({ id: 'nv1', action_type: 'run_analysis', label: 'Run analysis' })]}
+        onChipClick={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    const chip = screen.getByTestId('suggested-chip-nv1')
+    expect(chip).toBeInTheDocument() // not suppressed
+    expect(chip).toHaveTextContent(/Run analysis/i) // kept, not relabelled to "Rerun"
   })
 
   it('leaves the Run analysis chip unchanged when no analysis has been run yet', () => {
@@ -256,9 +329,9 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
   })
 
   // V5 readiness gate previously filtered run_analysis when status !==
-  // 'ready'. Stale analysis (graph drifted since last run) maps to
-  // status !== 'ready', so the chip was dropped upstream and the polish
-  // never saw it. The aiPanelV2 bypass keeps it alive to be relabelled.
+  // 'ready'. Stale/cannot-confirm analysis can map to status !== 'ready', so
+  // the chip was dropped upstream and the polish never saw it. The aiPanelV2
+  // bypass keeps it alive to be relabelled.
   it('V5-on stale: run_analysis survives readiness gate and is relabelled to "Rerun"', () => {
     // Enable V5 so the readiness filter is active.
     vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
@@ -267,7 +340,6 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
     // ceeAnalysisReady is null / not 'ready' — this is the V5 path that
     // would normally filter out the run_analysis chip BEFORE the polish.
     useCanvasStore.setState({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ceeAnalysisReady: null as any,
     })
     render(
@@ -294,7 +366,6 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
     vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
     setAnalysisState('current')
     useCanvasStore.setState({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ceeAnalysisReady: {
         goal_node_id: 'g',
         status: 'ready',
@@ -319,7 +390,7 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
 
   // Reviewer amendment: regression should pin the exact product-rule
   // matrix, regardless of internal predicate names.
-  it('product rule: none → keep, current → suppress, stale → Rerun', () => {
+  it('product rule: none → keep, current → suppress, stale/cannot-confirm → Rerun', () => {
     const fixture = () =>
       makeChip({
         id: 'matrix',
@@ -344,12 +415,15 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
     expect(screen.queryByTestId('suggested-chip-matrix')).toBeNull()
     u2()
 
-    // stale
-    setAnalysisState('stale')
-    render(
-      <SuggestedChips chips={[fixture()]} onChipClick={vi.fn().mockResolvedValue(undefined)} />,
-    )
-    expect(screen.getByTestId('suggested-chip-matrix')).toHaveTextContent(/^\s*Rerun\s*$/i)
+    // stale / cannot-confirm
+    for (const state of ['stale', 'cannot-confirm', 'cee-unknown'] as const) {
+      setAnalysisState(state)
+      const { unmount } = render(
+        <SuggestedChips chips={[fixture()]} onChipClick={vi.fn().mockResolvedValue(undefined)} />,
+      )
+      expect(screen.getByTestId('suggested-chip-matrix')).toHaveTextContent(/^\s*Rerun\s*$/i)
+      unmount()
+    }
   })
 })
 

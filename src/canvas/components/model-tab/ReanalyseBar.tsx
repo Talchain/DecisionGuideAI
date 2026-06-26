@@ -1,22 +1,27 @@
 /**
  * ReanalyseBar — sticky bottom bar prompting re-analysis after graph edits.
  *
- * Visible only when graphEditedSinceLastRun === true in canvas store.
- * Triggers onReanalyse() which calls OutputsDock's handleRunAnalysis.
+ * Visible only when the analysis is DEFINITELY out of date — the shared CEE
+ * freshness display semantic (`classifyFreshnessForDisplay`) is 'changed'
+ * (CEE 'stale' OR a retained-fresh-now-dirtied by a local edit), NOT the local
+ * `graphEditedSinceLastRun` flag (which would claim "Model changed" without a
+ * CEE verdict). Triggers onReanalyse() which calls OutputsDock's handleRunAnalysis.
  */
 
 import { RefreshCw } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
+import { classifyFreshnessForDisplay } from '../../store/analysisFreshness'
 
 interface ReanalyseBarProps {
   onReanalyse?: () => void
 }
 
 export function ReanalyseBar({ onReanalyse }: ReanalyseBarProps) {
-  const graphEditedSinceLastRun = useCanvasStore(s => s.graphEditedSinceLastRun)
+  const analysisFreshness = useCanvasStore(s => s.analysisFreshness)
+  const analysisFreshnessDirty = useCanvasStore(s => s.analysisFreshnessDirty)
 
-  if (!graphEditedSinceLastRun) return null
+  if (classifyFreshnessForDisplay(analysisFreshness, analysisFreshnessDirty) !== 'changed') return null
 
   return (
     <div

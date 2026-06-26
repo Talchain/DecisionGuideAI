@@ -2,17 +2,26 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { commitValidatedMutation } from '../commitValidatedMutation'
 import type { PatchOperation } from '../../conversation/types'
 
-// Mock the plot adapter module
+// Mock the plot adapter module. `validatePatch` is settable per-test (via the
+// hoisted holder) so we can exercise the dormant Phase-1 validated-graph branch
+// in addition to the Phase-2 localApply fallback.
+const plotState = vi.hoisted(() => ({ validatePatch: undefined as ((arg: unknown) => unknown) | undefined }))
 vi.mock('../../../adapters/plot', () => ({
-  plot: {},
+  plot: {
+    get validatePatch() {
+      return plotState.validatePatch
+    },
+  },
 }))
 
 // Mock the canvas store
+const markAnalysisFreshnessDirty = vi.fn()
 vi.mock('../../store', () => {
   const state = {
     nodes: [{ id: 'n1', type: 'factor', data: { label: 'Test' } }],
     edges: [],
     pushHistory: vi.fn(),
+    markAnalysisFreshnessDirty: () => markAnalysisFreshnessDirty(),
   }
   return {
     useCanvasStore: {
@@ -31,6 +40,7 @@ describe('commitValidatedMutation', () => {
     vi.clearAllMocks()
     showToast = vi.fn()
     localApply = vi.fn()
+    plotState.validatePatch = undefined // default: no PLoT validate-patch → Phase 2
   })
 
   it('falls back to localApply when adapter has no validatePatch', async () => {
@@ -52,6 +62,27 @@ describe('commitValidatedMutation', () => {
     await commitValidatedMutation(ops, localApply, showToast)
 
     expect(showToast).not.toHaveBeenCalled()
+  })
+
+  it('marks the freshness overlay dirty on a successful mutation (covers bare-setState localApply e.g. insert-factor-between)', async () => {
+    await commitValidatedMutation(ops, localApply, showToast)
+    expect(markAnalysisFreshnessDirty).toHaveBeenCalled()
+  })
+
+  it('Phase-1 validated graph: marks dirty on success', async () => {
+    plotState.validatePatch = vi.fn(async () => ({ valid: true, graph: { nodes: [], edges: [] } }))
+    const result = await commitValidatedMutation(ops, localApply, showToast)
+    expect(result.success).toBe(true)
+    expect(markAnalysisFreshnessDirty).toHaveBeenCalledTimes(1)
+    expect(localApply).not.toHaveBeenCalled() // full graph returned → no local fallback
+  })
+
+  it('Phase-1 rejected: does NOT dirty and surfaces the toast', async () => {
+    plotState.validatePatch = vi.fn(async () => ({ valid: false, message: 'nope' }))
+    const result = await commitValidatedMutation(ops, localApply, showToast)
+    expect(result.success).toBe(false)
+    expect(markAnalysisFreshnessDirty).not.toHaveBeenCalled()
+    expect(showToast).toHaveBeenCalledWith('nope', 'error')
   })
 
   it('falls back to localApply when adapter import throws', async () => {

@@ -1,22 +1,32 @@
 import { memo, useCallback } from 'react'
 import { typo } from '../../styles/typography'
-import { useStaleGuard } from '../ui/inspector-v2/useStaleGuard'
+import { useCanvasStore } from '../store'
+import { resolveDisplayedFreshness } from '../store/analysisFreshness'
 import { useV2Run } from '../hooks/useV2Run'
 
 /**
- * StaleAnalysisBadge — "Analysis stale · Rerun" above the persistent input
- * strip when the graph hash has diverged from the last analysis hash.
- * Clicking "Rerun" triggers a fresh analysis run.
+ * StaleAnalysisBadge — "Analysis stale · Rerun" above the persistent input strip,
+ * shown only when the CEE analysis verdict is genuinely 'stale'. Clicking "Rerun"
+ * triggers a fresh analysis run.
+ *
+ * Source of truth is the CEE freshness verdict + local dirty overlay
+ * (resolveDisplayedFreshness), NOT the legacy useStaleGuard graph-hash path
+ * (_internal.graphHash is never written, so it could never fire). The badge appears
+ * ONLY on a real CEE 'stale' verdict — the overlay can only downgrade a retained
+ * fresh → 'unknown' (cannot-confirm), never to 'stale', so this copy is never
+ * fabricated. The cannot-confirm state is surfaced on the Results surface instead.
  */
 export const StaleAnalysisBadge = memo(function StaleAnalysisBadge() {
-  const { isStale } = useStaleGuard()
+  const ceeFreshness = useCanvasStore(s => s.analysisFreshness)
+  const freshnessDirty = useCanvasStore(s => s.analysisFreshnessDirty)
+  const displayedFreshness = resolveDisplayedFreshness(ceeFreshness, freshnessDirty)
   const { runV2Analysis } = useV2Run()
 
   const handleRerun = useCallback(() => {
     void runV2Analysis()
   }, [runV2Analysis])
 
-  if (!isStale) return null
+  if (displayedFreshness !== 'stale') return null
 
   return (
     <div

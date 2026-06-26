@@ -631,6 +631,10 @@ export function DraftChat() {
       nodes: [...state.nodes, ...nodes],
       edges: [...state.edges, ...edges],
     })
+    // Draft append mutates the graph via bare setState (bypasses the edit
+    // chokepoints) → mark the freshness overlay dirty. Routed through
+    // setAnalysisFreshness below, which clears it only on a genuine fresh verdict.
+    useCanvasStore.getState().markAnalysisFreshnessDirty?.()
     // Always apply layout for AI drafts since all nodes start at (0,0)
     // This ensures proper positioning whether starting fresh or replacing an existing graph
     if (import.meta.env.DEV) {
@@ -776,6 +780,10 @@ export function DraftChat() {
     // because it also captures ceeAnalysisReadyNodeIds and persists to sessionStorage.
     if (resolvedAnalysisReady) {
       useCanvasStore.getState().setCeeAnalysisReady(resolvedAnalysisReady)
+      // Route through the freshness source of truth (mirrors applyDraftResult /
+      // accepted patches): a draft carries readiness, usually no `freshness`, so
+      // the reducer degrades to 'unknown' instead of leaving a stale 'fresh'.
+      useCanvasStore.getState().setAnalysisFreshness?.(resolvedAnalysisReady)
     }
 
     // Commit CEE coaching payload (typed, type-guarded by adapter). Null when absent.
