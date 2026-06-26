@@ -2027,7 +2027,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                         type="button"
                         onClick={handleRunAnalysis}
                         disabled={isRunning || !canRunAnalysis}
-                        className={`${typography.panelBody} bg-primary text-text-on-color rounded-md px-3 py-1 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0`}
+                        className={`${typography.panelBody} bg-primary text-text-on-color rounded-md px-3 py-1 hover:bg-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-inset disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0`}
                       >
                         Rerun analysis
                       </button>

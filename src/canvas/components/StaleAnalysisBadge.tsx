@@ -36,10 +36,11 @@ export const StaleAnalysisBadge = memo(function StaleAnalysisBadge() {
       aria-live="polite"
     >
       <span className={typo('panelMeta', 'text-warning')}>Analysis stale</span>
-      <span className={typo('panelMeta', 'text-text-light')}>·</span>
+      <span className={typo('panelMeta', 'text-text-light')} aria-hidden="true">·</span>
       <button
         type="button"
         onClick={handleRerun}
+        aria-label="Rerun analysis"
         className={typo('panelMeta', 'text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded px-0.5')}
         data-testid="ai-panel-stale-badge-rerun"
       >

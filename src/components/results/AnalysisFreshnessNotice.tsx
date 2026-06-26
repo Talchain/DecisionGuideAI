@@ -72,8 +72,7 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
       className={`flex items-center gap-2 rounded-md border px-3 py-2 bg-panel ${isStale ? 'border-warning/30' : 'border-panel-border'} ${className}`.trim()}
     >
       <Icon
-        size={14}
-        className={`flex-none ${isStale ? 'text-warning' : 'text-text-light'}`}
+        className={`w-3.5 h-3.5 flex-none ${isStale ? 'text-warning' : 'text-text-light'}`}
         aria-hidden="true"
       />
       <span className={`${typography.panelBody} text-text-body`}>{FRESHNESS_COPY[freshness]}</span>

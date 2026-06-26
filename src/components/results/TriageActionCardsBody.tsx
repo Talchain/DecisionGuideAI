@@ -423,6 +423,9 @@ function T1ChecksFooter({
 
   return (
     <div className="border-t border-panel-border pt-3" data-testid="t1-checks-footer">
+      {/* Glyphs + addressed-counter wrap on a single flex row. The counter flows
+          inline (no `ml-auto` push) so that on narrow panels it wraps left-aligned
+          beneath the glyphs instead of orphaning onto its own far-right line. */}
       <div className={`flex items-center flex-wrap gap-x-3 gap-y-1 ${typography.panelMeta} text-text-light`}>
         <ChecksGlyph
           ok={hasWinner}
@@ -444,7 +447,7 @@ function T1ChecksFooter({
           dataTestid="checks-evidence"
         />
         {total > 0 && (
-          <span className="ml-auto" data-testid="checks-addressed">
+          <span data-testid="checks-addressed">
             {addressed}/{total} addressed
           </span>
         )}

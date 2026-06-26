@@ -58,6 +58,13 @@ describe('ReanalyseBar', () => {
     expect(screen.getByTestId('reanalyse-bar')).toBeInTheDocument()
   })
 
+  it('labels the rerun action "Rerun analysis" (aligned across rerun affordances)', () => {
+    mockFreshness = { freshness: 'stale' }
+    mockDirty = false
+    render(<ReanalyseBar onReanalyse={() => {}} />)
+    expect(screen.getByRole('button', { name: 'Rerun analysis' })).toBeInTheDocument()
+  })
+
   it('calls onReanalyse when button is clicked', () => {
     mockFreshness = { freshness: 'stale' }
     mockDirty = false

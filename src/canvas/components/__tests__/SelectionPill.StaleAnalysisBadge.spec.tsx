@@ -83,6 +83,9 @@ describe('StaleAnalysisBadge — gap #2 (CEE-derived, single source)', () => {
     expect(badge).toHaveTextContent('Rerun')
     expect(badge).toHaveAttribute('role', 'status')
     expect(badge).toHaveAttribute('aria-live', 'polite')
+    // a11y: the compact visible "Rerun" carries the full action name for AT,
+    // aligned with the other rerun affordances.
+    expect(screen.getByRole('button', { name: 'Rerun analysis' })).toBeInTheDocument()
   })
 
   it('clicking Rerun invokes the EXISTING useV2Run() runV2Analysis, not a second path', () => {

@@ -37,11 +37,11 @@ export function ReanalyseBar({ onReanalyse }: ReanalyseBarProps) {
         type="button"
         onClick={onReanalyse}
         disabled={!onReanalyse}
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-text-on-color ${typography.panelMeta} font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shrink-0`}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-text-on-color ${typography.panelMeta} font-medium hover:bg-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-inset disabled:opacity-50 disabled:cursor-not-allowed shrink-0`}
         data-testid="reanalyse-button"
       >
         <RefreshCw className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-        Re-analyse
+        Rerun analysis
       </button>
     </div>
   )
