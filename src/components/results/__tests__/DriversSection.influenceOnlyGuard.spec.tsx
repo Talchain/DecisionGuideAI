@@ -124,6 +124,7 @@ describe('DriversSection — influence-only guard', () => {
             influenceScore: 0.9,
             confidence: 0.3,
             isDefaultedConfidence: true,
+            hasContestedEdge: true,
             rankFlipRate: 0.4,
             fragileEdgeInfo: { switchProbability: 0.4, alternativeWinnerLabel: 'Option B' },
             confidenceProvenance: {
@@ -152,6 +153,27 @@ describe('DriversSection — influence-only guard', () => {
     expect(screen.queryByText(/Ranking may shift/i)).toBeNull()
     expect(screen.queryByText(/overtakes/i)).toBeNull()
     expect(screen.queryByText(/reference class forecasting/i)).toBeNull()
+    // Contested-driver confidence control (Weakly/Moderately/Strongly presets +
+    // the "Custom confidence value" input) is hidden too.
+    expect(screen.queryByText('Weakly')).toBeNull()
+    expect(screen.queryByText('Moderately')).toBeNull()
+    expect(screen.queryByText('Strongly')).toBeNull()
+    expect(screen.queryByLabelText('Custom confidence value')).toBeNull()
+  })
+
+  it('Discuss action focuses by factorKey when canFocus + no matchedNodeId + no chat (P2 fallback)', () => {
+    const onFocus = vi.fn()
+    render(
+      <DriversSection
+        // canFocus but NO matchedNodeId and NO onSendMessage — the reusable/test
+        // surface where the focus action would previously silently no-op.
+        data={makeData([makeDriver({ factorKey: 'fac', canFocus: true })])}
+        goalLabel="test"
+        onFocusNode={onFocus}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Discuss' }))
+    expect(onFocus).toHaveBeenCalledWith('fac')
   })
 
   it('does NOT render the decision-flip line even with the tooltip OPEN (decisionChangeRisk gated)', () => {

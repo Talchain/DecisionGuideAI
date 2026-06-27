@@ -615,8 +615,12 @@ function DriverRow({
                   onSendMessage(
                     `Tell me more about how "${driver.factorLabel}" affects the outcome.`,
                   )
-                } else if (onFocus && driver.matchedNodeId) {
-                  onFocus(driver.matchedNodeId)
+                } else if (onFocus && driver.canFocus) {
+                  // Match the factor-name focus path: fall back to factorKey when
+                  // there is no matchedNodeId, so reusable/story/test surfaces
+                  // (no onSendMessage) keep the focus action instead of silently
+                  // no-opping.
+                  onFocus(driver.matchedNodeId ?? driver.factorKey)
                 }
               }}
               className={`${typography.panelMeta} text-info hover:underline cursor-pointer ml-auto`}
@@ -697,8 +701,14 @@ function DriverRow({
           of truth preserved. */}
 
 
-      {/* Quick-select for contested drivers — only when inbound edge has validation.status === 'contested' */}
-      {driver.hasContestedEdge && (
+      {/* Contested-driver quick-select — HIDDEN under the single-source rule: it
+          exposes confidence semantics (Weakly/Moderately/Strongly + a "Custom
+          confidence value" input, seeded from driver.confidence) in the
+          influence-only driver section, and it is orphaned today — its presets do
+          NOT propagate to the edge store (see the component). Gated on
+          DISPLAY_SAFE_DRIVER_CONFIDENCE so it returns (with propagation) when a
+          display-safe confidence source exists. */}
+      {DISPLAY_SAFE_DRIVER_CONFIDENCE && driver.hasContestedEdge && (
         <ContestedDriverQuickSelect driver={driver} />
       )}
 
