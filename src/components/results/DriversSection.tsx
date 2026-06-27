@@ -15,7 +15,7 @@
 
 import { useState, useCallback, useEffect, useRef, type ChangeEvent } from 'react'
 import { AlertTriangle as TriangleAlert, Check, HelpCircle, Info, Minus } from 'lucide-react'
-import type { DriversSectionData, DriverItem } from './types'
+import type { DriversSectionData, DriverItem, DriverSemanticLabel } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { EMPTY_STATES } from './emptyStates'
@@ -60,9 +60,35 @@ const BAR_COLORS = {
   neutral: 'var(--text-light)', // Unknown direction
 }
 
-// Grid columns constant - shared between header and rows to avoid alignment drift
-// Two data columns: Sensitivity + Confidence (same width), plus icon column for glyphs
-const GRID_COLS = 'grid-cols-[minmax(120px,1fr)_85px_85px_28px]'
+// Single-source rule (see ROBUSTNESS-VERDICT-CONTRACT): there is no display-safe
+// source for driver confidence/evidence/stability today, so those signals stay
+// HIDDEN — the driver section communicates INFLUENCE only, and we NEVER show raw
+// or defaulted confidence (no raw %, no dashes). Flip this true ONLY when a
+// certified display-safe driver-confidence source exists; the gated Confidence
+// column + glyph + tooltip signals below then light up, and the grid widens to
+// match via gridCols().
+const DISPLAY_SAFE_DRIVER_CONFIDENCE = false
+
+// Fragility ("could change the result") belongs in the fragile-factors section,
+// NOT the driver section. Acceptance: driver section = "this matters most";
+// fragile section = "what to check because it could change the result". So the
+// driver-row fragility cross-refs — the "If wrong, X overtakes" microline and the
+// "Ranking may shift N%" rows/tooltip — stay hidden here. This is a placement
+// rule (not a display-safe-source gate): keep it false; fragility surfaces in the
+// fragile-factors section.
+const SHOW_FRAGILITY_IN_DRIVER_SECTION = false
+
+// Grid columns - shared between rows to avoid alignment drift. Influence-only by
+// default (factor name + Sensitivity/influence). The Confidence + glyph columns
+// return only when DISPLAY_SAFE_DRIVER_CONFIDENCE is true. (A function, not a
+// module-const ternary, so the grid stays coupled to the gate without tripping
+// no-constant-condition.)
+function gridCols(showConfidence: boolean): string {
+  return showConfidence
+    ? 'grid-cols-[minmax(120px,1fr)_85px_85px_28px]'
+    : 'grid-cols-[minmax(120px,1fr)_85px]'
+}
+const GRID_COLS = gridCols(DISPLAY_SAFE_DRIVER_CONFIDENCE)
 
 // Zero reason display messages - explains why sensitivity is zero
 const ZERO_REASON_MESSAGES: Record<string, string> = {
@@ -289,11 +315,19 @@ function DriverRow({
   const hasZeroReason = driver.zeroReason && ZERO_REASON_MESSAGES[driver.zeroReason]
   // Task 7c: ranking shift + technique added to tooltip — must be computed before this line
   // (rankingShiftWarn and techniqueSuggestion are computed after this block, so use inline checks)
-  const hasTooltipContent = decisionChangeRisk || showQualityHint || hasEnrichment || hasZeroReason
-    || (driver.attributionStability === 'low' || driver.attributionStability === 'negligible'
-        || (typeof driver.confidence === 'number' && driver.confidence < 0.9))
-    || ((driver.influenceScore ?? driver.normalisedInfluence ?? 0) > 0.6
-        && typeof driver.confidence === 'number' && driver.confidence < 0.5)
+  // The (i) info icon must appear only when the tooltip has VISIBLE content.
+  // Confidence/evidence/fragility lines (decisionChangeRisk, rankingShiftWarn,
+  // qualityHint) are gated off today, so they contribute to the icon only when
+  // their gate is on. Enrichment + zero-reason (an influence explanation) are
+  // always-visible. The technique chip moved out of the tooltip to a body chip.
+  const hasTooltipContent = hasEnrichment || hasZeroReason
+    || (DISPLAY_SAFE_DRIVER_CONFIDENCE && showQualityHint)
+    || (SHOW_FRAGILITY_IN_DRIVER_SECTION && (
+          !!decisionChangeRisk
+          || driver.attributionStability === 'low'
+          || driver.attributionStability === 'negligible'
+          || (typeof driver.confidence === 'number' && driver.confidence < 0.9)
+        ))
 
   const handleFocusClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -351,10 +385,14 @@ function DriverRow({
       {tooltipElasticityCopy && (
         <p>{tooltipElasticityCopy}</p>
       )}
-      {/* Decision change risk */}
-      {decisionChangeRisk && <p>{decisionChangeRisk}</p>}
-      {/* Quality hint */}
-      {showQualityHint && (
+      {/* Decision change risk — HIDDEN: a decision-flip / fragility claim
+          ("X becomes the better choice" / "can change which option is best").
+          Fragility belongs in the fragile-factors section, not the influence-only
+          driver section (SHOW_FRAGILITY_IN_DRIVER_SECTION). */}
+      {SHOW_FRAGILITY_IN_DRIVER_SECTION && decisionChangeRisk && <p>{decisionChangeRisk}</p>}
+      {/* Quality hint — HIDDEN: an evidence claim derived from raw fields
+          (single-source rule). Returns when DISPLAY_SAFE_DRIVER_CONFIDENCE is true. */}
+      {DISPLAY_SAFE_DRIVER_CONFIDENCE && showQualityHint && (
         <p className="flex items-center gap-1">
           <TriangleAlert className="w-3.5 h-3.5 text-warning flex-shrink-0" aria-hidden="true" />
           Could benefit from more evidence
@@ -367,8 +405,11 @@ function DriverRow({
           {ZERO_REASON_MESSAGES[driver.zeroReason!]}
         </p>
       )}
-      {/* Task 7c: Ranking shift warning — in tooltip only */}
-      {rankingShiftWarn && (
+      {/* Ranking shift warning (tooltip variant) — HIDDEN: a ranking-shift /
+          fragility claim. Fragility ("could change the result") belongs in the
+          fragile-factors section, not the driver section
+          (SHOW_FRAGILITY_IN_DRIVER_SECTION). */}
+      {SHOW_FRAGILITY_IN_DRIVER_SECTION && rankingShiftWarn && (
         <p className="flex items-center gap-1 text-warning">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-warning flex-shrink-0" aria-hidden="true" />
           {rankingShiftWarn}
@@ -462,13 +503,11 @@ function DriverRow({
           <div className={`${typography.panelBody} font-mono text-text-light w-9 text-right`}>-</div>
         )}
 
-        {/* Confidence bar — Brief 5.5 §2.2 Pattern C (amended Brief 5.7 D4:
-            4-dot scale → thin bar with numeric readout). Distinct from the
-            sensitivity bar via colour (info vs success/warning) and thickness
-            (h-1 vs h-1.5), preserving the three-bar visual separation intent
-            while restoring readability. The glyph column conveys High/Moderate/
-            Low verbally alongside. */}
-        {confidenceValue !== null ? (
+        {/* Confidence — HIDDEN under the single-source rule: no display-safe
+            driver-confidence source exists today, so we never render raw/defaulted
+            confidence (no bar, no %, no dash). Gated on DISPLAY_SAFE_DRIVER_CONFIDENCE
+            so it returns intact when a certified source lands. */}
+        {DISPLAY_SAFE_DRIVER_CONFIDENCE && confidenceValue !== null && (
           <button
             type="button"
             className="cursor-pointer bg-transparent p-0 border-0 w-full text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded"
@@ -499,12 +538,12 @@ function DriverRow({
               </span>
             </div>
           </button>
-        ) : (
-          <div className={`${typography.panelBody} font-mono text-text-light w-9 text-right`}>-</div>
         )}
 
-        {/* Icons column: confidence icon + default-estimate indicator */}
-        <div className="flex items-center gap-1 justify-start">
+        {/* Icons column (confidence glyph + default-estimate) — HIDDEN under the
+            single-source rule, gated like the Confidence bar above. */}
+        {DISPLAY_SAFE_DRIVER_CONFIDENCE && (
+          <div className="flex items-center gap-1 justify-start">
           {confidenceValue !== null && (() => {
             const IconComponent = confidenceValue >= 0.7 ? Check : confidenceValue >= 0.4 ? Minus : HelpCircle
             const cls = confidenceValue >= 0.7 ? 'text-success' : confidenceValue >= 0.4 ? 'text-info' : 'text-factor'
@@ -537,40 +576,44 @@ function DriverRow({
               <circle cx="6" cy="6" r="4.5" />
             </svg>
           )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {/* Composite label + action link */}
+      {/* Composite label + action link.
+          INFLUENCE-ONLY pill (single-source rule — see ROBUSTNESS-VERDICT-CONTRACT).
+          Driver pills state influence ONLY; they must NEVER claim
+          stable / robust / confident / ready / evidence from raw fields. The
+          label maps from the upstream influence-derived `semanticLabel`
+          (UI-SEM-039: rank-1 'biggest', else elasticity threshold), NOT from raw
+          influence×confidence. Confidence/evidence belong in the
+          display-safe-gated Confidence column; fragility ("could change the
+          result") belongs in the fragile-factors section, not here. */}
       {(() => {
-        const influence = driver.influenceScore ?? driver.normalisedInfluence ?? 0
-        const conf = typeof driver.confidence === 'number' ? driver.confidence : 0.5
-        const isHighImpactLowEvidence = influence >= 0.7 && conf < 0.4
-        const isImportantStable = influence >= 0.7 && conf >= 0.4
+        const INFLUENCE_PILL: Record<DriverSemanticLabel, string> = {
+          biggest: 'Top driver',
+          strong: 'High-impact driver',
+          moderate: 'Moderate influence',
+          minor: 'Lower influence',
+        }
+        const pillText = INFLUENCE_PILL[driver.semanticLabel] ?? 'Lower influence'
+        // Subtle emphasis for the strongest influence — colour conveys
+        // prominence, NOT confidence/quality (outlined, text-text-body per DS).
+        const emphasised = driver.semanticLabel === 'biggest' || driver.semanticLabel === 'strong'
         return (
           <div className="flex items-center gap-1.5 px-3 pb-1">
-            {isHighImpactLowEvidence && (
-              <span className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full border border-danger/30 text-danger bg-transparent`}>
-                High impact, low evidence
-              </span>
-            )}
-            {isImportantStable && (
-              <span className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full border border-success/30 text-success bg-transparent`}>
-                Important and stable
-              </span>
-            )}
-            {!isHighImpactLowEvidence && !isImportantStable && (
-              <span className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full border border-panel-border text-text-light bg-transparent`}>
-                Moderate
-              </span>
-            )}
+            <span
+              className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full bg-transparent text-text-body border ${emphasised ? 'border-info/30' : 'border-panel-border'}`}
+              data-testid={`driver-influence-pill-${driver.factorKey}`}
+            >
+              {pillText}
+            </span>
             <button
               type="button"
               onClick={() => {
                 if (onSendMessage) {
                   onSendMessage(
-                    isHighImpactLowEvidence
-                      ? `How can I improve the evidence for "${driver.factorLabel}"? It has high impact but low confidence.`
-                      : `Tell me more about how "${driver.factorLabel}" affects the outcome.`,
+                    `Tell me more about how "${driver.factorLabel}" affects the outcome.`,
                   )
                 } else if (onFocus && driver.matchedNodeId) {
                   onFocus(driver.matchedNodeId)
@@ -578,7 +621,7 @@ function DriverRow({
               }}
               className={`${typography.panelMeta} text-info hover:underline cursor-pointer ml-auto`}
             >
-              {isHighImpactLowEvidence ? 'Improve' : 'Edit'}
+              Discuss
             </button>
           </div>
         )
@@ -598,8 +641,11 @@ function DriverRow({
         </ExpertBlock>
       )}
 
-      {/* V12.2: Microline overtake warning inside card */}
-      {microlineLabel && (
+      {/* Microline overtake warning — HIDDEN: "If wrong, X overtakes" is a
+          fragility/flip claim. Fragility ("could change the result") belongs in
+          the fragile-factors section, not the driver section
+          (SHOW_FRAGILITY_IN_DRIVER_SECTION). */}
+      {SHOW_FRAGILITY_IN_DRIVER_SECTION && microlineLabel && (
         <p
           className={`${typography.panelMeta} text-danger px-3 pb-1.5 -mt-0.5`}
           data-testid="driver-microline"
@@ -608,11 +654,11 @@ function DriverRow({
         </p>
       )}
 
-      {/* Brief 5.1 Task 7.5: visible, clickable technique suggestion. When
-          the driver has high influence AND low confidence, the suggestion
-          renders as a chip button that, on click, sends a scoped prompt
-          into the chat so the user can continue the thread in context. */}
-      {isTopDriver && techniqueSuggestion && onSendMessage && (
+      {/* Technique suggestion chip — HIDDEN: it is gated on LOW confidence
+          (techniqueSuggestion = influence > 0.6 && conf < 0.5), so it is a
+          confidence-derived signal. Hidden under the single-source rule until a
+          display-safe driver-confidence source exists. */}
+      {DISPLAY_SAFE_DRIVER_CONFIDENCE && isTopDriver && techniqueSuggestion && onSendMessage && (
         <div className="px-3 pb-1.5 -mt-0.5">
           <button
             type="button"
@@ -630,11 +676,10 @@ function DriverRow({
         </div>
       )}
 
-      {/* Brief 5.8B D5 step 4: surface "Ranking may shift {N}%" as a visible
-          row beneath the interpretation tag (was tooltip-only). Gated on
-          `rank_flip_rate >= 0.15` so we only call attention to genuinely
-          shift-prone factors. */}
-      {typeof driver.rankFlipRate === 'number' && driver.rankFlipRate >= 0.15 && (
+      {/* "Ranking may shift N%" — HIDDEN: a ranking-shift / fragility claim.
+          Fragility ("could change the result") belongs in the fragile-factors
+          section, not the driver section (SHOW_FRAGILITY_IN_DRIVER_SECTION). */}
+      {SHOW_FRAGILITY_IN_DRIVER_SECTION && typeof driver.rankFlipRate === 'number' && driver.rankFlipRate >= 0.15 && (
         <p
           className={`${typography.panelMeta} text-warning px-3 pb-1.5 -mt-0.5`}
           data-testid={`driver-ranking-shift-${driver.factorKey}`}
@@ -818,32 +863,38 @@ export function DriversSection({
               Influence
             </div>
           </Tooltip>
-          <Tooltip content={confidenceTooltipContent}>
-            <button
-              type="button"
-              // DS v5 a11y: minimum 44×44 touch target for the header info
-              // control. Achieved via a `before:` pseudo-element overlay that
-              // extends the hit area vertically (~16px above + 16px below the
-              // ~16px text = 48px effective, ≥ 44px requirement) WITHOUT
-              // shifting the grid layout — the pseudo-element is absolutely
-              // positioned and contributes no flow height. The button keeps
-              // its `p-0` content box so column alignment is unaffected.
-              className={`${typography.panelBody} text-text-light text-right cursor-help w-full bg-transparent border-0 p-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded inline-flex items-center justify-end gap-1 relative before:absolute before:content-[''] before:left-0 before:right-0 before:-inset-y-4`}
-              aria-label={confidenceAriaLabel}
-              data-testid="drivers-confidence-header"
-            >
-              <span>Confidence</span>
-              {anyConfidenceProvisional && (
-                <Info
-                  className="w-3.5 h-3.5 text-text-light flex-shrink-0"
-                  aria-hidden="true"
-                  data-testid="drivers-confidence-provisional-marker"
-                />
-              )}
-            </button>
-          </Tooltip>
-          {/* Empty cell for icon column */}
-          <div aria-hidden="true" />
+          {/* Confidence header — HIDDEN under the single-source rule (no
+              display-safe driver-confidence source today). Dropping it keeps the
+              header's grid-child count matched to gridCols() so the 2-column
+              influence-only layout stays aligned. Returns with the column. */}
+          {DISPLAY_SAFE_DRIVER_CONFIDENCE && (
+            <Tooltip content={confidenceTooltipContent}>
+              <button
+                type="button"
+                // DS v5 a11y: minimum 44×44 touch target for the header info
+                // control. Achieved via a `before:` pseudo-element overlay that
+                // extends the hit area vertically (~16px above + 16px below the
+                // ~16px text = 48px effective, ≥ 44px requirement) WITHOUT
+                // shifting the grid layout — the pseudo-element is absolutely
+                // positioned and contributes no flow height. The button keeps
+                // its `p-0` content box so column alignment is unaffected.
+                className={`${typography.panelBody} text-text-light text-right cursor-help w-full bg-transparent border-0 p-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded inline-flex items-center justify-end gap-1 relative before:absolute before:content-[''] before:left-0 before:right-0 before:-inset-y-4`}
+                aria-label={confidenceAriaLabel}
+                data-testid="drivers-confidence-header"
+              >
+                <span>Confidence</span>
+                {anyConfidenceProvisional && (
+                  <Info
+                    className="w-3.5 h-3.5 text-text-light flex-shrink-0"
+                    aria-hidden="true"
+                    data-testid="drivers-confidence-provisional-marker"
+                  />
+                )}
+              </button>
+            </Tooltip>
+          )}
+          {/* Empty cell for the icon column — only when the confidence/glyph column shows. */}
+          {DISPLAY_SAFE_DRIVER_CONFIDENCE && <div aria-hidden="true" />}
         </div>
 
         {/* v7.10 T9: Equal-influence note when all visible drivers are within ±0.01 */}

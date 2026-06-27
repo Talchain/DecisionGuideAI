@@ -1,21 +1,16 @@
 /**
- * DriversSection — Brief 5.1 Task 7.5 technique suggestion chip.
+ * DriversSection — technique-suggestion chip HIDDEN (single-source rule).
  *
- * The "Try: reference class forecasting" suggestion used to render only
- * inside the driver tooltip — a decorative dead-end. Task 7.5 promotes it
- * to a visible button on the card body that, when clicked, sends a scoped
- * prompt into the chat so the user can act on the suggestion.
- *
- * Chip visibility rule (mirrors the existing techniqueSuggestion selector
- * inside DriverRow): influence > 0.6 AND confidence < 0.5.
- *
- * Brief 5.4 Phase 3 (Path A): chip is further restricted to the top-ranked
- * driver only (index === 0). Lower-ranked drivers meeting the threshold do
- * NOT get a chip — prevents the same text appearing 3+ times per panel.
+ * The "Try: reference class forecasting" chip is gated on LOW confidence
+ * (influence > 0.6 AND confidence < 0.5), so it is a confidence-derived signal.
+ * Under the influence-only rule the driver section shows influence only and
+ * hides confidence-derived signals until a display-safe driver-confidence source
+ * exists (DISPLAY_SAFE_DRIVER_CONFIDENCE). This previously asserted the chip
+ * rendered + dispatched; it now guards that it does not appear.
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { DriversSection } from '../DriversSection'
 import type { DriversSectionData, DriverItem } from '../types'
 
@@ -51,94 +46,23 @@ function makeData(drivers: DriverItem[]): DriversSectionData {
   }
 }
 
-describe('DriversSection — Brief 5.1 Task 7.5 technique chip', () => {
-  it('renders the clickable technique chip when influence > 0.6 and confidence < 0.5', () => {
-    const onSendMessage = vi.fn()
+describe('DriversSection — technique chip hidden (confidence-derived, single-source rule)', () => {
+  it('does NOT render the chip even when it would qualify (influence > 0.6 AND confidence < 0.5)', () => {
     render(
       <DriversSection
         data={makeData([makeDriver({ influenceScore: 0.8, confidence: 0.4 })])}
-        onSendMessage={onSendMessage}
-      />,
-    )
-
-    const chip = screen.getByTestId('driver-technique-chip-f1')
-    expect(chip).toBeInTheDocument()
-    expect(chip).toHaveTextContent('Try: reference class forecasting')
-    expect(chip.tagName).toBe('BUTTON')
-  })
-
-  it('clicking the chip dispatches an onSendMessage call with factor context', () => {
-    const onSendMessage = vi.fn()
-    render(
-      <DriversSection
-        data={makeData([makeDriver({ influenceScore: 0.8, confidence: 0.4, factorLabel: 'Customer Churn' })])}
-        onSendMessage={onSendMessage}
-      />,
-    )
-
-    fireEvent.click(screen.getByTestId('driver-technique-chip-f1'))
-
-    expect(onSendMessage).toHaveBeenCalledTimes(1)
-    const prompt = onSendMessage.mock.calls[0][0] as string
-    expect(prompt).toContain('Try: reference class forecasting')
-    expect(prompt).toContain('Customer Churn')
-  })
-
-  it('omits the chip when confidence is high enough (no suggestion)', () => {
-    render(
-      <DriversSection
-        data={makeData([makeDriver({ influenceScore: 0.8, confidence: 0.8 })])}
         onSendMessage={() => {}}
       />,
     )
     expect(screen.queryByTestId('driver-technique-chip-f1')).not.toBeInTheDocument()
+    expect(screen.queryByText(/reference class forecasting/i)).not.toBeInTheDocument()
   })
 
-  it('omits the chip when influence is too low to warrant the suggestion', () => {
-    render(
-      <DriversSection
-        data={makeData([makeDriver({ influenceScore: 0.3, confidence: 0.3 })])}
-        onSendMessage={() => {}}
-      />,
-    )
+  it('renders no technique chip on any driver, regardless of confidence', () => {
+    const d1 = makeDriver({ factorKey: 'f1', rank: 1, influenceScore: 0.8, confidence: 0.4 })
+    const d2 = makeDriver({ factorKey: 'f2', rank: 2, influenceScore: 0.9, confidence: 0.3 })
+    render(<DriversSection data={makeData([d1, d2])} onSendMessage={() => {}} />)
     expect(screen.queryByTestId('driver-technique-chip-f1')).not.toBeInTheDocument()
-  })
-
-  it('omits the chip when no onSendMessage handler is wired (defensive)', () => {
-    render(
-      <DriversSection
-        data={makeData([makeDriver({ influenceScore: 0.8, confidence: 0.4 })])}
-      />,
-    )
-    expect(screen.queryByTestId('driver-technique-chip-f1')).not.toBeInTheDocument()
-  })
-
-  it('chip exposes an accessible label that names the technique and factor', () => {
-    render(
-      <DriversSection
-        data={makeData([makeDriver({ influenceScore: 0.8, confidence: 0.4, factorLabel: 'Churn Rate' })])}
-        onSendMessage={() => {}}
-      />,
-    )
-
-    const chip = screen.getByTestId('driver-technique-chip-f1')
-    const label = chip.getAttribute('aria-label') ?? ''
-    expect(label).toContain('reference class forecasting')
-    expect(label).toContain('Churn Rate')
-  })
-
-  it('Brief 5.4 P3: chip only on top-ranked driver; lower-ranked qualifying drivers get no chip', () => {
-    // Both drivers qualify by influence + confidence, but chip must only appear on index 0
-    const driver1 = makeDriver({ factorKey: 'f1', rank: 1, influenceScore: 0.8, confidence: 0.4 })
-    const driver2 = makeDriver({ factorKey: 'f2', rank: 2, influenceScore: 0.9, confidence: 0.3 })
-    render(
-      <DriversSection
-        data={makeData([driver1, driver2])}
-        onSendMessage={() => {}}
-      />,
-    )
-
-    expect(screen.getByTestId('driver-technique-chip-f1')).toBeInTheDocument()
     expect(screen.queryByTestId('driver-technique-chip-f2')).not.toBeInTheDocument()
   })
 })

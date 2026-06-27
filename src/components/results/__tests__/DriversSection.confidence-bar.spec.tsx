@@ -1,9 +1,12 @@
 /**
- * DriversSection Confidence Bar DOM Tests
+ * DriversSection — Confidence column HIDDEN (single-source rule).
  *
- * Verifies the confidence bar renders correctly at edge values (0.0, 0.5, 1.0)
- * now that PLoT's unified formula can produce any value in [0,1].
- * Previously confidence was hardcoded to 0.8 for all factors.
+ * The driver section communicates INFLUENCE only. There is no display-safe
+ * driver-confidence source today (ROBUSTNESS-VERDICT-CONTRACT), so the
+ * Confidence column — bar, % readout, dash placeholder, and High/Moderate/Low
+ * glyph — must NOT render for ANY confidence value (no raw/defaulted confidence,
+ * no dashes). This previously asserted the confidence bar rendered at 0/0.5/1.0;
+ * it now guards that the column stays hidden and the influence-only pill renders.
  */
 
 import { describe, it, expect, vi } from 'vitest'
@@ -39,82 +42,58 @@ function makeDriversData(drivers: DriverItem[]): DriversSectionData {
   }
 }
 
-describe('DriversSection confidence bar rendering', () => {
-  it('renders 0% for confidence: 0.0 without layout breakage', () => {
+describe('DriversSection — Confidence column hidden (single-source rule)', () => {
+  it.each([0.0, 0.5, 0.6, 1.0])(
+    'does not render a confidence bar/readout for confidence %s',
+    (confidence) => {
+      const data = makeDriversData([
+        makeDriver({ factorKey: 'fac', factorLabel: 'Driver A', confidence }),
+      ])
+      render(<DriversSection data={data} goalLabel="test" />)
+      // The confidence progressbar (aria-label "... confidence: N%") must not exist.
+      expect(
+        screen.queryByRole('progressbar', { name: /confidence:/i }),
+      ).not.toBeInTheDocument()
+      // No confidence glyph either.
+      expect(screen.queryByTestId('confidence-glyph-fac')).not.toBeInTheDocument()
+    },
+  )
+
+  it('renders NO dash placeholder when confidence is missing (no dashes, single-source rule)', () => {
     const data = makeDriversData([
-      makeDriver({ factorKey: 'fac_zero', factorLabel: 'Zero confidence', confidence: 0.0 }),
+      makeDriver({ factorKey: 'fac_none', factorLabel: 'No estimate' }), // confidence undefined
     ])
     render(<DriversSection data={data} goalLabel="test" />)
-
-    const bar = screen.getByRole('progressbar', { name: /zero confidence confidence/i })
-    expect(bar).toBeInTheDocument()
-    expect(bar).toHaveAttribute('aria-valuenow', '0')
+    expect(screen.queryByRole('progressbar', { name: /confidence:/i })).not.toBeInTheDocument()
+    // Sensitivity is present (influenceScore 0.5), so no dash placeholder should appear at all.
+    expect(screen.queryByText('-')).not.toBeInTheDocument()
   })
 
-  it('renders 50% for confidence: 0.5 (new common default)', () => {
+  it('renders NO "High/Moderate/Low confidence" glyph or default-estimate icon', () => {
     const data = makeDriversData([
-      makeDriver({ factorKey: 'fac_half', factorLabel: 'Half confidence', confidence: 0.5 }),
+      makeDriver({ factorKey: 'fac_full', factorLabel: 'Full', confidence: 1.0, isDefaultedConfidence: true }),
     ])
     render(<DriversSection data={data} goalLabel="test" />)
-
-    const bar = screen.getByRole('progressbar', { name: /half confidence confidence/i })
-    expect(bar).toBeInTheDocument()
-    expect(bar).toHaveAttribute('aria-valuenow', '50')
+    expect(screen.queryByTestId('confidence-glyph-fac_full')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('default-estimate-icon')).not.toBeInTheDocument()
+    expect(screen.queryByTitle(/confidence/i)).not.toBeInTheDocument()
   })
 
-  it('renders 100% for confidence: 1.0 (full width)', () => {
+  it('renders the INFLUENCE-only pill instead of any stability/evidence claim', () => {
     const data = makeDriversData([
-      makeDriver({ factorKey: 'fac_full', factorLabel: 'Full confidence', confidence: 1.0 }),
+      makeDriver({ factorKey: 'fac', factorLabel: 'Driver A', confidence: 0.9, semanticLabel: 'biggest' }),
     ])
     render(<DriversSection data={data} goalLabel="test" />)
-
-    const bar = screen.getByRole('progressbar', { name: /full confidence confidence/i })
-    expect(bar).toBeInTheDocument()
-    expect(bar).toHaveAttribute('aria-valuenow', '100')
+    expect(screen.getByTestId('driver-influence-pill-fac')).toHaveTextContent('Top driver')
+    expect(screen.queryByText('Important and stable')).not.toBeInTheDocument()
+    expect(screen.queryByText('High impact, low evidence')).not.toBeInTheDocument()
   })
 
-  it('renders dash when confidence is undefined', () => {
-    const data = makeDriversData([
-      makeDriver({ factorKey: 'fac_none', factorLabel: 'No confidence' }),
-    ])
-    render(<DriversSection data={data} goalLabel="test" />)
-
-    // No confidence progressbar should exist
-    expect(screen.queryByRole('progressbar', { name: /no confidence confidence/i })).not.toBeInTheDocument()
-    // Dash placeholder should be rendered
-    const dashes = screen.getAllByText('-')
-    expect(dashes.length).toBeGreaterThanOrEqual(1)
-  })
-
-  // Brief 5.7 D4: Pattern C amended — 4-dot scale → thin bar + numeric readout.
-  // Track is h-1 (vs h-1.5 sensitivity) and bg-info (vs success/warning),
-  // preserving Pattern-A separation while restoring readability.
-  it('renders thin bar (bg-info, h-1) plus percentage readout for confidence: 0.6', () => {
-    const data = makeDriversData([
-      makeDriver({ factorKey: 'fac_60', factorLabel: '60 confidence', confidence: 0.6 }),
-    ])
-    render(<DriversSection data={data} goalLabel="test" />)
-
-    const bar = screen.getByRole('progressbar', { name: /60 confidence confidence/i })
-    expect(bar).toHaveClass('h-1', 'bg-panel-hover', 'rounded-full')
-
-    // Inner fill carries bg-info and width 60%
-    const fill = bar.firstElementChild as HTMLElement | null
-    expect(fill).not.toBeNull()
-    expect(fill).toHaveClass('bg-info', 'rounded-full')
-    expect(fill).toHaveStyle({ width: '60%' })
-
-    // Numeric readout present in the same column
-    expect(screen.getByText('60%')).toBeInTheDocument()
-  })
-
-  it('does not render any 4-dot indicator (no bg-text-body w-2 h-2 spans inside the confidence column)', () => {
+  it('does not render any 4-dot indicator (no bg-text-body w-2 h-2 spans)', () => {
     const data = makeDriversData([
       makeDriver({ factorKey: 'fac_full', factorLabel: 'Full', confidence: 1.0 }),
     ])
     const { container } = render(<DriversSection data={data} goalLabel="test" />)
-
-    // Pre-amendment dots used `w-2 h-2 rounded-full bg-text-body`. None of those should render.
     const dotCandidates = container.querySelectorAll('span.w-2.h-2.rounded-full.bg-text-body')
     expect(dotCandidates.length).toBe(0)
   })

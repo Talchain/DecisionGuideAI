@@ -52,9 +52,11 @@ describe('DriversSection: Brief 5 Task 2 — column alignment + title a11y', () 
     const list = screen.getByTestId('drivers-list')
     expect(list).toBeInTheDocument()
 
-    // Headers and rows must both live under the same wrapper.
+    // Headers and rows live under the same wrapper. The Confidence column
+    // header is hidden (influence-only driver section), so only the Influence
+    // header remains alongside the row.
     expect(list).toHaveTextContent('Influence')
-    expect(list).toHaveTextContent('Confidence')
+    expect(list).not.toHaveTextContent('Confidence')
     expect(list).toHaveTextContent('Dedicated Design Expertise')
   })
 

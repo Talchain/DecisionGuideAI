@@ -41,8 +41,8 @@ function makeData(drivers: DriverItem[]): DriversSectionData {
   }
 }
 
-describe('DriversSection: V11 driver #1 microline', () => {
-  it('shows microline when driver #1 has fragile edge with switchProbability > 0 and alternativeWinnerLabel', () => {
+describe('DriversSection: driver #1 microline hidden (fragility → fragile-factors section)', () => {
+  it('does NOT show the microline even when driver #1 has a qualifying fragile edge', () => {
     const driver = makeDriver({
       fragileEdgeInfo: {
         switchProbability: 0.35,
@@ -51,10 +51,11 @@ describe('DriversSection: V11 driver #1 microline', () => {
     })
     render(<DriversSection data={makeData([driver])} goalLabel="Revenue" />)
 
-    const microline = screen.getByTestId('driver-microline')
-    expect(microline).toBeInTheDocument()
-    expect(microline.textContent).toBe('If wrong, Option B overtakes')
-    expect(microline.className).toContain('text-danger')
+    // "If wrong, X overtakes" is a fragility/flip claim; per the single-source
+    // rule it belongs in the fragile-factors section, not the influence-only
+    // driver section (SHOW_FRAGILITY_IN_DRIVER_SECTION).
+    expect(screen.queryByTestId('driver-microline')).not.toBeInTheDocument()
+    expect(screen.queryByText(/overtakes/i)).not.toBeInTheDocument()
   })
 
   it('hides microline when driver #1 has no fragileEdgeInfo', () => {
@@ -87,7 +88,7 @@ describe('DriversSection: V11 driver #1 microline', () => {
     expect(screen.queryByTestId('driver-microline')).not.toBeInTheDocument()
   })
 
-  it('only shows microline on first driver, not second', () => {
+  it('shows NO microline on any driver, even with qualifying fragile edges', () => {
     const driver1 = makeDriver({
       factorKey: 'factor-1',
       fragileEdgeInfo: {
@@ -109,8 +110,6 @@ describe('DriversSection: V11 driver #1 microline', () => {
     })
     render(<DriversSection data={makeData([driver1, driver2])} goalLabel="Revenue" />)
 
-    const microlines = screen.getAllByTestId('driver-microline')
-    expect(microlines).toHaveLength(1)
-    expect(microlines[0].textContent).toBe('If wrong, Option B overtakes')
+    expect(screen.queryAllByTestId('driver-microline')).toHaveLength(0)
   })
 })
