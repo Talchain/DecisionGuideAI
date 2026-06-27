@@ -302,7 +302,13 @@ describe('OutputsDock analyse convergence', () => {
 
     const footer = screen.getByTestId('results-analysis-footer')
     expect(footer).toBeInTheDocument()
-    expect(footer).toHaveTextContent('Stable result')
+    // Robustness trust fix (ROBUSTNESS-VERDICT-CONTRACT): raw
+    // recommendation_stability (0.87) with NO display-safe robustnessVerdict no
+    // longer renders a positive "Stable result" verdict — the footer stays
+    // neutral ("Robustness unknown"), matching the certified glyph. The raw %
+    // is retained only as neutral metadata.
+    expect(footer).not.toHaveTextContent('Stable result')
+    expect(footer).toHaveTextContent('Robustness unknown')
     expect(footer).toHaveTextContent('87%')
     expect(screen.queryByText('Compare available in the tab bar')).not.toBeInTheDocument()
   })

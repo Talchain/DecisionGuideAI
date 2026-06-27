@@ -1,54 +1,88 @@
 /**
- * Brief 5.8B D8 — post-analysis footer status + meta derivation.
+ * Post-analysis footer status + meta derivation.
  *
- * Pure helper underpinning the AnalysisFooter call inside OutputsDock.
- * Covers all four stability bands + the evidence-gap meta cases.
+ * Pure helper underpinning the AnalysisFooter call inside OutputsDock. Status is
+ * driven ONLY by the display-safe robustnessVerdict (single-source rule), and
+ * is runtime-safe (unexpected values fall neutral); meta covers the neutral
+ * "{N}% stability" + evidence-gap cases.
  */
 
 import { describe, it, expect } from 'vitest'
 import { derivePostFooterStatus, derivePostFooterMeta } from '../postAnalysisFooter'
+import type { RobustnessLevel } from '@/components/results/types'
 
-describe('derivePostFooterStatus (Brief 5.8B D8)', () => {
-  it('≥0.85 → success "Stable result"', () => {
-    expect(derivePostFooterStatus(0.85)).toEqual({
+describe('derivePostFooterStatus — display-safe verdict only (robustness trust fix)', () => {
+  // Single-source rule (ROBUSTNESS-VERDICT-CONTRACT): the footer verdict comes
+  // ONLY from the display-safe `robustnessVerdict`, never from raw
+  // recommendation_stability. So the helper now takes the verdict, not a number.
+
+  it('verdict "high" → success "Stable result" (the ONLY path to a positive verdict)', () => {
+    expect(derivePostFooterStatus('high')).toEqual({
       icon: 'check',
       iconClass: 'text-success',
       label: 'Stable result',
     })
-    expect(derivePostFooterStatus(0.92)).toEqual({
-      icon: 'check',
-      iconClass: 'text-success',
-      label: 'Stable result',
-    })
   })
 
-  it('0.60..0.84 → warning "Sensitive to assumptions"', () => {
-    expect(derivePostFooterStatus(0.60)).toMatchObject({
-      icon: 'warning',
-      label: 'Sensitive to assumptions',
-    })
-    expect(derivePostFooterStatus(0.84)).toMatchObject({
-      icon: 'warning',
-      label: 'Sensitive to assumptions',
-    })
+  it('verdict "moderate" | "low" | "very_low" → warning "Sensitive to assumptions"', () => {
+    for (const v of ['moderate', 'low', 'very_low'] as const) {
+      expect(derivePostFooterStatus(v)).toEqual({
+        icon: 'warning',
+        iconClass: 'text-warning',
+        label: 'Sensitive to assumptions',
+      })
+    }
   })
 
-  it('<0.60 → danger "Provisional result"', () => {
-    expect(derivePostFooterStatus(0.59)).toMatchObject({
-      icon: 'danger',
-      label: 'Provisional result',
-    })
-    expect(derivePostFooterStatus(0)).toMatchObject({
-      icon: 'danger',
-      label: 'Provisional result',
-    })
+  it('undefined / null verdict → neutral "Robustness unknown" (matches the certified glyph)', () => {
+    for (const v of [undefined, null] as const) {
+      expect(derivePostFooterStatus(v)).toEqual({
+        icon: 'unknown',
+        iconClass: 'text-text-light',
+        label: 'Robustness unknown',
+      })
+    }
   })
 
-  it('missing / NaN / non-finite → danger "Fragile result" fallback', () => {
-    expect(derivePostFooterStatus(undefined)).toMatchObject({ label: 'Fragile result' })
-    expect(derivePostFooterStatus(null)).toMatchObject({ label: 'Fragile result' })
-    expect(derivePostFooterStatus(Number.NaN)).toMatchObject({ label: 'Fragile result' })
-    expect(derivePostFooterStatus(Number.POSITIVE_INFINITY)).toMatchObject({ label: 'Fragile result' })
+  it('trust fix: an ABSENT display-safe verdict never renders "Stable result" nor a green/check positive icon', () => {
+    // This is the live-contract case today (robustnessVerdict is always
+    // undefined). Previously raw stability ≥ 0.85 rendered a green "Stable
+    // result" that contradicted the neutral robustness glyph.
+    const status = derivePostFooterStatus(undefined)
+    expect(status.label).not.toBe('Stable result')
+    expect(status.icon).not.toBe('check')
+    expect(status.iconClass).not.toContain('success')
+    expect(status.label).toBe('Robustness unknown')
+  })
+})
+
+describe('derivePostFooterStatus — runtime-safe: unexpected values fall NEUTRAL (not a verdict)', () => {
+  // Type safety is necessary but NOT sufficient. If a raw stability number
+  // (e.g. 0.87), a stringified number, or any malformed value accidentally
+  // reaches the helper at runtime, it must fall neutral — NEVER fabricate a
+  // "Sensitive to assumptions"/"Stable result" claim from an uncertified source.
+  const NEUTRAL = { icon: 'unknown', iconClass: 'text-text-light', label: 'Robustness unknown' } as const
+  const UNEXPECTED: Array<[string, unknown]> = [
+    ['raw number 0.87', 0.87],
+    ['raw number 0.5', 0.5],
+    ['raw number 1', 1],
+    ['stringified number "0.87"', '0.87'],
+    ['unknown string "unexpected"', 'unexpected'],
+    ['empty string', ''],
+    ['NaN', Number.NaN],
+    ['boolean true', true],
+    ['object', {}],
+    ['array', []],
+  ]
+  it.each(UNEXPECTED)('%s → neutral "Robustness unknown", no verdict / no positive styling', (_label, value) => {
+    const status = derivePostFooterStatus(value as unknown as RobustnessLevel)
+    expect(status).toEqual(NEUTRAL)
+    expect(status.label).not.toBe('Stable result')
+    expect(status.label).not.toBe('Sensitive to assumptions')
+    expect(status.icon).not.toBe('check')
+    expect(status.icon).not.toBe('warning')
+    expect(status.iconClass).not.toContain('success')
+    expect(status.iconClass).not.toContain('warning')
   })
 })
 

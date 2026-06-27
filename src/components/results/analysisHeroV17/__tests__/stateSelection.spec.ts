@@ -49,24 +49,47 @@ describe('selectHeroState', () => {
   })
 
   describe('STRONG', () => {
-    it('high stability + no gaps + no fragile edges → strong', () => {
-      expect(selectHeroState(base({ stability: 0.9, evidenceGapCount: 0, fragileEdgeCount: 0 }))).toBe('strong')
+    // Trust fix (ROBUSTNESS-VERDICT-CONTRACT): the confident 'strong' posture
+    // now also requires the display-safe robustnessVerdict === 'high'. The
+    // strong-expecting cases below pass it explicitly; the no-verdict / non-high
+    // cases are covered in "STRONG requires the display-safe verdict" below.
+    it('high stability + no gaps + no fragile edges + verdict high → strong', () => {
+      expect(selectHeroState(base({ stability: 0.9, evidenceGapCount: 0, fragileEdgeCount: 0, robustnessVerdict: 'high' }))).toBe('strong')
     })
 
-    it('exactly 0.85 stability + 1 gap + no fragile → strong (boundary)', () => {
-      expect(selectHeroState(base({ stability: 0.85, evidenceGapCount: 1, fragileEdgeCount: 0 }))).toBe('strong')
+    it('exactly 0.85 stability + 1 gap + no fragile + verdict high → strong (boundary)', () => {
+      expect(selectHeroState(base({ stability: 0.85, evidenceGapCount: 1, fragileEdgeCount: 0, robustnessVerdict: 'high' }))).toBe('strong')
     })
 
     it('just below 0.85 stability → NOT strong', () => {
-      expect(selectHeroState(base({ stability: 0.849, evidenceGapCount: 0 }))).not.toBe('strong')
+      expect(selectHeroState(base({ stability: 0.849, evidenceGapCount: 0, robustnessVerdict: 'high' }))).not.toBe('strong')
     })
 
     it('any fragile edge breaks strong', () => {
-      expect(selectHeroState(base({ stability: 0.9, evidenceGapCount: 0, fragileEdgeCount: 1 }))).not.toBe('strong')
+      expect(selectHeroState(base({ stability: 0.9, evidenceGapCount: 0, fragileEdgeCount: 1, robustnessVerdict: 'high' }))).not.toBe('strong')
     })
 
     it('2+ gaps breaks strong', () => {
-      expect(selectHeroState(base({ stability: 0.9, evidenceGapCount: 2 }))).not.toBe('strong')
+      expect(selectHeroState(base({ stability: 0.9, evidenceGapCount: 2, robustnessVerdict: 'high' }))).not.toBe('strong')
+    })
+  })
+
+  describe('STRONG requires the display-safe verdict (trust fix)', () => {
+    it('high stability + no gaps + no fragile but NO verdict → NOT strong (neutral moderate)', () => {
+      // Raw stability alone must not unlock the confident "ready to brief"
+      // posture. With robustnessVerdict undefined (the live contract today) the
+      // hero falls back to the neutral 'moderate' state.
+      const state = selectHeroState(base({ stability: 0.95, evidenceGapCount: 0, fragileEdgeCount: 0, robustnessVerdict: undefined, decisionState: 'sensitive' }))
+      expect(state).not.toBe('strong')
+      expect(state).toBe('moderate')
+    })
+
+    it('high stability + good signals but verdict is "low"/"moderate"/"very_low" → NOT strong', () => {
+      for (const verdict of ['low', 'moderate', 'very_low'] as const) {
+        expect(
+          selectHeroState(base({ stability: 0.95, evidenceGapCount: 0, fragileEdgeCount: 0, robustnessVerdict: verdict, decisionState: 'sensitive' })),
+        ).not.toBe('strong')
+      }
     })
   })
 
@@ -87,8 +110,8 @@ describe('selectHeroState', () => {
       expect(selectHeroState(base({ decisionState: 'indeterminate', biasFindings: 1, stability: 0.7 }))).toBe('moderate')
     })
 
-    it('robust but reflect signals would also satisfy strong → strong wins', () => {
-      expect(selectHeroState(base({ decisionState: 'robust', biasFindings: 1, stability: 0.9, evidenceGapCount: 0, fragileEdgeCount: 0 }))).toBe('strong')
+    it('robust but reflect signals would also satisfy strong → strong wins (with display-safe verdict)', () => {
+      expect(selectHeroState(base({ decisionState: 'robust', biasFindings: 1, stability: 0.9, evidenceGapCount: 0, fragileEdgeCount: 0, robustnessVerdict: 'high' }))).toBe('strong')
     })
   })
 
