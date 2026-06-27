@@ -1,12 +1,15 @@
 /**
- * Brief 5.8B D8 — post-analysis footer status + meta derivation.
+ * Post-analysis footer status + meta derivation.
  *
- * Pure helper underpinning the AnalysisFooter call inside OutputsDock.
- * Covers all four stability bands + the evidence-gap meta cases.
+ * Pure helper underpinning the AnalysisFooter call inside OutputsDock. Status is
+ * driven ONLY by the display-safe robustnessVerdict (single-source rule), and
+ * is runtime-safe (unexpected values fall neutral); meta covers the neutral
+ * "{N}% stability" + evidence-gap cases.
  */
 
 import { describe, it, expect } from 'vitest'
 import { derivePostFooterStatus, derivePostFooterMeta } from '../postAnalysisFooter'
+import type { RobustnessLevel } from '@/components/results/types'
 
 describe('derivePostFooterStatus — display-safe verdict only (robustness trust fix)', () => {
   // Single-source rule (ROBUSTNESS-VERDICT-CONTRACT): the footer verdict comes
@@ -50,6 +53,36 @@ describe('derivePostFooterStatus — display-safe verdict only (robustness trust
     expect(status.icon).not.toBe('check')
     expect(status.iconClass).not.toContain('success')
     expect(status.label).toBe('Robustness unknown')
+  })
+})
+
+describe('derivePostFooterStatus — runtime-safe: unexpected values fall NEUTRAL (not a verdict)', () => {
+  // Type safety is necessary but NOT sufficient. If a raw stability number
+  // (e.g. 0.87), a stringified number, or any malformed value accidentally
+  // reaches the helper at runtime, it must fall neutral — NEVER fabricate a
+  // "Sensitive to assumptions"/"Stable result" claim from an uncertified source.
+  const NEUTRAL = { icon: 'unknown', iconClass: 'text-text-light', label: 'Robustness unknown' } as const
+  const UNEXPECTED: Array<[string, unknown]> = [
+    ['raw number 0.87', 0.87],
+    ['raw number 0.5', 0.5],
+    ['raw number 1', 1],
+    ['stringified number "0.87"', '0.87'],
+    ['unknown string "unexpected"', 'unexpected'],
+    ['empty string', ''],
+    ['NaN', Number.NaN],
+    ['boolean true', true],
+    ['object', {}],
+    ['array', []],
+  ]
+  it.each(UNEXPECTED)('%s → neutral "Robustness unknown", no verdict / no positive styling', (_label, value) => {
+    const status = derivePostFooterStatus(value as unknown as RobustnessLevel)
+    expect(status).toEqual(NEUTRAL)
+    expect(status.label).not.toBe('Stable result')
+    expect(status.label).not.toBe('Sensitive to assumptions')
+    expect(status.icon).not.toBe('check')
+    expect(status.icon).not.toBe('warning')
+    expect(status.iconClass).not.toContain('success')
+    expect(status.iconClass).not.toContain('warning')
   })
 })
 

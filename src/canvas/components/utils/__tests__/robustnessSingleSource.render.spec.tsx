@@ -94,6 +94,21 @@ describe('AnalysisFooter — raw stability cannot render a positive robustness v
       cleanup()
     }
   })
+
+  it('runtime-safe: a raw stability NUMBER that slips through at runtime → neutral footer, no verdict styling', () => {
+    // Defense-in-depth (rendered): even if 0.87 reached the wired helper at
+    // runtime, the footer must render neutral "Robustness unknown" — never a
+    // green "Stable result" nor an amber "Sensitive to assumptions" from an
+    // uncertified raw value.
+    const { container } = renderFooter(0.87 as unknown as RobustnessLevel)
+    const footer = screen.getByTestId('results-analysis-footer')
+    expect(footer).toHaveTextContent('Robustness unknown')
+    expect(footer).not.toHaveTextContent('Stable result')
+    expect(footer).not.toHaveTextContent('Sensitive to assumptions')
+    expect(container.querySelector('.text-success')).toBeNull()
+    expect(container.querySelector('.lucide-check-circle')).toBeNull()
+    expect(container.querySelector('.lucide-help-circle')).not.toBeNull()
+  })
 })
 
 describe('footer ↔ certified glyph consistency (single source)', () => {

@@ -55,19 +55,34 @@ export interface PostFooterMetaInput {
  * neutral metadata via `derivePostFooterMeta`. With no display-safe verdict in
  * the contract today the verdict is undefined and the footer renders the
  * neutral "Robustness unknown" state, in lock-step with the certified glyph.
+ *
+ * RUNTIME-SAFE (allowlist, not catch-all): ONLY the known display-safe verdict
+ * enum values produce a verdict. Type safety alone is not enough — if a raw
+ * stability number (e.g. 0.87), a stringified number, or any other malformed
+ * value accidentally reaches this helper at runtime, it must fall NEUTRAL,
+ * never fabricate a "Sensitive to assumptions"/"Stable result" claim from an
+ * uncertified source. So the only branches that emit a verdict are the exact
+ * enum matches; everything else (undefined, null, unknown string, number,
+ * malformed) returns "Robustness unknown".
  */
 export function derivePostFooterStatus(
   robustnessVerdict: RobustnessLevel | null | undefined,
 ): PostFooterStatus {
-  if (robustnessVerdict == null) {
-    return { icon: 'unknown', iconClass: 'text-text-light', label: 'Robustness unknown' }
-  }
   if (robustnessVerdict === 'high') {
     return { icon: 'check', iconClass: 'text-success', label: 'Stable result' }
   }
-  // Known but not high (moderate / low / very_low) → sensitive, mirroring the
-  // certified glyph's "Sensitive" label.
-  return { icon: 'warning', iconClass: 'text-warning', label: 'Sensitive to assumptions' }
+  // Known display-safe non-high verdicts → sensitive, mirroring the certified
+  // glyph's "Sensitive" label. Explicit allowlist (NOT a non-high catch-all)
+  // so unexpected runtime values cannot reach this positive-ish branch.
+  if (
+    robustnessVerdict === 'moderate' ||
+    robustnessVerdict === 'low' ||
+    robustnessVerdict === 'very_low'
+  ) {
+    return { icon: 'warning', iconClass: 'text-warning', label: 'Sensitive to assumptions' }
+  }
+  // undefined / null / unknown string / number / malformed → neutral.
+  return { icon: 'unknown', iconClass: 'text-text-light', label: 'Robustness unknown' }
 }
 
 export function derivePostFooterMeta({ stability, reviewCards }: PostFooterMetaInput): string | null {
