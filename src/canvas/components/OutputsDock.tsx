@@ -975,14 +975,17 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
   const decisionReadiness = report?.decision_readiness || readinessFromConfidence
   const recommendationStability = (report as any)?.robustness?.recommendation_stability ?? (report as any)?.robustness?.ranking_stability
-  // Brief 5.8B D8: footer status + meta re-skinned to the wireframe via the
-  // pure helper (./utils/postAnalysisFooter.ts). The helper owns the
-  // wireframe stability bands + evidence-gap derivation so the logic can be
-  // unit-tested in isolation. The legacy `getStabilityClassification`
-  // heroLabel ("Stability sensitive") was the orphan-text source D6
-  // flagged — superseded by the deterministic strings here.
-  const postFooterStatus = derivePostFooterStatus(recommendationStability)
-  const POST_FOOTER_ICONS = { check: CheckCircle, warning: AlertTriangle, danger: XCircle } as const
+  // Footer status is driven by the display-safe robustness verdict ONLY
+  // (single-source rule — the same `robustnessVerdict` field that drives the
+  // certified "Robustness unknown" glyph), NEVER by raw recommendation_stability.
+  // With no display-safe verdict in the contract today the verdict is undefined,
+  // so the footer renders the neutral "Robustness unknown" state instead of a
+  // green "Stable result" derived from raw stability (which contradicted the
+  // glyph on the same tab). Raw stability is retained only as neutral metadata
+  // in derivePostFooterMeta below. See ./utils/postAnalysisFooter.ts +
+  // ROBUSTNESS-VERDICT-CONTRACT.
+  const postFooterStatus = derivePostFooterStatus(resultsSectionData.recommendation.robustnessVerdict)
+  const POST_FOOTER_ICONS = { check: CheckCircle, warning: AlertTriangle, unknown: HelpCircle } as const
   const postRunFooter = {
     icon: POST_FOOTER_ICONS[postFooterStatus.icon],
     iconClass: postFooterStatus.iconClass,

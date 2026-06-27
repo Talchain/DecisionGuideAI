@@ -11,7 +11,7 @@
  * documented at the call site below.
  */
 
-import type { DecisionState } from '../types'
+import type { DecisionState, RobustnessLevel } from '../types'
 import type { HeroState } from './analysisHeroVM.types'
 
 export interface StateSelectionInputs {
@@ -32,6 +32,14 @@ export interface StateSelectionInputs {
   biasFindings: number
   /** Optional framing-check flag — defaults to false in v1 (data not plumbed yet). */
   framingFlag: boolean
+  /**
+   * Display-safe robustness verdict (`data.recommendation.robustnessVerdict`).
+   * REQUIRED for the confident 'strong' posture — raw `stability` alone must
+   * never unlock "Ready to brief"/"Create decision brief" (single-source rule,
+   * see ROBUSTNESS-VERDICT-CONTRACT). Undefined today → 'strong' is unreachable
+   * and the hero falls back to the neutral 'moderate'/'reflect' posture.
+   */
+  robustnessVerdict?: RobustnessLevel | null
 }
 
 export function selectHeroState(input: StateSelectionInputs): HeroState {
@@ -44,6 +52,7 @@ export function selectHeroState(input: StateSelectionInputs): HeroState {
     optionCount,
     biasFindings,
     framingFlag,
+    robustnessVerdict,
   } = input
 
   // 1. WEAK — no clear winner, low-stability with many gaps, many gaps,
@@ -53,8 +62,19 @@ export function selectHeroState(input: StateSelectionInputs): HeroState {
   if (evidenceGapCount >= 4) return 'weak'
   if (optionCount < 2) return 'weak'
 
-  // 2. STRONG — high stability, ≤1 evidence gap, no fragile connections.
-  if (stability !== null && stability >= 0.85 && evidenceGapCount <= 1 && fragileEdgeCount === 0) {
+  // 2. STRONG — confident "ready to brief" posture. Gated on the display-safe
+  //    robustness verdict (`robustnessVerdict === 'high'`) IN ADDITION to the
+  //    quality signals: high stability + ≤1 evidence gap + no fragile edges.
+  //    Raw stability alone must NOT unlock the confident posture (single-source
+  //    rule — ROBUSTNESS-VERDICT-CONTRACT). No display-safe verdict exists in
+  //    the contract today, so this branch is currently unreachable and the hero
+  //    falls back to the neutral 'moderate'/'reflect' posture instead of
+  //    over-claiming "Ready to brief" from an uncertified stability number.
+  if (
+    robustnessVerdict === 'high' &&
+    stability !== null && stability >= 0.85 &&
+    evidenceGapCount <= 1 && fragileEdgeCount === 0
+  ) {
     return 'strong'
   }
 

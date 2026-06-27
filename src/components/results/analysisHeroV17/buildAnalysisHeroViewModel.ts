@@ -67,7 +67,6 @@ import {
   type CoverageSignals,
 } from './canvasSignals'
 import { stripEncodingNotation } from '../utils/cleanFactorLabel'
-import { shouldSoftenPhrasing } from '../utils/certaintyCopy'
 import type {
   AnalysisHeroVM,
   DimensionSegment,
@@ -157,21 +156,22 @@ function buildResultLine(data: ResultsSectionDataReturn): string {
   const winner = data?.recommendation?.recommendedOption
   if (!winner) return 'No option currently comes out ahead clearly.'
   const label = safeLabel(winner.label, 'The leading option')
-  // V17 power pass (2026-05-27): when the same softening gate the
-  // AnalysisFooter uses (`shouldSoftenPhrasing`: tier ∈ {needs_work, fair}
-  // AND stability < 0.85) fires AND a fragile edge is present, append a
-  // clarifying clause so the hero headline no longer reads as
-  // unconditional. Without this, a 74% stability + fragile-edge case
-  // shows "X comes out ahead most often." at the top of the panel while
-  // the footer says "Stability sensitive" — the two surfaces contradict.
-  // Gate reuses certaintyCopy.shouldSoftenPhrasing so the hero and the
-  // footer share the exact same threshold.
-  const tier = data?.confidence?.tier?.tier
-  const stability = data?.recommendation?.recommendationStability
+  // Sensitivity caveat is gated on the display-safe robustness verdict ONLY —
+  // never raw recommendation_stability (single-source rule, see
+  // ROBUSTNESS-VERDICT-CONTRACT). A known non-'high' verdict means the result
+  // is sensitive; with a concrete fragile edge also present we append the
+  // clarifying clause so the headline isn't read as unconditional. No
+  // display-safe verdict exists in the contract today → the verdict is
+  // undefined → the caveat never fires and the headline stays neutral
+  // ("…comes out ahead most often."), in lock-step with the certified
+  // "Robustness unknown" glyph rather than deriving a sensitivity claim from
+  // an uncertified stability number.
+  const verdict = data?.recommendation?.robustnessVerdict
+  const verdictSensitive = verdict != null && verdict !== 'high'
   const hasFragile = !!(
     data?.confidence?.topFragileEdge ?? data?.confidence?.m1CoachingTopFragileEdge
   )
-  if (shouldSoftenPhrasing(tier, stability ?? undefined) && hasFragile) {
+  if (verdictSensitive && hasFragile) {
     return `${label} comes out ahead most often, but the result is sensitive to assumptions.`
   }
   return `${label} comes out ahead most often.`
@@ -486,6 +486,9 @@ export function buildAnalysisHeroViewModel(args: AnalysisHeroBuilderArgs): Analy
     optionCount: allOptions.length,
     biasFindings: biasFindings.length,
     framingFlag: false, // Not plumbed in v1.
+    // Display-safe verdict gates the confident 'strong' posture — raw stability
+    // alone must not unlock "Ready to brief" (ROBUSTNESS-VERDICT-CONTRACT).
+    robustnessVerdict: recommendation?.robustnessVerdict ?? null,
   })
 
   const allRows = rankHeroRows(data, state)

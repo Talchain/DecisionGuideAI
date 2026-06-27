@@ -28,12 +28,14 @@ import type {
   DecisionResultData,
   EvidenceGapItem,
   OptionResult,
+  RobustnessLevel,
 } from '../../types'
 
 function makeData(overrides: {
   stability?: number
   gaps?: EvidenceGapItem[]
   bias?: Array<{ type: string; description: string }>
+  robustnessVerdict?: RobustnessLevel
 } = {}): ResultsSectionDataReturn {
   const winner: OptionResult = { id: 'opt_a', label: 'Option A', winProbability: 0.7 } as OptionResult
   const recommendation: DecisionResultData = {
@@ -44,6 +46,9 @@ function makeData(overrides: {
     analysisStatus: 'computed',
     recommendationStability: overrides.stability ?? 0.7,
     coachingReadinessDimensions: { evidence: 0.6, robustness: 0.7, clarity: 0.65 },
+    // Trust fix: the 'strong' posture requires the display-safe verdict, so
+    // strong-state tests pass robustnessVerdict: 'high' (ROBUSTNESS-VERDICT-CONTRACT).
+    robustnessVerdict: overrides.robustnessVerdict,
   } as DecisionResultData
   const confidence: ConfidenceSectionData = {
     tier: { tier: 'fair', icon: 'AlertTriangle', label: 'Fair', description: 'd' },
@@ -206,7 +211,7 @@ describe('AnalysisHeroV17 — chat-closed render mode', () => {
       // anyway because the links are prefill-dependent.
       render(
         <AnalysisHeroV17
-          data={makeData({ stability: 0.9 })}
+          data={makeData({ stability: 0.9, robustnessVerdict: 'high' })}
           vm={makeVm({ decisionState: 'robust', evidenceLevel: 'good' })}
           fragileEdgeCount={0}
         />,
@@ -233,7 +238,7 @@ describe('AnalysisHeroV17 — chat-closed render mode', () => {
       useGuidanceStore.setState({ _prefillChat: () => {}, _sendMessage: () => {} })
       render(
         <AnalysisHeroV17
-          data={makeData({ stability: 0.9 })}
+          data={makeData({ stability: 0.9, robustnessVerdict: 'high' })}
           vm={makeVm({ decisionState: 'robust', evidenceLevel: 'good' })}
           fragileEdgeCount={0}
         />,
@@ -321,7 +326,7 @@ describe('AnalysisHeroV17 — chat-closed render mode', () => {
     it('strong state CTA: hidden when chat is closed', () => {
       render(
         <AnalysisHeroV17
-          data={makeData({ stability: 0.9 })}
+          data={makeData({ stability: 0.9, robustnessVerdict: 'high' })}
           vm={makeVm({ decisionState: 'robust', evidenceLevel: 'good' })}
           fragileEdgeCount={0}
         />,
