@@ -1,15 +1,21 @@
 /**
- * DriversSection Component - Redesigned
+ * DriversSection Component
  *
- * "What's Influencing This" panel with column-based layout.
+ * "What's Influencing This" panel — INFLUENCE ONLY (single-source rule; see
+ * ROBUSTNESS-VERDICT-CONTRACT). The driver section communicates how much each
+ * factor influences the current result; it does NOT render confidence / evidence
+ * / stability / fragility claims derived from raw fields (those are gated on
+ * DISPLAY_SAFE_DRIVER_CONFIDENCE / SHOW_FRAGILITY_IN_DRIVER_SECTION, both off
+ * today). Per-factor discussion is the bottom-right DiscussWithAiButton sparkle.
  *
  * Features:
  * - Panel title at top, separate from grid
- * - Column headers: "Sensitivity" and "Confidence" (right-aligned above bars)
+ * - One data column: "Influence" (sensitivity bar). The Confidence column +
+ *   glyph are hidden until a display-safe driver-confidence source exists.
  * - Direction arrows with matching bar colors (↘ orange, ↗ green)
- * - Two bars per row (Sensitivity + Confidence)
+ * - Influence-only pill per row (Top / High-impact / Moderate / Lower influence)
  * - Factor names can wrap, bars stay aligned
- * - Expanded view with contextual insights
+ * - Expanded view with contextual (influence / enrichment) insights
  * - ISL unavailable error state with retry
  */
 
@@ -346,6 +352,12 @@ function DriverRow({
     setIsTooltipOpen(prev => !prev)
   }, [])
 
+  // Close the tooltip if its content disappears (e.g. a data refresh removes the
+  // (i) trigger), so no orphaned tooltip stays open without a trigger to close it.
+  useEffect(() => {
+    if (!hasTooltipContent && isTooltipOpen) setIsTooltipOpen(false)
+  }, [hasTooltipContent, isTooltipOpen])
+
   // v7.5 T7: Softened tooltip copy
   const tooltipElasticityCopy = driver.rawElasticity > 0.001
     ? (() => {
@@ -495,7 +507,7 @@ function DriverRow({
           <DataBar
             value={sensitivityValue}
             colourVar={BAR_COLORS[barColor]}
-            label={`${cleanedLabel} sensitivity: ${Math.round(sensitivityValue * 100)}%`}
+            label={`${cleanedLabel} influence: ${Math.round(sensitivityValue * 100)}%`}
             size="standard"
             showPercent
           />
@@ -608,25 +620,10 @@ function DriverRow({
             >
               {pillText}
             </span>
-            <button
-              type="button"
-              onClick={() => {
-                if (onSendMessage) {
-                  onSendMessage(
-                    `Tell me more about how "${driver.factorLabel}" affects the outcome.`,
-                  )
-                } else if (onFocus && driver.canFocus) {
-                  // Match the factor-name focus path: fall back to factorKey when
-                  // there is no matchedNodeId, so reusable/story/test surfaces
-                  // (no onSendMessage) keep the focus action instead of silently
-                  // no-opping.
-                  onFocus(driver.matchedNodeId ?? driver.factorKey)
-                }
-              }}
-              className={`${typography.panelMeta} text-info hover:underline cursor-pointer ml-auto`}
-            >
-              Discuss
-            </button>
+            {/* No inline action here: the pill is an influence LABEL only. Per-factor
+                discussion is the bottom-right DiscussWithAiButton sparkle (kept as the
+                single, app-consistent "discuss this factor" affordance); node focus is
+                the factor-name button above. (Removed the duplicate inline "Discuss".) */}
           </div>
         )
       })()}

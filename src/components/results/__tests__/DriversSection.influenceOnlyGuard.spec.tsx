@@ -161,21 +161,6 @@ describe('DriversSection — influence-only guard', () => {
     expect(screen.queryByLabelText('Custom confidence value')).toBeNull()
   })
 
-  it('Discuss action focuses by factorKey when canFocus + no matchedNodeId + no chat (P2 fallback)', () => {
-    const onFocus = vi.fn()
-    render(
-      <DriversSection
-        // canFocus but NO matchedNodeId and NO onSendMessage — the reusable/test
-        // surface where the focus action would previously silently no-op.
-        data={makeData([makeDriver({ factorKey: 'fac', canFocus: true })])}
-        goalLabel="test"
-        onFocusNode={onFocus}
-      />,
-    )
-    fireEvent.click(screen.getByRole('button', { name: 'Discuss' }))
-    expect(onFocus).toHaveBeenCalledWith('fac')
-  })
-
   it('does NOT render the decision-flip line even with the tooltip OPEN (decisionChangeRisk gated)', () => {
     // Force the (i) info icon to appear via a zero-reason line (an influence
     // explanation that is always visible), so we can open the top-driver tooltip
