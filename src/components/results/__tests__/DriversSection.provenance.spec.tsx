@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { DriversSection } from '../DriversSection'
 import {
   isValidConfidenceProvenance,
@@ -74,21 +74,23 @@ function makeDriversData(drivers: DriverItem[]): DriversSectionData {
 }
 
 describe('DriversSection confidence provenance disclosure (audit A1-PRIMARY)', () => {
-  it('renders the column-header Info marker when at least one row carries is_provisional', () => {
+  it('does NOT render the confidence provisional marker (Confidence column hidden, influence-only)', () => {
     const data = makeDriversData([
       makeDriver({
         factorKey: 'fac_a',
         factorLabel: 'Factor A',
         confidenceProvenance: provisionalProvenance(),
       }),
-      makeDriver({ factorKey: 'fac_b', factorLabel: 'Factor B', rank: 2 }), // no provenance — still triggers marker via fac_a
+      makeDriver({ factorKey: 'fac_b', factorLabel: 'Factor B', rank: 2 }),
     ])
 
     render(<DriversSection data={data} goalLabel="test" />)
 
-    const marker = screen.getByTestId('drivers-confidence-provisional-marker')
-    expect(marker).toBeInTheDocument()
-    expect(marker).toHaveAttribute('aria-hidden', 'true')
+    // The whole Confidence column (header + marker + tooltip) is hidden under
+    // the single-source rule; the provisional disclosure returns with the column
+    // when a display-safe driver-confidence source exists.
+    expect(screen.queryByTestId('drivers-confidence-provisional-marker')).toBeNull()
+    expect(screen.queryByTestId('drivers-confidence-header')).toBeNull()
   })
 
   it('does not render the marker when no driver carries provisional provenance', () => {
@@ -115,128 +117,16 @@ describe('DriversSection confidence provenance disclosure (audit A1-PRIMARY)', (
     expect(() => render(<DriversSection data={data} goalLabel="test" />)).not.toThrow()
     expect(screen.queryByTestId('drivers-confidence-provisional-marker')).toBeNull()
 
-    // Header itself still renders.
-    expect(screen.getByTestId('drivers-confidence-header')).toBeInTheDocument()
+    // The Confidence header is hidden (influence-only driver section).
+    expect(screen.queryByTestId('drivers-confidence-header')).toBeNull()
   })
 
-  it('column-header aria-label discloses calibration state when provisional', () => {
-    const data = makeDriversData([
-      makeDriver({
-        factorKey: 'fac_a',
-        factorLabel: 'Factor A',
-        confidenceProvenance: provisionalProvenance(),
-      }),
-    ])
-
-    render(<DriversSection data={data} goalLabel="test" />)
-
-    const header = screen.getByTestId('drivers-confidence-header')
-    expect(header).toHaveAttribute(
-      'aria-label',
-      'Confidence column info — operational estimate pending pilot calibration',
-    )
-  })
-
-  it('hovering the column header opens the tooltip with the calibration disclosure copy', async () => {
-    // Brief explicitly required tooltip-content coverage (not just aria-label).
-    // Drives the Tooltip via real hover, asserts the rendered text in the
-    // Floating UI portal.
-    const data = makeDriversData([
-      makeDriver({
-        factorKey: 'fac_a',
-        factorLabel: 'Factor A',
-        confidenceProvenance: provisionalProvenance(),
-      }),
-    ])
-
-    render(<DriversSection data={data} goalLabel="test" />)
-
-    const header = screen.getByTestId('drivers-confidence-header')
-    // Tooltip wraps children in a `<div ref={refs.setReference}>` — Floating
-    // UI's useHover attaches to that wrapper, so hover must target it.
-    const tooltipRef = header.parentElement!
-    fireEvent.pointerEnter(tooltipRef)
-    fireEvent.mouseEnter(tooltipRef)
-
-    const tooltip = await screen.findByRole('tooltip')
-    expect(tooltip.textContent).toBe(
-      'Confidence is an operational estimate pending pilot calibration.',
-    )
-
-    fireEvent.pointerLeave(tooltipRef)
-    fireEvent.mouseLeave(tooltipRef)
-    await waitFor(() => {
-      expect(screen.queryByRole('tooltip')).toBeNull()
-    })
-  })
-
-  it('focusing the column header (keyboard path) opens the same tooltip', async () => {
-    // Keyboard accessibility: tooltip MUST surface on focus, not just hover.
-    const data = makeDriversData([
-      makeDriver({
-        factorKey: 'fac_a',
-        factorLabel: 'Factor A',
-        confidenceProvenance: provisionalProvenance(),
-      }),
-    ])
-
-    render(<DriversSection data={data} goalLabel="test" />)
-
-    const header = screen.getByTestId('drivers-confidence-header')
-    header.focus()
-
-    const tooltip = await screen.findByRole('tooltip')
-    expect(tooltip.textContent).toBe(
-      'Confidence is an operational estimate pending pilot calibration.',
-    )
-  })
-
-  it('non-provisional payloads use the legacy column-header tooltip copy (forward-compat)', async () => {
-    const data = makeDriversData([
-      makeDriver({
-        factorKey: 'fac_a',
-        factorLabel: 'Factor A',
-        confidenceProvenance: provisionalProvenance({ isProvisional: false }),
-      }),
-    ])
-
-    render(<DriversSection data={data} goalLabel="test" />)
-
-    const header = screen.getByTestId('drivers-confidence-header')
-    // Tooltip wraps children in a `<div ref={refs.setReference}>` — Floating
-    // UI's useHover attaches to that wrapper, so hover must target it.
-    const tooltipRef = header.parentElement!
-    fireEvent.pointerEnter(tooltipRef)
-    fireEvent.mouseEnter(tooltipRef)
-
-    const tooltip = await screen.findByRole('tooltip')
-    // Legacy copy describes the panel mechanics; the disclosure text is
-    // reserved for the provisional case.
-    expect(tooltip.textContent).toMatch(/how stable this factor's ranking/)
-    expect(tooltip.textContent).not.toMatch(/pending pilot calibration/)
-  })
-
-  it('a11y: column-header touch target meets DS v5 ≥44px requirement via before:-inset-y-4 overlay', () => {
-    // JSDOM does not compute pseudo-element box dimensions, so we verify the
-    // class contract that drives runtime hit-area expansion. The pseudo-element
-    // adds ~16px above and below the ~16px text content (≈48px total ≥ 44px),
-    // and is absolutely positioned so it does NOT shift the surrounding grid.
-    const data = makeDriversData([
-      makeDriver({ factorKey: 'fac_a', factorLabel: 'Factor A' }),
-    ])
-
-    render(<DriversSection data={data} goalLabel="test" />)
-
-    const header = screen.getByTestId('drivers-confidence-header')
-    // Required positioning classes.
-    expect(header).toHaveClass('relative')
-    // Tailwind class assertion via className regex (toHaveClass requires
-    // an exact class name; the `before:` variant is one token).
-    expect(header.className).toMatch(/before:absolute/)
-    expect(header.className).toMatch(/before:-inset-y-4/)
-    expect(header.className).toMatch(/before:left-0/)
-    expect(header.className).toMatch(/before:right-0/)
-  })
+  // The confidence column-header INTERACTION tests (aria-label disclosure,
+  // hover/focus tooltip copy, legacy copy, ≥44px touch target) were removed:
+  // the Confidence header is hidden under the influence-only rule, so there is
+  // no header element to interact with. They return with the column when
+  // DISPLAY_SAFE_DRIVER_CONFIDENCE is true. The data-layer provenance tests
+  // below are unaffected (the data still carries provenance; the UI hides it).
 
   it('cross-version safety: legacy confidenceSource ("isl") with no confidence_provenance renders without crashing', () => {
     // Simulates a NEW UI receiving an OLD PLoT payload (deploy-order safety).
@@ -457,7 +347,7 @@ describe('DriversSection confidence provenance disclosure (audit A1-PRIMARY)', (
     })
   })
 
-  it('forward-compat: marker still renders when PLoT bumps formulaVersion / calibrationStatus / inputQuality', () => {
+  it('forward-compat: even with future provenance, the marker stays hidden (Confidence column hidden)', () => {
     // Locks down behaviour for when PLoT bumps to plot_unified_v3 (Jinghui
     // calibration) or extends calibration / input-quality vocabularies. The
     // is_provisional disclosure must continue to drive the marker even when
@@ -480,6 +370,6 @@ describe('DriversSection confidence provenance disclosure (audit A1-PRIMARY)', (
 
     render(<DriversSection data={data} goalLabel="test" />)
 
-    expect(screen.getByTestId('drivers-confidence-provisional-marker')).toBeInTheDocument()
+    expect(screen.queryByTestId('drivers-confidence-provisional-marker')).toBeNull()
   })
 })

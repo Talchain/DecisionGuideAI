@@ -110,8 +110,9 @@ describe('Track S value provenance — no user-facing DOM leak', () => {
 
     const { container } = render(<DriversSection data={data} goalLabel="test" />)
 
-    // Sanity: the section rendered.
-    expect(screen.getByTestId('drivers-confidence-header')).toBeInTheDocument()
+    // Sanity: the section rendered. (The drivers-list wrapper is always present;
+    // the Confidence header is hidden under the influence-only rule.)
+    expect(screen.getByTestId('drivers-list')).toBeInTheDocument()
     // No visible text leak.
     expect(screen.queryByText(/SENTINEL_SOURCE/)).toBeNull()
     expect(screen.queryByText(/SENTINEL_EXTRACTION/)).toBeNull()
