@@ -19,7 +19,7 @@
  */
 import type { CoachingSignal } from '../types'
 import type { FocusRow } from './focusTypes'
-import { STATIC_HYGIENE_ROWS } from './focusConstants'
+import { FOCUS_COPY, STATIC_HYGIENE_ROWS } from './focusConstants'
 
 export interface BuildFocusRowsInput {
   /** Live: store.ceeAnalysisReady?.coaching_summary. NOT claim-certified. */
@@ -72,7 +72,7 @@ export function mapSignalToFocusRow(signal: CoachingSignal | undefined | null): 
     tryThis,
     targetKind: nonEmpty(signal.target_kind),
     targetLabel: nonEmpty(signal.target_label),
-    ...(tryThis ? { action: { kind: 'prefill' as const, label: 'Try this', prefillText: tryThis } } : {}),
+    ...(tryThis ? { action: { kind: 'prefill' as const, label: FOCUS_COPY.tryThisLabel, prefillText: tryThis } } : {}),
   }
 }
 

@@ -65,8 +65,10 @@ describe('buildFocusRows — server rows', () => {
     expect(r.tryThis).toBe('Sketch a different kind of option')
     expect(r.action).toEqual({ kind: 'prefill', label: 'Try this', prefillText: 'Sketch a different kind of option' })
     expect(r.targetKind).toBe('option')
-    expect(Object.keys(r)).not.toContain('priority')
-    expect(Object.keys(r)).not.toContain('lifecycle_state')
+    // signalFull carries these science-ish fields; the mapper must drop them all.
+    for (const leaked of ['priority', 'lifecycle_state', 'evidence', 'staleness']) {
+      expect(Object.keys(r)).not.toContain(leaked)
+    }
   })
   it('omits the action when a signal has no suggested action', () => {
     const r = mapSignalToFocusRow(signalMinimal)!

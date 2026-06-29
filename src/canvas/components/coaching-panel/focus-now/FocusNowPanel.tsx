@@ -15,7 +15,7 @@
  * Claim-safety: `summary` is uncertified CEE prose; the live container gates its
  * display (see useFocusNow). Gated rows are dropped defensively before render.
  */
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { typography, typo } from '@/styles/typography'
 import { FocusBanner } from './FocusBanner'
 import { FocusRowCard } from './FocusRowCard'
@@ -35,6 +35,7 @@ export function FocusNowPanel({
 }: FocusNowProps) {
   const [openId, setOpenId] = useState<string | null>(null)
   const [revealed, setRevealed] = useState(false)
+  const listId = useId()
 
   // Defensive: never render a gated row, even if a caller passes one in.
   const safeRows = dropGatedRows(rows ?? [])
@@ -75,7 +76,7 @@ export function FocusNowPanel({
         </div>
       ) : (
         <>
-          <ul className="m-0 list-none p-0">
+          <ul id={listId} className="m-0 list-none p-0">
             {visible.map((row) => (
               <li key={row.id} className="border-t border-panel-border first:border-t-0">
                 <FocusRowCard
@@ -93,6 +94,7 @@ export function FocusNowPanel({
               <button
                 type="button"
                 aria-expanded={revealed}
+                aria-controls={listId}
                 onClick={() => setRevealed((v) => !v)}
                 data-testid="focus-reveal"
                 className={typo(

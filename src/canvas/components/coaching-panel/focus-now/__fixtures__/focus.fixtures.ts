@@ -19,6 +19,12 @@ export const signalFull: CoachingSignal = {
   target_label: 'Hybrid plan',
   priority_reason: 'A genuinely different route tends to make the choice clearer.',
   suggested_actions: [{ label: 'Sketch a different kind of option' }],
+  // Roadmap / science-ish fields the mapper must NEVER leak onto a FocusRow.
+  // Present here so the "no science leak" assertion can actually fail on a regression.
+  priority: 7,
+  lifecycle_state: 'active',
+  evidence: [{ label: 'supporting note' }],
+  staleness: { label: 'last seen 2 turns ago' },
 }
 
 /** A minimal valid signal — observation only. */

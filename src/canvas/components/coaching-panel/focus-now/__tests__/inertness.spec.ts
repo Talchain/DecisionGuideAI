@@ -29,8 +29,12 @@ const SRC = resolve(process.cwd(), 'src')
 const MODULE_DIR = join(SRC, 'canvas', 'components', 'coaching-panel', 'focus-now')
 
 // Capture the specifier of any import / re-export / dynamic import() / require().
-// Covers: `from 'x'`, side-effect `import 'x'`, `import('x')`, `require('x')`.
-const SPEC_RE = /(?:\bfrom\s+|\bimport\s*\(\s*|\bimport\s+|\brequire\s*\(\s*)['"]([^'"\n]+)['"]/g
+// Covers `from 'x'`, side-effect `import 'x'`, `import('x')`, `require('x')`, and
+// their "glued" zero-whitespace forms (`import{X}from'x'`, `import'x'`) — the
+// `\s*` (not `\s+`) is load-bearing for that. Spurious in-string captures from
+// the relaxed `from`/`import` are harmless: resolveSpec/PATH_RE never turn them
+// into offenders (proven by the negative controls below).
+const SPEC_RE = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s*|\brequire\s*\(\s*)['"]([^'"\n]+)['"]/g
 
 // Boundary-aware path backstop: matches `.../coaching-panel/focus-now` and
 // `.../coaching-panel/focus-now/<file>`, but NOT a sibling like `focus-now-helpers`.
@@ -101,6 +105,9 @@ describe('Focus Now inertness', () => {
     ['require()', PARENT, "const m = require('./focus-now')"],
     ['side-effect import', PARENT, "import './focus-now'"],
     ['multiline dynamic import', PARENT, "const m = import(\n      './focus-now'\n    )"],
+    ['glued no-whitespace named import', PARENT, "import{FocusNowPanel}from'./focus-now'"],
+    ['glued no-whitespace re-export', PARENT, "export{FocusNowPanel}from'./focus-now'"],
+    ['glued no-whitespace side-effect', PARENT, "import'./focus-now'"],
   ])('FLAGS dynamic/relative import: %s', (_label, importer, code) => {
     expect(findFocusNowImports(code, importer).length).toBeGreaterThan(0)
   })
