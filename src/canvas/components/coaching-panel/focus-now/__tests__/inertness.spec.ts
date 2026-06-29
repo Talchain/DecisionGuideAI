@@ -14,6 +14,11 @@
  * `import { FocusNowPanel } from './focus-now'`). The in-test positive/negative
  * controls below are committed coverage, not just PR-body evidence.
  *
+ * Known limitation (regex-based by design): it does not catch computed/indirect
+ * dynamic imports such as `const p = './focus-now'; import(p)`. That is not a
+ * current risk for an inert tripwire; an AST/parser-based guard would be more
+ * exhaustive if this ever needs to harden further (PR #199 review note).
+ *
  * When the deliberate mount PR lands, it must update/remove this guard.
  */
 import { describe, it, expect } from 'vitest'
@@ -32,8 +37,8 @@ const SPEC_RE = /(?:\bfrom\s+|\bimport\s*\(\s*|\bimport\s+|\brequire\s*\(\s*)['"
 const PATH_RE = /coaching-panel\/focus-now(\/|$)/
 
 /** The '@/' alias maps to <src>/. Relative specifiers resolve against the importer's dir. */
-function resolveSpec(spec: string, importerFile: string, srcRoot: string): string | null {
-  if (spec.startsWith('@/')) return resolve(srcRoot, spec.slice(2))
+function resolveSpec(spec: string, importerFile: string): string | null {
+  if (spec.startsWith('@/')) return resolve(SRC, spec.slice(2))
   if (spec === '.' || spec === '..' || spec.startsWith('./') || spec.startsWith('../')) {
     return resolve(dirname(importerFile), spec)
   }
@@ -45,11 +50,11 @@ function isUnderModule(p: string): boolean {
 }
 
 /** Offending specifiers in `content` that resolve into (or path-match) the module. */
-export function findFocusNowImports(content: string, importerFile: string, srcRoot = SRC): string[] {
+export function findFocusNowImports(content: string, importerFile: string): string[] {
   const offenders: string[] = []
   for (const m of content.matchAll(SPEC_RE)) {
     const spec = m[1]
-    const resolved = resolveSpec(spec, importerFile, srcRoot)
+    const resolved = resolveSpec(spec, importerFile)
     if ((resolved && isUnderModule(resolved)) || PATH_RE.test(spec)) offenders.push(spec)
   }
   return offenders
@@ -94,6 +99,8 @@ describe('Focus Now inertness', () => {
     ['aliased static', PARENT, "import { FocusNowPanel } from '@/canvas/components/coaching-panel/focus-now'"],
     ['aliased lazy/dynamic', PARENT, "const X = lazy(() => import('@/canvas/components/coaching-panel/focus-now'))"],
     ['require()', PARENT, "const m = require('./focus-now')"],
+    ['side-effect import', PARENT, "import './focus-now'"],
+    ['multiline dynamic import', PARENT, "const m = import(\n      './focus-now'\n    )"],
   ])('FLAGS dynamic/relative import: %s', (_label, importer, code) => {
     expect(findFocusNowImports(code, importer).length).toBeGreaterThan(0)
   })
