@@ -33,6 +33,8 @@ export const FOCUS_COPY = {
   emptyState: 'Nothing to focus on right now.',
   /** Bold lead-in before a row's nudge. */
   tryThisLabel: 'Try this',
+  /** Icon affordance label + tooltip — prefills the chat and opens it (same as the CTA). */
+  askOlumi: 'Ask Olumi',
   /** Generic accessible name for a row whose primary line is empty (operability, not a title). */
   itemFallback: 'Focus item',
   /** Reveal-toggle copy. */

@@ -4,22 +4,25 @@
  * Collapsed: a neutral topical icon (static rows) or the entity shape cue (server
  * rows that reference a real entity) + the primary line, clamped to one line.
  * Expanded: "what Olumi noticed" (server rows only — a static row never claims
- * detection), "why it matters", a "Try this" nudge, then one safe action.
+ * detection), "why it matters", a "Try this" nudge, then the action bar: a primary
+ * CTA plus an "Ask Olumi" icon affordance.
  *
  * Accessibility scaffold replicated from CoachingActionCard (a11y-proven): the
  * header is a native button carrying aria-expanded + aria-controls, named by the
  * primary line; the expanded region is mounted only when open and labelled by the
  * primary line. Controlled by the parent so the list keeps one row open at a time.
  *
- * The action is PREFILL-ONLY: the card never touches a store or sends — it calls
- * the injected `onTryAction`, which prefills the chat composer and opens the chat
- * tab (never auto-sends). There is no separate "Ask Olumi" control: a dead button
- * with no working handler is worse than no button.
+ * Both action controls are PREFILL-ONLY and do the SAME thing: the card never
+ * touches a store or sends — each calls the injected `onTryAction`, which prefills
+ * the chat composer and opens the chat tab. Never auto-sends, never mutates the
+ * graph, never runs analysis. The "Ask Olumi" icon is a native button with an
+ * accessible label + tooltip, so it is keyboard-operable and not a dead control.
  */
 import { useId, type CSSProperties } from 'react'
 import {
   ChevronRight,
   ChevronDown,
+  Sparkles,
   Target,
   Clock,
   Flag,
@@ -29,6 +32,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { typography } from '@/styles/typography'
+import Tooltip from '@/components/Tooltip'
 import { EntityTarget } from '../EntityTarget'
 import { FOCUS_COPY } from './focusConstants'
 import type { FocusRow } from './focusTypes'
@@ -134,8 +138,8 @@ export function FocusRowCard({ row, isOpen, onToggle, onTryAction }: FocusRowCar
             </p>
           )}
 
-          <div className="mt-1 flex items-center gap-2">
-            {row.action?.kind === 'prefill' && row.action.prefillText && (
+          {row.action?.kind === 'prefill' && row.action.prefillText && (
+            <div className="mt-1 flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => onTryAction?.(row)}
@@ -144,8 +148,22 @@ export function FocusRowCard({ row, isOpen, onToggle, onTryAction }: FocusRowCar
               >
                 {row.action.label}
               </button>
-            )}
-          </div>
+
+              {/* Icon affordance — same prefill + open-chat action as the CTA
+                  (never sends, never mutates the graph, never runs analysis). */}
+              <Tooltip content={FOCUS_COPY.askOlumi}>
+                <button
+                  type="button"
+                  onClick={() => onTryAction?.(row)}
+                  aria-label={FOCUS_COPY.askOlumi}
+                  data-testid="focus-ask-olumi"
+                  className="ml-auto inline-flex h-7 w-7 flex-none items-center justify-center rounded-full border border-panel-border text-info outline-none transition-colors hover:bg-panel-hover focus-visible:ring-2 focus-visible:ring-info"
+                >
+                  <Sparkles className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </Tooltip>
+            </div>
+          )}
         </div>
       )}
     </div>
