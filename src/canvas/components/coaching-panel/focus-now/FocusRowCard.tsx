@@ -4,22 +4,22 @@
  * Collapsed: a neutral topical icon (static rows) or the entity shape cue (server
  * rows that reference a real entity) + the primary line, clamped to one line.
  * Expanded: "what Olumi noticed" (server rows only — a static row never claims
- * detection), "why it matters", a "Try this" nudge, then one safe action plus the
- * display-only "Ask Olumi" affordance.
+ * detection), "why it matters", a "Try this" nudge, then one safe action.
  *
  * Accessibility scaffold replicated from CoachingActionCard (a11y-proven): the
  * header is a native button carrying aria-expanded + aria-controls, named by the
  * primary line; the expanded region is mounted only when open and labelled by the
  * primary line. Controlled by the parent so the list keeps one row open at a time.
  *
- * The action is DISPLAY/PREFILL-ONLY: the card never touches a store or sends —
- * it calls the injected `onTryAction`. "Ask Olumi" has no handler this phase.
+ * The action is PREFILL-ONLY: the card never touches a store or sends — it calls
+ * the injected `onTryAction`, which prefills the chat composer and opens the chat
+ * tab (never auto-sends). There is no separate "Ask Olumi" control: a dead button
+ * with no working handler is worse than no button.
  */
 import { useId, type CSSProperties } from 'react'
 import {
   ChevronRight,
   ChevronDown,
-  Sparkles,
   Target,
   Clock,
   Flag,
@@ -29,7 +29,6 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { typography } from '@/styles/typography'
-import Tooltip from '@/components/Tooltip'
 import { EntityTarget } from '../EntityTarget'
 import { FOCUS_COPY } from './focusConstants'
 import type { FocusRow } from './focusTypes'
@@ -146,18 +145,6 @@ export function FocusRowCard({ row, isOpen, onToggle, onTryAction }: FocusRowCar
                 {row.action.label}
               </button>
             )}
-
-            {/* Display-only: no onClick this phase. */}
-            <Tooltip content={FOCUS_COPY.askOlumi}>
-              <button
-                type="button"
-                aria-label={FOCUS_COPY.askOlumi}
-                data-testid="focus-ask-olumi"
-                className="ml-auto inline-flex h-7 w-7 flex-none items-center justify-center rounded-full border border-panel-border text-info outline-none transition-colors hover:bg-panel-hover focus-visible:ring-2 focus-visible:ring-info"
-              >
-                <Sparkles className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </Tooltip>
           </div>
         </div>
       )}

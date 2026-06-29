@@ -33,8 +33,6 @@ export const FOCUS_COPY = {
   emptyState: 'Nothing to focus on right now.',
   /** Bold lead-in before a row's nudge. */
   tryThisLabel: 'Try this',
-  /** Icon-only, display-only affordance label. */
-  askOlumi: 'Ask Olumi',
   /** Generic accessible name for a row whose primary line is empty (operability, not a title). */
   itemFallback: 'Focus item',
   /** Reveal-toggle copy. */

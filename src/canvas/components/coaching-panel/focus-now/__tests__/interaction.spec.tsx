@@ -59,11 +59,11 @@ describe('FocusNowPanel interaction', () => {
     )
   })
 
-  it('Ask Olumi is display-only (clicking it triggers no prefill)', () => {
-    const onPrefill = vi.fn()
-    renderPanel({ onPrefill })
-    fireEvent.click(screen.getByRole('button', { name: /capture an insight/i }))
-    fireEvent.click(screen.getByTestId('focus-ask-olumi'))
-    expect(onPrefill).not.toHaveBeenCalled()
+  it('renders exactly one action control per expanded row (no dead Ask-Olumi button)', () => {
+    renderPanel()
+    fireEvent.click(screen.getByRole('button', { name: /add a risk worth watching/i }))
+    // The prefill CTA is the only interactive control inside the expanded body.
+    expect(screen.getByTestId('focus-action')).toBeInTheDocument()
+    expect(screen.queryByTestId('focus-ask-olumi')).toBeNull()
   })
 })

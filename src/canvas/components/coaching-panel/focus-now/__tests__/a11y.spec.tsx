@@ -45,11 +45,9 @@ describe('FocusNowPanel accessibility', () => {
     await expectNoViolations(container)
   })
 
-  it('names the panel region and the icon-only affordances', () => {
+  it('names the panel region and the icon-only re-run affordance', () => {
     renderPanel({ banner: { kind: 'stale', canRerun: true }, onRerun: () => {} })
     expect(screen.getByRole('region', { name: 'Strengthen your model' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Re-run analysis' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /define what success/i }))
-    expect(screen.getByRole('button', { name: 'Ask Olumi' })).toBeInTheDocument()
   })
 })
