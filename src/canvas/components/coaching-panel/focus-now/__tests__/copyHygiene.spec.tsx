@@ -57,10 +57,19 @@ describe('Focus Now copy hygiene (UI-authored copy only)', () => {
     }
   })
 
+  it('positive control — the banned-term scanner actually fires on bad copy', () => {
+    // Guards against a silently-broken matcher: a clean UI_COPY pass must mean the
+    // copy is clean, not that findBannedTerm always returns null.
+    expect(findBannedTerm('the recommended winner uses the graph')).not.toBeNull()
+  })
+
   it.each([...new Set([...EXISTING_FORBIDDEN, ...TASK_FORBIDDEN])])(
     'contains no forbidden term: %s',
     (term) => {
       const re = new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+      // positive control: the regex must fire on the term it is built from, so a
+      // clean pass means "copy is clean", not "the matcher is broken".
+      expect(`a ${term} b`, `regex for "${term}" must fire`).toMatch(re)
       for (const copy of UI_COPY) {
         expect(copy, `"${copy}" should not contain "${term}"`).not.toMatch(re)
       }

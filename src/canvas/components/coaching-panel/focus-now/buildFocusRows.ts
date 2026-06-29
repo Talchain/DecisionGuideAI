@@ -71,7 +71,6 @@ export function mapSignalToFocusRow(signal: CoachingSignal | undefined | null): 
     whyItMatters: nonEmpty(signal.priority_reason),
     tryThis,
     targetKind: nonEmpty(signal.target_kind),
-    targetLabel: nonEmpty(signal.target_label),
     ...(tryThis ? { action: { kind: 'prefill' as const, label: FOCUS_COPY.tryThisLabel, prefillText: tryThis } } : {}),
   }
 }

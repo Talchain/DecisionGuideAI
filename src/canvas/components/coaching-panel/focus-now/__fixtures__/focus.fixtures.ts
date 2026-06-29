@@ -58,7 +58,6 @@ export const serverRow: FocusRow = {
   whyItMatters: 'A genuinely different route tends to make the choice clearer.',
   tryThis: 'Sketch a different kind of option',
   targetKind: 'option',
-  targetLabel: 'Hybrid plan',
   action: { kind: 'prefill', label: 'Try this', prefillText: 'Sketch a different kind of option' },
 }
 

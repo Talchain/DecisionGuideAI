@@ -76,7 +76,6 @@ export interface FocusRow {
   iconKey?: string
   /** Optional entity cue (server rows that reference a real entity). Unknown kind → neutral dot. */
   targetKind?: string
-  targetLabel?: string
   /** The single safe action wired to the row. Display/prefill-only. */
   action?: FocusAction
 }
