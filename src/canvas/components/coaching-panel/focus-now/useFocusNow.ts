@@ -12,13 +12,23 @@
  *     defaults OFF (CERTIFY_SUMMARY=false). A live mount must keep it hidden or
  *     flip this on ONLY once the summary is passed through Gate Zero / certified
  *     CEE output. Do not call the panel live-safe while it shows uncertified prose.
- *  2. PREFILL-ONLY — the row action drains to the composer via `_prefillChat`.
- *     There is deliberately NO `_sendMessage` fallback: Focus Now never auto-sends.
+ *  2. PREFILL-ONLY + VISIBLE — the row action prefills the composer (via
+ *     `draftComposerText` for the unmounted case + `_prefillChat` for an already-
+ *     mounted one) AND reveals the Olumi/chat surface so the prefill is actually
+ *     visible. On the Analysis tab the chat composer is not mounted (ConversationPanel
+ *     lives in the Olumi tab) and its `_prefillChat` callback is null; the persisted
+ *     `draftComposerText` is what a freshly-mounting composer initialises from, and
+ *     `forceActivateOutputTab('olumi')` mounts/reveals it (the live-diagnosed reveal
+ *     used by useConversationActions). There is deliberately NO `_sendMessage`:
+ *     never auto-sends.
  */
 import { useCallback, useMemo } from 'react'
 import { useCanvasStore } from '@/canvas/store'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 import { useV2Run } from '@/canvas/hooks/useV2Run'
+import { useUIStore } from '@/stores/uiStore'
+import { focusFloating } from '@/canvas/hooks/useFloatingFocus'
+import { isAiPanelV2Enabled } from '@/flags'
 import { classifyFreshnessForDisplay } from '@/canvas/store/analysisFreshness'
 import { buildFocusRows } from './buildFocusRows'
 import { freshnessToBanner } from './freshnessBanner'
@@ -53,9 +63,24 @@ export function useFocusNow(): FocusNowProps {
   )
 
   const onPrefill = useCallback((text: string) => {
-    // Prefill ONLY — never auto-send.
-    const prefill = useGuidanceStore.getState()._prefillChat
-    if (prefill) prefill(text)
+    // Prefill the chat and reveal it — NEVER auto-send.
+    // 1. Persist the composer text. A freshly-mounting composer initialises from
+    //    draftComposerText, which is what covers the Analysis-tab case: there the
+    //    chat composer is unmounted and its `_prefillChat` callback is therefore
+    //    null (ConversationPanel's unmount cleanup nulls the guidance registry —
+    //    the live-diagnosed root cause of "the spark does nothing").
+    useCanvasStore.setState({ draftComposerText: text })
+    // 2. If a composer IS already mounted (e.g. an open floating chat), update its
+    //    live value too — the mount-time initialiser in (1) won't re-run for it.
+    useGuidanceStore.getState()._prefillChat?.(text)
+    // 3. Reveal the Olumi chat surface so the prefill is visible. Mirrors the
+    //    live-diagnosed reveal in useConversationActions: forceActivate the docked
+    //    Olumi tab (bumps the version so the dock reconciles + opens even when the
+    //    tab value is unchanged), then best-effort focus a hosting floating panel.
+    if (isAiPanelV2Enabled()) {
+      useUIStore.getState().forceActivateOutputTab('olumi')
+    }
+    focusFloating()
   }, [])
 
   const onRerun = useCallback(() => {

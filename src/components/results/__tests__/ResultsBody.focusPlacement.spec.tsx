@@ -8,7 +8,7 @@
  * store state → no summary, no freshness banner).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { ResultsBody } from '../ResultsBody'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type {
@@ -31,11 +31,13 @@ vi.mock('@/flags', async () => {
     isAnalysisHeroV17Enabled: vi.fn(() => false),
     isAnalysisHeroCompareEnabled: vi.fn(() => false),
     isFocusNowPanelEnabled: vi.fn(() => true),
+    isAiPanelV2Enabled: vi.fn(() => true),
   }
 })
 
 import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled, isFocusNowPanelEnabled } from '@/flags'
 import { useCanvasStore } from '@/canvas/store'
+import { useUIStore } from '@/stores/uiStore'
 
 function makeData(): ResultsSectionDataReturn {
   const winner = { id: 'opt_a', label: 'Option A', expectedValue: 0.8, p10: 0.6, p90: 0.95, winProbability: 0.7, goalProbability: 0.7 } as unknown as OptionResult
@@ -83,7 +85,8 @@ describe('ResultsBody — Focus panel placement (second Analysis-tab panel)', ()
     vi.mocked(isAnalysisHeroV17Enabled).mockReturnValue(false)
     vi.mocked(isAnalysisHeroCompareEnabled).mockReturnValue(false)
     vi.mocked(isFocusNowPanelEnabled).mockReturnValue(true)
-    useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false })
+    useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false, draftComposerText: null })
+    useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
   })
 
   it('mounts the Focus panel (flag default-ON)', () => {
@@ -125,5 +128,24 @@ describe('ResultsBody — Focus panel placement (second Analysis-tab panel)', ()
     expect(screen.getByText('Define what success looks like')).toBeInTheDocument()
     // …and no verbatim server summary line (coaching_summary gated off)
     expect(screen.queryByTestId('focus-summary')).toBeNull()
+  })
+
+  it('clicking a row action prefills the composer and reveals the Olumi chat tab', () => {
+    // Regression for the staging blocker: on the Analysis tab the chat composer
+    // is unmounted (its prefill callback is null), so a working action must
+    // persist the prefill to draftComposerText AND switch the dock to the Olumi
+    // tab so a freshly-mounting composer shows it. End-to-end through the real
+    // FocusNowContainer → useFocusNow → onPrefill (no hook mock).
+    expect(useUIStore.getState().activeOutputTab).toBe('results')
+    renderBody()
+    // expand the "Add a risk" static row, then click its prefill CTA
+    fireEvent.click(screen.getByRole('button', { name: /add a risk worth watching/i }))
+    fireEvent.click(screen.getByTestId('focus-action'))
+    // the prefill text is persisted for a freshly-mounting composer…
+    expect(useCanvasStore.getState().draftComposerText).toBe(
+      'Help me think through a risk worth adding to this decision.',
+    )
+    // …and the chat surface is revealed (Olumi tab activated)
+    expect(useUIStore.getState().activeOutputTab).toBe('olumi')
   })
 })
