@@ -89,3 +89,6 @@ LongStrings.storyName = 'Long strings (clamp + wrap)'
 
 export const ForbiddenTermData = story({ summary: forbiddenSummary })
 ForbiddenTermData.storyName = 'Forbidden-term server prose (verbatim)'
+
+export const ActionsDisabled = story({ actionsEnabled: false })
+ActionsDisabled.storyName = 'Actions hidden (aiPanelV2 off — rows informational, no dead buttons)'

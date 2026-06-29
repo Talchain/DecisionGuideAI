@@ -12,15 +12,18 @@
  *     defaults OFF (CERTIFY_SUMMARY=false). A live mount must keep it hidden or
  *     flip this on ONLY once the summary is passed through Gate Zero / certified
  *     CEE output. Do not call the panel live-safe while it shows uncertified prose.
- *  2. PREFILL-ONLY + VISIBLE — the row action prefills the composer (via
- *     `draftComposerText` for the unmounted case + `_prefillChat` for an already-
- *     mounted one) AND reveals the Olumi/chat surface so the prefill is actually
- *     visible. On the Analysis tab the chat composer is not mounted (ConversationPanel
- *     lives in the Olumi tab) and its `_prefillChat` callback is null; the persisted
- *     `draftComposerText` is what a freshly-mounting composer initialises from, and
- *     `forceActivateOutputTab('olumi')` mounts/reveals it (the live-diagnosed reveal
- *     used by useConversationActions). There is deliberately NO `_sendMessage`:
- *     never auto-sends.
+ *  2. PREFILL-ONLY + VISIBLE — the row action MERGES the prompt into the composer
+ *     (via `draftComposerText` for the unmounted case + `_prefillChat` for an
+ *     already-mounted one) AND reveals the Olumi/chat surface. It APPENDS to, never
+ *     clobbers, an unsent draft (the composer mirrors its value to draftComposerText,
+ *     so a message typed on the Olumi tab is persisted there). On the Analysis tab
+ *     the chat composer is not mounted (ConversationPanel lives in the Olumi tab) and
+ *     its `_prefillChat` callback is null; the persisted `draftComposerText` is what
+ *     a freshly-mounting composer initialises from, and `forceActivateOutputTab('olumi')`
+ *     mounts/reveals it (the live-diagnosed reveal used by useConversationActions).
+ *     There is deliberately NO `_sendMessage`: never auto-sends. The reveal needs
+ *     aiPanelV2 (the dock redirects 'olumi'→'results' otherwise), so `actionsEnabled`
+ *     gates the controls off when it is disabled — no dead buttons.
  */
 import { useCallback, useMemo } from 'react'
 import { useCanvasStore } from '@/canvas/store'
@@ -32,6 +35,7 @@ import { isAiPanelV2Enabled } from '@/flags'
 import { classifyFreshnessForDisplay } from '@/canvas/store/analysisFreshness'
 import { buildFocusRows } from './buildFocusRows'
 import { freshnessToBanner } from './freshnessBanner'
+import { mergeComposerDraft } from './composerDraft'
 import type { FocusNowProps } from './focusTypes'
 
 /**
@@ -62,17 +66,24 @@ export function useFocusNow(): FocusNowProps {
     [freshness, dirty],
   )
 
+  // The row action reveals the Olumi chat tab, which only exists when aiPanelV2 is
+  // on — OutputsDock redirects a requested 'olumi' tab to 'results' otherwise, so
+  // the action would set a draft nobody can see. When off we tell the panel to
+  // render NO action controls (rows stay informational, never dead buttons).
+  const actionsEnabled = isAiPanelV2Enabled()
+
   const onPrefill = useCallback((text: string) => {
     // Prefill the chat and reveal it — NEVER auto-send.
-    // 1. Persist the composer text. A freshly-mounting composer initialises from
-    //    draftComposerText, which is what covers the Analysis-tab case: there the
-    //    chat composer is unmounted and its `_prefillChat` callback is therefore
-    //    null (ConversationPanel's unmount cleanup nulls the guidance registry —
-    //    the live-diagnosed root cause of "the spark does nothing").
-    useCanvasStore.setState({ draftComposerText: text })
-    // 2. If a composer IS already mounted (e.g. an open floating chat), update its
-    //    live value too — the mount-time initialiser in (1) won't re-run for it.
-    useGuidanceStore.getState()._prefillChat?.(text)
+    // 1. Merge into (never clobber) any unsent draft. The chat composer mirrors
+    //    its value to draftComposerText (useComposerState), so a message typed on
+    //    the Olumi tab is persisted here; overwriting it would silently destroy
+    //    the user's unsent text. A freshly-mounting composer initialises from this.
+    const merged = mergeComposerDraft(useCanvasStore.getState().draftComposerText, text)
+    useCanvasStore.setState({ draftComposerText: merged })
+    // 2. If a composer IS already mounted (e.g. an open floating chat), set its
+    //    live value to the SAME merged text — the mount-time initialiser in (1)
+    //    won't re-run for it. (`_prefillChat` is null on the Analysis tab.)
+    useGuidanceStore.getState()._prefillChat?.(merged)
     // 3. Reveal the Olumi chat surface so the prefill is visible. Mirrors the
     //    live-diagnosed reveal in useConversationActions: forceActivate the docked
     //    Olumi tab (bumps the version so the dock reconciles + opens even when the
@@ -94,5 +105,6 @@ export function useFocusNow(): FocusNowProps {
     onPrefill,
     onRerun,
     rerunDisabled: isRunning,
+    actionsEnabled,
   }
 }

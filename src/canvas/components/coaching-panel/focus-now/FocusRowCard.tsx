@@ -17,6 +17,8 @@
  * the chat composer and opens the chat tab. Never auto-sends, never mutates the
  * graph, never runs analysis. The "Ask Olumi" icon is a native button with an
  * accessible label + tooltip, so it is keyboard-operable and not a dead control.
+ * The whole action bar is omitted when no `onTryAction` is injected (e.g. the
+ * container cannot reveal the chat because aiPanelV2 is off) — never a dead button.
  */
 import { useId, type CSSProperties } from 'react'
 import {
@@ -138,7 +140,7 @@ export function FocusRowCard({ row, isOpen, onToggle, onTryAction }: FocusRowCar
             </p>
           )}
 
-          {row.action?.kind === 'prefill' && row.action.prefillText && (
+          {onTryAction && row.action?.kind === 'prefill' && row.action.prefillText && (
             <div className="mt-1 flex items-center gap-2">
               <button
                 type="button"

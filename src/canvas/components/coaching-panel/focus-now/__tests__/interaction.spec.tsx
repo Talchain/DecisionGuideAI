@@ -78,4 +78,15 @@ describe('FocusNowPanel interaction', () => {
     expect(icon.tagName).toBe('BUTTON')
     expect(icon).not.toHaveAttribute('disabled')
   })
+
+  it('renders NO action controls when actionsEnabled is false (rows stay informational)', () => {
+    renderPanel({ actionsEnabled: false })
+    // the row still expands and shows its guidance…
+    fireEvent.click(screen.getByRole('button', { name: /add a risk worth watching/i }))
+    expect(screen.getByTestId('focus-card-body')).toBeInTheDocument()
+    // …but neither action control is present (no dead buttons when the chat
+    // surface cannot be revealed)
+    expect(screen.queryByTestId('focus-action')).toBeNull()
+    expect(screen.queryByTestId('focus-ask-olumi')).toBeNull()
+  })
 })

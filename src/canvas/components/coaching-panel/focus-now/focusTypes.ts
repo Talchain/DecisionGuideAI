@@ -101,6 +101,14 @@ export interface FocusNowProps {
   banner: FocusBannerState
   /** Prefill the chat composer (no auto-send). Injected; presentational tree owns no store. */
   onPrefill?: (text: string) => void
+  /**
+   * Whether the row action controls (the CTA + Ask Olumi icon) can produce a
+   * visible effect. The action reveals the Olumi chat tab, which only exists when
+   * aiPanelV2 is enabled (OutputsDock redirects 'olumi'→'results' otherwise). When
+   * false the panel renders NO action controls so rows stay informational rather
+   * than becoming dead buttons. Default true (standalone / Storybook).
+   */
+  actionsEnabled?: boolean
   /** Trigger a re-run of analysis. Injected. */
   onRerun?: () => void
   /** Disable the re-run affordance while a run is in flight. */

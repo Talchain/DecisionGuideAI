@@ -35,7 +35,12 @@ vi.mock('@/flags', async () => {
   }
 })
 
-import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled, isFocusNowPanelEnabled } from '@/flags'
+import {
+  isAnalysisHeroV17Enabled,
+  isAnalysisHeroCompareEnabled,
+  isFocusNowPanelEnabled,
+  isAiPanelV2Enabled,
+} from '@/flags'
 import { useCanvasStore } from '@/canvas/store'
 import { useUIStore } from '@/stores/uiStore'
 
@@ -85,6 +90,7 @@ describe('ResultsBody — Focus panel placement (second Analysis-tab panel)', ()
     vi.mocked(isAnalysisHeroV17Enabled).mockReturnValue(false)
     vi.mocked(isAnalysisHeroCompareEnabled).mockReturnValue(false)
     vi.mocked(isFocusNowPanelEnabled).mockReturnValue(true)
+    vi.mocked(isAiPanelV2Enabled).mockReturnValue(true)
     useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false, draftComposerText: null })
     useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
   })
@@ -155,5 +161,33 @@ describe('ResultsBody — Focus panel placement (second Analysis-tab panel)', ()
     // …with NO graph mutation (node/edge collections untouched by reference).
     expect(useCanvasStore.getState().nodes).toBe(nodesBefore)
     expect(useCanvasStore.getState().edges).toBe(edgesBefore)
+  })
+
+  it('APPENDS to an existing unsent draft — never clobbers it', () => {
+    // The composer mirrors its value to draftComposerText; a Focus action must not
+    // destroy a message the user was still writing on the Olumi tab.
+    useCanvasStore.setState({ draftComposerText: 'I am leaning towards option A' })
+    renderBody()
+    fireEvent.click(screen.getByRole('button', { name: /add a risk worth watching/i }))
+    fireEvent.click(screen.getByTestId('focus-action'))
+    expect(useCanvasStore.getState().draftComposerText).toBe(
+      `I am leaning towards option A\n\n${PROMPT}`,
+    )
+    expect(useUIStore.getState().activeOutputTab).toBe('olumi')
+  })
+
+  it('aiPanelV2 OFF: the panel shows but renders NO action controls (no dead buttons)', () => {
+    // The reveal needs the Olumi tab, which the dock redirects to 'results' when
+    // aiPanelV2 is off. So the controls would be dead — they must not render.
+    vi.mocked(isAiPanelV2Enabled).mockReturnValue(false)
+    renderBody()
+    expect(screen.getByTestId('focus-now-panel')).toBeInTheDocument()
+    // the row still expands and shows its guidance…
+    fireEvent.click(screen.getByRole('button', { name: /add a risk worth watching/i }))
+    expect(screen.getByTestId('focus-card-body')).toBeInTheDocument()
+    // …but neither action control is present, and the tab is not switched
+    expect(screen.queryByTestId('focus-action')).toBeNull()
+    expect(screen.queryByTestId('focus-ask-olumi')).toBeNull()
+    expect(useUIStore.getState().activeOutputTab).toBe('results')
   })
 })
