@@ -17,7 +17,10 @@ import { useFocusNow } from './useFocusNow'
 
 export function FocusNowContainer({ className }: { className?: string }) {
   const props = useFocusNow()
-  return <FocusNowPanel {...props} className={className} />
+  // The Analysis tab already renders AnalysisFreshnessNotice as the freshness
+  // surface, so the panel suppresses its OWN stale banner here to avoid a
+  // duplicate stale notice (different wording) on the same trust surface.
+  return <FocusNowPanel {...props} showFreshnessBanner={false} className={className} />
 }
 
 export default FocusNowContainer

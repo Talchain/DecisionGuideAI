@@ -15,6 +15,23 @@ function renderPanel(overrides: Partial<FocusNowProps> = {}) {
 }
 
 describe('FocusNowPanel content', () => {
+  it('shows its own freshness banner by default, but suppresses it when showFreshnessBanner=false', () => {
+    // standalone (default): the panel owns the stale banner
+    const { rerender } = renderPanel({ banner: { kind: 'stale', canRerun: true }, onRerun: () => {} })
+    expect(screen.getByTestId('focus-banner')).toBeInTheDocument()
+    // mounted context (showFreshnessBanner=false): suppressed, so no DUPLICATE stale notice
+    rerender(
+      <FocusNowPanel
+        summary={null}
+        rows={staticRows}
+        banner={{ kind: 'stale', canRerun: true }}
+        onRerun={() => {}}
+        showFreshnessBanner={false}
+      />,
+    )
+    expect(screen.queryByTestId('focus-banner')).toBeNull()
+  })
+
   it('renders the header and the static hygiene rows', () => {
     renderPanel()
     expect(screen.getByRole('heading', { name: 'Strengthen your model' })).toBeInTheDocument()

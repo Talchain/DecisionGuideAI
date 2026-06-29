@@ -105,5 +105,12 @@ export interface FocusNowProps {
   onRerun?: () => void
   /** Disable the re-run affordance while a run is in flight. */
   rerunDisabled?: boolean
+  /**
+   * Whether to render the panel's own freshness/stale banner. Default true
+   * (standalone use). Set false when mounted inside a surface that already owns
+   * freshness (e.g. ResultsBody renders AnalysisFreshnessNotice) so the trust
+   * surface shows a SINGLE stale notice, not a duplicate.
+   */
+  showFreshnessBanner?: boolean
   className?: string
 }

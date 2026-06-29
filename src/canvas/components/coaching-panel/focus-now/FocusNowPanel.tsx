@@ -31,6 +31,7 @@ export function FocusNowPanel({
   onPrefill,
   onRerun,
   rerunDisabled = false,
+  showFreshnessBanner = true,
   className = '',
 }: FocusNowProps) {
   const [openId, setOpenId] = useState<string | null>(null)
@@ -56,7 +57,7 @@ export function FocusNowPanel({
         <h2 className={`${typography.panelHeader} text-text-header`}>{FOCUS_COPY.header}</h2>
       </div>
 
-      {banner.kind !== 'none' && (
+      {showFreshnessBanner && banner.kind !== 'none' && (
         <div className="px-3.5 pb-2">
           <FocusBanner state={banner} onRerun={onRerun} rerunDisabled={rerunDisabled} />
         </div>

@@ -30,10 +30,12 @@ vi.mock('@/flags', async () => {
     ...actual,
     isAnalysisHeroV17Enabled: vi.fn(() => false),
     isAnalysisHeroCompareEnabled: vi.fn(() => false),
+    isFocusNowPanelEnabled: vi.fn(() => true),
   }
 })
 
-import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled } from '@/flags'
+import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled, isFocusNowPanelEnabled } from '@/flags'
+import { useCanvasStore } from '@/canvas/store'
 
 function makeData(): ResultsSectionDataReturn {
   const winner = { id: 'opt_a', label: 'Option A', expectedValue: 0.8, p10: 0.6, p90: 0.95, winProbability: 0.7, goalProbability: 0.7 } as unknown as OptionResult
@@ -80,11 +82,32 @@ describe('ResultsBody — Focus panel placement (second Analysis-tab panel)', ()
   beforeEach(() => {
     vi.mocked(isAnalysisHeroV17Enabled).mockReturnValue(false)
     vi.mocked(isAnalysisHeroCompareEnabled).mockReturnValue(false)
+    vi.mocked(isFocusNowPanelEnabled).mockReturnValue(true)
+    useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false })
   })
 
-  it('mounts the Focus panel', () => {
+  it('mounts the Focus panel (flag default-ON)', () => {
     renderBody()
     expect(screen.getByTestId('focus-now-panel')).toBeInTheDocument()
+  })
+
+  it('flag OFF: Focus panel absent, hero + options unchanged and still ordered', () => {
+    vi.mocked(isFocusNowPanelEnabled).mockReturnValue(false)
+    renderBody()
+    expect(screen.queryByTestId('focus-now-panel')).toBeNull()
+    const hero = screen.getByTestId('decision-confidence-panel')
+    const options = screen.getByTestId('section-header-options')
+    expect(hero).toBeInTheDocument()
+    expect(before(hero, options), 'hero still precedes options when Focus is off').toBe(true)
+  })
+
+  it('STALE verdict: the mounted panel shows NO second stale banner (no duplicate)', () => {
+    // Drive the freshness source stale; AnalysisFreshnessNotice owns the notice,
+    // and the mounted Focus panel must NOT add its own (showFreshnessBanner=false).
+    useCanvasStore.setState({ analysisFreshness: { freshness: 'stale' }, analysisFreshnessDirty: false })
+    renderBody()
+    expect(screen.getByTestId('focus-now-panel')).toBeInTheDocument()
+    expect(screen.queryByTestId('focus-banner')).toBeNull()
   })
 
   it('renders the Focus panel AFTER the hero and BEFORE the options section', () => {
