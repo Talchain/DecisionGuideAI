@@ -59,11 +59,23 @@ describe('FocusNowPanel interaction', () => {
     )
   })
 
-  it('renders exactly one action control per expanded row (no dead Ask-Olumi button)', () => {
+  it('the Ask Olumi icon prefills the same prompt and never auto-sends', () => {
+    const onPrefill = vi.fn()
+    renderPanel({ onPrefill })
+    fireEvent.click(screen.getByRole('button', { name: /add a risk worth watching/i }))
+    fireEvent.click(screen.getByTestId('focus-ask-olumi'))
+    expect(onPrefill).toHaveBeenCalledTimes(1)
+    expect(onPrefill).toHaveBeenCalledWith(
+      'Help me think through a risk worth adding to this decision.',
+    )
+  })
+
+  it('the Ask Olumi icon has an accessible name and is keyboard-operable', () => {
     renderPanel()
     fireEvent.click(screen.getByRole('button', { name: /add a risk worth watching/i }))
-    // The prefill CTA is the only interactive control inside the expanded body.
-    expect(screen.getByTestId('focus-action')).toBeInTheDocument()
-    expect(screen.queryByTestId('focus-ask-olumi')).toBeNull()
+    // Native button named by aria-label → operable by Enter/Space, focusable.
+    const icon = screen.getByRole('button', { name: 'Ask Olumi' })
+    expect(icon.tagName).toBe('BUTTON')
+    expect(icon).not.toHaveAttribute('disabled')
   })
 })

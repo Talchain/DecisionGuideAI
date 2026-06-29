@@ -33,6 +33,7 @@ const UI_COPY: string[] = [
   FOCUS_COPY.header,
   FOCUS_COPY.emptyState,
   FOCUS_COPY.tryThisLabel,
+  FOCUS_COPY.askOlumi,
   FOCUS_COPY.itemFallback,
   FOCUS_COPY.showFewer,
   FOCUS_COPY.staleText,

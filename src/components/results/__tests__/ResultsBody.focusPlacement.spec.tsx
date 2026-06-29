@@ -130,22 +130,30 @@ describe('ResultsBody — Focus panel placement (second Analysis-tab panel)', ()
     expect(screen.queryByTestId('focus-summary')).toBeNull()
   })
 
-  it('clicking a row action prefills the composer and reveals the Olumi chat tab', () => {
-    // Regression for the staging blocker: on the Analysis tab the chat composer
-    // is unmounted (its prefill callback is null), so a working action must
-    // persist the prefill to draftComposerText AND switch the dock to the Olumi
-    // tab so a freshly-mounting composer shows it. End-to-end through the real
-    // FocusNowContainer → useFocusNow → onPrefill (no hook mock).
+  // Regression for the staging blocker: on the Analysis tab the chat composer is
+  // unmounted (its prefill callback is null), so a working action must persist the
+  // prefill to draftComposerText AND switch the dock to the Olumi tab so a freshly-
+  // mounting composer shows it. End-to-end through the real FocusNowContainer →
+  // useFocusNow → onPrefill (no hook mock). Both row controls must behave the same.
+  const PROMPT = 'Help me think through a risk worth adding to this decision.'
+
+  it.each([
+    ['the row CTA', 'focus-action'],
+    ['the Ask Olumi icon', 'focus-ask-olumi'],
+  ])('clicking %s prefills the composer and reveals the Olumi chat tab', (_label, testid) => {
     expect(useUIStore.getState().activeOutputTab).toBe('results')
     renderBody()
-    // expand the "Add a risk" static row, then click its prefill CTA
+    const nodesBefore = useCanvasStore.getState().nodes
+    const edgesBefore = useCanvasStore.getState().edges
+    // expand the "Add a risk" static row, then click the control under test
     fireEvent.click(screen.getByRole('button', { name: /add a risk worth watching/i }))
-    fireEvent.click(screen.getByTestId('focus-action'))
+    fireEvent.click(screen.getByTestId(testid))
     // the prefill text is persisted for a freshly-mounting composer…
-    expect(useCanvasStore.getState().draftComposerText).toBe(
-      'Help me think through a risk worth adding to this decision.',
-    )
-    // …and the chat surface is revealed (Olumi tab activated)
+    expect(useCanvasStore.getState().draftComposerText).toBe(PROMPT)
+    // …and the chat surface is revealed (Olumi tab activated)…
     expect(useUIStore.getState().activeOutputTab).toBe('olumi')
+    // …with NO graph mutation (node/edge collections untouched by reference).
+    expect(useCanvasStore.getState().nodes).toBe(nodesBefore)
+    expect(useCanvasStore.getState().edges).toBe(edgesBefore)
   })
 })
