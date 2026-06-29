@@ -8,14 +8,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 
-const { prefillChat, sendMessage, runV2Analysis, forceActivateOutputTab, focusFloating, setCanvasState } =
+const { store, prefillChat, sendMessage, runV2Analysis, forceActivateOutputTab, focusFloating, setCanvasState, aiPanelV2 } =
   vi.hoisted(() => ({
+    // Mutable holder so a test can seed an existing composer draft.
+    store: { draftComposerText: null as string | null },
     prefillChat: vi.fn(),
     sendMessage: vi.fn(),
     runV2Analysis: vi.fn(),
     forceActivateOutputTab: vi.fn(),
     focusFloating: vi.fn(),
     setCanvasState: vi.fn(),
+    aiPanelV2: vi.fn(() => true),
   }))
 
 vi.mock('@/canvas/store', () => ({
@@ -26,7 +29,10 @@ vi.mock('@/canvas/store', () => ({
         analysisFreshness: { freshness: 'stale' },
         analysisFreshnessDirty: false,
       }),
-    { setState: setCanvasState },
+    {
+      setState: setCanvasState,
+      getState: () => ({ draftComposerText: store.draftComposerText }),
+    },
   ),
 }))
 vi.mock('@/canvas/hooks/useV2Run', () => ({
@@ -43,12 +49,14 @@ vi.mock('@/stores/uiStore', () => ({
   }),
 }))
 vi.mock('@/canvas/hooks/useFloatingFocus', () => ({ focusFloating }))
-vi.mock('@/flags', () => ({ isAiPanelV2Enabled: () => true }))
+vi.mock('@/flags', () => ({ isAiPanelV2Enabled: aiPanelV2 }))
 
 import { useFocusNow } from '../useFocusNow'
 
 describe('useFocusNow container', () => {
   beforeEach(() => {
+    store.draftComposerText = null
+    aiPanelV2.mockReturnValue(true)
     prefillChat.mockClear()
     sendMessage.mockClear()
     runV2Analysis.mockClear()
@@ -74,7 +82,7 @@ describe('useFocusNow container', () => {
     result.current.onPrefill?.('Help me add a risk.')
     // 1. persists the composer text (a freshly-mounting composer initialises from it)
     expect(setCanvasState).toHaveBeenCalledWith({ draftComposerText: 'Help me add a risk.' })
-    // 2. updates the live composer when one is already mounted
+    // 2. updates the live composer when one is already mounted (same merged text)
     expect(prefillChat).toHaveBeenCalledWith('Help me add a risk.')
     // 3. reveals the Olumi chat surface (docked tab + best-effort floating focus)
     expect(forceActivateOutputTab).toHaveBeenCalledWith('olumi')
@@ -82,6 +90,27 @@ describe('useFocusNow container', () => {
     // never auto-sends, never triggers a re-run
     expect(sendMessage).not.toHaveBeenCalled()
     expect(runV2Analysis).not.toHaveBeenCalled()
+  })
+
+  it('onPrefill APPENDS to an unsent draft — never clobbers it', () => {
+    store.draftComposerText = 'I am leaning towards option A'
+    const { result } = renderHook(() => useFocusNow())
+    result.current.onPrefill?.('Help me add a risk.')
+    const merged = 'I am leaning towards option A\n\nHelp me add a risk.'
+    expect(setCanvasState).toHaveBeenCalledWith({ draftComposerText: merged })
+    // the already-mounted composer receives the SAME merged text (no clobber there either)
+    expect(prefillChat).toHaveBeenCalledWith(merged)
+  })
+
+  it('exposes actionsEnabled=true when aiPanelV2 is on', () => {
+    const { result } = renderHook(() => useFocusNow())
+    expect(result.current.actionsEnabled).toBe(true)
+  })
+
+  it('exposes actionsEnabled=false when aiPanelV2 is off (controls must hide, not be dead)', () => {
+    aiPanelV2.mockReturnValue(false)
+    const { result } = renderHook(() => useFocusNow())
+    expect(result.current.actionsEnabled).toBe(false)
   })
 
   it('onRerun triggers a re-run', () => {

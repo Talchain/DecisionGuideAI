@@ -29,6 +29,7 @@ export function FocusNowPanel({
   rows,
   banner,
   onPrefill,
+  actionsEnabled = true,
   onRerun,
   rerunDisabled = false,
   showFreshnessBanner = true,
@@ -43,9 +44,15 @@ export function FocusNowPanel({
   const visible = revealed ? safeRows : safeRows.slice(0, FOCUS_DEFAULT_VISIBLE)
   const hiddenCount = safeRows.length - FOCUS_DEFAULT_VISIBLE
 
-  const handleTry = (row: FocusRow) => {
-    if (row.action?.kind === 'prefill' && row.action.prefillText) onPrefill?.(row.action.prefillText)
-  }
+  // Only expose an action handler when the action can actually reveal the chat
+  // (see actionsEnabled). When it cannot, the card renders no action controls,
+  // so the rows stay informational instead of presenting dead buttons.
+  const handleTry =
+    actionsEnabled
+      ? (row: FocusRow) => {
+          if (row.action?.kind === 'prefill' && row.action.prefillText) onPrefill?.(row.action.prefillText)
+        }
+      : undefined
 
   return (
     <section
