@@ -28,6 +28,7 @@ import { DecisionConfidencePanel } from './DecisionConfidencePanel'
 import { AnalysisHeroV17 } from './AnalysisHeroV17'
 import { AnalysisOrphanBanner } from './AnalysisOrphanBanner'
 import { AnalysisFreshnessNotice } from './AnalysisFreshnessNotice'
+import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
 import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled } from '@/flags'
 
 export interface StrengthCorrectionDisplay {
@@ -232,6 +233,13 @@ export const ResultsBody = memo(function ResultsBody({
       )}
       <SectionErrorBoundary section="Decision confidence">
         {showV17 && !showCompare ? heroV17Element : decisionConfidenceElement}
+      </SectionErrorBoundary>
+
+      {/* ── SECOND PANEL: Strengthen your model (Focus) ───────────────
+          Static / fail-closed coaching panel mounted directly after the hero.
+          coaching_summary stays gated off; no server/dynamic/readiness/bias rows. */}
+      <SectionErrorBoundary section="Strengthen your model">
+        <FocusNowContainer />
       </SectionErrorBoundary>
 
       {/* Old RecommendationSection/HeroSection suppressed — triage panel replaces it */}

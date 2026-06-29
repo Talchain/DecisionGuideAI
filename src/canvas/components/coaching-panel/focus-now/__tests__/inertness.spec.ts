@@ -1,25 +1,22 @@
 /**
- * Inertness guard (CI tripwire).
+ * Mount guard (CI tripwire) — ALLOW-LIST.
  *
- * Focus Now is render-only, unmounted, and behind no feature flag. This test fails
- * if ANY file outside the module imports it — via static import, type-only import,
- * re-export, dynamic import(), React.lazy, or require() — whether by alias
- * ('@/.../focus-now') or RELATIVE path ('./focus-now', '../focus-now',
+ * Focus Now is now mounted in exactly ONE authorised place: ResultsBody renders
+ * `FocusNowContainer` as the second Analysis-tab panel. This test fails if ANY
+ * OTHER file outside the module imports it — via static / type-only / re-export /
+ * dynamic import() / React.lazy / require / side-effect / glued forms, by alias
+ * ('@/.../focus-now') or relative path ('./focus-now', '../focus-now',
  * './focus-now/FocusNowPanel').
  *
- * It RESOLVES each import specifier to an absolute path and checks whether it lands
- * inside the module; it does NOT substring-match whole files. That closes the blind
- * spot found in PR #199 review, where a substring check ('coaching-panel/focus-now')
- * missed relative imports from the parent `coaching-panel` barrel (e.g.
- * `import { FocusNowPanel } from './focus-now'`). The in-test positive/negative
- * controls below are committed coverage, not just PR-body evidence.
+ * It RESOLVES each import specifier to an absolute path (not a substring match), so
+ * the parent-barrel relative-import blind spot found in PR #199 review stays
+ * closed. The authorised importer is exempt; a test below proves that mount is
+ * actually wired (so the allow-list can't silently mask a removed mount), and the
+ * positive/negative controls prove unauthorised imports are still caught.
  *
  * Known limitation (regex-based by design): it does not catch computed/indirect
- * dynamic imports such as `const p = './focus-now'; import(p)`. That is not a
- * current risk for an inert tripwire; an AST/parser-based guard would be more
- * exhaustive if this ever needs to harden further (PR #199 review note).
- *
- * When the deliberate mount PR lands, it must update/remove this guard.
+ * dynamic imports such as `const p = './focus-now'; import(p)`. Out of scope for a
+ * tripwire; an AST/parser-based guard would be more exhaustive (PR #199 review note).
  */
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
@@ -27,6 +24,10 @@ import { dirname, join, resolve, sep } from 'node:path'
 
 const SRC = resolve(process.cwd(), 'src')
 const MODULE_DIR = join(SRC, 'canvas', 'components', 'coaching-panel', 'focus-now')
+
+// The ONE authorised live mount: ResultsBody renders FocusNowContainer as the
+// second Analysis-tab panel. Any OTHER external importer is a guard violation.
+const AUTHORIZED_IMPORTERS = new Set([join(SRC, 'components', 'results', 'ResultsBody.tsx')])
 
 // Capture the specifier of any import / re-export / dynamic import() / require().
 // Covers `from 'x'`, side-effect `import 'x'`, `import('x')`, `require('x')`, and
@@ -75,17 +76,40 @@ function walk(dir: string, acc: string[] = []): string[] {
 }
 
 describe('Focus Now inertness', () => {
-  it('is not imported by any file outside its own module (alias OR relative, static OR dynamic)', () => {
+  it('is imported ONLY by the authorised Analysis-tab mount (alias OR relative, static OR dynamic)', () => {
     const offenders: string[] = []
     for (const file of walk(SRC)) {
       if (file === MODULE_DIR || file.startsWith(MODULE_DIR + sep)) continue
+      if (AUTHORIZED_IMPORTERS.has(file)) continue
       const hits = findFocusNowImports(readFileSync(file, 'utf8'), file)
       if (hits.length) offenders.push(`${file.slice(SRC.length - 3)} -> ${hits.join(', ')}`)
     }
     expect(
       offenders,
-      `Focus Now is render-only/unmounted; nothing outside its module may import it yet:\n${offenders.join('\n')}`,
+      `Only ResultsBody may import Focus Now; remove these other imports:\n${offenders.join('\n')}`,
     ).toEqual([])
+  })
+
+  it('the authorised mount (ResultsBody) actually imports the module', () => {
+    // Guards against the allow-list masking a REMOVED mount: if the panel is
+    // unmounted, this fails — the allow-list entry would otherwise be dead.
+    for (const f of AUTHORIZED_IMPORTERS) {
+      expect(
+        findFocusNowImports(readFileSync(f, 'utf8'), f).length,
+        `${f.slice(SRC.length - 3)} should import focus-now (mount must stay wired)`,
+      ).toBeGreaterThan(0)
+    }
+  })
+
+  it('an UNAUTHORISED importer is still flagged (allow-list is not a blanket exemption)', () => {
+    const unauthorised = join(SRC, 'components', 'results', 'SomeOtherPanel.tsx')
+    expect(AUTHORIZED_IMPORTERS.has(unauthorised)).toBe(false)
+    expect(
+      findFocusNowImports(
+        "import { FocusNowPanel } from '@/canvas/components/coaching-panel/focus-now'",
+        unauthorised,
+      ).length,
+    ).toBeGreaterThan(0)
   })
 
   // Committed positive controls — the import forms a substring check missed.
