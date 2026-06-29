@@ -28,7 +28,8 @@ import { DecisionConfidencePanel } from './DecisionConfidencePanel'
 import { AnalysisHeroV17 } from './AnalysisHeroV17'
 import { AnalysisOrphanBanner } from './AnalysisOrphanBanner'
 import { AnalysisFreshnessNotice } from './AnalysisFreshnessNotice'
-import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled } from '@/flags'
+import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
+import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled, isFocusNowPanelEnabled } from '@/flags'
 
 export interface StrengthCorrectionDisplay {
   edgeId: string
@@ -233,6 +234,17 @@ export const ResultsBody = memo(function ResultsBody({
       <SectionErrorBoundary section="Decision confidence">
         {showV17 && !showCompare ? heroV17Element : decisionConfidenceElement}
       </SectionErrorBoundary>
+
+      {/* ── SECOND PANEL: Strengthen your model (Focus) ───────────────
+          Static / fail-closed coaching panel mounted directly after the hero.
+          coaching_summary stays gated off; no server/dynamic/readiness/bias rows.
+          Default-ON flag (kill switch); suppresses its own stale banner (the tab's
+          AnalysisFreshnessNotice owns freshness). */}
+      {isFocusNowPanelEnabled() && (
+        <SectionErrorBoundary section="Strengthen your model">
+          <FocusNowContainer />
+        </SectionErrorBoundary>
+      )}
 
       {/* Old RecommendationSection/HeroSection suppressed — triage panel replaces it */}
 

@@ -306,6 +306,17 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_ANALYSIS_HERO_V17',
     storageKey: 'feature.analysisHeroV17',
   },
+  // Focus / "Strengthen your model" panel — controls ONLY the visibility of the
+  // mounted STATIC panel (the 2nd Analysis-tab panel). DEFAULT-ON for review/
+  // staging dogfooding; acts as a kill switch (rollback without a revert PR) via
+  //   localStorage.setItem('feature.focusNowPanel', '0')   // or VITE_FEATURE_FOCUS_NOW_PANEL=0
+  // It does NOT enable coaching_summary, dynamic/server rows, or any uncertified
+  // content — those stay gated regardless of this flag.
+  focusNowPanel: {
+    envKey: 'VITE_FEATURE_FOCUS_NOW_PANEL',
+    storageKey: 'feature.focusNowPanel',
+    defaultValue: true,
+  },
   // Analysis hero v17 — opt-in comparison mode. When ON, BOTH the new hero
   // AND the existing DecisionConfidencePanel render (new hero above), for
   // internal visual review only. Never default-on. Bootable via the URL
@@ -415,6 +426,7 @@ const flags = {
   deterministicCee: makeFlag(FLAGS_CONFIG.deterministicCee),
   analysisHeroV17: makeFlag(FLAGS_CONFIG.analysisHeroV17),
   analysisHeroCompare: makeFlag(FLAGS_CONFIG.analysisHeroCompare),
+  focusNowPanel: makeFlag(FLAGS_CONFIG.focusNowPanel),
   aiPanelV2: makeFlag(FLAGS_CONFIG.aiPanelV2),
   v5CanonicalAnalysis: makeFlag(FLAGS_CONFIG.v5CanonicalAnalysis),
 }
@@ -478,6 +490,7 @@ export const isOrchestratorRenderingV2Enabled = flags.orchestratorRenderingV2
 export const isDeterministicCeeEnabled = flags.deterministicCee
 export const isAnalysisHeroV17Enabled = flags.analysisHeroV17
 export const isAnalysisHeroCompareEnabled = flags.analysisHeroCompare
+export const isFocusNowPanelEnabled = flags.focusNowPanel
 export const isAiPanelV2Enabled = flags.aiPanelV2
 export const isV5CanonicalAnalysisEnabled = flags.v5CanonicalAnalysis
 export const diagnoseV5CanonicalAnalysis = () =>
