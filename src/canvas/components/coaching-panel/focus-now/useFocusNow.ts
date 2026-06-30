@@ -12,24 +12,26 @@
  *     defaults OFF (CERTIFY_SUMMARY=false). A live mount must keep it hidden or
  *     flip this on ONLY once the summary is passed through Gate Zero / certified
  *     CEE output. Do not call the panel live-safe while it shows uncertified prose.
- *  2. PREFILL-ONLY + VISIBLE — the row action MERGES the prompt into the composer
- *     (via `draftComposerText` for the unmounted case + `_prefillChat` for an
- *     already-mounted one) AND reveals the Olumi/chat surface. It APPENDS to, never
- *     clobbers, an unsent draft (the composer mirrors its value to draftComposerText,
- *     so a message typed on the Olumi tab is persisted there). On the Analysis tab
- *     the chat composer is not mounted (ConversationPanel lives in the Olumi tab) and
- *     its `_prefillChat` callback is null; the persisted `draftComposerText` is what
- *     a freshly-mounting composer initialises from, and `forceActivateOutputTab('olumi')`
- *     mounts/reveals it (the live-diagnosed reveal used by useConversationActions).
- *     There is deliberately NO `_sendMessage`: never auto-sends. The reveal needs
- *     aiPanelV2 (the dock redirects 'olumi'→'results' otherwise), so `actionsEnabled`
- *     gates the controls off when it is disabled — no dead buttons.
+ *  2. PREFILL-ONLY + VISIBLE — the row action MERGES the prompt into the live chat
+ *     composer AND reveals the Olumi/chat surface. The visible aiPanelV2 composer is
+ *     `AIInputBar`, whose textarea is bound directly to ConversationContext `draft`
+ *     (`value={draft}` / `setDraft`). So we write the draft through that context —
+ *     NOT canvas-store `draftComposerText` (the LEGACY composer's draft, which the
+ *     aiPanelV2 composer never reads) and NOT the guidance-store `_prefillChat`
+ *     (unreliable: ConversationPanel overwrites it with a no-op `composerRef`
+ *     under `hideComposer`). A functional `setDraft(prev => merge(prev, text))`
+ *     APPENDS to, never clobbers, an unsent draft and needs no reactive read.
+ *     There is deliberately NO `sendMessage`: never auto-sends. The reveal needs
+ *     aiPanelV2 (the dock redirects 'olumi'→'results' otherwise) and a live
+ *     conversation, so `actionsEnabled` gates the controls off otherwise — no dead
+ *     buttons. This is the same live ConversationContext path useConversationActions
+ *     uses to dodge the guidance-store registration race.
  */
 import { useCallback, useMemo } from 'react'
 import { useCanvasStore } from '@/canvas/store'
-import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 import { useV2Run } from '@/canvas/hooks/useV2Run'
 import { useUIStore } from '@/stores/uiStore'
+import { useOptionalConversationContext } from '@/canvas/conversation/ConversationContext'
 import { focusFloating } from '@/canvas/hooks/useFloatingFocus'
 import { isAiPanelV2Enabled } from '@/flags'
 import { classifyFreshnessForDisplay } from '@/canvas/store/analysisFreshness'
@@ -56,6 +58,9 @@ export function useFocusNow(): FocusNowProps {
   const freshness = useCanvasStore((s) => s.analysisFreshness)
   const dirty = useCanvasStore((s) => s.analysisFreshnessDirty)
   const { runV2Analysis, isRunning } = useV2Run()
+  // The live chat. Optional: null if somehow rendered outside the provider (then we
+  // cannot reach the composer, so we disable the action controls — never dead).
+  const conversation = useOptionalConversationContext()
 
   // Uncertified prose is gated OFF; the data path stays visible for the mount PR.
   const coachingSummary = CERTIFY_SUMMARY ? rawSummary : null
@@ -66,33 +71,31 @@ export function useFocusNow(): FocusNowProps {
     [freshness, dirty],
   )
 
-  // The row action reveals the Olumi chat tab, which only exists when aiPanelV2 is
-  // on — OutputsDock redirects a requested 'olumi' tab to 'results' otherwise, so
-  // the action would set a draft nobody can see. When off we tell the panel to
-  // render NO action controls (rows stay informational, never dead buttons).
-  const actionsEnabled = isAiPanelV2Enabled()
+  // The row action needs (a) a live conversation to write the draft into and (b)
+  // aiPanelV2 — the reveal targets the Olumi tab, which OutputsDock redirects to
+  // 'results' when aiPanelV2 is off. Without both, the controls could not produce a
+  // visible effect, so the panel renders NO action controls (rows stay
+  // informational, never dead buttons).
+  const setDraft = conversation?.setDraft
+  const draft = conversation?.draft ?? ''
+  const actionsEnabled = isAiPanelV2Enabled() && !!setDraft
 
   const onPrefill = useCallback((text: string) => {
-    // Prefill the chat and reveal it — NEVER auto-send.
-    // 1. Merge into (never clobber) any unsent draft. The chat composer mirrors
-    //    its value to draftComposerText (useComposerState), so a message typed on
-    //    the Olumi tab is persisted here; overwriting it would silently destroy
-    //    the user's unsent text. A freshly-mounting composer initialises from this.
-    const merged = mergeComposerDraft(useCanvasStore.getState().draftComposerText, text)
-    useCanvasStore.setState({ draftComposerText: merged })
-    // 2. If a composer IS already mounted (e.g. an open floating chat), set its
-    //    live value to the SAME merged text — the mount-time initialiser in (1)
-    //    won't re-run for it. (`_prefillChat` is null on the Analysis tab.)
-    useGuidanceStore.getState()._prefillChat?.(merged)
-    // 3. Reveal the Olumi chat surface so the prefill is visible. Mirrors the
-    //    live-diagnosed reveal in useConversationActions: forceActivate the docked
-    //    Olumi tab (bumps the version so the dock reconciles + opens even when the
-    //    tab value is unchanged), then best-effort focus a hosting floating panel.
+    if (!setDraft) return
+    // Prefill the LIVE chat composer and reveal it — NEVER auto-send.
+    // The visible aiPanelV2 composer (AIInputBar) is bound to ConversationContext
+    // `draft`, so writing through setDraft updates whichever surface is showing
+    // (strip / floating / docked). APPEND to, never clobber, an unsent draft — the
+    // closed-over `draft` is the latest committed value (this hook subscribes to it).
+    setDraft(mergeComposerDraft(draft, text))
+    // Reveal the Olumi chat surface so the prefill is visible: forceActivate the
+    // docked Olumi tab (bumps the version so the dock reconciles + opens even when
+    // the tab value is unchanged), then best-effort focus a hosting floating panel.
     if (isAiPanelV2Enabled()) {
       useUIStore.getState().forceActivateOutputTab('olumi')
     }
     focusFloating()
-  }, [])
+  }, [setDraft, draft])
 
   const onRerun = useCallback(() => {
     void runV2Analysis()

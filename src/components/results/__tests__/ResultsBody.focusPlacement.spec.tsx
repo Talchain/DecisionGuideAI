@@ -35,6 +35,22 @@ vi.mock('@/flags', async () => {
   }
 })
 
+// ResultsBody is not wrapped in a ConversationProvider here, so stub the live chat
+// with a stateful fake: setDraft updates a holder we can assert against. This is
+// the surface the visible AIInputBar reads — the real effect of a Focus action.
+const convo = vi.hoisted(() => {
+  const box = { draft: '' }
+  return {
+    box,
+    setDraft: vi.fn((text: string) => {
+      box.draft = text
+    }),
+  }
+})
+vi.mock('@/canvas/conversation/ConversationContext', () => ({
+  useOptionalConversationContext: () => ({ draft: convo.box.draft, setDraft: convo.setDraft }),
+}))
+
 import {
   isAnalysisHeroV17Enabled,
   isAnalysisHeroCompareEnabled,
@@ -91,7 +107,9 @@ describe('ResultsBody — Focus panel placement (second Analysis-tab panel)', ()
     vi.mocked(isAnalysisHeroCompareEnabled).mockReturnValue(false)
     vi.mocked(isFocusNowPanelEnabled).mockReturnValue(true)
     vi.mocked(isAiPanelV2Enabled).mockReturnValue(true)
-    useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false, draftComposerText: null })
+    convo.box.draft = ''
+    convo.setDraft.mockClear()
+    useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false })
     useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
   })
 
@@ -136,17 +154,17 @@ describe('ResultsBody — Focus panel placement (second Analysis-tab panel)', ()
     expect(screen.queryByTestId('focus-summary')).toBeNull()
   })
 
-  // Regression for the staging blocker: on the Analysis tab the chat composer is
-  // unmounted (its prefill callback is null), so a working action must persist the
-  // prefill to draftComposerText AND switch the dock to the Olumi tab so a freshly-
-  // mounting composer shows it. End-to-end through the real FocusNowContainer →
-  // useFocusNow → onPrefill (no hook mock). Both row controls must behave the same.
+  // Regression for the staging blocker: the visible aiPanelV2 composer (AIInputBar)
+  // is bound to ConversationContext `draft`, so a working action must write THAT
+  // draft (not the legacy canvas-store draftComposerText) AND reveal the Olumi tab.
+  // End-to-end through the real FocusNowContainer → useFocusNow → onPrefill (no hook
+  // mock); only the live chat is stubbed. Both row controls must behave the same.
   const PROMPT = 'Help me think through a risk worth adding to this decision.'
 
   it.each([
     ['the row CTA', 'focus-action'],
     ['the Ask Olumi icon', 'focus-ask-olumi'],
-  ])('clicking %s prefills the composer and reveals the Olumi chat tab', (_label, testid) => {
+  ])('clicking %s writes the prompt to the live chat draft and reveals the Olumi tab', (_label, testid) => {
     expect(useUIStore.getState().activeOutputTab).toBe('results')
     renderBody()
     const nodesBefore = useCanvasStore.getState().nodes
@@ -154,8 +172,8 @@ describe('ResultsBody — Focus panel placement (second Analysis-tab panel)', ()
     // expand the "Add a risk" static row, then click the control under test
     fireEvent.click(screen.getByRole('button', { name: /add a risk worth watching/i }))
     fireEvent.click(screen.getByTestId(testid))
-    // the prefill text is persisted for a freshly-mounting composer…
-    expect(useCanvasStore.getState().draftComposerText).toBe(PROMPT)
+    // the prompt lands in the live conversation draft (what AIInputBar renders)…
+    expect(convo.box.draft).toBe(PROMPT)
     // …and the chat surface is revealed (Olumi tab activated)…
     expect(useUIStore.getState().activeOutputTab).toBe('olumi')
     // …with NO graph mutation (node/edge collections untouched by reference).
@@ -164,15 +182,13 @@ describe('ResultsBody — Focus panel placement (second Analysis-tab panel)', ()
   })
 
   it('APPENDS to an existing unsent draft — never clobbers it', () => {
-    // The composer mirrors its value to draftComposerText; a Focus action must not
-    // destroy a message the user was still writing on the Olumi tab.
-    useCanvasStore.setState({ draftComposerText: 'I am leaning towards option A' })
+    // A message the user is still writing lives in the conversation draft; a Focus
+    // action must append below it, not overwrite it.
+    convo.box.draft = 'I am leaning towards option A'
     renderBody()
     fireEvent.click(screen.getByRole('button', { name: /add a risk worth watching/i }))
     fireEvent.click(screen.getByTestId('focus-action'))
-    expect(useCanvasStore.getState().draftComposerText).toBe(
-      `I am leaning towards option A\n\n${PROMPT}`,
-    )
+    expect(convo.box.draft).toBe(`I am leaning towards option A\n\n${PROMPT}`)
     expect(useUIStore.getState().activeOutputTab).toBe('olumi')
   })
 
