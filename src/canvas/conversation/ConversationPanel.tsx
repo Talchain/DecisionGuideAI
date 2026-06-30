@@ -21,6 +21,8 @@ import { logger } from '../../lib/logger'
 import { ChevronsRight } from 'lucide-react'
 import { ChatThread } from './zones/ChatThread'
 import { ChatComposer, type ChatComposerHandle } from './zones/ChatComposer'
+import { useOptionalConversationContext } from './ConversationContext'
+import { prefillInto } from './prefillTarget'
 import type { BriefReadiness } from './hooks/useBriefSignals'
 import { useThreadPersistence } from './hooks/useThreadPersistence'
 import { beginInteractionChain, getUiSurfaceState, recordCrossSurfaceEvent, recordInteractionEvent, recordUserAction, type InteractionStateSnapshot } from '../../lib/debug-state'
@@ -114,6 +116,11 @@ export const ConversationPanel = memo(function ConversationPanel({
   const nodeCount = useCanvasStore((s) => s.nodes.length)
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
   const composerRef = useRef<ChatComposerHandle>(null)
+  // Under `hideComposer` (AI panel v2) the legacy composerRef is never mounted —
+  // the visible composer is AIInputBar, bound to ConversationContext `draft`. We
+  // fall back to writing that draft so prefill actually populates the textarea.
+  // setDraft is the stable useState setter, so it's safe in the register effect's deps.
+  const setDraft = useOptionalConversationContext()?.setDraft
   const pendingBriefRef = useRef<string | null>(null)
   const generateInFlightRef = useRef(false)
   const wasThinkingRef = useRef(false)
@@ -479,14 +486,13 @@ export const ConversationPanel = memo(function ConversationPanel({
   useEffect(() => {
     const sendChipByLabelMessage = (label: string, message: string) =>
       sendChip({ id: `evidence-apply-${Date.now()}`, label, message, intent: 'primary' })
-    // When `hideComposer` is true (AI panel v2) the legacy composerRef is
-    // never mounted, so the default prefill would silently no-op. Use the
-    // caller-supplied override (which targets the visible AIInputBar) so
-    // inspector "Ask about this" and analysis hero prefill actions
-    // actually populate the textarea. Otherwise fall back to the legacy
-    // composer ref.
+    // Prefill the visible composer (see prefillInto): the legacy ChatComposer
+    // ref when mounted, else the ConversationContext draft AIInputBar renders
+    // under `hideComposer`. Writing to the null ref was the silent no-op behind
+    // inspector "Ask about this" / analysis-hero prefills doing nothing. A
+    // caller-supplied override still wins when provided.
     const prefillChat = prefillChatOverride
-      ?? ((text: string) => composerRef.current?.replaceText(text))
+      ?? ((text: string) => prefillInto(composerRef.current, setDraft, text))
     useGuidanceStore.getState().registerConversationCallbacks(
       sendMessage,
       handleScrollToPatch,
@@ -498,7 +504,7 @@ export const ConversationPanel = memo(function ConversationPanel({
     return () => {
       useGuidanceStore.setState({ _sendMessage: null, _runAnalysis: null, _sendChip: null, _scrollToPatch: null, _prefillChat: null, _dispatchAction: null })
     }
-  }, [sendMessage, handleScrollToPatch, sendChip, handleRunAnalysis, dispatchAction, prefillChatOverride])
+  }, [sendMessage, handleScrollToPatch, sendChip, handleRunAnalysis, dispatchAction, prefillChatOverride, setDraft])
 
   const handleInsertText = useCallback((text: string) => {
     composerRef.current?.replaceText(text)
