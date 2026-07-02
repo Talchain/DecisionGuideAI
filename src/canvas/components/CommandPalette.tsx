@@ -7,6 +7,7 @@ import { useResultsRun } from '../hooks/useResultsRun'
 import { ValidationBanner, type ValidationError } from './ValidationBanner'
 import { useValidationFeedback } from '../hooks/useValidationFeedback'
 import { trackRunAttempt } from '../utils/sandboxTelemetry'
+import { computeFitPadding } from '../utils/computeFitPadding'
 import { typography } from '../../styles/typography'
 
 interface Action {
@@ -134,7 +135,7 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
       }
     }},
     { id: 'select-all', label: 'Select All', shortcut: '⌘A', execute: () => selectAll() },
-    { id: 'zoom-fit', label: 'Zoom to Fit', execute: () => fitView({ padding: 0.2, duration: 300 }) },
+    { id: 'zoom-fit', label: 'Zoom to Fit', execute: () => fitView({ padding: computeFitPadding(), duration: 300 }) },
     { id: 'save-snapshot', label: 'Save Snapshot', shortcut: '⌘S', execute: () => saveSnapshot() },
   ]
 

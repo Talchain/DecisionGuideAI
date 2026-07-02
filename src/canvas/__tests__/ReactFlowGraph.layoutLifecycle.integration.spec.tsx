@@ -30,6 +30,11 @@ let mockNodesInitialized = true
 let mockNodeLookup = new Map<string, { measured?: { width?: number; height?: number } }>()
 const fitViewSpy = vi.fn()
 
+// Panel-aware fit padding is mocked to a sentinel here; its correctness is
+// covered by computeFitPadding.spec.ts. This suite locks the fitView cadence
+// and duration, not the padding maths.
+const FIT_PADDING = { top: '10px', right: '20px', bottom: '10px', left: '20px' }
+
 vi.mock('@xyflow/react', () => ({
   useNodesInitialized: () => mockNodesInitialized,
   useStore: <T,>(selector: (s: { nodeLookup: typeof mockNodeLookup }) => T) =>
@@ -37,6 +42,10 @@ vi.mock('@xyflow/react', () => ({
   useReactFlow: () => ({
     fitView: fitViewSpy,
   }),
+}))
+
+vi.mock('../utils/computeFitPadding', () => ({
+  computeFitPadding: () => FIT_PADDING,
 }))
 
 // `handleLayoutWithRecovery` (used by useMeasureThenLayout) writes to a
@@ -171,7 +180,7 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
     // fitView fired exactly once with the production contract — asserted
     // directly against the real useFitViewOnLayoutVersion hook output.
     expect(fitViewSpy).toHaveBeenCalledTimes(1)
-    expect(fitViewSpy).toHaveBeenCalledWith({ padding: 0.2, duration: 400 })
+    expect(fitViewSpy).toHaveBeenCalledWith({ padding: FIT_PADDING, duration: 400 })
 
     expect(useCanvasStore.getState().pendingLayout).toBe(false)
     expect(useCanvasStore.getState().layoutInProgress).toBe(false)
@@ -243,7 +252,7 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
     const lockedFinal = final.find((n) => n.id === 'locked')
     expect(lockedFinal?.position).toEqual({ x: 0, y: 0 })
     expect(fitViewSpy).toHaveBeenCalledTimes(1)
-    expect(fitViewSpy).toHaveBeenCalledWith({ padding: 0.2, duration: 400 })
+    expect(fitViewSpy).toHaveBeenCalledWith({ padding: FIT_PADDING, duration: 400 })
   })
 
   it('scenario A→B switch lays out B when B is stacked and fires fitView once for B (acceptance #5 + #6)', async () => {
@@ -288,6 +297,6 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
     const xs = final.map((n) => (n.position as { x: number }).x)
     expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(40)
     expect(fitViewSpy).toHaveBeenCalledTimes(1)
-    expect(fitViewSpy).toHaveBeenCalledWith({ padding: 0.2, duration: 400 })
+    expect(fitViewSpy).toHaveBeenCalledWith({ padding: FIT_PADDING, duration: 400 })
   })
 })

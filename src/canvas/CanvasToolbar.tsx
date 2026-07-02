@@ -18,6 +18,7 @@ import { ValidationBanner, type ValidationError } from './components/ValidationB
 import { useValidationFeedback } from './hooks/useValidationFeedback'
 import { useToast } from './ToastContext'
 import { checkLimits, formatLimitError } from './utils/limitGuard'
+import { computeFitPadding } from './utils/computeFitPadding'
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { Tooltip } from './components/Tooltip'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
@@ -426,8 +427,11 @@ export function CanvasToolbar() {
         </Tooltip>
 
         <Tooltip content="Fit view to all nodes">
+          {/* CanvasToolbar is production-unmounted today (mounted only in DOM tests), but
+              wired to the shared panel-aware padding anyway so a future remount reserves
+              the OutputsDock/sidebar like the live fit sites. */}
           <button
-            onClick={() => fitView({ padding: 0.2, duration: 300 })}
+            onClick={() => fitView({ padding: computeFitPadding(), duration: 300 })}
             className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
             aria-label="Fit all nodes in view"
           >

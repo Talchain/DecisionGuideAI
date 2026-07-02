@@ -56,6 +56,7 @@ import { InfluenceExplainer, useInfluenceExplainer } from '../components/assista
 import { useResultsRun } from './hooks/useResultsRun'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
+import { computeFitPadding } from './utils/computeFitPadding'
 import { usePathHighlight } from './hooks/usePathHighlight'
 import { useLensFilter } from './hooks/useLensFilter'
 import { useGuidancePulseHighlight } from './hooks/useGuidancePulseHighlight'
@@ -1772,7 +1773,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const handleZoomIn = useCallback(() => zoomInRef.current({ duration: 200 }), [])
   const handleZoomOut = useCallback(() => zoomOutRef.current({ duration: 200 }), [])
   const handleZoomReset = useCallback(() => zoomToRef.current(1, { duration: 200 }), [])
-  const handleFitView = useCallback(() => fitViewRef.current({ padding: 0.2, duration: 300 }), [])
+  const handleFitView = useCallback(() => fitViewRef.current({ padding: computeFitPadding(), duration: 300 }), [])
 
   // Canvas debug mode: 'blank' short-circuits the full canvas UI so we can
   // quickly determine whether React 185 is coming from inside the canvas
