@@ -1,7 +1,7 @@
 # Track C — schema/wire alignment + surfacing plan (2026-07-02)
 
 **Repo refs verified this session:** DGAI `origin/staging` @ `5a4a9ff1` · CEE `origin/staging` @
-`475922b300`. **Companion evidence:** CEE `Docs/v5/ui-wire-contract-skew-evidence.md` +
+`2376914c8` (post-#318; originally audited on `475922b300`). **Companion evidence:** CEE `Docs/v5/ui-wire-contract-skew-evidence.md` +
 `tests/contract/cee-egress-wire-surface-pin.test.ts` (branch `claude/trackc-egress-wire-pin`).
 
 **Status: plan only.** No DGAI code changes are authorised on this branch. The schema-bump
