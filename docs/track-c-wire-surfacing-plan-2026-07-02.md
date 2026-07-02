@@ -52,7 +52,7 @@ exact 0.13.0 surface, so the bump has a machine-checked target shape rather than
 | 3 | **Evidence blocks** (`evidence_gap`, `current_confidence`, `impact_if_gathered`, `suggested_technique`) | `blocks[type=evidence]` | evidence-gap cards; ties into guidance `evidence_gap` item_type already in telemetry taxonomy |
 | 4 | **Exercise blocks** (pre-mortem-shaped: `counter_case`, `failure_scenario`, `mitigation`, `warning_signs`) | `blocks[type=exercise]` | guided-exercise panel (new component) |
 | 5 | **`suggested_actions[].action_type`** | top-level `suggested_actions` | chip styling/routing by action type |
-| 6 | **`strengthen_items[].actionType` + `biasCategory`** | already adapted in `src/adapters/cee/client.ts` `mapDraftCoachingFromResponse()`, never rendered | bias-category badges on strengthen/bias cards — **needs no schema bump; could ship first as a warm-up slice** |
+| 6 | **`strengthen_items[].biasCategory`** (`actionType` already ships: Brief 5.8B D2b renders it as passive labels via `applyStrengthenOverlay` → `PreAnalysisPanel` / `src/components/results/TriageActionCardsBody`) | both adapted in `src/adapters/cee/client.ts` `mapDraftCoachingFromResponse()`; `biasCategory` never rendered | bias-category badges on strengthen/bias cards — **needs no schema bump; could ship first as a warm-up slice** |
 | 7 | **Enrichment values** (`flip_thresholds` values, `confidence_tier`, `inference_warnings`, `edge_e_values`) | `blocks[].enrichment` carriers (schema-unpinned) | fragile-edge UX + confidence badges + warnings sidebar; today `src/lib/v5EvidenceKeys.ts` uses some only as promotion gate keys |
 
 Copy for new surfaces goes through the existing consolidated copy modules
