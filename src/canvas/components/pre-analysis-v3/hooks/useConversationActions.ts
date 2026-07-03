@@ -19,29 +19,12 @@ import { useCallback } from 'react'
 import { useOptionalConversationContext } from '../../../conversation/ConversationContext'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { useShowToast } from '../../../ToastContext'
-import { useUIStore } from '../../../../stores/uiStore'
-import { focusFloating } from '../../../hooks/useFloatingFocus'
-import { isAiPanelV2Enabled } from '../../../../flags'
+import { revealOlumiSurface } from '../../../conversation/revealOlumi'
 import { FIELD_FEEDBACK_COPY } from '../constants'
 
 export interface ConversationActions {
   /** Send a prefilled prompt now. Returns false when no surface accepted it. */
   sendPrompt: (label: string, prompt: string) => boolean
-}
-
-/**
- * Bring the conversation into view. The panel lives in the dock, so the
- * docked Olumi tab is the canonical reveal — forceActivateOutputTab also
- * triggers the dock's floating/docked singleton reconciliation. A minimised
- * floating panel keeps its focus callback registered, so focusFloating()
- * alone is NOT a reliable reveal (live-diagnosed); it runs after as a
- * best-effort focus when a visible floating panel ends up hosting the chat.
- */
-function revealOlumiSurface(): void {
-  if (isAiPanelV2Enabled()) {
-    useUIStore.getState().forceActivateOutputTab('olumi')
-  }
-  focusFloating()
 }
 
 export function useConversationActions(): ConversationActions {

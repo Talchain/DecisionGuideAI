@@ -95,9 +95,16 @@ export function InspectorCoaching({
       case 'discuss':
         sendToChat(action.prompt)
         break
-      case 'run_exercise':
-        sendToChat(`/exercise ${action.exercise}`)
+      case 'run_exercise': {
+        // Slash commands must EXECUTE — send only, never fall back to prefill
+        // (a prefilled '/exercise …' would sit in the composer as literal text).
+        const send = useGuidanceStore.getState()._sendMessage
+        if (send) {
+          send(`/exercise ${action.exercise}`)
+          revealOlumiSurface()
+        }
         break
+      }
       default:
         // For other action types, fall back to "Ask about this"
         if (questionText) sendToChat(questionText)
