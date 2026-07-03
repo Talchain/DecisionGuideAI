@@ -35,22 +35,6 @@ vi.mock('@/flags', async () => {
   }
 })
 
-// ResultsBody is not wrapped in a ConversationProvider here, so stub the live chat
-// with a stateful fake: setDraft updates a holder we can assert against. This is
-// the surface the visible AIInputBar reads — the real effect of a Focus action.
-const convo = vi.hoisted(() => {
-  const box = { draft: '' }
-  return {
-    box,
-    setDraft: vi.fn((text: string) => {
-      box.draft = text
-    }),
-  }
-})
-vi.mock('@/canvas/conversation/ConversationContext', () => ({
-  useOptionalConversationContext: () => ({ draft: convo.box.draft, setDraft: convo.setDraft }),
-}))
-
 import {
   isAnalysisHeroV17Enabled,
   isAnalysisHeroCompareEnabled,
@@ -59,6 +43,11 @@ import {
 } from '@/flags'
 import { useCanvasStore } from '@/canvas/store'
 import { useUIStore } from '@/stores/uiStore'
+import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
+
+// A Focus action auto-sends via the guidance-store _sendMessage wire (registered
+// live by OlumiTabBody/ConversationPanel). Register a spy so we can assert the send.
+const sendSpy = vi.fn()
 
 function makeData(): ResultsSectionDataReturn {
   const winner = { id: 'opt_a', label: 'Option A', expectedValue: 0.8, p10: 0.6, p90: 0.95, winProbability: 0.7, goalProbability: 0.7 } as unknown as OptionResult
@@ -107,8 +96,8 @@ describe('ResultsBody — Focus panel placement (second Analysis-tab panel)', ()
     vi.mocked(isAnalysisHeroCompareEnabled).mockReturnValue(false)
     vi.mocked(isFocusNowPanelEnabled).mockReturnValue(true)
     vi.mocked(isAiPanelV2Enabled).mockReturnValue(true)
-    convo.box.draft = ''
-    convo.setDraft.mockClear()
+    sendSpy.mockClear()
+    useGuidanceStore.setState({ _sendMessage: sendSpy })
     useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false })
     useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
   })
@@ -154,17 +143,15 @@ describe('ResultsBody — Focus panel placement (second Analysis-tab panel)', ()
     expect(screen.queryByTestId('focus-summary')).toBeNull()
   })
 
-  // Regression for the staging blocker: the visible aiPanelV2 composer (AIInputBar)
-  // is bound to ConversationContext `draft`, so a working action must write THAT
-  // draft (not the legacy canvas-store draftComposerText) AND reveal the Olumi tab.
-  // End-to-end through the real FocusNowContainer → useFocusNow → onPrefill (no hook
-  // mock); only the live chat is stubbed. Both row controls must behave the same.
+  // Both row controls AUTO-SEND the prompt to Olumi and reveal the chat. End-to-end
+  // through the real FocusNowContainer → useFocusNow → onPrefill (no hook mock);
+  // only the send wire is stubbed via the guidance store.
   const PROMPT = 'Help me think through a risk worth adding to this decision.'
 
   it.each([
     ['the row CTA', 'focus-action'],
     ['the Ask Olumi icon', 'focus-ask-olumi'],
-  ])('clicking %s writes the prompt to the live chat draft and reveals the Olumi tab', (_label, testid) => {
+  ])('clicking %s auto-sends the prompt to Olumi and reveals the Olumi tab', (_label, testid) => {
     expect(useUIStore.getState().activeOutputTab).toBe('results')
     renderBody()
     const nodesBefore = useCanvasStore.getState().nodes
@@ -172,24 +159,13 @@ describe('ResultsBody — Focus panel placement (second Analysis-tab panel)', ()
     // expand the "Add a risk" static row, then click the control under test
     fireEvent.click(screen.getByRole('button', { name: /add a risk worth watching/i }))
     fireEvent.click(screen.getByTestId(testid))
-    // the prompt lands in the live conversation draft (what AIInputBar renders)…
-    expect(convo.box.draft).toBe(PROMPT)
+    // the prompt is sent to Olumi…
+    expect(sendSpy).toHaveBeenCalledWith(PROMPT)
     // …and the chat surface is revealed (Olumi tab activated)…
     expect(useUIStore.getState().activeOutputTab).toBe('olumi')
     // …with NO graph mutation (node/edge collections untouched by reference).
     expect(useCanvasStore.getState().nodes).toBe(nodesBefore)
     expect(useCanvasStore.getState().edges).toBe(edgesBefore)
-  })
-
-  it('APPENDS to an existing unsent draft — never clobbers it', () => {
-    // A message the user is still writing lives in the conversation draft; a Focus
-    // action must append below it, not overwrite it.
-    convo.box.draft = 'I am leaning towards option A'
-    renderBody()
-    fireEvent.click(screen.getByRole('button', { name: /add a risk worth watching/i }))
-    fireEvent.click(screen.getByTestId('focus-action'))
-    expect(convo.box.draft).toBe(`I am leaning towards option A\n\n${PROMPT}`)
-    expect(useUIStore.getState().activeOutputTab).toBe('olumi')
   })
 
   it('aiPanelV2 OFF: the panel shows but renders NO action controls (no dead buttons)', () => {

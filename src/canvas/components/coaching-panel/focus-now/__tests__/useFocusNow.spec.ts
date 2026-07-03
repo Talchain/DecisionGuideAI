@@ -1,29 +1,20 @@
 /**
- * useFocusNow container — enforces the two boundaries the presentational layer
- * cannot: (1) the uncertified coaching_summary is gated OFF; (2) the row action
- * MERGES the prompt into the LIVE chat composer (ConversationContext draft, which
- * the visible AIInputBar renders) and reveals the chat, but NEVER sends and never
- * runs analysis. Also maps the live freshness source to the banner, and gates the
- * action controls off when there is no live chat / aiPanelV2 is disabled.
+ * useFocusNow container — enforces the boundaries the presentational layer cannot:
+ * (1) the uncertified coaching_summary is gated OFF; (2) the row action AUTO-SENDS
+ * the prompt to Olumi (via the reliably-registered _sendMessage) and reveals the
+ * chat — it does NOT prefill. Also maps freshness to the banner and gates the
+ * controls off when no chat can receive the message / aiPanelV2 is disabled.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 
-const h = vi.hoisted(() => {
-  const draftBox = { draft: '' }
-  return {
-    draftBox,
-    setDraft: vi.fn((text: string) => {
-      draftBox.draft = text
-    }),
-    sendMessage: vi.fn(),
-    runV2Analysis: vi.fn(),
-    forceActivateOutputTab: vi.fn(),
-    focusFloating: vi.fn(),
-    aiPanelV2: vi.fn(() => true),
-    hasConversation: { value: true },
-  }
-})
+const h = vi.hoisted(() => ({
+  sendMessage: vi.fn(),
+  runV2Analysis: vi.fn(),
+  reveal: vi.fn(),
+  aiPanelV2: vi.fn(() => true),
+  sendRegistered: { value: true },
+}))
 
 vi.mock('@/canvas/store', () => ({
   useCanvasStore: (sel: (s: unknown) => unknown) =>
@@ -36,32 +27,24 @@ vi.mock('@/canvas/store', () => ({
 vi.mock('@/canvas/hooks/useV2Run', () => ({
   useV2Run: () => ({ runV2Analysis: h.runV2Analysis, isRunning: false, cancelRun: vi.fn(), error: null }),
 }))
-vi.mock('@/canvas/conversation/ConversationContext', () => ({
-  useOptionalConversationContext: () =>
-    h.hasConversation.value
-      ? { draft: h.draftBox.draft, setDraft: h.setDraft, sendMessage: h.sendMessage }
-      : null,
+vi.mock('@/canvas/stores/guidanceStore', () => ({
+  useGuidanceStore: Object.assign(
+    (sel: (s: unknown) => unknown) => sel({ _sendMessage: h.sendRegistered.value ? h.sendMessage : null }),
+    { getState: () => ({ _sendMessage: h.sendRegistered.value ? h.sendMessage : null }) },
+  ),
 }))
-vi.mock('@/stores/uiStore', () => ({
-  useUIStore: Object.assign(() => undefined, {
-    getState: () => ({ forceActivateOutputTab: h.forceActivateOutputTab }),
-  }),
-}))
-vi.mock('@/canvas/hooks/useFloatingFocus', () => ({ focusFloating: h.focusFloating }))
+vi.mock('@/canvas/conversation/revealOlumi', () => ({ revealOlumiSurface: h.reveal }))
 vi.mock('@/flags', () => ({ isAiPanelV2Enabled: h.aiPanelV2 }))
 
 import { useFocusNow } from '../useFocusNow'
 
 describe('useFocusNow container', () => {
   beforeEach(() => {
-    h.draftBox.draft = ''
-    h.hasConversation.value = true
+    h.sendRegistered.value = true
     h.aiPanelV2.mockReturnValue(true)
-    h.setDraft.mockClear()
     h.sendMessage.mockClear()
     h.runV2Analysis.mockClear()
-    h.forceActivateOutputTab.mockClear()
-    h.focusFloating.mockClear()
+    h.reveal.mockClear()
   })
 
   it('gates the uncertified coaching_summary OFF (summary is null despite live data)', () => {
@@ -76,27 +59,16 @@ describe('useFocusNow container', () => {
     expect(result.current.banner).toEqual({ kind: 'stale', canRerun: true })
   })
 
-  it('onPrefill writes the prompt to the live chat draft, reveals the chat, and never sends', () => {
+  it('onPrefill AUTO-SENDS the prompt to Olumi and reveals the chat', () => {
     const { result } = renderHook(() => useFocusNow())
     result.current.onPrefill?.('Help me add a risk.')
-    // writes the prompt into the ConversationContext draft (what AIInputBar renders)
-    expect(h.setDraft).toHaveBeenCalledWith('Help me add a risk.')
-    // reveals the Olumi chat surface (docked tab + best-effort floating focus)
-    expect(h.forceActivateOutputTab).toHaveBeenCalledWith('olumi')
-    expect(h.focusFloating).toHaveBeenCalled()
-    // never auto-sends, never triggers a re-run, never touches the legacy draft store
-    expect(h.sendMessage).not.toHaveBeenCalled()
+    expect(h.sendMessage).toHaveBeenCalledWith('Help me add a risk.')
+    expect(h.reveal).toHaveBeenCalled()
+    // it is a re-run of neither analysis nor anything else
     expect(h.runV2Analysis).not.toHaveBeenCalled()
   })
 
-  it('onPrefill APPENDS to an unsent draft — never clobbers it', () => {
-    h.draftBox.draft = 'I am leaning towards option A'
-    const { result } = renderHook(() => useFocusNow())
-    result.current.onPrefill?.('Help me add a risk.')
-    expect(h.setDraft).toHaveBeenCalledWith('I am leaning towards option A\n\nHelp me add a risk.')
-  })
-
-  it('exposes actionsEnabled=true when aiPanelV2 is on and a live chat exists', () => {
+  it('exposes actionsEnabled=true when aiPanelV2 is on and a send wire is registered', () => {
     const { result } = renderHook(() => useFocusNow())
     expect(result.current.actionsEnabled).toBe(true)
   })
@@ -107,8 +79,8 @@ describe('useFocusNow container', () => {
     expect(result.current.actionsEnabled).toBe(false)
   })
 
-  it('exposes actionsEnabled=false when there is no live conversation (cannot reach the composer)', () => {
-    h.hasConversation.value = false
+  it('exposes actionsEnabled=false when no chat can receive the message', () => {
+    h.sendRegistered.value = false
     const { result } = renderHook(() => useFocusNow())
     expect(result.current.actionsEnabled).toBe(false)
   })

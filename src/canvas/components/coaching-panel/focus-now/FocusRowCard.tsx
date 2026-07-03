@@ -12,13 +12,13 @@
  * primary line; the expanded region is mounted only when open and labelled by the
  * primary line. Controlled by the parent so the list keeps one row open at a time.
  *
- * Both action controls are PREFILL-ONLY and do the SAME thing: the card never
- * touches a store or sends — each calls the injected `onTryAction`, which prefills
- * the chat composer and opens the chat tab. Never auto-sends, never mutates the
- * graph, never runs analysis. The "Ask Olumi" icon is a native button with an
- * accessible label + tooltip, so it is keyboard-operable and not a dead control.
- * The whole action bar is omitted when no `onTryAction` is injected (e.g. the
- * container cannot reveal the chat because aiPanelV2 is off) — never a dead button.
+ * Both action controls do the SAME thing: the card owns no store — each calls the
+ * injected `onTryAction`, and the container (useFocusNow) sends the prompt to Olumi
+ * and reveals the chat. The card never mutates the graph or runs analysis. The
+ * "Ask Olumi" icon is a native button with an accessible label + tooltip, so it is
+ * keyboard-operable and not a dead control. The whole action bar is omitted when no
+ * `onTryAction` is injected (e.g. the container cannot reach the chat because
+ * aiPanelV2 is off) — never a dead button.
  */
 import { useId, type CSSProperties } from 'react'
 import {
@@ -151,8 +151,8 @@ export function FocusRowCard({ row, isOpen, onToggle, onTryAction }: FocusRowCar
                 {row.action.label}
               </button>
 
-              {/* Icon affordance — same prefill + open-chat action as the CTA
-                  (never sends, never mutates the graph, never runs analysis). */}
+              {/* Icon affordance — same send + open-chat action as the CTA
+                  (never mutates the graph, never runs analysis). */}
               <Tooltip content={FOCUS_COPY.askOlumi}>
                 <button
                   type="button"

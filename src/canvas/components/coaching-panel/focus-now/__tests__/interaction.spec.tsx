@@ -1,6 +1,7 @@
 /**
  * FocusNowPanel interaction — one row open at a time, show all/fewer, and the
- * prefill-only action contract (the panel never auto-sends).
+ * action contract: each control forwards the row's prompt to the injected handler
+ * (the container auto-sends it — see useFocusNow).
  */
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -48,7 +49,7 @@ describe('FocusNowPanel interaction', () => {
     expect(screen.queryByTestId('focus-reveal')).toBeNull()
   })
 
-  it('the "Try this" action prefills the composer and never auto-sends', () => {
+  it('the "Try this" action forwards the row prompt to the handler', () => {
     const onPrefill = vi.fn()
     renderPanel({ onPrefill })
     fireEvent.click(screen.getByRole('button', { name: /add a risk worth watching/i }))
@@ -59,7 +60,7 @@ describe('FocusNowPanel interaction', () => {
     )
   })
 
-  it('the Ask Olumi icon prefills the same prompt and never auto-sends', () => {
+  it('the Ask Olumi icon forwards the same prompt to the handler', () => {
     const onPrefill = vi.fn()
     renderPanel({ onPrefill })
     fireEvent.click(screen.getByRole('button', { name: /add a risk worth watching/i }))

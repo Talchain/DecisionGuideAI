@@ -21,6 +21,7 @@ import { useShallow } from 'zustand/react/shallow'
 // typography classes directly (children handle their own).
 import { useCanvasStore } from '@/canvas/store'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
+import { revealOlumiSurface } from '@/canvas/conversation/revealOlumi'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import type { ResultsVM } from './types'
 import { buildAnalysisHeroViewModel } from './analysisHeroV17/buildAnalysisHeroViewModel'
@@ -141,12 +142,11 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
     typeof recommendation?.goalThreshold === 'number'
     && Number.isFinite(recommendation.goalThreshold)
 
-  // Track chat-prefill availability. When the conversation panel is
-  // mounted, it registers `_prefillChat`; when unmounted/closed, the
-  // wire is null. Subscribing here re-renders subcomponents so prefill-
-  // dependent actions can render as disabled — visually clear rather
-  // than a dead-click no-op. (Per the "actions appear dead" improvement.)
-  const chatPrefillAvailable = useGuidanceStore(s => s._prefillChat !== null)
+  // Track chat-send availability. When the conversation panel/OlumiTabBody is
+  // mounted it registers `_sendMessage`; when nothing can receive a message the
+  // wire is null. Subscribing here re-renders subcomponents so send-dependent
+  // actions render as disabled — visually clear rather than a dead-click no-op.
+  const chatPrefillAvailable = useGuidanceStore(s => s._sendMessage !== null)
 
   const heroVm = useMemo(
     () => buildAnalysisHeroViewModel({
@@ -178,18 +178,20 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
   // Chat wires. Read from guidance store at dispatch time so a
   // re-registration after ConversationPanel mounts is picked up cleanly.
   //
-  // IMPORTANT: prefillChat must NEVER auto-send. If `_prefillChat` is
-  // unavailable (e.g. ConversationPanel hasn't mounted), this no-ops —
-  // the affected action buttons are already hidden via the
-  // chatPrefillAvailable plumbing (Fix 6), so this is belt-and-braces.
-  //
-  // (Fix 9) The reflect-state CTA used to auto-send via `_sendMessage`.
-  // Per Paul's directive — to keep clear of the `run_devils_advocacy`
-  // contract zone — reflect is now also prefill-only. The hero has zero
-  // auto-send paths.
+  // AUTO-SEND: per Paul's 2026-07-01 decision these hero prompts SEND to Olumi
+  // immediately (reversing the earlier Fix-9 'zero auto-send' directive) and reveal
+  // the chat, so the user gets a reply rather than an editable draft. `_sendMessage`
+  // is the real conversation sendMessage (reliably registered); if it is somehow
+  // unavailable this no-ops and the buttons are already hidden via the
+  // chatPrefillAvailable plumbing. NOTE: this re-enables the reflect-state CTA's
+  // auto-send that Fix 9 removed to stay clear of the `run_devils_advocacy`
+  // contract zone — watch that path if devil's-advocacy misfires.
   const prefillChat = (text: string) => {
-    const p = useGuidanceStore.getState()._prefillChat
-    if (p) p(text)
+    const send = useGuidanceStore.getState()._sendMessage
+    if (send) {
+      send(text)
+      revealOlumiSurface()
+    }
   }
 
   // prefillChat is a stable getState() closure; only re-bind when the
@@ -203,11 +205,10 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
     prefillChat(link.chatPrompt)
   }
 
-  // State-dependent CTA. Moderate state focuses the factor first, then
-  // prefills. All states are prefill-only now (Fix 9 — reflect-state
-  // auto-send removed for V5 contract v1.3 alignment).
+  // State-dependent CTA. Moderate state focuses the factor first, then sends the
+  // prompt to Olumi (auto-send — see prefillChat above).
   //
-  // When chat is closed, prefill-dependent CTAs are hidden upstream in
+  // When chat is unavailable, send-dependent CTAs are hidden upstream in
   // HeroFooter. The moderate-state CTA stays visible with a softer
   // label ("Focus key estimate") because its focus side-effect remains
   // useful without chat.
@@ -220,7 +221,7 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
       prefillChat(cta.chatPrompt)
       return
     }
-    // weak / strong / reflect (challenge-result): prefill only.
+    // weak / strong / reflect (challenge-result): send to Olumi.
     prefillChat(cta.chatPrompt)
   }
 
