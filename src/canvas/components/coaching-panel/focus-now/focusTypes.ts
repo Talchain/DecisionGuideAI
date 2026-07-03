@@ -41,16 +41,17 @@ export type FocusOwnership = 'static_hygiene' | 'server_sourced' | 'gated'
 export type FocusSource = 'static_hygiene' | 'coaching_summary' | 'coaching_signal' | (string & {})
 
 /**
- * Display-only action descriptor. NOTHING here executes inside the presentational
- * component — it is handed to an injected handler. `prefill` drops text into the
- * chat composer (never auto-sends); `ask_olumi` is the existing display-only
- * sparkle affordance.
+ * Action descriptor. NOTHING here executes inside the presentational component —
+ * it is handed to an injected handler (the container `useFocusNow` auto-sends the
+ * text to Olumi + reveals the chat). The `prefill`/`prefillText` names are
+ * historical (the action used to prefill the composer); the behaviour is now
+ * send. `ask_olumi` is the sparkle affordance, wired to the same handler.
  */
 export type FocusActionKind = 'prefill' | 'ask_olumi'
 
 export interface FocusAction {
   kind: FocusActionKind
-  /** For kind='prefill': composer text. UI-authored (static) or verbatim (server). */
+  /** For kind='prefill': the prompt text sent to Olumi. UI-authored or verbatim. */
   prefillText?: string
   /** Visible control label. UI-authored, banned-term-safe. */
   label: string
@@ -99,7 +100,11 @@ export interface FocusNowProps {
   summary: string | null
   rows: FocusRow[]
   banner: FocusBannerState
-  /** Prefill the chat composer (no auto-send). Injected; presentational tree owns no store. */
+  /**
+   * Row-action handler (historical name). The injected container (useFocusNow)
+   * AUTO-SENDS the text to Olumi + reveals the chat. Injected so the presentational
+   * tree owns no store.
+   */
   onPrefill?: (text: string) => void
   /**
    * Whether the row action controls (the CTA + Ask Olumi icon) can produce a
