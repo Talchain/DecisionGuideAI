@@ -2,20 +2,20 @@
  * Row-action dispatcher factory.
  *
  * Maps every `RowAction` to its handler:
- *   - ai / discuss / add / challenge / brief → chat prefill (no auto-send in v1)
- *   - edit                                    → onFocusNode (prefill fallback)
- *   - confirm                                 → onConfirm   (prefill fallback)
+ *   - ai / discuss / add / challenge / brief → send prompt to Olumi
+ *   - edit                                    → onFocusNode (chat fallback)
+ *   - confirm                                 → onConfirm   (chat fallback)
  *
- * `prefillChat` must NEVER auto-send. After Fix 9 (Round-4 polish pass) the
- * reflect-state CTA was relabelled "Test the result" and switched from
- * auto-send to prefill, so the v17 hero now has ZERO auto-send paths in
- * either this dispatcher or the footer CTA. `sendMessage` is still imported
- * by the composer as a future-fallback, but no current path calls it.
+ * `prefillChat` is the injected chat handler. Per Paul's 2026-07-01 decision it
+ * now AUTO-SENDS the prompt to Olumi + reveals the chat (reversing the earlier
+ * Fix-9 'zero auto-send' directive). The param keeps its historical name; the
+ * behaviour lives in the injected function (AnalysisHeroV17).
  */
 
 import type { RowAction } from './analysisHeroVM.types'
 
 export interface DispatcherDeps {
+  /** Injected chat handler — sends the prompt to Olumi (see AnalysisHeroV17). */
   prefillChat: (text: string) => void
   onFocusNode: ((nodeId: string) => void) | undefined
   onConfirm: ((nodeId: string) => void) | undefined
@@ -30,8 +30,7 @@ export function makeRowActionDispatcher({ prefillChat, onFocusNode, onConfirm }:
       case 'add':
       case 'challenge':
       case 'brief':
-        // v1 — every secondary action is chat prefill. No direct mutation
-        // and no auto-send.
+        // every secondary action sends its prompt to Olumi (no direct mutation).
         prefillChat(chatPrompt)
         return
       case 'edit':

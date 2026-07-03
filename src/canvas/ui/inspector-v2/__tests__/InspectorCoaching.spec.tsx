@@ -5,7 +5,7 @@
  * - Orchestrator GuidanceItems render through CoachingCard visual
  * - Guidance filtered to selected element only
  * - Static coaching is fallback when no guidance exists
- * - "Ask about this" calls _prefillChat (not _sendMessage)
+ * - "Ask about this" SENDS via _sendMessage (falls back to _prefillChat)
  * - Button hidden when _prefillChat and _sendMessage are both null
  */
 
@@ -93,7 +93,7 @@ describe('InspectorCoaching', () => {
     expect(screen.queryByText(/Low priority/)).toBeNull()
   })
 
-  it('"Ask about this" calls _prefillChat (not _sendMessage)', () => {
+  it('"Ask about this" SENDS the question via _sendMessage (not _prefillChat)', () => {
     const prefill = vi.fn()
     const send = vi.fn()
     useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send })
@@ -102,21 +102,21 @@ describe('InspectorCoaching', () => {
     const button = screen.getByText('Ask about this')
     fireEvent.click(button)
 
-    expect(prefill).toHaveBeenCalledTimes(1)
-    expect(prefill).toHaveBeenCalledWith('How important is Marketing Budget to the outcome?')
-    expect(send).not.toHaveBeenCalled()
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(send).toHaveBeenCalledWith('How important is Marketing Budget to the outcome?')
+    expect(prefill).not.toHaveBeenCalled()
   })
 
-  it('falls back to _sendMessage when _prefillChat is null', () => {
-    const send = vi.fn()
-    useGuidanceStore.setState({ _prefillChat: null, _sendMessage: send })
+  it('falls back to _prefillChat when _sendMessage is unavailable', () => {
+    const prefill = vi.fn()
+    useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: null })
     render(<InspectorCoaching {...defaultProps} />)
 
     const button = screen.getByText('Ask about this')
     fireEvent.click(button)
 
-    expect(send).toHaveBeenCalledTimes(1)
-    expect(send).toHaveBeenCalledWith('How important is Marketing Budget to the outcome?')
+    expect(prefill).toHaveBeenCalledTimes(1)
+    expect(prefill).toHaveBeenCalledWith('How important is Marketing Budget to the outcome?')
   })
 
   it('hides action button when both _prefillChat and _sendMessage are null', () => {
