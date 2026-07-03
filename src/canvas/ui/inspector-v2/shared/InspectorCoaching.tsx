@@ -67,14 +67,16 @@ export function InspectorCoaching({
     [panelType, labelContext],
   )
 
-  // Send the text to Olumi immediately (auto-send) and reveal the chat. Falls back
-  // to prefilling the composer only if the send wire is unavailable.
-  const sendToChat = useCallback((text: string) => {
+  // Send the text to Olumi immediately (auto-send) and reveal the chat. Prose falls
+  // back to prefilling the composer when the send wire is unavailable; slash
+  // commands pass allowPrefillFallback:false because a prefilled '/exercise …'
+  // would sit in the composer as literal text instead of executing.
+  const sendToChat = useCallback((text: string, opts?: { allowPrefillFallback?: boolean }) => {
     const state = useGuidanceStore.getState()
     if (state._sendMessage) {
       state._sendMessage(text)
       revealOlumiSurface()
-    } else if (state._prefillChat) {
+    } else if (opts?.allowPrefillFallback !== false && state._prefillChat) {
       state._prefillChat(text)
       revealOlumiSurface()
     }
@@ -95,16 +97,10 @@ export function InspectorCoaching({
       case 'discuss':
         sendToChat(action.prompt)
         break
-      case 'run_exercise': {
-        // Slash commands must EXECUTE — send only, never fall back to prefill
-        // (a prefilled '/exercise …' would sit in the composer as literal text).
-        const send = useGuidanceStore.getState()._sendMessage
-        if (send) {
-          send(`/exercise ${action.exercise}`)
-          revealOlumiSurface()
-        }
+      case 'run_exercise':
+        // Slash command: send-only (no prefill fallback — see sendToChat).
+        sendToChat(`/exercise ${action.exercise}`, { allowPrefillFallback: false })
         break
-      }
       default:
         // For other action types, fall back to "Ask about this"
         if (questionText) sendToChat(questionText)

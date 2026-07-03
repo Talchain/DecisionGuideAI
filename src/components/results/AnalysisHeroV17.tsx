@@ -92,13 +92,12 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
   onConfirm,
   expertMode: _expertMode,
   nodeValueLookup,
-  // (Round-5 P1.1) These two props are accepted on the public interface
-  // for compatibility with DecisionConfidencePanel's prop shape but are
-  // INTENTIONALLY NOT forwarded into TriageActionCardsBody — they're
-  // both auto-send wires (Research chip + DiscussWithAiButton ai
-  // affordance). The v17 hero must have zero auto-send paths, so we
-  // accept-and-ignore. The body renders its contextual blocks without
-  // those two surfaces in v17 mode.
+  // These two props are accepted on the public interface for compatibility with
+  // DecisionConfidencePanel's prop shape but are INTENTIONALLY NOT forwarded into
+  // TriageActionCardsBody — they are redundant here. The v17 hero drives its own
+  // chat sends through the guidance-store `_sendMessage` wire (see prefillChat
+  // below), so the Research chip + DiscussWithAiButton affordance are not needed;
+  // accept-and-ignore. The body renders its contextual blocks without them.
   onSendMessage: _onSendMessage,
   aiAffordance: _aiAffordance,
 }: AnalysisHeroV17Props) {
@@ -281,11 +280,10 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
             callout, conditional scenarios, dominant-factor nudge, T1
             checks footer) still render — those are signals the v17 top
             section does not duplicate. */}
-        {/* (Round-5 P1.1) onSendMessage + aiAffordance intentionally NOT
-            forwarded. Both are auto-send wires (Research chip +
-            DiscussWithAiButton). v17 must have zero auto-send paths,
-            so the body composes without them — Research chip + AI
-            affordance simply don't render in v17 mode. */}
+        {/* onSendMessage + aiAffordance intentionally NOT forwarded — the v17
+            hero drives its own chat sends via the guidance-store `_sendMessage`
+            wire, so the Research chip + DiscussWithAiButton affordance are
+            redundant and simply don't render in v17 mode. */}
         <TriageActionCardsBody
           data={data}
           onFocusNode={onFocusNode}

@@ -9,8 +9,8 @@
  * Behaviour stays static / fail-closed: `coaching_summary` is gated off
  * (CERTIFY_SUMMARY=false), there are no server/dynamic coaching rows, no readiness
  * rows, no `bias_findings`, and no UI-authored analytical claims. Mounting it adds
- * only the six generic static hygiene rows + the certified freshness banner +
- * prefill-only actions.
+ * only the six generic static hygiene rows + the certified freshness banner + row
+ * actions that AUTO-SEND their (UI-authored, banned-term-safe) prompt to Olumi.
  */
 import { FocusNowPanel } from './FocusNowPanel'
 import { useFocusNow } from './useFocusNow'
