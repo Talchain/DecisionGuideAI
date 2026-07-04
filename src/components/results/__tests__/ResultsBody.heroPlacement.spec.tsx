@@ -181,11 +181,19 @@ describe('ResultsBody — Analysis hero placement + flag regression', () => {
 
   it('flag ON + stale: hero soft-disables and offers Re-run (no extra stale banner)', () => {
     vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
+    // Realistic stale state: the freshness slice IS stale, so the tab's
+    // AnalysisFreshnessNotice actually renders — the hero must not add a
+    // second stale surface of its own.
+    useCanvasStore.setState({ analysisFreshness: { freshness: 'stale' }, analysisFreshnessDirty: false })
     renderBody({ isStale: true })
     expect(screen.getByTestId('hero-rerun')).toBeInTheDocument()
-    // The hero adds NO stale banner of its own — AnalysisFreshnessNotice owns
-    // stale wording, and with no freshness verdict there is exactly none.
-    expect(screen.queryByTestId('analysis-freshness-notice')).toBeNull()
+    // Exactly ONE stale surface on the tab: the existing notice…
+    const notices = screen.getAllByTestId('analysis-freshness-notice')
+    expect(notices).toHaveLength(1)
+    // …and it is NOT inside the hero (the hero authors no stale banner).
+    const hero = screen.getByTestId('analysis-hero-panel')
+    expect(hero.contains(notices[0])).toBe(false)
+    expect(hero.textContent).not.toMatch(/stale|not analysed|re-run before/i)
   })
 
   it('flag ON with V17 hero enabled: new hero still precedes the V17 hero slot', () => {

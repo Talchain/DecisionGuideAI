@@ -56,6 +56,12 @@ export const HERO_COPY = {
 
   readout: {
     goalSuffix: 'fit',
+    /**
+     * Missing-value placeholder GLYPH — deliberately an em dash, matching
+     * the app-wide convention (src/lib/format.ts `nullPlaceholder: '—'`).
+     * The module's no-em-dash rule applies to prose copy, not this token;
+     * copyHygiene.spec excludes it explicitly for the same reason.
+     */
     missing: '—',
     /** Mirrors OptionCards' sub-1% display-honesty affordance (UI-SEM-057). */
     subOnePercent: '< 1%',

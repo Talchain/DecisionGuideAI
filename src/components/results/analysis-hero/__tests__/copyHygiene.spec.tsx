@@ -33,7 +33,11 @@ const UI_COPY: string[] = [
   HERO_COPY.caption.goalOnly,
   HERO_COPY.caption.outcome,
   HERO_COPY.caption.outcomeTarget('120'),
+  // HERO_COPY.readout.missing is deliberately NOT scanned: it is the
+  // app-wide missing-value placeholder glyph ('—', matching format.ts
+  // nullPlaceholder), not prose — the no-em-dash rule targets sentences.
   HERO_COPY.readout.goalSuffix,
+  HERO_COPY.readout.subOnePercent,
   HERO_COPY.detail.whyLabel,
   HERO_COPY.detail.couldChangeIfLabel,
   HERO_COPY.detail.couldChangeIf('Team capacity', '30%'),
