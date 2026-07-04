@@ -1166,7 +1166,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const scaledP90 = norm.p90 != null ? norm.p90 * scale : null
 
       // T6 P0-3: Prefer probability_of_joint_goal (constrained) when constraints exist,
-      // fall back to goal_probability (unconstrained)
+      // fall back to goal_probability (unconstrained).
+      // Staging trust review: when ISL auto-derives the goal threshold as a
+      // constraint (constraint_probabilities.auto_goal_threshold), the run
+      // carries probability_of_joint_goal but NO goal_probability and NO
+      // constraint_analysis — the joint value IS the goal probability there,
+      // so it is the final fallback. Discarding it hid the run's most
+      // decision-relevant fact (every option at 0% chance of the target).
       const jointGoalProb = typeof (prob as any).probability_of_joint_goal === 'number'
         ? (prob as any).probability_of_joint_goal as number
         : null
@@ -1176,7 +1182,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const hasConstraints = prob.constraint_analysis?.constraints?.length > 0
       const goalProbability = hasConstraints && jointGoalProb != null
         ? jointGoalProb
-        : unconstrained
+        : (unconstrained ?? jointGoalProb)
 
       // Display-honesty: per-option valid sample count for resolution-aware
       // probability formatting. Fallback chain prefers per-option signal,
