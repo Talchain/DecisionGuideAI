@@ -36,7 +36,7 @@ describe('AnalysisHeroPanel — content', () => {
       'Upskill the team best fits your goal.',
     )
     expect(screen.getByTestId('hero-subline')).toHaveTextContent(
-      'Two developers has the highest expected outcome, but Upskill the team best fits your goal.',
+      'Two developers has the highest expected outcome.',
     )
     // Goal-fit is the default lens: rendered joint probabilities equal the
     // response values (0.34 → 34%, 0.49 → 49%).

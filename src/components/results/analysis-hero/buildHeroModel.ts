@@ -111,10 +111,15 @@ function couldChangeIfLine(
  * reach target", OptionCards.tsx) so a 0.4% probability never rounds to a
  * bare "0%" here while the panel below says "< 1%". Display-only; the
  * value itself is unchanged and the bar still draws from the raw value.
+ * The same floor — no new threshold — also gates the no-option-on-track
+ * headline: when EVERY goal readout would render "< 1%", claiming any
+ * option "best fits your goal" would be false.
  */
+const SUB_ONE_PERCENT_FLOOR = 0.01
+
 function goalReadout(value: number | null): string {
   if (value == null) return HERO_COPY.readout.missing
-  if (value < 0.01) return HERO_COPY.readout.subOnePercent
+  if (value < SUB_ONE_PERCENT_FLOOR) return HERO_COPY.readout.subOnePercent
   return formatPercent(value, { fromDecimal: true })
 }
 
@@ -256,11 +261,29 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   const headlineRow = rows.find((r) => r.id === recommendedId) ?? null
   const outcomeLeaderRow = rows.find((r) => r.id === outcomeLeaderId) ?? null
 
+  // Goal honesty (UI-SEM-057 reuse — the same sub-1% floor that drives the
+  // "< 1%" readouts, no new threshold): when EVERY row carries a goal
+  // probability below the floor, no option is meaningfully on track, so the
+  // hero declines to crown a goal-fit leader at all — headline and goal-lens
+  // highlight both switch to the no-option-on-track state. Mixed coverage
+  // (any row without a goal value) falls through to the normal branches.
+  const allGoalBelowFloor =
+    rows.length > 0 &&
+    rows.every((r) => r.goal.value != null && r.goal.value < SUB_ONE_PERCENT_FLOOR)
+
   // A goal-fit claim ("best fits your goal") is only honest when the claimed
-  // option ITSELF carries a goal probability — a recommended option whose
-  // goal readout would be "—" must not be headlined or highlighted as the
-  // goal-fit leader while other rows show real figures.
-  const goalLeaderRow = headlineRow && headlineRow.goal.value != null ? headlineRow : null
+  // option ITSELF carries a goal probability AT OR ABOVE the same sub-1%
+  // floor — a recommended option whose goal readout would be "—" or "< 1%"
+  // must not be headlined or highlighted as the goal-fit leader while other
+  // rows show real figures. Below-floor leaders fall through to the
+  // analysis-leader wording instead.
+  const goalLeaderRow =
+    !allGoalBelowFloor &&
+    headlineRow &&
+    headlineRow.goal.value != null &&
+    headlineRow.goal.value >= SUB_ONE_PERCENT_FLOOR
+      ? headlineRow
+      : null
 
   const safeLabel = (row: HeroRowVM) =>
     safeInterpolatedLabel(row.label, HERO_COPY.labelFallback)
@@ -268,34 +291,42 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   let headline: string
   if (rows.length === 1) {
     headline = HERO_COPY.headline.singleOption(safeLabel(rows[0]))
+  } else if (allGoalBelowFloor) {
+    headline = HERO_COPY.headline.noneOnTrack
   } else if (goalLeaderRow) {
     headline = hasConstraints
       ? HERO_COPY.headline.goalWithLimits(safeLabel(goalLeaderRow))
       : HERO_COPY.headline.goalOnly(safeLabel(goalLeaderRow))
+  } else if (headlineRow) {
+    // No goal basis: the leader claim names the canonical analysis leader
+    // (recommendedOption — proven to equal the Results Panel/producer
+    // leader) with analysis-grounded wording, never an outcome-lens claim.
+    headline = HERO_COPY.headline.analysisLeads(safeLabel(headlineRow))
+  } else if (outcomeLeaderRow) {
+    // No recommended option among the rows: headline the outcome fact
+    // itself (the subline below is then redundant and stays null).
+    headline = HERO_COPY.headline.outcomeLeader(safeLabel(outcomeLeaderRow))
   } else {
-    // No goal basis for the leader: name whichever leader exists with the
-    // weaker "looks strongest" claim, or claim no leader at all.
-    const leader = headlineRow ?? outcomeLeaderRow
-    headline = leader
-      ? HERO_COPY.headline.outcomeOnly(safeLabel(leader))
-      : HERO_COPY.headline.noLeader
+    headline = HERO_COPY.headline.noLeader
   }
 
-  // Tension subline: goal-fit leader vs strongest expected outcome. Display
-  // selection only — and only when BOTH sides of the comparison are visible
-  // in the hero: a goal-backed leader AND an outcome lens the user can open
-  // (centres without ranges leave the outcome lens hidden, so the hero must
-  // not assert an expected-outcome comparison it cannot show).
+  // Tension subline: the headlined leader vs the strongest expected outcome.
+  // PERSISTENT across goal and no-goal headline branches (review-locked):
+  // whenever a leader is claimed and the outcome leader differs, the
+  // divergence is stated — but only when the outcome lens is actually
+  // visible (centres without ranges leave it hidden, so the hero must not
+  // assert an expected-outcome comparison it cannot show).
   let subline: string | null = null
-  if (rows.length > 1 && outcomeAvailable && goalLeaderRow && outcomeLeaderRow) {
-    subline =
-      goalLeaderRow.id === outcomeLeaderRow.id
-        ? HERO_COPY.subline.aligned(safeLabel(goalLeaderRow))
-        : HERO_COPY.subline.diverged(
-            safeLabel(outcomeLeaderRow),
-            safeLabel(goalLeaderRow),
-            hasConstraints,
-          )
+  if (rows.length > 1 && outcomeAvailable && outcomeLeaderRow) {
+    if (allGoalBelowFloor) {
+      // No leader was claimed; the outcome fact is the one honest pointer.
+      subline = HERO_COPY.subline.highestOutcome(safeLabel(outcomeLeaderRow))
+    } else if (headlineRow) {
+      subline =
+        headlineRow.id === outcomeLeaderRow.id
+          ? HERO_COPY.subline.aligned(safeLabel(headlineRow))
+          : HERO_COPY.subline.highestOutcome(safeLabel(outcomeLeaderRow))
+    }
   }
 
   // Target/domain guard — the threshold joins the chart ONLY when it

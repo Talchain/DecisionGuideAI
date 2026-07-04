@@ -20,11 +20,12 @@ const UI_COPY: string[] = [
   HERO_COPY.lensLabel.outcome,
   HERO_COPY.headline.goalWithLimits(L),
   HERO_COPY.headline.goalOnly(L),
-  HERO_COPY.headline.outcomeOnly(L),
+  HERO_COPY.headline.analysisLeads(L),
+  HERO_COPY.headline.outcomeLeader(L),
+  HERO_COPY.headline.noneOnTrack,
   HERO_COPY.headline.singleOption(L),
   HERO_COPY.headline.noLeader,
-  HERO_COPY.subline.diverged(L, 'Option Beta', true),
-  HERO_COPY.subline.diverged(L, 'Option Beta', false),
+  HERO_COPY.subline.highestOutcome(L),
   HERO_COPY.subline.aligned(L),
   HERO_COPY.labelFallback,
   HERO_COPY.factorFallback,
@@ -95,6 +96,12 @@ describe('Analysis hero copy hygiene (UI-authored copy only)', () => {
     for (const copy of UI_COPY) {
       expect(copy).not.toMatch(/\b[A-Z]{2,}\b/)
       expect(copy).not.toContain('—')
+    }
+  })
+
+  it('never authors "looks strongest" (retired: implied outcome-lens evidence for a win-probability leader)', () => {
+    for (const copy of UI_COPY) {
+      expect(copy, `"${copy}" must not use the retired phrase`).not.toMatch(/looks strongest/i)
     }
   })
 })

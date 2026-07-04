@@ -126,22 +126,21 @@ describe('buildHeroModel — leaders and headline', () => {
     expect(m.leaders.outcome).toBe('opt_a')
   })
 
-  it('diverged leaders produce the tension subline (goal-alone wording without constraints)', () => {
+  it('diverged leaders produce the tension subline naming the outcome leader', () => {
     const m = chart(buildHeroModel(makeHeroData()))
-    expect(m.subline).toBe(
-      'Two developers has the highest expected outcome, but Upskill the team best fits your goal.',
-    )
+    expect(m.subline).toBe('Two developers has the highest expected outcome.')
     expect(m.headline).toBe('Upskill the team best fits your goal.')
   })
 
-  it('constraint presence switches to goal-and-limits wording', () => {
+  it('constraint presence switches the headline to goal-and-limits wording', () => {
     // Constraints are request-level, so every option carries its analysis.
     const a = makeOption({ ...OPTION_A, constraintAnalysis: CONSTRAINT })
     const b = makeOption({ ...OPTION_B, constraintAnalysis: CONSTRAINT })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
     expect(m.hasConstraints).toBe(true)
     expect(m.headline).toBe('Upskill the team best meets the goal and your limits.')
-    expect(m.subline).toContain('best meets the goal and your limits')
+    // The tension subline stays the single outcome-leader sentence.
+    expect(m.subline).toBe('Two developers has the highest expected outcome.')
   })
 
   it('mixed constraint coverage falls back to goal-alone wording (never overstates)', () => {
@@ -155,15 +154,45 @@ describe('buildHeroModel — leaders and headline', () => {
     expect(m.headline).toBe('Upskill the team best fits your goal.')
   })
 
-  it('does not headline or highlight a recommended option that lacks its own goal value', () => {
+  it('does not goal-headline a recommended option that lacks its own goal value', () => {
     // Recommended option B has no goalProbability while A has one: the hero
     // must not claim B "best fits your goal" beside a "—" readout for B.
+    // The leader claim reframes to the analysis basis, and the divergence
+    // subline is PERSISTENT — B is not the outcome leader, so the tension
+    // is stated even without a goal basis.
     const b = makeOption({ ...OPTION_B, goalProbability: undefined })
     const m = chart(buildHeroModel(makeHeroData({ options: [OPTION_A, b] })))
     expect(m.lenses).toContain('goal')
     expect(m.leaders.goal).toBeNull()
-    expect(m.headline).toBe('Upskill the team currently looks strongest.')
-    expect(m.subline).toBeNull()
+    expect(m.headline).toBe('Upskill the team currently leads the overall analysis.')
+    expect(m.subline).toBe('Two developers has the highest expected outcome.')
+  })
+
+  it('does not goal-headline a recommended option whose goal value floors below 1% (mixed coverage)', () => {
+    // A carries no goal value; recommended B sits below the sub-1% floor.
+    // "Best fits your goal" beside a "< 1%" readout would be false — the
+    // headline falls through to the analysis-leader wording.
+    const a = makeOption({ ...OPTION_A, goalProbability: undefined })
+    const b = makeOption({ ...OPTION_B, goalProbability: 0.004 })
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    expect(m.leaders.goal).toBeNull()
+    expect(m.headline).toBe('Upskill the team currently leads the overall analysis.')
+  })
+
+  it('all goal values below the sub-1% floor produce the no-option-on-track headline', () => {
+    // Staging shape: every option carried probability_of_joint_goal 0 —
+    // crowning any option "best fits your goal" would be false. The hero
+    // states the decision-relevant truth, drops the goal-lens leader ring,
+    // and keeps the outcome fact as the subline (user-approved pairing).
+    const a = makeOption({ ...OPTION_A, goalProbability: 0 })
+    const b = makeOption({ ...OPTION_B, goalProbability: 0 })
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    expect(m.headline).toBe('No option is currently on track to reach your goal.')
+    expect(m.subline).toBe('Two developers has the highest expected outcome.')
+    expect(m.leaders.goal).toBeNull()
+    // Goal lens stays available AND default — the "< 1%" rows ARE the story.
+    expect(m.defaultLens).toBe('goal')
+    expect(m.rows.every((r) => r.goal.readout === '< 1%')).toBe(true)
   })
 
   it('omits the subline when the outcome lens is hidden (centres without ranges)', () => {
@@ -203,8 +232,10 @@ describe('buildHeroModel — leaders and headline', () => {
       ),
     )
     expect(m.leaders.goal).toBeNull()
-    // Headline falls back to the outcome leader with "looks strongest" copy.
-    expect(m.headline).toBe('Two developers currently looks strongest.')
+    // No recommended option among the rows: the headline states the outcome
+    // fact itself, and the subline stays null (it would only repeat it).
+    expect(m.headline).toBe('Two developers has the highest expected outcome.')
+    expect(m.subline).toBeNull()
   })
 
   it('single option uses the only-option headline and no subline', () => {
@@ -227,9 +258,11 @@ describe('buildHeroModel — lens gating and numbering', () => {
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
     expect(m.lenses).toEqual(['outcome'])
     expect(m.defaultLens).toBe('outcome')
-    // Without a goal basis the headline may not claim goal fit.
-    expect(m.headline).toBe('Upskill the team currently looks strongest.')
-    expect(m.subline).toBeNull()
+    // Without a goal basis the headline claims the analysis leader (the
+    // canonical Results Panel leader), never a "strongest" outcome claim —
+    // and the persistent subline names the diverging outcome leader.
+    expect(m.headline).toBe('Upskill the team currently leads the overall analysis.')
+    expect(m.subline).toBe('Two developers has the highest expected outcome.')
   })
 
   it('hides Likely outcome when no option has a p10-p90 range', () => {
