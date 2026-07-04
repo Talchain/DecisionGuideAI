@@ -29,7 +29,8 @@ import { AnalysisHeroV17 } from './AnalysisHeroV17'
 import { AnalysisOrphanBanner } from './AnalysisOrphanBanner'
 import { AnalysisFreshnessNotice } from './AnalysisFreshnessNotice'
 import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
-import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled, isFocusNowPanelEnabled } from '@/flags'
+import { AnalysisHeroContainer } from './analysis-hero'
+import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled, isFocusNowPanelEnabled, isAnalysisHeroPanelEnabled } from '@/flags'
 
 export interface StrengthCorrectionDisplay {
   edgeId: string
@@ -223,6 +224,17 @@ export const ResultsBody = memo(function ResultsBody({
       {/* Freshness/staleness — CEE analysis_ready.freshness verdict. Renders
           nothing until a verdict exists; never asserts a state we don't hold. */}
       <AnalysisFreshnessNotice />
+
+      {/* ── ANALYSIS HERO (answer-first lens hero) ─────────────────
+          Feature-flagged (staging-on, production-off). Read-only
+          presentation over the SAME resultsSectionData object the panels
+          below consume — mounted ABOVE the existing hero block; flag off
+          renders nothing and the tab is unchanged. */}
+      {isAnalysisHeroPanelEnabled() && (
+        <SectionErrorBoundary section="Analysis hero">
+          <AnalysisHeroContainer data={resultsSectionData} isStale={isStale} />
+        </SectionErrorBoundary>
+      )}
 
       {/* ── DECISION CONFIDENCE TRIAGE ────────────────────────────── */}
       {/* Comparison mode: v17 ABOVE legacy panel. Opt-in only. */}

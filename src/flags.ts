@@ -326,6 +326,20 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_ANALYSIS_HERO_COMPARE',
     storageKey: 'feature.analysisHeroCompare',
   },
+  // Analysis hero panel — answer-first lens hero (prototype-v3) mounted ABOVE
+  // the existing hero block on the Analysis tab. Read-only presentation layer
+  // over the adapted Results Panel data (useResultsSectionData) — no second
+  // data path, no UI-computed semantics. See src/components/results/analysis-hero/.
+  //
+  // Rollout: staging-on, production-off. defaultValue stays false (production
+  // safety); staging builds enable it via
+  //   VITE_FEATURE_ANALYSIS_HERO_PANEL = "1"
+  // in netlify.toml [context.staging.environment]. To enable locally:
+  //   localStorage.setItem('feature.analysisHeroPanel', '1')
+  analysisHeroPanel: {
+    envKey: 'VITE_FEATURE_ANALYSIS_HERO_PANEL',
+    storageKey: 'feature.analysisHeroPanel',
+  },
   // AI panel v2 — floating-first Olumi UX.
   // When OFF: existing DraftChat (legacy floating canvas overlay) + standalone
   // OutputsDock render unchanged.
@@ -426,6 +440,7 @@ const flags = {
   deterministicCee: makeFlag(FLAGS_CONFIG.deterministicCee),
   analysisHeroV17: makeFlag(FLAGS_CONFIG.analysisHeroV17),
   analysisHeroCompare: makeFlag(FLAGS_CONFIG.analysisHeroCompare),
+  analysisHeroPanel: makeFlag(FLAGS_CONFIG.analysisHeroPanel),
   focusNowPanel: makeFlag(FLAGS_CONFIG.focusNowPanel),
   aiPanelV2: makeFlag(FLAGS_CONFIG.aiPanelV2),
   v5CanonicalAnalysis: makeFlag(FLAGS_CONFIG.v5CanonicalAnalysis),
@@ -490,6 +505,7 @@ export const isOrchestratorRenderingV2Enabled = flags.orchestratorRenderingV2
 export const isDeterministicCeeEnabled = flags.deterministicCee
 export const isAnalysisHeroV17Enabled = flags.analysisHeroV17
 export const isAnalysisHeroCompareEnabled = flags.analysisHeroCompare
+export const isAnalysisHeroPanelEnabled = flags.analysisHeroPanel
 export const isFocusNowPanelEnabled = flags.focusNowPanel
 export const isAiPanelV2Enabled = flags.aiPanelV2
 export const isV5CanonicalAnalysisEnabled = flags.v5CanonicalAnalysis
