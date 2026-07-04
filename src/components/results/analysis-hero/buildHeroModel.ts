@@ -87,9 +87,17 @@ function couldChangeIfLine(
   flipThresholds: readonly FlipThreshold[],
 ): string | undefined {
   const usable = flipThresholds.filter((ft) => ft.flip_value != null)
+  // Normalise both sides for the MATCH only (display still uses the raw
+  // producer strings) — encoding notation on either label must not silently
+  // drop a sourced line.
+  const optionLabel = stripEncodingNotation(option.label)
   const ft = isRecommended
     ? usable[0]
-    : usable.find((f) => f.alternative_winner_label === option.label)
+    : usable.find(
+        (f) =>
+          f.alternative_winner_label != null &&
+          stripEncodingNotation(f.alternative_winner_label) === optionLabel,
+      )
   if (!ft || ft.flip_value == null) return undefined
   const factor = safeInterpolatedLabel(stripEncodingNotation(ft.label), HERO_COPY.factorFallback)
   return HERO_COPY.detail.couldChangeIf(factor, formatFlipValue(ft.flip_value, ft.unit))
@@ -98,9 +106,11 @@ function couldChangeIfLine(
 // ─── Main mapper ─────────────────────────────────────────────────────────────
 
 export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
+  // Fail closed on a partially-shaped object (e.g. hydrated older state):
+  // the type guarantees these fields, but the hero must render nothing —
+  // never throw — when a caller supplies less than the type promises.
+  if (!data?.recommendation?.allOptions) return { kind: 'empty' }
   const { recommendation, drivers, isLoading, isError } = data
-  // Optional-chained despite the type: fail closed rather than throw if a
-  // caller supplies a partially-shaped object (e.g. hydrated older state).
   const completenessStatus = data.completeness?.status
 
   // Non-chart states first. `completeness` consults SOURCE fields (P0 V5
@@ -263,7 +273,7 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   // Footer "Main reason": the Drivers section's own top driver label —
   // selection of the existing #1, no re-ranking. Omitted (not replaced with
   // a fallback) when the label would trip the glossary in generated copy.
-  const topDriverLabel = drivers.topDrivers[0]?.factorLabel
+  const topDriverLabel = drivers?.topDrivers?.[0]?.factorLabel
   const cleanDriverLabel = topDriverLabel ? stripEncodingNotation(topDriverLabel) : null
   const mainReason =
     cleanDriverLabel && !containsBannedTerm(cleanDriverLabel)

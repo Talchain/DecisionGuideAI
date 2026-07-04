@@ -214,6 +214,16 @@ describe('buildHeroModel — states', () => {
     expect(buildHeroModel(makeHeroData({ isLoading: true })).kind).toBe('empty')
   })
 
+  it('fails closed (empty, no throw) on partially-shaped objects', () => {
+    // Review fix: the type promises these fields, but hydrated older state
+    // may not — the hero must render nothing rather than crash the tab.
+    expect(buildHeroModel(undefined as never).kind).toBe('empty')
+    expect(buildHeroModel({} as never).kind).toBe('empty')
+    expect(buildHeroModel({ recommendation: {} } as never).kind).toBe('empty')
+    const noDrivers = { ...makeHeroData(), drivers: undefined } as never
+    expect(buildHeroModel(noDrivers)).toMatchObject({ kind: 'chart', mainReason: null })
+  })
+
   it('returns empty before any analysis (no options, full completeness)', () => {
     expect(buildHeroModel(makeHeroData({ options: [] })).kind).toBe('empty')
   })
@@ -253,6 +263,14 @@ describe('buildHeroModel — detail lines and footer (sourced or omitted)', () =
     // Recommended option (B): first resolvable threshold.
     expect(m.rows[1].detail.couldChangeIf).toBe('Team capacity crosses 30%.')
     // Option A is the named alternative winner → same threshold line.
+    expect(m.rows[0].detail.couldChangeIf).toBe('Team capacity crosses 30%.')
+  })
+
+  it('matches the alternative winner across encoding notation differences', () => {
+    // Review fix: labels are normalised for the MATCH only — an option label
+    // carrying encoding notation still receives its sourced line.
+    const a = makeOption({ ...OPTION_A, label: 'Two developers (0=no, 1=yes)' })
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, OPTION_B] })))
     expect(m.rows[0].detail.couldChangeIf).toBe('Team capacity crosses 30%.')
   })
 

@@ -38,14 +38,15 @@ export function HeroLensTabs({ lenses, active, onSelect, interactive, panelId }:
 
   const onKeyDown = (e: React.KeyboardEvent, index: number) => {
     if (!interactive) return
+    // Horizontal tablist: Left/Right + Home/End only (WAI-ARIA APG).
+    // Up/Down are deliberately NOT handled so page scrolling still works
+    // while the tablist has focus.
     switch (e.key) {
       case 'ArrowRight':
-      case 'ArrowDown':
         e.preventDefault()
         moveTo(index + 1)
         break
       case 'ArrowLeft':
-      case 'ArrowUp':
         e.preventDefault()
         moveTo(index - 1)
         break

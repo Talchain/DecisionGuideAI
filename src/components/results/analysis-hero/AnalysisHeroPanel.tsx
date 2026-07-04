@@ -201,7 +201,12 @@ export function AnalysisHeroPanel({
             data-testid="hero-rerun"
             className={`${typography.panelMeta} inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-text-on-color transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50`}
           >
-            <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
+            <RefreshCw
+              aria-hidden="true"
+              className={`h-3.5 w-3.5 ${
+                rerunDisabled ? 'animate-spin motion-reduce:animate-none' : ''
+              }`}
+            />
             {HERO_COPY.footer.rerun}
           </button>
         ) : focusPanelMounted ? (
