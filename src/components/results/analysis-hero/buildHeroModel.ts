@@ -289,11 +289,24 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
           )
   }
 
-  // Target/domain guard: strictly `isNormalised === false` — outcome values
-  // have been denormalised into user units, the same space as goalThreshold.
-  // `undefined` (older data, pre-run defaults) counts as uncertainty → omit.
+  // Target/domain guard — the threshold joins the chart ONLY when it
+  // provably shares the displayed outcome metric/unit:
+  //  1. `isNormalised === false`: outcome values were denormalised into the
+  //     goal node's user units (useResultsSectionData scales by
+  //     goal_threshold_cap), and `goalThreshold` is goal_threshold_raw from
+  //     the SAME goal node — same metric by construction. `true` means
+  //     outcomes are relative scores (threshold incompatible); `undefined`
+  //     (older data, pre-run defaults) counts as uncertainty → omit.
+  //  2. `outcomeUnit != null`: the Results Panel's shared unit convention
+  //     (outcomeUnit/outcomeUnitSymbol — the same fields SuccessTargetRow
+  //     and RangeVisualization format BOTH the threshold and outcome values
+  //     with) actually exists. An unknown unit removes the evidence that
+  //     threshold and outcomes share a metric → uncertainty → omit.
+  // An incompatible/uncertain threshold is excluded from BOTH the marker
+  // and the axis-domain calculation below, so it can never distort the chart.
   const targetCompatible =
     isNormalised === false &&
+    outcomeUnit != null &&
     typeof goalThreshold === 'number' &&
     Number.isFinite(goalThreshold)
   const targetValue = targetCompatible ? goalThreshold : null

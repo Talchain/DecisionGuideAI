@@ -14,7 +14,7 @@
  * only external importer — so the fixture data is built locally.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { ResultsBody } from '../ResultsBody'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type {
@@ -194,6 +194,40 @@ describe('ResultsBody — Analysis hero placement + flag regression', () => {
     const hero = screen.getByTestId('analysis-hero-panel')
     expect(hero.contains(notices[0])).toBe(false)
     expect(hero.textContent).not.toMatch(/stale|not analysed|re-run before/i)
+  })
+
+  it('flag ON: hero focus-next is neutral copy that scrolls the REAL mounted coaching panel', () => {
+    // Focus-next reconciliation (review item 1): the coaching panel orders
+    // its rows positionally (buildFocusRows), not by vm.topAction, so the
+    // hero deliberately names NO action — neutral copy targeting the panel
+    // container. This test runs against the real mounted tree, not a
+    // synthetic target.
+    vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
+    renderBody()
+    const panel = screen.getByTestId('focus-now-panel')
+    const scrollSpy = vi.fn()
+    panel.scrollIntoView = scrollSpy
+
+    const focusNext = screen.getByTestId('hero-focus-next')
+    expect(focusNext.tagName).toBe('BUTTON')
+    // Neutral copy — names the panel, never a specific coaching row.
+    expect(focusNext).toHaveTextContent('Focus next: review the top actions below.')
+    const heroText = screen.getByTestId('analysis-hero-panel').textContent ?? ''
+    expect(heroText).not.toContain('Define what success looks like')
+    expect(heroText).not.toContain('Add a risk')
+
+    fireEvent.click(focusNext)
+    expect(scrollSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('flag ON, coaching panel OFF: focus-next degrades to plain text (no dead link, no throw)', () => {
+    vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
+    vi.mocked(isFocusNowPanelEnabled).mockReturnValue(false)
+    renderBody()
+    expect(screen.queryByTestId('focus-now-panel')).toBeNull()
+    const focusNext = screen.getByTestId('hero-focus-next')
+    expect(focusNext.tagName).toBe('P')
+    expect(focusNext).toHaveTextContent('Focus next: review the top actions below.')
   })
 
   it('flag ON with V17 hero enabled: new hero still precedes the V17 hero slot', () => {

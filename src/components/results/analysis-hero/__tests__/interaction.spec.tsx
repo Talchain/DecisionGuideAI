@@ -127,6 +127,14 @@ describe('AnalysisHero — interaction', () => {
     }
   })
 
+  it('focus-next click is a safe no-op when the scroll target is missing (no throw)', () => {
+    // Coaching panel flag on but its element absent (e.g. its error
+    // boundary tripped): the click must not throw.
+    render(<AnalysisHeroContainer data={makeHeroData()} />)
+    expect(document.querySelector('[data-testid="focus-now-panel"]')).toBeNull()
+    expect(() => fireEvent.click(screen.getByTestId('hero-focus-next'))).not.toThrow()
+  })
+
   it('focus-next degrades to plain text when the coaching panel is off (no dead link)', () => {
     vi.mocked(isFocusNowPanelEnabled).mockReturnValue(false)
     render(<AnalysisHeroContainer data={makeHeroData()} />)

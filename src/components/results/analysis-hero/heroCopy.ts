@@ -76,6 +76,16 @@ export const HERO_COPY = {
 
   footer: {
     mainReason: (factor: string) => `Main reason: ${factor} has the strongest effect on this result.`,
+    /**
+     * Focus-next reconciliation (review-locked): the coaching panel's rows
+     * are composed POSITIONALLY (buildFocusRows: server rows in received
+     * order, then static hygiene rows — "NOT meaning-based ranking"),
+     * while vm.topAction derives from selectHinge (fragile-edge/VOI
+     * priority) — a different signal. The hero therefore names NO specific
+     * action: this neutral line points at the panel as a whole (the scroll
+     * affordance targets the panel container, never a row), so it can
+     * never disagree with whatever the panel's actual top row is.
+     */
     focusNext: 'Focus next: review the top actions below.',
     focusNextAria: 'Scroll to the actions panel below',
     rerun: 'Re-run analysis',
