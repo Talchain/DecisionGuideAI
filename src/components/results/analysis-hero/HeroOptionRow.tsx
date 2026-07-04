@@ -117,7 +117,8 @@ export function HeroOptionRow({
         </span>
         <span
           id={labelId}
-          className={`${typography.panelBody} min-w-0 flex-1 truncate text-left text-text-header`}
+          title={row.label}
+          className={`${typography.panelBody} min-w-0 flex-1 break-words text-left text-text-header line-clamp-2`}
         >
           {row.label}
           {isLeader && <span className="sr-only"> ({HERO_COPY.srLeader})</span>}
@@ -142,7 +143,7 @@ export function HeroOptionRow({
         {/* Range / probability bar: full-width element scaled from the left. */}
         <span
           className={`absolute left-0 h-1.5 w-full rounded-full transition-transform motion-reduce:transition-none ${
-            isLeader ? 'bg-primary/40' : 'bg-option/30'
+            isLeader ? 'bg-primary/50' : 'bg-option/40'
           }`}
           style={{
             top: 'calc(50% - 3px)',
