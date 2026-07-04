@@ -8,7 +8,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { buildHeroModel } from '../buildHeroModel'
 import type { HeroChartModel, HeroStatusModel } from '../heroTypes'
-import { FULL_COMPLETENESS, makeHeroData, makeOption, OPTION_A, OPTION_B } from '../__fixtures__/hero.fixtures'
+import { makeHeroData, makeOption, OPTION_A, OPTION_B } from '../__fixtures__/hero.fixtures'
 
 function chartModel(data = makeHeroData()): HeroChartModel {
   const model = buildHeroModel(data)
@@ -137,12 +137,14 @@ describe('AnalysisHeroPanel — content', () => {
   it.each(['partial', 'failed', 'blocked'] as const)(
     'renders the curated %s non-chart state (no rows, no fabricated numbers)',
     (variant) => {
+      // Non-chart states are driven by the real analysis lifecycle
+      // (analysisStatus / hook error), never by completeness enrichment.
       const data =
         variant === 'blocked'
           ? makeHeroData({ recommendation: { analysisStatus: 'blocked' } })
           : variant === 'failed'
-            ? makeHeroData({ isError: true, completeness: { ...FULL_COMPLETENESS, status: 'failed' } })
-            : makeHeroData({ completeness: { ...FULL_COMPLETENESS, status: 'partial' } })
+            ? makeHeroData({ isError: true })
+            : makeHeroData({ recommendation: { analysisStatus: 'partial' } })
       const model = buildHeroModel(data)
       expect(model.kind).toBe('status')
       renderPanel(model as HeroStatusModel)
