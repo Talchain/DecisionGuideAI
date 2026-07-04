@@ -127,12 +127,17 @@ describe('AnalysisHero — interaction', () => {
     }
   })
 
-  it('focus-next click is a safe no-op when the scroll target is missing (no throw)', () => {
+  it('focus-next is NOT an enabled clickable when the scroll target is absent (flag on)', () => {
     // Coaching panel flag on but its element absent (e.g. its error
-    // boundary tripped): the click must not throw.
+    // boundary tripped): a keyboard/screen-reader user must not be offered
+    // a dead affordance — the line degrades to plain text.
     render(<AnalysisHeroContainer data={makeHeroData()} />)
     expect(document.querySelector('[data-testid="focus-now-panel"]')).toBeNull()
-    expect(() => fireEvent.click(screen.getByTestId('hero-focus-next'))).not.toThrow()
+    const focusNext = screen.getByTestId('hero-focus-next')
+    expect(focusNext.tagName).toBe('P')
+    expect(focusNext).toHaveTextContent('Focus next: review the top actions below.')
+    // No button/link role anywhere in the footer line.
+    expect(screen.queryByRole('button', { name: /actions panel below/i })).toBeNull()
   })
 
   it('focus-next degrades to plain text when the coaching panel is off (no dead link)', () => {

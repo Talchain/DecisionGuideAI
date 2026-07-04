@@ -21,7 +21,7 @@
  * ROBUSTNESS-VERDICT-CONTRACT), so the trust line is omitted rather than
  * derived. Raw 0-1 stability/confidence floats are never displayed.
  */
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { ArrowDown, Info, RefreshCw } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { HERO_COPY } from './heroCopy'
@@ -42,9 +42,12 @@ export interface AnalysisHeroPanelProps {
   focusPanelMounted: boolean
 }
 
+/** The coaching panel container the focus-next affordance scrolls to. */
+const FOCUS_PANEL_SELECTOR = '[data-testid="focus-now-panel"]'
+
 /** Scroll to the coaching panel below; no-op when the target is absent. */
 function scrollToFocusPanel() {
-  const el = document.querySelector('[data-testid="focus-now-panel"]')
+  const el = document.querySelector(FOCUS_PANEL_SELECTOR)
   if (!el) return
   const reduced =
     typeof window.matchMedia === 'function' &&
@@ -71,6 +74,19 @@ export function AnalysisHeroPanel({
   const panelId = useId()
   const [lensState, setLensState] = useState<HeroLens | null>(null)
   const [openRowId, setOpenRowId] = useState<string | null>(null)
+
+  // `focusPanelMounted` only says the coaching panel's flag is on. The
+  // focus-next affordance must never be an enabled no-op for keyboard and
+  // screen-reader users, so the actual scroll target's presence is confirmed
+  // post-commit (its error boundary may have replaced it) and the line
+  // degrades to plain text when the target is absent. Re-checked on every
+  // commit; React's setState equality bail-out keeps this loop-free.
+  const [focusTargetPresent, setFocusTargetPresent] = useState(false)
+  useEffect(() => {
+    setFocusTargetPresent(
+      focusPanelMounted && document.querySelector(FOCUS_PANEL_SELECTOR) != null,
+    )
+  })
 
   if (model.kind === 'status') {
     return (
@@ -204,7 +220,7 @@ export function AnalysisHeroPanel({
             />
             {HERO_COPY.footer.rerun}
           </button>
-        ) : focusPanelMounted ? (
+        ) : focusTargetPresent ? (
           <button
             type="button"
             onClick={scrollToFocusPanel}
