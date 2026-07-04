@@ -39,8 +39,15 @@ import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { FlipThreshold, OptionResult } from '../types'
 import { formatThreshold } from '../RangeVisualization'
 import { stripEncodingNotation } from '../utils/cleanFactorLabel'
+import {
+  getExpectedValue,
+  getMedian,
+  getOptimistic,
+  getPessimistic,
+} from '../utils/getExpectedValue'
 import { safeInterpolatedLabel, containsBannedTerm } from '../analysisHeroV17/glossaryCheck'
 import { formatPercent, formatProbabilityWithResolution } from '@/utils/formatPercent'
+import { formatValueWithUnit } from '@/canvas/utils/formatValueWithUnit'
 import { HERO_COPY } from './heroCopy'
 import type { HeroChartModel, HeroLens, HeroModel, HeroRowVM, HeroStatusModel } from './heroTypes'
 
@@ -51,27 +58,22 @@ function statusModel(variant: HeroStatusModel['variant']): HeroStatusModel {
   return { kind: 'status', variant, headline: copy.headline, body: copy.body }
 }
 
-/** Existing-value fallback chains, mirroring the Results Panel conventions. */
+/**
+ * Existing-value fallback chains, composed from the canonical percentile
+ * helpers plus the deprecated top-level fields for backward compatibility
+ * (the same fallback ResultsBody itself uses). The centre deliberately
+ * blends mean → median (unlike getExpectedValue alone, which refuses the
+ * median): the hero shows ONE centre per option and prefers whichever
+ * existing value the Results Panel would surface first.
+ */
 function outcomeCentre(o: OptionResult): number | null {
-  return o.expected ?? o.outcome?.mean ?? o.outcome?.p50 ?? o.p50 ?? null
+  return getExpectedValue(o) ?? getMedian(o) ?? o.p50 ?? null
 }
 function outcomeP10(o: OptionResult): number | null {
-  return o.outcome?.p10 ?? o.p10 ?? null
+  return getPessimistic(o) ?? o.p10 ?? null
 }
 function outcomeP90(o: OptionResult): number | null {
-  return o.outcome?.p90 ?? o.p90 ?? null
-}
-
-/**
- * Format a flip-threshold factor value with its OWN unit string (factor
- * space, not outcome space — display formatting only, value unchanged).
- */
-function formatFlipValue(value: number, unit?: string): string {
-  const rendered = value.toLocaleString(undefined, { maximumFractionDigits: 1 })
-  if (!unit) return rendered
-  if (unit === '%') return `${rendered}%`
-  if (/^[^0-9a-z]$/i.test(unit)) return `${unit}${rendered}`
-  return `${rendered} ${unit}`
+  return getOptimistic(o) ?? o.p90 ?? null
 }
 
 /**
@@ -79,14 +81,13 @@ function formatFlipValue(value: number, unit?: string): string {
  * The recommended option reads the first resolvable threshold (the value at
  * which the recommendation changes); any other option only gets a line when
  * a threshold explicitly names it as the alternative winner. No thresholds,
- * no line.
+ * no line. `usable` is pre-filtered once by the caller (flip_value != null).
  */
 function couldChangeIfLine(
   option: OptionResult,
   isRecommended: boolean,
-  flipThresholds: readonly FlipThreshold[],
+  usable: readonly FlipThreshold[],
 ): string | undefined {
-  const usable = flipThresholds.filter((ft) => ft.flip_value != null)
   // Normalise both sides for the MATCH only (display still uses the raw
   // producer strings) — encoding notation on either label must not silently
   // drop a sourced line.
@@ -100,7 +101,10 @@ function couldChangeIfLine(
       )
   if (!ft || ft.flip_value == null) return undefined
   const factor = safeInterpolatedLabel(stripEncodingNotation(ft.label), HERO_COPY.factorFallback)
-  return HERO_COPY.detail.couldChangeIf(factor, formatFlipValue(ft.flip_value, ft.unit))
+  // formatValueWithUnit is the app-wide raw-value+unit convention (symbol
+  // prefix, ISO space-prefix, % suffix, generic suffix) — factor space, not
+  // outcome space; display formatting only, value unchanged.
+  return HERO_COPY.detail.couldChangeIf(factor, formatValueWithUnit(ft.flip_value, ft.unit))
 }
 
 // ─── Main mapper ─────────────────────────────────────────────────────────────
@@ -138,7 +142,10 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   )
 
   const recommendedId = recommendation.recommendedOption?.id ?? null
-  const flipThresholds = recommendation.flipThresholds ?? []
+  // Pre-filter once: resolvable thresholds only (shared across every row).
+  const usableFlips = (recommendation.flipThresholds ?? []).filter(
+    (ft) => ft.flip_value != null,
+  )
 
   // Rows in allOptions[] presentation order — the same order for every lens,
   // so numbering is stable across lens switches (asserted in tests).
@@ -146,14 +153,13 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     const goalValue = o.goalProbability ?? null
     const centre = outcomeCentre(o)
     const why = recommendation.storyHeadlines?.[o.id]
-    const couldChangeIf = couldChangeIfLine(o, o.id === recommendedId, flipThresholds)
+    const couldChangeIf = couldChangeIfLine(o, o.id === recommendedId, usableFlips)
     const winChance =
       typeof o.winProbability === 'number'
         ? HERO_COPY.detail.winChance(
             formatProbabilityWithResolution(o.winProbability, o.nValidSamples),
           )
         : undefined
-    const detail = { why, couldChangeIf, winChance }
     return {
       id: o.id,
       index: i + 1,
@@ -174,8 +180,7 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
             ? formatThreshold(centre, outcomeUnit, outcomeUnitSymbol, isNormalised)
             : HERO_COPY.readout.missing,
       },
-      detail,
-      hasDetail: Boolean(why || couldChangeIf || winChance),
+      detail: { why, couldChangeIf, winChance },
     }
   })
 
@@ -217,12 +222,13 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     headline = hasConstraints
       ? HERO_COPY.headline.goalWithLimits(safeLabel(headlineRow))
       : HERO_COPY.headline.goalOnly(safeLabel(headlineRow))
-  } else if (headlineRow) {
-    headline = HERO_COPY.headline.outcomeOnly(safeLabel(headlineRow))
-  } else if (outcomeLeaderRow) {
-    headline = HERO_COPY.headline.outcomeOnly(safeLabel(outcomeLeaderRow))
   } else {
-    headline = HERO_COPY.headline.noLeader
+    // No goal basis: name whichever leader exists with the weaker
+    // "looks strongest" claim, or claim no leader at all.
+    const leader = headlineRow ?? outcomeLeaderRow
+    headline = leader
+      ? HERO_COPY.headline.outcomeOnly(safeLabel(leader))
+      : HERO_COPY.headline.noLeader
   }
 
   // Tension subline: goal-fit leader vs strongest expected outcome. Display
@@ -301,7 +307,6 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
         ? formatThreshold(targetValue, outcomeUnit, outcomeUnitSymbol, false)
         : null,
     mainReason,
-    isSingleOption: rows.length === 1,
   }
   return model
 }

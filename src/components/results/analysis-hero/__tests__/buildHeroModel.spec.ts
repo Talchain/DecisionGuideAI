@@ -151,7 +151,6 @@ describe('buildHeroModel — leaders and headline', () => {
     const m = chart(buildHeroModel(makeHeroData({ options: [OPTION_B] })))
     expect(m.headline).toBe('Upskill the team is your only option.')
     expect(m.subline).toBeNull()
-    expect(m.isSingleOption).toBe(true)
   })
 })
 

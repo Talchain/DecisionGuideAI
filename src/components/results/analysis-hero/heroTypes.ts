@@ -53,9 +53,8 @@ export interface HeroRowVM {
     /** Formatted centre readout, '—' when absent. */
     readout: string
   }
+  /** Sourced-or-omitted detail lines; an all-empty detail makes the row static. */
   detail: HeroRowDetail
-  /** True when at least one detail line exists — gates row interactivity. */
-  hasDetail: boolean
 }
 
 /** Interactive chart state — analysis computed with displayable options. */
@@ -88,7 +87,6 @@ export interface HeroChartModel {
   targetReadout: string | null
   /** Footer "Main reason" line, or null when no clean driver label exists. */
   mainReason: string | null
-  isSingleOption: boolean
 }
 
 /** Curated non-chart state for partial / failed / blocked analyses. */

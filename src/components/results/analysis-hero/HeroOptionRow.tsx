@@ -90,7 +90,10 @@ export function HeroOptionRow({
   const readoutSuffix =
     lens === 'goal' && row.goal.value != null ? ` ${HERO_COPY.readout.goalSuffix}` : ''
 
-  const expandable = row.hasDetail && interactive
+  const hasDetail = Boolean(
+    row.detail.why || row.detail.couldChangeIf || row.detail.winChance,
+  )
+  const expandable = hasDetail && interactive
   const Chevron = isOpen ? ChevronDown : ChevronRight
 
   const rowGrid = (

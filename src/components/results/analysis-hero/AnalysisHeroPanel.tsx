@@ -91,18 +91,13 @@ export function AnalysisHeroPanel({
   const interactive = !isStale
   const showTabs = model.lenses.length > 1
 
-  const axis =
-    lens === 'goal'
-      ? model.hasConstraints
-        ? HERO_COPY.axis.goalWithLimits
-        : HERO_COPY.axis.goalOnly
-      : HERO_COPY.axis.outcome
-
+  // Constraint presence picks the goal-lens copy variant once for both
+  // the axis and the caption (the two share key structure in HERO_COPY).
+  const goalKey = model.hasConstraints ? ('goalWithLimits' as const) : ('goalOnly' as const)
+  const axis = lens === 'goal' ? HERO_COPY.axis[goalKey] : HERO_COPY.axis.outcome
   const caption =
     lens === 'goal'
-      ? model.hasConstraints
-        ? HERO_COPY.caption.goalWithLimits
-        : HERO_COPY.caption.goalOnly
+      ? HERO_COPY.caption[goalKey]
       : model.targetReadout
         ? `${HERO_COPY.caption.outcome} ${HERO_COPY.caption.outcomeTarget(model.targetReadout)}`
         : HERO_COPY.caption.outcome
