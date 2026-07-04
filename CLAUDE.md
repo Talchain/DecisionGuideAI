@@ -216,6 +216,7 @@ npm run build                      # production build (separate concern)
 | UI-SEM-055 | `src/components/results/analysis-hero/HeroOptionRow.tsx` | Analysis-hero track position clamp to [0,100]% of the track (layout only; readouts always show unclamped source values) | Keep — display formatting (legitimate) |
 | UI-SEM-056 | `src/components/results/analysis-hero/buildHeroModel.ts` | Analysis-hero constraint-presence copy switch (goal-and-limits vs goal-alone wording; "and limits" only when every goal-bearing option carries constraint analysis) | Keep — display formatting (legitimate) |
 | UI-SEM-057 | `src/components/results/analysis-hero/buildHeroModel.ts` | Analysis-hero sub-1% goal readout floor ("< 1%" when goalProbability < 0.01 — OptionCards parity) | Keep — display formatting (legitimate) |
+| UI-SEM-058 | `src/canvas/hooks/useV2Run.ts` | Raw→normalised goal-threshold conversion for PLoT request (raw/cap; omit when unprovable) | Keep — format conversion (same class as UI-SEM-001) |
 
 - Check for stale `.js` files co-located with `.ts`/`.tsx` source files in `src/` when debugging unexpected behaviour.
 - This is a React app — check for stale component state, missing dependency arrays in hooks, and incorrect memoisation when debugging rendering issues.

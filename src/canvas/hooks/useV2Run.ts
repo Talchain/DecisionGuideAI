@@ -58,6 +58,35 @@ function deriveNumericSeedFromString(input: string): number {
 }
 
 /**
+ * UI-SEM-058: raw → normalised goal-threshold conversion for the PLoT request.
+ *
+ * store.goalThreshold holds USER UNITS (raw — see the store field's unit
+ * contract); PLoT's `goal_threshold` contract is normalised 0-1
+ * (adapter.ts request builder). Convert raw/cap when the CEE cap exists.
+ * Without a cap, raw ≡ normalised only when the value already lies in [0,1].
+ * Anything that cannot be proven normalised is OMITTED (returns undefined)
+ * so the request builder's own `analysisReady.goal_threshold` (already
+ * normalised) stands — a missing threshold degrades to "no probability_of_goal",
+ * never to a corrupt analysis. Format conversion only (same class as UI-SEM-001).
+ */
+export function normaliseGoalThresholdForRequest(
+  raw: number | null | undefined,
+  cap: unknown,
+): number | undefined {
+  if (raw == null || !Number.isFinite(raw)) return undefined
+  const capNumber = typeof cap === 'number' && Number.isFinite(cap) && cap > 0 ? cap : null
+  const normalised = capNumber != null ? raw / capNumber : raw
+  if (normalised < 0 || normalised > 1) {
+    console.warn(
+      '[useV2Run] goal threshold override omitted — cannot prove normalised form',
+      { raw, cap: capNumber, normalised },
+    )
+    return undefined
+  }
+  return normalised
+}
+
+/**
  * Check if ceeAnalysisReady is stale (graph has changed since it was stored).
  *
  * Returns true if stale (should not use analysis_ready).
@@ -421,6 +450,14 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       // P0 Fix: Pass computed seed to avoid hardcoded "42" default
       // Audit F-01: framing removed from PLoT request (PLoT rejects it with 400).
       // P0 Fix: Include brief for PLoT context
+      // UI-SEM-058: the store threshold is raw user units; the request wants
+      // normalised 0-1. Convert against the CEE cap (or omit when unprovable —
+      // the builder's analysisReady.goal_threshold then applies unchanged).
+      const requestGoalThreshold = normaliseGoalThresholdForRequest(
+        goalThreshold,
+        (effectiveAnalysisReady as { goal_threshold_cap?: unknown } | null)?.goal_threshold_cap,
+      )
+
       const result = await executeV2RunWithAnalysisReady(
         config,
         nodes,
@@ -428,7 +465,7 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
         effectiveAnalysisReady,
         outcomeNodeId,
         requestId,
-        goalThreshold ?? undefined,
+        requestGoalThreshold,
         seed,
         lastDraftDescription || undefined,
         effectiveGoalConstraints,
