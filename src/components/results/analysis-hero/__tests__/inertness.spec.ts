@@ -20,8 +20,9 @@ const MODULE_DIR = join(SRC, 'components', 'results', 'analysis-hero')
 const AUTHORIZED_IMPORTERS = new Set([join(SRC, 'components', 'results', 'ResultsBody.tsx')])
 
 // Capture the specifier of any import / re-export / dynamic import() /
-// require() — including glued zero-whitespace forms (`import{X}from'x'`).
-const SPEC_RE = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s*|\brequire\s*\(\s*)['"]([^'"\n]+)['"]/g
+// require() — including glued zero-whitespace forms (`import{X}from'x'`)
+// and template-literal specifiers (`import(\`./x\`)` with no interpolation).
+const SPEC_RE = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s*|\brequire\s*\(\s*)['"`]([^'"`\n$]+)['"`]/g
 
 // Boundary-aware path backstop: matches `.../results/analysis-hero` and
 // `.../results/analysis-hero/<file>`, but NOT a sibling like
@@ -100,6 +101,7 @@ describe('Analysis hero inertness', () => {
     ['require()', PARENT, "const m = require('./analysis-hero')"],
     ['side-effect import', PARENT, "import './analysis-hero'"],
     ['glued no-whitespace named import', PARENT, "import{AnalysisHeroContainer}from'./analysis-hero'"],
+    ['template-literal dynamic import', PARENT, 'const X = lazy(() => import(`./analysis-hero`))'],
   ])('FLAGS dynamic/relative import: %s', (_label, importer, code) => {
     expect(findAnalysisHeroImports(code, importer).length).toBeGreaterThan(0)
   })

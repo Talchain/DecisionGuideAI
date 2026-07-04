@@ -139,7 +139,7 @@ export function AnalysisHeroPanel({
 
         <div
           id={panelId}
-          {...(showTabs ? { role: 'tabpanel', 'aria-labelledby': tabId(lens) } : {})}
+          {...(showTabs ? { role: 'tabpanel', 'aria-labelledby': tabId(panelId, lens) } : {})}
           className="space-y-1"
         >
           {/* Axis labels (decorative; values live in the row readouts).

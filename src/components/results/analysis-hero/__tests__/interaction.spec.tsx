@@ -65,6 +65,16 @@ describe('AnalysisHero — interaction', () => {
 
     fireEvent.keyDown(outcomeTab, { key: 'ArrowLeft' })
     expect(goalTab).toHaveAttribute('aria-selected', 'true')
+
+    // Home/End jump to the first/last lens (WAI-ARIA APG).
+    fireEvent.keyDown(goalTab, { key: 'End' })
+    expect(outcomeTab).toHaveAttribute('aria-selected', 'true')
+    fireEvent.keyDown(outcomeTab, { key: 'Home' })
+    expect(goalTab).toHaveAttribute('aria-selected', 'true')
+
+    // Up/Down are NOT hijacked on a horizontal tablist (page scroll keeps working).
+    fireEvent.keyDown(goalTab, { key: 'ArrowDown' })
+    expect(goalTab).toHaveAttribute('aria-selected', 'true')
   })
 
   it('lens switching is local state only: same row DOM nodes, no analysis call', () => {

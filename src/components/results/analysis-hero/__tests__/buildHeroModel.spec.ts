@@ -118,11 +118,54 @@ describe('buildHeroModel — leaders and headline', () => {
   })
 
   it('constraint presence switches to goal-and-limits wording', () => {
+    // Constraints are request-level, so every option carries its analysis.
+    const a = makeOption({ ...OPTION_A, constraintAnalysis: CONSTRAINT })
     const b = makeOption({ ...OPTION_B, constraintAnalysis: CONSTRAINT })
-    const m = chart(buildHeroModel(makeHeroData({ options: [OPTION_A, b] })))
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
     expect(m.hasConstraints).toBe(true)
     expect(m.headline).toBe('Upskill the team best meets the goal and your limits.')
     expect(m.subline).toContain('best meets the goal and your limits')
+  })
+
+  it('mixed constraint coverage falls back to goal-alone wording (never overstates)', () => {
+    // Anomalous shape: only one goal-bearing option carries constraint
+    // analysis. The collapsed goalProbability is joint for that option but
+    // goal-alone for the other, so the shared copy must not claim "and
+    // limits" for every bar.
+    const b = makeOption({ ...OPTION_B, constraintAnalysis: CONSTRAINT })
+    const m = chart(buildHeroModel(makeHeroData({ options: [OPTION_A, b] })))
+    expect(m.hasConstraints).toBe(false)
+    expect(m.headline).toBe('Upskill the team best fits your goal.')
+  })
+
+  it('does not headline or highlight a recommended option that lacks its own goal value', () => {
+    // Recommended option B has no goalProbability while A has one: the hero
+    // must not claim B "best fits your goal" beside a "—" readout for B.
+    const b = makeOption({ ...OPTION_B, goalProbability: undefined })
+    const m = chart(buildHeroModel(makeHeroData({ options: [OPTION_A, b] })))
+    expect(m.lenses).toContain('goal')
+    expect(m.leaders.goal).toBeNull()
+    expect(m.headline).toBe('Upskill the team currently looks strongest.')
+    expect(m.subline).toBeNull()
+  })
+
+  it('omits the subline when the outcome lens is hidden (centres without ranges)', () => {
+    // Options carry an expected centre but no p10-p90 range: the outcome
+    // lens is unavailable, so the hero must not assert an expected-outcome
+    // comparison it cannot show.
+    const strip = (o: ReturnType<typeof makeOption>) =>
+      makeOption({
+        ...o,
+        outcome: { mean: o.outcome.mean, p10: null, p50: null, p90: null },
+        p10: null,
+        p50: null,
+        p90: null,
+      })
+    const m = chart(buildHeroModel(makeHeroData({ options: [strip(OPTION_A), strip(OPTION_B)] })))
+    expect(m.lenses).toEqual(['goal'])
+    expect(m.subline).toBeNull()
+    // The goal-fit headline itself is still honest and allowed.
+    expect(m.headline).toBe('Upskill the team best fits your goal.')
   })
 
   it('equal leaders produce the aligned subline', () => {
@@ -271,6 +314,36 @@ describe('buildHeroModel — detail lines and footer (sourced or omitted)', () =
     const a = makeOption({ ...OPTION_A, label: 'Two developers (0=no, 1=yes)' })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, OPTION_B] })))
     expect(m.rows[0].detail.couldChangeIf).toBe('Team capacity crosses 30%.')
+  })
+
+  it('renders a unitless 0-1 flip value as a number, never a qualitative word', () => {
+    // Regression: formatValueWithUnit would render 0.3 with no unit as a
+    // qualitative band word; a "crosses <value>" sentence must stay numeric.
+    const m = chart(
+      buildHeroModel(
+        makeHeroData({
+          recommendation: {
+            flipThresholds: [
+              {
+                label: 'Team capacity',
+                node_id: 'fac_capacity',
+                current_value: 0.5,
+                flip_value: 0.3,
+                alternative_winner_label: 'Two developers',
+              },
+            ],
+          },
+        }),
+      ),
+    )
+    expect(m.rows[1].detail.couldChangeIf).toBe('Team capacity crosses 0.3.')
+  })
+
+  it('floors sub-1% goal readouts at "< 1%" (OptionCards parity, UI-SEM-057)', () => {
+    const a = makeOption({ ...OPTION_A, goalProbability: 0.004 })
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, OPTION_B] })))
+    expect(m.rows[0].goal.value).toBe(0.004)
+    expect(m.rows[0].goal.readout).toBe('< 1%')
   })
 
   it('omits Could-change-if when no flip thresholds resolve', () => {

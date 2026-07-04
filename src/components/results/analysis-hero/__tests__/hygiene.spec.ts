@@ -42,7 +42,8 @@ describe('Analysis hero source hygiene', () => {
   it.each([
     ['unsafe HTML', /dangerouslySetInnerHTML|\binnerHTML\b/],
     ['network access', /\bfetch\s*\(|\baxios\b|XMLHttpRequest|EventSource|WebSocket/],
-    ['UI banding threshold ternary', /[><]=?\s*0\.\d+\s*\?/],
+    // Catches `0.5`, no-leading-zero `.5`, and scientific `1e-1` literals.
+    ['UI banding threshold ternary', /[><]=?\s*(?:0?\.\d+|\d+(?:\.\d+)?e-\d+)\s*\?/i],
     [
       'trust/stability field reads',
       /robustnessLevel|robustnessLabel|robustnessVerdict|recommendationStability/,
@@ -55,9 +56,12 @@ describe('Analysis hero source hygiene', () => {
   })
 
   it('positive controls: each pattern fires on the code it bans', () => {
+    const banding = /[><]=?\s*(?:0?\.\d+|\d+(?:\.\d+)?e-\d+)\s*\?/i
     expect(/dangerouslySetInnerHTML|\binnerHTML\b/.test('el.innerHTML = x')).toBe(true)
     expect(/\bfetch\s*\(/.test('await fetch(url)')).toBe(true)
-    expect(/[><]=?\s*0\.\d+\s*\?/.test("conf >= 0.65 ? 'Firm' : 'Fragile'")).toBe(true)
+    expect(banding.test("conf >= 0.65 ? 'Firm' : 'Fragile'")).toBe(true)
+    expect(banding.test("p > .5 ? 'likely' : 'unlikely'")).toBe(true)
+    expect(banding.test("score >= 1e-1 ? 'a' : 'b'")).toBe(true)
     expect(/robustnessVerdict/.test('data.robustnessVerdict')).toBe(true)
     expect(/coaching-panel\/focus-now/.test("import x from '@/canvas/components/coaching-panel/focus-now'")).toBe(true)
   })

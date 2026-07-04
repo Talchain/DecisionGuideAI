@@ -57,6 +57,8 @@ export const HERO_COPY = {
   readout: {
     goalSuffix: 'fit',
     missing: '—',
+    /** Mirrors OptionCards' sub-1% display-honesty affordance (UI-SEM-057). */
+    subOnePercent: '< 1%',
   },
 
   detail: {

@@ -47,7 +47,7 @@ import {
 } from '../utils/getExpectedValue'
 import { safeInterpolatedLabel, containsBannedTerm } from '../analysisHeroV17/glossaryCheck'
 import { formatPercent, formatProbabilityWithResolution } from '@/utils/formatPercent'
-import { formatValueWithUnit } from '@/canvas/utils/formatValueWithUnit'
+import { classifyUnit } from '@/utils/unitClassifier'
 import { HERO_COPY } from './heroCopy'
 import type { HeroChartModel, HeroLens, HeroModel, HeroRowVM, HeroStatusModel } from './heroTypes'
 
@@ -101,10 +101,39 @@ function couldChangeIfLine(
       )
   if (!ft || ft.flip_value == null) return undefined
   const factor = safeInterpolatedLabel(stripEncodingNotation(ft.label), HERO_COPY.factorFallback)
-  // formatValueWithUnit is the app-wide raw-value+unit convention (symbol
-  // prefix, ISO space-prefix, % suffix, generic suffix) — factor space, not
-  // outcome space; display formatting only, value unchanged.
-  return HERO_COPY.detail.couldChangeIf(factor, formatValueWithUnit(ft.flip_value, ft.unit))
+  return HERO_COPY.detail.couldChangeIf(factor, formatFlipValue(ft.flip_value, ft.unit))
+}
+
+/**
+ * UI-SEM-057: sub-1% goal readout floor. Mirrors OptionCards' existing
+ * display-honesty affordance (`goalProbability < 0.01` → "< 1% likely to
+ * reach target", OptionCards.tsx) so a 0.4% probability never rounds to a
+ * bare "0%" here while the panel below says "< 1%". Display-only; the
+ * value itself is unchanged and the bar still draws from the raw value.
+ */
+function goalReadout(value: number | null): string {
+  if (value == null) return HERO_COPY.readout.missing
+  if (value < 0.01) return HERO_COPY.readout.subOnePercent
+  return formatPercent(value, { fromDecimal: true })
+}
+
+/**
+ * Format a flip-threshold factor value with its OWN unit string (factor
+ * space, not outcome space). Unit placement follows the app-wide
+ * classifyUnit convention (symbol prefix, ISO space-prefix, % suffix,
+ * generic space-suffix) — but unlike formatValueWithUnit, the value ALWAYS
+ * renders as a number: a "crosses <value>" sentence must never substitute
+ * a qualitative word for the producer's numeric threshold. Display
+ * formatting only; the value itself is unchanged.
+ */
+function formatFlipValue(value: number, unit?: string): string {
+  const rendered = value.toLocaleString('en-GB', { maximumFractionDigits: 1 })
+  const { kind, canonical } = classifyUnit(unit ?? null)
+  if (kind === 'symbol') return `${canonical}${rendered}`
+  if (kind === 'iso') return `${canonical} ${rendered}`
+  if (kind === 'percent') return `${rendered}%`
+  if (kind === 'none' || kind === 'placeholder') return rendered
+  return `${rendered} ${canonical}`
 }
 
 // ─── Main mapper ─────────────────────────────────────────────────────────────
@@ -136,10 +165,19 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
 
   const { outcomeUnit, outcomeUnitSymbol, isNormalised, goalThreshold } = recommendation
 
-  // Constraint presence drives copy only (goal-and-limits vs goal-alone).
-  const hasConstraints = options.some(
-    (o) => (o.constraintAnalysis?.constraints?.length ?? 0) > 0,
-  )
+  // UI-SEM-056: constraint-presence copy switch (goal-and-limits vs
+  // goal-alone wording; same class as UI-SEM-050). Copy only — never a
+  // value transform. Because the selector collapses goalProbability PER
+  // OPTION (joint only for options that carry their own constraint
+  // analysis), the shared axis/caption claims "and limits" only when EVERY
+  // goal-bearing option is constrained; a mixed set (anomalous — constraints
+  // are request-level) falls back to the goal-alone wording, which may
+  // understate a constrained bar but never overstates an unconstrained one.
+  const optionHasConstraints = (o: OptionResult) =>
+    (o.constraintAnalysis?.constraints?.length ?? 0) > 0
+  const goalBearing = options.filter((o) => o.goalProbability != null)
+  const hasConstraints =
+    goalBearing.length > 0 && goalBearing.every(optionHasConstraints)
 
   const recommendedId = recommendation.recommendedOption?.id ?? null
   // Pre-filter once: resolvable thresholds only (shared across every row).
@@ -166,10 +204,7 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
       label: stripEncodingNotation(o.label),
       goal: {
         value: goalValue,
-        readout:
-          goalValue != null
-            ? formatPercent(goalValue, { fromDecimal: true })
-            : HERO_COPY.readout.missing,
+        readout: goalReadout(goalValue),
       },
       outcome: {
         p10: outcomeP10(o),
@@ -212,19 +247,25 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   const headlineRow = rows.find((r) => r.id === recommendedId) ?? null
   const outcomeLeaderRow = rows.find((r) => r.id === outcomeLeaderId) ?? null
 
+  // A goal-fit claim ("best fits your goal") is only honest when the claimed
+  // option ITSELF carries a goal probability — a recommended option whose
+  // goal readout would be "—" must not be headlined or highlighted as the
+  // goal-fit leader while other rows show real figures.
+  const goalLeaderRow = headlineRow && headlineRow.goal.value != null ? headlineRow : null
+
   const safeLabel = (row: HeroRowVM) =>
     safeInterpolatedLabel(row.label, HERO_COPY.labelFallback)
 
   let headline: string
   if (rows.length === 1) {
     headline = HERO_COPY.headline.singleOption(safeLabel(rows[0]))
-  } else if (headlineRow && goalAvailable) {
+  } else if (goalLeaderRow) {
     headline = hasConstraints
-      ? HERO_COPY.headline.goalWithLimits(safeLabel(headlineRow))
-      : HERO_COPY.headline.goalOnly(safeLabel(headlineRow))
+      ? HERO_COPY.headline.goalWithLimits(safeLabel(goalLeaderRow))
+      : HERO_COPY.headline.goalOnly(safeLabel(goalLeaderRow))
   } else {
-    // No goal basis: name whichever leader exists with the weaker
-    // "looks strongest" claim, or claim no leader at all.
+    // No goal basis for the leader: name whichever leader exists with the
+    // weaker "looks strongest" claim, or claim no leader at all.
     const leader = headlineRow ?? outcomeLeaderRow
     headline = leader
       ? HERO_COPY.headline.outcomeOnly(safeLabel(leader))
@@ -232,16 +273,18 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   }
 
   // Tension subline: goal-fit leader vs strongest expected outcome. Display
-  // selection only — needs both a goal-based headline leader and an outcome
-  // leader to be an honest comparison.
+  // selection only — and only when BOTH sides of the comparison are visible
+  // in the hero: a goal-backed leader AND an outcome lens the user can open
+  // (centres without ranges leave the outcome lens hidden, so the hero must
+  // not assert an expected-outcome comparison it cannot show).
   let subline: string | null = null
-  if (rows.length > 1 && goalAvailable && headlineRow && outcomeLeaderRow) {
+  if (rows.length > 1 && outcomeAvailable && goalLeaderRow && outcomeLeaderRow) {
     subline =
-      headlineRow.id === outcomeLeaderRow.id
-        ? HERO_COPY.subline.aligned(safeLabel(headlineRow))
+      goalLeaderRow.id === outcomeLeaderRow.id
+        ? HERO_COPY.subline.aligned(safeLabel(goalLeaderRow))
         : HERO_COPY.subline.diverged(
             safeLabel(outcomeLeaderRow),
-            safeLabel(headlineRow),
+            safeLabel(goalLeaderRow),
             hasConstraints,
           )
   }
@@ -255,7 +298,11 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     Number.isFinite(goalThreshold)
   const targetValue = targetCompatible ? goalThreshold : null
 
-  // Layout-only display domain for the outcome axis.
+  // UI-SEM-054: outcome-axis layout domain derivation. Min/max over the
+  // existing p10/p90/centre values (plus the goal threshold ONLY when
+  // unit-compatible, i.e. isNormalised === false), padded 5% each side
+  // (matching RangeVisualization) with a unit pad on a degenerate span.
+  // Layout only — the domain positions bars and is never displayed as data.
   let outcomeDomain: { min: number; max: number } | null = null
   if (outcomeAvailable) {
     const values: number[] = []
@@ -296,8 +343,9 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     rows,
     leaders: {
       // Goal-fit highlight follows the headline (Results Panel) leader —
-      // never an independent argmax. Null when no leader is claimable.
-      goal: headlineRow?.id ?? null,
+      // never an independent argmax — and only when that option carries its
+      // own goal probability. Null when no leader is claimable.
+      goal: goalLeaderRow?.id ?? null,
       outcome: outcomeLeaderId,
     },
     outcomeDomain,

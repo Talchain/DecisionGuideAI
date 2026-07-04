@@ -23,8 +23,13 @@ export interface HeroLensTabsProps {
   panelId: string
 }
 
-export function tabId(lens: HeroLens): string {
-  return `analysis-hero-tab-${lens}`
+/**
+ * Tab element ids are scoped to the owning panel's useId (like every other
+ * id in the module) so a second concurrent mount can never produce
+ * duplicate DOM ids / ambiguous aria references.
+ */
+export function tabId(panelId: string, lens: HeroLens): string {
+  return `${panelId}-tab-${lens}`
 }
 
 export function HeroLensTabs({ lenses, active, onSelect, interactive, panelId }: HeroLensTabsProps) {
@@ -77,7 +82,7 @@ export function HeroLensTabs({ lenses, active, onSelect, interactive, panelId }:
             }}
             type="button"
             role="tab"
-            id={tabId(lens)}
+            id={tabId(panelId, lens)}
             aria-selected={selected}
             aria-controls={panelId}
             tabIndex={selected ? 0 : -1}

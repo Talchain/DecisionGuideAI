@@ -46,7 +46,13 @@ export interface HeroOptionRowProps {
 export const HERO_ROW_GRID =
   'grid w-full grid-cols-[minmax(0,7.5rem)_1fr_auto_0.875rem] items-center gap-2 rounded-lg px-2 py-1.5 text-left'
 
-/** Clamp a layout fraction to the track (layout maths only). */
+/**
+ * UI-SEM-055: track position clamp to [0, 100]% of the track width.
+ * Layout maths only — positions bars/dots/markers on the fixed track; the
+ * clamped percentage is never displayed as data, never described
+ * semantically, and never fed back into selection logic (readouts always
+ * show the unclamped source values).
+ */
 function trackPct(fraction: number): number {
   return Math.max(0, Math.min(100, fraction * 100))
 }

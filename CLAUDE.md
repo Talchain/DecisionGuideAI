@@ -212,6 +212,10 @@ npm run build                      # production build (separate concern)
 | UI-SEM-051 | `src/canvas/components/pre-analysis-v3/constants.ts` | Pre-analysis v3 bar state colour thresholds (warning <0.40, success >=0.75) | Keep — display formatting (legitimate) |
 | UI-SEM-052 | `src/canvas/components/pre-analysis-v3/constants.ts` | Pre-analysis v3 bar fill denominators (options/risks saturate at 3; frame thirds; estimates degree-fallback base weight 1) | Keep — display formatting (legitimate) |
 | UI-SEM-053 | `src/canvas/components/pre-analysis-v3/constants.ts` | Pre-analysis v3 gauge segment quantisation (continuous fill → lit-of-N discrete segments: round(fill·N), clamp [1,N] for positive fill, 0 when empty) | Keep — display formatting (legitimate) |
+| UI-SEM-054 | `src/components/results/analysis-hero/buildHeroModel.ts` | Analysis-hero outcome-axis layout domain (min/max over existing p10/p90/centres + goal threshold only when unit-compatible; 5% pad, unit pad on degenerate span) — positions bars only, never displayed as data | Keep — display formatting (legitimate) |
+| UI-SEM-055 | `src/components/results/analysis-hero/HeroOptionRow.tsx` | Analysis-hero track position clamp to [0,100]% of the track (layout only; readouts always show unclamped source values) | Keep — display formatting (legitimate) |
+| UI-SEM-056 | `src/components/results/analysis-hero/buildHeroModel.ts` | Analysis-hero constraint-presence copy switch (goal-and-limits vs goal-alone wording; "and limits" only when every goal-bearing option carries constraint analysis) | Keep — display formatting (legitimate) |
+| UI-SEM-057 | `src/components/results/analysis-hero/buildHeroModel.ts` | Analysis-hero sub-1% goal readout floor ("< 1%" when goalProbability < 0.01 — OptionCards parity) | Keep — display formatting (legitimate) |
 
 - Check for stale `.js` files co-located with `.ts`/`.tsx` source files in `src/` when debugging unexpected behaviour.
 - This is a React app — check for stale component state, missing dependency arrays in hooks, and incorrect memoisation when debugging rendering issues.
