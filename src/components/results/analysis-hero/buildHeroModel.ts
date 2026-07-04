@@ -144,20 +144,24 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   // never throw — when a caller supplies less than the type promises.
   if (!data?.recommendation?.allOptions) return { kind: 'empty' }
   const { recommendation, drivers, isLoading, isError } = data
-  const completenessStatus = data.completeness?.status
 
-  // Non-chart states first. `completeness` consults SOURCE fields (P0 V5
-  // golden-path repair) and reads 'full' before any run, so these branches
-  // cannot fire on a fresh canvas. Curated copy only — statusReason may carry
-  // internal identifiers, so it is deliberately not interpolated.
+  // Non-chart states fire ONLY on the real analysis lifecycle — loading, a
+  // hook error, or a PLoT-reported blocked/failed/partial run (via
+  // `recommendation.analysisStatus`). They deliberately do NOT key off
+  // `completeness.status`: that verdict turns 'partial' when OPTIONAL
+  // enrichment is absent (e.g. the CEE decision review is skipped when
+  // coaching autofire is off, as on staging — `decision_review_unavailable`),
+  // which has nothing to do with whether the hero can draw its chart. The
+  // hero consumes none of that enrichment; its own per-field gating (lens
+  // availability, "—" readouts, omitted detail lines, empty-when-nothing-
+  // displayable) already degrades honestly. Gating the whole chart on
+  // completeness would show "some steps did not complete" over a perfectly
+  // computed run — the exact false-partial this avoids. Curated copy only —
+  // statusReason may carry internal identifiers, so it is not interpolated.
   if (isLoading) return { kind: 'empty' }
   if (recommendation.analysisStatus === 'blocked') return statusModel('blocked')
-  if (isError || recommendation.analysisStatus === 'failed' || completenessStatus === 'failed') {
-    return statusModel('failed')
-  }
-  if (recommendation.analysisStatus === 'partial' || completenessStatus === 'partial') {
-    return statusModel('partial')
-  }
+  if (isError || recommendation.analysisStatus === 'failed') return statusModel('failed')
+  if (recommendation.analysisStatus === 'partial') return statusModel('partial')
 
   const options = recommendation.allOptions
   // No analysis yet (the hook's pre-run default) — the tab stays unchanged.

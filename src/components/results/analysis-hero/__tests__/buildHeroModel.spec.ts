@@ -293,13 +293,24 @@ describe('buildHeroModel — states', () => {
     expect(m).toMatchObject({ kind: 'status', variant: 'failed' })
   })
 
-  it('renders the partial status state from completeness', () => {
-    const partial: ResultCompleteness = { ...FULL_COMPLETENESS, status: 'partial' }
+  it('renders the CHART (not partial) when completeness is partial but core data is present', () => {
+    // Staging repro: a fully-computed PLoT run whose OPTIONAL enrichment is
+    // absent (e.g. the decision review is skipped with coaching autofire off)
+    // reads `completeness.status === 'partial'`. The hero consumes none of
+    // that enrichment, so it must render its answer-first chart, NOT the
+    // "some steps did not complete" card. Completeness must not gate the chart.
+    const partial: ResultCompleteness = {
+      ...FULL_COMPLETENESS,
+      status: 'partial',
+      missing: ['decision_review'],
+      reasons: ['decision_review_unavailable'],
+    } as ResultCompleteness
     const m = buildHeroModel(makeHeroData({ completeness: partial }))
-    expect(m).toMatchObject({ kind: 'status', variant: 'partial' })
+    expect(m.kind).toBe('chart')
+    expect((m as HeroChartModel).lenses).toEqual(['goal', 'outcome'])
   })
 
-  it('renders the partial status state from analysisStatus', () => {
+  it('renders the partial status state from a PLoT-reported partial analysisStatus', () => {
     const m = buildHeroModel(makeHeroData({ recommendation: { analysisStatus: 'partial' } }))
     expect(m).toMatchObject({ kind: 'status', variant: 'partial' })
   })
