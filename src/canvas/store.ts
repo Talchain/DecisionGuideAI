@@ -306,7 +306,12 @@ interface CanvasState {
   reconnecting: ReconnectState | null
   touchedNodeIds: Set<string>  // Nodes with edited probabilities
   outcomeNodeId: string | null  // Selected outcome node for analysis
-  goalThreshold: number | null  // Optional success threshold for probability_of_goal
+  // Optional success threshold for probability_of_goal. UNIT CONTRACT: user
+  // units (the goal_threshold_raw scale) — every writer (threshold editors,
+  // CEE sync) stores raw values and every display reader treats it as raw.
+  // The one normalised consumer (PLoT request goal_threshold, 0-1) converts
+  // at the boundary in useV2Run (UI-SEM-058).
+  goalThreshold: number | null
   nextNodeId: number
   nextEdgeId: number
   _internal: { lastHistoryHash: string }
@@ -3340,8 +3345,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       const { nodes } = get()
       const nodeIds = nodes.map((n) => n.id)
       set({ ceeAnalysisReady: analysisReady, ceeAnalysisReadyNodeIds: nodeIds })
-      // Sync goal threshold from CEE to store (fixes "?" badge on goals with thresholds)
-      const ceeThreshold = (analysisReady as any).goal_threshold ?? (analysisReady as any).goal_threshold_raw
+      // Sync goal threshold from CEE to store (fixes "?" badge on goals with thresholds).
+      // goal_threshold_raw FIRST: the store field's contract is user units (see
+      // the goalThreshold field comment). goal_threshold is normalised 0-1 — syncing
+      // it here painted the Results target line at 0.8 when the real target was
+      // 20% (staging trust review, 2026-07). Fallback to goal_threshold is safe
+      // only because raw ≡ normalised when CEE sends no raw/cap pair.
+      const ceeThreshold = (analysisReady as any).goal_threshold_raw ?? (analysisReady as any).goal_threshold
       if (ceeThreshold != null && get().goalThreshold == null) {
         // Producer write (syncing the threshold FROM the analysis) — must not
         // self-dirty the freshness overlay.
