@@ -39,6 +39,7 @@ import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { FlipThreshold, OptionResult } from '../types'
 import { formatThreshold } from '../RangeVisualization'
 import { stripEncodingNotation } from '../utils/cleanFactorLabel'
+import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 import {
   getExpectedValue,
   getMedian,
@@ -163,7 +164,11 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   if (isError || recommendation.analysisStatus === 'failed') return statusModel('failed')
   if (recommendation.analysisStatus === 'partial') return statusModel('partial')
 
-  const options = recommendation.allOptions
+  // Present rows in the SHARED option display order (win probability when
+  // complete, else expected — sortOptionsForDisplay) so hero numbering always
+  // matches the OptionCards/WinGauge ranking below. Presentation numbering,
+  // not graph-node truth; stable across lens switches (asserted in tests).
+  const options = sortOptionsForDisplay(recommendation.allOptions)
   // No analysis yet (the hook's pre-run default) — the tab stays unchanged.
   if (options.length === 0) return { kind: 'empty' }
 
@@ -189,8 +194,8 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     (ft) => ft.flip_value != null,
   )
 
-  // Rows in allOptions[] presentation order — the same order for every lens,
-  // so numbering is stable across lens switches (asserted in tests).
+  // Rows in the shared display order — the same order for every lens, so
+  // numbering is stable across lens switches (asserted in tests).
   const rows: HeroRowVM[] = options.map((o, i) => {
     const goalValue = o.goalProbability ?? null
     const centre = outcomeCentre(o)
