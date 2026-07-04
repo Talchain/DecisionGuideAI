@@ -59,7 +59,20 @@ export function formatThreshold(
     return `${symbol}${Math.round(value).toLocaleString()}`
   }
   if (unit === 'percent') {
-    // Auto-detect probability form (0-2 range) vs percentage form
+    // isNormalised === false means the caller's values were denormalised into
+    // user units (useResultsSectionData scales by goal_threshold_cap) — the
+    // value IS a percentage already, however small. Render it as-is with the
+    // same magnitude-based precision OptionCards' formatRangeValue uses, so
+    // hero readouts and the option cards below share one scale (a -0.37%
+    // expected shift must never inflate to "-37%").
+    if (isNormalised === false) {
+      const abs = Math.abs(value)
+      const decimals = abs > 100 ? 0 : abs > 10 ? 1 : 2
+      return `${value.toLocaleString(undefined, { maximumFractionDigits: decimals, minimumFractionDigits: 0 })}%`
+    }
+    // UI-SEM-059: legacy probability-form auto-detect (|v| ≤ 2 → ×100) for
+    // callers that cannot assert isNormalised. Remove when all callers pass
+    // isNormalised explicitly.
     const displayValue = Math.abs(value) <= 2 ? value * 100 : value
     return formatPct(displayValue)
   }
