@@ -45,9 +45,32 @@ export interface HeroOptionRowProps {
 /**
  * Shared row grid: number+label · track · readout · chevron slot. The axis
  * header in AnalysisHeroPanel uses the same template so columns align.
+ * Label column matches the prototype's 126px (7.875rem) to reduce mid-word
+ * truncation; the full label is always available in the opened detail.
  */
 export const HERO_ROW_GRID =
-  'grid w-full grid-cols-[minmax(0,7.5rem)_1fr_auto_0.875rem] items-center gap-2 rounded-lg px-2 py-1.5 text-left'
+  'grid w-full grid-cols-[minmax(0,7.875rem)_1fr_auto_0.875rem] items-center gap-2 rounded-lg px-2 py-1.5 text-left'
+
+/**
+ * Range-bar fills — SOLID semantic light tokens, deliberately not opacity
+ * modifiers: the theme colours are plain `var(--x)` values, so Tailwind
+ * CANNOT generate `bg-option/40`-style classes (it silently emits nothing
+ * and the bar renders transparent — the staging "invisible bars" defect).
+ * These exact class strings are compile-checked by
+ * __tests__/chartClassesCompile.spec.ts; change them only in lockstep.
+ * Mapping follows the prototype: option-soft → option-light (rows),
+ * lead-fill → info-light (leader).
+ */
+export const HERO_BAR_FILL = {
+  leader: 'bg-info-light',
+  rest: 'bg-option-light',
+} as const
+
+/** Dot fills (no opacity modifiers — same compile guarantee). */
+export const HERO_DOT_FILL = {
+  leader: 'bg-primary',
+  rest: 'bg-option',
+} as const
 
 /**
  * UI-SEM-055: track position clamp to [0, 100]% of the track width.
@@ -96,10 +119,15 @@ export function HeroOptionRow({
   const readoutSuffix =
     lens === 'goal' && row.goal.value != null ? ` ${HERO_COPY.readout.goalSuffix}` : ''
 
-  const hasDetail = Boolean(
-    row.detail.why || row.detail.couldChangeIf || row.detail.winChance,
+  // Expanded-row affordance policy: a chevron promises more than one line.
+  // Rows whose ONLY detail is the win probability are not expandable —
+  // the win line renders as persistent meta under the row instead, so the
+  // information survives without a hollow disclosure.
+  const hasDetailBeyondWin = Boolean(
+    row.detail.why || row.detail.couldChangeIf || row.detail.range || row.detail.goalFit,
   )
-  const expandable = hasDetail && interactive
+  const expandable = hasDetailBeyondWin && interactive
+  const winOnlyMeta = !hasDetailBeyondWin && row.detail.winChance
   const Chevron = isOpen ? ChevronDown : ChevronRight
 
   const rowGrid = (
@@ -128,13 +156,17 @@ export function HeroOptionRow({
       {/* Chart track — layout-only positions, transform/opacity animation. */}
       <span aria-hidden="true" className="relative block h-5 min-w-0">
         <span className="absolute inset-x-0 top-1/2 h-px bg-panel-border" />
-        {/* Range / probability bar: full-width element scaled from the left. */}
+        {/* Range / probability bar: full-width element scaled from the left.
+            Solid light-token fill (HERO_BAR_FILL) — opacity-modifier classes
+            do not compile with this theme and render transparent. */}
         <span
-          className={`absolute left-0 h-1.5 w-full rounded-full transition-transform motion-reduce:transition-none ${
-            isLeader ? 'bg-primary/50' : 'bg-option/40'
+          data-testid="hero-range-bar"
+          data-visible={barStart != null && barEnd != null ? 'true' : 'false'}
+          className={`absolute left-0 h-2.5 w-full rounded-full transition-transform motion-reduce:transition-none ${
+            isLeader ? HERO_BAR_FILL.leader : HERO_BAR_FILL.rest
           }`}
           style={{
-            top: 'calc(50% - 3px)',
+            top: 'calc(50% - 5px)',
             transformOrigin: 'left',
             transform: `translateX(${barStart ?? 0}%) scaleX(${
               barStart != null && barEnd != null ? Math.max(barEnd - barStart, 0) / 100 : 0
@@ -152,7 +184,7 @@ export function HeroOptionRow({
         >
           <span
             className={`absolute left-0 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-panel ${
-              isLeader ? 'bg-primary' : 'bg-option'
+              isLeader ? HERO_DOT_FILL.leader : HERO_DOT_FILL.rest
             }`}
           />
         </span>
@@ -202,12 +234,37 @@ export function HeroOptionRow({
           data-testid="hero-option-detail"
           className="space-y-1 pb-2 pl-9 pr-2 pt-0.5"
         >
+          {/* Full, unclamped option name — the visible label may be
+              truncated by the two-line clamp, so the detail always
+              recovers it in place. */}
+          <p
+            className={`${typography.panelBody} text-text-header`}
+            data-testid="hero-detail-label"
+          >
+            {row.label}
+          </p>
           {row.detail.why && (
             <p className={`${typography.panelBody} text-text-body`} data-testid="hero-detail-why">
               <span className="text-text-header">
                 {HERO_COPY.detail.whyLabel}
               </span>{' '}
               {row.detail.why}
+            </p>
+          )}
+          {row.detail.range && (
+            <p
+              className={`${typography.panelBody} text-text-body`}
+              data-testid="hero-detail-range"
+            >
+              {row.detail.range}
+            </p>
+          )}
+          {row.detail.goalFit && (
+            <p
+              className={`${typography.panelBody} text-text-body`}
+              data-testid="hero-detail-goal-fit"
+            >
+              {row.detail.goalFit}
             </p>
           )}
           {row.detail.couldChangeIf && (
@@ -230,6 +287,18 @@ export function HeroOptionRow({
             </p>
           )}
         </div>
+      )}
+
+      {/* Win-only rows: the chevron is withheld (one line is not a
+          disclosure), and the win probability renders as persistent meta
+          so the information is not lost. */}
+      {winOnlyMeta && (
+        <p
+          className={`${typography.panelMeta} pb-1.5 pl-9 pr-2 text-text-light`}
+          data-testid="hero-win-meta"
+        >
+          {row.detail.winChance}
+        </p>
       )}
     </div>
   )

@@ -23,6 +23,10 @@ export interface HeroRowDetail {
   couldChangeIf?: string
   /** Formatted producer win probability (display-honesty formatter). */
   winChance?: string
+  /** "Realistic range: X to Y." from the row's own p10/p90 (same formatter as the readout). */
+  range?: string
+  /** Goal-fit line from the row's own goalProbability (constraint-aware wording). */
+  goalFit?: string
 }
 
 export interface HeroRowVM {
@@ -90,7 +94,19 @@ export interface HeroChartModel {
    * when the outcome lens is unavailable.
    */
   outcomeDomain: { min: number; max: number } | null
-  /** Footer "Main reason" line, or null when no clean driver label exists. */
+  /**
+   * True when at least one row draws a p10-p90 range line — gates the
+   * outcome caption so it never describes lines that are not rendered.
+   */
+  outcomeRangesShown: boolean
+  /**
+   * Single-lens discoverability hint ("Set a success target…"): true ONLY
+   * when the goal lens is absent because no success target exists
+   * (goalThreshold null) — never when a targeted run merely lacks goal
+   * probabilities (producer gap, where the hint would mislead).
+   */
+  showGoalHint: boolean
+  /** Footer "Main driver" line, or null when no clean driver label exists. */
   mainReason: string | null
 }
 

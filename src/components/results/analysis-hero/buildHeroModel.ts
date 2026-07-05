@@ -177,7 +177,7 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   // No analysis yet (the hook's pre-run default) — the tab stays unchanged.
   if (options.length === 0) return { kind: 'empty' }
 
-  const { outcomeUnit, outcomeUnitSymbol, isNormalised } = recommendation
+  const { outcomeUnit, outcomeUnitSymbol, isNormalised, goalThreshold } = recommendation
 
   // UI-SEM-056: constraint-presence copy switch (goal-and-limits vs
   // goal-alone wording; same class as UI-SEM-050). Copy only — never a
@@ -203,6 +203,8 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   const rows: HeroRowVM[] = options.map((o, i) => {
     const goalValue = o.goalProbability ?? null
     const centre = outcomeCentre(o)
+    const p10 = outcomeP10(o)
+    const p90 = outcomeP90(o)
     const why = recommendation.storyHeadlines?.[o.id]
     const couldChangeIf = couldChangeIfLine(o, o.id === recommendedId, usableFlips)
     const winChance =
@@ -210,6 +212,22 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
         ? HERO_COPY.detail.winChance(
             formatProbabilityWithResolution(o.winProbability, o.nValidSamples),
           )
+        : undefined
+    // Grounded detail lines from the row's OWN existing fields (same
+    // formatters as the readouts) — never authored prose, omitted when the
+    // sourcing fields are absent.
+    const range =
+      p10 != null && p90 != null
+        ? HERO_COPY.detail.range(
+            formatThreshold(p10, outcomeUnit, outcomeUnitSymbol, isNormalised),
+            formatThreshold(p90, outcomeUnit, outcomeUnitSymbol, isNormalised),
+          )
+        : undefined
+    const goalFit =
+      goalValue != null
+        ? hasConstraints
+          ? HERO_COPY.detail.goalFitWithLimits(goalReadout(goalValue))
+          : HERO_COPY.detail.goalFit(goalReadout(goalValue))
         : undefined
     return {
       id: o.id,
@@ -220,15 +238,15 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
         readout: goalReadout(goalValue),
       },
       outcome: {
-        p10: outcomeP10(o),
-        p90: outcomeP90(o),
+        p10,
+        p90,
         centre,
         readout:
           centre != null
             ? formatThreshold(centre, outcomeUnit, outcomeUnitSymbol, isNormalised)
             : HERO_COPY.readout.missing,
       },
-      detail: { why, couldChangeIf, winChance },
+      detail: { why, couldChangeIf, winChance, range, goalFit },
     }
   })
 
@@ -254,11 +272,39 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     }
   }
 
+  // Outcome runner-up: second-highest existing centre, same deterministic
+  // tie-break. Needed only for the close-call calibration below.
+  let outcomeRunnerUpRow: HeroRowVM | null = null
+  let runnerUpCentre = -Infinity
+  for (const r of rows) {
+    if (r.id === outcomeLeaderId) continue
+    if (r.outcome.centre != null && r.outcome.centre > runnerUpCentre) {
+      runnerUpCentre = r.outcome.centre
+      outcomeRunnerUpRow = r
+    }
+  }
+
   // Headline leader: the Results Panel's recommended option. `find` also
   // guards the recovered-session identity mismatch — if the recommended id
   // is not among the analysed rows, no leader is claimed.
   const headlineRow = rows.find((r) => r.id === recommendedId) ?? null
   const outcomeLeaderRow = rows.find((r) => r.id === outcomeLeaderId) ?? null
+
+  // UI-SEM-060: deterministic close-call trigger. The top two rendered
+  // outcome rows count as "close" when their p10-p90 ranges INTERSECT —
+  // the same overlap the chart draws and the caption tells the user to
+  // treat as unsettled. Selection/comparison of existing values only
+  // (display calibration, same class as UI-SEM-050); when either row lacks
+  // a range the trigger stays false — closeness is never invented.
+  const topTwoClose =
+    outcomeLeaderRow != null &&
+    outcomeRunnerUpRow != null &&
+    outcomeLeaderRow.outcome.p10 != null &&
+    outcomeLeaderRow.outcome.p90 != null &&
+    outcomeRunnerUpRow.outcome.p10 != null &&
+    outcomeRunnerUpRow.outcome.p90 != null &&
+    Math.max(outcomeLeaderRow.outcome.p10, outcomeRunnerUpRow.outcome.p10) <=
+      Math.min(outcomeLeaderRow.outcome.p90, outcomeRunnerUpRow.outcome.p90)
 
   // Goal honesty (UI-SEM-057 reuse — the same sub-1% floor that drives the
   // "< 1%" readouts, no new threshold): when EVERY row carries a goal
@@ -306,7 +352,14 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     // No goal basis: the leader claim names the canonical analysis leader
     // (recommendedOption — proven to equal the Results Panel/producer
     // leader) with analysis-grounded wording, never an outcome-lens claim.
-    headline = HERO_COPY.headline.analysisLeads(safeLabel(headlineRow))
+    // Close-call calibration (UI-SEM-060) applies only when the claimed
+    // leader IS the outcome leader — a flat claim over intersecting ranges
+    // would overstate certainty. In the diverged case the tension subline
+    // already tempers the claim.
+    headline =
+      topTwoClose && headlineRow.id === outcomeLeaderRow?.id
+        ? HERO_COPY.headline.analysisLeadsClose(safeLabel(headlineRow))
+        : HERO_COPY.headline.analysisLeads(safeLabel(headlineRow))
   } else if (outcomeAvailable && outcomeLeaderRow) {
     // No recommended option among the rows: headline the outcome fact
     // itself — but ONLY when the outcome lens is actually visible (centres
@@ -330,9 +383,18 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
       // No leader was claimed; the outcome fact is the one honest pointer.
       subline = HERO_COPY.subline.highestOutcome(safeLabel(outcomeLeaderRow))
     } else if (headlineRow) {
+      // Aligned + intersecting top-two ranges (UI-SEM-060): name the
+      // runner-up from the SAME rendered ranking, so the copy can never
+      // disagree with the rows. goalLeaderRow-headlined runs keep the plain
+      // aligned/divergence pair — the goal claim is not an outcome claim.
       subline =
         headlineRow.id === outcomeLeaderRow.id
-          ? HERO_COPY.subline.aligned(safeLabel(headlineRow))
+          ? topTwoClose && !goalLeaderRow && outcomeRunnerUpRow
+            ? HERO_COPY.subline.closeBehind(
+                safeLabel(headlineRow),
+                safeLabel(outcomeRunnerUpRow),
+              )
+            : HERO_COPY.subline.aligned(safeLabel(headlineRow))
           : HERO_COPY.subline.highestOutcome(safeLabel(outcomeLeaderRow))
     }
   }
@@ -395,6 +457,12 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
       outcome: outcomeLeaderId,
     },
     outcomeDomain,
+    // Caption honesty: only describe range lines the chart actually draws.
+    outcomeRangesShown: outcomeAvailable,
+    // Discoverability hint fires ONLY when the goal lens is absent because
+    // no success target exists — a targeted run missing goal probabilities
+    // is a producer gap where "set a success target" would mislead.
+    showGoalHint: !goalAvailable && goalThreshold == null,
     mainReason,
   }
   return model

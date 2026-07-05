@@ -112,8 +112,14 @@ export function AnalysisHeroPanel({
   const goalKey = model.hasConstraints ? ('goalWithLimits' as const) : ('goalOnly' as const)
   const axis = lens === 'goal' ? HERO_COPY.axis[goalKey] : HERO_COPY.axis.outcome
   // The Likely outcome lens shows option comparison only — no target line or
-  // target mention (target attainment lives on the Goal fit lens).
-  const caption = lens === 'goal' ? HERO_COPY.caption[goalKey] : HERO_COPY.caption.outcome
+  // target mention (target attainment lives on the Goal fit lens). The
+  // caption describes range lines only when the chart actually draws them.
+  const caption =
+    lens === 'goal'
+      ? HERO_COPY.caption[goalKey]
+      : model.outcomeRangesShown
+        ? HERO_COPY.caption.outcome
+        : HERO_COPY.caption.outcomeDotsOnly
 
   const leaderId = model.leaders[lens]
 
@@ -190,6 +196,17 @@ export function AnalysisHeroPanel({
           <Info aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 flex-none text-info" />
           <span data-testid="hero-caption">{caption}</span>
         </p>
+
+        {/* Single-lens discoverability: only when the goal lens is absent
+            because no success target exists (never for producer gaps). */}
+        {model.showGoalHint && (
+          <p
+            className={`${typography.panelMeta} pl-5 text-text-light`}
+            data-testid="hero-goal-hint"
+          >
+            {HERO_COPY.goalHint}
+          </p>
+        )}
       </div>
 
       {/* Footer strip: Main reason · Focus next. The trust line is omitted —

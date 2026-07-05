@@ -33,6 +33,12 @@ export const HERO_COPY = {
      * diverged (staging trust review).
      */
     analysisLeads: (label: string) => `${label} currently leads the overall analysis.`,
+    /**
+     * Close-call calibration (UI-SEM-060): when the top two outcome ranges
+     * overlap, the flat leader claim overstates certainty — the tempered
+     * variant is generated from the rendered ranking, never hand-picked.
+     */
+    analysisLeadsClose: (label: string) => `${label} currently leads, but the top options are close.`,
     /** Fallback when no recommended option exists among the rows: headline the outcome fact itself. */
     outcomeLeader: (label: string) => `${label} has the highest expected outcome.`,
     /**
@@ -57,6 +63,13 @@ export const HERO_COPY = {
      */
     highestOutcome: (label: string) => `${label} has the highest expected outcome.`,
     aligned: (label: string) => `${label} also has the strongest expected outcome.`,
+    /**
+     * Close-call subline (UI-SEM-060): names the leader AND the runner-up
+     * from the same rendered outcome ranking the chart shows, so the copy
+     * can never contradict the rows.
+     */
+    closeBehind: (leader: string, runnerUp: string) =>
+      `${leader} has the highest expected outcome, with ${runnerUp} close behind.`,
   },
 
   /** Fallback when a label cannot be safely interpolated into generated copy. */
@@ -72,8 +85,19 @@ export const HERO_COPY = {
   caption: {
     goalWithLimits: 'Each bar is the chance that option meets your goal and limits together.',
     goalOnly: 'Each bar is the chance that option hits your goal.',
-    outcome: 'Bars show the realistic range of outcomes. Where ranges overlap, treat the order as unsettled.',
+    /** Shown only when at least one row actually renders a p10-p90 line. */
+    outcome: 'Dots show expected outcome. Lines show the realistic range. Where ranges overlap, treat the order as unsettled.',
+    /** Shown when no row carries a range — never describe lines that are not drawn. */
+    outcomeDotsOnly: 'Dots show the expected outcome for each option.',
   },
+
+  /**
+   * Single-lens discoverability: shown ONLY when the goal lens is absent
+   * because no success target exists (goalThreshold null) — never when the
+   * producer simply omitted goal probabilities for a targeted run, where
+   * the hint would mislead.
+   */
+  goalHint: 'Set a success target to see goal fit.',
 
   readout: {
     goalSuffix: 'fit',
@@ -93,10 +117,19 @@ export const HERO_COPY = {
     couldChangeIfLabel: 'Could change if',
     couldChangeIf: (factor: string, value: string) => `${factor} crosses ${value}.`,
     winChance: (formatted: string) => `${formatted} chance it is the strongest option overall.`,
+    /** Grounded lines from existing adapted fields — never authored prose. */
+    range: (low: string, high: string) => `Realistic range: ${low} to ${high}.`,
+    goalFit: (readout: string) => `${readout} chance of hitting your goal.`,
+    goalFitWithLimits: (readout: string) => `${readout} chance of meeting your goal and limits.`,
   },
 
   footer: {
-    mainReason: (factor: string) => `Main reason: ${factor} has the strongest effect on this result.`,
+    /**
+     * Names the top driver only — no causal implication. An implication
+     * sentence ("the result depends on…") is UI-authored causal prose and
+     * stays forbidden until a producer rationale string exists.
+     */
+    mainReason: (factor: string) => `Main driver: ${factor}.`,
     /**
      * Focus-next reconciliation (review-locked): the coaching panel's rows
      * are composed POSITIONALLY (buildFocusRows: server rows in received
