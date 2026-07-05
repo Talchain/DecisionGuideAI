@@ -82,6 +82,7 @@ export function AnalysisHeroPanel({
   // degrades to plain text when the target is absent. Re-checked on every
   // commit; React's setState equality bail-out keeps this loop-free.
   const [focusTargetPresent, setFocusTargetPresent] = useState(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately dependency-less: the scroll target can appear/vanish without any prop changing (error boundary swap), so the check must run on every commit; the setState equality bail-out keeps it loop-free
   useEffect(() => {
     setFocusTargetPresent(
       focusPanelMounted && document.querySelector(FOCUS_PANEL_SELECTOR) != null,

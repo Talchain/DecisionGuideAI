@@ -70,7 +70,9 @@ export const HERO_ROW_GRID =
  * (issue 222).
  */
 export const HERO_BAR_FILL = {
+  // eslint-disable-next-line brand-tokens/no-bare-light-bg -- chart data-mark fill, not a card/banner/pill: prototype-mapped DS exception pending owner ruling (issue 222)
   leader: 'bg-info-light',
+  // eslint-disable-next-line brand-tokens/no-bare-light-bg -- chart data-mark fill, not a card/banner/pill: prototype-mapped DS exception pending owner ruling (issue 222)
   rest: 'bg-option-light',
 } as const
 

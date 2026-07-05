@@ -97,10 +97,11 @@ export interface HeroChartModel {
   /**
    * Number of rows that draw a p10-p90 range line — gates the outcome
    * caption so it never describes lines (or overlap) that are not
-   * rendered: 0 → dots-only wording, 1 → lines wording without the
-   * overlap sentence, 2+ → full wording. (0 is unreachable today — the
-   * outcome lens is only offered when some row carries a range — but the
-   * gate stays honest if that lens gating ever changes.)
+   * rendered: 0 → dots-only wording, 1 → singular "The line shows…"
+   * wording without the overlap sentence, 2+ → full wording. (0 is
+   * unreachable today — the outcome lens is only offered when some row
+   * carries a range — but the gate stays honest if that lens gating ever
+   * changes.)
    */
   outcomeRangedRowCount: number
   /**
