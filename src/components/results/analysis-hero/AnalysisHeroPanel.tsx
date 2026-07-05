@@ -111,12 +111,9 @@ export function AnalysisHeroPanel({
   // the axis and the caption (the two share key structure in HERO_COPY).
   const goalKey = model.hasConstraints ? ('goalWithLimits' as const) : ('goalOnly' as const)
   const axis = lens === 'goal' ? HERO_COPY.axis[goalKey] : HERO_COPY.axis.outcome
-  const caption =
-    lens === 'goal'
-      ? HERO_COPY.caption[goalKey]
-      : model.targetReadout
-        ? `${HERO_COPY.caption.outcome} ${HERO_COPY.caption.outcomeTarget(model.targetReadout)}`
-        : HERO_COPY.caption.outcome
+  // The Likely outcome lens shows option comparison only — no target line or
+  // target mention (target attainment lives on the Goal fit lens).
+  const caption = lens === 'goal' ? HERO_COPY.caption[goalKey] : HERO_COPY.caption.outcome
 
   const leaderId = model.leaders[lens]
 
@@ -184,7 +181,6 @@ export function AnalysisHeroPanel({
                 onToggle={() => setOpenRowId((cur) => (cur === row.id ? null : row.id))}
                 interactive={interactive}
                 outcomeDomain={model.outcomeDomain}
-                targetValue={model.targetValue}
               />
             ))}
           </div>

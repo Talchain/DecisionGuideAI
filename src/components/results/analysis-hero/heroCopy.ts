@@ -73,7 +73,6 @@ export const HERO_COPY = {
     goalWithLimits: 'Each bar is the chance that option meets your goal and limits together.',
     goalOnly: 'Each bar is the chance that option hits your goal.',
     outcome: 'Bars show the realistic range of outcomes. Where ranges overlap, treat the order as unsettled.',
-    outcomeTarget: (target: string) => `The dashed line marks your target of ${target}.`,
   },
 
   readout: {

@@ -28,11 +28,12 @@
  * shows ONE bar labelled by constraint presence and renders NO separate
  * goal-alone marker (selector gap, reported in the PR).
  *
- * Target/domain guard (top silent-bug risk): `goalThreshold` is in user
- * units while outcome values are user-unit only when `isNormalised ===
- * false`. The target marker renders — and the threshold joins the layout
- * domain — ONLY under that exact condition; any uncertainty (undefined)
- * omits both so an incompatible threshold can never distort the chart.
+ * Lens ownership: the Likely outcome lens owns OPTION COMPARISON, so its
+ * layout domain is derived from the option outcome values only and it never
+ * renders a goal-target marker (a target far above the option spread would
+ * compress the bars and destroy discrimination). Target ATTAINMENT lives on
+ * the Goal fit lens — its probability bars plus the sub-1% / no-option-on-
+ * track honesty carry the shortfall truth.
  */
 
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
@@ -176,7 +177,7 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   // No analysis yet (the hook's pre-run default) — the tab stays unchanged.
   if (options.length === 0) return { kind: 'empty' }
 
-  const { outcomeUnit, outcomeUnitSymbol, isNormalised, goalThreshold } = recommendation
+  const { outcomeUnit, outcomeUnitSymbol, isNormalised } = recommendation
 
   // UI-SEM-056: constraint-presence copy switch (goal-and-limits vs
   // goal-alone wording; same class as UI-SEM-050). Copy only — never a
@@ -336,33 +337,19 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     }
   }
 
-  // Target/domain guard — the threshold joins the chart ONLY when it
-  // provably shares the displayed outcome metric/unit:
-  //  1. `isNormalised === false`: outcome values were denormalised into the
-  //     goal node's user units (useResultsSectionData scales by
-  //     goal_threshold_cap), and `goalThreshold` is goal_threshold_raw from
-  //     the SAME goal node — same metric by construction. `true` means
-  //     outcomes are relative scores (threshold incompatible); `undefined`
-  //     (older data, pre-run defaults) counts as uncertainty → omit.
-  //  2. `outcomeUnit != null`: the Results Panel's shared unit convention
-  //     (outcomeUnit/outcomeUnitSymbol — the same fields SuccessTargetRow
-  //     and RangeVisualization format BOTH the threshold and outcome values
-  //     with) actually exists. An unknown unit removes the evidence that
-  //     threshold and outcomes share a metric → uncertainty → omit.
-  // An incompatible/uncertain threshold is excluded from BOTH the marker
-  // and the axis-domain calculation below, so it can never distort the chart.
-  const targetCompatible =
-    isNormalised === false &&
-    outcomeUnit != null &&
-    typeof goalThreshold === 'number' &&
-    Number.isFinite(goalThreshold)
-  const targetValue = targetCompatible ? goalThreshold : null
-
   // UI-SEM-054: outcome-axis layout domain derivation. Min/max over the
-  // existing p10/p90/centre values (plus the goal threshold ONLY when
-  // unit-compatible, i.e. isNormalised === false), padded 5% each side
-  // (matching RangeVisualization) with a unit pad on a degenerate span.
-  // Layout only — the domain positions bars and is never displayed as data.
+  // existing p10/p90/centre values ONLY, padded 5% each side (matching
+  // RangeVisualization) with a unit pad on a degenerate span. Layout only —
+  // the domain positions bars and is never displayed as data.
+  //
+  // The goal threshold is deliberately NOT in this domain: the Likely
+  // outcome lens owns option comparison, and a target far from every
+  // outcome (the common case — the goal sits well above the option spread)
+  // would stretch the domain and compress the bars into a narrow band,
+  // destroying the discrimination the lens exists to show. Target
+  // attainment lives on the Goal fit lens instead (its probability bars and
+  // the sub-1% / no-option-on-track honesty), so the outcome chart never
+  // renders a target marker.
   let outcomeDomain: { min: number; max: number } | null = null
   if (outcomeAvailable) {
     const values: number[] = []
@@ -371,7 +358,6 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
       if (r.outcome.p90 != null) values.push(r.outcome.p90)
       if (r.outcome.centre != null) values.push(r.outcome.centre)
     }
-    if (targetValue != null) values.push(targetValue)
     let min = Math.min(...values)
     let max = Math.max(...values)
     const span = max - min
@@ -409,11 +395,6 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
       outcome: outcomeLeaderId,
     },
     outcomeDomain,
-    targetValue,
-    targetReadout:
-      targetValue != null
-        ? formatThreshold(targetValue, outcomeUnit, outcomeUnitSymbol, false)
-        : null,
     mainReason,
   }
   return model

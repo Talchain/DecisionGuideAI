@@ -16,6 +16,11 @@
  * the row DOM persists across lens switches so values morph without a
  * remount. Reduced motion is respected via motion-reduce:transition-none.
  *
+ * No goal-target marker: the Likely outcome lens owns option comparison, and
+ * a target far above the option spread would compress the bars. Target
+ * attainment lives on the Goal fit lens (its probability bars + the sub-1% /
+ * no-option-on-track honesty).
+ *
  * Option labels are producer/user content rendered as escaped React text
  * nodes — no raw HTML injection of any kind.
  */
@@ -35,8 +40,6 @@ export interface HeroOptionRowProps {
   interactive: boolean
   /** Layout-only outcome domain; null hides outcome bars. */
   outcomeDomain: { min: number; max: number } | null
-  /** Unit-compatible target value, or null (marker hidden). */
-  targetValue: number | null
 }
 
 /**
@@ -48,10 +51,10 @@ export const HERO_ROW_GRID =
 
 /**
  * UI-SEM-055: track position clamp to [0, 100]% of the track width.
- * Layout maths only — positions bars/dots/markers on the fixed track; the
- * clamped percentage is never displayed as data, never described
- * semantically, and never fed back into selection logic (readouts always
- * show the unclamped source values).
+ * Layout maths only — positions bars/dots on the fixed track; the clamped
+ * percentage is never displayed as data, never described semantically, and
+ * never fed back into selection logic (readouts always show the unclamped
+ * source values).
  */
 function trackPct(fraction: number): number {
   return Math.max(0, Math.min(100, fraction * 100))
@@ -65,7 +68,6 @@ export function HeroOptionRow({
   onToggle,
   interactive,
   outcomeDomain,
-  targetValue,
 }: HeroOptionRowProps) {
   const regionId = useId()
   const labelId = useId()
@@ -74,7 +76,6 @@ export function HeroOptionRow({
   let barStart: number | null = null
   let barEnd: number | null = null
   let dotPos: number | null = null
-  let targetPos: number | null = null
   if (lens === 'goal') {
     if (row.goal.value != null) {
       barStart = 0
@@ -89,7 +90,6 @@ export function HeroOptionRow({
       barEnd = pos(row.outcome.p90)
     }
     if (row.outcome.centre != null) dotPos = pos(row.outcome.centre)
-    if (targetValue != null) targetPos = pos(targetValue)
   }
 
   const readout = lens === 'goal' ? row.goal.readout : row.outcome.readout
@@ -128,18 +128,6 @@ export function HeroOptionRow({
       {/* Chart track — layout-only positions, transform/opacity animation. */}
       <span aria-hidden="true" className="relative block h-5 min-w-0">
         <span className="absolute inset-x-0 top-1/2 h-px bg-panel-border" />
-        {/* Target marker (outcome lens, unit-compatible threshold only). */}
-        <span
-          data-testid="hero-target-marker"
-          data-visible={targetPos != null ? 'true' : 'false'}
-          className="absolute inset-0 transition-transform motion-reduce:transition-none"
-          style={{
-            transform: `translateX(${targetPos ?? 0}%)`,
-            opacity: targetPos != null ? 1 : 0,
-          }}
-        >
-          <span className="absolute bottom-0.5 left-0 top-0.5 w-0 border-l-2 border-dashed border-warning" />
-        </span>
         {/* Range / probability bar: full-width element scaled from the left. */}
         <span
           className={`absolute left-0 h-1.5 w-full rounded-full transition-transform motion-reduce:transition-none ${

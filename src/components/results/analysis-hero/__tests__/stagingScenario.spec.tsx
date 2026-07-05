@@ -151,13 +151,14 @@ describe('staging scenario — model truth', () => {
     }
   })
 
-  it('places the raw 20% target inside the layout domain (never a normalised 0.8 or an "80%" label)', () => {
+  it('the 20% target never stretches the outcome domain (bars keep full-width discrimination)', () => {
     const m = stagingModel()
-    expect(m.targetValue).toBe(20)
-    expect(m.targetReadout).toBe('20%')
-    expect(m.outcomeDomain!.max).toBeGreaterThanOrEqual(20)
-    expect(m.outcomeDomain!.min).toBeLessThanOrEqual(-6.92)
-    // Every row draws a range bar — the caption's "bars" claim is sourced.
+    // Domain hugs the option p10/p90 spread (~ -6.93 .. 6.39), NOT the far
+    // 20% target — the outcome lens owns comparison, so a distant target
+    // must not compress the bars into a sliver.
+    expect(m.outcomeDomain!.max).toBeLessThan(8)
+    expect(m.outcomeDomain!.min).toBeGreaterThan(-8)
+    // Every row still draws a range bar — the caption's "bars" claim is sourced.
     expect(m.rows.every((r) => r.outcome.p10 != null && r.outcome.p90 != null)).toBe(true)
   })
 })
@@ -175,17 +176,24 @@ describe('staging scenario — rendered surfaces (numeric parity, check A)', () 
     )
   }
 
-  it('hero never renders the inflated strings; outcome lens names the 20% target', () => {
+  it('outcome lens shows true percentages, no ×100 inflation, no target marker or mention', () => {
     const { container } = renderHero()
     fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
     const text = container.textContent ?? ''
-    expect(text).toContain('your target of 20%')
     expect(text).toContain('-0.37%')
     expect(text).not.toContain('-37%')
     expect(text).not.toContain('80%')
-    for (const marker of screen.getAllByTestId('hero-target-marker')) {
-      expect(marker).toHaveAttribute('data-visible', 'true')
-    }
+    // Product decision: no target line and no target mention on Likely outcome.
+    expect(screen.queryByTestId('hero-target-marker')).toBeNull()
+    expect(screen.getByTestId('hero-caption')).not.toHaveTextContent(/target/i)
+  })
+
+  it('Goal fit still communicates the target shortfall (every option "< 1%", no-on-track headline)', () => {
+    renderHero() // Goal fit is the default lens for this run.
+    expect(screen.getByTestId('hero-headline')).toHaveTextContent(
+      'No option is currently on track to reach your goal.',
+    )
+    expect(screen.getAllByText('< 1%').length).toBe(4)
   })
 
   it('hero row 1 is the same option OptionCards ranks first, and both surfaces share one scale', () => {

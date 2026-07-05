@@ -85,14 +85,11 @@ export interface HeroChartModel {
   leaders: Record<HeroLens, string | null>
   /**
    * Outcome-axis display domain (layout only — never displayed as data).
-   * Includes the goal threshold ONLY when unit-compatible. Null when the
-   * outcome lens is unavailable.
+   * Derived from the option outcome values only; the goal threshold is
+   * deliberately excluded so it cannot compress the comparison chart. Null
+   * when the outcome lens is unavailable.
    */
   outcomeDomain: { min: number; max: number } | null
-  /** Goal threshold in outcome units, only when unit-compatible; else null. */
-  targetValue: number | null
-  /** Formatted target for the caption (existing Results Panel formatter). */
-  targetReadout: string | null
   /** Footer "Main reason" line, or null when no clean driver label exists. */
   mainReason: string | null
 }

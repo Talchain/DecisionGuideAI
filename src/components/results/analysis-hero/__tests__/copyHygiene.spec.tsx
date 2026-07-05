@@ -34,7 +34,6 @@ const UI_COPY: string[] = [
   HERO_COPY.caption.goalWithLimits,
   HERO_COPY.caption.goalOnly,
   HERO_COPY.caption.outcome,
-  HERO_COPY.caption.outcomeTarget('120'),
   // HERO_COPY.readout.missing is deliberately NOT scanned: it is the
   // app-wide missing-value placeholder glyph ('—', matching format.ts
   // nullPlaceholder), not prose — the no-em-dash rule targets sentences.

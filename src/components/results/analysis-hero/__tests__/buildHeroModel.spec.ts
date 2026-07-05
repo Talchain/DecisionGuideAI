@@ -55,53 +55,30 @@ describe('buildHeroModel — boundary values', () => {
     expect(m.rows[1].outcome.centre).toBe(OPTION_B.expected)
   })
 
-  it('target equals goalThreshold when unit-compatible (isNormalised === false)', () => {
+  it('the outcome-axis domain is derived from option values only (bars, dots)', () => {
+    // Fixture p10/p90 span 46..82; the padded domain hugs those extremes so
+    // the bars use the full track width.
     const m = chart(buildHeroModel(makeHeroData()))
-    expect(m.targetValue).toBe(62)
-    // Threshold participates in the layout domain (62 < max already, min unaffected here)
     expect(m.outcomeDomain).not.toBeNull()
+    expect(m.outcomeDomain!.min).toBeGreaterThan(40)
+    expect(m.outcomeDomain!.min).toBeLessThan(46)
+    expect(m.outcomeDomain!.max).toBeGreaterThan(82)
+    expect(m.outcomeDomain!.max).toBeLessThan(90)
   })
 
-  it('omits the target AND excludes it from the domain when isNormalised is true', () => {
+  it('the goal threshold never stretches the outcome domain (comparison discrimination preserved)', () => {
+    // Even a far-above-spread target (goalThreshold 1000) must not widen the
+    // domain — the target is not a member of the outcome chart at all.
     const m = chart(
-      buildHeroModel(makeHeroData({ recommendation: { isNormalised: true, goalThreshold: 1000 } })),
+      buildHeroModel(makeHeroData({ recommendation: { goalThreshold: 1000, isNormalised: false } })),
     )
-    expect(m.targetValue).toBeNull()
-    expect(m.targetReadout).toBeNull()
-    // 1000 excluded: domain max stays near the option p90 (82 + 5% pad), far below 1000.
-    expect(m.outcomeDomain!.max).toBeLessThan(100)
+    expect(m.outcomeDomain!.max).toBeLessThan(90)
   })
 
-  it('omits the target when isNormalised is undefined (uncertainty fails closed)', () => {
-    const m = chart(
-      buildHeroModel(makeHeroData({ recommendation: { isNormalised: undefined } })),
-    )
-    expect(m.targetValue).toBeNull()
-  })
-
-  it('omits the target AND excludes it from the domain when the outcome unit is unknown', () => {
-    // isNormalised false alone is not enough: without the shared
-    // outcomeUnit convention there is no evidence the threshold and the
-    // displayed outcomes are the same metric — uncertainty fails closed.
-    const m = chart(
-      buildHeroModel(
-        makeHeroData({
-          recommendation: { outcomeUnit: undefined, isNormalised: false, goalThreshold: 1000 },
-        }),
-      ),
-    )
-    expect(m.targetValue).toBeNull()
-    expect(m.targetReadout).toBeNull()
-    // 1000 excluded from the layout domain: max stays near p90 (82) + pad.
-    expect(m.outcomeDomain!.max).toBeLessThan(100)
-  })
-
-  it('includes a compatible out-of-range threshold in the layout domain', () => {
-    const m = chart(
-      buildHeroModel(makeHeroData({ recommendation: { goalThreshold: 95, isNormalised: false } })),
-    )
-    expect(m.targetValue).toBe(95)
-    expect(m.outcomeDomain!.max).toBeGreaterThanOrEqual(95)
+  it('carries no target fields on the model (target lives on Goal fit, not the chart)', () => {
+    const m = chart(buildHeroModel(makeHeroData()))
+    expect('targetValue' in m).toBe(false)
+    expect('targetReadout' in m).toBe(false)
   })
 })
 

@@ -60,23 +60,26 @@ describe('AnalysisHeroPanel — content', () => {
     )
   })
 
-  it('caption names the target with its response value when unit-compatible', () => {
+  it('Likely outcome lens renders no target marker and never mentions the target', () => {
+    // Product decision: the outcome lens owns option comparison — the target
+    // line is not drawn (it would compress the chart) and the caption does
+    // not name a target. Target attainment lives on Goal fit.
     renderPanel(chartModel())
     fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
-    expect(screen.getByTestId('hero-caption')).toHaveTextContent('your target of 62')
-    // Marker positioners exist per row and are visible on this lens.
-    for (const marker of screen.getAllByTestId('hero-target-marker')) {
-      expect(marker).toHaveAttribute('data-visible', 'true')
-    }
+    expect(screen.queryByTestId('hero-target-marker')).toBeNull()
+    expect(screen.getByTestId('hero-caption')).not.toHaveTextContent(/target/i)
+    // The outcome caption still describes the range bars.
+    expect(screen.getByTestId('hero-caption')).toHaveTextContent('realistic range of outcomes')
   })
 
-  it('omits the target entirely when units are not compatible (isNormalised)', () => {
-    renderPanel(chartModel(makeHeroData({ recommendation: { isNormalised: true } })))
-    fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
-    expect(screen.getByTestId('hero-caption')).not.toHaveTextContent('target')
-    for (const marker of screen.getAllByTestId('hero-target-marker')) {
-      expect(marker).toHaveAttribute('data-visible', 'false')
-    }
+  it('Goal fit surfaces the target-attainment truth (per-option goal readouts)', () => {
+    // Goal fit owns target attainment: each bar is the chance of hitting the
+    // goal, so the readouts ARE the target-shortfall communication.
+    renderPanel(chartModel())
+    expect(within(screen.getByTestId('hero-option-row-1')).getByText('34%')).toBeInTheDocument()
+    expect(within(screen.getByTestId('hero-option-row-2')).getByText('49%')).toBeInTheDocument()
+    // No target marker on Goal fit either — the bars themselves carry it.
+    expect(screen.queryByTestId('hero-target-marker')).toBeNull()
   })
 
   it('never renders a goal-alone marker (collapsed selector — one bar only)', () => {
