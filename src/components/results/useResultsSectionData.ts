@@ -1047,14 +1047,25 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // CEE analysis_ready has goal_threshold_raw in user units
     if (typeof ceeAnalysisReady?.goal_threshold_raw === 'number') return ceeAnalysisReady.goal_threshold_raw
     const data = goalNode?.data as ResultsCanvasNodeData | undefined
+    // data.goal_threshold is the node's NORMALISED 0-1 value (GoalSection
+    // reads it as thresholdNorm) while this memo's contract is user units:
+    // convert ×cap when a cap exists — same rule as the store CEE sync — so
+    // a normalised fallback can never masquerade as raw and paint the
+    // target line at 0.8 on a 0-25 axis.
+    const nodeGoalThreshold =
+      typeof data?.goal_threshold === 'number'
+        ? goalThresholdCap != null && goalThresholdCap > 0
+          ? data.goal_threshold * goalThresholdCap
+          : data.goal_threshold
+        : null
     return data?.goal_threshold_raw
-      ?? data?.goal_threshold
+      ?? nodeGoalThreshold
       ?? data?.observedState?.value
       ?? data?.observed_state?.value
       ?? data?.success_threshold
       ?? data?.threshold
       ?? null
-  }, [goalThreshold, goalNode, ceeAnalysisReady])
+  }, [goalThreshold, goalNode, ceeAnalysisReady, goalThresholdCap])
 
   const nodeLabelMap = useMemo(() => {
     const map = new Map<string, string>()

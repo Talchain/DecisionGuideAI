@@ -40,6 +40,22 @@ describe('Canvas Store – setCeeAnalysisReady goal-threshold sync (unit contrac
     expect(useCanvasStore.getState().goalThreshold).toBe(0.8)
   })
 
+  it('derives raw from norm × cap when raw is absent but a cap exists (never stores normalised beside a cap)', () => {
+    // Storing 0.8 beside cap 25 would double-normalise at the request
+    // boundary (0.8 / 25 = 0.032) and paint the target at 0.8 user units.
+    useCanvasStore.getState().setCeeAnalysisReady(
+      analysisReady({ goal_threshold: 0.8, goal_threshold_cap: 25 }),
+    )
+    expect(useCanvasStore.getState().goalThreshold).toBe(20)
+  })
+
+  it('ignores an invalid cap when deriving (zero/negative caps cannot scale)', () => {
+    useCanvasStore.getState().setCeeAnalysisReady(
+      analysisReady({ goal_threshold: 0.8, goal_threshold_cap: 0 }),
+    )
+    expect(useCanvasStore.getState().goalThreshold).toBe(0.8)
+  })
+
   it('never overwrites a non-null (user-set) threshold', () => {
     useCanvasStore.setState({ goalThreshold: 15 })
     useCanvasStore.getState().setCeeAnalysisReady(

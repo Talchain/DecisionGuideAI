@@ -3349,9 +3349,19 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // goal_threshold_raw FIRST: the store field's contract is user units (see
       // the goalThreshold field comment). goal_threshold is normalised 0-1 — syncing
       // it here painted the Results target line at 0.8 when the real target was
-      // 20% (staging trust review, 2026-07). Fallback to goal_threshold is safe
-      // only because raw ≡ normalised when CEE sends no raw/cap pair.
-      const ceeThreshold = (analysisReady as any).goal_threshold_raw ?? (analysisReady as any).goal_threshold
+      // 20% (staging trust review, 2026-07). When raw is absent but a cap exists,
+      // derive raw from the producer's own pair (norm × cap) — storing the bare
+      // normalised value beside a cap would double-normalise at the request
+      // boundary (0.8/25 → 0.032). Bare goal_threshold is stored only capless,
+      // where raw ≡ normalised by construction.
+      const ceeRaw = (analysisReady as any).goal_threshold_raw
+      const ceeNorm = (analysisReady as any).goal_threshold
+      const ceeCap = (analysisReady as any).goal_threshold_cap
+      const ceeThreshold = ceeRaw ?? (
+        typeof ceeNorm === 'number' && typeof ceeCap === 'number' && Number.isFinite(ceeCap) && ceeCap > 0
+          ? ceeNorm * ceeCap
+          : ceeNorm
+      )
       if (ceeThreshold != null && get().goalThreshold == null) {
         // Producer write (syncing the threshold FROM the analysis) — must not
         // self-dirty the freshness overlay.

@@ -9,7 +9,7 @@
  * threshold means no probability_of_goal, never a corrupt analysis).
  */
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { normaliseGoalThresholdForRequest } from '../useV2Run'
+import { normaliseGoalThresholdForRequest, resolveGoalThresholdCap } from '../useV2Run'
 
 describe('normaliseGoalThresholdForRequest (UI-SEM-058)', () => {
   afterEach(() => {
@@ -46,5 +46,38 @@ describe('normaliseGoalThresholdForRequest (UI-SEM-058)', () => {
     expect(normaliseGoalThresholdForRequest(0.6, 0)).toBe(0.6)
     expect(normaliseGoalThresholdForRequest(0.6, -5)).toBe(0.6)
     expect(normaliseGoalThresholdForRequest(0.6, Number.NaN)).toBe(0.6)
+  })
+
+  it('a threshold at the cap normalises to exactly 1 even across a float ULP', () => {
+    // 0.1 + 0.2 = 0.30000000000000004; divided by cap 0.3 this lands one ULP
+    // above 1 — a legitimate 100% target must not be dropped over the last
+    // bit of a float.
+    expect(normaliseGoalThresholdForRequest(0.1 + 0.2, 0.3)).toBe(1)
+    expect(normaliseGoalThresholdForRequest(25, 25)).toBe(1)
+  })
+})
+
+describe('resolveGoalThresholdCap (request boundary uses the display chain)', () => {
+  const goalNode = (data: Record<string, unknown>) => [
+    { id: 'goal_1', data: { label: 'Goal', ...data } },
+    { id: 'opt_1', data: { label: 'Option' } },
+  ]
+
+  it('prefers analysis_ready.goal_threshold_cap', () => {
+    expect(
+      resolveGoalThresholdCap({ goal_threshold_cap: 25 }, goalNode({ goal_threshold_cap: 100 }), 'goal_1'),
+    ).toBe(25)
+  })
+
+  it('falls back to goal node data: goal_threshold_cap, then threshold_cap, then scale_max', () => {
+    expect(resolveGoalThresholdCap(null, goalNode({ goal_threshold_cap: 40 }), 'goal_1')).toBe(40)
+    expect(resolveGoalThresholdCap(null, goalNode({ threshold_cap: 50 }), 'goal_1')).toBe(50)
+    expect(resolveGoalThresholdCap(null, goalNode({ scale_max: 60 }), 'goal_1')).toBe(60)
+  })
+
+  it('returns undefined when no valid cap exists anywhere', () => {
+    expect(resolveGoalThresholdCap(null, goalNode({}), 'goal_1')).toBeUndefined()
+    expect(resolveGoalThresholdCap({ goal_threshold_cap: 0 }, goalNode({ scale_max: -1 }), 'goal_1')).toBeUndefined()
+    expect(resolveGoalThresholdCap(null, goalNode({ goal_threshold_cap: 25 }), 'missing_node')).toBeUndefined()
   })
 })

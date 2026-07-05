@@ -75,7 +75,11 @@ export function normaliseGoalThresholdForRequest(
 ): number | undefined {
   if (raw == null || !Number.isFinite(raw)) return undefined
   const capNumber = typeof cap === 'number' && Number.isFinite(cap) && cap > 0 ? cap : null
-  const normalised = capNumber != null ? raw / capNumber : raw
+  let normalised = capNumber != null ? raw / capNumber : raw
+  // Floating-point guard: a threshold set exactly at the cap must normalise
+  // to 1.0 even when the division lands one ULP above it — a legitimate
+  // 100% target must never be dropped over the last bit of a float.
+  if (normalised > 1 && normalised < 1 + 1e-9) normalised = 1
   if (normalised < 0 || normalised > 1) {
     console.warn(
       '[useV2Run] goal threshold override omitted — cannot prove normalised form',
@@ -84,6 +88,37 @@ export function normaliseGoalThresholdForRequest(
     return undefined
   }
   return normalised
+}
+
+/**
+ * Resolve the goal-threshold scale cap for the request boundary using the
+ * SAME fallback chain the display path uses (useResultsSectionData
+ * goalThresholdCap: analysis_ready first, then the goal node's data — CEE
+ * fields are spread onto the node by DraftChat). Without the node fallback
+ * the two boundaries could disagree: the display would denormalise outcomes
+ * against a node-held cap while the request boundary, blind to it, dropped
+ * the user's threshold override.
+ */
+export function resolveGoalThresholdCap(
+  analysisReady: { goal_threshold_cap?: unknown } | null,
+  nodes: ReadonlyArray<{ id: string; data?: unknown }>,
+  goalNodeId: string | null | undefined,
+): number | undefined {
+  const goalNode = goalNodeId ? nodes.find((n) => n.id === goalNodeId) : undefined
+  const data = goalNode?.data as
+    | { goal_threshold_cap?: unknown; threshold_cap?: unknown; scale_max?: unknown }
+    | undefined
+  for (const candidate of [
+    analysisReady?.goal_threshold_cap,
+    data?.goal_threshold_cap,
+    data?.threshold_cap,
+    data?.scale_max,
+  ]) {
+    if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate > 0) {
+      return candidate
+    }
+  }
+  return undefined
 }
 
 /**
@@ -451,12 +486,26 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       // Audit F-01: framing removed from PLoT request (PLoT rejects it with 400).
       // P0 Fix: Include brief for PLoT context
       // UI-SEM-058: the store threshold is raw user units; the request wants
-      // normalised 0-1. Convert against the CEE cap (or omit when unprovable —
-      // the builder's analysisReady.goal_threshold then applies unchanged).
-      const requestGoalThreshold = normaliseGoalThresholdForRequest(
-        goalThreshold,
-        (effectiveAnalysisReady as { goal_threshold_cap?: unknown } | null)?.goal_threshold_cap,
+      // normalised 0-1. Convert against the resolved cap (analysis_ready, then
+      // the goal node's data — the same chain the display path uses).
+      const goalThresholdCap = resolveGoalThresholdCap(
+        effectiveAnalysisReady as { goal_threshold_cap?: unknown } | null,
+        nodes,
+        outcomeNodeId,
       )
+      const normalisedGoalThreshold = normaliseGoalThresholdForRequest(goalThreshold, goalThresholdCap)
+      // A store threshold that EXISTS but cannot be proven normalised must
+      // CLEAR the request threshold (null → adapter deletes the builder's
+      // baked analysisReady.goal_threshold): the baked value predates the
+      // user's edit, and computing probability_of_goal against a replaced
+      // target silently misleads. No store value at all (undefined) leaves
+      // the builder's value standing.
+      const requestGoalThreshold =
+        normalisedGoalThreshold !== undefined
+          ? normalisedGoalThreshold
+          : goalThreshold != null && Number.isFinite(goalThreshold)
+            ? null
+            : undefined
 
       const result = await executeV2RunWithAnalysisReady(
         config,

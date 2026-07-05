@@ -1577,7 +1577,11 @@ export async function executeV2Run(
  * @param analysisReady - CEE V3 analysis_ready payload (optional)
  * @param fallbackGoalNodeId - Goal node ID to use if analysisReady not provided
  * @param requestId - Optional request ID for tracing
- * @param goalThreshold - Optional success threshold for probability_of_goal
+ * @param goalThreshold - Optional NORMALISED (0-1) success threshold override
+ *   for probability_of_goal. `undefined` leaves the builder's baked
+ *   analysisReady.goal_threshold standing; `null` is an EXPLICIT CLEAR — the
+ *   caller holds a user threshold it could not convert to the normalised
+ *   contract, and the stale baked value must not be evaluated in its place.
  * @param seed - P0 Fix: Optional seed for reproducibility (avoids hardcoded "42")
  * @param brief - Original decision brief from user for PLoT context
  * @param goalConstraints - Goal constraints from CEE response root for multi-constraint analysis
@@ -1589,7 +1593,7 @@ export async function executeV2RunWithAnalysisReady(
   analysisReady: CEEAnalysisReady | null,
   fallbackGoalNodeId: string,
   requestId?: string,
-  goalThreshold?: number,
+  goalThreshold?: number | null,
   seed?: number,
   brief?: string,
   goalConstraints?: CEEGoalConstraint[] | null,
@@ -1615,8 +1619,12 @@ export async function executeV2RunWithAnalysisReady(
     request.request_id = requestId
   }
 
-  // Add goal threshold for probability_of_goal calculation
-  if (goalThreshold !== undefined) {
+  // Add goal threshold for probability_of_goal calculation.
+  // null = explicit clear (see @param goalThreshold): drop the builder's
+  // baked value rather than evaluate a target the user has replaced.
+  if (goalThreshold === null) {
+    delete request.goal_threshold
+  } else if (goalThreshold !== undefined) {
     request.goal_threshold = goalThreshold
   }
 
