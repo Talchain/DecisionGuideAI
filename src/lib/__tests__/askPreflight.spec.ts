@@ -24,21 +24,21 @@ describe('askPreflight', () => {
     })
 
     it('rejects graph with too many nodes', () => {
-      const result = checkAskPreflight(new Array(13), new Array(10))
+      const result = checkAskPreflight(new Array(51), new Array(10))
       expect(result.allowed).toBe(false)
-      expect(result.reason).toContain('12 nodes')
-      expect(result.reason).toContain('13')
+      expect(result.reason).toContain('50 nodes')
+      expect(result.reason).toContain('51')
     })
 
     it('rejects graph with too many edges', () => {
-      const result = checkAskPreflight(new Array(10), new Array(21))
+      const result = checkAskPreflight(new Array(10), new Array(41))
       expect(result.allowed).toBe(false)
-      expect(result.reason).toContain('20 edges')
-      expect(result.reason).toContain('21')
+      expect(result.reason).toContain('40 edges')
+      expect(result.reason).toContain('41')
     })
 
     it('rejects graph exceeding both limits (reports nodes first)', () => {
-      const result = checkAskPreflight(new Array(15), new Array(25))
+      const result = checkAskPreflight(new Array(51), new Array(41))
       expect(result.allowed).toBe(false)
       expect(result.reason).toContain('nodes') // Nodes checked first
     })
@@ -60,35 +60,35 @@ describe('askPreflight', () => {
     })
 
     it('returns false for counts exceeding limits', () => {
-      expect(isWithinAskLimits(13, 10)).toBe(false)
-      expect(isWithinAskLimits(10, 21)).toBe(false)
-      expect(isWithinAskLimits(13, 21)).toBe(false)
+      expect(isWithinAskLimits(51, 10)).toBe(false)
+      expect(isWithinAskLimits(10, 41)).toBe(false)
+      expect(isWithinAskLimits(51, 41)).toBe(false)
     })
   })
 
   describe('getAskLimitStatus', () => {
     it('shows status for counts within limits', () => {
       const status = getAskLimitStatus(5, 10)
-      expect(status).toBe('5/12 nodes, 10/20 edges')
+      expect(status).toBe('5/50 nodes, 10/40 edges')
     })
 
     it('shows over limit message when nodes exceed', () => {
-      const status = getAskLimitStatus(15, 10)
+      const status = getAskLimitStatus(51, 10)
       expect(status).toContain('Over limit')
-      expect(status).toContain('15/12 nodes')
+      expect(status).toContain('51/50 nodes')
     })
 
     it('shows over limit message when edges exceed', () => {
-      const status = getAskLimitStatus(10, 25)
+      const status = getAskLimitStatus(10, 41)
       expect(status).toContain('Over limit')
-      expect(status).toContain('25/20 edges')
+      expect(status).toContain('41/40 edges')
     })
   })
 
   describe('ASK_LIMITS', () => {
     it('has correct values per CEE contract', () => {
-      expect(ASK_LIMITS.MAX_NODES).toBe(12)
-      expect(ASK_LIMITS.MAX_EDGES).toBe(20)
+      expect(ASK_LIMITS.MAX_NODES).toBe(50)
+      expect(ASK_LIMITS.MAX_EDGES).toBe(40)
     })
   })
 })
