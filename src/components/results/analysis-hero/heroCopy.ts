@@ -19,6 +19,30 @@ export const HERO_COPY = {
   lensLabel: {
     goal: 'Goal fit',
     outcome: 'Likely outcome',
+    /**
+     * Lens NAMES only — "Stability" here names a view (prototype tab
+     * label), it does not claim anything about this run. Trust-vocabulary
+     * hygiene carves out exactly this navigation use; every stability
+     * CLAIM still renders only from producer-supplied text.
+     */
+    stability: 'Stability',
+    whatChanged: 'What changed',
+  } as const,
+
+  /**
+   * Honest unavailable-lens bodies. Selecting an unavailable lens shows
+   * WHY it is empty and what unlocks it — never a dead tab, never a
+   * fabricated chart. The goal lens distinguishes the user-actionable
+   * no-target case from the producer gap.
+   */
+  lensUnavailable: {
+    goalNoTarget: 'Set a success target to unlock Goal fit.',
+    goalProducerGap: 'Goal fit is not available for this run.',
+    outcome: 'Likely outcome is not available for this run.',
+    stability:
+      'This view needs per-option stability data, which the analysis does not provide yet.',
+    whatChanged:
+      'This view compares runs. It unlocks when the analysis can report what changed between runs.',
   } as const,
 
   headline: {
@@ -130,6 +154,9 @@ export const HERO_COPY = {
   detail: {
     whyLabel: 'Why',
     couldChangeIfLabel: 'Could change if',
+    /** Labels only — the content is producer-supplied (issue 217), never authored here. */
+    watchLabel: 'Watch',
+    tradeOffLabel: 'Trade-off',
     couldChangeIf: (factor: string, value: string) => `${factor} crosses ${value}.`,
     winChance: (formatted: string) => `${formatted} chance it is the strongest option overall.`,
     /** Grounded lines from existing adapted fields — never authored prose. */
@@ -188,4 +215,16 @@ export const HERO_COPY = {
 
   /** Screen-reader-only cue so the leader is perceivable without colour. */
   srLeader: 'Leads on this view',
+
+  /** Screen-reader suffix for lenses whose data is unavailable this run. */
+  srLensUnavailable: 'not available for this run',
+
+  /**
+   * Rendered whenever a model's provenance is 'fixture' — fixture data
+   * must never be mistakable for real analysis output.
+   */
+  fixtureBanner: 'Internal preview: example data, not analysis output.',
+
+  /** What-changed ghost-mark legend (drawn marks only, fixture lens today). */
+  ghostLegend: 'Faded marks show the previous run.',
 } as const

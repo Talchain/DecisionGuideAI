@@ -494,7 +494,7 @@ describe('buildHeroModel — lens gating and numbering', () => {
     ])
     // Rows are shared across lenses (single array) — numbering cannot change
     // when the lens changes because the model carries no per-lens row order.
-    expect(Object.keys(m.leaders)).toEqual(['goal', 'outcome'])
+    expect(Object.keys(m.leaders)).toEqual(['goal', 'outcome', 'stability', 'whatChanged'])
   })
 })
 

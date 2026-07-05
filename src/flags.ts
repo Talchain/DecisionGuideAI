@@ -340,6 +340,17 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_ANALYSIS_HERO_PANEL',
     storageKey: 'feature.analysisHeroPanel',
   },
+  // Hero fixture gallery — INTERNAL-ONLY route (/dev/hero-gallery) rendering
+  // the full prototype hero states from typed fixtures (provenance
+  // 'fixture'; every instance carries a visible internal-preview banner).
+  // Fixture data is blocked from all normal product routes: the gallery is
+  // the ONLY module allowed to import the fixture models (hygiene-tested).
+  // Rollout: staging-on for design review, production-off. Enable locally:
+  //   localStorage.setItem('feature.heroFixtureGallery', '1')
+  heroFixtureGallery: {
+    envKey: 'VITE_FEATURE_HERO_FIXTURE_GALLERY',
+    storageKey: 'feature.heroFixtureGallery',
+  },
   // AI panel v2 — floating-first Olumi UX.
   // When OFF: existing DraftChat (legacy floating canvas overlay) + standalone
   // OutputsDock render unchanged.
@@ -441,6 +452,7 @@ const flags = {
   analysisHeroV17: makeFlag(FLAGS_CONFIG.analysisHeroV17),
   analysisHeroCompare: makeFlag(FLAGS_CONFIG.analysisHeroCompare),
   analysisHeroPanel: makeFlag(FLAGS_CONFIG.analysisHeroPanel),
+  heroFixtureGallery: makeFlag(FLAGS_CONFIG.heroFixtureGallery),
   focusNowPanel: makeFlag(FLAGS_CONFIG.focusNowPanel),
   aiPanelV2: makeFlag(FLAGS_CONFIG.aiPanelV2),
   v5CanonicalAnalysis: makeFlag(FLAGS_CONFIG.v5CanonicalAnalysis),
@@ -506,6 +518,7 @@ export const isDeterministicCeeEnabled = flags.deterministicCee
 export const isAnalysisHeroV17Enabled = flags.analysisHeroV17
 export const isAnalysisHeroCompareEnabled = flags.analysisHeroCompare
 export const isAnalysisHeroPanelEnabled = flags.analysisHeroPanel
+export const isHeroFixtureGalleryEnabled = flags.heroFixtureGallery
 export const isFocusNowPanelEnabled = flags.focusNowPanel
 export const isAiPanelV2Enabled = flags.aiPanelV2
 export const isV5CanonicalAnalysisEnabled = flags.v5CanonicalAnalysis

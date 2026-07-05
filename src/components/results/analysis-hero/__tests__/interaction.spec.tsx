@@ -66,10 +66,13 @@ describe('AnalysisHero — interaction', () => {
     fireEvent.keyDown(outcomeTab, { key: 'ArrowLeft' })
     expect(goalTab).toHaveAttribute('aria-selected', 'true')
 
-    // Home/End jump to the first/last lens (WAI-ARIA APG).
+    // Home/End jump to the first/last lens of the FULL strip (WAI-ARIA
+    // APG) — unavailable lenses are focusable and selectable (their panel
+    // explains itself), so End lands on What changed.
+    const whatChangedTab = screen.getByTestId('hero-lens-tab-whatChanged')
     fireEvent.keyDown(goalTab, { key: 'End' })
-    expect(outcomeTab).toHaveAttribute('aria-selected', 'true')
-    fireEvent.keyDown(outcomeTab, { key: 'Home' })
+    expect(whatChangedTab).toHaveAttribute('aria-selected', 'true')
+    fireEvent.keyDown(whatChangedTab, { key: 'Home' })
     expect(goalTab).toHaveAttribute('aria-selected', 'true')
 
     // Up/Down are NOT hijacked on a horizontal tablist (page scroll keeps working).

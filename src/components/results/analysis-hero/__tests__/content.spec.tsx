@@ -272,29 +272,70 @@ describe('AnalysisHeroPanel — content', () => {
     expect(container.textContent).not.toMatch(/goal alone/i)
   })
 
-  it('never renders trust or stability wording, and no raw 0-1 floats', () => {
+  it('never renders trust wording or raw 0-1 floats from a live model', () => {
+    // "Stability" is deliberately NOT in this ban: it appears exactly once
+    // as a lens NAME in the strip (navigation label, not a claim about this
+    // run). Every trust/banding CLAIM word stays banned.
     const { container } = renderPanel(chartModel())
     const text = container.textContent ?? ''
     expect(text).not.toMatch(/\btrust\b/i)
-    expect(text).not.toMatch(/\b(firm|fragile|provisional|robust|stability|confidence)\b/i)
+    expect(text).not.toMatch(/\b(firm|fragile|provisional|robust|confidence)\b/i)
     expect(text).not.toMatch(/\b0\.\d+\b/)
   })
 
-  it('renders only the two launch lenses — Stability and What changed do not exist', () => {
+  it('renders the full prototype lens strip; data-less lenses are marked unavailable', () => {
     renderPanel(chartModel())
-    expect(screen.getAllByRole('tab')).toHaveLength(2)
-    expect(screen.queryByText(/stability/i)).toBeNull()
-    expect(screen.queryByText(/what changed/i)).toBeNull()
+    expect(screen.getAllByRole('tab')).toHaveLength(4)
+    expect(screen.getByTestId('hero-lens-tab-goal')).toHaveAttribute('data-available', 'true')
+    expect(screen.getByTestId('hero-lens-tab-outcome')).toHaveAttribute('data-available', 'true')
+    expect(screen.getByTestId('hero-lens-tab-stability')).toHaveAttribute('data-available', 'false')
+    expect(screen.getByTestId('hero-lens-tab-whatChanged')).toHaveAttribute('data-available', 'false')
   })
 
-  it('hides the tab strip when only one lens is available', () => {
+  it('selecting an unavailable lens shows the honest explainer body, never a fabricated chart', () => {
+    renderPanel(chartModel())
+    fireEvent.click(screen.getByTestId('hero-lens-tab-stability'))
+    expect(screen.getByTestId('hero-lens-unavailable')).toHaveTextContent(
+      'This view needs per-option stability data, which the analysis does not provide yet.',
+    )
+    expect(screen.queryByTestId('hero-option-row-1')).toBeNull()
+    expect(screen.queryByTestId('hero-caption')).toBeNull()
+    fireEvent.click(screen.getByTestId('hero-lens-tab-whatChanged'))
+    expect(screen.getByTestId('hero-lens-unavailable')).toHaveTextContent(
+      'This view compares runs. It unlocks when the analysis can report what changed between runs.',
+    )
+  })
+
+  it('unavailable Goal fit distinguishes the no-target unlock from a producer gap', () => {
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    // No target → the unlock instruction.
+    const { unmount } = renderPanel(
+      chartModel(makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } })),
+    )
+    fireEvent.click(screen.getByTestId('hero-lens-tab-goal'))
+    expect(screen.getByTestId('hero-lens-unavailable')).toHaveTextContent(
+      'Set a success target to unlock Goal fit.',
+    )
+    unmount()
+    // Target exists but no goal figures came back → producer-gap wording.
+    renderPanel(chartModel(makeHeroData({ options: noGoal })))
+    fireEvent.click(screen.getByTestId('hero-lens-tab-goal'))
+    expect(screen.getByTestId('hero-lens-unavailable')).toHaveTextContent(
+      'Goal fit is not available for this run.',
+    )
+  })
+
+  it('the tab strip persists even when only one lens carries data', () => {
     const noGoal = [
       makeOption({ ...OPTION_A, goalProbability: undefined }),
       makeOption({ ...OPTION_B, goalProbability: undefined }),
     ]
     renderPanel(chartModel(makeHeroData({ options: noGoal })))
-    expect(screen.queryByRole('tablist')).toBeNull()
-    // The single available lens still renders its rows.
+    expect(screen.getAllByRole('tab')).toHaveLength(4)
+    // The single available lens still renders its rows by default.
     expect(screen.getByTestId('hero-option-row-1')).toBeInTheDocument()
   })
 

@@ -59,7 +59,13 @@ import type { HeroChartModel, HeroLens, HeroModel, HeroRowVM, HeroStatusModel } 
 
 function statusModel(variant: HeroStatusModel['variant']): HeroStatusModel {
   const copy = HERO_COPY.status[variant]
-  return { kind: 'status', variant, headline: copy.headline, body: copy.body }
+  return {
+    kind: 'status',
+    provenance: 'live',
+    variant,
+    headline: copy.headline,
+    body: copy.body,
+  }
 }
 
 /**
@@ -530,6 +536,10 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
 
   const model: HeroChartModel = {
     kind: 'chart',
+    // This function is the ONLY producer of 'live' models (asserted by the
+    // suite): fixture models exist solely in the internal gallery and are
+    // branded 'fixture' so the panel shows the internal-preview banner.
+    provenance: 'live',
     headline,
     subline,
     lenses,
@@ -542,6 +552,10 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
       // own goal probability. Null when no leader is claimable.
       goal: goalLeaderRow?.id ?? null,
       outcome: outcomeLeaderId,
+      // Stability / What-changed carry no live data (producer gaps 211/212)
+      // — no leader can exist on a lens with nothing to lead.
+      stability: null,
+      whatChanged: null,
     },
     outcomeDomain,
     // Caption honesty: only describe range lines (and overlap) the chart
@@ -554,6 +568,14 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     // is a producer gap where "set a success target" would mislead.
     showGoalHint: !goalAvailable && goalThreshold == null,
     mainReason,
+    // Producer-gap slots — the LIVE adapter NEVER populates these (no
+    // display-safe trust/status label: issues 219/221; no coaching
+    // top-action contract: issue 220). They render only from typed
+    // fixtures until the producer fields exist; missing fields are
+    // unavailable states, never fabricated values.
+    trustLine: null,
+    statusChip: null,
+    focusAction: null,
   }
   return model
 }

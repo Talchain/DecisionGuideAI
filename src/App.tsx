@@ -36,6 +36,8 @@ const LazySandboxStreamPanel = lazy(() => import('./components/SandboxStreamPane
 const LazySandboxV1 = lazy(() => import('./routes/SandboxV1'))
 const CopilotSandboxPage = lazy(() => import('./pages/sandbox-guide'))
 const DecisionTemplates = lazy(() => import('./routes/templates/DecisionTemplates').then(m => ({ default: m.DecisionTemplates })))
+// Internal hero fixture gallery — flag-gated (staging-on/prod-off), unlinked.
+const LazyHeroGallery = lazy(() => import('./routes/HeroGallery'))
 
 // Lazy load protected routes
 const About = lazy(() => import('./components/About'))
@@ -170,6 +172,15 @@ export default function App() {
                   <Route path="/ghost" element={
                     <Suspense fallback={<LoadingSpinner />}>
                       <GhostPanel />
+                    </Suspense>
+                  } />
+
+                  {/* Internal fixture gallery for the analysis hero —
+                      renders typed example states only (visible fixture
+                      banner on every panel); flag-gated and unlinked. */}
+                  <Route path="/dev/hero-gallery" element={
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <LazyHeroGallery />
                     </Suspense>
                   } />
 

@@ -56,10 +56,15 @@ describe('AnalysisHero — accessibility', () => {
     renderPanel(chartModel())
     const tablist = screen.getByRole('tablist')
     expect(tablist).toHaveAccessibleName('Results lens')
+    // Full prototype strip: four tabs; unavailable lenses stay focusable
+    // and selectable (their panel explains itself), never aria-disabled
+    // dead ends.
     const tabs = screen.getAllByRole('tab')
-    expect(tabs).toHaveLength(2)
+    expect(tabs).toHaveLength(4)
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
-    expect(tabs[1]).toHaveAttribute('aria-selected', 'false')
+    for (const tab of tabs.slice(1)) {
+      expect(tab).toHaveAttribute('aria-selected', 'false')
+    }
     const panel = screen.getByRole('tabpanel')
     expect(panel).toHaveAttribute('aria-labelledby', tabs[0].id)
   })
