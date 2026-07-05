@@ -29,11 +29,14 @@ export interface HeroRowVM {
   /** Analysed option id (from the adapted results object). */
   id: string
   /**
-   * Presentation number (1-based). This is the visible `allOptions[]`
-   * presentation order, NOT graph-node truth — a stable graph index is not
-   * available on the adapted object, and this UI-only task must not add a
-   * graph selector. The number is stable across lens switches because rows
-   * are built once per model, independent of the active lens.
+   * Presentation number (1-based) in the SHARED option display order
+   * (utils/optionDisplayOrder — win probability when every option carries
+   * one, else expected value), the same ranking OptionCards/WinGauge show,
+   * so one screen never numbers the same option two ways. NOT graph-node
+   * truth — a stable graph index is not available on the adapted object,
+   * and this UI-only task must not add a graph selector. The number is
+   * stable across lens switches because rows are built once per model,
+   * independent of the active lens.
    */
   index: number
   /** Option label for display (encoding notation stripped, rendered as text). */
@@ -61,7 +64,12 @@ export interface HeroRowVM {
 export interface HeroChartModel {
   kind: 'chart'
   headline: string
-  /** Goal-fit vs strongest-outcome tension line; null when not applicable. */
+  /**
+   * Tension line naming the expected-outcome leader — persistent whenever
+   * the headlined leader (goal basis or not) is not the outcome leader, and
+   * the sole honest pointer in the no-option-on-track state; null when not
+   * applicable (single option, aligned-without-claim, outcome lens hidden).
+   */
   subline: string | null
   /** Available lenses in display order. Never empty. */
   lenses: HeroLens[]
@@ -77,14 +85,11 @@ export interface HeroChartModel {
   leaders: Record<HeroLens, string | null>
   /**
    * Outcome-axis display domain (layout only — never displayed as data).
-   * Includes the goal threshold ONLY when unit-compatible. Null when the
-   * outcome lens is unavailable.
+   * Derived from the option outcome values only; the goal threshold is
+   * deliberately excluded so it cannot compress the comparison chart. Null
+   * when the outcome lens is unavailable.
    */
   outcomeDomain: { min: number; max: number } | null
-  /** Goal threshold in outcome units, only when unit-compatible; else null. */
-  targetValue: number | null
-  /** Formatted target for the caption (existing Results Panel formatter). */
-  targetReadout: string | null
   /** Footer "Main reason" line, or null when no clean driver label exists. */
   mainReason: string | null
 }

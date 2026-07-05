@@ -1047,14 +1047,25 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // CEE analysis_ready has goal_threshold_raw in user units
     if (typeof ceeAnalysisReady?.goal_threshold_raw === 'number') return ceeAnalysisReady.goal_threshold_raw
     const data = goalNode?.data as ResultsCanvasNodeData | undefined
+    // data.goal_threshold is the node's NORMALISED 0-1 value (GoalSection
+    // reads it as thresholdNorm) while this memo's contract is user units:
+    // convert ×cap when a cap exists — same rule as the store CEE sync — so
+    // a normalised fallback can never masquerade as raw and paint the
+    // target line at 0.8 on a 0-25 axis.
+    const nodeGoalThreshold =
+      typeof data?.goal_threshold === 'number'
+        ? goalThresholdCap != null && goalThresholdCap > 0
+          ? data.goal_threshold * goalThresholdCap
+          : data.goal_threshold
+        : null
     return data?.goal_threshold_raw
-      ?? data?.goal_threshold
+      ?? nodeGoalThreshold
       ?? data?.observedState?.value
       ?? data?.observed_state?.value
       ?? data?.success_threshold
       ?? data?.threshold
       ?? null
-  }, [goalThreshold, goalNode, ceeAnalysisReady])
+  }, [goalThreshold, goalNode, ceeAnalysisReady, goalThresholdCap])
 
   const nodeLabelMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -1166,7 +1177,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const scaledP90 = norm.p90 != null ? norm.p90 * scale : null
 
       // T6 P0-3: Prefer probability_of_joint_goal (constrained) when constraints exist,
-      // fall back to goal_probability (unconstrained)
+      // fall back to goal_probability (unconstrained).
+      // Staging trust review: when ISL auto-derives the goal threshold as a
+      // constraint (constraint_probabilities.auto_goal_threshold), the run
+      // carries probability_of_joint_goal but NO goal_probability and NO
+      // constraint_analysis — the joint value IS the goal probability there,
+      // so it is the final fallback. Discarding it hid the run's most
+      // decision-relevant fact (every option at 0% chance of the target).
       const jointGoalProb = typeof (prob as any).probability_of_joint_goal === 'number'
         ? (prob as any).probability_of_joint_goal as number
         : null
@@ -1176,7 +1193,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const hasConstraints = prob.constraint_analysis?.constraints?.length > 0
       const goalProbability = hasConstraints && jointGoalProb != null
         ? jointGoalProb
-        : unconstrained
+        : (unconstrained ?? jointGoalProb)
 
       // Display-honesty: per-option valid sample count for resolution-aware
       // probability formatting. Fallback chain prefers per-option signal,

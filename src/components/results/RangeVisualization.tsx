@@ -17,6 +17,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import { formatRangeValue } from './utils/formatRangeValue'
 import type { OptionResult, OutcomeUnitType } from './types'
 
 export interface RangeVisualizationProps {
@@ -59,7 +60,18 @@ export function formatThreshold(
     return `${symbol}${Math.round(value).toLocaleString()}`
   }
   if (unit === 'percent') {
-    // Auto-detect probability form (0-2 range) vs percentage form
+    // isNormalised === false means the caller's values were denormalised into
+    // user units (useResultsSectionData scales by goal_threshold_cap) — the
+    // value IS a percentage already, however small. Render it as-is via the
+    // SHARED magnitude-tier helper OptionCards' range labels use, so hero
+    // readouts and the option cards below share one scale (a -0.37%
+    // expected shift must never inflate to "-37%").
+    if (isNormalised === false) {
+      return `${formatRangeValue(value)}%`
+    }
+    // UI-SEM-059: legacy probability-form auto-detect (|v| ≤ 2 → ×100) for
+    // callers that cannot assert isNormalised. Remove when all callers pass
+    // isNormalised explicitly.
     const displayValue = Math.abs(value) <= 2 ? value * 100 : value
     return formatPct(displayValue)
   }

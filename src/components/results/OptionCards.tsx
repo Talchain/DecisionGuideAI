@@ -25,6 +25,9 @@ import {
 } from '../../utils/formatPercent'
 import { ExpertBlock } from './ExpertBlock'
 import { formatOptionLabelForCard } from './utils/cleanFactorLabel'
+import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
+import { formatRangeValue } from './utils/formatRangeValue'
+import { SUB_ONE_PERCENT_FLOOR } from './utils/displayFloors'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { useCanvasStore, selectResultsStatus } from '../../canvas/store'
 import { isGraphLensEnabled } from '../../flags'
@@ -186,16 +189,10 @@ function StatBar({
   )
 }
 
-/**
- * Format range bar values with reasonable precision.
- * No decimal places for values > 100, 1 dp for values > 10, 2 dp otherwise.
- * TODO: PLoT should provide outcome_unit for proper display.
- */
-function formatRangeValue(v: number): string {
-  const abs = Math.abs(v)
-  const decimals = abs > 100 ? 0 : abs > 10 ? 1 : 2
-  return v.toLocaleString(undefined, { maximumFractionDigits: decimals, minimumFractionDigits: 0 })
-}
+// Range values format via the shared magnitude-tiered helper
+// (utils/formatRangeValue) — the same rule formatThreshold's user-unit
+// percent branch uses, so card labels and hero readouts share one scale.
+// TODO: PLoT should provide outcome_unit for proper display.
 
 /**
  * OptionRangeBar — thin 4px bar showing p10-to-p90 range with dot at median.
@@ -439,7 +436,7 @@ function OptionCard({
                 className={`${typography.panelMeta} inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border border-danger/30 text-text-body`}
                 data-testid={`low-goal-warning-${option.id}`}
               >
-                {option.goalProbability < 0.01
+                {option.goalProbability < SUB_ONE_PERCENT_FLOOR
                   ? '< 1% likely to reach target'
                   : `${Math.round(option.goalProbability * 100)}% likely to reach target`}
               </span>
@@ -543,14 +540,10 @@ export function OptionCards({
   const allGoalProbability = options.every(o => o.goalProbability != null)
   const showHitsTarget = hasGoalThreshold && allGoalProbability
 
-  // V14.2: Sort by win probability descending (same order as WinGauge segments)
-  // Only use winProbability when ALL options have it — mixed coverage would
-  // treat missing values as 0, producing false rankings. Fall back to expected.
-  const allHaveWinProb = options.length > 0 && options.every(o => o.winProbability != null)
-  const sorted = [...options].sort((a, b) => {
-    if (allHaveWinProb) return (b.winProbability ?? 0) - (a.winProbability ?? 0)
-    return (b.expected ?? b.goalProbability ?? -Infinity) - (a.expected ?? a.goalProbability ?? -Infinity)
-  })
+  // V14.2: Sort by win probability descending (same order as WinGauge segments).
+  // Shared with the analysis hero via sortOptionsForDisplay so both surfaces
+  // number and order options identically.
+  const sorted = sortOptionsForDisplay(options)
 
   // Range bar global scale: shared [globalMin, globalMax] across all options
   // so bar widths are visually comparable. Falls back to mean when percentiles absent.

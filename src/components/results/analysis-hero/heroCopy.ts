@@ -24,16 +24,38 @@ export const HERO_COPY = {
   headline: {
     goalWithLimits: (label: string) => `${label} best meets the goal and your limits.`,
     goalOnly: (label: string) => `${label} best fits your goal.`,
-    outcomeOnly: (label: string) => `${label} currently looks strongest.`,
+    /**
+     * No-goal-basis leader claim. Named leader MUST be the Results Panel's
+     * recommendedOption (the canonical analysis leader — producer-supplied
+     * or win-probability argmax), never an outcome-lens inference: the
+     * retired "currently looks strongest" wording implied outcome-lens
+     * evidence and contradicted the visible chart when the two leaders
+     * diverged (staging trust review).
+     */
+    analysisLeads: (label: string) => `${label} currently leads the overall analysis.`,
+    /** Fallback when no recommended option exists among the rows: headline the outcome fact itself. */
+    outcomeLeader: (label: string) => `${label} has the highest expected outcome.`,
+    /**
+     * Goal honesty: every option's goal probability sits below the sub-1%
+     * floor (UI-SEM-057) — crowning any option "best fits your goal" would
+     * be false, so the headline states the decision-relevant truth instead.
+     * Constraint-aware like every other goal claim: under constraints the
+     * floored figure is the JOINT (goal AND limits) probability, and the
+     * axis/caption already say "goal and limits" — the headline must match.
+     */
+    noneOnTrack: 'No option is currently on track to reach your goal.',
+    noneOnTrackWithLimits: 'No option is currently on track to meet your goal and limits.',
     singleOption: (label: string) => `${label} is your only option.`,
     noLeader: 'Here is how your options compare.',
   },
 
   subline: {
-    diverged: (outcomeLabel: string, goalLabel: string, withLimits: boolean) =>
-      `${outcomeLabel} has the highest expected outcome, but ${goalLabel} ${
-        withLimits ? 'best meets the goal and your limits' : 'best fits your goal'
-      }.`,
+    /**
+     * Persistent divergence subline: whenever the headlined leader is not
+     * the expected-outcome leader (goal basis or not), the tension is
+     * stated in one plain sentence naming the outcome leader.
+     */
+    highestOutcome: (label: string) => `${label} has the highest expected outcome.`,
     aligned: (label: string) => `${label} also has the strongest expected outcome.`,
   },
 
@@ -51,7 +73,6 @@ export const HERO_COPY = {
     goalWithLimits: 'Each bar is the chance that option meets your goal and limits together.',
     goalOnly: 'Each bar is the chance that option hits your goal.',
     outcome: 'Bars show the realistic range of outcomes. Where ranges overlap, treat the order as unsettled.',
-    outcomeTarget: (target: string) => `The dashed line marks your target of ${target}.`,
   },
 
   readout: {
