@@ -97,6 +97,28 @@ export type FocusTargetType = 'node' | 'edge' | 'factor' | 'option'
  *
  * Falls back to focusNodeById when type is unknown.
  */
+/**
+ * Fail-closed focus: verifies the target still exists on the canvas before
+ * focusing. Returns false (and does nothing) for stale/unknown ids — result
+ * payloads and guidance items can reference elements that were deleted or
+ * belong to a recovered session with different ids (live audit finding).
+ * Callers should treat `false` as "hide or disable the affordance", never
+ * as an error.
+ */
+export function focusExistingTarget(
+  targetId: string,
+  targetType?: FocusTargetType
+): boolean {
+  if (!targetId) return false
+  const { nodes, edges } = useCanvasStore.getState()
+  const exists = targetType === 'edge'
+    ? edges.some((e) => e.id === targetId)
+    : nodes.some((n) => n.id === targetId)
+  if (!exists) return false
+  focusByTarget(targetId, targetType)
+  return true
+}
+
 export function focusByTarget(
   targetId: string,
   targetType?: FocusTargetType

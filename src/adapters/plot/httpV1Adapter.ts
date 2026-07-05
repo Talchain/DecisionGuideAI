@@ -363,6 +363,33 @@ function mapV1ErrorToUI(error: V1Error): ErrorV1 {
 /**
  * Map template graph to V1 request with validation and deterministic hash
  */
+/**
+ * Extract the goal threshold from a goal node, tolerating every field name
+ * used across the app's history.
+ *
+ * GoalPanel/GoalThresholdEditor persist the user's target under
+ * `data.goal_threshold` (+ `goal_threshold_raw`) — the old value/
+ * baseline_value/target chain never read them, so a target set in the
+ * inspector silently vanished from this request and reruns could not change
+ * goal probabilities.
+ *
+ * Exported for wire-shape tests.
+ */
+export function extractGoalThreshold(goalNode: any): number | undefined {
+  const rawThreshold = goalNode?.data?.goal_threshold
+    ?? goalNode?.data?.goal_threshold_raw
+    ?? goalNode?.data?.value
+    ?? goalNode?.data?.baseline_value
+    ?? goalNode?.data?.target
+    ?? goalNode?.value
+    ?? goalNode?.baseline_value
+    ?? goalNode?.target
+  const parsed = typeof rawThreshold === 'string'
+    ? (rawThreshold.trim() === '' ? undefined : Number(rawThreshold))
+    : rawThreshold
+  return typeof parsed === 'number' && !isNaN(parsed) ? parsed : undefined
+}
+
 function mapGraphToV1Request(graph: any, seed?: number): V1RunRequest {
   // Cast to ReactFlowGraph for type safety
   const rfGraph: ReactFlowGraph = {
@@ -446,14 +473,8 @@ export const httpV1Adapter = {
       )
       if (goalNode) {
         v1Request.goal_node = goalNode.id
-        // Extract goal_threshold from various possible data fields
-        const goalThreshold = goalNode.data?.value
-          ?? goalNode.data?.baseline_value
-          ?? goalNode.data?.target
-          ?? (goalNode as any).value
-          ?? (goalNode as any).baseline_value
-          ?? (goalNode as any).target
-        if (typeof goalThreshold === 'number' && !isNaN(goalThreshold)) {
+        const goalThreshold = extractGoalThreshold(goalNode)
+        if (goalThreshold !== undefined) {
           v1Request.goal_threshold = goalThreshold
         }
       }

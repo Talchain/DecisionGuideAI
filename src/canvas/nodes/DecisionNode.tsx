@@ -16,6 +16,7 @@ import type { DecisionNodeData } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
+import { useStaleGuard } from '../ui/inspector-v2/useStaleGuard'
 import { typography } from '../../styles/typography'
 import { NodeChip, NodePopover } from './shared'
 import { isGoalDefined } from '../../utils/isGoalDefined'
@@ -114,6 +115,10 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
 
   const readiness = useModelReadiness(id)
   const { showPopover, nodeHandlers, popoverHandlers, nodeElRef } = usePopoverHover()
+  // Audit §8 P1: result-derived decorations mirror the panels' freshness
+  // verdict (opacity + title only — no layout shift, chips stay interactive).
+  const { isStale } = useStaleGuard()
+  const staleTitle = isStale ? 'Model changed since this analysis' : undefined
 
   const optionCount = useMemo(() => {
     const outgoingEdges = edges.filter(e => e.source === id)
@@ -300,7 +305,11 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         {/* ===== POST-ANALYSIS ===== */}
         {headline ? (
           <div className="mt-1">
-            <div className={`${typography.nodeLabel} text-text-body`}>
+            <div
+              className={`${typography.nodeLabel} text-text-body${isStale ? ' opacity-50' : ''}`}
+              title={staleTitle}
+              data-stale={isStale || undefined}
+            >
               {headline.winnerLabel} leads in {headline.winProb != null ? `${Math.round(headline.winProb * 100)}%` : ''} of scenarios{biggestRisk && biggestRisk.label ? (
                 <>
                   , but sensitive to{' '}
@@ -320,7 +329,11 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 (Detailed has no popover). Standard surfaces both via the
                 popover below. */}
             {isDetailed && stabilityDisplay && (
-              <div className={`${typography.edgeLabel} text-text-light mt-1`}>
+              <div
+                className={`${typography.edgeLabel} text-text-light mt-1${isStale ? ' opacity-50' : ''}`}
+                title={staleTitle}
+                data-stale={isStale || undefined}
+              >
                 Stability: {stabilityDisplay.pct}% ({stabilityDisplay.tier})
               </div>
             )}

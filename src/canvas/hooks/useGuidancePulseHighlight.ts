@@ -15,6 +15,7 @@ import { useEffect, useRef } from 'react'
 import { useGuidanceStore, selectActiveItem, type GuidanceCategory } from '../stores/guidanceStore'
 import { trackGuidance } from '../../telemetry/guidanceEvents'
 import { useCanvasStore } from '../store'
+import { focusExistingTarget } from '../utils/focusHelpers'
 
 const GUIDANCE_PULSE_CLASS = 'guidance-pulse-ring'
 /** Minimum ms between HIGHLIGHT_TRIGGERED events for the same item_id */
@@ -55,6 +56,13 @@ export function useGuidancePulseHighlight(): void {
       // Apply ring to new target and fire telemetry (once per item_id within 2s)
       if (newTargetId) {
         applyRing(newTargetId, newCategory ?? 'could_fix')
+
+        // AI-to-graph slice: activating a guidance item also centres its
+        // target so the pulse is actually visible (activation is an explicit
+        // user action on a guidance card/strip). Fail-closed passthrough —
+        // stale/unknown ids centre nothing; existing ids only get viewport
+        // movement + selection, never a graph mutation.
+        focusExistingTarget(newTargetId, target?.type === 'edge' ? 'edge' : 'node')
 
         const now = Date.now()
         const lastFired = cooldownMapRef.current.get(newTargetId) ?? 0

@@ -234,9 +234,11 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
         break
 
       case 'action:run':
-        // BLOCKED: Palette cannot safely trigger runs yet. This should be wired
-        // through a shared run controller (wrapping useResultsRun) so we do not
-        // duplicate CanvasToolbar / ResultsPanel gating and diagnostics logic.
+        // BLOCKED: this palette variant is not mounted. If it is ever revived,
+        // wire this through getCanonicalRunner() (canvas/analysis/
+        // canonicalRunRegistry) — the shared run controller now exists and is
+        // what OutputsDock, the canvas shortcut and components/CommandPalette
+        // all execute. Do NOT build a request here.
         if (import.meta.env.DEV) {
           console.log('[Palette] Run action is not yet wired - waiting on shared run controller')
         }

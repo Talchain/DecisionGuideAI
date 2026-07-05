@@ -296,7 +296,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
   })
 
   describe('Empty state', () => {
-    it('renders the fallback copy when no sensitive + no fragile (only thinking patterns)', () => {
+    it('renders the ran-clean copy when robustness computed + no sensitive + no fragile', () => {
       const lowFlipDriver = makeDriver({ rankFlipRate: 0.05 })
       render(
         <StressTestSection
@@ -304,11 +304,58 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          robustnessStatus="computed"
         />,
       )
       expect(
         screen.getByText('No sensitivity or fragility signals fired. Your model is currently consistent.'),
       ).toBeInTheDocument()
+    })
+
+    // Audit §8 P1 (verdict honesty): didn't-run / degraded / clean are
+    // three different truths and must not share the "consistent" claim.
+    it('says robustness did not run (not "consistent") when robustness_status is unavailable', () => {
+      render(
+        <StressTestSection
+          drivers={[]}
+          fragileEdges={[]}
+          winnerLabel="Option A"
+          alternativeLabel="Option B"
+          robustnessStatus="unavailable"
+        />,
+      )
+      expect(screen.getByTestId('stress-test-didnt-run')).toHaveTextContent(
+        "Robustness analysis didn't run for this pass, so fragility hasn't been checked.",
+      )
+      expect(screen.queryByText(/currently consistent/)).not.toBeInTheDocument()
+    })
+
+    it('makes no clean claim when robustness_status is absent entirely', () => {
+      render(
+        <StressTestSection
+          drivers={[]}
+          fragileEdges={[]}
+          winnerLabel="Option A"
+          alternativeLabel="Option B"
+        />,
+      )
+      expect(screen.getByTestId('stress-test-didnt-run')).toBeInTheDocument()
+      expect(screen.queryByText(/currently consistent/)).not.toBeInTheDocument()
+    })
+
+    it('does not claim consistency for a degraded/approximate pass', () => {
+      render(
+        <StressTestSection
+          drivers={[]}
+          fragileEdges={[]}
+          winnerLabel="Option A"
+          alternativeLabel="Option B"
+          robustnessStatus="computed"
+          analysisDegraded
+        />,
+      )
+      expect(screen.getByTestId('stress-test-degraded')).toHaveTextContent(/approximations/)
+      expect(screen.queryByText(/currently consistent/)).not.toBeInTheDocument()
     })
 
     it('does NOT render the fallback copy when sensitive or fragile fired', () => {

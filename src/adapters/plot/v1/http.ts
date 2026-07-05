@@ -40,6 +40,25 @@ const getProxyBase = (): string => {
   return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
 }
 
+/**
+ * Direct engine origin used as a one-shot fallback when the proxy hop
+ * returns a gateway error for an analysis run. Live evidence (2026-07-05):
+ * browser POSTs through /bff/engine 504ed after ~30 s while identical
+ * requests reached the engine directly in <1 s — the engine was healthy;
+ * the hop was not. Empty/unset disables the fallback (production default).
+ */
+export const getDirectFallbackBase = (): string => {
+  const raw = import.meta.env.VITE_ENGINE_DIRECT_FALLBACK_URL
+  if (typeof raw !== 'string') return ''
+  return raw.trim().replace(/\/+$/, '')
+}
+
+/** Gateway-hop failure: the proxy answered for the engine, not the engine itself. */
+const isGatewayHopError = (error: V1Error): boolean => {
+  const status = (error?.details as { status?: number } | undefined)?.status
+  return error?.code === 'GATEWAY_TIMEOUT' || status === 504 || status === 502
+}
+
 const getTimeouts = () => ({
   sync: parseInt(import.meta.env.VITE_PLOT_SYNC_TIMEOUT_MS || String(TIMEOUTS.SYNC_REQUEST_MS), 10),
   stream: parseInt(import.meta.env.VITE_PLOT_STREAM_TIMEOUT_MS || String(TIMEOUTS.SYNC_REQUEST_MS * 4), 10),
@@ -340,9 +359,9 @@ export async function health(): Promise<V1HealthResponse> {
  */
 async function runSyncOnce(
   request: V1RunRequest,
-  options?: { timeoutMs?: number; signal?: AbortSignal; requestId?: string; scmLite?: boolean }
+  options?: { timeoutMs?: number; signal?: AbortSignal; requestId?: string; scmLite?: boolean; baseOverride?: string }
 ): Promise<V1SyncRunResponse> {
-  const base = getProxyBase()
+  const base = options?.baseOverride || getProxyBase()
   const timeouts = getTimeouts()
   const timeoutMs = options?.timeoutMs || timeouts.sync
 
@@ -692,7 +711,23 @@ export async function runSync(
   request: V1RunRequest,
   options?: { timeoutMs?: number; signal?: AbortSignal; requestId?: string; scmLite?: boolean }
 ): Promise<V1SyncRunResponse> {
-  return withRetry(() => runSyncOnce(request, options))
+  try {
+    return await withRetry(() => runSyncOnce(request, options))
+  } catch (err) {
+    const error = err as V1Error
+    const directBase = getDirectFallbackBase()
+    // One-shot direct-origin fallback for gateway-hop failures only
+    // (504/502 come from the proxy layer; a healthy engine never returns
+    // them for this graph size — 2026-07-05 wire evidence). Never used for
+    // engine-originated errors, aborts, or when the fallback is unset.
+    if (directBase && isGatewayHopError(error) && !options?.signal?.aborted) {
+      if (import.meta.env.DEV) {
+        console.warn('[plot/v1] Gateway hop failed; retrying once against the engine origin directly.')
+      }
+      return runSyncOnce(request, { ...options, baseOverride: directBase })
+    }
+    throw error
+  }
 }
 
 /**

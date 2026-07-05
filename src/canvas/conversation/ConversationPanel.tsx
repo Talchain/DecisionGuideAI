@@ -493,7 +493,13 @@ export const ConversationPanel = memo(function ConversationPanel({
     // caller-supplied override still wins when provided.
     const prefillChat = prefillChatOverride
       ?? ((text: string) => prefillInto(composerRef.current, setDraft, text))
-    useGuidanceStore.getState().registerConversationCallbacks(
+    // The returned unregister is ownership-guarded (see guidanceStore): it
+    // only clears the shared callbacks if THIS registration is still the
+    // active one. The old unconditional null-out here meant that with two
+    // hosts mounted (floating panel + dock Olumi tab), whichever unmounted
+    // last killed the survivor's live registration — silently breaking every
+    // cross-surface run/ask CTA until a chat panel was reopened.
+    return useGuidanceStore.getState().registerConversationCallbacks(
       sendMessage,
       handleScrollToPatch,
       sendChipByLabelMessage,
@@ -501,9 +507,6 @@ export const ConversationPanel = memo(function ConversationPanel({
       prefillChat,
       dispatchAction,
     )
-    return () => {
-      useGuidanceStore.setState({ _sendMessage: null, _runAnalysis: null, _sendChip: null, _scrollToPatch: null, _prefillChat: null, _dispatchAction: null })
-    }
   }, [sendMessage, handleScrollToPatch, sendChip, handleRunAnalysis, dispatchAction, prefillChatOverride, setDraft])
 
   const handleInsertText = useCallback((text: string) => {

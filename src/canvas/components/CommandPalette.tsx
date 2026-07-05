@@ -3,7 +3,7 @@ import { useCanvasStore } from '../store'
 import { runLayoutWithProgress } from '../layout/runLayoutWithProgress'
 import { useReactFlow } from '@xyflow/react'
 import { plot } from '../../adapters/plot'
-import { useResultsRun } from '../hooks/useResultsRun'
+import { getCanonicalRunner } from '../analysis/canonicalRunRegistry'
 import { ValidationBanner, type ValidationError } from './ValidationBanner'
 import { useValidationFeedback } from '../hooks/useValidationFeedback'
 import { trackRunAttempt } from '../utils/sandboxTelemetry'
@@ -43,7 +43,6 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const { fitView } = useReactFlow()
-  const { run } = useResultsRun()
   const { formatErrors, focusError } = useValidationFeedback()
 
   const actions: Action[] = [
@@ -94,14 +93,31 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
           trackRunAttempt({ canRun: true, reason: 'ok', message: '' })
           setIsExecuting(true)
 
-          // Run analysis with default seed
-          await run({
-            template_id: 'canvas-graph',
-            seed: 1337,
-            graph: { nodes, edges }
-          })
+          // Run-path convergence: execute the one canonical pipeline
+          // registered by OutputsDock instead of building a thin legacy
+          // request here. Blocked runs surface their reason in the banner —
+          // never a silent no-op.
+          const runner = getCanonicalRunner()
+          if (!runner) {
+            setValidationErrors([{
+              code: 'RUN_UNAVAILABLE',
+              message: 'Analysis controls are unavailable right now. Open the results dock and try again.',
+              severity: 'error' as const
+            }])
+            trackRunAttempt({ canRun: false, reason: 'unknown', message: 'canonical runner unavailable' })
+            return
+          }
+          const outcome = await runner({ source: 'command-palette' })
+          if (outcome.status === 'blocked') {
+            setValidationErrors([{
+              code: 'RUN_BLOCKED',
+              message: outcome.reason,
+              severity: 'error' as const
+            }])
+            return
+          }
 
-          // Close dialog after successful run
+          // Close dialog after the run has been started
           onClose()
         } catch (err: any) {
           console.error('[CommandPalette] Run failed:', err)

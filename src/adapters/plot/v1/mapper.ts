@@ -204,10 +204,15 @@ export function graphToV1Request(
           edge.weight = e.data.weight
         }
 
-        // v1.2: belief and provenance
-        if (e.data?.belief !== undefined) {
+        // v1.2: belief and provenance. Canvas edges store existence
+        // confidence under `beliefExists` — the old `belief`-only read meant
+        // every canvas run silently dropped the user's confidence from the
+        // wire. Prefer `belief` when present (legacy data), else map
+        // `beliefExists`.
+        const beliefRaw = e.data?.belief ?? (e.data as { beliefExists?: number } | undefined)?.beliefExists
+        if (typeof beliefRaw === 'number') {
           // UI-SEM-034: V1 adapter belief clamped to [0, 1]. Keep — normalisation.
-          edge.belief = Math.max(0, Math.min(1, e.data.belief))
+          edge.belief = Math.max(0, Math.min(1, beliefRaw))
         }
 
         if (e.data?.provenance) {

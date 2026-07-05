@@ -10,7 +10,8 @@ import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasObservedData, isFactorNeedsInput } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, classifyUnit, placeholderDirectionLabel, isTierLabel } from '../utils/labelUtils'
+import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
+import { formatInterventionChange } from '../utils/interventionDisplay'
 import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { isGraphBadgesEnabled } from '../../flags'
 import { SlidersHorizontal, Eye, Cloud } from 'lucide-react'
@@ -19,7 +20,7 @@ import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, Sep, NodeChip, ActionIcons, MetricPills, NodePopover, ScienceIcon, EdgePills } from './shared'
+import { ConnRow, ConnRowsOverflow, Sep, NodeChip, ActionIcons, MetricPills, NodePopover, ScienceIcon, EdgePills } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { computeSignedMean } from '../domain/edges'
 
@@ -444,11 +445,12 @@ export const FactorNode = memo((props: NodeProps) => {
           Uncertainty here affects {outcomesAffected} outcome{outcomesAffected !== 1 ? 's' : ''}.
         </p>
       )}
-      {/* Connection list with strengths */}
+      {/* Connection list with strengths — max 3 whole rows, remainder
+          disclosed via "+N more in inspector" (audit §8 P0-5 containment). */}
       {outboundConnections.length > 0 && (
         <>
           <Sep />
-          {outboundConnections.slice(0, isDetailed ? 5 : 3).map(conn => (
+          {outboundConnections.slice(0, 3).map(conn => (
             <ConnRow
               key={conn.edgeId}
               edgeId={conn.edgeId}
@@ -457,6 +459,7 @@ export const FactorNode = memo((props: NodeProps) => {
               confidencePct={conn.confidencePct}
             />
           ))}
+          <ConnRowsOverflow total={outboundConnections.length} shown={3} />
         </>
       )}
       {/* Coaching chips — moved out of body. They appear here in the
@@ -502,12 +505,13 @@ export const FactorNode = memo((props: NodeProps) => {
           )}
         </div>
       )}
-      {/* ConnRows (max 3 in popover, max 5 in Detailed) */}
+      {/* ConnRows — max 3 whole rows in both views, remainder disclosed via
+          "+N more in inspector" (audit §8 P0-5 containment). */}
       {outboundConnections.length > 0 && (
         <>
           <Sep />
           <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Influences:</p>
-          {outboundConnections.slice(0, isDetailed ? 5 : 3).map(conn => (
+          {outboundConnections.slice(0, 3).map(conn => (
             <ConnRow
               key={conn.edgeId}
               edgeId={conn.edgeId}
@@ -516,6 +520,7 @@ export const FactorNode = memo((props: NodeProps) => {
               confidencePct={conn.confidencePct}
             />
           ))}
+          <ConnRowsOverflow total={outboundConnections.length} shown={3} />
         </>
       )}
       {/* BiasNote (max 1) — suppressed when a synthesised coaching line is
@@ -575,12 +580,14 @@ export const FactorNode = memo((props: NodeProps) => {
           )
         })()}
       >
-        {/* Intervention highlight when option hovered. Placeholder-unit
-            factors (scale, index, score, …) and qualitative tier labels have
-            no real-world anchor, so we render directional language against
-            the observed baseline instead of the raw number. For currency /
-            percentage / time / count units we keep the formatted value.
-            Never renders a bare arrow with no trailing text. */}
+        {/* Intervention highlight when option hovered. Audit §8 P0-4: this
+            annotation routes through the SINGLE intervention formatter so it
+            can never contradict the option card's pills/popover for the same
+            input. Formattable values render "→ 60%" / "→ £70,000"; factors
+            with no real-world anchor fall back to directional language, and
+            "Does not change …" fires ONLY on exact baseline equality (the old
+            ±0.1 epsilon produced the live 0.5→0.6 contradiction). Never
+            renders a bare arrow with no trailing text. */}
         {isAffectedByHover && (() => {
           // F.6 passthrough: CEE-authored display_value wins over any UI
           // formatting or directional inference. Render verbatim. This also
@@ -596,44 +603,32 @@ export const FactorNode = memo((props: NodeProps) => {
           if (interventionValue == null) return null
           const rawUnit = observedState?.unit
           const effectiveUnit = rawUnit && !isSuppressedUnit(rawUnit) ? rawUnit : undefined
-          const unitKind = classifyUnit(effectiveUnit).kind
           // Must pass the cleaned label — compactFactorLabel expects scale
           // metadata like "(0–1 scale)" to have already been stripped (see
           // its docstring). Raw props.data.label can contain those fragments
           // and they would leak into the teal strip otherwise.
           const compactLabel = compactFactorLabel(cleanedLabel, 22)
-          const directional = placeholderDirectionLabel(
-            interventionValue,
-            observedState?.value,
-            compactLabel,
-          )
-          if (unitKind === 'placeholder') {
-            if (!directional) return null
-            return (
-              <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
-                → {directional}
-              </div>
-            )
-          }
-          const formatted = formatInterventionValue(
-            interventionValue,
-            effectiveUnit,
-            observedState?.factor_type,
-            observedState?.cap,
-            observedState?.value,
-            observedState?.raw_value,
-          )
-          if (formatted && !isTierLabel(formatted)) {
-            return (
-              <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
-                → {formatted}
-              </div>
-            )
-          }
-          if (!directional) return null
+          const change = formatInterventionChange({
+            baselineValue: observedState?.value,
+            targetValue: interventionValue,
+            label: compactLabel,
+            unit: effectiveUnit,
+            factorType: observedState?.factor_type,
+            cap: observedState?.cap,
+            observedValue: observedState?.value,
+            observedRawValue: observedState?.raw_value,
+          })
+          // Body selection: formatted value when available; directional
+          // sentence when only a direction is known; nothing when neither
+          // (placeholder-unit factor with unknown baseline) — never a bare
+          // arrow, never an unanchored "Changes X".
+          const body = change.changed
+            ? (change.targetText || (change.arrow ? change.text : ''))
+            : change.text
+          if (!body) return null
           return (
             <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
-              → {directional}
+              → {body}
             </div>
           )
         })()}

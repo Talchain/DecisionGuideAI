@@ -70,6 +70,15 @@
   # sign-off. See src/flags.ts `analysisHeroPanel`.
   VITE_FEATURE_ANALYSIS_HERO_PANEL = "1"
 
+  # Engine direct-fallback origin (run-path reliability). When the Netlify
+  # /bff/engine proxy hop returns a gateway error (504/502) for an analysis
+  # run, the plot client retries ONCE against this origin directly — the same
+  # service the proxy targets (already in CSP connect-src; PLoT's CORS
+  # allow-list accepts the client's headers). Empty/unset disables the
+  # fallback entirely — production stays proxy-only until promoted after
+  # sign-off. See src/adapters/plot/v1/http.ts :: getDirectFallbackBase.
+  VITE_ENGINE_DIRECT_FALLBACK_URL = "https://plot-lite-service-staging.onrender.com"
+
 # =============================================================================
 # Security Headers (P0 - Enterprise Compliance)
 # =============================================================================
@@ -145,6 +154,13 @@
 [[edge_functions]]
   function = "csp-nonce"
   path = "/*"
+  # Keep API proxy routes OUT of the edge-function hop. The in-code config in
+  # csp-nonce.ts already excludes /bff/* — but THIS declaration registers a
+  # second route with no exclusions, which put every /bff/engine POST through
+  # the Deno isolate before the proxy redirect. Browser analysis runs were
+  # 504ing through that hop while identical curl requests succeeded
+  # (2026-07-05 wire evidence, graph coaching audit).
+  excludedPath = ["/bff/*", "/assets/*"]
 
 # ISL Service proxy - handled by Edge Function for auth header injection
 # Requires ISL_API_KEY env var in Netlify dashboard

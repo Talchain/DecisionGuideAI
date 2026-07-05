@@ -109,3 +109,21 @@ describe('EdgePills', () => {
     expect(container.querySelector('.sr-only')).toBeTruthy()
   })
 })
+
+// Audit §8 P0-4: strength vs confidence labelling — the pill % is link
+// STRENGTH and must be self-identifying (title + aria), distinguishable from
+// ConnRow's "N% conf." confidence format.
+describe('EdgePills — strength labelling (audit §8 P0-4)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('exposes the strength title and aria label on the percentage', () => {
+    mockStore(makeState({
+      edges: [{ id: 'e1', source: 'f1', target: 'o1', data: { weight: 0.3, direction: 'positive' } }],
+      nodes: [{ id: 'o1', type: 'outcome', data: { label: 'Shipping speed' } }],
+    }))
+    render(<EdgePills nodeId="f1" />)
+    const pct = screen.getByText('30%')
+    expect(pct.getAttribute('title')).toBe('Link strength')
+    expect(pct.getAttribute('aria-label')).toBe('30% link strength')
+  })
+})

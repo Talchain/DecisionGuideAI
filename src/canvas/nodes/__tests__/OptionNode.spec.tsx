@@ -34,9 +34,11 @@ vi.mock('../../store', () => ({
 }))
 
 vi.mock('../../layoutStore', () => ({
-  useLayoutStore: vi.fn((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
-    selector({ layoutNodeWidth: null })
-  ),
+  // Partial store state: only layoutNodeWidth is read by OptionNode. The
+  // double-cast confines the mock to that shape without exporting the
+  // store's internal LayoutOptions type.
+  useLayoutStore: vi.fn(((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
+    selector({ layoutNodeWidth: null })) as unknown as (...args: never[]) => unknown),
 }))
 
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
@@ -49,6 +51,9 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
     stabilityPercentage: null,
     winRate: null,
     isResultsMode: false,
+    predictedOutcome: null,
+    valueOfInformation: null,
+    voiRank: null,
   })),
 }))
 
@@ -96,10 +101,12 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: false,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
-    vi.mocked(useLayoutStore).mockImplementation((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
-      selector({ layoutNodeWidth: null }) as any
-    )
+    vi.mocked(useLayoutStore).mockImplementation(((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
+      selector({ layoutNodeWidth: null })) as never)
   })
 
   it('renders label', () => {
@@ -129,6 +136,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 0.72,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     renderOption()
     expect(screen.getByText('72% win probability')).toBeDefined()
@@ -145,6 +155,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 0.72,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     // Set up store with report using option_probabilities (the field responseMapper populates)
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
@@ -178,6 +191,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 0.28,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
@@ -369,9 +385,8 @@ describe('OptionNode', () => {
   // P1-4: layoutNodeWidth propagation — OptionNode must not override layoutNodeWidth
   // with a hardcoded maxWidth prop, so the store-driven width governs BaseNode sizing.
   it('P1-4: OptionNode respects layoutNodeWidth from store (no hardcoded 238px override)', () => {
-    vi.mocked(useLayoutStore).mockImplementation((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
-      selector({ layoutNodeWidth: 180 }) as any
-    )
+    vi.mocked(useLayoutStore).mockImplementation(((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
+      selector({ layoutNodeWidth: 180 })) as never)
     const { container } = renderOption()
     // BaseNode's root div carries an inline maxWidth style. In this test no
     // intervention chips are rendered (ceeAnalysisReady is null), so the only
@@ -398,6 +413,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 0.72,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
@@ -434,6 +452,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 0.72,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
@@ -492,9 +513,13 @@ describe('OptionNode', () => {
   })
 
   // G2: Qualitative factors show percentage instead of tier labels (v1.1 polish)
+  // Rendered via the post-analysis Detailed "What this option changes:" list —
+  // the pre-analysis Detailed "Interventions:" list was removed as a duplicate
+  // of the delta pills (audit §8 P1).
   it('shows percentage for qualitative factor (no unit, factor_type "quality")', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
+        results: { status: 'complete', report: {} },
         ceeAnalysisReady: {
           options: [{
             id: 'option-1',
@@ -520,6 +545,7 @@ describe('OptionNode', () => {
   it('shows numeric value for factor with unit even if factor_type is qualitative', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
+        results: { status: 'complete', report: {} },
         ceeAnalysisReady: {
           options: [{
             id: 'option-1',
@@ -543,6 +569,7 @@ describe('OptionNode', () => {
   it('formats intervention value correctly when value is nested object {value: N}', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
+        results: { status: 'complete', report: {} },
         ceeAnalysisReady: {
           options: [{
             id: 'option-1',
@@ -565,6 +592,7 @@ describe('OptionNode', () => {
     // CEE-provided display_value must win over the numeric formatter.
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
+        results: { status: 'complete', report: {} },
         ceeAnalysisReady: {
           options: [{
             id: 'option-1',
@@ -588,6 +616,7 @@ describe('OptionNode', () => {
     // new gate does not break the legacy formatter path.
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
+        results: { status: 'complete', report: {} },
         ceeAnalysisReady: {
           options: [{
             id: 'option-1',
@@ -617,6 +646,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 0.7,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
@@ -659,6 +691,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 0.7,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
@@ -686,13 +721,15 @@ describe('OptionNode', () => {
     expect(screen.queryByText('added 5')).toBeNull()
   })
 
-  it('passthrough: displayValue is NOT mutated by stripEcho in Detailed inline pre-analysis list', () => {
-    // Detailed view (viewMode='expert', !isPostAnalysis, !isBaseline) routes
-    // through the Layer 2 inline render path around line 1011. Must also
-    // bypass stripEcho for the CEE string.
+  it('passthrough: displayValue is NOT mutated by stripEcho in Detailed inline list', () => {
+    // Detailed view (viewMode='expert', post-analysis, !isBaseline) routes
+    // through the Layer 2 inline "What this option changes:" list (the
+    // pre-analysis "Interventions:" duplicate was removed — audit §8 P1).
+    // Must bypass stripEcho for the CEE string.
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         viewMode: 'expert',
+        results: { status: 'complete', report: {} },
         ceeAnalysisReady: {
           options: [{
             id: 'option-1',
@@ -753,6 +790,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     renderOption()
     expect(screen.queryByText(/win probability/)).toBeNull()
@@ -768,6 +808,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 0.8,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
@@ -793,6 +836,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 0.72,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
@@ -829,6 +875,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 1.0,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
@@ -848,10 +897,26 @@ describe('OptionNode', () => {
     expect(screen.queryByText('Leading option')).toBeNull()
   })
 
-  // V3: Intervention details render in expert overlay without chip styling
+  // V3: Intervention details render in expert overlay without chip styling.
+  // Post-analysis Detailed list ("What this option changes:") — the
+  // pre-analysis "Interventions:" duplicate was removed (audit §8 P1).
   it('intervention details in expert overlay have no chip styling (P1)', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: 0.6,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
+        results: { status: 'complete', report: {} },
         ceeAnalysisReady: {
           options: [{
             id: 'option-1',
@@ -932,6 +997,9 @@ describe('OptionNode', () => {
       stabilityPercentage: null,
       winRate: 0.02,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     const { container } = renderOption()
     const bar = container.querySelector('.bg-option.rounded-full') as HTMLElement | null
@@ -951,9 +1019,8 @@ describe('OptionNode — QA Brief C-series', () => {
       sensitivityRank: null, influence: null, confidence: null, inSensitivityAnalysis: false,
       achievementProbability: null, stabilityPercentage: null, winRate: null, isResultsMode: false,
     })
-    vi.mocked(useLayoutStore).mockImplementation((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
-      selector({ layoutNodeWidth: null }) as any
-    )
+    vi.mocked(useLayoutStore).mockImplementation(((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
+      selector({ layoutNodeWidth: null })) as never)
   })
 
   // C2: Baseline option shows "No changes from current state" (all interventions match baseline)
@@ -1004,6 +1071,7 @@ describe('OptionNode — QA Brief C-series', () => {
   it('C4: qualitative factor intervention shows no delta arrow', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
+        results: { status: 'complete', report: {} },
         ceeAnalysisReady: {
           options: [{
             id: 'option-1',
@@ -1066,6 +1134,7 @@ describe('OptionNode — QA Brief C-series', () => {
   it('C6: multiple interventions render multiple chips (up to top 3)', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
+        results: { status: 'complete', report: {} },
         ceeAnalysisReady: {
           options: [{
             id: 'option-1',
@@ -1396,15 +1465,51 @@ describe('OptionNode — QA Brief C-series', () => {
       expect(differentiatorP!.textContent!.toLowerCase()).not.toContain('scale')
     })
 
-    it('uses "Does not change" when scale-unit intervention is within ±0.1 of baseline', () => {
+    it('says "Increases" for a small real shift (0.05) — "Does not change" needs exact equality', () => {
+      // Audit §8 P0-4: the old ±0.1 display epsilon rendered "Does not
+      // change" for genuinely different values (0.5→0.55, and the live
+      // 0.5→0.6 boundary case). The single formatter reserves "Does not
+      // change" for exact equality only.
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
           ceeAnalysisReady: {
             options: [
-              // Option A sits 0.05 above baseline (< 0.1 threshold);
+              // Option A sits 0.05 above baseline — a real change;
               // Option B is far below. Shared factor → differentiator fires
               // for A via the neutral branch.
               { id: 'option-1', interventions: { 'factor-1': 0.55 } },
+              { id: 'option-2', interventions: { 'factor-1': 0.1 } },
+            ],
+          },
+          nodes: [
+            { id: 'option-1', type: 'option', data: { label: 'Hold Steady', type: 'option' } },
+            { id: 'option-2', type: 'option', data: { label: 'Cut Back', type: 'option' } },
+            {
+              id: 'factor-1',
+              type: 'factor',
+              data: {
+                label: 'Marketing Expertise',
+                observedState: { unit: 'scale', value: 0.5 },
+              },
+            },
+          ],
+          viewMode: 'standard',
+        }) as any),
+      )
+      renderOption({ label: 'Hold Steady' })
+      const matches = screen.queryAllByText(/marketing expertise/i)
+      const differentiatorP = matches.find(el => el.tagName === 'P')
+      expect(differentiatorP).toBeDefined()
+      expect(differentiatorP!.textContent).toMatch(/^Increases /)
+    })
+
+    it('uses "Does not change" ONLY when the intervention exactly equals the baseline', () => {
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector(makeStoreState({
+          ceeAnalysisReady: {
+            options: [
+              // Option A matches the baseline exactly; Option B is far below.
+              { id: 'option-1', interventions: { 'factor-1': 0.5 } },
               { id: 'option-2', interventions: { 'factor-1': 0.1 } },
             ],
           },
@@ -1502,5 +1607,233 @@ describe('OptionNode — QA Brief C-series', () => {
       // Unique factor → "Headcount is the key difference" (simple sentence)
       expect(screen.getByText(/headcount is the key difference/i)).toBeDefined()
     })
+  })
+})
+
+// ─── Graph coaching audit §8 (P0-4/P0-5/P1) — display coherence ─────────────
+describe('OptionNode — display coherence (audit §8)', () => {
+  const resultsMetadata = (winRate: number | null) => ({
+    sensitivityRank: null,
+    influence: null,
+    confidence: null,
+    inSensitivityAnalysis: false,
+    achievementProbability: null,
+    stabilityPercentage: null,
+    winRate,
+    isResultsMode: true,
+    predictedOutcome: null,
+    valueOfInformation: null,
+    voiRank: null,
+  })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState() as any))
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(null))
+    vi.mocked(useLayoutStore).mockImplementation(((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
+      selector({ layoutNodeWidth: null })) as never)
+  })
+
+  // Item 3a: duplicate win-rate phrasing removed from the status-quo card
+  it('status-quo card renders "win probability" once and never "win rate across simulations"', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.28))
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: {} },
+      }) as any)
+    )
+    renderOption({ label: 'Status Quo', is_baseline: true })
+    expect(screen.getByText('28% win probability')).toBeDefined()
+    expect(screen.queryByText(/win rate across simulations/i)).toBeNull()
+    expect(screen.getByText('Current baseline. No changes to factors.')).toBeDefined()
+  })
+
+  // Item 3c: identical "Behind:" reasons on multiple non-leading options are
+  // suppressed on all of them (non-differentiating copy)
+  it('suppresses "Behind:" when another non-leading option shares the identical reason', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.2))
+    const report = {
+      robustness: { recommended_option_id: 'option-3' },
+      option_probabilities: {
+        'option-1': { win_probability: 0.2 },
+        'option-2': { win_probability: 0.2 },
+        'option-3': { win_probability: 0.6 },
+      },
+      // No factor_sensitivity → both losers would read "fewer key changes"
+    }
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { label: 'Option A', type: 'option' } },
+          { id: 'option-2', type: 'option', data: { label: 'Option B', type: 'option' } },
+          { id: 'option-3', type: 'option', data: { label: 'Option C', type: 'option' } },
+        ],
+      }) as any)
+    )
+    renderOption({ label: 'Option A' })
+    expect(screen.queryByText(/Behind:/)).toBeNull()
+  })
+
+  it('keeps "Behind:" when the reason differs from the other non-leading option', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.2))
+    const report = {
+      robustness: { recommended_option_id: 'option-3' },
+      option_probabilities: {
+        'option-1': { win_probability: 0.2 },
+        'option-2': { win_probability: 0.2 },
+        'option-3': { win_probability: 0.6 },
+      },
+    }
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { label: 'Option A', type: 'option' } },
+          // Sibling loser is the baseline → its reason is "no changes from
+          // current state", which differs from option-1's "fewer key changes".
+          { id: 'option-2', type: 'option', data: { label: 'Status Quo', type: 'option', is_baseline: true } },
+          { id: 'option-3', type: 'option', data: { label: 'Option C', type: 'option' } },
+        ],
+      }) as any)
+    )
+    renderOption({ label: 'Option A' })
+    expect(screen.getByText(/Behind: fewer key changes/)).toBeDefined()
+  })
+
+  // Item 6: stale treatment on result decorations
+  it('marks win-probability block and Leading badge stale when the graph changed since the run', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.72))
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          graphHash: 'hash-at-run',
+          report: { option_probabilities: { 'option-1': { win_probability: 0.72 }, 'option-2': { win_probability: 0.2 } } },
+        },
+        _internal: { graphHash: 'hash-now-different' },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { label: 'Option A', type: 'option' } },
+          { id: 'option-2', type: 'option', data: { label: 'Option B', type: 'option' } },
+        ],
+      }) as any)
+    )
+    const { container } = renderOption({ label: 'Option A' })
+    const staleEls = container.querySelectorAll('[data-stale="true"]')
+    expect(staleEls.length).toBeGreaterThanOrEqual(2) // win-prob block + badge
+    const winProbBlock = screen.getByText('72% win probability').closest('[data-stale="true"]')
+    expect(winProbBlock).not.toBeNull()
+    expect(winProbBlock!.getAttribute('title')).toBe('Model changed since this analysis')
+    expect(winProbBlock!.className).toContain('opacity-50')
+    const badge = screen.getByText('Leading option')
+    expect(badge.getAttribute('data-stale')).toBe('true')
+  })
+
+  it('does not mark decorations stale when hashes match', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.72))
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', graphHash: 'same-hash', report: {} },
+        _internal: { graphHash: 'same-hash' },
+      }) as any)
+    )
+    const { container } = renderOption()
+    expect(container.querySelectorAll('[data-stale="true"]').length).toBe(0)
+  })
+
+  // Item 7: per-option intervention list containment
+  it('caps the "What this option changes:" list at 3 rows with "+N more in inspector"', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.5))
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: {} },
+        ceeAnalysisReady: {
+          options: [{
+            id: 'option-1',
+            interventions: {
+              'factor-1': 0.9,
+              'factor-2': 0.8,
+              'factor-3': 0.7,
+              'factor-4': 0.6,
+              'factor-5': 0.55,
+            },
+          }],
+        },
+        nodes: [
+          { id: 'factor-1', data: { label: 'Alpha', observedState: { unit: 'fraction' } } },
+          { id: 'factor-2', data: { label: 'Bravo', observedState: { unit: 'fraction' } } },
+          { id: 'factor-3', data: { label: 'Charlie', observedState: { unit: 'fraction' } } },
+          { id: 'factor-4', data: { label: 'Delta', observedState: { unit: 'fraction' } } },
+          { id: 'factor-5', data: { label: 'Echo', observedState: { unit: 'fraction' } } },
+        ],
+      }) as any)
+    )
+    renderOption()
+    // Exactly the top-3 rows render, whole (labels visible)…
+    expect(screen.getByText('Alpha')).toBeDefined()
+    expect(screen.getByText('Bravo')).toBeDefined()
+    expect(screen.getByText('Charlie')).toBeDefined()
+    // …the 4th and 5th do not…
+    expect(screen.queryByText('Delta')).toBeNull()
+    expect(screen.queryByText('Echo')).toBeNull()
+    // …and the overflow line reports the correct remainder.
+    expect(screen.getByText('+2 more in inspector')).toBeDefined()
+  })
+
+  it('shows no overflow line when 3 or fewer interventions exist', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.5))
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: {} },
+        ceeAnalysisReady: {
+          options: [{
+            id: 'option-1',
+            interventions: { 'factor-1': 0.9, 'factor-2': 0.8 },
+          }],
+        },
+        nodes: [
+          { id: 'factor-1', data: { label: 'Alpha', observedState: { unit: 'fraction' } } },
+          { id: 'factor-2', data: { label: 'Bravo', observedState: { unit: 'fraction' } } },
+        ],
+      }) as any)
+    )
+    renderOption()
+    expect(screen.getByText('Alpha')).toBeDefined()
+    expect(screen.getByText('Bravo')).toBeDefined()
+    expect(screen.queryByText(/more in inspector/)).toBeNull()
+  })
+
+  // Item 3b: Detailed pre-analysis no longer duplicates pills with an
+  // "Interventions:" list
+  it('Detailed pre-analysis card renders delta pills without a duplicate "Interventions:" list', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: false,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        viewMode: 'expert',
+        ceeAnalysisReady: {
+          options: [{ id: 'option-1', interventions: { 'factor-1': 0.8 } }],
+        },
+        nodes: [
+          { id: 'factor-1', data: { label: 'Budget', observedState: { unit: 'fraction', value: 0.4 } } },
+        ],
+      }) as any)
+    )
+    renderOption()
+    // Pills render the from→to data…
+    expect(screen.getByText('40% → 80%')).toBeDefined()
+    // …and the duplicated inline list is gone.
+    expect(screen.queryByText('Interventions:')).toBeNull()
   })
 })

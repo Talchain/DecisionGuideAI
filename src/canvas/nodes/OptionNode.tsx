@@ -6,10 +6,18 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
+import { focusExistingTarget } from '../utils/focusHelpers'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, unwrapInterventionValue, classifyUnit, isCountUnit, formatWinProbability, placeholderDirectionLabel, isTierLabel } from '../utils/labelUtils'
-import { formatFactorDisplayValue, readFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
+import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
+import {
+  describeInterventionDirection,
+  formatInterventionChange,
+  formatInterventionTargetText,
+  isInterventionNoChange,
+} from '../utils/interventionDisplay'
+import { readFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { detectBaseline } from '../utils/baselineDetection'
+import { useStaleGuard } from '../ui/inspector-v2/useStaleGuard'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodeChip, ActionIcons, BriefIcon, MetricPills, NodePopover, ScienceIcon } from './shared'
 
@@ -25,6 +33,75 @@ function truncateAtWord(text: string, maxLength: number): string {
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
 function stripFactorSuffixes(label: string): string {
   return label.replace(KNOWN_SUFFIXES, '').trim()
+}
+
+/**
+ * Pure "Behind:" reason for a non-leading option. Extracted from the memo so
+ * the same computation can run for sibling options: when the reason string is
+ * identical across multiple non-leading options it differentiates nothing and
+ * is suppressed on all of them (audit §8 P1 — "Behind: fewer key changes"
+ * rendered verbatim on every loser).
+ */
+function computeBehindReason(
+  optionId: string,
+  isBaseline: boolean,
+  report: any,
+  ceeAnalysisReady: { options?: { id: string; interventions?: Record<string, unknown> }[] } | null,
+  nodes: readonly { id: string; type?: string; data?: any }[],
+): string | null {
+  if (isBaseline) return 'no changes from current state'
+  if (!report) return null
+
+  const recommendedOptionId = report?.robustness?.recommended_option_id as string | undefined
+  if (!recommendedOptionId) return null
+
+  const sensitivity = report?.enrichment?.sensitivity_analysis?.factors ?? report?.factor_sensitivity ?? []
+  if (!Array.isArray(sensitivity) || sensitivity.length === 0) return 'fewer key changes'
+
+  const rankedFactors = [...sensitivity]
+    .map((f: any) => ({
+      id: (f.factor_id || f.factorId || f.node_id || f.nodeId) as string | undefined,
+      label: (f.label ?? f.node_label) as string | undefined,
+      score: Math.abs(f.importance_score ?? f.elasticity ?? f.sensitivity_score ?? 0),
+    }))
+    .sort((a, b) => b.score - a.score)
+
+  const topFactor = rankedFactors[0]
+  if (!topFactor?.id) return 'fewer key changes'
+
+  const factorNode = nodes.find(n => n.id === topFactor.id)
+  const factorLabel = topFactor.label
+    ?? (factorNode ? (cleanFactorLabel((factorNode.data?.label as string) ?? '') || (factorNode.data?.label as string)) : null)
+    ?? null
+
+  if (!factorLabel) return 'fewer key changes'
+
+  const winnerCee = ceeAnalysisReady?.options?.find(opt => opt.id === recommendedOptionId)
+  const thisCee = ceeAnalysisReady?.options?.find(opt => opt.id === optionId)
+
+  const winnerInterventions = winnerCee?.interventions ?? {}
+  const thisInterventions = thisCee?.interventions ?? {}
+
+  const winnerHasFactor = topFactor.id in winnerInterventions
+  const thisHasFactor = topFactor.id in thisInterventions
+
+  const strippedLabel = stripFactorSuffixes(factorLabel) || factorLabel
+
+  if (winnerHasFactor && !thisHasFactor) {
+    return `no ${strippedLabel.toLowerCase()} added`
+  }
+
+  if (winnerHasFactor && thisHasFactor) {
+    // unwrapInterventionValue returns null for malformed entries; treat
+    // those as "no comparable value" and skip the lower-than message.
+    const { value: winnerVal } = unwrapInterventionValue(winnerInterventions[topFactor.id])
+    const { value: thisVal } = unwrapInterventionValue(thisInterventions[topFactor.id])
+    if (winnerVal != null && thisVal != null && Math.abs(winnerVal - thisVal) >= 1e-6) {
+      return `${strippedLabel.toLowerCase()} lower`
+    }
+  }
+
+  return 'fewer key changes'
 }
 
 /**
@@ -142,9 +219,10 @@ function computeAllDifferentiators(
       const unit = (factorNode?.data?.unit as string | undefined) ?? obs?.unit
       const effectiveUnit = unit && !isSuppressedUnit(unit) ? unit : undefined
       const unitKind = classifyUnit(effectiveUnit).kind
+      // Audit §8 P0-4: "Does not change" fires ONLY on exact equality with the
+      // baseline (shared formatter semantics) — never a ±0.1 display epsilon.
       const directional = (): string =>
-        placeholderDirectionLabel(myValue, observedBaselineFor(factorId), compactLabel)
-          ?? `Does not change ${compactLabel}`
+        describeInterventionDirection(observedBaselineFor(factorId), myValue, compactLabel)
       if (unitKind === 'placeholder') {
         candidateLabels.set(optionId, directional())
       } else {
@@ -204,41 +282,10 @@ function stripEcho(label: string, displayValue: string): string {
   return displayValue
 }
 
-/** Format an intervention value contextually, avoiding banned "On"/"Off" content. */
-function formatChipValue(chip: { label: string; value: number; displayValue?: string; unit?: string; factorType?: string; cap?: number; observedValue?: number; observedRawValue?: string | number }): string {
-  // CEE-provided display_value wins over any UI-side formatting.
-  if (chip.displayValue) return chip.displayValue
-  // Denormalize intervention value when cap is available (intervention values are 0-1 normalized)
-  const effectiveUnit = chip.unit && !isSuppressedUnit(chip.unit) ? chip.unit : null
-  let rawValue: number | string | null = null
-  if (effectiveUnit && chip.cap != null && chip.cap > 1) {
-    const raw = chip.value * chip.cap
-    // Clean float-precision artefacts (e.g. 16.080000000000002): count/headcount
-    // units render as whole numbers; other units keep ≤2 decimals. Display-only —
-    // underlying value/cap and denormalisation semantics are unchanged.
-    rawValue = isCountUnit(effectiveUnit) ? Math.round(raw) : Math.round(raw * 100) / 100
-  }
-  const contextual = formatFactorDisplayValue({
-    label: chip.label,
-    value: chip.value,
-    raw_value: rawValue,
-    unit: effectiveUnit,
-    factor_type: chip.factorType ?? null,
-    cap: chip.cap ?? null,
-  })
-  if (contextual) return contextual
-  // Fallback: prefer numeric formatting over qualitative tier labels and raw normalised values
-  const fallback = formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
-  // Tier labels and raw normalised decimals → percentage
-  if (isTierLabel(fallback)) {
-    return `${Math.round(chip.value * 100)}%`
-  }
-  // Raw normalised number (no unit, value in [0,1] like "0.15" or "0.85") → percentage
-  if (!effectiveUnit && chip.value >= 0 && chip.value <= 1 && /^0\.\d+$/.test(fallback)) {
-    return `${Math.round(chip.value * 100)}%`
-  }
-  return fallback
-}
+// Value formatting for intervention chips lives in the shared single
+// formatter (src/canvas/utils/interventionDisplay.ts — audit §8 P0-4).
+// The former local formatChipValue moved there as formatInterventionTargetText
+// so every option-intervention surface renders identical statements.
 
 interface InterventionChip {
   factorId: string
@@ -277,6 +324,11 @@ export const OptionNode = memo((props: NodeProps) => {
   const resultsReport = useCanvasStore(state => state.results.report)
   const resultsStatus = useCanvasStore(state => state.results.status)
   const isPostAnalysis = resultsStatus === 'complete'
+  // Audit §8 P1: canvas result decorations must reflect the same freshness
+  // verdict the panels use (StaleGuardBanner / bottom-bar "Analysis stale").
+  // Display-only: opacity + title, no layout shift.
+  const { isStale } = useStaleGuard()
+  const staleTitle = isStale ? 'Model changed since this analysis' : undefined
 
   const isRecommended = useMemo(() => {
     if (!displayMetadata.isResultsMode || displayMetadata.winRate === null) return false
@@ -465,9 +517,21 @@ export const OptionNode = memo((props: NodeProps) => {
         // a one-sided or fabricated value, and never a throw.
         if (baseline === undefined) return null
 
-        const diff = c.value - baseline
-        if (Math.abs(diff) < 1e-6) return null // no change
-        const direction: 'up' | 'down' = diff > 0 ? 'up' : 'down'
+        // Single-formatter no-change semantics (audit §8 P0-4): a chip is
+        // omitted as "no change" ONLY on exact equality with the baseline.
+        const change = formatInterventionChange({
+          baselineValue: baseline,
+          targetValue: c.value,
+          label: shortLabel,
+          unit: c.unit,
+          factorType: c.factorType,
+          cap: c.cap,
+          observedValue: c.observedValue,
+          observedRawValue: c.observedRawValue,
+          targetDisplayValue: c.displayValue,
+        })
+        if (!change.changed) return null // no change
+        const direction: 'up' | 'down' = change.arrow ?? 'up'
 
         // Scope A — binary/encoded factor with payload display labels on BOTH
         // sides. Fires ONLY when: the pair is strictly {0,1}; the intervention
@@ -488,15 +552,13 @@ export const OptionNode = memo((props: NodeProps) => {
           return { factorId: c.factorId, label: shortLabel, direction, fromTo: `${baselineLabel} → ${c.displayValue}` }
         }
 
-        // Format BOTH sides with the existing trusted formatter (real-world
-        // where the payload supports it — same helper the post-analysis list
+        // Both sides come from the shared formatter (real-world display units
+        // where the payload supports it — same chain the post-analysis list
         // uses). When either side can't be formatted to real-world, fall back
         // to normalised percentages for BOTH sides — the only safe shared
         // scale. No new denormalisation logic is introduced.
-        const targetFormatted = formatChipValue(c)
-        const baselineFormatted = formatChipValue({ ...c, value: baseline, displayValue: undefined })
-        const fromTo = baselineFormatted && targetFormatted
-          ? `${baselineFormatted} → ${targetFormatted}`
+        const fromTo = change.baselineText && change.targetText
+          ? `${change.baselineText} → ${change.targetText}`
           : `${Math.round(baseline * 100)}% → ${Math.round(c.value * 100)}%`
 
         return { factorId: c.factorId, label: shortLabel, direction, fromTo }
@@ -582,67 +644,45 @@ export const OptionNode = memo((props: NodeProps) => {
     return typeof optionProbs?.goal_probability === 'number' ? optionProbs.goal_probability : null
   }, [isPostAnalysis, resultsReport, props.id])
 
-  // "Behind:" reason for non-winner options (including status quo)
+  // "Behind:" reason for non-winner options (including status quo).
+  // Computed via the pure helper so this option's reason can be compared
+  // against its non-leading siblings: an identical reason on multiple losers
+  // differentiates nothing, so it renders on none of them (audit §8 P1).
   const behindReason = useMemo<string | null>(() => {
     if (!isPostAnalysis || isRecommended) return null
-    if (isBaselineOption) return 'no changes from current state'
     const report = resultsReport as any
-    if (!report) return null
+    const myReason = computeBehindReason(props.id, isBaselineOption, report, ceeAnalysisReady, nodes)
+    if (!myReason) return null
 
-    const recommendedOptionId = report?.robustness?.recommended_option_id as string | undefined
-    if (!recommendedOptionId) return null
-
-    const sensitivity = report?.enrichment?.sensitivity_analysis?.factors ?? report?.factor_sensitivity ?? []
-    if (!Array.isArray(sensitivity) || sensitivity.length === 0) return 'fewer key changes'
-
-    const rankedFactors = [...sensitivity]
-      .map((f: any) => ({
-        id: (f.factor_id || f.factorId || f.node_id || f.nodeId) as string | undefined,
-        label: (f.label ?? f.node_label) as string | undefined,
-        score: Math.abs(f.importance_score ?? f.elasticity ?? f.sensitivity_score ?? 0),
-      }))
-      .sort((a, b) => b.score - a.score)
-
-    const topFactor = rankedFactors[0]
-    if (!topFactor?.id) return 'fewer key changes'
-
-    const factorNode = nodes.find(n => n.id === topFactor.id)
-    const factorLabel = topFactor.label
-      ?? (factorNode ? (cleanFactorLabel((factorNode.data?.label as string) ?? '') || (factorNode.data?.label as string)) : null)
-      ?? null
-
-    if (!factorLabel) return 'fewer key changes'
-
-    const winnerCee = ceeAnalysisReady?.options?.find(opt => opt.id === recommendedOptionId)
-    const thisCee = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
-
-    const winnerInterventions = winnerCee?.interventions ?? {}
-    const thisInterventions = thisCee?.interventions ?? {}
-
-    const winnerHasFactor = topFactor.id in winnerInterventions
-    const thisHasFactor = topFactor.id in thisInterventions
-
-    const strippedLabel = stripFactorSuffixes(factorLabel) || factorLabel
-
-    if (winnerHasFactor && !thisHasFactor) {
-      return `no ${strippedLabel.toLowerCase()} added`
+    const probs: Record<string, { win_probability?: number }> = report?.option_probabilities ?? {}
+    const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
+    const rates = optionNodes
+      .map(n => probs[n.id]?.win_probability)
+      .filter((v): v is number => typeof v === 'number')
+    const maxRate = rates.length > 0 ? Math.max(...rates) : null
+    // Mirrors isRecommended: a sibling is the leader when its win probability
+    // is within tolerance of the maximum. Missing win probability ⇒ non-leader
+    // (such options also render "Behind:" copy).
+    const isLeader = (id: string): boolean => {
+      const w = probs[id]?.win_probability
+      return maxRate != null && typeof w === 'number' && w >= maxRate - 0.0001
     }
-
-    if (winnerHasFactor && thisHasFactor) {
-      // unwrapInterventionValue returns null for malformed entries; treat
-      // those as "no comparable value" and skip the lower-than message.
-      const { value: winnerVal } = unwrapInterventionValue(winnerInterventions[topFactor.id])
-      const { value: thisVal } = unwrapInterventionValue(thisInterventions[topFactor.id])
-      if (winnerVal != null && thisVal != null && Math.abs(winnerVal - thisVal) >= 1e-6) {
-        return `${strippedLabel.toLowerCase()} lower`
-      }
-    }
-
-    return 'fewer key changes'
+    const hasDuplicate = optionNodes.some(n => {
+      if (n.id === props.id || isLeader(n.id)) return false
+      const explicit = (n.data as any)?.is_baseline as boolean | null | undefined
+      const siblingIsBaseline = explicit ?? detectBaseline((n.data?.label as string) ?? '').isBaseline
+      return computeBehindReason(n.id, siblingIsBaseline, report, ceeAnalysisReady, nodes) === myReason
+    })
+    return hasDuplicate ? null : myReason
   }, [isPostAnalysis, isRecommended, isBaselineOption, resultsReport, ceeAnalysisReady, props.id, nodes])
 
   const handleWinsViaClick = useCallback(() => {
     if (!winsVia) return
+    // AI-to-graph convergence: same fail-closed focus + transient ring as
+    // the panel affordances — centre the driver and highlight it; stale or
+    // unknown ids do nothing (recovered sessions can carry result ids that
+    // no longer exist on this canvas).
+    if (!focusExistingTarget(winsVia.id, 'node')) return
     const store = useCanvasStore.getState()
     store.setHighlightedNodes([winsVia.id])
     setTimeout(() => store.setHighlightedNodes([]), 3000)
@@ -748,19 +788,26 @@ export const OptionNode = memo((props: NodeProps) => {
       {!isBaselineOption && interventionChips.length > 0 && (() => {
         const chipsWithMeta = interventionChips.map(chip => {
           const baselineNorm = baselineOptionInterventions?.[chip.factorId] ?? chip.observedValue
-          const isNoChange = baselineNorm !== undefined && Math.abs(chip.value - baselineNorm) < 1e-6
+          // Shared no-change semantics: exact equality only (audit §8 P0-4).
+          const isNoChange = isInterventionNoChange(baselineNorm, chip.value)
           return { chip, isNoChange }
         })
         const allNoChange = chipsWithMeta.length > 0 && chipsWithMeta.every(c => c.isNoChange)
         if (allNoChange) return <p className={`${typography.edgeLabel} text-text-light m-0`}>No changes from current state</p>
 
+        // Card containment (audit §8 P0-5): max 3 rows inline; the remainder
+        // is disclosed via a plain "+N more in inspector" line — rows stay
+        // whole, no CSS clipping.
+        const renderableChips = chipsWithMeta.filter(c => !c.isNoChange)
+        const visibleChips = renderableChips.slice(0, 3)
+        const moreInInspector = Math.max(0, totalInterventionCount - visibleChips.length)
+
         return (
           <>
             <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5 mt-1`}>What this option changes:</p>
             <div className="flex flex-col gap-0.5">
-              {chipsWithMeta.map(({ chip, isNoChange }) => {
-                if (isNoChange) return null
-                const targetFormatted = formatChipValue(chip)
+              {visibleChips.map(({ chip }) => {
+                const targetFormatted = formatInterventionTargetText(chip)
                 let deltaDisplay: string | null = null
                 // Skip delta arithmetic when CEE provided a qualitative displayValue
                 // for the target — pairing "Doubled capacity" with "(+70%)" produces
@@ -779,9 +826,9 @@ export const OptionNode = memo((props: NodeProps) => {
                         const pct = ((denormedTarget - denormedBaseline) / Math.abs(denormedBaseline)) * 100
                         const sign = pct >= 0 ? '+' : ''
                         // Strip displayValue — it describes the target intervention, not the baseline.
-                        const baselineFormatted = formatChipValue({ ...chip, value: baselineNorm, displayValue: undefined })
+                        const baselineFormatted = formatInterventionTargetText({ ...chip, value: baselineNorm, displayValue: undefined })
                         // Polish 4 review fix: only build the delta string when
-                        // both formatChipValue calls produced meaningful output.
+                        // both formatter calls produced meaningful output.
                         // Otherwise we'd render " → ()" for scale-unit factors
                         // (empty baselineFormatted + empty targetFormatted).
                         if (baselineFormatted && targetFormatted) {
@@ -816,20 +863,21 @@ export const OptionNode = memo((props: NodeProps) => {
                 )
               })}
             </div>
+            {moreInInspector > 0 && (
+              <p className={`${typography.edgeLabel} text-text-light m-0 mt-0.5`}>
+                +{moreInInspector} more in inspector
+              </p>
+            )}
           </>
         )
       })()}
 
-      {/* Status quo fallback — current baseline, no interventions */}
+      {/* Status quo fallback — current baseline, no interventions.
+          Audit §8 P1: the "{X}% win rate across simulations" line duplicated
+          the shared "{X}% win probability" body line with different phrasing
+          for the same datum — removed; the body line is the single rendering. */}
       {isBaselineOption && (
-        <>
-          <p className={`${typography.nodeLabel} text-text-body m-0`}>Current baseline. No changes to factors.</p>
-          {isPostAnalysis && displayMetadata.winRate !== null && (
-            <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-              {formatWinProbability(displayMetadata.winRate ?? 0)} win rate across simulations
-            </p>
-          )}
-        </>
+        <p className={`${typography.nodeLabel} text-text-body m-0`}>Current baseline. No changes to factors.</p>
       )}
 
       {isOptionFromCee && !isBaselineOption && (
@@ -842,7 +890,7 @@ export const OptionNode = memo((props: NodeProps) => {
           in this inline layer-2 block. Body never renders chips directly. */}
       {optionChips}
     </>
-  ), [isPostAnalysis, goalProbability, handleGoalReviewClick, interventionChips, isBaselineOption, baselineOptionInterventions, isOptionFromCee, props.data, displayMetadata.winRate, optionChips])
+  ), [isPostAnalysis, goalProbability, handleGoalReviewClick, interventionChips, isBaselineOption, baselineOptionInterventions, isOptionFromCee, props.data, totalInterventionCount, optionChips])
 
   // ----- Pre-analysis popover content -----
   const preAnalysisPopoverContent = useMemo(() => {
@@ -872,7 +920,7 @@ export const OptionNode = memo((props: NodeProps) => {
         {interventionChips.length > 0 && (
           <div className="flex flex-col gap-0.5">
             {interventionChips.map(chip => {
-              const targetFormatted = formatChipValue(chip)
+              const targetFormatted = formatInterventionTargetText(chip)
               // F.6 passthrough: skip echo stripping for CEE display_value.
               const echoStripped = chip.displayValue
                 ? chip.displayValue
@@ -917,7 +965,11 @@ export const OptionNode = memo((props: NodeProps) => {
     >
       {/* Winner badge -- top-right */}
       {isRecommended && (
-        <span className={`absolute -top-2 -right-2 z-10 ${typography.edgeLabel} font-medium bg-panel border-2 border-option text-text-body rounded-full px-1.5 py-0.5`}>
+        <span
+          className={`absolute -top-2 -right-2 z-10 ${typography.edgeLabel} font-medium bg-panel border-2 border-option text-text-body rounded-full px-1.5 py-0.5${isStale ? ' opacity-50' : ''}`}
+          title={staleTitle}
+          data-stale={isStale || undefined}
+        >
           Leading option
         </span>
       )}
@@ -937,7 +989,11 @@ export const OptionNode = memo((props: NodeProps) => {
 
         {/* Win probability bar (post-analysis, both views) */}
         {displayMetadata.isResultsMode && displayMetadata.winRate !== null && (
-          <div className="mt-1.5 mb-1">
+          <div
+            className={`mt-1.5 mb-1${isStale ? ' opacity-50' : ''}`}
+            title={staleTitle}
+            data-stale={isStale || undefined}
+          >
             <div className={`${typography.nodeLabel} text-text-body`}>
               {formatWinProbability(displayMetadata.winRate)} win probability
             </div>
@@ -1040,32 +1096,11 @@ export const OptionNode = memo((props: NodeProps) => {
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) ===== */}
         {showLayer2Inline && !isPostAnalysis && !isBaselineOption && (
           <>
-            {/* Detailed pre-analysis: full intervention list + completeness */}
-            {interventionChips.length > 0 && (
-              <>
-                <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5 mt-1`}>Interventions:</p>
-                <div className="flex flex-col gap-0.5">
-                  {interventionChips.map(chip => {
-                    const targetFormatted = formatChipValue(chip)
-                    // F.6 passthrough: skip echo stripping for CEE display_value.
-                    const echoStripped = chip.displayValue
-                      ? chip.displayValue
-                      : (targetFormatted ? stripEcho(chip.label, targetFormatted) : '')
-                    return (
-                      <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
-                        <span className="text-text-body">{truncateAtWord(chip.label, 30)}</span>
-                        {echoStripped && (
-                          <>
-                            <span className="text-text-light"> → </span>
-                            <span className={`${typography.nodeLabel} font-semibold`}>{echoStripped}</span>
-                          </>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </>
-            )}
+            {/* Audit §8 P1: the Detailed pre-analysis "Interventions:" list
+                duplicated the delta pills above (identical from→to data on
+                one card) — removed. The pills are the single pre-analysis
+                rendering; the full list remains in the inspector and in the
+                post-analysis "What this option changes:" section. */}
             {completenessText && (
               <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>{completenessText}</p>
             )}

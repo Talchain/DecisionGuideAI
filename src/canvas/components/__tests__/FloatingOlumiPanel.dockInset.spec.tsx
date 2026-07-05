@@ -241,11 +241,16 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
       size: { width: 400, height: 500 },
     } as any)
     render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
-    // After the layout effect runs, the store is minimised and the
-    // restore pill is rendered in place of the full panel.
+    // After the layout effect runs, the store is minimised and the restore
+    // pill is shown. Run-path convergence: the full panel now stays MOUNTED
+    // but display:none while minimised (keeping ConversationPanel's
+    // cross-surface run/ask registration alive), so instead of asserting it
+    // is unmounted we assert it is present-but-hidden.
     expect(useFloatingPanelState.getState().isMinimised).toBe(true)
     expect(document.querySelector('[data-testid="floating-olumi-panel-pill"]')).toBeTruthy()
-    expect(document.querySelector('[data-testid="floating-olumi-panel"]')).toBeNull()
+    const hiddenPanel = document.querySelector('[data-testid="floating-olumi-panel"]') as HTMLElement | null
+    expect(hiddenPanel).toBeTruthy()
+    expect(hiddenPanel?.style.display).toBe('none')
     dock.unmount()
     Object.defineProperty(window, 'innerWidth', { value: VIEWPORT_W, configurable: true })
   })

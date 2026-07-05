@@ -39,6 +39,9 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
     stabilityPercentage: null,
     winRate: null,
     isResultsMode: false,
+    predictedOutcome: null,
+    valueOfInformation: null,
+    voiRank: null,
   })),
 }))
 
@@ -85,6 +88,9 @@ describe('OutcomeNode', () => {
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: false,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
   })
 
@@ -193,6 +199,9 @@ describe('OutcomeNode', () => {
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     renderOutcome()
     expect(screen.getByText('Achievement: 68%')).toBeDefined()
@@ -231,5 +240,58 @@ describe('OutcomeNode', () => {
     expect(screen.getByText('Factor Three')).toBeDefined()
     expect(screen.queryByText('Factor Four')).toBeNull()
     expect(screen.queryByText('Factor Five')).toBeNull()
+  })
+})
+
+// Audit §8 P0-5: the capped "Depends on:" list discloses the remainder with
+// a plain "+N more in inspector" line (whole rows only, no clipping).
+describe('OutcomeNode — Depends on overflow disclosure (audit §8 P0-5)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState() as any))
+  })
+
+  it('renders "+2 more in inspector" when 5 inbound factors exist', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: null },
+        nodes: [
+          { id: 'outcome-1', type: 'outcome', data: { type: 'outcome', label: 'Revenue' } },
+          { id: 'f1', type: 'factor', data: { type: 'factor', label: 'Factor One' } },
+          { id: 'f2', type: 'factor', data: { type: 'factor', label: 'Factor Two' } },
+          { id: 'f3', type: 'factor', data: { type: 'factor', label: 'Factor Three' } },
+          { id: 'f4', type: 'factor', data: { type: 'factor', label: 'Factor Four' } },
+          { id: 'f5', type: 'factor', data: { type: 'factor', label: 'Factor Five' } },
+        ],
+        edges: [
+          { id: 'e1', source: 'f1', target: 'outcome-1', data: { exists_probability: 0.9 } },
+          { id: 'e2', source: 'f2', target: 'outcome-1', data: { exists_probability: 0.85 } },
+          { id: 'e3', source: 'f3', target: 'outcome-1', data: { exists_probability: 0.8 } },
+          { id: 'e4', source: 'f4', target: 'outcome-1', data: { exists_probability: 0.75 } },
+          { id: 'e5', source: 'f5', target: 'outcome-1', data: { exists_probability: 0.7 } },
+        ],
+        viewMode: 'expert',
+      }) as any)
+    )
+    renderOutcome()
+    expect(screen.getAllByText('+2 more in inspector').length).toBeGreaterThan(0)
+  })
+
+  it('renders no overflow line with 3 or fewer inbound factors', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: null },
+        nodes: [
+          { id: 'outcome-1', type: 'outcome', data: { type: 'outcome', label: 'Revenue' } },
+          { id: 'f1', type: 'factor', data: { type: 'factor', label: 'Factor One' } },
+        ],
+        edges: [
+          { id: 'e1', source: 'f1', target: 'outcome-1', data: { exists_probability: 0.9 } },
+        ],
+        viewMode: 'expert',
+      }) as any)
+    )
+    renderOutcome()
+    expect(screen.queryByText(/more in inspector/)).toBeNull()
   })
 })

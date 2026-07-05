@@ -18,8 +18,14 @@ import type { LimitsV1 } from '../../adapters/plot/types'
 /** Maximum number of nodes allowed in the graph (static product cap / engine-limit fallback) */
 export const MAX_NODES = 50
 
-/** Maximum number of edges allowed in the graph (static product cap / engine-limit fallback) */
-export const MAX_EDGES = 40
+/**
+ * Maximum number of edges allowed in the graph (static product cap /
+ * engine-limit fallback). Matches PLoT's run-path hard cap (160; advisory
+ * density critique from 120). The live engine `/v1/limits` value still wins
+ * when lower — on staging today that is 100 (shared-contract cap), so the
+ * effective add-time ceiling is min(160, engine-advertised).
+ */
+export const MAX_EDGES = 160
 
 /** The single effective ceiling all add-time limit checks compare against. */
 export interface EffectiveGraphLimits {

@@ -414,12 +414,24 @@ export const ResultsBody = memo(function ResultsBody({
                 .filter(o => o.id !== resultsSectionData.recommendation.recommendedOption?.id)
                 .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]
               const alternativeLabel = runnerUp?.label ?? 'an alternative option'
+              // Audit §8 P1 (verdict honesty): pass the SAME robustness
+              // signal the "Some analysis features unavailable … Robustness"
+              // chip uses, plus a degraded flag (partial pass or
+              // GRAPH_TOO_LARGE / blocker-severity engine critique), so the
+              // empty state can distinguish didn't-run / degraded / clean.
+              const analysisDegraded =
+                resultsSectionData.confidence.analysisStatus === 'partial'
+                || resultsSectionData.confidence.uncertainties.some(
+                  u => u.code === 'GRAPH_TOO_LARGE' || u.severity === 'blocker',
+                )
               return (
                 <StressTestSection
                   drivers={resultsSectionData.drivers.drivers}
                   fragileEdges={resultsSectionData.confidence.challengeFragileEdges}
                   winnerLabel={winnerLabel}
                   alternativeLabel={alternativeLabel}
+                  robustnessStatus={resultsSectionData.confidence.robustnessStatus}
+                  analysisDegraded={analysisDegraded}
                   onFocusNode={onFocusNode}
                   onSendMessage={onSendMessage}
                   expertMode={expertMode}

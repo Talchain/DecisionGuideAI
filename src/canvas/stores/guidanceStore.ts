@@ -82,7 +82,15 @@ export interface GuidanceActions {
   clearGuidanceItems: () => void
   /** Set the focused item. Pass null to clear. */
   setActiveGuidanceItem: (itemId: string | null) => void
-  /** Register conversation callbacks (called from ConversationPanel on mount). */
+  /**
+   * Register conversation callbacks (called from ConversationPanel on mount).
+   *
+   * Returns an unregister function. Cleanup MUST go through it: it only clears
+   * the callbacks if this registration is still the active one. Two
+   * ConversationPanel hosts can coexist (floating panel + dock Olumi tab);
+   * before this guard, whichever unmounted LAST nulled the shared callbacks
+   * and silently killed every cross-surface run/ask CTA.
+   */
   registerConversationCallbacks: (
     sendMessage: (text: string) => void,
     scrollToPatch: (patchId: string) => void,
@@ -90,7 +98,7 @@ export interface GuidanceActions {
     runAnalysis?: () => void,
     prefillChat?: (text: string) => void,
     dispatchAction?: (opts: { action_type?: string; parameters?: Record<string, unknown>; label: string; message: string; hidden?: boolean; source: string }) => void,
-  ) => void
+  ) => () => void
   /**
    * Evict items whose valid_while hashes no longer match the current state.
    *
@@ -160,6 +168,20 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
       _prefillChat: prefillChat ?? null,
       _dispatchAction: dispatchAction ?? null,
     })
+    return () => {
+      // Ownership guard: only clear if OUR registration is still active.
+      // A newer host's registration must survive an older host's unmount.
+      if (get()._sendMessage === sendMessage) {
+        set({
+          _sendMessage: null,
+          _runAnalysis: null,
+          _scrollToPatch: null,
+          _sendChip: null,
+          _prefillChat: null,
+          _dispatchAction: null,
+        })
+      }
+    }
   },
 
   evictStaleItems: ({ currentAnalysisHash, graphChanged = false }) => {
