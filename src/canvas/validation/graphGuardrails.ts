@@ -20,12 +20,15 @@ export const MAX_NODES = 50
 
 /**
  * Maximum number of edges allowed in the graph (static product cap /
- * engine-limit fallback). Matches PLoT's run-path hard cap (160; advisory
- * density critique from 120). The live engine `/v1/limits` value still wins
- * when lower — on staging today that is 100 (shared-contract cap), so the
- * effective add-time ceiling is min(160, engine-advertised).
+ * engine-limit fallback). 100 is the shared-contract REJECT cap
+ * (@talchain/schemas MAX_EDGES): PLoT's V2 preflight 422-blocks and the
+ * SCM-Lite V1 path 400s above it. PLoT's 120/160 numbers are CRITIQUE
+ * thresholds (advisory / results-marked-approximate), not accept limits —
+ * the fallback ceiling must never exceed what the engine accepts, because
+ * this constant is exactly what applies when the live /v1/limits fetch
+ * fails. When the fetch succeeds the live value still wins when lower.
  */
-export const MAX_EDGES = 160
+export const MAX_EDGES = 100
 
 /** The single effective ceiling all add-time limit checks compare against. */
 export interface EffectiveGraphLimits {

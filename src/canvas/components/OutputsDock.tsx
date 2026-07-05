@@ -73,7 +73,7 @@ import { DegradedStateBanner } from './DegradedStateBanner'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 import { useV2Run, type V2RunPersistence } from '../hooks/useV2Run'
 import { useScenario } from '../../hooks/useScenario'
-import { focusNodeById, focusExistingTarget } from '../utils/focusHelpers'
+import { focusExistingTarget } from '../utils/focusHelpers'
 import { withObservedStateUpdate } from '../utils/observedStateHelpers'
 import { ModelTabBody } from './ModelTabBody'
 import { JourneyTabBody } from '../journey/JourneyTabBody'
@@ -95,7 +95,6 @@ import { useDegeneracyDismissal } from './DegeneracyWarning'
 import { ResultsPanelSkeleton } from './ResultsPanelSkeleton'
 // P0.8: Instrumentation
 import { trackRunStarted, trackRunCompleted, trackRunFailed } from '../../lib/resultsInstrumentation'
-import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { useScenarioComparison } from '../hooks/useScenarioComparison'
 import { useRobustness } from '../hooks/useRobustness'
 import { mapRobustness } from '../../lib/mappers/mapRobustness'
@@ -355,7 +354,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const [warningsDismissed, setWarningsDismissed] = useState(false)
   // P2: Degraded/partial state banner dismissal
   const [degradedBannerDismissed, setDegradedBannerDismissed] = useState(false)
-  const comparison = useComparisonDetection()
   const scenarioComparison = useScenarioComparison()
 
   // Brief 25: Fetch robustness data for sensitivity, VoI, robustness bounds
@@ -745,17 +743,22 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       isTransitionBridgeReviewed,
     )
     transitionBridgeRef.current = { verifiedCount, influenceCoverage }
+    // Telemetry counts come from the store snapshot, NOT from render-scope
+    // arrays: listing nodes/edges in this callback's deps re-minted the
+    // closure (and re-registered the canonical runner) on every drag frame
+    // and keystroke, for data only read at run time.
+    const optionCount = storeState.nodes.filter((n) => n.type === 'option').length
     // P0.8: Track run started
     trackRunStarted({
-      option_count: comparison.optionNodes.length,
-      node_count: nodes.length,
-      edge_count: edges.length,
+      option_count: optionCount,
+      node_count: storeState.nodes.length,
+      edge_count: storeState.edges.length,
     })
     // P0: Log graph used for observability
     console.warn('[GRAPH_USED_FOR_RUN]', {
-      node_count: nodes.length,
-      edge_count: edges.length,
-      option_count: comparison.optionNodes.length,
+      node_count: storeState.nodes.length,
+      edge_count: storeState.edges.length,
+      option_count: optionCount,
       template_id: (framing as any)?.templateId || 'canvas-graph',
     })
 
@@ -786,7 +789,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     }
     await runV2Analysis()
     return { status: 'v2' }
-  }, [canRunAnalysis, runBlockedTooltip, isRunning, runV2Analysis, framing, nodes, edges, comparison.optionNodes.length])
+  }, [canRunAnalysis, runBlockedTooltip, isRunning, runV2Analysis, framing])
 
   // Expose the canonical runner to other surfaces (canvas shortcut, palette).
   useEffect(() => registerCanonicalRunner(runCanonicalAnalysis), [runCanonicalAnalysis])
@@ -1685,7 +1688,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                       } catch {
                         /* non-critical: focus is best-effort */
                       }
-                      focusNodeById(optionId)
+                      focusExistingTarget(optionId, 'option')
                     }
 
                     return (

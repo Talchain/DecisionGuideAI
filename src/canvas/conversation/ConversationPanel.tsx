@@ -495,18 +495,36 @@ export const ConversationPanel = memo(function ConversationPanel({
       ?? ((text: string) => prefillInto(composerRef.current, setDraft, text))
     // The returned unregister is ownership-guarded (see guidanceStore): it
     // only clears the shared callbacks if THIS registration is still the
-    // active one. The old unconditional null-out here meant that with two
-    // hosts mounted (floating panel + dock Olumi tab), whichever unmounted
-    // last killed the survivor's live registration — silently breaking every
-    // cross-surface run/ask CTA until a chat panel was reopened.
-    return useGuidanceStore.getState().registerConversationCallbacks(
-      sendMessage,
-      handleScrollToPatch,
-      sendChipByLabelMessage,
-      handleRunAnalysis,
-      prefillChat,
-      dispatchAction,
-    )
+    // active one (token compare — callback identities are shared via the
+    // conversation singleton, so they cannot discriminate hosts). The old
+    // unconditional null-out here meant that with two hosts mounted
+    // (floating panel + dock Olumi tab), whichever unmounted last killed the
+    // survivor's live registration — silently breaking every cross-surface
+    // run/ask CTA until a chat panel was reopened.
+    const register = () =>
+      useGuidanceStore.getState().registerConversationCallbacks(
+        sendMessage,
+        handleScrollToPatch,
+        sendChipByLabelMessage,
+        handleRunAnalysis,
+        prefillChat,
+        dispatchAction,
+      )
+    let unregister = register()
+    // Survivor takeover: when ANOTHER host unmounts and legitimately clears
+    // its own (later) registration, the shared callbacks go null while this
+    // panel is still mounted. Re-register so cross-surface CTAs keep a live
+    // dispatcher — the guarded unregister above makes this loop-free (the
+    // subscription only fires on an actual null transition).
+    const unsubscribe = useGuidanceStore.subscribe((state) => {
+      if (state._registrationToken === null) {
+        unregister = register()
+      }
+    })
+    return () => {
+      unsubscribe()
+      unregister()
+    }
   }, [sendMessage, handleScrollToPatch, sendChip, handleRunAnalysis, dispatchAction, prefillChatOverride, setDraft])
 
   const handleInsertText = useCallback((text: string) => {

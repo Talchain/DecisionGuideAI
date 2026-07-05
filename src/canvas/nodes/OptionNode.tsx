@@ -42,6 +42,74 @@ function stripFactorSuffixes(label: string): string {
  * is suppressed on all of them (audit §8 P1 — "Behind: fewer key changes"
  * rendered verbatim on every loser).
  */
+interface BehindReasonContext {
+  recommendedOptionId: string | undefined
+  hasSensitivity: boolean
+  topFactorId: string | undefined
+  strippedLabel: string | null
+  winnerInterventions: Record<string, unknown>
+  /** cee identity the context was built against — revalidated on read */
+  ceeRef: unknown
+}
+
+/**
+ * Report-level invariants for the "Behind:" reasons, computed ONCE per
+ * analysis report (WeakMap-cached on report identity) instead of per option
+ * per render: the sensitivity sort, top-factor label resolution and winner
+ * lookup are identical for every option card, and each card's memo also
+ * scans its siblings — without this cache that was O(options² · factors
+ * log factors) per drag frame. Factor labels are resolved at first build;
+ * a post-analysis rename shows the prior label until the next run, which
+ * the stale-decoration treatment already flags.
+ */
+const behindContextCache = new WeakMap<object, BehindReasonContext>()
+
+function getBehindReasonContext(
+  report: any,
+  ceeAnalysisReady: { options?: { id: string; interventions?: Record<string, unknown> }[] } | null,
+  nodes: readonly { id: string; type?: string; data?: any }[],
+): BehindReasonContext {
+  const cached = behindContextCache.get(report)
+  if (cached && cached.ceeRef === ceeAnalysisReady) return cached
+
+  const recommendedOptionId = report?.robustness?.recommended_option_id as string | undefined
+  const sensitivity = report?.enrichment?.sensitivity_analysis?.factors ?? report?.factor_sensitivity ?? []
+  const hasSensitivity = Array.isArray(sensitivity) && sensitivity.length > 0
+
+  let topFactorId: string | undefined
+  let strippedLabel: string | null = null
+  if (hasSensitivity) {
+    const rankedFactors = [...sensitivity]
+      .map((f: any) => ({
+        id: (f.factor_id || f.factorId || f.node_id || f.nodeId) as string | undefined,
+        label: (f.label ?? f.node_label) as string | undefined,
+        score: Math.abs(f.importance_score ?? f.elasticity ?? f.sensitivity_score ?? 0),
+      }))
+      .sort((a, b) => b.score - a.score)
+    const topFactor = rankedFactors[0]
+    topFactorId = topFactor?.id
+    if (topFactorId) {
+      const factorNode = nodes.find(n => n.id === topFactorId)
+      const factorLabel = topFactor?.label
+        ?? (factorNode ? (cleanFactorLabel((factorNode.data?.label as string) ?? '') || (factorNode.data?.label as string)) : null)
+        ?? null
+      strippedLabel = factorLabel ? (stripFactorSuffixes(factorLabel) || factorLabel) : null
+    }
+  }
+
+  const winnerCee = ceeAnalysisReady?.options?.find(opt => opt.id === recommendedOptionId)
+  const context: BehindReasonContext = {
+    recommendedOptionId,
+    hasSensitivity,
+    topFactorId,
+    strippedLabel,
+    winnerInterventions: winnerCee?.interventions ?? {},
+    ceeRef: ceeAnalysisReady,
+  }
+  if (report && typeof report === 'object') behindContextCache.set(report, context)
+  return context
+}
+
 function computeBehindReason(
   optionId: string,
   isBaseline: boolean,
@@ -52,52 +120,28 @@ function computeBehindReason(
   if (isBaseline) return 'no changes from current state'
   if (!report) return null
 
-  const recommendedOptionId = report?.robustness?.recommended_option_id as string | undefined
-  if (!recommendedOptionId) return null
+  const ctx = getBehindReasonContext(report, ceeAnalysisReady, nodes)
+  if (!ctx.recommendedOptionId) return null
+  if (!ctx.hasSensitivity) return 'fewer key changes'
+  if (!ctx.topFactorId || !ctx.strippedLabel) return 'fewer key changes'
 
-  const sensitivity = report?.enrichment?.sensitivity_analysis?.factors ?? report?.factor_sensitivity ?? []
-  if (!Array.isArray(sensitivity) || sensitivity.length === 0) return 'fewer key changes'
-
-  const rankedFactors = [...sensitivity]
-    .map((f: any) => ({
-      id: (f.factor_id || f.factorId || f.node_id || f.nodeId) as string | undefined,
-      label: (f.label ?? f.node_label) as string | undefined,
-      score: Math.abs(f.importance_score ?? f.elasticity ?? f.sensitivity_score ?? 0),
-    }))
-    .sort((a, b) => b.score - a.score)
-
-  const topFactor = rankedFactors[0]
-  if (!topFactor?.id) return 'fewer key changes'
-
-  const factorNode = nodes.find(n => n.id === topFactor.id)
-  const factorLabel = topFactor.label
-    ?? (factorNode ? (cleanFactorLabel((factorNode.data?.label as string) ?? '') || (factorNode.data?.label as string)) : null)
-    ?? null
-
-  if (!factorLabel) return 'fewer key changes'
-
-  const winnerCee = ceeAnalysisReady?.options?.find(opt => opt.id === recommendedOptionId)
   const thisCee = ceeAnalysisReady?.options?.find(opt => opt.id === optionId)
-
-  const winnerInterventions = winnerCee?.interventions ?? {}
   const thisInterventions = thisCee?.interventions ?? {}
 
-  const winnerHasFactor = topFactor.id in winnerInterventions
-  const thisHasFactor = topFactor.id in thisInterventions
-
-  const strippedLabel = stripFactorSuffixes(factorLabel) || factorLabel
+  const winnerHasFactor = ctx.topFactorId in ctx.winnerInterventions
+  const thisHasFactor = ctx.topFactorId in thisInterventions
 
   if (winnerHasFactor && !thisHasFactor) {
-    return `no ${strippedLabel.toLowerCase()} added`
+    return `no ${ctx.strippedLabel.toLowerCase()} added`
   }
 
   if (winnerHasFactor && thisHasFactor) {
     // unwrapInterventionValue returns null for malformed entries; treat
     // those as "no comparable value" and skip the lower-than message.
-    const { value: winnerVal } = unwrapInterventionValue(winnerInterventions[topFactor.id])
-    const { value: thisVal } = unwrapInterventionValue(thisInterventions[topFactor.id])
+    const { value: winnerVal } = unwrapInterventionValue(ctx.winnerInterventions[ctx.topFactorId])
+    const { value: thisVal } = unwrapInterventionValue(thisInterventions[ctx.topFactorId])
     if (winnerVal != null && thisVal != null && Math.abs(winnerVal - thisVal) >= 1e-6) {
-      return `${strippedLabel.toLowerCase()} lower`
+      return `${ctx.strippedLabel.toLowerCase()} lower`
     }
   }
 
@@ -383,7 +427,7 @@ export const OptionNode = memo((props: NodeProps) => {
     return Math.max(1, Math.round(gap * 100))
   }, [isPostAnalysis, isRecommended, resultsReport, props.id])
 
-  const interventionChips = useMemo<InterventionChip[]>(() => {
+  const allInterventionChips = useMemo<InterventionChip[]>(() => {
     // Primary: ceeAnalysisReady.options[optionId].interventions
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
     let interventionEntries: [string, unknown][] = []
@@ -438,9 +482,17 @@ export const OptionNode = memo((props: NodeProps) => {
         }]
       })
       .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
-      // Brief scope 7: cap visible chips at 4 (was 3).
-      .slice(0, 4)
   }, [ceeAnalysisReady, props.id, nodes])
+
+  // Brief scope 7: Layer-1 pills cap visible chips at 4. The post-analysis
+  // "What this option changes:" block needs the FULL built list so its
+  // "+N more in inspector" count reflects every renderable change — counting
+  // from the raw key total advertised hidden no-change/malformed entries as
+  // "more", and counting from this sliced list under-reported N.
+  const interventionChips = useMemo<InterventionChip[]>(
+    () => allInterventionChips.slice(0, 4),
+    [allInterventionChips],
+  )
 
   const hasInterventions = useMemo(() => {
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
@@ -663,6 +715,7 @@ export const OptionNode = memo((props: NodeProps) => {
     // Mirrors isRecommended: a sibling is the leader when its win probability
     // is within tolerance of the maximum. Missing win probability ⇒ non-leader
     // (such options also render "Behind:" copy).
+    // UI-SEM-067: leader tolerance + identical-reason suppression (display gate).
     const isLeader = (id: string): boolean => {
       const w = probs[id]?.win_probability
       return maxRate != null && typeof w === 'number' && w >= maxRate - 0.0001
@@ -785,8 +838,8 @@ export const OptionNode = memo((props: NodeProps) => {
       )}
 
       {/* "What this option changes:" intervention list (never for baseline) */}
-      {!isBaselineOption && interventionChips.length > 0 && (() => {
-        const chipsWithMeta = interventionChips.map(chip => {
+      {!isBaselineOption && allInterventionChips.length > 0 && (() => {
+        const chipsWithMeta = allInterventionChips.map(chip => {
           const baselineNorm = baselineOptionInterventions?.[chip.factorId] ?? chip.observedValue
           // Shared no-change semantics: exact equality only (audit §8 P0-4).
           const isNoChange = isInterventionNoChange(baselineNorm, chip.value)
@@ -800,7 +853,9 @@ export const OptionNode = memo((props: NodeProps) => {
         // whole, no CSS clipping.
         const renderableChips = chipsWithMeta.filter(c => !c.isNoChange)
         const visibleChips = renderableChips.slice(0, 3)
-        const moreInInspector = Math.max(0, totalInterventionCount - visibleChips.length)
+        // N counts only chips that WOULD render — hidden no-change chips and
+        // dropped malformed entries are not "more" changes to see.
+        const moreInInspector = Math.max(0, renderableChips.length - visibleChips.length)
 
         return (
           <>
@@ -890,7 +945,7 @@ export const OptionNode = memo((props: NodeProps) => {
           in this inline layer-2 block. Body never renders chips directly. */}
       {optionChips}
     </>
-  ), [isPostAnalysis, goalProbability, handleGoalReviewClick, interventionChips, isBaselineOption, baselineOptionInterventions, isOptionFromCee, props.data, totalInterventionCount, optionChips])
+  ), [isPostAnalysis, goalProbability, handleGoalReviewClick, allInterventionChips, isBaselineOption, baselineOptionInterventions, isOptionFromCee, props.data, totalInterventionCount, optionChips])
 
   // ----- Pre-analysis popover content -----
   const preAnalysisPopoverContent = useMemo(() => {
@@ -1101,6 +1156,15 @@ export const OptionNode = memo((props: NodeProps) => {
                 one card) — removed. The pills are the single pre-analysis
                 rendering; the full list remains in the inspector and in the
                 post-analysis "What this option changes:" section. */}
+            {/* Unknown-baseline fallback: delta pills need a known baseline,
+                so without one this card would show NOTHING about its
+                interventions in Detailed view. Surface the count + where to
+                look instead of going silent. */}
+            {structuredDeltas.length === 0 && hasInterventions && (
+              <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
+                Changes {totalInterventionCount} factor{totalInterventionCount === 1 ? '' : 's'} — open the inspector for targets
+              </p>
+            )}
             {completenessText && (
               <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>{completenessText}</p>
             )}

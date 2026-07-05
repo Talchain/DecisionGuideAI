@@ -73,6 +73,13 @@ export interface GuidanceState {
   _prefillChat: ((text: string) => void) | null
   /** Registered by ConversationPanel — unified action dispatch with chip_metadata */
   _dispatchAction: ((opts: { action_type?: string; parameters?: Record<string, unknown>; label: string; message: string; hidden?: boolean; source: string }) => void) | null
+  /**
+   * Identity token for the ACTIVE registration. Ownership checks must use
+   * this, never a callback identity: with the singleton conversation
+   * context, two panel hosts register the SAME sendMessage/dispatchAction
+   * function objects, so callback identity cannot discriminate hosts.
+   */
+  _registrationToken: object | null
 }
 
 export interface GuidanceActions {
@@ -134,6 +141,7 @@ const initialGuidanceState: GuidanceState = {
   _scrollToPatch: null,
   _dispatchAction: null,
   _prefillChat: null,
+  _registrationToken: null,
 }
 
 export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, get) => ({
@@ -160,6 +168,7 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
   },
 
   registerConversationCallbacks: (sendMessage, scrollToPatch, sendChip, runAnalysis, prefillChat, dispatchAction) => {
+    const token = {}
     set({
       _sendMessage: sendMessage,
       _runAnalysis: runAnalysis ?? null,
@@ -167,11 +176,15 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
       _sendChip: sendChip ?? null,
       _prefillChat: prefillChat ?? null,
       _dispatchAction: dispatchAction ?? null,
+      _registrationToken: token,
     })
     return () => {
-      // Ownership guard: only clear if OUR registration is still active.
-      // A newer host's registration must survive an older host's unmount.
-      if (get()._sendMessage === sendMessage) {
+      // Ownership guard: only clear if OUR registration is still the active
+      // one — a newer host's registration must survive an older host's
+      // unmount. Compared by a per-registration token, NOT by callback
+      // identity: both panel hosts share the singleton conversation's
+      // function objects, so callback identity cannot tell them apart.
+      if (get()._registrationToken === token) {
         set({
           _sendMessage: null,
           _runAnalysis: null,
@@ -179,6 +192,7 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
           _sendChip: null,
           _prefillChat: null,
           _dispatchAction: null,
+          _registrationToken: null,
         })
       }
     }

@@ -653,7 +653,7 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
       }) as any)
     )
     renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
-    expect(screen.getByText('Target set. Rerun the analysis to see your chances.')).toBeDefined()
+    expect(screen.getByText('Target set. Rerun the analysis to include it.')).toBeDefined()
     // The live bug: card said "Analysis complete. Set a target to see your
     // chances." while a target was set. Must never render here.
     expect(screen.queryByText(/Set a target to see your chances/)).toBeNull()

@@ -376,18 +376,39 @@ function mapV1ErrorToUI(error: V1Error): ErrorV1 {
  * Exported for wire-shape tests.
  */
 export function extractGoalThreshold(goalNode: any): number | undefined {
-  const rawThreshold = goalNode?.data?.goal_threshold
-    ?? goalNode?.data?.goal_threshold_raw
-    ?? goalNode?.data?.value
-    ?? goalNode?.data?.baseline_value
-    ?? goalNode?.data?.target
-    ?? goalNode?.value
-    ?? goalNode?.baseline_value
-    ?? goalNode?.target
-  const parsed = typeof rawThreshold === 'string'
-    ? (rawThreshold.trim() === '' ? undefined : Number(rawThreshold))
-    : rawThreshold
-  return typeof parsed === 'number' && !isNaN(parsed) ? parsed : undefined
+  const candidates = [
+    goalNode?.data?.goal_threshold,
+    goalNode?.data?.goal_threshold_raw,
+    goalNode?.data?.value,
+    goalNode?.data?.baseline_value,
+    goalNode?.data?.target,
+    goalNode?.value,
+    goalNode?.baseline_value,
+    goalNode?.target,
+  ]
+  for (const candidate of candidates) {
+    if (candidate == null) continue
+    const parsed = typeof candidate === 'string'
+      ? (candidate.trim() === '' ? undefined : Number(candidate))
+      : candidate
+    if (typeof parsed !== 'number' || isNaN(parsed)) continue // keep trying later aliases
+    // UI-SEM-058 discipline: the goal editors store thresholds in USER UNITS
+    // (raw-first) while PLoT's `goal_threshold` wire contract is normalised
+    // 0-1, and this adapter has no scale cap to convert with. Anything that
+    // cannot be proven normalised is OMITTED rather than sent at the wrong
+    // scale. NOTE the engine does NOT treat omission as "no goal analysis":
+    // PLoT V1's detectGoalThreshold falls back to node.threshold →
+    // baseline_value → 100 and still computes option_probabilities — omission
+    // defers to that server-side default rather than corrupting it with a
+    // raw client value.
+    //
+    // Deliberately FIRST-parseable-wins (then the normalised gate): the
+    // aliases name the same quantity at different ages, so if the freshest
+    // parseable alias is out of range we omit rather than fall through to an
+    // older alias whose agreement would be coincidence, not confirmation.
+    return parsed >= 0 && parsed <= 1 ? parsed : undefined
+  }
+  return undefined
 }
 
 function mapGraphToV1Request(graph: any, seed?: number): V1RunRequest {

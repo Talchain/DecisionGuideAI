@@ -383,7 +383,8 @@ function LimitsTabBody({ currentNodes, currentEdges }: { currentNodes: number; c
  *
  * Updated for CEE contract:
  * - Uses WorkingSetRequest format (message, graph_snapshot, etc.)
- * - Shows preflight errors when graph exceeds limits (50 nodes / 40 edges)
+ * - Shows preflight errors when graph exceeds limits (see
+ *   graphGuardrails.resolveGraphLimits — min(static caps 50/160, live engine limits))
  * - Displays both server and preflight errors appropriately
  */
 function AskInput() {

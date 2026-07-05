@@ -117,6 +117,8 @@ export function ValidationPanel({ critique, onAutoFix, onDismiss }: ValidationPa
   // the current run ⇒ blockers did NOT block analysis (the engine returned
   // approximate results), so the header suffix must say that instead.
   const resultsStatus = useCanvasStore(s => s.results?.status)
+  // UI-SEM-066: blocked-vs-approximate suffix derivation — remove when the
+  // engine critique carries the discriminator.
   const analysisBlocked = resultsStatus !== 'complete'
 
   // Group by severity

@@ -3,7 +3,7 @@ import { useCanvasStore } from '../store'
 import { runLayoutWithProgress } from '../layout/runLayoutWithProgress'
 import { useReactFlow } from '@xyflow/react'
 import { plot } from '../../adapters/plot'
-import { getCanonicalRunner } from '../analysis/canonicalRunRegistry'
+import { executeCanonicalRun } from '../analysis/canonicalRunRegistry'
 import { ValidationBanner, type ValidationError } from './ValidationBanner'
 import { useValidationFeedback } from '../hooks/useValidationFeedback'
 import { trackRunAttempt } from '../utils/sandboxTelemetry'
@@ -89,7 +89,9 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
             }
           }
 
-          // Validation passed - start execution
+          // Local validation passed: track the CLICK now — sandbox.run.clicked
+          // counts user intent on a locally-valid graph (the dom spec pins
+          // this), not pipeline success. Outcome-specific telemetry below.
           trackRunAttempt({ canRun: true, reason: 'ok', message: '' })
           setIsExecuting(true)
 
@@ -97,23 +99,34 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
           // registered by OutputsDock instead of building a thin legacy
           // request here. Blocked runs surface their reason in the banner —
           // never a silent no-op.
-          const runner = getCanonicalRunner()
-          if (!runner) {
+          const outcome = await executeCanonicalRun({ source: 'command-palette' })
+          if (outcome.status === 'unavailable') {
+            // No runner host mounted — an environment condition, not a
+            // gate-block: surface it, but do not count it as 'blocked'.
             setValidationErrors([{
               code: 'RUN_UNAVAILABLE',
-              message: 'Analysis controls are unavailable right now. Open the results dock and try again.',
+              message: outcome.reason,
               severity: 'error' as const
             }])
-            trackRunAttempt({ canRun: false, reason: 'unknown', message: 'canonical runner unavailable' })
             return
           }
-          const outcome = await runner({ source: 'command-palette' })
+          if (outcome.status === 'already-running') {
+            // A run is in flight: inform, keep the palette open, no false
+            // 'started another run' telemetry, no silent close.
+            setValidationErrors([{
+              code: 'RUN_IN_PROGRESS',
+              message: 'An analysis is already running.',
+              severity: 'error' as const
+            }])
+            return
+          }
           if (outcome.status === 'blocked') {
             setValidationErrors([{
               code: 'RUN_BLOCKED',
               message: outcome.reason,
               severity: 'error' as const
             }])
+            trackRunAttempt({ canRun: false, reason: 'validation', message: outcome.reason })
             return
           }
 

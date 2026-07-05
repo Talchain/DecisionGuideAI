@@ -24,6 +24,9 @@
  *    UI-formatted numeric text.
  */
 
+// UI-SEM-064: shared intervention-change formatter (no-change epsilon,
+// count-unit singularisation, tier→percentage rendering). Display only.
+import { formatPercent } from '../../utils/formatPercent'
 import {
   formatInterventionValue,
   denormaliseInterventionValue,
@@ -150,11 +153,11 @@ export function formatInterventionTargetText(chip: InterventionValueInput): stri
   const fallback = formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
   // Tier labels → percentage (tier words are meaningless as change targets)
   if (isTierLabel(fallback)) {
-    return `${Math.round(chip.value * 100)}%`
+    return formatPercent(chip.value, { fromDecimal: true })
   }
   // Raw normalised number (no unit, value in [0,1] like "0.15") → percentage
   if (!effectiveUnit && chip.value >= 0 && chip.value <= 1 && /^0\.\d+$/.test(fallback)) {
-    return `${Math.round(chip.value * 100)}%`
+    return formatPercent(chip.value, { fromDecimal: true })
   }
   return singulariseCountUnitText(fallback, effectiveUnit)
 }
@@ -200,21 +203,24 @@ export function formatInterventionChange(input: InterventionChangeInput): Interv
     observedRawValue: input.observedRawValue ?? undefined,
   }
 
-  const targetText = targetValue != null || input.targetDisplayValue
+  // "No change" ONLY on exact equality of known values. Unknown baseline can
+  // never claim "no change" (and claims no direction either). Checked FIRST:
+  // no-change chips are discarded by every consumer, so formatting both
+  // sides through the full denormalise/singularise chain would be pure
+  // throwaway work on hot hover/render paths.
+  const unchanged = isInterventionNoChange(baselineValue, targetValue)
+  const changed = !unchanged
+
+  const targetText = changed && (targetValue != null || input.targetDisplayValue)
     ? formatInterventionTargetText({
         ...valueContext,
         value: targetValue ?? 0,
         displayValue: input.targetDisplayValue ?? undefined,
       })
     : ''
-  const baselineText = baselineValue != null
+  const baselineText = changed && baselineValue != null
     ? formatInterventionTargetText({ ...valueContext, value: baselineValue })
     : ''
-
-  // "No change" ONLY on exact equality of known values. Unknown baseline can
-  // never claim "no change" (and claims no direction either).
-  const unchanged = isInterventionNoChange(baselineValue, targetValue)
-  const changed = !unchanged
   const arrow: 'up' | 'down' | null =
     changed && baselineValue != null && targetValue != null
       ? (targetValue > baselineValue ? 'up' : 'down')

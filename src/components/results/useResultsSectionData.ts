@@ -1940,9 +1940,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
             : 'Unable to assess model quality.',
     }
 
-    // Get warnings as uncertainties from critiques
+    // Get warnings as uncertainties from critiques.
+    // UI-SEM-069: severity taxonomy bridge — PLoT emits advisories as
+    // severity 'IMPROVEMENT' with semantic_severity 'WARNING' (e.g.
+    // GRAPH_DENSE, ISL_UNCERTAIN); keying on severity alone silently
+    // dropped every one of them. Remove when PLoT unifies the taxonomy.
     const critiques = report?.run?.critique || []
-    const warnings = critiques.filter((c: any) => c.severity === 'WARNING')
+    const warnings = critiques.filter(
+      (c: any) => c.severity === 'WARNING' || c.semantic_severity === 'WARNING',
+    )
 
     // V14.3b: Internal-token guard — messages matching this are NOT safe for JSX render.
     const CRITIQUE_INTERNAL_PATTERN = /constraint_|observed_state|intercept=|node_id=|edge_id=|fac_[a-z_]+|opt_[a-z_]+|goal_[a-z_]+|blocks_analysis/i

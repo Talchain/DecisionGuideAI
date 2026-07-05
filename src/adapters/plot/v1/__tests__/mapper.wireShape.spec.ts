@@ -50,16 +50,30 @@ describe('graphToV1Request — edge belief wire shape', () => {
 })
 
 describe('extractGoalThreshold — goal target wire shape', () => {
-  it('reads the GoalPanel field data.goal_threshold', () => {
-    expect(extractGoalThreshold({ id: 'g', data: { kind: 'goal', goal_threshold: 100 } })).toBe(100)
+  // PLoT's `goal_threshold` wire contract is normalised 0-1 (UI-SEM-058);
+  // node data stores raw user units. Values not provably normalised are
+  // OMITTED rather than sent at the wrong scale.
+  it('reads a provably-normalised data.goal_threshold', () => {
+    expect(extractGoalThreshold({ id: 'g', data: { kind: 'goal', goal_threshold: 0.8 } })).toBe(0.8)
   })
 
-  it('parses a numeric-string goal_threshold_raw', () => {
-    expect(extractGoalThreshold({ id: 'g', data: { kind: 'goal', goal_threshold_raw: '100' } })).toBe(100)
+  it('omits a raw user-unit threshold it cannot normalise (no cap here)', () => {
+    expect(extractGoalThreshold({ id: 'g', data: { kind: 'goal', goal_threshold: 100 } })).toBeUndefined()
+    expect(extractGoalThreshold({ id: 'g', data: { kind: 'goal', goal_threshold_raw: '100' } })).toBeUndefined()
+  })
+
+  it('parses a numeric-string goal_threshold_raw when provably normalised', () => {
+    expect(extractGoalThreshold({ id: 'g', data: { kind: 'goal', goal_threshold_raw: '0.75' } })).toBe(0.75)
+  })
+
+  it('keeps scanning aliases past an unparseable candidate', () => {
+    expect(
+      extractGoalThreshold({ id: 'g', data: { kind: 'goal', goal_threshold_raw: '≥ £1,000', target: 0.42 } }),
+    ).toBe(0.42)
   })
 
   it('falls back to the legacy value/baseline_value/target chain', () => {
-    expect(extractGoalThreshold({ id: 'g', data: { kind: 'goal', target: 42 } })).toBe(42)
+    expect(extractGoalThreshold({ id: 'g', data: { kind: 'goal', target: 0.42 } })).toBe(0.42)
   })
 
   it('returns undefined when nothing usable is set', () => {
@@ -70,7 +84,7 @@ describe('extractGoalThreshold — goal target wire shape', () => {
     expect(extractGoalThreshold({ id: 'g', data: { kind: 'goal', goal_threshold_raw: '' } })).toBeUndefined()
   })
 
-  it('ignores non-numeric raw strings', () => {
-    expect(extractGoalThreshold({ id: 'g', data: { kind: 'goal', goal_threshold_raw: 'soon' } })).toBeUndefined()
+  it('accepts a legitimate zero threshold', () => {
+    expect(extractGoalThreshold({ id: 'g', data: { kind: 'goal', goal_threshold: 0 } })).toBe(0)
   })
 })

@@ -26,13 +26,15 @@ backends, or the staging deploy). Use a realistic post-analysis model
 
 ## 2. Browser analysis reliability (D1)
 
+> **Lane B hard pause (ratified 2026-07-05):** the direct-origin fallback and
+> the csp-nonce `excludedPath` change are NOT part of this branch — the 504
+> evidence points to external Netlify/QUIC transport, diagnosed separately
+> (csp-nonce hygiene lives on `chore/csp-nonce-bff-exclusion`).
+
 - [ ] Browser DevTools → Network: POST run completes (200) through
-      `/bff/engine/v1/run`.
-- [ ] If the proxy 504s: exactly one fallback POST to the direct engine
-      origin appears and succeeds (staging only —
-      `VITE_ENGINE_DIRECT_FALLBACK_URL`).
-- [ ] On total failure: the error card appears (no silent timeout), and
-      Try Again retries.
+      `/bff/engine/v1/run` (or the CEE-brokered turn on the canonical path).
+- [ ] On failure: the error card appears (no silent timeout), and Try Again
+      retries.
 
 ## 3. Capacity (D2)
 

@@ -16,18 +16,31 @@ let focusNodeImpl: FocusNodeFn | null = null
 let focusEdgeImpl: FocusEdgeFn | null = null
 
 /**
- * Register focus implementations (called by ReactFlowGraph on mount)
+ * Register focus implementations (called by ReactFlowGraph on mount).
+ *
+ * Returns an ownership-guarded unregister: it only clears the impls if this
+ * registration is still the active one, so a remount's stale cleanup can
+ * never null a newer registration (same lifecycle rule as
+ * canonicalRunRegistry and guidanceStore's conversation callbacks).
  */
 export function registerFocusHelpers(
   focusNode: FocusNodeFn,
   focusEdge: FocusEdgeFn
-) {
+): () => void {
   focusNodeImpl = focusNode
   focusEdgeImpl = focusEdge
+  return () => {
+    if (focusNodeImpl === focusNode) {
+      focusNodeImpl = null
+      focusEdgeImpl = null
+    }
+  }
 }
 
 /**
- * Unregister focus implementations (called by ReactFlowGraph on unmount)
+ * Unregister focus implementations unconditionally.
+ * @deprecated Use the unregister function returned by registerFocusHelpers —
+ * this unconditional clear can null a newer host's registration.
  */
 export function unregisterFocusHelpers() {
   focusNodeImpl = null

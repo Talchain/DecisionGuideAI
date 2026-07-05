@@ -325,6 +325,7 @@ export const StressTestSection = memo(function StressTestSection({
               2. degraded/approximate   → signals fired nowhere, but the pass
                  was approximate; do not claim consistency.
               3. ran clean              → the original claim, now earned. */}
+        {/* UI-SEM-068: robustnessStatus→verdict mapping (didn't-run vs clean). */}
         {totalCount === thinkingPatternsCount && sensitiveCount === 0 && fragileCount === 0 && (
           robustnessStatus !== 'computed' ? (
             <p

@@ -40,6 +40,12 @@ function makeInput(overrides: Partial<ConversationStatusInput> = {}): Conversati
       activeGuidanceItemId: null,
       _sendMessage: null,
       _scrollToPatch: null,
+      inspectorDeepLinkField: null,
+      _runAnalysis: null,
+      _sendChip: null,
+      _prefillChat: null,
+      _dispatchAction: null,
+      _registrationToken: null,
     },
     messages: [],
     patchBlockStates: new Map(),
@@ -103,7 +109,7 @@ describe('selectConversationStatus', () => {
     const items = [makeGuidanceItem()]
     const result = selectConversationStatus(makeInput({
       nodeCount: 5,
-      guidance: { guidanceItems: items, activeGuidanceItemId: null, _sendMessage: null, _scrollToPatch: null },
+      guidance: { guidanceItems: items, activeGuidanceItemId: null, _sendMessage: null, _scrollToPatch: null, inspectorDeepLinkField: null, _runAnalysis: null, _sendChip: null, _prefillChat: null, _dispatchAction: null, _registrationToken: null },
     }))
     expect(result.status).toBe('graph_ready')
     expect(result.ctaKind).toBe('view_issues')
@@ -194,7 +200,7 @@ describe('selectConversationStatus', () => {
     ]
     const result = selectConversationStatus(makeInput({
       nodeCount: 3,
-      guidance: { guidanceItems: items, activeGuidanceItemId: null, _sendMessage: null, _scrollToPatch: null },
+      guidance: { guidanceItems: items, activeGuidanceItemId: null, _sendMessage: null, _scrollToPatch: null, inspectorDeepLinkField: null, _runAnalysis: null, _sendChip: null, _prefillChat: null, _dispatchAction: null, _registrationToken: null },
     }))
     expect(result.topGuidanceItem?.item_id).toBe('high')
     expect(result.guidanceCount).toBe(3)
@@ -204,7 +210,7 @@ describe('selectConversationStatus', () => {
     // graph_ready with guidance → view_issues
     expect(selectConversationStatus(makeInput({
       nodeCount: 3,
-      guidance: { guidanceItems: [makeGuidanceItem()], activeGuidanceItemId: null, _sendMessage: null, _scrollToPatch: null },
+      guidance: { guidanceItems: [makeGuidanceItem()], activeGuidanceItemId: null, _sendMessage: null, _scrollToPatch: null, inspectorDeepLinkField: null, _runAnalysis: null, _sendChip: null, _prefillChat: null, _dispatchAction: null, _registrationToken: null },
     })).ctaKind).toBe('view_issues')
 
     // patch_pending → review_patch

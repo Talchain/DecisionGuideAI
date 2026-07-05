@@ -209,7 +209,12 @@ export function graphToV1Request(
         // every canvas run silently dropped the user's confidence from the
         // wire. Prefer `belief` when present (legacy data), else map
         // `beliefExists`.
-        const beliefRaw = e.data?.belief ?? (e.data as { beliefExists?: number } | undefined)?.beliefExists
+        // First NUMERIC candidate wins: legacy graphs can carry a stringly
+        // `belief` (serialised sessions) — `??` alone would select it and the
+        // typecheck below would then drop a perfectly valid numeric
+        // beliefExists, silently losing the user's confidence again.
+        const beliefRaw = [e.data?.belief, (e.data as { beliefExists?: unknown } | undefined)?.beliefExists]
+          .find((v): v is number => typeof v === 'number')
         if (typeof beliefRaw === 'number') {
           // UI-SEM-034: V1 adapter belief clamped to [0, 1]. Keep — normalisation.
           edge.belief = Math.max(0, Math.min(1, beliefRaw))

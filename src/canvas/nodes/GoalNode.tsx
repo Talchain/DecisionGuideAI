@@ -272,7 +272,7 @@ export const GoalNode = memo((props: NodeProps) => {
             the edit affordance and Run flows already exist elsewhere. */}
         {hasThreshold && isPostAnalysis && displayMetadata.achievementProbability === null && (
           <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>
-            Target set. Rerun the analysis to see your chances.
+            Target set. Rerun the analysis to include it.
           </p>
         )}
 

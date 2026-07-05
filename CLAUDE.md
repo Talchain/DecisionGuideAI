@@ -218,6 +218,12 @@ npm run build                      # production build (separate concern)
 | UI-SEM-057 | `src/components/results/utils/displayFloors.ts` | Sub-1% goal display floor (shared constant): "< 1%" readouts (hero + OptionCards "likely to reach target"), the hero's goal-fit leader-claim gate, and the no-option-on-track headline switch | Keep — display honesty (legitimate) |
 | UI-SEM-058 | `src/canvas/hooks/useV2Run.ts` | Raw→normalised goal-threshold conversion for PLoT request (raw/cap; omit when unprovable) | Keep — format conversion (same class as UI-SEM-001) |
 | UI-SEM-059 | `src/components/results/RangeVisualization.tsx` | formatThreshold legacy percent auto-detect (\|v\| ≤ 2 → ×100) for callers not asserting isNormalised | Remove when all callers pass isNormalised explicitly |
+| UI-SEM-064 | `src/canvas/utils/interventionDisplay.ts` | Shared intervention-change formatter: exact-equality no-change gate (epsilon 1e-9), count-unit singularisation, qualitative-tier→percentage rendering | Keep — display formatting (legitimate) |
+| UI-SEM-065 | `src/components/results/ResultsBody.tsx` | Degraded-run derivation (analysisStatus 'partial' OR GRAPH_TOO_LARGE/blocker critiques) feeding stress-test copy | Remove when PLoT provides a canonical degraded/approximate flag |
+| UI-SEM-066 | `src/canvas/components/ValidationPanel.tsx` | Blocked-vs-approximate heading suffix from results.status ('blocks analysis' only when no completed results) | Remove when the engine's critique carries a blocked/approximate discriminator |
+| UI-SEM-067 | `src/canvas/nodes/OptionNode.tsx` | Behind-reason display gates: leader tolerance (win within 1e-4 of max) + identical-reason suppression across losers | Remove when PLoT/CEE provide per-option "behind" explanations |
+| UI-SEM-068 | `src/components/results/StressTestSection.tsx` | Robustness didn't-run mapping (robustnessStatus !== 'computed' → "fragility hasn't been checked") | Remove when PLoT provides a canonical robustness status enum |
+| UI-SEM-069 | `src/components/results/useResultsSectionData.ts` | Critique severity-taxonomy bridge: ingest semantic_severity 'WARNING' advisories (IMPROVEMENT-severity) into uncertainties | Remove when PLoT unifies the critique severity taxonomy |
 
 - Check for stale `.js` files co-located with `.ts`/`.tsx` source files in `src/` when debugging unexpected behaviour.
 - This is a React app — check for stale component state, missing dependency arrays in hooks, and incorrect memoisation when debugging rendering issues.

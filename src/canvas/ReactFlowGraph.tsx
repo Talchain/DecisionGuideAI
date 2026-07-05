@@ -53,9 +53,9 @@ import { commitTemplateGraphReplace } from './blueprints/commitTemplateGraph'
 import { InfluenceExplainer, useInfluenceExplainer } from '../components/assistants/InfluenceExplainer'
 // DraftChat is mounted directly below (FF off path); the aiPanelV2
 // floating-first host is mounted as a sibling when the flag is on.
-import { getCanonicalRunner } from './analysis/canonicalRunRegistry'
+import { executeCanonicalRun } from './analysis/canonicalRunRegistry'
 import { HighlightLayer } from './highlight/HighlightLayer'
-import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
+import { registerFocusHelpers } from './utils/focusHelpers'
 import { computeFitPadding } from './utils/computeFitPadding'
 import { usePathHighlight } from './hooks/usePathHighlight'
 import { useLensFilter } from './hooks/useLensFilter'
@@ -923,8 +923,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Register focus helpers for external use (Results panel)
   useEffect(() => {
-    registerFocusHelpers(handleFocusNode, handleFocusEdge)
-    return () => unregisterFocusHelpers()
+    return registerFocusHelpers(handleFocusNode, handleFocusEdge)
   }, [handleFocusNode, handleFocusEdge])
 
   // Graph Interaction P1: Enable path highlighting based on node selection
@@ -968,15 +967,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     // observed values or goal threshold), so ⌘Enter could disagree with the
     // dock/chat about the winner. All visible run affordances now execute
     // the one canonical pipeline registered by OutputsDock.
-    const runner = getCanonicalRunner()
-    if (!runner) {
-      showToast('Analysis controls are unavailable right now. Open the results dock and try again.', 'error')
-      return
-    }
     try {
-      const outcome = await runner({ source: 'canvas-shortcut' })
+      const outcome = await executeCanonicalRun({ source: 'canvas-shortcut' })
       if (outcome.status === 'blocked') {
         showToast(outcome.reason, 'warning')
+      } else if (outcome.status === 'unavailable') {
+        showToast(outcome.reason, 'error')
       }
     } catch (err: any) {
       console.error('[ReactFlowGraph] Run analysis failed:', err)

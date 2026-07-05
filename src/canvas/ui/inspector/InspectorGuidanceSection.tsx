@@ -217,6 +217,13 @@ export const InspectorGuidanceSection = memo(function InspectorGuidanceSection({
     const action = item.primary_action
     setActiveGuidanceItem(item.item_id)
 
+    // AI-to-graph slice: explicit CLICK centres the target (fail-closed).
+    // Hover/focus only ring via the pulse hook.
+    const target = item.target_object
+    if (target?.id && (target.type === 'node' || target.type === 'edge')) {
+      focusExistingTarget(target.id, target.type)
+    }
+
     const storeState = useGuidanceStore.getState()
     const sendMsg = onSendMessage ?? storeState._sendMessage ?? undefined
     const scrollPatch = onScrollToPatch ?? storeState._scrollToPatch ?? undefined
@@ -295,3 +302,4 @@ export const InspectorGuidanceSection = memo(function InspectorGuidanceSection({
 })
 
 InspectorGuidanceSection.displayName = 'InspectorGuidanceSection'
+import { focusExistingTarget } from '../../utils/focusHelpers'

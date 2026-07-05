@@ -41,6 +41,7 @@ describe('guidanceStore registration ownership', () => {
       _scrollToPatch: null,
       _prefillChat: null,
       _dispatchAction: null,
+      _registrationToken: null,
     })
   })
 
@@ -59,6 +60,25 @@ describe('guidanceStore registration ownership', () => {
     expect(s._sendMessage).toBeNull()
     expect(s._dispatchAction).toBeNull()
     expect(s._runAnalysis).toBeNull()
+  })
+
+  it('discriminates hosts by registration token even when callback identities are SHARED (singleton conversation)', () => {
+    // Both panel hosts destructure the SAME function objects from the
+    // conversation singleton — callback identity cannot tell them apart.
+    const shared = makeCallbacks()
+    const unregisterFirst = register(shared)
+    register(shared) // second host, identical callback identities
+    unregisterFirst() // first host unmounts AFTER the second registered
+    // The second host's registration must survive.
+    expect(useGuidanceStore.getState()._dispatchAction).toBe(shared.dispatchAction)
+    expect(useGuidanceStore.getState()._registrationToken).not.toBeNull()
+  })
+
+  it('clearing the active registration sets the token null (survivor-takeover signal)', () => {
+    const cb = makeCallbacks()
+    const unregister = register(cb)
+    unregister()
+    expect(useGuidanceStore.getState()._registrationToken).toBeNull()
   })
 
   it("a stale host's unregister does NOT clobber the newer host's registration", () => {

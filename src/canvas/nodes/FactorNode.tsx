@@ -413,11 +413,10 @@ export const FactorNode = memo((props: NodeProps) => {
               </span>
             </div>
           ))}
-          {optionComparisonRows.overflow > 0 && (
-            <div className={`${typography.edgeLabel} text-info mt-0.5`}>
-              {optionComparisonRows.overflow} more in inspector
-            </div>
-          )}
+          <ConnRowsOverflow
+            total={optionComparisonRows.rows.length + optionComparisonRows.overflow}
+            shown={optionComparisonRows.rows.length}
+          />
         </div>
       </>
     ) : null

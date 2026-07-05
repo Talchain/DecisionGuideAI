@@ -50,6 +50,27 @@ export function getCanonicalRunner(): CanonicalRunner | null {
   return currentRunner
 }
 
+/** Shared copy for the no-host case — one string, every surface. */
+export const RUNNER_UNAVAILABLE_MESSAGE =
+  'Analysis controls are unavailable right now. Open the results dock and try again.'
+
+export type CanonicalRunResult = CanonicalRunOutcome | { status: 'unavailable'; reason: string }
+
+/**
+ * Execute the canonical run, folding the no-registered-host case into the
+ * outcome union so call sites handle ONE shape and can never silently no-op:
+ * every branch either runs the pipeline or carries a human-readable reason.
+ */
+export async function executeCanonicalRun(
+  opts?: CanonicalRunOptions,
+): Promise<CanonicalRunResult> {
+  const runner = currentRunner
+  if (!runner) {
+    return { status: 'unavailable', reason: RUNNER_UNAVAILABLE_MESSAGE }
+  }
+  return runner(opts)
+}
+
 /** Test hook: reset module state between specs. */
 export function __resetCanonicalRunnerForTests(): void {
   currentRunner = null

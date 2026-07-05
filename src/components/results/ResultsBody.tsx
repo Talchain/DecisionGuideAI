@@ -10,6 +10,7 @@
  */
 
 import { useRef, useMemo, memo, useState } from 'react'
+import { useCanvasStore } from '../../canvas/store'
 import { typography } from '../../styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { buildResultsVM } from './buildResultsVM'
@@ -126,6 +127,13 @@ export const ResultsBody = memo(function ResultsBody({
   nodeValueLookup,
   isStale,
 }: ResultsBodyProps) {
+  // UI-SEM-065 input: engine blocker/approximate critiques live on
+  // graphHealth (ValidationPanel's source), not on confidence.uncertainties.
+  const engineDegradedCritique = useCanvasStore(s =>
+    (s.graphHealth?.issues ?? []).some(
+      (i: { severity?: string; code?: string }) => i.code === 'GRAPH_TOO_LARGE' || i.severity === 'blocker',
+    ),
+  )
   // Brief 4 Task 13 + Phase 8 P0 #4: suppress mutation affordances while
   // results are stale so users don't edit a factor based on a display that
   // no longer matches the analysis. Read-only affordances (focus node,
@@ -419,11 +427,14 @@ export const ResultsBody = memo(function ResultsBody({
               // chip uses, plus a degraded flag (partial pass or
               // GRAPH_TOO_LARGE / blocker-severity engine critique), so the
               // empty state can distinguish didn't-run / degraded / clean.
+              // UI-SEM-065: degraded-run derivation — remove when PLoT
+              // provides a canonical degraded/approximate flag. Blocker
+              // critiques never reach confidence.uncertainties (that list
+              // ingests WARNING-severity only), so the approximate signal is
+              // read from graphHealth — the same source ValidationPanel uses.
               const analysisDegraded =
                 resultsSectionData.confidence.analysisStatus === 'partial'
-                || resultsSectionData.confidence.uncertainties.some(
-                  u => u.code === 'GRAPH_TOO_LARGE' || u.severity === 'blocker',
-                )
+                || engineDegradedCritique
               return (
                 <StressTestSection
                   drivers={resultsSectionData.drivers.drivers}
