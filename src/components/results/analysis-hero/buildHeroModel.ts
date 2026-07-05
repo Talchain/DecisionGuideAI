@@ -20,7 +20,7 @@
  *     highlight follows the same leader.
  *   - Outcome leader = highest existing outcome centre (expected ?? mean ??
  *     p50), a genuinely distinct question. Ties break deterministically to
- *     the earliest option in `allOptions[]` presentation order.
+ *     the earliest row in the shared display order (sortOptionsForDisplay).
  *
  * Goal-fit honesty: the adapted selector collapses joint/unconstrained into
  * one `goalProbability` (= probability_of_joint_goal when constraints exist,
@@ -40,6 +40,7 @@ import type { FlipThreshold, OptionResult } from '../types'
 import { formatThreshold } from '../RangeVisualization'
 import { stripEncodingNotation } from '../utils/cleanFactorLabel'
 import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
+import { SUB_ONE_PERCENT_FLOOR } from '../utils/displayFloors'
 import {
   getExpectedValue,
   getMedian,
@@ -106,17 +107,15 @@ function couldChangeIfLine(
 }
 
 /**
- * UI-SEM-057: sub-1% goal readout floor. Mirrors OptionCards' existing
- * display-honesty affordance (`goalProbability < 0.01` → "< 1% likely to
- * reach target", OptionCards.tsx) so a 0.4% probability never rounds to a
- * bare "0%" here while the panel below says "< 1%". Display-only; the
- * value itself is unchanged and the bar still draws from the raw value.
- * The same floor — no new threshold — also gates the no-option-on-track
- * headline: when EVERY goal readout would render "< 1%", claiming any
- * option "best fits your goal" would be false.
+ * UI-SEM-057: sub-1% goal readout floor — the SHARED constant OptionCards'
+ * "< 1% likely to reach target" affordance uses (utils/displayFloors), so a
+ * 0.4% probability never rounds to a bare "0%" here while the panel below
+ * says "< 1%". Display-only; the value itself is unchanged and the bar
+ * still draws from the raw value. The same floor — no new threshold — also
+ * gates the goal-fit leader claim and the no-option-on-track headline:
+ * when EVERY goal readout would render "< 1%", claiming any option "best
+ * fits your goal" would be false.
  */
-const SUB_ONE_PERCENT_FLOOR = 0.01
-
 function goalReadout(value: number | null): string {
   if (value == null) return HERO_COPY.readout.missing
   if (value < SUB_ONE_PERCENT_FLOOR) return HERO_COPY.readout.subOnePercent
@@ -199,8 +198,7 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     (ft) => ft.flip_value != null,
   )
 
-  // Rows in the shared display order — the same order for every lens, so
-  // numbering is stable across lens switches (asserted in tests).
+  // One row per option, preserving the display order established above.
   const rows: HeroRowVM[] = options.map((o, i) => {
     const goalValue = o.goalProbability ?? null
     const centre = outcomeCentre(o)
@@ -245,7 +243,7 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   if (lenses.length === 0) return { kind: 'empty' }
 
   // Outcome leader: highest existing centre; strict `>` keeps the earliest
-  // option on ties (deterministic allOptions[] order tie-break).
+  // row on ties (deterministic shared-display-order tie-break).
   let outcomeLeaderId: string | null = null
   let outcomeLeaderCentre = -Infinity
   for (const r of rows) {
@@ -267,18 +265,19 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   // hero declines to crown a goal-fit leader at all — headline and goal-lens
   // highlight both switch to the no-option-on-track state. Mixed coverage
   // (any row without a goal value) falls through to the normal branches.
-  const allGoalBelowFloor =
-    rows.length > 0 &&
-    rows.every((r) => r.goal.value != null && r.goal.value < SUB_ONE_PERCENT_FLOOR)
+  // (rows is never empty here — the empty-options case returned above.)
+  const allGoalBelowFloor = rows.every(
+    (r) => r.goal.value != null && r.goal.value < SUB_ONE_PERCENT_FLOOR,
+  )
 
   // A goal-fit claim ("best fits your goal") is only honest when the claimed
   // option ITSELF carries a goal probability AT OR ABOVE the same sub-1%
   // floor — a recommended option whose goal readout would be "—" or "< 1%"
   // must not be headlined or highlighted as the goal-fit leader while other
   // rows show real figures. Below-floor leaders fall through to the
-  // analysis-leader wording instead.
+  // analysis-leader wording instead. (The >= floor check also makes this
+  // null whenever allGoalBelowFloor is true — headlineRow is one of rows.)
   const goalLeaderRow =
-    !allGoalBelowFloor &&
     headlineRow &&
     headlineRow.goal.value != null &&
     headlineRow.goal.value >= SUB_ONE_PERCENT_FLOOR
@@ -292,7 +291,12 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   if (rows.length === 1) {
     headline = HERO_COPY.headline.singleOption(safeLabel(rows[0]))
   } else if (allGoalBelowFloor) {
-    headline = HERO_COPY.headline.noneOnTrack
+    // Constraint-aware like every goal claim: under constraints the floored
+    // figure is the JOINT probability and the axis/caption say "goal and
+    // limits" — the headline must describe the same quantity.
+    headline = hasConstraints
+      ? HERO_COPY.headline.noneOnTrackWithLimits
+      : HERO_COPY.headline.noneOnTrack
   } else if (goalLeaderRow) {
     headline = hasConstraints
       ? HERO_COPY.headline.goalWithLimits(safeLabel(goalLeaderRow))
@@ -302,9 +306,12 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     // (recommendedOption — proven to equal the Results Panel/producer
     // leader) with analysis-grounded wording, never an outcome-lens claim.
     headline = HERO_COPY.headline.analysisLeads(safeLabel(headlineRow))
-  } else if (outcomeLeaderRow) {
+  } else if (outcomeAvailable && outcomeLeaderRow) {
     // No recommended option among the rows: headline the outcome fact
-    // itself (the subline below is then redundant and stays null).
+    // itself — but ONLY when the outcome lens is actually visible (centres
+    // without ranges hide it, and the hero must not assert an
+    // expected-outcome comparison it cannot show). The subline is then
+    // redundant and stays null.
     headline = HERO_COPY.headline.outcomeLeader(safeLabel(outcomeLeaderRow))
   } else {
     headline = HERO_COPY.headline.noLeader

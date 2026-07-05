@@ -179,6 +179,46 @@ describe('buildHeroModel — leaders and headline', () => {
     expect(m.headline).toBe('Upskill the team currently leads the overall analysis.')
   })
 
+  it('no-option-on-track headline is constraint-aware (goal and limits wording)', () => {
+    // Under constraints the floored figure is the JOINT probability and the
+    // axis/caption say "goal and limits" — the headline must describe the
+    // same quantity, not claim "your goal" alone.
+    const a = makeOption({ ...OPTION_A, goalProbability: 0, constraintAnalysis: CONSTRAINT })
+    const b = makeOption({ ...OPTION_B, goalProbability: 0.004, constraintAnalysis: CONSTRAINT })
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    expect(m.hasConstraints).toBe(true)
+    expect(m.headline).toBe('No option is currently on track to meet your goal and limits.')
+  })
+
+  it('never headlines an outcome claim when the outcome lens is hidden (no recommended option)', () => {
+    // Ghost recommendation + goal values + centres WITHOUT ranges: only the
+    // goal lens renders, so the "highest expected outcome" headline would
+    // assert a comparison the chart cannot show (an outcome leader exists
+    // via the centres) — it must fall through to the neutral no-leader
+    // headline, mirroring the subline's outcomeAvailable gate.
+    const strip = (o: ReturnType<typeof makeOption>) =>
+      makeOption({
+        ...o,
+        outcome: { mean: o.outcome.mean, p10: null, p50: null, p90: null },
+        p10: null,
+        p50: null,
+        p90: null,
+      })
+    const m = chart(
+      buildHeroModel(
+        makeHeroData({
+          options: [strip(OPTION_A), strip(OPTION_B)],
+          recommendation: {
+            recommendedOption: makeOption({ id: 'canvas_ghost', label: 'Ghost' }),
+          },
+        }),
+      ),
+    )
+    expect(m.lenses).toEqual(['goal'])
+    expect(m.headline).toBe('Here is how your options compare.')
+    expect(m.subline).toBeNull()
+  })
+
   it('all goal values below the sub-1% floor produce the no-option-on-track headline', () => {
     // Staging shape: every option carried probability_of_joint_goal 0 —
     // crowning any option "best fits your goal" would be false. The hero

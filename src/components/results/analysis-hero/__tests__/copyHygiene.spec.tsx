@@ -23,6 +23,7 @@ const UI_COPY: string[] = [
   HERO_COPY.headline.analysisLeads(L),
   HERO_COPY.headline.outcomeLeader(L),
   HERO_COPY.headline.noneOnTrack,
+  HERO_COPY.headline.noneOnTrackWithLimits,
   HERO_COPY.headline.singleOption(L),
   HERO_COPY.headline.noLeader,
   HERO_COPY.subline.highestOutcome(L),

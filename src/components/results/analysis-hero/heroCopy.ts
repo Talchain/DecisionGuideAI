@@ -39,8 +39,12 @@ export const HERO_COPY = {
      * Goal honesty: every option's goal probability sits below the sub-1%
      * floor (UI-SEM-057) — crowning any option "best fits your goal" would
      * be false, so the headline states the decision-relevant truth instead.
+     * Constraint-aware like every other goal claim: under constraints the
+     * floored figure is the JOINT (goal AND limits) probability, and the
+     * axis/caption already say "goal and limits" — the headline must match.
      */
     noneOnTrack: 'No option is currently on track to reach your goal.',
+    noneOnTrackWithLimits: 'No option is currently on track to meet your goal and limits.',
     singleOption: (label: string) => `${label} is your only option.`,
     noLeader: 'Here is how your options compare.',
   },
