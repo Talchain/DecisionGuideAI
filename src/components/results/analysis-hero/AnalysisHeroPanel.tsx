@@ -122,7 +122,7 @@ export function AnalysisHeroPanel({
       : model.outcomeRangedRowCount === 0
         ? HERO_COPY.caption.outcomeDotsOnly
         : model.outcomeRangedRowCount === 1
-          ? HERO_COPY.caption.outcome
+          ? HERO_COPY.caption.outcomeSingleRange
           : `${HERO_COPY.caption.outcome} ${HERO_COPY.caption.outcomeOverlap}`
 
   const leaderId = model.leaders[lens]

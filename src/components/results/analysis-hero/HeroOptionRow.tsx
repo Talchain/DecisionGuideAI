@@ -141,14 +141,15 @@ export function HeroOptionRow({
   // information survives without a hollow disclosure. `beyondWin` derives
   // from the detail object itself (not a hand-kept field list), so a new
   // detail line can never silently strand a row as non-expandable.
-  // The persistent meta deliberately stays visible while stale (it is a
-  // static value line, dimmed with the readouts — staleness locks
-  // interactions, not truths) and on either lens (matching the opened
-  // detail, which is lens-independent).
+  // The persistent meta is gated on `interactive` like the disclosure:
+  // while stale, expandable rows lock their detail away, so a win-only row
+  // must not keep disclosing its detail line — stale mode hides the same
+  // fact types uniformly across rows. It renders on either lens (matching
+  // the opened detail, which is lens-independent).
   const { winChance, ...beyondWin } = row.detail
   const hasDetailBeyondWin = Object.values(beyondWin).some(Boolean)
   const expandable = hasDetailBeyondWin && interactive
-  const winOnlyMeta = !hasDetailBeyondWin && winChance
+  const winOnlyMeta = !hasDetailBeyondWin && interactive && winChance
   const Chevron = isOpen ? ChevronDown : ChevronRight
 
   const rowGrid = (
@@ -257,8 +258,11 @@ export function HeroOptionRow({
         >
           {/* Full, unclamped option name — the visible label may be
               truncated by the two-line clamp, so the detail always
-              recovers it in place. */}
+              recovers it in place. aria-hidden: the region is already
+              labelled by the row label (aria-labelledby), so screen
+              readers would otherwise announce the name twice. */}
           <p
+            aria-hidden="true"
             className={`${typography.panelBody} text-text-header`}
             data-testid="hero-detail-label"
           >

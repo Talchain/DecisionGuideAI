@@ -96,21 +96,22 @@ describe('AnalysisHeroPanel — content', () => {
     renderPanel({ ...model, outcomeRangedRowCount: 0 })
     fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
     expect(screen.getByTestId('hero-caption')).toHaveTextContent(
-      'Dots show the expected outcome for each option.',
+      'Dots show expected outcome for each option.',
     )
     expect(screen.getByTestId('hero-caption')).not.toHaveTextContent(/lines|overlap/i)
   })
 
-  it('caption drops the overlap sentence when only ONE row draws a range', () => {
-    // A single range line cannot overlap anything — the sentence would
-    // over-describe the chart.
+  it('caption uses singular wording and no overlap sentence when only ONE row draws a range', () => {
+    // A single range line cannot overlap anything, and "Lines" (plural)
+    // would over-describe a chart drawing exactly one.
     const model = chartModel()
     renderPanel({ ...model, outcomeRangedRowCount: 1 })
     fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
     expect(screen.getByTestId('hero-caption')).toHaveTextContent(
-      'Dots show expected outcome. Lines show the realistic range.',
+      'Dots show expected outcome. The line shows the realistic range.',
     )
     expect(screen.getByTestId('hero-caption')).not.toHaveTextContent(/overlap/i)
+    expect(screen.getByTestId('hero-caption')).not.toHaveTextContent(/Lines show/)
   })
 
   it('opened detail recovers the full label and shows the grounded range and goal-fit lines', () => {
@@ -149,6 +150,29 @@ describe('AnalysisHeroPanel — content', () => {
     )
     // A (range detail exists) is still expandable.
     expect(screen.getByRole('button', { name: /Two developers/ })).toBeInTheDocument()
+  })
+
+  it('stale mode hides the win-only persistent meta (uniform with locked disclosures)', () => {
+    // While stale, expandable rows lock their detail away — a win-only row
+    // must not keep disclosing its detail line while its siblings cannot.
+    const winOnly = makeOption({
+      ...OPTION_B,
+      goalProbability: undefined,
+      outcome: { mean: 62, p10: null, p50: 61, p90: null },
+      p10: null,
+      p90: null,
+    })
+    const a = makeOption({ ...OPTION_A, goalProbability: undefined })
+    renderPanel(
+      chartModel(
+        makeHeroData({
+          options: [a, winOnly],
+          recommendation: { storyHeadlines: undefined, flipThresholds: undefined },
+        }),
+      ),
+      { isStale: true },
+    )
+    expect(screen.queryByTestId('hero-win-meta')).toBeNull()
   })
 
   it('goal hint renders only when the goal lens is missing because no target exists', () => {

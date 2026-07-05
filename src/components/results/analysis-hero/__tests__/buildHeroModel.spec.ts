@@ -327,6 +327,23 @@ describe('buildHeroModel — grounded detail lines and goal hint', () => {
     expect(m.rows[0].detail.goalFit).toBe('34% chance of meeting your goal and limits.')
   })
 
+  it('goal-fit detail wording is PER ROW under mixed constraint coverage', () => {
+    // The selector collapses goalProbability per option (joint only for
+    // options carrying their own constraint analysis), so in a mixed set the
+    // constrained row's joint figure must say "goal and limits" while the
+    // unconstrained row stays goal-alone — even though the SHARED
+    // axis/caption fall back to goal-alone (hasConstraints false).
+    const b = makeOption({ ...OPTION_B, constraintAnalysis: CONSTRAINT })
+    const m = chart(buildHeroModel(makeHeroData({ options: [OPTION_A, b] })))
+    expect(m.hasConstraints).toBe(false)
+    expect(m.rows.find((r) => r.id === 'opt_a')!.detail.goalFit).toBe(
+      '34% chance of hitting your goal.',
+    )
+    expect(m.rows.find((r) => r.id === 'opt_b')!.detail.goalFit).toBe(
+      '49% chance of meeting your goal and limits.',
+    )
+  })
+
   it('omits the range and goal-fit lines when the sourcing fields are absent', () => {
     const bare = makeOption({
       ...OPTION_A,

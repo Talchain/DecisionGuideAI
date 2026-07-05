@@ -223,9 +223,15 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
             formatThreshold(p90, outcomeUnit, outcomeUnitSymbol, isNormalised),
           )
         : undefined
+    // Per-ROW constraint wording (unlike the shared axis/caption, which use
+    // the every-quantifier `hasConstraints`): the selector collapses THIS
+    // option's goalProbability to the joint figure exactly when the option
+    // carries its own constraint analysis, so the row's detail line can name
+    // the quantity precisely — a constrained option's joint figure is never
+    // mislabelled goal-alone in a mixed set.
     const goalFit =
       goalValue != null
-        ? hasConstraints
+        ? optionHasConstraints(o)
           ? HERO_COPY.detail.goalFitWithLimits(goalReadout(goalValue))
           : HERO_COPY.detail.goalFit(goalReadout(goalValue))
         : undefined
