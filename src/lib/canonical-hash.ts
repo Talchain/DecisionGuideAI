@@ -80,7 +80,18 @@ export function canonicalise(value: unknown): unknown {
       return { __type: 'Error', name: value.name, message: value.message }
     }
 
-    // Plain object — sort keys, omit undefined, canonicalise values
+    // Plain object — sort keys, omit undefined, canonicalise values.
+    //
+    // The accumulator is a null-prototype object (`Object.create(null)`), NOT
+    // a plain `{}` — mirroring CEE's hardened canonicalizeJson/stableStringify.
+    // `JSON.parse` of wire JSON yields an OWN enumerable `__proto__` key when
+    // the payload contains one, and `Object.keys` enumerates it; on a plain
+    // object `acc['__proto__'] = …` hits the inherited accessor's setter and
+    // the key silently vanishes, so two payloads differing only in `__proto__`
+    // would hash identically (a hash collision). A null-prototype accumulator
+    // has no such setter, so `__proto__` round-trips as a normal own property.
+    // Output is byte-identical to the previous behaviour for every payload
+    // without an own `__proto__` key.
     const obj = value as Record<string, unknown>
     const sortedKeys = Object.keys(obj).sort()
 
@@ -91,7 +102,7 @@ export function canonicalise(value: unknown): unknown {
         acc[key] = canonicalise(v)
       }
       return acc
-    }, {})
+    }, Object.create(null) as Record<string, unknown>)
   }
 
   // Primitives (string, number, boolean) — return as-is
