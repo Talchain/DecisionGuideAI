@@ -83,6 +83,7 @@ const UI_COPY: string[] = [
   HERO_COPY.footer.focusTarget,
   HERO_COPY.footer.targetInputAria,
   HERO_COPY.footer.targetApply,
+  HERO_COPY.footer.targetRerunNote,
   HERO_COPY.footer.rerun,
   HERO_COPY.status.partial.headline,
   HERO_COPY.status.partial.body,
@@ -106,7 +107,21 @@ const TRUST_FORBIDDEN = [
   'fragile',
   'confidence',
   'stability',
+  'stable',
   'robust',
+]
+
+/**
+ * Review-locked examples of per-run claims that must NEVER be UI-authored
+ * (they may only ever arrive as producer-supplied text rendered verbatim).
+ * Each must trip the trust scan above — proving the scan enforces the
+ * lens-NAME carve-out without permitting claims.
+ */
+const FORBIDDEN_CLAIM_EXAMPLES = [
+  'This result is stable.',
+  'Trust: Firm.',
+  'Low stability.',
+  'This recommendation is robust.',
 ]
 
 describe('Analysis hero copy hygiene (UI-authored copy only)', () => {
@@ -119,6 +134,15 @@ describe('Analysis hero copy hygiene (UI-authored copy only)', () => {
 
   it('positive control: the scanner fires on bad copy', () => {
     expect(findBannedTerm('the recommended winner uses the graph')).not.toBeNull()
+  })
+
+  it('the trust scan catches every forbidden per-run claim shape (carve-out cannot leak)', () => {
+    for (const example of FORBIDDEN_CLAIM_EXAMPLES) {
+      const tripped = TRUST_FORBIDDEN.some((term) =>
+        new RegExp(`\\b${term}\\b`, 'i').test(example),
+      )
+      expect(tripped, `"${example}" must trip the trust scan if ever authored`).toBe(true)
+    }
   })
 
   it.each(TRUST_FORBIDDEN)('authors no trust/banding word: %s', (term) => {

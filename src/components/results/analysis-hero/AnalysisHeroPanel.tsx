@@ -97,8 +97,14 @@ export function AnalysisHeroPanel({
     }
   }, [targetEditing])
   const commitTarget = () => {
-    const parsed = parseFloat(targetDraft)
-    if (!Number.isNaN(parsed)) onApplyTarget?.(parsed)
+    // STRICT parse (write-boundary gate): empty, partial or trailing-junk
+    // input ("", "62abc", "e") must never reach the apply route — Number()
+    // rejects anything that is not a complete numeric literal, and only a
+    // finite value commits. Invalid input closes nothing and fires nothing.
+    const trimmed = targetDraft.trim()
+    const parsed = trimmed === '' ? NaN : Number(trimmed)
+    if (!Number.isFinite(parsed)) return
+    onApplyTarget?.(parsed)
     setTargetEditing(false)
   }
 
@@ -389,6 +395,10 @@ export function AnalysisHeroPanel({
               >
                 <Check aria-hidden="true" className="h-3.5 w-3.5" />
               </button>
+              {/* Rerun disclosure BEFORE commit — applying is analysis-affecting. */}
+              <span className={`${typography.panelMeta} text-text-light`}>
+                {HERO_COPY.footer.targetRerunNote}
+              </span>
             </span>
           ) : onApplyTarget ? (
             <button

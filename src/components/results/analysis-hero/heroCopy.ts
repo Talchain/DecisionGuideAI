@@ -194,7 +194,13 @@ export const HERO_COPY = {
      */
     focusTarget: 'Focus next: set a success target to unlock Goal fit.',
     targetInputAria: 'Success target value',
-    targetApply: 'Apply target',
+    targetApply: 'Apply target and run the analysis again',
+    /**
+     * Rerun disclosure — shown WITH the editor, before any commit: applying
+     * a target is analysis-affecting (it reruns), and the user must know
+     * that before pressing Enter or the tick.
+     */
+    targetRerunNote: 'Applying runs the analysis again.',
     rerun: 'Re-run analysis',
   },
 

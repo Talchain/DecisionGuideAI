@@ -100,8 +100,10 @@ describe('fixture isolation — banner travels with the brand', () => {
       }
     })
 
-    it('renders nothing without the flag (blocked from normal routes)', () => {
-      localStorage.removeItem('feature.heroFixtureGallery')
+    it('renders nothing when the flag is off (blocked from normal routes)', () => {
+      // Explicit OFF override — deterministic regardless of any env-file
+      // value the runner happens to load ('0' beats env in flagFactory).
+      localStorage.setItem('feature.heroFixtureGallery', '0')
       render(
         <MemoryRouter>
           <HeroGallery />
@@ -133,7 +135,7 @@ describe('fixture isolation — banner travels with the brand', () => {
   })
 })
 
-describe('fixture isolation — import boundary', () => {
+describe('fixture isolation — import boundary (machine-enforced, fails CI)', () => {
   it('fixture models are imported ONLY by the gallery route and module tests', () => {
     const offenders: string[] = []
     for (const file of walk(SRC)) {
@@ -142,7 +144,13 @@ describe('fixture isolation — import boundary', () => {
       if (file.startsWith(join(MODULE_DIR, 'fixtures') + sep)) continue
       if (file === GALLERY_ROUTE) continue
       const content = readFileSync(file, 'utf8')
-      if (/analysis-hero\/fixtures/.test(content)) {
+      // Aliased/absolute form (any importer) plus the relative forms only
+      // module-internal files could use — both are offences.
+      const internal = file.startsWith(MODULE_DIR + sep)
+      if (
+        /analysis-hero\/fixtures/.test(content) ||
+        (internal && /['"`]\.{1,2}\/fixtures/.test(content))
+      ) {
         offenders.push(file.slice(SRC.length - 3))
       }
     }
@@ -152,7 +160,49 @@ describe('fixture isolation — import boundary', () => {
     ).toEqual([])
   })
 
+  it('the live adapter (buildHeroModel) imports no fixture code at all', () => {
+    // Import/require specifiers only — comments may legitimately DESCRIBE
+    // the fixture contract, but no fixture module may be loaded.
+    const content = readFileSync(join(MODULE_DIR, 'buildHeroModel.ts'), 'utf8')
+    expect(content).not.toMatch(/(?:from|import|require)\s*\(?\s*['"`][^'"`\n]*fixtures/)
+  })
+
   it('positive control: the gallery route itself does import the fixtures', () => {
     expect(/analysis-hero\/fixtures/.test(readFileSync(GALLERY_ROUTE, 'utf8'))).toBe(true)
+  })
+})
+
+describe('fixture isolation — deploy flag matrix (netlify.toml)', () => {
+  const toml = readFileSync(resolve(process.cwd(), 'netlify.toml'), 'utf8')
+
+  /**
+   * Lines of one [context...] / [build.environment] section (up to the
+   * next header). Anchored to line-start so a COMMENT mentioning the
+   * section name can never satisfy the lookup.
+   */
+  function section(header: string): string {
+    const re = new RegExp(`^\\[${header.replace(/\./g, '\\.')}\\]`, 'm')
+    const match = re.exec(toml)
+    if (!match) return ''
+    const rest = toml.slice(match.index + match[0].length)
+    const next = rest.search(/^\[/m)
+    return next === -1 ? rest : rest.slice(0, next)
+  }
+
+  it('gallery flag is ON for staging only', () => {
+    expect(section('context.staging.environment')).toMatch(
+      /VITE_FEATURE_HERO_FIXTURE_GALLERY\s*=\s*"1"/,
+    )
+  })
+
+  it('gallery flag is NEVER set for production or deploy previews', () => {
+    // Production build env and deploy-preview context must not carry the
+    // flag at all (flag default is off) — one appearance repo-wide, inside
+    // the staging context.
+    expect(section('build.environment')).not.toMatch(/HERO_FIXTURE_GALLERY/)
+    expect(section('context.deploy-preview.environment')).not.toMatch(/HERO_FIXTURE_GALLERY/)
+    expect(section('context.production.environment')).not.toMatch(/HERO_FIXTURE_GALLERY/)
+    const occurrences = toml.match(/VITE_FEATURE_HERO_FIXTURE_GALLERY/g) ?? []
+    expect(occurrences.length).toBe(1)
   })
 })

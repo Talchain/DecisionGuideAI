@@ -236,6 +236,62 @@ describe('AnalysisHeroPanel — content', () => {
     expect(screen.queryByTestId('hero-focus-target-editor')).toBeNull()
   })
 
+  it('blur away from the editor group abandons without applying (never a commit)', () => {
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    const onApplyTarget = vi.fn()
+    renderPanel(
+      chartModel(makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } })),
+      { onApplyTarget },
+    )
+    fireEvent.click(screen.getByTestId('hero-focus-target'))
+    const input = screen.getByLabelText('Success target value')
+    fireEvent.change(input, { target: { value: '55' } })
+    // Focus leaves the editor group entirely (relatedTarget outside).
+    fireEvent.blur(screen.getByTestId('hero-focus-target-editor'), {
+      relatedTarget: document.body,
+    })
+    expect(onApplyTarget).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('hero-focus-target-editor')).toBeNull()
+  })
+
+  it('invalid or empty input NEVER fires the apply route (strict numeric commit)', () => {
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    const onApplyTarget = vi.fn()
+    renderPanel(
+      chartModel(makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } })),
+      { onApplyTarget },
+    )
+    fireEvent.click(screen.getByTestId('hero-focus-target'))
+    const input = screen.getByLabelText('Success target value')
+    // Empty draft: Enter and the apply button both refuse to commit.
+    fireEvent.keyDown(input, { key: 'Enter' })
+    fireEvent.click(screen.getByLabelText('Apply target and run the analysis again'))
+    expect(onApplyTarget).not.toHaveBeenCalled()
+    // The editor stays open for correction rather than silently closing.
+    expect(screen.getByTestId('hero-focus-target-editor')).toBeInTheDocument()
+  })
+
+  it('the editor discloses the rerun side effect BEFORE any commit', () => {
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    renderPanel(
+      chartModel(makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } })),
+      { onApplyTarget: vi.fn() },
+    )
+    fireEvent.click(screen.getByTestId('hero-focus-target'))
+    expect(screen.getByTestId('hero-focus-target-editor')).toHaveTextContent(
+      'Applying runs the analysis again.',
+    )
+  })
+
   it('detail omits the duplicate full-label line when the visible label is measurably unclipped', () => {
     renderPanel(chartModel())
     const label = within(screen.getByTestId('hero-option-row-1')).getByTestId('hero-row-label')

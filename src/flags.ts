@@ -340,13 +340,19 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_ANALYSIS_HERO_PANEL',
     storageKey: 'feature.analysisHeroPanel',
   },
-  // Hero fixture gallery — INTERNAL-ONLY route (/dev/hero-gallery) rendering
+  // Hero fixture gallery — INTERNAL-ONLY route (/#/dev/hero-gallery —
+  // AppPoC hash router) rendering
   // the full prototype hero states from typed fixtures (provenance
   // 'fixture'; every instance carries a visible internal-preview banner).
   // Fixture data is blocked from all normal product routes: the gallery is
-  // the ONLY module allowed to import the fixture models (hygiene-tested).
-  // Rollout: staging-on for design review, production-off. Enable locally:
-  //   localStorage.setItem('feature.heroFixtureGallery', '1')
+  // the ONLY module allowed to import the fixture models (hygiene-tested,
+  // fixtureIsolation.spec — which also pins the netlify flag matrix:
+  // staging-on, production and deploy previews OFF).
+  // STANDING INTERNAL TOOL — owner: Paul (Talchain). Review/removal point:
+  // when the producer unlock set closes (issues 211/212/217/219/220/221)
+  // or at hero GA sign-off, whichever comes first — the gallery either
+  // retires or its states graduate to live coverage.
+  // Enable locally: localStorage.setItem('feature.heroFixtureGallery', '1')
   heroFixtureGallery: {
     envKey: 'VITE_FEATURE_HERO_FIXTURE_GALLERY',
     storageKey: 'feature.heroFixtureGallery',
