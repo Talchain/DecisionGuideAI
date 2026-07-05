@@ -262,6 +262,134 @@ describe('buildHeroModel — leaders and headline', () => {
   })
 })
 
+describe('buildHeroModel — close-call calibration (UI-SEM-060)', () => {
+  // No goal values anywhere: the headline takes the analysis-leader branch,
+  // where close-call calibration applies.
+  const noGoal = (o: ReturnType<typeof makeOption>) =>
+    makeOption({ ...o, goalProbability: undefined })
+
+  it('clear leader (no top-two range overlap) keeps the flat claim and aligned subline', () => {
+    // B recommended AND outcome leader; ranges disjoint: B 70..90, A 40..60.
+    const a = noGoal(makeOption({ ...OPTION_A, expected: 50, outcome: { mean: 50, p10: 40, p50: 50, p90: 60 } }))
+    const b = noGoal(makeOption({ ...OPTION_B, expected: 80, outcome: { mean: 80, p10: 70, p50: 80, p90: 90 } }))
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    expect(m.headline).toBe('Upskill the team currently leads the overall analysis.')
+    expect(m.subline).toBe('Upskill the team also has the strongest expected outcome.')
+  })
+
+  it('top-two range overlap tempers the claim and names the runner-up', () => {
+    // B recommended AND outcome leader; ranges overlap: B 55..85, A 45..70.
+    const a = noGoal(makeOption({ ...OPTION_A, expected: 60, outcome: { mean: 60, p10: 45, p50: 60, p90: 70 } }))
+    const b = noGoal(makeOption({ ...OPTION_B, expected: 68, outcome: { mean: 68, p10: 55, p50: 68, p90: 85 } }))
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    expect(m.headline).toBe('Upskill the team currently leads, but the top options are close.')
+    expect(m.subline).toBe(
+      'Upskill the team has the highest expected outcome, with Two developers close behind.',
+    )
+  })
+
+  it('names the leader and runner-up from the rendered outcome ranking, not the input order', () => {
+    // Three options; recommended C is the outcome leader; runner-up by
+    // centre is A (62) not B (50) — the copy must name A.
+    const a = noGoal(makeOption({ id: 'opt_a2', label: 'Alpha', winProbability: 0.3, expected: 62, outcome: { mean: 62, p10: 50, p50: 62, p90: 74 } }))
+    const b = noGoal(makeOption({ id: 'opt_b2', label: 'Beta', winProbability: 0.2, expected: 50, outcome: { mean: 50, p10: 40, p50: 50, p90: 60 } }))
+    const c = noGoal(makeOption({ id: 'opt_c2', label: 'Gamma', winProbability: 0.5, isRecommended: true, expected: 70, outcome: { mean: 70, p10: 58, p50: 70, p90: 82 } }))
+    const m = chart(buildHeroModel(makeHeroData({ options: [b, a, c] })))
+    // Rendered rows are in shared display order (win-prob desc).
+    expect(m.rows.map((r) => r.label)).toEqual(['Gamma', 'Alpha', 'Beta'])
+    expect(m.headline).toBe('Gamma currently leads, but the top options are close.')
+    expect(m.subline).toBe('Gamma has the highest expected outcome, with Alpha close behind.')
+  })
+
+  it('never invents closeness when a top-two range is missing', () => {
+    // Centres are near-identical but the runner-up carries no p10/p90 —
+    // the trigger must stay false (plain claim, aligned subline).
+    const a = noGoal(makeOption({ ...OPTION_A, expected: 67.9, outcome: { mean: 67.9, p10: null, p50: 67.9, p90: null }, p10: null, p90: null }))
+    const b = noGoal(makeOption({ ...OPTION_B, expected: 68, outcome: { mean: 68, p10: 55, p50: 68, p90: 85 } }))
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    expect(m.headline).toBe('Upskill the team currently leads the overall analysis.')
+    expect(m.subline).toBe('Upskill the team also has the strongest expected outcome.')
+  })
+})
+
+describe('buildHeroModel — grounded detail lines and goal hint', () => {
+  it('maps range and goal-fit detail lines from the row fields (same formatters as readouts)', () => {
+    const m = chart(buildHeroModel(makeHeroData()))
+    // OPTION_A: p10 54, p90 82, count unit; goal 0.34 without constraints.
+    expect(m.rows[0].detail.range).toBe('Realistic range: 54 to 82.')
+    expect(m.rows[0].detail.goalFit).toBe('34% chance of hitting your goal.')
+  })
+
+  it('uses the goal-and-limits wording when every goal-bearing option is constrained', () => {
+    const a = makeOption({ ...OPTION_A, constraintAnalysis: CONSTRAINT })
+    const b = makeOption({ ...OPTION_B, constraintAnalysis: CONSTRAINT })
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    expect(m.rows[0].detail.goalFit).toBe('34% chance of meeting your goal and limits.')
+  })
+
+  it('goal-fit detail wording is PER ROW under mixed constraint coverage', () => {
+    // The selector collapses goalProbability per option (joint only for
+    // options carrying their own constraint analysis), so in a mixed set the
+    // constrained row's joint figure must say "goal and limits" while the
+    // unconstrained row stays goal-alone — even though the SHARED
+    // axis/caption fall back to goal-alone (hasConstraints false).
+    const b = makeOption({ ...OPTION_B, constraintAnalysis: CONSTRAINT })
+    const m = chart(buildHeroModel(makeHeroData({ options: [OPTION_A, b] })))
+    expect(m.hasConstraints).toBe(false)
+    expect(m.rows.find((r) => r.id === 'opt_a')!.detail.goalFit).toBe(
+      '34% chance of hitting your goal.',
+    )
+    expect(m.rows.find((r) => r.id === 'opt_b')!.detail.goalFit).toBe(
+      '49% chance of meeting your goal and limits.',
+    )
+  })
+
+  it('omits the range and goal-fit lines when the sourcing fields are absent', () => {
+    const bare = makeOption({
+      ...OPTION_A,
+      goalProbability: undefined,
+      outcome: { mean: 68, p10: null, p50: 67, p90: null },
+      p10: null,
+      p90: null,
+    })
+    const m = chart(buildHeroModel(makeHeroData({ options: [bare, OPTION_B] })))
+    expect(m.rows.find((r) => r.id === 'opt_a')!.detail.range).toBeUndefined()
+    expect(m.rows.find((r) => r.id === 'opt_a')!.detail.goalFit).toBeUndefined()
+  })
+
+  it('shows the goal hint ONLY when the goal lens is absent because no target exists', () => {
+    const noGoalOpts = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    // No goal values + no threshold → hint.
+    const hinted = chart(
+      buildHeroModel(makeHeroData({ options: noGoalOpts, recommendation: { goalThreshold: null } })),
+    )
+    expect(hinted.showGoalHint).toBe(true)
+    // No goal values but a target EXISTS (producer gap) → no hint.
+    const targeted = chart(buildHeroModel(makeHeroData({ options: noGoalOpts })))
+    expect(targeted.showGoalHint).toBe(false)
+    // Goal lens available → no hint.
+    expect(chart(buildHeroModel(makeHeroData())).showGoalHint).toBe(false)
+  })
+
+  it('counts the rows that draw a range line (caption wording gate)', () => {
+    // Both fixture rows carry p10/p90.
+    expect(chart(buildHeroModel(makeHeroData())).outcomeRangedRowCount).toBe(2)
+    // Stripping one row's range drops the count to 1 (overlap sentence off).
+    const stripped = makeOption({
+      ...OPTION_A,
+      outcome: { mean: 68, p10: null, p50: 67, p90: null },
+      p10: null,
+      p90: null,
+    })
+    expect(
+      chart(buildHeroModel(makeHeroData({ options: [stripped, OPTION_B] }))).outcomeRangedRowCount,
+    ).toBe(1)
+  })
+})
+
 describe('buildHeroModel — lens gating and numbering', () => {
   it('launch surface is exactly goal + outcome; no other lens can exist', () => {
     const m = chart(buildHeroModel(makeHeroData()))
@@ -446,7 +574,7 @@ describe('buildHeroModel — detail lines and footer (sourced or omitted)', () =
   it('main reason names the Drivers section top driver; omitted when none', () => {
     const withDriver = chart(buildHeroModel(makeHeroData()))
     expect(withDriver.mainReason).toBe(
-      'Main reason: Developer capacity has the strongest effect on this result.',
+      'Main driver: Developer capacity.',
     )
     const without = chart(buildHeroModel(makeHeroData({ topDriverLabel: null })))
     expect(without.mainReason).toBeNull()

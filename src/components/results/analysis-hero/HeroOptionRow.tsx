@@ -45,9 +45,50 @@ export interface HeroOptionRowProps {
 /**
  * Shared row grid: number+label · track · readout · chevron slot. The axis
  * header in AnalysisHeroPanel uses the same template so columns align.
+ * Label column matches the prototype's 126px (7.875rem) to reduce mid-word
+ * truncation; the full label is always available in the opened detail.
  */
 export const HERO_ROW_GRID =
-  'grid w-full grid-cols-[minmax(0,7.5rem)_1fr_auto_0.875rem] items-center gap-2 rounded-lg px-2 py-1.5 text-left'
+  'grid w-full grid-cols-[minmax(0,7.875rem)_1fr_auto_0.875rem] items-center gap-2 rounded-lg px-2 py-1.5 text-left'
+
+/**
+ * Range-bar fills — SOLID semantic light tokens, deliberately not opacity
+ * modifiers: the theme colours are plain `var(--x)` values, so Tailwind
+ * CANNOT generate `bg-option/40`-style classes (it silently emits nothing
+ * and the bar renders transparent — the staging "invisible bars" defect).
+ * These exact class strings are compile-checked by
+ * __tests__/chartClassesCompile.spec.ts; change them only in lockstep.
+ * Mapping follows the prototype: option-soft → option-light (rows),
+ * lead-fill → info-light (leader).
+ *
+ * DS note (deliberate, flagged in the PR): the written light-shade rule
+ * scopes `-light` to canvas node fills and panel entity-hover. A chart
+ * data-mark fill is the closest analogue of a canvas node fill and is the
+ * ONLY existing-token treatment that both compiles and stays visible —
+ * `bg-panel` is invisible on the panel and the main shades would drown the
+ * centre dot. Prototype-mapped exception pending a DS-owner ruling
+ * (issue 222).
+ */
+export const HERO_BAR_FILL = {
+  // eslint-disable-next-line brand-tokens/no-bare-light-bg -- chart data-mark fill, not a card/banner/pill: prototype-mapped DS exception pending owner ruling (issue 222)
+  leader: 'bg-info-light',
+  // eslint-disable-next-line brand-tokens/no-bare-light-bg -- chart data-mark fill, not a card/banner/pill: prototype-mapped DS exception pending owner ruling (issue 222)
+  rest: 'bg-option-light',
+} as const
+
+/** Dot fills (no opacity modifiers — same compile guarantee). */
+export const HERO_DOT_FILL = {
+  leader: 'bg-primary',
+  rest: 'bg-option',
+} as const
+
+/**
+ * Number-token border for non-leader rows — `border-option-light`, NOT the
+ * original `border-option/40`: opacity-modifier classes on these theme
+ * colours do not compile (see above), so the /40 border silently rendered
+ * as the default border colour. Compile-checked alongside the fills.
+ */
+export const HERO_TOKEN_BORDER = 'border-option-light'
 
 /**
  * UI-SEM-055: track position clamp to [0, 100]% of the track width.
@@ -96,10 +137,21 @@ export function HeroOptionRow({
   const readoutSuffix =
     lens === 'goal' && row.goal.value != null ? ` ${HERO_COPY.readout.goalSuffix}` : ''
 
-  const hasDetail = Boolean(
-    row.detail.why || row.detail.couldChangeIf || row.detail.winChance,
-  )
-  const expandable = hasDetail && interactive
+  // Expanded-row affordance policy: a chevron promises more than one line.
+  // Rows whose ONLY detail is the win probability are not expandable —
+  // the win line renders as persistent meta under the row instead, so the
+  // information survives without a hollow disclosure. `beyondWin` derives
+  // from the detail object itself (not a hand-kept field list), so a new
+  // detail line can never silently strand a row as non-expandable.
+  // The persistent meta is gated on `interactive` like the disclosure:
+  // while stale, expandable rows lock their detail away, so a win-only row
+  // must not keep disclosing its detail line — stale mode hides the same
+  // fact types uniformly across rows. It renders on either lens (matching
+  // the opened detail, which is lens-independent).
+  const { winChance, ...beyondWin } = row.detail
+  const hasDetailBeyondWin = Object.values(beyondWin).some(Boolean)
+  const expandable = hasDetailBeyondWin && interactive
+  const winOnlyMeta = !hasDetailBeyondWin && interactive && winChance
   const Chevron = isOpen ? ChevronDown : ChevronRight
 
   const rowGrid = (
@@ -110,7 +162,7 @@ export function HeroOptionRow({
           className={`flex h-[18px] w-[18px] flex-none items-center justify-center rounded ${typography.panelMeta} ${
             isLeader
               ? 'bg-primary text-text-on-color'
-              : 'border border-option/40 bg-transparent text-text-body'
+              : `border ${HERO_TOKEN_BORDER} bg-transparent text-text-body`
           }`}
         >
           {row.index}
@@ -128,13 +180,17 @@ export function HeroOptionRow({
       {/* Chart track — layout-only positions, transform/opacity animation. */}
       <span aria-hidden="true" className="relative block h-5 min-w-0">
         <span className="absolute inset-x-0 top-1/2 h-px bg-panel-border" />
-        {/* Range / probability bar: full-width element scaled from the left. */}
+        {/* Range / probability bar: full-width element scaled from the left.
+            Solid light-token fill (HERO_BAR_FILL) — opacity-modifier classes
+            do not compile with this theme and render transparent. */}
         <span
-          className={`absolute left-0 h-1.5 w-full rounded-full transition-transform motion-reduce:transition-none ${
-            isLeader ? 'bg-primary/50' : 'bg-option/40'
+          data-testid="hero-range-bar"
+          data-visible={barStart != null && barEnd != null ? 'true' : 'false'}
+          className={`absolute left-0 h-2.5 w-full rounded-full transition-transform motion-reduce:transition-none ${
+            isLeader ? HERO_BAR_FILL.leader : HERO_BAR_FILL.rest
           }`}
           style={{
-            top: 'calc(50% - 3px)',
+            top: 'calc(50% - 5px)',
             transformOrigin: 'left',
             transform: `translateX(${barStart ?? 0}%) scaleX(${
               barStart != null && barEnd != null ? Math.max(barEnd - barStart, 0) / 100 : 0
@@ -151,8 +207,8 @@ export function HeroOptionRow({
           }}
         >
           <span
-            className={`absolute left-0 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-panel ${
-              isLeader ? 'bg-primary' : 'bg-option'
+            className={`absolute left-0 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-panel ${
+              isLeader ? HERO_DOT_FILL.leader : HERO_DOT_FILL.rest
             }`}
           />
         </span>
@@ -202,12 +258,40 @@ export function HeroOptionRow({
           data-testid="hero-option-detail"
           className="space-y-1 pb-2 pl-9 pr-2 pt-0.5"
         >
+          {/* Full, unclamped option name — the visible label may be
+              truncated by the two-line clamp, so the detail always
+              recovers it in place. aria-hidden: the region is already
+              labelled by the row label (aria-labelledby), so screen
+              readers would otherwise announce the name twice. */}
+          <p
+            aria-hidden="true"
+            className={`${typography.panelBody} text-text-header`}
+            data-testid="hero-detail-label"
+          >
+            {row.label}
+          </p>
           {row.detail.why && (
             <p className={`${typography.panelBody} text-text-body`} data-testid="hero-detail-why">
               <span className="text-text-header">
                 {HERO_COPY.detail.whyLabel}
               </span>{' '}
               {row.detail.why}
+            </p>
+          )}
+          {row.detail.range && (
+            <p
+              className={`${typography.panelBody} text-text-body`}
+              data-testid="hero-detail-range"
+            >
+              {row.detail.range}
+            </p>
+          )}
+          {row.detail.goalFit && (
+            <p
+              className={`${typography.panelBody} text-text-body`}
+              data-testid="hero-detail-goal-fit"
+            >
+              {row.detail.goalFit}
             </p>
           )}
           {row.detail.couldChangeIf && (
@@ -230,6 +314,18 @@ export function HeroOptionRow({
             </p>
           )}
         </div>
+      )}
+
+      {/* Win-only rows: the chevron is withheld (one line is not a
+          disclosure), and the win probability renders as persistent meta
+          so the information is not lost. */}
+      {winOnlyMeta && (
+        <p
+          className={`${typography.panelMeta} pb-1.5 pl-9 pr-2 text-text-light`}
+          data-testid="hero-win-meta"
+        >
+          {row.detail.winChance}
+        </p>
       )}
     </div>
   )

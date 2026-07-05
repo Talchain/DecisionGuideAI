@@ -69,7 +69,127 @@ describe('AnalysisHeroPanel — content', () => {
     expect(screen.queryByTestId('hero-target-marker')).toBeNull()
     expect(screen.getByTestId('hero-caption')).not.toHaveTextContent(/target/i)
     // The outcome caption still describes the range bars.
-    expect(screen.getByTestId('hero-caption')).toHaveTextContent('realistic range of outcomes')
+    expect(screen.getByTestId('hero-caption')).toHaveTextContent(
+      'Lines show the realistic range',
+    )
+  })
+
+  it('range bars are visible on the outcome lens when p10/p90 exist (P0 regression)', () => {
+    renderPanel(chartModel())
+    fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
+    const bars = screen.getAllByTestId('hero-range-bar')
+    expect(bars.length).toBeGreaterThan(0)
+    for (const bar of bars) {
+      expect(bar).toHaveAttribute('data-visible', 'true')
+      // Solid light-token fills — never opacity-modifier classes, which do
+      // not compile with this theme (see chartClassesCompile.spec).
+      expect(bar.className).toMatch(/bg-(option|info)-light/)
+    }
+  })
+
+  it('caption switches to the dots-only variant when no row draws a range', () => {
+    // 0 ranged rows is unreachable through buildHeroModel today (the
+    // outcome lens is only offered when some row has a range) — the
+    // defensive branch is pinned directly so the gate stays honest if the
+    // lens gating ever changes.
+    const model = chartModel()
+    renderPanel({ ...model, outcomeRangedRowCount: 0 })
+    fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
+    expect(screen.getByTestId('hero-caption')).toHaveTextContent(
+      'Dots show expected outcome for each option.',
+    )
+    expect(screen.getByTestId('hero-caption')).not.toHaveTextContent(/lines|overlap/i)
+  })
+
+  it('caption uses singular wording and no overlap sentence when only ONE row draws a range', () => {
+    // A single range line cannot overlap anything, and "Lines" (plural)
+    // would over-describe a chart drawing exactly one.
+    const model = chartModel()
+    renderPanel({ ...model, outcomeRangedRowCount: 1 })
+    fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
+    expect(screen.getByTestId('hero-caption')).toHaveTextContent(
+      'Dots show expected outcome. The line shows the realistic range.',
+    )
+    expect(screen.getByTestId('hero-caption')).not.toHaveTextContent(/overlap/i)
+    expect(screen.getByTestId('hero-caption')).not.toHaveTextContent(/Lines show/)
+  })
+
+  it('opened detail recovers the full label and shows the grounded range and goal-fit lines', () => {
+    renderPanel(chartModel())
+    fireEvent.click(screen.getByRole('button', { name: /Two developers/ }))
+    expect(screen.getByTestId('hero-detail-label')).toHaveTextContent('Two developers')
+    expect(screen.getByTestId('hero-detail-range')).toHaveTextContent('Realistic range: 54 to 82.')
+    expect(screen.getByTestId('hero-detail-goal-fit')).toHaveTextContent(
+      '34% chance of hitting your goal.',
+    )
+  })
+
+  it('win-only rows are not expandable and keep the win line as persistent meta', () => {
+    // Strip everything except winProbability from B; A keeps its range so
+    // the outcome lens stays available.
+    const winOnly = makeOption({
+      ...OPTION_B,
+      goalProbability: undefined,
+      outcome: { mean: 62, p10: null, p50: 61, p90: null },
+      p10: null,
+      p90: null,
+    })
+    const a = makeOption({ ...OPTION_A, goalProbability: undefined })
+    renderPanel(
+      chartModel(
+        makeHeroData({
+          options: [a, winOnly],
+          recommendation: { storyHeadlines: undefined, flipThresholds: undefined },
+        }),
+      ),
+    )
+    // B has no disclosure button; its win probability is persistent meta.
+    expect(screen.queryByRole('button', { name: /Upskill the team/ })).toBeNull()
+    expect(screen.getByTestId('hero-win-meta')).toHaveTextContent(
+      '29% chance it is the strongest option overall.',
+    )
+    // A (range detail exists) is still expandable.
+    expect(screen.getByRole('button', { name: /Two developers/ })).toBeInTheDocument()
+  })
+
+  it('stale mode hides the win-only persistent meta (uniform with locked disclosures)', () => {
+    // While stale, expandable rows lock their detail away — a win-only row
+    // must not keep disclosing its detail line while its siblings cannot.
+    const winOnly = makeOption({
+      ...OPTION_B,
+      goalProbability: undefined,
+      outcome: { mean: 62, p10: null, p50: 61, p90: null },
+      p10: null,
+      p90: null,
+    })
+    const a = makeOption({ ...OPTION_A, goalProbability: undefined })
+    renderPanel(
+      chartModel(
+        makeHeroData({
+          options: [a, winOnly],
+          recommendation: { storyHeadlines: undefined, flipThresholds: undefined },
+        }),
+      ),
+      { isStale: true },
+    )
+    expect(screen.queryByTestId('hero-win-meta')).toBeNull()
+  })
+
+  it('goal hint renders only when the goal lens is missing because no target exists', () => {
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    const { unmount } = renderPanel(
+      chartModel(makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } })),
+    )
+    expect(screen.getByTestId('hero-goal-hint')).toHaveTextContent(
+      'Set a success target to see goal fit.',
+    )
+    unmount()
+    // Target exists (producer gap) → no hint. Goal lens present → no hint.
+    renderPanel(chartModel(makeHeroData({ options: noGoal })))
+    expect(screen.queryByTestId('hero-goal-hint')).toBeNull()
   })
 
   it('Goal fit surfaces the target-attainment truth (per-option goal readouts)', () => {
@@ -129,7 +249,7 @@ describe('AnalysisHeroPanel — content', () => {
   it('renders the footer main reason from the top driver and neutral focus-next text', () => {
     renderPanel(chartModel())
     expect(screen.getByTestId('hero-main-reason')).toHaveTextContent(
-      'Main reason: Developer capacity has the strongest effect on this result.',
+      'Main driver: Developer capacity.',
     )
     const focusNext = screen.getByTestId('hero-focus-next')
     expect(focusNext).toHaveTextContent('Focus next: review the top actions below.')

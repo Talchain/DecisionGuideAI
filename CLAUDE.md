@@ -218,6 +218,7 @@ npm run build                      # production build (separate concern)
 | UI-SEM-057 | `src/components/results/utils/displayFloors.ts` | Sub-1% goal display floor (shared constant): "< 1%" readouts (hero + OptionCards "likely to reach target"), the hero's goal-fit leader-claim gate, and the no-option-on-track headline switch | Keep — display honesty (legitimate) |
 | UI-SEM-058 | `src/canvas/hooks/useV2Run.ts` | Raw→normalised goal-threshold conversion for PLoT request (raw/cap; omit when unprovable) | Keep — format conversion (same class as UI-SEM-001) |
 | UI-SEM-059 | `src/components/results/RangeVisualization.tsx` | formatThreshold legacy percent auto-detect (\|v\| ≤ 2 → ×100) for callers not asserting isNormalised | Remove when all callers pass isNormalised explicitly |
+| UI-SEM-060 | `src/components/results/analysis-hero/buildHeroModel.ts` | Analysis-hero close-call trigger: top-two rendered outcome rows' p10-p90 ranges intersect (inclusive) → tempered leader headline ("…the top options are close") plus a subline naming the runner-up (display calibration from existing values; never fires without both ranges) | Keep — display formatting (same class as UI-SEM-050) |
 
 - Check for stale `.js` files co-located with `.ts`/`.tsx` source files in `src/` when debugging unexpected behaviour.
 - This is a React app — check for stale component state, missing dependency arrays in hooks, and incorrect memoisation when debugging rendering issues.
