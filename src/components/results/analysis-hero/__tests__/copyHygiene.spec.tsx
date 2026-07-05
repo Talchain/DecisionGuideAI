@@ -36,6 +36,7 @@ const UI_COPY: string[] = [
   HERO_COPY.caption.goalWithLimits,
   HERO_COPY.caption.goalOnly,
   HERO_COPY.caption.outcome,
+  HERO_COPY.caption.outcomeOverlap,
   HERO_COPY.caption.outcomeDotsOnly,
   HERO_COPY.goalHint,
   // HERO_COPY.readout.missing is deliberately NOT scanned: it is the

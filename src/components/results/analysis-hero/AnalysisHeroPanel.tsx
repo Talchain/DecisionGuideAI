@@ -113,13 +113,17 @@ export function AnalysisHeroPanel({
   const axis = lens === 'goal' ? HERO_COPY.axis[goalKey] : HERO_COPY.axis.outcome
   // The Likely outcome lens shows option comparison only — no target line or
   // target mention (target attainment lives on the Goal fit lens). The
-  // caption describes range lines only when the chart actually draws them.
+  // caption describes only what the chart draws: no lines → dots-only
+  // wording; one line → no overlap sentence (a single range cannot
+  // overlap); two-plus → the full wording.
   const caption =
     lens === 'goal'
       ? HERO_COPY.caption[goalKey]
-      : model.outcomeRangesShown
-        ? HERO_COPY.caption.outcome
-        : HERO_COPY.caption.outcomeDotsOnly
+      : model.outcomeRangedRowCount === 0
+        ? HERO_COPY.caption.outcomeDotsOnly
+        : model.outcomeRangedRowCount === 1
+          ? HERO_COPY.caption.outcome
+          : `${HERO_COPY.caption.outcome} ${HERO_COPY.caption.outcomeOverlap}`
 
   const leaderId = model.leaders[lens]
 

@@ -357,8 +357,19 @@ describe('buildHeroModel — grounded detail lines and goal hint', () => {
     expect(chart(buildHeroModel(makeHeroData())).showGoalHint).toBe(false)
   })
 
-  it('reports whether any rendered row draws a range line (caption gating)', () => {
-    expect(chart(buildHeroModel(makeHeroData())).outcomeRangesShown).toBe(true)
+  it('counts the rows that draw a range line (caption wording gate)', () => {
+    // Both fixture rows carry p10/p90.
+    expect(chart(buildHeroModel(makeHeroData())).outcomeRangedRowCount).toBe(2)
+    // Stripping one row's range drops the count to 1 (overlap sentence off).
+    const stripped = makeOption({
+      ...OPTION_A,
+      outcome: { mean: 68, p10: null, p50: 67, p90: null },
+      p10: null,
+      p90: null,
+    })
+    expect(
+      chart(buildHeroModel(makeHeroData({ options: [stripped, OPTION_B] }))).outcomeRangedRowCount,
+    ).toBe(1)
   })
 })
 

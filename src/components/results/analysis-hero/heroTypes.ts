@@ -95,10 +95,14 @@ export interface HeroChartModel {
    */
   outcomeDomain: { min: number; max: number } | null
   /**
-   * True when at least one row draws a p10-p90 range line — gates the
-   * outcome caption so it never describes lines that are not rendered.
+   * Number of rows that draw a p10-p90 range line — gates the outcome
+   * caption so it never describes lines (or overlap) that are not
+   * rendered: 0 → dots-only wording, 1 → lines wording without the
+   * overlap sentence, 2+ → full wording. (0 is unreachable today — the
+   * outcome lens is only offered when some row carries a range — but the
+   * gate stays honest if that lens gating ever changes.)
    */
-  outcomeRangesShown: boolean
+  outcomeRangedRowCount: number
   /**
    * Single-lens discoverability hint ("Set a success target…"): true ONLY
    * when the goal lens is absent because no success target exists

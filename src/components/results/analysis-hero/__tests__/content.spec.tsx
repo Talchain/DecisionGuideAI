@@ -88,13 +88,29 @@ describe('AnalysisHeroPanel — content', () => {
   })
 
   it('caption switches to the dots-only variant when no row draws a range', () => {
+    // 0 ranged rows is unreachable through buildHeroModel today (the
+    // outcome lens is only offered when some row has a range) — the
+    // defensive branch is pinned directly so the gate stays honest if the
+    // lens gating ever changes.
     const model = chartModel()
-    renderPanel({ ...model, outcomeRangesShown: false })
+    renderPanel({ ...model, outcomeRangedRowCount: 0 })
     fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
     expect(screen.getByTestId('hero-caption')).toHaveTextContent(
       'Dots show the expected outcome for each option.',
     )
     expect(screen.getByTestId('hero-caption')).not.toHaveTextContent(/lines|overlap/i)
+  })
+
+  it('caption drops the overlap sentence when only ONE row draws a range', () => {
+    // A single range line cannot overlap anything — the sentence would
+    // over-describe the chart.
+    const model = chartModel()
+    renderPanel({ ...model, outcomeRangedRowCount: 1 })
+    fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
+    expect(screen.getByTestId('hero-caption')).toHaveTextContent(
+      'Dots show expected outcome. Lines show the realistic range.',
+    )
+    expect(screen.getByTestId('hero-caption')).not.toHaveTextContent(/overlap/i)
   })
 
   it('opened detail recovers the full label and shows the grounded range and goal-fit lines', () => {

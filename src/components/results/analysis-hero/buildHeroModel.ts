@@ -263,14 +263,15 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
 
   // Outcome leader: highest existing centre; strict `>` keeps the earliest
   // row on ties (deterministic shared-display-order tie-break).
-  let outcomeLeaderId: string | null = null
+  let outcomeLeaderRow: HeroRowVM | null = null
   let outcomeLeaderCentre = -Infinity
   for (const r of rows) {
     if (r.outcome.centre != null && r.outcome.centre > outcomeLeaderCentre) {
       outcomeLeaderCentre = r.outcome.centre
-      outcomeLeaderId = r.id
+      outcomeLeaderRow = r
     }
   }
+  const outcomeLeaderId = outcomeLeaderRow?.id ?? null
 
   // Outcome runner-up: second-highest existing centre, same deterministic
   // tie-break. Needed only for the close-call calibration below.
@@ -288,14 +289,15 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   // guards the recovered-session identity mismatch — if the recommended id
   // is not among the analysed rows, no leader is claimed.
   const headlineRow = rows.find((r) => r.id === recommendedId) ?? null
-  const outcomeLeaderRow = rows.find((r) => r.id === outcomeLeaderId) ?? null
 
   // UI-SEM-060: deterministic close-call trigger. The top two rendered
   // outcome rows count as "close" when their p10-p90 ranges INTERSECT —
   // the same overlap the chart draws and the caption tells the user to
-  // treat as unsettled. Selection/comparison of existing values only
-  // (display calibration, same class as UI-SEM-050); when either row lacks
-  // a range the trigger stays false — closeness is never invented.
+  // treat as unsettled. Intersection is deliberately INCLUSIVE (ranges
+  // that merely touch count as close — the conservative direction for a
+  // leader claim). Selection/comparison of existing values only (display
+  // calibration, same class as UI-SEM-050); when either row lacks a range
+  // the trigger stays false — closeness is never invented.
   const topTwoClose =
     outcomeLeaderRow != null &&
     outcomeRunnerUpRow != null &&
@@ -457,8 +459,11 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
       outcome: outcomeLeaderId,
     },
     outcomeDomain,
-    // Caption honesty: only describe range lines the chart actually draws.
-    outcomeRangesShown: outcomeAvailable,
+    // Caption honesty: only describe range lines (and overlap) the chart
+    // actually draws — 0/1/2+ ranged rows pick the caption wording.
+    outcomeRangedRowCount: rows.filter(
+      (r) => r.outcome.p10 != null && r.outcome.p90 != null,
+    ).length,
     // Discoverability hint fires ONLY when the goal lens is absent because
     // no success target exists — a targeted run missing goal probabilities
     // is a producer gap where "set a success target" would mislead.

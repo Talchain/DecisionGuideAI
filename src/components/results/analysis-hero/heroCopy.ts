@@ -85,8 +85,14 @@ export const HERO_COPY = {
   caption: {
     goalWithLimits: 'Each bar is the chance that option meets your goal and limits together.',
     goalOnly: 'Each bar is the chance that option hits your goal.',
-    /** Shown only when at least one row actually renders a p10-p90 line. */
-    outcome: 'Dots show expected outcome. Lines show the realistic range. Where ranges overlap, treat the order as unsettled.',
+    /** Base outcome caption — shown whenever at least one row draws a p10-p90 line. */
+    outcome: 'Dots show expected outcome. Lines show the realistic range.',
+    /**
+     * Appended only when TWO OR MORE rows draw range lines — with a single
+     * line no two ranges can overlap, so the sentence would over-describe
+     * the chart.
+     */
+    outcomeOverlap: 'Where ranges overlap, treat the order as unsettled.',
     /** Shown when no row carries a range — never describe lines that are not drawn. */
     outcomeDotsOnly: 'Dots show the expected outcome for each option.',
   },
