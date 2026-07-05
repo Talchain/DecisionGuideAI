@@ -44,6 +44,11 @@ describe('formatThreshold percent unit (denormalised user units)', () => {
     expect(formatThreshold(2.1, 'percent', undefined, false)).toBe('2.1%')
   })
 
+  it('tiny negatives that round to zero render "0%", never the negative-zero "-0%"', () => {
+    expect(formatThreshold(-0.003, 'percent', undefined, false)).toBe('0%')
+    expect(formatThreshold(-0.0004, 'percent', undefined, false)).toBe('0%')
+  })
+
   it('legacy auto-detect preserved when isNormalised is not asserted (UI-SEM-059)', () => {
     expect(formatThreshold(0.8, 'percent', undefined, undefined)).toBe('80%')
     expect(formatThreshold(45, 'percent', undefined, undefined)).toBe('45%')

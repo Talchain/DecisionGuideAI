@@ -20,7 +20,11 @@ import type { OptionResult } from '../types'
 type DisplayOrderFields = Pick<OptionResult, 'winProbability' | 'expected' | 'goalProbability'>
 
 export function sortOptionsForDisplay<T extends DisplayOrderFields>(options: readonly T[]): T[] {
-  const allHaveWinProb = options.length > 0 && options.every(o => o.winProbability != null)
+  // Number.isFinite (not `!= null`): a NaN winProbability would pass the
+  // null check, poison the comparator (NaN ?? 0 stays NaN), and make the
+  // order arbitrary — mixed/invalid coverage must fall back to expected.
+  const allHaveWinProb =
+    options.length > 0 && options.every(o => typeof o.winProbability === 'number' && Number.isFinite(o.winProbability))
   return [...options].sort((a, b) => {
     if (allHaveWinProb) return (b.winProbability ?? 0) - (a.winProbability ?? 0)
     return (b.expected ?? b.goalProbability ?? -Infinity) - (a.expected ?? a.goalProbability ?? -Infinity)

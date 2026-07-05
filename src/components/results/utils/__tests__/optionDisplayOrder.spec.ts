@@ -34,6 +34,17 @@ describe('sortOptionsForDisplay', () => {
     ])
   })
 
+  it('falls back to expected descending when ANY option has a NaN win probability (no poisoned comparator)', () => {
+    // NaN passes a `!= null` check but poisons the subtraction comparator
+    // (NaN ?? 0 stays NaN) — invalid coverage must use the expected order.
+    const options: Opt[] = [
+      { id: 'a', winProbability: 0.9, expected: 10 },
+      { id: 'b', winProbability: Number.NaN, expected: 30 },
+      { id: 'c', winProbability: 0.1, expected: 20 },
+    ]
+    expect(ids(sortOptionsForDisplay(options))).toEqual(['b', 'c', 'a'])
+  })
+
   it('falls back to expected descending when ANY option lacks win probability (no fabricated ranking)', () => {
     const options: Opt[] = [
       { id: 'a', winProbability: 0.9, expected: 10 },
