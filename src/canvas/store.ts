@@ -1343,8 +1343,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   addNode: (pos, type = 'decision') => {
     // Node limit check (PRD guardrail)
-    const { nodes, edges } = get()
-    const limitKind = wouldExceedLimits(nodes.length, edges.length, 1, 0)
+    const { nodes, edges, engineLimits } = get()
+    const limitKind = wouldExceedLimits(nodes.length, edges.length, 1, 0, engineLimits)
     if (limitKind) return limitKind
 
     pushToHistory(get, set, `Added ${type}`)
@@ -1356,8 +1356,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   addNodeWithEdge: (pos, type, connectTo, edgeDirection) => {
     // Limit check: adding 1 node + 1 edge
-    const { nodes, edges } = get()
-    const limitKind = wouldExceedLimits(nodes.length, edges.length, 1, 1)
+    const { nodes, edges, engineLimits } = get()
+    const limitKind = wouldExceedLimits(nodes.length, edges.length, 1, 1, engineLimits)
     if (limitKind) return limitKind
 
     pushToHistory(get, set, `Added connected ${type}`)
@@ -1725,7 +1725,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }
 
     // Edge limit check (PRD guardrail)
-    const limitKind = wouldExceedLimits(nodes.length, edges.length, 0, 1)
+    const limitKind = wouldExceedLimits(nodes.length, edges.length, 0, 1, get().engineLimits)
     if (limitKind === 'edge_limit') {
       return { created: false, reason: 'edge_limit' as const }
     }

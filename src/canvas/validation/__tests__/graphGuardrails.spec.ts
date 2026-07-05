@@ -13,6 +13,7 @@ import {
   bfsReachable,
   buildAdjacency,
   wouldExceedLimits,
+  resolveGraphLimits,
   limitExceededMessage,
   assessNodeDeletion,
   assessEdgeDeletion,
@@ -99,6 +100,49 @@ describe('wouldExceedLimits', () => {
   })
   it('node limit takes priority', () => {
     expect(wouldExceedLimits(MAX_NODES, MAX_EDGES, 1, 1)).toBe('node_limit')
+  })
+
+  it('engine limit below the static cap becomes the ceiling', () => {
+    const engine = { nodes: { max: 10 }, edges: { max: 8 } }
+    expect(wouldExceedLimits(10, 0, 1, 0, engine)).toBe('node_limit')
+    expect(wouldExceedLimits(0, 8, 0, 1, engine)).toBe('edge_limit')
+    expect(wouldExceedLimits(9, 7, 1, 1, engine)).toBeNull()
+  })
+
+  it('engine limit above the static cap does not raise it', () => {
+    const engine = { nodes: { max: 500 }, edges: { max: 500 } }
+    expect(wouldExceedLimits(MAX_NODES, 0, 1, 0, engine)).toBe('node_limit')
+    expect(wouldExceedLimits(0, MAX_EDGES, 0, 1, engine)).toBe('edge_limit')
+  })
+
+  it('null/absent engine limits fall back to the static caps', () => {
+    expect(wouldExceedLimits(MAX_NODES - 1, MAX_EDGES - 1, 1, 1, null)).toBeNull()
+    expect(wouldExceedLimits(MAX_NODES, MAX_EDGES, 1, 1, null)).toBe('node_limit')
+  })
+})
+
+describe('resolveGraphLimits', () => {
+  it('returns static caps when engine limits are absent', () => {
+    expect(resolveGraphLimits()).toEqual({ maxNodes: MAX_NODES, maxEdges: MAX_EDGES })
+    expect(resolveGraphLimits(null)).toEqual({ maxNodes: MAX_NODES, maxEdges: MAX_EDGES })
+  })
+
+  it('takes the minimum of static cap and engine limit per axis', () => {
+    expect(resolveGraphLimits({ nodes: { max: 30 }, edges: { max: 100 } })).toEqual({
+      maxNodes: 30,
+      maxEdges: MAX_EDGES,
+    })
+  })
+
+  it('ignores invalid engine values (zero, negative, NaN) so a bad payload never bricks editing', () => {
+    expect(resolveGraphLimits({ nodes: { max: 0 }, edges: { max: -5 } })).toEqual({
+      maxNodes: MAX_NODES,
+      maxEdges: MAX_EDGES,
+    })
+    expect(resolveGraphLimits({ nodes: { max: Number.NaN }, edges: { max: 12.9 } })).toEqual({
+      maxNodes: MAX_NODES,
+      maxEdges: 12,
+    })
   })
 })
 

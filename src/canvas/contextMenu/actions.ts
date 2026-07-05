@@ -166,7 +166,7 @@ export async function addNodeAction(
   if (type === 'option') {
     const decisionNode = store.nodes.find(n => n.type === 'decision')
     if (decisionNode) {
-      const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 1)
+      const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 1, store.engineLimits)
       if (limitKind) {
         showToast(limitExceededMessage(limitKind, limitKind === 'node_limit' ? store.nodes.length : store.edges.length), 'warning')
         return
@@ -187,7 +187,7 @@ export async function addNodeAction(
   }
 
   // PRD guardrail: check node limit before creating
-  const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 0)
+  const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 0, store.engineLimits)
   if (limitKind) {
     showToast(limitExceededMessage(limitKind, store.nodes.length), 'warning')
     return
@@ -259,7 +259,7 @@ export async function addConnectedFactorAction(
   if (!targetNode) return
 
   // PRD guardrail: adding 1 node + 1 edge
-  const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 1)
+  const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 1, store.engineLimits)
   if (limitKind) {
     showToast(limitExceededMessage(limitKind, limitKind === 'node_limit' ? store.nodes.length : store.edges.length), 'warning')
     return
@@ -300,7 +300,7 @@ export async function addConnectedOutcomeAction(
   const targetNode = store.nodes.find((n) => n.id === target.nodeId)
   if (!targetNode) return
 
-  const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 1)
+  const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 1, store.engineLimits)
   if (limitKind) {
     showToast(limitExceededMessage(limitKind, limitKind === 'node_limit' ? store.nodes.length : store.edges.length), 'warning')
     return
@@ -333,7 +333,7 @@ export async function addConnectedRiskAction(
   const targetNode = store.nodes.find((n) => n.id === target.nodeId)
   if (!targetNode) return
 
-  const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 1)
+  const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 1, store.engineLimits)
   if (limitKind) {
     showToast(limitExceededMessage(limitKind, limitKind === 'node_limit' ? store.nodes.length : store.edges.length), 'warning')
     return
@@ -399,7 +399,7 @@ export async function insertFactorBetweenAction(
   if (!edge) return
 
   // Need 1 new node + 2 new edges - 1 old edge = net +1 node, +1 edge
-  const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 1)
+  const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 1, store.engineLimits)
   if (limitKind) {
     showToast(limitExceededMessage(limitKind, limitKind === 'node_limit' ? store.nodes.length : store.edges.length), 'warning')
     return

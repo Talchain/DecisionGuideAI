@@ -9,16 +9,52 @@
  */
 
 import type { Node, Edge } from '@xyflow/react'
+import type { LimitsV1 } from '../../adapters/plot/types'
 
 // ---------------------------------------------------------------------------
 // PRD guardrail limits
 // ---------------------------------------------------------------------------
 
-/** Maximum number of nodes allowed in the graph */
+/** Maximum number of nodes allowed in the graph (static product cap / engine-limit fallback) */
 export const MAX_NODES = 50
 
-/** Maximum number of edges allowed in the graph */
+/** Maximum number of edges allowed in the graph (static product cap / engine-limit fallback) */
 export const MAX_EDGES = 40
+
+/** The single effective ceiling all add-time limit checks compare against. */
+export interface EffectiveGraphLimits {
+  maxNodes: number
+  maxEdges: number
+}
+
+function validEngineMax(value: number | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? Math.floor(value)
+    : null
+}
+
+/**
+ * Resolve the ONE effective graph-size ceiling from the engine's live
+ * /v1/limits value and the static product caps.
+ *
+ * Semantics: min(static cap, engine limit when validly present).
+ * - Engine BELOW the cap wins — building past what the engine accepts only
+ *   moves the failure to run time.
+ * - Engine ABOVE the cap does not raise it — the static cap is a product
+ *   decision, not a capacity guess.
+ * - Absent/invalid engine data (null, 0, NaN) falls back to the static caps,
+ *   so a bad limits payload can never brick editing.
+ */
+export function resolveGraphLimits(
+  engineLimits?: LimitsV1 | null,
+): EffectiveGraphLimits {
+  const engineNodes = validEngineMax(engineLimits?.nodes?.max)
+  const engineEdges = validEngineMax(engineLimits?.edges?.max)
+  return {
+    maxNodes: engineNodes !== null ? Math.min(MAX_NODES, engineNodes) : MAX_NODES,
+    maxEdges: engineEdges !== null ? Math.min(MAX_EDGES, engineEdges) : MAX_EDGES,
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Primitive checks
@@ -162,17 +198,23 @@ export function buildAdjacency(
 export type LimitExceeded = 'node_limit' | 'edge_limit'
 
 /**
- * Check if adding nodes/edges would exceed PRD limits.
+ * Check if adding nodes/edges would exceed the effective graph limits.
  * Returns the type of limit that would be exceeded, or null if OK.
+ *
+ * Pass the store's live `engineLimits` (LimitsV1 | null) so the check runs
+ * against the single resolved ceiling (see resolveGraphLimits). Omitting it
+ * falls back to the static product caps.
  */
 export function wouldExceedLimits(
   currentNodeCount: number,
   currentEdgeCount: number,
   addingNodes: number,
   addingEdges: number,
+  engineLimits?: LimitsV1 | null,
 ): LimitExceeded | null {
-  if (currentNodeCount + addingNodes > MAX_NODES) return 'node_limit'
-  if (currentEdgeCount + addingEdges > MAX_EDGES) return 'edge_limit'
+  const { maxNodes, maxEdges } = resolveGraphLimits(engineLimits)
+  if (currentNodeCount + addingNodes > maxNodes) return 'node_limit'
+  if (currentEdgeCount + addingEdges > maxEdges) return 'edge_limit'
   return null
 }
 

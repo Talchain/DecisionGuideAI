@@ -1641,9 +1641,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const isValidConnection = useCallback((connection: Connection) => {
     if (!connection.source || !connection.target) return false
     if (isSelfLoop(connection.source, connection.target)) return false
-    const { nodes, edges } = useCanvasStore.getState()
+    const { nodes, edges, engineLimits } = useCanvasStore.getState()
     if (isDuplicateEdge(edges, connection.source, connection.target)) return false
-    if (wouldExceedLimits(nodes.length, edges.length, 0, 1)) return false
+    if (wouldExceedLimits(nodes.length, edges.length, 0, 1, engineLimits)) return false
     if (wouldCreateCycle(nodes.map(n => n.id), edges, connection.source, connection.target)) return false
     return true
   }, [])
@@ -1671,12 +1671,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       const targetNodeId = nodeEl.getAttribute('data-id')
       const sourceId = connectSourceRef.current
       if (targetNodeId && sourceId) {
-        const { nodes, edges } = useCanvasStore.getState()
+        const { nodes, edges, engineLimits } = useCanvasStore.getState()
         if (isSelfLoop(sourceId, targetNodeId)) {
           // silent — self-loops are obvious
         } else if (isDuplicateEdge(edges, sourceId, targetNodeId)) {
           showToast('This relationship already exists. Click it to adjust its strength.', 'warning')
-        } else if (wouldExceedLimits(nodes.length, edges.length, 0, 1)) {
+        } else if (wouldExceedLimits(nodes.length, edges.length, 0, 1, engineLimits)) {
           showToast(limitExceededMessage('edge_limit', edges.length), 'warning')
         } else if (wouldCreateCycle(nodes.map(n => n.id), edges, sourceId, targetNodeId)) {
           showToast('This would create a circular dependency. Causal models require one-way relationships.', 'warning')
