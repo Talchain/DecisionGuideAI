@@ -24,7 +24,7 @@
  * Option labels are producer/user content rendered as escaped React text
  * nodes — no raw HTML injection of any kind.
  */
-import { useId } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { HERO_COPY } from './heroCopy'
@@ -113,6 +113,20 @@ export function HeroOptionRow({
   const regionId = useId()
   const labelId = useId()
 
+  // Full-label recovery gate: the opened detail repeats the option name
+  // ONLY when the two-line clamp actually clips it (an unclipped name would
+  // be pure duplication). Measured post-commit; the default is TRUE (show)
+  // so environments without layout boxes (jsdom reports 0/0) and the first
+  // paint fail safe — the full name is never withheld when in doubt.
+  const labelRef = useRef<HTMLSpanElement>(null)
+  const [labelClipped, setLabelClipped] = useState(true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately dependency-less: clipping changes with container width, not props; re-measured every commit with the setState equality bail-out keeping it loop-free
+  useEffect(() => {
+    const el = labelRef.current
+    if (!el || (el.scrollHeight === 0 && el.clientHeight === 0)) return
+    setLabelClipped(el.scrollHeight > el.clientHeight + 1)
+  })
+
   // Per-lens layout positions (percent of track width). null → hidden.
   let barStart: number | null = null
   let barEnd: number | null = null
@@ -169,7 +183,9 @@ export function HeroOptionRow({
         </span>
         <span
           id={labelId}
+          ref={labelRef}
           title={row.label}
+          data-testid="hero-row-label"
           className={`${typography.panelBody} min-w-0 flex-1 break-words text-left text-text-header line-clamp-2`}
         >
           {row.label}
@@ -258,18 +274,21 @@ export function HeroOptionRow({
           data-testid="hero-option-detail"
           className="space-y-1 pb-2 pl-9 pr-2 pt-0.5"
         >
-          {/* Full, unclamped option name — the visible label may be
-              truncated by the two-line clamp, so the detail always
-              recovers it in place. aria-hidden: the region is already
-              labelled by the row label (aria-labelledby), so screen
-              readers would otherwise announce the name twice. */}
-          <p
-            aria-hidden="true"
-            className={`${typography.panelBody} text-text-header`}
-            data-testid="hero-detail-label"
-          >
-            {row.label}
-          </p>
+          {/* Full, unclamped option name — recovered in place ONLY when the
+              two-line clamp actually clips the visible label (labelClipped,
+              measured; defaults to shown when layout cannot be read).
+              aria-hidden: the region is already labelled by the row label
+              (aria-labelledby), so screen readers would otherwise announce
+              the name twice. */}
+          {labelClipped && (
+            <p
+              aria-hidden="true"
+              className={`${typography.panelBody} text-text-header`}
+              data-testid="hero-detail-label"
+            >
+              {row.label}
+            </p>
+          )}
           {row.detail.why && (
             <p className={`${typography.panelBody} text-text-body`} data-testid="hero-detail-why">
               <span className="text-text-header">

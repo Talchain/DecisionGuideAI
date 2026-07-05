@@ -21,8 +21,8 @@
  * ROBUSTNESS-VERDICT-CONTRACT), so the trust line is omitted rather than
  * derived. Raw 0-1 stability/confidence floats are never displayed.
  */
-import { useEffect, useId, useState } from 'react'
-import { ArrowDown, Info, RefreshCw } from 'lucide-react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { ArrowDown, Check, Info, RefreshCw, Target } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { HERO_COPY } from './heroCopy'
 import { HeroLensTabs, tabId } from './HeroLensTabs'
@@ -40,6 +40,13 @@ export interface AnalysisHeroPanelProps {
    * link — with the panel absent the line degrades to plain text.
    */
   focusPanelMounted: boolean
+  /**
+   * Existing apply-target route (OutputsDock handleApplyThreshold: sets the
+   * goal threshold and reruns — the same handler the Options Compare target
+   * row used). When absent, the promoted Focus-next target line degrades to
+   * plain text; the hero never invents an action route of its own.
+   */
+  onApplyTarget?: (value: number) => void
 }
 
 /** The coaching panel container the focus-next affordance scrolls to. */
@@ -70,10 +77,30 @@ export function AnalysisHeroPanel({
   onRerun,
   rerunDisabled,
   focusPanelMounted,
+  onApplyTarget,
 }: AnalysisHeroPanelProps) {
   const panelId = useId()
   const [lensState, setLensState] = useState<HeroLens | null>(null)
   const [openRowId, setOpenRowId] = useState<string | null>(null)
+
+  // Promoted success-target affordance (single-lens no-target runs only):
+  // local edit state mirroring the retired SuccessTargetRow contract —
+  // Enter/tick commits a raw user-unit number to the existing apply route,
+  // Escape/blur reverts. No value is stored here beyond the draft text.
+  const [targetEditing, setTargetEditing] = useState(false)
+  const [targetDraft, setTargetDraft] = useState('')
+  const targetInputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (targetEditing) {
+      targetInputRef.current?.focus()
+      targetInputRef.current?.select()
+    }
+  }, [targetEditing])
+  const commitTarget = () => {
+    const parsed = parseFloat(targetDraft)
+    if (!Number.isNaN(parsed)) onApplyTarget?.(parsed)
+    setTargetEditing(false)
+  }
 
   // `focusPanelMounted` only says the coaching panel's flag is on. The
   // focus-next affordance must never be an enabled no-op for keyboard and
@@ -201,17 +228,6 @@ export function AnalysisHeroPanel({
           <Info aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 flex-none text-info" />
           <span data-testid="hero-caption">{caption}</span>
         </p>
-
-        {/* Single-lens discoverability: only when the goal lens is absent
-            because no success target exists (never for producer gaps). */}
-        {model.showGoalHint && (
-          <p
-            className={`${typography.panelMeta} pl-5 text-text-light`}
-            data-testid="hero-goal-hint"
-          >
-            {HERO_COPY.goalHint}
-          </p>
-        )}
       </div>
 
       {/* Footer strip: Main reason · Focus next. The trust line is omitted —
@@ -238,6 +254,75 @@ export function AnalysisHeroPanel({
             />
             {HERO_COPY.footer.rerun}
           </button>
+        ) : model.showGoalHint ? (
+          /* Promoted single-lens unlock: the Focus-next slot carries the
+             success-target action (fires ONLY when no target exists — never
+             for producer gaps). Actionable solely through the existing
+             apply route; without it the line is plain text, never a dead
+             control. */
+          targetEditing && onApplyTarget ? (
+            <span
+              className="inline-flex items-center gap-1.5"
+              data-testid="hero-focus-target-editor"
+            >
+              <Target aria-hidden="true" className="h-3.5 w-3.5 flex-none text-info" />
+              <input
+                ref={targetInputRef}
+                type="number"
+                value={targetDraft}
+                onChange={(e) => setTargetDraft(e.target.value)}
+                onBlur={() => setTargetEditing(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    commitTarget()
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault()
+                    setTargetEditing(false)
+                  }
+                }}
+                disabled={rerunDisabled}
+                aria-label={HERO_COPY.footer.targetInputAria}
+                className={`w-24 rounded border border-info px-2 py-0.5 ${typography.panelBody} tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50`}
+              />
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  // Commit on mousedown so the input's blur-revert cannot
+                  // race the click away (SuccessTargetRow contract).
+                  e.preventDefault()
+                  commitTarget()
+                }}
+                disabled={rerunDisabled}
+                aria-label={HERO_COPY.footer.targetApply}
+                title={HERO_COPY.footer.targetApply}
+                className="flex h-5 w-5 items-center justify-center rounded text-success transition-colors hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50"
+              >
+                <Check aria-hidden="true" className="h-3.5 w-3.5" />
+              </button>
+            </span>
+          ) : onApplyTarget ? (
+            <button
+              type="button"
+              onClick={() => {
+                setTargetDraft('')
+                setTargetEditing(true)
+              }}
+              disabled={rerunDisabled}
+              data-testid="hero-focus-target"
+              className={`${typography.panelBody} inline-flex items-center gap-1.5 text-text-body hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50`}
+            >
+              <Target aria-hidden="true" className="h-3.5 w-3.5 text-info" />
+              {HERO_COPY.footer.focusTarget}
+            </button>
+          ) : (
+            <p
+              className={`${typography.panelBody} text-text-body`}
+              data-testid="hero-focus-target"
+            >
+              {HERO_COPY.footer.focusTarget}
+            </p>
+          )
         ) : focusTargetPresent ? (
           <button
             type="button"

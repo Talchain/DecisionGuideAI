@@ -34,11 +34,18 @@ export const HERO_COPY = {
      */
     analysisLeads: (label: string) => `${label} currently leads the overall analysis.`,
     /**
-     * Close-call calibration (UI-SEM-060): when the top two outcome ranges
-     * overlap, the flat leader claim overstates certainty — the tempered
-     * variant is generated from the rendered ranking, never hand-picked.
+     * Leader-claim banding (UI-SEM-060, revised): the "most likely" claim is
+     * grounded in the producer's OWN win probability (the same quantity the
+     * detail's "chance it is the strongest option overall" line shows) —
+     * never in outcome-lens inference or range overlap. Range overlap alone
+     * must never temper or manufacture a closeness claim; it only appends
+     * the overlap advisory to the state-A subline.
      */
-    analysisLeadsClose: (label: string) => `${label} currently leads, but the top options are close.`,
+    mostLikelyStrongest: (label: string) => `${label} is most likely to be strongest overall.`,
+    /** Banding state B: ahead on win probability without a strong majority. */
+    slightlyAhead: (label: string) => `${label} is slightly ahead.`,
+    /** Banding state C: the win probabilities identify no clear leader. */
+    noClearLeader: 'No option is clearly ahead.',
     /** Fallback when no recommended option exists among the rows: headline the outcome fact itself. */
     outcomeLeader: (label: string) => `${label} has the highest expected outcome.`,
     /**
@@ -64,12 +71,20 @@ export const HERO_COPY = {
     highestOutcome: (label: string) => `${label} has the highest expected outcome.`,
     aligned: (label: string) => `${label} also has the strongest expected outcome.`,
     /**
-     * Close-call subline (UI-SEM-060): names the leader AND the runner-up
-     * from the same rendered outcome ranking the chart shows, so the copy
-     * can never contradict the rows.
+     * Banding state B subline (UI-SEM-060): the runner-up is named from the
+     * SAME rendered outcome ranking the chart shows, and ONLY when the
+     * top-two expected outcomes are genuinely close — never from range
+     * overlap alone.
      */
-    closeBehind: (leader: string, runnerUp: string) =>
-      `${leader} has the highest expected outcome, with ${runnerUp} close behind.`,
+    closeOnOutcome: (label: string) => `${label} is close on expected outcome.`,
+    /** Banding state C companion line (no leader claimed, no name risked). */
+    compareTop: 'Compare the top options before deciding.',
+    /**
+     * Appended to the state-A subline when the top-two p10-p90 ranges
+     * intersect: overlap is stated as uncertainty about the ranges, without
+     * downgrading the win-probability-grounded leader claim.
+     */
+    overlapAdvisory: 'Realistic ranges overlap, so validate the assumptions before deciding.',
   },
 
   /** Fallback when a label cannot be safely interpolated into generated copy. */
@@ -98,14 +113,6 @@ export const HERO_COPY = {
     /** Shown when no row carries a range — never describe lines that are not drawn. */
     outcomeDotsOnly: 'Dots show expected outcome for each option.',
   },
-
-  /**
-   * Single-lens discoverability: shown ONLY when the goal lens is absent
-   * because no success target exists (goalThreshold null) — never when the
-   * producer simply omitted goal probabilities for a targeted run, where
-   * the hint would mislead.
-   */
-  goalHint: 'Set a success target to see goal fit.',
 
   readout: {
     goalSuffix: 'fit',
@@ -150,6 +157,17 @@ export const HERO_COPY = {
      */
     focusNext: 'Focus next: review the top actions below.',
     focusNextAria: 'Scroll to the actions panel below',
+    /**
+     * Single-lens promotion: when the goal lens is absent because no
+     * success target exists (goalThreshold null — never a producer gap),
+     * the Focus-next slot carries the unlock action instead of the generic
+     * line. Actionable only when a real apply route is wired (the same
+     * setGoalThreshold + rerun handler the Options Compare target row
+     * used); otherwise it renders as plain text — never a dead control.
+     */
+    focusTarget: 'Focus next: set a success target to unlock Goal fit.',
+    targetInputAria: 'Success target value',
+    targetApply: 'Apply target',
     rerun: 'Re-run analysis',
   },
 

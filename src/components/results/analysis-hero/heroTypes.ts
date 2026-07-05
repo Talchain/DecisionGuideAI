@@ -105,10 +105,11 @@ export interface HeroChartModel {
    */
   outcomeRangedRowCount: number
   /**
-   * Single-lens discoverability hint ("Set a success target…"): true ONLY
-   * when the goal lens is absent because no success target exists
-   * (goalThreshold null) — never when a targeted run merely lacks goal
-   * probabilities (producer gap, where the hint would mislead).
+   * Single-lens unlock promotion: true ONLY when the goal lens is absent
+   * because no success target exists (goalThreshold null) — never when a
+   * targeted run merely lacks goal probabilities (producer gap, where the
+   * prompt would mislead). Drives the Focus-next slot's promoted
+   * "set a success target to unlock Goal fit" line.
    */
   showGoalHint: boolean
   /** Footer "Main driver" line, or null when no clean driver label exists. */

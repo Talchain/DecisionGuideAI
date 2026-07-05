@@ -3,7 +3,7 @@
  * verbatim, omits everything unsourced, and never renders trust wording,
  * raw floats, a goal-alone marker, or the retired lenses.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { buildHeroModel } from '../buildHeroModel'
@@ -175,7 +175,7 @@ describe('AnalysisHeroPanel — content', () => {
     expect(screen.queryByTestId('hero-win-meta')).toBeNull()
   })
 
-  it('goal hint renders only when the goal lens is missing because no target exists', () => {
+  it('promotes the success-target line into Focus next ONLY when no target exists', () => {
     const noGoal = [
       makeOption({ ...OPTION_A, goalProbability: undefined }),
       makeOption({ ...OPTION_B, goalProbability: undefined }),
@@ -183,13 +183,77 @@ describe('AnalysisHeroPanel — content', () => {
     const { unmount } = renderPanel(
       chartModel(makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } })),
     )
-    expect(screen.getByTestId('hero-goal-hint')).toHaveTextContent(
-      'Set a success target to see goal fit.',
-    )
+    // No apply route wired → plain text, never a dead control.
+    const promoted = screen.getByTestId('hero-focus-target')
+    expect(promoted).toHaveTextContent('Focus next: set a success target to unlock Goal fit.')
+    expect(promoted.tagName).toBe('P')
+    // The generic focus line is replaced, not duplicated.
+    expect(screen.queryByTestId('hero-focus-next')).toBeNull()
     unmount()
-    // Target exists (producer gap) → no hint. Goal lens present → no hint.
+    // Target exists (producer gap) → generic focus line, no promotion.
     renderPanel(chartModel(makeHeroData({ options: noGoal })))
-    expect(screen.queryByTestId('hero-goal-hint')).toBeNull()
+    expect(screen.queryByTestId('hero-focus-target')).toBeNull()
+    expect(screen.getByTestId('hero-focus-next')).toBeInTheDocument()
+  })
+
+  it('the promoted target action commits a raw value through the existing apply route', () => {
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    const onApplyTarget = vi.fn()
+    renderPanel(
+      chartModel(makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } })),
+      { onApplyTarget },
+    )
+    const button = screen.getByTestId('hero-focus-target')
+    expect(button.tagName).toBe('BUTTON')
+    fireEvent.click(button)
+    const input = screen.getByLabelText('Success target value')
+    fireEvent.change(input, { target: { value: '62' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onApplyTarget).toHaveBeenCalledWith(62)
+    // Editor closes after commit; the action line returns.
+    expect(screen.queryByTestId('hero-focus-target-editor')).toBeNull()
+    expect(screen.getByTestId('hero-focus-target')).toBeInTheDocument()
+  })
+
+  it('Escape abandons the target editor without applying anything', () => {
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    const onApplyTarget = vi.fn()
+    renderPanel(
+      chartModel(makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } })),
+      { onApplyTarget },
+    )
+    fireEvent.click(screen.getByTestId('hero-focus-target'))
+    const input = screen.getByLabelText('Success target value')
+    fireEvent.change(input, { target: { value: '55' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(onApplyTarget).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('hero-focus-target-editor')).toBeNull()
+  })
+
+  it('detail omits the duplicate full-label line when the visible label is measurably unclipped', () => {
+    renderPanel(chartModel())
+    const label = within(screen.getByTestId('hero-option-row-1')).getByTestId('hero-row-label')
+    Object.defineProperty(label, 'scrollHeight', { configurable: true, value: 40 })
+    Object.defineProperty(label, 'clientHeight', { configurable: true, value: 40 })
+    fireEvent.click(screen.getByRole('button', { name: /Two developers/ }))
+    expect(screen.queryByTestId('hero-detail-label')).toBeNull()
+    // Grounded lines still render — only the duplicated name is dropped.
+    expect(screen.getByTestId('hero-detail-range')).toBeInTheDocument()
+  })
+
+  it('detail recovers the full label when the visible label IS clipped (measured overflow)', () => {
+    renderPanel(chartModel())
+    const label = within(screen.getByTestId('hero-option-row-1')).getByTestId('hero-row-label')
+    Object.defineProperty(label, 'scrollHeight', { configurable: true, value: 60 })
+    Object.defineProperty(label, 'clientHeight', { configurable: true, value: 40 })
+    fireEvent.click(screen.getByRole('button', { name: /Two developers/ }))
+    expect(screen.getByTestId('hero-detail-label')).toHaveTextContent('Two developers')
   })
 
   it('Goal fit surfaces the target-attainment truth (per-option goal readouts)', () => {

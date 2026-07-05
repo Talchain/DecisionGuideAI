@@ -17,9 +17,19 @@ export interface AnalysisHeroContainerProps {
   data: ResultsSectionDataReturn
   /** ResultsBody's existing staleness signal (OutputsDock freshness verdict). */
   isStale?: boolean
+  /**
+   * OutputsDock's existing apply-threshold route (set goal threshold +
+   * rerun) — powers the promoted Focus-next success-target action. Optional:
+   * absent, the promoted line renders as plain text.
+   */
+  onApplyTarget?: (value: number) => void
 }
 
-export function AnalysisHeroContainer({ data, isStale = false }: AnalysisHeroContainerProps) {
+export function AnalysisHeroContainer({
+  data,
+  isStale = false,
+  onApplyTarget,
+}: AnalysisHeroContainerProps) {
   const { model, onRerun, rerunDisabled, focusPanelMounted } = useAnalysisHero(data)
   if (model.kind === 'empty') return null
   return (
@@ -29,6 +39,7 @@ export function AnalysisHeroContainer({ data, isStale = false }: AnalysisHeroCon
       onRerun={onRerun}
       rerunDisabled={rerunDisabled}
       focusPanelMounted={focusPanelMounted}
+      onApplyTarget={onApplyTarget}
     />
   )
 }
