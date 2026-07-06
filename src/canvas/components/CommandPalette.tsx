@@ -3,7 +3,7 @@ import { useCanvasStore } from '../store'
 import { runLayoutWithProgress } from '../layout/runLayoutWithProgress'
 import { useReactFlow } from '@xyflow/react'
 import { plot } from '../../adapters/plot'
-import { useResultsRun } from '../hooks/useResultsRun'
+import { executeCanonicalRun } from '../analysis/canonicalRunRegistry'
 import { ValidationBanner, type ValidationError } from './ValidationBanner'
 import { useValidationFeedback } from '../hooks/useValidationFeedback'
 import { trackRunAttempt } from '../utils/sandboxTelemetry'
@@ -43,7 +43,6 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const { fitView } = useReactFlow()
-  const { run } = useResultsRun()
   const { formatErrors, focusError } = useValidationFeedback()
 
   const actions: Action[] = [
@@ -90,18 +89,48 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
             }
           }
 
-          // Validation passed - start execution
+          // Local validation passed: track the CLICK now — sandbox.run.clicked
+          // counts user intent on a locally-valid graph (the dom spec pins
+          // this), not pipeline success. Outcome-specific telemetry below.
           trackRunAttempt({ canRun: true, reason: 'ok', message: '' })
           setIsExecuting(true)
 
-          // Run analysis with default seed
-          await run({
-            template_id: 'canvas-graph',
-            seed: 1337,
-            graph: { nodes, edges }
-          })
+          // Run-path convergence: execute the one canonical pipeline
+          // registered by OutputsDock instead of building a thin legacy
+          // request here. Blocked runs surface their reason in the banner —
+          // never a silent no-op.
+          const outcome = await executeCanonicalRun({ source: 'command-palette' })
+          if (outcome.status === 'unavailable') {
+            // No runner host mounted — an environment condition, not a
+            // gate-block: surface it, but do not count it as 'blocked'.
+            setValidationErrors([{
+              code: 'RUN_UNAVAILABLE',
+              message: outcome.reason,
+              severity: 'error' as const
+            }])
+            return
+          }
+          if (outcome.status === 'already-running') {
+            // A run is in flight: inform, keep the palette open, no false
+            // 'started another run' telemetry, no silent close.
+            setValidationErrors([{
+              code: 'RUN_IN_PROGRESS',
+              message: 'An analysis is already running.',
+              severity: 'error' as const
+            }])
+            return
+          }
+          if (outcome.status === 'blocked') {
+            setValidationErrors([{
+              code: 'RUN_BLOCKED',
+              message: outcome.reason,
+              severity: 'error' as const
+            }])
+            trackRunAttempt({ canRun: false, reason: 'validation', message: outcome.reason })
+            return
+          }
 
-          // Close dialog after successful run
+          // Close dialog after the run has been started
           onClose()
         } catch (err: any) {
           console.error('[CommandPalette] Run failed:', err)

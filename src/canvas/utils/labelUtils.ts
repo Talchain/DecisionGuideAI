@@ -50,9 +50,11 @@
  *    - Status: do not extend. New code should use formatFactorDisplayValue.
  *
  * Local shadows that intentionally exist (do NOT consolidate without redesign):
- *   - OptionNode.tsx::formatChipValue — composes formatFactorDisplayValue with
- *     a fallback through formatInterventionValue. Cannot be moved into labelUtils
- *     without dragging factor-display logic in.
+ *   - (none currently) — OptionNode.tsx::formatChipValue moved to
+ *     src/canvas/utils/interventionDisplay.ts::formatInterventionTargetText
+ *     (audit §8 P0-4 single intervention formatter). All option-intervention
+ *     surfaces (pills, popover lists, FactorNode hover annotation) now share
+ *     that one chain.
  *
  * Removed shadows (Polish 4 follow-up):
  *   - OptionsSection.tsx::formatInterventionValue — replaced with formatRawValueWithUnit.
@@ -322,6 +324,12 @@ export const PLACEHOLDER_DIRECTION_EPSILON = 0.1
  * Direction-only phrasing for placeholder-unit factors, where the raw number
  * ("0.33 scale") carries no meaning for a user. Returns null if the baseline
  * is unknown — callers should render nothing in that case.
+ *
+ * @deprecated Audit §8 P0-4: the ±0.1 epsilon here rendered "Does not change"
+ * for genuinely different values (live 0.5→0.6 contradiction). Live surfaces
+ * now use `describeInterventionDirection` in
+ * src/canvas/utils/interventionDisplay.ts (exact-equality no-change). Kept
+ * only for backwards compatibility; do not add new callers.
  */
 export function placeholderDirectionLabel(
   interventionValue: number,

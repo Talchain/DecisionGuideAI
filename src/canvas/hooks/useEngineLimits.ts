@@ -33,7 +33,7 @@ export interface UseEngineLimitsReturn {
 const RETRY_DELAYS = [0, 2000, 5000] // Exponential backoff: immediate, 2s, 5s
 const VISIBILITY_COOLDOWN_MS = 1000 // Minimum 1s between visibility-triggered fetches
 const MAX_FETCH_COUNT = 3 // Maximum fetches per session to prevent runaway loops
-const FALLBACK_LIMITS = { nodes: { max: 50 }, edges: { max: 200 } }
+const FALLBACK_LIMITS = { nodes: { max: 50 }, edges: { max: 100 } }
 
 let initialized = false
 let inFlight = false

@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
+import { useCanvasStore } from '../store'
 
 export type CritiqueSeverity = 'blocker' | 'warning' | 'info'
 
@@ -62,6 +63,11 @@ const SEVERITY_CONFIG = {
     borderColor: 'border-sand-200',
     iconColor: 'text-danger',
     labelColor: 'text-danger',
+    // Audit §8 P1 (verdict honesty): the "(blocks analysis)" suffix is NOT
+    // hardcoded any more — it renders only when no results exist for the
+    // current run. When results render alongside blocker critiques (the
+    // approximate-results case) the header must not claim analysis was
+    // blocked; see the description override in the section header below.
     description: 'blocks analysis',
   },
   warning: {
@@ -107,6 +113,14 @@ function getItemKey(item: CritiqueItem): string {
 }
 
 export function ValidationPanel({ critique, onAutoFix, onDismiss }: ValidationPanelProps) {
+  // Audit §8 P1: whether analysis is actually blocked. Results rendered for
+  // the current run ⇒ blockers did NOT block analysis (the engine returned
+  // approximate results), so the header suffix must say that instead.
+  const resultsStatus = useCanvasStore(s => s.results?.status)
+  // UI-SEM-066: blocked-vs-approximate suffix derivation — remove when the
+  // engine critique carries the discriminator.
+  const analysisBlocked = resultsStatus !== 'complete'
+
   // Group by severity
   const grouped = useMemo(() => groupBySeverity(critique), [critique])
   const hasBlockers = grouped.blocker.length > 0
@@ -218,6 +232,12 @@ export function ValidationPanel({ critique, onAutoFix, onDismiss }: ValidationPa
         const config = SEVERITY_CONFIG[severity]
         const Icon = config.icon
         const isExpanded = expandedSections.has(severity)
+        // Blocker suffix is truthful, not hardcoded: "(blocks analysis)"
+        // only when no results rendered for this run; with results present
+        // the blockers mark the output approximate instead.
+        const description = severity === 'blocker'
+          ? (analysisBlocked ? 'blocks analysis' : 'results marked approximate')
+          : config.description
 
         return (
           <div key={severity} className="border-b border-sand-200 last:border-b-0">
@@ -235,9 +255,9 @@ export function ValidationPanel({ critique, onAutoFix, onDismiss }: ValidationPa
                 <span className={`${typography.label} ${config.labelColor}`}>
                   {config.label}
                 </span>
-                {config.description && (
+                {description && (
                   <span className={`${typography.caption} text-ink-500 ml-2`}>
-                    ({config.description})
+                    ({description})
                   </span>
                 )}
               </div>

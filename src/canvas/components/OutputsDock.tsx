@@ -28,6 +28,8 @@ import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, XCircle
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
+import { registerCanonicalRunner, type CanonicalRunOutcome } from '../analysis/canonicalRunRegistry'
+import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource } from '../store'
 import { resolveDisplayedFreshness, classifyFreshnessForDisplay } from '../store/analysisFreshness'
@@ -71,7 +73,7 @@ import { DegradedStateBanner } from './DegradedStateBanner'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 import { useV2Run, type V2RunPersistence } from '../hooks/useV2Run'
 import { useScenario } from '../../hooks/useScenario'
-import { focusNodeById } from '../utils/focusHelpers'
+import { focusExistingTarget } from '../utils/focusHelpers'
 import { withObservedStateUpdate } from '../utils/observedStateHelpers'
 import { ModelTabBody } from './ModelTabBody'
 import { JourneyTabBody } from '../journey/JourneyTabBody'
@@ -93,7 +95,6 @@ import { useDegeneracyDismissal } from './DegeneracyWarning'
 import { ResultsPanelSkeleton } from './ResultsPanelSkeleton'
 // P0.8: Instrumentation
 import { trackRunStarted, trackRunCompleted, trackRunFailed } from '../../lib/resultsInstrumentation'
-import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { useScenarioComparison } from '../hooks/useScenarioComparison'
 import { useRobustness } from '../hooks/useRobustness'
 import { mapRobustness } from '../../lib/mappers/mapRobustness'
@@ -353,7 +354,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const [warningsDismissed, setWarningsDismissed] = useState(false)
   // P2: Degraded/partial state banner dismissal
   const [degradedBannerDismissed, setDegradedBannerDismissed] = useState(false)
-  const comparison = useComparisonDetection()
   const scenarioComparison = useScenarioComparison()
 
   // Brief 25: Fetch robustness data for sensitivity, VoI, robustness bounds
@@ -711,6 +711,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   })
   const canRunAnalysis = runGateResult.allowed
   const runBlockedTooltip = getRunButtonTooltip(runGateResult)
+  const showToast = useShowToastSafe()
 
   // Handle Run button click
   //
@@ -723,8 +724,17 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // (per correction 1).
   //
   // When the canonical flag is off, behaviour is unchanged: direct V2.
-  const handleRunAnalysis = useCallback(async () => {
-    if (!canRunAnalysis) return
+  //
+  // Run-path convergence: this is THE canonical runner. It is registered in
+  // canonicalRunRegistry so every other visible run affordance (canvas
+  // ⌘Enter, command palette) executes this exact pipeline instead of
+  // building its own request. It never no-ops silently: a blocked gate
+  // returns the human-readable reason for the caller to surface.
+  const runCanonicalAnalysis = useCallback(async (): Promise<CanonicalRunOutcome> => {
+    if (isRunning) return { status: 'already-running' }
+    if (!canRunAnalysis) {
+      return { status: 'blocked', reason: runBlockedTooltip || 'Analysis is not available right now.' }
+    }
     // Capture pre-analysis review progress for transition bridge
     const storeState = useCanvasStore.getState()
     const { verifiedCount, influenceCoverage } = computeInfluenceCoverage(
@@ -733,17 +743,22 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       isTransitionBridgeReviewed,
     )
     transitionBridgeRef.current = { verifiedCount, influenceCoverage }
+    // Telemetry counts come from the store snapshot, NOT from render-scope
+    // arrays: listing nodes/edges in this callback's deps re-minted the
+    // closure (and re-registered the canonical runner) on every drag frame
+    // and keystroke, for data only read at run time.
+    const optionCount = storeState.nodes.filter((n) => n.type === 'option').length
     // P0.8: Track run started
     trackRunStarted({
-      option_count: comparison.optionNodes.length,
-      node_count: nodes.length,
-      edge_count: edges.length,
+      option_count: optionCount,
+      node_count: storeState.nodes.length,
+      edge_count: storeState.edges.length,
     })
     // P0: Log graph used for observability
     console.warn('[GRAPH_USED_FOR_RUN]', {
-      node_count: nodes.length,
-      edge_count: edges.length,
-      option_count: comparison.optionNodes.length,
+      node_count: storeState.nodes.length,
+      edge_count: storeState.edges.length,
+      option_count: optionCount,
       template_id: (framing as any)?.templateId || 'canvas-graph',
     })
 
@@ -764,7 +779,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
           message: 'Run analysis',
           source: 'chip',
         })
-        return
+        return { status: 'dispatched' }
       }
       if (import.meta.env.DEV) {
         console.warn(
@@ -773,7 +788,18 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       }
     }
     await runV2Analysis()
-  }, [canRunAnalysis, runV2Analysis, framing, nodes, edges, comparison.optionNodes.length])
+    return { status: 'v2' }
+  }, [canRunAnalysis, runBlockedTooltip, isRunning, runV2Analysis, framing])
+
+  // Expose the canonical runner to other surfaces (canvas shortcut, palette).
+  useEffect(() => registerCanonicalRunner(runCanonicalAnalysis), [runCanonicalAnalysis])
+
+  const handleRunAnalysis = useCallback(async () => {
+    const outcome = await runCanonicalAnalysis()
+    if (outcome.status === 'blocked') {
+      showToast(outcome.reason, 'warning')
+    }
+  }, [runCanonicalAnalysis, showToast])
 
   // P0 Results Brief: Add Status Quo baseline option
   // Creates a new option node with is_baseline=true, empty interventions, and connects it to a decision node
@@ -1662,7 +1688,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                       } catch {
                         /* non-critical: focus is best-effort */
                       }
-                      focusNodeById(optionId)
+                      focusExistingTarget(optionId, 'option')
                     }
 
                     return (
@@ -2072,8 +2098,11 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     registerDriverRef={registerDriverRef}
                     strengthCorrections={getStrengthCorrections()}
                     onFocusNode={(nodeId) => {
+                      // Fail closed on stale/unknown ids — result payloads can
+                      // reference elements that no longer exist on this canvas
+                      // (deleted nodes, recovered sessions with different ids).
+                      if (!focusExistingTarget(nodeId, 'node')) return
                       setHighlightedNodes([nodeId])
-                      focusNodeById(nodeId)
                       setTimeout(() => setHighlightedNodes([]), 3000)
                     }}
                     isRunning={isRunning}

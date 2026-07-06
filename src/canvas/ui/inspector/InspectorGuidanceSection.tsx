@@ -17,6 +17,7 @@ import {
 import { useCanvasStore } from '../../store'
 import { scrollToField } from '../../conversation/utils/scrollToField'
 import { beginInteractionChain } from '../../../lib/debug-state'
+import { focusExistingTarget } from '../../utils/focusHelpers'
 
 const MAX_VISIBLE = 2
 const FOCUS_DEBOUNCE_MS = 150
@@ -216,6 +217,13 @@ export const InspectorGuidanceSection = memo(function InspectorGuidanceSection({
   const handleAction = useCallback((item: GuidanceItem) => {
     const action = item.primary_action
     setActiveGuidanceItem(item.item_id)
+
+    // AI-to-graph slice: explicit CLICK centres the target (fail-closed).
+    // Hover/focus only ring via the pulse hook.
+    const target = item.target_object
+    if (target?.id && (target.type === 'node' || target.type === 'edge')) {
+      focusExistingTarget(target.id, target.type)
+    }
 
     const storeState = useGuidanceStore.getState()
     const sendMsg = onSendMessage ?? storeState._sendMessage ?? undefined

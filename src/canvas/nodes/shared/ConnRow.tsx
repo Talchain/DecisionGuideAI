@@ -1,7 +1,14 @@
 /**
  * ConnRow — compact connection row rendered inside canvas node cards.
- * Shows: [NodeShapeIndicator 9px] [node name link] [confidence % right-aligned]
+ * Shows: [NodeShapeIndicator 9px] [node name link] ["N% conf." right-aligned]
  * Click opens the edge inspector for that specific edge.
+ *
+ * Audit §8 P0-4 (strength vs confidence): the percentage here is
+ * beliefExists/exists_probability — CONFIDENCE the link exists — while
+ * EdgePills' percentage is link STRENGTH. Both used the same bare "%"
+ * format, silently switching meaning between pre- and post-analysis. The
+ * visible "conf." qualifier (+ title/aria) makes this number
+ * self-identifying next to the strength pills.
  */
 import { useCallback } from 'react'
 import { NodeShapeIndicator } from '../NodeShapeIndicator'
@@ -41,10 +48,28 @@ export function ConnRow({ edgeId, nodeKind, label, confidencePct }: ConnRowProps
         {truncated}
       </span>
       {confidencePct != null && (
-        <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>
-          {confidencePct}%
+        <span
+          className={`${typography.edgeLabel} text-text-light text-right shrink-0 whitespace-nowrap`}
+          title="Confidence the link exists"
+          aria-label={`${confidencePct}% confidence the link exists`}
+        >
+          {confidencePct}% conf.
         </span>
       )}
     </div>
+  )
+}
+
+/**
+ * Plain-text overflow line for capped in-card lists (audit §8 P0-5 —
+ * Detailed-view card containment). Rendered after exactly `shown` whole rows;
+ * never a max-height clip. Returns null when nothing was truncated.
+ */
+export function ConnRowsOverflow({ total, shown }: { total: number; shown: number }) {
+  if (total <= shown) return null
+  return (
+    <p className={`${typography.edgeLabel} text-text-light m-0 mt-0.5`}>
+      +{total - shown} more in inspector
+    </p>
   )
 }

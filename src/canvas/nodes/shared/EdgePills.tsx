@@ -77,7 +77,10 @@ export function EdgePills({ nodeId }: EdgePillsProps) {
           ) : (
             <ArrowDown size={9} className="text-danger shrink-0" aria-hidden="true" />
           )}
-          {p.pct}%
+          {/* Audit §8 P0-4: this percentage is link STRENGTH (edge weight),
+              not confidence — labelled so it can't be read as the same number
+              family as ConnRow's "N% conf." (beliefExists). */}
+          <span title="Link strength" aria-label={`${p.pct}% link strength`}>{p.pct}%</span>
           <span>{p.label}</span>
         </span>
       ))}

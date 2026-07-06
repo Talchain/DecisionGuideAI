@@ -363,6 +363,54 @@ function mapV1ErrorToUI(error: V1Error): ErrorV1 {
 /**
  * Map template graph to V1 request with validation and deterministic hash
  */
+/**
+ * Extract the goal threshold from a goal node, tolerating every field name
+ * used across the app's history.
+ *
+ * GoalPanel/GoalThresholdEditor persist the user's target under
+ * `data.goal_threshold` (+ `goal_threshold_raw`) — the old value/
+ * baseline_value/target chain never read them, so a target set in the
+ * inspector silently vanished from this request and reruns could not change
+ * goal probabilities.
+ *
+ * Exported for wire-shape tests.
+ */
+export function extractGoalThreshold(goalNode: any): number | undefined {
+  const candidates = [
+    goalNode?.data?.goal_threshold,
+    goalNode?.data?.goal_threshold_raw,
+    goalNode?.data?.value,
+    goalNode?.data?.baseline_value,
+    goalNode?.data?.target,
+    goalNode?.value,
+    goalNode?.baseline_value,
+    goalNode?.target,
+  ]
+  for (const candidate of candidates) {
+    if (candidate == null) continue
+    const parsed = typeof candidate === 'string'
+      ? (candidate.trim() === '' ? undefined : Number(candidate))
+      : candidate
+    if (typeof parsed !== 'number' || isNaN(parsed)) continue // keep trying later aliases
+    // UI-SEM-058 discipline: the goal editors store thresholds in USER UNITS
+    // (raw-first) while PLoT's `goal_threshold` wire contract is normalised
+    // 0-1, and this adapter has no scale cap to convert with. Anything that
+    // cannot be proven normalised is OMITTED rather than sent at the wrong
+    // scale. NOTE the engine does NOT treat omission as "no goal analysis":
+    // PLoT V1's detectGoalThreshold falls back to node.threshold →
+    // baseline_value → 100 and still computes option_probabilities — omission
+    // defers to that server-side default rather than corrupting it with a
+    // raw client value.
+    //
+    // Deliberately FIRST-parseable-wins (then the normalised gate): the
+    // aliases name the same quantity at different ages, so if the freshest
+    // parseable alias is out of range we omit rather than fall through to an
+    // older alias whose agreement would be coincidence, not confirmation.
+    return parsed >= 0 && parsed <= 1 ? parsed : undefined
+  }
+  return undefined
+}
+
 function mapGraphToV1Request(graph: any, seed?: number): V1RunRequest {
   // Cast to ReactFlowGraph for type safety
   const rfGraph: ReactFlowGraph = {
@@ -446,14 +494,8 @@ export const httpV1Adapter = {
       )
       if (goalNode) {
         v1Request.goal_node = goalNode.id
-        // Extract goal_threshold from various possible data fields
-        const goalThreshold = goalNode.data?.value
-          ?? goalNode.data?.baseline_value
-          ?? goalNode.data?.target
-          ?? (goalNode as any).value
-          ?? (goalNode as any).baseline_value
-          ?? (goalNode as any).target
-        if (typeof goalThreshold === 'number' && !isNaN(goalThreshold)) {
+        const goalThreshold = extractGoalThreshold(goalNode)
+        if (goalThreshold !== undefined) {
           v1Request.goal_threshold = goalThreshold
         }
       }

@@ -43,6 +43,9 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
     stabilityPercentage: null,
     winRate: null,
     isResultsMode: false,
+    predictedOutcome: null,
+    valueOfInformation: null,
+    voiRank: null,
   })),
 }))
 
@@ -99,7 +102,7 @@ const renderFactor = (data: Record<string, unknown>) =>
   )
 
 describe('FactorNode', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => { vi.clearAllMocks() })
 
   // T1: No all-caps text
   it('renders label', () => {
@@ -388,6 +391,9 @@ describe('FactorNode', () => {
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     renderFactor({ label: 'Salary', type: 'factor', observedState: { value: 0.5 } })
     // In Detailed mode, Layer 2 is inline so bars appear
@@ -442,6 +448,9 @@ describe('FactorNode', () => {
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     renderFactor({ label: 'X', type: 'factor' })
     expect(screen.queryByText('Influence')).toBeNull()
@@ -458,6 +467,9 @@ describe('FactorNode', () => {
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     renderFactor({ label: 'X', type: 'factor' })
     expect(screen.queryByText('Influence')).toBeNull()
@@ -480,6 +492,9 @@ describe('FactorNode', () => {
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: false,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     renderFactor({
       label: 'Revenue',
@@ -543,6 +558,9 @@ describe('FactorNode', () => {
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     const { container } = renderFactor({ label: 'Revenue', type: 'factor', observedState: { value: 0.5 } })
     const bars = container.querySelectorAll('.bg-info')
@@ -645,6 +663,9 @@ describe('FactorNode', () => {
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     const { container } = renderFactor({ label: 'Revenue', type: 'factor', observedState: { value: 0.5 } })
     const progressbars = container.querySelectorAll('[role="progressbar"]')
@@ -668,7 +689,7 @@ describe('FactorNode', () => {
 // QA Brief: A-series — factor node display scenarios
 // ---------------------------------------------------------------------------
 describe('FactorNode — QA Brief A-series', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => { vi.clearAllMocks() })
 
   // A1: raw_value=49, unit="£"  → "£49"
   it('A1: raw_value=49 with unit="£" renders "£49"', () => {
@@ -847,7 +868,7 @@ describe('FactorNode — QA Brief A-series', () => {
 // ---------------------------------------------------------------------------
 
 describe('FactorNode — evidence gap badge', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => { vi.clearAllMocks() })
 
   it('shows badge when observedState is undefined and flag is ON', () => {
     vi.mocked(isGraphBadgesEnabled).mockReturnValue(true)
@@ -925,7 +946,7 @@ describe('FactorNode — evidence gap badge', () => {
 // ---------------------------------------------------------------------------
 
 describe('FactorNode — intervention hover', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => { vi.clearAllMocks() })
 
   const mountWithHoveredOption = (interventionEntry: unknown, factorData: Record<string, unknown>) => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
@@ -947,20 +968,23 @@ describe('FactorNode — intervention hover', () => {
     return renderFactor(factorData)
   }
 
-  it('renders the hover chip with a primitive number intervention (qualitative tier → directional)', () => {
+  it('renders the hover chip with a primitive number intervention (qualitative tier → percentage)', () => {
     mountWithHoveredOption(0.7, {
       label: 'Marketing Expertise Available',
       type: 'factor',
       category: 'controllable',
       observedState: { value: 0.5, factor_type: 'quality' },
     })
-    // Tier labels ("High", "Very high", …) are suppressed in favour of
-    // directional phrasing against the observed baseline (0.7 > 0.5 + ε).
+    // Tier labels ("High", "Very high", …) are suppressed. Audit §8 P0-4:
+    // the annotation now routes through the single formatter, so it shows
+    // the same "70%" the option card's popover shows for this intervention
+    // (previously the annotation said "Increases …" while the card said
+    // "70%" — two statements for one datum).
     expect(screen.queryByText(/High/)).toBeNull()
-    expect(screen.getByText(/Increases/)).toBeDefined()
+    expect(screen.getByText('→ 70%')).toBeDefined()
   })
 
-  it('unwraps a CEEInterventionV3 {value} object and renders directional phrasing', () => {
+  it('unwraps a CEEInterventionV3 {value} object and renders the shared formatted value', () => {
     // Minimal V3 shape — extra fields (source, target_match) are irrelevant to the unwrap.
     mountWithHoveredOption({ value: 0.7 }, {
       label: 'Marketing Expertise Available',
@@ -968,7 +992,7 @@ describe('FactorNode — intervention hover', () => {
       category: 'controllable',
       observedState: { value: 0.5, factor_type: 'quality' },
     })
-    expect(screen.getByText(/Increases/)).toBeDefined()
+    expect(screen.getByText('→ 70%')).toBeDefined()
     // Regression assertion: none of the pre-fix corrupt strings should appear anywhere.
     expect(screen.queryByText(/\[object Object\]/)).toBeNull()
     expect(screen.queryByText(/NaN/)).toBeNull()
@@ -1100,8 +1124,22 @@ describe('FactorNode — intervention hover', () => {
     assertNoPlaceholderLeaks(/score/i)
   })
 
-  it('renders "Does not change" when intervention is within ε of baseline (scale)', () => {
+  it('says "Increases" for a small real shift (audit §8 P0-4 — no ±0.1 display epsilon)', () => {
+    // The old ±0.1 epsilon rendered "Does not change" for 0.5→0.55 (and the
+    // live 0.5→0.6 boundary case) while other surfaces showed a change.
     mountWithHoveredOption(0.55, {
+      label: 'Process maturity',
+      type: 'factor',
+      category: 'controllable',
+      observedState: { value: 0.5, unit: 'scale' },
+    })
+    expect(screen.getByText(/Increases/)).toBeDefined()
+    expect(screen.queryByText(/Does not change/)).toBeNull()
+    assertNoPlaceholderLeaks(/scale/i)
+  })
+
+  it('renders "Does not change" ONLY when intervention exactly equals baseline (scale)', () => {
+    mountWithHoveredOption(0.5, {
       label: 'Process maturity',
       type: 'factor',
       category: 'controllable',
@@ -1303,5 +1341,59 @@ describe('FactorNode — intervention hover', () => {
       const matches = screen.getAllByText('What evidence supports this?')
       expect(matches.length).toBe(1)
     })
+  })
+})
+
+// ─── Audit §8 P0-5: Detailed-view card containment ──────────────────────────
+describe('FactorNode — connection list containment (audit §8 P0-5)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  const fiveConnectionsState = {
+    hoveredOptionId: null,
+    nodes: [
+      { id: 'o1', type: 'outcome', data: { label: 'Outcome One' } },
+      { id: 'o2', type: 'outcome', data: { label: 'Outcome Two' } },
+      { id: 'o3', type: 'outcome', data: { label: 'Outcome Three' } },
+      { id: 'o4', type: 'outcome', data: { label: 'Outcome Four' } },
+      { id: 'o5', type: 'outcome', data: { label: 'Outcome Five' } },
+    ],
+    edges: [
+      { id: 'e1', source: 'factor-1', target: 'o1', data: { beliefExists: 0.9 } },
+      { id: 'e2', source: 'factor-1', target: 'o2', data: { beliefExists: 0.8 } },
+      { id: 'e3', source: 'factor-1', target: 'o3', data: { beliefExists: 0.7 } },
+      { id: 'e4', source: 'factor-1', target: 'o4', data: { beliefExists: 0.6 } },
+      { id: 'e5', source: 'factor-1', target: 'o5', data: { beliefExists: 0.5 } },
+    ],
+    ceeAnalysisReady: null,
+    results: { status: 'complete', report: {} },
+    highlightedNodes: new Set(),
+    dimmedNodeIds: new Set(),
+    goalThreshold: null,
+    goalConstraints: [],
+    viewMode: 'expert',
+  }
+
+  it('caps the "Influences:" list at 3 whole rows with "+N more in inspector"', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector: any) => selector(fiveConnectionsState))
+    renderFactor({ label: 'Hiring rate', type: 'factor', observedState: { value: 0.5 } })
+    // Top 3 by confidence render as whole rows…
+    expect(screen.getAllByText('Outcome One').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Outcome Two').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Outcome Three').length).toBeGreaterThan(0)
+    // …the 4th and 5th do not…
+    expect(screen.queryByText('Outcome Four')).toBeNull()
+    expect(screen.queryByText('Outcome Five')).toBeNull()
+    // …and the remainder is disclosed with the correct count.
+    expect(screen.getAllByText('+2 more in inspector').length).toBeGreaterThan(0)
+  })
+
+  it('shows no overflow line when 3 or fewer connections exist', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector: any) => selector({
+      ...fiveConnectionsState,
+      edges: fiveConnectionsState.edges.slice(0, 3),
+    }))
+    renderFactor({ label: 'Hiring rate', type: 'factor', observedState: { value: 0.5 } })
+    expect(screen.getAllByText('Outcome One').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/more in inspector/)).toBeNull()
   })
 })

@@ -54,6 +54,20 @@ export interface StressTestSectionProps {
   winnerLabel: string
   /** Runner-up option label (alternative) — drives template question phrasing. */
   alternativeLabel: string
+  /**
+   * PLoT robustness_status for this run — the SAME signal the
+   * "Some analysis features unavailable … Robustness" chip uses
+   * (resultsSectionData.confidence.robustnessStatus). The empty state may
+   * claim "ran clean" ONLY when this is 'computed'; when absent/unavailable
+   * the honest copy is "didn't run" (audit §8 P1 — false verdict copy).
+   */
+  robustnessStatus?: string
+  /**
+   * True when the engine reported a degraded/approximate pass (analysis_state
+   * 'partial', GRAPH_TOO_LARGE critique, …). A degraded pass must not claim
+   * the model is "currently consistent".
+   */
+  analysisDegraded?: boolean
   onFocusNode?: (nodeId: string) => void
   onSendMessage?: (text: string) => void
   expertMode?: boolean
@@ -162,6 +176,8 @@ export const StressTestSection = memo(function StressTestSection({
   fragileEdges,
   winnerLabel,
   alternativeLabel,
+  robustnessStatus,
+  analysisDegraded,
   onFocusNode,
   onSendMessage,
   expertMode,
@@ -299,14 +315,40 @@ export const StressTestSection = memo(function StressTestSection({
             two deterministic Thinking-pattern cards always render, so
             the broader claim would be self-contradictory when they're
             visible. This narrower copy describes only the data-driven
-            subsections. */}
+            subsections.
+
+            Audit §8 P1 (verdict honesty): three distinct states —
+              1. robustness didn't run  → say so; fragility is UNCHECKED,
+                 not clean. Applies when robustnessStatus is anything other
+                 than 'computed' (including undefined — no positive signal,
+                 no positive claim).
+              2. degraded/approximate   → signals fired nowhere, but the pass
+                 was approximate; do not claim consistency.
+              3. ran clean              → the original claim, now earned. */}
+        {/* UI-SEM-068: robustnessStatus→verdict mapping (didn't-run vs clean). */}
         {totalCount === thinkingPatternsCount && sensitiveCount === 0 && fragileCount === 0 && (
-          <p
-            className={`${typography.panelMeta} text-text-light`}
-            data-testid="stress-test-empty-state"
-          >
-            No sensitivity or fragility signals fired. Your model is currently consistent.
-          </p>
+          robustnessStatus !== 'computed' ? (
+            <p
+              className={`${typography.panelMeta} text-text-light`}
+              data-testid="stress-test-didnt-run"
+            >
+              Robustness analysis didn&apos;t run for this pass, so fragility hasn&apos;t been checked.
+            </p>
+          ) : analysisDegraded ? (
+            <p
+              className={`${typography.panelMeta} text-text-light`}
+              data-testid="stress-test-degraded"
+            >
+              No sensitivity or fragility signals fired, but this pass ran with approximations — treat the result as provisional.
+            </p>
+          ) : (
+            <p
+              className={`${typography.panelMeta} text-text-light`}
+              data-testid="stress-test-empty-state"
+            >
+              No sensitivity or fragility signals fired. Your model is currently consistent.
+            </p>
+          )
         )}
       </div>
     </Accordion>

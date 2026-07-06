@@ -10,7 +10,7 @@ import { computeSignedMean } from '../domain/edges'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, Sep, NodeChip, NodePopover, ScienceIcon } from './shared'
+import { ConnRow, ConnRowsOverflow, Sep, NodeChip, NodePopover, ScienceIcon } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 
 export const OutcomeNode = memo((props: NodeProps) => {
@@ -82,7 +82,8 @@ export const OutcomeNode = memo((props: NodeProps) => {
         <>
           <Sep />
           <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Depends on:</p>
-          {/* Wireframe v4 OutcomePostDet: max 3 ConnRows in both views. */}
+          {/* Wireframe v4 OutcomePostDet: max 3 ConnRows in both views;
+              remainder disclosed via "+N more in inspector" (audit §8 P0-5). */}
           {inboundConnections.slice(0, 3).map(conn => (
             <ConnRow
               key={conn.edgeId}
@@ -92,6 +93,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
               confidencePct={conn.confidencePct}
             />
           ))}
+          <ConnRowsOverflow total={inboundConnections.length} shown={3} />
         </>
       )}
 
@@ -211,17 +213,19 @@ export const OutcomeNode = memo((props: NodeProps) => {
         {isDetailed && layer2ContentPost}
         {isDetailed && detailedMetrics}
 
-        {/* Detailed pre-analysis: full inbound factor list (max 5) */}
+        {/* Detailed pre-analysis: inbound factor list — max 3 whole rows in
+            the card, remainder disclosed (audit §8 P0-5 containment). */}
         {isDetailed && !isPostAnalysis && preAnalysisInbound.length > 0 && (
           <>
             <Sep />
             <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Driven by:</p>
-            {preAnalysisInbound.slice(0, 5).map((item, i) => (
+            {preAnalysisInbound.slice(0, 3).map((item, i) => (
               <div key={i} className={`${typography.edgeLabel} text-text-light m-0 flex justify-between gap-2`}>
                 <span className="truncate">{item.nodeLabel}</span>
                 <span className={`${typography.nodeLabel} font-semibold shrink-0`}>{item.strengthPct}%</span>
               </div>
             ))}
+            <ConnRowsOverflow total={preAnalysisInbound.length} shown={3} />
           </>
         )}
 

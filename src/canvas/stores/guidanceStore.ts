@@ -73,6 +73,13 @@ export interface GuidanceState {
   _prefillChat: ((text: string) => void) | null
   /** Registered by ConversationPanel — unified action dispatch with chip_metadata */
   _dispatchAction: ((opts: { action_type?: string; parameters?: Record<string, unknown>; label: string; message: string; hidden?: boolean; source: string }) => void) | null
+  /**
+   * Identity token for the ACTIVE registration. Ownership checks must use
+   * this, never a callback identity: with the singleton conversation
+   * context, two panel hosts register the SAME sendMessage/dispatchAction
+   * function objects, so callback identity cannot discriminate hosts.
+   */
+  _registrationToken: object | null
 }
 
 export interface GuidanceActions {
@@ -82,7 +89,15 @@ export interface GuidanceActions {
   clearGuidanceItems: () => void
   /** Set the focused item. Pass null to clear. */
   setActiveGuidanceItem: (itemId: string | null) => void
-  /** Register conversation callbacks (called from ConversationPanel on mount). */
+  /**
+   * Register conversation callbacks (called from ConversationPanel on mount).
+   *
+   * Returns an unregister function. Cleanup MUST go through it: it only clears
+   * the callbacks if this registration is still the active one. Two
+   * ConversationPanel hosts can coexist (floating panel + dock Olumi tab);
+   * before this guard, whichever unmounted LAST nulled the shared callbacks
+   * and silently killed every cross-surface run/ask CTA.
+   */
   registerConversationCallbacks: (
     sendMessage: (text: string) => void,
     scrollToPatch: (patchId: string) => void,
@@ -90,7 +105,7 @@ export interface GuidanceActions {
     runAnalysis?: () => void,
     prefillChat?: (text: string) => void,
     dispatchAction?: (opts: { action_type?: string; parameters?: Record<string, unknown>; label: string; message: string; hidden?: boolean; source: string }) => void,
-  ) => void
+  ) => () => void
   /**
    * Evict items whose valid_while hashes no longer match the current state.
    *
@@ -126,6 +141,7 @@ const initialGuidanceState: GuidanceState = {
   _scrollToPatch: null,
   _dispatchAction: null,
   _prefillChat: null,
+  _registrationToken: null,
 }
 
 export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, get) => ({
@@ -152,6 +168,7 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
   },
 
   registerConversationCallbacks: (sendMessage, scrollToPatch, sendChip, runAnalysis, prefillChat, dispatchAction) => {
+    const token = {}
     set({
       _sendMessage: sendMessage,
       _runAnalysis: runAnalysis ?? null,
@@ -159,7 +176,26 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
       _sendChip: sendChip ?? null,
       _prefillChat: prefillChat ?? null,
       _dispatchAction: dispatchAction ?? null,
+      _registrationToken: token,
     })
+    return () => {
+      // Ownership guard: only clear if OUR registration is still the active
+      // one — a newer host's registration must survive an older host's
+      // unmount. Compared by a per-registration token, NOT by callback
+      // identity: both panel hosts share the singleton conversation's
+      // function objects, so callback identity cannot tell them apart.
+      if (get()._registrationToken === token) {
+        set({
+          _sendMessage: null,
+          _runAnalysis: null,
+          _scrollToPatch: null,
+          _sendChip: null,
+          _prefillChat: null,
+          _dispatchAction: null,
+          _registrationToken: null,
+        })
+      }
+    }
   },
 
   evictStaleItems: ({ currentAnalysisHash, graphChanged = false }) => {

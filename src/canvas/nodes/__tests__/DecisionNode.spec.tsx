@@ -40,6 +40,9 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
     stabilityPercentage: null,
     winRate: null,
     isResultsMode: false,
+    predictedOutcome: null,
+    valueOfInformation: null,
+    voiRank: null,
   })),
 }))
 
@@ -258,5 +261,52 @@ describe('DecisionNode', () => {
     renderDecision()
     expect(screen.getByText('Challenge this result')).toBeDefined()
     expect(screen.getByText('Compare options')).toBeDefined()
+  })
+})
+
+// ─── Audit §8 P1: stale treatment on post-analysis decorations ──────────────
+describe('DecisionNode — stale result decorations (audit §8 P1)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState() as any))
+  })
+
+  const staleState = (graphHashNow: string) => makeStoreState({
+    nodes: [
+      { id: 'option-1', type: 'option', data: { label: 'Hire Senior Engineer', type: 'option' } },
+    ],
+    results: {
+      status: 'complete',
+      graphHash: 'hash-at-run',
+      report: {
+        robustness: { recommended_option_id: 'option-1', recommendation_stability: 0.9 },
+        option_probabilities: { 'option-1': { win_probability: 0.61 } },
+      },
+    },
+    _internal: { graphHash: graphHashNow },
+  })
+
+  it('dims the winner headline and stability line with a title when stale', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(staleState('hash-now-different') as any)
+    )
+    const { container } = renderDecision()
+    const staleEls = container.querySelectorAll('[data-stale="true"]')
+    expect(staleEls.length).toBeGreaterThanOrEqual(2) // headline + stability line
+    const headline = screen.getByText(/leads in 61% of scenarios/).closest('[data-stale="true"]')
+    expect(headline).not.toBeNull()
+    expect(headline!.getAttribute('title')).toBe('Model changed since this analysis')
+    expect(headline!.className).toContain('opacity-50')
+    const stability = screen.getByText(/Stability: 90%/)
+    expect(stability.getAttribute('data-stale')).toBe('true')
+  })
+
+  it('does not dim when the graph hash still matches the run', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(staleState('hash-at-run') as any)
+    )
+    const { container } = renderDecision()
+    expect(container.querySelectorAll('[data-stale="true"]').length).toBe(0)
+    expect(screen.getByText(/leads in 61% of scenarios/)).toBeDefined()
   })
 })

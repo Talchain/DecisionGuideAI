@@ -321,13 +321,13 @@ function LimitsTabBody({ currentNodes, currentEdges }: { currentNodes: number; c
           <button
             type="button"
             className={`${typography.code} text-sky-600 hover:underline`}
-            title="A factor is a node in your model and a connection is an edge between nodes. Olumi works best when you stay under roughly 50 factors and 200 connections."
+            title="A factor is a node in your model and a connection is an edge between nodes. Olumi works best when you stay under roughly 50 factors and 100 connections."
           >
             What counts as a factor?
           </button>
         </div>
         <p className={`${typography.code} text-ink-900/70`}>
-          Olumi works best with models under 50 factors and 200 connections.
+          Olumi works best with models under 50 factors and 100 connections.
         </p>
         <p className={`${typography.code} text-ink-900/60`}>
           (Track your model&apos;s complexity as you build.)
@@ -383,7 +383,8 @@ function LimitsTabBody({ currentNodes, currentEdges }: { currentNodes: number; c
  *
  * Updated for CEE contract:
  * - Uses WorkingSetRequest format (message, graph_snapshot, etc.)
- * - Shows preflight errors when graph exceeds limits (50 nodes / 40 edges)
+ * - Shows preflight errors when graph exceeds limits (see
+ *   graphGuardrails.resolveGraphLimits — min(static caps 50/100, live engine limits))
  * - Displays both server and preflight errors appropriately
  */
 function AskInput() {

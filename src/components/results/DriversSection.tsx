@@ -22,7 +22,7 @@
 import { useState, useCallback, useEffect, useRef, type ChangeEvent } from 'react'
 import { AlertTriangle as TriangleAlert, Check, HelpCircle, Info, Minus } from 'lucide-react'
 import type { DriversSectionData, DriverItem, DriverSemanticLabel } from './types'
-import { focusNodeById } from '../../canvas/utils/focusHelpers'
+import { focusExistingTarget } from '../../canvas/utils/focusHelpers'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { formatFlipRiskMessage } from './utils/formatScenarioRatio'
@@ -342,7 +342,10 @@ function DriverRow({
       if (onFocus) {
         onFocus(nodeId)
       } else {
-        focusNodeById(nodeId)
+        // Fail closed: driver factorKey may not be a canvas node id
+        // (recovered sessions / deleted nodes) — do nothing rather than
+        // pan to nowhere.
+        focusExistingTarget(nodeId, 'node')
       }
     }
   }, [driver.canFocus, driver.matchedNodeId, driver.factorKey, onFocus])

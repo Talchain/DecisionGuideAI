@@ -88,7 +88,7 @@ export function ActionStrip({ messages, patchBlockStates, onNavigate }: ActionSt
     hasCompletedFirstRun,
     analysisFreshness,
     analysisFreshnessDirty,
-    guidance: { guidanceItems, activeGuidanceItemId, _sendMessage: null, _scrollToPatch: null },
+    guidance: { guidanceItems, activeGuidanceItemId, inspectorDeepLinkField: null, _sendMessage: null, _scrollToPatch: null, _runAnalysis: null, _sendChip: null, _prefillChat: null, _dispatchAction: null, _registrationToken: null },
     messages,
     patchBlockStates,
   }), [nodeCount, resultsStatus, hasCompletedFirstRun, analysisFreshness, analysisFreshnessDirty, guidanceItems, activeGuidanceItemId, messages, patchBlockStates])

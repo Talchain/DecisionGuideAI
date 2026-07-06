@@ -125,7 +125,7 @@ export async function fetchLimits(): Promise<V1LimitsResponse> {
     const fallback: V1LimitsResponse = {
       schema: 'limits.v1',
       max_nodes: 50,
-      max_edges: 200,
+      max_edges: 100,
       max_body_kb: 96,
       rate_limit_rpm: 60,
       flags: { scm_lite: 1 },

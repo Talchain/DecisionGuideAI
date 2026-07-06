@@ -12,6 +12,7 @@ import { useGuidanceStore, selectTopItem, type GuidanceItem, type GuidanceAction
 import styles from './Conversation.module.css'
 import { trackGuidance, type GuidanceEventPayload } from '../../telemetry/guidanceEvents'
 import { useCanvasStore } from '../store'
+import { focusExistingTarget } from '../utils/focusHelpers'
 import { scrollToField } from './utils/scrollToField'
 import { beginInteractionChain } from '../../lib/debug-state'
 
@@ -181,6 +182,13 @@ export const GuidanceStrip = memo(function GuidanceStrip({
       profile_stage: (state.currentStage ?? undefined) as GuidanceEventPayload['profile_stage'] | undefined,
     })
     onSetActive(topItem.item_id)
+
+    // AI-to-graph slice: an explicit CLICK on the guidance action centres the
+    // target (fail-closed — stale/unknown ids do nothing). Hover only rings.
+    const target = topItem.target_object
+    if (target?.id && (target.type === 'node' || target.type === 'edge')) {
+      focusExistingTarget(target.id, target.type)
+    }
 
     switch (action.type) {
       case 'open_inspector':

@@ -16,18 +16,31 @@ let focusNodeImpl: FocusNodeFn | null = null
 let focusEdgeImpl: FocusEdgeFn | null = null
 
 /**
- * Register focus implementations (called by ReactFlowGraph on mount)
+ * Register focus implementations (called by ReactFlowGraph on mount).
+ *
+ * Returns an ownership-guarded unregister: it only clears the impls if this
+ * registration is still the active one, so a remount's stale cleanup can
+ * never null a newer registration (same lifecycle rule as
+ * canonicalRunRegistry and guidanceStore's conversation callbacks).
  */
 export function registerFocusHelpers(
   focusNode: FocusNodeFn,
   focusEdge: FocusEdgeFn
-) {
+): () => void {
   focusNodeImpl = focusNode
   focusEdgeImpl = focusEdge
+  return () => {
+    if (focusNodeImpl === focusNode) {
+      focusNodeImpl = null
+      focusEdgeImpl = null
+    }
+  }
 }
 
 /**
- * Unregister focus implementations (called by ReactFlowGraph on unmount)
+ * Unregister focus implementations unconditionally.
+ * @deprecated Use the unregister function returned by registerFocusHelpers —
+ * this unconditional clear can null a newer host's registration.
  */
 export function unregisterFocusHelpers() {
   focusNodeImpl = null
@@ -97,6 +110,28 @@ export type FocusTargetType = 'node' | 'edge' | 'factor' | 'option'
  *
  * Falls back to focusNodeById when type is unknown.
  */
+/**
+ * Fail-closed focus: verifies the target still exists on the canvas before
+ * focusing. Returns false (and does nothing) for stale/unknown ids — result
+ * payloads and guidance items can reference elements that were deleted or
+ * belong to a recovered session with different ids (live audit finding).
+ * Callers should treat `false` as "hide or disable the affordance", never
+ * as an error.
+ */
+export function focusExistingTarget(
+  targetId: string,
+  targetType?: FocusTargetType
+): boolean {
+  if (!targetId) return false
+  const { nodes, edges } = useCanvasStore.getState()
+  const exists = targetType === 'edge'
+    ? edges.some((e) => e.id === targetId)
+    : nodes.some((n) => n.id === targetId)
+  if (!exists) return false
+  focusByTarget(targetId, targetType)
+  return true
+}
+
 export function focusByTarget(
   targetId: string,
   targetType?: FocusTargetType

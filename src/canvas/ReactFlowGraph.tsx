@@ -53,9 +53,9 @@ import { commitTemplateGraphReplace } from './blueprints/commitTemplateGraph'
 import { InfluenceExplainer, useInfluenceExplainer } from '../components/assistants/InfluenceExplainer'
 // DraftChat is mounted directly below (FF off path); the aiPanelV2
 // floating-first host is mounted as a sibling when the flag is on.
-import { useResultsRun } from './hooks/useResultsRun'
+import { executeCanonicalRun } from './analysis/canonicalRunRegistry'
 import { HighlightLayer } from './highlight/HighlightLayer'
-import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
+import { registerFocusHelpers } from './utils/focusHelpers'
 import { computeFitPadding } from './utils/computeFitPadding'
 import { usePathHighlight } from './hooks/usePathHighlight'
 import { useLensFilter } from './hooks/useLensFilter'
@@ -569,8 +569,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const toggleProvenanceRedaction = useCanvasStore(s => s.toggleProvenanceRedaction)
   const addDocument = useCanvasStore(s => s.addDocument)
 
-  // Results run hook
-  const { run: runAnalysis } = useResultsRun()
   useEngineLimits()
   const checkRunEligibility = useRunEligibilityCheck()
 
@@ -925,8 +923,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Register focus helpers for external use (Results panel)
   useEffect(() => {
-    registerFocusHelpers(handleFocusNode, handleFocusEdge)
-    return () => unregisterFocusHelpers()
+    return registerFocusHelpers(handleFocusNode, handleFocusEdge)
   }, [handleFocusNode, handleFocusEdge])
 
   // Graph Interaction P1: Enable path highlighting based on node selection
@@ -948,7 +945,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     }
 
     // Get latest state for graph data
-    const { nodes, edges, outcomeNodeId } = useCanvasStore.getState()
+    const { nodes, edges } = useCanvasStore.getState()
 
     // Additional validation: Check for empty graph
     if (nodes.length === 0) {
@@ -965,19 +962,23 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     // Open Results panel before running
     setShowResultsPanel(true)
 
+    // Run-path convergence: this shortcut used to build its own thin legacy
+    // request (labels + unsigned weights only — no direction, beliefs,
+    // observed values or goal threshold), so ⌘Enter could disagree with the
+    // dock/chat about the winner. All visible run affordances now execute
+    // the one canonical pipeline registered by OutputsDock.
     try {
-      // Run analysis with canvas graph
-      await runAnalysis({
-        template_id: 'canvas-graph',
-        seed: 1337,
-        graph: { nodes, edges },
-        outcome_node: outcomeNodeId || undefined,
-      })
+      const outcome = await executeCanonicalRun({ source: 'canvas-shortcut' })
+      if (outcome.status === 'blocked') {
+        showToast(outcome.reason, 'warning')
+      } else if (outcome.status === 'unavailable') {
+        showToast(outcome.reason, 'error')
+      }
     } catch (err: any) {
       console.error('[ReactFlowGraph] Run analysis failed:', err)
       showToast(err?.message || 'Analysis failed. Please try again.', 'error')
     }
-  }, [checkRunEligibility, runAnalysis, setShowResultsPanel, showToast])
+  }, [checkRunEligibility, setShowResultsPanel, showToast])
 
   // M4: Health panel handlers
   const handleFixIssue = useCallback(async (issue: any) => {

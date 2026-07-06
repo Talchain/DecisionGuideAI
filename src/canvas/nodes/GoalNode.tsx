@@ -31,6 +31,7 @@ import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
+import { useStaleGuard } from '../ui/inspector-v2/useStaleGuard'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 
 export const GoalNode = memo((props: NodeProps) => {
@@ -46,6 +47,10 @@ export const GoalNode = memo((props: NodeProps) => {
   // per-option win_probability means the engine finished but produced no
   // probability. We must not render "Analysis complete" copy in that case.
   const hasAnyProbability = useHasAnyRealProbability()
+  // Audit §8 P1: canvas result decorations mirror the panels' freshness
+  // verdict (opacity + title only — no layout shift).
+  const { isStale } = useStaleGuard()
+  const staleTitle = isStale ? 'Model changed since this analysis' : undefined
 
   const robustnessData = useMemo(() => {
     if (!isPostAnalysis || !report) return null
@@ -140,9 +145,13 @@ export const GoalNode = memo((props: NodeProps) => {
   // ----- Layer 2 content (shared between popover and Detailed inline) -----
   const layer2Content = hasLayer2 ? (
     <>
-      {/* Stability bar */}
+      {/* Stability bar — stale-dimmed when the model changed since the run */}
       {stabilityValue !== null && (
-        <div className="mb-1">
+        <div
+          className={`mb-1${isStale ? ' opacity-50' : ''}`}
+          title={staleTitle}
+          data-stale={isStale || undefined}
+        >
           <div className="flex items-center gap-1.5 mb-0.5">
             <span className={`${typography.edgeLabel} text-text-light`}>Decision stability</span>
             <span className={`${typography.edgeLabel} text-text-body`}>{Math.round(stabilityValue * 100)}%</span>
@@ -254,6 +263,17 @@ export const GoalNode = memo((props: NodeProps) => {
           <div className={`${typography.nodeLabel} text-text-light mt-1`}>
             Target: {thresholdDisplay}
           </div>
+        )}
+
+        {/* Audit §8 P1 goal-state matrix: target SET + analysis ran + no
+            probability for it (target set after the run, or the run produced
+            none). The old branches ignored this quadrant, leaving a card
+            that showed a target with no path to a probability. No new CTA —
+            the edit affordance and Run flows already exist elsewhere. */}
+        {hasThreshold && isPostAnalysis && displayMetadata.achievementProbability === null && (
+          <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>
+            Target set. Rerun the analysis to update your results.
+          </p>
         )}
 
         {/* Post-analysis: achievement probability */}

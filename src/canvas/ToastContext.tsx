@@ -104,6 +104,18 @@ export function useShowToast() {
   return context.showToast
 }
 
+const noopShowToast: (message: string, type?: Toast['type'], action?: Toast['action']) => void = () => {}
+
+/**
+ * Like useShowToast, but no-ops outside a ToastProvider. For components that
+ * must also render in headless hosts (unit tests, storybook shells) where
+ * surfacing a toast is best-effort rather than essential.
+ */
+export function useShowToastSafe() {
+  const context = useContext(ToastActionsContext)
+  return context?.showToast ?? noopShowToast
+}
+
 const TOAST_ICONS = {
   success: CheckCircle,
   error:   XCircle,

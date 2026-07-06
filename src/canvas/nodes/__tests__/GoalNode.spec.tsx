@@ -40,6 +40,9 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
     stabilityPercentage: null,
     winRate: null,
     isResultsMode: false,
+    predictedOutcome: null,
+    valueOfInformation: null,
+    voiRank: null,
   })),
 }))
 
@@ -86,6 +89,9 @@ describe('GoalNode', () => {
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: false,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
   })
 
@@ -111,6 +117,9 @@ describe('GoalNode', () => {
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
     })
     renderGoal()
     expect(screen.getByText(/73.*% chance of reaching target/)).toBeDefined()
@@ -607,5 +616,154 @@ describe('GoalNode', () => {
   it('B6: threshold_raw="" → coaching prompt', () => {
     renderGoal({ goal_threshold_raw: '' })
     expect(screen.getByText(/Help me set a target/)).toBeDefined()
+  })
+})
+
+// ─── Audit §8 P1: goal-state copy matrix (threshold × probability) ──────────
+describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState() as any))
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: false,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+  })
+
+  it('target unset + no probability (pre-analysis): keeps the set-a-target coaching', () => {
+    renderGoal()
+    expect(screen.getByText('Goal target missing')).toBeDefined()
+    expect(screen.getByText('Help me set a target')).toBeDefined()
+    expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
+  })
+
+  it('target SET + no probability (post-analysis): says rerun, no set-a-target chip', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: {} },
+      }) as any)
+    )
+    renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
+    expect(screen.getByText('Target set. Rerun the analysis to update your results.')).toBeDefined()
+    // The live bug: card said "Analysis complete. Set a target to see your
+    // chances." while a target was set. Must never render here.
+    expect(screen.queryByText(/Set a target to see your chances/)).toBeNull()
+    expect(screen.queryByText('Help me set a target')).toBeNull()
+  })
+
+  it('target set + probability available: probability rendering wins, no rerun line', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: 0.73,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: {} },
+      }) as any)
+    )
+    renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
+    expect(screen.getByText(/73.*% chance of reaching target/)).toBeDefined()
+    expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
+    expect(screen.queryByText(/Set a target to see your chances/)).toBeNull()
+  })
+
+  it('target unset + probability available (auto-threshold): existing behaviour unchanged', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: 0.4,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: { option_comparison: [{ option_id: 'o1', win_probability: 0.5 }] },
+        },
+      }) as any)
+    )
+    renderGoal()
+    expect(screen.getByText('Analysis complete. Set a target to see your chances.')).toBeDefined()
+    expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
+  })
+})
+
+// ─── Audit §8 P1: stale treatment on the stability bar ──────────────────────
+describe('GoalNode — stale stability bar (audit §8 P1)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: 0.5,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+  })
+
+  it('dims the stability bar and titles it when the graph changed since the run', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          graphHash: 'hash-at-run',
+          report: { robustness: { recommendation_stability: 0.8 } },
+        },
+        _internal: { graphHash: 'hash-now-different' },
+      }) as any)
+    )
+    const { container } = renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
+    const staleEl = container.querySelector('[data-stale="true"]')
+    expect(staleEl).not.toBeNull()
+    expect(staleEl!.getAttribute('title')).toBe('Model changed since this analysis')
+    expect(staleEl!.className).toContain('opacity-50')
+    expect(staleEl!.textContent).toContain('Decision stability')
+  })
+
+  it('leaves the stability bar untouched when hashes match', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          graphHash: 'same-hash',
+          report: { robustness: { recommendation_stability: 0.8 } },
+        },
+        _internal: { graphHash: 'same-hash' },
+      }) as any)
+    )
+    const { container } = renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
+    expect(container.querySelector('[data-stale="true"]')).toBeNull()
+    expect(screen.getAllByText('Decision stability').length).toBeGreaterThan(0)
   })
 })
