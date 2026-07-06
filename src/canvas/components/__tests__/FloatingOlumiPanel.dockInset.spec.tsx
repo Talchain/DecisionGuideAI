@@ -143,11 +143,12 @@ afterEach(() => {
 describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
   it('respects the dock width AND its right-edge gap when laying out for the first time', () => {
     // Dock: 388px wide, 12px right offset → reserved area = 400.
-    // Default panel is 400px wide. Without dock-aware clamp the centred
-    // x would be (1440-400)/2 = 520; with inset=400 the max x becomes
-    // 1440 - 400 - 16 - 400 = 624 (no constraint here) but the centred
-    // default uses `vw - dockInset` so the panel centres in the visible
-    // canvas instead — left = (1440-400-400)/2 = 320.
+    // Default panel is 400px wide. The first-open default now anchors the
+    // panel to the top-left of the canvas (defaultAnchoredPosition) instead of
+    // centring it over the graph, then clampPositionToViewport keeps it clear
+    // of the side-tab, top bar and dock. This test asserts the invariant that
+    // matters regardless of the anchor: the panel's right edge must clear the
+    // dock's left edge (no overlap).
     const dock = mountStubDock({ width: 388, right: 12 })
     useFloatingPanelState.getState().open('user')
     render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })

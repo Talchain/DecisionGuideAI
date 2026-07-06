@@ -139,11 +139,15 @@ function computeMaxSize(viewportW: number, viewportH: number): FloatingPanelSize
   }
 }
 
-function defaultCentredPosition(size: FloatingPanelSize, viewportW: number, viewportH: number): FloatingPanelPosition {
-  return {
-    x: Math.max(DEFAULT_MARGIN, Math.floor((viewportW - size.width) / 2)),
-    y: Math.max(DEFAULT_MARGIN, Math.floor((viewportH - size.height) / 2)),
-  }
+function defaultAnchoredPosition(): FloatingPanelPosition {
+  // First-open default: anchor to the top-left of the canvas rather than
+  // centring the panel over the graph (which obscured the centre nodes).
+  // Mirrors the minimised-pill anchor (DEFAULT_MARGIN, DEFAULT_MARGIN). The
+  // caller runs clampPositionToViewport next, which enforces the side-tab gap,
+  // the top-bar inset and the dock inset, so this stays on-screen and clear of
+  // chrome. Drag/minimise/restore are unaffected: a stored (dragged) position
+  // takes precedence over this default via `position ?? ...`.
+  return { x: DEFAULT_MARGIN, y: DEFAULT_MARGIN }
 }
 
 /**
@@ -487,7 +491,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     // header is always visible, grabbable, and not under the dock. Mirrors
     // handlePointerMove's drag-time clamp so the same bounds apply across
     // entry points.
-    const rawPos = position ?? defaultCentredPosition({ width: w, height: h }, vw - dockInset, vh)
+    const rawPos = position ?? defaultAnchoredPosition()
     const pos = clampPositionToViewport(rawPos, { width: w, height: h }, vw, vh, dockInset, measureTopInset())
     // Apply the slide transition INLINE (not via React style prop) so the
     // browser sees: old el.style.left value → transition declaration → new
