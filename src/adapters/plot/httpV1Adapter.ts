@@ -656,13 +656,6 @@ export const httpV1Adapter = {
         mappedData.body_kb = { max: caps.maxBodyKb }
       }
 
-      // Include the analysis (run-critique) node limit when the engine
-      // publishes it, so the UI can honestly flag the approximate-results band
-      // between this limit and the hard structural node cap.
-      if (caps.analysisNodeLimit !== undefined) {
-        mappedData.analysisNodeLimit = caps.analysisNodeLimit
-      }
-
       // Include engine_p95_ms_budget if present (v1.2 feature)
       if ('engine_p95_ms_budget' in response) {
         mappedData.engine_p95_ms_budget = response.engine_p95_ms_budget

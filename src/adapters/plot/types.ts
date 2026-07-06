@@ -190,13 +190,6 @@ export interface LimitsV1 {
   edges: { max: number }
   body_kb?: { max: number } // v1.2: max request body size in KB
   engine_p95_ms_budget?: number // v1.2: p95 execution time budget in milliseconds
-  /**
-   * Node count above which the engine marks analysis results approximate
-   * (run_critique_node_limit). At or below = full-confidence analysis; this is
-   * stricter than the structural `nodes.max` accept cap. Optional: absent when
-   * the engine does not publish it.
-   */
-  analysisNodeLimit?: number
 }
 
 /**

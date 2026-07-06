@@ -33,9 +33,6 @@ export type GraphCaps = {
   maxNodes: number
   maxEdges: number
   maxBodyKb?: number
-  // Node count above which the engine marks analysis results approximate
-  // (run_critique_node_limit). Undefined when the engine does not publish it.
-  analysisNodeLimit?: number
 }
 
 /**
@@ -56,11 +53,7 @@ export function getGraphCaps(limits: V1LimitsResponse): GraphCaps {
     ? limits.max_body_kb
     : undefined
 
-  const analysisNodeLimit = typeof limits.run_critique_node_limit === 'number'
-    ? limits.run_critique_node_limit
-    : undefined
-
-  return { maxNodes, maxEdges, maxBodyKb, analysisNodeLimit }
+  return { maxNodes, maxEdges, maxBodyKb }
 }
 
 /**
