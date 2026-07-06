@@ -222,4 +222,35 @@ describe('staging scenario — rendered surfaces (numeric parity, check A)', () 
     expect(within(cards.container).getAllByText(/< 1% likely to reach target/).length)
       .toBeGreaterThan(0)
   })
+
+  it('hero and OptionCards render the four options in the SAME rendered order (no #1-vs-#4 disagreement)', () => {
+    // The staging trust defect: the hero ranked by expected value while the
+    // cards ranked by win probability, so one option showed as #1 and #4 at
+    // once. Both surfaces now consume sortOptionsForDisplay — assert the
+    // ACTUAL rendered DOM order agrees option-for-option, not just the
+    // winner. Win probabilities are 38.7/38.0/23.0/0.3% (opt_hire_fulltime
+    // leads on win despite the WORST expected centre), so an active-lens
+    // sort on either surface would reorder — this pins that neither does.
+    const { container: heroC } = renderHero()
+    const heroOrder = Array.from(heroC.querySelectorAll('[data-option-id]')).map((el) =>
+      el.getAttribute('data-option-id'),
+    )
+    const { container: cardsC } = render(
+      <OptionCards options={STAGING_OPTIONS} winnerId="opt_hire_fulltime" hasGoalThreshold />,
+    )
+    const cardsOrder = Array.from(cardsC.querySelectorAll('[data-testid^="option-card-"]')).map(
+      (el) => el.getAttribute('data-testid')!.replace('option-card-', ''),
+    )
+    expect(heroOrder).toEqual([
+      'opt_hire_fulltime',
+      'opt_status_quo',
+      'opt_virtual',
+      'opt_hire_parttime',
+    ])
+    // OptionCards renders only its top-N cards, so assert its rendered order
+    // is a PREFIX of the hero's — same comparator, so the cards can never
+    // rank a shown option differently from the hero (the #1-vs-#4 defect).
+    expect(cardsOrder.length).toBeGreaterThan(0)
+    expect(cardsOrder).toEqual(heroOrder.slice(0, cardsOrder.length))
+  })
 })

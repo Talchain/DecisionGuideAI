@@ -41,6 +41,8 @@ const DebugPanel = lazy(() => import('../components/DebugPanel'))
 
 // C.1a: Scenario persistence routes
 const ScenarioListPage = lazy(() => import('../pages/ScenarioListPage'))
+// Internal hero fixture gallery — flag-gated (staging-on/prod-off), unlinked.
+const HeroGallery = lazy(() => import('../routes/HeroGallery'))
 const SharedBriefPage = lazy(() => import('../pages/SharedBriefPage'))
 const LoginPage = lazy(() => import('../components/auth/LoginPage'))
 const AuthCallback = lazy(() => import('../components/auth/AuthCallback'))
@@ -923,6 +925,10 @@ export default function AppPoC() {
                 </Route>
 
                 {/* Dev/POC routes */}
+                {/* Internal fixture gallery for the analysis hero — typed
+                    example states only (visible fixture banner on every
+                    panel); flag-gated (staging-on/prod-off) and unlinked. */}
+                <Route path="/dev/hero-gallery" element={<HeroGallery />} />
                 <Route path="/plot" element={<PlotWorkspace />} />
                 <Route path="/plot-legacy" element={<PlotShowcase />} />
                 <Route path="/plc" element={<PlcLab />} />

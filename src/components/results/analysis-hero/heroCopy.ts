@@ -19,6 +19,30 @@ export const HERO_COPY = {
   lensLabel: {
     goal: 'Goal fit',
     outcome: 'Likely outcome',
+    /**
+     * Lens NAMES only — "Stability" here names a view (prototype tab
+     * label), it does not claim anything about this run. Trust-vocabulary
+     * hygiene carves out exactly this navigation use; every stability
+     * CLAIM still renders only from producer-supplied text.
+     */
+    stability: 'Stability',
+    whatChanged: 'What changed',
+  } as const,
+
+  /**
+   * Honest unavailable-lens bodies. Selecting an unavailable lens shows
+   * WHY it is empty and what unlocks it — never a dead tab, never a
+   * fabricated chart. The goal lens distinguishes the user-actionable
+   * no-target case from the producer gap.
+   */
+  lensUnavailable: {
+    goalNoTarget: 'Set a success target to unlock Goal fit.',
+    goalProducerGap: 'Goal fit is not available for this run.',
+    outcome: 'Likely outcome is not available for this run.',
+    stability:
+      'This view needs per-option stability data, which the analysis does not provide yet.',
+    whatChanged:
+      'This view compares runs. It unlocks when the analysis can report what changed between runs.',
   } as const,
 
   headline: {
@@ -34,11 +58,18 @@ export const HERO_COPY = {
      */
     analysisLeads: (label: string) => `${label} currently leads the overall analysis.`,
     /**
-     * Close-call calibration (UI-SEM-060): when the top two outcome ranges
-     * overlap, the flat leader claim overstates certainty — the tempered
-     * variant is generated from the rendered ranking, never hand-picked.
+     * Leader-claim banding (UI-SEM-060, revised): the "most likely" claim is
+     * grounded in the producer's OWN win probability (the same quantity the
+     * detail's "chance it is the strongest option overall" line shows) —
+     * never in outcome-lens inference or range overlap. Range overlap alone
+     * must never temper or manufacture a closeness claim; it only appends
+     * the overlap advisory to the state-A subline.
      */
-    analysisLeadsClose: (label: string) => `${label} currently leads, but the top options are close.`,
+    mostLikelyStrongest: (label: string) => `${label} is most likely to be strongest overall.`,
+    /** Banding state B: ahead on win probability without a strong majority. */
+    slightlyAhead: (label: string) => `${label} is slightly ahead.`,
+    /** Banding state C: the win probabilities identify no clear leader. */
+    noClearLeader: 'No option is clearly ahead.',
     /** Fallback when no recommended option exists among the rows: headline the outcome fact itself. */
     outcomeLeader: (label: string) => `${label} has the highest expected outcome.`,
     /**
@@ -64,12 +95,20 @@ export const HERO_COPY = {
     highestOutcome: (label: string) => `${label} has the highest expected outcome.`,
     aligned: (label: string) => `${label} also has the strongest expected outcome.`,
     /**
-     * Close-call subline (UI-SEM-060): names the leader AND the runner-up
-     * from the same rendered outcome ranking the chart shows, so the copy
-     * can never contradict the rows.
+     * Banding state B subline (UI-SEM-060): the runner-up is named from the
+     * SAME rendered outcome ranking the chart shows, and ONLY when the
+     * top-two expected outcomes are genuinely close — never from range
+     * overlap alone.
      */
-    closeBehind: (leader: string, runnerUp: string) =>
-      `${leader} has the highest expected outcome, with ${runnerUp} close behind.`,
+    closeOnOutcome: (label: string) => `${label} is close on expected outcome.`,
+    /** Banding state C companion line (no leader claimed, no name risked). */
+    compareTop: 'Compare the top options before deciding.',
+    /**
+     * Appended to the state-A subline when the top-two p10-p90 ranges
+     * intersect: overlap is stated as uncertainty about the ranges, without
+     * downgrading the win-probability-grounded leader claim.
+     */
+    overlapAdvisory: 'Realistic ranges overlap, so validate the assumptions before deciding.',
   },
 
   /** Fallback when a label cannot be safely interpolated into generated copy. */
@@ -97,15 +136,22 @@ export const HERO_COPY = {
     outcomeSingleRange: 'Dots show expected outcome. The line shows the realistic range.',
     /** Shown when no row carries a range — never describe lines that are not drawn. */
     outcomeDotsOnly: 'Dots show expected outcome for each option.',
+    /**
+     * Stability lens explainer — renders ONLY when the lens carries data
+     * (producer-backed; fixture-only until issue 211). Reviewer-supplied
+     * wording, extended with a per-option clarifier so a strong leader
+     * under a cautious overall verdict does not read as contradictory.
+     * Lens-explainer register (like the "Stability" tab name and the
+     * unavailable copy), NOT a per-run trust claim — it describes what the
+     * view measures, never a verdict about this run. Scanned in the
+     * copyHygiene lens-naming carve-out (it legitimately names the view);
+     * "firmly" is not the banned "firm" token (word boundary), but the
+     * carve-out is the correct home because the string contains
+     * "Stability".
+     */
+    stability:
+      'Stability shows how firmly each option holds its position under uncertainty. It describes each option separately, not the analysis as a whole.',
   },
-
-  /**
-   * Single-lens discoverability: shown ONLY when the goal lens is absent
-   * because no success target exists (goalThreshold null) — never when the
-   * producer simply omitted goal probabilities for a targeted run, where
-   * the hint would mislead.
-   */
-  goalHint: 'Set a success target to see goal fit.',
 
   readout: {
     goalSuffix: 'fit',
@@ -123,6 +169,9 @@ export const HERO_COPY = {
   detail: {
     whyLabel: 'Why',
     couldChangeIfLabel: 'Could change if',
+    /** Labels only — the content is producer-supplied (issue 217), never authored here. */
+    watchLabel: 'Watch',
+    tradeOffLabel: 'Trade-off',
     couldChangeIf: (factor: string, value: string) => `${factor} crosses ${value}.`,
     winChance: (formatted: string) => `${formatted} chance it is the strongest option overall.`,
     /** Grounded lines from existing adapted fields — never authored prose. */
@@ -150,6 +199,25 @@ export const HERO_COPY = {
      */
     focusNext: 'Focus next: review the top actions below.',
     focusNextAria: 'Scroll to the actions panel below',
+    /**
+     * Single-lens promotion: when the goal lens is absent because no
+     * success target exists (goalThreshold null — never a producer gap),
+     * the Focus-next slot carries the unlock action instead of the generic
+     * line. Actionable only when a real apply route is wired (the same
+     * setGoalThreshold + rerun handler the Options Compare target row
+     * used); otherwise it renders as plain text — never a dead control.
+     */
+    focusTarget: 'Focus next: set a success target to unlock Goal fit.',
+    /** Visible editor label — with the unit suffix, says WHAT to type before commit. */
+    targetLabel: 'Success target',
+    targetInputAria: 'Success target value',
+    targetApply: 'Apply target and run the analysis again',
+    /**
+     * Rerun disclosure — shown WITH the editor, before any commit: applying
+     * a target is analysis-affecting (it reruns), and the user must know
+     * that before pressing Enter or the tick.
+     */
+    targetRerunNote: 'Applying runs the analysis again.',
     rerun: 'Re-run analysis',
   },
 
@@ -170,4 +238,17 @@ export const HERO_COPY = {
 
   /** Screen-reader-only cue so the leader is perceivable without colour. */
   srLeader: 'Leads on this view',
+
+  /** Screen-reader suffix for lenses whose data is unavailable this run. */
+  srLensUnavailable: 'not available for this run',
+
+  /**
+   * Rendered whenever a model's provenance is 'fixture' — fixture data
+   * must never be mistakable for real analysis output.
+   */
+  fixtureBanner: 'Internal preview: example data, not analysis output.',
+
+  /** What-changed ghost-mark legend (drawn marks only, fixture lens today). */
+  ghostLegend:
+    'Faded marks show the previous run. Current marks show where the analysis moved.',
 } as const

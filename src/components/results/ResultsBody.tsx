@@ -103,7 +103,7 @@ export const ResultsBody = memo(function ResultsBody({
   onFocusNode,
   isRunning: _isRunning,
   onAddStatusQuoBaseline: _onAddStatusQuoBaseline,
-  onApplyThreshold: _onApplyThreshold,
+  onApplyThreshold,
   onAddBaseline: _onAddBaseline,
   onSetBaseline: _onSetBaseline,
   nSamples,
@@ -240,7 +240,11 @@ export const ResultsBody = memo(function ResultsBody({
           renders nothing and the tab is unchanged. */}
       {isAnalysisHeroPanelEnabled() && (
         <SectionErrorBoundary section="Analysis hero">
-          <AnalysisHeroContainer data={resultsSectionData} isStale={isStale} />
+          <AnalysisHeroContainer
+            data={resultsSectionData}
+            isStale={isStale}
+            onApplyTarget={onApplyThreshold}
+          />
         </SectionErrorBoundary>
       )}
 

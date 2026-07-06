@@ -38,6 +38,7 @@
 
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { FlipThreshold, OptionResult } from '../types'
+import { GAP_THRESHOLD } from '../buildResultsVM'
 import { formatThreshold } from '../RangeVisualization'
 import { stripEncodingNotation } from '../utils/cleanFactorLabel'
 import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
@@ -58,7 +59,13 @@ import type { HeroChartModel, HeroLens, HeroModel, HeroRowVM, HeroStatusModel } 
 
 function statusModel(variant: HeroStatusModel['variant']): HeroStatusModel {
   const copy = HERO_COPY.status[variant]
-  return { kind: 'status', variant, headline: copy.headline, body: copy.body }
+  return {
+    kind: 'status',
+    provenance: 'live',
+    variant,
+    headline: copy.headline,
+    body: copy.body,
+  }
 }
 
 /**
@@ -296,15 +303,55 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   // is not among the analysed rows, no leader is claimed.
   const headlineRow = rows.find((r) => r.id === recommendedId) ?? null
 
-  // UI-SEM-060: deterministic close-call trigger. The top two rendered
-  // outcome rows count as "close" when their p10-p90 ranges INTERSECT —
-  // the same overlap the chart draws and the caption tells the user to
-  // treat as unsettled. Intersection is deliberately INCLUSIVE (ranges
-  // that merely touch count as close — the conservative direction for a
-  // leader claim). Selection/comparison of existing values only (display
-  // calibration, same class as UI-SEM-050); when either row lacks a range
-  // the trigger stays false — closeness is never invented.
-  const topTwoClose =
+  // UI-SEM-060 (revised): leader-claim banding for the no-goal-basis
+  // headline. Three concepts the copy must keep separate (staging trust
+  // follow-up): (1) how likely the leader is to be strongest — the
+  // producer's OWN win probability, the same value the detail line shows;
+  // (2) how close the top expected outcomes are — the top-two centres;
+  // (3) whether the drawn uncertainty ranges overlap. Range overlap alone
+  // must never produce a "close" claim (a 77%-win leader with a +22 vs +8
+  // spread is not a close call just because p10-p90 ranges intersect); it
+  // only appends the state-A overlap advisory. Every signal is an existing
+  // producer value or a comparison of two of them — display calibration
+  // only, never fed back into ranking or selection.
+
+  // Win probabilities: the headline leader's own, and the strongest rival's
+  // (for the clear-lead gap). null when the producer did not send one.
+  const winProbOf = (o: OptionResult): number | null =>
+    typeof o.winProbability === 'number' ? o.winProbability : null
+  const leaderOption = options.find((o) => o.id === recommendedId) ?? null
+  const leadWinP = leaderOption ? winProbOf(leaderOption) : null
+  let rivalWinP: number | null = null
+  for (const o of options) {
+    if (o.id === recommendedId) continue
+    const w = winProbOf(o)
+    if (w != null && (rivalWinP == null || w > rivalWinP)) rivalWinP = w
+  }
+
+  // Band thresholds: 0.65 = strong/likely leader (the "most likely to be
+  // strongest overall" claim is safe well past the coin-flip); 0.5 =
+  // majority; GAP_THRESHOLD (0.10) is the SAME win-gap the Results Panel's
+  // decisionState uses for 'indeterminate' (UI-SEM-006), so the hero can
+  // never call "no clear leader" by a different standard than the panel
+  // below. Sub-majority leaders with a clear gap over the strongest rival
+  // (win probabilities dilute as the option count grows) stay "ahead" —
+  // never "no clear leader".
+  const WIN_STRONG_LEADER = 0.65
+  const WIN_MAJORITY = 0.5
+  let leaderBand: 'strong' | 'ahead' | 'none' | null = null
+  if (leadWinP != null) {
+    if (leadWinP >= WIN_STRONG_LEADER) leaderBand = 'strong'
+    else if (leadWinP >= WIN_MAJORITY) leaderBand = 'ahead'
+    else if (rivalWinP != null)
+      leaderBand = leadWinP - rivalWinP >= GAP_THRESHOLD ? 'ahead' : 'none'
+    // Below majority with no rival win probability to compare against the
+    // band stays null — the unbanded fallback claim, never a guess.
+  }
+
+  // Signal (3): the top-two rendered outcome rows' p10-p90 ranges intersect
+  // (inclusive — touching ranges count). Drives ONLY the state-A overlap
+  // advisory sentence; false whenever either range is missing.
+  const topTwoRangesOverlap =
     outcomeLeaderRow != null &&
     outcomeRunnerUpRow != null &&
     outcomeLeaderRow.outcome.p10 != null &&
@@ -313,6 +360,22 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     outcomeRunnerUpRow.outcome.p90 != null &&
     Math.max(outcomeLeaderRow.outcome.p10, outcomeRunnerUpRow.outcome.p10) <=
       Math.min(outcomeLeaderRow.outcome.p90, outcomeRunnerUpRow.outcome.p90)
+
+  // Signal (2): the top-two expected outcomes are genuinely close — the
+  // centres differ by no more than 15% of the larger magnitude. Range-
+  // independent by design (closeness of expectations is a different fact
+  // from overlapping uncertainty), and the ONLY gate on naming a runner-up
+  // as "close on expected outcome".
+  const OUTCOME_GAP_CLOSE_RATIO = 0.15
+  const outcomeGapSmall =
+    outcomeLeaderRow?.outcome.centre != null &&
+    outcomeRunnerUpRow?.outcome.centre != null &&
+    outcomeLeaderRow.outcome.centre - outcomeRunnerUpRow.outcome.centre <=
+      OUTCOME_GAP_CLOSE_RATIO *
+        Math.max(
+          Math.abs(outcomeLeaderRow.outcome.centre),
+          Math.abs(outcomeRunnerUpRow.outcome.centre),
+        )
 
   // Goal honesty (UI-SEM-057 reuse — the same sub-1% floor that drives the
   // "< 1%" readouts, no new threshold): when EVERY row carries a goal
@@ -359,15 +422,18 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   } else if (headlineRow) {
     // No goal basis: the leader claim names the canonical analysis leader
     // (recommendedOption — proven to equal the Results Panel/producer
-    // leader) with analysis-grounded wording, never an outcome-lens claim.
-    // Close-call calibration (UI-SEM-060) applies only when the claimed
-    // leader IS the outcome leader — a flat claim over intersecting ranges
-    // would overstate certainty. In the diverged case the tension subline
-    // already tempers the claim.
+    // leader), banded by the producer's win probabilities (UI-SEM-060).
+    // The banded claims are win-probability claims, so they stay honest
+    // whether or not the leader also has the strongest expected outcome;
+    // missing win probabilities fall back to the unbanded analysis claim.
     headline =
-      topTwoClose && headlineRow.id === outcomeLeaderRow?.id
-        ? HERO_COPY.headline.analysisLeadsClose(safeLabel(headlineRow))
-        : HERO_COPY.headline.analysisLeads(safeLabel(headlineRow))
+      leaderBand === 'strong'
+        ? HERO_COPY.headline.mostLikelyStrongest(safeLabel(headlineRow))
+        : leaderBand === 'ahead'
+          ? HERO_COPY.headline.slightlyAhead(safeLabel(headlineRow))
+          : leaderBand === 'none'
+            ? HERO_COPY.headline.noClearLeader
+            : HERO_COPY.headline.analysisLeads(safeLabel(headlineRow))
   } else if (outcomeAvailable && outcomeLeaderRow) {
     // No recommended option among the rows: headline the outcome fact
     // itself — but ONLY when the outcome lens is actually visible (centres
@@ -386,24 +452,43 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   // visible (centres without ranges leave it hidden, so the hero must not
   // assert an expected-outcome comparison it cannot show).
   let subline: string | null = null
-  if (rows.length > 1 && outcomeAvailable && outcomeLeaderRow) {
+  const bandedNoGoalClaim =
+    rows.length > 1 && !allGoalBelowFloor && !goalLeaderRow && headlineRow != null
+  if (bandedNoGoalClaim && leaderBand === 'none') {
+    // State C: no leader was claimed, so no divergence exists to state —
+    // the companion line points at the comparison without risking a name.
+    subline = HERO_COPY.subline.compareTop
+  } else if (rows.length > 1 && outcomeAvailable && outcomeLeaderRow) {
     if (allGoalBelowFloor) {
       // No leader was claimed; the outcome fact is the one honest pointer.
       subline = HERO_COPY.subline.highestOutcome(safeLabel(outcomeLeaderRow))
     } else if (headlineRow) {
-      // Aligned + intersecting top-two ranges (UI-SEM-060): name the
-      // runner-up from the SAME rendered ranking, so the copy can never
-      // disagree with the rows. goalLeaderRow-headlined runs keep the plain
-      // aligned/divergence pair — the goal claim is not an outcome claim.
-      subline =
-        headlineRow.id === outcomeLeaderRow.id
-          ? topTwoClose && !goalLeaderRow && outcomeRunnerUpRow
-            ? HERO_COPY.subline.closeBehind(
-                safeLabel(headlineRow),
-                safeLabel(outcomeRunnerUpRow),
-              )
-            : HERO_COPY.subline.aligned(safeLabel(headlineRow))
-          : HERO_COPY.subline.highestOutcome(safeLabel(outcomeLeaderRow))
+      // Aligned case per band (UI-SEM-060): state B names the runner-up as
+      // close ONLY when the expected-outcome gap is genuinely small (never
+      // from range overlap); state A states the outcome fact plainly.
+      // goalLeaderRow-headlined runs keep the plain aligned/divergence pair
+      // — the goal claim is not an outcome claim. Diverged leaders keep the
+      // persistent divergence line in every band.
+      const alignedLeaders = headlineRow.id === outcomeLeaderRow.id
+      if (!alignedLeaders) {
+        subline = HERO_COPY.subline.highestOutcome(safeLabel(outcomeLeaderRow))
+      } else if (
+        bandedNoGoalClaim &&
+        leaderBand === 'ahead' &&
+        outcomeGapSmall &&
+        outcomeRunnerUpRow
+      ) {
+        subline = HERO_COPY.subline.closeOnOutcome(safeLabel(outcomeRunnerUpRow))
+      } else if (bandedNoGoalClaim && leaderBand === 'strong') {
+        subline = HERO_COPY.subline.highestOutcome(safeLabel(headlineRow))
+      } else {
+        subline = HERO_COPY.subline.aligned(safeLabel(headlineRow))
+      }
+      // State-A overlap advisory: overlap is disclosed as uncertainty about
+      // the RANGES — appended, never a downgrade of the leader claim.
+      if (bandedNoGoalClaim && leaderBand === 'strong' && topTwoRangesOverlap) {
+        subline = `${subline} ${HERO_COPY.subline.overlapAdvisory}`
+      }
     }
   }
 
@@ -451,6 +536,10 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
 
   const model: HeroChartModel = {
     kind: 'chart',
+    // This function is the ONLY producer of 'live' models (asserted by the
+    // suite): fixture models exist solely in the internal gallery and are
+    // branded 'fixture' so the panel shows the internal-preview banner.
+    provenance: 'live',
     headline,
     subline,
     lenses,
@@ -463,6 +552,10 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
       // own goal probability. Null when no leader is claimable.
       goal: goalLeaderRow?.id ?? null,
       outcome: outcomeLeaderId,
+      // Stability / What-changed carry no live data (producer gaps 211/212)
+      // — no leader can exist on a lens with nothing to lead.
+      stability: null,
+      whatChanged: null,
     },
     outcomeDomain,
     // Caption honesty: only describe range lines (and overlap) the chart
@@ -475,6 +568,19 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     // is a producer gap where "set a success target" would mislead.
     showGoalHint: !goalAvailable && goalThreshold == null,
     mainReason,
+    // Producer-gap slots — the LIVE adapter NEVER populates these (no
+    // display-safe trust/status label: issues 219/221; no coaching
+    // top-action contract: issue 220). They render only from typed
+    // fixtures until the producer fields exist; missing fields are
+    // unavailable states, never fabricated values.
+    trustLine: null,
+    statusChip: null,
+    focusAction: null,
+    // Success-target editor unit — passthrough of the existing outcome
+    // unit fields (the target is a threshold on the outcome axis, so the
+    // outcome unit IS the target unit). Display labelling only.
+    targetUnit:
+      outcomeUnit === 'percent' ? '%' : (outcomeUnitSymbol ?? null),
   }
   return model
 }

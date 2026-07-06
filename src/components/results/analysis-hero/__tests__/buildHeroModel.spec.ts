@@ -7,6 +7,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { buildHeroModel } from '../buildHeroModel'
+import { sortOptionsForDisplay } from '../../utils/optionDisplayOrder'
 import type { HeroChartModel } from '../heroTypes'
 import {
   FULL_COMPLETENESS,
@@ -136,8 +137,9 @@ describe('buildHeroModel — leaders and headline', () => {
     // must not claim B "best fits your goal" beside a "—" readout for B.
     // The leader claim reframes to the analysis basis, and the divergence
     // subline is PERSISTENT — B is not the outcome leader, so the tension
-    // is stated even without a goal basis.
-    const b = makeOption({ ...OPTION_B, goalProbability: undefined })
+    // is stated even without a goal basis. (winProbability stripped so the
+    // unbanded fallback claim isolates the goal-honesty behaviour.)
+    const b = makeOption({ ...OPTION_B, goalProbability: undefined, winProbability: undefined })
     const m = chart(buildHeroModel(makeHeroData({ options: [OPTION_A, b] })))
     expect(m.lenses).toContain('goal')
     expect(m.leaders.goal).toBeNull()
@@ -148,9 +150,10 @@ describe('buildHeroModel — leaders and headline', () => {
   it('does not goal-headline a recommended option whose goal value floors below 1% (mixed coverage)', () => {
     // A carries no goal value; recommended B sits below the sub-1% floor.
     // "Best fits your goal" beside a "< 1%" readout would be false — the
-    // headline falls through to the analysis-leader wording.
+    // headline falls through to the analysis-leader wording. (winProbability
+    // stripped so the unbanded claim isolates the goal-honesty behaviour.)
     const a = makeOption({ ...OPTION_A, goalProbability: undefined })
-    const b = makeOption({ ...OPTION_B, goalProbability: 0.004 })
+    const b = makeOption({ ...OPTION_B, goalProbability: 0.004, winProbability: undefined })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
     expect(m.leaders.goal).toBeNull()
     expect(m.headline).toBe('Upskill the team currently leads the overall analysis.')
@@ -262,53 +265,101 @@ describe('buildHeroModel — leaders and headline', () => {
   })
 })
 
-describe('buildHeroModel — close-call calibration (UI-SEM-060)', () => {
-  // No goal values anywhere: the headline takes the analysis-leader branch,
-  // where close-call calibration applies.
+describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
+  // No goal values anywhere: the headline takes the no-goal-basis leader
+  // branch, where the win-probability banding applies.
   const noGoal = (o: ReturnType<typeof makeOption>) =>
     makeOption({ ...o, goalProbability: undefined })
 
-  it('clear leader (no top-two range overlap) keeps the flat claim and aligned subline', () => {
-    // B recommended AND outcome leader; ranges disjoint: B 70..90, A 40..60.
-    const a = noGoal(makeOption({ ...OPTION_A, expected: 50, outcome: { mean: 50, p10: 40, p50: 50, p90: 60 } }))
-    const b = noGoal(makeOption({ ...OPTION_B, expected: 80, outcome: { mean: 80, p10: 70, p50: 80, p90: 90 } }))
+  it('range overlap alone NEVER produces a close-call: a 77% leader with a wide outcome gap keeps the strong claim (staging Tech Lead shape)', () => {
+    // The exact miscalibration from the staging screenshot: leader wins 77%,
+    // centres +22 vs +8, yet the p10-p90 ranges overlap (-1..45 vs -5..25).
+    // Overlap must only append the advisory — never "top options are close".
+    const a = noGoal(makeOption({ ...OPTION_A, winProbability: 0.2, expected: 8, outcome: { mean: 8, p10: -5, p50: 8, p90: 25 } }))
+    const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.77, expected: 22, outcome: { mean: 22, p10: -1, p50: 22, p90: 45 } }))
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
-    expect(m.headline).toBe('Upskill the team currently leads the overall analysis.')
-    expect(m.subline).toBe('Upskill the team also has the strongest expected outcome.')
-  })
-
-  it('top-two range overlap tempers the claim and names the runner-up', () => {
-    // B recommended AND outcome leader; ranges overlap: B 55..85, A 45..70.
-    const a = noGoal(makeOption({ ...OPTION_A, expected: 60, outcome: { mean: 60, p10: 45, p50: 60, p90: 70 } }))
-    const b = noGoal(makeOption({ ...OPTION_B, expected: 68, outcome: { mean: 68, p10: 55, p50: 68, p90: 85 } }))
-    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
-    expect(m.headline).toBe('Upskill the team currently leads, but the top options are close.')
+    expect(m.headline).toBe('Upskill the team is most likely to be strongest overall.')
     expect(m.subline).toBe(
-      'Upskill the team has the highest expected outcome, with Two developers close behind.',
+      'Upskill the team has the highest expected outcome. Realistic ranges overlap, so validate the assumptions before deciding.',
     )
+    expect(`${m.headline} ${m.subline}`).not.toMatch(/close/i)
   })
 
-  it('names the leader and runner-up from the rendered outcome ranking, not the input order', () => {
-    // Three options; recommended C is the outcome leader; runner-up by
-    // centre is A (62) not B (50) — the copy must name A.
-    const a = noGoal(makeOption({ id: 'opt_a2', label: 'Alpha', winProbability: 0.3, expected: 62, outcome: { mean: 62, p10: 50, p50: 62, p90: 74 } }))
+  it('strong leader without range overlap gets the plain outcome subline (no advisory)', () => {
+    // Ranges disjoint: B 70..90, A 40..60.
+    const a = noGoal(makeOption({ ...OPTION_A, winProbability: 0.2, expected: 50, outcome: { mean: 50, p10: 40, p50: 50, p90: 60 } }))
+    const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.8, expected: 80, outcome: { mean: 80, p10: 70, p50: 80, p90: 90 } }))
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    expect(m.headline).toBe('Upskill the team is most likely to be strongest overall.')
+    expect(m.subline).toBe('Upskill the team has the highest expected outcome.')
+  })
+
+  it('strong but diverged leader keeps the persistent divergence subline', () => {
+    // Recommended B wins 80% but A has the higher centre; disjoint ranges.
+    const a = noGoal(makeOption({ ...OPTION_A, winProbability: 0.2, expected: 80, outcome: { mean: 80, p10: 70, p50: 80, p90: 90 } }))
+    const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.8, expected: 50, outcome: { mean: 50, p10: 40, p50: 50, p90: 60 } }))
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    expect(m.headline).toBe('Upskill the team is most likely to be strongest overall.')
+    expect(m.subline).toBe('Two developers has the highest expected outcome.')
+  })
+
+  it('sub-strong majority leader is "slightly ahead", naming the runner-up ONLY when the outcome gap is genuinely small', () => {
+    // Win 55%; centres 68 vs 67 (gap 1 ≤ 15% of 68) → runner-up named.
+    const a = noGoal(makeOption({ ...OPTION_A, winProbability: 0.45, expected: 67, outcome: { mean: 67, p10: 55, p50: 67, p90: 80 } }))
+    const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.55, expected: 68, outcome: { mean: 68, p10: 56, p50: 68, p90: 82 } }))
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    expect(m.headline).toBe('Upskill the team is slightly ahead.')
+    expect(m.subline).toBe('Two developers is close on expected outcome.')
+  })
+
+  it('"close on expected outcome" never fires from range overlap when the outcome gap is wide', () => {
+    // Win 55%; centres 22 vs 8 (gap 14 > 15% of 22) with OVERLAPPING ranges:
+    // the closeness line must not appear — overlap is not outcome closeness.
+    const a = noGoal(makeOption({ ...OPTION_A, winProbability: 0.45, expected: 8, outcome: { mean: 8, p10: -5, p50: 8, p90: 25 } }))
+    const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.55, expected: 22, outcome: { mean: 22, p10: -1, p50: 22, p90: 45 } }))
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    expect(m.headline).toBe('Upskill the team is slightly ahead.')
+    expect(m.subline).toBe('Upskill the team also has the strongest expected outcome.')
+    expect(m.subline).not.toMatch(/close|overlap/i)
+  })
+
+  it('runner-up naming comes from the rendered outcome ranking, not the input order', () => {
+    // Recommended Gamma at 55% win; runner-up by CENTRE is Alpha (69) not
+    // Beta (50) — the copy must name Alpha, matching the rendered rows.
+    const a = noGoal(makeOption({ id: 'opt_a2', label: 'Alpha', winProbability: 0.25, expected: 69, outcome: { mean: 69, p10: 57, p50: 69, p90: 81 } }))
     const b = noGoal(makeOption({ id: 'opt_b2', label: 'Beta', winProbability: 0.2, expected: 50, outcome: { mean: 50, p10: 40, p50: 50, p90: 60 } }))
-    const c = noGoal(makeOption({ id: 'opt_c2', label: 'Gamma', winProbability: 0.5, isRecommended: true, expected: 70, outcome: { mean: 70, p10: 58, p50: 70, p90: 82 } }))
+    const c = noGoal(makeOption({ id: 'opt_c2', label: 'Gamma', winProbability: 0.55, isRecommended: true, expected: 70, outcome: { mean: 70, p10: 58, p50: 70, p90: 82 } }))
     const m = chart(buildHeroModel(makeHeroData({ options: [b, a, c] })))
-    // Rendered rows are in shared display order (win-prob desc).
     expect(m.rows.map((r) => r.label)).toEqual(['Gamma', 'Alpha', 'Beta'])
-    expect(m.headline).toBe('Gamma currently leads, but the top options are close.')
-    expect(m.subline).toBe('Gamma has the highest expected outcome, with Alpha close behind.')
+    expect(m.headline).toBe('Gamma is slightly ahead.')
+    expect(m.subline).toBe('Alpha is close on expected outcome.')
   })
 
-  it('never invents closeness when a top-two range is missing', () => {
-    // Centres are near-identical but the runner-up carries no p10/p90 —
-    // the trigger must stay false (plain claim, aligned subline).
-    const a = noGoal(makeOption({ ...OPTION_A, expected: 67.9, outcome: { mean: 67.9, p10: null, p50: 67.9, p90: null }, p10: null, p90: null }))
-    const b = noGoal(makeOption({ ...OPTION_B, expected: 68, outcome: { mean: 68, p10: 55, p50: 68, p90: 85 } }))
+  it('near-tied win probabilities below majority claim NO clear leader (shared GAP_THRESHOLD)', () => {
+    // 30% vs 28% — the same 0.10 win-gap the decisionState uses.
+    const a = noGoal(makeOption({ ...OPTION_A, winProbability: 0.28, expected: 67, outcome: { mean: 67, p10: 55, p50: 67, p90: 80 } }))
+    const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.3, expected: 68, outcome: { mean: 68, p10: 56, p50: 68, p90: 82 } }))
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    expect(m.headline).toBe('No option is clearly ahead.')
+    expect(m.subline).toBe('Compare the top options before deciding.')
+  })
+
+  it('a sub-majority leader with a clear win-gap stays "slightly ahead" (dilution guard)', () => {
+    // 45% vs 20% among a larger field is a clear lead even below majority —
+    // absolute win probabilities dilute as the option count grows.
+    const a = noGoal(makeOption({ ...OPTION_A, winProbability: 0.2, expected: 67, outcome: { mean: 67, p10: 55, p50: 67, p90: 80 } }))
+    const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.45, expected: 68, outcome: { mean: 68, p10: 56, p50: 68, p90: 82 } }))
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    expect(m.headline).toBe('Upskill the team is slightly ahead.')
+  })
+
+  it('missing win probabilities fall back to the unbanded claim — banded copy is never guessed', () => {
+    const a = noGoal(makeOption({ ...OPTION_A, winProbability: undefined, expected: 60, outcome: { mean: 60, p10: 45, p50: 60, p90: 70 } }))
+    const b = noGoal(makeOption({ ...OPTION_B, winProbability: undefined, expected: 68, outcome: { mean: 68, p10: 55, p50: 68, p90: 85 } }))
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
     expect(m.headline).toBe('Upskill the team currently leads the overall analysis.')
     expect(m.subline).toBe('Upskill the team also has the strongest expected outcome.')
+    expect(`${m.headline} ${m.subline}`).not.toMatch(/close|overlap|slightly|most likely/i)
   })
 })
 
@@ -374,6 +425,26 @@ describe('buildHeroModel — grounded detail lines and goal hint', () => {
     expect(chart(buildHeroModel(makeHeroData())).showGoalHint).toBe(false)
   })
 
+  it('targetUnit passes through the existing outcome unit fields (never invented)', () => {
+    // Fixture default: 'count' — no honest unit glyph exists.
+    expect(chart(buildHeroModel(makeHeroData())).targetUnit).toBeNull()
+    // Percent outcomes label the editor with %.
+    expect(
+      chart(buildHeroModel(makeHeroData({ recommendation: { outcomeUnit: 'percent' } })))
+        .targetUnit,
+    ).toBe('%')
+    // Currency outcomes reuse the existing symbol.
+    expect(
+      chart(
+        buildHeroModel(
+          makeHeroData({
+            recommendation: { outcomeUnit: 'currency', outcomeUnitSymbol: '£' },
+          }),
+        ),
+      ).targetUnit,
+    ).toBe('£')
+  })
+
   it('counts the rows that draw a range line (caption wording gate)', () => {
     // Both fixture rows carry p10/p90.
     expect(chart(buildHeroModel(makeHeroData())).outcomeRangedRowCount).toBe(2)
@@ -398,8 +469,10 @@ describe('buildHeroModel — lens gating and numbering', () => {
   })
 
   it('hides Goal fit when no option has goalProbability, defaulting to outcome', () => {
+    // (winProbability stripped from the recommended option so the unbanded
+    // fallback claim isolates the lens-gating behaviour under test.)
     const a = makeOption({ ...OPTION_A, goalProbability: undefined })
-    const b = makeOption({ ...OPTION_B, goalProbability: undefined })
+    const b = makeOption({ ...OPTION_B, goalProbability: undefined, winProbability: undefined })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
     expect(m.lenses).toEqual(['outcome'])
     expect(m.defaultLens).toBe('outcome')
@@ -442,8 +515,39 @@ describe('buildHeroModel — lens gating and numbering', () => {
     ])
     // Rows are shared across lenses (single array) — numbering cannot change
     // when the lens changes because the model carries no per-lens row order.
-    expect(Object.keys(m.leaders)).toEqual(['goal', 'outcome'])
+    expect(Object.keys(m.leaders)).toEqual(['goal', 'outcome', 'stability', 'whatChanged'])
   })
+
+  it('four-option order is the SHARED comparator, NOT the active-lens metric (trust invariant)', () => {
+    // Reproduces the reviewer's four-option observation and the earlier
+    // staging #1-vs-#4 defect it guards against: win probability descends
+    // A>B>C>D, but BOTH lens metrics rank D above C — so per-lens values are
+    // legitimately out of descending order because rows follow the shared
+    // overall comparator (sortOptionsForDisplay), never the active lens.
+    const opts = [
+      makeOption({ id: 'opt_a', label: 'A', winProbability: 0.5, expected: 30, outcome: { mean: 30, p10: 20, p50: 30, p90: 40 }, goalProbability: 0.6 }),
+      makeOption({ id: 'opt_b', label: 'B', winProbability: 0.3, expected: 20, outcome: { mean: 20, p10: 12, p50: 20, p90: 28 }, goalProbability: 0.3 }),
+      // C ranks 3rd by win, but LOWER on both lenses than D (4th by win).
+      makeOption({ id: 'opt_c', label: 'C', winProbability: 0.1, expected: 4, outcome: { mean: 4, p10: 1, p50: 4, p90: 7 }, goalProbability: 0.11 }),
+      makeOption({ id: 'opt_d', label: 'D', winProbability: 0.05, expected: 6, outcome: { mean: 6, p10: 2, p50: 6, p90: 10 }, goalProbability: 0.22 }),
+    ]
+    // Input deliberately scrambled — the hero must re-derive the order, not
+    // trust the array it was handed.
+    const scrambled = [opts[2], opts[0], opts[3], opts[1]]
+    const m = chart(buildHeroModel(makeHeroData({ options: scrambled })))
+
+    // (1) Row order equals the shared comparator applied independently.
+    const expectedOrder = sortOptionsForDisplay(scrambled).map((o) => o.id)
+    expect(m.rows.map((r) => r.id)).toEqual(expectedOrder)
+    expect(expectedOrder).toEqual(['opt_a', 'opt_b', 'opt_c', 'opt_d']) // win desc
+    // (2) Row NUMBER tokens match row order (1..4), independent of lens.
+    expect(m.rows.map((r) => r.index)).toEqual([1, 2, 3, 4])
+    // (3) Proof it is NOT lens-sorted: on BOTH lenses row 3 (C) sits below
+    //     row 4 (D) — descending-by-lens would have swapped them.
+    expect(m.rows[2].outcome.centre! < m.rows[3].outcome.centre!).toBe(true) // +4 vs +6
+    expect(m.rows[2].goal.value! < m.rows[3].goal.value!).toBe(true) // 11% vs 22%
+  })
+
 })
 
 describe('buildHeroModel — states', () => {

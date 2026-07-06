@@ -3,8 +3,8 @@
  * verbatim, omits everything unsourced, and never renders trust wording,
  * raw floats, a goal-alone marker, or the retired lenses.
  */
-import { describe, expect, it } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import { render, screen, fireEvent, within, createEvent } from '@testing-library/react'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { buildHeroModel } from '../buildHeroModel'
 import type { HeroChartModel, HeroStatusModel } from '../heroTypes'
@@ -175,7 +175,7 @@ describe('AnalysisHeroPanel — content', () => {
     expect(screen.queryByTestId('hero-win-meta')).toBeNull()
   })
 
-  it('goal hint renders only when the goal lens is missing because no target exists', () => {
+  it('promotes the success-target line into Focus next ONLY when no target exists', () => {
     const noGoal = [
       makeOption({ ...OPTION_A, goalProbability: undefined }),
       makeOption({ ...OPTION_B, goalProbability: undefined }),
@@ -183,13 +183,232 @@ describe('AnalysisHeroPanel — content', () => {
     const { unmount } = renderPanel(
       chartModel(makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } })),
     )
-    expect(screen.getByTestId('hero-goal-hint')).toHaveTextContent(
-      'Set a success target to see goal fit.',
-    )
+    // No apply route wired → plain text, never a dead control.
+    const promoted = screen.getByTestId('hero-focus-target')
+    expect(promoted).toHaveTextContent('Focus next: set a success target to unlock Goal fit.')
+    expect(promoted.tagName).toBe('P')
+    // The generic focus line is replaced, not duplicated.
+    expect(screen.queryByTestId('hero-focus-next')).toBeNull()
     unmount()
-    // Target exists (producer gap) → no hint. Goal lens present → no hint.
+    // Target exists (producer gap) → generic focus line, no promotion.
     renderPanel(chartModel(makeHeroData({ options: noGoal })))
-    expect(screen.queryByTestId('hero-goal-hint')).toBeNull()
+    expect(screen.queryByTestId('hero-focus-target')).toBeNull()
+    expect(screen.getByTestId('hero-focus-next')).toBeInTheDocument()
+  })
+
+  it('the promoted target action commits a raw value through the existing apply route', () => {
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    const onApplyTarget = vi.fn()
+    renderPanel(
+      chartModel(makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } })),
+      { onApplyTarget },
+    )
+    const button = screen.getByTestId('hero-focus-target')
+    expect(button.tagName).toBe('BUTTON')
+    fireEvent.click(button)
+    const input = screen.getByLabelText('Success target value')
+    fireEvent.change(input, { target: { value: '62' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onApplyTarget).toHaveBeenCalledWith(62)
+    // Editor closes after commit; the action line returns.
+    expect(screen.queryByTestId('hero-focus-target-editor')).toBeNull()
+    expect(screen.getByTestId('hero-focus-target')).toBeInTheDocument()
+  })
+
+  it('the apply tick prevents mousedown default so the commit survives the blur race', () => {
+    // Cross-browser robustness: browsers that do not focus a button on
+    // mousedown (Safari) would blur the input with relatedTarget=null,
+    // letting the group onBlur unmount the editor before the click lands.
+    // preventDefault on the button mousedown keeps focus on the input, so
+    // the click reliably commits. Pin both halves: default IS prevented,
+    // and a click still commits exactly once.
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    const onApplyTarget = vi.fn()
+    renderPanel(
+      chartModel(makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } })),
+      { onApplyTarget },
+    )
+    fireEvent.click(screen.getByTestId('hero-focus-target'))
+    fireEvent.change(screen.getByLabelText('Success target value'), { target: { value: '40' } })
+    const applyBtn = screen.getByLabelText('Apply target and run the analysis again')
+    const mousedown = createEvent.mouseDown(applyBtn)
+    fireEvent(applyBtn, mousedown)
+    expect(mousedown.defaultPrevented).toBe(true)
+    fireEvent.click(applyBtn)
+    expect(onApplyTarget).toHaveBeenCalledTimes(1)
+    expect(onApplyTarget).toHaveBeenCalledWith(40)
+  })
+
+  it('Escape abandons the target editor without applying anything', () => {
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    const onApplyTarget = vi.fn()
+    renderPanel(
+      chartModel(makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } })),
+      { onApplyTarget },
+    )
+    fireEvent.click(screen.getByTestId('hero-focus-target'))
+    const input = screen.getByLabelText('Success target value')
+    fireEvent.change(input, { target: { value: '55' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(onApplyTarget).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('hero-focus-target-editor')).toBeNull()
+  })
+
+  it('blur away from the editor group abandons without applying (never a commit)', () => {
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    const onApplyTarget = vi.fn()
+    renderPanel(
+      chartModel(makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } })),
+      { onApplyTarget },
+    )
+    fireEvent.click(screen.getByTestId('hero-focus-target'))
+    const input = screen.getByLabelText('Success target value')
+    fireEvent.change(input, { target: { value: '55' } })
+    // Focus leaves the editor group entirely (relatedTarget outside).
+    fireEvent.blur(screen.getByTestId('hero-focus-target-editor'), {
+      relatedTarget: document.body,
+    })
+    expect(onApplyTarget).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('hero-focus-target-editor')).toBeNull()
+  })
+
+  it('invalid or empty input NEVER fires the apply route (strict numeric commit)', () => {
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    const onApplyTarget = vi.fn()
+    renderPanel(
+      chartModel(makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } })),
+      { onApplyTarget },
+    )
+    fireEvent.click(screen.getByTestId('hero-focus-target'))
+    const input = screen.getByLabelText('Success target value')
+    // Empty draft: Enter and the apply button both refuse to commit.
+    fireEvent.keyDown(input, { key: 'Enter' })
+    fireEvent.click(screen.getByLabelText('Apply target and run the analysis again'))
+    expect(onApplyTarget).not.toHaveBeenCalled()
+    // The editor stays open for correction rather than silently closing.
+    expect(screen.getByTestId('hero-focus-target-editor')).toBeInTheDocument()
+  })
+
+  it('the editor shows a visible label and the outcome unit so the user knows what to type', () => {
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    renderPanel(
+      chartModel(
+        makeHeroData({
+          options: noGoal,
+          recommendation: { goalThreshold: null, outcomeUnit: 'percent' },
+        }),
+      ),
+      { onApplyTarget: vi.fn() },
+    )
+    fireEvent.click(screen.getByTestId('hero-focus-target'))
+    const editor = screen.getByTestId('hero-focus-target-editor')
+    expect(editor).toHaveTextContent('Success target')
+    expect(screen.getByTestId('hero-target-unit')).toHaveTextContent('%')
+    // The unit also reaches the accessible name of the input.
+    expect(screen.getByLabelText('Success target value (%)')).toBeInTheDocument()
+  })
+
+  it('omits the unit suffix when no outcome unit label exists (count outcomes)', () => {
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    // Fixture default outcomeUnit is 'count' — no honest unit glyph exists.
+    renderPanel(
+      chartModel(makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } })),
+      { onApplyTarget: vi.fn() },
+    )
+    fireEvent.click(screen.getByTestId('hero-focus-target'))
+    expect(screen.queryByTestId('hero-target-unit')).toBeNull()
+    expect(screen.getByLabelText('Success target value')).toBeInTheDocument()
+  })
+
+  it('producer-slot text is glyph-guarded: em dashes render as plain hyphens (house style)', () => {
+    // The trust line renders producer text VERBATIM in content; the guard
+    // swaps only the dash glyphs, never words.
+    const model = {
+      ...chartModel(),
+      trustLine: 'Trust: moderate — 4,000 samples — 2 assumptions to verify.',
+      statusChip: 'First pass — provisional',
+    }
+    renderPanel(model)
+    expect(screen.getByTestId('hero-trust-line')).toHaveTextContent(
+      'Trust: moderate - 4,000 samples - 2 assumptions to verify.',
+    )
+    expect(screen.getByTestId('hero-status-chip')).toHaveTextContent('First pass - provisional')
+    expect(screen.getByTestId('hero-trust-line').textContent).not.toContain('—')
+  })
+
+  it('the Stability lens shows its per-option explainer caption ONLY when data-bearing', () => {
+    // Live models never carry stability data, so pin the caption through a
+    // model override (the same way the producer-backed state will render).
+    const base = chartModel()
+    renderPanel({
+      ...base,
+      lenses: [...base.lenses, 'stability' as const],
+      rows: base.rows.map((r, i) => ({
+        ...r,
+        stability: { value: 0.5 + i * 0.2, readout: 'Producer label' },
+      })),
+    })
+    fireEvent.click(screen.getByTestId('hero-lens-tab-stability'))
+    expect(screen.getByTestId('hero-caption')).toHaveTextContent(
+      'Stability shows how firmly each option holds its position under uncertainty. It describes each option separately, not the analysis as a whole.',
+    )
+    // Unavailable stability (live today) shows the explainer body, never this caption.
+  })
+
+  it('the editor discloses the rerun side effect BEFORE any commit', () => {
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    renderPanel(
+      chartModel(makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } })),
+      { onApplyTarget: vi.fn() },
+    )
+    fireEvent.click(screen.getByTestId('hero-focus-target'))
+    expect(screen.getByTestId('hero-focus-target-editor')).toHaveTextContent(
+      'Applying runs the analysis again.',
+    )
+  })
+
+  it('detail omits the duplicate full-label line when the visible label is measurably unclipped', () => {
+    renderPanel(chartModel())
+    const label = within(screen.getByTestId('hero-option-row-1')).getByTestId('hero-row-label')
+    Object.defineProperty(label, 'scrollHeight', { configurable: true, value: 40 })
+    Object.defineProperty(label, 'clientHeight', { configurable: true, value: 40 })
+    fireEvent.click(screen.getByRole('button', { name: /Two developers/ }))
+    expect(screen.queryByTestId('hero-detail-label')).toBeNull()
+    // Grounded lines still render — only the duplicated name is dropped.
+    expect(screen.getByTestId('hero-detail-range')).toBeInTheDocument()
+  })
+
+  it('detail recovers the full label when the visible label IS clipped (measured overflow)', () => {
+    renderPanel(chartModel())
+    const label = within(screen.getByTestId('hero-option-row-1')).getByTestId('hero-row-label')
+    Object.defineProperty(label, 'scrollHeight', { configurable: true, value: 60 })
+    Object.defineProperty(label, 'clientHeight', { configurable: true, value: 40 })
+    fireEvent.click(screen.getByRole('button', { name: /Two developers/ }))
+    expect(screen.getByTestId('hero-detail-label')).toHaveTextContent('Two developers')
   })
 
   it('Goal fit surfaces the target-attainment truth (per-option goal readouts)', () => {
@@ -208,29 +427,70 @@ describe('AnalysisHeroPanel — content', () => {
     expect(container.textContent).not.toMatch(/goal alone/i)
   })
 
-  it('never renders trust or stability wording, and no raw 0-1 floats', () => {
+  it('never renders trust wording or raw 0-1 floats from a live model', () => {
+    // "Stability" is deliberately NOT in this ban: it appears exactly once
+    // as a lens NAME in the strip (navigation label, not a claim about this
+    // run). Every trust/banding CLAIM word stays banned.
     const { container } = renderPanel(chartModel())
     const text = container.textContent ?? ''
     expect(text).not.toMatch(/\btrust\b/i)
-    expect(text).not.toMatch(/\b(firm|fragile|provisional|robust|stability|confidence)\b/i)
+    expect(text).not.toMatch(/\b(firm|fragile|provisional|robust|confidence)\b/i)
     expect(text).not.toMatch(/\b0\.\d+\b/)
   })
 
-  it('renders only the two launch lenses — Stability and What changed do not exist', () => {
+  it('renders the full prototype lens strip; data-less lenses are marked unavailable', () => {
     renderPanel(chartModel())
-    expect(screen.getAllByRole('tab')).toHaveLength(2)
-    expect(screen.queryByText(/stability/i)).toBeNull()
-    expect(screen.queryByText(/what changed/i)).toBeNull()
+    expect(screen.getAllByRole('tab')).toHaveLength(4)
+    expect(screen.getByTestId('hero-lens-tab-goal')).toHaveAttribute('data-available', 'true')
+    expect(screen.getByTestId('hero-lens-tab-outcome')).toHaveAttribute('data-available', 'true')
+    expect(screen.getByTestId('hero-lens-tab-stability')).toHaveAttribute('data-available', 'false')
+    expect(screen.getByTestId('hero-lens-tab-whatChanged')).toHaveAttribute('data-available', 'false')
   })
 
-  it('hides the tab strip when only one lens is available', () => {
+  it('selecting an unavailable lens shows the honest explainer body, never a fabricated chart', () => {
+    renderPanel(chartModel())
+    fireEvent.click(screen.getByTestId('hero-lens-tab-stability'))
+    expect(screen.getByTestId('hero-lens-unavailable')).toHaveTextContent(
+      'This view needs per-option stability data, which the analysis does not provide yet.',
+    )
+    expect(screen.queryByTestId('hero-option-row-1')).toBeNull()
+    expect(screen.queryByTestId('hero-caption')).toBeNull()
+    fireEvent.click(screen.getByTestId('hero-lens-tab-whatChanged'))
+    expect(screen.getByTestId('hero-lens-unavailable')).toHaveTextContent(
+      'This view compares runs. It unlocks when the analysis can report what changed between runs.',
+    )
+  })
+
+  it('unavailable Goal fit distinguishes the no-target unlock from a producer gap', () => {
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    // No target → the unlock instruction.
+    const { unmount } = renderPanel(
+      chartModel(makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } })),
+    )
+    fireEvent.click(screen.getByTestId('hero-lens-tab-goal'))
+    expect(screen.getByTestId('hero-lens-unavailable')).toHaveTextContent(
+      'Set a success target to unlock Goal fit.',
+    )
+    unmount()
+    // Target exists but no goal figures came back → producer-gap wording.
+    renderPanel(chartModel(makeHeroData({ options: noGoal })))
+    fireEvent.click(screen.getByTestId('hero-lens-tab-goal'))
+    expect(screen.getByTestId('hero-lens-unavailable')).toHaveTextContent(
+      'Goal fit is not available for this run.',
+    )
+  })
+
+  it('the tab strip persists even when only one lens carries data', () => {
     const noGoal = [
       makeOption({ ...OPTION_A, goalProbability: undefined }),
       makeOption({ ...OPTION_B, goalProbability: undefined }),
     ]
     renderPanel(chartModel(makeHeroData({ options: noGoal })))
-    expect(screen.queryByRole('tablist')).toBeNull()
-    // The single available lens still renders its rows.
+    expect(screen.getAllByRole('tab')).toHaveLength(4)
+    // The single available lens still renders its rows by default.
     expect(screen.getByTestId('hero-option-row-1')).toBeInTheDocument()
   })
 

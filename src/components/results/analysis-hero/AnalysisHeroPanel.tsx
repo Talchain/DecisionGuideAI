@@ -21,8 +21,8 @@
  * ROBUSTNESS-VERDICT-CONTRACT), so the trust line is omitted rather than
  * derived. Raw 0-1 stability/confidence floats are never displayed.
  */
-import { useEffect, useId, useState } from 'react'
-import { ArrowDown, Info, RefreshCw } from 'lucide-react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { ArrowDown, Check, FlaskConical, Info, RefreshCw, Target } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { HERO_COPY } from './heroCopy'
 import { HeroLensTabs, tabId } from './HeroLensTabs'
@@ -40,10 +40,28 @@ export interface AnalysisHeroPanelProps {
    * link — with the panel absent the line degrades to plain text.
    */
   focusPanelMounted: boolean
+  /**
+   * Existing apply-target route (OutputsDock handleApplyThreshold: sets the
+   * goal threshold and reruns — the same handler the Options Compare target
+   * row used). When absent, the promoted Focus-next target line degrades to
+   * plain text; the hero never invents an action route of its own.
+   */
+  onApplyTarget?: (value: number) => void
 }
 
 /** The coaching panel container the focus-next affordance scrolls to. */
 const FOCUS_PANEL_SELECTOR = '[data-testid="focus-now-panel"]'
+
+/**
+ * House-style guard for PRODUCER-slot text (trust line, status chip, named
+ * focus action): em/en dashes are swapped for a plain hyphen. Glyph swap
+ * only — no words are added, removed or reordered, so the producer's
+ * content passes through untouched. (The app-wide '—' missing-value
+ * placeholder glyph is unaffected: it never flows through these slots.)
+ */
+function dashSafe(text: string): string {
+  return text.replace(/\s*[—–]\s*/g, ' - ')
+}
 
 /** Scroll to the coaching panel below; no-op when the target is absent. */
 function scrollToFocusPanel() {
@@ -70,10 +88,36 @@ export function AnalysisHeroPanel({
   onRerun,
   rerunDisabled,
   focusPanelMounted,
+  onApplyTarget,
 }: AnalysisHeroPanelProps) {
   const panelId = useId()
   const [lensState, setLensState] = useState<HeroLens | null>(null)
   const [openRowId, setOpenRowId] = useState<string | null>(null)
+
+  // Promoted success-target affordance (single-lens no-target runs only):
+  // local edit state mirroring the retired SuccessTargetRow contract —
+  // Enter/tick commits a raw user-unit number to the existing apply route,
+  // Escape/blur reverts. No value is stored here beyond the draft text.
+  const [targetEditing, setTargetEditing] = useState(false)
+  const [targetDraft, setTargetDraft] = useState('')
+  const targetInputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (targetEditing) {
+      targetInputRef.current?.focus()
+      targetInputRef.current?.select()
+    }
+  }, [targetEditing])
+  const commitTarget = () => {
+    // STRICT parse (write-boundary gate): empty, partial or trailing-junk
+    // input ("", "62abc", "e") must never reach the apply route — Number()
+    // rejects anything that is not a complete numeric literal, and only a
+    // finite value commits. Invalid input closes nothing and fires nothing.
+    const trimmed = targetDraft.trim()
+    const parsed = trimmed === '' ? NaN : Number(trimmed)
+    if (!Number.isFinite(parsed)) return
+    onApplyTarget?.(parsed)
+    setTargetEditing(false)
+  }
 
   // `focusPanelMounted` only says the coaching panel's flag is on. The
   // focus-next affordance must never be an enabled no-op for keyboard and
@@ -94,37 +138,71 @@ export function AnalysisHeroPanel({
       <section
         aria-label={HERO_COPY.panelAria}
         data-testid="analysis-hero-panel"
-        className="rounded-lg border border-panel-border bg-panel p-3"
+        className="space-y-2 rounded-lg border border-panel-border bg-panel p-3"
       >
+        {model.provenance === 'fixture' && (
+          <p
+            data-testid="hero-fixture-banner"
+            className={`${typography.panelMeta} flex items-center gap-1.5 rounded border border-panel-border bg-panel-hover px-2 py-1 text-warning`}
+          >
+            <FlaskConical aria-hidden="true" className="h-3.5 w-3.5 flex-none" />
+            {HERO_COPY.fixtureBanner}
+          </p>
+        )}
         <StatusState model={model} />
       </section>
     )
   }
 
-  // Local lens state guarded against model changes: fall back to the model's
-  // default whenever the remembered lens is no longer available.
-  const lens: HeroLens =
-    lensState && model.lenses.includes(lensState) ? lensState : model.defaultLens
+  // Local lens state: every lens in the strip is selectable (unavailable
+  // lenses show the explained empty body), so the remembered lens only
+  // falls back to the model default when nothing has been chosen yet.
+  const lens: HeroLens = lensState ?? model.defaultLens
+  const lensAvailable = model.lenses.includes(lens)
   const interactive = !isStale
-  const showTabs = model.lenses.length > 1
 
   // Constraint presence picks the goal-lens copy variant once for both
   // the axis and the caption (the two share key structure in HERO_COPY).
   const goalKey = model.hasConstraints ? ('goalWithLimits' as const) : ('goalOnly' as const)
-  const axis = lens === 'goal' ? HERO_COPY.axis[goalKey] : HERO_COPY.axis.outcome
+  // Axis labels per lens: Stability rows carry the producer's own readout
+  // labels, so no generic axis is drawn for them; What changed compares the
+  // same outcome quantities as Likely outcome.
+  const axis =
+    lens === 'goal'
+      ? HERO_COPY.axis[goalKey]
+      : lens === 'outcome' || lens === 'whatChanged'
+        ? HERO_COPY.axis.outcome
+        : null
   // The Likely outcome lens shows option comparison only — no target line or
   // target mention (target attainment lives on the Goal fit lens). The
   // caption describes only what the chart draws: no lines → dots-only
   // wording; one line → no overlap sentence (a single range cannot
-  // overlap); two-plus → the full wording.
+  // overlap); two-plus → the full wording. What changed adds the
+  // ghost-mark legend; Stability needs no caption (the readouts are the
+  // producer's own labels).
   const caption =
     lens === 'goal'
       ? HERO_COPY.caption[goalKey]
-      : model.outcomeRangedRowCount === 0
-        ? HERO_COPY.caption.outcomeDotsOnly
-        : model.outcomeRangedRowCount === 1
-          ? HERO_COPY.caption.outcomeSingleRange
-          : `${HERO_COPY.caption.outcome} ${HERO_COPY.caption.outcomeOverlap}`
+      : lens === 'whatChanged'
+        ? HERO_COPY.ghostLegend
+        : lens === 'stability'
+          ? HERO_COPY.caption.stability
+          : model.outcomeRangedRowCount === 0
+            ? HERO_COPY.caption.outcomeDotsOnly
+            : model.outcomeRangedRowCount === 1
+              ? HERO_COPY.caption.outcomeSingleRange
+              : `${HERO_COPY.caption.outcome} ${HERO_COPY.caption.outcomeOverlap}`
+
+  // Honest unavailable-lens body: why it is empty + what unlocks it. The
+  // goal lens distinguishes the user-actionable no-target case from a
+  // producer gap.
+  const unavailableBody = !lensAvailable
+    ? lens === 'goal'
+      ? model.showGoalHint
+        ? HERO_COPY.lensUnavailable.goalNoTarget
+        : HERO_COPY.lensUnavailable.goalProducerGap
+      : HERO_COPY.lensUnavailable[lens]
+    : null
 
   const leaderId = model.leaders[lens]
 
@@ -134,10 +212,35 @@ export function AnalysisHeroPanel({
       data-testid="analysis-hero-panel"
       className="space-y-2 rounded-lg border border-panel-border bg-panel p-3"
     >
+      {/* Fixture guard: models branded 'fixture' (internal gallery only)
+          always carry a visible banner — example data must never be
+          mistakable for real analysis output. */}
+      {model.provenance === 'fixture' && (
+        <p
+          data-testid="hero-fixture-banner"
+          className={`${typography.panelMeta} flex items-center gap-1.5 rounded border border-panel-border bg-panel-hover px-2 py-1 text-warning`}
+        >
+          <FlaskConical aria-hidden="true" className="h-3.5 w-3.5 flex-none" />
+          {HERO_COPY.fixtureBanner}
+        </p>
+      )}
+
       <div className="space-y-1">
-        <h3 className={`${typography.panelHeader} text-text-header`} data-testid="hero-headline">
-          {model.headline}
-        </h3>
+        <div className="flex items-start justify-between gap-2">
+          <h3 className={`${typography.panelHeader} text-text-header`} data-testid="hero-headline">
+            {model.headline}
+          </h3>
+          {/* Status chip slot — PRODUCER-SUPPLIED label rendered verbatim
+              (issue 221); the live adapter sets null until it exists. */}
+          {model.statusChip && (
+            <span
+              data-testid="hero-status-chip"
+              className={`${typography.panelMeta} whitespace-nowrap rounded-full border border-panel-border bg-transparent px-2 py-0.5 text-text-light`}
+            >
+              {dashSafe(model.statusChip)}
+            </span>
+          )}
+        </div>
         {model.subline && (
           <p className={`${typography.panelBody} text-text-light`} data-testid="hero-subline">
             {model.subline}
@@ -151,75 +254,92 @@ export function AnalysisHeroPanel({
         data-testid="hero-chart-area"
         className={`space-y-2 ${isStale ? 'pointer-events-none opacity-45' : ''}`}
       >
-        {showTabs && (
-          <HeroLensTabs
-            lenses={model.lenses}
-            active={lens}
-            onSelect={setLensState}
-            interactive={interactive}
-            panelId={panelId}
-          />
-        )}
+        {/* Full prototype lens strip — always rendered; lenses without
+            data are muted but selectable and explain themselves below. */}
+        <HeroLensTabs
+          available={model.lenses}
+          active={lens}
+          onSelect={setLensState}
+          interactive={interactive}
+          panelId={panelId}
+        />
 
         <div
           id={panelId}
-          {...(showTabs ? { role: 'tabpanel', 'aria-labelledby': tabId(panelId, lens) } : {})}
+          role="tabpanel"
+          aria-labelledby={tabId(panelId, lens)}
           className="space-y-1"
         >
-          {/* Axis labels (decorative; values live in the row readouts).
-              Shares the row grid template so the track columns align. */}
-          <div aria-hidden="true" className={`${HERO_ROW_GRID} items-end py-0`}>
-            <span />
-            <span className={`${typography.panelMeta} relative flex justify-between text-text-light`}>
-              <span>{axis.left}</span>
-              <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-text-body">
-                {axis.mid}
-              </span>
-              <span>{axis.right}</span>
-            </span>
-            <span />
-            <span />
-          </div>
+          {unavailableBody ? (
+            /* Explained empty state — why this lens is empty and what
+               unlocks it. Never a fabricated chart. */
+            <p
+              data-testid="hero-lens-unavailable"
+              className={`${typography.panelBody} flex items-start gap-1.5 py-2 text-text-light`}
+            >
+              <Info aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 flex-none text-info" />
+              {unavailableBody}
+            </p>
+          ) : (
+            <>
+              {/* Axis labels (decorative; values live in the row readouts).
+                  Shares the row grid template so the track columns align. */}
+              {axis && (
+                <div aria-hidden="true" className={`${HERO_ROW_GRID} items-end py-0`}>
+                  <span />
+                  <span
+                    className={`${typography.panelMeta} relative flex justify-between text-text-light`}
+                  >
+                    <span>{axis.left}</span>
+                    <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-text-body">
+                      {axis.mid}
+                    </span>
+                    <span>{axis.right}</span>
+                  </span>
+                  <span />
+                  <span />
+                </div>
+              )}
 
-          <div className="space-y-0.5" data-testid="hero-chart-rows">
-            {model.rows.map((row) => (
-              <HeroOptionRow
-                key={row.id}
-                row={row}
-                lens={lens}
-                isLeader={row.id === leaderId}
-                isOpen={openRowId === row.id}
-                onToggle={() => setOpenRowId((cur) => (cur === row.id ? null : row.id))}
-                interactive={interactive}
-                outcomeDomain={model.outcomeDomain}
-              />
-            ))}
-          </div>
+              <div className="space-y-0.5" data-testid="hero-chart-rows">
+                {model.rows.map((row) => (
+                  <HeroOptionRow
+                    key={row.id}
+                    row={row}
+                    lens={lens}
+                    isLeader={row.id === leaderId}
+                    isOpen={openRowId === row.id}
+                    onToggle={() => setOpenRowId((cur) => (cur === row.id ? null : row.id))}
+                    interactive={interactive}
+                    outcomeDomain={model.outcomeDomain}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
-        <p className={`${typography.panelBody} flex items-start gap-1.5 text-text-body`}>
-          <Info aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 flex-none text-info" />
-          <span data-testid="hero-caption">{caption}</span>
-        </p>
-
-        {/* Single-lens discoverability: only when the goal lens is absent
-            because no success target exists (never for producer gaps). */}
-        {model.showGoalHint && (
-          <p
-            className={`${typography.panelMeta} pl-5 text-text-light`}
-            data-testid="hero-goal-hint"
-          >
-            {HERO_COPY.goalHint}
+        {!unavailableBody && caption && (
+          <p className={`${typography.panelBody} flex items-start gap-1.5 text-text-body`}>
+            <Info aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 flex-none text-info" />
+            <span data-testid="hero-caption">{caption}</span>
           </p>
         )}
       </div>
 
-      {/* Footer strip: Main reason · Focus next. The trust line is omitted —
-          no producer-supplied trust label exists (gap reported in the PR). */}
+      {/* Footer strip: Main reason · Trust slot · Focus next. The trust
+          line renders PRODUCER-SUPPLIED text verbatim (issues 219/221) —
+          the live adapter sets null until such a label exists, so the slot
+          is fixture-only today; the hero never authors trust wording. */}
       <div className="space-y-1.5 border-t border-panel-border pt-2">
         {model.mainReason && (
           <p className={`${typography.panelBody} text-text-body`} data-testid="hero-main-reason">
             {model.mainReason}
+          </p>
+        )}
+        {model.trustLine && (
+          <p className={`${typography.panelBody} text-text-light`} data-testid="hero-trust-line">
+            {dashSafe(model.trustLine)}
           </p>
         )}
         {isStale ? (
@@ -238,6 +358,115 @@ export function AnalysisHeroPanel({
             />
             {HERO_COPY.footer.rerun}
           </button>
+        ) : model.showGoalHint ? (
+          /* Promoted single-lens unlock: the Focus-next slot carries the
+             success-target action (fires ONLY when no target exists — never
+             for producer gaps). Actionable solely through the existing
+             apply route; without it the line is plain text, never a dead
+             control. */
+          targetEditing && onApplyTarget ? (
+            <span
+              className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-1"
+              data-testid="hero-focus-target-editor"
+              onBlur={(e) => {
+                // Abandon only when focus leaves the editor GROUP — tabbing
+                // from the input to the apply button must not unmount the
+                // editor mid-flight (keyboard flow; review fix).
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                  setTargetEditing(false)
+                }
+              }}
+            >
+              <Target aria-hidden="true" className="h-3.5 w-3.5 flex-none text-info" />
+              {/* Visible label + unit: the user sees WHAT to type and in
+                  which unit before committing (unit is the outcome unit —
+                  passthrough of existing fields, review gate). */}
+              <span className={`${typography.panelBody} text-text-body`}>
+                {HERO_COPY.footer.targetLabel}
+              </span>
+              <input
+                ref={targetInputRef}
+                type="number"
+                value={targetDraft}
+                onChange={(e) => setTargetDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    commitTarget()
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault()
+                    setTargetEditing(false)
+                  }
+                }}
+                disabled={rerunDisabled}
+                aria-label={
+                  model.targetUnit
+                    ? `${HERO_COPY.footer.targetInputAria} (${model.targetUnit})`
+                    : HERO_COPY.footer.targetInputAria
+                }
+                className={`w-20 rounded border border-info px-2 py-0.5 ${typography.panelBody} tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50`}
+              />
+              {model.targetUnit && (
+                <span
+                  className={`${typography.panelBody} text-text-body`}
+                  data-testid="hero-target-unit"
+                >
+                  {model.targetUnit}
+                </span>
+              )}
+              <button
+                type="button"
+                // Keep focus on the input during a mouse press so the
+                // container blur-revert cannot race the click away. Without
+                // this, browsers that do not focus a button on mousedown
+                // (Safari) blur the input with relatedTarget=null, the
+                // group onBlur unmounts the editor, and the click never
+                // lands — the commit is silently lost. preventDefault fires
+                // only for pointer input; keyboard activation still reaches
+                // onClick with the button focused. Single commit either way.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={commitTarget}
+                disabled={rerunDisabled}
+                aria-label={HERO_COPY.footer.targetApply}
+                title={HERO_COPY.footer.targetApply}
+                className="flex h-5 w-5 items-center justify-center rounded text-success transition-colors hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50"
+              >
+                <Check aria-hidden="true" className="h-3.5 w-3.5" />
+              </button>
+              {/* Rerun disclosure BEFORE commit — applying is analysis-affecting. */}
+              <span className={`${typography.panelMeta} text-text-light`}>
+                {HERO_COPY.footer.targetRerunNote}
+              </span>
+            </span>
+          ) : onApplyTarget ? (
+            <button
+              type="button"
+              onClick={() => {
+                setTargetDraft('')
+                setTargetEditing(true)
+              }}
+              disabled={rerunDisabled}
+              data-testid="hero-focus-target"
+              className={`${typography.panelBody} inline-flex items-center gap-1.5 text-text-body hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50`}
+            >
+              <Target aria-hidden="true" className="h-3.5 w-3.5 text-info" />
+              {HERO_COPY.footer.focusTarget}
+            </button>
+          ) : (
+            <p
+              className={`${typography.panelBody} text-text-body`}
+              data-testid="hero-focus-target"
+            >
+              {HERO_COPY.footer.focusTarget}
+            </p>
+          )
+        ) : model.focusAction ? (
+          /* Named Focus-next — PRODUCER/coaching-contract text rendered
+             verbatim (issue 220); live adapter sets null until the
+             contract exists, so this slot is fixture-only today. */
+          <p className={`${typography.panelBody} text-text-body`} data-testid="hero-focus-action">
+            {dashSafe(model.focusAction)}
+          </p>
         ) : focusTargetPresent ? (
           <button
             type="button"

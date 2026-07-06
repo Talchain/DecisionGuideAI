@@ -16,8 +16,16 @@ import { dirname, join, resolve, sep } from 'node:path'
 const SRC = resolve(process.cwd(), 'src')
 const MODULE_DIR = join(SRC, 'components', 'results', 'analysis-hero')
 
-// The ONE authorised live mount.
-const AUTHORIZED_IMPORTERS = new Set([join(SRC, 'components', 'results', 'ResultsBody.tsx')])
+// The ONE authorised LIVE mount, plus the internal fixture gallery route.
+// The gallery renders ONLY fixture-branded models (provenance 'fixture' —
+// visible internal-preview banner); it cannot produce live models because
+// buildHeroModel is the sole 'live' producer and the gallery never touches
+// ResultsSectionData. The live-data mount therefore remains ResultsBody
+// alone.
+const AUTHORIZED_IMPORTERS = new Set([
+  join(SRC, 'components', 'results', 'ResultsBody.tsx'),
+  join(SRC, 'routes', 'HeroGallery.tsx'),
+])
 
 // Capture the specifier of any import / re-export / dynamic import() /
 // require() — including glued zero-whitespace forms (`import{X}from'x'`)

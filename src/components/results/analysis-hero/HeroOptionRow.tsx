@@ -24,7 +24,7 @@
  * Option labels are producer/user content rendered as escaped React text
  * nodes — no raw HTML injection of any kind.
  */
-import { useId } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { HERO_COPY } from './heroCopy'
@@ -113,14 +113,50 @@ export function HeroOptionRow({
   const regionId = useId()
   const labelId = useId()
 
+  // Full-label recovery gate: the opened detail repeats the option name
+  // ONLY when the two-line clamp actually clips it (an unclipped name would
+  // be pure duplication). Measured when the label or disclosure changes and
+  // on real size changes via ResizeObserver — never on every commit (a
+  // per-commit scrollHeight read forces synchronous reflow; review fix).
+  // The default is TRUE (show) so environments without layout boxes (jsdom
+  // reports 0/0) fail safe — the full name is never withheld when in doubt.
+  const labelRef = useRef<HTMLSpanElement>(null)
+  const [labelClipped, setLabelClipped] = useState(true)
+  // isOpen is a deliberate re-measure trigger (the moment the detail opens
+  // is when the answer matters), not a value the effect reads.
+  useEffect(() => {
+    const el = labelRef.current
+    if (!el) return
+    const measure = () => {
+      if (el.scrollHeight === 0 && el.clientHeight === 0) return
+      setLabelClipped(el.scrollHeight > el.clientHeight + 1)
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [row.label, isOpen])
+
   // Per-lens layout positions (percent of track width). null → hidden.
+  // Ghost marks (previous run) draw only on the What-changed lens and only
+  // when the model carries producer previous values — never UI-diffed.
   let barStart: number | null = null
   let barEnd: number | null = null
   let dotPos: number | null = null
+  let ghostBarStart: number | null = null
+  let ghostBarEnd: number | null = null
+  let ghostDotPos: number | null = null
   if (lens === 'goal') {
     if (row.goal.value != null) {
       barStart = 0
       barEnd = trackPct(row.goal.value)
+      dotPos = barEnd
+    }
+  } else if (lens === 'stability') {
+    if (row.stability?.value != null) {
+      barStart = 0
+      barEnd = trackPct(row.stability.value)
       dotPos = barEnd
     }
   } else if (outcomeDomain) {
@@ -131,9 +167,24 @@ export function HeroOptionRow({
       barEnd = pos(row.outcome.p90)
     }
     if (row.outcome.centre != null) dotPos = pos(row.outcome.centre)
+    if (lens === 'whatChanged' && row.outcome.previous) {
+      const prev = row.outcome.previous
+      if (prev.p10 != null && prev.p90 != null) {
+        ghostBarStart = pos(prev.p10)
+        ghostBarEnd = pos(prev.p90)
+      }
+      if (prev.centre != null) ghostDotPos = pos(prev.centre)
+    }
   }
 
-  const readout = lens === 'goal' ? row.goal.readout : row.outcome.readout
+  const readout =
+    lens === 'goal'
+      ? row.goal.readout
+      : lens === 'stability'
+        ? (row.stability?.readout ?? HERO_COPY.readout.missing)
+        : lens === 'whatChanged'
+          ? (row.changeReadout ?? row.outcome.readout)
+          : row.outcome.readout
   const readoutSuffix =
     lens === 'goal' && row.goal.value != null ? ` ${HERO_COPY.readout.goalSuffix}` : ''
 
@@ -169,7 +220,9 @@ export function HeroOptionRow({
         </span>
         <span
           id={labelId}
+          ref={labelRef}
           title={row.label}
+          data-testid="hero-row-label"
           className={`${typography.panelBody} min-w-0 flex-1 break-words text-left text-text-header line-clamp-2`}
         >
           {row.label}
@@ -180,6 +233,34 @@ export function HeroOptionRow({
       {/* Chart track — layout-only positions, transform/opacity animation. */}
       <span aria-hidden="true" className="relative block h-5 min-w-0">
         <span className="absolute inset-x-0 top-1/2 h-px bg-panel-border" />
+        {/* Ghost marks (previous run, What-changed lens only): faded copies
+            of the same bar/dot geometry from producer previous values —
+            static, behind the current marks, never UI-diffed. */}
+        {ghostBarStart != null && ghostBarEnd != null && (
+          <span
+            data-testid="hero-ghost-bar"
+            className={`absolute left-0 h-2.5 w-full rounded-full opacity-40 ${
+              isLeader ? HERO_BAR_FILL.leader : HERO_BAR_FILL.rest
+            }`}
+            style={{
+              top: 'calc(50% - 5px)',
+              transformOrigin: 'left',
+              transform: `translateX(${ghostBarStart}%) scaleX(${
+                Math.max(ghostBarEnd - ghostBarStart, 0) / 100
+              })`,
+            }}
+          />
+        )}
+        {ghostDotPos != null && (
+          <span className="absolute inset-0 opacity-40" style={{ transform: `translateX(${ghostDotPos}%)` }}>
+            <span
+              data-testid="hero-ghost-dot"
+              className={`absolute left-0 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-panel ${
+                isLeader ? HERO_DOT_FILL.leader : HERO_DOT_FILL.rest
+              }`}
+            />
+          </span>
+        )}
         {/* Range / probability bar: full-width element scaled from the left.
             Solid light-token fill (HERO_BAR_FILL) — opacity-modifier classes
             do not compile with this theme and render transparent. */}
@@ -258,24 +339,48 @@ export function HeroOptionRow({
           data-testid="hero-option-detail"
           className="space-y-1 pb-2 pl-9 pr-2 pt-0.5"
         >
-          {/* Full, unclamped option name — the visible label may be
-              truncated by the two-line clamp, so the detail always
-              recovers it in place. aria-hidden: the region is already
-              labelled by the row label (aria-labelledby), so screen
-              readers would otherwise announce the name twice. */}
-          <p
-            aria-hidden="true"
-            className={`${typography.panelBody} text-text-header`}
-            data-testid="hero-detail-label"
-          >
-            {row.label}
-          </p>
+          {/* Full, unclamped option name — recovered in place ONLY when the
+              two-line clamp actually clips the visible label (labelClipped,
+              measured; defaults to shown when layout cannot be read).
+              aria-hidden: the region is already labelled by the row label
+              (aria-labelledby), so screen readers would otherwise announce
+              the name twice. */}
+          {labelClipped && (
+            <p
+              aria-hidden="true"
+              className={`${typography.panelBody} text-text-header`}
+              data-testid="hero-detail-label"
+            >
+              {row.label}
+            </p>
+          )}
           {row.detail.why && (
             <p className={`${typography.panelBody} text-text-body`} data-testid="hero-detail-why">
               <span className="text-text-header">
                 {HERO_COPY.detail.whyLabel}
               </span>{' '}
               {row.detail.why}
+            </p>
+          )}
+          {/* Watch / Trade-off — producer-narrative slots (issue 217):
+              content renders verbatim when the model carries it; the live
+              adapter never populates these today. */}
+          {row.detail.watch && (
+            <p
+              className={`${typography.panelBody} text-text-body`}
+              data-testid="hero-detail-watch"
+            >
+              <span className="text-text-header">{HERO_COPY.detail.watchLabel}</span>{' '}
+              {row.detail.watch}
+            </p>
+          )}
+          {row.detail.tradeOff && (
+            <p
+              className={`${typography.panelBody} text-text-body`}
+              data-testid="hero-detail-trade-off"
+            >
+              <span className="text-text-header">{HERO_COPY.detail.tradeOffLabel}</span>{' '}
+              {row.detail.tradeOff}
             </p>
           )}
           {row.detail.range && (

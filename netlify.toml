@@ -70,6 +70,12 @@
   # sign-off. See src/flags.ts `analysisHeroPanel`.
   VITE_FEATURE_ANALYSIS_HERO_PANEL = "1"
 
+  # Hero fixture gallery — internal-only /dev/hero-gallery route rendering
+  # prototype hero states from typed fixtures (visible internal-preview
+  # banner on every instance). Staging-only for design review; never add to
+  # `[build.environment]`. See src/flags.ts `heroFixtureGallery`.
+  VITE_FEATURE_HERO_FIXTURE_GALLERY = "1"
+
 # =============================================================================
 # Security Headers (P0 - Enterprise Compliance)
 # =============================================================================
