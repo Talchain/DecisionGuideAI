@@ -55,6 +55,7 @@ const UI_COPY: string[] = [
   HERO_COPY.subline.highestOutcome(L),
   HERO_COPY.subline.aligned(L),
   HERO_COPY.subline.closeOnOutcome(L),
+  HERO_COPY.subline.outcomesClose,
   HERO_COPY.subline.compareTop,
   HERO_COPY.subline.overlapAdvisory,
   HERO_COPY.labelFallback,

@@ -115,6 +115,20 @@ function couldChangeIfLine(
 }
 
 /**
+ * OUTCOME_CLOSE_RATIO — the single relative tolerance that defines "the top
+ * expected outcomes are close" across this module. Two uses, one number:
+ *   (1) subline copy: name the runner-up as "close on expected outcome"
+ *       instead of crowning a "strongest" leader (win-banded state B); and
+ *   (2) layout: floor the outcome-axis span (UI-SEM-054) so a spread that is
+ *       tiny RELATIVE to the values does not zoom the axis.
+ * It is deliberately NOT the gate for suppressing the "strongest" claim in
+ * the unbanded case — that uses exact rendered-readout equality (UI-SEM-070),
+ * a stricter "the chart literally shows the same number" test, so an 8–15%
+ * gap still reads as a genuine (if modest) lead.
+ */
+const OUTCOME_CLOSE_RATIO = 0.15
+
+/**
  * UI-SEM-057: sub-1% goal readout floor — the SHARED constant OptionCards'
  * "< 1% likely to reach target" affordance uses (utils/displayFloors), so a
  * 0.4% probability never rounds to a bare "0%" here while the panel below
@@ -366,16 +380,28 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   // independent by design (closeness of expectations is a different fact
   // from overlapping uncertainty), and the ONLY gate on naming a runner-up
   // as "close on expected outcome".
-  const OUTCOME_GAP_CLOSE_RATIO = 0.15
   const outcomeGapSmall =
     outcomeLeaderRow?.outcome.centre != null &&
     outcomeRunnerUpRow?.outcome.centre != null &&
     outcomeLeaderRow.outcome.centre - outcomeRunnerUpRow.outcome.centre <=
-      OUTCOME_GAP_CLOSE_RATIO *
+      OUTCOME_CLOSE_RATIO *
         Math.max(
           Math.abs(outcomeLeaderRow.outcome.centre),
           Math.abs(outcomeRunnerUpRow.outcome.centre),
         )
+
+  // UI-SEM-070: readout-tie coherence gate. When the top-two outcome rows
+  // render the SAME readout string, the chart literally shows no strongest
+  // option (the reported staging run displayed "100" on all four), so the
+  // subline must NOT claim one — it names the close rival instead. This is
+  // the exact "what the user sees" signal: string equality of the rendered
+  // readouts, never a fabricated value and never a loose ratio (so an 8–15%
+  // gap that renders as distinct numbers still reads as a genuine lead).
+  const topOutcomesReadoutTied =
+    outcomeLeaderRow != null &&
+    outcomeRunnerUpRow != null &&
+    outcomeLeaderRow.outcome.readout !== HERO_COPY.readout.missing &&
+    outcomeLeaderRow.outcome.readout === outcomeRunnerUpRow.outcome.readout
 
   // Goal honesty (UI-SEM-057 reuse — the same sub-1% floor that drives the
   // "< 1%" readouts, no new threshold): when EVERY row carries a goal
@@ -434,12 +460,14 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
           : leaderBand === 'none'
             ? HERO_COPY.headline.noClearLeader
             : HERO_COPY.headline.analysisLeads(safeLabel(headlineRow))
-  } else if (outcomeAvailable && outcomeLeaderRow) {
+  } else if (outcomeAvailable && outcomeLeaderRow && !topOutcomesReadoutTied) {
     // No recommended option among the rows: headline the outcome fact
     // itself — but ONLY when the outcome lens is actually visible (centres
     // without ranges hide it, and the hero must not assert an
-    // expected-outcome comparison it cannot show). The subline is then
-    // redundant and stays null.
+    // expected-outcome comparison it cannot show) AND the top-two readouts
+    // differ (UI-SEM-070: identical readouts show no winner to crown — this
+    // falls through to the neutral "here is how your options compare"
+    // headline, with the "top options are close" subline below).
     headline = HERO_COPY.headline.outcomeLeader(safeLabel(outcomeLeaderRow))
   } else {
     headline = HERO_COPY.headline.noLeader
@@ -459,7 +487,13 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     // the companion line points at the comparison without risking a name.
     subline = HERO_COPY.subline.compareTop
   } else if (rows.length > 1 && outcomeAvailable && outcomeLeaderRow) {
-    if (allGoalBelowFloor) {
+    if (topOutcomesReadoutTied) {
+      // UI-SEM-070: the top-two options render the SAME readout, so no outcome
+      // winner is claimable in ANY branch — no-option-on-track, aligned or
+      // diverged. A neutral plural line; naming a runner-up among tied values
+      // would be arbitrary. This is the reported run: four "100" readouts.
+      subline = HERO_COPY.subline.outcomesClose
+    } else if (allGoalBelowFloor) {
       // No leader was claimed; the outcome fact is the one honest pointer.
       subline = HERO_COPY.subline.highestOutcome(safeLabel(outcomeLeaderRow))
     } else if (headlineRow) {
@@ -515,9 +549,22 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     }
     let min = Math.min(...values)
     let max = Math.max(...values)
-    const span = max - min
-    // 5% padding, matching RangeVisualization; degenerate spans get a unit
-    // pad so positioning maths stays finite. Layout only.
+    let span = max - min
+    // UI-SEM-054 (span floor): a spread that is tiny RELATIVE to the values
+    // (the reported run: ~99.5..100.5 around 100) must not zoom the axis and
+    // amplify sub-resolution noise into full-width dot separation. Floor the
+    // span to OUTCOME_CLOSE_RATIO × the largest coordinate magnitude and
+    // re-centre, so near-identical outcomes read as clustered dots — honest —
+    // while a genuine spread wider than the floor is untouched. Layout only.
+    const minSpan = Math.max(Math.abs(min), Math.abs(max)) * OUTCOME_CLOSE_RATIO
+    if (span < minSpan) {
+      const mid = (min + max) / 2
+      min = mid - minSpan / 2
+      max = mid + minSpan / 2
+      span = minSpan
+    }
+    // 5% padding, matching RangeVisualization; a truly degenerate span (all
+    // values zero) still gets a unit pad so positioning maths stays finite.
     const pad = span > 0 ? span * 0.05 : Math.abs(min) * 0.05 || 1
     min -= pad
     max += pad

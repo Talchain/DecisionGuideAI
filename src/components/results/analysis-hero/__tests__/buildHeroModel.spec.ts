@@ -363,6 +363,125 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
   })
 })
 
+describe('buildHeroModel — readout-tie coherence (UI-SEM-070) and span floor (UI-SEM-054)', () => {
+  const noGoal = (o: ReturnType<typeof makeOption>) =>
+    makeOption({ ...o, goalProbability: undefined, winProbability: undefined })
+
+  // The reported staging run: unitless outcomes (goal node carries no unit),
+  // no win probabilities, four options whose expected outcomes all round to
+  // "100". The old subline crowned one as "strongest expected outcome" while
+  // every rendered readout was identical.
+  const tiedRun = () =>
+    makeHeroData({
+      recommendation: {
+        goalLabel: 'Ship v2 within 6 months',
+        goalThreshold: null,
+        outcomeUnit: undefined,
+        outcomeUnitSymbol: undefined,
+        isNormalised: false,
+        storyHeadlines: undefined,
+        flipThresholds: undefined,
+      },
+      options: [
+        noGoal(makeOption({ id: 'opt_contractor', label: 'Outsourced Contractor Team', isRecommended: true, expected: 100.4, outcome: { mean: 100.4, p10: 99.7, p50: 100.4, p90: 101.1 } })),
+        noGoal(makeOption({ id: 'opt_status_quo', label: 'Continue with Current Team', expected: 100.2, outcome: { mean: 100.2, p10: 99.5, p50: 100.2, p90: 100.9 } })),
+        noGoal(makeOption({ id: 'opt_juniors', label: 'Hire Two Junior Engineers', expected: 100.0, outcome: { mean: 100.0, p10: 99.3, p50: 100.0, p90: 100.7 } })),
+        noGoal(makeOption({ id: 'opt_senior', label: 'Hire One Senior Engineer', expected: 99.8, outcome: { mean: 99.8, p10: 99.1, p50: 99.8, p90: 100.5 } })),
+      ],
+    })
+
+  it('all four outcomes render the same readout — the chart shows no strongest option', () => {
+    const m = chart(buildHeroModel(tiedRun()))
+    expect(m.rows.map((r) => r.outcome.readout)).toEqual(['100', '100', '100', '100'])
+  })
+
+  it('never claims "strongest/highest expected outcome" when the top readouts are identical', () => {
+    const m = chart(buildHeroModel(tiedRun()))
+    // Headline still agrees with the panel's recommended leader (unchanged,
+    // no cross-surface contradiction); only the over-claiming subline is fixed.
+    expect(m.headline).toBe('Outsourced Contractor Team currently leads the overall analysis.')
+    expect(m.subline).toBe('The top options are close on expected outcome.')
+    expect(m.subline).not.toMatch(/strongest|highest/i)
+  })
+
+  it('coherence invariant: identical rendered readouts ⇒ no strongest/highest claim (any recommended row)', () => {
+    // Rotate which option is recommended; the invariant must hold every time.
+    for (const recId of ['opt_contractor', 'opt_status_quo', 'opt_juniors', 'opt_senior']) {
+      const data = tiedRun()
+      const opts = data.recommendation.allOptions!.map((o) => ({ ...o, isRecommended: o.id === recId }))
+      ;(data.recommendation as { allOptions: unknown }).allOptions = opts
+      ;(data.recommendation as { recommendedOption: unknown }).recommendedOption =
+        opts.find((o) => o.id === recId) ?? null
+      const m = chart(buildHeroModel(data))
+      const readouts = new Set(m.rows.map((r) => r.outcome.readout))
+      expect(readouts.size, `readouts should be tied for ${recId}`).toBe(1)
+      expect(m.subline ?? '', `subline over-claims for ${recId}`).not.toMatch(/strongest|highest/i)
+    }
+  })
+
+  it('span floor: a spread tiny relative to the values does not zoom the axis (dots stay clustered)', () => {
+    const m = chart(buildHeroModel(tiedRun()))
+    const span = m.outcomeDomain!.max - m.outcomeDomain!.min
+    // Raw coord span is ~2 (99.1..101.1); floored to ≥ 0.15 × ~100 = 15.
+    expect(span).toBeGreaterThan(14)
+    // The centres (99.8..100.4) therefore occupy only a sliver of the track.
+    const centreSpread = 100.4 - 99.8
+    expect(centreSpread / span).toBeLessThan(0.1)
+  })
+
+  it('span floor leaves a genuine spread untouched (no compression of real differences)', () => {
+    // Centres/ranges spanning 40..90 (span 50, > 0.15 × 90 = 13.5) — unfloored.
+    const a = noGoal(makeOption({ id: 'w_a', label: 'A', isRecommended: true, expected: 85, outcome: { mean: 85, p10: 80, p50: 85, p90: 90 } }))
+    const b = noGoal(makeOption({ id: 'w_b', label: 'B', expected: 45, outcome: { mean: 45, p10: 40, p50: 45, p90: 50 } }))
+    const m = chart(buildHeroModel(makeHeroData({ recommendation: { goalThreshold: null, outcomeUnit: undefined, isNormalised: false }, options: [a, b] })))
+    // Domain hugs 40..90 with only the 5% pad — span well under the ×2 a
+    // floor would have produced.
+    expect(m.outcomeDomain!.min).toBeGreaterThan(37)
+    expect(m.outcomeDomain!.max).toBeLessThan(93)
+  })
+
+  it('no-option-on-track run with tied readouts does not claim "highest expected outcome"', () => {
+    // Goal lens available, every option below the sub-1% floor (no-on-track
+    // headline) AND tied outcomes — the subline must not crown an outcome
+    // leader either.
+    const belowFloor = (o: ReturnType<typeof makeOption>) =>
+      makeOption({ ...o, goalProbability: 0.004, winProbability: undefined })
+    const m = chart(
+      buildHeroModel(
+        makeHeroData({
+          recommendation: { goalThreshold: 50, outcomeUnit: undefined, isNormalised: false, storyHeadlines: undefined, flipThresholds: undefined },
+          options: [
+            belowFloor(makeOption({ id: 'o1', label: 'Alpha', isRecommended: true, expected: 100.3, outcome: { mean: 100.3, p10: 99.6, p50: 100.3, p90: 101.0 } })),
+            belowFloor(makeOption({ id: 'o2', label: 'Beta', expected: 100.1, outcome: { mean: 100.1, p10: 99.4, p50: 100.1, p90: 100.8 } })),
+            belowFloor(makeOption({ id: 'o3', label: 'Gamma', expected: 99.9, outcome: { mean: 99.9, p10: 99.2, p50: 99.9, p90: 100.6 } })),
+          ],
+        }),
+      ),
+    )
+    expect(m.headline).toBe('No option is currently on track to reach your goal.')
+    expect(m.subline).toBe('The top options are close on expected outcome.')
+    expect(m.subline).not.toMatch(/highest|strongest/i)
+  })
+
+  it('no recommended option + tied readouts falls through to the neutral compare headline', () => {
+    const opt = (id: string, label: string, expected: number) =>
+      makeOption({ id, label, expected, winProbability: undefined, goalProbability: undefined, outcome: { mean: expected, p10: expected - 0.6, p50: expected, p90: expected + 0.6 } })
+    const m = chart(
+      buildHeroModel(
+        makeHeroData({
+          recommendation: { goalThreshold: null, outcomeUnit: undefined, isNormalised: false, storyHeadlines: undefined, flipThresholds: undefined },
+          options: [opt('a', 'Alpha', 100.2), opt('b', 'Beta', 100.0), opt('c', 'Gamma', 99.8)],
+        }),
+      ),
+    )
+    // No recommendedOption → no leader headline; tied readouts → the outcome
+    // headline must not crown a winner. Neutral pairing instead.
+    expect(m.headline).toBe('Here is how your options compare.')
+    expect(m.subline).toBe('The top options are close on expected outcome.')
+    expect(`${m.headline} ${m.subline}`).not.toMatch(/highest|strongest/i)
+  })
+})
+
 describe('buildHeroModel — grounded detail lines and goal hint', () => {
   it('maps range and goal-fit detail lines from the row fields (same formatters as readouts)', () => {
     const m = chart(buildHeroModel(makeHeroData()))

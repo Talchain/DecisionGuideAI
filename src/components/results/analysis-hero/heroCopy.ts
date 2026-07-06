@@ -101,6 +101,13 @@ export const HERO_COPY = {
      * overlap alone.
      */
     closeOnOutcome: (label: string) => `${label} is close on expected outcome.`,
+    /**
+     * Readout-tie subline (UI-SEM-070): the top-two options render the SAME
+     * expected-outcome readout, so the chart cannot single one out. A neutral
+     * plural statement — no name (naming a runner-up among tied values would
+     * be arbitrary) and no "strongest/highest" claim the numbers contradict.
+     */
+    outcomesClose: 'The top options are close on expected outcome.',
     /** Banding state C companion line (no leader claimed, no name risked). */
     compareTop: 'Compare the top options before deciding.',
     /**
