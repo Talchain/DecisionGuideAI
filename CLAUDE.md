@@ -42,13 +42,17 @@ See [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) for the quick reference. Full specifica
 
 ## Commands
 
+**This repo is pnpm-only** (`packageManager: pnpm` in package.json; the tracked lockfile is
+`pnpm-lock.yaml`; CI uses `pnpm install --frozen-lockfile`). Never use npm or yarn for
+installs or scripts — `package-lock.json` must never be created or committed.
+
 ```bash
-npm run dev          # Start dev server (port 5173)
-npm run build        # Production build
-npm run lint         # ESLint
-npm run typecheck    # TypeScript check (tsc -p tsconfig.ci.json --noEmit)
-npm test             # Run tests (vitest run --reporter=verbose)
-npm run test:full    # Full suite with increased memory (NODE_OPTIONS=--max-old-space-size=6144)
+pnpm run dev          # Start dev server (port 5173)
+pnpm run build        # Production build
+pnpm run lint         # ESLint
+pnpm run typecheck    # TypeScript check (tsc -p tsconfig.ci.json --noEmit)
+pnpm test             # Run tests (vitest run --reporter=verbose)
+pnpm run test:full    # Full suite with increased memory (NODE_OPTIONS=--max-old-space-size=6144)
 ```
 
 ## Git & Deployment
@@ -104,7 +108,7 @@ Run **only** after making changes, before reporting the task as done.
 Targets changed files and their direct dependents — fast and light.
 
 ```bash
-npm run typecheck                              # ~60-90s, catches type errors
+pnpm run typecheck                              # ~60-90s, catches type errors
 npx vitest run --changed --bail=1              # only tests affected by changes
 ```
 
@@ -116,8 +120,8 @@ Report: "Typecheck passed. N related tests passed." (or "No related tests for th
 Run before committing. Still lightweight — no full test suite.
 
 ```bash
-npm run typecheck
-npm run lint
+pnpm run typecheck
+pnpm run lint
 ```
 
 ### Tier 3: Full gate (before pushing to staging only)
@@ -135,14 +139,14 @@ via `staging-full-tests.yml` — don't re-run it locally unless explicitly asked
 
 If the user asks to run the full suite outside of a push, use ONE of:
 ```bash
-npm run test:full                  # vitest full suite — 6 GB heap, --bail=1
+pnpm run test:full                  # vitest full suite — 6 GB heap, --bail=1
 bash scripts/pre-push-validate.sh  # full suite + typecheck + lint + dep audit
-npm run build                      # production build (separate concern)
+pnpm run build                      # production build (separate concern)
 ```
 
 ### Important rules
 
-- **Never run `npm test` (full suite) after every code change** — it's wasteful and slow.
+- **Never run `pnpm test` (full suite) after every code change** — it's wasteful and slow.
 - **Never run typecheck + full tests in parallel** — doubles peak RAM.
 - The manual full-suite script runs checks sequentially to stay within memory limits.
 - Vitest teardown may emit `ERR_WORKER_OUT_OF_MEMORY` even when all tests pass; the
@@ -261,11 +265,11 @@ Before reporting ANY task as complete, run the **Tier 1 smoke checks** (not the 
 ```bash
 git branch --show-current                      # Correct branch?
 git status                                     # Clean state?
-npm run typecheck                              # TypeScript compiles?
+pnpm run typecheck                              # TypeScript compiles?
 npx vitest run --changed --bail=1              # Related tests pass?
 ```
 
 If typecheck or related tests fail, fix before reporting completion.
-Do NOT run `npm test` (full suite) or `npm run build` here — the fast pre-push gate
+Do NOT run `pnpm test` (full suite) or `pnpm run build` here — the fast pre-push gate
 runs typecheck + lint + smoke tests at push time, and CI runs the full suite + build
 post-push. See "Testing — Three-Tier Process" above.
