@@ -84,6 +84,20 @@ export function mapV5Block(block: V5Block): ConversationBlock | null {
         flip_scenarios: block.flip_scenarios,
         ...(block.enrichment ? { enrichment: block.enrichment } : {}),
       }
+    case 'review_card':
+    case 'coaching':
+    case 'evidence':
+    case 'exercise':
+      // 0.13.1 re-vendor: Phase 3 types are now schema-declared, but the
+      // parser tolerance layer stashes them in the sidecar BEFORE strict
+      // validation (splitBlocksTolerance), so they never reach this mapper
+      // at runtime. Type-level only: behaviour matches 0.8.1, where these
+      // types were schema-unknown and hit the defensive default below.
+      return {
+        type: 'v5_unsupported',
+        blockType: block.type,
+        raw: block,
+      }
     default: {
       const _exhaustive: never = block
       // Unreachable at compile time (OlumiResponseSchema is strict, so unknown

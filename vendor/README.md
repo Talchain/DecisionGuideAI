@@ -7,13 +7,15 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.5.1.tgz`
+### `talchain-schemas-0.13.1.tgz`
 
-**Purpose:** pre-publish consumption of `@talchain/schemas` v0.5.0 for
-V5 slices B + C + D1 + D2 (session + handler-fact + per-handler arg/result
-+ handler-result block schemas, on top of the A1 `/boundary` +
-`/orchestrator` surface). Authored at `~/Documents/GitHub/olumi-schemas/`;
-not yet published to a private registry.
+**Purpose:** pre-publish consumption of `@talchain/schemas` v0.13.1
+(0.8.1 → 0.13.1 re-vendor: BlockSchema union +4 Phase 3 types, evidence
+§1.3 superRefine, `session.user_id` nullable, WhatWouldFlip shape —
+measured behaviour-preserving vs 0.8.1). Authored at
+`~/Documents/GitHub/olumi-schemas/`; not yet published to a private
+registry. SHA256 manifest lives alongside as
+`talchain-schemas-<version>.tgz.sha256` (checked by pre-push gate 6a).
 
 Earlier vendored versions (0.3.0 at A0, 0.4.0 at A1) are removed on each
 bump — only the currently-pinned version lives in `vendor/`.
