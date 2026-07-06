@@ -82,6 +82,7 @@ export function AnalysisHeroPanel({
   // degrades to plain text when the target is absent. Re-checked on every
   // commit; React's setState equality bail-out keeps this loop-free.
   const [focusTargetPresent, setFocusTargetPresent] = useState(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately dependency-less: the scroll target can appear/vanish without any prop changing (error boundary swap), so the check must run on every commit; the setState equality bail-out keeps it loop-free
   useEffect(() => {
     setFocusTargetPresent(
       focusPanelMounted && document.querySelector(FOCUS_PANEL_SELECTOR) != null,
@@ -112,8 +113,18 @@ export function AnalysisHeroPanel({
   const goalKey = model.hasConstraints ? ('goalWithLimits' as const) : ('goalOnly' as const)
   const axis = lens === 'goal' ? HERO_COPY.axis[goalKey] : HERO_COPY.axis.outcome
   // The Likely outcome lens shows option comparison only — no target line or
-  // target mention (target attainment lives on the Goal fit lens).
-  const caption = lens === 'goal' ? HERO_COPY.caption[goalKey] : HERO_COPY.caption.outcome
+  // target mention (target attainment lives on the Goal fit lens). The
+  // caption describes only what the chart draws: no lines → dots-only
+  // wording; one line → no overlap sentence (a single range cannot
+  // overlap); two-plus → the full wording.
+  const caption =
+    lens === 'goal'
+      ? HERO_COPY.caption[goalKey]
+      : model.outcomeRangedRowCount === 0
+        ? HERO_COPY.caption.outcomeDotsOnly
+        : model.outcomeRangedRowCount === 1
+          ? HERO_COPY.caption.outcomeSingleRange
+          : `${HERO_COPY.caption.outcome} ${HERO_COPY.caption.outcomeOverlap}`
 
   const leaderId = model.leaders[lens]
 
@@ -190,6 +201,17 @@ export function AnalysisHeroPanel({
           <Info aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 flex-none text-info" />
           <span data-testid="hero-caption">{caption}</span>
         </p>
+
+        {/* Single-lens discoverability: only when the goal lens is absent
+            because no success target exists (never for producer gaps). */}
+        {model.showGoalHint && (
+          <p
+            className={`${typography.panelMeta} pl-5 text-text-light`}
+            data-testid="hero-goal-hint"
+          >
+            {HERO_COPY.goalHint}
+          </p>
+        )}
       </div>
 
       {/* Footer strip: Main reason · Focus next. The trust line is omitted —
