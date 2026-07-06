@@ -15,14 +15,17 @@ const L = 'Option Alpha'
 
 /**
  * Lens-NAMING copy — the only sanctioned "stability" occurrences: the
- * prototype tab label and its unavailable-state explainer NAME the
- * stability view, they do not claim stability for this run. Scanned with
- * the full checks below except the literal word "stability"; every other
- * trust word stays banned here too.
+ * prototype tab label, its unavailable-state explainer, and the available-
+ * state caption all NAME/describe the stability view, they do not claim
+ * stability for this run. Scanned with the full checks below except the
+ * literal word "stability"; every other trust word stays banned here too.
+ * ("firmly" in the caption is not the banned "firm" token — word boundary
+ * — and is scanned as such.)
  */
 const LENS_NAMING_COPY: string[] = [
   HERO_COPY.lensLabel.stability,
   HERO_COPY.lensUnavailable.stability,
+  HERO_COPY.caption.stability,
 ]
 
 const UI_COPY: string[] = [
@@ -63,7 +66,8 @@ const UI_COPY: string[] = [
   HERO_COPY.caption.outcomeOverlap,
   HERO_COPY.caption.outcomeSingleRange,
   HERO_COPY.caption.outcomeDotsOnly,
-  HERO_COPY.caption.stability,
+  // caption.stability lives in LENS_NAMING_COPY (it names the Stability
+  // view, the sanctioned "stability" carve-out) — not scanned here.
   // HERO_COPY.readout.missing is deliberately NOT scanned: it is the
   // app-wide missing-value placeholder glyph ('—', matching format.ts
   // nullPlaceholder), not prose — the no-em-dash rule targets sentences.

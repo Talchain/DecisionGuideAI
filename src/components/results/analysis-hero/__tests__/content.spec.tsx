@@ -371,7 +371,7 @@ describe('AnalysisHeroPanel — content', () => {
     })
     fireEvent.click(screen.getByTestId('hero-lens-tab-stability'))
     expect(screen.getByTestId('hero-caption')).toHaveTextContent(
-      'Each bar shows how well that option holds its position under uncertainty. It describes each option separately, not the analysis as a whole.',
+      'Stability shows how firmly each option holds its position under uncertainty. It describes each option separately, not the analysis as a whole.',
     )
     // Unavailable stability (live today) shows the explainer body, never this caption.
   })

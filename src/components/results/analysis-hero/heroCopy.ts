@@ -138,14 +138,19 @@ export const HERO_COPY = {
     outcomeDotsOnly: 'Dots show expected outcome for each option.',
     /**
      * Stability lens explainer — renders ONLY when the lens carries data
-     * (producer-backed; fixture-only until issue 211), and clarifies the
-     * band is per option so a strong leader under a cautious overall
-     * verdict does not read as contradictory. Deliberately avoids the
-     * banned trust vocabulary (the suggested "how firmly" wording was
-     * reworded for glossary safety).
+     * (producer-backed; fixture-only until issue 211). Reviewer-supplied
+     * wording, extended with a per-option clarifier so a strong leader
+     * under a cautious overall verdict does not read as contradictory.
+     * Lens-explainer register (like the "Stability" tab name and the
+     * unavailable copy), NOT a per-run trust claim — it describes what the
+     * view measures, never a verdict about this run. Scanned in the
+     * copyHygiene lens-naming carve-out (it legitimately names the view);
+     * "firmly" is not the banned "firm" token (word boundary), but the
+     * carve-out is the correct home because the string contains
+     * "Stability".
      */
     stability:
-      'Each bar shows how well that option holds its position under uncertainty. It describes each option separately, not the analysis as a whole.',
+      'Stability shows how firmly each option holds its position under uncertainty. It describes each option separately, not the analysis as a whole.',
   },
 
   readout: {
