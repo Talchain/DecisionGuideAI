@@ -416,6 +416,15 @@ export function AnalysisHeroPanel({
               )}
               <button
                 type="button"
+                // Keep focus on the input during a mouse press so the
+                // container blur-revert cannot race the click away. Without
+                // this, browsers that do not focus a button on mousedown
+                // (Safari) blur the input with relatedTarget=null, the
+                // group onBlur unmounts the editor, and the click never
+                // lands — the commit is silently lost. preventDefault fires
+                // only for pointer input; keyboard activation still reaches
+                // onClick with the button focused. Single commit either way.
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={commitTarget}
                 disabled={rerunDisabled}
                 aria-label={HERO_COPY.footer.targetApply}

@@ -4,7 +4,7 @@
  * raw floats, a goal-alone marker, or the retired lenses.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, createEvent } from '@testing-library/react'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { buildHeroModel } from '../buildHeroModel'
 import type { HeroChartModel, HeroStatusModel } from '../heroTypes'
@@ -216,6 +216,33 @@ describe('AnalysisHeroPanel — content', () => {
     // Editor closes after commit; the action line returns.
     expect(screen.queryByTestId('hero-focus-target-editor')).toBeNull()
     expect(screen.getByTestId('hero-focus-target')).toBeInTheDocument()
+  })
+
+  it('the apply tick prevents mousedown default so the commit survives the blur race', () => {
+    // Cross-browser robustness: browsers that do not focus a button on
+    // mousedown (Safari) would blur the input with relatedTarget=null,
+    // letting the group onBlur unmount the editor before the click lands.
+    // preventDefault on the button mousedown keeps focus on the input, so
+    // the click reliably commits. Pin both halves: default IS prevented,
+    // and a click still commits exactly once.
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    const onApplyTarget = vi.fn()
+    renderPanel(
+      chartModel(makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } })),
+      { onApplyTarget },
+    )
+    fireEvent.click(screen.getByTestId('hero-focus-target'))
+    fireEvent.change(screen.getByLabelText('Success target value'), { target: { value: '40' } })
+    const applyBtn = screen.getByLabelText('Apply target and run the analysis again')
+    const mousedown = createEvent.mouseDown(applyBtn)
+    fireEvent(applyBtn, mousedown)
+    expect(mousedown.defaultPrevented).toBe(true)
+    fireEvent.click(applyBtn)
+    expect(onApplyTarget).toHaveBeenCalledTimes(1)
+    expect(onApplyTarget).toHaveBeenCalledWith(40)
   })
 
   it('Escape abandons the target editor without applying anything', () => {
