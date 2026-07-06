@@ -7,6 +7,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { buildHeroModel } from '../buildHeroModel'
+import { sortOptionsForDisplay } from '../../utils/optionDisplayOrder'
 import type { HeroChartModel } from '../heroTypes'
 import {
   FULL_COMPLETENESS,
@@ -516,6 +517,37 @@ describe('buildHeroModel — lens gating and numbering', () => {
     // when the lens changes because the model carries no per-lens row order.
     expect(Object.keys(m.leaders)).toEqual(['goal', 'outcome', 'stability', 'whatChanged'])
   })
+
+  it('four-option order is the SHARED comparator, NOT the active-lens metric (trust invariant)', () => {
+    // Reproduces the reviewer's four-option observation and the earlier
+    // staging #1-vs-#4 defect it guards against: win probability descends
+    // A>B>C>D, but BOTH lens metrics rank D above C — so per-lens values are
+    // legitimately out of descending order because rows follow the shared
+    // overall comparator (sortOptionsForDisplay), never the active lens.
+    const opts = [
+      makeOption({ id: 'opt_a', label: 'A', winProbability: 0.5, expected: 30, outcome: { mean: 30, p10: 20, p50: 30, p90: 40 }, goalProbability: 0.6 }),
+      makeOption({ id: 'opt_b', label: 'B', winProbability: 0.3, expected: 20, outcome: { mean: 20, p10: 12, p50: 20, p90: 28 }, goalProbability: 0.3 }),
+      // C ranks 3rd by win, but LOWER on both lenses than D (4th by win).
+      makeOption({ id: 'opt_c', label: 'C', winProbability: 0.1, expected: 4, outcome: { mean: 4, p10: 1, p50: 4, p90: 7 }, goalProbability: 0.11 }),
+      makeOption({ id: 'opt_d', label: 'D', winProbability: 0.05, expected: 6, outcome: { mean: 6, p10: 2, p50: 6, p90: 10 }, goalProbability: 0.22 }),
+    ]
+    // Input deliberately scrambled — the hero must re-derive the order, not
+    // trust the array it was handed.
+    const scrambled = [opts[2], opts[0], opts[3], opts[1]]
+    const m = chart(buildHeroModel(makeHeroData({ options: scrambled })))
+
+    // (1) Row order equals the shared comparator applied independently.
+    const expectedOrder = sortOptionsForDisplay(scrambled).map((o) => o.id)
+    expect(m.rows.map((r) => r.id)).toEqual(expectedOrder)
+    expect(expectedOrder).toEqual(['opt_a', 'opt_b', 'opt_c', 'opt_d']) // win desc
+    // (2) Row NUMBER tokens match row order (1..4), independent of lens.
+    expect(m.rows.map((r) => r.index)).toEqual([1, 2, 3, 4])
+    // (3) Proof it is NOT lens-sorted: on BOTH lenses row 3 (C) sits below
+    //     row 4 (D) — descending-by-lens would have swapped them.
+    expect(m.rows[2].outcome.centre! < m.rows[3].outcome.centre!).toBe(true) // +4 vs +6
+    expect(m.rows[2].goal.value! < m.rows[3].goal.value!).toBe(true) // 11% vs 22%
+  })
+
 })
 
 describe('buildHeroModel — states', () => {

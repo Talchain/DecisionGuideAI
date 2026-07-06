@@ -58,7 +58,18 @@ function fixtureChart(o: Partial<HeroChartModel>): HeroChartModel {
 }
 
 // ─── Shared rich option set (echoes the staging Tech Lead scenario) ─────────
-
+//
+// Row ORDER (and the 1..4 number tokens) follow the SHARED display comparator
+// — win probability descending: 77% > 15% > 6% > 2% (see each row's
+// detail.winChance). It is deliberately NOT the active lens: rows 3 and 4
+// read "11% / 22% fit" on Goal fit and "+4% / +6%" on Likely outcome — i.e.
+// row 4 sits ABOVE row 3 on both lenses, yet ranks 4th because it wins least
+// often. This mirrors what the live adapter produces (buildHeroModel ->
+// sortOptionsForDisplay, the same comparator OptionCards/WinGauge use) and is
+// pinned by buildHeroModel.spec + stagingScenario.spec. Per-lens values are
+// expected to appear out of descending order here — that is the point, not a
+// broken ranking. Keep the win probabilities monotonically descending so the
+// fixture stays coherent with the order it renders.
 const RICH_ROWS: HeroRowVM[] = [
   fixtureRow({
     id: 'fx_tech_lead',
