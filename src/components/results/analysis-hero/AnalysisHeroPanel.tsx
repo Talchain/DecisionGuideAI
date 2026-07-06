@@ -52,6 +52,17 @@ export interface AnalysisHeroPanelProps {
 /** The coaching panel container the focus-next affordance scrolls to. */
 const FOCUS_PANEL_SELECTOR = '[data-testid="focus-now-panel"]'
 
+/**
+ * House-style guard for PRODUCER-slot text (trust line, status chip, named
+ * focus action): em/en dashes are swapped for a plain hyphen. Glyph swap
+ * only — no words are added, removed or reordered, so the producer's
+ * content passes through untouched. (The app-wide '—' missing-value
+ * placeholder glyph is unaffected: it never flows through these slots.)
+ */
+function dashSafe(text: string): string {
+  return text.replace(/\s*[—–]\s*/g, ' - ')
+}
+
 /** Scroll to the coaching panel below; no-op when the target is absent. */
 function scrollToFocusPanel() {
   const el = document.querySelector(FOCUS_PANEL_SELECTOR)
@@ -175,7 +186,7 @@ export function AnalysisHeroPanel({
       : lens === 'whatChanged'
         ? HERO_COPY.ghostLegend
         : lens === 'stability'
-          ? null
+          ? HERO_COPY.caption.stability
           : model.outcomeRangedRowCount === 0
             ? HERO_COPY.caption.outcomeDotsOnly
             : model.outcomeRangedRowCount === 1
@@ -226,7 +237,7 @@ export function AnalysisHeroPanel({
               data-testid="hero-status-chip"
               className={`${typography.panelMeta} whitespace-nowrap rounded-full border border-panel-border bg-transparent px-2 py-0.5 text-text-light`}
             >
-              {model.statusChip}
+              {dashSafe(model.statusChip)}
             </span>
           )}
         </div>
@@ -328,7 +339,7 @@ export function AnalysisHeroPanel({
         )}
         {model.trustLine && (
           <p className={`${typography.panelBody} text-text-light`} data-testid="hero-trust-line">
-            {model.trustLine}
+            {dashSafe(model.trustLine)}
           </p>
         )}
         {isStale ? (
@@ -355,7 +366,7 @@ export function AnalysisHeroPanel({
              control. */
           targetEditing && onApplyTarget ? (
             <span
-              className="inline-flex items-center gap-1.5"
+              className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-1"
               data-testid="hero-focus-target-editor"
               onBlur={(e) => {
                 // Abandon only when focus leaves the editor GROUP — tabbing
@@ -367,6 +378,12 @@ export function AnalysisHeroPanel({
               }}
             >
               <Target aria-hidden="true" className="h-3.5 w-3.5 flex-none text-info" />
+              {/* Visible label + unit: the user sees WHAT to type and in
+                  which unit before committing (unit is the outcome unit —
+                  passthrough of existing fields, review gate). */}
+              <span className={`${typography.panelBody} text-text-body`}>
+                {HERO_COPY.footer.targetLabel}
+              </span>
               <input
                 ref={targetInputRef}
                 type="number"
@@ -382,9 +399,21 @@ export function AnalysisHeroPanel({
                   }
                 }}
                 disabled={rerunDisabled}
-                aria-label={HERO_COPY.footer.targetInputAria}
-                className={`w-24 rounded border border-info px-2 py-0.5 ${typography.panelBody} tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50`}
+                aria-label={
+                  model.targetUnit
+                    ? `${HERO_COPY.footer.targetInputAria} (${model.targetUnit})`
+                    : HERO_COPY.footer.targetInputAria
+                }
+                className={`w-20 rounded border border-info px-2 py-0.5 ${typography.panelBody} tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50`}
               />
+              {model.targetUnit && (
+                <span
+                  className={`${typography.panelBody} text-text-body`}
+                  data-testid="hero-target-unit"
+                >
+                  {model.targetUnit}
+                </span>
+              )}
               <button
                 type="button"
                 onClick={commitTarget}
@@ -427,7 +456,7 @@ export function AnalysisHeroPanel({
              verbatim (issue 220); live adapter sets null until the
              contract exists, so this slot is fixture-only today. */
           <p className={`${typography.panelBody} text-text-body`} data-testid="hero-focus-action">
-            {model.focusAction}
+            {dashSafe(model.focusAction)}
           </p>
         ) : focusTargetPresent ? (
           <button

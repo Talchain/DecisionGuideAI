@@ -56,7 +56,7 @@ export function HeroGallery() {
               model={entry.model}
               isStale={entry.isStale ?? false}
               onRerun={() => {}}
-              rerunDisabled={false}
+              rerunDisabled={entry.rerunDisabled ?? false}
               focusPanelMounted={false}
               onApplyTarget={entry.withApplyTarget ? () => {} : undefined}
             />

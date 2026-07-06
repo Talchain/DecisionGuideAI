@@ -52,6 +52,7 @@ function fixtureChart(o: Partial<HeroChartModel>): HeroChartModel {
     trustLine: null,
     statusChip: null,
     focusAction: null,
+    targetUnit: null,
     ...o,
   }
 }
@@ -119,9 +120,31 @@ const RICH_ROWS: HeroRowVM[] = [
     changeReadout: '+4% (no change)',
     stability: { value: 0.31, readout: 'Fragile' },
     detail: {
-      winChance: '8% chance it is the strongest option overall.',
+      winChance: '6% chance it is the strongest option overall.',
       range: 'Realistic range: +1% to +7%.',
       goalFit: '11% chance of hitting your goal.',
+    },
+  }),
+  // Fourth option: checks numbering and row density beyond three, with a
+  // long bracketed label exercising the truncation/recovery behaviour.
+  fixtureRow({
+    id: 'fx_contract_dev',
+    index: 4,
+    label: 'Hire One Developer (Contract-to-Permanent)',
+    goal: { value: 0.22, readout: '22%' },
+    outcome: {
+      p10: -3,
+      p90: 18,
+      centre: 6,
+      readout: '+6%',
+      previous: { p10: -4, p90: 20, centre: 7 },
+    },
+    changeReadout: '+6% (was +7%)',
+    stability: { value: 0.48, readout: 'Moderate' },
+    detail: {
+      winChance: '2% chance it is the strongest option overall.',
+      range: 'Realistic range: -3% to +18%.',
+      goalFit: '22% chance of hitting your goal.',
     },
   }),
 ]
@@ -135,6 +158,8 @@ export interface GalleryEntry {
   description: string
   model: HeroChartModel | HeroStatusModel
   isStale?: boolean
+  /** Render the rerun action as in-flight (spinner, controls disabled). */
+  rerunDisabled?: boolean
   /** Render the promoted target action as actionable (no-op apply route). */
   withApplyTarget?: boolean
 }
@@ -159,10 +184,14 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
         whatChanged: 'fx_tech_lead',
       },
       outcomeDomain: { min: -10, max: 47 },
-      outcomeRangedRowCount: 3,
+      outcomeRangedRowCount: 4,
       mainReason: 'Main driver: Current Team Technical Maturity.',
-      trustLine: 'Trust: moderate — 4,000 samples; 2 assumptions still to verify.',
-      statusChip: 'First pass',
+      // Producer-text simulations: em-dash-free (house style; the panel
+      // also glyph-guards these slots) and a status consistent with the
+      // previous-run marks the What-changed lens draws — a first pass
+      // cannot have a previous run.
+      trustLine: 'Trust: moderate. 4,000 samples; 2 assumptions still to verify.',
+      statusChip: 'Second pass',
       focusAction: 'Focus next: calibrate Current Team Technical Maturity.',
     }),
   },
@@ -190,7 +219,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
         whatChanged: null,
       },
       outcomeDomain: { min: -10, max: 47 },
-      outcomeRangedRowCount: 3,
+      outcomeRangedRowCount: 4,
       mainReason: 'Main driver: Current Team Technical Maturity.',
     }),
   },
@@ -216,9 +245,10 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
       })),
       leaders: { goal: null, outcome: 'fx_tech_lead', stability: null, whatChanged: null },
       outcomeDomain: { min: -10, max: 47 },
-      outcomeRangedRowCount: 3,
+      outcomeRangedRowCount: 4,
       showGoalHint: true,
       mainReason: 'Main driver: Current Team Technical Maturity.',
+      targetUnit: '%',
     }),
   },
   {
@@ -299,7 +329,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
       })),
       leaders: { goal: null, outcome: 'fx_tech_lead', stability: null, whatChanged: null },
       outcomeDomain: { min: -10, max: 47 },
-      outcomeRangedRowCount: 3,
+      outcomeRangedRowCount: 4,
     }),
   },
   {
@@ -327,7 +357,37 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
         whatChanged: null,
       },
       outcomeDomain: { min: -10, max: 47 },
-      outcomeRangedRowCount: 3,
+      outcomeRangedRowCount: 4,
+      mainReason: 'Main driver: Current Team Technical Maturity.',
+    }),
+  },
+  {
+    id: 'stale-rerunning',
+    title: 'Rerun in progress (post-apply)',
+    description:
+      'What the user sees after committing a change that reruns (e.g. applying a success target): the chart stays dimmed and locked, and the footer rerun action shows in-flight progress with its controls disabled.',
+    isStale: true,
+    rerunDisabled: true,
+    model: fixtureChart({
+      headline: 'Hire One Tech Lead best fits your goal.',
+      subline: 'Hire One Tech Lead also has the strongest expected outcome.',
+      lenses: ['goal', 'outcome'],
+      defaultLens: 'goal',
+      rows: RICH_ROWS.map((r) => ({
+        ...r,
+        outcome: { ...r.outcome, previous: undefined },
+        changeReadout: undefined,
+        stability: undefined,
+        detail: { ...r.detail, watch: undefined, tradeOff: undefined },
+      })),
+      leaders: {
+        goal: 'fx_tech_lead',
+        outcome: 'fx_tech_lead',
+        stability: null,
+        whatChanged: null,
+      },
+      outcomeDomain: { min: -10, max: 47 },
+      outcomeRangedRowCount: 4,
       mainReason: 'Main driver: Current Team Technical Maturity.',
     }),
   },

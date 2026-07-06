@@ -136,6 +136,16 @@ export const HERO_COPY = {
     outcomeSingleRange: 'Dots show expected outcome. The line shows the realistic range.',
     /** Shown when no row carries a range — never describe lines that are not drawn. */
     outcomeDotsOnly: 'Dots show expected outcome for each option.',
+    /**
+     * Stability lens explainer — renders ONLY when the lens carries data
+     * (producer-backed; fixture-only until issue 211), and clarifies the
+     * band is per option so a strong leader under a cautious overall
+     * verdict does not read as contradictory. Deliberately avoids the
+     * banned trust vocabulary (the suggested "how firmly" wording was
+     * reworded for glossary safety).
+     */
+    stability:
+      'Each bar shows how well that option holds its position under uncertainty. It describes each option separately, not the analysis as a whole.',
   },
 
   readout: {
@@ -193,6 +203,8 @@ export const HERO_COPY = {
      * used); otherwise it renders as plain text — never a dead control.
      */
     focusTarget: 'Focus next: set a success target to unlock Goal fit.',
+    /** Visible editor label — with the unit suffix, says WHAT to type before commit. */
+    targetLabel: 'Success target',
     targetInputAria: 'Success target value',
     targetApply: 'Apply target and run the analysis again',
     /**
@@ -232,5 +244,6 @@ export const HERO_COPY = {
   fixtureBanner: 'Internal preview: example data, not analysis output.',
 
   /** What-changed ghost-mark legend (drawn marks only, fixture lens today). */
-  ghostLegend: 'Faded marks show the previous run.',
+  ghostLegend:
+    'Faded marks show the previous run. Current marks show where the analysis moved.',
 } as const

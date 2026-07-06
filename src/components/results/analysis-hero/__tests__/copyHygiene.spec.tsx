@@ -63,6 +63,7 @@ const UI_COPY: string[] = [
   HERO_COPY.caption.outcomeOverlap,
   HERO_COPY.caption.outcomeSingleRange,
   HERO_COPY.caption.outcomeDotsOnly,
+  HERO_COPY.caption.stability,
   // HERO_COPY.readout.missing is deliberately NOT scanned: it is the
   // app-wide missing-value placeholder glyph ('—', matching format.ts
   // nullPlaceholder), not prose — the no-em-dash rule targets sentences.
@@ -81,6 +82,7 @@ const UI_COPY: string[] = [
   HERO_COPY.footer.focusNext,
   HERO_COPY.footer.focusNextAria,
   HERO_COPY.footer.focusTarget,
+  HERO_COPY.footer.targetLabel,
   HERO_COPY.footer.targetInputAria,
   HERO_COPY.footer.targetApply,
   HERO_COPY.footer.targetRerunNote,

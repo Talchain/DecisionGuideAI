@@ -277,6 +277,78 @@ describe('AnalysisHeroPanel — content', () => {
     expect(screen.getByTestId('hero-focus-target-editor')).toBeInTheDocument()
   })
 
+  it('the editor shows a visible label and the outcome unit so the user knows what to type', () => {
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    renderPanel(
+      chartModel(
+        makeHeroData({
+          options: noGoal,
+          recommendation: { goalThreshold: null, outcomeUnit: 'percent' },
+        }),
+      ),
+      { onApplyTarget: vi.fn() },
+    )
+    fireEvent.click(screen.getByTestId('hero-focus-target'))
+    const editor = screen.getByTestId('hero-focus-target-editor')
+    expect(editor).toHaveTextContent('Success target')
+    expect(screen.getByTestId('hero-target-unit')).toHaveTextContent('%')
+    // The unit also reaches the accessible name of the input.
+    expect(screen.getByLabelText('Success target value (%)')).toBeInTheDocument()
+  })
+
+  it('omits the unit suffix when no outcome unit label exists (count outcomes)', () => {
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    // Fixture default outcomeUnit is 'count' — no honest unit glyph exists.
+    renderPanel(
+      chartModel(makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } })),
+      { onApplyTarget: vi.fn() },
+    )
+    fireEvent.click(screen.getByTestId('hero-focus-target'))
+    expect(screen.queryByTestId('hero-target-unit')).toBeNull()
+    expect(screen.getByLabelText('Success target value')).toBeInTheDocument()
+  })
+
+  it('producer-slot text is glyph-guarded: em dashes render as plain hyphens (house style)', () => {
+    // The trust line renders producer text VERBATIM in content; the guard
+    // swaps only the dash glyphs, never words.
+    const model = {
+      ...chartModel(),
+      trustLine: 'Trust: moderate — 4,000 samples — 2 assumptions to verify.',
+      statusChip: 'First pass — provisional',
+    }
+    renderPanel(model)
+    expect(screen.getByTestId('hero-trust-line')).toHaveTextContent(
+      'Trust: moderate - 4,000 samples - 2 assumptions to verify.',
+    )
+    expect(screen.getByTestId('hero-status-chip')).toHaveTextContent('First pass - provisional')
+    expect(screen.getByTestId('hero-trust-line').textContent).not.toContain('—')
+  })
+
+  it('the Stability lens shows its per-option explainer caption ONLY when data-bearing', () => {
+    // Live models never carry stability data, so pin the caption through a
+    // model override (the same way the producer-backed state will render).
+    const base = chartModel()
+    renderPanel({
+      ...base,
+      lenses: [...base.lenses, 'stability' as const],
+      rows: base.rows.map((r, i) => ({
+        ...r,
+        stability: { value: 0.5 + i * 0.2, readout: 'Producer label' },
+      })),
+    })
+    fireEvent.click(screen.getByTestId('hero-lens-tab-stability'))
+    expect(screen.getByTestId('hero-caption')).toHaveTextContent(
+      'Each bar shows how well that option holds its position under uncertainty. It describes each option separately, not the analysis as a whole.',
+    )
+    // Unavailable stability (live today) shows the explainer body, never this caption.
+  })
+
   it('the editor discloses the rerun side effect BEFORE any commit', () => {
     const noGoal = [
       makeOption({ ...OPTION_A, goalProbability: undefined }),

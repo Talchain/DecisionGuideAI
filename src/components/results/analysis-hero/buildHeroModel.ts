@@ -576,6 +576,11 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     trustLine: null,
     statusChip: null,
     focusAction: null,
+    // Success-target editor unit — passthrough of the existing outcome
+    // unit fields (the target is a threshold on the outcome axis, so the
+    // outcome unit IS the target unit). Display labelling only.
+    targetUnit:
+      outcomeUnit === 'percent' ? '%' : (outcomeUnitSymbol ?? null),
   }
   return model
 }

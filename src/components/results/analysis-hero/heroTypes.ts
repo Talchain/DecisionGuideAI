@@ -189,6 +189,13 @@ export interface HeroChartModel {
    * always null (the generic line / target promotion render instead).
    */
   focusAction: string | null
+  /**
+   * Display unit for the success-target editor ('%' for percent outcomes,
+   * the currency symbol when known, null otherwise). Pure passthrough of
+   * the existing outcomeUnit/outcomeUnitSymbol fields — shown beside the
+   * input so the user knows what they are typing BEFORE committing.
+   */
+  targetUnit: string | null
 }
 
 /** Curated non-chart state for partial / failed / blocked analyses. */

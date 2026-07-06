@@ -424,6 +424,26 @@ describe('buildHeroModel — grounded detail lines and goal hint', () => {
     expect(chart(buildHeroModel(makeHeroData())).showGoalHint).toBe(false)
   })
 
+  it('targetUnit passes through the existing outcome unit fields (never invented)', () => {
+    // Fixture default: 'count' — no honest unit glyph exists.
+    expect(chart(buildHeroModel(makeHeroData())).targetUnit).toBeNull()
+    // Percent outcomes label the editor with %.
+    expect(
+      chart(buildHeroModel(makeHeroData({ recommendation: { outcomeUnit: 'percent' } })))
+        .targetUnit,
+    ).toBe('%')
+    // Currency outcomes reuse the existing symbol.
+    expect(
+      chart(
+        buildHeroModel(
+          makeHeroData({
+            recommendation: { outcomeUnit: 'currency', outcomeUnitSymbol: '£' },
+          }),
+        ),
+      ).targetUnit,
+    ).toBe('£')
+  })
+
   it('counts the rows that draw a range line (caption wording gate)', () => {
     // Both fixture rows carry p10/p90.
     expect(chart(buildHeroModel(makeHeroData())).outcomeRangedRowCount).toBe(2)
