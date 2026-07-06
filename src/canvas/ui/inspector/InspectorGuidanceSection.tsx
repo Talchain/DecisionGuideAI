@@ -17,6 +17,7 @@ import {
 import { useCanvasStore } from '../../store'
 import { scrollToField } from '../../conversation/utils/scrollToField'
 import { beginInteractionChain } from '../../../lib/debug-state'
+import { focusExistingTarget } from '../../utils/focusHelpers'
 
 const MAX_VISIBLE = 2
 const FOCUS_DEBOUNCE_MS = 150
@@ -302,4 +303,3 @@ export const InspectorGuidanceSection = memo(function InspectorGuidanceSection({
 })
 
 InspectorGuidanceSection.displayName = 'InspectorGuidanceSection'
-import { focusExistingTarget } from '../../utils/focusHelpers'

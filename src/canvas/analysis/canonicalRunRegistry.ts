@@ -52,7 +52,7 @@ export function getCanonicalRunner(): CanonicalRunner | null {
 
 /** Shared copy for the no-host case — one string, every surface. */
 export const RUNNER_UNAVAILABLE_MESSAGE =
-  'Analysis controls are unavailable right now. Open the results dock and try again.'
+  'Analysis is still loading. Try again in a moment.'
 
 export type CanonicalRunResult = CanonicalRunOutcome | { status: 'unavailable'; reason: string }
 

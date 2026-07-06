@@ -66,7 +66,7 @@ describe('fetchLimits (M1.2)', () => {
     const limits = await fetchLimits()
 
     expect(limits.max_nodes).toBe(50)
-    expect(limits.max_edges).toBe(200)
+    expect(limits.max_edges).toBe(100)
     expect(limits.max_body_kb).toBe(96)
   })
 })
