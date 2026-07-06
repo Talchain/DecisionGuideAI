@@ -44,7 +44,20 @@ export function deriveLimitsStatus(
   let zoneLabel: string
   let message: string
 
-  if (maxPercent >= 90) {
+  // Analysis-quality boundary (engine run_critique_node_limit): the graph is
+  // still accepted up to the hard structural cap (nodes.max), but above the
+  // analysis limit the engine flags results approximate. Surface that honestly
+  // instead of reporting "within limits" all the way to the hard cap. When the
+  // engine does not publish the limit, fall back to the percentage zones below.
+  const analysisLimit = limits.analysisNodeLimit
+  const overAnalysisLimit =
+    typeof analysisLimit === 'number' && analysisLimit > 0 && currentNodes > analysisLimit
+
+  if (overAnalysisLimit) {
+    zone = 'at_limit'
+    zoneLabel = 'At limit'
+    message = `Above ${analysisLimit} nodes, analysis results are approximate. Reduce to ${analysisLimit} or fewer nodes for a full-confidence analysis.`
+  } else if (maxPercent >= 90) {
     zone = 'at_limit'
     zoneLabel = 'At limit'
     message = 'Your graph is at the engine\'s recommended limit. Consider simplifying before running.'

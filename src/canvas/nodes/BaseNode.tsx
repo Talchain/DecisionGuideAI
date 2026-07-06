@@ -375,8 +375,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         <div className="flex-1 min-w-0">
           {/* line-clamp-3: cap title to 3 lines with ellipsis so ELK can
               rely on uniform-ish node heights. `break-words` preserved so
-              long unbroken tokens still wrap before clamping. */}
-          <div className={`${typography.nodeTitle} text-text-body break-words line-clamp-3`}>
+              long unbroken tokens still wrap before clamping. `title` exposes
+              the full label on hover when the clamp truncates it. */}
+          <div className={`${typography.nodeTitle} text-text-body break-words line-clamp-3`} title={label}>
             {label}
           </div>
         </div>

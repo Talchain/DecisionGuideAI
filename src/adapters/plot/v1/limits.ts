@@ -128,6 +128,7 @@ export async function fetchLimits(): Promise<V1LimitsResponse> {
       max_edges: 100,
       max_body_kb: 96,
       rate_limit_rpm: 60,
+      run_critique_node_limit: 40,
       flags: { scm_lite: 1 },
     }
 

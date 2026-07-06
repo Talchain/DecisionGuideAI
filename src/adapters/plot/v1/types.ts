@@ -184,8 +184,8 @@ export interface V1Error {
 
 // Limits (PLoT Engine v1.1 Contract)
 export const V1_LIMITS = {
-  MAX_NODES: 50,      // Contract: max 50 nodes
-  MAX_EDGES: 200,     // Contract: max 200 edges
+  MAX_NODES: 50,      // Contract: max 50 nodes (hard accept cap; engine /v1/limits.max_nodes)
+  MAX_EDGES: 100,     // Contract: max 100 edges (hard accept cap; engine /v1/limits.max_edges)
   MAX_LABEL_LENGTH: 120,
   MAX_BODY_LENGTH: 2000,
   RATE_LIMIT_RPM: 60,
@@ -203,6 +203,11 @@ export interface V1LimitsResponse {
     [key: string]: unknown
   }
   engine_p95_ms_budget?: number // v1.2: p95 execution time budget in milliseconds
+
+  // Analysis (run-critique) node limit: above this the engine still returns
+  // results but flags them approximate (BLOCKER critique). Distinct from the
+  // hard structural accept cap `max_nodes`. Engine field: run_critique_node_limit.
+  run_critique_node_limit?: number
 
   // Legacy nested format for backwards compat
   nodes?: { max: number }

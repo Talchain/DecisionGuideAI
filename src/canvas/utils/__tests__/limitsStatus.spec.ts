@@ -54,4 +54,35 @@ describe('deriveLimitsStatus', () => {
     expect(gettingComplex!.message).toMatch(/getting complex/i)
     expect(atLimit!.message).toMatch(/at the engine's recommended limit/i)
   })
+
+  describe('analysis node limit (run_critique_node_limit) honesty', () => {
+    // Engine publishes max_nodes 50 (hard accept cap) and run_critique_node_limit 40
+    // (results approximate above this). The 41-50 band is accepted but degraded.
+    const engineLimits: LimitsV1 = {
+      nodes: { max: 50 },
+      edges: { max: 100 },
+      analysisNodeLimit: 40,
+    }
+
+    it('flags the approximate-results band when nodes exceed the analysis limit but are within the hard cap', () => {
+      const result = deriveLimitsStatus(engineLimits, 45, 10) // 45 nodes: >40 analysis limit, <=50 cap
+      expect(result).not.toBeNull()
+      expect(result!.zone).toBe('at_limit')
+      expect(result!.message).toMatch(/approximate/i)
+      expect(result!.message).toContain('40')
+    })
+
+    it('does not flag approximate at or below the analysis limit', () => {
+      const result = deriveLimitsStatus(engineLimits, 40, 10) // exactly at 40 -> not over
+      expect(result).not.toBeNull()
+      expect(result!.message).not.toMatch(/approximate/i)
+    })
+
+    it('is backward-compatible: no analysis limit means percentage zones only', () => {
+      const noAnalysisLimit: LimitsV1 = { nodes: { max: 50 }, edges: { max: 100 } }
+      const result = deriveLimitsStatus(noAnalysisLimit, 45, 10) // 90% of 50 -> at_limit, generic copy
+      expect(result!.zone).toBe('at_limit')
+      expect(result!.message).not.toMatch(/approximate/i)
+    })
+  })
 })
