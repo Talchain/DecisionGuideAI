@@ -2839,6 +2839,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // kept false to document intent (the snapshot isn't a fresh run).
       analysisStateReady: false,
       rawV2Response: null, // Historical runs don't carry raw V2 response
+      // RCA-D1/RCA-C: a hydrated snapshot has no live capture proving it matches
+      // the current graph (v5AnalysisFact is session-only and never restored, so
+      // every reload is an orphaned result). Mark the CEE freshness verdict
+      // 'unknown' (cannot-confirm) — never 'fresh', never the overclaiming
+      // 'stale' — so the results surface reads "can't confirm this is current",
+      // the stale engine critique is freshness-gated off (OutputsDock), and the
+      // hero is routed off green "Analysis complete" via the orphan signal. A
+      // later analysis_ready turn upgrades this verdict honestly.
+      analysisFreshness: { freshness: 'unknown', freshnessReason: 'hydrated_without_capture' },
+      analysisFreshnessDirty: false,
     }))
   },
 
@@ -2881,6 +2891,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // resultsLoadHistorical above.
       analysisStateReady: false,
       rawV2Response: null, // Supabase hydration doesn't carry raw V2 response
+      // RCA-D1/RCA-C: mark the hydrated result 'unknown' (cannot-confirm) — see
+      // the matching note in resultsLoadHistorical above.
+      analysisFreshness: { freshness: 'unknown', freshnessReason: 'hydrated_without_capture' },
+      analysisFreshnessDirty: false,
     }))
   },
 

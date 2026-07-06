@@ -1954,8 +1954,14 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     reliability assessment. Keeping import for potential future use in Compare tab. */}
                 {/* v1.1 Contract: Engine critique shown post-run only if blockers exist
                     Note: Pre-run validation uses graphHealth, post-run uses engine critique
-                    Only show if engine detected blockers that prevented clean results */}
-                {!isPreRun && report?.run?.critique && report.run.critique.some(c => c.severity === 'BLOCKER') && (
+                    Only show if engine detected blockers that prevented clean results.
+                    RCA-C/F18: freshness-gate the render — an engine critique carries the
+                    limit that was live AT RUN TIME baked into its free-text message (e.g.
+                    "Graph too large: 16 nodes (limit: 12)"). When the analysis is not
+                    confirmed fresh (hydrated/orphaned reload, or edited since the run) that
+                    message can contradict newer live limits, so suppress it and let live
+                    graphHealth speak until a rerun mints a critique against current limits. */}
+                {!isPreRun && !analysisNotConfirmedFresh && report?.run?.critique && report.run.critique.some(c => c.severity === 'BLOCKER') && (
                   <div data-testid="outputs-engine-critique">
                     <ValidationPanel
                       critique={mapCritiqueToValidation(report.run.critique)}

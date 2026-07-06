@@ -466,6 +466,56 @@ describe('Canvas Store', () => {
 
       expect(useCanvasStore.getState().hasCompletedFirstRun).toBe(true)
     })
+
+    // RCA-D1/RCA-C: a hydrated snapshot has no live-capture proof of currentness,
+    // so both hydrate paths mark the freshness verdict 'unknown' (cannot-confirm)
+    // — never 'fresh' (false green "complete"), never 'stale' (over-claims a
+    // change the user may not have made).
+    it('resultsLoadHistorical marks analysisFreshness unknown (cannot-confirm)', () => {
+      const { resultsLoadHistorical, reset } = useCanvasStore.getState()
+      reset()
+      const now = Date.now()
+      const fakeRun: any = {
+        id: 'run-fresh', ts: now, seed: 1, hash: 'h-fresh', adapter: 'auto',
+        summary: '', graphHash: 'gh',
+        report: {
+          schema: 'report.v1',
+          meta: { seed: 1, response_id: 'r', elapsed_ms: 1 },
+          model_card: { response_hash: 'h-fresh', response_hash_algo: 'sha256', normalized: true },
+          results: {},
+        },
+        drivers: [], graph: { nodes: [], edges: [] }, ceeReview: null, ceeTrace: null, ceeError: null,
+      }
+
+      resultsLoadHistorical(fakeRun)
+
+      expect(useCanvasStore.getState().analysisFreshness?.freshness).toBe('unknown')
+      expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
+    })
+
+    it('resultsHydrateFromSupabase marks analysisFreshness unknown (cannot-confirm)', () => {
+      const { resultsHydrateFromSupabase, reset } = useCanvasStore.getState()
+      reset()
+
+      resultsHydrateFromSupabase({
+        results: {
+          status: 'complete',
+          progress: 100,
+          runId: 'sb-1',
+          seed: 2,
+          hash: 'h-sb',
+          report: {
+            schema: 'report.v1',
+            meta: { seed: 2, response_id: 'sb', elapsed_ms: 1 },
+            model_card: { response_hash: 'h-sb', response_hash_algo: 'sha256', normalized: true },
+            results: {},
+          },
+        },
+        runMeta: {},
+      } as any)
+
+      expect(useCanvasStore.getState().analysisFreshness?.freshness).toBe('unknown')
+    })
   })
 
   describe('graphHealth from engine graph_quality', () => {
