@@ -3,12 +3,17 @@
  * V5 Phase 3 blocks-array tolerance — parser/extractor/state regressions.
  *
  * Acceptance brief (canonical V5 analysis, 2026-05-18):
- *   The vendored @talchain/schemas@0.8.1 does not include the frozen v1.3
- *   Phase 3 block types `review_card | coaching | evidence | exercise` in
- *   its `blocks[]` discriminated union. CEE emits them inside `blocks[]`
+ *   The then-vendored @talchain/schemas@0.8.1 did not include the frozen
+ *   v1.3 Phase 3 block types `review_card | coaching | evidence | exercise`
+ *   in its `blocks[]` discriminated union. CEE emits them inside `blocks[]`
  *   per the contract, which caused strict validation to reject the entire
  *   response, short-circuit applyV5State, and leave the debug bundle's
  *   `v5_cee_capture` null.
+ *
+ * 0.13.1 re-vendor (2026-07): the schema now DECLARES the Phase 3 types,
+ * but the parser's tolerance split below is deliberately unchanged — Phase 3
+ * entries are still intercepted into the sidecar before strict validation.
+ * Moving them into the validated blocks[] is a separate, deferred decision.
  *
  * The fix splits `blocks[]` into legacy-known / Phase 3 whitelist /
  * truly-unknown buckets before strict validation. Legacy-known entries
@@ -468,7 +473,7 @@ describe('callV5Turn runtime/traced sidecar split', () => {
 describe('LEGACY_SCHEMA_KNOWN_BLOCK_TYPES drift guard', () => {
   /**
    * The parser hardcodes the legacy block-type whitelist from
-   * @talchain/schemas (currently v0.8.1). If the schema package is
+   * @talchain/schemas (currently v0.13.1). If the schema package is
    * upgraded — new block types added, existing renamed/removed — the
    * parser's classifier silently misroutes them: new types fall into the
    * `unknown` bucket and (since the 2026-06 tolerance change) are dropped
@@ -477,17 +482,33 @@ describe('LEGACY_SCHEMA_KNOWN_BLOCK_TYPES drift guard', () => {
    * the strict `BlockSchema` discriminated union and asserts the parser
    * mirror stays in sync. When this fires, update
    * LEGACY_SCHEMA_KNOWN_BLOCK_TYPES in src/v5/responseParser.ts.
+   *
+   * 0.13.1 re-vendor note: BlockSchema is now the discriminated union
+   * wrapped in `.superRefine(...)` (evidence §1.3 rule), i.e. a ZodEffects —
+   * the union def lives one level down at `_def.schema`. And the Phase 3
+   * types (review_card / coaching / evidence / exercise) are now DECLARED
+   * by the schema, while the parser deliberately keeps intercepting them
+   * into the phase3 sidecar BEFORE strict validation (tolerance layer
+   * unchanged — Phase-3 adoption into validated blocks[] is a deferred,
+   * separate decision). The guard therefore asserts the tolerated set is a
+   * subset of the declared union (rename/removal drift still fires) and
+   * exempts those types from the legacy-mirror check.
    */
   it('mirrors every block type declared by the vendored schema', () => {
-    const def = (BlockSchema as unknown as { _def: { optionsMap?: Map<string, unknown> } })._def
+    const rawDef = (
+      BlockSchema as unknown as {
+        _def: { optionsMap?: Map<string, unknown>; schema?: { _def: { optionsMap?: Map<string, unknown> } } }
+      }
+    )._def
+    const def = rawDef.schema?._def ?? rawDef
     expect(def.optionsMap).toBeDefined()
     const declaredTypes = new Set<string>(def.optionsMap!.keys())
 
-    // Phase 3 whitelist must NOT overlap with the legacy schema set; if
-    // a Phase 3 type lands in the schema, the parser still treats it as
-    // a tolerated phase3 entry — surface that conflict here.
+    // 0.13.0+: every parser-tolerated Phase 3 type must be declared by the
+    // vendored schema. If the schema renames or drops one, the parser's
+    // sidecar whitelist is stale — surface that drift here.
     for (const phase3Type of PHASE3_TOLERATED_BLOCK_TYPES) {
-      expect(declaredTypes.has(phase3Type)).toBe(false)
+      expect(declaredTypes.has(phase3Type)).toBe(true)
     }
 
     // For each declared legacy type, confirm a payload carrying that
@@ -534,6 +555,9 @@ describe('LEGACY_SCHEMA_KNOWN_BLOCK_TYPES drift guard', () => {
     }
     const missing: string[] = []
     for (const decl of declaredTypes) {
+      // Phase 3 types are intercepted into the sidecar BEFORE strict
+      // validation, so the legacy mirror deliberately excludes them.
+      if ((PHASE3_TOLERATED_BLOCK_TYPES as ReadonlySet<string>).has(decl)) continue
       const minimal = minimalEachType[decl]
       if (!minimal) {
         missing.push(decl)
@@ -567,7 +591,13 @@ describe('LEGACY_SCHEMA_KNOWN_BLOCK_TYPES drift guard', () => {
    * assert the block actually survives into `response.blocks`.
    */
   it('round-trips every declared block type into validated blocks[] (not dropped as unknown)', async () => {
-    const def = (BlockSchema as unknown as { _def: { optionsMap?: Map<string, unknown> } })._def
+    // 0.13.1: unwrap the union-level `.superRefine` wrapper (see above).
+    const rawDef = (
+      BlockSchema as unknown as {
+        _def: { optionsMap?: Map<string, unknown>; schema?: { _def: { optionsMap?: Map<string, unknown> } } }
+      }
+    )._def
+    const def = rawDef.schema?._def ?? rawDef
     const declaredTypes = [...(def.optionsMap!.keys())]
     const minimalEachType: Record<string, Record<string, unknown>> = {
       text: { type: 'text', content: 'hi' },
