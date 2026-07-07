@@ -27,6 +27,10 @@ import type {
 } from '../hooks/useDebugData'
 import { getVersionInfo, getClientBuild } from '../../../lib/version-cache'
 import { TALCHAIN_SCHEMAS_VENDORED_VERSION } from '../../../lib/talchainSchemasVersion'
+import {
+  getDroppedContentSnapshot,
+  type DroppedContentCounterSnapshot,
+} from '../../../lib/droppedContentCounter'
 import { getBufferedLogs, type BufferedLog } from '../../../utils/debugLogBuffer'
 import { DEBUG_LLM_RAW_MAX_CHARS } from '../../../utils/payloadRedaction'
 import { getUserActions } from '../../../lib/debug-state'
@@ -1125,6 +1129,13 @@ interface DebugBundle {
   console_logs: BufferedLog[]
   /** Diagnostic checks for troubleshooting */
   diagnostic_checks: DiagnosticChecks
+  /**
+   * Track C Step 1 (approved D-5): session-scoped counter of CEE block
+   * types received but not rendered, by type+source with tracked rationale.
+   * Observability only — counting never changes rendering. Per-turn truth
+   * remains `payloads.cee_response.__additive__.unknown_blocks`.
+   */
+  dropped_content_counter: DroppedContentCounterSnapshot
   /** README content */
   readme: string
   /** Full graph data (when explicitly requested) */
@@ -3122,6 +3133,9 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     },
     console_logs: getBufferedLogs(),
     diagnostic_checks: data.diagnostics,
+    // Track C Step 1 (D-5): always emitted; empty snapshot when nothing was
+    // dropped this session. The getter never throws.
+    dropped_content_counter: getDroppedContentSnapshot(),
     readme: generateReadme(data),
     ...(fullGraph && { full_graph: fullGraph }),
     ...(ceeOptions && { cee_options: ceeOptions }),
