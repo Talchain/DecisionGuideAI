@@ -121,16 +121,43 @@ export function mapV5Block(block: V5Block): ConversationBlock | null {
         ...(block.action_label ? { action_label: block.action_label } : {}),
       }
     case 'evidence':
-    case 'exercise':
-      // 0.13.1 re-vendor: schema-declared but still without a renderer in
-      // this slice. The parser tolerance layer stashes them in the sidecar
-      // BEFORE strict validation, so they never reach this mapper at
-      // runtime; the bridge counts them via the dropped-content counter
-      // (rationale 'no_renderer_for_block_type').
+      // Track C slice 2 (Lane UI-W4 C): 0.13.1-typed evidence. Like
+      // review_card/coaching above, these normally arrive via the parser
+      // sidecar and are surfaced by composePhase3BridgedBlocks; this
+      // branch keeps the mapper coherent for any future path where a
+      // schema-validated block reaches it directly. Copied verbatim.
       return {
-        type: 'v5_unsupported',
-        blockType: block.type,
-        raw: block,
+        type: 'v5_evidence',
+        block_id: block.block_id,
+        factor_label: block.factor_label,
+        factor_ref: block.factor_ref,
+        target_refs: block.target_refs,
+        current_confidence: block.current_confidence,
+        evidence_gap: block.evidence_gap,
+        suggested_technique: block.suggested_technique,
+        impact_if_gathered: block.impact_if_gathered,
+        priority_rank: block.priority_rank,
+        severity: block.severity,
+        freshness: block.freshness,
+        ...(block.action_intent ? { action_intent: block.action_intent } : {}),
+        ...(block.action_label ? { action_label: block.action_label } : {}),
+      }
+    case 'exercise':
+      // Track C slice 2 (Lane UI-W4 C): 0.13.1-typed exercise. Same note
+      // as evidence above. No priority_rank exists on this type (v1.3).
+      return {
+        type: 'v5_exercise',
+        block_id: block.block_id,
+        exercise_kind: block.exercise_kind,
+        ...(block.failure_scenario ? { failure_scenario: block.failure_scenario } : {}),
+        ...(block.warning_signs ? { warning_signs: block.warning_signs } : {}),
+        ...(block.mitigation ? { mitigation: block.mitigation } : {}),
+        ...(block.reference_class ? { reference_class: block.reference_class } : {}),
+        ...(block.counter_case ? { counter_case: block.counter_case } : {}),
+        ...(block.review_trigger ? { review_trigger: block.review_trigger } : {}),
+        ...(block.target_element_ref ? { target_element_ref: block.target_element_ref } : {}),
+        target_refs: block.target_refs,
+        freshness: block.freshness,
       }
     default: {
       const _exhaustive: never = block

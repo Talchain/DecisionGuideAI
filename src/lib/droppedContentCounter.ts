@@ -26,13 +26,21 @@
  *   - 'phase3_block_bridge': Phase 3 blocks harvested from the parser
  *     sidecar that the render bridge (composePhase3BridgedBlocks in
  *     useConversation.ts) did NOT surface. Track C slice 1 renders
- *     schema-valid 'coaching' + 'review_card'; everything else here is
- *     counted with a precise rationale:
- *       - 'malformed_phase3_block_suppressed': a coaching/review_card that
- *         failed 0.13.x typed-field adaptation (fail-closed — counted +
- *         suppressed, never crashes, never rendered with invented fields).
- *       - 'no_renderer_for_block_type': evidence / exercise — tolerated
- *         types with no renderer in this slice.
+ *     schema-valid 'coaching' + 'review_card'; slice 2 (Lane UI-W4 C)
+ *     added 'evidence' + 'exercise' — ALL FOUR Phase 3 types now render
+ *     when schema-valid. Everything else here is counted with a precise
+ *     rationale:
+ *       - 'malformed_phase3_block_suppressed': any of the four Phase 3
+ *         types that failed 0.13.x typed-field adaptation (fail-closed —
+ *         counted + suppressed, never crashes, never rendered with
+ *         invented fields). Includes a content-less exercise (schema-
+ *         shaped but carrying none of its optional prose fields —
+ *         rendering an empty shell would be dishonest).
+ *       - 'no_renderer_for_block_type': RETIRED as of slice 2 — no live
+ *         drop point emits it any more (every Phase 3 type has a
+ *         renderer). The literal stays in the union so bundles captured
+ *         by slice-1 builds keep typechecking against this snapshot
+ *         shape; a future block TYPE addition may legitimately reuse it.
  *       - 'legacy_review_card_suppressed': a legacy-shaped (pre-0.13.x)
  *         review_card not surfaced by the legacy top-1/fact-gated bridge.
  *

@@ -1,0 +1,60 @@
+{
+  "_comment": "Lane UI-W4 C (Track C slice 2): bundle-shaped 0.13.1 evidence + exercise Phase 3 blocks. Shapes are validated VERBATIM against the vendored @talchain/schemas Zod schemas (EvidenceBlockSchema / ExerciseBlockSchema) in phase3TypedBlocks.spec.ts, so drift between this fixture and the contract fails the suite. Extends the #236 fixture set (cee-response-b82c89dd-trimmed.json), which carries no evidence/exercise blocks on the live staging wire yet.",
+  "blocks": [
+    {
+      "type": "evidence",
+      "block_id": "7d9f2a44-1b3c-5e6f-8a90-123456789abc",
+      "signal_id": "evidence:fac_conversion_rate:1:hash-1",
+      "created_at": "2026-07-07T09:30:00.000+00:00",
+      "source_handler": "evidence_ranking",
+      "graph_hash_at_generation": "hash-1",
+      "freshness": "fresh",
+      "factor_label": "Conversion Rate",
+      "factor_ref": { "id": "fac_conversion_rate", "label": "Conversion Rate", "kind": "factor" },
+      "target_refs": [
+        { "id": "fac_conversion_rate", "label": "Conversion Rate", "kind": "factor" },
+        { "id": "opt_paid_ads", "label": "Paid Advertising", "kind": "option" }
+      ],
+      "current_confidence": "low",
+      "evidence_gap": "The conversion rate estimate is based on a single week of data.",
+      "suggested_technique": "Run the funnel report for the last quarter and compare weekly variance.",
+      "impact_if_gathered": "A firmer conversion estimate would settle which option leads.",
+      "priority_rank": 41,
+      "severity": "warning",
+      "action_intent": "gather_evidence",
+      "action_label": "Gather conversion evidence"
+    },
+    {
+      "type": "exercise",
+      "block_id": "3c1d5b26-9e7a-5f40-b1c2-abcdef012345",
+      "signal_id": "exercise:pre_mortem:1:hash-1",
+      "created_at": "2026-07-07T09:31:00.000+00:00",
+      "source_handler": "pre_mortem_handler",
+      "graph_hash_at_generation": "hash-1",
+      "freshness": "fresh",
+      "exercise_kind": "pre_mortem",
+      "failure_scenario": "Twelve months in, the migration stalls because the legacy system's edge cases were undocumented.",
+      "warning_signs": [
+        "Integration test coverage stays flat for two sprints",
+        "The legacy team's answers start with 'it depends'"
+      ],
+      "mitigation": "Timebox a two-week legacy discovery spike before committing the migration date.",
+      "target_refs": [
+        { "id": "opt_migrate", "label": "Migrate to the new platform", "kind": "option" }
+      ]
+    },
+    {
+      "type": "exercise",
+      "block_id": "b4e6f810-2233-5a67-9c01-fedcba987654",
+      "signal_id": "exercise:consider_opposite:1:hash-1",
+      "created_at": "2026-07-07T09:32:00.000+00:00",
+      "source_handler": "consider_opposite_handler",
+      "freshness": "fresh",
+      "exercise_kind": "consider_opposite",
+      "counter_case": "Suppose the cheaper option outperforms: what evidence today already points that way?",
+      "review_trigger": "Revisit if two of the three pilot metrics land below target.",
+      "target_element_ref": { "id": "fac_cost", "label": "Total Cost", "kind": "factor" },
+      "target_refs": []
+    }
+  ]
+}

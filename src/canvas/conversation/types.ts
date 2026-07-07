@@ -111,6 +111,8 @@ export type ConversationBlock =
   | V5FlipAnalysisBlock
   | V5ReviewCardBlock
   | V5CoachingBlock
+  | V5EvidenceBlock
+  | V5ExerciseBlock
   | V5UnsupportedBlock
 
 /**
@@ -229,6 +231,60 @@ export interface V5CoachingBlock {
   freshness: V5Phase3Freshness
   action_intent?: string
   action_label?: string
+}
+
+/**
+ * Track C slice 2 (Lane UI-W4 C): typed evidence conversation block
+ * mirroring the 0.13.1 EvidenceBlockSchema render-relevant fields EXACTLY.
+ * Same verbatim-copy contract as V5ReviewCardBlock
+ * (provisional_doctrine_v0): every rendered string is the producer's;
+ * `current_confidence` is a pass-through discriminator (data-* only, not
+ * enum-narrowed so future producer values ride through); `severity` drives
+ * the visual channel only and stays enum-narrowed. Distinct from the
+ * legacy V4-era `EvidenceBlock` ConversationBlock (different shape).
+ * `factor_ref` is optional here (render-relevant naming comes from
+ * `factor_label` / target_refs per §1.3 — renderers prefer the primary
+ * factor target_refs label on conflict).
+ */
+export interface V5EvidenceBlock {
+  type: 'v5_evidence'
+  block_id: string
+  factor_label: string
+  factor_ref?: V5BlockTargetRef
+  target_refs: V5BlockTargetRef[]
+  current_confidence: string
+  evidence_gap: string
+  suggested_technique: string
+  impact_if_gathered: string
+  priority_rank: number
+  severity: 'info' | 'warning' | 'critical'
+  freshness: V5Phase3Freshness
+  action_intent?: string
+  action_label?: string
+}
+
+/**
+ * Track C slice 2 (Lane UI-W4 C): typed exercise conversation block
+ * mirroring the 0.13.1 ExerciseBlockSchema render-relevant fields EXACTLY.
+ * Per the v1.3 contract the exercise block carries NO priority_rank (not
+ * hero eligible) and NO title — every prose field is optional and rendered
+ * producer-verbatim when present; the adapter fails closed when none is.
+ * `exercise_kind` is a pass-through discriminator (data-* only). Distinct
+ * from the legacy V4-era `ExerciseBlock` ConversationBlock.
+ */
+export interface V5ExerciseBlock {
+  type: 'v5_exercise'
+  block_id: string
+  exercise_kind: string
+  failure_scenario?: string
+  warning_signs?: string[]
+  mitigation?: string
+  reference_class?: string
+  counter_case?: string
+  review_trigger?: string
+  target_element_ref?: V5BlockTargetRef
+  target_refs: V5BlockTargetRef[]
+  freshness: V5Phase3Freshness
 }
 
 /**
