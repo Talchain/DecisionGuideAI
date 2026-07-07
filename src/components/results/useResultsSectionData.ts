@@ -887,6 +887,14 @@ export interface ResultsSectionDataReturn {
    * `autoNoiseProvenance?.applied && autoNoiseProvenance?.isProvisional`.
    */
   autoNoiseProvenance: import('./types').AutoNoiseProvenance | null
+  /**
+   * Lane UI-W5 (reference-option disclosure): the option the edge/factor
+   * sensitivities and fragile edges were computed against, resolved to a
+   * canvas label where possible. `null` when the producer did not
+   * disclose it (older PLoT/ISL builds); `optionLabel` null when the id
+   * no longer resolves on this canvas (caption suppressed, fail-closed).
+   */
+  sensitivityReference: { optionId: string; optionLabel: string | null } | null
 }
 
 export function useResultsSectionData(): ResultsSectionDataReturn {
@@ -908,6 +916,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     rawFlipThresholdsStatusReason,
     rawMetaNSamples,
     rawHeadlineBanded,
+    rawSensitivityReferenceOptionId,
   } = useCanvasStore(
     useShallow((s) => ({
       results: s.results,
@@ -955,6 +964,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // is the fresh-run fallback — same pattern as rawV2FlipThresholds.
       rawHeadlineBanded:
         s.rawV2Response?.decision_brief?.headline_banded ?? null,
+      // Lane UI-W5 (reference-option disclosure): option ID the
+      // sensitivities / fragile edges were computed against. Extracted
+      // narrowly; mapped report preferred below, this raw slot is the
+      // fresh-run fallback — same pattern as rawHeadlineBanded.
+      rawSensitivityReferenceOptionId:
+        s.rawV2Response?.sensitivity_reference_option_id ?? null,
     }))
   )
 
@@ -1089,6 +1104,29 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     })
     return map
   }, [nodes])
+
+  // Lane UI-W5 (reference-option disclosure): resolve the disclosed
+  // reference-option ID to its canvas label for the shared
+  // SensitivityReferenceCaption. Mapped report preferred (survives
+  // save + hydrate), raw response is the fresh-run fallback — same
+  // precedence as flip_thresholds / headline_banded. Fail-closed:
+  // absent field → null (no caption); id that no longer resolves to a
+  // canvas label → optionLabel null (caption suppressed rather than
+  // leaking an internal id as user copy). provisional_doctrine_v0.
+  const sensitivityReference = useMemo<
+    { optionId: string; optionLabel: string | null } | null
+  >(() => {
+    const fromReport = report?.sensitivity_reference_option_id
+    const raw =
+      typeof fromReport === 'string' && fromReport.length > 0
+        ? fromReport
+        : typeof rawSensitivityReferenceOptionId === 'string' &&
+            rawSensitivityReferenceOptionId.length > 0
+          ? rawSensitivityReferenceOptionId
+          : null
+    if (!raw) return null
+    return { optionId: raw, optionLabel: nodeLabelMap.get(raw) ?? null }
+  }, [report, rawSensitivityReferenceOptionId, nodeLabelMap])
 
   // Get outcome node IDs for direction derivation
   const outcomeNodeIds = useMemo(
@@ -2762,6 +2800,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     goalNodeId,
     completeness,
     autoNoiseProvenance,
+    sensitivityReference,
   }
 }
 

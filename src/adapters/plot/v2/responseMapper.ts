@@ -714,6 +714,16 @@ export function mapV2ResponseToReportV1(
     // flip_thresholds above). No field is reshaped here; the fail-closed
     // trust boundary is normalizeHeadlineBanded at the selector.
     ...(v2Response.decision_brief ? { decision_brief: v2Response.decision_brief } : {}),
+    // Lane UI-W5 (reference-option disclosure): pass through the option ID
+    // the sensitivities / fragile edges were computed against, ADDITIVELY
+    // and verbatim, so the disclosure caption survives a save + hydrate
+    // cycle (selector reads mapped report first, raw response second —
+    // same pattern as flip_thresholds / decision_brief above). Guarded to
+    // non-empty strings only; absent → key omitted (honest absence).
+    ...(typeof v2Response.sensitivity_reference_option_id === 'string' &&
+      v2Response.sensitivity_reference_option_id.length > 0
+      ? { sensitivity_reference_option_id: v2Response.sensitivity_reference_option_id }
+      : {}),
   }
 }
 

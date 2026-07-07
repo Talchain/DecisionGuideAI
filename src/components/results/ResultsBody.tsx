@@ -362,6 +362,7 @@ export const ResultsBody = memo(function ResultsBody({
             outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
             outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
             isNormalised={resultsSectionData.recommendation.isNormalised}
+            sensitivityReferenceLabel={resultsSectionData.sensitivityReference?.optionLabel ?? null}
           />
         </SectionErrorBoundary>
       </Accordion>
@@ -457,6 +458,7 @@ export const ResultsBody = memo(function ResultsBody({
                   onFocusNode={onFocusNode}
                   onSendMessage={onSendMessage}
                   expertMode={expertMode}
+                  sensitivityReferenceLabel={resultsSectionData.sensitivityReference?.optionLabel ?? null}
                 />
               )
             })()}

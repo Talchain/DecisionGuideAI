@@ -1022,6 +1022,12 @@ export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
   confidence_tier?: 'strong' | 'fair' | 'needs_work'
   /** PLoT-classified dominant factor (B2, optional for cached pre-B1 results) */
   dominant_factor?: { factor_id: string; factor_label: string }
+  /**
+   * Reference-option disclosure (Lane UI-W5): option ID the sensitivities /
+   * fragile edges were computed against. Mapper pass-through of the /v2/run
+   * root field; absent on older PLoT/ISL builds. provisional_doctrine_v0.
+   */
+  sensitivity_reference_option_id?: string
   drivers_error?: string
   sensitivity?: { factors?: Array<Record<string, unknown>>; error?: string }
   isl_error?: string
