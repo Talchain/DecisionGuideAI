@@ -320,9 +320,13 @@ export interface V2RobustnessActual {
   level?: string
   /** Human-readable robustness label, when PLoT provides it. */
   label?: string
-  /** Near-tie flag (snake_case) plus the camelCase alias, both read defensively. */
-  near_tie?: boolean
-  nearTie?: boolean
+  /**
+   * Near-tie detail object (snake_case) plus its camelCase alias — the selector
+   * reads is_tie / top_option_id / second_option_id / tied_option_ids / gap /
+   * threshold off it, so it is a Record, not a boolean flag.
+   */
+  near_tie?: Record<string, unknown>
+  nearTie?: Record<string, unknown>
   /** Tipping-point analysis: how much each factor must change to flip the recommendation */
   flip_thresholds?: Array<{
     node_id?: string
