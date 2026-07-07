@@ -26,6 +26,11 @@ import type {
   CEEObservabilityData,
 } from '../hooks/useDebugData'
 import { getVersionInfo, getClientBuild } from '../../../lib/version-cache'
+import { TALCHAIN_SCHEMAS_VENDORED_VERSION } from '../../../lib/talchainSchemasVersion'
+import {
+  getDroppedContentSnapshot,
+  type DroppedContentCounterSnapshot,
+} from '../../../lib/droppedContentCounter'
 import { getBufferedLogs, type BufferedLog } from '../../../utils/debugLogBuffer'
 import { DEBUG_LLM_RAW_MAX_CHARS } from '../../../utils/payloadRedaction'
 import { getUserActions } from '../../../lib/debug-state'
@@ -806,10 +811,21 @@ export type RankSource = 'win_probability_desc' | 'canvas_order' | 'unranked'
  * `plot_enrichment` mirrors the same data at a different bundle key and was never
  * the read source; the dead `results.apiResponse.*` labels referenced a non-
  * existent canvas-store field and have been removed.
+ *
+ * The `cee_embedded.*` members cover the V5-canonical path (bundle 45c9b625,
+ * 2026-07-07): the browser never fetches PLoT directly, `state.rawV2Response`
+ * is explicitly nulled by `applyV5State` (results hydration step 5), and the
+ * only factor_sensitivity carrying `influence_score` lives inside the CEE
+ * turn response at `blocks[type==='analysis_result'].enrichment`. The exact
+ * bundle path of that body (conversational `payloads.cee_response.*` vs
+ * recovered `analysis_evidence_trace.response_body.*`, and the concrete
+ * block index) is recorded by `evidence_resolution.plot_response.path`.
  */
 export type FactorMetricSource =
   | 'payloads.plot_response.factor_sensitivity.influence_score'
   | 'payloads.plot_response.factor_sensitivity.sensitivity_score'
+  | 'cee_embedded.analysis_result.enrichment.factor_sensitivity.influence_score'
+  | 'cee_embedded.analysis_result.enrichment.factor_sensitivity.sensitivity_score'
   | 'unmatched'
 
 /** V1.5: Display state snapshot — what the UI actually rendered at export time */
@@ -1069,7 +1085,9 @@ interface DebugBundle {
   }
   /** ISL diagnostic details */
   isl_diagnostic: {
-    data_source: 'downstream_calls' | 'direct_capture' | 'plot_response_extraction' | 'none'
+    /** Mirrors DiagnosticChecks['isl_data_source'] — see its JSDoc for the
+     *  V5-canonical `cee_enrichment_extraction` value. */
+    data_source: DiagnosticChecks['isl_data_source']
     downstream_calls_path_found: string | null
     downstream_calls_paths_checked: string[]
     plot_response_keys: string[]
@@ -1111,6 +1129,13 @@ interface DebugBundle {
   console_logs: BufferedLog[]
   /** Diagnostic checks for troubleshooting */
   diagnostic_checks: DiagnosticChecks
+  /**
+   * Track C Step 1 (approved D-5): session-scoped counter of CEE block
+   * types received but not rendered, by type+source with tracked rationale.
+   * Observability only — counting never changes rendering. Per-turn truth
+   * remains `payloads.cee_response.__additive__.unknown_blocks`.
+   */
+  dropped_content_counter: DroppedContentCounterSnapshot
   /** README content */
   readme: string
   /** Full graph data (when explicitly requested) */
@@ -2119,6 +2144,34 @@ function collectSchemaVersions(data: DebugData): SchemaVersions {
   return result
 }
 
+/**
+ * Decorate a SchemaVersions block with the UI-side facts that are ALWAYS
+ * knowable at export time (additive, 2026-07-07):
+ *   - `ui_vendored_talchain_schemas`: the app's vendored @talchain/schemas
+ *     pin, from the drift-guarded build-time constant — bundle 45c9b625
+ *     shipped an all-null schema_versions block even though the UI's own
+ *     contract version was known.
+ *   - `build_ids`: mirror of `data.builds` (service build ids where the
+ *     captured payloads exposed them).
+ * The six wire-version fields and the consistency computation are left
+ * untouched — consistency keeps its wire-only semantics.
+ */
+function withUiSchemaVersionFacts(
+  sv: SchemaVersions,
+  data: DebugData,
+): SchemaVersions {
+  return {
+    ...sv,
+    ui_vendored_talchain_schemas: TALCHAIN_SCHEMAS_VENDORED_VERSION,
+    build_ids: {
+      ui: data.builds.ui ?? null,
+      cee: data.builds.cee ?? null,
+      plot: data.builds.plot ?? null,
+      isl: data.builds.isl ?? null,
+    },
+  }
+}
+
 // =============================================================================
 // V1.5: Collect user actions from debug-state ring buffer
 // =============================================================================
@@ -2412,8 +2465,21 @@ function extractRenderedFactors(
 /**
  * Capture what the UI is currently rendering: node/edge counts, node type
  * breakdown, and panel visibility. Called at export time from the async path.
+ *
+ * `embeddedFactorSensitivity` (factor-science join fix, bundle 45c9b625,
+ * 2026-07-07): on the V5-canonical path the store's `rawV2Response` is
+ * explicitly nulled by `applyV5State`, so the primary factor_sensitivity
+ * read source is empty and every factor honestly collapsed to `unmatched` —
+ * even though the CEE turn response embeds the full factor_sensitivity
+ * (incl. `influence_score`) at `blocks[analysis_result].enrichment`. The
+ * caller (`buildDebugBundleAsync`) resolves that embedded body via
+ * `resolveScientificEvidence` and threads the entries here. Fallback only:
+ * a non-empty store `rawV2Response.factor_sensitivity` always wins
+ * (top-level beats embedded — same precedence as the evidence resolver).
  */
-export async function captureDisplayState(): Promise<DisplayState> {
+export async function captureDisplayState(
+  embeddedFactorSensitivity?: FactorSensitivityEntry[] | null,
+): Promise<DisplayState> {
   try {
     const { useCanvasStore } = await import('../../../canvas/store')
     const { deriveAnalysisDisplayState } = await import(
@@ -2483,6 +2549,19 @@ export async function captureDisplayState(): Promise<DisplayState> {
     // metrics stay `unmatched` — honest tri-state.
     const factorSensitivity = (rawV2Response?.factor_sensitivity as
       FactorSensitivityEntry[] | undefined) ?? []
+    // V5-canonical fallback (factor-science join fix): when the store carries
+    // no raw V2 factor_sensitivity, join against the CEE-embedded enrichment
+    // entries threaded by the caller. Provenance labels switch with the
+    // source so the tri-state stays honest — `unmatched` still means "no
+    // usable source anywhere", never "wrong read path".
+    const embeddedEntries = Array.isArray(embeddedFactorSensitivity)
+      ? embeddedFactorSensitivity
+      : []
+    const useEmbeddedFactorSensitivity =
+      factorSensitivity.length === 0 && embeddedEntries.length > 0
+    const effectiveFactorSensitivity = useEmbeddedFactorSensitivity
+      ? embeddedEntries
+      : factorSensitivity
 
     const optionNodes = nodes.filter((n) => {
       const d = n.data as Record<string, unknown> | undefined
@@ -2644,10 +2723,19 @@ export async function captureDisplayState(): Promise<DisplayState> {
       canvas_edge_count: edges.length,
       canvas_node_types: nodeTypes,
       rendered_options: renderedOptions,
-      rendered_factors: extractRenderedFactors(nodes, factorSensitivity, {
-        influence: 'payloads.plot_response.factor_sensitivity.influence_score',
-        sensitivity: 'payloads.plot_response.factor_sensitivity.sensitivity_score',
-      }),
+      rendered_factors: extractRenderedFactors(
+        nodes,
+        effectiveFactorSensitivity,
+        useEmbeddedFactorSensitivity
+          ? {
+              influence: 'cee_embedded.analysis_result.enrichment.factor_sensitivity.influence_score',
+              sensitivity: 'cee_embedded.analysis_result.enrichment.factor_sensitivity.sensitivity_score',
+            }
+          : {
+              influence: 'payloads.plot_response.factor_sensitivity.influence_score',
+              sensitivity: 'payloads.plot_response.factor_sensitivity.sensitivity_score',
+            },
+      ),
       analysis_status_displayed: analysisStatus,
       hero_headline_displayed: deriveHeroHeadline(results, optionNodes.length, optionComparison),
       analysis_display_state: displayView.state,
@@ -2676,7 +2764,7 @@ export async function captureDisplayState(): Promise<DisplayState> {
 // =============================================================================
 
 function buildGatesPostPipeline(data: DebugData): DebugBundle['gates'] {
-  const gates = data.gates.map((g) => ({
+  const gates: DebugBundle['gates'] = data.gates.map((g) => ({
     name: g.name,
     status: g.status,
     message: g.message,
@@ -2690,6 +2778,24 @@ function buildGatesPostPipeline(data: DebugData): DebugBundle['gates'] {
       if (gate.name === 'graph_readiness' && gate.status === 'fail') {
         gate.status = 'pass'
         gate.message = (gate.message ?? '') + ' [corrected: pipeline succeeded]'
+      }
+      // gates.run reconciliation (evidence-tooling fix, bundle 45c9b625,
+      // 2026-07-07): the `run` gate's only writers are the legacy
+      // PLoT-direct paths (`useV2Run.ts:833/839`, `plot/v1/http.ts:623`).
+      // On the V5-canonical path the browser never calls PLoT, so the gate
+      // sits at its default 'fail' forever and the export shows
+      // `run:"fail"` beside `pipeline.status:"success"` — a contradiction
+      // that reads as a failed run. The legacy check cannot be made
+      // truthful from here (it has no writer on this path), so relabel it
+      // explicitly rather than exporting a false 'fail'. Export-label only:
+      // the live gate STORE (UI blocking behaviour) is untouched.
+      if (gate.name === 'run' && gate.status === 'fail' && !gate.message) {
+        gate.status = 'legacy_check_unreliable'
+        // provisional_doctrine_v0: reviewer-facing wording, not ratified copy.
+        gate.message =
+          'Legacy PLoT-direct run gate has no writer on the V5-canonical path '
+          + '(default fail retained in store); pipeline.status is the truthful '
+          + 'run signal for this export.'
       }
     }
   }
@@ -2893,8 +2999,13 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
   // Feature flags snapshot
   const featureFlagsAtRequest = collectFeatureFlagsSnapshot()
 
-  // Schema versions from payloads (fallback to data if already extracted)
-  const schemaVersions = data.schema_versions ?? collectSchemaVersions(data)
+  // Schema versions from payloads (fallback to data if already extracted),
+  // always decorated with the UI-side vendored-contract version + build ids
+  // so the block is never fully null on the V5-canonical path.
+  const schemaVersions = withUiSchemaVersionFacts(
+    data.schema_versions ?? collectSchemaVersions(data),
+    data,
+  )
 
   // Gate state with post-pipeline correction
   const gates = buildGatesPostPipeline(data)
@@ -3023,6 +3134,9 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     },
     console_logs: getBufferedLogs(),
     diagnostic_checks: data.diagnostics,
+    // Track C Step 1 (D-5): always emitted; empty snapshot when nothing was
+    // dropped this session. The getter never throws.
+    dropped_content_counter: getDroppedContentSnapshot(),
     readme: generateReadme(data),
     ...(fullGraph && { full_graph: fullGraph }),
     ...(ceeOptions && { cee_options: ceeOptions }),
@@ -3204,15 +3318,66 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
 }
 
 /**
+ * Resolve the CEE-embedded factor_sensitivity entries for the display-state
+ * factor join (factor-science join fix, bundle 45c9b625, 2026-07-07).
+ *
+ * Uses the SAME body-selection rule as the scientific-evidence resolver
+ * call later in `buildDebugBundleAsync`: prefer the recovered earlier CEE
+ * turn body when the conversational turn is prose-only, else the captured
+ * conversational response (direct, then downstream). Returns entries ONLY
+ * when the resolver classified the plot_response evidence as
+ * `cee_embedded` — a top-level `payloads.plot_response` capture means the
+ * store's `rawV2Response` path is authoritative and no fallback is needed.
+ *
+ * Pure and defensive: any malformed shape returns null (no fabrication).
+ */
+function resolveEmbeddedFactorSensitivityForDisplay(
+  data: DebugData,
+): FactorSensitivityEntry[] | null {
+  try {
+    const useRecovered =
+      data.analysis_evidence_trace_source === 'recovered_earlier_cee_turn' &&
+      data.analysis_evidence_cee_response_body !== null &&
+      data.analysis_evidence_cee_response_body !== undefined
+    const ceeBody = useRecovered
+      ? data.analysis_evidence_cee_response_body
+      : data.payloads.cee_response ?? data.payloads.cee_downstream_response
+    const resolved = resolveScientificEvidence(
+      {
+        plot_request: data.payloads.plot_request ?? null,
+        plot_response: data.payloads.plot_response ?? null,
+        isl_request: data.payloads.isl_request ?? null,
+        isl_response: data.payloads.isl_response ?? null,
+      },
+      ceeBody,
+    )
+    if (resolved.resolution.plot_response.source !== 'cee_embedded') return null
+    const fs = resolved.bodies.plot_response?.factor_sensitivity
+    return Array.isArray(fs) && fs.length > 0
+      ? (fs as FactorSensitivityEntry[])
+      : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Build a complete debug bundle with async V1.5 sections.
  * Populates panel_state and orchestrator from stores (requires async import).
  * Use this from the export handler in DebugPanelV2.
  */
 export async function buildDebugBundleAsync(data: DebugData, options: ExportOptions = {}): Promise<DebugBundle> {
-  // Capture display state from store before building bundle
+  // Capture display state from store before building bundle. The embedded
+  // factor_sensitivity fallback keeps the rendered_factors join alive on
+  // the V5-canonical path where the store's rawV2Response is nulled.
   if (!options.displayState) {
     try {
-      options = { ...options, displayState: await captureDisplayState() }
+      options = {
+        ...options,
+        displayState: await captureDisplayState(
+          resolveEmbeddedFactorSensitivityForDisplay(data),
+        ),
+      }
     } catch {
       // Proceed without display state
     }

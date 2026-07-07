@@ -47,6 +47,11 @@ import {
   type OlumiResponse,
   type BoundaryError,
 } from '@talchain/schemas/boundary';
+// Track C Step 1 (approved D-5): session-scoped dropped-content counter.
+// Counting only — never alters parse results or rendering. The per-turn
+// truth stays in the `unknown_blocks` sidecar below; the counter aggregates
+// across turns for the debug export + a console.info observability line.
+import { recordDroppedContent } from '../lib/droppedContentCounter';
 
 /** Sidecar key used to carry additive extensions on a parsed OlumiResponse. */
 export const ADDITIVE_EXTENSIONS_KEY = '__additive__' as const;
@@ -622,6 +627,16 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
       unknownBlockTypes = split.unknownTypes
       unknownBlockCount = split.unknownCount
       unknownBlocksByType = split.unknownByType
+      // Track C Step 1 (D-5): count-and-log each dropped unknown block type.
+      // recordDroppedContent never throws and never mutates parse state.
+      for (const [blockType, count] of Object.entries(split.unknownByType)) {
+        recordDroppedContent({
+          blockType,
+          source: 'v5_response_parser',
+          rationale: 'unknown_block_type_dropped_pre_validation',
+          count,
+        })
+      }
     }
   }
 
