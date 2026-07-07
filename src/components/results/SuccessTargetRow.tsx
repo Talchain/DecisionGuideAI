@@ -215,6 +215,7 @@ export function SuccessTargetRow({
               disabled={isRunning}
               className={`w-[100px] px-2 py-1 ${typography.panelBody} border border-info rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info tabular-nums`}
               aria-label="Edit success target value"
+              data-testid="success-target-input"
             />
             <button
               type="button"
@@ -237,6 +238,7 @@ export function SuccessTargetRow({
             onClick={handleStartEdit}
             disabled={isRunning}
             className={`${typography.panelBody} text-info hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
+            data-testid="success-target-set-button"
           >
             Set target
           </button>

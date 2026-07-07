@@ -90,6 +90,7 @@ export function AnalysisFooter({
             aria-label={actionAriaLabel ?? actionLabel}
             title={actionTitle}
             data-action-variant={actionVariant}
+            data-testid={`${testId}-action`}
             className={`
               min-h-8 rounded-full px-4 ${typography.panelBody}
               inline-flex items-center justify-center gap-2 transition-colors
