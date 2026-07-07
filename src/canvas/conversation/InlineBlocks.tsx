@@ -45,6 +45,8 @@ import { V5GraphPatchBlock } from '../../v5/blocks/V5GraphPatchBlock'
 import { V5ExplanationBlock } from '../../v5/blocks/V5ExplanationBlock'
 import { V5ComparisonBlock } from '../../v5/blocks/V5ComparisonBlock'
 import { V5FlipAnalysisBlock } from '../../v5/blocks/V5FlipAnalysisBlock'
+import { V5ReviewCardBlock } from '../../v5/blocks/V5ReviewCardBlock'
+import { V5CoachingBlock } from '../../v5/blocks/V5CoachingBlock'
 import { V5UnsupportedBlock } from '../../v5/blocks/V5UnsupportedBlock'
 import { safeRichText, plainTextPreview } from '../utils/safeRichText'
 import { isOrchestratorRenderingV2Enabled } from '../../flags'
@@ -83,6 +85,11 @@ function resolveBlockBadgeDotClass(block: ConversationBlock): string | null {
     case 'flip_analysis': return styles.blockBadgeDotDanger
     case 'proposal': return styles.blockBadgeDotGoal
     case 'exercise': return styles.blockBadgeDotInfo
+    // Track C slice 1: typed Phase 3 blocks — severity drives the dot colour
+    // for review cards (visual channel only); coaching is always info.
+    case 'v5_review_card':
+      return block.severity === 'info' ? styles.blockBadgeDotInfo : styles.blockBadgeDotDanger
+    case 'v5_coaching': return styles.blockBadgeDotInfo
     default: return null
   }
 }
@@ -285,6 +292,14 @@ function BlockRenderer({
 
     case 'v5_flip_analysis':
       return <V5FlipAnalysisBlock block={block} />
+
+    // Track C slice 1 (D-5): 0.13.x-typed Phase 3 blocks. All copy is
+    // producer-owned and rendered verbatim (provisional_doctrine_v0).
+    case 'v5_review_card':
+      return <V5ReviewCardBlock block={block} />
+
+    case 'v5_coaching':
+      return <V5CoachingBlock block={block} />
 
     case 'v5_unsupported':
       return <V5UnsupportedBlock block={block} />
