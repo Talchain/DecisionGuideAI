@@ -250,4 +250,32 @@ describe('deriveAnalysisDisplayState', () => {
       expect(after.state).toBe('not_ready')
     })
   })
+
+  // Lane UI-W5 (feature B): CEE can emit analysis_ready status 'blocked'
+  // ("validation failure prevents analysis — invalid graph structure";
+  // synthesised with empty options on legacy/unparseable reloads per CEE
+  // #358, and produced with populated options by the Ep2 readiness path).
+  // 'blocked' must NEVER render "Analysis complete" — it belongs with the
+  // explicit non-analysable statuses.
+  describe("blocked (CEE #358 defensive leg)", () => {
+    it("status 'blocked' with a prior report must NOT claim 'Analysis complete'", () => {
+      const view = deriveAnalysisDisplayState(
+        makeInput({
+          ceeAnalysisReadyStatus: 'blocked',
+          hasReport: true,
+          analysisChanged: false,
+        }),
+      )
+      expect(view.state).toBe('not_ready')
+      expect(view.headline).not.toBe('Analysis complete')
+    })
+
+    it("status 'blocked' with no report → not_ready (no completeness claim, no run CTA)", () => {
+      const view = deriveAnalysisDisplayState(
+        makeInput({ ceeAnalysisReadyStatus: 'blocked' }),
+      )
+      expect(view.state).toBe('not_ready')
+      expect(view.cta).toBeNull()
+    })
+  })
 })
