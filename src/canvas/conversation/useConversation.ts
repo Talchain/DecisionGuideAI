@@ -31,6 +31,14 @@ import {
   v5ResponseHasRunAnalysisFact,
   type Phase3RawBlock,
 } from '../../v5/extractPhase3FromV5Response'
+import {
+  adaptTypedReviewCardBlock,
+  adaptTypedCoachingBlock,
+} from '../../v5/phase3TypedBlocks'
+// Track C slice 1 (D-5): the bridge counts every Phase 3 block it does NOT
+// surface (malformed / no renderer / legacy suppression). Counting only —
+// recordDroppedContent never throws and never changes composition output.
+import { recordDroppedContent } from '../../lib/droppedContentCounter'
 import { FAILURE_USER_TEXT } from '@talchain/schemas/boundary'
 import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled, isPreAnalysisEnrichedEnabled } from '../../flags'
 import { maybeBuildModelReceiptBlock } from '../adapters/modelCardAdapter'
@@ -901,50 +909,130 @@ export function selectTopPhase3ReviewCard(
 }
 
 /**
- * composePhase3BridgedBlocks — pure composition of the Phase 3 review_card
- * bridge applied at the V5 assistant-turn rendering site.
+ * composePhase3BridgedBlocks — composition of the Phase 3 rendering bridge
+ * applied at the V5 assistant-turn rendering site (Track C slice 1,
+ * approved D-5; provisional_doctrine_v0).
  *
  * Inputs:
  *   - factPresent: whether the current response carries a successful
- *     run_analysis fact (computed by v5ResponseHasRunAnalysisFact).
+ *     run_analysis fact (computed by v5ResponseHasRunAnalysisFact). Gates
+ *     ONLY the legacy review_card fallback below — 0.13.x-typed blocks are
+ *     per-turn producer content and render on the turn CEE emitted them
+ *     (coaching legitimately arrives on draft turns, which carry no
+ *     run_analysis fact).
  *   - phase3RawBlocks: verbatim Phase 3 blocks harvested by
  *     extractPhase3FromV5Response.
  *   - mappedBlocks: V5 schema-strict blocks already produced by mapV5Blocks.
  *
  * Returns the final ordered blocks array for the assistant turn:
- *   [...mappedBlocks, ...top-1 review_card when eligible]
+ *   [...mappedBlocks,
+ *    ...schema-typed coaching/review_card (producer priority_rank asc,
+ *       ties by harvest order; deduped by block_id),
+ *    ...legacy top-1 review_card fallback when eligible]
  *
- * Eligibility:
- *   - factPresent must be true (gates out conversational follow-ups and stale
- *     responses).
- *   - At least one rawBlock of type 'review_card' must adapt to a usable
- *     ReviewCardBlock (non-empty title + body).
- *   - No review_card is already present in mappedBlocks (defensive dedupe;
- *     mapV5Blocks does not emit review_card today, so this branch is
- *     unreachable in practice. If a future V5 schema change makes
- *     mapV5Blocks emit a legitimately different review_card alongside a
- *     Phase 3 candidate, refine this check to dedupe by block_id rather
- *     than by type so both surfaces remain available.).
+ * Typed path (NEW, slice 1): raw blocks of type 'coaching'/'review_card'
+ * that adapt cleanly against the 0.13.x typed shapes render as first-class
+ * v5_coaching / v5_review_card blocks — exactly the typed fields, all copy
+ * producer-verbatim. Fail-closed: a malformed block is COUNTED (dropped-
+ * content counter) and suppressed; it never crashes composition and never
+ * renders with invented fields.
  *
- * Cap: 1 review_card (top by priority_rank, ties by harvest order).
+ * Legacy fallback (unchanged behaviour): review_card blocks that are NOT
+ * 0.13.x-shaped go through the original bridge — factPresent gate, top-1
+ * cap by priority_rank, adaptPhase3ReviewCard defaults, dedupe against an
+ * existing legacy review_card in mappedBlocks. Legacy cards not surfaced
+ * are counted ('legacy_review_card_suppressed').
  *
- * Evidence and coaching rawBlocks are intentionally NOT surfaced:
- *   - evidence: v1.3 shape mismatch with EvidenceBlockRenderer (tracked as a
- *     follow-up issue).
- *   - coaching: no InlineBlocks renderer; remains in GuidanceStore.
+ * Evidence and exercise rawBlocks remain unsurfaced this slice (no
+ * renderer) and are counted ('no_renderer_for_block_type').
  */
 export function composePhase3BridgedBlocks(
   factPresent: boolean,
   phase3RawBlocks: readonly Phase3RawBlock[],
   mappedBlocks: readonly ConversationBlock[],
 ): ConversationBlock[] {
-  if (!factPresent) return [...mappedBlocks]
-  const topReview = selectTopPhase3ReviewCard(phase3RawBlocks)
-  if (!topReview) return [...mappedBlocks]
+  const out: ConversationBlock[] = [...mappedBlocks]
+
+  // ── Typed path: 0.13.x coaching + review_card ─────────────────────────
+  const typed: Array<{ block: ConversationBlock; rank: number; order: number }> = []
+  const legacyReviewCandidates: Phase3RawBlock[] = []
+  const seenTypedBlockIds = new Set<string>(
+    mappedBlocks.flatMap((b) =>
+      (b.type === 'v5_review_card' || b.type === 'v5_coaching') ? [b.block_id] : [],
+    ),
+  )
+  let order = 0
+  for (const rb of phase3RawBlocks) {
+    if (rb.type === 'review_card') {
+      const adapted = adaptTypedReviewCardBlock(rb.raw)
+      if (adapted) {
+        if (!seenTypedBlockIds.has(adapted.block_id)) {
+          seenTypedBlockIds.add(adapted.block_id)
+          typed.push({ block: adapted, rank: adapted.priority_rank, order: order++ })
+        }
+        continue
+      }
+      // Not 0.13.x-shaped — hand to the legacy bridge below.
+      legacyReviewCandidates.push(rb)
+      continue
+    }
+    if (rb.type === 'coaching') {
+      const adapted = adaptTypedCoachingBlock(rb.raw)
+      if (adapted) {
+        if (!seenTypedBlockIds.has(adapted.block_id)) {
+          seenTypedBlockIds.add(adapted.block_id)
+          typed.push({ block: adapted, rank: adapted.priority_rank, order: order++ })
+        }
+        continue
+      }
+      // Fail-closed: malformed coaching → counted + suppressed, never crash.
+      recordDroppedContent({
+        blockType: 'coaching',
+        source: 'phase3_block_bridge',
+        rationale: 'malformed_phase3_block_suppressed',
+      })
+      continue
+    }
+    // evidence / exercise: tolerated types without a renderer this slice.
+    recordDroppedContent({
+      blockType: rb.type,
+      source: 'phase3_block_bridge',
+      rationale: 'no_renderer_for_block_type',
+    })
+  }
+  // Producer-owned ordering: priority_rank ascending (lower = higher
+  // priority, per CEE v1.3 §0); ties preserve harvest order. No new
+  // ranking is invented.
+  typed.sort((a, b) => a.rank - b.rank || a.order - b.order)
+  out.push(...typed.map((t) => t.block))
+
+  // ── Legacy fallback: pre-0.13.x review_card bridge (unchanged rules) ──
+  const countLegacySuppressed = (n: number): void => {
+    if (n <= 0) return
+    recordDroppedContent({
+      blockType: 'review_card',
+      source: 'phase3_block_bridge',
+      rationale: 'legacy_review_card_suppressed',
+      count: n,
+    })
+  }
+  if (legacyReviewCandidates.length === 0) return out
+  if (!factPresent) {
+    countLegacySuppressed(legacyReviewCandidates.length)
+    return out
+  }
+  const topReview = selectTopPhase3ReviewCard(legacyReviewCandidates)
+  if (!topReview) {
+    countLegacySuppressed(legacyReviewCandidates.length)
+    return out
+  }
   const adapted = adaptPhase3ReviewCard(topReview.raw)
-  if (!adapted) return [...mappedBlocks]
-  if (mappedBlocks.some((b) => b.type === 'review_card')) return [...mappedBlocks]
-  return [...mappedBlocks, adapted]
+  if (!adapted || mappedBlocks.some((b) => b.type === 'review_card')) {
+    countLegacySuppressed(legacyReviewCandidates.length)
+    return out
+  }
+  countLegacySuppressed(legacyReviewCandidates.length - 1)
+  return [...out, adapted]
 }
 
 export function adaptCEEBlock(raw: unknown): ConversationBlock {
@@ -3040,11 +3128,12 @@ export function useConversation(): UseConversationReturn {
             const mappedBlocks =
               target.kind === 'blocks' ? mapV5Blocks(target.response.blocks) : []
 
-            // Phase 3 review_card bridge — surface CEE-produced post-analysis
-            // review_card prose in the AI panel after Run analysis. Reuses the
-            // existing ReviewCardBlockRenderer; no schema / parser / CEE change.
-            // Gating, cap, dedupe, and evidence/coaching exclusion documented
-            // on composePhase3BridgedBlocks above.
+            // Phase 3 rendering bridge (Track C slice 1, D-5) — surface
+            // CEE-produced 0.13.x coaching + review_card blocks as typed
+            // conversation blocks (producer copy verbatim), with the legacy
+            // top-1 review_card fallback for pre-0.13.x shapes. Malformed /
+            // renderer-less blocks are counted + suppressed (fail-closed).
+            // Full rules documented on composePhase3BridgedBlocks above.
             const finalBlocks = composePhase3BridgedBlocks(
               factPresent,
               phase3.rawBlocks,

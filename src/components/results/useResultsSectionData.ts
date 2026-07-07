@@ -342,6 +342,10 @@ export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<strin
   // ISL influence_score (0-1) - structural causal influence
   const influenceScore = typeof typed.influence_score === 'number' ? typed.influence_score : undefined
 
+  // Producer influence_rank (1 = most influential). Additive passthrough;
+  // roadmap 1.7 (provisional_doctrine_v0: influence ≠ sensitivity).
+  const influenceRank = typeof typed.influence_rank === 'number' ? typed.influence_rank : undefined
+
   // ISL zero_reason - explains why sensitivity is zero for intervention factors
   const zeroReason = typed.zero_reason as UiFactorSensitivity['zeroReason']
 
@@ -398,6 +402,7 @@ export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<strin
     confidence,
     importanceRank: typeof typed.importance_rank === 'number' ? typed.importance_rank : 0,
     influenceScore,
+    influenceRank,
     zeroReason,
     valueOfInformation,
     flipRiskCategory,
@@ -1779,6 +1784,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           normalisedInfluence,
           // ISL influence_score (0-1) - use directly for Influence column
           influenceScore: f.raw.influenceScore,
+          // Producer influence_rank passthrough (roadmap 1.7, provisional_doctrine_v0)
+          influenceRank: f.raw.influenceRank,
           // ISL zero_reason - explains why sensitivity is zero
           zeroReason: f.raw.zeroReason,
           rank,
@@ -2625,6 +2632,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
             affected_nodes: nodeIds,
             affected_labels: nodeIds.map(id => nodeLabelMap.get(id) ?? id),
             message: w.message ? String(w.message) : undefined,
+            // Roadmap 1.12: producer severity carried verbatim (never
+            // defaulted). Warning-severity entries surface on the Analysis
+            // tab; info-severity stays hidden there.
+            severity: typeof w.severity === 'string' ? w.severity : undefined,
           }
         })
       })(),

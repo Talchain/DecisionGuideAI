@@ -109,6 +109,8 @@ export type ConversationBlock =
   | V5ExplanationBlock
   | V5ComparisonBlock
   | V5FlipAnalysisBlock
+  | V5ReviewCardBlock
+  | V5CoachingBlock
   | V5UnsupportedBlock
 
 /**
@@ -171,6 +173,62 @@ export interface V5FlipAnalysisBlock {
   narrative: string
   flip_scenarios: V5FlipScenario[]
   enrichment?: Record<string, unknown>
+}
+
+/**
+ * Target reference carried on 0.13.x Phase 3 blocks (review_card /
+ * coaching). Fields are the producer's typed shape verbatim; `kind` is
+ * widened to string so future producer kinds pass through without a UI
+ * release (unknown kinds render the label exactly the same way).
+ */
+export interface V5BlockTargetRef {
+  id: string
+  label: string
+  kind: string
+}
+
+/** 0.13.x Phase 3 block freshness enum (producer-owned). */
+export type V5Phase3Freshness = 'fresh' | 'stale' | 'pending' | 'failed'
+
+/**
+ * Track C slice 1 (D-5): typed review_card conversation block mirroring the
+ * 0.13.x ReviewCardBlockSchema render-relevant fields EXACTLY. All copy
+ * (title, body, target_refs labels, action_label) is producer-owned and
+ * rendered verbatim — the UI adds no labels and no interpretation
+ * (provisional_doctrine_v0). Distinct from the legacy `review_card`
+ * ConversationBlock, which carries the V4-era tone/variant shape.
+ */
+export interface V5ReviewCardBlock {
+  type: 'v5_review_card'
+  block_id: string
+  title: string
+  body: string
+  severity: 'info' | 'warning' | 'critical'
+  card_kind: string
+  target_refs: V5BlockTargetRef[]
+  priority_rank: number
+  freshness: V5Phase3Freshness
+  action_intent?: string
+  action_label?: string
+}
+
+/**
+ * Track C slice 1 (D-5): typed coaching conversation block mirroring the
+ * 0.13.x CoachingBlockSchema render-relevant fields EXACTLY. Same
+ * verbatim-copy contract as V5ReviewCardBlock (provisional_doctrine_v0).
+ */
+export interface V5CoachingBlock {
+  type: 'v5_coaching'
+  block_id: string
+  title: string
+  body: string
+  coaching_kind: string
+  source: string
+  target_refs: V5BlockTargetRef[]
+  priority_rank: number
+  freshness: V5Phase3Freshness
+  action_intent?: string
+  action_label?: string
 }
 
 /**

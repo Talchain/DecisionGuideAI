@@ -54,6 +54,21 @@ interface NormalisedFactor {
   factor_label: string
   sensitivity: number // absolute magnitude
   direction: 'positive' | 'negative'
+  /**
+   * Producer influence_score (0-1) — structural causal influence, a DISTINCT
+   * measure from sensitivity (roadmap 1.7; provisional_doctrine_v0:
+   * influence ≠ sensitivity). Additive passthrough only — never derived,
+   * never defaulted; absent when the producer omitted it.
+   */
+  influence_score?: number
+  /** Producer influence_rank (1 = most influential). Additive passthrough. */
+  influence_rank?: number
+  /**
+   * Producer zero_reason (e.g. 'intervention_override' for pinned factors).
+   * Additive passthrough so the DriversSection can show influence WITHOUT
+   * sensitivity-flavoured copy for pinned factors.
+   */
+  zero_reason?: string
 }
 
 /**
@@ -96,11 +111,22 @@ function normaliseFactorEntry(entry: unknown): NormalisedFactor | null {
   const direction: 'positive' | 'negative' =
     explicitDirection ?? (rawMagnitude >= 0 ? 'positive' : 'negative')
 
+  // Roadmap 1.7 (provisional_doctrine_v0): influence_score / influence_rank /
+  // zero_reason are producer-owned fields carried through verbatim. No
+  // derivation, no defaults — undefined when absent so downstream consumers
+  // can distinguish "not provided" from any real value.
+  const influenceScore = safeFiniteNumber(entry.influence_score)
+  const influenceRank = safeFiniteNumber(entry.influence_rank)
+  const zeroReason = safeString(entry.zero_reason)
+
   return {
     factor_id: factorId,
     factor_label: factorLabel,
     sensitivity: Math.abs(rawMagnitude),
     direction,
+    ...(influenceScore !== undefined ? { influence_score: influenceScore } : {}),
+    ...(influenceRank !== undefined ? { influence_rank: influenceRank } : {}),
+    ...(zeroReason !== undefined ? { zero_reason: zeroReason } : {}),
   }
 }
 
@@ -443,6 +469,17 @@ export function mapV5AnalysisToReport(
     : undefined
   const conditionalProbabilities = enrichment?.conditional_probabilities
 
+  // Roadmap 1.12: producer inference_warnings ({ code, message, severity })
+  // pass through verbatim so the Analysis tab can surface warning-severity
+  // entries. Top-level `enrichment.inference_warnings` is the live V5 wire
+  // location (captured bundle olumi-debug-45c9b625-20260707); the V4 mapper
+  // reads the same field from robustness (responseMapper.ts:563) and the
+  // selector accepts both slots. Passthrough only — the UI never rewrites
+  // codes, messages, or severities.
+  const inferenceWarnings = Array.isArray(enrichment?.inference_warnings)
+    ? (enrichment!.inference_warnings as unknown[])
+    : undefined
+
   // Deterministic response_hash when caller has none. Stable across identical
   // blocks so the store's hash-dedupe in resultsComplete works.
   //
@@ -536,11 +573,20 @@ export function mapV5AnalysisToReport(
       factor_label: f.factor_label,
       sensitivity: f.sensitivity,
       direction: f.direction,
+      // Roadmap 1.7 additive passthrough (provisional_doctrine_v0):
+      // influence_score / influence_rank / zero_reason reach the store so
+      // the DriversSection "Influence" column renders the PRODUCER's
+      // influence measure instead of falling back to a UI-normalised
+      // sensitivity (influence ≠ sensitivity). Omitted when absent.
+      ...(f.influence_score !== undefined ? { influence_score: f.influence_score } : {}),
+      ...(f.influence_rank !== undefined ? { influence_rank: f.influence_rank } : {}),
+      ...(f.zero_reason !== undefined ? { zero_reason: f.zero_reason } : {}),
     }))
   }
   if (robustness) widened.robustness = robustness
   if (topLevelFlipThresholds) widened.flip_thresholds = topLevelFlipThresholds
   if (topLevelEdgeEValues) widened.edge_e_values = topLevelEdgeEValues
+  if (inferenceWarnings) widened.inference_warnings = inferenceWarnings
   if (conditionalProbabilities !== undefined) {
     widened.conditional_probabilities = conditionalProbabilities
   }

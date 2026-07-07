@@ -85,14 +85,48 @@ export function mapV5Block(block: V5Block): ConversationBlock | null {
         ...(block.enrichment ? { enrichment: block.enrichment } : {}),
       }
     case 'review_card':
+      // Track C slice 1 (D-5): 0.13.x-typed Phase 3 review_card. At runtime
+      // these normally arrive via the parser sidecar (splitBlocksTolerance
+      // lifts them out of blocks[] pre-validation) and are surfaced by
+      // composePhase3BridgedBlocks; this branch keeps the mapper coherent
+      // for any future path where a schema-validated block reaches it
+      // directly. Fields are typed by the 0.13.x schema — copied verbatim.
+      return {
+        type: 'v5_review_card',
+        block_id: block.block_id,
+        title: block.title,
+        body: block.body,
+        severity: block.severity,
+        card_kind: block.card_kind,
+        target_refs: block.target_refs,
+        priority_rank: block.priority_rank,
+        freshness: block.freshness,
+        ...(block.action_intent ? { action_intent: block.action_intent } : {}),
+        ...(block.action_label ? { action_label: block.action_label } : {}),
+      }
     case 'coaching':
+      // Track C slice 1 (D-5): 0.13.x-typed Phase 3 coaching. Same note as
+      // review_card above.
+      return {
+        type: 'v5_coaching',
+        block_id: block.block_id,
+        title: block.title,
+        body: block.body,
+        coaching_kind: block.coaching_kind,
+        source: block.source,
+        target_refs: block.target_refs,
+        priority_rank: block.priority_rank,
+        freshness: block.freshness,
+        ...(block.action_intent ? { action_intent: block.action_intent } : {}),
+        ...(block.action_label ? { action_label: block.action_label } : {}),
+      }
     case 'evidence':
     case 'exercise':
-      // 0.13.1 re-vendor: Phase 3 types are now schema-declared, but the
-      // parser tolerance layer stashes them in the sidecar BEFORE strict
-      // validation (splitBlocksTolerance), so they never reach this mapper
-      // at runtime. Type-level only: behaviour matches 0.8.1, where these
-      // types were schema-unknown and hit the defensive default below.
+      // 0.13.1 re-vendor: schema-declared but still without a renderer in
+      // this slice. The parser tolerance layer stashes them in the sidecar
+      // BEFORE strict validation, so they never reach this mapper at
+      // runtime; the bridge counts them via the dropped-content counter
+      // (rationale 'no_renderer_for_block_type').
       return {
         type: 'v5_unsupported',
         blockType: block.type,

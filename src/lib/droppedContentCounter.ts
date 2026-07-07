@@ -23,18 +23,32 @@
  *     strict validation (rationale
  *     'unknown_block_type_dropped_pre_validation'). Dropped != rendered:
  *     tolerance is a safety net, not a rendering contract.
+ *   - 'phase3_block_bridge': Phase 3 blocks harvested from the parser
+ *     sidecar that the render bridge (composePhase3BridgedBlocks in
+ *     useConversation.ts) did NOT surface. Track C slice 1 renders
+ *     schema-valid 'coaching' + 'review_card'; everything else here is
+ *     counted with a precise rationale:
+ *       - 'malformed_phase3_block_suppressed': a coaching/review_card that
+ *         failed 0.13.x typed-field adaptation (fail-closed — counted +
+ *         suppressed, never crashes, never rendered with invented fields).
+ *       - 'no_renderer_for_block_type': evidence / exercise — tolerated
+ *         types with no renderer in this slice.
+ *       - 'legacy_review_card_suppressed': a legacy-shaped (pre-0.13.x)
+ *         review_card not surfaced by the legacy top-1/fact-gated bridge.
  *
- * Future sources (e.g. renderer-level "schema-known but no renderer")
- * should add a new source/rationale literal here rather than reusing the
- * parser ones, so by-source counts stay attributable.
+ * Future sources should add a new source/rationale literal here rather
+ * than reusing existing ones, so by-source counts stay attributable.
  */
 
 /** Where the drop happened. */
-export type DroppedContentSource = 'v5_response_parser'
+export type DroppedContentSource = 'v5_response_parser' | 'phase3_block_bridge'
 
 /** Tracked rationale — WHY the content was not rendered. */
 export type DroppedContentRationale =
   | 'unknown_block_type_dropped_pre_validation'
+  | 'malformed_phase3_block_suppressed'
+  | 'no_renderer_for_block_type'
+  | 'legacy_review_card_suppressed'
 
 /** One aggregated counter row (type+source+rationale). */
 export interface DroppedContentEntry {

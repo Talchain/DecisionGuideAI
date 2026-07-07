@@ -1,0 +1,570 @@
+{
+ "_provenance": "Extracted from debug bundle olumi-debug-45c9b625-20260707.json (payloads.cee_response.blocks[0]); real staging capture 2026-07-07. inference_warnings[2] (CONSTRAINT_TARGET_UNRELIABLE, severity=warning) appended synthetically per its producer-documented shape to exercise the warning-severity path; entries [0..1] are verbatim staging.",
+ "assistant_text": "redacted",
+ "block": {
+  "type": "analysis_result",
+  "summary": "Hire Marketing Manager currently leads by 76 percentage points because Market Receptivity to Feature is the strongest driver.",
+  "leading_option_id": "opt_hire",
+  "win_probabilities": {
+   "AI Tool + Increased Ad Spend": 0.0989375,
+   "Hire Marketing Manager": 0.8541875,
+   "Freelance Consultant + AI Tool": 0.0184375,
+   "Handle Marketing Internally (Status Quo)": 0.0284375
+  },
+  "enrichment": {
+   "option_comparison": [
+    {
+     "option_id": "opt_ai",
+     "option_label": "AI Tool + Increased Ad Spend",
+     "id": "opt_ai",
+     "label": "AI Tool + Increased Ad Spend",
+     "outcome": {
+      "mean": 0.041151052415336425,
+      "std": 0.13720303104077483,
+      "p10": -0.138962887737842,
+      "p50": 0.04345842077645033,
+      "p90": 0.21641243662444515,
+      "n_samples": 4000,
+      "n_valid_samples": 4000,
+      "validity_ratio": 1
+     },
+     "status": "computed",
+     "win_probability": 0.0989375,
+     "probability_of_joint_goal": 0,
+     "constraint_probabilities": {
+      "gc-3841ab4f-6018-4cba-9f45-67108bba9737": 0
+     }
+    },
+    {
+     "option_id": "opt_hire",
+     "option_label": "Hire Marketing Manager",
+     "id": "opt_hire",
+     "label": "Hire Marketing Manager",
+     "outcome": {
+      "mean": 0.16591699331059176,
+      "std": 0.1312599933658644,
+      "p10": -0.0054883734393600695,
+      "p50": 0.16839926764621432,
+      "p90": 0.33233612212519054,
+      "n_samples": 4000,
+      "n_valid_samples": 4000,
+      "validity_ratio": 1
+     },
+     "status": "computed",
+     "win_probability": 0.8541875,
+     "probability_of_joint_goal": 0,
+     "constraint_probabilities": {
+      "gc-3841ab4f-6018-4cba-9f45-67108bba9737": 0
+     }
+    },
+    {
+     "option_id": "opt_hybrid",
+     "option_label": "Freelance Consultant + AI Tool",
+     "id": "opt_hybrid",
+     "label": "Freelance Consultant + AI Tool",
+     "outcome": {
+      "mean": 0.11652315834343036,
+      "std": 0.12549804509568754,
+      "p10": -0.047061402867295564,
+      "p50": 0.11635770100190579,
+      "p90": 0.27740956559897406,
+      "n_samples": 4000,
+      "n_valid_samples": 4000,
+      "validity_ratio": 1
+     },
+     "status": "computed",
+     "win_probability": 0.0184375,
+     "probability_of_joint_goal": 0,
+     "constraint_probabilities": {
+      "gc-3841ab4f-6018-4cba-9f45-67108bba9737": 0
+     }
+    },
+    {
+     "option_id": "opt_status_quo",
+     "option_label": "Handle Marketing Internally (Status Quo)",
+     "id": "opt_status_quo",
+     "label": "Handle Marketing Internally (Status Quo)",
+     "outcome": {
+      "mean": -0.013004926124831258,
+      "std": 0.0625866969749598,
+      "p10": -0.09356175665750582,
+      "p50": -0.011886214909537427,
+      "p90": 0.06493418843836848,
+      "n_samples": 4000,
+      "n_valid_samples": 4000,
+      "validity_ratio": 1
+     },
+     "status": "computed",
+     "win_probability": 0.0284375,
+     "probability_of_joint_goal": 0,
+     "constraint_probabilities": {
+      "gc-3841ab4f-6018-4cba-9f45-67108bba9737": 0
+     }
+    }
+   ],
+   "factor_sensitivity": [
+    {
+     "factor_id": "fac_marketing_expertise",
+     "factor_label": "Marketing Strategy Quality",
+     "influence_score": 1,
+     "influence_rank": 1,
+     "sensitivity_score": 0,
+     "elasticity": 0,
+     "direction": "positive",
+     "importance_rank": 1,
+     "value_of_information": 0,
+     "confidence": 0.3,
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "confidence_provenance": {
+      "computation_source": "plot_unified_from_isl_bootstrap",
+      "formula_version": "plot_unified_v3",
+      "is_provisional": true,
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "input_quality": "standard"
+     },
+     "confidence_components": {
+      "structural_certainty": 0.5,
+      "sampling_stability": 0
+     },
+     "zero_reason": "intervention_override",
+     "source": "graph",
+     "flip_risk_category": "correlated",
+     "attribution_stability": "negligible",
+     "elasticity_std": 0,
+     "rank_flip_rate": 0,
+     "stability_method": "bootstrap_20",
+     "range_derivation_source": "inferred_spread"
+    },
+    {
+     "factor_id": "fac_market_receptivity",
+     "factor_label": "Market Receptivity to Feature",
+     "influence_score": 0.6209677419354838,
+     "influence_rank": 2,
+     "sensitivity_score": 0.1925,
+     "elasticity": 0.6209677419354838,
+     "direction": "positive",
+     "importance_rank": 2,
+     "value_of_information": 0,
+     "confidence": 0.44384999999999997,
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "confidence_provenance": {
+      "computation_source": "plot_unified_from_isl_bootstrap",
+      "formula_version": "plot_unified_v3",
+      "is_provisional": true,
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "input_quality": "standard"
+     },
+     "confidence_components": {
+      "structural_certainty": 0.5,
+      "sampling_stability": 0.25
+     },
+     "source": "graph",
+     "flip_risk_category": "correlated",
+     "attribution_stability": "low",
+     "elasticity_std": 0.02286953,
+     "rank_flip_rate": 0.05,
+     "stability_method": "bootstrap_20",
+     "value_defaulted": true,
+     "evpi_percentage_points": 0,
+     "evpi_method": "heuristic",
+     "range_derivation_source": "default"
+    },
+    {
+     "factor_id": "fac_founder_time",
+     "factor_label": "Founder Time on Marketing",
+     "influence_score": 0.4838709677419354,
+     "influence_rank": 3,
+     "sensitivity_score": -0.15,
+     "elasticity": 0.4838709677419354,
+     "direction": "negative",
+     "importance_rank": 3,
+     "value_of_information": 0,
+     "confidence": 0.44045,
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "confidence_provenance": {
+      "computation_source": "plot_unified_from_isl_bootstrap",
+      "formula_version": "plot_unified_v3",
+      "is_provisional": true,
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "input_quality": "standard"
+     },
+     "confidence_components": {
+      "structural_certainty": 0.5,
+      "sampling_stability": 0.25
+     },
+     "source": "graph",
+     "flip_risk_category": "correlated",
+     "attribution_stability": "low",
+     "elasticity_std": 0.010763087099999999,
+     "rank_flip_rate": 0.25,
+     "stability_method": "bootstrap_20",
+     "evpi_percentage_points": 0,
+     "evpi_method": "heuristic",
+     "range_derivation_source": "explicit_cap"
+    },
+    {
+     "factor_id": "fac_manager_cost",
+     "factor_label": "Marketing Personnel Cost",
+     "influence_score": 0.45161290322580644,
+     "influence_rank": 4,
+     "sensitivity_score": 0,
+     "elasticity": 0,
+     "direction": "negative",
+     "importance_rank": 4,
+     "value_of_information": 0,
+     "confidence": 0.3,
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "confidence_provenance": {
+      "computation_source": "plot_unified_from_isl_bootstrap",
+      "formula_version": "plot_unified_v3",
+      "is_provisional": true,
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "input_quality": "standard"
+     },
+     "confidence_components": {
+      "structural_certainty": 0.5,
+      "sampling_stability": 0
+     },
+     "zero_reason": "intervention_override",
+     "source": "graph",
+     "flip_risk_category": "correlated",
+     "attribution_stability": "negligible",
+     "elasticity_std": 0,
+     "rank_flip_rate": 0,
+     "stability_method": "bootstrap_20",
+     "range_derivation_source": "explicit_cap"
+    },
+    {
+     "factor_id": "fac_ad_spend",
+     "factor_label": "Paid Advertising Budget",
+     "influence_score": 0.14516129032258066,
+     "influence_rank": 5,
+     "sensitivity_score": 0,
+     "elasticity": 0,
+     "direction": "positive",
+     "importance_rank": 5,
+     "value_of_information": 0,
+     "confidence": 0.3,
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "confidence_provenance": {
+      "computation_source": "plot_unified_from_isl_bootstrap",
+      "formula_version": "plot_unified_v3",
+      "is_provisional": true,
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "input_quality": "standard"
+     },
+     "confidence_components": {
+      "structural_certainty": 0.5,
+      "sampling_stability": 0
+     },
+     "zero_reason": "intervention_override",
+     "source": "graph",
+     "flip_risk_category": "correlated",
+     "attribution_stability": "negligible",
+     "elasticity_std": 0,
+     "rank_flip_rate": 0.05,
+     "stability_method": "bootstrap_20",
+     "range_derivation_source": "explicit_cap"
+    }
+   ],
+   "robustness": {
+    "fragile_edges": [
+     {
+      "edge_id": "out_launch_reach->goal_launch",
+      "from_id": "out_launch_reach",
+      "to_id": "goal_launch",
+      "switch_probability": 0.058,
+      "marginal_switch_probability": 0,
+      "alternative_winner_id": "opt_status_quo",
+      "from_label": "Feature Launch Reach and Awareness",
+      "to_label": "Successful Product Feature Launch Within Budget",
+      "severity": "warning",
+      "alternative_winner_label": "Handle Marketing Internally (Status Quo)"
+     },
+     {
+      "edge_id": "fac_ad_spend->out_launch_reach",
+      "from_id": "fac_ad_spend",
+      "to_id": "out_launch_reach",
+      "switch_probability": 0.053,
+      "marginal_switch_probability": 0,
+      "alternative_winner_id": "opt_status_quo",
+      "from_label": "Paid Advertising Budget",
+      "to_label": "Feature Launch Reach and Awareness",
+      "severity": "warning",
+      "alternative_winner_label": "Handle Marketing Internally (Status Quo)"
+     },
+     {
+      "edge_id": "fac_ad_spend->risk_budget_overrun",
+      "from_id": "fac_ad_spend",
+      "to_id": "risk_budget_overrun",
+      "switch_probability": 0.164,
+      "marginal_switch_probability": 0,
+      "alternative_winner_id": "opt_ai",
+      "from_label": "Paid Advertising Budget",
+      "to_label": "Annual Budget Overrun",
+      "severity": "warning",
+      "alternative_winner_label": "AI Tool + Increased Ad Spend"
+     },
+     {
+      "edge_id": "risk_budget_overrun->goal_launch",
+      "from_id": "risk_budget_overrun",
+      "to_id": "goal_launch",
+      "switch_probability": 0.051,
+      "marginal_switch_probability": 0,
+      "alternative_winner_id": "opt_ai",
+      "from_label": "Annual Budget Overrun",
+      "to_label": "Successful Product Feature Launch Within Budget",
+      "severity": "warning",
+      "alternative_winner_label": "AI Tool + Increased Ad Spend"
+     },
+     {
+      "edge_id": "fac_founder_time->risk_founder_distraction",
+      "from_id": "fac_founder_time",
+      "to_id": "risk_founder_distraction",
+      "switch_probability": 0.096,
+      "marginal_switch_probability": 0,
+      "alternative_winner_id": "opt_ai",
+      "from_label": "Founder Time on Marketing",
+      "to_label": "Founder Distraction from Core Work",
+      "severity": "warning",
+      "alternative_winner_label": "AI Tool + Increased Ad Spend"
+     },
+     {
+      "edge_id": "fac_marketing_expertise->out_campaign_effectiveness",
+      "from_id": "fac_marketing_expertise",
+      "to_id": "out_campaign_effectiveness",
+      "switch_probability": 0.24,
+      "marginal_switch_probability": 0,
+      "alternative_winner_id": "opt_ai",
+      "from_label": "Marketing Strategy Quality",
+      "to_label": "Campaign Conversion Effectiveness",
+      "severity": "warning",
+      "alternative_winner_label": "AI Tool + Increased Ad Spend"
+     },
+     {
+      "edge_id": "out_campaign_effectiveness->goal_launch",
+      "from_id": "out_campaign_effectiveness",
+      "to_id": "goal_launch",
+      "switch_probability": 0.213,
+      "marginal_switch_probability": 0,
+      "alternative_winner_id": "opt_ai",
+      "from_label": "Campaign Conversion Effectiveness",
+      "to_label": "Successful Product Feature Launch Within Budget",
+      "severity": "warning",
+      "alternative_winner_label": "AI Tool + Increased Ad Spend"
+     },
+     {
+      "edge_id": "fac_market_receptivity->out_campaign_effectiveness",
+      "from_id": "fac_market_receptivity",
+      "to_id": "out_campaign_effectiveness",
+      "switch_probability": 0.11649580615097857,
+      "marginal_switch_probability": 0,
+      "alternative_winner_id": "opt_ai",
+      "from_label": "Market Receptivity to Feature",
+      "to_label": "Campaign Conversion Effectiveness",
+      "severity": "warning",
+      "alternative_winner_label": "AI Tool + Increased Ad Spend"
+     },
+     {
+      "edge_id": "risk_founder_distraction->goal_launch",
+      "from_id": "risk_founder_distraction",
+      "to_id": "goal_launch",
+      "switch_probability": 0.05,
+      "marginal_switch_probability": 0,
+      "alternative_winner_id": "opt_ai",
+      "from_label": "Founder Distraction from Core Work",
+      "to_label": "Successful Product Feature Launch Within Budget",
+      "severity": "warning",
+      "alternative_winner_label": "AI Tool + Increased Ad Spend"
+     },
+     {
+      "edge_id": "fac_marketing_expertise->risk_founder_distraction",
+      "from_id": "fac_marketing_expertise",
+      "to_id": "risk_founder_distraction",
+      "switch_probability": 0.058,
+      "marginal_switch_probability": 0,
+      "alternative_winner_id": "opt_ai",
+      "from_label": "Marketing Strategy Quality",
+      "to_label": "Founder Distraction from Core Work",
+      "severity": "warning",
+      "alternative_winner_label": "AI Tool + Increased Ad Spend"
+     },
+     {
+      "edge_id": "fac_manager_cost->risk_founder_distraction",
+      "from_id": "fac_manager_cost",
+      "to_id": "risk_founder_distraction",
+      "switch_probability": 0.099,
+      "marginal_switch_probability": 0,
+      "alternative_winner_id": "opt_ai",
+      "from_label": "Marketing Personnel Cost",
+      "to_label": "Founder Distraction from Core Work",
+      "severity": "warning",
+      "alternative_winner_label": "AI Tool + Increased Ad Spend"
+     },
+     {
+      "edge_id": "fac_market_receptivity->out_launch_reach",
+      "from_id": "fac_market_receptivity",
+      "to_id": "out_launch_reach",
+      "switch_probability": 0.099,
+      "marginal_switch_probability": 0,
+      "alternative_winner_id": "opt_ai",
+      "from_label": "Market Receptivity to Feature",
+      "to_label": "Feature Launch Reach and Awareness",
+      "severity": "warning",
+      "alternative_winner_label": "AI Tool + Increased Ad Spend"
+     },
+     {
+      "edge_id": "fac_manager_cost->risk_budget_overrun",
+      "from_id": "fac_manager_cost",
+      "to_id": "risk_budget_overrun",
+      "switch_probability": 0.092,
+      "marginal_switch_probability": 0,
+      "alternative_winner_id": "opt_ai",
+      "from_label": "Marketing Personnel Cost",
+      "to_label": "Annual Budget Overrun",
+      "severity": "warning",
+      "alternative_winner_label": "AI Tool + Increased Ad Spend"
+     }
+    ],
+    "robust_edges": [],
+    "recommendation_stability": 0.8541875,
+    "is_robust": true,
+    "level": "high",
+    "confidence": 0.8406816097557746,
+    "recommended_option_id": "opt_hire",
+    "recommended_option_label": "Hire Marketing Manager",
+    "near_tie": {
+     "is_tie": false,
+     "top_option_id": "opt_hire",
+     "second_option_id": "opt_ai",
+     "tied_option_ids": [
+      "opt_hire"
+     ],
+     "gap": 0.75525,
+     "threshold": 0.1
+    }
+   },
+   "option_comparison_status": "computed",
+   "conditional_probabilities": [],
+   "edge_e_values": [
+    {
+     "edge_id": "fac_ad_spend::risk_budget_overrun",
+     "from_id": "fac_ad_spend",
+     "to_id": "risk_budget_overrun",
+     "from_label": "Paid Advertising Budget",
+     "to_label": "Annual Budget Overrun",
+     "e_value": 1,
+     "flip_direction": "decrease",
+     "current_mean": 0.45,
+     "flip_mean": -0.397828
+    },
+    {
+     "edge_id": "fac_marketing_expertise::out_campaign_effectiveness",
+     "from_id": "fac_marketing_expertise",
+     "to_id": "out_campaign_effectiveness",
+     "from_label": "Marketing Strategy Quality",
+     "to_label": "Campaign Conversion Effectiveness",
+     "e_value": 1,
+     "flip_direction": "decrease",
+     "current_mean": 0.55,
+     "flip_mean": -0.102829
+    },
+    {
+     "edge_id": "fac_marketing_expertise::risk_founder_distraction",
+     "from_id": "fac_marketing_expertise",
+     "to_id": "risk_founder_distraction",
+     "from_label": "Marketing Strategy Quality",
+     "to_label": "Founder Distraction from Core Work",
+     "e_value": 2.2528,
+     "flip_direction": "increase",
+     "current_mean": -0.3,
+     "flip_mean": 0.675854
+    },
+    {
+     "edge_id": "out_campaign_effectiveness::goal_launch",
+     "from_id": "out_campaign_effectiveness",
+     "to_id": "goal_launch",
+     "from_label": "Campaign Conversion Effectiveness",
+     "to_label": "Successful Product Feature Launch Within Budget",
+     "e_value": 1,
+     "flip_direction": "decrease",
+     "current_mean": 0.4,
+     "flip_mean": -0.074784
+    },
+    {
+     "edge_id": "risk_budget_overrun::goal_launch",
+     "from_id": "risk_budget_overrun",
+     "to_id": "goal_launch",
+     "from_label": "Annual Budget Overrun",
+     "to_label": "Successful Product Feature Launch Within Budget",
+     "e_value": 1,
+     "flip_direction": "increase",
+     "current_mean": -0.5,
+     "flip_mean": 0.442056
+    },
+    {
+     "edge_id": "risk_founder_distraction::goal_launch",
+     "from_id": "risk_founder_distraction",
+     "to_id": "goal_launch",
+     "from_label": "Founder Distraction from Core Work",
+     "to_label": "Successful Product Feature Launch Within Budget",
+     "e_value": 2.2528,
+     "flip_direction": "increase",
+     "current_mean": -0.3,
+     "flip_mean": 0.675843
+    }
+   ],
+   "inference_warnings": [
+    {
+     "code": "EDGE_SENSITIVITY_UNAVAILABLE_V2_WIRE",
+     "message": "Edge-level sensitivity was requested but the ISL V2 response format does not carry it \u2014 edge_sensitivity is empty by wire contract, not by computation failure. Factor-level sensitivity is unaffected.",
+     "severity": "info"
+    },
+    {
+     "code": "CONSTRAINT_NODE_DEFAULT_BASE",
+     "message": "Node 'out_campaign_effectiveness' has no ParameterUncertainty \u2014 defaulted to base=0.0, constraint probability may be unreliable",
+     "severity": "info"
+    },
+    {
+     "code": "CONSTRAINT_TARGET_UNRELIABLE",
+     "message": "The target for 'out_campaign_effectiveness' could not be reliably assessed - set an explicit range for this outcome to make the target meaningful.",
+     "severity": "warning"
+    }
+   ],
+   "confidence_tier": "needs_work",
+   "flip_thresholds": [
+    {
+     "factor_id": "fac_founder_time",
+     "factor_label": "Founder Time on Marketing",
+     "current_value": 50,
+     "flip_value": null,
+     "direction": "increase",
+     "unit": "%",
+     "alternative_winner_id": null,
+     "alternative_winner_label": null,
+     "flip_reason": "no_effect_within_bounds",
+     "iterations_used": 0,
+     "probes_used": 3,
+     "margin_sensitivity": {
+      "movement": "none",
+      "threshold": 0.05,
+      "baseline_leading_option_id": "opt_hire",
+      "baseline_runner_up_option_id": "opt_ai",
+      "baseline_margin": 0.756,
+      "min_probe_margin": 0.756,
+      "max_probe_margin": 0.756,
+      "min_probe_delta": 0,
+      "max_probe_delta": 0,
+      "strongest_direction": "none",
+      "strongest_probe_value": null,
+      "value_scale": "display",
+      "strongest_delta": null,
+      "strongest_delta_abs": null,
+      "strongest_delta_percentage_points": null,
+      "display_value_available": false
+     }
+    }
+   ]
+  }
+ }
+}
