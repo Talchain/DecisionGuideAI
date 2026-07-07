@@ -458,6 +458,27 @@ export interface V2RunResponse {
   }
 
   /**
+   * Decision brief assembled by PLoT (DecisionBriefV1). Additive consumption
+   * (Lane UI-W4, PLoT #200): the UI reads ONLY the claim-safe
+   * `headline_banded` surface (the producer leg of UI-SEM-060 leader-claim
+   * banding); everything else passes through untouched. Typed loose on the
+   * wire — `normalizeHeadlineBanded` is the fail-closed trust boundary.
+   * Absent on older PLoT builds and when brief assembly was skipped.
+   */
+  decision_brief?: {
+    /**
+     * Leader claim banded by win-probability gap. Band tokens on the wire:
+     * 'very_close' | 'slightly_ahead' | 'clearly_ahead' ('clearly_ahead' is
+     * never emitted without established robustness; downgrades carry
+     * robustness_gated: true). Typed as an open record — enum narrowing
+     * happens in the normaliser so future producer tokens degrade to the
+     * UI fallback instead of crashing.
+     */
+    headline_banded?: Record<string, unknown>
+    [key: string]: unknown
+  }
+
+  /**
    * Display-honesty: top-level flip_thresholds[] array as emitted by
    * PLoT v2/run. Legacy responses also nested it under
    * `robustness.flip_thresholds` — both shapes are accepted by the

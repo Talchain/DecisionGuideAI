@@ -1,7 +1,8 @@
 /**
  * phase3TypedBlocks — adapt verbatim Phase 3 raw payloads (coaching /
- * review_card) to the UI's typed V5 conversation blocks per the 0.13.x
- * @talchain/schemas shapes (Track C slice 1, approved D-5).
+ * review_card — Track C slice 1, approved D-5; evidence / exercise —
+ * Track C slice 2, Lane UI-W4 C) to the UI's typed V5 conversation blocks
+ * per the 0.13.x @talchain/schemas shapes.
  *
  * Contract (provisional_doctrine_v0):
  *   - Reads EXACTLY the 0.13.x typed fields (dist/boundary/blocks.d.ts in
@@ -39,6 +40,8 @@
 import type {
   V5BlockTargetRef,
   V5CoachingBlock,
+  V5EvidenceBlock,
+  V5ExerciseBlock,
   V5Phase3Freshness,
   V5ReviewCardBlock,
 } from '../canvas/conversation/types'
@@ -165,5 +168,144 @@ export function adaptTypedCoachingBlock(raw: unknown): V5CoachingBlock | null {
     freshness: fresh,
     ...(actionIntent ? { action_intent: actionIntent } : {}),
     ...(actionLabel ? { action_label: actionLabel } : {}),
+  }
+}
+
+// ─── Slice 2 adapters (Lane UI-W4 C): evidence / exercise ─────────────
+
+/**
+ * A single well-formed {id, label, kind} ref, or undefined. Used for the
+ * OPTIONAL single-ref slots (evidence factor_ref, exercise
+ * target_element_ref): a malformed entry is omitted, never repaired, and
+ * never suppresses the block — the render-relevant naming lives elsewhere
+ * (factor_label / target_refs).
+ */
+function optionalRef(v: unknown): V5BlockTargetRef | undefined {
+  if (!isPlainObject(v)) return undefined
+  const id = nonEmptyString(v.id)
+  const label = nonEmptyString(v.label)
+  const kind = nonEmptyString(v.kind)
+  return id && label && kind ? { id, label, kind } : undefined
+}
+
+/**
+ * Adapt a verbatim raw payload to a typed v5_evidence block (0.13.1
+ * EvidenceBlockSchema). Returns null when the payload is not a well-formed
+ * evidence block (fail-closed; the caller counts + suppresses).
+ *
+ * Required render-relevant fields: block_id, factor_label, evidence_gap,
+ * suggested_technique, impact_if_gathered (the producer prose),
+ * current_confidence (data-* discriminator, non-empty string — NOT
+ * enum-narrowed), priority_rank, severity (visual channel — enum-checked
+ * like review_card), freshness, target_refs. Schema-declared metadata the
+ * UI never shows (signal_id, created_at, source_handler,
+ * graph_hash_at_generation) is deliberately NOT required — live staging
+ * omits it on the other Phase 3 types.
+ */
+export function adaptTypedEvidenceBlock(raw: unknown): V5EvidenceBlock | null {
+  if (!isPlainObject(raw)) return null
+  if (raw.type !== 'evidence') return null
+
+  const blockId = nonEmptyString(raw.block_id)
+  const factorLabel = nonEmptyString(raw.factor_label)
+  const evidenceGap = nonEmptyString(raw.evidence_gap)
+  const suggestedTechnique = nonEmptyString(raw.suggested_technique)
+  const impactIfGathered = nonEmptyString(raw.impact_if_gathered)
+  const currentConfidence = nonEmptyString(raw.current_confidence)
+  const rank = finiteNumber(raw.priority_rank)
+  const severityRaw = raw.severity
+  const fresh = freshness(raw.freshness)
+  const refs = targetRefs(raw.target_refs)
+
+  if (
+    !blockId || !factorLabel || !evidenceGap || !suggestedTechnique || !impactIfGathered ||
+    !currentConfidence || rank === undefined || !fresh || refs === undefined ||
+    typeof severityRaw !== 'string' || !REVIEW_SEVERITIES.has(severityRaw)
+  ) {
+    return null
+  }
+
+  const factorRef = optionalRef(raw.factor_ref)
+  const actionIntent = nonEmptyString(raw.action_intent)
+  const actionLabel = nonEmptyString(raw.action_label)
+
+  return {
+    type: 'v5_evidence',
+    block_id: blockId,
+    factor_label: factorLabel,
+    ...(factorRef ? { factor_ref: factorRef } : {}),
+    target_refs: refs,
+    current_confidence: currentConfidence,
+    evidence_gap: evidenceGap,
+    suggested_technique: suggestedTechnique,
+    impact_if_gathered: impactIfGathered,
+    priority_rank: rank,
+    severity: severityRaw as V5EvidenceBlock['severity'],
+    freshness: fresh,
+    ...(actionIntent ? { action_intent: actionIntent } : {}),
+    ...(actionLabel ? { action_label: actionLabel } : {}),
+  }
+}
+
+/**
+ * Adapt a verbatim raw payload to a typed v5_exercise block (0.13.1
+ * ExerciseBlockSchema). Returns null when the payload is not a well-formed
+ * exercise block (fail-closed; the caller counts + suppresses).
+ *
+ * Per the v1.3 contract the exercise block carries NO title and NO
+ * priority_rank; every prose field is optional. Required: block_id,
+ * exercise_kind (data-* discriminator, non-empty string — NOT
+ * enum-narrowed), freshness, target_refs — PLUS at least one renderable
+ * producer prose field (failure_scenario / warning_signs / mitigation /
+ * reference_class / counter_case / review_trigger): a card with nothing to
+ * say must not render an empty shell. Individual malformed warning_signs
+ * entries are skipped, not repaired.
+ */
+export function adaptTypedExerciseBlock(raw: unknown): V5ExerciseBlock | null {
+  if (!isPlainObject(raw)) return null
+  if (raw.type !== 'exercise') return null
+
+  const blockId = nonEmptyString(raw.block_id)
+  const exerciseKind = nonEmptyString(raw.exercise_kind)
+  const fresh = freshness(raw.freshness)
+  const refs = targetRefs(raw.target_refs)
+
+  if (!blockId || !exerciseKind || !fresh || refs === undefined) return null
+
+  const failureScenario = nonEmptyString(raw.failure_scenario)
+  const mitigation = nonEmptyString(raw.mitigation)
+  const referenceClass = nonEmptyString(raw.reference_class)
+  const counterCase = nonEmptyString(raw.counter_case)
+  const reviewTrigger = nonEmptyString(raw.review_trigger)
+  const warningSigns = Array.isArray(raw.warning_signs)
+    ? raw.warning_signs.flatMap((s) => {
+        const sign = nonEmptyString(s)
+        return sign ? [sign] : []
+      })
+    : undefined
+  const signs = warningSigns && warningSigns.length > 0 ? warningSigns : undefined
+
+  // Fail-closed on a content-less card: schema-valid but with no producer
+  // prose at all — rendering an empty shell would imply content that does
+  // not exist.
+  if (!failureScenario && !signs && !mitigation && !referenceClass && !counterCase && !reviewTrigger) {
+    return null
+  }
+
+  const targetElementRef = optionalRef(raw.target_element_ref)
+
+  return {
+    type: 'v5_exercise',
+    block_id: blockId,
+    exercise_kind: exerciseKind,
+    ...(failureScenario ? { failure_scenario: failureScenario } : {}),
+    ...(signs ? { warning_signs: signs } : {}),
+    ...(mitigation ? { mitigation } : {}),
+    ...(referenceClass ? { reference_class: referenceClass } : {}),
+    ...(counterCase ? { counter_case: counterCase } : {}),
+    ...(reviewTrigger ? { review_trigger: reviewTrigger } : {}),
+    ...(targetElementRef ? { target_element_ref: targetElementRef } : {}),
+    target_refs: refs,
+    freshness: fresh,
   }
 }

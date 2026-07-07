@@ -110,3 +110,156 @@ describe('V5CoachingBlock', () => {
     expect(screen.queryByTestId('v5-coaching-refs')).not.toBeInTheDocument()
   })
 })
+
+// ─── Track C slice 2 (Lane UI-W4 C): evidence / exercise renderers ────────
+
+import { V5EvidenceBlock } from '../V5EvidenceBlock'
+import { V5ExerciseBlock } from '../V5ExerciseBlock'
+import type {
+  V5EvidenceBlock as V5EvidenceBlockType,
+  V5ExerciseBlock as V5ExerciseBlockType,
+} from '../../../canvas/conversation/types'
+
+const EVIDENCE: V5EvidenceBlockType = {
+  type: 'v5_evidence',
+  block_id: '7d9f2a44-1b3c-5e6f-8a90-123456789abc',
+  factor_label: 'Conversion Rate',
+  factor_ref: { id: 'fac_conversion_rate', label: 'Conversion Rate', kind: 'factor' },
+  target_refs: [
+    { id: 'fac_conversion_rate', label: 'Conversion Rate', kind: 'factor' },
+    { id: 'opt_paid_ads', label: 'Paid Advertising', kind: 'option' },
+  ],
+  current_confidence: 'low',
+  evidence_gap: 'The conversion rate estimate is based on a single week of data.',
+  suggested_technique: 'Run the funnel report for the last quarter and compare weekly variance.',
+  impact_if_gathered: 'A firmer conversion estimate would settle which option leads.',
+  priority_rank: 41,
+  severity: 'warning',
+  freshness: 'fresh',
+  action_intent: 'gather_evidence',
+  action_label: 'Gather conversion evidence',
+}
+
+const EXERCISE: V5ExerciseBlockType = {
+  type: 'v5_exercise',
+  block_id: '3c1d5b26-9e7a-5f40-b1c2-abcdef012345',
+  exercise_kind: 'pre_mortem',
+  failure_scenario:
+    'Twelve months in, the migration stalls because the legacy system\'s edge cases were undocumented.',
+  warning_signs: [
+    'Integration test coverage stays flat for two sprints',
+    'The legacy team\'s answers start with \'it depends\'',
+  ],
+  mitigation: 'Timebox a two-week legacy discovery spike before committing the migration date.',
+  target_refs: [{ id: 'opt_migrate', label: 'Migrate to the new platform', kind: 'option' }],
+  freshness: 'fresh',
+}
+
+describe('V5EvidenceBlock', () => {
+  it('renders the primary factor ref label as the title (§1.3: target_refs label preferred over factor_label) and the three producer paragraphs VERBATIM', () => {
+    render(
+      <V5EvidenceBlock
+        block={{
+          ...EVIDENCE,
+          // Conflict case: contract says renderers prefer target_refs[].label.
+          factor_label: 'Stale Label',
+        }}
+      />,
+    )
+    expect(screen.getByTestId('v5-evidence-title')).toHaveTextContent('Conversion Rate')
+    expect(screen.getByTestId('v5-evidence-gap')).toHaveTextContent(EVIDENCE.evidence_gap)
+    expect(screen.getByTestId('v5-evidence-technique')).toHaveTextContent(
+      EVIDENCE.suggested_technique,
+    )
+    expect(screen.getByTestId('v5-evidence-impact')).toHaveTextContent(
+      EVIDENCE.impact_if_gathered,
+    )
+  })
+
+  it('falls back to factor_label when no factor entry exists in target_refs', () => {
+    render(
+      <V5EvidenceBlock
+        block={{
+          ...EVIDENCE,
+          target_refs: [{ id: 'opt_paid_ads', label: 'Paid Advertising', kind: 'option' }],
+        }}
+      />,
+    )
+    expect(screen.getByTestId('v5-evidence-title')).toHaveTextContent('Conversion Rate')
+  })
+
+  it('exposes severity / current_confidence / freshness as data-* only — never as visible copy', () => {
+    render(<V5EvidenceBlock block={EVIDENCE} />)
+    const card = screen.getByTestId('v5-evidence')
+    expect(card).toHaveAttribute('data-severity', 'warning')
+    expect(card).toHaveAttribute('data-current-confidence', 'low')
+    expect(card).toHaveAttribute('data-freshness', 'fresh')
+    expect(card.textContent).not.toMatch(/\blow\b|\bwarning\b|\bfresh\b/)
+  })
+
+  it('renders target_refs pills and the producer action_label verbatim', () => {
+    render(<V5EvidenceBlock block={EVIDENCE} />)
+    expect(screen.getByTestId('v5-evidence-refs')).toHaveTextContent('Paid Advertising')
+    const action = screen.getByTestId('v5-evidence-action')
+    expect(action).toHaveTextContent('Gather conversion evidence')
+    expect(action).toHaveAttribute('data-action-intent', 'gather_evidence')
+  })
+
+  it('renders no action pill when the producer sent none', () => {
+    const noAction: V5EvidenceBlockType = { ...EVIDENCE }
+    delete noAction.action_intent
+    delete noAction.action_label
+    render(<V5EvidenceBlock block={noAction} />)
+    expect(screen.queryByTestId('v5-evidence-action')).not.toBeInTheDocument()
+  })
+})
+
+describe('V5ExerciseBlock', () => {
+  it('renders ONLY the producer prose fields present, VERBATIM (no invented labels or headings)', () => {
+    render(<V5ExerciseBlock block={EXERCISE} />)
+    expect(screen.getByTestId('v5-exercise-failure-scenario')).toHaveTextContent(
+      'the legacy system\'s edge cases were undocumented',
+    )
+    expect(screen.getByTestId('v5-exercise-mitigation')).toHaveTextContent(
+      EXERCISE.mitigation as string,
+    )
+    expect(screen.queryByTestId('v5-exercise-counter-case')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('v5-exercise-review-trigger')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('v5-exercise-reference-class')).not.toBeInTheDocument()
+  })
+
+  it('renders warning_signs as a list, one producer string per item', () => {
+    render(<V5ExerciseBlock block={EXERCISE} />)
+    const list = screen.getByTestId('v5-exercise-warning-signs')
+    const items = list.querySelectorAll('li')
+    expect(items).toHaveLength(2)
+    expect(items[0]).toHaveTextContent('Integration test coverage stays flat for two sprints')
+  })
+
+  it('exposes exercise_kind / freshness as data-* only — never as visible copy', () => {
+    render(<V5ExerciseBlock block={EXERCISE} />)
+    const card = screen.getByTestId('v5-exercise')
+    expect(card).toHaveAttribute('data-exercise-kind', 'pre_mortem')
+    expect(card).toHaveAttribute('data-freshness', 'fresh')
+    expect(card.textContent).not.toMatch(/pre_mortem|\bfresh\b/)
+  })
+
+  it('renders target_element_ref and target_refs as pills', () => {
+    render(
+      <V5ExerciseBlock
+        block={{
+          ...EXERCISE,
+          target_element_ref: { id: 'fac_cost', label: 'Total Cost', kind: 'factor' },
+        }}
+      />,
+    )
+    const refs = screen.getByTestId('v5-exercise-refs')
+    expect(refs).toHaveTextContent('Total Cost')
+    expect(refs).toHaveTextContent('Migrate to the new platform')
+  })
+
+  it('renders no refs list when neither target_element_ref nor target_refs exist', () => {
+    render(<V5ExerciseBlock block={{ ...EXERCISE, target_refs: [] }} />)
+    expect(screen.queryByTestId('v5-exercise-refs')).not.toBeInTheDocument()
+  })
+})

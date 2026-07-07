@@ -48,7 +48,7 @@ import type {
   ConfidenceCalibrationStatus,
   ConfidenceInputQuality,
 } from './types'
-import { normalizeAutoNoiseProvenance } from './types'
+import { normalizeAutoNoiseProvenance, normalizeHeadlineBanded } from './types'
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
 import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
@@ -907,6 +907,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     rawFlipThresholdsStatus,
     rawFlipThresholdsStatusReason,
     rawMetaNSamples,
+    rawHeadlineBanded,
   } = useCanvasStore(
     useShallow((s) => ({
       results: s.results,
@@ -948,6 +949,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // Display-honesty: root meta.n_samples used as fallback resolution
       // source when an option lacks per-option n_valid_samples.
       rawMetaNSamples: s.rawV2Response?.meta?.n_samples ?? null,
+      // Lane UI-W4 (producer consumption, PLoT #200): producer leader-
+      // confidence band. Extracted narrowly (never subscribe to the whole
+      // raw response); the mapped report is preferred below, this raw slot
+      // is the fresh-run fallback — same pattern as rawV2FlipThresholds.
+      rawHeadlineBanded:
+        s.rawV2Response?.decision_brief?.headline_banded ?? null,
     }))
   )
 
@@ -1435,6 +1442,18 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         rawFlipThresholdsStatusReason
           ?? (report as { flip_thresholds_status_reason?: string } | null | undefined)?.flip_thresholds_status_reason,
       ),
+      // Lane UI-W4 (producer consumption, PLoT #200): producer leader-
+      // confidence band from decision_brief.headline_banded. Normalised
+      // fail-closed at this trust boundary (unknown band tokens / missing
+      // leader id → null → the hero's UI-SEM-060 fallback banding applies).
+      // Fallback chain mirrors flipThresholdsStatus above: mapped report
+      // first (saved / hydrated results survive), raw response second
+      // (fresh runs on older cached reports).
+      headlineBanded: normalizeHeadlineBanded(
+        (report as { decision_brief?: { headline_banded?: unknown } } | null | undefined)
+          ?.decision_brief?.headline_banded
+          ?? rawHeadlineBanded,
+      ),
       /**
        * UI-SEM-050: Leading-option downside flag.
        *
@@ -1529,7 +1548,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return hasWarningCritiques || hasFragileEdges
       })(),
     }
-  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples])
+  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)

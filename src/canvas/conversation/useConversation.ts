@@ -34,6 +34,8 @@ import {
 import {
   adaptTypedReviewCardBlock,
   adaptTypedCoachingBlock,
+  adaptTypedEvidenceBlock,
+  adaptTypedExerciseBlock,
 } from '../../v5/phase3TypedBlocks'
 // Track C slice 1 (D-5): the bridge counts every Phase 3 block it does NOT
 // surface (malformed / no renderer / legacy suppression). Counting only —
@@ -930,21 +932,27 @@ export function selectTopPhase3ReviewCard(
  *       ties by harvest order; deduped by block_id),
  *    ...legacy top-1 review_card fallback when eligible]
  *
- * Typed path (NEW, slice 1): raw blocks of type 'coaching'/'review_card'
- * that adapt cleanly against the 0.13.x typed shapes render as first-class
- * v5_coaching / v5_review_card blocks — exactly the typed fields, all copy
- * producer-verbatim. Fail-closed: a malformed block is COUNTED (dropped-
- * content counter) and suppressed; it never crashes composition and never
- * renders with invented fields.
+ * Typed path (slice 1 + slice 2): raw blocks of type 'coaching' /
+ * 'review_card' (slice 1, D-5) and 'evidence' / 'exercise' (slice 2,
+ * Lane UI-W4 C) that adapt cleanly against the 0.13.x typed shapes render
+ * as first-class v5_* blocks — exactly the typed fields, all copy
+ * producer-verbatim. Fail-closed: a malformed block (including a
+ * content-less exercise — schema-shaped but with no producer prose) is
+ * COUNTED (dropped-content counter, 'malformed_phase3_block_suppressed')
+ * and suppressed; it never crashes composition and never renders with
+ * invented fields.
+ *
+ * Ordering: producer priority_rank ascending across all typed blocks.
+ * The exercise type carries NO priority_rank per the v1.3 contract (not
+ * hero eligible), so exercises take rank +Infinity — after every ranked
+ * block, preserving harvest order among themselves (the same missing-rank
+ * convention as selectTopPhase3ReviewCard).
  *
  * Legacy fallback (unchanged behaviour): review_card blocks that are NOT
  * 0.13.x-shaped go through the original bridge — factPresent gate, top-1
  * cap by priority_rank, adaptPhase3ReviewCard defaults, dedupe against an
  * existing legacy review_card in mappedBlocks. Legacy cards not surfaced
  * are counted ('legacy_review_card_suppressed').
- *
- * Evidence and exercise rawBlocks remain unsurfaced this slice (no
- * renderer) and are counted ('no_renderer_for_block_type').
  */
 export function composePhase3BridgedBlocks(
   factPresent: boolean,
@@ -953,12 +961,13 @@ export function composePhase3BridgedBlocks(
 ): ConversationBlock[] {
   const out: ConversationBlock[] = [...mappedBlocks]
 
-  // ── Typed path: 0.13.x coaching + review_card ─────────────────────────
+  // ── Typed path: 0.13.x coaching + review_card + evidence + exercise ───
   const typed: Array<{ block: ConversationBlock; rank: number; order: number }> = []
   const legacyReviewCandidates: Phase3RawBlock[] = []
   const seenTypedBlockIds = new Set<string>(
     mappedBlocks.flatMap((b) =>
-      (b.type === 'v5_review_card' || b.type === 'v5_coaching') ? [b.block_id] : [],
+      (b.type === 'v5_review_card' || b.type === 'v5_coaching' ||
+       b.type === 'v5_evidence' || b.type === 'v5_exercise') ? [b.block_id] : [],
     ),
   )
   let order = 0
@@ -993,12 +1002,46 @@ export function composePhase3BridgedBlocks(
       })
       continue
     }
-    // evidence / exercise: tolerated types without a renderer this slice.
-    recordDroppedContent({
-      blockType: rb.type,
-      source: 'phase3_block_bridge',
-      rationale: 'no_renderer_for_block_type',
-    })
+    if (rb.type === 'evidence') {
+      // Slice 2 (Lane UI-W4 C): evidence renders first-class; carries its
+      // producer priority_rank into the shared ordering.
+      const adapted = adaptTypedEvidenceBlock(rb.raw)
+      if (adapted) {
+        if (!seenTypedBlockIds.has(adapted.block_id)) {
+          seenTypedBlockIds.add(adapted.block_id)
+          typed.push({ block: adapted, rank: adapted.priority_rank, order: order++ })
+        }
+        continue
+      }
+      recordDroppedContent({
+        blockType: 'evidence',
+        source: 'phase3_block_bridge',
+        rationale: 'malformed_phase3_block_suppressed',
+      })
+      continue
+    }
+    if (rb.type === 'exercise') {
+      // Slice 2 (Lane UI-W4 C): exercise renders first-class. The v1.3
+      // contract declares NO priority_rank on this type (not hero
+      // eligible), so exercises take +Infinity — after every ranked
+      // block, harvest order among themselves (the selectTopPhase3
+      // missing-rank convention). Content-less blocks fail closed in the
+      // adapter and are counted like any other malformed block.
+      const adapted = adaptTypedExerciseBlock(rb.raw)
+      if (adapted) {
+        if (!seenTypedBlockIds.has(adapted.block_id)) {
+          seenTypedBlockIds.add(adapted.block_id)
+          typed.push({ block: adapted, rank: Number.POSITIVE_INFINITY, order: order++ })
+        }
+        continue
+      }
+      recordDroppedContent({
+        blockType: 'exercise',
+        source: 'phase3_block_bridge',
+        rationale: 'malformed_phase3_block_suppressed',
+      })
+      continue
+    }
   }
   // Producer-owned ordering: priority_rank ascending (lower = higher
   // priority, per CEE v1.3 §0); ties preserve harvest order. No new

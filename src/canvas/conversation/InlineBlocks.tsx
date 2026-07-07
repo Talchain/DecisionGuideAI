@@ -47,6 +47,8 @@ import { V5ComparisonBlock } from '../../v5/blocks/V5ComparisonBlock'
 import { V5FlipAnalysisBlock } from '../../v5/blocks/V5FlipAnalysisBlock'
 import { V5ReviewCardBlock } from '../../v5/blocks/V5ReviewCardBlock'
 import { V5CoachingBlock } from '../../v5/blocks/V5CoachingBlock'
+import { V5EvidenceBlock } from '../../v5/blocks/V5EvidenceBlock'
+import { V5ExerciseBlock } from '../../v5/blocks/V5ExerciseBlock'
 import { V5UnsupportedBlock } from '../../v5/blocks/V5UnsupportedBlock'
 import { safeRichText, plainTextPreview } from '../utils/safeRichText'
 import { isOrchestratorRenderingV2Enabled } from '../../flags'
@@ -90,6 +92,12 @@ function resolveBlockBadgeDotClass(block: ConversationBlock): string | null {
     case 'v5_review_card':
       return block.severity === 'info' ? styles.blockBadgeDotInfo : styles.blockBadgeDotDanger
     case 'v5_coaching': return styles.blockBadgeDotInfo
+    // Track C slice 2 (Lane UI-W4 C): evidence follows the review-card
+    // severity rule; exercise carries no severity → always info (matching
+    // the legacy 'exercise' dot above).
+    case 'v5_evidence':
+      return block.severity === 'info' ? styles.blockBadgeDotInfo : styles.blockBadgeDotDanger
+    case 'v5_exercise': return styles.blockBadgeDotInfo
     default: return null
   }
 }
@@ -300,6 +308,14 @@ function BlockRenderer({
 
     case 'v5_coaching':
       return <V5CoachingBlock block={block} />
+
+    // Track C slice 2 (Lane UI-W4 C): 0.13.1-typed evidence + exercise.
+    // Same doctrine — producer copy verbatim, enum tokens data-* only.
+    case 'v5_evidence':
+      return <V5EvidenceBlock block={block} />
+
+    case 'v5_exercise':
+      return <V5ExerciseBlock block={block} />
 
     case 'v5_unsupported':
       return <V5UnsupportedBlock block={block} />

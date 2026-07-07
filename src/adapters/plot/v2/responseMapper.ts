@@ -707,6 +707,13 @@ export function mapV2ResponseToReportV1(
     })()),
     ...(v2Response.flip_thresholds_status ? { flip_thresholds_status: v2Response.flip_thresholds_status } : {}),
     ...(v2Response.flip_thresholds_status_reason ? { flip_thresholds_status_reason: v2Response.flip_thresholds_status_reason } : {}),
+    // Lane UI-W4 (producer consumption, PLoT #200): pass decision_brief
+    // through ADDITIVELY and verbatim so the claim-safe headline_banded
+    // surface survives a save + hydrate cycle (the selector reads the
+    // mapped report first, raw response second — same pattern as
+    // flip_thresholds above). No field is reshaped here; the fail-closed
+    // trust boundary is normalizeHeadlineBanded at the selector.
+    ...(v2Response.decision_brief ? { decision_brief: v2Response.decision_brief } : {}),
   }
 }
 

@@ -58,12 +58,16 @@ export const HERO_COPY = {
      */
     analysisLeads: (label: string) => `${label} currently leads the overall analysis.`,
     /**
-     * Leader-claim banding (UI-SEM-060, revised): the "most likely" claim is
-     * grounded in the producer's OWN win probability (the same quantity the
-     * detail's "chance it is the strongest option overall" line shows) —
-     * never in outcome-lens inference or range overlap. Range overlap alone
-     * must never temper or manufacture a closeness claim; it only appends
-     * the overlap advisory to the state-A subline.
+     * Leader-claim banding — producer-first (Lane UI-W4, PLoT #200): the
+     * band is PLoT's own decision_brief.headline_banded when present
+     * (clearly_ahead selects this claim), with the UI's win-probability
+     * banding (UI-SEM-060) as the absent-producer fallback only. Either
+     * way the "most likely" claim is grounded in producer win
+     * probabilities (the same quantity the detail's "chance it is the
+     * strongest option overall" line shows) — never in outcome-lens
+     * inference or range overlap. Range overlap alone must never temper or
+     * manufacture a closeness claim; it only appends the overlap advisory
+     * to the state-A subline.
      */
     mostLikelyStrongest: (label: string) => `${label} is most likely to be strongest overall.`,
     /** Banding state B: ahead on win probability without a strong majority. */
@@ -95,10 +99,10 @@ export const HERO_COPY = {
     highestOutcome: (label: string) => `${label} has the highest expected outcome.`,
     aligned: (label: string) => `${label} also has the strongest expected outcome.`,
     /**
-     * Banding state B subline (UI-SEM-060): the runner-up is named from the
-     * SAME rendered outcome ranking the chart shows, and ONLY when the
-     * top-two expected outcomes are genuinely close — never from range
-     * overlap alone.
+     * Banding state B subline (producer band or UI-SEM-060 fallback): the
+     * runner-up is named from the SAME rendered outcome ranking the chart
+     * shows, and ONLY when the top-two expected outcomes are genuinely
+     * close — never from range overlap alone.
      */
     closeOnOutcome: (label: string) => `${label} is close on expected outcome.`,
     /**

@@ -363,6 +363,88 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
   })
 })
 
+describe('buildHeroModel — producer band consumption (PLoT decision_brief.headline_banded)', () => {
+  // Producer leg of UI-SEM-060 (PLoT #200): when the producer emits its own
+  // leader-confidence band naming the SAME leader the hero headlines, the
+  // producer band drives the banded copy and the UI's win-probability
+  // banding is NOT consulted. The UI fallback applies ONLY when the
+  // producer band is absent (or names a different leader / fails the
+  // normaliser upstream). Bands map onto the existing copy — no new wording.
+  const noGoal = (o: ReturnType<typeof makeOption>) =>
+    makeOption({ ...o, goalProbability: undefined })
+
+  // Leader B at 55% win: the UI fallback would band this 'ahead'
+  // ("slightly ahead") — a producer band that says otherwise must win.
+  const options = () => [
+    noGoal(makeOption({ ...OPTION_A, winProbability: 0.45, expected: 50, outcome: { mean: 50, p10: 40, p50: 50, p90: 60 } })),
+    noGoal(makeOption({ ...OPTION_B, winProbability: 0.55, expected: 80, outcome: { mean: 80, p10: 70, p50: 80, p90: 90 } })),
+  ]
+
+  it('producer clearly_ahead → strong claim even where the UI fallback would say "slightly ahead"', () => {
+    const m = chart(buildHeroModel(makeHeroData({
+      options: options(),
+      recommendation: {
+        headlineBanded: { band: 'clearly_ahead', leaderOptionId: 'opt_b', robustnessGated: false },
+      },
+    })))
+    expect(m.headline).toBe('Upskill the team is most likely to be strongest overall.')
+  })
+
+  it('producer very_close → no-clear-leader claim even where the UI fallback would claim strong', () => {
+    // 80% win would band 'strong' in the UI fallback; the producer's
+    // near-tie verdict must override (producer-first, no second opinion).
+    const a = noGoal(makeOption({ ...OPTION_A, winProbability: 0.2, expected: 50, outcome: { mean: 50, p10: 40, p50: 50, p90: 60 } }))
+    const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.8, expected: 80, outcome: { mean: 80, p10: 70, p50: 80, p90: 90 } }))
+    const m = chart(buildHeroModel(makeHeroData({
+      options: [a, b],
+      recommendation: {
+        headlineBanded: { band: 'very_close', leaderOptionId: 'opt_b', robustnessGated: false },
+      },
+    })))
+    expect(m.headline).toBe('No option is clearly ahead.')
+    expect(m.subline).toBe('Compare the top options before deciding.')
+  })
+
+  it('producer slightly_ahead → "slightly ahead" copy (robustness_gated downgrade already producer-applied)', () => {
+    const m = chart(buildHeroModel(makeHeroData({
+      options: options(),
+      recommendation: {
+        headlineBanded: { band: 'slightly_ahead', leaderOptionId: 'opt_b', robustnessGated: true },
+      },
+    })))
+    expect(m.headline).toBe('Upskill the team is slightly ahead.')
+  })
+
+  it('producer band naming a DIFFERENT leader than the hero headline is not applied (identity gate → UI fallback)', () => {
+    // The producer claim is about opt_a; the hero headlines opt_b (the
+    // Results Panel leader). Applying opt_a\'s band to opt_b would transform
+    // meaning, so the UI fallback (55% win → "slightly ahead") applies.
+    const m = chart(buildHeroModel(makeHeroData({
+      options: options(),
+      recommendation: {
+        headlineBanded: { band: 'clearly_ahead', leaderOptionId: 'opt_a', robustnessGated: false },
+      },
+    })))
+    expect(m.headline).toBe('Upskill the team is slightly ahead.')
+  })
+
+  it('absent producer band → UI fallback banding unchanged (UI-SEM-060 residual)', () => {
+    const m = chart(buildHeroModel(makeHeroData({ options: options() })))
+    expect(m.headline).toBe('Upskill the team is slightly ahead.')
+  })
+
+  it('producer band never invents a leader claim on the goal-basis headline branch', () => {
+    // With a goal basis the headline stays the goal-fit claim; the banded
+    // no-goal-basis path (and therefore the producer band) is not in play.
+    const m = chart(buildHeroModel(makeHeroData({
+      recommendation: {
+        headlineBanded: { band: 'very_close', leaderOptionId: 'opt_b', robustnessGated: false },
+      },
+    })))
+    expect(m.headline).toBe('Upskill the team best fits your goal.')
+  })
+})
+
 describe('buildHeroModel — readout-tie coherence (UI-SEM-070) and span floor (UI-SEM-054)', () => {
   const noGoal = (o: ReturnType<typeof makeOption>) =>
     makeOption({ ...o, goalProbability: undefined, winProbability: undefined })
