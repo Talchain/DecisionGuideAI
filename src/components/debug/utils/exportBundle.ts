@@ -26,6 +26,7 @@ import type {
   CEEObservabilityData,
 } from '../hooks/useDebugData'
 import { getVersionInfo, getClientBuild } from '../../../lib/version-cache'
+import { TALCHAIN_SCHEMAS_VENDORED_VERSION } from '../../../lib/talchainSchemasVersion'
 import { getBufferedLogs, type BufferedLog } from '../../../utils/debugLogBuffer'
 import { DEBUG_LLM_RAW_MAX_CHARS } from '../../../utils/payloadRedaction'
 import { getUserActions } from '../../../lib/debug-state'
@@ -1080,7 +1081,9 @@ interface DebugBundle {
   }
   /** ISL diagnostic details */
   isl_diagnostic: {
-    data_source: 'downstream_calls' | 'direct_capture' | 'plot_response_extraction' | 'none'
+    /** Mirrors DiagnosticChecks['isl_data_source'] — see its JSDoc for the
+     *  V5-canonical `cee_enrichment_extraction` value. */
+    data_source: DiagnosticChecks['isl_data_source']
     downstream_calls_path_found: string | null
     downstream_calls_paths_checked: string[]
     plot_response_keys: string[]
@@ -2130,6 +2133,34 @@ function collectSchemaVersions(data: DebugData): SchemaVersions {
   return result
 }
 
+/**
+ * Decorate a SchemaVersions block with the UI-side facts that are ALWAYS
+ * knowable at export time (additive, 2026-07-07):
+ *   - `ui_vendored_talchain_schemas`: the app's vendored @talchain/schemas
+ *     pin, from the drift-guarded build-time constant — bundle 45c9b625
+ *     shipped an all-null schema_versions block even though the UI's own
+ *     contract version was known.
+ *   - `build_ids`: mirror of `data.builds` (service build ids where the
+ *     captured payloads exposed them).
+ * The six wire-version fields and the consistency computation are left
+ * untouched — consistency keeps its wire-only semantics.
+ */
+function withUiSchemaVersionFacts(
+  sv: SchemaVersions,
+  data: DebugData,
+): SchemaVersions {
+  return {
+    ...sv,
+    ui_vendored_talchain_schemas: TALCHAIN_SCHEMAS_VENDORED_VERSION,
+    build_ids: {
+      ui: data.builds.ui ?? null,
+      cee: data.builds.cee ?? null,
+      plot: data.builds.plot ?? null,
+      isl: data.builds.isl ?? null,
+    },
+  }
+}
+
 // =============================================================================
 // V1.5: Collect user actions from debug-state ring buffer
 // =============================================================================
@@ -2722,7 +2753,7 @@ export async function captureDisplayState(
 // =============================================================================
 
 function buildGatesPostPipeline(data: DebugData): DebugBundle['gates'] {
-  const gates = data.gates.map((g) => ({
+  const gates: DebugBundle['gates'] = data.gates.map((g) => ({
     name: g.name,
     status: g.status,
     message: g.message,
@@ -2736,6 +2767,23 @@ function buildGatesPostPipeline(data: DebugData): DebugBundle['gates'] {
       if (gate.name === 'graph_readiness' && gate.status === 'fail') {
         gate.status = 'pass'
         gate.message = (gate.message ?? '') + ' [corrected: pipeline succeeded]'
+      }
+      // gates.run reconciliation (evidence-tooling fix, bundle 45c9b625,
+      // 2026-07-07): the `run` gate's only writers are the legacy
+      // PLoT-direct paths (`useV2Run.ts:833/839`, `plot/v1/http.ts:623`).
+      // On the V5-canonical path the browser never calls PLoT, so the gate
+      // sits at its default 'fail' forever and the export shows
+      // `run:"fail"` beside `pipeline.status:"success"` — a contradiction
+      // that reads as a failed run. The legacy check cannot be made
+      // truthful from here (it has no writer on this path), so relabel it
+      // explicitly rather than exporting a false 'fail'. Export-label only:
+      // the live gate STORE (UI blocking behaviour) is untouched.
+      if (gate.name === 'run' && gate.status === 'fail' && !gate.message) {
+        gate.status = 'legacy_check_unreliable'
+        gate.message =
+          'Legacy PLoT-direct run gate has no writer on the V5-canonical path '
+          + '(default fail retained in store); pipeline.status is the truthful '
+          + 'run signal for this export.'
       }
     }
   }
@@ -2939,8 +2987,13 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
   // Feature flags snapshot
   const featureFlagsAtRequest = collectFeatureFlagsSnapshot()
 
-  // Schema versions from payloads (fallback to data if already extracted)
-  const schemaVersions = data.schema_versions ?? collectSchemaVersions(data)
+  // Schema versions from payloads (fallback to data if already extracted),
+  // always decorated with the UI-side vendored-contract version + build ids
+  // so the block is never fully null on the V5-canonical path.
+  const schemaVersions = withUiSchemaVersionFacts(
+    data.schema_versions ?? collectSchemaVersions(data),
+    data,
+  )
 
   // Gate state with post-pipeline correction
   const gates = buildGatesPostPipeline(data)
