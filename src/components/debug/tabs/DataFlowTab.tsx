@@ -558,6 +558,7 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
               {data.diagnostics.isl_data_source === 'direct_capture' && '✓ ISL Data Path Confirmed'}
               {data.diagnostics.isl_data_source === 'plot_response_extraction' &&
                 '✓ ISL Data Extracted from PLoT Response'}
+              {/* provisional_doctrine_v0: debug-panel wording, not ratified copy */}
               {data.diagnostics.isl_data_source === 'cee_enrichment_extraction' &&
                 '✓ ISL Data Lifted from CEE-Embedded Enrichment'}
             </div>

@@ -2791,6 +2791,7 @@ function buildGatesPostPipeline(data: DebugData): DebugBundle['gates'] {
       // the live gate STORE (UI blocking behaviour) is untouched.
       if (gate.name === 'run' && gate.status === 'fail' && !gate.message) {
         gate.status = 'legacy_check_unreliable'
+        // provisional_doctrine_v0: reviewer-facing wording, not ratified copy.
         gate.message =
           'Legacy PLoT-direct run gate has no writer on the V5-canonical path '
           + '(default fail retained in store); pipeline.status is the truthful '

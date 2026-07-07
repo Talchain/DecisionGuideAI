@@ -101,9 +101,11 @@ export function recordDroppedContent(input: {
       })
     }
     const total = getDroppedContentSnapshot().total_dropped
-    // Observability channel required by D-5. Stripped from production
-    // builds by the esbuild `drop: ['console']` setting; visible in dev
-    // and staging diagnostics.
+    // Observability channel required by D-5 (console.info specifically —
+    // the drop is informational, not a warning/error). Stripped from
+    // production builds by the esbuild `drop: ['console']` setting;
+    // visible in dev and staging diagnostics.
+    // eslint-disable-next-line no-console
     console.info(
       `[dropped-content] ${count}x block type "${blockType}" not rendered `
       + `(source=${input.source}, rationale=${input.rationale}); session total ${total}`,
