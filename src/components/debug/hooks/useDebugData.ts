@@ -1775,6 +1775,24 @@ function extractBuildVersions(
       ((provenanceSource.commit as string) ? `@${(provenanceSource.commit as string).slice(0, 7)}` : '')
     : null
 
+  // Lane UI-W4 B (PLoT #200): the PLoT response now carries an
+  // always-present `_meta.evidence` with the deployed PLoT build and the
+  // ISL build passthrough. Used as the LAST fallback for both services —
+  // ISL is called by PLoT (never directly by the UI), so
+  // `payloads.isl_response` is normally null and `builds.isl` was the
+  // "isl: null" half of the diligence gap. Strict string reads; absence
+  // stays an honest null.
+  const plotEvidence = (plot?._meta as Record<string, unknown> | undefined)
+    ?.evidence as Record<string, unknown> | undefined
+  const evidencePlotBuild =
+    typeof plotEvidence?.plot_build === 'string' && plotEvidence.plot_build.length > 0
+      ? plotEvidence.plot_build
+      : null
+  const evidenceIslBuild =
+    typeof plotEvidence?.isl_build === 'string' && plotEvidence.isl_build.length > 0
+      ? plotEvidence.isl_build
+      : null
+
   return {
     ui: getClientBuild() || null,
     cee: ceeVersionFromEngine
@@ -1782,10 +1800,12 @@ function extractBuildVersions(
     plot: (plot?.meta as Record<string, unknown>)?.build as string
       ?? (plot?.trace as Record<string, unknown>)?.build as string
       ?? (plot?.build as string)
+      ?? evidencePlotBuild
       ?? null,
     isl: (isl?._metadata as Record<string, unknown>)?.isl_version as string
       ?? (isl?._metadata as Record<string, unknown>)?.version as string
       ?? (isl?.version as string)
+      ?? evidenceIslBuild
       ?? null,
   }
 }

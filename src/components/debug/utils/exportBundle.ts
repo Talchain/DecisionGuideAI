@@ -640,6 +640,79 @@ function extractPlotEnrichment(plotResponse: unknown): PlotEnrichment | null {
   }
 }
 
+// ─── Evidence capture (Lane UI-W4 B — PLoT #200 _meta.evidence) ─────────────
+//
+// PLoT's /v2/run now ships an ALWAYS-present additive `_meta.evidence`
+// object (EvidenceCaptureV1): sha256 digests over the EXACT bytes of the
+// primary ISL exchange (request + response, with byte length and sorted
+// top-level key manifest) plus the deployed PLoT and ISL builds. This is
+// the diligence evidence the chronicle flagged missing (items 20/21): the
+// full payload mirror stays gated behind UI_CANONICAL_META (off in
+// staging), so before this field the bundle reported "plot: null /
+// isl: null" with nothing evidencing the ISL exchange.
+//
+// The bundle mirrors it verbatim (fail-closed per field, never invented)
+// at the additive `evidence_capture` area, and `schema_versions.build_ids`
+// falls back to its builds when the legacy capture-time extraction found
+// nothing.
+
+/** Mirror of PLoT PayloadDigestV3 — digest of an exact wire payload. */
+interface EvidencePayloadDigest {
+  sha256: string
+  bytes: number
+  key_manifest: string[]
+}
+
+interface EvidenceCaptureArea {
+  /** Provenance of this area — always the PLoT response `_meta.evidence`. */
+  source: 'plot_response._meta.evidence'
+  /** Deployed PLoT build SHA; null when absent/malformed. */
+  plot_build: string | null
+  /** ISL build passthrough (PLoT reads the ISL response `build` field); honest null when ISL did not report one. */
+  isl_build: string | null
+  /** Digest of the exact request bytes PLoT sent to ISL; null when ISL was not called. */
+  isl_request_digest: EvidencePayloadDigest | null
+  /** Digest of the exact response bytes ISL returned; null when unavailable. */
+  isl_response_digest: EvidencePayloadDigest | null
+}
+
+/** Fail-closed digest reader: full {sha256, bytes, key_manifest} triple or null. */
+function asPayloadDigest(value: unknown): EvidencePayloadDigest | null {
+  const d = asRecord(value)
+  if (!d) return null
+  if (typeof d.sha256 !== 'string' || d.sha256.length === 0) return null
+  if (typeof d.bytes !== 'number' || !Number.isFinite(d.bytes)) return null
+  if (!Array.isArray(d.key_manifest) || !d.key_manifest.every((k) => typeof k === 'string')) return null
+  return { sha256: d.sha256, bytes: d.bytes, key_manifest: d.key_manifest }
+}
+
+/**
+ * Extract the PLoT `_meta.evidence` object. Returns null when the response
+ * predates PLoT #200 (no `_meta.evidence`); per-field fail-closed nulls when
+ * individual fields are malformed. `_meta ?? meta` tolerance matches
+ * extractPlotEnrichment above.
+ */
+function extractEvidenceCapture(plotResponse: unknown): EvidenceCaptureArea | null {
+  const plot = asRecord(plotResponse)
+  if (!plot) return null
+  const meta = asRecord(plot._meta ?? plot.meta)
+  const evidence = asRecord(meta?.evidence)
+  if (!evidence) return null
+  return {
+    source: 'plot_response._meta.evidence',
+    plot_build:
+      typeof evidence.plot_build === 'string' && evidence.plot_build.length > 0
+        ? evidence.plot_build
+        : null,
+    isl_build:
+      typeof evidence.isl_build === 'string' && evidence.isl_build.length > 0
+        ? evidence.isl_build
+        : null,
+    isl_request_digest: asPayloadDigest(evidence.isl_request_digest),
+    isl_response_digest: asPayloadDigest(evidence.isl_response_digest),
+  }
+}
+
 /**
  * Extract goal_constraints from graph_patch blocks in the envelope.
  * Falls back to searching blocks when not present at envelope root.
@@ -1115,6 +1188,15 @@ interface DebugBundle {
   }
   /** PLoT enriched fields — post-merge values the UI actually renders */
   plot_enrichment: PlotEnrichment | null
+  /**
+   * Diligence evidence of the PLoT↔ISL exchange (Lane UI-W4 B, PLoT #200):
+   * verbatim mirror of the PLoT response `_meta.evidence` —
+   * isl_request_digest / isl_response_digest (sha256 over the exact wire
+   * bytes + byte length + key manifest) plus plot_build / isl_build.
+   * Null when the response predates the producer field. Additive; closes
+   * the "plot: null / isl: null" gap without shipping full ISL payloads.
+   */
+  evidence_capture: EvidenceCaptureArea | null
   /** Gate statuses */
   gates: Array<{ name: string; status: string; message?: string }>
   /** Graph validation issues (ISL critiques + UI-side checks) */
@@ -2155,10 +2237,17 @@ function collectSchemaVersions(data: DebugData): SchemaVersions {
  *     captured payloads exposed them).
  * The six wire-version fields and the consistency computation are left
  * untouched — consistency keeps its wire-only semantics.
+ *
+ * Lane UI-W4 B (additive, 2026-07-07): `build_ids.plot` / `build_ids.isl`
+ * fall back to the PLoT `_meta.evidence` builds (PLoT #200) when the
+ * legacy capture-time extraction found nothing — the exact "plot: null /
+ * isl: null" diligence gap. Fallback only: a legacy-extracted build is
+ * never overwritten, and absence stays an honest null.
  */
 function withUiSchemaVersionFacts(
   sv: SchemaVersions,
   data: DebugData,
+  evidence: { plot_build: string | null; isl_build: string | null } | null = null,
 ): SchemaVersions {
   return {
     ...sv,
@@ -2166,8 +2255,8 @@ function withUiSchemaVersionFacts(
     build_ids: {
       ui: data.builds.ui ?? null,
       cee: data.builds.cee ?? null,
-      plot: data.builds.plot ?? null,
-      isl: data.builds.isl ?? null,
+      plot: data.builds.plot ?? evidence?.plot_build ?? null,
+      isl: data.builds.isl ?? evidence?.isl_build ?? null,
     },
   }
 }
@@ -2970,6 +3059,10 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
   const causalClaimsDiagnostic = extractCausalClaimsDiagnostic(effectiveCeeResponse)
   const islRawFields = extractIslRawFields(data.payloads.isl_response)
   const plotEnrichment = extractPlotEnrichment(data.payloads.plot_response)
+  // Lane UI-W4 B: PLoT #200 diligence evidence (_meta.evidence) — mirrored
+  // verbatim below and used as the build_ids fallback in
+  // withUiSchemaVersionFacts.
+  const evidenceCapture = extractEvidenceCapture(data.payloads.plot_response)
 
   // Extract envelope-level fields from the EFFECTIVE response (direct
   // first, downstream fallback). Pre-fix these only saw direct response.
@@ -3005,6 +3098,7 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
   const schemaVersions = withUiSchemaVersionFacts(
     data.schema_versions ?? collectSchemaVersions(data),
     data,
+    evidenceCapture,
   )
 
   // Gate state with post-pipeline correction
@@ -3117,6 +3211,9 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
       isl_raw_fields: islRawFields,
     },
     plot_enrichment: plotEnrichment,
+    // Lane UI-W4 B: verbatim mirror of PLoT _meta.evidence (null when the
+    // response predates PLoT #200) — see EvidenceCaptureArea.
+    evidence_capture: evidenceCapture,
     gates,
     validation: {
       summary: {
