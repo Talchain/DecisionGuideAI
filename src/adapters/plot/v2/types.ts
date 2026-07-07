@@ -307,6 +307,26 @@ export interface V2RobustnessActual {
   ranking_stability?: number
   /** Recommendation stability - how often recommendation stays winner (0-1) */
   recommendation_stability?: number
+  /**
+   * The following are read live by useResultsSectionData / OptionNode and were
+   * previously untyped (`as string` casts / `?? nearTie` fallbacks), so a
+   * producer rename returned undefined with no compiler signal. Declared
+   * optional here for compile-time protection; the runtime reads and their
+   * fallbacks are unchanged.
+   */
+  /** Backend's own recommended option id (preferred winner source over win-max). */
+  recommended_option_id?: string
+  /** Categorical robustness level, when PLoT provides it (else the UI derives one). */
+  level?: string
+  /** Human-readable robustness label, when PLoT provides it. */
+  label?: string
+  /**
+   * Near-tie detail object (snake_case) plus its camelCase alias — the selector
+   * reads is_tie / top_option_id / second_option_id / tied_option_ids / gap /
+   * threshold off it, so it is a Record, not a boolean flag.
+   */
+  near_tie?: Record<string, unknown>
+  nearTie?: Record<string, unknown>
   /** Tipping-point analysis: how much each factor must change to flip the recommendation */
   flip_thresholds?: Array<{
     node_id?: string

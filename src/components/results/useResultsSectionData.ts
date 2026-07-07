@@ -1578,7 +1578,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         const critiques = report?.run?.critique || []
         const hasWarningCritiques = critiques.some((c: any) =>
           c.severity === 'WARNING' || c.severity === 'BLOCKER' ||
-          c.severity === 'warning' || c.severity === 'blocker'
+          c.severity === 'warning' || c.severity === 'blocker' ||
+          // UI-SEM-069 bridge: advisories emitted as severity 'IMPROVEMENT'
+          // with semantic_severity 'WARNING' are ingested into uncertainties
+          // below (see the same check on the uncertainties list); hasWarnings
+          // must agree or the panel shows "ready, no warnings" while the
+          // uncertainties list simultaneously shows warnings.
+          c.semantic_severity === 'WARNING'
         )
         // Check for fragile edges
         const fragileEdges = safeArray(report?.robustness?.fragile_edges)
@@ -2761,7 +2767,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return enriched
       })(),
     }
-  }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap])
+    // runMeta?.ceeReviewV1 is a genuine input (graphReadiness, evidence
+    // quality, bias/quality/improvement guidance all read it); the CEE review
+    // lands asynchronously after `report`, so omitting it froze the tier at
+    // its pre-review value. The sibling `completeness` memo already lists it.
+  }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap, runMeta?.ceeReviewV1])
 
   // ==========================================================================
   // Improvements Section Data (Legacy - now merged into confidence)

@@ -380,6 +380,17 @@ export const OptionNode = memo((props: NodeProps) => {
     if (optionNodes.length < 2) return false
     const visibleOptionIds = new Set(optionNodes.map(n => n.id))
     const report = resultsReport as any
+    // Prefer the backend's own recommendation so the canvas "Leading option"
+    // badge agrees with the Results Panel (which honours recommended_option_id
+    // first) and with this node's own closeCallGapPp/behindReason. Backend
+    // recommendation and win-probability argmax diverge on close/indeterminate
+    // runs — badging the win-max option while the panel recommends another is
+    // the #1-vs-#4 cross-surface disagreement. Win-max is the fallback only
+    // when the producer sends no recommendation (or it is not a visible node).
+    const recommendedId = report?.robustness?.recommended_option_id as string | undefined
+    if (recommendedId && visibleOptionIds.has(recommendedId)) {
+      return props.id === recommendedId
+    }
     const optionProbabilities: Record<string, { win_probability?: number }> = report?.option_probabilities ?? {}
     const allRates = Object.entries(optionProbabilities)
       .filter(([id]) => visibleOptionIds.has(id))
@@ -388,7 +399,7 @@ export const OptionNode = memo((props: NodeProps) => {
     if (allRates.length === 0) return false
     const maxRate = Math.max(...allRates)
     return displayMetadata.winRate >= maxRate - 0.0001
-  }, [displayMetadata.isResultsMode, displayMetadata.winRate, nodes, resultsReport])
+  }, [displayMetadata.isResultsMode, displayMetadata.winRate, nodes, resultsReport, props.id])
 
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   const setHoveredOption = useCanvasStore(state => state.setHoveredOption)

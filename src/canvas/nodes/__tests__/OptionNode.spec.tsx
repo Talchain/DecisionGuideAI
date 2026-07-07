@@ -216,6 +216,67 @@ describe('OptionNode', () => {
     expect(screen.queryByText('Leading option')).toBeNull()
   })
 
+  // Cross-surface parity: the badge follows the backend recommendation
+  // (recommended_option_id) so it agrees with the Results Panel, which honours
+  // it first. Win-max is only the fallback when no recommendation is sent.
+  it('does not badge the win-max option when the backend recommends another (recommended_option_id wins)', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null, influence: null, confidence: null, inSensitivityAnalysis: false,
+      achievementProbability: null, stabilityPercentage: null, winRate: 0.72, isResultsMode: true,
+      predictedOutcome: null, valueOfInformation: null, voiRank: null,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: {
+            option_probabilities: {
+              'option-1': { win_probability: 0.72 },
+              'option-2': { win_probability: 0.28 },
+            },
+            robustness: { recommended_option_id: 'option-2' },
+          },
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { type: 'option' } },
+          { id: 'option-2', type: 'option', data: { type: 'option' } },
+        ],
+      }) as any)
+    )
+    // Rendered node is option-1 (the win-max leader) but the backend recommends option-2.
+    renderOption()
+    expect(screen.queryByText('Leading option')).toBeNull()
+  })
+
+  it('badges the recommended option even when it is not the win-max leader (recommended_option_id wins)', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null, influence: null, confidence: null, inSensitivityAnalysis: false,
+      achievementProbability: null, stabilityPercentage: null, winRate: 0.28, isResultsMode: true,
+      predictedOutcome: null, valueOfInformation: null, voiRank: null,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: {
+            option_probabilities: {
+              'option-1': { win_probability: 0.28 },
+              'option-2': { win_probability: 0.72 },
+            },
+            robustness: { recommended_option_id: 'option-1' },
+          },
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { type: 'option' } },
+          { id: 'option-2', type: 'option', data: { type: 'option' } },
+        ],
+      }) as any)
+    )
+    // Rendered node is option-1, recommended by the backend despite a lower win.
+    renderOption()
+    expect(screen.getByText('Leading option')).toBeDefined()
+  })
+
   // T8: Intervention chips
   it('shows intervention chips from ceeAnalysisReady', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
