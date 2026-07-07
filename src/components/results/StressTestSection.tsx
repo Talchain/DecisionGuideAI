@@ -40,6 +40,7 @@ import {
   buildDisconfirmationCard,
   buildOutsideViewCard,
 } from './utils/stressTestTemplates'
+import { SensitivityReferenceCaption } from './SensitivityReferenceCaption'
 import type { DriverItem } from './types'
 
 const RANK_FLIP_THRESHOLD = 0.15
@@ -71,6 +72,12 @@ export interface StressTestSectionProps {
   onFocusNode?: (nodeId: string) => void
   onSendMessage?: (text: string) => void
   expertMode?: boolean
+  /**
+   * Lane UI-W5 (reference-option disclosure): resolved label of the option
+   * the sensitivities / fragile edges were computed against. Null/absent →
+   * no caption.
+   */
+  sensitivityReferenceLabel?: string | null
 }
 
 interface SensitiveFactor {
@@ -181,6 +188,7 @@ export const StressTestSection = memo(function StressTestSection({
   onFocusNode,
   onSendMessage,
   expertMode,
+  sensitivityReferenceLabel,
 }: StressTestSectionProps) {
   // ── Sensitive assumptions (node-based) ───────────────────────────────────
   const sensitiveFactors = selectSensitiveFactors(drivers)
@@ -254,6 +262,10 @@ export const StressTestSection = memo(function StressTestSection({
       }
     >
       <div className="space-y-3" data-testid="stress-test-section">
+        {/* Lane UI-W5: reference-option disclosure — renders nothing when
+            the producer did not disclose a reference option (fail-closed). */}
+        <SensitivityReferenceCaption optionLabel={sensitivityReferenceLabel} />
+
         {/* ── Sensitive assumptions ─────────────────────────────────── */}
         {sensitiveCount > 0 && (
           <div className="space-y-1.5" data-testid="stress-test-sensitive-subsection">

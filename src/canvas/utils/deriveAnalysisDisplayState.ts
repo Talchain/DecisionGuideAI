@@ -63,11 +63,21 @@ export interface AnalysisDisplayStateView {
  * readiness (CEE response in flight, slice transiently null during scenario
  * load). A genuinely complete prior result should remain visible during
  * those windows.
+ *
+ * 'blocked' (Lane UI-W5, CEE #358 defensive leg): CEE's documented
+ * semantics are "validation failure prevents analysis — invalid graph
+ * structure". The empty-options synthesis on legacy/unparseable reloads is
+ * rejected by the V5 normaliser before it reaches this helper (store slice
+ * cleared → status undefined), but the Ep2 readiness path can emit
+ * 'blocked' WITH populated options, which the lenient normaliser passes
+ * through — without this entry that state would render green "Analysis
+ * complete" whenever a prior report is held. Rendering-level mapping only.
  */
 const EXPLICIT_NOT_READY_STATUSES: ReadonlySet<string> = new Set([
   'needs_encoding',
   'needs_user_mapping',
   'needs_user_input',
+  'blocked',
 ])
 
 function isExplicitNotReady(status: string | undefined): boolean {

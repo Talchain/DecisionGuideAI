@@ -33,6 +33,7 @@ import { DataBar } from '../../canvas/ui/shared/DataBar'
 import Tooltip from '../../components/Tooltip'
 import { DiscussWithAiButton } from '../../canvas/components/pre-analysis/DiscussWithAiButton'
 import { ExpertBlock } from './ExpertBlock'
+import { SensitivityReferenceCaption } from './SensitivityReferenceCaption'
 import { ExpandableCoachingText } from '../../components/shared/ExpandableCoachingText'
 import { isExpertField } from './utils/isExpertField'
 
@@ -56,6 +57,11 @@ interface DriversSectionProps {
   onSendMessage?: (text: string) => void
   /** Whether expert mode is active (shows technical details) */
   expertMode?: boolean
+  /**
+   * Lane UI-W5 (reference-option disclosure): resolved label of the option
+   * the sensitivities were computed against. Null/absent → no caption.
+   */
+  sensitivityReferenceLabel?: string | null
 }
 
 // Bar colors — use design system tokens, no hex literals
@@ -761,6 +767,7 @@ export function DriversSection({
   isNormalised: _isNormalised,
   onSendMessage,
   expertMode,
+  sensitivityReferenceLabel,
 }: DriversSectionProps) {
   const [showAll, setShowAll] = useState(false)
   const { drivers, driversStatus, hasMagnitudeData, islError, hiddenZeroImpactCount } = data
@@ -855,6 +862,10 @@ export function DriversSection({
     <div className="space-y-4">
       {/* Ranking explainer */}
       <p className={`${typography.panelMeta} text-text-light`}>Ranked by how much each factor affects the outcome</p>
+
+      {/* Lane UI-W5: reference-option disclosure — renders nothing when the
+          producer did not disclose a reference option (fail-closed). */}
+      <SensitivityReferenceCaption optionLabel={sensitivityReferenceLabel} />
 
       {/* Brief 5 Task 2: headers + rows share one wrapper so column positions
           are structural, not visual-approximation. Headers mirror the row grid

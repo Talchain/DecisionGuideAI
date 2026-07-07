@@ -479,6 +479,20 @@ export interface V2RunResponse {
   }
 
   /**
+   * Reference-option disclosure (additive, Lane UI-W5; PLoT lane W4,
+   * ISL build 9a22a1a+): the option ID that edge sensitivity, factor
+   * sensitivity, and the fragile-edge classification were computed
+   * against (ISL currently uses the FIRST option in the request).
+   * Emitted at the /v2/run response root as a verbatim passthrough of
+   * the ISL envelope field (see plot-lite-service routes/v2/run.ts —
+   * omitted when the deployed ISL did not disclose it, honest absence).
+   * Disclosure only: the UI surfaces a caption naming this option where
+   * sensitivities / fragile edges render; absent field → no caption,
+   * never a UI-invented baseline. provisional_doctrine_v0.
+   */
+  sensitivity_reference_option_id?: string
+
+  /**
    * Display-honesty: top-level flip_thresholds[] array as emitted by
    * PLoT v2/run. Legacy responses also nested it under
    * `robustness.flip_thresholds` — both shapes are accepted by the

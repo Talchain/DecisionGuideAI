@@ -2069,6 +2069,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                         onClick={handleRunAnalysis}
                         disabled={isRunning || !canRunAnalysis}
                         className={`${typography.panelBody} bg-primary text-text-on-color rounded-md px-3 py-1 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0`}
+                        data-testid="graph-stale-rerun-button"
                       >
                         Rerun analysis
                       </button>
