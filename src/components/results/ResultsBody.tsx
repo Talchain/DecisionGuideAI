@@ -29,6 +29,7 @@ import { DecisionConfidencePanel } from './DecisionConfidencePanel'
 import { AnalysisHeroV17 } from './AnalysisHeroV17'
 import { AnalysisOrphanBanner } from './AnalysisOrphanBanner'
 import { AnalysisFreshnessNotice } from './AnalysisFreshnessNotice'
+import { InferenceWarningStrip } from './InferenceWarningStrip'
 import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
 import { AnalysisHeroContainer } from './analysis-hero'
 import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled, isFocusNowPanelEnabled, isAnalysisHeroPanelEnabled } from '@/flags'
@@ -232,6 +233,12 @@ export const ResultsBody = memo(function ResultsBody({
       {/* Freshness/staleness — CEE analysis_ready.freshness verdict. Renders
           nothing until a verdict exists; never asserts a state we don't hold. */}
       <AnalysisFreshnessNotice />
+
+      {/* Roadmap 1.12 (provisional_doctrine_v0): warning-severity producer
+          inference_warnings surface as a compact honest-caveat strip beside
+          the freshness area. Producer message verbatim; info-severity stays
+          hidden; renders nothing when no warning-severity entries exist. */}
+      <InferenceWarningStrip warnings={resultsSectionData.confidence.inferenceWarnings} />
 
       {/* ── ANALYSIS HERO (answer-first lens hero) ─────────────────
           Feature-flagged (staging-on, production-off). Read-only

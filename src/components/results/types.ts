@@ -415,6 +415,8 @@ export interface DriverItem {
   normalisedInfluence: number
   /** ISL influence_score (0-1) - structural causal influence, used for Influence column */
   influenceScore?: number
+  /** Producer influence_rank (1 = most influential). Additive; roadmap 1.7 (provisional_doctrine_v0). */
+  influenceRank?: number
   /** ISL zero_reason - explains why sensitivity is zero for intervention factors */
   zeroReason?: ZeroReasonCode
   /** 1-indexed rank by absolute elasticity */
@@ -610,6 +612,12 @@ export interface InferenceWarning {
   affected_labels?: string[]
   /** Human-readable message */
   message?: string
+  /**
+   * Producer severity ('info' | 'warning' | …) carried verbatim. Roadmap
+   * 1.12: warning-severity entries surface on the Analysis tab; info stays
+   * hidden. Optional/additive — absent when the producer omitted it.
+   */
+  severity?: string
 }
 
 export interface ConfidenceSectionData {
@@ -763,6 +771,8 @@ export interface RawFactorSensitivity {
   importance_score?: number
   /** ISL influence_score (0-1) - structural causal influence */
   influence_score?: number
+  /** Producer influence_rank (1 = most influential). Additive passthrough; roadmap 1.7 (provisional_doctrine_v0). */
+  influence_rank?: number
   /** ISL zero_reason - explains why sensitivity is zero for intervention factors */
   zero_reason?: ZeroReasonCode
   direction?: string
@@ -798,6 +808,8 @@ export interface UiFactorSensitivity {
   importanceRank: number
   /** ISL influence_score (0-1) - structural causal influence */
   influenceScore?: number
+  /** Producer influence_rank (1 = most influential). Additive; roadmap 1.7 (provisional_doctrine_v0). */
+  influenceRank?: number
   /** ISL zero_reason - explains why sensitivity is zero */
   zeroReason?: ZeroReasonCode
   /** ISL value_of_information (0-1) - whether gathering more data could change the decision */
