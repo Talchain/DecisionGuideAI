@@ -339,8 +339,20 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   // is not among the analysed rows, no leader is claimed.
   const headlineRow = rows.find((r) => r.id === recommendedId) ?? null
 
-  // UI-SEM-060 (revised): leader-claim banding for the no-goal-basis
-  // headline. Three concepts the copy must keep separate (staging trust
+  // Leader-claim banding for the no-goal-basis headline — PRODUCER-FIRST
+  // (Lane UI-W4, PLoT #200): PLoT's decision_brief.headline_banded now
+  // carries the leader-confidence band UI-SEM-060 existed to fake
+  // (very_close / slightly_ahead / clearly_ahead, robustness downgrades
+  // already folded in producer-side via robustness_gated). When the
+  // producer band is present AND names the SAME leader this hero
+  // headlines, it drives the banded copy directly — no second opinion.
+  //
+  // UI-SEM-060 (residual fallback, revised): the UI's own win-probability
+  // banding applies ONLY when the producer band is absent (older PLoT
+  // build, single-option run, failed normalisation) or names a different
+  // leader (applying a producer claim about option X to option Y would
+  // transform meaning — the identity gate fails closed to the fallback).
+  // Three concepts the fallback copy must keep separate (staging trust
   // follow-up): (1) how likely the leader is to be strongest — the
   // producer's OWN win probability, the same value the detail line shows;
   // (2) how close the top expected outcomes are — the top-two centres;
@@ -364,18 +376,41 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     if (w != null && (rivalWinP == null || w > rivalWinP)) rivalWinP = w
   }
 
-  // Band thresholds: 0.65 = strong/likely leader (the "most likely to be
-  // strongest overall" claim is safe well past the coin-flip); 0.5 =
-  // majority; GAP_THRESHOLD (0.10) is the SAME win-gap the Results Panel's
-  // decisionState uses for 'indeterminate' (UI-SEM-006), so the hero can
-  // never call "no clear leader" by a different standard than the panel
-  // below. Sub-majority leaders with a clear gap over the strongest rival
-  // (win probabilities dilute as the option count grows) stay "ahead" —
-  // never "no clear leader".
+  // Producer band (PLoT decision_brief.headline_banded, normalised
+  // fail-closed upstream): applied ONLY when it names the exact leader the
+  // hero headlines. The three producer tokens map onto the three existing
+  // banded copy states — no new wording is invented:
+  //   clearly_ahead  → 'strong'  ("most likely to be strongest overall")
+  //   slightly_ahead → 'ahead'   ("slightly ahead")
+  //   very_close     → 'none'    ("No option is clearly ahead.")
+  // robustness_gated downgrades arrive already folded into the band by the
+  // producer, so no copy keys off the flag here.
+  const producerBand = recommendation.headlineBanded ?? null
+  const producerBandApplies =
+    producerBand != null &&
+    headlineRow != null &&
+    producerBand.leaderOptionId === headlineRow.id
+
+  // Band thresholds (UI-SEM-060 residual fallback — consulted ONLY when no
+  // applicable producer band exists): 0.65 = strong/likely leader (the
+  // "most likely to be strongest overall" claim is safe well past the
+  // coin-flip); 0.5 = majority; GAP_THRESHOLD (0.10) is the SAME win-gap
+  // the Results Panel's decisionState uses for 'indeterminate'
+  // (UI-SEM-006), so the hero can never call "no clear leader" by a
+  // different standard than the panel below. Sub-majority leaders with a
+  // clear gap over the strongest rival (win probabilities dilute as the
+  // option count grows) stay "ahead" — never "no clear leader".
   const WIN_STRONG_LEADER = 0.65
   const WIN_MAJORITY = 0.5
   let leaderBand: 'strong' | 'ahead' | 'none' | null = null
-  if (leadWinP != null) {
+  if (producerBandApplies) {
+    leaderBand =
+      producerBand.band === 'clearly_ahead'
+        ? 'strong'
+        : producerBand.band === 'slightly_ahead'
+          ? 'ahead'
+          : 'none'
+  } else if (leadWinP != null) {
     if (leadWinP >= WIN_STRONG_LEADER) leaderBand = 'strong'
     else if (leadWinP >= WIN_MAJORITY) leaderBand = 'ahead'
     else if (rivalWinP != null)
@@ -474,10 +509,12 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   } else if (headlineRow) {
     // No goal basis: the leader claim names the canonical analysis leader
     // (recommendedOption — proven to equal the Results Panel/producer
-    // leader), banded by the producer's win probabilities (UI-SEM-060).
-    // The banded claims are win-probability claims, so they stay honest
-    // whether or not the leader also has the strongest expected outcome;
-    // missing win probabilities fall back to the unbanded analysis claim.
+    // leader), banded by the PRODUCER's headline_banded when present
+    // (PLoT #200) or by the producer's win probabilities as the residual
+    // UI-SEM-060 fallback. The banded claims are win-probability claims,
+    // so they stay honest whether or not the leader also has the strongest
+    // expected outcome; no band at all falls back to the unbanded
+    // analysis claim.
     headline =
       leaderBand === 'strong'
         ? HERO_COPY.headline.mostLikelyStrongest(safeLabel(headlineRow))
@@ -523,7 +560,8 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
       // No leader was claimed; the outcome fact is the one honest pointer.
       subline = HERO_COPY.subline.highestOutcome(safeLabel(outcomeLeaderRow))
     } else if (headlineRow) {
-      // Aligned case per band (UI-SEM-060): state B names the runner-up as
+      // Aligned case per band (producer band or UI-SEM-060 fallback —
+      // whichever sourced leaderBand above): state B names the runner-up as
       // close ONLY when the expected-outcome gap is genuinely small (never
       // from range overlap); state A states the outcome fact plainly.
       // goalLeaderRow-headlined runs keep the plain aligned/divergence pair
