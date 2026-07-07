@@ -1019,6 +1019,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   }
   const postRunMetaText = derivePostFooterMeta({
     stability: recommendationStability,
+    // Same display-safe verdict as the status above: while it is
+    // unknown/undefined the "{N}% stability" segment is suppressed —
+    // "Robustness unknown · 59% stability" contradicted itself (and the raw
+    // number is numerically the leader's win probability, not a robustness
+    // verdict). Suppress, never relabel.
+    robustnessVerdict: resultsSectionData.recommendation.robustnessVerdict,
     reviewCards: resultsSectionData.confidence.topEvidenceGaps ?? resultsSectionData.confidence.evidenceGaps ?? [],
   })
 

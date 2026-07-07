@@ -287,14 +287,22 @@ export function AnalysisHeroPanel({
               {axis && (
                 <div aria-hidden="true" className={`${HERO_ROW_GRID} items-end py-0`}>
                   <span />
+                  {/* Three IN-FLOW flex items with a guaranteed gap: the mid
+                      descriptor was previously absolutely positioned over the
+                      end labels, so at narrow widths the fragments collided
+                      and read as one run-on sentence ("0% chance of hitting
+                      goal 100%"). In flow they can never overlap — the mid
+                      truncates with an ellipsis instead of touching the end
+                      labels. Legibility-only change; the strings are
+                      unchanged. */}
                   <span
-                    className={`${typography.panelMeta} relative flex justify-between text-text-light`}
+                    className={`${typography.panelMeta} flex items-baseline justify-between gap-2 text-text-light`}
                   >
-                    <span>{axis.left}</span>
-                    <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-text-body">
+                    <span className="flex-none">{axis.left}</span>
+                    <span className="min-w-0 truncate text-center text-text-body">
                       {axis.mid}
                     </span>
-                    <span>{axis.right}</span>
+                    <span className="flex-none">{axis.right}</span>
                   </span>
                   <span />
                   <span />

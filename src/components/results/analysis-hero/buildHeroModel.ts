@@ -200,6 +200,18 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
 
   const { outcomeUnit, outcomeUnitSymbol, isNormalised, goalThreshold } = recommendation
 
+  // UI-SEM-071: null-target goal-claim suppression. Goal-fit display is
+  // gated on the USER success target (goalThreshold), NEVER on producer
+  // value presence: when the request omits goal_threshold, PLoT/ISL
+  // synthesize auto_goal_threshold and the selector fallback still adopts
+  // probability_of_joint_goal as goalProbability — values that describe a
+  // target the user never set. Without a user target the hero must not
+  // render fit percentages, the goal axis, or any "best fits your goal" /
+  // "on track to reach your goal" claim, so every row's goal slot is
+  // suppressed at source (below) and the goal lens becomes the honest
+  // needs-target state. Suppression only — no value is transformed.
+  const hasUserTarget = goalThreshold != null
+
   // UI-SEM-056: constraint-presence copy switch (goal-and-limits vs
   // goal-alone wording; same class as UI-SEM-050). Copy only — never a
   // value transform. Because the selector collapses goalProbability PER
@@ -222,7 +234,12 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
 
   // One row per option, preserving the display order established above.
   const rows: HeroRowVM[] = options.map((o, i) => {
-    const goalValue = o.goalProbability ?? null
+    // UI-SEM-071: without a USER target the goal slot is suppressed at
+    // source — bars, readouts, the goalFit detail line and every downstream
+    // goal claim (allGoalBelowFloor, goalLeaderRow, goal lens availability)
+    // all key off this value, so a synthesized goalProbability cannot
+    // bypass the gate anywhere.
+    const goalValue = hasUserTarget ? (o.goalProbability ?? null) : null
     const centre = outcomeCentre(o)
     const p10 = outcomeP10(o)
     const p90 = outcomeP90(o)
@@ -278,7 +295,12 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   })
 
   // Lens availability — hidden entirely when the sourcing fields are absent.
-  const goalAvailable = rows.some((r) => r.goal.value != null)
+  // The goal lens is additionally gated on the USER target (UI-SEM-071):
+  // the row-level suppression above already nulls every goal value when no
+  // target exists, but the explicit `hasUserTarget` term keeps the gate
+  // visible and future-proof (value presence alone must never re-enable
+  // the lens for synthesized values).
+  const goalAvailable = hasUserTarget && rows.some((r) => r.goal.value != null)
   const outcomeAvailable = rows.some(
     (r) => r.outcome.p10 != null && r.outcome.p90 != null,
   )
@@ -421,7 +443,11 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   // rows show real figures. Below-floor leaders fall through to the
   // analysis-leader wording instead. (The >= floor check also makes this
   // null whenever allGoalBelowFloor is true — headlineRow is one of rows.)
+  // (hasUserTarget is implied — a null target nulls every row goal value
+  // above (UI-SEM-071) — but stated explicitly so the claim gate cannot be
+  // silently re-opened by a change to the row mapping.)
   const goalLeaderRow =
+    hasUserTarget &&
     headlineRow &&
     headlineRow.goal.value != null &&
     headlineRow.goal.value >= SUB_ONE_PERCENT_FLOOR

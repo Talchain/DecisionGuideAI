@@ -17,9 +17,14 @@
  *   - robustnessVerdict 'moderate' | 'low' | 'very_low' → warning "Sensitive to assumptions"
  *   - robustnessVerdict missing / undefined         → neutral "Robustness unknown"
  *
- * Meta (unchanged): raw stability is retained ONLY as neutral metadata
- * ("{N}% stability"), never as a verdict.
- *   - "{N}% stability" — appended when stability is finite
+ * Meta: raw stability may appear ONLY as neutral metadata ("{N}% stability"),
+ * never as a verdict — and ONLY when a display-safe robustness verdict
+ * exists. When the verdict is unknown/undefined the footer says "Robustness
+ * unknown", and rendering "59% stability" beside that (a number that is in
+ * fact the leader's win probability) contradicts it — so the stability
+ * segment is SUPPRESSED, not relabelled, whenever the verdict is absent.
+ *   - "{N}% stability" — appended when stability is finite AND the
+ *     display-safe robustnessVerdict is a known enum value
  *   - "Evidence gaps remain" — appended when any review-card confidence < 50%
  *   - "Evidence strong"      — appended when there are gaps AND none weak
  *   - omitted entirely when there are no review cards at all
@@ -41,6 +46,15 @@ export interface PostFooterStatus {
 
 export interface PostFooterMetaInput {
   stability: number | null | undefined
+  /**
+   * The SAME display-safe verdict that drives `derivePostFooterStatus`.
+   * Gates the "{N}% stability" segment: with no verdict the footer status
+   * is "Robustness unknown", and a raw stability percentage beside it
+   * would contradict that admission — so the segment is suppressed unless
+   * the verdict is a known display-safe enum value. Runtime-safe like the
+   * status: anything other than the exact enum values suppresses.
+   */
+  robustnessVerdict: RobustnessLevel | null | undefined
   /**
    * Subset of `ResultsSectionDataReturn.confidence.topEvidenceGaps` (or
    * `evidenceGaps`) — only the `confidence` field is needed for the
@@ -85,9 +99,24 @@ export function derivePostFooterStatus(
   return { icon: 'unknown', iconClass: 'text-text-light', label: 'Robustness unknown' }
 }
 
-export function derivePostFooterMeta({ stability, reviewCards }: PostFooterMetaInput): string | null {
+export function derivePostFooterMeta({
+  stability,
+  robustnessVerdict,
+  reviewCards,
+}: PostFooterMetaInput): string | null {
+  // Stability-honesty gate: the "{N}% stability" segment renders ONLY when a
+  // known display-safe verdict exists (the same allowlist as the status —
+  // never a non-neutral catch-all). While the footer status is "Robustness
+  // unknown" (verdict undefined — the live contract today), a raw stability
+  // percentage would contradict it, so the segment is suppressed entirely.
+  // Suppress, never relabel.
+  const verdictKnown =
+    robustnessVerdict === 'high' ||
+    robustnessVerdict === 'moderate' ||
+    robustnessVerdict === 'low' ||
+    robustnessVerdict === 'very_low'
   const stabPct =
-    typeof stability === 'number' && Number.isFinite(stability)
+    verdictKnown && typeof stability === 'number' && Number.isFinite(stability)
       ? Math.round(stability * 100)
       : null
   const evidenceWeak = reviewCards.some(g => typeof g.confidence === 'number' && g.confidence < 50)
