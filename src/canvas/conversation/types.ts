@@ -56,6 +56,15 @@ export interface ConversationMessage {
    * persist — late chunks arriving after abort MUST NOT clear it.
    */
   stoppedByUser?: boolean
+  /**
+   * ROADMAP 1.42 (Show-reasoning progressive disclosure — verbatim, labelled):
+   * CEE's `_reasoning` additive-extension sidecar field, verbatim plain text.
+   * Only populated when VITE_FEATURE_REASONING_DISCLOSURE is on and the field
+   * is a non-empty string (length-capped, see useConversation). Never fed into
+   * `content` — rendered separately, unprocessed, behind a collapsed toggle.
+   * Ephemeral: excluded from thread persistence (session-only).
+   */
+  reasoning?: string
 }
 
 /** A set of frequency-framed chips for a single factor's base rate elicitation */

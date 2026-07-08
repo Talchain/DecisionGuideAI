@@ -42,7 +42,8 @@ import {
 // recordDroppedContent never throws and never changes composition output.
 import { recordDroppedContent } from '../../lib/droppedContentCounter'
 import { FAILURE_USER_TEXT } from '@talchain/schemas/boundary'
-import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled, isPreAnalysisEnrichedEnabled } from '../../flags'
+import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled, isPreAnalysisEnrichedEnabled, isReasoningDisclosureEnabled } from '../../flags'
+import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { maybeBuildModelReceiptBlock } from '../adapters/modelCardAdapter'
 import { assembleAnalysisInputsSummary } from '../analysis/assembleAnalysisInputsSummary'
 import { useResultsStore } from '../stores/resultsStore'
@@ -654,6 +655,34 @@ function asOptionalString(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : undefined
+}
+
+/**
+ * ROADMAP 1.42 (Show-reasoning progressive disclosure — verbatim, labelled):
+ * `_reasoning` is an unknown top-level key at the pinned schema (0.13.1), so
+ * the parser's `splitAdditiveExtensions`/`splitBlocksTolerance` demote it into
+ * the non-enumerable `ADDITIVE_EXTENSIONS_KEY` sidecar (responseParser.ts)
+ * rather than validating it on the strict OlumiResponse surface. Read it from
+ * there. Defensive: only a non-empty string is accepted, and it is capped at
+ * REASONING_MAX_CHARS with a disclosed truncation suffix — CEE is a separate
+ * service on its own deploy cadence and this field carries no contract yet.
+ */
+const REASONING_MAX_CHARS = 20000
+const REASONING_TRUNCATION_SUFFIX = '\n\n[reasoning truncated]'
+
+function extractReasoningSidecar(response: unknown): string | undefined {
+  const additive = (response as OlumiResponseWithExtensions)?.[ADDITIVE_EXTENSIONS_KEY]
+  const raw = additive?.['_reasoning']
+  if (typeof raw !== 'string') return undefined
+  // Verbatim: only whitespace-only strings are rejected as "empty"; the
+  // accepted string itself is never trimmed/altered (Paul's ruling —
+  // VERBATIM-with-label — the rendered panel must match CEE byte-for-byte,
+  // short of the disclosed truncation below).
+  if (raw.trim().length === 0) return undefined
+  if (raw.length > REASONING_MAX_CHARS) {
+    return raw.slice(0, REASONING_MAX_CHARS) + REASONING_TRUNCATION_SUFFIX
+  }
+  return raw
 }
 
 function humaniseToken(token: string): string {
@@ -3205,12 +3234,25 @@ export function useConversation(): UseConversationReturn {
               message: a.message,
               ...(a.action_type ? { action_type: a.action_type } : {}),
             }))
+            // ROADMAP 1.42 (Show-reasoning progressive disclosure — verbatim,
+            // labelled): CEE MAY carry a top-level `_reasoning` string. At the
+            // pinned schema (0.13.1) this unknown key is auto-demoted by the
+            // parser's additive-extensions sidecar (responseParser.ts) rather
+            // than validated — read it from there, never from the strict
+            // OlumiResponse surface. Sporadic field: accept only a non-empty
+            // string, defensively length-capped. NEVER merged into `content`
+            // (that feeds extractFromRawJson/truncation) — attached as its own
+            // field, rendered separately, verbatim.
+            const reasoning = isReasoningDisclosureEnabled()
+              ? extractReasoningSidecar(target.response)
+              : undefined
             addMessage({
               id: crypto.randomUUID(),
               role: 'assistant',
               content: target.response.assistant_text,
               ...(renderBlocks.length > 0 ? { blocks: renderBlocks } : {}),
               ...(actionChips.length > 0 ? { actionChips } : {}),
+              ...(reasoning ? { reasoning } : {}),
               timestamp: new Date(),
             })
           } else if (target.kind === 'empty') {
