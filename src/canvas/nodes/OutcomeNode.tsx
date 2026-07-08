@@ -12,6 +12,7 @@ import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, ConnRowsOverflow, Sep, NodeChip, NodePopover, ScienceIcon } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
+import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 
 export const OutcomeNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.outcome
@@ -160,6 +161,20 @@ export const OutcomeNode = memo((props: NodeProps) => {
       <p className={`${typography.edgeLabel} text-text-body m-0`}>
         Achievement: {Math.round(displayMetadata.achievementProbability * 100)}%
       </p>
+      {/* Display-honesty (ROADMAP 1.6b tail — goal-fit caveat residuals): the
+          achievement-probability number above is scored from a MODELLED
+          forward-propagated outcome distribution, not a directly-elicited
+          base — same gate + shared wording as GoalNode/OptionCards'
+          caveat (GOAL_FIT_BASIS_CAVEAT_COPY), rendered adjacent to the
+          number it qualifies, never separately, never invented. */}
+      {displayMetadata.achievementProbabilityIsModelledBasis === true && (
+        <p
+          className={`${typography.edgeLabel} text-text-light m-0`}
+          data-testid="goal-fit-basis-caveat-outcome-node"
+        >
+          {GOAL_FIT_BASIS_CAVEAT_COPY}
+        </p>
+      )}
     </>
   ) : null
 

@@ -23,6 +23,7 @@ import { detectBaseline } from '../utils/baselineDetection'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { formatWinProbability } from '../utils/labelUtils'
 import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
+import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 
 interface ObservedState {
   value: number
@@ -439,12 +440,29 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       {isGoalNode && displayMetadata.isResultsMode && (
         <div className="mt-3 pt-2 border-t border-panel-border">
           {displayMetadata.achievementProbability !== null ? (
-            <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
-              <span className={`${typography.panelMeta} text-text-light`}>Goal probability</span>
-              <span className={`${typography.panelBody} text-text-body tabular-nums`}>
-                {Math.round(displayMetadata.achievementProbability * 100)}%
-              </span>
-            </div>
+            <>
+              <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
+                <span className={`${typography.panelMeta} text-text-light`}>Goal probability</span>
+                <span className={`${typography.panelBody} text-text-body tabular-nums`}>
+                  {Math.round(displayMetadata.achievementProbability * 100)}%
+                </span>
+              </div>
+              {/* Display-honesty (ROADMAP 1.6b tail — goal-fit caveat
+                  residuals): the goal-probability readout above is scored
+                  from a MODELLED forward-propagated outcome distribution,
+                  not a directly-elicited base — same gate + shared wording
+                  as GoalNode/OptionCards/OutcomeNode's caveat
+                  (GOAL_FIT_BASIS_CAVEAT_COPY), rendered adjacent to the
+                  number it qualifies, never separately, never invented. */}
+              {displayMetadata.achievementProbabilityIsModelledBasis === true && (
+                <p
+                  className={`${typography.panelMeta} text-text-light mt-1 px-2`}
+                  data-testid="goal-fit-basis-caveat-inspector"
+                >
+                  {GOAL_FIT_BASIS_CAVEAT_COPY}
+                </p>
+              )}
+            </>
           ) : displayMetadata.stabilityPercentage !== null ? (
             <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
               <span className={`${typography.panelMeta} text-text-light`}>Result stability</span>
