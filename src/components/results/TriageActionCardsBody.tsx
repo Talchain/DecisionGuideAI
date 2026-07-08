@@ -405,11 +405,19 @@ function T1ChecksFooter({
   // Robustness glyph: driven ONLY by the display-safe robustness verdict
   // (`robustnessVerdict`) — never PLoT `report.robustness.level`, never the
   // UI-SEM-005 stability fallback, never a recommendationStability threshold.
-  // No display-safe verdict exists in the contract today, so this is undefined
-  // and the glyph renders "Robustness unknown". See ROBUSTNESS-VERDICT-CONTRACT.
+  // The verdict is the producer's own robustness.display_verdict (PLoT #202,
+  // consumed lane 35 fix 3), normalised fail-closed upstream. 'not_assessed'
+  // is the producer's stated absence and renders the neutral glyph with the
+  // producer's meaning; a missing field (older PLoT builds) keeps the
+  // "Robustness unknown" state. See ROBUSTNESS-VERDICT-CONTRACT.
   const robustnessVerdict = data.recommendation.robustnessVerdict
-  const robustOk = robustnessVerdict === 'high'
-  const robustKnown = robustnessVerdict != null
+  const robustOk = robustnessVerdict === 'robust'
+  // Determinate = a real robust/sensitive claim exists. Explicit allowlist —
+  // 'not_assessed' and unknown values must never render as "Sensitive".
+  const robustKnown =
+    robustnessVerdict === 'robust' ||
+    robustnessVerdict === 'moderate' ||
+    robustnessVerdict === 'fragile'
   const gaps = data.confidence.topEvidenceGaps ?? data.confidence.evidenceGaps ?? []
   const evidenceWeak = gaps.some(g => typeof g.confidence === 'number' && g.confidence < 50)
   const evidenceKnown = gaps.length > 0
@@ -434,7 +442,16 @@ function T1ChecksFooter({
           ok={robustOk}
           unknown={!robustKnown}
           okLabel="Robust"
-          notOkLabel={robustKnown ? 'Sensitive' : 'Robustness unknown'}
+          notOkLabel={
+            robustKnown
+              ? 'Sensitive'
+              : robustnessVerdict === 'not_assessed'
+                ? 'Robustness not assessed'
+                : 'Robustness unknown'
+          }
+          // Producer-owned reason phrase, verbatim (native tooltip) — never
+          // authored in the UI, never shown without its verdict.
+          title={data.recommendation.robustnessVerdictReason}
           dataTestid="checks-robust"
         />
         <ChecksGlyph
@@ -459,6 +476,7 @@ function ChecksGlyph({
   okLabel,
   notOkLabel,
   unknown = false,
+  title,
   dataTestid,
 }: {
   ok: boolean
@@ -470,6 +488,8 @@ function ChecksGlyph({
    * "X" — an unknown is not a failure.
    */
   unknown?: boolean
+  /** Optional native tooltip — producer-supplied text rendered verbatim. */
+  title?: string
   dataTestid: string
 }) {
   const Icon = unknown ? HelpCircle : ok ? Check : X
@@ -479,7 +499,7 @@ function ChecksGlyph({
   const colour = unknown ? 'text-text-light' : ok ? 'text-success' : 'text-danger'
   const label = unknown ? notOkLabel : ok ? okLabel : notOkLabel
   return (
-    <span className="inline-flex items-center gap-1" data-testid={dataTestid}>
+    <span className="inline-flex items-center gap-1" data-testid={dataTestid} title={title}>
       <Icon size={12} className={`${colour} flex-shrink-0`} aria-hidden="true" />
       <span>{label}</span>
     </span>

@@ -1004,12 +1004,13 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // Footer status is driven by the display-safe robustness verdict ONLY
   // (single-source rule — the same `robustnessVerdict` field that drives the
   // certified "Robustness unknown" glyph), NEVER by raw recommendation_stability.
-  // With no display-safe verdict in the contract today the verdict is undefined,
-  // so the footer renders the neutral "Robustness unknown" state instead of a
-  // green "Stable result" derived from raw stability (which contradicted the
-  // glyph on the same tab). Raw stability is retained only as neutral metadata
-  // in derivePostFooterMeta below. See ./utils/postAnalysisFooter.ts +
-  // ROBUSTNESS-VERDICT-CONTRACT.
+  // The verdict is now the producer's own robustness.display_verdict (PLoT
+  // #202, consumed lane 35 fix 3), normalised fail-closed in the hook; when
+  // it is absent (older PLoT builds) the footer keeps the neutral
+  // "Robustness unknown" state instead of a green "Stable result" derived
+  // from raw stability (which contradicted the glyph on the same tab). Raw
+  // stability is retained only as neutral metadata in derivePostFooterMeta
+  // below. See ./utils/postAnalysisFooter.ts + ROBUSTNESS-VERDICT-CONTRACT.
   const postFooterStatus = derivePostFooterStatus(resultsSectionData.recommendation.robustnessVerdict)
   const POST_FOOTER_ICONS = { check: CheckCircle, warning: AlertTriangle, unknown: HelpCircle } as const
   const postRunFooter = {
@@ -1019,12 +1020,15 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   }
   const postRunMetaText = derivePostFooterMeta({
     stability: recommendationStability,
-    // Same display-safe verdict as the status above: while it is
-    // unknown/undefined the "{N}% stability" segment is suppressed —
+    // Same display-safe verdict as the status above: without a determinate
+    // verdict the "{N}% stability" segment is suppressed —
     // "Robustness unknown · 59% stability" contradicted itself (and the raw
     // number is numerically the leader's win probability, not a robustness
     // verdict). Suppress, never relabel.
     robustnessVerdict: resultsSectionData.recommendation.robustnessVerdict,
+    // Producer-owned reason phrase, rendered verbatim as the leading meta
+    // segment (never authored in the UI).
+    robustnessVerdictReason: resultsSectionData.recommendation.robustnessVerdictReason,
     reviewCards: resultsSectionData.confidence.topEvidenceGaps ?? resultsSectionData.confidence.evidenceGaps ?? [],
   })
 

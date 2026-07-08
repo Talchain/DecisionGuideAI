@@ -2,30 +2,32 @@
  * Post-analysis footer status + meta derivation.
  *
  * Pure helper underpinning the AnalysisFooter call inside OutputsDock. Status is
- * driven ONLY by the display-safe robustnessVerdict (single-source rule), and
- * is runtime-safe (unexpected values fall neutral); meta covers the neutral
- * "{N}% stability" + evidence-gap cases.
+ * driven ONLY by the display-safe robustnessVerdict (single-source rule) — the
+ * producer's own robustness.display_verdict enum (PLoT #202, consumed lane 35
+ * fix 3: 'robust' | 'moderate' | 'fragile' | 'not_assessed') — and is
+ * runtime-safe (unexpected values fall neutral); meta covers the producer
+ * reason (verbatim), the neutral "{N}% stability" and the evidence-gap cases.
  */
 
 import { describe, it, expect } from 'vitest'
 import { derivePostFooterStatus, derivePostFooterMeta } from '../postAnalysisFooter'
-import type { RobustnessLevel } from '@/components/results/types'
+import type { RobustnessDisplayVerdict } from '@/components/results/types'
 
 describe('derivePostFooterStatus — display-safe verdict only (robustness trust fix)', () => {
   // Single-source rule (ROBUSTNESS-VERDICT-CONTRACT): the footer verdict comes
   // ONLY from the display-safe `robustnessVerdict`, never from raw
-  // recommendation_stability. So the helper now takes the verdict, not a number.
+  // recommendation_stability. So the helper takes the verdict, not a number.
 
-  it('verdict "high" → success "Stable result" (the ONLY path to a positive verdict)', () => {
-    expect(derivePostFooterStatus('high')).toEqual({
+  it('verdict "robust" → success "Stable result" (the ONLY path to a positive verdict)', () => {
+    expect(derivePostFooterStatus('robust')).toEqual({
       icon: 'check',
       iconClass: 'text-success',
       label: 'Stable result',
     })
   })
 
-  it('verdict "moderate" | "low" | "very_low" → warning "Sensitive to assumptions"', () => {
-    for (const v of ['moderate', 'low', 'very_low'] as const) {
+  it('verdict "moderate" | "fragile" → warning "Sensitive to assumptions"', () => {
+    for (const v of ['moderate', 'fragile'] as const) {
       expect(derivePostFooterStatus(v)).toEqual({
         icon: 'warning',
         iconClass: 'text-warning',
@@ -34,7 +36,15 @@ describe('derivePostFooterStatus — display-safe verdict only (robustness trust
     }
   })
 
-  it('undefined / null verdict → neutral "Robustness unknown" (matches the certified glyph)', () => {
+  it('verdict "not_assessed" → neutral "Robustness not assessed" (the producer\'s own stated absence, never "Sensitive")', () => {
+    expect(derivePostFooterStatus('not_assessed')).toEqual({
+      icon: 'unknown',
+      iconClass: 'text-text-light',
+      label: 'Robustness not assessed',
+    })
+  })
+
+  it('undefined / null verdict → neutral "Robustness unknown" (older PLoT builds; matches the certified glyph)', () => {
     for (const v of [undefined, null] as const) {
       expect(derivePostFooterStatus(v)).toEqual({
         icon: 'unknown',
@@ -45,9 +55,8 @@ describe('derivePostFooterStatus — display-safe verdict only (robustness trust
   })
 
   it('trust fix: an ABSENT display-safe verdict never renders "Stable result" nor a green/check positive icon', () => {
-    // This is the live-contract case today (robustnessVerdict is always
-    // undefined). Previously raw stability ≥ 0.85 rendered a green "Stable
-    // result" that contradicted the neutral robustness glyph.
+    // Previously raw stability ≥ 0.85 rendered a green "Stable result" that
+    // contradicted the neutral robustness glyph.
     const status = derivePostFooterStatus(undefined)
     expect(status.label).not.toBe('Stable result')
     expect(status.icon).not.toBe('check')
@@ -68,6 +77,10 @@ describe('derivePostFooterStatus — runtime-safe: unexpected values fall NEUTRA
     ['raw number 1', 1],
     ['stringified number "0.87"', '0.87'],
     ['unknown string "unexpected"', 'unexpected'],
+    // The RETIRED pre-#202 UI vocabulary must not sneak back in as a verdict.
+    ['retired token "high"', 'high'],
+    ['retired token "low"', 'low'],
+    ['retired token "very_low"', 'very_low'],
     ['empty string', ''],
     ['NaN', Number.NaN],
     ['boolean true', true],
@@ -75,7 +88,7 @@ describe('derivePostFooterStatus — runtime-safe: unexpected values fall NEUTRA
     ['array', []],
   ]
   it.each(UNEXPECTED)('%s → neutral "Robustness unknown", no verdict / no positive styling', (_label, value) => {
-    const status = derivePostFooterStatus(value as unknown as RobustnessLevel)
+    const status = derivePostFooterStatus(value as unknown as RobustnessDisplayVerdict)
     expect(status).toEqual(NEUTRAL)
     expect(status.label).not.toBe('Stable result')
     expect(status.label).not.toBe('Sensitive to assumptions')
@@ -87,13 +100,13 @@ describe('derivePostFooterStatus — runtime-safe: unexpected values fall NEUTRA
 })
 
 describe('derivePostFooterMeta (Brief 5.8B D8)', () => {
-  // A known display-safe verdict is required for the stability segment to
-  // render at all (stability-honesty suppression, tested separately below).
-  it('renders "{N}% stability · Evidence strong" when no review-card is weak (verdict known)', () => {
+  // A determinate display-safe verdict is required for the stability segment
+  // to render at all (stability-honesty suppression, tested separately below).
+  it('renders "{N}% stability · Evidence strong" when no review-card is weak (verdict determinate)', () => {
     expect(
       derivePostFooterMeta({
         stability: 0.82,
-        robustnessVerdict: 'high',
+        robustnessVerdict: 'robust',
         reviewCards: [{ confidence: 70 }, { confidence: 90 }],
       }),
     ).toBe('82% stability · Evidence strong')
@@ -111,7 +124,7 @@ describe('derivePostFooterMeta (Brief 5.8B D8)', () => {
 
   it('omits the evidence segment entirely when there are no review cards', () => {
     expect(
-      derivePostFooterMeta({ stability: 0.91, robustnessVerdict: 'high', reviewCards: [] }),
+      derivePostFooterMeta({ stability: 0.91, robustnessVerdict: 'robust', reviewCards: [] }),
     ).toBe('91% stability')
   })
 
@@ -119,7 +132,7 @@ describe('derivePostFooterMeta (Brief 5.8B D8)', () => {
     expect(
       derivePostFooterMeta({
         stability: undefined,
-        robustnessVerdict: 'high',
+        robustnessVerdict: 'robust',
         reviewCards: [{ confidence: 30 }],
       }),
     ).toBe('Evidence gaps remain')
@@ -127,7 +140,7 @@ describe('derivePostFooterMeta (Brief 5.8B D8)', () => {
 
   it('returns null when both stability and review-cards are absent', () => {
     expect(
-      derivePostFooterMeta({ stability: null, robustnessVerdict: 'high', reviewCards: [] }),
+      derivePostFooterMeta({ stability: null, robustnessVerdict: 'robust', reviewCards: [] }),
     ).toBeNull()
   })
 
@@ -135,22 +148,67 @@ describe('derivePostFooterMeta (Brief 5.8B D8)', () => {
     expect(
       derivePostFooterMeta({
         stability: 0.95,
-        robustnessVerdict: 'high',
+        robustnessVerdict: 'robust',
         reviewCards: [{ confidence: undefined }, { confidence: null }],
       }),
     ).toBe('95% stability · Evidence strong')
   })
 })
 
-describe('derivePostFooterMeta — stability honesty: no "{N}% stability" while the verdict is unknown', () => {
+describe('derivePostFooterMeta — producer reason rendered verbatim (lane 35 fix 3)', () => {
+  it('the producer reason leads the meta line, verbatim, before the stability segment', () => {
+    expect(
+      derivePostFooterMeta({
+        stability: 0.82,
+        robustnessVerdict: 'robust',
+        robustnessVerdictReason: 'this result held up under the changes we tested',
+        reviewCards: [],
+      }),
+    ).toBe('this result held up under the changes we tested · 82% stability')
+  })
+
+  it('the not_assessed reason renders alone (stability stays suppressed beside a non-determinate verdict)', () => {
+    expect(
+      derivePostFooterMeta({
+        stability: 0.59,
+        robustnessVerdict: 'not_assessed',
+        robustnessVerdictReason: 'robustness was not assessed for this run',
+        reviewCards: [],
+      }),
+    ).toBe('robustness was not assessed for this run')
+  })
+
+  it('a reason without any verdict is never rendered (no orphaned robustness prose)', () => {
+    expect(
+      derivePostFooterMeta({
+        stability: 0.59,
+        robustnessVerdict: undefined,
+        robustnessVerdictReason: 'small changes could flip this result',
+        reviewCards: [],
+      }),
+    ).toBeNull()
+  })
+
+  it('an absent or blank reason renders nothing extra', () => {
+    expect(
+      derivePostFooterMeta({
+        stability: 0.82,
+        robustnessVerdict: 'fragile',
+        robustnessVerdictReason: '   ',
+        reviewCards: [],
+      }),
+    ).toBe('82% stability')
+  })
+})
+
+describe('derivePostFooterMeta — stability honesty: no "{N}% stability" without a determinate verdict', () => {
   // Display-coherence hotfix: the footer status said "Robustness unknown"
-  // (robustnessVerdict is undefined in the live contract today) while the
-  // meta line rendered "59% stability" beside it — and that raw
+  // while the meta line rendered "59% stability" beside it — and that raw
   // recommendation_stability is numerically the leader's win probability,
   // not a robustness verdict. The segment must be SUPPRESSED (never
-  // relabelled) whenever the display-safe verdict is unknown/undefined.
+  // relabelled) whenever the display-safe verdict is absent or non-determinate.
 
-  it('undefined verdict suppresses the stability segment (the live-contract case)', () => {
+  it('undefined verdict suppresses the stability segment (older PLoT builds)', () => {
     expect(
       derivePostFooterMeta({
         stability: 0.59,
@@ -165,6 +223,16 @@ describe('derivePostFooterMeta — stability honesty: no "{N}% stability" while 
       derivePostFooterMeta({
         stability: 0.87,
         robustnessVerdict: null,
+        reviewCards: [],
+      }),
+    ).toBeNull()
+  })
+
+  it('not_assessed suppresses the stability segment ("not assessed · 59% stability" would contradict itself)', () => {
+    expect(
+      derivePostFooterMeta({
+        stability: 0.59,
+        robustnessVerdict: 'not_assessed',
         reviewCards: [],
       }),
     ).toBeNull()
@@ -188,11 +256,11 @@ describe('derivePostFooterMeta — stability honesty: no "{N}% stability" while 
   })
 
   it('runtime-safe: malformed verdict values suppress like the status falls neutral (allowlist, not catch-all)', () => {
-    for (const bad of [0.87, '0.87', 'unexpected', '', Number.NaN, true, {}, []]) {
+    for (const bad of [0.87, '0.87', 'unexpected', 'high', 'low', 'very_low', '', Number.NaN, true, {}, []]) {
       expect(
         derivePostFooterMeta({
           stability: 0.75,
-          robustnessVerdict: bad as unknown as RobustnessLevel,
+          robustnessVerdict: bad as unknown as RobustnessDisplayVerdict,
           reviewCards: [],
         }),
         `verdict ${JSON.stringify(bad)} must not unlock the stability segment`,
@@ -200,8 +268,8 @@ describe('derivePostFooterMeta — stability honesty: no "{N}% stability" while 
     }
   })
 
-  it('every known display-safe verdict unlocks the segment (and nothing else does)', () => {
-    for (const v of ['high', 'moderate', 'low', 'very_low'] as const) {
+  it('every determinate display-safe verdict unlocks the segment (and nothing else does)', () => {
+    for (const v of ['robust', 'moderate', 'fragile'] as const) {
       expect(
         derivePostFooterMeta({ stability: 0.59, robustnessVerdict: v, reviewCards: [] }),
       ).toBe('59% stability')

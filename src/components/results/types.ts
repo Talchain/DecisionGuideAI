@@ -155,6 +155,16 @@ export type RobustnessLevel = 'high' | 'moderate' | 'low' | 'very_low'
 export type RobustnessLabel = 'robust' | 'moderate' | 'fragile'
 
 /**
+ * Display-safe robustness verdict — the PLoT `robustness.display_verdict`
+ * wire enum (PLoT #202, ROADMAP 1.6). Producer-owned meaning; the UI renders
+ * it verbatim and never derives it from raw facts. 'not_assessed' is the
+ * producer's own stated absence (robustness not computed) — distinct from
+ * the field being absent entirely (older PLoT builds → undefined →
+ * "Robustness unknown").
+ */
+export type RobustnessDisplayVerdict = 'robust' | 'moderate' | 'fragile' | 'not_assessed'
+
+/**
  * DecisionResultData (renamed from RecommendationSectionData — Brief 5.4 closeout item 9).
  * The old name referenced the deleted RecommendationSection component.
  * This type describes the decision outcome data shape, not any UI component.
@@ -189,13 +199,21 @@ export interface DecisionResultData {
   robustnessLevel?: RobustnessLevel
   /**
    * Display-safe robustness verdict that drives the binary Robust/Sensitive
-   * glyph. Sourced ONLY from an explicit display-safe robustness verdict — never
-   * from PLoT `report.robustness.level` and never from the UI-SEM-005 stability
-   * fallback. No such display-safe field exists in the CEE/UI contract today, so
-   * this is currently always `undefined` → the glyph renders "Robustness unknown".
-   * See the "display-safe robustness verdict contract" follow-up (ROBUSTNESS-VERDICT-CONTRACT).
+   * glyph. Sourced ONLY from the producer's explicit display-safe verdict —
+   * PLoT `robustness.display_verdict` (#202, ROADMAP 1.6) — never from raw
+   * `report.robustness.level` and never from the UI-SEM-005 stability
+   * fallback. Normalised FAIL-CLOSED in useResultsSectionData: only the four
+   * wire enum tokens populate it; absent field / unknown token → undefined →
+   * every surface keeps the honest "Robustness unknown" state.
+   * (ROBUSTNESS-VERDICT-CONTRACT — consumer side landed lane 35 fix 3.)
    */
-  robustnessVerdict?: RobustnessLevel
+  robustnessVerdict?: RobustnessDisplayVerdict
+  /**
+   * Producer-owned display reason accompanying `robustnessVerdict`
+   * (PLoT `robustness.display_verdict_reason`). Rendered VERBATIM — the UI
+   * never authors robustness prose. Never populated without its verdict.
+   */
+  robustnessVerdictReason?: string
   /** Robustness label from PLoT (fallback when level missing) */
   robustnessLabel?: RobustnessLabel
   /** Goal text from scenario framing */
@@ -998,6 +1016,13 @@ export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
     recommended_option_id?: string
     near_tie?: Record<string, unknown>
     nearTie?: Record<string, unknown>
+    /**
+     * Display-safe verdict + producer reason (PLoT #202, ROADMAP 1.6) —
+     * mapped-report slot of the responseMapper passthrough; normalised
+     * fail-closed in useResultsSectionData.
+     */
+    display_verdict?: string
+    display_verdict_reason?: string
     flip_thresholds?: Array<Record<string, unknown>>
     _truncation?: {
       fragile_truncated: boolean

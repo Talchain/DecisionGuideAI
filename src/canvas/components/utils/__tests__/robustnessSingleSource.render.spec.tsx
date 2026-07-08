@@ -4,10 +4,13 @@
  * Guards the live trust fix (ROBUSTNESS-VERDICT-CONTRACT): the post-analysis
  * AnalysisFooter must derive its verdict ONLY from the display-safe
  * `robustnessVerdict`, never from raw `recommendation_stability` /
- * `ranking_stability`. With no display-safe verdict in the contract today the
- * footer renders the neutral "Robustness unknown" state, in lock-step with the
- * certified glyph (TriageActionCardsBody `checks-robust`) — so the Analysis tab
- * can never show a green "Stable result" beside a neutral "Robustness unknown".
+ * `ranking_stability`. The verdict is the producer's own
+ * `robustness.display_verdict` (PLoT #202, consumed lane 35 fix 3:
+ * 'robust' | 'moderate' | 'fragile' | 'not_assessed'); when the field is
+ * absent (older PLoT builds) the footer renders the neutral "Robustness
+ * unknown" state, in lock-step with the certified glyph
+ * (TriageActionCardsBody `checks-robust`) — so the Analysis tab can never
+ * show a green "Stable result" beside a neutral "Robustness unknown".
  *
  * These render the ACTUAL presentational AnalysisFooter (the live footer
  * component, env-free) the way OutputsDock wires it (metaPlacement="stacked",
@@ -20,7 +23,7 @@ import { render, screen, cleanup } from '@testing-library/react'
 import { CheckCircle, AlertTriangle, HelpCircle, type LucideIcon } from 'lucide-react'
 import { AnalysisFooter } from '../../../shared/AnalysisFooter'
 import { derivePostFooterStatus } from '../postAnalysisFooter'
-import type { RobustnessLevel } from '@/components/results/types'
+import type { RobustnessDisplayVerdict } from '@/components/results/types'
 
 afterEach(() => cleanup())
 
@@ -32,7 +35,7 @@ const POST_FOOTER_ICONS: Record<string, LucideIcon> = {
 }
 
 /** Render the live footer exactly as OutputsDock does for a given verdict. */
-function renderFooter(verdict: RobustnessLevel | null | undefined) {
+function renderFooter(verdict: RobustnessDisplayVerdict | null | undefined) {
   const status = derivePostFooterStatus(verdict)
   return render(
     <AnalysisFooter
@@ -49,7 +52,7 @@ function renderFooter(verdict: RobustnessLevel | null | undefined) {
 }
 
 describe('AnalysisFooter — raw stability cannot render a positive robustness verdict', () => {
-  it('no display-safe verdict (live contract today) → neutral "Robustness unknown", no positive styling', () => {
+  it('no display-safe verdict (older PLoT builds) → neutral "Robustness unknown", no positive styling', () => {
     const { container } = renderFooter(undefined)
     const footer = screen.getByTestId('results-analysis-footer')
     expect(footer).toHaveTextContent('Robustness unknown')
@@ -61,21 +64,18 @@ describe('AnalysisFooter — raw stability cannot render a positive robustness v
   })
 
   it('raw high recommendation_stability / ranking_stability are NOT inputs — only the verdict is', () => {
-    // OutputsDock now passes `recommendation.robustnessVerdict` (undefined in
-    // production) — NOT report.robustness.recommendation_stability and NOT the
-    // ranking_stability fallback. So however high those raw fields are, the
-    // footer that renders is the undefined-verdict (neutral) one above. The
-    // helper's signature makes this structural: it accepts only RobustnessLevel.
+    // OutputsDock passes `recommendation.robustnessVerdict` (the normalised
+    // producer display_verdict) — NOT report.robustness.recommendation_stability
+    // and NOT the ranking_stability fallback. So however high those raw fields
+    // are, an absent verdict renders the neutral footer above. The helper's
+    // signature makes this structural: it accepts only RobustnessDisplayVerdict.
     const status = derivePostFooterStatus(undefined)
     expect(status).toEqual({ icon: 'unknown', iconClass: 'text-text-light', label: 'Robustness unknown' })
-    // Sanity: a raw number is not a RobustnessLevel; passing one is a type error
-    // at call sites, and at runtime any non-'high' value falls to Sensitive,
-    // never the positive "Stable result" path reserved for the verdict 'high'.
     expect(status.label).not.toBe('Stable result')
   })
 
-  it('the ONLY path to a positive green "Stable result" is robustnessVerdict === "high"', () => {
-    const { container } = renderFooter('high')
+  it('the ONLY path to a positive green "Stable result" is robustnessVerdict === "robust"', () => {
+    const { container } = renderFooter('robust')
     const footer = screen.getByTestId('results-analysis-footer')
     expect(footer).toHaveTextContent('Stable result')
     // Positive verdict → success styling is allowed (stacked mode applies
@@ -84,8 +84,8 @@ describe('AnalysisFooter — raw stability cannot render a positive robustness v
     expect(container.querySelector('.lucide-check-circle')).not.toBeNull()
   })
 
-  it('known non-"high" verdict → warning "Sensitive to assumptions" (no success styling)', () => {
-    for (const v of ['moderate', 'low', 'very_low'] as const) {
+  it('sensitive producer verdicts → warning "Sensitive to assumptions" (no success styling)', () => {
+    for (const v of ['moderate', 'fragile'] as const) {
       const { container } = renderFooter(v)
       const footer = screen.getByTestId('results-analysis-footer')
       expect(footer).toHaveTextContent('Sensitive to assumptions')
@@ -95,12 +95,22 @@ describe('AnalysisFooter — raw stability cannot render a positive robustness v
     }
   })
 
+  it('not_assessed → neutral "Robustness not assessed" (a stated absence is never a sensitivity claim)', () => {
+    const { container } = renderFooter('not_assessed')
+    const footer = screen.getByTestId('results-analysis-footer')
+    expect(footer).toHaveTextContent('Robustness not assessed')
+    expect(footer).not.toHaveTextContent('Stable result')
+    expect(footer).not.toHaveTextContent('Sensitive to assumptions')
+    expect(container.querySelector('.text-success')).toBeNull()
+    expect(container.querySelector('.lucide-help-circle')).not.toBeNull()
+  })
+
   it('runtime-safe: a raw stability NUMBER that slips through at runtime → neutral footer, no verdict styling', () => {
     // Defense-in-depth (rendered): even if 0.87 reached the wired helper at
     // runtime, the footer must render neutral "Robustness unknown" — never a
     // green "Stable result" nor an amber "Sensitive to assumptions" from an
     // uncertified raw value.
-    const { container } = renderFooter(0.87 as unknown as RobustnessLevel)
+    const { container } = renderFooter(0.87 as unknown as RobustnessDisplayVerdict)
     const footer = screen.getByTestId('results-analysis-footer')
     expect(footer).toHaveTextContent('Robustness unknown')
     expect(footer).not.toHaveTextContent('Stable result')
@@ -109,25 +119,34 @@ describe('AnalysisFooter — raw stability cannot render a positive robustness v
     expect(container.querySelector('.lucide-check-circle')).toBeNull()
     expect(container.querySelector('.lucide-help-circle')).not.toBeNull()
   })
+
+  it('runtime-safe: the retired pre-#202 "high" token no longer unlocks the positive verdict', () => {
+    const { container } = renderFooter('high' as unknown as RobustnessDisplayVerdict)
+    const footer = screen.getByTestId('results-analysis-footer')
+    expect(footer).toHaveTextContent('Robustness unknown')
+    expect(footer).not.toHaveTextContent('Stable result')
+    expect(container.querySelector('.text-success')).toBeNull()
+  })
 })
 
 describe('footer ↔ certified glyph consistency (single source)', () => {
-  // The certified robustness glyph (TriageActionCardsBody.tsx:411-412) is:
-  //   robustOk   = robustnessVerdict === 'high'    → positive ("Robust")
-  //   robustKnown = robustnessVerdict != null      → else "Sensitive"
-  //   neither    = undefined/null                  → "Robustness unknown"
+  // The certified robustness glyph (TriageActionCardsBody T1ChecksFooter) is:
+  //   robustOk    = robustnessVerdict === 'robust'                → positive ("Robust")
+  //   robustKnown = 'robust' | 'moderate' | 'fragile'             → else "Sensitive"
+  //   not_assessed                                                → "Robustness not assessed"
+  //   undefined/null                                              → "Robustness unknown"
   // The footer MUST agree: positive iff the glyph is positive; otherwise the
   // footer must NOT render a positive "Stable result". This proves the two
   // sibling surfaces can never contradict (e.g. green "Stable result" beside a
   // neutral "Robustness unknown" glyph on the same Analysis tab).
-  const ALL: Array<RobustnessLevel | null | undefined> = [
-    undefined, null, 'high', 'moderate', 'low', 'very_low',
+  const ALL: Array<RobustnessDisplayVerdict | null | undefined> = [
+    undefined, null, 'robust', 'moderate', 'fragile', 'not_assessed',
   ]
 
-  it('footer renders a positive verdict iff the glyph would (verdict === "high")', () => {
+  it('footer renders a positive verdict iff the glyph would (verdict === "robust")', () => {
     for (const v of ALL) {
       const status = derivePostFooterStatus(v)
-      const glyphPositive = v === 'high'
+      const glyphPositive = v === 'robust'
       const footerPositive = status.label === 'Stable result' && status.icon === 'check'
       expect(footerPositive).toBe(glyphPositive)
       if (!glyphPositive) {

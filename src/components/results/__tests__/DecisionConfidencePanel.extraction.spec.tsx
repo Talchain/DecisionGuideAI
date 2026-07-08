@@ -101,7 +101,7 @@ function makeData(opts: FixtureOpts = { withFragile: true, withDominant: true, w
     // populates this from PLoT — set here so this rendered-HTML regression guard
     // keeps exercising the populated "Robust" glyph; see the provenance test in
     // useResultsSectionData.spec.ts).
-    robustnessVerdict: 'high',
+    robustnessVerdict: 'robust',
     coachingReadiness: 'ready',
     coachingReadinessDimensions: { evidence: 0.8, robustness: 0.75, clarity: 0.85 },
   } as DecisionResultData
