@@ -53,6 +53,11 @@ function makeVM(opts: { displayState?: 'complete' | 'results_stale' | 'ready_to_
     provenance: 'live',
     analysis,
     optionCards: buildOptionCards({ nodes, report: rpt, ceeAnalysisReady: null, analysis }),
+    decisionCards: {},
+    factorCards: {},
+    riskCards: {},
+    outcomeCards: {},
+    goalCards: {},
     edgeVisuals: {},
     relationshipCards: {},
   }

@@ -10,7 +10,10 @@ import { useShallow } from 'zustand/react/shallow'
 import { useCanvasStore } from '../../canvas/store'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
 import { useAnalysisDisplayState } from '../../canvas/hooks/useAnalysisDisplayState'
+import { useResultsSectionData } from '../../components/results/useResultsSectionData'
+import { selectHinge } from '../../components/results/buildResultsVM'
 import { buildGraphExperienceVM } from './buildGraphExperienceVM'
+import { mapDriverSignals, mapEvidenceGapSignals } from './resultSignals'
 import type { GraphExperienceVM } from './types'
 
 const GraphExperienceVMContext = createContext<GraphExperienceVM | null>(null)
@@ -62,6 +65,21 @@ function useLiveGraphExperienceVM(): GraphExperienceVM {
   const displayView = useAnalysisDisplayState()
   const prefillChatAvailable = useGuidanceStore((s) => s._prefillChat != null)
 
+  // Stage-3 card signals: drivers/evidence/hinge come from the app's
+  // canonical results derivation (useResultsSectionData + selectHinge —
+  // reused, never re-derived; #239 honesty logic stays upstream). The
+  // mapping to narrow signals lives in resultSignals.ts.
+  const sectionData = useResultsSectionData()
+  const resultSignals = useMemo(() => {
+    const gaps = sectionData.confidence.topEvidenceGaps ?? sectionData.confidence.evidenceGaps ?? []
+    return {
+      stateHeadline: displayView.headline ?? null,
+      driverSignals: mapDriverSignals(sectionData.drivers.drivers),
+      evidenceGapSignals: mapEvidenceGapSignals(gaps),
+      hingeLabel: selectHinge(sectionData)?.label ?? null,
+    }
+  }, [sectionData, displayView.headline])
+
   return useMemo(
     () =>
       buildGraphExperienceVM({
@@ -73,8 +91,10 @@ function useLiveGraphExperienceVM(): GraphExperienceVM {
         ceeAnalysisReady,
         displayState: displayView.state,
         prefillChatAvailable,
+        resultSignals,
+        // fixtureFactorFlags deliberately NEVER passed on the live path.
       }),
-    [nodes, edges, report, goalThreshold, ceeAnalysisReady, displayView.state, prefillChatAvailable],
+    [nodes, edges, report, goalThreshold, ceeAnalysisReady, displayView.state, prefillChatAvailable, resultSignals],
   )
 }
 

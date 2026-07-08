@@ -3,8 +3,16 @@
 import { buildAnalysisContext, type AnalysisContextInputs } from './analysisContext'
 import { buildOptionCards } from './buildOptionCard'
 import { buildEdgeVisual, buildRelationshipCard } from './buildRelationshipCard'
+import {
+  buildDecisionCards,
+  buildFactorCards,
+  buildRiskCards,
+  buildOutcomeCards,
+  buildGoalCards,
+  type NodeCardResultInputs,
+} from './buildNodeCards'
 import type { FragileEdgeCandidate } from '../../canvas/utils/fragileEdgeMatch'
-import type { GraphExperienceVM, VMProvenance } from './types'
+import type { GraphExperienceVM, VMProvenance, FactorFlag } from './types'
 
 interface MinimalNode {
   id: string
@@ -24,6 +32,20 @@ export interface GraphExperienceVMInputs extends AnalysisContextInputs {
   edges: readonly MinimalEdge[]
   ceeAnalysisReady: { options?: { id: string; interventions?: Record<string, unknown> }[] } | null
   prefillChatAvailable: boolean
+  /** Stage-3 result context (state headline, driver/evidence signals, hinge).
+   * Optional so pure derivation tests that only exercise options/edges can
+   * omit it. */
+  resultSignals?: Partial<NodeCardResultInputs>
+  /** FIXTURE-ONLY factor-flag overrides — the live adapter never passes this
+   * (noInventedClaims.spec pins it). */
+  fixtureFactorFlags?: Record<string, FactorFlag>
+}
+
+const EMPTY_RESULT_SIGNALS: NodeCardResultInputs = {
+  stateHeadline: null,
+  driverSignals: [],
+  evidenceGapSignals: [],
+  hingeLabel: null,
 }
 
 export function buildGraphExperienceVM(inputs: GraphExperienceVMInputs): GraphExperienceVM {
@@ -48,6 +70,8 @@ export function buildGraphExperienceVM(inputs: GraphExperienceVMInputs): GraphEx
     })
   }
 
+  const resultSignals: NodeCardResultInputs = { ...EMPTY_RESULT_SIGNALS, ...inputs.resultSignals }
+
   return {
     provenance: inputs.provenance,
     analysis,
@@ -57,6 +81,11 @@ export function buildGraphExperienceVM(inputs: GraphExperienceVMInputs): GraphEx
       ceeAnalysisReady: inputs.ceeAnalysisReady,
       analysis,
     }),
+    decisionCards: buildDecisionCards(inputs.nodes, inputs.report, analysis, resultSignals),
+    factorCards: buildFactorCards(inputs.nodes, analysis, resultSignals, inputs.fixtureFactorFlags),
+    riskCards: buildRiskCards(inputs.nodes, inputs.edges, inputs.report, analysis),
+    outcomeCards: buildOutcomeCards(inputs.nodes, inputs.edges),
+    goalCards: buildGoalCards(inputs.nodes, analysis),
     edgeVisuals,
     relationshipCards,
   }

@@ -62,3 +62,47 @@ export const ACTION_LABELS = {
 
 export const EDIT_DISABLED_HINT = 'Available in the standard canvas'
 export const CHALLENGE_DISABLED_HINT = 'Open the Olumi panel to discuss'
+
+// --- Stage-3 node-card copy (all solo-safe, amendment A6) -------------------
+
+/** Factor flag pill labels (UI-SEM-077 ladder). */
+export const FACTOR_FLAG_LABELS = {
+  top_driver: 'Top driver',
+  could_flip: 'Could flip result',
+  weak_evidence: 'Weak evidence',
+  worth_checking: 'Worth checking',
+  worth_discussing: 'Worth discussing', // fixture-only — live builds never emit
+} as const
+
+/** Decision lead sentence — leader identity must be resolved (UI-SEM-072). */
+export function decisionLeadSentence(leaderLabel: string, winDisplay: string): string {
+  return `${leaderLabel} leads in ${winDisplay} of scenarios`
+}
+
+export function sensitiveToLine(factorLabel: string): string {
+  return `Sensitive to ${factorLabel}`
+}
+
+/** Outcome goal-effect polarity words (plan §S3: Helps/Drags). */
+export const OUTCOME_EFFECT_LABELS = {
+  helps: 'Helps the goal',
+  hurts: 'Drags the goal',
+} as const
+
+export const GOAL_NEEDS_TARGET_HINT = 'Set a target to compare goal fit'
+
+export function goalTargetLine(targetDisplay: string): string {
+  return `Success target: ${targetDisplay}`
+}
+
+export function riskLikelihoodLine(probability: number): string {
+  return `${Math.round(probability * 100)}% likely`
+}
+
+export function riskImpactLine(impact: string): string {
+  return `${impact} impact`
+}
+
+export function fragileLinkLine(count: number): string {
+  return count === 1 ? 'Part of a fragile link' : `Part of ${count} fragile links`
+}

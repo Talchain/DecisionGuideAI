@@ -21,9 +21,10 @@ export const demoNodes: Node[] = [
   { id: 'demo-opt-shop', type: 'option', position: { x: 320, y: 100 }, data: { label: 'Open a second location' } },
   { id: 'demo-opt-online', type: 'option', position: { x: 320, y: 240 }, data: { label: 'Launch an online store' } },
   { id: 'demo-opt-wait', type: 'option', position: { x: 320, y: 380 }, data: { label: 'Keep things as they are', is_baseline: true } },
-  { id: 'demo-factor-demand', type: 'factor', position: { x: 620, y: 220 }, data: { label: 'Customer demand' } },
-  { id: 'demo-factor-costs', type: 'factor', position: { x: 620, y: 360 }, data: { label: 'Setup costs' } },
-  { id: 'demo-risk-staff', type: 'risk', position: { x: 880, y: 300 }, data: { label: 'Key staff overstretched' } },
+  { id: 'demo-factor-demand', type: 'factor', position: { x: 620, y: 220 }, data: { label: 'Customer demand', observedState: { value: 1200, unit: 'visits/week' } } },
+  { id: 'demo-factor-costs', type: 'factor', position: { x: 620, y: 360 }, data: { label: 'Setup costs', observedState: { value: 45000, unit: 'GBP' } } },
+  { id: 'demo-risk-staff', type: 'risk', position: { x: 880, y: 340 }, data: { label: 'Key staff overstretched', probability: 0.4, impact: 'high' } },
+  { id: 'demo-outcome-repeat', type: 'outcome', position: { x: 880, y: 120 }, data: { label: 'More repeat customers' } },
 ]
 
 export const demoEdges: Edge[] = [
@@ -50,6 +51,7 @@ export const demoEdges: Edge[] = [
   },
   { id: 'demo-e-costs-goal', source: 'demo-factor-costs', target: 'demo-goal', data: { weight: 0.45, direction: 'negative', beliefExists: 0.8 } },
   { id: 'demo-e-staff-goal', source: 'demo-risk-staff', target: 'demo-goal', data: { weight: 0.35, direction: 'negative', beliefExists: 0.5 } },
+  { id: 'demo-e-repeat-goal', source: 'demo-outcome-repeat', target: 'demo-goal', data: { weight: 0.5, direction: 'positive', beliefExists: 0.75 } },
 ]
 
 // Hand-written EXAMPLE report — plausible shapes only, never produced by any
@@ -92,5 +94,17 @@ export function buildDemoVM(): GraphExperienceVM {
     displayState: 'complete',
     goalThreshold: null,
     prefillChatAvailable: false,
+    // Stage-3 example signals — hand-written, same shapes the live adapter
+    // extracts from useResultsSectionData/selectHinge.
+    resultSignals: {
+      stateHeadline: 'Analysis complete',
+      driverSignals: [
+        { nodeId: 'demo-factor-demand', influenceRank: 1, confidence: 0.8, canFlipResult: false },
+      ],
+      evidenceGapSignals: [],
+      hingeLabel: 'Customer demand',
+    },
+    // FIXTURE-ONLY flag (never emitted by live builds — noInventedClaims.spec).
+    fixtureFactorFlags: { 'demo-factor-costs': 'worth_discussing' },
   })
 }

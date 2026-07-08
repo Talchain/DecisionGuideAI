@@ -29,6 +29,11 @@ function makeVM(overrides: { provenance?: 'live' | 'fixture'; analysis?: Partial
       ...overrides.analysis,
     },
     optionCards: {},
+    decisionCards: {},
+    factorCards: {},
+    riskCards: {},
+    outcomeCards: {},
+    goalCards: {},
     edgeVisuals: {},
     relationshipCards: {},
   }

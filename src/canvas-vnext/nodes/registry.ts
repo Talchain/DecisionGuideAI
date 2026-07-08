@@ -7,14 +7,19 @@
 import type { NodeTypes } from '@xyflow/react'
 import { BasicNodeVNext } from './BasicNodeVNext'
 import { OptionNodeVNext } from './OptionNodeVNext'
+import { DecisionNodeVNext } from './DecisionNodeVNext'
+import { FactorNodeVNext } from './FactorNodeVNext'
+import { RiskNodeVNext } from './RiskNodeVNext'
+import { OutcomeNodeVNext } from './OutcomeNodeVNext'
+import { GoalNodeVNext } from './GoalNodeVNext'
 
 export const vnextNodeTypes: NodeTypes = {
-  goal: BasicNodeVNext,
-  decision: BasicNodeVNext,
+  goal: GoalNodeVNext,
+  decision: DecisionNodeVNext,
   option: OptionNodeVNext,
-  factor: BasicNodeVNext,
-  risk: BasicNodeVNext,
-  outcome: BasicNodeVNext,
+  factor: FactorNodeVNext,
+  risk: RiskNodeVNext,
+  outcome: OutcomeNodeVNext,
   action: BasicNodeVNext,
   constraint: BasicNodeVNext,
   'ghost-option': BasicNodeVNext,

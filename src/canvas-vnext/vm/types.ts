@@ -136,11 +136,82 @@ export interface RelationshipCardVM {
   isStaleResult: boolean
 }
 
+// --- Stage-3 node cards ------------------------------------------------------
+
+export interface DecisionCardVM {
+  nodeId: string
+  label: string
+  /** Canonical state copy from useAnalysisDisplayState (e.g. "Ready to
+   * analyse", "Results may be outdated") — self-describing, never dimmed. */
+  stateLine: string | null
+  /** Fail-closed lead sentence "{leader} leads in {N%} of scenarios" —
+   * only when the leader identity resolved (UI-SEM-072). */
+  leadSentence: string | null
+  /** "Sensitive to {factor}" from buildResultsVM's selectHinge (reused, not
+   * re-derived). null when no hinge. */
+  sensitiveTo: string | null
+  isStaleResult: boolean
+}
+
+/** ONE flag max per factor card. 'worth_discussing' is FIXTURE-ONLY: the live
+ * builder never emits it (pinned by noInventedClaims.spec). */
+export type FactorFlag = 'top_driver' | 'could_flip' | 'weak_evidence' | 'worth_checking' | 'worth_discussing'
+
+export interface FactorCardVM {
+  nodeId: string
+  label: string
+  /** observedState value (+unit) — model input, never dimmed. */
+  valueDisplay: string | null
+  /** UI-SEM-077 priority ladder: top_driver > could_flip > weak_evidence >
+   * worth_checking; live flags only exist post-analysis. */
+  flag: FactorFlag | null
+  /** True when the flag derives from analysis results (all live flags do) —
+   * drives the stale dim + marker. */
+  flagIsResultDerived: boolean
+  isStaleResult: boolean
+}
+
+export interface RiskCardVM {
+  nodeId: string
+  label: string
+  /** From node.data.probability — model input ("40% likely"). */
+  likelihoodDisplay: string | null
+  /** From node.data.impact — model input ("high impact"). */
+  impactDisplay: string | null
+  /** Result-derived: fragile links touching this node (canonical matcher). */
+  fragileLinkCount: number
+  isStaleResult: boolean
+}
+
+export interface OutcomeCardVM {
+  nodeId: string
+  label: string
+  /** Polarity of this outcome's edge toward a goal (computeSignedMean sign) —
+   * model input. null when no goal-directed edge. NO per-node forecast: the
+   * producer sends none (hard-null), so the card never invents one. */
+  goalEffect: 'helps' | 'hurts' | null
+}
+
+export interface GoalCardVM {
+  nodeId: string
+  label: string
+  /** The USER target, raw user units, displayed untransformed. null = unset. */
+  targetDisplay: string | null
+  /** No user target ⇒ the card carries the set-a-target hint (UI-SEM-071). */
+  needsTargetHint: boolean
+}
+
 export interface GraphExperienceVM {
   provenance: VMProvenance
   analysis: AnalysisContextVM
   /** Keyed by option node id. */
   optionCards: Record<string, OptionCardVM>
+  /** Keyed by node id, per type (Stage 3). */
+  decisionCards: Record<string, DecisionCardVM>
+  factorCards: Record<string, FactorCardVM>
+  riskCards: Record<string, RiskCardVM>
+  outcomeCards: Record<string, OutcomeCardVM>
+  goalCards: Record<string, GoalCardVM>
   /** Keyed by edge id. */
   edgeVisuals: Record<string, EdgeVisualVM>
   /** Keyed by edge id. */
