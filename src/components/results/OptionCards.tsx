@@ -442,6 +442,20 @@ function OptionCard({
               </span>
             </div>
           )}
+          {/* Display-honesty (ROADMAP 1.6b, doctrine B / PLoT #204): the
+              "Hits target" number above is scored from a MODELLED
+              forward-propagated outcome distribution, not a
+              directly-elicited base — the caveat renders adjacent to the
+              number it qualifies, never separately (never invented; the
+              wording mirrors the honesty rule verbatim). */}
+          {option.goalFitIsModelledBasis === true && (
+            <p
+              className={`${typography.panelMeta} text-text-light`}
+              data-testid={`goal-fit-basis-caveat-${option.id}`}
+            >
+              Modelled from the target's projected outcome distribution, not a directly-set starting value.
+            </p>
+          )}
         </div>
       )}
 

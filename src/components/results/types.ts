@@ -137,6 +137,15 @@ export interface OptionResult {
   rank?: number
   /** Multi-constraint analysis: per-option constraint satisfaction from ISL */
   constraintAnalysis?: ConstraintAnalysis
+  /**
+   * Display-honesty (ROADMAP 1.6b): true when the rendered `goalProbability`
+   * IS the joint-goal number AND its producer-owned `goal_fit_basis.scored_from`
+   * is 'modelled_outcome_distribution' — i.e. the number was scored from a
+   * MODELLED forward-propagated outcome distribution rather than a
+   * directly-elicited base. Render sites showing `goalProbability` MUST
+   * surface a caveat when this is true (UI-BOUNDARY-DATA-INVENTORY.md §5).
+   */
+  goalFitIsModelledBasis?: boolean
 }
 
 /** Outcome unit type for formatting - from goal node observed_state.unit */
@@ -1045,6 +1054,13 @@ export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
   analysis_state?: string
   /** PLoT-classified confidence tier (B2, optional for cached pre-B1 results) */
   confidence_tier?: 'strong' | 'fair' | 'needs_work'
+  /**
+   * Constraint-evaluation feature status (PLoT #205). NOT on the CEE→UI
+   * Seam-A wire today (absent from compose.ts's keep-list) — declared here
+   * so the mapper's forward-compatible passthrough is typed; expect
+   * undefined until a CEE lane adds it to the keep-list.
+   */
+  constraints_status?: 'computed' | 'unavailable' | 'skipped' | 'error'
   /** PLoT-classified dominant factor (B2, optional for cached pre-B1 results) */
   dominant_factor?: { factor_id: string; factor_label: string }
   /**
@@ -1076,6 +1092,17 @@ export interface ResultsOptionProbability extends OptionProbability {
   }
   bands?: { p10?: number | null; p50?: number | null; p90?: number | null }
   constraint_analysis?: ConstraintAnalysis
+  /**
+   * Provenance caveat for probability_of_joint_goal (PLoT #204, doctrine
+   * B): present when the joint-goal number was scored from the
+   * constraint-target node's MODELLED forward-propagated outcome
+   * distribution rather than a directly-elicited base. `scored_from` is
+   * producer-owned open vocabulary (currently always
+   * 'modelled_outcome_distribution'). Render sites that show the
+   * joint-goal number MUST surface this caveat alongside it — see
+   * UI-BOUNDARY-DATA-INVENTORY.md §5.
+   */
+  goal_fit_basis?: { scored_from?: string; node_ids?: string[] }
 }
 
 /**
