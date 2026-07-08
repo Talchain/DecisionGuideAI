@@ -164,6 +164,107 @@ describe('useNodeDisplayMetadata — achievementProbability', () => {
 })
 
 // ---------------------------------------------------------------------------
+// achievementProbabilityIsModelledBasis — goal_fit_basis caveat flag
+// (ROADMAP 1.6b follow-up, claim-integrity). Mirrors OptionCards'
+// goalFitIsModelledBasis gate: true ONLY when the displayed number is the
+// joint-goal figure (hasConstraints && jointProb != null) AND the producer
+// marked it scored_from === 'modelled_outcome_distribution'.
+// ---------------------------------------------------------------------------
+describe('useNodeDisplayMetadata — achievementProbabilityIsModelledBasis', () => {
+  it('is true when the joint figure is shown and goal_fit_basis is modelled', () => {
+    mockState = {
+      results: {
+        status: 'complete',
+        report: makeReport({
+          robustness: { recommended_option_id: 'option-1' },
+          option_probabilities: {
+            'option-1': {
+              goal_probability: 0.5,
+              probability_of_joint_goal: 0.73,
+              confidence: 0.5,
+              constraint_analysis: { constraints: [{ id: 'c1' }] },
+              goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
+            },
+          },
+        }),
+      },
+    }
+    const { result } = renderHook(() => useNodeDisplayMetadata('goal-1', 'goal'))
+    expect(result.current.achievementProbability).toBeCloseTo(0.73)
+    expect(result.current.achievementProbabilityIsModelledBasis).toBe(true)
+  })
+
+  it('is false (honest default) when goal_fit_basis is absent', () => {
+    mockState = {
+      results: {
+        status: 'complete',
+        report: makeReport({
+          robustness: { recommended_option_id: 'option-1' },
+          option_probabilities: {
+            'option-1': {
+              goal_probability: 0.5,
+              probability_of_joint_goal: 0.73,
+              confidence: 0.5,
+              constraint_analysis: { constraints: [{ id: 'c1' }] },
+            },
+          },
+        }),
+      },
+    }
+    const { result } = renderHook(() => useNodeDisplayMetadata('goal-1', 'goal'))
+    expect(result.current.achievementProbability).toBeCloseTo(0.73)
+    expect(result.current.achievementProbabilityIsModelledBasis).toBe(false)
+  })
+
+  it('is false when the displayed number is the unconstrained goal_probability, even if flagged', () => {
+    // No constraints -> achievementProbability falls to goal_probability, NOT
+    // the joint figure the caveat qualifies -- the flag must never leak onto
+    // the unconstrained number even if goal_fit_basis happens to be present.
+    mockState = {
+      results: {
+        status: 'complete',
+        report: makeReport({
+          robustness: { recommended_option_id: 'option-1' },
+          option_probabilities: {
+            'option-1': {
+              goal_probability: 0.5,
+              probability_of_joint_goal: 0.73,
+              confidence: 0.5,
+              goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
+            },
+          },
+        }),
+      },
+    }
+    const { result } = renderHook(() => useNodeDisplayMetadata('goal-1', 'goal'))
+    expect(result.current.achievementProbability).toBeCloseTo(0.5)
+    expect(result.current.achievementProbabilityIsModelledBasis).toBe(false)
+  })
+
+  it('is false when scored_from is a different (non-modelled) value', () => {
+    mockState = {
+      results: {
+        status: 'complete',
+        report: makeReport({
+          robustness: { recommended_option_id: 'option-1' },
+          option_probabilities: {
+            'option-1': {
+              goal_probability: 0.5,
+              probability_of_joint_goal: 0.73,
+              confidence: 0.5,
+              constraint_analysis: { constraints: [{ id: 'c1' }] },
+              goal_fit_basis: { scored_from: 'directly_elicited' },
+            },
+          },
+        }),
+      },
+    }
+    const { result } = renderHook(() => useNodeDisplayMetadata('goal-1', 'goal'))
+    expect(result.current.achievementProbabilityIsModelledBasis).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Factor sensitivity rank — sanity path
 // ---------------------------------------------------------------------------
 describe('useNodeDisplayMetadata — factor sensitivityRank', () => {

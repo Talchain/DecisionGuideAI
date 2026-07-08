@@ -28,6 +28,7 @@ import { formatOptionLabelForCard } from './utils/cleanFactorLabel'
 import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
 import { formatRangeValue } from './utils/formatRangeValue'
 import { SUB_ONE_PERCENT_FLOOR } from './utils/displayFloors'
+import { GOAL_FIT_BASIS_CAVEAT_COPY } from './utils/goalFitBasisCaveatCopy'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { useCanvasStore, selectResultsStatus } from '../../canvas/store'
 import { isGraphLensEnabled } from '../../flags'
@@ -453,7 +454,7 @@ function OptionCard({
               className={`${typography.panelMeta} text-text-light`}
               data-testid={`goal-fit-basis-caveat-${option.id}`}
             >
-              Modelled from the target's projected outcome distribution, not a directly-set starting value.
+              {GOAL_FIT_BASIS_CAVEAT_COPY}
             </p>
           )}
         </div>

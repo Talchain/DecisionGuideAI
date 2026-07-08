@@ -399,6 +399,18 @@ export function HeroOptionRow({
               {row.detail.goalFit}
             </p>
           )}
+          {/* Display-honesty (ROADMAP 1.6b follow-up, claim-integrity):
+              modelled-basis caveat, rendered adjacent to the goalFit line it
+              qualifies — never separately. Same shared wording OptionCards'
+              caveat uses (GOAL_FIT_BASIS_CAVEAT_COPY, via buildHeroModel). */}
+          {row.detail.goalFitCaveat && (
+            <p
+              className={`${typography.panelMeta} text-text-light`}
+              data-testid="hero-detail-goal-fit-caveat"
+            >
+              {row.detail.goalFitCaveat}
+            </p>
+          )}
           {row.detail.couldChangeIf && (
             <p
               className={`${typography.panelBody} text-text-body`}
