@@ -207,6 +207,51 @@ describe('OutcomeNode', () => {
     expect(screen.getByText('Achievement: 68%')).toBeDefined()
   })
 
+  // Display-honesty (ROADMAP 1.6b tail — goal-fit caveat residuals): same
+  // modelled-basis caveat as GoalNode/OptionCards, gated on the
+  // already-computed achievementProbabilityIsModelledBasis flag, rendered
+  // adjacent to the "Achievement:" diagnostic line it qualifies.
+  it('renders the modelled-basis caveat adjacent to the achievement number when flagged', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: 0.68,
+      achievementProbabilityIsModelledBasis: true,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    renderOutcome()
+    expect(screen.getByTestId('goal-fit-basis-caveat-outcome-node')).toHaveTextContent(
+      "Modelled from the target's projected outcome distribution, not a directly-set starting value.",
+    )
+  })
+
+  it('renders no caveat on the achievement line when the flag is absent (honest default)', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: 0.68,
+      achievementProbabilityIsModelledBasis: false,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    renderOutcome()
+    expect(screen.getByText('Achievement: 68%')).toBeDefined()
+    expect(screen.queryByTestId('goal-fit-basis-caveat-outcome-node')).toBeNull()
+  })
+
   // Wireframe v4 OutcomePostDet: Detailed view caps "Depends on:" ConnRows at 3
   // even when more inbound factors exist.
   it('caps Depends on ConnRows at 3 in Detailed post-analysis view', () => {
