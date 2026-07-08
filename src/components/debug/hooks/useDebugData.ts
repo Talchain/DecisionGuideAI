@@ -79,6 +79,13 @@ import {
   findAnalysisProducingPlotTurn,
   type PlotTraceTier,
 } from '../../../lib/analysisProducingPlotTurn'
+// ROADMAP 1.31 (Brief I): most-recent-N V5 CEE turn capture, INCLUDING
+// LLM-authored conversation turns (chat/clarify/draft), independent of
+// the single-turn analysis-producing selector above. See module docs.
+import {
+  selectRecentConversationTurns,
+  type RecentConversationTurnsResult,
+} from '../../../lib/recentConversationTurns'
 import {
   isV5TurnEndpoint,
   matchServiceCaseInsensitive,
@@ -1170,6 +1177,21 @@ export interface DebugData {
 
   /** CEE diagnostic trace from _diagnostic_trace envelope field. Passthrough — UI must not transform. */
   diagnostic_trace: Record<string, unknown> | null
+
+  /**
+   * Recent conversation turns (ROADMAP 1.31, Brief I) — the most-recent
+   * N V5 CEE turns of ANY kind (chat, clarify, draft, chip), each
+   * carrying `assistant_text` + served prompt identity when present.
+   * Independent of `payloads.cee_request`/`cee_response` (which stay
+   * pinned to the single analysis-producing turn via
+   * `findLatestAnalysisProducingCeeTurn`, unchanged) — this field exists
+   * so a bundle from a scenario with real conversation carries at least
+   * one LLM-authored turn even when no analysis-producing turn ran.
+   * Optional (like `payload_trace_store_summary`) so pre-existing
+   * `DebugData` test fixtures that don't set it keep compiling — the
+   * bundle assembler defaults to an empty result when absent.
+   */
+  recent_conversation_turns?: RecentConversationTurnsResult
 }
 
 /**
@@ -3900,6 +3922,10 @@ export function useDebugData(): DebugData {
       currentScenarioId,
       resultsHash,
     )
+    // ROADMAP 1.31 (Brief I): independent multi-turn capture. Does NOT
+    // feed `payloads.cee_request`/`cee_response` — those stay pinned to
+    // `analysisProducing.selected` above, unchanged.
+    const recentConversationTurns = selectRecentConversationTurns(tracedPayloads)
     // Fallback path: when the analysis-producing V5 selector returns
     // undefined, fall through to `findBestPayload` so V1 / non-analysis
     // V5 turns still surface honestly.
@@ -4557,6 +4583,10 @@ export function useDebugData(): DebugData {
 
       // CEE diagnostic trace (passthrough)
       diagnostic_trace,
+
+      // ROADMAP 1.31 (Brief I): recent conversation turns, incl.
+      // LLM-authored text + prompt identity.
+      recent_conversation_turns: recentConversationTurns,
     }
   }, [ceePipelineTrace, nodes, edges, runMeta, tracedPayloads, gatesMap, currentScenarioId, resultsHash])
 }
