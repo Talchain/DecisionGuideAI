@@ -3,8 +3,15 @@
 
 import '../styles/plot.css'
 import { useEffect, useState, lazy, Suspense, useCallback, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useLocation } from 'react-router-dom'
 import ReactFlowGraph from '../canvas/ReactFlowGraph'
+import { SectionErrorBoundary } from '../canvas/components/SectionErrorBoundary'
+import {
+  resolveGraphExperience,
+  setGraphVNextEnabled,
+  stripGraphExperienceParam,
+  type GraphExperience,
+} from '../lib/graphExperience'
 import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintEventBus } from '../canvas/blueprints/eventBus'
 import { useCanvasStore } from '../canvas/store'
@@ -18,6 +25,12 @@ import { buildShareLink } from '../canvas/utils/shareLink'
 import { useScenario } from '../hooks/useScenario'
 
 const TemplatesPanel = lazy(() => import('../canvas/panels/TemplatesPanel').then(m => ({ default: m.TemplatesPanel })))
+
+// Graph Experience vNext — opt-in alternative rendering of the same canvas
+// graph (src/canvas-vnext/). Lazy so the default path's bundle is untouched;
+// this dynamic import is the ONLY permitted entry into src/canvas-vnext/
+// (fence enforced by src/canvas-vnext/__tests__/importIsolation.spec.ts).
+const CanvasVNext = lazy(() => import('../canvas-vnext/CanvasVNext'))
 
 export default function CanvasMVP() {
   // Brief 37 Task 3: Render counter to detect if parent is causing re-renders
@@ -41,6 +54,22 @@ export default function CanvasMVP() {
 
   // v1.2: Auto-run analysis after template insertion
   const { run } = useResultsRun()
+
+  // Graph Experience vNext: resolve which surface renders inside rf-root.
+  // Re-resolved on every router location change so an in-app hash edit
+  // (#/canvas?graphExperience=vnext) swaps the surface in place — no reload,
+  // store stays populated (the same-scenario comparison path).
+  const routerLocation = useLocation()
+  const [experience, setExperience] = useState<GraphExperience>(() => resolveGraphExperience())
+  useEffect(() => {
+    setExperience(resolveGraphExperience())
+  }, [routerLocation])
+
+  const handleExitVNext = useCallback(() => {
+    setGraphVNextEnabled(false)
+    stripGraphExperienceParam()
+    setExperience('default')
+  }, [])
 
   // C.1a: Supabase scenario persistence
   const { id: scenarioIdFromRoute } = useParams<{ id: string }>()
@@ -250,10 +279,24 @@ export default function CanvasMVP() {
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
         {/* React Flow Container */}
         <main role="main" data-testid="rf-root" style={{ height: '100%', width: '100%' }}>
-          <ReactFlowGraph
-            blueprintEventBus={blueprintEventBus}
-            onCanvasInteraction={handleCanvasInteraction}
-          />
+          {experience === 'vnext' ? (
+            <SectionErrorBoundary section="Decision map preview">
+              <Suspense
+                fallback={
+                  <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                    <span className="text-sm text-text-light">Loading decision map…</span>
+                  </div>
+                }
+              >
+                <CanvasVNext onExit={handleExitVNext} />
+              </Suspense>
+            </SectionErrorBoundary>
+          ) : (
+            <ReactFlowGraph
+              blueprintEventBus={blueprintEventBus}
+              onCanvasInteraction={handleCanvasInteraction}
+            />
+          )}
         </main>
 
         {/* Templates Panel */}

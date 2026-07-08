@@ -392,6 +392,17 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_V5_CANONICAL_ANALYSIS',
     storageKey: 'feature.v5CanonicalAnalysis',
   },
+  // Graph Experience vNext — opt-in alternative rendering of the canvas graph
+  // (src/canvas-vnext/, lazy-loaded; the current graph stays the default).
+  // envKey is deliberately empty: there is NO VITE_ variable for this flag —
+  // activation is URL-param (?graphExperience=vnext, hash-aware) and/or this
+  // localStorage key only, so no build-time wiring and no env drift across
+  // deploys. URL parsing + mirroring live in src/lib/graphExperience.ts.
+  // Default OFF for everyone.
+  graphVNext: {
+    envKey: '',
+    storageKey: 'feature.graphVNext',
+  },
 } as const
 
 // ============================================================================
@@ -462,6 +473,7 @@ const flags = {
   focusNowPanel: makeFlag(FLAGS_CONFIG.focusNowPanel),
   aiPanelV2: makeFlag(FLAGS_CONFIG.aiPanelV2),
   v5CanonicalAnalysis: makeFlag(FLAGS_CONFIG.v5CanonicalAnalysis),
+  graphVNext: makeFlag(FLAGS_CONFIG.graphVNext),
 }
 
 // Export with original naming convention for backward compatibility
@@ -530,6 +542,7 @@ export const isAiPanelV2Enabled = flags.aiPanelV2
 export const isV5CanonicalAnalysisEnabled = flags.v5CanonicalAnalysis
 export const diagnoseV5CanonicalAnalysis = () =>
   diagnoseFlagState(FLAGS_CONFIG.v5CanonicalAnalysis)
+export const isGraphVNextEnabled = flags.graphVNext
 
 
 // ============================================================================
