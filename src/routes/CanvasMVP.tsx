@@ -3,13 +3,14 @@
 
 import '../styles/plot.css'
 import { useEffect, useState, lazy, Suspense, useCallback, useRef } from 'react'
-import { useParams, useLocation } from 'react-router-dom'
+import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import ReactFlowGraph from '../canvas/ReactFlowGraph'
 import { SectionErrorBoundary } from '../canvas/components/SectionErrorBoundary'
 import {
   resolveGraphExperience,
   setGraphVNextEnabled,
-  stripGraphExperienceParam,
+  stripGraphExperienceParamFromPlainSearch,
+  GRAPH_EXPERIENCE_PARAM,
   type GraphExperience,
 } from '../lib/graphExperience'
 import type { Blueprint } from '../templates/blueprints/types'
@@ -60,6 +61,7 @@ export default function CanvasMVP() {
   // (#/canvas?graphExperience=vnext) swaps the surface in place — no reload,
   // store stays populated (the same-scenario comparison path).
   const routerLocation = useLocation()
+  const navigate = useNavigate()
   const [experience, setExperience] = useState<GraphExperience>(() => resolveGraphExperience())
   useEffect(() => {
     setExperience(resolveGraphExperience())
@@ -67,9 +69,18 @@ export default function CanvasMVP() {
 
   const handleExitVNext = useCallback(() => {
     setGraphVNextEnabled(false)
-    stripGraphExperienceParam()
+    // Plain-search variant via replaceState; the hash-query variant MUST go
+    // through the router — raw hash edits desync HashRouter and the next
+    // same-URL entry is deduped (Stage-2 live-drive finding).
+    stripGraphExperienceParamFromPlainSearch()
+    const params = new URLSearchParams(routerLocation.search)
+    if (params.has(GRAPH_EXPERIENCE_PARAM)) {
+      params.delete(GRAPH_EXPERIENCE_PARAM)
+      const rest = params.toString()
+      navigate({ pathname: routerLocation.pathname, search: rest ? `?${rest}` : '' }, { replace: true })
+    }
     setExperience('default')
-  }, [])
+  }, [routerLocation, navigate])
 
   // C.1a: Supabase scenario persistence
   const { id: scenarioIdFromRoute } = useParams<{ id: string }>()

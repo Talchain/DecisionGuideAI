@@ -78,36 +78,20 @@ export function resolveGraphExperience(): GraphExperience {
 }
 
 /**
- * Remove ?graphExperience from the URL — both the plain search string and the
- * hash query — without a reload, via history.replaceState. Used by the Exit
- * control so a refresh after exiting stays on the default graph.
+ * Remove ?graphExperience from the PLAIN search string only (the pre-hash
+ * position), via history.replaceState. The hash-query variant must be
+ * stripped through react-router (CanvasMVP's exit handler uses navigate) —
+ * editing the hash with raw replaceState desyncs HashRouter's internal
+ * location from the real URL, and the next same-URL entry gets deduped
+ * (found in the Stage-2 live drive: current → vNext → Exit → vNext failed).
  */
-export function stripGraphExperienceParam(): void {
+export function stripGraphExperienceParamFromPlainSearch(): void {
   if (typeof window === 'undefined') return
   try {
     const url = new URL(window.location.href)
-    let changed = false
-
-    if (url.searchParams.has(GRAPH_EXPERIENCE_PARAM)) {
-      url.searchParams.delete(GRAPH_EXPERIENCE_PARAM)
-      changed = true
-    }
-
-    const hash = url.hash
-    const queryIndex = hash.indexOf('?')
-    if (queryIndex !== -1) {
-      const hashParams = new URLSearchParams(hash.slice(queryIndex + 1))
-      if (hashParams.has(GRAPH_EXPERIENCE_PARAM)) {
-        hashParams.delete(GRAPH_EXPERIENCE_PARAM)
-        const rest = hashParams.toString()
-        url.hash = rest ? `${hash.slice(0, queryIndex)}?${rest}` : hash.slice(0, queryIndex)
-        changed = true
-      }
-    }
-
-    if (changed) {
-      window.history.replaceState(window.history.state, '', url.toString())
-    }
+    if (!url.searchParams.has(GRAPH_EXPERIENCE_PARAM)) return
+    url.searchParams.delete(GRAPH_EXPERIENCE_PARAM)
+    window.history.replaceState(window.history.state, '', url.toString())
   } catch {
     // URL manipulation failed — the localStorage flag still governs resolution.
   }

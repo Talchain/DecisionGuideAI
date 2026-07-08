@@ -65,10 +65,15 @@ function ViewLevelToggle() {
 export function VNextTopStrip({ onExit }: { onExit: () => void }) {
   const vm = useGraphExperienceVMContext()
 
+  // Floating card top-right, mirroring the canvas chrome idiom — the TopBar
+  // floats top-left, so a full-width strip would sit underneath it. The right
+  // edge clears the OutputsDock via the dock-driven --dock-right-offset var
+  // (the dock is fixed-position and would otherwise cover the Exit control).
   return (
     <div
       data-testid="vnext-top-strip"
-      className="absolute inset-x-0 top-0 z-10 flex flex-wrap items-center gap-2 border-b border-panel-border bg-panel/90 px-3 py-2"
+      className="absolute top-4 z-10 flex max-w-[60%] flex-wrap items-center justify-end gap-2 rounded-xl border border-panel-border bg-panel px-3 py-2 shadow-sm"
+      style={{ right: 'calc(var(--dock-right-offset, 0rem) + 1rem)' }}
     >
       <span className="rounded-full border border-info/30 bg-transparent px-2 py-0.5 text-xs text-text-body">
         {PREVIEW_PILL_LABEL}
@@ -98,7 +103,7 @@ export function VNextTopStrip({ onExit }: { onExit: () => void }) {
         type="button"
         data-testid="vnext-exit"
         onClick={onExit}
-        className="ml-auto rounded-md border border-panel-border bg-panel px-3 py-1 text-xs text-text-body hover:bg-panel-hover"
+        className="rounded-md border border-panel-border bg-panel px-3 py-1 text-xs text-text-body hover:bg-panel-hover"
       >
         {EXIT_LABEL}
       </button>

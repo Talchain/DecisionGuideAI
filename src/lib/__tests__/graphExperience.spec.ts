@@ -9,7 +9,7 @@ import {
   readGraphExperienceParam,
   resolveGraphExperience,
   setGraphVNextEnabled,
-  stripGraphExperienceParam,
+  stripGraphExperienceParamFromPlainSearch,
 } from '../graphExperience'
 import { isGraphVNextEnabled } from '../../flags'
 
@@ -108,39 +108,34 @@ describe('setGraphVNextEnabled', () => {
   })
 })
 
-describe('stripGraphExperienceParam', () => {
-  it('removes the param from the hash query, preserving other hash params', () => {
-    setUrl('/#/canvas?graphExperience=vnext&canvasDebug=blank')
-    stripGraphExperienceParam()
-    expect(window.location.hash).toBe('#/canvas?canvasDebug=blank')
-    expect(readGraphExperienceParam()).toBeNull()
-  })
-
-  it('removes the whole hash query when the param was the only entry', () => {
-    setUrl('/#/canvas?graphExperience=vnext')
-    stripGraphExperienceParam()
-    expect(window.location.hash).toBe('#/canvas')
-  })
-
+describe('stripGraphExperienceParamFromPlainSearch', () => {
+  // Plain-search variant ONLY: the hash-query variant is stripped through
+  // react-router by CanvasMVP's exit handler — raw hash replaceState edits
+  // desync HashRouter (Stage-2 live-drive finding).
   it('removes the param from the plain search string', () => {
     setUrl('/?graphExperience=vnext#/canvas')
-    stripGraphExperienceParam()
+    stripGraphExperienceParamFromPlainSearch()
     expect(window.location.search).toBe('')
     expect(window.location.hash).toBe('#/canvas')
   })
 
-  it('removes the param from both positions at once', () => {
-    setUrl('/?graphExperience=vnext#/canvas?graphExperience=vnext&x=1')
-    stripGraphExperienceParam()
-    expect(window.location.search).toBe('')
-    expect(window.location.hash).toBe('#/canvas?x=1')
-    expect(readGraphExperienceParam()).toBeNull()
+  it('preserves other plain-search params', () => {
+    setUrl('/?graphExperience=vnext&keep=1#/canvas')
+    stripGraphExperienceParamFromPlainSearch()
+    expect(window.location.search).toBe('?keep=1')
   })
 
-  it('leaves the URL untouched when the param is absent', () => {
+  it('never touches the hash query (router-owned)', () => {
+    setUrl('/?graphExperience=vnext#/canvas?graphExperience=vnext&x=1')
+    stripGraphExperienceParamFromPlainSearch()
+    expect(window.location.search).toBe('')
+    expect(window.location.hash).toBe('#/canvas?graphExperience=vnext&x=1')
+  })
+
+  it('leaves the URL untouched when the param is absent from the plain search', () => {
     setUrl('/#/canvas?canvasDebug=blank')
     const before = window.location.href
-    stripGraphExperienceParam()
+    stripGraphExperienceParamFromPlainSearch()
     expect(window.location.href).toBe(before)
   })
 })

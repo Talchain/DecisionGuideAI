@@ -28,6 +28,8 @@ import {
 import '@xyflow/react/dist/style.css'
 import { isAiPanelV2Enabled } from '../flags'
 import { ConversationProvider } from '../canvas/conversation/ConversationContext'
+import { ToastProvider } from '../canvas/ToastContext'
+import { LayerProvider } from '../canvas/components/LayerProvider'
 import { OutputsDock } from '../canvas/components/OutputsDock'
 import { useGuidancePulseHighlight } from '../canvas/hooks/useGuidancePulseHighlight'
 import {
@@ -171,11 +173,19 @@ function CanvasVNextBody({ onExit }: CanvasVNextProps) {
 }
 
 export default function CanvasVNext({ onExit }: CanvasVNextProps) {
+  // Toast + Layer mirror RFG's provider stack for the dock subtree:
+  // PreAnalysisPanel (dock pre-run slot) calls the THROWING useShowToast —
+  // caught in the Stage-2 live drive — and LayerProvider keeps the dock's
+  // environment identical to the default canvas.
   return (
-    <ReactFlowProvider>
-      <VNextSelectionProvider>
-        <CanvasVNextBody onExit={onExit} />
-      </VNextSelectionProvider>
-    </ReactFlowProvider>
+    <ToastProvider>
+      <LayerProvider>
+        <ReactFlowProvider>
+          <VNextSelectionProvider>
+            <CanvasVNextBody onExit={onExit} />
+          </VNextSelectionProvider>
+        </ReactFlowProvider>
+      </LayerProvider>
+    </ToastProvider>
   )
 }
