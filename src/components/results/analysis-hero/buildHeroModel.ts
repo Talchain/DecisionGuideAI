@@ -49,6 +49,7 @@ import { formatThreshold } from '../RangeVisualization'
 import { stripEncodingNotation } from '../utils/cleanFactorLabel'
 import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 import { SUB_ONE_PERCENT_FLOOR } from '../utils/displayFloors'
+import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../utils/goalFitBasisCaveatCopy'
 import {
   getExpectedValue,
   getMedian,
@@ -279,6 +280,17 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
           ? HERO_COPY.detail.goalFitWithLimits(goalReadout(goalValue))
           : HERO_COPY.detail.goalFit(goalReadout(goalValue))
         : undefined
+    // Display-honesty (ROADMAP 1.6b follow-up, claim-integrity): the caveat
+    // renders ONLY when the goalFit number just above it is actually shown
+    // (goalValue != null) AND the row's own goalFitIsModelledBasis flag is
+    // set — computed by useResultsSectionData.ts using the exact same
+    // hasConstraints/jointGoalProb branches OptionCards' caveat gates on
+    // (o.goalFitIsModelledBasis), never re-derived here. Shared wording
+    // (GOAL_FIT_BASIS_CAVEAT_COPY) — never invented, never a separate claim.
+    const goalFitCaveat =
+      goalValue != null && o.goalFitIsModelledBasis === true
+        ? GOAL_FIT_BASIS_CAVEAT_COPY
+        : undefined
     return {
       id: o.id,
       index: i + 1,
@@ -296,7 +308,7 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
             ? formatThreshold(centre, outcomeUnit, outcomeUnitSymbol, isNormalised)
             : HERO_COPY.readout.missing,
       },
-      detail: { why, couldChangeIf, winChance, range, goalFit },
+      detail: { why, couldChangeIf, winChance, range, goalFit, goalFitCaveat },
     }
   })
 

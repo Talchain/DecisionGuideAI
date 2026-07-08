@@ -23,6 +23,17 @@ interface NodeDisplayMetadata {
   inSensitivityAnalysis: boolean
   /** Outcome/Goal achievement probability (0-1) */
   achievementProbability: number | null
+  /**
+   * Display-honesty (ROADMAP 1.6b follow-up, claim-integrity): true ONLY
+   * when `achievementProbability` above IS the joint-goal figure (mirrors
+   * the hook's own `hasConstraints && jointProb != null` branch that
+   * selects it, exactly as OptionCards' `goalFitIsModelledBasis` mirrors
+   * useResultsSectionData.ts's branches) AND the producer marked it as
+   * scored from a modelled outcome distribution
+   * (`goal_fit_basis.scored_from === 'modelled_outcome_distribution'`).
+   * Never inferred, never applied to the unconstrained goal_probability.
+   */
+  achievementProbabilityIsModelledBasis: boolean
   /** Recommendation stability (0-1) - fallback for Goal nodes when probability unavailable */
   stabilityPercentage: number | null
   /** Win rate for options (0-1) */
@@ -66,6 +77,7 @@ export function useNodeDisplayMetadata(
         confidence: null,
         inSensitivityAnalysis: false,
         achievementProbability: null,
+        achievementProbabilityIsModelledBasis: false,
         stabilityPercentage: null,
         winRate: null,
         predictedOutcome: null,
@@ -164,6 +176,7 @@ export function useNodeDisplayMetadata(
     // Task 8 & 10: Outcome/Goal achievement probability
     // Read from option_probabilities (the field the responseMapper actually populates)
     let achievementProbability: number | null = null
+    let achievementProbabilityIsModelledBasis = false
     let stabilityPercentage: number | null = null
 
     if (nodeType === 'outcome' || nodeType === 'goal') {
@@ -180,9 +193,23 @@ export function useNodeDisplayMetadata(
           const jointProb = typeof rec.probability_of_joint_goal === 'number'
             ? rec.probability_of_joint_goal : null
           const hasConstraints = rec.constraint_analysis?.constraints?.length > 0
-          achievementProbability = hasConstraints && jointProb != null
+          const isJoint = hasConstraints && jointProb != null
+          achievementProbability = isJoint
             ? jointProb
             : (rec.goal_probability ?? null)
+          // Display-honesty (ROADMAP 1.6b follow-up, claim-integrity):
+          // mirrors the `isJoint` branch immediately above exactly (rather
+          // than comparing resulting numbers, which could false-match on a
+          // coincidental equal value) so we know precisely WHEN the
+          // achievementProbability just set IS the joint-goal figure the
+          // caveat qualifies — never inferred, never applied to the
+          // unconstrained goal_probability branch.
+          const goalFitBasisScoredFrom =
+            typeof rec.goal_fit_basis?.scored_from === 'string'
+              ? (rec.goal_fit_basis.scored_from as string)
+              : null
+          achievementProbabilityIsModelledBasis =
+            isJoint && goalFitBasisScoredFrom === 'modelled_outcome_distribution'
         }
       }
 
@@ -220,6 +247,7 @@ export function useNodeDisplayMetadata(
       confidence,
       inSensitivityAnalysis,
       achievementProbability,
+      achievementProbabilityIsModelledBasis,
       stabilityPercentage,
       winRate,
       predictedOutcome,

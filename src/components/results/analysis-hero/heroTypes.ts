@@ -47,6 +47,16 @@ export interface HeroRowDetail {
   /** Goal-fit line from the row's own goalProbability (constraint-aware wording). */
   goalFit?: string
   /**
+   * Modelled-basis provenance caveat for `goalFit` (ROADMAP 1.6b follow-up,
+   * claim-integrity) — set ONLY when the goal-fit number just shown IS the
+   * joint-goal figure (`o.goalFitIsModelledBasis`, computed identically to
+   * OptionCards' gate in useResultsSectionData.ts) AND the producer marked
+   * it as scored from a modelled outcome distribution. Rendered adjacent to
+   * `goalFit`, never separately — same shared wording as OptionCards
+   * (GOAL_FIT_BASIS_CAVEAT_COPY), never invented.
+   */
+  goalFitCaveat?: string
+  /**
    * "Watch" line — requires option-attributed producer narrative (issue
    * 217). The live adapter NEVER sets it; fixture-only until the producer
    * field exists.

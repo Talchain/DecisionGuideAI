@@ -23,6 +23,7 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
+import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
 import { getStabilityClassification } from '../../lib/stability'
 import { isCurrencyUnit } from '../utils/labelUtils'
@@ -294,6 +295,23 @@ export const GoalNode = memo((props: NodeProps) => {
             )}
           </div>
         )}
+
+        {/* Display-honesty (ROADMAP 1.6b follow-up, claim-integrity): the
+            achievement-probability number above is scored from a MODELLED
+            forward-propagated outcome distribution, not a directly-elicited
+            base — same gate + shared wording as OptionCards' caveat
+            (GOAL_FIT_BASIS_CAVEAT_COPY), rendered adjacent to the number it
+            qualifies, never separately, never invented. */}
+        {displayMetadata.isResultsMode &&
+          displayMetadata.achievementProbability !== null &&
+          displayMetadata.achievementProbabilityIsModelledBasis === true && (
+            <p
+              className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
+              data-testid="goal-fit-basis-caveat-node"
+            >
+              {GOAL_FIT_BASIS_CAVEAT_COPY}
+            </p>
+          )}
 
         {/* Actionable guidance for low probability */}
         {isPostAnalysis && displayMetadata.achievementProbability !== null && displayMetadata.achievementProbability < 0.10 && (

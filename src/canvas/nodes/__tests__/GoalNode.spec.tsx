@@ -125,6 +125,48 @@ describe('GoalNode', () => {
     expect(screen.getByText(/73.*% chance of reaching target/)).toBeDefined()
   })
 
+  // Display-honesty (ROADMAP 1.6b follow-up, claim-integrity): modelled-basis
+  // caveat, same gate/wording as OptionCards' goal_fit_basis caveat.
+  it('renders the modelled-basis caveat adjacent to the number when flagged', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: 0.73,
+      achievementProbabilityIsModelledBasis: true,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    renderGoal()
+    expect(screen.getByTestId('goal-fit-basis-caveat-node')).toHaveTextContent(
+      "Modelled from the target's projected outcome distribution, not a directly-set starting value.",
+    )
+  })
+
+  it('renders no caveat when the flag is absent (honest default)', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: 0.73,
+      achievementProbabilityIsModelledBasis: false,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    renderGoal()
+    expect(screen.queryByTestId('goal-fit-basis-caveat-node')).toBeNull()
+  })
+
   // T10: Stability bar
   it('shows stability bar with percentage from report robustness', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
