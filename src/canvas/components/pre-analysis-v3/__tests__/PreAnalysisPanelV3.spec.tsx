@@ -76,6 +76,7 @@ function seedGraph(opts: { successSet?: boolean; reviewedAll?: boolean } = {}) {
     draftCoaching: null,
     currentBriefText: null,
     goalThreshold: null,
+    goalConstraints: null,
   })
 }
 
@@ -225,6 +226,29 @@ describe('single source of truth — one success commit updates everything', () 
     renderPanel()
     expect(screen.getByLabelText('Success measure')).toHaveValue('20%')
     expect(screen.getByTestId('pre-analysis-v3-hero')).toHaveTextContent('Olumi estimate')
+  })
+
+  it('an explicit-provenance stored goal constraint relabels the chip user-set (lane 35 fix 2)', () => {
+    // The user STATED the target in their brief: CEE stored the goal
+    // constraint with provenance 'explicit' and derived goal_threshold_raw
+    // from it. "Olumi estimate" would misattribute the user's own number.
+    seedGraph({ successSet: true })
+    useCanvasStore.setState({
+      goalConstraints: [
+        {
+          id: 'c1',
+          label: 'Delivery output up 20%',
+          operator: '>=',
+          value: 20,
+          provenance: 'explicit',
+        } as never,
+      ],
+    })
+    renderPanel()
+    expect(screen.getByLabelText('Success measure')).toHaveValue('20%')
+    const hero = screen.getByTestId('pre-analysis-v3-hero')
+    expect(hero).toHaveTextContent('Your target')
+    expect(hero).not.toHaveTextContent('Olumi estimate')
   })
 })
 
