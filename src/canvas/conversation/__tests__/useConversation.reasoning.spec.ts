@@ -56,6 +56,19 @@ vi.mock('../../../v5/v5Adapter', () => ({
   getV5Endpoint: () => 'https://cee.test/orchestrate/v2/turn',
 }))
 
+// Force the V5-eligibility gate on, independent of VITE_ENABLE_V5_ORCHESTRATOR.
+// sendMessage's V5 routing (useConversation.ts) reads
+// import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR directly and passes it through
+// isV5Eligible — Vite's loadEnv pulls that var in from the developer's
+// untracked .env.local, so this suite silently depended on a machine-local
+// file (passes when .env.local sets VITE_ENABLE_V5_ORCHESTRATOR=true, fails
+// on a clean checkout where the flag is undefined and sendMessage takes the
+// V4 path instead, so mockCallV5Turn is never invoked). Mocking the gate
+// itself makes the suite self-contained.
+vi.mock('../../../v5/eligibility', () => ({
+  isV5Eligible: () => ({ eligible: true as const }),
+}))
+
 const mockGetUserId = vi.fn<[], Promise<string | null>>()
 vi.mock('../../../lib/supabase', () => ({
   getUserId: (...args: unknown[]) => mockGetUserId(...(args as [])),
