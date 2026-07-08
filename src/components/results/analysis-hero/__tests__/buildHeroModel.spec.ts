@@ -84,13 +84,15 @@ describe('buildHeroModel — boundary values', () => {
 })
 
 describe('buildHeroModel — leaders and headline', () => {
-  it('headline leader is the Results Panel recommended option, not a goal argmax', () => {
-    // Option A gets the HIGHER goalProbability, but B stays recommended:
-    // the headline must follow B (reconciles with the panels below).
+  it('goal-fit crown follows the goal argmax even when it diverges from the recommendation (UI-SEM-072)', () => {
+    // Option A gets the HIGHER goalProbability while B stays recommended:
+    // the goal-fit claim describes the GOAL view, so it must crown A — the
+    // recommendation must never be re-crowned onto a view it does not lead
+    // (lane 35; live staging crowned a 4% fit over 7%/6%).
     const a = makeOption({ ...OPTION_A, goalProbability: 0.9 })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, OPTION_B] })))
-    expect(m.headline).toContain('Upskill the team')
-    expect(m.leaders.goal).toBe('opt_b')
+    expect(m.headline).toBe('Two developers best fits your goal.')
+    expect(m.leaders.goal).toBe('opt_a')
   })
 
   it('outcome leader is the highest existing centre, independent of the recommendation', () => {
@@ -171,14 +173,16 @@ describe('buildHeroModel — leaders and headline', () => {
   })
 
   it('never headlines an outcome claim when the outcome lens is hidden (no recommended option)', () => {
-    // Ghost recommendation + goal values + centres WITHOUT ranges: only the
-    // goal lens renders, so the "highest expected outcome" headline would
-    // assert a comparison the chart cannot show (an outcome leader exists
-    // via the centres) — it must fall through to the neutral no-leader
-    // headline, mirroring the subline's outcomeAvailable gate.
+    // Ghost recommendation + UNIFORM goal values (no goal crown — UI-SEM-072
+    // ties crown nobody) + centres WITHOUT ranges: only the goal lens
+    // renders, so the "highest expected outcome" headline would assert a
+    // comparison the chart cannot show (an outcome leader exists via the
+    // centres) — it must fall through to the neutral no-leader headline,
+    // mirroring the subline's outcomeAvailable gate.
     const strip = (o: ReturnType<typeof makeOption>) =>
       makeOption({
         ...o,
+        goalProbability: 0.4,
         outcome: { mean: o.outcome.mean, p10: null, p50: null, p90: null },
         p10: null,
         p50: null,
@@ -241,7 +245,12 @@ describe('buildHeroModel — leaders and headline', () => {
     expect(m.subline).toBe('Upskill the team also has the strongest expected outcome.')
   })
 
-  it('recommended id missing from analysed rows claims no leader (recovered-session guard)', () => {
+  it('recommended id missing from analysed rows still crowns the goal argmax (recovered-session guard)', () => {
+    // The recovered-session guard blocks ANALYSIS-leader claims for a ghost
+    // id — but the goal-fit crown (UI-SEM-072) is grounded in the analysed
+    // rows themselves, not the recommendation, so it survives: B holds the
+    // unique goal maximum and is crowned, while the divergence subline still
+    // names the outcome leader (A).
     const m = chart(
       buildHeroModel(
         makeHeroData({
@@ -251,9 +260,28 @@ describe('buildHeroModel — leaders and headline', () => {
         }),
       ),
     )
+    expect(m.leaders.goal).toBe('opt_b')
+    expect(m.headline).toBe('Upskill the team best fits your goal.')
+    expect(m.subline).toBe('Two developers has the highest expected outcome.')
+  })
+
+  it('recommended id missing from analysed rows claims no analysis leader when no goal crown exists', () => {
+    // Same guard with UNIFORM fits (no goal crown): no leader is claimable
+    // at all, so the headline states the outcome fact itself and the
+    // subline stays null (it would only repeat it).
+    const a = makeOption({ ...OPTION_A, goalProbability: 0.4 })
+    const b = makeOption({ ...OPTION_B, goalProbability: 0.4 })
+    const m = chart(
+      buildHeroModel(
+        makeHeroData({
+          options: [a, b],
+          recommendation: {
+            recommendedOption: makeOption({ id: 'canvas_ghost', label: 'Ghost' }),
+          },
+        }),
+      ),
+    )
     expect(m.leaders.goal).toBeNull()
-    // No recommended option among the rows: the headline states the outcome
-    // fact itself, and the subline stays null (it would only repeat it).
     expect(m.headline).toBe('Two developers has the highest expected outcome.')
     expect(m.subline).toBeNull()
   })
@@ -888,5 +916,93 @@ describe('buildHeroModel — detail lines and footer (sourced or omitted)', () =
   it('omits main reason instead of interpolating a glossary-tripping label', () => {
     const m = chart(buildHeroModel(makeHeroData({ topDriverLabel: 'edge weight graph' })))
     expect(m.mainReason).toBeNull()
+  })
+})
+
+describe('buildHeroModel — goal-fit crown follows the goal argmax (UI-SEM-072)', () => {
+  // Live staging evidence (acceptance-evidence/goal-fit/6b-browser, 2026-07-08):
+  // the WIN-probability leader carried the LOWEST goal fit (4% vs 7%/6%) yet was
+  // crowned "best fits your goal" + "(Leads on this view)" on the Goal fit lens.
+  // The crown must follow the highest goalProbability (= the collapsed
+  // probability_of_joint_goal when constraints exist) — never the recommendation
+  // re-crowned onto a view it does not lead.
+  const relocate = makeOption({
+    id: 'opt_relocate_manchester',
+    label: 'Relocate to Manchester',
+    expected: 88,
+    outcome: { mean: 88, p10: 70, p50: 87, p90: 99 },
+    winProbability: 0.52,
+    isRecommended: true,
+    goalProbability: 0.043,
+  })
+  const statusQuo = makeOption({
+    id: 'opt_status_quo',
+    label: 'Stay in London',
+    expected: 62,
+    outcome: { mean: 62, p10: 50, p50: 61, p90: 74 },
+    winProbability: 0.26,
+    goalProbability: 0.07375,
+  })
+  const hybrid = makeOption({
+    id: 'opt_hybrid',
+    label: 'Hybrid hub',
+    expected: 70,
+    outcome: { mean: 70, p10: 55, p50: 69, p90: 85 },
+    winProbability: 0.22,
+    goalProbability: 0.05875,
+  })
+
+  it('crowns the max goal probability, never the win-probability leader (live 4/7/6 shape)', () => {
+    const m = chart(buildHeroModel(makeHeroData({ options: [relocate, statusQuo, hybrid] })))
+    expect(m.leaders.goal).toBe('opt_status_quo')
+    expect(m.headline).toBe('Stay in London best fits your goal.')
+  })
+
+  it('states the tension against the crowned row, not the recommended option', () => {
+    // Crowned Status Quo (7%) is not the outcome leader (Relocate is): the
+    // persistent divergence subline names the outcome leader.
+    const m = chart(buildHeroModel(makeHeroData({ options: [relocate, statusQuo, hybrid] })))
+    expect(m.subline).toBe('Relocate to Manchester has the highest expected outcome.')
+  })
+
+  it('uniform fits crown nobody (no crown rather than a wrong crown)', () => {
+    const a = makeOption({ ...OPTION_A, goalProbability: 0.34 })
+    const b = makeOption({ ...OPTION_B, goalProbability: 0.34 })
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    expect(m.leaders.goal).toBeNull()
+    expect(m.headline).not.toContain('best fits your goal')
+  })
+
+  it('a tie at the max crowns nobody even when other fits differ', () => {
+    const a = makeOption({ ...OPTION_A, goalProbability: 0.4 })
+    const b = makeOption({ ...OPTION_B, goalProbability: 0.4 })
+    const c = makeOption({
+      id: 'opt_c',
+      label: 'Option C',
+      expected: 50,
+      outcome: { mean: 50, p10: 40, p50: 50, p90: 60 },
+      winProbability: 0.1,
+      goalProbability: 0.2,
+    })
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, b, c] })))
+    expect(m.leaders.goal).toBeNull()
+    expect(m.headline).not.toContain('best fits your goal')
+  })
+
+  it('partial fit coverage crowns nobody (a max over unmeasured rivals is not "best")', () => {
+    const a = makeOption({ ...OPTION_A, goalProbability: 0.34 })
+    const b = makeOption({ ...OPTION_B, goalProbability: undefined })
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    expect(m.leaders.goal).toBeNull()
+    expect(m.headline).not.toContain('best fits your goal')
+  })
+
+  it('a unique max still gets no crown below the sub-1% floor', () => {
+    const a = makeOption({ ...OPTION_A, goalProbability: 0.004 })
+    const b = makeOption({ ...OPTION_B, goalProbability: 0.002 })
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    // All rows below the floor: the no-option-on-track honesty takes over.
+    expect(m.leaders.goal).toBeNull()
+    expect(m.headline).toBe('No option is currently on track to reach your goal.')
   })
 })

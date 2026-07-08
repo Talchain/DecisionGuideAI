@@ -13,11 +13,17 @@
  *     never displayed as data, never described semantically, and never fed
  *     back into selection logic.
  *
- * Leader rules (review-locked):
- *   - Headline leader = `recommendation.recommendedOption` (the Results
- *     Panel's own leader) — never an independent argmax of goalProbability,
- *     so the hero cannot disagree with the panels below. The goal-fit lens
- *     highlight follows the same leader.
+ * Leader rules (review-locked; goal-fit crown revised by lane 35):
+ *   - Goal-fit crown (the "best fits your goal" headline + goal-lens
+ *     highlight) = the goalProbability ARGMAX (UI-SEM-072) — the claim
+ *     describes the GOAL view, so it must follow the view's own maximum,
+ *     never the recommendation re-crowned onto a view it does not lead
+ *     (live staging: a 4% fit was crowned over 7%/6%). Withheld entirely
+ *     (no crown rather than a wrong crown) when fits are missing on any
+ *     row, tied at the max, or below the shared sub-1% floor.
+ *   - No-goal-basis headline leader = `recommendation.recommendedOption`
+ *     (the Results Panel's own leader) — never an independent argmax of
+ *     winProbability, so the hero cannot disagree with the panels below.
  *   - Outcome leader = highest existing outcome centre (expected ?? mean ??
  *     p50), a genuinely distinct question. Ties break deterministically to
  *     the earliest row in the shared display order (sortOptionsForDisplay).
@@ -471,23 +477,44 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     (r) => r.goal.value != null && r.goal.value < SUB_ONE_PERCENT_FLOOR,
   )
 
-  // A goal-fit claim ("best fits your goal") is only honest when the claimed
-  // option ITSELF carries a goal probability AT OR ABOVE the same sub-1%
-  // floor — a recommended option whose goal readout would be "—" or "< 1%"
-  // must not be headlined or highlighted as the goal-fit leader while other
-  // rows show real figures. Below-floor leaders fall through to the
-  // analysis-leader wording instead. (The >= floor check also makes this
-  // null whenever allGoalBelowFloor is true — headlineRow is one of rows.)
-  // (hasUserTarget is implied — a null target nulls every row goal value
-  // above (UI-SEM-071) — but stated explicitly so the claim gate cannot be
-  // silently re-opened by a change to the row mapping.)
-  const goalLeaderRow =
-    hasUserTarget &&
-    headlineRow &&
-    headlineRow.goal.value != null &&
-    headlineRow.goal.value >= SUB_ONE_PERCENT_FLOOR
-      ? headlineRow
-      : null
+  // UI-SEM-072: goal-fit crown = the goalProbability ARGMAX, honestly gated.
+  // The "best fits your goal" headline and the goal-lens "(Leads on this
+  // view)" ring describe the GOAL view, so they must crown the row with the
+  // HIGHEST goal probability — never the recommendation/win-probability
+  // leader re-crowned onto a view it does not lead (live staging evidence:
+  // a 4% fit crowned over 7%/6% — acceptance-evidence/goal-fit/6b-browser).
+  // SELECTION of existing producer values only; the crown is withheld (null
+  // — no crown rather than a wrong crown) unless ALL of:
+  //   - a USER target exists (UI-SEM-071 nulls every goal value without
+  //     one, but the gate is stated explicitly so it cannot be silently
+  //     re-opened by a change to the row mapping);
+  //   - EVERY row carries its own goal probability (a max over unmeasured
+  //     rivals cannot honestly claim "best");
+  //   - the max is UNIQUELY held (uniform or tied-at-the-top fits identify
+  //     no single best option — crowning either would be arbitrary); and
+  //   - the max clears the shared sub-1% floor (UI-SEM-057 — also null
+  //     whenever allGoalBelowFloor is true, so the no-option-on-track
+  //     headline keeps precedence).
+  // With no crown the headline falls through to the existing honest
+  // branches (banded analysis-leader claim) and the goal lens shows no ring.
+  let goalLeaderRow: HeroRowVM | null = null
+  if (hasUserTarget && rows.every((r) => r.goal.value != null)) {
+    let best: HeroRowVM | null = null
+    let bestValue = -Infinity
+    let tiedAtMax = false
+    for (const r of rows) {
+      const v = r.goal.value as number
+      if (v > bestValue) {
+        bestValue = v
+        best = r
+        tiedAtMax = false
+      } else if (v === bestValue) {
+        tiedAtMax = true
+      }
+    }
+    goalLeaderRow =
+      best != null && !tiedAtMax && bestValue >= SUB_ONE_PERCENT_FLOOR ? best : null
+  }
 
   const safeLabel = (row: HeroRowVM) =>
     safeInterpolatedLabel(row.label, HERO_COPY.labelFallback)
@@ -550,6 +577,12 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     // the companion line points at the comparison without risking a name.
     subline = HERO_COPY.subline.compareTop
   } else if (rows.length > 1 && outcomeAvailable && outcomeLeaderRow) {
+    // The row the headline actually names: the goal-fit crown when one
+    // exists (UI-SEM-072 — may differ from the recommendation), else the
+    // analysis leader. The tension/aligned subline must describe the
+    // headlined row, or it would state a divergence about an option the
+    // headline never mentioned.
+    const claimedRow = goalLeaderRow ?? headlineRow
     if (topOutcomesReadoutTied) {
       // UI-SEM-070: the top-two options render the SAME readout, so no outcome
       // winner is claimable in ANY branch — no-option-on-track, aligned or
@@ -559,15 +592,16 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     } else if (allGoalBelowFloor) {
       // No leader was claimed; the outcome fact is the one honest pointer.
       subline = HERO_COPY.subline.highestOutcome(safeLabel(outcomeLeaderRow))
-    } else if (headlineRow) {
+    } else if (claimedRow) {
       // Aligned case per band (producer band or UI-SEM-060 fallback —
       // whichever sourced leaderBand above): state B names the runner-up as
       // close ONLY when the expected-outcome gap is genuinely small (never
       // from range overlap); state A states the outcome fact plainly.
       // goalLeaderRow-headlined runs keep the plain aligned/divergence pair
       // — the goal claim is not an outcome claim. Diverged leaders keep the
-      // persistent divergence line in every band.
-      const alignedLeaders = headlineRow.id === outcomeLeaderRow.id
+      // persistent divergence line in every band. (The banded branches only
+      // fire on bandedNoGoalClaim, which implies claimedRow === headlineRow.)
+      const alignedLeaders = claimedRow.id === outcomeLeaderRow.id
       if (!alignedLeaders) {
         subline = HERO_COPY.subline.highestOutcome(safeLabel(outcomeLeaderRow))
       } else if (
@@ -578,9 +612,9 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
       ) {
         subline = HERO_COPY.subline.closeOnOutcome(safeLabel(outcomeRunnerUpRow))
       } else if (bandedNoGoalClaim && leaderBand === 'strong') {
-        subline = HERO_COPY.subline.highestOutcome(safeLabel(headlineRow))
+        subline = HERO_COPY.subline.highestOutcome(safeLabel(claimedRow))
       } else {
-        subline = HERO_COPY.subline.aligned(safeLabel(headlineRow))
+        subline = HERO_COPY.subline.aligned(safeLabel(claimedRow))
       }
       // State-A overlap advisory: overlap is disclosed as uncertainty about
       // the RANGES — appended, never a downgrade of the leader claim.
@@ -658,9 +692,10 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     hasConstraints,
     rows,
     leaders: {
-      // Goal-fit highlight follows the headline (Results Panel) leader —
-      // never an independent argmax — and only when that option carries its
-      // own goal probability. Null when no leader is claimable.
+      // Goal-fit highlight = the goalProbability argmax (UI-SEM-072), the
+      // same row the goal-fit headline crowns — never the recommendation
+      // re-crowned onto this view. Null when no crown is honest (missing
+      // fits, tie at the max, sub-1% floor, no user target).
       goal: goalLeaderRow?.id ?? null,
       outcome: outcomeLeaderId,
       // Stability / What-changed carry no live data (producer gaps 211/212)
