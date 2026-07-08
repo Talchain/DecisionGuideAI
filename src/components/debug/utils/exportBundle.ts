@@ -35,6 +35,9 @@ import { getBufferedLogs, type BufferedLog } from '../../../utils/debugLogBuffer
 import { DEBUG_LLM_RAW_MAX_CHARS } from '../../../utils/payloadRedaction'
 import { getUserActions } from '../../../lib/debug-state'
 import type { PayloadInspectionReason } from '../../../lib/payload-trace-store'
+// ROADMAP 1.31 (Brief I): most-recent-N V5 CEE turn capture, INCLUDING
+// LLM-authored conversation turns.
+import type { RecentConversationTurnsResult } from '../../../lib/recentConversationTurns'
 // Round-5 review (P1): use the shared V5 endpoint helper for the
 // service-metadata classification too, so the bundle can't
 // reintroduce substring false positives (e.g. `/turning` or
@@ -1774,6 +1777,17 @@ interface DebugBundle {
   }
 
   /**
+   * ROADMAP 1.31 (Brief I, confirmed 3/3 bundles): most-recent V5 CEE
+   * turns of ANY kind (chat, clarify, draft, chip) — INCLUDING
+   * LLM-authored conversation turns that the single-turn
+   * analysis-producing selector (`payloads.cee_request`/`cee_response`,
+   * unchanged) never surfaces. Precondition for manual acceptance runs
+   * to evidence LLM behaviour (chronicle Gate-0). Defaults to an empty
+   * result when the exporting `DebugData` predates this field.
+   */
+  recent_conversation_turns: RecentConversationTurnsResult
+
+  /**
    * Round-8 diagnostic: PLoT-side selection detail. Mirrors
    * `cee_capture_selection` for the PLoT v1 engine and V2 paths.
    *
@@ -3137,6 +3151,16 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
       user_agent: navigator.userAgent,
     },
     builds: data.builds,
+    // ROADMAP 1.31 (Brief I): defaults to an empty result for DebugData
+    // fixtures that predate this field (same optional-on-input,
+    // required-on-output pattern as `payload_trace_store_summary`).
+    recent_conversation_turns: data.recent_conversation_turns ?? {
+      turns: [],
+      total_available: 0,
+      truncated: false,
+      captured_count: 0,
+      llm_authored_count: 0,
+    },
     payloads: {
       // Fall back to downstream CEE calls (extracted from PLoT response) when
       // CEE wasn't called directly (orchestrator flow nests CEE inside PLoT)
