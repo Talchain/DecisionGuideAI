@@ -54,9 +54,24 @@ Consumers (post-analysis footer, results checks glyph, hero V17 state/result lin
 render the producer verdict + reason verbatim; the hardcoded "Robustness unknown"
 remains ONLY when the field is absent (older PLoT builds).
 
-## Verification
+## Verification (what actually ran)
 
-- RED-first specs per fix (see PR body for the exact RED→GREEN evidence).
-- Gates: `pnpm run typecheck` (tsconfig.ci.json) + targeted vitest on touched files
-  only (full local suite OOMs by policy; "Staging Tests" CI is chronically red
-  pre-existing — vitest OOM truncation).
+- **RED-first, all three fixes:**
+  - Fix 1: new UI-SEM-072 describe block in `buildHeroModel.spec.ts` reproduced the
+    live 4/7/6 shape — 4 tests failed pre-fix, green post-fix. Three review-locked
+    tests asserting the old recommendation-crown were updated with inverted
+    expectations (documented in the diff).
+  - Fix 2: explicit-provenance fixture failed pre-fix at the selector level
+    (`computeSuccessState.spec.ts`, 2 RED) and the rendered panel level
+    (`PreAnalysisPanelV3.spec.tsx`, 1 RED).
+  - Fix 3: `useResultsSectionData.robustnessVerdict.spec.ts` failed 4/6 pre-fix
+    (raw + mapped verbatim consumption, not_assessed carry-through).
+- **Gates:** `pnpm run typecheck` (tsc -p tsconfig.ci.json) clean; `pnpm run lint`
+  0 errors (1086 pre-existing warnings); targeted vitest sweep over every touched
+  area: **1303 passed / 4 failed — all 4 verified PRE-EXISTING at base**
+  (`git stash` → same failures at `eeea43d2`): `DecisionConfidencePanel.extraction`
+  ×2 (snapshot drift: "recommendation could change"→"result could change" copy +
+  icon-group wrapper div) and `bodyLabelSafety` ×2 (same copy drift).
+  `OutputsDock.analysis-run.spec.tsx` fails 8/8 at base too (env-dependent).
+- Full local suite NOT run (OOMs by policy); "Staging Tests" CI is chronically red
+  pre-existing (vitest OOM truncation) — disclosed, not chased.
