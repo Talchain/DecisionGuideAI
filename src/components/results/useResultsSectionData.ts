@@ -1257,9 +1257,27 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         ? prob.goal_probability
         : null
       const hasConstraints = prob.constraint_analysis?.constraints?.length > 0
+      // Mirrors the goalProbability fallback branches directly below (rather
+      // than comparing resulting numbers, which could false-match on a
+      // coincidental equal value) so we know precisely WHEN the displayed
+      // number is the joint-goal figure the goal_fit_basis caveat qualifies.
+      const goalProbabilityIsJoint = hasConstraints
+        ? jointGoalProb != null
+        : unconstrained == null && jointGoalProb != null
       const goalProbability = hasConstraints && jointGoalProb != null
         ? jointGoalProb
         : (unconstrained ?? jointGoalProb)
+      // Display-honesty (ROADMAP 1.6b, doctrine B / PLoT #204): the
+      // provenance caveat renders ONLY when the number just shown is the
+      // joint-goal figure AND the producer marked it as scored from a
+      // modelled outcome distribution — never inferred, never applied to
+      // the unconstrained probability_of_goal number.
+      const goalFitBasisScoredFrom =
+        typeof (prob as any).goal_fit_basis?.scored_from === 'string'
+          ? ((prob as any).goal_fit_basis.scored_from as string)
+          : null
+      const goalFitIsModelledBasis =
+        goalProbabilityIsJoint && goalFitBasisScoredFrom === 'modelled_outcome_distribution'
 
       // Display-honesty: per-option valid sample count for resolution-aware
       // probability formatting. Fallback chain prefers per-option signal,
@@ -1296,6 +1314,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         winProbability: prob.win_probability,
         nValidSamples,
         goalProbability,
+        goalFitIsModelledBasis,
         // Multi-constraint analysis (from ISL when goal_constraints were provided)
         constraintAnalysis: prob.constraint_analysis,
       }

@@ -1012,3 +1012,142 @@ describe('mapV5AnalysisToReport — deterministic hash + minimal envelope', () =
     expect(report.meta.seed).toBe(42)
   })
 })
+
+// ROADMAP 1.6b (claim-integrity, shared-seam UI lane): display_verdict,
+// display_verdict_reason, confidence_tier, and goal_fit_basis are all
+// ON-WIRE on Seam A (CEE compose.ts P0B_SAFE_TRANSPORT_ENRICHMENT_KEEP
+// carries `robustness` and `confidence_tier` whole) but were previously
+// never read by this mapper — the live conversational path showed
+// "Robustness unknown" / the legacy confidence cascade / no goal-fit
+// caveat regardless of what the producer sent. UI-BOUNDARY-DATA-INVENTORY.md
+// §3.4/§3.5/§3.2/§4.
+describe('mapV5AnalysisToReport — display_verdict / confidence_tier / goal_fit_basis (ROADMAP 1.6b)', () => {
+  it('a live-shaped fixture carrying all four fields survives the mapper verbatim', () => {
+    const block = baseBlock({
+      win_probabilities: { opt_a: 0.6, opt_b: 0.4 },
+      enrichment: {
+        confidence_tier: 'fair',
+        robustness: {
+          fragile_edges: [],
+          robust_edges: [],
+          is_robust: true,
+          level: 'high',
+          display_verdict: 'robust',
+          display_verdict_reason: 'No edge flips the winner within the tested range.',
+        },
+        option_comparison: [
+          {
+            option_id: 'opt_a',
+            win_probability: 0.6,
+            probability_of_joint_goal: 0.42,
+            goal_fit_basis: {
+              scored_from: 'modelled_outcome_distribution',
+              node_ids: ['node_budget'],
+            },
+          },
+          { option_id: 'opt_b', win_probability: 0.4 },
+        ],
+      },
+    })
+
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
+      confidence_tier?: string
+      robustness?: { display_verdict?: string; display_verdict_reason?: string }
+      option_probabilities?: Record<
+        string,
+        { goal_fit_basis?: { scored_from?: string; node_ids?: string[] } }
+      >
+    }
+
+    expect(report.confidence_tier).toBe('fair')
+    expect(report.robustness?.display_verdict).toBe('robust')
+    expect(report.robustness?.display_verdict_reason).toBe(
+      'No edge flips the winner within the tested range.',
+    )
+    expect(report.option_probabilities?.opt_a?.goal_fit_basis).toEqual({
+      scored_from: 'modelled_outcome_distribution',
+      node_ids: ['node_budget'],
+    })
+    // The unqualified option must NOT acquire a fabricated caveat.
+    expect(report.option_probabilities?.opt_b?.goal_fit_basis).toBeUndefined()
+  })
+
+  it('a fixture WITHOUT the four fields produces honest absence — no invention, no crash', () => {
+    const block = baseBlock({
+      win_probabilities: { opt_a: 1 },
+      enrichment: {
+        robustness: { fragile_edges: [], robust_edges: [] },
+        option_comparison: [{ option_id: 'opt_a', win_probability: 1 }],
+      },
+    })
+
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
+      confidence_tier?: string
+      robustness?: { display_verdict?: string; display_verdict_reason?: string }
+      option_probabilities?: Record<string, { goal_fit_basis?: unknown }>
+    }
+
+    expect(report.confidence_tier).toBeUndefined()
+    expect(report.robustness?.display_verdict).toBeUndefined()
+    expect(report.robustness?.display_verdict_reason).toBeUndefined()
+    expect(report.option_probabilities?.opt_a?.goal_fit_basis).toBeUndefined()
+  })
+
+  it('non-string display_verdict / confidence_tier values are dropped, not coerced', () => {
+    const block = baseBlock({
+      enrichment: {
+        confidence_tier: 42,
+        robustness: { fragile_edges: [], robust_edges: [], display_verdict: null },
+      },
+    })
+
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
+      confidence_tier?: string
+      robustness?: { display_verdict?: string }
+    }
+
+    expect(report.confidence_tier).toBeUndefined()
+    expect(report.robustness?.display_verdict).toBeUndefined()
+  })
+
+  it('goal_fit_basis with only scored_from (no node_ids) is preserved partially, not dropped wholesale', () => {
+    const block = baseBlock({
+      enrichment: {
+        option_comparison: [
+          {
+            option_id: 'opt_a',
+            probability_of_joint_goal: 0.1,
+            goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
+          },
+        ],
+      },
+    })
+
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
+      option_probabilities?: Record<
+        string,
+        { goal_fit_basis?: { scored_from?: string; node_ids?: string[] } }
+      >
+    }
+
+    expect(report.option_probabilities?.opt_a?.goal_fit_basis).toEqual({
+      scored_from: 'modelled_outcome_distribution',
+    })
+  })
+
+  it('constraints_status: forward-compatible passthrough when present, absent by default (NOT on CEE keep-list today)', () => {
+    // Documents the residual: CEE's compose.ts P0B_SAFE_TRANSPORT_ENRICHMENT_KEEP
+    // does not include constraints_status, so a real Seam-A payload never
+    // carries it — this fixture simulates a FUTURE keep-list extension to
+    // prove the mapper is ready without overclaiming today's wire shape.
+    const withStatus = mapV5AnalysisToReport(
+      baseBlock({ enrichment: { constraints_status: 'unavailable' } }),
+    ) as ReturnType<typeof mapV5AnalysisToReport> & { constraints_status?: string }
+    expect(withStatus.constraints_status).toBe('unavailable')
+
+    const withoutStatus = mapV5AnalysisToReport(
+      baseBlock({ enrichment: { robustness: { fragile_edges: [], robust_edges: [] } } }),
+    ) as ReturnType<typeof mapV5AnalysisToReport> & { constraints_status?: string }
+    expect(withoutStatus.constraints_status).toBeUndefined()
+  })
+})

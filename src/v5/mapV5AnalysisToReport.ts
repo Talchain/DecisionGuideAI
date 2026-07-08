@@ -47,6 +47,29 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return v != null && typeof v === 'object' && !Array.isArray(v)
 }
 
+/**
+ * Normalise a raw `goal_fit_basis` entry (PLoT #204, doctrine B).
+ * `.passthrough()` on the schema side — only `scored_from` (open-vocab
+ * string) and `node_ids` (string array) are read; unknown extra keys are
+ * dropped rather than carried opaquely, matching this mapper's "narrowed,
+ * never opaque" convention for nested objects (see the option_comparison
+ * shape below). Returns undefined when neither field is present.
+ */
+function normaliseGoalFitBasis(
+  raw: { scored_from?: unknown; node_ids?: unknown } | undefined,
+): { scored_from?: string; node_ids?: string[] } | undefined {
+  if (!raw) return undefined
+  const scoredFrom = safeString(raw.scored_from)
+  const nodeIds = Array.isArray(raw.node_ids)
+    ? raw.node_ids.filter((v): v is string => typeof v === 'string')
+    : undefined
+  if (scoredFrom === undefined && nodeIds === undefined) return undefined
+  return {
+    ...(scoredFrom !== undefined ? { scored_from: scoredFrom } : {}),
+    ...(nodeIds !== undefined ? { node_ids: nodeIds } : {}),
+  }
+}
+
 // ─── Factor sensitivity normalisation ──────────────────────────────────
 
 interface NormalisedFactor {
@@ -219,6 +242,14 @@ interface RawOptionEnrichmentEntry {
   confidence_interval?: unknown
   expected_outcome?: unknown
   outcome?: { mean?: unknown; p10?: unknown; p50?: unknown; p90?: unknown }
+  /**
+   * Provenance caveat (PLoT #204, doctrine B): present when
+   * probability_of_joint_goal was scored from the constraint-target node's
+   * MODELLED forward-propagated outcome distribution rather than a
+   * directly-elicited base. `.passthrough()` on the schema side — carried
+   * verbatim, never derived. UI-BOUNDARY-DATA-INVENTORY.md §3.2/§5.
+   */
+  goal_fit_basis?: { scored_from?: unknown; node_ids?: unknown }
 }
 
 interface ResolvedOptionEntry {
@@ -328,6 +359,14 @@ export function mapV5AnalysisToReport(
       p50?: number | null
       p90?: number | null
     }
+    /**
+     * Provenance caveat for probability_of_joint_goal — see
+     * RawOptionEnrichmentEntry.goal_fit_basis above. Carried verbatim
+     * (scored_from is producer-owned open vocabulary; UI never rewrites
+     * it). Render sites MUST show this alongside the joint-goal number
+     * per the honesty rule in UI-BOUNDARY-DATA-INVENTORY.md §5.
+     */
+    goal_fit_basis?: { scored_from?: string; node_ids?: string[] }
   }
   const option_probabilities: Record<string, ResultsOptionProbability> = {}
 
@@ -389,6 +428,8 @@ export function mapV5AnalysisToReport(
     const p50 = safeFiniteNumber(outcome?.p50) ?? null
     const p90 = safeFiniteNumber(outcome?.p90) ?? ciHigh
 
+    const goalFitBasis = normaliseGoalFitBasis(enriched?.goal_fit_basis)
+
     option_probabilities[optionId] = {
       // No silent defaults — undefined when missing.
       ...(safeFiniteNumber(enriched?.probability_of_goal) !== undefined
@@ -401,6 +442,10 @@ export function mapV5AnalysisToReport(
             ),
           }
         : {}),
+      // Provenance caveat for probability_of_joint_goal — see
+      // normaliseGoalFitBasis. Carried alongside the number it qualifies;
+      // render sites must show both together (UI-BOUNDARY-DATA-INVENTORY §5).
+      ...(goalFitBasis !== undefined ? { goal_fit_basis: goalFitBasis } : {}),
       confidence: 0.5,
       ...(winProb !== undefined ? { win_probability: winProb } : {}),
       ...(expected !== undefined ? { expected } : {}),
@@ -457,6 +502,24 @@ export function mapV5AnalysisToReport(
         ...(Array.isArray(robustnessRaw.conditional_winners)
           ? { conditional_winners: robustnessRaw.conditional_winners }
           : {}),
+        // Display-honesty (ROADMAP 1.6b; producer PLoT #202): display-safe
+        // verdict + producer-owned reason, rendered VERBATIM. ON-WIRE on
+        // Seam A (CEE compose.ts keep-list carries `robustness` whole) but
+        // previously dropped here — the whole conversational path fell to
+        // "Robustness unknown". useResultsSectionData.ts already reads
+        // report.robustness.display_verdict as its Seam-B-absent fallback
+        // (rawRobustnessDisplayVerdict ?? robustness?.display_verdict), so
+        // populating this slot is sufficient — no render-site change needed.
+        ...(safeString(robustnessRaw.display_verdict) !== undefined
+          ? { display_verdict: safeString(robustnessRaw.display_verdict) }
+          : {}),
+        ...(safeString(robustnessRaw.display_verdict_reason) !== undefined
+          ? {
+              display_verdict_reason: safeString(
+                robustnessRaw.display_verdict_reason,
+              ),
+            }
+          : {}),
       }
     : undefined
 
@@ -479,6 +542,28 @@ export function mapV5AnalysisToReport(
   const inferenceWarnings = Array.isArray(enrichment?.inference_warnings)
     ? (enrichment!.inference_warnings as unknown[])
     : undefined
+
+  // Display-honesty (ROADMAP 1.6b; producer PLoT #202): top-level
+  // producer-classified confidence tier. ON-WIRE on Seam A (`confidence_tier`
+  // is one of the 11 keys in CEE's P0B_SAFE_TRANSPORT_ENRICHMENT_KEEP
+  // compose.ts keep-list) but previously never read here, so
+  // useResultsSectionData's getConfidenceTier(report?.confidence_tier, ...)
+  // always fell to the legacy readiness cascade on the conversational path.
+  // Carried verbatim; the consumer already gates to the closed
+  // strong/fair/needs_work union before trusting it.
+  const confidenceTier = safeString(enrichment?.confidence_tier)
+
+  // constraints_status (PLoT #205): per-run constraint-evaluation feature
+  // status. Read defensively for forward-compatibility, but AS OF THIS
+  // LANE it is NOT on the CEE→UI wire for Seam A — constraints_status is
+  // absent from CEE's compose.ts P0B_SAFE_TRANSPORT_ENRICHMENT_KEEP
+  // (verified against the 11-key list; only reaches the UI today via the
+  // Seam-B raw V2 response, see useConversation.ts:1925 which reads it for
+  // CEE-context building, not user display). This line is a no-op until a
+  // CEE lane adds constraints_status to the keep-list — tracked as a
+  // residual (UI-BOUNDARY-DATA-INVENTORY.md §4 item 5). Kept here so no
+  // further UI change is needed once that lands.
+  const constraintsStatus = safeString(enrichment?.constraints_status)
 
   // Deterministic response_hash when caller has none. Stable across identical
   // blocks so the store's hash-dedupe in resultsComplete works.
@@ -586,6 +671,8 @@ export function mapV5AnalysisToReport(
   if (robustness) widened.robustness = robustness
   if (topLevelFlipThresholds) widened.flip_thresholds = topLevelFlipThresholds
   if (topLevelEdgeEValues) widened.edge_e_values = topLevelEdgeEValues
+  if (confidenceTier !== undefined) widened.confidence_tier = confidenceTier
+  if (constraintsStatus !== undefined) widened.constraints_status = constraintsStatus
   if (inferenceWarnings) widened.inference_warnings = inferenceWarnings
   if (conditionalProbabilities !== undefined) {
     widened.conditional_probabilities = conditionalProbabilities
