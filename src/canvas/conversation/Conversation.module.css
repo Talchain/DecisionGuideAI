@@ -616,6 +616,33 @@
   border-radius: 2px;
 }
 
+/* ROADMAP 1.42 — Show-reasoning progressive disclosure (verbatim, labelled).
+   Muted, visually distinct from the answer bubble: NOT a coloured pill/card,
+   just a quieter panel bg with a border, clearly a different register from
+   the assistant's prose above it. */
+.reasoningPanel {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--bg-panel-hover, #FEF9F3);
+  border: 1px solid var(--border-default, #EEE6D8);
+  border-radius: 6px;
+}
+.reasoningPanelHeading {
+  font-size: 11px; /* typography.panelMeta */
+  font-weight: 600;
+  color: var(--text-light, #908D8D);
+  margin: 0 0 6px 0;
+  text-transform: none;
+}
+.reasoningPanelBody {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-body, #4A4642);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+
 /* ---------------------------------------------------------------------------
  * § 4c — FramingBlock
  * ---------------------------------------------------------------------------*/

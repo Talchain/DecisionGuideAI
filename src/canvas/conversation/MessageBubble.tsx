@@ -24,7 +24,7 @@ import { ChevronDown, ChevronUp, ListPlus, AlignLeft } from 'lucide-react'
 import { BaseRateChipRow } from './BaseRateChipRow'
 import { FeedbackRow } from './FeedbackRow'
 import { StalenessPill, type StalenessFreshness } from './StalenessPill'
-import { isOrchestratorRenderingV2Enabled, isDeterministicCeeEnabled, isAiPanelV2Enabled } from '../../flags'
+import { isOrchestratorRenderingV2Enabled, isDeterministicCeeEnabled, isAiPanelV2Enabled, isReasoningDisclosureEnabled } from '../../flags'
 import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { FALLBACK_TEXT } from './validateResponse'
@@ -192,6 +192,9 @@ export const MessageBubble = memo(function MessageBubble({
   const truncatedContent = canTruncate ? findNaturalTruncation(displayContent) : null
   const [expanded, setExpanded] = useState(false)
 
+  // ROADMAP 1.42: Show-reasoning progressive disclosure — collapsed by default.
+  const [reasoningExpanded, setReasoningExpanded] = useState(false)
+
   // Freshness pill: derive from the first graph_patch block whose
   // analysis_ready.freshness is 'stale' or 'unknown'. Fresh/none/absent → no pill.
   // User messages and the streaming-thinking placeholder bypass this branch.
@@ -273,6 +276,32 @@ export const MessageBubble = memo(function MessageBubble({
         >
           {expanded ? <><ChevronUp size={12} /> Show less</> : <><ChevronDown size={12} /> Show more</>}
         </button>
+      )}
+      {/* ROADMAP 1.42: Show-reasoning progressive disclosure — Paul ruled
+        * VERBATIM-with-label. Collapsed by default; renders nothing when
+        * reasoning is absent (sporadic CEE field) or the flag is off
+        * (defense in depth — useConversation also gates attachment). Plain
+        * text via a text node (no dangerouslySetInnerHTML, no markdown
+        * pipeline) so the panel can never execute injected markup. */}
+      {!isUser && message.reasoning && isReasoningDisclosureEnabled() && (
+        <>
+          <button
+            type="button"
+            className={styles.inlineDisclosureToggle}
+            onClick={() => setReasoningExpanded(v => !v)}
+            data-testid="message-show-reasoning"
+            aria-expanded={reasoningExpanded}
+            aria-label={reasoningExpanded ? 'Hide model reasoning' : 'Show model reasoning'}
+          >
+            {reasoningExpanded ? <><ChevronUp size={12} /> Hide reasoning</> : <><ChevronDown size={12} /> Show reasoning</>}
+          </button>
+          {reasoningExpanded && (
+            <div className={styles.reasoningPanel} data-testid="message-reasoning-panel">
+              <p className={styles.reasoningPanelHeading}>Model reasoning (verbatim)</p>
+              <p className={styles.reasoningPanelBody}>{message.reasoning}</p>
+            </div>
+          )}
+        </>
       )}
       {message.insights && message.insights.length > 0 && isDeterministicCeeEnabled() && (
         <InsightsStrip insights={message.insights} onSendMessage={onArtefactMessage} />

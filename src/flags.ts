@@ -392,6 +392,16 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_V5_CANONICAL_ANALYSIS',
     storageKey: 'feature.v5CanonicalAnalysis',
   },
+  // ROADMAP 1.42: Show-reasoning progressive disclosure — verbatim, labelled.
+  // When ON: assistant messages carrying a `_reasoning` string (CEE additive
+  // extension, sidecar-parsed by responseParser at schema pin 0.13.1) render a
+  // collapsed-by-default "Show reasoning" toggle. Verbatim plain text, never
+  // fed through the markdown/content pipeline. Off by default — sporadic CEE
+  // field, no contract guarantee yet.
+  reasoningDisclosure: {
+    envKey: 'VITE_FEATURE_REASONING_DISCLOSURE',
+    storageKey: 'feature.reasoningDisclosure',
+  },
 } as const
 
 // ============================================================================
@@ -462,6 +472,7 @@ const flags = {
   focusNowPanel: makeFlag(FLAGS_CONFIG.focusNowPanel),
   aiPanelV2: makeFlag(FLAGS_CONFIG.aiPanelV2),
   v5CanonicalAnalysis: makeFlag(FLAGS_CONFIG.v5CanonicalAnalysis),
+  reasoningDisclosure: makeFlag(FLAGS_CONFIG.reasoningDisclosure),
 }
 
 // Export with original naming convention for backward compatibility
@@ -530,6 +541,7 @@ export const isAiPanelV2Enabled = flags.aiPanelV2
 export const isV5CanonicalAnalysisEnabled = flags.v5CanonicalAnalysis
 export const diagnoseV5CanonicalAnalysis = () =>
   diagnoseFlagState(FLAGS_CONFIG.v5CanonicalAnalysis)
+export const isReasoningDisclosureEnabled = flags.reasoningDisclosure
 
 
 // ============================================================================
