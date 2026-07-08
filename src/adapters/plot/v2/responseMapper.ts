@@ -561,6 +561,12 @@ export function mapV2ResponseToReportV1(
         // Pass through new ISL fields when present (gated on field presence)
         ...(Array.isArray(robustnessRaw?.conditional_winners) ? { conditional_winners: robustnessRaw.conditional_winners } : {}),
         ...(Array.isArray(robustnessRaw?.inference_warnings) ? { inference_warnings: robustnessRaw.inference_warnings } : {}),
+        // Display-honesty (ROADMAP 1.6, PLoT #202): display-safe robustness
+        // verdict + producer reason pass through VERBATIM so saved/hydrated
+        // reports keep them — useResultsSectionData prefers the raw response
+        // and falls back to this mapped slot, then normalises fail-closed.
+        ...(typeof robustnessRaw?.display_verdict === 'string' ? { display_verdict: robustnessRaw.display_verdict } : {}),
+        ...(typeof robustnessRaw?.display_verdict_reason === 'string' ? { display_verdict_reason: robustnessRaw.display_verdict_reason } : {}),
       }
     })() : undefined,
     // P0 Fix: Pass through robustness_status for gating logic

@@ -40,6 +40,7 @@ import type {
   WinnerDeterminedBy,
   RobustnessLevel,
   RobustnessLabel,
+  RobustnessDisplayVerdict,
   ResultsReport,
   ResultsCanvasNodeData,
   ResultsCanvasEdgeData,
@@ -917,6 +918,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     rawMetaNSamples,
     rawHeadlineBanded,
     rawSensitivityReferenceOptionId,
+    rawRobustnessDisplayVerdict,
+    rawRobustnessDisplayVerdictReason,
   } = useCanvasStore(
     useShallow((s) => ({
       results: s.results,
@@ -970,6 +973,19 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // fresh-run fallback — same pattern as rawHeadlineBanded.
       rawSensitivityReferenceOptionId:
         s.rawV2Response?.sensitivity_reference_option_id ?? null,
+      // Display-honesty (lane 35 fix 3, ROADMAP 1.6; producer PLoT #202):
+      // display-safe robustness verdict + producer-owned reason. Extracted
+      // narrowly (never subscribe to the whole raw response); this raw slot
+      // is the fresh-run source, the mapped report is the saved/hydrated
+      // fallback below — same pattern as rawFlipThresholdsStatus. The
+      // fields are additive and untyped in the vendored @talchain/schemas
+      // 0.13.1 pin (0.14.0 types the envelope; the pin bump is a separate
+      // rollout step), so they are declared on the repo's own
+      // V2RobustnessActual wire type and normalised FAIL-CLOSED below.
+      rawRobustnessDisplayVerdict:
+        s.rawV2Response?.robustness?.display_verdict ?? null,
+      rawRobustnessDisplayVerdictReason:
+        s.rawV2Response?.robustness?.display_verdict_reason ?? null,
     }))
   )
 
@@ -1398,6 +1414,33 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Task 1.7: Get goal text from framing
     const goalText = currentScenarioFraming?.goal || undefined
 
+    // Display-safe robustness verdict consumption (lane 35 fix 3,
+    // ROADMAP 1.6; producer PLoT #202). Raw response first (fresh run),
+    // mapped report as the saved/hydrated fallback — same chain as
+    // flipThresholdsStatus. FAIL-CLOSED: only the four producer enum
+    // tokens populate the verdict; an absent field (older PLoT build) or
+    // an unrecognised token leaves it undefined so every surface keeps
+    // the honest "Robustness unknown" state. The reason is the
+    // producer's own display phrase, carried VERBATIM (never authored
+    // here) and never exposed without its verdict.
+    const rawDisplayVerdict =
+      rawRobustnessDisplayVerdict ?? robustness?.display_verdict
+    const robustnessVerdict: RobustnessDisplayVerdict | undefined =
+      rawDisplayVerdict === 'robust' ||
+      rawDisplayVerdict === 'moderate' ||
+      rawDisplayVerdict === 'fragile' ||
+      rawDisplayVerdict === 'not_assessed'
+        ? rawDisplayVerdict
+        : undefined
+    const rawDisplayVerdictReason =
+      rawRobustnessDisplayVerdictReason ?? robustness?.display_verdict_reason
+    const robustnessVerdictReason: string | undefined =
+      robustnessVerdict != null &&
+      typeof rawDisplayVerdictReason === 'string' &&
+      rawDisplayVerdictReason.trim() !== ''
+        ? rawDisplayVerdictReason
+        : undefined
+
     // C2: Defensive adaptor for flip_thresholds — PLoT hasn't confirmed final location.
     // Check mapped report paths first, then fall back to rawV2FlipThresholds (extracted
     // from raw V2 response in the store selector). Simplify once PLoT confirms location.
@@ -1441,13 +1484,17 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // DATA (PLoT report.robustness.level, or the UI-SEM-005 fallback) — kept for
       // qualified/detailed display, NOT for the binary glyph.
       robustnessLevel,
-      // Display-safe robustness verdict for the Robust/Sensitive glyph. PLoT
-      // `report.robustness.level` is deliberately NOT a display-safe verdict
-      // (PLoT-level semantics are not contractually safe to binarise), so it must
-      // not drive the glyph. No display-safe robustness field exists in the
-      // CEE/UI contract today → always undefined → glyph renders "Robustness
-      // unknown". See ROBUSTNESS-VERDICT-CONTRACT follow-up.
-      robustnessVerdict: undefined,
+      // Display-safe robustness verdict for the Robust/Sensitive glyph —
+      // the producer's OWN display_verdict (PLoT #202), normalised
+      // fail-closed above. PLoT `report.robustness.level` is deliberately
+      // NOT a display-safe verdict (PLoT-level semantics are not
+      // contractually safe to binarise), so it still must not drive the
+      // glyph; when display_verdict is absent (older PLoT builds) this is
+      // undefined and the glyph keeps "Robustness unknown".
+      // (ROBUSTNESS-VERDICT-CONTRACT — consumer landed lane 35 fix 3.)
+      robustnessVerdict,
+      // The producer's own reason phrase, rendered verbatim downstream.
+      robustnessVerdictReason,
       robustnessLabel,
       // Task 1.7: Goal text from framing
       goalText,
@@ -1592,7 +1639,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return hasWarningCritiques || hasFragileEdges
       })(),
     }
-  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded])
+  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)

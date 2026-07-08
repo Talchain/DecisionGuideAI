@@ -158,16 +158,17 @@ function buildResultLine(data: ResultsSectionDataReturn): string {
   const label = safeLabel(winner.label, 'The leading option')
   // Sensitivity caveat is gated on the display-safe robustness verdict ONLY —
   // never raw recommendation_stability (single-source rule, see
-  // ROBUSTNESS-VERDICT-CONTRACT). A known non-'high' verdict means the result
-  // is sensitive; with a concrete fragile edge also present we append the
-  // clarifying clause so the headline isn't read as unconditional. No
-  // display-safe verdict exists in the contract today → the verdict is
-  // undefined → the caveat never fires and the headline stays neutral
+  // ROBUSTNESS-VERDICT-CONTRACT). The verdict is the producer's own
+  // robustness.display_verdict (PLoT #202, consumed lane 35 fix 3).
+  // EXPLICIT sensitive allowlist: only the producer's 'moderate'/'fragile'
+  // verdicts carry a sensitivity claim — 'not_assessed' states that
+  // robustness was NOT computed, so deriving "sensitive to assumptions"
+  // from it would fabricate a claim; with the field absent (older PLoT
+  // builds) the caveat never fires and the headline stays neutral
   // ("…comes out ahead most often."), in lock-step with the certified
-  // "Robustness unknown" glyph rather than deriving a sensitivity claim from
-  // an uncertified stability number.
+  // "Robustness unknown" glyph.
   const verdict = data?.recommendation?.robustnessVerdict
-  const verdictSensitive = verdict != null && verdict !== 'high'
+  const verdictSensitive = verdict === 'moderate' || verdict === 'fragile'
   const hasFragile = !!(
     data?.confidence?.topFragileEdge ?? data?.confidence?.m1CoachingTopFragileEdge
   )

@@ -107,7 +107,7 @@ function makeData(opts: MakeOpts = {}): ResultsSectionDataReturn {
     // tests set it to simulate a future display-safe robustness contract.
     robustnessLevel: 'robustnessLevel' in opts ? opts.robustnessLevel : 'high',
     robustnessVerdict:
-      'robustnessVerdict' in opts ? opts.robustnessVerdict : 'high',
+      'robustnessVerdict' in opts ? opts.robustnessVerdict : 'robust',
     coachingReadiness: 'ready',
   } as DecisionResultData
 
@@ -273,7 +273,7 @@ describe('DecisionConfidencePanel — Brief 5.8B D2c T1 flip-risk + nudge + chec
     expect(screen.getByTestId('checks-addressed')).toHaveTextContent('1/1 addressed')
   })
 
-  it('flips Robust to "Sensitive" when the display-safe verdict is not high', () => {
+  it('flips Robust to "Sensitive" on a sensitive display-safe verdict', () => {
     // The glyph follows the display-safe robustnessVerdict, not a UI-local
     // recommendationStability threshold or the structured PLoT level.
     render(
@@ -302,11 +302,22 @@ describe('DecisionConfidencePanel — Brief 5.8B D2c T1 flip-risk + nudge + chec
 
   it('renders Robust (success) and Sensitive (danger) distinctly from unknown', () => {
     const { rerender } = render(
-      <DecisionConfidencePanel data={makeData({ robustnessVerdict: 'high' })} />,
+      <DecisionConfidencePanel data={makeData({ robustnessVerdict: 'robust' })} />,
     )
     expect(glyphIconClass('checks-robust')).toContain('text-success')
     rerender(<DecisionConfidencePanel data={makeData({ robustnessVerdict: 'moderate' })} />)
     expect(glyphIconClass('checks-robust')).toContain('text-danger')
+  })
+
+  it('renders "Robustness not assessed" as a NEUTRAL state for the producer\'s stated absence (never "Sensitive")', () => {
+    render(
+      <DecisionConfidencePanel
+        data={makeData({ robustnessVerdict: 'not_assessed' })}
+      />,
+    )
+    expect(screen.getByTestId('checks-robust')).toHaveTextContent('Robustness not assessed')
+    expect(glyphIconClass('checks-robust')).toContain('text-text-light')
+    expect(glyphIconClass('checks-robust')).not.toContain('text-danger')
   })
 
   it('ignores the structured PLoT/fallback robustnessLevel for the glyph (renders unknown)', () => {

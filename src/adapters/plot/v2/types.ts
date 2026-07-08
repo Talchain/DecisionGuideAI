@@ -327,6 +327,17 @@ export interface V2RobustnessActual {
    */
   near_tie?: Record<string, unknown>
   nearTie?: Record<string, unknown>
+  /**
+   * Display-safe robustness verdict + producer-owned reason (PLoT #202,
+   * ROADMAP 1.6). Additive wire fields; the vendored @talchain/schemas pin
+   * (0.13.1) predates them (0.14.0 types the enrichment envelope — the pin
+   * bump is a separate rollout step), so they are declared here on the
+   * repo's OWN V2 wire type — same tagged-passthrough convention as `level`
+   * / `label` above. Typed `string` (not the enum) at the trust boundary:
+   * useResultsSectionData normalises FAIL-CLOSED to the four known tokens.
+   */
+  display_verdict?: string
+  display_verdict_reason?: string
   /** Tipping-point analysis: how much each factor must change to flip the recommendation */
   flip_thresholds?: Array<{
     node_id?: string

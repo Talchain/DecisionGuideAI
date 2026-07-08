@@ -16,7 +16,7 @@ import type {
   EvidenceGapItem,
   OptionResult,
   FragileEdgeItem,
-  RobustnessLevel,
+  RobustnessDisplayVerdict,
 } from '../../types'
 
 function makeOption(id: string, label: string, winProb: number): OptionResult {
@@ -60,7 +60,7 @@ function makeData(overrides: {
    * either (ROBUSTNESS-VERDICT-CONTRACT). Undefined by default to mirror the
    * live contract (no display-safe verdict today).
    */
-  robustnessVerdict?: RobustnessLevel
+  robustnessVerdict?: RobustnessDisplayVerdict
 } = {}): ResultsSectionDataReturn {
   const winner = overrides.winnerLabel === null
     ? null
@@ -261,8 +261,8 @@ describe('buildAnalysisHeroViewModel', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         // Trust fix: the confident 'strong' posture now also requires the
-        // display-safe robustnessVerdict === 'high' (ROBUSTNESS-VERDICT-CONTRACT).
-        data: makeData({ stability: 0.9, robustnessVerdict: 'high' }),
+        // display-safe robustnessVerdict === 'robust' (ROBUSTNESS-VERDICT-CONTRACT).
+        data: makeData({ stability: 0.9, robustnessVerdict: 'robust' }),
         vm: makeVm({ decisionState: 'robust', evidenceLevel: 'good' }),
       })
       expect(vm.state).toBe('strong')
@@ -546,7 +546,7 @@ describe('buildAnalysisHeroViewModel', () => {
         ...STD_ARGS,
         data: makeData({
           stability: 0.9,
-          robustnessVerdict: 'high',
+          robustnessVerdict: 'robust',
           dqp: ['What evidence would change your view?'],
         }),
         vm: makeVm({ decisionState: 'robust', evidenceLevel: 'good' }),
@@ -675,18 +675,19 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.resultLine).toBe('Tech Lead comes out ahead most often.')
     })
 
-    it('result line appends the sensitivity caveat ONLY from a non-"high" display-safe verdict + a fragile edge', () => {
-      // Authorised path: a known non-'high' robustnessVerdict means the result
-      // is sensitive; with a concrete fragile edge to point at, the caveat
-      // fires. This is the single-source replacement for the old raw-stability
-      // gate (ROBUSTNESS-VERDICT-CONTRACT).
+    it('result line appends the sensitivity caveat ONLY from a sensitive display-safe verdict + a fragile edge', () => {
+      // Authorised path: the producer's own 'moderate'/'fragile'
+      // display_verdict means the result is sensitive; with a concrete
+      // fragile edge to point at, the caveat fires. This is the
+      // single-source replacement for the old raw-stability gate
+      // (ROBUSTNESS-VERDICT-CONTRACT).
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({
           winnerLabel: 'Tech Lead',
           tier: 'fair',
           stability: 0.74,
-          robustnessVerdict: 'low',
+          robustnessVerdict: 'fragile',
           fragile: {
             fromId: 'n_h',
             fromLabel: 'Hiring rate',
@@ -701,14 +702,39 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.resultLine).toBe('Tech Lead comes out ahead most often, but the result is sensitive to assumptions.')
     })
 
-    it('result line stays neutral when the display-safe verdict is "high", even with a fragile edge', () => {
+    it('result line stays neutral when the display-safe verdict is "robust", even with a fragile edge', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({
           winnerLabel: 'Tech Lead',
           tier: 'fair',
           stability: 0.74,
-          robustnessVerdict: 'high',
+          robustnessVerdict: 'robust',
+          fragile: {
+            fromId: 'n_h',
+            fromLabel: 'Hiring rate',
+            toId: 'n_o',
+            toLabel: 'Outcome',
+            switchProbability: 0.42,
+            alternativeWinnerLabel: 'Two Developers',
+          } as FragileEdgeItem,
+        }),
+        vm: makeVm(),
+      })
+      expect(vm.resultLine).toBe('Tech Lead comes out ahead most often.')
+    })
+
+    it('result line stays neutral on "not_assessed" — a stated absence is never a sensitivity claim', () => {
+      // The producer explicitly said robustness was NOT computed; deriving
+      // "sensitive to assumptions" from that would fabricate a claim (the
+      // retired `!= null && !== 'high'` logic would have fired here).
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({
+          winnerLabel: 'Tech Lead',
+          tier: 'fair',
+          stability: 0.74,
+          robustnessVerdict: 'not_assessed',
           fragile: {
             fromId: 'n_h',
             fromLabel: 'Hiring rate',
@@ -747,7 +773,7 @@ describe('buildAnalysisHeroViewModel', () => {
         tier: 'fair',
         // Display-safe verdict drives the sensitivity nuance now (not raw
         // stability) — a genuinely sensitive but corroborated-dominant result.
-        robustnessVerdict: 'low',
+        robustnessVerdict: 'fragile',
         drivers,
         dominantFactorId: 'n_tl',
         dominantFactorLabel: 'Technical Leadership',
@@ -786,7 +812,7 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(row1.reason).toBe('If the estimate changes for Hiring rate, the leading option could change.')
     })
 
-    it('hero result line carries the sensitivity nuance (display-safe "low" verdict + fragile edge)', () => {
+    it('hero result line carries the sensitivity nuance (display-safe "fragile" verdict + fragile edge)', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeCanonicalFixture(),
@@ -1243,7 +1269,7 @@ describe('buildAnalysisHeroViewModel', () => {
     it('strong → create-decision-brief (prefill)', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
-        data: makeData({ stability: 0.9, robustnessVerdict: 'high' }),
+        data: makeData({ stability: 0.9, robustnessVerdict: 'robust' }),
         vm: makeVm({ decisionState: 'robust', evidenceLevel: 'good' }),
       })
       expect(vm.footerCta.kind).toBe('create-decision-brief')
@@ -1289,7 +1315,7 @@ describe('buildAnalysisHeroViewModel', () => {
     it('strong: caveats + next closest + revisit trigger (3 safe items, renders normally)', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
-        data: makeData({ stability: 0.9, robustnessVerdict: 'high' }),
+        data: makeData({ stability: 0.9, robustnessVerdict: 'robust' }),
         vm: makeVm({ decisionState: 'robust', evidenceLevel: 'good' }),
       })
       const labels = vm.alsoLinks.map(l => l.label)

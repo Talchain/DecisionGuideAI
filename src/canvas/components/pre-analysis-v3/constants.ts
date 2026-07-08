@@ -152,6 +152,12 @@ export const ATTRIBUTION_COPY = {
   olumiNoticed: 'Olumi noticed',
   olumiPrefix: 'Olumi:',
   olumiEstimate: 'Olumi estimate',
+  /**
+   * User-set success target (lane 35 fix 2): the stored goal constraint
+   * carries provenance 'explicit' — the user stated this number in their
+   * brief, so the chip credits them, never Olumi.
+   */
+  yourTarget: 'Your target',
   checkedByYou: 'checked by you',
   needsValue: 'needs a value',
   unchecked: 'not checked yet',

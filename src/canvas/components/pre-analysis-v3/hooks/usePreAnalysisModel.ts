@@ -70,6 +70,10 @@ export function usePreAnalysisModel(): PreAnalysisModel {
   const edges = useCanvasStore(s => s.edges)
   const draftCoaching = useCanvasStore(s => s.draftCoaching)
   const analysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+  // Stored goal constraints (CEE response root, ingested verbatim by
+  // DraftChat/applyDraftResult) — the provenance carrier for the
+  // success-target attribution (lane 35 fix 2).
+  const goalConstraints = useCanvasStore(s => s.goalConstraints)
   const sensitivity = useCanvasStore(s => s.preAnalysisSensitivity)
   const currentBriefText = useCanvasStore(s => s.currentBriefText)
   const scenarioId = useCanvasStore(s => s.currentScenarioId)
@@ -93,8 +97,9 @@ export function usePreAnalysisModel(): PreAnalysisModel {
         facts.goalNode,
         (analysisReady as Record<string, unknown> | null) ?? null,
         null,
+        goalConstraints,
       ),
-    [facts.goalNode, analysisReady],
+    [facts.goalNode, analysisReady, goalConstraints],
   )
 
   const provenance = useMemo(

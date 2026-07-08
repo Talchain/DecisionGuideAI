@@ -83,12 +83,20 @@ export const HeroSection = memo(function HeroSection({
     [hero.goalNodeId],
   )
 
-  const successAttribution =
-    hero.success.isSet && hero.success.attribution?.kind === 'olumi' ? (
+  // Attribution honesty (lane 35 fix 2): "Olumi estimate" ONLY for values
+  // Olumi derived/defaulted. A target the user stated (explicit-provenance
+  // stored goal constraint, or their own typed value) is credited to them.
+  const successAttribution = hero.success.isSet ? (
+    hero.success.attribution?.kind === 'olumi' ? (
       <Pill variant="default" size="small">
         {ATTRIBUTION_COPY.olumiEstimate}
       </Pill>
+    ) : hero.success.attribution?.kind === 'person' ? (
+      <Pill variant="default" size="small">
+        {ATTRIBUTION_COPY.yourTarget}
+      </Pill>
     ) : null
+  ) : null
 
   return (
     <div className="px-4 py-4" data-testid="pre-analysis-v3-hero">
