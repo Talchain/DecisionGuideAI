@@ -18,6 +18,7 @@ import { type ReactElement } from 'react'
 import { typography } from '../../styles/typography'
 import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../canvas/conversation/types'
 import { extractDecisionReview } from '../decisionReviewAdapter'
+import { calibrateUncertaintyCopy } from '../../components/results/utils/uncertaintyCalibration'
 
 export interface V5AnalysisResultBlockProps {
   block: V5AnalysisResultBlockType
@@ -28,10 +29,57 @@ function formatProbability(p: number): string {
   return `${Math.round(p * 100)}%`
 }
 
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return v != null && typeof v === 'object' && !Array.isArray(v)
+}
+
+function finiteNumber(v: unknown): number | null {
+  return typeof v === 'number' && Number.isFinite(v) ? v : null
+}
+
+/**
+ * Sci-4B: resolve the same two inputs calibrateUncertaintyCopy needs
+ * (robustness band + headline option's outcome interval) from the raw,
+ * untyped `block.enrichment` passthrough. Mirrors mapV5AnalysisToReport's
+ * headline-option resolution (prefer the entry matching leading_option_id,
+ * else the first option_comparison entry) — kept local and minimal since
+ * this component only needs two numbers, not the full ReportV1 mapping.
+ */
+function resolveUncertaintyInputs(
+  enrichment: Record<string, unknown> | undefined,
+  leadingOptionId: string | null,
+): { robustnessLevel?: string; robustnessLabel?: string; p10: number | null; p90: number | null } {
+  const robustness = isPlainObject(enrichment?.robustness) ? enrichment!.robustness : undefined
+  const robustnessLevel = typeof robustness?.level === 'string' ? robustness.level : undefined
+  const robustnessLabel = typeof robustness?.label === 'string' ? robustness.label : undefined
+
+  const comparisons = Array.isArray(enrichment?.option_comparison)
+    ? (enrichment!.option_comparison as unknown[])
+    : []
+  const entries = comparisons.filter(isPlainObject) as Array<Record<string, unknown>>
+  const headline =
+    entries.find((e) => (e.id ?? e.option_id) === leadingOptionId) ?? entries[0]
+  const outcome = isPlainObject(headline?.outcome) ? headline!.outcome : undefined
+
+  return {
+    robustnessLevel,
+    robustnessLabel,
+    p10: finiteNumber(outcome?.p10),
+    p90: finiteNumber(outcome?.p90),
+  }
+}
+
 export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): ReactElement {
   const review = extractDecisionReview(block.enrichment)
   const hasProbs =
     block.win_probabilities && Object.keys(block.win_probabilities).length > 0
+
+  // Sci-4B: verbal uncertainty calibration — same tiers/copy as the results
+  // panel headline (DecisionConfidencePanel), read from this block's raw
+  // enrichment passthrough. Honest-render: null when the wire carries no
+  // robustness signal at all.
+  const uncertaintyInputs = resolveUncertaintyInputs(block.enrichment, block.leading_option_id)
+  const uncertaintyCopy = calibrateUncertaintyCopy(uncertaintyInputs)
 
   // Sort so the leading option appears first and the rest descending by prob.
   const sortedProbs = hasProbs
@@ -59,6 +107,15 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
       <p className={typography.panelBody} data-testid="v5-analysis-result-summary">
         {block.summary}
       </p>
+
+      {uncertaintyCopy && (
+        <p
+          className={`${typography.panelMeta} text-text-light`}
+          data-testid="v5-analysis-result-uncertainty-copy"
+        >
+          {uncertaintyCopy.text}
+        </p>
+      )}
 
       {hasProbs && (
         <div

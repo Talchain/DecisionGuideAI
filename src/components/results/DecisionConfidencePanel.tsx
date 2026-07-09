@@ -19,6 +19,7 @@ import { HeroQualifier } from './HeroQualifier'
 import { useCanvasStore } from '@/canvas/store'
 import { resolveDisplayedFreshness } from '@/canvas/store/analysisFreshness'
 import { buildCertaintyCopy } from './utils/certaintyCopy'
+import { calibrateUncertaintyCopy } from './utils/uncertaintyCalibration'
 import { typography } from '@/styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { TriageActionCardsBody } from './TriageActionCardsBody'
@@ -267,6 +268,23 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
     )
   }, [stabilityScore])
 
+  // Sci-4B: verbal uncertainty calibration — maps the wire robustness band
+  // (recommendation.robustnessLevel/robustnessLabel) + the winner's outcome
+  // interval to a fixed verbal-framing sentence. Honest-render: renders
+  // nothing when the wire carries no robustness signal at all (see
+  // calibrateUncertaintyCopy / UI-SEM-073).
+  const winnerOutcome = data.recommendation.recommendedOption?.outcome
+  const uncertaintyCopy = useMemo(
+    () =>
+      calibrateUncertaintyCopy({
+        robustnessLevel: data.recommendation.robustnessLevel,
+        robustnessLabel: data.recommendation.robustnessLabel,
+        p10: winnerOutcome?.p10 ?? null,
+        p90: winnerOutcome?.p90 ?? null,
+      }),
+    [data.recommendation.robustnessLevel, data.recommendation.robustnessLabel, winnerOutcome],
+  )
+
   return (
     <div className="space-y-4 animate-fade-in" data-testid="decision-confidence-panel">
       {/* Transition bridge — sits OUTSIDE the T1 card so the bridge can
@@ -315,6 +333,17 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
           noCardWrapper
           titleAdornment={autoNoiseAdornment}
         />
+
+        {/* Sci-4B: calibrated verbal uncertainty framing, rendered near the
+            hero headline. Absent when the wire carries no robustness signal. */}
+        {uncertaintyCopy && (
+          <p
+            className={`${typography.panelMeta} text-text-light`}
+            data-testid="uncertainty-calibration-copy"
+          >
+            {uncertaintyCopy.text}
+          </p>
+        )}
 
         {/* Action-card body — extracted to TriageActionCardsBody for reuse by AnalysisHeroV17. */}
         <TriageActionCardsBody
