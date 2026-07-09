@@ -510,5 +510,45 @@ describe('useFormRecommendations', () => {
       expect(renderCount).toBe(countAfterMount + 5)
       expect(mockFetch).not.toHaveBeenCalled()
     })
+
+    // Review follow-up (1.44): the dep-stabilisation fix above must not
+    // suppress a LEGITIMATE refetch — i.e. edges genuinely changing content,
+    // not just reference. edgeHash itself changes here, so the auto-fetch
+    // effect's `edgeHash !== lastFetchHashRef.current` guard is satisfied
+    // and a second fetch fires, mirroring usePareto.spec.ts's "refetches
+    // when options change" coverage for the equivalent hook.
+    it('still refetches when edges genuinely change content (not just reference)', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ recommendations: [] }),
+      })
+
+      let currentEdges = mockEdges
+      ;(useCanvasStore as any).mockImplementation((selector: any) => {
+        const state = {
+          edges: currentEdges,
+          nodes: mockNodes,
+          updateEdgeData: mockUpdateEdgeData,
+        }
+        return selector(state)
+      })
+
+      const { rerender } = renderHook(() => useFormRecommendations({ autoFetch: true }))
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledTimes(1)
+      })
+
+      // Genuine content change: a new edge added, so edgeHash actually differs.
+      currentEdges = [
+        ...mockEdges,
+        { id: 'edge-3', source: 'node-3', target: 'node-1', data: { functionType: 'linear' } },
+      ]
+      rerender()
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledTimes(2)
+      })
+    })
   })
 })
