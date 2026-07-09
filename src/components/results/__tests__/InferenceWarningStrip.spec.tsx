@@ -3,8 +3,9 @@
  *
  * Warning-severity producer inference_warnings surface as a compact
  * honest-caveat strip on the Analysis tab; info-severity entries stay
- * hidden; copy is the producer message verbatim (the UI adds no
- * interpretation). Tagged provisional_doctrine_v0.
+ * hidden. Copy is HUMANISED via humaniseCritique (V14.3 no-message-render
+ * guard) — the UI keys off producer `code`, never the raw `message`.
+ * Tagged provisional_doctrine_v0.
  *
  * Warning shapes mirror the real staging capture (debug bundle
  * olumi-debug-45c9b625-20260707): { code, message, severity }.
@@ -69,14 +70,32 @@ describe('selectWarningSeverityEntries', () => {
 })
 
 describe('InferenceWarningStrip', () => {
-  it('renders the producer message VERBATIM for a warning-severity entry', () => {
+  it('renders HUMANISED copy for a warning-severity entry, never the raw producer message', () => {
     render(<InferenceWarningStrip warnings={[WARNING_CONSTRAINT_TARGET]} />)
     const strip = screen.getByTestId('inference-warning-strip')
     expect(strip).toBeInTheDocument()
     const entry = screen.getByTestId('inference-warning-strip-entry')
     expect(entry).toHaveAttribute('data-warning-code', 'CONSTRAINT_TARGET_UNRELIABLE')
-    // Byte-for-byte producer copy — no rewording, no truncation, no suffix.
-    expect(entry).toHaveTextContent(WARNING_CONSTRAINT_TARGET.message as string)
+    // V14.3: no code-template match for this code → humaniseCritique's safe
+    // generic fallback title, NOT the raw producer message verbatim.
+    expect(entry).toHaveTextContent("Review this factor's inputs")
+    expect(entry).not.toHaveTextContent(WARNING_CONSTRAINT_TARGET.message as string)
+  })
+
+  it('humanises a template-mapped code via the shared code→title map, using the entry\'s own resolved label', () => {
+    const missingObservedState: InferenceWarning = {
+      code: 'MISSING_OBSERVED_STATE',
+      affected_nodes: ['node_marketing_spend'],
+      affected_labels: ['Marketing Spend'],
+      message: "observed_state.value missing for fac_marketing_spend, defaulted",
+      severity: 'warning',
+    }
+    render(<InferenceWarningStrip warnings={[missingObservedState]} />)
+    const entry = screen.getByTestId('inference-warning-strip-entry')
+    // Template-derived, human-readable — uses the producer-resolved label.
+    expect(entry).toHaveTextContent('Marketing Spend is missing a current value')
+    // Never the raw internal-token-bearing message.
+    expect(entry).not.toHaveTextContent(missingObservedState.message as string)
   })
 
   it('renders nothing when only info-severity entries exist (info stays hidden)', () => {
