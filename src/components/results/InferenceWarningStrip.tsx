@@ -8,9 +8,13 @@
  *     Info-severity entries stay hidden here (they remain available to the
  *     Advanced/Confidence surfaces and the debug bundle). Entries with no
  *     severity are NOT promoted — the UI never invents a severity.
- *   - Copy is the producer `message` verbatim. The UI adds no interpretation,
- *     no rewording, no code-specific handling. An entry without a usable
- *     message renders nothing (fail-closed; no fabricated copy from `code`).
+ *   - Copy is HUMANISED via the same `humaniseCritique` path every other
+ *     critique surface uses (ConfidenceSection, useResultsSectionData) — the
+ *     UI keys off producer `code`, never renders the raw `message` in JSX
+ *     (V14.3 no-message-render guard). Unmapped codes fall through to
+ *     humaniseCritique's safe generic copy rather than the raw string; an
+ *     entry without a usable message renders nothing (fail-closed; no
+ *     fabricated copy from `code` alone).
  *   - Display-only: never blocks analysis, never mutates state.
  *
  * Visual idiom mirrors AnalysisFreshnessNotice (the strip mounts directly
@@ -19,7 +23,8 @@
  */
 import { AlertTriangle } from 'lucide-react'
 import { typography } from '@/styles/typography'
-import type { InferenceWarning } from './types'
+import { humaniseCritique } from './utils/humaniseCritique'
+import type { InferenceWarning, UncertaintyItem } from './types'
 
 export interface InferenceWarningStripProps {
   /** Producer inference warnings (all severities); the strip filters. */
@@ -32,11 +37,33 @@ export function selectWarningSeverityEntries(
   warnings: InferenceWarning[] | undefined,
 ): InferenceWarning[] {
   return (warnings ?? []).filter(
-    (w) =>
-      w.severity === 'warning' &&
-      typeof w.message === 'string' &&
-      w.message.trim().length > 0,
+    (w) => w.severity === 'warning' && typeof w.message === 'string' && w.message.trim().length > 0,
   )
+}
+
+/** Node-label map for humaniseCritique's factor-label resolution, built from
+ *  the entry's own already-resolved `affected_labels` (never parsed from
+ *  `message`). Returns undefined when no labels are available — humaniseCritique
+ *  falls back to its own ID-derived label in that case. */
+function buildNodeLabelMap(w: InferenceWarning): Map<string, string> | undefined {
+  if (!w.affected_labels || w.affected_labels.length === 0) return undefined
+  const map = new Map<string, string>()
+  w.affected_nodes.forEach((nodeId, i) => {
+    const label = w.affected_labels?.[i]
+    if (label) map.set(nodeId, label)
+  })
+  return map.size > 0 ? map : undefined
+}
+
+/** Humanised, user-safe headline for an inference warning — same
+ *  code-keyed template path every other critique surface uses. */
+function humaniseWarningTitle(w: InferenceWarning): string {
+  const item: UncertaintyItem = {
+    code: w.code,
+    message: w.message ?? '',
+    affectedNodes: w.affected_nodes,
+  }
+  return humaniseCritique(item, buildNodeLabelMap(w)).title
 }
 
 export function InferenceWarningStrip({ warnings, className = '' }: InferenceWarningStripProps) {
@@ -58,8 +85,8 @@ export function InferenceWarningStrip({ warnings, className = '' }: InferenceWar
           className="flex items-center gap-2 rounded-md border px-3 py-2 bg-panel border-warning/30"
         >
           <AlertTriangle size={14} className="flex-none text-warning" aria-hidden="true" />
-          {/* Producer message verbatim — provisional_doctrine_v0: the UI adds no interpretation. */}
-          <span className={`${typography.panelBody} text-text-body`}>{w.message}</span>
+          {/* Humanised copy — never the producer's raw message (V14.3 guard). */}
+          <span className={`${typography.panelBody} text-text-body`}>{humaniseWarningTitle(w)}</span>
         </div>
       ))}
     </div>

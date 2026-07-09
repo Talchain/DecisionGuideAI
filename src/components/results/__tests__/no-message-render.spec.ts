@@ -125,6 +125,17 @@ const DEFENCE_IN_DEPTH_FILES: Record<string, RegExp> = {
   // not PLoT critique data. Guard: the message must have been filtered for
   // non-empty strings before render.
   'AdvancedSection.tsx': /typeof w\.message === 'string' && w\.message\.trim\(\)\.length > 0/,
+  // InferenceWarningStrip.tsx: the JSX itself renders ONLY humaniseCritique's
+  // sanitised `.title` (never `.message`) — fixed here after the PR #236
+  // regression that rendered `w.message` verbatim. The two remaining matches
+  // the naive brace scanner still flags are non-render code: the
+  // severity+non-empty-message VISIBILITY FILTER (selectWarningSeverityEntries)
+  // and the small object literal that hands `message` to humaniseCritique as
+  // an *input* — humaniseCritique never echoes raw `.message` back out except
+  // through its own internal-token guard. Presence of the filter's literal
+  // predicate is the attestation that the filter (not a raw render) is what
+  // the scanner is tripping on.
+  'InferenceWarningStrip.tsx': /typeof w\.message === 'string' && w\.message\.trim\(\)\.length > 0/,
 }
 
 /** V14.3b: Additional files that render warning/critique-like data */
