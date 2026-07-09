@@ -434,4 +434,81 @@ describe('useFormRecommendations', () => {
       expect(mockFetch).not.toHaveBeenCalled()
     })
   })
+
+  describe('ROADMAP 1.44 — unmemoized-caller infinite-fetch hazard', () => {
+    // Root cause: refetch's useCallback depended on the RAW edges/nodes
+    // array references (not just the content-based edgeHash string). A
+    // store/selector that returns a new edges/nodes array reference on
+    // every render (same values, new reference) forces a new refetch
+    // identity on every render, which re-fires the auto-fetch effect
+    // regardless of whether edgeHash actually changed. Bounded here via
+    // EXPLICIT rerender() calls (not a self-sustaining loop) to reproduce
+    // the symptom safely — see the "Empty edges" test above for why an
+    // inline-recomputed array must never be handed to renderHook directly
+    // in this file (hangs the job).
+    it('issues exactly one fetch when the store returns new edges/nodes array references (same content) across re-renders', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ recommendations: [] }),
+      })
+
+      ;(useCanvasStore as any).mockImplementation((selector: any) => {
+        const state = {
+          edges: [...mockEdges],
+          nodes: [...mockNodes],
+          updateEdgeData: mockUpdateEdgeData,
+        }
+        return selector(state)
+      })
+
+      const { rerender } = renderHook(() =>
+        useFormRecommendations({ autoFetch: true })
+      )
+
+      // Simulate an unmemoized store/selector: same logical content, a
+      // BRAND NEW array reference on every re-render — before the in-flight
+      // mount fetch has had a chance to resolve and latch lastFetchHashRef.
+      for (let i = 0; i < 5; i++) {
+        rerender()
+      }
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalled()
+      })
+
+      // Let any pending microtasks/re-renders settle.
+      await new Promise((r) => setTimeout(r, 50))
+
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not self-trigger extra renders on empty-edges early return across unmemoized re-renders', () => {
+      ;(useCanvasStore as any).mockImplementation((selector: any) => {
+        const state = {
+          edges: [] as typeof mockEdges,
+          nodes: [...mockNodes],
+          updateEdgeData: mockUpdateEdgeData,
+        }
+        return selector(state)
+      })
+
+      let renderCount = 0
+      const { rerender } = renderHook(() => {
+        renderCount++
+        return useFormRecommendations({ autoFetch: true })
+      })
+
+      const countAfterMount = renderCount
+      for (let i = 0; i < 5; i++) {
+        rerender()
+      }
+
+      // Each explicit rerender must cause exactly one render — the hook
+      // must not schedule an additional self-triggered render (a fresh
+      // empty-array state that's never `===` the previous one, re-firing
+      // the effect) on top of the ones the test asked for.
+      expect(renderCount).toBe(countAfterMount + 5)
+      expect(mockFetch).not.toHaveBeenCalled()
+    })
+  })
 })

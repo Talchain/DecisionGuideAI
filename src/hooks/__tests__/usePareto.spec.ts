@@ -282,4 +282,68 @@ describe('usePareto', () => {
       })
     })
   })
+
+  describe('ROADMAP 1.44 — unmemoized-caller infinite-fetch hazard', () => {
+    // Root cause: fetchPareto's useCallback depended on the RAW options/
+    // criteria array references (not just the content-based requestHash
+    // string). An unmemoized caller that recreates the options/criteria
+    // array on every render (same values, new reference — e.g. an inline
+    // `.filter()`/`.map()`/spread, a routine caller-side pattern) forces a
+    // new fetchPareto identity on every render, which re-fires the
+    // auto-fetch effect regardless of whether requestHash actually changed.
+    // Bounded here via EXPLICIT rerender() calls (not a self-sustaining
+    // loop) to reproduce the symptom safely — see the validation describe
+    // block above for why an inline-recomputed array must never be passed
+    // directly to renderHook's callback in this file (hangs the job).
+    it('issues exactly one fetch when options/criteria are unmemoized (new array reference, same content, across re-renders)', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(mockParetoResponse),
+      })
+
+      const { rerender } = renderHook(
+        ({ options, criteria }) => usePareto({ options, criteria }),
+        { initialProps: { options: [...mockOptions], criteria: [...mockCriteria] } }
+      )
+
+      // Simulate an unmemoized caller: same logical content, a BRAND NEW
+      // array reference on every re-render — before the in-flight mount
+      // fetch has had a chance to resolve and latch lastRequestHashRef.
+      for (let i = 0; i < 5; i++) {
+        rerender({ options: [...mockOptions], criteria: [...mockCriteria] })
+      }
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalled()
+      })
+
+      // Let any pending microtasks/re-renders settle.
+      await new Promise((r) => setTimeout(r, 50))
+
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not self-trigger extra renders on insufficient-data early return across unmemoized re-renders', () => {
+      let renderCount = 0
+      const { rerender } = renderHook(
+        ({ options, criteria }) => {
+          renderCount++
+          return usePareto({ options, criteria })
+        },
+        { initialProps: { options: mockOptions.slice(0, 2), criteria: [...mockCriteria] } }
+      )
+
+      const countAfterMount = renderCount
+      for (let i = 0; i < 5; i++) {
+        rerender({ options: mockOptions.slice(0, 2), criteria: [...mockCriteria] })
+      }
+
+      // Each explicit rerender must cause exactly one render — the hook
+      // must not schedule an additional self-triggered render (a fresh
+      // empty-array state that's never `===` the previous one, re-firing
+      // the effect) on top of the ones the test asked for.
+      expect(renderCount).toBe(countAfterMount + 5)
+      expect(mockFetch).not.toHaveBeenCalled()
+    })
+  })
 })
