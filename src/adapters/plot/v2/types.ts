@@ -359,6 +359,13 @@ export interface V2Meta {
   n_samples: number
   detail_level: string
   latency_ms: number
+  /**
+   * ISO 8601 timestamp when analysis computation completed. ROADMAP 1.30b:
+   * confirmed against the captured staging fixture's
+   * `plot_response.meta.computed_at` (golden-path-staging-2026-04-05.json).
+   * Absent on older/cached responses — never fabricated.
+   */
+  computed_at?: string
 }
 
 // ============================================================================
