@@ -236,12 +236,14 @@ jobs:
             tail -30 vitest-output.txt || true
             exit 1
           fi
-          # Summary line shape: " Test Files  14 failed | 734 passed | 4 skipped (755)"
-          summary=$(grep -oE '^\s*Test Files +[0-9]+ failed \| [0-9]+ passed \| [0-9]+ skipped \([0-9]+\)' vitest-output.txt | tail -1)
-          # Fallback shape when no failures: " Test Files 734 passed | 4 skipped (738)"
-          if [ -z "$summary" ]; then
-            summary=$(grep -oE '^\s*Test Files +[0-9]+ passed \| [0-9]+ skipped \([0-9]+\)' vitest-output.txt | tail -1)
-          fi
+          # Summary line shape (both the "failed" and "skipped" clauses are
+          # OPTIONAL — vitest omits a clause entirely when its count is zero,
+          # it does NOT print "0 skipped"):
+          #   " Test Files  14 failed | 734 passed | 4 skipped (755)"  (failures + skipped)
+          #   " Test Files  14 failed | 734 passed (748)"              (failures, 0 skipped)
+          #   " Test Files  734 passed | 4 skipped (738)"              (0 failures, skipped)
+          #   " Test Files  734 passed (734)"                          (0 failures, 0 skipped)
+          summary=$(grep -oE '^\s*Test Files +([0-9]+ failed \| )?[0-9]+ passed( \| [0-9]+ skipped)? \([0-9]+\)' vitest-output.txt | tail -1)
           if [ -z "$summary" ]; then
             echo "::error::could not parse 'Test Files' summary from vitest output (crash before summary?). Exit code was ${VITEST_EXIT}."
             tail -30 vitest-output.txt
@@ -317,7 +319,11 @@ jobs:
           missing=0
           for f in shard-outputs/*/vitest-output.txt; do
             [ -f "$f" ] || { missing=1; continue; }
-            summary=$(grep -oE '^\s*Test Files +([0-9]+ failed \| )?[0-9]+ passed \| [0-9]+ skipped \([0-9]+\)' "$f" | tail -1)
+            # Both the "failed" and "skipped" clauses are OPTIONAL — vitest
+            # omits a clause entirely when its count is zero (see the
+            # per-shard "Evaluate test results" step above for the full
+            # shape breakdown).
+            summary=$(grep -oE '^\s*Test Files +([0-9]+ failed \| )?[0-9]+ passed( \| [0-9]+ skipped)? \([0-9]+\)' "$f" | tail -1)
             if [ -z "$summary" ]; then
               echo "::warning::could not parse a Test Files summary from $f (shard likely timed out/crashed — already caught by that shard's own Evaluate step)."
               continue
