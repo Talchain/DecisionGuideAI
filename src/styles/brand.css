@@ -68,7 +68,9 @@
   /* Border: rgba(103, 200, 158, 0.3) */
 
   /* Info / Decision / Navigation (Blue)
-     A11y: Updated to #52A3C8 for WCAG AA 3:1 UI-component contrast on white.
+     A11y: #52A3C8 fails WCAG AA 3:1 UI-component contrast on white (computes
+     to 2.83:1). A compliant replacement is pending a product colour decision
+     — see ROADMAP 1.51. Do not re-claim compliance here until that lands.
      Light shade kept for canvas node fills and selection backgrounds. */
   --info: #52A3C8;
   --info-light: #BAD7E4;
