@@ -53,7 +53,7 @@ import { dockHostsOlumi } from './olumiSurface'
 import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { focusFloating } from '../hooks/useFloatingFocus'
 import { isV5Eligible } from '../../v5/eligibility'
-import { countFactorsToVerify } from './model-tab/utils'
+import { countFactorsToVerify, deriveFactorInfluenceMap } from './model-tab/utils'
 import { getGoalDirection } from '../utils/getObjectiveText'
 import { deriveVerdict } from '../utils/interpretOutcome'
 import { useDebugShortcut } from '../hooks/useDebugShortcut'
@@ -1125,20 +1125,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
   const ceeQuality = useCanvasStore(s => s.ceeQuality)
 
-  const factorInfluenceMap = useMemo(() => {
-    const factors =
-      (report as any)?.enrichment?.sensitivity_analysis?.factors ??
-      (report as any)?.factor_sensitivity ??
-      []
-    if (!Array.isArray(factors) || factors.length === 0) return undefined
-    const map = new Map<string, number>()
-    for (const f of factors) {
-      const id: string | undefined = f.factor_id ?? f.factorId ?? f.node_id ?? f.nodeId
-      const score: number | undefined = f.elasticity ?? f.sensitivity_score ?? f.importance_score
-      if (id && score !== undefined) map.set(id, score)
-    }
-    return map.size > 0 ? map : undefined
-  }, [report])
+  // ROADMAP 1.7: influence_score (producer-owned, ISL/PLoT) takes priority
+  // over elasticity/sensitivity_score/importance_score — see
+  // deriveFactorInfluenceMap doctrine comment (model-tab/utils.ts).
+  const factorInfluenceMap = useMemo(() => deriveFactorInfluenceMap(report), [report])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
