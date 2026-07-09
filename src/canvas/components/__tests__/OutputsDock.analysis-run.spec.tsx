@@ -237,6 +237,52 @@ describe('OutputsDock analyse convergence', () => {
       expect(runV2Analysis).not.toHaveBeenCalled()
     })
 
+    // ROADMAP 1.1 fix (6b-goal-capture evidence, clause 2): the Hero's
+    // Success-target field commits a canvas-store-only write
+    // (setGoalThresholdAndUpdateNode → store.goalThreshold). Before this fix,
+    // the canonical run_analysis dispatch never carried `parameters`, so CEE
+    // ran analysis against its own server-side graph — which never learned
+    // the Hero's threshold — and Goal fit could never unlock from the Hero
+    // alone. This asserts the dispatch now threads goal_threshold the same
+    // way handleApplyThreshold already does (same store field, same wire
+    // shape, no new field invented).
+    it('threads store.goalThreshold onto the dispatch parameters (Hero-set target reaches CEE)', () => {
+      const dispatchAction = vi.fn()
+      const runV2Analysis = vi.fn()
+      mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
+      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
+      mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
+
+      useCanvasStore.setState({ goalThreshold: 15 } as any)
+      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+
+      renderOutputsDock()
+      fireEvent.click(screen.getByTestId('outputs-run-button'))
+
+      expect(dispatchAction).toHaveBeenCalledTimes(1)
+      const call = dispatchAction.mock.calls[0][0]
+      expect(call.action_type).toBe('run_analysis')
+      expect(call.parameters).toEqual({ goal_threshold: 15 })
+    })
+
+    it('omits parameters when no goal threshold is set (does not invent a value)', () => {
+      const dispatchAction = vi.fn()
+      const runV2Analysis = vi.fn()
+      mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
+      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
+      mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
+
+      useCanvasStore.setState({ goalThreshold: null } as any)
+      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+
+      renderOutputsDock()
+      fireEvent.click(screen.getByTestId('outputs-run-button'))
+
+      expect(dispatchAction).toHaveBeenCalledTimes(1)
+      const call = dispatchAction.mock.calls[0][0]
+      expect(call.parameters).toBeUndefined()
+    })
+
     it('falls back to direct V2 when canonical flag is off (control case)', () => {
       const dispatchAction = vi.fn()
       const runV2Analysis = vi.fn()
