@@ -60,6 +60,11 @@ export function useFormRecommendations({
 
   // Track last fetched hash to prevent duplicate fetches
   const lastFetchHashRef = useRef<string | null>(null)
+  // ROADMAP 1.44: latest-ref for `loading`, read inside refetch's dedup
+  // guard without needing `loading` in refetch's dependency array (which
+  // would otherwise recreate refetch — and re-fire the auto-fetch effect
+  // below — every time loading toggles).
+  const loadingRef = useRef(false)
 
   /**
    * Generate a hash of edge IDs to detect when edges change
@@ -68,12 +73,34 @@ export function useFormRecommendations({
     return edges.map((e) => e.id).sort().join(',')
   }, [edges])
 
+  // ROADMAP 1.44 — "latest ref" pattern: refetch reads edges/nodes via these
+  // refs (kept fresh every render) instead of closing over the raw arrays
+  // directly. That keeps refetch's identity keyed ONLY on edgeHash (a
+  // content-based primitive), so an unmemoized caller/selector that returns
+  // a new edges/nodes array reference on every render (same values, new
+  // reference) no longer forces a new refetch identity — and therefore no
+  // longer re-fires the auto-fetch effect below on every render.
+  const edgesRef = useRef(edges)
+  edgesRef.current = edges
+  const nodesRef = useRef(nodes)
+  nodesRef.current = nodes
+
   /**
    * Fetch form recommendations from CEE
    */
   const refetch = useCallback(async () => {
+    const edges = edgesRef.current
+    const nodes = nodesRef.current
+
     if (edges.length === 0) {
       setRecommendations([])
+      // Latch the hash even on early return — otherwise an unmemoized
+      // edges/nodes reference (new array, same content, every render) keeps
+      // this guard permanently unsatisfied: every render recreates refetch,
+      // the auto-fetch effect re-fires, this branch re-runs, and the fresh
+      // `[]` literal above (never `===` the previous one) triggers another
+      // render — an infinite loop with no network calls involved at all.
+      lastFetchHashRef.current = edgeHash
       return
     }
 
@@ -81,15 +108,17 @@ export function useFormRecommendations({
     const cached = recommendationsCache.get(edgeHash)
     if (cached) {
       setRecommendations(cached)
+      lastFetchHashRef.current = edgeHash
       return
     }
 
     // Prevent duplicate fetches
-    if (loading || edgeHash === lastFetchHashRef.current) {
+    if (loadingRef.current || edgeHash === lastFetchHashRef.current) {
       return
     }
 
     lastFetchHashRef.current = edgeHash
+    loadingRef.current = true
     setLoading(true)
     setError(null)
 
@@ -147,9 +176,15 @@ export function useFormRecommendations({
         console.warn('[useFormRecommendations] Failed to fetch:', errorMessage)
       }
     } finally {
+      loadingRef.current = false
       setLoading(false)
     }
-  }, [edges, nodes, edgeHash, loading])
+    // ROADMAP 1.44: deps are edgeHash ONLY (a content-based primitive) — NOT
+    // the raw edges/nodes arrays and NOT `loading`. edges/nodes are read via
+    // edgesRef/nodesRef and `loading` via loadingRef (all above) so this
+    // callback's identity is stable whenever edgeHash is unchanged, even if
+    // the caller/selector returns a new array reference on every render.
+  }, [edgeHash])
 
   /**
    * Auto-apply high-confidence forms

@@ -93,6 +93,65 @@ describe('humaniseCritique', () => {
       const result = humaniseCritique(makeItem({ code: 'CONSTRAINT_TARGET_UNRELIABLE', affectedNodes: undefined }))
       expect(result.title).toContain('This factor')
     })
+
+    // 1.52 follow-up — CONSTRAINT_DIRECTION_SUSPECT/ASSUMED are new PLoT
+    // warning codes distinct from CONSTRAINT_TARGET_UNRELIABLE: the target
+    // *value* isn't the problem here, the target's *direction* (higher-is-
+    // better vs lower-is-better) couldn't be confirmed (SUSPECT) or was
+    // assumed without confirmation (ASSUMED). Before this fix neither had a
+    // CODE_TEMPLATES entry, so both fell through to the generic unmapped-code
+    // fallback ("Review this factor's inputs") instead of a meaningful,
+    // direction-specific warning.
+    it('CONSTRAINT_DIRECTION_SUSPECT with resolved label', () => {
+      const labels = new Map([['fac_churn', 'Customer churn']])
+      const result = humaniseCritique(
+        makeItem({ code: 'CONSTRAINT_DIRECTION_SUSPECT', affectedNodes: ['fac_churn'] }),
+        labels,
+      )
+      expect(result.title).toContain('Customer churn')
+      expect(result.title).not.toBe("Review this factor's inputs")
+      expect(result.description).toContain("couldn't be confirmed")
+      expect(result.description.length).toBeGreaterThan(0)
+      expect(result.suggestion).toContain('Customer churn')
+      expect(result.factorId).toBe('fac_churn')
+      expect(result.title).not.toContain('observed_state')
+      expect(result.title).not.toContain('constraint_fac_churn_max')
+    })
+
+    it('CONSTRAINT_DIRECTION_SUSPECT falls back to "This factor" without a resolved label (no fabricated name)', () => {
+      const result = humaniseCritique(makeItem({ code: 'CONSTRAINT_DIRECTION_SUSPECT', affectedNodes: undefined }))
+      expect(result.title).toContain('This factor')
+    })
+
+    it('CONSTRAINT_DIRECTION_ASSUMED with resolved label', () => {
+      const labels = new Map([['fac_rev', 'Revenue']])
+      const result = humaniseCritique(
+        makeItem({ code: 'CONSTRAINT_DIRECTION_ASSUMED', affectedNodes: ['fac_rev'] }),
+        labels,
+      )
+      expect(result.title).toContain('Revenue')
+      expect(result.title).not.toBe("Review this factor's inputs")
+      expect(result.description).toContain('assumed')
+      expect(result.description.length).toBeGreaterThan(0)
+      expect(result.suggestion).toContain('Revenue')
+      expect(result.factorId).toBe('fac_rev')
+      expect(result.title).not.toContain('observed_state')
+    })
+
+    it('CONSTRAINT_DIRECTION_ASSUMED falls back to "This factor" without a resolved label (no fabricated name)', () => {
+      const result = humaniseCritique(makeItem({ code: 'CONSTRAINT_DIRECTION_ASSUMED', affectedNodes: undefined }))
+      expect(result.title).toContain('This factor')
+    })
+
+    it('CONSTRAINT_DIRECTION_SUSPECT and CONSTRAINT_DIRECTION_ASSUMED are distinct from CONSTRAINT_TARGET_UNRELIABLE', () => {
+      const labels = new Map([['fac_churn', 'Customer churn']])
+      const unreliable = humaniseCritique(makeItem({ code: 'CONSTRAINT_TARGET_UNRELIABLE', affectedNodes: ['fac_churn'] }), labels)
+      const suspect = humaniseCritique(makeItem({ code: 'CONSTRAINT_DIRECTION_SUSPECT', affectedNodes: ['fac_churn'] }), labels)
+      const assumed = humaniseCritique(makeItem({ code: 'CONSTRAINT_DIRECTION_ASSUMED', affectedNodes: ['fac_churn'] }), labels)
+      expect(suspect.title).not.toBe(unreliable.title)
+      expect(assumed.title).not.toBe(unreliable.title)
+      expect(suspect.title).not.toBe(assumed.title)
+    })
   })
 
   describe('unknown code fallback', () => {

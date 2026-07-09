@@ -54,6 +54,7 @@ import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
 import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
 import { humaniseCritique } from './utils/humaniseCritique'
+import { selectGoalProbability, type GoalProbabilityInput } from './utils/selectGoalProbability'
 import { deriveStabilityLevel } from '../../lib/stability'
 import { deriveResultCompleteness, type ResultCompleteness } from './useResultCompleteness'
 
@@ -1250,23 +1251,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // constraint_analysis — the joint value IS the goal probability there,
       // so it is the final fallback. Discarding it hid the run's most
       // decision-relevant fact (every option at 0% chance of the target).
-      const jointGoalProb = typeof (prob as any).probability_of_joint_goal === 'number'
-        ? (prob as any).probability_of_joint_goal as number
-        : null
-      const unconstrained = typeof prob.goal_probability === 'number'
-        ? prob.goal_probability
-        : null
-      const hasConstraints = prob.constraint_analysis?.constraints?.length > 0
-      // Mirrors the goalProbability fallback branches directly below (rather
-      // than comparing resulting numbers, which could false-match on a
-      // coincidental equal value) so we know precisely WHEN the displayed
-      // number is the joint-goal figure the goal_fit_basis caveat qualifies.
-      const goalProbabilityIsJoint = hasConstraints
-        ? jointGoalProb != null
-        : unconstrained == null && jointGoalProb != null
-      const goalProbability = hasConstraints && jointGoalProb != null
-        ? jointGoalProb
-        : (unconstrained ?? jointGoalProb)
+      // ROADMAP 1.49: extracted to selectGoalProbability (utils/) so every
+      // surface (this hook, OptionNode's badge) shares one fallback chain
+      // instead of re-deriving it.
+      const { goalProbability, goalProbabilityIsJoint } = selectGoalProbability(prob as GoalProbabilityInput)
       // Display-honesty (ROADMAP 1.6b, doctrine B / PLoT #204): the
       // provenance caveat renders ONLY when the number just shown is the
       // joint-goal figure AND the producer marked it as scored from a

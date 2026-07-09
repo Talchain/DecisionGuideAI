@@ -130,6 +130,25 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     description: 'The value needed to assess this target is missing or unscaled, so goal-fit results were withheld for this run rather than shown as a meaningless number.',
     suggestion: `Set a value or range for ${label}`,
   }),
+  // 1.52 follow-up — producer WARNING-severity codes (PLoT constraint
+  // direction detection) distinct from CONSTRAINT_TARGET_UNRELIABLE: there
+  // the target *value* is the problem; here the target's *direction*
+  // (higher-is-better vs lower-is-better) is the problem. SUSPECT = PLoT
+  // couldn't confirm the direction so goal-fit isn't shown for this option.
+  // ASSUMED = PLoT proceeded with an assumed direction (goal-fit shown but
+  // built on an unconfirmed assumption). Same pattern as the 1.12 fix
+  // (PR #250): a code-keyed template naming the concrete, actionable fix,
+  // never quoting internal field names.
+  CONSTRAINT_DIRECTION_SUSPECT: (label) => ({
+    title: `${label}'s target direction couldn't be confirmed`,
+    description: "The direction of your target (whether higher or lower is better) couldn't be confirmed for this option, so its goal-fit isn't shown.",
+    suggestion: `Review the target direction for ${label}`,
+  }),
+  CONSTRAINT_DIRECTION_ASSUMED: (label) => ({
+    title: `${label}'s target direction was assumed`,
+    description: "The direction of your target (whether higher or lower is better) wasn't confirmed, so it was assumed for this run. Goal-fit results for this option may be less reliable.",
+    suggestion: `Confirm the target direction for ${label}`,
+  }),
 }
 
 // ─── Internal token detection ────────────────────────────────────────────────

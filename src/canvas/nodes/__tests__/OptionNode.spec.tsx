@@ -1067,6 +1067,54 @@ describe('OptionNode', () => {
     expect(bar).not.toBeNull()
     expect(bar?.style.width).toBe('max(4px, 2%)')
   })
+
+  // ROADMAP 1.49 — the "chance of target" badge must use the SAME
+  // goal_probability / probability_of_joint_goal fallback as
+  // useResultsSectionData (consumed by OptionCards/hero/GoalNode), not a
+  // narrower goal_probability-only read. On a constrained-goal run where
+  // ISL/PLoT populate probability_of_joint_goal but NOT goal_probability
+  // (constraint_analysis present with constraints — the joint figure IS the
+  // number every other surface shows), the badge must still render using
+  // that joint value rather than silently disappearing.
+  it('shows "chance of target" badge from probability_of_joint_goal when goal_probability is absent (constrained-goal run)', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: 0.5,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: {
+            option_probabilities: {
+              'option-1': {
+                confidence: 0.5,
+                win_probability: 0.5,
+                probability_of_joint_goal: 0.05,
+                constraint_analysis: { constraints: [{ id: 'c1' }], joint_probability: 0.05 },
+              },
+            },
+          },
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { type: 'option' } },
+        ],
+      }) as any)
+    )
+    renderOption()
+    // 5% < 10% threshold → the warning line renders with the joint value,
+    // matching what OptionCards/hero derive via useResultsSectionData.
+    expect(screen.getByText(/5% chance of target\./)).toBeDefined()
+  })
 })
 
 // ---------------------------------------------------------------------------

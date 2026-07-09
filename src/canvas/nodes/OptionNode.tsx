@@ -20,6 +20,7 @@ import { detectBaseline } from '../utils/baselineDetection'
 import { useStaleGuard } from '../ui/inspector-v2/useStaleGuard'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodeChip, ActionIcons, BriefIcon, MetricPills, NodePopover, ScienceIcon } from './shared'
+import { selectGoalProbability } from '../../components/results/utils/selectGoalProbability'
 
 /** Truncate text at word boundary to avoid mid-word cuts. */
 function truncateAtWord(text: string, maxLength: number): string {
@@ -699,12 +700,16 @@ export const OptionNode = memo((props: NodeProps) => {
     return null
   }, [isPostAnalysis, isRecommended, resultsReport, ceeAnalysisReady, props.id, nodes])
 
-  // Goal probability for warning
+  // Goal probability for warning.
+  // ROADMAP 1.49: uses the shared selectGoalProbability fallback chain (same
+  // one useResultsSectionData applies for OptionCards/hero/GoalNode) so this
+  // badge can't show a different number than those surfaces on a
+  // constrained-goal run.
   const goalProbability = useMemo(() => {
     if (!isPostAnalysis || !resultsReport) return null
     const report = resultsReport as any
     const optionProbs = report?.option_probabilities?.[props.id]
-    return typeof optionProbs?.goal_probability === 'number' ? optionProbs.goal_probability : null
+    return selectGoalProbability(optionProbs).goalProbability
   }, [isPostAnalysis, resultsReport, props.id])
 
   // "Behind:" reason for non-winner options (including status quo).
