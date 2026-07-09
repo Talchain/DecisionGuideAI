@@ -106,16 +106,22 @@ function deduplicatedFetch(
 
   const entry: InflightEntry = { promise, timestamp: Date.now(), controller, refCount: 1, settled: false }
   inflightCache.set(cacheKey, entry)
-  // Suppress unhandled rejection — callers still get the rejection via `promise`
+  // Suppress unhandled rejection — callers still get the rejection via `promise`.
+  // `.finally()` returns a NEW, distinct promise that adopts the original's
+  // rejection (it does not swallow errors). That derived promise must also
+  // have a rejection handler, or it surfaces as its own unhandled rejection
+  // independently of the `.catch(() => {})` above (#248).
   promise.catch(() => {})
-  promise.finally(() => {
-    entry.settled = true
-    setTimeout(() => {
-      if (inflightCache.get(cacheKey) === entry) {
-        inflightCache.delete(cacheKey)
-      }
-    }, DEDUP_WINDOW_MS)
-  })
+  promise
+    .finally(() => {
+      entry.settled = true
+      setTimeout(() => {
+        if (inflightCache.get(cacheKey) === entry) {
+          inflightCache.delete(cacheKey)
+        }
+      }, DEDUP_WINDOW_MS)
+    })
+    .catch(() => {})
 
   return { promise, entry, isReused: false }
 }
