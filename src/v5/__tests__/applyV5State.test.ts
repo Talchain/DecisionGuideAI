@@ -24,12 +24,16 @@ function makeStore(
   updateEdgeData: ReturnType<typeof vi.fn>
   setRunMeta: ReturnType<typeof vi.fn>
   setCeeAnalysisReady: ReturnType<typeof vi.fn>
+  setGoalConstraints: ReturnType<typeof vi.fn>
+  backfillGoalThreshold: ReturnType<typeof vi.fn>
 } {
   const setCurrentStage = vi.fn()
   const updateNode = vi.fn()
   const updateEdgeData = vi.fn()
   const setRunMeta = vi.fn()
   const setCeeAnalysisReady = vi.fn()
+  const setGoalConstraints = vi.fn()
+  const backfillGoalThreshold = vi.fn()
   return {
     store: {
       setCurrentStage,
@@ -37,6 +41,8 @@ function makeStore(
       updateEdgeData,
       setRunMeta,
       setCeeAnalysisReady,
+      setGoalConstraints,
+      backfillGoalThreshold,
       nodes,
       edges,
     },
@@ -45,6 +51,8 @@ function makeStore(
     updateEdgeData,
     setRunMeta,
     setCeeAnalysisReady,
+    setGoalConstraints,
+    backfillGoalThreshold,
   }
 }
 
@@ -596,6 +604,139 @@ describe('applyV5State — analysis_ready', () => {
     // internally skips setCeeAnalysisReady. Applicator must fill the gap.
     expect(setCeeAnalysisReady).toHaveBeenCalledTimes(1)
     expect(setCeeAnalysisReady.mock.calls[0][0].status).toBe('needs_user_mapping')
+  })
+})
+
+// ROADMAP 1.22 — goal-threshold quad ingestion on the V5 "commit response"
+// path (turns that do NOT flow through applyDraftResult, e.g. follow-up
+// turns on a populated canvas). CEE sends goal_threshold_raw/unit/cap on
+// analysis_ready and goal_constraints at the response root; prior to this
+// fix, applyV5State wrote ceeAnalysisReady (so the bare normalised
+// goal_threshold synced via the store's own setCeeAnalysisReady reducer)
+// but never backfilled goal_threshold_raw/unit/cap onto the goal node's
+// data (read by GoalNode + the debug bundle's full_graph export) and never
+// ingested goal_constraints at all on this path — both showed up all-null
+// in the debug bundle even though CEE persisted real values.
+describe('applyV5State — goal-threshold quad ingestion (ROADMAP 1.22)', () => {
+  const readyOption = {
+    id: 'opt-a',
+    label: 'Option A',
+    status: 'ready',
+    interventions: {},
+  }
+
+  const goalNode = {
+    id: 'goal-1',
+    type: 'goal',
+    position: { x: 0, y: 0 },
+    data: { label: 'Goal', kind: 'goal' },
+  } as unknown as V5ApplicatorStore['nodes'][number]
+
+  function responseWith(
+    analysisReady: Record<string, unknown> | undefined,
+    extra: Record<string, unknown> = {},
+  ): OlumiResponse {
+    return baseResponse({
+      ...(analysisReady !== undefined
+        ? ({ analysis_ready: analysisReady } as unknown as Partial<OlumiResponse>)
+        : {}),
+      ...(extra as unknown as Partial<OlumiResponse>),
+    })
+  }
+
+  // The actual node.data write (and its idempotent / field-presence /
+  // node-existence guards) lives in the shared backfillGoalThresholdOntoGoalNode
+  // helper (applyDraftResult.ts — see applyDraftResult.spec.ts for that
+  // coverage) and is wired at the real call site (useConversation.ts) — NOT
+  // reimplemented here. applyV5State's own contract is just: call the
+  // injected hook with the normalised analysis_ready whenever it sets
+  // ceeAnalysisReady via this (non-inline-owned) branch. Delegating via
+  // store.backfillGoalThreshold rather than store.updateNode is deliberate:
+  // goal_threshold_raw is in ANALYTICAL_NODE_DATA_FIELDS, so updateNode
+  // would treat CEE echoing back its own just-received threshold as a user
+  // edit and invalidate the very analysis this same turn just set fresh.
+  it('calls the injected backfillGoalThreshold hook with the normalised analysis_ready', () => {
+    const { store, backfillGoalThreshold } = makeStore([goalNode])
+    applyV5State(
+      responseWith({
+        status: 'ready',
+        goal_node_id: 'goal-1',
+        options: [readyOption],
+        goal_threshold: 0.8,
+        goal_threshold_raw: 20,
+        goal_threshold_unit: '%',
+        goal_threshold_cap: 25,
+      }),
+      store,
+    )
+
+    expect(backfillGoalThreshold).toHaveBeenCalledWith(
+      expect.objectContaining({
+        goal_node_id: 'goal-1',
+        goal_threshold_raw: 20,
+        goal_threshold_unit: '%',
+        goal_threshold_cap: 25,
+      }),
+    )
+  })
+
+  it('does not call backfillGoalThreshold when analysis_ready is absent', () => {
+    const { store, backfillGoalThreshold } = makeStore([goalNode])
+    applyV5State(responseWith(undefined), store)
+    expect(backfillGoalThreshold).not.toHaveBeenCalled()
+  })
+
+  it('does not call backfillGoalThreshold when analysis_ready fails shape validation', () => {
+    const { store, backfillGoalThreshold } = makeStore([goalNode])
+    applyV5State(
+      responseWith({ status: 'ready', options: [readyOption] /* missing goal_node_id */ }),
+      store,
+    )
+    expect(backfillGoalThreshold).not.toHaveBeenCalled()
+  })
+
+  it('does not call backfillGoalThreshold when the inline-draft path will own the write', () => {
+    const { store, backfillGoalThreshold } = makeStore(/* canvas empty */ [], [])
+    applyV5State(
+      responseWith(
+        { status: 'ready', goal_node_id: 'goal-1', options: [readyOption] },
+        { draft_graph: { nodes: [{}, {}], edges: [], node_count: 2, edge_count: 0 } },
+      ),
+      store,
+    )
+    expect(backfillGoalThreshold).not.toHaveBeenCalled()
+  })
+
+  it('ingests goal_constraints from the response root additively', () => {
+    const { store, setGoalConstraints } = makeStore([goalNode])
+    const constraints = [
+      { constraint_id: 'c1', factor_id: 'f1', label: 'Budget', threshold: 100 },
+    ]
+    applyV5State(
+      responseWith(
+        {
+          status: 'ready',
+          goal_node_id: 'goal-1',
+          options: [readyOption],
+        },
+        { goal_constraints: constraints },
+      ),
+      store,
+    )
+    expect(setGoalConstraints).toHaveBeenCalledWith(constraints)
+  })
+
+  it('does not call setGoalConstraints when the response carries none (additive only — no clearing)', () => {
+    const { store, setGoalConstraints } = makeStore([goalNode])
+    applyV5State(
+      responseWith({
+        status: 'ready',
+        goal_node_id: 'goal-1',
+        options: [readyOption],
+      }),
+      store,
+    )
+    expect(setGoalConstraints).not.toHaveBeenCalled()
   })
 })
 

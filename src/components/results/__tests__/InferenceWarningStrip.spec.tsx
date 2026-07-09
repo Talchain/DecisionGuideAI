@@ -76,9 +76,11 @@ describe('InferenceWarningStrip', () => {
     expect(strip).toBeInTheDocument()
     const entry = screen.getByTestId('inference-warning-strip-entry')
     expect(entry).toHaveAttribute('data-warning-code', 'CONSTRAINT_TARGET_UNRELIABLE')
-    // V14.3: no code-template match for this code → humaniseCritique's safe
-    // generic fallback title, NOT the raw producer message verbatim.
-    expect(entry).toHaveTextContent("Review this factor's inputs")
+    // ROADMAP 1.12: CONSTRAINT_TARGET_UNRELIABLE now has a CODE_TEMPLATES
+    // entry (humaniseCritique.ts) — a meaningful, code-keyed title, NOT the
+    // raw producer message verbatim and NOT the generic unmapped-code
+    // fallback (superseded by the fix; was "Review this factor's inputs").
+    expect(entry).toHaveTextContent("success target can't be evaluated reliably")
     expect(entry).not.toHaveTextContent(WARNING_CONSTRAINT_TARGET.message as string)
   })
 

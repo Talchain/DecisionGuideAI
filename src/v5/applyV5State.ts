@@ -33,7 +33,7 @@ import type { OlumiResponse, StageType } from '@talchain/schemas/boundary'
 import type { Edge, Node } from '@xyflow/react'
 
 import type { ReportV1 } from '../adapters/plot/types'
-import type { CEEAnalysisReady } from '../adapters/cee/types'
+import type { CEEAnalysisReady, CEEGoalConstraint } from '../adapters/cee/types'
 import type { CeeDecisionReviewPayloadV1 } from '../types/cee'
 import type { ScenarioStage } from '../types/scenario'
 import { logV5StateStep } from './debugLog'
@@ -57,6 +57,32 @@ export interface V5ApplicatorStore {
   setRunMeta: (meta: { ceeReviewV1: CeeDecisionReviewPayloadV1 | null }) => void
   /** Write (or clear) the CEE analysis_ready payload that gates the run. */
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
+  /**
+   * Optional: write goal_constraints (ROADMAP 1.22). CEE places these at the
+   * response root on the V5 "commit response" path — additive only, this
+   * applicator never clears a prior turn's constraints on this slot (mirrors
+   * the V4 envelope path's ADD semantics but without its clear-on-empty-patch
+   * behaviour, which has no V5 equivalent signal to gate on).
+   */
+  setGoalConstraints?: (constraints: CEEGoalConstraint[] | null) => void
+  /**
+   * Optional: backfill goal_threshold_raw/unit/cap onto the goal node's data
+   * (ROADMAP 1.22). Wired at the real call site to the shared
+   * `backfillGoalThresholdOntoGoalNode` helper (applyDraftResult.ts) — that
+   * helper writes via a direct store.setState, NOT store.updateNode, because
+   * `goal_threshold_raw` is in ANALYTICAL_NODE_DATA_FIELDS (analyticalChange.ts):
+   * routing this backfill through updateNode would treat CEE echoing back the
+   * threshold on its OWN just-received analysis_ready as a user edit and
+   * invalidate the very analysis this applicator just marked fresh two lines
+   * above. Injected (rather than called as a bare import) so applyV5State's
+   * own unit tests stay isolated from the real canvas store.
+   */
+  backfillGoalThreshold?: (analysisReady: {
+    goal_node_id?: string
+    goal_threshold_raw?: number | null
+    goal_threshold_unit?: string | null
+    goal_threshold_cap?: number | null
+  }) => void
   /** Optional: update the freshness slice from a raw response.analysis_ready (retain / order / never absence→fresh). */
   setAnalysisFreshness?: (rawAnalysisReady: unknown) => void
   /** Optional: clear the local dirty overlay when a genuinely new analysis run completes (new analysis_result response_hash). */
@@ -522,6 +548,19 @@ export function applyV5State(
   // Freshness slice: retain on absence, order by computed_at, never absence→fresh.
   // Independent of ceeAnalysisReady (which clears on analyse-turns-without-analysis_ready).
   store.setAnalysisFreshness?.(rawAnalysisReady)
+
+  // ROADMAP 1.22 — goal_constraints at the response root. CEE places these
+  // outside analysis_ready (mirrors the V4 envelope path at
+  // useConversation.ts:2376+); goal_constraints is an untyped passthrough
+  // field on OlumiResponse (not in @talchain/schemas), so it is read via
+  // duck-typing. Additive only — a turn with no constraints does not clear
+  // a prior turn's, since (unlike the V4 path) this applicator has no
+  // "a new graph patch was applied" signal to gate a clear on.
+  const rawGoalConstraints = (response as { goal_constraints?: unknown }).goal_constraints
+  if (Array.isArray(rawGoalConstraints) && rawGoalConstraints.length > 0) {
+    store.setGoalConstraints?.(rawGoalConstraints as CEEGoalConstraint[])
+    applied.push('goal_constraints:set')
+  }
   if (rawAnalysisReady !== undefined) {
     const normalised = normaliseV5AnalysisReady(rawAnalysisReady)
     if (normalised) {
@@ -536,6 +575,18 @@ export function applyV5State(
           output_keys: ['ceeAnalysisReady'],
           applied: true,
         })
+
+        // ROADMAP 1.22 — backfill goal_threshold_raw/unit/cap onto the goal
+        // node's data. setCeeAnalysisReady above already syncs the bare
+        // normalised goal_threshold into store.goalThreshold (store.ts
+        // reducer), but GoalNode + the debug bundle's full_graph export read
+        // raw/unit/cap from node.data directly (mirrors
+        // backfillGoalThresholdOntoGoalNode, the applyDraftResult/
+        // mirrorAnalysisReady equivalent for the inline-draft and
+        // graph_patch-block paths — this is the V5 top-level-response
+        // equivalent, which had no backfill at all before this fix).
+        store.backfillGoalThreshold?.(normalised)
+        applied.push('analysis_ready:goal_threshold_backfill_requested')
       } else {
         logV5StateStep({
           step_number: 4,
@@ -729,3 +780,4 @@ function isStaleTurn(options?: ApplyV5StateOptions): boolean {
   if (!current || !incoming) return false
   return incoming !== current
 }
+

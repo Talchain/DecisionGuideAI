@@ -65,6 +65,34 @@ describe('humaniseCritique', () => {
       const result = humaniseCritique(makeItem({ code: 'EMPTY_COMPUTED_RESULTS' }))
       expect(result.title).toBe('Analysis returned limited results')
     })
+
+    // ROADMAP 1.12 — warning surfacing. CONSTRAINT_TARGET_UNRELIABLE is a
+    // producer WARNING-severity code (PLoT constraint-reliability.ts, lane
+    // P0-C2) naming a goal-fit target whose probabilities were withheld
+    // because the underlying value is unscaled/missing. Before this fix it
+    // had no CODE_TEMPLATES entry, so it fell through to the safe-but-vague
+    // generic fallback ("Review this factor's inputs") — technically honest
+    // but not the meaningful warning the roadmap item calls for.
+    it('CONSTRAINT_TARGET_UNRELIABLE with resolved label', () => {
+      const labels = new Map([['fac_churn', 'Customer churn']])
+      const result = humaniseCritique(
+        makeItem({ code: 'CONSTRAINT_TARGET_UNRELIABLE', affectedNodes: ['fac_churn'] }),
+        labels,
+      )
+      expect(result.title).toContain('Customer churn')
+      expect(result.title).not.toBe("Review this factor's inputs")
+      expect(result.description.length).toBeGreaterThan(0)
+      expect(result.suggestion).toContain('Customer churn')
+      expect(result.factorId).toBe('fac_churn')
+      // Never the raw producer message (V14.3 guard) even though it's mapped.
+      expect(result.title).not.toContain('observed_state')
+      expect(result.title).not.toContain('constraint_fac_churn_max')
+    })
+
+    it('CONSTRAINT_TARGET_UNRELIABLE falls back to "This factor" without a resolved label (no fabricated name)', () => {
+      const result = humaniseCritique(makeItem({ code: 'CONSTRAINT_TARGET_UNRELIABLE', affectedNodes: undefined }))
+      expect(result.title).toContain('This factor')
+    })
   })
 
   describe('unknown code fallback', () => {
