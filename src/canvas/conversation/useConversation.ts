@@ -83,7 +83,7 @@ import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
 import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPatch'
 import { applyAnalysisReadyPatch } from './utils/mirrorAnalysisReady'
 import { loadScenario as loadScenarioFromDb } from '../../services/scenarioService'
-import { applyDraftResult } from '../utils/applyDraftResult'
+import { applyDraftResult, backfillGoalThresholdOntoGoalNode } from '../utils/applyDraftResult'
 import { getUserId } from '../../lib/supabase'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import { validateResponse, stripRepairLogLines, FALLBACK_TEXT } from './validateResponse'
@@ -3038,6 +3038,14 @@ export function useConversation(): UseConversationReturn {
               {
                 ...v5StoreSnapshot,
                 currentResultsHash: v5StoreSnapshot.results?.hash ?? null,
+                // ROADMAP 1.22: wire the shared backfill helper (writes via
+                // a direct store.setState, not updateNode — see the
+                // V5ApplicatorStore.backfillGoalThreshold doc comment for
+                // why: updateNode's analytical-field-change guard would
+                // otherwise treat CEE echoing its own just-received
+                // threshold back as a user edit and invalidate the fresh
+                // analysis this same turn just set).
+                backfillGoalThreshold: backfillGoalThresholdOntoGoalNode,
               },
               {
                 turnClientId,
