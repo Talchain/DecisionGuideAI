@@ -223,6 +223,7 @@ describe('DecisionConfidencePanel — TriageActionCardsBody extraction regressio
       [
         "div#confidence-health-header",
         "p#hero-stability-indicator",
+        "p#uncertainty-calibration-copy",
         "div#t1-flip-risk-callout",
         "div#stability-narrative",
         "div#unified-triage-queue",
@@ -253,6 +254,7 @@ describe('DecisionConfidencePanel — TriageActionCardsBody extraction regressio
       [
         "div#confidence-health-header",
         "p#hero-stability-indicator",
+        "p#uncertainty-calibration-copy",
         "div#t1-checks-footer",
         "span#checks-winner",
         "span#checks-robust",
@@ -341,6 +343,12 @@ describe('DecisionConfidencePanel — TriageActionCardsBody extraction regressio
   // is an extraction regression — both landed on `main`/`staging` well
   // after the extraction commit, went uncaught while the full suite was
   // truncating before its summary, and are now the new frozen baseline.
+  //
+  // Both fixtures (rich + sparse) were re-captured again for Sci-4B: a new
+  // `<p data-testid="uncertainty-calibration-copy">` renders between the
+  // health header and the action-card body whenever the wire carries a
+  // robustness signal (see calibrateUncertaintyCopy). Not an extraction
+  // regression — a deliberate new feature addition.
 
   it('rich state: current rendering matches the literal pre-extraction baseline fixture', () => {
     const { container } = render(<DecisionConfidencePanel data={makeData()} onSendMessage={() => {}} />)
