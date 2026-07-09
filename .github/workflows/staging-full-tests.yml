@@ -160,18 +160,30 @@ jobs:
       # exit_code echo never runs and steps.vitest.outputs.exit_code is empty —
       # that empty value is how Evaluate distinguishes a timeout/kill from a
       # completed-but-non-zero run.
+      # --no-color plus NO_COLOR/FORCE_COLOR=0 belt-and-suspenders the CLI flag
+      # against a runner env that forces color (GitHub Actions' terminal
+      # sometimes reports as a TTY to child processes). The sed pass after
+      # tee is a second, independent backstop: even if colour leaks through
+      # some path we haven't seen, the file the Evaluate step parses (and the
+      # artifact a human downloads) is guaranteed plain text. Without this,
+      # a genuinely-green shard's "Test Files ... passed" summary line is
+      # broken up by embedded ANSI escape codes and the single-line regex
+      # below never matches it — a real PASS misreported as a parse failure.
       - name: Run test suite (shard ${{ matrix.shard }}/${{ env.SHARD_COUNT }})
         id: vitest
         timeout-minutes: 15
         run: |
           set +e
-          pnpm exec vitest run --reporter=verbose --shard=${{ matrix.shard }}/${{ env.SHARD_COUNT }} 2>&1 | tee vitest-output.txt
+          pnpm exec vitest run --reporter=verbose --no-color --shard=${{ matrix.shard }}/${{ env.SHARD_COUNT }} 2>&1 | tee vitest-output.raw.txt
           code=${PIPESTATUS[0]}
+          sed -E 's/\x1b\[[0-9;]*m//g' vitest-output.raw.txt > vitest-output.txt
           echo "exit_code=${code}" >> "$GITHUB_OUTPUT"
           echo "vitest exited with code ${code}"
           exit 0
         env:
           NODE_OPTIONS: "--max-old-space-size=7168"
+          NO_COLOR: "1"
+          FORCE_COLOR: "0"
 
       # Preserve the test log on every outcome (pass, fail, timeout, cancel) so
       # a hung/cancelled run is still diagnosable. Test log only — no secrets or
