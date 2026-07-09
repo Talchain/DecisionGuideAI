@@ -81,7 +81,10 @@ describe('MultiFormAnalysis', () => {
     it('disables run button when loading', () => {
       const onRunAnalysis = vi.fn()
       render(<MultiFormAnalysis results={[]} loading onRunAnalysis={onRunAnalysis} />)
-      expect(screen.getByRole('button', { name: /Analysing/i })).toBeDisabled()
+      // f513cdfd ("canonical display-state helper — ready vs complete",
+      // 2026-04-28) changed the loading-button label from "Analysing…" to
+      // "Running analysis…".
+      expect(screen.getByRole('button', { name: /Running analysis/i })).toBeDisabled()
     })
   })
 

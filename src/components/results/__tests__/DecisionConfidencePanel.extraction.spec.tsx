@@ -331,6 +331,16 @@ describe('DecisionConfidencePanel — TriageActionCardsBody extraction regressio
   // is class+style stripped, leaving structure / text / attribute /
   // aria-* content. Asserting current rendering matches the file proves
   // pre/post equivalence retroactively. Drift in either direction fails.
+  //
+  // The rich fixture was re-captured (chronic-CI-red triage, ROADMAP 1.26)
+  // to absorb two legitimate, subsequent DOM changes it had gone stale
+  // against: PR #145 (cf361994) dropped "recommendation" from the
+  // dominant-nudge copy ("the recommendation could change" → "the result
+  // could change"), and ba8927ab added a `flex justify-end` wrapper div
+  // around the triage-card icon group for narrow-panel layout. Neither
+  // is an extraction regression — both landed on `main`/`staging` well
+  // after the extraction commit, went uncaught while the full suite was
+  // truncating before its summary, and are now the new frozen baseline.
 
   it('rich state: current rendering matches the literal pre-extraction baseline fixture', () => {
     const { container } = render(<DecisionConfidencePanel data={makeData()} onSendMessage={() => {}} />)

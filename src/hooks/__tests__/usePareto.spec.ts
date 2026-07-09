@@ -49,10 +49,30 @@ describe('usePareto', () => {
   })
 
   describe('validation', () => {
+    // NOTE (ROADMAP 1.26 chronic-CI-red triage): these two params are hoisted
+    // to a stable reference OUTSIDE the renderHook callback, not inlined —
+    // inlining (the previous shape) hung this spec and the CI job
+    // indefinitely. Root cause is in usePareto.ts, not this test: both
+    // early-return validation branches of fetchPareto() (options.length < 3
+    // and criteria.length < 2) never update lastRequestHashRef.current before
+    // returning, so the auto-fetch effect's `requestHash !== lastRequestHashRef
+    // .current` guard never latches. With an unstable options/criteria
+    // reference (e.g. an inline .slice()/array-literal recomputed every
+    // render — a routine caller-side pattern, not unique to this test), the
+    // effect's own `fetchPareto` dependency also changes identity every
+    // render, so the effect re-fires unconditionally, calls setFrontier([])
+    // (a new empty-array reference each time — React never bails on that),
+    // and the render loop never terminates. This is a real infinite-loop
+    // hazard for any production caller that doesn't memoize `options`/
+    // `criteria` — filed as a followup; NOT fixed here (test/config-only
+    // lane, no product-code changes).
+    const lessThanThreeOptions = mockOptions.slice(0, 2)
+    const singleCriterion = ['cost']
+
     it('does not fetch when less than 3 options', () => {
       const { result } = renderHook(() =>
         usePareto({
-          options: mockOptions.slice(0, 2),
+          options: lessThanThreeOptions,
           criteria: mockCriteria,
         })
       )
@@ -66,7 +86,7 @@ describe('usePareto', () => {
       const { result } = renderHook(() =>
         usePareto({
           options: mockOptions,
-          criteria: ['cost'],
+          criteria: singleCriterion,
         })
       )
 

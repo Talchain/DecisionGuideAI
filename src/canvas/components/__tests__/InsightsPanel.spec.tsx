@@ -1,7 +1,24 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { InsightsPanel, InsightsSummaryCompact } from '../InsightsPanel'
+import { useCanvasStore } from '../../store'
 import type { Insights } from '../../../types/plot'
+
+// Phase 2.3 "strict-render" (0c95929f, P0-3): InsightsPanel now overrides
+// ANY summary — engine-supplied, driver-generated, or caller-provided — with
+// a non-success-implying fallback when useHasAnyRealProbability() is false.
+// This file renders the component with no canvas-store wiring at all, so
+// every test previously saw `hasAnyProbability === false` and, for any test
+// actually asserting on the *content* of a provided summary, silently got
+// the fallback text instead. Tests whose purpose is to verify a provided
+// summary renders verbatim now stamp a real probability into the canvas
+// store first (reset after each test so it doesn't leak into siblings);
+// tests whose purpose is defensive null/undefined/empty-insights handling
+// assert the (correct, honest) fallback text a probability-less run
+// actually produces.
+afterEach(() => {
+  useCanvasStore.setState({ results: { status: 'idle', progress: 0 } } as never)
+})
 
 const mockFullInsights: Insights = {
   summary:
@@ -32,6 +49,9 @@ const mockRisksOnlyInsights: Insights = {
 describe('InsightsPanel', () => {
   describe('Summary display', () => {
     it('renders the summary text', () => {
+      // Real probability so the strict-render guard doesn't override
+      // mockFullInsights.summary with the no-probability fallback.
+      useCanvasStore.setState({ results: { status: 'complete', report: { probability_of_goal: 0.62 } } } as never)
       render(<InsightsPanel insights={mockFullInsights} />)
 
       const summary = screen.getByTestId('insights-summary')
@@ -196,27 +216,33 @@ describe('InsightsPanel', () => {
 // P0.3: Hardening tests for defensive data handling
 describe('InsightsPanel hardening (P0.3)', () => {
   it('handles null insights gracefully', () => {
+    // No canvas-store probability => the strict-render guard (Phase 2.3,
+    // 0c95929f) is the source of truth here, not the pre-guard default —
+    // this is the actual, honest text a probability-less run produces.
     render(<InsightsPanel insights={null} />)
 
     const summary = screen.getByTestId('insights-summary')
-    expect(summary).toHaveTextContent('Analysis complete. Review the results above for details.')
+    expect(summary).toHaveTextContent('Analysis finished, but no probability was computed. Check the canvas for any incomplete inputs.')
   })
 
   it('handles undefined insights gracefully', () => {
     render(<InsightsPanel insights={undefined} />)
 
     const summary = screen.getByTestId('insights-summary')
-    expect(summary).toHaveTextContent('Analysis complete. Review the results above for details.')
+    expect(summary).toHaveTextContent('Analysis finished, but no probability was computed. Check the canvas for any incomplete inputs.')
   })
 
   it('handles missing summary with default', () => {
     render(<InsightsPanel insights={{ risks: ['Risk 1'], next_steps: [] }} />)
 
     const summary = screen.getByTestId('insights-summary')
-    expect(summary).toHaveTextContent('Analysis complete. Review the results above for details.')
+    expect(summary).toHaveTextContent('Analysis finished, but no probability was computed. Check the canvas for any incomplete inputs.')
   })
 
   it('truncates oversized summary to 200 characters', () => {
+    // Real probability so the strict-render guard doesn't override the
+    // (deliberately oversized) summary this test exists to truncate.
+    useCanvasStore.setState({ results: { status: 'complete', report: { probability_of_goal: 0.62 } } } as never)
     const longSummary = 'A'.repeat(250) // 250 chars
     render(<InsightsPanel insights={{ summary: longSummary, risks: [], next_steps: [] }} />)
 
@@ -258,13 +284,16 @@ describe('InsightsPanel hardening (P0.3)', () => {
     render(<InsightsPanel insights={{}} />)
 
     const summary = screen.getByTestId('insights-summary')
-    expect(summary).toHaveTextContent('Analysis complete. Review the results above for details.')
+    expect(summary).toHaveTextContent('Analysis finished, but no probability was computed. Check the canvas for any incomplete inputs.')
     expect(screen.queryByTestId('insights-details')).not.toBeInTheDocument()
   })
 })
 
 describe('InsightsSummaryCompact', () => {
   it('renders summary in compact form', () => {
+    // Real probability so the strict-render guard doesn't override
+    // mockFullInsights.summary with the no-probability fallback.
+    useCanvasStore.setState({ results: { status: 'complete', report: { probability_of_goal: 0.62 } } } as never)
     render(<InsightsSummaryCompact insights={mockFullInsights} />)
 
     const compact = screen.getByTestId('insights-compact')

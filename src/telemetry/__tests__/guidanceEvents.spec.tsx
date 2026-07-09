@@ -26,11 +26,19 @@ vi.mock('posthog-js', () => ({
   },
 }))
 
-// Canvas store mock — stable getState returning simple stubs
+// Canvas store mock — stable getState returning simple stubs.
+// nodes/edges included (both empty) because GuidanceStrip's click handler
+// calls focusHelpers.focusExistingTarget(), which destructures
+// `{ nodes, edges }` off getState() unconditionally — without them here it
+// threw "Cannot read properties of undefined (reading 'some')" as an
+// uncaught, unhandled error (assertions still passed since the throw
+// happens in a fire-and-forget click callback, but it failed vitest's exit
+// code and would have failed CI's non-OOM-signature check). ROADMAP 1.26
+// chronic-CI-red triage.
 vi.mock('../../canvas/store', () => ({
   useCanvasStore: Object.assign(
     vi.fn(() => null),
-    { getState: vi.fn(() => ({ currentScenarioId: 'scenario-1', currentStage: 'ideate' })) },
+    { getState: vi.fn(() => ({ currentScenarioId: 'scenario-1', currentStage: 'ideate', nodes: [], edges: [] })) },
   ),
 }))
 

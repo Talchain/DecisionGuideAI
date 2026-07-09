@@ -333,7 +333,9 @@ describe('errorTaxonomy', () => {
 
       const result504 = getDebugErrorExplanation(504)
       expect(result504?.label).toBe('Gateway Timeout')
-      expect(result504?.hint).toContain('120s')
+      // Bumped 120s -> 130s in 0bf96a8f ("bump turnService safety-net
+      // 120s->135s so 130s dynamic timeout fires first").
+      expect(result504?.hint).toContain('130s')
     })
 
     it('returns explanation for status 0 (network error)', () => {

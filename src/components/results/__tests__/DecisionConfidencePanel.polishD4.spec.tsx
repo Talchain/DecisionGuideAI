@@ -150,7 +150,12 @@ describe('Brief 5.8B D4 polish — Decision confidence panel', () => {
       const nudge = screen.getByTestId('t1-dominant-nudge')
       const title = nudge.getAttribute('title')
       expect(title).toMatch(/Top factor drives 90% of the outcome/)
-      expect(title).toMatch(/recommendation could change/)
+      // PR #145 (cf361994, "drop 'recommendation' from 5 remaining
+      // user-facing strings", 2026-05) retired "the recommendation could
+      // change" from this legacy trailing sentence — same drift fixed for
+      // bodyLabelSafety.spec.tsx in this lane; it now reads "the result
+      // could change".
+      expect(title).toMatch(/the result could change/)
     })
 
     it('inline Validate + Research chips remain functional', () => {
