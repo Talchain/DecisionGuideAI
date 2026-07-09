@@ -438,6 +438,43 @@ describe('no silent failures (diagnose-and-fix pass)', () => {
     expect(screen.getByText('Saved')).toBeInTheDocument()
   })
 
+  // ROADMAP 1.1 fix (Gate 3 blocker, acceptance-evidence/6b-goal-capture):
+  // the Hero's success-target commit above is a LOCAL-ONLY canvas-store
+  // write — it never reached CEE, so a later "Analyse first pass" ran
+  // against CEE's own server-side graph (no threshold) and Goal fit never
+  // unlocked. Saving success must also sync the target to CEE via the same
+  // add_constraint mechanism the working chat path already proves out
+  // (6B evidence clause 3), silently (hidden: true — no chat bubble, since
+  // the user already confirmed via the Hero's own Save button).
+  it('saving a success target also syncs it to CEE via a hidden add_constraint dispatch', () => {
+    const dispatchAction = vi.fn()
+    useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+    renderPanel()
+    const input = screen.getByLabelText('Success measure')
+    fireEvent.change(input, { target: { value: 'ship 25% faster' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save success' }))
+
+    expect(dispatchAction).toHaveBeenCalledTimes(1)
+    const call = dispatchAction.mock.calls[0][0]
+    expect(call.action_type).toBe('add_constraint')
+    expect(call.source).toBe('chip')
+    expect(call.hidden).toBe(true)
+    expect(typeof call.parameters?.description).toBe('string')
+    expect(call.parameters.description.length).toBeGreaterThan(0)
+    // The descriptive text the user typed should ride along verbatim so
+    // Sonnet has the richest signal to interpret into a real constraint.
+    expect(call.message).toContain('ship 25% faster')
+  })
+
+  it('does not throw when saving a success target with no _dispatchAction registered (graceful degradation)', () => {
+    useGuidanceStore.setState({ _dispatchAction: null } as any)
+    renderPanel()
+    const input = screen.getByLabelText('Success measure')
+    fireEvent.change(input, { target: { value: '25' } })
+    expect(() => fireEvent.click(screen.getByRole('button', { name: 'Save success' }))).not.toThrow()
+    expect(useCanvasStore.getState().goalThreshold).toBe(25)
+  })
+
   it('rows without a value get an Add value affordance, no check tick, and the meta counts them', () => {
     useCanvasStore.setState({
       nodes: [

@@ -14,6 +14,7 @@ import { Sparkles } from 'lucide-react'
 import Tooltip from '../../../../components/Tooltip'
 import { typography } from '../../../../styles/typography'
 import { useCanvasStore } from '../../../store'
+import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { Pill } from '../../pre-analysis/primitives/Pill'
 import { ATTRIBUTION_COPY, FIELD_FEEDBACK_COPY, HERO_COPY, SPARK_PROMPTS } from '../constants'
@@ -78,9 +79,52 @@ export const HeroSection = memo(function HeroSection({
       const parsed = parseDisplayNumber(raw)
       if (parsed === null) return FIELD_FEEDBACK_COPY.successFormatHint
       useCanvasStore.getState().setGoalThresholdAndUpdateNode(goalNodeId, parsed)
+
+      // ROADMAP 1.1 fix (Gate 3 blocker, acceptance-evidence/6b-goal-capture):
+      // the store write above is LOCAL-ONLY — CEE never learns this target,
+      // so run_analysis (which reads goal_constraints off its OWN server-side
+      // scenario graph, never off anything the client sends — confirmed in
+      // olumi-assistants-service's chip-click-dispatch.ts header comment)
+      // computes goal-fit against a graph with no threshold, and Goal fit
+      // never unlocks. There is no deterministic/structured wire call for
+      // this — `add_constraint`'s handler only accepts parameters that
+      // Sonnet's own ORIENT step produced from a natural-language message
+      // (see add-constraint.ts's resolveParams reading invocation.proposal.
+      // parameters, not the client's chip.parameters). The chat path already
+      // proves this works (6B evidence clause 3): a plain-language message
+      // gets interpreted into a real add_constraint graph_patch. Reuse that
+      // exact mechanism — same action_type, same free-text-description
+      // shape SuccessTarget.tsx already sends (the older, non-v3 panel) —
+      // instead of inventing a new one. `hidden: true` keeps this a silent
+      // background sync (no chat bubble) since the user already "confirmed"
+      // via the Hero's own Save-success button, not the composer.
+      const dispatch = useGuidanceStore.getState()._dispatchAction
+      if (dispatch) {
+        const trimmed = raw.trim()
+        // The user's own text is often already a full sentence (e.g. "Reduce
+        // annual operating costs by at least 15%") — prefer it verbatim so
+        // Sonnet has the richest signal. Bare numbers ("15") get a minimal
+        // templated sentence naming the goal so the constraint isn't
+        // ambiguous about which entity it targets.
+        const isDescriptive = /[a-zA-Z]{3,}/.test(trimmed)
+        const goalLabel = hero.goal?.label?.trim()
+        const message = isDescriptive
+          ? `My success target is: ${trimmed}`
+          : goalLabel
+            ? `My success target for "${goalLabel}" is ${parsed}.`
+            : `My success target is ${parsed}.`
+        dispatch({
+          action_type: 'add_constraint',
+          parameters: { description: message },
+          label: 'Save success',
+          message,
+          source: 'chip',
+          hidden: true,
+        })
+      }
       return true
     },
-    [hero.goalNodeId],
+    [hero.goalNodeId, hero.goal],
   )
 
   // Attribution honesty (lane 35 fix 2): "Olumi estimate" ONLY for values

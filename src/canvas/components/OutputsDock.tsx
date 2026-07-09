@@ -769,25 +769,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     if (canonical) {
       const dispatch = useGuidanceStore.getState()._dispatchAction
       if (dispatch) {
-        // ROADMAP 1.1 fix: the Hero's Success-target field (pre-analysis-v3
-        // HeroSection::commitSuccess) commits a LOCAL-ONLY canvas-store write
-        // (setGoalThresholdAndUpdateNode) — it never round-trips to CEE. This
-        // plain "Analyse first pass" dispatch used to omit `parameters`
-        // entirely, so CEE ran analysis against its own server-side graph,
-        // which never learned the Hero's threshold, and Goal fit could never
-        // unlock from the Hero alone (6b-goal-capture evidence, clause 2).
-        // Fix: thread goal_threshold the same way handleApplyThreshold
-        // already does below (same store field, same wire parameter, same
-        // CEE-accepted shape — no new field invented), keyed off the
-        // canvas-store snapshot taken above so it reflects the latest commit.
-        const goalThreshold = storeState.goalThreshold
         // Fire-and-forget — the dispatcher streams the response and
         // routeV5Response handles all state mutations. We deliberately do
         // NOT await: the OutputsDock UI subscribes to canvas store status
         // for spinner state.
         dispatch({
           action_type: 'run_analysis',
-          parameters: goalThreshold !== null ? { goal_threshold: goalThreshold } : undefined,
           label: 'Run analysis',
           message: 'Run analysis',
           source: 'chip',
