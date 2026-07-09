@@ -106,3 +106,47 @@ export function countFactorsToVerify(factorNodes: ReadonlyArray<{ data: unknown 
 // ── Strength semantic labels ──────────────────────────────────────────────────
 // Re-export from strengthBands.ts (canonical thresholds from validation_ui_data_contract_v1.1).
 export { getStrengthLabel as strengthSemanticLabel } from './strengthBands'
+
+// ── Factor influence (model-tab factor cards) ───────────────────────────────
+
+/**
+ * Derive a factor_id → influence score map for the model-tab "factor cards
+ * sorted by influence" (FactorsSection). ROADMAP 1.7 (provisional_doctrine_v0):
+ * `influence_score` (producer-owned, ISL/PLoT) is a DISTINCT measure from
+ * sensitivity/elasticity — a pinned/intervention-overridden factor can carry
+ * sensitivity 0 (options fix its value, so perturbing it moves nothing) while
+ * still being the model's single most causally influential factor. Reading
+ * elasticity/sensitivity_score/importance_score FIRST (the pre-fix
+ * behaviour) rendered those factors' cards at 0%, the opposite of what the
+ * producer said.
+ *
+ * Priority mirrors the doctrine already applied at
+ * useNodeDisplayMetadata.ts / mapV5AnalysisToReport.ts / useResultsSectionData.ts:
+ * influence_score (0-1, direct) before the legacy elasticity-flavoured
+ * fallbacks. Additive read only — never derived, never defaulted; a factor
+ * with no usable score is simply absent from the map.
+ */
+export function deriveFactorInfluenceMap(report: unknown): Map<string, number> | undefined {
+  if (report == null || typeof report !== 'object') return undefined
+  const r = report as Record<string, unknown>
+  const enrichment = r.enrichment as Record<string, unknown> | undefined
+  const sensitivityAnalysis = enrichment?.sensitivity_analysis as Record<string, unknown> | undefined
+  const factors = (sensitivityAnalysis?.factors as unknown[] | undefined) ??
+    (r.factor_sensitivity as unknown[] | undefined) ??
+    []
+  if (!Array.isArray(factors) || factors.length === 0) return undefined
+
+  const map = new Map<string, number>()
+  for (const raw of factors) {
+    if (raw == null || typeof raw !== 'object') continue
+    const f = raw as Record<string, unknown>
+    const id = (f.factor_id ?? f.factorId ?? f.node_id ?? f.nodeId) as string | undefined
+    const score = (f.influence_score ?? f.influenceScore ?? f.elasticity ?? f.sensitivity_score ?? f.importance_score) as
+      | number
+      | undefined
+    if (id && typeof score === 'number' && Number.isFinite(score)) {
+      map.set(id, score)
+    }
+  }
+  return map.size > 0 ? map : undefined
+}
