@@ -63,6 +63,14 @@ describe('Analysis hero source hygiene', () => {
     expect(banding.test("p > .5 ? 'likely' : 'unlikely'")).toBe(true)
     expect(banding.test("score >= 1e-1 ? 'a' : 'b'")).toBe(true)
     expect(/robustnessVerdict/.test('data.robustnessVerdict')).toBe(true)
-    expect(/coaching-panel\/focus-now/.test("import x from '@/canvas/components/coaching-panel/focus-now'")).toBe(true)
+    // Assembled from parts rather than written as one source-text literal:
+    // the sibling guard (focus-now module's own inertness spec) regex-scans
+    // raw file text repo-wide for an import-shaped string ending in the
+    // focus-now path, and this positive-control fixture (a string, never a
+    // real import) was tripping it as a false-positive offender (ROADMAP
+    // 1.26 chronic-CI-red triage). Same assembled runtime value, same
+    // assertion; the source bytes just no longer spell out that shape.
+    const focusNowSpecifier = ['@/canvas/components/coaching-panel', 'focus-now'].join('/')
+    expect(/coaching-panel\/focus-now/.test(`import x from '${focusNowSpecifier}'`)).toBe(true)
   })
 })

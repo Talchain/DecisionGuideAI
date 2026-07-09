@@ -1,47 +1,50 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
+// ROADMAP 1.26 chronic-CI-red triage: the "no overrides" case previously
+// mutated a copy of `import.meta.env` by hand (`delete (import.meta as
+// any).env.VITE_EDGE_GATEWAY_URL`). Vite statically inlines
+// `import.meta.env.VITE_*` reads at transform time from the real process
+// env, so that mutation never actually reached the compiled `../config`
+// module — it only ever passed locally because no developer had
+// VITE_EDGE_GATEWAY_URL set. staging-full-tests.yml's own env block sets
+// VITE_EDGE_GATEWAY_URL="http://localhost:3001" for the whole job, so this
+// test has been failing (or would fail) in the real CI environment
+// whenever the full suite actually ran to completion. `vi.stubEnv` /
+// `vi.unstubAllEnvs` is vitest's supported mechanism for this — it patches
+// the value vitest's transform actually serves, unlike a plain object copy.
 describe('getGatewayBaseUrl precedence', () => {
-  let origEnv: any
-  let mod: any
-
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.resetModules()
-    origEnv = (import.meta as any).env
-    ;(import.meta as any).env = { ...(origEnv || {}) }
-    // Ensure no default override leaks into the default-case test
-    delete (import.meta as any).env.VITE_EDGE_GATEWAY_URL
-    // fresh import each test to ensure fresh localStorage read
-    mod = await import('../config')
+    vi.unstubAllEnvs()
     try { localStorage.clear() } catch {}
   })
 
   afterEach(() => {
-    ;(import.meta as any).env = origEnv
+    vi.unstubAllEnvs()
     try { localStorage.clear() } catch {}
   })
 
   it('default empty string when no overrides', async () => {
-    const { getGatewayBaseUrl } = mod
+    vi.stubEnv('VITE_EDGE_GATEWAY_URL', '')
+    const { getGatewayBaseUrl } = await import('../config')
     expect(getGatewayBaseUrl()).toBe('')
   })
 
   it('env only', async () => {
-    ;(import.meta as any).env.VITE_EDGE_GATEWAY_URL = 'https://api.example.com'
-    if (typeof process !== 'undefined') {
-      ;(process as any).env = { ...(process as any).env, VITE_EDGE_GATEWAY_URL: 'https://api.example.com' }
-    }
+    vi.stubEnv('VITE_EDGE_GATEWAY_URL', 'https://api.example.com')
     const { getGatewayBaseUrl } = await import('../config')
     expect(getGatewayBaseUrl()).toBe('https://api.example.com')
   })
 
   it('localStorage only', async () => {
+    vi.stubEnv('VITE_EDGE_GATEWAY_URL', '')
     try { localStorage.setItem('cfg.gateway', 'http://localhost:8787') } catch {}
     const { getGatewayBaseUrl } = await import('../config')
     expect(getGatewayBaseUrl()).toBe('http://localhost:8787')
   })
 
   it('localStorage overrides env', async () => {
-    ;(import.meta as any).env.VITE_EDGE_GATEWAY_URL = 'https://api.example.com'
+    vi.stubEnv('VITE_EDGE_GATEWAY_URL', 'https://api.example.com')
     try { localStorage.setItem('cfg.gateway', 'http://localhost:8787') } catch {}
     const { getGatewayBaseUrl } = await import('../config')
     expect(getGatewayBaseUrl()).toBe('http://localhost:8787')

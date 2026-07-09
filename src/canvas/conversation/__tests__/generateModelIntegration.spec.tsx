@@ -35,10 +35,24 @@ vi.mock('../../stores/guidanceStore', () => ({
     {
       getState: () => ({
         guidanceItems: [],
-        registerConversationCallbacks: vi.fn(),
+        // Same 5d78655b hardening: registerConversationCallbacks now
+        // returns an ownership-guarded unregister function (token-compared
+        // against a later host's registration), not void — ConversationPanel
+        // calls the return value directly on unmount. A bare vi.fn()
+        // returned undefined, throwing "unregister is not a function".
+        registerConversationCallbacks: vi.fn(() => vi.fn()),
         clearItemsByTargetIds: vi.fn(),
       }),
       setState: vi.fn(),
+      // ConversationPanel's registration-survivor effect subscribes
+      // directly on the store (5d78655b, "harden accel-v1 — ... token-
+      // guarded registration") to re-register when _registrationToken goes
+      // null; the mock predates that and never grew a `subscribe`, so every
+      // mount threw "useGuidanceStore.subscribe is not a function" (same
+      // incomplete-mock class as the v5Adapter/flags mocks fixed in this
+      // lane). Returns a no-op unsubscribe; the callback is never invoked
+      // since nothing here ever emits a real state transition.
+      subscribe: vi.fn(() => vi.fn()),
     },
   ),
 }))

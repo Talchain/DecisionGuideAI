@@ -81,6 +81,15 @@ function makeData(): ResultsSectionDataReturn {
     recommendedOption: winner,
     allOptions: [winner, runnerUp],
     goalLabel: 'Maximise success',
+    // UI-SEM-071/072 (PR #234, "null-target goal-fit suppression"): the hero
+    // headline crown, goal lens, and the footer's focus-next slot are all
+    // gated on a USER-set success target (goalThreshold != null), never on
+    // producer goalProbability presence alone. Without it here, the hero
+    // fell back to the no-target state — no goal-fit headline, and the
+    // footer rendered the "set your target" goal-hint editor instead of
+    // hero-focus-next, which is what this spec's placement/regression
+    // assertions are actually about.
+    goalThreshold: 0.6,
     isSingleOption: false,
     analysisStatus: 'computed',
     recommendationStability: 0.92,

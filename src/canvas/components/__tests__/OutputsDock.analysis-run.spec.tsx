@@ -5,6 +5,21 @@ import { OutputsDock } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { _clearTraces, getInteractionChains } from '../../../lib/debug-state'
+// 34edc1fd ("conversation singleton + explicit first-use submit signal",
+// 2026-05-19) made OutputsDockProviderHost consume useConversationContext,
+// which throws outside a <ConversationProvider>. This spec pre-dated (or
+// was never updated for) that requirement and rendered <OutputsDock />
+// bare — same drift class fixed elsewhere in this lane. Matches the
+// established wrapper pattern in OutputsDock.conversationSingleton.spec.tsx.
+import { ConversationProvider } from '../../conversation/ConversationContext'
+
+function renderOutputsDock() {
+  return render(
+    <ConversationProvider>
+      <OutputsDock />
+    </ConversationProvider>,
+  )
+}
 
 const {
   mockIsOrchestratorV2Enabled,
@@ -162,7 +177,7 @@ describe('OutputsDock analyse convergence', () => {
     mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
     useGuidanceStore.setState({ _runAnalysis: runViaConversation } as any)
 
-    render(<OutputsDock />)
+    renderOutputsDock()
 
     fireEvent.click(screen.getByTestId('outputs-run-button'))
 
@@ -174,7 +189,7 @@ describe('OutputsDock analyse convergence', () => {
     const runV2Analysis = vi.fn()
     mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
 
-    render(<OutputsDock />)
+    renderOutputsDock()
 
     fireEvent.click(screen.getByTestId('outputs-run-button'))
 
@@ -187,7 +202,7 @@ describe('OutputsDock analyse convergence', () => {
   })
 
   it('does not emit a warning on unmount before analyse is clicked', () => {
-    const { unmount } = render(<OutputsDock />)
+    const { unmount } = renderOutputsDock()
     unmount()
 
     expect(mockShowToast).not.toHaveBeenCalled()
@@ -203,7 +218,7 @@ describe('OutputsDock analyse convergence', () => {
 
       useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
 
-      render(<OutputsDock />)
+      renderOutputsDock()
       fireEvent.click(screen.getByTestId('outputs-run-button'))
 
       // Correction 8: exact chip/action payload shape — action_type
@@ -231,7 +246,7 @@ describe('OutputsDock analyse convergence', () => {
 
       useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
 
-      render(<OutputsDock />)
+      renderOutputsDock()
       fireEvent.click(screen.getByTestId('outputs-run-button'))
 
       expect(runV2Analysis).toHaveBeenCalledTimes(1)
@@ -247,7 +262,7 @@ describe('OutputsDock analyse convergence', () => {
 
       useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
 
-      render(<OutputsDock />)
+      renderOutputsDock()
       fireEvent.click(screen.getByTestId('outputs-run-button'))
 
       expect(runV2Analysis).toHaveBeenCalledTimes(1)
@@ -264,7 +279,7 @@ describe('OutputsDock analyse convergence', () => {
       // mounted or registered.
       useGuidanceStore.setState({ _dispatchAction: null } as any)
 
-      render(<OutputsDock />)
+      renderOutputsDock()
       fireEvent.click(screen.getByTestId('outputs-run-button'))
 
       expect(runV2Analysis).toHaveBeenCalledTimes(1)
@@ -298,18 +313,24 @@ describe('OutputsDock analyse convergence', () => {
       },
     } as any)
 
-    render(<OutputsDock />)
+    renderOutputsDock()
 
     const footer = screen.getByTestId('results-analysis-footer')
     expect(footer).toBeInTheDocument()
     // Robustness trust fix (ROBUSTNESS-VERDICT-CONTRACT): raw
     // recommendation_stability (0.87) with NO display-safe robustnessVerdict no
     // longer renders a positive "Stable result" verdict — the footer stays
-    // neutral ("Robustness unknown"), matching the certified glyph. The raw %
-    // is retained only as neutral metadata.
+    // neutral ("Robustness unknown"), matching the certified glyph.
+    //
+    // cb16e329 ("stop raw-stability robustness overclaims", 2026-06-27)
+    // tightened this further: the raw "{N}% stability" segment is now
+    // suppressed entirely alongside an indeterminate verdict — a bare
+    // "Robustness unknown · 87% stability" still contradicted itself,
+    // and the number is the leader's win probability, not a robustness
+    // verdict — so it no longer renders as neutral metadata either.
     expect(footer).not.toHaveTextContent('Stable result')
     expect(footer).toHaveTextContent('Robustness unknown')
-    expect(footer).toHaveTextContent('87%')
+    expect(footer).not.toHaveTextContent('87%')
     expect(screen.queryByText('Compare available in the tab bar')).not.toBeInTheDocument()
   })
 })

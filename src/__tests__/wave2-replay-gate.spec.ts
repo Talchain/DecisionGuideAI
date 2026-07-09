@@ -74,7 +74,7 @@ describe('Trust boundary — cast budget', () => {
   const filePath = join(process.cwd(), 'src/components/results/useResultsSectionData.ts')
   const content = readFileSync(filePath, 'utf-8')
 
-  it('useResultsSectionData.ts has ≤ 14 "as any" casts (debug-only window access + PLoT-adapter boundary reads)', () => {
+  it('useResultsSectionData.ts has ≤ 16 "as any" casts (debug-only window access + PLoT-adapter boundary reads)', () => {
     // Packet A (2026-04-19): raised from 6 to 14 with documented rationale.
     // 8 net-new casts across 5 PLoT-adapter boundary sites in useResultsSectionData.ts
     // (lines 1027, 1663, 2363, 2381, 2396) read optional PLoT response fields
@@ -84,13 +84,21 @@ describe('Trust boundary — cast budget', () => {
     // docs/ui/cascade-triage-v3.md "Technical debt — PLoT adapter type gap".
     // Option C (type the PLoT response surface) resolves when adapter/CEE
     // schema work next touches this area.
+    //
+    // Raised 14 -> 16 (ROADMAP 1.26 chronic-CI-red triage, re-verified
+    // stale ratchet): fc14e794 (#241, "lift goal_fit_basis/display_verdict/
+    // confidence_tier through the live Seam-A mapper") added 2 more reads of
+    // an undeclared PLoT response field — `goal_fit_basis.scored_from` —
+    // same deferred-typing class as the other 5 boundary fields, just never
+    // folded into this ratchet when that lane merged.
     const matches = content.match(/as any/g) || []
-    expect(matches.length).toBeLessThanOrEqual(14)
+    expect(matches.length).toBeLessThanOrEqual(16)
   })
 
   it('all remaining "as any" casts are debug window access OR PLoT-adapter boundary reads', () => {
     // Packet A (2026-04-19): allowlist for the 5 PLoT-adapter boundary sites.
-    // See preceding test for technical debt reference.
+    // See preceding test for technical debt reference. `goal_fit_basis`
+    // added per that test's 14->16 citation (fc14e794 / #241).
     //
     // Each boundary field must appear as a whole-word token on the same line
     // as the `as any` cast — not as a substring. This prevents coincidental
@@ -102,6 +110,7 @@ describe('Trust boundary — cast budget', () => {
       'conditional_winners',
       'inference_warnings',
       'edge_e_values',
+      'goal_fit_basis',
     ]
     const lines = content.split('\n')
     const castLines = lines.filter(line => line.includes('as any'))

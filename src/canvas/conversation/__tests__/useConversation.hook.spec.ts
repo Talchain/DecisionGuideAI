@@ -60,6 +60,26 @@ const mockCallV5Turn = vi.fn()
 
 vi.mock('../../../v5/v5Adapter', () => ({
   callV5Turn: (...args: unknown[]) => mockCallV5Turn(...args),
+  // getV5Endpoint is called unconditionally in bindRequestToInteraction on
+  // every V5 send path (useConversation.ts ~L2967); an incomplete mock
+  // leaves it undefined and throws "getV5Endpoint is not a function" —
+  // same pattern fixed in the sibling useConversation.reasoning.spec.ts
+  // (5bc479cf).
+  getV5Endpoint: () => 'https://cee.test/orchestrate/v2/turn',
+}))
+
+// Mock V5 eligibility so the V5-specific describe blocks below (which
+// exercise the V5 sendTurn branch) don't silently depend on the developer's
+// untracked .env.local setting VITE_ENABLE_V5_ORCHESTRATOR=true — on a clean
+// checkout isV5Eligible() resolves to false, sendMessage never enters the V5
+// branch, and mockCallV5Turn/mockLoadScenario are never invoked (same root
+// cause diagnosed + fixed for useConversation.reasoning.spec.ts in 5bc479cf).
+// Defaults to false (V4 path) so the many V4-oriented blocks above are
+// unaffected; the V5-only blocks below flip it on for their scope.
+const mockIsV5Eligible = vi.fn<[{ flag: string | undefined }], { eligible: boolean; reason?: string }>()
+
+vi.mock('../../../v5/eligibility', () => ({
+  isV5Eligible: (...args: unknown[]) => mockIsV5Eligible(...(args as [{ flag: string | undefined }])),
 }))
 
 // Mock Supabase getUserId: vi.fn() so tests can reconfigure per-scenario.
@@ -112,7 +132,10 @@ beforeEach(() => {
   // V5 adapter: default to hanging (matches the V4 mockCallTurn pattern used by timeout tests)
   mockCallV5Turn.mockReset()
   mockCallV5Turn.mockReturnValue(new Promise(() => {}))
-  // V5 eligibility is mocked in the factory with default false (V4 path)
+  // V5 eligibility defaults to false (V4 path); the V5-only describe blocks
+  // below override this in their own beforeEach.
+  mockIsV5Eligible.mockReset()
+  mockIsV5Eligible.mockReturnValue({ eligible: false, reason: 'flag_off' })
   // Auth + DB: default to no session / no DB row
   mockGetUserId.mockReset()
   mockGetUserId.mockResolvedValue(null)
@@ -1985,6 +2008,7 @@ describe('V5 graph re-fetch on analyse response', () => {
   }
 
   beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
     mockCallV5Turn.mockResolvedValue(makeAnalyseResult())
     useCanvasStore.setState({
       currentScenarioId: SCENARIO_ID,
@@ -2106,6 +2130,7 @@ describe('V5 inline graph from response.draft_graph', () => {
   })
 
   beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
     useCanvasStore.setState({
       currentScenarioId: SCENARIO_ID,
       nodes: [],
@@ -2206,6 +2231,10 @@ describe('V5 inline graph from response.draft_graph', () => {
 // ---------------------------------------------------------------------------
 
 describe('V1 leakage regression — V5 flag prevents V4 streaming path', () => {
+  beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
+  })
+
   it('calls callV5Turn and does NOT call mockStreamTurn when V5 flag is on', async () => {
     const V5_TEXT = 'V5 exclusive response'
     mockCallV5Turn.mockResolvedValue(makeV5SuccessResult(V5_TEXT))

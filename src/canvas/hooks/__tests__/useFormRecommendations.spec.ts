@@ -402,9 +402,24 @@ describe('useFormRecommendations', () => {
 
   describe('Empty edges', () => {
     it('returns empty when no edges', () => {
+      // ROADMAP 1.26 chronic-CI-red triage: `edges` MUST be a referentially
+      // stable array across mock invocations — the real zustand store
+      // returns the same `edges` reference across reads until an actual
+      // mutation. An inline `edges: []` here (the previous shape) creates a
+      // fresh array on every store read; useFormRecommendations' auto-fetch
+      // effect depends on the raw `edges` array (not just the derived
+      // edgeHash string) via its `refetch` callback, so an unstable
+      // reference makes that effect re-fire every render. On every fire,
+      // the edges.length===0 branch of refetch() calls
+      // setRecommendations([]) with a NEW empty array — React never bails
+      // out on that (different reference each time) — producing an
+      // infinite render loop that hung this spec (and, transitively, the
+      // CI full-suite job) indefinitely. Same failure class as
+      // InspectorPanel.test.tsx and usePareto.spec.ts, fixed in this lane.
+      const EMPTY_EDGES: typeof mockEdges = []
       ;(useCanvasStore as any).mockImplementation((selector: any) => {
         const state = {
-          edges: [],
+          edges: EMPTY_EDGES,
           nodes: mockNodes,
           updateEdgeData: mockUpdateEdgeData,
         }

@@ -19,6 +19,8 @@ interface MockCanvasState {
   } | null
   ceeAnalysisReady: { status?: string } | null
   graphEditedSinceLastRun: boolean
+  analysisFreshness?: { freshness: 'fresh' | 'stale' | 'unknown' | 'none' } | null
+  analysisFreshnessDirty?: boolean
   showResultsPanel?: boolean
   showInspectorPanel?: boolean
   showDraftChat?: boolean
@@ -84,11 +86,20 @@ describe('captureDisplayState — canonical analysis display fields', () => {
     expect(result.analysis_display_headline).toBe('Analysis complete')
   })
 
-  it('results_stale: hasReport && graphEditedSinceLastRun', async () => {
+  // Staleness is now sourced from the CEE freshness classifier
+  // (classifyFreshnessForDisplay(analysisFreshness, analysisFreshnessDirty) ===
+  // 'changed'), NOT the local graphEditedSinceLastRun flag — see
+  // fix(analysis) c84ec469 "migrate the remaining visible currentness
+  // consumers off graphEditedSinceLastRun → CEE freshness classifier".
+  // A retained-fresh verdict downgraded by a local edit (the dirty overlay)
+  // is one of the two 'changed' shapes; exercise it here.
+  it('results_stale: hasReport && CEE freshness retained-fresh + dirtied since edit', async () => {
     mockState = makeState({
       ceeAnalysisReady: { status: 'ready' },
       results: { status: 'complete', report: { option_comparison: [] } },
       graphEditedSinceLastRun: true,
+      analysisFreshness: { freshness: 'fresh' },
+      analysisFreshnessDirty: true,
     })
     const captureDisplayState = await importCapture()
     const result = await captureDisplayState()
