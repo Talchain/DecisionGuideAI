@@ -636,17 +636,45 @@ export function normaliseAnalysisReady(raw: unknown): CEEAnalysisReady | undefin
 export function attachAnalysisReadyToInlineDraftGraph(
   draftGraph: unknown,
   responseAnalysisReady: unknown,
+  // ROADMAP 1.22 residual (filed alongside UI PR #250): CEE places
+  // `goal_constraints` at the V5 response ROOT, as a SIBLING of
+  // `draft_graph` — it is never nested inside draft_graph. applyDraftResult
+  // only ever reads goal_constraints off the object it is handed, so on the
+  // inline-draft-graph turn path (the only caller of this function) the
+  // response root's goal_constraints was silently dropped and the "no
+  // constraints" branch fired on every inline-draft turn, clearing
+  // useCanvasStore's goalConstraints back to null even when the true root
+  // carried real constraints. Attach the root's value here — mirroring
+  // exactly how analysis_ready is attached below — so applyDraftResult's
+  // existing read sees it.
+  responseGoalConstraints?: unknown,
 ): Record<string, unknown> | undefined {
   if (draftGraph == null || typeof draftGraph !== 'object') return undefined
 
   const graph = draftGraph as Record<string, unknown>
-  if (graph.analysis_ready != null) return graph
+
+  // Only attach when the inline object doesn't already carry its own
+  // goal_constraints AND the root genuinely has a non-empty array — a
+  // straight passthrough, never fabricated. An absent/empty root value is
+  // left unattached so applyDraftResult's existing "no constraints on this
+  // new draft" clear semantics are preserved unchanged.
+  const hasOwnGoalConstraints = Array.isArray(graph.goal_constraints)
+  const rootGoalConstraints =
+    !hasOwnGoalConstraints && Array.isArray(responseGoalConstraints) && responseGoalConstraints.length > 0
+      ? responseGoalConstraints
+      : undefined
+
+  const graphWithConstraints = rootGoalConstraints
+    ? { ...graph, goal_constraints: rootGoalConstraints }
+    : graph
+
+  if (graphWithConstraints.analysis_ready != null) return graphWithConstraints
 
   const normalised = normaliseAnalysisReady(responseAnalysisReady)
-  if (!normalised) return graph
+  if (!normalised) return graphWithConstraints
 
   return {
-    ...graph,
+    ...graphWithConstraints,
     analysis_ready: normalised,
   }
 }
@@ -3141,6 +3169,12 @@ export function useConversation(): UseConversationReturn {
             const inlineGraph = attachAnalysisReadyToInlineDraftGraph(
               target.response.draft_graph,
               (target.response as { analysis_ready?: unknown }).analysis_ready,
+              // ROADMAP 1.22 residual: thread the true response-root
+              // goal_constraints through so applyDraftResult (called below
+              // with `inlineGraph`, not the full response) doesn't always
+              // see it as absent and clear the store on every inline-draft
+              // turn.
+              (target.response as { goal_constraints?: unknown }).goal_constraints,
             )
             const inlineNodeCount = (inlineGraph?.nodes as unknown[] | undefined)?.length ?? 0
 
