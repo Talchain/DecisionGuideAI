@@ -118,6 +118,18 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     description: 'Not all factor ranges are derived from the same source. Results may be less consistent.',
     suggestion: 'Review factor data sources',
   }),
+  // ROADMAP 1.12 — warning surfacing. Producer WARNING-severity code (PLoT
+  // constraint-reliability.ts): a goal constraint's target could not be
+  // scaled/evaluated reliably (default-range threshold and/or a defaulted
+  // base), so PLoT withholds goal-fit probabilities for the run rather than
+  // emit a meaningless number. Doctrine rule 6 (defaulted-value disclosure):
+  // names the concrete, actionable fix — set a value/range — never quotes
+  // the withheld number itself.
+  CONSTRAINT_TARGET_UNRELIABLE: (label) => ({
+    title: `${label}'s success target can't be evaluated reliably`,
+    description: 'The value needed to assess this target is missing or unscaled, so goal-fit results were withheld for this run rather than shown as a meaningless number.',
+    suggestion: `Set a value or range for ${label}`,
+  }),
 }
 
 // ─── Internal token detection ────────────────────────────────────────────────
