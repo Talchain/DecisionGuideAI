@@ -63,7 +63,22 @@ export const GoalNode = memo((props: NodeProps) => {
     return { stability, level }
   }, [report, isPostAnalysis])
 
-  const thresholdRaw = props.data?.goal_threshold_raw as string | number | null | undefined
+  // ROADMAP 1.1 fix (6b-goal-capture evidence, finding b): the pre-analysis-v3
+  // Hero's Success-target field commits via setGoalThresholdAndUpdateNode,
+  // which writes `success_threshold` + `threshold_source: 'user'` onto the
+  // goal node's data (see computeSuccessState.ts, the Hero's own selector,
+  // which already treats this as the highest-priority "is set" signal). This
+  // node's badge previously checked `goal_threshold_raw` ONLY — a CEE-backfilled
+  // field (applyDraftResult.ts) that a Hero-only commit never populates — so
+  // the canvas badge kept reading "no target" even after the Hero (or a
+  // reconciled CEE round-trip) set one. Mirror computeSuccessState's priority:
+  // a user-set success_threshold counts as "set" first; fall back to the
+  // CEE-derived goal_threshold_raw.
+  const userThreshold = props.data?.threshold_source === 'user'
+    ? (props.data?.success_threshold as number | null | undefined)
+    : undefined
+  const ceeThresholdRaw = props.data?.goal_threshold_raw as string | number | null | undefined
+  const thresholdRaw = userThreshold != null ? userThreshold : ceeThresholdRaw
   const thresholdUnit = props.data?.goal_threshold_unit as string | undefined
   const hasThreshold = thresholdRaw != null && String(thresholdRaw).trim() !== ''
 

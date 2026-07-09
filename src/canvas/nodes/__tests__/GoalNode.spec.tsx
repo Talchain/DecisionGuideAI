@@ -355,6 +355,35 @@ describe('GoalNode', () => {
     expect(screen.getByText(/Help me set a target/)).toBeDefined()
   })
 
+  // ROADMAP 1.1 fix (6b-goal-capture evidence, finding b): the pre-analysis-v3
+  // Hero's Success-target field writes `success_threshold` +
+  // `threshold_source: 'user'` onto the goal node's data (setGoalThresholdAndUpdateNode)
+  // — never `goal_threshold_raw` (that field is CEE-backfilled only, see
+  // applyDraftResult.ts). The badge previously checked goal_threshold_raw
+  // ONLY, so it kept reading "no target" even after the Hero set one. This
+  // mirrors the Hero's own selector (computeSuccessState.ts), which already
+  // treats a user-set success_threshold as "set".
+  it('treats a Hero-set success_threshold (threshold_source=user) as a set target, no goal_threshold_raw needed', () => {
+    renderGoal({ success_threshold: 15, threshold_source: 'user', goal_threshold_raw: null })
+    expect(screen.getByText(/Target:/)).toBeDefined()
+    expect(screen.queryByText(/Help me set a target/)).toBeNull()
+  })
+
+  it('post-analysis: Hero-set success_threshold suppresses the "Analysis complete. Set a target" badge', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({ results: { status: 'complete', report: {} } }) as any)
+    )
+    renderGoal({ success_threshold: 15, threshold_source: 'user', goal_threshold_raw: null })
+    expect(screen.queryByText('Analysis complete. Set a target to see your chances.')).toBeNull()
+    expect(screen.getByText(/Target:/)).toBeDefined()
+  })
+
+  it('does not treat success_threshold as set when threshold_source is not user (e.g. CEE default)', () => {
+    renderGoal({ success_threshold: 15, threshold_source: undefined, goal_threshold_raw: null })
+    expect(screen.queryByText(/Target:/)).toBeNull()
+    expect(screen.getByText(/Help me set a target/)).toBeDefined()
+  })
+
   // P0.3: Provenance icons removed in v1.1 — verify target still renders with brief source
   it('renders target value when source is brief_extraction (provenance icon removed in v1.1)', () => {
     renderGoal({ observedState: { source: 'brief_extraction' }, goal_threshold_raw: 100, goal_threshold_unit: '%' })
