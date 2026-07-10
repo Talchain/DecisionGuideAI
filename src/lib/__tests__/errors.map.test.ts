@@ -26,3 +26,19 @@ describe('Error taxonomy mapping (British English)', () => {
     expect(m.primaryAction).toBe('Wait and retry')
   })
 })
+
+// ROADMAP 1.54 density wall — the 422 blocker's user copy comes from THIS
+// entry, never the producer message (which names engine budget maths).
+describe('GRAPH_TOO_COMPLEX (density wall, 1.54)', () => {
+  it('maps to honest simplify-your-model copy and never echoes the raw message', () => {
+    const err = getUserFriendlyError({
+      code: 'GRAPH_TOO_COMPLEX',
+      message: '24 causal nodes × 40 causal edges = 960, above the maximum of 600…',
+      canRetry: false,
+    })
+    expect(err.headline).toBe('Model too complex to analyse')
+    expect(err.explanation).toMatch(/remove|reduce|simplif/i)
+    expect(err.explanation).not.toMatch(/causal nodes|maximum of|×/)
+    expect(err.canRetry).toBe(false)
+  })
+})
