@@ -390,6 +390,9 @@ export function applyV5State(
   // the targets that actually apply below and pulse once after the loop.
   const pulsedNodeIds: string[] = []
   const pulsedEdgeIds: string[] = []
+  // R4 dispatcher rate limit: the producer contract is at most ONE
+  // ui_directive per turn — the UI enforces it defensively; extras defer.
+  let uiDirectiveExecuted = false
   for (const block of response.blocks) {
     if (block.type === 'graph_patch') {
       if (block.status !== 'applied') continue
@@ -462,6 +465,59 @@ export function applyV5State(
             block,
             detail: String(_exhaustive),
           })
+        }
+      }
+    } else if (block.type === 'ui_directive') {
+      // R4 UI half (surfacing gate 4): execute directives at the
+      // once-per-envelope side-effect site — never render-driven, so
+      // re-renders cannot re-fire them. Slice 1 executes `highlight` only,
+      // by feeding the SAME coalesced pulse the applied-edit path uses
+      // (fail-closed in-graph filter downstream, one 2s static ring, zero
+      // viewport movement — the AI cannot hijack what the user is doing).
+      // `focus`/`open_inspector` move the viewport/panels and get their own
+      // rate-limit design in a later slice; they defer fail-closed, as do
+      // verbs this build doesn't know. duration_ms is a producer hint not
+      // yet honoured (the ring is fixed 2s).
+      const targets = Array.isArray(block.targets) ? block.targets : []
+      if (block.verb !== 'highlight') {
+        deferred.push({
+          reason: 'ui_directive_verb_deferred',
+          block,
+          detail: String(block.verb),
+        })
+      } else if (targets.length === 0) {
+        deferred.push({ reason: 'ui_directive_no_targets', block })
+      } else if (uiDirectiveExecuted) {
+        deferred.push({
+          reason: 'ui_directive_rate_limited',
+          block,
+          detail: 'producer contract is one directive per turn',
+        })
+      } else {
+        uiDirectiveExecuted = true
+        for (const t of targets) {
+          if (!t?.id) continue
+          // Mirror the graph_patch path's honesty: an off-canvas target is
+          // recorded as not-found, never as an execution (the pulse filter
+          // would drop it downstream anyway — this keeps applied[] truthful).
+          const isEdge = t.kind === 'edge'
+          const exists = isEdge
+            ? store.edges.some((e) => e.id === t.id)
+            : store.nodes.some((n) => n.id === t.id)
+          if (!exists) {
+            deferred.push({
+              reason: 'ui_directive_target_not_found',
+              block,
+              detail: t.id,
+            })
+            continue
+          }
+          if (isEdge) {
+            pulsedEdgeIds.push(t.id)
+          } else {
+            pulsedNodeIds.push(t.id)
+          }
+          applied.push(`ui_directive:highlight:${t.id}`)
         }
       }
     } else if (block.type === 'analysis_result') {
