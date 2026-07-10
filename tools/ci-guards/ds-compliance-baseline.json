@@ -4994,7 +4994,7 @@
     "production-hex": {
       "mode": "ratchet",
       "description": "Raw hex colour literals in production .ts/.tsx (excl. debug/poc/theme/tests + var() fallbacks)",
-      "total": 437,
+      "total": 436,
       "byFile": {
         "src/components/ContractInspector.tsx": 67,
         "src/canvas/export/decisionBrief.ts": 33,

@@ -79,6 +79,24 @@ describe('WhatChangedChip — visibility', () => {
     render(<WhatChangedChip />)
     expect(screen.queryByTestId('what-changed-chip')).not.toBeInTheDocument()
   })
+
+  it('hides on a SINGLE-SIDED missing snapshot — never fabricates an everything-added delta', () => {
+    loadRunsMock.mockReturnValue([
+      run({ nodes: [node('a', 'A'), node('b', 'B')], edges: [] }), // latest has a graph
+      { id: 'r-legacy', ts: 1 }, // previous predates v1.2 snapshots
+    ])
+    render(<WhatChangedChip />)
+    expect(screen.queryByTestId('what-changed-chip')).not.toBeInTheDocument()
+  })
+
+  it('hides when only the LATEST run lacks a snapshot (reverse single-sided case)', () => {
+    loadRunsMock.mockReturnValue([
+      { id: 'r-legacy', ts: 2 },
+      run({ nodes: [node('a', 'A')], edges: [] }),
+    ])
+    render(<WhatChangedChip />)
+    expect(screen.queryByTestId('what-changed-chip')).not.toBeInTheDocument()
+  })
 })
 
 describe('WhatChangedChip — diffs the last two runs (newest-first order)', () => {

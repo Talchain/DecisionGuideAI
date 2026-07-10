@@ -18,7 +18,9 @@
  * on every run). Edge "modified" = weight or belief change.
  */
 
+import { useMemo, useSyncExternalStore } from 'react'
 import { loadRuns } from '../store/runHistory'
+import * as runsBus from '../store/runsBus'
 import { pulseAppliedTargets } from '../utils/appliedEditPulse'
 import type { Node, Edge } from '@xyflow/react'
 import { ArrowUpDown } from 'lucide-react'
@@ -81,18 +83,35 @@ function formatCounts(label: string, c: { added: string[]; removed: string[]; mo
   return parts.length > 0 ? `${label}: ${parts.join(', ')}` : null
 }
 
+// The runs list changes only when runsBus emits (add/consolidate/delete).
+// A module-level version + useSyncExternalStore keys the memoised parse so
+// the analysis tab's frequent re-renders (node drags re-render the dock)
+// never re-run loadRuns()'s localStorage JSON.parse of full run payloads.
+let runsVersion = 0
+const subscribeToRuns = (onStoreChange: () => void) =>
+  runsBus.on(() => {
+    runsVersion++
+    onStoreChange()
+  })
+const getRunsVersion = () => runsVersion
+
 export function WhatChangedChip() {
-  // Recomputed per render: the parent (analysis tab) re-renders when a new
-  // run's results land, which is exactly when the stored-run list changes.
-  const runs = loadRuns()
+  const version = useSyncExternalStore(subscribeToRuns, getRunsVersion)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- version is the cache key for the localStorage read
+  const runs = useMemo(() => loadRuns(), [version])
   if (runs.length < 2) return null
 
   const [latest, previous] = runs // newest-first per loadRuns()'s sort
+  // A run without a graph snapshot (legacy pre-v1.2 entries) is
+  // NON-COMPARABLE, not empty — diffing against [] would fabricate an
+  // "everything added/removed" delta. Same rule as computeRunSummary's
+  // "Snapshot unavailable" precedent: hide instead.
+  if (!latest.graph || !previous.graph) return null
   const diff = computeGraphDiff(
-    latest.graph?.nodes ?? [],
-    latest.graph?.edges ?? [],
-    previous.graph?.nodes ?? [],
-    previous.graph?.edges ?? []
+    latest.graph.nodes ?? [],
+    latest.graph.edges ?? [],
+    previous.graph.nodes ?? [],
+    previous.graph.edges ?? []
   )
 
   const parts = [formatCounts('Nodes', diff.nodes), formatCounts('Edges', diff.edges)].filter(
