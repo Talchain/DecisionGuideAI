@@ -144,6 +144,23 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     description: "The direction of your target (whether higher or lower is better) couldn't be confirmed for this option, so its goal-fit isn't shown.",
     suggestion: `Review the target direction for ${label}`,
   }),
+  // ROADMAP 1.54 density wall (PLoT #209): dense graphs now analyse at an
+  // adaptively reduced Monte Carlo depth instead of 500ing. The producer
+  // message names both sample depths; the template keeps the honest
+  // substance (reduced precision, results still complete) without quoting
+  // engine internals.
+  SAMPLES_REDUCED_FOR_COMPLEXITY: () => ({
+    title: 'Analysis ran at reduced precision',
+    description: 'This model is dense, so the analysis ran with fewer simulation samples than standard. Results are complete, but probabilities may be slightly less stable than usual.',
+    suggestion: 'Remove weaker or duplicate connections to restore full precision',
+  }),
+  // Blocker sibling of the above: past the engine's ceiling even at the
+  // minimum reliable depth, the run is refused rather than degraded further.
+  GRAPH_TOO_COMPLEX: () => ({
+    title: 'Model too complex to analyse',
+    description: 'This model has more factors and connections than the analysis engine can compute reliably, so the run was stopped rather than returning unstable numbers.',
+    suggestion: 'Remove weaker or duplicate influences, or split the decision into smaller models, then re-run',
+  }),
   CONSTRAINT_DIRECTION_ASSUMED: (label) => ({
     title: `${label}'s target direction was assumed`,
     description: "The direction of your target (whether higher or lower is better) wasn't confirmed, so it was assumed for this run. Goal-fit results for this option may be less reliable.",
