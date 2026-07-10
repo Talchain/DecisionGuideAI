@@ -1,631 +1,217 @@
 /**
- * S6-COMPARE: WhatChangedChip Tests
+ * WhatChangedChip (seamlessness R6 / ROADMAP 2.1 first slice) — run-over-run
+ * graph delta chip.
  *
- * Tests the "What changed" chip that shows graph differences from previous run
- * Requirements: ≥8 test assertions
+ * Contract:
+ * - Diffs the LATEST stored run's graph snapshot against the PREVIOUS run's.
+ *   loadRuns() returns newest-first, so that is runs[0] vs runs[1] — the
+ *   original orphaned component read runs[length-2] (the second-OLDEST run;
+ *   the old spec masked this by mocking runs oldest-first), which this spec
+ *   pins against regression.
+ * - The diff is id-precise: click pulses the added+modified elements via
+ *   pulseAppliedTargets. Removed elements no longer exist and cannot be
+ *   highlighted (fail-closed downstream).
+ * - Node "modified" = label change. Position-only moves are layout, not an
+ *   analytical delta, and must NOT count (auto-layout would otherwise mark
+ *   every node modified on every run).
+ * - Copy is honest about the client-side cached-run basis ("since your last
+ *   run") — the engine-backed delta is a later contract (ROADMAP 2.1).
+ * - Hidden entirely (<2 runs, or zero delta). Ignores the LIVE canvas —
+ *   the delta is between analyses, not live edits.
  */
-
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { WhatChangedChip } from '../WhatChangedChip'
-import { useCanvasStore } from '../../store'
-import * as runHistoryModule from '../../store/runHistory'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import '@testing-library/jest-dom/vitest'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import type { Node, Edge } from '@xyflow/react'
-import type { StoredRun } from '../../store/runHistory'
 
-// Mock loadRuns from runHistory
-vi.mock('../../store/runHistory', () => ({
-  loadRuns: vi.fn()
+const { loadRunsMock, pulseMock } = vi.hoisted(() => ({
+  loadRunsMock: vi.fn(),
+  pulseMock: vi.fn(),
+}))
+vi.mock('../../store/runHistory', () => ({ loadRuns: loadRunsMock }))
+vi.mock('../../utils/appliedEditPulse', () => ({
+  pulseAppliedTargets: pulseMock,
+  __resetAppliedEditPulseForTests: vi.fn(),
+  PULSE_COALESCE_MS: 100,
+  PULSE_DURATION_MS: 2000,
 }))
 
-describe('S6-COMPARE: WhatChangedChip', () => {
-  const mockLoadRuns = vi.mocked(runHistoryModule.loadRuns)
+import { WhatChangedChip } from '../WhatChangedChip'
 
+const node = (id: string, label: string, x = 0, y = 0): Node =>
+  ({ id, type: 'factor', position: { x, y }, data: { label } }) as Node
+const edge = (id: string, weight: number, belief = 0.7): Edge =>
+  ({ id, source: 'a', target: 'b', data: { weight, belief } }) as Edge
+
+let runSeq = 0
+/** Runs are supplied NEWEST-FIRST, matching loadRuns()'s sort. */
+const run = (graph: { nodes: Node[]; edges: Edge[] }) => ({
+  id: `run-${++runSeq}`,
+  ts: 1000 - runSeq,
+  graph,
+})
+
+beforeEach(() => {
+  loadRunsMock.mockReset()
+  pulseMock.mockReset()
+})
+afterEach(() => cleanup())
+
+describe('WhatChangedChip — visibility', () => {
+  it('renders nothing with fewer than 2 runs', () => {
+    loadRunsMock.mockReturnValue([run({ nodes: [node('a', 'A')], edges: [] })])
+    render(<WhatChangedChip />)
+    expect(screen.queryByTestId('what-changed-chip')).not.toBeInTheDocument()
+  })
+
+  it('renders nothing when the last two runs are identical', () => {
+    const g = { nodes: [node('a', 'A')], edges: [edge('e1', 0.5)] }
+    loadRunsMock.mockReturnValue([run(g), run(g)])
+    render(<WhatChangedChip />)
+    expect(screen.queryByTestId('what-changed-chip')).not.toBeInTheDocument()
+  })
+
+  it('renders nothing when a run lacks a graph snapshot (older stored runs)', () => {
+    loadRunsMock.mockReturnValue([
+      { id: 'r-nograph-1', ts: 2 },
+      { id: 'r-nograph-2', ts: 1 },
+    ])
+    render(<WhatChangedChip />)
+    expect(screen.queryByTestId('what-changed-chip')).not.toBeInTheDocument()
+  })
+
+  it('hides on a SINGLE-SIDED missing snapshot — never fabricates an everything-added delta', () => {
+    loadRunsMock.mockReturnValue([
+      run({ nodes: [node('a', 'A'), node('b', 'B')], edges: [] }), // latest has a graph
+      { id: 'r-legacy', ts: 1 }, // previous predates v1.2 snapshots
+    ])
+    render(<WhatChangedChip />)
+    expect(screen.queryByTestId('what-changed-chip')).not.toBeInTheDocument()
+  })
+
+  it('hides when only the LATEST run lacks a snapshot (reverse single-sided case)', () => {
+    loadRunsMock.mockReturnValue([
+      { id: 'r-legacy', ts: 2 },
+      run({ nodes: [node('a', 'A')], edges: [] }),
+    ])
+    render(<WhatChangedChip />)
+    expect(screen.queryByTestId('what-changed-chip')).not.toBeInTheDocument()
+  })
+})
+
+describe('WhatChangedChip — diffs the last two runs (newest-first order)', () => {
+  it('compares runs[0] against runs[1], NOT the oldest runs', () => {
+    // Newest-first: latest adds node 'c' vs previous. The two OLDER runs
+    // differ wildly — the pre-R6 component indexed runs[length-2] (the
+    // second-oldest) and would report that delta instead.
+    loadRunsMock.mockReturnValue([
+      run({ nodes: [node('a', 'A'), node('b', 'B'), node('c', 'C')], edges: [] }), // latest
+      run({ nodes: [node('a', 'A'), node('b', 'B')], edges: [] }), // previous
+      run({ nodes: [], edges: [] }), // second-oldest (the buggy index)
+      run({ nodes: [node('z', 'Z')], edges: [edge('ez', 1)] }), // oldest
+    ])
+    render(<WhatChangedChip />)
+    const chip = screen.getByTestId('what-changed-chip')
+    expect(chip.textContent).toMatch(/Nodes: \+1/)
+    expect(chip.textContent).not.toMatch(/-\d/) // no removals in run0-vs-run1
+  })
+
+  it('counts added, removed, and label-modified nodes', () => {
+    loadRunsMock.mockReturnValue([
+      run({ nodes: [node('a', 'A renamed'), node('c', 'C')], edges: [] }),
+      run({ nodes: [node('a', 'A'), node('b', 'B')], edges: [] }),
+    ])
+    render(<WhatChangedChip />)
+    expect(screen.getByTestId('what-changed-chip').textContent).toMatch(/Nodes: \+1, -1, ~1/)
+  })
+
+  it('position-only moves are NOT counted as modified (layout is not an analytical delta)', () => {
+    loadRunsMock.mockReturnValue([
+      run({ nodes: [node('a', 'A', 500, 500)], edges: [] }),
+      run({ nodes: [node('a', 'A', 0, 0)], edges: [] }),
+    ])
+    render(<WhatChangedChip />)
+    expect(screen.queryByTestId('what-changed-chip')).not.toBeInTheDocument()
+  })
+
+  it('counts edge weight/belief changes as modified', () => {
+    loadRunsMock.mockReturnValue([
+      run({ nodes: [node('a', 'A')], edges: [edge('e1', 0.9), edge('e2', 0.5, 0.2)] }),
+      run({ nodes: [node('a', 'A')], edges: [edge('e1', 0.5), edge('e2', 0.5, 0.9)] }),
+    ])
+    render(<WhatChangedChip />)
+    expect(screen.getByTestId('what-changed-chip').textContent).toMatch(/Edges: ~2/)
+  })
+
+  it('ignores the live canvas — the delta is between stored analyses', () => {
+    // No canvas store seeding at all: chip output must come from runs alone.
+    loadRunsMock.mockReturnValue([
+      run({ nodes: [node('a', 'A'), node('n2', 'New')], edges: [] }),
+      run({ nodes: [node('a', 'A')], edges: [] }),
+    ])
+    render(<WhatChangedChip />)
+    expect(screen.getByTestId('what-changed-chip').textContent).toMatch(/Nodes: \+1/)
+  })
+})
+
+describe('WhatChangedChip — click-to-highlight (the docstring promise, now real)', () => {
+  it('is a button; click pulses the added+modified element ids', () => {
+    loadRunsMock.mockReturnValue([
+      run({
+        nodes: [node('a', 'A renamed'), node('c', 'C')],
+        edges: [edge('e1', 0.9), edge('e-new', 0.4)],
+      }),
+      run({ nodes: [node('a', 'A'), node('b', 'B')], edges: [edge('e1', 0.5)] }),
+    ])
+    render(<WhatChangedChip />)
+    const chip = screen.getByTestId('what-changed-chip')
+    expect(chip.tagName).toBe('BUTTON')
+    fireEvent.click(chip)
+    expect(pulseMock).toHaveBeenCalledTimes(1)
+    const arg = pulseMock.mock.calls[0][0]
+    expect([...arg.nodeIds].sort()).toEqual(['a', 'c']) // modified + added; removed 'b' excluded
+    expect([...arg.edgeIds].sort()).toEqual(['e-new', 'e1'])
+  })
+
+  it('a removals-only delta still shows the chip but the click pulses nothing', () => {
+    loadRunsMock.mockReturnValue([
+      run({ nodes: [node('a', 'A')], edges: [] }),
+      run({ nodes: [node('a', 'A'), node('b', 'B')], edges: [] }),
+    ])
+    render(<WhatChangedChip />)
+    const chip = screen.getByTestId('what-changed-chip')
+    expect(chip.textContent).toMatch(/Nodes: -1/)
+    fireEvent.click(chip)
+    expect(pulseMock).toHaveBeenCalledWith({ nodeIds: [], edgeIds: [] })
+  })
+})
+
+describe('WhatChangedChip — honesty + a11y + DS', () => {
   beforeEach(() => {
-    // Reset store to clean state
-    useCanvasStore.setState({
-      nodes: [],
-      edges: []
-    })
-
-    // Reset mock
-    mockLoadRuns.mockReturnValue([])
+    loadRunsMock.mockReturnValue([
+      run({ nodes: [node('a', 'A'), node('c', 'C')], edges: [] }),
+      run({ nodes: [node('a', 'A')], edges: [] }),
+    ])
   })
 
-  describe('Visibility Conditions', () => {
-    it('should not render when there are fewer than 2 runs', () => {
-      // Only 1 run in history
-      mockLoadRuns.mockReturnValue([
-        {
-          id: 'run-1',
-          timestamp: Date.now(),
-          hash: 'hash-1',
-          seed: 1234,
-          graph: {
-            nodes: [{ id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } }],
-            edges: []
-          }
-        }
-      ])
-
-      const { container } = render(<WhatChangedChip />)
-      expect(container.firstChild).toBeNull()
-    })
-
-    it('should not render when there are no changes between runs', () => {
-      const sameGraph = {
-        nodes: [{ id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } }] as Node[],
-        edges: [{ id: 'e1', source: '1', target: '2' }] as Edge[]
-      }
-
-      // Two runs with identical graphs
-      mockLoadRuns.mockReturnValue([
-        {
-          id: 'run-1',
-          timestamp: Date.now() - 1000,
-          hash: 'hash-1',
-          seed: 1234,
-          graph: sameGraph
-        },
-        {
-          id: 'run-2',
-          timestamp: Date.now(),
-          hash: 'hash-2',
-          seed: 1234,
-          graph: sameGraph
-        }
-      ])
-
-      // Set current graph to match history
-      useCanvasStore.setState({
-        nodes: sameGraph.nodes,
-        edges: sameGraph.edges
-      })
-
-      const { container } = render(<WhatChangedChip />)
-      expect(container.firstChild).toBeNull()
-    })
-
-    it('should render when there are changes between current and previous run', () => {
-      // Previous run had 1 node
-      mockLoadRuns.mockReturnValue([
-        {
-          id: 'run-1',
-          timestamp: Date.now() - 1000,
-          hash: 'hash-1',
-          seed: 1234,
-          graph: {
-            nodes: [{ id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } }],
-            edges: []
-          }
-        },
-        {
-          id: 'run-2',
-          timestamp: Date.now(),
-          hash: 'hash-2',
-          seed: 1234,
-          graph: {
-            nodes: [
-              { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-              { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-            ],
-            edges: []
-          }
-        }
-      ])
-
-      // Current graph has 2 nodes (matches run-2)
-      useCanvasStore.setState({
-        nodes: [
-          { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-          { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-        ],
-        edges: []
-      })
-
-      render(<WhatChangedChip />)
-      expect(screen.getByTestId('what-changed-chip')).toBeInTheDocument()
-    })
+  it('copy states the client-side previous-run basis', () => {
+    render(<WhatChangedChip />)
+    expect(screen.getByTestId('what-changed-chip').textContent).toMatch(/since your last run/i)
   })
 
-  describe('Node Changes Display', () => {
-    it('should show added nodes', () => {
-      // Previous run: 1 node
-      // Current run: 2 nodes (1 added)
-      mockLoadRuns.mockReturnValue([
-        {
-          id: 'run-1',
-          timestamp: Date.now() - 1000,
-          hash: 'hash-1',
-          seed: 1234,
-          graph: {
-            nodes: [{ id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } }],
-            edges: []
-          }
-        },
-        {
-          id: 'run-2',
-          timestamp: Date.now(),
-          hash: 'hash-2',
-          seed: 1234,
-          graph: {
-            nodes: [
-              { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-              { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-            ],
-            edges: []
-          }
-        }
-      ])
-
-      useCanvasStore.setState({
-        nodes: [
-          { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-          { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-        ],
-        edges: []
-      })
-
-      render(<WhatChangedChip />)
-      expect(screen.getByText(/Nodes: \+1/)).toBeInTheDocument()
-    })
-
-    it('should show removed nodes', () => {
-      // Previous run: 2 nodes
-      // Current run: 1 node (1 removed)
-      mockLoadRuns.mockReturnValue([
-        {
-          id: 'run-1',
-          timestamp: Date.now() - 1000,
-          hash: 'hash-1',
-          seed: 1234,
-          graph: {
-            nodes: [
-              { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-              { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-            ],
-            edges: []
-          }
-        },
-        {
-          id: 'run-2',
-          timestamp: Date.now(),
-          hash: 'hash-2',
-          seed: 1234,
-          graph: {
-            nodes: [{ id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } }],
-            edges: []
-          }
-        }
-      ])
-
-      useCanvasStore.setState({
-        nodes: [{ id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } }],
-        edges: []
-      })
-
-      render(<WhatChangedChip />)
-      expect(screen.getByText(/Nodes: -1/)).toBeInTheDocument()
-    })
-
-    it('should show modified nodes', () => {
-      // Previous run: 1 node with label "Old Label"
-      // Current run: Same node with label "New Label" (modified)
-      mockLoadRuns.mockReturnValue([
-        {
-          id: 'run-1',
-          timestamp: Date.now() - 1000,
-          hash: 'hash-1',
-          seed: 1234,
-          graph: {
-            nodes: [{ id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Old Label' } }],
-            edges: []
-          }
-        },
-        {
-          id: 'run-2',
-          timestamp: Date.now(),
-          hash: 'hash-2',
-          seed: 1234,
-          graph: {
-            nodes: [{ id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'New Label' } }],
-            edges: []
-          }
-        }
-      ])
-
-      useCanvasStore.setState({
-        nodes: [{ id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'New Label' } }],
-        edges: []
-      })
-
-      render(<WhatChangedChip />)
-      expect(screen.getByText(/Nodes: ~1/)).toBeInTheDocument()
-    })
-
-    it('should show combined node changes', () => {
-      // Previous run: nodes 1, 2, 3
-      // Current run: nodes 1 (modified), 3, 4 (node 2 removed, node 4 added, node 1 modified)
-      mockLoadRuns.mockReturnValue([
-        {
-          id: 'run-1',
-          timestamp: Date.now() - 1000,
-          hash: 'hash-1',
-          seed: 1234,
-          graph: {
-            nodes: [
-              { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1 Old' } },
-              { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } },
-              { id: '3', type: 'decision', position: { x: 200, y: 0 }, data: { label: 'Node 3' } }
-            ],
-            edges: []
-          }
-        },
-        {
-          id: 'run-2',
-          timestamp: Date.now(),
-          hash: 'hash-2',
-          seed: 1234,
-          graph: {
-            nodes: [
-              { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1 New' } },
-              { id: '3', type: 'decision', position: { x: 200, y: 0 }, data: { label: 'Node 3' } },
-              { id: '4', type: 'decision', position: { x: 300, y: 0 }, data: { label: 'Node 4' } }
-            ],
-            edges: []
-          }
-        }
-      ])
-
-      useCanvasStore.setState({
-        nodes: [
-          { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1 New' } },
-          { id: '3', type: 'decision', position: { x: 200, y: 0 }, data: { label: 'Node 3' } },
-          { id: '4', type: 'decision', position: { x: 300, y: 0 }, data: { label: 'Node 4' } }
-        ],
-        edges: []
-      })
-
-      render(<WhatChangedChip />)
-      expect(screen.getByText(/Nodes: \+1, -1, ~1/)).toBeInTheDocument()
-    })
+  it('has an accessible label naming the delta and the highlight action', () => {
+    render(<WhatChangedChip />)
+    const chip = screen.getByTestId('what-changed-chip')
+    expect(chip).toHaveAttribute('aria-label', expect.stringMatching(/highlight/i))
+    expect(chip).toHaveAttribute('type', 'button')
   })
 
-  describe('Edge Changes Display', () => {
-    it('should show added edges', () => {
-      mockLoadRuns.mockReturnValue([
-        {
-          id: 'run-1',
-          timestamp: Date.now() - 1000,
-          hash: 'hash-1',
-          seed: 1234,
-          graph: {
-            nodes: [
-              { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-              { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-            ],
-            edges: []
-          }
-        },
-        {
-          id: 'run-2',
-          timestamp: Date.now(),
-          hash: 'hash-2',
-          seed: 1234,
-          graph: {
-            nodes: [
-              { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-              { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-            ],
-            edges: [{ id: 'e1-2', source: '1', target: '2' }]
-          }
-        }
-      ])
-
-      useCanvasStore.setState({
-        nodes: [
-          { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-          { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-        ],
-        edges: [{ id: 'e1-2', source: '1', target: '2' }]
-      })
-
-      render(<WhatChangedChip />)
-      expect(screen.getByText(/Edges: \+1/)).toBeInTheDocument()
-    })
-
-    it('should show modified edges', () => {
-      mockLoadRuns.mockReturnValue([
-        {
-          id: 'run-1',
-          timestamp: Date.now() - 1000,
-          hash: 'hash-1',
-          seed: 1234,
-          graph: {
-            nodes: [
-              { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-              { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-            ],
-            edges: [{ id: 'e1-2', source: '1', target: '2', data: { weight: 0.5 } }]
-          }
-        },
-        {
-          id: 'run-2',
-          timestamp: Date.now(),
-          hash: 'hash-2',
-          seed: 1234,
-          graph: {
-            nodes: [
-              { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-              { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-            ],
-            edges: [{ id: 'e1-2', source: '1', target: '2', data: { weight: 0.8 } }]
-          }
-        }
-      ])
-
-      useCanvasStore.setState({
-        nodes: [
-          { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-          { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-        ],
-        edges: [{ id: 'e1-2', source: '1', target: '2', data: { weight: 0.8 } }]
-      })
-
-      render(<WhatChangedChip />)
-      expect(screen.getByText(/Edges: ~1/)).toBeInTheDocument()
-    })
-
-    it('should show combined node and edge changes', () => {
-      mockLoadRuns.mockReturnValue([
-        {
-          id: 'run-1',
-          timestamp: Date.now() - 1000,
-          hash: 'hash-1',
-          seed: 1234,
-          graph: {
-            nodes: [
-              { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-              { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-            ],
-            edges: []
-          }
-        },
-        {
-          id: 'run-2',
-          timestamp: Date.now(),
-          hash: 'hash-2',
-          seed: 1234,
-          graph: {
-            nodes: [
-              { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-              { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } },
-              { id: '3', type: 'decision', position: { x: 200, y: 0 }, data: { label: 'Node 3' } }
-            ],
-            edges: [
-              { id: 'e1-2', source: '1', target: '2' },
-              { id: 'e2-3', source: '2', target: '3' }
-            ]
-          }
-        }
-      ])
-
-      useCanvasStore.setState({
-        nodes: [
-          { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-          { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } },
-          { id: '3', type: 'decision', position: { x: 200, y: 0 }, data: { label: 'Node 3' } }
-        ],
-        edges: [
-          { id: 'e1-2', source: '1', target: '2' },
-          { id: 'e2-3', source: '2', target: '3' }
-        ]
-      })
-
-      render(<WhatChangedChip />)
-      const chip = screen.getByTestId('what-changed-chip')
-      expect(chip).toHaveTextContent(/Nodes: \+1/)
-      expect(chip).toHaveTextContent(/Edges: \+2/)
-    })
-  })
-
-  describe('Accessibility and UI', () => {
-    it('should have correct ARIA label', () => {
-      mockLoadRuns.mockReturnValue([
-        {
-          id: 'run-1',
-          timestamp: Date.now() - 1000,
-          hash: 'hash-1',
-          seed: 1234,
-          graph: {
-            nodes: [{ id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } }],
-            edges: []
-          }
-        },
-        {
-          id: 'run-2',
-          timestamp: Date.now(),
-          hash: 'hash-2',
-          seed: 1234,
-          graph: {
-            nodes: [
-              { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-              { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-            ],
-            edges: []
-          }
-        }
-      ])
-
-      useCanvasStore.setState({
-        nodes: [
-          { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-          { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-        ],
-        edges: []
-      })
-
-      render(<WhatChangedChip />)
-      const chip = screen.getByTestId('what-changed-chip')
-      expect(chip).toHaveAttribute('role', 'status')
-      expect(chip).toHaveAttribute('aria-label', 'Graph changed: Nodes: +1')
-    })
-
-    it('should have correct test ID', () => {
-      mockLoadRuns.mockReturnValue([
-        {
-          id: 'run-1',
-          timestamp: Date.now() - 1000,
-          hash: 'hash-1',
-          seed: 1234,
-          graph: {
-            nodes: [{ id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } }],
-            edges: []
-          }
-        },
-        {
-          id: 'run-2',
-          timestamp: Date.now(),
-          hash: 'hash-2',
-          seed: 1234,
-          graph: {
-            nodes: [
-              { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-              { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-            ],
-            edges: []
-          }
-        }
-      ])
-
-      useCanvasStore.setState({
-        nodes: [
-          { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-          { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-        ],
-        edges: []
-      })
-
-      render(<WhatChangedChip />)
-      expect(screen.getByTestId('what-changed-chip')).toBeInTheDocument()
-    })
-
-    it('should display change icon', () => {
-      mockLoadRuns.mockReturnValue([
-        {
-          id: 'run-1',
-          timestamp: Date.now() - 1000,
-          hash: 'hash-1',
-          seed: 1234,
-          graph: {
-            nodes: [{ id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } }],
-            edges: []
-          }
-        },
-        {
-          id: 'run-2',
-          timestamp: Date.now(),
-          hash: 'hash-2',
-          seed: 1234,
-          graph: {
-            nodes: [
-              { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-              { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-            ],
-            edges: []
-          }
-        }
-      ])
-
-      useCanvasStore.setState({
-        nodes: [
-          { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-          { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-        ],
-        edges: []
-      })
-
-      const { container } = render(<WhatChangedChip />)
-      const svg = container.querySelector('svg')
-      expect(svg).toBeInTheDocument()
-      expect(svg).toHaveClass('w-3.5', 'h-3.5')
-    })
-  })
-
-  describe('Edge Cases', () => {
-    it('should handle position changes as modifications', () => {
-      mockLoadRuns.mockReturnValue([
-        {
-          id: 'run-1',
-          timestamp: Date.now() - 1000,
-          hash: 'hash-1',
-          seed: 1234,
-          graph: {
-            nodes: [{ id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } }],
-            edges: []
-          }
-        },
-        {
-          id: 'run-2',
-          timestamp: Date.now(),
-          hash: 'hash-2',
-          seed: 1234,
-          graph: {
-            nodes: [{ id: '1', type: 'goal', position: { x: 100, y: 50 }, data: { label: 'Node 1' } }],
-            edges: []
-          }
-        }
-      ])
-
-      useCanvasStore.setState({
-        nodes: [{ id: '1', type: 'goal', position: { x: 100, y: 50 }, data: { label: 'Node 1' } }],
-        edges: []
-      })
-
-      render(<WhatChangedChip />)
-      expect(screen.getByText(/Nodes: ~1/)).toBeInTheDocument()
-    })
-
-    it('should handle belief changes in edges as modifications', () => {
-      mockLoadRuns.mockReturnValue([
-        {
-          id: 'run-1',
-          timestamp: Date.now() - 1000,
-          hash: 'hash-1',
-          seed: 1234,
-          graph: {
-            nodes: [
-              { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-              { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-            ],
-            edges: [{ id: 'e1-2', source: '1', target: '2', data: { weight: 0.5, belief: 0.5 } }]
-          }
-        },
-        {
-          id: 'run-2',
-          timestamp: Date.now(),
-          hash: 'hash-2',
-          seed: 1234,
-          graph: {
-            nodes: [
-              { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-              { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-            ],
-            edges: [{ id: 'e1-2', source: '1', target: '2', data: { weight: 0.5, belief: 0.8 } }]
-          }
-        }
-      ])
-
-      useCanvasStore.setState({
-        nodes: [
-          { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-          { id: '2', type: 'decision', position: { x: 100, y: 0 }, data: { label: 'Node 2' } }
-        ],
-        edges: [{ id: 'e1-2', source: '1', target: '2', data: { weight: 0.5, belief: 0.8 } }]
-      })
-
-      render(<WhatChangedChip />)
-      expect(screen.getByText(/Edges: ~1/)).toBeInTheDocument()
-    })
+  it('keeps the outlined-pill DS identity (no filled pill, no text-colour copy token)', () => {
+    render(<WhatChangedChip />)
+    const chip = screen.getByTestId('what-changed-chip')
+    expect(chip.className).toContain('bg-transparent')
+    expect(chip.className).toContain('border-info/30')
+    expect(chip.className).toContain('text-text-body')
+    expect(chip.className).not.toMatch(/(^| )text-info( |$)/)
   })
 })
