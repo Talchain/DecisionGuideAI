@@ -35,6 +35,27 @@ describe('humaniseCritique', () => {
       expect(result.factorId).toBe('fac_rev')
     })
 
+    // ROADMAP 1.54 density wall (PLoT #209): two new producer codes must have
+    // code-keyed templates (the 1.12 pattern) instead of the generic fallback.
+    it('SAMPLES_REDUCED_FOR_COMPLEXITY discloses the reduced-precision run honestly', () => {
+      const result = humaniseCritique(makeItem({ code: 'SAMPLES_REDUCED_FOR_COMPLEXITY' }))
+      expect(result.title).toBe('Analysis ran at reduced precision')
+      expect(result.description).toContain('fewer simulation samples')
+      expect(result.description).toMatch(/less stable/i)
+      expect(result.suggestion).toMatch(/connections|influences/i)
+      expect(result.displayText).not.toBeNull()
+    })
+
+    it('GRAPH_TOO_COMPLEX names the structural fix, never the internal budget maths', () => {
+      const result = humaniseCritique(makeItem({ code: 'GRAPH_TOO_COMPLEX' }))
+      expect(result.title).toBe('Model too complex to analyse')
+      expect(result.description).toMatch(/connections|complexity/i)
+      expect(result.suggestion).toMatch(/remove|reduce/i)
+      // Never leak engine internals into user copy
+      expect(result.description).not.toMatch(/node.?edge product|complexity budget|n_samples/i)
+      expect(result.displayText).not.toBeNull()
+    })
+
     it('LOW_EVIDENCE', () => {
       const result = humaniseCritique(makeItem({ code: 'LOW_EVIDENCE' }))
       expect(result.title).toBe('Limited evidence available')

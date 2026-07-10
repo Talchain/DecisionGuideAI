@@ -293,6 +293,43 @@ describe('Pre-run intervention validation', () => {
     ])
   })
 
+  it('promotes PLoT 422 GRAPH_TOO_COMPLEX critique so the density wall gets its honest copy (1.54)', async () => {
+    setupCanvasWithOptions({
+      analysisReady: {
+        goal_node_id: 'goal-1',
+        status: 'ready',
+        options: [
+          { id: 'opt-1', label: 'Option A', status: 'ready', interventions: { 'fac-1': 0.5 } },
+        ],
+      },
+    })
+
+    mockExecute.mockResolvedValueOnce({
+      analysis_status: 'blocked',
+      status_reason: 'Graph too complex to analyse',
+      critiques: [
+        {
+          code: 'GRAPH_TOO_COMPLEX',
+          severity: 'blocker',
+          // Producer message leaks engine budget maths — the UI entry's copy
+          // must be used instead (asserted via the code promotion; the
+          // userFriendlyErrors mapping is pinned in its own spec).
+          message: '24 causal nodes × 40 causal edges = 960, above the maximum of 600…',
+          affected_nodes: [],
+        },
+      ],
+      request_id: 'req-test-complexity',
+    })
+
+    const { result } = renderHook(() => useV2Run())
+    await act(async () => {
+      await result.current.runV2Analysis()
+    })
+
+    const storeError = useCanvasStore.getState().results.error
+    expect(storeError?.code).toBe('GRAPH_TOO_COMPLEX')
+  })
+
   it('still renders the coached state when PLoT critique references stale option ids (id fallback)', async () => {
     // Simulate: PLoT critique points at "opt-deleted" which is no longer on the
     // canvas (e.g. user deleted the option between request build and response).
