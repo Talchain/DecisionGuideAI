@@ -186,6 +186,11 @@ const KNOWN_OLUMI_TOP_LEVEL_KEYS: ReadonlySet<string> = new Set([
   'stage_indicator',
   'draft_graph',
   'analysis_ready',
+  // 0.15.0: reasoning is a declared optional field on the strict schema —
+  // it must reach strict validation, not be demoted to the __additive__
+  // sidecar (which would blank parsed.reasoning forever once CEE migrates
+  // off the legacy _reasoning sidecar key).
+  'reasoning',
 ]);
 
 /**

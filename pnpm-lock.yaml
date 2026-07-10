@@ -1404,7 +1404,7 @@ packages:
     resolution: {integrity: sha512-1vxsX10Uhc2b+Dv9pRjBjHfqmw2N2h1PyTg9LEfICR3x2xwE24By1MGCjDZuzDKH5OeHCsf4it6K8KRluAAEXA==}
 
   '@talchain/schemas@file:vendor/talchain-schemas-0.15.0.tgz':
-    resolution: {integrity: sha512-EOrZ0jnZWZyQARUCyP3wAYCILcAWcz1pf3kSVESbfB1jUs1myZIZRJX/0wvliD1dVa4Y+1A/NjquBVhFqx2/IQ==, tarball: file:vendor/talchain-schemas-0.15.0.tgz}
+    resolution: {integrity: sha512-3ciNWW1t0oDmMuYJZfepu8xt0KcH10zkIpjkqdIOBUPU8LZAdVPSMYDwhFXOjGfUtlhT41JMYzRdCuB2ccgzaA==, tarball: file:vendor/talchain-schemas-0.15.0.tgz}
     version: 0.15.0
     engines: {node: '>=18.0.0'}
 

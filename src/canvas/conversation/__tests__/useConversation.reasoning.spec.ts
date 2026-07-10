@@ -171,6 +171,32 @@ describe('useConversation — reasoning sidecar extraction (ROADMAP 1.42)', () =
     expect(msg!.reasoning).toBe('Because X implies Y, and Y implies Z.')
   })
 
+  it('0.15.0: reads the FORMALISED top-level reasoning field (no sidecar needed)', async () => {
+    const result5 = makeV5Result({ text: 'Answer.' })
+    ;(result5.response as Record<string, unknown>).reasoning = 'Formal field reasoning.'
+    mockCallV5Turn.mockResolvedValue(result5)
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('question')
+    })
+    expect(lastAssistantMessage(result.current.messages)!.reasoning).toBe(
+      'Formal field reasoning.',
+    )
+  })
+
+  it('0.15.0: prefers the formal field over the legacy _reasoning sidecar when both arrive', async () => {
+    const result5 = makeV5Result({ text: 'Answer.', reasoning: 'legacy sidecar value' })
+    ;(result5.response as Record<string, unknown>).reasoning = 'formal wins'
+    mockCallV5Turn.mockResolvedValue(result5)
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('question')
+    })
+    expect(lastAssistantMessage(result.current.messages)!.reasoning).toBe('formal wins')
+  })
+
   it('never places reasoning content into message.content', async () => {
     const reasoning = 'SECRET_REASONING_TOKEN should never leak into content'
     mockCallV5Turn.mockResolvedValue(

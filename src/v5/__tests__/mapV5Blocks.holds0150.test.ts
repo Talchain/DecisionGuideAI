@@ -20,12 +20,12 @@ describe('mapV5Blocks — 0.15.0 kinds deferred to v5_unsupported', () => {
     expect(mapped).toMatchObject({ type: 'v5_unsupported', blockType: 'held_proposal' })
   })
 
-  it('ui_directive degrades to the unsupported wrapper', () => {
+  it('ui_directive is SILENTLY skipped (the schema-specified degrade: advisory polish, never content)', () => {
     const mapped = mapV5Block({
       type: 'ui_directive',
       verb: 'highlight',
-      target_ref: { id: 'n1', label: 'Factor', kind: 'factor' },
+      targets: [{ id: 'n1', label: 'Factor', kind: 'factor' }],
     } as never)
-    expect(mapped).toMatchObject({ type: 'v5_unsupported', blockType: 'ui_directive' })
+    expect(mapped).toBeNull()
   })
 })
