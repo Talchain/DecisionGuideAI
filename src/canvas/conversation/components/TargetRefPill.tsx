@@ -1,4 +1,6 @@
-import { memo } from 'react'
+import { memo, useCallback } from 'react'
+import { useCanvasStore } from '../../store'
+import { focusByTarget } from '../../utils/focusHelpers'
 
 // TargetRefPill — a conversation-block reference pill (target_refs / proposal
 // change targets) that pans + highlights its canvas element on click.
@@ -7,8 +9,12 @@ import { memo } from 'react'
 // ONLY while the referenced element exists on the canvas — checked against
 // the canvas store at render time, scoped by kind (edge ids never resolve
 // against nodes and vice versa). When the target is stale/unknown the pill
-// renders as today's inert <span>, byte-identical styling, so a dead
-// reference never advertises an affordance it can't honour.
+// renders as the same inert <span> it was before this component existed, so
+// a dead reference never advertises an affordance it can't honour.
+//
+// When the target exists but ReactFlow is not mounted (no focus handler
+// registered), a click warns and no-ops inside focusHelpers — identical to
+// EntityLink; pinned by TargetRefPill.noHandler.spec.tsx.
 //
 // DS: the caller supplies the pill classes — pills keep their outlined
 // identity (bg-transparent border, text-text-body); this is NOT restyled to
@@ -22,9 +28,14 @@ export interface TargetRefPillProps {
   kind?: string
   /** Pill classes, applied in both the clickable and inert states. */
   className?: string
-  /** Set to 'listitem' when rendered inside a role="list" refs container. */
+  /** Set to 'listitem' when rendered inside a role="list" refs container.
+   * In the clickable state the role goes on a wrapper span so the inner
+   * <button> keeps its native role and list semantics stay valid. */
   role?: string
 }
+
+const INTERACTIVE_CLASSES =
+  'cursor-pointer hover:border-info/50 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info'
 
 export const TargetRefPill = memo(function TargetRefPill({
   id,
@@ -33,15 +44,43 @@ export const TargetRefPill = memo(function TargetRefPill({
   className,
   role,
 }: TargetRefPillProps) {
-  // RED-checkpoint stub: inert rendering only; click-to-focus lands next commit.
+  const isEdge = kind === 'edge'
+  const exists = useCanvasStore((s) =>
+    isEdge ? s.edges.some((e) => e.id === id) : s.nodes.some((n) => n.id === id),
+  )
+
+  const handleClick = useCallback(() => {
+    // Same kind collapse as EntityLink: all non-edge targets are canvas
+    // nodes. Reduced-motion is handled inside the focus helper.
+    focusByTarget(id, isEdge ? 'edge' : 'node')
+  }, [id, isEdge])
+
+  if (!exists) {
+    return (
+      <span
+        {...(role ? { role } : {})}
+        data-ref-id={id}
+        data-ref-kind={kind}
+        className={className}
+      >
+        {label}
+      </span>
+    )
+  }
+
   return (
-    <span
-      {...(role ? { role } : {})}
-      data-ref-id={id}
-      data-ref-kind={kind}
-      className={className}
-    >
-      {label}
+    <span {...(role ? { role } : {})} className="inline-flex">
+      <button
+        type="button"
+        onClick={handleClick}
+        data-ref-id={id}
+        data-ref-kind={kind}
+        data-testid={`target-ref-pill-${id}`}
+        aria-label={`Highlight ${label} on the canvas`}
+        className={[className, INTERACTIVE_CLASSES].filter(Boolean).join(' ')}
+      >
+        {label}
+      </button>
     </span>
   )
 })

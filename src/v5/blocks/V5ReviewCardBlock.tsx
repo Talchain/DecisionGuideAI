@@ -18,6 +18,7 @@
 import { type ReactElement } from 'react'
 import { AlertTriangle, Lightbulb } from 'lucide-react'
 import { typography } from '../../styles/typography'
+import { TargetRefPill } from '../../canvas/conversation/components/TargetRefPill'
 import type { V5ReviewCardBlock as V5ReviewCardBlockType } from '../../canvas/conversation/types'
 
 export interface V5ReviewCardBlockProps {
@@ -68,19 +69,18 @@ export function V5ReviewCardBlock({ block }: V5ReviewCardBlockProps): ReactEleme
           data-testid="v5-review-card-refs"
         >
           {block.target_refs.map((ref) => (
-            <span
+            <TargetRefPill
               key={ref.id}
               role="listitem"
-              data-ref-id={ref.id}
-              data-ref-kind={ref.kind}
+              id={ref.id}
+              label={ref.label}
+              kind={ref.kind}
               className={[
                 'inline-flex items-center rounded-full px-2.5 py-0.5',
                 'bg-transparent border border-panel-border text-text-body',
                 typography.panelMeta,
               ].join(' ')}
-            >
-              {ref.label}
-            </span>
+            />
           ))}
         </div>
       )}
