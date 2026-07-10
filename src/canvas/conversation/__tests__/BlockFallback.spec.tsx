@@ -2,7 +2,8 @@
  * Tests for InlineBlocks unknown block type fallback
  *
  * Verifies:
- * - Unknown block_type renders nothing visible (suppressed)
+ * - Unknown block_type renders the honest fallback card (seamlessness R7 —
+ *   silent suppression was retired; schema-skew must be visible)
  * - Known blocks still render normally alongside unknown ones
  * - Block budget "Show more" toggle works with 5 blocks
  * - graph_patch with proposed status appears in first 4 visible slots
@@ -15,11 +16,14 @@ import type { ConversationBlock, GraphPatchBlock } from '../types'
 import type { PatchBlockState } from '../useConversation'
 
 describe('InlineBlocks — unknown block type fallback', () => {
-  it('renders nothing visible for unknown block_type, does not throw', () => {
+  it('renders the fallback card for unknown block_type, does not throw', () => {
     const unknownBlock = { type: 'future_block_v99', some_field: 'value' } as unknown as ConversationBlock
-    const { container } = render(<InlineBlocks blocks={[unknownBlock]} />)
-    // Unknown blocks are suppressed — no visible content rendered
-    expect(container.querySelector('[data-testid^="block-unknown"]')).toBeNull()
+    render(<InlineBlocks blocks={[unknownBlock]} />)
+    // R7: unknown blocks surface as the honest fallback card
+    expect(screen.getByTestId('v5-unsupported-block')).toHaveAttribute(
+      'data-block-type',
+      'future_block_v99',
+    )
   })
 
   it('does not render "Unsupported block:" text for unknown types', () => {
@@ -35,8 +39,8 @@ describe('InlineBlocks — unknown block type fallback', () => {
     ]
     render(<InlineBlocks blocks={blocks} />)
     expect(screen.getByText('Hello world')).toBeInTheDocument()
-    // Unknown block suppressed
-    expect(screen.queryByText(/unknown_type_xyz/)).not.toBeInTheDocument()
+    // R7: the unknown block renders as the fallback card, not silence
+    expect(screen.getByTestId('v5-unsupported-block')).toBeInTheDocument()
   })
 })
 

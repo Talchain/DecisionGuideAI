@@ -321,16 +321,23 @@ function BlockRenderer({
       return <V5UnsupportedBlock block={block} />
 
     default: {
-      // Unknown block type — suppress from user view, log for diagnostics
+      // Unknown block type (seamlessness R7): schema-version skew is the
+      // platform's #1 hazard, and a silent drop reads as the AI saying less
+      // than it said. Render the honest fallback card instead of null.
+      // Telemetry event name kept — it now means "fallback card shown".
       const rawType = (block as { type: string }).type
       if (import.meta.env.DEV) {
-        console.warn('[InlineBlocks] Suppressed unknown block type:', rawType, block)
+        console.warn('[InlineBlocks] Unknown block type (fallback card shown):', rawType, block)
       }
       if (!_trackedUnknownBlockTypes.has(rawType)) {
         _trackedUnknownBlockTypes.add(rawType)
         trackEvent('unknown_block_type_suppressed', { block_type: rawType })
       }
-      return null
+      return (
+        <V5UnsupportedBlock
+          block={{ type: 'v5_unsupported', blockType: rawType, raw: block }}
+        />
+      )
     }
   }
 }

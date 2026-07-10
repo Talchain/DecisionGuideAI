@@ -44,7 +44,8 @@ export function V5UnsupportedBlock({ block }: V5UnsupportedBlockProps): ReactEle
         {block.blockType}
       </span>
       <p className={typography.panelBody}>
-        This content type is not yet rendered.
+        This app version can&apos;t display this part of the response yet.
+        The rest of the message is unaffected.
       </p>
     </div>
   )
