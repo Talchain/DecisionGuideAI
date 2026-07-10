@@ -29,6 +29,7 @@ import { DecisionConfidencePanel } from './DecisionConfidencePanel'
 import { AnalysisHeroV17 } from './AnalysisHeroV17'
 import { AnalysisOrphanBanner } from './AnalysisOrphanBanner'
 import { AnalysisFreshnessNotice } from './AnalysisFreshnessNotice'
+import { WhatChangedChip } from '../../canvas/components/WhatChangedChip'
 import { InferenceWarningStrip } from './InferenceWarningStrip'
 import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
 import { AnalysisHeroContainer } from './analysis-hero'
@@ -239,6 +240,11 @@ export const ResultsBody = memo(function ResultsBody({
           the freshness area. Producer message verbatim; info-severity stays
           hidden; renders nothing when no warning-severity entries exist. */}
       <InferenceWarningStrip warnings={resultsSectionData.confidence.inferenceWarnings} />
+
+      {/* Seamlessness R6 / ROADMAP 2.1 slice 1: run-over-run delta chip.
+          Client-side diff of the two most recent stored runs; self-hides on
+          first runs or zero delta; click pulses the surviving changes. */}
+      <WhatChangedChip />
 
       {/* ── ANALYSIS HERO (answer-first lens hero) ─────────────────
           Feature-flagged (staging-on, production-off). Read-only

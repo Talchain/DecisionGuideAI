@@ -5066,7 +5066,6 @@
         "src/canvas/components/PropertiesPanel.tsx": 1,
         "src/canvas/components/ScenarioSwitcher.tsx": 1,
         "src/canvas/components/ValidationSuggestions.tsx": 1,
-        "src/canvas/components/WhatChangedChip.tsx": 1,
         "src/canvas/components/pre-analysis/primitives/BiasIcon.tsx": 1,
         "src/canvas/components/pre-analysis/primitives/NodeLink.tsx": 1,
         "src/canvas/conversation/zones/SuggestedChips.tsx": 1,
@@ -5446,12 +5445,6 @@
         "production-hex :: src/canvas/components/ValidationSuggestions.tsx :: #185": {
           "count": 1,
           "file": "src/canvas/components/ValidationSuggestions.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Use shallow comparison for array selectors"
-        },
-        "production-hex :: src/canvas/components/WhatChangedChip.tsx :: #185": {
-          "count": 1,
-          "file": "src/canvas/components/WhatChangedChip.tsx",
           "token": "#185",
           "sample": "// React #185 FIX: Use shallow comparison for array selectors"
         },
