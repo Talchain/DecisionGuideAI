@@ -231,6 +231,11 @@ const LEGACY_SCHEMA_KNOWN_BLOCK_TYPES: ReadonlySet<string> = new Set([
   'comparison',
   'flip_analysis',
   'draft_graph',
+  // 0.15.0 wave (re-vendor lane): schema-known, renderer-deferred — the
+  // mapper degrades both to the honest v5_unsupported card until R8 (held
+  // proposal card) and R4 (ui_directive dispatcher) land. Producer-dormant.
+  'held_proposal',
+  'ui_directive',
 ]);
 
 /**

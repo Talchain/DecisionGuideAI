@@ -159,6 +159,19 @@ export function mapV5Block(block: V5Block): ConversationBlock | null {
         target_refs: block.target_refs,
         freshness: block.freshness,
       }
+    case 'held_proposal':
+    case 'ui_directive':
+      // 0.15.0 wave: KNOWN kinds, deliberately not rendered yet — R8 builds
+      // the held-proposal card and R4 the directive dispatcher (both
+      // producer-dormant as of this re-vendor). Until those lanes land they
+      // degrade to the honest unsupported card (R7) so nothing drops
+      // silently and the exhaustiveness guard below stays meaningful for
+      // genuinely unknown kinds.
+      return {
+        type: 'v5_unsupported',
+        blockType: block.type,
+        raw: block,
+      }
     default: {
       const _exhaustive: never = block
       // Unreachable at compile time (OlumiResponseSchema is strict, so unknown
