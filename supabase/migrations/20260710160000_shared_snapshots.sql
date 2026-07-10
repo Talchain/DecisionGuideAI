@@ -187,6 +187,23 @@ BEGIN
     RAISE EXCEPTION 'create_shared_snapshot: p_expires_at must be a finite future timestamp'
       USING ERRCODE = '22023';
   END IF;
+  -- Size caps (adversarial-review F1): the read side serves this payload to
+  -- anon, so without a cap any authenticated account could use the product
+  -- origin as an anonymous content host (storage + egress abuse). The caps
+  -- are generous multiples of real snapshot sizes — per the ruling the
+  -- content is the sharer's own, so we cap size, never content.
+  IF pg_column_size(p_graph) > 2097152 THEN
+    RAISE EXCEPTION 'create_shared_snapshot: p_graph exceeds the 2 MiB share limit'
+      USING ERRCODE = '22023';
+  END IF;
+  IF p_analysis IS NOT NULL AND pg_column_size(p_analysis) > 2097152 THEN
+    RAISE EXCEPTION 'create_shared_snapshot: p_analysis exceeds the 2 MiB share limit'
+      USING ERRCODE = '22023';
+  END IF;
+  IF p_brief_text IS NOT NULL AND length(p_brief_text) > 100000 THEN
+    RAISE EXCEPTION 'create_shared_snapshot: p_brief_text exceeds the 100,000-character share limit'
+      USING ERRCODE = '22023';
+  END IF;
 
   -- Ownership: caller must own the scenario. Same not-found/not-owned
   -- collapse as create_shared_brief (no existence oracle for scenario
