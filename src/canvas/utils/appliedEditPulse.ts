@@ -1,3 +1,5 @@
+import { useCanvasStore } from '../store'
+
 // appliedEditPulse — seamlessness R2: when the AI's graph edits land on the
 // canvas (accepted patch, auto-applied patch, or V5 server-applied patch),
 // the canvas acknowledges it immediately with the SAME 2s highlight ring the
@@ -24,9 +26,46 @@ export interface PulseTargets {
   edgeIds?: string[]
 }
 
-export function pulseAppliedTargets(_targets: PulseTargets): void {
-  // RED-checkpoint stub: behaviour lands in the GREEN commit.
+let pendingNodeIds = new Set<string>()
+let pendingEdgeIds = new Set<string>()
+let flushTimer: ReturnType<typeof setTimeout> | null = null
+let clearTimer: ReturnType<typeof setTimeout> | null = null
+
+function flush(): void {
+  flushTimer = null
+  const { nodes, edges, setHighlightedNodes, setHighlightedEdges } =
+    useCanvasStore.getState()
+  const nodeIds = [...pendingNodeIds].filter((id) => nodes.some((n) => n.id === id))
+  const edgeIds = [...pendingEdgeIds].filter((id) => edges.some((e) => e.id === id))
+  pendingNodeIds = new Set()
+  pendingEdgeIds = new Set()
+  if (nodeIds.length === 0 && edgeIds.length === 0) return
+
+  setHighlightedNodes(nodeIds)
+  setHighlightedEdges(edgeIds)
+  if (clearTimer !== null) clearTimeout(clearTimer)
+  clearTimer = setTimeout(() => {
+    clearTimer = null
+    const store = useCanvasStore.getState()
+    store.setHighlightedNodes([])
+    store.setHighlightedEdges([])
+  }, PULSE_DURATION_MS)
+}
+
+export function pulseAppliedTargets(targets: PulseTargets): void {
+  for (const id of targets.nodeIds ?? []) pendingNodeIds.add(id)
+  for (const id of targets.edgeIds ?? []) pendingEdgeIds.add(id)
+  if (flushTimer === null) {
+    flushTimer = setTimeout(flush, PULSE_COALESCE_MS)
+  }
 }
 
 /** Test-only: cancel pending timers and clear the coalesce buffers. */
-export function __resetAppliedEditPulseForTests(): void {}
+export function __resetAppliedEditPulseForTests(): void {
+  if (flushTimer !== null) clearTimeout(flushTimer)
+  if (clearTimer !== null) clearTimeout(clearTimer)
+  flushTimer = null
+  clearTimer = null
+  pendingNodeIds = new Set()
+  pendingEdgeIds = new Set()
+}

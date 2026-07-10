@@ -232,7 +232,7 @@ export const ConversationPanel = memo(function ConversationPanel({
             try {
               if (validatedGraph?.nodes && validatedGraph?.edges) {
                 // Runs warning-only schema validation at the mutation boundary.
-                applyValidatedGraph({ nodes: validatedGraph.nodes, edges: validatedGraph.edges })
+                applyValidatedGraph({ nodes: validatedGraph.nodes, edges: validatedGraph.edges }, block.operations)
               } else {
                 if (import.meta.env.DEV) {
                   console.warn('[olumi] op-replay fallback: PLoT did not return full graph, applying operations individually')

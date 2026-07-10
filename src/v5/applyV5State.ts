@@ -37,6 +37,7 @@ import type { CEEAnalysisReady, CEEGoalConstraint } from '../adapters/cee/types'
 import type { CeeDecisionReviewPayloadV1 } from '../types/cee'
 import type { ScenarioStage } from '../types/scenario'
 import { logV5StateStep } from './debugLog'
+import { pulseAppliedTargets } from '../canvas/utils/appliedEditPulse'
 import { extractDecisionReview } from './decisionReviewAdapter'
 import { mapV5AnalysisToReport } from './mapV5AnalysisToReport'
 import { v5StageToScenarioStage } from './stageMapper'
@@ -384,6 +385,11 @@ export function applyV5State(
   for (const block of response.blocks) {
     blockTypeCounts[block.type] = (blockTypeCounts[block.type] ?? 0) + 1
   }
+  // Seamlessness R2: V5 graph_patch blocks arrive already applied
+  // server-side — the exact "AI edited your graph silently" moment. Collect
+  // the targets that actually apply below and pulse once after the loop.
+  const pulsedNodeIds: string[] = []
+  const pulsedEdgeIds: string[] = []
   for (const block of response.blocks) {
     if (block.type === 'graph_patch') {
       if (block.status !== 'applied') continue
@@ -417,6 +423,7 @@ export function applyV5State(
             } as typeof node.data,
           })
           applied.push(`graph_patch:set_factor_value:${target}`)
+          pulsedNodeIds.push(target)
           break
         }
         case 'adjust_edge_strength': {
@@ -433,6 +440,7 @@ export function applyV5State(
           // CEE's adjust_edge_strength carries weight/direction in `after`.
           store.updateEdgeData(target, after as Record<string, unknown>)
           applied.push(`graph_patch:adjust_edge_strength:${target}`)
+          pulsedEdgeIds.push(target)
           break
         }
         case 'add_constraint': {
@@ -479,6 +487,9 @@ export function applyV5State(
     }
     // Other block kinds (text, error, explanation, comparison, flip_analysis)
     // are render-only — no side effects.
+  }
+  if (pulsedNodeIds.length > 0 || pulsedEdgeIds.length > 0) {
+    pulseAppliedTargets({ nodeIds: pulsedNodeIds, edgeIds: pulsedEdgeIds })
   }
   const blockAppliedCount = applied.length - appliedCountBeforeBlocks
   logV5StateStep({

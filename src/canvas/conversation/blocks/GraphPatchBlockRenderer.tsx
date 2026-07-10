@@ -322,7 +322,7 @@ export function GraphPatchBlockRenderer({
         useCanvasStore.getState().setHighlightedEdges([])
       }, 2000))
     }
-  }, [clearHighlightTimeouts, edgeIds, nodeIds])
+  }, [clearHighlightTimeouts, edgeIds, uniqueTargetNodeIds])
 
   return (
     <div
