@@ -19,6 +19,7 @@ import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
 import { isAiPanelV2Enabled } from '../../../flags'
 import { EntityLink } from '../components/EntityLink'
+import { TargetRefPill } from '../components/TargetRefPill'
 import type {
   GraphPatchBlock as GraphPatchBlockType,
   ProposalBlock as ProposalBlockType,
@@ -631,6 +632,32 @@ export function ProposalBlockRenderer({
   )
   const needsButtons = block.confirmation_required === true && state === 'pending'
 
+  // Seamlessness R3: proposal change targets arrive as bare strings (no id,
+  // no kind), so they resolve against the canvas via the ratified
+  // string-target rule — exact node/edge id match, else UNIQUE exact
+  // node-label match (trimmed, case-sensitive), else the badge stays inert.
+  // Subscribing to nodes/edges makes resolution render-time: labels drift
+  // while a proposal sits on screen, and a badge must never point at a
+  // guess. If the element vanishes after render, the store subscription
+  // re-renders the badge inert, and ReactFlowGraph's registered focus
+  // handler no-ops on ids it can't find — TargetRefPill itself does not
+  // re-check on click.
+  const nodes = useCanvasStore((s) => s.nodes)
+  const edges = useCanvasStore((s) => s.edges)
+  const resolveTarget = useCallback(
+    (target: string): { id: string; kind: 'node' | 'edge' } | null => {
+      const t = target.trim()
+      if (!t) return null
+      if (nodes.some((n) => n.id === t)) return { id: t, kind: 'node' }
+      if (edges.some((e) => e.id === t)) return { id: t, kind: 'edge' }
+      const byLabel = nodes.filter(
+        (n) => typeof n.data?.label === 'string' && n.data.label.trim() === t,
+      )
+      return byLabel.length === 1 ? { id: byLabel[0].id, kind: 'node' } : null
+    },
+    [nodes, edges],
+  )
+
   const cardState = state === 'accepted' ? 'accepted' as const
     : state === 'cancelled' ? 'dismissed' as const
     : 'proposed' as const
@@ -649,19 +676,30 @@ export function ProposalBlockRenderer({
       <p className={`${typography.panelBody} ${styles.graphPatchProposalDescription}`}>{block.description}</p>
       {block.changes.length > 0 && (
         <div className={styles.graphPatchProposalList}>
-          {block.changes.map((c, i) => (
-            <div key={`${c.target}-${i}`} className={styles.graphPatchProposalItem}>
-              <span className={typography.panelBody}>{c.detail}</span>
-              <div className="flex gap-1">
-                {c.operation && (
-                  <span className={`${typography.panelMeta} ${styles.outlinedPill}`}>{c.operation}</span>
-                )}
-                {c.target && (
-                  <span className={`${typography.panelMeta} ${styles.graphPatchProposalBadge}`}>{c.target}</span>
-                )}
+          {block.changes.map((c, i) => {
+            const resolved = c.target ? resolveTarget(c.target) : null
+            return (
+              <div key={`${c.target}-${i}`} className={styles.graphPatchProposalItem}>
+                <span className={typography.panelBody}>{c.detail}</span>
+                <div className="flex gap-1">
+                  {c.operation && (
+                    <span className={`${typography.panelMeta} ${styles.outlinedPill}`}>{c.operation}</span>
+                  )}
+                  {c.target && resolved && (
+                    <TargetRefPill
+                      id={resolved.id}
+                      kind={resolved.kind}
+                      label={c.target}
+                      className={`${typography.panelMeta} ${styles.graphPatchProposalBadge}`}
+                    />
+                  )}
+                  {c.target && !resolved && (
+                    <span className={`${typography.panelMeta} ${styles.graphPatchProposalBadge}`}>{c.target}</span>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
       {block.consequences && block.consequences.length > 0 && (
