@@ -638,8 +638,10 @@ export function ProposalBlockRenderer({
   // node-label match (trimmed, case-sensitive), else the badge stays inert.
   // Subscribing to nodes/edges makes resolution render-time: labels drift
   // while a proposal sits on screen, and a badge must never point at a
-  // guess. TargetRefPill re-checks existence on click, so a resolved badge
-  // is safe even if the element vanishes between render and click.
+  // guess. If the element vanishes after render, the store subscription
+  // re-renders the badge inert, and ReactFlowGraph's registered focus
+  // handler no-ops on ids it can't find — TargetRefPill itself does not
+  // re-check on click.
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
   const resolveTarget = useCallback(

@@ -60,7 +60,19 @@ describe('TargetRefPill (R1/R3 click-to-focus, fail-closed)', () => {
     expect(pill.tagName).toBe('SPAN')
     expect(pill).toHaveAttribute('data-ref-id', 'ghost')
     expect(pill).toHaveAttribute('data-ref-kind', 'factor')
+    // Byte-parity pin: the inert span carries EXACTLY the caller's classes.
+    expect(pill.className).toBe(PILL_CLASSES)
     expect(focusByTargetMock).not.toHaveBeenCalled()
+  })
+
+  it('keeps the caller pill classes on the clickable button (DS outlined-pill identity)', () => {
+    render(<TargetRefPill id="n1" label="Factor X" kind="factor" className={PILL_CLASSES} />)
+    const btn = screen.getByRole('button')
+    for (const cls of PILL_CLASSES.split(' ')) {
+      expect(btn.classList.contains(cls)).toBe(true)
+    }
+    // Interactive affordances are appended, never replacing the pill identity.
+    expect(btn.classList.contains('cursor-pointer')).toBe(true)
   })
 
   it('existence check is kind-scoped: a node id declared as kind "edge" stays inert', () => {

@@ -69,7 +69,10 @@ export const TargetRefPill = memo(function TargetRefPill({
   }
 
   return (
-    <span {...(role ? { role } : {})} className="inline-flex">
+    // shrink-0 keeps flex-item behavior identical to the inert state when the
+    // caller's classes carry flex-shrink: 0 (the proposal badge row is
+    // flex-nowrap); it is a no-op in the flex-wrap refs rows.
+    <span {...(role ? { role } : {})} className="inline-flex shrink-0">
       <button
         type="button"
         onClick={handleClick}
