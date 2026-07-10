@@ -35,6 +35,20 @@ function flush(): void {
   flushTimer = null
   const { nodes, edges, setHighlightedNodes, setHighlightedEdges } =
     useCanvasStore.getState()
+  // Fail-soft on partial store doubles (same convention as the apply path's
+  // optional-chained markAnalysisFreshnessDirty): specs that mock the store
+  // without the highlight setters must not crash when a leaked coalesce
+  // timer fires after their test body.
+  if (
+    typeof setHighlightedNodes !== 'function' ||
+    typeof setHighlightedEdges !== 'function' ||
+    !Array.isArray(nodes) ||
+    !Array.isArray(edges)
+  ) {
+    pendingNodeIds = new Set()
+    pendingEdgeIds = new Set()
+    return
+  }
   const nodeIds = [...pendingNodeIds].filter((id) => nodes.some((n) => n.id === id))
   const edgeIds = [...pendingEdgeIds].filter((id) => edges.some((e) => e.id === id))
   pendingNodeIds = new Set()

@@ -99,6 +99,27 @@ describe('pulseAppliedTargets', () => {
     expect(highlighted().nodes).toEqual([])
   })
 
+  it('fails soft when the store lacks the highlight setters (partial store doubles)', () => {
+    const original = {
+      setHighlightedNodes: useCanvasStore.getState().setHighlightedNodes,
+      setHighlightedEdges: useCanvasStore.getState().setHighlightedEdges,
+    }
+    try {
+      useCanvasStore.setState({
+        setHighlightedNodes: undefined as any,
+        setHighlightedEdges: undefined as any,
+      })
+      pulseAppliedTargets({ nodeIds: ['n1'] })
+      // A leaked flush against a partial store must no-op, never throw
+      expect(() => vi.advanceTimersByTime(PULSE_COALESCE_MS + 1)).not.toThrow()
+    } finally {
+      useCanvasStore.setState(original)
+    }
+    // Buffer was discarded — a later flush does not resurrect the stale pulse
+    vi.advanceTimersByTime(PULSE_DURATION_MS + 1)
+    expect(highlighted().nodes).toEqual([])
+  })
+
   it('never touches selection or inspector state', () => {
     const before = {
       selected: useCanvasStore.getState().nodes.map((n: any) => n.selected ?? false),
