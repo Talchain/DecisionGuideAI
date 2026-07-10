@@ -186,6 +186,11 @@ const KNOWN_OLUMI_TOP_LEVEL_KEYS: ReadonlySet<string> = new Set([
   'stage_indicator',
   'draft_graph',
   'analysis_ready',
+  // 0.15.0: reasoning is a declared optional field on the strict schema —
+  // it must reach strict validation, not be demoted to the __additive__
+  // sidecar (which would blank parsed.reasoning forever once CEE migrates
+  // off the legacy _reasoning sidecar key).
+  'reasoning',
 ]);
 
 /**
@@ -231,6 +236,11 @@ const LEGACY_SCHEMA_KNOWN_BLOCK_TYPES: ReadonlySet<string> = new Set([
   'comparison',
   'flip_analysis',
   'draft_graph',
+  // 0.15.0 wave (re-vendor lane): schema-known, renderer-deferred — the
+  // mapper degrades both to the honest v5_unsupported card until R8 (held
+  // proposal card) and R4 (ui_directive dispatcher) land. Producer-dormant.
+  'held_proposal',
+  'ui_directive',
 ]);
 
 /**

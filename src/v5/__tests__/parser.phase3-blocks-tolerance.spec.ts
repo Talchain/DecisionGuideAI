@@ -552,6 +552,21 @@ describe('LEGACY_SCHEMA_KNOWN_BLOCK_TYPES drift guard', () => {
         node_count: 0,
         edge_count: 0,
       },
+      // 0.15.0 wave: schema-known, renderer-deferred (degrade to
+      // v5_unsupported until R8/R4 land).
+      held_proposal: {
+        type: 'held_proposal',
+        proposal_id: 'p1',
+        summary: 'Held: structural change awaiting confirmation',
+        mutation_class: 'structural',
+        reason_code: 'STRUCTURAL_APPLY_HELD',
+        confirm_action_id: 'a1',
+      },
+      ui_directive: {
+        type: 'ui_directive',
+        verb: 'highlight',
+        targets: [{ id: 'n1', label: 'Factor', kind: 'factor' }],
+      },
     }
     const missing: string[] = []
     for (const decl of declaredTypes) {
@@ -624,6 +639,21 @@ describe('LEGACY_SCHEMA_KNOWN_BLOCK_TYPES drift guard', () => {
         edges: [],
         node_count: 0,
         edge_count: 0,
+      },
+      // 0.15.0 wave: schema-known, renderer-deferred (degrade to
+      // v5_unsupported until R8/R4 land).
+      held_proposal: {
+        type: 'held_proposal',
+        proposal_id: 'p1',
+        summary: 'Held: structural change awaiting confirmation',
+        mutation_class: 'structural',
+        reason_code: 'STRUCTURAL_APPLY_HELD',
+        confirm_action_id: 'a1',
+      },
+      ui_directive: {
+        type: 'ui_directive',
+        verb: 'highlight',
+        targets: [{ id: 'n1', label: 'Factor', kind: 'factor' }],
       },
     }
     const baseShell = {

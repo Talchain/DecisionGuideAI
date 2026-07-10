@@ -699,8 +699,12 @@ const REASONING_MAX_CHARS = 20000
 const REASONING_TRUNCATION_SUFFIX = '\n\n[reasoning truncated]'
 
 function extractReasoningSidecar(response: unknown): string | undefined {
+  // 0.15.0 formalises `reasoning` on the strict surface; CEE still emits the
+  // legacy `_reasoning` sidecar today. Prefer the formal field, fall back to
+  // the sidecar — both verbatim, so the migration can never blank the panel.
+  const formal = (response as { reasoning?: unknown })?.reasoning
   const additive = (response as OlumiResponseWithExtensions)?.[ADDITIVE_EXTENSIONS_KEY]
-  const raw = additive?.['_reasoning']
+  const raw = typeof formal === 'string' ? formal : additive?.['_reasoning']
   if (typeof raw !== 'string') return undefined
   // Verbatim: only whitespace-only strings are rejected as "empty"; the
   // accepted string itself is never trimmed/altered (Paul's ruling —

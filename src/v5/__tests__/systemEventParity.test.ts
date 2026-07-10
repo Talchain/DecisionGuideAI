@@ -162,6 +162,10 @@ describe('UI ↔ V5 system event parity', () => {
       'chip_click',
       'undo',
       'redo',
+      // 0.15.0: selection_change joined the wire union (R5). The UI emission
+      // path (debounced selection_change on canvas selection) is the R5 UI
+      // half — a scheduled Experience lane; CEE consumes it already.
+      'selection_change',
     ])
 
     for (const kind of V5_EVENT_KINDS) {
@@ -175,7 +179,7 @@ describe('UI ↔ V5 system event parity', () => {
     }
   })
 
-  it('locks UI emission count at 3 of 6 V5 SystemEventKind values', () => {
+  it('locks UI emission count at 3 of 7 V5 SystemEventKind values', () => {
     // Explicit canary: if someone adds a new UI emission (extending the
     // system_event branch of UI_COVERAGE) without updating this test, the
     // count will drift and flag for docs reconciliation.
@@ -183,6 +187,6 @@ describe('UI ↔ V5 system event parity', () => {
       (c) => c.kind === 'system_event',
     ).length
     expect(uiEmittedCount).toBe(3)
-    expect(V5_EVENT_KINDS).toHaveLength(6)
+    expect(V5_EVENT_KINDS).toHaveLength(7)
   })
 })
