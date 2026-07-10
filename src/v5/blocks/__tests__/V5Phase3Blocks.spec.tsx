@@ -9,7 +9,7 @@
  *   - severity drives the visual channel only (data-severity + styling).
  *   - kind/freshness/block_id ride as data-* attributes, never as copy.
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
 import { V5ReviewCardBlock } from '../V5ReviewCardBlock'
@@ -261,5 +261,103 @@ describe('V5ExerciseBlock', () => {
   it('renders no refs list when neither target_element_ref nor target_refs exist', () => {
     render(<V5ExerciseBlock block={{ ...EXERCISE, target_refs: [] }} />)
     expect(screen.queryByTestId('v5-exercise-refs')).not.toBeInTheDocument()
+  })
+})
+
+// ─── R1 (UI-SEAMLESSNESS-REVIEW): target_refs pills are click-to-focus ─────
+//
+// Uses the REAL focusHelpers singleton with registered spies (the
+// focusHelpers.failClosed.spec.ts pattern) so the assertion covers the whole
+// path: pill click → focusByTarget → focusNodeById → registered impl.
+
+import { registerFocusHelpers } from '../../../canvas/utils/focusHelpers'
+import { useCanvasStore } from '../../../canvas/store'
+
+describe('Phase-3 target_refs pills — click-to-focus (R1)', () => {
+  const focusNode = vi.fn()
+  const focusEdge = vi.fn()
+  let unregister: () => void
+
+  beforeEach(() => {
+    focusNode.mockClear()
+    focusEdge.mockClear()
+    unregister = registerFocusHelpers(focusNode, focusEdge)
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'fac_tech_lead', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Technical Leadership Capacity' } } as any,
+        { id: 'opt_paid_ads', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Paid Advertising' } } as any,
+        { id: 'opt_migrate', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Migrate to the new platform' } } as any,
+        { id: 'fac_cost', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Total Cost' } } as any,
+      ],
+      edges: [],
+    })
+  })
+
+  afterEach(() => {
+    unregister()
+    useCanvasStore.setState({ nodes: [], edges: [] })
+  })
+
+  it('review card: an on-canvas ref renders as a button; click focuses the node', () => {
+    render(<V5ReviewCardBlock block={REVIEW} />)
+    const btn = screen.getByRole('button', {
+      name: /highlight technical leadership capacity on the canvas/i,
+    })
+    btn.click()
+    expect(focusNode).toHaveBeenCalledWith('fac_tech_lead')
+  })
+
+  it('coaching: an on-canvas ref renders as a button; click focuses the node', () => {
+    render(
+      <V5CoachingBlock
+        block={{
+          ...COACHING,
+          target_refs: [{ id: 'fac_tech_lead', label: 'Technical Leadership Capacity', kind: 'factor' }],
+        }}
+      />,
+    )
+    screen
+      .getByRole('button', { name: /highlight technical leadership capacity on the canvas/i })
+      .click()
+    expect(focusNode).toHaveBeenCalledWith('fac_tech_lead')
+  })
+
+  it('evidence: option-kind refs also focus (all non-edge kinds are canvas nodes)', () => {
+    render(<V5EvidenceBlock block={EVIDENCE} />)
+    screen.getByRole('button', { name: /highlight paid advertising on the canvas/i }).click()
+    expect(focusNode).toHaveBeenCalledWith('opt_paid_ads')
+  })
+
+  it('exercise: the merged target_element_ref pill focuses too', () => {
+    render(
+      <V5ExerciseBlock
+        block={{
+          ...EXERCISE,
+          target_element_ref: { id: 'fac_cost', label: 'Total Cost', kind: 'factor' },
+        }}
+      />,
+    )
+    screen.getByRole('button', { name: /highlight total cost on the canvas/i }).click()
+    expect(focusNode).toHaveBeenCalledWith('fac_cost')
+  })
+
+  it('fails closed: a ref whose id is NOT on the canvas stays an inert span, copy verbatim', () => {
+    render(
+      <V5ReviewCardBlock
+        block={{
+          ...REVIEW,
+          target_refs: [{ id: 'fac_ghost', label: 'Deleted Factor', kind: 'factor' }],
+        }}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: /highlight deleted factor/i })).not.toBeInTheDocument()
+    expect(screen.getByTestId('v5-review-card-refs')).toHaveTextContent('Deleted Factor')
+    expect(focusNode).not.toHaveBeenCalled()
+  })
+
+  it('refs containers keep list semantics (listitem per pill) in the clickable state', () => {
+    render(<V5ReviewCardBlock block={REVIEW} />)
+    const refs = screen.getByTestId('v5-review-card-refs')
+    expect(refs.querySelectorAll('[role="listitem"]')).toHaveLength(1)
   })
 })
