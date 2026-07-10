@@ -497,7 +497,22 @@ export function applyV5State(
         uiDirectiveExecuted = true
         for (const t of targets) {
           if (!t?.id) continue
-          if (t.kind === 'edge') {
+          // Mirror the graph_patch path's honesty: an off-canvas target is
+          // recorded as not-found, never as an execution (the pulse filter
+          // would drop it downstream anyway — this keeps applied[] truthful).
+          const isEdge = t.kind === 'edge'
+          const exists = isEdge
+            ? store.edges.some((e) => e.id === t.id)
+            : store.nodes.some((n) => n.id === t.id)
+          if (!exists) {
+            deferred.push({
+              reason: 'ui_directive_target_not_found',
+              block,
+              detail: t.id,
+            })
+            continue
+          }
+          if (isEdge) {
             pulsedEdgeIds.push(t.id)
           } else {
             pulsedNodeIds.push(t.id)

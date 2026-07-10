@@ -73,7 +73,7 @@ describe('applyV5State — ui_directive dispatcher (R4)', () => {
       baseResponse({
         blocks: [directive('highlight', [{ id: 'opt_a', label: 'Option A', kind: 'option' }])],
       }),
-      makeStore(),
+      makeStore([{ id: 'opt_a', data: {} } as never]),
     )
     expect(pulseMock).toHaveBeenCalledTimes(1)
     expect(pulseMock.mock.calls[0][0].nodeIds).toContain('opt_a')
@@ -90,7 +90,10 @@ describe('applyV5State — ui_directive dispatcher (R4)', () => {
           ]),
         ],
       }),
-      makeStore(),
+      makeStore(
+        [{ id: 'opt_a', data: {} } as never],
+        [{ id: 'e1', source: 'a', target: 'b' } as never],
+      ),
     )
     const arg = pulseMock.mock.calls[0][0]
     expect(arg.nodeIds).toEqual(['opt_a'])
@@ -105,7 +108,10 @@ describe('applyV5State — ui_directive dispatcher (R4)', () => {
           directive('highlight', [{ id: 'opt_b', label: 'B', kind: 'option' }]),
         ],
       }),
-      makeStore(),
+      makeStore([
+        { id: 'opt_a', data: {} } as never,
+        { id: 'opt_b', data: {} } as never,
+      ]),
     )
     expect(pulseMock).toHaveBeenCalledTimes(1)
     expect(pulseMock.mock.calls[0][0].nodeIds).toEqual(['opt_a'])
@@ -147,6 +153,43 @@ describe('applyV5State — ui_directive dispatcher (R4)', () => {
     expect(result.deferred.some((d) => d.reason === 'ui_directive_verb_deferred')).toBe(true)
   })
 
+  it('a DEFERRED first directive does not burn the budget — the next valid one executes', () => {
+    const result = applyV5State(
+      baseResponse({
+        blocks: [
+          directive('focus', [{ id: 'opt_a', label: 'A', kind: 'option' }]), // deferred verb
+          directive('highlight', [{ id: 'opt_b', label: 'B', kind: 'option' }]),
+        ],
+      }),
+      makeStore([{ id: 'opt_b', data: {} } as never]),
+    )
+    expect(pulseMock).toHaveBeenCalledTimes(1)
+    expect(pulseMock.mock.calls[0][0].nodeIds).toEqual(['opt_b'])
+    expect(result.deferred.some((d) => d.reason === 'ui_directive_verb_deferred')).toBe(true)
+  })
+
+  it('an off-canvas target is recorded as not-found, never as an execution', () => {
+    const result = applyV5State(
+      baseResponse({
+        blocks: [
+          directive('highlight', [
+            { id: 'ghost', label: 'Deleted', kind: 'option' },
+            { id: 'opt_a', label: 'A', kind: 'option' },
+          ]),
+        ],
+      }),
+      makeStore([{ id: 'opt_a', data: {} } as never]),
+    )
+    expect(pulseMock.mock.calls[0][0].nodeIds).toEqual(['opt_a'])
+    expect(result.applied).toContain('ui_directive:highlight:opt_a')
+    expect(result.applied).not.toContain('ui_directive:highlight:ghost')
+    expect(
+      result.deferred.some(
+        (d) => d.reason === 'ui_directive_target_not_found' && d.detail === 'ghost',
+      ),
+    ).toBe(true)
+  })
+
   it('a directive with no targets defers and never fires an empty pulse', () => {
     const result = applyV5State(
       baseResponse({ blocks: [directive('highlight', [])] }),
@@ -171,7 +214,7 @@ describe('applyV5State — ui_directive dispatcher (R4)', () => {
           directive('highlight', [{ id: 'opt_a', label: 'A', kind: 'option' }]),
         ],
       }),
-      makeStore([node]),
+      makeStore([node, { id: 'opt_a', data: {} } as never]),
     )
     expect(pulseMock).toHaveBeenCalledTimes(1)
     const arg = pulseMock.mock.calls[0][0]
