@@ -9,6 +9,8 @@
 import { useCanvasStore } from '../../store'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import { saveAutosave } from '../../store/scenarios'
+import { pulseAppliedTargets } from '../../utils/appliedEditPulse'
+import { extractTargetIdsFromPatch } from './extractTargetIds'
 import { validateNodesBatch } from '../../domain/nodes'
 import { hasAnalyticalNodeChange, hasAnalyticalEdgeChange } from '../../domain/analyticalChange'
 import type { PatchOperation, GraphPatchBlock } from '../types'
@@ -405,6 +407,16 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
     useCanvasStore.getState().markAnalysisFreshnessDirty?.()
   }
 
+  // Seamlessness R2: the canvas acknowledges applied AI edits with the same
+  // 2s highlight the "Reveal changes" button fires — pulse the op targets
+  // (removed/absent ids are filtered fail-closed at flush inside the util).
+  // Suppressed for full drafts (>=3 added nodes, the same threshold the
+  // full_draft auto-collapse signal uses) — pulsing an entire freshly
+  // drafted graph is noise, not acknowledgement.
+  if (result.addedNodeCount < 3) {
+    pulseAppliedTargets(extractTargetIdsFromPatch(patchBlock.operations))
+  }
+
   return result
 }
 
@@ -416,7 +428,10 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
  * at the mutation boundary. Caller is responsible for wrapping in
  * beginExternalGraphMutation / endExternalGraphMutation when needed.
  */
-export function applyValidatedGraph(validated: { nodes: unknown[]; edges: unknown[] }): void {
+export function applyValidatedGraph(
+  validated: { nodes: unknown[]; edges: unknown[] },
+  appliedOps?: PatchOperation[],
+): void {
   const store = useCanvasStore.getState()
   store.pushHistory()
   useCanvasStore.setState({
@@ -424,6 +439,12 @@ export function applyValidatedGraph(validated: { nodes: unknown[]; edges: unknow
     edges: validated.edges as any,
   })
   validateNodesBatch(validated.nodes as any)
+  // Seamlessness R2 (see applyAutoApplyPatch): when the caller supplies the
+  // accepted patch's operations, pulse their targets. The full-graph replace
+  // itself carries no op list, so legacy callers without ops are unchanged.
+  if (appliedOps && appliedOps.length > 0) {
+    pulseAppliedTargets(extractTargetIdsFromPatch(appliedOps))
+  }
   // This full-graph replace bypasses the edit chokepoints (bare setState), so the
   // freshness overlay must be marked dirty here. applyAnalysisReadyPatch (called
   // after accept) clears it iff the patch supplies a fresh new verdict.
