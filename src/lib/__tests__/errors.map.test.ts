@@ -29,6 +29,8 @@ describe('Error taxonomy mapping (British English)', () => {
 
 // ROADMAP 1.54 density wall — the 422 blocker's user copy comes from THIS
 // entry, never the producer message (which names engine budget maths).
+import { getUserFriendlyError } from '../userFriendlyErrors'
+
 describe('GRAPH_TOO_COMPLEX (density wall, 1.54)', () => {
   it('maps to honest simplify-your-model copy and never echoes the raw message', () => {
     const err = getUserFriendlyError({

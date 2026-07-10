@@ -581,10 +581,19 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
         // entirely, we have nothing to render and fall back to the generic
         // VALIDATION_BLOCKED path — which is what happens for cycles, missing
         // goal, and other unrelated 422s.
+        // ROADMAP 1.54 (density wall): GRAPH_TOO_COMPLEX gets its own code so
+        // userFriendlyErrors renders the honest simplify-your-model copy —
+        // the producer's message names engine budget maths and must not be
+        // echoed (its raw text stays in the debug panel).
+        const complexityBlocked = (errorResult.critiques || []).some(
+          (c) => c.code === 'GRAPH_TOO_COMPLEX',
+        )
         const promotedCode =
           affectedOptions && affectedOptions.length > 0
             ? interventionCritiques[0].code
-            : 'VALIDATION_BLOCKED'
+            : complexityBlocked
+              ? 'GRAPH_TOO_COMPLEX'
+              : 'VALIDATION_BLOCKED'
 
         trackRunFailed({
           error_code: promotedCode,
