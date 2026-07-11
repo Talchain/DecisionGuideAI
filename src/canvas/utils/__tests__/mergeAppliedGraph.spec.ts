@@ -16,9 +16,10 @@
  * - deterministic placement right of the existing bounding box
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mergeAppliedGraphAdditive } from '../mergeAppliedGraph'
 import { useCanvasStore } from '../../store'
+import { logger } from '../../../lib/logger'
 
 const EXISTING_NODES = [
   {
@@ -201,5 +202,111 @@ describe('mergeAppliedGraphAdditive', () => {
 
     expect(result).toEqual({ addedNodeCount: 1, addedEdgeCount: 0 })
     expect(useCanvasStore.getState().nodes.map((n) => n.id)).toContain('risk-1')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Fixup round (adversarial review on PR #266)
+// ---------------------------------------------------------------------------
+
+describe('mergeAppliedGraphAdditive — zero-overlap structural guard', () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    warnSpy.mockRestore()
+  })
+
+  it('DROPS the merge and warns when the wire graph shares zero node ids with the canvas', () => {
+    // An applied receipt always contains the committed graph, which supersets
+    // the canvas (minus removals) — zero id overlap means this draft_graph is
+    // a misdrafted FRESH graph (fresh scenario_id + populated canvas + first
+    // brief-shaped message slips past CEE's continuation guard). Grafting it
+    // would union two unrelated graphs.
+    const nodesBefore = useCanvasStore.getState().nodes
+    const edgesBefore = useCanvasStore.getState().edges
+
+    const result = mergeAppliedGraphAdditive({
+      nodes: [
+        { id: 'goal_1', kind: 'goal', label: 'Unrelated goal' },
+        { id: 'opt_1', kind: 'option', label: 'Unrelated option' },
+        { id: 'out_1', kind: 'outcome', label: 'Unrelated outcome' },
+      ],
+      edges: [{ id: 'opt_1::out_1::0', from: 'opt_1', to: 'out_1', weight: 0.5 }],
+    } as any)
+
+    expect(result).toEqual({ addedNodeCount: 0, addedEdgeCount: 0 })
+    // Store untouched — identity preserved, nothing grafted.
+    expect(useCanvasStore.getState().nodes).toBe(nodesBefore)
+    expect(useCanvasStore.getState().edges).toBe(edgesBefore)
+    // Warn fired (structured logging, house pattern).
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+    expect(warnSpy.mock.calls[0][0]).toBe('merge_applied_graph.zero_overlap_drop')
+  })
+
+  it('still merges the normal superset receipt (overlap present) without warning', () => {
+    const result = mergeAppliedGraphAdditive({
+      nodes: [
+        { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+        { id: 'factor-1', kind: 'factor', label: 'Spend' },
+        { id: 'factor-2', kind: 'factor', label: 'Churn rate' },
+      ],
+      edges: [],
+    } as any)
+
+    expect(result).toEqual({ addedNodeCount: 1, addedEdgeCount: 0 })
+    expect(warnSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('mergeAppliedGraphAdditive — review fixups (edge-pair self-dedupe, staleness flags)', () => {
+  it('dedupes two NEW wire edges sharing the same endpoint pair against each other', () => {
+    // Direct setState bypasses addEdge's duplicate guard, so the merge must
+    // self-dedupe wire edges that share an endpoint pair.
+    const result = mergeAppliedGraphAdditive({
+      nodes: [
+        { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+        { id: 'factor-1', kind: 'factor', label: 'Spend' },
+        { id: 'factor-2', kind: 'factor', label: 'Churn rate' },
+      ],
+      edges: [
+        { id: 'factor-2::goal-1::0', from: 'factor-2', to: 'goal-1', weight: 0.3 },
+        { id: 'factor-2::goal-1::1', from: 'factor-2', to: 'goal-1', weight: 0.9 },
+      ],
+    } as any)
+
+    expect(result).toEqual({ addedNodeCount: 1, addedEdgeCount: 1 })
+    const pairs = useCanvasStore
+      .getState()
+      .edges.filter((e) => e.source === 'factor-2' && e.target === 'goal-1')
+    expect(pairs).toHaveLength(1)
+  })
+
+  it('flips graphEditedSinceLastRun/analysisStateReady even when pushHistory dedupes the snapshot', () => {
+    // pushToHistory early-returns (without flipping the flags) when the
+    // current state equals the last history snapshot — reachable when a
+    // prior push already snapshotted the exact pre-merge state. The merge
+    // must set the staleness flags explicitly, not rely on the push.
+    useCanvasStore.getState().pushHistory()
+    useCanvasStore.setState({
+      graphEditedSinceLastRun: false,
+      analysisStateReady: true,
+    } as any)
+
+    const result = mergeAppliedGraphAdditive({
+      nodes: [
+        { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+        { id: 'factor-1', kind: 'factor', label: 'Spend' },
+        { id: 'factor-2', kind: 'factor', label: 'Churn rate' },
+      ],
+      edges: [],
+    } as any)
+
+    expect(result).toEqual({ addedNodeCount: 1, addedEdgeCount: 0 })
+    expect(useCanvasStore.getState().graphEditedSinceLastRun).toBe(true)
+    expect(useCanvasStore.getState().analysisStateReady).toBe(false)
   })
 })
