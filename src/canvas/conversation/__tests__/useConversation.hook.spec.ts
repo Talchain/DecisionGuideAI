@@ -2227,6 +2227,174 @@ describe('V5 inline graph from response.draft_graph', () => {
 })
 
 // ---------------------------------------------------------------------------
+// V5 applied-edit receipt ingestion on a NON-EMPTY canvas (POC Lane C,
+// WEEKEND-SPRINT-PLAN-2026-07-11). CEE #414/#424 attach the FULL committed
+// post-mutation graph to applied-edit receipts via the EXISTING top-level
+// `draft_graph` wire field. The fresh-draft dispatch on the CEE side is gated
+// on `graphState == null` (route-v2 isDraftGraphShape), and this client always
+// sends graph_state, so draft_graph arriving while the canvas is non-empty is
+// unambiguously an applied-edit receipt — the UI must ingest the additions or
+// a confirmed added factor does not appear until reload.
+// ---------------------------------------------------------------------------
+
+describe('V5 applied-edit receipt ingestion (draft_graph on a non-empty canvas)', () => {
+  const SCENARIO_ID = 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4'
+
+  /** Canvas state before the edit turn: goal + factor, one edge. */
+  const EXISTING_NODES = [
+    {
+      id: 'goal-1',
+      type: 'goal',
+      position: { x: 400, y: 40 },
+      data: { kind: 'goal', label: 'Revenue' },
+    },
+    {
+      id: 'factor-1',
+      type: 'factor',
+      position: { x: 40, y: 200 },
+      data: { kind: 'factor', label: 'Spend', observedState: { value: 100 } },
+    },
+  ]
+  const EXISTING_EDGES = [
+    {
+      id: 'e1',
+      source: 'factor-1',
+      target: 'goal-1',
+      type: 'styled',
+      data: { weight: 0.7, direction: 'positive' },
+    },
+  ]
+
+  /**
+   * The applied-edit receipt: full post-mutation graph = the two existing
+   * nodes + the newly added factor and its edge (CEE wire shape: kind/from/to).
+   */
+  const APPLIED_RECEIPT_GRAPH = {
+    nodes: [
+      { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+      { id: 'factor-1', kind: 'factor', label: 'Spend', observed_state: { value: 100 } },
+      { id: 'factor-2', kind: 'factor', label: 'Churn rate', observed_state: { value: 0.05 } },
+    ],
+    edges: [
+      { id: 'e1', from: 'factor-1', to: 'goal-1', weight: 0.7 },
+      { id: 'factor-2::goal-1::0', from: 'factor-2', to: 'goal-1', weight: -0.4 },
+    ],
+    node_count: 3,
+    edge_count: 2,
+  }
+
+  const makeAppliedEditReceipt = (graph = APPLIED_RECEIPT_GRAPH) => ({
+    kind: 'response' as const,
+    response: {
+      response_version: 2,
+      assistant_text: "Added 'Churn rate' and linked it to Revenue.",
+      blocks: [] as unknown[],
+      suggested_actions: [] as unknown[],
+      insights: [] as unknown[],
+      stage_indicator: 'frame',
+      draft_graph: graph,
+    },
+  })
+
+  beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
+    useCanvasStore.setState({
+      currentScenarioId: SCENARIO_ID,
+      nodes: EXISTING_NODES as any,
+      edges: EXISTING_EDGES as any,
+      results: { status: 'idle' } as any,
+      currentScenarioLastResultHash: null,
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+    })
+  })
+
+  it('ingests a confirmed added factor + edge from the applied-edit receipt (no reload required)', async () => {
+    mockGetUserId.mockResolvedValue('user-uuid-1234')
+    mockCallV5Turn.mockResolvedValue(makeAppliedEditReceipt())
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('add a churn rate factor that hurts revenue')
+    })
+
+    const nodes = useCanvasStore.getState().nodes
+    const edges = useCanvasStore.getState().edges
+    // RED today: draft_graph ingestion is gated on canvasIsEmpty, so the
+    // confirmed added factor never reaches the canvas until a full reload.
+    expect(nodes.map((n) => n.id)).toContain('factor-2')
+    expect(edges.some((e) => e.source === 'factor-2' && e.target === 'goal-1')).toBe(true)
+    // Additive merge only — existing elements are untouched, nothing duplicated.
+    expect(nodes).toHaveLength(3)
+    expect(edges).toHaveLength(2)
+  })
+
+  it('preserves existing node positions and local data on merge (additive, never a replace)', async () => {
+    mockGetUserId.mockResolvedValue('user-uuid-1234')
+    mockCallV5Turn.mockResolvedValue(makeAppliedEditReceipt())
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('add a churn rate factor that hurts revenue')
+    })
+
+    const factor1 = useCanvasStore.getState().nodes.find((n) => n.id === 'factor-1') as any
+    expect(factor1?.position).toEqual({ x: 40, y: 200 })
+    expect(factor1?.data?.label).toBe('Spend')
+  })
+
+  it('is a no-op when the receipt graph carries nothing new (value-only receipt)', async () => {
+    mockGetUserId.mockResolvedValue('user-uuid-1234')
+    // Receipt whose graph matches the canvas exactly (e.g. a value edit whose
+    // graph_patch block already merged via applyV5State).
+    mockCallV5Turn.mockResolvedValue(
+      makeAppliedEditReceipt({
+        nodes: [
+          { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+          { id: 'factor-1', kind: 'factor', label: 'Spend', observed_state: { value: 250 } },
+        ],
+        edges: [{ id: 'e1', from: 'factor-1', to: 'goal-1', weight: 0.7 }],
+        node_count: 2,
+        edge_count: 1,
+      }),
+    )
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('set spend to 250')
+    })
+
+    const nodes = useCanvasStore.getState().nodes
+    expect(nodes).toHaveLength(2)
+    // No duplicate edge either.
+    expect(useCanvasStore.getState().edges).toHaveLength(1)
+  })
+
+  it('skips the merge when the scenario changed between dispatch and response', async () => {
+    mockGetUserId.mockResolvedValue('user-uuid-1234')
+    let resolveTurn!: (v: unknown) => void
+    mockCallV5Turn.mockReturnValue(new Promise((res) => { resolveTurn = res }))
+
+    const { result } = renderHook(() => useConversation())
+    let sendPromise!: Promise<unknown>
+    await act(async () => {
+      sendPromise = result.current.sendMessage('add a churn rate factor')
+    })
+
+    // Scenario switch while the turn is in-flight.
+    act(() => {
+      useCanvasStore.setState({ currentScenarioId: 'different-scenario-uuid-here' })
+    })
+
+    resolveTurn(makeAppliedEditReceipt())
+    await act(async () => {
+      await sendPromise
+    })
+
+    expect(useCanvasStore.getState().nodes.map((n) => n.id)).not.toContain('factor-2')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // V1 leakage regression test (Task 7)
 // ---------------------------------------------------------------------------
 
