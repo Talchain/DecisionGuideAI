@@ -27,6 +27,16 @@ const DEBOUNCE_MS = 500 // Debounce writes to reduce localStorage contention
  * P1 Fix: Compute a canonical hash of graph state for dirty detection.
  * Includes node kind, label, position and edge source/target/weight.
  * Sorted to ensure consistent ordering.
+ *
+ * Lane A fix (edit-journey display closure, 2026-07-11): the hash must also
+ * cover VALUE-BEARING data. Conversational edits (V5 graph_patch
+ * set_factor_value → node.data.observedState merge; adjust_edge_strength →
+ * edge.data weight/direction write; intervention / goal-threshold backfill)
+ * change none of id/kind/label/position or edge endpoints, so the legacy
+ * hash never flipped, the autosave skipped, and localStorage kept the
+ * PRE-EDIT values — on reload the recovery path could hydrate the stale
+ * graph while the server copy was correct (the "reload visual revert").
+ * Extra fields here can only cause an extra save, never a missed one.
  */
 function computeGraphHash(nodes: any[], edges: any[]): string {
   const canonical = {
@@ -37,6 +47,13 @@ function computeGraphHash(nodes: any[], edges: any[]): string {
         label: n.data?.label ?? '',
         x: Math.round(n.position?.x ?? 0),
         y: Math.round(n.position?.y ?? 0),
+        // Value-bearing node data (see doc comment above).
+        os: n.data?.observedState ?? null,
+        iv: n.data?.interventions ?? null,
+        base: n.data?.is_baseline ?? null,
+        gtRaw: n.data?.goal_threshold_raw ?? null,
+        gtUnit: n.data?.goal_threshold_unit ?? null,
+        gtCap: n.data?.goal_threshold_cap ?? null,
       }))
       .sort((a, b) => a.id.localeCompare(b.id)),
     edges: edges
@@ -44,6 +61,13 @@ function computeGraphHash(nodes: any[], edges: any[]): string {
         from: e.source,
         to: e.target,
         weight: e.data?.confidence ?? e.data?.weight ?? '',
+        // Value-bearing edge data — adjust_edge_strength writes these via
+        // updateEdgeData without touching the endpoints.
+        w: e.data?.weight ?? null,
+        dir: e.data?.direction ?? null,
+        conf: e.data?.confidence ?? null,
+        be: e.data?.beliefExists ?? null,
+        std: e.data?.strengthStd ?? null,
       }))
       .sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to)),
   }
