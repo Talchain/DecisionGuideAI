@@ -1,7 +1,8 @@
-# Workspace & Identity — Schema + Security Contract v1.1 (GATE 1)
+# Workspace & Identity — Schema + Security Contract v1.2 (GATE 1 — PASS-WITH-CONDITIONS, conditions folded)
 
-**Status:** Draft for A1 adversarial review + **independent security review** (everything here is RLS/grants/RPC-shaped). SPEC ONLY: nothing in this PR executes; Gate 2 authors migration files from this contract after review; execution is a separate Paul/A1-batched gate.
-**v1.1 (12 Jul):** revised after a second external review — least-privilege overhaul (dedicated definer owner, service-role DML revoked), consent writes made RPC-only with server-controlled ordering, exact RLS/grant matrix, account-deletion orchestration, stamping guards, composite-key fix (automated finding 1), fold/index contract (automated finding 2), full child-table disposition, P12 reclassified forward-fix-only. Adjudication log: `parallel-briefs/WORKSTREAM-UPDATE-workspace-4.md`.
+**Status:** Gate-1 verdict = **PASS-WITH-CONDITIONS** (`A1-RULING-F3-AND-GATE1-2026-07-12.md`); this v1.2 folds all four conditions + the two accepted hardenings. **Gate 2 is OPEN scoped to M1+M2 authoring only; M5 (S-3) is HELD** pending CQ-6/R-1/R-2. SPEC governs the Gate-2 DDL; execution stays Paul/A1-batched.
+**v1.2 (12 Jul, post-verdict):** C1 consent-closure moves into the auth.users delete-trigger path (§1.6) · C2 account-deletion ownership race closed (advisory-lock serialisation vs create_workspace + BEFORE-DELETE re-assert, §1.6) · C3 provenance fence extended to ALL projected envelopes (§3.1) · C4 Shape A deleted as an object — `get_coaching_profile_for_scenario` is the only coaching read that will ever exist (§3.4) · hardenings: server-set `updated_at`/`profile_schema_version` trigger (§3.1) · riders: idempotency-replay action match (§3.2), org-spine naming-vs-live-data reconciliation (§8) · **implementation subtlety found while folding (neither review caught it): PG15 `CREATEROLE` cannot mint `BYPASSRLS`, so `wsid_definer` under FORCE RLS needs explicit `TO wsid_definer` policies mirroring §4's needs column — added to §5.1a; better than BYPASSRLS anyway (visible, per-table, least-privilege)**.
+**v1.1 (12 Jul):** least-privilege overhaul (dedicated definer owner, service-role DML revoked), consent writes RPC-only with server-controlled ordering, exact RLS/grant matrix, account-deletion orchestration, stamping guards, composite-key fix, fold/index contract, full child-table disposition, P12 forward-fix-only. Adjudication log: `parallel-briefs/WORKSTREAM-UPDATE-workspace-4.md`.
 **Lane:** Workspace & Identity (ROADMAP 3.9), Charter v2. **Authorization:** `A1-GATE0-VERDICT-workspace-2026-07-12.md`. Org-spine + strategy-tree = **PENDING-CQ**.
 **Sources of record:** `WORKSPACE-IDENTITY-DESIGN-v1.md` (ratified) · `RULING-BATCH-A-2026-07-11.md` · tenancy-collab-migration-spec v1.7 (DGAI `6db51cc3`; restated self-contained) · Gate-0 audits + evidence pack `parallel-briefs/workspace-lane-evidence/gate0/` · collab-tenancy audit (XQ answers §7).
 
@@ -21,7 +22,7 @@
 | S-1 Tenancy core (M1) | workspaces, workspace_members, helpers, create_workspace, personal provisioning, account-deletion hooks | **SPECIFIED — buildable** |
 | S-1b Invites | workspace_invites | **PENDING-P9** (spec §1.3 complete; excluded from the M1 build list until Paul confirms) |
 | S-2 Scenario scoping (M2) | scenarios.workspace_id + UNIQUE(id,workspace_id), stamping + immutability triggers, 18-row backfill | **SPECIFIED — buildable** |
-| S-3 Sensitive substrate (M5) | person_profiles, profile_consent_events, record_consent_event, has_active_consent, get_coaching_profile, delete_person_profile, Gate-2b disposition | **SPECIFIED — buildable EXCEPT the identity-severance mechanism (§3.4a, PENDING CQ-6 + R-1/R-2)**; A2 legs F4/F8 sequence M5 *execution* |
+| S-3 Sensitive substrate (M5) | person_profiles, profile_consent_events, record_consent_event, has_active_consent, get_coaching_profile_for_scenario, delete_person_profile, Gate-2b disposition | **M5 HELD by the Gate-1 verdict** pending CQ-6/R-1/R-2 (ledger identity column depends on the severance ruling); A2 legs F4/F8 additionally sequence execution |
 | S-4 Org spine (M3) | orgs, org_members, org_teams, org_team_members, workspace_team_grants, workspaces.org_id+FK | **PENDING-CQ** — shapes referenced (design §2.3 + §6.3 integrity additions); full DDL text lands in the post-CQ revision of THIS document, not in Gate 2 first |
 | S-5 Strategy layer (M4) | strategies, strategy_bets, strategy_scenario_links | **PENDING-CQ** for tree/parenting; same treatment as S-4 |
 | S-6 Child columns + late policies (M6/M7) | complete child-table disposition §6.5, decision_participants, snapshots reserve, DR workspace policy | shapes specified |
@@ -80,14 +81,12 @@ Shape as v1: id / workspace_id FK CASCADE / email / role CHECK (`admin|editor|vi
   where `v_name := coalesce(nullif(split_part(NEW.email,'@',1),''), 'Personal workspace')` (non-email accounts — phone/SSO — get the fallback), then the single owner-membership row (idempotent on PK).
 - **M1 backfill:** run the same body over `auth.users`; in-transaction assertion is **dynamic** — `count(personal workspaces) = count(auth.users)` at execution time, not a hardcoded 16.
 
-### 1.6 Account-deletion orchestration (the v1 contradiction this section replaces: soft-ref `created_by` + "personal dies with account" needed an explicit mechanism, not FK hope)
-Ordered, single DEFINER path (`wsid_definer`), invoked by the deletion surface (today: DGAI `delete-account` Edge Function — A2/Gate-5 leg adds the call; the DB path is also directly callable under A1 authority):
-1. **Shared-ownership precondition:** if the user owns any non-personal workspace → refuse with `WM412 transfer_required` (transfer RPC deferred; CQ-5 may supersede this interim rule).
-2. Delete the personal workspace row + its membership atomically (sentinel `app.wsid_deletion` satisfies the §1.1/§1.2 guards; children of the personal workspace: scenarios keep their rows — authorship retained, `user_id` intact per v1.7 §10 — workspace_id survives pointing at… **no: the workspace row is deleted, so M2's FK would dangle.** Resolution, specified: scenarios' `workspace_id` FK is `ON DELETE SET NULL`; a deleted personal workspace returns its scenarios to the unscoped state, preserving content + authorship. This is the ratified records-outlive-container doctrine applied consistently).
-3. Terminal consent events (`action='withdraw'`, actor `system`, source `account_deletion`) per active stream.
-4. Identity severance per §3.4a (mechanism PENDING ruling).
-5. `auth.users` row deletion (memberships elsewhere CASCADE; `on_auth_user_deleted` AFTER DELETE trigger asserts no personal workspace survives).
-**CQ-5 is therefore an M1-semantics question, not later polish** — the interim rules above are explicit and Paul's answer supersedes them.
+### 1.6 Account-deletion orchestration — v1.2: conditions C1 + C2 folded. The invariants now live in the **auth.users trigger pair**, so every deletion path (RPC, GoTrue admin API, dashboard) is covered — the RPC is a convenience wrapper, not the enforcement point.
+- **`auth_users_delete_precheck` (BEFORE DELETE ON auth.users, DEFINER wsid_definer) — C2:** takes `pg_advisory_xact_lock(hashtext(OLD.id::text))` (the SAME lock `create_workspace` takes for its creator — the interleave race is serialised at the DB, not in app code), then re-checks inside the deletion transaction: any surviving **non-personal** owner membership → refuse the deletion (`WM412 transfer_required`). Personal-owner rows pass.
+- **`auth_users_delete_cleanup` (AFTER DELETE ON auth.users, DEFINER wsid_definer) — C1:** (i) deletes the personal workspace row (memberships already CASCADEd; sentinel `app.wsid_deletion` satisfies the §1.1/§1.2 guards); (ii) **consent closure fires HERE, not only in the RPC**: terminal `withdraw` events per active stream (actor `system`, source `account_deletion`) + the §3.4a severance hook. *M-sequencing:* M1 ships the trigger with the workspace-cleanup body; **M5 extends the SAME trigger with the consent-closure + severance steps** (the events table does not exist before M5 — the contract binds the trigger body extension to M5's file so no window exists where profiles cascade but ledger closure is RPC-only).
+- `account_deletion_orchestrate()` (DEFINER, authenticated-only, subject = `auth.uid()`) remains the user-facing path: it performs the §3.6 profile deletion, then deletes the auth.users row — which fires the trigger pair above. Direct admin deletions get identical invariant enforcement by construction.
+- Scenarios' `workspace_id` FK is `ON DELETE SET NULL` — a deleted personal workspace returns its scenarios to the unscoped state, preserving content + authorship (records-outlive-container doctrine).
+**CQ-5 remains an M1-semantics question** — the interim transfer-required refusal is explicit and Paul's answer supersedes it.
 
 ---
 
@@ -115,12 +114,18 @@ CREATE INDEX scenarios_workspace_idx ON public.scenarios (workspace_id) WHERE wo
 ## §3 S-3 — Sensitive substrate (M5)
 
 ### 3.1 `person_profiles`
-Shape as v1 (risk_appetite/psychometrics/expertise/decision_style JSONB envelopes + schema_version), plus:
+Shape as v1 (risk_appetite/psychometrics/expertise/decision_style JSONB envelopes + schema_version), plus — **C3: the provenance fence covers ALL projected envelopes**, not just risk_appetite (v1.1 fenced one envelope while expertise/decision_style/psychometrics project to team/org audiences unfenced):
 ```sql
-CONSTRAINT pp_provenance_v1 CHECK (risk_appetite IS NULL
-  OR risk_appetite->>'provenance' = 'self_reported')   -- 'assessed'/'inferred' RESERVED until an
-                                                       -- assessment pathway exists; forgery-by-JSONB closed
+CONSTRAINT pp_provenance_v1 CHECK (
+      (risk_appetite  IS NULL OR risk_appetite->>'provenance' = 'self_reported')
+  AND (decision_style IS NULL OR coalesce(decision_style->>'provenance','self_reported') = 'self_reported')
+  AND (expertise      IS NULL OR NOT jsonb_path_exists(expertise,
+        '$[*].provenance ? (@ != "self_reported")'))
+  AND (psychometrics  IS NULL OR NOT jsonb_path_exists(psychometrics,
+        '$[*].provenance ? (@ != "self_reported")'))
+)   -- 'assessed'/'inferred' RESERVED everywhere until an assessment pathway exists
 ```
+- **Hardening (verdict-adopted): trigger `pp_server_fields` (BEFORE INSERT OR UPDATE)** — forces `updated_at := now()` and `profile_schema_version :=` the server-side current version constant; caller-supplied values for either are overwritten, never trusted.
 - RLS (FORCE): owner-only `SELECT/INSERT/UPDATE` policies (`auth.uid() = user_id`). **No DELETE policy and no DELETE grant** — deletion happens ONLY through `delete_person_profile()` (v1 allowed direct DELETE, bypassing consent closure + erasure orchestration — fixed).
 - Writes stay **user-JWT direct** (INSERT/UPDATE under owner RLS): this is the ratified design's structural fence (sensitive writes never ride service role) and is retained **deliberately against the reviewer's RPC-only preference** — validation rides CHECK constraints (above + envelope-shape CHECKs), not a DEFINER chokepoint that would reintroduce a service-side trust surface. A1 review may overrule.
 - Grants: `REVOKE ALL FROM PUBLIC, anon, service_role;` (**service_role raw SELECT revoked** — v1 granted it; the only sanctioned service read is `get_coaching_profile`, and letting service_role dump raw psychometrics contradicted Lock 0) `GRANT SELECT, INSERT, UPDATE TO authenticated;`
@@ -156,12 +161,12 @@ CREATE INDEX pce_fold_idx ON public.profile_consent_events
 ```
 - **Fold/index contract (automated finding 2):** the effective-consent query is DEFINED as using the identical `coalesce(...)` expressions as `pce_fold_idx` (expression indexes match only expression-identical predicates); one query, latest-`seq`-wins, `grant`⇒active, `withdraw`⇒inactive, **`legacy_import`⇒NEVER active** (§3.5); Gate-4 carries an `EXPLAIN` assertion that the fold uses the index.
 - **Append-only, four layers:** (1) no UPDATE/DELETE policies; (2) `REVOKE INSERT, UPDATE, DELETE, TRUNCATE FROM authenticated, service_role` — **no direct DML for anyone**; SELECT-own via RLS for authenticated, no service_role SELECT (the fold primitive is DEFINER); (3) rejection trigger `pce_immutable` (BEFORE UPDATE OR DELETE → `PC403`, fires even for table-owner paths); (4) owner `wsid_definer` holds INSERT — events enter ONLY through the two DEFINER writers below.
-- `record_consent_event(p_action TEXT, p_scope TEXT, p_audience_type TEXT, p_team UUID, p_org UUID, p_consent_version TEXT, p_notice_hash TEXT, p_source TEXT, p_idempotency_key TEXT) RETURNS jsonb` — DEFINER (`wsid_definer`), EXECUTE **authenticated only**; **derives** `user_id = auth.uid()` (NULL → `PC401`), `actor := 'self'`, `created_at := now()`, validates `p_source` against an allowlist and `p_action IN ('grant','withdraw')` (`legacy_import` is migration-only); takes `pg_advisory_xact_lock(hashtext(auth.uid()::text))`; idempotent replay returns the original event.
+- `record_consent_event(p_action TEXT, p_scope TEXT, p_audience_type TEXT, p_team UUID, p_org UUID, p_consent_version TEXT, p_notice_hash TEXT, p_source TEXT, p_idempotency_key TEXT) RETURNS jsonb` — DEFINER (`wsid_definer`), EXECUTE **authenticated only**; **derives** `user_id = auth.uid()` (NULL → `PC401`), `actor := 'self'`, `created_at := now()`, validates `p_source` against an allowlist and `p_action IN ('grant','withdraw')` (`legacy_import` is migration-only); takes `pg_advisory_xact_lock(hashtext(auth.uid()::text))`. **Idempotent replay (verdict rider): the replayed row must match the requested `(action, scope, audience_type, targets)` — a key-collision with DIFFERENT semantics raises `PC409` instead of silently returning someone's earlier, different event.**
 - System writers (terminal-withdraw in §1.6/§3.6, the §3.5 legacy import): DEFINER bodies only — service_role never touches the table.
 
 ### 3.3 `has_active_consent(...)` — unchanged shell (DEFINER, service_role-only EXECUTE), body = the §3.2 fold as ONE query (reads need no lock; writers serialise via advisory lock + identity `seq`).
 
-### 3.4 `get_coaching_profile` — Shapes A/B as v1; recommendation unchanged: **grant Shape B only** (subject from locked scenario row).
+### 3.4 `get_coaching_profile_for_scenario(p_scenario_id UUID)` — the ONLY coaching read (C4: **Shape A is deleted from this contract as an object, not merely ungranted** — an ungranted DEFINER function is a future grant-bug exposure; standing ruling: the trusted-parameter variant must never exist). DEFINER (`wsid_definer`), EXECUTE **service_role only**; derives the subject from the **locked** scenario row (`SELECT user_id FROM scenarios WHERE id = p_scenario_id FOR SHARE`), refuses guest scenarios (`CP404`); returns `'{}'::jsonb` unless `has_active_consent(subject,'coaching_tone','self')`; on consent returns ONLY the `CoachingProfileHints` projection. Dark until Locks 1–3 exist (unchanged).
 
 ### 3.4a Identity severance — **PENDING (CQ-6 retention + R-1/R-2 pseudonymise doctrine); S-3 is NOT fully buildable until ruled** (v1 overclaimed "pseudonymous"):
 Retaining the auth UUID in events is **linkable-pseudonymous at best** — the same UUID persists in `workspaces.created_by`, `decision_records.owner_user_id`, and other P11-retained records. Options for the ruling:
@@ -194,7 +199,7 @@ As v1 with four changes:
 | upsert_person_profile | product (G3/G4) | **INVOKER** | n/a | authenticated | auth.uid() via RLS | — |
 | record_consent_event | ledger writer (M5) | DEFINER | wsid_definer | **authenticated only** | auth.uid()→PC401; actor/source/time server-set | INSERT profile_consent_events |
 | has_active_consent | primitive (M5) | DEFINER STABLE | wsid_definer | **service_role only** | parameterised, DEFINER-internal callers | SELECT profile_consent_events |
-| get_coaching_profile_for_scenario (Shape B, recommended) | Lock 0 (M5 dark) | DEFINER | wsid_definer | **service_role only** | locked scenario row FOR SHARE | SELECT scenarios, person_profiles + has_active_consent |
+| get_coaching_profile_for_scenario (the ONLY coaching read — C4) | Lock 0 (M5 dark) | DEFINER | wsid_definer | **service_role only** | locked scenario row FOR SHARE | SELECT scenarios, person_profiles + has_active_consent |
 | delete_person_profile | erasure (M5) | DEFINER | wsid_definer | **authenticated only** | auth.uid(); no subject param | DELETE person_profiles, INSERT consent events |
 | claim_guest_scenario (amendment; CEE file) | existing | DEFINER | unchanged (postgres — legacy scope) | service_role only | locked row FOR UPDATE | — |
 | create_decision_record (amendment; A1 CEE queue) | existing | DEFINER | unchanged | service_role only | **workspace from locked scenario; caller p_workspace_id refused post-M2** | — |
@@ -203,7 +208,10 @@ Bans carried: no client-supplied identity anywhere (`extractJwtSub` class); coll
 
 ## §5 Exact RLS + grants matrix (charter-form: named policies, exact USING / WITH CHECK, per-role privileges)
 
-### 5.1 Policies (all tables FORCE RLS; absence of a row = command denied for JWT roles)
+### 5.1a `wsid_definer` under FORCE RLS — the policy layer that makes the owner pattern work (v1.2)
+`wsid_definer` is a plain NOLOGIN role: it has no `BYPASSRLS` (PG15 `CREATEROLE` cannot mint one — only superusers can, and Supabase's `postgres` is not one), and FORCE RLS applies to non-owners unconditionally. Its DEFINER functions therefore need **explicit role-scoped policies**, one per (table × command) in §4's needs column — e.g. `ws_definer_insert ON workspaces FOR INSERT TO wsid_definer WITH CHECK (true)`, `wm_definer_all ON workspace_members FOR ALL TO wsid_definer USING (true) WITH CHECK (true)`, `pce_definer_insert/select`, `pp_definer_select/delete`, `ws_definer_select ON workspaces/workspace_members FOR SELECT TO wsid_definer USING (true)` (helpers + stamping trigger). These policies are invisible to JWT roles (policies are per-role), keep deny-by-default intact for anon/authenticated/service_role, and are *more* auditable than BYPASSRLS: the definer's reach is enumerated in pg_policies. The trigger guards (§1.1/§1.2) still bind these paths — policy grants access, triggers enforce invariants.
+
+### 5.1 Policies (all tables FORCE RLS; absence of a row = command denied for JWT roles; §5.1a's `TO wsid_definer` rows omitted here for brevity — they mirror §4's needs column exactly)
 | Table | Policy (cmd, TO) | USING | WITH CHECK |
 |---|---|---|---|
 | workspaces | `ws_select_member` (SELECT, authenticated) | `is_workspace_member(id)` | — |
@@ -257,14 +265,16 @@ Bans carried: no client-supplied identity anywhere (`extractJwtSub` class); coll
 XQ-2/3/4/5/6 as v1.
 
 ## §8 PENDING-CQ (org spine + strategy tree)
-Shapes referenced (design §2.3/§2.4 + §6.3 additions); ratified defaults applied (team⊆org guard trigger; `is_personal×org_id` CHECK). **Honest status: full DDL text is NOT in this revision** — it lands as a v1.2 revision of THIS contract once CQ-1/2/3/5/7 return, and only then does Gate 2 pick it up. Nothing in S-1..S-3 references any org/team object (verified: no FK, helper body, or policy above does).
+Shapes referenced (design §2.3/§2.4 + §6.3 additions); ratified defaults applied (team⊆org guard trigger; `is_personal×org_id` CHECK). **Honest status: full DDL text is NOT in this revision** — it lands as a post-CQ revision of THIS contract, and only then does Gate 2 pick it up. Nothing in S-1..S-3 references any org/team object (verified: no FK, helper body, or policy above does).
+**Verdict rider (naming vs live DATA):** the new names (`orgs`/`org_members`/`org_teams`) avoid the live *namespace* (`organisations`/`organisation_members`/`teams` — Gate-0 preflight), but the live tables carry real rows (11/14/5 + 3 team_members). The S-4 revision must state the DATA disposition — migrate legacy org/team rows into the new spine vs frozen-forever parallel history — **surfaced to the CQ docket so Paul rules with the collision visible.**
 
 ## §9 Gate-4 test-pack obligations — v1 list plus: per-policy tests written against §5.1's EXACT expressions · fold `EXPLAIN` index-use assertion · append-only attack tests (direct INSERT/UPDATE/DELETE as authenticated AND service_role must all fail) · personal-guard race (concurrent second-member INSERT) · account-deletion orchestration walkthrough incl. transfer_required refusal · stamping WS020/WS011 negative cases · claim-shape NULL→value acceptance.
 
-## §10 Open review questions for A1 (carried from v1 + new)
-1. §3.4 Shape A vs B (recommendation: B only).
-2. §3.1 user-JWT direct writes vs full-RPC-only (design-of-record says JWT-direct; reviewer prefers RPC; we keep JWT-direct + CHECKs — overrule if the security review disagrees).
-3. §3.4a S-A vs S-B severance (needs CQ-6/R-1/R-2; blocks M5 execution, not spec review).
-4. F9 as separate PR (recommendation) vs riding Gate 2 (verdict-permitted).
-5. Explicit confirmation that the Charter supersedes v1.7 §22's "no schema/SQL authoring" for Gate-2 *authoring* (execution stays gated) — asked in update-2 §9, still open.
-6. `wsid_definer` owner pattern (v1.7 §14 compliance) — confirm as the new house pattern for this lane's objects.
+## §10 Review-question dispositions (v1.2 — all ruled in `A1-RULING-F3-AND-GATE1-2026-07-12.md`)
+1. ~~Shape A vs B~~ → **Shape B only; Shape A deleted as an object (C4).**
+2. ~~JWT-direct vs RPC-only profile writes~~ → **RESOLVED IN FAVOUR of JWT-direct + hardenings** (security reviewer attacked it hardest, no cross-user exploit; server-set-fields trigger + extended provenance CHECK adopted, §3.1).
+3. §3.4a S-A vs S-B severance → **still open with Paul (CQ-6/R-1/R-2); M5 HELD on it.**
+4. ~~F9 placement~~ → **separate 1.40 revoke batch, confirmed.**
+5. ~~v1.7 §22 supersession~~ → **accepted subject to review pass — now satisfied by the Gate-1 verdict.**
+6. ~~wsid_definer pattern~~ → **accepted** (see §5.1a for the FORCE-RLS policy mechanics).
+**Still open:** #3 above (Paul) · the CQ docket (incl. the §8 data-disposition rider) · P9 · contact_consent legacy-import approval.
