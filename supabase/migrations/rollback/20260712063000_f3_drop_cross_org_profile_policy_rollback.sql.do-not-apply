@@ -1,0 +1,31 @@
+-- ============================================================================
+-- ROLLBACK for 20260712063000_f3_drop_cross_org_profile_policy.sql
+-- ============================================================================
+-- ⚠⚠ APPLYING THIS RE-OPENS A LIVE CROSS-USER PII LEAK (Gate-0 finding F3).
+-- It exists ONLY to make the emergency exception's "single reversible
+-- statement" classification literally true, for the emergency case where the
+-- containment provably broke something critical. It requires the SAME
+-- authority that ordered the containment (A1/Paul) and a recorded reason.
+-- Policy text below is verbatim from the pre-drop live catalog
+-- (acceptance-evidence/security/F3-CONTAINMENT-2026-07-12.md Phase A).
+-- ============================================================================
+
+BEGIN;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public'
+             AND tablename = 'user_profiles'
+             AND policyname = 'Users can view accessible profiles') THEN
+    RAISE EXCEPTION 'F3 rollback: policy already present — nothing to do';
+  END IF;
+END $$;
+
+CREATE POLICY "Users can view accessible profiles" ON public.user_profiles
+  FOR SELECT TO authenticated
+  USING ((id = auth.uid()) OR (EXISTS (
+    SELECT 1 FROM (organisation_members om1
+      JOIN organisation_members om2 ON (om1.organisation_id = om2.organisation_id))
+    WHERE om1.user_id = auth.uid() AND om2.user_id = user_profiles.id)));
+
+COMMIT;

@@ -1,12 +1,19 @@
 -- ============================================================================
 -- F3 CONTAINMENT — drop the legacy cross-organisation profile-read policy
 -- ============================================================================
--- STATUS: ALREADY EXECUTED on staging Supabase (etmmuzwxtc) 2026-07-12 ~06:00
--- by A1 under the emergency-security exception granted in
--- parallel-briefs/A1-RULING-F3-AND-GATE1-2026-07-12.md. This file is the
--- durable record required by the exception terms and is REPLAY-SAFE
--- (idempotent): re-application on a database where the policy is already
--- gone is a verified no-op.
+-- STATUS: the containment this file records was ALREADY EXECUTED on staging
+-- Supabase (etmmuzwxtc) 2026-07-11 18:24 UTC by A1 under the emergency-
+-- security exception (parallel-briefs/A1-RULING-F3-AND-GATE1-2026-07-12.md).
+-- EVIDENTIARY PRECISION (review round 3): this file is the CANONICAL
+-- REPLAY-SAFE migration, NOT the byte-exact executed script. The exact
+-- script-as-run (incl. simulated-JWT allow/deny post-checks with resolved
+-- user ids) + the execution transcript + fresh-session recheck live in
+-- acceptance-evidence/security/F3-CONTAINMENT-2026-07-12.md. This replay file
+-- carries the same pre-check/DROP/catalog-post-check core, is idempotent
+-- (no-op where the policy is already gone), and omits the behavioural JWT
+-- section (already evidenced; ids do not belong in a migration file).
+-- Rollback (policy recreation) exists but RE-OPENS THE LEAK:
+-- rollback/20260712063000_f3_..._rollback.sql.do-not-apply.
 -- Drift register: supabase/MIGRATION-DRIFT-REGISTER.md entry #1 (ledger row
 -- pending the Gate-6 reconciliation plan).
 --

@@ -1,20 +1,36 @@
 -- ============================================================================
--- WORKSPACE & IDENTITY — M2: SCENARIO SCOPING (S-2)
+-- WORKSPACE & IDENTITY — M2: SCENARIO SCOPING (S-2)  [rev 2]
 -- ============================================================================
 -- AUTHORED AS CODE — NOT YET EXECUTED. Depends on M1 (same batch, ordered).
--- Execution blocked until the drift register precedes it (Gate-1 verdict).
--- Contract: docs/specs/workspace-identity-schema-contract-v1.md v1.2 §2.
--- Authored AGAINST LIVE STATE (Gate-1 verdict instruction): live scenarios
--- carry ~611 guest rows with user_id NULL — the checked-in 2026-02 schema's
--- NOT NULL is long superseded; all counts below are dynamic.
+-- Execution blocked until the drift register precedes it + rehearsal (M1 hdr).
+-- Contract: docs/specs/workspace-identity-schema-contract-v1.md v1.2+ §2.
+-- Authored AGAINST LIVE STATE: ~611 guest rows with user_id NULL; dynamic
+-- counts throughout.
 --
--- Adds: scenarios.workspace_id (FK ON DELETE SET NULL — records-outlive-
--- container doctrine, contract §1.6) · UNIQUE(id, workspace_id) composite-FK
--- target for M6 child tables · at-birth stamping trigger (WS020 abort) ·
--- immutability trigger (WS010/WS011; sentinel-guarded value→NULL; claim-shape
--- NULL→value) · owned-row backfill (dynamic, orphan-tolerant).
--- Scenarios RLS: BYTE-UNCHANGED (ratified P3 posture — cutover is later).
--- Classification: REVERSIBLE pre-cutover (rollback file present).
+-- rev 2 (external review round 3 + automated finding):
+--   * P0 CLAIM FIX: the UPDATE trigger now AUTO-STAMPS workspace_id when
+--     user_id transitions NULL→non-NULL. The previous rev required the claim
+--     writer to set workspace_id in the same statement — but the live
+--     claim_guest_scenario updates user_id ONLY, which would have left every
+--     post-M2 claim PERMANENTLY unscoped (the claim-shape predicate can never
+--     be satisfied by a later statement). Now: today's claim works unmodified
+--     and stamping is atomic; the CEE-side amendment becomes defence-in-depth,
+--     not a hard dependency.
+--   * Owner-orphan rows (user_id set, owner's auth account gone) are NOT
+--     claim-flow class — they cannot be claimed (claim requires user_id NULL)
+--     and account deletion CREATES more of them (workspace SET NULL + soft
+--     authorship retained). Left NULL here unchanged, but their lifecycle
+--     (quarantine/destroy/tombstone/transfer/retain-under-non-user-subject)
+--     is ROUTED as CQ-17 — not inferred inside a migration.
+--   * Scenarios-RLS assertion upgraded from policy COUNT to a canonical
+--     FINGERPRINT of (policyname|cmd|roles|qual|with_check) — computed from
+--     the Gate-0 live catalog. Abort on ANY drift, not just count changes.
+--   * Trigger functions get explicit PUBLIC/anon EXECUTE revokes.
+--   * value→NULL requires the SUBJECT-SCOPED deletion sentinel (M1 rev 2).
+--     Sentinel integrity assumption (contract-noted): JWT roles cannot run
+--     multi-statement transactions through PostgREST, so they cannot pair
+--     set_config with a DML statement.
+-- Classification: REVERSIBLE pre-cutover (rollback file, refusal-guarded).
 -- ============================================================================
 
 BEGIN;
@@ -33,15 +49,15 @@ CREATE INDEX scenarios_workspace_idx
   ON public.scenarios (workspace_id) WHERE workspace_id IS NOT NULL;
 
 COMMENT ON COLUMN public.scenarios.workspace_id IS
-  'W&I M2: tenancy at birth (trigger-stamped). NULL = guest/unscoped. Immutable once set (WS010/WS011); ON DELETE SET NULL = records-outlive-container.';
+  'W&I M2: tenancy at birth (INSERT trigger) and at claim (UPDATE trigger auto-stamp). NULL = guest/unscoped or owner-orphan (CQ-17). Immutable otherwise (WS010/WS011); ON DELETE SET NULL = records-outlive-container.';
 
 -- ---------------------------------------------------------------------------
--- 2. Backfill BEFORE the immutability trigger exists (its NULL→value updates
---    are exactly what the trigger will forbid afterwards). Owned rows whose
---    owner still exists get their personal workspace (M1 guarantees one per
---    auth user). Orphans (owner deleted — user_id has no FK since guest-mode
---    migration) stay NULL and are counted, not aborted: they are retained
---    authorship history, the same class the claim flow re-scopes.
+-- 2. Backfill BEFORE the guard trigger exists (its NULL→value rule would
+--    forbid these very updates). Owned rows whose owner still exists get the
+--    owner's personal workspace (M1 guarantees one per auth user).
+--    Owner-ORPHAN rows (authorship uuid no longer in auth.users — user_id has
+--    had no FK since the guest-mode migration) stay NULL: their lifecycle is
+--    CQ-17, a Paul ruling, not a migration inference.
 -- ---------------------------------------------------------------------------
 UPDATE public.scenarios s
    SET workspace_id = w.id
@@ -50,7 +66,7 @@ UPDATE public.scenarios s
    AND s.user_id IS NOT NULL AND s.workspace_id IS NULL;
 
 -- ---------------------------------------------------------------------------
--- 3. Stamping trigger (BEFORE INSERT) — contract §2
+-- 3. Stamping trigger (BEFORE INSERT)
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.scenarios_stamp_workspace()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
@@ -65,8 +81,6 @@ BEGIN
   SELECT id INTO v_ws FROM public.workspaces
    WHERE created_by = NEW.user_id AND is_personal;
   IF v_ws IS NULL THEN
-    -- A non-guest user without a personal workspace is an invariant breach,
-    -- never a silent NULL (contract v1.1 fix).
     RAISE EXCEPTION 'scenarios: no personal workspace for user % — provisioning invariant breached', NEW.user_id
       USING ERRCODE = 'WS020';
   END IF;
@@ -74,57 +88,71 @@ BEGIN
   RETURN NEW;
 END $$;
 ALTER FUNCTION public.scenarios_stamp_workspace() OWNER TO wsid_definer;
+REVOKE ALL ON FUNCTION public.scenarios_stamp_workspace() FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE TRIGGER scenarios_stamp_workspace
   BEFORE INSERT ON public.scenarios
   FOR EACH ROW EXECUTE FUNCTION public.scenarios_stamp_workspace();
 
 -- ---------------------------------------------------------------------------
--- 4. Immutability trigger (BEFORE UPDATE) — contract §2 (v1.2 erratum applied:
---    FK SET NULL referential actions DO fire row triggers, so value→NULL is
---    sentinel-recognised, not assumed invisible)
+-- 4. Guard trigger (BEFORE UPDATE): claim auto-stamp + immutability
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.scenarios_workspace_immutable()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, public AS $$
+DECLARE
+  v_ws UUID;
 BEGIN
+  -- CLAIM (user_id NULL → non-NULL): AUTO-STAMP the claimer's personal
+  -- workspace (rev 2 — the live claim writer sets user_id only; requiring it
+  -- to also set workspace_id would strand every claim as unscoped forever).
+  IF OLD.user_id IS NULL AND NEW.user_id IS NOT NULL THEN
+    SELECT id INTO v_ws FROM public.workspaces
+     WHERE created_by = NEW.user_id AND is_personal;
+    IF v_ws IS NULL THEN
+      RAISE EXCEPTION 'scenarios: no personal workspace for claimer % — provisioning invariant breached', NEW.user_id
+        USING ERRCODE = 'WS020';
+    END IF;
+    IF NEW.workspace_id IS NOT NULL AND NEW.workspace_id <> v_ws THEN
+      RAISE EXCEPTION 'scenarios: claim may only scope to the claimer''s personal workspace'
+        USING ERRCODE = 'WS011';
+    END IF;
+    NEW.workspace_id := v_ws;
+    RETURN NEW;
+  END IF;
+
+  -- NON-CLAIM updates: workspace_id is immutable.
   IF NEW.workspace_id IS NOT DISTINCT FROM OLD.workspace_id THEN
     RETURN NEW;
   END IF;
-  -- value → NULL: only the account-deletion path (FK SET NULL under sentinel)
   IF OLD.workspace_id IS NOT NULL AND NEW.workspace_id IS NULL THEN
-    IF coalesce(current_setting('app.wsid_deletion', true), '') = 'on' THEN
+    -- Only the account-deletion path (FK SET NULL under the SUBJECT-scoped
+    -- sentinel — FK referential actions DO fire row triggers).
+    IF coalesce(current_setting('app.wsid_deletion', true), '') <> '' THEN
       RETURN NEW;
     END IF;
     RAISE EXCEPTION 'scenarios: workspace_id is immutable once set (transfer RPC deferred)'
       USING ERRCODE = 'WS010';
   END IF;
-  -- value → different value: forbidden until the transfer RPC exists
   IF OLD.workspace_id IS NOT NULL THEN
     RAISE EXCEPTION 'scenarios: workspace_id is immutable once set (transfer RPC deferred)'
       USING ERRCODE = 'WS010';
   END IF;
-  -- NULL → value: ONLY the claim shape — user_id transitions NULL→non-NULL in
-  -- the same statement AND the target is the claimer''s personal workspace.
-  IF OLD.user_id IS NULL AND NEW.user_id IS NOT NULL
-     AND NEW.workspace_id = (SELECT id FROM public.workspaces
-                             WHERE created_by = NEW.user_id AND is_personal) THEN
-    RETURN NEW;
-  END IF;
-  RAISE EXCEPTION 'scenarios: workspace_id may only be set by the claim flow'
+  RAISE EXCEPTION 'scenarios: workspace_id may only be set at birth or claim'
     USING ERRCODE = 'WS011';
 END $$;
 ALTER FUNCTION public.scenarios_workspace_immutable() OWNER TO wsid_definer;
+REVOKE ALL ON FUNCTION public.scenarios_workspace_immutable() FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE TRIGGER scenarios_workspace_immutable
   BEFORE UPDATE ON public.scenarios
   FOR EACH ROW EXECUTE FUNCTION public.scenarios_workspace_immutable();
 
--- NOTE (cross-repo, recorded): claim_guest_scenario (CEE-homed migration) gains
--- its workspace-stamping statement in its next amendment — the sanctioned
--- NULL→value writer. Until then guest claims set user_id only and the scenario
--- stays unscoped; the claim-shape rule above already admits the amended form.
--- RLS on scenarios: deliberately untouched (P3; policy-count asserted below).
+-- NOTE (cross-repo, recorded): claim_guest_scenario (CEE-homed) needs NO
+-- change for stamping to work (the trigger stamps). Its future amendment may
+-- add an explicit workspace_id for defence-in-depth; the trigger accepts
+-- exactly the personal-workspace value and rejects anything else.
+-- RLS on scenarios: deliberately untouched (P3; fingerprint-asserted below).
 
 -- ---------------------------------------------------------------------------
 -- 5. In-transaction verification — COMMIT only on pass
@@ -135,7 +163,7 @@ DECLARE
   v_stamped  BIGINT;
   v_orphans  BIGINT;
   v_guests   BIGINT;
-  v_policies BIGINT;
+  v_fp       TEXT;
 BEGIN
   SELECT count(*) FILTER (WHERE user_id IS NOT NULL),
          count(*) FILTER (WHERE user_id IS NOT NULL AND workspace_id IS NOT NULL),
@@ -148,27 +176,37 @@ BEGIN
     RAISE EXCEPTION 'M2 verify: guest row acquired a workspace_id';
   END IF;
 
-  -- Orphans (owner account no longer exists) are tolerated but must equal the
-  -- unstamped remainder exactly — anything else means the backfill missed rows.
+  -- Unstamped owned rows must be exactly the owner-orphans (CQ-17 class).
   IF v_orphans <> (SELECT count(*) FROM public.scenarios s
                     WHERE s.user_id IS NOT NULL
                       AND NOT EXISTS (SELECT 1 FROM auth.users u WHERE u.id = s.user_id)) THEN
-    RAISE EXCEPTION 'M2 verify: unstamped owned rows are not all owner-orphans (unstamped=%, orphans expected from auth.users diff)', v_orphans;
+    RAISE EXCEPTION 'M2 verify: unstamped owned rows are not all owner-orphans';
   END IF;
 
   IF (SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
-      WHERE c.relname = 'scenarios' AND NOT t.tgisinternal
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND c.relname = 'scenarios' AND NOT t.tgisinternal
+        AND t.tgenabled = 'O'
         AND t.tgname IN ('scenarios_stamp_workspace','scenarios_workspace_immutable')) <> 2 THEN
-    RAISE EXCEPTION 'M2 verify: trigger pair missing';
+    RAISE EXCEPTION 'M2 verify: trigger pair missing or disabled';
   END IF;
 
-  -- Scenarios RLS byte-unchanged: same four owner-only policies as Gate-0.
-  SELECT count(*) INTO v_policies FROM pg_policies WHERE tablename = 'scenarios';
-  IF v_policies <> 4 THEN
-    RAISE EXCEPTION 'M2 verify: scenarios policy count changed (%; expected 4 untouched owner-only policies)', v_policies;
+  -- Scenarios RLS fingerprint: canonical digest of the FOUR owner-only
+  -- policies exactly as captured in the Gate-0 live catalog
+  -- (parallel-briefs/workspace-lane-evidence/gate0/db-catalog-2026-07-11.json).
+  -- ANY drift in name/cmd/roles/USING/WITH CHECK aborts — count alone proved
+  -- nothing (review round 3).
+  SELECT md5(string_agg(policyname || '|' || cmd || '|' || roles::text || '|'
+                        || coalesce(qual, '') || '|' || coalesce(with_check, ''),
+                        E'\n' ORDER BY policyname))
+    INTO v_fp
+    FROM pg_policies
+   WHERE schemaname = 'public' AND tablename = 'scenarios';
+  IF v_fp IS DISTINCT FROM '9fc10354ad48a5e8adaef51cce11a4b9' THEN
+    RAISE EXCEPTION 'M2 verify: scenarios policy-set fingerprint drifted (got %) — P3 byte-unchanged promise would be false; investigate before executing', v_fp;
   END IF;
 
-  RAISE NOTICE 'M2 verify PASS: owned=% stamped=% owner-orphans(left NULL)=% guests(unscoped)=%',
+  RAISE NOTICE 'M2 verify PASS: owned=% stamped=% owner-orphans(NULL, CQ-17)=% guests(unscoped)=%',
     v_owned, v_stamped, v_orphans, v_guests;
 END $$;
 

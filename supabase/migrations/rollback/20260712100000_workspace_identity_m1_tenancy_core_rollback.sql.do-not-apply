@@ -10,8 +10,9 @@
 
 BEGIN;
 
--- Guard: refuse to roll back if any NON-personal workspace exists (that means
--- real adoption happened and this rollback would destroy user-created state).
+-- Guards: refuse if adoption happened OR any later migration depends on M1
+-- (rev 2 — review round 3: detect M5/M3 consumers deliberately, don't rely on
+-- PostgreSQL aborting accidentally).
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM public.workspaces WHERE NOT is_personal) THEN
@@ -21,6 +22,20 @@ BEGIN
              WHERE table_schema = 'public' AND table_name = 'scenarios'
                AND column_name = 'workspace_id') THEN
     RAISE EXCEPTION 'M1 rollback refused: M2 is still applied — roll back M2 first';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE n.nspname = 'public' AND c.relkind = 'r'
+               AND c.relname IN ('person_profiles','profile_consent_events',
+                                 'orgs','org_members','org_teams','org_team_members',
+                                 'workspace_team_grants','workspace_invites',
+                                 'strategies','strategy_bets','strategy_scenario_links')) THEN
+    RAISE EXCEPTION 'M1 rollback refused: later W&I migrations (M3/M4/M5-class objects) are applied — roll those back first';
+  END IF;
+  -- M5 extends auth_users_delete_cleanup with consent closure; detect by body.
+  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+             WHERE n.nspname = 'public' AND p.proname = 'auth_users_delete_cleanup'
+               AND p.prosrc LIKE '%profile_consent_events%') THEN
+    RAISE EXCEPTION 'M1 rollback refused: auth_users_delete_cleanup carries the M5 consent-closure extension';
   END IF;
 END $$;
 

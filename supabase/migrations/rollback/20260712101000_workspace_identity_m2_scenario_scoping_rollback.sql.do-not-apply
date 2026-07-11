@@ -9,13 +9,26 @@
 
 BEGIN;
 
--- Guard: refuse once the RLS cutover has happened (any scenarios policy
--- referencing the helpers means workspace_id is load-bearing for access).
+-- Guards: refuse once anything consumes workspace_id (rev 2 — deliberate
+-- detection of cutover policies AND composite child FKs, not accidental
+-- abort).
 DO $$
+DECLARE
+  v_fk TEXT;
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'scenarios'
+  IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'scenarios'
              AND (qual LIKE '%is_workspace_member%' OR with_check LIKE '%is_workspace_member%')) THEN
     RAISE EXCEPTION 'M2 rollback refused: RLS cutover has consumed workspace_id — forward-fix instead';
+  END IF;
+  -- M6-class composite child FKs targeting scenarios(id, workspace_id):
+  SELECT string_agg(conname, ', ') INTO v_fk
+    FROM pg_constraint
+   WHERE contype = 'f' AND confrelid = 'public.scenarios'::regclass
+     AND confkey::int[] @> ARRAY[(SELECT attnum::int FROM pg_attribute
+                                  WHERE attrelid = 'public.scenarios'::regclass
+                                    AND attname = 'workspace_id')];
+  IF v_fk IS NOT NULL THEN
+    RAISE EXCEPTION 'M2 rollback refused: composite child FKs reference scenarios(id, workspace_id): % — roll back M6-class consumers first', v_fk;
   END IF;
 END $$;
 

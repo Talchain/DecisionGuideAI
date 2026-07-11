@@ -10,9 +10,14 @@ PII/security exposure + single reversible statement + immediate register entry).
 
 ## Applied, pending ledger row
 
-| # | Migration file (repo path) | Content sha256 | Applied | Authority | Evidence | Ledger row |
-|---|---|---|---|---|---|---|
-| 1 | `supabase/migrations/20260712063000_f3_drop_cross_org_profile_policy.sql` (DGAI) | `fa946a710e708c189ff70f9f623766a76993f5b37db550f581de905989ad07f3` | 2026-07-12 ~06:00, A1 direct (transactional, strengthened pre/post-checks + simulated-JWT allow/deny) | Emergency-security exception, `A1-RULING-F3-AND-GATE1-2026-07-12.md` §F3 | `acceptance-evidence/security/F3-CONTAINMENT-2026-07-12.md` + `parallel-briefs/workspace-lane-evidence/gate0/` (exposure quantification) | **PENDING** reconciliation plan |
+Each entry distinguishes FOUR artefacts (they are not interchangeable): the **executed
+script + transcript** (byte-exact, what actually ran), the **canonical replay migration**
+(idempotent repo record — the sha256 column hashes THIS file, not the executed script),
+**behavioural evidence**, and **rollback/recreation SQL**.
+
+| # | Replay migration (repo path) | Replay-file sha256 | Executed script + transcript | Applied | Authority | Behavioural evidence | Rollback | Ledger row |
+|---|---|---|---|---|---|---|---|---|
+| 1 | `supabase/migrations/20260712063000_f3_drop_cross_org_profile_policy.sql` (DGAI) | `b935116fafb3bcf8f4d3587a9dc9db5f46ec7f0d16f66709b097e82c3fa22d63` | `acceptance-evidence/security/F3-CONTAINMENT-2026-07-12.md` Phase B (SQL-as-run incl. simulated-JWT checks + statement tags; ids redacted to prefixes) | 2026-07-11 18:24:50 UTC, A1 direct, transactional | Emergency-security exception, `A1-RULING-F3-AND-GATE1-2026-07-12.md` §F3 | Same file, Phases A/C (pre-drop leak live: cross-read 1 row; post-drop + fresh session: self 1 / cross 0) + `workspace-lane-evidence/gate0/` (8-pair quantification) | `rollback/20260712063000_..._rollback.sql.do-not-apply` (**re-opens the leak — emergency only**) | **PENDING** reconciliation plan |
 
 ## Known pre-existing drift (Gate-0 finding F1 — inventory, not register entries)
 
@@ -27,6 +32,9 @@ ledger-row insertion; Gate-2 CI gains a cross-repo version-collision reject).
 ## Rules for future entries
 1. An entry is written in the SAME session as the execution, by the executor.
 2. The file must exist in the owning repo (merged or in the executing PR) before execution.
-3. `sha256` is of the exact file content executed; re-authored files get a new entry.
-4. When the reconciliation plan inserts a ledger row, the entry's last column flips to the
-   inserted version id — entries are never deleted.
+3. The sha256 column hashes the **replay migration file**; the executed-script column names
+   the byte-exact record (transcript). Where the two are identical, say so explicitly.
+   Re-authored replay files get a refreshed hash in place with a dated note — the executed
+   record never changes.
+4. When the reconciliation plan inserts a ledger row, the last column flips to the inserted
+   version id — entries are never deleted.

@@ -1,32 +1,43 @@
 -- ============================================================================
--- WORKSPACE & IDENTITY — M1: TENANCY CORE (S-1)
+-- WORKSPACE & IDENTITY — M1: TENANCY CORE (S-1)  [rev 2]
 -- ============================================================================
 -- AUTHORED AS CODE — NOT YET EXECUTED. Execution is A1/Paul-batched and is
--- BLOCKED until the migration-ledger reconciliation register precedes it
--- (Gate-1 verdict §Gate-2-scope; supabase/MIGRATION-DRIFT-REGISTER.md).
+-- BLOCKED until (a) the drift register precedes it and (b) a REHEARSAL run
+-- under the real execution role proves clean apply (Gate-1 verdict + external
+-- review round 3: the wsid_definer ownership bootstrap depends on executor
+-- role mechanics that must be proven, not assumed).
 -- Contract of record: docs/specs/workspace-identity-schema-contract-v1.md
--- (v1.2, PR #264, Gate-1 PASS-WITH-CONDITIONS). Authorization:
--- parallel-briefs/A1-RULING-F3-AND-GATE1-2026-07-12.md (M1+M2 authoring).
+-- (v1.2+, PR #264). Authorization: A1-RULING-F3-AND-GATE1-2026-07-12.md.
 --
--- Creates: wsid_definer role · workspaces · workspace_members · helpers
--- (role_rank / is_workspace_member / is_workspace_role) · invariant guard
--- triggers · create_workspace · personal-workspace provisioning (trigger on
--- auth.users + dynamic backfill) · account-deletion trigger pair (C1/C2).
--- Deliberately ABSENT: workspace_invites (PENDING-P9) · org_id (M3, atomic
--- with org spine) · account_deletion_orchestrate RPC (M5 — its profile +
--- consent steps need S-3; the auth.users trigger pair below is the
--- enforcement point per contract §1.6, so admin/GoTrue deletions are already
--- covered) · any change to scenarios (M2).
--- Classification: REVERSIBLE (rollback/20260712100000_*.do-not-apply).
--- Interim rules pending Paul: CQ-5 (owner-account deletion => WM412
--- transfer_required refusal for shared workspaces).
+-- rev 2 (external review round 3, all four P0/P1 classes addressed):
+--   * ownership BOOTSTRAP: executor joins wsid_definer + schema CREATE grant
+--     (PG15: ALTER ... OWNER requires SET ROLE ability + CREATE on schema);
+--     CREATE revoked again post-transfer. M5 function replacement works via
+--     the retained membership.
+--   * C2 completed: the deletion sentinel is SUBJECT-SCOPED (carries the
+--     deleted user's uuid, not a boolean) and every guard RE-ASSERTS its
+--     invariant against that subject (owner-row removal only for the subject's
+--     personal workspace; workspace deletion only for the subject's personal
+--     workspace). Rule (contract §1.6): every future ownership writer or
+--     transfer RPC takes pg_advisory_xact_lock(hashtext(user_id::text)).
+--   * role_rank fail-closed: invalid p_min_role now denies everyone (was:
+--     rank 0 authorised every member).
+--   * ALL functions (incl. trigger functions) get explicit PUBLIC/anon
+--     EXECUTE revokes (PG default-grants EXECUTE to PUBLIC).
+--   * verification strengthened: schema-qualified, asserts owners, pinned
+--     search_path, trigger enablement, ACL absence — not just counts.
+-- Deliberately ABSENT: workspace_invites (P9) · org_id (M3) · orchestration
+-- RPC (M5 — the auth.users trigger pair is the enforcement point).
+-- Classification: REVERSIBLE (rollback file, refusal-guarded).
 -- ============================================================================
 
 BEGIN;
 
 -- ---------------------------------------------------------------------------
--- 0. Definer role (v1.7 §14 non-superuser owner; contract §5.1a: NO BYPASSRLS
---    on PG15 — access via explicit TO wsid_definer policies below).
+-- 0. Definer role + ownership bootstrap (contract §5.1a)
+--    PG15 mechanics: the executor must be a member of the new owning role to
+--    ALTER ... OWNER TO it, and the new owner needs CREATE on the schema at
+--    transfer time. NO BYPASSRLS anywhere (PG15 CREATEROLE cannot mint it).
 -- ---------------------------------------------------------------------------
 DO $$
 BEGIN
@@ -34,6 +45,8 @@ BEGIN
     CREATE ROLE wsid_definer NOLOGIN;
   END IF;
 END $$;
+GRANT wsid_definer TO postgres;             -- executor membership (idempotent)
+GRANT USAGE, CREATE ON SCHEMA public TO wsid_definer;  -- CREATE revoked in §9
 
 -- ---------------------------------------------------------------------------
 -- 1. role_rank — single encoding of the role hierarchy (contract §0)
@@ -44,7 +57,7 @@ RETURNS int LANGUAGE sql IMMUTABLE AS $$
                      WHEN 'editor' THEN 2 WHEN 'viewer' THEN 1 ELSE 0 END;
 $$;
 ALTER FUNCTION public.role_rank(TEXT) OWNER TO wsid_definer;
-REVOKE EXECUTE ON FUNCTION public.role_rank(TEXT) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.role_rank(TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.role_rank(TEXT) TO authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
@@ -77,7 +90,8 @@ CREATE UNIQUE INDEX workspace_members_one_owner_idx
 CREATE INDEX workspace_members_user_idx ON public.workspace_members (user_id);
 
 -- ---------------------------------------------------------------------------
--- 3. Helpers (contract §1.4) — DEFINER, wsid_definer-owned, pinned search_path
+-- 3. Helpers (contract §1.4) — is_workspace_role FAILS CLOSED on invalid
+--    p_min_role (rev 2: rank 0 previously authorised every member)
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.is_workspace_member(p_workspace UUID)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
@@ -89,21 +103,21 @@ $$;
 CREATE OR REPLACE FUNCTION public.is_workspace_role(p_workspace UUID, p_min_role TEXT)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public AS $$
-  SELECT EXISTS (SELECT 1 FROM public.workspace_members
+  SELECT public.role_rank(p_min_role) >= 1     -- invalid vocabulary => false for ALL
+     AND EXISTS (SELECT 1 FROM public.workspace_members
                  WHERE workspace_id = p_workspace AND user_id = auth.uid()
                    AND public.role_rank(role) >= public.role_rank(p_min_role));
 $$;
 
 ALTER FUNCTION public.is_workspace_member(UUID) OWNER TO wsid_definer;
 ALTER FUNCTION public.is_workspace_role(UUID, TEXT) OWNER TO wsid_definer;
-REVOKE EXECUTE ON FUNCTION public.is_workspace_member(UUID) FROM PUBLIC, anon;
-REVOKE EXECUTE ON FUNCTION public.is_workspace_role(UUID, TEXT) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.is_workspace_member(UUID) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.is_workspace_role(UUID, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.is_workspace_member(UUID) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.is_workspace_role(UUID, TEXT) TO authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
 -- 4. RLS: FORCE + deny-by-default; JWT policies + TO wsid_definer policies
---    (contract §5.1 / §5.1a)
 -- ---------------------------------------------------------------------------
 ALTER TABLE public.workspaces ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.workspaces FORCE ROW LEVEL SECURITY;
@@ -119,7 +133,6 @@ CREATE POLICY ws_update_admin ON public.workspaces
 CREATE POLICY wm_select_roster ON public.workspace_members
   FOR SELECT TO authenticated USING (public.is_workspace_member(workspace_id));
 
--- wsid_definer access (no BYPASSRLS on PG15; explicit, enumerable reach):
 CREATE POLICY ws_definer_select ON public.workspaces
   FOR SELECT TO wsid_definer USING (true);
 CREATE POLICY ws_definer_insert ON public.workspaces
@@ -130,7 +143,7 @@ CREATE POLICY wm_definer_all ON public.workspace_members
   FOR ALL TO wsid_definer USING (true) WITH CHECK (true);  -- WM409/WM410 triggers still bind
 
 -- ---------------------------------------------------------------------------
--- 5. Grants (contract §5.2; F9 lesson — explicit revokes are load-bearing)
+-- 5. Grants (contract §5.2; explicit revokes are load-bearing — F9)
 -- ---------------------------------------------------------------------------
 REVOKE ALL ON public.workspaces        FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON public.workspace_members FROM PUBLIC, anon, authenticated, service_role;
@@ -141,8 +154,10 @@ GRANT SELECT, INSERT, DELETE ON public.workspaces        TO wsid_definer;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.workspace_members TO wsid_definer;
 
 -- ---------------------------------------------------------------------------
--- 6. Invariant guard triggers (contract §1.1 / §1.2; SQLSTATEs WS001/WS002/
---    WM409/WM410). Triggers bind ALL roles including wsid_definer paths.
+-- 6. Invariant guard triggers. The deletion sentinel `app.wsid_deletion`
+--    carries the SUBJECT UUID (rev 2) and every guard re-asserts its
+--    invariant against that subject — a transaction-wide boolean authorised
+--    too much (review round 3 / A1 condition C2).
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.workspaces_update_guard()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
@@ -163,7 +178,10 @@ CREATE OR REPLACE FUNCTION public.workspaces_delete_guard()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, public AS $$
 BEGIN
-  IF coalesce(current_setting('app.wsid_deletion', true), '') <> 'on' THEN
+  -- Re-assert (C2): only the deletion SUBJECT's PERSONAL workspace may go.
+  IF NOT (OLD.is_personal
+          AND coalesce(current_setting('app.wsid_deletion', true), '')
+              = OLD.created_by::text) THEN
     RAISE EXCEPTION 'workspaces: DELETE forbidden outside the account-deletion path (MVP)'
       USING ERRCODE = 'WS002';
   END IF;
@@ -173,11 +191,22 @@ END $$;
 CREATE OR REPLACE FUNCTION public.workspace_members_owner_guard()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, public AS $$
+DECLARE
+  v_personal BOOLEAN;
 BEGIN
-  IF OLD.role = 'owner'
-     AND coalesce(current_setting('app.wsid_deletion', true), '') <> 'on' THEN
-    RAISE EXCEPTION 'workspace_members: owner row may not be % outside the account-deletion path (transfer RPC deferred)', lower(TG_OP)
-      USING ERRCODE = 'WM409';
+  IF OLD.role = 'owner' THEN
+    -- Re-assert (C2): the owner row may only be removed for the deletion
+    -- SUBJECT, and only where the workspace is personal. If the workspace row
+    -- is already gone mid-cascade, workspaces_delete_guard has ALREADY
+    -- asserted personal+subject for it in this same transaction.
+    SELECT is_personal INTO v_personal
+      FROM public.workspaces WHERE id = OLD.workspace_id;
+    IF NOT (coalesce(current_setting('app.wsid_deletion', true), '')
+              = OLD.user_id::text
+            AND coalesce(v_personal, true)) THEN
+      RAISE EXCEPTION 'workspace_members: owner row may not be % (transfer RPC deferred)', lower(TG_OP)
+        USING ERRCODE = 'WM409';
+    END IF;
   END IF;
   RETURN CASE TG_OP WHEN 'DELETE' THEN OLD ELSE NEW END;
 END $$;
@@ -208,6 +237,10 @@ ALTER FUNCTION public.workspaces_update_guard() OWNER TO wsid_definer;
 ALTER FUNCTION public.workspaces_delete_guard() OWNER TO wsid_definer;
 ALTER FUNCTION public.workspace_members_owner_guard() OWNER TO wsid_definer;
 ALTER FUNCTION public.workspace_members_personal_guard() OWNER TO wsid_definer;
+REVOKE ALL ON FUNCTION public.workspaces_update_guard() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.workspaces_delete_guard() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.workspace_members_owner_guard() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.workspace_members_personal_guard() FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE TRIGGER workspaces_update_guard BEFORE UPDATE ON public.workspaces
   FOR EACH ROW EXECUTE FUNCTION public.workspaces_update_guard();
@@ -219,8 +252,9 @@ CREATE TRIGGER workspace_members_personal_guard BEFORE INSERT OR UPDATE ON publi
   FOR EACH ROW EXECUTE FUNCTION public.workspace_members_personal_guard();
 
 -- ---------------------------------------------------------------------------
--- 7. create_workspace (contract §1.5) — owner-atomic; authenticated only;
---    advisory lock serialises against the deletion precheck (C2).
+-- 7. create_workspace — owner-atomic; authenticated only; takes the SAME
+--    advisory lock as the deletion precheck (C2 serialisation rule: every
+--    ownership writer locks hashtext(user_id::text)).
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.create_workspace(p_name TEXT)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
@@ -232,7 +266,7 @@ BEGIN
   IF v_uid IS NULL THEN
     RAISE EXCEPTION 'create_workspace: authentication required' USING ERRCODE = 'WS401';
   END IF;
-  PERFORM pg_advisory_xact_lock(hashtext(v_uid::text));  -- C2: same lock as deletion precheck
+  PERFORM pg_advisory_xact_lock(hashtext(v_uid::text));
   INSERT INTO public.workspaces (name, is_personal, created_by)
   VALUES (btrim(p_name), false, v_uid)
   RETURNING id INTO v_id;
@@ -241,12 +275,11 @@ BEGIN
   RETURN jsonb_build_object('workspace_id', v_id, 'name', btrim(p_name), 'role', 'owner');
 END $$;
 ALTER FUNCTION public.create_workspace(TEXT) OWNER TO wsid_definer;
-REVOKE EXECUTE ON FUNCTION public.create_workspace(TEXT) FROM PUBLIC, anon, service_role;
+REVOKE ALL ON FUNCTION public.create_workspace(TEXT) FROM PUBLIC, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.create_workspace(TEXT) TO authenticated;
 
 -- ---------------------------------------------------------------------------
--- 8. Personal-workspace provisioning (contract §1.5) + account-deletion
---    trigger pair (contract §1.6, conditions C1/C2)
+-- 8. Provisioning + account-deletion trigger pair (contract §1.6, C1/C2)
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.provision_personal_workspace()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
@@ -269,13 +302,14 @@ BEGIN
   RETURN NEW;
 END $$;
 ALTER FUNCTION public.provision_personal_workspace() OWNER TO wsid_definer;
+REVOKE ALL ON FUNCTION public.provision_personal_workspace() FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE TRIGGER on_auth_user_created_workspace
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.provision_personal_workspace();
 
--- C2: BEFORE DELETE — transfer-required refusal (CQ-5 interim rule) + sets the
--- deletion sentinel so the personal cascade passes WM409/WS002/WS011 guards.
+-- C2: BEFORE DELETE — transfer-required refusal (CQ-5 interim) + SUBJECT-SCOPED
+-- sentinel so the personal cascade passes the guards for THIS user only.
 CREATE OR REPLACE FUNCTION public.auth_users_delete_precheck()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, public AS $$
@@ -288,18 +322,18 @@ BEGIN
     RAISE EXCEPTION 'account deletion refused: transfer ownership of shared workspaces first (CQ-5 interim rule)'
       USING ERRCODE = 'WM412';
   END IF;
-  PERFORM set_config('app.wsid_deletion', 'on', true);  -- txn-local
+  PERFORM set_config('app.wsid_deletion', OLD.id::text, true);  -- txn-local, SUBJECT-scoped
   RETURN OLD;
 END $$;
 ALTER FUNCTION public.auth_users_delete_precheck() OWNER TO wsid_definer;
+REVOKE ALL ON FUNCTION public.auth_users_delete_precheck() FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE TRIGGER auth_users_delete_precheck
   BEFORE DELETE ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.auth_users_delete_precheck();
 
 -- C1: AFTER DELETE — personal-workspace cleanup. M5 EXTENDS THIS FUNCTION BODY
--- with terminal consent-withdraw events + the severance hook (the events table
--- does not exist before M5; the contract binds that extension to M5's file).
+-- with terminal consent-withdraw events + the severance hook (contract §1.6).
 CREATE OR REPLACE FUNCTION public.auth_users_delete_cleanup()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, public AS $$
@@ -308,14 +342,19 @@ BEGIN
   RETURN OLD;
 END $$;
 ALTER FUNCTION public.auth_users_delete_cleanup() OWNER TO wsid_definer;
+REVOKE ALL ON FUNCTION public.auth_users_delete_cleanup() FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE TRIGGER auth_users_delete_cleanup
   AFTER DELETE ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.auth_users_delete_cleanup();
 
 -- ---------------------------------------------------------------------------
--- 9. Backfill: one personal workspace per EXISTING auth user (dynamic count —
---    never a hardcoded population; contract §1.5)
+-- 9. Bootstrap close-out: CREATE was needed only for the ownership transfers.
+-- ---------------------------------------------------------------------------
+REVOKE CREATE ON SCHEMA public FROM wsid_definer;   -- USAGE retained
+
+-- ---------------------------------------------------------------------------
+-- 10. Backfill: one personal workspace per EXISTING auth user (dynamic)
 -- ---------------------------------------------------------------------------
 INSERT INTO public.workspaces (name, is_personal, created_by)
 SELECT coalesce(nullif(split_part(coalesce(u.email, ''), '@', 1), ''), 'Personal workspace'),
@@ -330,14 +369,15 @@ SELECT w.id, w.created_by, 'owner'
 ON CONFLICT (workspace_id, user_id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
--- 10. In-transaction verification — COMMIT only on pass
+-- 11. In-transaction verification (rev 2: owners, search_path, ACLs, trigger
+--     enablement — not just counts). COMMIT only on pass.
 -- ---------------------------------------------------------------------------
 DO $$
 DECLARE
-  v_users     BIGINT;
-  v_personal  BIGINT;
-  v_owners    BIGINT;
-  v_forced    BIGINT;
+  v_users    BIGINT;
+  v_personal BIGINT;
+  v_owners   BIGINT;
+  v_bad      TEXT;
 BEGIN
   SELECT count(*) INTO v_users FROM auth.users;
   SELECT count(*) INTO v_personal FROM public.workspaces WHERE is_personal;
@@ -350,23 +390,70 @@ BEGIN
       v_personal, v_owners, v_users;
   END IF;
 
-  SELECT count(*) INTO v_forced FROM pg_class
-   WHERE relname IN ('workspaces', 'workspace_members') AND relforcerowsecurity;
-  IF v_forced <> 2 THEN
-    RAISE EXCEPTION 'M1 verify: FORCE RLS missing (found %/2)', v_forced;
+  IF (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND c.relname IN ('workspaces','workspace_members')
+        AND c.relrowsecurity AND c.relforcerowsecurity) <> 2 THEN
+    RAISE EXCEPTION 'M1 verify: ENABLE+FORCE RLS missing';
   END IF;
 
-  IF (SELECT count(*) FROM pg_policies WHERE tablename = 'workspaces') <> 5
-     OR (SELECT count(*) FROM pg_policies WHERE tablename = 'workspace_members') <> 2 THEN
-    RAISE EXCEPTION 'M1 verify: policy count mismatch (ws=% wm=%)',
-      (SELECT count(*) FROM pg_policies WHERE tablename = 'workspaces'),
-      (SELECT count(*) FROM pg_policies WHERE tablename = 'workspace_members');
+  IF (SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='workspaces') <> 5
+     OR (SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='workspace_members') <> 2 THEN
+    RAISE EXCEPTION 'M1 verify: policy count mismatch';
+  END IF;
+
+  -- Every lane function: owner = wsid_definer, search_path pinned (except the
+  -- two INVOKER-safe IMMUTABLE utils), no PUBLIC/anon EXECUTE.
+  SELECT string_agg(p.proname, ',') INTO v_bad
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public'
+     AND p.proname IN ('role_rank','is_workspace_member','is_workspace_role',
+       'workspaces_update_guard','workspaces_delete_guard',
+       'workspace_members_owner_guard','workspace_members_personal_guard',
+       'create_workspace','provision_personal_workspace',
+       'auth_users_delete_precheck','auth_users_delete_cleanup')
+     AND (p.proowner <> (SELECT oid FROM pg_roles WHERE rolname = 'wsid_definer')
+          OR (p.proname <> 'role_rank'
+              AND (p.proconfig IS NULL
+                   OR NOT EXISTS (SELECT 1 FROM unnest(p.proconfig) cfg
+                                  WHERE cfg LIKE 'search_path=%pg_catalog%'))));
+  IF v_bad IS NOT NULL THEN
+    RAISE EXCEPTION 'M1 verify: owner/search_path wrong on: %', v_bad;
+  END IF;
+
+  SELECT string_agg(DISTINCT p.proname, ',') INTO v_bad
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace,
+         LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) a
+   WHERE n.nspname = 'public'
+     AND p.proname IN ('role_rank','is_workspace_member','is_workspace_role',
+       'workspaces_update_guard','workspaces_delete_guard',
+       'workspace_members_owner_guard','workspace_members_personal_guard',
+       'create_workspace','provision_personal_workspace',
+       'auth_users_delete_precheck','auth_users_delete_cleanup')
+     AND a.grantee::regrole::text IN ('-','anon')   -- '-' = PUBLIC
+     AND a.privilege_type = 'EXECUTE';
+  IF v_bad IS NOT NULL THEN
+    RAISE EXCEPTION 'M1 verify: PUBLIC/anon EXECUTE survives on: %', v_bad;
+  END IF;
+
+  IF (SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE NOT t.tgisinternal AND t.tgenabled = 'O'
+        AND ((n.nspname='public' AND c.relname IN ('workspaces','workspace_members'))
+          OR (n.nspname='auth' AND c.relname='users'
+              AND t.tgname IN ('on_auth_user_created_workspace',
+                               'auth_users_delete_precheck','auth_users_delete_cleanup')))
+        AND t.tgname IN ('workspaces_update_guard','workspaces_delete_guard',
+              'workspace_members_owner_guard','workspace_members_personal_guard',
+              'on_auth_user_created_workspace','auth_users_delete_precheck',
+              'auth_users_delete_cleanup')) <> 7 THEN
+    RAISE EXCEPTION 'M1 verify: trigger set incomplete or disabled';
   END IF;
 
   IF EXISTS (SELECT 1 FROM information_schema.role_table_grants
-             WHERE table_name IN ('workspaces','workspace_members')
+             WHERE table_schema='public'
+               AND table_name IN ('workspaces','workspace_members')
                AND grantee IN ('anon', 'PUBLIC')) THEN
-    RAISE EXCEPTION 'M1 verify: anon/PUBLIC grant leaked';
+    RAISE EXCEPTION 'M1 verify: anon/PUBLIC table grant leaked';
   END IF;
 
   RAISE NOTICE 'M1 verify PASS: % users, % personal workspaces, % owner rows',
