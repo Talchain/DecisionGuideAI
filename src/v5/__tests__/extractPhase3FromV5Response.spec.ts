@@ -330,6 +330,45 @@ describe('extractPhase3FromV5Response — contract target_refs (TargetRefSchema 
       { id: 'z-1', label: 'Future thing' },
     ])
   })
+
+  it('an explicit target_object wins over a kind-bearing target_refs[0] (branch precedence pin)', () => {
+    const response = attachExtensions(baseResponse(), {
+      phase3_blocks: [
+        {
+          type: 'coaching',
+          id: 'c-precedence',
+          title: 'Explicit target wins',
+          target_object: { type: 'edge', id: 'edge-explicit', label: 'Explicit' },
+          target_refs: [{ id: 'node-ref', label: 'From ref', kind: 'factor' }],
+        },
+      ],
+    })
+    const r = extractPhase3FromV5Response(response)
+    expect(r.guidanceItems[0].target_object).toEqual({
+      type: 'edge',
+      id: 'edge-explicit',
+      label: 'Explicit',
+    })
+  })
+
+  it('an empty-string kind marks a contract ref and fails closed — no legacy type fallback', () => {
+    const r = extractPhase3FromV5Response(
+      coachingWithRefs([{ id: 'n-1', label: 'Empty kind', kind: '', type: 'node' }]),
+    )
+    expect(r.guidanceItems[0].target_object).toBeUndefined()
+  })
+
+  it('an unknown kind beside a legacy type in a related ref fails closed on type (kind wins)', () => {
+    const r = extractPhase3FromV5Response(
+      coachingWithRefs([
+        { id: 'node-1', label: 'Primary', kind: 'factor' },
+        { id: 'z-2', label: 'Both fields', kind: 'galaxy', type: 'node' },
+      ]),
+    )
+    expect(r.guidanceItems[0].related_elements).toEqual([
+      { id: 'z-2', label: 'Both fields' },
+    ])
+  })
 })
 
 describe('v5ResponseHasRunAnalysisFact', () => {

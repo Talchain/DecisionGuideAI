@@ -204,8 +204,10 @@ function collectFromContainer(
 function guidanceTargetType(
   ref: Record<string, unknown>,
 ): NonNullable<DerivedGuidanceItem['target_object']>['type'] | undefined {
-  const kind = safeString(ref.kind)
-  if (kind) {
+  if (typeof ref.kind === 'string') {
+    // Any string `kind` — including empty — marks a contract ref: unknown
+    // or empty kinds fail closed here, never fall back to legacy `type`.
+    const kind = ref.kind
     if (kind === 'edge') return 'edge'
     if (kind === 'option') return 'option'
     if (
