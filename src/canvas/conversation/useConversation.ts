@@ -84,6 +84,7 @@ import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPa
 import { applyAnalysisReadyPatch } from './utils/mirrorAnalysisReady'
 import { loadScenario as loadScenarioFromDb } from '../../services/scenarioService'
 import { applyDraftResult, backfillGoalThresholdOntoGoalNode } from '../utils/applyDraftResult'
+import { mergeAppliedGraphAdditive } from '../utils/mergeAppliedGraph'
 import { getUserId } from '../../lib/supabase'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import { validateResponse, stripRepairLogLines, FALLBACK_TEXT } from './validateResponse'
@@ -3193,6 +3194,27 @@ export function useConversation(): UseConversationReturn {
                 draftAppliedThisTurn = true
                 if (import.meta.env.DEV) {
                   console.log('[sendTurn V5] graph applied from inline response:', inlineNodeCount, 'nodes')
+                }
+              }
+            } else if (inlineGraph && inlineNodeCount > 0 && !canvasIsEmpty) {
+              // POC Lane C (edit-journey display closure): applied-edit
+              // receipt ingestion. CEE #414/#424 attach the FULL committed
+              // post-mutation graph to applied-edit receipts via the same
+              // top-level draft_graph field, post-commit only. A non-empty
+              // canvas can never receive a fresh-draft draft_graph (CEE's
+              // draft dispatch requires graphState == null and this client
+              // sends graph_state every turn), so this branch is exactly the
+              // applied-structural-edit case: merge ADDITIVELY so a confirmed
+              // added factor/edge appears without a reload. Existing elements
+              // are never repositioned or rewritten; a receipt with nothing
+              // new is a strict no-op (see mergeAppliedGraphAdditive).
+              if (useCanvasStore.getState().currentScenarioId === scenarioIdAtDispatch) {
+                const merged = mergeAppliedGraphAdditive(inlineGraph as any)
+                if (import.meta.env.DEV && (merged.addedNodeCount > 0 || merged.addedEdgeCount > 0)) {
+                  console.log(
+                    '[sendTurn V5] applied-edit receipt merged into canvas:',
+                    merged.addedNodeCount, 'nodes,', merged.addedEdgeCount, 'edges',
+                  )
                 }
               }
             } else if (!inlineGraph && stateApply.applied.includes('stage:analyse') && canvasIsEmpty) {

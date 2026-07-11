@@ -23,6 +23,114 @@ import { devLog } from '../../utils/debugLog'
 import { detectBaseline } from './baselineDetection'
 
 /**
+ * Map one CEE wire node → React Flow canvas node.
+ *
+ * Extracted from applyDraftResult (Lane C, edit-journey display closure) so
+ * the applied-edit additive merge path (mergeAppliedGraph.ts) converts added
+ * nodes with EXACTLY the same treatment as the draft path — kind/type
+ * mapping, observed_state → observedState, interventionKeys derivation.
+ */
+export function mapDraftNodeToCanvas(n: any): any {
+  const { id, kind, type: nodeType, label, observed_state, ...rest } = n
+
+  // Derive interventionKeys when interventions object is present (e.g. from CEE add_node)
+  const interventions = rest.interventions as Record<string, unknown> | undefined
+  const interventionKeys = interventions && typeof interventions === 'object' && !Array.isArray(interventions)
+    ? Object.keys(interventions)
+    : undefined
+
+  return {
+    id,
+    type: kind || nodeType,
+    position: { x: 0, y: 0 },
+    data: {
+      ...rest,
+      label,
+      kind: kind || nodeType,
+      ...(observed_state ? { observedState: observed_state } : {}),
+      ...(interventionKeys ? { interventionKeys } : {}),
+    },
+  }
+}
+
+/**
+ * Map one CEE wire edge → React Flow canvas edge. Same extraction rationale
+ * as mapDraftNodeToCanvas. `i` feeds the fallback id (`e-${i}`) for wire
+ * edges without one — merge callers must dedupe that fallback against
+ * existing canvas ids.
+ */
+export function mapDraftEdgeToCanvas(e: any, i: number): any {
+  const id =
+    typeof e.id === 'string' && e.id.trim().length > 0 ? e.id : `e-${i}`
+
+  // Weight priority: strength.mean > strength_mean > weight > default
+  const rawWeight: number =
+    typeof e.strength?.mean === 'number'
+      ? e.strength.mean
+      : typeof e.strength_mean === 'number'
+        ? e.strength_mean
+        : typeof e.weight === 'number'
+          ? e.weight
+          : DEFAULT_EDGE_DATA.weight
+
+  // Direction inference
+  const directionFromEdge: EffectDirection | undefined =
+    e.effect_direction === 'positive' || e.effect_direction === 'negative'
+      ? e.effect_direction
+      : undefined
+  const direction: EffectDirection =
+    directionFromEdge ?? (rawWeight < 0 ? 'negative' : 'positive')
+
+  // UI-SEM-038: Duplicate of UI-SEM-023/024/025 on alternate ingestion path.
+  const weight = Math.max(0, Math.min(2, Math.abs(rawWeight)))
+  const confidence =
+    typeof e.belief === 'number'
+      ? Math.max(0, Math.min(1, e.belief))
+      : undefined
+  const beliefExists =
+    typeof e.belief_exists === 'number'
+      ? Math.max(0, Math.min(1, e.belief_exists))
+      : typeof e.exists_probability === 'number'
+        ? Math.max(0, Math.min(1, e.exists_probability))
+        : confidence
+  const strengthStd: number | undefined =
+    typeof e.strength?.std === 'number'
+      ? e.strength.std
+      : typeof e.strength_std === 'number'
+        ? e.strength_std
+        : undefined
+
+  // V3 edge metadata — explicitly extract known fields (no blind spread)
+  const edgeType = typeof e.edge_type === 'string' ? e.edge_type : undefined
+  const provenanceSource = typeof e.provenance_source === 'string' ? e.provenance_source : undefined
+  const existsProbability =
+    typeof e.exists_probability === 'number'
+      ? Math.max(0, Math.min(1, e.exists_probability))
+      : undefined
+
+  return {
+    id,
+    source: e.from,
+    target: e.to,
+    type: 'styled' as const,
+    data: {
+      ...DEFAULT_EDGE_DATA,
+      weight,
+      pathType: 'bezier' as const,
+      confidence,
+      beliefExists,
+      ...(direction ? { direction } : {}),
+      ...(strengthStd !== undefined ? { strengthStd } : {}),
+      ...(edgeType !== undefined ? { edge_type: edgeType } : {}),
+      ...(provenanceSource !== undefined ? { provenance_source: provenanceSource } : {}),
+      ...(existsProbability !== undefined ? { exists_probability: existsProbability } : {}),
+      // CEE display provenance (snake_case → camelCase). Distinct from `provenance_source`.
+      ...edgeProvenanceDisplayPatch(e),
+    },
+  }
+}
+
+/**
  * Apply a CEE draft response to the canvas, replacing the current graph.
  *
  * This function replaces all existing nodes/edges, pushes history, triggers
@@ -38,100 +146,10 @@ export function applyDraftResult(
   if (!rawNodes.length) return { nodeCount: 0, edgeCount: 0 }
 
   // --- Map nodes ---
-  const nodes = rawNodes.map((n: any) => {
-    const { id, kind, type: nodeType, label, observed_state, ...rest } = n
-
-    // Derive interventionKeys when interventions object is present (e.g. from CEE add_node)
-    const interventions = rest.interventions as Record<string, unknown> | undefined
-    const interventionKeys = interventions && typeof interventions === 'object' && !Array.isArray(interventions)
-      ? Object.keys(interventions)
-      : undefined
-
-    return {
-      id,
-      type: kind || nodeType,
-      position: { x: 0, y: 0 },
-      data: {
-        ...rest,
-        label,
-        kind: kind || nodeType,
-        ...(observed_state ? { observedState: observed_state } : {}),
-        ...(interventionKeys ? { interventionKeys } : {}),
-      },
-    }
-  })
+  const nodes = rawNodes.map((n: any) => mapDraftNodeToCanvas(n))
 
   // --- Map edges ---
-  const edges = rawEdges.map((e: any, i: number) => {
-    const id =
-      typeof e.id === 'string' && e.id.trim().length > 0 ? e.id : `e-${i}`
-
-    // Weight priority: strength.mean > strength_mean > weight > default
-    const rawWeight: number =
-      typeof e.strength?.mean === 'number'
-        ? e.strength.mean
-        : typeof e.strength_mean === 'number'
-          ? e.strength_mean
-          : typeof e.weight === 'number'
-            ? e.weight
-            : DEFAULT_EDGE_DATA.weight
-
-    // Direction inference
-    const directionFromEdge: EffectDirection | undefined =
-      e.effect_direction === 'positive' || e.effect_direction === 'negative'
-        ? e.effect_direction
-        : undefined
-    const direction: EffectDirection =
-      directionFromEdge ?? (rawWeight < 0 ? 'negative' : 'positive')
-
-    // UI-SEM-038: Duplicate of UI-SEM-023/024/025 on alternate ingestion path.
-    const weight = Math.max(0, Math.min(2, Math.abs(rawWeight)))
-    const confidence =
-      typeof e.belief === 'number'
-        ? Math.max(0, Math.min(1, e.belief))
-        : undefined
-    const beliefExists =
-      typeof e.belief_exists === 'number'
-        ? Math.max(0, Math.min(1, e.belief_exists))
-        : typeof e.exists_probability === 'number'
-          ? Math.max(0, Math.min(1, e.exists_probability))
-          : confidence
-    const strengthStd: number | undefined =
-      typeof e.strength?.std === 'number'
-        ? e.strength.std
-        : typeof e.strength_std === 'number'
-          ? e.strength_std
-          : undefined
-
-    // V3 edge metadata — explicitly extract known fields (no blind spread)
-    const edgeType = typeof e.edge_type === 'string' ? e.edge_type : undefined
-    const provenanceSource = typeof e.provenance_source === 'string' ? e.provenance_source : undefined
-    const existsProbability =
-      typeof e.exists_probability === 'number'
-        ? Math.max(0, Math.min(1, e.exists_probability))
-        : undefined
-
-    return {
-      id,
-      source: e.from,
-      target: e.to,
-      type: 'styled' as const,
-      data: {
-        ...DEFAULT_EDGE_DATA,
-        weight,
-        pathType: 'bezier' as const,
-        confidence,
-        beliefExists,
-        ...(direction ? { direction } : {}),
-        ...(strengthStd !== undefined ? { strengthStd } : {}),
-        ...(edgeType !== undefined ? { edge_type: edgeType } : {}),
-        ...(provenanceSource !== undefined ? { provenance_source: provenanceSource } : {}),
-        ...(existsProbability !== undefined ? { exists_probability: existsProbability } : {}),
-        // CEE display provenance (snake_case → camelCase). Distinct from `provenance_source`.
-        ...edgeProvenanceDisplayPatch(e),
-      },
-    }
-  })
+  const edges = rawEdges.map((e: any, i: number) => mapDraftEdgeToCanvas(e, i))
 
   // --- Apply to store ---
   const store = useCanvasStore.getState()
