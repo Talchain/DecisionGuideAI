@@ -1,0 +1,55 @@
+-- ============================================================================
+-- ROLLBACK for 20260712100000_workspace_identity_m1_tenancy_core.sql
+-- Classification: REVERSIBLE — M1 tables hold only auto-provisioned rows
+-- (personal workspaces + owner memberships) that re-derive from auth.users on
+-- re-apply; no user-authored content lives here pre-adoption.
+-- DO NOT APPLY except under the Gate-6 runbook with A1/Paul authorization.
+-- MUST run BEFORE (or with) the M2 rollback ONLY in reverse order: M2 first,
+-- then M1 (scenarios.workspace_id FK references workspaces).
+-- ============================================================================
+
+BEGIN;
+
+-- Guard: refuse to roll back if any NON-personal workspace exists (that means
+-- real adoption happened and this rollback would destroy user-created state).
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.workspaces WHERE NOT is_personal) THEN
+    RAISE EXCEPTION 'M1 rollback refused: non-personal workspaces exist — forward-fix instead';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'public' AND table_name = 'scenarios'
+               AND column_name = 'workspace_id') THEN
+    RAISE EXCEPTION 'M1 rollback refused: M2 is still applied — roll back M2 first';
+  END IF;
+END $$;
+
+DROP TRIGGER IF EXISTS auth_users_delete_cleanup ON auth.users;
+DROP TRIGGER IF EXISTS auth_users_delete_precheck ON auth.users;
+DROP TRIGGER IF EXISTS on_auth_user_created_workspace ON auth.users;
+DROP FUNCTION IF EXISTS public.auth_users_delete_cleanup();
+DROP FUNCTION IF EXISTS public.auth_users_delete_precheck();
+DROP FUNCTION IF EXISTS public.provision_personal_workspace();
+DROP FUNCTION IF EXISTS public.create_workspace(TEXT);
+
+DROP TABLE IF EXISTS public.workspace_members;  -- drops its triggers/policies
+DROP TABLE IF EXISTS public.workspaces;
+
+DROP FUNCTION IF EXISTS public.workspace_members_personal_guard();
+DROP FUNCTION IF EXISTS public.workspace_members_owner_guard();
+DROP FUNCTION IF EXISTS public.workspaces_delete_guard();
+DROP FUNCTION IF EXISTS public.workspaces_update_guard();
+DROP FUNCTION IF EXISTS public.is_workspace_role(UUID, TEXT);
+DROP FUNCTION IF EXISTS public.is_workspace_member(UUID);
+DROP FUNCTION IF EXISTS public.role_rank(TEXT);
+
+-- wsid_definer is retained (idempotent role; other lanes may adopt it).
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_class WHERE relname IN ('workspaces','workspace_members')) THEN
+    RAISE EXCEPTION 'M1 rollback verify: tables survive';
+  END IF;
+END $$;
+
+COMMIT;

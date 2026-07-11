@@ -1,0 +1,40 @@
+-- ============================================================================
+-- ROLLBACK for 20260712101000_workspace_identity_m2_scenario_scoping.sql
+-- Classification: REVERSIBLE PRE-CUTOVER — workspace_id is fully re-derivable
+-- from user_id + personal workspaces; no policy referenced it yet (P3 posture:
+-- scenarios RLS untouched by M2).
+-- DO NOT APPLY except under the Gate-6 runbook with A1/Paul authorization.
+-- Run BEFORE the M1 rollback.
+-- ============================================================================
+
+BEGIN;
+
+-- Guard: refuse once the RLS cutover has happened (any scenarios policy
+-- referencing the helpers means workspace_id is load-bearing for access).
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'scenarios'
+             AND (qual LIKE '%is_workspace_member%' OR with_check LIKE '%is_workspace_member%')) THEN
+    RAISE EXCEPTION 'M2 rollback refused: RLS cutover has consumed workspace_id — forward-fix instead';
+  END IF;
+END $$;
+
+DROP TRIGGER IF EXISTS scenarios_workspace_immutable ON public.scenarios;
+DROP TRIGGER IF EXISTS scenarios_stamp_workspace ON public.scenarios;
+DROP FUNCTION IF EXISTS public.scenarios_workspace_immutable();
+DROP FUNCTION IF EXISTS public.scenarios_stamp_workspace();
+
+ALTER TABLE public.scenarios DROP CONSTRAINT IF EXISTS scenarios_id_workspace_key;
+DROP INDEX IF EXISTS public.scenarios_workspace_idx;
+ALTER TABLE public.scenarios DROP COLUMN IF EXISTS workspace_id;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'public' AND table_name = 'scenarios'
+               AND column_name = 'workspace_id') THEN
+    RAISE EXCEPTION 'M2 rollback verify: column survives';
+  END IF;
+END $$;
+
+COMMIT;
