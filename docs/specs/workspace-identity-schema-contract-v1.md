@@ -1,9 +1,16 @@
-# Workspace & Identity — Schema + Security Contract v1 (GATE 1)
+# Workspace & Identity — Schema + Security Contract v1.1 (GATE 1)
 
-**Status:** Draft for A1 adversarial review (+ security review — everything here is RLS/grants/RPC-shaped). SPEC ONLY: no DDL in this PR executes anything; Gate 2 authors the migration files from this contract; execution is a separate Paul/A1-batched gate.
-**Lane:** Workspace & Identity (ROADMAP 3.9), Charter v2. **Authorization:** `parallel-briefs/A1-GATE0-VERDICT-workspace-2026-07-12.md` — Gate 1 on the unblocked surface; org-spine + strategy-tree sections below are explicitly **PENDING-CQ** and not buildable until the Paul docket returns.
-**Sources of record:** `parallel-briefs/WORKSPACE-IDENTITY-DESIGN-v1.md` (ratified, Batch-A) · `RULING-BATCH-A-2026-07-11.md` (phasing dropped — one integrated model) · tenancy-collab-migration-spec v1.7 (DGAI commit `6db51cc3`; column detail restated here self-contained — nothing adopted by pointer) · Gate 0 audits `WORKSTREAM-UPDATE-workspace-1/2.md` + evidence pack `parallel-briefs/workspace-lane-evidence/gate0/` · A4 collab-tenancy audit `docs-designs/COLLAB-TENANCY-AUDIT-2026-07-11/` (XQ-1/2 answered in §7 per A1 order).
-**House pattern (every function herein unless stated):** `SECURITY DEFINER`, owner `postgres`, `SET search_path = pg_catalog, public`, `REVOKE EXECUTE FROM PUBLIC, anon, authenticated` then explicit grants, typed SQLSTATE errors, FORCE RLS on every table, tenant/subject derived from locked rows or `auth.uid()` — **never from caller parameters** (the decision_records `p_workspace_id` deviation is quarantined in §6.4).
+**Status:** Draft for A1 adversarial review + **independent security review** (everything here is RLS/grants/RPC-shaped). SPEC ONLY: nothing in this PR executes; Gate 2 authors migration files from this contract after review; execution is a separate Paul/A1-batched gate.
+**v1.1 (12 Jul):** revised after a second external review — least-privilege overhaul (dedicated definer owner, service-role DML revoked), consent writes made RPC-only with server-controlled ordering, exact RLS/grant matrix, account-deletion orchestration, stamping guards, composite-key fix (automated finding 1), fold/index contract (automated finding 2), full child-table disposition, P12 reclassified forward-fix-only. Adjudication log: `parallel-briefs/WORKSTREAM-UPDATE-workspace-4.md`.
+**Lane:** Workspace & Identity (ROADMAP 3.9), Charter v2. **Authorization:** `A1-GATE0-VERDICT-workspace-2026-07-12.md`. Org-spine + strategy-tree = **PENDING-CQ**.
+**Sources of record:** `WORKSPACE-IDENTITY-DESIGN-v1.md` (ratified) · `RULING-BATCH-A-2026-07-11.md` · tenancy-collab-migration-spec v1.7 (DGAI `6db51cc3`; restated self-contained) · Gate-0 audits + evidence pack `parallel-briefs/workspace-lane-evidence/gate0/` · collab-tenancy audit (XQ answers §7).
+
+**House pattern v1.1 (delta from the live pattern is deliberate and review-flagged):**
+- Every DEFINER function is owned by a dedicated **`wsid_definer` NOLOGIN role** created in M1 (v1.7 §14's non-superuser-owner requirement; the live postgres-owned pattern is a known hazard this lane stops propagating). `wsid_definer` receives exactly the object privileges its function bodies need — enumerated per function in §4 — and nothing else.
+- `SET search_path = pg_catalog, public` on every function; `REVOKE EXECUTE FROM PUBLIC, anon, authenticated` then explicit grants; typed SQLSTATEs; FORCE RLS on every table.
+- **Least-privilege grants:** `service_role` gets **no DML on any table this lane creates** (SELECT only where §5 says so). All mutation flows through DEFINER RPCs and triggers. This deviates from the legacy `GRANT ALL TO service_role` house pattern on purpose: service_role bypasses RLS, so table grants are its only fence (Gate-0 F9).
+- Subject/tenant derived from locked rows or `auth.uid()` — never caller parameters.
+- Triggers fire for ALL roles including service_role; invariant guards below are therefore binding even on privileged paths, but grants are minimised anyway (belt AND braces).
 
 ---
 
@@ -11,19 +18,19 @@
 
 | Slice | Contents | Status |
 |---|---|---|
-| S-1 Tenancy core (M1) | workspaces, workspace_members, workspace_invites (dark), helpers, create_workspace, personal provisioning | **SPECIFIED — buildable** |
-| S-2 Scenario scoping (M2) | scenarios.workspace_id, stamping trigger, immutability trigger, 18-row backfill | **SPECIFIED — buildable** |
-| S-3 Sensitive substrate (M5) | person_profiles, profile_consent_events, has_active_consent, get_coaching_profile, delete_person_profile, Gate-2b disposition | **SPECIFIED — buildable** (F4/F8 A2 legs sequence execution, not authoring) |
-| S-4 Org spine (M3) | orgs, org_members, org_teams, org_team_members, workspace_team_grants, workspaces.org_id+FK | **PENDING-CQ** (drafted §8; ratified defaults applied) |
-| S-5 Strategy layer (M4) | strategies, strategy_bets, strategy_scenario_links | **PENDING-CQ** for tree/parenting; tables drafted §8 with integrity constraints |
-| S-6 Child columns + late policies (M6/M7) | child workspace_id columns, decision_participants, snapshots reserve, DR workspace policy | **SPECIFIED as shapes**; sequencing per M-map v2 |
+| S-1 Tenancy core (M1) | workspaces, workspace_members, helpers, create_workspace, personal provisioning, account-deletion hooks | **SPECIFIED — buildable** |
+| S-1b Invites | workspace_invites | **PENDING-P9** (spec §1.3 complete; excluded from the M1 build list until Paul confirms) |
+| S-2 Scenario scoping (M2) | scenarios.workspace_id + UNIQUE(id,workspace_id), stamping + immutability triggers, 18-row backfill | **SPECIFIED — buildable** |
+| S-3 Sensitive substrate (M5) | person_profiles, profile_consent_events, record_consent_event, has_active_consent, get_coaching_profile, delete_person_profile, Gate-2b disposition | **SPECIFIED — buildable EXCEPT the identity-severance mechanism (§3.4a, PENDING CQ-6 + R-1/R-2)**; A2 legs F4/F8 sequence M5 *execution* |
+| S-4 Org spine (M3) | orgs, org_members, org_teams, org_team_members, workspace_team_grants, workspaces.org_id+FK | **PENDING-CQ** — shapes referenced (design §2.3 + §6.3 integrity additions); full DDL text lands in the post-CQ revision of THIS document, not in Gate 2 first |
+| S-5 Strategy layer (M4) | strategies, strategy_bets, strategy_scenario_links | **PENDING-CQ** for tree/parenting; same treatment as S-4 |
+| S-6 Child columns + late policies (M6/M7) | complete child-table disposition §6.5, decision_participants, snapshots reserve, DR workspace policy | shapes specified |
 
-Role vocabulary (one vocabulary owns the words — §7 XQ-2): `owner > admin > editor > viewer`, encoded once:
-`role_rank(role) := CASE role WHEN 'owner' THEN 4 WHEN 'admin' THEN 3 WHEN 'editor' THEN 2 WHEN 'viewer' THEN 1 ELSE 0 END`.
+Role vocabulary: `owner > admin > editor > viewer`; `role_rank(role)` = 4/3/2/1 (single encoding).
 
 ---
 
-## §1 S-1 — Tenancy core DDL
+## §1 S-1 — Tenancy core
 
 ### 1.1 `workspaces`
 ```sql
@@ -31,244 +38,233 @@ CREATE TABLE public.workspaces (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name        TEXT NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 120),
   is_personal BOOLEAN NOT NULL DEFAULT false,
-  created_by  UUID NOT NULL,          -- authorship snapshot; NO FK to auth.users (decision_records
-                                      -- posture: authorship outlives accounts; CQ-5/CQ-10 governs lifecycle)
+  created_by  UUID NOT NULL,          -- authorship snapshot; NO FK (records-outlive-accounts posture);
+                                      -- personal-workspace lifecycle is handled by §1.6, not by FK cascade
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE UNIQUE INDEX workspaces_one_personal_per_user_idx
+  ON public.workspaces (created_by) WHERE is_personal;
 ```
-- **No `org_id` in M1.** Per the Gate-0 verdict, `org_id UUID NULL REFERENCES orgs(id)` + `CHECK (NOT is_personal OR org_id IS NULL)` (ratified default: personal workspaces carry no org) land **atomically in M3**.
-- **Immutable columns:** `id`, `created_by`, `is_personal`, `created_at` — enforced by trigger `workspaces_update_guard` (BEFORE UPDATE, rejects any change to those columns, SQLSTATE `WS001`). UPDATE allowlist = `name`, `updated_at` only (v1.7 §8.2: "the allowlist is the contract"; `description` is deliberately not shipped — additive later is free).
-- **Personal-workspace invariants** (v1.7 §8.2, enforced in triggers + RPCs, tested in Gate 4): exactly one per user (partial unique index `UNIQUE (created_by) WHERE is_personal`), single owner member, no invites, `is_personal` immutable, DELETE forbidden.
-- RLS (FORCE): `SELECT` → `is_workspace_member(id)` · `UPDATE` → `is_workspace_role(id,'admin')` USING+CHECK (column guard via trigger) · **no INSERT policy** (creation only via `create_workspace`/provisioning — DEFINER paths) · **no DELETE policy** (forbidden in MVP).
-- Grants: `REVOKE ALL FROM PUBLIC, anon, authenticated;` `GRANT SELECT, UPDATE TO authenticated;` `GRANT ALL TO service_role;` (+ the F9 lesson: grants are stated explicitly precisely because default-privilege sprawl exists — see §5.4 baseline).
+- No `org_id` in M1 (lands atomically with the org spine + `CHECK (NOT is_personal OR org_id IS NULL)` in M3 — ratified default).
+- Trigger `workspaces_update_guard` (BEFORE UPDATE): rejects change to `id, created_by, is_personal, created_at` (`WS001`). UPDATE allowlist = `name`, `updated_at`.
+- Personal-workspace invariants: one per user (index above) · single owner member (§1.2 guards) · no invites (§1.3 guard) · deletion only via the account-deletion path (§1.6) — enforced by absence of any DELETE grant/policy plus trigger `workspaces_delete_guard` (BEFORE DELETE: allow only when `pg_trigger_depth() > 0` from the §1.6 path or under the M-runbook role; else `WS002`).
 
 ### 1.2 `workspace_members`
 ```sql
 CREATE TABLE public.workspace_members (
   workspace_id UUID NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
-  user_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,  -- membership is ACCESS, not
-                                                                           -- authorship: dies with account
+  user_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   role         TEXT NOT NULL CHECK (role IN ('owner','admin','editor','viewer')),
   joined_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (workspace_id, user_id)
 );
 CREATE UNIQUE INDEX workspace_members_one_owner_idx
-  ON public.workspace_members (workspace_id) WHERE role = 'owner';   -- at-most-one owner
+  ON public.workspace_members (workspace_id) WHERE role = 'owner';
 CREATE INDEX workspace_members_user_idx ON public.workspace_members (user_id);
 ```
-- **Exactly-one-owner** (v1.7 invariant): at-most-one via the partial unique index; at-least-one via trigger `workspace_members_owner_guard` (BEFORE UPDATE OR DELETE): blocks removing/demoting the owner row (SQLSTATE `WM409`) **except** (i) when the parent workspace row is being deleted in the same transaction (unreachable in MVP), or (ii) `is_personal` workspace cascade from account deletion — personal workspace and its membership die with the account. **Interim rule, explicitly CQ-5-pending:** an auth-account deletion whose owner row belongs to a *shared* workspace is BLOCKED by this guard (deletion RPC must surface "transfer ownership first"); Paul's CQ-5 answer supersedes.
-- RLS (FORCE): `SELECT` → `is_workspace_member(workspace_id)` (members see the roster). **No INSERT/UPDATE/DELETE policies** — membership lifecycle is RPC-only (v1.7 §15.2; the RPCs are Gate-3 product functions except what §1.5 ships).
-- Grants: `REVOKE ALL …; GRANT SELECT TO authenticated; GRANT ALL TO service_role;`
+- `workspace_members_owner_guard` (BEFORE UPDATE OR DELETE): blocks removing/demoting the owner row (`WM409`) except from the §1.6 account-deletion orchestration (session sentinel `app.wsid_deletion` set by that DEFINER path only).
+- **`workspace_members_personal_guard` (BEFORE INSERT OR UPDATE)** — closes the second-member hole: on an `is_personal` workspace, only ONE membership row may ever exist and it must be `role='owner'` with `user_id = workspaces.created_by`; anything else → `WM410`. Binds service_role too (trigger, not policy).
+- Lifecycle is RPC-only: **no INSERT/UPDATE/DELETE grants to authenticated OR service_role** (§5).
 
-### 1.3 `workspace_invites` (ships in M1 **dark** — no send/accept surface until P9 confirmation + login flip)
-```sql
-CREATE TABLE public.workspace_invites (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  workspace_id UUID NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
-  email        TEXT NOT NULL CHECK (position('@' IN email) > 1),
-  role         TEXT NOT NULL CHECK (role IN ('admin','editor','viewer')),   -- never 'owner' by invite
-  token_hash   TEXT NOT NULL UNIQUE,          -- sha256 of a single-use token; raw token never stored
-  status       TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','accepted','revoked','expired')),
-  invited_by   UUID NOT NULL,                 -- authorship snapshot, no FK
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-  expires_at   TIMESTAMPTZ NOT NULL,
-  accepted_by  UUID NULL,
-  accepted_at  TIMESTAMPTZ NULL
-);
-```
-- Trigger `workspace_invites_personal_guard` (BEFORE INSERT): reject invites to `is_personal` workspaces (`WI001`).
-- RLS (FORCE): `SELECT` → `is_workspace_role(workspace_id,'admin') OR lower(email) = lower(coalesce(auth.jwt()->>'email',''))` (v1.7 member-or-invitee visibility, non-member inference prevented — token_hash is excluded from the invitee's view via the Gate-3 read RPC; direct SELECT grant withheld: **no table SELECT grant to authenticated**; reads go through a projection RPC so `token_hash` can never leak). Writes RPC-only.
-- Grants: `REVOKE ALL …; GRANT ALL TO service_role;` (authenticated interacts only via Gate-3 RPCs — invite lifecycle = accept-by-verified-email under the user's JWT + admin issue/revoke).
+### 1.3 `workspace_invites` — **PENDING-P9** (excluded from the M1 build list; spec retained so P9 is a one-word unblock)
+Shape as v1: id / workspace_id FK CASCADE / email / role CHECK (`admin|editor|viewer`) / `token_hash` UNIQUE / status / invited_by (soft ref) / created_at / `expires_at NOT NULL` / accepted_by / accepted_at. `workspace_invites_personal_guard` (BEFORE INSERT → `WI001` on personal). **No table grants to authenticated at all** (admin-or-invitee reads go through a Gate-3 projection RPC that never returns `token_hash`); no service_role DML.
 
-### 1.4 Helpers (schema-integrity class — ship in M1)
-```sql
-CREATE FUNCTION public.is_workspace_member(p_workspace UUID) RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public AS $$
-  SELECT EXISTS (SELECT 1 FROM public.workspace_members
-                 WHERE workspace_id = p_workspace AND user_id = auth.uid());
-$$;
-CREATE FUNCTION public.is_workspace_role(p_workspace UUID, p_min_role TEXT) RETURNS boolean …
-  -- same shell; body: member row exists AND role_rank(role) >= role_rank(p_min_role)
-```
-- EXECUTE: `REVOKE FROM PUBLIC, anon;` `GRANT TO authenticated, service_role;`. DEFINER-reads bypass workspace_members RLS internally — no policy recursion (v1.7 §8/§14). **These two helper bodies are the single evolution point** (org/team grants extend `is_workspace_member` in S-4; the RLS cutover swaps scenarios' policies to call them; policies never change shape — the idiom A4's XQ-6 asked us to confirm, §7).
-- `role_rank(TEXT) RETURNS int` — `IMMUTABLE`, plain INVOKER, pure CASE; EXECUTE to authenticated + service_role.
+### 1.4 Helpers
+`is_workspace_member(p_workspace UUID)` / `is_workspace_role(p_workspace UUID, p_min_role TEXT)` — `LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public`, **owner `wsid_definer`**; EXECUTE → authenticated, service_role. Bodies: membership existence / `role_rank(role) >= role_rank(p_min_role)` for `auth.uid()`. Single evolution point (org/team grants extend the member body in S-4; the RLS cutover re-points scenarios' policies here; policy shapes never change — XQ-6). `role_rank(text)`: INVOKER, IMMUTABLE.
 
-### 1.5 `create_workspace` + personal provisioning (schema-integrity class — tables must not exist without their lifecycle enforcement)
-- `create_workspace(p_name TEXT) RETURNS jsonb` — DEFINER; EXECUTE to **authenticated only** (service_role excluded: workspace creation is a user act; CEE has no business creating workspaces in v1). Derives creator from `auth.uid()` (refuses NULL → `WS401`); inserts `workspaces (is_personal=false)` + owner membership row atomically; returns `{workspace_id, name, role:'owner'}`.
-- `provision_personal_workspace()` — trigger fn (DEFINER) on `auth.users` AFTER INSERT, alongside the existing `on_auth_user_created→ensure_user_profile()`: creates the personal workspace (`is_personal=true`, name from email local-part, creator = NEW.id) + its single owner membership. Idempotent (`ON CONFLICT` on the partial unique index → no-op).
-- **Backfill (M1, one-time):** the 16 existing `auth.users` rows get personal workspaces via the same function body (executed in the migration transaction; count-verified in-transaction 16→16).
-- Guest scenarios (609 rows, `user_id NULL`) have **no workspace until claim** — by design (P4 claim-on-first-login).
+### 1.5 `create_workspace` + provisioning
+- `create_workspace(p_name TEXT) RETURNS jsonb` — DEFINER (`wsid_definer`); EXECUTE **authenticated only**; creator = `auth.uid()` (NULL → `WS401`); atomically inserts workspace (`is_personal=false`) + owner membership.
+- `provision_personal_workspace()` — trigger fn on `auth.users` AFTER INSERT: inserts the personal workspace with exact arbiter syntax
+  `INSERT INTO public.workspaces (name, is_personal, created_by) VALUES (v_name, true, NEW.id) ON CONFLICT (created_by) WHERE is_personal DO NOTHING;`
+  where `v_name := coalesce(nullif(split_part(NEW.email,'@',1),''), 'Personal workspace')` (non-email accounts — phone/SSO — get the fallback), then the single owner-membership row (idempotent on PK).
+- **M1 backfill:** run the same body over `auth.users`; in-transaction assertion is **dynamic** — `count(personal workspaces) = count(auth.users)` at execution time, not a hardcoded 16.
+
+### 1.6 Account-deletion orchestration (the v1 contradiction this section replaces: soft-ref `created_by` + "personal dies with account" needed an explicit mechanism, not FK hope)
+Ordered, single DEFINER path (`wsid_definer`), invoked by the deletion surface (today: DGAI `delete-account` Edge Function — A2/Gate-5 leg adds the call; the DB path is also directly callable under A1 authority):
+1. **Shared-ownership precondition:** if the user owns any non-personal workspace → refuse with `WM412 transfer_required` (transfer RPC deferred; CQ-5 may supersede this interim rule).
+2. Delete the personal workspace row + its membership atomically (sentinel `app.wsid_deletion` satisfies the §1.1/§1.2 guards; children of the personal workspace: scenarios keep their rows — authorship retained, `user_id` intact per v1.7 §10 — workspace_id survives pointing at… **no: the workspace row is deleted, so M2's FK would dangle.** Resolution, specified: scenarios' `workspace_id` FK is `ON DELETE SET NULL`; a deleted personal workspace returns its scenarios to the unscoped state, preserving content + authorship. This is the ratified records-outlive-container doctrine applied consistently).
+3. Terminal consent events (`action='withdraw'`, actor `system`, source `account_deletion`) per active stream.
+4. Identity severance per §3.4a (mechanism PENDING ruling).
+5. `auth.users` row deletion (memberships elsewhere CASCADE; `on_auth_user_deleted` AFTER DELETE trigger asserts no personal workspace survives).
+**CQ-5 is therefore an M1-semantics question, not later polish** — the interim rules above are explicit and Paul's answer supersedes them.
 
 ---
 
 ## §2 S-2 — Scenario scoping (M2)
 
 ```sql
-ALTER TABLE public.scenarios ADD COLUMN workspace_id UUID NULL REFERENCES public.workspaces(id);
+ALTER TABLE public.scenarios ADD COLUMN workspace_id UUID NULL
+  REFERENCES public.workspaces(id) ON DELETE SET NULL;          -- §1.6(2) doctrine
+ALTER TABLE public.scenarios ADD CONSTRAINT scenarios_id_workspace_key UNIQUE (id, workspace_id);
+  -- composite-FK target for §6 child tables (v1 omission — automated finding 1, fixed)
 CREATE INDEX scenarios_workspace_idx ON public.scenarios (workspace_id) WHERE workspace_id IS NOT NULL;
 ```
-- **At-birth stamping — trigger-derived** (v1.7 §20 dual-compatible path, chosen because it is single-repo and covers *every* writer including the three CEE service-role RPCs and `store_draft_graph` (Gate-0 F6) without cross-repo code changes):
-  `scenarios_stamp_workspace` BEFORE INSERT: `IF NEW.workspace_id IS NULL AND NEW.user_id IS NOT NULL THEN NEW.workspace_id := (SELECT id FROM workspaces WHERE created_by = NEW.user_id AND is_personal);` — guests stay NULL; a caller-supplied `workspace_id` is **overridden unless the inserting role's membership validates** (MVP: always overridden to the personal workspace — callers do not choose tenancy until shared workspaces open).
-- **Immutability** (v1.7 §10): `scenarios_workspace_immutable` BEFORE UPDATE — reject any change where `OLD.workspace_id IS NOT NULL AND NEW.workspace_id IS DISTINCT FROM OLD.workspace_id` (`WS010`). NULL→value is permitted exactly once (claim-time stamping). The deferred transfer RPC is the only future exception (CQ-14/v1.7).
-- **Claim-time stamping:** `claim_guest_scenario` gains one statement (stamp claimer's personal workspace under its existing `FOR UPDATE` lock). That migration file lives in **CEE** (META-FLAG: one DB, two homes — A1's ledger ruling governs which repo hosts the amendment; the spec is identical either way). Named follow-up alongside A1's queued CEE caller fix.
-- **Historical backfill:** the **18 owned rows only** — `UPDATE scenarios SET workspace_id = personal(user_id) WHERE user_id IS NOT NULL AND workspace_id IS NULL` in-transaction with count assertion (=18 at authoring; re-counted at execution). 609 guest rows untouched.
-- **RLS on scenarios: UNCHANGED in M2** (owner-only policies stay byte-identical — P3 ratified posture; the Tier-3 cutover later swaps them to helper-based with no data migration).
+- **Stamping trigger** `scenarios_stamp_workspace` (BEFORE INSERT), revised guards:
+  - `NEW.user_id IS NULL` (guest) → `workspace_id := NULL` (stays unscoped until claim).
+  - `NEW.user_id IS NOT NULL` → `workspace_id :=` that user's personal workspace; **if none exists → `WS020` abort** (a non-guest user without a personal workspace is an invariant breach, not a silent NULL — v1 gap fixed).
+  - Caller-supplied `NEW.workspace_id` is overridden unconditionally in MVP (callers do not choose tenancy until shared workspaces open).
+  - **Trust boundary stated plainly:** the trigger derives from `NEW.user_id`, which on service-role paths is application-supplied. It guarantees *consistency*, not *identity truth* — identity truth is the verified-JWT rule (login 3.4) + v1.7 §20's cross-repo verification of CEE's derivation, which **remains a named Tier-3 cutover blocker**, not replaced by this trigger.
+- **Immutability trigger** `scenarios_workspace_immutable` (BEFORE UPDATE): value→different-value rejected (`WS010`); value→NULL rejected except via §1.6(2)'s FK SET NULL (fires as system action, not an UPDATE through this trigger); **NULL→value permitted ONLY in the claim shape** — same statement transitions `user_id` NULL→non-NULL AND the new `workspace_id` equals the claimer's personal workspace; any other NULL→value → `WS011` (v1 allowed arbitrary NULL→value — fixed).
+- Backfill: the owned rows (18 at authoring; **recounted dynamically at execution**) stamped to their owners' personal workspaces in-transaction.
+- `claim_guest_scenario` amendment (CEE-repo file, META-FLAG): stamps under its existing `FOR UPDATE` lock — the sanctioned NULL→value writer.
+- **Scenarios RLS: byte-unchanged in M2** (P3 posture; cutover later re-points policies at the helpers).
 
 ---
 
-## §3 S-3 — Sensitive substrate (M5; own migration file; sequenced after A2's F4/F8 UI legs for the disposition part)
+## §3 S-3 — Sensitive substrate (M5)
 
 ### 3.1 `person_profiles`
+Shape as v1 (risk_appetite/psychometrics/expertise/decision_style JSONB envelopes + schema_version), plus:
 ```sql
-CREATE TABLE public.person_profiles (
-  user_id                UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  risk_appetite          JSONB NULL,   -- envelope {band, score?, provenance, captured_at} (design §2.1.3)
-  psychometrics          JSONB NULL,   -- instrument-keyed; P5 ratified: NOT collected in v1 (column exists, no UI)
-  expertise              JSONB NULL,   -- [{domain, level, evidence?}]
-  decision_style         JSONB NULL,
-  profile_schema_version INT  NOT NULL DEFAULT 1,
-  created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at             TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+CONSTRAINT pp_provenance_v1 CHECK (risk_appetite IS NULL
+  OR risk_appetite->>'provenance' = 'self_reported')   -- 'assessed'/'inferred' RESERVED until an
+                                                       -- assessment pathway exists; forgery-by-JSONB closed
 ```
-- **RLS (FORCE): owner-only, permanently, at table level** — `ALL` policy `USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id)` to authenticated. **There is no cross-user policy and there never will be** (Gate-0-amended ruling resolving design §2.1.3 vs §2.5: cross-user access happens ONLY through narrowly-typed projection RPCs — `can_view_profile()` is an authorisation predicate *inside* future projections, never a table policy). No anon anything.
-- Grants: `REVOKE ALL FROM PUBLIC, anon; GRANT SELECT, INSERT, UPDATE, DELETE TO authenticated;` (writes ride the **user's JWT** — design §2.1, the structural fence against the pre-login-flip trust hole) `GRANT SELECT TO service_role;` — service_role gets **no direct write grant**; its only sanctioned read is via `get_coaching_profile` anyway, but SELECT remains for operational reads under A1 authority.
+- RLS (FORCE): owner-only `SELECT/INSERT/UPDATE` policies (`auth.uid() = user_id`). **No DELETE policy and no DELETE grant** — deletion happens ONLY through `delete_person_profile()` (v1 allowed direct DELETE, bypassing consent closure + erasure orchestration — fixed).
+- Writes stay **user-JWT direct** (INSERT/UPDATE under owner RLS): this is the ratified design's structural fence (sensitive writes never ride service role) and is retained **deliberately against the reviewer's RPC-only preference** — validation rides CHECK constraints (above + envelope-shape CHECKs), not a DEFINER chokepoint that would reintroduce a service-side trust surface. A1 review may overrule.
+- Grants: `REVOKE ALL FROM PUBLIC, anon, service_role;` (**service_role raw SELECT revoked** — v1 granted it; the only sanctioned service read is `get_coaching_profile`, and letting service_role dump raw psychometrics contradicted Lock 0) `GRANT SELECT, INSERT, UPDATE TO authenticated;`
 
-### 3.2 `profile_consent_events` — the immutable ledger (adopted by Gate-0 verdict; supersedes design §2.1.4 mechanics; Paul ratification queued)
+### 3.2 `profile_consent_events` — immutable ledger, **RPC-only writes** (v1's direct authenticated INSERT made every ledger guarantee spoofable: caller-controlled created_at/event_id/version/source, fold manipulation, advisory-lock bypass, cross-user idempotency probes — all closed here)
 ```sql
 CREATE TABLE public.profile_consent_events (
-  event_id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id          UUID NOT NULL,               -- soft ref (NO FK): pseudonymise doctrine — identity severed
-                                                -- on account deletion, events retained (CQ-6 retention window)
-  action           TEXT NOT NULL CHECK (action IN ('grant','withdraw')),
-  scope            TEXT NOT NULL CHECK (scope IN ('coaching_tone','team_aggregate','view_card','view_profile',
-                                                  'contact','dissent_visibility')),  -- last two: §3.5, §7 XQ-3
+  seq              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,  -- server-controlled TOTAL ORDER;
+                                                                     -- the fold orders by seq, nothing else
+  event_id         UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+  user_id          UUID NOT NULL,               -- soft ref; severance per §3.4a (PENDING mechanism)
+  action           TEXT NOT NULL CHECK (action IN ('grant','withdraw','legacy_import')),
+  scope            TEXT NOT NULL CHECK (scope IN ('coaching_tone','team_aggregate','view_card',
+                                                  'view_profile','contact','dissent_visibility')),
   audience_type    TEXT NOT NULL CHECK (audience_type IN ('self','team','org')),
   audience_team_id UUID NULL,
   audience_org_id  UUID NULL,
-  consent_version  TEXT NOT NULL,               -- versioned copy the user was shown
+  consent_version  TEXT NOT NULL,
+  notice_hash      TEXT NOT NULL,               -- sha256 of the exact notice copy shown (verdict: version AND hash)
   actor            TEXT NOT NULL CHECK (actor IN ('self','system','admin_erasure')),
-  source           TEXT NOT NULL,               -- UI surface / RPC / migration tag
-  idempotency_key  TEXT NOT NULL UNIQUE,
-  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT pce_audience_target CHECK (
-       (audience_type = 'self' AND audience_team_id IS NULL AND audience_org_id IS NULL)
-    OR (audience_type = 'team' AND audience_team_id IS NOT NULL AND audience_org_id IS NULL)
-    OR (audience_type = 'org'  AND audience_org_id  IS NOT NULL AND audience_team_id IS NULL)),
-  CONSTRAINT pce_scope_audience CHECK (          -- CQ-16 proposal; Paul may amend the matrix
-       (scope = 'coaching_tone'      AND audience_type = 'self')
-    OR (scope = 'team_aggregate'     AND audience_type = 'team')
-    OR (scope IN ('view_card','view_profile') AND audience_type IN ('team','org'))
-    OR (scope = 'contact'            AND audience_type = 'self')
-    OR (scope = 'dissent_visibility' AND audience_type = 'team'))   -- reserved; not active in v1
+  source           TEXT NOT NULL,               -- server-derived surface tag, from an allowlist
+  idempotency_key  TEXT NOT NULL,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),               -- informational; NEVER the order
+  CONSTRAINT pce_idem UNIQUE (user_id, idempotency_key),             -- per-subject, not global (v1 was a
+                                                                     -- cross-user collision probe — fixed)
+  CONSTRAINT pce_audience_target CHECK ( … as v1 … ),
+  CONSTRAINT pce_scope_audience  CHECK ( … as v1, CQ-16 …)
 );
-CREATE INDEX pce_fold_idx ON public.profile_consent_events (user_id, scope, audience_type,
-  coalesce(audience_team_id,'00000000-0000-0000-0000-000000000000'),
-  coalesce(audience_org_id,'00000000-0000-0000-0000-000000000000'), created_at DESC);
+CREATE INDEX pce_fold_idx ON public.profile_consent_events
+  (user_id, scope, audience_type,
+   coalesce(audience_team_id,'00000000-0000-0000-0000-000000000000'),
+   coalesce(audience_org_id, '00000000-0000-0000-0000-000000000000'), seq DESC);
 ```
-- **Append-only as hardware:** RLS (FORCE): `SELECT` own rows (`auth.uid() = user_id`); `INSERT` own rows (`WITH CHECK auth.uid() = user_id AND actor = 'self'`). **No UPDATE/DELETE policy for anyone**, and — the load-bearing part — `REVOKE UPDATE, DELETE, TRUNCATE FROM service_role` too (service_role bypasses RLS; only the grant layer binds it; system/admin_erasure events are INSERTed by DEFINER functions, not by service_role DML). `GRANT SELECT, INSERT TO authenticated; GRANT SELECT, INSERT TO service_role;`
-- **Effective consent = deterministic fold:** latest event by `(created_at, event_id)` per `(user_id, scope, audience_type, audience-target)`; `grant` ⇒ active, `withdraw` ⇒ inactive; **absence = deny**. Same-user events serialise via `pg_advisory_xact_lock(hashtext(user_id::text))` taken in every consent-writing RPC — total order is well-defined.
-- **Account deletion:** deletion path INSERTs a terminal `withdraw` per active scope (`actor='system', source='account_deletion'`) then severs identity (person_profiles CASCADE); events persist pseudonymously (user_id no longer resolves). Retention window = **CQ-6, Paul**.
+- **Fold/index contract (automated finding 2):** the effective-consent query is DEFINED as using the identical `coalesce(...)` expressions as `pce_fold_idx` (expression indexes match only expression-identical predicates); one query, latest-`seq`-wins, `grant`⇒active, `withdraw`⇒inactive, **`legacy_import`⇒NEVER active** (§3.5); Gate-4 carries an `EXPLAIN` assertion that the fold uses the index.
+- **Append-only, four layers:** (1) no UPDATE/DELETE policies; (2) `REVOKE INSERT, UPDATE, DELETE, TRUNCATE FROM authenticated, service_role` — **no direct DML for anyone**; SELECT-own via RLS for authenticated, no service_role SELECT (the fold primitive is DEFINER); (3) rejection trigger `pce_immutable` (BEFORE UPDATE OR DELETE → `PC403`, fires even for table-owner paths); (4) owner `wsid_definer` holds INSERT — events enter ONLY through the two DEFINER writers below.
+- `record_consent_event(p_action TEXT, p_scope TEXT, p_audience_type TEXT, p_team UUID, p_org UUID, p_consent_version TEXT, p_notice_hash TEXT, p_source TEXT, p_idempotency_key TEXT) RETURNS jsonb` — DEFINER (`wsid_definer`), EXECUTE **authenticated only**; **derives** `user_id = auth.uid()` (NULL → `PC401`), `actor := 'self'`, `created_at := now()`, validates `p_source` against an allowlist and `p_action IN ('grant','withdraw')` (`legacy_import` is migration-only); takes `pg_advisory_xact_lock(hashtext(auth.uid()::text))`; idempotent replay returns the original event.
+- System writers (terminal-withdraw in §1.6/§3.6, the §3.5 legacy import): DEFINER bodies only — service_role never touches the table.
 
-### 3.3 `has_active_consent(p_user UUID, p_scope TEXT, p_audience_type TEXT, p_team UUID DEFAULT NULL, p_org UUID DEFAULT NULL) RETURNS boolean`
-DEFINER, STABLE, pinned search_path; **EXECUTE to service_role ONLY** (a boolean about another user's consent is still a probe surface; owners read their own events directly under RLS). Body = the §3.2 fold. This is the single enforcement primitive — every projection and Lock-0 read calls it inside its own transaction.
+### 3.3 `has_active_consent(...)` — unchanged shell (DEFINER, service_role-only EXECUTE), body = the §3.2 fold as ONE query (reads need no lock; writers serialise via advisory lock + identity `seq`).
 
-### 3.4 `get_coaching_profile` — Lock 0
-- Shape A (design of record): `get_coaching_profile(p_user_id UUID) RETURNS jsonb` — DEFINER, **EXECUTE to service_role only**; returns `'{}'::jsonb` unless `has_active_consent(p_user_id,'coaching_tone','self')`; on consent returns ONLY the `CoachingProfileHints` projection (tone/band/domains — never raw psychometrics).
-- Shape B (defence-in-depth, Gate-1 review decision per the verdict): `get_coaching_profile_for_scenario(p_scenario_id UUID)` — derives the subject from the **locked** scenario row (`SELECT user_id … FOR SHARE`), refuses guest scenarios. **Recommendation: ship B as the only granted entry point** (CEE's call site is always turn-scoped today; A's trusted-parameter surface then never exists), keep A unshipped. A1 review decides; both are fully specified so the decision is a one-line grant choice.
-- Either shape: the wire projection is `CoachingProfileHintsSchema` (Gate-3 contract; dark until `PROFILE_COACHING_ENABLED` exists AND pin-verified — Locks 1–3 unchanged from the design).
+### 3.4 `get_coaching_profile` — Shapes A/B as v1; recommendation unchanged: **grant Shape B only** (subject from locked scenario row).
 
-### 3.5 Gate-2b — `user_profiles` disposition matrix (P12 **EXTENDED** per verdict; every row carries its Gate-0 evidence)
-| Column(s) | Live data | Disposition | Conditions |
+### 3.4a Identity severance — **PENDING (CQ-6 retention + R-1/R-2 pseudonymise doctrine); S-3 is NOT fully buildable until ruled** (v1 overclaimed "pseudonymous"):
+Retaining the auth UUID in events is **linkable-pseudonymous at best** — the same UUID persists in `workspaces.created_by`, `decision_records.owner_user_id`, and other P11-retained records. Options for the ruling:
+- **S-A (recommended):** `consent_subjects(subject_id PK, user_id UNIQUE NULL)` indirection; events carry `subject_id`; deletion nulls the mapping (severs linkage while preserving Art.-7 demonstrability); mapping-destruction is the recorded erasure act.
+- **S-B:** retain `user_id` and *document* linkable-pseudonymity as the accepted posture given P11 (honest, cheaper, weaker).
+The deletion RPC ships either way (severance step is a hook); the events table gains `subject_id` from birth if S-A is chosen — **which is why this ruling precedes M5 execution**.
+
+### 3.5 Gate-2b disposition matrix — v1.1 corrections
+As v1 with four changes:
+1. **contact_consent → `legacy_import` events, NOT active grants** (v1 overstated: importing old-notice consent as active modern consent claims evidence we don't have). The 5 `true` values import as `action='legacy_import'` (fold-inert, evidence-preserving, `consent_version='legacy-2025-notice'`, `notice_hash='unavailable:pre-ledger'`); **fresh consent through the real UX is required to activate the scope**. Product/legal approval flagged to Paul explicitly.
+2. **Classification: the whole P12 file is `forward-fix-only`** — the v1 "shape-only rollback recreates empty columns" is withdrawn: recreating dropped sensitive columns would re-enable dormant writers and re-create the unsafe locus. No rollback recreates them. (v1's "trivially satisfiable" line is also withdrawn — it was true of the four science columns only; contact_consent carries 5 real values and the PII columns 2 rows, and their destruction is exactly why the in-transaction re-verification + Paul's named approval exist.)
+3. Wording: user_profiles' end state is a **lower-sensitivity identity/display table** (names + email are personal data; "non-sensitive" was wrong). `pilot_metrics` KEEP is conditional on the pilot-instrumentation lane publishing a key allowlist + writer inventory (flagged to that lane; currently `{}` everywhere).
+4. The F3 policy row now cross-references the containment order's own thread (`WORKSTREAM-UPDATE-workspace-3/4`).
+
+### 3.6 `delete_person_profile()` — as v1 (DEFINER, authenticated-only, subject = `auth.uid()`, no subject param), now explicitly a **step inside §1.6's orchestration** (also callable standalone: profile-only deletion without account deletion), with the §3.4a severance hook and the collab name-detach registration (XQ-4).
+
+---
+
+## §4 Function-access matrix (v1.1 — owner column added; `wsid_definer` object-privilege set listed per function)
+
+| Function | Class | Security | Owner | EXECUTE | Subject/tenant derivation | wsid_definer needs |
+|---|---|---|---|---|---|---|
+| is_workspace_member / is_workspace_role | integrity (M1) | DEFINER STABLE | wsid_definer | authenticated, service_role | auth.uid() in body | SELECT workspace_members |
+| role_rank | util | INVOKER IMMUTABLE | wsid_definer | authenticated, service_role | none | — |
+| create_workspace | integrity (M1) | DEFINER | wsid_definer | **authenticated only** | auth.uid(), NULL→WS401 | INSERT workspaces, workspace_members |
+| provision_personal_workspace | trigger (M1) | DEFINER | wsid_definer | none | NEW.id | INSERT workspaces, workspace_members |
+| account_deletion_orchestrate | integrity (M1) | DEFINER | wsid_definer | **authenticated only** (self) + A1-runbook path | auth.uid(); sentinel app.wsid_deletion | DELETE workspaces/members (guarded), INSERT consent events |
+| workspaces_update/delete_guard · members_owner/personal_guard · invites_personal_guard · pce_immutable | triggers | DEFINER | wsid_definer | none | row-local | — |
+| scenarios_stamp_workspace / scenarios_workspace_immutable | triggers (M2) | DEFINER | wsid_definer | none | NEW.user_id → personal ws; WS020 abort | SELECT workspaces |
+| upsert_person_profile | product (G3/G4) | **INVOKER** | n/a | authenticated | auth.uid() via RLS | — |
+| record_consent_event | ledger writer (M5) | DEFINER | wsid_definer | **authenticated only** | auth.uid()→PC401; actor/source/time server-set | INSERT profile_consent_events |
+| has_active_consent | primitive (M5) | DEFINER STABLE | wsid_definer | **service_role only** | parameterised, DEFINER-internal callers | SELECT profile_consent_events |
+| get_coaching_profile_for_scenario (Shape B, recommended) | Lock 0 (M5 dark) | DEFINER | wsid_definer | **service_role only** | locked scenario row FOR SHARE | SELECT scenarios, person_profiles + has_active_consent |
+| delete_person_profile | erasure (M5) | DEFINER | wsid_definer | **authenticated only** | auth.uid(); no subject param | DELETE person_profiles, INSERT consent events |
+| claim_guest_scenario (amendment; CEE file) | existing | DEFINER | unchanged (postgres — legacy scope) | service_role only | locked row FOR UPDATE | — |
+| create_decision_record (amendment; A1 CEE queue) | existing | DEFINER | unchanged | service_role only | **workspace from locked scenario; caller p_workspace_id refused post-M2** | — |
+
+Bans carried: no client-supplied identity anywhere (`extractJwtSub` class); collab audit's `forbidden-patterns.sh` adopted into Gate-4 CI.
+
+## §5 Exact RLS + grants matrix (charter-form: named policies, exact USING / WITH CHECK, per-role privileges)
+
+### 5.1 Policies (all tables FORCE RLS; absence of a row = command denied for JWT roles)
+| Table | Policy (cmd, TO) | USING | WITH CHECK |
 |---|---|---|---|
-| bias_susceptibility, challenge_tolerance, coaching_style, calibration_tendency | 0 non-default rows (measured twice) | **DROP** (+ their CHECKs) | in-transaction zero-data re-verification; abort on any non-default value |
-| research_consent, consent_version | 0 true / 0 set; toggle provably broken (F8) | **DROP** + `chk_user_profiles_consent_version` DROP; consent capability re-lands as ledger scope | A2 UI leg (F4/F8) merged first |
-| contact_consent | 5 true rows — real consent data | **MIGRATE → ledger** (`grant` events, scope `contact`, `actor='system'`, `consent_version='legacy-import-2026-07'`, source=migration tag) **then DROP** | Paul ratification (consent-data migration) |
-| phone_number, address, age_bracket, gender | 2 rows real PII | **DROP** (destroy) | Paul approval naming the 2 subjects' rows as destroyable (they are also erasable-on-request data); A2 removes ProfileForm fields first |
-| decisions_completed | counter, derivable from decision_records | **DROP** | A1 concurrence (cheap either way) |
-| pilot_metrics | 0 non-default | **KEEP** (non-sensitive, pilot instrumentation owns it) | — |
-| first/last/display_name, email, avatar_url, onboarding_*, preferences | display anchor | **KEEP** — this is what makes "non-sensitive display anchor" true afterwards | — |
-| Policy `"Users can view accessible profiles"` | live cross-user read (F3) | **DROP** — under the separate F3 containment order (STOPPED pending the Analysis.tsx reader ruling; see WORKSTREAM-UPDATE-workspace-3) | A1 disposition |
-| Legacy profile-touching RPCs (`sync_*`, `initialize_user_profile`, `check_user_profile`) | body hashes in evidence pack | **NO-TOUCH in M5**; listed for the 1.40 revoke batch | F9 scope |
+| workspaces | `ws_select_member` (SELECT, authenticated) | `is_workspace_member(id)` | — |
+| workspaces | `ws_update_admin` (UPDATE, authenticated) | `is_workspace_role(id,'admin')` | `is_workspace_role(id,'admin')` (column allowlist via trigger WS001) |
+| workspace_members | `wm_select_roster` (SELECT, authenticated) | `is_workspace_member(workspace_id)` | — |
+| workspace_invites | *(no policies — no JWT-role access at all; Gate-3 RPC only)* | — | — |
+| scenarios | **unchanged** (owner-only set, byte-identical pre-cutover) | `auth.uid() = user_id` (existing) | existing |
+| person_profiles | `pp_select_own` / `pp_insert_own` / `pp_update_own` (authenticated) | `auth.uid() = user_id` | `auth.uid() = user_id` |
+| person_profiles | *(no DELETE policy — RPC-only)* | — | — |
+| profile_consent_events | `pce_select_own` (SELECT, authenticated) | `auth.uid() = user_id` | — |
+| profile_consent_events | *(no INSERT/UPDATE/DELETE policies — DEFINER-writer-only)* | — | — |
+| decision_records | unchanged owner-only; M7 adds `dr_select_workspace` (SELECT, authenticated): `visibility='workspace' AND is_workspace_member(workspace_id)` | | |
 
-**Reversibility:** every DROP here is **irreversible-by-design**; the rollback script recreates *columns* (nullable, no data) purely for schema-shape compatibility and is documented as NON-RESTORATIVE — a rollback must never recreate destroyed sensitive data (charter; trivially satisfiable — §Gate-0: zero non-default data exists).
-
-### 3.6 `delete_person_profile() RETURNS jsonb`
-DEFINER; EXECUTE **authenticated only**; subject = `auth.uid()` — **takes no subject parameter** (charter: identity server-derived). Atomically: advisory lock → terminal withdraw events per active scope → `DELETE FROM person_profiles WHERE user_id = auth.uid()` → returns `{deleted: true, consents_closed: n}`. Erasure-completeness sweep (telemetry/logs/context-packs) = Gate-4 acceptance evidence; the DGAI `delete-account` Edge Function gains a call to this RPC (A2 leg, Gate 5 spec). Collab-tables hook (A4 XQ-4): this RPC is the **single erasure orchestration point** — the collab lane's stance name-detach registers here as a step, not as a second path.
-
----
-
-## §4 Function-access matrix (every function this lane ships or amends)
-
-| Function | Class | Security | search_path | EXECUTE grants | Subject/tenant derivation |
-|---|---|---|---|---|---|
-| is_workspace_member(uuid) | schema-integrity (M1) | DEFINER, STABLE | pinned | authenticated, service_role | `auth.uid()` inside body |
-| is_workspace_role(uuid,text) | schema-integrity (M1) | DEFINER, STABLE | pinned | authenticated, service_role | `auth.uid()` inside body |
-| role_rank(text) | pure util (M1) | INVOKER, IMMUTABLE | n/a | authenticated, service_role | none |
-| create_workspace(text) | schema-integrity (M1) | DEFINER | pinned | **authenticated only** | creator = `auth.uid()`, refuse NULL |
-| provision_personal_workspace() | trigger fn (M1) | DEFINER | pinned | none (trigger-owned) | NEW.id from auth.users insert |
-| scenarios_stamp_workspace() | trigger fn (M2) | DEFINER | pinned | none | NEW.user_id → personal workspace |
-| scenarios_workspace_immutable() | trigger fn (M2) | DEFINER | pinned | none | row-local |
-| workspaces_update_guard() / workspace_members_owner_guard() / workspace_invites_personal_guard() | trigger fns (M1) | DEFINER | pinned | none | row-local |
-| upsert_person_profile(jsonb) | product (Gate 3 spec, Gate 4 impl) | **INVOKER** (rides owner RLS) | pinned | authenticated | `auth.uid()` via RLS |
-| record_consent_event(…) | product (Gate 3/4) | **INVOKER** (RLS: own INSERT, actor='self') | pinned | authenticated | `auth.uid()` via RLS CHECK |
-| has_active_consent(…) | enforcement primitive (M5) | DEFINER, STABLE | pinned | **service_role only** | parameterised — called only from DEFINER bodies |
-| get_coaching_profile[_for_scenario] | Lock 0 (M5, dark) | DEFINER | pinned | **service_role only** | Shape B: locked scenario row (recommended); Shape A: parameter (documented trust boundary) |
-| delete_person_profile() | erasure (M5) | DEFINER | pinned | **authenticated only** | `auth.uid()` — no subject param |
-| claim_guest_scenario (amendment) | existing, +stamping | DEFINER (unchanged) | pinned | service_role only (unchanged) | locked scenario row `FOR UPDATE` |
-| create_decision_record (amendment, CEE queue) | existing | DEFINER (unchanged) | pinned | service_role only (unchanged) | **workspace from locked scenario row; caller p_workspace_id refused once scenarios carry tenancy** (verdict ruling) |
-
-**Bans carried from the collab audit (apply to every endpoint this lane ever specs):** no `extractJwtSub`-style client-supplied identity anywhere; the CI forbidden-pattern grep (`docs-designs/COLLAB-TENANCY-AUDIT-2026-07-11/tests/forbidden-patterns.sh`) is adopted into this lane's Gate-4 test pack verbatim.
-
-## §5 RLS policy matrix + grants baseline
-
-### 5.1 Policy matrix (per table × cmd × role; FORCE RLS everywhere; absence = deny)
-| Table | SELECT | INSERT | UPDATE | DELETE |
+### 5.2 Table privileges (after `REVOKE ALL FROM PUBLIC, anon, authenticated, service_role` on every new table)
+| Table | anon | authenticated | service_role (RLS-BYPASSING — grants are its only fence) | wsid_definer |
 |---|---|---|---|---|
-| workspaces | member | — (RPC) | admin+ (allowlist-guarded) | — |
-| workspace_members | member (roster) | — (RPC) | — (RPC) | — (RPC) |
-| workspace_invites | — (no table grant; projection RPC: admin-or-invitee, token_hash never returned) | — | — | — |
-| scenarios | **unchanged owner-only** (cutover later swaps to member via helpers) | unchanged | unchanged | unchanged |
-| person_profiles | owner | owner | owner | owner |
-| profile_consent_events | owner | owner (actor='self') | **nobody** | **nobody** |
-| decision_records | unchanged owner-only; `+ visibility='workspace' AND is_workspace_member(workspace_id)` policy = M7, cutover-gated | — | — | — |
+| workspaces | — | SELECT, UPDATE | SELECT | SELECT, INSERT, DELETE |
+| workspace_members | — | SELECT | SELECT | SELECT, INSERT, UPDATE, DELETE |
+| workspace_invites | — | — | — | SELECT, INSERT, UPDATE |
+| person_profiles | — | SELECT, INSERT, UPDATE | — (raw SELECT revoked; Lock-0 RPC is the read) | SELECT, DELETE |
+| profile_consent_events | — | SELECT | — | SELECT, INSERT |
+| scenarios | unchanged (legacy grants; 1.40 sweep owns the cleanup) | | | + SELECT (stamping trigger) |
 
-### 5.2 Grants baseline (F9): every new table starts `REVOKE ALL FROM PUBLIC, anon, authenticated` then grants the §1–3 minima; `profile_consent_events` additionally revokes UPDATE/DELETE/TRUNCATE **from service_role**. The 53-table legacy anon-DML sprawl is registered under ROADMAP 1.40 (authoring may ride Gate 2 per the verdict; execution Paul-batched).
+### 5.3 Migration classification — v1.1: M5/Gate-2b = **forward-fix-only** (§3.5.2); M1/M2 reversible as v1; M4 forward-fix-only once links exist; ledger-reconciliation hard blocker unchanged (§5.4). **F9's 53-table legacy revoke sweep: recommended to A1 as its OWN bounded security PR** — the verdict permits riding Gate 2, but its compatibility surface (53 tables × legacy readers) deserves separate review; this lane's Gate 2 carries only its own tables' grants.
 
-### 5.3 Migration classification (charter Gate-1 requirement)
-| File | Class | Rollback posture |
-|---|---|---|
-| M1 tenancy core | reversible | full DROP script (tables empty of user value pre-adoption) |
-| M2 scenarios.workspace_id | reversible pre-cutover | drop triggers + column (backfill re-derivable from user_id) |
-| M3 org spine | reversible | PENDING-CQ |
-| M4 strategies | reversible while unlinked; **forward-fix-only once links exist** (links are product history) | staged |
-| M5 person_profiles + ledger | tables reversible while empty; **Gate-2b drops irreversible-by-design** (§3.5) | non-restorative shape-only rollback, documented |
-| M6/M7 child cols + late policies | reversible | column/policy drops |
+### 5.4 Ledger reconciliation (unchanged blocker) + one addition: equivalence proof = full catalog diff (tables, columns, constraints, policies, grants, functions, triggers, indexes, comments) against each candidate file — **function-body hashes alone are insufficient**; the Gate-6 runbook designs this; Gate-2 CI rejects cross-repo version collisions.
 
-### 5.4 Ledger reconciliation (hard blocker, verdict-confirmed): no M-file executes until the Gate-6 runbook lands the canonical-history plan (three divergence classes + the `20260226010000` cross-repo collision, evidence-pack registry) and A1 approves ledger-row insertion for exactly the file-hashes proven live-equivalent. Gate-2 CI addition: reject any migration version already present in the sibling repo.
+## §6 Cross-cutting integrity
+1–4 as v1 (child-consistency composite FKs · workspace_id immutability · strategy composite-FK set · decision_records derive-from-locked-row), plus:
 
----
+### 6.5 Complete child-table disposition (v1 omitted two v1.7-named tables — fixed)
+| Table | Disposition |
+|---|---|
+| shared_snapshots | M6: `workspace_id` (composite FK, stamped from parent) |
+| v5_conversation_turns / v5_handler_facts | M6: same; per-user privacy class retained (workspace-shared NEVER by default — v1.7 SEC-10) |
+| scenario_snapshots | M6: same |
+| **shared_briefs** | M6: same (v1.7 §9 names it; 0 rows live) |
+| **conversation_turns** | M6: column added for consistency; NOTE v1.7 §18 leaves this table's conversation-scoping decision open — column is inert until that ruling |
+| model_versions | M6 spec, **MM lane ratifies** (fence) |
+| turn_observations | NO workspace column — per-user science-POC telemetry, owner-scoped, purge-governed; reason recorded |
+| backup_013c2_scenarios_graph | no-touch (frozen backup artifact) |
+| decision_records | already carries workspace_id; M7 policy only |
 
-## §6 Cross-cutting integrity rules
+## §7 Collab-audit answers — XQ-1 expanded (v1.1; all still **ratification-pending**, and now marked as such in the scope map — not a settled build contract)
+**XQ-1 = union, one PRIMARY fabric + one supplementary grant type.** Sub-answers the union must carry (proposals):
+- A scenario collaborator does NOT acquire workspace/org membership, workspace browse, strategy access, or decision-record access (records stay owner-only + workspace-visibility; collaborators are outside both).
+- Child-row visibility: graph/analysis/coaching surfaces of THAT scenario only; **never** other users' `v5_conversation_turns`/`v5_handler_facts` (per-user privacy class).
+- Graph mutation: held_proposal propose-don't-write ONLY (COLLAB-V0 §5) — a collaborator grant is never a write grant.
+- Independence: workspace-membership loss does not revoke scenario grants, and vice versa; each revocable at its own surface; both feed ONE helper — `can_access_scenario(p_scenario, p_uid) := is_workspace_member(ws) OR is_scenario_collaborator(...)` — which owns the union (single evolution point, same idiom as §1.4).
+- Why this isn't the rejected Design-2 `scenario_grants` model: there, per-scenario ACLs were the PRIMARY tenancy; here workspace tenancy is primary and grants are a bounded share-this-one-thing mechanism (the Google-Docs-link class), with the workspace fabric owning defaults, roles, and lifecycle.
+XQ-2/3/4/5/6 as v1.
 
-1. **Child-consistency (v1.7 §9, restated):** any row carrying both `scenario_id` and `workspace_id` derives `workspace_id` server-side from `scenarios.workspace_id` (composite FK `(scenario_id, workspace_id) → scenarios(id, workspace_id)` — requires `UNIQUE(id, workspace_id)` on scenarios, added in M2 — or validating trigger where the FK is impossible). Applies at M6 to: shared_snapshots, v5_conversation_turns, v5_handler_facts, scenario_snapshots; **model_versions is specified here but MM ratifies** (charter fence — one source of truth per fact; this lane adds no graph-truth writers).
-2. **workspace_id immutability everywhere once set** (§2 trigger pattern replicated per table); the only future exception is the dedicated transfer RPC (deferred; CQ-14 governs strategy-link behaviour under transfer).
-3. **Strategy-layer integrity (drafted, S-5):** `strategy_bets UNIQUE(id, strategy_id)`; links carry composite FKs `(strategy_id, workspace_id) → strategies(id, workspace_id)` **and** `(bet_id, strategy_id) → strategy_bets(id, strategy_id)`; the link-creation RPC locks strategy AND scenario and refuses `workspace_id` mismatch (`SL409`) — making the design-vs-v1.7 derivation conflict unreachable rather than picking a side. Parent-strategy FK form (same-workspace composite vs cross-workspace org→team tree) = **CQ-1/2, unbuildable until ruled**.
-4. **decision_records:** verdict ruling encoded — workspace derives from the locked scenario at write time; `p_workspace_id` becomes refused-if-supplied post-M2 (amendment spec ready; CEE caller currently passes 6/8 args and gets NULL — named follow-up on A1's CEE queue).
+## §8 PENDING-CQ (org spine + strategy tree)
+Shapes referenced (design §2.3/§2.4 + §6.3 additions); ratified defaults applied (team⊆org guard trigger; `is_personal×org_id` CHECK). **Honest status: full DDL text is NOT in this revision** — it lands as a v1.2 revision of THIS contract once CQ-1/2/3/5/7 return, and only then does Gate 2 pick it up. Nothing in S-1..S-3 references any org/team object (verified: no FK, helper body, or policy above does).
 
-## §7 Answers to the collab-tenancy audit (per verdict order)
+## §9 Gate-4 test-pack obligations — v1 list plus: per-policy tests written against §5.1's EXACT expressions · fold `EXPLAIN` index-use assertion · append-only attack tests (direct INSERT/UPDATE/DELETE as authenticated AND service_role must all fail) · personal-guard race (concurrent second-member INSERT) · account-deletion orchestration walkthrough incl. transfer_required refusal · stamping WS020/WS011 negative cases · claim-shape NULL→value acceptance.
 
-- **XQ-1 — one membership fabric or two? ANSWER: (b)+(a) union, one fabric with a narrow-grant escape.** Workspace membership is the primary fabric: membership ⇒ scenario access, role-mapped, via the same two helpers (§1.4) — that is what M1/M2 + the cutover build. `scenario_collaborators` remains as the **narrower-than-workspace / cross-workspace grant** (a person invited to ONE scenario without workspace membership — the external-collaborator case), so effective access = `is_workspace_member(ws) OR is_scenario_collaborator(scenario_id, uid)`. Pre-cutover it is the bridge; post-cutover it is the targeted-share mechanism, permanent fabric. It is never an intersection (option c) — that would make workspace membership meaningless for shared scenarios. **Ratification-queued with the CQ batch** (A1 ordered the answer here; Paul confirms).
-- **XQ-2 — role vocabulary: the v1.7 set owns the words** (Paul-signed matrix). Mapping: host→`owner`-of-grant (scenario-grant issuer must hold `editor+` in the owning workspace), collaborator→`editor`, viewer→`viewer`. COLLAB surfaces rename to the v1.7 vocabulary before any UI ships both.
-- XQ-3: yes — expressible as the reserved `dissent_visibility` scope (§3.2), team-audience, target-required; not active in v1; Neil/N2 rider applies before any dissent surface reads it.
-- XQ-4: confirmed — `delete_person_profile()` is the single erasure orchestration point (§3.6); the collab name-detach registers as a step in it; no second erasure path.
-- XQ-5: confirmed binding; §5.4 is the shared machinery; home-repo META-FLAG stays with A1.
-- XQ-6: confirmed — the helper idiom here is exactly "swap the membership source in ONE function body, never the policy shape" (§1.4).
-
-## §8 PENDING-CQ drafts (org spine + strategy tree — shapes complete, constraints awaiting the Paul docket; ratified defaults already applied: team⊆org enforced by trigger `org_team_members_subset_guard`; `CHECK (NOT is_personal OR org_id IS NULL)`)
-
-Drafted DDL for `orgs`, `org_members` (+`external_id` SSO seam), `org_teams`, `org_team_members`, `workspace_team_grants`, `strategies`, `strategy_bets`, `strategy_scenario_links` follows the design §2.3/§2.4 shapes with §6.3 integrity additions — reproduced in full in the Gate-2 PR only after CQ-1/2/3/5/7 (strategy residence, org-departure, multi-org, account-deletion×owner, cross-org grants) return. Nothing in S-1..S-3 depends on any of these answers (verified: no FK, no helper body, no policy above references an org/team object — the org extension point is one column + one helper-body clause).
-
-## §9 Gate-4 test-pack obligations (forward reference; charter list + additions)
-Clean-db apply · upgrade against representative rows (627-scenario copy) · per-policy-matrix-row allow AND deny · JWT-vs-service-role per §4 row · consent grant/withdraw/fold determinism + concurrency (advisory-lock race test) · deletion + membership-loss behaviours · exactly-one-owner guard races · stamping-trigger coverage incl. all three CEE service-role RPC paths + store_draft_graph · index/query-plan checks (membership reads, pce_fold_idx) · negative cross-tenant + cross-audience adversarial suite · alignment with the collab audit's N-suite + forbidden-patterns CI · in-transaction P12 re-verification rehearsal.
+## §10 Open review questions for A1 (carried from v1 + new)
+1. §3.4 Shape A vs B (recommendation: B only).
+2. §3.1 user-JWT direct writes vs full-RPC-only (design-of-record says JWT-direct; reviewer prefers RPC; we keep JWT-direct + CHECKs — overrule if the security review disagrees).
+3. §3.4a S-A vs S-B severance (needs CQ-6/R-1/R-2; blocks M5 execution, not spec review).
+4. F9 as separate PR (recommendation) vs riding Gate 2 (verdict-permitted).
+5. Explicit confirmation that the Charter supersedes v1.7 §22's "no schema/SQL authoring" for Gate-2 *authoring* (execution stays gated) — asked in update-2 §9, still open.
+6. `wsid_definer` owner pattern (v1.7 §14 compliance) — confirm as the new house pattern for this lane's objects.
