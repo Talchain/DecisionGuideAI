@@ -187,6 +187,44 @@ function collectFromContainer(
 }
 
 /**
+ * Map one target_refs entry onto the legacy GuidanceItem target vocabulary
+ * ('node' | 'edge' | 'option' | 'graph' | 'framing').
+ *
+ * Two emission conventions exist:
+ *   1. The wire contract (TargetRefSchema §0.1, strict `{id,label,kind}`,
+ *      kind ∈ factor|option|edge|goal|risk|constraint|outcome). All
+ *      non-edge, non-option kinds are nodes on the canvas — same collapse
+ *      as focusByTarget/TargetRefPill. Unknown kinds fail closed
+ *      (undefined) rather than guessing.
+ *   2. The legacy `type` convention (node|edge|option|graph|framing),
+ *      kept as the fallback when `kind` is absent.
+ * When `kind` is present it wins — a ref that names the contract field is
+ * a contract ref, whatever else rides along.
+ */
+function guidanceTargetType(
+  ref: Record<string, unknown>,
+): NonNullable<DerivedGuidanceItem['target_object']>['type'] | undefined {
+  const kind = safeString(ref.kind)
+  if (kind) {
+    if (kind === 'edge') return 'edge'
+    if (kind === 'option') return 'option'
+    if (
+      kind === 'factor' || kind === 'goal' || kind === 'risk' ||
+      kind === 'constraint' || kind === 'outcome'
+    ) {
+      return 'node'
+    }
+    return undefined
+  }
+  const ttype = safeString(ref.type)
+  if (ttype === 'node' || ttype === 'edge' || ttype === 'option' ||
+      ttype === 'graph' || ttype === 'framing') {
+    return ttype
+  }
+  return undefined
+}
+
+/**
  * Derive a GuidanceItem from a Phase 3 block. Lossless: the raw block stays
  * in Phase3Extraction.rawBlocks, so consumers who need freshness /
  * action_intent / priority_rank / target_refs / graph_hash_at_generation
@@ -234,8 +272,8 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
         ? Math.max(0, Math.min(100, 100 - rank))
         : 50
 
-  // target_object: prefer explicit, else read first entry from target_refs
-  // when emitted in that convention.
+  // target_object: prefer explicit, else read the first target_refs entry —
+  // contract `kind` or legacy `type` convention, via guidanceTargetType.
   let target_object: DerivedGuidanceItem['target_object']
   if (isPlainObject(r.target_object)) {
     const t = r.target_object
@@ -251,9 +289,8 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
   } else if (Array.isArray(r.target_refs) && r.target_refs.length > 0) {
     const first = r.target_refs[0]
     if (isPlainObject(first)) {
-      const ttype = safeString(first.type)
-      if (ttype === 'node' || ttype === 'edge' || ttype === 'option' ||
-          ttype === 'graph' || ttype === 'framing') {
+      const ttype = guidanceTargetType(first)
+      if (ttype) {
         target_object = {
           type: ttype,
           ...(safeString(first.id) ? { id: safeString(first.id) } : {}),
@@ -264,15 +301,18 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
   }
 
   // related_elements: pass through additional target_refs beyond the first.
+  // `type` carries the mapped vocabulary (contract kind or legacy type);
+  // unmappable refs keep their id/label so id-based matching still works.
   let related_elements: DerivedGuidanceItem['related_elements']
   if (Array.isArray(r.target_refs) && r.target_refs.length > 1) {
     related_elements = []
     for (let i = 1; i < r.target_refs.length; i++) {
       const ref = r.target_refs[i]
       if (!isPlainObject(ref)) continue
+      const mapped = guidanceTargetType(ref)
       related_elements.push({
         ...(safeString(ref.id) ? { id: safeString(ref.id) } : {}),
-        ...(safeString(ref.type) ? { type: safeString(ref.type) } : {}),
+        ...(mapped ? { type: mapped } : {}),
         ...(safeString(ref.label) ? { label: safeString(ref.label) } : {}),
       })
     }
