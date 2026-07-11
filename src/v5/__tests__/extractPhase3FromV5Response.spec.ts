@@ -200,6 +200,138 @@ describe('extractPhase3FromV5Response', () => {
   })
 })
 
+describe('extractPhase3FromV5Response — contract target_refs (TargetRefSchema {id,label,kind})', () => {
+  // The wire contract (@talchain/schemas TargetRefSchema §0.1, strict) emits
+  // `kind` ∈ factor|option|edge|goal|risk|constraint|outcome — NOT the legacy
+  // `type` ∈ node|edge|option|graph|framing convention this extractor
+  // originally read. These tests pin the contract convention end-to-end.
+
+  function coachingWithRefs(target_refs: unknown[]): OlumiResponseWithExtensions {
+    return attachExtensions(baseResponse(), {
+      phase3_blocks: [
+        {
+          type: 'coaching',
+          id: 'c-refs',
+          title: 'Check this element',
+          target_refs,
+        },
+      ],
+    })
+  }
+
+  it('derives target_object from a contract ref: kind=factor maps to node', () => {
+    const r = extractPhase3FromV5Response(
+      coachingWithRefs([{ id: 'node-77', label: 'Pricing', kind: 'factor' }]),
+    )
+    expect(r.guidanceItems).toHaveLength(1)
+    expect(r.guidanceItems[0].target_object).toEqual({
+      type: 'node',
+      id: 'node-77',
+      label: 'Pricing',
+    })
+  })
+
+  it('maps kind=edge to edge and kind=option to option', () => {
+    const edge = extractPhase3FromV5Response(
+      coachingWithRefs([{ id: 'edge-3', label: 'Price → Churn', kind: 'edge' }]),
+    )
+    expect(edge.guidanceItems[0].target_object).toEqual({
+      type: 'edge',
+      id: 'edge-3',
+      label: 'Price → Churn',
+    })
+
+    const option = extractPhase3FromV5Response(
+      coachingWithRefs([{ id: 'opt-1', label: 'Acquire', kind: 'option' }]),
+    )
+    expect(option.guidanceItems[0].target_object).toEqual({
+      type: 'option',
+      id: 'opt-1',
+      label: 'Acquire',
+    })
+  })
+
+  it.each(['goal', 'risk', 'constraint', 'outcome'] as const)(
+    'maps kind=%s to node (all non-edge, non-option kinds are canvas nodes)',
+    (kind) => {
+      const r = extractPhase3FromV5Response(
+        coachingWithRefs([{ id: `el-${kind}`, label: `The ${kind}`, kind }]),
+      )
+      expect(r.guidanceItems[0].target_object).toEqual({
+        type: 'node',
+        id: `el-${kind}`,
+        label: `The ${kind}`,
+      })
+    },
+  )
+
+  it('fails closed on an unknown kind — no target_object fabricated', () => {
+    const r = extractPhase3FromV5Response(
+      coachingWithRefs([{ id: 'x-1', label: 'Mystery', kind: 'galaxy' }]),
+    )
+    expect(r.guidanceItems).toHaveLength(1)
+    expect(r.guidanceItems[0].target_object).toBeUndefined()
+  })
+
+  it('prefers contract kind over a stray legacy type when both are present', () => {
+    const r = extractPhase3FromV5Response(
+      coachingWithRefs([{ id: 'n-9', label: 'Both', kind: 'factor', type: 'edge' }]),
+    )
+    expect(r.guidanceItems[0].target_object).toEqual({
+      type: 'node',
+      id: 'n-9',
+      label: 'Both',
+    })
+  })
+
+  it('keeps the legacy type convention working when kind is absent', () => {
+    const r = extractPhase3FromV5Response(
+      coachingWithRefs([{ id: 'node-A', label: 'Legacy', type: 'node' }]),
+    )
+    expect(r.guidanceItems[0].target_object).toEqual({
+      type: 'node',
+      id: 'node-A',
+      label: 'Legacy',
+    })
+  })
+
+  it('tolerates a contract ref without id (label-only), matching the legacy branch', () => {
+    const r = extractPhase3FromV5Response(
+      coachingWithRefs([{ label: 'Label only', kind: 'factor' }]),
+    )
+    expect(r.guidanceItems[0].target_object).toEqual({
+      type: 'node',
+      label: 'Label only',
+    })
+  })
+
+  it('maps kind onto related_elements type for refs beyond the first', () => {
+    const r = extractPhase3FromV5Response(
+      coachingWithRefs([
+        { id: 'node-1', label: 'Primary', kind: 'factor' },
+        { id: 'edge-2', label: 'Linked edge', kind: 'edge' },
+        { id: 'risk-3', label: 'Linked risk', kind: 'risk' },
+      ]),
+    )
+    expect(r.guidanceItems[0].related_elements).toEqual([
+      { id: 'edge-2', type: 'edge', label: 'Linked edge' },
+      { id: 'risk-3', type: 'node', label: 'Linked risk' },
+    ])
+  })
+
+  it('omits related_elements type for an unknown kind but keeps id and label', () => {
+    const r = extractPhase3FromV5Response(
+      coachingWithRefs([
+        { id: 'node-1', label: 'Primary', kind: 'factor' },
+        { id: 'z-1', label: 'Future thing', kind: 'galaxy' },
+      ]),
+    )
+    expect(r.guidanceItems[0].related_elements).toEqual([
+      { id: 'z-1', label: 'Future thing' },
+    ])
+  })
+})
+
 describe('v5ResponseHasRunAnalysisFact', () => {
   it('returns true when CEE explicitly emits has_run_analysis_fact=true', () => {
     const response = attachExtensions(
