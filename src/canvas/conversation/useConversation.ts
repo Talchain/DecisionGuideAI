@@ -3200,11 +3200,15 @@ export function useConversation(): UseConversationReturn {
               // POC Lane C (edit-journey display closure): applied-edit
               // receipt ingestion. CEE #414/#424 attach the FULL committed
               // post-mutation graph to applied-edit receipts via the same
-              // top-level draft_graph field, post-commit only. A non-empty
-              // canvas can never receive a fresh-draft draft_graph (CEE's
-              // draft dispatch requires graphState == null and this client
-              // sends graph_state every turn), so this branch is exactly the
-              // applied-structural-edit case: merge ADDITIVELY so a confirmed
+              // top-level draft_graph field, post-commit only. The V5 payload
+              // carries NO graph_state (buildPayload.ts — CEE's
+              // extensions.graphState is null on every V5 turn), so what
+              // keeps a fresh-draft draft_graph away from a non-empty canvas
+              // is CEE's continuation guard (route-v2 isDraftGraphShape
+              // requires no prior committed turns on the scenario) — plus the
+              // client-side zero-overlap guard inside mergeAppliedGraphAdditive
+              // for the residual misfire (fresh scenario_id + populated canvas
+              // + first brief-shaped message). Merge ADDITIVELY so a confirmed
               // added factor/edge appears without a reload. Existing elements
               // are never repositioned or rewritten; a receipt with nothing
               // new is a strict no-op (see mergeAppliedGraphAdditive).

@@ -11,12 +11,21 @@
  * canvasIsEmpty, so a confirmed structural edit (add factor / add edge) never
  * reached a populated canvas until a full reload.
  *
- * Why the gate "draft_graph + non-empty canvas ⇒ applied-edit receipt" is
- * sound: CEE's fresh-draft dispatch fires only when the request carries NO
- * graph_state (route-v2 `isDraftGraphShape` requires
- * `extensions.graphState == null`), and this client sends graph_state on
- * every turn. A non-empty canvas therefore can never receive a fresh-draft
- * draft_graph — only the post-mutation receipt shape.
+ * Why "draft_graph + non-empty canvas" is treated as an applied-edit receipt:
+ * the V5 payload carries NO graph_state (buildPayload.ts — MessageTurnPayload
+ * is turn ids/stage/message/source/chip only), so CEE's
+ * `extensions.graphState` is null on EVERY V5 turn and does not discriminate.
+ * The actual server-side suppression of the fresh-draft dispatch is the
+ * continuation guard: route-v2 `isDraftGraphShape` requires
+ * `!isContinuationScenario` (loadHasPriorTurns on the scenario), and a
+ * non-empty canvas normally belongs to a scenario with prior committed turns.
+ * The reachable misfire — a FRESH scenario_id with a populated canvas whose
+ * first message is a ≥30-char brief-shaped text — slips past that guard and
+ * returns a misdrafted fresh graph; the zero-overlap guard below drops it
+ * client-side (an applied receipt always supersets the committed graph, so
+ * zero node-id overlap with the canvas is diagnostic). CEE also COMMITS that
+ * misdrafted graph server-side — a pre-existing CEE bug filed as its own
+ * follow-up lane (see PR #266 body).
  *
  * Semantics — ADDITIVE ONLY:
  *   - Wire nodes/edges missing from the canvas are added, converted with the
@@ -30,18 +39,23 @@
  *     the current graph's bounding box so the user's layout is untouched.
  *   - A receipt whose graph carries nothing new (e.g. a value-only edit) is a
  *     strict no-op — no history entry, no store write, no autosave.
+ *   - Zero node-id overlap with a non-empty canvas ⇒ DROP + structured warn
+ *     (never graft an unrelated graph).
  *
  * Freshness: deliberately NOT marking the local dirty overlay here. The same
  * response carries CEE's post-apply analysis_ready.freshness verdict (routed
  * through applyV5State step 4 setAnalysisFreshness before this merge runs);
  * that verdict is authoritative for exactly this graph — the overlay exists
- * for local writes CEE has not seen. pushHistory below still flips
- * graphEditedSinceLastRun / analysisStateReady=false, which is true: the
- * graph changed since the last analysis run.
+ * for local writes CEE has not seen. graphEditedSinceLastRun /
+ * analysisStateReady are set EXPLICITLY in the commit below (true / false):
+ * pushHistory alone cannot be relied on for them, because pushToHistory
+ * early-returns without flipping either flag when the pre-merge state equals
+ * the last history snapshot.
  */
 
 import { useCanvasStore } from '../store'
 import { validateNodesBatch } from '../domain/nodes'
+import { logger } from '../../lib/logger'
 import { saveAutosave } from '../store/scenarios'
 import { pulseAppliedTargets } from './appliedEditPulse'
 import {
@@ -72,6 +86,26 @@ export function mergeAppliedGraphAdditive(
   const store = useCanvasStore.getState()
   const existingNodeIds = new Set(store.nodes.map((n) => n.id))
   const existingEdgeIds = new Set(store.edges.map((e) => e.id))
+
+  // Structural guard (PR #266 review): an applied-edit receipt's graph is the
+  // COMMITTED canvas graph plus/minus the edit, so it always shares node ids
+  // with a non-empty canvas. Zero overlap means this draft_graph is a
+  // misdrafted FRESH graph (fresh scenario_id + populated canvas + first
+  // brief-shaped message slips past CEE's continuation guard) — grafting it
+  // would union two unrelated graphs. Drop and warn instead.
+  if (store.nodes.length > 0 && rawNodes.length > 0) {
+    const hasOverlap = rawNodes.some(
+      (n: any) => n != null && typeof n.id === 'string' && existingNodeIds.has(n.id)
+    )
+    if (!hasOverlap) {
+      logger.warn('merge_applied_graph.zero_overlap_drop', {
+        scenarioId: store.currentScenarioId ?? null,
+        canvasNodeCount: store.nodes.length,
+        wireNodeCount: rawNodes.length,
+      })
+      return { addedNodeCount: 0, addedEdgeCount: 0 }
+    }
+  }
   // Endpoint-pair dedupe: an existing edge whose id was locally rewritten
   // (fallback `e-${i}` ids from an earlier draft) must not be re-added under
   // the wire's id. Parallel edges between the same pair are not a supported
@@ -107,16 +141,23 @@ export function mergeAppliedGraphAdditive(
     ...existingNodeIds,
     ...addedNodes.map((n: any) => n.id as string),
   ])
+  // Track endpoint pairs already taken — by existing canvas edges AND by
+  // earlier NEW edges in this same receipt. The commit below writes via a
+  // direct setState (bypassing addEdge's duplicate guard), so two wire edges
+  // sharing a pair must self-dedupe here (first wins).
+  const seenEdgePairs = new Set(existingEdgePairs)
   const missingRawEdges = rawEdges.filter((e: any) => {
     if (e == null) return false
     const from = e.from ?? e.source
     const to = e.to ?? e.target
     if (typeof from !== 'string' || typeof to !== 'string') return false
     if (typeof e.id === 'string' && existingEdgeIds.has(e.id)) return false
-    if (existingEdgePairs.has(`${from}\u0000${to}`)) return false
+    if (seenEdgePairs.has(`${from}\u0000${to}`)) return false
     // Fail-closed: never add a dangling edge (e.g. wire endpoint the user
     // deleted locally and the receipt re-references).
-    return unionNodeIds.has(from) && unionNodeIds.has(to)
+    if (!unionNodeIds.has(from) || !unionNodeIds.has(to)) return false
+    seenEdgePairs.add(`${from}\u0000${to}`)
+    return true
   })
   const usedEdgeIds = new Set<string>(existingEdgeIds)
   const addedEdges = missingRawEdges.map((e: any, i: number) => {
@@ -139,6 +180,12 @@ export function mergeAppliedGraphAdditive(
   useCanvasStore.setState({
     nodes: [...canvas.nodes, ...addedNodes],
     edges: [...canvas.edges, ...addedEdges],
+    // Set the staleness flags EXPLICITLY: pushToHistory sets them too, but
+    // early-returns without flipping either when the pre-merge state equals
+    // the last history snapshot (dedupe guard, store.ts) — and a structural
+    // add always makes the last analysis snapshot stale.
+    graphEditedSinceLastRun: true,
+    analysisStateReady: false,
   })
 
   // Warning-only schema validation on the added nodes (mirrors applyDraftResult).
