@@ -47,6 +47,7 @@ const flagState = { aiPanelV2: false }
 vi.mock('../../../flags', () => ({
   isTelemetryEnabled: () => false,
   isCompareEnabled: () => false,
+  isRequireLoginEnabled: () => false, // login 3.4 — lib/poc.ts reads it
   isOrchestratorV2Enabled: () => false,
   isLegacyDirectRunEnabled: () => true,
   isJourneyTabEnabled: () => false,

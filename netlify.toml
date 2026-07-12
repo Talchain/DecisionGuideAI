@@ -90,8 +90,11 @@
   #   Tailwind and component libraries inject runtime styles that cannot use nonces
   # connect-src: Pinned to specific Render subdomains (tightened from *.onrender.com).
   # In production, all service calls route through /bff/* (same-origin) via Netlify redirects/edge functions.
-  # These explicit entries cover local dev overrides (VITE_CEE_DRAFT_BASE, VITE_ISL_BFF_BASE).
-  Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://plot-lite-service-staging.onrender.com https://olumi-assistants-service.onrender.com https://cee-staging.onrender.com https://isl-staging.onrender.com https://*.supabase.co https://api.openai.com wss://*.supabase.co; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
+  # These explicit entries cover local dev overrides (VITE_CEE_DRAFT_BASE).
+  # isl-staging removed (login 3.4 item 4): the browser has no legitimate
+  # direct ISL path — all ISL traffic is same-origin /bff/isl via the edge
+  # proxy (adapters/isl/client.ts), which browser CSP does not govern.
+  Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://plot-lite-service-staging.onrender.com https://olumi-assistants-service.onrender.com https://cee-staging.onrender.com https://*.supabase.co https://api.openai.com wss://*.supabase.co; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
   # Prevent clickjacking
   X-Frame-Options = "DENY"
   # Prevent MIME sniffing

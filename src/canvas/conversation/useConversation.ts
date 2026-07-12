@@ -85,7 +85,8 @@ import { applyAnalysisReadyPatch } from './utils/mirrorAnalysisReady'
 import { loadScenario as loadScenarioFromDb } from '../../services/scenarioService'
 import { applyDraftResult, backfillGoalThresholdOntoGoalNode } from '../utils/applyDraftResult'
 import { mergeAppliedGraphAdditive } from '../utils/mergeAppliedGraph'
-import { getUserId } from '../../lib/supabase'
+import { getSessionIdentity } from '../../lib/supabase'
+import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import { validateResponse, stripRepairLogLines, FALLBACK_TEXT } from './validateResponse'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
@@ -3025,11 +3026,12 @@ export function useConversation(): UseConversationReturn {
         }
 
         try {
-          // Resolve user ID once — used for both the X-User-Id request header
-          // and the post-response graph re-fetch auth guard. A single call
-          // avoids two getSession() round-trips per turn.
-          const v5UserId = await getUserId()
-          const v5Headers: Record<string, string> = v5UserId ? { 'X-User-Id': v5UserId } : {}
+          // Resolve session identity once — X-User-Id + Authorization Bearer
+          // (login 3.4 UI half) and the post-response graph re-fetch auth
+          // guard. A single call avoids two getSession() round-trips per turn.
+          const v5Identity = await getSessionIdentity()
+          const v5UserId = v5Identity.userId
+          const v5Headers: Record<string, string> = buildTurnAuthHeaders(v5Identity)
           const v5Result = await callV5Turn(build.payload, { signal: controller.signal, headers: v5Headers })
           clearLifecycleTimers()
 

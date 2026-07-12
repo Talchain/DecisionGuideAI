@@ -13,6 +13,7 @@ import {
   Pin, MoreVertical, Copy, Archive, ArchiveRestore,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { GuestDraftImportBanner } from '../components/auth/GuestDraftImportBanner'
 import { useScenario } from '../hooks/useScenario'
 import * as scenarioService from '../services/scenarioService'
 import type { ScenarioListItem, ScenarioStage, AnalysisStatus, ScenarioEvent } from '../types/scenario'
@@ -366,6 +367,13 @@ export default function ScenarioListPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-6 pb-12 sm:px-8">
+        {/* Login 3.4: one-time guest-draft import offer (flag-gated dark).
+            Above the first-run ternary deliberately — a guest who signs in
+            fresh has zero scenarios, so the draft offer must survive the
+            welcome state. NO wrapper element: the banner returns null when
+            no offer is due, so flag-off renders zero extra DOM (review S1 —
+            an unconditional wrapper shifted the first-run state 16px). */}
+        <GuestDraftImportBanner />
         {isFirstRun ? (
           /* ---- First-run welcome ---- */
           <div className="text-center py-20" data-testid="first-run">

@@ -402,6 +402,21 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_REASONING_DISCLOSURE',
     storageKey: 'feature.reasoningDisclosure',
   },
+  // Login 3.4 UI half: when ON, no guest user is minted (lib/poc.ts
+  // isGuestAuth) and unauthenticated visitors land on LoginPage via the
+  // already-mounted AuthGuard. Default OFF — the live flip is Paul-gated
+  // (UX approval + integration verify); flag-off is pinned byte-identical
+  // to guest-mode-today in lib/__tests__/poc.requireLogin.spec.ts.
+  // ⚠ FLIP RUNBOOK: this flag alone is NOT sufficient in a guest-env
+  // BUILD — vite.config.ts aliases @supabase/supabase-js to a stub when
+  // VITE_AUTH_MODE=guest at build time (staging's netlify.toml pins it),
+  // so flag-on there renders LoginPage but sign-in silently no-ops. The
+  // real flip needs the build env switched to real-auth (VITE_AUTH_MODE
+  // unset/real + real Supabase env) IN ADDITION to this flag.
+  requireLogin: {
+    envKey: 'VITE_REQUIRE_LOGIN',
+    storageKey: 'feature.requireLogin',
+  },
 } as const
 
 // ============================================================================
@@ -473,6 +488,7 @@ const flags = {
   aiPanelV2: makeFlag(FLAGS_CONFIG.aiPanelV2),
   v5CanonicalAnalysis: makeFlag(FLAGS_CONFIG.v5CanonicalAnalysis),
   reasoningDisclosure: makeFlag(FLAGS_CONFIG.reasoningDisclosure),
+  requireLogin: makeFlag(FLAGS_CONFIG.requireLogin),
 }
 
 // Export with original naming convention for backward compatibility
@@ -542,6 +558,7 @@ export const isV5CanonicalAnalysisEnabled = flags.v5CanonicalAnalysis
 export const diagnoseV5CanonicalAnalysis = () =>
   diagnoseFlagState(FLAGS_CONFIG.v5CanonicalAnalysis)
 export const isReasoningDisclosureEnabled = flags.reasoningDisclosure
+export const isRequireLoginEnabled = flags.requireLogin
 
 
 // ============================================================================

@@ -73,20 +73,36 @@ export const supabase = createClient<Database>(
 // ---------------- Auth Helpers ----------------
 
 export async function getUserId(): Promise<string | null> {
+  const { userId } = await getSessionIdentity()
+  return userId
+}
+
+/**
+ * Login 3.4 UI half: single-getSession identity read — user id for the
+ * X-User-Id header plus the access token for `Authorization: Bearer`
+ * (LOGIN-CEE-HALF-SPEC coordination contract). One call per turn; callers
+ * must never make a second getSession() round-trip for the token.
+ */
+export async function getSessionIdentity(): Promise<{
+  userId: string | null
+  accessToken: string | null
+}> {
   const { data, error } = await supabase.auth.getSession()
   // Security: Never log session objects (contain access_token/refresh_token)
   // Only log safe metadata via explicit debug flag
-  debugLog('logAuth', '[getUserId] supabase.auth.getSession →', {
+  debugLog('logAuth', '[getSessionIdentity] supabase.auth.getSession →', {
     hasSession: !!data?.session,
     userId: data?.session?.user?.id ?? null,
     error: error?.message ?? null,
   })
-  const userId = data?.session?.user?.id
-  if (error || !userId) {
+  if (error || !data?.session) {
     debugLog('logAuth', '[Supabase] getSession error:', error?.message)
-    return null
+    return { userId: null, accessToken: null }
   }
-  return userId
+  return {
+    userId: data.session.user?.id ?? null,
+    accessToken: data.session.access_token ?? null,
+  }
 }
 
 // ---------------- Profile Management ----------------
