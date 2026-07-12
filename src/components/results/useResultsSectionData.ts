@@ -12,7 +12,7 @@
  * - Merged improvements with deduplication
  */
 
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { safeArray } from '../../lib/array-utils'
 import { useCanvasStore } from '../../canvas/store'
 import { THRESHOLDS, LIMITS } from '../../lib/mappers/constants'
@@ -2852,6 +2852,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       }),
     [resultsStatus, report, runMeta?.ceeReviewV1],
   )
+
+  // Wave F-A: register option ids for identity-anchored ordinals the first
+  // time each id appears (append-only merge; per-scenario continuity —
+  // hydrateGraphSlice resets). Ordinals are display continuity only.
+  const optionIdsKey = recommendation.allOptions.map((o) => o.id).join(' ')
+  useEffect(() => {
+    if (!optionIdsKey) return
+    useCanvasStore.getState().registerOptionNumbering(optionIdsKey.split(' '))
+  }, [optionIdsKey])
 
   return {
     recommendation,
