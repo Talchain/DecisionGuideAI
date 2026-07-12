@@ -2815,6 +2815,16 @@ export function useConversation(): UseConversationReturn {
         if (isUserPreempt) {
           if (import.meta.env.DEV) console.warn('[sendTurn] Preempting in-flight V5 request for new user send')
           abortRef.current?.abort()
+          // The aborted turn only clears isThinkingRef in its async finally,
+          // which runs AFTER the aborted fetch settles. Clear it synchronously
+          // here so this preempting send is not immediately blocked by the
+          // isThinking guard below — otherwise the in-flight turn is aborted
+          // AND the user's new message is silently dropped, contradicting the
+          // preempt design ("abort the in-flight request rather than drop the
+          // send"). The aborted run's late finally is ownership-guarded
+          // (generation token + active-turn ref) so it cannot clobber this
+          // newer turn's lock or analysing state.
+          isThinkingRef.current = false
         } else {
           if (import.meta.env.DEV) console.warn('[sendTurn] Blocked by in-flight lock (rapid double-click?)')
           return
