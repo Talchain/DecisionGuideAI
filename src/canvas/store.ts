@@ -614,6 +614,15 @@ interface CanvasState {
   clearErrorDetails: () => void
   resultsCancelled: () => void
   resultsReset: () => void
+  /** 1.16i: authoritative analysing state for the live V5 run turn — sets
+   * 'preparing' at dispatch while preserving the prior report/hash/seed/
+   * drivers (unlike resultsStart, no seed is known yet). */
+  resultsAnalysing: () => void
+  /** 1.16i: every-exit cleanup for the V5 run turn — from 'preparing',
+   * returns to 'complete' when a preserved report exists (restoring
+   * analysisStateReady) or 'idle' when none does; no-op otherwise. A landed
+   * analysis_result has already flipped 'complete' via resultsComplete. */
+  resultsSettle: () => void
   resultsLoadHistorical: (run: StoredRun) => void
   /** Hydrate results from Supabase row.analysis (V2RunResponse already mapped to store shape) */
   resultsHydrateFromSupabase: (hydrated: {
@@ -2777,6 +2786,50 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // never landed, so don't send stale analysis_state on subsequent turns.
       analysisStateReady: false,
     }))
+  },
+
+  resultsAnalysing: () => {
+    set(s => ({
+      results: {
+        ...s.results,
+        status: 'preparing',
+        progress: 0,
+        startedAt: Date.now(),
+        finishedAt: undefined,
+        error: undefined,
+        // Everything else (report/hash/seed/drivers) preserved so a
+        // settle-back after a resultless turn restores the prior run intact.
+      },
+      // Graph Lens: auto-reset on new analysis run (resultsStart parity).
+      lens: createDefaultLensState(),
+      // A new run is in flight — same contract as resultsStart: the previous
+      // snapshot must not be sent to CEE while the new one is pending.
+      analysisStateReady: false,
+    }))
+  },
+
+  resultsSettle: () => {
+    const s = get()
+    if (s.results.status !== 'preparing') return
+    if (s.results.report) {
+      set(st => ({
+        results: {
+          ...st.results,
+          status: 'complete',
+          progress: 100,
+        },
+        // The preserved snapshot is (again) the latest valid analysis.
+        analysisStateReady: true,
+      }))
+    } else {
+      set(st => ({
+        results: {
+          ...st.results,
+          status: 'idle',
+          progress: 0,
+        },
+      }))
+    }
   },
 
   resultsLoadHistorical: (run: StoredRun) => {
