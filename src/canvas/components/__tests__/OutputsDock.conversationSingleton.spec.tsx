@@ -48,6 +48,7 @@ vi.mock('../../../flags', () => ({
   isTelemetryEnabled: () => false,
   isCompareEnabled: () => false,
   isRequireLoginEnabled: () => false, // login 3.4 — lib/poc.ts reads it
+  isDecisionOverviewEnabled: () => false, // Wave 1 — OutputsDock mount gate reads it
   isOrchestratorV2Enabled: () => false,
   isLegacyDirectRunEnabled: () => true,
   isJourneyTabEnabled: () => false,
