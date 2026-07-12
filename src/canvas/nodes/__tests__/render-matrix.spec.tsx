@@ -1108,3 +1108,57 @@ describe('OptionNode — is_baseline rendering', () => {
     expect(screen.queryByText(/No changes to factors/i)).toBeNull()
   })
 })
+
+describe('N1 — per-type selection ring', () => {
+  const nodeState = (highlightedIds: string[] = []) => ({
+    hoveredOptionId: null,
+    nodes: [],
+    edges: [],
+    ceeAnalysisReady: null,
+    results: { status: 'idle', report: null },
+    highlightedNodes: new Set(highlightedIds),
+    dimmedNodeIds: new Set(),
+    lens: { _dimmedNodeIds: new Set(), _hiddenNodeIds: new Set(), active: 'full' },
+    goalThreshold: null,
+    goalConstraints: [],
+    setHoveredOption: vi.fn(),
+    runMeta: { ceeReview: null },
+    viewMode: 'expert',
+  })
+  const applyState = (highlightedIds: string[] = []) =>
+    vi.mocked(useCanvasStore).mockImplementation((sel: any) => sel(nodeState(highlightedIds)))
+
+  // @xyflow/react NodeProps require these; baseFactorProps predates that.
+  const selProps = { ...baseFactorProps, selected: true, draggable: false, selectable: true, deletable: true }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null, influence: null, confidence: null, inSensitivityAnalysis: false,
+      achievementProbability: null, stabilityPercentage: null, winRate: null, isResultsMode: false,
+    } as any)
+  })
+
+  it('a selected factor node wears the factor-type ring, not the old hardcoded info ring', () => {
+    applyState()
+    render(<ReactFlowProvider><FactorNode {...selProps} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
+    const group = screen.getAllByRole('group')[0]
+    expect(group.className).toContain('ring-factor/50')
+    expect(group.className).not.toContain('ring-info')
+  })
+
+  it('a selected risk node wears the danger-type ring', () => {
+    applyState()
+    render(<ReactFlowProvider><RiskNode {...selProps} id="risk-1" type="risk" data={{ label: 'Attrition' }} /></ReactFlowProvider>)
+    const group = screen.getAllByRole('group')[0]
+    expect(group.className).toContain('ring-danger/50')
+  })
+
+  it('selected + AI-highlighted: the highlight ring wins, the per-type selection ring is suppressed', () => {
+    applyState(['factor-1'])
+    render(<ReactFlowProvider><FactorNode {...selProps} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
+    const group = screen.getAllByRole('group')[0]
+    expect(group.className).toContain('ring-goal/50')
+    expect(group.className).not.toContain('ring-factor/50')
+  })
+})
