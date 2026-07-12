@@ -10,6 +10,7 @@ import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS } from './domain/edges'
 import { parseRunHash } from './utils/shareLink'
 import { useInitialLayoutGuard } from './hooks/useInitialLayoutGuard'
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion'
+import { useEditedSinceRun } from './hooks/useEditedSinceRun'
 import { cameraDuration } from './utils/cameraMotion'
 import { neighbourhoodNodeIds } from './utils/focusNeighbourhood'
 import { useMeasureThenLayout } from './hooks/useMeasureThenLayout'
@@ -944,6 +945,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // Graph Interaction P1: Enable path highlighting based on node selection
   // Highlights causal paths from selected factor to goal, dims unrelated nodes
   usePathHighlight()
+
+  // N3 (graph-visuals): keep the edited-since-run node set in sync so nodes
+  // can wear the amber "edited since analysis" corner dot.
+  useEditedSinceRun()
 
   // Graph Lens: Compute lens visuals and push to store
   useLensFilter()

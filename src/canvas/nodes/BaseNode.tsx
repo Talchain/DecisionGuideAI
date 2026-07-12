@@ -78,6 +78,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // on every store update. Selecting the entire Set causes infinite loops since
   // Set references change on each store update.
   const isHighlighted = useCanvasStore(s => s.highlightedNodes.has(id))
+  // N3: edited since the last analysis run (amber corner dot; undefined-safe
+  // for node-spec store doubles without the slice).
+  const isEditedSinceRun = useCanvasStore(s => s.editedSinceRunNodeIds?.has(id) === true)
 
   // Graph Interaction P1: Node dimming for path highlighting
   // Nodes not on the highlighted path are dimmed (opacity ~0.4)
@@ -287,6 +290,17 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         minHeight: isExpanded ? '120px' : undefined,
       }}
     >
+      {/* N3 (graph-visuals): amber corner dot — this node was edited since
+          the last analysis run (device-local diff vs the run snapshot; the
+          freshness strip stays the single freshness owner, this is WHERE).
+          Amber = the warning family per Paul's C2 hue ruling. */}
+      {isEditedSinceRun && (
+        <span
+          data-testid={`edited-since-run-${id}`}
+          title="Edited since the last analysis"
+          className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-warning border border-canvas"
+        />
+      )}
       {/* Phase 2: Node badges for CEE/ISL warnings */}
       <NodeBadge
         nodeId={id}
