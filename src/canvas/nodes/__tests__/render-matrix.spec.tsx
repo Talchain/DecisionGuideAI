@@ -1171,6 +1171,20 @@ describe('N1 — per-type selection ring', () => {
     expect(group.className).toContain('ring-info/60')
   })
 
+  it('N3: a node in editedSinceRunNodeIds wears the amber edited dot', () => {
+    vi.mocked(useCanvasStore).mockImplementation((sel: any) =>
+      sel({ ...nodeState([]), editedSinceRunNodeIds: new Set(['factor-1']) }),
+    )
+    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
+    expect(screen.getByTestId('edited-since-run-factor-1')).toBeInTheDocument()
+  })
+
+  it('N3: no edited dot when the node is not in the set (and no crash without the slice)', () => {
+    applyState([])
+    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
+    expect(screen.queryByTestId('edited-since-run-factor-1')).toBeNull()
+  })
+
   it('N2: a non-highlighted node has no pulse', () => {
     applyState([])
     render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)

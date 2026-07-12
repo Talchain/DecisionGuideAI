@@ -436,6 +436,11 @@ interface CanvasState {
   highlightedNodes: Set<string>
   highlightedEdges: Set<string>
   dimmedNodeIds: Set<string>
+  /** N3 (graph-visuals): nodes edited since the last analysis run — computed
+   * by useEditedSinceRun (device-local diff vs the latest run snapshot,
+   * same mechanism class as the What-changed chip). Drives the amber
+   * corner dot on canvas nodes. */
+  editedSinceRunNodeIds: Set<string>
   // S.4: Session-only "user-reviewed" tracking — resets on page refresh
   confirmedNodeIds: Set<string>
   // Decision Graph Display v2 Task 11: Option hover state for intervention highlighting
@@ -700,6 +705,8 @@ interface CanvasState {
   setHighlightedNodes: (ids: string[]) => void
   setHighlightedEdges: (ids: string[]) => void
   setDimmedNodes: (ids: string[]) => void
+  /** N3: replace the edited-since-run set (called by the useEditedSinceRun effect). */
+  setEditedSinceRunNodes: (ids: string[]) => void
   // S.4: Toggle "user-reviewed" confirmation on a node (session-only)
   toggleConfirmedNode: (nodeId: string) => void
   // Decision Graph Display v2 Task 11: Option hover for intervention highlighting
@@ -1285,6 +1292,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   highlightedNodes: new Set<string>(),
   highlightedEdges: new Set<string>(),
   dimmedNodeIds: new Set<string>(),
+  editedSinceRunNodeIds: new Set<string>(),
   confirmedNodeIds: new Set<string>(),
   hoveredOptionId: null,
   // Graph Lens: ephemeral canvas filtering state.
@@ -3718,6 +3726,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
   setDimmedNodes: (ids: string[]) => {
     set({ dimmedNodeIds: new Set(ids) })
+  },
+  setEditedSinceRunNodes: (ids: string[]) => {
+    // No-op set-skip when unchanged so the effect's recompute on every node
+    // edit doesn't re-render all nodes needlessly.
+    const prev = get().editedSinceRunNodeIds
+    if (prev.size === ids.length && ids.every((id) => prev.has(id))) return
+    set({ editedSinceRunNodeIds: new Set(ids) })
   },
   // S.4: Toggle "user-reviewed" confirmation (session-only, resets on refresh)
   toggleConfirmedNode: (nodeId: string) => {
