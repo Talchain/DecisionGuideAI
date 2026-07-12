@@ -49,6 +49,37 @@ export function isEdgeFragile(
   })
 }
 
+/** The switch probability an entry reports (above the visibility floor), else null. */
+function entrySwitchProb(fe: FragileEdgeCandidate): number | null {
+  const p = fe.switch_probability ?? fe.switchProbability ??
+            fe.marginal_switch_probability ?? fe.marginalSwitchProbability
+  return typeof p === 'number' && p > THRESHOLDS.FRAGILE_EDGE_FILTER ? p : null
+}
+
+/**
+ * Whether this edge is THE single top fragile relationship — the one with the
+ * highest switch probability above the visibility floor. Used to surface one
+ * fragility badge in the default (standard) view (E4 graph-visuals) without
+ * cluttering the map with every fragile edge. On a tie, the first entry wins
+ * (deterministic — a >, not >=, comparison). Returns false when nothing is
+ * fragile above the floor.
+ */
+export function isTopFragileEdge(
+  edgeId: string,
+  edgeSource: string,
+  edgeTarget: string,
+  fragileEdges: FragileEdgeCandidate[],
+): boolean {
+  let top: FragileEdgeCandidate | null = null
+  let topProb = -Infinity
+  for (const fe of fragileEdges) {
+    const p = entrySwitchProb(fe)
+    if (p != null && p > topProb) { topProb = p; top = fe }
+  }
+  if (!top) return false
+  return isEdgeFragile(edgeId, edgeSource, edgeTarget, [top])
+}
+
 /**
  * Return the switch_probability for a matching fragile edge, or null if not found.
  * Used to display the numeric sensitivity detail (Task 7).

@@ -31,7 +31,7 @@ import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { EdgeEditPopover } from './EdgeEditPopover'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
-import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability } from '../utils/fragileEdgeMatch'
+import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn } from '../utils/fragileEdgeMatch'
 import { existenceCertaintyToLineStyle, calculateEdgeImportance, importanceToStrokeWidth, weightMagnitudeToStrokeWidth } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
 import { getStrengthDescription, getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
@@ -156,6 +156,16 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     if (!isFragileEdge || !report?.robustness) return null
     const fragileEdges = report.robustness.fragile_edges || []
     return getFragileEdgeSwitchProbability(id, source, target, fragileEdges)
+  }, [isFragileEdge, report, id, source, target])
+
+  // E4 (graph-visuals): the SINGLE most fragile relationship earns a fragility
+  // badge in the default (standard) view too, so the top flip risk is visible
+  // on the map without switching to Detailed. Every fragile edge still badges
+  // in Detailed/Model view (below).
+  const isTopFragileEdge = useMemo(() => {
+    if (!isFragileEdge || !report?.robustness) return false
+    const fragileEdges = report.robustness.fragile_edges || []
+    return isTopFragileEdgeFn(id, source, target, fragileEdges)
   }, [isFragileEdge, report, id, source, target])
 
   // Extract edge data with defaults
@@ -717,10 +727,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         </EdgeLabelRenderer>
       )}
 
-      {/* Decision Graph Display v2 Task 4: Fragile edge warning badge (Results mode, Model view only) */}
-      {/* Decision view: no fragile badges (Phase 1) */}
-      {/* Structural edges are not analysed — fragility is meaningless. */}
-      {viewMode !== 'standard' && isFragileEdge && !isStructuralEdge && (
+      {/* Fragile edge warning badge. Detailed/Model view: every fragile edge.
+          E4 (graph-visuals): the default (standard) view shows the SINGLE top
+          fragile relationship so the key flip risk is on the map by default,
+          uncluttered. Structural edges are not analysed — never badged. */}
+      {(viewMode !== 'standard' ? isFragileEdge : isTopFragileEdge) && !isStructuralEdge && (
         <EdgeLabelRenderer>
           <div
             style={{
