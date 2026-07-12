@@ -2856,10 +2856,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // Wave F-A: register option ids for identity-anchored ordinals the first
   // time each id appears (append-only merge; per-scenario continuity —
   // hydrateGraphSlice resets). Ordinals are display continuity only.
-  const optionIdsKey = recommendation.allOptions.map((o) => o.id).join(' ')
+  // NUL separator: ids are UUIDs/CEE tokens today, but a separator that
+  // can never appear in an id removes both the fragmentation risk and the
+  // dep-key ambiguity outright (Wave-2 review).
+  const optionIdsKey = recommendation.allOptions.map((o) => o.id).join('\u0000')
   useEffect(() => {
     if (!optionIdsKey) return
-    useCanvasStore.getState().registerOptionNumbering(optionIdsKey.split(' '))
+    useCanvasStore.getState().registerOptionNumbering(optionIdsKey.split('\u0000'))
   }, [optionIdsKey])
 
   return {

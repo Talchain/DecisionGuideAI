@@ -11,6 +11,7 @@ import { sortOptionsForDisplay } from '../../utils/optionDisplayOrder'
 import type { HeroChartModel } from '../heroTypes'
 import {
   FULL_COMPLETENESS,
+  makeDriver,
   makeHeroData,
   makeOption,
   OPTION_A,
@@ -1004,5 +1005,160 @@ describe('buildHeroModel — goal-fit crown follows the goal argmax (UI-SEM-072)
     // All rows below the floor: the no-option-on-track honesty takes over.
     expect(m.leaders.goal).toBeNull()
     expect(m.headline).toBe('No option is currently on track to reach your goal.')
+  })
+})
+describe('Wave 2: identity-anchored stable numbers (brief §6.4)', () => {
+  it('rows carry stableNumber from the numbering map alongside the positional index', () => {
+    const m = chart(buildHeroModel(makeHeroData(), { opt_a: 1, opt_b: 2 }))
+    expect(m.rows.map((r) => [r.id, r.index, r.stableNumber])).toEqual([
+      ['opt_a', 1, 1],
+      ['opt_b', 2, 2],
+    ])
+  })
+
+  it('a rerun rank flip keeps stableNumber anchored to the option id', () => {
+    const a = makeOption({ ...OPTION_A, winProbability: 0.3 })
+    const b = makeOption({ ...OPTION_B, winProbability: 0.7 })
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] }), { opt_a: 1, opt_b: 2 }))
+    expect(m.rows.map((r) => [r.id, r.index, r.stableNumber])).toEqual([
+      ['opt_b', 1, 2],
+      ['opt_a', 2, 1],
+    ])
+  })
+
+  it('falls back to null for ALL rows when any id is unregistered (no positional/stable mixing)', () => {
+    const m = chart(buildHeroModel(makeHeroData(), { opt_a: 1 }))
+    expect(m.rows.map((r) => r.stableNumber)).toEqual([null, null])
+  })
+
+  it('omitting the numbering map keeps every stableNumber null (back-compat)', () => {
+    const m = chart(buildHeroModel(makeHeroData()))
+    expect(m.rows.map((r) => r.stableNumber)).toEqual([null, null])
+  })
+})
+describe('Wave 2 (§6.5): quick evidence links', () => {
+  const focusableTop = {
+    ...makeDriver('Developer capacity'),
+    canFocus: true,
+    matchedNodeId: 'node_dev_capacity',
+  }
+  const fragile = {
+    ...makeDriver('Salary cost'),
+    factorKey: 'fac_salary',
+    canFocus: true,
+    matchedNodeId: 'node_salary',
+    fragileEdgeInfo: { switchProbability: 0.62, alternativeWinnerLabel: 'Two developers' },
+  }
+
+  it('mainDriver carries the top driver focus target when focusable', () => {
+    const m = chart(buildHeroModel(makeHeroData({ drivers: { topDrivers: [focusableTop], drivers: [focusableTop] } })))
+    expect(m.quickLinks.mainDriver).toEqual({ label: 'Developer capacity', targetId: 'node_dev_capacity' })
+  })
+
+  it('mainDriver is null when the top driver cannot focus (static main reason remains)', () => {
+    const m = chart(buildHeroModel(makeHeroData()))
+    expect(m.quickLinks.mainDriver).toBeNull()
+    expect(m.mainReason).toBe('Main driver: Developer capacity.')
+  })
+
+  it('topFlipRisk picks the highest switch-probability fragile driver above the visibility floor', () => {
+    const weaker = {
+      ...makeDriver('Hiring speed'),
+      factorKey: 'fac_hiring',
+      canFocus: true,
+      matchedNodeId: 'node_hiring',
+      fragileEdgeInfo: { switchProbability: 0.3 },
+    }
+    const m = chart(buildHeroModel(makeHeroData({ drivers: { topDrivers: [focusableTop], drivers: [focusableTop, weaker, fragile] } })))
+    expect(m.quickLinks.topFlipRisk).toEqual({ label: 'Salary cost', targetId: 'node_salary' })
+  })
+
+  it('topFlipRisk is null when no fragile driver clears the floor or can focus', () => {
+    const below = { ...fragile, fragileEdgeInfo: { switchProbability: 0.1 } }
+    const unfocusable = { ...fragile, canFocus: false, matchedNodeId: undefined }
+    expect(chart(buildHeroModel(makeHeroData({ drivers: { drivers: [below] } }))).quickLinks.topFlipRisk).toBeNull()
+    expect(chart(buildHeroModel(makeHeroData({ drivers: { drivers: [unfocusable] } }))).quickLinks.topFlipRisk).toBeNull()
+  })
+
+  it('quick-link labels are glossary-gated like the main reason', () => {
+    const banned = { ...fragile, factorLabel: 'edge weight graph' }
+    const m = chart(buildHeroModel(makeHeroData({ drivers: { drivers: [banned] } })))
+    expect(m.quickLinks.topFlipRisk).toBeNull()
+  })
+})
+describe('Wave 2 (§6.6): evidence disclosure model', () => {
+  const focusable = {
+    ...makeDriver('Developer capacity'),
+    canFocus: true,
+    matchedNodeId: 'node_dev',
+  }
+  const unfocusable = { ...makeDriver('Team morale'), factorKey: 'fac_morale', rank: 2 }
+
+  it('drivers view: producer rank order, null target when unfocusable, banned labels dropped', () => {
+    const banned = { ...makeDriver('edge weight graph'), factorKey: 'fac_banned', rank: 3 }
+    const m = chart(buildHeroModel(makeHeroData({ drivers: { drivers: [focusable, unfocusable, banned] } })))
+    expect(m.evidence.drivers).toEqual([
+      { rank: 1, label: 'Developer capacity', targetId: 'node_dev' },
+      { rank: 2, label: 'Team morale', targetId: null },
+    ])
+  })
+
+  it('flip risks: falls-below sentence with user unit and alternative winner', () => {
+    const m = chart(buildHeroModel(makeHeroData()))
+    expect(m.evidence.flipRisks).toEqual([
+      {
+        text: 'If Team capacity falls below 30%, Two developers becomes the likely leader.',
+        targetId: 'fac_capacity',
+      },
+    ])
+  })
+
+  it('flip risks: rises-above branch and the no-alternative fallback', () => {
+    const m = chart(buildHeroModel(makeHeroData({ recommendation: {
+      flipThresholds: [
+        { label: 'Salary cost', node_id: 'fac_salary', current_value: 50000, flip_value: 60000, unit: '$' },
+      ],
+    } })))
+    expect(m.evidence.flipRisks).toEqual([
+      {
+        text: 'If Salary cost rises above $60,000, the leading option is likely to change.',
+        targetId: 'fac_salary',
+      },
+    ])
+  })
+
+  it('flip risks: equality earns no direction claim — neutral crosses wording (UI-SEM-074)', () => {
+    const m = chart(buildHeroModel(makeHeroData({ recommendation: {
+      flipThresholds: [
+        { label: 'Team capacity', node_id: 'fac_capacity', current_value: 40, flip_value: 40, unit: '%' },
+      ],
+    } })))
+    expect(m.evidence.flipRisks[0].text).toBe(
+      'If Team capacity crosses 40%, the leading option is likely to change.',
+    )
+  })
+
+  it('flip risks: undetermined thresholds are skipped; none → empty list', () => {
+    const m = chart(buildHeroModel(makeHeroData({ recommendation: {
+      flipThresholds: [
+        { label: 'Team capacity', node_id: 'fac_capacity', current_value: 40, flip_value: null, flip_reason: 'no_bracket' },
+      ],
+    } })))
+    expect(m.evidence.flipRisks).toEqual([])
+    const none = chart(buildHeroModel(makeHeroData({ recommendation: { flipThresholds: [] } })))
+    expect(none.evidence.flipRisks).toEqual([])
+  })
+
+  it('trade-offs are a producer gap: always null on live models', () => {
+    const m = chart(buildHeroModel(makeHeroData()))
+    expect(m.evidence.tradeOffs).toBeNull()
+  })
+})
+describe('Wave 2 (§6.2): pause-read state is producer-gated', () => {
+  it('no live analysis status ever emits the paused variant (no producer contradiction signal exists)', () => {
+    for (const analysisStatus of ['computed', 'partial', 'failed', 'blocked'] as const) {
+      const m = buildHeroModel(makeHeroData({ recommendation: { analysisStatus } }))
+      if (m.kind === 'status') expect(m.variant).not.toBe('paused')
+    }
   })
 })

@@ -215,3 +215,25 @@ describe('WhatChangedChip — honesty + a11y + DS', () => {
     expect(chip.className).not.toMatch(/(^| )text-info( |$)/)
   })
 })
+describe("Paul's ruling (2026-07-12): keep + improve — honest basis, clear iconography", () => {
+  beforeEach(() => {
+    loadRunsMock.mockReturnValue([
+      run({ nodes: [node('a', 'A'), node('c', 'C')], edges: [] }),
+      run({ nodes: [node('a', 'A')], edges: [] }),
+    ])
+  })
+
+  it('the device-local basis is a VISIBLE label, not tooltip-only', () => {
+    render(<WhatChangedChip />)
+    expect(screen.getByText('Compared with your previous run on this device')).toBeInTheDocument()
+  })
+
+  it('uses a compare glyph, not the sort-reading ArrowUpDown', () => {
+    render(<WhatChangedChip />)
+    const chip = screen.getByTestId('what-changed-chip')
+    expect(chip.querySelector('.lucide-arrow-up-down')).toBeNull()
+    // Pin the ACTUAL glyph, not just the absence of the old one (review F11).
+    expect(chip.querySelector('.lucide-git-compare-arrows')).not.toBeNull()
+    expect(chip.querySelector('svg')).not.toBeNull()
+  })
+})

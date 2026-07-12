@@ -28,6 +28,7 @@ import type {
 vi.mock('../../../canvas/utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
   focusByTarget: vi.fn(),
+  focusExistingTarget: vi.fn(),
 }))
 
 vi.mock('@/flags', async () => {
@@ -170,15 +171,17 @@ describe('ResultsBody — Analysis hero placement + flag regression', () => {
     expect(before(focus, options)).toBe(true)
   })
 
-  it('flag ON: hero mounts ABOVE the existing hero block; existing panels untouched', () => {
+  it('flag ON: hero REPLACES the legacy decision-confidence panel (Wave 2 retirement)', () => {
+    // Wave 2 flag-scoped retirement (plan §3 W2): flag-on staging is where
+    // Paul accepts the §12.4 duplication removal; flag-off stays byte-
+    // identical to today (previous test). Rollback = flag off.
     vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
     renderBody()
     const hero = screen.getByTestId('analysis-hero-panel')
-    const existingHero = screen.getByTestId('decision-confidence-panel')
+    expect(screen.queryByTestId('decision-confidence-panel')).toBeNull()
     const focus = screen.getByTestId('focus-now-panel')
     const options = screen.getByTestId('section-header-options')
-    expect(before(hero, existingHero), 'new hero must precede the existing hero').toBe(true)
-    expect(before(existingHero, focus), 'existing hero still precedes the Focus panel').toBe(true)
+    expect(before(hero, focus), 'hero precedes the Focus panel').toBe(true)
     expect(before(focus, options), 'Focus panel still precedes options').toBe(true)
   })
 
@@ -238,12 +241,57 @@ describe('ResultsBody — Analysis hero placement + flag regression', () => {
     expect(focusNext).toHaveTextContent('Focus next: review the top actions below.')
   })
 
-  it('flag ON with V17 hero enabled: new hero still precedes the V17 hero slot', () => {
+  it('flag ON: the retired slot suppresses the V17 machinery too (hero owns the slot)', () => {
+    // Wave 2: the retirement covers the whole legacy slot — legacy panel,
+    // v17 variant AND compare mode — so a stray v17 flag can never mount a
+    // second headline surface beside the merged panel.
     vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
     vi.mocked(isAnalysisHeroV17Enabled).mockReturnValue(true)
+    vi.mocked(isAnalysisHeroCompareEnabled).mockReturnValue(true)
     renderBody()
-    const hero = screen.getByTestId('analysis-hero-panel')
-    const v17 = screen.getByTestId('analysis-hero-v17')
-    expect(before(hero, v17), 'new hero must precede AnalysisHeroV17').toBe(true)
+    expect(screen.getByTestId('analysis-hero-panel')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-hero-v17')).toBeNull()
+    expect(screen.queryByTestId('decision-confidence-panel')).toBeNull()
+  })
+})
+describe("Paul's ruling (2026-07-12): risk appetite is an explicitly-labelled lens", () => {
+  it('non-neutral appetite shows the lens label; neutral shows none', () => {
+    useCanvasStore.setState({ analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: false })
+    renderBody()
+    expect(screen.queryByTestId('risk-lens-label')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Aggressive' }))
+    expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/strongest upside/i)
+    expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/recommendation above is unchanged/i)
+    fireEvent.click(screen.getByRole('button', { name: 'Conservative' }))
+    expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/strongest downside/i)
+    fireEvent.click(screen.getByRole('button', { name: 'Neutral' }))
+    expect(screen.queryByTestId('risk-lens-label')).not.toBeInTheDocument()
+  })
+
+  it('a non-neutral lens never rewrites the recommendation panel above the cards', () => {
+    useCanvasStore.setState({ analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: false })
+    renderBody()
+    const heroBefore = screen.getByTestId('decision-confidence-panel').textContent
+    fireEvent.click(screen.getByRole('button', { name: 'Conservative' }))
+    // Strict: the lens label renders OUTSIDE this panel, so any drift here
+    // is real contamination.
+    expect(screen.getByTestId('decision-confidence-panel').textContent).toBe(heroBefore)
+  })
+})
+describe('Wave 2 flag-scoped retirement: stress-test thinking-pattern templates', () => {
+  it('flag ON: the UI-authored Thinking patterns subsection retires; producer-backed subsections stay', () => {
+    vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
+    useCanvasStore.setState({ analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: false })
+    renderBody()
+    fireEvent.click(screen.getByTestId('accordion-stress-test'))
+    expect(screen.getByTestId('stress-test-section')).toBeInTheDocument()
+    expect(screen.queryByTestId('stress-test-thinking-subsection')).toBeNull()
+  })
+
+  it('flag OFF: Thinking patterns render exactly as today', () => {
+    useCanvasStore.setState({ analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: false })
+    renderBody()
+    fireEvent.click(screen.getByTestId('accordion-stress-test'))
+    expect(screen.getByTestId('stress-test-thinking-subsection')).toBeInTheDocument()
   })
 })

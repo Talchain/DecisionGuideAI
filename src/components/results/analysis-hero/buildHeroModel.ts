@@ -47,6 +47,7 @@ import type { FlipThreshold, OptionResult } from '../types'
 import { GAP_THRESHOLD } from '../buildResultsVM'
 import { formatThreshold } from '../RangeVisualization'
 import { stripEncodingNotation } from '../utils/cleanFactorLabel'
+import { THRESHOLDS } from '../../../lib/mappers/constants'
 import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 import { SUB_ONE_PERCENT_FLOOR } from '../utils/displayFloors'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../utils/goalFitBasisCaveatCopy'
@@ -64,7 +65,10 @@ import type { HeroChartModel, HeroLens, HeroModel, HeroRowVM, HeroStatusModel } 
 
 // ─── Small helpers (selection + display formatting only) ────────────────────
 
-function statusModel(variant: HeroStatusModel['variant']): HeroStatusModel {
+// Live variants only — 'paused' (§6.2) is deliberately unrepresentable
+// here: it is producer-gated with no live signal, so the type narrows the
+// never-emits-paused pin into the compiler.
+function statusModel(variant: 'partial' | 'failed' | 'blocked'): HeroStatusModel {
   const copy = HERO_COPY.status[variant]
   return {
     kind: 'status',
@@ -172,7 +176,10 @@ function formatFlipValue(value: number, unit?: string): string {
 
 // ─── Main mapper ─────────────────────────────────────────────────────────────
 
-export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
+export function buildHeroModel(
+  data: ResultsSectionDataReturn,
+  numbering?: Readonly<Record<string, number>>,
+): HeroModel {
   // Fail closed on a partially-shaped object (e.g. hydrated older state):
   // the type guarantees these fields, but the hero must render nothing —
   // never throw — when a caller supplies less than the type promises.
@@ -202,6 +209,13 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
   // matches the OptionCards/WinGauge ranking below. Presentation numbering,
   // not graph-node truth; stable across lens switches (asserted in tests).
   const options = sortOptionsForDisplay(recommendation.allOptions)
+  // Wave 2 (§6.4): identity-anchored ordinals, all-or-nothing — if ANY row
+  // is unregistered every row falls back to the positional index at render
+  // (mixing the two schemes in one list could show duplicate numbers).
+  const stableNumberFor = (id: string): number | null =>
+    numbering != null && options.every((o) => numbering[o.id] != null)
+      ? numbering[id] ?? null
+      : null
   // No analysis yet (the hook's pre-run default) — the tab stays unchanged.
   if (options.length === 0) return { kind: 'empty' }
 
@@ -294,6 +308,7 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     return {
       id: o.id,
       index: i + 1,
+      stableNumber: stableNumberFor(o.id),
       label: stripEncodingNotation(o.label),
       goal: {
         value: goalValue,
@@ -691,6 +706,99 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
       ? HERO_COPY.footer.mainReason(cleanDriverLabel)
       : null
 
+  // §6.5 quick evidence links — selection of existing producer-backed
+  // values only. Main driver = the Drivers section's #1 (strongest effect
+  // on the analysed outcome) when it can focus a canvas node; Top flip
+  // risk = the fragile driver most likely to change which option leads
+  // (highest switch_probability), gated by the SAME visibility floor as
+  // the fragile-edge surfaces (UI-SEM-013, 0.15) so a negligible flip
+  // risk never earns a summary link. Both labels glossary-gated like
+  // mainReason; unfocusable or gated entries yield null, never a dead link.
+  const topDriverItem = drivers?.topDrivers?.[0]
+  const mainDriver =
+    mainReason && cleanDriverLabel && topDriverItem?.canFocus
+      ? {
+          label: cleanDriverLabel,
+          targetId: topDriverItem.matchedNodeId ?? topDriverItem.factorKey,
+        }
+      : null
+  // UI-SEM-013 fragile-edge visibility floor — the CANONICAL constant every
+  // fragile-edge surface shares; a local literal would silently desync.
+  const FLIP_RISK_FLOOR = THRESHOLDS.FRAGILE_EDGE_FILTER
+  const flipCandidate = (drivers?.drivers ?? [])
+    .filter(
+      (d) =>
+        d.canFocus &&
+        typeof d.fragileEdgeInfo?.switchProbability === 'number' &&
+        d.fragileEdgeInfo.switchProbability > FLIP_RISK_FLOOR,
+    )
+    .sort(
+      (a, b) =>
+        (b.fragileEdgeInfo?.switchProbability ?? 0) -
+        (a.fragileEdgeInfo?.switchProbability ?? 0),
+    )[0]
+  const flipLabel = flipCandidate
+    ? stripEncodingNotation(flipCandidate.factorLabel)
+    : null
+  const topFlipRisk =
+    flipCandidate && flipLabel && !containsBannedTerm(flipLabel)
+      ? {
+          label: flipLabel,
+          targetId: flipCandidate.matchedNodeId ?? flipCandidate.factorKey,
+        }
+      : null
+
+  // §6.6 evidence disclosure — selection/format of existing producer
+  // values only. Drivers: the section's own rank order, glossary-gated
+  // labels, focus target only when the item can focus (no dead rows).
+  // Evidence-quality wording is deliberately ABSENT live: an evidence
+  // claim derived from raw confidence fields is forbidden (same class as
+  // the hidden DriversSection quality hint / trust line, issues 219/221).
+  const evidenceDrivers = (drivers?.drivers ?? [])
+    .map((d) => {
+      const label = stripEncodingNotation(d.factorLabel)
+      return label && !containsBannedTerm(label)
+        ? {
+            rank: d.rank,
+            label,
+            targetId: d.canFocus ? d.matchedNodeId ?? d.factorKey : null,
+          }
+        : null
+    })
+    .filter((d): d is NonNullable<typeof d> => d != null)
+
+  // Flip risks: producer flipThresholds → plain-language consequences.
+  // UI-SEM-074: direction wording derived from producer values (flip_value
+  // vs current_value). Only a strict inequality earns a direction; equality
+  // (and therefore also the upstream missing-current_value→0 default when
+  // flip_value is 0) falls back to the direction-neutral "crosses" wording
+  // the detail line already uses. The unit is the producer's user unit via
+  // the module formatFlipValue (one threshold must never render two ways in
+  // one panel); undetermined thresholds (flip_value null) have nothing
+  // displayable and are skipped. Normalised internals never surface.
+  const evidenceFlipRisks = (recommendation.flipThresholds ?? [])
+    .map((ft) => {
+      if (ft.flip_value == null) return null
+      const label = stripEncodingNotation(ft.label)
+      if (!label || containsBannedTerm(label)) return null
+      const direction =
+        ft.flip_value < ft.current_value
+          ? HERO_COPY.evidence.fallsBelow
+          : ft.flip_value > ft.current_value
+            ? HERO_COPY.evidence.risesAbove
+            : HERO_COPY.evidence.crosses
+      const value = formatFlipValue(ft.flip_value, ft.unit)
+      const alt = ft.alternative_winner_label
+        ? stripEncodingNotation(ft.alternative_winner_label)
+        : null
+      const text =
+        alt && !containsBannedTerm(alt)
+          ? HERO_COPY.evidence.flipRiskWithAlternative(label, direction, value, alt)
+          : HERO_COPY.evidence.flipRiskNoAlternative(label, direction, value)
+      return { text, targetId: ft.node_id || null }
+    })
+    .filter((r): r is NonNullable<typeof r> => r != null)
+
   const model: HeroChartModel = {
     kind: 'chart',
     // This function is the ONLY producer of 'live' models (asserted by the
@@ -726,6 +834,12 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     // is a producer gap where "set a success target" would mislead.
     showGoalHint: !goalAvailable && goalThreshold == null,
     mainReason,
+    quickLinks: { mainDriver, topFlipRisk },
+    // Trade-offs require a grounded producer or reviewed narrative — the
+    // live adapter has none (producer gap), so the slot is null and the
+    // view exists only in gallery fixtures. The UI must not invent
+    // trade-offs from labels.
+    evidence: { drivers: evidenceDrivers, flipRisks: evidenceFlipRisks, tradeOffs: null },
     // Producer-gap slots — the LIVE adapter NEVER populates these (no
     // display-safe trust/status label: issues 219/221; no coaching
     // top-action contract: issue 220). They render only from typed

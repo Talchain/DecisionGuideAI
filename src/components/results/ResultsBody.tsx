@@ -161,6 +161,19 @@ export const ResultsBody = memo(function ResultsBody({
     return resultsSectionData.recommendation.recommendedOption?.id
   }, [riskAppetite, resultsSectionData.recommendation])
 
+  // Wave 2 (§6.4): identity-anchored ordinals for the option cards — the
+  // SAME store map the hero badges consume, provided all-or-nothing (a
+  // partially registered set could render duplicate numbers next to
+  // positional ranks) and ONLY inside the rebuild flag: flag-off cards are
+  // byte-identical to today.
+  const optionNumbering = useCanvasStore(s => s.optionNumbering)
+  const stableNumbersForCards = useMemo(() => {
+    if (!isAnalysisHeroPanelEnabled()) return undefined
+    const all = resultsSectionData.recommendation.allOptions
+    if (all.length === 0 || all.some(o => optionNumbering[o.id] == null)) return undefined
+    return optionNumbering
+  }, [optionNumbering, resultsSectionData.recommendation.allOptions])
+
   // V11: Build enriched view model — drives hero rows, colours, collapse behaviour
   // Evidence ratio: fragile / (fragile + robust) = robustness-assessed edges only
   const robustnessEdgeTotal = (fragileEdgeCount ?? 0) + (robustEdgeCount ?? 0)
@@ -261,15 +274,24 @@ export const ResultsBody = memo(function ResultsBody({
       )}
 
       {/* ── DECISION CONFIDENCE TRIAGE ────────────────────────────── */}
-      {/* Comparison mode: v17 ABOVE legacy panel. Opt-in only. */}
-      {showCompare && (
-        <SectionErrorBoundary section="Analysis hero v17">
-          {heroV17Element}
-        </SectionErrorBoundary>
+      {/* Wave 2 flag-scoped retirement: when the merged analysis panel is
+          on, the hero above OWNS this slot — mounting both would be the
+          §12.4 two-headline duplication the rebuild removes. Flag off,
+          today's panel (and the v17 comparison machinery) render exactly
+          as before; rollback is the flag. */}
+      {!isAnalysisHeroPanelEnabled() && (
+        <>
+          {/* Comparison mode: v17 ABOVE legacy panel. Opt-in only. */}
+          {showCompare && (
+            <SectionErrorBoundary section="Analysis hero v17">
+              {heroV17Element}
+            </SectionErrorBoundary>
+          )}
+          <SectionErrorBoundary section="Decision confidence">
+            {showV17 && !showCompare ? heroV17Element : decisionConfidenceElement}
+          </SectionErrorBoundary>
+        </>
       )}
-      <SectionErrorBoundary section="Decision confidence">
-        {showV17 && !showCompare ? heroV17Element : decisionConfidenceElement}
-      </SectionErrorBoundary>
 
       {/* ── SECOND PANEL: Strengthen your model (Focus) ───────────────
           Static / fail-closed coaching panel mounted directly after the hero.
@@ -307,6 +329,19 @@ export const ResultsBody = memo(function ResultsBody({
             {resultsSectionData.recommendation.allOptions.some(o => (o.outcome?.p10 ?? o.p10) != null) && (
               <RiskAppetiteFilter value={riskAppetite} onChange={setRiskAppetite} />
             )}
+            {/* Paul's ruling 2026-07-12: the risk-appetite view is an
+                EXPLICITLY-LABELLED lens — it re-ranks only this section and
+                never alters the recommendation, hero, graph or AI leader. */}
+            {riskAppetite !== 'neutral' && (
+              <p
+                data-testid="risk-lens-label"
+                className={`${typography.panelMeta} text-text-light`}
+              >
+                {riskAppetite === 'conservative'
+                  ? 'Lens: cautious view, highlighting the option with the strongest downside. The recommendation above is unchanged.'
+                  : 'Lens: bold view, highlighting the option with the strongest upside. The recommendation above is unchanged.'}
+              </p>
+            )}
             {/* WinGauge — moved from hero to top of options section */}
             <WinGauge
               shares={resultsSectionData.recommendation.allOptions
@@ -322,6 +357,8 @@ export const ResultsBody = memo(function ResultsBody({
             <OptionCards
               options={resultsSectionData.recommendation.allOptions}
               winnerId={riskWinnerId ?? resultsSectionData.recommendation.recommendedOption?.id}
+              lensActive={riskAppetite !== 'neutral'}
+              stableNumbers={stableNumbersForCards}
               onSendMessage={onSendMessage}
               hasGoalThreshold={resultsSectionData.recommendation.goalThreshold != null}
               storyHeadlines={resultsSectionData.recommendation.storyHeadlines}
@@ -464,6 +501,7 @@ export const ResultsBody = memo(function ResultsBody({
                   onSendMessage={onSendMessage}
                   expertMode={expertMode}
                   sensitivityReferenceLabel={resultsSectionData.sensitivityReference?.optionLabel ?? null}
+                  showThinkingPatterns={!isAnalysisHeroPanelEnabled()}
                 />
               )
             })()}

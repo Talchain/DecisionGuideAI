@@ -210,13 +210,14 @@ export function HeroOptionRow({
       <span className="flex min-w-0 items-center gap-2">
         <span
           aria-hidden="true"
+          data-testid="hero-row-number"
           className={`flex h-[18px] w-[18px] flex-none items-center justify-center rounded ${typography.panelMeta} ${
             isLeader
               ? 'bg-primary text-text-on-color'
               : `border ${HERO_TOKEN_BORDER} bg-transparent text-text-body`
           }`}
         >
-          {row.index}
+          {row.stableNumber ?? row.index}
         </span>
         <span
           id={labelId}

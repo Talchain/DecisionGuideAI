@@ -22,8 +22,9 @@
  * derived. Raw 0-1 stability/confidence floats are never displayed.
  */
 import { useEffect, useId, useRef, useState } from 'react'
-import { ArrowDown, Check, FlaskConical, Info, RefreshCw, Target } from 'lucide-react'
+import { ArrowDown, Check, Crosshair, FlaskConical, Info, RefreshCw, Target } from 'lucide-react'
 import { typography } from '@/styles/typography'
+import { HeroEvidenceDisclosure } from './HeroEvidenceDisclosure'
 import { HERO_COPY } from './heroCopy'
 import { HeroLensTabs, tabId } from './HeroLensTabs'
 import { HeroOptionRow, HERO_ROW_GRID } from './HeroOptionRow'
@@ -33,6 +34,8 @@ export interface AnalysisHeroPanelProps {
   model: HeroChartModel | HeroStatusModel
   isStale: boolean
   onRerun: () => void
+  /** Wave 2 (§6.5): canvas focus for quick links; absent = links inert-hidden. */
+  onFocusTarget?: (targetId: string) => void
   rerunDisabled: boolean
   /**
    * Whether the coaching panel below is actually mounted (its flag is on).
@@ -78,6 +81,14 @@ function StatusState({ model }: { model: HeroStatusModel }) {
     <div data-testid={`hero-status-${model.variant}`} className="space-y-1">
       <h3 className={`${typography.panelHeader} text-text-header`}>{model.headline}</h3>
       <p className={`${typography.panelBody} text-text-light`}>{model.body}</p>
+      {/* §6.2 pause-read: the resolution action renders as plain text until
+          the live producer contradiction signal (and its routed action)
+          exists — never a dead control. */}
+      {model.resolution && (
+        <p data-testid="hero-paused-resolution" className={`${typography.panelBody} text-text-body`}>
+          {model.resolution}
+        </p>
+      )}
     </div>
   )
 }
@@ -89,6 +100,7 @@ export function AnalysisHeroPanel({
   rerunDisabled,
   focusPanelMounted,
   onApplyTarget,
+  onFocusTarget,
 }: AnalysisHeroPanelProps) {
   const panelId = useId()
   const [lensState, setLensState] = useState<HeroLens | null>(null)
@@ -335,15 +347,46 @@ export function AnalysisHeroPanel({
         )}
       </div>
 
+      {/* §6.6: one expandable evidence section between the chart and the
+          footer — self-hides when the model has nothing to disclose. */}
+      <HeroEvidenceDisclosure evidence={model.evidence} onFocusTarget={onFocusTarget} />
+
       {/* Footer strip: Main reason · Trust slot · Focus next. The trust
           line renders PRODUCER-SUPPLIED text verbatim (issues 219/221) —
           the live adapter sets null until such a label exists, so the slot
           is fixture-only today; the hero never authors trust wording. */}
       <div className="space-y-1.5 border-t border-panel-border pt-2">
-        {model.mainReason && (
-          <p className={`${typography.panelBody} text-text-body`} data-testid="hero-main-reason">
-            {model.mainReason}
-          </p>
+        {/* §6.5 quick links: when the top driver can focus on canvas the
+            static main-reason line becomes the Main driver link (same
+            sentence, one focus action) — never both. Links render only
+            with a focus callback so they are never dead controls. */}
+        {model.quickLinks.mainDriver && onFocusTarget ? (
+          <button
+            type="button"
+            data-testid="hero-quicklink-driver"
+            onClick={() => onFocusTarget(model.quickLinks.mainDriver!.targetId)}
+            className={`${typography.panelBody} inline-flex items-center gap-1.5 text-text-body hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+          >
+            <Crosshair aria-hidden="true" className="h-3.5 w-3.5 flex-none text-info" />
+            {HERO_COPY.footer.mainReason(model.quickLinks.mainDriver.label)}
+          </button>
+        ) : (
+          model.mainReason && (
+            <p className={`${typography.panelBody} text-text-body`} data-testid="hero-main-reason">
+              {model.mainReason}
+            </p>
+          )
+        )}
+        {model.quickLinks.topFlipRisk && onFocusTarget && (
+          <button
+            type="button"
+            data-testid="hero-quicklink-flip"
+            onClick={() => onFocusTarget(model.quickLinks.topFlipRisk!.targetId)}
+            className={`${typography.panelBody} inline-flex items-center gap-1.5 text-text-body hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+          >
+            <Crosshair aria-hidden="true" className="h-3.5 w-3.5 flex-none text-info" />
+            {HERO_COPY.footer.topFlipRisk(model.quickLinks.topFlipRisk.label)}
+          </button>
         )}
         {model.trustLine && (
           <p className={`${typography.panelBody} text-text-light`} data-testid="hero-trust-line">

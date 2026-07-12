@@ -198,6 +198,9 @@ export const HERO_COPY = {
      * stays forbidden until a producer rationale string exists.
      */
     mainReason: (factor: string) => `Main driver: ${factor}.`,
+    // §6.5: semantically distinct from mainReason — most likely to change
+    // which option leads, never implied to be the strongest effect.
+    topFlipRisk: (factor: string) => `Top flip risk: ${factor}.`,
     /**
      * Focus-next reconciliation (review-locked): the coaching panel's rows
      * are composed POSITIONALLY (buildFocusRows: server rows in received
@@ -230,6 +233,32 @@ export const HERO_COPY = {
      */
     targetRerunNote: 'Applying runs the analysis again.',
     rerun: 'Re-run analysis',
+  },
+
+  // §6.6 — one expandable evidence section, three views. Flip-risk
+  // sentences are format-only over producer flipThresholds values (the
+  // direction is arithmetic on current_value vs flip_value, the unit is
+  // the producer's user unit) — nothing invented, no internal terms.
+  evidence: {
+    heading: 'Why and what could change it',
+    driversTab: 'Drivers',
+    flipRisksTab: 'Flip risks',
+    tradeOffsTab: 'Trade-offs',
+    seeAllFactors: 'See all factors',
+    showFewer: 'Show fewer',
+    flipRiskWithAlternative: (factor: string, direction: string, value: string, alternative: string) =>
+      `If ${factor} ${direction} ${value}, ${alternative} becomes the likely leader.`,
+    flipRiskNoAlternative: (factor: string, direction: string, value: string) =>
+      `If ${factor} ${direction} ${value}, the leading option is likely to change.`,
+    fallsBelow: 'falls below',
+    risesAbove: 'rises above',
+    // Direction-neutral fallback (UI-SEM-074): used when flip_value equals
+    // current_value — a direction claim would not be honestly determinable.
+    crosses: 'crosses',
+    tradeOffGain: 'You gain',
+    tradeOffGiveUp: 'You give up',
+    tradeOffDependsOn: 'Depends on',
+    tradeOffWatch: 'Watch',
   },
 
   status: {

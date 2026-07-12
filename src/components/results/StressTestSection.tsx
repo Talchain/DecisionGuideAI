@@ -51,6 +51,12 @@ export interface StressTestSectionProps {
   drivers: DriverItem[]
   /** Fragile edges (post-analysis) — passthrough to the existing 5.7 D11 grouping. */
   fragileEdges?: ChallengeFragileEdge[]
+  /** Wave 2 flag-scoped retirement: when false, the UI-authored Thinking
+   * patterns templates do not render (the merged analysis panel's
+   * producer-honest surfaces replace locally-authored coaching narrative;
+   * V5 decision_review is the eventual owner). Default true — flag-off
+   * behaviour is byte-identical. */
+  showThinkingPatterns?: boolean
   /** Recommended option label (winner) — drives template question phrasing. */
   winnerLabel: string
   /** Runner-up option label (alternative) — drives template question phrasing. */
@@ -189,6 +195,7 @@ export const StressTestSection = memo(function StressTestSection({
   onSendMessage,
   expertMode,
   sensitivityReferenceLabel,
+  showThinkingPatterns = true,
 }: StressTestSectionProps) {
   // ── Sensitive assumptions (node-based) ───────────────────────────────────
   const sensitiveFactors = selectSensitiveFactors(drivers)
@@ -240,9 +247,10 @@ export const StressTestSection = memo(function StressTestSection({
   // ── Counts ──────────────────────────────────────────────────────────────
   const sensitiveCount = sensitiveFactors.length
   const fragileCount = mergedFragileCards.length
-  // Thinking patterns always render both deterministic cards when the
-  // section opens at all — they're meta-prompts, not data-derived.
-  const thinkingPatternsCount = 2
+  // Thinking patterns render both deterministic cards when the section
+  // opens at all — they're meta-prompts, not data-derived. Wave 2: the
+  // merged-panel flag retires them (showThinkingPatterns false).
+  const thinkingPatternsCount = showThinkingPatterns ? 2 : 0
   const totalCount = sensitiveCount + thinkingPatternsCount + fragileCount
 
   const topFactorForPreview = sensitiveFactors[0]
@@ -284,6 +292,7 @@ export const StressTestSection = memo(function StressTestSection({
         )}
 
         {/* ── Thinking patterns ─────────────────────────────────────── */}
+        {showThinkingPatterns && (
         <div className="space-y-1.5" data-testid="stress-test-thinking-subsection">
           <h4 className={`${typography.panelHeader} text-text-header`}>
             Thinking patterns (2)
@@ -301,6 +310,7 @@ export const StressTestSection = memo(function StressTestSection({
             promptBuilder={() => `Research how ${winnerLabel} typically performs versus ${alternativeLabel} for decisions like this one.`}
           />
         </div>
+        )}
 
         {/* ── Fragile factors (5.7 D11 alt-winner grouping verbatim) ── */}
         {fragileCount > 0 && (

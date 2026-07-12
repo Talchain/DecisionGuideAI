@@ -127,3 +127,13 @@ describe('useResultsSectionData — hasWarnings ⇄ uncertainties parity (P1, UI
     expect(result.current.recommendation?.hasWarnings).toBe(true)
   })
 })
+describe('Wave F-A/W2 integration: option-numbering registration reaches the store', () => {
+  it('rendering the hook registers the REAL analysed option ids (the §6.4 chips depend on this path)', () => {
+    renderHook(() => useResultsSectionData())
+    const numbering = useCanvasStore.getState().optionNumbering
+    expect(numbering['opt_a']).toBe(1)
+    expect(numbering['opt_b']).toBe(2)
+    // No fragmentation artefacts: exactly the analysed ids, nothing else.
+    expect(Object.keys(numbering).sort()).toEqual(['opt_a', 'opt_b'])
+  })
+})

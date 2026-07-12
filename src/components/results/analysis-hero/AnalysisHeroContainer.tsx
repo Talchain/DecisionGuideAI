@@ -9,7 +9,9 @@
  * Props are the SAME objects ResultsBody already holds for the existing
  * panels — the hero introduces no second data path.
  */
+import { useCallback } from 'react'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
+import { focusExistingTarget } from '../../../canvas/utils/focusHelpers'
 import { AnalysisHeroPanel } from './AnalysisHeroPanel'
 import { useAnalysisHero } from './useAnalysisHero'
 
@@ -31,6 +33,11 @@ export function AnalysisHeroContainer({
   onApplyTarget,
 }: AnalysisHeroContainerProps) {
   const { model, onRerun, rerunDisabled, focusPanelMounted } = useAnalysisHero(data)
+  // §6.5 quick links: focus the factor on canvas, fail-closed — a target
+  // that no longer exists on the graph is a silent no-op, never a crash.
+  const onFocusTarget = useCallback((targetId: string) => {
+    focusExistingTarget(targetId, 'node')
+  }, [])
   if (model.kind === 'empty') return null
   return (
     <AnalysisHeroPanel
@@ -40,6 +47,7 @@ export function AnalysisHeroContainer({
       rerunDisabled={rerunDisabled}
       focusPanelMounted={focusPanelMounted}
       onApplyTarget={onApplyTarget}
+      onFocusTarget={onFocusTarget}
     />
   )
 }

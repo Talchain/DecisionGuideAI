@@ -433,8 +433,10 @@ export function RiskAppetiteFilter({ value, onChange }: RiskAppetiteFilterProps)
           </button>
         ))}
       </div>
+      {/* Paul's ruling 2026-07-12: honest lens framing — this control is a
+          view lens over the option cards only, never the recommendation. */}
       <p className={`${typography.panelMeta} text-text-light italic mt-1`}>
-        Changes how the leading option is calculated.
+        A view lens for the option cards below. The overall recommendation is unchanged.
       </p>
     </div>
   )

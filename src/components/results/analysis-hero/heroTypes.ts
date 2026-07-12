@@ -80,6 +80,14 @@ export interface HeroRowVM {
    * independent of the active lens.
    */
   index: number
+  /**
+   * Identity-anchored ordinal from the Wave F-A numbering store (assigned
+   * once per option id, stable across rerun rank flips) — null when the
+   * row set is not fully registered (all-or-nothing: mixing positional and
+   * stable numbers in one list could show duplicates). Wave 2 consumption
+   * of brief §6.4.
+   */
+  stableNumber: number | null
   /** Option label for display (encoding notation stripped, rendered as text). */
   label: string
   /** Goal-fit lens values (collapsed goalProbability; see buildHeroModel). */
@@ -122,6 +130,28 @@ export interface HeroRowVM {
 }
 
 /** Interactive chart state — analysis computed with displayable options. */
+/** Wave 2 (§6.5): compact quick evidence link — the label names the factor,
+ * the target focuses it on the canvas via the container's focus callback. */
+export interface HeroQuickLink {
+  label: string
+  targetId: string
+}
+
+/** Wave 2 (§6.6): one evidence disclosure, three views. Trade-offs must
+ * come from a grounded producer narrative — null live (producer gap),
+ * fixture-populated in the gallery only. */
+export interface HeroEvidenceModel {
+  drivers: Array<{ rank: number; label: string; targetId: string | null }>
+  flipRisks: Array<{ text: string; targetId: string | null }>
+  tradeOffs: Array<{
+    option: string
+    gain: string
+    giveUp: string
+    dependsOn: string
+    watch: string
+  }> | null
+}
+
 export interface HeroChartModel {
   kind: 'chart'
   /**
@@ -181,6 +211,14 @@ export interface HeroChartModel {
   showGoalHint: boolean
   /** Footer "Main driver" line, or null when no clean driver label exists. */
   mainReason: string | null
+  /** Wave 2 (§6.5): Main driver / Top flip risk quick links (semantically
+   * distinct: strongest effect vs most likely to change the leader). */
+  quickLinks: {
+    mainDriver: HeroQuickLink | null
+    topFlipRisk: HeroQuickLink | null
+  }
+  /** Wave 2 (§6.6): "Why and what could change it" disclosure content. */
+  evidence: HeroEvidenceModel
   /**
    * Trust footer line, rendered VERBATIM when present — the hero never
    * authors trust wording. Requires a producer display-safe verdict/label
@@ -208,14 +246,21 @@ export interface HeroChartModel {
   targetUnit: string | null
 }
 
-/** Curated non-chart state for partial / failed / blocked analyses. */
+/** Curated non-chart state for partial / failed / blocked analyses, plus
+ * the §6.2 pause-read state ('paused': a framing contradiction pauses the
+ * read — headline/lenses/evidence suppressed, resolution shown). 'paused'
+ * is PRODUCER-GATED: no live signal exists, so buildHeroModel never emits
+ * it (pinned) — it is reachable only via gallery fixtures. */
 export interface HeroStatusModel {
   kind: 'status'
   /** Same contract as HeroChartModel.provenance — 'fixture' forces the banner. */
   provenance: HeroProvenance
-  variant: 'partial' | 'failed' | 'blocked'
+  variant: 'partial' | 'failed' | 'blocked' | 'paused'
   headline: string
   body: string
+  /** §6.2 resolution action line (paused only). Plain text — a routed
+   * action control arrives only with the live producer signal. */
+  resolution?: string
 }
 
 /**

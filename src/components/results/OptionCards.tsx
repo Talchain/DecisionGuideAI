@@ -44,6 +44,13 @@ import { winnerChipLabel, winnerChipPrompt } from './utils/winnerChipCopy'
 export interface OptionCardsProps {
   options: OptionResult[]
   winnerId?: string
+  /** Paul's ruling 2026-07-12: when the risk-appetite lens is active the
+   * crowned card presents as lens-strongest, never as THE recommendation. */
+  lensActive?: boolean
+  /** Wave 2 (§6.4): identity-anchored ordinals keyed by option id; a chip
+   * renders only when provided AND the id has a number — the provider
+   * (ResultsBody) supplies the map all-or-nothing behind the flag. */
+  stableNumbers?: Readonly<Record<string, number | null>>
   /** Whether a goal threshold is set (controls "Hits target" row visibility) */
   hasGoalThreshold?: boolean
   /** Story headlines keyed by option ID (M1 coaching) */
@@ -96,8 +103,12 @@ function hingeAwareDescription(
   isRunnerUp: boolean,
   hinge: HingeInfo | null | undefined,
   winnerWinProbability?: number | null,
+  lensActive = false,
 ): string {
   if (isWinner) {
+    if (lensActive) {
+      return 'Strongest under this lens. The overall recommendation is unchanged.'
+    }
     if (hinge?.reason === 'fragile_edge') {
       return `Highest leading-option likelihood but depends on ${hinge.label}`
     }
@@ -268,6 +279,7 @@ function OptionCard({
   cardRef,
   neutralised = false,
   sortedRank,
+  stableNumber = null,
   segmentFillColor,
   onClick,
   globalMin = 0,
@@ -289,6 +301,9 @@ function OptionCard({
   neutralised?: boolean
   /** V14.2: 1-indexed rank derived from win probability sort order */
   sortedRank?: number
+  /** Wave 2 (§6.4): identity-anchored ordinal — rendered as an "Option N"
+   * chip so the same option keeps its number across rerun rank flips. */
+  stableNumber?: number | null
   /** Task 6b: CSS colour string for coloured fill bar (matches wins segment) */
   segmentFillColor?: string
   onClick?: () => void
@@ -349,6 +364,14 @@ function OptionCard({
             data-testid={`rank-marker-${option.id}`}
             style={{ backgroundColor: WIN_GAUGE_COLORS[Math.min(rank - 1, WIN_GAUGE_COLORS.length - 1)] }}
           />
+        )}
+        {stableNumber != null && (
+          <span
+            data-testid={`stable-number-${option.id}`}
+            className={`${typography.panelMeta} text-text-light flex-shrink-0`}
+          >
+            Option {stableNumber}
+          </span>
         )}
         <Tooltip content="Hover highlights on canvas. Click opens inspector.">
           {/* Brief 5.1 Task 7: card title strips the trailing "(Status Quo)"
@@ -531,6 +554,8 @@ function OptionCard({
 export function OptionCards({
   options,
   winnerId,
+  lensActive = false,
+  stableNumbers,
   hasGoalThreshold = false,
   storyHeadlines,
   cardRefMap,
@@ -610,15 +635,20 @@ export function OptionCards({
         // V11.2 Fix 2: VM hinge-aware descriptions take priority when decisionState available.
         // When decisionState is absent (e.g. non-neutral risk appetite), still use
         // hingeAwareDescription over fallbackDescription if win probabilities exist —
-        // keeps gap-based specificity. Story headlines still take priority when present.
+        // keeps gap-based specificity. Story headlines still take priority when present,
+        // EXCEPT on the lens-crowned card: Paul's ruling requires the crowned card to
+        // say it is lens-strongest, never THE recommendation — a coaching headline
+        // there would restate the neutral recommendation under a non-neutral lens.
         const winnerOpt = options.find(o => o.id === winnerId)
-        const description = decisionState
-          ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability)
-          : headline
-            ? headline
-            : (winnerOpt?.winProbability != null || option.winProbability != null)
-              ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability)
-              : fallbackDescription(option, options.length)
+        const description = lensActive && isWinner
+          ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, true)
+          : decisionState
+            ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, lensActive)
+            : headline
+              ? headline
+              : (winnerOpt?.winProbability != null || option.winProbability != null)
+                ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, lensActive)
+                : fallbackDescription(option, options.length)
 
         const segmentFillColor = segmentColorMap[option.id]
         return (
@@ -631,6 +661,7 @@ export function OptionCards({
             description={description}
             neutralised={neutralised}
             sortedRank={index + 1}
+            stableNumber={stableNumbers?.[option.id] ?? null}
             segmentFillColor={segmentFillColor}
             globalMin={globalMin}
             globalMax={globalMax}

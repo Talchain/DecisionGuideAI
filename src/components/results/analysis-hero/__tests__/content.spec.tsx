@@ -537,3 +537,137 @@ describe('AnalysisHeroPanel — content', () => {
     },
   )
 })
+describe('Wave 2: stable number badges', () => {
+  it('row badges show the identity-anchored ordinal, surviving a rank flip', () => {
+    const a = makeOption({ ...OPTION_A, winProbability: 0.3 })
+    const b = makeOption({ ...OPTION_B, winProbability: 0.7 })
+    const model = buildHeroModel(makeHeroData({ options: [a, b] }), { opt_a: 1, opt_b: 2 })
+    expect(model.kind).toBe('chart')
+    renderPanel(model as HeroChartModel)
+    // First row is opt_b (display rank 1) but keeps its stable ordinal 2.
+    expect(within(screen.getByTestId('hero-option-row-1')).getByTestId('hero-row-number')).toHaveTextContent('2')
+    expect(within(screen.getByTestId('hero-option-row-2')).getByTestId('hero-row-number')).toHaveTextContent('1')
+  })
+
+  it('without a numbering map the badge falls back to the display rank', () => {
+    renderPanel(chartModel())
+    expect(within(screen.getByTestId('hero-option-row-1')).getByTestId('hero-row-number')).toHaveTextContent('1')
+    expect(within(screen.getByTestId('hero-option-row-2')).getByTestId('hero-row-number')).toHaveTextContent('2')
+  })
+})
+describe('Wave 2 (§6.5): quick evidence links in the footer', () => {
+  function modelWithLinks(): HeroChartModel {
+    const m = chartModel()
+    return {
+      ...m,
+      quickLinks: {
+        mainDriver: { label: 'Developer capacity', targetId: 'node_dev' },
+        topFlipRisk: { label: 'Salary cost', targetId: 'node_salary' },
+      },
+    }
+  }
+
+  it('renders both links with semantically distinct labels and fires the focus callback', () => {
+    const onFocusTarget = vi.fn()
+    renderPanel(modelWithLinks(), { onFocusTarget })
+    const driver = screen.getByTestId('hero-quicklink-driver')
+    const flip = screen.getByTestId('hero-quicklink-flip')
+    expect(driver).toHaveTextContent('Main driver: Developer capacity.')
+    expect(flip).toHaveTextContent('Top flip risk: Salary cost.')
+    fireEvent.click(driver)
+    expect(onFocusTarget).toHaveBeenCalledWith('node_dev')
+    fireEvent.click(flip)
+    expect(onFocusTarget).toHaveBeenCalledWith('node_salary')
+    // The clickable driver link REPLACES the static main-reason line.
+    expect(screen.queryByTestId('hero-main-reason')).toBeNull()
+  })
+
+  it('falls back to the static main-reason line when no focus target exists', () => {
+    renderPanel(chartModel())
+    expect(screen.getByTestId('hero-main-reason')).toBeInTheDocument()
+    expect(screen.queryByTestId('hero-quicklink-driver')).toBeNull()
+    expect(screen.queryByTestId('hero-quicklink-flip')).toBeNull()
+  })
+})
+describe('Wave 2 (§6.6): Why and what could change it disclosure', () => {
+  function modelWithEvidence(overrides: Partial<HeroChartModel['evidence']> = {}): HeroChartModel {
+    const m = chartModel()
+    return {
+      ...m,
+      evidence: {
+        drivers: [
+          { rank: 1, label: 'Developer capacity', targetId: 'node_dev' },
+          { rank: 2, label: 'Team morale', targetId: null },
+          { rank: 3, label: 'Hiring speed', targetId: 'node_hiring' },
+          { rank: 4, label: 'Salary cost', targetId: 'node_salary' },
+        ],
+        flipRisks: [
+          { text: 'If Team capacity falls below 30%, Two developers becomes the likely leader.', targetId: 'fac_capacity' },
+        ],
+        tradeOffs: null,
+        ...overrides,
+      },
+    }
+  }
+
+  it('renders collapsed by default; expanding shows the Drivers view with focusable rows', () => {
+    const onFocusTarget = vi.fn()
+    renderPanel(modelWithEvidence(), { onFocusTarget })
+    expect(screen.queryByTestId('hero-evidence-drivers')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /why and what could change it/i }))
+    expect(screen.getByTestId('hero-evidence-drivers')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /developer capacity/i }))
+    expect(onFocusTarget).toHaveBeenCalledWith('node_dev')
+  })
+
+  it('caps drivers at three with See all factors / Show fewer', () => {
+    renderPanel(modelWithEvidence(), { onFocusTarget: vi.fn() })
+    fireEvent.click(screen.getByRole('button', { name: /why and what could change it/i }))
+    expect(screen.queryByText('Salary cost')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'See all factors' }))
+    expect(screen.getByText('Salary cost')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show fewer' }))
+    expect(screen.queryByText('Salary cost')).toBeNull()
+  })
+
+  it('Flip risks view shows the plain-language consequence and focuses on click', () => {
+    const onFocusTarget = vi.fn()
+    renderPanel(modelWithEvidence(), { onFocusTarget })
+    fireEvent.click(screen.getByRole('button', { name: /why and what could change it/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Flip risks' }))
+    const row = screen.getByRole('button', { name: /If Team capacity falls below 30%/ })
+    fireEvent.click(row)
+    expect(onFocusTarget).toHaveBeenCalledWith('fac_capacity')
+  })
+
+  it('never shows a Trade-offs tab when the producer narrative is absent', () => {
+    renderPanel(modelWithEvidence(), { onFocusTarget: vi.fn() })
+    fireEvent.click(screen.getByRole('button', { name: /why and what could change it/i }))
+    expect(screen.queryByRole('button', { name: 'Trade-offs' })).toBeNull()
+  })
+
+  it('hides the disclosure entirely when there is nothing to disclose', () => {
+    renderPanel(modelWithEvidence({ drivers: [], flipRisks: [], tradeOffs: null }))
+    expect(screen.queryByRole('button', { name: /why and what could change it/i })).toBeNull()
+  })
+})
+describe('Wave 2 (§6.2): pause-read state (fixture-only)', () => {
+  it('suppresses lenses and evidence, shows the contradiction and the resolution line', () => {
+    renderPanel({
+      kind: 'status',
+      provenance: 'fixture',
+      variant: 'paused',
+      headline: 'Analysis paused: resolve your framing first.',
+      body: 'Your goal says minimise cost, but the leading option is judged on revenue growth.',
+      resolution: 'Review the goal with Olumi before reading these results.',
+    })
+    expect(screen.getByTestId('hero-status-paused')).toBeInTheDocument()
+    expect(screen.getByTestId('hero-paused-resolution')).toHaveTextContent(
+      'Review the goal with Olumi before reading these results.',
+    )
+    expect(screen.getByTestId('hero-fixture-banner')).toBeInTheDocument()
+    expect(screen.queryByTestId('hero-lens-tab-outcome')).toBeNull()
+    expect(screen.queryByTestId('hero-evidence-disclosure')).toBeNull()
+    expect(screen.queryByTestId('hero-headline')).toBeNull()
+  })
+})
