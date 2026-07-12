@@ -24,6 +24,7 @@ import { useShallow } from 'zustand/react/shallow'
 import type { EdgeData, EdgePathType } from '../domain/edges'
 import { shouldShowEdgeLabel } from './edgeLabelVisibility'
 import { computeDirectionStroke } from './directionStroke'
+import { resolveLabelCollisionOffsets } from './edgeLabelCollision'
 import { applyEdgeVisualProps } from '../theme/edges'
 import { formatConfidence, shouldShowLabel, getEdgeConfidence, computeSignedMean } from '../domain/edges'
 import { useIsDark } from '../hooks/useTheme'
@@ -443,8 +444,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // Graph Editing Experience Task 9c: Persistent labels on top 3 edges
   // Pre-analysis: rank by |strength.mean|. Post-analysis: rank by composite importance.
   // Structural edges (decision→option) are excluded from ranking.
-  const isTopStrengthEdge = useMemo(() => {
-    if (isStructuralEdge) return false
+  // E3 refactor: the ranking now yields the persistent-label ID SET so both
+  // the per-edge flag AND the label-collision pass share one computation.
+  const topStrengthIds = useMemo((): Set<string> => {
     const allEdges = getEdges()
     // Filter out non-causal edges (structural + intervention) before ranking
     const causalEdges = allEdges.filter(e => {
@@ -456,7 +458,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       if (sk === 'option' && tk === 'factor') return false   // intervention
       return true
     })
-    if (causalEdges.length <= 3) return true // Show all labels if 3 or fewer causal edges
+    if (causalEdges.length <= 3) return new Set(causalEdges.map(e => e.id)) // all labelled when 3 or fewer
 
     if (isResultsMode && report) {
       // Post-analysis: use composite importance (same formula as stroke width)
@@ -473,7 +475,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         }
       })
       scores.sort((a, b) => b.score - a.score)
-      return new Set(scores.slice(0, 3).map(s => s.id)).has(id)
+      return new Set(scores.slice(0, 3).map(s => s.id))
     }
 
     // Pre-analysis: rank by |strength.mean|
@@ -482,8 +484,34 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       strength: Math.abs(computeSignedMean(e.data as Record<string, unknown> | undefined)),
     }))
     strengths.sort((a, b) => b.strength - a.strength)
-    return new Set(strengths.slice(0, 3).map(s => s.id)).has(id)
-  }, [id, isStructuralEdge, getEdges, isResultsMode, report])
+    return new Set(strengths.slice(0, 3).map(s => s.id))
+  }, [getEdges, getNode, isResultsMode, report])
+
+  const isTopStrengthEdge = !isStructuralEdge && topStrengthIds.has(id)
+
+  // E3: label-vs-label collision avoidance. Every persistent-label edge feeds
+  // the SAME anchor basis (straight midpoints of node centres — a stable
+  // approximation of each label's position) into the shared deterministic
+  // resolver, so all edges agree on the global assignment and each applies
+  // its own offset. Only persistent (top-strength) labels participate —
+  // hover/selection labels are transient.
+  const collisionOffset = useMemo(() => {
+    if (!isTopStrengthEdge) return { dx: 0, dy: 0 }
+    const allEdges = getEdges()
+    const points: Array<{ id: string; x: number; y: number }> = []
+    for (const e of allEdges) {
+      if (!topStrengthIds.has(e.id)) continue
+      const sn = getNode(e.source)
+      const tn = getNode(e.target)
+      if (!sn || !tn) continue
+      const sx = sn.position.x + ((sn.measured?.width ?? sn.width ?? 200) / 2)
+      const sy = sn.position.y + ((sn.measured?.height ?? sn.height ?? 80) / 2)
+      const tx = tn.position.x + ((tn.measured?.width ?? tn.width ?? 200) / 2)
+      const ty = tn.position.y + ((tn.measured?.height ?? tn.height ?? 80) / 2)
+      points.push({ id: e.id, x: (sx + tx) / 2, y: (sy + ty) / 2 })
+    }
+    return resolveLabelCollisionOffsets(points).get(id) ?? { dx: 0, dy: 0 }
+  }, [isTopStrengthEdge, topStrengthIds, getEdges, getNode, id, sourceX, sourceY, targetX, targetY])
 
   // Task 9c: Offset persistent labels away from nodes to avoid overlap
   const persistentLabelOffset = useMemo(() => {
@@ -507,6 +535,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     }
     return { dx: 0, dy: 0 }
   }, [isTopStrengthEdge, source, target, getNode, labelX, labelY, sourceX, sourceY, targetX, targetY])
+
+  // E3: combined label displacement = node-proximity dodge (Task 9c — computed
+  // since 9c but never applied to the transform until now) + collision stack.
+  const labelOffsetX = persistentLabelOffset.dx + collisionOffset.dx
+  const labelOffsetY = persistentLabelOffset.dy + collisionOffset.dy
 
   // C1 + E2: label-visibility policy (see edgeLabelVisibility.ts). Top-strength
   // labels surface in the default (standard) view once results exist; the
@@ -764,13 +797,28 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         </EdgeLabelRenderer>
       )}
 
+      {/* E3: hairline leader from the edge midpoint to a displaced label so a
+          dodged label still reads as belonging to its edge. SVG sibling of the
+          edge path (EdgeLabelRenderer portals to HTML, so the line lives here). */}
+      {showLabel && (Math.abs(labelOffsetX) + Math.abs(labelOffsetY)) > 12 && (
+        <line
+          x1={labelX}
+          y1={labelY}
+          x2={labelX + labelOffsetX}
+          y2={labelY + labelOffsetY}
+          stroke="var(--border-default, #d4d4d8)"
+          strokeWidth={1}
+          data-testid="edge-label-leader"
+        />
+      )}
+
       {/* C1: Edge label - only show when selected, hovered, or has pending suggestions */}
       {showLabel && (
         <EdgeLabelRenderer>
           <div
             style={{
               position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+              transform: `translate(-50%, -50%) translate(${labelX + labelOffsetX}px,${labelY + labelOffsetY}px)`,
               pointerEvents: 'all',
               padding: '3px 8px',
               borderRadius: '4px',
