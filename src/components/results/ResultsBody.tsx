@@ -274,15 +274,24 @@ export const ResultsBody = memo(function ResultsBody({
       )}
 
       {/* ── DECISION CONFIDENCE TRIAGE ────────────────────────────── */}
-      {/* Comparison mode: v17 ABOVE legacy panel. Opt-in only. */}
-      {showCompare && (
-        <SectionErrorBoundary section="Analysis hero v17">
-          {heroV17Element}
-        </SectionErrorBoundary>
+      {/* Wave 2 flag-scoped retirement: when the merged analysis panel is
+          on, the hero above OWNS this slot — mounting both would be the
+          §12.4 two-headline duplication the rebuild removes. Flag off,
+          today's panel (and the v17 comparison machinery) render exactly
+          as before; rollback is the flag. */}
+      {!isAnalysisHeroPanelEnabled() && (
+        <>
+          {/* Comparison mode: v17 ABOVE legacy panel. Opt-in only. */}
+          {showCompare && (
+            <SectionErrorBoundary section="Analysis hero v17">
+              {heroV17Element}
+            </SectionErrorBoundary>
+          )}
+          <SectionErrorBoundary section="Decision confidence">
+            {showV17 && !showCompare ? heroV17Element : decisionConfidenceElement}
+          </SectionErrorBoundary>
+        </>
       )}
-      <SectionErrorBoundary section="Decision confidence">
-        {showV17 && !showCompare ? heroV17Element : decisionConfidenceElement}
-      </SectionErrorBoundary>
 
       {/* ── SECOND PANEL: Strengthen your model (Focus) ───────────────
           Static / fail-closed coaching panel mounted directly after the hero.

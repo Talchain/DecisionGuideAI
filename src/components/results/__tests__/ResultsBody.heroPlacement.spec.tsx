@@ -240,13 +240,17 @@ describe('ResultsBody — Analysis hero placement + flag regression', () => {
     expect(focusNext).toHaveTextContent('Focus next: review the top actions below.')
   })
 
-  it('flag ON with V17 hero enabled: new hero still precedes the V17 hero slot', () => {
+  it('flag ON: the retired slot suppresses the V17 machinery too (hero owns the slot)', () => {
+    // Wave 2: the retirement covers the whole legacy slot — legacy panel,
+    // v17 variant AND compare mode — so a stray v17 flag can never mount a
+    // second headline surface beside the merged panel.
     vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
     vi.mocked(isAnalysisHeroV17Enabled).mockReturnValue(true)
+    vi.mocked(isAnalysisHeroCompareEnabled).mockReturnValue(true)
     renderBody()
-    const hero = screen.getByTestId('analysis-hero-panel')
-    const v17 = screen.getByTestId('analysis-hero-v17')
-    expect(before(hero, v17), 'new hero must precede AnalysisHeroV17').toBe(true)
+    expect(screen.getByTestId('analysis-hero-panel')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-hero-v17')).toBeNull()
+    expect(screen.queryByTestId('decision-confidence-panel')).toBeNull()
   })
 })
 describe("Paul's ruling (2026-07-12): risk appetite is an explicitly-labelled lens", () => {
