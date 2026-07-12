@@ -29,10 +29,11 @@ import { DecisionConfidencePanel } from './DecisionConfidencePanel'
 import { AnalysisHeroV17 } from './AnalysisHeroV17'
 import { AnalysisOrphanBanner } from './AnalysisOrphanBanner'
 import { WhatChangedChip } from '../../canvas/components/WhatChangedChip'
+import { StrengthenContainer } from './strengthen/StrengthenContainer'
 import { InferenceWarningStrip } from './InferenceWarningStrip'
 import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
 import { AnalysisHeroContainer } from './analysis-hero'
-import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled, isFocusNowPanelEnabled, isAnalysisHeroPanelEnabled } from '@/flags'
+import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled, isFocusNowPanelEnabled, isAnalysisHeroPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
 
 export interface StrengthCorrectionDisplay {
   edgeId: string
@@ -298,10 +299,20 @@ export const ResultsBody = memo(function ResultsBody({
           coaching_summary stays gated off; no server/dynamic/readiness/bias rows.
           Default-ON flag (kill switch); suppresses its own stale banner (the tab's
           AnalysisFreshnessNotice owns freshness). */}
-      {isFocusNowPanelEnabled() && (
+      {/* Wave 3a: the adaptive Strengthen panel replaces the static FocusNow
+          panel INSIDE VITE_FEATURE_STRENGTHEN_PANEL; flag off, FocusNow
+          renders exactly as before (soak fallback — the focusNowPanel kill
+          switch retires at 3a acceptance). */}
+      {isStrengthenPanelEnabled() ? (
         <SectionErrorBoundary section="Strengthen your model">
-          <FocusNowContainer />
+          <StrengthenContainer data={resultsSectionData} />
         </SectionErrorBoundary>
+      ) : (
+        isFocusNowPanelEnabled() && (
+          <SectionErrorBoundary section="Strengthen your model">
+            <FocusNowContainer />
+          </SectionErrorBoundary>
+        )
       )}
 
       {/* Old RecommendationSection/HeroSection suppressed — triage panel replaces it */}

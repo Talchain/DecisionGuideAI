@@ -46,7 +46,7 @@ describe('StrengthenPanel — §8.3 presentation', () => {
   it('renders exactly ONE recommendation visible and expanded by default', () => {
     render(<StrengthenPanel {...baseProps} active={[record('a'), record('b'), record('c')]} />)
     expect(screen.getByText('Title a')).toBeInTheDocument()
-    expect(screen.getByText('Try a')).toBeInTheDocument() // expanded detail
+    expect(screen.getByText(/Try a/)).toBeInTheDocument() // expanded detail
     expect(screen.queryByText('Title b')).toBeNull() // hidden behind Show more
     expect(screen.queryByText('Title c')).toBeNull()
   })

@@ -212,14 +212,14 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
 }))
 
 /** Active list: gate-passing, not yet addressed/dismissed, in priority order. */
-export function selectActive(state: StrengthenState): RecRecord[] {
+export function selectActive(state: Pick<StrengthenState, 'records' | 'priorityOrder'>): RecRecord[] {
   return state.priorityOrder
     .map((id) => state.records[id])
     .filter((r): r is RecRecord => r != null && (r.status === 'recommended' || r.status === 'in_progress' || r.status === 'reopened'))
 }
 
 /** History: addressed or dismissed, most recent event first. */
-export function selectHistory(state: StrengthenState): RecRecord[] {
+export function selectHistory(state: Pick<StrengthenState, 'records' | 'priorityOrder'>): RecRecord[] {
   return Object.values(state.records)
     .filter((r) => r.status === 'addressed' || r.status === 'dismissed')
     .sort((a, b) => (b.history[b.history.length - 1]?.at ?? 0) - (a.history[a.history.length - 1]?.at ?? 0))
