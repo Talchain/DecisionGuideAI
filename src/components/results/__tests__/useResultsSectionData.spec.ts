@@ -1592,3 +1592,27 @@ describe('B2: hook-level fragile edge severity', () => {
     expect(saEdge?.severity).toBe('critical')
   })
 })
+
+describe('Codex B2 — ranking doctrine: order and crown follow the DISPLAYED influence metric', () => {
+  it('a high-elasticity/low-influence factor no longer outranks a low-elasticity/high-influence one', () => {
+    // Codex review scenario: Investor elasticity 0.9 / influence 19%;
+    // Revenue elasticity 0.1 / influence 100%. The bar shows influence, so
+    // the order and the rank-1 crown must follow influence.
+    const rankMap = computeFactorRanks([
+      { key: 'investor', rawElasticity: 0.9, displayValue: 0.19, importanceRank: 1, label: 'Investor Confidence' },
+      { key: 'revenue', rawElasticity: 0.1, displayValue: 1.0, importanceRank: 2, label: 'Revenue' },
+    ])
+    expect(rankMap.get('revenue')).toBe(1)
+    expect(rankMap.get('investor')).toBe(2)
+  })
+
+  it('without a displayValue the elasticity fallback preserves the historical order (bar falls back too)', () => {
+    const rankMap = computeFactorRanks([
+      { key: 'a', rawElasticity: 0.9, label: 'A' },
+      { key: 'b', rawElasticity: 0.1, label: 'B' },
+    ])
+    expect(rankMap.get('a')).toBe(1)
+    expect(rankMap.get('b')).toBe(2)
+  })
+})
+

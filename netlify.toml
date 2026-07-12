@@ -70,6 +70,13 @@
   # sign-off. See src/flags.ts `analysisHeroPanel`.
   VITE_FEATURE_ANALYSIS_HERO_PANEL = "1"
 
+  # Analysis-tab rebuild Wave 1 (Decision overview + Actions menu). Paul
+  # enabled this via the Netlify UI on 2026-07-12 and accepted the surface
+  # live; recorded here so the repo config matches deployed reality (Codex
+  # B4: config-as-source-of-truth). Promote to production by adding to
+  # [build.environment] ONLY after sign-off.
+  VITE_FEATURE_DECISION_OVERVIEW = "1"
+
   # Hero fixture gallery — internal-only /dev/hero-gallery route rendering
   # prototype hero states from typed fixtures (visible internal-preview
   # banner on every instance). Staging-only for design review; never add to

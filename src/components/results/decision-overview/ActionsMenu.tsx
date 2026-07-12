@@ -43,6 +43,13 @@ export function ActionsMenu() {
       )
     items()[0]?.focus()
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Tab') {
+        // Codex SF8: a menu that stays open while Tab walks its items is
+        // neither the ARIA menu pattern nor a disclosure. Close on Tab and
+        // let focus move on naturally (no focus restore — unlike Escape).
+        close(false)
+        return
+      }
       if (e.key === 'Escape') {
         close(true)
         return
