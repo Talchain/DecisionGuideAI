@@ -411,6 +411,35 @@
   }
 }
 
+/* N2 (graph-visuals): a gentle real pulse when the AI points at a node
+   (applied edits, what-changed, R4 directives). Uses the info/AI colour
+   (--info #52A3C8) so it does not overload the goal channel, and its OWN
+   keyframe — it must NOT reuse pulse-fade, which powers .animate-pulse on
+   15+ skeleton/status components. The Tailwind ring on the node stays
+   visible; this only adds the expanding halo. Reduced-motion drops the
+   animation and leaves the static ring, so the highlight is still legible. */
+@keyframes ai-highlight-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(82, 163, 200, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(82, 163, 200, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(82, 163, 200, 0);
+  }
+}
+
+.ai-highlight-pulse {
+  animation: ai-highlight-pulse 1.8s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-highlight-pulse {
+    animation: none;
+  }
+}
+
 .edge-hint-active {
   animation: edge-hint-pulse 1.5s ease-out infinite;
 }

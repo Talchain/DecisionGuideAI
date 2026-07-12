@@ -15,8 +15,10 @@ import { useCanvasStore } from '../store'
 //   ids not on the canvas (e.g. removals) never pulse. An all-stale flush
 //   writes nothing (never clobbers an existing highlight with emptiness).
 // - Pulse only: no selection, no inspector, no viewport pan — the AI must
-//   not hijack what the user is doing. The ring itself is static (BaseNode
-//   ring-4 / StyledEdge stroke), so it is inherently reduced-motion-safe.
+//   not hijack what the user is doing. The node ring gently pulses (N2,
+//   BaseNode `ai-highlight-pulse`) and the edge stroke is static; both are
+//   reduced-motion-safe (the pulse keyframe is disabled under
+//   prefers-reduced-motion, leaving the static ring).
 
 export const PULSE_COALESCE_MS = 100
 export const PULSE_DURATION_MS = 2000

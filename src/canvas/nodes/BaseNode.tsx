@@ -266,7 +266,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         transition-all duration-200
         cursor-default
         ${selected && !isHighlighted ? `${colors.selected} ring-offset-2` : ''}
-        ${isHighlighted ? 'ring-4 ring-goal/50' : ''}
+        ${isHighlighted ? 'ring-4 ring-info/60 ai-highlight-pulse' : ''}
         ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-60' : ''}
       `}
       style={{
