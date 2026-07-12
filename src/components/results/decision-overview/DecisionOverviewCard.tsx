@@ -16,14 +16,14 @@ import { useEffect, useState } from 'react'
 import { AlertTriangle, CheckCircle2, ChevronDown, HelpCircle } from 'lucide-react'
 
 import { useCanvasStore } from '../../../canvas/store'
-import { useGuidanceStore, selectTopItem } from '../../../canvas/stores/guidanceStore'
+import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
 import { isDecisionOverviewEnabled } from '../../../flags'
 import { typography } from '../../../styles/typography'
 import { ActionsMenu } from './ActionsMenu'
 
 export type BriefStateOverride = 'thin' | 'contradictory' | 'unverified'
 
-type BriefState = 'ready' | 'needs_input' | BriefStateOverride
+type BriefState = 'ready' | 'needs_input' | 'unassessed' | BriefStateOverride
 
 export const OVERVIEW_COPY = {
   metaLabel: 'Decision overview',
@@ -31,19 +31,23 @@ export const OVERVIEW_COPY = {
   readyNote: 'Goal, context, constraints and options',
   needsInput: 'Olumi needs a little more from you',
   needsInputNote: 'Answer the questions below to sharpen the framing',
+  needsInputNoQuestions: 'Work through the gaps with Olumi when you are ready',
+  unassessed: 'Framing not yet assessed',
+  unassessedNote: 'Draft or run an analysis to get an assessment',
   thin: 'Framing needs one clarification',
   thinNote: 'The goal is broad or important context is missing',
   contradictory: 'The brief contains a conflict',
   contradictoryNote: 'Resolve it before relying on the read',
   unverified: 'One claim in the brief is unverified',
   unverifiedNote: 'Add a source, correct it or confirm it',
-  framingLabel: "Olumi's framing question",
+  framingLabel: "Olumi's top question",
   workThrough: 'Work through with Olumi',
 } as const
 
 const STATE_COPY: Record<BriefState, { line: string; note: string }> = {
   ready: { line: OVERVIEW_COPY.ready, note: OVERVIEW_COPY.readyNote },
   needs_input: { line: OVERVIEW_COPY.needsInput, note: OVERVIEW_COPY.needsInputNote },
+  unassessed: { line: OVERVIEW_COPY.unassessed, note: OVERVIEW_COPY.unassessedNote },
   thin: { line: OVERVIEW_COPY.thin, note: OVERVIEW_COPY.thinNote },
   contradictory: { line: OVERVIEW_COPY.contradictory, note: OVERVIEW_COPY.contradictoryNote },
   unverified: { line: OVERVIEW_COPY.unverified, note: OVERVIEW_COPY.unverifiedNote },
@@ -59,28 +63,50 @@ export interface DecisionOverviewCardProps {
 
 export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewCardProps) {
   const analysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
-  const topGuidance = useGuidanceStore(selectTopItem)
+  // Review S3: promote only DISCUSSION challenges (never mechanical-fix
+  // items like approve_patch/open_inspector) — closest honest v1 to the
+  // brief's "highest-value framing challenge"; an explicit producer
+  // framing-question signal is a routed ask.
+  const topGuidance = useGuidanceStore((s) => {
+    const items = s.guidanceItems.filter((i) => i.primary_action.type === 'discuss')
+    if (items.length === 0) return null
+    return items.reduce((best, i) => (i.priority > best.priority ? i : best), items[0])
+  })
   const sendMessage = useGuidanceStore((s) => s._sendMessage)
 
-  // Live state derivation: ONLY ready / needs-input can fire from the wire
+  // Live state derivation (review S2): with NO CEE assessment at all the
+  // card must not claim the basics are present — 'unassessed' is a quiet
+  // no-claim state. ONLY ready / needs-input can fire from the wire
   // (analysis_ready.status). The gallery states arrive via stateOverride.
-  const liveState: BriefState =
-    analysisReady && analysisReady.status !== 'ready' ? 'needs_input' : 'ready'
+  const liveState: BriefState = !analysisReady
+    ? 'unassessed'
+    : analysisReady.status !== 'ready'
+      ? 'needs_input'
+      : 'ready'
   const state: BriefState = stateOverride ?? liveState
-  const autoExpand = state !== 'ready'
+  // Unassessed is a QUIET no-claim state — collapsed like ready (review S2).
+  const autoExpand = state !== 'ready' && state !== 'unassessed'
 
   const [expanded, setExpanded] = useState(autoExpand)
   useEffect(() => setExpanded(autoExpand), [autoExpand])
 
   if (!isDecisionOverviewEnabled()) return null
 
-  const copy = STATE_COPY[state]
+  const questions = (analysisReady?.user_questions ?? []).slice(0, 3)
+  // Review S1: never promise "questions below" when the producer sent none
+  // (needs_encoding / needs_user_mapping often carry no user_questions).
+  const copy =
+    state === 'needs_input' && questions.length === 0
+      ? { line: OVERVIEW_COPY.needsInput, note: OVERVIEW_COPY.needsInputNoQuestions }
+      : STATE_COPY[state]
   const StateIcon =
     state === 'ready' ? CheckCircle2 : state === 'contradictory' ? AlertTriangle : HelpCircle
   const iconTone =
-    state === 'ready' ? 'text-text-light' : state === 'contradictory' ? 'text-danger' : 'text-warning'
-  const questions = (analysisReady?.user_questions ?? []).slice(0, 3)
-
+    state === 'ready' || state === 'unassessed'
+      ? 'text-text-light'
+      : state === 'contradictory'
+        ? 'text-danger'
+        : 'text-warning'
   return (
     <section
       data-testid="decision-overview"
@@ -131,8 +157,8 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
 
           {state === 'needs_input' && questions.length > 0 && (
             <ul className="mt-2 space-y-1" data-testid="brief-questions">
-              {questions.map((q) => (
-                <li key={q} className={`${typography.panelBody} text-text-body`}>
+              {questions.map((q, i) => (
+                <li key={`${i}-${q}`} className={`${typography.panelBody} text-text-body`}>
                   {q}
                 </li>
               ))}

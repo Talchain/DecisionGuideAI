@@ -89,6 +89,40 @@ describe('DecisionOverviewCard — needs-input state (live)', () => {
   })
 })
 
+describe('DecisionOverviewCard — review folds (S1/S2/S3)', () => {
+  beforeEach(() => flagOn())
+
+  it('S2: NO CEE assessment → quiet no-claim state, never "has the basics"', () => {
+    useCanvasStore.setState({ ceeAnalysisReady: null } as never)
+    render(<DecisionOverviewCard title="t" />)
+    expect(screen.getByText('Framing not yet assessed')).toBeInTheDocument()
+    expect(screen.queryByText('Framing has the basics')).not.toBeInTheDocument()
+    expect(screen.getByTestId('brief-bar')).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('S1: needs-input WITHOUT producer questions never promises "questions below"', () => {
+    useCanvasStore.setState({
+      ceeAnalysisReady: { status: 'needs_encoding', options: [], goal_node_id: 'g1' },
+    } as never)
+    render(<DecisionOverviewCard title="t" />)
+    expect(screen.queryByText(/questions below/i)).not.toBeInTheDocument()
+    expect(screen.getByText('Work through the gaps with Olumi when you are ready')).toBeInTheDocument()
+  })
+
+  it('S3: only DISCUSSION items are promoted — a mechanical top item is not a question', () => {
+    useCanvasStore.setState({ ceeAnalysisReady: READY } as never)
+    useGuidanceStore.setState({
+      guidanceItems: [
+        { item_id: 'g1', signal_code: 's', category: 'must_fix', source: 'structural', title: 'Connect the isolated risk', primary_action: { type: 'open_inspector', target_id: 'n1' }, priority: 95 },
+      ],
+      _sendMessage: () => {},
+    } as never)
+    render(<DecisionOverviewCard title="t" />)
+    fireEvent.click(screen.getByTestId('brief-bar'))
+    expect(screen.queryByTestId('framing-question')).not.toBeInTheDocument()
+  })
+})
+
 describe('DecisionOverviewCard — gallery-only states (stateOverride)', () => {
   beforeEach(() => flagOn())
 

@@ -37,6 +37,7 @@ import { resolveDisplayedFreshness } from '../store/analysisFreshness'
 import { getScenario } from '../store/scenarios'
 import { AnalysisFreshnessNotice } from '../../components/results/AnalysisFreshnessNotice'
 import { DecisionOverviewCard } from '../../components/results/decision-overview/DecisionOverviewCard'
+import { isDecisionOverviewEnabled } from '../../flags'
 import { deriveResultsTabFreshness } from './resultsTabFreshness'
 import { typography, typo } from '../../styles/typography'
 import {
@@ -618,8 +619,14 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const resultsSectionData = useResultsSectionData()
   // Wave 1: decision title for the overview card — same source as the
   // ScenarioSwitcher header (scenario name; null when unsaved/untitled).
+  // Memoised: getScenario parses the whole scenarios localStorage blob, so
+  // it must never run per render (review B1); flag-off renders skip it via
+  // the mount-site gate below.
   const overviewScenarioId = useCanvasStore((s) => s.currentScenarioId)
-  const overviewTitle = overviewScenarioId ? (getScenario(overviewScenarioId)?.name ?? null) : null
+  const overviewTitle = useMemo(
+    () => (isDecisionOverviewEnabled() && overviewScenarioId ? (getScenario(overviewScenarioId)?.name ?? null) : null),
+    [overviewScenarioId],
+  )
 
   // Tornado chart: Derive per-factor outcome bounds from driver influence and recommended option range.
   // Each factor's contribution to the outcome swing is proportional to its normalised influence.
@@ -2073,9 +2080,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     from Results tab — they are not in the v7 prototype.
                     ====================================================================== */}
                 {/* Wave 1: Decision overview — the orientation surface, first
-                    in the canonical hierarchy (brief §3). Flag-gated
-                    (renders nothing flag-off). */}
-                {!isPreRun && hasInlineSummary && resultsSectionData && (
+                    in the canonical hierarchy (brief §3). Mount-site gated
+                    (house pattern, review B1): flag-off renders NOTHING and
+                    pays no subscription or parsing cost. */}
+                {isDecisionOverviewEnabled() && !isPreRun && hasInlineSummary && resultsSectionData && (
                   <DecisionOverviewCard title={overviewTitle} />
                 )}
                 {/* Wave F-B review (a): the sole freshness strip + its Rerun

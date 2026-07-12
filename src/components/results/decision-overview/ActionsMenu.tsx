@@ -30,13 +30,45 @@ export function ActionsMenu() {
     if (restoreFocus) triggerRef.current?.focus()
   }, [])
 
+  const menuRef = useRef<HTMLDivElement | null>(null)
+
+  // Review S5: real menu keyboard model — Escape closes with focus restore;
+  // Arrow/Home/End rove focus across menuitems; first item focused on open;
+  // clicking outside closes.
   useEffect(() => {
     if (!open) return
+    const items = () =>
+      Array.from(
+        menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)') ?? [],
+      )
+    items()[0]?.focus()
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close(true)
+      if (e.key === 'Escape') {
+        close(true)
+        return
+      }
+      if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return
+      const list = items()
+      if (list.length === 0) return
+      e.preventDefault()
+      const current = list.indexOf(document.activeElement as HTMLButtonElement)
+      const next =
+        e.key === 'Home' ? 0
+        : e.key === 'End' ? list.length - 1
+        : e.key === 'ArrowDown' ? (current + 1 + list.length) % list.length
+        : (current - 1 + list.length) % list.length
+      list[next]?.focus()
+    }
+    const onPointerDown = (e: MouseEvent) => {
+      const t = e.target as Node
+      if (!menuRef.current?.contains(t) && !triggerRef.current?.contains(t)) close(false)
     }
     document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onPointerDown)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onPointerDown)
+    }
   }, [open, close])
 
   const runMethod = (method: MethodEntry) => {
@@ -88,6 +120,7 @@ export function ActionsMenu() {
       </button>
       {open && (
         <div
+          ref={menuRef}
           role="menu"
           aria-label="Methods and global actions"
           className="absolute right-0 top-full z-20 mt-1 w-64 rounded-md border border-panel-border bg-panel p-1.5 shadow-2"
@@ -109,18 +142,26 @@ export function ActionsMenu() {
           ))}
           <div className="my-1 h-px bg-panel-border" aria-hidden="true" />
           <p className={`${typography.panelMeta} px-2 pb-1 text-text-light`}>Global actions</p>
-          {GLOBAL_ACTIONS.map((a) => (
+          {GLOBAL_ACTIONS.map((a) => {
+            // Review S6: brief-review routes need a registered chat; rerun
+            // does not. Never render dead controls.
+            const needsChat = a.id !== 'rerun_analysis'
+            const enabled = !needsChat || sendMessage !== null
+            return (
             <button
               key={a.id}
               type="button"
               role="menuitem"
+              disabled={!enabled}
+              title={enabled ? undefined : 'Open the Olumi panel to use this'}
               onClick={() => runGlobal(a.id)}
-              className="block w-full rounded-md px-2 py-1.5 text-left hover:bg-panel-hover"
+              className="block w-full rounded-md px-2 py-1.5 text-left hover:bg-panel-hover disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span className={`${typography.panelBody} block font-semibold text-text-header`}>{a.title}</span>
               <span className={`${typography.panelMeta} block text-text-light`}>{a.description}</span>
             </button>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

@@ -18,7 +18,7 @@ import {
 
 beforeEach(() => {
   __resetCanonicalRunnerForTests()
-  useGuidanceStore.setState({ _dispatchAction: null } as never)
+  useGuidanceStore.setState({ _dispatchAction: null, _sendMessage: null } as never)
 })
 
 describe('Actions catalogue (brief §4.7 — one recognisable set)', () => {
@@ -71,6 +71,29 @@ describe('ActionsMenu', () => {
     fireEvent.click(screen.getByRole('button', { name: /actions/i }))
     const method = screen.getByText('Run a pre-mortem').closest('button')!
     expect(method).toBeDisabled()
+  })
+
+  it('S5: arrow keys rove focus across menu items and outside click closes', () => {
+    // All items enabled: chat + dispatch registered.
+    useGuidanceStore.setState({ _dispatchAction: vi.fn(), _sendMessage: vi.fn() } as never)
+    render(<ActionsMenu />)
+    fireEvent.click(screen.getByRole('button', { name: /actions/i }))
+    const items = screen.getAllByRole('menuitem')
+    expect(document.activeElement).toBe(items[0])
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(items[1])
+    fireEvent.keyDown(document.activeElement!, { key: 'End' })
+    expect(document.activeElement).toBe(items[items.length - 1])
+    fireEvent.mouseDown(document.body)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('S6: brief-review globals disable honestly when no chat is registered (rerun stays live)', () => {
+    render(<ActionsMenu />)
+    fireEvent.click(screen.getByRole('button', { name: /actions/i }))
+    expect(screen.getByText('Edit decision brief').closest('button')).toBeDisabled()
+    expect(screen.getByText('Review all inputs').closest('button')).toBeDisabled()
+    expect(screen.getByText('Rerun analysis').closest('button')).not.toBeDisabled()
   })
 
   it('"Rerun analysis" routes through the canonical runner', async () => {
