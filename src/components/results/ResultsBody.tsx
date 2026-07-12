@@ -161,6 +161,19 @@ export const ResultsBody = memo(function ResultsBody({
     return resultsSectionData.recommendation.recommendedOption?.id
   }, [riskAppetite, resultsSectionData.recommendation])
 
+  // Wave 2 (§6.4): identity-anchored ordinals for the option cards — the
+  // SAME store map the hero badges consume, provided all-or-nothing (a
+  // partially registered set could render duplicate numbers next to
+  // positional ranks) and ONLY inside the rebuild flag: flag-off cards are
+  // byte-identical to today.
+  const optionNumbering = useCanvasStore(s => s.optionNumbering)
+  const stableNumbersForCards = useMemo(() => {
+    if (!isAnalysisHeroPanelEnabled()) return undefined
+    const all = resultsSectionData.recommendation.allOptions
+    if (all.length === 0 || all.some(o => optionNumbering[o.id] == null)) return undefined
+    return optionNumbering
+  }, [optionNumbering, resultsSectionData.recommendation.allOptions])
+
   // V11: Build enriched view model — drives hero rows, colours, collapse behaviour
   // Evidence ratio: fragile / (fragile + robust) = robustness-assessed edges only
   const robustnessEdgeTotal = (fragileEdgeCount ?? 0) + (robustEdgeCount ?? 0)
@@ -336,6 +349,7 @@ export const ResultsBody = memo(function ResultsBody({
               options={resultsSectionData.recommendation.allOptions}
               winnerId={riskWinnerId ?? resultsSectionData.recommendation.recommendedOption?.id}
               lensActive={riskAppetite !== 'neutral'}
+              stableNumbers={stableNumbersForCards}
               onSendMessage={onSendMessage}
               hasGoalThreshold={resultsSectionData.recommendation.goalThreshold != null}
               storyHeadlines={resultsSectionData.recommendation.storyHeadlines}

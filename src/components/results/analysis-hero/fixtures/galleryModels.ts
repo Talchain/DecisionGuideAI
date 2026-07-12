@@ -30,6 +30,8 @@ function fixtureRow(o: RowOverrides): HeroRowVM {
     goal: { value: null, readout: '—' },
     outcome: { p10: null, p90: null, centre: null, readout: '—' },
     detail: {},
+    // Fixtures have no numbering store; the badge falls back to index.
+    stableNumber: null,
     ...o,
   }
 }

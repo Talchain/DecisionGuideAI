@@ -279,6 +279,7 @@ function OptionCard({
   cardRef,
   neutralised = false,
   sortedRank,
+  stableNumber = null,
   segmentFillColor,
   onClick,
   globalMin = 0,
@@ -300,6 +301,9 @@ function OptionCard({
   neutralised?: boolean
   /** V14.2: 1-indexed rank derived from win probability sort order */
   sortedRank?: number
+  /** Wave 2 (§6.4): identity-anchored ordinal — rendered as an "Option N"
+   * chip so the same option keeps its number across rerun rank flips. */
+  stableNumber?: number | null
   /** Task 6b: CSS colour string for coloured fill bar (matches wins segment) */
   segmentFillColor?: string
   onClick?: () => void
@@ -360,6 +364,14 @@ function OptionCard({
             data-testid={`rank-marker-${option.id}`}
             style={{ backgroundColor: WIN_GAUGE_COLORS[Math.min(rank - 1, WIN_GAUGE_COLORS.length - 1)] }}
           />
+        )}
+        {stableNumber != null && (
+          <span
+            data-testid={`stable-number-${option.id}`}
+            className={`${typography.panelMeta} text-text-light flex-shrink-0`}
+          >
+            Option {stableNumber}
+          </span>
         )}
         <Tooltip content="Hover highlights on canvas. Click opens inspector.">
           {/* Brief 5.1 Task 7: card title strips the trailing "(Status Quo)"
@@ -644,6 +656,7 @@ export function OptionCards({
             description={description}
             neutralised={neutralised}
             sortedRank={index + 1}
+            stableNumber={stableNumbers?.[option.id] ?? null}
             segmentFillColor={segmentFillColor}
             globalMin={globalMin}
             globalMax={globalMax}

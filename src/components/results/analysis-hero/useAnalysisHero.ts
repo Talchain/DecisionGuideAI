@@ -35,7 +35,11 @@ export function useAnalysisHero(data: ResultsSectionDataReturn): UseAnalysisHero
   const isAnalysing =
     resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
 
-  const model = useMemo(() => buildHeroModel(data), [data])
+  // Wave 2 (§6.4): identity-anchored ordinals from the Wave F-A store slice.
+  // Selecting the map itself is referentially stable — registerOptionNumbering
+  // no-ops (skips set) when every id is already registered.
+  const optionNumbering = useCanvasStore((s) => s.optionNumbering)
+  const model = useMemo(() => buildHeroModel(data, optionNumbering), [data, optionNumbering])
 
   // Wave F-B: the hero rerun routes through the canonical runner — its old
   // private useV2Run instance bypassed the dock's run gate and the V5 fact

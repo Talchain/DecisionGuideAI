@@ -205,6 +205,13 @@ export function buildHeroModel(
   // matches the OptionCards/WinGauge ranking below. Presentation numbering,
   // not graph-node truth; stable across lens switches (asserted in tests).
   const options = sortOptionsForDisplay(recommendation.allOptions)
+  // Wave 2 (§6.4): identity-anchored ordinals, all-or-nothing — if ANY row
+  // is unregistered every row falls back to the positional index at render
+  // (mixing the two schemes in one list could show duplicate numbers).
+  const stableNumberFor = (id: string): number | null =>
+    numbering != null && options.every((o) => numbering[o.id] != null)
+      ? numbering[id] ?? null
+      : null
   // No analysis yet (the hook's pre-run default) — the tab stays unchanged.
   if (options.length === 0) return { kind: 'empty' }
 
@@ -297,7 +304,7 @@ export function buildHeroModel(
     return {
       id: o.id,
       index: i + 1,
-      stableNumber: null as number | null,
+      stableNumber: stableNumberFor(o.id),
       label: stripEncodingNotation(o.label),
       goal: {
         value: goalValue,
