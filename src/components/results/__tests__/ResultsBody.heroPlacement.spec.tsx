@@ -170,15 +170,17 @@ describe('ResultsBody — Analysis hero placement + flag regression', () => {
     expect(before(focus, options)).toBe(true)
   })
 
-  it('flag ON: hero mounts ABOVE the existing hero block; existing panels untouched', () => {
+  it('flag ON: hero REPLACES the legacy decision-confidence panel (Wave 2 retirement)', () => {
+    // Wave 2 flag-scoped retirement (plan §3 W2): flag-on staging is where
+    // Paul accepts the §12.4 duplication removal; flag-off stays byte-
+    // identical to today (previous test). Rollback = flag off.
     vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
     renderBody()
     const hero = screen.getByTestId('analysis-hero-panel')
-    const existingHero = screen.getByTestId('decision-confidence-panel')
+    expect(screen.queryByTestId('decision-confidence-panel')).toBeNull()
     const focus = screen.getByTestId('focus-now-panel')
     const options = screen.getByTestId('section-header-options')
-    expect(before(hero, existingHero), 'new hero must precede the existing hero').toBe(true)
-    expect(before(existingHero, focus), 'existing hero still precedes the Focus panel').toBe(true)
+    expect(before(hero, focus), 'hero precedes the Focus panel').toBe(true)
     expect(before(focus, options), 'Focus panel still precedes options').toBe(true)
   })
 
