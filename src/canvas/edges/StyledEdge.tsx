@@ -22,6 +22,7 @@ import { NodeChip } from '../nodes/shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { useShallow } from 'zustand/react/shallow'
 import type { EdgeData, EdgePathType } from '../domain/edges'
+import { shouldShowEdgeLabel } from './edgeLabelVisibility'
 import { applyEdgeVisualProps } from '../theme/edges'
 import { formatConfidence, shouldShowLabel, getEdgeConfidence, computeSignedMean } from '../domain/edges'
 import { useIsDark } from '../hooks/useTheme'
@@ -513,9 +514,20 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     return { dx: 0, dy: 0 }
   }, [isTopStrengthEdge, source, target, getNode, labelX, labelY, sourceX, sourceY, targetX, targetY])
 
-  // C1: Edge labels only in Detailed view, post-analysis
-  // Structural edges (decision→option, option→factor) never show causal labels
-  const showLabel = viewMode !== 'standard' && isResultsMode && !isStructuralEdge && (selected || isHovered || hasSuggestion || (isFirstEdge && showEdgeHint) || isTopStrengthEdge)
+  // C1 + E2: label-visibility policy (see edgeLabelVisibility.ts). Top-strength
+  // labels surface in the default (standard) view once results exist; the
+  // interaction-driven triggers stay Detailed/Model-only.
+  const showLabel = shouldShowEdgeLabel({
+    viewMode,
+    isResultsMode,
+    isStructuralEdge,
+    isTopStrengthEdge,
+    selected: Boolean(selected),
+    isHovered,
+    hasSuggestion,
+    isFirstEdge,
+    showEdgeHint: Boolean(showEdgeHint),
+  })
 
   // Causal lens: hide structural edges entirely
   if (isLensHidden) return null
