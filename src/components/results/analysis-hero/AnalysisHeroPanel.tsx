@@ -81,6 +81,14 @@ function StatusState({ model }: { model: HeroStatusModel }) {
     <div data-testid={`hero-status-${model.variant}`} className="space-y-1">
       <h3 className={`${typography.panelHeader} text-text-header`}>{model.headline}</h3>
       <p className={`${typography.panelBody} text-text-light`}>{model.body}</p>
+      {/* §6.2 pause-read: the resolution action renders as plain text until
+          the live producer contradiction signal (and its routed action)
+          exists — never a dead control. */}
+      {model.resolution && (
+        <p data-testid="hero-paused-resolution" className={`${typography.panelBody} text-text-body`}>
+          {model.resolution}
+        </p>
+      )}
     </div>
   )
 }

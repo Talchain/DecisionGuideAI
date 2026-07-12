@@ -468,4 +468,18 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
       body: 'Resolve the items flagged on the canvas, then run the analysis again.',
     },
   },
+  {
+    id: 'status-paused',
+    title: 'Status — pause-read (§6.2, producer-gated)',
+    description:
+      'A framing contradiction pauses the read: lenses and evidence suppressed, resolution shown. No live producer signal exists yet — buildHeroModel never emits this variant (pinned); it goes live with the contradiction signal (Wave 5).',
+    model: {
+      kind: 'status',
+      provenance: 'fixture',
+      variant: 'paused',
+      headline: 'Analysis paused: resolve your framing first.',
+      body: 'Your goal says minimise cost, but the leading option is judged on revenue growth.',
+      resolution: 'Review the goal with Olumi before reading these results.',
+    },
+  },
 ]

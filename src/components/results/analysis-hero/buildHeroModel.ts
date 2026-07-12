@@ -64,7 +64,10 @@ import type { HeroChartModel, HeroLens, HeroModel, HeroRowVM, HeroStatusModel } 
 
 // ─── Small helpers (selection + display formatting only) ────────────────────
 
-function statusModel(variant: HeroStatusModel['variant']): HeroStatusModel {
+// Live variants only — 'paused' (§6.2) is deliberately unrepresentable
+// here: it is producer-gated with no live signal, so the type narrows the
+// never-emits-paused pin into the compiler.
+function statusModel(variant: 'partial' | 'failed' | 'blocked'): HeroStatusModel {
   const copy = HERO_COPY.status[variant]
   return {
     kind: 'status',
