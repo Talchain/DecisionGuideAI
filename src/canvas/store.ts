@@ -614,6 +614,12 @@ interface CanvasState {
   clearErrorDetails: () => void
   resultsCancelled: () => void
   resultsReset: () => void
+  /** Wave F-A (brief §6.4/§12.4): identity-anchored option ordinals —
+   * assigned once per option id (first appearance), stable across reruns,
+   * never reused; per-scenario continuity (cleared on scenario hydrate).
+   * Read outside React via getAnalysisDisplaySnapshot(). */
+  optionNumbering: Record<string, number>
+  registerOptionNumbering: (optionIds: readonly string[]) => void
   /** 1.16i: authoritative analysing state for the live V5 run turn — sets
    * 'preparing' at dispatch while preserving the prior report/hash/seed/
    * drivers (unlike resultsStart, no seed is known yet). */
@@ -2786,6 +2792,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // never landed, so don't send stale analysis_state on subsequent turns.
       analysisStateReady: false,
     }))
+  },
+
+  optionNumbering: {},
+  registerOptionNumbering: (_optionIds) => {
+    // Wave F-A stub (RED phase): inert until the lane's GREEN commit.
   },
 
   resultsAnalysing: () => {
