@@ -2,8 +2,9 @@
  * useFocusNow container — enforces the boundaries the presentational layer cannot:
  * (1) the uncertified coaching_summary is gated OFF; (2) the row action AUTO-SENDS
  * the prompt to Olumi (via the reliably-registered _sendMessage) and reveals the
- * chat — it does NOT prefill. Also maps freshness to the banner and gates the
- * controls off when no chat can receive the message / aiPanelV2 is disabled.
+ * chat — it does NOT prefill. Gates the controls off when no chat can
+ * receive the message / aiPanelV2 is disabled. (Its stale banner retired in
+ * Wave F-B — the Analysis freshness strip is the sole stale owner.)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
@@ -52,11 +53,12 @@ describe('useFocusNow container', () => {
     expect(result.current.summary).toBeNull()
   })
 
-  it('still surfaces the static rows and maps freshness to the banner', () => {
+  it('still surfaces the static rows; the stale banner is RETIRED (Wave F-B — the freshness strip is the sole owner)', () => {
     const { result } = renderHook(() => useFocusNow())
     expect(result.current.rows.length).toBeGreaterThan(0)
     expect(result.current.rows.every((r) => r.ownership === 'static_hygiene')).toBe(true)
-    expect(result.current.banner).toEqual({ kind: 'stale', canRerun: true })
+    // Brief §5.3: no second stale banner inside Strengthen your model.
+    expect(result.current.banner).toEqual({ kind: 'none' })
   })
 
   it('onPrefill AUTO-SENDS the prompt to Olumi and reveals the chat', () => {

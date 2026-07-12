@@ -1,25 +1,30 @@
 /**
  * useEditConfirmation — tracks last-edited field for "Updated ✓" indicator.
  * Returns { confirm(field), lastConfirmed, isStaleAfterEdit }.
+ *
+ * Wave F-B (brief §5.3): staleness comes from the CANONICAL freshness owner
+ * (CEE verdict + the local dirty overlay via resolveDisplayedFreshness),
+ * never a local had-results heuristic. The prompt still requires an edit
+ * confirmed in THIS panel (lastConfirmed) so untouched panels stay quiet.
  */
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import { useCanvasStore } from '../../store'
+import { resolveDisplayedFreshness } from '../../store/analysisFreshness'
 
 export function useEditConfirmation() {
   const [lastConfirmed, setLastConfirmed] = useState<{ field: string; ts: number } | null>(null)
-  const resultsStatus = useCanvasStore(s => s.results?.status)
-  const hadResultsRef = useRef(resultsStatus === 'complete')
-
-  // Track whether results were complete before edit
-  if (resultsStatus === 'complete') hadResultsRef.current = true
+  const freshness = useCanvasStore(s => s.analysisFreshness)
+  const dirty = useCanvasStore(s => s.analysisFreshnessDirty)
 
   const confirm = useCallback((field: string) => {
     setLastConfirmed({ field, ts: Date.now() })
   }, [])
 
-  // Results are stale if they existed before this edit session
-  const isStaleAfterEdit = hadResultsRef.current && lastConfirmed !== null
+  // Not confirmably fresh per the sole freshness owner + an edit happened here.
+  const displayed = freshness ? resolveDisplayedFreshness(freshness, dirty) : null
+  const notConfirmablyFresh = displayed === 'stale' || displayed === 'unknown'
+  const isStaleAfterEdit = notConfirmablyFresh && lastConfirmed !== null
 
   return { confirm, lastConfirmed, isStaleAfterEdit }
 }

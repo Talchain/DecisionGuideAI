@@ -12,7 +12,6 @@ export { FocusBanner } from './FocusBanner'
 export { FocusRowCard } from './FocusRowCard'
 export { FocusNowEmpty } from './FocusNowEmpty'
 export { buildFocusRows, mapSignalToFocusRow, dropGatedRows } from './buildFocusRows'
-export { freshnessToBanner } from './freshnessBanner'
 export { useFocusNow } from './useFocusNow'
 export { STATIC_HYGIENE_ROWS, FOCUS_COPY, FOCUS_DEFAULT_VISIBLE } from './focusConstants'
 export type {

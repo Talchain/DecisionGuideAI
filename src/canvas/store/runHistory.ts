@@ -1,4 +1,12 @@
 /**
+ * ⚠ ANALYSIS-TAB BRIEF §19 (docs-designs/ANALYSIS-TAB-BUILD-2026-07-12):
+ * this local run history (client graph hashes + graph snapshots "for
+ * computing deltas") must NEVER back a "What changed" surface or any
+ * freshness signal — versioned comparison is producer-owned and absent
+ * from every contract today. WhatChangedChip (the one consumer of the
+ * delta idea) retires with the merged Analysis panel. Do not wire this in.
+ */
+/**
  * Run History Storage
  *
  * Local-first storage for the last 20 analysis runs.

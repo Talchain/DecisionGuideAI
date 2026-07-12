@@ -34,7 +34,7 @@ import { HeroQualifier } from '../../components/results/HeroQualifier'
 import {
   deriveAnalysisFreshnessState,
   type AnalysisFreshnessInputs,
-} from '../../lib/analysisFreshnessState'
+} from './helpers/legacyFreshnessDerivation'
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
 import type { V5GraphPatchBlock as V5GraphPatchBlockType } from '../../canvas/conversation/types'
 

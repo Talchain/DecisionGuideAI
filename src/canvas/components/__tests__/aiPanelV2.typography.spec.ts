@@ -25,7 +25,6 @@ const AI_PANEL_V2_FILES = [
   'src/canvas/components/AIInputBar.tsx',
   'src/canvas/components/PersistentInputStrip.tsx',
   'src/canvas/components/SelectionPill.tsx',
-  'src/canvas/components/StaleAnalysisBadge.tsx',
   'src/canvas/components/FloatingOlumiPanel.tsx',
   'src/canvas/components/FirstUseComposer.tsx',
   'src/canvas/components/CogPopover.tsx',

@@ -29,11 +29,11 @@ import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
 import { AnalysisRunningBanner } from './AnalysisRunningBanner'
-import { registerCanonicalRunner, type CanonicalRunOutcome } from '../analysis/canonicalRunRegistry'
+import { registerCanonicalRunner, type CanonicalRunOptions, type CanonicalRunOutcome } from '../analysis/canonicalRunRegistry'
 import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource } from '../store'
-import { resolveDisplayedFreshness, classifyFreshnessForDisplay } from '../store/analysisFreshness'
+import { resolveDisplayedFreshness } from '../store/analysisFreshness'
 import { deriveResultsTabFreshness } from './resultsTabFreshness'
 import { typography, typo } from '../../styles/typography'
 import {
@@ -46,7 +46,6 @@ import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled, isV5Canon
 import { OlumiTabBody } from './OlumiTabBody'
 import { PersistentInputStrip } from './PersistentInputStrip'
 import { SelectionPill } from './SelectionPill'
-import { StaleAnalysisBadge } from './StaleAnalysisBadge'
 import { CogPopover } from './CogPopover'
 import { useConversationContext, useOptionalConversationContext } from '../conversation/ConversationContext'
 import { useFloatingPanelState } from '../hooks/useFloatingPanelState'
@@ -594,7 +593,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // the run (CEE 'stale' or a local edit that downgraded a retained 'fresh') from a
   // CANNOT-CONFIRM state where CEE could not determine freshness — so the stale
   // banner never claims "you've updated the model" for a CEE-sourced 'unknown'.
-  const analysisChangedSinceRun = classifyFreshnessForDisplay(ceeFreshness, freshnessDirty) === 'changed'
 
   // Build persistence object only when Supabase persistence is active
   const v2Persistence = useMemo<V2RunPersistence | undefined>(() => {
@@ -734,7 +732,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // ⌘Enter, command palette) executes this exact pipeline instead of
   // building its own request. It never no-ops silently: a blocked gate
   // returns the human-readable reason for the caller to surface.
-  const runCanonicalAnalysis = useCallback(async (): Promise<CanonicalRunOutcome> => {
+  const runCanonicalAnalysis = useCallback(async (opts?: CanonicalRunOptions): Promise<CanonicalRunOutcome> => {
     if (isRunning) return { status: 'already-running' }
     if (!canRunAnalysis) {
       return { status: 'blocked', reason: runBlockedTooltip || 'Analysis is not available right now.' }
@@ -779,6 +777,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
         // for spinner state.
         dispatch({
           action_type: 'run_analysis',
+          // Wave F-B: caller-supplied chip parameters (e.g. goal_threshold
+          // from the threshold/Define-success rerun) ride the canonical
+          // dispatch — no surface builds its own pipeline.
+          ...(opts?.parameters ? { parameters: opts.parameters } : {}),
           label: 'Run analysis',
           message: 'Run analysis',
           source: 'chip',
@@ -876,28 +878,16 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     const now = Date.now()
     if (now - lastThresholdRerunAtRef.current < 500) return
     lastThresholdRerunAtRef.current = now
-    const canonical = isV5CanonicalAnalysisEnabled() &&
-      isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
-    if (canonical) {
-      const dispatch = useGuidanceStore.getState()._dispatchAction
-      if (dispatch) {
-        dispatch({
-          action_type: 'run_analysis',
-          parameters: threshold !== null ? { goal_threshold: threshold } : undefined,
-          label: 'Run analysis',
-          message: 'Run analysis',
-          source: 'chip',
-        })
-        return
-      }
-      if (import.meta.env.DEV) {
-        console.warn(
-          '[OutputsDock] canonical flag is on but _dispatchAction is not registered; falling back to V2 for threshold rerun.',
-        )
-      }
-    }
-    runV2Analysis()
-  }, [setGoalThreshold, runV2Analysis])
+    // Wave F-B: the threshold rerun goes through the canonical runner like
+    // every other run affordance — same gate, same V5/V2 routing. Its old
+    // inline dispatch copy had NO run gate (audit finding). The V2 fallback
+    // needs no parameter: the request builder reads store.goalThreshold
+    // (UI-SEM-058), already set above.
+    void runCanonicalAnalysis({
+      source: 'apply-threshold',
+      ...(threshold !== null ? { parameters: { goal_threshold: threshold } } : {}),
+    })
+  }, [setGoalThreshold, runCanonicalAnalysis])
 
   // C1: Baseline addition does NOT trigger rerun — mutates draft only.
   // User must manually rerun to generate comparison data.
@@ -2040,47 +2030,11 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     </span>
                   </div>
                 )}
-                {/* Brief 4 Task 13: top-level "results may be outdated" card.
-                    Shows when the analysis is not confirmed-fresh; the results body
-                    below dims to 0.6 so the user can't miss it. Scroll and selection
-                    remain usable (no pointer-events:none) — only mutation affordances
-                    are disabled inside ResultsBody via aria-disabled.
-                    Header copy distinguishes a model that definitely CHANGED since the
-                    run (CEE 'stale' or a local edit) from a CANNOT-CONFIRM state (CEE
-                    could not determine freshness) — the latter must not claim the user
-                    edited the model. */}
-                {analysisNotConfirmedFresh && !isError && report && (
-                  <div
-                    className="px-3 py-2.5 rounded-lg border border-warning/30"
-                    style={{ backgroundColor: 'rgb(255 166 86 / 0.05)' }}
-                    role="status"
-                    data-testid="graph-stale-banner"
-                    data-banner-variant={analysisChangedSinceRun ? 'changed' : 'cannot-confirm'}
-                  >
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-1" aria-hidden="true" />
-                      <div className="flex-1 min-w-0">
-                        <p className={`${typography.panelHeader} text-text-header`}>
-                          {analysisChangedSinceRun
-                            ? "You've updated the model since this analysis ran"
-                            : "Can't confirm this analysis is current"}
-                        </p>
-                        <p className={`${typography.panelBody} text-text-light`}>
-                          Results may not reflect your current graph.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleRunAnalysis}
-                        disabled={isRunning || !canRunAnalysis}
-                        className={`${typography.panelBody} bg-primary text-text-on-color rounded-md px-3 py-1 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0`}
-                        data-testid="graph-stale-rerun-button"
-                      >
-                        Rerun analysis
-                      </button>
-                    </div>
-                  </div>
-                )}
+                {/* Wave F-B (brief §5.2): the top-level stale banner is RETIRED —
+                    AnalysisFreshnessNotice inside ResultsBody is the sole
+                    freshness owner and carries the one Rerun. The 0.6 dim on
+                    the results body (below) stays, driven by the same
+                    canonical verdict. */}
                 {/* A.9: Conversation-triggered analysis indicator — auto-dismisses after 5s */}
                 {convIndicatorVisible && !isPreRun && report && (
                   <div
@@ -2226,7 +2180,9 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
         {aiPanelV2On && effectiveIsOpen ? (
           <div className="flex-shrink-0" data-testid="ai-panel-footer-stack">
             <SelectionPill />
-            <StaleAnalysisBadge />
+            {/* Wave F-B: StaleAnalysisBadge retired — third stale surface in
+                one dock, and its rerun bypassed the canonical runner. The
+                freshness strip owns stale + Rerun. */}
             <PersistentInputStrip
               isOlumiTabActive={effectiveActiveTab === 'olumi'}
               onOpenFloating={floatOutToWindow}

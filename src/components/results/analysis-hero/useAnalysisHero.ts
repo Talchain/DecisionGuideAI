@@ -6,7 +6,7 @@
  * from ResultsBody as a prop — no second data path, no fetch, no direct
  * CEE/PLoT access) and wires the two live concerns the presentational panel
  * must not own:
- *   - re-run analysis via the existing useV2Run path (stale Focus-next);
+ *   - re-run analysis via the canonical runner (stale Focus-next);
  *   - whether the coaching panel below is mounted (isFocusNowPanelEnabled),
  *     which gates the Focus-next scroll affordance so it is never a dead
  *     link.
@@ -16,7 +16,8 @@
  * mapping.
  */
 import { useCallback, useMemo } from 'react'
-import { useV2Run } from '@/canvas/hooks/useV2Run'
+import { useCanvasStore } from '@/canvas/store'
+import { executeCanonicalRun } from '@/canvas/analysis/canonicalRunRegistry'
 import { isFocusNowPanelEnabled } from '@/flags'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { buildHeroModel } from './buildHeroModel'
@@ -30,18 +31,23 @@ export interface UseAnalysisHeroReturn {
 }
 
 export function useAnalysisHero(data: ResultsSectionDataReturn): UseAnalysisHeroReturn {
-  const { runV2Analysis, isRunning } = useV2Run()
+  const resultsStatus = useCanvasStore((s) => s.results.status)
+  const isAnalysing =
+    resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
 
   const model = useMemo(() => buildHeroModel(data), [data])
 
+  // Wave F-B: the hero rerun routes through the canonical runner — its old
+  // private useV2Run instance bypassed the dock's run gate and the V5 fact
+  // path (no cross-instance mutex; audit F-77).
   const onRerun = useCallback(() => {
-    void runV2Analysis()
-  }, [runV2Analysis])
+    void executeCanonicalRun({ source: 'analysis-hero' })
+  }, [])
 
   return {
     model,
     onRerun,
-    rerunDisabled: isRunning,
+    rerunDisabled: isAnalysing,
     focusPanelMounted: isFocusNowPanelEnabled(),
   }
 }

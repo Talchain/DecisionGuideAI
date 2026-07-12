@@ -12,7 +12,7 @@
  * v5AnalysisFact, useStaleGuard, or any local graph-hash computation, and it
  * never shows the technical reason/hash fields as copy (they ride on data-*).
  */
-import { AlertTriangle, CheckCircle2, HelpCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, HelpCircle, RefreshCw } from 'lucide-react'
 import { useCanvasStore } from '@/canvas/store'
 import { typography } from '@/styles/typography'
 import {
@@ -20,6 +20,7 @@ import {
   type AnalysisFreshnessState,
   type AnalysisFreshnessValue,
 } from '@/canvas/store/analysisFreshness'
+import { executeCanonicalRun } from '@/canvas/analysis/canonicalRunRegistry'
 
 /** Cautious, non-scientific copy. One short line per state. */
 export const FRESHNESS_COPY: Record<AnalysisFreshnessValue, string> = {
@@ -47,8 +48,11 @@ export interface AnalysisFreshnessNoticeProps {
 export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, className = '' }: AnalysisFreshnessNoticeProps) {
   const storeState = useCanvasStore((s) => s.analysisFreshness)
   const storeDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
+  const resultsStatus = useCanvasStore((s) => s.results?.status)
   const state = stateProp !== undefined ? stateProp : storeState
   const dirty = dirtyProp !== undefined ? dirtyProp : storeDirty
+  const isRunning =
+    resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
 
   // No verdict yet → no notice (never claim a freshness state we don't hold).
   if (!state) return null
@@ -76,7 +80,23 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
         className={`flex-none ${isStale ? 'text-warning' : 'text-text-light'}`}
         aria-hidden="true"
       />
-      <span className={`${typography.panelBody} text-text-body`}>{FRESHNESS_COPY[freshness]}</span>
+      <span className={`${typography.panelBody} text-text-body flex-1`}>{FRESHNESS_COPY[freshness]}</span>
+      {isStale && (
+        // Wave F-B (brief §5.2): the strip is the sole stale owner and carries
+        // THE recovery action — canonical-runner routed, never a private
+        // pipeline. Disabled while any run is analysing ('preparing' from V2
+        // resultsStart or V5 resultsAnalysing, plus the SSE states).
+        <button
+          type="button"
+          data-testid="freshness-strip-rerun"
+          onClick={() => { void executeCanonicalRun({ source: 'freshness-strip' }) }}
+          disabled={isRunning}
+          className={`${typography.panelBody} inline-flex items-center gap-1 px-3 py-1 rounded-pill border border-panel-border text-text-body hover:bg-panel-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-fast`}
+        >
+          <RefreshCw size={12} aria-hidden="true" />
+          Rerun
+        </button>
+      )}
     </div>
   )
 }
