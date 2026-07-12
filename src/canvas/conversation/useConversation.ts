@@ -3435,10 +3435,11 @@ export function useConversation(): UseConversationReturn {
           // 1.16i: every-exit settle for the analysing state (success
           // without an analysis_result, typed error, thrown error, abort,
           // timeout). No-ops when applyV5State already flipped 'complete'.
-          if (isRunAnalysisTurn) {
-            if (activeRunTurnIdRef.current === turnClientId) {
-              activeRunTurnIdRef.current = null
-            }
+          // OWNERSHIP GUARD: settle only while this turn still owns the run
+          // slot — a preempt-aborted run's late finally must never settle a
+          // NEWER run turn's 'preparing' (that run manages its own exit).
+          if (isRunAnalysisTurn && activeRunTurnIdRef.current === turnClientId) {
+            activeRunTurnIdRef.current = null
             useCanvasStore.getState().resultsSettle()
           }
         }

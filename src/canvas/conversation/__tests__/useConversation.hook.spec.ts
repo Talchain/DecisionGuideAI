@@ -2587,4 +2587,43 @@ describe('1.16i — rerun UX integrity', () => {
     expect(useCanvasStore.getState().results.status).toBe('idle')
     expect(mockTrackEvent).not.toHaveBeenCalledWith('run_click_swallowed', expect.any(Object))
   })
+
+  it("a preempt-aborted run's late cleanup settles ITS OWN state and a fresh run recovers", async () => {
+    // Reality check pinned here: after a preempt-abort, the isThinking guard
+    // blocks ANY new turn until the aborted turn's finally runs — so a newer
+    // run can never hold 'preparing' while the old one is pending, and the
+    // finally's ownership guard (settle only while owning the run slot) is
+    // defensive. This pins the reachable semantics end-to-end: the aborted
+    // run's late cleanup settles its own analysing state, and a subsequent
+    // run enters and exits 'preparing' normally.
+    //
+    // The preempt rule reads import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR at
+    // CALL time — stub it for this test only so the plain send preempts.
+    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
+    let resolveA!: (v: unknown) => void
+    mockCallV5Turn.mockReturnValueOnce(new Promise((res) => { resolveA = res }))
+
+    const { result } = renderHook(() => useConversation())
+
+    let runA!: Promise<void>
+    act(() => { runA = result.current.dispatchAction(RUN_ACTION) })
+    expect(useCanvasStore.getState().results.status).toBe('preparing')
+
+    // Plain user send preempts (aborts) run A per the standing preempt rule.
+    let chatC!: Promise<void>
+    act(() => { chatC = result.current.sendMessage('changed my mind, question first') })
+    await act(async () => { await chatC })
+
+    // A's stale response lands; the post-abort guard returns via the finally,
+    // which owns the run slot and settles the analysing state (no report -> idle).
+    resolveA(makeV5SuccessResult('stale A response'))
+    await act(async () => { await runA })
+    expect(useCanvasStore.getState().results.status).toBe('idle')
+
+    // A fresh run afterwards enters and exits the analysing state normally.
+    mockCallV5Turn.mockResolvedValueOnce(makeV5SuccessResult('run B text-only'))
+    await act(async () => { await result.current.dispatchAction(RUN_ACTION) })
+    expect(useCanvasStore.getState().results.status).toBe('idle')
+    vi.unstubAllEnvs()
+  })
 })
