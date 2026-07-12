@@ -52,7 +52,10 @@ export async function callV5Turn(
   const requestId = crypto.randomUUID();
   const requestedAt = Date.now();
 
-  // TODO: redact auth headers when auth is enabled
+  // Auth headers are already redacted downstream: the trace store runs
+  // headers through redactPayload, whose default sensitiveKeys include
+  // 'authorization' (case-insensitive) plus free-form Bearer/JWT scrubbing
+  // (src/utils/payloadRedaction.ts) — verified in the PR #268 review.
   recordRequestPayload({
     id: requestId,
     endpoint: url,

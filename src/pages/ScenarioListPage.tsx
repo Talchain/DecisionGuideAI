@@ -370,10 +370,10 @@ export default function ScenarioListPage() {
         {/* Login 3.4: one-time guest-draft import offer (flag-gated dark).
             Above the first-run ternary deliberately — a guest who signs in
             fresh has zero scenarios, so the draft offer must survive the
-            welcome state. */}
-        <div className="mt-4">
-          <GuestDraftImportBanner />
-        </div>
+            welcome state. NO wrapper element: the banner returns null when
+            no offer is due, so flag-off renders zero extra DOM (review S1 —
+            an unconditional wrapper shifted the first-run state 16px). */}
+        <GuestDraftImportBanner />
         {isFirstRun ? (
           /* ---- First-run welcome ---- */
           <div className="text-center py-20" data-testid="first-run">

@@ -70,6 +70,16 @@ export function dismissDraftImport(): void {
  * draft itself is deliberately NOT deleted (never destroy user data); the
  * marker is what prevents re-offers. Throws on failure WITHOUT marking, so
  * the offer can retry.
+ *
+ * ACCEPTED side effect (review S3): if createScenario succeeds but a later
+ * step fails, the created row is orphaned and a retry creates another —
+ * visible in the hub and user-deletable. Accepted for the POC over
+ * carrying retry state; revisit if real users hit it.
+ *
+ * DELIBERATE (review S5): the marker is browser-global, not user-scoped —
+ * the draft is BROWSER-owned (guest state), so one import consumes it for
+ * the browser, and a dismissal speaks for the browser too. A second user
+ * on a shared browser inheriting a dismissal is accepted POC behaviour.
  */
 export async function importGuestDraft(userId: string): Promise<string> {
   const draft = loadState()

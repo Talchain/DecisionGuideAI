@@ -47,7 +47,7 @@ export function GuestDraftImportBanner() {
 
   return (
     <div
-      className="mb-4 flex items-start gap-3 rounded-md border border-panel-border bg-panel p-4"
+      className="mt-4 mb-4 flex items-start gap-3 rounded-md border border-panel-border bg-panel p-4"
       data-testid="guest-draft-import-banner"
     >
       <FileUp className="mt-0.5 h-5 w-5 flex-shrink-0 text-info" aria-hidden="true" />

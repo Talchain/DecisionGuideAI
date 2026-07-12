@@ -86,14 +86,18 @@ vi.mock('../../../v5/eligibility', () => ({
 // Default: null (no auth session in test environment).
 const mockGetUserId = vi.fn<[], Promise<string | null>>()
 
+// Login 3.4: token knob for the getSessionIdentity bridge — tests that
+// exercise the Bearer path set .value; everything else runs token-less.
+const mockAccessToken = { value: null as string | null }
+
 vi.mock('../../../lib/supabase', () => ({
   getUserId: (...args: unknown[]) => mockGetUserId(...args as []),
   // Login 3.4: useConversation resolves identity via getSessionIdentity
   // (userId + access token in one getSession call). Backed by the same
-  // mock so each test's userId intent carries over; no token in tests.
+  // mock so each test's userId intent carries over.
   getSessionIdentity: async () => ({
     userId: (await mockGetUserId()) ?? null,
-    accessToken: null,
+    accessToken: mockAccessToken.value,
   }),
 }))
 
@@ -2436,5 +2440,53 @@ describe('V1 leakage regression — V5 flag prevents V4 streaming path', () => {
     const assistantMsg = result.current.messages.find((m) => m.role === 'assistant')
     expect(assistantMsg).toBeDefined()
     expect(assistantMsg?.content).toBe(V5_TEXT)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Login 3.4 — turn auth headers through the real hook (PR #268 review S4:
+// the pure buildTurnAuthHeaders unit alone could not catch a regression
+// that drops the Bearer from the actual turn call)
+// ---------------------------------------------------------------------------
+
+describe('login 3.4 — V5 turn auth headers', () => {
+  beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
+  })
+
+  afterEach(() => {
+    mockAccessToken.value = null
+  })
+
+  it('sends Authorization Bearer alongside X-User-Id when a session exists', async () => {
+    mockGetUserId.mockResolvedValue('user-abc')
+    mockAccessToken.value = 'tok-123'
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult('ok'))
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('auth header pin')
+    })
+
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    const opts = mockCallV5Turn.mock.calls[0][1] as { headers?: Record<string, string> }
+    expect(opts.headers).toMatchObject({
+      'X-User-Id': 'user-abc',
+      Authorization: 'Bearer tok-123',
+    })
+  })
+
+  it('sends NO auth headers for a guest (no session) — byte-identical pin', async () => {
+    mockGetUserId.mockResolvedValue(null)
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult('ok'))
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('guest header pin')
+    })
+
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    const opts = mockCallV5Turn.mock.calls[0][1] as { headers?: Record<string, string> }
+    expect(opts.headers).toEqual({})
   })
 })

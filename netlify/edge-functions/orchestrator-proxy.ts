@@ -95,10 +95,16 @@ export default async function handler(request: Request, _context: Context) {
   const targetPath = url.pathname.replace(/^\/bff\/orchestrate/, '/orchestrate')
   const targetUrl = `${CEE_TARGET}${targetPath}${url.search}`
 
-  // SECURITY: Build headers from scratch with explicit allowlist
+  // SECURITY: Build headers from scratch with explicit allowlist.
+  // 'authorization' carries the user's Supabase access token (login 3.4 —
+  // LOGIN-CEE-HALF-SPEC item 4: the DGAI edge function passes the user
+  // token through so CEE's flag-gated JWT half can verify identity). It is
+  // the USER token; the caller-auth X-Olumi-Assist-Key is injected
+  // separately below and never collides.
   const ALLOWED_FORWARD_HEADERS = [
     'content-type',
     'accept',
+    'authorization',
     'x-correlation-id',
     'x-request-id',
     'x-user-id',
