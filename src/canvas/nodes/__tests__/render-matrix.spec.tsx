@@ -1185,6 +1185,33 @@ describe('N1 — per-type selection ring', () => {
     expect(screen.queryByTestId('edited-since-run-factor-1')).toBeNull()
   })
 
+  it('D2: at LOD zoom a factor node hides its title and body (shape only)', () => {
+    vi.mocked(useCanvasStore).mockImplementation((sel: any) =>
+      sel({ ...nodeState([]), lodActive: true }),
+    )
+    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
+    const title = screen.getAllByTestId('node-title')[0]
+    expect(title).toHaveStyle({ visibility: 'hidden' })
+  })
+
+  it('D2: at LOD zoom a goal node keeps a boosted, visible title', () => {
+    vi.mocked(useCanvasStore).mockImplementation((sel: any) =>
+      sel({ ...nodeState([]), lodActive: true }),
+    )
+    render(<ReactFlowProvider><GoalNode {...selProps} id="goal-1" type="goal" selected={false} data={{ label: 'Ship the roadmap' }} /></ReactFlowProvider>)
+    const title = screen.getAllByTestId('node-title')[0]
+    expect(title).not.toHaveStyle({ visibility: 'hidden' })
+    expect(title.className).toContain('font-semibold')
+  })
+
+  it('D2: at normal zoom titles render exactly as before (no LOD classes)', () => {
+    applyState([])
+    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
+    const title = screen.getAllByTestId('node-title')[0]
+    expect(title).not.toHaveStyle({ visibility: 'hidden' })
+    expect(title.className).not.toContain('text-lg')
+  })
+
   it('N2: a non-highlighted node has no pulse', () => {
     applyState([])
     render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)

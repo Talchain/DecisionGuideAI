@@ -11,6 +11,7 @@ import { parseRunHash } from './utils/shareLink'
 import { useInitialLayoutGuard } from './hooks/useInitialLayoutGuard'
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion'
 import { useEditedSinceRun } from './hooks/useEditedSinceRun'
+import { LodSync } from './components/LodSync'
 import { cameraDuration } from './utils/cameraMotion'
 import { neighbourhoodNodeIds } from './utils/focusNeighbourhood'
 import { useMeasureThenLayout } from './hooks/useMeasureThenLayout'
@@ -2035,6 +2036,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
                 </marker>
               </defs>
             </svg>
+            {/* D2: level-of-detail zoom watcher — main canvas only. */}
+            <LodSync />
           </ReactFlow>
         )}
       </div>

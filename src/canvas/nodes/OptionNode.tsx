@@ -1053,6 +1053,7 @@ export const OptionNode = memo((props: NodeProps) => {
         {...props}
         nodeType="option"
         icon={metadata.icon}
+        lodKeepLabel={isRecommended}
         headerSlot={(stableOptionNumber != null || scienceIcons.length > 0) ? (
           <span className="inline-flex items-center gap-1">
             {stableOptionNumber != null && (
