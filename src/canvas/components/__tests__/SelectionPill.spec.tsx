@@ -21,10 +21,6 @@ const selectionState: { value: { id: string; label: string; kind: 'node' | 'edge
 vi.mock('../../hooks/useSelectionContext', () => ({
   useSelectionContext: () => selectionState.value,
 }))
-vi.mock('../../hooks/useV2Run', () => ({
-  useV2Run: () => ({ runV2Analysis: runV2Spy }),
-}))
-
 import { SelectionPill } from '../SelectionPill'
 
 describe('SelectionPill — gap #2', () => {
