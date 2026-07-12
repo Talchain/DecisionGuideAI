@@ -3,6 +3,7 @@ import { create } from 'zustand'
 import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from '@xyflow/react'
 import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportCanvas as persistExport } from './persist'
 import { setsEqual, mapsEqual } from './store/utils'
+import { assignStableOptionNumbers } from '../components/results/selectors/stableOptionNumbers'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS, type EdgeData } from './domain/edges'
 import { NODE_REGISTRY, type NodeType, type NodeData } from './domain/nodes'
 import { hasAnalyticalNodeChange, hasAnalyticalEdgeChange } from './domain/analyticalChange'
@@ -2795,8 +2796,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   optionNumbering: {},
-  registerOptionNumbering: (_optionIds) => {
-    // Wave F-A stub (RED phase): inert until the lane's GREEN commit.
+  registerOptionNumbering: (optionIds) => {
+    if (optionIds.length === 0) return
+    const previous = get().optionNumbering
+    const next = assignStableOptionNumbers(previous, optionIds)
+    // Merge is append-only: skip the set entirely when nothing was new.
+    if (Object.keys(next).length === Object.keys(previous).length) return
+    set({ optionNumbering: next })
   },
 
   resultsAnalysing: () => {
@@ -4320,6 +4326,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }
     if (loaded.currentScenarioId !== undefined) {
       updates.currentScenarioId = loaded.currentScenarioId
+      // Wave F-A: option ordinals are per-scenario continuity — a hydrated
+      // scenario starts a fresh numbering history.
+      updates.optionNumbering = {}
     }
 
     // Reset history and selection for clean state
