@@ -11,6 +11,8 @@ import { X, Link2, Link2Off, Maximize2, Plus, Minus, RefreshCw, Equal, Target } 
 import { useCanvasStore } from '../store'
 import { useComparisonStore } from '../stores/comparisonStore'
 import { MiniCanvas } from './MiniCanvas'
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
+import { cameraDuration } from '../utils/cameraMotion'
 import { typography } from '../../styles/typography'
 import type { ComparisonResult } from '../snapshots/types'
 
@@ -364,6 +366,11 @@ export function ComparisonCanvasLayout() {
   const [syncEnabled, setSyncEnabled] = useState(true)
   const instancesRef = useRef<Array<ReactFlowInstance | null>>([])
 
+  // F1: reduced-motion guard for the comparison "fit all" camera move.
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const reducedMotionRef = useRef(prefersReducedMotion)
+  reducedMotionRef.current = prefersReducedMotion
+
   const setInstance = useCallback((index: number) => (instance: ReactFlowInstance) => {
     instancesRef.current[index] = instance
   }, [])
@@ -381,7 +388,7 @@ export function ComparisonCanvasLayout() {
 
   const fitAll = useCallback(() => {
     instancesRef.current.forEach((instance) => {
-      instance?.fitView({ padding: 0.12, duration: 200 })
+      instance?.fitView({ padding: 0.12, duration: cameraDuration(200, reducedMotionRef.current) })
     })
   }, [])
 

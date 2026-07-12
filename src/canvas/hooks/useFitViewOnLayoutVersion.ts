@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react'
 import { useReactFlow } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { computeFitPadding } from '../utils/computeFitPadding'
+import { usePrefersReducedMotion } from './usePrefersReducedMotion'
+import { cameraDuration } from '../utils/cameraMotion'
 
 /**
  * Schedule a single RAF-synchronised fitView every time `layoutVersion`
@@ -22,10 +24,17 @@ export function useFitViewOnLayoutVersion(): void {
   const fitViewRef = useRef(fitView)
   fitViewRef.current = fitView
 
+  // F1: the post-layout auto-fit fires on every layout change, so honour
+  // reduced-motion here too (mirrored to a ref to keep the effect deps = only
+  // layoutVersion — the fit re-runs on layout, not on a preference flip).
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const reducedMotionRef = useRef(prefersReducedMotion)
+  reducedMotionRef.current = prefersReducedMotion
+
   useEffect(() => {
     if (layoutVersion === 0) return
     const raf = requestAnimationFrame(() => {
-      fitViewRef.current({ padding: computeFitPadding(), duration: 400 })
+      fitViewRef.current({ padding: computeFitPadding(), duration: cameraDuration(400, reducedMotionRef.current) })
     })
     return () => cancelAnimationFrame(raf)
   }, [layoutVersion])
