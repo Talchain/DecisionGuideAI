@@ -80,6 +80,14 @@ export interface HeroRowVM {
    * independent of the active lens.
    */
   index: number
+  /**
+   * Identity-anchored ordinal from the Wave F-A numbering store (assigned
+   * once per option id, stable across rerun rank flips) — null when the
+   * row set is not fully registered (all-or-nothing: mixing positional and
+   * stable numbers in one list could show duplicates). Wave 2 consumption
+   * of brief §6.4.
+   */
+  stableNumber: number | null
   /** Option label for display (encoding notation stripped, rendered as text). */
   label: string
   /** Goal-fit lens values (collapsed goalProbability; see buildHeroModel). */

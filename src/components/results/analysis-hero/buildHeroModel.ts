@@ -172,7 +172,10 @@ function formatFlipValue(value: number, unit?: string): string {
 
 // ─── Main mapper ─────────────────────────────────────────────────────────────
 
-export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
+export function buildHeroModel(
+  data: ResultsSectionDataReturn,
+  numbering?: Readonly<Record<string, number>>,
+): HeroModel {
   // Fail closed on a partially-shaped object (e.g. hydrated older state):
   // the type guarantees these fields, but the hero must render nothing —
   // never throw — when a caller supplies less than the type promises.
@@ -294,6 +297,7 @@ export function buildHeroModel(data: ResultsSectionDataReturn): HeroModel {
     return {
       id: o.id,
       index: i + 1,
+      stableNumber: null as number | null,
       label: stripEncodingNotation(o.label),
       goal: {
         value: goalValue,

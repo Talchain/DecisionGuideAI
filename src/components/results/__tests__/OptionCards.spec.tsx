@@ -685,3 +685,15 @@ describe("Paul's ruling (2026-07-12): lens-aware winner copy", () => {
     expect(card.textContent).not.toMatch(/Strongest under this lens/)
   })
 })
+describe('Wave 2: identity-anchored stable number chips', () => {
+  it('renders a stable-number chip per card when stableNumbers is provided', () => {
+    render(<OptionCards options={mockOptions} winnerId="option-1" stableNumbers={{ 'option-1': 2, 'option-2': 1 }} />)
+    expect(screen.getByTestId('stable-number-option-1')).toHaveTextContent('Option 2')
+    expect(screen.getByTestId('stable-number-option-2')).toHaveTextContent('Option 1')
+  })
+
+  it('renders no chips without the prop (flag-off surface unchanged)', () => {
+    render(<OptionCards options={mockOptions} winnerId="option-1" />)
+    expect(screen.queryByTestId('stable-number-option-1')).toBeNull()
+  })
+})

@@ -1006,3 +1006,32 @@ describe('buildHeroModel — goal-fit crown follows the goal argmax (UI-SEM-072)
     expect(m.headline).toBe('No option is currently on track to reach your goal.')
   })
 })
+describe('Wave 2: identity-anchored stable numbers (brief §6.4)', () => {
+  it('rows carry stableNumber from the numbering map alongside the positional index', () => {
+    const m = chart(buildHeroModel(makeHeroData(), { opt_a: 1, opt_b: 2 }))
+    expect(m.rows.map((r) => [r.id, r.index, r.stableNumber])).toEqual([
+      ['opt_a', 1, 1],
+      ['opt_b', 2, 2],
+    ])
+  })
+
+  it('a rerun rank flip keeps stableNumber anchored to the option id', () => {
+    const a = makeOption({ ...OPTION_A, winProbability: 0.3 })
+    const b = makeOption({ ...OPTION_B, winProbability: 0.7 })
+    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] }), { opt_a: 1, opt_b: 2 }))
+    expect(m.rows.map((r) => [r.id, r.index, r.stableNumber])).toEqual([
+      ['opt_b', 1, 2],
+      ['opt_a', 2, 1],
+    ])
+  })
+
+  it('falls back to null for ALL rows when any id is unregistered (no positional/stable mixing)', () => {
+    const m = chart(buildHeroModel(makeHeroData(), { opt_a: 1 }))
+    expect(m.rows.map((r) => r.stableNumber)).toEqual([null, null])
+  })
+
+  it('omitting the numbering map keeps every stableNumber null (back-compat)', () => {
+    const m = chart(buildHeroModel(makeHeroData()))
+    expect(m.rows.map((r) => r.stableNumber)).toEqual([null, null])
+  })
+})

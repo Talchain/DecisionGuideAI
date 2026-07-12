@@ -537,3 +537,21 @@ describe('AnalysisHeroPanel — content', () => {
     },
   )
 })
+describe('Wave 2: stable number badges', () => {
+  it('row badges show the identity-anchored ordinal, surviving a rank flip', () => {
+    const a = makeOption({ ...OPTION_A, winProbability: 0.3 })
+    const b = makeOption({ ...OPTION_B, winProbability: 0.7 })
+    const model = buildHeroModel(makeHeroData({ options: [a, b] }), { opt_a: 1, opt_b: 2 })
+    expect(model.kind).toBe('chart')
+    renderPanel(model as HeroChartModel)
+    // First row is opt_b (display rank 1) but keeps its stable ordinal 2.
+    expect(within(screen.getByTestId('hero-option-row-1')).getByTestId('hero-row-number')).toHaveTextContent('2')
+    expect(within(screen.getByTestId('hero-option-row-2')).getByTestId('hero-row-number')).toHaveTextContent('1')
+  })
+
+  it('without a numbering map the badge falls back to the display rank', () => {
+    renderPanel(chartModel())
+    expect(within(screen.getByTestId('hero-option-row-1')).getByTestId('hero-row-number')).toHaveTextContent('1')
+    expect(within(screen.getByTestId('hero-option-row-2')).getByTestId('hero-row-number')).toHaveTextContent('2')
+  })
+})

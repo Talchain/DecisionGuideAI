@@ -47,6 +47,10 @@ export interface OptionCardsProps {
   /** Paul's ruling 2026-07-12: when the risk-appetite lens is active the
    * crowned card presents as lens-strongest, never as THE recommendation. */
   lensActive?: boolean
+  /** Wave 2 (§6.4): identity-anchored ordinals keyed by option id; a chip
+   * renders only when provided AND the id has a number — the provider
+   * (ResultsBody) supplies the map all-or-nothing behind the flag. */
+  stableNumbers?: Readonly<Record<string, number | null>>
   /** Whether a goal threshold is set (controls "Hits target" row visibility) */
   hasGoalThreshold?: boolean
   /** Story headlines keyed by option ID (M1 coaching) */
@@ -539,6 +543,7 @@ export function OptionCards({
   options,
   winnerId,
   lensActive = false,
+  stableNumbers,
   hasGoalThreshold = false,
   storyHeadlines,
   cardRefMap,
