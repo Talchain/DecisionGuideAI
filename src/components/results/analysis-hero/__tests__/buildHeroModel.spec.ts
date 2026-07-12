@@ -1143,3 +1143,11 @@ describe('Wave 2 (§6.6): evidence disclosure model', () => {
     expect(m.evidence.tradeOffs).toBeNull()
   })
 })
+describe('Wave 2 (§6.2): pause-read state is producer-gated', () => {
+  it('no live analysis status ever emits the paused variant (no producer contradiction signal exists)', () => {
+    for (const analysisStatus of ['computed', 'partial', 'failed', 'blocked'] as const) {
+      const m = buildHeroModel(makeHeroData({ recommendation: { analysisStatus } }))
+      if (m.kind === 'status') expect(m.variant).not.toBe('paused')
+    }
+  })
+})

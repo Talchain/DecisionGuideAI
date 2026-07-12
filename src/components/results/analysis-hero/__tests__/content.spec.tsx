@@ -651,3 +651,23 @@ describe('Wave 2 (§6.6): Why and what could change it disclosure', () => {
     expect(screen.queryByRole('button', { name: /why and what could change it/i })).toBeNull()
   })
 })
+describe('Wave 2 (§6.2): pause-read state (fixture-only)', () => {
+  it('suppresses lenses and evidence, shows the contradiction and the resolution line', () => {
+    renderPanel({
+      kind: 'status',
+      provenance: 'fixture',
+      variant: 'paused',
+      headline: 'Analysis paused: resolve your framing first.',
+      body: 'Your goal says minimise cost, but the leading option is judged on revenue growth.',
+      resolution: 'Review the goal with Olumi before reading these results.',
+    })
+    expect(screen.getByTestId('hero-status-paused')).toBeInTheDocument()
+    expect(screen.getByTestId('hero-paused-resolution')).toHaveTextContent(
+      'Review the goal with Olumi before reading these results.',
+    )
+    expect(screen.getByTestId('hero-fixture-banner')).toBeInTheDocument()
+    expect(screen.queryByTestId('hero-lens-tab-outcome')).toBeNull()
+    expect(screen.queryByTestId('hero-evidence-disclosure')).toBeNull()
+    expect(screen.queryByTestId('hero-headline')).toBeNull()
+  })
+})

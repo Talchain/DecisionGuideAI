@@ -246,14 +246,21 @@ export interface HeroChartModel {
   targetUnit: string | null
 }
 
-/** Curated non-chart state for partial / failed / blocked analyses. */
+/** Curated non-chart state for partial / failed / blocked analyses, plus
+ * the §6.2 pause-read state ('paused': a framing contradiction pauses the
+ * read — headline/lenses/evidence suppressed, resolution shown). 'paused'
+ * is PRODUCER-GATED: no live signal exists, so buildHeroModel never emits
+ * it (pinned) — it is reachable only via gallery fixtures. */
 export interface HeroStatusModel {
   kind: 'status'
   /** Same contract as HeroChartModel.provenance — 'fixture' forces the banner. */
   provenance: HeroProvenance
-  variant: 'partial' | 'failed' | 'blocked'
+  variant: 'partial' | 'failed' | 'blocked' | 'paused'
   headline: string
   body: string
+  /** §6.2 resolution action line (paused only). Plain text — a routed
+   * action control arrives only with the live producer signal. */
+  resolution?: string
 }
 
 /**
