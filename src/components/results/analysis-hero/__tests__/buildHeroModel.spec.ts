@@ -1138,6 +1138,18 @@ describe('Wave 2 (§6.6): evidence disclosure model', () => {
     )
   })
 
+  it('Codex B3: no producer baseline → neutral crosses wording, never a fabricated direction', () => {
+    for (const flip of [10, -10]) {
+      const m = chart(buildHeroModel(makeHeroData({ recommendation: {
+        flipThresholds: [
+          { label: 'Revenue potential', node_id: 'fac_rev', current_value: null as unknown as number, flip_value: flip, unit: '%' },
+        ],
+      } })))
+      expect(m.evidence.flipRisks[0].text).toContain('crosses')
+      expect(m.evidence.flipRisks[0].text).not.toMatch(/rises above|falls below/)
+    }
+  })
+
   it('flip risks: undetermined thresholds are skipped; none → empty list', () => {
     const m = chart(buildHeroModel(makeHeroData({ recommendation: {
       flipThresholds: [

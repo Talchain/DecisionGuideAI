@@ -365,10 +365,14 @@ export const ResultsBody = memo(function ResultsBody({
                 }))}
               decisionState={vm.decisionState}
             />
+            {/* Codex B1: winnerId is ALWAYS the canonical leader — every leader
+                predicate (downside sentence, leader CTA/prompt) keys to it. The
+                lens selection is a separate id that only crowns/relabels its card. */}
             <OptionCards
               options={resultsSectionData.recommendation.allOptions}
-              winnerId={riskWinnerId ?? resultsSectionData.recommendation.recommendedOption?.id}
+              winnerId={resultsSectionData.recommendation.recommendedOption?.id}
               lensActive={riskAppetite !== 'neutral'}
+              lensHighlightedId={riskAppetite !== 'neutral' ? riskWinnerId : undefined}
               stableNumbers={stableNumbersForCards}
               onSendMessage={onSendMessage}
               hasGoalThreshold={resultsSectionData.recommendation.goalThreshold != null}
@@ -377,9 +381,10 @@ export const ResultsBody = memo(function ResultsBody({
               decisionState={riskAppetite === 'neutral' ? vm.decisionState : undefined}
               hinge={riskAppetite === 'neutral' ? vm.hinge : null}
               runnerId={
-                // V12.2 Fix 1: Runner-up is highest by win_probability excluding winner
+                // V12.2 Fix 1: Runner-up is highest by win_probability excluding
+                // the CANONICAL winner (Codex B1: lens never shifts this).
                 [...resultsSectionData.recommendation.allOptions]
-                  .filter(o => o.id !== (riskWinnerId ?? resultsSectionData.recommendation.recommendedOption?.id))
+                  .filter(o => o.id !== resultsSectionData.recommendation.recommendedOption?.id)
                   .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]?.id
               }
               expertMode={expertMode}

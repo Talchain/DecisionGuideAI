@@ -711,3 +711,29 @@ describe('Wave 2: identity-anchored stable number chips', () => {
     expect(screen.queryByTestId('stable-number-option-1')).toBeNull()
   })
 })
+
+describe('Codex B1 — a lens never re-crowns leader SEMANTICS', () => {
+  it('canonical leader keeps the downside sentence + leader CTA; the lens card gets neither', () => {
+    // Canonical leader A carries the downside flag; the cautious lens crowns B.
+    render(
+      <OptionCards
+        options={mockOptions}
+        winnerId="option-1"            // canonical leader (A)
+        lensActive
+        lensHighlightedId="option-2"   // lens selects B
+        leadingOptionDownsideFlag
+        onSendMessage={() => {}}
+      />,
+    )
+    const lensCard = screen.getByTestId('option-card-option-2')
+    const canonicalCard = screen.getByTestId('option-card-option-1')
+    // Lens card: lens copy, NO leader downside predicate, NO leader CTA.
+    expect(lensCard).toHaveTextContent('Strongest under this lens. The overall recommendation is unchanged.')
+    expect(lensCard.textContent).not.toMatch(/currently leads/i)
+    expect(lensCard.textContent).not.toMatch(/What makes this/i)
+    // Canonical card: keeps the leader predicates even without the crown styling.
+    expect(canonicalCard.textContent).toMatch(/meaningful downside|currently leads/i)
+    expect(canonicalCard.textContent).toMatch(/What makes this/i)
+  })
+})
+

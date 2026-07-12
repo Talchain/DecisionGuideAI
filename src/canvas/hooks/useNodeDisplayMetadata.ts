@@ -95,23 +95,42 @@ export function useNodeDisplayMetadata(
     let valueOfInformation: number | null = null
     let voiRank: number | null = null
     if (nodeType === 'factor') {
-      // Get factor_sensitivity array and rank by elasticity
-      const factorSensitivity = report.enrichment?.sensitivity_analysis?.factors ||
-                               report.factor_sensitivity ||
-                               []
+      // Codex B2: rank off the CERTIFIED factor_sensitivity array first (the
+      // untyped enrichment passthrough is a fallback only — it must never
+      // silently drive a different #1 than the panel), and rank by the
+      // DISPLAYED influence metric so the badge order matches the "I: NN%"
+      // readout beside it: producer influence_score when present, else the
+      // per-array-normalised elasticity the readout falls back to.
+      const factorSensitivity = (report.factor_sensitivity?.length
+        ? report.factor_sensitivity
+        : report.enrichment?.sensitivity_analysis?.factors) || []
 
-      // Sort by elasticity descending
+      const maxAbsElasticity = Math.max(
+        ...factorSensitivity.map((f: any) =>
+          Math.abs(f.elasticity ?? f.sensitivity_score ?? f.importance_score ?? 0),
+        ),
+        0,
+      )
       const ranked = [...factorSensitivity]
-        .map((f: any) => ({
-          id: f.factor_id || f.factorId || f.node_id || f.nodeId,
-          elasticity: Math.abs(f.elasticity ?? f.sensitivity_score ?? f.importance_score ?? 0),
-        }))
-        .sort((a, b) => {
-          // Sort by elasticity descending
-          if (b.elasticity !== a.elasticity) {
-            return b.elasticity - a.elasticity
+        .map((f: any) => {
+          const elasticity = Math.abs(f.elasticity ?? f.sensitivity_score ?? f.importance_score ?? 0)
+          const influence =
+            typeof f.influence_score === 'number'
+              ? f.influence_score
+              : maxAbsElasticity > 0
+                ? elasticity / maxAbsElasticity
+                : 0
+          return {
+            id: f.factor_id || f.factorId || f.node_id || f.nodeId,
+            elasticity,
+            influence,
           }
-          // Tie-breaker: node_id alphabetically
+        })
+        .sort((a, b) => {
+          // Primary: displayed influence descending
+          if (b.influence !== a.influence) return b.influence - a.influence
+          // Tie-break: elasticity, then node_id alphabetically
+          if (b.elasticity !== a.elasticity) return b.elasticity - a.elasticity
           return a.id.localeCompare(b.id)
         })
 

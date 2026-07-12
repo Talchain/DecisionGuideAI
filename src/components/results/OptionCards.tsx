@@ -47,6 +47,11 @@ export interface OptionCardsProps {
   /** Paul's ruling 2026-07-12: when the risk-appetite lens is active the
    * crowned card presents as lens-strongest, never as THE recommendation. */
   lensActive?: boolean
+  /** Codex B1: the lens-selected option id. The lens CROWN (styling + lens
+   * copy) follows this id; every LEADER predicate (downside sentence, leader
+   * CTA/prompt, hinge winner copy) stays keyed to the CANONICAL winnerId so
+   * a lens can never hand another option the recommendation's semantics. */
+  lensHighlightedId?: string
   /** Wave 2 (§6.4): identity-anchored ordinals keyed by option id; a chip
    * renders only when provided AND the id has a number — the provider
    * (ResultsBody) supplies the map all-or-nothing behind the flag. */
@@ -273,6 +278,8 @@ function OptionRangeBar({
 function OptionCard({
   option,
   isWinner,
+  isLensCrowned = false,
+  cardLensActive = false,
   totalOptions,
   hasGoalThreshold,
   description,
@@ -293,6 +300,10 @@ function OptionCard({
 }: {
   option: OptionResult
   isWinner: boolean
+  /** Codex B1: lens crown restyles only — leader predicates stay on isWinner. */
+  isLensCrowned?: boolean
+  /** True when the risk-appetite lens is non-neutral (suppresses the canonical crown styling). */
+  cardLensActive?: boolean
   totalOptions: number
   hasGoalThreshold: boolean
   description: string
@@ -330,11 +341,13 @@ function OptionCard({
   // every other card stays neutral with `border-panel-border`. The richer
   // palette competed with the WinGauge segment colours one row above and
   // pulled visual weight away from the queue's emphasised first card.
-  const borderClass = neutralised
+  // Codex B1: under a lens, the CROWN styling follows the lens selection and
+  // the canonical leader drops to a neutral border (never two crowns); the
+  // canonical leader keeps every SEMANTIC leader predicate below regardless.
+  const crowned = cardLensActive ? isLensCrowned : isWinner
+  const borderClass = neutralised || !crowned
     ? 'border border-panel-border'
-    : isWinner
-      ? 'border border-success/30'
-      : 'border border-panel-border'
+    : 'border border-success/30'
   // V14.2: Prefer sort-derived rank, fallback to option.rank or winner inference
   const rank = sortedRank ?? option.rank ?? (isWinner ? 1 : undefined)
 
@@ -555,6 +568,7 @@ export function OptionCards({
   options,
   winnerId,
   lensActive = false,
+  lensHighlightedId,
   stableNumbers,
   hasGoalThreshold = false,
   storyHeadlines,
@@ -640,14 +654,17 @@ export function OptionCards({
         // say it is lens-strongest, never THE recommendation — a coaching headline
         // there would restate the neutral recommendation under a non-neutral lens.
         const winnerOpt = options.find(o => o.id === winnerId)
-        const description = lensActive && isWinner
-          ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, true)
+        // Codex B1: isWinner = the CANONICAL leader (drives leader predicates);
+        // the lens crown is a separate identity that only restyles + relabels.
+        const isLensCrowned = lensActive && option.id === (lensHighlightedId ?? winnerId)
+        const description = isLensCrowned
+          ? hingeAwareDescription(option, true, isRunnerUp, hinge, winnerOpt?.winProbability, true)
           : decisionState
-            ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, lensActive)
+            ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, false)
             : headline
               ? headline
               : (winnerOpt?.winProbability != null || option.winProbability != null)
-                ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, lensActive)
+                ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, false)
                 : fallbackDescription(option, options.length)
 
         const segmentFillColor = segmentColorMap[option.id]
@@ -656,6 +673,8 @@ export function OptionCards({
             key={option.id}
             option={option}
             isWinner={isWinner}
+            isLensCrowned={isLensCrowned}
+            cardLensActive={lensActive}
             totalOptions={options.length}
             hasGoalThreshold={showHitsTarget}
             description={description}

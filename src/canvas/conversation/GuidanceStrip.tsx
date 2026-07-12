@@ -9,6 +9,7 @@ import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { X as XIcon, AlertTriangle, Lightbulb } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { useGuidanceStore, selectTopItem, type GuidanceItem, type GuidanceAction } from '../stores/guidanceStore'
+import { isDecisionOverviewEnabled } from '@/flags'
 import styles from './Conversation.module.css'
 import { trackGuidance, type GuidanceEventPayload } from '../../telemetry/guidanceEvents'
 import { useCanvasStore } from '../store'
@@ -101,7 +102,21 @@ export const GuidanceStrip = memo(function GuidanceStrip({
   onScrollToPatch,
   onOpenInspector,
 }: GuidanceStripProps) {
-  const topItem = useGuidanceStore(selectTopItem)
+  // Codex SF11: when the Decision Overview card is enabled it OWNS the
+  // highest-priority discuss-type item ("Olumi's top question") — this strip
+  // must not render the same item twice. Skip exactly that item and fall to
+  // the next-highest; ownership is flag-gated so flag-off is unchanged.
+  const topItem = useGuidanceStore((s) => {
+    const base = selectTopItem(s)
+    if (!base || !isDecisionOverviewEnabled()) return base
+    const discussItems = s.guidanceItems.filter((i) => i.primary_action.type === 'discuss')
+    if (discussItems.length === 0) return base
+    const overviewOwned = discussItems.reduce((best, i) => (i.priority > best.priority ? i : best), discussItems[0])
+    if (base.item_id !== overviewOwned.item_id) return base
+    const rest = s.guidanceItems.filter((i) => i.item_id !== overviewOwned.item_id)
+    if (rest.length === 0) return null
+    return rest.reduce((best, i) => (i.priority > best.priority ? i : best), rest[0])
+  })
   // Track the items array reference — when a new envelope arrives, the reference
   // changes and we should allow previously-dismissed items to show again.
   const guidanceItems = useGuidanceStore((s) => s.guidanceItems)

@@ -471,22 +471,29 @@ function computeNormalisedInfluences(
  * Returns map of factorKey -> rank (1-indexed)
  */
 function computeFactorRanks(
-  factors: Array<{ key: string; rawElasticity: number; importanceRank?: number; label?: string }>
+  factors: Array<{ key: string; rawElasticity: number; displayValue?: number; importanceRank?: number; label?: string }>
 ): Map<string, number> {
-  // Sort by absolute elasticity descending with tie-breakers
+  // Codex B2: sort by the DISPLAYED influence metric (producer
+  // influence_score, else the elasticity-derived fallback the bar shows) so
+  // the row order and the rank-1 "Top driver" crown always agree with the
+  // visible Influence bar. Elasticity remains the first tie-break.
   const sorted = [...factors].sort((a, b) => {
+    const aDisp = a.displayValue ?? Math.abs(a.rawElasticity)
+    const bDisp = b.displayValue ?? Math.abs(b.rawElasticity)
+    if (bDisp !== aDisp) return bDisp - aDisp
+
     const aVal = Math.abs(a.rawElasticity)
     const bVal = Math.abs(b.rawElasticity)
 
-    // Primary: higher elasticity first
+    // Tie-break 1: higher elasticity first
     if (bVal !== aVal) return bVal - aVal
 
-    // Tie-breaker 1: importance_rank (lower = more important)
+    // Tie-break 2: importance_rank (lower = more important)
     const aRank = a.importanceRank ?? Infinity
     const bRank = b.importanceRank ?? Infinity
     if (aRank !== bRank) return aRank - bRank
 
-    // Tie-breaker 2: label alphabetical
+    // Tie-break 3: label alphabetical
     return (a.label ?? '').localeCompare(b.label ?? '')
   })
 
@@ -1462,7 +1469,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return {
           label: nf.label ?? nodeLabelMap.get(nf.node_id ?? '') ?? nf.node_id ?? 'Unknown',
           node_id: nf.node_id ?? '',
-          current_value: typeof ft.current_value === 'number' ? ft.current_value : 0,
+          current_value: typeof ft.current_value === 'number' ? ft.current_value : null, // Codex B3: preserve absence — never a fabricated 0 baseline
           flip_value: typeof ft.flip_value === 'number' ? ft.flip_value : null,
           flip_reason: ft.flip_reason,
           unit: ft.unit,
@@ -1749,6 +1756,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       raw: f,
       key: getFactorKey(f, index),
       rawElasticity: getRawElasticity(f),
+      influenceScore: f.influenceScore,
       importanceRank: f.importanceRank,
       label: f.label,
     }))
@@ -1756,8 +1764,17 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Step 2: Compute dynamic normalisation
     const normalisedMap = computeNormalisedInfluences(factorsWithKeys)
 
-    // Step 3: Compute ranks
-    const rankMap = computeFactorRanks(factorsWithKeys)
+    // Step 3: Compute ranks by the DISPLAYED metric (Codex B2 doctrine fix:
+    // the surface says "Influence", so the order and the rank-1 crown follow
+    // the same number the bar renders — producer influence_score when
+    // present, else the elasticity-derived normalisedInfluence the bar
+    // falls back to. Ordering and label can no longer contradict the bar.)
+    const rankMap = computeFactorRanks(
+      factorsWithKeys.map((f) => ({
+        ...f,
+        displayValue: f.influenceScore ?? normalisedMap.get(f.key) ?? 0,
+      })),
+    )
 
     // Step 4: Derive edges for direction mapping
     const edgesForDirection: EdgeForDirection[] = edges.map(e => ({
@@ -2856,13 +2873,16 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // Wave F-A: register option ids for identity-anchored ordinals the first
   // time each id appears (append-only merge; per-scenario continuity —
   // hydrateGraphSlice resets). Ordinals are display continuity only.
-  // NUL separator: ids are UUIDs/CEE tokens today, but a separator that
-  // can never appear in an id removes both the fragmentation risk and the
-  // dep-key ambiguity outright (Wave-2 review).
-  const optionIdsKey = recommendation.allOptions.map((o) => o.id).join('\u0000')
+  // Codex SF10: never reconstruct ids from a separator-joined string — the
+  // accepted schema does not forbid any character in an id, so ANY separator
+  // can split a legitimate id into fragments that register wrongly. The dep
+  // key is canonical JSON (collision-free) and the ORIGINAL array registers.
+  const optionIds = recommendation.allOptions.map((o) => o.id)
+  const optionIdsKey = JSON.stringify(optionIds)
   useEffect(() => {
-    if (!optionIdsKey) return
-    useCanvasStore.getState().registerOptionNumbering(optionIdsKey.split('\u0000'))
+    if (optionIds.length === 0) return
+    useCanvasStore.getState().registerOptionNumbering(optionIds)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- optionIdsKey is the canonical value key for optionIds
   }, [optionIdsKey])
 
   return {

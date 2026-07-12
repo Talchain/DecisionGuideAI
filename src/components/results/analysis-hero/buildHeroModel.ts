@@ -781,10 +781,13 @@ export function buildHeroModel(
       if (ft.flip_value == null) return null
       const label = stripEncodingNotation(ft.label)
       if (!label || containsBannedTerm(label)) return null
+      // UI-SEM-074 (Codex B3 tightened): a direction claim needs BOTH values —
+      // with no producer baseline the direction is unknowable, so the
+      // neutral 'crosses' wording is the only honest option.
       const direction =
-        ft.flip_value < ft.current_value
+        typeof ft.current_value === 'number' && ft.flip_value < ft.current_value
           ? HERO_COPY.evidence.fallsBelow
-          : ft.flip_value > ft.current_value
+          : typeof ft.current_value === 'number' && ft.flip_value > ft.current_value
             ? HERO_COPY.evidence.risesAbove
             : HERO_COPY.evidence.crosses
       const value = formatFlipValue(ft.flip_value, ft.unit)

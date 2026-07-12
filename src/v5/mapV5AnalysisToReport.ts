@@ -527,6 +527,15 @@ export function mapV5AnalysisToReport(
   const topLevelFlipThresholds = Array.isArray(enrichment?.flip_thresholds)
     ? (enrichment!.flip_thresholds as unknown[])
     : undefined
+  // Codex SF7: the producer leader-confidence band (PLoT #200,
+  // decision_brief.headline_banded) was preserved by the V2 mapper but
+  // DROPPED here — so the hero always fell back to UI-SEM-060 banding on
+  // the live V5 path. Pass it through verbatim (same pattern as
+  // flip_thresholds); the selector normalises fail-closed.
+  const decisionBrief =
+    enrichment && typeof (enrichment as Record<string, unknown>).decision_brief === 'object'
+      ? (enrichment as Record<string, unknown>).decision_brief
+      : undefined
   const topLevelEdgeEValues = Array.isArray(enrichment?.edge_e_values)
     ? (enrichment!.edge_e_values as unknown[])
     : undefined
@@ -670,6 +679,7 @@ export function mapV5AnalysisToReport(
   }
   if (robustness) widened.robustness = robustness
   if (topLevelFlipThresholds) widened.flip_thresholds = topLevelFlipThresholds
+  if (decisionBrief != null) widened.decision_brief = decisionBrief
   if (topLevelEdgeEValues) widened.edge_e_values = topLevelEdgeEValues
   if (confidenceTier !== undefined) widened.confidence_tier = confidenceTier
   if (constraintsStatus !== undefined) widened.constraints_status = constraintsStatus

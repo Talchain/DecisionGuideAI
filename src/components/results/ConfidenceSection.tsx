@@ -1047,8 +1047,9 @@ function FlipThresholdCards({
     return [...thresholds]
       .filter(ft => ft.flip_value != null)
       .sort((a, b) => {
-        const marginA = Math.abs((a.flip_value ?? a.current_value) - a.current_value)
-        const marginB = Math.abs((b.flip_value ?? b.current_value) - b.current_value)
+        // Codex B3: no baseline → no margin; sort those last (unknown distance).
+        const marginA = a.current_value != null ? Math.abs((a.flip_value ?? a.current_value) - a.current_value) : Number.POSITIVE_INFINITY
+        const marginB = b.current_value != null ? Math.abs((b.flip_value ?? b.current_value) - b.current_value) : Number.POSITIVE_INFINITY
         return marginA - marginB
       })
   }, [thresholds])
@@ -1073,11 +1074,11 @@ function FlipThresholdCards({
         Changes that would flip the result
       </p>
       {visible.map((ft, idx) => {
-        const margin = ft.flip_value != null ? Math.abs(ft.flip_value - ft.current_value) : null
+        const margin = ft.flip_value != null && ft.current_value != null ? Math.abs(ft.flip_value - ft.current_value) : null
         // Progress: how far current_value is from flip_value on a 0-100 scale.
         // Uses the range [min(current,flip), max(current,flip)] to avoid negative/zero issues.
         const progressPct = (() => {
-          if (ft.flip_value == null || margin == null || margin === 0) return 50
+          if (ft.flip_value == null || ft.current_value == null || margin == null || margin === 0) return 50
           const lo = Math.min(ft.current_value, ft.flip_value)
           const hi = Math.max(ft.current_value, ft.flip_value)
           const range = hi - lo
@@ -1108,7 +1109,10 @@ function FlipThresholdCards({
             onKeyDown={canFocus ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocus() } } : undefined}
           >
             <p className={`${typography.panelHeader} text-text-header`}>
-              {ft.label}: changes from {formatVal(ft.current_value)} to {formatVal(ft.flip_value!)} would flip the result
+              {/* Codex B3: with no producer baseline, never claim "changes from 0". */}
+              {ft.current_value != null
+                ? `${ft.label}: changes from ${formatVal(ft.current_value)} to ${formatVal(ft.flip_value!)} would flip the result`
+                : `${ft.label}: reaching ${formatVal(ft.flip_value!)} would flip the result`}
             </p>
             {ft.alternative_winner_label && (
               <p className={`${typography.panelMeta} text-text-light mt-0.5`}>

@@ -72,8 +72,10 @@ export interface FlipThreshold {
   label: string
   /** Canvas node ID for click-to-focus */
   node_id: string
-  /** Current assumed value of the factor */
-  current_value: number
+  /** Current assumed value of the factor — null when the producer did not
+   * supply one (Codex B3: a defaulted 0 fabricated flip DIRECTION and
+   * "changes from 0" copy; with no baseline, direction is unknowable). */
+  current_value: number | null
   /** Value at which the recommendation changes (null if undetermined) */
   flip_value: number | null
   /** Why flip_value is null */
