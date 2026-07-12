@@ -424,6 +424,14 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_DECISION_OVERVIEW',
     storageKey: 'feature.decisionOverview',
   },
+  // Analysis-tab rebuild Wave 3a (DEV-PLAN-2026-07-12): the Strengthen your
+  // model adaptive panel (brief §8) replacing FocusNow inside this flag.
+  // Default OFF; staging-on by netlify.toml after wave acceptance; the
+  // focusNowPanel kill switch retires at acceptance.
+  strengthenPanel: {
+    envKey: 'VITE_FEATURE_STRENGTHEN_PANEL',
+    storageKey: 'feature.strengthenPanel',
+  },
 } as const
 
 // ============================================================================
@@ -497,6 +505,7 @@ const flags = {
   reasoningDisclosure: makeFlag(FLAGS_CONFIG.reasoningDisclosure),
   requireLogin: makeFlag(FLAGS_CONFIG.requireLogin),
   decisionOverview: makeFlag(FLAGS_CONFIG.decisionOverview),
+  strengthenPanel: makeFlag(FLAGS_CONFIG.strengthenPanel),
 }
 
 // Export with original naming convention for backward compatibility
@@ -568,6 +577,7 @@ export const diagnoseV5CanonicalAnalysis = () =>
 export const isReasoningDisclosureEnabled = flags.reasoningDisclosure
 export const isRequireLoginEnabled = flags.requireLogin
 export const isDecisionOverviewEnabled = flags.decisionOverview
+export const isStrengthenPanelEnabled = flags.strengthenPanel
 
 
 // ============================================================================
