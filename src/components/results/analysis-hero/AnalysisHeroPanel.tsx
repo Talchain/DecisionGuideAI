@@ -24,6 +24,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { ArrowDown, Check, Crosshair, FlaskConical, Info, RefreshCw, Target } from 'lucide-react'
 import { typography } from '@/styles/typography'
+import { HeroEvidenceDisclosure } from './HeroEvidenceDisclosure'
 import { HERO_COPY } from './heroCopy'
 import { HeroLensTabs, tabId } from './HeroLensTabs'
 import { HeroOptionRow, HERO_ROW_GRID } from './HeroOptionRow'
@@ -337,6 +338,10 @@ export function AnalysisHeroPanel({
           </p>
         )}
       </div>
+
+      {/* §6.6: one expandable evidence section between the chart and the
+          footer — self-hides when the model has nothing to disclose. */}
+      <HeroEvidenceDisclosure evidence={model.evidence} onFocusTarget={onFocusTarget} />
 
       {/* Footer strip: Main reason · Trust slot · Focus next. The trust
           line renders PRODUCER-SUPPLIED text verbatim (issues 219/221) —

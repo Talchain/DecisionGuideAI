@@ -235,6 +235,29 @@ export const HERO_COPY = {
     rerun: 'Re-run analysis',
   },
 
+  // §6.6 — one expandable evidence section, three views. Flip-risk
+  // sentences are format-only over producer flipThresholds values (the
+  // direction is arithmetic on current_value vs flip_value, the unit is
+  // the producer's user unit) — nothing invented, no internal terms.
+  evidence: {
+    heading: 'Why and what could change it',
+    driversTab: 'Drivers',
+    flipRisksTab: 'Flip risks',
+    tradeOffsTab: 'Trade-offs',
+    seeAllFactors: 'See all factors',
+    showFewer: 'Show fewer',
+    flipRiskWithAlternative: (factor: string, direction: string, value: string, alternative: string) =>
+      `If ${factor} ${direction} ${value}, ${alternative} becomes the likely leader.`,
+    flipRiskNoAlternative: (factor: string, direction: string, value: string) =>
+      `If ${factor} ${direction} ${value}, the leading option is likely to change.`,
+    fallsBelow: 'falls below',
+    risesAbove: 'rises above',
+    tradeOffGain: 'You gain',
+    tradeOffGiveUp: 'You give up',
+    tradeOffDependsOn: 'Depends on',
+    tradeOffWatch: 'Watch',
+  },
+
   status: {
     partial: {
       headline: 'Some analysis steps did not complete',

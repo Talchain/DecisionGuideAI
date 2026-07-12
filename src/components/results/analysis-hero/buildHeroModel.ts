@@ -742,6 +742,55 @@ export function buildHeroModel(
         }
       : null
 
+  // §6.6 evidence disclosure — selection/format of existing producer
+  // values only. Drivers: the section's own rank order, glossary-gated
+  // labels, focus target only when the item can focus (no dead rows).
+  // Evidence-quality wording is deliberately ABSENT live: an evidence
+  // claim derived from raw confidence fields is forbidden (same class as
+  // the hidden DriversSection quality hint / trust line, issues 219/221).
+  const evidenceDrivers = (drivers?.drivers ?? [])
+    .map((d) => {
+      const label = stripEncodingNotation(d.factorLabel)
+      return label && !containsBannedTerm(label)
+        ? {
+            rank: d.rank,
+            label,
+            targetId: d.canFocus ? d.matchedNodeId ?? d.factorKey : null,
+          }
+        : null
+    })
+    .filter((d): d is NonNullable<typeof d> => d != null)
+
+  // Flip risks: producer flipThresholds → plain-language consequences.
+  // Direction is arithmetic on producer values; the unit is the producer's
+  // user unit; undetermined thresholds (flip_value null) have nothing
+  // displayable and are skipped. Normalised internals never surface.
+  const formatFlipValue = (value: number, unit?: string): string => {
+    if (unit === '%') return `${value}%`
+    if (unit === '$') return `$${value}`
+    return unit ? `${value} ${unit}` : `${value}`
+  }
+  const evidenceFlipRisks = (recommendation.flipThresholds ?? [])
+    .map((ft) => {
+      if (ft.flip_value == null) return null
+      const label = stripEncodingNotation(ft.label)
+      if (!label || containsBannedTerm(label)) return null
+      const direction =
+        ft.flip_value < ft.current_value
+          ? HERO_COPY.evidence.fallsBelow
+          : HERO_COPY.evidence.risesAbove
+      const value = formatFlipValue(ft.flip_value, ft.unit)
+      const alt = ft.alternative_winner_label
+        ? stripEncodingNotation(ft.alternative_winner_label)
+        : null
+      const text =
+        alt && !containsBannedTerm(alt)
+          ? HERO_COPY.evidence.flipRiskWithAlternative(label, direction, value, alt)
+          : HERO_COPY.evidence.flipRiskNoAlternative(label, direction, value)
+      return { text, targetId: ft.node_id || null }
+    })
+    .filter((r): r is NonNullable<typeof r> => r != null)
+
   const model: HeroChartModel = {
     kind: 'chart',
     // This function is the ONLY producer of 'live' models (asserted by the
@@ -778,7 +827,11 @@ export function buildHeroModel(
     showGoalHint: !goalAvailable && goalThreshold == null,
     mainReason,
     quickLinks: { mainDriver, topFlipRisk },
-    evidence: { drivers: [], flipRisks: [], tradeOffs: null },
+    // Trade-offs require a grounded producer or reviewed narrative — the
+    // live adapter has none (producer gap), so the slot is null and the
+    // view exists only in gallery fixtures. The UI must not invent
+    // trade-offs from labels.
+    evidence: { drivers: evidenceDrivers, flipRisks: evidenceFlipRisks, tradeOffs: null },
     // Producer-gap slots — the LIVE adapter NEVER populates these (no
     // display-safe trust/status label: issues 219/221; no coaching
     // top-action contract: issue 220). They render only from typed

@@ -1130,7 +1130,7 @@ describe('Wave 2 (§6.6): evidence disclosure model', () => {
   it('flip risks: undetermined thresholds are skipped; none → empty list', () => {
     const m = chart(buildHeroModel(makeHeroData({ recommendation: {
       flipThresholds: [
-        { label: 'Team capacity', node_id: 'fac_capacity', current_value: 40, flip_value: null, flip_reason: 'no_effect' },
+        { label: 'Team capacity', node_id: 'fac_capacity', current_value: 40, flip_value: null, flip_reason: 'no_bracket' },
       ],
     } })))
     expect(m.evidence.flipRisks).toEqual([])
