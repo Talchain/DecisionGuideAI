@@ -28,6 +28,7 @@ import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, XCircle
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
+import { AnalysisRunningBanner } from './AnalysisRunningBanner'
 import { registerCanonicalRunner, type CanonicalRunOutcome } from '../analysis/canonicalRunRegistry'
 import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
@@ -606,8 +607,11 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     }
   }, [_isPersistenceActive, setAnalysisRunning, resetAnalysisStatus, persistAnalysisSuccess, persistAnalysisFailure])
 
-  // P0-UI: V2 run hook for /v2/run endpoint
-  const { runV2Analysis, cancelRun } = useV2Run(v2Persistence)
+  // P0-UI: V2 run hook for /v2/run endpoint. isRunning is the hook's OWN
+  // in-flight flag (true only during a V2 request) — 1.16i gates the Cancel
+  // button on it because cancelRun can only abort the V2 request; rendering
+  // Cancel for a V5 analysing turn would be a dead control.
+  const { runV2Analysis, cancelRun, isRunning: isV2RunInFlight } = useV2Run(v2Persistence)
 
   // Results Panel Redesign: Section data hook for RecommendationSection, DriversSection, ConfidenceSection
   const resultsSectionData = useResultsSectionData()
@@ -1921,8 +1925,15 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     <span className={`${typography.caption} text-text-header`}>{slowRunMessage}</span>
                   </div>
                 )}
-                {/* I.2b: Cancel button during active analysis */}
-                {isRunning && (
+                {/* 1.16i: visible processing while an analysis turn runs and
+                    the previous report is still on screen (the skeleton
+                    below covers the no-report case) */}
+                {isRunning && report && <AnalysisRunningBanner />}
+                {/* I.2b: Cancel button during active analysis — gated on the
+                    V2 hook's own in-flight flag (1.16i): cancelRun only
+                    aborts the V2 request, so it must not render for a V5
+                    analysing turn. */}
+                {isV2RunInFlight && (
                   <div className="flex justify-end px-3">
                     <button
                       type="button"

@@ -86,6 +86,7 @@ import { loadScenario as loadScenarioFromDb } from '../../services/scenarioServi
 import { applyDraftResult, backfillGoalThresholdOntoGoalNode } from '../utils/applyDraftResult'
 import { mergeAppliedGraphAdditive } from '../utils/mergeAppliedGraph'
 import { getSessionIdentity } from '../../lib/supabase'
+import { trackEvent } from '../../lib/posthog'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import { validateResponse, stripRepairLogLines, FALLBACK_TEXT } from './validateResponse'
@@ -1580,6 +1581,11 @@ export function useConversation(): UseConversationReturn {
   // Updated at dispatch time at every sendTurn site; read in the response
   // handler to decide whether the arriving response is the current turn.
   const activeV5TurnIdRef = useRef<string | null>(null)
+  // 1.16i: client turn id of the in-flight run_analysis turn, when one is.
+  // Set at V5 run dispatch, cleared in that turn's finally. Read by the
+  // swallow guard so a run re-click neither preempt-aborts the running
+  // analysis nor mints a fresh turn id (which would defeat CEE's coalescing).
+  const activeRunTurnIdRef = useRef<string | null>(null)
   // Mirror messages state into a ref so buildRequest always reads the latest
   // committed value — avoids stale closure when addMessage + buildRequest run
   // in the same synchronous block (React batches the state update).
@@ -2766,6 +2772,26 @@ export function useConversation(): UseConversationReturn {
         chipInitiated,
       } = opts
 
+      // 1.16i swallow guard: a run_analysis (re-)click while a run turn is
+      // ALREADY in flight is swallowed — no preempt-abort of the running
+      // analysis, no fresh turn id, one telemetry event. This is what stops
+      // the re-click storm (each old re-click aborted the in-flight request
+      // and minted a new client_turn_id, defeating CEE's coalescing). A
+      // non-run turn in flight is NOT swallowed — the user may still
+      // deliberately preempt a chat turn with a run (pre-existing rule).
+      const isRunAnalysisSend =
+        !systemEvent && resolveUserTurnType(source, hidden, turnType) === 'run_analysis'
+      if (inFlightRef.current && isRunAnalysisSend && activeRunTurnIdRef.current) {
+        trackEvent('run_click_swallowed', {
+          inflight_turn_id: activeRunTurnIdRef.current,
+          source: source ?? 'unknown',
+        })
+        if (import.meta.env.DEV) {
+          console.warn('[sendTurn] Run re-click swallowed — analysis turn already in flight')
+        }
+        return
+      }
+
       // Synchronous in-flight lock — prevents duplicate dispatch from rapid
       // double-clicks before React re-renders the isThinking state guard.
       //
@@ -2910,6 +2936,17 @@ export function useConversation(): UseConversationReturn {
         const resolvedTurnType: TurnType = isSystemEvent
           ? 'system_event'
           : resolveUserTurnType(source, hidden, turnType)
+
+        // 1.16i: authoritative analysing state — set synchronously at run
+        // dispatch so every isRunning gate (OutputsDock, ConversationPanel)
+        // and the visible processing furniture hold for the whole turn.
+        // Settled in this turn's finally; a landed analysis_result flips
+        // 'complete' via applyV5State before the settle no-ops.
+        const isRunAnalysisTurn = resolvedTurnType === 'run_analysis'
+        if (isRunAnalysisTurn) {
+          useCanvasStore.getState().resultsAnalysing()
+          activeRunTurnIdRef.current = turnClientId
+        }
 
         // Derive stage from canvas state (UI-SEM-020 pattern). turn_class
         // stays advisory ('frame') — CEE types.ts notes propose/decide/review
@@ -3395,6 +3432,16 @@ export function useConversation(): UseConversationReturn {
           setIsThinking(false)
           useDraftStore.getState().setIsGenerating(false)
           releaseInFlightLockIfOwned()
+          // 1.16i: every-exit settle for the analysing state (success
+          // without an analysis_result, typed error, thrown error, abort,
+          // timeout). No-ops when applyV5State already flipped 'complete'.
+          // OWNERSHIP GUARD: settle only while this turn still owns the run
+          // slot — a preempt-aborted run's late finally must never settle a
+          // NEWER run turn's 'preparing' (that run manages its own exit).
+          if (isRunAnalysisTurn && activeRunTurnIdRef.current === turnClientId) {
+            activeRunTurnIdRef.current = null
+            useCanvasStore.getState().resultsSettle()
+          }
         }
         return
       }
