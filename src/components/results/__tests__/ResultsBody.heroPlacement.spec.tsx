@@ -276,3 +276,20 @@ describe("Paul's ruling (2026-07-12): risk appetite is an explicitly-labelled le
     expect(after?.replace(/ranked by downside[^.]*\./, '')).toBe(heroBefore)
   })
 })
+describe('Wave 2 flag-scoped retirement: stress-test thinking-pattern templates', () => {
+  it('flag ON: the UI-authored Thinking patterns subsection retires; producer-backed subsections stay', () => {
+    vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
+    useCanvasStore.setState({ analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: false })
+    renderBody()
+    fireEvent.click(screen.getByTestId('accordion-stress-test'))
+    expect(screen.getByTestId('stress-test-section')).toBeInTheDocument()
+    expect(screen.queryByTestId('stress-test-thinking-subsection')).toBeNull()
+  })
+
+  it('flag OFF: Thinking patterns render exactly as today', () => {
+    useCanvasStore.setState({ analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: false })
+    renderBody()
+    fireEvent.click(screen.getByTestId('accordion-stress-test'))
+    expect(screen.getByTestId('stress-test-thinking-subsection')).toBeInTheDocument()
+  })
+})
