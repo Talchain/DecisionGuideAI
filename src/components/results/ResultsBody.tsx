@@ -501,6 +501,7 @@ export const ResultsBody = memo(function ResultsBody({
                   onSendMessage={onSendMessage}
                   expertMode={expertMode}
                   sensitivityReferenceLabel={resultsSectionData.sensitivityReference?.optionLabel ?? null}
+                  showThinkingPatterns={!isAnalysisHeroPanelEnabled()}
                 />
               )
             })()}
