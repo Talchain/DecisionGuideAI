@@ -23,6 +23,7 @@ import { useGuidanceStore } from '../stores/guidanceStore'
 import { useShallow } from 'zustand/react/shallow'
 import type { EdgeData, EdgePathType } from '../domain/edges'
 import { shouldShowEdgeLabel } from './edgeLabelVisibility'
+import { computeDirectionStroke } from './directionStroke'
 import { applyEdgeVisualProps } from '../theme/edges'
 import { formatConfidence, shouldShowLabel, getEdgeConfidence, computeSignedMean } from '../domain/edges'
 import { useIsDark } from '../hooks/useTheme'
@@ -257,30 +258,13 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     return importanceToStrokeWidth(importance, maxImportance)
   }, [isResultsMode, report, source, edgeData?.beliefExists, weight, getEdges, edgeData?.direction])
 
-  // F.2: Direction-based stroke colour — applies both pre-run and post-run
-  // Yellow is strictly reserved for truly uninitialised edges (no direction AND no weight).
-  // If weight is defined but direction is not, use grey (not yellow).
-  const directionStroke = useMemo(() => {
-    const rawWeight = edgeData?.weight
-    // Truly uninitialised: no direction AND weight is undefined → yellow
-    if (direction === undefined && rawWeight === undefined) {
-      return 'var(--goal)'
-    }
-    // Weight defined but direction not yet set → grey (not yellow)
-    if (direction === undefined) {
-      return isDark ? '#a1a1aa' : '#d4d4d8' // Zinc-400/300
-    }
-    // Direction set with positive weight → green
-    if (direction === 'positive' && weight > 0) {
-      return isDark ? '#bbf7d0' : '#a7f3d0' // Pastel green-200/emerald-200
-    }
-    // Direction set with negative weight → red
-    if (direction === 'negative' && weight > 0) {
-      return isDark ? '#FF6B6B' : '#ef4444' // Risk red (matches risk node border)
-    }
-    // Neutral: weight === 0 (valid user choice)
-    return isDark ? '#a1a1aa' : '#d4d4d8' // Zinc-400/300 (grey/ink)
-  }, [direction, weight, edgeData?.weight, isDark])
+  // F.2 + E1: direction-based stroke colour (see directionStroke.ts for the
+  // CVD-aware polarity palette and the ΔE rationale). Applies pre-run and
+  // post-run; one source of truth shared with directionColour.spec.
+  const directionStroke = useMemo(
+    () => computeDirectionStroke(direction, weight, edgeData?.weight, isDark),
+    [direction, weight, edgeData?.weight, isDark],
+  )
 
   // Decision Graph Display v2: Existence certainty line style
   // Solid: >70%, Dashed: 40-70%, Dotted: <40%
