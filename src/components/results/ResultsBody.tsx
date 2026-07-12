@@ -338,8 +338,8 @@ export const ResultsBody = memo(function ResultsBody({
                 className={`${typography.panelMeta} text-text-light`}
               >
                 {riskAppetite === 'conservative'
-                  ? 'Lens: cautious view, ranked by downside. The recommendation above is unchanged.'
-                  : 'Lens: bold view, ranked by upside. The recommendation above is unchanged.'}
+                  ? 'Lens: cautious view, highlighting the option with the strongest downside. The recommendation above is unchanged.'
+                  : 'Lens: bold view, highlighting the option with the strongest upside. The recommendation above is unchanged.'}
               </p>
             )}
             {/* WinGauge — moved from hero to top of options section */}

@@ -634,7 +634,7 @@ describe('Wave 2 (§6.6): Why and what could change it disclosure', () => {
     const onFocusTarget = vi.fn()
     renderPanel(modelWithEvidence(), { onFocusTarget })
     fireEvent.click(screen.getByRole('button', { name: /why and what could change it/i }))
-    fireEvent.click(screen.getByRole('tab', { name: 'Flip risks' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Flip risks' }))
     const row = screen.getByRole('button', { name: /If Team capacity falls below 30%/ })
     fireEvent.click(row)
     expect(onFocusTarget).toHaveBeenCalledWith('fac_capacity')
@@ -643,7 +643,7 @@ describe('Wave 2 (§6.6): Why and what could change it disclosure', () => {
   it('never shows a Trade-offs tab when the producer narrative is absent', () => {
     renderPanel(modelWithEvidence(), { onFocusTarget: vi.fn() })
     fireEvent.click(screen.getByRole('button', { name: /why and what could change it/i }))
-    expect(screen.queryByRole('tab', { name: 'Trade-offs' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Trade-offs' })).toBeNull()
   })
 
   it('hides the disclosure entirely when there is nothing to disclose', () => {

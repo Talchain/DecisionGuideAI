@@ -28,6 +28,7 @@ import type {
 vi.mock('../../../canvas/utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
   focusByTarget: vi.fn(),
+  focusExistingTarget: vi.fn(),
 }))
 
 vi.mock('@/flags', async () => {
@@ -259,10 +260,10 @@ describe("Paul's ruling (2026-07-12): risk appetite is an explicitly-labelled le
     renderBody()
     expect(screen.queryByTestId('risk-lens-label')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Aggressive' }))
-    expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/ranked by upside/i)
+    expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/strongest upside/i)
     expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/recommendation above is unchanged/i)
     fireEvent.click(screen.getByRole('button', { name: 'Conservative' }))
-    expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/ranked by downside/i)
+    expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/strongest downside/i)
     fireEvent.click(screen.getByRole('button', { name: 'Neutral' }))
     expect(screen.queryByTestId('risk-lens-label')).not.toBeInTheDocument()
   })
@@ -272,8 +273,9 @@ describe("Paul's ruling (2026-07-12): risk appetite is an explicitly-labelled le
     renderBody()
     const heroBefore = screen.getByTestId('decision-confidence-panel').textContent
     fireEvent.click(screen.getByRole('button', { name: 'Conservative' }))
-    const after = screen.getByTestId('decision-confidence-panel').textContent
-    expect(after?.replace(/ranked by downside[^.]*\./, '')).toBe(heroBefore)
+    // Strict: the lens label renders OUTSIDE this panel, so any drift here
+    // is real contamination.
+    expect(screen.getByTestId('decision-confidence-panel').textContent).toBe(heroBefore)
   })
 })
 describe('Wave 2 flag-scoped retirement: stress-test thinking-pattern templates', () => {

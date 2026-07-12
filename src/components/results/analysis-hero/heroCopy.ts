@@ -252,6 +252,9 @@ export const HERO_COPY = {
       `If ${factor} ${direction} ${value}, the leading option is likely to change.`,
     fallsBelow: 'falls below',
     risesAbove: 'rises above',
+    // Direction-neutral fallback (UI-SEM-074): used when flip_value equals
+    // current_value — a direction claim would not be honestly determinable.
+    crosses: 'crosses',
     tradeOffGain: 'You gain',
     tradeOffGiveUp: 'You give up',
     tradeOffDependsOn: 'Depends on',

@@ -635,15 +635,20 @@ export function OptionCards({
         // V11.2 Fix 2: VM hinge-aware descriptions take priority when decisionState available.
         // When decisionState is absent (e.g. non-neutral risk appetite), still use
         // hingeAwareDescription over fallbackDescription if win probabilities exist —
-        // keeps gap-based specificity. Story headlines still take priority when present.
+        // keeps gap-based specificity. Story headlines still take priority when present,
+        // EXCEPT on the lens-crowned card: Paul's ruling requires the crowned card to
+        // say it is lens-strongest, never THE recommendation — a coaching headline
+        // there would restate the neutral recommendation under a non-neutral lens.
         const winnerOpt = options.find(o => o.id === winnerId)
-        const description = decisionState
-          ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, lensActive)
-          : headline
-            ? headline
-            : (winnerOpt?.winProbability != null || option.winProbability != null)
-              ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, lensActive)
-              : fallbackDescription(option, options.length)
+        const description = lensActive && isWinner
+          ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, true)
+          : decisionState
+            ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, lensActive)
+            : headline
+              ? headline
+              : (winnerOpt?.winProbability != null || option.winProbability != null)
+                ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, lensActive)
+                : fallbackDescription(option, options.length)
 
         const segmentFillColor = segmentColorMap[option.id]
         return (

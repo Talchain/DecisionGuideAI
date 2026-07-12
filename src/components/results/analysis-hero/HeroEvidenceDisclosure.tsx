@@ -90,19 +90,23 @@ export function HeroEvidenceDisclosure({
 
       {open && (
         <div className="mt-2 space-y-2">
+          {/* Plain toggle buttons, NOT role=tab: the ARIA tabs pattern
+              promises arrow-key/roving-tabindex behaviour (HeroLensTabs
+              implements it fully); claiming the role without the keyboard
+              model would mislead AT users. Selected state uses the
+              HeroLensTabs treatment (bg-primary), not a filled pill. */}
           {views.length > 1 && (
-            <div role="tablist" className="flex gap-1">
+            <div className="flex gap-1">
               {views.map((v) => (
                 <button
                   key={v.key}
                   type="button"
-                  role="tab"
-                  aria-selected={activeView === v.key}
+                  aria-pressed={activeView === v.key}
                   onClick={() => setView(v.key)}
-                  className={`px-2 py-0.5 rounded-full ${typography.panelMeta} border bg-transparent ${
+                  className={`px-2 py-0.5 rounded-full ${typography.panelMeta} ${
                     activeView === v.key
-                      ? 'border-info/60 text-info'
-                      : 'border-panel-border text-text-light hover:border-info/30 hover:text-text-body'
+                      ? 'bg-primary text-text-on-color'
+                      : 'border border-panel-border bg-transparent text-text-light hover:border-info/30 hover:text-text-body'
                   }`}
                 >
                   {v.label}

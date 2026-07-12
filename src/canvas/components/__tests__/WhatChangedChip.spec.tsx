@@ -232,6 +232,8 @@ describe("Paul's ruling (2026-07-12): keep + improve — honest basis, clear ico
     render(<WhatChangedChip />)
     const chip = screen.getByTestId('what-changed-chip')
     expect(chip.querySelector('.lucide-arrow-up-down')).toBeNull()
+    // Pin the ACTUAL glyph, not just the absence of the old one (review F11).
+    expect(chip.querySelector('.lucide-git-compare-arrows')).not.toBeNull()
     expect(chip.querySelector('svg')).not.toBeNull()
   })
 })

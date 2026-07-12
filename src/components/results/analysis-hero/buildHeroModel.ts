@@ -47,6 +47,7 @@ import type { FlipThreshold, OptionResult } from '../types'
 import { GAP_THRESHOLD } from '../buildResultsVM'
 import { formatThreshold } from '../RangeVisualization'
 import { stripEncodingNotation } from '../utils/cleanFactorLabel'
+import { THRESHOLDS } from '../../../lib/mappers/constants'
 import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 import { SUB_ONE_PERCENT_FLOOR } from '../utils/displayFloors'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../utils/goalFitBasisCaveatCopy'
@@ -721,7 +722,9 @@ export function buildHeroModel(
           targetId: topDriverItem.matchedNodeId ?? topDriverItem.factorKey,
         }
       : null
-  const FLIP_RISK_FLOOR = 0.15 // UI-SEM-013 fragile-edge visibility floor
+  // UI-SEM-013 fragile-edge visibility floor — the CANONICAL constant every
+  // fragile-edge surface shares; a local literal would silently desync.
+  const FLIP_RISK_FLOOR = THRESHOLDS.FRAGILE_EDGE_FILTER
   const flipCandidate = (drivers?.drivers ?? [])
     .filter(
       (d) =>
@@ -765,14 +768,14 @@ export function buildHeroModel(
     .filter((d): d is NonNullable<typeof d> => d != null)
 
   // Flip risks: producer flipThresholds → plain-language consequences.
-  // Direction is arithmetic on producer values; the unit is the producer's
-  // user unit; undetermined thresholds (flip_value null) have nothing
+  // UI-SEM-074: direction wording derived from producer values (flip_value
+  // vs current_value). Only a strict inequality earns a direction; equality
+  // (and therefore also the upstream missing-current_value→0 default when
+  // flip_value is 0) falls back to the direction-neutral "crosses" wording
+  // the detail line already uses. The unit is the producer's user unit via
+  // the module formatFlipValue (one threshold must never render two ways in
+  // one panel); undetermined thresholds (flip_value null) have nothing
   // displayable and are skipped. Normalised internals never surface.
-  const formatFlipValue = (value: number, unit?: string): string => {
-    if (unit === '%') return `${value}%`
-    if (unit === '$') return `$${value}`
-    return unit ? `${value} ${unit}` : `${value}`
-  }
   const evidenceFlipRisks = (recommendation.flipThresholds ?? [])
     .map((ft) => {
       if (ft.flip_value == null) return null
@@ -781,7 +784,9 @@ export function buildHeroModel(
       const direction =
         ft.flip_value < ft.current_value
           ? HERO_COPY.evidence.fallsBelow
-          : HERO_COPY.evidence.risesAbove
+          : ft.flip_value > ft.current_value
+            ? HERO_COPY.evidence.risesAbove
+            : HERO_COPY.evidence.crosses
       const value = formatFlipValue(ft.flip_value, ft.unit)
       const alt = ft.alternative_winner_label
         ? stripEncodingNotation(ft.alternative_winner_label)

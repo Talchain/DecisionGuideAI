@@ -1121,10 +1121,21 @@ describe('Wave 2 (§6.6): evidence disclosure model', () => {
     } })))
     expect(m.evidence.flipRisks).toEqual([
       {
-        text: 'If Salary cost rises above $60000, the leading option is likely to change.',
+        text: 'If Salary cost rises above $60,000, the leading option is likely to change.',
         targetId: 'fac_salary',
       },
     ])
+  })
+
+  it('flip risks: equality earns no direction claim — neutral crosses wording (UI-SEM-074)', () => {
+    const m = chart(buildHeroModel(makeHeroData({ recommendation: {
+      flipThresholds: [
+        { label: 'Team capacity', node_id: 'fac_capacity', current_value: 40, flip_value: 40, unit: '%' },
+      ],
+    } })))
+    expect(m.evidence.flipRisks[0].text).toBe(
+      'If Team capacity crosses 40%, the leading option is likely to change.',
+    )
   })
 
   it('flip risks: undetermined thresholds are skipped; none → empty list', () => {
