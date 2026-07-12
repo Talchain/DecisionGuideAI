@@ -22,6 +22,7 @@ import { useMemo, useSyncExternalStore } from 'react'
 import { loadRuns } from '../store/runHistory'
 import * as runsBus from '../store/runsBus'
 import { pulseAppliedTargets } from '../utils/appliedEditPulse'
+import { fitNodesOnCanvas } from '../utils/focusHelpers'
 import type { Node, Edge } from '@xyflow/react'
 import { GitCompareArrows } from 'lucide-react'
 import { typography } from '../../styles/typography'
@@ -120,6 +121,12 @@ export function WhatChangedChip() {
   if (parts.length === 0) return null
 
   const handleClick = () => {
+    // F4 (graph-visuals): a chip click is USER-INITIATED, so panning is the
+    // user's intent — fit every surviving changed node into view before the
+    // pulse fires (previously targets often pulsed off-screen). The AI's
+    // autonomous applied-edit pulse still never pans (appliedEditPulse
+    // contract); this fit is reachable only from this click.
+    fitNodesOnCanvas([...diff.nodes.added, ...diff.nodes.modified])
     // Removed elements are gone from the canvas — only surviving changes
     // can be highlighted.
     pulseAppliedTargets({

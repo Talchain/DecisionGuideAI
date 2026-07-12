@@ -59,7 +59,7 @@ import { InfluenceExplainer, useInfluenceExplainer } from '../components/assista
 // floating-first host is mounted as a sibling when the flag is on.
 import { executeCanonicalRun } from './analysis/canonicalRunRegistry'
 import { HighlightLayer } from './highlight/HighlightLayer'
-import { registerFocusHelpers } from './utils/focusHelpers'
+import { registerFocusHelpers, registerFitNodes } from './utils/focusHelpers'
 import { computeFitPadding } from './utils/computeFitPadding'
 import { usePathHighlight } from './hooks/usePathHighlight'
 import { useLensFilter } from './hooks/useLensFilter'
@@ -941,6 +941,26 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   useEffect(() => {
     return registerFocusHelpers(handleFocusNode, handleFocusEdge)
   }, [handleFocusNode, handleFocusEdge])
+
+  // F4 (graph-visuals): registered multi-node fit for USER-INITIATED
+  // surfaces (What-changed chip). Fits every target into view (zoom capped)
+  // with the F1 reduced-motion guard. The AI's autonomous pulse still never
+  // pans — this seam is only reachable from explicit user clicks.
+  const handleFitNodes = useCallback((nodeIds: readonly string[]) => {
+    const store = useCanvasStore.getState()
+    const idSet = new Set(nodeIds)
+    const targets = store.nodes.filter(n => idSet.has(n.id))
+    if (targets.length === 0) return
+    fitViewRef.current({
+      nodes: targets,
+      padding: 0.25,
+      maxZoom: 1.5,
+      duration: cameraDuration(400, reducedMotionRef.current),
+    })
+  }, [])
+  useEffect(() => {
+    return registerFitNodes(handleFitNodes)
+  }, [handleFitNodes])
 
   // Graph Interaction P1: Enable path highlighting based on node selection
   // Highlights causal paths from selected factor to goal, dims unrelated nodes

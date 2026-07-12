@@ -24,11 +24,13 @@ import '@testing-library/jest-dom/vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import type { Node, Edge } from '@xyflow/react'
 
-const { loadRunsMock, pulseMock } = vi.hoisted(() => ({
+const { loadRunsMock, pulseMock, fitMock } = vi.hoisted(() => ({
   loadRunsMock: vi.fn(),
   pulseMock: vi.fn(),
+  fitMock: vi.fn(),
 }))
 vi.mock('../../store/runHistory', () => ({ loadRuns: loadRunsMock }))
+vi.mock('../../utils/focusHelpers', () => ({ fitNodesOnCanvas: fitMock }))
 vi.mock('../../utils/appliedEditPulse', () => ({
   pulseAppliedTargets: pulseMock,
   __resetAppliedEditPulseForTests: vi.fn(),
@@ -54,6 +56,7 @@ const run = (graph: { nodes: Node[]; edges: Edge[] }) => ({
 beforeEach(() => {
   loadRunsMock.mockReset()
   pulseMock.mockReset()
+  fitMock.mockReset()
 })
 afterEach(() => cleanup())
 
@@ -237,3 +240,20 @@ describe("Paul's ruling (2026-07-12): keep + improve — honest basis, clear ico
     expect(chip.querySelector('svg')).not.toBeNull()
   })
 })
+
+describe('F4 — chip click fits changed nodes into view (user-initiated pan)', () => {
+  it('clicking the chip fits the surviving changed nodes, before the pulse fires', () => {
+    loadRunsMock.mockReturnValue([
+      run({ nodes: [node('a', 'A2'), node('b', 'B'), node('c', 'C')], edges: [] }),
+      run({ nodes: [node('a', 'A'), node('b', 'B')], edges: [] }),
+    ])
+    render(<WhatChangedChip />)
+    fireEvent.click(screen.getByTestId('what-changed-chip'))
+    // a = label-modified, c = added; both fit into view…
+    expect(fitMock).toHaveBeenCalledTimes(1)
+    expect([...fitMock.mock.calls[0][0]].sort()).toEqual(['a', 'c'])
+    // …and the fit happens BEFORE the pulse (targets on-screen when they flash).
+    expect(fitMock.mock.invocationCallOrder[0]).toBeLessThan(pulseMock.mock.invocationCallOrder[0])
+  })
+})
+
