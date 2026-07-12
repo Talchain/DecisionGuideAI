@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OutputsDock } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
+import { getCanonicalRunner } from '../../analysis/canonicalRunRegistry'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { _clearTraces, getInteractionChains } from '../../../lib/debug-state'
 // 34edc1fd ("conversation singleton + explicit first-use submit signal",
@@ -332,6 +333,45 @@ describe('OutputsDock analyse convergence', () => {
     expect(footer).toHaveTextContent('Robustness unknown')
     expect(footer).not.toHaveTextContent('87%')
     expect(screen.queryByText('Compare available in the tab bar')).not.toBeInTheDocument()
+  })
+
+  describe('Wave F-B: one freshness owner — duplicate stale surfaces retired', () => {
+    const fakeReport: any = {
+      results: { conservative: 10, likely: 20, optimistic: 30, units: 'percent', unitSymbol: '%' },
+      run: { bands: { p10: 10, p50: 20, p90: 30 } },
+    }
+
+    it('stale analysis shows NO graph-stale-banner and NO ai-panel stale badge (the strip owns it)', () => {
+      const baseResults = useCanvasStore.getState().results
+      useCanvasStore.setState({
+        hasCompletedFirstRun: true,
+        results: { ...baseResults, status: 'complete', report: fakeReport },
+        analysisFreshness: { freshness: 'stale', freshnessReason: 'graph_changed', computedAt: 1 },
+        analysisFreshnessDirty: false,
+      } as any)
+      renderOutputsDock()
+      expect(screen.queryByTestId('graph-stale-banner')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('ai-panel-stale-badge')).not.toBeInTheDocument()
+    })
+
+    it('the canonical runner forwards parameters into the V5 chip dispatch (threshold rerun fold)', async () => {
+      const dispatchAction = vi.fn()
+      mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() } as any)
+      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
+      mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
+      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+
+      renderOutputsDock()
+      const runner = getCanonicalRunner()
+      expect(runner).not.toBeNull()
+      await runner!({ source: 'test', parameters: { goal_threshold: 42 } })
+
+      expect(dispatchAction).toHaveBeenCalledTimes(1)
+      expect(dispatchAction.mock.calls[0][0]).toMatchObject({
+        action_type: 'run_analysis',
+        parameters: { goal_threshold: 42 },
+      })
+    })
   })
 
   describe('1.16i: visible processing during an analysing turn', () => {

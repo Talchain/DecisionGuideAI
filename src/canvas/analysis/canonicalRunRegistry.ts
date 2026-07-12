@@ -22,6 +22,10 @@ export type CanonicalRunOutcome =
 export interface CanonicalRunOptions {
   /** Telemetry label for the surface that initiated the run. */
   source?: string
+  /** Wave F-B: chip-metadata parameters forwarded into the V5 run dispatch
+   * (e.g. goal_threshold for the Define-success/threshold rerun). The V2
+   * fallback ignores them — its request builder reads the store directly. */
+  parameters?: Record<string, unknown>
 }
 
 export type CanonicalRunner = (
