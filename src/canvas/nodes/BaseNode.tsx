@@ -47,6 +47,9 @@ interface BaseNodeProps extends NodeProps {
   nodeType: NodeType
   icon: LucideIcon
   children?: ReactNode
+  /** D2: keep this node's title readable at level-of-detail zoom even though
+   * it is not a goal/decision (e.g. the leading option). */
+  lodKeepLabel?: boolean
   maxWidth?: number
   headerSlot?: ReactNode
   /** Override border colour + style classes (e.g. 'border-info border-dashed'). Replaces entity colour. */
@@ -58,7 +61,7 @@ interface BaseNodeProps extends NodeProps {
  * Includes connection handles and accessibility attributes
  * Click chevron icon to expand/collapse description
  */
-export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, borderClassOverride }: BaseNodeProps) => {
+export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, borderClassOverride, lodKeepLabel = false }: BaseNodeProps) => {
   const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
   const description = typeof data?.description === 'string' ? data.description : undefined
 
@@ -81,6 +84,13 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // N3: edited since the last analysis run (amber corner dot; undefined-safe
   // for node-spec store doubles without the slice).
   const isEditedSinceRun = useCanvasStore(s => s.editedSinceRunNodeIds?.has(id) === true)
+  // D2: level-of-detail — at low zoom nodes simplify to their coloured shape;
+  // only goal / decision / explicitly-kept nodes (the leading option) keep a
+  // readable title. Undefined-safe for spec store doubles without the slice.
+  const lodActive = useCanvasStore(s => s.lodActive === true)
+  const lodKeepsTitle = nodeType === 'goal' || nodeType === 'decision' || lodKeepLabel
+  const lodHideTitle = lodActive && !lodKeepsTitle
+  const lodBoostTitle = lodActive && lodKeepsTitle
 
   // Graph Interaction P1: Node dimming for path highlighting
   // Nodes not on the highlighted path are dimmed (opacity ~0.4)
@@ -390,7 +400,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           {/* line-clamp-3: cap title to 3 lines with ellipsis so ELK can
               rely on uniform-ish node heights. `break-words` preserved so
               long unbroken tokens still wrap before clamping. */}
-          <div className={`${typography.nodeTitle} text-text-body break-words line-clamp-3`}>
+          <div
+            data-testid="node-title"
+            className={
+              lodBoostTitle
+                ? 'text-lg font-semibold text-text-header break-words line-clamp-2'
+                : `${typography.nodeTitle} text-text-body break-words line-clamp-3`
+            }
+            style={lodHideTitle ? { visibility: 'hidden' } : undefined}
+          >
             {label}
           </div>
         </div>
@@ -445,9 +463,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         />
       )}
 
-      {/* Optional children (description, metrics, etc.) — hidden in causal/evidence lens */}
+      {/* Optional children (description, metrics, etc.) — hidden in causal/evidence lens.
+          D2: at level-of-detail zoom the body hides via visibility (box keeps
+          its dimensions so ELK/edge anchors stay stable) — the node reads as
+          its coloured shape. */}
       {!isCausalLens && !isEvidenceLens && children ? (
-        <div className="text-left">
+        <div className="text-left" style={lodActive ? { visibility: 'hidden' } : undefined} data-lod-hidden={lodActive || undefined}>
           {children as ReactNode}
         </div>
       ) : null}

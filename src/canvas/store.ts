@@ -436,6 +436,9 @@ interface CanvasState {
   highlightedNodes: Set<string>
   highlightedEdges: Set<string>
   dimmedNodeIds: Set<string>
+  /** D2 (graph-visuals): level-of-detail — true when the main canvas zoom is
+   * below the LOD threshold; nodes simplify (body hidden, only key labels). */
+  lodActive: boolean
   /** N3 (graph-visuals): nodes edited since the last analysis run — computed
    * by useEditedSinceRun (device-local diff vs the latest run snapshot,
    * same mechanism class as the What-changed chip). Drives the amber
@@ -707,6 +710,8 @@ interface CanvasState {
   setDimmedNodes: (ids: string[]) => void
   /** N3: replace the edited-since-run set (called by the useEditedSinceRun effect). */
   setEditedSinceRunNodes: (ids: string[]) => void
+  /** D2: set by the LodSync zoom watcher (skip-if-same). */
+  setLodActive: (active: boolean) => void
   // S.4: Toggle "user-reviewed" confirmation on a node (session-only)
   toggleConfirmedNode: (nodeId: string) => void
   // Decision Graph Display v2 Task 11: Option hover for intervention highlighting
@@ -1293,6 +1298,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   highlightedEdges: new Set<string>(),
   dimmedNodeIds: new Set<string>(),
   editedSinceRunNodeIds: new Set<string>(),
+  lodActive: false,
   confirmedNodeIds: new Set<string>(),
   hoveredOptionId: null,
   // Graph Lens: ephemeral canvas filtering state.
@@ -3726,6 +3732,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
   setDimmedNodes: (ids: string[]) => {
     set({ dimmedNodeIds: new Set(ids) })
+  },
+  setLodActive: (active: boolean) => {
+    if (get().lodActive === active) return
+    set({ lodActive: active })
   },
   setEditedSinceRunNodes: (ids: string[]) => {
     // No-op set-skip when unchanged so the effect's recompute on every node
