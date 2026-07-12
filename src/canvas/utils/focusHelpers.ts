@@ -37,6 +37,34 @@ export function registerFocusHelpers(
   }
 }
 
+type FitNodesFn = (nodeIds: readonly string[]) => void
+let fitNodesImpl: FitNodesFn | null = null
+
+/**
+ * Register the multi-node fit (F4 — called by ReactFlowGraph on mount).
+ * Same ownership-guarded unregister rule as registerFocusHelpers.
+ */
+export function registerFitNodes(fitNodes: FitNodesFn): () => void {
+  fitNodesImpl = fitNodes
+  return () => {
+    if (fitNodesImpl === fitNodes) fitNodesImpl = null
+  }
+}
+
+/**
+ * F4 (graph-visuals): fit the viewport so EVERY given node is visible —
+ * used by USER-INITIATED actions only (e.g. clicking the What-changed
+ * chip) so off-screen targets are brought into view before they pulse.
+ * The AI's autonomous applied-edit pulse deliberately never pans
+ * (appliedEditPulse contract: the AI must not hijack the viewport).
+ * Fail-closed: returns false (no-op) when the canvas is not mounted.
+ */
+export function fitNodesOnCanvas(nodeIds: readonly string[]): boolean {
+  if (!fitNodesImpl || nodeIds.length === 0) return false
+  fitNodesImpl(nodeIds)
+  return true
+}
+
 /**
  * Unregister focus implementations unconditionally.
  * @deprecated Use the unregister function returned by registerFocusHelpers —
