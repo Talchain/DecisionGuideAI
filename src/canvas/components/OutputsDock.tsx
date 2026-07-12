@@ -34,7 +34,9 @@ import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource } from '../store'
 import { resolveDisplayedFreshness } from '../store/analysisFreshness'
+import { getScenario } from '../store/scenarios'
 import { AnalysisFreshnessNotice } from '../../components/results/AnalysisFreshnessNotice'
+import { DecisionOverviewCard } from '../../components/results/decision-overview/DecisionOverviewCard'
 import { deriveResultsTabFreshness } from './resultsTabFreshness'
 import { typography, typo } from '../../styles/typography'
 import {
@@ -614,6 +616,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
   // Results Panel Redesign: Section data hook for RecommendationSection, DriversSection, ConfidenceSection
   const resultsSectionData = useResultsSectionData()
+  // Wave 1: decision title for the overview card — same source as the
+  // ScenarioSwitcher header (scenario name; null when unsaved/untitled).
+  const overviewScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  const overviewTitle = overviewScenarioId ? (getScenario(overviewScenarioId)?.name ?? null) : null
 
   // Tornado chart: Derive per-factor outcome bounds from driver influence and recommended option range.
   // Each factor's contribution to the outcome swing is proportional to its normalised influence.
@@ -2066,6 +2072,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     Legacy blocks (InsightsPanel, AdvancedSettings, variance warning) removed
                     from Results tab — they are not in the v7 prototype.
                     ====================================================================== */}
+                {/* Wave 1: Decision overview — the orientation surface, first
+                    in the canonical hierarchy (brief §3). Flag-gated
+                    (renders nothing flag-off). */}
+                {!isPreRun && hasInlineSummary && resultsSectionData && (
+                  <DecisionOverviewCard title={overviewTitle} />
+                )}
                 {/* Wave F-B review (a): the sole freshness strip + its Rerun
                     mount ABOVE the dim wrapper at full opacity — the recovery
                     control must never sit inside an aria-disabled region. */}

@@ -335,6 +335,42 @@ describe('OutputsDock analyse convergence', () => {
     expect(screen.queryByText('Compare available in the tab bar')).not.toBeInTheDocument()
   })
 
+  describe('Wave 1: Decision overview mount', () => {
+    const fakeReport: any = {
+      results: { conservative: 10, likely: 20, optimistic: 30, units: 'percent', unitSymbol: '%' },
+      run: { bands: { p10: 10, p50: 20, p90: 30 } },
+    }
+    function seedPostRun() {
+      const baseResults = useCanvasStore.getState().results
+      useCanvasStore.setState({
+        hasCompletedFirstRun: true,
+        results: { ...baseResults, status: 'complete', report: fakeReport },
+      } as any)
+    }
+
+    it('flag OFF: no overview card (byte-identical)', () => {
+      localStorage.removeItem('feature.decisionOverview')
+      seedPostRun()
+      renderOutputsDock()
+      expect(screen.queryByTestId('decision-overview')).not.toBeInTheDocument()
+    })
+
+    it('flag ON: the overview mounts FIRST, above the freshness strip (canonical hierarchy)', () => {
+      localStorage.setItem('feature.decisionOverview', '1')
+      const baseResults = useCanvasStore.getState().results
+      useCanvasStore.setState({
+        hasCompletedFirstRun: true,
+        results: { ...baseResults, status: 'complete', report: fakeReport },
+        analysisFreshness: { freshness: 'stale', freshnessReason: 'graph_changed', computedAt: 1 },
+      } as any)
+      renderOutputsDock()
+      const overview = screen.getByTestId('decision-overview')
+      const strip = screen.getByTestId('analysis-freshness-notice')
+      expect(overview.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      localStorage.removeItem('feature.decisionOverview')
+    })
+  })
+
   describe('Wave F-B: one freshness owner — duplicate stale surfaces retired', () => {
     const fakeReport: any = {
       results: { conservative: 10, likely: 20, optimistic: 30, units: 'percent', unitSymbol: '%' },
