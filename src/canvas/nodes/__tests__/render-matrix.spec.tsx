@@ -1158,7 +1158,23 @@ describe('N1 — per-type selection ring', () => {
     applyState(['factor-1'])
     render(<ReactFlowProvider><FactorNode {...selProps} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
     const group = screen.getAllByRole('group')[0]
-    expect(group.className).toContain('ring-goal/50')
+    // N2: the AI-highlight ring is the info/AI hue (not goal) and wins over selection.
+    expect(group.className).toContain('ring-info/60')
     expect(group.className).not.toContain('ring-factor/50')
+  })
+
+  it('N2: an AI-highlighted node gets the real pulse class (reduced-motion-safe in CSS)', () => {
+    applyState(['factor-1'])
+    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
+    const group = screen.getAllByRole('group')[0]
+    expect(group.className).toContain('ai-highlight-pulse')
+    expect(group.className).toContain('ring-info/60')
+  })
+
+  it('N2: a non-highlighted node has no pulse', () => {
+    applyState([])
+    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
+    const group = screen.getAllByRole('group')[0]
+    expect(group.className).not.toContain('ai-highlight-pulse')
   })
 })
