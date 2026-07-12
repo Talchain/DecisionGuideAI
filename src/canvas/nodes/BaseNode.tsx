@@ -265,7 +265,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         ${isCausalLens ? (causalBorderClass ?? '') : isIncomplete ? 'border-warning border-dashed' : borderClassOverride ?? `${colors.border} ${borderStyle}`}
         transition-all duration-200
         cursor-default
-        ${selected ? 'ring-2 ring-info ring-offset-2' : ''}
+        ${selected && !isHighlighted ? `${colors.selected} ring-offset-2` : ''}
         ${isHighlighted ? 'ring-4 ring-goal/50' : ''}
         ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-60' : ''}
       `}
