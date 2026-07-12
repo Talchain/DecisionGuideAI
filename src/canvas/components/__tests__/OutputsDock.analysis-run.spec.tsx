@@ -333,4 +333,58 @@ describe('OutputsDock analyse convergence', () => {
     expect(footer).not.toHaveTextContent('87%')
     expect(screen.queryByText('Compare available in the tab bar')).not.toBeInTheDocument()
   })
+
+  describe('1.16i: visible processing during an analysing turn', () => {
+    const fakeReport: any = {
+      results: { conservative: 10, likely: 20, optimistic: 30, units: 'percent', unitSymbol: '%' },
+      run: { bands: { p10: 10, p50: 20, p90: 30 } },
+    }
+
+    function seedPreparingWithReport() {
+      const baseResults = useCanvasStore.getState().results
+      useCanvasStore.setState({
+        hasCompletedFirstRun: true,
+        results: { ...baseResults, status: 'preparing', report: fakeReport },
+      } as any)
+    }
+
+    it('shows the running banner while status is preparing with a prior report on screen', () => {
+      seedPreparingWithReport()
+      renderOutputsDock()
+      expect(screen.getByTestId('analysis-running-banner')).toBeInTheDocument()
+    })
+
+    it('shows NO dead Cancel button for a V5 analysing turn (no V2 run in flight)', () => {
+      seedPreparingWithReport()
+      renderOutputsDock()
+      expect(screen.queryByTestId('cancel-analysis-button')).not.toBeInTheDocument()
+    })
+
+    it('a Run click during an analysing turn dispatches nothing (gate holds)', () => {
+      const dispatchAction = vi.fn()
+      const runV2Analysis = vi.fn()
+      mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() } as any)
+      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
+      mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
+      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+      seedPreparingWithReport()
+
+      renderOutputsDock()
+      const rerun = screen.queryByTestId('outputs-run-button')
+      if (rerun) fireEvent.click(rerun)
+
+      expect(dispatchAction).not.toHaveBeenCalled()
+      expect(runV2Analysis).not.toHaveBeenCalled()
+    })
+
+    it('banner absent when analysis is complete (control)', () => {
+      const baseResults = useCanvasStore.getState().results
+      useCanvasStore.setState({
+        hasCompletedFirstRun: true,
+        results: { ...baseResults, status: 'complete', report: fakeReport },
+      } as any)
+      renderOutputsDock()
+      expect(screen.queryByTestId('analysis-running-banner')).not.toBeInTheDocument()
+    })
+  })
 })

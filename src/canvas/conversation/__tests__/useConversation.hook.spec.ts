@@ -82,6 +82,12 @@ vi.mock('../../../v5/eligibility', () => ({
   isV5Eligible: (...args: unknown[]) => mockIsV5Eligible(...(args as [{ flag: string | undefined }])),
 }))
 
+// 1.16i: telemetry sink for the run-click swallow guard.
+const mockTrackEvent = vi.fn()
+vi.mock('../../../lib/posthog', () => ({
+  trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+}))
+
 // Mock Supabase getUserId: vi.fn() so tests can reconfigure per-scenario.
 // Default: null (no auth session in test environment).
 const mockGetUserId = vi.fn<[], Promise<string | null>>()
@@ -2488,5 +2494,97 @@ describe('login 3.4 — V5 turn auth headers', () => {
     expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
     const opts = mockCallV5Turn.mock.calls[0][1] as { headers?: Record<string, string> }
     expect(opts.headers).toEqual({})
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 1.16i — rerun UX integrity: authoritative analysing state + swallow guard
+// (re-plan Program A lane A1; Paul's extended acceptance = visible processing
+// for the whole turn, and re-clicks must not abort/re-mint the in-flight run)
+// ---------------------------------------------------------------------------
+
+describe('1.16i — rerun UX integrity', () => {
+  beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
+    mockTrackEvent.mockReset()
+    useCanvasStore.getState().resultsReset()
+  })
+
+  const RUN_ACTION = {
+    action_type: 'run_analysis',
+    label: 'Run analysis',
+    message: 'Run analysis',
+    source: 'chip' as const,
+  }
+
+  it('sets results.status=preparing at dispatch and settles on a text-only envelope', async () => {
+    let resolveTurn!: (v: unknown) => void
+    mockCallV5Turn.mockReturnValue(new Promise((res) => { resolveTurn = res }))
+
+    const { result } = renderHook(() => useConversation())
+    let dispatchPromise!: Promise<void>
+    act(() => {
+      dispatchPromise = result.current.dispatchAction(RUN_ACTION)
+    })
+
+    // The authoritative analysing state is set synchronously at dispatch —
+    // this is what makes isRunning true for the whole 20-30s turn.
+    expect(useCanvasStore.getState().results.status).toBe('preparing')
+
+    resolveTurn(makeV5SuccessResult('no analysis result this turn'))
+    await act(async () => { await dispatchPromise })
+
+    // Text-only envelope + no prior report → settles to idle, never stuck.
+    expect(useCanvasStore.getState().results.status).toBe('idle')
+  })
+
+  it('swallows a run re-click while a run is in flight: one request, no abort, telemetry', async () => {
+    let resolveTurn!: (v: unknown) => void
+    mockCallV5Turn.mockReturnValue(new Promise((res) => { resolveTurn = res }))
+
+    const { result } = renderHook(() => useConversation())
+    let firstDispatch!: Promise<void>
+    act(() => {
+      firstDispatch = result.current.dispatchAction(RUN_ACTION)
+    })
+    expect(useCanvasStore.getState().results.status).toBe('preparing')
+
+    // Re-click while in flight: must NOT preempt-abort, must NOT mint a
+    // second turn — swallowed with telemetry.
+    await act(async () => {
+      await result.current.dispatchAction(RUN_ACTION)
+    })
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    expect(mockTrackEvent).toHaveBeenCalledWith('run_click_swallowed', expect.any(Object))
+
+    // The first turn still completes normally (it was not aborted).
+    const V5_TEXT = 'first run completed'
+    resolveTurn(makeV5SuccessResult(V5_TEXT))
+    await act(async () => { await firstDispatch })
+    expect(result.current.messages.some((m) => m.role === 'assistant' && m.content === V5_TEXT)).toBe(true)
+    expect(useCanvasStore.getState().results.status).toBe('idle')
+  })
+
+  it('a failed run settles the analysing state (never stuck preparing)', async () => {
+    mockCallV5Turn.mockRejectedValue(new Error('boom'))
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.dispatchAction(RUN_ACTION)
+    })
+
+    expect(useCanvasStore.getState().results.status).toBe('idle')
+  })
+
+  it('non-run turns never touch the analysing state', async () => {
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult('plain answer'))
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('a plain question')
+    })
+
+    expect(useCanvasStore.getState().results.status).toBe('idle')
+    expect(mockTrackEvent).not.toHaveBeenCalledWith('run_click_swallowed', expect.any(Object))
   })
 })

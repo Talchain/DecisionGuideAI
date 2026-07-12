@@ -1414,8 +1414,17 @@ describe('I.1: Model tab auto-switch guard', () => {
 
 describe('I.2b: Cancel button during analysis', () => {
   beforeEach(cleanupDockState)
-  it('shows cancel button when analysis is running', () => {
+  it('shows cancel button when a V2 run is in flight (the run cancelRun can actually cancel)', () => {
     const baseResults = useCanvasStore.getState().results
+
+    // 1.16i: Cancel is gated on useV2Run's OWN in-flight flag, not the
+    // derived store status — cancelRun only aborts the V2 request, so a
+    // Cancel rendered for a V5 turn would be a dead control.
+    mockUseV2Run.mockReturnValue({
+      runV2Analysis: vi.fn(),
+      cancelRun: vi.fn(),
+      isRunning: true,
+    } as any)
 
     useCanvasStore.setState({
       nodes: testNodes,
@@ -1433,6 +1442,26 @@ describe('I.2b: Cancel button during analysis', () => {
     const cancelButton = screen.getByTestId('cancel-analysis-button')
     expect(cancelButton).toBeInTheDocument()
     expect(cancelButton).toHaveTextContent('Cancel')
+  })
+
+  it('1.16i: NO cancel button on a V5 analysing turn (preparing without a V2 run) — but the running banner shows', () => {
+    const baseResults = useCanvasStore.getState().results
+
+    useCanvasStore.setState({
+      nodes: testNodes,
+      edges: testEdges,
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'preparing',
+        report: fakeReportForTests,
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    expect(screen.queryByTestId('cancel-analysis-button')).not.toBeInTheDocument()
+    expect(screen.getByTestId('analysis-running-banner')).toBeInTheDocument()
   })
 
   it('hides cancel button when analysis is complete', () => {
