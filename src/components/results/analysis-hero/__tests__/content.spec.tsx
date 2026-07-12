@@ -589,3 +589,65 @@ describe('Wave 2 (§6.5): quick evidence links in the footer', () => {
     expect(screen.queryByTestId('hero-quicklink-flip')).toBeNull()
   })
 })
+describe('Wave 2 (§6.6): Why and what could change it disclosure', () => {
+  function modelWithEvidence(overrides: Partial<HeroChartModel['evidence']> = {}): HeroChartModel {
+    const m = chartModel()
+    return {
+      ...m,
+      evidence: {
+        drivers: [
+          { rank: 1, label: 'Developer capacity', targetId: 'node_dev' },
+          { rank: 2, label: 'Team morale', targetId: null },
+          { rank: 3, label: 'Hiring speed', targetId: 'node_hiring' },
+          { rank: 4, label: 'Salary cost', targetId: 'node_salary' },
+        ],
+        flipRisks: [
+          { text: 'If Team capacity falls below 30%, Two developers becomes the likely leader.', targetId: 'fac_capacity' },
+        ],
+        tradeOffs: null,
+        ...overrides,
+      },
+    }
+  }
+
+  it('renders collapsed by default; expanding shows the Drivers view with focusable rows', () => {
+    const onFocusTarget = vi.fn()
+    renderPanel(modelWithEvidence(), { onFocusTarget })
+    expect(screen.queryByTestId('hero-evidence-drivers')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /why and what could change it/i }))
+    expect(screen.getByTestId('hero-evidence-drivers')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /developer capacity/i }))
+    expect(onFocusTarget).toHaveBeenCalledWith('node_dev')
+  })
+
+  it('caps drivers at three with See all factors / Show fewer', () => {
+    renderPanel(modelWithEvidence(), { onFocusTarget: vi.fn() })
+    fireEvent.click(screen.getByRole('button', { name: /why and what could change it/i }))
+    expect(screen.queryByText('Salary cost')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'See all factors' }))
+    expect(screen.getByText('Salary cost')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show fewer' }))
+    expect(screen.queryByText('Salary cost')).toBeNull()
+  })
+
+  it('Flip risks view shows the plain-language consequence and focuses on click', () => {
+    const onFocusTarget = vi.fn()
+    renderPanel(modelWithEvidence(), { onFocusTarget })
+    fireEvent.click(screen.getByRole('button', { name: /why and what could change it/i }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Flip risks' }))
+    const row = screen.getByRole('button', { name: /If Team capacity falls below 30%/ })
+    fireEvent.click(row)
+    expect(onFocusTarget).toHaveBeenCalledWith('fac_capacity')
+  })
+
+  it('never shows a Trade-offs tab when the producer narrative is absent', () => {
+    renderPanel(modelWithEvidence(), { onFocusTarget: vi.fn() })
+    fireEvent.click(screen.getByRole('button', { name: /why and what could change it/i }))
+    expect(screen.queryByRole('tab', { name: 'Trade-offs' })).toBeNull()
+  })
+
+  it('hides the disclosure entirely when there is nothing to disclose', () => {
+    renderPanel(modelWithEvidence({ drivers: [], flipRisks: [], tradeOffs: null }))
+    expect(screen.queryByRole('button', { name: /why and what could change it/i })).toBeNull()
+  })
+})

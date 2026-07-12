@@ -1086,3 +1086,60 @@ describe('Wave 2 (§6.5): quick evidence links', () => {
     expect(m.quickLinks.topFlipRisk).toBeNull()
   })
 })
+describe('Wave 2 (§6.6): evidence disclosure model', () => {
+  const focusable = {
+    ...makeDriver('Developer capacity'),
+    canFocus: true,
+    matchedNodeId: 'node_dev',
+  }
+  const unfocusable = { ...makeDriver('Team morale'), factorKey: 'fac_morale', rank: 2 }
+
+  it('drivers view: producer rank order, null target when unfocusable, banned labels dropped', () => {
+    const banned = { ...makeDriver('edge weight graph'), factorKey: 'fac_banned', rank: 3 }
+    const m = chart(buildHeroModel(makeHeroData({ drivers: { drivers: [focusable, unfocusable, banned] } })))
+    expect(m.evidence.drivers).toEqual([
+      { rank: 1, label: 'Developer capacity', targetId: 'node_dev' },
+      { rank: 2, label: 'Team morale', targetId: null },
+    ])
+  })
+
+  it('flip risks: falls-below sentence with user unit and alternative winner', () => {
+    const m = chart(buildHeroModel(makeHeroData()))
+    expect(m.evidence.flipRisks).toEqual([
+      {
+        text: 'If Team capacity falls below 30%, Two developers becomes the likely leader.',
+        targetId: 'fac_capacity',
+      },
+    ])
+  })
+
+  it('flip risks: rises-above branch and the no-alternative fallback', () => {
+    const m = chart(buildHeroModel(makeHeroData({ recommendation: {
+      flipThresholds: [
+        { label: 'Salary cost', node_id: 'fac_salary', current_value: 50000, flip_value: 60000, unit: '$' },
+      ],
+    } })))
+    expect(m.evidence.flipRisks).toEqual([
+      {
+        text: 'If Salary cost rises above $60000, the leading option is likely to change.',
+        targetId: 'fac_salary',
+      },
+    ])
+  })
+
+  it('flip risks: undetermined thresholds are skipped; none → empty list', () => {
+    const m = chart(buildHeroModel(makeHeroData({ recommendation: {
+      flipThresholds: [
+        { label: 'Team capacity', node_id: 'fac_capacity', current_value: 40, flip_value: null, flip_reason: 'no_effect' },
+      ],
+    } })))
+    expect(m.evidence.flipRisks).toEqual([])
+    const none = chart(buildHeroModel(makeHeroData({ recommendation: { flipThresholds: [] } })))
+    expect(none.evidence.flipRisks).toEqual([])
+  })
+
+  it('trade-offs are a producer gap: always null on live models', () => {
+    const m = chart(buildHeroModel(makeHeroData()))
+    expect(m.evidence.tradeOffs).toBeNull()
+  })
+})

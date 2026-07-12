@@ -778,6 +778,7 @@ export function buildHeroModel(
     showGoalHint: !goalAvailable && goalThreshold == null,
     mainReason,
     quickLinks: { mainDriver, topFlipRisk },
+    evidence: { drivers: [], flipRisks: [], tradeOffs: null },
     // Producer-gap slots — the LIVE adapter NEVER populates these (no
     // display-safe trust/status label: issues 219/221; no coaching
     // top-action contract: issue 220). They render only from typed

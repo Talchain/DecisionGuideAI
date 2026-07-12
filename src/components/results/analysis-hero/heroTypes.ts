@@ -137,6 +137,21 @@ export interface HeroQuickLink {
   targetId: string
 }
 
+/** Wave 2 (§6.6): one evidence disclosure, three views. Trade-offs must
+ * come from a grounded producer narrative — null live (producer gap),
+ * fixture-populated in the gallery only. */
+export interface HeroEvidenceModel {
+  drivers: Array<{ rank: number; label: string; targetId: string | null }>
+  flipRisks: Array<{ text: string; targetId: string | null }>
+  tradeOffs: Array<{
+    option: string
+    gain: string
+    giveUp: string
+    dependsOn: string
+    watch: string
+  }> | null
+}
+
 export interface HeroChartModel {
   kind: 'chart'
   /**
@@ -202,6 +217,8 @@ export interface HeroChartModel {
     mainDriver: HeroQuickLink | null
     topFlipRisk: HeroQuickLink | null
   }
+  /** Wave 2 (§6.6): "Why and what could change it" disclosure content. */
+  evidence: HeroEvidenceModel
   /**
    * Trust footer line, rendered VERBATIM when present — the hero never
    * authors trust wording. Requires a producer display-safe verdict/label
