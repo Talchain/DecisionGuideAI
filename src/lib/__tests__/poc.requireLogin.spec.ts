@@ -25,8 +25,10 @@ describe('poc.ts × VITE_REQUIRE_LOGIN', () => {
   })
 
   it('flag OFF (unset): guest auth stays the default — byte-identical pin', async () => {
-    vi.stubEnv('VITE_REQUIRE_LOGIN', '')
-    vi.stubEnv('VITE_AUTH_MODE', '')
+    // VITE_REQUIRE_LOGIN and VITE_AUTH_MODE both genuinely unset (the
+    // worktree .env.local carries neither): the `?? 'guest'` default must
+    // keep minting the guest. Deliberately NO stubs — an empty-string stub
+    // would defeat the nullish default and test a different reality.
     const { isGuestAuth } = await importPoc()
     expect(isGuestAuth).toBe(true)
   })

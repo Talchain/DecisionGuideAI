@@ -72,6 +72,11 @@ vi.mock('../../../v5/eligibility', () => ({
 const mockGetUserId = vi.fn<[], Promise<string | null>>()
 vi.mock('../../../lib/supabase', () => ({
   getUserId: (...args: unknown[]) => mockGetUserId(...(args as [])),
+  // Login 3.4: see useConversation.hook.spec.ts — same mock bridge.
+  getSessionIdentity: async () => ({
+    userId: (await mockGetUserId()) ?? null,
+    accessToken: null,
+  }),
 }))
 
 const mockLoadScenario = vi.fn<[string], Promise<unknown>>()

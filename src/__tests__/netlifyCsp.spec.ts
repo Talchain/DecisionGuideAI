@@ -13,8 +13,10 @@ import { resolve } from 'node:path'
 
 function connectSrc(): string {
   const toml = readFileSync(resolve(process.cwd(), 'netlify.toml'), 'utf8')
-  const match = toml.match(/connect-src[^;"]*/)
-  expect(match, 'netlify.toml must declare a connect-src').not.toBeNull()
+  const cspLine = toml.match(/Content-Security-Policy\s*=\s*"([^"]*)"/)
+  expect(cspLine, 'netlify.toml must declare a Content-Security-Policy').not.toBeNull()
+  const match = cspLine![1].match(/connect-src[^;]*/)
+  expect(match, 'the CSP must declare a connect-src').not.toBeNull()
   return match![0]
 }
 

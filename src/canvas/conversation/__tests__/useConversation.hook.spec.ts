@@ -88,6 +88,13 @@ const mockGetUserId = vi.fn<[], Promise<string | null>>()
 
 vi.mock('../../../lib/supabase', () => ({
   getUserId: (...args: unknown[]) => mockGetUserId(...args as []),
+  // Login 3.4: useConversation resolves identity via getSessionIdentity
+  // (userId + access token in one getSession call). Backed by the same
+  // mock so each test's userId intent carries over; no token in tests.
+  getSessionIdentity: async () => ({
+    userId: (await mockGetUserId()) ?? null,
+    accessToken: null,
+  }),
 }))
 
 // Mock scenarioService loadScenario: vi.fn() so tests can return graph data.
