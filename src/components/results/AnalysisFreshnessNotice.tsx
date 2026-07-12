@@ -21,6 +21,7 @@ import {
   type AnalysisFreshnessValue,
 } from '@/canvas/store/analysisFreshness'
 import { executeCanonicalRun } from '@/canvas/analysis/canonicalRunRegistry'
+import { useShowToastSafe } from '@/canvas/ToastContext'
 
 /** Cautious, non-scientific copy. One short line per state. */
 export const FRESHNESS_COPY: Record<AnalysisFreshnessValue, string> = {
@@ -46,6 +47,7 @@ export interface AnalysisFreshnessNoticeProps {
 }
 
 export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, className = '' }: AnalysisFreshnessNoticeProps) {
+  const showToast = useShowToastSafe()
   const storeState = useCanvasStore((s) => s.analysisFreshness)
   const storeDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
   const resultsStatus = useCanvasStore((s) => s.results?.status)
@@ -61,6 +63,11 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
   // downgrade a retained 'fresh' to cannot-confirm (never fabricate 'stale').
   const freshness = resolveDisplayedFreshness(state, dirty) as AnalysisFreshnessValue
   const isStale = freshness === 'stale'
+  // Recovery applies to BOTH not-confirmably-fresh states: a stale verdict
+  // and a cannot-confirm 'unknown' (e.g. recovered session, local edit
+  // downgrade). The old top-level banner offered Rerun for both — the strip
+  // must not drop that affordance. 'none' has nothing to rerun.
+  const offersRerun = freshness === 'stale' || freshness === 'unknown'
   const Icon = ICON[freshness]
   // Mark when the displayed verdict differs from CEE's because of a local edit —
   // technical signal for tests/debug only, not user copy.
@@ -81,7 +88,7 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
         aria-hidden="true"
       />
       <span className={`${typography.panelBody} text-text-body flex-1`}>{FRESHNESS_COPY[freshness]}</span>
-      {isStale && (
+      {offersRerun && (
         // Wave F-B (brief §5.2): the strip is the sole stale owner and carries
         // THE recovery action — canonical-runner routed, never a private
         // pipeline. Disabled while any run is analysing ('preparing' from V2
@@ -89,7 +96,16 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
         <button
           type="button"
           data-testid="freshness-strip-rerun"
-          onClick={() => { void executeCanonicalRun({ source: 'freshness-strip' }) }}
+          onClick={() => {
+            // Honest recovery (brief §5.2 'the recovery action remains
+            // crisp'): a blocked or unavailable run says WHY instead of
+            // silently doing nothing.
+            void executeCanonicalRun({ source: 'freshness-strip' }).then((outcome) => {
+              if (outcome.status === 'blocked' || outcome.status === 'unavailable') {
+                showToast(outcome.reason)
+              }
+            })
+          }}
           disabled={isRunning}
           className={`${typography.panelBody} inline-flex items-center gap-1 px-3 py-1 rounded-pill border border-panel-border text-text-body hover:bg-panel-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-fast`}
         >

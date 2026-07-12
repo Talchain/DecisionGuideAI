@@ -12,6 +12,11 @@ import {
   __resetCanonicalRunnerForTests,
 } from '../../../canvas/analysis/canonicalRunRegistry'
 
+const showToast = vi.fn()
+vi.mock('../../../canvas/ToastContext', () => ({
+  useShowToastSafe: () => showToast,
+}))
+
 const STALE = { freshness: 'stale' as const, freshnessReason: 'graph_changed', computedAt: 1 }
 const FRESH = { freshness: 'fresh' as const, freshnessReason: null, computedAt: 1 }
 
@@ -24,6 +29,11 @@ afterEach(() => __resetCanonicalRunnerForTests())
 describe('AnalysisFreshnessNotice — strip Rerun (Wave F-B)', () => {
   it('stale verdict → the strip carries THE Rerun action', () => {
     render(<AnalysisFreshnessNotice state={STALE as never} dirty={false} />)
+    expect(screen.getByTestId('freshness-strip-rerun')).toBeInTheDocument()
+  })
+
+  it("unknown (cannot-confirm) also offers Rerun — the old banner covered both not-fresh states", () => {
+    render(<AnalysisFreshnessNotice state={{ freshness: 'unknown', freshnessReason: null, computedAt: 1 } as never} dirty={false} />)
     expect(screen.getByTestId('freshness-strip-rerun')).toBeInTheDocument()
   })
 
@@ -41,6 +51,14 @@ describe('AnalysisFreshnessNotice — strip Rerun (Wave F-B)', () => {
     fireEvent.click(screen.getByTestId('freshness-strip-rerun'))
     expect(runner).toHaveBeenCalledTimes(1)
     expect(runner.mock.calls[0][0]).toMatchObject({ source: 'freshness-strip' })
+  })
+
+  it('a blocked or unavailable run says WHY (no dead control)', async () => {
+    const runner = vi.fn(async (_opts?: import('../../../canvas/analysis/canonicalRunRegistry').CanonicalRunOptions) => ({ status: 'blocked' as const, reason: 'Add a goal first.' }))
+    registerCanonicalRunner(runner)
+    render(<AnalysisFreshnessNotice state={STALE as never} dirty={false} />)
+    fireEvent.click(screen.getByTestId('freshness-strip-rerun'))
+    await vi.waitFor(() => expect(showToast).toHaveBeenCalledWith('Add a goal first.'))
   })
 
   it("disables while analysing — identically for V2 resultsStart and V5 resultsAnalysing ('preparing' equivalence pin)", () => {
