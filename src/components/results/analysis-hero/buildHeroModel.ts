@@ -702,6 +702,46 @@ export function buildHeroModel(
       ? HERO_COPY.footer.mainReason(cleanDriverLabel)
       : null
 
+  // §6.5 quick evidence links — selection of existing producer-backed
+  // values only. Main driver = the Drivers section's #1 (strongest effect
+  // on the analysed outcome) when it can focus a canvas node; Top flip
+  // risk = the fragile driver most likely to change which option leads
+  // (highest switch_probability), gated by the SAME visibility floor as
+  // the fragile-edge surfaces (UI-SEM-013, 0.15) so a negligible flip
+  // risk never earns a summary link. Both labels glossary-gated like
+  // mainReason; unfocusable or gated entries yield null, never a dead link.
+  const topDriverItem = drivers?.topDrivers?.[0]
+  const mainDriver =
+    mainReason && cleanDriverLabel && topDriverItem?.canFocus
+      ? {
+          label: cleanDriverLabel,
+          targetId: topDriverItem.matchedNodeId ?? topDriverItem.factorKey,
+        }
+      : null
+  const FLIP_RISK_FLOOR = 0.15 // UI-SEM-013 fragile-edge visibility floor
+  const flipCandidate = (drivers?.drivers ?? [])
+    .filter(
+      (d) =>
+        d.canFocus &&
+        typeof d.fragileEdgeInfo?.switchProbability === 'number' &&
+        d.fragileEdgeInfo.switchProbability > FLIP_RISK_FLOOR,
+    )
+    .sort(
+      (a, b) =>
+        (b.fragileEdgeInfo?.switchProbability ?? 0) -
+        (a.fragileEdgeInfo?.switchProbability ?? 0),
+    )[0]
+  const flipLabel = flipCandidate
+    ? stripEncodingNotation(flipCandidate.factorLabel)
+    : null
+  const topFlipRisk =
+    flipCandidate && flipLabel && !containsBannedTerm(flipLabel)
+      ? {
+          label: flipLabel,
+          targetId: flipCandidate.matchedNodeId ?? flipCandidate.factorKey,
+        }
+      : null
+
   const model: HeroChartModel = {
     kind: 'chart',
     // This function is the ONLY producer of 'live' models (asserted by the
@@ -737,7 +777,7 @@ export function buildHeroModel(
     // is a producer gap where "set a success target" would mislead.
     showGoalHint: !goalAvailable && goalThreshold == null,
     mainReason,
-    quickLinks: { mainDriver: null, topFlipRisk: null },
+    quickLinks: { mainDriver, topFlipRisk },
     // Producer-gap slots — the LIVE adapter NEVER populates these (no
     // display-safe trust/status label: issues 219/221; no coaching
     // top-action contract: issue 220). They render only from typed

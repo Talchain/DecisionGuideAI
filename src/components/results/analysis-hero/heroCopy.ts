@@ -198,6 +198,9 @@ export const HERO_COPY = {
      * stays forbidden until a producer rationale string exists.
      */
     mainReason: (factor: string) => `Main driver: ${factor}.`,
+    // §6.5: semantically distinct from mainReason — most likely to change
+    // which option leads, never implied to be the strongest effect.
+    topFlipRisk: (factor: string) => `Top flip risk: ${factor}.`,
     /**
      * Focus-next reconciliation (review-locked): the coaching panel's rows
      * are composed POSITIONALLY (buildFocusRows: server rows in received
