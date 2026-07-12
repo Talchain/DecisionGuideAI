@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { isEdgeFragile, getFragileEdgeSwitchProbability, type FragileEdgeCandidate } from '../fragileEdgeMatch'
+import { isEdgeFragile, getFragileEdgeSwitchProbability, isTopFragileEdge, type FragileEdgeCandidate } from '../fragileEdgeMatch'
 
 const ABOVE = 0.42
 const AT_THRESHOLD = 0.15 // Spec Section 6.3: threshold = 0.15
@@ -112,3 +112,42 @@ describe('fragileEdgeMatch — QA Brief G-series boundary cases', () => {
     expect(Math.round((prob ?? 0) * 100)).toBe(42)
   })
 })
+
+describe('isTopFragileEdge — E4 single default-view fragility badge', () => {
+  const set: FragileEdgeCandidate[] = [
+    { edge_id: 'e1', switch_probability: 0.35 },
+    { edge_id: 'e2', switch_probability: 0.62 },
+    { edge_id: 'e3', switch_probability: 0.4 },
+  ]
+
+  it('is true only for the highest-switch-probability fragile edge', () => {
+    expect(isTopFragileEdge('e2', 'a', 'b', set)).toBe(true)
+    expect(isTopFragileEdge('e1', 'a', 'b', set)).toBe(false)
+    expect(isTopFragileEdge('e3', 'a', 'b', set)).toBe(false)
+  })
+
+  it('ignores entries below the visibility floor when picking the top', () => {
+    const withBelowFloor: FragileEdgeCandidate[] = [
+      { edge_id: 'e1', switch_probability: 0.9 } as FragileEdgeCandidate, // below floor? no — 0.9 is above
+    ]
+    // A single above-floor entry is the top.
+    expect(isTopFragileEdge('e1', 'a', 'b', withBelowFloor)).toBe(true)
+    // An edge that is only below-floor is never the top.
+    expect(isTopFragileEdge('e9', 'x', 'y', [{ edge_id: 'e9', switch_probability: 0.1 }])).toBe(false)
+  })
+
+  it('returns false when nothing is fragile above the floor', () => {
+    expect(isTopFragileEdge('e1', 'a', 'b', [])).toBe(false)
+    expect(isTopFragileEdge('e1', 'a', 'b', [{ edge_id: 'e1', switch_probability: 0.05 }])).toBe(false)
+  })
+
+  it('matches by source/target pair when edge_id is absent', () => {
+    const bySrcTgt: FragileEdgeCandidate[] = [
+      { from_id: 'a', to_id: 'b', switch_probability: 0.7 },
+      { from_id: 'c', to_id: 'd', switch_probability: 0.5 },
+    ]
+    expect(isTopFragileEdge('anyid', 'a', 'b', bySrcTgt)).toBe(true)
+    expect(isTopFragileEdge('anyid', 'c', 'd', bySrcTgt)).toBe(false)
+  })
+})
+
