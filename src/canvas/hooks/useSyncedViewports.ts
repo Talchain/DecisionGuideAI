@@ -7,6 +7,8 @@
 
 import { useCallback, useRef, useEffect } from 'react'
 import type { ReactFlowInstance, Viewport, OnMoveEnd } from '@xyflow/react'
+import { usePrefersReducedMotion } from './usePrefersReducedMotion'
+import { cameraDuration } from '../utils/cameraMotion'
 
 interface UseSyncedViewportsOptions {
   /** Debounce delay in ms to prevent sync loops (default: 50) */
@@ -49,6 +51,11 @@ export function useSyncedViewports(
   // Store ReactFlow instances
   const instanceARef = useRef<ReactFlowInstance | null>(null)
   const instanceBRef = useRef<ReactFlowInstance | null>(null)
+
+  // F1: reduced-motion guard for the synced "fit both" camera moves.
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const reducedMotionRef = useRef(prefersReducedMotion)
+  reducedMotionRef.current = prefersReducedMotion
 
   // Track which canvas initiated the last sync to prevent loops
   const syncSourceRef = useRef<'A' | 'B' | null>(null)
@@ -148,8 +155,8 @@ export function useSyncedViewports(
     // Suppress sync so each canvas fits to its own content independently
     suppressSyncRef.current = true
 
-    instanceARef.current?.fitView({ padding: 0.1, duration: 200 })
-    instanceBRef.current?.fitView({ padding: 0.1, duration: 200 })
+    instanceARef.current?.fitView({ padding: 0.1, duration: cameraDuration(200, reducedMotionRef.current) })
+    instanceBRef.current?.fitView({ padding: 0.1, duration: cameraDuration(200, reducedMotionRef.current) })
 
     // Re-enable sync after fit animations complete (200ms duration + buffer)
     setTimeout(() => {

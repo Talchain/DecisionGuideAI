@@ -9,6 +9,8 @@ import { useComparisonStore } from './stores/comparisonStore'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS } from './domain/edges'
 import { parseRunHash } from './utils/shareLink'
 import { useInitialLayoutGuard } from './hooks/useInitialLayoutGuard'
+import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion'
+import { cameraDuration } from './utils/cameraMotion'
 import { useMeasureThenLayout } from './hooks/useMeasureThenLayout'
 import { useFitViewOnLayoutVersion } from './hooks/useFitViewOnLayoutVersion'
 import { nodeTypes } from './nodes/registry'
@@ -359,6 +361,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   zoomInRef.current = zoomIn
   zoomOutRef.current = zoomOut
   zoomToRef.current = zoomTo
+
+  // F1: reduced-motion guard for every imperative camera move below. Mirrored
+  // to a ref so the empty-deps camera callbacks stay reference-stable.
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const reducedMotionRef = useRef(prefersReducedMotion)
+  reducedMotionRef.current = prefersReducedMotion
 
   // Canvas control actions from store
   const undo = useCanvasStore(s => s.undo)
@@ -883,7 +891,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     const viewport = getViewportRef.current()
     setCenterRef.current(targetNode.position.x, targetNode.position.y, {
       zoom: viewport.zoom,
-      duration: 300
+      duration: cameraDuration(300, reducedMotionRef.current)
     })
   }, [])
 
@@ -917,7 +925,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     const viewport = getViewportRef.current()
     setCenterRef.current(midX, midY, {
       zoom: viewport.zoom,
-      duration: 300,
+      duration: cameraDuration(300, reducedMotionRef.current),
     })
   }, [])
 
@@ -1771,10 +1779,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Stable callbacks for CanvasViewportControls — declared unconditionally before
   // any debug-mode early returns to satisfy Rules of Hooks.
-  const handleZoomIn = useCallback(() => zoomInRef.current({ duration: 200 }), [])
-  const handleZoomOut = useCallback(() => zoomOutRef.current({ duration: 200 }), [])
-  const handleZoomReset = useCallback(() => zoomToRef.current(1, { duration: 200 }), [])
-  const handleFitView = useCallback(() => fitViewRef.current({ padding: computeFitPadding(), duration: 300 }), [])
+  const handleZoomIn = useCallback(() => zoomInRef.current({ duration: cameraDuration(200, reducedMotionRef.current) }), [])
+  const handleZoomOut = useCallback(() => zoomOutRef.current({ duration: cameraDuration(200, reducedMotionRef.current) }), [])
+  const handleZoomReset = useCallback(() => zoomToRef.current(1, { duration: cameraDuration(200, reducedMotionRef.current) }), [])
+  const handleFitView = useCallback(() => fitViewRef.current({ padding: computeFitPadding(), duration: cameraDuration(300, reducedMotionRef.current) }), [])
 
   // Canvas debug mode: 'blank' short-circuits the full canvas UI so we can
   // quickly determine whether React 185 is coming from inside the canvas

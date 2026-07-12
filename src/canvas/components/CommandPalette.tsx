@@ -8,6 +8,8 @@ import { ValidationBanner, type ValidationError } from './ValidationBanner'
 import { useValidationFeedback } from '../hooks/useValidationFeedback'
 import { trackRunAttempt } from '../utils/sandboxTelemetry'
 import { computeFitPadding } from '../utils/computeFitPadding'
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
+import { cameraDuration } from '../utils/cameraMotion'
 import { typography } from '../../styles/typography'
 
 interface Action {
@@ -44,6 +46,7 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
   const edges = useCanvasStore(s => s.edges)
   const { fitView } = useReactFlow()
   const { formatErrors, focusError } = useValidationFeedback()
+  const prefersReducedMotion = usePrefersReducedMotion() // F1: reduced-motion guard for Zoom to Fit
 
   const actions: Action[] = [
     // Analysis actions
@@ -164,7 +167,7 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
       }
     }},
     { id: 'select-all', label: 'Select All', shortcut: '⌘A', execute: () => selectAll() },
-    { id: 'zoom-fit', label: 'Zoom to Fit', execute: () => fitView({ padding: computeFitPadding(), duration: 300 }) },
+    { id: 'zoom-fit', label: 'Zoom to Fit', execute: () => fitView({ padding: computeFitPadding(), duration: cameraDuration(300, prefersReducedMotion) }) },
     { id: 'save-snapshot', label: 'Save Snapshot', shortcut: '⌘S', execute: () => saveSnapshot() },
   ]
 
