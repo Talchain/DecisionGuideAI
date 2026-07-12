@@ -33,6 +33,8 @@ export interface AnalysisHeroPanelProps {
   model: HeroChartModel | HeroStatusModel
   isStale: boolean
   onRerun: () => void
+  /** Wave 2 (§6.5): canvas focus for quick links; absent = links inert-hidden. */
+  onFocusTarget?: (targetId: string) => void
   rerunDisabled: boolean
   /**
    * Whether the coaching panel below is actually mounted (its flag is on).
@@ -89,6 +91,7 @@ export function AnalysisHeroPanel({
   rerunDisabled,
   focusPanelMounted,
   onApplyTarget,
+  onFocusTarget,
 }: AnalysisHeroPanelProps) {
   const panelId = useId()
   const [lensState, setLensState] = useState<HeroLens | null>(null)

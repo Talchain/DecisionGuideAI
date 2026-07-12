@@ -555,3 +555,37 @@ describe('Wave 2: stable number badges', () => {
     expect(within(screen.getByTestId('hero-option-row-2')).getByTestId('hero-row-number')).toHaveTextContent('2')
   })
 })
+describe('Wave 2 (§6.5): quick evidence links in the footer', () => {
+  function modelWithLinks(): HeroChartModel {
+    const m = chartModel()
+    return {
+      ...m,
+      quickLinks: {
+        mainDriver: { label: 'Developer capacity', targetId: 'node_dev' },
+        topFlipRisk: { label: 'Salary cost', targetId: 'node_salary' },
+      },
+    }
+  }
+
+  it('renders both links with semantically distinct labels and fires the focus callback', () => {
+    const onFocusTarget = vi.fn()
+    renderPanel(modelWithLinks(), { onFocusTarget })
+    const driver = screen.getByTestId('hero-quicklink-driver')
+    const flip = screen.getByTestId('hero-quicklink-flip')
+    expect(driver).toHaveTextContent('Main driver: Developer capacity.')
+    expect(flip).toHaveTextContent('Top flip risk: Salary cost.')
+    fireEvent.click(driver)
+    expect(onFocusTarget).toHaveBeenCalledWith('node_dev')
+    fireEvent.click(flip)
+    expect(onFocusTarget).toHaveBeenCalledWith('node_salary')
+    // The clickable driver link REPLACES the static main-reason line.
+    expect(screen.queryByTestId('hero-main-reason')).toBeNull()
+  })
+
+  it('falls back to the static main-reason line when no focus target exists', () => {
+    renderPanel(chartModel())
+    expect(screen.getByTestId('hero-main-reason')).toBeInTheDocument()
+    expect(screen.queryByTestId('hero-quicklink-driver')).toBeNull()
+    expect(screen.queryByTestId('hero-quicklink-flip')).toBeNull()
+  })
+})

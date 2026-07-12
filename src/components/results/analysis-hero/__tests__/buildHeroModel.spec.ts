@@ -11,6 +11,7 @@ import { sortOptionsForDisplay } from '../../utils/optionDisplayOrder'
 import type { HeroChartModel } from '../heroTypes'
 import {
   FULL_COMPLETENESS,
+  makeDriver,
   makeHeroData,
   makeOption,
   OPTION_A,
@@ -1033,5 +1034,55 @@ describe('Wave 2: identity-anchored stable numbers (brief §6.4)', () => {
   it('omitting the numbering map keeps every stableNumber null (back-compat)', () => {
     const m = chart(buildHeroModel(makeHeroData()))
     expect(m.rows.map((r) => r.stableNumber)).toEqual([null, null])
+  })
+})
+describe('Wave 2 (§6.5): quick evidence links', () => {
+  const focusableTop = {
+    ...makeDriver('Developer capacity'),
+    canFocus: true,
+    matchedNodeId: 'node_dev_capacity',
+  }
+  const fragile = {
+    ...makeDriver('Salary cost'),
+    factorKey: 'fac_salary',
+    canFocus: true,
+    matchedNodeId: 'node_salary',
+    fragileEdgeInfo: { switchProbability: 0.62, alternativeWinnerLabel: 'Two developers' },
+  }
+
+  it('mainDriver carries the top driver focus target when focusable', () => {
+    const m = chart(buildHeroModel(makeHeroData({ drivers: { topDrivers: [focusableTop], drivers: [focusableTop] } })))
+    expect(m.quickLinks.mainDriver).toEqual({ label: 'Developer capacity', targetId: 'node_dev_capacity' })
+  })
+
+  it('mainDriver is null when the top driver cannot focus (static main reason remains)', () => {
+    const m = chart(buildHeroModel(makeHeroData()))
+    expect(m.quickLinks.mainDriver).toBeNull()
+    expect(m.mainReason).toBe('Main driver: Developer capacity.')
+  })
+
+  it('topFlipRisk picks the highest switch-probability fragile driver above the visibility floor', () => {
+    const weaker = {
+      ...makeDriver('Hiring speed'),
+      factorKey: 'fac_hiring',
+      canFocus: true,
+      matchedNodeId: 'node_hiring',
+      fragileEdgeInfo: { switchProbability: 0.3 },
+    }
+    const m = chart(buildHeroModel(makeHeroData({ drivers: { topDrivers: [focusableTop], drivers: [focusableTop, weaker, fragile] } })))
+    expect(m.quickLinks.topFlipRisk).toEqual({ label: 'Salary cost', targetId: 'node_salary' })
+  })
+
+  it('topFlipRisk is null when no fragile driver clears the floor or can focus', () => {
+    const below = { ...fragile, fragileEdgeInfo: { switchProbability: 0.1 } }
+    const unfocusable = { ...fragile, canFocus: false, matchedNodeId: undefined }
+    expect(chart(buildHeroModel(makeHeroData({ drivers: { drivers: [below] } }))).quickLinks.topFlipRisk).toBeNull()
+    expect(chart(buildHeroModel(makeHeroData({ drivers: { drivers: [unfocusable] } }))).quickLinks.topFlipRisk).toBeNull()
+  })
+
+  it('quick-link labels are glossary-gated like the main reason', () => {
+    const banned = { ...fragile, factorLabel: 'edge weight graph' }
+    const m = chart(buildHeroModel(makeHeroData({ drivers: { drivers: [banned] } })))
+    expect(m.quickLinks.topFlipRisk).toBeNull()
   })
 })

@@ -51,6 +51,7 @@ function fixtureChart(o: Partial<HeroChartModel>): HeroChartModel {
     outcomeRangedRowCount: 0,
     showGoalHint: false,
     mainReason: null,
+    quickLinks: { mainDriver: null, topFlipRisk: null },
     trustLine: null,
     statusChip: null,
     focusAction: null,

@@ -130,6 +130,13 @@ export interface HeroRowVM {
 }
 
 /** Interactive chart state — analysis computed with displayable options. */
+/** Wave 2 (§6.5): compact quick evidence link — the label names the factor,
+ * the target focuses it on the canvas via the container's focus callback. */
+export interface HeroQuickLink {
+  label: string
+  targetId: string
+}
+
 export interface HeroChartModel {
   kind: 'chart'
   /**
@@ -189,6 +196,12 @@ export interface HeroChartModel {
   showGoalHint: boolean
   /** Footer "Main driver" line, or null when no clean driver label exists. */
   mainReason: string | null
+  /** Wave 2 (§6.5): Main driver / Top flip risk quick links (semantically
+   * distinct: strongest effect vs most likely to change the leader). */
+  quickLinks: {
+    mainDriver: HeroQuickLink | null
+    topFlipRisk: HeroQuickLink | null
+  }
   /**
    * Trust footer line, rendered VERBATIM when present — the hero never
    * authors trust wording. Requires a producer display-safe verdict/label
