@@ -307,6 +307,19 @@ export const ResultsBody = memo(function ResultsBody({
             {resultsSectionData.recommendation.allOptions.some(o => (o.outcome?.p10 ?? o.p10) != null) && (
               <RiskAppetiteFilter value={riskAppetite} onChange={setRiskAppetite} />
             )}
+            {/* Paul's ruling 2026-07-12: the risk-appetite view is an
+                EXPLICITLY-LABELLED lens — it re-ranks only this section and
+                never alters the recommendation, hero, graph or AI leader. */}
+            {riskAppetite !== 'neutral' && (
+              <p
+                data-testid="risk-lens-label"
+                className={`${typography.panelMeta} text-text-light`}
+              >
+                {riskAppetite === 'conservative'
+                  ? 'Lens: cautious view, ranked by downside. The recommendation above is unchanged.'
+                  : 'Lens: bold view, ranked by upside. The recommendation above is unchanged.'}
+              </p>
+            )}
             {/* WinGauge — moved from hero to top of options section */}
             <WinGauge
               shares={resultsSectionData.recommendation.allOptions
@@ -322,6 +335,7 @@ export const ResultsBody = memo(function ResultsBody({
             <OptionCards
               options={resultsSectionData.recommendation.allOptions}
               winnerId={riskWinnerId ?? resultsSectionData.recommendation.recommendedOption?.id}
+              lensActive={riskAppetite !== 'neutral'}
               onSendMessage={onSendMessage}
               hasGoalThreshold={resultsSectionData.recommendation.goalThreshold != null}
               storyHeadlines={resultsSectionData.recommendation.storyHeadlines}

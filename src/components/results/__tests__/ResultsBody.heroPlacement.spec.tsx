@@ -247,3 +247,26 @@ describe('ResultsBody — Analysis hero placement + flag regression', () => {
     expect(before(hero, v17), 'new hero must precede AnalysisHeroV17').toBe(true)
   })
 })
+describe("Paul's ruling (2026-07-12): risk appetite is an explicitly-labelled lens", () => {
+  it('non-neutral appetite shows the lens label; neutral shows none', () => {
+    useCanvasStore.setState({ analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: false })
+    renderBody()
+    expect(screen.queryByTestId('risk-lens-label')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Aggressive' }))
+    expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/ranked by upside/i)
+    expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/recommendation above is unchanged/i)
+    fireEvent.click(screen.getByRole('button', { name: 'Conservative' }))
+    expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/ranked by downside/i)
+    fireEvent.click(screen.getByRole('button', { name: 'Neutral' }))
+    expect(screen.queryByTestId('risk-lens-label')).not.toBeInTheDocument()
+  })
+
+  it('a non-neutral lens never rewrites the recommendation panel above the cards', () => {
+    useCanvasStore.setState({ analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: false })
+    renderBody()
+    const heroBefore = screen.getByTestId('decision-confidence-panel').textContent
+    fireEvent.click(screen.getByRole('button', { name: 'Conservative' }))
+    const after = screen.getByTestId('decision-confidence-panel').textContent
+    expect(after?.replace(/ranked by downside[^.]*\./, '')).toBe(heroBefore)
+  })
+})

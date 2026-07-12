@@ -671,3 +671,17 @@ describe('OptionCards', () => {
     })
   })
 })
+describe("Paul's ruling (2026-07-12): lens-aware winner copy", () => {
+  it('lensActive winner card presents as lens-strongest, not THE recommendation', () => {
+    render(<OptionCards options={mockOptions} winnerId="option-1" lensActive />)
+    const card = screen.getByTestId('option-card-option-1')
+    expect(card).toHaveTextContent('Strongest under this lens. The overall recommendation is unchanged.')
+    expect(card.textContent).not.toMatch(/Highest leading-option likelihood/)
+  })
+
+  it('without the lens the winner keeps its standard description', () => {
+    render(<OptionCards options={mockOptions} winnerId="option-1" />)
+    const card = screen.getByTestId('option-card-option-1')
+    expect(card.textContent).not.toMatch(/Strongest under this lens/)
+  })
+})

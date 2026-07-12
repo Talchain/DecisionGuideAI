@@ -72,9 +72,9 @@ describe('visual-regression scaffold (Brief 5)', () => {
     )
     const snap = captureByTestId(container, 'winner-by-control')
 
-    // Updated copy (5.8B hotfix Fix 9) + testid present.
+    // Updated copy (Paul's ruling 2026-07-12: explicitly-labelled lens) + testid present.
     expect(snap).toContain('Winner by:')
-    expect(snap).toContain('Changes how the leading option is calculated.')
+    expect(snap).toContain('A view lens for the option cards below. The overall recommendation is unchanged.')
     expect(snap).toContain('Conservative')
     expect(snap).toContain('Neutral')
     expect(snap).toContain('Aggressive')

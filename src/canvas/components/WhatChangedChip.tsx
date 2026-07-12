@@ -23,7 +23,7 @@ import { loadRuns } from '../store/runHistory'
 import * as runsBus from '../store/runsBus'
 import { pulseAppliedTargets } from '../utils/appliedEditPulse'
 import type { Node, Edge } from '@xyflow/react'
-import { ArrowUpDown } from 'lucide-react'
+import { GitCompareArrows } from 'lucide-react'
 import { typography } from '../../styles/typography'
 
 interface GraphDiff {
@@ -129,6 +129,7 @@ export function WhatChangedChip() {
   }
 
   return (
+    <span className="inline-flex flex-col items-start gap-0.5">
     <button
       type="button"
       onClick={handleClick}
@@ -143,8 +144,15 @@ export function WhatChangedChip() {
       title="Compared with the previous analysis stored on this device"
       data-testid="what-changed-chip"
     >
-      <ArrowUpDown size={14} className="text-info flex-none" aria-hidden="true" />
+      <GitCompareArrows size={14} className="text-info flex-none" aria-hidden="true" />
       <span>Since your last run: {parts.join(' • ')}</span>
     </button>
+    {/* Paul's ruling 2026-07-12 (keep + improve): the comparison basis is a
+        VISIBLE label, never tooltip-only — this is a device-local diff of
+        the last two runs, not producer-versioned comparison. */}
+    <span className={`${typography.panelMeta} text-text-light pl-1`}>
+      Compared with your previous run on this device
+    </span>
+    </span>
   )
 }

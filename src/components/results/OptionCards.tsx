@@ -44,6 +44,9 @@ import { winnerChipLabel, winnerChipPrompt } from './utils/winnerChipCopy'
 export interface OptionCardsProps {
   options: OptionResult[]
   winnerId?: string
+  /** Paul's ruling 2026-07-12: when the risk-appetite lens is active the
+   * crowned card presents as lens-strongest, never as THE recommendation. */
+  lensActive?: boolean
   /** Whether a goal threshold is set (controls "Hits target" row visibility) */
   hasGoalThreshold?: boolean
   /** Story headlines keyed by option ID (M1 coaching) */
@@ -96,8 +99,12 @@ function hingeAwareDescription(
   isRunnerUp: boolean,
   hinge: HingeInfo | null | undefined,
   winnerWinProbability?: number | null,
+  lensActive = false,
 ): string {
   if (isWinner) {
+    if (lensActive) {
+      return 'Strongest under this lens. The overall recommendation is unchanged.'
+    }
     if (hinge?.reason === 'fragile_edge') {
       return `Highest leading-option likelihood but depends on ${hinge.label}`
     }
@@ -531,6 +538,7 @@ function OptionCard({
 export function OptionCards({
   options,
   winnerId,
+  lensActive = false,
   hasGoalThreshold = false,
   storyHeadlines,
   cardRefMap,
@@ -613,11 +621,11 @@ export function OptionCards({
         // keeps gap-based specificity. Story headlines still take priority when present.
         const winnerOpt = options.find(o => o.id === winnerId)
         const description = decisionState
-          ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability)
+          ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, lensActive)
           : headline
             ? headline
             : (winnerOpt?.winProbability != null || option.winProbability != null)
-              ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability)
+              ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, lensActive)
               : fallbackDescription(option, options.length)
 
         const segmentFillColor = segmentColorMap[option.id]
