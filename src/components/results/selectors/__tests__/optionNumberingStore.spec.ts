@@ -38,6 +38,24 @@ describe('registerOptionNumbering', () => {
     expect(useCanvasStore.getState().optionNumbering).toEqual({ 'opt-a': 1 })
   })
 
+  it('re-registration with no new ids leaves the map reference-equal (loop-guard pin)', () => {
+    const s = useCanvasStore.getState()
+    s.registerOptionNumbering(['opt-a', 'opt-b'])
+    const before = useCanvasStore.getState().optionNumbering
+    s.registerOptionNumbering(['opt-b', 'opt-a'])
+    expect(useCanvasStore.getState().optionNumbering).toBe(before)
+  })
+
+  it('resets on resetCanvas (fresh decision, fresh ordinal history)', () => {
+    useCanvasStore.getState().registerOptionNumbering(['opt-a'])
+    useCanvasStore.setState({
+      nodes: [{ id: 'n1', position: { x: 0, y: 0 }, data: { label: 'x' } }],
+      edges: [],
+    } as never)
+    useCanvasStore.getState().resetCanvas()
+    expect(useCanvasStore.getState().optionNumbering).toEqual({})
+  })
+
   it('resets when a scenario is hydrated (numbering is per-scenario continuity)', () => {
     useCanvasStore.getState().registerOptionNumbering(['opt-a', 'opt-b'])
     useCanvasStore.getState().hydrateGraphSlice({

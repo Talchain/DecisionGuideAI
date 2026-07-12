@@ -108,8 +108,14 @@ describe('selectDisplayOptions', () => {
     expect(after[0].displayIndex).toBe(1)
   })
 
-  it('falls back to displayIndex when an id is missing from the numbering map (fail-open display)', () => {
+  it('emits stableNumber null for unregistered ids (no colliding numeric fallback — review S3)', () => {
     const rows = selectDisplayOptions(options, {})
-    expect(rows.map((r) => r.stableNumber)).toEqual([1, 2, 3])
+    expect(rows.map((r) => r.stableNumber)).toEqual([null, null, null])
+    // Mixed registration: a registered 2 must never collide with a
+    // fallback 2 fabricated from displayIndex.
+    const partial = selectDisplayOptions(options, { lead: 2 })
+    expect(partial[0].stableNumber).toBe(2)
+    expect(partial[1].stableNumber).toBeNull()
+    expect(partial[2].stableNumber).toBeNull()
   })
 })

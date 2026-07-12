@@ -17,20 +17,22 @@ import { useCanvasStore } from '../../../canvas/store'
 import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 import type { OptionResult } from '../types'
 
-export { assignStableOptionNumbers } from './stableOptionNumbers'
+export { assignStableOptionNumbers } from '../../../canvas/store/stableOptionNumbers'
 
 export interface DisplayOptionRow {
   option: OptionResult
   /** Rank in the shared display order (1-based; re-ranks each run). */
   displayIndex: number
-  /** Identity-anchored ordinal (assigned once, stable across reruns). */
-  stableNumber: number
+  /** Identity-anchored ordinal (assigned once, stable across reruns).
+   * null while an id is unregistered — a numeric fallback here could
+   * collide with a registered ordinal in the same row set (review S3);
+   * consumers choose their own honest fallback at render. */
+  stableNumber: number | null
 }
 
 /**
- * Rows in the ONE approved display order, numbered. When an id is missing
- * from the numbering map the row falls open to its displayIndex — display
- * never blocks on registration timing.
+ * Rows in the ONE approved display order, numbered. Unregistered ids get
+ * stableNumber null (never a colliding numeric fallback) — display decides.
  */
 export function selectDisplayOptions(
   options: readonly OptionResult[],
@@ -39,7 +41,7 @@ export function selectDisplayOptions(
   return sortOptionsForDisplay(options).map((option, i) => ({
     option,
     displayIndex: i + 1,
-    stableNumber: numbering[option.id] ?? i + 1,
+    stableNumber: numbering[option.id] ?? null,
   }))
 }
 

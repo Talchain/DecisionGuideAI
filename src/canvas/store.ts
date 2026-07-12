@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from '@xyflow/react'
 import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportCanvas as persistExport } from './persist'
 import { setsEqual, mapsEqual } from './store/utils'
-import { assignStableOptionNumbers } from '../components/results/selectors/stableOptionNumbers'
+import { assignStableOptionNumbers } from './store/stableOptionNumbers'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS, type EdgeData } from './domain/edges'
 import { NODE_REGISTRY, type NodeType, type NodeData } from './domain/nodes'
 import { hasAnalyticalNodeChange, hasAnalyticalEdgeChange } from './domain/analyticalChange'
@@ -617,8 +617,9 @@ interface CanvasState {
   resultsReset: () => void
   /** Wave F-A (brief §6.4/§12.4): identity-anchored option ordinals —
    * assigned once per option id (first appearance), stable across reruns,
-   * never reused; per-scenario continuity (cleared on scenario hydrate).
-   * Read outside React via getAnalysisDisplaySnapshot(). */
+   * never reused. SESSION-scoped continuity: not persisted, and cleared at
+   * every scenario boundary (loadScenario, hydrateGraphSlice, resetCanvas,
+   * importCanvas). Read outside React via getAnalysisDisplaySnapshot(). */
   optionNumbering: Record<string, number>
   registerOptionNumbering: (optionIds: readonly string[]) => void
   /** 1.16i: authoritative analysing state for the live V5 run turn — sets
@@ -2102,6 +2103,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set({
       nodes: imported.nodes,
       edges: imported.edges,
+      // Wave F-A: full graph replacement starts a fresh ordinal history
+      optionNumbering: {},
       history: { past: [], future: [] },
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
       showDraftChat: false,
@@ -2323,6 +2326,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set({
       // Clear graph
       nodes: [],
+      // Wave F-A: fresh decision, fresh option-ordinal history
+      optionNumbering: {},
       edges: [],
       touchedNodeIds: new Set(),
       nextNodeId: 1,
@@ -3047,6 +3052,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       nodes,
       edges,
       currentScenarioId: id,
+      // Wave F-A: option ordinals never cross a scenario boundary
+      optionNumbering: {},
       scenarioPersistedToDb: true,
       currentScenarioFraming: scenario.framing ?? null,
       currentScenarioLastResultHash: scenario.last_result_hash ?? null,
