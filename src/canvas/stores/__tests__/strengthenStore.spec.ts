@@ -14,7 +14,7 @@ const rec = (id: string, priority = 10): Recommendation => ({
   whyNow: 'why',
   tryThis: 'try',
   sourceLine: 'Source: test.',
-  action: { kind: 'ai-dialogue', label: 'Go', actionType: 'discuss', message: 'm' },
+  action: { kind: 'ai-dialogue', label: 'Go', actionType: 'discuss', prompt: 'm' },
   targetId: null,
   priority,
 })

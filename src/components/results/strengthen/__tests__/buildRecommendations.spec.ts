@@ -194,7 +194,7 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
       expect(rec.action.label.length).toBeGreaterThan(0)
       if (rec.action.kind === 'ai-dialogue') {
         expect(rec.action.actionType).toBeTruthy() // never the keyword heuristic
-        expect(rec.action.message).toBeTruthy() // _sendMessage degrade path
+        expect(rec.action.prompt).toBeTruthy() // _sendMessage degrade path
       }
       // en-GB copy hygiene: no em dashes in rendered prose.
       for (const text of [rec.title, rec.signal, rec.whyNow, rec.tryThis, rec.sourceLine]) {

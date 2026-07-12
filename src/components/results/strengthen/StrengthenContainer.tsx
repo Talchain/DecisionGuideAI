@@ -122,12 +122,12 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
         action_type: rec.action.actionType, // explicit — never the keyword heuristic
         parameters: rec.action.parameters,
         label: rec.action.label,
-        message: rec.action.message ?? rec.title,
+        message: rec.action.prompt ?? rec.title,
         source: 'strengthen_panel',
       })
     } else if (_sendMessage) {
       if (import.meta.env.DEV) console.warn('[Strengthen] dispatchAction unregistered — degrading to sendMessage')
-      _sendMessage(rec.action.message ?? rec.title)
+      _sendMessage(rec.action.prompt ?? rec.title)
     } else {
       if (import.meta.env.DEV) console.warn('[Strengthen] no conversation callbacks registered — action dropped')
       return false

@@ -24,8 +24,10 @@ export interface RecAction {
    * heuristic — chip_metadata survives only on conversation-typed turns). */
   actionType?: string
   parameters?: Record<string, unknown>
-  /** The message sent for ai-dialogue routes (also the _sendMessage degrade). */
-  message?: string
+  /** The prompt sent for ai-dialogue routes (also the _sendMessage degrade).
+   * Named 'prompt', not 'message': the V14.3 guard forbids `.message`
+   * property access in results components (critique-render protection). */
+  prompt?: string
 }
 
 /** One recommendation as the engine emits it (display snapshot). */

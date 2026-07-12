@@ -16,7 +16,7 @@ const rec = (id: string, over: Partial<Recommendation> = {}): Recommendation => 
   whyNow: `Why ${id}`,
   tryThis: `Try ${id}`,
   sourceLine: 'Source: test.',
-  action: { kind: 'ai-dialogue', label: 'Go', actionType: 'discuss', message: 'm' },
+  action: { kind: 'ai-dialogue', label: 'Go', actionType: 'discuss', prompt: 'm' },
   targetId: null,
   priority: 10,
   ...over,
