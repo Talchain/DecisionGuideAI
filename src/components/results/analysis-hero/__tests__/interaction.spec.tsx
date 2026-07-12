@@ -11,12 +11,15 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { AnalysisHeroContainer } from '../AnalysisHeroContainer'
 import { makeHeroData } from '../__fixtures__/hero.fixtures'
 
-const runSpy = vi.fn()
-let running = false
+// Wave F-B: the hero rerun routes through the canonical runner (its old
+// private useV2Run instance retired); running state derives from the store.
+import {
+  registerCanonicalRunner,
+  __resetCanonicalRunnerForTests,
+} from '../../../../canvas/analysis/canonicalRunRegistry'
+import { useCanvasStore } from '../../../../canvas/store'
 
-vi.mock('@/canvas/hooks/useV2Run', () => ({
-  useV2Run: () => ({ runV2Analysis: runSpy, isRunning: running }),
-}))
+const runSpy = vi.fn(async (_opts?: import('../../../../canvas/analysis/canonicalRunRegistry').CanonicalRunOptions) => ({ status: 'dispatched' as const }))
 
 vi.mock('@/flags', async () => {
   const actual = await vi.importActual<typeof import('@/flags')>('@/flags')
@@ -28,7 +31,9 @@ import { isFocusNowPanelEnabled } from '@/flags'
 describe('AnalysisHero — interaction', () => {
   beforeEach(() => {
     runSpy.mockClear()
-    running = false
+    __resetCanonicalRunnerForTests()
+    registerCanonicalRunner(runSpy)
+    useCanvasStore.getState().resultsReset()
     vi.mocked(isFocusNowPanelEnabled).mockReturnValue(true)
   })
 
@@ -105,10 +110,11 @@ describe('AnalysisHero — interaction', () => {
     const rerun = screen.getByTestId('hero-rerun')
     fireEvent.click(rerun)
     expect(runSpy).toHaveBeenCalledTimes(1)
+    expect(runSpy.mock.calls[0][0]).toMatchObject({ source: 'analysis-hero' })
   })
 
   it('stale: re-run is disabled while an analysis is already running', () => {
-    running = true
+    useCanvasStore.getState().resultsAnalysing()
     render(<AnalysisHeroContainer data={makeHeroData()} isStale />)
     expect(screen.getByTestId('hero-rerun')).toBeDisabled()
   })

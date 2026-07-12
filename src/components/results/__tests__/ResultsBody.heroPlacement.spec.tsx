@@ -196,12 +196,11 @@ describe('ResultsBody — Analysis hero placement + flag regression', () => {
     useCanvasStore.setState({ analysisFreshness: { freshness: 'stale' }, analysisFreshnessDirty: false })
     renderBody({ isStale: true })
     expect(screen.getByTestId('hero-rerun')).toBeInTheDocument()
-    // Exactly ONE stale surface on the tab: the existing notice…
-    const notices = screen.getAllByTestId('analysis-freshness-notice')
-    expect(notices).toHaveLength(1)
-    // …and it is NOT inside the hero (the hero authors no stale banner).
+    // Wave F-B: the freshness strip mounts in OutputsDock ABOVE the dim
+    // wrapper (review a) — ResultsBody itself authors NO stale surface,
+    // and the hero authors no stale banner either.
+    expect(screen.queryByTestId('analysis-freshness-notice')).not.toBeInTheDocument()
     const hero = screen.getByTestId('analysis-hero-panel')
-    expect(hero.contains(notices[0])).toBe(false)
     expect(hero.textContent).not.toMatch(/stale|not analysed|re-run before/i)
   })
 

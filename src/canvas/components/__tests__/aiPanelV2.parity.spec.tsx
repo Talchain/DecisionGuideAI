@@ -14,7 +14,8 @@
  *  - When flag is OFF, OUTPUT_TABS contains no 'olumi' tab (legacy path).
  *  - When flag is ON (default), OUTPUT_TABS contains 'olumi'.
  *  - Surfaces that should be invisible without an active selection /
- *    stale analysis (SelectionPill, StaleAnalysisBadge) still render
+ *    stale analysis (SelectionPill) still render — StaleAnalysisBadge
+ *    retired in Wave F-B (the freshness strip is the sole stale owner)
  *    nothing in the default state.
  *
  * We do NOT mount full OutputsDock here — the surrounding canvas store
@@ -44,7 +45,6 @@ vi.mock('../../utils/markdown', () => ({
 
 import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
 import { SelectionPill } from '../SelectionPill'
-import { StaleAnalysisBadge } from '../StaleAnalysisBadge'
 
 // SelectionPill reads from canvas store; mock the selection context to null.
 vi.mock('../../hooks/useSelectionContext', () => ({
@@ -86,11 +86,6 @@ describe('aiPanelV2 default (round-12: default-ON, rollback via localStorage="fa
 
   it('SelectionPill renders nothing when no element is selected', () => {
     const { container } = render(<SelectionPill />)
-    expect(container.firstChild).toBeNull()
-  })
-
-  it('StaleAnalysisBadge renders nothing when analysis is not stale', () => {
-    const { container } = render(<StaleAnalysisBadge />)
     expect(container.firstChild).toBeNull()
   })
 

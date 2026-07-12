@@ -24,14 +24,12 @@
  */
 import { useCallback, useMemo } from 'react'
 import { useCanvasStore } from '@/canvas/store'
-import { useV2Run } from '@/canvas/hooks/useV2Run'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 import { revealOlumiSurface } from '@/canvas/conversation/revealOlumi'
 import { isAiPanelV2Enabled } from '@/flags'
-import { classifyFreshnessForDisplay } from '@/canvas/store/analysisFreshness'
 import { buildFocusRows } from './buildFocusRows'
-import { freshnessToBanner } from './freshnessBanner'
-import type { FocusNowProps } from './focusTypes'
+import type {
+  FocusBannerState, FocusNowProps } from './focusTypes'
 
 /**
  * See boundary (1) above. HARD MOUNT-PR GATE — keep false until ALL are resolved
@@ -48,9 +46,6 @@ const CERTIFY_SUMMARY = false
 
 export function useFocusNow(): FocusNowProps {
   const rawSummary = useCanvasStore((s) => s.ceeAnalysisReady?.coaching_summary ?? null)
-  const freshness = useCanvasStore((s) => s.analysisFreshness)
-  const dirty = useCanvasStore((s) => s.analysisFreshnessDirty)
-  const { runV2Analysis, isRunning } = useV2Run()
   // Reliably-registered send wire (real conversation sendMessage). Subscribe to its
   // presence so the controls hide when no chat can receive the message — never dead.
   const canSendToChat = useGuidanceStore((s) => s._sendMessage !== null)
@@ -59,10 +54,10 @@ export function useFocusNow(): FocusNowProps {
   const coachingSummary = CERTIFY_SUMMARY ? rawSummary : null
 
   const vm = useMemo(() => buildFocusRows({ coachingSummary }), [coachingSummary])
-  const banner = useMemo(
-    () => freshnessToBanner(classifyFreshnessForDisplay(freshness, dirty)),
-    [freshness, dirty],
-  )
+  // Wave F-B (brief §5.3): NO second stale banner inside Strengthen your
+  // model — the Analysis freshness strip is the sole owner. The panel keeps
+  // its rows; staleness context lives one card above.
+  const banner: FocusBannerState = { kind: 'none' }
 
   // The row action needs (a) a live `_sendMessage` to deliver the prompt and (b)
   // aiPanelV2 — the reveal targets the Olumi tab, which OutputsDock redirects to
@@ -80,9 +75,9 @@ export function useFocusNow(): FocusNowProps {
     revealOlumiSurface()
   }, [])
 
-  const onRerun = useCallback(() => {
-    void runV2Analysis()
-  }, [runV2Analysis])
+  // Wave F-B: onRerun retired with the banner — it was a private useV2Run
+  // pipeline (the class this wave removes). FocusBanner never renders now.
+  const onRerun = undefined
 
   return {
     summary: vm.summary,
@@ -90,7 +85,7 @@ export function useFocusNow(): FocusNowProps {
     banner,
     onPrefill,
     onRerun,
-    rerunDisabled: isRunning,
+    rerunDisabled: true,
     actionsEnabled,
   }
 }

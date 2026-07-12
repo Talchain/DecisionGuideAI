@@ -3,8 +3,8 @@
  *
  * Pins the stable selectors the Playwright acceptance harness needs on the
  * Analysis (Results) tab:
- *   - stale banner:        data-testid="graph-stale-banner"        (pre-existing)
- *   - its Rerun button:    data-testid="graph-stale-rerun-button"  (added)
+ *   - freshness strip:     data-testid="analysis-freshness-notice" (sole stale owner)
+ *   - its Rerun button:    data-testid="freshness-strip-rerun"     (Wave F-B)
  *   - footer Rerun action: data-testid="results-analysis-footer-action"
  *     (AnalysisFooter now stamps `${testId}-action` on its action button)
  *
@@ -141,20 +141,24 @@ describe('OutputsDock testability selectors (Analysis tab)', () => {
       edges: [{ id: 'e1', source: 'factor-1', target: 'goal-1', data: { weight: 0.7, direction: 'positive' } }],
       graphHealth: { status: 'healthy', score: 100, issues: [] },
       results: { status: 'complete', report: fakeReport },
-      // CEE 'stale' verdict → graph-stale-banner renders alongside the report
+      // CEE 'stale' verdict → the freshness strip (sole owner, Wave F-B)
+      // renders alongside the report with the ONE Rerun action
       analysisFreshness: { freshness: 'stale', computedAt: '2026-07-07T00:00:00.000Z' },
       analysisFreshnessDirty: false,
       showDraftChat: false,
     } as never)
   })
 
-  it('stale banner and its Rerun button are reachable via data-testid', () => {
+  it('the freshness strip and its Rerun are the ONE stale surface (Wave F-B)', () => {
     render(<OutputsDock />)
 
-    expect(screen.getByTestId('graph-stale-banner')).toBeInTheDocument()
-    const rerun = screen.getByTestId('graph-stale-rerun-button')
+    // The old top-level banner is retired — the strip owns stale + Rerun.
+    expect(screen.queryByTestId('graph-stale-banner')).not.toBeInTheDocument()
+    const strip = screen.getByTestId('analysis-freshness-notice')
+    expect(strip).toHaveAttribute('data-freshness', 'stale')
+    const rerun = screen.getByTestId('freshness-strip-rerun')
     expect(rerun).toBeInTheDocument()
-    expect(rerun).toHaveTextContent('Rerun analysis')
+    expect(rerun).toHaveTextContent('Rerun')
   })
 
   it('AnalysisFooter action button derives `${testId}-action`', () => {

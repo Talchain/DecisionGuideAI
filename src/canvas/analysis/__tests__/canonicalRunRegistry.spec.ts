@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
+  executeCanonicalRun,
   registerCanonicalRunner,
   getCanonicalRunner,
   __resetCanonicalRunnerForTests,
@@ -41,5 +42,16 @@ describe('canonicalRunRegistry', () => {
     registerCanonicalRunner(b)
     unregisterA() // A's cleanup fires after B took over (remount ordering)
     expect(getCanonicalRunner()).toBe(b)
+  })
+})
+
+describe('Wave F-B — run parameters passthrough', () => {
+  it('executeCanonicalRun forwards opts.parameters to the registered runner', async () => {
+    const runner = vi.fn(async () => ({ status: 'dispatched' as const }))
+    registerCanonicalRunner(runner)
+    await executeCanonicalRun({ source: 'apply-threshold', parameters: { goal_threshold: 42 } })
+    expect(runner).toHaveBeenCalledWith(
+      expect.objectContaining({ parameters: { goal_threshold: 42 } }),
+    )
   })
 })

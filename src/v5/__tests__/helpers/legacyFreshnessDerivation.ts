@@ -1,4 +1,12 @@
 /**
+ * TEST-ONLY relocation (Wave F-B): the legacy Wave-3 freshness derivation
+ * was DELETED from src/lib (zero product call sites; its basename collided
+ * with the canonical src/canvas/store/analysisFreshness slice — a standing
+ * import trap, brief §5.3). The freshness-state-matrix DOM proof still
+ * uses it as an INPUT GENERATOR, so it lives on here, unimportable from
+ * product code paths.
+ */
+/**
  * Single source of truth for "how should the UI describe analysis
  * freshness right now" (P0 V5 golden-path repair, Wave 3).
  *
@@ -35,8 +43,8 @@
  * Pure function. No store reads, no side effects. Tests are table-driven.
  */
 
-import type { CEEAnalysisReady } from '../adapters/cee/types'
-import type { ResultsState } from '../canvas/store'
+import type { CEEAnalysisReady } from '../../../adapters/cee/types'
+import type { ResultsState } from '../../../canvas/store'
 
 export type AnalysisFreshnessVerdict = 'fresh' | 'stale' | 'none' | 'unknown'
 
