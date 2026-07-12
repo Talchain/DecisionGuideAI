@@ -11,6 +11,7 @@ import { parseRunHash } from './utils/shareLink'
 import { useInitialLayoutGuard } from './hooks/useInitialLayoutGuard'
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion'
 import { cameraDuration } from './utils/cameraMotion'
+import { neighbourhoodNodeIds } from './utils/focusNeighbourhood'
 import { useMeasureThenLayout } from './hooks/useMeasureThenLayout'
 import { useFitViewOnLayoutVersion } from './hooks/useFitViewOnLayoutVersion'
 import { nodeTypes } from './nodes/registry'
@@ -887,11 +888,17 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     // Select node WITHOUT pushing to history (navigation-only, not structural change)
     store.selectNodeWithoutHistory(nodeId)
 
-    // Center viewport on the node with smooth animation
-    const viewport = getViewportRef.current()
-    setCenterRef.current(targetNode.position.x, targetNode.position.y, {
-      zoom: viewport.zoom,
-      duration: cameraDuration(300, reducedMotionRef.current)
+    // F2 (graph-visuals): fit the node AND its direct neighbours to a readable
+    // zoom (capped so it never disorients), rather than centring at the current
+    // zoom — focusing from a zoomed-out view used to land on something you
+    // couldn't read. usePathHighlight dims the rest of the graph.
+    const focusIds = neighbourhoodNodeIds(nodeId, store.edges)
+    const focusNodes = store.nodes.filter(n => focusIds.has(n.id))
+    fitViewRef.current({
+      nodes: focusNodes,
+      padding: 0.3,
+      maxZoom: 1.2,
+      duration: cameraDuration(400, reducedMotionRef.current),
     })
   }, [])
 
