@@ -1945,4 +1945,22 @@ describe('OptionNode — display coherence (audit §8)', () => {
     // …and the duplicated inline list is gone.
     expect(screen.queryByText('Interventions:')).toBeNull()
   })
+
+  it('Wave 4 / §6.4: renders the identity-anchored stable option number badge when registered', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({ optionNumbering: { 'option-1': 2 } }) as any),
+    )
+    renderOption()
+    const badge = screen.getByTestId('option-stable-number-option-1')
+    expect(badge).toHaveTextContent('2')
+    expect(badge).toHaveAttribute('aria-label', 'Option 2')
+  })
+
+  it('renders no stable-number badge before the option is registered', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({ optionNumbering: {} }) as any),
+    )
+    renderOption()
+    expect(screen.queryByTestId('option-stable-number-option-1')).toBeNull()
+  })
 })
