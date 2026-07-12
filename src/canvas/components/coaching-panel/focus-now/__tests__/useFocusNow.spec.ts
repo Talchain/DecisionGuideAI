@@ -87,9 +87,9 @@ describe('useFocusNow container', () => {
     expect(result.current.actionsEnabled).toBe(false)
   })
 
-  it('onRerun triggers a re-run', () => {
+  it('onRerun is retired with the banner (Wave F-B — the freshness strip owns the Rerun)', () => {
     const { result } = renderHook(() => useFocusNow())
-    result.current.onRerun?.()
-    expect(h.runV2Analysis).toHaveBeenCalledTimes(1)
+    expect(result.current.onRerun).toBeUndefined()
+    expect(h.runV2Analysis).not.toHaveBeenCalled()
   })
 })

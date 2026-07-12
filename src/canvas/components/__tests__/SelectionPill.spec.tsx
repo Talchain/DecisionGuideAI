@@ -1,5 +1,5 @@
 /**
- * SelectionPill + StaleAnalysisBadge — render + Rerun-route verification.
+ * SelectionPill — render verification. (StaleAnalysisBadge retired, Wave F-B.)
  *
  * Closes verification gap #2 from the integration sign-off:
  *
@@ -17,7 +17,6 @@ import { render, screen } from '@testing-library/react'
 
 // Mutable hook mocks the tests reconfigure.
 const selectionState: { value: { id: string; label: string; kind: 'node' | 'edge' } | null } = { value: null }
-const runV2Spy = vi.fn()
 
 vi.mock('../../hooks/useSelectionContext', () => ({
   useSelectionContext: () => selectionState.value,

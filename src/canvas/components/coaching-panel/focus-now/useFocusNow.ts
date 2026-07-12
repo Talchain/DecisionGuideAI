@@ -24,7 +24,6 @@
  */
 import { useCallback, useMemo } from 'react'
 import { useCanvasStore } from '@/canvas/store'
-import { useV2Run } from '@/canvas/hooks/useV2Run'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 import { revealOlumiSurface } from '@/canvas/conversation/revealOlumi'
 import { isAiPanelV2Enabled } from '@/flags'
@@ -47,7 +46,6 @@ const CERTIFY_SUMMARY = false
 
 export function useFocusNow(): FocusNowProps {
   const rawSummary = useCanvasStore((s) => s.ceeAnalysisReady?.coaching_summary ?? null)
-  const { runV2Analysis, isRunning } = useV2Run()
   // Reliably-registered send wire (real conversation sendMessage). Subscribe to its
   // presence so the controls hide when no chat can receive the message — never dead.
   const canSendToChat = useGuidanceStore((s) => s._sendMessage !== null)
@@ -77,9 +75,9 @@ export function useFocusNow(): FocusNowProps {
     revealOlumiSurface()
   }, [])
 
-  const onRerun = useCallback(() => {
-    void runV2Analysis()
-  }, [runV2Analysis])
+  // Wave F-B: onRerun retired with the banner — it was a private useV2Run
+  // pipeline (the class this wave removes). FocusBanner never renders now.
+  const onRerun = undefined
 
   return {
     summary: vm.summary,
@@ -87,7 +85,7 @@ export function useFocusNow(): FocusNowProps {
     banner,
     onPrefill,
     onRerun,
-    rerunDisabled: isRunning,
+    rerunDisabled: true,
     actionsEnabled,
   }
 }

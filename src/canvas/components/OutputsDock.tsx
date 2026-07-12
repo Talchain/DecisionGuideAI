@@ -34,6 +34,7 @@ import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource } from '../store'
 import { resolveDisplayedFreshness } from '../store/analysisFreshness'
+import { AnalysisFreshnessNotice } from '../../components/results/AnalysisFreshnessNotice'
 import { deriveResultsTabFreshness } from './resultsTabFreshness'
 import { typography, typo } from '../../styles/typography'
 import {
@@ -886,8 +887,16 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     void runCanonicalAnalysis({
       source: 'apply-threshold',
       ...(threshold !== null ? { parameters: { goal_threshold: threshold } } : {}),
+    }).then((outcome) => {
+      // Review (b): the hero copy promises "Applying runs the analysis
+      // again" — a gated outcome must say why instead of silently saving
+      // the threshold without a rerun.
+      if (outcome.status === 'blocked') showToast(outcome.reason)
+      else if (outcome.status === 'already-running') {
+        showToast('Analysis is already running. Your target is saved; rerun when it finishes.')
+      }
     })
-  }, [setGoalThreshold, runCanonicalAnalysis])
+  }, [setGoalThreshold, runCanonicalAnalysis, showToast])
 
   // C1: Baseline addition does NOT trigger rerun — mutates draft only.
   // User must manually rerun to generate comparison data.
@@ -2057,6 +2066,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     Legacy blocks (InsightsPanel, AdvancedSettings, variance warning) removed
                     from Results tab — they are not in the v7 prototype.
                     ====================================================================== */}
+                {/* Wave F-B review (a): the sole freshness strip + its Rerun
+                    mount ABOVE the dim wrapper at full opacity — the recovery
+                    control must never sit inside an aria-disabled region. */}
+                {!isPreRun && hasInlineSummary && resultsSectionData && (
+                  <AnalysisFreshnessNotice />
+                )}
                 {!isPreRun && hasInlineSummary && resultsSectionData && (
                   <div
                     style={{ opacity: analysisNotConfirmedFresh && !isError ? 0.6 : 1 }}

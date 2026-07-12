@@ -87,7 +87,8 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
         className={`flex-none ${isStale ? 'text-warning' : 'text-text-light'}`}
         aria-hidden="true"
       />
-      <span className={`${typography.panelBody} text-text-body flex-1`}>{FRESHNESS_COPY[freshness]}</span>
+      {/* Live region on the copy only (review c) — never around the button. */}
+      <span role="status" className={`${typography.panelBody} text-text-body flex-1`}>{FRESHNESS_COPY[freshness]}</span>
       {offersRerun && (
         // Wave F-B (brief §5.2): the strip is the sole stale owner and carries
         // THE recovery action — canonical-runner routed, never a private
