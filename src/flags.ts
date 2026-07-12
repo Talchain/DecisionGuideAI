@@ -417,6 +417,13 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_REQUIRE_LOGIN',
     storageKey: 'feature.requireLogin',
   },
+  // Analysis-tab rebuild Wave 1 (DEV-PLAN-2026-07-12): the Decision overview
+  // card + consolidated Actions menu. Default OFF; staging-on by netlify.toml
+  // promotion after wave acceptance; flag-off is byte-identical (pinned).
+  decisionOverview: {
+    envKey: 'VITE_FEATURE_DECISION_OVERVIEW',
+    storageKey: 'feature.decisionOverview',
+  },
 } as const
 
 // ============================================================================
@@ -489,6 +496,7 @@ const flags = {
   v5CanonicalAnalysis: makeFlag(FLAGS_CONFIG.v5CanonicalAnalysis),
   reasoningDisclosure: makeFlag(FLAGS_CONFIG.reasoningDisclosure),
   requireLogin: makeFlag(FLAGS_CONFIG.requireLogin),
+  decisionOverview: makeFlag(FLAGS_CONFIG.decisionOverview),
 }
 
 // Export with original naming convention for backward compatibility
@@ -559,6 +567,7 @@ export const diagnoseV5CanonicalAnalysis = () =>
   diagnoseFlagState(FLAGS_CONFIG.v5CanonicalAnalysis)
 export const isReasoningDisclosureEnabled = flags.reasoningDisclosure
 export const isRequireLoginEnabled = flags.requireLogin
+export const isDecisionOverviewEnabled = flags.decisionOverview
 
 
 // ============================================================================
