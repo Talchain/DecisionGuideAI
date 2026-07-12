@@ -368,6 +368,11 @@ export const OptionNode = memo((props: NodeProps) => {
   const nodes = useCanvasStore(state => state.nodes)
   const resultsReport = useCanvasStore(state => state.results.report)
   const resultsStatus = useCanvasStore(state => state.results.status)
+  // Wave 4 / §6.4: the identity-anchored option number (Wave F-A store),
+  // rendered on the canvas node so it matches the Analysis panel's "Option N"
+  // chip. Subscribed (not the outside-React snapshot) so it re-renders when the
+  // numbering registers. undefined until analysis registers this option.
+  const stableOptionNumber = useCanvasStore(state => state.optionNumbering?.[props.id])
   const isPostAnalysis = resultsStatus === 'complete'
   // Audit §8 P1: canvas result decorations must reflect the same freshness
   // verdict the panels use (StaleGuardBanner / bottom-bar "Analysis stale").
@@ -1048,8 +1053,17 @@ export const OptionNode = memo((props: NodeProps) => {
         {...props}
         nodeType="option"
         icon={metadata.icon}
-        headerSlot={scienceIcons.length > 0 ? (
+        headerSlot={(stableOptionNumber != null || scienceIcons.length > 0) ? (
           <span className="inline-flex items-center gap-1">
+            {stableOptionNumber != null && (
+              <span
+                data-testid={`option-stable-number-${props.id}`}
+                aria-label={`Option ${stableOptionNumber}`}
+                className={`${typography.panelMeta} inline-flex h-4 min-w-[16px] items-center justify-center rounded border border-panel-border px-1 text-text-light`}
+              >
+                {stableOptionNumber}
+              </span>
+            )}
             {scienceIcons.map(si => (
               <ScienceIcon key={si.id} icon={si.icon} tooltip={si.tooltip} action={si.action} colour={si.colour} />
             ))}
