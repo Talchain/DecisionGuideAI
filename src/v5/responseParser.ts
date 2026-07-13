@@ -133,24 +133,24 @@ export const PHASE3_TOLERATED_BLOCK_TYPES: ReadonlySet<Phase3ToleratedBlockType>
 /**
  * Allowlist of known CEE→schema drift in `suggested_actions[].action_type`.
  *
- * The vendored `@talchain/schemas@0.8.1` `ActionType` enum is the SINGULAR
- * `explain_result`, but CEE V5 chip-generator emits the PLURAL
- * `explain_results` (per the Phase-2b handler whitelist documented in
- * `useConversation.ts` ACTION_TO_TURN_TYPE). DGAI's runtime dispatch already
- * aliases both forms to the same `'explain'` turn type, and CEE's backend
- * handler accepts both, so this is a lossless meaning-preserving rewrite
- * applied BEFORE strict schema validation so the parse succeeds.
- *
- * Intentionally tiny and explicit. Any future drift requires explicit
- * entry — broad tolerance is NOT acceptable. Truly unknown action_type
- * values still fail strict validation.
+ * EMPTY under schemas 0.15 — deliberately. The single historical entry
+ * (`explain_results` → `explain_result`) existed because the 0.8.1 enum
+ * lacked the plural and strict validation rejected the whole response. The
+ * 0.15 `ActionType` enum accepts BOTH forms, the V5 backend handler ID is
+ * the PLURAL (see ACTION_TO_TURN_TYPE in useConversation.ts — the singular
+ * is its "legacy alias"), and the SuggestedChips V5 filter keys on the
+ * plural — so the rewrite had become actively harmful: it converted the
+ * producer's canonical value into one the filter hid, silently swallowing
+ * the "Explain the result" chip on live staging (V-P0-2, wire-verified
+ * 2026-07-13). The mechanism is retained for future GENUINE drift (a value
+ * the schema rejects); any entry requires explicit addition — broad
+ * tolerance is NOT acceptable. Truly unknown action_type values still fail
+ * strict validation.
  *
  * Keys are aliases CEE may emit; values are the canonical schema-accepted
  * forms.
  */
-const SUGGESTED_ACTION_TYPE_ALIASES: Readonly<Record<string, string>> = {
-  explain_results: 'explain_result',
-} as const;
+const SUGGESTED_ACTION_TYPE_ALIASES: Readonly<Record<string, string>> = {} as const;
 
 /**
  * A single rewrite recorded by normaliseSuggestedActionTypeAliases for the

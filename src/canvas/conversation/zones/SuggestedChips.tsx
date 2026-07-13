@@ -33,11 +33,15 @@ import type { ActionChip } from '../types'
 // `dispatchDeterministicChipClick` path bypasses Sonnet ORIENT (~12s saved
 // per click). Without these entries here, the V5 UI's filter below would
 // HIDE the new executable chips, defeating the latency fix entirely.
-const V5_ENABLED_ACTIONS = new Set<string>([
+export const V5_ENABLED_ACTIONS = new Set<string>([
   'run_analysis',
   'edit_graph',
   'draft_graph',
   'explain_results',
+  // V-P0-2 fold: the schema-valid SINGULAR legacy alias dispatches to the
+  // same 'explain' turn (ACTION_TO_TURN_TYPE) — a producer emitting it must
+  // not have its chip silently hidden.
+  'explain_result',
   'what_would_flip',
 ])
 
