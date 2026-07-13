@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MissingKnowledgePrompt } from '@/components/shared/MissingKnowledgePrompt'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
+import { useAskOlumiStore } from '@/components/results/coaching/askOlumiStore'
 
 describe('MissingKnowledgePrompt', () => {
   const sendMock = vi.fn()
@@ -11,6 +12,7 @@ describe('MissingKnowledgePrompt', () => {
     sendMock.mockClear()
     // Register _sendMessage so DiscussWithAiButton renders
     useGuidanceStore.setState({ _sendMessage: sendMock })
+    useAskOlumiStore.setState({ isOpen: false, draft: '' })
   })
 
   // Helper: renders with the DiscussWithAiButton passed as aiAffordance prop
@@ -25,15 +27,18 @@ describe('MissingKnowledgePrompt', () => {
     expect(screen.getByTestId('discuss-with-ai')).toBeInTheDocument()
   })
 
-  it('sends pre-filled message when sparkle is clicked', () => {
+  // Parity P7a: the sparkle no longer auto-sends into a conversation the
+  // user may not see — it opens the Work-through-it-with-Olumi drawer with
+  // the prompt PREFILLED and EDITABLE. Send happens in the drawer.
+  it('opens the Ask-Olumi drawer prefilled when sparkle is clicked (no invisible auto-send)', () => {
     render(<MissingKnowledgePrompt context="model" aiAffordance={aiAffordance} />)
 
     fireEvent.click(screen.getByTestId('discuss-with-ai'))
 
-    expect(sendMock).toHaveBeenCalledTimes(1)
-    expect(sendMock).toHaveBeenCalledWith(
-      expect.stringContaining('add something to the model'),
-    )
+    expect(sendMock).not.toHaveBeenCalled()
+    const drawer = useAskOlumiStore.getState()
+    expect(drawer.isOpen).toBe(true)
+    expect(drawer.draft).toContain('add something to the model')
   })
 
   it('does not render sparkle when no aiAffordance passed', () => {

@@ -28,7 +28,6 @@ import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWit
 import { DecisionConfidencePanel } from './DecisionConfidencePanel'
 import { AnalysisHeroV17 } from './AnalysisHeroV17'
 import { AnalysisOrphanBanner } from './AnalysisOrphanBanner'
-import { AskOlumiDrawer } from './coaching/AskOlumiDrawer'
 import { WhatChangedChip } from '../../canvas/components/WhatChangedChip'
 import { StrengthenContainer } from './strengthen/StrengthenContainer'
 import { InferenceWarningStrip } from './InferenceWarningStrip'
@@ -242,11 +241,6 @@ export const ResultsBody = memo(function ResultsBody({
 
   return (
     <div className="flex flex-col gap-4" data-testid="outputs-results-redesign">
-
-      {/* Parity P1: the "Work through it with Olumi" drawer — one instance
-          for every routed ask on this tab (methods, pills, framing question,
-          Strengthen work-through). Renders nothing until opened. */}
-      <AskOlumiDrawer />
 
       {/* Orphan banner — Results from a non-CEE path with no run_analysis
           fact for the scenario. Renders only when canonical flag is ON and

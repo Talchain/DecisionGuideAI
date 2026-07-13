@@ -15,7 +15,6 @@ import { typography } from '../../styles/typography'
 import { evaluativeVar } from '../../styles/evaluative'
 import { Accordion } from './Accordion'
 import { useRiskProfile, RISK_PRESETS } from '../../canvas/hooks/useRiskProfile'
-import { ExpertBlock } from './ExpertBlock'
 
 type RiskPresetKey = keyof typeof RISK_PRESETS
 
@@ -137,7 +136,7 @@ export function AdvancedSection({
 
   return (
     <Accordion
-      title="Advanced"
+      title="Advanced and receipts"
       defaultExpanded={hasInferenceWarnings}
       testId="accordion-advanced"
     >
@@ -317,9 +316,11 @@ export function AdvancedSection({
           </div>
         </div>
 
-        {/* ── Analysis Details — expert mode only (Task 10) ──────────── */}
-        {expertMode && (
-        <ExpertBlock>
+        {/* ── Analysis details (receipts) ──────────────────────────────
+            Parity audit: the prototype's receipts are for EVERYONE — the
+            expert-mode gate hid simulations/stability/graph-size from
+            normal users. Real values only; rows fail closed when absent. */}
+        <div data-testid="analysis-receipts">
           <h4 className={`${typography.panelHeader} text-text-header mb-1`}>
             Analysis details
           </h4>
@@ -394,8 +395,7 @@ export function AdvancedSection({
               </div>
             )}
           </dl>
-        </ExpertBlock>
-        )}
+        </div>
       </div>
     </Accordion>
   )
