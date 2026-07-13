@@ -160,6 +160,58 @@ export function focusExistingTarget(
   return true
 }
 
+/**
+ * Parity P1 (audit: broken-function) — universal model-target resolver.
+ *
+ * Guidance items and Strengthen recommendations carry ids that may be a
+ * canvas node id, a canvas edge id, OR a PLoT edge id (often the synthetic
+ * `${source}->${target}` form) that no canvas element carries verbatim.
+ * focusExistingTarget(id, 'node') silently no-ops on those — the audit's
+ * "Focus on canvas does nothing" class of dead buttons.
+ *
+ * Resolution order (fail-closed, returns false when nothing focusable):
+ *  1. exact canvas node id
+ *  2. exact canvas edge id
+ *  3. arrow-form edge id: resolve endpoints to the real canvas edge,
+ *     else fall back to whichever endpoint node exists
+ *  4. producer edge id stashed on edge.data (edge_id / plot_edge_id)
+ */
+export function focusModelTarget(targetId: string): boolean {
+  if (!targetId) return false
+  const { nodes, edges } = useCanvasStore.getState()
+  if (nodes.some((n) => n.id === targetId)) {
+    focusByTarget(targetId, 'node')
+    return true
+  }
+  if (edges.some((e) => e.id === targetId)) {
+    focusByTarget(targetId, 'edge')
+    return true
+  }
+  const parts = targetId.split(/->|\u2192/)
+  if (parts.length === 2) {
+    const [from, to] = parts.map((x) => x.trim())
+    const edge = edges.find((e) => e.source === from && e.target === to)
+    if (edge) {
+      focusByTarget(edge.id, 'edge')
+      return true
+    }
+    const endpoint = [from, to].find((id) => nodes.some((n) => n.id === id))
+    if (endpoint) {
+      focusByTarget(endpoint, 'node')
+      return true
+    }
+  }
+  const byData = edges.find((e) => {
+    const d = e.data as Record<string, unknown> | undefined
+    return d?.edge_id === targetId || d?.plot_edge_id === targetId
+  })
+  if (byData) {
+    focusByTarget(byData.id, 'edge')
+    return true
+  }
+  return false
+}
+
 export function focusByTarget(
   targetId: string,
   targetType?: FocusTargetType

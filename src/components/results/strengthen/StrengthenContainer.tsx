@@ -16,7 +16,8 @@
  *   null and go transiently null across host remounts): ai-dialogue via
  *   _dispatchAction with an EXPLICIT action_type (chip_metadata survives
  *   only conversation-typed turns), degrading to _sendMessage with a DEV
- *   warn; canvas focus via the fail-closed focusExistingTarget.
+ *   warn; canvas focus via the fail-closed focusModelTarget (resolves
+ *   node ids, canvas edge ids and PLoT arrow-form edge ids).
  * - suppress any panel-local freshness banner (AnalysisFreshnessNotice owns
  *   the tab's freshness surface — same contract as FocusNowContainer).
  */
@@ -29,7 +30,7 @@ import {
   useStrengthenStore,
   type RecRecord,
 } from '../../../canvas/stores/strengthenStore'
-import { focusExistingTarget } from '../../../canvas/utils/focusHelpers'
+import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { buildRecommendations } from './buildRecommendations'
 import type { StrengthenInputs } from './strengthenTypes'
 import { StrengthenPanel } from './StrengthenPanel'
@@ -141,9 +142,9 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
     if (rec.action.kind === 'ai-dialogue') {
       ok = dispatchAiDialogue(record)
     } else if (rec.action.kind === 'canvas-focus' && rec.targetId) {
-      ok = focusExistingTarget(rec.targetId, 'node')
+      ok = focusModelTarget(rec.targetId)
     } else if (rec.action.kind === 'inline-edit' && rec.targetId) {
-      ok = focusExistingTarget(rec.targetId, 'node')
+      ok = focusModelTarget(rec.targetId)
     }
     // §8.8: close only after the action genuinely succeeds — a successful
     // dispatch marks IN PROGRESS (the user confirms addressed themselves).
@@ -158,7 +159,7 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
 
   const onFocusCanvas = (record: RecRecord) => {
     if (record.snapshot.targetId) {
-      focusExistingTarget(record.snapshot.targetId, 'node')
+      focusModelTarget(record.snapshot.targetId)
     }
   }
 
