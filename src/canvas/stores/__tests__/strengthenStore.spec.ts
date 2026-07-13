@@ -115,6 +115,44 @@ describe('strengthenStore — history (§8.9)', () => {
   })
 })
 
+describe('strengthenStore — undo dismiss (restoreDismissed)', () => {
+  it('restores a dismissed rec to recommended and back into the active list', () => {
+    s().reconcile([rec('a')], 'h1', 1000)
+    s().dismiss('a', 1001)
+    expect(selectActive(s()).map((r) => r.id)).not.toContain('a')
+    s().restoreDismissed('a', 1002)
+    expect(s().records['a'].status).toBe('recommended')
+    expect(selectActive(s()).map((r) => r.id)).toContain('a')
+    expect(s().records['a'].history.some((e) => e.event === 'restored')).toBe(true)
+  })
+
+  it('restores the status held BEFORE dismissal (in_progress survives the round trip)', () => {
+    s().reconcile([rec('a')], 'h1', 1000)
+    s().markInProgress('a', 1001)
+    s().dismiss('a', 1002)
+    s().restoreDismissed('a', 1003)
+    expect(s().records['a'].status).toBe('in_progress')
+  })
+
+  it('is a no-op on non-dismissed records', () => {
+    s().reconcile([rec('a')], 'h1', 1000)
+    s().markAddressed('a', 'done', 1001)
+    s().restoreDismissed('a', 1002)
+    expect(s().records['a'].status).toBe('addressed')
+    expect(s().records['a'].history.some((e) => e.event === 'restored')).toBe(false)
+  })
+
+  it('a second dismiss/restore cycle still lands on the pre-dismiss status', () => {
+    s().reconcile([rec('a')], 'h1', 1000)
+    s().markInProgress('a', 1001)
+    s().dismiss('a', 1002)
+    s().restoreDismissed('a', 1003)
+    s().dismiss('a', 1004)
+    s().restoreDismissed('a', 1005)
+    expect(s().records['a'].status).toBe('in_progress')
+  })
+})
+
 describe('strengthenStore — session persistence', () => {
   it('round-trips records via sessionStorage with a version key', () => {
     s().reconcile([rec('a')], 'h1', 1000)

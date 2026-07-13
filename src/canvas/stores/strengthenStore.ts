@@ -28,7 +28,7 @@ import type { Recommendation, RecStatus } from '../../components/results/strengt
 
 export interface RecHistoryEvent {
   at: number
-  event: 'recommended' | 'in_progress' | 'addressed' | 'dismissed' | 'reopened' | 'auto_addressed'
+  event: 'recommended' | 'in_progress' | 'addressed' | 'dismissed' | 'reopened' | 'auto_addressed' | 'restored'
   whatChanged?: string
   reopenReason?: string
 }
@@ -56,6 +56,9 @@ export interface StrengthenState {
   markInProgress: (id: string, now?: number) => void
   markAddressed: (id: string, whatChanged?: string, now?: number) => void
   dismiss: (id: string, now?: number) => void
+  /** Undo affordance for 'Not relevant': restores a dismissed record to the
+   * active status it held before dismissal. No-op unless status is dismissed. */
+  restoreDismissed: (id: string, now?: number) => void
   /** Test/reset seam. */
   _reset: () => void
 }
@@ -199,6 +202,31 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
         ...record,
         status: 'dismissed' as RecStatus,
         history: [...record.history, { at: now, event: 'dismissed' as const }],
+      },
+    }
+    persist(records, get().priorityOrder)
+    set({ records })
+  },
+
+  restoreDismissed: (id, now = Date.now()) => {
+    const record = get().records[id]
+    if (!record || record.status !== 'dismissed') return
+    // Restore the ACTIVE status held before dismissal (scan history backwards
+    // for the last active-status event — 'restored' markers are transparent
+    // because they carry no status of their own); default to 'recommended'.
+    let previous: RecStatus = 'recommended'
+    for (let i = record.history.length - 1; i >= 0; i--) {
+      const e = record.history[i].event
+      if (e === 'in_progress') { previous = 'in_progress'; break }
+      if (e === 'reopened') { previous = 'reopened'; break }
+      if (e === 'recommended') { previous = 'recommended'; break }
+    }
+    const records = {
+      ...get().records,
+      [id]: {
+        ...record,
+        status: previous,
+        history: [...record.history, { at: now, event: 'restored' as const, whatChanged: 'dismiss undone' }],
       },
     }
     persist(records, get().priorityOrder)

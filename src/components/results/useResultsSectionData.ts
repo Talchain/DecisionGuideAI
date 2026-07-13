@@ -396,6 +396,13 @@ export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<strin
   const valueExtractionType = typeof typed.value_extraction_type === 'string' ? typed.value_extraction_type : undefined
   const valueDefaulted = typeof typed.value_defaulted === 'boolean' ? typed.value_defaulted : undefined
 
+  // Producer worth_investigating flag — STRICT read: only an explicit wire
+  // `true` (snake_case from PLoT or camelCase from UI-side transforms) sets
+  // it; never derived from EVPI locally (that would fake producer provenance
+  // in the Strengthen panel's source line). Additive passthrough.
+  const worthInvestigating =
+    typed.worth_investigating === true || typed.worthInvestigating === true ? true : undefined
+
   return {
     factorId: rawId ?? label,
     label,
@@ -418,7 +425,30 @@ export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<strin
     rankFlipRate: typeof typed.rank_flip_rate === 'number' ? typed.rank_flip_rate : undefined,
     evpi: typeof typed.evpi === 'number' ? typed.evpi : undefined,
     evpiPercentagePoints: typeof typed.evpi_percentage_points === 'number' ? typed.evpi_percentage_points : undefined,
+    worthInvestigating,
   }
+}
+
+/**
+ * Build the set of factor ids the producer explicitly flagged worth
+ * investigating in `robustness.value_of_information`. STRICT read: only rows
+ * with an explicit `worth_investigating === true` count — no EVPI-derived
+ * default here (the canvas islRobustnessAdapter's `?? evpi > 0.05` fallback
+ * is a different, labelled path). Matching rule: factor id only (node_id /
+ * parameter_id), never label — same discipline as factor enrichments.
+ * Exported for direct unit testing. Additive (worth_investigating threading).
+ */
+export function buildWorthInvestigatingIdSet(voiSuggestions: unknown): Set<string> {
+  const ids = new Set<string>()
+  if (!Array.isArray(voiSuggestions)) return ids
+  for (const raw of voiSuggestions) {
+    if (raw == null || typeof raw !== 'object') continue
+    const v = raw as Record<string, unknown>
+    if (v.worth_investigating !== true) continue
+    if (typeof v.node_id === 'string' && v.node_id.length > 0) ids.add(v.node_id)
+    if (typeof v.parameter_id === 'string' && v.parameter_id.length > 0) ids.add(v.parameter_id)
+  }
+  return ids
 }
 
 // =============================================================================
@@ -1850,6 +1880,14 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       }
     })
 
+    // Step 4b-2 (additive): producer worth_investigating ids from the
+    // robustness VOI suggestions — joined onto driver rows by factor id only.
+    // (value_of_information is not declared on the narrowed robustness type;
+    // the helper validates every row itself.)
+    const voiWorthInvestigatingIds = buildWorthInvestigatingIdSet(
+      (report?.robustness as { value_of_information?: unknown } | undefined)?.value_of_information,
+    )
+
     // Step 4c: Build enrichments lookup (CEE-generated insights)
     // Matching rule: Use factor_id only (never match by label)
     const factorEnrichmentsRaw = safeArray(report?.factor_enrichments)
@@ -1996,6 +2034,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           valueSource: f.raw.valueSource,
           valueExtractionType: f.raw.valueExtractionType,
           valueDefaulted: f.raw.valueDefaulted,
+          // Producer worth_investigating flag (additive): explicit true on the
+          // factor_sensitivity row, or the robustness VOI suggestion matched
+          // by factor id. Strict — absent unless the producer said true.
+          worthInvestigating:
+            f.raw.worthInvestigating === true
+              || voiWorthInvestigatingIds.has(factorNodeId)
+              || voiWorthInvestigatingIds.has(f.key)
+              ? true
+              : undefined,
         }
       })
       .sort((a, b) => a.rank - b.rank) // Sort by rank

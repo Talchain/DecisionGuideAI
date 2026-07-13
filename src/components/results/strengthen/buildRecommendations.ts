@@ -18,7 +18,9 @@
  * Priority is deterministic (ascending): the framing foundation first, then
  * the producer's own Phase-3 ranking, then evidence work, then challenge,
  * then commit last. Reprioritisation reorders; the lifecycle store owns
- * status and never resets it.
+ * status and never resets it. When the producer supplies an adaptive
+ * priority (inputs.adaptivePriority), matching-helpType recs float above
+ * the rest while preserving relative order within each group.
  */
 import type { Recommendation, StrengthenInputs } from './strengthenTypes'
 
@@ -27,6 +29,20 @@ const VOI_EVPI_FLOOR_PP = 5
 /** Producer influence above this + confidence below the low bar = LEHI. */
 const LEHI_INFLUENCE_FLOOR = 0.5
 const LEHI_CONFIDENCE_CEILING = 0.4
+
+// UI-SEM-075: Strengthen list flood control — display gating only, never a
+// semantic judgement. (a) Phase-3 promotion is capped at the producer's own
+// top-N ranking (MAX_PHASE3_PROMOTED) so a verbose guidance payload cannot
+// flood the panel with a dozen rows; the un-promoted items still render in
+// their own guidance surfaces. (b) Recommendations are deduplicated by
+// normalised title (keep the highest-priority instance) so the panel never
+// shows two rows with identical titles. Remove when CEE ships a canonical
+// per-surface promotion budget / deduplicated strengthen feed.
+const MAX_PHASE3_PROMOTED = 4
+
+/** Adaptive-priority boost: large enough that a matching rec always outranks
+ * every non-matching band while in-band relative order is preserved. */
+const ADAPTIVE_MATCH_BOOST = 10_000
 
 const PRIORITY = {
   successMeasure: 0,
@@ -38,6 +54,11 @@ const PRIORITY = {
   broaden: 140,
   commit: 200,
 } as const
+
+/** Title normalisation for the UI-SEM-075 dedupe (case/whitespace only). */
+function normaliseTitle(title: string): string {
+  return title.trim().toLowerCase().replace(/\s+/g, ' ')
+}
 
 function pct(p: number): string {
   return `${Math.round(p * 100)}%`
@@ -69,7 +90,20 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   }
 
   // ── Phase-3 promotion (producer-owned coaching blocks, verbatim) ──────────
-  for (const item of inputs.phase3Items) {
+  // UI-SEM-075(a): promote only the producer's own top-N ranking, first
+  // occurrence per title — display gating so the panel never floods with a
+  // dozen near-identical guidance rows (the rest stay on their own surfaces).
+  const seenPhase3Titles = new Set<string>()
+  const promotedPhase3 = [...inputs.phase3Items]
+    .sort((a, b) => (a.priorityRank ?? 99) - (b.priorityRank ?? 99))
+    .filter((item) => {
+      const key = normaliseTitle(item.title)
+      if (seenPhase3Titles.has(key)) return false
+      seenPhase3Titles.add(key)
+      return true
+    })
+    .slice(0, MAX_PHASE3_PROMOTED)
+  for (const item of promotedPhase3) {
     recs.push({
       id: `strengthen:phase3:${item.id}`,
       helpType: 'clarify',
@@ -260,5 +294,25 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
     })
   }
 
-  return recs
+  // ── Adaptive priority (producer signal only — see StrengthenInputs) ──────
+  // Matching-helpType recs float above every other band; relative order
+  // within the matching group is preserved. Fail-closed: null/absent leaves
+  // the deterministic ladder untouched.
+  const boosted = inputs.adaptivePriority
+    ? recs.map((rec) =>
+        rec.helpType === inputs.adaptivePriority
+          ? { ...rec, priority: rec.priority - ADAPTIVE_MATCH_BOOST }
+          : rec,
+      )
+    : recs
+
+  // ── UI-SEM-075(b): never two rows with identical titles ──────────────────
+  // Keep the highest-priority (lowest number) instance of each title.
+  const byTitle = new Map<string, Recommendation>()
+  for (const rec of boosted) {
+    const key = normaliseTitle(rec.title)
+    const existing = byTitle.get(key)
+    if (!existing || rec.priority < existing.priority) byTitle.set(key, rec)
+  }
+  return boosted.filter((rec) => byTitle.get(normaliseTitle(rec.title)) === rec)
 }

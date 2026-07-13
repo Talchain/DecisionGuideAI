@@ -95,4 +95,11 @@ export interface StrengthenInputs {
    * broaden trigger fires ONLY from these, never from local option counting. */
   biasFindingTypes: string[]
   phase3Items: StrengthenPhase3Item[]
+  /** Producer-derived adaptive priority (the prototype's clarify/broaden/
+   * challenge/evaluate/commit stage signal). When present, recommendations
+   * whose helpType matches float to the top of the engine ordering; when
+   * null/absent the deterministic PRIORITY ladder stands alone. The container
+   * derives this ONLY from a producer-owned stage signal (UI-SEM-076) —
+   * never from local canvas-state heuristics. */
+  adaptivePriority?: HelpType | null
 }

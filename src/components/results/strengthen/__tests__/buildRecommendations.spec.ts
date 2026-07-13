@@ -177,6 +177,77 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
     expect(order.indexOf('strengthen:flip:e1')).toBeLessThan(order.indexOf('strengthen:voi:f1'))
   })
 
+  it('UI-SEM-075(a): phase-3 promotion is capped at the producer top-4 by priority_rank', () => {
+    const input: StrengthenInputs = {
+      ...base,
+      phase3Items: [
+        { id: 'b1', title: 'One', targetIds: [], priorityRank: 5 },
+        { id: 'b2', title: 'Two', targetIds: [], priorityRank: 1 },
+        { id: 'b3', title: 'Three', targetIds: [], priorityRank: 2 },
+        { id: 'b4', title: 'Four', targetIds: [], priorityRank: 3 },
+        { id: 'b5', title: 'Five', targetIds: [], priorityRank: 4 },
+        { id: 'b6', title: 'Six', targetIds: [], priorityRank: 6 },
+      ],
+    }
+    const phase3 = buildRecommendations(input).filter((r) => r.id.startsWith('strengthen:phase3:'))
+    expect(phase3).toHaveLength(4)
+    // The producer's own ranking picks the survivors — b6 (rank 6) and b1 (rank 5) drop.
+    expect(phase3.map((r) => r.id)).toEqual(
+      expect.arrayContaining(['strengthen:phase3:b2', 'strengthen:phase3:b3', 'strengthen:phase3:b4', 'strengthen:phase3:b5']),
+    )
+  })
+
+  it('UI-SEM-075(b): never two rows with identical titles — duplicate guidance items collapse to one', () => {
+    const input: StrengthenInputs = {
+      ...base,
+      phase3Items: [
+        { id: 'b1', title: 'A load-bearing assumption', targetIds: [], priorityRank: 1 },
+        { id: 'b2', title: 'A load-bearing assumption', targetIds: [], priorityRank: 2 },
+        { id: 'b3', title: 'a load-bearing  assumption', targetIds: [], priorityRank: 3 }, // case/space variant
+      ],
+    }
+    const recs = buildRecommendations(input)
+    const titles = recs.map((r) => r.title.trim().toLowerCase().replace(/\s+/g, ' '))
+    expect(new Set(titles).size).toBe(titles.length)
+    expect(recs.filter((r) => r.id.startsWith('strengthen:phase3:'))).toHaveLength(1)
+    // The producer's best-ranked instance survives.
+    expect(recs.some((r) => r.id === 'strengthen:phase3:b1')).toBe(true)
+  })
+
+  it('adaptive priority: a producer stage signal floats matching-helpType recs to the top; null leaves the ladder', () => {
+    const input: StrengthenInputs = {
+      ...base,
+      goalThreshold: null, // clarify rec (priority 0)
+      fragileEdges: [{ edgeId: 'e1', factorLabel: 'X', switchProbability: 0.5 }], // evaluate rec
+    }
+    const ladder = buildRecommendations(input).sort((a, b) => a.priority - b.priority)
+    expect(ladder[0].id).toBe('strengthen:success-measure')
+
+    const boosted = buildRecommendations({ ...input, adaptivePriority: 'evaluate' }).sort(
+      (a, b) => a.priority - b.priority,
+    )
+    expect(boosted[0].id).toBe('strengthen:flip:e1') // evaluate floats above clarify
+    // Fail-closed: explicit null behaves like absent.
+    const nulled = buildRecommendations({ ...input, adaptivePriority: null }).sort(
+      (a, b) => a.priority - b.priority,
+    )
+    expect(nulled[0].id).toBe('strengthen:success-measure')
+  })
+
+  it('adaptive priority preserves relative order WITHIN the matching group', () => {
+    const input: StrengthenInputs = {
+      ...base,
+      adaptivePriority: 'evaluate',
+      fragileEdges: [{ edgeId: 'e1', factorLabel: 'X', switchProbability: 0.5 }],
+      factors: [{ factorId: 'f1', label: 'Churn', worthInvestigating: true, canFocus: true }],
+    }
+    const order = buildRecommendations(input)
+      .sort((a, b) => a.priority - b.priority)
+      .map((r) => r.id)
+    // flip (band 100) still precedes voi (band 120) inside the boosted group.
+    expect(order.indexOf('strengthen:flip:e1')).toBeLessThan(order.indexOf('strengthen:voi:f1'))
+  })
+
   it('every emitted recommendation is fully formed (§8.4) with an explicit ai-dialogue action_type where applicable', () => {
     const input: StrengthenInputs = {
       ...base,
