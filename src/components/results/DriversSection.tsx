@@ -102,11 +102,16 @@ function gridCols(showConfidence: boolean): string {
 }
 const GRID_COLS = gridCols(DISPLAY_SAFE_DRIVER_CONFIDENCE)
 
-// Zero reason display messages - explains why sensitivity is zero
-const ZERO_REASON_MESSAGES: Record<string, string> = {
-  intervention_override: 'Directly controlled by your options',
-  disconnected: 'No causal path to goal',
-  zero_outcome_diff: "Changes don't affect outcome",
+// Zero-reason badge labels — the producer suppresses a factor's sensitivity and
+// stamps WHY (zero_reason). D-U ruling: surface that reason as a VISIBLE badge on
+// the row, not a hover-only tooltip, so an influence bar with no sensitivity is
+// never left unexplained. Display/label only — the badge reflects the producer's
+// stamp verbatim; it never fabricates or recomputes a value (a suppressed value
+// shows the badge, never a 0).
+const ZERO_REASON_BADGE_LABELS: Record<string, string> = {
+  intervention_override: 'Controlled by your options',
+  disconnected: 'No path to the goal',
+  zero_outcome_diff: "Doesn't change the outcome",
 }
 
 /**
@@ -324,15 +329,18 @@ function DriverRow({
         : null
   const showQualityHint = typeof driver.valueOfInformation === 'number' && driver.valueOfInformation > 0.05
   const hasEnrichment = driver.enrichment && hasEnrichmentContent(driver.enrichment)
-  const hasZeroReason = driver.zeroReason && ZERO_REASON_MESSAGES[driver.zeroReason]
+  // Producer zero_reason stamp → visible badge label (rendered in the row body,
+  // NOT the tooltip). Undefined when the producer left no stamp.
+  const leverBadgeLabel = driver.zeroReason ? ZERO_REASON_BADGE_LABELS[driver.zeroReason] : undefined
   // Task 7c: ranking shift + technique added to tooltip — must be computed before this line
   // (rankingShiftWarn and techniqueSuggestion are computed after this block, so use inline checks)
   // The (i) info icon must appear only when the tooltip has VISIBLE content.
   // Confidence/evidence/fragility lines (decisionChangeRisk, rankingShiftWarn,
   // qualityHint) are gated off today, so they contribute to the icon only when
-  // their gate is on. Enrichment + zero-reason (an influence explanation) are
-  // always-visible. The technique chip moved out of the tooltip to a body chip.
-  const hasTooltipContent = hasEnrichment || hasZeroReason
+  // their gate is on. Enrichment is always-visible. The zero-reason (lever)
+  // explanation moved OUT of the tooltip to a visible body badge (D-U); the
+  // technique chip likewise moved out to a body chip.
+  const hasTooltipContent = hasEnrichment
     || (DISPLAY_SAFE_DRIVER_CONFIDENCE && showQualityHint)
     || (SHOW_FRAGILITY_IN_DRIVER_SECTION && (
           !!decisionChangeRisk
@@ -419,13 +427,9 @@ function DriverRow({
           Could benefit from more evidence
         </p>
       )}
-      {/* Zero reason */}
-      {hasZeroReason && (
-        <p className="flex items-center gap-1">
-          <span aria-hidden="true">ℹ️</span>
-          {ZERO_REASON_MESSAGES[driver.zeroReason!]}
-        </p>
-      )}
+      {/* Zero reason moved OUT of the tooltip to a visible body badge (D-U): a
+          suppressed-sensitivity factor must SHOW why (e.g. "Controlled by your
+          options"), never hide the reason behind hover on the top row only. */}
       {/* Ranking shift warning (tooltip variant) — HIDDEN: a ranking-shift /
           fragility claim. Fragility ("could change the result") belongs in the
           fragile-factors section, not the driver section
@@ -622,13 +626,26 @@ function DriverRow({
         // prominence, NOT confidence/quality (outlined, text-text-body per DS).
         const emphasised = driver.semanticLabel === 'biggest' || driver.semanticLabel === 'strong'
         return (
-          <div className="flex items-center gap-1.5 px-3 pb-1">
+          <div className="flex items-center gap-1.5 px-3 pb-1 flex-wrap">
             <span
               className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full bg-transparent text-text-body border ${emphasised ? 'border-info/30' : 'border-panel-border'}`}
               data-testid={`driver-influence-pill-${driver.factorKey}`}
             >
               {pillText}
             </span>
+            {/* Lever badge (D-U): visible, on every row (not tooltip / not
+                top-only). Honours the producer's zero_reason stamp — display
+                only, no value is fabricated or recomputed. */}
+            {leverBadgeLabel && (
+              <span
+                className={`${typography.panelMeta} inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-transparent text-text-light border border-panel-border`}
+                data-testid={`driver-lever-badge-${driver.factorKey}`}
+                title={leverBadgeLabel}
+              >
+                <Info className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+                {leverBadgeLabel}
+              </span>
+            )}
             {/* No inline action here: the pill is an influence LABEL only. Per-factor
                 discussion is the bottom-right DiscussWithAiButton sparkle (kept as the
                 single, app-consistent "discuss this factor" affordance); node focus is
