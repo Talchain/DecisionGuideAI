@@ -57,6 +57,7 @@ import { humaniseCritique } from './utils/humaniseCritique'
 import { selectGoalProbability, type GoalProbabilityInput } from './utils/selectGoalProbability'
 import { deriveStabilityLevel } from '../../lib/stability'
 import { deriveResultCompleteness, type ResultCompleteness } from './useResultCompleteness'
+import { computeNormalisedInfluences, selectDriverDisplayModel } from './driverDisplayModel'
 
 // =============================================================================
 // Winner Selection Helper
@@ -463,67 +464,11 @@ export function buildWorthInvestigatingIdSet(voiSuggestions: unknown): Set<strin
  * When NO real elasticity data (all ~0): returns all 0 - UI uses hasMagnitudeData
  * flag to show direction-only view instead.
  */
-function computeNormalisedInfluences(
-  factors: Array<{ key: string; rawElasticity: number }>
-): Map<string, number> {
-  const result = new Map<string, number>()
-
-  if (factors.length === 0) {
-    return result
-  }
-
-  // Extract absolute values
-  const absoluteValues = factors.map(f => Math.abs(f.rawElasticity))
-  const actualMax = Math.max(...absoluteValues)
-
-  // If no meaningful elasticity data, set all to 0
-  // The hasMagnitudeData flag will trigger direction-only display
-  if (actualMax < 0.001) {
-    factors.forEach(f => result.set(f.key, 0))
-    return result
-  }
-
-  // Normalise each factor relative to the max (top = 100%, others proportional)
-  factors.forEach(f => {
-    const normalised = Math.min(1, Math.abs(f.rawElasticity) / actualMax)
-    result.set(f.key, normalised)
-  })
-
-  return result
-}
 
 // =============================================================================
 // Factor Rank Computation (CRITICAL: Single-Pass with Map)
 // =============================================================================
 
-/**
- * Codex R3-B1 — complete-metric-set policy, in one pure place.
- *
- * Resolves the single influence value every surface displays AND ranks by:
- * producer influenceScore is adopted only when EVERY factor carries one
- * (one comparable basis across the whole set); under partial coverage every
- * factor resolves to its elasticity-normalised influence instead. A per-factor
- * `influenceScore ?? normalised` fallback is forbidden — it ranks producer
- * scores against fallback values that are not on the same scale.
- * Mirrored by useNodeDisplayMetadata for the graph badge.
- */
-function resolveDisplayInfluences(
-  entries: Array<{ key: string; influenceScore?: number }>,
-  normalisedMap: Map<string, number>,
-): Map<string, number> {
-  const coverageComplete =
-    entries.length > 0 && entries.every((e) => typeof e.influenceScore === 'number')
-  const out = new Map<string, number>()
-  for (const e of entries) {
-    out.set(
-      e.key,
-      coverageComplete && typeof e.influenceScore === 'number'
-        ? e.influenceScore
-        : normalisedMap.get(e.key) ?? 0,
-    )
-  }
-  return out
-}
 
 /**
  * Compute ranks for all factors based on absolute elasticity.
@@ -1831,11 +1776,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // producer scores and elasticity-normalised fallbacks, which are not
     // comparable. Under partial coverage every factor displays and ranks by
     // normalisedInfluence instead, so the whole surface shares one basis.
-    const displayInfluenceMap = resolveDisplayInfluences(factorsWithKeys, normalisedMap)
+    // Codex R3-B1: display value + provenance from the ONE shared policy
+    // (driverDisplayModel) — the same function the graph badge consumes.
+    const displayModel = selectDriverDisplayModel(factorsWithKeys)
     const rankMap = computeFactorRanks(
       factorsWithKeys.map((f) => ({
         ...f,
-        displayValue: displayInfluenceMap.get(f.key) ?? 0,
+        displayValue: displayModel.get(f.key)?.value ?? 0,
       })),
     )
 
@@ -1990,7 +1937,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           // ISL influence_score (0-1) - use directly for Influence column
           influenceScore: f.raw.influenceScore,
           // Codex R3-B1: single display basis (see DriverItem.displayInfluence)
-          displayInfluence: displayInfluenceMap.get(f.key) ?? 0,
+          displayInfluence: displayModel.get(f.key)?.value ?? 0,
           // Producer influence_rank passthrough (roadmap 1.7, provisional_doctrine_v0)
           influenceRank: f.raw.influenceRank,
           // ISL zero_reason - explains why sensitivity is zero
@@ -2994,7 +2941,7 @@ export {
   getRawElasticity,
   computeNormalisedInfluences,
   computeFactorRanks,
-  resolveDisplayInfluences,
+  selectDriverDisplayModel,
   normalizeOutcomeValues,
   normaliseDirection,
   getFactorDirection,
