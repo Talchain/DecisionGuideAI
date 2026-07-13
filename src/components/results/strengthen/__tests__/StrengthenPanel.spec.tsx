@@ -70,9 +70,122 @@ describe('StrengthenPanel — §8.3 presentation', () => {
     expect(screen.getByText('2 addressed · 3 worth checking')).toBeInTheDocument()
   })
 
-  it('empty state renders honestly when nothing is active', () => {
+  it('empty state renders honestly when nothing is active (spec copy)', () => {
     render(<StrengthenPanel {...baseProps} active={[]} />)
-    expect(screen.getByText('Nothing to strengthen right now.')).toBeInTheDocument()
+    expect(screen.getByText('No recommendations need attention right now.')).toBeInTheDocument()
+  })
+
+  it('the collapsed row is a two-line block: the trigger signal is visible WITHOUT expanding', () => {
+    render(<StrengthenPanel {...baseProps} active={[record('a'), record('b')]} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Show 1 more' }))
+    // Row b is collapsed (only index 0 auto-opens) yet its signal line shows.
+    expect(screen.queryByText(/Try b/)).toBeNull() // collapsed body
+    expect(screen.getByText('Signal b')).toBeInTheDocument() // signal in the head
+  })
+
+  it('every row carries a leading family icon in the head', () => {
+    render(<StrengthenPanel {...baseProps} active={[record('strengthen:success-measure')]} />)
+    const head = screen.getByRole('button', { name: /Title strengthen:success-measure/ })
+    expect(head.querySelector('[data-testid="strengthen-rec-icon"]')).not.toBeNull()
+  })
+
+  it('footer hosts Show more / Expand all AND the history toggle in ONE row', () => {
+    render(<StrengthenPanel {...baseProps} active={[record('a'), record('b')]} />)
+    const footer = screen.getByTestId('strengthen-footer')
+    expect(footer).toContainElement(screen.getByRole('button', { name: 'Show 1 more' }))
+    expect(footer).toContainElement(screen.getByRole('button', { name: 'Expand all' }))
+    expect(footer).toContainElement(
+      screen.getByRole('button', { name: 'Show addressed and dismissed' }),
+    )
+  })
+})
+
+describe('StrengthenPanel — lifecycle state pills', () => {
+  it('an in-progress rec shows the outlined In progress pill in the collapsed head', () => {
+    render(<StrengthenPanel {...baseProps} active={[record('a', { status: 'in_progress' })]} />)
+    expect(screen.getByText('In progress')).toBeInTheDocument()
+  })
+
+  it('a reopened rec shows the Reopened pill', () => {
+    render(<StrengthenPanel {...baseProps} active={[record('a', { status: 'reopened' })]} />)
+    expect(screen.getByText('Reopened')).toBeInTheDocument()
+  })
+
+  it('a fresh rec shows no state pill', () => {
+    render(<StrengthenPanel {...baseProps} active={[record('a')]} />)
+    expect(screen.queryByText('In progress')).toBeNull()
+    expect(screen.queryByText('Reopened')).toBeNull()
+  })
+})
+
+describe('StrengthenPanel — expanded body treatment', () => {
+  it('renders the bold info Try this lead-in and unlabelled why copy (no Signal:/Why:/Try this: labels)', () => {
+    const { container } = render(<StrengthenPanel {...baseProps} active={[record('a')]} />)
+    expect(screen.getByText('Try this')).toBeInTheDocument()
+    expect(container.textContent).not.toContain('Try this:')
+    expect(container.textContent).not.toContain('Why:')
+    expect(container.textContent).not.toContain('Signal:')
+    expect(screen.getByText(/Why a/)).toBeInTheDocument() // plain why paragraph
+  })
+})
+
+describe('StrengthenPanel — independent per-row expansion', () => {
+  it('expanding a second row does NOT collapse the first (no exclusive accordion)', () => {
+    render(<StrengthenPanel {...baseProps} active={[record('a'), record('b')]} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Show 1 more' }))
+    fireEvent.click(screen.getByRole('button', { name: /Title b/ }))
+    expect(screen.getByText(/Try a/)).toBeInTheDocument() // first stays open
+    expect(screen.getByText(/Try b/)).toBeInTheDocument()
+  })
+
+  it('the default-open first row can be collapsed', () => {
+    render(<StrengthenPanel {...baseProps} active={[record('a')]} />)
+    expect(screen.getByText(/Try a/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Title a/ }))
+    expect(screen.queryByText(/Try a/)).toBeNull()
+  })
+})
+
+describe('StrengthenPanel — action feedback', () => {
+  it('Not relevant shows a transient dismissed notice with an Undo affordance', () => {
+    const onNotRelevant = vi.fn()
+    const onUndoDismiss = vi.fn()
+    render(
+      <StrengthenPanel
+        {...baseProps}
+        active={[record('a')]}
+        onNotRelevant={onNotRelevant}
+        onUndoDismiss={onUndoDismiss}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Not relevant' }))
+    expect(onNotRelevant).toHaveBeenCalled()
+    const notice = screen.getByTestId('strengthen-notice')
+    expect(notice).toHaveTextContent('Recommendation dismissed')
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(onUndoDismiss).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }))
+    expect(screen.queryByTestId('strengthen-notice')).toBeNull() // cleared after undo
+  })
+
+  it('Mark as addressed shows a visible confirmation', () => {
+    render(<StrengthenPanel {...baseProps} active={[record('a', { status: 'in_progress' })]} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Mark as addressed' }))
+    expect(screen.getByTestId('strengthen-notice')).toHaveTextContent('Marked as addressed')
+  })
+
+  it('a failed canvas focus reports honestly instead of a silent no-op', () => {
+    const onFocusCanvas = vi.fn(() => false)
+    render(
+      <StrengthenPanel
+        {...baseProps}
+        active={[record('a', {}, { targetId: 'node_1' })]}
+        onFocusCanvas={onFocusCanvas}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Focus on canvas' }))
+    expect(screen.getByTestId('strengthen-notice')).toHaveTextContent(
+      'That element is no longer on the canvas',
+    )
   })
 })
 
@@ -95,7 +208,8 @@ describe('StrengthenPanel — §8.4 affordances', () => {
     expect(screen.getByText('Source: test.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Go' }))
     expect(onPrimaryAction).toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Work through with Olumi' }))
+    // The work-through route is the ✦ icon-button (title + aria-label per spec).
+    fireEvent.click(screen.getByRole('button', { name: 'Work through this with Olumi' }))
     expect(onWorkThrough).toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Not relevant' }))
     expect(onNotRelevant).toHaveBeenCalled()

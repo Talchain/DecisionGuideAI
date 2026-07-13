@@ -568,6 +568,12 @@ export interface DriverItem {
   valueExtractionType?: string
   /** Track S: true when the value was assumed/defaulted. Distinct from isDefaultedConfidence (a confidence signal). */
   valueDefaulted?: boolean
+  /** Producer worth_investigating flag for this factor (from the
+   * factor_sensitivity row or the robustness value_of_information suggestion
+   * matched by factor id). Strict producer read — only an explicit `true`
+   * sets it; absent otherwise. Additive; consumed by the Strengthen panel's
+   * VOI trigger so its source line can honestly cite the engine. */
+  worthInvestigating?: boolean
 }
 
 export interface DriversSectionData {
@@ -936,6 +942,10 @@ export interface UiFactorSensitivity {
   valueExtractionType?: string
   /** Track S: true when the value was assumed/defaulted. Distinct from isDefaultedConfidence (a confidence signal). */
   valueDefaulted?: boolean
+  /** Producer worth_investigating flag (strict read: only an explicit wire
+   * `true` sets it; never derived from EVPI locally). Additive — threads the
+   * engine flag through to the Strengthen VOI trigger. */
+  worthInvestigating?: boolean
 }
 
 // =============================================================================

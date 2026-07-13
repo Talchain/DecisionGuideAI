@@ -1,27 +1,37 @@
 /**
- * StrengthenContainer — the ONE store-aware mount wrapper for Wave 3a
- * (mounted exclusively by ResultsBody behind VITE_FEATURE_STRENGTHEN_PANEL,
- * replacing FocusNow inside the flag; the panel itself is store-free).
+ * StrengthenContainer — the ONE store-aware mount wrapper for the Strengthen
+ * panel (mounted exclusively by ResultsBody behind
+ * VITE_FEATURE_STRENGTHEN_PANEL, replacing FocusNow inside the flag; the
+ * panel itself is store-free).
  *
  * Responsibilities:
- * - map the results data + guidance items into the narrow engine inputs;
+ * - map the results data + guidance items into the narrow engine inputs
+ *   (including the producer worth_investigating flag threaded through the
+ *   drivers VM, the producer-owned CEE bias signals for the broaden gate,
+ *   and the producer stage signal for adaptive priority — UI-SEM-076);
  * - run buildRecommendations and reconcile the lifecycle store on each
  *   COMPLETED analysis (keyed by the results hash — reconcile-by-id, so a
  *   new response never resets progress);
+ * - credit the success-measure rec DIRECTLY when the user sets a success
+ *   target (goalThreshold null → number) instead of waiting for the next
+ *   completed-analysis reconcile — a failed/cancelled rerun otherwise
+ *   leaves a stale "Define what success looks like" row;
  * - label everything stale when the model changes (visible-but-stale: this
  *   panel deliberately keeps rendering snapshots the fail-stale guidance
  *   eviction would drop, per plan §3 — the freshness strip stays the tab's
  *   single freshness OWNER; the per-rec label is detail, not a verdict);
  * - route actions per §8.8, reading callbacks at CLICK time (they start
- *   null and go transiently null across host remounts): ai-dialogue via
- *   _dispatchAction with an EXPLICIT action_type (chip_metadata survives
- *   only conversation-typed turns), degrading to _sendMessage with a DEV
- *   warn; canvas focus via the fail-closed focusModelTarget (resolves
- *   node ids, canvas edge ids and PLoT arrow-form edge ids).
+ *   null and go transiently null across host remounts). Two DISTINCT routes
+ *   per the prototype: the PRIMARY action does the thing (ai-dialogue via
+ *   _dispatchAction with an EXPLICIT action_type, degrading to _sendMessage
+ *   with a DEV warn; canvas focus via the fail-closed focusModelTarget) and
+ *   marks the rec in progress on success; "Work through this with Olumi"
+ *   opens the Ask-Olumi drawer PREFILLED (never auto-sends, never mutates
+ *   status — the drawer owns dispatch/degrade/toasts).
  * - suppress any panel-local freshness banner (AnalysisFreshnessNotice owns
  *   the tab's freshness surface — same contract as FocusNowContainer).
  */
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
 import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
 import {
@@ -31,10 +41,33 @@ import {
   type RecRecord,
 } from '../../../canvas/stores/strengthenStore'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
+import { openAskOlumi } from '../coaching/askOlumiStore'
 import { buildRecommendations } from './buildRecommendations'
-import type { StrengthenInputs } from './strengthenTypes'
+import { STRENGTHEN_COPY as COPY } from './strengthenCopy'
+import type { HelpType, StrengthenInputs } from './strengthenTypes'
 import { StrengthenPanel } from './StrengthenPanel'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
+import type { ScenarioStage } from '../../../types/scenario'
+
+/**
+ * UI-SEM-076: producer stage → strengthen adaptive-priority taxonomy bridge.
+ * The orchestrator's stage_indicator (ScenarioStage, stored producer-side in
+ * canvas currentStage) is mapped onto the strengthen help-type taxonomy so
+ * matching recommendations float to the top — ordering only, never a gate
+ * and never fabricated from local canvas state (a null stage leaves the
+ * deterministic engine ladder untouched). 'optimise' has no strengthen
+ * equivalent and maps to null. Remove when CEE ships a canonical
+ * strengthen-priority signal on the wire.
+ */
+export function adaptivePriorityFromStage(stage: ScenarioStage | null): HelpType | null {
+  switch (stage) {
+    case 'frame': return 'clarify'
+    case 'ideate': return 'broaden'
+    case 'evaluate': return 'evaluate'
+    case 'decide': return 'commit'
+    default: return null
+  }
+}
 
 export interface StrengthenContainerProps {
   data: ResultsSectionDataReturn
@@ -43,6 +76,8 @@ export interface StrengthenContainerProps {
 export function StrengthenContainer({ data }: StrengthenContainerProps) {
   const resultsHash = useCanvasStore((s) => s.results.hash ?? null)
   const freshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty === true)
+  const currentStage = useCanvasStore((s) => s.currentStage)
+  const biasSignals = useCanvasStore((s) => s.draftCoaching?.biasSignals ?? null)
   const guidanceItems = useGuidanceStore((s) => s.guidanceItems)
 
   const records = useStrengthenStore((s) => s.records)
@@ -55,7 +90,6 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
   )
 
   const inputs: StrengthenInputs = useMemo(() => {
-    const confidence = data.confidence as Record<string, unknown>
     const fragile = (data.confidence.challengeFragileEdges ?? []) as Array<Record<string, unknown>>
     return {
       goalThreshold: data.recommendation.goalThreshold ?? null,
@@ -74,20 +108,24 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
         label: d.factorLabel,
         influenceScore: d.influenceScore,
         confidence: d.confidence ?? null,
-        worthInvestigating: (d as Record<string, unknown>).worthInvestigating === true,
+        // Producer flag threaded through the drivers VM (factor_sensitivity
+        // row or robustness VOI suggestion joined by factor id) — strict
+        // explicit-true read, so the engine's source line stays honest.
+        worthInvestigating: d.worthInvestigating === true,
         evpiPercentagePoints:
-          typeof (d as Record<string, unknown>).evpiPercentagePoints === 'number'
-            ? ((d as Record<string, unknown>).evpiPercentagePoints as number)
-            : null,
+          typeof d.evpiPercentagePoints === 'number' ? d.evpiPercentagePoints : null,
         canFocus: d.canFocus,
       })),
       robustness: {
-        status: (confidence.robustnessStatus as string | undefined) ?? null,
-        level: (confidence.robustnessLevel as string | undefined) ?? null,
+        status: data.confidence.robustnessStatus ?? null,
+        level: data.confidence.robustnessLevel ?? null,
       },
-      // Producer-owned bias findings only (§19): no live emission until CEE
-      // ships the signal — the engine keeps broaden gated on this list.
-      biasFindingTypes: [],
+      // Producer-owned bias findings only (§19): CEE draft-coaching
+      // bias_signals (e.g. 'narrow_framing'), verbatim types — never local
+      // option counting. Empty until CEE sends the signal (fail-closed).
+      biasFindingTypes: (biasSignals ?? []).map((b) => b.type),
+      // Producer stage signal → adaptive priority (UI-SEM-076, ordering only).
+      adaptivePriority: adaptivePriorityFromStage(currentStage),
       phase3Items: guidanceItems.map((item) => ({
         id: item.item_id,
         title: item.title,
@@ -100,7 +138,7 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
         priorityRank: 100 - (item.priority ?? 0),
       })),
     }
-  }, [data, guidanceItems])
+  }, [data, guidanceItems, biasSignals, currentStage])
 
   // Reconcile on each COMPLETED analysis (identified by the results hash).
   useEffect(() => {
@@ -108,6 +146,23 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
     const { reconcile } = useStrengthenStore.getState()
     reconcile(buildRecommendations(inputs), resultsHash ?? 'no-analysis')
   }, [inputs, resultsHash])
+
+  // Setting a success target credits the success-measure rec DIRECTLY —
+  // never wait for the next completed-analysis reconcile (a failed or
+  // cancelled rerun would otherwise leave the contradiction visible).
+  const prevGoalThresholdRef = useRef<number | null>(inputs.goalThreshold)
+  useEffect(() => {
+    const prev = prevGoalThresholdRef.current
+    prevGoalThresholdRef.current = inputs.goalThreshold
+    if (prev != null || inputs.goalThreshold == null) return
+    const record = useStrengthenStore.getState().records['strengthen:success-measure']
+    if (
+      record &&
+      (record.status === 'recommended' || record.status === 'in_progress' || record.status === 'reopened')
+    ) {
+      useStrengthenStore.getState().markAddressed('strengthen:success-measure', 'success target set')
+    }
+  }, [inputs.goalThreshold])
 
   // The model changed since the last completed analysis: label, never evict.
   useEffect(() => {
@@ -151,20 +206,34 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
     if (ok) useStrengthenStore.getState().markInProgress(record.id)
   }
 
+  // Prototype route (b): the ✦ ask hands the rec to the Ask-Olumi drawer
+  // PREFILLED — context is the why-line (prototype asymmetry: the primary
+  // sends the tip, the ask passes the why), the draft is editable, nothing
+  // auto-sends, and the rec status is NOT mutated (the user may abandon the
+  // conversation). The drawer owns dispatch, degrade and toasts.
   const onWorkThrough = (record: RecRecord) => {
-    if (dispatchAiDialogue(record)) {
-      useStrengthenStore.getState().markInProgress(record.id)
-    }
+    const rec = record.snapshot
+    openAskOlumi({
+      context: rec.whyNow,
+      draft: COPY.workThroughDraft(rec.title),
+      label: rec.title,
+      targetId: rec.targetId ?? undefined,
+      parameters: rec.action.parameters,
+      source: 'chip',
+    })
   }
 
-  const onFocusCanvas = (record: RecRecord) => {
-    if (record.snapshot.targetId) {
-      focusModelTarget(record.snapshot.targetId)
-    }
+  const onFocusCanvas = (record: RecRecord): boolean => {
+    if (!record.snapshot.targetId) return false
+    return focusModelTarget(record.snapshot.targetId)
   }
 
   const onNotRelevant = (record: RecRecord) => {
     useStrengthenStore.getState().dismiss(record.id)
+  }
+
+  const onUndoDismiss = (record: RecRecord) => {
+    useStrengthenStore.getState().restoreDismissed(record.id)
   }
 
   const onMarkAddressed = (record: RecRecord) => {
@@ -181,6 +250,7 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
       onFocusCanvas={onFocusCanvas}
       onNotRelevant={onNotRelevant}
       onMarkAddressed={onMarkAddressed}
+      onUndoDismiss={onUndoDismiss}
     />
   )
 }
