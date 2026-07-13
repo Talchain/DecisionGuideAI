@@ -136,4 +136,27 @@ describe('Wave F-A/W2 integration: option-numbering registration reaches the sto
     // No fragmentation artefacts: exactly the analysed ids, nothing else.
     expect(Object.keys(numbering).sort()).toEqual(['opt_a', 'opt_b'])
   })
+
+  it('ids containing control characters register intact (Codex R2: the dep key is JSON-encoded, not delimiter-joined)', () => {
+    const weirdIds = ['opt_\u0000weird', 'opt_b']
+    act(() => {
+      useCanvasStore.setState({
+        nodes: weirdIds.map((id, i) => ({
+          id,
+          type: 'option',
+          position: { x: 0, y: i * 100 },
+          data: { label: `Option ${i + 1}`, kind: 'option' },
+        })) as any,
+      } as any)
+    })
+    renderHook(() => useResultsSectionData())
+    const numbering = useCanvasStore.getState().optionNumbering
+    // The regression: a delimiter-joined dep key fragmented ids on the
+    // delimiter. The id must register as ONE intact key with an ordinal,
+    // with no fragment artefacts alongside it.
+    expect(numbering['opt_\u0000weird']).toBeGreaterThan(0)
+    const keys = Object.keys(numbering)
+    expect(keys).not.toContain('opt_')
+    expect(keys).not.toContain('weird')
+  })
 })

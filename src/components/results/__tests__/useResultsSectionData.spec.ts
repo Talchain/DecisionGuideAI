@@ -14,6 +14,7 @@ import {
   getRawElasticity,
   computeNormalisedInfluences,
   computeFactorRanks,
+  resolveDisplayInfluences,
   normaliseDirection,
   getFactorDirection,
   getSemanticLabel,
@@ -260,6 +261,53 @@ describe('normaliseLabel', () => {
 // =============================================================================
 // 4. Rank Computation Tests
 // =============================================================================
+
+describe('resolveDisplayInfluences (Codex R3-B1: complete-metric-set policy)', () => {
+  it('adopts producer influence only when EVERY factor carries one', () => {
+    const entries = [
+      { key: 'a', influenceScore: 0.9 },
+      { key: 'b', influenceScore: 0.2 },
+    ]
+    const normalised = new Map([['a', 0.1], ['b', 1.0]])
+    const result = resolveDisplayInfluences(entries, normalised)
+    expect(result.get('a')).toBe(0.9)
+    expect(result.get('b')).toBe(0.2)
+  })
+
+  it('partial coverage: EVERY factor falls back to normalised elasticity — a producer 0.9 must not outrank the elasticity-dominant factor it cannot be compared with', () => {
+    // Codex R3-B1 scenario: A has influence_score 0.9, B has NO producer score
+    // but dominant elasticity, C has influence_score 0.2. Mixing bases would
+    // rank A #1 on a producer scale B never entered. Under the policy all
+    // three resolve on the normalised-elasticity basis: B (1.0) > A > C.
+    const entries = [
+      { key: 'a', influenceScore: 0.9 },
+      { key: 'b' },
+      { key: 'c', influenceScore: 0.2 },
+    ]
+    const normalised = new Map([['a', 0.4], ['b', 1.0], ['c', 0.1]])
+    const result = resolveDisplayInfluences(entries, normalised)
+    expect(result.get('a')).toBe(0.4)
+    expect(result.get('b')).toBe(1.0)
+    expect(result.get('c')).toBe(0.1)
+    // And the rank the surfaces crown by follows the same single basis:
+    const rankMap = computeFactorRanks([
+      { key: 'a', rawElasticity: 0.4, displayValue: result.get('a') },
+      { key: 'b', rawElasticity: 1.0, displayValue: result.get('b') },
+      { key: 'c', rawElasticity: 0.1, displayValue: result.get('c') },
+    ])
+    expect(rankMap.get('b')).toBe(1)
+    expect(rankMap.get('a')).toBe(2)
+    expect(rankMap.get('c')).toBe(3)
+  })
+
+  it('no producer coverage at all: normalised basis for everyone', () => {
+    const entries = [{ key: 'a' }, { key: 'b' }]
+    const normalised = new Map([['a', 1.0], ['b', 0.5]])
+    const result = resolveDisplayInfluences(entries, normalised)
+    expect(result.get('a')).toBe(1.0)
+    expect(result.get('b')).toBe(0.5)
+  })
+})
 
 describe('computeFactorRanks', () => {
   it('ranks by absolute elasticity descending', () => {
@@ -1615,4 +1663,3 @@ describe('Codex B2 — ranking doctrine: order and crown follow the DISPLAYED in
     expect(rankMap.get('b')).toBe(2)
   })
 })
-

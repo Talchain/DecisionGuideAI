@@ -99,8 +99,11 @@ export function useNodeDisplayMetadata(
       // untyped enrichment passthrough is a fallback only — it must never
       // silently drive a different #1 than the panel), and rank by the
       // DISPLAYED influence metric so the badge order matches the "I: NN%"
-      // readout beside it: producer influence_score when present, else the
-      // per-array-normalised elasticity the readout falls back to.
+      // readout beside it. Codex R3-B1: complete-metric-set policy — producer
+      // influence_score is used only when EVERY factor in the array carries
+      // one; under partial coverage every factor uses per-array-normalised
+      // elasticity, so ranks never compare producer scores against fallbacks.
+      // Mirrors the identical policy in useResultsSectionData (panel side).
       const factorSensitivity = (report.factor_sensitivity?.length
         ? report.factor_sensitivity
         : report.enrichment?.sensitivity_analysis?.factors) || []
@@ -111,12 +114,18 @@ export function useNodeDisplayMetadata(
         ),
         0,
       )
+      const influenceCoverageComplete =
+        factorSensitivity.length > 0 &&
+        factorSensitivity.every(
+          (f: any) => typeof (f.influence_score ?? f.influenceScore) === 'number',
+        )
       const ranked = [...factorSensitivity]
         .map((f: any) => {
           const elasticity = Math.abs(f.elasticity ?? f.sensitivity_score ?? f.importance_score ?? 0)
+          const producerScore = f.influence_score ?? f.influenceScore
           const influence =
-            typeof f.influence_score === 'number'
-              ? f.influence_score
+            influenceCoverageComplete && typeof producerScore === 'number'
+              ? producerScore
               : maxAbsElasticity > 0
                 ? elasticity / maxAbsElasticity
                 : 0
@@ -164,21 +173,12 @@ export function useNodeDisplayMetadata(
           valueOfInformation = rawVoi
         }
 
-        // Influence: Use influence_score if available, otherwise normalize elasticity
-        const rawInfluence = factorData.influence_score ??
-                            factorData.influenceScore ??
-                            factorData.elasticity ??
-                            factorData.sensitivity_score ??
-                            factorData.importance_score
-
-        if (typeof rawInfluence === 'number') {
-          // If already 0-1 (influence_score), use directly; otherwise it's elasticity (needs normalization)
-          if (rawInfluence >= 0 && rawInfluence <= 1) {
-            influence = rawInfluence
-          } else if (ranked.length > 0 && ranked[0].elasticity > 0) {
-            // Normalize against max elasticity
-            influence = Math.abs(rawInfluence) / ranked[0].elasticity
-          }
+        // Influence readout: the ranked entry already resolved the displayed
+        // value under the complete-metric-set policy (Codex R3-B1) — read it
+        // back so the "I: NN%" beside the badge is the number the rank used.
+        const rankedEntry = ranked.find(r => r.id === nodeId)
+        if (rankedEntry && Number.isFinite(rankedEntry.influence)) {
+          influence = rankedEntry.influence
         }
 
         // Confidence: Direct extraction (already 0-1)

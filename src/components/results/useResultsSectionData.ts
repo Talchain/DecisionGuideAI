@@ -467,6 +467,35 @@ function computeNormalisedInfluences(
 // =============================================================================
 
 /**
+ * Codex R3-B1 — complete-metric-set policy, in one pure place.
+ *
+ * Resolves the single influence value every surface displays AND ranks by:
+ * producer influenceScore is adopted only when EVERY factor carries one
+ * (one comparable basis across the whole set); under partial coverage every
+ * factor resolves to its elasticity-normalised influence instead. A per-factor
+ * `influenceScore ?? normalised` fallback is forbidden — it ranks producer
+ * scores against fallback values that are not on the same scale.
+ * Mirrored by useNodeDisplayMetadata for the graph badge.
+ */
+function resolveDisplayInfluences(
+  entries: Array<{ key: string; influenceScore?: number }>,
+  normalisedMap: Map<string, number>,
+): Map<string, number> {
+  const coverageComplete =
+    entries.length > 0 && entries.every((e) => typeof e.influenceScore === 'number')
+  const out = new Map<string, number>()
+  for (const e of entries) {
+    out.set(
+      e.key,
+      coverageComplete && typeof e.influenceScore === 'number'
+        ? e.influenceScore
+        : normalisedMap.get(e.key) ?? 0,
+    )
+  }
+  return out
+}
+
+/**
  * Compute ranks for all factors based on absolute elasticity.
  * Returns map of factorKey -> rank (1-indexed)
  */
@@ -763,13 +792,13 @@ function classifySeverityLegacy(
  * @deprecated Remove after 2026-05-12 — PLoT B1 now provides dominant_factor on the response.
  */
 function detectDominantFactorLegacy(
-  nonZeroImpactDrivers: Array<{ factorKey: string; factorLabel: string; influenceScore?: number; normalisedInfluence?: number }>
+  nonZeroImpactDrivers: Array<{ factorKey: string; factorLabel: string; displayInfluence?: number; influenceScore?: number; normalisedInfluence?: number }>
 ): { dominantFactorId: string; dominantFactorLabel: string } | undefined {
   if (nonZeroImpactDrivers.length < 2) return undefined
   const top1 = nonZeroImpactDrivers[0]
   const top2 = nonZeroImpactDrivers[1]
-  const top1Influence = top1.influenceScore ?? top1.normalisedInfluence
-  const top2Influence = top2.influenceScore ?? top2.normalisedInfluence
+  const top1Influence = top1.displayInfluence ?? top1.influenceScore ?? top1.normalisedInfluence
+  const top2Influence = top2.displayInfluence ?? top2.influenceScore ?? top2.normalisedInfluence
   if (typeof top1Influence !== 'number' || typeof top2Influence !== 'number') return undefined
   const isDominant = top1Influence > 0.5 && (top2Influence > 0 ? top1Influence / top2Influence > 2 : true)
   if (isDominant) {
@@ -1766,13 +1795,17 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     // Step 3: Compute ranks by the DISPLAYED metric (Codex B2 doctrine fix:
     // the surface says "Influence", so the order and the rank-1 crown follow
-    // the same number the bar renders — producer influence_score when
-    // present, else the elasticity-derived normalisedInfluence the bar
-    // falls back to. Ordering and label can no longer contradict the bar.)
+    // the same number the bar renders. Codex R3-B1 tightens this to a
+    // complete-metric-set policy: producer influence_score is used only when
+    // EVERY factor carries one — a partial set would rank a mixture of
+    // producer scores and elasticity-normalised fallbacks, which are not
+    // comparable. Under partial coverage every factor displays and ranks by
+    // normalisedInfluence instead, so the whole surface shares one basis.
+    const displayInfluenceMap = resolveDisplayInfluences(factorsWithKeys, normalisedMap)
     const rankMap = computeFactorRanks(
       factorsWithKeys.map((f) => ({
         ...f,
-        displayValue: f.influenceScore ?? normalisedMap.get(f.key) ?? 0,
+        displayValue: displayInfluenceMap.get(f.key) ?? 0,
       })),
     )
 
@@ -1918,6 +1951,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           normalisedInfluence,
           // ISL influence_score (0-1) - use directly for Influence column
           influenceScore: f.raw.influenceScore,
+          // Codex R3-B1: single display basis (see DriverItem.displayInfluence)
+          displayInfluence: displayInfluenceMap.get(f.key) ?? 0,
           // Producer influence_rank passthrough (roadmap 1.7, provisional_doctrine_v0)
           influenceRank: f.raw.influenceRank,
           // ISL zero_reason - explains why sensitivity is zero
@@ -1970,7 +2005,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // These are filtered from default view but included in "See all factors"
     const ZERO_IMPACT_THRESHOLD = 0.01
     const isZeroImpact = (d: DriverItem) => {
-      const influence = d.influenceScore ?? d.normalisedInfluence
+      const influence = d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence
       // Bug fix: Handle undefined influence - treat as zero if missing
       const effectiveInfluence = typeof influence === 'number' ? influence : 0
       // v7.2: Zero impact = influence < 0.01 (confidence not checked)
@@ -2912,6 +2947,7 @@ export {
   getRawElasticity,
   computeNormalisedInfluences,
   computeFactorRanks,
+  resolveDisplayInfluences,
   normalizeOutcomeValues,
   normaliseDirection,
   getFactorDirection,

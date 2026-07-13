@@ -17,6 +17,18 @@ import { GuidanceStrip } from '../GuidanceStrip'
 import { useGuidanceStore, type GuidanceItem } from '../../stores/guidanceStore'
 import { _clearTraces, getInteractionChains } from '../../../lib/debug-state'
 
+// Codex R3-SF5: the overview-ownership dedup (the Decision overview card owns
+// "Olumi's top question"; the strip must not show the same item twice) is
+// flag-gated — make the flag controllable while keeping every other flag real.
+const flagState = { decisionOverview: false }
+vi.mock('@/flags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/flags')>()
+  return {
+    ...actual,
+    isDecisionOverviewEnabled: () => flagState.decisionOverview,
+  }
+})
+
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -53,6 +65,7 @@ beforeEach(() => {
   useGuidanceStore.getState().clearGuidanceItems()
   _clearTraces()
   vi.useFakeTimers()
+  flagState.decisionOverview = false
 })
 
 // ---------------------------------------------------------------------------
@@ -80,6 +93,52 @@ describe('GuidanceStrip — render conditions', () => {
     render(<GuidanceStrip {...makeProps()} />)
     expect(screen.getByText('High priority')).toBeInTheDocument()
     expect(screen.queryByText('Low priority')).not.toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Overview ownership (Wave SF11 / Codex R3-SF5 regression pin)
+// ---------------------------------------------------------------------------
+
+describe('GuidanceStrip — decision-overview ownership dedup', () => {
+  const overviewOwned = () =>
+    makeItem({ item_id: 'top-q', title: 'Top question', priority: 90, primary_action: { type: 'discuss', prompt: 'Discuss this.' } })
+  const nextItem = () =>
+    makeItem({ item_id: 'second', title: 'Second item', priority: 40, primary_action: { type: 'discuss', prompt: 'Also this.' } })
+
+  it('flag ON: skips the overview-owned top discuss item and shows the next one', () => {
+    flagState.decisionOverview = true
+    useGuidanceStore.getState().setGuidanceItems([overviewOwned(), nextItem()])
+    render(<GuidanceStrip {...makeProps()} />)
+    expect(screen.queryByText('Top question')).not.toBeInTheDocument()
+    expect(screen.getByText('Second item')).toBeInTheDocument()
+  })
+
+  it('flag OFF: the strip keeps showing the top discuss item (no double-gating)', () => {
+    flagState.decisionOverview = false
+    useGuidanceStore.getState().setGuidanceItems([overviewOwned(), nextItem()])
+    render(<GuidanceStrip {...makeProps()} />)
+    expect(screen.getByText('Top question')).toBeInTheDocument()
+  })
+
+  it('flag ON but the top item is not the overview-owned discuss item: shown unchanged', () => {
+    flagState.decisionOverview = true
+    const warnTop = makeItem({
+      item_id: 'warn-top',
+      title: 'A structural warning',
+      priority: 95,
+      primary_action: { type: 'open_inspector', node_id: 'node-1' },
+    })
+    useGuidanceStore.getState().setGuidanceItems([warnTop, overviewOwned()])
+    render(<GuidanceStrip {...makeProps()} />)
+    expect(screen.getByText('A structural warning')).toBeInTheDocument()
+  })
+
+  it('flag ON with only the overview-owned item: strip renders nothing rather than duplicating it', () => {
+    flagState.decisionOverview = true
+    useGuidanceStore.getState().setGuidanceItems([overviewOwned()])
+    render(<GuidanceStrip {...makeProps()} />)
+    expect(screen.queryByTestId('guidance-strip')).not.toBeInTheDocument()
   })
 })
 

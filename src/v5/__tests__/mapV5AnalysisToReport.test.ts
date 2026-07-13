@@ -20,6 +20,39 @@ const baseBlock = (overrides: Partial<AnalysisResultBlock> = {}): AnalysisResult
   ...overrides,
 })
 
+describe('mapV5AnalysisToReport — decision_brief passthrough (Codex SF7/R3-SF5)', () => {
+  it('carries enrichment.decision_brief verbatim onto the widened report (live V5 path)', () => {
+    const decisionBrief = {
+      headline_banded: {
+        band: 'clearly_ahead',
+        leader_id: 'opt_a',
+        robustness_gated: false,
+      },
+    }
+    const block = baseBlock({
+      win_probabilities: { opt_a: 0.8, opt_b: 0.2 },
+      enrichment: { decision_brief: decisionBrief } as never,
+    })
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> &
+      Record<string, unknown>
+    expect(report.decision_brief).toEqual(decisionBrief)
+  })
+
+  it('absent decision_brief leaves no key on the report (no fabricated band)', () => {
+    const block = baseBlock({ enrichment: {} as never })
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> &
+      Record<string, unknown>
+    expect('decision_brief' in report).toBe(false)
+  })
+
+  it('non-object decision_brief is dropped, not passed through', () => {
+    const block = baseBlock({ enrichment: { decision_brief: 'clearly_ahead' } as never })
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> &
+      Record<string, unknown>
+    expect('decision_brief' in report).toBe(false)
+  })
+})
+
 describe('mapV5AnalysisToReport — option IDs and probabilities', () => {
   it('option_probabilities keys match win_probabilities keys exactly (no synthesised opt_0/opt_1)', () => {
     const block = baseBlock({

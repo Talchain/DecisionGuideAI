@@ -132,7 +132,10 @@ export interface TornadoChartProps {
   isNormalised?: boolean
   /** Goal direction — determines bar colour semantics (higher outcome = green for maximize, orange for minimize) */
   goalDirection?: 'maximize' | 'minimize'
-  /** A4: Flip threshold data for marker annotations */
+  /** A4: Flip threshold data — accepted but not rendered. The flip marker was
+   *  removed (Codex R3-SF4): flip_value is a factor-space value and the bars are
+   *  outcome-space, so positioning it on the bar was an invalid coordinate mapping.
+   *  Re-add rendering only when factor-space bounds (factorLow/factorHigh) exist. */
   flipThresholds?: FlipThreshold[]
   /** Task 4: Factor IDs with contested inbound edges — highlighted with dashed border */
   contestedFactorIds?: string[]
@@ -202,52 +205,6 @@ function formatExpectedLabel(
   return `Expected: ${formatted}`
 }
 
-// ─── FlipMarker (A4) ────────────────────────────────────────────────────────
-
-interface FlipMarkerProps {
-  row: TornadoRow
-  flipThresholds: FlipThreshold[] | undefined
-  totalRange: number
-  minVal: number
-}
-
-function FlipMarker({ row, flipThresholds, totalRange, minVal }: FlipMarkerProps) {
-  const flipThreshold = flipThresholds?.find(ft => ft.node_id === row.factorKey)
-  const hasFlip = flipThreshold?.flip_value != null
-    && flipThreshold.flip_reason !== 'heuristic'
-    && flipThreshold.flip_reason !== 'no_bracket'
-  if (!hasFlip || flipThreshold?.flip_value == null) return null
-
-  const flipVal = flipThreshold.flip_value
-  const range = row.highOutcome - row.lowOutcome
-  if (range === 0) return null
-
-  const rawPct = ((flipVal - row.lowOutcome) / range) * 100
-  const rowLowPct = totalRange > 0 ? ((row.lowOutcome - minVal) / totalRange) * 100 : 0
-  const rowHighPct = totalRange > 0 ? ((row.highOutcome - minVal) / totalRange) * 100 : 0
-  const clampedLocalPct = Math.max(0, Math.min(100, rawPct))
-  const chartPct = rowLowPct + (clampedLocalPct / 100) * (rowHighPct - rowLowPct)
-
-  const formattedFlip = flipThreshold.unit
-    ? `${flipThreshold.unit}${Math.round(flipVal).toLocaleString()}`
-    : Math.abs(flipVal) >= 10
-      ? Math.round(flipVal).toLocaleString()
-      : flipVal.toFixed(1)
-
-  return (
-    <div
-      className="absolute top-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none z-10"
-      style={{ left: `${chartPct}%` }}
-      data-testid="flip-marker"
-      title={`Flips at ${formattedFlip}`}
-    >
-      <div className="w-[6px] h-[6px] bg-danger rotate-45" aria-hidden="true" />
-      <span className={`${typography.panelMeta} text-danger whitespace-nowrap absolute top-full mt-0.5`}>
-        Flips at {formattedFlip}
-      </span>
-    </div>
-  )
-}
 
 // ─── Drag state management ──────────────────────────────────────────────────
 
@@ -281,7 +238,6 @@ export function TornadoChart({
   onFocusNode,
   isNormalised,
   goalDirection,
-  flipThresholds,
   contestedFactorIds,
 }: TornadoChartProps) {
   const contestedSet = new Set(contestedFactorIds ?? [])
@@ -656,9 +612,6 @@ export function TornadoChart({
                     </div>
                   </div>
                 )}
-
-                {/* A4: Flip-point marker — diamond on bar showing where recommendation changes */}
-                <FlipMarker row={row} flipThresholds={flipThresholds} totalRange={totalRange} minVal={minVal} />
 
                 {/* Low value label — hidden when left bar is collapsed.
                     Brief 5.4 closeout item 8: clamped to min 1% from left so the
