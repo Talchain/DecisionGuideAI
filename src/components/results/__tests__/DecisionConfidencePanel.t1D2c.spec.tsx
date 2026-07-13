@@ -239,6 +239,41 @@ describe('DecisionConfidencePanel — Brief 5.8B D2c T1 flip-risk + nudge + chec
     expect(screen.queryByTestId('t1-dominant-nudge')).not.toBeInTheDocument()
   })
 
+  it('Lane 2 (policy divergence): nudge gates on displayInfluence, not raw influenceScore — raw 0.95 / display 0.6 → suppressed', () => {
+    // Under partial producer coverage the shared driverDisplayModel falls
+    // back to normalised elasticity for EVERY driver; the panel bar shows
+    // displayInfluence. A nudge keyed on the raw score would then claim a
+    // dominance the same panel's bars contradict (the tornado had exactly
+    // this bug — Codex final-audit B1).
+    render(
+      <DecisionConfidencePanel
+        data={makeData({
+          drivers: [
+            makeDriver({ influenceScore: 0.95, displayInfluence: 0.6 }),
+          ],
+          dominantFactorLabel: 'Pricing',
+        })}
+      />,
+    )
+    expect(screen.queryByTestId('t1-dominant-nudge')).not.toBeInTheDocument()
+  })
+
+  it('Lane 2 (policy divergence): nudge copy follows displayInfluence — raw 0.3 / display 0.85 → fires with "85% of the outcome"', () => {
+    render(
+      <DecisionConfidencePanel
+        data={makeData({
+          drivers: [
+            makeDriver({ influenceScore: 0.3, displayInfluence: 0.85 }),
+          ],
+          dominantFactorLabel: 'Pricing',
+          dominantFactorId: 'node_pricing',
+        })}
+      />,
+    )
+    const nudge = screen.getByTestId('t1-dominant-nudge')
+    expect(nudge).toHaveTextContent(/85% of the outcome/)
+  })
+
   it('DriversSection no longer renders any dominant-factor warning (legacy testid is gone)', () => {
     const drivers: DriverItem[] = [makeDriver({ influenceScore: 0.95 })]
     const driversData: DriversSectionData = {

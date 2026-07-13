@@ -161,9 +161,9 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
         (f) =>
           typeof f.confidence === 'number' && // producer confidence ONLY
           f.confidence < LEHI_CONFIDENCE_CEILING &&
-          (f.influenceScore ?? 0) > LEHI_INFLUENCE_FLOOR,
+          (f.influence ?? 0) > LEHI_INFLUENCE_FLOOR,
       )
-      .sort((a, b) => (b.influenceScore ?? 0) - (a.influenceScore ?? 0))[0]
+      .sort((a, b) => (b.influence ?? 0) - (a.influence ?? 0))[0]
     if (lehi) {
       recs.push({
         id: `strengthen:lehi:${lehi.factorId}`,

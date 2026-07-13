@@ -311,8 +311,12 @@ function T1DominantNudge({
 }) {
   const drivers = data.drivers
   const topDriver = drivers.topDrivers?.[0] ?? drivers.drivers?.[0]
+  // Lane 2 (policy): gate and phrase the nudge on the SAME display influence
+  // the panel/hero/graph/tornado show (driverDisplayModel via the stamped
+  // displayInfluence) — a raw-score read here claimed dominance the panel's
+  // own bars contradicted under partial producer coverage (Codex R3-B1 class).
   const topInfluence = topDriver
-    ? (topDriver.influenceScore ?? topDriver.normalisedInfluence ?? 0)
+    ? (topDriver.displayInfluence ?? topDriver.influenceScore ?? topDriver.normalisedInfluence ?? 0)
     : 0
   const showNudge = topInfluence >= 0.8
   const rawLabel = drivers.dominantFactorLabel ?? topDriver?.factorLabel ?? ''

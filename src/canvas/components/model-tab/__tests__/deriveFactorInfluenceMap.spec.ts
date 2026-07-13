@@ -50,7 +50,28 @@ describe('deriveFactorInfluenceMap', () => {
     expect(map!.get('fac_market_receptivity')).toBeCloseTo(0.6209677419354838)
   })
 
-  it('falls back to elasticity/sensitivity_score/importance_score when influence_score is absent (legacy shape)', () => {
+  it('Lane 2 (R3-B1): PARTIAL producer coverage falls back to per-set normalised elasticity for EVERY factor — no mixed basis', () => {
+    // The complete-metric-set doctrine (driverDisplayModel): adopting the
+    // producer score for SOME factors while others use elasticity mixes two
+    // incomparable bases in one ranking — the exact bug the panel, badge,
+    // hero and tornado were cured of. The model-tab card sits next to the
+    // graph badge for the SAME node; they must agree.
+    const map = deriveFactorInfluenceMap({
+      factor_sensitivity: [
+        { factor_id: 'fac_a', influence_score: 0.9, elasticity: 0.1 },
+        { factor_id: 'fac_b', elasticity: 0.4 },
+      ],
+    })
+
+    expect(map!.get('fac_a')).toBeCloseTo(0.25) // 0.1 / 0.4 — NOT the lone 0.9
+    expect(map!.get('fac_b')).toBeCloseTo(1.0)
+  })
+
+  it('DELIBERATE PIN FLIP (Lane 2): the legacy shape (no influence_score anywhere) now yields SET-NORMALISED values via the shared policy', () => {
+    // Previously raw passthrough (0.4 / 0.25 / 0.1). Under the shared
+    // driverDisplayModel the no-producer-coverage case normalises to the
+    // set's max |elasticity| — the same numbers the graph badge shows for
+    // these factors.
     const map = deriveFactorInfluenceMap({
       factor_sensitivity: [
         { factor_id: 'fac_legacy_elasticity', elasticity: 0.4 },
@@ -59,9 +80,9 @@ describe('deriveFactorInfluenceMap', () => {
       ],
     })
 
-    expect(map!.get('fac_legacy_elasticity')).toBe(0.4)
-    expect(map!.get('fac_legacy_sensitivity')).toBe(0.25)
-    expect(map!.get('fac_legacy_importance')).toBe(0.1)
+    expect(map!.get('fac_legacy_elasticity')).toBeCloseTo(1.0)
+    expect(map!.get('fac_legacy_sensitivity')).toBeCloseTo(0.625)
+    expect(map!.get('fac_legacy_importance')).toBeCloseTo(0.25)
   })
 
   it('reads from enrichment.sensitivity_analysis.factors when factor_sensitivity is absent', () => {

@@ -65,7 +65,13 @@ export interface StrengthenFragileEdge {
 export interface StrengthenFactor {
   factorId: string
   label: string
-  influenceScore?: number
+  /**
+   * The driver DISPLAY-POLICY value (driverDisplayModel via the stamped
+   * DriverItem.displayInfluence) — NOT raw producer influence_score. Named
+   * `influence` so a raw-metric read cannot hide behind the field name
+   * (Lane 2, Codex R3-B1 class).
+   */
+  influence?: number
   /** Producer per-factor confidence (present only on newer wires). */
   confidence?: number | null
   /** True when the producer explicitly flagged this factor worth investigating. */
