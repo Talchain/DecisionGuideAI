@@ -1,29 +1,38 @@
 /**
- * Wave 1 — consolidated Actions menu (brief §4.7).
+ * Wave 1 + parity O — consolidated Actions menu (brief §4.7, prototype
+ * decision-overview v6).
  *
  * ONE persistent menu owning user-invoked science-grounded methods +
- * global utilities. Methods open CONTEXTUAL AI sessions via dispatchAction
- * as conversation-typed turns (chip_metadata carries {method_id} — it is
- * dropped on every other turn type); they disable honestly when no chat is
- * registered (never dead controls). Rerun routes through the canonical
- * runner. Keyboard-complete: Escape closes and focus returns to the
- * trigger (fixes the harvested HeroActionsMenu gap).
+ * global utilities. Every coaching ask (the seven methods, Edit decision
+ * brief, Review all inputs) routes through the Ask-Olumi drawer
+ * (openAskOlumi) with a prefilled EDITABLE draft instead of auto-sending a
+ * hidden dispatch — the audit's "routed asks never surface the conversation"
+ * fix. The drawer owns the honest no-conversation disabled state, so menu
+ * items stay enabled. Rerun stays a direct canonical run (not drawer) with
+ * outcome feedback via the self-toast (ToastProvider is absent in the live
+ * results tree). Keyboard-complete: Escape closes and focus returns to the
+ * trigger.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 
-import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
 import { executeCanonicalRun } from '../../../canvas/analysis/canonicalRunRegistry'
-import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { typography } from '../../../styles/typography'
-import { METHOD_CATALOGUE, GLOBAL_ACTIONS, type MethodEntry } from './actionsCatalogue'
+import { openAskOlumi } from '../coaching/askOlumiStore'
+import {
+  METHOD_CATALOGUE,
+  GLOBAL_ACTIONS,
+  REVIEW_BRIEF_ASK,
+  RERUN_TOASTS,
+  type GlobalActionEntry,
+  type MethodEntry,
+} from './actionsCatalogue'
+import { useSelfToast } from './useSelfToast'
 
 export function ActionsMenu() {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
-  const dispatchAction = useGuidanceStore((s) => s._dispatchAction)
-  const sendMessage = useGuidanceStore((s) => s._sendMessage)
-  const showToast = useShowToastSafe()
+  const { showToast, toastElement } = useSelfToast()
 
   const close = useCallback((restoreFocus: boolean) => {
     setOpen(false)
@@ -80,37 +89,49 @@ export function ActionsMenu() {
 
   const runMethod = (method: MethodEntry) => {
     close(true)
-    // Conversation-typed turn: chip_metadata (the contextual-session
-    // carrier) survives ONLY on this turn type.
-    void dispatchAction?.({
-      action_type: 'discuss',
-      parameters: { method_id: method.id },
+    // Prototype parity: method click opens the drawer with the method's
+    // description as context and its prompt as the editable draft. The
+    // method identity rides parameters so the eventual dispatch is a
+    // conversation-typed turn carrying chip_metadata {method_id}.
+    openAskOlumi({
+      context: method.description,
+      draft: method.prompt,
       label: method.title,
-      message: method.prompt,
+      parameters: { method_id: method.id },
       source: 'chip',
     })
   }
 
-  const runGlobal = (id: string) => {
+  const runGlobal = (action: GlobalActionEntry) => {
     close(true)
-    if (id === 'rerun_analysis') {
+    if (action.id === 'rerun_analysis') {
+      // Rerun stays a DIRECT canonical run (prototype: no drawer). Feedback
+      // for every outcome: only the awaited V2 path may claim completion;
+      // the fire-and-forget V5 dispatch honestly claims a start.
       void executeCanonicalRun({ source: 'actions-menu' }).then((outcome) => {
         if (outcome.status === 'blocked' || outcome.status === 'unavailable') {
           showToast(outcome.reason)
+        } else if (outcome.status === 'already-running') {
+          showToast(RERUN_TOASTS.alreadyRunning)
+        } else if (outcome.status === 'v2') {
+          showToast(RERUN_TOASTS.completed)
+        } else {
+          showToast(RERUN_TOASTS.started)
         }
       })
       return
     }
-    if (id === 'edit_brief') {
-      sendMessage?.('Review my decision brief with me: challenge the goal, context, constraints and options.')
+    if (action.id === 'edit_brief') {
+      openAskOlumi({ ...REVIEW_BRIEF_ASK, source: 'chip' })
       return
     }
-    if (id === 'review_inputs') {
-      sendMessage?.('Walk me through all the current model inputs without changing anything.')
-    }
+    openAskOlumi({
+      context: action.description,
+      draft: action.prompt ?? `Help me work through: ${action.title}`,
+      label: action.title,
+      source: 'chip',
+    })
   }
-
-  const methodsEnabled = dispatchAction !== null
 
   return (
     <div className="relative flex-none">
@@ -120,10 +141,12 @@ export function ActionsMenu() {
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => (open ? close(true) : setOpen(true))}
-        className={`${typography.panelBody} inline-flex items-center gap-1 rounded-pill border border-panel-border px-3 py-1 text-text-body hover:bg-panel-hover`}
+        className={`${typography.panelBody} inline-flex items-center gap-1 rounded-pill border px-3 py-1 hover:bg-panel-hover ${
+          open ? 'border-info text-text-header' : 'border-panel-border text-text-body'
+        }`}
       >
         Actions
-        <ChevronDown size={12} aria-hidden="true" />
+        <ChevronDown size={16} aria-hidden="true" />
       </button>
       {open && (
         <div
@@ -138,10 +161,8 @@ export function ActionsMenu() {
               key={m.id}
               type="button"
               role="menuitem"
-              disabled={!methodsEnabled}
-              title={methodsEnabled ? undefined : 'Open the Olumi panel to use methods'}
               onClick={() => runMethod(m)}
-              className="block w-full rounded-md px-2 py-1.5 text-left hover:bg-panel-hover disabled:opacity-50 disabled:cursor-not-allowed"
+              className="block w-full rounded-md px-2 py-1.5 text-left hover:bg-panel-hover"
             >
               <span className={`${typography.panelBody} block font-semibold text-text-header`}>{m.title}</span>
               <span className={`${typography.panelMeta} block text-text-light`}>{m.description}</span>
@@ -149,28 +170,21 @@ export function ActionsMenu() {
           ))}
           <div className="my-1 h-px bg-panel-border" aria-hidden="true" />
           <p className={`${typography.panelMeta} px-2 pb-1 text-text-light`}>Global actions</p>
-          {GLOBAL_ACTIONS.map((a) => {
-            // Review S6: brief-review routes need a registered chat; rerun
-            // does not. Never render dead controls.
-            const needsChat = a.id !== 'rerun_analysis'
-            const enabled = !needsChat || sendMessage !== null
-            return (
+          {GLOBAL_ACTIONS.map((a) => (
             <button
               key={a.id}
               type="button"
               role="menuitem"
-              disabled={!enabled}
-              title={enabled ? undefined : 'Open the Olumi panel to use this'}
-              onClick={() => runGlobal(a.id)}
-              className="block w-full rounded-md px-2 py-1.5 text-left hover:bg-panel-hover disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => runGlobal(a)}
+              className="block w-full rounded-md px-2 py-1.5 text-left hover:bg-panel-hover"
             >
               <span className={`${typography.panelBody} block font-semibold text-text-header`}>{a.title}</span>
               <span className={`${typography.panelMeta} block text-text-light`}>{a.description}</span>
             </button>
-            )
-          })}
+          ))}
         </div>
       )}
+      {toastElement}
     </div>
   )
 }

@@ -1,24 +1,35 @@
 /**
- * Wave 1 — consolidated Actions menu (brief §4.7): ONE stable catalogue of
- * science-grounded methods + global utilities, persistent, contextual AI
- * sessions via dispatchAction (conversation-typed — chip_metadata drops on
- * every other turn type), canonical rerun, keyboard-complete with focus
- * restore (fixes the HeroActionsMenu gap).
+ * Wave 1 + parity O — consolidated Actions menu (brief §4.7): ONE stable
+ * catalogue of science-grounded methods + global utilities, persistent,
+ * keyboard-complete with focus restore. Every coaching ask (methods, Edit
+ * decision brief, Review all inputs) opens the Ask-Olumi drawer with a
+ * prefilled EDITABLE draft — never an invisible auto-send. Rerun stays a
+ * direct canonical run with honest outcome toasts (only the awaited V2 path
+ * claims completion).
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 
 import { ActionsMenu } from '../ActionsMenu'
-import { METHOD_CATALOGUE, GLOBAL_ACTIONS } from '../actionsCatalogue'
-import { useGuidanceStore } from '../../../../canvas/stores/guidanceStore'
+import { METHOD_CATALOGUE, GLOBAL_ACTIONS, REVIEW_BRIEF_ASK, RERUN_TOASTS } from '../actionsCatalogue'
+import { useAskOlumiStore } from '../../coaching/askOlumiStore'
 import {
   registerCanonicalRunner,
   __resetCanonicalRunnerForTests,
+  type CanonicalRunOptions,
 } from '../../../../canvas/analysis/canonicalRunRegistry'
 
 beforeEach(() => {
   __resetCanonicalRunnerForTests()
-  useGuidanceStore.setState({ _dispatchAction: null, _sendMessage: null } as never)
+  useAskOlumiStore.setState({
+    isOpen: false,
+    context: '',
+    draft: '',
+    label: '',
+    targetId: null,
+    parameters: undefined,
+    source: 'chip',
+  })
 })
 
 describe('Actions catalogue (brief §4.7 — one recognisable set)', () => {
@@ -53,6 +64,17 @@ describe('ActionsMenu', () => {
     expect(document.activeElement).toBe(trigger)
   })
 
+  it('trigger reads as expanded while open (info border + header text)', () => {
+    render(<ActionsMenu />)
+    const trigger = screen.getByRole('button', { name: /actions/i })
+    expect(trigger.className).toContain('border-panel-border')
+    fireEvent.click(trigger)
+    expect(trigger.className).toContain('border-info')
+    expect(trigger.className).toContain('text-text-header')
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+    expect(trigger.className).toContain('border-panel-border')
+  })
+
   it('closes on Tab without trapping focus (Codex SF8: disclosure, not a focus trap)', () => {
     render(<ActionsMenu />)
     const trigger = screen.getByRole('button', { name: /actions/i })
@@ -70,29 +92,51 @@ describe('ActionsMenu', () => {
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('a method opens a contextual session: dispatchAction with method identity in parameters', () => {
-    const dispatch = vi.fn()
-    useGuidanceStore.setState({ _dispatchAction: dispatch } as never)
+  it('a method opens the Ask-Olumi drawer with prompt draft, description context and method identity', () => {
     render(<ActionsMenu />)
     fireEvent.click(screen.getByRole('button', { name: /actions/i }))
     fireEvent.click(screen.getByText('Run a pre-mortem'))
-    expect(dispatch).toHaveBeenCalledTimes(1)
-    const call = dispatch.mock.calls[0][0]
-    expect(call.parameters).toMatchObject({ method_id: 'pre_mortem' })
-    expect(typeof call.message).toBe('string')
-    expect(call.message.length).toBeGreaterThan(0)
+    const drawer = useAskOlumiStore.getState()
+    expect(drawer.isOpen).toBe(true)
+    const preMortem = METHOD_CATALOGUE.find((m) => m.id === 'pre_mortem')!
+    expect(drawer.draft).toBe(preMortem.prompt)
+    expect(drawer.context).toBe(preMortem.description)
+    expect(drawer.label).toBe(preMortem.title)
+    expect(drawer.parameters).toMatchObject({ method_id: 'pre_mortem' })
+    expect(drawer.source).toBe('chip')
   })
 
-  it('methods are disabled with honest hint when no chat can receive them (never dead controls)', () => {
+  it('methods route to the drawer even with no conversation registered (the drawer owns the honest disabled state)', () => {
     render(<ActionsMenu />)
     fireEvent.click(screen.getByRole('button', { name: /actions/i }))
     const method = screen.getByText('Run a pre-mortem').closest('button')!
-    expect(method).toBeDisabled()
+    expect(method).not.toBeDisabled()
+    fireEvent.click(method)
+    expect(useAskOlumiStore.getState().isOpen).toBe(true)
+  })
+
+  it('"Edit decision brief" opens the drawer with the shared review-brief ask', () => {
+    render(<ActionsMenu />)
+    fireEvent.click(screen.getByRole('button', { name: /actions/i }))
+    fireEvent.click(screen.getByText('Edit decision brief'))
+    const drawer = useAskOlumiStore.getState()
+    expect(drawer.isOpen).toBe(true)
+    expect(drawer.label).toBe(REVIEW_BRIEF_ASK.label)
+    expect(drawer.context).toBe(REVIEW_BRIEF_ASK.context)
+    expect(drawer.draft).toBe(REVIEW_BRIEF_ASK.draft)
+  })
+
+  it('"Review all inputs" opens the drawer with its inspection draft', () => {
+    render(<ActionsMenu />)
+    fireEvent.click(screen.getByRole('button', { name: /actions/i }))
+    fireEvent.click(screen.getByText('Review all inputs'))
+    const drawer = useAskOlumiStore.getState()
+    expect(drawer.isOpen).toBe(true)
+    expect(drawer.label).toBe('Review all inputs')
+    expect(drawer.draft).toBe('Walk me through all the current model inputs without changing anything.')
   })
 
   it('S5: arrow keys rove focus across menu items and outside click closes', () => {
-    // All items enabled: chat + dispatch registered.
-    useGuidanceStore.setState({ _dispatchAction: vi.fn(), _sendMessage: vi.fn() } as never)
     render(<ActionsMenu />)
     fireEvent.click(screen.getByRole('button', { name: /actions/i }))
     const items = screen.getAllByRole('menuitem')
@@ -105,20 +149,46 @@ describe('ActionsMenu', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
-  it('S6: brief-review globals disable honestly when no chat is registered (rerun stays live)', () => {
-    render(<ActionsMenu />)
-    fireEvent.click(screen.getByRole('button', { name: /actions/i }))
-    expect(screen.getByText('Edit decision brief').closest('button')).toBeDisabled()
-    expect(screen.getByText('Review all inputs').closest('button')).toBeDisabled()
-    expect(screen.getByText('Rerun analysis').closest('button')).not.toBeDisabled()
-  })
-
-  it('"Rerun analysis" routes through the canonical runner', async () => {
-    const runner = vi.fn(async (_opts?: import('../../../../canvas/analysis/canonicalRunRegistry').CanonicalRunOptions) => ({ status: 'dispatched' as const }))
+  it('"Rerun analysis" routes through the canonical runner (direct, no drawer)', async () => {
+    const runner = vi.fn(async (_opts?: CanonicalRunOptions) => ({ status: 'dispatched' as const }))
     registerCanonicalRunner(runner)
     render(<ActionsMenu />)
     fireEvent.click(screen.getByRole('button', { name: /actions/i }))
     fireEvent.click(screen.getByText('Rerun analysis'))
     await vi.waitFor(() => expect(runner).toHaveBeenCalledTimes(1))
+    expect(useAskOlumiStore.getState().isOpen).toBe(false)
+  })
+
+  it('rerun via the fire-and-forget dispatch toasts a START (never claims completion)', async () => {
+    registerCanonicalRunner(async () => ({ status: 'dispatched' as const }))
+    render(<ActionsMenu />)
+    fireEvent.click(screen.getByRole('button', { name: /actions/i }))
+    fireEvent.click(screen.getByText('Rerun analysis'))
+    expect(await screen.findByText(RERUN_TOASTS.started)).toBeInTheDocument()
+  })
+
+  it('rerun via the awaited V2 path toasts the completed message', async () => {
+    registerCanonicalRunner(async () => ({ status: 'v2' as const }))
+    render(<ActionsMenu />)
+    fireEvent.click(screen.getByRole('button', { name: /actions/i }))
+    fireEvent.click(screen.getByText('Rerun analysis'))
+    expect(await screen.findByText(RERUN_TOASTS.completed)).toBeInTheDocument()
+  })
+
+  it('blocked rerun surfaces the blocking reason', async () => {
+    registerCanonicalRunner(async () => ({ status: 'blocked' as const, reason: 'Add a goal first' }))
+    render(<ActionsMenu />)
+    fireEvent.click(screen.getByRole('button', { name: /actions/i }))
+    fireEvent.click(screen.getByText('Rerun analysis'))
+    expect(await screen.findByText('Add a goal first')).toBeInTheDocument()
+  })
+
+  it('rerun with no registered host surfaces the unavailable reason', async () => {
+    render(<ActionsMenu />)
+    fireEvent.click(screen.getByRole('button', { name: /actions/i }))
+    fireEvent.click(screen.getByText('Rerun analysis'))
+    expect(
+      await screen.findByText('Analysis is still loading. Try again in a moment.'),
+    ).toBeInTheDocument()
   })
 })
