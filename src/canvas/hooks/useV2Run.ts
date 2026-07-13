@@ -42,6 +42,11 @@ import { useGateStore, updateRobustnessGate, updateRobustnessGateFromV2 } from '
 import { buildRawErrorData, hashStackTrace } from '../../utils/payloadRedaction'
 import { extractM1ReviewFromV2, extractM1CoachingFromV2 } from '../../hooks/hydrateAnalysis'
 import { assembleAnalysisInputsSummary } from '../analysis/assembleAnalysisInputsSummary'
+import {
+  useSuccessMeasureStore,
+  selectSuccessMeasure,
+} from '../../components/results/modals/successMeasureStore'
+import { resolveScenarioKey } from '../../components/results/modals/scenarioKey'
 
 /**
  * P0 Fix: Derive a stable numeric seed from a string.
@@ -130,6 +135,24 @@ export function resolveGoalThresholdCap(
  */
 export function capForUnit(unit: string | null | undefined): number | undefined {
   return typeof unit === 'string' && unit.trim() === '%' ? 100 : undefined
+}
+
+/**
+ * UI-SEM-081 provenance guard (adversarial-review blocker fold): the saved
+ * measure's unit may cap ONLY a store threshold that provably CAME from that
+ * measure (identical raw value). The store field can hold values from other
+ * writers in other scales — CEE-sync writes capless NORMALISED values into it
+ * (store.ts bare-sync), and the field survives scenario switches while the
+ * measure is scenario-keyed — so pairing the measure's "%" with a foreign
+ * store value ships a silently wrong wire number (0.6 → 0.006, a 100× target
+ * shrink). No provenance → no unit cap (fail closed).
+ */
+export function resolveMeasureUnitCap(
+  measure: { threshold: number; unit: string } | null | undefined,
+  rawThreshold: number | null | undefined,
+): number | undefined {
+  if (!measure || rawThreshold == null) return undefined
+  return measure.threshold === rawThreshold ? capForUnit(measure.unit) : undefined
 }
 
 /**
@@ -532,12 +555,22 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       // UI-SEM-058: the store threshold is raw user units; the request wants
       // normalised 0-1. Convert against the resolved cap (analysis_ready, then
       // the goal node's data — the same chain the display path uses).
+      // UI-SEM-081 (review fold): the saved measure's unit is the last-resort
+      // cap here too — otherwise the V2 fallback DISAGREES with the V5 chip
+      // legs and clears the very %-target the chip carries. Provenance-guarded.
       const goalThresholdCap = resolveGoalThresholdCap(
         effectiveAnalysisReady as { goal_threshold_cap?: unknown } | null,
         nodes,
         outcomeNodeId,
       )
-      const normalisedGoalThreshold = normaliseGoalThresholdForRequest(goalThreshold, goalThresholdCap)
+      const measureForScenario = selectSuccessMeasure(
+        useSuccessMeasureStore.getState(),
+        resolveScenarioKey(useCanvasStore.getState().currentScenarioId),
+      )
+      const normalisedGoalThreshold = normaliseGoalThresholdForRequest(
+        goalThreshold,
+        goalThresholdCap ?? resolveMeasureUnitCap(measureForScenario, goalThreshold),
+      )
       // A store threshold that EXISTS but cannot be proven normalised must
       // CLEAR the request threshold (null → adapter deletes the builder's
       // baked analysisReady.goal_threshold): the baked value predates the

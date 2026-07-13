@@ -69,6 +69,15 @@ describe('setGoalThresholdAndUpdateNode — store↔node invariant', () => {
     expect(data.threshold_source).toBeUndefined()
   })
 
+  it('resetCanvas clears the goal threshold — a fresh decision must not inherit the old target (review corruption B)', () => {
+    useCanvasStore.getState().setGoalThresholdAndUpdateNode('goal_1', 60)
+    expect(useCanvasStore.getState().goalThreshold).toBe(60)
+
+    useCanvasStore.getState().resetCanvas()
+
+    expect(useCanvasStore.getState().goalThreshold).toBeNull()
+  })
+
   it('a goalNodeId matching NO node still sets the global value but WARNS (split-brain must be detectable)', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 

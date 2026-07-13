@@ -11,7 +11,7 @@
  * case; every other unit stays fail-closed.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { capForUnit, resolveChipGoalThreshold } from '../useV2Run'
+import { capForUnit, resolveChipGoalThreshold, resolveMeasureUnitCap } from '../useV2Run'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -83,5 +83,38 @@ describe('resolveChipGoalThreshold with a unit-derived cap', () => {
       }),
     ).toBeUndefined()
     expect(warn).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('resolveMeasureUnitCap — provenance guard (review blocker fold)', () => {
+  const measure = { threshold: 60, unit: '%' }
+
+  it('caps only a store value that IS the measure value', () => {
+    expect(resolveMeasureUnitCap(measure, 60)).toBe(100)
+  })
+
+  it('a foreign store value gets NO unit cap — provenance mismatch', () => {
+    // CEE-sync writes capless NORMALISED values into the raw-units store
+    // field; blindly pairing them with the measure's "%" ships 0.6/100 =
+    // 0.006 — a silent 100× target shrink.
+    expect(resolveMeasureUnitCap(measure, 0.6)).toBeUndefined()
+    expect(resolveMeasureUnitCap(measure, 30)).toBeUndefined()
+    expect(resolveMeasureUnitCap(measure, null)).toBeUndefined()
+    expect(resolveMeasureUnitCap(null, 60)).toBeUndefined()
+  })
+
+  it('corruption-A end-to-end: a CEE-synced normalised 0.6 with a 60-% measure passes through as 0.6, never 0.006', () => {
+    expect(
+      resolveChipGoalThreshold(0.6, {
+        analysisReady: null,
+        nodes: [{ id: 'goal_1', data: {} }],
+        goalNodeId: 'goal_1',
+        unitCap: resolveMeasureUnitCap(measure, 0.6),
+      }),
+    ).toBe(0.6)
+  })
+
+  it('non-% measure derives nothing even with provenance', () => {
+    expect(resolveMeasureUnitCap({ threshold: 60, unit: 'projects' }, 60)).toBeUndefined()
   })
 })

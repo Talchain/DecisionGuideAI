@@ -178,6 +178,11 @@ describe('OutputsDock analyse convergence', () => {
     vi.useRealTimers()
     vi.restoreAllMocks()
     _clearTraces()
+    // Lane 1b review fold (test hygiene): these leak across tests via module
+    // state / sessionStorage if only reset in test bodies — an assertion
+    // failure would skip the cleanup.
+    useCanvasStore.setState({ goalThreshold: null } as never)
+    useSuccessMeasureStore.getState()._reset()
   })
 
   it('dispatches direct V2 run instead of the shared conversation callback', () => {
@@ -455,8 +460,40 @@ describe('OutputsDock analyse convergence', () => {
         action_type: 'run_analysis',
         parameters: { goal_threshold: 0.6 },
       })
+    })
+
+    it('Lane 1b review fold: a CEE-synced NORMALISED store value is never ÷100 by the measure unit (0.6 rides as 0.6, not 0.006)', async () => {
+      // Corruption A from the adversarial review: CEE-sync writes capless
+      // normalised values into the raw-units store field; the persisted "%"
+      // measure must NOT cap them (provenance mismatch: 0.6 !== 60).
+      const dispatchAction = vi.fn()
+      mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() } as any)
+      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
+      mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
+      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+      useCanvasStore.setState({ goalThreshold: 0.6 } as any)
       useSuccessMeasureStore.getState()._reset()
-      useCanvasStore.setState({ goalThreshold: null } as any)
+      useSuccessMeasureStore.getState().saveMeasure(
+        resolveScenarioKey(useCanvasStore.getState().currentScenarioId),
+        {
+          metric: 'Conversion',
+          direction: 'reach_at_least',
+          threshold: 60,
+          unit: '%',
+          timeframe: '6 months',
+          baseline: null,
+          savedAt: 0,
+        },
+      )
+
+      renderOutputsDock()
+      const runner = getCanonicalRunner()
+      await runner!({ source: 'freshness-strip' })
+
+      expect(dispatchAction).toHaveBeenCalledTimes(1)
+      expect(dispatchAction.mock.calls[0][0]).toMatchObject({
+        parameters: { goal_threshold: 0.6 },
+      })
     })
 
     it('Lane 1b: explicit caller parameters are never overridden by the store threshold', async () => {
@@ -474,7 +511,6 @@ describe('OutputsDock analyse convergence', () => {
       expect(dispatchAction.mock.calls[0][0]).toMatchObject({
         parameters: { goal_threshold: 0.25 },
       })
-      useCanvasStore.setState({ goalThreshold: null } as any)
     })
 
     it('Lane 1b: an unprovable store threshold stays OMITTED on a plain run (fail closed)', async () => {
@@ -493,7 +529,6 @@ describe('OutputsDock analyse convergence', () => {
 
       expect(dispatchAction).toHaveBeenCalledTimes(1)
       expect(dispatchAction.mock.calls[0][0].parameters).toBeUndefined()
-      useCanvasStore.setState({ goalThreshold: null } as any)
     })
   })
 

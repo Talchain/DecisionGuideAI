@@ -75,7 +75,7 @@ import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../ut
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
-import { useV2Run, resolveChipGoalThreshold, capForUnit, type V2RunPersistence } from '../hooks/useV2Run'
+import { useV2Run, resolveChipGoalThreshold, resolveMeasureUnitCap, type V2RunPersistence } from '../hooks/useV2Run'
 import {
   useSuccessMeasureStore,
   selectSuccessMeasure,
@@ -819,7 +819,11 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
               (storeState.ceeAnalysisReady?.goal_node_id as string | undefined) ??
               storeState.nodes.find((n) => n.type === 'goal')?.id ??
               null,
-            unitCap: capForUnit(savedMeasure?.unit),
+            // Provenance-guarded (review blocker): the measure's "%" may cap
+            // ONLY a store value that came from that measure — the store field
+            // also receives capless NORMALISED values from CEE-sync, which a
+            // blind ÷100 would shrink 100×.
+            unitCap: resolveMeasureUnitCap(savedMeasure, storeState.goalThreshold),
           })
           if (storeThreshold !== undefined) {
             parameters = { goal_threshold: storeThreshold }
@@ -959,7 +963,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       analysisReady: store.ceeAnalysisReady,
       nodes: store.nodes,
       goalNodeId,
-      unitCap: capForUnit(savedMeasure?.unit),
+      // Provenance-guarded: the inline editor's number may be in a different
+      // scale than the saved measure — the "%" cap applies only when the
+      // applied value IS the measure's value.
+      unitCap: resolveMeasureUnitCap(savedMeasure, threshold),
     })
     void runCanonicalAnalysis({
       source: 'apply-threshold',
