@@ -24,8 +24,9 @@ import { resolve } from 'node:path'
 import { ActionType } from '@talchain/schemas/boundary'
 
 import { parseV5Response } from '../responseParser'
-import { buildV5Payload, KNOWN_ACTION_TYPES } from '../buildPayload'
+import { buildV5Payload, KNOWN_ACTION_TYPES, type BuildV5PayloadInput } from '../buildPayload'
 import { V5_ENABLED_ACTIONS } from '../../canvas/conversation/zones/SuggestedChips'
+import { ANALYSIS_PRODUCING_ACTION_TYPES } from '../../lib/analysisProducingCeeTurn'
 
 const FIXTURE_PATH = resolve(__dirname, 'fixtures/cee-response-b82c89dd-trimmed.json')
 
@@ -65,6 +66,32 @@ describe('explain-chips vocabulary — parser → filter seam (V-P0-2)', () => {
     expect(V5_ENABLED_ACTIONS.has('explain_result')).toBe(true)
     expect(V5_ENABLED_ACTIONS.has('explain_results')).toBe(true)
   })
+
+  it('schema-enum values the filter deliberately EXCLUDES are exactly the documented list — a new enum/emitter value forces a decision here', () => {
+    // These are schema-valid on the wire but have no chip affordance:
+    // set_factor_value/add_constraint/adjust_edge_strength/compare_options
+    // have no V5 end-to-end chip handler; explain_from_structure has no
+    // ACTION_TO_TURN_TYPE dispatch mapping yet (rendering it would promise
+    // action and deliver default routing — add filter + mapping together).
+    const excluded = ActionType.options.filter((t) => !V5_ENABLED_ACTIONS.has(t))
+    expect(new Set(excluded)).toEqual(
+      new Set([
+        'set_factor_value',
+        'add_constraint',
+        'adjust_edge_strength',
+        'compare_options',
+        'explain_from_structure',
+      ]),
+    )
+  })
+
+  it('the debug-bundle turn selector recognises the explain chip vocabulary (review fold)', () => {
+    // V5 traces carry no turnType — the selector falls back to
+    // chip.action_type, so the CHIP forms must be in the set or the debug
+    // bundle pins an older turn as "latest" after an explain click.
+    expect(ANALYSIS_PRODUCING_ACTION_TYPES.has('explain_results')).toBe(true)
+    expect(ANALYSIS_PRODUCING_ACTION_TYPES.has('explain_result')).toBe(true)
+  })
 })
 
 describe('buildPayload wire allowlist — schema parity', () => {
@@ -73,7 +100,7 @@ describe('buildPayload wire allowlist — schema parity', () => {
   })
 
   it('a schema-valid plural explain_results chip is NOT stripped at the wire', () => {
-    const build = buildV5Payload({
+    const input: BuildV5PayloadInput = {
       turnId: '00000000-0000-4000-8000-000000000001',
       scenarioId: '00000000-0000-4000-8000-000000000002',
       stage: 'analyse',
@@ -82,7 +109,8 @@ describe('buildPayload wire allowlist — schema parity', () => {
       message: 'Explain the result',
       source: 'chip',
       chipMeta: { action_type: 'explain_results' },
-    } as never)
+    }
+    const build = buildV5Payload(input)
     if (!build.ok) throw new Error('payload build failed: ' + JSON.stringify(build))
     const payload = build.payload as { chip?: { action_type?: string } }
     expect(payload.chip?.action_type).toBe('explain_results')

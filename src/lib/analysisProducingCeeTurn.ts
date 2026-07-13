@@ -70,11 +70,21 @@ export interface SelectorTracedPayload {
  * Turn types that produce analysis state. Drawn from
  * `ACTION_TO_TURN_TYPE` in `useConversation.ts` and the
  * `chip.action_type` discriminator on V5 requests.
+ *
+ * V5 traces carry no turnType — the selector falls back to
+ * `chip.action_type` — so this set must name the CHIP vocabulary too, not
+ * just the mapped turn type: V-P0-2 unhid the explain chips, whose wire
+ * form is `explain_results` (plural; singular is the schema's legacy
+ * alias). Without these entries the debug bundle pins an OLDER
+ * run_analysis/what_would_flip turn as "latest" after an explain click —
+ * the same vocabulary-drift class V-P0-2 fixed, on the diagnostic surface.
  */
 export const ANALYSIS_PRODUCING_ACTION_TYPES: ReadonlySet<string> = new Set([
   'run_analysis',
   'what_would_flip',
   'explain',
+  'explain_results',
+  'explain_result',
 ])
 
 // Round-4 review (IMP): `V5_TURN_ENDPOINT_PATTERN` moved to the

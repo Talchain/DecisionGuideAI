@@ -650,14 +650,14 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
     }
   }
 
-  // Tolerance step 3 (action_type alias drift): the runtime dispatch map
-  // (`ACTION_TO_TURN_TYPE` in useConversation.ts) already aliases known
-  // CEE-side action_type plurals to their canonical schema forms (e.g.
-  // 'explain_results' → 'explain_result'). Apply the same normalisation
-  // pre-validation so the strict schema enum accepts the response. Allowlist
-  // is intentionally tiny; any future drift requires explicit entry. Raw
-  // input is not mutated; rewrites are stashed on the sidecar for the debug
-  // bundle to surface faithfully.
+  // Tolerance step 3 (action_type alias drift): rewrite values the STRICT
+  // SCHEMA REJECTS to their schema-accepted forms. The table is EMPTY under
+  // schemas 0.15 (see SUGGESTED_ACTION_TYPE_ALIASES) — do NOT re-add entries
+  // for values the enum already accepts: rewriting a schema-valid form
+  // breaks downstream consumers keyed on the producer's vocabulary (V-P0-2:
+  // the plural→singular entry hid the explain chip from the V5 filter).
+  // Raw input is not mutated; any rewrites are stashed on the sidecar for
+  // the debug bundle to surface faithfully.
   const aliasNorm = normaliseSuggestedActionTypeAliases(knownForValidation)
   knownForValidation = aliasNorm.known
   const aliasRewrites = aliasNorm.rewrites
