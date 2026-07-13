@@ -37,9 +37,12 @@ describe('AnalysisFreshnessNotice — strip Rerun (Wave F-B)', () => {
     expect(screen.getByTestId('freshness-strip-rerun')).toBeInTheDocument()
   })
 
-  it('fresh / none → no Rerun affordance on the strip', () => {
+  // Parity rebuild 2026-07-13: the prototype offers Rerun in the FRESH state
+  // too (rerunning against the current model is always legitimate); only
+  // 'none' — nothing analysed yet — has no rerun affordance.
+  it('fresh → Rerun offered; none → no Rerun affordance', () => {
     const { rerender } = render(<AnalysisFreshnessNotice state={FRESH as never} dirty={false} />)
-    expect(screen.queryByTestId('freshness-strip-rerun')).not.toBeInTheDocument()
+    expect(screen.getByTestId('freshness-strip-rerun')).toBeInTheDocument()
     rerender(<AnalysisFreshnessNotice state={{ freshness: 'none', freshnessReason: null, computedAt: 1 } as never} dirty={false} />)
     expect(screen.queryByTestId('freshness-strip-rerun')).not.toBeInTheDocument()
   })

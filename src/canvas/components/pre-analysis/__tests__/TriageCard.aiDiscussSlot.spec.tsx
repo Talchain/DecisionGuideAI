@@ -19,12 +19,14 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { TriageCard } from '@/components/shared/TriageCard'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
+import { useAskOlumiStore } from '@/components/results/coaching/askOlumiStore'
 
 describe('TriageCard × DiscussWithAiButton aiDiscussSlot integration', () => {
   const sendMock = vi.fn()
 
   beforeEach(() => {
     sendMock.mockClear()
+    useAskOlumiStore.setState({ isOpen: false, draft: '' })
     // Register _sendMessage so DiscussWithAiButton actually renders + fires.
     useGuidanceStore.setState({ _sendMessage: sendMock, _prefillChat: null })
   })
@@ -58,12 +60,14 @@ describe('TriageCard × DiscussWithAiButton aiDiscussSlot integration', () => {
 
     fireEvent.click(button)
 
-    expect(sendMock).toHaveBeenCalledTimes(1)
-    // Prompt text built by buildAiDiscussPrompt for a factor element should
-    // mention the factor label. The exact wording is owned by
+    // Parity P7a: the click now opens the Ask-Olumi drawer PREFILLED instead
+    // of auto-sending into a conversation on another tab (invisible sends
+    // read as dead buttons). Prompt wording still owned by
     // buildAiDiscussPrompt; we assert containment, not equality.
-    const [prompt] = sendMock.mock.calls[0] as [string]
-    expect(prompt).toContain('Engineering velocity')
+    expect(sendMock).not.toHaveBeenCalled()
+    const drawer = useAskOlumiStore.getState()
+    expect(drawer.isOpen).toBe(true)
+    expect(drawer.draft).toContain('Engineering velocity')
   })
 
   it('renders no discuss button when aiDiscussSlot is undefined, even with a registered store handler', () => {

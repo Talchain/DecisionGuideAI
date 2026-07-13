@@ -111,6 +111,7 @@ import { derivePostFooterStatus, derivePostFooterMeta } from './utils/postAnalys
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
 import { useAnalysisStateSource } from '../hooks/useAnalysisStateSource'
+import { AskOlumiDrawer } from '../../components/results/coaching/AskOlumiDrawer'
 
 /**
  * Map API critique format (CritiqueItemV1) to ValidationPanel format
@@ -1517,6 +1518,11 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       aria-label="Outputs dock"
       data-testid="outputs-dock"
     >
+      {/* Parity P7a: the Work-through-it-with-Olumi drawer mounts ONCE at the
+          dock root (fixed-position overlay) so asks routed from ANY tab —
+          graph node sparkles included — surface visibly instead of
+          auto-sending into a conversation the user cannot see. */}
+      <AskOlumiDrawer />
       {effectiveIsOpen && (
         <div
           aria-hidden="true"
@@ -2094,8 +2100,11 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 )}
                 {!isPreRun && hasInlineSummary && resultsSectionData && (
                   <div
-                    style={{ opacity: analysisNotConfirmedFresh && !isError ? 0.6 : 1 }}
-                    aria-disabled={analysisNotConfirmedFresh && !isError ? true : undefined}
+                    // Parity audit: v6 keeps stale results fully readable —
+                    // the freshness strip above carries the warning and the
+                    // recovery action. No dimming, no aria-disabled lockout;
+                    // data-freshness-confirmed preserves the signal for tests.
+                    data-freshness-confirmed={analysisNotConfirmedFresh && !isError ? 'false' : 'true'}
                     data-testid="results-body-stale-wrapper"
                   >
                   <ResultsBody

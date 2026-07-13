@@ -17,17 +17,17 @@ vi.mock('../../../canvas/hooks/useRiskProfile', () => ({
 }))
 
 describe('AdvancedSection', () => {
-  it('renders accordion with "Advanced" title', () => {
+  it('renders accordion with "Advanced and receipts" title', () => {
     render(<AdvancedSection />)
 
-    expect(screen.getByText('Advanced')).toBeInTheDocument()
+    expect(screen.getByText('Advanced and receipts')).toBeInTheDocument()
   })
 
   it('renders risk profile preset buttons', () => {
     render(<AdvancedSection />)
 
     // Expand accordion first
-    fireEvent.click(screen.getByText('Advanced'))
+    fireEvent.click(screen.getByText('Advanced and receipts'))
 
     expect(screen.getByRole('radio', { name: /Risk Averse/i })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: /Neutral/i })).toBeInTheDocument()
@@ -40,7 +40,7 @@ describe('AdvancedSection', () => {
   // docs/brief-5-preflight-findings.md.
   it('risk-profile control uses Paul-frozen label + helper copy', () => {
     const { container } = render(<AdvancedSection />)
-    fireEvent.click(screen.getByText('Advanced'))
+    fireEvent.click(screen.getByText('Advanced and receipts'))
 
     const control = container.querySelector('[data-testid="risk-profile-control"]')
     expect(control).toBeTruthy()
@@ -59,7 +59,7 @@ describe('AdvancedSection', () => {
 
   it('renders stability percentage when provided', () => {
     render(<AdvancedSection stability={0.85} expertMode />)
-    fireEvent.click(screen.getByText('Advanced'))
+    fireEvent.click(screen.getByText('Advanced and receipts'))
 
     expect(screen.getByText('Stability')).toBeInTheDocument()
     expect(screen.getByText('85%')).toBeInTheDocument()
@@ -67,7 +67,7 @@ describe('AdvancedSection', () => {
 
   it('renders convergence sample count', () => {
     render(<AdvancedSection nSamples={10000} expertMode />)
-    fireEvent.click(screen.getByText('Advanced'))
+    fireEvent.click(screen.getByText('Advanced and receipts'))
 
     expect(screen.getByText('Simulation quality')).toBeInTheDocument()
     expect(screen.getByText('10,000 simulations')).toBeInTheDocument()
@@ -75,7 +75,7 @@ describe('AdvancedSection', () => {
 
   it('renders fragile and stable edge counts', () => {
     render(<AdvancedSection fragileEdgeCount={3} robustEdgeCount={12} expertMode />)
-    fireEvent.click(screen.getByText('Advanced'))
+    fireEvent.click(screen.getByText('Advanced and receipts'))
 
     expect(screen.getByText('Sensitive assumptions')).toBeInTheDocument()
     expect(screen.getByText('3')).toBeInTheDocument()
@@ -85,7 +85,7 @@ describe('AdvancedSection', () => {
 
   it('renders graph size with node and edge counts', () => {
     render(<AdvancedSection nodeCount={15} edgeCount={22} expertMode />)
-    fireEvent.click(screen.getByText('Advanced'))
+    fireEvent.click(screen.getByText('Advanced and receipts'))
 
     expect(screen.getByText('Graph size')).toBeInTheDocument()
     expect(screen.getByText('15 nodes, 22 edges')).toBeInTheDocument()
@@ -93,7 +93,7 @@ describe('AdvancedSection', () => {
 
   it('renders identifiability tag', () => {
     render(<AdvancedSection identifiability="identifiable" expertMode />)
-    fireEvent.click(screen.getByText('Advanced'))
+    fireEvent.click(screen.getByText('Advanced and receipts'))
 
     expect(screen.getByText('Identifiability')).toBeInTheDocument()
     expect(screen.getByText('Identifiable')).toBeInTheDocument()
@@ -101,14 +101,14 @@ describe('AdvancedSection', () => {
 
   it('formats underscored identifiability tag', () => {
     render(<AdvancedSection identifiability="not_identifiable" expertMode />)
-    fireEvent.click(screen.getByText('Advanced'))
+    fireEvent.click(screen.getByText('Advanced and receipts'))
 
     expect(screen.getByText('Not identifiable')).toBeInTheDocument()
   })
 
   it('renders seed value', () => {
     render(<AdvancedSection seedUsed={42} expertMode />)
-    fireEvent.click(screen.getByText('Advanced'))
+    fireEvent.click(screen.getByText('Advanced and receipts'))
 
     expect(screen.getByText('Seed')).toBeInTheDocument()
     expect(screen.getByText('42')).toBeInTheDocument()
@@ -116,7 +116,7 @@ describe('AdvancedSection', () => {
 
   it('renders truncated hash with copy button', () => {
     render(<AdvancedSection responseHash="abc123def456ghi789" expertMode />)
-    fireEvent.click(screen.getByText('Advanced'))
+    fireEvent.click(screen.getByText('Advanced and receipts'))
 
     expect(screen.getByText('Hash')).toBeInTheDocument()
     expect(screen.getByText('abc123def456…')).toBeInTheDocument()
@@ -126,47 +126,31 @@ describe('AdvancedSection', () => {
   // Brief 5 Phase 1 (Task 4): DS v5 icon-only interactive — both aria-label AND tooltip.
   it('copy-hash button has both aria-label and native title (DS v5 a11y parity)', () => {
     render(<AdvancedSection responseHash="abc123def456ghi789" expertMode />)
-    fireEvent.click(screen.getByText('Advanced'))
+    fireEvent.click(screen.getByText('Advanced and receipts'))
 
     const copyBtn = screen.getByLabelText('Copy hash to clipboard')
     expect(copyBtn).toHaveAttribute('aria-label', 'Copy hash to clipboard')
     expect(copyBtn).toHaveAttribute('title', 'Copy hash to clipboard')
   })
 
-  // Brief 5 Phase 1 (Task 4): hash must stay gated behind expert mode.
-  it('does NOT render hash when expertMode is false, even when responseHash is supplied', () => {
+  // Parity rebuild 2026-07-13: receipts are for EVERYONE per the prototype
+  // ('Result hash — 8ce04678…' is a first-class receipt row). This REVERSES
+  // the Brief 5 Phase 1 Task 4 expert-mode gate — deliberate, called out in
+  // the lane report for veto. The hash stays truncated with a copy control.
+  it('renders the truncated hash WITHOUT expertMode (receipts for everyone)', () => {
     render(<AdvancedSection responseHash="abc123def456ghi789" />)
-    fireEvent.click(screen.getByText('Advanced'))
-
-    expect(screen.queryByText('Hash')).not.toBeInTheDocument()
-    expect(screen.queryByText('abc123def456…')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Copy hash to clipboard')).not.toBeInTheDocument()
-    // Brief 5.2 Task 2: precise testid assertion — no hex token leaks regardless of accordion state.
-    expect(screen.queryByTestId('advanced-hash-row')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('Advanced and receipts'))
+    expect(screen.getByTestId('advanced-hash-row')).toBeInTheDocument()
+    expect(screen.getByText('abc123def456…')).toBeInTheDocument()
   })
 
-  // Brief 5.2 Task 2: inferenceWarnings auto-expands the accordion. The hash
-  // row must stay hidden in standard view even when the section is expanded
-  // by default. Staging QA screenshot "9b1634d" appears to match the Brief
-  // 5.1 merge SHA; this test verifies the gate holds in that scenario.
-  it('does NOT render hash when expertMode is false and accordion is auto-expanded by inferenceWarnings', () => {
+  it('renders the hash row when the accordion auto-expands via inferenceWarnings', () => {
     render(
       <AdvancedSection
         responseHash="9b1634d2abcdef"
         inferenceWarnings={[{ code: 'weak_evidence', message: 'Low evidence on 3 factors' }]}
       />,
     )
-    // No click needed — accordion defaultExpanded={true} due to inferenceWarnings.
-    expect(screen.queryByTestId('advanced-hash-row')).not.toBeInTheDocument()
-    expect(screen.queryByText('Hash')).not.toBeInTheDocument()
-    expect(screen.queryByText('9b1634d2abcd…')).not.toBeInTheDocument()
-  })
-
-  // Brief 5.2 Task 2: testid-based regression guard — exact scoping beats a
-  // loose 7-hex regex on the whole DOM.
-  it('renders advanced-hash-row testid when expertMode is true', () => {
-    render(<AdvancedSection responseHash="abc123def456ghi789" expertMode />)
-    fireEvent.click(screen.getByText('Advanced'))
     expect(screen.getByTestId('advanced-hash-row')).toBeInTheDocument()
   })
 
@@ -175,7 +159,7 @@ describe('AdvancedSection', () => {
   // refactors don't quietly drop it.
   it('Risk profile heading renders the Gauge icon (Brief 5.1 Task 6 / Brief 5.2 Task 8c)', () => {
     const { container } = render(<AdvancedSection />)
-    fireEvent.click(screen.getByText('Advanced'))
+    fireEvent.click(screen.getByText('Advanced and receipts'))
     const heading = container.querySelector('[data-testid="risk-profile-control"] h4')
     expect(heading).toBeTruthy()
     // Heading contains an SVG (the Lucide Gauge). aria-hidden so it does not
@@ -187,19 +171,20 @@ describe('AdvancedSection', () => {
 
   it('hides detail rows when values are not provided', () => {
     render(<AdvancedSection expertMode />)
-    fireEvent.click(screen.getByText('Advanced'))
+    fireEvent.click(screen.getByText('Advanced and receipts'))
 
     expect(screen.queryByText('Stability')).not.toBeInTheDocument()
     expect(screen.queryByText('Simulation quality')).not.toBeInTheDocument()
     expect(screen.queryByText('Hash')).not.toBeInTheDocument()
   })
 
-  it('hides analysis details section in default (non-expert) mode', () => {
+  it('renders analysis details in default (non-expert) mode — receipts are for everyone', () => {
     render(<AdvancedSection stability={0.85} nSamples={5000} />)
-    fireEvent.click(screen.getByText('Advanced'))
+    fireEvent.click(screen.getByText('Advanced and receipts'))
 
-    expect(screen.queryByText('Analysis details')).not.toBeInTheDocument()
-    expect(screen.queryByText('Stability')).not.toBeInTheDocument()
+    expect(screen.getByText('Analysis details')).toBeInTheDocument()
+    expect(screen.getByText('Stability')).toBeInTheDocument()
+    expect(screen.getByText('85%')).toBeInTheDocument()
   })
 
   it('renders all analysis details together', () => {
@@ -217,7 +202,7 @@ describe('AdvancedSection', () => {
         expertMode
       />
     )
-    fireEvent.click(screen.getByText('Advanced'))
+    fireEvent.click(screen.getByText('Advanced and receipts'))
 
     expect(screen.getByText('72%')).toBeInTheDocument()
     expect(screen.getByText('5,000 simulations')).toBeInTheDocument()

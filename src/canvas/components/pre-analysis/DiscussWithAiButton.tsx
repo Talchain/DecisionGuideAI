@@ -18,6 +18,7 @@ import { memo, useCallback } from 'react'
 import { Sparkles } from 'lucide-react'
 import Tooltip from '@/components/Tooltip'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
+import { openAskOlumi } from '@/components/results/coaching/askOlumiStore'
 import { buildAiDiscussPrompt, type AiDiscussElement } from './buildAiDiscussPrompt'
 
 interface DiscussWithAiButtonProps {
@@ -62,14 +63,18 @@ function DiscussWithAiButtonImpl({ element, onSend, ariaLabel, className, varian
       onSend(text)
       return
     }
-    // Auto-submit preferred: message lands immediately. Fall back to pre-fill
-    // only when sendMessage is not registered (e.g. during onboarding flow).
-    if (sendMessage) {
-      sendMessage(text)
-    } else if (prefillChat) {
-      prefillChat(text)
-    }
-  }, [element, onSend, prefillChat, sendMessage])
+    // Parity P7a: open the Work-through-it-with-Olumi drawer with the prompt
+    // PREFILLED and EDITABLE instead of auto-sending into a conversation on
+    // another tab — the invisible auto-send read as "the button does
+    // nothing" (audit dead-button class). The drawer dispatches on Send and
+    // degrades honestly when no conversation callback is registered.
+    openAskOlumi({
+      context: 'Discuss this part of the model with Olumi.',
+      draft: text,
+      label: 'Discuss with Olumi',
+      source: 'chip',
+    })
+  }, [element, onSend])
 
   // If neither callback is registered and no onSend override, render nothing — no dead button.
   if (!onSend && !sendMessage && !prefillChat) return null
