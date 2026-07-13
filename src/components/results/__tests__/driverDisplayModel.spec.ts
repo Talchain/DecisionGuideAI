@@ -11,6 +11,7 @@ import {
   selectDriverDisplayModel,
   compareByDisplayModel,
   computeNormalisedInfluences,
+  extractPolicyRow,
 } from '../driverDisplayModel'
 
 describe('selectDriverDisplayModel — the exact Codex R3-B1 partial-coverage scenario', () => {
@@ -93,5 +94,30 @@ describe('computeNormalisedInfluences (re-homed, behaviour unchanged)', () => {
     ])
     expect(m.get('a')).toBeCloseTo(0.1)
     expect(m.get('b')).toBeCloseTo(1.0)
+  })
+})
+
+describe('extractPolicyRow — panel-parity field semantics (Lane 2 review fold)', () => {
+  it('reads snake_case influence_score only — camelCase does not decide coverage', () => {
+    expect(extractPolicyRow({ factor_id: 'a', influenceScore: 0.9, elasticity: 0.2 })).toEqual({
+      key: 'a',
+      influenceScore: null,
+      rawElasticity: 0.2,
+    })
+  })
+
+  it('magnitude chain matches the panel: elasticity → sensitivity_score → sensitivity → importance_score', () => {
+    expect(extractPolicyRow({ factor_id: 'a', sensitivity: 0.5 })!.rawElasticity).toBe(0.5)
+    expect(
+      extractPolicyRow({ factor_id: 'a', sensitivity: 0.5, sensitivity_score: 0.3 })!.rawElasticity,
+    ).toBe(0.3)
+    expect(extractPolicyRow({ factor_id: 'a', elasticity: -0.7, sensitivity: 0.5 })!.rawElasticity).toBe(0.7)
+    expect(extractPolicyRow({ factor_id: 'a', importance_score: 0.1 })!.rawElasticity).toBe(0.1)
+  })
+
+  it('returns null for id-less or metric-less rows (absence never defaulted)', () => {
+    expect(extractPolicyRow({ elasticity: 0.4 })).toBeNull()
+    expect(extractPolicyRow({ factor_id: 'a' })).toBeNull()
+    expect(extractPolicyRow(null)).toBeNull()
   })
 })

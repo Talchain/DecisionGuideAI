@@ -93,6 +93,9 @@ function isSanctionedChain(lines: string[], i: number, matchIndex: number): bool
   const line = lines[i]
   const before = line.slice(0, matchIndex)
   if (before.includes('displayInfluence')) return true
+  // Presence probes are not decisions (same exemption as the ESLint rule):
+  // `typeof x.influenceScore` checks existence, never consumes the value.
+  if (/typeof\s+$/.test(before)) return true
   // Wrapped chains: `d.displayInfluence ??` on the previous line.
   const prev = i > 0 ? lines[i - 1] : ''
   return /displayInfluence[^]*\?\?\s*$/.test(prev.trimEnd())

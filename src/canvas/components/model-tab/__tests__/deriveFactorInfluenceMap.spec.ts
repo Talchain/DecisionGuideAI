@@ -85,6 +85,39 @@ describe('deriveFactorInfluenceMap', () => {
     expect(map!.get('fac_legacy_importance')).toBeCloseTo(0.25)
   })
 
+  it('Lane 2 review fold: factor_sensitivity WINS over the enrichment passthrough when both exist (badge parity)', () => {
+    // useNodeDisplayMetadata (the graph badge) prefers certified
+    // factor_sensitivity; if this map preferred the untyped enrichment seam
+    // the two surfaces could rank different row-sets for the same node.
+    const map = deriveFactorInfluenceMap({
+      factor_sensitivity: [{ factor_id: 'fac_x', influence_score: 0.9 }],
+      enrichment: {
+        sensitivity_analysis: {
+          factors: [{ factor_id: 'fac_x', influence_score: 0.1 }],
+        },
+      },
+    })
+
+    expect(map!.get('fac_x')).toBeCloseTo(0.9)
+  })
+
+  it('Lane 2 review fold: camelCase influenceScore is IGNORED (panel parity — snake_case only decides coverage)', () => {
+    // The panel reads snake_case influence_score only; a feeder accepting
+    // camelCase would compute a different coverage-complete verdict for the
+    // same rows. Camel-only rows fall back to the elasticity chain.
+    const map = deriveFactorInfluenceMap({
+      factor_sensitivity: [
+        { factor_id: 'fac_camel', influenceScore: 0.9, elasticity: 0.1 },
+        { factor_id: 'fac_snake', influence_score: 0.5, elasticity: 0.4 },
+      ],
+    })
+
+    // fac_camel has NO snake producer score → partial coverage → both
+    // normalise to the set max |elasticity| (0.4).
+    expect(map!.get('fac_camel')).toBeCloseTo(0.25)
+    expect(map!.get('fac_snake')).toBeCloseTo(1.0)
+  })
+
   it('reads from enrichment.sensitivity_analysis.factors when factor_sensitivity is absent', () => {
     const map = deriveFactorInfluenceMap({
       enrichment: {

@@ -7,7 +7,7 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { focusExistingTarget } from '../utils/focusHelpers'
-import { selectDriverDisplayModel } from '../../components/results/driverDisplayModel'
+import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
 import { typography } from '../../styles/typography'
 import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
 import {
@@ -679,35 +679,36 @@ export const OptionNode = memo((props: NodeProps) => {
   const winsVia = useMemo(() => {
     if (!isPostAnalysis || !isRecommended || !resultsReport) return null
     const report = resultsReport as any
-    const sensitivity = report?.enrichment?.sensitivity_analysis?.factors ?? report?.factor_sensitivity ?? []
+    // Source precedence matches the graph badge (useNodeDisplayMetadata):
+    // certified factor_sensitivity FIRST, the untyped enrichment passthrough
+    // as fallback — so this card can never rank a different row-set than the
+    // badge on the same canvas (Lane 2 review fold).
+    const sensitivity = report?.factor_sensitivity ?? report?.enrichment?.sensitivity_analysis?.factors ?? []
     if (!Array.isArray(sensitivity) || sensitivity.length === 0) return null
 
     // Lane 2 (policy + honesty): rank via the SHARED driver display policy —
     // this previously ranked by raw |elasticity| (option-scoped) and then
     // asserted a GLOBAL "#1 driver", crowning a factor the same screen's
-    // drivers panel ranked 4th at 17% (live 2026-07-13). The copy may claim
-    // "#1 driver" ONLY when the chosen lever IS the policy's global #1;
-    // otherwise it is honestly the option's biggest lever.
+    // drivers panel ranked 4th at 17% (live 2026-07-13). Rows come from the
+    // SHARED extractor so the coverage verdict cannot skew per surface. The
+    // copy may claim "#1 driver" ONLY when the chosen lever IS the policy's
+    // global #1 (shared tie-break, non-zero); otherwise it is honestly the
+    // option's biggest lever.
     const rows = sensitivity
-      .map((f: any) => {
-        const id = (f.factor_id || f.factorId || f.node_id || f.nodeId) as string | undefined
-        if (!id) return null
-        const producer = f.influence_score ?? f.influenceScore
-        return {
-          key: id,
-          influenceScore:
-            typeof producer === 'number' && Number.isFinite(producer) ? producer : null,
-          rawElasticity: Math.abs(f.elasticity ?? f.sensitivity_score ?? f.importance_score ?? 0),
-        }
-      })
-      .filter((r: { key: string } | null): r is { key: string; influenceScore: number | null; rawElasticity: number } => r != null)
+      .map((f: unknown) => extractPolicyRow(f))
+      .filter((r: ReturnType<typeof extractPolicyRow>): r is NonNullable<ReturnType<typeof extractPolicyRow>> => r != null)
     if (rows.length === 0) return null
 
     const displayModel = selectDriverDisplayModel(rows)
     const ranked = rows
-      .map((r) => ({ id: r.key, value: displayModel.get(r.key)?.value ?? 0 }))
-      .sort((a, b) => b.value - a.value)
-    const globalTopId = ranked[0]?.id
+      .map((r) => ({
+        id: r.key,
+        value: displayModel.get(r.key)?.value ?? 0,
+        elasticity: r.rawElasticity,
+        key: r.key,
+      }))
+      .sort(compareByDisplayModel)
+    const globalTopId = ranked[0] && ranked[0].value > 0 ? ranked[0].id : null
 
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
     const interventionKeys = new Set(Object.keys(ceeOption?.interventions ?? {}))
@@ -719,7 +720,7 @@ export const OptionNode = memo((props: NodeProps) => {
           return {
             id: f.id,
             label: cleanFactorLabel((factorNode.data?.label as string) ?? '') || ((factorNode.data?.label as string) ?? ''),
-            isGlobalTop: f.id === globalTopId,
+            isGlobalTop: globalTopId !== null && f.id === globalTopId,
           }
         }
       }

@@ -318,7 +318,20 @@ function T1DominantNudge({
   const topInfluence = topDriver
     ? (topDriver.displayInfluence ?? topDriver.influenceScore ?? topDriver.normalisedInfluence ?? 0)
     : 0
-  const showNudge = topInfluence >= 0.8
+  // Review fold: "drives NN% of the outcome" is an ABSOLUTE causal claim —
+  // honest only on the producer influence_score basis. Under partial
+  // coverage the display value is set-relative (top driver ≡ 1.0 by
+  // construction), so the nudge would fire on EVERY such run claiming
+  // "100% of the outcome", contradicting the V17 dominance gate
+  // (UI-SEM-040, deliberately absolute) on the same screen. No provenance
+  // marker (legacy fixture) falls back to "a finite raw producer score
+  // exists" — the pre-fold absolute semantic.
+  const absoluteBasis = topDriver
+    ? (topDriver.displayProvenance
+        ? topDriver.displayProvenance === 'influence_score'
+        : typeof topDriver.influenceScore === 'number')
+    : false
+  const showNudge = absoluteBasis && topInfluence >= 0.8
   const rawLabel = drivers.dominantFactorLabel ?? topDriver?.factorLabel ?? ''
   const dominantLabel = cleanFactorLabel(rawLabel).label
   if (!showNudge || !dominantLabel) return null

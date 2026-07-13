@@ -10,7 +10,7 @@
  */
 
 import type { ObservedState } from './types'
-import { selectDriverDisplayModel } from '../../../components/results/driverDisplayModel'
+import { selectDriverDisplayModel, extractPolicyRow } from '../../../components/results/driverDisplayModel'
 import {
   GENERIC_PLACEHOLDER_UNITS,
   CURRENCY_SYMBOLS,
@@ -138,28 +138,20 @@ export function deriveFactorInfluenceMap(report: unknown): Map<string, number> |
   const r = report as Record<string, unknown>
   const enrichment = r.enrichment as Record<string, unknown> | undefined
   const sensitivityAnalysis = enrichment?.sensitivity_analysis as Record<string, unknown> | undefined
-  const factors = (sensitivityAnalysis?.factors as unknown[] | undefined) ??
-    (r.factor_sensitivity as unknown[] | undefined) ??
+  // Source precedence matches the graph badge (useNodeDisplayMetadata):
+  // certified factor_sensitivity FIRST, the untyped enrichment passthrough
+  // as fallback (Lane 2 review fold — the two surfaces must rank the same
+  // row-set for the same node).
+  const factors = (r.factor_sensitivity as unknown[] | undefined) ??
+    (sensitivityAnalysis?.factors as unknown[] | undefined) ??
     []
   if (!Array.isArray(factors) || factors.length === 0) return undefined
 
-  const rows: Array<{ key: string; influenceScore?: number | null; rawElasticity: number }> = []
-  for (const raw of factors) {
-    if (raw == null || typeof raw !== 'object') continue
-    const f = raw as Record<string, unknown>
-    const id = (f.factor_id ?? f.factorId ?? f.node_id ?? f.nodeId) as string | undefined
-    if (!id) continue
-    const producer = (f.influence_score ?? f.influenceScore) as number | undefined
-    const legacy = (f.elasticity ?? f.sensitivity_score ?? f.importance_score) as number | undefined
-    const hasProducer = typeof producer === 'number' && Number.isFinite(producer)
-    const hasLegacy = typeof legacy === 'number' && Number.isFinite(legacy)
-    if (!hasProducer && !hasLegacy) continue // no usable metric — absent, never defaulted
-    rows.push({
-      key: id,
-      influenceScore: hasProducer ? producer : null,
-      rawElasticity: hasLegacy ? legacy : 0,
-    })
-  }
+  // Rows come from the SHARED extractor (panel-parity field semantics) so
+  // the coverage-complete verdict cannot skew per surface.
+  const rows = factors
+    .map((raw) => extractPolicyRow(raw))
+    .filter((row): row is NonNullable<ReturnType<typeof extractPolicyRow>> => row != null)
   if (rows.length === 0) return undefined
 
   const displayModel = selectDriverDisplayModel(rows)

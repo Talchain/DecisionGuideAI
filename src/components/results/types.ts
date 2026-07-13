@@ -515,6 +515,12 @@ export interface DriverItem {
    *  which mixes bases under partial producer coverage. Optional only for legacy
    *  fixtures — the live pipeline always sets it. */
   displayInfluence?: number
+  /** Which basis produced displayInfluence ('influence_score' = absolute producer
+   *  scale; 'normalised_elasticity' = set-relative). Lane 2 review fold: surfaces
+   *  making ABSOLUTE claims ("drives NN% of the outcome") must gate on this —
+   *  a set-relative 1.0 is "largest in this set", not a causal share. Optional
+   *  only for legacy fixtures — the live pipeline always sets it. */
+  displayProvenance?: 'influence_score' | 'normalised_elasticity'
   /** Producer influence_rank (1 = most influential). Additive; roadmap 1.7 (provisional_doctrine_v0). */
   influenceRank?: number
   /** ISL zero_reason - explains why sensitivity is zero for intervention factors */

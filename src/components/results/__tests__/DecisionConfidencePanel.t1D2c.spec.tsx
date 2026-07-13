@@ -249,7 +249,11 @@ describe('DecisionConfidencePanel — Brief 5.8B D2c T1 flip-risk + nudge + chec
       <DecisionConfidencePanel
         data={makeData({
           drivers: [
-            makeDriver({ influenceScore: 0.95, displayInfluence: 0.6 }),
+            makeDriver({
+              influenceScore: 0.95,
+              displayInfluence: 0.6,
+              displayProvenance: 'normalised_elasticity',
+            }),
           ],
           dominantFactorLabel: 'Pricing',
         })}
@@ -258,12 +262,39 @@ describe('DecisionConfidencePanel — Brief 5.8B D2c T1 flip-risk + nudge + chec
     expect(screen.queryByTestId('t1-dominant-nudge')).not.toBeInTheDocument()
   })
 
-  it('Lane 2 (policy divergence): nudge copy follows displayInfluence — raw 0.3 / display 0.85 → fires with "85% of the outcome"', () => {
+  it('Lane 2 (review fold): a SET-RELATIVE display value never fires the absolute dominance claim — display 1.0 (partial coverage) → suppressed', () => {
+    // Under partial coverage the top driver's display value is 1.0 BY
+    // CONSTRUCTION (set-normalised). "Drives 100% of the outcome" from that
+    // basis is a fabricated causal share — and would contradict the V17
+    // dominance gate (UI-SEM-040, absolute) on the same screen.
     render(
       <DecisionConfidencePanel
         data={makeData({
           drivers: [
-            makeDriver({ influenceScore: 0.3, displayInfluence: 0.85 }),
+            makeDriver({
+              influenceScore: 0.3,
+              displayInfluence: 1.0,
+              displayProvenance: 'normalised_elasticity',
+            }),
+          ],
+          dominantFactorLabel: 'Pricing',
+          dominantFactorId: 'node_pricing',
+        })}
+      />,
+    )
+    expect(screen.queryByTestId('t1-dominant-nudge')).not.toBeInTheDocument()
+  })
+
+  it('Lane 2 (review fold): the absolute claim fires on the PRODUCER basis — display 0.85 with influence_score provenance → "85% of the outcome"', () => {
+    render(
+      <DecisionConfidencePanel
+        data={makeData({
+          drivers: [
+            makeDriver({
+              influenceScore: 0.85,
+              displayInfluence: 0.85,
+              displayProvenance: 'influence_score',
+            }),
           ],
           dominantFactorLabel: 'Pricing',
           dominantFactorId: 'node_pricing',
