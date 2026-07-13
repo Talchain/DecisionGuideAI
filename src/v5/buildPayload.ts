@@ -237,12 +237,20 @@ function stringField(src: Record<string, unknown> | undefined, key: string): str
 // ActionType is a strict enum on the wire. If the UI passes an unknown
 // action_type, we'd fail ingress; drop it to let CEE's classifier dispatch
 // from message text alone.
-const KNOWN_ACTION_TYPES: ReadonlySet<ActionTypeLiteral> = new Set<ActionTypeLiteral>([
+//
+// V-P0-2 fold: this set MUST equal the vendored @talchain/schemas ActionType
+// enum exactly — a hand-copied subset silently strips schema-valid values at
+// the wire (it was 2 generations stale: 7 members vs the 0.15 enum's 9,
+// missing explain_results + explain_from_structure). Parity is pinned by
+// explainChips.vocabulary.spec.ts, which imports the enum and fails on drift.
+export const KNOWN_ACTION_TYPES: ReadonlySet<ActionTypeLiteral> = new Set<ActionTypeLiteral>([
   'run_analysis',
   'set_factor_value',
   'add_constraint',
   'adjust_edge_strength',
   'explain_result',
+  'explain_results',
+  'explain_from_structure',
   'compare_options',
   'what_would_flip',
 ])
