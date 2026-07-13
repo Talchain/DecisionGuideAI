@@ -2531,6 +2531,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   setGoalThresholdAndUpdateNode: (goalNodeId, value) => {
     set({ goalThreshold: value })
     pushToHistory(get, set)
+    if (!get().nodes.some(n => n.id === goalNodeId)) {
+      // The whole point of this action is the atomic store+node pair (Codex
+      // B2). A stale id silently recreates the split-brain node-side — make
+      // it detectable.
+      console.warn(
+        '[store] setGoalThresholdAndUpdateNode: goal node not found — global value set, node annotation skipped',
+        { goalNodeId },
+      )
+    }
     set((s) => ({
       nodes: s.nodes.map(n =>
         n.id === goalNodeId

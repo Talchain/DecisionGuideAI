@@ -122,6 +122,17 @@ export function resolveGoalThresholdCap(
 }
 
 /**
+ * UI-SEM-081 — unit-derived goal-threshold cap. A "%" unit stated by the USER
+ * (Define-success unit picker / saved success measure) is a definitional cap
+ * of 100 — user input, not fabrication. Every other unit has no definitional
+ * scale, so no cap is invented (fail-closed omission stands). Consulted only
+ * as the LAST resort after the producer/node cap chain (UI-SEM-058).
+ */
+export function capForUnit(unit: string | null | undefined): number | undefined {
+  return typeof unit === 'string' && unit.trim() === '%' ? 100 : undefined
+}
+
+/**
  * UI-SEM-058 (V5 leg) — normalise a goal_threshold for a CANONICAL/V5 chip
  * parameter. The store holds RAW user units; the V2 request builder converts
  * at its boundary, but the V5 path (buildPayload) forwards chip parameters
@@ -131,6 +142,11 @@ export function resolveGoalThresholdCap(
  * (Codex final-audit B3: entering 60% shipped goal_threshold:60, HTTP 200,
  * old 0.53 retained, all lenses unavailable). Returns undefined → the caller
  * must omit the parameter (fail closed), never send raw.
+ *
+ * ctx.unitCap (UI-SEM-081) is consulted only when the producer/node chain
+ * yields no cap — live staging drafts carry neither `goal_threshold_cap` nor
+ * `scale_max`, which silently swallowed every %-unit target (V-P0-1,
+ * 2026-07-13 wire evidence).
  */
 export function resolveChipGoalThreshold(
   rawThreshold: number | null | undefined,
@@ -138,10 +154,15 @@ export function resolveChipGoalThreshold(
     analysisReady: { goal_threshold_cap?: unknown } | null
     nodes: ReadonlyArray<{ id: string; data?: unknown }>
     goalNodeId: string | null | undefined
+    unitCap?: number
   },
 ): number | undefined {
-  const cap = resolveGoalThresholdCap(ctx.analysisReady, ctx.nodes, ctx.goalNodeId)
-  return normaliseGoalThresholdForRequest(rawThreshold, cap)
+  const chainCap = resolveGoalThresholdCap(ctx.analysisReady, ctx.nodes, ctx.goalNodeId)
+  const unitCap =
+    typeof ctx.unitCap === 'number' && Number.isFinite(ctx.unitCap) && ctx.unitCap > 0
+      ? ctx.unitCap
+      : undefined
+  return normaliseGoalThresholdForRequest(rawThreshold, chainCap ?? unitCap)
 }
 
 /**

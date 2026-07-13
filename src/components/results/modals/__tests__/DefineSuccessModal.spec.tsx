@@ -324,12 +324,17 @@ describe('DefineSuccessModal — save commits through the canonical path exactly
     expect(setterSpy).toHaveBeenCalledWith(20)
     expect(useCanvasStore.getState().goalThreshold).toBe(20)
 
-    // ONE canonical rerun. Codex final-audit B3: with NO provable cap in this
-    // fixture, the raw 20 cannot be normalised to 0-1, so goal_threshold is
-    // OMITTED (fail closed) — never sent raw (V5 forwards chip params verbatim
-    // and PLoT silently ignores an out-of-range value).
+    // ONE canonical rerun. Deliberate pin flip (Lane 1b, UI-SEM-081): this
+    // fixture has no producer/node cap, but the modal's default unit is "%",
+    // which is a definitional cap of 100 — so raw 20 now provably normalises
+    // to 0.2 and RIDES the chip (previously the fail-closed omission
+    // swallowed every %-target on live drafts, V-P0-1). Raw values are still
+    // never sent.
     expect(runner).toHaveBeenCalledTimes(1)
-    expect(runner).toHaveBeenCalledWith({ source: 'define-success-modal' })
+    expect(runner).toHaveBeenCalledWith({
+      source: 'define-success-modal',
+      parameters: { goal_threshold: 0.2 },
+    })
 
     // Full structured measure persisted per scenario.
     const saved = selectSuccessMeasure(useSuccessMeasureStore.getState(), 'scn_test')
@@ -388,6 +393,107 @@ describe('DefineSuccessModal — save commits through the canonical path exactly
     })
     expect(screen.getByTestId('define-success-toast')).toHaveTextContent(
       /Success measure saved\./,
+    )
+  })
+})
+
+describe('DefineSuccessModal — Lane 1b (V-P0-1): the target must reach the wire, or say why not', () => {
+  it('the % unit ALONE proves the cap: 60 % with no producer/node cap sends goal_threshold 0.6', async () => {
+    // Live staging repro (2026-07-13, scenario f0acea23): analysis_ready has
+    // no goal_threshold_cap and the CEE-drafted goal node has no scale_max,
+    // so the save shipped a chip with NO parameters at all — the modal's own
+    // explicit "%" unit was never consulted. "%" is a definitional cap of 100.
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'goal_1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Conversion' } },
+      ] as never,
+      currentScenarioId: 'scn_test',
+      outcomeNodeId: null,
+      ceeAnalysisReady: null,
+      goalThreshold: null,
+    } as never)
+
+    render(<DefineSuccessModal />)
+    openModal()
+    fillValid('60') // default unit is %
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('define-success-save'))
+    })
+
+    expect(runner).toHaveBeenCalledTimes(1)
+    expect(runner).toHaveBeenCalledWith({
+      source: 'define-success-modal',
+      parameters: { goal_threshold: 0.6 },
+    })
+  })
+
+  it('the cap resolves from the COMMITTED goal node, not store.outcomeNodeId', async () => {
+    // Test-practice audit finding: the B2 commit resolved
+    // analysisReady.goal_node_id ?? first goal node, while the B3 cap context
+    // used store.outcomeNodeId — two different ids in one handler. With a
+    // divergent outcomeNodeId, the cap must still come from the node the
+    // threshold was just committed to.
+    useCanvasStore.setState({
+      nodes: [
+        {
+          id: 'goal_1',
+          type: 'goal',
+          position: { x: 0, y: 0 },
+          data: { label: 'Throughput', scale_max: 200 },
+        },
+      ] as never,
+      currentScenarioId: 'scn_test',
+      outcomeNodeId: 'some_other_node',
+      ceeAnalysisReady: { goal_node_id: 'goal_1' } as never,
+      goalThreshold: null,
+    } as never)
+
+    render(<DefineSuccessModal />)
+    openModal()
+    fillValid('60')
+    // A non-% unit isolates the node-cap path from the unit cap.
+    fireEvent.change(screen.getByTestId('define-success-unit'), {
+      target: { value: 'projects' },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('define-success-save'))
+    })
+
+    expect(runner).toHaveBeenCalledTimes(1)
+    expect(runner).toHaveBeenCalledWith({
+      source: 'define-success-modal',
+      parameters: { goal_threshold: 0.3 },
+    })
+  })
+
+  it('when the target genuinely cannot reach the analysis, the toast says so honestly', async () => {
+    // Non-% unit, no cap anywhere: the parameter is rightly omitted — but the
+    // user must not be told a plain "saved" while the analysis silently never
+    // sees the target (the live goal node then advises futile reruns).
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'goal_1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Projects' } },
+      ] as never,
+      currentScenarioId: 'scn_test',
+      outcomeNodeId: null,
+      ceeAnalysisReady: null,
+      goalThreshold: null,
+    } as never)
+
+    render(<DefineSuccessModal />)
+    openModal()
+    fillValid('60')
+    fireEvent.change(screen.getByTestId('define-success-unit'), {
+      target: { value: 'projects' },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('define-success-save'))
+    })
+
+    expect(runner).toHaveBeenCalledTimes(1)
+    expect(runner).toHaveBeenCalledWith({ source: 'define-success-modal' })
+    expect(screen.getByTestId('define-success-toast')).toHaveTextContent(
+      DEFINE_SUCCESS_COPY.toastSavedNoScale,
     )
   })
 })

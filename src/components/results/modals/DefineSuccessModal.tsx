@@ -24,7 +24,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { executeCanonicalRun } from '../../../canvas/analysis/canonicalRunRegistry'
-import { resolveChipGoalThreshold } from '../../../canvas/hooks/useV2Run'
+import { capForUnit, resolveChipGoalThreshold } from '../../../canvas/hooks/useV2Run'
 import { useCanvasStore } from '../../../canvas/store'
 import { typography } from '../../../styles/typography'
 import {
@@ -71,6 +71,11 @@ export const DEFINE_SUCCESS_COPY = {
   thresholdError: 'Add a number so Olumi can evaluate Goal fit.',
   timeframeError: 'Add a timeframe so Olumi can evaluate Goal fit.',
   toastSaved: 'Success measure saved. Rerunning analysis with the current model.',
+  // Lane 1b (V-P0-1): when the threshold cannot be proven normalisable (non-%
+  // unit, no producer/node scale), the parameter is omitted from the rerun —
+  // the user must hear that honestly, not a plain "saved".
+  toastSavedNoScale:
+    'Success measure saved. The analysis cannot use this target yet — the measure has no known scale.',
   toastAlreadyRunning:
     'Success measure saved. Analysis is already running; your target applies on the next run.',
 } as const
@@ -203,13 +208,18 @@ export function DefineSuccessModal() {
     }
     // Codex final-audit B3 — the canonical/V5 chip must carry the NORMALISED
     // 0-1 threshold (buildPayload forwards chip params verbatim; a raw value
-    // is silently ignored by PLoT). Resolve the cap the SAME way the V2
-    // request boundary does (outcomeNodeId) and OMIT the parameter when
-    // normalisation can't be proven — fail closed, never send raw.
+    // is silently ignored by PLoT). The cap resolves against the SAME node
+    // the threshold was just committed to (test-practice audit: this
+    // previously used store.outcomeNodeId — a different resolution from the
+    // B2 commit three lines up, so a divergent outcomeNodeId dropped the
+    // cap). UI-SEM-081: the user's own unit is the last-resort cap ("%" is
+    // definitionally out of 100 — live drafts carry no producer/node scale).
+    // OMIT when normalisation still can't be proven — fail closed, never raw.
     const normalisedThreshold = resolveChipGoalThreshold(parsedThreshold, {
       analysisReady: canvas.ceeAnalysisReady,
       nodes: canvas.nodes,
-      goalNodeId: canvas.outcomeNodeId,
+      goalNodeId,
+      unitCap: capForUnit(unit),
     })
     close()
     void executeCanonicalRun({
@@ -223,6 +233,10 @@ export function DefineSuccessModal() {
         showToast(`Success measure saved. ${outcome.reason}`)
       } else if (outcome.status === 'already-running') {
         showToast(DEFINE_SUCCESS_COPY.toastAlreadyRunning)
+      } else if (normalisedThreshold === undefined) {
+        // Lane 1b honesty: the rerun happened but WITHOUT the target — the
+        // analysis never sees it (V-P0-1). Never imply otherwise.
+        showToast(DEFINE_SUCCESS_COPY.toastSavedNoScale)
       } else {
         showToast(DEFINE_SUCCESS_COPY.toastSaved)
       }

@@ -13,6 +13,8 @@ import { _clearTraces, getInteractionChains } from '../../../lib/debug-state'
 // bare — same drift class fixed elsewhere in this lane. Matches the
 // established wrapper pattern in OutputsDock.conversationSingleton.spec.tsx.
 import { ConversationProvider } from '../../conversation/ConversationContext'
+import { useSuccessMeasureStore } from '../../../components/results/modals/successMeasureStore'
+import { resolveScenarioKey } from '../../../components/results/modals/scenarioKey'
 
 function renderOutputsDock() {
   return render(
@@ -65,9 +67,16 @@ vi.mock('../../../v5/eligibility', () => ({
   isV5Eligible: mockIsV5Eligible,
 }))
 
-vi.mock('../../hooks/useV2Run', () => ({
-  useV2Run: () => mockUseV2Run(),
-}))
+vi.mock('../../hooks/useV2Run', async (importOriginal) => {
+  // Spread the real module: OutputsDock also imports the pure goal-threshold
+  // helpers (resolveChipGoalThreshold / capForUnit) from here — only the hook
+  // itself is mocked.
+  const actual = await importOriginal<typeof import('../../hooks/useV2Run')>()
+  return {
+    ...actual,
+    useV2Run: () => mockUseV2Run(),
+  }
+})
 
 vi.mock('../../ToastContext', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../ToastContext')>()
@@ -407,6 +416,84 @@ describe('OutputsDock analyse convergence', () => {
         action_type: 'run_analysis',
         parameters: { goal_threshold: 42 },
       })
+    })
+
+    it('Lane 1b: a plain canonical run ATTACHES the saved store threshold when provable', async () => {
+      // Live staging repro (2026-07-13): with target 60 saved (unit %), the
+      // strip Rerun dispatched chip:{action_type:'run_analysis'} with NO
+      // parameters — so the goal node's "Rerun the analysis to update your
+      // results" advice was futile: no rerun could ever carry the target.
+      // The canonical runner must resolve the store threshold (raw, user
+      // units) through the same fail-closed normaliser and attach it. The
+      // unit comes from the saved success measure (% → definitional cap 100).
+      const dispatchAction = vi.fn()
+      mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() } as any)
+      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
+      mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
+      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+      useCanvasStore.setState({ goalThreshold: 60 } as any) // goal-1 + analysisReady seeded in beforeEach (no cap fields)
+      useSuccessMeasureStore.getState()._reset()
+      useSuccessMeasureStore.getState().saveMeasure(
+        resolveScenarioKey(useCanvasStore.getState().currentScenarioId),
+        {
+          metric: 'Conversion',
+          direction: 'reach_at_least',
+          threshold: 60,
+          unit: '%',
+          timeframe: '6 months',
+          baseline: null,
+          savedAt: 0,
+        },
+      )
+
+      renderOutputsDock()
+      const runner = getCanonicalRunner()
+      await runner!({ source: 'freshness-strip' })
+
+      expect(dispatchAction).toHaveBeenCalledTimes(1)
+      expect(dispatchAction.mock.calls[0][0]).toMatchObject({
+        action_type: 'run_analysis',
+        parameters: { goal_threshold: 0.6 },
+      })
+      useSuccessMeasureStore.getState()._reset()
+      useCanvasStore.setState({ goalThreshold: null } as any)
+    })
+
+    it('Lane 1b: explicit caller parameters are never overridden by the store threshold', async () => {
+      const dispatchAction = vi.fn()
+      mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() } as any)
+      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
+      mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
+      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+      useCanvasStore.setState({ goalThreshold: 60 } as any)
+
+      renderOutputsDock()
+      const runner = getCanonicalRunner()
+      await runner!({ source: 'test', parameters: { goal_threshold: 0.25 } })
+
+      expect(dispatchAction.mock.calls[0][0]).toMatchObject({
+        parameters: { goal_threshold: 0.25 },
+      })
+      useCanvasStore.setState({ goalThreshold: null } as any)
+    })
+
+    it('Lane 1b: an unprovable store threshold stays OMITTED on a plain run (fail closed)', async () => {
+      const dispatchAction = vi.fn()
+      mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() } as any)
+      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
+      mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
+      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+      // Raw 60, no cap anywhere, no saved measure (no unit) → unprovable.
+      useSuccessMeasureStore.getState()._reset()
+      useCanvasStore.setState({ goalThreshold: 60, ceeAnalysisReady: null } as any)
+
+      renderOutputsDock()
+      const runner = getCanonicalRunner()
+      await runner!({ source: 'freshness-strip' })
+
+      expect(dispatchAction).toHaveBeenCalledTimes(1)
+      expect(dispatchAction.mock.calls[0][0].parameters).toBeUndefined()
+      useCanvasStore.setState({ goalThreshold: null } as any)
     })
   })
 
