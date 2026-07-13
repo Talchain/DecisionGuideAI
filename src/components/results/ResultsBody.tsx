@@ -148,18 +148,21 @@ export const ResultsBody = memo(function ResultsBody({
   // Risk appetite toggle — Conservative: highest p10, Neutral: highest win prob, Aggressive: highest p90
   const [riskAppetite, setRiskAppetite] = useState<RiskAppetite>('neutral')
 
-  const riskWinnerId = useMemo(() => {
+  // Codex R3-SF3: a lens comparison needs DATA — options missing the lens
+  // metric are excluded (never defaulted to 0, which let a data-less option
+  // "win" the cautious view), and with fewer than two comparable options the
+  // lens states that comparison is unavailable instead of crowning anyone.
+  const lensComparison = useMemo(() => {
     const opts = resultsSectionData.recommendation.allOptions
-    if (opts.length <= 1) return resultsSectionData.recommendation.recommendedOption?.id
-    if (riskAppetite === 'conservative') {
-      const best = [...opts].sort((a, b) => (b.outcome?.p10 ?? b.p10 ?? 0) - (a.outcome?.p10 ?? a.p10 ?? 0))[0]
-      return best?.id
+    const metric = (o: (typeof opts)[number]) =>
+      riskAppetite === 'conservative' ? (o.outcome?.p10 ?? o.p10) : (o.outcome?.p90 ?? o.p90)
+    if (riskAppetite === 'neutral' || opts.length <= 1) {
+      return { id: resultsSectionData.recommendation.recommendedOption?.id, comparable: true }
     }
-    if (riskAppetite === 'aggressive') {
-      const best = [...opts].sort((a, b) => (b.outcome?.p90 ?? b.p90 ?? 0) - (a.outcome?.p90 ?? a.p90 ?? 0))[0]
-      return best?.id
-    }
-    return resultsSectionData.recommendation.recommendedOption?.id
+    const withData = opts.filter((o) => Number.isFinite(metric(o)))
+    if (withData.length < 2) return { id: undefined, comparable: false }
+    const best = [...withData].sort((a, b) => (metric(b) as number) - (metric(a) as number))[0]
+    return { id: best?.id, comparable: true }
   }, [riskAppetite, resultsSectionData.recommendation])
 
   // Wave 2 (§6.4): identity-anchored ordinals for the option cards — the
@@ -348,9 +351,11 @@ export const ResultsBody = memo(function ResultsBody({
                 data-testid="risk-lens-label"
                 className={`${typography.panelMeta} text-text-light`}
               >
-                {riskAppetite === 'conservative'
-                  ? 'Lens: cautious view, highlighting the option with the strongest downside. The recommendation above is unchanged.'
-                  : 'Lens: bold view, highlighting the option with the strongest upside. The recommendation above is unchanged.'}
+                {!lensComparison.comparable
+                  ? 'Not enough range data to compare options under this lens.'
+                  : riskAppetite === 'conservative'
+                    ? 'Lens: cautious view, highlighting the option with the strongest downside. The recommendation above is unchanged.'
+                    : 'Lens: bold view, highlighting the option with the strongest upside. The recommendation above is unchanged.'}
               </p>
             )}
             {/* WinGauge — moved from hero to top of options section */}
@@ -372,7 +377,7 @@ export const ResultsBody = memo(function ResultsBody({
               options={resultsSectionData.recommendation.allOptions}
               winnerId={resultsSectionData.recommendation.recommendedOption?.id}
               lensActive={riskAppetite !== 'neutral'}
-              lensHighlightedId={riskAppetite !== 'neutral' ? riskWinnerId : undefined}
+              lensHighlightedId={riskAppetite !== 'neutral' && lensComparison.comparable ? lensComparison.id : undefined}
               stableNumbers={stableNumbersForCards}
               onSendMessage={onSendMessage}
               hasGoalThreshold={resultsSectionData.recommendation.goalThreshold != null}

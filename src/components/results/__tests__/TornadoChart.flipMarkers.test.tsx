@@ -19,8 +19,18 @@ const rows: TornadoRow[] = [
   { factorKey: 'factor-2', label: 'Factor Two', lowOutcome: 200, highOutcome: 400, canFocus: true },
 ]
 
-describe('TornadoChart flip markers (A4)', () => {
-  it('renders flip marker when flip_value is present', () => {
+/**
+ * Codex R3-SF4: the flip marker was REMOVED. flip_value is a factor-space
+ * value; the tornado bars span outcome-space (the recommended option's
+ * p10–p90). Positioning one against the other was an invalid coordinate
+ * mapping that placed the "Flips at" diamond at a meaningless point. These
+ * tests pin the removal: no marker renders even with fully valid producer
+ * flip data. Re-enable rendering only when factor-space bounds
+ * (factorLow/factorHigh) are threaded through the tornado data pipeline —
+ * see the header comment in TornadoChart.tsx.
+ */
+describe('TornadoChart flip markers (removed — Codex R3-SF4)', () => {
+  it('renders NO marker even when flip_value is present and certified', () => {
     const flipThresholds: FlipThreshold[] = [
       { label: 'Factor One', node_id: 'factor-1', current_value: 300, flip_value: 400, unit: '$' },
     ]
@@ -33,44 +43,11 @@ describe('TornadoChart flip markers (A4)', () => {
       />,
     )
 
-    const markers = screen.getAllByTestId('flip-marker')
-    expect(markers).toHaveLength(1)
-    expect(markers[0]).toHaveAttribute('title', 'Flips at $400')
-  })
-
-  it('does not render marker when flip_value is null', () => {
-    const flipThresholds: FlipThreshold[] = [
-      { label: 'Factor Two', node_id: 'factor-2', current_value: 300, flip_value: null, flip_reason: 'no_bracket' },
-    ]
-
-    render(
-      <TornadoChart
-        rows={rows}
-        expectedOutcome={300}
-        flipThresholds={flipThresholds}
-      />,
-    )
-
     expect(screen.queryByTestId('flip-marker')).toBeNull()
+    expect(screen.queryByTitle(/Flips at/)).toBeNull()
   })
 
-  it('does not render marker when flip_reason is heuristic', () => {
-    const flipThresholds: FlipThreshold[] = [
-      { label: 'Factor One', node_id: 'factor-1', current_value: 300, flip_value: 400, flip_reason: 'heuristic' as any },
-    ]
-
-    render(
-      <TornadoChart
-        rows={rows}
-        expectedOutcome={300}
-        flipThresholds={flipThresholds}
-      />,
-    )
-
-    expect(screen.queryByTestId('flip-marker')).toBeNull()
-  })
-
-  it('renders markers for multiple rows with valid flip data', () => {
+  it('renders NO markers for multiple rows with valid flip data', () => {
     const flipThresholds: FlipThreshold[] = [
       { label: 'Factor One', node_id: 'factor-1', current_value: 300, flip_value: 400 },
       { label: 'Factor Two', node_id: 'factor-2', current_value: 300, flip_value: 350 },
@@ -84,7 +61,24 @@ describe('TornadoChart flip markers (A4)', () => {
       />,
     )
 
-    const markers = screen.getAllByTestId('flip-marker')
-    expect(markers).toHaveLength(2)
+    expect(screen.queryByTestId('flip-marker')).toBeNull()
+  })
+
+  it('accepting flipThresholds without rendering markers does not break the chart', () => {
+    const flipThresholds: FlipThreshold[] = [
+      { label: 'Factor Two', node_id: 'factor-2', current_value: 300, flip_value: null, flip_reason: 'no_bracket' },
+    ]
+
+    render(
+      <TornadoChart
+        rows={rows}
+        expectedOutcome={300}
+        flipThresholds={flipThresholds}
+      />,
+    )
+
+    expect(screen.getByTestId('tornado-chart')).toBeInTheDocument()
+    expect(screen.getByText('Factor One')).toBeInTheDocument()
+    expect(screen.getByText('Factor Two')).toBeInTheDocument()
   })
 })

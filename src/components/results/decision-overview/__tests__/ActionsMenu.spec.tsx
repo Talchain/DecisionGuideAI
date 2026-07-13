@@ -53,6 +53,23 @@ describe('ActionsMenu', () => {
     expect(document.activeElement).toBe(trigger)
   })
 
+  it('closes on Tab without trapping focus (Codex SF8: disclosure, not a focus trap)', () => {
+    render(<ActionsMenu />)
+    const trigger = screen.getByRole('button', { name: /actions/i })
+    fireEvent.click(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Tab' })
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('closes on Shift+Tab the same way', () => {
+    render(<ActionsMenu />)
+    const trigger = screen.getByRole('button', { name: /actions/i })
+    fireEvent.click(trigger)
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Tab', shiftKey: true })
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
   it('a method opens a contextual session: dispatchAction with method identity in parameters', () => {
     const dispatch = vi.fn()
     useGuidanceStore.setState({ _dispatchAction: dispatch } as never)

@@ -736,4 +736,3 @@ describe('Codex B1 — a lens never re-crowns leader SEMANTICS', () => {
     expect(canonicalCard.textContent).toMatch(/What makes this/i)
   })
 })
-

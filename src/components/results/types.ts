@@ -508,6 +508,13 @@ export interface DriverItem {
   normalisedInfluence: number
   /** ISL influence_score (0-1) - structural causal influence, used for Influence column */
   influenceScore?: number
+  /** Codex R3-B1: the value every surface displays AND ranks by, resolved under the
+   *  complete-metric-set policy — producer influenceScore only when EVERY ranked factor
+   *  carries one (a single comparable basis), otherwise normalisedInfluence for every
+   *  factor. Consumers must render/sort this, not influenceScore ?? normalisedInfluence,
+   *  which mixes bases under partial producer coverage. Optional only for legacy
+   *  fixtures — the live pipeline always sets it. */
+  displayInfluence?: number
   /** Producer influence_rank (1 = most influential). Additive; roadmap 1.7 (provisional_doctrine_v0). */
   influenceRank?: number
   /** ISL zero_reason - explains why sensitivity is zero for intervention factors */

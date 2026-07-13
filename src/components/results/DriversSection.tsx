@@ -304,7 +304,7 @@ function DriverRow({
       : 'neutral'
 
   // Use ISL influence_score (0-1) directly for Sensitivity column
-  const sensitivityValue = driver.influenceScore ?? driver.normalisedInfluence
+  const sensitivityValue = driver.displayInfluence ?? driver.influenceScore ?? driver.normalisedInfluence
   const hasSensitivityData = sensitivityValue != null && sensitivityValue >= 0
 
   // Confidence value (0-1)
@@ -393,7 +393,7 @@ function DriverRow({
   })()
 
   const techniqueSuggestion = (() => {
-    const influence = driver.influenceScore ?? driver.normalisedInfluence
+    const influence = driver.displayInfluence ?? driver.influenceScore ?? driver.normalisedInfluence
     const conf = typeof driver.confidence === 'number' ? driver.confidence : null
     if (typeof influence !== 'number' || conf === null) return null
     return influence > 0.6 && conf < 0.5 ? 'Try: reference class forecasting' : null
@@ -646,7 +646,7 @@ function DriverRow({
           <div className={`${typography.panelMeta} text-text-light flex gap-3`}>
             <span>elasticity: {typeof driver.rawElasticity === 'number' ? driver.rawElasticity.toFixed(3) : '-'}</span>
             <span>stability: {driver.attributionStability ?? '-'}</span>
-            <span>influence: {typeof (driver.influenceScore ?? driver.normalisedInfluence) === 'number' ? ((driver.influenceScore ?? driver.normalisedInfluence)! * 100).toFixed(1) + '%' : '-'}</span>
+            <span>influence: {typeof (driver.displayInfluence ?? driver.influenceScore ?? driver.normalisedInfluence) === 'number' ? ((driver.displayInfluence ?? driver.influenceScore ?? driver.normalisedInfluence)! * 100).toFixed(1) + '%' : '-'}</span>
           </div>
         </ExpertBlock>
       )}
@@ -830,7 +830,7 @@ export function DriversSection({
   // This ensures badge count, card rendering, "Show more/fewer", and tornado all use the same filtered set
   const INFLUENCE_THRESHOLD = 0.01
   const visibleDrivers = drivers.filter(d => {
-    const influence = d.influenceScore ?? d.normalisedInfluence
+    const influence = d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence
     return typeof influence === 'number' && influence >= INFLUENCE_THRESHOLD
   })
 
@@ -920,7 +920,7 @@ export function DriversSection({
 
         {/* v7.10 T9: Equal-influence note when all visible drivers are within ±0.01 */}
         {visibleDrivers.length >= 2 && (() => {
-          const scores = visibleDrivers.map(d => d.influenceScore ?? d.normalisedInfluence ?? 0)
+          const scores = visibleDrivers.map(d => d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence ?? 0)
           const max = Math.max(...scores)
           const min = Math.min(...scores)
           return (max - min) <= 0.01 ? (
