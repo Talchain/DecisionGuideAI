@@ -24,6 +24,7 @@ import { useEffect, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 
 import { useCanvasStore } from '../../../canvas/store'
+import { useSuccessMeasureForScenario } from '../modals'
 import { useGuidanceStore, type GuidanceItem } from '../../../canvas/stores/guidanceStore'
 import { isDecisionOverviewEnabled } from '../../../flags'
 import { typography } from '../../../styles/typography'
@@ -147,6 +148,7 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
   const analysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
   // All selectors below return primitives (Zustand inline-selector rule).
   const goalThreshold = useCanvasStore((s) => s.goalThreshold)
+  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
   const optionCount = useCanvasStore((s) => s.nodes.filter((n) => n.type === 'option').length)
   const constraintCount = useCanvasStore((s) => s.goalConstraints?.length ?? 0)
   const briefPresent = useCanvasStore((s) => Boolean(s.currentBriefText?.trim()))
@@ -261,10 +263,16 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
   // count. Options: canvas option count. No diversity/quality claims — the
   // producer option-similarity signal does not exist yet.
   const { unit, symbol } = mapOutcomeUnit(goalUnitRaw)
+  // Round-2 wiring: prefer the FULL saved success measure (Define-success
+  // modal, scenario-keyed) — metric + direction + threshold+unit + timeframe.
+  // Falls back to the bare committed threshold, then to 'missing'.
+  const savedMeasure = useSuccessMeasureForScenario(currentScenarioId)
   const goalNote =
-    goalThreshold == null
-      ? OVERVIEW_COPY.goalNoteMissing
-      : `Success target ≥ ${formatTargetValue(goalThreshold, unit, symbol)}`
+    savedMeasure != null
+      ? `${savedMeasure.metric}: ${savedMeasure.direction === 'decrease_below' ? '≤' : '≥'} ${savedMeasure.threshold}${savedMeasure.unit === 'none' ? '' : savedMeasure.unit}, ${savedMeasure.timeframe}`
+      : goalThreshold == null
+        ? OVERVIEW_COPY.goalNoteMissing
+        : `Success target ≥ ${formatTargetValue(goalThreshold, unit, symbol)}`
   const contextNote = briefPresent ? OVERVIEW_COPY.capturedInBrief : OVERVIEW_COPY.notCaptured
   const constraintsNote =
     constraintCount > 0

@@ -78,10 +78,12 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       tryThis: 'Pick the number that would make this decision a win, and the date it matters by.',
       sourceLine: 'Source: your goal has no success threshold (checked directly).',
       action: {
-        kind: 'ai-dialogue',
+        // Round-2 wiring: the primary DOES the thing — the structured
+        // Define-success modal (threshold commits through the canonical
+        // rerun path). The Olumi route stays available on the ✦ affordance.
+        kind: 'open-modal',
+        modal: 'define-success',
         label: 'Define success',
-        actionType: 'discuss',
-        parameters: { topic: 'define_success' },
         prompt: 'Help me define what success looks like for this decision.',
       },
       targetId: null,
@@ -283,10 +285,12 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       tryThis: 'Note the chosen option, the key assumptions, and the one change that would reopen this.',
       sourceLine: 'Source: robustness analysis (result stable).',
       action: {
-        kind: 'ai-dialogue',
+        // Round-2 wiring: opens the Record-the-decision modal (honest
+        // local-only capture) instead of the prototype's generic-dialogue
+        // wiring bug. Olumi route stays on the ✦ affordance.
+        kind: 'open-modal',
+        modal: 'decision-record',
         label: 'Create a decision record',
-        actionType: 'discuss',
-        parameters: { topic: 'decision_record' },
         prompt: 'Help me record this decision, its key assumptions, and what would trigger a rethink.',
       },
       targetId: null,
