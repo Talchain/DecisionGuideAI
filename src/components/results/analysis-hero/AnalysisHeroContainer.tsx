@@ -11,7 +11,7 @@
  */
 import { useCallback } from 'react'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
-import { focusExistingTarget } from '../../../canvas/utils/focusHelpers'
+import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { AnalysisHeroPanel } from './AnalysisHeroPanel'
 import { useAnalysisHero } from './useAnalysisHero'
 
@@ -25,18 +25,28 @@ export interface AnalysisHeroContainerProps {
    * absent, the promoted line renders as plain text.
    */
   onApplyTarget?: (value: number) => void
+  /**
+   * Opens the Define-success modal (built by another lane at
+   * src/components/results/modals/) — threaded through untouched to the
+   * goal-lens inline CTA. Optional: absent, the CTA is hidden entirely.
+   */
+  onDefineSuccess?: () => void
 }
 
 export function AnalysisHeroContainer({
   data,
   isStale = false,
   onApplyTarget,
+  onDefineSuccess,
 }: AnalysisHeroContainerProps) {
-  const { model, onRerun, rerunDisabled, focusPanelMounted } = useAnalysisHero(data)
-  // §6.5 quick links: focus the factor on canvas, fail-closed — a target
-  // that no longer exists on the graph is a silent no-op, never a crash.
+  const { model, onRerun, rerunDisabled, focusPanelSelector, nextRecommendation } =
+    useAnalysisHero(data)
+  // §6.5 quick links + evidence rows: focus the target on canvas through the
+  // universal fail-closed resolver (Parity P1) — node id, edge id, or the
+  // synthetic `${source}->${target}` edge form all resolve; a target that no
+  // longer exists on the graph is a silent no-op, never a crash.
   const onFocusTarget = useCallback((targetId: string) => {
-    focusExistingTarget(targetId, 'node')
+    focusModelTarget(targetId)
   }, [])
   if (model.kind === 'empty') return null
   return (
@@ -45,8 +55,10 @@ export function AnalysisHeroContainer({
       isStale={isStale}
       onRerun={onRerun}
       rerunDisabled={rerunDisabled}
-      focusPanelMounted={focusPanelMounted}
+      focusPanelSelector={focusPanelSelector}
+      nextRecommendation={nextRecommendation}
       onApplyTarget={onApplyTarget}
+      onDefineSuccess={onDefineSuccess}
       onFocusTarget={onFocusTarget}
     />
   )

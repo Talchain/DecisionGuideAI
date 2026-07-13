@@ -18,8 +18,9 @@
  *
  * No goal-target marker: the Likely outcome lens owns option comparison, and
  * a target far above the option spread would compress the bars. Target
- * attainment lives on the Goal fit lens (its probability bars + the sub-1% /
- * no-option-on-track honesty).
+ * attainment lives on the Goal fit lens (its probability readouts + the
+ * sub-1% / no-option-on-track honesty). The goal lens draws NO track at all
+ * (prototype v6: badge + label + probability only).
  *
  * Option labels are producer/user content rendered as escaped React text
  * nodes — no raw HTML injection of any kind.
@@ -36,20 +37,23 @@ export interface HeroOptionRowProps {
   isLeader: boolean
   isOpen: boolean
   onToggle: () => void
-  /** False while stale — rows render but do not respond. */
-  interactive: boolean
   /** Layout-only outcome domain; null hides outcome bars. */
   outcomeDomain: { min: number; max: number } | null
 }
 
 /**
- * Shared row grid: number+label · track · readout · chevron slot. The axis
- * header in AnalysisHeroPanel uses the same template so columns align.
- * Label column matches the prototype's 126px (7.875rem) to reduce mid-word
- * truncation; the full label is always available in the opened detail.
+ * Shared row grid (prototype v6 two-line anatomy): badge · label · readout ·
+ * chevron on the first implicit row, with the chart track on its OWN
+ * full-width second row (col-start-2 spanning under label + readout), so
+ * the range comparison is never squeezed between the label and the readout.
+ * The axis header in AnalysisHeroPanel uses the same template so the track
+ * columns align.
  */
 export const HERO_ROW_GRID =
-  'grid w-full grid-cols-[minmax(0,7.875rem)_1fr_auto_0.875rem] items-center gap-2 rounded-lg px-2 py-1.5 text-left'
+  'grid w-full grid-cols-[1.5rem_minmax(0,1fr)_auto_0.875rem] items-center gap-x-2 gap-y-1 rounded-lg px-2 py-1.5 text-left'
+
+/** The track's placement on the grid's second row (under label + readout). */
+export const HERO_ROW_TRACK_SPAN = 'col-start-2 col-span-3'
 
 /**
  * Range-bar fills — SOLID semantic light tokens, deliberately not opacity
@@ -107,7 +111,6 @@ export function HeroOptionRow({
   isLeader,
   isOpen,
   onToggle,
-  interactive,
   outcomeDomain,
 }: HeroOptionRowProps) {
   const regionId = useId()
@@ -139,27 +142,24 @@ export function HeroOptionRow({
   }, [row.label, isOpen])
 
   // Per-lens layout positions (percent of track width). null → hidden.
-  // Ghost marks (previous run) draw only on the What-changed lens and only
-  // when the model carries producer previous values — never UI-diffed.
+  // The GOAL lens draws NO track at all (prototype v6: badge + label +
+  // probability readout only — a probability is not a range, and the bar
+  // treatment made the goal lens visually identical to a range chart it is
+  // not). Ghost marks (previous run) draw only on the What-changed lens and
+  // only when the model carries producer previous values — never UI-diffed.
   let barStart: number | null = null
   let barEnd: number | null = null
   let dotPos: number | null = null
   let ghostBarStart: number | null = null
   let ghostBarEnd: number | null = null
   let ghostDotPos: number | null = null
-  if (lens === 'goal') {
-    if (row.goal.value != null) {
-      barStart = 0
-      barEnd = trackPct(row.goal.value)
-      dotPos = barEnd
-    }
-  } else if (lens === 'stability') {
+  if (lens === 'stability') {
     if (row.stability?.value != null) {
       barStart = 0
       barEnd = trackPct(row.stability.value)
       dotPos = barEnd
     }
-  } else if (outcomeDomain) {
+  } else if (lens !== 'goal' && outcomeDomain) {
     const span = outcomeDomain.max - outcomeDomain.min
     const pos = (v: number) => trackPct((v - outcomeDomain.min) / span)
     if (row.outcome.p10 != null && row.outcome.p90 != null) {
@@ -185,8 +185,6 @@ export function HeroOptionRow({
         : lens === 'whatChanged'
           ? (row.changeReadout ?? row.outcome.readout)
           : row.outcome.readout
-  const readoutSuffix =
-    lens === 'goal' && row.goal.value != null ? ` ${HERO_COPY.readout.goalSuffix}` : ''
 
   // Expanded-row affordance policy: a chevron promises more than one line.
   // Rows whose ONLY detail is the win probability are not expandable —
@@ -194,45 +192,61 @@ export function HeroOptionRow({
   // information survives without a hollow disclosure. `beyondWin` derives
   // from the detail object itself (not a hand-kept field list), so a new
   // detail line can never silently strand a row as non-expandable.
-  // The persistent meta is gated on `interactive` like the disclosure:
-  // while stale, expandable rows lock their detail away, so a win-only row
-  // must not keep disclosing its detail line — stale mode hides the same
-  // fact types uniformly across rows. It renders on either lens (matching
-  // the opened detail, which is lens-independent).
+  // It renders on either lens (matching the opened detail, which is
+  // lens-independent).
   const { winChance, ...beyondWin } = row.detail
   const hasDetailBeyondWin = Object.values(beyondWin).some(Boolean)
-  const expandable = hasDetailBeyondWin && interactive
-  const winOnlyMeta = !hasDetailBeyondWin && interactive && winChance
+  const expandable = hasDetailBeyondWin
+  const winOnlyMeta = !hasDetailBeyondWin && winChance
   const Chevron = isOpen ? ChevronDown : ChevronRight
+
+  // The goal lens draws no track row at all (prototype v6 goal table).
+  const drawsTrack = lens !== 'goal'
 
   const rowGrid = (
     <>
-      <span className="flex min-w-0 items-center gap-2">
-        <span
-          aria-hidden="true"
-          data-testid="hero-row-number"
-          className={`flex h-[18px] w-[18px] flex-none items-center justify-center rounded ${typography.panelMeta} ${
-            isLeader
-              ? 'bg-primary text-text-on-color'
-              : `border ${HERO_TOKEN_BORDER} bg-transparent text-text-body`
-          }`}
-        >
-          {row.stableNumber ?? row.index}
-        </span>
-        <span
-          id={labelId}
-          ref={labelRef}
-          title={row.label}
-          data-testid="hero-row-label"
-          className={`${typography.panelBody} min-w-0 flex-1 break-words text-left text-text-header line-clamp-2`}
-        >
-          {row.label}
-          {isLeader && <span className="sr-only"> ({HERO_COPY.srLeader})</span>}
-        </span>
+      {/* Row 1: badge · label · readout · chevron. Badge geometry follows
+          the prototype (24×24, 7px radius); leader = filled info-blue with
+          white numeral, others outlined. */}
+      <span
+        aria-hidden="true"
+        data-testid="hero-row-number"
+        className={`flex h-6 w-6 flex-none items-center justify-center rounded-[7px] ${typography.panelMeta} ${
+          isLeader
+            ? 'bg-primary text-text-on-color'
+            : `border ${HERO_TOKEN_BORDER} bg-transparent text-text-body`
+        }`}
+      >
+        {row.stableNumber ?? row.index}
+      </span>
+      <span
+        id={labelId}
+        ref={labelRef}
+        title={row.label}
+        data-testid="hero-row-label"
+        className={`${typography.panelBody} min-w-0 break-words text-left text-text-header line-clamp-2`}
+      >
+        {row.label}
+        {isLeader && <span className="sr-only"> ({HERO_COPY.srLeader})</span>}
       </span>
 
-      {/* Chart track — layout-only positions, transform/opacity animation. */}
-      <span aria-hidden="true" className="relative block h-5 min-w-0">
+      <span
+        className={`${typography.panelMeta} whitespace-nowrap text-right text-text-light`}
+      >
+        <span className={isLeader ? 'text-text-header' : 'text-text-body'}>{readout}</span>
+      </span>
+      {/* Chevron slot is reserved on every row (invisible when static) so the
+          readout column stays aligned across the list. */}
+      <Chevron
+        aria-hidden="true"
+        className={`h-3.5 w-3.5 flex-none text-text-light ${expandable ? '' : 'invisible'}`}
+      />
+
+      {/* Row 2 (own full-width grid row, indented past the badge): the chart
+          track — layout-only positions, transform/opacity animation. The
+          goal lens draws no track (readout-only table, prototype v6). */}
+      {drawsTrack && (
+        <span aria-hidden="true" className={`${HERO_ROW_TRACK_SPAN} relative block h-5 min-w-0`}>
         <span className="absolute inset-x-0 top-1/2 h-px bg-panel-border" />
         {/* Ghost marks (previous run, What-changed lens only): faded copies
             of the same bar/dot geometry from producer previous values —
@@ -281,33 +295,21 @@ export function HeroOptionRow({
           }}
         />
         {/* Centre dot: full-width positioner translated by track percent. */}
-        <span
-          className="absolute inset-0 transition-transform motion-reduce:transition-none"
-          style={{
-            transform: `translateX(${dotPos ?? 0}%)`,
-            opacity: dotPos != null ? 1 : 0,
-          }}
-        >
           <span
-            className={`absolute left-0 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-panel ${
-              isLeader ? HERO_DOT_FILL.leader : HERO_DOT_FILL.rest
-            }`}
-          />
+            className="absolute inset-0 transition-transform motion-reduce:transition-none"
+            style={{
+              transform: `translateX(${dotPos ?? 0}%)`,
+              opacity: dotPos != null ? 1 : 0,
+            }}
+          >
+            <span
+              className={`absolute left-0 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-panel ${
+                isLeader ? HERO_DOT_FILL.leader : HERO_DOT_FILL.rest
+              }`}
+            />
+          </span>
         </span>
-      </span>
-
-      <span
-        className={`${typography.panelMeta} whitespace-nowrap text-right text-text-light`}
-      >
-        <span className={isLeader ? 'text-text-header' : 'text-text-body'}>{readout}</span>
-        {readoutSuffix}
-      </span>
-      {/* Chevron slot is reserved on every row (invisible when static) so the
-          track and readout columns stay aligned across the list. */}
-      <Chevron
-        aria-hidden="true"
-        className={`h-3.5 w-3.5 flex-none text-text-light ${expandable ? '' : 'invisible'}`}
-      />
+      )}
     </>
   )
 
@@ -338,7 +340,7 @@ export function HeroOptionRow({
           role="region"
           aria-labelledby={labelId}
           data-testid="hero-option-detail"
-          className="space-y-1 pb-2 pl-9 pr-2 pt-0.5"
+          className="space-y-1 pb-2 pl-10 pr-2 pt-0.5"
         >
           {/* Full, unclamped option name — recovered in place ONLY when the
               two-line clamp actually clips the visible label (labelClipped,
@@ -439,7 +441,7 @@ export function HeroOptionRow({
           so the information is not lost. */}
       {winOnlyMeta && (
         <p
-          className={`${typography.panelMeta} pb-1.5 pl-9 pr-2 text-text-light`}
+          className={`${typography.panelMeta} pb-1.5 pl-10 pr-2 text-text-light`}
           data-testid="hero-win-meta"
         >
           {row.detail.winChance}

@@ -1,20 +1,27 @@
 /**
- * AnalysisHeroPanel — presentational, prop-driven, STORE-FREE.
+ * AnalysisHeroPanel — presentational, prop-driven, store-free for DATA.
  *
  * Renders the answer-first hero: headline + tension subline, lens tabs,
- * axis, option rows (disclosure detail), caption, and the compressed footer
- * strip (Main reason / Focus next). Also renders the curated non-chart
- * states (partial / failed / blocked). Every number shown comes from the
+ * axis, option rows (disclosure detail), caption, quick-evidence pills, the
+ * evidence disclosure, the footer strip (Main reason / Focus next) and the
+ * Next-step route row. Also renders the curated non-chart states
+ * (partial / failed / blocked / paused). Every number shown comes from the
  * model built by buildHeroModel — this component adds layout and copy
  * composition only.
+ *
+ * The ONE store import is `openAskOlumi` (paused-state resolution action —
+ * an ACTION DISPATCH into the Ask-Olumi drawer, not a data read; the panel
+ * still renders exclusively from its props).
  *
  * Lens switching and row disclosure are LOCAL render state: no fetch, no
  * analysis rerun, no selector recomputation, and the row DOM persists across
  * lens switches (values morph via transform/opacity in HeroOptionRow).
  *
- * Stale treatment (no hero-owned banner — AnalysisFreshnessNotice owns the
- * wording): the chart area is dimmed and inert, lens and row interactions
- * are locked, and Focus next becomes the Re-run analysis action.
+ * Stale treatment (prototype v6): the hero renders NO stale surface of its
+ * own — AnalysisFreshnessNotice (the adjacent strip) owns the warning, and
+ * the content stays fully readable and interactive. The only hero-side
+ * stale affordance retained is the footer Re-run action (kept rather than
+ * removed — see the deliberate-deviation note at the render site).
  *
  * Trust discipline: no trust/stability wording is rendered anywhere in this
  * panel — no producer-supplied display-safe label exists today (see
@@ -22,12 +29,13 @@
  * derived. Raw 0-1 stability/confidence floats are never displayed.
  */
 import { useEffect, useId, useRef, useState } from 'react'
-import { ArrowDown, Check, Crosshair, FlaskConical, Info, RefreshCw, Target } from 'lucide-react'
+import { Check, Crosshair, FlaskConical, Info, RefreshCw, Target } from 'lucide-react'
 import { typography } from '@/styles/typography'
+import { openAskOlumi } from '../coaching/askOlumiStore'
 import { HeroEvidenceDisclosure } from './HeroEvidenceDisclosure'
 import { HERO_COPY } from './heroCopy'
 import { HeroLensTabs, tabId } from './HeroLensTabs'
-import { HeroOptionRow, HERO_ROW_GRID } from './HeroOptionRow'
+import { HeroOptionRow, HERO_ROW_GRID, HERO_ROW_TRACK_SPAN } from './HeroOptionRow'
 import type { HeroChartModel, HeroLens, HeroStatusModel } from './heroTypes'
 
 export interface AnalysisHeroPanelProps {
@@ -38,11 +46,23 @@ export interface AnalysisHeroPanelProps {
   onFocusTarget?: (targetId: string) => void
   rerunDisabled: boolean
   /**
-   * Whether the coaching panel below is actually mounted (its flag is on).
-   * Gates the Focus-next scroll affordance so the hero never renders a dead
-   * link — with the panel absent the line degrades to plain text.
+   * @deprecated Legacy gate kept for older callers (the gallery passes it);
+   * the live container now supplies `focusPanelSelector` instead. Ignored.
    */
-  focusPanelMounted: boolean
+  focusPanelMounted?: boolean
+  /**
+   * CSS selector of the coaching/Strengthen panel below (flag-aware, from
+   * useAnalysisHero) — the scroll target for the Focus-next affordance and
+   * the Next-step row's Open action. Null/absent = no scroll affordance is
+   * ever rendered (the lines degrade to plain text — never a dead link).
+   */
+  focusPanelSelector?: string | null
+  /**
+   * Title of the TOP active Strengthen entry (priority order) — renders the
+   * Next-step footer row mirroring the panel below. Null/absent hides the
+   * row (the generic Focus-next line renders instead).
+   */
+  nextRecommendation?: string | null
   /**
    * Existing apply-target route (OutputsDock handleApplyThreshold: sets the
    * goal threshold and reruns — the same handler the Options Compare target
@@ -50,10 +70,14 @@ export interface AnalysisHeroPanelProps {
    * plain text; the hero never invents an action route of its own.
    */
   onApplyTarget?: (value: number) => void
+  /**
+   * Opens the Define-success modal (owned by another lane at
+   * src/components/results/modals/ — deliberately NOT imported here). When
+   * absent the inline goal-lens CTA is hidden entirely — never a dead
+   * control.
+   */
+  onDefineSuccess?: () => void
 }
-
-/** The coaching panel container the focus-next affordance scrolls to. */
-const FOCUS_PANEL_SELECTOR = '[data-testid="focus-now-panel"]'
 
 /**
  * House-style guard for PRODUCER-slot text (trust line, status chip, named
@@ -67,8 +91,8 @@ function dashSafe(text: string): string {
 }
 
 /** Scroll to the coaching panel below; no-op when the target is absent. */
-function scrollToFocusPanel() {
-  const el = document.querySelector(FOCUS_PANEL_SELECTOR)
+function scrollToPanel(selector: string) {
+  const el = document.querySelector(selector)
   if (!el) return
   const reduced =
     typeof window.matchMedia === 'function' &&
@@ -78,16 +102,33 @@ function scrollToFocusPanel() {
 
 function StatusState({ model }: { model: HeroStatusModel }) {
   return (
-    <div data-testid={`hero-status-${model.variant}`} className="space-y-1">
+    <div data-testid={`hero-status-${model.variant}`} className="space-y-1.5">
       <h3 className={`${typography.panelHeader} text-text-header`}>{model.headline}</h3>
       <p className={`${typography.panelBody} text-text-light`}>{model.body}</p>
-      {/* §6.2 pause-read: the resolution action renders as plain text until
-          the live producer contradiction signal (and its routed action)
-          exists — never a dead control. */}
       {model.resolution && (
         <p data-testid="hero-paused-resolution" className={`${typography.panelBody} text-text-body`}>
           {model.resolution}
         </p>
+      )}
+      {/* §6.2 pause-read resolution route: opens the Ask-Olumi drawer with
+          the contradiction (the model body, producer text) as context and an
+          editable prefilled draft — routed, never auto-sent. The drawer is
+          mounted by ResultsBody, so the live mount always backs this button. */}
+      {model.variant === 'paused' && (
+        <button
+          type="button"
+          data-testid="hero-paused-resolve"
+          onClick={() =>
+            openAskOlumi({
+              context: model.body,
+              draft: HERO_COPY.paused.draft,
+              label: HERO_COPY.paused.askLabel,
+            })
+          }
+          className={`${typography.panelMeta} inline-flex items-center rounded-full bg-primary px-3 py-1.5 font-semibold text-text-on-color transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+        >
+          {HERO_COPY.paused.resolveButton}
+        </button>
       )}
     </div>
   )
@@ -98,8 +139,10 @@ export function AnalysisHeroPanel({
   isStale,
   onRerun,
   rerunDisabled,
-  focusPanelMounted,
+  focusPanelSelector = null,
+  nextRecommendation = null,
   onApplyTarget,
+  onDefineSuccess,
   onFocusTarget,
 }: AnalysisHeroPanelProps) {
   const panelId = useId()
@@ -131,17 +174,31 @@ export function AnalysisHeroPanel({
     setTargetEditing(false)
   }
 
-  // `focusPanelMounted` only says the coaching panel's flag is on. The
-  // focus-next affordance must never be an enabled no-op for keyboard and
+  // Goal-lens auto-switch (prototype: saving the success measure lands the
+  // user on the newly available Goal fit view): when the model transitions
+  // from no-user-target (showGoalHint true) to target-set (false) while
+  // mounted, select the goal lens ONCE. showGoalHint is exactly the
+  // no-user-target signal (buildHeroModel: true iff goalThreshold is null),
+  // so this never fires for producer gaps on already-targeted runs.
+  const chartShowGoalHint = model.kind === 'chart' ? model.showGoalHint : null
+  const prevGoalHintRef = useRef<boolean | null>(null)
+  useEffect(() => {
+    const prev = prevGoalHintRef.current
+    prevGoalHintRef.current = chartShowGoalHint
+    if (prev === true && chartShowGoalHint === false) setLensState('goal')
+  }, [chartShowGoalHint])
+
+  // `focusPanelSelector` only says which panel's flag is on. The scroll
+  // affordances must never be an enabled no-op for keyboard and
   // screen-reader users, so the actual scroll target's presence is confirmed
-  // post-commit (its error boundary may have replaced it) and the line
-  // degrades to plain text when the target is absent. Re-checked on every
+  // post-commit (its error boundary may have replaced it) and the lines
+  // degrade to plain text when the target is absent. Re-checked on every
   // commit; React's setState equality bail-out keeps this loop-free.
   const [focusTargetPresent, setFocusTargetPresent] = useState(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately dependency-less: the scroll target can appear/vanish without any prop changing (error boundary swap), so the check must run on every commit; the setState equality bail-out keeps it loop-free
   useEffect(() => {
     setFocusTargetPresent(
-      focusPanelMounted && document.querySelector(FOCUS_PANEL_SELECTOR) != null,
+      focusPanelSelector != null && document.querySelector(focusPanelSelector) != null,
     )
   })
 
@@ -171,20 +228,16 @@ export function AnalysisHeroPanel({
   // falls back to the model default when nothing has been chosen yet.
   const lens: HeroLens = lensState ?? model.defaultLens
   const lensAvailable = model.lenses.includes(lens)
-  const interactive = !isStale
 
-  // Constraint presence picks the goal-lens copy variant once for both
-  // the axis and the caption (the two share key structure in HERO_COPY).
+  // Constraint presence picks the goal-lens copy variant once (the caption
+  // key structure in HERO_COPY).
   const goalKey = model.hasConstraints ? ('goalWithLimits' as const) : ('goalOnly' as const)
-  // Axis labels per lens: Stability rows carry the producer's own readout
-  // labels, so no generic axis is drawn for them; What changed compares the
-  // same outcome quantities as Likely outcome.
+  // Axis labels per lens: the goal lens draws NO tracks (prototype v6
+  // readout-only table), so no axis is drawn for it; Stability rows carry
+  // the producer's own readout labels; What changed compares the same
+  // outcome quantities as Likely outcome.
   const axis =
-    lens === 'goal'
-      ? HERO_COPY.axis[goalKey]
-      : lens === 'outcome' || lens === 'whatChanged'
-        ? HERO_COPY.axis.outcome
-        : null
+    lens === 'outcome' || lens === 'whatChanged' ? HERO_COPY.axis.outcome : null
   // The Likely outcome lens shows option comparison only — no target line or
   // target mention (target attainment lives on the Goal fit lens). The
   // caption describes only what the chart draws: no lines → dots-only
@@ -217,6 +270,20 @@ export function AnalysisHeroPanel({
     : null
 
   const leaderId = model.leaders[lens]
+
+  // §6.5 quick-evidence pills: outlined pills in the summary row between
+  // the lens body and the evidence disclosure (prototype 1d .hero-summary).
+  // Rendered only with a focus callback (never dead pills). When the main
+  // driver and the top flip risk are the SAME factor, ONE combined pill
+  // renders — two pills pointing at one node would double-claim it.
+  const mainDriverLink = onFocusTarget ? model.quickLinks.mainDriver : null
+  const topFlipLink = onFocusTarget ? model.quickLinks.topFlipRisk : null
+  const combinedLink =
+    mainDriverLink && topFlipLink && mainDriverLink.targetId === topFlipLink.targetId
+      ? mainDriverLink
+      : null
+  const showPillsRow = Boolean(mainDriverLink || topFlipLink)
+  const pillClass = `${typography.panelMeta} inline-flex items-center gap-1 rounded-full border border-panel-border bg-transparent px-2 py-0.5 text-text-body transition-colors hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`
 
   return (
     <section
@@ -260,19 +327,16 @@ export function AnalysisHeroPanel({
         )}
       </div>
 
-      {/* Chart area — dimmed and inert while stale (soft-disable; the tab's
-          AnalysisFreshnessNotice carries the stale wording). */}
-      <div
-        data-testid="hero-chart-area"
-        className={`space-y-2 ${isStale ? 'pointer-events-none opacity-45' : ''}`}
-      >
+      {/* Chart area — prototype v6 stale doctrine: NEVER dimmed or locked.
+          The adjacent AnalysisFreshnessNotice strip is the sole stale
+          surface; the hero content stays readable and interactive. */}
+      <div data-testid="hero-chart-area" className="space-y-2">
         {/* Full prototype lens strip — always rendered; lenses without
             data are muted but selectable and explain themselves below. */}
         <HeroLensTabs
           available={model.lenses}
           active={lens}
           onSelect={setLensState}
-          interactive={interactive}
           panelId={panelId}
         />
 
@@ -284,31 +348,41 @@ export function AnalysisHeroPanel({
         >
           {unavailableBody ? (
             /* Explained empty state — why this lens is empty and what
-               unlocks it. Never a fabricated chart. */
+               unlocks it. Never a fabricated chart. The no-target goal state
+               carries the inline Define-success action AT the point of need
+               when a route is wired (hidden otherwise — never dead). */
             <p
               data-testid="hero-lens-unavailable"
               className={`${typography.panelBody} flex items-start gap-1.5 py-2 text-text-light`}
             >
               <Info aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 flex-none text-info" />
-              {unavailableBody}
+              <span>
+                {unavailableBody}
+                {lens === 'goal' && model.showGoalHint && onDefineSuccess && (
+                  <>
+                    {' '}
+                    <button
+                      type="button"
+                      data-testid="hero-define-success"
+                      onClick={onDefineSuccess}
+                      className="text-info hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info"
+                    >
+                      {HERO_COPY.lensUnavailable.goalDefineSuccess}
+                    </button>
+                  </>
+                )}
+              </span>
             </p>
           ) : (
             <>
               {/* Axis labels (decorative; values live in the row readouts).
-                  Shares the row grid template so the track columns align. */}
+                  Shares the row grid template and the track's column span so
+                  the fragments sit exactly over the tracks below. */}
               {axis && (
                 <div aria-hidden="true" className={`${HERO_ROW_GRID} items-end py-0`}>
                   <span />
-                  {/* Three IN-FLOW flex items with a guaranteed gap: the mid
-                      descriptor was previously absolutely positioned over the
-                      end labels, so at narrow widths the fragments collided
-                      and read as one run-on sentence ("0% chance of hitting
-                      goal 100%"). In flow they can never overlap — the mid
-                      truncates with an ellipsis instead of touching the end
-                      labels. Legibility-only change; the strings are
-                      unchanged. */}
                   <span
-                    className={`${typography.panelMeta} flex items-baseline justify-between gap-2 text-text-light`}
+                    className={`${HERO_ROW_TRACK_SPAN} ${typography.panelMeta} flex items-baseline justify-between gap-2 text-text-light`}
                   >
                     <span className="flex-none">{axis.left}</span>
                     <span className="min-w-0 truncate text-center text-text-body">
@@ -316,12 +390,15 @@ export function AnalysisHeroPanel({
                     </span>
                     <span className="flex-none">{axis.right}</span>
                   </span>
-                  <span />
-                  <span />
                 </div>
               )}
 
-              <div className="space-y-0.5" data-testid="hero-chart-rows">
+              <div
+                role="group"
+                aria-label={HERO_COPY.rowsAria[lens]}
+                className="space-y-0.5"
+                data-testid="hero-chart-rows"
+              >
                 {model.rows.map((row) => (
                   <HeroOptionRow
                     key={row.id}
@@ -330,7 +407,6 @@ export function AnalysisHeroPanel({
                     isLeader={row.id === leaderId}
                     isOpen={openRowId === row.id}
                     onToggle={() => setOpenRowId((cur) => (cur === row.id ? null : row.id))}
-                    interactive={interactive}
                     outcomeDomain={model.outcomeDomain}
                   />
                 ))}
@@ -347,46 +423,75 @@ export function AnalysisHeroPanel({
         )}
       </div>
 
-      {/* §6.6: one expandable evidence section between the chart and the
-          footer — self-hides when the model has nothing to disclose. */}
+      {/* §6.5 quick-evidence summary row (prototype 1d .hero-summary):
+          outlined pills between the lens body and the evidence disclosure.
+          Click focuses the factor on canvas via the container's fail-closed
+          resolver. */}
+      {showPillsRow && (
+        <div
+          data-testid="hero-summary-pills"
+          className="flex flex-wrap gap-1.5 border-t border-panel-border pt-2"
+        >
+          {combinedLink ? (
+            <button
+              type="button"
+              data-testid="hero-quicklink-combined"
+              onClick={() => onFocusTarget!(combinedLink.targetId)}
+              className={pillClass}
+            >
+              <Crosshair aria-hidden="true" className="h-3 w-3 flex-none text-info" />
+              {HERO_COPY.pills.combined(combinedLink.label)}
+            </button>
+          ) : (
+            <>
+              {mainDriverLink && (
+                <button
+                  type="button"
+                  data-testid="hero-quicklink-driver"
+                  onClick={() => onFocusTarget!(mainDriverLink.targetId)}
+                  className={pillClass}
+                >
+                  <Crosshair aria-hidden="true" className="h-3 w-3 flex-none text-info" />
+                  {HERO_COPY.pills.mainDriver(mainDriverLink.label)}
+                </button>
+              )}
+              {topFlipLink && (
+                <button
+                  type="button"
+                  data-testid="hero-quicklink-flip"
+                  onClick={() => onFocusTarget!(topFlipLink.targetId)}
+                  className={pillClass}
+                >
+                  <Crosshair aria-hidden="true" className="h-3 w-3 flex-none text-info" />
+                  {HERO_COPY.pills.topFlipRisk(topFlipLink.label)}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* §6.6: one expandable evidence section between the summary pills and
+          the footer — self-hides when the model has nothing to disclose. */}
       <HeroEvidenceDisclosure evidence={model.evidence} onFocusTarget={onFocusTarget} />
 
-      {/* Footer strip: Main reason · Trust slot · Focus next. The trust
-          line renders PRODUCER-SUPPLIED text verbatim (issues 219/221) —
-          the live adapter sets null until such a label exists, so the slot
-          is fixture-only today; the hero never authors trust wording. */}
+      {/* Footer strip: Main reason (static fallback when the driver pill is
+          absent) · Trust slot · Focus next. The trust line renders
+          PRODUCER-SUPPLIED text verbatim (issues 219/221) — the live adapter
+          sets null until such a label exists, so the slot is fixture-only
+          today; the hero never authors trust wording. The strip self-hides
+          when the Next-step row supersedes its only line (no empty border). */}
+      {(Boolean(model.mainReason && !mainDriverLink) ||
+        model.trustLine != null ||
+        isStale ||
+        model.showGoalHint ||
+        model.focusAction != null ||
+        !nextRecommendation) && (
       <div className="space-y-1.5 border-t border-panel-border pt-2">
-        {/* §6.5 quick links: when the top driver can focus on canvas the
-            static main-reason line becomes the Main driver link (same
-            sentence, one focus action) — never both. Links render only
-            with a focus callback so they are never dead controls. */}
-        {model.quickLinks.mainDriver && onFocusTarget ? (
-          <button
-            type="button"
-            data-testid="hero-quicklink-driver"
-            onClick={() => onFocusTarget(model.quickLinks.mainDriver!.targetId)}
-            className={`${typography.panelBody} inline-flex items-center gap-1.5 text-text-body hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-          >
-            <Crosshair aria-hidden="true" className="h-3.5 w-3.5 flex-none text-info" />
-            {HERO_COPY.footer.mainReason(model.quickLinks.mainDriver.label)}
-          </button>
-        ) : (
-          model.mainReason && (
-            <p className={`${typography.panelBody} text-text-body`} data-testid="hero-main-reason">
-              {model.mainReason}
-            </p>
-          )
-        )}
-        {model.quickLinks.topFlipRisk && onFocusTarget && (
-          <button
-            type="button"
-            data-testid="hero-quicklink-flip"
-            onClick={() => onFocusTarget(model.quickLinks.topFlipRisk!.targetId)}
-            className={`${typography.panelBody} inline-flex items-center gap-1.5 text-text-body hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-          >
-            <Crosshair aria-hidden="true" className="h-3.5 w-3.5 flex-none text-info" />
-            {HERO_COPY.footer.topFlipRisk(model.quickLinks.topFlipRisk.label)}
-          </button>
+        {model.mainReason && !mainDriverLink && (
+          <p className={`${typography.panelBody} text-text-body`} data-testid="hero-main-reason">
+            {model.mainReason}
+          </p>
         )}
         {model.trustLine && (
           <p className={`${typography.panelBody} text-text-light`} data-testid="hero-trust-line">
@@ -394,6 +499,10 @@ export function AnalysisHeroPanel({
           </p>
         )}
         {isStale ? (
+          /* Deliberate deviation from strict v6 (which gives the hero no
+             stale affordance at all): the Re-run action is RETAINED so an
+             existing recovery affordance is not removed — but the content
+             above stays fully readable and interactive (no dim, no lock). */
           <button
             type="button"
             onClick={onRerun}
@@ -518,15 +627,17 @@ export function AnalysisHeroPanel({
           <p className={`${typography.panelBody} text-text-body`} data-testid="hero-focus-action">
             {dashSafe(model.focusAction)}
           </p>
-        ) : focusTargetPresent ? (
+        ) : nextRecommendation ? null : focusTargetPresent && focusPanelSelector ? (
+          /* Generic Focus-next scroll line — superseded by the Next-step
+             row below whenever a top Strengthen entry exists. */
           <button
             type="button"
-            onClick={scrollToFocusPanel}
+            onClick={() => scrollToPanel(focusPanelSelector)}
             aria-label={HERO_COPY.footer.focusNextAria}
             data-testid="hero-focus-next"
             className={`${typography.panelBody} inline-flex items-center gap-1.5 text-text-body hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
           >
-            <ArrowDown aria-hidden="true" className="h-3.5 w-3.5 text-info" />
+            <Crosshair aria-hidden="true" className="h-3.5 w-3.5 text-info" />
             {HERO_COPY.footer.focusNext}
           </button>
         ) : (
@@ -535,6 +646,43 @@ export function AnalysisHeroPanel({
           </p>
         )}
       </div>
+      )}
+
+      {/* Next-step route row (prototype §5 .analysis-next-route): mirrors
+          the TOP active Strengthen entry; Open scrolls to the panel below.
+          The Open control renders only when the scroll target is verifiably
+          mounted (fail-closed — never a dead button); the row itself still
+          names the entry as plain text otherwise. */}
+      {nextRecommendation && (
+        <div
+          data-testid="hero-next-rec"
+          className="flex items-center gap-2 border-t border-panel-border pt-2"
+        >
+          <Target aria-hidden="true" className="h-3.5 w-3.5 flex-none text-info" />
+          <span className="min-w-0 flex-1">
+            <span className={`${typography.panelMeta} block text-text-light`}>
+              {HERO_COPY.nextRec.label}
+            </span>
+            <span
+              data-testid="hero-next-rec-title"
+              className={`${typography.panelBody} block truncate font-semibold text-text-header`}
+            >
+              {nextRecommendation}
+            </span>
+          </span>
+          {focusTargetPresent && focusPanelSelector && (
+            <button
+              type="button"
+              data-testid="hero-next-rec-open"
+              onClick={() => scrollToPanel(focusPanelSelector)}
+              aria-label={HERO_COPY.nextRec.openAria}
+              className={`${typography.panelMeta} flex-none rounded-full border border-panel-border bg-transparent px-2.5 py-1 text-text-body transition-colors hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            >
+              {HERO_COPY.nextRec.open}
+            </button>
+          )}
+        </div>
+      )}
     </section>
   )
 }

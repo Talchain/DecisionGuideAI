@@ -22,7 +22,6 @@ function renderPanel(model: HeroChartModel | HeroStatusModel, isStale = false) {
       isStale={isStale}
       onRerun={() => {}}
       rerunDisabled={false}
-      focusPanelMounted={false}
     />,
   )
 }
@@ -106,16 +105,31 @@ describe('AnalysisHero — accessibility', () => {
 
   it('every transform-animated element opts out under prefers-reduced-motion', () => {
     const { container } = renderPanel(chartModel())
+    // The default goal lens draws no tracks (v6) — the animated marks live
+    // on the outcome lens, so check there.
+    fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
     const animated = container.querySelectorAll('[class*="transition-transform"]')
     expect(animated.length).toBeGreaterThan(0)
     for (const el of animated) {
-      expect(el.className).toContain('motion-reduce:transition-none')
+      // getAttribute (not className): SVG elements report SVGAnimatedString.
+      expect(el.getAttribute('class')).toContain('motion-reduce:transition-none')
     }
   })
 
-  it('stale chart area is hidden from interaction but the re-run control is operable', async () => {
+  it('the hero section is labelled Analysis and the rows container names its lens table', () => {
+    renderPanel(chartModel())
+    expect(screen.getByRole('region', { name: 'Analysis' })).toBeInTheDocument()
+    // Goal lens (default here): the rows group carries the per-lens name.
+    expect(screen.getByRole('group', { name: 'Goal fit by option' })).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
+    expect(screen.getByRole('group', { name: 'Expected outcome by option' })).toBeInTheDocument()
+  })
+
+  it('stale content stays operable (v6 — no inert lockout) and the re-run control works', async () => {
     const { container } = renderPanel(chartModel(), true)
     expect(screen.getByTestId('hero-rerun')).toBeEnabled()
+    // No aria-disabled/inert wrapper: rows and tabs remain in the a11y tree.
+    expect(screen.getByTestId('hero-lens-tab-goal')).toBeEnabled()
     await expectNoViolations(container)
   })
 })

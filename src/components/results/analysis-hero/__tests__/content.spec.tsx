@@ -9,6 +9,7 @@ import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { buildHeroModel } from '../buildHeroModel'
 import type { HeroChartModel, HeroStatusModel } from '../heroTypes'
 import { makeHeroData, makeOption, OPTION_A, OPTION_B } from '../__fixtures__/hero.fixtures'
+import { useAskOlumiStore } from '../../coaching/askOlumiStore'
 
 function chartModel(data = makeHeroData()): HeroChartModel {
   const model = buildHeroModel(data)
@@ -23,7 +24,6 @@ function renderPanel(model: HeroChartModel | HeroStatusModel, props: Partial<Par
       isStale={false}
       onRerun={() => {}}
       rerunDisabled={false}
-      focusPanelMounted={false}
       {...props}
     />,
   )
@@ -152,9 +152,9 @@ describe('AnalysisHeroPanel — content', () => {
     expect(screen.getByRole('button', { name: /Two developers/ })).toBeInTheDocument()
   })
 
-  it('stale mode hides the win-only persistent meta (uniform with locked disclosures)', () => {
-    // While stale, expandable rows lock their detail away — a win-only row
-    // must not keep disclosing its detail line while its siblings cannot.
+  it('stale keeps the content fully readable (v6): win meta persists and rows stay expandable', () => {
+    // Prototype v6 stale doctrine: the freshness strip carries the warning;
+    // the hero content is never dimmed, locked, or stripped of detail.
     const winOnly = makeOption({
       ...OPTION_B,
       goalProbability: undefined,
@@ -172,7 +172,11 @@ describe('AnalysisHeroPanel — content', () => {
       ),
       { isStale: true },
     )
-    expect(screen.queryByTestId('hero-win-meta')).toBeNull()
+    expect(screen.getByTestId('hero-win-meta')).toBeInTheDocument()
+    // Rows with detail keep their disclosure while stale.
+    expect(screen.getByRole('button', { name: /Two developers/ })).toBeInTheDocument()
+    // No dim/inert lockout on the chart area.
+    expect(screen.getByTestId('hero-chart-area').className).not.toMatch(/opacity-45|pointer-events-none/)
   })
 
   it('promotes the success-target line into Focus next ONLY when no target exists', () => {
@@ -555,7 +559,7 @@ describe('Wave 2: stable number badges', () => {
     expect(within(screen.getByTestId('hero-option-row-2')).getByTestId('hero-row-number')).toHaveTextContent('2')
   })
 })
-describe('Wave 2 (§6.5): quick evidence links in the footer', () => {
+describe('Wave 2 (§6.5): quick evidence pills in the summary row', () => {
   function modelWithLinks(): HeroChartModel {
     const m = chartModel()
     return {
@@ -567,24 +571,61 @@ describe('Wave 2 (§6.5): quick evidence links in the footer', () => {
     }
   }
 
-  it('renders both links with semantically distinct labels and fires the focus callback', () => {
+  it('renders both pills in the summary row (above the evidence disclosure) and fires the focus callback', () => {
     const onFocusTarget = vi.fn()
     renderPanel(modelWithLinks(), { onFocusTarget })
     const driver = screen.getByTestId('hero-quicklink-driver')
     const flip = screen.getByTestId('hero-quicklink-flip')
-    expect(driver).toHaveTextContent('Main driver: Developer capacity.')
-    expect(flip).toHaveTextContent('Top flip risk: Salary cost.')
+    expect(driver).toHaveTextContent('Main driver: Developer capacity')
+    expect(flip).toHaveTextContent('Top flip risk: Salary cost')
+    // Outlined pill shape (DS rule: outlined, never filled).
+    for (const pill of [driver, flip]) {
+      expect(pill.className).toMatch(/rounded-full/)
+      expect(pill.className).toMatch(/border-panel-border/)
+      expect(pill.className).toMatch(/bg-transparent/)
+      expect(pill.className).toMatch(/text-text-body/)
+    }
+    // Placement: inside the summary row, which sits BEFORE the evidence
+    // disclosure in document order.
+    const pillsRow = screen.getByTestId('hero-summary-pills')
+    expect(pillsRow.contains(driver)).toBe(true)
+    const disclosure = screen.getByTestId('hero-evidence-disclosure')
+    expect(
+      pillsRow.compareDocumentPosition(disclosure) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
     fireEvent.click(driver)
     expect(onFocusTarget).toHaveBeenCalledWith('node_dev')
     fireEvent.click(flip)
     expect(onFocusTarget).toHaveBeenCalledWith('node_salary')
-    // The clickable driver link REPLACES the static main-reason line.
+    // The clickable driver pill REPLACES the static main-reason line.
     expect(screen.queryByTestId('hero-main-reason')).toBeNull()
+  })
+
+  it('dedupes to ONE combined pill when the main driver IS the top flip risk (same factor)', () => {
+    const m = chartModel()
+    const onFocusTarget = vi.fn()
+    renderPanel(
+      {
+        ...m,
+        quickLinks: {
+          mainDriver: { label: 'Developer capacity', targetId: 'node_dev' },
+          topFlipRisk: { label: 'Developer capacity', targetId: 'node_dev' },
+        },
+      },
+      { onFocusTarget },
+    )
+    const combined = screen.getByTestId('hero-quicklink-combined')
+    expect(combined).toHaveTextContent('Main driver and top flip risk: Developer capacity')
+    expect(screen.queryByTestId('hero-quicklink-driver')).toBeNull()
+    expect(screen.queryByTestId('hero-quicklink-flip')).toBeNull()
+    fireEvent.click(combined)
+    expect(onFocusTarget).toHaveBeenCalledWith('node_dev')
   })
 
   it('falls back to the static main-reason line when no focus target exists', () => {
     renderPanel(chartModel())
     expect(screen.getByTestId('hero-main-reason')).toBeInTheDocument()
+    expect(screen.queryByTestId('hero-summary-pills')).toBeNull()
     expect(screen.queryByTestId('hero-quicklink-driver')).toBeNull()
     expect(screen.queryByTestId('hero-quicklink-flip')).toBeNull()
   })
@@ -596,13 +637,18 @@ describe('Wave 2 (§6.6): Why and what could change it disclosure', () => {
       ...m,
       evidence: {
         drivers: [
-          { rank: 1, label: 'Developer capacity', targetId: 'node_dev' },
-          { rank: 2, label: 'Team morale', targetId: null },
-          { rank: 3, label: 'Hiring speed', targetId: 'node_hiring' },
-          { rank: 4, label: 'Salary cost', targetId: 'node_salary' },
+          { rank: 1, label: 'Developer capacity', targetId: 'node_dev', direction: 'positive', influence: 1 },
+          { rank: 2, label: 'Team morale', targetId: null, direction: 'negative', influence: 0.66 },
+          { rank: 3, label: 'Hiring speed', targetId: 'node_hiring', direction: null, influence: null },
+          { rank: 4, label: 'Salary cost', targetId: 'node_salary', direction: 'negative', influence: 0.58 },
         ],
         flipRisks: [
-          { text: 'If Team capacity falls below 30%, Two developers becomes the likely leader.', targetId: 'fac_capacity' },
+          {
+            text: 'If Team capacity falls below 30%, Two developers becomes the likely leader.',
+            targetId: 'fac_capacity',
+            switchMeta: '48% switch',
+            magnitude: 0.48,
+          },
         ],
         tradeOffs: null,
         ...overrides,
@@ -650,7 +696,208 @@ describe('Wave 2 (§6.6): Why and what could change it disclosure', () => {
     renderPanel(modelWithEvidence({ drivers: [], flipRisks: [], tradeOffs: null }))
     expect(screen.queryByRole('button', { name: /why and what could change it/i })).toBeNull()
   })
+
+  it('toggle anatomy: title over subtitle, trailing chevron rotating when open', () => {
+    renderPanel(modelWithEvidence(), { onFocusTarget: vi.fn() })
+    const toggle = screen.getByRole('button', { name: /why and what could change it/i })
+    expect(toggle).toHaveTextContent('Drivers, flip risks and trade-offs')
+    const chevron = toggle.querySelector('svg')
+    expect(chevron).not.toBeNull()
+    expect(chevron!.getAttribute('class')).not.toMatch(/rotate-180/)
+    expect(chevron!.getAttribute('class')).toMatch(/transition-transform/)
+    expect(chevron!.getAttribute('class')).toMatch(/motion-reduce:transition-none/)
+    fireEvent.click(toggle)
+    expect(toggle.querySelector('svg')!.getAttribute('class')).toMatch(/rotate-180/)
+  })
+
+  it('driver rows carry the +/- direction sign and the influence magnitude bar', () => {
+    renderPanel(modelWithEvidence(), { onFocusTarget: vi.fn() })
+    fireEvent.click(screen.getByRole('button', { name: /why and what could change it/i }))
+    const drivers = screen.getByTestId('hero-evidence-drivers')
+    expect(drivers).toHaveTextContent('Ranked by effect on the analysed outcome.')
+    const signs = screen.getAllByTestId('hero-driver-sign')
+    // Rows 1 (+, success) and 2 (-, danger) have directions; row 3 has none.
+    expect(signs).toHaveLength(2)
+    expect(signs[0]).toHaveTextContent('+')
+    expect(signs[0].className).toMatch(/text-success/)
+    expect(signs[1]).toHaveTextContent('-')
+    expect(signs[1].className).toMatch(/text-danger/)
+    // Magnitude bars only where the displayed influence exists.
+    expect(screen.getAllByTestId('hero-driver-bar')).toHaveLength(2)
+  })
+
+  it('flip rows carry the switch-probability meta and magnitude bar (sourced only)', () => {
+    renderPanel(modelWithEvidence(), { onFocusTarget: vi.fn() })
+    fireEvent.click(screen.getByRole('button', { name: /why and what could change it/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Flip risks' }))
+    expect(screen.getByTestId('hero-flip-switch-meta')).toHaveTextContent('48% switch')
+    expect(screen.getByTestId('hero-flip-bar')).toBeInTheDocument()
+    // A row without a joined probability shows neither meta nor bar.
+    renderPanel(
+      modelWithEvidence({
+        flipRisks: [
+          { text: 'If X crosses 10, the leading option is likely to change.', targetId: null, switchMeta: null, magnitude: null },
+        ],
+      }),
+      { onFocusTarget: vi.fn() },
+    )
+    const disclosures = screen.getAllByRole('button', { name: /why and what could change it/i })
+    fireEvent.click(disclosures[disclosures.length - 1])
+    const flipTabs = screen.getAllByRole('button', { name: 'Flip risks' })
+    fireEvent.click(flipTabs[flipTabs.length - 1])
+    expect(screen.getAllByTestId('hero-flip-switch-meta')).toHaveLength(1)
+    expect(screen.getAllByTestId('hero-flip-bar')).toHaveLength(1)
+  })
+
+  it('trade-offs render as the 2x2 grid of labelled cells (fixture-gated view)', () => {
+    renderPanel(
+      modelWithEvidence({
+        tradeOffs: [
+          {
+            option: 'Hire One Tech Lead',
+            gain: 'Long-term technical ownership',
+            giveUp: 'Hiring time',
+            dependsOn: 'Finding the right partner',
+            watch: 'Role clarity',
+          },
+        ],
+      }),
+      { onFocusTarget: vi.fn() },
+    )
+    fireEvent.click(screen.getByRole('button', { name: /why and what could change it/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Trade-offs' }))
+    const view = screen.getByTestId('hero-evidence-trade-offs')
+    const grid = view.querySelector('.grid.grid-cols-2')
+    expect(grid).not.toBeNull()
+    expect(grid!.children).toHaveLength(4)
+    expect(view).toHaveTextContent('You gain')
+    expect(view).toHaveTextContent('You give up')
+    expect(view).toHaveTextContent('Depends on')
+    expect(view).toHaveTextContent('Watch')
+    expect(view).toHaveTextContent('Long-term technical ownership')
+  })
 })
+describe('Prototype v6 parity: goal lens, define success, auto-switch, next step', () => {
+  it('the goal lens draws NO tracks — badges, labels and probability readouts only', () => {
+    renderPanel(chartModel())
+    // Default lens is goal (target + fits exist): no range bar, no dot track.
+    expect(screen.queryAllByTestId('hero-range-bar')).toHaveLength(0)
+    // Values still read out.
+    expect(within(screen.getByTestId('hero-option-row-1')).getByText('34%')).toBeInTheDocument()
+    // Switching to Likely outcome brings the tracks back.
+    fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
+    expect(screen.getAllByTestId('hero-range-bar').length).toBeGreaterThan(0)
+  })
+
+  it('goal-lens number badges: 24px, 7px radius; leader filled, others outlined', () => {
+    renderPanel(chartModel())
+    const badges = screen.getAllByTestId('hero-row-number')
+    for (const b of badges) {
+      expect(b.className).toMatch(/h-6/)
+      expect(b.className).toMatch(/w-6/)
+      expect(b.className).toMatch(/rounded-\[7px\]/)
+    }
+    // Leader (row 2, the recommended option on the goal lens) is filled.
+    const leaderBadge = within(screen.getByTestId('hero-option-row-2')).getByTestId('hero-row-number')
+    expect(leaderBadge.className).toMatch(/bg-primary/)
+    const otherBadge = within(screen.getByTestId('hero-option-row-1')).getByTestId('hero-row-number')
+    expect(otherBadge.className).toMatch(/border/)
+    expect(otherBadge.className).toMatch(/bg-transparent/)
+  })
+
+  it('goal-lens empty state carries the inline Define success action ONLY when a route is wired', () => {
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    const model = chartModel(
+      makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } }),
+    )
+    const onDefineSuccess = vi.fn()
+    const { unmount } = renderPanel(model, { onDefineSuccess })
+    fireEvent.click(screen.getByTestId('hero-lens-tab-goal'))
+    const button = screen.getByTestId('hero-define-success')
+    expect(button).toHaveTextContent('Define success')
+    fireEvent.click(button)
+    expect(onDefineSuccess).toHaveBeenCalledTimes(1)
+    unmount()
+    // No route wired → the button is hidden entirely (never a dead control).
+    renderPanel(model)
+    fireEvent.click(screen.getByTestId('hero-lens-tab-goal'))
+    expect(screen.queryByTestId('hero-define-success')).toBeNull()
+  })
+
+  it('never shows Define success for a producer gap on an already-targeted run', () => {
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    renderPanel(chartModel(makeHeroData({ options: noGoal })), { onDefineSuccess: vi.fn() })
+    fireEvent.click(screen.getByTestId('hero-lens-tab-goal'))
+    expect(screen.getByTestId('hero-lens-unavailable')).toHaveTextContent(
+      'Goal fit is not available for this run.',
+    )
+    expect(screen.queryByTestId('hero-define-success')).toBeNull()
+  })
+
+  it('auto-switches to the Goal fit lens ONCE when the success target commits while mounted', () => {
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    const noTargetModel = chartModel(
+      makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } }),
+    )
+    const targetedModel = chartModel()
+    const props = { isStale: false, onRerun: () => {}, rerunDisabled: false }
+    const { rerender } = render(<AnalysisHeroPanel model={noTargetModel} {...props} />)
+    // The user explicitly selected Likely outcome pre-commit.
+    fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
+    expect(screen.getByTestId('hero-lens-tab-outcome')).toHaveAttribute('aria-selected', 'true')
+    // Target committed → rerun returns a targeted model: lens flips to goal.
+    rerender(<AnalysisHeroPanel model={targetedModel} {...props} />)
+    expect(screen.getByTestId('hero-lens-tab-goal')).toHaveAttribute('aria-selected', 'true')
+    // ONCE only: the user can move away and stay away.
+    fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
+    rerender(<AnalysisHeroPanel model={{ ...targetedModel }} {...props} />)
+    expect(screen.getByTestId('hero-lens-tab-outcome')).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('renders the Next-step row mirroring the top Strengthen entry, Open gated on the anchor', () => {
+    const target = document.createElement('div')
+    target.setAttribute('data-testid', 'strengthen-panel')
+    const scrollSpy = vi.fn()
+    target.scrollIntoView = scrollSpy
+    document.body.appendChild(target)
+    try {
+      renderPanel(chartModel(), {
+        nextRecommendation: 'Define a measurable success target',
+        focusPanelSelector: '[data-testid="strengthen-panel"]',
+      })
+      const row = screen.getByTestId('hero-next-rec')
+      expect(row).toHaveTextContent('Next step')
+      expect(screen.getByTestId('hero-next-rec-title')).toHaveTextContent(
+        'Define a measurable success target',
+      )
+      // The generic focus-next line is superseded by the row.
+      expect(screen.queryByTestId('hero-focus-next')).toBeNull()
+      fireEvent.click(screen.getByTestId('hero-next-rec-open'))
+      expect(scrollSpy).toHaveBeenCalledTimes(1)
+    } finally {
+      target.remove()
+    }
+  })
+
+  it('Next-step row degrades to text (no Open button) when the scroll anchor is absent', () => {
+    renderPanel(chartModel(), {
+      nextRecommendation: 'Define a measurable success target',
+      focusPanelSelector: '[data-testid="strengthen-panel"]',
+    })
+    expect(screen.getByTestId('hero-next-rec')).toBeInTheDocument()
+    expect(screen.queryByTestId('hero-next-rec-open')).toBeNull()
+  })
+})
+
 describe('Wave 2 (§6.2): pause-read state (fixture-only)', () => {
   it('suppresses lenses and evidence, shows the contradiction and the resolution line', () => {
     renderPanel({
@@ -665,9 +912,44 @@ describe('Wave 2 (§6.2): pause-read state (fixture-only)', () => {
     expect(screen.getByTestId('hero-paused-resolution')).toHaveTextContent(
       'Review the goal with Olumi before reading these results.',
     )
+    // §6.2 resolution route: the primary 'Resolve with Olumi' action.
+    expect(screen.getByTestId('hero-paused-resolve')).toHaveTextContent('Resolve with Olumi')
     expect(screen.getByTestId('hero-fixture-banner')).toBeInTheDocument()
     expect(screen.queryByTestId('hero-lens-tab-outcome')).toBeNull()
     expect(screen.queryByTestId('hero-evidence-disclosure')).toBeNull()
     expect(screen.queryByTestId('hero-headline')).toBeNull()
+  })
+
+  it('Resolve with Olumi opens the Ask-Olumi drawer with the contradiction as context and an editable draft', () => {
+    useAskOlumiStore.getState().close()
+    renderPanel({
+      kind: 'status',
+      provenance: 'fixture',
+      variant: 'paused',
+      headline: 'Analysis paused: resolve your framing first.',
+      body: 'Your goal says minimise cost, but the leading option is judged on revenue growth.',
+      resolution: 'Review the goal with Olumi before reading these results.',
+    })
+    fireEvent.click(screen.getByTestId('hero-paused-resolve'))
+    const state = useAskOlumiStore.getState()
+    expect(state.isOpen).toBe(true)
+    // Context = the contradiction body (producer text, verbatim).
+    expect(state.context).toBe(
+      'Your goal says minimise cost, but the leading option is judged on revenue growth.',
+    )
+    // Prefilled, editable draft — routed, never auto-sent.
+    expect(state.draft).toBe('Help me work through the conflict in my decision brief.')
+    useAskOlumiStore.getState().close()
+  })
+
+  it('non-paused status states never render the resolve action', () => {
+    renderPanel({
+      kind: 'status',
+      provenance: 'live',
+      variant: 'failed',
+      headline: 'The analysis did not complete',
+      body: 'Run the analysis again to see results here.',
+    })
+    expect(screen.queryByTestId('hero-paused-resolve')).toBeNull()
   })
 })

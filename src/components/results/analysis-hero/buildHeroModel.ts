@@ -179,6 +179,15 @@ function formatFlipValue(value: number, unit?: string): string {
 export function buildHeroModel(
   data: ResultsSectionDataReturn,
   numbering?: Readonly<Record<string, number>>,
+  /**
+   * Canvas node ids for the flip-risk focus pre-gate (supplied by the
+   * store-aware hook). When provided, a flip row whose node_id is not on
+   * the canvas gets a null target — the row renders as text instead of a
+   * silently no-oping button (fail-closed, same discipline as the drivers'
+   * canFocus). When absent (older callers/tests) the target passes through
+   * and the container's focus resolver remains the fail-closed layer.
+   */
+  canvasNodeIds?: ReadonlySet<string>,
 ): HeroModel {
   // Fail closed on a partially-shaped object (e.g. hydrated older state):
   // the type guarantees these fields, but the hero must render nothing —
@@ -757,15 +766,42 @@ export function buildHeroModel(
   const evidenceDrivers = (drivers?.drivers ?? [])
     .map((d) => {
       const label = stripEncodingNotation(d.factorLabel)
+      // UI-SEM-080 (data selection half): the magnitude bar renders the SAME
+      // displayed influence metric DriversSection's bar consumes
+      // (displayInfluence ?? influenceScore ?? normalisedInfluence — Codex
+      // R3-B1 resolves displayInfluence upstream under the complete-metric-
+      // set policy). Selection of an existing value only; the % width
+      // mapping lives in the disclosure component. Null hides the bar.
+      const influenceValue =
+        d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence
       return label && !containsBannedTerm(label)
         ? {
             rank: d.rank,
             label,
             targetId: d.canFocus ? d.matchedNodeId ?? d.factorKey : null,
+            // Producer-normalised direction, passed through; absent stays
+            // absent (the sign glyph is omitted, never guessed).
+            direction: d.direction ?? null,
+            influence: typeof influenceValue === 'number' && Number.isFinite(influenceValue)
+              ? influenceValue
+              : null,
           }
         : null
     })
     .filter((d): d is NonNullable<typeof d> => d != null)
+
+  // Producer switch probabilities for the flip-risk rows, joined by node id
+  // to the SAME fragileEdgeInfo values the top-flip-risk quick link ranks by.
+  // Selection/format of existing values only; rows without a joinable value
+  // render without the meta or bar (never a fabricated probability).
+  const switchProbByNodeId = new Map<string, number>()
+  for (const d of drivers?.drivers ?? []) {
+    const p = d.fragileEdgeInfo?.switchProbability
+    if (typeof p !== 'number') continue
+    for (const key of [d.matchedNodeId, d.factorKey]) {
+      if (key && !switchProbByNodeId.has(key)) switchProbByNodeId.set(key, p)
+    }
+  }
 
   // Flip risks: producer flipThresholds → plain-language consequences.
   // UI-SEM-074: direction wording derived from producer values (flip_value
@@ -798,7 +834,25 @@ export function buildHeroModel(
         alt && !containsBannedTerm(alt)
           ? HERO_COPY.evidence.flipRiskWithAlternative(label, direction, value, alt)
           : HERO_COPY.evidence.flipRiskNoAlternative(label, direction, value)
-      return { text, targetId: ft.node_id || null }
+      // Fail-closed focus pre-gate: with canvas knowledge supplied, a
+      // node_id absent from the canvas yields a text row, not a dead button.
+      const rawTarget = ft.node_id || null
+      const targetId =
+        rawTarget && canvasNodeIds != null && !canvasNodeIds.has(rawTarget)
+          ? null
+          : rawTarget
+      // Switch-probability meta + magnitude joined from the fragile-edge
+      // values (existing producer data); absent join → no meta, no bar.
+      const switchProb = rawTarget != null ? switchProbByNodeId.get(rawTarget) : undefined
+      return {
+        text,
+        targetId,
+        switchMeta:
+          switchProb != null
+            ? HERO_COPY.evidence.switchMeta(formatPercent(switchProb, { fromDecimal: true }))
+            : null,
+        magnitude: switchProb ?? null,
+      }
     })
     .filter((r): r is NonNullable<typeof r> => r != null)
 

@@ -1098,8 +1098,8 @@ describe('Wave 2 (§6.6): evidence disclosure model', () => {
     const banned = { ...makeDriver('edge weight graph'), factorKey: 'fac_banned', rank: 3 }
     const m = chart(buildHeroModel(makeHeroData({ drivers: { drivers: [focusable, unfocusable, banned] } })))
     expect(m.evidence.drivers).toEqual([
-      { rank: 1, label: 'Developer capacity', targetId: 'node_dev' },
-      { rank: 2, label: 'Team morale', targetId: null },
+      { rank: 1, label: 'Developer capacity', targetId: 'node_dev', direction: null, influence: 1 },
+      { rank: 2, label: 'Team morale', targetId: null, direction: null, influence: 1 },
     ])
   })
 
@@ -1109,6 +1109,8 @@ describe('Wave 2 (§6.6): evidence disclosure model', () => {
       {
         text: 'If Team capacity falls below 30%, Two developers becomes the likely leader.',
         targetId: 'fac_capacity',
+        switchMeta: null,
+        magnitude: null,
       },
     ])
   })
@@ -1123,6 +1125,8 @@ describe('Wave 2 (§6.6): evidence disclosure model', () => {
       {
         text: 'If Salary cost rises above $60,000, the leading option is likely to change.',
         targetId: 'fac_salary',
+        switchMeta: null,
+        magnitude: null,
       },
     ])
   })
@@ -1164,6 +1168,50 @@ describe('Wave 2 (§6.6): evidence disclosure model', () => {
   it('trade-offs are a producer gap: always null on live models', () => {
     const m = chart(buildHeroModel(makeHeroData()))
     expect(m.evidence.tradeOffs).toBeNull()
+  })
+
+  it('driver rows carry the producer direction and the DISPLAYED influence metric (never a re-rank)', () => {
+    const withDirection = {
+      ...makeDriver('Developer capacity'),
+      canFocus: true,
+      matchedNodeId: 'node_dev',
+      direction: 'negative' as const,
+      displayInfluence: 0.4,
+      influenceScore: 0.9,
+    }
+    const m = chart(buildHeroModel(makeHeroData({ drivers: { drivers: [withDirection] } })))
+    // displayInfluence wins (Codex R3-B1 complete-metric-set policy) — the
+    // bar must show the SAME value DriversSection displays, never a blend.
+    expect(m.evidence.drivers).toEqual([
+      { rank: 1, label: 'Developer capacity', targetId: 'node_dev', direction: 'negative', influence: 0.4 },
+    ])
+  })
+
+  it('flip rows join the switch probability from the SAME fragile-edge values the quick link ranks by', () => {
+    const fragileDriver = {
+      ...makeDriver('Team capacity'),
+      factorKey: 'fac_capacity',
+      canFocus: true,
+      matchedNodeId: 'fac_capacity',
+      fragileEdgeInfo: { switchProbability: 0.48 },
+    }
+    const m = chart(buildHeroModel(makeHeroData({ drivers: { drivers: [fragileDriver] } })))
+    expect(m.evidence.flipRisks[0].switchMeta).toBe('48% switch')
+    expect(m.evidence.flipRisks[0].magnitude).toBe(0.48)
+  })
+
+  it('flip-risk focus pre-gate: a node absent from the canvas yields a null target (fail-closed)', () => {
+    // With canvas knowledge supplied, fac_capacity not on the canvas → text
+    // row (null target); present → target passes through. The sentence and
+    // meta are unaffected either way.
+    const absent = chart(buildHeroModel(makeHeroData(), undefined, new Set(['other_node'])))
+    expect(absent.evidence.flipRisks[0].targetId).toBeNull()
+    const present = chart(buildHeroModel(makeHeroData(), undefined, new Set(['fac_capacity'])))
+    expect(present.evidence.flipRisks[0].targetId).toBe('fac_capacity')
+    // Back-compat: no canvas knowledge → passthrough (container resolver
+    // remains the fail-closed layer).
+    const unknown = chart(buildHeroModel(makeHeroData()))
+    expect(unknown.evidence.flipRisks[0].targetId).toBe('fac_capacity')
   })
 })
 describe('Wave 2 (§6.2): pause-read state is producer-gated', () => {

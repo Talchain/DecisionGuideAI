@@ -172,18 +172,28 @@ describe('AnalysisHeroPanel — null-target suppression (rendered)', () => {
     expect(screen.queryByText(/98%/)).toBeNull()
   })
 
-  it('with a real threshold the goal lens still renders bars and the axis (preserved)', () => {
+  it('with a real threshold the goal lens still renders the fit readouts and caption (preserved)', () => {
+    // Prototype v6: the goal lens is a readout-only table (no tracks, no
+    // axis) — the preserved behaviour is the honest fit percentages plus
+    // the value-based caption.
     renderPanel(chart(buildHeroModel(makeHeroData())))
     expect(screen.getByTestId('hero-headline')).toHaveTextContent(
       'Upskill the team best fits your goal.',
     )
     expect(within(screen.getByTestId('hero-option-row-1')).getByText('34%')).toBeInTheDocument()
-    expect(screen.getByText('chance of hitting goal')).toBeInTheDocument()
+    expect(screen.getByTestId('hero-caption')).toHaveTextContent(
+      'Each value is the chance that option hits your goal.',
+    )
+    // No goal tracks and no goal axis exist any more (v6 readout-only table).
+    expect(screen.queryAllByTestId('hero-range-bar')).toHaveLength(0)
+    expect(screen.queryByText(/chance of hitting goal$/)).toBeNull()
   })
 
   it('axis fragments are laid out in flow with a gap — they can no longer overlap into a run-on sentence', () => {
     renderPanel(chart(buildHeroModel(makeHeroData())))
-    const mid = screen.getByText('chance of hitting goal')
+    // The (sole remaining) outcome axis renders on the Likely outcome lens.
+    fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
+    const mid = screen.getByText('expected outcome')
     // The run-on defect came from absolute positioning over the end labels;
     // the mid descriptor must now be an in-flow, truncating flex item inside
     // a gapped justify-between row (fragments cannot collide).
@@ -192,7 +202,7 @@ describe('AnalysisHeroPanel — null-target suppression (rendered)', () => {
     const rowContainer = mid.parentElement!
     expect(rowContainer.className).toMatch(/justify-between/)
     expect(rowContainer.className).toMatch(/gap-2/)
-    expect(within(rowContainer).getByText('0%')).toBeInTheDocument()
-    expect(within(rowContainer).getByText('100%')).toBeInTheDocument()
+    expect(within(rowContainer).getByText('lower')).toBeInTheDocument()
+    expect(within(rowContainer).getByText('higher')).toBeInTheDocument()
   })
 })
