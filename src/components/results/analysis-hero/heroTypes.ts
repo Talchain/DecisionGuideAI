@@ -141,8 +141,29 @@ export interface HeroQuickLink {
  * come from a grounded producer narrative — null live (producer gap),
  * fixture-populated in the gallery only. */
 export interface HeroEvidenceModel {
-  drivers: Array<{ rank: number; label: string; targetId: string | null }>
-  flipRisks: Array<{ text: string; targetId: string | null }>
+  drivers: Array<{
+    rank: number
+    label: string
+    targetId: string | null
+    /** Producer-normalised effect direction; null when the producer sent none
+     * (the sign glyph is simply omitted — never guessed). */
+    direction: 'positive' | 'negative' | null
+    /** The SAME displayed influence metric DriversSection bars render
+     * (displayInfluence ?? influenceScore ?? normalisedInfluence, 0-1);
+     * null hides the magnitude bar. Bar width mapping is UI-SEM-080
+     * (layout only, never displayed as data). */
+    influence: number | null
+  }>
+  flipRisks: Array<{
+    text: string
+    targetId: string | null
+    /** Formatted producer switch probability ('48% switch'); null when the
+     * fragile-edge join found no producer value — the meta is omitted. */
+    switchMeta: string | null
+    /** Raw producer switch probability (0-1) for the magnitude bar
+     * (UI-SEM-080 layout mapping); null hides the bar. */
+    magnitude: number | null
+  }>
   tradeOffs: Array<{
     option: string
     gain: string

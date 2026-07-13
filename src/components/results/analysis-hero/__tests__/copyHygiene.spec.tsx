@@ -26,15 +26,22 @@ const LENS_NAMING_COPY: string[] = [
   HERO_COPY.lensLabel.stability,
   HERO_COPY.lensUnavailable.stability,
   HERO_COPY.caption.stability,
+  // Rows-container aria for the stability view — names the view, no claim.
+  HERO_COPY.rowsAria.stability,
 ]
 
 const UI_COPY: string[] = [
   HERO_COPY.panelAria,
   HERO_COPY.tablistAria,
+  HERO_COPY.rowsAria.goal,
+  HERO_COPY.rowsAria.outcome,
+  HERO_COPY.rowsAria.whatChanged,
+  // rowsAria.stability lives in LENS_NAMING_COPY (sanctioned lens name).
   HERO_COPY.lensLabel.goal,
   HERO_COPY.lensLabel.outcome,
   HERO_COPY.lensLabel.whatChanged,
   HERO_COPY.lensUnavailable.goalNoTarget,
+  HERO_COPY.lensUnavailable.goalDefineSuccess,
   HERO_COPY.lensUnavailable.goalProducerGap,
   HERO_COPY.lensUnavailable.outcome,
   HERO_COPY.lensUnavailable.whatChanged,
@@ -72,7 +79,6 @@ const UI_COPY: string[] = [
   // HERO_COPY.readout.missing is deliberately NOT scanned: it is the
   // app-wide missing-value placeholder glyph ('—', matching format.ts
   // nullPlaceholder), not prose — the no-em-dash rule targets sentences.
-  HERO_COPY.readout.goalSuffix,
   HERO_COPY.readout.subOnePercent,
   HERO_COPY.detail.whyLabel,
   HERO_COPY.detail.couldChangeIfLabel,
@@ -84,10 +90,24 @@ const UI_COPY: string[] = [
   HERO_COPY.detail.goalFit('34%'),
   HERO_COPY.detail.goalFitWithLimits('34%'),
   HERO_COPY.footer.mainReason('Team capacity'),
-  HERO_COPY.footer.topFlipRisk('Team capacity'),
+  // §6.5 quick-evidence pills (summary row).
+  HERO_COPY.pills.mainDriver('Team capacity'),
+  HERO_COPY.pills.topFlipRisk('Team capacity'),
+  HERO_COPY.pills.combined('Team capacity'),
+  // Next-step route row + §6.2 pause-read resolution action.
+  HERO_COPY.nextRec.label,
+  HERO_COPY.nextRec.open,
+  HERO_COPY.nextRec.openAria,
+  HERO_COPY.paused.resolveButton,
+  HERO_COPY.paused.askLabel,
+  HERO_COPY.paused.draft,
   // §6.6 evidence disclosure (Wave 2): fragments (fallsBelow/risesAbove)
   // are scanned inside the full built sentences, not as raw fragments.
   HERO_COPY.evidence.heading,
+  HERO_COPY.evidence.subtitle,
+  HERO_COPY.evidence.driversNote,
+  HERO_COPY.evidence.flipRisksNote,
+  HERO_COPY.evidence.switchMeta('48%'),
   HERO_COPY.evidence.driversTab,
   HERO_COPY.evidence.flipRisksTab,
   HERO_COPY.evidence.tradeOffsTab,

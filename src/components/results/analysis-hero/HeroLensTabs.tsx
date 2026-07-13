@@ -22,8 +22,6 @@ export interface HeroLensTabsProps {
   available: HeroLens[]
   active: HeroLens
   onSelect: (lens: HeroLens) => void
-  /** False while stale — lens switching is locked. */
-  interactive: boolean
   /** id of the tabpanel the tabs control. */
   panelId: string
 }
@@ -41,7 +39,6 @@ export function HeroLensTabs({
   available,
   active,
   onSelect,
-  interactive,
   panelId,
 }: HeroLensTabsProps) {
   const refs = useRef<Partial<Record<HeroLens, HTMLButtonElement | null>>>({})
@@ -54,7 +51,6 @@ export function HeroLensTabs({
   }
 
   const onKeyDown = (e: React.KeyboardEvent, index: number) => {
-    if (!interactive) return
     // Horizontal tablist: Left/Right + Home/End only (WAI-ARIA APG).
     // Up/Down are deliberately NOT handled so page scrolling still works
     // while the tablist has focus.
@@ -99,8 +95,7 @@ export function HeroLensTabs({
             aria-selected={selected}
             aria-controls={panelId}
             tabIndex={selected ? 0 : -1}
-            disabled={!interactive}
-            onClick={() => interactive && onSelect(lens)}
+            onClick={() => onSelect(lens)}
             onKeyDown={(e) => onKeyDown(e, index)}
             data-testid={`hero-lens-tab-${lens}`}
             data-available={isAvailable ? 'true' : 'false'}
@@ -110,7 +105,7 @@ export function HeroLensTabs({
                 : isAvailable
                   ? 'bg-transparent text-text-light hover:bg-panel-hover hover:text-text-body'
                   : 'bg-transparent text-text-light opacity-60 hover:bg-panel-hover'
-            } disabled:cursor-default`}
+            }`}
           >
             {HERO_COPY.lensLabel[lens]}
             {!isAvailable && (

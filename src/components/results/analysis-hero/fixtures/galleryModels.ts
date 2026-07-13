@@ -349,9 +349,9 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
   },
   {
     id: 'stale',
-    title: 'Stale analysis (soft-disabled chart + re-run route)',
+    title: 'Stale analysis (readable content + re-run route)',
     description:
-      'Model edited since the last run: chart dims and locks, detail disclosure and win meta hide uniformly, footer swaps to the Re-run action.',
+      'Model edited since the last run: per prototype v6 the hero content stays readable and interactive (the freshness strip owns the warning); the footer swaps to the retained Re-run action.',
     isStale: true,
     model: fixtureChart({
       headline: 'Hire One Tech Lead best fits your goal.',
@@ -380,7 +380,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
     id: 'stale-rerunning',
     title: 'Rerun in progress (post-apply)',
     description:
-      'What the user sees after committing a change that reruns (e.g. applying a success target): the chart stays dimmed and locked, and the footer rerun action shows in-flight progress with its controls disabled.',
+      'What the user sees after committing a change that reruns (e.g. applying a success target): the content stays readable, and the footer rerun action shows in-flight progress with its controls disabled.',
     isStale: true,
     rerunDisabled: true,
     model: fixtureChart({

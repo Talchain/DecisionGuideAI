@@ -23,10 +23,16 @@ const runSpy = vi.fn(async (_opts?: import('../../../../canvas/analysis/canonica
 
 vi.mock('@/flags', async () => {
   const actual = await vi.importActual<typeof import('@/flags')>('@/flags')
-  return { ...actual, isFocusNowPanelEnabled: vi.fn(() => true) }
+  return {
+    ...actual,
+    isFocusNowPanelEnabled: vi.fn(() => true),
+    isStrengthenPanelEnabled: vi.fn(() => false),
+  }
 })
 
-import { isFocusNowPanelEnabled } from '@/flags'
+import { isFocusNowPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
+import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
+import type { Recommendation } from '../../strengthen/strengthenTypes'
 
 describe('AnalysisHero — interaction', () => {
   beforeEach(() => {
@@ -35,6 +41,8 @@ describe('AnalysisHero — interaction', () => {
     registerCanonicalRunner(runSpy)
     useCanvasStore.getState().resultsReset()
     vi.mocked(isFocusNowPanelEnabled).mockReturnValue(true)
+    vi.mocked(isStrengthenPanelEnabled).mockReturnValue(false)
+    useStrengthenStore.getState()._reset()
   })
 
   it('opens and closes option detail, keeping one row open at a time', () => {
@@ -100,11 +108,13 @@ describe('AnalysisHero — interaction', () => {
     expect(runSpy).not.toHaveBeenCalled()
   })
 
-  it('stale: locks lens and row interactions and routes focus-next to re-run', () => {
+  it('stale: content stays readable and interactive (v6); the footer re-run route remains', () => {
     render(<AnalysisHeroContainer data={makeHeroData()} isStale />)
-    // Lens tabs disabled; rows render as non-interactive (no disclosure buttons).
-    expect(screen.getByTestId('hero-lens-tab-goal')).toBeDisabled()
-    expect(screen.queryByRole('button', { name: /Two developers/ })).toBeNull()
+    // Prototype v6 stale doctrine: NO lockout — tabs stay enabled and rows
+    // keep their disclosures (the freshness strip owns the warning).
+    expect(screen.getByTestId('hero-lens-tab-goal')).toBeEnabled()
+    expect(screen.getByRole('button', { name: /Two developers/ })).toBeInTheDocument()
+    // The footer swaps the generic focus-next for the retained re-run route.
     expect(screen.queryByTestId('hero-focus-next')).toBeNull()
 
     const rerun = screen.getByTestId('hero-rerun')
@@ -155,6 +165,86 @@ describe('AnalysisHero — interaction', () => {
     const focusNext = screen.getByTestId('hero-focus-next')
     expect(focusNext.tagName).toBe('P')
     expect(focusNext).toHaveTextContent('Focus next: review the top actions below.')
+  })
+
+  it('focus-next targets the Strengthen panel when its flag is on (retired FocusNow re-key)', () => {
+    vi.mocked(isStrengthenPanelEnabled).mockReturnValue(true)
+    const target = document.createElement('div')
+    target.setAttribute('data-testid', 'strengthen-panel')
+    const scrollSpy = vi.fn()
+    target.scrollIntoView = scrollSpy
+    document.body.appendChild(target)
+    // A stale focus-now anchor must NOT satisfy the presence gate.
+    const staleAnchor = document.createElement('div')
+    staleAnchor.setAttribute('data-testid', 'focus-now-panel')
+    staleAnchor.scrollIntoView = vi.fn()
+    document.body.appendChild(staleAnchor)
+    try {
+      render(<AnalysisHeroContainer data={makeHeroData()} />)
+      fireEvent.click(screen.getByTestId('hero-focus-next'))
+      expect(scrollSpy).toHaveBeenCalledTimes(1)
+      expect(staleAnchor.scrollIntoView).not.toHaveBeenCalled()
+    } finally {
+      target.remove()
+      staleAnchor.remove()
+    }
+  })
+
+  it('renders the Next-step row from the top Strengthen record and suppresses the generic line', () => {
+    vi.mocked(isStrengthenPanelEnabled).mockReturnValue(true)
+    const rec = (id: string, title: string, priority: number): Recommendation => ({
+      id,
+      helpType: 'clarify',
+      title,
+      signal: 's',
+      whyNow: 'w',
+      tryThis: 't',
+      sourceLine: 'src',
+      action: { kind: 'inline-edit', label: 'Do it' },
+      targetId: null,
+      priority,
+    })
+    useStrengthenStore
+      .getState()
+      .reconcile([rec('strengthen:b', 'Second entry', 2), rec('strengthen:a', 'Top entry', 1)], 'hash1')
+    const target = document.createElement('div')
+    target.setAttribute('data-testid', 'strengthen-panel')
+    const scrollSpy = vi.fn()
+    target.scrollIntoView = scrollSpy
+    document.body.appendChild(target)
+    try {
+      render(<AnalysisHeroContainer data={makeHeroData()} />)
+      // Mirrors the store's priority order — the SAME top the panel shows.
+      expect(screen.getByTestId('hero-next-rec-title')).toHaveTextContent('Top entry')
+      expect(screen.queryByTestId('hero-focus-next')).toBeNull()
+      fireEvent.click(screen.getByTestId('hero-next-rec-open'))
+      expect(scrollSpy).toHaveBeenCalledTimes(1)
+    } finally {
+      target.remove()
+    }
+  })
+
+  it('no Next-step row when the Strengthen flag is off, even with active records', () => {
+    vi.mocked(isStrengthenPanelEnabled).mockReturnValue(false)
+    useStrengthenStore.getState().reconcile(
+      [
+        {
+          id: 'strengthen:x',
+          helpType: 'clarify',
+          title: 'Hidden entry',
+          signal: 's',
+          whyNow: 'w',
+          tryThis: 't',
+          sourceLine: 'src',
+          action: { kind: 'inline-edit', label: 'Do it' },
+          targetId: null,
+          priority: 1,
+        },
+      ],
+      'hash1',
+    )
+    render(<AnalysisHeroContainer data={makeHeroData()} />)
+    expect(screen.queryByTestId('hero-next-rec')).toBeNull()
   })
 
   it('renders nothing at all for the empty model (fail-closed mount)', () => {

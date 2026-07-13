@@ -13,8 +13,17 @@
  */
 
 export const HERO_COPY = {
-  panelAria: 'Analysis summary',
+  panelAria: 'Analysis',
   tablistAria: 'Results lens',
+
+  /** Per-lens accessible name for the option rows container (prototype ARIA:
+   * the outcome table is "Expected outcome by option"). */
+  rowsAria: {
+    goal: 'Goal fit by option',
+    outcome: 'Expected outcome by option',
+    stability: 'Stability by option',
+    whatChanged: 'Expected outcome by option',
+  } as const,
 
   lensLabel: {
     goal: 'Goal fit',
@@ -37,6 +46,9 @@ export const HERO_COPY = {
    */
   lensUnavailable: {
     goalNoTarget: 'Set a success target to unlock Goal fit.',
+    /** Inline unlock action beside goalNoTarget — rendered ONLY when a
+     * define-success route is wired (never a dead control). */
+    goalDefineSuccess: 'Define success',
     goalProducerGap: 'Goal fit is not available for this run.',
     outcome: 'Likely outcome is not available for this run.',
     stability:
@@ -127,14 +139,17 @@ export const HERO_COPY = {
   factorFallback: 'a key assumption',
 
   axis: {
-    goalWithLimits: { left: '0%', mid: 'chance of meeting goal and limits', right: '100%' },
-    goalOnly: { left: '0%', mid: 'chance of hitting goal', right: '100%' },
+    // Goal-lens axes retired with the goal tracks (prototype v6: the goal
+    // table renders badges + labels + probabilities only, no bars — an axis
+    // would describe geometry the lens no longer draws).
     outcome: { left: 'lower', mid: 'expected outcome', right: 'higher' },
   } as const,
 
   caption: {
-    goalWithLimits: 'Each bar is the chance that option meets your goal and limits together.',
-    goalOnly: 'Each bar is the chance that option hits your goal.',
+    // Value-based wording (not "each bar"): the goal lens draws no tracks
+    // (prototype v6), so the caption describes the readouts it shows.
+    goalWithLimits: 'Each value is the chance that option meets your goal and limits together.',
+    goalOnly: 'Each value is the chance that option hits your goal.',
     /** Base outcome caption — shown when TWO OR MORE rows draw p10-p90 lines. */
     outcome: 'Dots show expected outcome. Lines show the realistic range.',
     /**
@@ -165,7 +180,6 @@ export const HERO_COPY = {
   },
 
   readout: {
-    goalSuffix: 'fit',
     /**
      * Missing-value placeholder GLYPH — deliberately an em dash, matching
      * the app-wide convention (src/lib/format.ts `nullPlaceholder: '—'`).
@@ -191,6 +205,44 @@ export const HERO_COPY = {
     goalFitWithLimits: (readout: string) => `${readout} chance of meeting your goal and limits.`,
   },
 
+  /**
+   * §6.5 quick evidence PILLS — the .hero-summary row between the lens body
+   * and the evidence disclosure (prototype 1d). Pill labels carry no
+   * trailing full stop (they are pills, not sentences). `combined` renders
+   * when the main driver and the top flip risk are the SAME factor — one
+   * pill labelled for both, never two pills pointing at one node.
+   */
+  pills: {
+    mainDriver: (factor: string) => `Main driver: ${factor}`,
+    topFlipRisk: (factor: string) => `Top flip risk: ${factor}`,
+    combined: (factor: string) => `Main driver and top flip risk: ${factor}`,
+  },
+
+  /**
+   * Next-step footer row (prototype §5 .analysis-next-route): mirrors the
+   * TOP active Strengthen entry. Label is 'Next step', not the prototype's
+   * 'Next recommendation' — 'recommendation' is a canonical glossary banned
+   * term for hero copy (same voice rule the Strengthen panel follows with
+   * 'worth checking'), so the label deviates deliberately.
+   */
+  nextRec: {
+    label: 'Next step',
+    open: 'Open',
+    openAria: 'Scroll to the Strengthen your model panel',
+  },
+
+  /**
+   * §6.2 pause-read resolution action — 'Resolve with Olumi' opens the
+   * Ask-Olumi drawer with the contradiction as context and this editable
+   * draft prefilled. The contradiction body itself is producer text
+   * rendered verbatim; only the button label and draft are authored here.
+   */
+  paused: {
+    resolveButton: 'Resolve with Olumi',
+    askLabel: 'Resolve the conflict in the decision brief',
+    draft: 'Help me work through the conflict in my decision brief.',
+  },
+
   footer: {
     /**
      * Names the top driver only — no causal implication. An implication
@@ -198,9 +250,6 @@ export const HERO_COPY = {
      * stays forbidden until a producer rationale string exists.
      */
     mainReason: (factor: string) => `Main driver: ${factor}.`,
-    // §6.5: semantically distinct from mainReason — most likely to change
-    // which option leads, never implied to be the strongest effect.
-    topFlipRisk: (factor: string) => `Top flip risk: ${factor}.`,
     /**
      * Focus-next reconciliation (review-locked): the coaching panel's rows
      * are composed POSITIONALLY (buildFocusRows: server rows in received
@@ -241,9 +290,21 @@ export const HERO_COPY = {
   // the producer's user unit) — nothing invented, no internal terms.
   evidence: {
     heading: 'Why and what could change it',
+    /** Disclosure-toggle subtitle line (prototype §3 anatomy). */
+    subtitle: 'Drivers, flip risks and trade-offs',
     driversTab: 'Drivers',
     flipRisksTab: 'Flip risks',
     tradeOffsTab: 'Trade-offs',
+    /** Drivers-view note (prototype copy). "Evidence quality is separate"
+     * states only that this list does not rank by evidence — no quality
+     * claim is made (the per-row quality slot stays absent until a
+     * display-safe producer label exists, issues 219/221). */
+    driversNote: 'Ranked by effect on the analysed outcome. Evidence quality is separate.',
+    /** Flip-risks-view note (prototype copy). */
+    flipRisksNote:
+      'Chance the leading option changes when a relationship is varied within its plausible range.',
+    /** Switch-probability meta beside a flip row, e.g. "48% switch". */
+    switchMeta: (pct: string) => `${pct} switch`,
     seeAllFactors: 'See all factors',
     showFewer: 'Show fewer',
     flipRiskWithAlternative: (factor: string, direction: string, value: string, alternative: string) =>
