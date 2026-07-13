@@ -29,6 +29,7 @@ vi.mock('../../../canvas/utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
   focusByTarget: vi.fn(),
   focusExistingTarget: vi.fn(),
+  focusModelTarget: vi.fn(() => true),
 }))
 
 vi.mock('@/flags', async () => {

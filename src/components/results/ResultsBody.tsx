@@ -33,6 +33,7 @@ import { StrengthenContainer } from './strengthen/StrengthenContainer'
 import { InferenceWarningStrip } from './InferenceWarningStrip'
 import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
 import { AnalysisHeroContainer } from './analysis-hero'
+import { openDefineSuccess } from './modals'
 import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled, isFocusNowPanelEnabled, isAnalysisHeroPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
 
 export interface StrengthCorrectionDisplay {
@@ -270,6 +271,7 @@ export const ResultsBody = memo(function ResultsBody({
       {isAnalysisHeroPanelEnabled() && (
         <SectionErrorBoundary section="Analysis hero">
           <AnalysisHeroContainer
+            onDefineSuccess={openDefineSuccess}
             data={resultsSectionData}
             isStale={isStale}
             onApplyTarget={onApplyThreshold}
