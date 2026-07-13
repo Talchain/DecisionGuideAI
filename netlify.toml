@@ -77,6 +77,12 @@
   # [build.environment] ONLY after sign-off.
   VITE_FEATURE_DECISION_OVERVIEW = "1"
 
+  # Analysis-tab rebuild Wave 3 (Strengthen your model — adaptive coaching
+  # recommendations). The parity audit found the surface fully merged but
+  # DARK on staging because this promotion was missed at merge time. Promote
+  # to production by adding to [build.environment] ONLY after sign-off.
+  VITE_FEATURE_STRENGTHEN_PANEL = "1"
+
   # Hero fixture gallery — internal-only /dev/hero-gallery route rendering
   # prototype hero states from typed fixtures (visible internal-preview
   # banner on every instance). Staging-only for design review; never add to
