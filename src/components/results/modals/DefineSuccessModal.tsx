@@ -24,6 +24,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { executeCanonicalRun } from '../../../canvas/analysis/canonicalRunRegistry'
+import { resolveChipGoalThreshold } from '../../../canvas/hooks/useV2Run'
 import { useCanvasStore } from '../../../canvas/store'
 import { typography } from '../../../styles/typography'
 import {
@@ -186,15 +187,36 @@ export function DefineSuccessModal() {
     }
     useSuccessMeasureStore.getState().saveMeasure(scenarioKey, measure)
 
-    // Canonical commit — the SAME single path as the hero footer editor
-    // (OutputsDock.handleApplyThreshold): ONE setter writes the raw
-    // user-unit threshold (UI-SEM-058 normalises at the request boundary),
-    // ONE canonical rerun with the same source/parameters convention.
-    canvas.setGoalThreshold(parsedThreshold)
+    // Codex final-audit B2 — atomic commit: write the raw user-unit threshold
+    // to the store AND the goal node's data in one action, so the goal node
+    // stops showing "target missing" after a save (the bare setGoalThreshold
+    // updated only the global value, leaving the node stale). Falls back to
+    // the global-only setter when no goal node is resolvable.
+    const goalNodeId =
+      (canvas.ceeAnalysisReady?.goal_node_id as string | undefined) ??
+      canvas.nodes.find((n) => n.type === 'goal')?.id ??
+      null
+    if (goalNodeId) {
+      canvas.setGoalThresholdAndUpdateNode(goalNodeId, parsedThreshold)
+    } else {
+      canvas.setGoalThreshold(parsedThreshold)
+    }
+    // Codex final-audit B3 — the canonical/V5 chip must carry the NORMALISED
+    // 0-1 threshold (buildPayload forwards chip params verbatim; a raw value
+    // is silently ignored by PLoT). Resolve the cap the SAME way the V2
+    // request boundary does (outcomeNodeId) and OMIT the parameter when
+    // normalisation can't be proven — fail closed, never send raw.
+    const normalisedThreshold = resolveChipGoalThreshold(parsedThreshold, {
+      analysisReady: canvas.ceeAnalysisReady,
+      nodes: canvas.nodes,
+      goalNodeId: canvas.outcomeNodeId,
+    })
     close()
     void executeCanonicalRun({
       source: 'define-success-modal',
-      parameters: { goal_threshold: parsedThreshold },
+      ...(normalisedThreshold !== undefined
+        ? { parameters: { goal_threshold: normalisedThreshold } }
+        : {}),
     }).then((outcome) => {
       if (outcome.status === 'blocked' || outcome.status === 'unavailable') {
         // The measure IS saved — say so, then the honest gate reason.

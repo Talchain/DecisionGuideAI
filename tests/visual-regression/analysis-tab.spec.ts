@@ -155,9 +155,10 @@ describe('visual-regression scaffold (Brief 5)', () => {
     const root = container.querySelector('[data-testid="tornado-chart"]')!
     const snap = normaliseDomSnapshot(root.outerHTML)
 
-    // Brief 5.4 Phase 16: intro copy updated to exploration-only (removed "Drag to preview" which implied apply/rerun)
+    // Codex final-audit B1: intro copy made honest — the bars are a proportional
+    // illustration (option spread x influence), not producer per-factor forecasts.
     expect(snap).toContain(
-      'Win-likelihood range if this factor turns out weaker or stronger than expected. Drag the bars to explore how outcomes shift.',
+      'Illustrative range for each factor: the recommended option’s overall spread scaled by that factor’s influence. A proportional guide to relative leverage, not a per-factor forecast from the analysis.',
     )
     // Legend relocated above the first bar
     expect(snap).toContain('data-testid="tornado-legend"')

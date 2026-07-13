@@ -386,14 +386,20 @@ export function TornadoChart({
         }
       }}
     >
-      {/* Brief 5 Task 3: card intro above bars (Paul-approved frozen copy).
-          Brief 5.4 Phase 16: "Drag to preview" removed — implies apply/rerun
-          which is dormant. Rewritten to exploration-only per brief dormancy rule. */}
+      {/* Codex final-audit B1 — honest framing. The bars are the recommended
+          option's OVERALL p10/p90 spread scaled by each factor's influence
+          (see the module header): a proportional illustration, NOT producer
+          per-factor counterfactuals. The prior "Win-likelihood range … drag
+          to explore how outcomes shift" copy presented that fabrication as
+          analysis output. Reframed as an explicit illustration + the drag
+          invitation dropped (drag stays dormancy-gated, PLOT_BOUNDS_WIRED).
+          NOTE: this replaces Brief 5 Task 3 Paul-approved frozen copy for
+          honesty — flag for Paul's veto. */}
       <p
         className={`${typography.panelBody} text-text-body mb-2`}
         data-testid="tornado-intro"
       >
-        Win-likelihood range if this factor turns out weaker or stronger than expected. Drag the bars to explore how outcomes shift.
+        Illustrative range for each factor: the recommended option&rsquo;s overall spread scaled by that factor&rsquo;s influence. A proportional guide to relative leverage, not a per-factor forecast from the analysis.
       </p>
 
       {/* Brief 5.1 Task 5: legend occupies its own full-width row above the

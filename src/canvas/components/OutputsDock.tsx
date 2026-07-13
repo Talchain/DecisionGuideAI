@@ -75,7 +75,7 @@ import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../ut
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
-import { useV2Run, type V2RunPersistence } from '../hooks/useV2Run'
+import { useV2Run, resolveChipGoalThreshold, type V2RunPersistence } from '../hooks/useV2Run'
 import { useScenario } from '../../hooks/useScenario'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { withObservedStateUpdate } from '../utils/observedStateHelpers'
@@ -647,13 +647,17 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     const downRange = expected - p10  // distance from expected to pessimistic
     const upRange = p90 - expected    // distance from expected to optimistic
 
-    // Build rows from top drivers, sorted by influence descending
+    // Codex final-audit B1: order + size by the SHARED display influence
+    // (driverDisplayModel) — the same number the panel, hero and graph badge
+    // use — so this chart can never contradict them under partial coverage.
+    const infl = (d: (typeof drv.drivers)[number]) =>
+      d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence
     const rows: TornadoRow[] = [...drv.drivers]
-      .filter(d => (d.influenceScore ?? d.normalisedInfluence) > 0.01)
-      .sort((a, b) => (b.influenceScore ?? b.normalisedInfluence) - (a.influenceScore ?? a.normalisedInfluence))
+      .filter(d => infl(d) > 0.01)
+      .sort((a, b) => infl(b) - infl(a))
       .slice(0, 5) // Cap at 5 rows for readability
       .map(d => {
-        const influence = d.influenceScore ?? d.normalisedInfluence
+        const influence = infl(d)
         // NOTE: lowOutcome/highOutcome represent outcome at the factor's low/high
         // raw value, NOT "worse/better" from the user's perspective.
         // For negative-direction factors (e.g. churn), low factor value = better
@@ -890,18 +894,35 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // OFF → direct V2.
   const lastThresholdRerunAtRef = useRef<number>(0)
   const handleApplyThreshold = useCallback((threshold: number | null) => {
-    setGoalThreshold(threshold)
+    const store = useCanvasStore.getState()
+    // Codex final-audit B2 — atomic store + goal-node commit (the bare
+    // setGoalThreshold updated only the global value, leaving the goal node
+    // showing "target missing" after an apply).
+    const goalNodeId =
+      (store.ceeAnalysisReady?.goal_node_id as string | undefined) ??
+      store.nodes.find((n) => n.type === 'goal')?.id ??
+      null
+    if (goalNodeId) store.setGoalThresholdAndUpdateNode(goalNodeId, threshold)
+    else setGoalThreshold(threshold)
     const now = Date.now()
     if (now - lastThresholdRerunAtRef.current < 500) return
     lastThresholdRerunAtRef.current = now
     // Wave F-B: the threshold rerun goes through the canonical runner like
-    // every other run affordance — same gate, same V5/V2 routing. Its old
-    // inline dispatch copy had NO run gate (audit finding). The V2 fallback
-    // needs no parameter: the request builder reads store.goalThreshold
-    // (UI-SEM-058), already set above.
+    // every other run affordance — same gate, same V5/V2 routing. The V2
+    // fallback reads store.goalThreshold (UI-SEM-058), already set above.
+    // Codex final-audit B3 — the V5 chip must carry the NORMALISED threshold
+    // (buildPayload forwards it verbatim; raw units are ignored by PLoT).
+    // Fail closed (omit) when normalisation can't be proven.
+    const normalisedThreshold = resolveChipGoalThreshold(threshold, {
+      analysisReady: store.ceeAnalysisReady,
+      nodes: store.nodes,
+      goalNodeId: store.outcomeNodeId,
+    })
     void runCanonicalAnalysis({
       source: 'apply-threshold',
-      ...(threshold !== null ? { parameters: { goal_threshold: threshold } } : {}),
+      ...(normalisedThreshold !== undefined
+        ? { parameters: { goal_threshold: normalisedThreshold } }
+        : {}),
     }).then((outcome) => {
       // Review (b): the hero copy promises "Applying runs the analysis
       // again" — a gated outcome must say why instead of silently saving
