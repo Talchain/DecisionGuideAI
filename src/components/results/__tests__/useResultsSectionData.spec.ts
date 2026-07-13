@@ -14,7 +14,7 @@ import {
   getRawElasticity,
   computeNormalisedInfluences,
   computeFactorRanks,
-  resolveDisplayInfluences,
+  selectDriverDisplayModel,
   normaliseDirection,
   getFactorDirection,
   getSemanticLabel,
@@ -262,16 +262,14 @@ describe('normaliseLabel', () => {
 // 4. Rank Computation Tests
 // =============================================================================
 
-describe('resolveDisplayInfluences (Codex R3-B1: complete-metric-set policy)', () => {
+describe('selectDriverDisplayModel (Codex R3-B1: complete-metric-set policy, shared by panel + graph)', () => {
   it('adopts producer influence only when EVERY factor carries one', () => {
-    const entries = [
-      { key: 'a', influenceScore: 0.9 },
-      { key: 'b', influenceScore: 0.2 },
-    ]
-    const normalised = new Map([['a', 0.1], ['b', 1.0]])
-    const result = resolveDisplayInfluences(entries, normalised)
-    expect(result.get('a')).toBe(0.9)
-    expect(result.get('b')).toBe(0.2)
+    const model = selectDriverDisplayModel([
+      { key: 'a', influenceScore: 0.9, rawElasticity: 0.1 },
+      { key: 'b', influenceScore: 0.2, rawElasticity: 2.0 },
+    ])
+    expect(model.get('a')).toEqual({ value: 0.9, provenance: 'influence_score' })
+    expect(model.get('b')).toEqual({ value: 0.2, provenance: 'influence_score' })
   })
 
   it('partial coverage: EVERY factor falls back to normalised elasticity — a producer 0.9 must not outrank the elasticity-dominant factor it cannot be compared with', () => {
@@ -279,21 +277,19 @@ describe('resolveDisplayInfluences (Codex R3-B1: complete-metric-set policy)', (
     // but dominant elasticity, C has influence_score 0.2. Mixing bases would
     // rank A #1 on a producer scale B never entered. Under the policy all
     // three resolve on the normalised-elasticity basis: B (1.0) > A > C.
-    const entries = [
-      { key: 'a', influenceScore: 0.9 },
-      { key: 'b' },
-      { key: 'c', influenceScore: 0.2 },
-    ]
-    const normalised = new Map([['a', 0.4], ['b', 1.0], ['c', 0.1]])
-    const result = resolveDisplayInfluences(entries, normalised)
-    expect(result.get('a')).toBe(0.4)
-    expect(result.get('b')).toBe(1.0)
-    expect(result.get('c')).toBe(0.1)
+    const model = selectDriverDisplayModel([
+      { key: 'a', influenceScore: 0.9, rawElasticity: 0.4 },
+      { key: 'b', rawElasticity: 1.0 },
+      { key: 'c', influenceScore: 0.2, rawElasticity: 0.1 },
+    ])
+    expect(model.get('a')).toEqual({ value: 0.4, provenance: 'normalised_elasticity' })
+    expect(model.get('b')).toEqual({ value: 1.0, provenance: 'normalised_elasticity' })
+    expect(model.get('c')).toEqual({ value: 0.1, provenance: 'normalised_elasticity' })
     // And the rank the surfaces crown by follows the same single basis:
     const rankMap = computeFactorRanks([
-      { key: 'a', rawElasticity: 0.4, displayValue: result.get('a') },
-      { key: 'b', rawElasticity: 1.0, displayValue: result.get('b') },
-      { key: 'c', rawElasticity: 0.1, displayValue: result.get('c') },
+      { key: 'a', rawElasticity: 0.4, displayValue: model.get('a')!.value },
+      { key: 'b', rawElasticity: 1.0, displayValue: model.get('b')!.value },
+      { key: 'c', rawElasticity: 0.1, displayValue: model.get('c')!.value },
     ])
     expect(rankMap.get('b')).toBe(1)
     expect(rankMap.get('a')).toBe(2)
@@ -301,11 +297,12 @@ describe('resolveDisplayInfluences (Codex R3-B1: complete-metric-set policy)', (
   })
 
   it('no producer coverage at all: normalised basis for everyone', () => {
-    const entries = [{ key: 'a' }, { key: 'b' }]
-    const normalised = new Map([['a', 1.0], ['b', 0.5]])
-    const result = resolveDisplayInfluences(entries, normalised)
-    expect(result.get('a')).toBe(1.0)
-    expect(result.get('b')).toBe(0.5)
+    const model = selectDriverDisplayModel([
+      { key: 'a', rawElasticity: 2.0 },
+      { key: 'b', rawElasticity: 1.0 },
+    ])
+    expect(model.get('a')).toEqual({ value: 1.0, provenance: 'normalised_elasticity' })
+    expect(model.get('b')).toEqual({ value: 0.5, provenance: 'normalised_elasticity' })
   })
 })
 

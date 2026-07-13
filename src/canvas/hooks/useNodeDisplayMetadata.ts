@@ -11,6 +11,7 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import type { NodeType } from '../domain/nodes'
+import { selectDriverDisplayModel, compareByDisplayModel } from '../../components/results/driverDisplayModel'
 
 interface NodeDisplayMetadata {
   /** Factor sensitivity rank (1-3 for top factors, null otherwise) */
@@ -108,43 +109,28 @@ export function useNodeDisplayMetadata(
         ? report.factor_sensitivity
         : report.enrichment?.sensitivity_analysis?.factors) || []
 
-      const maxAbsElasticity = Math.max(
-        ...factorSensitivity.map((f: any) =>
-          Math.abs(f.elasticity ?? f.sensitivity_score ?? f.importance_score ?? 0),
-        ),
-        0,
-      )
-      const influenceCoverageComplete =
-        factorSensitivity.length > 0 &&
-        factorSensitivity.every(
-          (f: any) => typeof (f.influence_score ?? f.influenceScore) === 'number',
-        )
-      const ranked = [...factorSensitivity]
-        .map((f: any) => {
-          const elasticity = Math.abs(f.elasticity ?? f.sensitivity_score ?? f.importance_score ?? 0)
-          const producerScore = f.influence_score ?? f.influenceScore
-          const influence =
-            influenceCoverageComplete && typeof producerScore === 'number'
-              ? producerScore
-              : maxAbsElasticity > 0
-                ? elasticity / maxAbsElasticity
-                : 0
-          return {
-            id: f.factor_id || f.factorId || f.node_id || f.nodeId,
-            elasticity,
-            influence,
-          }
-        })
-        .sort((a, b) => {
-          // Primary: displayed influence descending
-          if (b.influence !== a.influence) return b.influence - a.influence
-          // Tie-break: elasticity, then node_id alphabetically
-          if (b.elasticity !== a.elasticity) return b.elasticity - a.elasticity
-          return a.id.localeCompare(b.id)
-        })
+      // Codex R3-B1: display value + rank come from the ONE shared policy
+      // (driverDisplayModel), so the badge can never rank or label a factor
+      // on a different basis than the results Drivers panel. Producer
+      // influence_score only when EVERY factor has one; else per-set
+      // normalised |elasticity| for all.
+      const displayEntries: Array<{ key: string; influenceScore: number | undefined; rawElasticity: number }> =
+        (factorSensitivity as any[]).map((f: any) => ({
+          key: (f.factor_id || f.factorId || f.node_id || f.nodeId) as string,
+          influenceScore: (f.influence_score ?? f.influenceScore) as number | undefined,
+          rawElasticity: (f.elasticity ?? f.sensitivity_score ?? f.importance_score ?? 0) as number,
+        }))
+      const displayModel = selectDriverDisplayModel(displayEntries)
+      const ranked = displayEntries
+        .map((e) => ({
+          key: e.key,
+          elasticity: Math.abs(e.rawElasticity),
+          value: displayModel.get(e.key)?.value ?? 0,
+        }))
+        .sort(compareByDisplayModel)
 
       // Find this node's rank (1-indexed)
-      const rank = ranked.findIndex(f => f.id === nodeId) + 1
+      const rank = ranked.findIndex(f => f.key === nodeId) + 1
       sensitivityRank = rank > 0 && rank <= 3 ? rank : null
 
       // VoI rank: top-3 factors by value_of_information
@@ -173,12 +159,13 @@ export function useNodeDisplayMetadata(
           valueOfInformation = rawVoi
         }
 
-        // Influence readout: the ranked entry already resolved the displayed
-        // value under the complete-metric-set policy (Codex R3-B1) — read it
-        // back so the "I: NN%" beside the badge is the number the rank used.
-        const rankedEntry = ranked.find(r => r.id === nodeId)
-        if (rankedEntry && Number.isFinite(rankedEntry.influence)) {
-          influence = rankedEntry.influence
+        // Influence readout: the shared display model already resolved the
+        // displayed value under the complete-metric-set policy (Codex R3-B1)
+        // — read it back so the "I: NN%" beside the badge is the number the
+        // rank used, on the same basis as the panel.
+        const modelEntry = displayModel.get(nodeId)
+        if (modelEntry && Number.isFinite(modelEntry.value)) {
+          influence = modelEntry.value
         }
 
         // Confidence: Direct extraction (already 0-1)
