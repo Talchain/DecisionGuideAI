@@ -7,7 +7,7 @@
 import { describe, it, expect } from 'vitest'
 
 import { OVERVIEW_COPY } from '../DecisionOverviewCard'
-import { METHOD_CATALOGUE, GLOBAL_ACTIONS } from '../actionsCatalogue'
+import { METHOD_CATALOGUE, GLOBAL_ACTIONS, REVIEW_BRIEF_ASK, RERUN_TOASTS } from '../actionsCatalogue'
 
 const BANNED_TERMS = /\b(node|edge|coefficient|elasticity|normalised value|graph hash|winner|validate)\b/i
 const AMERICAN = /\b(analyze|optimize|color|behavior|center|favorite)\w*/i
@@ -16,7 +16,9 @@ function allStrings(): string[] {
   return [
     ...Object.values(OVERVIEW_COPY),
     ...METHOD_CATALOGUE.flatMap((m) => [m.title, m.description, m.prompt]),
-    ...GLOBAL_ACTIONS.flatMap((a) => [a.title, a.description]),
+    ...GLOBAL_ACTIONS.flatMap((a) => [a.title, a.description, ...(a.prompt ? [a.prompt] : [])]),
+    ...Object.values(REVIEW_BRIEF_ASK),
+    ...Object.values(RERUN_TOASTS),
   ]
 }
 

@@ -19,7 +19,32 @@ export interface GlobalActionEntry {
   id: string
   title: string
   description: string
+  /** Prefilled drawer draft for actions routed through the Ask-Olumi drawer. */
+  prompt?: string
 }
+
+/**
+ * Parity O — the shared "review my decision brief" ask payload. Used by both
+ * the Actions menu's "Edit decision brief" item and the in-card "Review your
+ * decision brief" row (prototype: identical drawer payloads).
+ */
+export const REVIEW_BRIEF_ASK = {
+  label: 'Review my decision brief',
+  context: 'Challenge the framing across Goal, Context, Constraints and Options.',
+  draft: 'Help me work through: Review my decision brief',
+} as const
+
+/**
+ * Parity O — rerun feedback copy. The prototype toasts a completed message;
+ * we only claim completion on the V2 path (whose promise resolves after the
+ * run finishes). The canonical V5 dispatch is fire-and-forget, so its toast
+ * honestly says the rerun has started, not completed.
+ */
+export const RERUN_TOASTS = {
+  completed: 'Analysis rerun completed with the current model',
+  started: 'Rerunning analysis with the current model',
+  alreadyRunning: 'Analysis is already running',
+} as const
 
 export const METHOD_CATALOGUE: MethodEntry[] = [
   {
@@ -76,6 +101,7 @@ export const GLOBAL_ACTIONS: GlobalActionEntry[] = [
     id: 'review_inputs',
     title: 'Review all inputs',
     description: 'Inspect the current model inputs without changing them.',
+    prompt: 'Walk me through all the current model inputs without changing anything.',
   },
   {
     id: 'rerun_analysis',
