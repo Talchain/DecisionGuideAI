@@ -122,6 +122,29 @@ export function resolveGoalThresholdCap(
 }
 
 /**
+ * UI-SEM-058 (V5 leg) — normalise a goal_threshold for a CANONICAL/V5 chip
+ * parameter. The store holds RAW user units; the V2 request builder converts
+ * at its boundary, but the V5 path (buildPayload) forwards chip parameters
+ * VERBATIM. So any chip that carries goal_threshold must carry the NORMALISED
+ * 0-1 form, and OMIT it when normalisation cannot be proven — a raw value on
+ * the V5 wire is silently ignored by PLoT while it retains a stale target
+ * (Codex final-audit B3: entering 60% shipped goal_threshold:60, HTTP 200,
+ * old 0.53 retained, all lenses unavailable). Returns undefined → the caller
+ * must omit the parameter (fail closed), never send raw.
+ */
+export function resolveChipGoalThreshold(
+  rawThreshold: number | null | undefined,
+  ctx: {
+    analysisReady: { goal_threshold_cap?: unknown } | null
+    nodes: ReadonlyArray<{ id: string; data?: unknown }>
+    goalNodeId: string | null | undefined
+  },
+): number | undefined {
+  const cap = resolveGoalThresholdCap(ctx.analysisReady, ctx.nodes, ctx.goalNodeId)
+  return normaliseGoalThresholdForRequest(rawThreshold, cap)
+}
+
+/**
  * Check if ceeAnalysisReady is stale (graph has changed since it was stored).
  *
  * Returns true if stale (should not use analysis_ready).

@@ -9,7 +9,7 @@
  * threshold means no probability_of_goal, never a corrupt analysis).
  */
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { normaliseGoalThresholdForRequest, resolveGoalThresholdCap } from '../useV2Run'
+import { normaliseGoalThresholdForRequest, resolveGoalThresholdCap, resolveChipGoalThreshold } from '../useV2Run'
 
 describe('normaliseGoalThresholdForRequest (UI-SEM-058)', () => {
   afterEach(() => {
@@ -81,3 +81,47 @@ describe('resolveGoalThresholdCap (request boundary uses the display chain)', ()
     expect(resolveGoalThresholdCap(null, goalNode({ goal_threshold_cap: 25 }), 'missing_node')).toBeUndefined()
   })
 })
+
+describe('resolveChipGoalThreshold (UI-SEM-058 V5 leg — Codex final-audit B3)', () => {
+  const goalNode = (data: Record<string, unknown>) => [{ id: 'goal_1', data }]
+
+  it('normalises against a cap from analysisReady (60 / cap 100 → 0.6)', () => {
+    expect(
+      resolveChipGoalThreshold(60, {
+        analysisReady: { goal_threshold_cap: 100 },
+        nodes: goalNode({}),
+        goalNodeId: 'goal_1',
+      }),
+    ).toBeCloseTo(0.6)
+  })
+
+  it('falls back to a node cap when analysisReady has none', () => {
+    expect(
+      resolveChipGoalThreshold(60, {
+        analysisReady: null,
+        nodes: goalNode({ scale_max: 200 }),
+        goalNodeId: 'goal_1',
+      }),
+    ).toBeCloseTo(0.3)
+  })
+
+  it('OMITS (undefined) a raw value that cannot be proven normalised — never sends raw', () => {
+    // No cap anywhere → 60 stays 60 > 1 → cannot prove → omit (fail closed).
+    expect(
+      resolveChipGoalThreshold(60, { analysisReady: null, nodes: goalNode({}), goalNodeId: 'goal_1' }),
+    ).toBeUndefined()
+  })
+
+  it('passes a value already in [0,1] through when no cap exists', () => {
+    expect(
+      resolveChipGoalThreshold(0.6, { analysisReady: null, nodes: goalNode({}), goalNodeId: 'goal_1' }),
+    ).toBe(0.6)
+  })
+
+  it('returns undefined for a null/absent threshold', () => {
+    expect(
+      resolveChipGoalThreshold(null, { analysisReady: { goal_threshold_cap: 100 }, nodes: [], goalNodeId: null }),
+    ).toBeUndefined()
+  })
+})
+

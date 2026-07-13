@@ -268,6 +268,42 @@ describe('DefineSuccessModal — validation (never silent-close)', () => {
 })
 
 describe('DefineSuccessModal — save commits through the canonical path exactly once', () => {
+  it('Codex B2+B3: with a goal node and a provable cap, commits atomically to the node and sends the NORMALISED threshold', async () => {
+    // Goal node + a cap on ceeAnalysisReady (the same source the V2 request
+    // boundary uses). Entering 60 (unit %) must: update the goal node's
+    // data (B2 — no more "target missing"), and send goal_threshold 0.6 on
+    // the chip (B3 — 60 / cap 100), not raw 60.
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'goal_1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Ship on time' } },
+      ] as never,
+      currentScenarioId: 'scn_test',
+      outcomeNodeId: 'goal_1',
+      ceeAnalysisReady: { goal_threshold_cap: 100 } as never,
+      goalThreshold: null,
+    } as never)
+
+    render(<DefineSuccessModal />)
+    openModal()
+    fillValid('60')
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('define-success-save'))
+    })
+
+    // B2: the goal node carries the user target atomically (store + node).
+    const goalNode = useCanvasStore.getState().nodes.find((n) => n.id === 'goal_1')!
+    expect((goalNode.data as { success_threshold?: number }).success_threshold).toBe(60)
+    expect((goalNode.data as { threshold_source?: string }).threshold_source).toBe('user')
+    expect(useCanvasStore.getState().goalThreshold).toBe(60)
+
+    // B3: the chip carries the NORMALISED 0-1 value, never raw 60.
+    expect(runner).toHaveBeenCalledTimes(1)
+    expect(runner).toHaveBeenCalledWith({
+      source: 'define-success-modal',
+      parameters: { goal_threshold: 0.6 },
+    })
+  })
+
   it('persists the full structured measure, calls the ONE setter and ONE canonical rerun, toasts and closes', async () => {
     const setterSpy = vi.fn(originalSetGoalThreshold)
     useCanvasStore.setState({ setGoalThreshold: setterSpy } as never)
@@ -288,13 +324,12 @@ describe('DefineSuccessModal — save commits through the canonical path exactly
     expect(setterSpy).toHaveBeenCalledWith(20)
     expect(useCanvasStore.getState().goalThreshold).toBe(20)
 
-    // ONE canonical rerun with the same source/parameters convention as
-    // OutputsDock.handleApplyThreshold.
+    // ONE canonical rerun. Codex final-audit B3: with NO provable cap in this
+    // fixture, the raw 20 cannot be normalised to 0-1, so goal_threshold is
+    // OMITTED (fail closed) — never sent raw (V5 forwards chip params verbatim
+    // and PLoT silently ignores an out-of-range value).
     expect(runner).toHaveBeenCalledTimes(1)
-    expect(runner).toHaveBeenCalledWith({
-      source: 'define-success-modal',
-      parameters: { goal_threshold: 20 },
-    })
+    expect(runner).toHaveBeenCalledWith({ source: 'define-success-modal' })
 
     // Full structured measure persisted per scenario.
     const saved = selectSuccessMeasure(useSuccessMeasureStore.getState(), 'scn_test')
