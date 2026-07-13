@@ -41,6 +41,7 @@ import {
   type RecRecord,
 } from '../../../canvas/stores/strengthenStore'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
+import { openDefineSuccess, openDecisionRecord, useDecisionRecordForScenario } from '../modals'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { buildRecommendations } from './buildRecommendations'
 import { STRENGTHEN_COPY as COPY } from './strengthenCopy'
@@ -169,6 +170,21 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
     if (freshnessDirty) useStrengthenStore.getState().markAllStale()
   }, [freshnessDirty])
 
+  // A captured decision record credits the commit rec — same direct-credit
+  // pattern as the success-measure threshold effect above.
+  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  const decisionRecord = useDecisionRecordForScenario(currentScenarioId)
+  useEffect(() => {
+    if (!decisionRecord) return
+    const record = useStrengthenStore.getState().records['strengthen:commit']
+    if (
+      record &&
+      (record.status === 'recommended' || record.status === 'in_progress' || record.status === 'reopened')
+    ) {
+      useStrengthenStore.getState().markAddressed('strengthen:commit', 'decision recorded')
+    }
+  }, [decisionRecord])
+
   // ── §8.8 routing (callbacks read at CLICK time; degrade, never dead-end) ──
   const dispatchAiDialogue = (record: RecRecord) => {
     const rec = record.snapshot
@@ -194,7 +210,11 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
   const onPrimaryAction = (record: RecRecord) => {
     const rec = record.snapshot
     let ok = false
-    if (rec.action.kind === 'ai-dialogue') {
+    if (rec.action.kind === 'open-modal') {
+      if (rec.action.modal === 'define-success') openDefineSuccess()
+      else if (rec.action.modal === 'decision-record') openDecisionRecord()
+      ok = rec.action.modal != null
+    } else if (rec.action.kind === 'ai-dialogue') {
       ok = dispatchAiDialogue(record)
     } else if (rec.action.kind === 'canvas-focus' && rec.targetId) {
       ok = focusModelTarget(rec.targetId)

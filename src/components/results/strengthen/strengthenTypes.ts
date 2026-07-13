@@ -14,7 +14,7 @@ export type HelpType = 'clarify' | 'broaden' | 'challenge' | 'evaluate' | 'commi
 export type RecStatus = 'recommended' | 'in_progress' | 'addressed' | 'dismissed' | 'reopened'
 
 /** §8.8 primary action routes. */
-export type RecActionKind = 'inline-edit' | 'ai-dialogue' | 'canvas-focus' | 'rerun'
+export type RecActionKind = 'inline-edit' | 'ai-dialogue' | 'canvas-focus' | 'rerun' | 'open-modal'
 
 export interface RecAction {
   kind: RecActionKind
@@ -24,6 +24,8 @@ export interface RecAction {
    * heuristic — chip_metadata survives only on conversation-typed turns). */
   actionType?: string
   parameters?: Record<string, unknown>
+  /** open-modal routes: which parity modal the primary action opens. */
+  modal?: 'define-success' | 'decision-record'
   /** The prompt sent for ai-dialogue routes (also the _sendMessage degrade).
    * Named 'prompt', not 'message': the V14.3 guard forbids `.message`
    * property access in results components (critique-render protection). */

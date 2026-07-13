@@ -112,6 +112,7 @@ import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
 import { useAnalysisStateSource } from '../hooks/useAnalysisStateSource'
 import { AskOlumiDrawer } from '../../components/results/coaching/AskOlumiDrawer'
+import { DefineSuccessModal, DecisionRecordModal } from '../../components/results/modals'
 
 /**
  * Map API critique format (CritiqueItemV1) to ValidationPanel format
@@ -1523,6 +1524,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
           graph node sparkles included — surface visibly instead of
           auto-sending into a conversation the user cannot see. */}
       <AskOlumiDrawer />
+      {/* Round-2 wiring: the parity modals mount once at the same root so
+          openDefineSuccess()/openDecisionRecord() work from any surface. */}
+      <DefineSuccessModal />
+      <DecisionRecordModal />
       {effectiveIsOpen && (
         <div
           aria-hidden="true"

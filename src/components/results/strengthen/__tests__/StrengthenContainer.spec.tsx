@@ -11,12 +11,13 @@
  * - the producer stage signal floats matching recs to the top (UI-SEM-076).
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { StrengthenContainer, adaptivePriorityFromStage } from '../StrengthenContainer'
 import { useCanvasStore } from '../../../../canvas/store'
 import { useGuidanceStore } from '../../../../canvas/stores/guidanceStore'
 import { selectActive, useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import { useAskOlumiStore } from '../../coaching/askOlumiStore'
+import { useSuccessMeasureStore, useDecisionRecordStore } from '../../modals'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 
 const makeData = (over: {
@@ -137,17 +138,55 @@ describe('StrengthenContainer — work-through prefills the Ask-Olumi drawer', (
     )
   })
 
-  it('the primary action still dispatches and marks in progress (two distinct routes)', () => {
+  it('the primary action opens the Define-success MODAL and marks in progress (Round-2 wiring; Olumi stays on the sparkle)', () => {
     const dispatch = vi.fn()
     useGuidanceStore.setState({ _dispatchAction: dispatch } as never)
     render(<StrengthenContainer data={makeData({ goalThreshold: null })} />)
     fireEvent.click(screen.getByRole('button', { name: 'Define success' }))
-    expect(dispatch).toHaveBeenCalledWith(
-      expect.objectContaining({ action_type: 'discuss', source: 'strengthen_panel' }),
-    )
+    // The primary DOES the thing: structured modal, not a dialogue dispatch.
+    expect(useSuccessMeasureStore.getState().isOpen).toBe(true)
+    expect(dispatch).not.toHaveBeenCalled()
     expect(useStrengthenStore.getState().records['strengthen:success-measure'].status).toBe(
       'in_progress',
     )
+  })
+})
+
+describe('StrengthenContainer — decision-record wiring (Round 2)', () => {
+  it('a captured decision record credits the commit rec directly', () => {
+    useCanvasStore.setState({ currentScenarioId: 'scn-1' } as never)
+    render(<StrengthenContainer data={makeData({ goalThreshold: 5 })} />)
+    // Seed a commit rec as recommended
+    useStrengthenStore.getState().reconcile(
+      [
+        {
+          id: 'strengthen:commit',
+          helpType: 'commit',
+          title: 'Record the decision and what would trigger a rethink',
+          signal: 's',
+          whyNow: 'w',
+          tryThis: 't',
+          sourceLine: 'src',
+          action: { kind: 'open-modal', modal: 'decision-record', label: 'Create a decision record' },
+          targetId: null,
+          priority: 10,
+        },
+      ] as never,
+      'h-test',
+    )
+    expect(useStrengthenStore.getState().records['strengthen:commit'].status).toBe('recommended')
+    act(() => {
+      useDecisionRecordStore.getState().saveRecord('scn-1', {
+        optionId: 'opt_a',
+        optionLabel: 'Option A',
+        confidence: 70,
+        rationale: 'r',
+        assumption: 'a',
+        revisitTrigger: 'rt',
+        analysedGraphHash: null,
+      } as never)
+    })
+    expect(useStrengthenStore.getState().records['strengthen:commit'].status).toBe('addressed')
   })
 })
 
