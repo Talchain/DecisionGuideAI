@@ -2503,6 +2503,60 @@ describe('login 3.4 — V5 turn auth headers', () => {
 // for the whole turn, and re-clicks must not abort/re-mint the in-flight run)
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Lane 1 seam pin — dispatchAction chip parameters reach the REAL V5 payload
+// (this dispatch→payload link was the untested hop in the July-13 P0 chain:
+// coverage stopped at the runner-mock boundary on one side and a hand-built
+// payload on the other).
+// ---------------------------------------------------------------------------
+
+describe('dispatchAction — chip parameters ride the real V5 payload', () => {
+  beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
+    useCanvasStore.getState().resultsReset()
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult())
+  })
+
+  it('forwards parameters.goal_threshold verbatim into payload.chip', async () => {
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.dispatchAction({
+        action_type: 'run_analysis',
+        parameters: { goal_threshold: 0.2 },
+        label: 'Run analysis',
+        message: 'Run analysis',
+        source: 'chip' as const,
+      })
+    })
+
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    const payload = mockCallV5Turn.mock.calls[0][0] as {
+      chip?: { action_type?: string; parameters?: Record<string, unknown> }
+    }
+    expect(payload.chip).toEqual({
+      action_type: 'run_analysis',
+      parameters: { goal_threshold: 0.2 },
+    })
+  })
+
+  it('a dispatch WITHOUT parameters builds a chip with NO parameters key (omission survives to the payload)', async () => {
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.dispatchAction({
+        action_type: 'run_analysis',
+        label: 'Run analysis',
+        message: 'Run analysis',
+        source: 'chip' as const,
+      })
+    })
+
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    const payload = mockCallV5Turn.mock.calls[0][0] as { chip?: Record<string, unknown> }
+    expect(payload.chip).toBeDefined()
+    expect(payload.chip).not.toHaveProperty('parameters')
+  })
+})
+
 describe('1.16i — rerun UX integrity', () => {
   beforeEach(() => {
     mockIsV5Eligible.mockReturnValue({ eligible: true })
