@@ -2368,6 +2368,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Clear results and analysis state
       previousReport: null, // A1: Clear stale deltas on canvas reset
       results: { status: 'idle', progress: 0 },
+      // Lane 1b review fold: the goal threshold is per-decision state — left
+      // standing it rides the NEXT decision's runs (V2 boundary reads it every
+      // run; canonical V5 runs now default-attach it when provable).
+      goalThreshold: null,
       runMeta: {},
       hasCompletedFirstRun: false,
       graphEditedSinceLastRun: false,
@@ -2531,6 +2535,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   setGoalThresholdAndUpdateNode: (goalNodeId, value) => {
     set({ goalThreshold: value })
     pushToHistory(get, set)
+    if (!get().nodes.some(n => n.id === goalNodeId)) {
+      // The whole point of this action is the atomic store+node pair (Codex
+      // B2). A stale id silently recreates the split-brain node-side — make
+      // it detectable.
+      console.warn(
+        '[store] setGoalThresholdAndUpdateNode: goal node not found — global value set, node annotation skipped',
+        { goalNodeId },
+      )
+    }
     set((s) => ({
       nodes: s.nodes.map(n =>
         n.id === goalNodeId
@@ -3094,6 +3107,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Composer draft is scoped to a scenario — clear it on switch so a draft
       // for "buy vs build" can't bleed into "hire vs contract".
       draftComposerText: null,
+      // Lane 1b review fold: the goal threshold is per-decision — the previous
+      // scenario's target must not ride this scenario's runs (the V2 boundary
+      // reads it every run; canonical V5 runs default-attach it when provable).
+      // The CEE-sync (bare goal_threshold on analysis_ready ingestion) or a
+      // fresh user commit repopulates it for THIS scenario.
+      goalThreshold: null,
     })
 
     // Exit comparison mode when switching scenarios (lives in useComparisonStore as of C3-3)

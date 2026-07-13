@@ -75,7 +75,12 @@ import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../ut
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
-import { useV2Run, resolveChipGoalThreshold, type V2RunPersistence } from '../hooks/useV2Run'
+import { useV2Run, resolveChipGoalThreshold, resolveMeasureUnitCap, type V2RunPersistence } from '../hooks/useV2Run'
+import {
+  useSuccessMeasureStore,
+  selectSuccessMeasure,
+} from '../../components/results/modals/successMeasureStore'
+import { resolveScenarioKey } from '../../components/results/modals/scenarioKey'
 import { useScenario } from '../../hooks/useScenario'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { withObservedStateUpdate } from '../utils/observedStateHelpers'
@@ -791,6 +796,39 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     if (canonical) {
       const dispatch = useGuidanceStore.getState()._dispatchAction
       if (dispatch) {
+        // Lane 1b (V-P0-1): the goal threshold is SCENARIO STATE, not a
+        // one-shot commit parameter — the V2 boundary reads the store on
+        // every run, but the V5 chip only carried it on the two commit
+        // flows, so every plain rerun silently dropped the saved target
+        // (live wire evidence 2026-07-13: strip Rerun with target 60 saved
+        // dispatched no parameters, making the goal node's "rerun to
+        // update" advice futile). When the caller supplies no parameters,
+        // resolve the store threshold through the same fail-closed
+        // normaliser (cap chain + saved-measure unit, UI-SEM-081) and
+        // attach it. Explicit caller parameters always win.
+        let parameters = opts?.parameters
+        if (!parameters) {
+          const savedMeasure = selectSuccessMeasure(
+            useSuccessMeasureStore.getState(),
+            resolveScenarioKey(storeState.currentScenarioId),
+          )
+          const storeThreshold = resolveChipGoalThreshold(storeState.goalThreshold, {
+            analysisReady: storeState.ceeAnalysisReady,
+            nodes: storeState.nodes,
+            goalNodeId:
+              (storeState.ceeAnalysisReady?.goal_node_id as string | undefined) ??
+              storeState.nodes.find((n) => n.type === 'goal')?.id ??
+              null,
+            // Provenance-guarded (review blocker): the measure's "%" may cap
+            // ONLY a store value that came from that measure — the store field
+            // also receives capless NORMALISED values from CEE-sync, which a
+            // blind ÷100 would shrink 100×.
+            unitCap: resolveMeasureUnitCap(savedMeasure, storeState.goalThreshold),
+          })
+          if (storeThreshold !== undefined) {
+            parameters = { goal_threshold: storeThreshold }
+          }
+        }
         // Fire-and-forget — the dispatcher streams the response and
         // routeV5Response handles all state mutations. We deliberately do
         // NOT await: the OutputsDock UI subscribes to canvas store status
@@ -800,7 +838,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
           // Wave F-B: caller-supplied chip parameters (e.g. goal_threshold
           // from the threshold/Define-success rerun) ride the canonical
           // dispatch — no surface builds its own pipeline.
-          ...(opts?.parameters ? { parameters: opts.parameters } : {}),
+          ...(parameters ? { parameters } : {}),
           label: 'Run analysis',
           message: 'Run analysis',
           source: 'chip',
@@ -912,11 +950,23 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     // fallback reads store.goalThreshold (UI-SEM-058), already set above.
     // Codex final-audit B3 — the V5 chip must carry the NORMALISED threshold
     // (buildPayload forwards it verbatim; raw units are ignored by PLoT).
-    // Fail closed (omit) when normalisation can't be proven.
+    // Fail closed (omit) when normalisation can't be proven. The cap
+    // resolves against the SAME node the threshold was committed to above
+    // (test-practice audit: this previously used store.outcomeNodeId — a
+    // different resolution in the same handler). UI-SEM-081: the saved
+    // success measure's unit is the last-resort cap ("%" → 100).
+    const savedMeasure = selectSuccessMeasure(
+      useSuccessMeasureStore.getState(),
+      resolveScenarioKey(store.currentScenarioId),
+    )
     const normalisedThreshold = resolveChipGoalThreshold(threshold, {
       analysisReady: store.ceeAnalysisReady,
       nodes: store.nodes,
-      goalNodeId: store.outcomeNodeId,
+      goalNodeId,
+      // Provenance-guarded: the inline editor's number may be in a different
+      // scale than the saved measure — the "%" cap applies only when the
+      // applied value IS the measure's value.
+      unitCap: resolveMeasureUnitCap(savedMeasure, threshold),
     })
     void runCanonicalAnalysis({
       source: 'apply-threshold',
