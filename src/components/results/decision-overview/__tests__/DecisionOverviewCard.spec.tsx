@@ -376,7 +376,7 @@ describe('DecisionOverviewCard — gallery-only states (stateOverride)', () => {
   })
 })
 
-describe('deriveFramingQuestion (UI-SEM-078)', () => {
+describe('deriveFramingQuestion (UI-SEM-078, hardened)', () => {
   it('uses an interrogative title as-is', () => {
     expect(deriveFramingQuestion({ title: 'What would make B clearly better?' })).toBe(
       'What would make B clearly better?',
@@ -389,16 +389,46 @@ describe('deriveFramingQuestion (UI-SEM-078)', () => {
     ).toBe('Is the goal measurable?')
   })
 
-  it('falls back to the detail prose when nothing is interrogative', () => {
+  // RETIRED PIN ('falls back to the detail prose when nothing is
+  // interrogative'): the verbatim non-interrogative detail passthrough leaked
+  // producer rerun copy into the framing slot in production. Non-interrogative
+  // prose without framing scope now yields null (the card renders no slot).
+  it('returns null for non-interrogative prose without framing scope (no verbatim passthrough)', () => {
     expect(
       deriveFramingQuestion({ title: 'Review the goal', detail: 'The goal lacks a measure.' }),
-    ).toBe('The goal lacks a measure.')
+    ).toBeNull()
   })
 
-  it('composes a question from a bare imperative label (never shown verbatim)', () => {
-    expect(deriveFramingQuestion({ title: 'Review a possible bias' })).toBe(
-      'What would it take to review a possible bias?',
-    )
+  it('never surfaces the leaked rerun-nudge sentence as a framing question', () => {
+    expect(
+      deriveFramingQuestion({
+        title: 'Analysis may be out of date',
+        detail: 'Re-run analysis to refresh the insights and explore the updated decision.',
+      }),
+    ).toBeNull()
+  })
+
+  // UPDATED PIN ('composes a question from a bare imperative label'): the
+  // mechanical composition is now reserved for framing-scoped items
+  // (target_object.type === 'framing') — never applied to arbitrary
+  // housekeeping imperatives.
+  it('composes a question from a FRAMING-SCOPED imperative (never shown verbatim)', () => {
+    expect(
+      deriveFramingQuestion({
+        title: 'Review a possible bias',
+        target_object: { type: 'framing' },
+      }),
+    ).toBe('What would it take to review a possible bias?')
+  })
+
+  it('does not compose from an imperative without framing scope', () => {
+    expect(deriveFramingQuestion({ title: 'Review a possible bias' })).toBeNull()
+    expect(
+      deriveFramingQuestion({
+        title: 'Review a possible bias',
+        target_object: { type: 'node', id: 'n1' },
+      }),
+    ).toBeNull()
   })
 })
 
@@ -444,10 +474,13 @@ describe('DecisionOverviewCard — framing question (producer-backed)', () => {
     expect(drawer.label).toBe('Answer the framing question')
   })
 
-  it('an imperative guidance title is never shown verbatim as the question', () => {
+  // UPDATED PIN: the imperative item must now be FRAMING-SCOPED to occupy the
+  // slot at all (positive promotion gate); the composed question is preserved
+  // for those, and the verbatim imperative still never renders.
+  it('a framing-scoped imperative title is composed, never shown verbatim', () => {
     useGuidanceStore.setState({
       guidanceItems: [
-        { item_id: 'g1', signal_code: 's', category: 'must_fix', source: 'analysis', title: 'Sharpen the success measure', primary_action: { type: 'discuss', prompt: 'p' }, priority: 90 },
+        { item_id: 'g1', signal_code: 's', category: 'must_fix', source: 'analysis', title: 'Sharpen the success measure', primary_action: { type: 'discuss', prompt: 'p' }, priority: 90, target_object: { type: 'framing' } },
       ],
     } as never)
     render(<DecisionOverviewCard title="t" />)
@@ -461,5 +494,62 @@ describe('DecisionOverviewCard — framing question (producer-backed)', () => {
     render(<DecisionOverviewCard title="t" />)
     fireEvent.click(screen.getByTestId('brief-bar'))
     expect(screen.queryByText(/framing question/i)).not.toBeInTheDocument()
+  })
+})
+
+describe('DecisionOverviewCard — framing-slot honesty (production leak)', () => {
+  // The exact sentence production showed under "Olumi's framing question":
+  // CEE rerun/housekeeping wire copy, not a framing question. It reached the
+  // slot because every derived phase-3 block is stamped with a 'discuss'
+  // action and the old promotion filter had no framing-relevance gate.
+  const LEAKED_RERUN_SENTENCE =
+    'Re-run analysis to refresh the insights and explore the updated decision.'
+
+  beforeEach(() => {
+    flagOn()
+    resetCanvas({ ceeAnalysisReady: READY, goalThreshold: 20 })
+  })
+
+  it('a max-priority rerun nudge (non-interrogative detail, discuss action) never renders the framing card', () => {
+    useGuidanceStore.setState({
+      guidanceItems: [
+        // signal_code 'review_card' is the real derived value: extractPhase3
+        // stamps signal_code = block.type when the block carries none.
+        { item_id: 'g-rerun', signal_code: 'review_card', category: 'should_fix', source: 'analysis', title: 'Analysis may be out of date', detail: LEAKED_RERUN_SENTENCE, primary_action: { type: 'discuss', prompt: LEAKED_RERUN_SENTENCE }, priority: 99 },
+      ],
+    } as never)
+    render(<DecisionOverviewCard title="t" />)
+    fireEvent.click(screen.getByTestId('brief-bar'))
+    expect(screen.queryByTestId('framing-question')).not.toBeInTheDocument()
+    expect(screen.queryByText(LEAKED_RERUN_SENTENCE)).not.toBeInTheDocument()
+    expect(screen.queryByText(OVERVIEW_COPY.framingLabel)).not.toBeInTheDocument()
+  })
+
+  it('a genuine interrogative item wins the slot even when a rerun nudge carries higher priority', () => {
+    useGuidanceStore.setState({
+      guidanceItems: [
+        { item_id: 'g-rerun', signal_code: 'coaching', category: 'should_fix', source: 'analysis', title: 'Analysis may be out of date', detail: LEAKED_RERUN_SENTENCE, primary_action: { type: 'discuss', prompt: LEAKED_RERUN_SENTENCE }, priority: 99 },
+        { item_id: 'g-question', signal_code: 'review_card', category: 'should_fix', source: 'analysis', title: 'What would make option B clearly better?', primary_action: { type: 'discuss', prompt: 'p' }, priority: 40 },
+      ],
+    } as never)
+    render(<DecisionOverviewCard title="t" />)
+    fireEvent.click(screen.getByTestId('brief-bar'))
+    expect(screen.getByTestId('framing-question')).toHaveTextContent(
+      'What would make option B clearly better?',
+    )
+    expect(screen.queryByText(LEAKED_RERUN_SENTENCE)).not.toBeInTheDocument()
+  })
+
+  it('a framing-scoped imperative item qualifies and keeps the composed question', () => {
+    useGuidanceStore.setState({
+      guidanceItems: [
+        { item_id: 'g-framing', signal_code: 'coaching', category: 'should_fix', source: 'analysis', title: 'Broaden the option set', primary_action: { type: 'discuss', prompt: 'p' }, priority: 50, target_object: { type: 'framing' } },
+      ],
+    } as never)
+    render(<DecisionOverviewCard title="t" />)
+    fireEvent.click(screen.getByTestId('brief-bar'))
+    expect(screen.getByTestId('framing-question')).toHaveTextContent(
+      'What would it take to broaden the option set?',
+    )
   })
 })

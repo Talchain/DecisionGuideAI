@@ -197,7 +197,11 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
     )
   })
 
-  it('UI-SEM-075(b): never two rows with identical titles — duplicate guidance items collapse to one', () => {
+  // UPDATED PIN (was 'never two rows with identical titles'): the dedupe key
+  // is now normalised title + body — title alone silently dropped DISTINCT
+  // producer findings that share a generic headline. Bodiless same-title
+  // items remain true duplicates and still collapse.
+  it('UI-SEM-075(b): same title with NO bodies stays a true duplicate — collapses to one', () => {
     const input: StrengthenInputs = {
       ...base,
       phase3Items: [
@@ -207,11 +211,78 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
       ],
     }
     const recs = buildRecommendations(input)
-    const titles = recs.map((r) => r.title.trim().toLowerCase().replace(/\s+/g, ' '))
-    expect(new Set(titles).size).toBe(titles.length)
     expect(recs.filter((r) => r.id.startsWith('strengthen:phase3:'))).toHaveLength(1)
     // The producer's best-ranked instance survives.
     expect(recs.some((r) => r.id === 'strengthen:phase3:b1')).toBe(true)
+  })
+
+  // ── T3 (b): dedupe must never drop DISTINCT findings ─────────────────────
+  // The CEE producer emits four distinct "A load-bearing assumption" review
+  // cards with different bodies (fixture cee-response-b82c89dd-trimmed.json).
+  // Title-only dedupe silently discarded three real findings.
+  const LOAD_BEARING_BODIES = [
+    'The relationship between Technical Leadership Capacity and overall throughput remains stable.',
+    'Team Maturity continues to support higher output as expected.',
+    'Hiring costs are predictable and do not introduce significant new risks.',
+    'Coordination overhead does not increase disproportionately with new hires.',
+  ]
+
+  it('T3(b): four distinct findings under one generic headline ALL promote (within the cap)', () => {
+    const input: StrengthenInputs = {
+      ...base,
+      phase3Items: LOAD_BEARING_BODIES.map((body, i) => ({
+        id: `blk_${i + 1}`,
+        title: 'A load-bearing assumption',
+        body,
+        targetIds: [],
+        priorityRank: 71 + i, // the fixture's real ranks
+      })),
+    }
+    const phase3 = buildRecommendations(input).filter((r) => r.id.startsWith('strengthen:phase3:'))
+    expect(phase3).toHaveLength(4)
+    // Every distinct finding survives — none silently vanish.
+    for (const body of LOAD_BEARING_BODIES) {
+      expect(phase3.some((r) => r.signal === body)).toBe(true)
+    }
+  })
+
+  it('T3(b): true duplicates (same title AND body) still collapse to the best-ranked instance', () => {
+    const input: StrengthenInputs = {
+      ...base,
+      phase3Items: [
+        { id: 'b1', title: 'A load-bearing assumption', body: 'Same body.', targetIds: [], priorityRank: 1 },
+        { id: 'b2', title: 'A load-bearing assumption', body: 'Same body.', targetIds: [], priorityRank: 2 },
+        { id: 'b3', title: 'a load-bearing  assumption', body: ' same  body. ', targetIds: [], priorityRank: 3 },
+      ],
+    }
+    const phase3 = buildRecommendations(input).filter((r) => r.id.startsWith('strengthen:phase3:'))
+    expect(phase3).toHaveLength(1)
+    expect(phase3[0].id).toBe('strengthen:phase3:b1')
+  })
+
+  // ── T3 (c): collapsed-row information scent ───────────────────────────────
+  it('T3(c): the collapsed subtitle carries the producer body VERBATIM when present', () => {
+    const input: StrengthenInputs = {
+      ...base,
+      phase3Items: [
+        { id: 'b1', title: 'A load-bearing assumption', body: 'Team Maturity continues to support higher output as expected.', targetIds: [], priorityRank: 1 },
+      ],
+    }
+    const rec = buildRecommendations(input).find((r) => r.id === 'strengthen:phase3:b1')
+    expect(rec).toBeDefined()
+    expect(rec!.signal).toBe('Team Maturity continues to support higher output as expected.')
+    // The body is not rendered twice in one row: whyNow keeps the generic line.
+    expect(rec!.whyNow).not.toBe(rec!.signal)
+  })
+
+  it('T3(c): the collapsed subtitle falls back to the boilerplate when the block has no body', () => {
+    const input: StrengthenInputs = {
+      ...base,
+      phase3Items: [{ id: 'b1', title: 'Check your framing', targetIds: [], priorityRank: 1 }],
+    }
+    const rec = buildRecommendations(input).find((r) => r.id === 'strengthen:phase3:b1')
+    expect(rec).toBeDefined()
+    expect(rec!.signal).toBe('Olumi flagged this while reviewing your model.')
   })
 
   it('adaptive priority: a producer stage signal floats matching-helpType recs to the top; null leaves the ladder', () => {

@@ -83,6 +83,15 @@ describe('StrengthenPanel — §8.3 presentation', () => {
     expect(screen.getByText('Signal b')).toBeInTheDocument() // signal in the head
   })
 
+  it('the collapsed signal line clamps long producer bodies (line-clamp-2, DS pattern)', () => {
+    // T3(c): the subtitle now carries the factor-naming producer body, which
+    // can run long — clamp it so the row never breaks the two-line block.
+    render(<StrengthenPanel {...baseProps} active={[record('a'), record('b')]} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Show 1 more' }))
+    const signal = screen.getByText('Signal b')
+    expect(signal.className).toContain('line-clamp-2')
+  })
+
   it('every row carries a leading family icon in the head', () => {
     render(<StrengthenPanel {...baseProps} active={[record('strengthen:success-measure')]} />)
     const head = screen.getByRole('button', { name: /Title strengthen:success-measure/ })
