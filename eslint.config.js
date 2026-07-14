@@ -8,7 +8,7 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import noRawColors from './eslint-rules/no-raw-colors.js'
 import noBareLightBg from './eslint-rules/no-bare-light-bg.js'
 import noRawInfluenceFallback from './eslint-rules/no-raw-influence-fallback.js'
-import noPayloadLogging from './eslint-rules/no-payload-logging.js'
+import noPayloadLogging from './eslint-rules/no-stringified-payload-logging.js'
 import noDangerousBrowser from './eslint-rules/no-dangerous-browser.js'
 import noCorsWildcard from './eslint-rules/no-cors-wildcard.js'
 import noOldImports from './eslint-rules/no-old-imports.js'
@@ -170,7 +170,7 @@ export default [
       },
       'security': {
         rules: {
-          'no-payload-logging': noPayloadLogging,
+          'no-stringified-payload-logging': noPayloadLogging,
           'no-dangerous-browser': noDangerousBrowser,
           'no-cors-wildcard': noCorsWildcard,
           'no-old-imports': noOldImports,
@@ -226,7 +226,7 @@ export default [
       'brand-tokens/no-bare-light-bg': 'warn',
 
       // Keep security guardrails as hard errors
-      'security/no-payload-logging': 'error',
+      'security/no-stringified-payload-logging': 'error',
       'security/no-dangerous-browser': 'error',
       'security/no-cors-wildcard': 'error',
       'security/no-old-imports': 'error',
@@ -283,7 +283,7 @@ export default [
       },
     },
     rules: {
-      'security/no-payload-logging': 'off',
+      'security/no-stringified-payload-logging': 'off',
     },
   },
   // Canvas source: enforce design tokens (no raw hex/rgb colors)
