@@ -378,6 +378,8 @@ function DriverRow({
   // v7.5 T7: Softened tooltip copy
   const tooltipElasticityCopy = driver.rawElasticity > 0.001
     ? (() => {
+        // UI-SEM-046: elasticity display scaling (×10, floor 1) — presentational
+        // amplification of the 0-1 elasticity into a "shift by N%" tooltip.
         const shiftPercent = Math.max(1, Math.round(driver.rawElasticity * 10))
         const sign = driver.direction === 'negative' ? '-' : ''
         if (isBinaryFactor(driver.factorLabel)) {
@@ -705,7 +707,8 @@ function DriverRow({
 
       {/* "Ranking may shift N%" — HIDDEN: a ranking-shift / fragility claim.
           Fragility ("could change the result") belongs in the fragile-factors
-          section, not the driver section (SHOW_FRAGILITY_IN_DRIVER_SECTION). */}
+          section, not the driver section (SHOW_FRAGILITY_IN_DRIVER_SECTION).
+          UI-SEM-045: rank-flip warning visibility gate (>=0.15 rankFlipRate). */}
       {SHOW_FRAGILITY_IN_DRIVER_SECTION && typeof driver.rankFlipRate === 'number' && driver.rankFlipRate >= 0.15 && (
         <p
           className={`${typography.panelMeta} text-warning px-3 pb-1.5 -mt-0.5`}
