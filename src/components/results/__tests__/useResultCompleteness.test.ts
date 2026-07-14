@@ -199,8 +199,18 @@ describe('deriveResultCompleteness — partial source coverage', () => {
 })
 
 describe('deriveResultCompleteness — failed', () => {
-  it('resultsStatus=error → status=failed', () => {
+  it('DELIBERATE PIN FLIP (Lane 3 / SF2): error WITH a retained report describes THAT report, not the new run\'s failure', () => {
+    // Post-SF2 the body renders the retained previous report at status
+    // 'error'; its completeness must describe itself (a full retained
+    // report → full), not slander it as "failed/partial" for the new run
+    // that failed. The failed short-circuit now requires NO report.
     const result = deriveResultCompleteness(inputs({ resultsStatus: 'error' }))
+    expect(result.status).toBe('full')
+    expect(result.reasons).toEqual([])
+  })
+
+  it('resultsStatus=error with NO retained report → status=failed', () => {
+    const result = deriveResultCompleteness(inputs({ resultsStatus: 'error', report: null }))
     expect(result.status).toBe('failed')
     expect(result.reasons).toContain('analysis_partial')
   })

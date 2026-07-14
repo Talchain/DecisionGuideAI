@@ -105,17 +105,19 @@ export function ActionsMenu() {
   const runGlobal = (action: GlobalActionEntry) => {
     close(true)
     if (action.id === 'rerun_analysis') {
-      // Rerun stays a DIRECT canonical run (prototype: no drawer). Feedback
-      // for every outcome: only the awaited V2 path may claim completion;
-      // the fire-and-forget V5 dispatch honestly claims a start.
+      // Rerun stays a DIRECT canonical run (prototype: no drawer). Lane 3
+      // review fold: post-SF2 the freshness strip stays mounted through the
+      // run and OWNS the completion announcement (byte-identical "rerun
+      // completed" toast on running→complete) — the awaited V2 branch must
+      // not toast the same completion twice. Blocked/already-running remain
+      // menu-owned feedback; the fire-and-forget V5 dispatch honestly
+      // claims a start.
       void executeCanonicalRun({ source: 'actions-menu' }).then((outcome) => {
         if (outcome.status === 'blocked' || outcome.status === 'unavailable') {
           showToast(outcome.reason)
         } else if (outcome.status === 'already-running') {
           showToast(RERUN_TOASTS.alreadyRunning)
-        } else if (outcome.status === 'v2') {
-          showToast(RERUN_TOASTS.completed)
-        } else {
+        } else if (outcome.status !== 'v2') {
           showToast(RERUN_TOASTS.started)
         }
       })

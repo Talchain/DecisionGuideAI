@@ -191,6 +191,14 @@ export interface ResultsState {
    * (arrived via orchestrator envelope). Used by the conversation indicator badge.
    */
   resultsSource?: 'direct' | 'conversation'
+  /**
+   * Lane 3 (SF2): true when the last transition to 'complete' was a
+   * resultless SETTLE (the run ended and the PREVIOUS report was restored —
+   * no new results arrived). The freshness strip's completion toast must not
+   * claim "rerun completed" for this case. Cleared by every new run and by a
+   * genuine completion.
+   */
+  settledWithoutNewReport?: boolean
 }
 
 /**
@@ -2668,6 +2676,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         error: undefined,
         enrichment: enrichment ?? null, // Phase 1B: Persist enrichment from PLoT
         resultsSource: resultsSource ?? 'direct', // A.9: provenance
+        settledWithoutNewReport: undefined, // Lane 3: a REAL completion
       },
       graphHealth: (() => {
         if (!healthFromQuality) return s.graphHealth ?? null
@@ -2846,6 +2855,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         startedAt: Date.now(),
         finishedAt: undefined,
         error: undefined,
+        settledWithoutNewReport: undefined, // Lane 3: new run in flight
         // Everything else (report/hash/seed/drivers) preserved so a
         // settle-back after a resultless turn restores the prior run intact.
       },
@@ -2866,6 +2876,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           ...st.results,
           status: 'complete',
           progress: 100,
+          // Lane 3 (SF2): this 'complete' restored the OLD report — the
+          // completion toast must not announce a completed rerun.
+          settledWithoutNewReport: true,
         },
         // The preserved snapshot is (again) the latest valid analysis.
         analysisStateReady: true,

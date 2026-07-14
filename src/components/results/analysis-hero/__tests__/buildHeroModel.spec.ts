@@ -781,8 +781,16 @@ describe('buildHeroModel — lens gating and numbering', () => {
 })
 
 describe('buildHeroModel — states', () => {
-  it('returns empty while loading', () => {
-    expect(buildHeroModel(makeHeroData({ isLoading: true })).kind).toBe('empty')
+  it('DELIBERATE PIN FLIP (Lane 3 / SF2): loading with RETAINED rows keeps the chart — the panel must not unmount on a rerun', () => {
+    // The store retains the previous report through a rerun; returning
+    // 'empty' here unmounted AnalysisHeroPanel every run, wiping the lens
+    // choice and the goal-lens auto-switch's transition ref (the review
+    // blocker: the SF2 continuity claim was unmet for the hero itself).
+    expect(buildHeroModel(makeHeroData({ isLoading: true })).kind).toBe('chart')
+  })
+
+  it('returns empty while loading with NO renderable rows (first run)', () => {
+    expect(buildHeroModel(makeHeroData({ isLoading: true, options: [] })).kind).toBe('empty')
   })
 
   it('fails closed (empty, no throw) on partially-shaped objects', () => {
@@ -799,9 +807,25 @@ describe('buildHeroModel — states', () => {
     expect(buildHeroModel(makeHeroData({ options: [] })).kind).toBe('empty')
   })
 
-  it('renders the failed status state on hook error (not null)', () => {
+  it('DELIBERATE PIN FLIP (Lane 3 / SF2): a FAILED RERUN with retained rows keeps the chart — the failure story belongs to the banner/strip', () => {
+    // Post-SF2 the body renders the retained previous report at status
+    // 'error'; a hero card saying "The analysis did not complete / Run the
+    // analysis again to see results here" directly above those retained
+    // results contradicted the "Showing results from previous analysis"
+    // banner (review blocker, second half).
     const failed: ResultCompleteness = { ...FULL_COMPLETENESS, status: 'failed' }
     const m = buildHeroModel(makeHeroData({ isError: true, completeness: failed }))
+    expect(m.kind).toBe('chart')
+  })
+
+  it('renders the failed status state on hook error with NO renderable rows', () => {
+    const failed: ResultCompleteness = { ...FULL_COMPLETENESS, status: 'failed' }
+    const m = buildHeroModel(makeHeroData({ isError: true, options: [], completeness: failed }))
+    expect(m).toMatchObject({ kind: 'status', variant: 'failed' })
+  })
+
+  it('a DISPLAYED report whose own analysisStatus is failed still shows the failed card (retained rows or not)', () => {
+    const m = buildHeroModel(makeHeroData({ recommendation: { analysisStatus: 'failed' } }))
     expect(m).toMatchObject({ kind: 'status', variant: 'failed' })
   })
 

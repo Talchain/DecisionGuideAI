@@ -526,11 +526,15 @@ describe('AnalysisHeroPanel — content', () => {
     (variant) => {
       // Non-chart states are driven by the real analysis lifecycle
       // (analysisStatus / hook error), never by completeness enrichment.
+      // Lane 3 fold: a hook error only shows the failed card when there are
+      // NO retained rows (with rows the retained chart keeps rendering and
+      // the banner/strip tell the failure story) — so the failed variant
+      // models the first-run failure.
       const data =
         variant === 'blocked'
           ? makeHeroData({ recommendation: { analysisStatus: 'blocked' } })
           : variant === 'failed'
-            ? makeHeroData({ isError: true })
+            ? makeHeroData({ isError: true, options: [] })
             : makeHeroData({ recommendation: { analysisStatus: 'partial' } })
       const model = buildHeroModel(data)
       expect(model.kind).toBe('status')
@@ -861,6 +865,37 @@ describe('Prototype v6 parity: goal lens, define success, auto-switch, next step
     fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
     rerender(<AnalysisHeroPanel model={{ ...targetedModel }} {...props} />)
     expect(screen.getByTestId('hero-lens-tab-outcome')).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('Lane 3 (SF2) review blocker pin: the auto-switch survives a FULL RERUN CYCLE (chart → loading chart → targeted chart)', () => {
+    // The real Define-success flow: no-target chart → the rerun keeps the
+    // panel mounted on the RETAINED chart (buildHeroModel no longer returns
+    // empty while loading with rows — the previous behaviour unmounted the
+    // panel and reset prevGoalHintRef, so this transition was unobservable
+    // and the auto-switch silently no-oped on live staging).
+    const noGoal = [
+      makeOption({ ...OPTION_A, goalProbability: undefined }),
+      makeOption({ ...OPTION_B, goalProbability: undefined }),
+    ]
+    const noTargetModel = chartModel(
+      makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } }),
+    )
+    // Mid-rerun: still the retained no-target rows (loading — same model
+    // shape the retained report produces now).
+    const loadingRetainedModel = chartModel(
+      makeHeroData({ options: noGoal, recommendation: { goalThreshold: null }, isLoading: true }),
+    )
+    const targetedModel = chartModel()
+    const props = { isStale: false, onRerun: () => {}, rerunDisabled: false }
+    const { rerender } = render(<AnalysisHeroPanel model={noTargetModel} {...props} />)
+    fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
+    // Rerun starts — panel stays mounted on the retained chart, and the
+    // user's explicit lens choice survives.
+    rerender(<AnalysisHeroPanel model={loadingRetainedModel} {...props} />)
+    expect(screen.getByTestId('hero-lens-tab-outcome')).toHaveAttribute('aria-selected', 'true')
+    // Rerun completes with the target: the auto-switch fires.
+    rerender(<AnalysisHeroPanel model={targetedModel} {...props} />)
+    expect(screen.getByTestId('hero-lens-tab-goal')).toHaveAttribute('aria-selected', 'true')
   })
 
   it('renders the Next-step row mirroring the top Strengthen entry, Open gated on the anchor', () => {

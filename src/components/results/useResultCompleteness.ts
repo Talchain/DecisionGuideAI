@@ -49,11 +49,22 @@ export type ResultCompleteness = {
 
 export type ResultCompletenessInputs = {
   /**
-   * Local results lifecycle status. `failed` short-circuits to
-   * status='failed' regardless of source coverage; `idle` and `running`
-   * return status='full' with no missing keys (no result to evaluate).
+   * Local results lifecycle status. `error` short-circuits to
+   * status='failed' only when no retained report is displayed (post-SF2
+   * the body renders the previous report at 'error' — its completeness
+   * describes itself); pre-report states return status='full' with no
+   * missing keys (no result to evaluate).
    */
-  resultsStatus: 'idle' | 'running' | 'complete' | 'error' | undefined
+  resultsStatus:
+    | 'idle'
+    | 'running'
+    | 'preparing'
+    | 'connecting'
+    | 'streaming'
+    | 'cancelled'
+    | 'complete'
+    | 'error'
+    | undefined
   /**
    * The ReportV1 the UI is rendering. Null when no analysis has run.
    */
@@ -84,16 +95,24 @@ const FULL: ResultCompleteness = {
 export function deriveResultCompleteness(
   inputs: ResultCompletenessInputs,
 ): ResultCompleteness {
-  // Status `error` short-circuits to failed; idle/running mean we have
-  // nothing to evaluate yet, so report `full` with no missing keys.
-  if (inputs.resultsStatus === 'error') {
+  // Status `error` short-circuits to failed ONLY when there is nothing on
+  // screen — post-SF2 the body renders the RETAINED previous report at
+  // 'error', and that report's completeness must describe ITSELF, not the
+  // new run's failure (Lane 3 review fold: the legacy confidence panel was
+  // rendering "Analysis returned partial results" over a fully-complete
+  // retained analysis). idle/running mean we have nothing to evaluate yet,
+  // so report `full` with no missing keys.
+  if (inputs.resultsStatus === 'error' && !inputs.report) {
     return {
       status: 'failed',
       missing: [],
       reasons: ['analysis_partial'],
     }
   }
-  if (inputs.resultsStatus !== 'complete' || !inputs.report) {
+  if (
+    (inputs.resultsStatus !== 'complete' && inputs.resultsStatus !== 'error') ||
+    !inputs.report
+  ) {
     return FULL
   }
 

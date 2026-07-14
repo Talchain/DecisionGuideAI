@@ -71,7 +71,15 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
     } else if (wasRunningRef.current) {
       wasRunningRef.current = false
       if (resultsStatus === 'complete') {
-        showToast('Analysis rerun completed with the current model')
+        // Lane 3 (SF2) toast honesty: a resultless SETTLE also lands on
+        // 'complete' (the previous report restored, no new results) — with
+        // the body now mounted through the run, announcing "rerun completed"
+        // for that case would be a lie.
+        if (useCanvasStore.getState().results?.settledWithoutNewReport) {
+          showToast('The run ended without new results. Showing your previous analysis.')
+        } else {
+          showToast('Analysis rerun completed with the current model')
+        }
       }
     }
   }, [isRunning, resultsStatus, showToast])

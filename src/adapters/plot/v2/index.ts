@@ -62,6 +62,7 @@ export {
   validateAllEdges,
   validateOptionsHaveInterventions,
   flattenInterventions,
+  clearStrengthCorrections,
   EdgeValidationError,
 } from './adapter'
 

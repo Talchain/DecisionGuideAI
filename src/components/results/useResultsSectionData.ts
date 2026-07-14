@@ -2918,19 +2918,39 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- optionIdsKey is the canonical value key for optionIds
   }, [optionIdsKey])
 
-  return {
-    recommendation,
-    drivers,
-    confidence,
-    improvements,
-    isLoading,
-    isError,
-    goalLabel,
-    goalNodeId,
-    completeness,
-    autoNoiseProvenance,
-    sensitivityReference,
-  }
+  // Lane 3 (SF2) perf — EVIDENCE-DEMANDED (rerunContinuity render-count
+  // pin): with the results body mounted through a run, a fresh return
+  // object here defeated ResultsBody's memo on every SSE progress tick.
+  // The constituent fields are themselves memoised; stabilising the
+  // envelope stops per-tick subtree re-renders.
+  return useMemo(
+    () => ({
+      recommendation,
+      drivers,
+      confidence,
+      improvements,
+      isLoading,
+      isError,
+      goalLabel,
+      goalNodeId,
+      completeness,
+      autoNoiseProvenance,
+      sensitivityReference,
+    }),
+    [
+      recommendation,
+      drivers,
+      confidence,
+      improvements,
+      isLoading,
+      isError,
+      goalLabel,
+      goalNodeId,
+      completeness,
+      autoNoiseProvenance,
+      sensitivityReference,
+    ],
+  )
 }
 
 export default useResultsSectionData

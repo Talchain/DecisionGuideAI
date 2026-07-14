@@ -208,9 +208,20 @@ export function buildHeroModel(
   // completeness would show "some steps did not complete" over a perfectly
   // computed run — the exact false-partial this avoids. Curated copy only —
   // statusReason may carry internal identifiers, so it is not interpolated.
-  if (isLoading) return { kind: 'empty' }
+  // Lane 3 (SF2) review blocker fold: during a RERUN the store retains the
+  // previous report, so `recommendation` still carries renderable rows —
+  // returning 'empty' here unmounted AnalysisHeroPanel on every rerun,
+  // wiping lensState/openRowId/prevGoalHintRef (the goal-lens auto-switch
+  // could never observe its transition) and collapsing the hero slot while
+  // the rest of the body stayed rendered. Same for a FAILED rerun: the
+  // retained rows keep rendering (the error banner + strip tell the new
+  // run's failure story); the 'failed' card is only honest when there is
+  // nothing to show. `analysisStatus` belongs to the DISPLAYED report
+  // itself, so its blocked/failed/partial states still gate as before.
+  const hasRenderableRows = recommendation.allOptions.length > 0
+  if (isLoading && !hasRenderableRows) return { kind: 'empty' }
   if (recommendation.analysisStatus === 'blocked') return statusModel('blocked')
-  if (isError || recommendation.analysisStatus === 'failed') return statusModel('failed')
+  if ((isError && !hasRenderableRows) || recommendation.analysisStatus === 'failed') return statusModel('failed')
   if (recommendation.analysisStatus === 'partial') return statusModel('partial')
 
   // Present rows in the SHARED option display order (win probability when

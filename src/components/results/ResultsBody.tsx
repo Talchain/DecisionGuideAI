@@ -104,7 +104,7 @@ export const ResultsBody = memo(function ResultsBody({
   registerDriverRef,
   strengthCorrections = [],
   onFocusNode,
-  isRunning: _isRunning,
+  isRunning,
   onAddStatusQuoBaseline: _onAddStatusQuoBaseline,
   onApplyThreshold,
   onAddBaseline: _onAddBaseline,
@@ -143,8 +143,12 @@ export const ResultsBody = memo(function ResultsBody({
   // hover highlights, AI discuss) remain active. Baseline/threshold
   // handlers are declared on this component but not currently wired to
   // the children that consume them, so we only gate the two that are.
-  const staleOnConfirmFactor = isStale ? undefined : onConfirmFactor
-  const staleOnSetFactorValue = isStale ? undefined : onSetFactorValue
+  // Lane 3 (SF2): the body now stays MOUNTED through a run — the same
+  // rationale gates factor mutations mid-flight (don't commit edits against
+  // a display whose run is being replaced).
+  const suppressMutations = isStale || isRunning
+  const staleOnConfirmFactor = suppressMutations ? undefined : onConfirmFactor
+  const staleOnSetFactorValue = suppressMutations ? undefined : onSetFactorValue
 
   // Risk appetite toggle — Conservative: highest p10, Neutral: highest win prob, Aggressive: highest p90
   const [riskAppetite, setRiskAppetite] = useState<RiskAppetite>('neutral')
