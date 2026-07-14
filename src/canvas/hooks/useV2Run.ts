@@ -66,9 +66,13 @@ function deriveNumericSeedFromString(input: string): number {
 /**
  * UI-SEM-058: raw → normalised goal-threshold conversion for the PLoT request.
  *
- * store.goalThreshold holds USER UNITS (raw — see the store field's unit
- * contract); PLoT's `goal_threshold` contract is normalised 0-1
- * (adapter.ts request builder). Convert raw/cap when the CEE cap exists.
+ * store.goalThreshold holds USER UNITS by default (raw), but since Lane 5 its
+ * representation is carried explicitly by store.goalThresholdRepresentation
+ * ('raw' | 'normalised' | null) — a CEE bare-sync can store an already-0-1
+ * value tagged 'normalised', in which case resolveChipGoalThreshold
+ * short-circuits and never divides by a cap. PLoT's `goal_threshold` contract
+ * is normalised 0-1 (adapter.ts request builder). Convert raw/cap when the CEE
+ * cap exists.
  * Without a cap, raw ≡ normalised only when the value already lies in [0,1].
  * Anything that cannot be proven normalised is OMITTED (returns undefined)
  * so the request builder's own `analysisReady.goal_threshold` (already

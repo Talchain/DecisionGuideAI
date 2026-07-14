@@ -605,7 +605,7 @@ interface CanvasState {
   reset: () => void
   cleanup: () => void
   // Outcome node
-  setOutcomeNode: (nodeId: string | null) => void
+  setOutcomeNode: (nodeId: string | null, opts?: { rederiveThreshold?: boolean }) => void
   // Goal threshold for probability_of_goal
   setGoalThreshold: (
     threshold: number | null,
@@ -1044,6 +1044,39 @@ function firstGoalNodeId(
     (n) => n.type === 'goal' || (n.data as { type?: string } | undefined)?.type === 'goal',
   )
   return goal?.id ?? null
+}
+
+/**
+ * P0-1 (external review 2026-07-14): re-derive the global goal-threshold scalar
+ * (+ its representation tag) FROM a graph's goal node, so the scalar can never
+ * outlive the node it describes. The goal node's `success_threshold`
+ * (threshold_source === 'user') is the durable per-goal source of truth
+ * (setGoalThresholdAndUpdateNode writes it and pushes it to history); the global
+ * scalar is a derived cache. Whenever the graph or the goal selection changes
+ * (undo/redo, in-session goal reselection) we recompute the scalar from the
+ * resolved goal node rather than leaving a free-floating value that the run path
+ * would still forward to PLoT.
+ *
+ * Prefers `preferredGoalId` when it exists in `nodes`, else the first goal node.
+ * Returns {null, null} when no goal node carries a user target.
+ */
+function deriveGoalThresholdFromNode(
+  nodes: ReadonlyArray<{ id: string; type?: string; data?: unknown }> | undefined,
+  preferredGoalId?: string | null,
+): { goalThreshold: number | null; goalThresholdRepresentation: 'raw' | null } {
+  const goalId =
+    preferredGoalId && nodes?.some((n) => n.id === preferredGoalId)
+      ? preferredGoalId
+      : firstGoalNodeId(nodes)
+  const goalNode = goalId ? nodes?.find((n) => n.id === goalId) : undefined
+  const data = goalNode?.data as
+    | { threshold_source?: string; success_threshold?: number | null }
+    | undefined
+  if (data?.threshold_source === 'user' && typeof data.success_threshold === 'number') {
+    // A user target on the node is always stored raw (setGoalThresholdAndUpdateNode).
+    return { goalThreshold: data.success_threshold, goalThresholdRepresentation: 'raw' }
+  }
+  return { goalThreshold: null, goalThresholdRepresentation: null }
 }
 
 /**
@@ -1866,7 +1899,14 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // READINESS_CLEAR_FIELDS), so the reverted graph no longer matches it →
     // set the dirty overlay so a retained 'fresh' verdict shows cannot-confirm.
     logConstraintClearIfPresent(get, 'undo')
-    set({ nodes: prev.nodes, edges: prev.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, analysisFreshnessDirty: true, lens: createDefaultLensState() })
+    // P0-1: the global goal-threshold scalar is NOT in the history snapshot
+    // (only {nodes, edges, label}) and is NOT cleared by READINESS_CLEAR_FIELDS,
+    // so without this it would survive a graph revert — e.g. set a 60% target
+    // then Undo reverts the node but leaves goalThreshold=0.6, which the run path
+    // still forwards to PLoT. Re-derive it from the reverted graph's goal node so
+    // the scalar and the node stay in lockstep (an undo past the target-set
+    // restores null).
+    set({ nodes: prev.nodes, edges: prev.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, ...deriveGoalThresholdFromNode(prev.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: createDefaultLensState() })
     // Reset hash after undo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -1881,7 +1921,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Clear full readiness bundle + reset lens on redo (graph shape changed).
     // Verdict is retained → reapplied graph no longer matches it → dirty overlay.
     logConstraintClearIfPresent(get, 'redo')
-    set({ nodes: next.nodes, edges: next.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, analysisFreshnessDirty: true, lens: createDefaultLensState() })
+    // P0-1: mirror undo — re-derive the goal-threshold scalar from the reapplied
+    // graph's goal node so it cannot outlive the node it describes.
+    set({ nodes: next.nodes, edges: next.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, ...deriveGoalThresholdFromNode(next.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: createDefaultLensState() })
     // Reset hash after redo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -2589,13 +2631,21 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     useDraftStore.getState().resetAllModels()
   },
 
-  setOutcomeNode: (nodeId) => {
+  setOutcomeNode: (nodeId, opts) => {
     // Changing which node is the goal/outcome is analysis-affecting → dirty the
     // freshness overlay on a real change. (Producer paths that also call this —
     // applyDraftResult / applyAutoApplyPatch — dirty via their own mutation marks;
     // load/scenario paths set outcomeNodeId directly and reset the overlay.)
     const changed = get().outcomeNodeId !== nodeId
-    set({ outcomeNodeId: nodeId })
+    // P0-1: user goal-RESELECTION passes { rederiveThreshold: true } so the
+    // global scalar follows the newly-selected goal node — it adopts B's own
+    // user target or clears A's stale one, never lets A's threshold ride B's
+    // runs. Producer paths omit the flag: they carry their own threshold sync
+    // (setCeeAnalysisReady bare-sync) and must not have it clobbered here.
+    const derived = opts?.rederiveThreshold
+      ? deriveGoalThresholdFromNode(get().nodes, nodeId)
+      : null
+    set(derived ? { outcomeNodeId: nodeId, ...derived } : { outcomeNodeId: nodeId })
     if (changed) markAnalysisFreshnessDirty(get, set)
   },
 

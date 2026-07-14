@@ -1090,12 +1090,16 @@ export function PreAnalysisPanel({
   const handleGoalChange = useCallback((goalId: string) => {
     const { ceeAnalysisReady, setCeeAnalysisReady, setOutcomeNode } = useCanvasStore.getState()
 
-    // Update outcomeNodeId for run pipeline (useV2Run reads this)
-    setOutcomeNode(goalId)
-
-    // Update ceeAnalysisReady for pre-analysis data
+    // P0-1 (external review 2026-07-14): switching the selected goal must not let
+    // the previous goal's target or normalisation cap ride the new goal.
+    // Rebuild readiness for the new goal WITHOUT the previous goal's
+    // goal_threshold_cap (undefined → the run path re-derives the cap from the
+    // new goal's own node). Do this BEFORE the threshold re-derive below: the
+    // readiness write's bare-sync only fires when the store scalar is null, so
+    // running it while the stale scalar is still non-null stops it re-adopting
+    // the previous goal's value.
     if (ceeAnalysisReady) {
-      setCeeAnalysisReady({ ...ceeAnalysisReady, goal_node_id: goalId })
+      setCeeAnalysisReady({ ...ceeAnalysisReady, goal_node_id: goalId, goal_threshold_cap: undefined })
     } else {
       // Create minimal ceeAnalysisReady with the selected goal
       // options: [] is required by type - run pipeline uses outcomeNodeId anyway
@@ -1105,6 +1109,11 @@ export function PreAnalysisPanel({
         options: [],
       })
     }
+
+    // Update outcomeNodeId for the run pipeline (useV2Run reads this) AND
+    // re-derive the global threshold scalar from the newly-selected goal node —
+    // adopts B's own user target, or clears A's stale one.
+    setOutcomeNode(goalId, { rederiveThreshold: true })
   }, [])
 
   // Threshold change handler - update both goal node data AND goalThreshold store field
