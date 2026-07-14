@@ -15,7 +15,8 @@
  *      Other UI system events that V5 rejects (feedback_submitted) return null
  *      so callers can pre-filter.
  *
- * CEE contract: @talchain/schemas@0.7.0.
+ * CEE contract: @talchain/schemas — the UI pins 0.15.0 (see package.json for
+ * the authoritative version; CEE pins 0.16.0, and the pins can drift).
  */
 
 import type {
