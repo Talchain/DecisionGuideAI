@@ -23,8 +23,8 @@
  */
 import { AlertTriangle } from 'lucide-react'
 import { typography } from '@/styles/typography'
-import { humaniseCritique } from './utils/humaniseCritique'
-import type { InferenceWarning, UncertaintyItem } from './types'
+import { humaniseInferenceWarningTitle } from './utils/humaniseInferenceWarning'
+import type { InferenceWarning } from './types'
 
 export interface InferenceWarningStripProps {
   /** Producer inference warnings (all severities); the strip filters. */
@@ -39,31 +39,6 @@ export function selectWarningSeverityEntries(
   return (warnings ?? []).filter(
     (w) => w.severity === 'warning' && typeof w.message === 'string' && w.message.trim().length > 0,
   )
-}
-
-/** Node-label map for humaniseCritique's factor-label resolution, built from
- *  the entry's own already-resolved `affected_labels` (never parsed from
- *  `message`). Returns undefined when no labels are available — humaniseCritique
- *  falls back to its own ID-derived label in that case. */
-function buildNodeLabelMap(w: InferenceWarning): Map<string, string> | undefined {
-  if (!w.affected_labels || w.affected_labels.length === 0) return undefined
-  const map = new Map<string, string>()
-  w.affected_nodes.forEach((nodeId, i) => {
-    const label = w.affected_labels?.[i]
-    if (label) map.set(nodeId, label)
-  })
-  return map.size > 0 ? map : undefined
-}
-
-/** Humanised, user-safe headline for an inference warning — same
- *  code-keyed template path every other critique surface uses. */
-function humaniseWarningTitle(w: InferenceWarning): string {
-  const item: UncertaintyItem = {
-    code: w.code,
-    message: w.message ?? '',
-    affectedNodes: w.affected_nodes,
-  }
-  return humaniseCritique(item, buildNodeLabelMap(w)).title
 }
 
 export function InferenceWarningStrip({ warnings, className = '' }: InferenceWarningStripProps) {
@@ -86,7 +61,7 @@ export function InferenceWarningStrip({ warnings, className = '' }: InferenceWar
         >
           <AlertTriangle size={14} className="flex-none text-warning" aria-hidden="true" />
           {/* Humanised copy — never the producer's raw message (V14.3 guard). */}
-          <span className={`${typography.panelBody} text-text-body`}>{humaniseWarningTitle(w)}</span>
+          <span className={`${typography.panelBody} text-text-body`}>{humaniseInferenceWarningTitle(w)}</span>
         </div>
       ))}
     </div>

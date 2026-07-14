@@ -14,6 +14,7 @@ import { Copy, Check, AlertTriangle, Gauge, Eye } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { evaluativeVar } from '../../styles/evaluative'
 import { Accordion } from './Accordion'
+import { selectHumanisedInferenceWarnings } from './utils/humaniseInferenceWarning'
 import { useRiskProfile, RISK_PRESETS } from '../../canvas/hooks/useRiskProfile'
 
 type RiskPresetKey = keyof typeof RISK_PRESETS
@@ -130,9 +131,7 @@ export function AdvancedSection({
   // accordion. Warnings live inside the trust narrative in this section
   // per brief Task 12, so the collapse default would otherwise suppress
   // them until the user clicks.
-  const hasInferenceWarnings = (inferenceWarnings ?? []).some(
-    w => typeof w.message === 'string' && w.message.trim().length > 0,
-  )
+  const hasInferenceWarnings = selectHumanisedInferenceWarnings(inferenceWarnings).length > 0
 
   return (
     <Accordion
@@ -265,12 +264,13 @@ export function AdvancedSection({
               <p className="text-warning">Structural validity: Treat results as directional only.</p>
             )}
 
-            {/* Brief 4 Task 12: inference warnings surfaced verbatim, capped
-                at 3 with Show-all overflow. One AlertTriangle per warning. */}
+            {/* Brief 4 Task 12: inference warnings, capped at 3 with Show-all
+                overflow. One AlertTriangle per warning.
+                P0-3 fold: humanised by `code` via the shared view model
+                (selectHumanisedInferenceWarnings) — never the raw producer
+                `message`, which carries internal identifiers. */}
             {(() => {
-              const relevant = (inferenceWarnings ?? []).filter(
-                w => typeof w.message === 'string' && w.message.trim().length > 0,
-              )
+              const relevant = selectHumanisedInferenceWarnings(inferenceWarnings)
               if (relevant.length === 0) return null
               const visible = showAllWarnings ? relevant : relevant.slice(0, 3)
               const hidden = relevant.length - visible.length
@@ -283,7 +283,7 @@ export function AdvancedSection({
                         className="flex items-start gap-2"
                       >
                         <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
-                        <span>{w.message}</span>
+                        <span>{w.title}</span>
                       </li>
                     ))}
                   </ul>

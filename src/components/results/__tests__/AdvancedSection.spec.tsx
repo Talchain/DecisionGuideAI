@@ -154,6 +154,28 @@ describe('AdvancedSection', () => {
     expect(screen.getByTestId('advanced-hash-row')).toBeInTheDocument()
   })
 
+  // P0-3 fold (external review 2026-07-14): the Advanced accordion humanises
+  // inference-warning copy by `code` via the shared view model — it must NEVER
+  // render the raw producer `message`, which carries internal identifiers.
+  // Against the pre-fix source (which rendered `<span>{w.message}</span>`) the
+  // internal-token assertions below fail; they pass once humanised.
+  it('humanises inference-warning copy by code and never leaks the raw producer message (internal identifiers)', () => {
+    const rawMessage = 'constraint_fac_customer_churn_max observed_state.value intercept=0'
+    render(
+      <AdvancedSection
+        inferenceWarnings={[{ code: 'CONSTRAINT_NODE_DEFAULT_BASE', message: rawMessage }]}
+      />,
+    )
+    const region = screen.getByTestId('trust-inference-warnings')
+    expect(region).toBeInTheDocument()
+    // No internal identifiers/implementation terminology leak into the UI…
+    expect(region.textContent ?? '').not.toContain('observed_state')
+    expect(region.textContent ?? '').not.toContain('intercept=0')
+    expect(region.textContent ?? '').not.toContain('constraint_fac_customer_churn_max')
+    // …and some user-safe humanised copy is present.
+    expect((region.textContent ?? '').trim().length).toBeGreaterThan(0)
+  })
+
   // Brief 5.2 Task 8c: Gauge icon on the Risk profile heading was shipped
   // in Brief 5.1 Task 6. Lock it via a regression test so future icon-dict
   // refactors don't quietly drop it.

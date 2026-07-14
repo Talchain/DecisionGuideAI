@@ -119,12 +119,14 @@ const DEFENCE_IN_DEPTH_FILES: Record<string, RegExp> = {
   // inference warnings, not PLoT critique data — structurally different type.
   // Guard: the fallback pattern must be present.
   'ChallengeSection.tsx': /Inference warning.*warning\.code/,
-  // AdvancedSection.tsx: renders w.message inside the trust-narrative region
-  // for ISL inference warnings (added commit b462f7e6, 2026-04-17). Same
-  // exception class as ChallengeSection — these are ISL inference warnings,
-  // not PLoT critique data. Guard: the message must have been filtered for
-  // non-empty strings before render.
-  'AdvancedSection.tsx': /typeof w\.message === 'string' && w\.message\.trim\(\)\.length > 0/,
+  // AdvancedSection.tsx: exemption REMOVED (P0-3 fold, external review
+  // 2026-07-14). It previously rendered raw `w.message` for ISL inference
+  // warnings behind a non-empty-string filter — but that filter does NOT
+  // sanitise internal identifiers (e.g. `constraint_fac_… observed_state.value
+  // intercept=0`), so the "ISL warnings are structurally safe" rationale was
+  // false. It now humanises by `code` via the shared view model
+  // (selectHumanisedInferenceWarnings) and holds zero `.message` access, so the
+  // scanner enforces the invariant with no exemption.
   // InferenceWarningStrip.tsx: the JSX itself renders ONLY humaniseCritique's
   // sanitised `.title` (never `.message`) — fixed here after the PR #236
   // regression that rendered `w.message` verbatim. The two remaining matches
