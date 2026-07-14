@@ -101,6 +101,10 @@ import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
 import { useAutosave } from './hooks/useAutosave'
 // Lazy-load debug panel — excludes ~6.8k lines of debug UI from the main bundle
 const LazyDebugPanel = lazy(() => import('../components/DebugPanel').then(m => ({ default: m.DebugPanel })))
+// P1 (external review): the visibility gate is imported EAGERLY (tiny module,
+// no heavy deps) so the LazyDebugPanel MOUNT can be conditioned on it — the
+// ~250 KB chunk then downloads only when ?diag is present, not for every visitor.
+import { useShouldShowDebugPanel } from '../components/debug/debugPanelVisibility'
 import { verboseWarn } from '../utils/verboseLog'
 
 type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only' | 'rf-bare' | 'rf-minimal' | 'rf-empty' | 'rf-no-fitview' | 'rf-no-bg' | 'rf-store' | 'provider-only' | 'no-provider'
@@ -299,6 +303,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // Evidence: rf-store debug mode crashed with object+shallow but works with individual selectors.
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
+  // P1: gate the debug-panel chunk download on the ?diag/env check.
+  const showDebugPanel = useShouldShowDebugPanel()
   const showResultsPanel = useCanvasStore(s => s.showResultsPanel)
   const graphHealth = useCanvasStore(s => s.graphHealth)
   const showIssuesPanel = useCanvasStore(s => s.showIssuesPanel)
@@ -2294,8 +2300,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         </div>
       </BottomSheet>
 
-      {/* Debug Panel - activated via ?diag=1 in staging/dev (lazy-loaded) */}
-      <Suspense fallback={null}><LazyDebugPanel /></Suspense>
+      {/* Debug Panel - activated via ?diag=1 in staging/dev. P1: the mount is
+          gated so React.lazy fetches the ~250 KB chunk ONLY when ?diag is set,
+          not for every canvas visitor. */}
+      {showDebugPanel && <Suspense fallback={null}><LazyDebugPanel /></Suspense>}
     </div>
     </MaybeConversationProvider>
   )
