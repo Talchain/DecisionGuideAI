@@ -14,6 +14,11 @@
  * order (one metric per surface), while the append-only stability of
  * `assignStableOptionNumbers` is preserved (ordinals freeze after first
  * registration; later reruns and lens switches never renumber).
+ *
+ * The hero-row half of this contract (stable numbers strictly ascending
+ * top-to-bottom on a first run) lives in
+ * `../analysis-hero/__tests__/firstRunNumbering.rankCoherence.spec.ts` —
+ * the inertness guard allows analysis-hero imports only inside the module.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
@@ -21,8 +26,6 @@ import { renderHook } from '@testing-library/react'
 import { useResultsSectionData } from '../useResultsSectionData'
 import { useCanvasStore } from '../../../canvas/store'
 import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
-import { buildHeroModel } from '../analysis-hero/buildHeroModel'
-import type { HeroChartModel } from '../analysis-hero/heroTypes'
 import { mapV2ResponseToReportV1 } from '../../../adapters/plot/v2/responseMapper'
 import type { V2RunResponse } from '../../../adapters/plot/v2/types'
 
@@ -95,11 +98,6 @@ function setStoreWithMappedReport(options: OptionShape[]): void {
   } as any)
 }
 
-function chart(model: ReturnType<typeof buildHeroModel>): HeroChartModel {
-  expect(model.kind).toBe('chart')
-  return model as HeroChartModel
-}
-
 beforeEach(() => {
   useCanvasStore.setState({
     results: null,
@@ -137,21 +135,6 @@ describe('useResultsSectionData — option rank coherence', () => {
     expect(sortOptionsForDisplay(allOptions).map((o) => o.id)).toEqual(
       allOptions.map((o) => o.id),
     )
-  })
-
-  it('hero rows carry strictly ascending stable numbers on a first-run registration (no "4 above 3")', () => {
-    setStoreWithMappedReport(SCREENSHOT_OPTIONS)
-
-    const { result } = renderHook(() => useResultsSectionData())
-    const model = chart(
-      buildHeroModel(result.current, useCanvasStore.getState().optionNumbering),
-    )
-
-    const stableNumbers = model.rows.map((r) => r.stableNumber)
-    expect(stableNumbers).toEqual([1, 2, 3, 4])
-    for (let i = 1; i < stableNumbers.length; i += 1) {
-      expect(stableNumbers[i]!).toBeGreaterThan(stableNumbers[i - 1]!)
-    }
   })
 
   it('keeps ordinals frozen when a later run re-registers in a different order (append-only)', () => {

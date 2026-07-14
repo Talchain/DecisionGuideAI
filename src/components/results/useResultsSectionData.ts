@@ -55,6 +55,7 @@ import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
 import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
 import { humaniseCritique } from './utils/humaniseCritique'
 import { selectGoalProbability, type GoalProbabilityInput } from './utils/selectGoalProbability'
+import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
 import { deriveStabilityLevel } from '../../lib/stability'
 import { deriveResultCompleteness, type ResultCompleteness } from './useResultCompleteness'
 import { computeNormalisedInfluences, selectDriverDisplayModel } from './driverDisplayModel'
@@ -1327,12 +1328,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       backendRecommendedId
     )
 
-    // Sort by expected value descending for display order (independent of winner selection)
-    const sortedOptions = [...unsortedOptions].sort((a, b) => {
-      const aValue = a.expected ?? a.goalProbability ?? -Infinity
-      const bValue = b.expected ?? b.goalProbability ?? -Infinity
-      return bValue - aValue
-    })
+    // Order by the SHARED display sort (win probability when every option
+    // carries one, else expected value — sortOptionsForDisplay), independent
+    // of winner selection. This must be the same comparator the rendering
+    // surfaces use (OptionCards, WinGauge, analysis hero): the staging trust
+    // review found badge "4" rendering ABOVE badge "3" because ordinals were
+    // seeded from an expected-value order while every list sorted by win
+    // probability — one metric per surface, so allOptions order, ordinal
+    // registration order and row order must be one.
+    const sortedOptions = sortOptionsForDisplay(unsortedOptions)
 
     // Task 2.1: Resolve baseline option with precedence (PLoT > user > heuristic)
     // Note: userSelectedBaselineId would come from state if we add baseline selection UI
@@ -2910,7 +2914,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // accepted schema does not forbid any character in an id, so ANY separator
   // can split a legitimate id into fragments that register wrongly. The dep
   // key is canonical JSON (collision-free) and the ORIGINAL array registers.
-  const optionIds = recommendation.allOptions.map((o) => o.id)
+  // Registration goes through sortOptionsForDisplay explicitly (allOptions
+  // already carries that order, but first-seen ordinals are frozen forever,
+  // so the seeding order must be guaranteed at the registration site, not
+  // inherited): badge numbers then match the order every list renders in.
+  const optionIds = sortOptionsForDisplay(recommendation.allOptions).map((o) => o.id)
   const optionIdsKey = JSON.stringify(optionIds)
   useEffect(() => {
     if (optionIds.length === 0) return
