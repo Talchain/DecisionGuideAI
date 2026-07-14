@@ -75,24 +75,36 @@ function getBehindReasonContext(
   if (cached && cached.ceeRef === ceeAnalysisReady) return cached
 
   const recommendedOptionId = report?.robustness?.recommended_option_id as string | undefined
-  const sensitivity = report?.enrichment?.sensitivity_analysis?.factors ?? report?.factor_sensitivity ?? []
+  // P0-2 (external review 2026-07-14): certified factor_sensitivity FIRST
+  // (matching winsVia + the graph badge), the untyped enrichment passthrough
+  // only as fallback — never the reverse.
+  const sensitivity = report?.factor_sensitivity ?? report?.enrichment?.sensitivity_analysis?.factors ?? []
   const hasSensitivity = Array.isArray(sensitivity) && sensitivity.length > 0
 
   let topFactorId: string | undefined
   let strippedLabel: string | null = null
   if (hasSensitivity) {
-    const rankedFactors = [...sensitivity]
-      .map((f: any) => ({
-        id: (f.factor_id || f.factorId || f.node_id || f.nodeId) as string | undefined,
-        label: (f.label ?? f.node_label) as string | undefined,
-        score: Math.abs(f.importance_score ?? f.elasticity ?? f.sensitivity_score ?? 0),
-      }))
-      .sort((a, b) => b.score - a.score)
-    const topFactor = rankedFactors[0]
-    topFactorId = topFactor?.id
+    // Rank via the SHARED driver policy (extractPolicyRow + selectDriverDisplayModel
+    // + compareByDisplayModel) so the loser's "Behind:" top factor is chosen on
+    // the SAME basis as winsVia / the Drivers panel. The prior chain ranked by
+    // raw |importance_score ?? elasticity ?? sensitivity_score| — OMITTING
+    // `sensitivity` (the V5 magnitude key) and preferring importance — so it
+    // could crown a different driver than the panel under partial coverage.
+    const rows = (sensitivity as unknown[])
+      .map((f: unknown) => extractPolicyRow(f))
+      .filter((r: ReturnType<typeof extractPolicyRow>): r is NonNullable<ReturnType<typeof extractPolicyRow>> => r != null)
+    const model = selectDriverDisplayModel(rows)
+    const ranked = rows
+      .map((r) => ({ key: r.key, elasticity: r.rawElasticity, value: model.get(r.key)?.value ?? 0 }))
+      .sort(compareByDisplayModel)
+    topFactorId = ranked[0] && ranked[0].value > 0 ? ranked[0].key : undefined
     if (topFactorId) {
+      const topFactorRaw = (sensitivity as any[]).find(
+        f => (f.factor_id || f.factorId || f.node_id || f.nodeId) === topFactorId,
+      )
+      const rawLabel = (topFactorRaw?.label ?? topFactorRaw?.node_label) as string | undefined
       const factorNode = nodes.find(n => n.id === topFactorId)
-      const factorLabel = topFactor?.label
+      const factorLabel = rawLabel
         ?? (factorNode ? (cleanFactorLabel((factorNode.data?.label as string) ?? '') || (factorNode.data?.label as string)) : null)
         ?? null
       strippedLabel = factorLabel ? (stripFactorSuffixes(factorLabel) || factorLabel) : null

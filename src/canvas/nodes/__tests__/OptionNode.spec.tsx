@@ -1775,6 +1775,7 @@ describe('OptionNode — display coherence (audit §8)', () => {
     confidence: null,
     inSensitivityAnalysis: false,
     achievementProbability: null,
+    achievementProbabilityIsModelledBasis: false,
     stabilityPercentage: null,
     winRate,
     isResultsMode: true,
@@ -1856,6 +1857,53 @@ describe('OptionNode — display coherence (audit §8)', () => {
     )
     renderOption({ label: 'Option A' })
     expect(screen.getByText(/Behind: fewer key changes/)).toBeDefined()
+  })
+
+  // P0-2 (external review 2026-07-14): the loser's "Behind:" top factor must be
+  // ranked via the SHARED policy off CERTIFIED factor_sensitivity — not off the
+  // untyped enrichment passthrough, and not by a chain that omits `sensitivity`.
+  it('ranks the "Behind:" factor off certified factor_sensitivity via the shared policy, not enrichment', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.2))
+    const report = {
+      robustness: { recommended_option_id: 'option-3' },
+      option_probabilities: {
+        'option-1': { win_probability: 0.2 },
+        'option-3': { win_probability: 0.6 },
+      },
+      // Certified magnitude lives ONLY under `sensitivity` (the V5 shape); the
+      // winner intervenes on certA. The untyped enrichment names a DIFFERENT
+      // factor (enrX) with a larger importance_score — it must NOT win.
+      factor_sensitivity: [
+        { factor_id: 'certA', sensitivity: 0.8 },
+        { factor_id: 'certB', sensitivity: 0.2 },
+      ],
+      enrichment: { sensitivity_analysis: { factors: [{ factor_id: 'enrX', importance_score: 0.9 }] } },
+    }
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report },
+        ceeAnalysisReady: {
+          options: [
+            { id: 'option-3', interventions: { certA: 0.5 } },
+            { id: 'option-1', interventions: {} },
+          ],
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { label: 'Option A', type: 'option' } },
+          // Baseline sibling → its reason differs, so option-1's reason is not suppressed.
+          { id: 'option-2', type: 'option', data: { label: 'Status Quo', type: 'option', is_baseline: true } },
+          { id: 'option-3', type: 'option', data: { label: 'Option C', type: 'option' } },
+          { id: 'certA', type: 'factor', data: { label: 'Budget' } },
+          { id: 'enrX', type: 'factor', data: { label: 'Marketing' } },
+        ],
+      }) as any)
+    )
+    renderOption({ label: 'Option A' })
+    // Names certA (certified, sensitivity-ranked #1). RED before the fix:
+    // enrichment ranked first → enrX, which the winner doesn't intervene on →
+    // "Behind: fewer key changes".
+    expect(screen.getByText(/Behind: no budget added/i)).toBeDefined()
+    expect(screen.queryByText(/marketing/i)).toBeNull()
   })
 
   // Item 6: stale treatment on result decorations
