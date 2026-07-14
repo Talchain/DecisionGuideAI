@@ -12,12 +12,22 @@ import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import type { NodeType } from '../domain/nodes'
 import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
+import type { DriverDisplayProvenance } from '../../components/results/driverDisplayModel'
 
 interface NodeDisplayMetadata {
   /** Factor sensitivity rank (1-3 for top factors, null otherwise) */
   sensitivityRank: number | null
   /** Factor influence score (0-1, normalized) - Task 3 */
   influence: number | null
+  /**
+   * Lane C4 (influence-scale disclosure): which basis produced `influence`,
+   * read straight off the shared display model entry ('influence_score' =
+   * absolute producer scale; 'normalised_elasticity' = set-relative, top
+   * driver ≡ 1.0 by construction). Surfaces rendering the number (the
+   * MetricPills "I: NN%" chip) use this to disclose the scale exactly like
+   * the Drivers panel. Null whenever `influence` is null.
+   */
+  influenceProvenance: DriverDisplayProvenance | null
   /** Factor confidence score (0-1) - Task 3 */
   confidence: number | null
   /** Whether this factor was found in the sensitivity analysis (false for root nodes like "Value") */
@@ -75,6 +85,7 @@ export function useNodeDisplayMetadata(
       return {
         sensitivityRank: null,
         influence: null,
+        influenceProvenance: null,
         confidence: null,
         inSensitivityAnalysis: false,
         achievementProbability: null,
@@ -91,6 +102,7 @@ export function useNodeDisplayMetadata(
     // Task 5 & 3: Factor sensitivity rank (top 3 only) and influence/confidence
     let sensitivityRank: number | null = null
     let influence: number | null = null
+    let influenceProvenance: DriverDisplayProvenance | null = null
     let confidence: number | null = null
     let inSensitivityAnalysis = false
     let valueOfInformation: number | null = null
@@ -166,10 +178,13 @@ export function useNodeDisplayMetadata(
         // Influence readout: the shared display model already resolved the
         // displayed value under the complete-metric-set policy (Codex R3-B1)
         // — read it back so the "I: NN%" beside the badge is the number the
-        // rank used, on the same basis as the panel.
+        // rank used, on the same basis as the panel. Lane C4: carry the
+        // model's provenance out with the value so the pill can disclose
+        // the basis (set-relative top ≡ 100% vs absolute producer score).
         const modelEntry = displayModel.get(nodeId)
         if (modelEntry && Number.isFinite(modelEntry.value)) {
           influence = modelEntry.value
+          influenceProvenance = modelEntry.provenance
         }
 
         // Confidence: Direct extraction (already 0-1)
@@ -254,6 +269,7 @@ export function useNodeDisplayMetadata(
     return {
       sensitivityRank,
       influence,
+      influenceProvenance,
       confidence,
       inSensitivityAnalysis,
       achievementProbability,

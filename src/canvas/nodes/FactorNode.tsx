@@ -695,10 +695,13 @@ export const FactorNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* Post-analysis: MetricPills */}
+        {/* Post-analysis: MetricPills. Lane C4: pass the display model's
+            provenance through so the "I: NN%" pill discloses the basis
+            (set-relative top ≡ 100% vs absolute producer score). */}
         {isPostAnalysis && (
           <MetricPills
             influencePct={influencePct}
+            influenceProvenance={displayMetadata.influenceProvenance}
             confidencePct={confidencePct}
           />
         )}

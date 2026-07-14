@@ -878,14 +878,59 @@ export function DriversSection({
   // place. DriversSection still surfaces per-row sensitivity / confidence;
   // the cross-driver dominance signal is owned by T1.
 
+  // Lane C4 (influence-scale disclosure): the shared display model
+  // (driverDisplayModel.selectDriverDisplayModel) resolves ONE basis for the
+  // entire ranked set — so any stamped row's `displayProvenance` describes
+  // the whole panel. On the fallback basis ('normalised_elasticity') the
+  // displayed value is per-set normalised |elasticity| and the top driver
+  // shows 100% BY CONSTRUCTION — that must be disclosed (the "Relative
+  // influence" wording was dropped in v7.10 T9). On the producer basis
+  // ('influence_score') the value is an absolute structural-causal-influence
+  // score (types.ts DriverItem.influenceScore) — say that instead. No stamp
+  // (legacy fixtures / cached payloads) → fail-closed: keep the generic
+  // wording; never claim a basis the pipeline did not stamp. Derived from the
+  // FULL drivers list (same belt-and-braces as anyConfidenceProvisional).
+  const influenceBasis: 'relative' | 'absolute' | 'unknown' =
+    drivers.some(d => d.displayProvenance === 'normalised_elasticity')
+      ? 'relative'
+      : drivers.some(d => d.displayProvenance === 'influence_score')
+        ? 'absolute'
+        : 'unknown'
+  // Copy note: the pill in canvas MetricPills.tsx mirrors these strings —
+  // keep them in step (pinned by both surfaces' specs).
+  const influenceTooltipContent =
+    influenceBasis === 'relative'
+      ? 'Influence: how much this factor affects the outcome, relative to the strongest — the top driver always shows 100%.'
+      : influenceBasis === 'absolute'
+        ? 'Influence: how much this factor affects the outcome — an absolute causal influence score from the analysis.'
+        : 'Influence: how much this factor affects the outcome'
+
   return (
     <div className="space-y-4">
-      {/* Ranking explainer */}
-      <p className={`${typography.panelMeta} text-text-light`}>Ranked by how much each factor affects the outcome</p>
+      {/* Ranking explainer — carries the relative framing on the fallback basis (C4) */}
+      <p className={`${typography.panelMeta} text-text-light`}>
+        {influenceBasis === 'relative'
+          ? 'Ranked by how much each factor affects the outcome, relative to the strongest factor'
+          : 'Ranked by how much each factor affects the outcome'}
+      </p>
 
       {/* Lane UI-W5: reference-option disclosure — renders nothing when the
           producer did not disclose a reference option (fail-closed). */}
       <SensitivityReferenceCaption optionLabel={sensitivityReferenceLabel} />
+
+      {/* Lane C4: relative-scale caption — visible (not hover-only) whenever
+          the fallback basis is active, following the SensitivityReferenceCaption
+          idiom (role="note", panelMeta). Absent on the producer basis and on
+          unstamped legacy payloads. */}
+      {influenceBasis === 'relative' && (
+        <p
+          role="note"
+          data-testid="influence-scale-caption"
+          className={`${typography.panelMeta} text-text-light`}
+        >
+          Influence is relative to the strongest factor — the top driver always shows 100%.
+        </p>
+      )}
 
       {/* Brief 5 Task 2: headers + rows share one wrapper so column positions
           are structural, not visual-approximation. Headers mirror the row grid
@@ -896,8 +941,10 @@ export function DriversSection({
         <div className={`grid ${GRID_COLS} gap-2 items-center px-3 pb-3`}>
           {/* Empty cell for factor name column */}
           <div aria-hidden="true" />
-          {/* v7.10 T9: Renamed "Relative influence" → "Influence" for brevity */}
-          <Tooltip content="Influence: how much this factor affects the outcome">
+          {/* v7.10 T9 renamed "Relative influence" → "Influence" for brevity;
+              lane C4 restores the relative-scale disclosure in the tooltip
+              (basis-aware — see influenceTooltipContent above). */}
+          <Tooltip content={influenceTooltipContent}>
             <div
               className={`${typography.panelBody} text-text-light text-right cursor-help`}
             >

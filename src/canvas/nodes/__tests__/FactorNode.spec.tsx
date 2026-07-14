@@ -683,6 +683,51 @@ describe('FactorNode', () => {
     const { container } = renderFactor({ label: 'Revenue', type: 'factor' })
     expect(container.querySelectorAll('[role="progressbar"]').length).toBe(0)
   })
+
+  // Lane C4 (influence-scale disclosure): the "I: NN%" pill shares the panel's
+  // display number; when the shared model resolved it on the fallback
+  // (set-relative) basis, FactorNode must pass that provenance through so the
+  // pill discloses "top driver always shows 100%" instead of reading as an
+  // absolute causal share.
+  it('passes influence provenance to MetricPills so the pill discloses the relative scale (C4)', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
+      selector({
+        hoveredOptionId: null,
+        nodes: [],
+        edges: [],
+        ceeAnalysisReady: null,
+        results: { status: 'complete', report: null },
+        highlightedNodes: new Set(),
+        dimmedNodeIds: new Set(),
+        goalThreshold: null,
+        goalConstraints: [],
+        viewMode: 'standard',
+      })
+    )
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: 1,
+      influence: 1,
+      influenceProvenance: 'normalised_elasticity',
+      confidence: null,
+      inSensitivityAnalysis: true,
+      achievementProbability: null,
+      achievementProbabilityIsModelledBasis: false,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    renderFactor({ label: 'Technical Leadership Capability', type: 'factor', observedState: { value: 0.5 } })
+    const pill = screen.getByText('I: 100%')
+    expect(pill.getAttribute('title')).toBe(
+      'Influence: how much this factor affects the outcome, relative to the strongest — the top driver always shows 100%.'
+    )
+    expect(pill.getAttribute('aria-label')).toBe(
+      'Influence 100%, relative to the strongest factor — the top driver always shows 100%'
+    )
+  })
 })
 
 // ---------------------------------------------------------------------------

@@ -324,6 +324,66 @@ describe('useNodeDisplayMetadata — factor sensitivityRank', () => {
 // key). The prior inline map omitted `sensitivity`, so every row collapsed to 0
 // and the badge fell back to alphabetical order.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Lane C4 (influence-scale disclosure): the hook must surface WHICH basis
+// produced `influence` (the shared display model already resolves it) so the
+// canvas "I: NN%" pill can disclose the set-relative scale exactly like the
+// Drivers panel. Before C4 the provenance was resolved and then dropped.
+// ---------------------------------------------------------------------------
+describe('useNodeDisplayMetadata — influenceProvenance (lane C4)', () => {
+  it('reports normalised_elasticity under partial influence_score coverage (fallback basis)', () => {
+    mockState = {
+      results: {
+        status: 'complete',
+        report: makeReport({
+          factor_sensitivity: [
+            { factor_id: 'A', sensitivity: 0.2, influence_score: 0.9 },
+            { factor_id: 'B', sensitivity: 0.8 },
+          ],
+        }),
+      },
+    }
+    const { result } = renderHook(() => useNodeDisplayMetadata('B', 'factor'))
+    expect(result.current.influenceProvenance).toBe('normalised_elasticity')
+    // The fallback basis is set-relative: the top factor is 1.0 by construction.
+    expect(result.current.influence).toBe(1)
+  })
+
+  it('reports influence_score when EVERY factor carries a finite producer score', () => {
+    mockState = {
+      results: {
+        status: 'complete',
+        report: makeReport({
+          factor_sensitivity: [
+            { factor_id: 'A', sensitivity: 0.2, influence_score: 0.62 },
+            { factor_id: 'B', sensitivity: 0.8, influence_score: 0.31 },
+          ],
+        }),
+      },
+    }
+    const { result } = renderHook(() => useNodeDisplayMetadata('A', 'factor'))
+    expect(result.current.influenceProvenance).toBe('influence_score')
+    expect(result.current.influence).toBeCloseTo(0.62)
+  })
+
+  it('is null outside results mode and for nodes not in the analysis', () => {
+    const { result: idle } = renderHook(() => useNodeDisplayMetadata('A', 'factor'))
+    expect(idle.current.influenceProvenance).toBeNull()
+
+    mockState = {
+      results: {
+        status: 'complete',
+        report: makeReport({
+          factor_sensitivity: [{ factor_id: 'A', elasticity: 0.9 }],
+        }),
+      },
+    }
+    const { result: missing } = renderHook(() => useNodeDisplayMetadata('not-there', 'factor'))
+    expect(missing.current.influenceProvenance).toBeNull()
+    expect(missing.current.influence).toBeNull()
+  })
+})
+
 describe('useNodeDisplayMetadata — partial influence coverage (P0-2)', () => {
   it('ranks by `sensitivity` magnitude, not alphabetically, when influence_score coverage is partial', () => {
     // A carries influence_score but a SMALL sensitivity; B carries only a LARGE
