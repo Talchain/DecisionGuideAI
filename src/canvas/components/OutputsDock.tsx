@@ -984,6 +984,21 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     })
   }, [setGoalThreshold, runCanonicalAnalysis, showToast])
 
+  // Lane 3 (SF2) perf — evidence-demanded (rerunContinuity render-count pin):
+  // with the body mounted through a run, unstable prop identities defeated
+  // ResultsBody's memo on every SSE tick. The focus handler is stable; the
+  // corrections snapshot re-reads when a new report lands (its collection
+  // cadence — the adapter records them during request building).
+  const handleFocusResultNode = useCallback((nodeId: string) => {
+    // Fail closed on stale/unknown ids — result payloads can reference
+    // elements that no longer exist on this canvas (deleted nodes,
+    // recovered sessions with different ids).
+    if (!focusExistingTarget(nodeId, 'node')) return
+    setHighlightedNodes([nodeId])
+    setTimeout(() => setHighlightedNodes([]), 3000)
+  }, [setHighlightedNodes])
+  const strengthCorrectionsForRun = useMemo(() => getStrengthCorrections(), [report])
+
   // C1: Baseline addition does NOT trigger rerun — mutates draft only.
   // User must manually rerun to generate comparison data.
   const handleAddBaseline = useCallback(() => {
@@ -1053,7 +1068,16 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
   const canonicalBands = report?.run?.bands ?? null
   const mostLikelyValue = canonicalBands ? canonicalBands.p50 : report?.results.likely ?? null
-  const hasInlineSummary = Boolean(report && resultsStatus === 'complete')
+  // Lane 3 (SF2): the retained report keeps RENDERING through every status —
+  // resultsStart/resultsAnalysing/resultsError/resultsCancelled all preserve
+  // `results.report` by contract ("so UI doesn't flash empty"), but the old
+  // `status === 'complete'` gate unmounted the whole body on every rerun,
+  // wiping subtree state (hero lens choice, the goal-lens auto-switch's
+  // transition ref, accordions) and making four shipped surfaces dead code
+  // (strip running copy + completion toast, running-banner copy, error
+  // stale-banner, footer loading state). Run/err state is conveyed by the
+  // banner + strip + aria-busy, never by blanking the results.
+  const hasInlineSummary = Boolean(report)
   const goalDirection = getGoalDirection(framing, nodes)
   const isError = resultsStatus === 'error'
 
@@ -2182,21 +2206,18 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     // data-freshness-confirmed preserves the signal for tests.
                     data-freshness-confirmed={analysisNotConfirmedFresh && !isError ? 'false' : 'true'}
                     data-testid="results-body-stale-wrapper"
+                    // Lane 3 (SF2): run-in-flight is MARKED, not blanked —
+                    // v6 doctrine (content stays readable, no dim/lockout).
+                    aria-busy={isRunning || undefined}
+                    data-run-status={resultsStatus}
                   >
                   <ResultsBody
                     resultsSectionData={resultsSectionData}
                     tornadoData={tornadoData}
                     highlightedDriverId={highlightedDriverId}
                     registerDriverRef={registerDriverRef}
-                    strengthCorrections={getStrengthCorrections()}
-                    onFocusNode={(nodeId) => {
-                      // Fail closed on stale/unknown ids — result payloads can
-                      // reference elements that no longer exist on this canvas
-                      // (deleted nodes, recovered sessions with different ids).
-                      if (!focusExistingTarget(nodeId, 'node')) return
-                      setHighlightedNodes([nodeId])
-                      setTimeout(() => setHighlightedNodes([]), 3000)
-                    }}
+                    strengthCorrections={strengthCorrectionsForRun}
+                    onFocusNode={handleFocusResultNode}
                     isRunning={isRunning}
                     onAddStatusQuoBaseline={addStatusQuoBaseline}
                     onApplyThreshold={handleApplyThreshold}
