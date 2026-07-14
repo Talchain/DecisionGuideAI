@@ -222,13 +222,15 @@ export function GoalNodeSelector({
  */
 export function useGoalNodeActions(
   updateNodeData: (nodeId: string, data: Partial<NodeData>) => void,
-  setOutcomeNode: (nodeId: string | null) => void
+  setOutcomeNode: (nodeId: string | null, opts?: { rederiveThreshold?: boolean }) => void
 ) {
   const handleMarkAsGoal = (nodeId: string) => {
     // Update node kind to 'goal'
     updateNodeData(nodeId, { kind: 'goal' })
-    // Set as the selected goal
-    setOutcomeNode(nodeId)
+    // Set as the selected goal AND re-derive the goal-threshold scalar from this
+    // node (P0-1, external review round 2): marking a new goal is a goal-context
+    // transition, so a previous goal's target must not ride it.
+    setOutcomeNode(nodeId, { rederiveThreshold: true })
   }
 
   return { handleMarkAsGoal }

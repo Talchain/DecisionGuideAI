@@ -606,6 +606,11 @@ interface CanvasState {
   cleanup: () => void
   // Outcome node
   setOutcomeNode: (nodeId: string | null, opts?: { rederiveThreshold?: boolean }) => void
+  /** P0-1 (external review round 2): atomic goal-RESELECTION — invalidate the
+   *  previous goal's producer target fields on readiness, select the new goal,
+   *  and re-derive the scalar from it. The single transition the pre-analysis
+   *  goal selector uses. */
+  reselectGoalNode: (goalId: string) => void
   // Goal threshold for probability_of_goal
   setGoalThreshold: (
     threshold: number | null,
@@ -852,7 +857,13 @@ function graphHealthFromQuality(
 }
 
 function historyHash(nodes: Node[], edges: Edge[]): string {
-  const n = nodes.map(n => `${n.id}@${n.position.x},${n.position.y}:${n.type ?? ''}:${n.data?.label ?? ''}`).join('|')
+  // P0-1 (external review 2026-07-14): the goal node's user target
+  // (success_threshold + threshold_source) is decision-context data and MUST be
+  // in the hash — otherwise a target-only edit (60 → 80) collides with the prior
+  // hash, pushToHistory dedups it away, and Undo jumps past both edits instead of
+  // stepping 80 → 60. Including it makes each target edit a distinct history entry
+  // that undo/redo's deriveGoalThresholdFromNode then reconstructs correctly.
+  const n = nodes.map(n => `${n.id}@${n.position.x},${n.position.y}:${n.type ?? ''}:${n.data?.label ?? ''}:${(n.data as { success_threshold?: unknown })?.success_threshold ?? ''}:${(n.data as { threshold_source?: unknown })?.threshold_source ?? ''}`).join('|')
   const e = edges.map(e => `${e.id}:${e.source}>${e.target}:${e.label ?? ''}:${(e.data as any)?.schemaVersion ?? ''}`).join('|')
   return `${n}#${e}`
 }
@@ -1946,12 +1957,20 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
            selection.nodeIds.has(e.target)
     )
 
-    set((s) => ({
-      nodes: s.nodes.filter(n => !selection.nodeIds.has(n.id)),
-      edges: s.edges.filter(e => !selection.nodeIds.has(e.source) && !selection.nodeIds.has(e.target) && !selection.edgeIds.has(e.id)),
-      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
-      outcomeNodeId: shouldClearOutcome ? null : s.outcomeNodeId,
-    }))
+    set((s) => {
+      const remaining = s.nodes.filter(n => !selection.nodeIds.has(n.id))
+      const newOutcomeId = shouldClearOutcome ? null : s.outcomeNodeId
+      return {
+        nodes: remaining,
+        edges: s.edges.filter(e => !selection.nodeIds.has(e.source) && !selection.nodeIds.has(e.target) && !selection.edgeIds.has(e.id)),
+        selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+        outcomeNodeId: newOutcomeId,
+        // P0-1 (external review): re-derive the goal-threshold scalar from the
+        // remaining graph so a deleted goal's target can't ride the next run
+        // (deleting targeted Goal A previously left goalThreshold=60).
+        ...deriveGoalThresholdFromNode(remaining, newOutcomeId),
+      }
+    })
 
     // Local dirty overlay: any structural removal here (node and/or edge,
     // critical or not) makes a retained 'fresh' verdict no-longer-confirmable.
@@ -1982,15 +2001,22 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const { outcomeNodeId } = get()
     // P0.5 Fix: Clear outcomeNodeId if this is the outcome node
     const shouldClearOutcome = outcomeNodeId === nodeId
-    set((s) => ({
-      nodes: s.nodes.filter(n => n.id !== nodeId),
-      edges: s.edges.filter(e => e.source !== nodeId && e.target !== nodeId),
-      // Clear selection if deleted node was selected
-      selection: s.selection.nodeIds.has(nodeId)
-        ? { ...s.selection, nodeIds: new Set([...s.selection.nodeIds].filter(id => id !== nodeId)) }
-        : s.selection,
-      outcomeNodeId: shouldClearOutcome ? null : s.outcomeNodeId,
-    }))
+    set((s) => {
+      const remaining = s.nodes.filter(n => n.id !== nodeId)
+      const newOutcomeId = shouldClearOutcome ? null : s.outcomeNodeId
+      return {
+        nodes: remaining,
+        edges: s.edges.filter(e => e.source !== nodeId && e.target !== nodeId),
+        // Clear selection if deleted node was selected
+        selection: s.selection.nodeIds.has(nodeId)
+          ? { ...s.selection, nodeIds: new Set([...s.selection.nodeIds].filter(id => id !== nodeId)) }
+          : s.selection,
+        outcomeNodeId: newOutcomeId,
+        // P0-1 (external review): re-derive the goal-threshold scalar from the
+        // remaining graph so a deleted goal's target can't ride the next run.
+        ...deriveGoalThresholdFromNode(remaining, newOutcomeId),
+      }
+    })
 
     // Invalidate analysis_ready if deleted node is critical
     maybeInvalidateOnNodeDelete(get, set, [nodeId])
@@ -2647,6 +2673,31 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       : null
     set(derived ? { outcomeNodeId: nodeId, ...derived } : { outcomeNodeId: nodeId })
     if (changed) markAnalysisFreshnessDirty(get, set)
+  },
+
+  reselectGoalNode: (goalId) => {
+    // P0-1 (external review round 2): switching the selected goal must
+    // INVALIDATE all of the previous goal's producer target fields on readiness
+    // — not just the cap — or the panel falls back to the old target
+    // (usePreAnalysisData.successThreshold reads ceeAnalysisReady.goal_threshold,
+    // which made Goal B render "target missing" AND "60% — From brief"). Order:
+    // clear readiness FIRST (while the store scalar is still non-null, so
+    // setCeeAnalysisReady's bare-sync can't re-adopt the old value), THEN
+    // re-derive the scalar from the new goal node.
+    const { ceeAnalysisReady, setCeeAnalysisReady, setOutcomeNode } = get()
+    if (ceeAnalysisReady) {
+      setCeeAnalysisReady({
+        ...ceeAnalysisReady,
+        goal_node_id: goalId,
+        goal_threshold: undefined,
+        goal_threshold_raw: undefined,
+        goal_threshold_unit: undefined,
+        goal_threshold_cap: undefined,
+      })
+    } else {
+      setCeeAnalysisReady({ status: undefined, goal_node_id: goalId, options: [] })
+    }
+    setOutcomeNode(goalId, { rederiveThreshold: true })
   },
 
   setGoalThreshold: (threshold, opts) => {
