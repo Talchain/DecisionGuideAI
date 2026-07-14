@@ -955,7 +955,9 @@ describe('mapV5AnalysisToReport — deterministic hash + minimal envelope', () =
 
     const report = mapV5AnalysisToReport(block)
     expect(report.schema).toBe('report.v1')
-    expect(report.meta.seed).toBe(0)
+    // Receipts fail closed: the V5 contract carries no seed field, so a
+    // caller-less mapping must carry null (row hides), never a fabricated 0.
+    expect(report.meta.seed).toBeNull()
     expect(report.meta.response_id).toMatch(/^v5:[0-9a-f]{16}$/)
     expect(report.model_card.response_hash).toBe(report.meta.response_id)
     expect(report.confidence.level).toBe('medium')
@@ -1182,5 +1184,69 @@ describe('mapV5AnalysisToReport — display_verdict / confidence_tier / goal_fit
       baseBlock({ enrichment: { robustness: { fragile_edges: [], robust_edges: [] } } }),
     ) as ReturnType<typeof mapV5AnalysisToReport> & { constraints_status?: string }
     expect(withoutStatus.constraints_status).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// T2 — receipts fail closed (no fabricated Seed / Stable-edges defaults)
+//
+// Doctrine (AdvancedSection.tsx "Analysis details" receipts): real values
+// only; rows fail closed when absent. The mapper must therefore preserve
+// ABSENCE — a missing seed becomes null (not 0) and missing robustness
+// arrays stay off the report (not []) — while an honest producer-sent
+// zero/empty value still flows through and displays.
+// ---------------------------------------------------------------------------
+
+describe('mapV5AnalysisToReport — receipts fail closed (no fabricated defaults)', () => {
+  it('no options.seed → meta.seed is null (V5 contract carries no seed; Seed row hides)', () => {
+    const report = mapV5AnalysisToReport(baseBlock({}))
+    expect(report.meta.seed).toBeNull()
+  })
+
+  it('options.seed 0 is an honest value and is preserved (not confused with absence)', () => {
+    const report = mapV5AnalysisToReport(baseBlock({}), { seed: 0 })
+    expect(report.meta.seed).toBe(0)
+  })
+
+  it('robustness present without robust_edges/fragile_edges → keys ABSENT, not fabricated []', () => {
+    const report = mapV5AnalysisToReport(
+      baseBlock({ enrichment: { robustness: { ranking_stability: 0.9 } } as never }),
+    ) as ReturnType<typeof mapV5AnalysisToReport> & {
+      robustness?: Record<string, unknown>
+    }
+    expect(report.robustness).toBeDefined()
+    expect('robust_edges' in report.robustness!).toBe(false)
+    expect('fragile_edges' in report.robustness!).toBe(false)
+  })
+
+  it('malformed (non-array) robust_edges/fragile_edges → keys ABSENT, not coerced to []', () => {
+    const report = mapV5AnalysisToReport(
+      baseBlock({
+        enrichment: {
+          robustness: {
+            ranking_stability: 0.5,
+            robust_edges: 'not-an-array',
+            fragile_edges: { nope: true },
+          },
+        } as never,
+      }),
+    ) as ReturnType<typeof mapV5AnalysisToReport> & {
+      robustness?: Record<string, unknown>
+    }
+    expect(report.robustness).toBeDefined()
+    expect('robust_edges' in report.robustness!).toBe(false)
+    expect('fragile_edges' in report.robustness!).toBe(false)
+  })
+
+  it('producer-sent EMPTY arrays are honest zeros: keys present with length 0 (row shows 0)', () => {
+    const report = mapV5AnalysisToReport(
+      baseBlock({
+        enrichment: { robustness: { fragile_edges: [], robust_edges: [] } } as never,
+      }),
+    ) as ReturnType<typeof mapV5AnalysisToReport> & {
+      robustness?: { fragile_edges?: unknown[]; robust_edges?: unknown[] }
+    }
+    expect(report.robustness?.robust_edges).toEqual([])
+    expect(report.robustness?.fragile_edges).toEqual([])
   })
 })

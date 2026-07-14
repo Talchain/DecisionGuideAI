@@ -74,8 +74,12 @@ describe('hydrateAnalysisFromV2Response', () => {
     expect(result!.results.progress).toBe(100)
     expect(result!.results.error).toBeUndefined()
     expect(result!.results.hash).toBe('abc123')
-    expect(result!.results.seed).toBe(0) // no provenance, no meta
+    // Receipts fail closed (T2): no provenance and no meta.seed_used means
+    // there is NO real seed — the store slot stays undefined and the mapped
+    // report carries null, so the Seed receipt row hides. Never fabricate 0.
+    expect(result!.results.seed).toBeUndefined()
     expect(result!.results.report).toBeDefined()
+    expect(result!.results.report!.meta.seed).toBeNull()
   })
 
   it('maps seed and hash from provenance when provided', () => {
@@ -112,6 +116,30 @@ describe('hydrateAnalysisFromV2Response', () => {
     const result = hydrateAnalysisFromV2Response(v2, null)
 
     expect(result!.results.seed).toBe(77)
+    expect(result!.results.report!.meta.seed).toBe(77)
+  })
+
+  // T2 — receipts fail closed: a malformed engine echo is NOT a real value.
+  // The old `parseInt(...) || 0` swallowed the NaN into a fabricated seed 0
+  // that then displayed as "Seed 0" in the Analysis details receipts.
+  it('malformed meta.seed_used (non-numeric) → no seed, never a fabricated 0', () => {
+    const v2 = makeMinimalV2Response({
+      meta: { seed_used: 'not-a-number' } as any,
+    })
+    const result = hydrateAnalysisFromV2Response(v2, null)
+
+    expect(result!.results.seed).toBeUndefined()
+    expect(result!.results.report!.meta.seed).toBeNull()
+  })
+
+  it('meta.seed_used "0" is an honest zero and is preserved', () => {
+    const v2 = makeMinimalV2Response({
+      meta: { seed_used: '0' } as any,
+    })
+    const result = hydrateAnalysisFromV2Response(v2, null)
+
+    expect(result!.results.seed).toBe(0)
+    expect(result!.results.report!.meta.seed).toBe(0)
   })
 
   it('populates runMeta.ceeReviewV1 for computed analysis', () => {
