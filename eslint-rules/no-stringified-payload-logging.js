@@ -1,8 +1,16 @@
 /**
- * ESLint rule: no-payload-logging
+ * ESLint rule: no-stringified-payload-logging
  *
- * Prevents accidental logging of request/response payloads in production.
- * Requires DEV guard for logging stringified request/response objects.
+ * Prevents accidental logging of STRINGIFIED request/response/payload objects in
+ * production. Renamed from `no-payload-logging` (external review 2026-07-14) so
+ * the name matches the actual scope: it targets `console.*(JSON.stringify(x))`
+ * for x named req/res/request/response/payload without a DEV guard.
+ *
+ * DELIBERATELY OUT OF SCOPE: bare object logging (`console.log('x', payload)`),
+ * because flagging every console.log of a variable named payload/request would be
+ * a high false-positive burden. Production console-stripping is the mitigation
+ * for the bare-object case; strengthening this rule to cover it is a separate
+ * decision, not made here.
  *
  * Forbidden patterns (without DEV guard):
  * - console.log(JSON.stringify(req...))
@@ -14,6 +22,7 @@
  * Allowed:
  * - if (import.meta.env.DEV) { console.log(JSON.stringify(req)) }
  * - Logging non-sensitive data
+ * - Bare object logging (out of scope — see above)
  */
 
 export default {

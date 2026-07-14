@@ -1,5 +1,5 @@
 /**
- * Tests for security/no-payload-logging.
+ * Tests for security/no-stringified-payload-logging.
  *
  * Improvement fold (external review 2026-07-14): the rule was only tested by a
  * standalone RuleTester script at `eslint-rules/__tests__/no-payload-logging.spec.js`
@@ -8,26 +8,27 @@
  * Linter API as `no-raw-influence-fallback.spec.ts` (the location that runs), so a
  * regression in the rule now fails CI.
  *
- * Scope note (deliberately unchanged): the rule targets un-DEV-guarded
- * `JSON.stringify(payload|request|response|body|data)` in `console.*`. Whether it
- * should ALSO flag bare object logging (`console.log('x', payload)`) is a
- * false-positive-risk judgement call left to a separate decision — this spec pins
- * the CURRENT behaviour, it does not change it.
+ * Round 2 (external review): the rule was RENAMED no-payload-logging →
+ * no-stringified-payload-logging so the name matches its scope — it targets
+ * un-DEV-guarded `JSON.stringify(payload|request|response|body|data)` in
+ * `console.*`, and DELIBERATELY does not flag bare object logging
+ * (`console.log('x', payload)`) — a false-positive-risk decision left separate.
+ * This spec pins the CURRENT behaviour.
  */
 import { Linter } from 'eslint'
 import { describe, it, expect } from 'vitest'
-import rule from '../../eslint-rules/no-payload-logging.js'
+import rule from '../../eslint-rules/no-stringified-payload-logging.js'
 
 const linter = new Linter()
 function lint(code: string) {
   return linter.verify(code, {
     languageOptions: { ecmaVersion: 2020, sourceType: 'module' },
-    plugins: { security: { rules: { 'no-payload-logging': rule } } },
-    rules: { 'security/no-payload-logging': 'error' },
+    plugins: { security: { rules: { 'no-stringified-payload-logging': rule } } },
+    rules: { 'security/no-stringified-payload-logging': 'error' },
   })
 }
 
-describe('security/no-payload-logging', () => {
+describe('security/no-stringified-payload-logging', () => {
   describe('valid — no error', () => {
     it('allows JSON.stringify inside an import.meta.env.DEV guard', () => {
       expect(
