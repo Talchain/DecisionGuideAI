@@ -10,7 +10,7 @@ import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasObservedData, isFactorNeedsInput } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
+import { classifyUnit, cleanFactorLabel, compactFactorLabel, formatInterventionValue, formatRawValueWithUnit, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
 import { formatInterventionChange } from '../utils/interventionDisplay'
 import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { isGraphBadgesEnabled } from '../../flags'
@@ -23,6 +23,52 @@ import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, ConnRowsOverflow, Sep, NodeChip, ActionIcons, MetricPills, NodePopover, ScienceIcon, EdgePills } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { computeSignedMean } from '../domain/edges'
+
+/**
+ * Parse a display string that is a BARE numeric range ("0.2 to 0.8",
+ * "20 – 80", "20,000-80,000"). Anything else — prose, currency-formatted
+ * ranges ("£20,000 to £80,000"), unit-suffixed values — returns null.
+ * Used only for the prior-range dedupe in priorRangeDisplay below.
+ */
+function parseBareNumericRange(text: string): readonly [number, number] | null {
+  const m = text.trim().match(/^(-?[\d,]*\.?\d+)\s*(?:to|[–—-])\s*(-?[\d,]*\.?\d+)$/i)
+  if (!m) return null
+  const a = Number(m[1].replace(/,/g, ''))
+  const b = Number(m[2].replace(/,/g, ''))
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null
+  return [a, b]
+}
+
+/** Relative-epsilon numeric equality for the dedupe check (never string-fuzzy). */
+function nearlyEqual(a: number, b: number): boolean {
+  return Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(a), Math.abs(b))
+}
+
+/**
+ * True when `text` is a bare numeric range that duplicates the prior's
+ * range_min/max — matched NUMERICALLY (lane C3), in either normalised form
+ * ("0.2 to 0.8") or cap-denormalised form ("20 to 80" with cap 100).
+ */
+function bareNumericRangeMatchesPrior(
+  text: string,
+  rangeMin: number,
+  rangeMax: number,
+  cap: number | null | undefined,
+): boolean {
+  const parsed = parseBareNumericRange(text)
+  if (!parsed) return false
+  const [a, b] = parsed
+  if (nearlyEqual(a, rangeMin) && nearlyEqual(b, rangeMax)) return true
+  if (cap != null && cap > 1 && nearlyEqual(a, rangeMin * cap) && nearlyEqual(b, rangeMax * cap)) {
+    return true
+  }
+  return false
+}
+
+/** Normalised (0–1) range end for unitless display: ≤2 dp, trailing zeros trimmed. */
+function formatNormalisedRangeEnd(v: number): string {
+  return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/\.?0+$/, '')
+}
 
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
@@ -240,23 +286,55 @@ export const FactorNode = memo((props: NodeProps) => {
     })
   }, [observedState, cleanedLabel, nodeCategory, topLevelDisplayValue])
 
-  // Prior range for external factors (only the range values, no "Variable" prefix)
+  // Prior range for external factors (only the range values, no "Variable"
+  // prefix). Lane C3: prior.range_min/max are NORMALISED 0–1 values. Only a
+  // real-world unit (currency, %, months, …) justifies cap-denormalising and
+  // suffixing a unit; generic placeholder units ("scale", "index", …) must
+  // never render as if measured — "0.5 scale" looks measured but isn't (see
+  // GENERIC_PLACEHOLDER_UNITS doctrine in labelUtils). Classification goes
+  // through the shared classifyUnit, and real-unit formatting through the
+  // shared formatRawValueWithUnit, so this path can no longer drift from the
+  // other formatters (it previously had a local fmt() with its own hardcoded
+  // ['£','$','€','¥'] list that leaked "Range: 20 scale to 80 scale").
   const priorRangeDisplay = useMemo(() => {
     const prior = props.data?.prior as { range_min?: number; range_max?: number } | undefined
     if (nodeCategory !== 'external' || !prior?.range_min || !prior?.range_max) return null
-    const unit = observedState?.unit && !isSuppressedUnit(observedState.unit) ? observedState.unit : null
-    if (!unit) return null
+    const rangeMin = prior.range_min
+    const rangeMax = prior.range_max
     const cap = observedState?.cap
-    const min = cap != null && cap > 1 ? prior.range_min * cap : prior.range_min
-    const max = cap != null && cap > 1 ? prior.range_max * cap : prior.range_max
-    // Format range values
-    const fmt = (v: number) => {
-      if (['£', '$', '€', '¥'].includes(unit)) return `${unit}${Math.round(v).toLocaleString('en-GB')}`
-      if (unit === '%') return `${Math.round(v * 100)}%`
-      return `${Math.round(v)} ${unit}`
+    // Internal factor_type descriptors ('binary', 'normalised', …) must never
+    // display as units — treat as unitless (same guard as valueDisplay above).
+    const rawUnit = observedState?.unit
+    const unit = rawUnit && !isSuppressedUnit(rawUnit) ? rawUnit : null
+    const { kind } = classifyUnit(unit)
+
+    if (kind === 'none' || kind === 'placeholder') {
+      // No real-world calibration: cap-denormalising would fake a measurement,
+      // so render the normalised range unitless — UNLESS the node body already
+      // shows this same range via the CEE-authored display_value (numeric
+      // dedupe against both normalised and cap-denormalised forms). The
+      // display_value line wins because it is CEE-authored copy; the Range
+      // line adds nothing when it repeats the same numbers.
+      if (valueDisplay != null && bareNumericRangeMatchesPrior(valueDisplay, rangeMin, rangeMax, cap)) {
+        return null
+      }
+      return `Range: ${formatNormalisedRangeEnd(rangeMin)} to ${formatNormalisedRangeEnd(rangeMax)}`
     }
-    return `Range: ${fmt(min)} to ${fmt(max)}`
-  }, [nodeCategory, observedState?.unit, observedState?.cap, props.data?.prior])
+
+    // Real unit: the Range line adds calibrated information (e.g. "£20,000 to
+    // £80,000"), so it is kept even alongside a display_value. Denormalise via
+    // cap, then format through the shared classifyUnit-based raw formatter
+    // (symbol prefix "£20,000", ISO prefix "USD 20,000", "%" / "months" suffix).
+    const fmt = (v: number) => {
+      let denormed = cap != null && cap > 1 ? v * cap : v
+      // Percent with no cap: a 0–1 prior is a ratio — scale to percentage
+      // points (0.2 → 20%), mirroring formatFactorDisplayValue's percent rule.
+      // With a cap the denormalised value is already in percentage points.
+      if (kind === 'percent' && denormed > 0 && denormed < 1) denormed *= 100
+      return formatRawValueWithUnit(Math.round(denormed), unit)
+    }
+    return `Range: ${fmt(rangeMin)} to ${fmt(rangeMax)}`
+  }, [nodeCategory, observedState?.unit, observedState?.cap, props.data?.prior, valueDisplay])
 
   const isInferred = observedState?.extractionType === 'inferred'
   const isExplicit = observedState?.extractionType === 'explicit'
