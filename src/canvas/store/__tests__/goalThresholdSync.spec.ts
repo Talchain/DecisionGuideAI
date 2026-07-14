@@ -28,25 +28,32 @@ describe('Canvas Store – setCeeAnalysisReady goal-threshold sync (unit contrac
     useCanvasStore.setState({ goalThreshold: null })
   })
 
-  it('prefers goal_threshold_raw (user units) over normalised goal_threshold', () => {
+  it('prefers goal_threshold_raw (user units) over normalised goal_threshold — tagged raw', () => {
     useCanvasStore.getState().setCeeAnalysisReady(
       analysisReady({ goal_threshold: 0.8, goal_threshold_raw: 20, goal_threshold_cap: 25 }),
     )
     expect(useCanvasStore.getState().goalThreshold).toBe(20)
+    expect(useCanvasStore.getState().goalThresholdRepresentation).toBe('raw')
   })
 
-  it('falls back to goal_threshold when raw is absent (raw ≡ normalised without a cap)', () => {
-    useCanvasStore.getState().setCeeAnalysisReady(analysisReady({ goal_threshold: 0.8 }))
-    expect(useCanvasStore.getState().goalThreshold).toBe(0.8)
+  it('Lane 5 (Codex P0-1): a BARE normalised goal_threshold is stored as-is and TAGGED normalised', () => {
+    // This is the live-corruption input: analysis_ready carries 0.6 with no
+    // raw and no cap of its OWN, but the goal node carries a cap. Storing it
+    // untagged let the request boundary divide by the node cap (0.6/100 =
+    // 0.006). The tag makes the boundary pass it through untouched.
+    useCanvasStore.getState().setCeeAnalysisReady(analysisReady({ goal_threshold: 0.6 }))
+    expect(useCanvasStore.getState().goalThreshold).toBe(0.6)
+    expect(useCanvasStore.getState().goalThresholdRepresentation).toBe('normalised')
   })
 
-  it('derives raw from norm × cap when raw is absent but a cap exists (never stores normalised beside a cap)', () => {
+  it('derives raw from norm × cap when raw is absent but a cap exists — tagged raw', () => {
     // Storing 0.8 beside cap 25 would double-normalise at the request
     // boundary (0.8 / 25 = 0.032) and paint the target at 0.8 user units.
     useCanvasStore.getState().setCeeAnalysisReady(
       analysisReady({ goal_threshold: 0.8, goal_threshold_cap: 25 }),
     )
     expect(useCanvasStore.getState().goalThreshold).toBe(20)
+    expect(useCanvasStore.getState().goalThresholdRepresentation).toBe('raw')
   })
 
   it('ignores an invalid cap when deriving (zero/negative caps cannot scale)', () => {
