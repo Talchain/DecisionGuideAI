@@ -26,7 +26,10 @@ vi.mock('@xyflow/react', async () => {
     useReactFlow: () => ({
       getNode: () => null,
       getEdges: () => [],
+      getNodes: () => [],
     }),
+    // E3 part 2: StyledEdge subscribes to node geometry via the store
+    useStore: (selector: any) => selector({ nodes: [] }),
   }
 })
 

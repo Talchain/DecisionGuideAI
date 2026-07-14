@@ -12,6 +12,16 @@
  *
  * Collision box ≈ a rendered label (maxWidth 160px, ~22px tall with padding):
  * two anchors closer than the thresholds on BOTH axes overlap.
+ *
+ * E3 part 2 (C2): node cards are fixed obstacles too. React Flow paints the
+ * node layer ABOVE the edge-label renderer (node wrappers carry inline
+ * zIndex ≥ 0; `.react-flow__edgelabel-renderer` has none), so a label that
+ * lands under a card is clipped invisibly rather than layered on top.
+ * Callers pass every node's rect; a label whose box (the same 160×22
+ * assumption, as half-extents around the anchor) intersects any rect stacks
+ * downward by the same STEP until it clears both the node rects AND the
+ * labels placed before it. With no node rects the resolver behaves exactly
+ * as before.
  */
 export interface LabelPoint {
   id: string
@@ -24,13 +34,36 @@ export interface LabelOffset {
   dy: number
 }
 
+/** A node card's bounding box in graph coordinates. */
+export interface NodeRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 const X_THRESHOLD = 90
 const Y_THRESHOLD = 24
 const STEP = 26
 const MAX_STACK = 10 // guard: never loop unbounded on pathological input
 
+// Label box half-extents — the rendered label's maxWidth 160px / ~22px tall
+// (the same box the label-vs-label thresholds above approximate).
+const LABEL_HALF_WIDTH = 80
+const LABEL_HALF_HEIGHT = 11
+
+function labelIntersectsRect(cx: number, cy: number, r: NodeRect): boolean {
+  return (
+    cx + LABEL_HALF_WIDTH > r.x &&
+    cx - LABEL_HALF_WIDTH < r.x + r.width &&
+    cy + LABEL_HALF_HEIGHT > r.y &&
+    cy - LABEL_HALF_HEIGHT < r.y + r.height
+  )
+}
+
 export function resolveLabelCollisionOffsets(
   points: readonly LabelPoint[],
+  nodeRects: readonly NodeRect[] = [],
 ): Map<string, LabelOffset> {
   const sorted = [...points].sort(
     (a, b) => a.y - b.y || a.x - b.x || a.id.localeCompare(b.id),
@@ -41,9 +74,10 @@ export function resolveLabelCollisionOffsets(
     let dy = 0
     let guard = 0
     while (
-      placed.some(
+      (placed.some(
         (q) => Math.abs(q.x - p.x) < X_THRESHOLD && Math.abs(q.y - (p.y + dy)) < Y_THRESHOLD,
-      ) &&
+      ) ||
+        nodeRects.some((r) => labelIntersectsRect(p.x, p.y + dy, r))) &&
       guard < MAX_STACK
     ) {
       dy += STEP

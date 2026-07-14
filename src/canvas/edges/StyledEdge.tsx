@@ -16,7 +16,7 @@
  */
 
 import { memo, useMemo, useState, useRef, useEffect } from 'react'
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow } from '@xyflow/react'
+import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow, useStore } from '@xyflow/react'
 import { Lightbulb, AlertTriangle, Flag } from 'lucide-react'
 import { NodeChip } from '../nodes/shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -57,7 +57,7 @@ export const STRUCTURAL_EDGE_COLOUR = '#B8B8B8'
 export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data }: EdgeProps<EdgeData>) => {
   const isDark = useIsDark()
   const prefersReducedMotion = usePrefersReducedMotion()
-  const { getNode, getEdges } = useReactFlow()
+  const { getNode, getEdges, getNodes } = useReactFlow()
 
   // P1 Polish: Edge label mode from Zustand store (live updates, cross-tab sync)
   const labelMode = useEdgeLabelMode(state => state.mode)
@@ -489,12 +489,35 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   const isTopStrengthEdge = !isStructuralEdge && topStrengthIds.has(id)
 
+  // E3 part 2 (C2): subscribe to node geometry so a label re-dodges when ANY
+  // node card moves onto it (this edge's own props only change when its own
+  // endpoints move). Perf posture: only top-strength edges (max 3) compute a
+  // signature — every other edge returns '' and never re-renders from node
+  // movement. Positions/dimensions are quantised to a 10px grid, so a drag
+  // triggers a recompute roughly once per 10px of travel instead of every
+  // frame; 10px is well inside the 26px dodge STEP, so the quantisation is
+  // never visible in the resolved offsets.
+  const nodeRectsSignature = useStore((s) => {
+    if (!isTopStrengthEdge) return ''
+    let sig = ''
+    for (const n of s.nodes) {
+      if (n.hidden) continue
+      const w = n.measured?.width ?? n.width ?? 200
+      const h = n.measured?.height ?? n.height ?? 80
+      sig += `${n.id}:${Math.round(n.position.x / 10)},${Math.round(n.position.y / 10)},${Math.round(w / 10)},${Math.round(h / 10)};`
+    }
+    return sig
+  })
+
   // E3: label-vs-label collision avoidance. Every persistent-label edge feeds
   // the SAME anchor basis (straight midpoints of node centres — a stable
   // approximation of each label's position) into the shared deterministic
   // resolver, so all edges agree on the global assignment and each applies
   // its own offset. Only persistent (top-strength) labels participate —
   // hover/selection labels are transient.
+  // E3 part 2: node cards are fixed obstacles in the same pass — a label must
+  // not sit under ANY card, because React Flow paints the node layer above
+  // the edge-label renderer and the overlapped label is clipped invisibly.
   const collisionOffset = useMemo(() => {
     if (!isTopStrengthEdge) return { dx: 0, dy: 0 }
     const allEdges = getEdges()
@@ -510,8 +533,19 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       const ty = tn.position.y + ((tn.measured?.height ?? tn.height ?? 80) / 2)
       points.push({ id: e.id, x: (sx + tx) / 2, y: (sy + ty) / 2 })
     }
-    return resolveLabelCollisionOffsets(points).get(id) ?? { dx: 0, dy: 0 }
-  }, [isTopStrengthEdge, topStrengthIds, getEdges, getNode, id, sourceX, sourceY, targetX, targetY])
+    const nodeRects = getNodes()
+      .filter((n) => !n.hidden)
+      .map((n) => ({
+        x: n.position.x,
+        y: n.position.y,
+        width: n.measured?.width ?? n.width ?? 200,
+        height: n.measured?.height ?? n.height ?? 80,
+      }))
+    return resolveLabelCollisionOffsets(points, nodeRects).get(id) ?? { dx: 0, dy: 0 }
+    // nodeRectsSignature is the (quantised) recompute trigger for node
+    // movement, mirroring how sourceX/sourceY/targetX/targetY already trigger
+    // recompute for this edge's own endpoints.
+  }, [isTopStrengthEdge, topStrengthIds, getEdges, getNode, getNodes, id, sourceX, sourceY, targetX, targetY, nodeRectsSignature])
 
   // Task 9c: Offset persistent labels away from nodes to avoid overlap
   const persistentLabelOffset = useMemo(() => {

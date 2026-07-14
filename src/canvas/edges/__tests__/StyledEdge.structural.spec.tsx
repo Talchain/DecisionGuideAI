@@ -44,7 +44,26 @@ vi.mock('@xyflow/react', async () => {
             }
           : null,
       getEdges: () => [],
+      getNodes: () =>
+        Object.entries(nodeKinds).map(([id, kind]) => ({
+          id,
+          type: kind,
+          data: {},
+          position: { x: 0, y: 0 },
+          measured: { width: 200, height: 80 },
+        })),
     }),
+    // E3 part 2: StyledEdge subscribes to node geometry via the store
+    useStore: (selector: any) =>
+      selector({
+        nodes: Object.entries(nodeKinds).map(([id, kind]) => ({
+          id,
+          type: kind,
+          data: {},
+          position: { x: 0, y: 0 },
+          measured: { width: 200, height: 80 },
+        })),
+      }),
   }
 })
 
