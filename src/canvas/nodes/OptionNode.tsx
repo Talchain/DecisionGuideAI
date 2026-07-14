@@ -409,6 +409,14 @@ export const OptionNode = memo((props: NodeProps) => {
   }, [displayMetadata.isResultsMode, displayMetadata.winRate, nodes, resultsReport, props.id])
 
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
+  // UI-SEM-082 (Lane 4): the "chance of target" badge is a goal-fit claim, so it
+  // gates on the USER target (store goalThreshold) — never on producer value
+  // presence. The producer returns a joint/goal probability even with no user
+  // target (auto_goal_threshold, UI-SEM-071 class); the panel twin OptionCards
+  // already suppresses via hasGoalThreshold, and the GoalNode beside this option
+  // suppresses its own "chance of reaching target" when no target is set. This
+  // keeps the canvas node consistent with both.
+  const goalThreshold = useCanvasStore(state => state.goalThreshold)
   const setHoveredOption = useCanvasStore(state => state.setHoveredOption)
   const viewMode = useCanvasStore(state => state.viewMode)
   const isDetailed = viewMode === 'expert'
@@ -865,8 +873,10 @@ export const OptionNode = memo((props: NodeProps) => {
   // ----- Layer 2 content (shared between popover and Detailed inline) -----
   const layer2Content = useMemo(() => (
     <>
-      {/* Goal probability warning (< 10%) -- post-analysis only */}
-      {isPostAnalysis && goalProbability !== null && goalProbability < 0.10 && (
+      {/* Goal probability warning (< 10%) -- post-analysis only.
+          UI-SEM-082: gated on a USER target (goalThreshold != null) so it never
+          crowns a target the user never set, matching GoalNode + OptionCards. */}
+      {goalThreshold != null && isPostAnalysis && goalProbability !== null && goalProbability < 0.10 && (
         <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
           {'< '}
           {goalProbability < 0.01 ? '1' : Math.round(goalProbability * 100)}% chance of target.{' '}
@@ -989,7 +999,7 @@ export const OptionNode = memo((props: NodeProps) => {
           in this inline layer-2 block. Body never renders chips directly. */}
       {optionChips}
     </>
-  ), [isPostAnalysis, goalProbability, handleGoalReviewClick, allInterventionChips, isBaselineOption, baselineOptionInterventions, isOptionFromCee, props.data, totalInterventionCount, optionChips])
+  ), [isPostAnalysis, goalThreshold, goalProbability, handleGoalReviewClick, allInterventionChips, isBaselineOption, baselineOptionInterventions, isOptionFromCee, props.data, totalInterventionCount, optionChips])
 
   // ----- Pre-analysis popover content -----
   const preAnalysisPopoverContent = useMemo(() => {

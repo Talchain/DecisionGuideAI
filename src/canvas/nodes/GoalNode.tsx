@@ -292,8 +292,16 @@ export const GoalNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* Post-analysis: achievement probability */}
-        {displayMetadata.isResultsMode && displayMetadata.achievementProbability !== null && (
+        {/* Post-analysis: achievement probability.
+            UI-SEM-082 (Lane 4, Paul ruled; extends UI-SEM-071 doctrine): gate on
+            the target being SET (hasThreshold) — never on producer value presence
+            alone. The producer synthesises an auto_goal_threshold and returns a
+            goal_probability even when the USER set no target (UI-SEM-071 class),
+            so without this gate the "N% chance of reaching target" line would
+            crown a target the user never set AND co-render with the "Set a target
+            to see your chances" invitation above. hasThreshold makes the two
+            mutually exclusive by construction. */}
+        {hasThreshold && displayMetadata.isResultsMode && displayMetadata.achievementProbability !== null && (
           <div className={`${typography.nodeLabel} mt-1 ${
             displayMetadata.achievementProbability < 0.10 ? 'text-danger' : 'text-text-body'
           }`}>
@@ -317,7 +325,8 @@ export const GoalNode = memo((props: NodeProps) => {
             base — same gate + shared wording as OptionCards' caveat
             (GOAL_FIT_BASIS_CAVEAT_COPY), rendered adjacent to the number it
             qualifies, never separately, never invented. */}
-        {displayMetadata.isResultsMode &&
+        {hasThreshold &&
+          displayMetadata.isResultsMode &&
           displayMetadata.achievementProbability !== null &&
           displayMetadata.achievementProbabilityIsModelledBasis === true && (
             <p
@@ -328,8 +337,10 @@ export const GoalNode = memo((props: NodeProps) => {
             </p>
           )}
 
-        {/* Actionable guidance for low probability */}
-        {isPostAnalysis && displayMetadata.achievementProbability !== null && displayMetadata.achievementProbability < 0.10 && (
+        {/* Actionable guidance for low probability (UI-SEM-082: gated on
+            hasThreshold too — no "Target may be ambitious" against an
+            auto-threshold the user never set). */}
+        {hasThreshold && isPostAnalysis && displayMetadata.achievementProbability !== null && displayMetadata.achievementProbability < 0.10 && (
           <p className={`${typography.edgeLabel} text-text-body mt-1 m-0`}>
             Target may be ambitious.{' '}
             <button

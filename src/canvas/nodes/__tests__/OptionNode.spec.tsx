@@ -1092,6 +1092,7 @@ describe('OptionNode', () => {
     })
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
+        goalThreshold: 0.6, // UI-SEM-082: a user target is set so the badge renders
         results: {
           status: 'complete',
           report: {
@@ -1114,6 +1115,53 @@ describe('OptionNode', () => {
     // 5% < 10% threshold → the warning line renders with the joint value,
     // matching what OptionCards/hero derive via useResultsSectionData.
     expect(screen.getByText(/5% chance of target\./)).toBeDefined()
+  })
+
+  // Lane 4 fold (UI-SEM-082, extends UI-SEM-071): the "chance of target" badge
+  // is a goal-fit claim — it must gate on the USER target. Without a target the
+  // producer still returns a joint/goal probability (auto_goal_threshold), and
+  // the panel twin OptionCards already suppresses this (hasGoalThreshold). The
+  // canvas node must match, or it contradicts the GoalNode beside it (which
+  // suppresses its own "chance of reaching target" when no target is set).
+  it('SUPPRESSES the "chance of target" badge when the user set no target (auto-threshold)', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      achievementProbabilityIsModelledBasis: false,
+      stabilityPercentage: null,
+      winRate: 0.5,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        goalThreshold: null, // the user set no target
+        results: {
+          status: 'complete',
+          report: {
+            option_probabilities: {
+              'option-1': {
+                confidence: 0.5,
+                win_probability: 0.5,
+                probability_of_joint_goal: 0.05,
+                constraint_analysis: { constraints: [{ id: 'c1' }], joint_probability: 0.05 },
+              },
+            },
+          },
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { type: 'option' } },
+        ],
+      }) as any)
+    )
+    renderOption()
+    // No target → the goal-fit badge must not render (matches GoalNode + OptionCards).
+    expect(screen.queryByText(/chance of target\./)).toBeNull()
   })
 })
 
