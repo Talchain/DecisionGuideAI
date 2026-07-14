@@ -316,3 +316,36 @@ describe('useNodeDisplayMetadata — factor sensitivityRank', () => {
     expect(result.current.sensitivityRank).toBeNull()
   })
 })
+
+// ---------------------------------------------------------------------------
+// P0-2 (external review 2026-07-14): the factor badge must rank on the SAME
+// basis as the Drivers panel under PARTIAL influence coverage — via the shared
+// policy row (extractPolicyRow), which includes `sensitivity` (the V5 magnitude
+// key). The prior inline map omitted `sensitivity`, so every row collapsed to 0
+// and the badge fell back to alphabetical order.
+// ---------------------------------------------------------------------------
+describe('useNodeDisplayMetadata — partial influence coverage (P0-2)', () => {
+  it('ranks by `sensitivity` magnitude, not alphabetically, when influence_score coverage is partial', () => {
+    // A carries influence_score but a SMALL sensitivity; B carries only a LARGE
+    // sensitivity. Partial coverage → policy uses normalised |magnitude| for all,
+    // so B (0.8) outranks A (0.2). The V5 mapper writes magnitude as `sensitivity`.
+    mockState = {
+      results: {
+        status: 'complete',
+        report: makeReport({
+          factor_sensitivity: [
+            { factor_id: 'A', sensitivity: 0.2, influence_score: 0.9 },
+            { factor_id: 'B', sensitivity: 0.8 },
+          ],
+        }),
+      },
+    }
+    const { result: rB } = renderHook(() => useNodeDisplayMetadata('B', 'factor'))
+    const { result: rA } = renderHook(() => useNodeDisplayMetadata('A', 'factor'))
+    // RED before the fix: rawElasticity omitted `sensitivity` → both 0 →
+    // alphabetical A #1 and B.influence === 0.
+    expect(rB.current.sensitivityRank).toBe(1)
+    expect(rA.current.sensitivityRank).toBe(2)
+    expect(rB.current.influence ?? 0).toBeGreaterThan(rA.current.influence ?? 0)
+  })
+})

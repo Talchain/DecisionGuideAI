@@ -11,7 +11,7 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import type { NodeType } from '../domain/nodes'
-import { selectDriverDisplayModel, compareByDisplayModel } from '../../components/results/driverDisplayModel'
+import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
 
 interface NodeDisplayMetadata {
   /** Factor sensitivity rank (1-3 for top factors, null otherwise) */
@@ -109,23 +109,27 @@ export function useNodeDisplayMetadata(
         ? report.factor_sensitivity
         : report.enrichment?.sensitivity_analysis?.factors) || []
 
-      // Codex R3-B1: display value + rank come from the ONE shared policy
-      // (driverDisplayModel), so the badge can never rank or label a factor
-      // on a different basis than the results Drivers panel. Producer
-      // influence_score only when EVERY factor has one; else per-set
-      // normalised |elasticity| for all.
-      const displayEntries: Array<{ key: string; influenceScore: number | undefined; rawElasticity: number }> =
-        (factorSensitivity as any[]).map((f: any) => ({
-          key: (f.factor_id || f.factorId || f.node_id || f.nodeId) as string,
-          influenceScore: (f.influence_score ?? f.influenceScore) as number | undefined,
-          rawElasticity: (f.elasticity ?? f.sensitivity_score ?? f.importance_score ?? 0) as number,
-        }))
-      const displayModel = selectDriverDisplayModel(displayEntries)
-      const ranked = displayEntries
-        .map((e) => ({
-          key: e.key,
-          elasticity: Math.abs(e.rawElasticity),
-          value: displayModel.get(e.key)?.value ?? 0,
+      // Codex R3-B1 + P0-2 (external review 2026-07-14): display value + rank
+      // come from the ONE shared policy ROW (extractPolicyRow), so the badge
+      // can never rank or label a factor on a different basis than the results
+      // Drivers panel. The prior inline map OMITTED `sensitivity` from the
+      // magnitude chain — the exact key the V5 mapper writes — and accepted
+      // camelCase influenceScore, so under partial influence coverage every row
+      // collapsed to 0 and the badge fell back to alphabetical order while the
+      // panel ranked correctly by magnitude. extractPolicyRow includes
+      // `sensitivity`, reads snake-only influence_score, and drops rows with no
+      // id / no finite metric. Producer influence_score is used only when EVERY
+      // factor has one (selectDriverDisplayModel coverage rule); else per-set
+      // normalised |magnitude| for all.
+      const rows = (factorSensitivity as unknown[])
+        .map(extractPolicyRow)
+        .filter((r): r is NonNullable<ReturnType<typeof extractPolicyRow>> => r != null)
+      const displayModel = selectDriverDisplayModel(rows)
+      const ranked = rows
+        .map((r) => ({
+          key: r.key,
+          elasticity: r.rawElasticity,
+          value: displayModel.get(r.key)?.value ?? 0,
         }))
         .sort(compareByDisplayModel)
 
