@@ -12,6 +12,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useCanvasStore } from '../../store'
 import { resolveActiveGoalNodeId, resolveChipGoalThreshold } from '../../hooks/useV2Run'
+import { applyDraftResult } from '../../utils/applyDraftResult'
 
 function seedForeignContext() {
   useCanvasStore.setState({
@@ -24,33 +25,43 @@ function seedForeignContext() {
   } as never)
 }
 
-function expectContextCleared() {
+function expectContextCleared(expectedOutcome: string | null) {
   const s = useCanvasStore.getState()
   expect(s.goalThreshold).toBeNull()
   expect(s.goalThresholdRepresentation).toBeNull()
   expect(s.ceeAnalysisReady).toBeNull()
-  expect(s.outcomeNodeId).toBeNull()
+  // Review fold: outcomeNodeId is RE-DERIVED to the new graph's goal node
+  // (not cleared to null, not left stale) — assert the derived id explicitly.
+  expect(s.outcomeNodeId).toBe(expectedOutcome)
 }
 
 describe('decision-context clear on full-context replacement (Codex P0-2)', () => {
   beforeEach(() => useCanvasStore.getState().reset())
 
-  it('hydrateGraphSlice (production scenario load) clears the previous decision context', () => {
+  it('hydrateGraphSlice (production scenario load) clears the target + re-derives the outcome to the loaded goal', () => {
     seedForeignContext()
     useCanvasStore.getState().hydrateGraphSlice({
       nodes: [{ id: 'new_goal', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'New' } }] as never,
       edges: [],
       currentScenarioId: 'scn_new',
     })
-    expectContextCleared()
+    expectContextCleared('new_goal') // re-derived, not the stale 'old_goal' nor null
   })
 
-  it('importCanvas clears the previous decision context', () => {
+  it('importCanvas clears the target/readiness and never leaves the stale outcome id', () => {
+    // importCanvas routes nodes through importSnapshot (v1→v2 migration), so
+    // the exact re-derived id is transform-dependent; the contract that
+    // matters is: the previous decision's target/readiness are gone and the
+    // stale outcome id does not survive.
     seedForeignContext()
     useCanvasStore.getState().importCanvas(
       JSON.stringify({ nodes: [{ id: 'imp_goal', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Imported' } }], edges: [] }),
     )
-    expectContextCleared()
+    const s = useCanvasStore.getState()
+    expect(s.goalThreshold).toBeNull()
+    expect(s.goalThresholdRepresentation).toBeNull()
+    expect(s.ceeAnalysisReady).toBeNull()
+    expect(s.outcomeNodeId).not.toBe('old_goal')
   })
 
   it('resetCanvas clears the decision context EVEN when the graph is already empty (early-return leak)', () => {
@@ -63,7 +74,44 @@ describe('decision-context clear on full-context replacement (Codex P0-2)', () =
       outcomeNodeId: 'old_goal',
     } as never)
     useCanvasStore.getState().resetCanvas()
-    expectContextCleared()
+    expectContextCleared(null) // empty graph has no goal node
+  })
+
+  it('applyDraftResult clears the stale target so the NEW draft goal_threshold syncs (Codex P0-2 review fold)', () => {
+    // A stale non-null threshold made setCeeAnalysisReady drop the draft's own
+    // goal_threshold (sync gates on store == null) AND ride the new graph.
+    useCanvasStore.setState({ goalThreshold: 99, goalThresholdRepresentation: 'raw' } as never)
+    applyDraftResult({
+      nodes: [{ id: 'd_goal', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Drafted' } }],
+      edges: [],
+      analysis_ready: {
+        goal_node_id: 'd_goal',
+        options: [{ id: 'opt', label: 'A', status: 'ready', interventions: {} }],
+        goal_threshold: 0.4,
+      },
+    } as never)
+    const s = useCanvasStore.getState()
+    // The draft's own threshold synced (0.4, tagged normalised) — not the stale 99.
+    expect(s.goalThreshold).toBe(0.4)
+    expect(s.goalThresholdRepresentation).toBe('normalised')
+    // The single goal node is auto-selected.
+    expect(s.outcomeNodeId).toBe('d_goal')
+  })
+
+  it('undoDraft reverts to the pre-draft graph and clears the drafted target', () => {
+    useCanvasStore.setState({
+      goalThreshold: 60,
+      goalThresholdRepresentation: 'raw',
+      draftChatPreDraftSnapshot: {
+        nodes: [{ id: 'pre_goal', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Pre' } }],
+        edges: [],
+      },
+    } as never)
+    useCanvasStore.getState().undoDraft()
+    const s = useCanvasStore.getState()
+    expect(s.goalThreshold).toBeNull()
+    expect(s.goalThresholdRepresentation).toBeNull()
+    expect(s.outcomeNodeId).toBe('pre_goal')
   })
 })
 
