@@ -12,10 +12,17 @@
  * body should keep rendering.
  *
  * Run-state matrix pinned here (approved plan rev 2): each row asserts the
- * WRAPPER ELEMENT IDENTITY survives (same node, so React preserves all
- * subtree state — the auto-switch fix needs no hero changes) plus the row's
- * labelling. The resultless-settle row pins TOAST HONESTY: settling back to
- * the old report must never claim "rerun completed".
+ * WRAPPER ELEMENT IDENTITY survives (same node, so React preserves the
+ * subtree) plus the row's labelling. The resultless-settle row pins TOAST
+ * HONESTY: settling back to the old report must never claim "rerun
+ * completed". NOTE (review blocker fold): wrapper identity alone did NOT
+ * guarantee hero continuity — buildHeroModel returned 'empty' while
+ * isLoading, unmounting AnalysisHeroPanel INSIDE the surviving wrapper; the
+ * hero-side continuity is therefore pinned separately at the model level
+ * (buildHeroModel.spec — loading/error with retained rows keep the chart)
+ * and at the panel level (content.spec — the auto-switch survives a full
+ * rerun cycle). This spec's ResultsBody mock covers only the dock-owned
+ * mount/labelling contract.
  *
  * ResultsBody is memo-mocked with a render counter so the SSE-tick test
  * measures prop-identity stability honestly (perf change is evidence-first:
@@ -220,6 +227,23 @@ describe('OutputsDock rerun continuity (SF2)', () => {
     // was a lie while the body unmounted at 'error'. Both now render.
     expect(screen.getByTestId('results-body-stale-wrapper')).toBe(wrapper)
     expect(screen.getByTestId('stale-results-banner')).toBeInTheDocument()
+  })
+
+  it('review fold: a NOT-confirmed-fresh display at error keeps its stale gate (no `!isError` escape)', () => {
+    // The historical `!isError` escape was dead while the body only mounted
+    // at 'complete'; once mounted at 'error' it stamped
+    // data-freshness-confirmed='true' over an unconfirmed display and
+    // re-enabled factor mutations against it (Brief 4 Task 13 hazard).
+    renderDock()
+    act(() => {
+      useCanvasStore.setState({ analysisFreshnessDirty: true } as never)
+      useCanvasStore.getState().resultsStart({ seed: 42 })
+      useCanvasStore.getState().resultsError({ code: 'E_TEST', message: 'boom' })
+    })
+    expect(screen.getByTestId('results-body-stale-wrapper')).toHaveAttribute(
+      'data-freshness-confirmed',
+      'false',
+    )
   })
 
   it('TOAST HONESTY: a resultless settle never claims "rerun completed" — it says the run ended without new results', () => {

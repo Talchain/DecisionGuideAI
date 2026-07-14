@@ -19,6 +19,7 @@ import {
   sanitizeV2RunResponse,
   reconcileOptionsWithCanvasNodes,
   flattenInterventions,
+  clearStrengthCorrections,
   type V2AdapterConfig,
   type V2RunError,
   type V2RunResponse,
@@ -337,6 +338,11 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       captureErrorDetail,
     } = useCanvasStore.getState()
     const lastDraftDescription = useDraftStore.getState().lastDraftDescription
+    // Lane 3 review fold: the strength-corrections buffer is module-level
+    // and was never cleared, so the per-report snapshot (OutputsDock, keyed
+    // on [report]) accumulated duplicate rows across runs. Each V2 run
+    // records only its OWN corrections.
+    clearStrengthCorrections()
 
     console.info('[constraint-trace] run-snapshot', {
       source: 'useV2Run',

@@ -167,12 +167,18 @@ describe('ActionsMenu', () => {
     expect(await screen.findByText(RERUN_TOASTS.started)).toBeInTheDocument()
   })
 
-  it('rerun via the awaited V2 path toasts the completed message', async () => {
+  it('DELIBERATE PIN FLIP (Lane 3 review fold): the awaited V2 path toasts NOTHING — the freshness strip owns the completion announcement', async () => {
+    // Post-SF2 the strip stays mounted through the run and fires the
+    // byte-identical "rerun completed" toast on running→complete; a second
+    // menu-owned toast for the same completion was a duplicate.
     registerCanonicalRunner(async () => ({ status: 'v2' as const }))
     render(<ActionsMenu />)
     fireEvent.click(screen.getByRole('button', { name: /actions/i }))
     fireEvent.click(screen.getByText('Rerun analysis'))
-    expect(await screen.findByText(RERUN_TOASTS.completed)).toBeInTheDocument()
+    // Allow the outcome promise to settle, then assert no menu toast.
+    await new Promise((r) => setTimeout(r, 0))
+    expect(screen.queryByText(RERUN_TOASTS.completed)).toBeNull()
+    expect(screen.queryByText(RERUN_TOASTS.started)).toBeNull()
   })
 
   it('blocked rerun surfaces the blocking reason', async () => {

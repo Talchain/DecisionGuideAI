@@ -1402,8 +1402,15 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     const prevStatus = prevResultsStatus.current
     prevResultsStatus.current = resultsStatus
 
-    // Detect transition to 'complete'
-    if (resultsStatus === 'complete' && prevStatus !== 'complete' && report) {
+    // Detect transition to 'complete'. Lane 3 review fold: a resultless
+    // settle restores the RETAINED report at 'complete' — that is not a run
+    // completion, and the flag exists to distinguish exactly this.
+    if (
+      resultsStatus === 'complete' &&
+      prevStatus !== 'complete' &&
+      report &&
+      !useCanvasStore.getState().results.settledWithoutNewReport
+    ) {
       trackRunCompleted({
         confidence_level: report.confidence?.level as 'high' | 'medium' | 'low' ?? 'medium',
         drivers_informative: areDriversInformative(report.drivers_payload),
@@ -2204,7 +2211,13 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     // the freshness strip above carries the warning and the
                     // recovery action. No dimming, no aria-disabled lockout;
                     // data-freshness-confirmed preserves the signal for tests.
-                    data-freshness-confirmed={analysisNotConfirmedFresh && !isError ? 'false' : 'true'}
+                    // Lane 3 review fold: the historical `!isError` escape
+                    // existed for banner mutual-exclusion when the body only
+                    // mounted at 'complete'; with the body now mounted at
+                    // 'error' it stamped confirmed='true' over an unconfirmed
+                    // display (a false test/debug signal) and unlocked
+                    // mutations below.
+                    data-freshness-confirmed={analysisNotConfirmedFresh ? 'false' : 'true'}
                     data-testid="results-body-stale-wrapper"
                     // Lane 3 (SF2): run-in-flight is MARKED, not blanked —
                     // v6 doctrine (content stays readable, no dim/lockout).
@@ -2243,7 +2256,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     onSetFactorValue={handleTriageSetValue}
                     expertMode={expertMode}
                     nodeValueLookup={nodeValueLookup}
-                    isStale={analysisNotConfirmedFresh && !isError}
+                    // Lane 3 review fold: with the body now mounted at
+                    // 'error', the `!isError` escape re-enabled factor
+                    // mutations (suppressMutations = isStale || isRunning)
+                    // against a not-fresh retained display — the exact
+                    // hazard the Brief 4 Task 13 gate exists for.
+                    isStale={analysisNotConfirmedFresh}
                   />
                   </div>
                 )}
