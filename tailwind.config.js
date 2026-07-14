@@ -263,10 +263,15 @@ export default {
           from: { opacity: '1' },
           to:   { opacity: '0' },
         },
+        fadeIn: {
+          from: { opacity: '0' },
+          to:   { opacity: '1' },
+        },
       },
       animation: {
         slideDown: 'slideDown 0.2s ease-out',
         fadeOut:   'fadeOut 0.2s ease-out forwards',
+        fadeIn:    'fadeIn 0.3s ease-out',
       },
     },
   },
