@@ -68,6 +68,48 @@ export function computeNormalisedInfluences(
  * render and rank by `value` from this map, never `influenceScore ??
  * normalisedInfluence` (which mixes bases under partial producer coverage).
  */
+/**
+ * Shared wire-row → policy-input extractor (Lane 2 review fold): the policy
+ * FUNCTION being shared means nothing if each surface feeds it different
+ * inputs — the coverage-complete verdict and the normalisation base must be
+ * computed from the SAME fields everywhere.
+ *
+ * Field semantics mirror the drivers panel (useResultsSectionData
+ * normaliseFactorSensitivity, the reference implementation):
+ * - producer influence: snake_case `influence_score` ONLY (the panel never
+ *   reads camelCase, so accepting it elsewhere flips the coverage verdict
+ *   per surface);
+ * - magnitude chain: `elasticity` → `sensitivity_score` → `sensitivity` →
+ *   `importance_score` (the panel includes `sensitivity` third; feeders that
+ *   omitted it ranked a different row-set).
+ * Returns null when the row has no id or no finite metric at all (absence is
+ * never defaulted).
+ */
+export function extractPolicyRow(
+  raw: unknown,
+): { key: string; influenceScore: number | null; rawElasticity: number } | null {
+  if (raw == null || typeof raw !== 'object') return null
+  const f = raw as Record<string, unknown>
+  const key = (f.factor_id ?? f.factorId ?? f.node_id ?? f.nodeId) as string | undefined
+  if (!key) return null
+  const producer =
+    typeof f.influence_score === 'number' && Number.isFinite(f.influence_score)
+      ? f.influence_score
+      : null
+  const magnitude =
+    typeof f.elasticity === 'number' ? f.elasticity
+      : typeof f.sensitivity_score === 'number' ? f.sensitivity_score
+        : typeof f.sensitivity === 'number' ? f.sensitivity
+          : typeof f.importance_score === 'number' ? f.importance_score
+            : null
+  if (producer === null && magnitude === null) return null
+  return {
+    key,
+    influenceScore: producer,
+    rawElasticity: magnitude === null || !Number.isFinite(magnitude) ? 0 : Math.abs(magnitude),
+  }
+}
+
 export function selectDriverDisplayModel(
   factors: ReadonlyArray<{ key: string; influenceScore?: number | null; rawElasticity: number }>,
 ): Map<string, DriverDisplayEntry> {

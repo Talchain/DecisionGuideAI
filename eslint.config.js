@@ -7,6 +7,7 @@ import parser from '@typescript-eslint/parser'
 import reactHooks from 'eslint-plugin-react-hooks'
 import noRawColors from './eslint-rules/no-raw-colors.js'
 import noBareLightBg from './eslint-rules/no-bare-light-bg.js'
+import noRawInfluenceFallback from './eslint-rules/no-raw-influence-fallback.js'
 import noPayloadLogging from './eslint-rules/no-payload-logging.js'
 import noDangerousBrowser from './eslint-rules/no-dangerous-browser.js'
 import noCorsWildcard from './eslint-rules/no-cors-wildcard.js'
@@ -176,6 +177,11 @@ export default [
           'no-unsafe-innerhtml': noUnsafeInnerhtml,
         },
       },
+      'driver-policy': {
+        rules: {
+          'no-raw-influence-fallback': noRawInfluenceFallback,
+        },
+      },
       // React Hooks plugin for exhaustive-deps rule
       'react-hooks': reactHooks,
     },
@@ -225,6 +231,15 @@ export default [
       'security/no-cors-wildcard': 'error',
       'security/no-old-imports': 'error',
       'security/no-unsafe-innerhtml': 'error',
+
+      // Lane 2 (Codex R3-B1 class): raw influence metrics must not be a
+      // DECISION basis — the display value comes from driverDisplayModel
+      // (stamped displayInfluence). ERROR severity deliberately (the
+      // pre-push gate runs eslint without --max-warnings, so a warn-level
+      // guard would never block). The whole-tree net is the vitest tripwire
+      // no-raw-influence-read.spec.ts; deliberate exceptions carry inline
+      // disables with a UI-SEM rationale (see buildAnalysisHeroViewModel).
+      'driver-policy/no-raw-influence-fallback': 'error',
     },
   },
   // Tests: allow raw colors, console, and restricted syntax (used in assertions and test output)
@@ -237,6 +252,18 @@ export default [
       'brand-tokens/no-bare-light-bg': 'off',
       'no-console': 'off',
       'no-restricted-syntax': 'off',
+      // Specs/fixtures legitimately build divergent raw/display fixtures.
+      'driver-policy/no-raw-influence-fallback': 'off',
+    },
+  },
+  // Gallery/mock fixture hooks: emulate the PRE-R3 hook (raw fallback chains
+  // by design) and feed only the fixture gallery, never a live surface.
+  // Unifying them onto the policy is the declared Lane 2-F follow-up — until
+  // then the drift risk is test-only.
+  {
+    files: ['src/__fixtures__/**'],
+    rules: {
+      'driver-policy/no-raw-influence-fallback': 'off',
     },
   },
   // Type definition and stub files: ignore unused variable rules

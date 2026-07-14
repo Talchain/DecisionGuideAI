@@ -239,6 +239,72 @@ describe('DecisionConfidencePanel — Brief 5.8B D2c T1 flip-risk + nudge + chec
     expect(screen.queryByTestId('t1-dominant-nudge')).not.toBeInTheDocument()
   })
 
+  it('Lane 2 (policy divergence): nudge gates on displayInfluence, not raw influenceScore — raw 0.95 / display 0.6 → suppressed', () => {
+    // Under partial producer coverage the shared driverDisplayModel falls
+    // back to normalised elasticity for EVERY driver; the panel bar shows
+    // displayInfluence. A nudge keyed on the raw score would then claim a
+    // dominance the same panel's bars contradict (the tornado had exactly
+    // this bug — Codex final-audit B1).
+    render(
+      <DecisionConfidencePanel
+        data={makeData({
+          drivers: [
+            makeDriver({
+              influenceScore: 0.95,
+              displayInfluence: 0.6,
+              displayProvenance: 'normalised_elasticity',
+            }),
+          ],
+          dominantFactorLabel: 'Pricing',
+        })}
+      />,
+    )
+    expect(screen.queryByTestId('t1-dominant-nudge')).not.toBeInTheDocument()
+  })
+
+  it('Lane 2 (review fold): a SET-RELATIVE display value never fires the absolute dominance claim — display 1.0 (partial coverage) → suppressed', () => {
+    // Under partial coverage the top driver's display value is 1.0 BY
+    // CONSTRUCTION (set-normalised). "Drives 100% of the outcome" from that
+    // basis is a fabricated causal share — and would contradict the V17
+    // dominance gate (UI-SEM-040, absolute) on the same screen.
+    render(
+      <DecisionConfidencePanel
+        data={makeData({
+          drivers: [
+            makeDriver({
+              influenceScore: 0.3,
+              displayInfluence: 1.0,
+              displayProvenance: 'normalised_elasticity',
+            }),
+          ],
+          dominantFactorLabel: 'Pricing',
+          dominantFactorId: 'node_pricing',
+        })}
+      />,
+    )
+    expect(screen.queryByTestId('t1-dominant-nudge')).not.toBeInTheDocument()
+  })
+
+  it('Lane 2 (review fold): the absolute claim fires on the PRODUCER basis — display 0.85 with influence_score provenance → "85% of the outcome"', () => {
+    render(
+      <DecisionConfidencePanel
+        data={makeData({
+          drivers: [
+            makeDriver({
+              influenceScore: 0.85,
+              displayInfluence: 0.85,
+              displayProvenance: 'influence_score',
+            }),
+          ],
+          dominantFactorLabel: 'Pricing',
+          dominantFactorId: 'node_pricing',
+        })}
+      />,
+    )
+    const nudge = screen.getByTestId('t1-dominant-nudge')
+    expect(nudge).toHaveTextContent(/85% of the outcome/)
+  })
+
   it('DriversSection no longer renders any dominant-factor warning (legacy testid is gone)', () => {
     const drivers: DriverItem[] = [makeDriver({ influenceScore: 0.95 })]
     const driversData: DriversSectionData = {

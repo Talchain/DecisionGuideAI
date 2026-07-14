@@ -95,6 +95,59 @@ describe('StrengthenContainer — worth_investigating threading', () => {
   })
 })
 
+describe('StrengthenContainer — LEHI keys on the DISPLAY influence policy (Lane 2)', () => {
+  it('policy divergence: raw 0.9 / display 0.2 → below the LEHI floor, no rec', () => {
+    // Under partial producer coverage the shared driverDisplayModel ranks by
+    // normalised elasticity; a LEHI gate on the raw score would flag a
+    // factor the panel's own bars show as weak (Codex R3-B1 class).
+    render(
+      <StrengthenContainer
+        data={makeData({
+          goalThreshold: 62,
+          drivers: [
+            {
+              factorKey: 'fac_div',
+              factorLabel: 'Divergent',
+              displayInfluence: 0.2,
+              influenceScore: 0.9,
+              confidence: 0.2,
+              canFocus: true,
+            },
+          ],
+        })}
+      />,
+    )
+    const lehi = selectActive(useStrengthenStore.getState()).find((r) =>
+      r.id.startsWith('strengthen:lehi:'),
+    )
+    expect(lehi).toBeUndefined()
+  })
+
+  it('policy divergence: raw 0.1 / display 0.9 → clears the floor, rec exists', () => {
+    render(
+      <StrengthenContainer
+        data={makeData({
+          goalThreshold: 62,
+          drivers: [
+            {
+              factorKey: 'fac_div2',
+              factorLabel: 'Divergent2',
+              displayInfluence: 0.9,
+              influenceScore: 0.1,
+              confidence: 0.2,
+              canFocus: true,
+            },
+          ],
+        })}
+      />,
+    )
+    const lehi = selectActive(useStrengthenStore.getState()).find((r) =>
+      r.id.startsWith('strengthen:lehi:'),
+    )
+    expect(lehi).toBeDefined()
+  })
+})
+
 describe('StrengthenContainer — producer bias signal gates broaden', () => {
   it('a CEE narrow_framing bias signal admits the broaden rec', () => {
     useCanvasStore.setState({

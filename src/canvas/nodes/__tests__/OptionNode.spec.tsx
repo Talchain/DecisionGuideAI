@@ -1964,3 +1964,115 @@ describe('OptionNode — display coherence (audit §8)', () => {
     expect(screen.queryByTestId('option-stable-number-option-1')).toBeNull()
   })
 })
+
+// ---------------------------------------------------------------------------
+// Lane 2 — winsVia honesty (live 2026-07-13 contradiction): the leader node
+// claimed "Leads via Design Change Scope, the #1 driver" while the SAME
+// screen's drivers panel ranked that factor 4th at 17% (real #1: Pricing
+// Page Clarity, 100%). winsVia ranked by raw elasticity, option-scoped —
+// then asserted a GLOBAL rank. It must rank via the shared display policy
+// and only claim "#1 driver" when the chosen factor IS the policy's #1.
+// ---------------------------------------------------------------------------
+
+describe('OptionNode — winsVia ranks via the display policy and never overclaims (Lane 2)', () => {
+  const FACTOR_NODES = [
+    { id: 'fac_clarity', type: 'factor', data: { label: 'Pricing Page Clarity', type: 'factor' } },
+    { id: 'fac_scope', type: 'factor', data: { label: 'Design Change Scope', type: 'factor' } },
+    { id: 'option-1', type: 'option', data: { label: 'Keep Current Page', type: 'option' } },
+    { id: 'option-2', type: 'option', data: { label: 'Full Redesign', type: 'option' } },
+  ]
+
+  const winsViaState = (opts: {
+    factors: unknown[]
+    interventions: Record<string, number>
+  }) =>
+    makeStoreState({
+      nodes: FACTOR_NODES,
+      results: {
+        status: 'complete',
+        report: {
+          robustness: { recommended_option_id: 'option-1' },
+          option_probabilities: {
+            'option-1': { win_probability: 0.54 },
+            'option-2': { win_probability: 0.45 },
+          },
+          factor_sensitivity: opts.factors,
+        },
+      },
+      ceeAnalysisReady: {
+        goal_node_id: 'goal_1',
+        options: [
+          { id: 'option-1', label: 'Keep Current Page', interventions: opts.interventions },
+          { id: 'option-2', label: 'Full Redesign', interventions: {} },
+        ],
+      },
+    })
+
+  const mountLeader = (state: ReturnType<typeof makeStoreState>) => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(state as any))
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: 0.54,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    } as never)
+    renderOption()
+  }
+
+  it('does NOT claim "#1 driver" when the leader\'s lever is not the policy #1 (live repro)', () => {
+    mountLeader(
+      winsViaState({
+        factors: [
+          // Complete producer coverage: policy adopts influence_score.
+          // Global #1 = fac_clarity (1.0); the leader only intervenes on
+          // fac_scope (0.17, rank 4-ish).
+          { factor_id: 'fac_clarity', influence_score: 1.0, elasticity: 0.9 },
+          { factor_id: 'fac_scope', influence_score: 0.17, elasticity: 0.93 },
+        ],
+        interventions: { fac_scope: 0 },
+      }),
+    )
+    expect(screen.getByText(/Leads via/)).toBeInTheDocument()
+    expect(screen.getByText('Design Change Scope')).toBeInTheDocument()
+    expect(screen.queryByText(/the #1 driver/)).toBeNull()
+    expect(screen.getByText(/its biggest lever/)).toBeInTheDocument()
+  })
+
+  it('claims "#1 driver" only when the lever IS the policy #1', () => {
+    mountLeader(
+      winsViaState({
+        factors: [
+          { factor_id: 'fac_clarity', influence_score: 1.0, elasticity: 0.9 },
+          { factor_id: 'fac_scope', influence_score: 0.17, elasticity: 0.93 },
+        ],
+        interventions: { fac_clarity: 1 },
+      }),
+    )
+    expect(screen.getByText('Pricing Page Clarity')).toBeInTheDocument()
+    expect(screen.getByText(/the #1 driver/)).toBeInTheDocument()
+  })
+
+  it('ranks candidate levers by the POLICY value, not raw elasticity', () => {
+    mountLeader(
+      winsViaState({
+        factors: [
+          // Complete coverage: policy = influence_score. Raw elasticity
+          // order is scope > clarity (0.93 > 0.9) — the OLD code picked by
+          // that and would choose fac_scope; the policy picks fac_clarity.
+          { factor_id: 'fac_clarity', influence_score: 1.0, elasticity: 0.9 },
+          { factor_id: 'fac_scope', influence_score: 0.17, elasticity: 0.93 },
+        ],
+        interventions: { fac_clarity: 1, fac_scope: 0 },
+      }),
+    )
+    expect(screen.getByText('Pricing Page Clarity')).toBeInTheDocument()
+    expect(screen.queryByText('Design Change Scope')).toBeNull()
+  })
+})

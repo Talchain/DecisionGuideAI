@@ -62,7 +62,7 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
     const withConfidence: StrengthenInputs = {
       ...base,
       factors: [
-        { factorId: 'f1', label: 'Engineering capacity', influenceScore: 0.8, confidence: 0.25, canFocus: true },
+        { factorId: 'f1', label: 'Engineering capacity', influence: 0.8, confidence: 0.25, canFocus: true },
       ],
     }
     const recs = buildRecommendations(withConfidence)
@@ -74,7 +74,7 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
     // Same factor WITHOUT producer confidence → never fires (no beliefExists fallback).
     const noConfidence: StrengthenInputs = {
       ...base,
-      factors: [{ factorId: 'f1', label: 'Engineering capacity', influenceScore: 0.8, confidence: null, canFocus: true }],
+      factors: [{ factorId: 'f1', label: 'Engineering capacity', influence: 0.8, confidence: null, canFocus: true }],
     }
     expect(ids(noConfidence)).not.toContain('strengthen:lehi:f1')
   })
@@ -82,12 +82,12 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
   it('lehi: high confidence or low influence suppresses', () => {
     const confident: StrengthenInputs = {
       ...base,
-      factors: [{ factorId: 'f1', label: 'X', influenceScore: 0.8, confidence: 0.9, canFocus: true }],
+      factors: [{ factorId: 'f1', label: 'X', influence: 0.8, confidence: 0.9, canFocus: true }],
     }
     expect(ids(confident)).not.toContain('strengthen:lehi:f1')
     const weak: StrengthenInputs = {
       ...base,
-      factors: [{ factorId: 'f1', label: 'X', influenceScore: 0.1, confidence: 0.25, canFocus: true }],
+      factors: [{ factorId: 'f1', label: 'X', influence: 0.1, confidence: 0.25, canFocus: true }],
     }
     expect(ids(weak)).not.toContain('strengthen:lehi:f1')
   })

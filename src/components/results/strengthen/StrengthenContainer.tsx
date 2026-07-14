@@ -107,7 +107,11 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
       factors: data.drivers.drivers.map((d) => ({
         factorId: d.matchedNodeId ?? d.factorKey,
         label: d.factorLabel,
-        influenceScore: d.influenceScore,
+        // Lane 2 (policy): the engine ranks/gates on the SAME display value
+        // the panel bars show — displayInfluence is stamped by
+        // selectDriverDisplayModel; raw influenceScore only as legacy
+        // fallback (runtime-dead, fixture-only).
+        influence: d.displayInfluence ?? d.influenceScore,
         confidence: d.confidence ?? null,
         // Producer flag threaded through the drivers VM (factor_sensitivity
         // row or robustness VOI suggestion joined by factor id) — strict

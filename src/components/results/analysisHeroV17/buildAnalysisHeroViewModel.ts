@@ -241,16 +241,22 @@ function buildDependencyLine(data: ResultsSectionDataReturn): string | null {
   const top1 = sorted[0]
   if (!top1 || top1.factorKey !== id) return null
 
-  // Dominance gate.
+  // Dominance gate (UI-SEM-040): deliberately reads the RAW metrics —
+  // absolute producer-scale threshold (0.5) and top-1:top-2 ratio (2.0) are
+  // GATE semantics, not display ranking, so the driverDisplayModel policy
+  // does not apply. This is the attestation the no-raw-influence-read
+  // tripwire keys on; if this gate is rewritten, re-decide the exemption.
   let isDominant = false
   if (typeof top1.influenceScore === 'number' && Number.isFinite(top1.influenceScore)) {
     // Absolute scale (ISL structural causal influence): 0.5 floor.
+    // eslint-disable-next-line driver-policy/no-raw-influence-fallback -- UI-SEM-040 dominance GATE: absolute producer-scale threshold, not display ranking
     isDominant = top1.influenceScore >= 0.5
   } else {
     // Relative-only data: require a clear gap between top-1 and top-2.
     const ni1 = top1.normalisedInfluence
     if (!Number.isFinite(ni1) || ni1 <= 0) return null
     const top2 = sorted[1]
+    // eslint-disable-next-line driver-policy/no-raw-influence-fallback -- UI-SEM-040 dominance GATE: top-1:top-2 ratio over the raw metric, not display ranking
     const ni2 = top2?.normalisedInfluence ?? 0
     if (ni2 > 0) {
       isDominant = (ni1 / ni2) >= 2.0

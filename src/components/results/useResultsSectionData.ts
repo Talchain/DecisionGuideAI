@@ -1938,6 +1938,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           influenceScore: f.raw.influenceScore,
           // Codex R3-B1: single display basis (see DriverItem.displayInfluence)
           displayInfluence: displayModel.get(f.key)?.value ?? 0,
+          // Lane 2 review fold: basis marker so absolute-claim surfaces
+          // (Triage dominance nudge) can distinguish a producer causal share
+          // from a set-relative fallback value.
+          displayProvenance: displayModel.get(f.key)?.provenance,
           // Producer influence_rank passthrough (roadmap 1.7, provisional_doctrine_v0)
           influenceRank: f.raw.influenceRank,
           // ISL zero_reason - explains why sensitivity is zero
