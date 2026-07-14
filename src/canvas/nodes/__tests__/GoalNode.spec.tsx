@@ -121,7 +121,8 @@ describe('GoalNode', () => {
       valueOfInformation: null,
       voiRank: null,
     })
-    renderGoal()
+    // UI-SEM-082: the probability only renders with a user target set.
+    renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
     expect(screen.getByText(/73.*% chance of reaching target/)).toBeDefined()
   })
 
@@ -142,7 +143,8 @@ describe('GoalNode', () => {
       valueOfInformation: null,
       voiRank: null,
     })
-    renderGoal()
+    // UI-SEM-082: caveat renders adjacent to the probability, which needs a target.
+    renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
     expect(screen.getByTestId('goal-fit-basis-caveat-node')).toHaveTextContent(
       "Modelled from the target's projected outcome distribution, not a directly-set starting value.",
     )
@@ -163,7 +165,11 @@ describe('GoalNode', () => {
       valueOfInformation: null,
       voiRank: null,
     })
-    renderGoal()
+    // UI-SEM-082: target set so the probability renders — this pins that the
+    // caveat is absent because the FLAG is false, not because the whole block
+    // is gated away.
+    renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
+    expect(screen.getByText(/73.*% chance of reaching target/)).toBeDefined()
     expect(screen.queryByTestId('goal-fit-basis-caveat-node')).toBeNull()
   })
 
@@ -756,13 +762,20 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     expect(screen.queryByText(/Set a target to see your chances/)).toBeNull()
   })
 
-  it('target unset + probability available (auto-threshold): existing behaviour unchanged', () => {
+  // Lane 4 (Paul ruled: GATE ON USER TARGET) — UI-SEM-082, extends UI-SEM-071.
+  // The producer can synthesise an auto_goal_threshold and return a
+  // goal_probability even when the USER set no target (the selector adopts
+  // probability_of_joint_goal — UI-SEM-071 class). The card must NOT crown a
+  // "chance of reaching target" against a target the user never set, and the
+  // "Set a target" invitation and the probability line must NEVER co-render.
+  it('target unset + probability available (auto-threshold): probability SUPPRESSED, invitation shown (mutual exclusivity)', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
       confidence: null,
       inSensitivityAnalysis: false,
       achievementProbability: 0.4,
+      achievementProbabilityIsModelledBasis: false,
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: true,
@@ -778,9 +791,68 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
         },
       }) as any)
     )
-    renderGoal()
+    renderGoal() // no goal_threshold_raw / success_threshold → hasThreshold === false
+    // Invitation shown…
     expect(screen.getByText('Analysis complete. Set a target to see your chances.')).toBeDefined()
+    // …and the goal-fit claim SUPPRESSED — the two strings never co-render.
+    expect(screen.queryByText(/chance of reaching target/)).toBeNull()
     expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
+  })
+
+  it('target unset + low auto-probability: the "Target may be ambitious" guidance is also suppressed', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: 0.05, // < 0.10 would trigger the guidance if ungated
+      achievementProbabilityIsModelledBasis: false,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        // A report with a real per-option win_probability so the invitation
+        // copy is the "Analysis complete" variant (hasAnyProbability === true).
+        results: {
+          status: 'complete',
+          report: { option_comparison: [{ option_id: 'o1', win_probability: 0.5 }] },
+        },
+      }) as any)
+    )
+    renderGoal() // hasThreshold === false
+    expect(screen.getByText('Analysis complete. Set a target to see your chances.')).toBeDefined()
+    expect(screen.queryByText(/chance of reaching target/)).toBeNull()
+    expect(screen.queryByText(/Target may be ambitious/)).toBeNull()
+  })
+
+  it('mutual-exclusivity invariant: with a user target the probability shows and the invitation is absent', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: 0.4,
+      achievementProbabilityIsModelledBasis: false,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: {} },
+      }) as any)
+    )
+    renderGoal({ goal_threshold_raw: '60', goal_threshold_unit: '%' }) // hasThreshold === true
+    expect(screen.getByText(/40.*% chance of reaching target/)).toBeDefined()
+    expect(screen.queryByText(/Set a target to see your chances/)).toBeNull()
   })
 })
 
