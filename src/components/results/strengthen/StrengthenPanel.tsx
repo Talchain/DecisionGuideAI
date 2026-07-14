@@ -135,7 +135,10 @@ function RecRow({
               </span>
             )}
           </span>
-          <span className={`${typography.panelMeta} mt-0.5 block text-text-light`}>{rec.signal}</span>
+          {/* Subtitle carries the verbatim producer body for phase-3 recs —
+              clamp to two lines (DS pattern, cf. EdgeInspector/NodeInspector)
+              so long bodies never break the two-line collapsed block. */}
+          <span className={`${typography.panelMeta} mt-0.5 block text-text-light line-clamp-2`}>{rec.signal}</span>
           {record.isStale && (
             <span className={`${typography.panelMeta} block italic text-text-light`}>{COPY.staleLabel}</span>
           )}

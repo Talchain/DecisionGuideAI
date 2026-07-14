@@ -120,21 +120,50 @@ function mapOutcomeUnit(raw: string | null): {
   return { unit: 'count' }
 }
 
+/** Genuinely interrogative wire copy: title or detail ends in "?". */
+function isInterrogative(item: Pick<GuidanceItem, 'title' | 'detail'>): boolean {
+  return (
+    (item.title?.trim() ?? '').endsWith('?') || (item.detail?.trim() ?? '').endsWith('?')
+  )
+}
+
 /**
- * UI-SEM-078: framing-question interrogative derivation. The promoted
- * guidance item is usually an imperative chip TITLE, not a question — never
- * show a bare imperative label as "Olumi's framing question". Prefer genuine
- * interrogative text (title, then detail, either ending in "?"), then the
- * item's detail prose, and only then compose a question mechanically from
- * the title. Remove when CEE provides an explicit framing_question field.
+ * UI-SEM-078 (hardened): positive gate for the framing-question slot. An
+ * item qualifies only when it is genuinely interrogative OR framing-scoped
+ * (target_object.type === 'framing' — a real value in the GuidanceItem
+ * target vocabulary; extractPhase3's legacy target-ref convention maps it
+ * through). Everything else — rerun/staleness nudges, housekeeping review
+ * cards — stays on its own guidance surfaces: every derived phase-3 block
+ * carries a 'discuss' action, so the action type alone cannot discriminate.
+ * In production the old filter promoted a rerun nudge and the old
+ * derivation showed its detail VERBATIM under "Olumi's framing question".
+ * Remove when CEE provides an explicit framing_question field.
  */
-export function deriveFramingQuestion(item: Pick<GuidanceItem, 'title' | 'detail'>): string {
+export function qualifiesForFramingSlot(
+  item: Pick<GuidanceItem, 'title' | 'detail' | 'target_object'>,
+): boolean {
+  return isInterrogative(item) || item.target_object?.type === 'framing'
+}
+
+/**
+ * UI-SEM-078: framing-question derivation. The promoted guidance item is
+ * usually an imperative chip TITLE, not a question — never show a bare
+ * imperative label (or any non-interrogative prose) verbatim as "Olumi's
+ * framing question". Prefer genuine interrogative text (title, then detail,
+ * either ending in "?"); compose a question mechanically from the title
+ * ONLY for framing-scoped items; otherwise return null and render no slot.
+ * Remove when CEE provides an explicit framing_question field.
+ */
+export function deriveFramingQuestion(
+  item: Pick<GuidanceItem, 'title' | 'detail' | 'target_object'>,
+): string | null {
   const title = item.title?.trim() ?? ''
   const detail = item.detail?.trim() ?? ''
   if (title.endsWith('?')) return title
   if (detail.endsWith('?')) return detail
-  if (detail) return detail
+  if (item.target_object?.type !== 'framing') return null
   const stem = title.replace(/[.?!]+$/, '')
+  if (!stem) return null
   return `What would it take to ${stem.charAt(0).toLowerCase()}${stem.slice(1)}?`
 }
 
@@ -186,8 +215,14 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
   // items like approve_patch/open_inspector) — closest honest v1 to the
   // brief's "highest-value framing challenge"; an explicit producer
   // framing-question signal is a routed ask.
+  // UI-SEM-078 (hardened): additionally gate on framing relevance
+  // (qualifiesForFramingSlot) — every derived phase-3 block carries a
+  // 'discuss' action, so without the positive gate a max-priority rerun
+  // nudge wins the slot (the production leak).
   const topGuidance = useGuidanceStore((s) => {
-    const items = s.guidanceItems.filter((i) => i.primary_action.type === 'discuss')
+    const items = s.guidanceItems.filter(
+      (i) => i.primary_action.type === 'discuss' && qualifiesForFramingSlot(i),
+    )
     if (items.length === 0) return null
     return items.reduce((best, i) => (i.priority > best.priority ? i : best), items[0])
   })
