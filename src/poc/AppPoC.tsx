@@ -13,6 +13,10 @@ import GraphCanvas from '../components/GraphCanvas'
 import RouteLoadingFallback from '../components/RouteLoadingFallback'
 import { CanvasErrorBoundary } from '../canvas/ErrorBoundary'
 import { AuthProvider } from '../contexts/AuthContext'
+// P1 (external review round 2): gate the DebugPanel MOUNT on the ?diag/env check
+// so the ~250 KB chunk downloads only when diagnostics are requested. This is the
+// SINGLE mount — the duplicate ReactFlowGraph mount was removed.
+import { useShouldShowDebugPanel } from '../components/debug/debugPanelVisibility'
 
 // Lazy-loaded routes for code splitting
 const CanvasMVP = lazy(() => import('../routes/CanvasMVP'))
@@ -100,6 +104,8 @@ const queryClient: any = (QueryClient && typeof QueryClient === 'function')
   : {}
 
 export default function AppPoC() {
+  // P1: the single, gated DebugPanel mount lives here (the app shell).
+  const showDebugPanel = useShouldShowDebugPanel()
   const [build, setBuild] = useState('(unknown)')
   const [edge, setEdge] = useState('/engine')
   const [streamMode, setStreamMode] = useState<'off' | 'simulated'>('off')
@@ -897,15 +903,19 @@ export default function AppPoC() {
       <QueryClientProvider client={queryClient}>
         <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AuthProvider>
-            {/* PR #156 follow-up — debug-export UI mount.
-                Lazy-loaded so the production entry chunk stays untouched.
-                Self-gated by `shouldShowDebugPanel()` (staging-only +
-                `?diag` URL param OR `window.__OLUMI_DEBUG = true`).
-                Renders `null` outside the activation window so it has
-                zero visible cost for normal users. */}
-            <Suspense fallback={null}>
-              <DebugPanel />
-            </Suspense>
+            {/* PR #156 follow-up — debug-export UI mount. P1 (external review
+                round 2): the MOUNT is now gated on useShouldShowDebugPanel() so
+                React.lazy fetches the ~250 KB chunk ONLY when ?diag is set —
+                previously it was mounted unconditionally (self-gated internally),
+                so the chunk downloaded for every visitor and, with ?diag, a
+                duplicate launcher (also mounted by ReactFlowGraph, now removed)
+                overlapped this one. The panel keeps its own gate as defence in
+                depth. This is the single mount, at the app shell. */}
+            {showDebugPanel && (
+              <Suspense fallback={null}>
+                <DebugPanel />
+              </Suspense>
+            )}
             <Suspense fallback={<RouteLoadingFallback />}>
               <CanvasErrorBoundary>
                 <Routes>
