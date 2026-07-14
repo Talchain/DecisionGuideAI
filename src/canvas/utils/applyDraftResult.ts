@@ -157,6 +157,17 @@ export function applyDraftResult(
   useCanvasStore.setState({
     nodes,
     edges,
+    // Lane 5 (review fold, Codex P0-2 class): a draft-graph apply is a
+    // wholesale graph replacement — clear the previous decision's goal
+    // target + its representation + outcome selection so they cannot ride
+    // the new graph's runs. The threshold clear is load-bearing: the
+    // setCeeAnalysisReady below only syncs the DRAFT's own goal_threshold
+    // when the store value is null, so a stale non-null value both dropped
+    // the draft's target AND rode the replacement. The goal node is
+    // auto-selected just below for the single-goal case.
+    goalThreshold: null,
+    goalThresholdRepresentation: null,
+    outcomeNodeId: null,
   })
 
   // Warning-only schema validation at the mutation boundary. Non-throwing —

@@ -24,7 +24,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { executeCanonicalRun } from '../../../canvas/analysis/canonicalRunRegistry'
-import { capForUnit, resolveChipGoalThreshold } from '../../../canvas/hooks/useV2Run'
+import { capForUnit, resolveChipGoalThreshold, resolveActiveGoalNodeId } from '../../../canvas/hooks/useV2Run'
 import { useCanvasStore } from '../../../canvas/store'
 import { typography } from '../../../styles/typography'
 import {
@@ -196,11 +196,9 @@ export function DefineSuccessModal() {
     // to the store AND the goal node's data in one action, so the goal node
     // stops showing "target missing" after a save (the bare setGoalThreshold
     // updated only the global value, leaving the node stale). Falls back to
-    // the global-only setter when no goal node is resolvable.
-    const goalNodeId =
-      (canvas.ceeAnalysisReady?.goal_node_id as string | undefined) ??
-      canvas.nodes.find((n) => n.type === 'goal')?.id ??
-      null
+    // the global-only setter when no goal node is resolvable. Lane 5: the ONE
+    // shared, existence-validated resolver (never commits to a stale id).
+    const goalNodeId = resolveActiveGoalNodeId(canvas)
     if (goalNodeId) {
       canvas.setGoalThresholdAndUpdateNode(goalNodeId, parsedThreshold)
     } else {

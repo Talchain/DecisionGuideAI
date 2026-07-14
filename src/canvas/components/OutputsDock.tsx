@@ -75,7 +75,7 @@ import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../ut
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
-import { useV2Run, resolveChipGoalThreshold, resolveMeasureUnitCap, type V2RunPersistence } from '../hooks/useV2Run'
+import { useV2Run, resolveChipGoalThreshold, resolveMeasureUnitCap, resolveActiveGoalNodeId, type V2RunPersistence } from '../hooks/useV2Run'
 import {
   useSuccessMeasureStore,
   selectSuccessMeasure,
@@ -815,15 +815,18 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
           const storeThreshold = resolveChipGoalThreshold(storeState.goalThreshold, {
             analysisReady: storeState.ceeAnalysisReady,
             nodes: storeState.nodes,
-            goalNodeId:
-              (storeState.ceeAnalysisReady?.goal_node_id as string | undefined) ??
-              storeState.nodes.find((n) => n.type === 'goal')?.id ??
-              null,
+            // Lane 5: one shared goal-node resolution (validated to exist) for
+            // request + cap, so V2 and V5 can never resolve different nodes.
+            goalNodeId: resolveActiveGoalNodeId(storeState),
             // Provenance-guarded (review blocker): the measure's "%" may cap
             // ONLY a store value that came from that measure — the store field
             // also receives capless NORMALISED values from CEE-sync, which a
             // blind ÷100 would shrink 100×.
             unitCap: resolveMeasureUnitCap(savedMeasure, storeState.goalThreshold),
+            // Lane 5 (Codex P0-1): a store value the bare-sync tagged
+            // 'normalised' is already 0-1 — pass it through, never divide by
+            // the node cap (that was the 0.6 → 0.006 live corruption).
+            representation: storeState.goalThresholdRepresentation,
           })
           if (storeThreshold !== undefined) {
             parameters = { goal_threshold: storeThreshold }
@@ -935,11 +938,9 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     const store = useCanvasStore.getState()
     // Codex final-audit B2 — atomic store + goal-node commit (the bare
     // setGoalThreshold updated only the global value, leaving the goal node
-    // showing "target missing" after an apply).
-    const goalNodeId =
-      (store.ceeAnalysisReady?.goal_node_id as string | undefined) ??
-      store.nodes.find((n) => n.type === 'goal')?.id ??
-      null
+    // showing "target missing" after an apply). Lane 5: one shared
+    // goal-node resolution (validated to exist).
+    const goalNodeId = resolveActiveGoalNodeId(store)
     if (goalNodeId) store.setGoalThresholdAndUpdateNode(goalNodeId, threshold)
     else setGoalThreshold(threshold)
     const now = Date.now()
@@ -967,6 +968,9 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       // scale than the saved measure — the "%" cap applies only when the
       // applied value IS the measure's value.
       unitCap: resolveMeasureUnitCap(savedMeasure, threshold),
+      // Lane 5: the inline editor commits a fresh RAW user number → keep the
+      // cap-chain conversion (never treated as pre-normalised).
+      representation: 'raw',
     })
     void runCanonicalAnalysis({
       source: 'apply-threshold',

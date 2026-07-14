@@ -321,6 +321,14 @@ interface CanvasState {
   // The one normalised consumer (PLoT request goal_threshold, 0-1) converts
   // at the boundary in useV2Run (UI-SEM-058).
   goalThreshold: number | null
+  // Lane 5 (Codex P0-1): explicit representation of the goalThreshold scalar.
+  // The field usually holds RAW user units, but the CEE bare-sync can store a
+  // value that is already NORMALISED 0-1 (CEE's goal_threshold with no raw/cap
+  // of its own). Inferring "raw because a cap exists" divided a normalised 0.6
+  // by the goal node's cap 100 → 0.006 on the wire. The request boundary
+  // consults this tag: 'normalised' passes through iff ∈[0,1], never divided;
+  // 'raw' (or null/legacy) keeps the cap-chain conversion.
+  goalThresholdRepresentation: 'raw' | 'normalised' | null
   nextNodeId: number
   nextEdgeId: number
   _internal: { lastHistoryHash: string }
@@ -599,7 +607,10 @@ interface CanvasState {
   // Outcome node
   setOutcomeNode: (nodeId: string | null) => void
   // Goal threshold for probability_of_goal
-  setGoalThreshold: (threshold: number | null, opts?: { fromCeeSync?: boolean }) => void
+  setGoalThreshold: (
+    threshold: number | null,
+    opts?: { fromCeeSync?: boolean; representation?: 'raw' | 'normalised' },
+  ) => void
   /** Unified threshold + node data update. Prefer over calling setGoalThreshold + updateNode separately. */
   setGoalThresholdAndUpdateNode: (goalNodeId: string, value: number | null) => void
   // Results actions
@@ -999,6 +1010,43 @@ const READINESS_CLEAR_FIELDS = {
 } as const
 
 /**
+ * Lane 5 (Codex P0-2): the per-decision "goal context" — target, its
+ * representation, the CEE readiness payload, and the outcome-node selection.
+ * ANY full-context replacement (new scenario load, canvas import, reset)
+ * must clear these, or the previous decision's target / goal node rides the
+ * next decision's runs (the canonical default-attach now sends the store
+ * threshold on every run, so a stale value corrupts the wire). Applied at
+ * hydrateGraphSlice, importCanvas and resetCanvas (incl. the empty-graph
+ * early return). Readiness is also re-restored by loaders that carry their
+ * own analysis, so clearing first is safe.
+ */
+const DECISION_CONTEXT_CLEAR = {
+  goalThreshold: null,
+  goalThresholdRepresentation: null,
+  ceeAnalysisReady: null,
+  ceeAnalysisReadyNodeIds: null,
+  outcomeNodeId: null,
+} as const
+
+/**
+ * Lane 5 (review fold) — the goal/outcome node of a specific graph. On a
+ * full-context replacement the outcome selection must be RE-DERIVED to the
+ * NEW graph's goal node, not cleared to null (leaves the goal selector
+ * empty) and not left stale (a previous scenario's id can collide with a
+ * same-id node in the loaded graph, since reseedIds does not rewrite loaded
+ * ids — resolveActiveGoalNodeId's existence check would then pass on the
+ * wrong node). Returns null when the graph has no goal node.
+ */
+function firstGoalNodeId(
+  nodes: ReadonlyArray<{ id: string; type?: string; data?: unknown }> | undefined,
+): string | null {
+  const goal = nodes?.find(
+    (n) => n.type === 'goal' || (n.data as { type?: string } | undefined)?.type === 'goal',
+  )
+  return goal?.id ?? null
+}
+
+/**
  * Observability hook for constraint passthrough investigation.
  * Logs when goalConstraints are about to be cleared so we can correlate
  * the clearing trigger with the downstream PLoT auto_goal_threshold symptom.
@@ -1227,6 +1275,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   touchedNodeIds: new Set(),
   outcomeNodeId: null,
   goalThreshold: null,
+  goalThresholdRepresentation: null,
   nextNodeId: 1,
   nextEdgeId: 1,
   results: {
@@ -2137,6 +2186,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // overlay (no pending edit applies to a brand-new graph).
       analysisFreshness: null,
       analysisFreshnessDirty: false,
+      // Lane 5 (Codex P0-2): a full import is a new decision context — clear the
+      // target, its representation, readiness and outcome selection so the
+      // imported model never runs against the previous decision's goal state.
+      ...DECISION_CONTEXT_CLEAR,
+      // Review fold: re-derive the outcome selection to the imported graph's
+      // own goal node (the DECISION_CONTEXT_CLEAR null is overridden here).
+      outcomeNodeId: firstGoalNodeId(imported.nodes),
       // Graph Lens: auto-reset on canvas import (full graph replaced)
       lens: createDefaultLensState(),
     })
@@ -2338,7 +2394,19 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   resetCanvas: () => {
     const { nodes, edges } = get()
-    if (nodes.length === 0 && edges.length === 0) return
+    if (nodes.length === 0 && edges.length === 0) {
+      // Lane 5 (Codex P0-2): the graph is already empty, but a previous
+      // decision's threshold / readiness / outcome can still be in the store
+      // (e.g. "start fresh" right after loading a decision) — clearing them
+      // only inside the set() below meant an empty-graph reset LEAKED them
+      // into the next decision's runs. Clear the decision context here too.
+      // (The scenario-keyed success measure needs no clear: its only wire
+      // influence is the unit cap, which resolveMeasureUnitCap gates on
+      // measure.threshold === store.goalThreshold — nulling the threshold
+      // breaks that, so a leaked measure can't cap a cleared value.)
+      set({ ...DECISION_CONTEXT_CLEAR })
+      return
+    }
 
     pushToHistory(get, set)
 
@@ -2354,11 +2422,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       touchedNodeIds: new Set(),
       nextNodeId: 1,
       nextEdgeId: 1,
-      // Clear CEE analysis_ready payload, pipeline trace, quality, and constraints
-      ceeAnalysisReady: null,
+      // Clear CEE analysis_ready payload, pipeline trace, quality, and
+      // constraints. (ceeAnalysisReady + ceeAnalysisReadyNodeIds are cleared
+      // via DECISION_CONTEXT_CLEAR below — Lane 5.)
       analysisFreshness: null,
       analysisFreshnessDirty: false,
-      ceeAnalysisReadyNodeIds: null,
       // V5 canonical analysis fact — clear on scenario reset (the fact does
       // not survive a graph reset; rerun analysis to mint a fresh one).
       v5AnalysisFact: null,
@@ -2376,10 +2444,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Clear results and analysis state
       previousReport: null, // A1: Clear stale deltas on canvas reset
       results: { status: 'idle', progress: 0 },
-      // Lane 1b review fold: the goal threshold is per-decision state — left
-      // standing it rides the NEXT decision's runs (V2 boundary reads it every
-      // run; canonical V5 runs now default-attach it when provable).
-      goalThreshold: null,
+      // Lane 1b/5 review folds: the goal threshold, its representation and the
+      // outcome-node selection are per-decision — left standing they ride the
+      // NEXT decision's runs (the canonical run default-attaches the store
+      // threshold). ceeAnalysisReady/-NodeIds are already cleared above.
+      ...DECISION_CONTEXT_CLEAR,
       runMeta: {},
       hasCompletedFirstRun: false,
       graphEditedSinceLastRun: false,
@@ -2535,13 +2604,20 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // → dirty the freshness overlay on a real change. The CEE-sync caller inside
     // setCeeAnalysisReady passes { fromCeeSync: true } so an ingestion write does
     // NOT self-dirty.
+    // Lane 5: default to 'raw' (every user/editor writer stores raw units); the
+    // bare-sync passes representation: 'normalised' when it stores CEE's already
+    // 0-1 value. A null threshold clears the tag.
     const changed = get().goalThreshold !== threshold
-    set({ goalThreshold: threshold })
+    set({
+      goalThreshold: threshold,
+      goalThresholdRepresentation: threshold == null ? null : opts?.representation ?? 'raw',
+    })
     if (changed && !opts?.fromCeeSync) markAnalysisFreshnessDirty(get, set)
   },
 
   setGoalThresholdAndUpdateNode: (goalNodeId, value) => {
-    set({ goalThreshold: value })
+    // User commit → raw user units (Lane 5).
+    set({ goalThreshold: value, goalThresholdRepresentation: value == null ? null : 'raw' })
     pushToHistory(get, set)
     if (!get().nodes.some(n => n.id === goalNodeId)) {
       // The whole point of this action is the atomic store+node pair (Codex
@@ -3120,12 +3196,18 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Composer draft is scoped to a scenario — clear it on switch so a draft
       // for "buy vs build" can't bleed into "hire vs contract".
       draftComposerText: null,
-      // Lane 1b review fold: the goal threshold is per-decision — the previous
-      // scenario's target must not ride this scenario's runs (the V2 boundary
-      // reads it every run; canonical V5 runs default-attach it when provable).
-      // The CEE-sync (bare goal_threshold on analysis_ready ingestion) or a
-      // fresh user commit repopulates it for THIS scenario.
+      // Lane 1b/5 review folds: the goal threshold is per-decision — the
+      // previous scenario's target must not ride this scenario's runs (the V2
+      // boundary reads it every run; canonical V5 runs default-attach it). The
+      // CEE-sync (bare goal_threshold on analysis_ready ingestion) or a fresh
+      // user commit repopulates the threshold for THIS scenario.
       goalThreshold: null,
+      goalThresholdRepresentation: null,
+      // loadScenario restores ceeAnalysisReady below, but outcomeNodeId is
+      // NEITHER persisted NOR restored (review fold: the earlier comment was
+      // wrong) — re-derive it to the LOADED graph's goal node so a stale id
+      // from the previous scenario cannot collide with a same-id node here.
+      outcomeNodeId: firstGoalNodeId(nodes),
     })
 
     // Exit comparison mode when switching scenarios (lives in useComparisonStore as of C3-3)
@@ -3452,6 +3534,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       draftChatPreDraftSnapshot: null,
       // Clear full readiness bundle + pipeline trace on draft undo
       ...READINESS_CLEAR_FIELDS,
+      // Lane 5 (review fold): undo reverts to the pre-draft graph — the
+      // drafted decision's target must not survive onto it. Clear the
+      // threshold pair (consistent with clearing readiness above) and
+      // re-derive the outcome selection to the reverted graph's goal node.
+      goalThreshold: null,
+      goalThresholdRepresentation: null,
+      outcomeNodeId: firstGoalNodeId(draftChatPreDraftSnapshot.nodes),
       // Verdict is retained → reverted graph no longer matches it → dirty overlay.
       analysisFreshnessDirty: true,
       ceePipelineTrace: null,
@@ -3487,22 +3576,36 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // the goalThreshold field comment). goal_threshold is normalised 0-1 — syncing
       // it here painted the Results target line at 0.8 when the real target was
       // 20% (staging trust review, 2026-07). When raw is absent but a cap exists,
-      // derive raw from the producer's own pair (norm × cap) — storing the bare
-      // normalised value beside a cap would double-normalise at the request
-      // boundary (0.8/25 → 0.032). Bare goal_threshold is stored only capless,
-      // where raw ≡ normalised by construction.
+      // derive raw from the producer's own pair (norm × cap) — a genuine RAW
+      // value. When neither raw nor an analysis_ready cap exists, the value is
+      // bare NORMALISED 0-1 — Lane 5 (Codex P0-1) TAGS it 'normalised' rather
+      // than storing it as raw: the old code assumed "capless ⇒ raw ≡
+      // normalised", but the GOAL NODE can carry a cap the request boundary
+      // then divides by (0.6 / 100 → 0.006 on the live wire). The explicit tag
+      // makes the request boundary pass a normalised value through untouched.
       const ceeRaw = (analysisReady as any).goal_threshold_raw
       const ceeNorm = (analysisReady as any).goal_threshold
       const ceeCap = (analysisReady as any).goal_threshold_cap
-      const ceeThreshold = ceeRaw ?? (
-        typeof ceeNorm === 'number' && typeof ceeCap === 'number' && Number.isFinite(ceeCap) && ceeCap > 0
-          ? ceeNorm * ceeCap
-          : ceeNorm
-      )
+      const hasCap = typeof ceeCap === 'number' && Number.isFinite(ceeCap) && ceeCap > 0
+      let ceeThreshold: number | null | undefined
+      let ceeRepresentation: 'raw' | 'normalised'
+      if (ceeRaw != null) {
+        ceeThreshold = ceeRaw
+        ceeRepresentation = 'raw'
+      } else if (typeof ceeNorm === 'number' && hasCap) {
+        ceeThreshold = ceeNorm * ceeCap // derived raw from the producer's own pair
+        ceeRepresentation = 'raw'
+      } else {
+        ceeThreshold = ceeNorm // bare, already 0-1
+        ceeRepresentation = 'normalised'
+      }
       if (ceeThreshold != null && get().goalThreshold == null) {
         // Producer write (syncing the threshold FROM the analysis) — must not
         // self-dirty the freshness overlay.
-        get().setGoalThreshold(typeof ceeThreshold === 'number' ? ceeThreshold : Number(ceeThreshold), { fromCeeSync: true })
+        get().setGoalThreshold(
+          typeof ceeThreshold === 'number' ? ceeThreshold : Number(ceeThreshold),
+          { fromCeeSync: true, representation: ceeRepresentation },
+        )
       }
       // Persist to sessionStorage for tab-refresh survival (with node IDs for validation)
       try {
@@ -4404,6 +4507,17 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // dirty overlay so neither leaks from the previous graph/scenario.
       updates.analysisFreshness = null
       updates.analysisFreshnessDirty = false
+      // Lane 5 (Codex P0-2): this is the PRODUCTION scenario-load path
+      // (useScenario → hydrateGraphSlice). Before this, it cleared freshness
+      // but RETAINED goalThreshold / ceeAnalysisReady / outcomeNodeId, so the
+      // canonical default-attach could send the previous decision's target on
+      // the newly-loaded scenario's run. The Supabase loader does NOT restore
+      // these afterwards (review fold: the earlier claim was wrong) — so the
+      // threshold/readiness are cleared and the outcome selection is
+      // RE-DERIVED to the loaded graph's own goal node (not left null, which
+      // empties the goal selector, nor left stale).
+      Object.assign(updates, DECISION_CONTEXT_CLEAR)
+      updates.outcomeNodeId = firstGoalNodeId(loaded.nodes)
     }
 
     // Apply updates without clobbering panels/results/other slices

@@ -97,6 +97,34 @@ export function normaliseGoalThresholdForRequest(
 }
 
 /**
+ * Lane 5 (Codex P1) — the ONE goal-node resolution used for request
+ * construction, cap lookup and threshold commitment across V2 and V5, so the
+ * legs can never resolve different nodes. Precedence: the CEE-certified
+ * `analysis_ready.goal_node_id`, then the store's `outcomeNodeId`, then the
+ * first goal node — but each candidate is validated to EXIST in the current
+ * graph, so a stale `outcomeNodeId` (retained across a scenario replacement)
+ * is skipped rather than silently resolved to a reseeded-away id.
+ *
+ * Before this, the V2 cap used `outcomeNodeId` while the adapter + V5 chip
+ * preferred `analysis_ready.goal_node_id`: with divergent ids and caps, V2
+ * could normalise against one node's cap while the request named the other.
+ */
+export function resolveActiveGoalNodeId(state: {
+  ceeAnalysisReady?: { goal_node_id?: string | null } | null
+  outcomeNodeId?: string | null
+  nodes: ReadonlyArray<{ id: string; type?: string; data?: unknown }>
+}): string | null {
+  const exists = (id: string | null | undefined): id is string =>
+    !!id && state.nodes.some((n) => n.id === id)
+  if (exists(state.ceeAnalysisReady?.goal_node_id)) return state.ceeAnalysisReady!.goal_node_id!
+  if (exists(state.outcomeNodeId)) return state.outcomeNodeId!
+  const goalNode = state.nodes.find(
+    (n) => n.type === 'goal' || (n.data as { type?: string } | undefined)?.type === 'goal',
+  )
+  return goalNode?.id ?? null
+}
+
+/**
  * Resolve the goal-threshold scale cap for the request boundary using the
  * SAME fallback chain the display path uses (useResultsSectionData
  * goalThresholdCap: analysis_ready first, then the goal node's data — CEE
@@ -171,6 +199,13 @@ export function resolveMeasureUnitCap(
  * yields no cap — live staging drafts carry neither `goal_threshold_cap` nor
  * `scale_max`, which silently swallowed every %-unit target (V-P0-1,
  * 2026-07-13 wire evidence).
+ *
+ * ctx.representation (Lane 5, Codex P0-1) makes the value's UNITS EXPLICIT
+ * rather than inferred from cap availability. A value tagged 'normalised'
+ * (the store's bare-sync writes CEE's already-0-1 goal_threshold) is passed
+ * through iff ∈[0,1] and NEVER divided by any cap — inferring "raw because a
+ * cap exists" divided a normalised 0.6 by the node's cap 100 → 0.006. A
+ * 'raw' or absent tag keeps the cap-chain conversion (backward compatible).
  */
 export function resolveChipGoalThreshold(
   rawThreshold: number | null | undefined,
@@ -179,8 +214,14 @@ export function resolveChipGoalThreshold(
     nodes: ReadonlyArray<{ id: string; data?: unknown }>
     goalNodeId: string | null | undefined
     unitCap?: number
+    representation?: 'raw' | 'normalised' | null
   },
 ): number | undefined {
+  // Lane 5: an explicitly-normalised value is already 0-1 — validate and
+  // pass through, never apply a cap (cap division is a raw→normalised op).
+  if (ctx.representation === 'normalised') {
+    return normaliseGoalThresholdForRequest(rawThreshold, undefined)
+  }
   const chainCap = resolveGoalThresholdCap(ctx.analysisReady, ctx.nodes, ctx.goalNodeId)
   const unitCap =
     typeof ctx.unitCap === 'number' && Number.isFinite(ctx.unitCap) && ctx.unitCap > 0
@@ -324,6 +365,7 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       edges,
       outcomeNodeId,
       goalThreshold,
+      goalThresholdRepresentation,
       currentScenarioFraming: framing,
       ceeAnalysisReady,
       ceeAnalysisReadyNodeIds,
@@ -558,25 +600,30 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       // P0 Fix: Pass computed seed to avoid hardcoded "42" default
       // Audit F-01: framing removed from PLoT request (PLoT rejects it with 400).
       // P0 Fix: Include brief for PLoT context
-      // UI-SEM-058: the store threshold is raw user units; the request wants
-      // normalised 0-1. Convert against the resolved cap (analysis_ready, then
-      // the goal node's data — the same chain the display path uses).
-      // UI-SEM-081 (review fold): the saved measure's unit is the last-resort
-      // cap here too — otherwise the V2 fallback DISAGREES with the V5 chip
-      // legs and clears the very %-target the chip carries. Provenance-guarded.
-      const goalThresholdCap = resolveGoalThresholdCap(
-        effectiveAnalysisReady as { goal_threshold_cap?: unknown } | null,
-        nodes,
-        outcomeNodeId,
-      )
+      // Lane 5: the V2 leg resolves the threshold through the SAME function as
+      // the V5 chip legs (resolveChipGoalThreshold) so the two can never
+      // disagree — same goal-node resolution (validated to exist), same cap
+      // chain (analysis_ready → node → saved-measure unit, provenance-guarded),
+      // and the same representation short-circuit (a bare-synced 'normalised'
+      // value passes through, never divided by the node cap → the 0.6/100 =
+      // 0.006 live corruption). UI-SEM-058/081 semantics preserved.
+      // Lane 5 (Codex P1): resolve the goal node ONCE and use it for BOTH the
+      // cap lookup and the request's outcome/goal node, so the threshold can
+      // never be normalised against one node's cap while the request names
+      // another. Prefers analysis_ready.goal_node_id (what the adapter also
+      // prefers), validates existence, falls back to outcome/first-goal.
+      const activeGoalNodeId = resolveActiveGoalNodeId(useCanvasStore.getState())
       const measureForScenario = selectSuccessMeasure(
         useSuccessMeasureStore.getState(),
         resolveScenarioKey(useCanvasStore.getState().currentScenarioId),
       )
-      const normalisedGoalThreshold = normaliseGoalThresholdForRequest(
-        goalThreshold,
-        goalThresholdCap ?? resolveMeasureUnitCap(measureForScenario, goalThreshold),
-      )
+      const normalisedGoalThreshold = resolveChipGoalThreshold(goalThreshold, {
+        analysisReady: effectiveAnalysisReady as { goal_threshold_cap?: unknown } | null,
+        nodes,
+        goalNodeId: activeGoalNodeId,
+        unitCap: resolveMeasureUnitCap(measureForScenario, goalThreshold),
+        representation: goalThresholdRepresentation,
+      })
       // A store threshold that EXISTS but cannot be proven normalised must
       // CLEAR the request threshold (null → adapter deletes the builder's
       // baked analysisReady.goal_threshold): the baked value predates the
@@ -595,7 +642,8 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
         nodes,
         edges,
         effectiveAnalysisReady,
-        outcomeNodeId,
+        // Lane 5 (Codex P1): the SAME resolved goal node the cap used above.
+        activeGoalNodeId ?? outcomeNodeId,
         requestId,
         requestGoalThreshold,
         seed,
