@@ -188,6 +188,16 @@ export function mergeAppliedGraphAdditive(
     analysisStateReady: false,
   })
 
+  // The freshness surfaces (AnalysisFreshnessNotice + useAnalysisDisplayState)
+  // read the CEE verdict + the analysisFreshnessDirty overlay — NOT
+  // graphEditedSinceLastRun above. Without this mark, a confirmed
+  // conversational edit lands nodes on the canvas while the banner keeps
+  // claiming "Analysis reflects the current model" — a false currency claim
+  // sitting next to CEE's own "run the analysis again" (reproduced live on
+  // staging, 2026-07-16). Every other mutation path (applyDraftResult, the
+  // edit chokepoints, commitValidatedMutation) already marks this.
+  useCanvasStore.getState().markAnalysisFreshnessDirty?.()
+
   // Warning-only schema validation on the added nodes (mirrors applyDraftResult).
   validateNodesBatch(addedNodes)
 

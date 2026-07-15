@@ -309,4 +309,44 @@ describe('mergeAppliedGraphAdditive — review fixups (edge-pair self-dedupe, st
     expect(useCanvasStore.getState().graphEditedSinceLastRun).toBe(true)
     expect(useCanvasStore.getState().analysisStateReady).toBe(false)
   })
+
+  it('marks the freshness overlay dirty on a structural add — the banner must never keep claiming currency', () => {
+    // Reproduced live on staging (2026-07-16): a chat edit confirmed via
+    // "yes" merged a new risk node through THIS path while the analysis
+    // banner kept showing "Analysis reflects the current model" — because the
+    // merge set only the legacy graphEditedSinceLastRun flag, which no
+    // freshness surface reads. The surfaces read the CEE verdict + the
+    // analysisFreshnessDirty overlay, so the merge must mark the overlay like
+    // every other mutation path does (applyDraftResult, edit chokepoints,
+    // commitValidatedMutation).
+    // MUTATION-CHECK: remove the markAnalysisFreshnessDirty call from
+    // mergeAppliedGraphAdditive's commit block and this test goes RED.
+    useCanvasStore.setState({ analysisFreshnessDirty: false } as any)
+
+    mergeAppliedGraphAdditive({
+      nodes: [
+        { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+        { id: 'factor-1', kind: 'factor', label: 'Spend' },
+        { id: 'risk-new', kind: 'risk', label: 'Key engineer quits' },
+      ],
+      edges: [],
+    } as any)
+
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
+  })
+
+  it('does NOT dirty the freshness overlay on a nothing-new receipt (strict no-op stays a no-op)', () => {
+    useCanvasStore.setState({ analysisFreshnessDirty: false } as any)
+
+    const result = mergeAppliedGraphAdditive({
+      nodes: [
+        { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+        { id: 'factor-1', kind: 'factor', label: 'Spend' },
+      ],
+      edges: [],
+    } as any)
+
+    expect(result).toEqual({ addedNodeCount: 0, addedEdgeCount: 0 })
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
+  })
 })
