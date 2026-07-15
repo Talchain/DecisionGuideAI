@@ -384,6 +384,81 @@ describe('useNodeDisplayMetadata — influenceProvenance (lane C4)', () => {
   })
 })
 
+// ---------------------------------------------------------------------------
+// C4 fix 2 (adversarial review, verifier-reproduced): the hook must consume
+// THE SAME row feed as the Drivers panel (selectDriverPolicyFeed — the
+// five-source merge that KEEPS metric-less rows), or the coverage verdict
+// forks per surface: the panel keeps a metric-less row (coverage incomplete →
+// set-relative fallback for ALL rows) while the hook's old private feed
+// dropped it via extractPolicyRow (coverage complete → absolute producer
+// scale) — the pill said "absolute" while the panel said "relative, top
+// always 100%" for the SAME report.
+// ---------------------------------------------------------------------------
+describe('useNodeDisplayMetadata — unified row feed (C4 fix 2)', () => {
+  it('review fixture: a metric-less row flips coverage for the canvas exactly as it does for the panel', () => {
+    // Row B carries only confidence — no id-less drop, no finite metric. The
+    // panel keeps it (rawElasticity defaults to 0), so producer coverage is
+    // INCOMPLETE and every row falls back to set-relative normalisation:
+    // A displays 1.0 on 'normalised_elasticity', NOT 0.6 on 'influence_score'.
+    mockState = {
+      results: {
+        status: 'complete',
+        report: makeReport({
+          factor_sensitivity: [
+            { factor_id: 'A', influence_score: 0.6, elasticity: 0.5 },
+            { factor_id: 'B', confidence: 0.7 },
+          ],
+        }),
+      },
+    }
+    const { result } = renderHook(() => useNodeDisplayMetadata('A', 'factor'))
+    expect(result.current.influenceProvenance).toBe('normalised_elasticity')
+    expect(result.current.influence).toBe(1)
+  })
+
+  it('review fixture: the metric-less row itself stays in the analysis set with a zero display value', () => {
+    mockState = {
+      results: {
+        status: 'complete',
+        report: makeReport({
+          factor_sensitivity: [
+            { factor_id: 'A', influence_score: 0.6, elasticity: 0.5 },
+            { factor_id: 'B', confidence: 0.7 },
+          ],
+        }),
+      },
+    }
+    const { result } = renderHook(() => useNodeDisplayMetadata('B', 'factor'))
+    expect(result.current.inSensitivityAnalysis).toBe(true)
+    expect(result.current.confidence).toBeCloseTo(0.7)
+    expect(result.current.influence).toBe(0)
+    expect(result.current.influenceProvenance).toBe('normalised_elasticity')
+  })
+
+  it('drivers_payload-only report: the canvas sees the rows the panel renders (same verdict both surfaces)', () => {
+    // No factor_sensitivity at all — the panel's merge picks the rows up from
+    // report.drivers_payload.drivers; the hook's old private feed saw nothing.
+    mockState = {
+      results: {
+        status: 'complete',
+        report: makeReport({
+          drivers_payload: {
+            drivers: [
+              { node_id: 'X', elasticity: 0.7 },
+              { node_id: 'Y', elasticity: 0.35 },
+            ],
+          },
+        }),
+      },
+    }
+    const { result } = renderHook(() => useNodeDisplayMetadata('X', 'factor'))
+    expect(result.current.inSensitivityAnalysis).toBe(true)
+    expect(result.current.sensitivityRank).toBe(1)
+    expect(result.current.influence).toBe(1)
+    expect(result.current.influenceProvenance).toBe('normalised_elasticity')
+  })
+})
+
 describe('useNodeDisplayMetadata — partial influence coverage (P0-2)', () => {
   it('ranks by `sensitivity` magnitude, not alphabetically, when influence_score coverage is partial', () => {
     // A carries influence_score but a SMALL sensitivity; B carries only a LARGE

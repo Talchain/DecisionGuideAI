@@ -453,6 +453,149 @@ export function buildWorthInvestigatingIdSet(voiSuggestions: unknown): Set<strin
 }
 
 // =============================================================================
+// Shared driver policy feed (C4 fix 2 — ONE row feed for every surface)
+// =============================================================================
+
+/** Policy input for one merged driver row (same index as `rawFactors`). */
+export interface DriverPolicyRow {
+  /** Canonical factor key (getFactorKey over the normalised row). */
+  key: string
+  /** Producer influence score — snake-case wire field only; undefined when absent. */
+  influenceScore: number | undefined
+  /** Resolved magnitude (normaliseFactorSensitivity chain; 0 when absent). */
+  rawElasticity: number
+  /** Factor confidence (0-1) when the wire carried one. */
+  confidence: number | null
+  /** value_of_information (snake or camel wire field) when present. */
+  valueOfInformation: number | undefined
+}
+
+export interface DriverPolicyFeed {
+  /** Merged + de-duped raw rows (sources 1-5, panel reference order). */
+  rawFactors: RawFactorSensitivity[]
+  /** Policy input per raw row (same index as rawFactors). */
+  policyRows: DriverPolicyRow[]
+  /** THE resolved display model every surface renders AND ranks from. */
+  displayModel: ReturnType<typeof selectDriverDisplayModel>
+}
+
+const EMPTY_DRIVER_POLICY_FEED: DriverPolicyFeed = Object.freeze({
+  rawFactors: [],
+  policyRows: [],
+  displayModel: new Map(),
+})
+
+/** Labels play no part in policy keys/metrics (getFactorKey resolves ids
+ * before labels, and the label-map fallback needs an id anyway), so the feed
+ * normalises with an empty map; the panel re-normalises with the real
+ * nodeLabelMap for display labels only. */
+const EMPTY_NODE_LABEL_MAP = new Map<string, string>()
+
+/** Per-report memo (C4 review: memoise per REPORT, not per node — the canvas
+ * hook runs once per node and must not rebuild the merge each time). */
+const driverPolicyFeedCache = new WeakMap<object, DriverPolicyFeed>()
+
+/**
+ * The panel's five-source row merge, extracted VERBATIM into a pure function
+ * so the Drivers panel and the canvas hook (useNodeDisplayMetadata) consume
+ * the SAME rows (build-brief §12.4 single-selector doctrine).
+ *
+ * C4 fix 2 (adversarial review, verifier-reproduced): sharing the policy
+ * FUNCTION (selectDriverDisplayModel) was not enough — the hook fed it a
+ * private factor_sensitivity-only feed that DROPPED metric-less rows
+ * (extractPolicyRow), while the panel's merge KEEPS them. The coverage
+ * verdict (producer scores adopted only when EVERY row carries one) then
+ * flipped per surface, so the canvas pill disclosed "absolute" while the
+ * panel disclosed "relative, top always 100%" for the SAME report. The feed
+ * being shared makes that fork impossible.
+ *
+ * Note the merge deliberately KEEPS rows with no finite metric: their absence
+ * of a producer score IS the signal that flips the whole set onto the
+ * comparable fallback basis.
+ */
+export function selectDriverPolicyFeed(
+  report: ResultsReport | null | undefined,
+): DriverPolicyFeed {
+  if (!report || typeof report !== 'object') return EMPTY_DRIVER_POLICY_FEED
+  const cached = driverPolicyFeedCache.get(report)
+  if (cached) return cached
+
+  // Collect raw factors from multiple sources (moved from the drivers memo)
+  const rawFactors: RawFactorSensitivity[] = []
+
+  // Source 1: factor_sensitivity (PLoT v2)
+  const factorSensitivity = report.factor_sensitivity || []
+  factorSensitivity.forEach((f: RawFactorSensitivity) => rawFactors.push(f))
+
+  // Precompute keys in a Set for O(1) duplicate detection
+  const seenKeys = new Set<string>()
+  rawFactors.forEach((f, index) => seenKeys.add(getFactorKey(f, index)))
+
+  // Source 2: drivers array (legacy) — canonical de-dupe via getFactorKey
+  const legacyDrivers = report.drivers || []
+  legacyDrivers.forEach((d, idx: number) => {
+    const candidate: RawFactorSensitivity = {
+      node_id: d.nodeId,
+      id: (d as { id?: string }).id,
+      label: d.label,
+      sensitivity: d.contribution,
+      direction: d.polarity === 'down' ? 'negative' : 'positive',
+    }
+    const key = getFactorKey(candidate, rawFactors.length + idx)
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key)
+      rawFactors.push(candidate)
+    }
+  })
+
+  // Source 3: drivers_payload
+  const driversPayload = report.drivers_payload?.drivers || []
+  driversPayload.forEach((pd: RawFactorSensitivity, idx: number) => {
+    const key = getFactorKey(pd, rawFactors.length + idx)
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key)
+      rawFactors.push(pd)
+    }
+  })
+
+  // Source 4: sensitivity.factors (alternative path)
+  const sensitivityFactors = report.sensitivity?.factors || []
+  sensitivityFactors.forEach((sf, idx: number) => {
+    const key = getFactorKey(sf as RawFactorSensitivity, rawFactors.length + idx)
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key)
+      rawFactors.push(sf as RawFactorSensitivity)
+    }
+  })
+
+  // Source 5: factors array (direct)
+  const directFactors = report.factors || []
+  directFactors.forEach((df, idx: number) => {
+    const key = getFactorKey(df as RawFactorSensitivity, rawFactors.length + idx)
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key)
+      rawFactors.push(df as RawFactorSensitivity)
+    }
+  })
+
+  const policyRows: DriverPolicyRow[] = rawFactors.map((f, index) => {
+    const norm = normalizeFactorSensitivity(f, EMPTY_NODE_LABEL_MAP)
+    return {
+      key: getFactorKey(norm, index),
+      influenceScore: norm.influenceScore,
+      rawElasticity: getRawElasticity(norm),
+      confidence: norm.confidence,
+      valueOfInformation: norm.valueOfInformation,
+    }
+  })
+
+  const displayModel = selectDriverDisplayModel(policyRows)
+  const feed: DriverPolicyFeed = { rawFactors, policyRows, displayModel }
+  driverPolicyFeedCache.set(report, feed)
+  return feed
+}
+
+// =============================================================================
 // Dynamic Normalisation (CRITICAL: Fix for arbitrary div-by-2)
 // =============================================================================
 
