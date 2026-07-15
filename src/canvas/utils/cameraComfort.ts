@@ -98,6 +98,19 @@ export interface FocusCamera {
   paneWidth: number
   paneHeight: number
   insets: ComfortInsets
+  /**
+   * SAME-FRAME RULE: the padding the gated fit MUST pass to fitView, derived
+   * from the very computeFitPadding call `insets` was parsed from. The gate
+   * (nodesComfortablyVisible, via `insets`) and the fit it gates therefore
+   * measure against ONE frame.
+   *
+   * A bare-number padding here would reintroduce the bug this field exists to
+   * kill: bare numbers are a FRACTION of the full pane (see computeFitPadding),
+   * so the gate would ask "is the target clear of the expanded dock?" and the
+   * fit would then frame against the whole pane and re-park it under that same
+   * dock — the camera moves and the target is still occluded.
+   */
+  padding: FitPadding
 }
 
 /**
@@ -111,10 +124,13 @@ export function readFocusCamera(getViewport: () => ViewportLike): FocusCamera | 
   const el = document.querySelector('.react-flow')
   const rect = el?.getBoundingClientRect()
   if (!rect || rect.width <= 0 || rect.height <= 0) return null
+  // ONE measurement feeds both the gate (insets) and the fit (padding).
+  const padding = computeFitPadding(el)
   return {
     viewport: getViewport(),
     paneWidth: rect.width,
     paneHeight: rect.height,
-    insets: paddingToInsets(computeFitPadding(el)),
+    insets: paddingToInsets(padding),
+    padding,
   }
 }

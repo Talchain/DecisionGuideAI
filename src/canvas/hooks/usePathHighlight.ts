@@ -63,6 +63,15 @@ export function usePathHighlight(): void {
   // Using primitive count to avoid reference-based re-renders
   const edgeCount = useCanvasStore((s) => s.edges.length)
 
+  // F3 (graph-visuals): the focus dim BORROWS dimmedNodeIds from the path dim,
+  // so this hook must re-run when that ownership changes — in particular when
+  // the focus lens is ended from OUTSIDE (a camera move, an edge focus, the
+  // focused node being removed) with the selection unchanged. Without this dep
+  // nothing below re-runs on that path, and clearFocusDim's wipe of
+  // dimmedNodeIds would leave the selected node's path dim gone for good.
+  // Primitive selector (React #185 rule above).
+  const focusDimSourceId = useCanvasStore((s) => s.focusDimSourceId)
+
   useEffect(() => {
     // Access store actions and state via getState() to avoid dependency array issues
     const {
@@ -71,7 +80,6 @@ export function usePathHighlight(): void {
       setHighlightedEdges,
       setDimmedNodes,
       ceeAnalysisReady,
-      focusDimSourceId,
       clearFocusDim,
     } = useCanvasStore.getState()
 
@@ -81,6 +89,12 @@ export function usePathHighlight(): void {
     // away — deselect, multi-select, reselect another node — the focus dim
     // is cleared HERE, so it can never survive after focus ends, and normal
     // path dimming resumes.
+    //
+    // When the lens is instead ended from OUTSIDE with the selection intact
+    // (camera move / edge focus / focused node removed), focusDimSourceId
+    // drops to null and re-runs this effect: ownership returns here and the
+    // path dim below is recomputed, so ending the lens RESTORES the selected
+    // node's path dim rather than leaving the graph permanently undimmed.
     const focusDimOwnsDimming =
       focusDimSourceId !== null && selectionSize === 1 && selectedId === focusDimSourceId
     if (focusDimSourceId !== null && !focusDimOwnsDimming) {
@@ -149,7 +163,7 @@ export function usePathHighlight(): void {
 
     // No cleanup needed - we want highlights to persist until selection changes
     // The next effect run will update or clear highlights as appropriate
-  }, [selectionSize, selectedId, goalNodeId, edgeCount])
+  }, [selectionSize, selectedId, goalNodeId, edgeCount, focusDimSourceId])
 }
 
 export default usePathHighlight

@@ -15,6 +15,7 @@ import { LodSync } from './components/LodSync'
 import { cameraDuration } from './utils/cameraMotion'
 import { computeFocusPlan } from './utils/focusNeighbourhood'
 import { readFocusCamera, nodesComfortablyVisible } from './utils/cameraComfort'
+import { createFocusFitSuppressor } from './utils/focusLens'
 import { useMeasureThenLayout } from './hooks/useMeasureThenLayout'
 import { useFitViewOnLayoutVersion } from './hooks/useFitViewOnLayoutVersion'
 import { nodeTypes } from './nodes/registry'
@@ -373,6 +374,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const prefersReducedMotion = usePrefersReducedMotion()
   const reducedMotionRef = useRef(prefersReducedMotion)
   reducedMotionRef.current = prefersReducedMotion
+
+  // F3: lets handleMoveStart tell focus's OWN fit (keep the lens) apart from
+  // every other camera move, including the app's own zoom/fit buttons, which
+  // are user actions that reach ReactFlow programmatically (see focusLens).
+  const focusFitSuppressorRef = useRef(createFocusFitSuppressor())
 
   // Canvas control actions from store
   const undo = useCanvasStore(s => s.undo)
@@ -890,12 +896,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     // F2 + F3 (graph-visuals): the whole focus decision is the pure
     // computeFocusPlan (pinned in focusNeighbourhood.spec.ts); this handler
     // only applies it — select → dim → conditionally fit.
-    const plan = computeFocusPlan(
-      nodeId,
-      store.nodes,
-      store.edges,
-      readFocusCamera(getViewportRef.current),
-    )
+    // SAME-FRAME RULE (F2/F4): one camera measurement decides BOTH whether to
+    // move and, below, the frame to move into — a gate that measures against
+    // the panel-aware frame must not hand off to a fit that frames against the
+    // full pane, or an occluded target stays occluded after the camera moves.
+    const camera = readFocusCamera(getViewportRef.current)
+    const plan = computeFocusPlan(nodeId, store.nodes, store.edges, camera)
     if (!plan) return // fail-closed: id not on the canvas
 
     // Select node WITHOUT pushing to history (navigation-only, not structural change)
@@ -914,9 +920,16 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     // comfortably visible the camera does NOT move (cameraComfort).
     if (plan.moveCamera) {
       const focusNodes = store.nodes.filter(n => plan.focusNodeIds.has(n.id))
+      // F3: this move is focus's own — it must not clear the dim it just set.
+      // Armed here rather than inferred from the move's event, so the app's
+      // own camera buttons (also programmatic) still end the lens.
+      focusFitSuppressorRef.current.begin()
       fitViewRef.current({
         nodes: focusNodes,
-        padding: 0.3,
+        // Same panel-aware frame the no-churn gate just measured against.
+        // Falls back to the old bare-number padding only when the camera is
+        // unmeasurable — which is exactly when the gate fails open and fits.
+        padding: camera?.padding ?? 0.3,
         maxZoom: 1.2,
         duration: cameraDuration(400, reducedMotionRef.current),
       })
@@ -948,6 +961,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         selected: e.id === edgeId
       }))
     })
+
+    // F3: focusing an EDGE ends any node focus lens. This pans the camera away
+    // from the focused node, and the dim must never survive the frame it was
+    // built for. Cleared explicitly rather than left to the setCenter's
+    // move-start below, because a setCenter that does not actually move the
+    // camera emits no move at all. No-op when no focus dim is active.
+    useCanvasStore.getState().clearFocusDim()
 
     // Center viewport on edge midpoint with smooth animation
     const viewport = getViewportRef.current()
@@ -988,7 +1008,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     }
     fitViewRef.current({
       nodes: targets,
-      padding: 0.25,
+      // Same panel-aware frame the no-churn gate above measured against (see
+      // the SAME-FRAME RULE on FocusCamera.padding). A bare number here framed
+      // against the full pane, so a pulse target under an expanded dock got a
+      // camera move that left it under the dock. Bare-number fallback only
+      // when unmeasurable — the case where the gate already fails open.
+      padding: camera?.padding ?? 0.25,
       maxZoom: 1.5,
       duration: cameraDuration(400, reducedMotionRef.current),
     })
@@ -997,14 +1022,20 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     return registerFitNodes(handleFitNodes)
   }, [handleFitNodes])
 
-  // F3 (graph-visuals): a USER-initiated pan/zoom ends the focus lens — the
-  // transient focus dim must never outlive the user taking the camera back.
-  // ReactFlow passes the originating gesture event for user moves and null
-  // for programmatic ones (our own fitView/setCenter), so focus's own camera
-  // move never clears the dim it just set. clearFocusDim is a no-op unless a
-  // focus dim is active, so ordinary panning stays free of store churn.
-  const handleMoveStart = useCallback((event: unknown) => {
-    if (event) useCanvasStore.getState().clearFocusDim()
+  // F3 (graph-visuals): ANY camera move ends the focus lens — the transient
+  // dim must never outlive the frame it was built for — EXCEPT the fit focus
+  // itself just ordered.
+  //
+  // This deliberately does NOT filter on the move's event. ReactFlow passes
+  // the gesture for a user drag/wheel and null for a programmatic move, but
+  // the app's own zoom/reset/fit buttons pan programmatically too: an
+  // `if (event)` test swallows them and strands a stale dim over a reframed
+  // camera. The suppressor (armed only around focus's own fit) is the correct
+  // discriminator. clearFocusDim is a no-op unless a focus dim is active, so
+  // ordinary panning stays free of store churn.
+  const handleMoveStart = useCallback(() => {
+    if (focusFitSuppressorRef.current.consume()) return
+    useCanvasStore.getState().clearFocusDim()
   }, [])
 
   // Graph Interaction P1: Enable path highlighting based on node selection

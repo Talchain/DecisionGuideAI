@@ -1,17 +1,25 @@
 /**
  * F1 (graph-visuals) — "one guard, EVERY call site" enforced structurally.
  *
- * Every ANIMATED viewport move (`duration: <non-zero literal>` in an options
- * object) under src/canvas must route through cameraMotion.cameraDuration so
- * prefers-reduced-motion collapses it to an instant jump. A hardcoded
- * non-zero duration literal is exactly the class of regression that shipped
- * three unguarded sites past #274 (CanvasToolbar's fit button and both
- * useValidationFeedback setCenter calls) — this scan makes the next one fail
- * a test instead of a motion-sensitive user.
+ * THE RULE: every camera move under src/canvas (fitView / setCenter /
+ * setViewport / zoomIn / zoomOut / zoomTo) must express its `duration` as
+ * either `cameraDuration(...)` — the single reduced-motion guard — or the
+ * literal `0` (an instant jump is already reduced-motion-safe). Omitting
+ * `duration` is fine: xyflow defaults to an instant move.
  *
- * Scope: all non-test .ts/.tsx under src/canvas. `duration: 0` is exempt
- * (an instant jump is already reduced-motion-safe), as are comment lines and
- * non-literal durations (cameraDuration(...) calls, *_DURATION_MS constants).
+ * ANY OTHER duration expression is a violation, INCLUDING a named constant.
+ * The earlier version of this scan matched only `duration:\s*[1-9]` and its
+ * docstring waved through "non-literal durations (*_DURATION_MS constants)" —
+ * so `duration: FOCUS_MS` sailed past the very gate meant to stop it. A guard
+ * with a documented way around it is not a guard: the point is that a
+ * motion-sensitive user's animation cannot be reintroduced by ANY spelling.
+ * `cameraDuration(FOCUS_MS, reduced)` is how a named constant stays legal.
+ *
+ * Scope: all non-test .ts/.tsx under src/canvas, comments stripped. The scan
+ * is call-site-directed, not line-directed — it reads the arguments of camera
+ * moves only, so unrelated `duration:` fields (layout engine timings,
+ * telemetry elapsed ms, type declarations) are correctly ignored rather than
+ * suppressed by hand.
  */
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
@@ -21,6 +29,9 @@ import { fileURLToPath } from 'node:url'
 const CANVAS_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 const EXCLUDED_DIR_NAMES = new Set(['__tests__', '__fixtures__', '__helpers__', '__mocks__'])
+
+/** Imperative viewport moves — the calls whose `duration` animates the camera. */
+const CAMERA_MOVES = ['fitView', 'setCenter', 'setViewport', 'zoomIn', 'zoomOut', 'zoomTo']
 
 function sourceFiles(dir: string): string[] {
   const out: string[] = []
@@ -38,22 +49,160 @@ function sourceFiles(dir: string): string[] {
   return out
 }
 
-const isCommentLine = (line: string): boolean => {
-  const trimmed = line.trim()
-  return trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')
+/**
+ * Blank out comments and string/template bodies, preserving offsets and
+ * newlines. Prose about camera moves (this file's own docstring, the contract
+ * note in useFitViewOnLayoutVersion) must not read as a call site.
+ */
+export function blankNonCode(src: string): string {
+  const out = src.split('')
+  let i = 0
+  const blankTo = (end: number) => {
+    for (let k = i; k < end && k < src.length; k++) if (out[k] !== '\n') out[k] = ' '
+  }
+  while (i < src.length) {
+    const two = src.slice(i, i + 2)
+    if (two === '//') {
+      let end = src.indexOf('\n', i)
+      if (end === -1) end = src.length
+      blankTo(end)
+      i = end
+    } else if (two === '/*') {
+      let end = src.indexOf('*/', i + 2)
+      end = end === -1 ? src.length : end + 2
+      blankTo(end)
+      i = end
+    } else if (src[i] === '"' || src[i] === "'" || src[i] === '`') {
+      const quote = src[i]
+      let j = i + 1
+      while (j < src.length && src[j] !== quote) {
+        if (src[j] === '\\') j++
+        j++
+      }
+      i++ // keep the opening quote so the token still parses as a value
+      blankTo(j)
+      i = Math.min(j + 1, src.length)
+    } else {
+      i++
+    }
+  }
+  return out.join('')
 }
 
-describe('F1 — no hardcoded animated camera durations in src/canvas', () => {
-  it('every non-zero `duration:` literal routes through cameraDuration (violations must be [])', () => {
+/** Extract the balanced `(...)` argument text starting at `openIdx`. */
+function argsAt(src: string, openIdx: number): string {
+  let depth = 0
+  for (let i = openIdx; i < src.length; i++) {
+    if (src[i] === '(') depth++
+    else if (src[i] === ')') {
+      depth--
+      if (depth === 0) return src.slice(openIdx + 1, i)
+    }
+  }
+  return src.slice(openIdx + 1)
+}
+
+/** The value expression of `duration:` at `from`, up to the depth-0 `,` or `}`. */
+function durationValueAt(args: string, from: number): string {
+  let depth = 0
+  for (let i = from; i < args.length; i++) {
+    const c = args[i]
+    if (c === '(' || c === '[' || c === '{') depth++
+    else if (c === ')' || c === ']' || c === '}') {
+      if (depth === 0) return args.slice(from, i).trim()
+      depth--
+    } else if (c === ',' && depth === 0) return args.slice(from, i).trim()
+  }
+  return args.slice(from).trim()
+}
+
+const isGuarded = (value: string): boolean =>
+  value === '0' || /^cameraDuration\s*\(/.test(value)
+
+/**
+ * Every camera-move `duration` in `src` that is neither `cameraDuration(...)`
+ * nor literal `0`. Exported shape: `<move>(... duration: <expr> ...)`.
+ */
+export function findUnguardedCameraDurations(src: string): string[] {
+  const code = blankNonCode(src)
+  const violations: string[] = []
+  for (const move of CAMERA_MOVES) {
+    // No trailing \b: the ReactFlowGraph sites are called through stabilised
+    // refs (`fitViewRef.current(...)`), and a trailing boundary would make the
+    // scan blind to exactly those.
+    const re = new RegExp(`\\b${move}`, 'g')
+    let m: RegExpExecArray | null
+    while ((m = re.exec(code)) !== null) {
+      // Walk to the call's `(`, allowing only a ref/optional-chain hop
+      // (`fitViewRef.current?.(`), so a mere mention is not a call site.
+      let j = m.index + move.length
+      while (j < code.length && /[\w.?\s]/.test(code[j]!)) j++
+      if (code[j] !== '(') continue
+      const args = argsAt(code, j)
+      const dre = /\bduration\s*:\s*/g
+      let d: RegExpExecArray | null
+      while ((d = dre.exec(args)) !== null) {
+        const value = durationValueAt(args, d.index + d[0].length)
+        if (!isGuarded(value)) violations.push(`${move}(… duration: ${value} …)`)
+      }
+    }
+  }
+  return violations
+}
+
+describe('F1 — the scan itself bites (detector contract)', () => {
+  it('catches a NAMED CONSTANT duration — the bypass the old scan sanctioned', () => {
+    expect(findUnguardedCameraDurations('fitView({ duration: FOCUS_MS })')).toEqual([
+      'fitView(… duration: FOCUS_MS …)',
+    ])
+  })
+
+  it('catches a hardcoded numeric duration', () => {
+    expect(findUnguardedCameraDurations('setCenter(x, y, { duration: 300 })')).toEqual([
+      'setCenter(… duration: 300 …)',
+    ])
+  })
+
+  it('catches an unguarded duration in a multi-line options object', () => {
+    const src = ['fitViewRef.current({', '  padding: 0.3,', '  duration: ANIM_MS,', '})'].join('\n')
+    expect(findUnguardedCameraDurations(src)).toEqual(['fitView(… duration: ANIM_MS …)'])
+  })
+
+  it('catches an arithmetic/ternary duration expression', () => {
+    expect(findUnguardedCameraDurations('zoomTo(1, { duration: reduced ? 0 : 200 })')).toHaveLength(1)
+  })
+
+  it('allows cameraDuration(...) — including around a named constant', () => {
+    expect(
+      findUnguardedCameraDurations('fitView({ duration: cameraDuration(FOCUS_MS, reduced) })'),
+    ).toEqual([])
+  })
+
+  it('allows literal 0 and an omitted duration', () => {
+    expect(findUnguardedCameraDurations('setViewport(v, { duration: 0 })')).toEqual([])
+    expect(findUnguardedCameraDurations('fitView({ padding: 0.1 })')).toEqual([])
+  })
+
+  it('ignores non-camera `duration:` fields (layout timings, telemetry)', () => {
+    expect(findUnguardedCameraDurations('return { positions, duration: performance.now() - start }')).toEqual([])
+    expect(findUnguardedCameraDurations('track("run", { duration: elapsedMs })')).toEqual([])
+    expect(findUnguardedCameraDurations('interface R { duration: number }')).toEqual([])
+  })
+
+  it('ignores camera moves written in comments and strings', () => {
+    expect(findUnguardedCameraDurations('// contract: fitView({ duration: 400 })')).toEqual([])
+    expect(findUnguardedCameraDurations('/* fitView({ duration: 400 }) */')).toEqual([])
+    expect(findUnguardedCameraDurations('const doc = "fitView({ duration: 400 })"')).toEqual([])
+  })
+})
+
+describe('F1 — no unguarded camera durations in src/canvas', () => {
+  it('every camera-move duration routes through cameraDuration (violations must be [])', () => {
     const violations: string[] = []
     for (const file of sourceFiles(CANVAS_ROOT)) {
-      const lines = readFileSync(file, 'utf8').split('\n')
-      lines.forEach((line, i) => {
-        if (isCommentLine(line)) return
-        if (/duration:\s*[1-9]/.test(line)) {
-          violations.push(`${relative(CANVAS_ROOT, file)}:${i + 1} → ${line.trim()}`)
-        }
-      })
+      for (const v of findUnguardedCameraDurations(readFileSync(file, 'utf8'))) {
+        violations.push(`${relative(CANVAS_ROOT, file)} → ${v}`)
+      }
     }
     expect(violations).toEqual([])
   })
