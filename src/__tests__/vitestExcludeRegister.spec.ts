@@ -20,10 +20,31 @@
  *     rather than run start, suppressing the accurate "Taking longer than
  *     expected" line) was caught by a HUMAN reviewer — precisely because the
  *     spec that covers it cannot run.
- *   • Worse: commit `69ab0daf` deleted a ~400-line CompareTabBody chain as
- *     "dead" PARTLY BECAUSE its only coverage was excluded. The hole did not
- *     merely hide bugs — it manufactured the false evidence that live code was
- *     dead, and the code was removed on it.
+ *
+ * ─── A CORRECTION TO THIS FILE'S OWN ARGUMENT (read it; it is the point) ────
+ * The first version of this docstring made a second, bigger claim: that commit
+ * `69ab0daf` deleted a ~400-line CompareTabBody chain as "dead" PARTLY BECAUSE
+ * its only coverage was excluded — that the hole "manufactured the false
+ * evidence that live code was dead, and the code was removed on it."
+ *
+ * THAT CLAIM WAS FALSE. It was written by this lane, on an inference about
+ * another commit's motive, and it was never checked. Checked afterwards, at
+ * `69ab0daf^`:
+ *   • the excluded `OutputsDock.dom.spec.tsx` contained ZERO references to the
+ *     deleted chain — it never covered it, so the exclusion cost that deletion
+ *     exactly nothing;
+ *   • the local `CompareTabBody` was NOT exported and had NO call site — the
+ *     thing actually rendered was `<CompareTabBodyV2 />` (`OutputsDock.tsx:1796`);
+ *   • the file already carried an explicit `// Dead code: replaced by
+ *     CompareTabBodyV2` comment at `:1872`, written BEFORE the deletion.
+ * `69ab0daf` was a correct, well-evidenced removal. The accusation is withdrawn.
+ *
+ * It is kept here rather than quietly deleted because the failure is worth more
+ * than the file it damaged: a guard against unaccountable claims was itself
+ * built on an unaccountable claim, and it was the most rhetorically useful
+ * sentence in the file — which is precisely why nobody checked it. The 51 tests
+ * are real and are reason enough. An argument that needs embellishment to land
+ * is an argument you have not finished verifying.
  *
  * And the exclusion was documented DISHONESTLY, by degrees:
  *   2026-02-18 `620fad99`  excluded under an accurate header —
