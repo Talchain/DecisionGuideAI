@@ -473,6 +473,8 @@ export interface DriverPolicyRow {
 export interface DriverPolicyFeed {
   /** Merged + de-duped raw rows (sources 1-5, panel reference order). */
   rawFactors: RawFactorSensitivity[]
+  /** True when source 1 resolved via the untyped enrichment passthrough. */
+  usedEnrichmentFallback: boolean
   /** Policy input per raw row (same index as rawFactors). */
   policyRows: DriverPolicyRow[]
   /** THE resolved display model every surface renders AND ranks from. */
@@ -481,9 +483,28 @@ export interface DriverPolicyFeed {
 
 const EMPTY_DRIVER_POLICY_FEED: DriverPolicyFeed = Object.freeze({
   rawFactors: [],
+  usedEnrichmentFallback: false,
   policyRows: [],
   displayModel: new Map(),
 })
+
+/**
+ * Untyped `enrichment.sensitivity_analysis.factors` passthrough. NOT declared
+ * on ReportV1 — every reader of it (this feed, OptionNode, StyledEdge) probes
+ * it speculatively, and no writer in the repo puts `enrichment` ON a report
+ * (the store keeps it as a SIBLING of `report`, and every resultsComplete
+ * caller passes the two separately). We nonetheless keep it as the source-1
+ * fallback rather than delete it: proving it unreachable across every
+ * hydration path (live map, conversation envelope, V5 apply, history restore)
+ * is a negative we cannot fully evidence, and keeping it costs nothing —
+ * because it now lives in the SHARED feed, reachable or not, BOTH surfaces
+ * resolve the identical rows and the basis cannot fork.
+ */
+function readEnrichmentFactors(report: ResultsReport): unknown[] | null {
+  const probe = report as { enrichment?: { sensitivity_analysis?: { factors?: unknown } } }
+  const factors = probe.enrichment?.sensitivity_analysis?.factors
+  return Array.isArray(factors) ? factors : null
+}
 
 /** Labels play no part in policy keys/metrics (getFactorKey resolves ids
  * before labels, and the label-map fallback needs an id anyway), so the feed
@@ -523,9 +544,19 @@ export function selectDriverPolicyFeed(
   // Collect raw factors from multiple sources (moved from the drivers memo)
   const rawFactors: RawFactorSensitivity[] = []
 
-  // Source 1: factor_sensitivity (PLoT v2)
-  const factorSensitivity = report.factor_sensitivity || []
-  factorSensitivity.forEach((f: RawFactorSensitivity) => rawFactors.push(f))
+  // Source 1: factor_sensitivity (PLoT v2), else the untyped enrichment
+  // passthrough. Precedence (certified array FIRST, enrichment only when the
+  // certified array is empty) is the canvas hook's existing rule and the same
+  // one OptionNode/StyledEdge apply — preserved here verbatim so folding the
+  // hook onto this feed changes no behaviour, and so the panel stops being
+  // the only surface blind to the fallback.
+  const certifiedFactors = (report.factor_sensitivity ?? []) as RawFactorSensitivity[]
+  const enrichmentFactors = certifiedFactors.length === 0 ? readEnrichmentFactors(report) : null
+  const usedEnrichmentFallback = enrichmentFactors !== null && enrichmentFactors.length > 0
+  const factorSensitivity: RawFactorSensitivity[] = certifiedFactors.length > 0
+    ? certifiedFactors
+    : ((enrichmentFactors ?? []) as RawFactorSensitivity[])
+  factorSensitivity.forEach((f) => rawFactors.push(f))
 
   // Precompute keys in a Set for O(1) duplicate detection
   const seenKeys = new Set<string>()
@@ -590,7 +621,7 @@ export function selectDriverPolicyFeed(
   })
 
   const displayModel = selectDriverDisplayModel(policyRows)
-  const feed: DriverPolicyFeed = { rawFactors, policyRows, displayModel }
+  const feed: DriverPolicyFeed = { rawFactors, usedEnrichmentFallback, policyRows, displayModel }
   driverPolicyFeedCache.set(report, feed)
   return feed
 }
@@ -1808,19 +1839,21 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   const drivers = useMemo<DriversSectionData>(() => {
     const driversStatus = report?.drivers_status || 'unavailable'
 
-    // Collect raw factors from multiple sources
-    const rawFactors: RawFactorSensitivity[] = []
+    // C4 fix 2: the row merge lives in selectDriverPolicyFeed — THE one feed
+    // this panel and the canvas hook (useNodeDisplayMetadata) both read, so
+    // the coverage verdict (and therefore the disclosed basis) cannot fork
+    // between the two surfaces for the same report.
+    const feed = selectDriverPolicyFeed(report)
+    const rawFactors = feed.rawFactors
 
-    // Source 1: factor_sensitivity (PLoT v2)
-    const factorSensitivity = report?.factor_sensitivity || []
-
-    // P0 DIAGNOSTIC: Log raw factor_sensitivity data to verify field mapping
+    // P0 DIAGNOSTIC: Log the resolved source-1 rows to verify field mapping
     // Fix 3: Guard window access for SSR, Fix 5: Gate behind debug toggle
-    if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG && factorSensitivity.length > 0) {
-      console.warn('[useResultsSectionData] Raw factor_sensitivity from PLoT:', {
-        count: factorSensitivity.length,
-        sample: factorSensitivity[0],
-        allFields: factorSensitivity.map((f: any) => ({
+    if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG && rawFactors.length > 0) {
+      console.warn('[useResultsSectionData] Merged driver rows:', {
+        count: rawFactors.length,
+        sample: rawFactors[0],
+        usedEnrichmentFallback: feed.usedEnrichmentFallback,
+        allFields: rawFactors.map((f: any) => ({
           node_id: f.node_id,
           label: f.label,
           sensitivity_score: f.sensitivity_score,
@@ -1831,60 +1864,6 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         })),
       })
     }
-
-    factorSensitivity.forEach((f: any) => rawFactors.push(f))
-
-    // Fix 2: Precompute keys in a Set for O(1) duplicate detection
-    const seenKeys = new Set<string>()
-    rawFactors.forEach((f, index) => seenKeys.add(getFactorKey(f, index)))
-
-    // Source 2: drivers array (legacy)
-    // Fix 2: Use getFactorKey for canonical de-dupe (not d.nodeId || d.id)
-    const legacyDrivers = report?.drivers || []
-    legacyDrivers.forEach((d: any, idx: number) => {
-      const candidate: RawFactorSensitivity = {
-        node_id: d.nodeId,
-        id: d.id,
-        label: d.label,
-        sensitivity: d.contribution,
-        direction: d.polarity === 'down' ? 'negative' : 'positive',
-      }
-      const key = getFactorKey(candidate, rawFactors.length + idx)
-      if (!seenKeys.has(key)) {
-        seenKeys.add(key)
-        rawFactors.push(candidate)
-      }
-    })
-
-    // Source 3: drivers_payload
-    const driversPayload = report?.drivers_payload?.drivers || []
-    driversPayload.forEach((pd: any, idx: number) => {
-      const key = getFactorKey(pd, rawFactors.length + idx)
-      if (!seenKeys.has(key)) {
-        seenKeys.add(key)
-        rawFactors.push(pd)
-      }
-    })
-
-    // Source 4: sensitivity.factors (alternative path)
-    const sensitivityFactors = report?.sensitivity?.factors || []
-    sensitivityFactors.forEach((sf: any, idx: number) => {
-      const key = getFactorKey(sf, rawFactors.length + idx)
-      if (!seenKeys.has(key)) {
-        seenKeys.add(key)
-        rawFactors.push(sf)
-      }
-    })
-
-    // Source 5: factors array (direct)
-    const directFactors = report?.factors || []
-    directFactors.forEach((df: any, idx: number) => {
-      const key = getFactorKey(df, rawFactors.length + idx)
-      if (!seenKeys.has(key)) {
-        seenKeys.add(key)
-        rawFactors.push(df)
-      }
-    })
 
     if (rawFactors.length === 0) {
       return {
@@ -1921,7 +1900,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // normalisedInfluence instead, so the whole surface shares one basis.
     // Codex R3-B1: display value + provenance from the ONE shared policy
     // (driverDisplayModel) — the same function the graph badge consumes.
-    const displayModel = selectDriverDisplayModel(factorsWithKeys)
+    // C4 fix 2: read the model off the shared FEED rather than recomputing it
+    // from this panel's own rows. Sharing the policy function alone still let
+    // the verdict fork, because each surface fed it a different row set; the
+    // keys are identical (getFactorKey resolves ids before labels, so the
+    // feed's label-free normalisation yields the same key per row).
+    const displayModel = feed.displayModel
     const rankMap = computeFactorRanks(
       factorsWithKeys.map((f) => ({
         ...f,

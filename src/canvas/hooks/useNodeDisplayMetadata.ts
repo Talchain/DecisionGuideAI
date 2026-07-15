@@ -11,8 +11,10 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import type { NodeType } from '../domain/nodes'
-import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
+import { compareByDisplayModel } from '../../components/results/driverDisplayModel'
 import type { DriverDisplayProvenance } from '../../components/results/driverDisplayModel'
+import { selectDriverPolicyFeed } from '../../components/results/useResultsSectionData'
+import type { ResultsReport } from '../../components/results/types'
 
 interface NodeDisplayMetadata {
   /** Factor sensitivity rank (1-3 for top factors, null otherwise) */
@@ -108,35 +110,23 @@ export function useNodeDisplayMetadata(
     let valueOfInformation: number | null = null
     let voiRank: number | null = null
     if (nodeType === 'factor') {
-      // Codex B2: rank off the CERTIFIED factor_sensitivity array first (the
-      // untyped enrichment passthrough is a fallback only — it must never
-      // silently drive a different #1 than the panel), and rank by the
-      // DISPLAYED influence metric so the badge order matches the "I: NN%"
-      // readout beside it. Codex R3-B1: complete-metric-set policy — producer
-      // influence_score is used only when EVERY factor in the array carries
-      // one; under partial coverage every factor uses per-array-normalised
-      // elasticity, so ranks never compare producer scores against fallbacks.
-      // Mirrors the identical policy in useResultsSectionData (panel side).
-      const factorSensitivity = (report.factor_sensitivity?.length
-        ? report.factor_sensitivity
-        : report.enrichment?.sensitivity_analysis?.factors) || []
-
-      // Codex R3-B1 + P0-2 (external review 2026-07-14): display value + rank
-      // come from the ONE shared policy ROW (extractPolicyRow), so the badge
-      // can never rank or label a factor on a different basis than the results
-      // Drivers panel. The prior inline map OMITTED `sensitivity` from the
-      // magnitude chain — the exact key the V5 mapper writes — and accepted
-      // camelCase influenceScore, so under partial influence coverage every row
-      // collapsed to 0 and the badge fell back to alphabetical order while the
-      // panel ranked correctly by magnitude. extractPolicyRow includes
-      // `sensitivity`, reads snake-only influence_score, and drops rows with no
-      // id / no finite metric. Producer influence_score is used only when EVERY
-      // factor has one (selectDriverDisplayModel coverage rule); else per-set
-      // normalised |magnitude| for all.
-      const rows = (factorSensitivity as unknown[])
-        .map(extractPolicyRow)
-        .filter((r): r is NonNullable<ReturnType<typeof extractPolicyRow>> => r != null)
-      const displayModel = selectDriverDisplayModel(rows)
+      // C4 fix 2 (adversarial review, verifier-reproduced): read THE shared
+      // row feed — the same merge the Drivers panel renders from. Sharing the
+      // policy FUNCTION (selectDriverDisplayModel) was not enough: this hook
+      // used to build a PRIVATE factor_sensitivity-only feed through
+      // extractPolicyRow, which DROPS rows carrying no finite metric, while
+      // the panel's merge KEEPS them. Because producer influence_score is
+      // adopted only when EVERY row carries one, dropping a metric-less row
+      // flipped coverage to complete for the canvas and left it incomplete
+      // for the panel — so the pill disclosed an "absolute causal influence
+      // score" while the panel disclosed "relative, top always 100%", for the
+      // SAME report. One feed makes that fork unrepresentable. The feed also
+      // subsumes the certified-array-first / enrichment-fallback precedence
+      // this hook used to apply, and is memoised per REPORT (not per node),
+      // so running it for every factor node stays O(1) after the first.
+      const feed = selectDriverPolicyFeed(report as unknown as ResultsReport)
+      const rows = feed.policyRows
+      const displayModel = feed.displayModel
       const ranked = rows
         .map((r) => ({
           key: r.key,
@@ -149,28 +139,26 @@ export function useNodeDisplayMetadata(
       const rank = ranked.findIndex(f => f.key === nodeId) + 1
       sensitivityRank = rank > 0 && rank <= 3 ? rank : null
 
-      // VoI rank: top-3 factors by value_of_information
-      const rankedByVoi = [...factorSensitivity]
-        .map((f: any) => ({
-          id: (f.factor_id || f.factorId || f.node_id || f.nodeId) as string,
-          voi: (f.value_of_information ?? f.valueOfInformation ?? 0) as number,
-        }))
+      // VoI rank: top-3 factors by value_of_information. Keyed off the shared
+      // feed's canonical key (node_id → factor_id → id → label), so a row
+      // carrying several differing id fields can no longer rank under one id
+      // here and another in the panel.
+      const rankedByVoi = rows
+        .map((r) => ({ id: r.key, voi: r.valueOfInformation ?? 0 }))
         .filter(f => typeof f.voi === 'number' && f.voi > 0)
         .sort((a, b) => b.voi - a.voi)
       const voiPos = rankedByVoi.findIndex(f => f.id === nodeId) + 1
       if (voiPos > 0 && voiPos <= 3) voiRank = voiPos
 
       // Task 3: Extract influence, confidence, and VoI for this factor
-      const factorData = factorSensitivity.find((f: any) =>
-        (f.factor_id || f.factorId || f.node_id || f.nodeId) === nodeId
-      )
+      const factorRow = rows.find((r) => r.key === nodeId)
 
-      if (factorData) {
+      if (factorRow) {
         // Factor found in sensitivity analysis
         inSensitivityAnalysis = true
 
         // VoI: value_of_information is a direct 0-1 score
-        const rawVoi = (factorData.value_of_information ?? factorData.valueOfInformation) as number | undefined
+        const rawVoi = factorRow.valueOfInformation
         if (typeof rawVoi === 'number' && rawVoi >= 0 && rawVoi <= 1) {
           valueOfInformation = rawVoi
         }
@@ -190,7 +178,7 @@ export function useNodeDisplayMetadata(
         // Confidence: Direct extraction (already 0-1)
         // Note: Intentionally NOT using value_of_information as fallback - VOI is semantically
         // different from confidence (it measures value of learning more, not certainty)
-        const rawConfidence = factorData.confidence
+        const rawConfidence = factorRow.confidence
 
         if (typeof rawConfidence === 'number' && rawConfidence >= 0 && rawConfidence <= 1) {
           confidence = rawConfidence
