@@ -19,6 +19,8 @@ import { useValidationFeedback } from './hooks/useValidationFeedback'
 import { useToast } from './ToastContext'
 import { checkLimits, formatLimitError } from './utils/limitGuard'
 import { computeFitPadding } from './utils/computeFitPadding'
+import { cameraDuration } from './utils/cameraMotion'
+import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion'
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { Tooltip } from './components/Tooltip'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
@@ -60,6 +62,9 @@ export function CanvasToolbar() {
   const openTemplatesPanel = useCanvasStore((s) => s.openTemplatesPanel)
   const setShowDraftChat = useCanvasStore((s) => s.setShowDraftChat)
   const { fitView, zoomIn, zoomOut } = useReactFlow()
+  // F1 (graph-visuals): the fit button is a camera move — honour
+  // prefers-reduced-motion via the shared cameraDuration guard.
+  const prefersReducedMotion = usePrefersReducedMotion()
   const { run } = useResultsRun()
   const { formatErrors, focusError } = useValidationFeedback()
   const { showToast } = useToast()
@@ -431,7 +436,7 @@ export function CanvasToolbar() {
               wired to the shared panel-aware padding anyway so a future remount reserves
               the OutputsDock/sidebar like the live fit sites. */}
           <button
-            onClick={() => fitView({ padding: computeFitPadding(), duration: 300 })}
+            onClick={() => fitView({ padding: computeFitPadding(), duration: cameraDuration(300, prefersReducedMotion) })}
             className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
             aria-label="Fit all nodes in view"
           >

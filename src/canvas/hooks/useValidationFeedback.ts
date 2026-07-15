@@ -2,6 +2,8 @@ import { useCallback } from 'react'
 import { useCanvasStore } from '../store'
 import { useReactFlow } from '@xyflow/react'
 import type { ValidationError } from '../components/ValidationBanner'
+import { usePrefersReducedMotion } from './usePrefersReducedMotion'
+import { cameraDuration } from '../utils/cameraMotion'
 
 /**
  * Hook for handling validation feedback across all run entry points
@@ -14,6 +16,9 @@ import type { ValidationError } from '../components/ValidationBanner'
 export function useValidationFeedback() {
   const selectNodeWithoutHistory = useCanvasStore(s => s.selectNodeWithoutHistory)
   const { setCenter, getNode, getEdge } = useReactFlow()
+  // F1 (graph-visuals): "Fix now" focus is a camera move — honour
+  // prefers-reduced-motion like every other call site (cameraDuration guard).
+  const prefersReducedMotion = usePrefersReducedMotion()
 
   /**
    * Focus on the first invalid element (node or edge)
@@ -27,7 +32,7 @@ export function useValidationFeedback() {
         selectNodeWithoutHistory(error.node_id)
         setCenter(node.position.x, node.position.y, {
           zoom: 1.5,
-          duration: 400,
+          duration: cameraDuration(400, prefersReducedMotion),
         })
       }
     } else if (error.edge_id) {
@@ -41,12 +46,12 @@ export function useValidationFeedback() {
           selectNodeWithoutHistory(edge.source)
           setCenter(sourceNode.position.x, sourceNode.position.y, {
             zoom: 1.5,
-            duration: 400,
+            duration: cameraDuration(400, prefersReducedMotion),
           })
         }
       }
     }
-  }, [getNode, getEdge, selectNodeWithoutHistory, setCenter])
+  }, [getNode, getEdge, selectNodeWithoutHistory, setCenter, prefersReducedMotion])
 
   /**
    * Format validation errors with helpful context
