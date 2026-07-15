@@ -298,42 +298,71 @@ export const FactorNode = memo((props: NodeProps) => {
   // ['£','$','€','¥'] list that leaked "Range: 20 scale to 80 scale").
   const priorRangeDisplay = useMemo(() => {
     const prior = props.data?.prior as { range_min?: number; range_max?: number } | undefined
-    if (nodeCategory !== 'external' || !prior?.range_min || !prior?.range_max) return null
-    const rangeMin = prior.range_min
-    const rangeMax = prior.range_max
+    const rangeMin = prior?.range_min
+    const rangeMax = prior?.range_max
+    // Both endpoints must be finite numbers: `!range_min` truthiness would
+    // drop the line for range_min === 0 (a perfectly good lower bound), and
+    // Infinity/NaN must never render ("Range: Infinity to …").
+    if (
+      nodeCategory !== 'external' ||
+      typeof rangeMin !== 'number' || !Number.isFinite(rangeMin) ||
+      typeof rangeMax !== 'number' || !Number.isFinite(rangeMax)
+    ) return null
     const cap = observedState?.cap
     // Internal factor_type descriptors ('binary', 'normalised', …) must never
     // display as units — treat as unitless (same guard as valueDisplay above).
     const rawUnit = observedState?.unit
     const unit = rawUnit && !isSuppressedUnit(rawUnit) ? rawUnit : null
     const { kind } = classifyUnit(unit)
+    // Only a cap > 1 can turn the normalised 0–1 prior back into real-world
+    // magnitude. Percent is the one exception: a 0–1 ratio converts to
+    // percentage points (×100) with no cap at all.
+    const canCalibrate = cap != null && cap > 1
 
-    if (kind === 'none' || kind === 'placeholder') {
+    if (kind === 'none' || kind === 'placeholder' || (kind !== 'percent' && !canCalibrate)) {
       // No real-world calibration: cap-denormalising would fake a measurement,
       // so render the normalised range unitless — UNLESS the node body already
       // shows this same range via the CEE-authored display_value (numeric
       // dedupe against both normalised and cap-denormalised forms). The
       // display_value line wins because it is CEE-authored copy; the Range
       // line adds nothing when it repeats the same numbers.
+      // A real unit WITHOUT a usable cap lands here too: prefixing a
+      // normalised 0–1 endpoint with "£" fakes calibration exactly like a
+      // placeholder unit would (and Math.round would grind it to "£0 to £1").
       if (valueDisplay != null && bareNumericRangeMatchesPrior(valueDisplay, rangeMin, rangeMax, cap)) {
         return null
       }
       return `Range: ${formatNormalisedRangeEnd(rangeMin)} to ${formatNormalisedRangeEnd(rangeMax)}`
     }
 
-    // Real unit: the Range line adds calibrated information (e.g. "£20,000 to
-    // £80,000"), so it is kept even alongside a display_value. Denormalise via
-    // cap, then format through the shared classifyUnit-based raw formatter
-    // (symbol prefix "£20,000", ISO prefix "USD 20,000", "%" / "months" suffix).
+    // Real unit with calibration (or percent): the Range line adds calibrated
+    // information (e.g. "£20,000 to £80,000"). Denormalise via cap, then
+    // format through the shared classifyUnit-based raw formatter (symbol
+    // prefix "£20,000", ISO prefix "USD 20,000", "%" / "months" suffix).
     const fmt = (v: number) => {
-      let denormed = cap != null && cap > 1 ? v * cap : v
-      // Percent with no cap: a 0–1 prior is a ratio — scale to percentage
-      // points (0.2 → 20%), mirroring formatFactorDisplayValue's percent rule.
-      // With a cap the denormalised value is already in percentage points.
-      if (kind === 'percent' && denormed > 0 && denormed < 1) denormed *= 100
-      return formatRawValueWithUnit(Math.round(denormed), unit)
+      let denormed = canCalibrate ? v * cap : v
+      // Percent with no usable cap: the 0–1 prior is a ratio — scale to
+      // percentage points (0.2 → 20%, 1 → 100%), mirroring
+      // formatFactorDisplayValue's percent rule. Keyed on CAP PRESENCE, not
+      // value magnitude: a cap-denormalised value is already in percentage
+      // points and must never be re-scaled (cap 100, range_min 0.005
+      // denormalises to 0.5, meaning 0.5% — not 50%).
+      if (kind === 'percent' && !canCalibrate) denormed *= 100
+      // Integer rounding is only honest at magnitude ≥ 1; sub-1 calibrated
+      // values (0.5 percentage points) keep two decimal places.
+      const rounded = Math.abs(denormed) >= 1 ? Math.round(denormed) : Math.round(denormed * 100) / 100
+      return formatRawValueWithUnit(rounded, unit)
     }
-    return `Range: ${fmt(rangeMin)} to ${fmt(rangeMax)}`
+    const rendered = `${fmt(rangeMin)} to ${fmt(rangeMax)}`
+    // Dedupe: a CEE-authored display_value that is EXACTLY the calibrated
+    // range text (e.g. "£20,000 to £80,000") makes the Range line pure
+    // repetition. Exact-string equality only — both sides must have come
+    // through the same formatter to collide, so this is numerically faithful
+    // and can never fuzzy-match prose or differently-scaled values. A bare
+    // numeric display_value ("20000 to 80000") deliberately does NOT dedupe
+    // here: the calibrated Range line still adds the unit information.
+    if (valueDisplay != null && valueDisplay.trim() === rendered) return null
+    return `Range: ${rendered}`
   }, [nodeCategory, observedState?.unit, observedState?.cap, props.data?.prior, valueDisplay])
 
   const isInferred = observedState?.extractionType === 'inferred'
