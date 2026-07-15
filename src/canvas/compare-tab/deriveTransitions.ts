@@ -183,7 +183,12 @@ function buildTransition(from: AnalysisSnapshot, to: AnalysisSnapshot): Transiti
     magnitude: classifyMagnitude(delta),
     edits: to.editSummary ? [to.editSummary] : [],
     winnerProbDelta: delta,
-    robustnessChanged: from.stabilityLabel !== to.stabilityLabel,
+    // T2b: a robustness CHANGE can only be claimed when both ends were
+    // actually assessed. Comparing a null against a real label would report
+    // "robustness changed" purely because one run had no robustness data.
+    robustnessChanged: from.stabilityLabel != null
+      && to.stabilityLabel != null
+      && from.stabilityLabel !== to.stabilityLabel,
     robustnessFrom: from.stabilityLabel,
     robustnessTo: to.stabilityLabel,
     goalProbDelta,

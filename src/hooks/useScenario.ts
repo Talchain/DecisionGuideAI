@@ -47,7 +47,8 @@ export interface UseScenarioReturn {
   persistAnalysisSuccess: (
     analysis: unknown,
     graphHash: string,
-    seedUsed: number,
+    /** T2b: null when the engine did not echo a usable seed — never a fabricated 0. */
+    seedUsed: number | null,
     responseHash: string,
     details?: Record<string, unknown>,
     turnId?: string,
@@ -556,7 +557,7 @@ export function useScenario(): UseScenarioReturn {
     async (
       analysis: unknown,
       graphHash: string,
-      seedUsed: number,
+      seedUsed: number | null,
       responseHash: string,
       details?: Record<string, unknown>,
       turnId?: string,
