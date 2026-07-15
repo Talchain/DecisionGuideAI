@@ -1,11 +1,20 @@
 /**
- * appliedEditPulse (seamlessness R2) — behavioral contract against the REAL
- * canvas store with fake timers.
+ * appliedEditPulse (seamlessness R2 + graph-visuals F4) — behavioral contract
+ * against the REAL canvas store with fake timers.
  *
  * The pulse must: coalesce a burst of apply events into ONE highlight over
  * the union of targets; filter stale ids at flush time (fail-closed); clear
  * both sets after PULSE_DURATION_MS; never write an empty highlight over an
- * existing one; and never touch selection/inspector/viewport state.
+ * existing one; and never touch selection or inspector state.
+ *
+ * F4 (Paul-ratified): the flush brings EVERY surviving pulse target into view
+ * BEFORE the highlight is written — an applied edit the user cannot see is a
+ * silent edit. The camera move goes through the registered fit seam
+ * (focusHelpers.fitNodesOnCanvas → ReactFlowGraph), which itself skips the
+ * pan when everything is already comfortably visible and honours
+ * prefers-reduced-motion (F1). This spec pins the choke point: one fit call,
+ * full surviving target set (nodes + pulsed edges' endpoints), before the
+ * highlight write. Selection/inspector hijack remains banned.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
@@ -14,6 +23,7 @@ import {
   PULSE_COALESCE_MS,
   PULSE_DURATION_MS,
 } from '../appliedEditPulse'
+import { registerFitNodes } from '../focusHelpers'
 import { useCanvasStore } from '../../store'
 
 const node = (id: string) =>
@@ -131,5 +141,62 @@ describe('pulseAppliedTargets', () => {
       before.selected,
     )
     expect((useCanvasStore.getState() as any).showInspectorPanel).toBe(before.inspector)
+  })
+})
+
+describe('F4 — the flush fits every surviving target into view BEFORE the pulse fires', () => {
+  let fitSpy: ReturnType<typeof vi.fn>
+  let highlightsAtFitTime: string[] | null
+  let unregister: (() => void) | null = null
+
+  beforeEach(() => {
+    highlightsAtFitTime = null
+    fitSpy = vi.fn(() => {
+      // Capture the highlight state AT fit time to pin the ordering.
+      highlightsAtFitTime = [...useCanvasStore.getState().highlightedNodes]
+    })
+    unregister = registerFitNodes(fitSpy as any)
+  })
+
+  afterEach(() => {
+    unregister?.()
+    unregister = null
+  })
+
+  it('fits the full surviving union — node targets plus pulsed edges’ endpoint nodes', () => {
+    pulseAppliedTargets({ nodeIds: ['n1'] })
+    pulseAppliedTargets({ edgeIds: ['e1'] }) // e1 runs n1 → n2
+    vi.advanceTimersByTime(PULSE_COALESCE_MS + 1)
+    expect(fitSpy).toHaveBeenCalledTimes(1)
+    expect([...fitSpy.mock.calls[0][0]].sort()).toEqual(['n1', 'n2'])
+  })
+
+  it('the fit happens BEFORE the highlight write (targets are on their way into view when they flash)', () => {
+    pulseAppliedTargets({ nodeIds: ['n1', 'n2'] })
+    vi.advanceTimersByTime(PULSE_COALESCE_MS + 1)
+    expect(fitSpy).toHaveBeenCalledTimes(1)
+    expect(highlightsAtFitTime).toEqual([]) // highlight not yet written at fit time
+    expect([...useCanvasStore.getState().highlightedNodes].sort()).toEqual(['n1', 'n2'])
+  })
+
+  it('stale ids never reach the fit (fail-closed, same filter as the highlight)', () => {
+    pulseAppliedTargets({ nodeIds: ['n1', 'ghost'] })
+    vi.advanceTimersByTime(PULSE_COALESCE_MS + 1)
+    expect(fitSpy).toHaveBeenCalledTimes(1)
+    expect([...fitSpy.mock.calls[0][0]]).toEqual(['n1'])
+  })
+
+  it('an all-stale flush fits nothing (no highlight, no camera move)', () => {
+    pulseAppliedTargets({ nodeIds: ['ghost'] })
+    vi.advanceTimersByTime(PULSE_COALESCE_MS + 1)
+    expect(fitSpy).not.toHaveBeenCalled()
+  })
+
+  it('flush still highlights when no canvas fit is registered (fail-closed seam)', () => {
+    unregister?.()
+    unregister = null
+    pulseAppliedTargets({ nodeIds: ['n1'] })
+    expect(() => vi.advanceTimersByTime(PULSE_COALESCE_MS + 1)).not.toThrow()
+    expect([...useCanvasStore.getState().highlightedNodes]).toEqual(['n1'])
   })
 })

@@ -241,19 +241,21 @@ describe("Paul's ruling (2026-07-12): keep + improve — honest basis, clear ico
   })
 })
 
-describe('F4 — chip click fits changed nodes into view (user-initiated pan)', () => {
-  it('clicking the chip fits the surviving changed nodes, before the pulse fires', () => {
+describe('F4 — fit-before-pulse now lives at the pulse choke point, not in the chip', () => {
+  it('the chip does NOT fit directly — pulseAppliedTargets receives the full set and its flush fits pre-pulse', () => {
+    // The coalescing pulse util (appliedEditPulse.spec.ts, F4 block) fits every
+    // surviving target into view before the ring fires — for EVERY feeder
+    // (applyPatch, applyV5State, this chip). A second chip-local fit would
+    // double the camera move, so the chip must delegate.
     loadRunsMock.mockReturnValue([
       run({ nodes: [node('a', 'A2'), node('b', 'B'), node('c', 'C')], edges: [] }),
       run({ nodes: [node('a', 'A'), node('b', 'B')], edges: [] }),
     ])
     render(<WhatChangedChip />)
     fireEvent.click(screen.getByTestId('what-changed-chip'))
-    // a = label-modified, c = added; both fit into view…
-    expect(fitMock).toHaveBeenCalledTimes(1)
-    expect([...fitMock.mock.calls[0][0]].sort()).toEqual(['a', 'c'])
-    // …and the fit happens BEFORE the pulse (targets on-screen when they flash).
-    expect(fitMock.mock.invocationCallOrder[0]).toBeLessThan(pulseMock.mock.invocationCallOrder[0])
+    expect(fitMock).not.toHaveBeenCalled()
+    expect(pulseMock).toHaveBeenCalledTimes(1)
+    expect([...pulseMock.mock.calls[0][0].nodeIds].sort()).toEqual(['a', 'c'])
   })
 })
 
