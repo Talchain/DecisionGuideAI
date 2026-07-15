@@ -73,8 +73,13 @@ const ALLOWLIST: Record<string, RegExp> = {
   // displayInfluence via the policy; also reads normalisedInfluence for the
   // semantic-label thresholds the policy header explicitly sanctions.
   'components/results/useResultsSectionData.ts': /selectDriverDisplayModel/,
-  // Graph-badge adapter: feeds raw metrics INTO the policy.
-  'canvas/hooks/useNodeDisplayMetadata.ts': /selectDriverDisplayModel/,
+  // (C4 fix 2) canvas/hooks/useNodeDisplayMetadata.ts is deliberately NO
+  // LONGER allowlisted: it stopped being an adapter that feeds raw metrics
+  // into the policy and now consumes the shared row feed
+  // (selectDriverPolicyFeed), which hands it an already-resolved display
+  // model. It reads no raw metric at all, so it must be policed like any
+  // other consumer — an exemption kept "just in case" would silently sanction
+  // the next raw read added there.
   // V17 hero dominance GATE (UI-SEM-040): absolute/ratio thresholds over the
   // raw metrics — deliberately NOT the display-ranking policy. The marker
   // comment is the attestation; if the gate is rewritten, re-decide.
