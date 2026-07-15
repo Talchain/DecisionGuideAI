@@ -17,6 +17,7 @@
  * highlight write. Selection/inspector hijack remains banned.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import type { Mock } from 'vitest'
 import {
   pulseAppliedTargets,
   __resetAppliedEditPulseForTests,
@@ -145,17 +146,21 @@ describe('pulseAppliedTargets', () => {
 })
 
 describe('F4 — the flush fits every surviving target into view BEFORE the pulse fires', () => {
-  let fitSpy: ReturnType<typeof vi.fn>
+  // Typed to the real seam signature: `ReturnType<typeof vi.fn>` is
+  // Mock<any[], unknown>, which the zero-arg implementation below is not
+  // assignable to (tsc -p tsconfig.app.json; tsconfig.ci.json does not cover
+  // this file, so CI never surfaced it).
+  let fitSpy: Mock<[readonly string[]], void>
   let highlightsAtFitTime: string[] | null
   let unregister: (() => void) | null = null
 
   beforeEach(() => {
     highlightsAtFitTime = null
-    fitSpy = vi.fn(() => {
+    fitSpy = vi.fn((_nodeIds: readonly string[]) => {
       // Capture the highlight state AT fit time to pin the ordering.
       highlightsAtFitTime = [...useCanvasStore.getState().highlightedNodes]
     })
-    unregister = registerFitNodes(fitSpy as any)
+    unregister = registerFitNodes(fitSpy)
   })
 
   afterEach(() => {
