@@ -4,6 +4,10 @@
  * The banner must progress through time-based, honest, non-specific
  * narration stages while a run is in flight:
  *   - no fabricated progress percentages or scenario counts
+ *   - no claim of completion proximity: the client cannot know how close
+ *     the run is, and a run can end in the 130s timeout error
+ *   - every stage must be true by construction of elapsed time alone, at
+ *     ANY elapsed time it can still be displayed at
  *   - clean cut on early completion / error (unmount clears all timers)
  *   - prefers-reduced-motion: no spinner animation, instant text swap
  *   - aria-live polite so stage changes are announced
@@ -26,10 +30,51 @@ import {
   narrationForElapsed,
 } from '../AnalysisRunningBanner'
 
-const STAGE_1 = 'Setting up your analysis…'
-const STAGE_2 = 'Running robustness simulations…'
-const STAGE_3 = 'Weighing what moves your decision…'
-const STAGE_4 = 'Almost there — shaping the results…'
+const STAGE_1 = 'Analysing your decision…'
+const STAGE_2 = 'This is taking longer than usual — still analysing…'
+const STAGE_3 = 'Still working — complex decisions can take a while…'
+
+/**
+ * The run can end in a timeout error at 130s. Any line the banner can still
+ * be showing at that moment must not have promised the run was nearly done.
+ */
+const RUN_TIMEOUT_SECONDS = 130
+
+/**
+ * Vocabulary that asserts completion proximity or certainty. The client
+ * consumes ZERO run state — it knows only how long it has waited — so none
+ * of this can ever be honest, at any threshold.
+ */
+const PROXIMITY_VOCABULARY = [
+  'almost',
+  'nearly',
+  'any moment',
+  'any second',
+  'any minute',
+  'shortly',
+  'soon',
+  'finishing',
+  'finalis',
+  'finaliz',
+  'wrapping up',
+  'wrap up',
+  'just about',
+  'about to',
+  'final touches',
+  'moments away',
+  'close to',
+  'ready in',
+  'will be ready',
+]
+
+function assertNoProximityClaim(message: string) {
+  for (const term of PROXIMITY_VOCABULARY) {
+    expect(
+      message.toLowerCase(),
+      `"${message}" claims completion proximity ("${term}") the client cannot know`,
+    ).not.toContain(term)
+  }
+}
 
 /** Advance fake timers inside act so React state updates flush. */
 function advance(ms: number) {
@@ -62,12 +107,11 @@ describe('narrationForElapsed (pure stage resolution)', () => {
   it('advances through every stage at its threshold', () => {
     expect(narrationForElapsed(NARRATION_STAGES[1].afterSeconds)).toBe(STAGE_2)
     expect(narrationForElapsed(NARRATION_STAGES[2].afterSeconds)).toBe(STAGE_3)
-    expect(narrationForElapsed(NARRATION_STAGES[3].afterSeconds)).toBe(STAGE_4)
   })
 
   it('holds the final stage for long runs (no loop, no stuck blank)', () => {
-    expect(narrationForElapsed(120)).toBe(STAGE_4)
-    expect(narrationForElapsed(3600)).toBe(STAGE_4)
+    expect(narrationForElapsed(120)).toBe(STAGE_3)
+    expect(narrationForElapsed(3600)).toBe(STAGE_3)
   })
 
   it('handles negative elapsed time gracefully', () => {
@@ -96,15 +140,39 @@ describe('honesty constraints on the copy', () => {
       expect(stage.message).not.toContain('!')
     }
   })
+
+  // P1 (three reviewers converged): "Almost there — shaping the results…"
+  // fired at a fixed 22s wall clock, consumed zero run state and held
+  // indefinitely — including through runs that die at the 130s timeout.
+  it('never claims completion proximity or certainty in any stage message', () => {
+    for (const stage of NARRATION_STAGES) {
+      assertNoProximityClaim(stage.message)
+    }
+  })
+
+  it('is honest at the 130s timeout: the line still shown when the run dies has promised nothing', () => {
+    const messageAtTimeout = narrationForElapsed(RUN_TIMEOUT_SECONDS)
+    assertNoProximityClaim(messageAtTimeout)
+    expect(messageAtTimeout).not.toMatch(/[0-9%]/)
+  })
+
+  // Elapsed time is the ONLY input. A stage must therefore stay true for
+  // every second from its own threshold out to the timeout, since it can be
+  // displayed at any of them.
+  it('every stage stays honest at every elapsed second it can be displayed at', () => {
+    for (let elapsed = 0; elapsed <= RUN_TIMEOUT_SECONDS; elapsed++) {
+      assertNoProximityClaim(narrationForElapsed(elapsed))
+    }
+  })
 })
 
 describe('AnalysisRunningBanner stage progression (fake timers)', () => {
-  it('starts on the setting-up stage', () => {
+  it('starts on the analysing stage', () => {
     render(<AnalysisRunningBanner />)
     expect(screen.getByTestId('analysis-running-banner')).toHaveTextContent(STAGE_1)
   })
 
-  it('progresses through all four stages as time elapses', () => {
+  it('progresses through all stages as time elapses', () => {
     render(<AnalysisRunningBanner />)
     expect(screen.getByTestId('analysis-narration')).toHaveTextContent(STAGE_1)
 
@@ -114,15 +182,18 @@ describe('AnalysisRunningBanner stage progression (fake timers)', () => {
 
     advancePastStage((NARRATION_STAGES[2].afterSeconds - NARRATION_STAGES[1].afterSeconds) * 1000)
     expect(screen.getByTestId('analysis-narration')).toHaveTextContent(STAGE_3)
-
-    advancePastStage((NARRATION_STAGES[3].afterSeconds - NARRATION_STAGES[2].afterSeconds) * 1000)
-    expect(screen.getByTestId('analysis-narration')).toHaveTextContent(STAGE_4)
   })
 
   it('holds the final stage on a long run without going blank', () => {
     render(<AnalysisRunningBanner />)
     advancePastStage(120_000)
-    expect(screen.getByTestId('analysis-narration')).toHaveTextContent(STAGE_4)
+    expect(screen.getByTestId('analysis-narration')).toHaveTextContent(STAGE_3)
+  })
+
+  it('is still showing an honest long-wait line at the 130s timeout', () => {
+    render(<AnalysisRunningBanner />)
+    advancePastStage(RUN_TIMEOUT_SECONDS * 1000)
+    expect(screen.getByTestId('analysis-narration')).toHaveTextContent(STAGE_3)
   })
 })
 
@@ -140,6 +211,13 @@ describe('early completion and error handoff', () => {
     // Land exactly on a stage boundary so a crossfade timeout is pending.
     advance(NARRATION_STAGES[1].afterSeconds * 1000)
     expect(() => unmount()).not.toThrow()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('unmounting at the 130s timeout (error handoff on a long run) clears every timer', () => {
+    const { unmount } = render(<AnalysisRunningBanner />)
+    advancePastStage(RUN_TIMEOUT_SECONDS * 1000)
+    unmount()
     expect(vi.getTimerCount()).toBe(0)
   })
 })

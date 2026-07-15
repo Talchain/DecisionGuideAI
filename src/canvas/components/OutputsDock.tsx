@@ -29,6 +29,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
 import { AnalysisRunningBanner } from './AnalysisRunningBanner'
+import { runStatusRegion } from './analysisRunStatus'
 import { registerCanonicalRunner, type CanonicalRunOptions, type CanonicalRunOutcome } from '../analysis/canonicalRunRegistry'
 import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
@@ -715,6 +716,17 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   })
 
   const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
+
+  // Wave1-L2 (seam D-M): exactly ONE run-status live region. Both the
+  // slow-run message and the running banner render role=status
+  // aria-live=polite, and they used to stack from ~20s with opposing
+  // progress claims. This single decision drives both render sites.
+  const runStatus = runStatusRegion({
+    isRunning,
+    hasReport: Boolean(report),
+    slowRunMessage,
+  })
+
   const { readiness } = useGraphReadiness()
 
   // V17 + orphan-banner suppression: when the top Refresh-analysis banner is
@@ -2042,8 +2054,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     </div>
                   )
                 )}
-                {/* Phase 2 Sprint 1B: Slow-run UX feedback */}
-                {slowRunMessage && (
+                {/* Phase 2 Sprint 1B: Slow-run UX feedback. Wave1-L2: yields
+                    to the running banner, whose stage table subsumes these
+                    same 20s/40s thresholds — never both live regions at once. */}
+                {runStatus === 'slow-run' && slowRunMessage && (
                   <div
                     className="flex items-center gap-2 px-3 py-2 bg-info-bg border border-info/30 rounded text-text-header"
                     role="status"
@@ -2057,7 +2071,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 {/* 1.16i: visible processing while an analysis turn runs and
                     the previous report is still on screen (the skeleton
                     below covers the no-report case) */}
-                {isRunning && report && <AnalysisRunningBanner />}
+                {runStatus === 'banner' && <AnalysisRunningBanner />}
                 {/* I.2b: Cancel button during active analysis — gated on the
                     V2 hook's own in-flight flag (1.16i): cancelRun only
                     aborts the V2 request, so it must not render for a V5

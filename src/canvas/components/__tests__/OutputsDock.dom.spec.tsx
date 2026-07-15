@@ -1619,3 +1619,127 @@ describe('I.2a: Secondary action button interaction', () => {
     ])
   })
 })
+
+/**
+ * Wave1-L2 (seam D-M): the run-status narration must be ONE live region.
+ *
+ * The pre-existing slowRunMessage (>=20s / >=40s) and the new
+ * AnalysisRunningBanner narration both render role=status aria-live=polite.
+ * Before the fix they stacked from ~20s — directly above one another, making
+ * opposing progress claims in exactly the window this lane targets, and a
+ * screen-reader user heard both. The banner subsumes the slow-run thresholds
+ * into its stage table, so the standalone slow-run region must yield whenever
+ * the banner is mounted (isRunning && report).
+ *
+ * ⚠ THESE TESTS DO NOT GATE ANYTHING. This whole file is listed in
+ * vitest.config.ts `exclude`, and no vitest invocation in package.json or
+ * .github/workflows overrides that config — so it runs in zero places and
+ * currently cannot even collect (its `../../../flags` mock is missing exports
+ * the import graph now needs). The "CI-only" comment on the exclude line is
+ * stale. The enforced gate for this invariant is the pure decision in
+ * analysisRunStatus.ts + its spec, which the default suite does run; these
+ * cases document the integration intent for whoever re-enables the file.
+ */
+describe('Wave1-L2: single run-status live region', () => {
+  beforeEach(cleanupDockState)
+
+  /** The run-status live regions this dock can render. */
+  function runStatusRegions() {
+    return [
+      ...screen.queryAllByTestId('slow-run-message'),
+      ...screen.queryAllByTestId('analysis-running-banner'),
+    ]
+  }
+
+  it('renders exactly ONE run-status live region at 25s when a report is on screen', () => {
+    vi.useFakeTimers()
+    const baseResults = useCanvasStore.getState().results
+
+    useCanvasStore.setState({
+      nodes: testNodes,
+      edges: testEdges,
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'streaming',
+        report: fakeReportForTests,
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    // 25s: inside the window where slowRunMessage used to stack on the banner.
+    act(() => {
+      vi.advanceTimersByTime(25_000)
+    })
+
+    const regions = runStatusRegions()
+    expect(
+      regions,
+      'two stacked aria-live run-status regions make opposing progress claims',
+    ).toHaveLength(1)
+    // The banner is the one that survives: it carries the staged narration.
+    expect(screen.getByTestId('analysis-running-banner')).toBeInTheDocument()
+    expect(screen.queryByTestId('slow-run-message')).not.toBeInTheDocument()
+
+    vi.useRealTimers()
+  })
+
+  it('the surviving region still acknowledges the long wait at 25s (no regression in slow-run behaviour)', () => {
+    vi.useFakeTimers()
+    const baseResults = useCanvasStore.getState().results
+
+    useCanvasStore.setState({
+      nodes: testNodes,
+      edges: testEdges,
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'streaming',
+        report: fakeReportForTests,
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    act(() => {
+      vi.advanceTimersByTime(25_000)
+    })
+
+    // The banner's own stage table carries the >=20s long-wait acknowledgement
+    // that slowRunMessage used to provide, so the user loses nothing.
+    expect(screen.getByTestId('analysis-running-banner')).toHaveTextContent(
+      'This is taking longer than usual — still analysing…',
+    )
+
+    vi.useRealTimers()
+  })
+
+  it('keeps the standalone slow-run message when there is NO report (banner not mounted)', () => {
+    vi.useFakeTimers()
+    const baseResults = useCanvasStore.getState().results
+
+    useCanvasStore.setState({
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'streaming',
+        report: null,
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    act(() => {
+      vi.advanceTimersByTime(25_000)
+    })
+
+    // Skeleton case: the banner does not mount, so the pre-existing slow-run
+    // region is still the single run-status live region and must survive.
+    expect(screen.queryByTestId('analysis-running-banner')).not.toBeInTheDocument()
+    expect(screen.getByTestId('slow-run-message')).toBeInTheDocument()
+    expect(runStatusRegions()).toHaveLength(1)
+
+    vi.useRealTimers()
+  })
+})

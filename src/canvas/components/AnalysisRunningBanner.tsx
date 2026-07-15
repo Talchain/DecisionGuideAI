@@ -7,11 +7,15 @@
  *
  * Wave1-L2 (seam D-M) — staged honest narration during the 20-30s wait.
  * Client-side, time-based staging only: the copy never claims a pipeline
- * stage, percentage or scenario count we cannot know from the client. The
- * banner unmounts the moment the run completes or errors (OutputsDock's
- * isRunning gate), so every timer is cleared in effect cleanup — no stuck
- * narration. prefers-reduced-motion: static icon and instant text swap
- * instead of the crossfade.
+ * stage, percentage, scenario count or completion proximity we cannot know
+ * from the client. The banner unmounts the moment the run completes or errors
+ * (OutputsDock's isRunning gate), so every timer is cleared in effect cleanup
+ * — no stuck narration. prefers-reduced-motion: static icon and instant text
+ * swap instead of the crossfade.
+ *
+ * This banner is the SINGLE run-status live region wherever it mounts: its
+ * stage table subsumes the dock's pre-existing 20s/40s slow-run escalation,
+ * which yields to it. See analysisRunStatus.ts for the reconciliation.
  */
 import { Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -21,14 +25,30 @@ import { typography } from '../../styles/typography'
 
 /**
  * Honest, non-specific narration stages keyed by elapsed-second threshold.
- * Copy rules (ratified experience doctrine): calm, plain-language,
- * science-grounded; no fabricated progress numbers; no exclamation marks.
+ *
+ * Copy rules (ratified experience doctrine): calm, plain-language; no
+ * fabricated progress numbers; no exclamation marks; and — the binding
+ * honesty invariant — no claim of a pipeline stage, count or completion
+ * proximity the client cannot know.
+ *
+ * Elapsed time is the ONLY input. Every line must therefore be true by
+ * construction of elapsed time alone, and must STAY true for every second
+ * from its own threshold until the run ends — including a run that dies at
+ * the 130s timeout. That rules out the whole "almost there" family: the
+ * client consumes zero run state, so it can never know the run is close to
+ * done. The earlier table claimed "Almost there — shaping the results…" at a
+ * fixed 22s and then held it indefinitely, through timeouts included — a
+ * progress bar stuck at 95%.
+ *
+ * What survives is what elapsed time genuinely licenses: that a run is in
+ * flight, and that it has now been going longer than a typical one. The 20s
+ * and 40s thresholds deliberately match the dock's pre-existing slow-run
+ * escalation, which this table subsumes (see analysisRunStatus.ts).
  */
 export const NARRATION_STAGES = [
-  { afterSeconds: 0, message: 'Setting up your analysis…' },
-  { afterSeconds: 6, message: 'Running robustness simulations…' },
-  { afterSeconds: 14, message: 'Weighing what moves your decision…' },
-  { afterSeconds: 22, message: 'Almost there — shaping the results…' },
+  { afterSeconds: 0, message: 'Analysing your decision…' },
+  { afterSeconds: 20, message: 'This is taking longer than usual — still analysing…' },
+  { afterSeconds: 40, message: 'Still working — complex decisions can take a while…' },
 ] as const
 
 /** Resolve the narration message for a given elapsed time (seconds). */
