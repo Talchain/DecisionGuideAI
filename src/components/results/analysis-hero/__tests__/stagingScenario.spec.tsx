@@ -168,8 +168,6 @@ describe('staging scenario — rendered surfaces (numeric parity, check A)', () 
     return render(
       <AnalysisHeroPanel
         model={stagingModel()}
-        isStale={false}
-        onRerun={() => {}}
         rerunDisabled={false}
         focusPanelMounted={false}
       />,

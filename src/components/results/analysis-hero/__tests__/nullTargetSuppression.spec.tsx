@@ -39,8 +39,6 @@ function renderPanel(model: HeroChartModel) {
   return render(
     <AnalysisHeroPanel
       model={model}
-      isStale={false}
-      onRerun={() => {}}
       rerunDisabled={false}
       focusPanelMounted={false}
     />,

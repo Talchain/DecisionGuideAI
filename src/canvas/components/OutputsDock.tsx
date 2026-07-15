@@ -47,7 +47,7 @@ import {
   trackAutoFixSuccess,
   trackAutoFixFailed,
 } from '../utils/sandboxTelemetry'
-import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled, isV5CanonicalAnalysisEnabled, isAnalysisHeroV17Enabled, isPreAnalysisV3Enabled } from '../../flags'
+import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled, isV5CanonicalAnalysisEnabled, isAnalysisHeroV17Enabled, isAnalysisHeroPanelEnabled, isPreAnalysisV3Enabled } from '../../flags'
 import { OlumiTabBody } from './OlumiTabBody'
 import { PersistentInputStrip } from './PersistentInputStrip'
 import { SelectionPill } from './SelectionPill'
@@ -604,6 +604,14 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const freshnessDirty = useCanvasStore(s => s.analysisFreshnessDirty)
   const displayedFreshness = resolveDisplayedFreshness(ceeFreshness, freshnessDirty)
   const analysisNotConfirmedFresh = displayedFreshness === 'stale' || displayedFreshness === 'unknown'
+  // C1 (one Rerun owner per viewport, brief §5 / §2.2): AnalysisFreshnessNotice
+  // mounts under the SAME post-run condition as the AnalysisFooter below and
+  // renders its Rerun whenever a verdict is held ('fresh'/'stale'/'unknown' —
+  // only 'none'/unset draw no action). While the strip owns that recovery
+  // action, the footer is STATUS-ONLY (robustness verdict + producer meta
+  // stay); when the strip shows no action the footer keeps its Rerun so the
+  // tab never loses its only recovery affordance.
+  const freshnessStripOwnsRerun = displayedFreshness != null && displayedFreshness !== 'none'
   // Within the not-fresh window, distinguish a model that definitely CHANGED since
   // the run (CEE 'stale' or a local edit that downgraded a retained 'fresh') from a
   // CANNOT-CONFIRM state where CEE could not determine freshness — so the stale
@@ -732,12 +740,15 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
   const { readiness } = useGraphReadiness()
 
-  // V17 + orphan-banner suppression: when the top Refresh-analysis banner is
-  // visible (V5 canonical-analysis flag on with no V5 fact), the bottom
-  // AnalysisFooter would carry duplicate stale messaging. Gate is V17-only
-  // so the legacy DecisionConfidencePanel path is unaffected.
+  // Hero-flag + orphan-banner suppression: when the top Refresh-analysis
+  // banner is visible (V5 canonical-analysis flag on with no V5 fact), the
+  // bottom AnalysisFooter would carry duplicate stale messaging. C1: the
+  // gate covers BOTH hero paths (V17 AND analysisHeroPanel) so the banner's
+  // own action can never stack with strip/footer CTAs (the 4-CTA corner
+  // case); the legacy DecisionConfidencePanel path stays unaffected.
   const { showOrphanBanner } = useAnalysisStateSource()
-  const suppressAnalysisFooterForOrphanBanner = isAnalysisHeroV17Enabled() && showOrphanBanner
+  const suppressAnalysisFooterForOrphanBanner =
+    (isAnalysisHeroV17Enabled() || isAnalysisHeroPanelEnabled()) && showOrphanBanner
 
   // Unified run gating — same function used by ConversationPanel/ChatComposer.
   const hasValidationBlockers = useCanvasStore(s =>
@@ -2288,9 +2299,13 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 )}
                 </div>
                 {/* Brief 5.4 Phase 11: "Create decision brief" placeholder removed.
-                    "Rerun analysis" is the sole primary action in AnalysisFooter.
-                    V17 power pass: suppressed when the top Refresh-analysis banner
-                    is showing — avoids double stale messaging. */}
+                    Hero-flag power pass: suppressed when the top Refresh-analysis
+                    banner is showing — avoids double stale messaging.
+                    C1 (one Rerun owner per viewport): while the freshness strip
+                    above owns the one Rerun, this footer is STATUS-ONLY — the
+                    robustness verdict + producer meta stay, the action goes.
+                    The action renders only when the strip shows none (no
+                    freshness verdict held), preserving the tab's recovery. */}
                 {!isPreRun && hasInlineSummary && resultsSectionData && !suppressAnalysisFooterForOrphanBanner && (
                   <AnalysisFooter
                     statusIcon={postRunFooter.icon}
@@ -2298,12 +2313,17 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     statusText={postRunFooter.label}
                     metaText={postRunMetaText}
                     metaPlacement="stacked"
-                    actionLabel={isRunning ? 'Running analysis…' : 'Rerun'}
-                    actionVariant="secondary"
-                    onAction={handleRunAnalysis}
-                    actionDisabled={isRunning || !canRunAnalysis}
-                    actionLoading={isRunning}
-                    actionTitle={!canRunAnalysis && !isRunning ? runBlockedTooltip : undefined}
+                    {...(freshnessStripOwnsRerun
+                      ? {}
+                      : {
+                          actionLabel: isRunning ? 'Running analysis…' : 'Rerun',
+                          actionVariant: 'secondary' as const,
+                          onAction: handleRunAnalysis,
+                          actionDisabled: isRunning || !canRunAnalysis,
+                          actionLoading: isRunning,
+                          actionTitle:
+                            !canRunAnalysis && !isRunning ? runBlockedTooltip : undefined,
+                        })}
                     testId="results-analysis-footer"
                   />
                 )}

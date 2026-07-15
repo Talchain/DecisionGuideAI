@@ -6,7 +6,9 @@
  *   - freshness strip:     data-testid="analysis-freshness-notice" (sole stale owner)
  *   - its Rerun button:    data-testid="freshness-strip-rerun"     (Wave F-B)
  *   - footer Rerun action: data-testid="results-analysis-footer-action"
- *     (AnalysisFooter now stamps `${testId}-action` on its action button)
+ *     (AnalysisFooter stamps `${testId}-action` on its action button —
+ *     C1: rendered only while the freshness strip shows no Rerun of its
+ *     own, i.e. when no freshness verdict is held)
  *
  * Test-support attributes only — zero behaviour change. Scaffolding mirrors
  * OutputsDock.conversationSingleton.spec.tsx (stable useConversation stub;
@@ -161,7 +163,19 @@ describe('OutputsDock testability selectors (Analysis tab)', () => {
     expect(rerun).toHaveTextContent('Rerun')
   })
 
-  it('AnalysisFooter action button derives `${testId}-action`', () => {
+  it('stale: the footer is STATUS-ONLY (C1 — the strip above owns the one Rerun)', () => {
+    // RETIRED PIN: this test formerly asserted the footer action rendered
+    // alongside the stale strip — two always-visible Reruns in one viewport.
+    render(<OutputsDock />)
+
+    expect(screen.getByTestId('results-analysis-footer')).toBeInTheDocument()
+    expect(screen.queryByTestId('results-analysis-footer-action')).not.toBeInTheDocument()
+  })
+
+  it('AnalysisFooter action button derives `${testId}-action` (no freshness verdict → footer keeps its Rerun)', () => {
+    // With no verdict held the strip renders nothing, so the footer is the
+    // tab's only recovery affordance and keeps its action.
+    useCanvasStore.setState({ analysisFreshness: null } as never)
     render(<OutputsDock />)
 
     expect(screen.getByTestId('results-analysis-footer')).toBeInTheDocument()

@@ -21,8 +21,6 @@ function renderPanel(model: HeroChartModel | HeroStatusModel, props: Partial<Par
   return render(
     <AnalysisHeroPanel
       model={model}
-      isStale={false}
-      onRerun={() => {}}
       rerunDisabled={false}
       {...props}
     />,
@@ -152,9 +150,10 @@ describe('AnalysisHeroPanel — content', () => {
     expect(screen.getByRole('button', { name: /Two developers/ })).toBeInTheDocument()
   })
 
-  it('stale keeps the content fully readable (v6): win meta persists and rows stay expandable', () => {
-    // Prototype v6 stale doctrine: the freshness strip carries the warning;
-    // the hero content is never dimmed, locked, or stripped of detail.
+  it('content is fully readable with no hero-side stale surface (v6/C1): win meta persists and rows stay expandable', () => {
+    // Prototype v6 stale doctrine: the freshness strip (outside this panel)
+    // carries the warning AND the one Rerun; the hero is staleness-agnostic
+    // — never dimmed, locked, or stripped of detail.
     const winOnly = makeOption({
       ...OPTION_B,
       goalProbability: undefined,
@@ -170,13 +169,13 @@ describe('AnalysisHeroPanel — content', () => {
           recommendation: { storyHeadlines: undefined, flipThresholds: undefined },
         }),
       ),
-      { isStale: true },
     )
     expect(screen.getByTestId('hero-win-meta')).toBeInTheDocument()
-    // Rows with detail keep their disclosure while stale.
+    // Rows with detail keep their disclosure.
     expect(screen.getByRole('button', { name: /Two developers/ })).toBeInTheDocument()
-    // No dim/inert lockout on the chart area.
+    // No dim/inert lockout on the chart area, and no hero rerun control.
     expect(screen.getByTestId('hero-chart-area').className).not.toMatch(/opacity-45|pointer-events-none/)
+    expect(screen.queryByTestId('hero-rerun')).toBeNull()
   })
 
   it('promotes the success-target line into Focus next ONLY when no target exists', () => {
@@ -853,7 +852,7 @@ describe('Prototype v6 parity: goal lens, define success, auto-switch, next step
       makeHeroData({ options: noGoal, recommendation: { goalThreshold: null } }),
     )
     const targetedModel = chartModel()
-    const props = { isStale: false, onRerun: () => {}, rerunDisabled: false }
+    const props = { rerunDisabled: false }
     const { rerender } = render(<AnalysisHeroPanel model={noTargetModel} {...props} />)
     // The user explicitly selected Likely outcome pre-commit.
     fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
@@ -886,7 +885,7 @@ describe('Prototype v6 parity: goal lens, define success, auto-switch, next step
       makeHeroData({ options: noGoal, recommendation: { goalThreshold: null }, isLoading: true }),
     )
     const targetedModel = chartModel()
-    const props = { isStale: false, onRerun: () => {}, rerunDisabled: false }
+    const props = { rerunDisabled: false }
     const { rerender } = render(<AnalysisHeroPanel model={noTargetModel} {...props} />)
     fireEvent.click(screen.getByTestId('hero-lens-tab-outcome'))
     // Rerun starts — panel stays mounted on the retained chart, and the

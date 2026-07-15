@@ -15,15 +15,8 @@ function chartModel(): HeroChartModel {
   return buildHeroModel(makeHeroData()) as HeroChartModel
 }
 
-function renderPanel(model: HeroChartModel | HeroStatusModel, isStale = false) {
-  return render(
-    <AnalysisHeroPanel
-      model={model}
-      isStale={isStale}
-      onRerun={() => {}}
-      rerunDisabled={false}
-    />,
-  )
+function renderPanel(model: HeroChartModel | HeroStatusModel) {
+  return render(<AnalysisHeroPanel model={model} rerunDisabled={false} />)
 }
 
 async function expectNoViolations(container: HTMLElement) {
@@ -125,9 +118,11 @@ describe('AnalysisHero — accessibility', () => {
     expect(screen.getByRole('group', { name: 'Expected outcome by option' })).toBeInTheDocument()
   })
 
-  it('stale content stays operable (v6 — no inert lockout) and the re-run control works', async () => {
-    const { container } = renderPanel(chartModel(), true)
-    expect(screen.getByTestId('hero-rerun')).toBeEnabled()
+  it('content stays operable (v6 — no inert lockout) and no hero-side rerun control exists (C1)', async () => {
+    // RETIRED PIN: the hero's stale Re-run pill is removed — the freshness
+    // strip owns the one Rerun; the panel is staleness-agnostic.
+    const { container } = renderPanel(chartModel())
+    expect(screen.queryByTestId('hero-rerun')).toBeNull()
     // No aria-disabled/inert wrapper: rows and tabs remain in the a11y tree.
     expect(screen.getByTestId('hero-lens-tab-goal')).toBeEnabled()
     await expectNoViolations(container)

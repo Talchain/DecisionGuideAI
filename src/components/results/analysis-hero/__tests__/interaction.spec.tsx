@@ -1,7 +1,8 @@
 /**
  * Interaction — disclosure rows (one open at a time, keyboard), lens tabs
- * (roving arrows, local-state-only switching, no remount), stale
- * soft-disable with the re-run route, and safe focus-next degradation.
+ * (roving arrows, local-state-only switching, no remount), the hero's
+ * no-rerun contract (C1: the freshness strip owns the one Rerun), and safe
+ * focus-next degradation.
  *
  * Rendered through the real AnalysisHeroContainer with useV2Run and the
  * coaching-panel flag mocked, so the wiring under test is the shipped one.
@@ -108,25 +109,27 @@ describe('AnalysisHero — interaction', () => {
     expect(runSpy).not.toHaveBeenCalled()
   })
 
-  it('stale: content stays readable and interactive (v6); the footer re-run route remains', () => {
-    render(<AnalysisHeroContainer data={makeHeroData()} isStale />)
-    // Prototype v6 stale doctrine: NO lockout — tabs stay enabled and rows
-    // keep their disclosures (the freshness strip owns the warning).
+  it('the hero authors NO rerun of its own — the freshness strip owns the one Rerun (C1)', () => {
+    // RETIRED PIN: the former isStale footer Re-run pill (an explicitly
+    // commented deviation from strict v6) is removed by the ratified v6
+    // guide — content stays readable and interactive, and recovery lives
+    // solely on the adjacent AnalysisFreshnessNotice strip.
+    render(<AnalysisHeroContainer data={makeHeroData()} />)
+    expect(screen.queryByTestId('hero-rerun')).toBeNull()
+    // No lockout — tabs stay enabled and rows keep their disclosures.
     expect(screen.getByTestId('hero-lens-tab-goal')).toBeEnabled()
     expect(screen.getByRole('button', { name: /Two developers/ })).toBeInTheDocument()
-    // The footer swaps the generic focus-next for the retained re-run route.
-    expect(screen.queryByTestId('hero-focus-next')).toBeNull()
-
-    const rerun = screen.getByTestId('hero-rerun')
-    fireEvent.click(rerun)
-    expect(runSpy).toHaveBeenCalledTimes(1)
-    expect(runSpy.mock.calls[0][0]).toMatchObject({ source: 'analysis-hero' })
+    expect(runSpy).not.toHaveBeenCalled()
   })
 
-  it('stale: re-run is disabled while an analysis is already running', () => {
+  it('run in flight: the analysis-affecting target-apply affordance is disabled', () => {
     useCanvasStore.getState().resultsAnalysing()
-    render(<AnalysisHeroContainer data={makeHeroData()} isStale />)
-    expect(screen.getByTestId('hero-rerun')).toBeDisabled()
+    const noTarget = makeHeroData({ recommendation: { goalThreshold: null } })
+    render(<AnalysisHeroContainer data={noTarget} onApplyTarget={() => {}} />)
+    // Committing a target reruns the analysis, so the entry point is
+    // disabled while a run is already in flight (rerunDisabled plumbing —
+    // retained after the hero's own rerun action retired).
+    expect(screen.getByTestId('hero-focus-target')).toBeDisabled()
   })
 
   it('focus-next scrolls to the mounted coaching panel', () => {

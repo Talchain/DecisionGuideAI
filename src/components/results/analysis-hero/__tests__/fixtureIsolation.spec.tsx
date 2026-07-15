@@ -68,10 +68,7 @@ describe('fixture isolation — live adapter purity', () => {
 })
 
 describe('fixture isolation — banner travels with the brand', () => {
-  const noop = () => {}
   const panelProps = {
-    isStale: false,
-    onRerun: noop,
     rerunDisabled: false,
     focusPanelMounted: false,
   }

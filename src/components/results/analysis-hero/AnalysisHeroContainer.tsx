@@ -17,8 +17,6 @@ import { useAnalysisHero } from './useAnalysisHero'
 
 export interface AnalysisHeroContainerProps {
   data: ResultsSectionDataReturn
-  /** ResultsBody's existing staleness signal (OutputsDock freshness verdict). */
-  isStale?: boolean
   /**
    * OutputsDock's existing apply-threshold route (set goal threshold +
    * rerun) — powers the promoted Focus-next success-target action. Optional:
@@ -35,11 +33,10 @@ export interface AnalysisHeroContainerProps {
 
 export function AnalysisHeroContainer({
   data,
-  isStale = false,
   onApplyTarget,
   onDefineSuccess,
 }: AnalysisHeroContainerProps) {
-  const { model, onRerun, rerunDisabled, focusPanelSelector, nextRecommendation } =
+  const { model, rerunDisabled, focusPanelSelector, nextRecommendation } =
     useAnalysisHero(data)
   // §6.5 quick links + evidence rows: focus the target on canvas through the
   // universal fail-closed resolver (Parity P1) — node id, edge id, or the
@@ -52,8 +49,6 @@ export function AnalysisHeroContainer({
   return (
     <AnalysisHeroPanel
       model={model}
-      isStale={isStale}
-      onRerun={onRerun}
       rerunDisabled={rerunDisabled}
       focusPanelSelector={focusPanelSelector}
       nextRecommendation={nextRecommendation}
