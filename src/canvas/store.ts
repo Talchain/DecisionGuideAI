@@ -452,6 +452,11 @@ interface CanvasState {
   highlightedNodes: Set<string>
   highlightedEdges: Set<string>
   dimmedNodeIds: Set<string>
+  /** F3 (graph-visuals): non-null while a TRANSIENT focus dim owns
+   * dimmedNodeIds — set by handleFocusNode (dim = non-neighbours of the
+   * focused node), cleared on blur/deselect/manual pan/node removal. While
+   * active, usePathHighlight must not overwrite dimmedNodeIds. */
+  focusDimSourceId: string | null
   /** D2 (graph-visuals): level-of-detail — true when the main canvas zoom is
    * below the LOD threshold; nodes simplify (body hidden, only key labels). */
   lodActive: boolean
@@ -732,6 +737,13 @@ interface CanvasState {
   setHighlightedNodes: (ids: string[]) => void
   setHighlightedEdges: (ids: string[]) => void
   setDimmedNodes: (ids: string[]) => void
+  /** F3: start a transient focus dim — dims `dimmedIds` and marks the dim as
+   * owned by the focus on `sourceId` until clearFocusDim(). */
+  setFocusDim: (sourceId: string, dimmedIds: string[]) => void
+  /** F3: end the focus dim (blur/deselect/manual pan/node removal). No-op
+   * when no focus dim is active, so it never clobbers the selection
+   * path-dim written via setDimmedNodes. */
+  clearFocusDim: () => void
   /** N3: replace the edited-since-run set (called by the useEditedSinceRun effect). */
   setEditedSinceRunNodes: (ids: string[]) => void
   /** D2: set by the LodSync zoom watcher (skip-if-same). */
@@ -1398,6 +1410,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   highlightedNodes: new Set<string>(),
   highlightedEdges: new Set<string>(),
   dimmedNodeIds: new Set<string>(),
+  focusDimSourceId: null,
   editedSinceRunNodeIds: new Set<string>(),
   lodActive: false,
   confirmedNodeIds: new Set<string>(),
@@ -3969,6 +3982,18 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   setDimmedNodes: (ids: string[]) => {
     set({ dimmedNodeIds: new Set(ids) })
   },
+  // F3 (graph-visuals): transient focus dim. Flows through the SAME
+  // dimmedNodeIds field BaseNode's dim classes already consume — no new
+  // node-side consumer. focusDimSourceId marks the dim as focus-owned so
+  // usePathHighlight leaves it alone and clearFocusDim can't clobber a
+  // selection path-dim.
+  setFocusDim: (sourceId: string, dimmedIds: string[]) => {
+    set({ focusDimSourceId: sourceId, dimmedNodeIds: new Set(dimmedIds) })
+  },
+  clearFocusDim: () => {
+    if (get().focusDimSourceId === null) return
+    set({ focusDimSourceId: null, dimmedNodeIds: new Set<string>() })
+  },
   setLodActive: (active: boolean) => {
     if (get().lodActive === active) return
     set({ lodActive: active })
@@ -4671,6 +4696,20 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 if (typeof window !== 'undefined') {
   ;(window as any).useCanvasStore = useCanvasStore
 }
+
+// F3 (graph-visuals): the focus dim must never survive its focused node.
+// Nodes can be removed by MANY paths (delete action, AI patch, undo, full
+// graph replacement), so the invariant lives at the store boundary rather
+// than in each mutation: whenever the nodes array changes while a focus dim
+// is active, clear the dim if its source node is gone. Near-zero cost — the
+// guard exits on the first check unless a focus dim is active.
+useCanvasStore.subscribe((state, prevState) => {
+  const sourceId = state.focusDimSourceId
+  if (sourceId === null || state.nodes === prevState.nodes) return
+  if (!state.nodes.some((n) => n.id === sourceId)) {
+    state.clearFocusDim()
+  }
+})
 
 // React #185 DEBUG: Internal set() instrumentation is now done at store creation time
 // (see createDebugSet function above) - this captures ALL store updates including

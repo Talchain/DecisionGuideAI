@@ -11,6 +11,8 @@
  * - Dims nodes not on highlighted paths (opacity ~0.4)
  * - Clears highlights on selection change (no timer-based auto-clear)
  * - Multi-select clears all highlights to prevent stale state
+ * - F3 (graph-visuals): defers to an active focus dim (store.focusDimSourceId)
+ *   for the selected node — and clears it the moment selection moves away
  *
  * IMPORTANT: Uses canonical sources for goal_node_id and options:
  * - Goal node ID: ceeAnalysisReady.goal_node_id
@@ -69,7 +71,21 @@ export function usePathHighlight(): void {
       setHighlightedEdges,
       setDimmedNodes,
       ceeAnalysisReady,
+      focusDimSourceId,
+      clearFocusDim,
     } = useCanvasStore.getState()
+
+    // F3 (graph-visuals): while a TRANSIENT focus dim is active for the
+    // selected node, it owns dimmedNodeIds — the path dim must not clobber
+    // it (path edges still highlight below). The moment selection moves
+    // away — deselect, multi-select, reselect another node — the focus dim
+    // is cleared HERE, so it can never survive after focus ends, and normal
+    // path dimming resumes.
+    const focusDimOwnsDimming =
+      focusDimSourceId !== null && selectionSize === 1 && selectedId === focusDimSourceId
+    if (focusDimSourceId !== null && !focusDimOwnsDimming) {
+      clearFocusDim()
+    }
 
     const options = ceeAnalysisReady?.options ?? []
 
@@ -77,14 +93,14 @@ export function usePathHighlight(): void {
     // Multi-select explicitly clears to prevent stale state
     if (selectionSize !== 1 || !selectedId || !goalNodeId) {
       setHighlightedEdges([])
-      setDimmedNodes([])
+      if (!focusDimOwnsDimming) setDimmedNodes([])
       return
     }
 
     const selectedNode = nodes.find((n) => n.id === selectedId)
     if (!selectedNode) {
       setHighlightedEdges([])
-      setDimmedNodes([])
+      if (!focusDimOwnsDimming) setDimmedNodes([])
       return
     }
 
@@ -128,7 +144,8 @@ export function usePathHighlight(): void {
 
     const dimmedIds = nodes.filter((n) => !nodesOnPath.has(n.id)).map((n) => n.id)
 
-    setDimmedNodes(dimmedIds)
+    // F3: the focus dim owns dimmedNodeIds while active (see above).
+    if (!focusDimOwnsDimming) setDimmedNodes(dimmedIds)
 
     // No cleanup needed - we want highlights to persist until selection changes
     // The next effect run will update or clear highlights as appropriate
