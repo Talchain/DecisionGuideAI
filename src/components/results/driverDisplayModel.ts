@@ -134,9 +134,19 @@ export function selectDriverDisplayModel(
 
 /**
  * Rank comparator on a resolved display model: value descending, then
- * |elasticity| as the tie-break, then key alphabetically for determinism.
+ * elasticity as the tie-break, then key alphabetically for determinism.
  * The graph badge ranks with this so its order matches the panel's, both keyed
  * off the shared `value`.
+ *
+ * PRECONDITION: `elasticity` must be an UNSIGNED magnitude. This sorts the
+ * number as given — it does not abs — so a signed input silently ranks a
+ * positive driver above an equal-magnitude negative one, which is how the
+ * canvas once forked from the panel on rows both surfaces valued identically.
+ * Every feeder abs's at construction (extractPolicyRow below;
+ * DriverPolicyRow.rawElasticity in useResultsSectionData). Deliberately NOT
+ * abs'd here: absorbing a signed value would mask the producer-side contract
+ * break rather than surface it, and would blind the cross-surface order pins
+ * to exactly the regression they exist to catch.
  */
 export function compareByDisplayModel(
   a: { value: number; elasticity: number; key: string },

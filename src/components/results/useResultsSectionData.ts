@@ -462,7 +462,14 @@ export interface DriverPolicyRow {
   key: string
   /** Producer influence score — snake-case wire field only; undefined when absent. */
   influenceScore: number | undefined
-  /** Resolved magnitude (normaliseFactorSensitivity chain; 0 when absent). */
+  /**
+   * Resolved magnitude (normaliseFactorSensitivity chain; 0 when absent).
+   * UNSIGNED — always `Math.abs`'d at construction. Consumers rank on this
+   * field with a comparator that sorts it as given, so the sign must not
+   * survive into the feed: it would order equal-magnitude drivers by
+   * direction on one surface and by magnitude on another. Read `rawFactors`
+   * for the signed wire value when disclosing direction.
+   */
   rawElasticity: number
   /** Factor confidence (0-1) when the wire carried one. */
   confidence: number | null
@@ -614,7 +621,17 @@ export function selectDriverPolicyFeed(
     return {
       key: getFactorKey(norm, index),
       influenceScore: norm.influenceScore,
-      rawElasticity: getRawElasticity(norm),
+      // Math.abs is load-bearing, not defensive: this field is a MAGNITUDE
+      // (see DriverPolicyRow), and the sole consumer ranks on it via
+      // compareByDisplayModel, whose tie-break sorts the number as given. A
+      // signed value here silently re-opens the very fork this feed closes —
+      // two surfaces agreeing on the basis AND the displayed value, then
+      // ordering equal-magnitude drivers differently by sign. The panel abs's
+      // its own copy before ranking, and extractPolicyRow (the sibling
+      // producer feeding the same comparator) abs's too; this keeps all
+      // feeders on one semantics. Direction is NOT lost — surfaces that
+      // disclose it read the signed wire row from `rawFactors`.
+      rawElasticity: Math.abs(getRawElasticity(norm)),
       confidence: norm.confidence,
       valueOfInformation: norm.valueOfInformation,
     }

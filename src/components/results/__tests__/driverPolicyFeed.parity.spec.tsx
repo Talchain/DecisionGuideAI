@@ -122,6 +122,97 @@ describe('C4 fix 2 — panel and canvas resolve the SAME basis and value from on
   })
 })
 
+/**
+ * C4 re-review fold — cross-surface ORDER parity.
+ *
+ * The specs above pin the disclosed BASIS and the VALUE, and that is exactly
+ * why they missed a regression this fold introduced: two surfaces can agree
+ * that a driver shows 44% on a set-relative scale and still ROW-ORDER it
+ * differently. The shared feed handed the canvas a SIGNED magnitude, while
+ * the panel abs'd its own before ranking; the canvas tie-break sorts on the
+ * raw number, so a positive driver outranked an equal-magnitude negative one
+ * on the canvas and lost to it in the panel. Same feed, same number, opposite
+ * order — the fork this fold exists to close, reopened one layer down.
+ *
+ * These pins assert the two surfaces produce the SAME ORDER, not merely the
+ * same value. Both fixtures are chosen so LABEL-alphabetical and
+ * KEY-alphabetical agree, keeping them blind to the known (pre-existing,
+ * out-of-scope) label-vs-key final tie-break divergence — they fail for the
+ * sign reason alone.
+ */
+describe('C4 re-review — panel and canvas resolve the SAME ORDER, not just the same value', () => {
+  it('set-relative basis: an equal-magnitude negative driver ranks the same on both surfaces', () => {
+    setCompleteReport(baseReport({
+      factor_sensitivity: [
+        { node_id: 'n_down', label: 'Attrition risk', elasticity: -0.4 },
+        { node_id: 'n_up', label: 'Zeta uplift', elasticity: 0.4 },
+        { node_id: 'n_big', label: 'Market size', elasticity: 0.9 },
+      ],
+    }))
+
+    const panel = renderHook(() => useResultsSectionData())
+    const rowsByKey = new Map(panel.result.current.drivers.drivers.map(d => [d.factorKey, d]))
+
+    // Precondition: the surfaces agree on basis and value — so ORDER is the
+    // only thing these assertions can be catching.
+    expect(rowsByKey.get('n_down')?.displayProvenance).toBe('normalised_elasticity')
+    expect(rowsByKey.get('n_down')?.displayInfluence).toBeCloseTo(4 / 9)
+    expect(rowsByKey.get('n_up')?.displayInfluence).toBeCloseTo(4 / 9)
+
+    for (const key of ['n_big', 'n_down', 'n_up']) {
+      const canvas = renderHook(() => useNodeDisplayMetadata(key, 'factor'))
+      expect(canvas.result.current.influence).toBeCloseTo(rowsByKey.get(key)!.displayInfluence!)
+      expect(canvas.result.current.sensitivityRank).toBe(rowsByKey.get(key)!.rank)
+    }
+
+    // Pinned concretely: the tie resolves by the shared key tie-break, and the
+    // sign of the magnitude does not enter the ordering on either surface.
+    expect(rowsByKey.get('n_big')?.rank).toBe(1)
+    expect(rowsByKey.get('n_down')?.rank).toBe(2)
+    expect(rowsByKey.get('n_up')?.rank).toBe(3)
+  })
+
+  it('producer basis: the top-driver crown lands on the same row on both surfaces', () => {
+    setCompleteReport(baseReport({
+      factor_sensitivity: [
+        { node_id: 'a_pos', label: 'Alpha uplift', influence_score: 0.5, elasticity: 0.3 },
+        { node_id: 'b_neg', label: 'Beta drag', influence_score: 0.5, elasticity: -0.9 },
+      ],
+    }))
+
+    const panel = renderHook(() => useResultsSectionData())
+    const rowsByKey = new Map(panel.result.current.drivers.drivers.map(d => [d.factorKey, d]))
+
+    // Both rows carry a producer score, and the SAME one — so the crown is
+    // decided purely by the elasticity tie-break.
+    expect(rowsByKey.get('a_pos')?.displayProvenance).toBe('influence_score')
+    expect(rowsByKey.get('a_pos')?.displayInfluence).toBeCloseTo(0.5)
+    expect(rowsByKey.get('b_neg')?.displayInfluence).toBeCloseTo(0.5)
+
+    for (const key of ['a_pos', 'b_neg']) {
+      const canvas = renderHook(() => useNodeDisplayMetadata(key, 'factor'))
+      expect(canvas.result.current.sensitivityRank).toBe(rowsByKey.get(key)!.rank)
+    }
+
+    // The larger MAGNITUDE wins the tie on both surfaces, negative or not.
+    expect(rowsByKey.get('b_neg')?.rank).toBe(1)
+    expect(rowsByKey.get('a_pos')?.rank).toBe(2)
+  })
+
+  it('feed contract: policyRows carry an unsigned magnitude, as the field documents', () => {
+    const report = baseReport({
+      factor_sensitivity: [
+        { node_id: 'n_down', elasticity: -0.4 },
+        { node_id: 'n_up', elasticity: 0.4 },
+      ],
+    }) as ResultsReport
+    const feed = selectDriverPolicyFeed(report)
+    // Pinned at the PRODUCER: the one consumer that ranks on this field sorts
+    // it raw, so a signed value here is an ordering fork waiting to happen.
+    expect(feed.policyRows.map(r => r.rawElasticity)).toEqual([0.4, 0.4])
+  })
+})
+
 describe('selectDriverPolicyFeed — feed contract', () => {
   it('is memoised per report object (same identity for repeated reads)', () => {
     const report = baseReport({
