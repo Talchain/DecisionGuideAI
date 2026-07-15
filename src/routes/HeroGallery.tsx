@@ -54,8 +54,6 @@ export function HeroGallery() {
           >
             <AnalysisHeroPanel
               model={entry.model}
-              isStale={entry.isStale ?? false}
-              onRerun={() => {}}
               rerunDisabled={entry.rerunDisabled ?? false}
               focusPanelMounted={false}
               onApplyTarget={entry.withApplyTarget ? () => {} : undefined}

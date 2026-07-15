@@ -17,11 +17,12 @@
  * analysis rerun, no selector recomputation, and the row DOM persists across
  * lens switches (values morph via transform/opacity in HeroOptionRow).
  *
- * Stale treatment (prototype v6): the hero renders NO stale surface of its
- * own — AnalysisFreshnessNotice (the adjacent strip) owns the warning, and
- * the content stays fully readable and interactive. The only hero-side
- * stale affordance retained is the footer Re-run action (kept rather than
- * removed — see the deliberate-deviation note at the render site).
+ * Stale treatment (prototype v6, ratified guide): the hero renders NO stale
+ * surface of its own — AnalysisFreshnessNotice (the adjacent strip) owns the
+ * warning AND carries the one Rerun (Wave F-B; brief §5 one freshness owner,
+ * §2.2 never repeat the same action across surfaces). The content stays
+ * fully readable and interactive. The former footer Re-run pill (an
+ * explicitly commented deviation from strict v6) is REMOVED — lane C1.
  *
  * Trust discipline: no trust/stability wording is rendered anywhere in this
  * panel — no producer-supplied display-safe label exists today (see
@@ -29,7 +30,7 @@
  * derived. Raw 0-1 stability/confidence floats are never displayed.
  */
 import { useEffect, useId, useRef, useState } from 'react'
-import { Check, Crosshair, FlaskConical, Info, RefreshCw, Target } from 'lucide-react'
+import { Check, Crosshair, FlaskConical, Info, Target } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { HeroEvidenceDisclosure } from './HeroEvidenceDisclosure'
@@ -40,10 +41,14 @@ import type { HeroChartModel, HeroLens, HeroStatusModel } from './heroTypes'
 
 export interface AnalysisHeroPanelProps {
   model: HeroChartModel | HeroStatusModel
-  isStale: boolean
-  onRerun: () => void
   /** Wave 2 (§6.5): canvas focus for quick links; absent = links inert-hidden. */
   onFocusTarget?: (targetId: string) => void
+  /**
+   * A rerun is in flight — disables the analysis-affecting target-apply
+   * controls (committing a success target triggers a rerun). The hero
+   * renders no rerun action of its own (C1: the freshness strip owns the
+   * one Rerun).
+   */
   rerunDisabled: boolean
   /**
    * @deprecated Legacy gate kept for older callers (the gallery passes it);
@@ -136,8 +141,6 @@ function StatusState({ model }: { model: HeroStatusModel }) {
 
 export function AnalysisHeroPanel({
   model,
-  isStale,
-  onRerun,
   rerunDisabled,
   focusPanelSelector = null,
   nextRecommendation = null,
@@ -483,7 +486,6 @@ export function AnalysisHeroPanel({
           when the Next-step row supersedes its only line (no empty border). */}
       {(Boolean(model.mainReason && !mainDriverLink) ||
         model.trustLine != null ||
-        isStale ||
         model.showGoalHint ||
         model.focusAction != null ||
         !nextRecommendation) && (
@@ -498,27 +500,11 @@ export function AnalysisHeroPanel({
             {dashSafe(model.trustLine)}
           </p>
         )}
-        {isStale ? (
-          /* Deliberate deviation from strict v6 (which gives the hero no
-             stale affordance at all): the Re-run action is RETAINED so an
-             existing recovery affordance is not removed — but the content
-             above stays fully readable and interactive (no dim, no lock). */
-          <button
-            type="button"
-            onClick={onRerun}
-            disabled={rerunDisabled}
-            data-testid="hero-rerun"
-            className={`${typography.panelMeta} inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-text-on-color transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50`}
-          >
-            <RefreshCw
-              aria-hidden="true"
-              className={`h-3.5 w-3.5 ${
-                rerunDisabled ? 'animate-spin motion-reduce:animate-none' : ''
-              }`}
-            />
-            {HERO_COPY.footer.rerun}
-          </button>
-        ) : model.showGoalHint ? (
+        {/* C1: the former isStale Re-run pill is REMOVED (ratified v6 —
+            the hero has no stale affordance at all; the freshness strip
+            above owns recovery and carries the one Rerun). The content
+            stays fully readable and interactive when stale. */}
+        {model.showGoalHint ? (
           /* Promoted single-lens unlock: the Focus-next slot carries the
              success-target action (fires ONLY when no target exists — never
              for producer gaps). Actionable solely through the existing

@@ -62,8 +62,6 @@ describe('AnalysisHeroPanel — goal_fit_basis caveat render', () => {
     render(
       <AnalysisHeroPanel
         model={model}
-        isStale={false}
-        onRerun={() => {}}
         rerunDisabled={false}
         focusPanelMounted={false}
       />,
@@ -79,8 +77,6 @@ describe('AnalysisHeroPanel — goal_fit_basis caveat render', () => {
     render(
       <AnalysisHeroPanel
         model={model}
-        isStale={false}
-        onRerun={() => {}}
         rerunDisabled={false}
         focusPanelMounted={false}
       />,

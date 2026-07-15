@@ -10,20 +10,14 @@ import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { buildHeroModel } from '../buildHeroModel'
 import type { HeroChartModel, HeroStatusModel } from '../heroTypes'
 import { FULL_COMPLETENESS, makeHeroData } from '../__fixtures__/hero.fixtures'
+import { collectRerunControls } from '../../../../../tests/helpers/rerunControls'
 
 function chartModel(): HeroChartModel {
   return buildHeroModel(makeHeroData()) as HeroChartModel
 }
 
-function renderPanel(model: HeroChartModel | HeroStatusModel, isStale = false) {
-  return render(
-    <AnalysisHeroPanel
-      model={model}
-      isStale={isStale}
-      onRerun={() => {}}
-      rerunDisabled={false}
-    />,
-  )
+function renderPanel(model: HeroChartModel | HeroStatusModel) {
+  return render(<AnalysisHeroPanel model={model} rerunDisabled={false} />)
 }
 
 async function expectNoViolations(container: HTMLElement) {
@@ -125,9 +119,15 @@ describe('AnalysisHero — accessibility', () => {
     expect(screen.getByRole('group', { name: 'Expected outcome by option' })).toBeInTheDocument()
   })
 
-  it('stale content stays operable (v6 — no inert lockout) and the re-run control works', async () => {
-    const { container } = renderPanel(chartModel(), true)
-    expect(screen.getByTestId('hero-rerun')).toBeEnabled()
+  it('content stays operable (v6 — no inert lockout) and no hero-side rerun control exists (C1)', async () => {
+    // RETIRED PIN: the hero's stale Re-run pill is removed — the freshness
+    // strip owns the one Rerun; the panel is staleness-agnostic.
+    const { container } = renderPanel(chartModel())
+    // Re-anchored (C1 review): this asserted `queryByTestId('hero-rerun')`
+    // was absent, but that testid exists nowhere in source — it asserted the
+    // absence of something that could never be present, so it could never
+    // fail. Sweep the rendered hero for a run control of ANY name/testid.
+    expect(collectRerunControls(container)).toEqual(new Set())
     // No aria-disabled/inert wrapper: rows and tabs remain in the a11y tree.
     expect(screen.getByTestId('hero-lens-tab-goal')).toBeEnabled()
     await expectNoViolations(container)

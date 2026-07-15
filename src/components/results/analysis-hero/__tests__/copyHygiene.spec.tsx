@@ -127,7 +127,6 @@ const UI_COPY: string[] = [
   HERO_COPY.footer.targetInputAria,
   HERO_COPY.footer.targetApply,
   HERO_COPY.footer.targetRerunNote,
-  HERO_COPY.footer.rerun,
   HERO_COPY.status.partial.headline,
   HERO_COPY.status.partial.body,
   HERO_COPY.status.failed.headline,

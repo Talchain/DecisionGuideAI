@@ -6,7 +6,9 @@
  * from ResultsBody as a prop — no second data path, no fetch, no direct
  * CEE/PLoT access) and wires the live concerns the presentational panel
  * must not own:
- *   - re-run analysis via the canonical runner (stale footer action);
+ *   - whether a run is in flight (disables the analysis-affecting
+ *     target-apply controls; the hero's own stale Re-run action is retired
+ *     — C1: the freshness strip owns the one Rerun);
  *   - WHICH coaching panel is mounted below (flag-aware: the adaptive
  *     Strengthen panel replaces FocusNow inside its flag, mirroring
  *     ResultsBody's own mount logic) — exposed as the panel's scroll-target
@@ -20,9 +22,8 @@
  * disclosure live in the panel as local render state and never re-run this
  * mapping.
  */
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useCanvasStore } from '@/canvas/store'
-import { executeCanonicalRun } from '@/canvas/analysis/canonicalRunRegistry'
 import { selectActive, useStrengthenStore } from '@/canvas/stores/strengthenStore'
 import { isFocusNowPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
@@ -31,7 +32,8 @@ import type { HeroModel } from './heroTypes'
 
 export interface UseAnalysisHeroReturn {
   model: HeroModel
-  onRerun: () => void
+  /** A run is in flight — the panel disables its analysis-affecting
+   * target-apply controls (no hero-side rerun action exists — C1). */
   rerunDisabled: boolean
   /** Scroll-target selector for the mounted coaching panel, or null when
    * neither panel flag is on (no scroll affordance is rendered). */
@@ -82,16 +84,11 @@ export function useAnalysisHero(data: ResultsSectionDataReturn): UseAnalysisHero
     return top?.snapshot.title ?? null
   }, [strengthenOn, records, priorityOrder])
 
-  // Wave F-B: the hero rerun routes through the canonical runner — its old
-  // private useV2Run instance bypassed the dock's run gate and the V5 fact
-  // path (no cross-instance mutex; audit F-77).
-  const onRerun = useCallback(() => {
-    void executeCanonicalRun({ source: 'analysis-hero' })
-  }, [])
-
+  // C1: the hero's own Rerun (Wave F-B canonical-runner routed) is RETIRED
+  // with the stale pill — the freshness strip owns the one Rerun. Only the
+  // in-flight signal remains, for the target-apply controls.
   return {
     model,
-    onRerun,
     rerunDisabled: isAnalysing,
     // Flag-aware scroll target: Strengthen wins inside its flag (ResultsBody
     // mounts it INSTEAD of FocusNow), else the FocusNow panel, else none.

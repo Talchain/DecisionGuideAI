@@ -281,7 +281,8 @@ export const HERO_COPY = {
      * that before pressing Enter or the tick.
      */
     targetRerunNote: 'Applying runs the analysis again.',
-    rerun: 'Re-run analysis',
+    // C1: the footer 'rerun' entry is retired with the hero's stale Re-run
+    // pill — the freshness strip owns the one Rerun (Wave F-B, brief §5).
   },
 
   // §6.6 — one expandable evidence section, three views. Flip-risk

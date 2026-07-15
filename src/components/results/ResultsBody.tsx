@@ -277,7 +277,6 @@ export const ResultsBody = memo(function ResultsBody({
           <AnalysisHeroContainer
             onDefineSuccess={openDefineSuccess}
             data={resultsSectionData}
-            isStale={isStale}
             onApplyTarget={onApplyThreshold}
           />
         </SectionErrorBoundary>

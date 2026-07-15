@@ -172,8 +172,7 @@ export interface GalleryEntry {
   /** What this state demonstrates and which producer fields would feed it live. */
   description: string
   model: HeroChartModel | HeroStatusModel
-  isStale?: boolean
-  /** Render the rerun action as in-flight (spinner, controls disabled). */
+  /** Render a run as in-flight (target-apply controls disabled). */
   rerunDisabled?: boolean
   /** Render the promoted target action as actionable (no-op apply route). */
   withApplyTarget?: boolean
@@ -349,10 +348,9 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
   },
   {
     id: 'stale',
-    title: 'Stale analysis (readable content + re-run route)',
+    title: 'Stale analysis (readable content, no hero-side affordance)',
     description:
-      'Model edited since the last run: per prototype v6 the hero content stays readable and interactive (the freshness strip owns the warning); the footer swaps to the retained Re-run action.',
-    isStale: true,
+      'Model edited since the last run: per the ratified v6 guide the hero content stays readable and interactive and the hero authors NO stale surface or rerun of its own — the adjacent freshness strip (not part of this panel) owns the warning and the one Rerun.',
     model: fixtureChart({
       headline: 'Hire One Tech Lead best fits your goal.',
       subline: 'Hire One Tech Lead also has the strongest expected outcome.',
@@ -380,8 +378,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
     id: 'stale-rerunning',
     title: 'Rerun in progress (post-apply)',
     description:
-      'What the user sees after committing a change that reruns (e.g. applying a success target): the content stays readable, and the footer rerun action shows in-flight progress with its controls disabled.',
-    isStale: true,
+      'What the user sees after committing a change that reruns (e.g. applying a success target): the content stays readable, and the analysis-affecting target-apply controls are disabled while the run is in flight (the freshness strip — not part of this panel — carries the running state and the one Rerun).',
     rerunDisabled: true,
     model: fixtureChart({
       headline: 'Hire One Tech Lead best fits your goal.',
