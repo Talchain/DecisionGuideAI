@@ -54,6 +54,10 @@ import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 // via the constant rather than a hard-coded literal.
 export const STRUCTURAL_EDGE_COLOUR = '#B8B8B8'
 
+// Stable empty set for the lens-disabled branch of the store selector —
+// a fresh Set per call would defeat useShallow's reference equality.
+const EMPTY_ID_SET: ReadonlySet<string> = new Set<string>()
+
 export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data }: EdgeProps<EdgeData>) => {
   const isDark = useIsDark()
   const prefersReducedMotion = usePrefersReducedMotion()
@@ -100,6 +104,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const {
     isLensDimmed, lensMode, lensSensWeight, lensQ25, lensQ75,
     isLensFragile, isLensHidden, causalEdgeParams, evidenceEdgeClass,
+    lensHiddenNodeIds, lensHiddenEdgeIds,
   } = useCanvasStore(
     useShallow(s => {
       if (!lensEnabled) {
@@ -110,6 +115,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           isLensFragile: false, isLensHidden: false,
           causalEdgeParams: null as { mean: number; std: number | null; existsProb: number | null } | null,
           evidenceEdgeClass: null as string | null,
+          lensHiddenNodeIds: EMPTY_ID_SET,
+          lensHiddenEdgeIds: EMPTY_ID_SET,
         }
       }
       const active = s.lens.active
@@ -123,6 +130,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         isLensHidden: s.lens._hiddenEdgeIds?.has(id) === true,
         causalEdgeParams: active === 'causal' ? (s.lens._causalEdgeParams?.get(id) ?? null) : null,
         evidenceEdgeClass: active === 'evidence' ? (s.lens._evidenceEdgeClass?.get(id) ?? null) : null,
+        // C2 review fix 1: the label-collision pass needs the full hidden
+        // sets — lens hiding is the app's ONLY node-hiding mechanism
+        // (BaseNode returns null; React Flow's `hidden` flag is never set).
+        lensHiddenNodeIds: (s.lens._hiddenNodeIds ?? EMPTY_ID_SET) as ReadonlySet<string>,
+        lensHiddenEdgeIds: (s.lens._hiddenEdgeIds ?? EMPTY_ID_SET) as ReadonlySet<string>,
       }
     }),
   )
@@ -501,7 +513,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     if (!isTopStrengthEdge) return ''
     let sig = ''
     for (const n of s.nodes) {
-      if (n.hidden) continue
+      // C2 review fix 1: the app hides nodes via the lens (BaseNode returns
+      // null for ids in lens._hiddenNodeIds) — those cards are invisible and
+      // must not be obstacles. React Flow's `hidden` flag is never set by
+      // this app; the filter stays as belt-and-braces.
+      if (n.hidden || lensHiddenNodeIds.has(n.id)) continue
       const w = n.measured?.width ?? n.width ?? 200
       const h = n.measured?.height ?? n.height ?? 80
       sig += `${n.id}:${Math.round(n.position.x / 10)},${Math.round(n.position.y / 10)},${Math.round(w / 10)},${Math.round(h / 10)};`
@@ -524,6 +540,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     const points: Array<{ id: string; x: number; y: number }> = []
     for (const e of allEdges) {
       if (!topStrengthIds.has(e.id)) continue
+      // C2 review fix 1: a lens-hidden edge renders no label (the component
+      // returns null below), so it must not occupy a label slot either.
+      if (lensHiddenEdgeIds.has(e.id)) continue
       const sn = getNode(e.source)
       const tn = getNode(e.target)
       if (!sn || !tn) continue
@@ -534,7 +553,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       points.push({ id: e.id, x: (sx + tx) / 2, y: (sy + ty) / 2 })
     }
     const nodeRects = getNodes()
-      .filter((n) => !n.hidden)
+      // C2 review fix 1: lens-hidden cards are invisible — not obstacles.
+      // RF `hidden` kept as belt-and-braces (never set by this app).
+      .filter((n) => !n.hidden && !lensHiddenNodeIds.has(n.id))
       .map((n) => ({
         x: n.position.x,
         y: n.position.y,
@@ -545,7 +566,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     // nodeRectsSignature is the (quantised) recompute trigger for node
     // movement, mirroring how sourceX/sourceY/targetX/targetY already trigger
     // recompute for this edge's own endpoints.
-  }, [isTopStrengthEdge, topStrengthIds, getEdges, getNode, getNodes, id, sourceX, sourceY, targetX, targetY, nodeRectsSignature])
+  }, [isTopStrengthEdge, topStrengthIds, getEdges, getNode, getNodes, id, lensHiddenNodeIds, lensHiddenEdgeIds, sourceX, sourceY, targetX, targetY, nodeRectsSignature])
 
   // Task 9c: Offset persistent labels away from nodes to avoid overlap
   const persistentLabelOffset = useMemo(() => {
