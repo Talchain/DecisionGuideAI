@@ -14,7 +14,12 @@ export interface OptionProbability {
 export interface ReportV1 {
   schema: 'report.v1'
   meta: {
-    seed: number
+    /**
+     * Seed the engine actually used, or null when no real value exists
+     * (e.g. the V5 contract carries no seed field). Receipts fail closed:
+     * consumers hide the Seed row on null rather than fabricating 0.
+     */
+    seed: number | null
     response_id: string
     elapsed_ms: number
   }

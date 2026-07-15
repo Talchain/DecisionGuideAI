@@ -2233,7 +2233,15 @@ export function useConversation(): UseConversationReturn {
             // Apply the same validate → sanitize → map pipeline as the direct path
             validateV2RunResponseFull(raw) // soft warnings only; don't block on them
             const result = sanitizeV2RunResponse(raw)
-            const seedUsed = typeof store.results.seed === 'number' ? store.results.seed : 0
+            // Receipts fail closed (T2): the only real seed for THIS
+            // response is the engine echo (meta.seed_used). A fabricated 0
+            // and a stale store.results.seed left over from a previous
+            // direct run are both provenance lies — no echo → null → the
+            // Seed receipt row hides.
+            const echoedSeed = result.meta?.seed_used != null
+              ? Number.parseInt(String(result.meta.seed_used), 10)
+              : Number.NaN
+            const seedUsed = Number.isFinite(echoedSeed) ? echoedSeed : null
             const report = mapV2ResponseToReportV1(result, { seed: seedUsed })
             // SAFETY: V2-derived enrichment has sensitivity_analysis.edges/factors with
             // {elasticity, importance_rank} instead of PLoTEdgeSensitivity shape.

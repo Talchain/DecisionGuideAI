@@ -371,7 +371,10 @@ export function pickFactorSensitivityForUi(v2Response: V2RunResponse): FactorSen
  */
 export function mapV2ResponseToReportV1(
   v2Response: V2RunResponse,
-  meta: { seed: number; elapsed_ms?: number }
+  // seed: null when the caller has no REAL seed for this response (no
+  // engine echo / provenance). Receipts fail closed — never pass 0 as a
+  // stand-in for "unknown".
+  meta: { seed: number | null; elapsed_ms?: number }
 ): ReportV1 {
   // P0 DIAGNOSTIC: Log input to identify crash source
   if (import.meta.env.DEV) {
