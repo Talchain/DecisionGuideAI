@@ -13,7 +13,8 @@ import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion'
 import { useEditedSinceRun } from './hooks/useEditedSinceRun'
 import { LodSync } from './components/LodSync'
 import { cameraDuration } from './utils/cameraMotion'
-import { neighbourhoodNodeIds } from './utils/focusNeighbourhood'
+import { computeFocusPlan } from './utils/focusNeighbourhood'
+import { readFocusCamera, nodesComfortablyVisible } from './utils/cameraComfort'
 import { useMeasureThenLayout } from './hooks/useMeasureThenLayout'
 import { useFitViewOnLayoutVersion } from './hooks/useFitViewOnLayoutVersion'
 import { nodeTypes } from './nodes/registry'
@@ -885,25 +886,41 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // Brief 36 Fix: Use refs instead of direct dependencies to prevent re-renders
   const handleFocusNode = useCallback((nodeId: string) => {
     const store = useCanvasStore.getState()
-    const targetNode = store.nodes.find(n => n.id === nodeId)
 
-    if (!targetNode) return
+    // F2 + F3 (graph-visuals): the whole focus decision is the pure
+    // computeFocusPlan (pinned in focusNeighbourhood.spec.ts); this handler
+    // only applies it — select → dim → conditionally fit.
+    const plan = computeFocusPlan(
+      nodeId,
+      store.nodes,
+      store.edges,
+      readFocusCamera(getViewportRef.current),
+    )
+    if (!plan) return // fail-closed: id not on the canvas
 
     // Select node WITHOUT pushing to history (navigation-only, not structural change)
     store.selectNodeWithoutHistory(nodeId)
 
-    // F2 (graph-visuals): fit the node AND its direct neighbours to a readable
-    // zoom (capped so it never disorients), rather than centring at the current
-    // zoom — focusing from a zoomed-out view used to land on something you
-    // couldn't read. usePathHighlight dims the rest of the graph.
-    const focusIds = neighbourhoodNodeIds(nodeId, store.edges)
-    const focusNodes = store.nodes.filter(n => focusIds.has(n.id))
-    fitViewRef.current({
-      nodes: focusNodes,
-      padding: 0.3,
-      maxZoom: 1.2,
-      duration: cameraDuration(400, reducedMotionRef.current),
-    })
+    // F3: transient focus dim — every node OUTSIDE the neighbourhood dims via
+    // the same store field BaseNode's dim classes already consume. Cleared by
+    // usePathHighlight on deselect/reselect, by the store boundary when the
+    // focused node is removed, and by handleMoveStart on a manual pan.
+    store.setFocusDim(nodeId, plan.dimNodeIds)
+
+    // F2: fit the node AND its direct neighbours to a readable zoom (capped
+    // so it never disorients), rather than centring at the current zoom —
+    // focusing from a zoomed-out view used to land on something you couldn't
+    // read. No-churn rule: when the whole neighbourhood is already
+    // comfortably visible the camera does NOT move (cameraComfort).
+    if (plan.moveCamera) {
+      const focusNodes = store.nodes.filter(n => plan.focusNodeIds.has(n.id))
+      fitViewRef.current({
+        nodes: focusNodes,
+        padding: 0.3,
+        maxZoom: 1.2,
+        duration: cameraDuration(400, reducedMotionRef.current),
+      })
+    }
   }, [])
 
   // Focus edge handler (for Results panel drivers)
@@ -945,15 +962,30 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     return registerFocusHelpers(handleFocusNode, handleFocusEdge)
   }, [handleFocusNode, handleFocusEdge])
 
-  // F4 (graph-visuals): registered multi-node fit for USER-INITIATED
-  // surfaces (What-changed chip). Fits every target into view (zoom capped)
-  // with the F1 reduced-motion guard. The AI's autonomous pulse still never
-  // pans — this seam is only reachable from explicit user clicks.
+  // F4 (graph-visuals): registered multi-node fit — the applied-edit pulse
+  // choke point (appliedEditPulse.flush) routes every feeder here so pulse
+  // targets are in view before they flash. Fits every target (zoom capped)
+  // with the F1 reduced-motion guard, EXCEPT when all targets are already
+  // comfortably visible (cameraComfort's pinned no-churn rule) — an applied
+  // edit the user can already see must not yank the camera.
   const handleFitNodes = useCallback((nodeIds: readonly string[]) => {
     const store = useCanvasStore.getState()
     const idSet = new Set(nodeIds)
     const targets = store.nodes.filter(n => idSet.has(n.id))
     if (targets.length === 0) return
+    const camera = readFocusCamera(getViewportRef.current)
+    if (
+      camera &&
+      nodesComfortablyVisible(
+        targets,
+        camera.viewport,
+        camera.paneWidth,
+        camera.paneHeight,
+        camera.insets,
+      )
+    ) {
+      return
+    }
     fitViewRef.current({
       nodes: targets,
       padding: 0.25,
@@ -964,6 +996,16 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   useEffect(() => {
     return registerFitNodes(handleFitNodes)
   }, [handleFitNodes])
+
+  // F3 (graph-visuals): a USER-initiated pan/zoom ends the focus lens — the
+  // transient focus dim must never outlive the user taking the camera back.
+  // ReactFlow passes the originating gesture event for user moves and null
+  // for programmatic ones (our own fitView/setCenter), so focus's own camera
+  // move never clears the dim it just set. clearFocusDim is a no-op unless a
+  // focus dim is active, so ordinary panning stays free of store churn.
+  const handleMoveStart = useCallback((event: unknown) => {
+    if (event) useCanvasStore.getState().clearFocusDim()
+  }, [])
 
   // Graph Interaction P1: Enable path highlighting based on node selection
   // Highlights causal paths from selected factor to goal, dims unrelated nodes
@@ -2015,6 +2057,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             onConnectEnd={onConnectEnd}
             isValidConnection={isValidConnection}
             onSelectionChange={handleSelectionChange}
+            onMoveStart={handleMoveStart}
             onNodeClick={handleNodeClick}
             onNodeDoubleClick={handleNodeDoubleClick}
             onEdgeClick={handleEdgeClick}
