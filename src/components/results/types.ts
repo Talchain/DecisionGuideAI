@@ -1041,8 +1041,13 @@ export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
   // V2 pass-through fields from responseMapper
   factor_sensitivity?: V2FactorSensitivity[]
   robustness?: {
-    fragile_edges: Array<Record<string, unknown>>
-    robust_edges: Array<Record<string, unknown>>
+    // Optional (T2 receipts-honesty): the V5 mapper preserves ABSENCE —
+    // keys exist only when the producer sent an array ([] = honest "none",
+    // absent = "engine said nothing" → receipt rows fail closed). The V4
+    // mapper still always emits both when robustness is present, because
+    // the V2 wire contract requires them (V2RobustnessActual).
+    fragile_edges?: Array<Record<string, unknown>>
+    robust_edges?: Array<Record<string, unknown>>
     ranking_stability?: number
     recommendation_stability?: number
     is_robust?: boolean

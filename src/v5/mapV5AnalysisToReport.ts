@@ -290,8 +290,13 @@ function resolveOptionEntries(
 // ─── Public mapper ─────────────────────────────────────────────────────
 
 export interface MapV5AnalysisOptions {
-  /** Seed used for the run. Defaults to 0 when caller has none. */
-  seed?: number
+  /**
+   * Seed used for the run. The V5 contract carries NO seed field, so when
+   * the caller has no real value the report carries null and the Seed
+   * receipt row fails closed (hides). Never default to 0 — a fabricated
+   * seed is a provenance lie (T2 receipts-honesty).
+   */
+  seed?: number | null
   /**
    * Optional override for response_hash. When omitted the hash is derived
    * deterministically from the block (summary + leading_option_id +
@@ -316,7 +321,11 @@ export function mapV5AnalysisToReport(
   block: AnalysisResultBlock,
   options: MapV5AnalysisOptions = {},
 ): ReportV1 {
-  const seed = options.seed ?? 0
+  // Receipts fail closed: no real seed → null (Seed row hides), never 0.
+  // NOTE: meta.seed does NOT feed the deriveBlockHash `v5:` digest — that
+  // hashes summary/leading_option_id/win_probabilities/enrichment only —
+  // so this change cannot perturb dedupe or hash stability.
+  const seed = options.seed ?? null
   const enrichment = isPlainObject(block.enrichment) ? block.enrichment : undefined
 
   // Factor sensitivity — collected and ranked once; reused for drivers + factor_sensitivity passthrough.
@@ -464,12 +473,17 @@ export function mapV5AnalysisToReport(
     : undefined
   const robustness = robustnessRaw
     ? {
-        fragile_edges: Array.isArray(robustnessRaw.fragile_edges)
-          ? robustnessRaw.fragile_edges
-          : [],
-        robust_edges: Array.isArray(robustnessRaw.robust_edges)
-          ? robustnessRaw.robust_edges
-          : [],
+        // Receipts fail closed (T2): preserve ABSENCE. Keys are emitted
+        // only when the producer sent a real array — a producer-sent []
+        // is an honest "none stable/fragile" (row shows 0), while an
+        // absent or malformed field stays off the report so counts read
+        // undefined and receipt rows hide. Never coerce absence to [].
+        ...(Array.isArray(robustnessRaw.fragile_edges)
+          ? { fragile_edges: robustnessRaw.fragile_edges }
+          : {}),
+        ...(Array.isArray(robustnessRaw.robust_edges)
+          ? { robust_edges: robustnessRaw.robust_edges }
+          : {}),
         ...(safeFiniteNumber(robustnessRaw.ranking_stability) !== undefined
           ? { ranking_stability: safeFiniteNumber(robustnessRaw.ranking_stability) }
           : {}),
