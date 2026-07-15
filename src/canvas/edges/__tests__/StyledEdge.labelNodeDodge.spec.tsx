@@ -23,6 +23,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
 import { StyledEdge } from '../StyledEdge'
+import { LABEL_HALF_HEIGHT, LABEL_HALF_WIDTH } from '../edgeLabelCollision'
 import { Position } from '@xyflow/react'
 
 // ── Node/edge registries — populated per test ───────────────────────────────
@@ -237,6 +238,44 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
     expect(leader).not.toBeNull()
     const dy = Number(leader!.getAttribute('y2')) - Number(leader!.getAttribute('y1'))
     expect(dy).toBeGreaterThanOrEqual(51)
+  })
+
+  // ── Label-box assumption: the resolver clears a FIXED 160×22 box ──────────
+  // The resolver has no access to the rendered label's real size — it assumes
+  // ±LABEL_HALF_WIDTH / ±LABEL_HALF_HEIGHT around the anchor. That assumption
+  // is only sound because the render caps the label at the same width and
+  // refuses to wrap. These pin the coupling: widening the label (or letting a
+  // long label wrap to a second line) without widening the resolver's box
+  // would silently under-clear every dodge, re-opening the clipping bug for
+  // exactly the long labels that triggered it ("Moderate boost (uncertain)").
+  describe('the rendered label stays inside the box the resolver clears for', () => {
+    const labelStyle = (container: HTMLElement) =>
+      (container.querySelector('[role="note"]') as HTMLElement).style
+
+    it('the label is capped at the resolver\'s assumed width and never wraps', () => {
+      const { container } = render(<StyledEdge {...edgeProps as any} />)
+      const style = labelStyle(container)
+      // Width cap === the resolver's box width (2 × half-extent)
+      expect(style.maxWidth).toBe(`${LABEL_HALF_WIDTH * 2}px`)
+      // …and a long label is ellipsised on ONE line rather than wrapping to a
+      // second, which would break the ±LABEL_HALF_HEIGHT assumption.
+      expect(style.whiteSpace).toBe('nowrap')
+      expect(style.overflow).toBe('hidden')
+      expect(style.textOverflow).toBe('ellipsis')
+    })
+
+    it('a long label text does not widen the rendered box beyond the assumption', () => {
+      const { container } = render(
+        <StyledEdge
+          {...(edgeProps as any)}
+          data={{ ...edgeProps.data, label: 'Moderate boost (uncertain) — a deliberately very long label' }}
+        />,
+      )
+      // Same cap regardless of text length: jsdom does not lay text out, so
+      // the enforceable invariant is the cap itself, not a measured width.
+      expect(labelStyle(container).maxWidth).toBe(`${LABEL_HALF_WIDTH * 2}px`)
+      expect(LABEL_HALF_HEIGHT).toBe(11) // ~22px tall single line (padding included)
+    })
   })
 
   // ── C2 review finding 1: lens-hidden nodes are NOT obstacles ──────────────

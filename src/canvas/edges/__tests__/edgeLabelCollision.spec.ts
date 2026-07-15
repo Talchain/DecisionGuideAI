@@ -202,6 +202,40 @@ describe('resolvePersistentLabelPlacements — C2 review: anchor basis + pre-res
     expect(clearOf(100 + off.dx, 60 + off.dy, n2)).toBe(true)
   })
 
+  // The discriminating finding-4 pin. The pins above happen to survive a
+  // post-resolution nudge (their nudge is horizontal and their cards are wide
+  // enough that ±20px never changes the intersection verdict), so they do not
+  // actually distinguish the two orderings. This fixture does: the UN-nudged
+  // anchor is clear of every card, so a post-resolution nudge resolves to
+  // dy 0 and then slides the label sideways INTO a card — precisely the bug.
+  //
+  //  - source (90, 0) 20×10   → bottom handle (100, 10), centre (100, 5)
+  //  - target (90, 60) 20×10  → top handle   (100, 60), centre (100, 65)
+  //  - anchor (100, 35): within 40px of the source centre → nudge fires,
+  //    perpendicular to the (vertical) handle direction → dx −20.
+  //  - blocker (−100, 20) 110×30 spans x −100..10, y 20..50: the un-nudged
+  //    label box (x 20..180) clears it by 10px; the nudged box (x 0..160)
+  //    overlaps it.
+  it('finding 4: a nudge that moves the label INTO a card is resolved, not applied after clearance', () => {
+    const src = rect(90, 0, 20, 10)
+    const tgt = rect(90, 60, 20, 10)
+    const blocker = rect(-100, 20, 110, 30)
+    const out = resolvePersistentLabelPlacements(
+      [{ id: 'e', sourceRect: src, targetRect: tgt }],
+      [src, tgt, blocker],
+    )
+    const off = out.get('e')!
+    // The nudge itself is unchanged by the fix — it still fires and survives.
+    expect(off.dx).toBe(-20)
+    // Post-resolution ordering would leave dy 0 (the un-nudged anchor is
+    // clear) and park the label at (80, 35) — inside the blocker.
+    expect(off.dy).toBeGreaterThan(0)
+    // The FINAL box (nudge + stack applied) clears every card.
+    for (const r of [src, tgt, blocker]) {
+      expect(clearOf(100 + off.dx, 35 + off.dy, r)).toBe(true)
+    }
+  })
+
   it('no nudge and no obstacles → zero total offset', () => {
     const out = resolvePersistentLabelPlacements(
       [{ id: 'e', sourceRect: rect(-400, -40), targetRect: rect(200, -40) }],

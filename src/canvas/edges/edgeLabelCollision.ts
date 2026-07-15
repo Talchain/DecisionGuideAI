@@ -49,8 +49,15 @@ const MAX_STACK = 10 // guard: never loop unbounded on pathological input
 
 // Label box half-extents — the rendered label's maxWidth 160px / ~22px tall
 // (the same box the label-vs-label thresholds above approximate).
-const LABEL_HALF_WIDTH = 80
-const LABEL_HALF_HEIGHT = 11
+//
+// Exported because StyledEdge's rendered label must stay INSIDE this box for
+// the assumption to hold: the label div is capped at `maxWidth: 2 ×
+// LABEL_HALF_WIDTH` with nowrap + ellipsis, so however long the label text
+// is, it can never exceed the width the resolver clears for. A spec pins the
+// render against these constants — widening the label without widening the
+// box here would silently under-clear every dodge.
+export const LABEL_HALF_WIDTH = 80
+export const LABEL_HALF_HEIGHT = 11
 
 function labelIntersectsRect(cx: number, cy: number, r: NodeRect): boolean {
   return (
