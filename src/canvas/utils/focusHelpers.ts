@@ -52,11 +52,14 @@ export function registerFitNodes(fitNodes: FitNodesFn): () => void {
 }
 
 /**
- * F4 (graph-visuals): fit the viewport so EVERY given node is visible —
- * used by USER-INITIATED actions only (e.g. clicking the What-changed
- * chip) so off-screen targets are brought into view before they pulse.
- * The AI's autonomous applied-edit pulse deliberately never pans
- * (appliedEditPulse contract: the AI must not hijack the viewport).
+ * F4 (graph-visuals, Paul-ratified): fit the viewport so EVERY given node
+ * is visible — called by the applied-edit pulse choke point
+ * (appliedEditPulse's flush) so off-screen targets are brought into view
+ * before they pulse, for every feeder (applyPatch, applyV5State, the
+ * What-changed chip). The registered implementation (ReactFlowGraph)
+ * applies the cameraComfort no-churn rule — no camera move when every
+ * target is already comfortably visible — and honours
+ * prefers-reduced-motion (F1). Selection/inspector hijack stays banned.
  * Fail-closed: returns false (no-op) when the canvas is not mounted.
  */
 export function fitNodesOnCanvas(nodeIds: readonly string[]): boolean {
