@@ -192,14 +192,18 @@ describe('ResultsBody — Analysis hero placement + flag regression', () => {
     expect(screen.getByTestId('hero-headline')).toHaveTextContent('Option A best fits your goal.')
   })
 
-  it('flag ON + stale: hero soft-disables and offers Re-run (no extra stale banner)', () => {
+  it('flag ON + stale: hero authors NO rerun and NO stale surface — the strip owns recovery (C1)', () => {
     vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
     // Realistic stale state: the freshness slice IS stale, so the tab's
-    // AnalysisFreshnessNotice actually renders — the hero must not add a
-    // second stale surface of its own.
+    // AnalysisFreshnessNotice (mounted by OutputsDock) carries the warning
+    // AND the one Rerun — the hero must not repeat either (ratified v6
+    // guide: the hero has no stale affordance at all; brief §2.2 never
+    // repeats the same action across surfaces).
     useCanvasStore.setState({ analysisFreshness: { freshness: 'stale' }, analysisFreshnessDirty: false })
     renderBody({ isStale: true })
-    expect(screen.getByTestId('hero-rerun')).toBeInTheDocument()
+    expect(screen.queryByTestId('hero-rerun')).not.toBeInTheDocument()
+    // Content stays readable and interactive (no dim/lock regression).
+    expect(screen.getByTestId('hero-headline')).toHaveTextContent('Option A best fits your goal.')
     // Wave F-B: the freshness strip mounts in OutputsDock ABOVE the dim
     // wrapper (review a) — ResultsBody itself authors NO stale surface,
     // and the hero authors no stale banner either.
