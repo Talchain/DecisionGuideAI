@@ -976,7 +976,9 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
           // 2. `seedForHash` is a RUN IDENTITY for the graph hash, not a claim
           //    about the engine. When the engine did not echo a usable seed we
           //    fall back to the seed we actually SENT (`seed` is always a real
-          //    number by this point — it is derived at :424-441 above), because
+          //    number by this point — derived from framing.seed, else hashed
+          //    from scenario_id, else a timestamp fallback; see deriveSeed
+          //    just below the goal validation), because
           //    that is the seed a replay would resend. Falling back to the
           //    requested seed here is strictly more honest than the old code,
           //    which hashed a fabricated 0 whenever the echo was malformed.

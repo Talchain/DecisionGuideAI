@@ -59,6 +59,45 @@ function makeSnapshot(overrides: Partial<AnalysisSnapshot> & { runNumber: number
 // ---------------------------------------------------------------------------
 
 describe('deriveTransitions', () => {
+  // ── T2b: a robustness CHANGE requires BOTH ends to have been assessed ──
+  //
+  // Added because this lane's own headline finding is "the fix was unpinned",
+  // and an adversarial review caught it shipping a SECOND unpinned fix: the
+  // null-guard below could be reverted with this file staying 27/27 green.
+  //
+  // What the guard prevents: TransitionCard renders
+  //   {tr.robustnessChanged && (Result stability: {tr.robustnessFrom} → {tr.robustnessTo})}
+  // and JSX renders null as nothing — so an unguarded null→'stable' pair
+  // reports "Result stability:  → stable": a change claimed from MISSING data.
+  // That is precisely the fabrication class T2b exists to remove.
+  //
+  // MUTATION-CHECKED: dropping either `!= null` clause turns test (a) RED.
+  describe('T2b — robustness change needs both ends assessed', () => {
+    it('(a) does NOT claim a change when the earlier run had no robustness data', () => {
+      const [tr] = deriveTransitions([
+        makeSnapshot({ runNumber: 1, stabilityLabel: null }),
+        makeSnapshot({ runNumber: 2, stabilityLabel: 'stable' }),
+      ])
+      expect(tr.robustnessChanged).toBe(false)
+    })
+
+    it('(b) does NOT claim a change when the later run has no robustness data', () => {
+      const [tr] = deriveTransitions([
+        makeSnapshot({ runNumber: 1, stabilityLabel: 'stable' }),
+        makeSnapshot({ runNumber: 2, stabilityLabel: null }),
+      ])
+      expect(tr.robustnessChanged).toBe(false)
+    })
+
+    it('(c) DOES claim a change when both ends are assessed and differ', () => {
+      const [tr] = deriveTransitions([
+        makeSnapshot({ runNumber: 1, stabilityLabel: 'fragile' }),
+        makeSnapshot({ runNumber: 2, stabilityLabel: 'stable' }),
+      ])
+      expect(tr.robustnessChanged).toBe(true)
+    })
+  })
+
   it('returns empty for fewer than 2 snapshots', () => {
     expect(deriveTransitions([])).toEqual([])
     expect(deriveTransitions([makeSnapshot({ runNumber: 1 })])).toEqual([])

@@ -41,7 +41,6 @@ import { renderHook, act } from '@testing-library/react'
 import { useV2Run, type V2RunPersistence } from '../useV2Run'
 import { useCanvasStore } from '../../store'
 import { useDraftStore } from '../../stores/draftStore'
-import { useResultsStore } from '../../stores/resultsStore'
 
 vi.mock('../../../adapters/plot/v2', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../adapters/plot/v2')>()
@@ -102,11 +101,19 @@ function seedCanvas() {
 }
 
 /**
- * A COMPLETE V2RunPersistence double. Deliberately typed as the real
- * interface (not `as unknown as`) so that if the interface grows a required
- * member, this file fails to COMPILE rather than silently taking the hook's
- * error path and rendering these pins vacuous — which is precisely how the
- * defect this lane exists to fix stayed invisible.
+ * A COMPLETE V2RunPersistence double, typed as the real interface rather
+ * than cast through `unknown`.
+ *
+ * What that buys, stated honestly: a missing required member surfaces under
+ * `tsc -p tsconfig.app.json` and in an editor. It does NOT fail the CI gate —
+ * `pnpm typecheck` uses tsconfig.ci.json, whose include list does not cover
+ * src/canvas/hooks at all. So the type is a helpful tripwire, not a guarantee.
+ *
+ * The REAL protection is the runtime guard inside seedPersistedFor: every test
+ * routes through it, and it asserts persistAnalysisSuccess was actually called.
+ * An incomplete double sends the hook down its error path => zero calls => the
+ * guard fails loudly. That matters because it already happened: this double's
+ * first draft omitted setAnalysisRunning and every pin passed vacuously.
  */
 function makePersistence() {
   const persistAnalysisSuccess = vi.fn().mockResolvedValue(undefined)
@@ -134,7 +141,6 @@ async function seedPersistedFor(meta?: Record<string, unknown>) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  useResultsStore.setState({ analysisSummary: null })
   seedCanvas()
 })
 
