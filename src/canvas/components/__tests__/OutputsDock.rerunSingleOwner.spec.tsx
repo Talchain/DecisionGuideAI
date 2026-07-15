@@ -31,10 +31,11 @@
  */
 
 import '@testing-library/jest-dom/vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { OutputsDock } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
+import { collectRerunControls } from '../../../../tests/helpers/rerunControls'
 
 const { mockIsV5CanonicalAnalysisEnabled, mockIsAnalysisHeroV17Enabled, mockIsAnalysisHeroPanelEnabled } =
   vi.hoisted(() => ({
@@ -162,30 +163,6 @@ function seedPostRun(overrides: Record<string, unknown> = {}) {
     showDraftChat: false,
     ...overrides,
   } as never)
-}
-
-/**
- * Accessible names a rerun control could plausibly carry. Deliberately WIDER
- * than the literal /rerun/ the first cut of this spec matched: a control
- * reintroduced as "Run again" or "Refresh analysis" is still a second rerun
- * owner, and a pin that only knows one spelling would wave it through.
- */
-const RERUN_NAME_RE =
-  /re-?run|run again|re-?analy[sz]e|refresh (the )?analysis|update (the )?analysis|run (the )?analysis/i
-
-/** Testids that name a run-dispatching control, whatever its visible label. */
-const RERUN_TESTID_RE = /re-?run|run-analysis|analysis-run/i
-
-/**
- * Every control in the subtree that could dispatch a run — caught by
- * accessible NAME or by TESTID, so a reintroduction has to evade both.
- */
-function collectRerunControls(scope: HTMLElement): Set<Element> {
-  const byName = within(scope).queryAllByRole('button', { name: RERUN_NAME_RE })
-  const byTestId = Array.from(scope.querySelectorAll('[data-testid]')).filter(el =>
-    RERUN_TESTID_RE.test(el.getAttribute('data-testid') ?? ''),
-  )
-  return new Set<Element>([...byName, ...byTestId])
 }
 
 const SCROLLER_RE = /overflow-y-auto|overflow-y-scroll|(^|\s)overflow-auto(\s|$)/

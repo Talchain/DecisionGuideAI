@@ -53,6 +53,7 @@ import {
 } from '@/flags'
 import { useCanvasStore } from '@/canvas/store'
 import { useUIStore } from '@/stores/uiStore'
+import { collectRerunControls } from '../../../../tests/helpers/rerunControls'
 
 function makeData(): ResultsSectionDataReturn {
   const winner = {
@@ -201,7 +202,11 @@ describe('ResultsBody — Analysis hero placement + flag regression', () => {
     // repeats the same action across surfaces).
     useCanvasStore.setState({ analysisFreshness: { freshness: 'stale' }, analysisFreshnessDirty: false })
     renderBody({ isStale: true })
-    expect(screen.queryByTestId('hero-rerun')).not.toBeInTheDocument()
+    // Re-anchored (C1 review): `hero-rerun` exists nowhere in source, so this
+    // could never fail. Anchor to the hero's REAL root (getByTestId throws if
+    // the hero stops rendering, so the pin cannot go vacuous again) and sweep
+    // its subtree for a run control of any name/testid.
+    expect(collectRerunControls(screen.getByTestId('analysis-hero-panel'))).toEqual(new Set())
     // Content stays readable and interactive (no dim/lock regression).
     expect(screen.getByTestId('hero-headline')).toHaveTextContent('Option A best fits your goal.')
     // Wave F-B: the freshness strip mounts in OutputsDock ABOVE the dim

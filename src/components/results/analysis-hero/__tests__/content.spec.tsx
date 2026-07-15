@@ -10,6 +10,7 @@ import { buildHeroModel } from '../buildHeroModel'
 import type { HeroChartModel, HeroStatusModel } from '../heroTypes'
 import { makeHeroData, makeOption, OPTION_A, OPTION_B } from '../__fixtures__/hero.fixtures'
 import { useAskOlumiStore } from '../../coaching/askOlumiStore'
+import { collectRerunControls } from '../../../../../tests/helpers/rerunControls'
 
 function chartModel(data = makeHeroData()): HeroChartModel {
   const model = buildHeroModel(data)
@@ -175,7 +176,9 @@ describe('AnalysisHeroPanel — content', () => {
     expect(screen.getByRole('button', { name: /Two developers/ })).toBeInTheDocument()
     // No dim/inert lockout on the chart area, and no hero rerun control.
     expect(screen.getByTestId('hero-chart-area').className).not.toMatch(/opacity-45|pointer-events-none/)
-    expect(screen.queryByTestId('hero-rerun')).toBeNull()
+    // Re-anchored (C1 review): `hero-rerun` exists nowhere in source, so the
+    // old pin could never fail. Sweep the hero for a run control of any name.
+    expect(collectRerunControls(screen.getByTestId('analysis-hero-panel'))).toEqual(new Set())
   })
 
   it('promotes the success-target line into Focus next ONLY when no target exists', () => {

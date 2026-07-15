@@ -34,6 +34,7 @@ vi.mock('@/flags', async () => {
 import { isFocusNowPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
+import { collectRerunControls } from '../../../../../tests/helpers/rerunControls'
 
 describe('AnalysisHero — interaction', () => {
   beforeEach(() => {
@@ -114,8 +115,11 @@ describe('AnalysisHero — interaction', () => {
     // commented deviation from strict v6) is removed by the ratified v6
     // guide — content stays readable and interactive, and recovery lives
     // solely on the adjacent AnalysisFreshnessNotice strip.
-    render(<AnalysisHeroContainer data={makeHeroData()} />)
-    expect(screen.queryByTestId('hero-rerun')).toBeNull()
+    const { container } = render(<AnalysisHeroContainer data={makeHeroData()} />)
+    // Re-anchored (C1 review): `hero-rerun` exists nowhere in source, so the
+    // old pin asserted the absence of something that could never be present.
+    // Sweep the rendered hero for a run control of any name/testid instead.
+    expect(collectRerunControls(container)).toEqual(new Set())
     // No lockout — tabs stay enabled and rows keep their disclosures.
     expect(screen.getByTestId('hero-lens-tab-goal')).toBeEnabled()
     expect(screen.getByRole('button', { name: /Two developers/ })).toBeInTheDocument()
