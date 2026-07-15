@@ -505,10 +505,19 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // node card moves onto it (this edge's own props only change when its own
   // endpoints move). Perf posture: only top-strength edges (max 3) compute a
   // signature — every other edge returns '' and never re-renders from node
-  // movement. Positions/dimensions are quantised to a 10px grid, so a drag
-  // triggers a recompute roughly once per 10px of travel instead of every
-  // frame; 10px is well inside the 26px dodge STEP, so the quantisation is
-  // never visible in the resolved offsets.
+  // movement. While a node is DRAGGING its position is quantised to a 10px
+  // grid, so a drag triggers a recompute roughly once per 10px of travel
+  // instead of every frame; 10px is well inside the 26px dodge STEP, so the
+  // quantisation is never visible mid-drag.
+  //
+  // C2 review fix 2: settled positions (and dimensions) feed through EXACTLY.
+  // Quantising at rest meant the final sub-bucket movement of a drag could
+  // leave a permanently stale offset — up to ~10px of clip or spurious dodge
+  // that no later event would ever fix. Settling flips `dragging` off, which
+  // changes the signature from the quantised to the exact form and costs
+  // exactly one extra recompute per drag; non-drag position/dimension changes
+  // are discrete one-off events (layout runs, measurement), so exact values
+  // add no meaningful recompute traffic there either.
   const nodeRectsSignature = useStore((s) => {
     if (!isTopStrengthEdge) return ''
     let sig = ''
@@ -520,7 +529,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       if (n.hidden || lensHiddenNodeIds.has(n.id)) continue
       const w = n.measured?.width ?? n.width ?? 200
       const h = n.measured?.height ?? n.height ?? 80
-      sig += `${n.id}:${Math.round(n.position.x / 10)},${Math.round(n.position.y / 10)},${Math.round(w / 10)},${Math.round(h / 10)};`
+      const x = n.dragging ? Math.round(n.position.x / 10) * 10 : n.position.x
+      const y = n.dragging ? Math.round(n.position.y / 10) * 10 : n.position.y
+      sig += `${n.id}:${x},${y},${w},${h};`
     }
     return sig
   })
