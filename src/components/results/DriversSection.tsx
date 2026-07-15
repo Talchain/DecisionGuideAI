@@ -886,7 +886,7 @@ export function DriversSection({
   // shows 100% BY CONSTRUCTION — that must be disclosed (the "Relative
   // influence" wording was dropped in v7.10 T9). On the producer basis
   // ('influence_score') the value is an absolute structural-causal-influence
-  // score (types.ts DriverItem.influenceScore) — say that instead. No stamp
+  // score from the producer (see the DriverItem type) — say that instead. No stamp
   // (legacy fixtures / cached payloads) → fail-closed: keep the generic
   // wording; never claim a basis the pipeline did not stamp. Derived from the
   // FULL drivers list (same belt-and-braces as anyConfidenceProvisional).
