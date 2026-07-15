@@ -898,12 +898,26 @@ export function DriversSection({
   // (legacy fixtures / cached payloads) → fail-closed: keep the generic
   // wording; never claim a basis the pipeline did not stamp. Derived from the
   // FULL drivers list (same belt-and-braces as anyConfidenceProvisional).
-  const influenceBasis: 'relative' | 'absolute' | 'unknown' =
+  const influenceBasisStamped: 'relative' | 'absolute' | 'unknown' =
     drivers.some(d => d.displayProvenance === 'normalised_elasticity')
       ? 'relative'
       : drivers.some(d => d.displayProvenance === 'influence_score')
         ? 'absolute'
         : 'unknown'
+  // Review fix 1 (degenerate-state false caption): never claim "the top
+  // driver always shows 100%" when the claim has nothing to point at. In the
+  // degenerate state (max magnitude below the data layer's 0.001 floor)
+  // every normalised value is 0 — rows keep the fallback provenance stamp,
+  // but the >=0.01 visibility filter empties the rendered list, so the
+  // caption/explainer would assert a 100% top driver over ZERO rows.
+  // hasMagnitudeData is the data layer's own flag for that floor;
+  // visibleDrivers.length is the belt-and-braces for any other all-hidden
+  // set. Fail closed to the generic wording (same doctrine as the unstamped
+  // branch).
+  const influenceBasis: 'relative' | 'absolute' | 'unknown' =
+    influenceBasisStamped === 'relative' && (!hasMagnitudeData || visibleDrivers.length === 0)
+      ? 'unknown'
+      : influenceBasisStamped
   // Copy comes from the ONE shared module (influenceScaleCopy) the canvas
   // pill consumes too — surfaces cannot drift (review fix 3: the strings are
   // also policed there for the DS em-dash ban).

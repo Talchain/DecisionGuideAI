@@ -116,6 +116,55 @@ function producerBasisData(): DriversSectionData {
   ])
 }
 
+/**
+ * Degenerate magnitude set (review fix 1): elasticities 0.0005/0.0002/0.0001
+ * all sit below computeNormalisedInfluences' 0.001 floor, so the data layer
+ * stamps every row provenance 'normalised_elasticity' with displayInfluence 0
+ * and hasMagnitudeData false; influence_score on ONE row keeps producer
+ * coverage incomplete (so the fallback basis is genuinely active). The >=0.01
+ * visibility filter then empties the rendered list — a "top driver always
+ * shows 100%" claim over ZERO rows would be false.
+ */
+function degenerateRelativeData(): DriversSectionData {
+  return {
+    drivers: [
+      makeDriver({
+        factorKey: 'fac_a',
+        factorLabel: 'Factor A',
+        rawElasticity: 0.0005,
+        normalisedInfluence: 0,
+        displayInfluence: 0,
+        displayProvenance: 'normalised_elasticity',
+        influenceScore: 0.4,
+      }),
+      makeDriver({
+        factorKey: 'fac_b',
+        factorLabel: 'Factor B',
+        rawElasticity: 0.0002,
+        normalisedInfluence: 0,
+        displayInfluence: 0,
+        displayProvenance: 'normalised_elasticity',
+        rank: 2,
+        semanticLabel: 'weak',
+      }),
+      makeDriver({
+        factorKey: 'fac_c',
+        factorLabel: 'Factor C',
+        rawElasticity: 0.0001,
+        normalisedInfluence: 0,
+        displayInfluence: 0,
+        displayProvenance: 'normalised_elasticity',
+        rank: 3,
+        semanticLabel: 'weak',
+      }),
+    ],
+    topDrivers: [],
+    driversStatus: 'computed',
+    totalCount: 0,
+    hasMagnitudeData: false,
+  }
+}
+
 /** Legacy fixture shape: displayInfluence/displayProvenance never stamped. */
 function legacyData(): DriversSectionData {
   return makeDriversData([
@@ -188,6 +237,34 @@ describe('DriversSection influence-scale disclosure (lane C4)', () => {
       const tooltip = screen.getByRole('tooltip')
       expect(tooltip.textContent).toContain(ABSOLUTE_TOOLTIP)
       expect(tooltip.textContent).not.toContain('always shows 100%')
+    })
+  })
+
+  describe('degenerate magnitude set (review fix 1) — never claim "top shows 100%" over zero rows', () => {
+    it('renders no relative-scale caption when every normalised value collapsed to 0', () => {
+      render(<DriversSection data={degenerateRelativeData()} goalLabel="test" />)
+      expect(screen.queryByTestId('influence-scale-caption')).toBeNull()
+    })
+
+    it('keeps the generic explainer (no relative clause) in the degenerate state', () => {
+      render(<DriversSection data={degenerateRelativeData()} goalLabel="test" />)
+      expect(screen.getByText(GENERIC_EXPLAINER)).toBeDefined()
+      expect(screen.queryByText(RELATIVE_EXPLAINER)).toBeNull()
+    })
+
+    it('header tooltip falls back to the generic wording, not the 100% claim', () => {
+      render(<DriversSection data={degenerateRelativeData()} goalLabel="test" />)
+      hoverInfluenceHeader()
+      const tooltip = screen.getByRole('tooltip')
+      expect(tooltip.textContent).toBe(GENERIC_TOOLTIP)
+      expect(tooltip.textContent).not.toContain('always shows 100%')
+    })
+
+    it('sanity: the fixture really does render zero driver rows', () => {
+      render(<DriversSection data={degenerateRelativeData()} goalLabel="test" />)
+      expect(screen.queryByText('Factor A')).toBeNull()
+      expect(screen.queryByText('Factor B')).toBeNull()
+      expect(screen.queryByText('Factor C')).toBeNull()
     })
   })
 
