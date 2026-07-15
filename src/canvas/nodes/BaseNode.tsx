@@ -307,6 +307,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {isEditedSinceRun && (
         <span
           data-testid={`edited-since-run-${id}`}
+          role="img"
+          aria-label="Edited since the last analysis"
           title="Edited since the last analysis"
           className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-warning border border-canvas"
         />

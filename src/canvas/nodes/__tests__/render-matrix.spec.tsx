@@ -1179,6 +1179,19 @@ describe('N1 — per-type selection ring', () => {
     expect(screen.getByTestId('edited-since-run-factor-1')).toBeInTheDocument()
   })
 
+  it('N3: the edited dot carries the ratified accessible name (screen readers, not just hover)', () => {
+    vi.mocked(useCanvasStore).mockImplementation((sel: any) =>
+      sel({ ...nodeState([]), editedSinceRunNodeIds: new Set(['factor-1']) }),
+    )
+    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
+    // A bare span with only `title` has no accessible name for most screen
+    // readers — the ratified N3 spec requires the dot itself to announce
+    // "Edited since the last analysis".
+    expect(screen.getByRole('img', { name: 'Edited since the last analysis' })).toBe(
+      screen.getByTestId('edited-since-run-factor-1'),
+    )
+  })
+
   it('N3: no edited dot when the node is not in the set (and no crash without the slice)', () => {
     applyState([])
     render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
