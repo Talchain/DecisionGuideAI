@@ -125,13 +125,17 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       id: `strengthen:phase3:${item.id}`,
       helpType: 'clarify',
       title: item.title, // verbatim wire copy — never UI-authored
-      // Collapsed-row information scent: the subtitle carries the producer's
-      // factor-naming body VERBATIM (trigger honesty holds — wire copy, never
-      // UI-authored); the boilerplate is the no-body fallback only. The body
-      // moves up from whyNow, which keeps the generic line so the same
-      // sentence never renders twice in one expanded row.
+      // The producer's factor-naming body rides BOTH display fields VERBATIM
+      // (trigger honesty holds — wire copy, never UI-authored):
+      // - signal: the collapsed-row subtitle (information scent, clamped by
+      //   the panel);
+      // - whyNow: the expanded-row prose AND the Ask-Olumi drawer context
+      //   (StrengthenContainer passes rec.whyNow) — a generic line here
+      //   degraded every phase-3 drawer ask to boilerplate (round 2).
+      // Boilerplate is the no-body fallback only. The PANEL dedupes display:
+      // an open row renders the body once, in full, never clamp + full copy.
       signal: item.body ?? 'Olumi flagged this while reviewing your model.',
-      whyNow: 'Resolving it improves what the analysis can tell you.',
+      whyNow: item.body ?? 'Resolving it improves what the analysis can tell you.',
       tryThis: item.actionLabel ?? 'Work through it with Olumi.',
       sourceLine: 'Source: Olumi model review.',
       action: {
