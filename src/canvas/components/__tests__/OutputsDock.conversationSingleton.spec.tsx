@@ -56,6 +56,9 @@ vi.mock('../../../flags', () => ({
   isAiPanelV2Enabled: () => flagState.aiPanelV2,
   isV5CanonicalAnalysisEnabled: () => false,
   isAnalysisHeroV17Enabled: () => false,
+  // C1: OutputsDock's orphan-banner footer suppression now also reads the
+  // analysisHeroPanel flag (both hero paths suppress the footer).
+  isAnalysisHeroPanelEnabled: () => false,
   isPreAnalysisV3Enabled: () => false,
 }))
 
