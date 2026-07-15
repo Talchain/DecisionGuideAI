@@ -11,10 +11,21 @@ import { registerFloatingFocus } from '../hooks/useFloatingFocus'
 import { measureDockInset, clampPositionToViewport } from './FloatingOlumiPanel'
 import { ThinkingIndicator } from '../conversation/zones/ThinkingIndicator'
 import { StarterDecisions } from './StarterDecisions'
+import type { BlueprintEventBus } from '../ReactFlowGraph'
 
 interface FirstUseComposerProps {
   /** Cog popover handler. Receives the cog button element for anchoring. */
   onCogClick: (anchorEl: HTMLElement) => void
+  /**
+   * The insert pipeline for the starter strip, threaded from the SAME prop
+   * ReactFlowGraph subscribes to. Optional because not every ReactFlowGraph
+   * mount has one (PlotWorkspace and the sandbox canvas pass none) — and on
+   * those mounts the strip must not render at all: emitting on a bus nobody
+   * subscribes to is a silent no-op (eventBus.emit returns {} for zero
+   * listeners), which turns a starter click into a dead click. No bus ⇒ no
+   * cards ⇒ no dead click.
+   */
+  blueprintEventBus?: BlueprintEventBus
 }
 
 /** Hero container sizing — round-11 UX correction.
@@ -55,7 +66,7 @@ const REPOSITION_EDGE_MARGIN = 16
  * Reduced motion: the auto-reposition fires synchronously without the
  * 300ms slide delay.
  */
-export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: FirstUseComposerProps) {
+export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick, blueprintEventBus }: FirstUseComposerProps) {
   const nodeCount = useCanvasStore((s) => s.nodes.length)
   const { messages, isThinking } = useConversationContext()
   const realMessageCount = messages.filter((m) => !m.synthetic).length
@@ -225,7 +236,11 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: F
         // "Press T for all templates" permanently out of reach — unreachable,
         // not merely ugly. Cap the height to the viewport and let the panel
         // scroll internally; on tall viewports this is inert.
-        maxHeight: `calc(100vh - ${PANEL_MARGIN * 2}px)`,
+        // dvh, not vh: on mobile browsers with dynamic toolbars 100vh is the
+        // LARGE viewport, so a vh cap fits under it while the bottom rows sit
+        // behind the toolbar with no way to scroll to them — the same
+        // unreachable-content defect this cap exists to fix.
+        maxHeight: `calc(100dvh - ${PANEL_MARGIN * 2}px)`,
         overflowY: 'auto',
       }}
     >
@@ -277,8 +292,9 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: F
           generating window: the user has already committed a brief, so
           offering to replace it would be noise. Renders nothing at all when
           none of the featured templates resolve, leaving the hero exactly as
-          it was. */}
-      {!isGenerating ? <StarterDecisions /> : null}
+          it was. Gated on the bus so mounts without an insert pipeline never
+          show cards that cannot work. */}
+      {!isGenerating && blueprintEventBus ? <StarterDecisions bus={blueprintEventBus} /> : null}
     </div>,
     document.body,
   )

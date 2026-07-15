@@ -148,6 +148,19 @@ export interface CoercedNode {
  * @param index - Optional index for default positioning
  * @returns Coerced node ready for ReactFlow canvas
  */
+/**
+ * The default grid layout for backend nodes that arrive without a position.
+ * ONE definition — this was previously duplicated byte-for-byte between
+ * coerceNode and the template-blueprint mapping, exactly the silent-drift
+ * mirror this repo keeps getting bitten by.
+ */
+export function defaultGridPosition(index: number): { x: number; y: number } {
+  return {
+    x: 200 + (index % 3) * 250,
+    y: 100 + Math.floor(index / 3) * 200,
+  }
+}
+
 export function coerceNode(backendNode: BackendNode, index: number = 0): CoercedNode {
   const originalKind = backendNode.kind
   const uiKind = toUiKind(originalKind)
@@ -162,10 +175,7 @@ export function coerceNode(backendNode: BackendNode, index: number = 0): Coerced
   }
 
   // Default position if not provided (grid layout)
-  const defaultPosition = {
-    x: 200 + (index % 3) * 250,
-    y: 100 + Math.floor(index / 3) * 200
-  }
+  const defaultPosition = defaultGridPosition(index)
 
   return {
     id: backendNode.id,

@@ -160,6 +160,12 @@ export interface BlueprintInsertResult {
 
 export interface BlueprintEventBus {
   subscribe: (fn: (blueprint: Blueprint) => BlueprintInsertResult) => () => void
+  /** Apply a blueprint through whatever subscriber is mounted. Zero listeners
+   *  ⇒ returns {} (a silent no-op) — which is why consumers must not render
+   *  insert affordances unless they were HANDED a bus by a mount that also
+   *  subscribes to it. Both live buses (the singleton and the isolation-test
+   *  stub) implement this. */
+  emit: (blueprint: Blueprint) => BlueprintInsertResult
 }
 
 interface ReactFlowGraphProps {
@@ -2169,7 +2175,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             FF is on. */}
       <OutputsDock />
       {!isAiPanelV2Enabled() && <DraftChat />}
-      {isAiPanelV2Enabled() && <FloatingOlumiPanelHost />}
+      {isAiPanelV2Enabled() && <FloatingOlumiPanelHost blueprintEventBus={blueprintEventBus} />}
 
       {/* Expanded lenses: contextual info panel overlay */}
       <LensInfoPanel />
@@ -2247,7 +2253,7 @@ function MaybeConversationProvider({ children }: { children: import('react').Rea
  * The Dock-back action uses forceActivateOutputTab so the dock activates
  * the Olumi tab even when the global activeOutputTab is already 'olumi'.
  */
-function FloatingOlumiPanelHost() {
+function FloatingOlumiPanelHost({ blueprintEventBus }: { blueprintEventBus?: BlueprintEventBus }) {
   const close = useFloatingPanelState((s) => s.close)
   const [cogAnchor, setCogAnchor] = useState<HTMLElement | null>(null)
   const handleDock = useCallback(() => {
@@ -2261,7 +2267,7 @@ function FloatingOlumiPanelHost() {
   return (
     <>
       <FloatingOlumiPanel onDock={handleDock} onCogClick={handleCogClick} />
-      <FirstUseComposer onCogClick={handleCogClick} />
+      <FirstUseComposer onCogClick={handleCogClick} blueprintEventBus={blueprintEventBus} />
       <CogPopover isOpen={cogAnchor !== null} anchorEl={cogAnchor} onClose={handleCogClose} />
     </>
   )
