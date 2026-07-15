@@ -205,7 +205,7 @@ describe('C4 re-review — panel and canvas resolve the SAME ORDER, not just the
         { node_id: 'n_down', elasticity: -0.4 },
         { node_id: 'n_up', elasticity: 0.4 },
       ],
-    }) as ResultsReport
+    }) as unknown as ResultsReport
     const feed = selectDriverPolicyFeed(report)
     // Pinned at the PRODUCER: the one consumer that ranks on this field sorts
     // it raw, so a signed value here is an ordering fork waiting to happen.
