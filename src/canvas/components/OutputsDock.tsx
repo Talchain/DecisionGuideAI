@@ -47,7 +47,7 @@ import {
   trackAutoFixSuccess,
   trackAutoFixFailed,
 } from '../utils/sandboxTelemetry'
-import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled, isV5CanonicalAnalysisEnabled, isAnalysisHeroV17Enabled, isAnalysisHeroPanelEnabled, isPreAnalysisV3Enabled } from '../../flags'
+import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled, isV5CanonicalAnalysisEnabled, isPreAnalysisV3Enabled } from '../../flags'
 import { OlumiTabBody } from './OlumiTabBody'
 import { PersistentInputStrip } from './PersistentInputStrip'
 import { SelectionPill } from './SelectionPill'
@@ -116,7 +116,6 @@ import { AnalysisFooter } from '../shared/AnalysisFooter'
 import { derivePostFooterStatus, derivePostFooterMeta } from './utils/postAnalysisFooter'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
-import { useAnalysisStateSource } from '../hooks/useAnalysisStateSource'
 import { AskOlumiDrawer } from '../../components/results/coaching/AskOlumiDrawer'
 import { DefineSuccessModal, DecisionRecordModal } from '../../components/results/modals'
 
@@ -740,15 +739,32 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
   const { readiness } = useGraphReadiness()
 
-  // Hero-flag + orphan-banner suppression: when the top Refresh-analysis
-  // banner is visible (V5 canonical-analysis flag on with no V5 fact), the
-  // bottom AnalysisFooter would carry duplicate stale messaging. C1: the
-  // gate covers BOTH hero paths (V17 AND analysisHeroPanel) so the banner's
-  // own action can never stack with strip/footer CTAs (the 4-CTA corner
-  // case); the legacy DecisionConfidencePanel path stays unaffected.
-  const { showOrphanBanner } = useAnalysisStateSource()
-  const suppressAnalysisFooterForOrphanBanner =
-    (isAnalysisHeroV17Enabled() || isAnalysisHeroPanelEnabled()) && showOrphanBanner
+  // C1 review: the orphan-banner footer suppression is GONE. It rested on a
+  // premise that is false at this ref — it claimed the footer would carry
+  // "duplicate stale messaging", but the footer's label comes from
+  // `derivePostFooterStatus(robustnessVerdict)`, which only ever emits
+  // robustness copy ('Stable result' / 'Sensitive to assumptions' /
+  // 'Robustness not assessed' / 'Robustness unknown') and never freshness.
+  // Its meta is the producer's robustness reason. Neither duplicates the
+  // banner's "Refresh analysis · Coaching may be out of date".
+  //
+  // The suppression's only REAL effect was CTA dedupe against the banner's
+  // own "Run analysis" — and post-C1 that is already handled, better, by
+  // `freshnessStripOwnsRerun`: when a verdict is held the footer renders no
+  // action at all, so suppressing the whole footer deleted nothing but the
+  // robustness verdict + producer meta that C1 says must STAY. (The cited
+  // "4-CTA corner case" cannot arise post-C1: the max is 2.)
+  //
+  // It must not come back as an action-level gate either. AnalysisOrphanBanner
+  // mounts inside ResultsBody — INSIDE the scroller — so it scrolls away.
+  // Letting a scrolling surface suppress the footer's action would recreate
+  // the exact zero-affordance blocker this lane fixed, in the state where the
+  // strip holds no verdict and the footer is the tab's only always-visible
+  // owner. The footer yields its action ONLY to the strip, which is pinned.
+  //
+  // Net: banner + footer can coexist — which is precisely what the base
+  // already did on the legacy path, deliberately ("the legacy
+  // DecisionConfidencePanel path stays unaffected"). All paths now agree.
 
   // Unified run gating — same function used by ConversationPanel/ChatComposer.
   const hasValidationBlockers = useCanvasStore(s =>
@@ -2299,14 +2315,16 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 )}
                 </div>
                 {/* Brief 5.4 Phase 11: "Create decision brief" placeholder removed.
-                    Hero-flag power pass: suppressed when the top Refresh-analysis
-                    banner is showing — avoids double stale messaging.
                     C1 (one Rerun owner per viewport): while the freshness strip
                     above owns the one Rerun, this footer is STATUS-ONLY — the
                     robustness verdict + producer meta stay, the action goes.
                     The action renders only when the strip shows none (no
-                    freshness verdict held), preserving the tab's recovery. */}
-                {!isPreRun && hasInlineSummary && resultsSectionData && !suppressAnalysisFooterForOrphanBanner && (
+                    freshness verdict held, or a 'none' verdict), preserving the
+                    tab's recovery — the footer is then the only ALWAYS-VISIBLE
+                    owner (it sits outside the scroller, unlike the strip which
+                    needs `sticky` to qualify). See the orphan-banner note above
+                    for why nothing else may suppress this footer. */}
+                {!isPreRun && hasInlineSummary && resultsSectionData && (
                   <AnalysisFooter
                     statusIcon={postRunFooter.icon}
                     statusIconClassName={postRunFooter.iconClass}

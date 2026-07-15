@@ -415,41 +415,66 @@ describe('OutputsDock — one Rerun owner per viewport (C1)', () => {
     expect(action).toHaveTextContent('Rerun')
   })
 
-  it('orphan banner + analysisHeroPanel flag: the footer is suppressed (4-CTA corner case closed)', () => {
-    // V5 canonical flag on with a report but NO v5 fact → orphan banner.
+  // ── Orphan banner ────────────────────────────────────────────────────────
+  // The footer's orphan-banner suppression is GONE (C1 review finding 2): it
+  // claimed the footer would carry "duplicate stale messaging", but the
+  // footer only ever emits ROBUSTNESS copy. Post-C1 its only real effect was
+  // deleting the robustness verdict + producer meta that C1 says must stay,
+  // because a held verdict already leaves the footer action-less.
+  it.each([
+    ['analysisHeroPanel', 'panel'],
+    ['V17', 'v17'],
+    ['both hero flags off (legacy path)', 'legacy'],
+  ] as const)(
+    'orphan banner + %s: the footer KEEPS its robustness status (no longer suppressed)',
+    (_label, mode) => {
+      // V5 canonical flag on with a report but NO v5 fact → orphan banner.
+      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
+      mockIsAnalysisHeroPanelEnabled.mockReturnValue(mode === 'panel')
+      mockIsAnalysisHeroV17Enabled.mockReturnValue(mode === 'v17')
+      seedPostRun({
+        analysisFreshness: { freshness: 'stale', computedAt: 1 },
+        v5AnalysisFact: null,
+      })
+      render(<OutputsDock />)
+
+      // The banner is up and carries its own run CTA...
+      expect(screen.getByTestId('analysis-orphan-banner')).toBeInTheDocument()
+      expect(screen.getByTestId('analysis-orphan-banner-run')).toBeInTheDocument()
+
+      // ...and the footer still states the robustness verdict. This is the
+      // regression the suppression caused: it deleted this line for no
+      // dedupe benefit (the footer carries no freshness copy to duplicate).
+      expect(screen.getByTestId('results-analysis-footer')).toBeInTheDocument()
+      expect(screen.getByTestId('results-analysis-footer')).toHaveTextContent('Robustness unknown')
+
+      // A verdict is held, so the strip owns the one Rerun and the footer is
+      // status-only — the dedupe C1 actually needs, done by the right gate.
+      expect(screen.getByTestId('freshness-strip-rerun')).toBeInTheDocument()
+      expect(screen.queryByTestId('results-analysis-footer-action')).not.toBeInTheDocument()
+    },
+  )
+
+  it('orphan banner with NO verdict: the footer keeps its Rerun — a scrolling banner must not suppress the only always-visible owner', () => {
+    // The hazard that rules out re-adding the suppression at action level:
+    // AnalysisOrphanBanner mounts inside ResultsBody, INSIDE the scroller, so
+    // its "Run analysis" CTA scrolls away. With no freshness verdict the strip
+    // renders nothing, leaving the footer as the tab's ONLY always-visible
+    // owner. Suppressing it here would mean zero rerun affordance on screen
+    // once the user scrolls — the same blocker this lane fixed.
     mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
     mockIsAnalysisHeroPanelEnabled.mockReturnValue(true)
-    mockIsAnalysisHeroV17Enabled.mockReturnValue(false)
-    seedPostRun({
-      analysisFreshness: { freshness: 'stale', computedAt: 1 },
-      v5AnalysisFact: null,
-    })
+    seedPostRun({ analysisFreshness: null, v5AnalysisFact: null })
     render(<OutputsDock />)
 
-    expect(screen.queryByTestId('results-analysis-footer')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('results-analysis-footer-action')).not.toBeInTheDocument()
-  })
+    expect(screen.getByTestId('analysis-orphan-banner-run')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-freshness-notice')).not.toBeInTheDocument()
 
-  it('orphan banner + V17 flag: existing suppression unchanged', () => {
-    mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
-    mockIsAnalysisHeroV17Enabled.mockReturnValue(true)
-    seedPostRun({
-      analysisFreshness: { freshness: 'stale', computedAt: 1 },
-      v5AnalysisFact: null,
-    })
-    render(<OutputsDock />)
+    const action = screen.getByTestId('results-analysis-footer-action')
+    expect(action).toHaveTextContent('Rerun')
 
-    expect(screen.queryByTestId('results-analysis-footer')).not.toBeInTheDocument()
-  })
-
-  it('orphan banner with BOTH hero flags off: legacy path unaffected — footer still renders', () => {
-    mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
-    seedPostRun({
-      analysisFreshness: { freshness: 'stale', computedAt: 1 },
-      v5AnalysisFact: null,
-    })
-    render(<OutputsDock />)
-
-    expect(screen.getByTestId('results-analysis-footer')).toBeInTheDocument()
+    // The banner's CTA scrolls away; the footer's does not.
+    expect(nearestScroller(screen.getByTestId('analysis-orphan-banner-run'))).not.toBeNull()
+    expectRerunOwnerCannotScrollAway(action, { insideScroller: false })
   })
 })
