@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+
+<html lang="en-GB">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Olumi Analysis tab, build-ready prototype v6</title>
+<style>
+:root {
+  --bg-canvas:#F4F0EA;
+  --bg-panel:#FEFEFE;
+  --bg-panel-hover:#FEF9F3;
+  --border-default:#EEE6D8;
+  --text-header:#262626;
+  --text-body:#3F3F3E;
+  --text-light:#908D8D;
+  --text-on-colour:#FFFFFF;
+  --danger:#EA7B4B;
+  --success:#67C89E;
+  --info:#63ADCF;
+  --warning:#FFA656;
+  --goal:#F5C433;
+  --option:#AAA7E4;
+  --factor:#B0A899;
+  --primary:#63ADCF;
+  --primary-hover:#67C89E;
+  --primary-active:#5AA88A;
+  --panel-header:14px;
+  --panel-body:12px;
+  --panel-meta:11px;
+  --shadow-1:0 1px 2px rgba(38,38,38,.06);
+  --shadow-2:0 4px 12px rgba(38,38,38,.10);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg-canvas);color:var(--text-body);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;font-size:var(--panel-body);line-height:1.5}
+button,input,select,textarea{font:inherit}
+button{color:inherit}
+svg{display:block}
+.page{width:min(1160px,100%);margin:0 auto;padding:22px 18px 70px}
+.page-title{margin:0;color:var(--text-header);font-size:var(--panel-header);font-weight:600}
+.page-sub{margin:4px 0 16px;color:var(--text-light);font-size:var(--panel-body)}
+.layout{display:grid;grid-template-columns:minmax(270px,1fr) 430px;gap:24px;align-items:start}
+@media(max-width:860px){.layout{grid-template-columns:1fr}.controls{position:static!important}}
+.controls{position:sticky;top:16px;background:var(--bg-panel);border:1px solid var(--border-default);border-radius:12px;box-shadow:var(--shadow-1);padding:14px}
+.controls h2,.controls h3{margin:0;color:var(--text-header);font-size:var(--panel-header);font-weight:600}
+.controls h3{margin-top:14px}
+.controls p,.controls li{font-size:var(--panel-body)}
+.controls p{margin:4px 0 0}.controls ul{margin:6px 0 0;padding-left:18px}.controls li+li{margin-top:4px}
+.control{margin-top:11px}.control-label{display:block;margin-bottom:5px;color:var(--text-light);font-size:var(--panel-meta)}
+.segment{display:flex;flex-wrap:wrap;gap:5px}
+.segment button,.ghost-button,.text-button,.icon-button,.tab-button,.row-action,.brief-chip,.method-button,.recommendation-head{background:transparent;border:1px solid var(--border-default);cursor:pointer}
+.segment button{padding:5px 9px;border-radius:999px;font-size:var(--panel-body)}
+.segment button[aria-pressed="true"]{border-color:var(--info);color:var(--text-header)}
+.segment button:hover,.ghost-button:hover,.text-button:hover,.icon-button:hover,.tab-button:hover,.row-action:hover,.brief-chip:hover,.method-button:hover,.recommendation-head:hover{background:var(--bg-panel-hover)}
+.note{margin-top:12px;padding:9px 10px;border:1px solid var(--info);border-radius:12px;background:var(--bg-panel);font-size:var(--panel-body)}
+.note strong{color:var(--text-header);font-weight:600}
+
+.mock{width:100%;max-width:430px;background:var(--bg-canvas);border:1px solid var(--border-default);border-radius:18px;box-shadow:var(--shadow-2);overflow:hidden}
+.dock{display:flex;gap:4px;padding:8px 10px;background:var(--bg-panel);border-bottom:1px solid var(--border-default)}
+.dock button{padding:6px 9px;border:1px solid transparent;border-radius:999px;background:transparent;color:var(--text-light);cursor:pointer;font-size:var(--panel-body)}
+.dock button.active{border-color:var(--info);color:var(--text-header)}
+.content{display:flex;flex-direction:column;gap:9px;padding:11px 12px 14px}
+.card,.status-strip,.modal-card,.drawer{background:var(--bg-panel);border:1px solid var(--border-default);border-radius:12px;box-shadow:var(--shadow-1)}
+.card{overflow:hidden}
+.card-pad{padding:11px 12px}
+.card-title{margin:0;color:var(--text-header);font-size:var(--panel-header);font-weight:600}
+.card-copy{margin:3px 0 0;color:var(--text-body);font-size:var(--panel-body)}
+.meta{color:var(--text-light);font-size:var(--panel-meta)}
+.status-strip{display:flex;align-items:center;gap:8px;padding:8px 10px}
+.status-strip .grow{flex:1}.status-current{display:inline}.status-stale{display:none}.mock.stale .status-current{display:none}.mock.stale .status-stale{display:inline;color:var(--text-header)}
+.status-icon{color:var(--success)}.mock.stale .status-icon{color:var(--warning)}
+.primary-button{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 11px;border:1px solid var(--primary);border-radius:999px;background:var(--primary);color:var(--text-on-colour);cursor:pointer;font-size:var(--panel-body);font-weight:600}
+.primary-button:hover{border-color:var(--primary-hover);background:var(--primary-hover)}.primary-button:active{border-color:var(--primary-active);background:var(--primary-active)}
+.primary-button:disabled{opacity:.4;cursor:not-allowed}
+.ghost-button{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border-radius:999px;font-size:var(--panel-body)}
+.text-button{padding:2px 0;border:0;color:var(--info);font-size:var(--panel-body)}
+.icon-button{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;color:var(--info)}
+
+/* Hero */
+.hero{padding:0}
+.brief-bar{display:flex;align-items:center;gap:8px;padding:9px 11px;border:0;border-bottom:1px solid var(--border-default);background:transparent;width:100%;text-align:left;cursor:pointer}
+.brief-bar:hover{background:var(--bg-panel-hover)}
+.brief-state{color:var(--text-header);font-size:var(--panel-body);font-weight:600}.brief-state-note{color:var(--text-light);font-size:var(--panel-meta)}
+.brief-status-icon{color:var(--success)}.quality-thin .brief-status-icon{color:var(--warning)}.quality-conflict .brief-status-icon{color:var(--danger)}
+.brief-bar>span:nth-child(2){display:flex;flex-direction:column;min-width:0}.brief-bar .grow{flex:1}.brief-chevron{color:var(--text-light);transition:transform .2s}.brief-open .brief-chevron{transform:rotate(180deg)}
+.brief-details{display:none;padding:10px 11px;border-bottom:1px solid var(--border-default)}.brief-open .brief-details{display:block}
+.brief-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.brief-chip{display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:9px;text-align:left;min-width:0}
+.brief-chip strong{display:block;color:var(--text-header);font-size:var(--panel-body);font-weight:600}.brief-chip span{display:block;color:var(--text-light);font-size:var(--panel-meta);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brief-dot{width:7px;height:7px;border-radius:50%;border:1px solid var(--success);flex:none}.quality-thin .brief-dot.warn{border-color:var(--warning)}.quality-conflict .brief-dot.conflict{border-color:var(--danger)}
+.brief-actions{display:flex;align-items:center;gap:8px;margin-top:8px}
+.hero-main{padding:11px 12px 10px}.hero-topline{display:flex;flex-direction:column;align-items:flex-start;gap:5px}.hero-topline .grow{width:100%}.hero-topline .decision-chip{align-self:flex-start}.decision-chip{display:inline-flex;align-items:center;padding:2px 7px;border:1px solid var(--border-default);border-radius:999px;color:var(--text-light);font-size:var(--panel-meta);white-space:nowrap}
+.hero-headline{margin:0;color:var(--text-header);font-size:var(--panel-header);font-weight:600;line-height:1.35}.hero-subline{margin:3px 0 0;color:var(--text-light);font-size:var(--panel-body)}
+.lenses{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-top:10px;padding:3px;border:1px solid var(--border-default);border-radius:999px}
+.lens{padding:6px 4px;border:0;border-radius:999px;background:transparent;color:var(--text-light);cursor:pointer;font-size:var(--panel-body);white-space:nowrap}.lens.active{background:var(--primary);color:var(--text-on-colour)}.lens:disabled{opacity:.55;cursor:pointer}
+.lens-body{padding:10px 0 0}.lens-view{display:none}.lens-view.active{display:block}
+.unavailable{display:flex;align-items:flex-start;gap:7px;color:var(--text-light);font-size:var(--panel-body)}.unavailable button{margin-left:2px}
+.option-table{display:flex;flex-direction:column;gap:7px}.option-row{display:grid;grid-template-columns:24px minmax(0,1fr) 43px;gap:7px;align-items:center}
+.option-number{width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:1px solid var(--option);border-radius:7px;color:var(--text-header);font-size:var(--panel-body)}.option-row.leading .option-number{border-color:var(--info);background:var(--info);color:var(--text-on-colour)}
+.option-name{color:var(--text-header);font-size:var(--panel-body);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.option-value{text-align:right;color:var(--text-header);font-size:var(--panel-body);font-weight:600}
+.range-track{grid-column:2/4;height:7px;border-radius:999px;background:var(--border-default);position:relative}.range-fill{position:absolute;top:0;bottom:0;border:1px solid var(--option);border-radius:999px;background:rgba(170,167,228,.38)}.leading .range-fill{border-color:var(--info);background:rgba(99,173,207,.38)}.range-dot{position:absolute;top:50%;width:10px;height:10px;transform:translate(-50%,-50%);border:2px solid var(--bg-panel);border-radius:50%;background:var(--option)}.leading .range-dot{background:var(--info)}
+.hero-summary{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;padding-top:9px;border-top:1px solid var(--border-default)}
+.summary-link{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border:1px solid var(--border-default);border-radius:999px;background:transparent;color:var(--text-body);cursor:pointer;font-size:var(--panel-meta)}.summary-link:hover{background:var(--bg-panel-hover)}
+.quality-conflict .hero-main .hero-headline,.quality-conflict .hero-main .hero-subline,.quality-conflict .lenses,.quality-conflict .lens-body,.quality-conflict .hero-summary{display:none}
+.pause-read{display:none;padding:12px;color:var(--text-body);font-size:var(--panel-body)}.quality-conflict .pause-read{display:block}
+
+/* Strengthen */
+.strength-head{display:flex;align-items:flex-start;gap:8px;padding:11px 12px 8px}.strength-head .grow{flex:1}.progress{color:var(--text-light);font-size:var(--panel-meta)}
+.recommendation-list{border-top:1px solid var(--border-default)}
+.recommendation{border-bottom:1px solid var(--border-default)}.recommendation:last-child{border-bottom:0}.recommendation.hidden-rec{display:none}
+.recommendation-head{width:100%;display:grid;grid-template-columns:22px minmax(0,1fr) 18px;gap:8px;align-items:start;padding:9px 12px;border:0;border-radius:0;text-align:left}
+.rec-icon{color:var(--factor);margin-top:1px}.recommendation-head>span:nth-child(2){min-width:0}.rec-title,.rec-signal{display:block}.rec-title{color:var(--text-header);font-size:var(--panel-body);font-weight:600;line-height:1.35}.rec-signal{margin-top:2px;color:var(--text-light);font-size:var(--panel-meta);line-height:1.35}.rec-chevron{color:var(--text-light);transition:transform .2s}.recommendation.open .rec-chevron{transform:rotate(90deg)}
+.rec-state{display:inline-flex;margin-left:5px;padding:1px 5px;border:1px solid var(--border-default);border-radius:999px;color:var(--text-light);font-size:var(--panel-meta);font-weight:400}.rec-state.addressed{border-color:var(--success);color:var(--success)}.rec-state.progressing{border-color:var(--info);color:var(--info)}
+.rec-body{display:none;padding:0 12px 11px 42px}.recommendation.open .rec-body{display:block}.rec-body p{margin:0 0 7px;font-size:var(--panel-body)}.try-line{color:var(--text-header)}.try-line strong{color:var(--info);font-weight:600}.source-line{color:var(--text-light);font-size:var(--panel-meta)!important}
+.rec-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px}.rec-actions .icon-button{margin-left:auto}
+.rec-receipt{display:none;margin-top:8px;padding:8px 9px;border:1px solid var(--success);border-radius:9px;color:var(--text-body);font-size:var(--panel-body)}.recommendation.addressed .rec-receipt{display:block}.recommendation.addressed .rec-actions,.recommendation.addressed .try-line{display:none}
+.strength-footer{display:flex;align-items:center;gap:10px;padding:9px 12px;border-top:1px solid var(--border-default)}.strength-footer .grow{flex:1}
+.method-wrap{position:relative}.method-menu{display:none;position:absolute;right:0;bottom:34px;width:260px;padding:7px;background:var(--bg-panel);border:1px solid var(--border-default);border-radius:12px;box-shadow:var(--shadow-2);z-index:8}.method-menu.open{display:block}.method-button{width:100%;display:block;padding:7px 8px;border:0;border-radius:8px;text-align:left}.method-button strong{display:block;color:var(--text-header);font-size:var(--panel-body);font-weight:600}.method-button span{display:block;color:var(--text-light);font-size:var(--panel-meta)}
+.addressed-panel{display:none;border-top:1px solid var(--border-default);padding:9px 12px}.addressed-panel.open{display:block}.addressed-item{display:flex;align-items:center;gap:7px;padding:4px 0;color:var(--text-light);font-size:var(--panel-body)}
+
+/* Evidence */
+.evidence-head{display:flex;align-items:center;gap:8px;padding:11px 12px 8px}.evidence-head .grow{flex:1}.evidence-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin:0 12px 8px;padding:3px;border:1px solid var(--border-default);border-radius:999px}.tab-button{padding:5px 4px;border:0;border-radius:999px;color:var(--text-light);font-size:var(--panel-body)}.tab-button.active{background:var(--primary);color:var(--text-on-colour)}
+.evidence-view{display:none;padding:0 12px 11px}.evidence-view.active{display:block}.evidence-note{margin:0 0 7px;color:var(--text-light);font-size:var(--panel-meta)}
+.evidence-row{display:grid;grid-template-columns:minmax(0,1fr) 80px 58px;gap:8px;align-items:center;padding:7px 0;border-top:1px solid var(--border-default);cursor:pointer}.evidence-row:first-of-type{border-top:0}.evidence-row:hover{background:var(--bg-panel-hover)}
+.evidence-name{color:var(--text-header);font-size:var(--panel-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.evidence-name .sign{font-weight:600;margin-right:4px}.sign.pos{color:var(--success)}.sign.neg{color:var(--danger)}.evidence-bar{height:6px;border-radius:999px;background:var(--border-default);overflow:hidden}.evidence-bar i{display:block;height:100%;border-radius:999px;background:var(--info)}.evidence-meta{text-align:right;color:var(--text-light);font-size:var(--panel-meta)}
+.trade-row{padding:8px 0;border-top:1px solid var(--border-default)}.trade-row:first-of-type{border-top:0}.trade-title{display:flex;gap:7px;align-items:center;color:var(--text-header);font-size:var(--panel-body);font-weight:600}.trade-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}.trade-cell{padding:7px;border:1px solid var(--border-default);border-radius:9px}.trade-cell strong{display:block;color:var(--text-light);font-size:var(--panel-meta);font-weight:400}.trade-cell span{display:block;margin-top:2px;color:var(--text-body);font-size:var(--panel-body)}
+.evidence-footer{display:flex;justify-content:flex-end;margin-top:7px}
+
+/* Advanced */
+details{background:var(--bg-panel);border:1px solid var(--border-default);border-radius:12px;box-shadow:var(--shadow-1)}details summary{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;color:var(--text-header);font-size:var(--panel-header);font-weight:600;list-style:none}details summary::-webkit-details-marker{display:none}.details-body{padding:0 12px 11px}.receipt-grid{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0;font-size:var(--panel-meta)}.receipt-grid dt{color:var(--text-light)}.receipt-grid dd{margin:0}
+
+/* Modal and drawer */
+.overlay{display:none;position:fixed;inset:0;background:rgba(38,38,38,.28);z-index:30;align-items:center;justify-content:center;padding:18px}.overlay.open{display:flex}.modal-card{width:min(430px,100%);max-height:90vh;overflow:auto;padding:13px}.modal-head{display:flex;align-items:flex-start;gap:8px}.modal-head .grow{flex:1}.modal-card h2{margin:0;color:var(--text-header);font-size:var(--panel-header);font-weight:600}.modal-card p{margin:3px 0 0;font-size:var(--panel-body)}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px}.field{display:flex;flex-direction:column;gap:4px}.field.full{grid-column:1/-1}.field label{color:var(--text-light);font-size:var(--panel-meta)}.field input,.field select,.field textarea{width:100%;padding:7px 8px;border:1px solid var(--border-default);border-radius:9px;background:var(--bg-panel);color:var(--text-header);font-size:var(--panel-body);outline:none}.field textarea{min-height:58px;resize:vertical}.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--info)}.measure-preview{margin-top:9px;padding:8px 9px;border:1px solid var(--goal);border-radius:9px;color:var(--text-body);font-size:var(--panel-body)}.error{display:none;margin-top:7px;color:var(--danger);font-size:var(--panel-meta)}.error.show{display:block}.modal-actions{display:flex;justify-content:flex-end;gap:7px;margin-top:11px}
+.drawer{display:none;position:fixed;right:18px;bottom:18px;width:min(370px,calc(100vw - 36px));z-index:25;box-shadow:var(--shadow-2);overflow:hidden}.drawer.open{display:block}.drawer-head{display:flex;align-items:center;gap:8px;padding:10px 11px;border-bottom:1px solid var(--border-default)}.drawer-head strong{color:var(--text-header);font-size:var(--panel-header);font-weight:600}.drawer-body{padding:10px 11px}.drawer-context{padding:8px 9px;border:1px solid var(--info);border-radius:9px;font-size:var(--panel-body)}.drawer textarea{width:100%;min-height:64px;margin-top:8px;padding:8px;border:1px solid var(--border-default);border-radius:9px;resize:vertical;color:var(--text-header)}.drawer-actions{display:flex;justify-content:flex-end;gap:7px;margin-top:8px}
+.toast{position:fixed;left:50%;bottom:18px;z-index:60;max-width:min(90vw,430px);padding:8px 13px;transform:translateX(-50%);border-radius:999px;background:var(--text-header);color:var(--text-on-colour);opacity:0;pointer-events:none;transition:opacity .2s;font-size:var(--panel-body)}.toast.show{opacity:.96}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+
+/* Decision overview */
+.decision-overview-head{display:flex;align-items:flex-start;gap:10px;padding:11px 12px}
+.decision-overview-title{min-width:0;flex:1}
+.decision-overview-title h2{margin:1px 0 6px;color:var(--text-header);font-size:var(--panel-header);font-weight:600}
+.decision-pills{display:flex;flex-wrap:wrap;gap:5px}
+.decision-pill{padding:3px 7px;border:1px solid var(--border-default);border-radius:999px;background:transparent;color:var(--text-body);cursor:pointer;font-size:var(--panel-meta)}
+.decision-pill:hover{background:var(--bg-panel-hover)}
+.decision-actions{flex:none}
+.decision-actions .method-menu{top:34px;bottom:auto;right:0}
+.decision-actions #methodToggle[aria-expanded="true"]{border-color:var(--info);color:var(--text-header)}
+.framing-question{display:flex;align-items:flex-start;gap:9px;margin-top:9px;padding-top:9px;border-top:1px solid var(--border-default)}
+.framing-question>div:first-child{min-width:0;flex:1}
+.framing-question p{margin:2px 0 0;color:var(--text-header);font-size:var(--panel-body)}
+.framing-question-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.quality-thin .decision-overview .brief-status-icon{color:var(--warning)}
+.quality-conflict .decision-overview .brief-status-icon{color:var(--danger)}
+
+/* Merged Analysis panel */
+.hero-topline{display:block}
+.analysis-evidence-toggle{width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:0;border-top:1px solid var(--border-default);background:transparent;text-align:left;cursor:pointer}
+.analysis-evidence-toggle:hover{background:var(--bg-panel-hover)}
+.analysis-evidence-toggle strong{display:block;color:var(--text-header);font-size:var(--panel-header);font-weight:600}
+.analysis-evidence-toggle span span{display:block;color:var(--text-light);font-size:var(--panel-meta)}
+.analysis-evidence-toggle .grow{flex:1}
+.analysis-evidence-chevron{color:var(--text-light);transition:transform .2s}
+.hero.analysis-evidence-open .analysis-evidence-chevron{transform:rotate(180deg)}
+.analysis-evidence{display:none;border-top:1px solid var(--border-default);padding-top:9px}
+.hero.analysis-evidence-open .analysis-evidence{display:block}
+.analysis-evidence .evidence-tabs{margin-top:0}
+.analysis-next-route{display:flex;align-items:center;gap:8px;padding:9px 12px;border-top:1px solid var(--border-default)}
+.analysis-next-route .grow{min-width:0;flex:1}
+.analysis-next-route strong{display:block;color:var(--text-header);font-size:var(--panel-body);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.analysis-next-icon{color:var(--info);font-size:var(--panel-header)}
+.quality-conflict .analysis-evidence-toggle,
+.quality-conflict .analysis-evidence,
+.quality-conflict .analysis-next-route{display:none}
+
+
+.measure-write-note{margin:7px 0 0;color:var(--text-light);font-size:var(--panel-meta)}
+.prototype-note{margin:0 0 10px;padding:8px 9px;border:1px solid var(--border-default);border-radius:9px;background:var(--bg-panel);color:var(--text-light);font-size:var(--panel-meta)}
+.modal-card textarea{width:100%;min-height:72px;resize:vertical;border:1px solid var(--border-default);border-radius:9px;background:var(--bg-panel);padding:8px 9px;color:var(--text-header);font:inherit}
+.modal-card textarea:focus{outline:2px solid rgba(99,173,207,.25);border-color:var(--info)}
+.method-heading{padding:7px 10px 4px;color:var(--text-light);font-size:var(--panel-meta)}
+.method-divider{height:1px;margin:4px 0;background:var(--border-default)}
+.quality-thin #decisionOverview,.quality-conflict #decisionOverview{scroll-margin-top:10px}
+</style>
+</head>
+<body>
+<div class="page">
+<h1 class="page-title">Olumi Analysis tab, build-ready prototype v6</h1>
+<p class="page-sub">Decision overview, merged analysis and one adaptive recommendation, with clear action ownership.</p>
+<div class="layout">
+<aside class="controls">
+<h2>Prototype controls</h2>
+<p>These simulate producer-owned states. They are not visible controls in the product.</p>
+<div class="control"><span class="control-label">Brief quality</span><div class="segment" data-control="quality"><button aria-pressed="true" data-value="ready">Ready</button><button aria-pressed="false" data-value="thin">Thin</button><button aria-pressed="false" data-value="conflict">Contradictory</button></div></div>
+<div class="control"><span class="control-label">Freshness</span><div class="segment" data-control="fresh"><button aria-pressed="true" data-value="current">Current</button><button aria-pressed="false" data-value="stale">Model edited</button></div></div>
+<div class="control"><span class="control-label">Success measure</span><div class="segment" data-control="measure"><button aria-pressed="true" data-value="missing">Missing</button><button aria-pressed="false" data-value="set">Set</button></div></div>
+<div class="control"><span class="control-label">Adaptive priority</span><div class="segment" data-control="priority"><button aria-pressed="true" data-value="clarify">Clarify</button><button aria-pressed="false" data-value="broaden">Broaden</button><button aria-pressed="false" data-value="challenge">Challenge</button><button aria-pressed="false" data-value="evaluate">Evaluate</button><button aria-pressed="false" data-value="commit">Commit</button></div></div>
+<div class="note"><strong>Design boundary:</strong> the Analysis tab owns framing quality, the current read, one next move and supporting evidence. Deeper dialogue opens in Olumi. Collaboration and outcome learning remain separate workstreams.</div>
+<h3>Included improvements</h3>
+<ul><li>A compact decision overview owns framing quality, decision classification and the persistent Actions menu.</li><li>Current analysis and supporting evidence are merged into one progressively disclosed panel.</li><li>One success-measure flow, with metric, threshold, unit and timeframe.</li><li>One adaptive recommendation, with progress and addressed history.</li><li>Stable option numbers, explicit driver and flip-risk meanings, and contextual trade-offs.</li><li>Advanced receipts remain collapsed and deeper dialogue opens in Olumi.</li></ul>
+<div class="control">
+<span class="control-label">Option diversity signal</span>
+<div class="segment" data-control="diversity">
+<button aria-pressed="true" data-value="diverse">Diverse</button>
+<button aria-pressed="false" data-value="narrow">Narrow</button>
+</div>
+</div></aside>
+<main class="mock quality-ready measure-missing" id="mock">
+<nav aria-label="Workspace tabs" class="dock"><button>Olumi</button><button class="active">Analysis</button><button>Compare</button><button>Model</button></nav>
+<div class="content">
+<section class="card decision-overview" id="decisionOverview">
+<div class="decision-overview-head">
+<div class="decision-overview-title">
+<span class="meta">Decision overview</span>
+<h2>Technical Co-Founder</h2>
+<div aria-label="Decision classification" class="decision-pills">
+<button class="decision-pill" data-overview="stakes" type="button">High stakes</button>
+<button class="decision-pill" data-overview="reversibility" type="button">Reversible</button>
+<button class="decision-pill" data-overview="horizon" type="button">12-month horizon</button>
+<button class="decision-pill" data-overview="risk" type="button">Risk cautious</button>
+</div>
+</div>
+<div class="method-wrap decision-actions">
+<button aria-expanded="false" class="ghost-button" id="methodToggle" type="button">Actions <span aria-hidden="true">⌄</span></button>
+<div aria-label="Methods and global actions" class="method-menu" id="methodMenu"></div>
+</div>
+</div>
+<button aria-expanded="false" class="brief-bar" id="briefToggle" type="button">
+<span aria-hidden="true" class="brief-status-icon">●</span>
+<span><span class="brief-state">Framing has the basics</span><span class="brief-state-note">Goal, context, constraints and options</span></span>
+<span class="grow"></span>
+<span class="brief-chevron">⌄</span>
+</button><div class="brief-details">
+<div class="brief-grid">
+<button class="brief-chip" data-brief="Goal"><span class="brief-dot warn"></span><span><strong>Goal</strong><span class="goal-note">Success measure missing</span></span></button>
+<button class="brief-chip" data-brief="Context"><span class="brief-dot"></span><span><strong>Context</strong><span>Challenge is clear</span></span></button>
+<button class="brief-chip" data-brief="Constraints"><span class="brief-dot"></span><span><strong>Constraints</strong><span>Key limits captured</span></span></button>
+<button class="brief-chip" data-brief="Options"><span class="brief-dot conflict"></span><span><strong>Options</strong><span class="options-note">Four distinct routes</span></span></button>
+</div>
+<div class="brief-actions"><button class="text-button" data-open-brief="">Review your decision brief</button><span class="meta">Olumi challenges one issue at a time.</span></div>
+<div class="framing-question">
+<div>
+<span class="meta">Olumi's framing question</span>
+<p>What would make bringing on a co-founder clearly better than hiring a senior technical lead?</p>
+</div>
+<div class="framing-question-actions">
+<button class="ghost-button" data-direct-edit="Goal" type="button">Answer directly</button>
+<button class="text-button" data-ask="Work through the framing question" type="button">Work through with Olumi</button>
+</div>
+</div></div></section><section aria-label="Analysis freshness" class="status-strip">
+<span aria-hidden="true" class="status-icon">●</span>
+<span class="status-current">Analysis reflects the current model.</span>
+<span class="status-stale">The model changed after this analysis.</span>
+<span class="grow"></span>
+<button class="ghost-button rerun" type="button">Rerun</button>
+</section>
+<section aria-label="Analysis" class="card hero" data-component="merged-analysis-panel" id="hero">
+<div class="hero-main">
+<div class="hero-topline"><div class="grow"><h2 class="hero-headline">Bring On Technical Co-Founder is slightly ahead.</h2><p class="hero-subline">It also has the strongest expected outcome, but the top two remain close.</p></div></div>
+<div aria-label="Analysis lenses" class="lenses" role="tablist">
+<button class="lens" data-lens="goal" role="tab">Goal fit</button>
+<button class="lens active" data-lens="outcome" role="tab">Likely outcome</button>
+<button class="lens" data-lens="stability" role="tab">Stability</button>
+<button class="lens" data-lens="changed" role="tab">What changed</button>
+</div>
+<div class="lens-body">
+<div class="lens-view" data-view="goal"><div class="unavailable"><span aria-hidden="true">ⓘ</span><span>Goal fit needs a measurable success definition. <button class="text-button open-success" type="button">Define success</button></span></div></div>
+<div class="lens-view active" data-view="outcome">
+<div aria-label="Expected outcome by option" class="option-table">
+<div class="option-row leading"><span class="option-number">1</span><span class="option-name">Bring On Technical Co-Founder</span><span class="option-value">+26%</span><span class="range-track"><span class="range-fill" style="left:18%;width:64%"></span><span class="range-dot" style="left:58%"></span></span></div>
+<div class="option-row"><span class="option-number">2</span><span class="option-name">Hire Senior Technical Lead</span><span class="option-value">+20%</span><span class="range-track"><span class="range-fill" style="left:14%;width:60%"></span><span class="range-dot" style="left:51%"></span></span></div>
+<div class="option-row"><span class="option-number">3</span><span class="option-name">Continue Without Technical Lead</span><span class="option-value">0%</span><span class="range-track"><span class="range-fill" style="left:7%;width:18%"></span><span class="range-dot" style="left:15%"></span></span></div>
+<div class="option-row"><span class="option-number">4</span><span class="option-name">Outsource Technical Leadership</span><span class="option-value">-7%</span><span class="range-track"><span class="range-fill" style="left:2%;width:22%"></span><span class="range-dot" style="left:11%"></span></span></div>
+</div>
+<p class="meta" style="margin:8px 0 0">Expected change versus the current approach. Ranges show plausible outcomes.</p>
+</div>
+<div class="lens-view" data-view="stability"><div class="unavailable"><span aria-hidden="true">ⓘ</span><span>Per-option stability is not produced yet. Olumi will not infer it in the UI.</span></div></div>
+<div class="lens-view" data-view="changed"><div class="unavailable"><span aria-hidden="true">ⓘ</span><span>This unlocks with versioned run comparisons. Olumi will not approximate it locally.</span></div></div>
+</div>
+<div class="hero-summary"><button class="summary-link" data-focus="Market Timing Pressure">Main driver: Market Timing Pressure</button><button class="summary-link" data-focus="Technical Leadership Capacity">Top flip risk: Technical Leadership Capacity</button></div>
+</div>
+<div class="pause-read"><strong>Resolve the conflicting brief before relying on this read.</strong><p class="card-copy">The brief says speed is the priority but also says delivery date does not matter. Olumi needs one clarification.</p><button class="primary-button" data-ask="Resolve the conflict in my decision brief" type="button">Resolve with Olumi</button></div>
+<button aria-expanded="false" class="analysis-evidence-toggle" id="analysisEvidenceToggle" type="button">
+<span>
+<strong>Why and what could change it</strong>
+<span>Drivers, flip risks and trade-offs</span>
+</span>
+<span class="grow"></span>
+<span aria-hidden="true" class="analysis-evidence-chevron">⌄</span>
+</button><div class="analysis-evidence" id="analysisEvidence"><div class="evidence-tabs" role="tablist"><button class="tab-button active" data-evidence="drivers">Drivers</button><button class="tab-button" data-evidence="flips">Flip risks</button><button class="tab-button" data-evidence="tradeoffs">Trade-offs</button></div><div class="evidence-view active" data-evidence-view="drivers">
+<p class="evidence-note">Ranked by effect on the analysed outcome. Evidence quality is separate.</p>
+<div class="evidence-row" data-focus="Market Timing Pressure"><span class="evidence-name"><span class="sign pos">+</span>Market Timing Pressure</span><span class="evidence-bar"><i style="width:100%"></i></span><span class="evidence-meta">Low evidence</span></div>
+<div class="evidence-row" data-focus="Founder Equity Dilution"><span class="evidence-name"><span class="sign neg">-</span>Founder Equity Dilution</span><span class="evidence-bar"><i style="width:87%"></i></span><span class="evidence-meta">Low evidence</span></div>
+<div class="evidence-row" data-focus="Engineering Capacity"><span class="evidence-name"><span class="sign pos">+</span>Engineering Capacity</span><span class="evidence-bar"><i style="width:66%"></i></span><span class="evidence-meta">Low evidence</span></div>
+<div class="evidence-row extra-evidence" data-focus="Ongoing Salary Cost" style="display:none"><span class="evidence-name"><span class="sign neg">-</span>Ongoing Salary Cost</span><span class="evidence-bar"><i style="width:58%"></i></span><span class="evidence-meta">Low evidence</span></div>
+<div class="evidence-footer"><button class="text-button see-all-evidence" type="button">See all factors</button></div>
+</div><div class="evidence-view" data-evidence-view="flips">
+<p class="evidence-note">Chance the leading option changes when a relationship is varied within its plausible range.</p>
+<div class="evidence-row" data-focus="Technical Leadership Capacity to Technical Quality"><span class="evidence-name">Technical Leadership Capacity → Technical Quality</span><span class="evidence-bar"><i style="width:96%"></i></span><span class="evidence-meta">48% switch</span></div>
+<div class="evidence-row" data-focus="Founder Equity Dilution to Retention"><span class="evidence-name">Founder Equity Dilution → Retention</span><span class="evidence-bar"><i style="width:72%"></i></span><span class="evidence-meta">36% switch</span></div>
+<div class="evidence-row" data-focus="Ongoing Salary Cost to Runway"><span class="evidence-name">Ongoing Salary Cost → Runway</span><span class="evidence-bar"><i style="width:62%"></i></span><span class="evidence-meta">31% switch</span></div>
+<p class="meta" style="margin:7px 0 0">If the top relationship under-delivers, option 2 becomes the likely leader.</p>
+</div><div class="evidence-view" data-evidence-view="tradeoffs">
+<p class="evidence-note">What the two leading routes gain, give up and depend on.</p>
+<div class="trade-row"><div class="trade-title"><span class="option-number">1</span>Bring On Technical Co-Founder</div><div class="trade-grid"><div class="trade-cell"><strong>You gain</strong><span>Long-term technical ownership</span></div><div class="trade-cell"><strong>You give up</strong><span>Equity and hiring time</span></div><div class="trade-cell"><strong>Depends on</strong><span>Finding the right partner</span></div><div class="trade-cell"><strong>Watch</strong><span>Runway and role clarity</span></div></div></div>
+<div class="trade-row"><div class="trade-title"><span class="option-number">2</span>Hire Senior Technical Lead</div><div class="trade-grid"><div class="trade-cell"><strong>You gain</strong><span>Faster execution capacity</span></div><div class="trade-cell"><strong>You give up</strong><span>Ongoing salary cost</span></div><div class="trade-cell"><strong>Depends on</strong><span>Delegated authority</span></div><div class="trade-cell"><strong>Watch</strong><span>Founder bottlenecks</span></div></div></div>
+</div></div><div class="analysis-next-route">
+<span aria-hidden="true" class="analysis-next-icon">◎</span>
+<div class="grow">
+<span class="meta">Next recommendation</span>
+<strong>Define a measurable success measure</strong>
+</div>
+<button class="ghost-button" id="openRecommendation" type="button">Open</button>
+</div></section>
+<section class="card" id="strengthCard">
+<div class="strength-head"><div class="grow"><h2 class="card-title">Strengthen your model</h2><p class="progress" id="progressText">0 addressed · 5 worth checking</p></div><button aria-label="Show addressed recommendations" class="icon-button" id="addressedToggle" title="Show addressed recommendations">✓</button></div>
+<div class="recommendation-list" id="recommendationList"></div>
+<div class="addressed-panel" id="addressedPanel"><p class="meta" style="margin:0 0 4px">Addressed or dismissed</p><div id="addressedItems"></div></div>
+<div class="strength-footer">
+<button class="text-button" id="showMore" type="button">Show 3 more</button>
+<button class="text-button" id="expandAll" type="button">Expand all</button>
+<span class="grow"></span>
+</div>
+</section>
+<details><summary>Advanced and receipts <span style="margin-left:auto;color:var(--text-light)">›</span></summary><div class="details-body"><dl class="receipt-grid"><dt>Simulations</dt><dd>4,000</dd><dt>Freshness</dt><dd>Graph hash match</dd><dt>Result stability</dt><dd>Tentative</dd><dt>Result hash</dt><dd>8ce04678…</dd></dl></div></details>
+</div>
+</main>
+</div>
+</div>
+<div aria-labelledby="successTitle" aria-modal="true" class="overlay" id="successModal" role="dialog">
+<div class="modal-card">
+<div class="modal-head"><div class="grow"><h2 id="successTitle">Define success</h2><p>Keep the goal in plain language, then give Olumi a measurable test for Goal fit.</p></div><button aria-label="Close" class="icon-button close-success">×</button></div>
+<div class="form-grid">
+<div class="field full"><label for="metric">What outcome should improve?</label><input id="metric" value="Productivity"/></div>
+<div class="field"><label for="direction">Direction</label><select id="direction"><option>Increase by at least</option><option>Reach at least</option><option>Keep below</option></select></div>
+<div class="field"><label for="threshold">Threshold</label><input id="threshold" inputmode="decimal" placeholder="20"/></div>
+<div class="field"><label for="unit">Unit</label><select id="unit"><option value="%">%</option><option value="projects">projects</option><option value="weeks">weeks</option><option value="£">£</option></select></div>
+<div class="field"><label for="timeframe">Timeframe</label><input id="timeframe" placeholder="Within 6 months"/></div>
+<div class="field full"><label for="baseline">Baseline or evidence, optional</label><input id="baseline" placeholder="Current productivity or source"/></div>
+</div>
+<div class="measure-preview" id="measurePreview">Success means: increase Productivity by at least [number]% within [timeframe].</div><p class="measure-write-note">This updates the analysis success measure and reruns the analysis. It does not change the graph structure.</p>
+<div class="error" id="measureError">Add a number and timeframe so Olumi can evaluate Goal fit.</div>
+<div class="modal-actions"><button class="ghost-button close-success" type="button">Cancel</button><button class="primary-button" id="saveSuccess" type="button">Save and rerun</button></div>
+</div>
+</div>
+<div aria-labelledby="decisionRecordTitle" aria-modal="true" class="overlay" id="decisionModal" role="dialog">
+<div class="modal-card">
+<div class="modal-head">
+<div class="grow">
+<h2 id="decisionRecordTitle">Record the decision</h2>
+<p>Capture the choice and what would justify revisiting it.</p>
+</div>
+<button aria-label="Close" class="icon-button close-decision" type="button">×</button>
+</div>
+<div class="prototype-note">Prototype only. Durable saving depends on identity and Model Management.</div>
+<div class="form-grid">
+<div class="field full">
+<label for="chosenOption">Chosen option</label>
+<select id="chosenOption">
+<option>1. Bring On Technical Co-Founder</option>
+<option>2. Hire Senior Technical Lead</option>
+<option>3. Continue Without Technical Lead</option>
+<option>4. Outsource Technical Leadership</option>
+</select>
+</div>
+<div class="field">
+<label for="decisionConfidence">Confidence, 0–100</label>
+<input id="decisionConfidence" inputmode="numeric" placeholder="e.g. 70"/>
+</div>
+<div class="field">
+<label for="revisitDate">Revisit trigger or date</label>
+<input id="revisitDate" placeholder="e.g. runway falls below 9 months"/>
+</div>
+<div class="field full">
+<label for="decisionRationale">Concise rationale</label>
+<textarea id="decisionRationale" placeholder="Why this is the best current choice" rows="3"></textarea>
+</div>
+<div class="field full">
+<label for="assumptionWatch">Key assumption to watch</label>
+<input id="assumptionWatch" placeholder="The assumption most likely to change the choice"/>
+</div>
+</div>
+<div class="error" id="decisionError">Add confidence, rationale, an assumption to watch and a revisit trigger.</div>
+<div class="modal-actions">
+<button class="ghost-button close-decision" type="button">Cancel</button>
+<button class="primary-button" id="saveDecision" type="button">Capture prototype record</button>
+</div>
+</div>
+</div><div aria-label="Olumi coaching session" class="drawer" id="olumiDrawer">
+<div class="drawer-head"><strong>Work through it with Olumi</strong><span style="flex:1"></span><button aria-label="Close" class="icon-button" id="closeDrawer">×</button></div>
+<div class="drawer-body"><div class="drawer-context" id="drawerContext">Context will appear here.</div><textarea aria-label="Message to Olumi" id="drawerMessage"></textarea><div class="drawer-actions"><button class="ghost-button" id="focusFromDrawer" type="button">Focus on canvas</button><button class="primary-button" id="sendDrawer" type="button">Send</button></div></div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script>
+const mock=document.getElementById('mock');
+const toastEl=document.getElementById('toast');let toastTimer;
+function toast(message){toastEl.textContent=message;toastEl.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastEl.classList.remove('show'),1800)}
+const icons={
+ target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+ grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>',
+ shield:'<path d="M20 13c0 5-3.5 7.5-7.7 9C7.5 20.5 4 18 4 13V6c2.6 0 5.5-1.4 8-3.5C14.5 4.6 17.4 6 20 6z"/><path d="M12 8v4M12 16h.01"/>',
+ scale:'<path d="M12 3v18M5 7h14M3 7l-2 5h4L3 7zm18 0-2 5h4l-2-5zM7 21h10"/>',
+ check:'<path d="m5 12 4 4L19 6"/>',
+ clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+ range:'<path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4"/>'
+};
+function svg(name){return `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">${icons[name]||icons.check}</svg>`}
+
+const recommendations=[
+ {id:'success',job:'clarify',icon:'target',title:'Define what success looks like',signal:'Goal fit is unavailable',why:'Your goal is understandable, but Olumi cannot test whether an option succeeds until the outcome has a measurable threshold and timeframe.',tip:'Keep the goal in plain language. Add a metric, direction, threshold, unit and timeframe.',source:'Triggered because the goal has no valid success measure.',action:'Define success',actionType:'success'},
+ {id:'broaden',job:'broaden',icon:'grid',title:"Find a route that is not hiring",signal:'Three of four options use the same mechanism',why:'The current set may be converging too early. A materially different route is more useful than another hiring variation.',tip:'Explore a partnership, specialist studio, scope reduction or internal capability route.',source:'Uses the producer-owned option-similarity signal.',action:'Generate a different option',actionType:'broaden'},
+ {id:'assumption',job:'challenge',icon:'shield',title:'Test the assumption most likely to change the leader',signal:'48% chance of switching the leader',why:'Technical Leadership Capacity to Technical Quality is not the largest driver, but it is the relationship most likely to change the recommendation.',tip:'Look for evidence that leadership capacity reliably improves technical quality in comparable teams.',source:'Prioritised from recorded flip risk, not influence.',action:'Plan an evidence check',actionType:'ask'},
+ {id:'range',job:'evaluate',icon:'range',title:'Give Engineering Capacity a realistic range',signal:'High influence, low evidence',why:'A single figure hides uncertainty in one of the most important inputs.',tip:'Use a plausible low and high estimate based on past delivery, not an optimistic point estimate.',source:'Triggered by sensitivity and low evidence quality.',action:'Set a range',actionType:'ask'},
+ {id:'bias',job:'challenge',icon:'scale',title:'Consider the strongest case against option 1',signal:'No counter-argument captured',why:'The model contains the case for the current leader, but not the strongest opposing explanation.',tip:'Use a consider-the-opposite dialogue, then add any surviving concern to the model.',source:'Grounded in the missing-counterargument critique.',action:'Challenge the leader',actionType:'ask'},
+ {id:'commit',job:'commit',icon:'check',title:'Record the decision and what would trigger a rethink',signal:'The model is ready for a provisional choice',why:'A lightweight record preserves ownership and makes later review possible without turning Olumi into project management.',tip:'Capture the choice, confidence, rationale, assumption to watch and revisit trigger.',source:'Shown only when commitment is the highest-value move.',action:'Create a decision record',actionType:'ask'}
+];
+let priority='clarify',visibleCount=1,allExpanded=false;
+let optionSetNarrow=false;
+const recState=new Map(recommendations.map(r=>[r.id,{status:'recommended'}]));
+function orderedRecommendations(){return recommendations.filter(r=>{
+  const status=recState.get(r.id).status;
+  if(status==='addressed'||status==='dismissed')return false;
+  if(r.id==='broaden'&&!optionSetNarrow)return false;
+  if(r.id==='commit'&&priority!=='commit')return false;
+  return true;
+}).sort((a,b)=>{if(a.job===priority&&b.job!==priority)return -1;if(b.job===priority&&a.job!==priority)return 1;return recommendations.indexOf(a)-recommendations.indexOf(b)})}
+function recMarkup(r,index){const st=recState.get(r.id);const stateLabel=st.status==='progressing'?'<span class="rec-state progressing">In progress</span>':'';return `<article class="recommendation ${index===0||allExpanded?'open':''} ${index>=visibleCount?'hidden-rec':''}" data-rec="${r.id}"><button class="recommendation-head" type="button" aria-expanded="${index===0||allExpanded}"><span class="rec-icon">${svg(r.icon)}</span><span><span class="rec-title">${r.title}${stateLabel}</span><span class="rec-signal">${r.signal}</span></span><span class="rec-chevron">›</span></button><div class="rec-body"><p>${r.why}</p><p class="try-line"><strong>Try this</strong> ${r.tip}</p><p class="source-line">${r.source}</p><div class="rec-actions"><button class="primary-button rec-primary" data-action-type="${r.actionType}" type="button">${r.action}</button><button class="ghost-button rec-focus" type="button">Focus on canvas</button><button class="text-button rec-dismiss" type="button">Not relevant</button><button class="icon-button rec-ask" title="Work through this with Olumi" aria-label="Work through this with Olumi">✦</button></div></div></article>`}
+function renderRecommendations(){const ordered=orderedRecommendations();document.getElementById('recommendationList').innerHTML=ordered.length?ordered.map(recMarkup).join(''):'<div class="card-pad"><p class="card-copy">No recommendations need attention right now.</p></div>';const addressed=[...recState.values()].filter(s=>s.status==='addressed').length;const worth=ordered.length;document.getElementById('progressText').textContent=`${addressed} addressed · ${worth} worth checking`;document.getElementById('showMore').style.display=worth>1?'inline':'none';document.getElementById('showMore').textContent=visibleCount<worth?`Show ${worth-visibleCount} more`:'Show fewer';document.getElementById('expandAll').style.display=worth>1?'inline':'none';document.getElementById('expandAll').textContent=allExpanded?'Collapse all':'Expand all';renderAddressed()}
+function renderAddressed(){const items=recommendations.filter(r=>{const s=recState.get(r.id).status;return s==='addressed'||s==='dismissed'});document.getElementById('addressedItems').innerHTML=items.length?items.map(r=>`<div class="addressed-item">${svg('check')}<span>${r.title}</span></div>`).join(''):'<div class="meta">Nothing addressed yet.</div>'}
+renderRecommendations();
+
+document.getElementById('recommendationList').addEventListener('click',e=>{
+ const article=e.target.closest('.recommendation');if(!article)return;const id=article.dataset.rec;const rec=recommendations.find(r=>r.id===id);
+ if(e.target.closest('.recommendation-head')){article.classList.toggle('open');article.querySelector('.recommendation-head').setAttribute('aria-expanded',article.classList.contains('open'));return}
+ if(e.target.closest('.rec-focus')){toast(`Focused ${rec.title} on the canvas`);return}
+ if(e.target.closest('.rec-ask')){openDrawer(rec.title,rec.why);return}
+ if(e.target.closest('.rec-dismiss')){recState.set(id,{status:'dismissed'});renderRecommendations();toast('Recommendation dismissed');return}
+ const primary=e.target.closest('.rec-primary');if(primary){const type=primary.dataset.actionType;if(type==='success'){openSuccess()}else if(type==='commit'){openDecision()}else if(type==='broaden'){recState.set(id,{status:'addressed'});renderRecommendations();toast('Added option 5: Partner with a specialist product studio')}else{recState.set(id,{status:'progressing'});renderRecommendations();openDrawer(rec.title,rec.tip)} }
+});
+
+document.getElementById('showMore').addEventListener('click',()=>{const active=orderedRecommendations().length;visibleCount=visibleCount<active?active:1;renderRecommendations()});
+document.getElementById('expandAll').addEventListener('click',()=>{allExpanded=!allExpanded;renderRecommendations()});
+document.getElementById('addressedToggle').addEventListener('click',()=>document.getElementById('addressedPanel').classList.toggle('open'));
+
+const methods=[
+ {group:'Methods',title:'Reframe the problem',description:'Check whether the current question is too narrow.'},
+ {group:'Methods',title:'Generate a materially different option',description:'Use divergent thinking before narrowing.'},
+ {group:'Methods',title:'Consider the opposite',description:'Build the strongest case against the current leader.'},
+ {group:'Methods',title:'Apply the outside view',description:'Compare with a relevant reference class.'},
+ {group:'Methods',title:'Run a pre-mortem',description:'Imagine failure and capture plausible causes.'},
+ {group:'Methods',title:'Explore trade-offs',description:'Make gains and sacrifices explicit.'},
+ {group:'Methods',title:'Review a possible bias',description:'Use only biases grounded in this brief or model.'},
+ {group:'Global actions',title:'Edit decision brief',description:'Review Goal, Context, Constraints and Options.'},
+ {group:'Global actions',title:'Review all inputs',description:'Inspect the current model inputs without changing them.'},
+ {group:'Global actions',title:'Rerun analysis',description:'Run the analysis against the current model.'}
+];
+document.getElementById('methodMenu').innerHTML=methods.map((m,i)=>{
+  const previous=i?methods[i-1].group:null;
+  const heading=m.group!==previous?`<div class="method-heading">${m.group}</div>`:'';
+  return `${heading}<button class="method-button" type="button" data-method="${m.title}"><strong>${m.title}</strong><span>${m.description}</span></button>`;
+}).join('');
+document.getElementById('methodToggle').addEventListener('click',()=>{const menu=document.getElementById('methodMenu');const open=menu.classList.toggle('open');document.getElementById('methodToggle').setAttribute('aria-expanded',String(open))});
+document.getElementById('methodMenu').addEventListener('click',e=>{const b=e.target.closest('[data-method]');if(!b)return;document.getElementById('methodMenu').classList.remove('open');document.getElementById('methodToggle').setAttribute('aria-expanded','false');const method=methods.find(m=>m.title===b.dataset.method);
+if(method.title==='Rerun analysis'){mock.classList.remove('stale');setPressed('fresh','current');toast('Analysis rerun completed with the current model')}
+else if(method.title==='Edit decision brief'){openDrawer('Review my decision brief','Challenge the framing across Goal, Context, Constraints and Options.')}
+else{openDrawer(method.title,method.description)}});
+
+document.getElementById('briefToggle').addEventListener('click',()=>{const open=document.getElementById('decisionOverview').classList.toggle('brief-open');document.getElementById('briefToggle').setAttribute('aria-expanded',String(open))});
+document.querySelectorAll('[data-brief]').forEach(b=>b.addEventListener('click',()=>openDrawer(`Review ${b.dataset.brief}`,`Help me strengthen the ${b.dataset.brief.toLowerCase()} in my decision brief.`)));
+document.querySelector('[data-open-brief]').addEventListener('click',()=>openDrawer('Review my decision brief','Challenge the framing across Goal, Context, Constraints and Options.'));
+
+document.querySelectorAll('.lens').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.lens').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.lens-view').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelector(`[data-view="${b.dataset.lens}"]`).classList.add('active')}));
+document.querySelectorAll('[data-focus]').forEach(b=>b.addEventListener('click',()=>toast(`Focused ${b.dataset.focus} on the canvas`)));
+
+
+document.getElementById('analysisEvidenceToggle').addEventListener('click',()=>{
+  const open=document.getElementById('hero').classList.toggle('analysis-evidence-open');
+  document.getElementById('analysisEvidenceToggle').setAttribute('aria-expanded',String(open));
+});
+document.getElementById('openRecommendation').addEventListener('click',()=>{
+  const card=document.getElementById('strengthCard');
+  card.scrollIntoView({behavior:'smooth',block:'start'});
+  const first=card.querySelector('.recommendation');
+  if(first&&!first.classList.contains('open')){
+    first.classList.add('open');
+    const button=first.querySelector('.recommendation-head');
+    if(button)button.setAttribute('aria-expanded','true');
+  }
+});
+document.querySelectorAll('[data-overview]').forEach(button=>button.addEventListener('click',()=>{
+  openDrawer(`Review ${button.dataset.overview}`,`Help me check whether this decision classification is right and how it should affect the process.`);
+}));
+document.querySelectorAll('[data-direct-edit]').forEach(button=>button.addEventListener('click',()=>{
+  openDrawer(`Edit ${button.dataset.directEdit}`,`Update this part of the persisted decision brief directly.`);
+}));
+
+document.querySelectorAll('.tab-button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.tab-button').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.evidence-view').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  document.querySelector(`[data-evidence-view="${b.dataset.evidence}"]`).classList.add('active');
+}));
+document.querySelectorAll('.evidence-row').forEach(r=>r.addEventListener('click',()=>toast(`Focused ${r.dataset.focus} on the canvas`)));
+document.querySelector('.see-all-evidence').addEventListener('click',e=>{const extra=document.querySelector('.extra-evidence');const show=extra.style.display==='none';extra.style.display=show?'grid':'none';e.target.textContent=show?'Show fewer':'See all factors'});
+
+document.querySelector('.rerun').addEventListener('click',()=>{mock.classList.remove('stale');setPressed('fresh','current');toast('Analysis rerun completed with the current model')});
+
+function renderGoalView(isSet){const view=document.querySelector('[data-view="goal"]');if(!isSet){view.innerHTML='<div class="unavailable"><span aria-hidden="true">ⓘ</span><span>Goal fit needs a measurable success definition. <button class="text-button open-success" type="button">Define success</button></span></div>';view.querySelector('.open-success').addEventListener('click',openSuccess);return}view.innerHTML='<div class="option-table"><div class="option-row leading"><span class="option-number">1</span><span class="option-name">Bring On Technical Co-Founder</span><span class="option-value">72%</span></div><div class="option-row"><span class="option-number">2</span><span class="option-name">Hire Senior Technical Lead</span><span class="option-value">64%</span></div><div class="option-row"><span class="option-number">3</span><span class="option-name">Continue Without Technical Lead</span><span class="option-value">31%</span></div><div class="option-row"><span class="option-number">4</span><span class="option-name">Outsource Technical Leadership</span><span class="option-value">27%</span></div></div><p class="meta" style="margin:8px 0 0">Probability of meeting the success measure.</p>'}
+
+const modal=document.getElementById('successModal');
+function openSuccess(){modal.classList.add('open');document.getElementById('threshold').focus()}
+function closeSuccess(){modal.classList.remove('open')}
+document.querySelectorAll('.open-success').forEach(b=>b.addEventListener('click',openSuccess));document.querySelectorAll('.close-success').forEach(b=>b.addEventListener('click',closeSuccess));
+['metric','direction','threshold','unit','timeframe'].forEach(id=>document.getElementById(id).addEventListener('input',updatePreview));
+function updatePreview(){const metric=document.getElementById('metric').value||'[outcome]';const direction=document.getElementById('direction').value.toLowerCase();const threshold=document.getElementById('threshold').value||'[number]';const unit=document.getElementById('unit').value;const timeframe=document.getElementById('timeframe').value||'[timeframe]';document.getElementById('measurePreview').textContent=`Success means: ${direction} ${metric} ${threshold}${unit} ${timeframe.toLowerCase()}.`}
+document.getElementById('saveSuccess').addEventListener('click',()=>{const metric=document.getElementById('metric').value.trim(),t=document.getElementById('threshold').value.trim(),unit=document.getElementById('unit').value.trim(),f=document.getElementById('timeframe').value.trim();if(!metric||!t||!unit||!f||!Number.isFinite(Number(t))){document.getElementById('measureError').classList.add('show');return}document.getElementById('measureError').classList.remove('show');mock.classList.remove('measure-missing');mock.classList.add('measure-set');document.querySelector('.goal-note').textContent=`${document.getElementById('metric').value}: ${t}${document.getElementById('unit').value}, ${f}`;recState.set('success',{status:'addressed'});renderRecommendations();closeSuccess();setPressed('measure','set');toast('Success measure updated. Analysis rerun without changing graph structure.');renderGoalView(true);document.querySelector('[data-lens="goal"]').click()});
+
+
+const decisionModal=document.getElementById('decisionModal');
+function openDecision(){decisionModal.classList.add('open');document.getElementById('decisionConfidence').focus()}
+function closeDecision(){decisionModal.classList.remove('open')}
+document.querySelectorAll('.close-decision').forEach(button=>button.addEventListener('click',closeDecision));
+document.getElementById('saveDecision').addEventListener('click',()=>{
+  const confidence=document.getElementById('decisionConfidence').value.trim();
+  const rationale=document.getElementById('decisionRationale').value.trim();
+  const assumption=document.getElementById('assumptionWatch').value.trim();
+  const revisit=document.getElementById('revisitDate').value.trim();
+  const error=document.getElementById('decisionError');
+  const confidenceNumber=Number(confidence);
+  if(!Number.isFinite(confidenceNumber)||confidenceNumber<0||confidenceNumber>100||!rationale||!assumption||!revisit){
+    error.classList.add('show');
+    return;
+  }
+  error.classList.remove('show');
+  recState.set('commit',{status:'addressed'});
+  renderRecommendations();
+  closeDecision();
+  toast('Prototype decision record captured in this session.');
+});
+
+const drawer=document.getElementById('olumiDrawer');
+function openDrawer(title,context){document.getElementById('drawerContext').innerHTML=`<strong style="color:var(--text-header);font-weight:600">${title}</strong><br>${context}`;document.getElementById('drawerMessage').value=`Help me work through: ${title}`;drawer.classList.add('open')}
+document.querySelectorAll('[data-ask]').forEach(b=>b.addEventListener('click',()=>openDrawer('Resolve the brief conflict',b.dataset.ask)));
+document.getElementById('closeDrawer').addEventListener('click',()=>drawer.classList.remove('open'));
+document.getElementById('sendDrawer').addEventListener('click',()=>{toast('Sent to Olumi with the relevant model context');drawer.classList.remove('open')});document.getElementById('focusFromDrawer').addEventListener('click',()=>toast('Focused the relevant model elements on the canvas'));
+
+function setPressed(group,value){document.querySelectorAll(`[data-control="${group}"] button`).forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.value===value)))}
+document.querySelectorAll('[data-control] button').forEach(b=>b.addEventListener('click',()=>{const group=b.closest('[data-control]').dataset.control,value=b.dataset.value;setPressed(group,value);if(group==='quality'){
+  mock.classList.remove('quality-ready','quality-thin','quality-conflict');
+  mock.classList.add(`quality-${value}`);
+  const state=document.querySelector('.brief-state'),note=document.querySelector('.brief-state-note');
+  const overview=document.getElementById('decisionOverview'),toggle=document.getElementById('briefToggle');
+  if(value==='ready'){
+    state.textContent='Framing has the basics';
+    note.textContent='Goal, context, constraints and options';
+    overview.classList.remove('brief-open');
+    toggle.setAttribute('aria-expanded','false');
+  }
+  if(value==='thin'){
+    state.textContent='Framing needs one clarification';
+    note.textContent='The goal is broad or important context is missing';
+    overview.classList.add('brief-open');
+    toggle.setAttribute('aria-expanded','true');
+  }
+  if(value==='conflict'){
+    state.textContent='The brief contains a conflict';
+    note.textContent='Resolve it before relying on the read';
+    overview.classList.add('brief-open');
+    toggle.setAttribute('aria-expanded','true');
+  }
+}if(group==='fresh'){mock.classList.toggle('stale',value==='stale')}if(group==='measure'){if(value==='set'){document.getElementById('threshold').value='20';document.getElementById('timeframe').value='within 6 months';document.getElementById('saveSuccess').click()}else{mock.classList.add('measure-missing');mock.classList.remove('measure-set');document.querySelector('.goal-note').textContent='Success measure missing';renderGoalView(false);recState.set('success',{status:'recommended'});renderRecommendations()}}if(group==='priority'){priority=value;visibleCount=1;renderRecommendations()}
+if(group==='diversity'){
+  optionSetNarrow=value==='narrow';
+  const optionsNote=document.querySelector('.options-note');
+  if(optionsNote)optionsNote.textContent=optionSetNarrow?'Three of four use the same mechanism':'Four distinct routes';
+  if(optionSetNarrow){
+    recState.set('broaden',{status:'recommended'});
+    toast('Prototype: producer-owned option-similarity signal is active.');
+  }
+  visibleCount=1;
+  renderRecommendations();
+}}));
+
+document.getElementById('decisionOverview').classList.remove('brief-open');
+document.getElementById('briefToggle').setAttribute('aria-expanded','false');
+renderGoalView(false);
+updatePreview();
+</script>
+</body>
+</html>
