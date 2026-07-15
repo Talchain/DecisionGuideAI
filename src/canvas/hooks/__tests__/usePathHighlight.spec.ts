@@ -540,6 +540,37 @@ describe('usePathHighlight × focus dim (F3)', () => {
     expect([...state.dimmedNodeIds].sort()).toEqual(['factor_a', 'iso'])
   })
 
+  it('ending the lens from OUTSIDE restores the selected node’s path dim (finding 2)', () => {
+    // The regression: clearFocusDim (a camera move, an edge focus, the focused
+    // node being removed) wipes dimmedNodeIds, but the selection has NOT
+    // changed — so nothing re-ran and the path dim was gone for good. The user
+    // pans once and loses path dimming until they reselect.
+    const { nodes, edges } = graph()
+    useCanvasStore.setState({
+      nodes,
+      edges,
+      selection: { nodeIds: new Set(['factor_a']), edgeIds: new Set(), anchorPosition: null },
+      ceeAnalysisReady: { goal_node_id: 'goal', options: [] } as any,
+      focusDimSourceId: 'factor_a',
+      dimmedNodeIds: new Set(['goal', 'iso']),
+    } as any)
+
+    renderHook(() => usePathHighlight())
+
+    // A camera move ends the lens — selection untouched.
+    act(() => {
+      useCanvasStore.getState().clearFocusDim()
+    })
+
+    const state = useCanvasStore.getState()
+    expect((state as any).focusDimSourceId).toBeNull()
+    // factor_a is still selected, so its path dim must be back: the path is
+    // factor_a → outcome → goal, leaving only iso dimmed.
+    expect([...state.dimmedNodeIds]).toEqual(['iso'])
+    expect(state.highlightedEdges.has('e1')).toBe(true)
+    expect(state.highlightedEdges.has('e2')).toBe(true)
+  })
+
   it('clears the focus dim on deselect — it never survives after focus ends', () => {
     const { nodes, edges } = graph()
     useCanvasStore.setState({

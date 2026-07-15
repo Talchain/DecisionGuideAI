@@ -13,10 +13,11 @@
  * Fail-open to fitting: an unmeasurable pane (jsdom, pre-mount) or an empty
  * target list is NOT comfortable, so callers fall back to today's fit.
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import {
   nodesComfortablyVisible,
   paddingToInsets,
+  readFocusCamera,
   MIN_READABLE_ZOOM,
   COMFORT_SLACK_PX,
   DEFAULT_NODE_WIDTH,
@@ -155,5 +156,109 @@ describe('paddingToInsets — bridges computeFitPadding px strings to numeric in
     expect(
       paddingToInsets({ top: '10px', right: '428px', bottom: '10px', left: '68px' }),
     ).toEqual({ top: 10, right: 428, bottom: 10, left: 68 })
+  })
+})
+
+/**
+ * readFocusCamera — the DOM measurement bridge BOTH F2 and F4 depend on for
+ * the no-churn decision (adversarial review finding 7: every fit-seam test
+ * replaces it with a spy, so the real bridge never executed under test).
+ *
+ * Exercised here against the REAL computeFitPadding — only the element rects
+ * are faked — so the panel-aware measurement is genuinely run.
+ */
+function fakeEl(rect: Partial<DOMRect>): HTMLElement {
+  const full = {
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    toJSON: () => ({}),
+    ...rect,
+  } as DOMRect
+  return { getBoundingClientRect: () => full } as unknown as HTMLElement
+}
+
+function stubSelectors(map: Record<string, HTMLElement | null>) {
+  vi.spyOn(document, 'querySelector').mockImplementation(
+    (sel: string) => (sel in map ? map[sel] : null) as Element | null,
+  )
+}
+
+const FLOW = '.react-flow'
+const DOCK = 'aside[aria-label="Outputs dock"]'
+const VIEWPORT = { x: 12, y: 34, zoom: 0.9 }
+const getViewport = () => VIEWPORT
+
+describe('readFocusCamera — the live camera measurement bridge', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('returns null when there is no .react-flow element (pre-mount)', () => {
+    stubSelectors({})
+    expect(readFocusCamera(getViewport)).toBeNull()
+  })
+
+  it('returns null when the pane is unmeasurable (0×0, e.g. jsdom) — callers fail open and fit', () => {
+    stubSelectors({ [FLOW]: fakeEl({ width: 0, height: 0 }) })
+    expect(readFocusCamera(getViewport)).toBeNull()
+  })
+
+  it('reports the caller’s viewport and the measured pane size', () => {
+    stubSelectors({ [FLOW]: fakeEl({ width: 1440, height: 900, left: 0, right: 1440 }) })
+    const camera = readFocusCamera(getViewport)
+    expect(camera?.viewport).toEqual(VIEWPORT)
+    expect(camera?.paneWidth).toBe(1440)
+    expect(camera?.paneHeight).toBe(900)
+  })
+
+  it('SAME-FRAME RULE: insets are exactly the parsed form of the padding it hands the fit', () => {
+    // Finding 4's regression in one assertion — the gate (insets) and the fit
+    // (padding) must describe ONE rect. If they ever diverge, the camera moves
+    // and leaves an occluded target occluded.
+    stubSelectors({
+      [FLOW]: fakeEl({ width: 1440, height: 900, left: 0, right: 1440 }),
+      [DOCK]: fakeEl({ width: 416, height: 900, left: 1012, right: 1428 }),
+    })
+    const camera = readFocusCamera(getViewport)
+    expect(camera).not.toBeNull()
+    expect(paddingToInsets(camera!.padding)).toEqual(camera!.insets)
+  })
+
+  it('is panel-aware: an expanded dock reserves the right side it occludes', () => {
+    stubSelectors({
+      [FLOW]: fakeEl({ width: 1440, height: 900, left: 0, right: 1440 }),
+      [DOCK]: fakeEl({ width: 416, height: 900, left: 1012, right: 1428 }),
+    })
+    const camera = readFocusCamera(getViewport)
+    // overlap = flowRect.right - dock.left = 428, plus the 16px gap.
+    expect(camera?.insets.right).toBe(444)
+    expect(camera?.padding.right).toBe('444px')
+    // Base margin is untouched on the unoccluded left: floor((1440 - 1440/1.2) * 0.5).
+    expect(camera?.insets.left).toBe(120)
+  })
+
+  it('a node under the expanded dock is NOT comfortable through the real bridge (F2/F4 end to end)', () => {
+    // The whole point of the bridge: measurement → gate. A node sitting under
+    // the dock must read as uncomfortable so focus/pulse actually fits it.
+    stubSelectors({
+      [FLOW]: fakeEl({ width: 1440, height: 900, left: 0, right: 1440 }),
+      [DOCK]: fakeEl({ width: 416, height: 900, left: 1012, right: 1428 }),
+    })
+    const camera = readFocusCamera(() => ({ x: 0, y: 0, zoom: 1 }))!
+    const underDock = sized(1100, 300)
+    expect(
+      nodesComfortablyVisible([underDock], camera.viewport, camera.paneWidth, camera.paneHeight, camera.insets),
+    ).toBe(false)
+    // ...while the same node in the clear reads comfortable.
+    const inTheClear = sized(300, 300)
+    expect(
+      nodesComfortablyVisible([inTheClear], camera.viewport, camera.paneWidth, camera.paneHeight, camera.insets),
+    ).toBe(true)
   })
 })

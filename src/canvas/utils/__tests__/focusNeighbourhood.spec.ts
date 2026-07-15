@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { neighbourhoodNodeIds, computeFocusPlan } from '../focusNeighbourhood'
+import type { FocusCamera } from '../cameraComfort'
 
 const edges = [
   { source: 'a', target: 'g' },
@@ -57,11 +58,17 @@ const planNodes = [
   planNode('lonely', 200, 600),
 ]
 
-const comfortableCamera = {
+// `padding` is the px-string form of `insets` — readFocusCamera derives both
+// from ONE computeFitPadding call so the no-churn gate and the fit it gates
+// frame against the same rect (the SAME-FRAME RULE on FocusCamera). The plan
+// only reads `insets`; the fixtures keep the pair consistent so they cannot
+// pin a camera shape the real bridge would never produce.
+const comfortableCamera: FocusCamera = {
   viewport: { x: 0, y: 0, zoom: 1 },
   paneWidth: 1200,
   paneHeight: 900,
   insets: { top: 40, right: 40, bottom: 40, left: 40 },
+  padding: { top: '40px', right: '40px', bottom: '40px', left: '40px' },
 }
 
 describe('computeFocusPlan — F3 dim set (non-neighbours only)', () => {
