@@ -17,7 +17,6 @@ export default defineConfig({
       // ── Complex DOM integration tests: need full canvas mount or network mocking ──
       'src/canvas/__tests__/ReactFlowGraph.layout.dom.spec.tsx', // CSS-var dock offsets not set in jsdom
       'src/canvas/__tests__/canvas.run-gating.dom.spec.tsx', // toast rendering requires full canvas pipeline
-      'src/canvas/components/__tests__/OutputsDock.dom.spec.tsx', // needs network mock (fetch /bff/cee); CI-only
       // Note: HeroSection/RecommendationSection dead-code tests were deleted from disk
       // (Brief 5.4 Phase 2 + closeout). No longer needed in exclude list.
     ],
