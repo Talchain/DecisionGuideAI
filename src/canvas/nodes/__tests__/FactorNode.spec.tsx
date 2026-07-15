@@ -683,6 +683,133 @@ describe('FactorNode', () => {
     const { container } = renderFactor({ label: 'Revenue', type: 'factor' })
     expect(container.querySelectorAll('[role="progressbar"]').length).toBe(0)
   })
+
+  // Lane C4 (influence-scale disclosure): the "I: NN%" pill shares the panel's
+  // display number; when the shared model resolved it on the fallback
+  // (set-relative) basis, FactorNode must pass that provenance through so the
+  // pill discloses "top driver always shows 100%" instead of reading as an
+  // absolute causal share.
+  it('passes influence provenance to MetricPills so the pill discloses the relative scale (C4)', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
+      selector({
+        hoveredOptionId: null,
+        nodes: [],
+        edges: [],
+        ceeAnalysisReady: null,
+        results: { status: 'complete', report: null },
+        highlightedNodes: new Set(),
+        dimmedNodeIds: new Set(),
+        goalThreshold: null,
+        goalConstraints: [],
+        viewMode: 'standard',
+      })
+    )
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: 1,
+      influence: 1,
+      influenceProvenance: 'normalised_elasticity',
+      confidence: null,
+      inSensitivityAnalysis: true,
+      achievementProbability: null,
+      achievementProbabilityIsModelledBasis: false,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+    renderFactor({ label: 'Technical Leadership Capability', type: 'factor', observedState: { value: 0.5 } })
+    const pill = screen.getByText('I: 100%')
+    expect(pill.getAttribute('title')).toBe(
+      'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
+    )
+    expect(pill.getAttribute('aria-label')).toBe(
+      'Influence 100%, relative to the strongest factor. The top driver always shows 100%'
+    )
+  })
+
+  // -------------------------------------------------------------------------
+  // Review fix 4: the DETAILED view renders the same display-model number one
+  // level up from the pill ('Influence' + DataBar + 'NN%') and had NO basis
+  // disclosure at all — the identical misread class the pill fix addressed.
+  // The bar's accessible name carries the basis (its role="progressbar"
+  // announces the value via aria-valuenow); `title` carries it for pointer
+  // users. Both bases pinned, plus the fail-closed no-provenance case.
+  // -------------------------------------------------------------------------
+  describe('detailed-view Influence row discloses the basis (review fix 4)', () => {
+    function renderDetailedWithProvenance(
+      influenceProvenance: 'normalised_elasticity' | 'influence_score' | null,
+      influence: number,
+    ) {
+      vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
+        selector({
+          hoveredOptionId: null,
+          nodes: [],
+          edges: [],
+          ceeAnalysisReady: null,
+          results: { status: 'complete', report: null },
+          highlightedNodes: new Set(),
+          dimmedNodeIds: new Set(),
+          goalThreshold: null,
+          goalConstraints: [],
+          viewMode: 'expert', // Detailed → Layer 2 inline
+        })
+      )
+      vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+        sensitivityRank: 1,
+        influence,
+        influenceProvenance,
+        confidence: null,
+        inSensitivityAnalysis: true,
+        achievementProbability: null,
+        achievementProbabilityIsModelledBasis: false,
+        stabilityPercentage: null,
+        winRate: null,
+        isResultsMode: true,
+        predictedOutcome: null,
+        valueOfInformation: null,
+        voiRank: null,
+      } as any)
+      return renderFactor({ label: 'Revenue', type: 'factor', observedState: { value: 0.5 } })
+    }
+
+    it('fallback basis: the row discloses that the top driver always shows 100%', () => {
+      renderDetailedWithProvenance('normalised_elasticity', 1)
+      const bar = screen.getByRole('progressbar', {
+        name: 'Influence, relative to the strongest factor. The top driver always shows 100%',
+      })
+      expect(bar.getAttribute('aria-valuenow')).toBe('100')
+      // Pointer users get the same disclosure on the row.
+      const row = screen.getByText('Influence').closest('div')
+      expect(row?.getAttribute('title')).toBe(
+        'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
+      )
+    })
+
+    it('producer basis: the row discloses the absolute causal influence score', () => {
+      renderDetailedWithProvenance('influence_score', 0.6)
+      const bar = screen.getByRole('progressbar', {
+        name: 'Influence, an absolute causal influence score from the analysis',
+      })
+      expect(bar.getAttribute('aria-valuenow')).toBe('60')
+      const row = screen.getByText('Influence').closest('div')
+      expect(row?.getAttribute('title')).toBe(
+        'Influence: how much this factor affects the outcome, as an absolute causal influence score from the analysis.'
+      )
+    })
+
+    it('no provenance stamp: fails closed to generic wording, claiming no basis', () => {
+      renderDetailedWithProvenance(null, 0.6)
+      const bar = screen.getByRole('progressbar', { name: 'Influence' })
+      expect(bar.getAttribute('aria-valuenow')).toBe('60')
+      const row = screen.getByText('Influence').closest('div')
+      expect(row?.getAttribute('title')).toBe(
+        'Influence: how much this factor affects the outcome'
+      )
+      expect(row?.getAttribute('title')).not.toContain('100%')
+    })
+  })
 })
 
 // ---------------------------------------------------------------------------

@@ -34,6 +34,14 @@ import Tooltip from '../../components/Tooltip'
 import { DiscussWithAiButton } from '../../canvas/components/pre-analysis/DiscussWithAiButton'
 import { ExpertBlock } from './ExpertBlock'
 import { SensitivityReferenceCaption } from './SensitivityReferenceCaption'
+import {
+  INFLUENCE_EXPLANATION_GENERIC,
+  INFLUENCE_EXPLANATION_RELATIVE,
+  INFLUENCE_EXPLANATION_ABSOLUTE,
+  INFLUENCE_RANKING_EXPLAINER_GENERIC,
+  INFLUENCE_RANKING_EXPLAINER_RELATIVE,
+  INFLUENCE_SCALE_CAPTION,
+} from './influenceScaleCopy'
 import { ExpandableCoachingText } from '../../components/shared/ExpandableCoachingText'
 import { isExpertField } from './utils/isExpertField'
 
@@ -878,14 +886,74 @@ export function DriversSection({
   // place. DriversSection still surfaces per-row sensitivity / confidence;
   // the cross-driver dominance signal is owned by T1.
 
+  // Lane C4 (influence-scale disclosure): the shared display model
+  // (driverDisplayModel.selectDriverDisplayModel) resolves ONE basis for the
+  // entire ranked set — so any stamped row's `displayProvenance` describes
+  // the whole panel. On the fallback basis ('normalised_elasticity') the
+  // displayed value is per-set normalised |elasticity| and the top driver
+  // shows 100% BY CONSTRUCTION — that must be disclosed (the "Relative
+  // influence" wording was dropped in v7.10 T9). On the producer basis
+  // ('influence_score') the value is an absolute structural-causal-influence
+  // score from the producer (see the DriverItem type) — say that instead. No stamp
+  // (legacy fixtures / cached payloads) → fail-closed: keep the generic
+  // wording; never claim a basis the pipeline did not stamp. Derived from the
+  // FULL drivers list (same belt-and-braces as anyConfidenceProvisional).
+  const influenceBasisStamped: 'relative' | 'absolute' | 'unknown' =
+    drivers.some(d => d.displayProvenance === 'normalised_elasticity')
+      ? 'relative'
+      : drivers.some(d => d.displayProvenance === 'influence_score')
+        ? 'absolute'
+        : 'unknown'
+  // Review fix 1 (degenerate-state false caption): never claim "the top
+  // driver always shows 100%" when the claim has nothing to point at. In the
+  // degenerate state (max magnitude below the data layer's 0.001 floor)
+  // every normalised value is 0 — rows keep the fallback provenance stamp,
+  // but the >=0.01 visibility filter empties the rendered list, so the
+  // caption/explainer would assert a 100% top driver over ZERO rows.
+  // hasMagnitudeData is the data layer's own flag for that floor;
+  // visibleDrivers.length is the belt-and-braces for any other all-hidden
+  // set. Fail closed to the generic wording (same doctrine as the unstamped
+  // branch).
+  const influenceBasis: 'relative' | 'absolute' | 'unknown' =
+    influenceBasisStamped === 'relative' && (!hasMagnitudeData || visibleDrivers.length === 0)
+      ? 'unknown'
+      : influenceBasisStamped
+  // Copy comes from the ONE shared module (influenceScaleCopy) the canvas
+  // pill consumes too — surfaces cannot drift (review fix 3: the strings are
+  // also policed there for the DS em-dash ban).
+  const influenceTooltipContent =
+    influenceBasis === 'relative'
+      ? INFLUENCE_EXPLANATION_RELATIVE
+      : influenceBasis === 'absolute'
+        ? INFLUENCE_EXPLANATION_ABSOLUTE
+        : INFLUENCE_EXPLANATION_GENERIC
+
   return (
     <div className="space-y-4">
-      {/* Ranking explainer */}
-      <p className={`${typography.panelMeta} text-text-light`}>Ranked by how much each factor affects the outcome</p>
+      {/* Ranking explainer — carries the relative framing on the fallback basis (C4) */}
+      <p className={`${typography.panelMeta} text-text-light`}>
+        {influenceBasis === 'relative'
+          ? INFLUENCE_RANKING_EXPLAINER_RELATIVE
+          : INFLUENCE_RANKING_EXPLAINER_GENERIC}
+      </p>
 
       {/* Lane UI-W5: reference-option disclosure — renders nothing when the
           producer did not disclose a reference option (fail-closed). */}
       <SensitivityReferenceCaption optionLabel={sensitivityReferenceLabel} />
+
+      {/* Lane C4: relative-scale caption — visible (not hover-only) whenever
+          the fallback basis is active, following the SensitivityReferenceCaption
+          idiom (role="note", panelMeta). Absent on the producer basis and on
+          unstamped legacy payloads. */}
+      {influenceBasis === 'relative' && (
+        <p
+          role="note"
+          data-testid="influence-scale-caption"
+          className={`${typography.panelMeta} text-text-light`}
+        >
+          {INFLUENCE_SCALE_CAPTION}
+        </p>
+      )}
 
       {/* Brief 5 Task 2: headers + rows share one wrapper so column positions
           are structural, not visual-approximation. Headers mirror the row grid
@@ -896,8 +964,10 @@ export function DriversSection({
         <div className={`grid ${GRID_COLS} gap-2 items-center px-3 pb-3`}>
           {/* Empty cell for factor name column */}
           <div aria-hidden="true" />
-          {/* v7.10 T9: Renamed "Relative influence" → "Influence" for brevity */}
-          <Tooltip content="Influence: how much this factor affects the outcome">
+          {/* v7.10 T9 renamed "Relative influence" → "Influence" for brevity;
+              lane C4 restores the relative-scale disclosure in the tooltip
+              (basis-aware — see influenceTooltipContent above). */}
+          <Tooltip content={influenceTooltipContent}>
             <div
               className={`${typography.panelBody} text-text-light text-right cursor-help`}
             >
