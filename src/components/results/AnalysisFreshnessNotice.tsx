@@ -11,6 +11,32 @@
  * never-absence→fresh). This component is display-only: it does NOT use
  * v5AnalysisFact, useStaleGuard, or any local graph-hash computation, and it
  * never shows the technical reason/hash fields as copy (they ride on data-*).
+ *
+ * ALWAYS-VISIBILITY CONTRACT (C1 — one Rerun owner per viewport)
+ * -------------------------------------------------------------
+ * This strip is the SOLE owner of the Rerun action: while it offers one, the
+ * AnalysisFooter deliberately renders NO action (OutputsDock). Sole ownership
+ * only holds if the strip is always visible — so `sticky top-0 z-10` on the
+ * root is LOAD-BEARING and must not be dropped.
+ *
+ * Why: the strip's only mount site (OutputsDock) is INSIDE the Analysis tab's
+ * one scroller, above the entire ResultsBody (hero, options, drivers,
+ * Strengthen). Unstuck, it scrolls off on the first scroll — and because the
+ * footer yields its action to the strip, the viewport would then carry ZERO
+ * rerun affordance exactly when a stale verdict says one is needed. Its
+ * structural counterpart is AnalysisFooter's `sticky bottom-0 z-10`.
+ *
+ * `bg-panel` on the root is what makes `z-10` opaque to the scrolling body.
+ *
+ * Known cosmetic nuance: the scroller's own `py-3` insets the pinned strip by
+ * 12px, because a sticky box is clamped to its containing block (the
+ * scroller's CONTENT box) while overflow clips at the PADDING box. A 12px
+ * sliver of body content therefore passes above the strip. The strip itself
+ * stays fully visible and clickable, so the recovery affordance holds.
+ *
+ * jsdom cannot prove visual visibility (no layout engine), so the guarantee is
+ * pinned STRUCTURALLY instead — see OutputsDock.rerunSingleOwner.spec.tsx
+ * ('rerun owner is always-visible (structural proxy)').
  */
 import { useEffect, useRef } from 'react'
 import { RefreshCw } from 'lucide-react'
@@ -110,7 +136,9 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
       data-cee-freshness={state.freshness}
       data-freshness-dirty={downgraded ? 'true' : undefined}
       data-freshness-reason={state.freshnessReason}
-      className={`flex items-center gap-2 rounded-md border px-3 py-2 bg-panel ${isStale ? 'border-warning/30' : 'border-panel-border'} ${className}`.trim()}
+      // C1: `sticky top-0 z-10` is load-bearing, not decoration — see the
+      // always-visibility contract in the file header. Do not remove.
+      className={`sticky top-0 z-10 flex items-center gap-2 rounded-md border px-3 py-2 bg-panel ${isStale ? 'border-warning/30' : 'border-panel-border'} ${className}`.trim()}
     >
       <span
         className={`flex-none w-2 h-2 rounded-full ${isRunning ? 'bg-info' : DOT_COLOUR[freshness]}`}

@@ -12,16 +12,26 @@
  *     rerun exists anywhere in the tab tree;
  *   - no freshness verdict held (strip renders nothing) → the footer KEEPS
  *     its Rerun action, so the tab never loses its only recovery affordance;
+ *   - no rerun offered by the strip ('none' verdict) → the footer KEEPS its
+ *     Rerun, pinning the `!== 'none'` clause of `freshnessStripOwnsRerun`;
  *   - orphan banner active (V5 canonical flag on, no V5 fact) → the footer
- *     is suppressed under BOTH hero flags (V17 AND analysisHeroPanel), so
- *     the banner's own action can never stack on a footer Rerun.
+ *     keeps its robustness status.
+ *
+ * VISIBILITY IS A STRUCTURAL PROXY HERE. jsdom has no layout engine, so no
+ * assertion in this file can prove the sole owner is on SCREEN:
+ * `getAllByRole`/`getByTestId` prove DOM PRESENCE only, and mount-parity is
+ * NOT visibility-parity. (An earlier revision of this spec asserted
+ * `toHaveLength(1)` under an "always-visible" comment while the sole owner
+ * scrolled away — presence held, visibility did not.) The invariant that
+ * makes visibility true is pinned instead by
+ * `expectRerunOwnerCannotScrollAway` below.
  *
  * Scaffolding mirrors OutputsDock.testability.spec.tsx (real ResultsBody,
  * stable useConversation stub, aiPanelV2 OFF).
  */
 
 import '@testing-library/jest-dom/vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { OutputsDock } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
@@ -154,6 +164,85 @@ function seedPostRun(overrides: Record<string, unknown> = {}) {
   } as never)
 }
 
+/**
+ * Accessible names a rerun control could plausibly carry. Deliberately WIDER
+ * than the literal /rerun/ the first cut of this spec matched: a control
+ * reintroduced as "Run again" or "Refresh analysis" is still a second rerun
+ * owner, and a pin that only knows one spelling would wave it through.
+ */
+const RERUN_NAME_RE =
+  /re-?run|run again|re-?analy[sz]e|refresh (the )?analysis|update (the )?analysis|run (the )?analysis/i
+
+/** Testids that name a run-dispatching control, whatever its visible label. */
+const RERUN_TESTID_RE = /re-?run|run-analysis|analysis-run/i
+
+/**
+ * Every control in the subtree that could dispatch a run — caught by
+ * accessible NAME or by TESTID, so a reintroduction has to evade both.
+ */
+function collectRerunControls(scope: HTMLElement): Set<Element> {
+  const byName = within(scope).queryAllByRole('button', { name: RERUN_NAME_RE })
+  const byTestId = Array.from(scope.querySelectorAll('[data-testid]')).filter(el =>
+    RERUN_TESTID_RE.test(el.getAttribute('data-testid') ?? ''),
+  )
+  return new Set<Element>([...byName, ...byTestId])
+}
+
+const SCROLLER_RE = /overflow-y-auto|overflow-y-scroll|(^|\s)overflow-auto(\s|$)/
+const PINNED_RE = /(^|\s)(sticky|fixed)(\s|$)/
+
+const classOf = (el: Element) => el.getAttribute('class') ?? ''
+
+/**
+ * Walk up from `control` to the nearest scrolling ancestor.
+ * Returns the scroller, or null when the control sits outside every scroller.
+ */
+function nearestScroller(control: Element): Element | null {
+  let node: Element | null = control.parentElement
+  while (node && node !== document.body) {
+    if (SCROLLER_RE.test(classOf(node))) return node
+    node = node.parentElement
+  }
+  return null
+}
+
+/**
+ * STRUCTURAL PROXY for "this control cannot leave the viewport".
+ *
+ * True when the control either (a) sits outside every scroller — like the
+ * AnalysisFooter, a sibling of the scroller — or (b) is pinned inside its
+ * scroller by a `sticky`/`fixed` ancestor (inclusive of itself).
+ *
+ * False means the control scrolls away with the content. While the footer
+ * yields its action to the strip, that leaves ZERO rerun affordance on
+ * screen — the exact regression this lane exists to prevent.
+ */
+function rerunOwnerCannotScrollAway(control: Element): boolean {
+  let node: Element | null = control
+  let pinned = false
+  while (node && node !== document.body) {
+    // Check scroller FIRST: a `sticky` class on the scroller itself pins the
+    // scroller in ITS parent, and says nothing about the control inside it.
+    if (SCROLLER_RE.test(classOf(node))) return pinned
+    if (PINNED_RE.test(classOf(node))) pinned = true
+    node = node.parentElement
+  }
+  return true
+}
+
+/**
+ * Assert the invariant AND assert the pin is not vacuous — if the control
+ * turned out to sit in no scroller at all, `rerunOwnerCannotScrollAway`
+ * would pass for a reason unrelated to the fix, and the pin would rot
+ * silently (the failure mode that made the old `hero-rerun` pins useless).
+ */
+function expectRerunOwnerCannotScrollAway(control: Element, opts: { insideScroller: boolean }) {
+  if (opts.insideScroller) {
+    expect(nearestScroller(control)).not.toBeNull()
+  }
+  expect(rerunOwnerCannotScrollAway(control)).toBe(true)
+}
+
 describe('OutputsDock — one Rerun owner per viewport (C1)', () => {
   beforeEach(() => {
     ensureMatchMedia()
@@ -178,19 +267,30 @@ describe('OutputsDock — one Rerun owner per viewport (C1)', () => {
 
       // The strip owns recovery — its Rerun renders.
       expect(screen.getByTestId('analysis-freshness-notice')).toHaveAttribute('data-freshness', freshness)
-      expect(screen.getByTestId('freshness-strip-rerun')).toBeInTheDocument()
+      const stripRerun = screen.getByTestId('freshness-strip-rerun')
+      expect(stripRerun).toBeInTheDocument()
 
-      // No hero-side rerun anywhere in the tab tree (v6: the hero has no
-      // stale affordance of its own).
-      expect(screen.queryByTestId('hero-rerun')).not.toBeInTheDocument()
+      // No hero-side rerun (v6: the hero has no stale affordance of its own).
+      // Re-anchored: this previously queried `hero-rerun`, a testid that
+      // exists NOWHERE in source, so it asserted the absence of something
+      // that could never be present and could never fail. Anchor to the
+      // hero's REAL root (getByTestId throws if the hero stops rendering, so
+      // the pin cannot go vacuous again) and sweep its whole subtree.
+      const hero = screen.getByTestId('analysis-hero-panel')
+      expect(collectRerunControls(hero).size).toBe(0)
 
       // The footer keeps its robustness STATUS but drops its Rerun action.
       expect(screen.getByTestId('results-analysis-footer')).toBeInTheDocument()
       expect(screen.getByTestId('results-analysis-footer')).toHaveTextContent('Robustness unknown')
       expect(screen.queryByTestId('results-analysis-footer-action')).not.toBeInTheDocument()
 
-      // Exactly ONE always-visible rerun control in the whole tab tree.
-      expect(screen.getAllByRole('button', { name: /rerun|re-run/i })).toHaveLength(1)
+      // Exactly ONE rerun control in the whole tab tree — matched by name OR
+      // testid, so a control reintroduced under any other spelling is caught.
+      const controls = collectRerunControls(document.body as HTMLElement)
+      expect([...controls]).toEqual([stripRerun])
+
+      // ...and that sole owner cannot scroll out of the viewport.
+      expectRerunOwnerCannotScrollAway(stripRerun, { insideScroller: true })
     },
   )
 
@@ -216,6 +316,89 @@ describe('OutputsDock — one Rerun owner per viewport (C1)', () => {
     expect(screen.getByTestId('analysis-freshness-notice')).toHaveAttribute('data-freshness', 'unknown')
     expect(screen.getByTestId('freshness-strip-rerun')).toBeInTheDocument()
     expect(screen.queryByTestId('results-analysis-footer-action')).not.toBeInTheDocument()
+  })
+
+  it('the sole Rerun owner is pinned against scrolling away (structural proxy — jsdom cannot see)', () => {
+    mockIsAnalysisHeroPanelEnabled.mockReturnValue(true)
+    seedPostRun({ analysisFreshness: { freshness: 'stale', computedAt: 1 } })
+    render(<OutputsDock />)
+
+    const strip = screen.getByTestId('analysis-freshness-notice')
+    const stripRerun = screen.getByTestId('freshness-strip-rerun')
+
+    // The footer has yielded its action, so the strip is the ONLY owner...
+    expect(screen.queryByTestId('results-analysis-footer-action')).not.toBeInTheDocument()
+
+    // ...and the strip really does live inside the tab's one scroller, above
+    // the whole ResultsBody. Without a pin it would scroll away on the first
+    // scroll and take the tab's only recovery action off screen with it.
+    expect(nearestScroller(stripRerun)).not.toBeNull()
+
+    // The pin itself: `sticky top-0` on the strip root (load-bearing — see
+    // the always-visibility contract in AnalysisFreshnessNotice's header).
+    expect(classOf(strip)).toMatch(/(^|\s)sticky(\s|$)/)
+    expect(classOf(strip)).toMatch(/(^|\s)top-0(\s|$)/)
+    // `bg-panel` is what makes the pinned strip opaque to the body scrolling
+    // behind it; `z-10` is what keeps it above.
+    expect(classOf(strip)).toMatch(/(^|\s)z-10(\s|$)/)
+    expect(classOf(strip)).toMatch(/(^|\s)bg-panel(\s|$)/)
+
+    expectRerunOwnerCannotScrollAway(stripRerun, { insideScroller: true })
+  })
+
+  it('structural proxy self-check: the helper FAILS an unpinned control inside a scroller', () => {
+    // Guards the pin above against passing for the wrong reason. If this
+    // helper cannot detect the regression on a hand-built DOM, it cannot
+    // detect it on the real one either.
+    const host = document.createElement('div')
+    host.innerHTML = `
+      <div class="flex-1 min-h-0 olumi-scrollbar overflow-y-auto px-3 py-3 space-y-6">
+        <div class="rounded-md border px-3 py-2 bg-panel">
+          <button data-testid="unpinned-rerun">Rerun</button>
+        </div>
+      </div>`
+    document.body.appendChild(host)
+    const unpinned = host.querySelector('[data-testid="unpinned-rerun"]')!
+    expect(nearestScroller(unpinned)).not.toBeNull()
+    expect(rerunOwnerCannotScrollAway(unpinned)).toBe(false)
+
+    // Same DOM, now pinned → passes.
+    host.querySelector('.bg-panel')!.classList.add('sticky', 'top-0', 'z-10')
+    expect(rerunOwnerCannotScrollAway(unpinned)).toBe(true)
+
+    // A control outside every scroller (the AnalysisFooter's shape) passes
+    // without needing a pin.
+    const outside = document.createElement('button')
+    host.appendChild(outside)
+    expect(nearestScroller(outside)).toBeNull()
+    expect(rerunOwnerCannotScrollAway(outside)).toBe(true)
+
+    host.remove()
+  })
+
+  it("CEE 'none' verdict: strip holds a verdict but offers NO rerun, so the footer keeps its action", () => {
+    // Pins the `!== 'none'` clause of `freshnessStripOwnsRerun`. A verdict IS
+    // held (so a `!= null`-only gate would wrongly strip the footer's action),
+    // but 'none' means there is nothing to rerun and the strip draws no
+    // control — the footer must therefore remain the tab's recovery owner.
+    seedPostRun({ analysisFreshness: { freshness: 'none', computedAt: 1 } })
+    render(<OutputsDock />)
+
+    expect(screen.getByTestId('analysis-freshness-notice')).toHaveAttribute('data-freshness', 'none')
+    expect(screen.queryByTestId('freshness-strip-rerun')).not.toBeInTheDocument()
+
+    const action = screen.getByTestId('results-analysis-footer-action')
+    expect(action).toBeInTheDocument()
+    expect(action).toHaveTextContent('Rerun')
+
+    // Still exactly one owner — ownership moved to the footer, it did not
+    // vanish and it did not double up.
+    expect([...collectRerunControls(document.body as HTMLElement)]).toEqual([action])
+
+    // The footer is a sibling OUTSIDE the scroller, so it is always visible
+    // without needing a pin.
+    expectRerunOwnerCannotScrollAway(action, { insideScroller: false })
+    expect(nearestScroller(action)).toBeNull()
   })
 
   it('NO freshness verdict held: the strip renders nothing and the footer KEEPS its Rerun (no affordance loss)', () => {
