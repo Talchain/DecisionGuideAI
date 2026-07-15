@@ -34,6 +34,14 @@ import Tooltip from '../../components/Tooltip'
 import { DiscussWithAiButton } from '../../canvas/components/pre-analysis/DiscussWithAiButton'
 import { ExpertBlock } from './ExpertBlock'
 import { SensitivityReferenceCaption } from './SensitivityReferenceCaption'
+import {
+  INFLUENCE_EXPLANATION_GENERIC,
+  INFLUENCE_EXPLANATION_RELATIVE,
+  INFLUENCE_EXPLANATION_ABSOLUTE,
+  INFLUENCE_RANKING_EXPLAINER_GENERIC,
+  INFLUENCE_RANKING_EXPLAINER_RELATIVE,
+  INFLUENCE_SCALE_CAPTION,
+} from './influenceScaleCopy'
 import { ExpandableCoachingText } from '../../components/shared/ExpandableCoachingText'
 import { isExpertField } from './utils/isExpertField'
 
@@ -896,22 +904,23 @@ export function DriversSection({
       : drivers.some(d => d.displayProvenance === 'influence_score')
         ? 'absolute'
         : 'unknown'
-  // Copy note: the pill in canvas MetricPills.tsx mirrors these strings —
-  // keep them in step (pinned by both surfaces' specs).
+  // Copy comes from the ONE shared module (influenceScaleCopy) the canvas
+  // pill consumes too — surfaces cannot drift (review fix 3: the strings are
+  // also policed there for the DS em-dash ban).
   const influenceTooltipContent =
     influenceBasis === 'relative'
-      ? 'Influence: how much this factor affects the outcome, relative to the strongest — the top driver always shows 100%.'
+      ? INFLUENCE_EXPLANATION_RELATIVE
       : influenceBasis === 'absolute'
-        ? 'Influence: how much this factor affects the outcome — an absolute causal influence score from the analysis.'
-        : 'Influence: how much this factor affects the outcome'
+        ? INFLUENCE_EXPLANATION_ABSOLUTE
+        : INFLUENCE_EXPLANATION_GENERIC
 
   return (
     <div className="space-y-4">
       {/* Ranking explainer — carries the relative framing on the fallback basis (C4) */}
       <p className={`${typography.panelMeta} text-text-light`}>
         {influenceBasis === 'relative'
-          ? 'Ranked by how much each factor affects the outcome, relative to the strongest factor'
-          : 'Ranked by how much each factor affects the outcome'}
+          ? INFLUENCE_RANKING_EXPLAINER_RELATIVE
+          : INFLUENCE_RANKING_EXPLAINER_GENERIC}
       </p>
 
       {/* Lane UI-W5: reference-option disclosure — renders nothing when the
@@ -928,7 +937,7 @@ export function DriversSection({
           data-testid="influence-scale-caption"
           className={`${typography.panelMeta} text-text-light`}
         >
-          Influence is relative to the strongest factor — the top driver always shows 100%.
+          {INFLUENCE_SCALE_CAPTION}
         </p>
       )}
 

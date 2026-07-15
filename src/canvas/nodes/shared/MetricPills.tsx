@@ -11,11 +11,14 @@
  * tooltip idiom — same as the sibling EdgePills strength pill; the floating
  * DS Tooltip is not used inside React Flow node chrome). Fail-closed: with no
  * provenance passed, the pill keeps a generic honest label and never claims a
- * basis it was not given. Copy mirrors DriversSection.tsx — keep in step.
+ * basis it was not given. Copy comes from the ONE shared module
+ * (influenceScaleCopy) DriversSection consumes too, so the surfaces cannot
+ * drift (review fix 3).
  */
 import { BiasIcon } from './BiasIcon'
 import type { ComponentProps } from 'react'
 import type { DriverDisplayProvenance } from '../../../components/results/driverDisplayModel'
+import { influenceExplanation, influencePillAriaLabel } from '../../../components/results/influenceScaleCopy'
 
 type BiasIconProps = ComponentProps<typeof BiasIcon>
 
@@ -37,18 +40,8 @@ export function MetricPills({ influencePct, influenceProvenance, confidencePct, 
 
   if (!hasInfluence && !hasConfidence && !hasBias) return null
 
-  const influenceTitle =
-    influenceProvenance === 'normalised_elasticity'
-      ? 'Influence: how much this factor affects the outcome, relative to the strongest — the top driver always shows 100%.'
-      : influenceProvenance === 'influence_score'
-        ? 'Influence: how much this factor affects the outcome — an absolute causal influence score from the analysis.'
-        : 'Influence: how much this factor affects the outcome'
-  const influenceAria =
-    influenceProvenance === 'normalised_elasticity'
-      ? `Influence ${influencePct}%, relative to the strongest factor — the top driver always shows 100%`
-      : influenceProvenance === 'influence_score'
-        ? `Influence ${influencePct}% — an absolute causal influence score from the analysis`
-        : `Influence ${influencePct}%`
+  const influenceTitle = influenceExplanation(influenceProvenance)
+  const influenceAria = influencePillAriaLabel(influencePct ?? 0, influenceProvenance)
 
   return (
     <div className="flex gap-[3px] mt-1.5 items-center flex-wrap">

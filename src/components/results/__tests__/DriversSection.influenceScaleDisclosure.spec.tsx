@@ -29,16 +29,19 @@ vi.mock('../../../canvas/utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
 }))
 
+// Deliberately hard-coded (not imported from influenceScaleCopy) so a copy
+// change is a conscious, visible decision in this spec. No em dashes (DS ban,
+// review fix 3 — policed by influenceScaleCopy.copyHygiene.spec.ts).
 const RELATIVE_TOOLTIP =
-  'Influence: how much this factor affects the outcome, relative to the strongest — the top driver always shows 100%.'
+  'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
 const ABSOLUTE_TOOLTIP =
-  'Influence: how much this factor affects the outcome — an absolute causal influence score from the analysis.'
+  'Influence: how much this factor affects the outcome, as an absolute causal influence score from the analysis.'
 const GENERIC_TOOLTIP = 'Influence: how much this factor affects the outcome'
 const RELATIVE_EXPLAINER =
   'Ranked by how much each factor affects the outcome, relative to the strongest factor'
 const GENERIC_EXPLAINER = 'Ranked by how much each factor affects the outcome'
 const CAPTION_COPY =
-  'Influence is relative to the strongest factor — the top driver always shows 100%.'
+  'Influence is relative to the strongest factor. The top driver always shows 100%.'
 
 function makeDriver(overrides: Partial<DriverItem> & { factorKey: string }): DriverItem {
   return {

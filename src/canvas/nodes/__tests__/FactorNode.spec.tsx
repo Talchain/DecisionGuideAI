@@ -722,10 +722,10 @@ describe('FactorNode', () => {
     renderFactor({ label: 'Technical Leadership Capability', type: 'factor', observedState: { value: 0.5 } })
     const pill = screen.getByText('I: 100%')
     expect(pill.getAttribute('title')).toBe(
-      'Influence: how much this factor affects the outcome, relative to the strongest — the top driver always shows 100%.'
+      'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
     )
     expect(pill.getAttribute('aria-label')).toBe(
-      'Influence 100%, relative to the strongest factor — the top driver always shows 100%'
+      'Influence 100%, relative to the strongest factor. The top driver always shows 100%'
     )
   })
 })

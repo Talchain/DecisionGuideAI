@@ -16,10 +16,13 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MetricPills } from '../MetricPills'
 
+// Deliberately hard-coded (not imported from influenceScaleCopy) so a copy
+// change is a conscious, visible decision in this spec. No em dashes (DS ban,
+// review fix 3 — policed by influenceScaleCopy.copyHygiene.spec.ts).
 const RELATIVE_TITLE =
-  'Influence: how much this factor affects the outcome, relative to the strongest — the top driver always shows 100%.'
+  'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
 const ABSOLUTE_TITLE =
-  'Influence: how much this factor affects the outcome — an absolute causal influence score from the analysis.'
+  'Influence: how much this factor affects the outcome, as an absolute causal influence score from the analysis.'
 const GENERIC_TITLE = 'Influence: how much this factor affects the outcome'
 
 describe('MetricPills — influence-scale disclosure (lane C4)', () => {
@@ -28,7 +31,7 @@ describe('MetricPills — influence-scale disclosure (lane C4)', () => {
     const pill = screen.getByText('I: 100%')
     expect(pill.getAttribute('title')).toBe(RELATIVE_TITLE)
     expect(pill.getAttribute('aria-label')).toBe(
-      'Influence 100%, relative to the strongest factor — the top driver always shows 100%',
+      'Influence 100%, relative to the strongest factor. The top driver always shows 100%',
     )
   })
 
@@ -37,7 +40,7 @@ describe('MetricPills — influence-scale disclosure (lane C4)', () => {
     const pill = screen.getByText('I: 62%')
     expect(pill.getAttribute('title')).toBe(ABSOLUTE_TITLE)
     expect(pill.getAttribute('aria-label')).toBe(
-      'Influence 62% — an absolute causal influence score from the analysis',
+      'Influence 62%, an absolute causal influence score from the analysis',
     )
     expect(pill.getAttribute('title')).not.toContain('always shows 100%')
   })
