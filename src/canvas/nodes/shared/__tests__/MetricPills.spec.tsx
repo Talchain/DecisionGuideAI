@@ -26,30 +26,35 @@ const ABSOLUTE_TITLE =
 const GENERIC_TITLE = 'Influence: how much this factor affects the outcome'
 
 describe('MetricPills — influence-scale disclosure (lane C4)', () => {
-  it('relative basis: pill carries the relative-scale title and aria-label', () => {
+  // Review fix 5: aria-label on a role-less <span> is unreliably announced
+  // (generic role). The pill must use the codebase's ratified idiom for
+  // meaningful static markers — role="img" + aria-label (see
+  // ReadinessColourStrip.tsx for the rationale) — so every assertion below
+  // resolves the pill BY that role and accessible name.
+  it('relative basis: pill is a role="img" named with the relative-scale disclosure, plus a title', () => {
     render(<MetricPills influencePct={100} influenceProvenance="normalised_elasticity" />)
-    const pill = screen.getByText('I: 100%')
+    const pill = screen.getByRole('img', {
+      name: 'Influence 100%, relative to the strongest factor. The top driver always shows 100%',
+    })
+    expect(pill.textContent).toBe('I: 100%')
     expect(pill.getAttribute('title')).toBe(RELATIVE_TITLE)
-    expect(pill.getAttribute('aria-label')).toBe(
-      'Influence 100%, relative to the strongest factor. The top driver always shows 100%',
-    )
   })
 
   it('producer basis: pill carries the absolute-basis wording, never the relative claim', () => {
     render(<MetricPills influencePct={62} influenceProvenance="influence_score" />)
-    const pill = screen.getByText('I: 62%')
+    const pill = screen.getByRole('img', {
+      name: 'Influence 62%, an absolute causal influence score from the analysis',
+    })
+    expect(pill.textContent).toBe('I: 62%')
     expect(pill.getAttribute('title')).toBe(ABSOLUTE_TITLE)
-    expect(pill.getAttribute('aria-label')).toBe(
-      'Influence 62%, an absolute causal influence score from the analysis',
-    )
     expect(pill.getAttribute('title')).not.toContain('always shows 100%')
   })
 
   it('no provenance (fail-closed): generic honest label, no basis claim', () => {
     render(<MetricPills influencePct={80} />)
-    const pill = screen.getByText('I: 80%')
+    const pill = screen.getByRole('img', { name: 'Influence 80%' })
+    expect(pill.textContent).toBe('I: 80%')
     expect(pill.getAttribute('title')).toBe(GENERIC_TITLE)
-    expect(pill.getAttribute('aria-label')).toBe('Influence 80%')
   })
 
   it('unchanged behaviour: renders nothing when no metric is present', () => {

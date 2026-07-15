@@ -49,6 +49,13 @@ export function MetricPills({ influencePct, influenceProvenance, confidencePct, 
         <span
           className="text-[10px] font-sans leading-tight px-[5px] py-[1px] rounded-[10px] border border-info/40 text-text-body"
           title={influenceTitle}
+          // Review fix 5: aria-label on a role-less <span> is unreliably
+          // announced (generic role), and `title` alone is keyboard/touch
+          // unreachable. role="img" gives the label a semantic anchor that
+          // AT consistently announces — the codebase's ratified idiom for
+          // meaningful static markers (see ReadinessColourStrip.tsx for the
+          // rationale).
+          role="img"
           aria-label={influenceAria}
         >
           I: {influencePct}%
