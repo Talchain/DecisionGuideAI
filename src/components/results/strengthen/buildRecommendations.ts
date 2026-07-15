@@ -35,9 +35,13 @@ const LEHI_CONFIDENCE_CEILING = 0.4
 // top-N ranking (MAX_PHASE3_PROMOTED) so a verbose guidance payload cannot
 // flood the panel with a dozen rows; the un-promoted items still render in
 // their own guidance surfaces. (b) Recommendations are deduplicated by
-// normalised title (keep the highest-priority instance) so the panel never
-// shows two rows with identical titles. Remove when CEE ships a canonical
-// per-surface promotion budget / deduplicated strengthen feed.
+// normalised title + body (keep the highest-priority instance) so the panel
+// never shows two rows with an identical visible identity. Title ALONE is
+// not a duplicate: the producer emits distinct findings under one generic
+// headline (four "A load-bearing assumption" review cards with different
+// bodies) and title-only dedupe silently dropped real findings. Remove when
+// CEE ships a canonical per-surface promotion budget / deduplicated
+// strengthen feed.
 const MAX_PHASE3_PROMOTED = 4
 
 /** Adaptive-priority boost: large enough that a matching rec always outranks
@@ -55,9 +59,16 @@ const PRIORITY = {
   commit: 200,
 } as const
 
-/** Title normalisation for the UI-SEM-075 dedupe (case/whitespace only). */
-function normaliseTitle(title: string): string {
-  return title.trim().toLowerCase().replace(/\s+/g, ' ')
+/** Text normalisation for the UI-SEM-075 dedupe keys (case/whitespace only). */
+function normaliseText(text: string): string {
+  return text.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+/** UI-SEM-075(b) dedupe key: normalised title + body. Two entries are true
+ * duplicates only when BOTH match — a shared generic headline over distinct
+ * bodies is distinct findings, never a duplicate. */
+function dedupeKey(title: string, body: string | undefined): string {
+  return `${normaliseText(title)}\u0000${normaliseText(body ?? '')}`
 }
 
 function pct(p: number): string {
@@ -93,15 +104,19 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
 
   // ── Phase-3 promotion (producer-owned coaching blocks, verbatim) ──────────
   // UI-SEM-075(a): promote only the producer's own top-N ranking, first
-  // occurrence per title — display gating so the panel never floods with a
-  // dozen near-identical guidance rows (the rest stay on their own surfaces).
-  const seenPhase3Titles = new Set<string>()
+  // occurrence per title+body — display gating so the panel never floods
+  // with a dozen near-identical guidance rows (the rest stay on their own
+  // surfaces). Keying on title ALONE dropped distinct findings: the producer
+  // emits several review cards under one generic headline with different
+  // bodies (fixture cee-response-b82c89dd-trimmed). The cap is a display
+  // budget and still applies AFTER true-duplicate removal.
+  const seenPhase3Keys = new Set<string>()
   const promotedPhase3 = [...inputs.phase3Items]
     .sort((a, b) => (a.priorityRank ?? 99) - (b.priorityRank ?? 99))
     .filter((item) => {
-      const key = normaliseTitle(item.title)
-      if (seenPhase3Titles.has(key)) return false
-      seenPhase3Titles.add(key)
+      const key = dedupeKey(item.title, item.body)
+      if (seenPhase3Keys.has(key)) return false
+      seenPhase3Keys.add(key)
       return true
     })
     .slice(0, MAX_PHASE3_PROMOTED)
@@ -110,7 +125,16 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       id: `strengthen:phase3:${item.id}`,
       helpType: 'clarify',
       title: item.title, // verbatim wire copy — never UI-authored
-      signal: 'Olumi flagged this while reviewing your model.',
+      // The producer's factor-naming body rides BOTH display fields VERBATIM
+      // (trigger honesty holds — wire copy, never UI-authored):
+      // - signal: the collapsed-row subtitle (information scent, clamped by
+      //   the panel);
+      // - whyNow: the expanded-row prose AND the Ask-Olumi drawer context
+      //   (StrengthenContainer passes rec.whyNow) — a generic line here
+      //   degraded every phase-3 drawer ask to boilerplate (round 2).
+      // Boilerplate is the no-body fallback only. The PANEL dedupes display:
+      // an open row renders the body once, in full, never clamp + full copy.
+      signal: item.body ?? 'Olumi flagged this while reviewing your model.',
       whyNow: item.body ?? 'Resolving it improves what the analysis can tell you.',
       tryThis: item.actionLabel ?? 'Work through it with Olumi.',
       sourceLine: 'Source: Olumi model review.',
@@ -310,13 +334,16 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       )
     : recs
 
-  // ── UI-SEM-075(b): never two rows with identical titles ──────────────────
-  // Keep the highest-priority (lowest number) instance of each title.
-  const byTitle = new Map<string, Recommendation>()
+  // ── UI-SEM-075(b): never two rows with an identical visible identity ─────
+  // Keyed on title + signal — exactly what the collapsed two-line row shows.
+  // Keep the highest-priority (lowest number) instance of each. (Phase-3
+  // signals carry the producer body, so distinct findings under one generic
+  // headline survive; true duplicates still collapse.)
+  const byIdentity = new Map<string, Recommendation>()
   for (const rec of boosted) {
-    const key = normaliseTitle(rec.title)
-    const existing = byTitle.get(key)
-    if (!existing || rec.priority < existing.priority) byTitle.set(key, rec)
+    const key = dedupeKey(rec.title, rec.signal)
+    const existing = byIdentity.get(key)
+    if (!existing || rec.priority < existing.priority) byIdentity.set(key, rec)
   }
-  return boosted.filter((rec) => byTitle.get(normaliseTitle(rec.title)) === rec)
+  return boosted.filter((rec) => byIdentity.get(dedupeKey(rec.title, rec.signal)) === rec)
 }

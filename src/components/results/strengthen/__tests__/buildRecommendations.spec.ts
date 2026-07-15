@@ -197,7 +197,11 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
     )
   })
 
-  it('UI-SEM-075(b): never two rows with identical titles — duplicate guidance items collapse to one', () => {
+  // UPDATED PIN (was 'never two rows with identical titles'): the dedupe key
+  // is now normalised title + body — title alone silently dropped DISTINCT
+  // producer findings that share a generic headline. Bodiless same-title
+  // items remain true duplicates and still collapse.
+  it('UI-SEM-075(b): same title with NO bodies stays a true duplicate — collapses to one', () => {
     const input: StrengthenInputs = {
       ...base,
       phase3Items: [
@@ -207,11 +211,150 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
       ],
     }
     const recs = buildRecommendations(input)
-    const titles = recs.map((r) => r.title.trim().toLowerCase().replace(/\s+/g, ' '))
-    expect(new Set(titles).size).toBe(titles.length)
     expect(recs.filter((r) => r.id.startsWith('strengthen:phase3:'))).toHaveLength(1)
     // The producer's best-ranked instance survives.
     expect(recs.some((r) => r.id === 'strengthen:phase3:b1')).toBe(true)
+  })
+
+  // ── T3 (b): dedupe must never drop DISTINCT findings ─────────────────────
+  // The CEE producer emits four distinct "A load-bearing assumption" review
+  // cards with different bodies (fixture cee-response-b82c89dd-trimmed.json).
+  // Title-only dedupe silently discarded three real findings.
+  const LOAD_BEARING_BODIES = [
+    'The relationship between Technical Leadership Capacity and overall throughput remains stable.',
+    'Team Maturity continues to support higher output as expected.',
+    'Hiring costs are predictable and do not introduce significant new risks.',
+    'Coordination overhead does not increase disproportionately with new hires.',
+  ]
+
+  it('T3(b): four distinct findings under one generic headline ALL promote (within the cap)', () => {
+    const input: StrengthenInputs = {
+      ...base,
+      phase3Items: LOAD_BEARING_BODIES.map((body, i) => ({
+        id: `blk_${i + 1}`,
+        title: 'A load-bearing assumption',
+        body,
+        targetIds: [],
+        priorityRank: 71 + i, // the fixture's real ranks
+      })),
+    }
+    const phase3 = buildRecommendations(input).filter((r) => r.id.startsWith('strengthen:phase3:'))
+    expect(phase3).toHaveLength(4)
+    // Every distinct finding survives — none silently vanish.
+    for (const body of LOAD_BEARING_BODIES) {
+      expect(phase3.some((r) => r.signal === body)).toBe(true)
+    }
+  })
+
+  it('T3(b): true duplicates (same title AND body) still collapse to the best-ranked instance', () => {
+    const input: StrengthenInputs = {
+      ...base,
+      phase3Items: [
+        { id: 'b1', title: 'A load-bearing assumption', body: 'Same body.', targetIds: [], priorityRank: 1 },
+        { id: 'b2', title: 'A load-bearing assumption', body: 'Same body.', targetIds: [], priorityRank: 2 },
+        { id: 'b3', title: 'a load-bearing  assumption', body: ' same  body. ', targetIds: [], priorityRank: 3 },
+      ],
+    }
+    const phase3 = buildRecommendations(input).filter((r) => r.id.startsWith('strengthen:phase3:'))
+    expect(phase3).toHaveLength(1)
+    expect(phase3[0].id).toBe('strengthen:phase3:b1')
+  })
+
+  // ── T3 (c): collapsed-row information scent ───────────────────────────────
+  it('T3(c): the collapsed subtitle carries the producer body VERBATIM when present', () => {
+    const input: StrengthenInputs = {
+      ...base,
+      phase3Items: [
+        { id: 'b1', title: 'A load-bearing assumption', body: 'Team Maturity continues to support higher output as expected.', targetIds: [], priorityRank: 1 },
+      ],
+    }
+    const rec = buildRecommendations(input).find((r) => r.id === 'strengthen:phase3:b1')
+    expect(rec).toBeDefined()
+    expect(rec!.signal).toBe('Team Maturity continues to support higher output as expected.')
+  })
+
+  // Round 2: whyNow must ALSO carry the body — it is the expanded-row prose
+  // AND the Ask-Olumi drawer context (StrengthenContainer passes rec.whyNow).
+  // Moving the body out of whyNow degraded every phase-3 drawer ask to the
+  // generic fallback line. The panel dedupes DISPLAY (an open row never
+  // renders the same sentence twice); the engine keeps the data specific.
+  it('round 2: whyNow carries the producer body VERBATIM (drawer context + expanded prose)', () => {
+    const body = 'Team Maturity continues to support higher output as expected.'
+    const input: StrengthenInputs = {
+      ...base,
+      phase3Items: [
+        { id: 'b1', title: 'A load-bearing assumption', body, targetIds: [], priorityRank: 1 },
+      ],
+    }
+    const rec = buildRecommendations(input).find((r) => r.id === 'strengthen:phase3:b1')
+    expect(rec).toBeDefined()
+    expect(rec!.whyNow).toBe(body)
+  })
+
+  it('T3(c): subtitle AND whyNow fall back to their boilerplate when the block has no body', () => {
+    const input: StrengthenInputs = {
+      ...base,
+      phase3Items: [{ id: 'b1', title: 'Check your framing', targetIds: [], priorityRank: 1 }],
+    }
+    const rec = buildRecommendations(input).find((r) => r.id === 'strengthen:phase3:b1')
+    expect(rec).toBeDefined()
+    expect(rec!.signal).toBe('Olumi flagged this while reviewing your model.')
+    expect(rec!.whyNow).toBe('Resolving it improves what the analysis can tell you.')
+  })
+
+  // ── Round 2: the FINAL identity pass (post-merge, widened key) ────────────
+  // The RED commit deleted the only global title-uniqueness pin; the T3(b)
+  // pins above exercise the PROMOTION-stage dedupe only. This pin exercises
+  // the final visible-identity pass across the merge of UI-generated and
+  // phase-3 recommendations, on the widened title+body key.
+  it('round 2: the FINAL pass dedupes identical visible identity across UI-generated and phase-3 recs', () => {
+    const sharedSignal = 'The current lead does not hold up strongly under stress-testing.'
+    const input: StrengthenInputs = {
+      ...base,
+      // Emits the UI-generated robustness rec, whose visible identity is
+      // ('Pressure-test the leading option', sharedSignal).
+      robustness: { status: 'computed', level: 'low' },
+      phase3Items: [
+        // Identical visible identity from the producer side (case/space variant).
+        { id: 'b1', title: 'Pressure-test the leading option', body: ' the current lead does not hold up strongly under  stress-testing. ', targetIds: [], priorityRank: 1 },
+        // Same headline, DISTINCT body — the widened key must keep it.
+        { id: 'b2', title: 'Pressure-test the leading option', body: 'A different, distinct producer finding under the same headline.', targetIds: [], priorityRank: 2 },
+      ],
+    }
+    const recs = buildRecommendations(input)
+    const sameTitle = recs.filter((r) => r.title === 'Pressure-test the leading option')
+    // Widened key: the distinct-body row survives alongside — 2 rows, not 1.
+    expect(sameTitle).toHaveLength(2)
+    // The identical-identity pair collapsed to the higher-priority instance
+    // (phase-3 band beats the robustness band).
+    expect(recs.some((r) => r.id === 'strengthen:phase3:b1')).toBe(true)
+    expect(recs.some((r) => r.id === 'strengthen:robustness')).toBe(false)
+    expect(recs.some((r) => r.id === 'strengthen:phase3:b2')).toBe(true)
+  })
+
+  // ── Round 2: the display cap binds AFTER true-duplicate removal ───────────
+  // A true duplicate must never consume a MAX_PHASE3_PROMOTED slot: with two
+  // copies of one finding plus four distinct others, all four distinct-item
+  // survivors promote. A cap-before-dedupe ordering would emit only three.
+  it('round 2: MAX_PHASE3_PROMOTED binds after duplicate removal — a duplicate never consumes a slot', () => {
+    const input: StrengthenInputs = {
+      ...base,
+      phase3Items: [
+        { id: 'a1', title: 'A load-bearing assumption', body: 'Body one.', targetIds: [], priorityRank: 1 },
+        { id: 'a2', title: 'A load-bearing assumption', body: 'Body one.', targetIds: [], priorityRank: 2 }, // true duplicate of a1
+        { id: 'b', title: 'Second finding', body: 'Body two.', targetIds: [], priorityRank: 3 },
+        { id: 'c', title: 'Third finding', body: 'Body three.', targetIds: [], priorityRank: 4 },
+        { id: 'd', title: 'Fourth finding', body: 'Body four.', targetIds: [], priorityRank: 5 },
+        { id: 'e', title: 'Fifth finding', body: 'Body five.', targetIds: [], priorityRank: 6 },
+      ],
+    }
+    const phase3 = buildRecommendations(input).filter((r) => r.id.startsWith('strengthen:phase3:'))
+    expect(phase3.map((r) => r.id)).toEqual([
+      'strengthen:phase3:a1',
+      'strengthen:phase3:b',
+      'strengthen:phase3:c',
+      'strengthen:phase3:d', // the row a cap-before-dedupe ordering silently drops
+    ])
   })
 
   it('adaptive priority: a producer stage signal floats matching-helpType recs to the top; null leaves the ladder', () => {

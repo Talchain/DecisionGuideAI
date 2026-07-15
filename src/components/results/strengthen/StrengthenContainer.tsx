@@ -232,9 +232,11 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
 
   // Prototype route (b): the ✦ ask hands the rec to the Ask-Olumi drawer
   // PREFILLED — context is the why-line (prototype asymmetry: the primary
-  // sends the tip, the ask passes the why), the draft is editable, nothing
-  // auto-sends, and the rec status is NOT mutated (the user may abandon the
-  // conversation). The drawer owns dispatch, degrade and toasts.
+  // sends the tip, the ask passes the why; for phase-3 recs the why-line IS
+  // the producer's finding body verbatim, never a boilerplate line), the
+  // draft is editable, nothing auto-sends, and the rec status is NOT mutated
+  // (the user may abandon the conversation). The drawer owns dispatch,
+  // degrade and toasts.
   const onWorkThrough = (record: RecRecord) => {
     const rec = record.snapshot
     openAskOlumi({

@@ -105,6 +105,11 @@ function RecRow({
   const reopenReason = [...record.history].reverse().find((e) => e.event === 'reopened')?.reopenReason
   const Icon = recIconFor(rec.id)
   const showAddressAffordance = record.status === 'in_progress' || record.status === 'reopened'
+  // Phase-3 recs carry the producer body in BOTH signal (collapsed scent) and
+  // whyNow (expanded prose + drawer context). Dedupe DISPLAY only: when the
+  // row is open the full body renders unclamped in the expanded block, so the
+  // clamped subtitle stands down rather than repeat the same sentence.
+  const subtitleDuplicatesWhy = rec.signal.trim() === rec.whyNow.trim()
   return (
     <li
       className="border-b border-panel-border last:border-b-0"
@@ -135,7 +140,14 @@ function RecRow({
               </span>
             )}
           </span>
-          <span className={`${typography.panelMeta} mt-0.5 block text-text-light`}>{rec.signal}</span>
+          {/* Subtitle carries the verbatim producer body for phase-3 recs —
+              clamp to two lines (DS pattern, cf. EdgeInspector/NodeInspector)
+              so long bodies never break the two-line collapsed block. When
+              the row is open and the expanded whyNow IS the body, the clamped
+              copy stands down: the full text renders once, below. */}
+          {!(expanded && subtitleDuplicatesWhy) && (
+            <span className={`${typography.panelMeta} mt-0.5 block text-text-light line-clamp-2`}>{rec.signal}</span>
+          )}
           {record.isStale && (
             <span className={`${typography.panelMeta} block italic text-text-light`}>{COPY.staleLabel}</span>
           )}

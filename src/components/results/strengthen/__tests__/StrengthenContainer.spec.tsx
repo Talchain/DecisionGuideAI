@@ -205,6 +205,35 @@ describe('StrengthenContainer — work-through prefills the Ask-Olumi drawer', (
   })
 })
 
+describe('StrengthenContainer — phase-3 work-through carries the producer finding (round 2)', () => {
+  it('the Ask-Olumi drawer context is the producer body VERBATIM, never the generic fallback', () => {
+    const body = 'Team Maturity continues to support higher output as expected.'
+    useGuidanceStore.setState({
+      guidanceItems: [
+        {
+          item_id: 'blk_lb1',
+          signal_code: 'LOAD_BEARING_ASSUMPTION',
+          category: 'should_fix',
+          source: 'analysis',
+          title: 'A load-bearing assumption',
+          detail: body,
+          primary_action: { type: 'discuss', prompt: 'Walk me through this assumption.' },
+          priority: 29,
+        },
+      ],
+    } as never)
+    render(<StrengthenContainer data={makeData({ goalThreshold: 62 })} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Work through this with Olumi' }))
+
+    const drawer = useAskOlumiStore.getState()
+    expect(drawer.isOpen).toBe(true)
+    // The drawer must receive the producer's specific finding text again —
+    // the whole point of the ask is the finding, not a boilerplate line.
+    expect(drawer.context).toBe(body)
+    expect(drawer.context).not.toBe('Resolving it improves what the analysis can tell you.')
+  })
+})
+
 describe('StrengthenContainer — decision-record wiring (Round 2)', () => {
   it('a captured decision record credits the commit rec directly', () => {
     useCanvasStore.setState({ currentScenarioId: 'scn-1' } as never)
