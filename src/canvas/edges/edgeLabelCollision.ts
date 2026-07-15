@@ -61,6 +61,83 @@ function labelIntersectsRect(cx: number, cy: number, r: NodeRect): boolean {
   )
 }
 
+/** An edge whose persistent label participates in the placement pass. */
+export interface PlacementEdge {
+  id: string
+  sourceRect: NodeRect
+  targetRect: NodeRect
+}
+
+// Task 9c proximity nudge: when a label anchor sits within NODE_PROXIMITY px
+// of either endpoint card's centre, nudge it NUDGE_DISTANCE px perpendicular
+// to the edge direction before resolution.
+const NODE_PROXIMITY = 40
+const NUDGE_DISTANCE = 20
+
+/**
+ * C2 review (findings 3 + 4): one deterministic pass from node rects to each
+ * persistent label's TOTAL offset (proximity nudge + collision stack).
+ *
+ * Anchor basis (finding 3): every node component places its source handle at
+ * bottom-centre and its target handle at top-centre, so the bezier label
+ * point (labelX/labelY — where StyledEdge renders the label) is the midpoint
+ * of those two HANDLE points. The previous basis — midpoint of the node
+ * CENTRES — diverges from the render anchor by (sourceHeight −
+ * targetHeight)/4, so unequal-height cards were collision-tested at a point
+ * the label does not occupy. Deriving the anchor from node rects (rather
+ * than each edge's own props) keeps the pass consistent: every edge computes
+ * the SAME anchor for every label and therefore the same global assignment.
+ *
+ * Nudge order (finding 4): the Task 9c ±NUDGE_DISTANCE perpendicular nudge
+ * is applied BEFORE resolution — the resolver sees nudged anchors — so it
+ * can never push a card-cleared label back under a card. The nudge survives
+ * in the returned total offset.
+ */
+export function resolvePersistentLabelPlacements(
+  edges: readonly PlacementEdge[],
+  nodeRects: readonly NodeRect[] = [],
+): Map<string, LabelOffset> {
+  const nudges = new Map<string, LabelOffset>()
+  const points: LabelPoint[] = []
+  for (const e of edges) {
+    // Handle points: source bottom-centre → target top-centre
+    const shx = e.sourceRect.x + e.sourceRect.width / 2
+    const shy = e.sourceRect.y + e.sourceRect.height
+    const thx = e.targetRect.x + e.targetRect.width / 2
+    const thy = e.targetRect.y
+    // Render anchor = midpoint of the handle points
+    const ax = (shx + thx) / 2
+    const ay = (shy + thy) / 2
+    // Task 9c proximity nudge, keyed off the true anchor
+    const scy = e.sourceRect.y + e.sourceRect.height / 2
+    const tcy = e.targetRect.y + e.targetRect.height / 2
+    let ndx = 0
+    let ndy = 0
+    if (
+      Math.hypot(ax - shx, ay - scy) < NODE_PROXIMITY ||
+      Math.hypot(ax - thx, ay - tcy) < NODE_PROXIMITY
+    ) {
+      const ex = thx - shx
+      const ey = thy - shy
+      const len = Math.hypot(ex, ey) || 1
+      ndx = (-ey / len) * NUDGE_DISTANCE
+      ndy = (ex / len) * NUDGE_DISTANCE
+    }
+    nudges.set(e.id, { dx: ndx, dy: ndy })
+    points.push({ id: e.id, x: ax + ndx, y: ay + ndy })
+  }
+  const resolved = resolveLabelCollisionOffsets(points, nodeRects)
+  const out = new Map<string, LabelOffset>()
+  for (const e of edges) {
+    const nudge = nudges.get(e.id)!
+    const stack = resolved.get(e.id)!
+    // (+ 0 is unnecessary: −0 from the perpendicular maths normalises to +0
+    // through the addition below)
+    out.set(e.id, { dx: nudge.dx + stack.dx, dy: nudge.dy + stack.dy })
+  }
+  return out
+}
+
 export function resolveLabelCollisionOffsets(
   points: readonly LabelPoint[],
   nodeRects: readonly NodeRect[] = [],

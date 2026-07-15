@@ -24,7 +24,7 @@ import { useShallow } from 'zustand/react/shallow'
 import type { EdgeData, EdgePathType } from '../domain/edges'
 import { shouldShowEdgeLabel } from './edgeLabelVisibility'
 import { computeDirectionStroke } from './directionStroke'
-import { resolveLabelCollisionOffsets } from './edgeLabelCollision'
+import { resolvePersistentLabelPlacements, type PlacementEdge } from './edgeLabelCollision'
 import { applyEdgeVisualProps } from '../theme/edges'
 import { formatConfidence, shouldShowLabel, getEdgeConfidence, computeSignedMean } from '../domain/edges'
 import { useIsDark } from '../hooks/useTheme'
@@ -536,20 +536,36 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     return sig
   })
 
-  // E3: label-vs-label collision avoidance. Every persistent-label edge feeds
-  // the SAME anchor basis (straight midpoints of node centres — a stable
-  // approximation of each label's position) into the shared deterministic
-  // resolver, so all edges agree on the global assignment and each applies
-  // its own offset. Only persistent (top-strength) labels participate —
-  // hover/selection labels are transient.
+  // E3: label collision avoidance. Every persistent-label edge feeds the SAME
+  // anchor basis into the shared deterministic resolver, so all edges agree
+  // on the global assignment and each applies its own offset. Only persistent
+  // (top-strength) labels participate — hover/selection labels are transient.
   // E3 part 2: node cards are fixed obstacles in the same pass — a label must
   // not sit under ANY card, because React Flow paints the node layer above
   // the edge-label renderer and the overlapped label is clipped invisibly.
+  //
+  // C2 review fixes 3 + 4 (see resolvePersistentLabelPlacements): the anchor
+  // basis is the midpoint of the HANDLE points (bottom-centre → top-centre),
+  // matching where the bezier label actually renders — the node-centre
+  // midpoint diverged by (sourceHeight − targetHeight)/4 — and the Task 9c
+  // proximity nudge feeds the resolver rather than being summed afterwards,
+  // so it can never push a cleared label back under a card. The returned
+  // offset is the TOTAL displacement (nudge + collision stack).
   const collisionOffset = useMemo(() => {
     if (!isTopStrengthEdge) return { dx: 0, dy: 0 }
-    const allEdges = getEdges()
-    const points: Array<{ id: string; x: number; y: number }> = []
-    for (const e of allEdges) {
+    const rectOf = (n: {
+      position: { x: number; y: number }
+      measured?: { width?: number; height?: number }
+      width?: number
+      height?: number
+    }) => ({
+      x: n.position.x,
+      y: n.position.y,
+      width: n.measured?.width ?? n.width ?? 200,
+      height: n.measured?.height ?? n.height ?? 80,
+    })
+    const placementEdges: PlacementEdge[] = []
+    for (const e of getEdges()) {
       if (!topStrengthIds.has(e.id)) continue
       // C2 review fix 1: a lens-hidden edge renders no label (the component
       // returns null below), so it must not occupy a label slot either.
@@ -557,55 +573,23 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       const sn = getNode(e.source)
       const tn = getNode(e.target)
       if (!sn || !tn) continue
-      const sx = sn.position.x + ((sn.measured?.width ?? sn.width ?? 200) / 2)
-      const sy = sn.position.y + ((sn.measured?.height ?? sn.height ?? 80) / 2)
-      const tx = tn.position.x + ((tn.measured?.width ?? tn.width ?? 200) / 2)
-      const ty = tn.position.y + ((tn.measured?.height ?? tn.height ?? 80) / 2)
-      points.push({ id: e.id, x: (sx + tx) / 2, y: (sy + ty) / 2 })
+      placementEdges.push({ id: e.id, sourceRect: rectOf(sn), targetRect: rectOf(tn) })
     }
     const nodeRects = getNodes()
       // C2 review fix 1: lens-hidden cards are invisible — not obstacles.
       // RF `hidden` kept as belt-and-braces (never set by this app).
       .filter((n) => !n.hidden && !lensHiddenNodeIds.has(n.id))
-      .map((n) => ({
-        x: n.position.x,
-        y: n.position.y,
-        width: n.measured?.width ?? n.width ?? 200,
-        height: n.measured?.height ?? n.height ?? 80,
-      }))
-    return resolveLabelCollisionOffsets(points, nodeRects).get(id) ?? { dx: 0, dy: 0 }
-    // nodeRectsSignature is the (quantised) recompute trigger for node
-    // movement, mirroring how sourceX/sourceY/targetX/targetY already trigger
-    // recompute for this edge's own endpoints.
-  }, [isTopStrengthEdge, topStrengthIds, getEdges, getNode, getNodes, id, lensHiddenNodeIds, lensHiddenEdgeIds, sourceX, sourceY, targetX, targetY, nodeRectsSignature])
+      .map(rectOf)
+    return resolvePersistentLabelPlacements(placementEdges, nodeRects).get(id) ?? { dx: 0, dy: 0 }
+    // nodeRectsSignature is the recompute trigger for node movement (the
+    // whole placement is derived from node geometry, so it covers this
+    // edge's own endpoints too).
+  }, [isTopStrengthEdge, topStrengthIds, getEdges, getNode, getNodes, id, lensHiddenNodeIds, lensHiddenEdgeIds, nodeRectsSignature])
 
-  // Task 9c: Offset persistent labels away from nodes to avoid overlap
-  const persistentLabelOffset = useMemo(() => {
-    if (!isTopStrengthEdge) return { dx: 0, dy: 0 }
-    const sn = getNode(source)
-    const tn = getNode(target)
-    if (!sn || !tn) return { dx: 0, dy: 0 }
-    // Check if midpoint is within 40px of source or target center
-    const snCx = sn.position.x + ((sn.measured?.width ?? sn.width ?? 200) / 2)
-    const snCy = sn.position.y + ((sn.measured?.height ?? sn.height ?? 80) / 2)
-    const tnCx = tn.position.x + ((tn.measured?.width ?? tn.width ?? 200) / 2)
-    const tnCy = tn.position.y + ((tn.measured?.height ?? tn.height ?? 80) / 2)
-    const distToSource = Math.sqrt((labelX - snCx) ** 2 + (labelY - snCy) ** 2)
-    const distToTarget = Math.sqrt((labelX - tnCx) ** 2 + (labelY - tnCy) ** 2)
-    if (distToSource < 40 || distToTarget < 40) {
-      // Offset perpendicular to the edge direction
-      const edgeDx = targetX - sourceX
-      const edgeDy = targetY - sourceY
-      const len = Math.sqrt(edgeDx * edgeDx + edgeDy * edgeDy) || 1
-      return { dx: (-edgeDy / len) * 20, dy: (edgeDx / len) * 20 }
-    }
-    return { dx: 0, dy: 0 }
-  }, [isTopStrengthEdge, source, target, getNode, labelX, labelY, sourceX, sourceY, targetX, targetY])
-
-  // E3: combined label displacement = node-proximity dodge (Task 9c — computed
-  // since 9c but never applied to the transform until now) + collision stack.
-  const labelOffsetX = persistentLabelOffset.dx + collisionOffset.dx
-  const labelOffsetY = persistentLabelOffset.dy + collisionOffset.dy
+  // Total label displacement (Task 9c proximity nudge + collision stack),
+  // relative to the rendered label anchor (labelX/labelY).
+  const labelOffsetX = collisionOffset.dx
+  const labelOffsetY = collisionOffset.dy
 
   // C1 + E2: label-visibility policy (see edgeLabelVisibility.ts). Top-strength
   // labels surface in the default (standard) view once results exist; the
