@@ -103,6 +103,17 @@ vi.mock('../../conversation/useConversation', async () => {
 
 // Reduced-motion flag the tests toggle.
 const reducedMotionState: { value: boolean } = { value: false }
+// The hero mounts the REAL StarterDecisions when handed a bus. This spec
+// never passes one, so the strip must neither render NOR fetch — and mocking
+// the plot adapter here keeps a unit suite from probing real backends if that
+// ever changes.
+const plotTemplatesSpy = vi.fn(() => new Promise(() => {}))
+vi.mock('../../../adapters/plot', () => ({
+  plot: {
+    templates: () => plotTemplatesSpy(),
+  },
+}))
+
 vi.mock('../../hooks/usePrefersReducedMotion', () => ({
   usePrefersReducedMotion: () => reducedMotionState.value,
 }))
@@ -112,6 +123,7 @@ import { FirstUseComposer } from '../FirstUseComposer'
 import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
 import { useUIStore } from '../../../stores/uiStore'
 import { useTransitionReceipt } from '../../hooks/useTransitionReceipt'
+import { __resetTemplateListCacheForTests } from '../../blueprints/loadTemplateBlueprint'
 
 function Wrapper({ children }: { children: ReactNode }) {
   return <ConversationProvider>{children}</ConversationProvider>
@@ -338,16 +350,24 @@ describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
     expect(style, 'a fixed px max-height would impose a panel size').not.toMatch(
       /max-height:\s*\d+px/i,
     )
+    // The cap must EXIST — this assertion is deliberately unconditional. A
+    // review caught the previous `if (maxHeight)` form as a vacuous absence
+    // guard: deleting the cap outright passed the whole suite green, silently
+    // reintroducing the unreachable-content defect (at 1280x600 the strip's
+    // bottom row sat below the viewport with no way to scroll to it).
     const maxHeight = dialog.style.maxHeight
-    if (maxHeight) {
-      expect(maxHeight, 'any cap must be viewport-relative, never a fixed panel size').toMatch(
-        /vh|dvh|svh/i,
-      )
-      expect(
-        dialog.style.overflowY,
-        'a capped container MUST scroll internally — a cap that clips hides content',
-      ).toBe('auto')
-    }
+    expect(maxHeight, 'the viewport cap is load-bearing at short viewports — it must exist').toBeTruthy()
+    // FULL-viewport-relative, not merely "has a vh in it": 50vh would impose
+    // exactly the panel-size look round-11 banned while matching /vh/. dvh
+    // (dynamic viewport) is required over vh so mobile toolbars cannot hide
+    // the bottom rows behind chrome the cap thinks is viewport.
+    expect(maxHeight, 'the cap must span the full dynamic viewport minus margins').toMatch(
+      /calc\(100dvh/i,
+    )
+    expect(
+      dialog.style.overflowY,
+      'a capped container MUST scroll internally — a cap that clips hides content',
+    ).toBe('auto')
   })
 
   it('is chromeless — no panel background, border, shadow, or ambient drift', () => {
@@ -656,5 +676,30 @@ describe('FirstUseComposer — canvas reset debounce (round-3 robustness)', () =
     // source back to 'system-first-use' so the hero re-appears.
     expect(useFloatingPanelState.getState().isOpen).toBe(true)
     expect(useFloatingPanelState.getState().source).toBe('system-first-use')
+  })
+
+  // The starter strip is gated on the blueprintEventBus PROP. Emitting on a
+  // bus with zero listeners returns {} and looks exactly like success, so a
+  // mount without an insert pipeline (PlotWorkspace?rf=1, the sandbox canvas,
+  // and this very spec) must show NO cards rather than cards that dead-click.
+  // This test renders without the prop — the default for every mount that
+  // doesn't wire the bus — and pins that the strip is entirely absent.
+  it('renders NO starter strip when no blueprintEventBus prop is provided', () => {
+    // Reset the module-scope template-list cache first: without this, a strip
+    // mounted by an EARLIER test (under a gate-removal mutation) primes the
+    // cache, restoreMocks clears the spy between tests, and this test's strip
+    // would serve from cache without touching the spy — the pin would pass
+    // vacuously against the exact mutation it exists to catch. Verified by
+    // running the mutation: full-file green, single-test red, before this line.
+    __resetTemplateListCacheForTests()
+    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+
+    expect(screen.queryByTestId('starter-decisions')).toBeNull()
+    expect(screen.queryByText(/start from an example/i)).toBeNull()
+    expect(screen.queryByText(/for all templates/i)).toBeNull()
+    // The bite: without a bus the strip must not even MOUNT — a mounted strip
+    // fetches the template list, so this assertion goes RED if the gate is
+    // removed (the DOM assertions above alone cannot see an unresolved fetch).
+    expect(plotTemplatesSpy).not.toHaveBeenCalled()
   })
 })

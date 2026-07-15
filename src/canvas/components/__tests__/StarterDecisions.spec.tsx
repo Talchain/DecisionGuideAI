@@ -6,9 +6,16 @@
  * first live), so "dev fixtures never reach the first screen" is asserted
  * against a response that actually contains them — not against a response we
  * quietly cleaned up first.
+ *
+ * Mocking pattern: the loadTemplateBlueprint module is mocked via
+ * importOriginal-SPREAD (the repo rule — a hand-listed factory silently drops
+ * every export added later), so the REAL fetchTemplateList and the REAL
+ * TEMPLATE_LOAD_FAILED_MESSAGE stay live while only the loader + confirm gate
+ * are stubbed. That keeps the array-vs-{items} shape guard under test and
+ * makes the failure-copy pins read the constant the product actually shows.
  */
 
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -23,15 +30,14 @@ vi.mock('../../../adapters/plot', () => ({
 
 const loadTemplateBlueprintMock = vi.fn()
 const confirmReplaceCanvasMock = vi.fn(() => true)
-vi.mock('../../blueprints/loadTemplateBlueprint', () => ({
-  loadTemplateBlueprint: (id: string) => loadTemplateBlueprintMock(id),
-  confirmReplaceCanvas: () => confirmReplaceCanvasMock(),
-}))
-
-const emitMock = vi.fn((_bp: unknown) => ({}))
-vi.mock('../../blueprints/eventBus', () => ({
-  blueprintEventBus: { emit: (bp: unknown) => emitMock(bp) },
-}))
+vi.mock('../../blueprints/loadTemplateBlueprint', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../blueprints/loadTemplateBlueprint')>()
+  return {
+    ...actual,
+    loadTemplateBlueprint: (id: string) => loadTemplateBlueprintMock(id),
+    confirmReplaceCanvas: () => confirmReplaceCanvasMock(),
+  }
+})
 
 const showToastMock = vi.fn()
 vi.mock('../../ToastContext', () => ({
@@ -40,6 +46,10 @@ vi.mock('../../ToastContext', () => ({
 
 import { StarterDecisions } from '../StarterDecisions'
 import { useCanvasStore } from '../../store'
+import {
+  TEMPLATE_LOAD_FAILED_MESSAGE,
+  __resetTemplateListCacheForTests,
+} from '../../blueprints/loadTemplateBlueprint'
 
 // --- fixtures --------------------------------------------------------------
 
@@ -69,8 +79,25 @@ function liveLikeResponse() {
   }
 }
 
+/**
+ * The bus arrives as a PROP from the mount that also subscribes to it —
+ * that is the fix for the silent dead click on bus-less mounts, and the spec
+ * exercises the component exactly the way FirstUseComposer now provides it.
+ */
+function makeBus() {
+  const emit = vi.fn((_bp: unknown) => ({}))
+  return { emit, subscribe: vi.fn(() => () => {}) }
+}
+let bus: ReturnType<typeof makeBus>
+
+function renderStrip() {
+  return render(<StarterDecisions bus={bus} />)
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
+  __resetTemplateListCacheForTests()
+  bus = makeBus()
   confirmReplaceCanvasMock.mockReturnValue(true)
   templatesMock.mockResolvedValue(liveLikeResponse())
   useCanvasStore.setState({ nodes: [], edges: [] })
@@ -80,7 +107,7 @@ beforeEach(() => {
 
 describe('StarterDecisions', () => {
   it('renders the 4 featured starters with the producer label + summary verbatim', async () => {
-    render(<StarterDecisions />)
+    renderStrip()
 
     expect(await screen.findByText('Tech Lead Hiring')).toBeInTheDocument()
     expect(screen.getByText('Delivery confidence vs knowledge retention vs burn')).toBeInTheDocument()
@@ -96,7 +123,7 @@ describe('StarterDecisions', () => {
   })
 
   it('never surfaces the dev fixtures, even though the response contains them', async () => {
-    render(<StarterDecisions />)
+    renderStrip()
     await screen.findByText('Tech Lead Hiring')
 
     // Asserted against a response that DOES carry small/medium/edge.
@@ -114,7 +141,7 @@ describe('StarterDecisions', () => {
     partial.items = partial.items.filter((t) => t.id !== 'architecture_choice')
     templatesMock.mockResolvedValue(partial)
 
-    render(<StarterDecisions />)
+    renderStrip()
     await screen.findByText('Tech Lead Hiring')
 
     // No placeholder, no broken card, no title text — nothing.
@@ -132,10 +159,16 @@ describe('StarterDecisions', () => {
       ],
     })
 
-    const { container } = render(<StarterDecisions />)
-    await waitFor(() => expect(templatesMock).toHaveBeenCalled())
+    const { container } = renderStrip()
+    // Flush the full then-chain (fetch → filter → setFeatured → re-render):
+    // templatesMock is called synchronously in the mount effect, so waiting on
+    // the CALL alone can assert against the pre-settle render — where the
+    // container is empty whether or not the fail-closed filter works (repo
+    // trap: an absence assertion must not be satisfiable by "not yet").
+    await act(async () => {})
 
     // No regression: the screen is exactly as it is today.
+    expect(templatesMock).toHaveBeenCalled()
     expect(container).toBeEmptyDOMElement()
     expect(screen.queryByTestId('starter-decisions')).not.toBeInTheDocument()
   })
@@ -143,23 +176,26 @@ describe('StarterDecisions', () => {
   it('renders nothing when the templates fetch fails', async () => {
     templatesMock.mockRejectedValue(new Error('network down'))
 
-    const { container } = render(<StarterDecisions />)
-    await waitFor(() => expect(templatesMock).toHaveBeenCalled())
+    const { container } = renderStrip()
+    await act(async () => {})
 
+    expect(templatesMock).toHaveBeenCalled()
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('is hidden once a graph exists', async () => {
+  it('is hidden once a graph exists — and does not even fetch for it', async () => {
     useCanvasStore.setState({
       nodes: [{ id: 'n1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'Real work' } }] as any,
       edges: [],
     })
 
-    const { container } = render(<StarterDecisions />)
-    await waitFor(() => expect(templatesMock).toHaveBeenCalled())
+    const { container } = renderStrip()
 
     expect(container).toBeEmptyDOMElement()
     expect(screen.queryByText('Tech Lead Hiring')).not.toBeInTheDocument()
+    // Rendering null is free; a fetch is not. A mount that can never show the
+    // strip must not pay for the list.
+    expect(templatesMock).not.toHaveBeenCalled()
   })
 
   it('is hidden when only an edge exists (hasGraph covers edges too)', async () => {
@@ -168,17 +204,17 @@ describe('StarterDecisions', () => {
       edges: [{ id: 'e1', source: 'a', target: 'b' }] as any,
     })
 
-    const { container } = render(<StarterDecisions />)
-    await waitFor(() => expect(templatesMock).toHaveBeenCalled())
+    const { container } = renderStrip()
 
     expect(container).toBeEmptyDOMElement()
+    expect(templatesMock).not.toHaveBeenCalled()
   })
 
-  it('clicking a starter loads THAT template through the shared loader', async () => {
+  it('clicking a starter loads THAT template through the shared loader and emits on the PROP bus', async () => {
     const blueprint = { id: 'architecture_choice', name: 'Architecture Decision', description: 'x', nodes: [], edges: [] }
     loadTemplateBlueprintMock.mockResolvedValue({ blueprint, templateDetail: {}, graph: {} })
 
-    render(<StarterDecisions />)
+    renderStrip()
     await screen.findByText('Architecture Decision')
 
     await userEvent.click(screen.getByTestId('starter-decision-architecture_choice'))
@@ -187,7 +223,7 @@ describe('StarterDecisions', () => {
       expect(loadTemplateBlueprintMock).toHaveBeenCalledWith('architecture_choice')
     })
     expect(loadTemplateBlueprintMock).toHaveBeenCalledTimes(1)
-    expect(emitMock).toHaveBeenCalledWith(blueprint)
+    expect(bus.emit).toHaveBeenCalledWith(blueprint)
   })
 
   // An adversarial audit caught this: the catch logged under import.meta.env.DEV
@@ -195,47 +231,110 @@ describe('StarterDecisions', () => {
   // swallowed the click — no toast, no error, no change — on the first screen a
   // new user ever sees. The strip emits on the blueprint bus directly, so it
   // inherits NONE of the Templates panel's error surface and must raise its own.
-  // MUTATION-CHECK: delete the showToast call in StarterDecisions' catch and
-  // this test goes RED. The 9 pins that existed before it all stayed GREEN
-  // through the dead click — which is exactly why it is here.
+  // The copy is pinned via the SHARED CONSTANT the panel also renders, so the
+  // "one dialect, not two" invariant is a compile-time fact, not a hope.
+  // MUTATION-CHECK: delete the showToast call in StarterDecisions' load-failure
+  // catch and this test goes RED.
   it('surfaces a failed load instead of swallowing the click (no dead cards)', async () => {
     loadTemplateBlueprintMock.mockRejectedValueOnce(new Error('graph fetch failed'))
 
-    render(<StarterDecisions />)
+    renderStrip()
     await screen.findByText('Tech Lead Hiring')
 
     await userEvent.click(screen.getByTestId('starter-decision-hiring_strategy_tech_lead'))
 
     await waitFor(() => {
-      expect(showToastMock).toHaveBeenCalledWith('Failed to load template.')
+      expect(showToastMock).toHaveBeenCalledWith(TEMPLATE_LOAD_FAILED_MESSAGE, 'error')
     })
     // The click must not silently "succeed" either.
-    expect(emitMock).not.toHaveBeenCalled()
-  })
-
-  it('uses the SAME failure copy as the Templates panel (one dialect, not two)', async () => {
-    loadTemplateBlueprintMock.mockRejectedValueOnce(new Error('boom'))
-
-    render(<StarterDecisions />)
-    await screen.findByText('Tech Lead Hiring')
-    await userEvent.click(screen.getByTestId('starter-decision-architecture_choice'))
-
-    // TemplatesPanel.tsx uses this exact string; two surfaces failing in two
-    // dialects is how copy drift starts.
-    await waitFor(() => {
-      expect(showToastMock).toHaveBeenCalledWith('Failed to load template.')
-    })
+    expect(bus.emit).not.toHaveBeenCalled()
   })
 
   it('honours the shared replace-canvas confirm gate when the user declines', async () => {
     confirmReplaceCanvasMock.mockReturnValue(false)
 
-    render(<StarterDecisions />)
+    renderStrip()
     await screen.findByText('Tech Lead Hiring')
 
     await userEvent.click(screen.getByTestId('starter-decision-hiring_strategy_tech_lead'))
 
     expect(loadTemplateBlueprintMock).not.toHaveBeenCalled()
-    expect(emitMock).not.toHaveBeenCalled()
+    expect(bus.emit).not.toHaveBeenCalled()
+  })
+
+  // The review found this race browser-reachable: both clicks pass the confirm
+  // gate while the canvas is still empty, the first emit inserts the template,
+  // and the second emit lands on a canvas that now carries data.templateId —
+  // popping ReactFlowGraph's "template already exists / replace?" dialog as
+  // the user's very first interaction.
+  // MUTATION-CHECK: remove the pickInFlight latch and this test goes RED.
+  it('a double-click runs ONE load→emit cycle, not two (re-entrancy latch)', async () => {
+    const blueprint = { id: 'hiring_strategy_tech_lead', name: 'Tech Lead Hiring', description: 'x', nodes: [], edges: [] }
+    let release!: () => void
+    loadTemplateBlueprintMock.mockImplementation(
+      () => new Promise((resolve) => {
+        release = () => resolve({ blueprint, templateDetail: {}, graph: {} })
+      })
+    )
+
+    renderStrip()
+    await screen.findByText('Tech Lead Hiring')
+
+    const card = screen.getByTestId('starter-decision-hiring_strategy_tech_lead')
+    // Two clicks while the first load is still in flight.
+    await userEvent.click(card)
+    await userEvent.click(card)
+    release()
+
+    await waitFor(() => expect(bus.emit).toHaveBeenCalledTimes(1))
+    expect(loadTemplateBlueprintMock).toHaveBeenCalledTimes(1)
+  })
+
+  // The confirm gate runs BEFORE the await; the canvas can gain content while
+  // the fetch is in flight (a hydrating saved scenario, a CEE draft landing).
+  // insertBlueprint REPLACES the whole graph, so emitting a stale click would
+  // silently destroy work the user was never asked about.
+  // MUTATION-CHECK: remove the post-await emptiness re-check and this goes RED.
+  it('drops the click when the canvas gains content during the fetch (never silently replaces)', async () => {
+    const blueprint = { id: 'hiring_strategy_tech_lead', name: 'Tech Lead Hiring', description: 'x', nodes: [], edges: [] }
+    let release!: () => void
+    loadTemplateBlueprintMock.mockImplementation(
+      () => new Promise((resolve) => {
+        release = () => resolve({ blueprint, templateDetail: {}, graph: {} })
+      })
+    )
+
+    renderStrip()
+    await screen.findByText('Tech Lead Hiring')
+    await userEvent.click(screen.getByTestId('starter-decision-hiring_strategy_tech_lead'))
+
+    // A saved scenario hydrates while the template fetch is in flight.
+    useCanvasStore.setState({
+      nodes: [{ id: 'hydrated-1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'Saved work' } }] as any,
+      edges: [],
+    })
+    release()
+
+    // The stale click is dropped: the user's hydrated work is never replaced.
+    await waitFor(() => expect(loadTemplateBlueprintMock).toHaveBeenCalledTimes(1))
+    expect(bus.emit).not.toHaveBeenCalled()
+  })
+
+  // emit sits OUTSIDE the load try/catch: a subscriber throw is an insert
+  // failure, not a load failure — but it must still surface, not vanish.
+  it('surfaces a subscriber throw during insert instead of swallowing it', async () => {
+    const blueprint = { id: 'architecture_choice', name: 'Architecture Decision', description: 'x', nodes: [], edges: [] }
+    loadTemplateBlueprintMock.mockResolvedValue({ blueprint, templateDetail: {}, graph: {} })
+    bus.emit.mockImplementation(() => {
+      throw new Error('subscriber blew up')
+    })
+
+    renderStrip()
+    await screen.findByText('Architecture Decision')
+    await userEvent.click(screen.getByTestId('starter-decision-architecture_choice'))
+
+    await waitFor(() => {
+      expect(showToastMock).toHaveBeenCalledWith(TEMPLATE_LOAD_FAILED_MESSAGE, 'error')
+    })
   })
 })

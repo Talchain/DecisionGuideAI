@@ -18,7 +18,7 @@ import { PanelShell } from './_shared/PanelShell'
 import { coerceNodes, type BackendNode } from '../adapters/backendKinds'
 import { PanelSection } from './_shared/PanelSection'
 import { useCanvasStore } from '../store'
-import { loadTemplateBlueprint, confirmReplaceCanvas } from '../blueprints/loadTemplateBlueprint'
+import { loadTemplateBlueprint, confirmReplaceCanvas, fetchTemplateList, TEMPLATE_LOAD_FAILED_MESSAGE } from '../blueprints/loadTemplateBlueprint'
 import { commitGraphMutation } from '../mutations/commitGraphMutation'
 import { createScenario, saveScenarios, loadScenarios, setCurrentScenarioId } from '../store/scenarios'
 import { TemplateSkeleton } from '../components/TemplateSkeleton'
@@ -52,27 +52,11 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   useEffect(() => {
     setTemplatesLoading(true)
     setTemplatesLoadError(null)
-    plot.templates()
-      .then(list => {
-        // Guard for both { items: [...] } and legacy [...] array formats
-        let templates: any[] = []
-
-        if (Array.isArray(list)) {
-          // Legacy format: direct array
-          templates = list
-        } else if (list && Array.isArray(list.items)) {
-          // New format: wrapped in items
-          templates = list.items
-        } else {
-          if (import.meta.env.DEV) {
-            console.error('❌ Invalid templates response:', list)
-          }
-          setTemplatesLoadError('Invalid response from templates service')
-          setBlueprints([])
-          setTemplatesLoading(false)
-          return
-        }
-
+    fetchTemplateList()
+      .then(templates => {
+        // fetchTemplateList owns the array-vs-{items} envelope guard — ONE
+        // copy, in the shared module, instead of the three hand-maintained
+        // ones this replaced. It always resolves to a plain array.
         setBlueprints(templates.map(t => ({
           id: t.id,
           name: t.name,
@@ -134,20 +118,8 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   const retryLoadTemplates = useCallback(() => {
     setTemplatesLoading(true)
     setTemplatesLoadError(null)
-    plot.templates()
-      .then(list => {
-        let templates: any[] = []
-        if (Array.isArray(list)) {
-          templates = list
-        } else if (list && Array.isArray(list.items)) {
-          templates = list.items
-        } else {
-          setTemplatesLoadError('Invalid response from templates service')
-          setBlueprints([])
-          setTemplatesLoading(false)
-          return
-        }
-
+    fetchTemplateList()
+      .then(templates => {
         setBlueprints(templates.map(t => ({
           id: t.id,
           name: t.name,
@@ -200,7 +172,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
       if (import.meta.env.DEV) {
         console.error('Failed to load template:', err)
       }
-      showToast('Failed to load template.')
+      showToast(TEMPLATE_LOAD_FAILED_MESSAGE)
     }
   }, [onInsertBlueprint])
 

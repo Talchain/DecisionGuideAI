@@ -128,9 +128,57 @@ const DELIBERATELY_UNRUN: Record<string, { reason: string; owner: string; route:
 
 function excludeListFromConfig(): string[] {
   const cfg = readFileSync(resolve(REPO_ROOT, 'vitest.config.ts'), 'utf8')
-  const block = cfg.match(/exclude:\s*\[([\s\S]*?)\]/)
-  if (!block) throw new Error('Could not find the `exclude:` array in vitest.config.ts')
-  return [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1])
+  // A review caught the previous one-line regex (/exclude:\s*\[([\s\S]*?)\]/)
+  // failing SILENT in the dangerous direction: lazy-matching to the FIRST ']'
+  // means a glob containing a character class (this config's own include
+  // globs use `[jt]s`) truncates the capture, silently dropping every entry
+  // after it — the guard would then pass vacuously, the exact mirror-drift it
+  // exists to prevent. So: walk the array with a string-aware bracket scanner
+  // instead, and collect only quoted literals that sit OUTSIDE strings'
+  // brackets and outside comments.
+  const start = cfg.search(/\bexclude:\s*\[/)
+  if (start === -1) throw new Error('Could not find the `exclude:` array in vitest.config.ts')
+  let i = cfg.indexOf('[', start)
+  let depth = 0
+  let inString: string | null = null
+  let inLineComment = false
+  let current = ''
+  const entries: string[] = []
+  for (; i < cfg.length; i++) {
+    const ch = cfg[i]
+    if (inLineComment) {
+      if (ch === '\n') inLineComment = false
+      continue
+    }
+    if (inString) {
+      if (ch === '\\') {
+        current += cfg[++i]
+        continue
+      }
+      if (ch === inString) {
+        entries.push(current)
+        inString = null
+      } else {
+        current += ch
+      }
+      continue
+    }
+    if (ch === '/' && cfg[i + 1] === '/') {
+      inLineComment = true
+      continue
+    }
+    if (ch === "'" || ch === '"' || ch === '`') {
+      inString = ch
+      current = ''
+      continue
+    }
+    if (ch === '[') depth++
+    if (ch === ']') {
+      depth--
+      if (depth === 0) return entries
+    }
+  }
+  throw new Error('Unterminated `exclude:` array in vitest.config.ts')
 }
 
 describe('vitest exclude register — no spec is silenced without an accountable reason', () => {
