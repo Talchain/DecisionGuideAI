@@ -16,6 +16,7 @@ import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { isGraphBadgesEnabled } from '../../flags'
 import { SlidersHorizontal, Eye, Cloud } from 'lucide-react'
 import { DataBar } from '../ui/shared/DataBar'
+import { influenceExplanation, influenceBarAriaLabel } from '../../components/results/influenceScaleCopy'
 import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
@@ -484,11 +485,27 @@ export const FactorNode = memo((props: NodeProps) => {
       {/* Influence & Confidence bars */}
       {(influencePct != null && influencePct > 0 || confidencePct != null && confidencePct > 0) && (
         <div className="space-y-1.5 mb-1">
+          {/* Review fix 4: the detailed view renders the SAME display-model
+              number as the Standard-view pill one level up, so it carries the
+              same misread risk — on the fallback basis the top driver shows
+              100% BY CONSTRUCTION. Disclose the basis here too: `title` for
+              pointer users, and the DataBar's accessible name (its
+              role="progressbar" announces the value via aria-valuenow, so the
+              name carries the basis only). Copy from the ONE shared module, so
+              this row cannot drift from the pill or the panel. Fail-closed: no
+              provenance → generic wording, never a basis claim. */}
           {influencePct != null && influencePct > 0 && (
-            <div className="flex items-center gap-1.5">
+            <div
+              className="flex items-center gap-1.5"
+              title={influenceExplanation(displayMetadata.influenceProvenance)}
+            >
               <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>Influence</span>
               <div className="flex-1 min-w-0">
-                <DataBar value={influencePct / 100} label="Influence" colour="info" />
+                <DataBar
+                  value={influencePct / 100}
+                  label={influenceBarAriaLabel(displayMetadata.influenceProvenance)}
+                  colour="info"
+                />
               </div>
               <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{influencePct}%</span>
             </div>
