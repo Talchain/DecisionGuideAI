@@ -10,6 +10,7 @@ import { AIInputBar, type AIInputBarHandle } from './AIInputBar'
 import { registerFloatingFocus } from '../hooks/useFloatingFocus'
 import { measureDockInset, clampPositionToViewport } from './FloatingOlumiPanel'
 import { ThinkingIndicator } from '../conversation/zones/ThinkingIndicator'
+import { StarterDecisions } from './StarterDecisions'
 
 interface FirstUseComposerProps {
   /** Cog popover handler. Receives the cog button element for anchoring. */
@@ -218,6 +219,14 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: F
         top: '50%',
         transform: 'translateY(-50%)',
         gap: 24,
+        // The container is fixed + centred, so it cannot scroll with the page.
+        // Adding the starter strip made it ~214px taller, which on a short
+        // viewport (e.g. 1280x600) pushed the logo off the top and put
+        // "Press T for all templates" permanently out of reach — unreachable,
+        // not merely ugly. Cap the height to the viewport and let the panel
+        // scroll internally; on tall viewports this is inert.
+        maxHeight: `calc(100vh - ${PANEL_MARGIN * 2}px)`,
+        overflowY: 'auto',
       }}
     >
       {/* Olumi logo — round-11 UX: just the logo and the textbox on the
@@ -263,6 +272,13 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: F
           </div>
         ) : null}
       </div>
+      {/* Starter decisions — the second way in, COMPLEMENTING the composer
+          above (type, or pick a worked example). Suppressed during the
+          generating window: the user has already committed a brief, so
+          offering to replace it would be noise. Renders nothing at all when
+          none of the featured templates resolve, leaving the hero exactly as
+          it was. */}
+      {!isGenerating ? <StarterDecisions /> : null}
     </div>,
     document.body,
   )

@@ -314,13 +314,40 @@ describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
     ).toBeNull()
 
     // Round-11 hero geometry: CHROMELESS. The container is a positioning
-    // context with NO min-height floor and NO max-height cap — the
-    // composer grows on type and the container hugs its content (logo +
-    // composer) instead of imposing a fixed panel size.
+    // context that HUGS ITS CONTENT (logo + composer) rather than imposing a
+    // fixed panel size — the composer grows on type and the box follows it.
+    //
+    // This pin originally read `not.toMatch(/max-height:/i)`. It was widened —
+    // deliberately, and NOT to make a change pass — when the starter strip
+    // made the hero ~214px taller: the container is fixed + centred, so it
+    // cannot scroll with the page, and at 1280x600 the bottom row ("Press T
+    // for all templates") sat at 606px against a 600px viewport with no way
+    // to reach it. Content the user cannot reach is a worse violation of this
+    // screen's intent than a cap is.
+    //
+    // So the rule is now stated by INTENT rather than by keyword, and it is
+    // STRICTER than the original: a fixed px height or max-height (which
+    // WOULD impose a panel size) is still banned, and a viewport-relative cap
+    // is allowed ONLY when paired with internal scrolling — a cap that clips
+    // instead of scrolling would hide content, which is the very defect this
+    // widening exists to fix. At normal viewport heights the cap is inert:
+    // nothing about the round-11 look changes.
     const style = dialog.getAttribute('style') ?? ''
     expect(style).not.toMatch(/min-height:/i)
-    expect(style).not.toMatch(/max-height:/i)
     expect(style).not.toMatch(/(^|[^-])height:\s*\d+px/i)
+    expect(style, 'a fixed px max-height would impose a panel size').not.toMatch(
+      /max-height:\s*\d+px/i,
+    )
+    const maxHeight = dialog.style.maxHeight
+    if (maxHeight) {
+      expect(maxHeight, 'any cap must be viewport-relative, never a fixed panel size').toMatch(
+        /vh|dvh|svh/i,
+      )
+      expect(
+        dialog.style.overflowY,
+        'a capped container MUST scroll internally — a cap that clips hides content',
+      ).toBe('auto')
+    }
   })
 
   it('is chromeless — no panel background, border, shadow, or ambient drift', () => {

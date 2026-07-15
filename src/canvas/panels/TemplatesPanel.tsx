@@ -15,9 +15,10 @@ import { TemplateAbout } from './TemplateAbout'
 import { PlotHealthPill } from '../../adapters/plot/v1/components/PlotHealthPill'
 import { AdapterStatusBanner } from './AdapterStatusBanner'
 import { PanelShell } from './_shared/PanelShell'
-import { coerceNodes, toUiKind, type BackendNode } from '../adapters/backendKinds'
+import { coerceNodes, type BackendNode } from '../adapters/backendKinds'
 import { PanelSection } from './_shared/PanelSection'
 import { useCanvasStore } from '../store'
+import { loadTemplateBlueprint, confirmReplaceCanvas } from '../blueprints/loadTemplateBlueprint'
 import { commitGraphMutation } from '../mutations/commitGraphMutation'
 import { createScenario, saveScenarios, loadScenarios, setCurrentScenarioId } from '../store/scenarios'
 import { TemplateSkeleton } from '../components/TemplateSkeleton'
@@ -164,60 +165,16 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   }, [])
 
   const handleInsert = useCallback(async (templateId: string) => {
-    // P0-6: Confirm before starting from template (replaces canvas)
-    const state = useCanvasStore.getState()
-    const hasUnsavedChanges = state.isDirty || state.nodes.length > 0
-
-    if (hasUnsavedChanges) {
-      const confirm = window.confirm(
-        'Start from Template will replace your current canvas. Any unsaved changes will be lost. Continue?'
-      )
-      if (!confirm) {
-        return
-      }
+    // P0-6: Confirm before starting from template (replaces canvas).
+    // Shared with the first-run starter strip via confirmReplaceCanvas().
+    if (!confirmReplaceCanvas()) {
+      return
     }
 
     try {
-      // Fetch template from API (works for both mock and httpv1)
-      const templateDetail = await plot.template(templateId)
-
-      // Validate graph structure (graph is typed as 'unknown' in TemplateDetail)
-      const graph = templateDetail.graph as any
-      if (!graph || typeof graph !== 'object') {
-        throw new Error(`Template ${templateId} has invalid graph structure`)
-      }
-
-      if (!Array.isArray(graph.nodes)) {
-        throw new Error(`Template ${templateId} graph.nodes is not an array`)
-      }
-
-      // S1-MAP: Convert backend graph to Blueprint format using kind mapping shim
-      const blueprintNodes = (graph.nodes || []).map((node: any, index: number) => ({
-        id: node.id,
-        label: node.label || node.id,
-        kind: toUiKind(node.kind), // S1-MAP: Safe kind mapping with fallback
-        body: node.body, // v1.2: preserve body text
-        position: node.position || { x: 200 + (index % 3) * 250, y: 100 + Math.floor(index / 3) * 200 }, // Grid layout if no position
-      }))
-
-      // Backend edges may not have IDs, generate them
-      const blueprintEdges = (graph.edges || []).map((edge: any) => ({
-        id: edge.id || `${edge.from}-${edge.to}`, // Generate ID if missing
-        from: edge.from,
-        to: edge.to,
-        probability: edge.probability,
-        weight: edge.weight,
-        belief: edge.belief,          // v1.2: epistemic confidence
-        provenance: edge.provenance,  // v1.2: source tracking
-      }))
-
-      const blueprint: Blueprint = {
-        id: templateDetail.id,
-        name: templateDetail.name,
-        description: templateDetail.description,
-        nodes: blueprintNodes,
-        edges: blueprintEdges,
-      }
+      // Shared fetch → validate → toUiKind → position-fallback path. Same
+      // loader the first-run starter strip uses; extracted from here.
+      const { blueprint, templateDetail, graph } = await loadTemplateBlueprint(templateId)
 
       if (onInsertBlueprint) {
         onInsertBlueprint(blueprint)
