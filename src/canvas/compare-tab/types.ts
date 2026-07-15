@@ -44,11 +44,16 @@ export interface AnalysisSnapshot {
   runnerUpProbability: number | null
 
   // Robustness
-  /** Raw 0-1 */
-  recommendationStability: number
-  /** "fragile" | "mostly stable" | "stable" */
-  stabilityLabel: string
-  fragileEdgeCount: number
+  //
+  // T2b: these are absence-preserving. null means the producer sent no
+  // robustness data — NOT "zero". Rendering a fabricated 0 here contradicted
+  // AdvancedSection, which honestly hides the same fact when it is absent.
+  /** Raw 0-1; null when the producer sent no recommendation_stability. */
+  recommendationStability: number | null
+  /** "fragile" | "mostly stable" | "stable"; null when stability is unknown. */
+  stabilityLabel: string | null
+  /** null when the producer sent no fragile_edges array. `[]` is an honest 0. */
+  fragileEdgeCount: number | null
 
   // Evidence
   /** "3/5" format */
@@ -87,7 +92,8 @@ export interface AnalysisSnapshot {
   }>
 
   // Meta
-  seedUsed: number
+  /** T2b: null when the engine did not echo a usable seed — never a fabricated 0. */
+  seedUsed: number | null
   responseHash: string
   /** Derived from events, max 60 chars */
   editSummary: string
@@ -116,9 +122,11 @@ export interface Transition {
   magnitude: 'major' | 'refinement' | 'minor'
   edits: string[]
   winnerProbDelta: number
+  /** T2b: false when either end was never assessed — absence is not a change. */
   robustnessChanged: boolean
-  robustnessFrom: string
-  robustnessTo: string
+  /** T2b: null when the producer sent no robustness data for that run. */
+  robustnessFrom: string | null
+  robustnessTo: string | null
   goalProbDelta: number | null
   /** Node IDs of affected factors */
   affectedFactorIds: string[]

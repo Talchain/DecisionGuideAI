@@ -13,6 +13,17 @@ interface TrajectorySectionProps {
   showExpert: boolean
 }
 
+/**
+ * T2b: absence renders as "Not assessed", never as 0.
+ *
+ * The snapshot fields are absence-preserving (null = the producer sent no
+ * robustness data / the engine echoed no seed). Rendering a null as 0 would
+ * put "0 fragile" in this table while AdvancedSection honestly hid the same
+ * fact for the same run — the cross-surface incoherence #322 was merged to
+ * prevent. An honest producer-sent 0 still shows as 0.
+ */
+const NOT_ASSESSED = 'Not assessed'
+
 function ExpertTable({ snapshots }: { snapshots: AnalysisSnapshot[] }) {
   return (
     <div className="mt-2">
@@ -34,12 +45,14 @@ function ExpertTable({ snapshots }: { snapshots: AnalysisSnapshot[] }) {
             <tr key={s.runId}>
               {[
                 s.runNumber,
-                `${Math.round(s.recommendationStability * 100)}%`,
+                s.recommendationStability != null
+                  ? `${Math.round(s.recommendationStability * 100)}%`
+                  : NOT_ASSESSED,
                 s.evidenceCoverage,
                 `${s.influenceConcentration}%`,
                 s.rankFlipRate.toFixed(2),
-                s.fragileEdgeCount,
-                s.seedUsed,
+                s.fragileEdgeCount ?? NOT_ASSESSED,
+                s.seedUsed ?? NOT_ASSESSED,
               ].map((val, i) => (
                 <td key={i} className={`${typography.panelMeta} tabular-nums px-0.5 py-0.5`}>
                   {val}

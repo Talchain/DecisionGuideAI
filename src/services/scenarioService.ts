@@ -261,7 +261,13 @@ export async function storeAnalysis(
   scenarioId: string,
   analysis: unknown,
   graphHash: string,
-  seedUsed: number,
+  /**
+   * T2b: null when the engine did not echo a usable seed. The RPC param
+   * `p_seed_used INTEGER` has no NOT NULL and no default, and
+   * `analysis_provenance` is JSONB, so a null lands as JSON `null` — an
+   * honest "unknown" that hydrateAnalysis reads back as null.
+   */
+  seedUsed: number | null,
   responseHash: string,
   eventId: string,
   details?: Record<string, unknown>,

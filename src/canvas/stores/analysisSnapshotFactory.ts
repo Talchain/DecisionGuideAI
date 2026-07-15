@@ -235,8 +235,18 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
     .sort((a, b) => (b.evpi_percentage_points ?? 0) - (a.evpi_percentage_points ?? 0))[0]
 
   // Robustness
+  //
+  // T2b: absence-preserving. `?? 0` here was a T2-class fabrication — a
+  // default that makes a fail-closed guard pass — on a PERSISTENCE surface,
+  // so the false value outlived the run that produced it. It also fabricated
+  // a VERDICT, not just a number: deriveStabilityLabel(0) === 'fragile', so a
+  // producer that sent no robustness data at all made the compare tab assert
+  // "Model fragile". An honest producer-sent 0 still flows through.
   const robustness = rawV2Response.robustness
-  const stability = robustness?.recommendation_stability ?? 0
+  const stability = typeof robustness?.recommendation_stability === 'number'
+    && Number.isFinite(robustness.recommendation_stability)
+    ? robustness.recommendation_stability
+    : null
 
   // Goal probability (from winner)
   const goalProbability = winner?.probability_of_goal != null
@@ -247,9 +257,14 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
     : null
 
   // Seed
-  const seedUsed = rawV2Response.meta?.seed_used != null
-    ? Number(rawV2Response.meta.seed_used)
-    : 0
+  //
+  // T2b: absence-preserving, and NaN-safe. The old `Number(...)` turned a
+  // malformed echo into NaN, which survives every `!= null` guard downstream
+  // and renders as "Seed NaN"; the `: 0` arm fabricated a seed outright.
+  // Mirrors resolveSeedUsed (useV2Run) and hydrateAnalysis.ts:111-115.
+  const rawSeed = rawV2Response.meta?.seed_used
+  const parsedSeed = rawSeed != null ? Number.parseInt(String(rawSeed), 10) : Number.NaN
+  const seedUsed: number | null = Number.isFinite(parsedSeed) ? parsedSeed : null
 
   return {
     runId: crypto.randomUUID(),
@@ -267,8 +282,17 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
     runnerUpProbability: runnerUp ? Math.round((runnerUp.win_probability ?? 0) * 100) : null,
 
     recommendationStability: stability,
-    stabilityLabel: deriveStabilityLabel(stability),
-    fragileEdgeCount: robustness?.fragile_edges?.length ?? 0,
+    stabilityLabel: stability != null ? deriveStabilityLabel(stability) : null,
+    // T2b: absence-preserving. PR #326 made the mapper's fragile_edges /
+    // robust_edges absence-preserving so AdvancedSection honestly HIDES the
+    // row when the producer sent nothing — but this line re-fabricated a 0
+    // into the snapshot, so the same run reported "unknown" on one surface and
+    // "0 fragile" on another (compare-tab). That cross-surface incoherence is
+    // what #322 was merged to prevent. An honest `fragile_edges: []` (the
+    // producer measured and found none) still reports 0.
+    fragileEdgeCount: robustness?.fragile_edges != null
+      ? robustness.fragile_edges.length
+      : null,
 
     evidenceCoverage: computeEvidenceCoverage(nodes),
 

@@ -71,7 +71,16 @@ export type AnalysisStatus =
 
 export interface AnalysisProvenance {
   graph_hash: string        // Canonical graph hash at time of analysis
-  seed_used: number         // Actual seed from PLoT
+  /**
+   * Actual seed echoed by PLoT, or null when it echoed nothing usable (T2b).
+   *
+   * Receipts fail closed: this is a claim about what the engine did, so
+   * "unknown" must be representable. It was typed `number` while the writer
+   * fabricated a 0 to satisfy that type — the type was enforcing the lie.
+   * The column is JSONB (`scenarios.analysis_provenance`), which has no
+   * NOT NULL on this key, so null is a real wire value.
+   */
+  seed_used: number | null
   response_hash: string     // PLoT response hash
   analysed_at: string       // ISO-8601, server-assigned via to_jsonb(now())
 }

@@ -64,6 +64,33 @@ function deriveNumericSeedFromString(input: string): number {
 }
 
 /**
+ * T2b: resolve the seed the ENGINE reports it used — the receipt.
+ *
+ * Receipts fail closed (T2): no real value → null, never a fabricated 0. This
+ * is the WRITE-path twin of hydrateAnalysis.ts:111-115 and must stay in step
+ * with it, because that function PREFERS the value this one persists
+ * (`provenance?.seed_used ?? ...`). Any fabrication here is laundered into a
+ * real-looking receipt on the next page load.
+ *
+ * The pattern this replaces fabricated a 0 three ways:
+ *   const seedUsed = successResult.meta?.seed_used
+ *     ? (parseInt(successResult.meta.seed_used, 10) || 0)   // 'abc' → NaN → 0
+ *     : (seed ?? 0)                                          // no echo → unconfirmed
+ * plus a truthiness gate that made a numeric engine seed of 0 fall through to
+ * the requested seed.
+ *
+ * Note this deliberately does NOT fall back to the seed we REQUESTED. The
+ * requested seed is a different fact ("what we asked for"); reporting it as
+ * seed_used claims the engine confirmed something it never said. Callers that
+ * need a run identity (e.g. the graph hash) use the requested seed explicitly.
+ */
+export function resolveSeedUsed(metaSeedUsed: unknown): number | null {
+  if (metaSeedUsed == null) return null
+  const parsed = Number.parseInt(String(metaSeedUsed), 10)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+/**
  * UI-SEM-058: raw → normalised goal-threshold conversion for the PLoT request.
  *
  * store.goalThreshold holds USER UNITS by default (raw), but since Lane 5 its
@@ -329,7 +356,8 @@ export interface V2RunPersistence {
   persistAnalysisSuccess: (
     analysis: unknown,
     graphHash: string,
-    seedUsed: number,
+    /** T2b: null when the engine did not echo a usable seed — never a fabricated 0. */
+    seedUsed: number | null,
     responseHash: string,
     details?: Record<string, unknown>,
   ) => Promise<void>
@@ -936,10 +964,34 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
 
         // C.1b: Persist analysis results to Supabase (non-blocking)
         if (persistence) {
-          const seedUsed = successResult.meta?.seed_used
-            ? (parseInt(successResult.meta.seed_used, 10) || 0)
-            : (seed ?? 0)
-          const graphHash = generateGraphHash(nodes, edges, seedUsed)
+          // T2b: the seed has TWO sinks here, and they answer DIFFERENT questions.
+          //
+          // 1. `seedUsed` is the RECEIPT: "what seed did the engine say it used?"
+          //    Unknown must stay unknown (null) — see resolveSeedUsed. This is
+          //    what lands in Supabase provenance and is read back by
+          //    hydrateAnalysis on reload, so a fabricated 0 here becomes a
+          //    real-looking "Seed 0" row (the exact bug PR #326 removed from
+          //    the read path).
+          //
+          // 2. `seedForHash` is a RUN IDENTITY for the graph hash, not a claim
+          //    about the engine. When the engine did not echo a usable seed we
+          //    fall back to the seed we actually SENT (`seed` is always a real
+          //    number by this point — it is derived at :424-441 above), because
+          //    that is the seed a replay would resend. Falling back to the
+          //    requested seed here is strictly more honest than the old code,
+          //    which hashed a fabricated 0 whenever the echo was malformed.
+          //
+          // The hash's seed component cannot itself distinguish a real 0 from
+          // "unknown" — computeClientHash (adapters/plot/v1/mapper.ts:256) does
+          // `seed: seed || 0`, collapsing null/undefined/NaN/0 to the same
+          // canonical value. Fixing that means changing hash semantics for the
+          // replay gate (pinned by adapters/__tests__/wave2-replay-gate.spec.ts)
+          // and for two out-of-lane call sites (store.ts:2904,
+          // ReactFlowGraph.tsx:1532/1611), so it is deliberately left alone and
+          // ledgered rather than changed casually here.
+          const seedUsed = resolveSeedUsed(successResult.meta?.seed_used)
+          const seedForHash = seedUsed ?? seed
+          const graphHash = generateGraphHash(nodes, edges, seedForHash)
           persistence.persistAnalysisSuccess(
             successResult,
             graphHash,

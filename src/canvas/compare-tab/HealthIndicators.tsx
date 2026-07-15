@@ -7,7 +7,14 @@ interface HealthIndicatorsProps {
   latest: AnalysisSnapshot
 }
 
-function stabilityImproving(from: string, to: string): boolean {
+/**
+ * T2b: an unknown stability cannot be "improving". When either end of the
+ * comparison was never assessed there is no trend to claim, so this reports
+ * false rather than letting `indexOf(null)` (-1) manufacture a rise out of
+ * missing data.
+ */
+function stabilityImproving(from: string | null, to: string | null): boolean {
+  if (from == null || to == null) return false
   const order = ['fragile', 'mostly stable', 'stable']
   return order.indexOf(to) > order.indexOf(from)
 }
@@ -23,8 +30,10 @@ export function HealthIndicators({ first, latest }: HealthIndicatorsProps) {
   const indicators = [
     {
       label: 'Result stability',
-      from: first.stabilityLabel,
-      to: latest.stabilityLabel,
+      // T2b: a null label means the producer sent no robustness data. Say so,
+      // rather than rendering an empty gap that reads as a missing UI.
+      from: first.stabilityLabel ?? 'Not assessed',
+      to: latest.stabilityLabel ?? 'Not assessed',
       up: stabilityImproving(first.stabilityLabel, latest.stabilityLabel),
     },
     {

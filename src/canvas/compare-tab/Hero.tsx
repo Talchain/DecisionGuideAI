@@ -21,7 +21,12 @@ function getHeroCopy(
     case 'improving':
       return {
         line1: `Run ${latest.runNumber} · ${latest.winnerLabel} leads at ${latest.winnerProbability}% (was ${first.winnerProbability}% at run 1)`,
-        line2: `Confidence improving · Model ${latest.stabilityLabel}`,
+        // T2b: drop the "Model X" clause entirely when robustness was never
+        // assessed. A template literal would coerce null to the string "null"
+        // ("Model null") and TypeScript cannot catch that.
+        line2: latest.stabilityLabel != null
+          ? `Confidence improving · Model ${latest.stabilityLabel}`
+          : 'Confidence improving',
         actionPrefix: 'Calibrate ',
         actionLink: latest.topEvpiFactor,
         actionNodeId: latest.topEvpiFactorId,
@@ -117,7 +122,13 @@ export function Hero({ state, snapshots, showExpert }: HeroProps) {
       {/* Expert methodology line */}
       {showExpert && (
         <div className={`${typography.panelMeta} mt-1.5`}>
-          1,000 Monte Carlo simulations · Bootstrap stability · Seed: {latest.seedUsed} · Hash: {latest.responseHash}
+          {/* T2b: the Seed segment fails closed. React renders a null child as
+              nothing, which would leave a bare "Seed: ·" claiming a receipt
+              that does not exist. This mirrors AdvancedSection, which hides
+              its Seed row on the same fact. */}
+          1,000 Monte Carlo simulations · Bootstrap stability
+          {latest.seedUsed != null && <> · Seed: {latest.seedUsed}</>}
+          {' · '}Hash: {latest.responseHash}
         </div>
       )}
     </div>
