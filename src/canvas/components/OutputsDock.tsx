@@ -33,7 +33,7 @@ import { runStatusRegion } from './analysisRunStatus'
 import { registerCanonicalRunner, type CanonicalRunOptions, type CanonicalRunOutcome } from '../analysis/canonicalRunRegistry'
 import { useShowToastSafe } from '../ToastContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
-import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource } from '../store'
+import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectResultsStartedAt } from '../store'
 import { resolveDisplayedFreshness } from '../store/analysisFreshness'
 import { getScenario } from '../store/scenarios'
 import { AnalysisFreshnessNotice } from '../../components/results/AnalysisFreshnessNotice'
@@ -563,6 +563,9 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   )
 
   const resultsStatus = useCanvasStore(selectResultsStatus)
+  // Wave1-L2: the run's TRUE start, so the banner narrates the age of the RUN
+  // rather than the age of the banner (survives remounts and tab switches).
+  const resultsStartedAt = useCanvasStore(selectResultsStartedAt)
   const report = useCanvasStore(selectReport)
   const error = useCanvasStore(selectError)
   const resultsSource = useCanvasStore(selectResultsSource)
@@ -2071,7 +2074,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 {/* 1.16i: visible processing while an analysis turn runs and
                     the previous report is still on screen (the skeleton
                     below covers the no-report case) */}
-                {runStatus === 'banner' && <AnalysisRunningBanner />}
+                {runStatus === 'banner' && <AnalysisRunningBanner startedAt={resultsStartedAt} />}
                 {/* I.2b: Cancel button during active analysis — gated on the
                     V2 hook's own in-flight flag (1.16i): cancelRun only
                     aborts the V2 request, so it must not render for a V5

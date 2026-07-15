@@ -31,8 +31,11 @@ import {
 } from '../AnalysisRunningBanner'
 
 const STAGE_1 = 'Analysing your decision…'
-const STAGE_2 = 'This is taking longer than usual — still analysing…'
-const STAGE_3 = 'Still working — complex decisions can take a while…'
+const STAGE_2 = 'Still analysing your decision…'
+const STAGE_3 = 'Still analysing — complex decisions can take a while…'
+
+/** An arbitrary fixed wall clock so `Date.now()` arithmetic is deterministic. */
+const NOW = new Date('2026-07-15T12:00:00Z').getTime()
 
 /**
  * The run can end in a timeout error at 130s. Any line the banner can still
@@ -76,6 +79,37 @@ function assertNoProximityClaim(message: string) {
   }
 }
 
+/**
+ * P1 (round 2, HONESTY): vocabulary that compares this run against a baseline
+ * — "usual", "expected", "normal". The client knows only how long it has
+ * waited; it holds no distribution of past run durations, so it cannot derive
+ * "usual" at all. Worse, the first escalation fires at 20s while 20-30s is the
+ * PR's own stated TYPICAL wait, so "taking longer than usual" was FALSE on a
+ * perfectly ordinary run. A comparative claim needs a real baseline or it must
+ * not be made.
+ */
+const BASELINE_COMPARISON_VOCABULARY = [
+  'than usual',
+  'unusual',
+  'than expected',
+  'than normal',
+  'longer than',
+  'slower than',
+  'taking longer',
+  'taking a while longer',
+  'behind schedule',
+  'overdue',
+]
+
+function assertNoBaselineComparison(message: string) {
+  for (const term of BASELINE_COMPARISON_VOCABULARY) {
+    expect(
+      message.toLowerCase(),
+      `"${message}" compares this run to a baseline ("${term}") the client cannot derive from elapsed time`,
+    ).not.toContain(term)
+  }
+}
+
 /** Advance fake timers inside act so React state updates flush. */
 function advance(ms: number) {
   act(() => {
@@ -95,7 +129,10 @@ function advancePastStage(ms: number) {
 
 beforeEach(() => {
   reducedMotionState.value = false
+  // Fake timers mock Date too, so `Date.now()` advances with the timer clock:
+  // elapsed time is computed from the real run start, not from mount.
   vi.useFakeTimers()
+  vi.setSystemTime(NOW)
 })
 
 describe('narrationForElapsed (pure stage resolution)', () => {
@@ -164,6 +201,32 @@ describe('honesty constraints on the copy', () => {
       assertNoProximityClaim(narrationForElapsed(elapsed))
     }
   })
+
+  // P1 (round 2, HONESTY): "This is taking longer than usual" fired at 20s,
+  // but 20-30s IS the typical wait — the line was false on a typical run.
+  it('never claims this run is slower than usual: the client has no baseline to compare against', () => {
+    for (const stage of NARRATION_STAGES) {
+      assertNoBaselineComparison(stage.message)
+    }
+  })
+
+  it('makes no baseline comparison at any elapsed second it can be displayed at', () => {
+    for (let elapsed = 0; elapsed <= RUN_TIMEOUT_SECONDS; elapsed++) {
+      assertNoBaselineComparison(narrationForElapsed(elapsed))
+    }
+  })
+
+  // The binding invariant, stated positively: the ONLY facts elapsed time
+  // licenses are that a run is in flight and that it is still in flight. The
+  // typical wait is 20-30s, so no stage that can render inside that window may
+  // characterise the wait as abnormal.
+  it('is true across the whole typical 20-30s wait, where no stage may call the run abnormal', () => {
+    for (let elapsed = 20; elapsed <= 30; elapsed++) {
+      const message = narrationForElapsed(elapsed)
+      assertNoBaselineComparison(message)
+      assertNoProximityClaim(message)
+    }
+  })
 })
 
 describe('AnalysisRunningBanner stage progression (fake timers)', () => {
@@ -194,6 +257,112 @@ describe('AnalysisRunningBanner stage progression (fake timers)', () => {
     render(<AnalysisRunningBanner />)
     advancePastStage(RUN_TIMEOUT_SECONDS * 1000)
     expect(screen.getByTestId('analysis-narration')).toHaveTextContent(STAGE_3)
+  })
+})
+
+/**
+ * P1 (round 2, REGRESSION GATE). The banner used to start its clock at MOUNT
+ * and count up from zero, so elapsed time meant "how long this component has
+ * existed", not "how long the run has been going".
+ *
+ * That is not a cosmetic drift. The banner SUBSUMES the dock's slow-run
+ * region: whenever the banner mounts, the accurate pre-existing slow-run line
+ * is suppressed in its favour (see analysisRunStatus.ts). So a banner that
+ * mounts at 25s into a run suppressed a correct "this is slow" line and
+ * replaced it with a fresh-start line claiming the run had just begun —
+ * strictly WORSE than no banner at all.
+ *
+ * The fix: elapsed time derives from the run's real start (the store's
+ * results.startedAt, which the dock already knows and which survives
+ * remounts), passed in as `startedAt`.
+ */
+describe('elapsed time derives from the RUN start, not the banner mount', () => {
+  it('mounting 25s into a run shows the 20s stage immediately, not the fresh-start line', () => {
+    render(<AnalysisRunningBanner startedAt={NOW - 25_000} />)
+    const narration = screen.getByTestId('analysis-narration')
+    expect(narration).toHaveTextContent(STAGE_2)
+    expect(narration).not.toHaveTextContent(STAGE_1)
+  })
+
+  it('mounting 45s into a run shows the 40s stage immediately', () => {
+    render(<AnalysisRunningBanner startedAt={NOW - 45_000} />)
+    expect(screen.getByTestId('analysis-narration')).toHaveTextContent(STAGE_3)
+  })
+
+  it('mounting 130s into a run (at the timeout) shows the long-wait line, not a fresh start', () => {
+    render(<AnalysisRunningBanner startedAt={NOW - RUN_TIMEOUT_SECONDS * 1000} />)
+    expect(screen.getByTestId('analysis-narration')).toHaveTextContent(STAGE_3)
+  })
+
+  // A remount (tab switch, dock re-render, results panel toggled) must not
+  // rewind the narration: the run did not restart, so the clock must not.
+  it('remounting mid-run keeps TRUE elapsed time instead of rewinding to zero', () => {
+    const startedAt = NOW - 22_000
+    const first = render(<AnalysisRunningBanner startedAt={startedAt} />)
+    expect(screen.getByTestId('analysis-narration')).toHaveTextContent(STAGE_2)
+    first.unmount()
+
+    // The user returns 20s later. The run is now 42s old, not 0s old.
+    vi.setSystemTime(NOW + 20_000)
+    render(<AnalysisRunningBanner startedAt={startedAt} />)
+    expect(screen.getByTestId('analysis-narration')).toHaveTextContent(STAGE_3)
+  })
+
+  it('advances from the true elapsed time as the run continues past a mid-run mount', () => {
+    render(<AnalysisRunningBanner startedAt={NOW - 38_000} />)
+    expect(screen.getByTestId('analysis-narration')).toHaveTextContent(STAGE_2)
+
+    // Only 2s more of real time are needed to reach the 40s stage.
+    advancePastStage(2_000)
+    expect(screen.getByTestId('analysis-narration')).toHaveTextContent(STAGE_3)
+  })
+
+  it('treats a start timestamp in the future as zero elapsed (clock skew is not negative time)', () => {
+    render(<AnalysisRunningBanner startedAt={NOW + 5_000} />)
+    expect(screen.getByTestId('analysis-narration')).toHaveTextContent(STAGE_1)
+  })
+
+  // Defensive: both store paths that set status to a running state also set
+  // startedAt, but the banner must not crash or narrate nonsense without it.
+  it('falls back to mount time when the run start is unknown', () => {
+    render(<AnalysisRunningBanner />)
+    expect(screen.getByTestId('analysis-narration')).toHaveTextContent(STAGE_1)
+    advancePastStage(20_000)
+    expect(screen.getByTestId('analysis-narration')).toHaveTextContent(STAGE_2)
+  })
+})
+
+/**
+ * P1 (round 2, NO-REGRESSION GATE). The banner only earns the right to
+ * suppress the dock's slow-run region if it actually says something equivalent
+ * at the same elapsed time. This ties the SUBSUME gate to real equivalence:
+ * at every elapsed time the dock would have escalated, the banner must have
+ * escalated too — never still be on the fresh-start line.
+ */
+describe('subsume equivalence: the accurate slow-run line is never silently lost', () => {
+  it('has escalated off the fresh-start line by the dock 20s slow-run threshold', () => {
+    expect(narrationForElapsed(20)).not.toBe(STAGE_1)
+  })
+
+  it('has escalated again by the dock 40s slow-run threshold', () => {
+    expect(narrationForElapsed(40)).not.toBe(STAGE_1)
+    expect(narrationForElapsed(40)).not.toBe(narrationForElapsed(20))
+  })
+
+  // The regression in the round-1 fix, stated as the exact user-visible
+  // outcome: a banner mounting at 25s suppressed "Taking longer than
+  // expected..." and showed "Analysing your decision…" in its place.
+  it('a banner mounting mid-run never replaces an escalated line with a fresh-start line', () => {
+    for (const elapsedSeconds of [20, 25, 30, 39, 40, 60, 130]) {
+      const { unmount } = render(
+        <AnalysisRunningBanner startedAt={NOW - elapsedSeconds * 1000} />,
+      )
+      expect(
+        screen.getByTestId('analysis-narration'),
+        `banner mounting ${elapsedSeconds}s into a run fell back to the fresh-start line while suppressing the dock slow-run region`,
+      ).not.toHaveTextContent(STAGE_1)
+      unmount()
+    }
   })
 })
 

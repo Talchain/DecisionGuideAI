@@ -4717,6 +4717,13 @@ export const getNextInvalidNode = (state: CanvasState, currentNodeId?: string): 
  */
 export const selectResultsStatus = (state: CanvasState): ResultsStatus => state.results.status
 export const selectProgress = (state: CanvasState): number => state.results.progress
+/**
+ * Wave1-L2: wall-clock ms when the in-flight run started. Every path that
+ * enters a running status stamps it, and it lives in the store rather than in
+ * component state, so run-status narration keeps the TRUE elapsed time across
+ * remounts and tab switches.
+ */
+export const selectResultsStartedAt = (state: CanvasState): number | undefined => state.results.startedAt
 export const selectReport = (state: CanvasState): ReportV1 | null | undefined => state.results.report
 export const selectDrivers = (state: CanvasState): Array<{ kind: 'node' | 'edge'; id: string }> | undefined => state.results.drivers
 export const selectError = (state: CanvasState): { code: string; message: string; retryAfter?: number; request_id?: string; affectedOptions?: Array<{ id: string; label: string }> } | null | undefined => state.results.error

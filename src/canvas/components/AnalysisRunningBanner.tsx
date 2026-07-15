@@ -16,6 +16,16 @@
  * This banner is the SINGLE run-status live region wherever it mounts: its
  * stage table subsumes the dock's pre-existing 20s/40s slow-run escalation,
  * which yields to it. See analysisRunStatus.ts for the reconciliation.
+ *
+ * Round 2 P1 (REGRESSION) — the clock measures the RUN, not this component.
+ * The first cut started a counter at zero on mount, so "elapsed" meant "how
+ * long this component has existed". Because the banner SUBSUMES the slow-run
+ * region, a banner mounting 25s into a run suppressed a correct "taking
+ * longer" line and replaced it with the fresh-start line — worse than no
+ * banner at all. Elapsed time now derives from `startedAt`, the run's real
+ * start (the store's results.startedAt, set by every path that enters a
+ * running status and durable across remounts), so remounts, tab switches and
+ * a banner appearing mid-run all show the TRUE elapsed time.
  */
 import { Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -36,19 +46,30 @@ import { typography } from '../../styles/typography'
  * from its own threshold until the run ends — including a run that dies at
  * the 130s timeout. That rules out the whole "almost there" family: the
  * client consumes zero run state, so it can never know the run is close to
- * done. The earlier table claimed "Almost there — shaping the results…" at a
+ * done. An earlier table claimed "Almost there — shaping the results…" at a
  * fixed 22s and then held it indefinitely, through timeouts included — a
  * progress bar stuck at 95%.
  *
- * What survives is what elapsed time genuinely licenses: that a run is in
- * flight, and that it has now been going longer than a typical one. The 20s
- * and 40s thresholds deliberately match the dock's pre-existing slow-run
- * escalation, which this table subsumes (see analysisRunStatus.ts).
+ * Round 2 P1 (HONESTY) — the same invariant also rules out the comparative
+ * family. "This is taking longer than usual" fired at 20s, but 20-30s IS the
+ * typical wait, so the line was false on a perfectly ordinary run. And
+ * "usual" is not derivable from elapsed time at all: the client holds no
+ * distribution of past run durations, so it has no baseline to compare
+ * against. Rather than invent one, the copy drops the comparison.
+ *
+ * What survives is exactly what elapsed time licenses: that a run is in
+ * flight, and that it is STILL in flight. "Still analysing" is true at every
+ * second from its threshold to the timeout, and escalates the acknowledgement
+ * without asserting anything unknowable. The 20s and 40s thresholds
+ * deliberately match the dock's pre-existing slow-run escalation, which this
+ * table subsumes (see analysisRunStatus.ts) — so the banner must have
+ * escalated by each of them, or the subsume would silently lose a line the
+ * user would otherwise have seen.
  */
 export const NARRATION_STAGES = [
   { afterSeconds: 0, message: 'Analysing your decision…' },
-  { afterSeconds: 20, message: 'This is taking longer than usual — still analysing…' },
-  { afterSeconds: 40, message: 'Still working — complex decisions can take a while…' },
+  { afterSeconds: 20, message: 'Still analysing your decision…' },
+  { afterSeconds: 40, message: 'Still analysing — complex decisions can take a while…' },
 ] as const
 
 /** Resolve the narration message for a given elapsed time (seconds). */
@@ -65,18 +86,49 @@ export function narrationForElapsed(elapsedSeconds: number): string {
 /** Duration of the text crossfade between stages (skipped under reduced motion). */
 const CROSSFADE_MS = 200
 
-export function AnalysisRunningBanner() {
+/**
+ * Whole seconds elapsed since a run start. Clamped at zero so clock skew (a
+ * start stamped fractionally in the future) reads as "just started" rather
+ * than as negative time.
+ */
+export function elapsedSecondsSince(startedAt: number, now: number = Date.now()): number {
+  return Math.max(0, Math.floor((now - startedAt) / 1000))
+}
+
+export interface AnalysisRunningBannerProps {
+  /**
+   * Wall-clock ms when the run actually started — the store's
+   * results.startedAt, which the dock already reads. Every store path that
+   * enters a running status sets it, and it survives this component
+   * unmounting, so it is the only honest origin for the narration clock.
+   *
+   * Omitted only as a defensive fallback: without it the best available
+   * origin is mount time, which is what the round-2 regression was.
+   */
+  startedAt?: number
+}
+
+export function AnalysisRunningBanner({ startedAt }: AnalysisRunningBannerProps = {}) {
   const prefersReducedMotion = usePrefersReducedMotion()
 
-  // Timer-driven elapsed counter (no Date dependence: the banner is mounted
-  // for the lifetime of the run, so a 1s tick is accurate enough for copy).
-  const [elapsed, setElapsed] = useState(0)
+  // Fallback origin, captured once so it cannot drift across re-renders.
+  const mountedAtRef = useRef<number | null>(null)
+  if (mountedAtRef.current === null) mountedAtRef.current = Date.now()
+  const runStartedAt = startedAt ?? mountedAtRef.current
+
+  // Elapsed time is RECOMPUTED from the run start on every tick rather than
+  // incremented from zero: that is what makes a mid-run mount, a remount and
+  // a backgrounded tab all report the true age of the run. The initialiser
+  // matters as much as the tick — a banner mounting at 25s must render the
+  // 20s stage on its FIRST frame, not after a second of fresh-start copy.
+  const [elapsed, setElapsed] = useState(() => elapsedSecondsSince(runStartedAt))
   useEffect(() => {
+    setElapsed(elapsedSecondsSince(runStartedAt))
     const interval = setInterval(() => {
-      setElapsed((s) => s + 1)
+      setElapsed(elapsedSecondsSince(runStartedAt))
     }, 1000)
     return () => clearInterval(interval)
-  }, [])
+  }, [runStartedAt])
 
   const targetMessage = narrationForElapsed(elapsed)
 
