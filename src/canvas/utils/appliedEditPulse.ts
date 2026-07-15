@@ -1,4 +1,5 @@
 import { useCanvasStore } from '../store'
+import { fitNodesOnCanvas } from './focusHelpers'
 
 // appliedEditPulse — seamlessness R2: when the AI's graph edits land on the
 // canvas (accepted patch, auto-applied patch, or V5 server-applied patch),
@@ -14,9 +15,17 @@ import { useCanvasStore } from '../store'
 // - Fail-closed: ids are filtered against the canvas store at flush time;
 //   ids not on the canvas (e.g. removals) never pulse. An all-stale flush
 //   writes nothing (never clobbers an existing highlight with emptiness).
-// - Pulse only: no selection, no inspector, no viewport pan — the AI must
-//   not hijack what the user is doing. The node ring gently pulses (N2,
-//   BaseNode `ai-highlight-pulse`) and the edge stroke is static; both are
+// - F4 (graph-visuals, Paul-ratified): the flush fits EVERY surviving target
+//   (nodes + pulsed edges' endpoint nodes) into view BEFORE the ring fires —
+//   an applied edit the user cannot see is a silent edit. This is the ONE
+//   choke point for every feeder (applyPatch, applyV5State, mergeAppliedGraph,
+//   the What-changed chip). The camera move goes through the registered fit
+//   seam (fitNodesOnCanvas → ReactFlowGraph), which skips the pan when the
+//   targets are already comfortably visible (cameraComfort no-churn rule) and
+//   honours prefers-reduced-motion (F1).
+// - No selection, no inspector hijack — the AI must not steal what the user
+//   is editing. The node ring gently pulses (N2, BaseNode
+//   `ai-highlight-pulse`) and the edge stroke is static; both are
 //   reduced-motion-safe (the pulse keyframe is disabled under
 //   prefers-reduced-motion, leaving the static ring).
 
@@ -56,6 +65,21 @@ function flush(): void {
   pendingNodeIds = new Set()
   pendingEdgeIds = new Set()
   if (nodeIds.length === 0 && edgeIds.length === 0) return
+
+  // F4: fit the full surviving union — node targets plus pulsed edges'
+  // endpoint nodes — into view BEFORE the highlight is written, so targets
+  // are on their way on-screen when they flash. Fail-closed at the seam:
+  // when no canvas fit is registered (jsdom, pre-mount) this no-ops and the
+  // pulse still fires.
+  const fitIds = new Set(nodeIds)
+  for (const id of edgeIds) {
+    const edge = edges.find((e) => e.id === id)
+    if (!edge) continue
+    for (const endpoint of [edge.source, edge.target]) {
+      if (nodes.some((n) => n.id === endpoint)) fitIds.add(endpoint)
+    }
+  }
+  fitNodesOnCanvas([...fitIds])
 
   setHighlightedNodes(nodeIds)
   setHighlightedEdges(edgeIds)

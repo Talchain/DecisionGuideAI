@@ -13,7 +13,7 @@ import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion'
 import { useEditedSinceRun } from './hooks/useEditedSinceRun'
 import { LodSync } from './components/LodSync'
 import { cameraDuration } from './utils/cameraMotion'
-import { neighbourhoodNodeIds } from './utils/focusNeighbourhood'
+import { useFocusCamera } from './hooks/useFocusCamera'
 import { useMeasureThenLayout } from './hooks/useMeasureThenLayout'
 import { useFitViewOnLayoutVersion } from './hooks/useFitViewOnLayoutVersion'
 import { nodeTypes } from './nodes/registry'
@@ -60,7 +60,6 @@ import { InfluenceExplainer, useInfluenceExplainer } from '../components/assista
 // floating-first host is mounted as a sibling when the flag is on.
 import { executeCanonicalRun } from './analysis/canonicalRunRegistry'
 import { HighlightLayer } from './highlight/HighlightLayer'
-import { registerFocusHelpers, registerFitNodes } from './utils/focusHelpers'
 import { computeFitPadding } from './utils/computeFitPadding'
 import { usePathHighlight } from './hooks/usePathHighlight'
 import { useLensFilter } from './hooks/useLensFilter'
@@ -352,17 +351,15 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Week 3: AI Coaching moved to GuidancePanel in OutputsDock
 
-  const { getViewport, setCenter, fitView, zoomIn, zoomOut, zoomTo, screenToFlowPosition } = useReactFlow()
+  const { getViewport, fitView, zoomIn, zoomOut, zoomTo, screenToFlowPosition } = useReactFlow()
 
   // Brief 36 Fix: Stabilize ReactFlow function references via refs
   // These functions may have unstable references in some ReactFlow versions
   const getViewportRef = useRef(getViewport)
-  const setCenterRef = useRef(setCenter)
   const zoomInRef = useRef(zoomIn)
   const zoomOutRef = useRef(zoomOut)
   const zoomToRef = useRef(zoomTo)
   getViewportRef.current = getViewport
-  setCenterRef.current = setCenter
   zoomInRef.current = zoomIn
   zoomOutRef.current = zoomOut
   zoomToRef.current = zoomTo
@@ -372,6 +369,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const prefersReducedMotion = usePrefersReducedMotion()
   const reducedMotionRef = useRef(prefersReducedMotion)
   reducedMotionRef.current = prefersReducedMotion
+
 
   // Canvas control actions from store
   const undo = useCanvasStore(s => s.undo)
@@ -881,89 +879,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     setShowFullInspector(true)
   }, [])
 
-  // Focus node handler (for Alt+V validation cycling and Results panel drivers)
-  // Brief 36 Fix: Use refs instead of direct dependencies to prevent re-renders
-  const handleFocusNode = useCallback((nodeId: string) => {
-    const store = useCanvasStore.getState()
-    const targetNode = store.nodes.find(n => n.id === nodeId)
-
-    if (!targetNode) return
-
-    // Select node WITHOUT pushing to history (navigation-only, not structural change)
-    store.selectNodeWithoutHistory(nodeId)
-
-    // F2 (graph-visuals): fit the node AND its direct neighbours to a readable
-    // zoom (capped so it never disorients), rather than centring at the current
-    // zoom — focusing from a zoomed-out view used to land on something you
-    // couldn't read. usePathHighlight dims the rest of the graph.
-    const focusIds = neighbourhoodNodeIds(nodeId, store.edges)
-    const focusNodes = store.nodes.filter(n => focusIds.has(n.id))
-    fitViewRef.current({
-      nodes: focusNodes,
-      padding: 0.3,
-      maxZoom: 1.2,
-      duration: cameraDuration(400, reducedMotionRef.current),
-    })
-  }, [])
-
-  // Focus edge handler (for Results panel drivers)
-  // Brief 36 Fix: Use refs instead of direct dependencies to prevent re-renders
-  const handleFocusEdge = useCallback((edgeId: string) => {
-    const store = useCanvasStore.getState()
-    const targetEdge = store.edges.find(e => e.id === edgeId)
-
-    if (!targetEdge) return
-
-    // Find source and target nodes
-    const sourceNode = store.nodes.find(n => n.id === targetEdge.source)
-    const targetNode = store.nodes.find(n => n.id === targetEdge.target)
-
-    if (!sourceNode || !targetNode) return
-
-    // Calculate midpoint between source and target
-    const midX = (sourceNode.position.x + targetNode.position.x) / 2
-    const midY = (sourceNode.position.y + targetNode.position.y) / 2
-
-    // Select edge (not in history, just for visual feedback)
-    useCanvasStore.setState({
-      edges: store.edges.map(e => ({
-        ...e,
-        selected: e.id === edgeId
-      }))
-    })
-
-    // Center viewport on edge midpoint with smooth animation
-    const viewport = getViewportRef.current()
-    setCenterRef.current(midX, midY, {
-      zoom: viewport.zoom,
-      duration: cameraDuration(300, reducedMotionRef.current),
-    })
-  }, [])
-
-  // Register focus helpers for external use (Results panel)
-  useEffect(() => {
-    return registerFocusHelpers(handleFocusNode, handleFocusEdge)
-  }, [handleFocusNode, handleFocusEdge])
-
-  // F4 (graph-visuals): registered multi-node fit for USER-INITIATED
-  // surfaces (What-changed chip). Fits every target into view (zoom capped)
-  // with the F1 reduced-motion guard. The AI's autonomous pulse still never
-  // pans — this seam is only reachable from explicit user clicks.
-  const handleFitNodes = useCallback((nodeIds: readonly string[]) => {
-    const store = useCanvasStore.getState()
-    const idSet = new Set(nodeIds)
-    const targets = store.nodes.filter(n => idSet.has(n.id))
-    if (targets.length === 0) return
-    fitViewRef.current({
-      nodes: targets,
-      padding: 0.25,
-      maxZoom: 1.5,
-      duration: cameraDuration(400, reducedMotionRef.current),
-    })
-  }, [])
-  useEffect(() => {
-    return registerFitNodes(handleFitNodes)
-  }, [handleFitNodes])
+  // F2/F3/F4 (graph-visuals): the focus + pulse camera seam — focus node,
+  // focus edge, the registered multi-node pulse fit, and the rule that ends
+  // the focus lens on any reframe. Extracted to a hook so it can be exercised
+  // end-to-end (useFocusCamera.spec.tsx), the same reason the layout lifecycle
+  // hooks were extracted; it owns its own registrations.
+  const { onMoveStart: handleMoveStart, focusNode: handleFocusNode } = useFocusCamera()
 
   // Graph Interaction P1: Enable path highlighting based on node selection
   // Highlights causal paths from selected factor to goal, dims unrelated nodes
@@ -2015,6 +1936,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             onConnectEnd={onConnectEnd}
             isValidConnection={isValidConnection}
             onSelectionChange={handleSelectionChange}
+            onMoveStart={handleMoveStart}
             onNodeClick={handleNodeClick}
             onNodeDoubleClick={handleNodeDoubleClick}
             onEdgeClick={handleEdgeClick}

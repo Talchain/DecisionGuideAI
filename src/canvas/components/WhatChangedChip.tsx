@@ -22,7 +22,6 @@ import { useMemo, useSyncExternalStore } from 'react'
 import { loadRuns } from '../store/runHistory'
 import * as runsBus from '../store/runsBus'
 import { pulseAppliedTargets } from '../utils/appliedEditPulse'
-import { fitNodesOnCanvas } from '../utils/focusHelpers'
 import type { Node, Edge } from '@xyflow/react'
 import { GitCompareArrows } from 'lucide-react'
 import { typography } from '../../styles/typography'
@@ -121,14 +120,12 @@ export function WhatChangedChip() {
   if (parts.length === 0) return null
 
   const handleClick = () => {
-    // F4 (graph-visuals): a chip click is USER-INITIATED, so panning is the
-    // user's intent — fit every surviving changed node into view before the
-    // pulse fires (previously targets often pulsed off-screen). The AI's
-    // autonomous applied-edit pulse still never pans (appliedEditPulse
-    // contract); this fit is reachable only from this click.
-    fitNodesOnCanvas([...diff.nodes.added, ...diff.nodes.modified])
-    // Removed elements are gone from the canvas — only surviving changes
-    // can be highlighted.
+    // F4 (graph-visuals): fit-before-pulse lives at the pulse choke point —
+    // appliedEditPulse's flush fits every surviving target into view before
+    // the ring fires, for EVERY feeder (applyPatch, applyV5State, this chip).
+    // A chip-local fit on top would double the camera move, so the chip
+    // delegates. Removed elements are gone from the canvas — only surviving
+    // changes can be highlighted (the flush filters fail-closed anyway).
     pulseAppliedTargets({
       nodeIds: [...diff.nodes.added, ...diff.nodes.modified],
       edgeIds: [...diff.edges.added, ...diff.edges.modified],

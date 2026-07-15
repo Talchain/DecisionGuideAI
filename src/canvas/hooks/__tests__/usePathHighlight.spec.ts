@@ -436,3 +436,162 @@ describe('usePathHighlight', () => {
     })
   })
 })
+
+/**
+ * F3 (graph-visuals) — focus dim interplay.
+ *
+ * While a focus dim is active FOR THE SELECTED NODE, this hook must not
+ * overwrite dimmedNodeIds (the focus dim owns it; path edges still
+ * highlight). The moment selection moves away — reselect, deselect, blur —
+ * the hook clears the focus dim so it can NEVER survive after focus ends,
+ * then resumes normal path dimming.
+ */
+describe('usePathHighlight × focus dim (F3)', () => {
+  beforeEach(() => {
+    useCanvasStore.setState({
+      nodes: [],
+      edges: [],
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+      highlightedEdges: new Set(),
+      dimmedNodeIds: new Set(),
+      focusDimSourceId: null,
+      ceeAnalysisReady: null,
+    } as any)
+  })
+
+  const graph = () => {
+    // factor_a → outcome → goal, with iso disconnected
+    const nodes = [
+      createNode('factor_a', 'factor'),
+      createNode('outcome', 'outcome'),
+      createNode('goal', 'goal'),
+      createNode('iso', 'factor'),
+    ]
+    const edges = [
+      createEdge('e1', 'factor_a', 'outcome'),
+      createEdge('e2', 'outcome', 'goal'),
+    ]
+    return { nodes, edges }
+  }
+
+  it('leaves an active focus dim for the selected node untouched (path dim must not clobber it)', () => {
+    const { nodes, edges } = graph()
+    useCanvasStore.setState({
+      nodes,
+      edges,
+      selection: { nodeIds: new Set(['factor_a']), edgeIds: new Set(), anchorPosition: null },
+      ceeAnalysisReady: { goal_node_id: 'goal', options: [] } as any,
+      // Focus dim from handleFocusNode: non-neighbours of factor_a = {goal, iso}
+      focusDimSourceId: 'factor_a',
+      dimmedNodeIds: new Set(['goal', 'iso']),
+    } as any)
+
+    renderHook(() => usePathHighlight())
+
+    const state = useCanvasStore.getState()
+    // Path dim would have been {iso} only — the focus dim must win while active
+    expect([...state.dimmedNodeIds].sort()).toEqual(['goal', 'iso'])
+    expect((state as any).focusDimSourceId).toBe('factor_a')
+    // The causal path still highlights (edges are not dim state)
+    expect(state.highlightedEdges.has('e1')).toBe(true)
+    expect(state.highlightedEdges.has('e2')).toBe(true)
+  })
+
+  it('preserves the focus dim in a goal-less graph (the early clear must not wipe it)', () => {
+    const { nodes, edges } = graph()
+    useCanvasStore.setState({
+      nodes: nodes.filter((n) => n.id !== 'goal'),
+      edges: edges.filter((e) => e.target !== 'goal'),
+      selection: { nodeIds: new Set(['factor_a']), edgeIds: new Set(), anchorPosition: null },
+      ceeAnalysisReady: null, // no goal anywhere → the hook's early-clear branch
+      focusDimSourceId: 'factor_a',
+      dimmedNodeIds: new Set(['iso']),
+    } as any)
+
+    renderHook(() => usePathHighlight())
+
+    const state = useCanvasStore.getState()
+    expect([...state.dimmedNodeIds]).toEqual(['iso'])
+    expect((state as any).focusDimSourceId).toBe('factor_a')
+  })
+
+  it('clears the focus dim when selection moves to another node, then applies normal path dim', () => {
+    const { nodes, edges } = graph()
+    useCanvasStore.setState({
+      nodes,
+      edges,
+      selection: { nodeIds: new Set(['factor_a']), edgeIds: new Set(), anchorPosition: null },
+      ceeAnalysisReady: { goal_node_id: 'goal', options: [] } as any,
+      focusDimSourceId: 'factor_a',
+      dimmedNodeIds: new Set(['goal', 'iso']),
+    } as any)
+
+    renderHook(() => usePathHighlight())
+
+    act(() => {
+      useCanvasStore.setState({
+        selection: { nodeIds: new Set(['outcome']), edgeIds: new Set(), anchorPosition: null },
+      })
+    })
+
+    const state = useCanvasStore.getState()
+    expect((state as any).focusDimSourceId).toBeNull()
+    // Normal path dim for outcome→goal: factor_a and iso are off the path
+    expect([...state.dimmedNodeIds].sort()).toEqual(['factor_a', 'iso'])
+  })
+
+  it('ending the lens from OUTSIDE restores the selected node’s path dim (finding 2)', () => {
+    // The regression: clearFocusDim (a camera move, an edge focus, the focused
+    // node being removed) wipes dimmedNodeIds, but the selection has NOT
+    // changed — so nothing re-ran and the path dim was gone for good. The user
+    // pans once and loses path dimming until they reselect.
+    const { nodes, edges } = graph()
+    useCanvasStore.setState({
+      nodes,
+      edges,
+      selection: { nodeIds: new Set(['factor_a']), edgeIds: new Set(), anchorPosition: null },
+      ceeAnalysisReady: { goal_node_id: 'goal', options: [] } as any,
+      focusDimSourceId: 'factor_a',
+      dimmedNodeIds: new Set(['goal', 'iso']),
+    } as any)
+
+    renderHook(() => usePathHighlight())
+
+    // A camera move ends the lens — selection untouched.
+    act(() => {
+      useCanvasStore.getState().clearFocusDim()
+    })
+
+    const state = useCanvasStore.getState()
+    expect((state as any).focusDimSourceId).toBeNull()
+    // factor_a is still selected, so its path dim must be back: the path is
+    // factor_a → outcome → goal, leaving only iso dimmed.
+    expect([...state.dimmedNodeIds]).toEqual(['iso'])
+    expect(state.highlightedEdges.has('e1')).toBe(true)
+    expect(state.highlightedEdges.has('e2')).toBe(true)
+  })
+
+  it('clears the focus dim on deselect — it never survives after focus ends', () => {
+    const { nodes, edges } = graph()
+    useCanvasStore.setState({
+      nodes,
+      edges,
+      selection: { nodeIds: new Set(['factor_a']), edgeIds: new Set(), anchorPosition: null },
+      ceeAnalysisReady: { goal_node_id: 'goal', options: [] } as any,
+      focusDimSourceId: 'factor_a',
+      dimmedNodeIds: new Set(['goal', 'iso']),
+    } as any)
+
+    renderHook(() => usePathHighlight())
+
+    act(() => {
+      useCanvasStore.setState({
+        selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+      })
+    })
+
+    const state = useCanvasStore.getState()
+    expect((state as any).focusDimSourceId).toBeNull()
+    expect(state.dimmedNodeIds.size).toBe(0)
+  })
+})
