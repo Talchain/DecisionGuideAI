@@ -92,6 +92,32 @@ describe('StrengthenPanel — §8.3 presentation', () => {
     expect(signal.className).toContain('line-clamp-2')
   })
 
+  it('round 2: the EXPANDED row renders the full producer body UNCLAMPED, exactly once', () => {
+    // Phase-3 recs carry the producer body in signal (collapsed scent) AND
+    // whyNow (expanded prose + drawer context). An open row must show the
+    // FULL body — never only a two-line clamp — and never the same sentence
+    // twice: the clamped subtitle stands down while the full text renders.
+    const body =
+      'Team Maturity continues to support higher output as expected, because the producer explained this finding at length and the sentence keeps going well past anything a two-line clamp could show.'
+    render(
+      <StrengthenPanel {...baseProps} active={[record('p3', {}, { signal: body, whyNow: body })]} />,
+    )
+    // The first row is expanded by default.
+    const matches = screen.getAllByText(body)
+    expect(matches).toHaveLength(1) // shown once, not clamped-copy + full-copy
+    expect(matches[0].className).not.toContain('line-clamp-2')
+  })
+
+  it('round 2: collapsing the row restores the clamped subtitle scent', () => {
+    const body = 'A producer finding that names the factor and explains the stakes at length.'
+    render(
+      <StrengthenPanel {...baseProps} active={[record('p3', {}, { signal: body, whyNow: body })]} />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Title p3/ })) // collapse row 0
+    const collapsed = screen.getByText(body)
+    expect(collapsed.className).toContain('line-clamp-2')
+  })
+
   it('every row carries a leading family icon in the head', () => {
     render(<StrengthenPanel {...baseProps} active={[record('strengthen:success-measure')]} />)
     const head = screen.getByRole('button', { name: /Title strengthen:success-measure/ })
