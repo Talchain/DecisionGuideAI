@@ -52,10 +52,6 @@ vi.mock('../../conversation/useConversation', async () => {
   }
 })
 
-// useStaleGuard is store-dependent — stub to a stable "not stale" baseline.
-vi.mock('../../ui/inspector-v2/useStaleGuard', () => ({
-  useStaleGuard: () => ({ analysisState: 'none', isStale: false }),
-}))
 
 // useStageAwarePlaceholder pulls from canvas store + stale guard; stub the
 // constant string variant for predictable assertions.

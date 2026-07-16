@@ -54,9 +54,6 @@ vi.mock('../../store', () => {
 vi.mock('../../hooks/useStageAwarePlaceholder', () => ({
   useStageAwarePlaceholder: () => 'Describe your decision…',
 }))
-vi.mock('../../ui/inspector-v2/useStaleGuard', () => ({
-  useStaleGuard: () => ({ analysisState: 'none', isStale: false }),
-}))
 vi.mock('../../hooks/useSelectionContext', () => ({
   useSelectionContext: () => null,
 }))

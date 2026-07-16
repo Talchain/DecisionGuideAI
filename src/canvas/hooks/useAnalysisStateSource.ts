@@ -77,14 +77,22 @@ export function classifyAnalysisStateSource(args: {
     }
   }
 
-  // Per correction 3: a V5 fact requires explicit signals — never inferred
-  // from generic readiness. The fact slice in canvas store is the canonical
-  // source; we additionally require scenario match so cross-scenario stale
-  // facts don't claim coverage.
+  // Per correction 3 (as amended by F10): a V5 fact requires explicit
+  // signals — never inferred from generic readiness — but the ran-vs-current
+  // question is decided ONCE, at the mint gate (deriveV5AnalysisFactUpdate):
+  // a fact is only ever written when the response carried explicit
+  // has_run_analysis_fact=true OR an analysis_result block, and it records
+  // the COMPOSED answer. The classifier therefore BELIEVES a minted fact
+  // regardless of its freshness verdict — a stale-verdict run still RAN, and
+  // re-testing freshness here re-opened the exact conflation F10 fixed
+  // (every stale/no-verdict run classified orphaned one layer up). The
+  // explicit-false guard stays as belt-and-braces (that shape is also
+  // cleared at the mint site). Scenario match is still required so
+  // cross-scenario stale facts don't claim coverage.
   const factForScenario =
     fact !== null &&
     (fact.scenarioId === null || fact.scenarioId === currentScenarioId) &&
-    (fact.hasRunAnalysisFact === true || fact.freshness === 'fresh')
+    fact.hasRunAnalysisFact !== false
 
   if (!canonicalFlagOn) {
     return {

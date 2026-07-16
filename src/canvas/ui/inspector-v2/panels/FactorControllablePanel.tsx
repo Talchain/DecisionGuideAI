@@ -16,7 +16,6 @@ import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
-import { useStaleGuard } from '../useStaleGuard'
 import { shouldShowNormalised } from '../normalisedDisplay'
 import { unwrapInterventionValue, classifyUnit } from '../../../utils/labelUtils'
 import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
@@ -66,7 +65,6 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
-  const { isStale } = useStaleGuard()
   const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
 
@@ -226,7 +224,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
 
         {/* Post-analysis: ImportanceBar + VoI folded in (no separate bordered card) */}
         {isResultsMode && (displayMetadata.influence != null || displayMetadata.sensitivityRank != null) && (
-          <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
+          <StaleGuardBanner hasResults={isResultsMode}>
             <div className="mt-2 space-y-2">
               <ImportanceBar
                 importanceScore={displayMetadata.influence}

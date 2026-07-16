@@ -9,8 +9,9 @@
  *
  * Source rules live in the slice reducer (retain / order-by-computed_at /
  * never-absence→fresh). This component is display-only: it does NOT use
- * v5AnalysisFact, useStaleGuard, or any local graph-hash computation, and it
- * never shows the technical reason/hash fields as copy (they ride on data-*).
+ * v5AnalysisFact directly, the graph-hash stale guard deleted on 2026-07-16,
+ * or any local graph-hash computation, and it never shows the technical
+ * reason/hash fields as copy (they ride on data-*).
  *
  * ALWAYS-VISIBILITY CONTRACT (C1 — one Rerun owner per viewport)
  * -------------------------------------------------------------
@@ -41,12 +42,15 @@
 import { useEffect, useRef } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { useCanvasStore } from '@/canvas/store'
+import { useAnalysisStateSource } from '@/canvas/hooks/useAnalysisStateSource'
 import { typography } from '@/styles/typography'
 import {
+  classifyFreshnessForDisplay,
   resolveDisplayedFreshness,
   type AnalysisFreshnessState,
   type AnalysisFreshnessValue,
 } from '@/canvas/store/analysisFreshness'
+import { resolveTrustEffectiveState } from '@/canvas/hooks/useAnalysisTrust'
 import { executeCanonicalRun } from '@/canvas/analysis/canonicalRunRegistry'
 import { useShowToastSafe } from '@/canvas/ToastContext'
 
@@ -76,6 +80,12 @@ export interface AnalysisFreshnessNoticeProps {
   className?: string
 }
 
+/** Orphan axis only — the strip already owns verdict + running locally. */
+function useAnalysisTrustSource(): { orphaned: boolean } {
+  const { source } = useAnalysisStateSource()
+  return { orphaned: source === 'orphaned_plot_result' }
+}
+
 export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, className = '' }: AnalysisFreshnessNoticeProps) {
   const showToast = useShowToastSafe()
   const storeState = useCanvasStore((s) => s.analysisFreshness)
@@ -86,10 +96,32 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
   const isRunning =
     resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
 
-  // Parity audit: the prototype confirms a completed rerun ('Analysis rerun
-  // completed with the current model'). Watch the running→complete
-  // transition; the strip is the canonical freshness owner so the toast
-  // lives here (single mount — no double-fire).
+  // F11 fold: the orphan banner is DELETED as a separate surface — a result
+  // with no live run fact (recovered session) is this strip's no-verdict
+  // cannot-confirm variant, carrying the SAME single Rerun action (C1: one
+  // Rerun owner). Before the fold, one underlying state could stack two
+  // banners ("Results may be outdated" + "Refresh analysis") — Paul's
+  // 16-Jul session, F10+F11.
+  const { orphaned } = useAnalysisTrustSource()
+
+  // The ONE precedence rule, shared with computeAnalysisTrust so the strip
+  // and the composed hook cannot diverge: a held fresh/stale/unknown verdict
+  // wins; an orphaned result with NO verdict — or with a 'none' verdict,
+  // which would claim "No analysis yet." over a visible results body —
+  // renders the cannot-confirm variant with the one Rerun. No verdict and no
+  // orphan → nothing to say (never claim a freshness state we don't hold).
+  const { state: effectiveState, orphanSynthesised } = resolveTrustEffectiveState(state, orphaned)
+
+  // The toast must claim exactly what the strip claims — same state, same
+  // classification (acceptance: the completion toast and the strip can never
+  // disagree). 'current' is the ONLY semantic that supports "with the current
+  // model"; a retained 'stale', a cannot-confirm downgrade or a
+  // run-completed-without-verdict all get the neutral completion line.
+  const completionSemantic = classifyFreshnessForDisplay(effectiveState, dirty)
+
+  // Parity audit: the prototype confirms a completed rerun. Watch the
+  // running→complete transition; the strip is the canonical freshness owner
+  // so the toast lives here (single mount — no double-fire).
   const wasRunningRef = useRef(false)
   useEffect(() => {
     if (isRunning) {
@@ -103,19 +135,20 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
         // for that case would be a lie.
         if (useCanvasStore.getState().results?.settledWithoutNewReport) {
           showToast('The run ended without new results. Showing your previous analysis.')
-        } else {
+        } else if (completionSemantic === 'current') {
           showToast('Analysis rerun completed with the current model')
+        } else {
+          showToast('Analysis rerun completed')
         }
       }
     }
-  }, [isRunning, resultsStatus, showToast])
+  }, [isRunning, resultsStatus, showToast, completionSemantic])
 
-  // No verdict yet → no notice (never claim a freshness state we don't hold).
-  if (!state) return null
+  if (!effectiveState) return null
 
   // CEE verdict is the source of truth; the local dirty overlay may only
   // downgrade a retained 'fresh' to cannot-confirm (never fabricate 'stale').
-  const freshness = resolveDisplayedFreshness(state, dirty) as AnalysisFreshnessValue
+  const freshness = resolveDisplayedFreshness(effectiveState, dirty) as AnalysisFreshnessValue
   const isStale = freshness === 'stale'
   // Recovery applies to BOTH not-confirmably-fresh states: a stale verdict
   // and a cannot-confirm 'unknown' (e.g. recovered session, local edit
@@ -127,15 +160,16 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
   const offersRerun = freshness !== 'none'
   // Mark when the displayed verdict differs from CEE's because of a local edit —
   // technical signal for tests/debug only, not user copy.
-  const downgraded = state.freshness === 'fresh' && freshness === 'unknown'
+  const downgraded = effectiveState.freshness === 'fresh' && freshness === 'unknown'
 
   return (
     <div
       data-testid="analysis-freshness-notice"
       data-freshness={freshness}
-      data-cee-freshness={state.freshness}
+      data-cee-freshness={effectiveState.freshness}
       data-freshness-dirty={downgraded ? 'true' : undefined}
-      data-freshness-reason={state.freshnessReason}
+      data-orphaned={orphanSynthesised ? 'true' : undefined}
+      data-freshness-reason={effectiveState.freshnessReason}
       // C1: `sticky top-0 z-10` is load-bearing, not decoration — see the
       // always-visibility contract in the file header. Do not remove.
       className={`sticky top-0 z-10 flex items-center gap-2 rounded-md border px-3 py-2 bg-panel ${isStale ? 'border-warning/30' : 'border-panel-border'} ${className}`.trim()}

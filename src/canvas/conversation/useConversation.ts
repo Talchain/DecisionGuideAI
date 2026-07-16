@@ -28,7 +28,7 @@ import { deriveV5Stage } from '../../v5/stageMapper'
 import { applyV5State } from '../../v5/applyV5State'
 import {
   extractPhase3FromV5Response,
-  v5ResponseHasRunAnalysisFact,
+  deriveV5AnalysisFactUpdate,
   type Phase3RawBlock,
 } from '../../v5/extractPhase3FromV5Response'
 import {
@@ -981,7 +981,7 @@ export function selectTopPhase3ReviewCard(
  *
  * Inputs:
  *   - factPresent: whether the current response carries a successful
- *     run_analysis fact (computed by v5ResponseHasRunAnalysisFact). Gates
+ *     run_analysis fact (deriveV5AnalysisFactUpdate action === 'set'). Gates
  *     ONLY the legacy review_card fallback below — 0.13.x-typed blocks are
  *     per-turn producer content and render on the turn CEE emitted them
  *     (coaching legitimately arrives on draft turns, which carry no
@@ -3166,22 +3166,28 @@ export function useConversation(): UseConversationReturn {
             // states (scenario switch in store.ts; orphan classification
             // computed by useAnalysisStateSource).
             //
-            // Per correction 3: the v5AnalysisFact slice is only written
-            // when CEE emitted real run_analysis fact signals (an
-            // analysis_result block plus freshness='fresh' or explicit
-            // has_run_analysis_fact=true). Generic readiness is never a
-            // substitute.
+            // Per correction 3 (as amended by F10): the v5AnalysisFact slice
+            // is only written when the response carries real run signals —
+            // explicit has_run_analysis_fact=true, OR an analysis_result
+            // block regardless of the freshness verdict (a stale-verdict run
+            // still RAN; "ran" and "current" are different questions).
+            // Generic readiness is never a substitute. The whole decision —
+            // set (with the COMPOSED hasRunAnalysisFact, never CEE's raw
+            // nullable flag) / clear / retain — lives in
+            // deriveV5AnalysisFactUpdate so the mint→classify seam is pinned
+            // against the production path.
             const phase3 = extractPhase3FromV5Response(target.response)
-            const factPresent = v5ResponseHasRunAnalysisFact(target.response, phase3)
-            if (factPresent) {
+            const factUpdate = deriveV5AnalysisFactUpdate(target.response, phase3)
+            const factPresent = factUpdate.action === 'set'
+            if (factUpdate.action === 'set') {
               const analysisHash = useCanvasStore.getState().results?.hash ?? null
               useCanvasStore.getState().setV5AnalysisFact({
                 scenarioId: useCanvasStore.getState().currentScenarioId,
                 analysisHash,
-                hasRunAnalysisFact: phase3.hasRunAnalysisFact,
-                freshness: phase3.analysisFreshness,
-                freshnessReason: phase3.freshnessReason,
-                rawBlocks: phase3.rawBlocks.map((b) => ({
+                hasRunAnalysisFact: factUpdate.hasRunAnalysisFact,
+                freshness: factUpdate.freshness,
+                freshnessReason: factUpdate.freshnessReason,
+                rawBlocks: factUpdate.rawBlocks.map((b) => ({
                   type: b.type,
                   raw: b.raw,
                   id: b.id,
@@ -3189,15 +3195,14 @@ export function useConversation(): UseConversationReturn {
                 })),
                 writtenAt: Date.now(),
               })
-            } else if (phase3.hasRunAnalysisFact === false ||
-                       phase3.analysisFreshness === 'none') {
+            } else if (factUpdate.action === 'clear') {
               // CEE explicitly says "no successful run_analysis fact" — this
               // is a legitimate clear (not a blind one). Drop the slice.
               useCanvasStore.getState().setV5AnalysisFact(null)
             }
-            // else: response carries no signal either way — leave the
-            // existing fact slice untouched. Conversational turns must not
-            // wipe a prior analysis fact.
+            // else ('retain'): response carries no signal either way — leave
+            // the existing fact slice untouched. Conversational turns must
+            // not wipe a prior analysis fact.
 
             // Populate GuidanceStore from derived Phase 3 items ONLY when
             // the response carries them. Empty Phase 3 on a conversational

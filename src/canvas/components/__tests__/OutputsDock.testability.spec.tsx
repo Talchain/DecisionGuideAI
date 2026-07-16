@@ -68,9 +68,6 @@ vi.mock('../../conversation/useConversation', () => ({
   }),
 }))
 
-vi.mock('../../ui/inspector-v2/useStaleGuard', () => ({
-  useStaleGuard: () => ({ analysisState: 'none', isStale: false }),
-}))
 
 // PreAnalysisPanel pulls ToastProvider + readiness fetches that fail outside
 // the full app shell; post-run surface under test never renders it.

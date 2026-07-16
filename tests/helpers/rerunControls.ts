@@ -37,13 +37,29 @@ export const RERUN_TESTID_RE = /re-?run|run-analysis|analysis-run/i
  * Every control in `scope` that could dispatch a run — matched by accessible
  * NAME or by TESTID, so a reintroduction has to evade both to go unnoticed.
  *
+ * The testid branch additionally requires CONTROL semantics (a button/link
+ * element or role=button): RERUN_TESTID_RE substring-matches non-control
+ * testids too — 'analysis-running-banner' contains 'run' via /re-?run|…/i's
+ * alternates — and sweeping a status banner in as a "rerun control" would
+ * fail a future in-flight sweep on narration rather than a real control. A
+ * clickable non-control div would evade this filter, but such a control is
+ * already an a11y violation the DS gates reject.
+ *
  * Returns a Set so callers can assert on `.size`, or compare identity against
  * the specific element they expect to be the sole owner.
  */
 export function collectRerunControls(scope: HTMLElement): Set<Element> {
   const byName = within(scope).queryAllByRole('button', { name: RERUN_NAME_RE })
-  const byTestId = Array.from(scope.querySelectorAll('[data-testid]')).filter(el =>
-    RERUN_TESTID_RE.test(el.getAttribute('data-testid') ?? ''),
-  )
+  const CONTROL_TAGS = new Set(['BUTTON', 'A'])
+  const byTestId = Array.from(scope.querySelectorAll('[data-testid]')).filter(el => {
+    if (!RERUN_TESTID_RE.test(el.getAttribute('data-testid') ?? '')) return false
+    if (CONTROL_TAGS.has(el.tagName)) return true
+    if (el.getAttribute('role') === 'button') return true
+    if (el.tagName === 'INPUT') {
+      const type = (el as HTMLInputElement).type
+      return type === 'button' || type === 'submit'
+    }
+    return false
+  })
   return new Set<Element>([...byName, ...byTestId])
 }

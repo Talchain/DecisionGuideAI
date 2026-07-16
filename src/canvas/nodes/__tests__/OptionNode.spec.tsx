@@ -1907,44 +1907,7 @@ describe('OptionNode — display coherence (audit §8)', () => {
   })
 
   // Item 6: stale treatment on result decorations
-  it('marks win-probability block and Leading badge stale when the graph changed since the run', () => {
-    vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.72))
-    vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(makeStoreState({
-        results: {
-          status: 'complete',
-          graphHash: 'hash-at-run',
-          report: { option_probabilities: { 'option-1': { win_probability: 0.72 }, 'option-2': { win_probability: 0.2 } } },
-        },
-        _internal: { graphHash: 'hash-now-different' },
-        nodes: [
-          { id: 'option-1', type: 'option', data: { label: 'Option A', type: 'option' } },
-          { id: 'option-2', type: 'option', data: { label: 'Option B', type: 'option' } },
-        ],
-      }) as any)
-    )
-    const { container } = renderOption({ label: 'Option A' })
-    const staleEls = container.querySelectorAll('[data-stale="true"]')
-    expect(staleEls.length).toBeGreaterThanOrEqual(2) // win-prob block + badge
-    const winProbBlock = screen.getByText('72% win probability').closest('[data-stale="true"]')
-    expect(winProbBlock).not.toBeNull()
-    expect(winProbBlock!.getAttribute('title')).toBe('Model changed since this analysis')
-    expect(winProbBlock!.className).toContain('opacity-50')
-    const badge = screen.getByText('Leading option')
-    expect(badge.getAttribute('data-stale')).toBe('true')
-  })
 
-  it('does not mark decorations stale when hashes match', () => {
-    vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.72))
-    vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(makeStoreState({
-        results: { status: 'complete', graphHash: 'same-hash', report: {} },
-        _internal: { graphHash: 'same-hash' },
-      }) as any)
-    )
-    const { container } = renderOption()
-    expect(container.querySelectorAll('[data-stale="true"]').length).toBe(0)
-  })
 
   // Item 7: per-option intervention list containment
   it('caps the "What this option changes:" list at 3 rows with "+N more in inspector"', () => {

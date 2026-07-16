@@ -9,7 +9,7 @@
  *
  * Decision keys off `results.status === 'complete'` + the shared freshness display
  * semantic (`changed` or `cannot_confirm`).
- * This replaces the legacy `isStale` from useStaleGuard, whose production input
+ * This replaces the legacy graph-hash stale flag (guard deleted 2026-07-16), whose production input
  * `_internal.graphHash` is never written — so the rerun affordance never appeared
  * after a graph edit even though the Results surface showed cannot-confirm.
  *
@@ -40,7 +40,7 @@ function makeChip(overrides: Partial<ActionChip> = {}): ActionChip {
 
 /**
  * Drive the run-analysis polish input via the CEE freshness verdict + dirty
- * overlay (the production source), NOT the dead useStaleGuard graph-hash path.
+ * overlay (the production source), NOT the dead graph-hash stale path (guard deleted 2026-07-16).
  *   none          → no analysis (idle, no verdict)
  *   current       → complete + CEE 'fresh', clean
  *   stale         → complete + CEE 'stale'
@@ -123,7 +123,7 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
   })
 
   it('relabels to "Rerun" when a fresh analysis is cannot-confirm after a local edit', () => {
-    // The key production regression: before, isStale (dead useStaleGuard) never
+    // The key production regression: before, the dead graph-hash stale flag never
     // fired, so a post-edit cannot-confirm state kept the rerun chip suppressed.
     setAnalysisState('cannot-confirm')
     render(

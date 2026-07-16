@@ -857,56 +857,12 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
 })
 
 // ─── Audit §8 P1: stale treatment on the stability bar ──────────────────────
-describe('GoalNode — stale stability bar (audit §8 P1)', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
-      sensitivityRank: null,
-      influence: null,
-      confidence: null,
-      inSensitivityAnalysis: false,
-      achievementProbability: 0.5,
-      stabilityPercentage: null,
-      winRate: null,
-      isResultsMode: true,
-      predictedOutcome: null,
-      valueOfInformation: null,
-      voiRank: null,
-    })
-  })
-
-  it('dims the stability bar and titles it when the graph changed since the run', () => {
-    vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(makeStoreState({
-        results: {
-          status: 'complete',
-          graphHash: 'hash-at-run',
-          report: { robustness: { recommendation_stability: 0.8 } },
-        },
-        _internal: { graphHash: 'hash-now-different' },
-      }) as any)
-    )
-    const { container } = renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
-    const staleEl = container.querySelector('[data-stale="true"]')
-    expect(staleEl).not.toBeNull()
-    expect(staleEl!.getAttribute('title')).toBe('Model changed since this analysis')
-    expect(staleEl!.className).toContain('opacity-50')
-    expect(staleEl!.textContent).toContain('Decision stability')
-  })
-
-  it('leaves the stability bar untouched when hashes match', () => {
-    vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(makeStoreState({
-        results: {
-          status: 'complete',
-          graphHash: 'same-hash',
-          report: { robustness: { recommendation_stability: 0.8 } },
-        },
-        _internal: { graphHash: 'same-hash' },
-      }) as any)
-    )
-    const { container } = renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
-    expect(container.querySelector('[data-stale="true"]')).toBeNull()
-    expect(screen.getAllByText('Decision stability').length).toBeGreaterThan(0)
-  })
-})
+// The 'stale stability bar (audit §8 P1)' describe that lived here was
+// retired with the graph-hash stale guard (deleted 2026-07-16): its remaining
+// negative test asserted the absence of `data-stale` — an attribute NO code
+// path can produce any more — while seeding `_internal.graphHash`, a key
+// production never writes. An absence pin without a possible positive is
+// permanently green and pins nothing (trap 13). Freshness decoration now
+// belongs to the panel surfaces via the composed trust semantic
+// (useAnalysisTrust); if node-level decoration returns, pin it against that
+// source with a positive control.

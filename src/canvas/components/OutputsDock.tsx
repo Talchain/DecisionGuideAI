@@ -37,6 +37,7 @@ import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectR
 import { resolveDisplayedFreshness } from '../store/analysisFreshness'
 import { getScenario } from '../store/scenarios'
 import { AnalysisFreshnessNotice } from '../../components/results/AnalysisFreshnessNotice'
+import { useAnalysisStateSource } from '../hooks/useAnalysisStateSource'
 import { DecisionOverviewCard } from '../../components/results/decision-overview/DecisionOverviewCard'
 import { isDecisionOverviewEnabled } from '../../flags'
 import { deriveResultsTabFreshness } from './resultsTabFreshness'
@@ -610,7 +611,20 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // action, the footer is STATUS-ONLY (robustness verdict + producer meta
   // stay); when the strip shows no action the footer keeps its Rerun so the
   // tab never loses its only recovery affordance.
-  const freshnessStripOwnsRerun = displayedFreshness != null && displayedFreshness !== 'none'
+  // F11 fold: the strip ALSO renders (with the one Rerun) for an ORPHANED
+  // result — the ownership predicate must match the strip's OFFERS-RERUN
+  // condition (not merely its render condition) or the tab is left with
+  // either two Rerun owners or none (C1). The strip's precedence rule
+  // (resolveTrustEffectiveState) makes an orphaned result ALWAYS offer the
+  // Rerun: a held fresh/stale/unknown verdict wins (left disjunct), and a
+  // null or 'none' verdict synthesises the cannot-confirm variant with the
+  // Rerun (right disjunct). Only a NON-orphaned 'none'/unset verdict draws
+  // no strip control, and there the footer keeps its action. Same source the
+  // strip itself uses; never a hand-mirror of its old condition.
+  const { source: analysisStateSource } = useAnalysisStateSource()
+  const orphanedResult = analysisStateSource === 'orphaned_plot_result'
+  const freshnessStripOwnsRerun =
+    (displayedFreshness != null && displayedFreshness !== 'none') || orphanedResult
   // Within the not-fresh window, distinguish a model that definitely CHANGED since
   // the run (CEE 'stale' or a local edit that downgraded a retained 'fresh') from a
   // CANNOT-CONFIRM state where CEE could not determine freshness — so the stale
@@ -756,11 +770,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // "4-CTA corner case" cannot arise post-C1: the max is 2.)
   //
   // It must not come back as an action-level gate either. AnalysisOrphanBanner
-  // mounts inside ResultsBody — INSIDE the scroller — so it scrolls away.
-  // Letting a scrolling surface suppress the footer's action would recreate
-  // the exact zero-affordance blocker this lane fixed, in the state where the
-  // strip holds no verdict and the footer is the tab's only always-visible
-  // owner. The footer yields its action ONLY to the strip, which is pinned.
+  // (deleted in the F11 fold) mounted inside ResultsBody — INSIDE the
+  // scroller — so it scrolled away. Letting a scrolling surface suppress the
+  // footer's action would recreate the exact zero-affordance blocker this
+  // lane fixed, in the state where the strip holds no verdict and the footer
+  // is the tab's only always-visible owner. The footer yields its action
+  // ONLY to the strip, which is pinned.
   //
   // Net: banner + footer can coexist — which is precisely what the base
   // already did on the legacy path, deliberately ("the legacy
@@ -1615,8 +1630,9 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
   // AI panel v2: freshness indicator on the Results tab label. Driven by the CEE
   // freshness verdict + local dirty overlay (displayedFreshness), NOT the legacy
-  // useStaleGuard graph-hash path (_internal.graphHash is never written, so its
-  // isStale can never fire and would contradict the CEE-derived Results state).
+  // graph-hash stale path deleted on 2026-07-16 (_internal.graphHash is never
+  // written, so its isStale could never fire and would contradict the
+  // CEE-derived Results state).
   // Strictly FF-gated — no behaviour change when FF_AI_PANEL_V2 is off.
   //
   // It MUST distinguish a genuine CEE 'stale' verdict (warning glyph + stale label)
@@ -2214,10 +2230,11 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   </div>
                 )}
                 {/* Wave F-B (brief §5.2): the top-level stale banner is RETIRED —
-                    AnalysisFreshnessNotice inside ResultsBody is the sole
-                    freshness owner and carries the one Rerun. The 0.6 dim on
-                    the results body (below) stays, driven by the same
-                    canonical verdict. */}
+                    AnalysisFreshnessNotice (mounted below in this tab's
+                    scroller, above the results body) is the sole freshness
+                    owner and carries the one Rerun. The 0.6 dim on the
+                    results body (below) stays, driven by the same canonical
+                    verdict. */}
                 {/* A.9: Conversation-triggered analysis indicator — auto-dismisses after 5s */}
                 {convIndicatorVisible && !isPreRun && report && (
                   <div

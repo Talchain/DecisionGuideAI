@@ -7,6 +7,7 @@
 
 import { useMemo, useCallback } from 'react'
 import { useCanvasStore } from '../store'
+import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { selectConversationStatus } from './selectors'
 import type { ConversationStatusInput, CtaKind } from './selectors'
@@ -72,12 +73,11 @@ export function ActionStrip({ messages, patchBlockStates, onNavigate }: ActionSt
   const nodeCount = useCanvasStore((s) => s.nodes.length)
   const resultsStatus = useCanvasStore((s) => s.results.status)
   const hasCompletedFirstRun = useCanvasStore((s) => s.hasCompletedFirstRun)
-  // Freshness comes from the CEE slice + local dirty overlay (the shared display
-  // semantic), NOT the dead/local `graphEditedSinceLastRun` flag — so the
-  // "Results outdated" badge stays in sync with the rest of the analysis trust
-  // surface and never independently fabricates stale.
-  const analysisFreshness = useCanvasStore((s) => s.analysisFreshness)
-  const analysisFreshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
+  // Freshness comes from the composed trust semantic (useAnalysisTrust), NOT
+  // the dead/local `graphEditedSinceLastRun` flag — so the "Results outdated"
+  // badge stays in sync with the rest of the analysis trust surface and never
+  // independently fabricates stale.
+  const trustSemantic = useAnalysisTrust().semantic
   const guidanceItems = useGuidanceStore((s) => s.guidanceItems)
   const activeGuidanceItemId = useGuidanceStore((s) => s.activeGuidanceItemId)
 
@@ -86,12 +86,11 @@ export function ActionStrip({ messages, patchBlockStates, onNavigate }: ActionSt
     nodeCount,
     resultsStatus,
     hasCompletedFirstRun,
-    analysisFreshness,
-    analysisFreshnessDirty,
+    trustSemantic,
     guidance: { guidanceItems, activeGuidanceItemId, inspectorDeepLinkField: null, _sendMessage: null, _scrollToPatch: null, _runAnalysis: null, _sendChip: null, _prefillChat: null, _dispatchAction: null, _registrationToken: null },
     messages,
     patchBlockStates,
-  }), [nodeCount, resultsStatus, hasCompletedFirstRun, analysisFreshness, analysisFreshnessDirty, guidanceItems, activeGuidanceItemId, messages, patchBlockStates])
+  }), [nodeCount, resultsStatus, hasCompletedFirstRun, trustSemantic, guidanceItems, activeGuidanceItemId, messages, patchBlockStates])
 
   const { status, topGuidanceItem, guidanceCount, ctaKind } = useMemo(
     () => selectConversationStatus(input),

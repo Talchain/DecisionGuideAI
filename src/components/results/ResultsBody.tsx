@@ -27,7 +27,6 @@ import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBounda
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 import { DecisionConfidencePanel } from './DecisionConfidencePanel'
 import { AnalysisHeroV17 } from './AnalysisHeroV17'
-import { AnalysisOrphanBanner } from './AnalysisOrphanBanner'
 import { WhatChangedChip } from '../../canvas/components/WhatChangedChip'
 import { StrengthenContainer } from './strengthen/StrengthenContainer'
 import { InferenceWarningStrip } from './InferenceWarningStrip'
@@ -247,10 +246,6 @@ export const ResultsBody = memo(function ResultsBody({
   return (
     <div className="flex flex-col gap-4" data-testid="outputs-results-redesign">
 
-      {/* Orphan banner — Results from a non-CEE path with no run_analysis
-          fact for the scenario. Renders only when canonical flag is ON and
-          there is no V5 fact attached. */}
-      <AnalysisOrphanBanner />
 
       {/* Freshness/staleness — CEE analysis_ready.freshness verdict. Renders
           nothing until a verdict exists; never asserts a state we don't hold. */}

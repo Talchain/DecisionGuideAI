@@ -32,8 +32,10 @@
  *
  * IMPORTANT — per v5-canonical-analysis brief correction 3:
  *   `analysis_ready` alone is NOT proof of a successful run_analysis fact.
- *   Callers must use `hasRunAnalysisFact === true` OR the explicit
- *   `analysisFreshness === 'fresh'` signal — never readiness alone.
+ *   Callers must use `deriveV5AnalysisFactUpdate` (which composes the
+ *   explicit `has_run_analysis_fact` flag with the analysis_result-block run
+ *   signal — F10: "ran" and "current" are different questions) — never
+ *   readiness alone, and never the freshness verdict.
  */
 import type { OlumiResponse } from '@talchain/schemas/boundary'
 
@@ -448,9 +450,14 @@ export function extractPhase3FromV5Response(
  * Convenience predicate: does this V5 response carry signals that an
  * analysis turn completed and produced a persisted fact?
  *
- * Per correction 3: rely on hasRunAnalysisFact when CEE emits it; otherwise
- * accept analysisFreshness === 'fresh' AND presence of an analysis_result
- * block as a conservative fallback. analysis_ready alone is NOT sufficient.
+ * Rely on hasRunAnalysisFact when CEE emits it; otherwise the presence of an
+ * analysis_result block IS the run signal — regardless of the freshness
+ * verdict. F10 (Paul's 16-Jul session): the old fallback also required
+ * freshness === 'fresh', so a run turn whose own response carried a 'stale'
+ * verdict minted NO fact → the orphan banner stacked on top of the freshness
+ * strip for the very run the user just watched complete. "Ran" and
+ * "current" are different questions; this predicate answers only the first.
+ * analysis_ready alone is still NOT sufficient.
  */
 export function v5ResponseHasRunAnalysisFact(
   response: OlumiResponse | OlumiResponseWithExtensions,
@@ -459,8 +466,53 @@ export function v5ResponseHasRunAnalysisFact(
   const ext = extraction ?? extractPhase3FromV5Response(response)
   if (ext.hasRunAnalysisFact === true) return true
   if (ext.hasRunAnalysisFact === false) return false
-  if (ext.analysisFreshness === 'fresh') {
-    return response.blocks.some((b) => b.type === 'analysis_result')
+  return response.blocks.some((b) => b.type === 'analysis_result')
+}
+
+/**
+ * The ONE decision for what a V5 response does to the `v5AnalysisFact`
+ * slice. Pure — the production mint site (useConversation) applies the
+ * returned action verbatim, so tests can pin the mint→classify seam against
+ * THIS function instead of hand-mirroring the write.
+ *
+ *   - 'set': the composed run gate (`v5ResponseHasRunAnalysisFact`) passed.
+ *     `hasRunAnalysisFact` on the returned fields is the COMPOSED answer
+ *     (always true here), NOT CEE's raw nullable flag — writing the raw null
+ *     re-opened the ran-vs-current split one layer up, because
+ *     `classifyAnalysisStateSource` read the fact's own flag and disbelieved
+ *     a stale-verdict run it had just watched complete (F10).
+ *   - 'clear': CEE explicitly denied the fact (`has_run_analysis_fact=false`)
+ *     or declared 'none' — a legitimate clear, not a blind one.
+ *   - 'retain': the response carries no signal either way; conversational
+ *     turns must not wipe a prior analysis fact.
+ */
+export type V5AnalysisFactUpdate =
+  | {
+      action: 'set'
+      hasRunAnalysisFact: true
+      freshness: AnalysisFreshness | null
+      freshnessReason: string | null
+      rawBlocks: Phase3RawBlock[]
+    }
+  | { action: 'clear' }
+  | { action: 'retain' }
+
+export function deriveV5AnalysisFactUpdate(
+  response: OlumiResponse | OlumiResponseWithExtensions,
+  extraction?: Phase3Extraction,
+): V5AnalysisFactUpdate {
+  const ext = extraction ?? extractPhase3FromV5Response(response)
+  if (v5ResponseHasRunAnalysisFact(response, ext)) {
+    return {
+      action: 'set',
+      hasRunAnalysisFact: true,
+      freshness: ext.analysisFreshness,
+      freshnessReason: ext.freshnessReason,
+      rawBlocks: ext.rawBlocks,
+    }
   }
-  return false
+  if (ext.hasRunAnalysisFact === false || ext.analysisFreshness === 'none') {
+    return { action: 'clear' }
+  }
+  return { action: 'retain' }
 }
