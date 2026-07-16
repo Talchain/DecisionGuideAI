@@ -31,6 +31,7 @@ import {
   BIAS_SIGNAL_TITLES,
   DRAFT_BIAS_SIGNAL_CARD_CAP,
   buildDraftBiasSignalBlocks,
+  humaniseBiasSignalCode,
 } from '../draftBiasSignalBlocks'
 import type { ConversationBlock, V5CoachingBlock } from '../types'
 
@@ -213,6 +214,31 @@ describe('buildDraftBiasSignalBlocks — fail closed', () => {
       coaching_kind: 'strengthen',
     }
     expect(build([SIGNAL_STATUS_QUO], { existingBlocks: [otherKind] })).toHaveLength(1)
+  })
+})
+
+describe('humaniseBiasSignalCode — prototype-chain escapes (hostile wire codes)', () => {
+  // A bare object-literal index walks the prototype chain: '__proto__'
+  // yields Object.prototype (a truthy object — React throws "Objects are
+  // not valid as a React child", crashing the assistant-message subtree)
+  // and 'constructor' yields the Object function (blank title + console
+  // error). Both must fail closed like any other unknown code. Only these
+  // two survive the toLowerCase() normalisation; 'toString' / 'valueOf' /
+  // 'hasOwnProperty' miss the camelCase prototype properties already.
+  it("'__proto__' fails closed — Object.prototype must never become a card title", () => {
+    expect(humaniseBiasSignalCode('__proto__')).toBeNull()
+  })
+
+  it("'constructor' fails closed — a Function must never become a card title", () => {
+    expect(humaniseBiasSignalCode('constructor')).toBeNull()
+  })
+
+  it('grounded signals carrying hostile codes render no cards (case-insensitive path included)', () => {
+    const blocks = build([
+      { type: '__proto__', detail: 'Hostile wire code.', target: 'fac_initial_quote' },
+      { type: 'CONSTRUCTOR', detail: 'Hostile wire code.', target: 'fac_initial_quote' },
+    ])
+    expect(blocks).toEqual([])
   })
 })
 
