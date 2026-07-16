@@ -1,14 +1,74 @@
 # V6 BUILD PLAN — Analysis-tab v6 lane slicing, flag strategy, tests, decisions, risks
 
+## Amendment log (2026-07-16)
+
+The 2026-07-15 adversarial plan review returned **APPROVED-WITH-AMENDMENTS** (11 amendments,
+recorded in the programme handover, ~13:00 block). This log records each amendment as applied,
+plus every premise re-derived against `origin/staging @ bf921314` (2026-07-16). The tree moved
+TWICE since the review: first the #321/#324/#325/#327/#329/#330/#333/#334 merge train
+(15 Jul afternoon), then #335 through #352 (15 to 16 Jul), including the **#352 trust
+consolidation** which rebuilt the freshness/orphan/footer surfaces this plan's V2 describes.
+Line anchors throughout this document are now cited against **bf921314** unless marked otherwise.
+
+### The 11 amendments, as applied
+
+| # | Amendment (review verdict) | Disposition in this document |
+|---|---|---|
+| 1 | V4's claim "#321 does not touch StrengthenContainer" was FALSE at 0191a1fd (comment-only overlap). | Applied: V4 restated on the true basis. #321's merged file list includes `StrengthenContainer.tsx` (comment-only overlap, no logic collision). #321 has since **merged** (`ac070cf4`), and the :139/:143 container defects are re-verified present at bf921314. |
+| 2 | C1 was NOT unstarted (#329 open at review time) and its real footprint includes `ResultsBody.tsx` (the region V1 gates) plus AnalysisFooter, AnalysisHeroContainer, useAnalysisHero, heroCopy. V1 needed a "#329 merged" precondition; V2's descope fallback was unreal. | Applied, then satisfied by reality: **#329 merged** (`412a7d2a`). V1's precondition is restated as satisfied-with-SHA; V2's "if C1 is descoped" fallback is deleted; V2's line refs re-derived post-#329 AND post-#352. |
+| 3 | **(BIGGEST)** V1 silently ORPHANS a shipped brief §11.2 behaviour: `useCanvasResultsSync` makes canvas factor-selection expand, scroll to and highlight the Drivers row. Flag-on V1 removes the accordion; the hero evidence tab receives neither prop; the behaviour dies with no lane re-homing it. | Applied: Lane V1 now carries an explicit requirement (default: re-home the sync at the hero evidence Drivers tab; alternative: record an accepted regression in the V1 PR under brief §20 deviations). Lane V6's QA gains the brief §17 graph-to-Analysis cross-surface checks in either case. See V1 and V6. |
+| 4 | V3's "no code reads recommendation_stability" is unachievable repo-wide (GoalNode, DecisionNode, useNodeDisplayMetadata, LensInfoPanel, ModelTab*, TrajectorySection, DecisionConfidencePanel, analysisSnapshotFactory `?? 0` live fabrication, UI-SEM-005 fallback, and more). | Applied: the claim is rescoped to "no AdvancedSection/receipts display-read" with the wider consumer set ledgered in V3 (47 files reference the field at bf921314). R4 updated to match. |
+| 5 | "Flag-off byte-identical" overclaimed: the pin is a testid mount-inventory snapshot, not byte-identity; V3/V4/V5 change flag-off-visible behaviour unless individually gated. | Applied: byte-identity language replaced with "mount-inventory identical (pinned testid snapshot)" and scoped to the V1/V2 composition deltas; V3, V4 and V5 now carry explicit per-lane flag-off gating statements. |
+| 6 | Add D10 (Options-comparison retirement) and D11 (WhatChangedChip retirement) as PAUL decisions; both were treated as settled V1 retirements. | Applied: §4 gains D10 and D11 as open PAUL decision slots (not resolved here); V1 gates both retirements on the rulings. |
+| 7 | Production promotion is a FOUR-flag jump: netlify.toml `[build.environment]` carries none of the three stack flags, so adding only `VITE_FEATURE_ANALYSIS_TAB_V6` is a silent no-op via the fail-closed AND-helper. | Applied: §2 and Lane V6 name the full set (`VITE_FEATURE_DECISION_OVERVIEW`, `VITE_FEATURE_ANALYSIS_HERO_PANEL`, `VITE_FEATURE_STRENGTHEN_PANEL`, `VITE_FEATURE_ANALYSIS_TAB_V6`) and the blast radius: production users receive the entire Wave 1 to 3a stack plus the v6 composition delta in one jump, having soaked none of it. Re-verified at bf921314: netlify.toml :71/:78/:84 are staging-context only. |
+| 8 | Own C1's deferred rerun-affordance debt (inspector StaleGuardBanner, RunHistoryDrawer, dormant tornado apply-and-rerun) in V2 or a D-item. | Applied to V2, re-derived post-#352: the StaleGuardBanner leg is RESOLVED (#352 F10 deleted `useStaleGuard` and the banner's stale half; it is now an empty-state wrapper with no rerun affordance). The `RunHistoryDrawer` leg (behind `historyRerun`) and the dormant `ApplyAndRerunButton` in TornadoChart remain; V2 reconciles both. |
+| 9 | Downgrade V1's hard dependency on C4 (#325) to merge-order (zero file overlap; C4 was stalled at review time). | Applied, then satisfied by reality: **#325 merged** (`1c6a099f`). Recorded as merge-order for the audit trail. |
+| 10 | V2's REDs lived in `OutputsDock.dom.spec`, which #329 quarantined in the vitest excludes; un-quarantine or replace. | **Premise changed since the review:** #334 (`695933d9`) un-quarantined `OutputsDock.dom.spec`. At bf921314 the vitest excludes hold only `ReactFlowGraph.layout.dom.spec.tsx` and `canvas.run-gating.dom.spec.tsx`. V2's REDs run in CI as-is; no un-quarantine work remains. V2 additionally has the post-#329 `OutputsDock.rerunSingleOwner.spec` family to extend. |
+| 11 | Declare the brief §15/§16/§20 deviations (V2 parallel with V3, V4 parallel with V5, versus "one lane at a time"; brief Wave 4 has no dedicated lane) and map fixtures 1:1 to §16's twenty states, including states 2 and 5. | Applied: new §7 "Declared deviations from the brief"; Lane V6's fixture list is now a numbered 1:1 mapping to brief §16 (the prose list previously omitted state 2, ready brief with valid target, and blurred state 5, fresh analysis, into a freshness triple). |
+
+### Premises re-derived (old → new), verified against origin/staging @ bf921314
+
+Merge-state premises:
+
+- Baseline head: `f7a52a0c` → **`bf921314`** (fetched and verified 2026-07-16).
+- T3 #321: OPEN draft → **MERGED `ac070cf4`**; its file list DID include StrengthenContainer.tsx (amendment 1 confirmed against the merged PR).
+- C1: "UNSTARTED (no PR)" → **PR #329 MERGED `412a7d2a`** with the wider footprint amendment 2 names.
+- C2 #324: OPEN → **MERGED `7c583bfa`**. C4 #325: OPEN → **MERGED `1c6a099f`**.
+- T2b #333 (`77bd6bc4`) landed: receipts stay honest through the persistence roundtrip. Baseline fact for V3 (extends T2/#326).
+- #334 (`695933d9`): OutputsDock test revival; `OutputsDock.dom.spec` un-quarantined (amendment 10 premise flip).
+- #330/#335/#339/#344 to #351 landed (camera, starter strip, freshness dirty fix, run-gate homes, DS ratchet/bricks, metric pills, archive sweep). #347 archived 8 dead canvas components; none of the surfaces this plan names moved (`ChallengeSection.tsx`, `ResultsFooter.tsx` remain in place, still dead).
+
+#352 trust-consolidation premises (the plan's V2/V1 surface descriptions were stale):
+
+- `AnalysisOrphanBanner.tsx` (was ResultsBody:253): **DELETED by #352.** The orphan state folds into the freshness strip: `resolveTrustEffectiveState` (in the new `src/canvas/hooks/useAnalysisTrust.ts`) synthesises the cannot-confirm variant with the one Rerun for an orphaned result with no (or 'none') verdict; a held verdict wins. The strip stamps `data-orphaned` + `data-freshness-reason="orphaned_result"`.
+- `useAnalysisTrust.ts`: **NEW (#352).** The single answer to "can these results be trusted as current"; every trust-rendering surface reads it, never the slices directly.
+- `suppressAnalysisFooterForOrphanBanner` interlock (was OutputsDock:720–725): **REMOVED by #329** (rationale recorded in the OutputsDock comment now at :756–782; it must not return, not even as an action-level gate).
+- Post-run footer ownership: the footer is **STATUS-ONLY** whenever `freshnessStripOwnsRerun` (OutputsDock:626–627: a held non-'none' verdict OR an orphaned result); it keeps its Rerun only when the strip shows no control. Mount now at :2344–2364.
+- `useStaleGuard`: **DELETED by #352 (F10)** — its hash keys had no write sites, so its consumers could never fire. `StaleGuardBanner` survives as an empty-state-only wrapper.
+
+Line-anchor re-derivations (bf921314):
+
+- ResultsBody.tsx (now 623 lines): InferenceWarningStrip :263 → **:258** · WhatChangedChip :268 → **:263** · hero mount :275–284 → **:270–278** · DecisionConfidencePanel/v17 fallback :292–304 → **:286–298** · StrengthenContainer :315–325 → **:309–319** · Options comparison :337–409 → **:331–403** (2026-05-27 revert comment now :324–330) · Drivers accordion :412–437 → **:405–431** · Tornado :440–484 → **:433–478** · StressTestSection :488–538 → **:480–532** · AdvancedSection :545–566 → **:538–560** (`stability=` feed ~:547 → **:542**) · adjustments-made details :569–585 → **:562–579** · OptionCards `recommendationStability=` :403 → **:397**. AnalysisOrphanBanner :253 → **gone** (see above).
+- OutputsDock.tsx (2,406 → 2,478 lines): `ai-panel-transition-receipt` :1787–1796 → **:1844–1854** · IdentifiabilityBadge :2083–2092 → **:2142–2152** · WarningBanner :2113–2124 → **:2172–2184** · DegradedStateBanner :2126–2157 → **:2185–2217** · `stale-results-banner` :2160–2171 → **:2218–2231** · `conv-results-indicator` :2178–2191 → **:2238–2252** · DecisionOverviewCard gate :2203–2205 → **:2264–2266** · AnalysisFreshnessNotice :2209–2211 → **:2270–2272** · stale wrapper + ResultsBody :2212–2271 → **:2273–2332** · post-run AnalysisFooter :2277–2292 → **:2344–2364** · `useCanvasResultsSync` call :711 → **:736–740** (props into ResultsBody at :2295–2296).
+- StrengthenContainer.tsx :139 (`actionLabel: undefined`) and :143 (`100 - (item.priority ?? 0)`): **re-verified unchanged** at bf921314.
+- flags.ts patterns (registration cluster, `is*Enabled` exports): re-verified; `decisionOverview`/`strengthenPanel` registrations now :507–508, exports :570/:579/:580. Pattern citations in §2 still hold.
+- ModalShell/ActionsMenu/HeroLensTabs a11y claims (V6 note): re-verified intact post-#351 Modal promotion.
+- netlify.toml: `VITE_FEATURE_ANALYSIS_HERO_PANEL` :71, `VITE_FEATURE_DECISION_OVERVIEW` :78, `VITE_FEATURE_STRENGTHEN_PANEL` :84, all under `[context.staging.environment]` only; `[build.environment]` carries none of them (amendment 7 basis confirmed).
+
+Decision-slot re-derivation: **D6's orphan-banner half is overtaken by #352** (the banner no longer exists; the orphan surface is the freshness strip's fold). D6 reduces to the InferenceWarningStrip retention question; §4 updated. D5's `stale-results-banner` and chrome candidates re-anchored but otherwise unchanged.
+
+---
+
 **Inputs:** `ANALYSIS-TAB-BUILD-BRIEF.md` (intent authority), `V6-BUILD-SPEC.md` (prototype contract),
 `V6-STAGING-MAP.md` (component verdicts), `V6-DATA-MATRIX.md` (wire verdicts) — all in this directory.
 **Baseline:** the three analyst docs are cited against `origin/staging @ dbd6be9d`; head verified
-**`f7a52a0c`** at planning time (2026-07-15) — **T1 (#322), T2 (#326) and C3 (#320) have already
-squash-merged**, so their outcomes are baseline facts, not preconditions. Every lane branches from
-the **live** origin/staging head at branch time, in a **fresh worktree**, after its remaining
-precondition lanes have merged. Line anchors drift with each merge (at f7a52a0c the ResultsBody
-mounts sit at: hero :277, strengthen :317, "Your options" :342, Drivers :423, Tornado :472) —
-anchors below cite dbd6be9d unless marked otherwise; re-derive at branch time.
+**`bf921314`** at amendment time (2026-07-16) — **T1 (#322), T2 (#326), C3 (#320), T3 (#321),
+C2 (#324), C4 (#325), C1 (#329), T2b (#333) and the #330 to #352 train have all squash-merged**,
+so their outcomes are baseline facts, not preconditions. Every lane branches from
+the **live** origin/staging head at branch time, in a **fresh worktree**. Line anchors drift with
+each merge (at bf921314 the ResultsBody mounts sit at: hero :270, strengthen :309, "Your options"
+:331, Drivers :405, Tornado :433) — anchors below cite bf921314 unless marked otherwise (the
+amendment log records the dbd6be9d/f7a52a0c → bf921314 re-derivations); re-derive at branch time.
 
 **Central planning fact (from the staging map):** v6 is not greenfield. Waves 1–3a already shipped the
 v6 stack (DecisionOverviewCard + ActionsMenu, AnalysisFreshnessNotice, analysis-hero merged panel with
@@ -22,21 +82,27 @@ fail-closed honest placeholders — no lane below builds them.
 
 ---
 
-## 0. Preconditions — in-flight lanes merge FIRST
+## 0. Preconditions — ALL SATISFIED at bf921314
 
-The v6 lanes rebase on these; where a v6 lane touches the same file cluster it is sequenced after the
-conflicting lane and must compose with its outcome, not fight it. Status verified against
-origin/staging `f7a52a0c` + `gh pr list` on 2026-07-15:
+Every in-flight lane this plan originally sequenced behind has merged. The table restates each
+precondition as satisfied-with-SHA (amendments 1, 2 and 9). Status verified against
+origin/staging `bf921314` + `gh pr view` on 2026-07-16:
 
-| In-flight lane | Status @ f7a52a0c | File cluster | Conflicts with v6 lane |
+| In-flight lane | Status @ bf921314 | File cluster | Consequence for v6 lanes |
 |---|---|---|---|
-| T1 rank-badge | **MERGED** (#322) | `useResultsSectionData.ts` numbering + display-order pin | none direct (V3 reads its outputs via props) |
-| T2 receipts | **MERGED** (#326) | `mapV5AnalysisToReport.ts` (seed fail-closed null, robust_edges absent-vs-empty), hydration, envelope wiring | **V3 semantic dependency — satisfied.** V3 asserts fail-closed seed, never re-fabricates |
-| T3 guidance | **OPEN draft PR #321** | `DecisionOverviewCard.tsx`, `StrengthenPanel.tsx`, `buildRecommendations.ts` (verified file list; does NOT touch StrengthenContainer) | **V4, V5** — both rebase after T3 |
-| C1 rerun-single-owner | **UNSTARTED** (no PR) | `AnalysisHeroPanel.tsx`, `OutputsDock.tsx` | **V2** — rebases after C1; if C1 is descoped, V2 proceeds off head with extra care at the rerun call sites |
-| C2 StyledEdge labels | OPEN draft PR #324 | `StyledEdge.tsx` + `edgeLabelCollision.ts` (canvas only) | none |
-| C3 FactorNode units | **MERGED** (#320) | `FactorNode.tsx` prior-range rendering | none |
-| C4 DriversSection/MetricPills disclosure | **OPEN draft PR #325** | `DriversSection.tsx`, `MetricPills.tsx`, `FactorNode.tsx`, `useNodeDisplayMetadata.ts` | **V1** — the retirement gate lands after C4 merges (flag-off keeps DriversSection live, so C4's work is not wasted; the canvas MetricPills half of C4 is untouched by v6 anyway) |
+| T1 rank-badge | **MERGED** #322 (`04c1fe49`) | `useResultsSectionData.ts` numbering + display-order pin | baseline fact (V3 reads its outputs via props) |
+| T2 receipts | **MERGED** #326 (`f7a52a0c`) | `mapV5AnalysisToReport.ts` (seed fail-closed null, robust_edges absent-vs-empty), hydration, envelope wiring | **V3 semantic dependency satisfied.** V3 asserts fail-closed seed, never re-fabricates |
+| T2b receipts persistence | **MERGED** #333 (`77bd6bc4`) | `useV2Run.ts` seed provenance, `useConversation.ts` snapshot | baseline fact for V3 (the "Seed 0 resurrects on reload" leg is closed) |
+| T3 guidance | **MERGED** #321 (`ac070cf4`) | `DecisionOverviewCard.tsx`, `StrengthenPanel.tsx`, `StrengthenContainer.tsx` (comment-only overlap — amendment 1: the earlier "does NOT touch StrengthenContainer" claim was false), `buildRecommendations.ts` | **V4, V5 precondition satisfied** — both rebase on the merged reality |
+| C1 rerun-single-owner | **MERGED** #329 (`412a7d2a`) | Real footprint (amendment 2): `OutputsDock.tsx`, `AnalysisFooter.tsx`, `AnalysisFreshnessNotice.tsx`, **`ResultsBody.tsx`** (the region V1 gates), `AnalysisHeroContainer/AnalysisHeroPanel/useAnalysisHero/heroCopy` | **V1 and V2 preconditions satisfied.** The former "if C1 is descoped" fallback is deleted; V2 composes with #329's footer-ownership outcome (and #352's rebuild on top of it) |
+| C2 StyledEdge labels | **MERGED** #324 (`7c583bfa`) | `StyledEdge.tsx` + `edgeLabelCollision.ts` (canvas only) | none |
+| C3 FactorNode units | **MERGED** #320 (`f6fa6c84`) | `FactorNode.tsx` prior-range rendering | none |
+| C4 DriversSection/MetricPills disclosure | **MERGED** #325 (`1c6a099f`) | `DriversSection.tsx`, `MetricPills.tsx`, `FactorNode.tsx`, `useNodeDisplayMetadata.ts` | **V1 precondition satisfied.** Amendment 9: this was downgraded from a hard dependency to merge-order (zero file overlap with V1's edits) before reality satisfied it anyway |
+
+Additionally merged since the review and RELEVANT to lane content (not mere anchors): **#352**
+(`bf921314`, trust consolidation — deletes AnalysisOrphanBanner, adds `useAnalysisTrust`, folds
+the orphan state into the freshness strip; V1/V2 sections below are re-derived against it) and
+**#334** (`695933d9` — un-quarantines `OutputsDock.dom.spec`; amendment 10).
 
 Discipline per repo convention: each lane = fresh worktree off origin/staging, RED-first, DRAFT PR,
 adversarial review, CI shard logs, squash-merge, `git ls-remote` confirmation of the remote head.
