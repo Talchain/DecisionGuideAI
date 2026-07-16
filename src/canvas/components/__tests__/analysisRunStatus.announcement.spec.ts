@@ -24,6 +24,7 @@ const runAnnouncementForTransition = (
     runAnnouncementForTransition?: (input: {
       transition: 'start' | 'settle'
       settledStatus?: string | null
+      preRunStatus?: string | null
       analysisTabFronted: boolean
     }) => string | null
   }
@@ -34,15 +35,51 @@ describe('F9: runAnnouncementForTransition (one voice per transition)', () => {
     expect(typeof runAnnouncementForTransition).toBe('function')
   })
 
-  it('announces run start when the Analysis tab is NOT fronted', () => {
+  it('announces a RERUN start when the Analysis tab is NOT fronted', () => {
     expect(
-      runAnnouncementForTransition!({ transition: 'start', analysisTabFronted: false }),
+      runAnnouncementForTransition!({
+        transition: 'start',
+        preRunStatus: 'complete',
+        analysisTabFronted: false,
+      }),
+    ).toBe('Analysis started.')
+    expect(
+      runAnnouncementForTransition!({
+        transition: 'start',
+        preRunStatus: 'error',
+        analysisTabFronted: false,
+      }),
     ).toBe('Analysis started.')
   })
 
   it('yields run start to the Analysis tab furniture when it is fronted (the narration div already speaks)', () => {
     expect(
-      runAnnouncementForTransition!({ transition: 'start', analysisTabFronted: true }),
+      runAnnouncementForTransition!({
+        transition: 'start',
+        preRunStatus: 'complete',
+        analysisTabFronted: true,
+      }),
+    ).toBeNull()
+  })
+
+  it('yields a FIRST-run start unconditionally: the dock auto-switch fronts the Analysis tab in the same breath', () => {
+    // I.1 auto-switch: idle/cancelled -> active fronts the Analysis tab,
+    // whose skeleton/banner furniture speaks. The announcer observes the
+    // transition one commit before the switch, so frontedness is stale;
+    // the rule encodes the contract instead of racing the commit.
+    expect(
+      runAnnouncementForTransition!({
+        transition: 'start',
+        preRunStatus: 'idle',
+        analysisTabFronted: false,
+      }),
+    ).toBeNull()
+    expect(
+      runAnnouncementForTransition!({
+        transition: 'start',
+        preRunStatus: 'cancelled',
+        analysisTabFronted: false,
+      }),
     ).toBeNull()
   })
 

@@ -1285,12 +1285,15 @@ describe('F9: dock-level run announcer (single voice for start/settle)', () => {
     expect(screen.getAllByTestId('analysis-run-announcer')).toHaveLength(1)
   })
 
-  it('announces start and settle while the Compare tab is fronted, exactly once', () => {
-    seedIdle(false)
+  it('announces rerun start and settle while the Compare tab is fronted, exactly once', () => {
+    // A RERUN (complete -> streaming) does not trip the I.1 auto-switch, so
+    // Compare stays fronted for the whole run — exactly the F9 scenario
+    // (rerun dispatched with another tab in view was silent and frozen).
+    seedIdle(true)
     renderOutputsDock()
     fireEvent.click(screen.getByRole('button', { name: 'Compare' }))
 
-    startRun(false)
+    startRun(true)
     expect(screen.getByTestId('analysis-run-announcer')).toHaveTextContent(
       'Analysis started.',
     )
@@ -1307,16 +1310,29 @@ describe('F9: dock-level run announcer (single voice for start/settle)', () => {
     )
   })
 
-  it('announces failure honestly while the Model tab is fronted', () => {
-    seedIdle(false)
+  it('announces rerun failure honestly while the Model tab is fronted', () => {
+    seedIdle(true)
     renderOutputsDock()
     fireEvent.click(screen.getByRole('button', { name: 'Model' }))
 
-    startRun(false)
+    startRun(true)
     settleRun('error')
     expect(screen.getByTestId('analysis-run-announcer')).toHaveTextContent(
       'Analysis failed.',
     )
+  })
+
+  it('stays silent on a FIRST run: the auto-switch fronts the Analysis tab, whose furniture speaks', () => {
+    seedIdle(false)
+    renderOutputsDock()
+    fireEvent.click(screen.getByRole('button', { name: 'Compare' }))
+
+    startRun(false)
+    // The I.1 auto-switch yanked the dock to the Analysis tab, where the
+    // results skeleton is the visible run furniture...
+    expect(screen.getByTestId('headline-skeleton')).toBeInTheDocument()
+    // ...so the announcer yields the start rather than double-announcing.
+    expect(screen.getByTestId('analysis-run-announcer')).toHaveTextContent('')
   })
 
   it('yields while the Analysis tab is fronted: the narration banner speaks, the announcer stays silent', () => {

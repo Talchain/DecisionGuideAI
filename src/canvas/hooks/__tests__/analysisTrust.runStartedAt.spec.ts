@@ -19,10 +19,10 @@ describe('F9: analysis trust composition carries the run clock', () => {
       source: 'none',
       resultsStatus: 'streaming',
       resultsStartedAt: 1_700_000_000_000,
-    } as Parameters<typeof computeAnalysisTrust>[0])
+    })
 
     expect(trust.isRunning).toBe(true)
-    expect((trust as Record<string, unknown>).runStartedAt).toBe(1_700_000_000_000)
+    expect(trust.runStartedAt).toBe(1_700_000_000_000)
   })
 
   it('leaves runStartedAt undefined when no run has ever started', () => {
@@ -31,9 +31,9 @@ describe('F9: analysis trust composition carries the run clock', () => {
       dirty: false,
       source: 'none',
       resultsStatus: 'idle',
-    } as Parameters<typeof computeAnalysisTrust>[0])
+    })
 
     expect(trust.isRunning).toBe(false)
-    expect((trust as Record<string, unknown>).runStartedAt).toBeUndefined()
+    expect(trust.runStartedAt).toBeUndefined()
   })
 })

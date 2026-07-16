@@ -63,14 +63,25 @@ describe('F9: AnalysisRunAnnouncer', () => {
     expect(region).toHaveTextContent('')
   })
 
-  it('announces run start when the Analysis tab is not fronted', () => {
+  it('announces a rerun start when the Analysis tab is not fronted', () => {
+    setResults({ status: 'complete' })
     const { rerender } = render(<AnalysisRunAnnouncer analysisTabFronted={false} />)
     setResults({ status: 'streaming', startedAt: Date.now() })
     rerender(<AnalysisRunAnnouncer analysisTabFronted={false} />)
     expect(announcer()).toHaveTextContent('Analysis started.')
   })
 
-  it('stays silent at run start while the Analysis tab is fronted (its narration div already announces)', () => {
+  it('stays silent at a FIRST-run start (the dock auto-switch fronts the Analysis tab in the same breath)', () => {
+    // Pre-run status idle: the I.1 auto-switch is about to front the
+    // Analysis tab, whose furniture speaks. The announcer must not race it.
+    const { rerender } = render(<AnalysisRunAnnouncer analysisTabFronted={false} />)
+    setResults({ status: 'streaming', startedAt: Date.now() })
+    rerender(<AnalysisRunAnnouncer analysisTabFronted={false} />)
+    expect(announcer()).toHaveTextContent('')
+  })
+
+  it('stays silent at a rerun start while the Analysis tab is fronted (its narration div already announces)', () => {
+    setResults({ status: 'complete' })
     const { rerender } = render(<AnalysisRunAnnouncer analysisTabFronted={true} />)
     setResults({ status: 'streaming', startedAt: Date.now() })
     rerender(<AnalysisRunAnnouncer analysisTabFronted={true} />)
@@ -78,6 +89,7 @@ describe('F9: AnalysisRunAnnouncer', () => {
   })
 
   it('announces completion when the Analysis tab is not fronted', () => {
+    setResults({ status: 'complete' })
     const { rerender } = render(<AnalysisRunAnnouncer analysisTabFronted={false} />)
     setResults({ status: 'streaming', startedAt: Date.now() })
     rerender(<AnalysisRunAnnouncer analysisTabFronted={false} />)
@@ -87,6 +99,7 @@ describe('F9: AnalysisRunAnnouncer', () => {
   })
 
   it('stays silent at settle while the Analysis tab is fronted (the completion toast already announces)', () => {
+    setResults({ status: 'complete' })
     const { rerender } = render(<AnalysisRunAnnouncer analysisTabFronted={true} />)
     setResults({ status: 'streaming', startedAt: Date.now() })
     rerender(<AnalysisRunAnnouncer analysisTabFronted={true} />)
@@ -96,6 +109,7 @@ describe('F9: AnalysisRunAnnouncer', () => {
   })
 
   it('announces failure honestly (never a completion claim) when not fronted', () => {
+    setResults({ status: 'complete' })
     const { rerender } = render(<AnalysisRunAnnouncer analysisTabFronted={false} />)
     setResults({ status: 'streaming', startedAt: Date.now() })
     rerender(<AnalysisRunAnnouncer analysisTabFronted={false} />)
@@ -105,6 +119,7 @@ describe('F9: AnalysisRunAnnouncer', () => {
   })
 
   it('does not re-announce when the user switches tabs mid-run', () => {
+    setResults({ status: 'complete' })
     const { rerender } = render(<AnalysisRunAnnouncer analysisTabFronted={false} />)
     setResults({ status: 'streaming', startedAt: Date.now() })
     rerender(<AnalysisRunAnnouncer analysisTabFronted={false} />)
