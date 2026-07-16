@@ -1,9 +1,10 @@
 /**
- * EditConfirmation — lightweight "Updated ✓" indicator.
+ * EditConfirmation — lightweight "Updated" + Lucide check indicator (no text-glyph icons).
  * Appears on successful store mutation, fades after 1.5s.
  * No layout shift — absolute positioned near the control.
  */
 
+import { Check } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { typography } from '../../../../styles/typography'
 
@@ -30,7 +31,7 @@ export function EditConfirmation({ trigger }: EditConfirmationProps) {
       style={{ opacity: visible ? 1 : 0 }}
       aria-live="polite"
     >
-      Updated ✓
+      Updated <Check className="h-3 w-3" aria-hidden="true" />
     </span>
   )
 }

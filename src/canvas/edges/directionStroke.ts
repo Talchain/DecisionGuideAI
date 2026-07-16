@@ -12,8 +12,10 @@
  * validated: rose sits ΔE 99.7 from the positive green, 66.9 from the amber
  * warning family, and 48.4 from the risk-node border (#EA7B4B) — the old
  * #ef4444 negative was only ΔE 27.6 from that border, the collision this
- * fixes. Dark negative #F06595 is likewise distinct from the dark risk border
- * (#FF6B6B). Yellow (var(--goal)) stays reserved for truly uninitialised
+ * fixes. Dark negative is likewise distinct from the dark risk border.
+ * The hue VALUES live in brand.css (--edge-positive/--edge-negative/
+ * --edge-neutral + -dark variants) with the full ΔE rationale — this module
+ * owns the RULE, the token file owns the colours. Yellow (var(--goal)) stays reserved for truly uninitialised
  * edges (no direction AND no weight); grey for weight-set-but-no-direction and
  * for the neutral weight === 0 choice.
  */
@@ -29,16 +31,16 @@ export function computeDirectionStroke(
   }
   // Weight defined but direction not yet set → grey (not yellow)
   if (direction === undefined) {
-    return isDark ? '#a1a1aa' : '#d4d4d8'
+    return isDark ? 'var(--edge-neutral-dark)' : 'var(--edge-neutral)'
   }
   // Direction set with positive weight → green
   if (direction === 'positive' && weight > 0) {
-    return isDark ? '#bbf7d0' : '#62B290'
+    return isDark ? 'var(--edge-positive-dark)' : 'var(--edge-positive)'
   }
   // Direction set with negative weight → rose (E1: distinct from amber warning)
   if (direction === 'negative' && weight > 0) {
-    return isDark ? '#F06595' : '#D6336C'
+    return isDark ? 'var(--edge-negative-dark)' : 'var(--edge-negative)'
   }
   // Neutral: weight === 0 (valid user choice)
-  return isDark ? '#a1a1aa' : '#d4d4d8'
+  return isDark ? 'var(--edge-neutral-dark)' : 'var(--edge-neutral)'
 }

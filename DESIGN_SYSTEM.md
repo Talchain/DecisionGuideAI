@@ -181,6 +181,60 @@ className="border border-danger/30 text-danger"
 
 Text on pills is **always** `text-text-body` — never `text-{colour}`. Colour is carried by the border only.
 
+## Canvas Graph (nodes and edges)
+
+### Border vocabulary (ratified, wireframe v4)
+
+A node's **kind** is carried by its border hue + shape glyph. Two ratified
+border modifiers exist, and they mean different things — never conflate them:
+
+- **Dashed border = "outside your control"** (external factors).
+- **Amber border = "needs your judgement"** (a controllable node missing its
+  value; the goal missing its target).
+
+External factors NEVER get amber, even with no value (pinned in
+`FactorNode.spec.tsx`). New states must reuse this vocabulary, not invent a
+third border treatment.
+
+> **Open question (flagged 2026-07-16, Paul to rule):** amber-on-incomplete
+> replaces the kind hue on the border, and amber `#FFA656` sits one perceptual
+> step from the risk border `#EA7B4B` — the same ΔE neighbourhood the E1 edge
+> work deliberately moved away from. An alternative (kind-hue border + amber
+> badge for needs-judgement) would preserve the kind channel; changing it
+> means re-ruling wireframe v4, so it is recorded here rather than changed.
+
+### Edge polarity tokens
+
+Causal-edge colours are tokens, not literals: `--edge-positive` /
+`--edge-negative` / `--edge-neutral` (+ `-dark` variants) in `brand.css`,
+with the full CVD/ΔE rationale attached to the tokens. `directionStroke.ts`
+owns the *rule* (which state gets which token); the token file owns the hues.
+Truly uninitialised edges use `--goal` yellow; amber stays reserved for the
+warning/fragility family.
+
+### Edge-label signals
+
+Three DISTINCT signals may appear on or near an edge — each has one owner and
+one format; never invent a fourth or blend them:
+
+| Signal | Format | Owner |
+|--------|--------|-------|
+| Weight label | "Strong boost" / "Moderate drag (uncertain)" — or numeric via the mode toggle | `domain/edgeLabels.ts` grammar |
+| Fragility badge | "Sensitive · NN%" warning pill (analysis result) | robustness surface |
+| Existence confidence | "NN% conf." (hover panel row, with title/aria disclosure) | `ConnRow` |
+
+Labels render in `typography.edgeLabel`; stacking is spaced by
+`edgeLabelCollision.ts`. Known density issue: several options converging on
+one goal can stack near-identical weight labels — prefer suppressing
+duplicates at the convergence (visibility rules live in
+`edgeLabelVisibility.ts`) over shrinking or restyling them.
+
+### In-node affordance budget
+
+At most **two persistent icon affordances** per node (e.g. edit + confirm).
+Everything else — AI suggestions, visibility, help — appears on hover or
+selection. Icons are Lucide only; text glyphs (✓ ✕ ⚠) are never icons.
+
 ## Patterns
 
 ```tsx
@@ -220,6 +274,33 @@ Universal threshold system for quality metrics (readiness, stability, quality sc
 | ≥ 70% | `text-success` | Strong |
 
 Does **not** apply to: driver influence bars (use `text-info`), win probability, count badges.
+
+## Canonical State Copy
+
+One system state renders **one sentence, everywhere**. Every user-facing state
+string is an exported constant next to the logic that owns it — never a
+re-typed literal — so panel, chat, and canvas cannot drift into different
+dialects (the July incident class: one surface said "Results may be outdated"
+while another said "Cannot confirm whether this analysis is current" for the
+same state).
+
+| State | Canonical sentence | Constant |
+|-------|--------------------|----------|
+| Analysis fresh | Analysis reflects the current model. | `FRESHNESS_COPY.fresh` |
+| Model changed since analysis (CEE verdict) | Model changed since this analysis. Re-run to update. | `FRESHNESS_COPY.stale` |
+| Freshness unknown | Cannot confirm whether this analysis is current. | `FRESHNESS_COPY.unknown` |
+| No analysis yet | No analysis yet. | `FRESHNESS_COPY.none` |
+| Engine cannot see the model | Draft or save a model first, then run analysis. | `CEE_DRAFT_FIRST_REFUSAL` |
+| Template load failed | Failed to load template. | `TEMPLATE_LOAD_FAILED_MESSAGE` |
+
+Rules:
+- New state → new constant + a row here, in the same PR.
+- Specs pin the **raw literal** (not the constant) so a reworded constant
+  cannot silently drift from the sentence the tests promise.
+- The locally-edited-while-fresh state currently renders **two different
+  sentences on two surfaces** (`resolveDisplayedFreshness` → unknown copy vs
+  `classifyFreshnessForDisplay` → changed copy). This is a known conflict
+  awaiting a product wording decision — do not add a third dialect.
 
 ## Legacy Aliases (Migration In Progress)
 
