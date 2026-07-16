@@ -15,6 +15,8 @@ import { describe, it, expect } from 'vitest'
 import {
   deltaE2000,
   deltaE76,
+  toLab,
+  lightness,
   POLARITY_POSITIVE,
   POLARITY_NEGATIVE,
   RGB_TO_LMS,
@@ -131,5 +133,18 @@ describe('cvdContrast validator — method sanity', () => {
     expect(deltaE2000('#62B290', '#62B290', 'normal')).toBe(0)
     expect(deltaE2000('#62B290', '#D6336C', 'deutan'))
       .toBeCloseTo(deltaE2000('#D6336C', '#62B290', 'deutan'), 6)
+  })
+
+  it('REFUSES tritan simulation instead of returning invalid figures', () => {
+    // The Viénot 1999 single-plane projection is protan/deutan-only;
+    // tritanopia needs Brettel 1997's two-plane method. An earlier cut
+    // carried a single-plane "tritan" matrix and would happily return an
+    // authoritative-looking ΔE (66.8 for the shipped pair) that no method
+    // stood behind. Unsupported must stay LOUD — a silent number here would
+    // feed a palette ruling.
+    expect(() => deltaE2000('#62B290', '#D6336C', 'tritan')).toThrow(/tritan/i)
+    expect(() => deltaE76('#62B290', '#D6336C', 'tritan')).toThrow(/tritan/i)
+    expect(() => toLab('#62B290', 'tritan')).toThrow(/tritan/i)
+    expect(() => lightness('#62B290', 'tritan')).toThrow(/tritan/i)
   })
 })

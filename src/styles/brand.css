@@ -97,14 +97,18 @@
      ============================================ */
 
   /* Goal (Yellow) - Primary actions */
-  /* Causal-edge polarity (E1, 2026-07-11 — Paul-selected, CVD-aware).
+  /* Causal-edge polarity (E1, 2026-07-11 — Paul-selected).
      Rose over amber for negative: amber is reserved for the warning/fragility
-     family (C2 ruling). ΔE-validated: rose sits 99.7 from the positive green,
-     66.9 from amber, 48.4 from the risk border #EA7B4B — the old #ef4444
-     negative sat at 27.6, the collision E1 fixed. Dark negative clears the
-     dark risk border #FF6B6B. Yellow (--goal) stays reserved for truly
-     uninitialised edges; neutral grey for weight-set-but-no-direction and
-     the deliberate weight=0 choice. */
+     family (C2 ruling). ΔE-validated in NORMAL vision (CIE76): rose sits 99.7
+     from the positive green, 66.9 from amber, 48.4 from the risk border
+     #EA7B4B — the old #ef4444 negative sat at 27.6, the collision E1 fixed.
+     Dark negative clears the dark risk border #FF6B6B. NOT CVD-validated:
+     the later measurement (cvdContrast.ts, polarityContrast.spec) found this
+     pair separates WORSE for a red-green dichromat than the green/red it
+     replaced (ΔE2000 11.7 vs 28.3 worst-case) — the +/− glyph, not the hue,
+     carries polarity for those viewers. Yellow (--goal) stays reserved for
+     truly uninitialised edges; neutral grey for weight-set-but-no-direction
+     and the deliberate weight=0 choice. */
   --edge-positive: #62B290;
   --edge-negative: #D6336C;
   --edge-neutral: #D4D4D8;

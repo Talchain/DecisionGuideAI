@@ -10,7 +10,10 @@
  * Method (the standard one, no dependencies):
  *  1. sRGB → linear RGB
  *  2. linear RGB → LMS cone response (Viénot, Brettel & Mollon 1999)
- *  3. project onto the dichromat's surviving plane (protan/deutan/tritan)
+ *  3. project onto the dichromat's surviving plane (protan/deutan ONLY —
+ *     the Viénot 1999 single-plane reduction is derived for the two
+ *     red-green dichromacies; tritanopia needs the two-plane method of
+ *     Brettel, Viénot & Mollon 1997 and is NOT simulated here, see below)
  *  4. back to linear RGB → CIEXYZ (D65) → CIELAB
  *  5. ΔE between the two simulated Labs — CIEDE2000 by default, CIE76 available
  *     because that is what the earlier figures were computed with.
@@ -20,6 +23,14 @@
  * the meaning. That is precisely why the DS forbids colour as the only cue.
  */
 
+/**
+ * 'tritan' is accepted by the type so callers can name it, but every public
+ * function THROWS for it — see the guard in simulate(). An earlier cut of
+ * this file carried a single-plane "tritan" matrix and returned
+ * authoritative-looking ΔE figures from it; that construction is only valid
+ * for protan/deutan, so the numbers were garbage. Unsupported is the honest
+ * answer until a Brettel-1997 two-plane implementation exists.
+ */
 export type VisionType = 'normal' | 'protan' | 'deutan' | 'tritan'
 
 type Vec3 = [number, number, number]
@@ -51,11 +62,16 @@ export const LMS_TO_RGB: Mat3 = [
   [-0.000365, -0.0041216, 0.693513],
 ]
 
-/** Each dichromat loses one cone; the surviving two reconstruct the lost signal. */
-const DICHROMAT_PROJECTION: Record<Exclude<VisionType, 'normal'>, Mat3> = {
+/**
+ * Each dichromat loses one cone; the surviving two reconstruct the lost
+ * signal. Viénot 1999's single-plane reduction covers exactly these two
+ * deficiencies. There is deliberately NO tritan row: the single-plane tritan
+ * matrix that circulates alongside these is not from that paper and is not
+ * methodologically valid (S-cone loss needs Brettel 1997's two half-planes).
+ */
+const DICHROMAT_PROJECTION: Record<'protan' | 'deutan', Mat3> = {
   protan: [[0, 2.02344, -2.52581], [0, 1, 0], [0, 0, 1]],
   deutan: [[1, 0, 0], [0.494207, 0, 1.24827], [0, 0, 1]],
-  tritan: [[1, 0, 0], [0, 1, 0], [-0.395913, 0.801109, 0]],
 }
 
 const LINEAR_RGB_TO_XYZ: Mat3 = [
@@ -87,6 +103,16 @@ const srgbToLinear = (c: number) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.
 
 /** Linear-RGB as the given viewer's cones report it. */
 function simulate(hex: string, vision: VisionType): Vec3 {
+  if (vision === 'tritan') {
+    throw new Error(
+      'cvdContrast: tritan simulation is not supported. The Viénot/Brettel/' +
+        'Mollon (1999) single-plane projection this module implements is ' +
+        'derived for protanopia and deuteranopia only; tritanopia requires ' +
+        'the two-plane method of Brettel, Viénot & Mollon (1997). A single-' +
+        'plane "tritan" matrix produces authoritative-looking but invalid ΔE ' +
+        'figures, so this module refuses rather than mislead.',
+    )
+  }
   const linear = hexToRgb(hex).map(srgbToLinear) as Vec3
   if (vision === 'normal') return linear
   const lms = multiply(RGB_TO_LMS, linear)
