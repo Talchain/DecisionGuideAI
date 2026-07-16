@@ -2,13 +2,22 @@
  * canRunAnalysis Utility Tests
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   canRunAnalysis,
   getRunButtonTooltip,
   getRunButtonAriaLabel,
+  computeCeeCannotSeeModel,
+  CEE_DRAFT_FIRST_REFUSAL,
   type CanRunAnalysisParams,
 } from '../canRunAnalysis'
+
+
+const isV5CanonicalRunPathMock = vi.fn(() => true)
+vi.mock('../../../v5/eligibility', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../v5/eligibility')>()
+  return { ...actual, isV5CanonicalRunPath: () => isV5CanonicalRunPathMock() }
+})
 
 describe('canRunAnalysis', () => {
   const defaultParams: CanRunAnalysisParams = {
@@ -330,11 +339,9 @@ describe('canRunAnalysis — #343 honest stopgap (model invisible to CEE)', () =
   }
 
   it('blocks with CEE\'s own refusal sentence when the model cannot be seen by CEE', () => {
-    // Reproduced live (2026-07-16, build f5a22c1e): starter-template model →
-    // panel said "Analysis available — Analyse first pass" → CEE replied
-    // "Draft or save a model first, then run analysis." The panel must never
-    // contradict the engine on a new user's likeliest first click.
-    // MUTATION-CHECK: remove the ceeCannotSeeModel branch and this goes RED.
+    // The reason string must be CEE's own refusal sentence so panel and chat
+    // agree (#343). Deliberately the raw literal, NOT the exported constant:
+    // this pin is what catches the constant drifting from CEE's actual copy.
     const result = canRunAnalysis({ ...base, ceeCannotSeeModel: true })
     expect(result.allowed).toBe(false)
     expect(result.reason).toBe('Draft or save a model first, then run analysis.')
@@ -349,5 +356,27 @@ describe('canRunAnalysis — #343 honest stopgap (model invisible to CEE)', () =
     const result = canRunAnalysis({ ...base, nodeCount: 0, ceeCannotSeeModel: true })
     expect(result.allowed).toBe(false)
     expect(result.reason).toBe('Add some nodes to get started')
+  })
+})
+
+describe('computeCeeCannotSeeModel — the ONE home for the honest-gate predicate', () => {
+  const templateNodes = [{ data: { templateId: 'hiring-v1' } }, { data: {} }]
+  const draftedNodes = [{ data: {} }, { data: { label: 'x' } }]
+
+  it('true only for template provenance on the CEE-routed path', () => {
+    isV5CanonicalRunPathMock.mockReturnValue(true)
+    expect(computeCeeCannotSeeModel(templateNodes)).toBe(true)
+    expect(computeCeeCannotSeeModel(draftedNodes)).toBe(false)
+  })
+
+  it('false off the canonical path — a V2-direct run CAN analyse canvas graphs', () => {
+    isV5CanonicalRunPathMock.mockReturnValue(false)
+    expect(computeCeeCannotSeeModel(templateNodes)).toBe(false)
+  })
+
+  it('the exported refusal constant IS the sentence the gate emits (one home, no drift)', () => {
+    isV5CanonicalRunPathMock.mockReturnValue(true)
+    const result = canRunAnalysis({ graphHealth: null, readiness: null, hasBlockers: false, nodeCount: 5, ceeCannotSeeModel: computeCeeCannotSeeModel(templateNodes) })
+    expect(result.reason).toBe(CEE_DRAFT_FIRST_REFUSAL)
   })
 })

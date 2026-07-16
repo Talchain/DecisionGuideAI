@@ -712,6 +712,8 @@ interface CanvasState {
   setAnalysisFreshness: (rawAnalysisReady: unknown) => void
   /** Public dirty-overlay setter for external graph mutators (e.g. accepted CEE graph patches) that bypass the internal edit chokepoints. */
   markAnalysisFreshnessDirty: () => void
+  /** Atomically set all three staleness flags — the entry point for external structural mutators. */
+  markGraphStructurallyEdited: () => void
   /** Clear the dirty overlay when a genuinely new analysis run completes (reliable run identity, e.g. a new analysis_result response_hash). */
   clearAnalysisFreshnessDirty: () => void
   setDraftCoaching: (coaching: CEEDraftCoaching | null) => void
@@ -3764,6 +3766,17 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // context-menu commit path, and the draft producers. Delegates to the module
   // helper so the idempotent set lives in one place (no drift between the two).
   markAnalysisFreshnessDirty: () => markAnalysisFreshnessDirty(get, set),
+  // The 3-flag staleness invariant for EXTERNAL structural mutators, set
+  // atomically. Two staleness systems exist with disjoint readers: the legacy
+  // pair (graphEditedSinceLastRun/analysisStateReady) and the freshness
+  // overlay the banners actually read (analysisFreshnessDirty). A mutation
+  // path that sets one and misses the other ships a false "analysis reflects
+  // the current model" — that exact miss shipped once (#344). New external
+  // mutators call THIS, not the flags piecemeal.
+  markGraphStructurallyEdited: () => {
+    set(() => ({ graphEditedSinceLastRun: true, analysisStateReady: false }))
+    markAnalysisFreshnessDirty(get, set)
+  },
   clearAnalysisFreshnessDirty: () => {
     if (get().analysisFreshnessDirty) set(() => ({ analysisFreshnessDirty: false }))
   },

@@ -37,6 +37,29 @@
  */
 
 import type { GraphReadiness } from '../hooks/useGraphReadiness'
+import { isV5CanonicalRunPath } from '../../v5/eligibility'
+
+/**
+ * CEE's refusal sentence, verbatim — the gate must show the engine's own
+ * words so panel and chat never contradict each other. If CEE rewords its
+ * refusal, this constant (and the spec pinning the raw literal) must follow.
+ */
+export const CEE_DRAFT_FIRST_REFUSAL = 'Draft or save a model first, then run analysis.'
+
+/**
+ * True when the canvas model is invisible to the analysis engine: the graph
+ * carries template provenance (only insertBlueprint stamps data.templateId;
+ * no CEE draft path does) AND the run would route through CEE, which analyses
+ * its own scenario state — not the canvas (#343). A V2-direct run can analyse
+ * canvas graphs, so the gate stays open off the canonical path.
+ * ONE home for the predicate: both gate callers (OutputsDock,
+ * ConversationPanel) consume this instead of re-deriving it.
+ */
+export function computeCeeCannotSeeModel(
+  nodes: ReadonlyArray<{ data?: Record<string, unknown> | undefined }>,
+): boolean {
+  return isV5CanonicalRunPath() && nodes.some((n) => n.data?.templateId != null)
+}
 
 export interface CanRunAnalysisResult {
   /** Whether analysis can be run */
@@ -69,16 +92,8 @@ export interface CanRunAnalysisParams {
   nodeCount: number
   /** Whether analysis is currently running */
   isRunning?: boolean
-  /**
-   * True when the canvas model exists ONLY client-side and the run would
-   * route through CEE (the V5-canonical path), which analyses its own
-   * scenario state — not the canvas. Today that is a template-inserted
-   * graph: the insert never touches CEE, so CEE answers "Draft or save a
-   * model first" while this gate used to say "Analysis available" (#343,
-   * reproduced live 2026-07-16). The honest gate blocks with CEE's OWN
-   * sentence so panel and chat speak one dialect instead of contradicting
-   * each other on a new user's likeliest first click.
-   */
+  /** See computeCeeCannotSeeModel — the model exists only client-side and
+   *  the run routes through CEE, so the engine would refuse it (#343). */
   ceeCannotSeeModel?: boolean
 }
 
@@ -111,12 +126,11 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
     }
   }
 
-  // 2.5 Model invisible to the analysis engine (see CanRunAnalysisParams doc).
-  // The copy is deliberately CEE's own refusal sentence, verbatim.
+  // 2.5 Model invisible to the analysis engine (see computeCeeCannotSeeModel).
   if (ceeCannotSeeModel) {
     return {
       allowed: false,
-      reason: 'Draft or save a model first, then run analysis.',
+      reason: CEE_DRAFT_FIRST_REFUSAL,
       blockingReasons: ['Model not in Olumi scenario state (template insert)'],
     }
   }
