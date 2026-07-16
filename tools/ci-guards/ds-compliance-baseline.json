@@ -9,19 +9,14 @@
     "legacy-tailwind-token": {
       "mode": "ratchet",
       "description": "Legacy colour tokens (sand/ink/paper/sun/mint/sky/carrot/lilac) as Tailwind classes",
-      "total": 2524,
+      "total": 2165,
       "byFile": {
-        "src/canvas/components/InputsDock.tsx": 95,
-        "src/canvas/components/DriversSignal.tsx": 67,
         "src/canvas/components/DebugDrawer.tsx": 66,
-        "src/canvas/components/DecisionReviewPanel.tsx": 66,
         "src/canvas/components/RecommendationCard/RobustnessBlock.tsx": 65,
         "src/canvas/components/SequentialView/index.tsx": 59,
         "src/canvas/components/DecisionSummary.tsx": 57,
         "src/canvas/components/ComparisonCanvasLayout.tsx": 55,
         "src/canvas/components/ResultsPanel/KeyDriversPanel.tsx": 55,
-        "src/canvas/components/OutcomesSignal.tsx": 53,
-        "src/canvas/components/MultiGoalParetoPanel.tsx": 51,
         "src/canvas/components/RiskProfileSelector.tsx": 51,
         "src/canvas/components/ConditionalGuidance/index.tsx": 47,
         "src/canvas/components/PreAnalysisHealth.tsx": 47,
@@ -66,7 +61,6 @@
         "src/canvas/components/FunctionalForm/FormSelector.tsx": 18,
         "src/canvas/components/SuggestionCard.tsx": 18,
         "src/canvas/components/ComparisonTable.tsx": 16,
-        "src/canvas/components/DetailedAnalysisSection.tsx": 16,
         "src/canvas/components/RecommendationCard/ConstraintViolationsSection.tsx": 16,
         "src/canvas/components/ResultsPanel/TippingPointsList.tsx": 16,
         "src/canvas/components/EdgeFunctionTypeSelector.tsx": 15,
@@ -84,7 +78,6 @@
         "src/canvas/components/ContextBar.tsx": 12,
         "src/canvas/components/DecisionReadinessBadge.tsx": 12,
         "src/components/HelpTooltip.tsx": 12,
-        "src/canvas/components/CanvasEmptyState.tsx": 11,
         "src/components/EngineAuditPanel.tsx": 11,
         "src/components/JobsProgressPanel.tsx": 11,
         "src/canvas/components/DraftGuidancePanel.tsx": 9,
@@ -326,36 +319,6 @@
           "file": "src/canvas/components/BeliefInput.tsx",
           "token": "text-carrot",
           "sample": "<div className=\"flex items-center gap-2 text-carrot-600\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/CanvasEmptyState.tsx :: text-ink": {
-          "count": 4,
-          "file": "src/canvas/components/CanvasEmptyState.tsx",
-          "token": "text-ink",
-          "sample": "<h3 className={`${typography.h3} text-ink-900 mb-2`}>"
-        },
-        "legacy-tailwind-token :: src/canvas/components/CanvasEmptyState.tsx :: bg-sky": {
-          "count": 2,
-          "file": "src/canvas/components/CanvasEmptyState.tsx",
-          "token": "bg-sky",
-          "sample": "bg-sky-500 text-white hover:bg-sky-600"
-        },
-        "legacy-tailwind-token :: src/canvas/components/CanvasEmptyState.tsx :: border-sand": {
-          "count": 1,
-          "file": "src/canvas/components/CanvasEmptyState.tsx",
-          "token": "border-sand",
-          "sample": "border border-sand-200 hover:bg-paper-50"
-        },
-        "legacy-tailwind-token :: src/canvas/components/CanvasEmptyState.tsx :: bg-paper": {
-          "count": 1,
-          "file": "src/canvas/components/CanvasEmptyState.tsx",
-          "token": "bg-paper",
-          "sample": "border border-sand-200 hover:bg-paper-50"
-        },
-        "legacy-tailwind-token :: src/canvas/components/CanvasEmptyState.tsx :: bg-sand": {
-          "count": 3,
-          "file": "src/canvas/components/CanvasEmptyState.tsx",
-          "token": "bg-sand",
-          "sample": "<li>• Press <kbd className={`px-1.5 py-0.5 bg-sand-200 rounded ${typography.caption} font-mono`}>T</kbd> for templates</"
         },
         "legacy-tailwind-token :: src/canvas/components/ChangeAttributionPanel.tsx :: text-ink": {
           "count": 14,
@@ -801,48 +764,6 @@
           "token": "text-ink",
           "sample": "<span className=\"text-ink-900/40\">"
         },
-        "legacy-tailwind-token :: src/canvas/components/DecisionReviewPanel.tsx :: border-sand": {
-          "count": 3,
-          "file": "src/canvas/components/DecisionReviewPanel.tsx",
-          "token": "border-sand",
-          "sample": "className={`mt-3 pt-3 border-t border-sand-200 ${typography.code}`}"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionReviewPanel.tsx :: text-ink": {
-          "count": 31,
-          "file": "src/canvas/components/DecisionReviewPanel.tsx",
-          "token": "text-ink",
-          "sample": "className=\"flex items-center gap-1 text-ink-900/60 hover:text-ink-900/80\""
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionReviewPanel.tsx :: bg-sun": {
-          "count": 7,
-          "file": "src/canvas/components/DecisionReviewPanel.tsx",
-          "token": "bg-sun",
-          "sample": "<span className=\"ml-1 px-1 py-0.5 bg-sun-100 text-sun-800 rounded text-xs\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionReviewPanel.tsx :: text-sun": {
-          "count": 11,
-          "file": "src/canvas/components/DecisionReviewPanel.tsx",
-          "token": "text-sun",
-          "sample": "<span className=\"ml-1 px-1 py-0.5 bg-sun-100 text-sun-800 rounded text-xs\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionReviewPanel.tsx :: bg-sand": {
-          "count": 10,
-          "file": "src/canvas/components/DecisionReviewPanel.tsx",
-          "token": "bg-sand",
-          "sample": "className=\"p-3 rounded-lg border border-sand-300 bg-sand-50\""
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionReviewPanel.tsx :: bg-paper": {
-          "count": 1,
-          "file": "src/canvas/components/DecisionReviewPanel.tsx",
-          "token": "bg-paper",
-          "sample": ": 'p-3 rounded-lg border border-sand-200 bg-paper-50'"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionReviewPanel.tsx :: border-sun": {
-          "count": 3,
-          "file": "src/canvas/components/DecisionReviewPanel.tsx",
-          "token": "border-sun",
-          "sample": "className={`p-3 ${typography.caption} bg-sun-50 border border-sun-200 rounded`}"
-        },
         "legacy-tailwind-token :: src/canvas/components/DecisionSummary.tsx :: bg-mint": {
           "count": 2,
           "file": "src/canvas/components/DecisionSummary.tsx",
@@ -950,54 +871,6 @@
           "file": "src/canvas/components/DeltaInterpretation.tsx",
           "token": "text-ink",
           "sample": "similar: 'text-ink-900/70',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DetailedAnalysisSection.tsx :: border-sand": {
-          "count": 2,
-          "file": "src/canvas/components/DetailedAnalysisSection.tsx",
-          "token": "border-sand",
-          "sample": "className=\"border border-sand-200 rounded-xl overflow-hidden bg-paper-50\""
-        },
-        "legacy-tailwind-token :: src/canvas/components/DetailedAnalysisSection.tsx :: bg-paper": {
-          "count": 1,
-          "file": "src/canvas/components/DetailedAnalysisSection.tsx",
-          "token": "bg-paper",
-          "sample": "className=\"border border-sand-200 rounded-xl overflow-hidden bg-paper-50\""
-        },
-        "legacy-tailwind-token :: src/canvas/components/DetailedAnalysisSection.tsx :: bg-sand": {
-          "count": 2,
-          "file": "src/canvas/components/DetailedAnalysisSection.tsx",
-          "token": "bg-sand",
-          "sample": "className=\"w-full px-4 py-3 flex items-center justify-between hover:bg-sand-50/80 active:bg-sand-100 transition-all dura"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DetailedAnalysisSection.tsx :: text-ink": {
-          "count": 4,
-          "file": "src/canvas/components/DetailedAnalysisSection.tsx",
-          "token": "text-ink",
-          "sample": "className={`h-4 w-4 text-ink-500 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DetailedAnalysisSection.tsx :: text-sky": {
-          "count": 2,
-          "file": "src/canvas/components/DetailedAnalysisSection.tsx",
-          "token": "text-sky",
-          "sample": "<BarChart2 className=\"h-4 w-4 text-sky-600\" aria-hidden=\"true\" />"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DetailedAnalysisSection.tsx :: from-sky": {
-          "count": 1,
-          "file": "src/canvas/components/DetailedAnalysisSection.tsx",
-          "token": "from-sky",
-          "sample": "<div className=\"p-3 bg-gradient-to-r from-sky-50 to-violet-50 border border-sky-100 rounded-lg shadow-sm\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DetailedAnalysisSection.tsx :: border-sky": {
-          "count": 1,
-          "file": "src/canvas/components/DetailedAnalysisSection.tsx",
-          "token": "border-sky",
-          "sample": "<div className=\"p-3 bg-gradient-to-r from-sky-50 to-violet-50 border border-sky-100 rounded-lg shadow-sm\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DetailedAnalysisSection.tsx :: bg-sky": {
-          "count": 3,
-          "file": "src/canvas/components/DetailedAnalysisSection.tsx",
-          "token": "bg-sky",
-          "sample": "className={`${typography.caption} font-medium px-3 py-1 rounded-md bg-sky-500 text-white hover:bg-sky-600 active:bg-sky-"
         },
         "legacy-tailwind-token :: src/canvas/components/DocumentsManager.tsx :: bg-paper": {
           "count": 3,
@@ -1226,78 +1099,6 @@
           "file": "src/canvas/components/DriverChips.tsx",
           "token": "text-sand",
           "sample": "<ArrowRight className=\"w-4 h-4 text-sand-400 flex-shrink-0\" aria-hidden=\"true\" />"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DriversSignal.tsx :: text-mint": {
-          "count": 3,
-          "file": "src/canvas/components/DriversSignal.tsx",
-          "token": "text-mint",
-          "sample": "iconColor: 'text-mint-600',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DriversSignal.tsx :: bg-mint": {
-          "count": 3,
-          "file": "src/canvas/components/DriversSignal.tsx",
-          "token": "bg-mint",
-          "sample": "bgColor: 'bg-mint-100',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DriversSignal.tsx :: text-carrot": {
-          "count": 2,
-          "file": "src/canvas/components/DriversSignal.tsx",
-          "token": "text-carrot",
-          "sample": "iconColor: 'text-carrot-600',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DriversSignal.tsx :: bg-carrot": {
-          "count": 3,
-          "file": "src/canvas/components/DriversSignal.tsx",
-          "token": "bg-carrot",
-          "sample": "bgColor: 'bg-carrot-100',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DriversSignal.tsx :: text-sand": {
-          "count": 6,
-          "file": "src/canvas/components/DriversSignal.tsx",
-          "token": "text-sand",
-          "sample": "iconColor: 'text-sand-500',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DriversSignal.tsx :: bg-sand": {
-          "count": 10,
-          "file": "src/canvas/components/DriversSignal.tsx",
-          "token": "bg-sand",
-          "sample": "bgColor: 'bg-sand-100',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DriversSignal.tsx :: text-ink": {
-          "count": 21,
-          "file": "src/canvas/components/DriversSignal.tsx",
-          "token": "text-ink",
-          "sample": "textColor: 'text-ink-400',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DriversSignal.tsx :: bg-sky": {
-          "count": 4,
-          "file": "src/canvas/components/DriversSignal.tsx",
-          "token": "bg-sky",
-          "sample": "bgColor: 'bg-sky-100',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DriversSignal.tsx :: text-sky": {
-          "count": 9,
-          "file": "src/canvas/components/DriversSignal.tsx",
-          "token": "text-sky",
-          "sample": "textColor: 'text-sky-700',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DriversSignal.tsx :: border-sand": {
-          "count": 4,
-          "file": "src/canvas/components/DriversSignal.tsx",
-          "token": "border-sand",
-          "sample": "<div className=\"p-4 bg-sand-50 border border-sand-200 rounded-xl animate-pulse\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DriversSignal.tsx :: bg-paper": {
-          "count": 1,
-          "file": "src/canvas/components/DriversSignal.tsx",
-          "token": "bg-paper",
-          "sample": "<div className=\"bg-paper-50 border border-sand-200 rounded-xl overflow-hidden\" data-testid=\"drivers-signal\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DriversSignal.tsx :: divide-sand": {
-          "count": 1,
-          "file": "src/canvas/components/DriversSignal.tsx",
-          "token": "divide-sand",
-          "sample": "<div className=\"border-t border-sand-200 divide-y divide-sand-100\">"
         },
         "legacy-tailwind-token :: src/canvas/components/EdgeFunctionTypeSelector.tsx :: text-ink": {
           "count": 7,
@@ -1827,90 +1628,6 @@
           "token": "text-ink",
           "sample": "className: 'bg-paper-50 border-sand-200 text-ink-500',"
         },
-        "legacy-tailwind-token :: src/canvas/components/InputsDock.tsx :: text-ink": {
-          "count": 50,
-          "file": "src/canvas/components/InputsDock.tsx",
-          "token": "text-ink",
-          "sample": "<label htmlFor=\"framing-title\" className={`block ${typography.code} font-medium text-ink-900`}>"
-        },
-        "legacy-tailwind-token :: src/canvas/components/InputsDock.tsx :: border-sand": {
-          "count": 15,
-          "file": "src/canvas/components/InputsDock.tsx",
-          "token": "border-sand",
-          "sample": "className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:"
-        },
-        "legacy-tailwind-token :: src/canvas/components/InputsDock.tsx :: bg-sun": {
-          "count": 1,
-          "file": "src/canvas/components/InputsDock.tsx",
-          "token": "bg-sun",
-          "sample": "className=\"mt-2 px-2 py-1.5 rounded bg-sun-50 border border-sun-200\""
-        },
-        "legacy-tailwind-token :: src/canvas/components/InputsDock.tsx :: border-sun": {
-          "count": 1,
-          "file": "src/canvas/components/InputsDock.tsx",
-          "token": "border-sun",
-          "sample": "className=\"mt-2 px-2 py-1.5 rounded bg-sun-50 border border-sun-200\""
-        },
-        "legacy-tailwind-token :: src/canvas/components/InputsDock.tsx :: text-sun": {
-          "count": 2,
-          "file": "src/canvas/components/InputsDock.tsx",
-          "token": "text-sun",
-          "sample": "<p className={`${typography.caption} text-sun-800`}>"
-        },
-        "legacy-tailwind-token :: src/canvas/components/InputsDock.tsx :: bg-paper": {
-          "count": 9,
-          "file": "src/canvas/components/InputsDock.tsx",
-          "token": "bg-paper",
-          "sample": "<div className=\"rounded-lg border border-sand-200 bg-paper-50\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/InputsDock.tsx :: bg-sand": {
-          "count": 2,
-          "file": "src/canvas/components/InputsDock.tsx",
-          "token": "bg-sand",
-          "sample": "className=\"mt-4 rounded border border-sand-200 bg-sand-50 px-3 py-2 space-y-1\""
-        },
-        "legacy-tailwind-token :: src/canvas/components/InputsDock.tsx :: text-carrot": {
-          "count": 2,
-          "file": "src/canvas/components/InputsDock.tsx",
-          "token": "text-carrot",
-          "sample": "<p className={`${typography.code} text-carrot-600 font-medium`}>Limits unavailable</p>"
-        },
-        "legacy-tailwind-token :: src/canvas/components/InputsDock.tsx :: text-sky": {
-          "count": 3,
-          "file": "src/canvas/components/InputsDock.tsx",
-          "token": "text-sky",
-          "sample": "className={`${typography.code} text-sky-600 hover:underline`}"
-        },
-        "legacy-tailwind-token :: src/canvas/components/InputsDock.tsx :: bg-sky": {
-          "count": 3,
-          "file": "src/canvas/components/InputsDock.tsx",
-          "token": "bg-sky",
-          "sample": "className=\"mb-2 p-2 rounded-lg bg-sky-50 border border-sky-200\""
-        },
-        "legacy-tailwind-token :: src/canvas/components/InputsDock.tsx :: border-sky": {
-          "count": 4,
-          "file": "src/canvas/components/InputsDock.tsx",
-          "token": "border-sky",
-          "sample": "className=\"mb-2 p-2 rounded-lg bg-sky-50 border border-sky-200\""
-        },
-        "legacy-tailwind-token :: src/canvas/components/InputsDock.tsx :: bg-carrot": {
-          "count": 1,
-          "file": "src/canvas/components/InputsDock.tsx",
-          "token": "bg-carrot",
-          "sample": "className=\"mb-2 p-2 rounded-lg bg-carrot-50 border border-carrot-200\""
-        },
-        "legacy-tailwind-token :: src/canvas/components/InputsDock.tsx :: border-carrot": {
-          "count": 1,
-          "file": "src/canvas/components/InputsDock.tsx",
-          "token": "border-carrot",
-          "sample": "className=\"mb-2 p-2 rounded-lg bg-carrot-50 border border-carrot-200\""
-        },
-        "legacy-tailwind-token :: src/canvas/components/InputsDock.tsx :: ring-sky": {
-          "count": 1,
-          "file": "src/canvas/components/InputsDock.tsx",
-          "token": "ring-sky",
-          "sample": "className={`flex-1 rounded border border-sand-300 px-2 py-1.5 ${typography.caption} text-ink-900 placeholder:text-ink-90"
-        },
         "legacy-tailwind-token :: src/canvas/components/InsightsPanel.tsx :: border-sky": {
           "count": 3,
           "file": "src/canvas/components/InsightsPanel.tsx",
@@ -2235,90 +1952,6 @@
           "token": "text-sky",
           "sample": "? 'bg-sky-50 border-sky-200 text-sky-900'"
         },
-        "legacy-tailwind-token :: src/canvas/components/MultiGoalParetoPanel.tsx :: bg-carrot": {
-          "count": 1,
-          "file": "src/canvas/components/MultiGoalParetoPanel.tsx",
-          "token": "bg-carrot",
-          "sample": "bgColor: 'bg-carrot-50',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/MultiGoalParetoPanel.tsx :: border-carrot": {
-          "count": 1,
-          "file": "src/canvas/components/MultiGoalParetoPanel.tsx",
-          "token": "border-carrot",
-          "sample": "borderColor: 'border-carrot-200',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/MultiGoalParetoPanel.tsx :: text-carrot": {
-          "count": 2,
-          "file": "src/canvas/components/MultiGoalParetoPanel.tsx",
-          "token": "text-carrot",
-          "sample": "textColor: 'text-carrot-700',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/MultiGoalParetoPanel.tsx :: bg-sky": {
-          "count": 3,
-          "file": "src/canvas/components/MultiGoalParetoPanel.tsx",
-          "token": "bg-sky",
-          "sample": "bgColor: 'bg-sky-50',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/MultiGoalParetoPanel.tsx :: border-sky": {
-          "count": 1,
-          "file": "src/canvas/components/MultiGoalParetoPanel.tsx",
-          "token": "border-sky",
-          "sample": "borderColor: 'border-sky-200',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/MultiGoalParetoPanel.tsx :: text-sky": {
-          "count": 3,
-          "file": "src/canvas/components/MultiGoalParetoPanel.tsx",
-          "token": "text-sky",
-          "sample": "textColor: 'text-sky-700',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/MultiGoalParetoPanel.tsx :: bg-mint": {
-          "count": 3,
-          "file": "src/canvas/components/MultiGoalParetoPanel.tsx",
-          "token": "bg-mint",
-          "sample": "bgColor: 'bg-mint-50',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/MultiGoalParetoPanel.tsx :: border-mint": {
-          "count": 1,
-          "file": "src/canvas/components/MultiGoalParetoPanel.tsx",
-          "token": "border-mint",
-          "sample": "borderColor: 'border-mint-200',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/MultiGoalParetoPanel.tsx :: text-mint": {
-          "count": 4,
-          "file": "src/canvas/components/MultiGoalParetoPanel.tsx",
-          "token": "text-mint",
-          "sample": "textColor: 'text-mint-700',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/MultiGoalParetoPanel.tsx :: bg-paper": {
-          "count": 1,
-          "file": "src/canvas/components/MultiGoalParetoPanel.tsx",
-          "token": "bg-paper",
-          "sample": "className={`bg-paper-50 border border-sand-200 rounded-xl overflow-hidden shadow-sm ${className}`}"
-        },
-        "legacy-tailwind-token :: src/canvas/components/MultiGoalParetoPanel.tsx :: border-sand": {
-          "count": 7,
-          "file": "src/canvas/components/MultiGoalParetoPanel.tsx",
-          "token": "border-sand",
-          "sample": "className={`bg-paper-50 border border-sand-200 rounded-xl overflow-hidden shadow-sm ${className}`}"
-        },
-        "legacy-tailwind-token :: src/canvas/components/MultiGoalParetoPanel.tsx :: bg-sand": {
-          "count": 6,
-          "file": "src/canvas/components/MultiGoalParetoPanel.tsx",
-          "token": "bg-sand",
-          "sample": "className=\"w-full px-4 py-3 flex items-center justify-between hover:bg-sand-50 transition-colors\""
-        },
-        "legacy-tailwind-token :: src/canvas/components/MultiGoalParetoPanel.tsx :: text-ink": {
-          "count": 17,
-          "file": "src/canvas/components/MultiGoalParetoPanel.tsx",
-          "token": "text-ink",
-          "sample": "<ChevronUp className=\"h-4 w-4 text-ink-500\" />"
-        },
-        "legacy-tailwind-token :: src/canvas/components/MultiGoalParetoPanel.tsx :: text-sand": {
-          "count": 1,
-          "file": "src/canvas/components/MultiGoalParetoPanel.tsx",
-          "token": "text-sand",
-          "sample": ": 'bg-sand-200 text-sand-600'"
-        },
         "legacy-tailwind-token :: src/canvas/components/NodeBadge.tsx :: border-sun": {
           "count": 1,
           "file": "src/canvas/components/NodeBadge.tsx",
@@ -2360,72 +1993,6 @@
           "file": "src/canvas/components/ObjectiveBanner.tsx",
           "token": "text-sky",
           "sample": "<Target className=\"w-5 h-5 text-sky-700 flex-shrink-0 mt-0.5\" aria-hidden=\"true\" />"
-        },
-        "legacy-tailwind-token :: src/canvas/components/OutcomesSignal.tsx :: bg-mint": {
-          "count": 1,
-          "file": "src/canvas/components/OutcomesSignal.tsx",
-          "token": "bg-mint",
-          "sample": "bgColor: 'bg-mint-100',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/OutcomesSignal.tsx :: text-mint": {
-          "count": 3,
-          "file": "src/canvas/components/OutcomesSignal.tsx",
-          "token": "text-mint",
-          "sample": "textColor: 'text-mint-700',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/OutcomesSignal.tsx :: bg-carrot": {
-          "count": 1,
-          "file": "src/canvas/components/OutcomesSignal.tsx",
-          "token": "bg-carrot",
-          "sample": "bgColor: 'bg-carrot-100',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/OutcomesSignal.tsx :: text-carrot": {
-          "count": 3,
-          "file": "src/canvas/components/OutcomesSignal.tsx",
-          "token": "text-carrot",
-          "sample": "textColor: 'text-carrot-700',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/OutcomesSignal.tsx :: bg-sand": {
-          "count": 4,
-          "file": "src/canvas/components/OutcomesSignal.tsx",
-          "token": "bg-sand",
-          "sample": "<div className=\"p-4 bg-sand-50 border border-sand-200 rounded-xl\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/OutcomesSignal.tsx :: border-sand": {
-          "count": 5,
-          "file": "src/canvas/components/OutcomesSignal.tsx",
-          "token": "border-sand",
-          "sample": "<div className=\"p-4 bg-sand-50 border border-sand-200 rounded-xl\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/OutcomesSignal.tsx :: text-sand": {
-          "count": 3,
-          "file": "src/canvas/components/OutcomesSignal.tsx",
-          "token": "text-sand",
-          "sample": "<Target className=\"h-5 w-5 text-sand-400 flex-shrink-0\" />"
-        },
-        "legacy-tailwind-token :: src/canvas/components/OutcomesSignal.tsx :: bg-paper": {
-          "count": 1,
-          "file": "src/canvas/components/OutcomesSignal.tsx",
-          "token": "bg-paper",
-          "sample": "<div className=\"bg-paper-50 border border-sand-200 rounded-xl overflow-hidden\" data-testid=\"outcomes-signal\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/OutcomesSignal.tsx :: text-sky": {
-          "count": 7,
-          "file": "src/canvas/components/OutcomesSignal.tsx",
-          "token": "text-sky",
-          "sample": "<Target className=\"h-4 w-4 text-sky-600 flex-shrink-0\" aria-hidden=\"true\" />"
-        },
-        "legacy-tailwind-token :: src/canvas/components/OutcomesSignal.tsx :: text-ink": {
-          "count": 20,
-          "file": "src/canvas/components/OutcomesSignal.tsx",
-          "token": "text-ink",
-          "sample": "<p className={`${typography.bodySmall} text-ink-700`}>{objectiveText}</p>"
-        },
-        "legacy-tailwind-token :: src/canvas/components/OutcomesSignal.tsx :: bg-sky": {
-          "count": 5,
-          "file": "src/canvas/components/OutcomesSignal.tsx",
-          "token": "bg-sky",
-          "sample": "<div className=\"p-3 bg-sky-50 rounded-lg\">"
         },
         "legacy-tailwind-token :: src/canvas/components/ParetoInsights.tsx :: bg-paper": {
           "count": 1,
@@ -4994,136 +4561,52 @@
     "production-hex": {
       "mode": "ratchet",
       "description": "Raw hex colour literals in production .ts/.tsx (excl. debug/poc/theme/tests + var() fallbacks)",
-      "total": 436,
+      "total": 311,
       "byFile": {
         "src/components/ContractInspector.tsx": 67,
         "src/canvas/export/decisionBrief.ts": 33,
-        "src/canvas/ReactFlowGraph.tsx": 24,
         "src/components/GraphCanvas.tsx": 24,
         "src/canvas/components/ImportExportDialog.tsx": 17,
         "src/components/chat/artefactIframeTemplate.ts": 15,
-        "src/canvas/edges/StyledEdge.tsx": 12,
         "src/components/DecisionGraphLayer.tsx": 11,
-        "src/adapters/plot/v1/sseClient.ts": 10,
-        "src/canvas/components/DraftChat.tsx": 10,
-        "src/adapters/plot/v1/http.ts": 9,
+        "src/canvas/ReactFlowGraph.tsx": 10,
+        "src/canvas/components/DraftChat.tsx": 9,
         "src/components/DebugOverlays.tsx": 9,
         "src/plc/components/GraphCanvasPlc.tsx": 9,
+        "src/canvas/edges/directionStroke.ts": 8,
         "src/canvas/components/FunctionPreview.tsx": 6,
         "src/canvas/components/RecommendationCard/ParetoMiniChart.tsx": 6,
         "src/components/WhiteboardCanvas.tsx": 6,
-        "src/lib/v5CapturePipelineStatus.ts": 6,
         "src/main.tsx": 6,
-        "src/canvas/components/FocusModeChip.tsx": 5,
-        "src/canvas/components/OutputsDock.tsx": 5,
         "src/components/ConfettiConfirmation.tsx": 5,
         "src/pages/sandbox-guide/utils/canvasEnhancement.ts": 5,
         "src/routes/PlotWorkspace.tsx": 5,
-        "src/canvas/store.ts": 4,
+        "src/canvas/edges/StyledEdge.tsx": 4,
         "src/canvas/utils/templatePreview.ts": 4,
         "src/components/DebugPanel.tsx": 4,
         "src/components/auth/LoginPage.tsx": 4,
         "src/lib/ErrorBoundary.tsx": 4,
         "src/lib/auth/authLogger.ts": 4,
         "src/lib/debug/navDebug.ts": 4,
-        "src/lib/scientificValidation/index.ts": 4,
-        "src/lib/v5EmbeddedEvidence.ts": 4,
         "src/pages/sandbox-guide/components/canvas/EdgeHighlight.tsx": 4,
         "src/canvas/components/LayoutGuidedModal.tsx": 3,
         "src/components/Whiteboard.tsx": 3,
         "src/lib/PoCShell.tsx": 3,
-        "src/lib/analysisProducingPlotTurn.ts": 3,
-        "src/lib/payload-trace-store.ts": 3,
-        "src/lib/scientificValidation/flipThresholdValidation.ts": 3,
-        "src/lib/scientificValidation/types.ts": 3,
-        "src/lib/v5TraceMatching.ts": 3,
-        "src/routes/CanvasIsolationTest.tsx": 3,
-        "src/canvas/components/CommandPalette.tsx": 2,
-        "src/canvas/components/ContextBar.tsx": 2,
         "src/canvas/components/EdgeFunctionTypeSelector.tsx": 2,
-        "src/canvas/components/InputsDock.tsx": 2,
-        "src/canvas/components/InsightsTab.tsx": 2,
-        "src/canvas/components/ValidationPanel.tsx": 2,
-        "src/canvas/hooks/usePathHighlight.ts": 2,
-        "src/canvas/nodes/BaseNode.tsx": 2,
-        "src/canvas/onboarding/useOnboarding.ts": 2,
         "src/components/BuildBadge.tsx": 2,
-        "src/components/assistants/InfluenceExplainer.tsx": 2,
-        "src/lib/scientificValidation/confidenceValidation.ts": 2,
-        "src/lib/scientificValidation/userStdPropagation.ts": 2,
         "src/lib/tldrawAdapter.ts": 2,
         "src/pages/sandbox-guide/DiagnosticBanner.tsx": 2,
+        "src/routes/CanvasIsolationTest.tsx": 2,
         "src/routes/PlotShowcase.tsx": 2,
-        "src/App.tsx": 1,
         "src/canvas/components/AlignmentGuides.tsx": 1,
-        "src/canvas/components/ComparisonTable.tsx": 1,
-        "src/canvas/components/ConformalPrediction.tsx": 1,
-        "src/canvas/components/DocumentsManager.tsx": 1,
-        "src/canvas/components/DriverChips.tsx": 1,
-        "src/canvas/components/GoalModePanel.tsx": 1,
-        "src/canvas/components/LayerProvider.tsx": 1,
-        "src/canvas/components/LayoutPopover.tsx": 1,
-        "src/canvas/components/PropertiesPanel.tsx": 1,
-        "src/canvas/components/ScenarioSwitcher.tsx": 1,
-        "src/canvas/components/ValidationSuggestions.tsx": 1,
-        "src/canvas/components/pre-analysis/primitives/BiasIcon.tsx": 1,
-        "src/canvas/components/pre-analysis/primitives/NodeLink.tsx": 1,
-        "src/canvas/conversation/zones/SuggestedChips.tsx": 1,
-        "src/canvas/help/KeyboardLegend.tsx": 1,
-        "src/canvas/hooks/useAutosave.ts": 1,
-        "src/canvas/hooks/useEngineLimits.ts": 1,
-        "src/canvas/panels/InspectorPanel.tsx": 1,
-        "src/canvas/share/ShareDrawer.tsx": 1,
-        "src/canvas/snapshots/SnapshotPanel.tsx": 1,
-        "src/canvas/utils/safeRichText.ts": 1,
         "src/components/CanvasDrawer.tsx": 1,
-        "src/components/results/useCanvasResultsSync.ts": 1,
-        "src/contexts/DecisionContext.tsx": 1,
-        "src/contexts/TeamsContext.tsx": 1,
-        "src/lib/analysisProducingCeeTurn.ts": 1,
         "src/lib/gate-rendering.tsx": 1,
-        "src/lib/scientificValidation/evidenceGapValidation.ts": 1,
+        "src/lib/scientificValidation/confidenceValidation.ts": 1,
+        "src/lib/scientificValidation/flipThresholdValidation.ts": 1,
         "src/pages/sandbox-guide/components/canvas/GhostEdge.tsx": 1,
-        "src/plotLite/GhostPanel.tsx": 1,
-        "src/routes/CanvasMVP.tsx": 1
+        "src/plotLite/GhostPanel.tsx": 1
       },
       "signatures": {
-        "production-hex :: src/App.tsx :: #185": {
-          "count": 1,
-          "file": "src/App.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Don't destructure loadLimits as it creates a new reference each render"
-        },
-        "production-hex :: src/adapters/plot/v1/http.ts :: #153": {
-          "count": 3,
-          "file": "src/adapters/plot/v1/http.ts",
-          "token": "#153",
-          "sample": "// PR follow-up to #153: record the request side into the payload-trace"
-        },
-        "production-hex :: src/adapters/plot/v1/http.ts :: #156": {
-          "count": 6,
-          "file": "src/adapters/plot/v1/http.ts",
-          "token": "#156",
-          "sample": "// PR #156 follow-up (reviewer P0): track whether the response side"
-        },
-        "production-hex :: src/adapters/plot/v1/sseClient.ts :: #153": {
-          "count": 5,
-          "file": "src/adapters/plot/v1/sseClient.ts",
-          "token": "#153",
-          "sample": "// PR follow-up to #153: record the streaming SSE request + completion"
-        },
-        "production-hex :: src/adapters/plot/v1/sseClient.ts :: #156": {
-          "count": 5,
-          "file": "src/adapters/plot/v1/sseClient.ts",
-          "token": "#156",
-          "sample": "// PR #156 follow-up (reviewer P0): track whether the response side"
-        },
-        "production-hex :: src/canvas/ReactFlowGraph.tsx :: #185": {
-          "count": 14,
-          "file": "src/canvas/ReactFlowGraph.tsx",
-          "token": "#185",
-          "sample": "// Use individual selectors instead (see React #185 fix comment below)"
-        },
         "production-hex :: src/canvas/ReactFlowGraph.tsx :: #F87171": {
           "count": 2,
           "file": "src/canvas/ReactFlowGraph.tsx",
@@ -5184,42 +4667,6 @@
           "token": "#EA7B4B",
           "sample": "className={`absolute bg-[#EA7B4B] transition-opacity`}"
         },
-        "production-hex :: src/canvas/components/CommandPalette.tsx :: #185": {
-          "count": 2,
-          "file": "src/canvas/components/CommandPalette.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Use individual selectors for actions to avoid entire-store subscription"
-        },
-        "production-hex :: src/canvas/components/ComparisonTable.tsx :: #185": {
-          "count": 1,
-          "file": "src/canvas/components/ComparisonTable.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Use shallow comparison for array selectors"
-        },
-        "production-hex :: src/canvas/components/ConformalPrediction.tsx :: #185": {
-          "count": 1,
-          "file": "src/canvas/components/ConformalPrediction.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Use shallow comparison for array selectors"
-        },
-        "production-hex :: src/canvas/components/ContextBar.tsx :: #185": {
-          "count": 2,
-          "file": "src/canvas/components/ContextBar.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Select primitive values (lengths) directly to avoid re-renders"
-        },
-        "production-hex :: src/canvas/components/DocumentsManager.tsx :: #185": {
-          "count": 1,
-          "file": "src/canvas/components/DocumentsManager.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Use shallow comparison for array selector"
-        },
-        "production-hex :: src/canvas/components/DraftChat.tsx :: #185": {
-          "count": 1,
-          "file": "src/canvas/components/DraftChat.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Use individual selectors instead of destructuring from useCanvasStore()"
-        },
         "production-hex :: src/canvas/components/DraftChat.tsx :: #FEFEFE": {
           "count": 3,
           "file": "src/canvas/components/DraftChat.tsx",
@@ -5244,12 +4691,6 @@
           "token": "#9B9B9B",
           "sample": "color: canSubmit ? '#FFFFFF' : '#9B9B9B',"
         },
-        "production-hex :: src/canvas/components/DriverChips.tsx :: #185": {
-          "count": 1,
-          "file": "src/canvas/components/DriverChips.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Use shallow comparison for array selectors"
-        },
         "production-hex :: src/canvas/components/EdgeFunctionTypeSelector.tsx :: #0EA5E9": {
           "count": 1,
           "file": "src/canvas/components/EdgeFunctionTypeSelector.tsx",
@@ -5261,36 +4702,6 @@
           "file": "src/canvas/components/EdgeFunctionTypeSelector.tsx",
           "token": "#71717A",
           "sample": "color={value === type ? '#0ea5e9' : '#71717a'}"
-        },
-        "production-hex :: src/canvas/components/FocusModeChip.tsx :: #FEF9F3": {
-          "count": 1,
-          "file": "src/canvas/components/FocusModeChip.tsx",
-          "token": "#FEF9F3",
-          "sample": "* - Background: paper-50 (#FEF9F3)"
-        },
-        "production-hex :: src/canvas/components/FocusModeChip.tsx :: #E1D8C7": {
-          "count": 1,
-          "file": "src/canvas/components/FocusModeChip.tsx",
-          "token": "#E1D8C7",
-          "sample": "* - Border: 1px sand-200 (#E1D8C7)"
-        },
-        "production-hex :: src/canvas/components/FocusModeChip.tsx :: #262626": {
-          "count": 1,
-          "file": "src/canvas/components/FocusModeChip.tsx",
-          "token": "#262626",
-          "sample": "* - Text: ink-900 (#262626) @ 70% opacity, 14px"
-        },
-        "production-hex :: src/canvas/components/FocusModeChip.tsx :: #2B7FA2": {
-          "count": 1,
-          "file": "src/canvas/components/FocusModeChip.tsx",
-          "token": "#2B7FA2",
-          "sample": "* - Clear button: sky-500 (#2B7FA2)"
-        },
-        "production-hex :: src/canvas/components/FocusModeChip.tsx :: #185": {
-          "count": 1,
-          "file": "src/canvas/components/FocusModeChip.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Use primitive selectors to avoid infinite loops"
         },
         "production-hex :: src/canvas/components/FunctionPreview.tsx :: #0EA5E9": {
           "count": 1,
@@ -5322,12 +4733,6 @@
           "token": "#A855F7",
           "sample": "stroke=\"#a855f7\" // purple-500"
         },
-        "production-hex :: src/canvas/components/GoalModePanel.tsx :: #185": {
-          "count": 1,
-          "file": "src/canvas/components/GoalModePanel.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Use shallow comparison for array selectors"
-        },
         "production-hex :: src/canvas/components/ImportExportDialog.tsx :: #FFFFFF": {
           "count": 1,
           "file": "src/canvas/components/ImportExportDialog.tsx",
@@ -5352,47 +4757,11 @@
           "token": "#1F2937",
           "sample": "svg += `<text x=\"${x + nodeWidth / 2}\" y=\"${y + nodeHeights / 2 + 5}\" text-anchor=\"middle\" font-family=\"Inter, system-ui"
         },
-        "production-hex :: src/canvas/components/InputsDock.tsx :: #185": {
-          "count": 2,
-          "file": "src/canvas/components/InputsDock.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Use shallow comparison for object selector"
-        },
-        "production-hex :: src/canvas/components/InsightsTab.tsx :: #185": {
-          "count": 2,
-          "file": "src/canvas/components/InsightsTab.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Use shallow comparison for combined selector with arrays"
-        },
-        "production-hex :: src/canvas/components/LayerProvider.tsx :: #185": {
-          "count": 1,
-          "file": "src/canvas/components/LayerProvider.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Memoize context value to prevent infinite re-render loops."
-        },
         "production-hex :: src/canvas/components/LayoutGuidedModal.tsx :: #EA7B4B": {
           "count": 3,
           "file": "src/canvas/components/LayoutGuidedModal.tsx",
           "token": "#EA7B4B",
           "sample": "<button onClick={() => setDirection('LR')} className={direction === 'LR' ? 'flex-1 px-3 py-2 bg-[#EA7B4B] text-white rou"
-        },
-        "production-hex :: src/canvas/components/LayoutPopover.tsx :: #185": {
-          "count": 1,
-          "file": "src/canvas/components/LayoutPopover.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Use shallow comparison for array selector"
-        },
-        "production-hex :: src/canvas/components/OutputsDock.tsx :: #185": {
-          "count": 5,
-          "file": "src/canvas/components/OutputsDock.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Combine state selectors with shallow comparison"
-        },
-        "production-hex :: src/canvas/components/PropertiesPanel.tsx :: #185": {
-          "count": 1,
-          "file": "src/canvas/components/PropertiesPanel.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Return primitive values from selectors to prevent re-renders"
         },
         "production-hex :: src/canvas/components/RecommendationCard/ParetoMiniChart.tsx :: #F8FAFC": {
           "count": 1,
@@ -5424,89 +4793,11 @@
           "token": "#065F46",
           "sample": "stroke=\"#065f46\""
         },
-        "production-hex :: src/canvas/components/ScenarioSwitcher.tsx :: #185": {
-          "count": 1,
-          "file": "src/canvas/components/ScenarioSwitcher.tsx",
-          "token": "#185",
-          "sample": "// React #185 PERF: nodes/edges only needed in import callback, use getState() to avoid re-renders"
-        },
-        "production-hex :: src/canvas/components/ValidationPanel.tsx :: #FEF9F3": {
-          "count": 1,
-          "file": "src/canvas/components/ValidationPanel.tsx",
-          "token": "#FEF9F3",
-          "sample": "* - Background: paper-50 (#FEF9F3)"
-        },
-        "production-hex :: src/canvas/components/ValidationPanel.tsx :: #E1D8C7": {
-          "count": 1,
-          "file": "src/canvas/components/ValidationPanel.tsx",
-          "token": "#E1D8C7",
-          "sample": "* - Borders: sand-200 (#E1D8C7)"
-        },
-        "production-hex :: src/canvas/components/ValidationSuggestions.tsx :: #185": {
-          "count": 1,
-          "file": "src/canvas/components/ValidationSuggestions.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Use shallow comparison for array selectors"
-        },
-        "production-hex :: src/canvas/components/pre-analysis/primitives/BiasIcon.tsx :: #908D8D": {
-          "count": 1,
-          "file": "src/canvas/components/pre-analysis/primitives/BiasIcon.tsx",
-          "token": "#908D8D",
-          "sample": "* Always rendered in #908D8D (text-light)."
-        },
-        "production-hex :: src/canvas/components/pre-analysis/primitives/NodeLink.tsx :: #2B7FA2": {
-          "count": 1,
-          "file": "src/canvas/components/pre-analysis/primitives/NodeLink.tsx",
-          "token": "#2B7FA2",
-          "sample": "* Renders node/edge references as #2B7FA2 (info) coloured text."
-        },
-        "production-hex :: src/canvas/conversation/zones/SuggestedChips.tsx :: #170": {
-          "count": 1,
-          "file": "src/canvas/conversation/zones/SuggestedChips.tsx",
-          "token": "#170",
-          "sample": "// and `what_would_flip`. Backend PR olumi-assistants-service#170 emits these"
-        },
         "production-hex :: src/canvas/edges/StyledEdge.tsx :: #B8B8B8": {
           "count": 1,
           "file": "src/canvas/edges/StyledEdge.tsx",
           "token": "#B8B8B8",
           "sample": "export const STRUCTURAL_EDGE_COLOUR = '#B8B8B8'"
-        },
-        "production-hex :: src/canvas/edges/StyledEdge.tsx :: #A1A1AA": {
-          "count": 2,
-          "file": "src/canvas/edges/StyledEdge.tsx",
-          "token": "#A1A1AA",
-          "sample": "return isDark ? '#a1a1aa' : '#d4d4d8' // Zinc-400/300"
-        },
-        "production-hex :: src/canvas/edges/StyledEdge.tsx :: #D4D4D8": {
-          "count": 2,
-          "file": "src/canvas/edges/StyledEdge.tsx",
-          "token": "#D4D4D8",
-          "sample": "return isDark ? '#a1a1aa' : '#d4d4d8' // Zinc-400/300"
-        },
-        "production-hex :: src/canvas/edges/StyledEdge.tsx :: #BBF7D0": {
-          "count": 1,
-          "file": "src/canvas/edges/StyledEdge.tsx",
-          "token": "#BBF7D0",
-          "sample": "return isDark ? '#bbf7d0' : '#a7f3d0' // Pastel green-200/emerald-200"
-        },
-        "production-hex :: src/canvas/edges/StyledEdge.tsx :: #A7F3D0": {
-          "count": 1,
-          "file": "src/canvas/edges/StyledEdge.tsx",
-          "token": "#A7F3D0",
-          "sample": "return isDark ? '#bbf7d0' : '#a7f3d0' // Pastel green-200/emerald-200"
-        },
-        "production-hex :: src/canvas/edges/StyledEdge.tsx :: #FF6B6B": {
-          "count": 1,
-          "file": "src/canvas/edges/StyledEdge.tsx",
-          "token": "#FF6B6B",
-          "sample": "return isDark ? '#FF6B6B' : '#ef4444' // Risk red (matches risk node border)"
-        },
-        "production-hex :: src/canvas/edges/StyledEdge.tsx :: #EF4444": {
-          "count": 1,
-          "file": "src/canvas/edges/StyledEdge.tsx",
-          "token": "#EF4444",
-          "sample": "return isDark ? '#FF6B6B' : '#ef4444' // Risk red (matches risk node border)"
         },
         "production-hex :: src/canvas/edges/StyledEdge.tsx :: #059669": {
           "count": 1,
@@ -5525,6 +4816,42 @@
           "file": "src/canvas/edges/StyledEdge.tsx",
           "token": "#F4F0EA",
           "sample": "backgroundColor: '#F4F0EA',"
+        },
+        "production-hex :: src/canvas/edges/directionStroke.ts :: #A1A1AA": {
+          "count": 2,
+          "file": "src/canvas/edges/directionStroke.ts",
+          "token": "#A1A1AA",
+          "sample": "return isDark ? '#a1a1aa' : '#d4d4d8'"
+        },
+        "production-hex :: src/canvas/edges/directionStroke.ts :: #D4D4D8": {
+          "count": 2,
+          "file": "src/canvas/edges/directionStroke.ts",
+          "token": "#D4D4D8",
+          "sample": "return isDark ? '#a1a1aa' : '#d4d4d8'"
+        },
+        "production-hex :: src/canvas/edges/directionStroke.ts :: #BBF7D0": {
+          "count": 1,
+          "file": "src/canvas/edges/directionStroke.ts",
+          "token": "#BBF7D0",
+          "sample": "return isDark ? '#bbf7d0' : '#62B290'"
+        },
+        "production-hex :: src/canvas/edges/directionStroke.ts :: #62B290": {
+          "count": 1,
+          "file": "src/canvas/edges/directionStroke.ts",
+          "token": "#62B290",
+          "sample": "return isDark ? '#bbf7d0' : '#62B290'"
+        },
+        "production-hex :: src/canvas/edges/directionStroke.ts :: #F06595": {
+          "count": 1,
+          "file": "src/canvas/edges/directionStroke.ts",
+          "token": "#F06595",
+          "sample": "return isDark ? '#F06595' : '#D6336C'"
+        },
+        "production-hex :: src/canvas/edges/directionStroke.ts :: #D6336C": {
+          "count": 1,
+          "file": "src/canvas/edges/directionStroke.ts",
+          "token": "#D6336C",
+          "sample": "return isDark ? '#F06595' : '#D6336C'"
         },
         "production-hex :: src/canvas/export/decisionBrief.ts :: #1F2937": {
           "count": 1,
@@ -5645,72 +4972,6 @@
           "file": "src/canvas/export/decisionBrief.ts",
           "token": "#9CA3AF",
           "sample": "<div style=\"color: #9ca3af; font-size: 0.875rem;\">No data available</div>"
-        },
-        "production-hex :: src/canvas/help/KeyboardLegend.tsx :: #185": {
-          "count": 1,
-          "file": "src/canvas/help/KeyboardLegend.tsx",
-          "token": "#185",
-          "sample": "// React #185: Memoize return object to prevent unnecessary re-renders in consumers"
-        },
-        "production-hex :: src/canvas/hooks/useAutosave.ts :: #185": {
-          "count": 1,
-          "file": "src/canvas/hooks/useAutosave.ts",
-          "token": "#185",
-          "sample": "// React #185 FIX: Use shallow comparison for object/array selectors"
-        },
-        "production-hex :: src/canvas/hooks/useEngineLimits.ts :: #185": {
-          "count": 1,
-          "file": "src/canvas/hooks/useEngineLimits.ts",
-          "token": "#185",
-          "sample": "// Safety guard: prevent runaway fetch loops (React #185)"
-        },
-        "production-hex :: src/canvas/hooks/usePathHighlight.ts :: #185": {
-          "count": 2,
-          "file": "src/canvas/hooks/usePathHighlight.ts",
-          "token": "#185",
-          "sample": "* React #185 FIX: Uses primitive selectors and getState() pattern to avoid"
-        },
-        "production-hex :: src/canvas/nodes/BaseNode.tsx :: #185": {
-          "count": 2,
-          "file": "src/canvas/nodes/BaseNode.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Return primitive boolean from selector to prevent re-renders"
-        },
-        "production-hex :: src/canvas/onboarding/useOnboarding.ts :: #185": {
-          "count": 2,
-          "file": "src/canvas/onboarding/useOnboarding.ts",
-          "token": "#185",
-          "sample": "// React #185 FIX: Memoize callbacks to prevent unnecessary re-renders."
-        },
-        "production-hex :: src/canvas/panels/InspectorPanel.tsx :: #185": {
-          "count": 1,
-          "file": "src/canvas/panels/InspectorPanel.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Use individual selectors to avoid re-renders from selection.anchorPosition changes"
-        },
-        "production-hex :: src/canvas/share/ShareDrawer.tsx :: #185": {
-          "count": 1,
-          "file": "src/canvas/share/ShareDrawer.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Use shallow comparison for object selectors"
-        },
-        "production-hex :: src/canvas/snapshots/SnapshotPanel.tsx :: #185": {
-          "count": 1,
-          "file": "src/canvas/snapshots/SnapshotPanel.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Use shallow comparison for array/object selectors"
-        },
-        "production-hex :: src/canvas/store.ts :: #185": {
-          "count": 4,
-          "file": "src/canvas/store.ts",
-          "token": "#185",
-          "sample": "// React #185 DEBUG: Check if stateDebug=1 is in URL (supports HashRouter)"
-        },
-        "production-hex :: src/canvas/utils/safeRichText.ts :: #123": {
-          "count": 1,
-          "file": "src/canvas/utils/safeRichText.ts",
-          "token": "#123",
-          "sample": "//   · HTML numeric entities (&#123;, &#x1F;) which contain digits that"
         },
         "production-hex :: src/canvas/utils/templatePreview.ts :: #CBD5E1": {
           "count": 1,
@@ -6150,12 +5411,6 @@
           "token": "#1F2937",
           "sample": "ctx.fillStyle = '#1f2937'"
         },
-        "production-hex :: src/components/assistants/InfluenceExplainer.tsx :: #185": {
-          "count": 2,
-          "file": "src/components/assistants/InfluenceExplainer.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Memoize callbacks to prevent unnecessary re-renders."
-        },
         "production-hex :: src/components/auth/LoginPage.tsx :: #4285F4": {
           "count": 1,
           "file": "src/components/auth/LoginPage.tsx",
@@ -6264,24 +5519,6 @@
           "token": "#B0A899",
           "sample": "--factor: #B0A899;"
         },
-        "production-hex :: src/components/results/useCanvasResultsSync.ts :: #185": {
-          "count": 1,
-          "file": "src/components/results/useCanvasResultsSync.ts",
-          "token": "#185",
-          "sample": "// React #185 FIX: Use primitive selectors to avoid infinite loops"
-        },
-        "production-hex :: src/contexts/DecisionContext.tsx :: #185": {
-          "count": 1,
-          "file": "src/contexts/DecisionContext.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Memoize context value to prevent re-renders when values haven't changed"
-        },
-        "production-hex :: src/contexts/TeamsContext.tsx :: #185": {
-          "count": 1,
-          "file": "src/contexts/TeamsContext.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: Memoize context value to prevent re-renders when values haven't changed"
-        },
         "production-hex :: src/lib/ErrorBoundary.tsx :: #FEE": {
           "count": 1,
           "file": "src/lib/ErrorBoundary.tsx",
@@ -6317,18 +5554,6 @@
           "file": "src/lib/PoCShell.tsx",
           "token": "#666",
           "sample": "<div style={{ padding: 16, fontSize: 14, color: '#666' }}>"
-        },
-        "production-hex :: src/lib/analysisProducingCeeTurn.ts :: #147": {
-          "count": 1,
-          "file": "src/lib/analysisProducingCeeTurn.ts",
-          "token": "#147",
-          "sample": "*      block (PR #147 sidecar shape)."
-        },
-        "production-hex :: src/lib/analysisProducingPlotTurn.ts :: #156": {
-          "count": 3,
-          "file": "src/lib/analysisProducingPlotTurn.ts",
-          "token": "#156",
-          "sample": "* PR #156 round-3 (reviewer BLOCKING #2): debug-bundle PLoT selection"
         },
         "production-hex :: src/lib/auth/authLogger.ts :: #EF4444": {
           "count": 1,
@@ -6384,77 +5609,17 @@
           "token": "#F59E0B",
           "sample": "border: '1px dashed #f59e0b',"
         },
-        "production-hex :: src/lib/payload-trace-store.ts :: #156": {
-          "count": 3,
-          "file": "src/lib/payload-trace-store.ts",
-          "token": "#156",
-          "sample": "// PR #156 round-2 (reviewer \"missing tests\" #5): upsert by id"
-        },
         "production-hex :: src/lib/scientificValidation/confidenceValidation.ts :: #170": {
-          "count": 2,
+          "count": 1,
           "file": "src/lib/scientificValidation/confidenceValidation.ts",
           "token": "#170",
-          "sample": "* the `plot_unified_v3+` pipeline (PR #170). Detects:"
-        },
-        "production-hex :: src/lib/scientificValidation/evidenceGapValidation.ts :: #166": {
-          "count": 1,
-          "file": "src/lib/scientificValidation/evidenceGapValidation.ts",
-          "token": "#166",
-          "sample": "* evidence_gap_validation — verifies PR #166: evidence gaps are sourced"
+          "sample": "? ['No factor carries confidence_provenance — PR #170 work has not propagated yet.']"
         },
         "production-hex :: src/lib/scientificValidation/flipThresholdValidation.ts :: #167": {
-          "count": 3,
+          "count": 1,
           "file": "src/lib/scientificValidation/flipThresholdValidation.ts",
           "token": "#167",
-          "sample": "* flip_threshold_validation — validates PR #167 surface:"
-        },
-        "production-hex :: src/lib/scientificValidation/index.ts :: #156": {
-          "count": 2,
-          "file": "src/lib/scientificValidation/index.ts",
-          "token": "#156",
-          "sample": "// PR #156 round-4 (reviewer P0): ALSO require the selected PLoT"
-        },
-        "production-hex :: src/lib/scientificValidation/index.ts :: #150": {
-          "count": 1,
-          "file": "src/lib/scientificValidation/index.ts",
-          "token": "#150",
-          "sample": "// usability flag (undefined), preserve PR #150 behaviour and"
-        },
-        "production-hex :: src/lib/scientificValidation/index.ts :: #162": {
-          "count": 1,
-          "file": "src/lib/scientificValidation/index.ts",
-          "token": "#162",
-          "sample": "// Evidence-resolver follow-up (post-PR #162): when the"
-        },
-        "production-hex :: src/lib/scientificValidation/types.ts :: #156": {
-          "count": 1,
-          "file": "src/lib/scientificValidation/types.ts",
-          "token": "#156",
-          "sample": "* PR #156 round-4 (reviewer P0): the analysis-producing PLoT"
-        },
-        "production-hex :: src/lib/scientificValidation/types.ts :: #150": {
-          "count": 1,
-          "file": "src/lib/scientificValidation/types.ts",
-          "token": "#150",
-          "sample": "* prior PR #150 behaviour when the new signal isn't threaded"
-        },
-        "production-hex :: src/lib/scientificValidation/types.ts :: #162": {
-          "count": 1,
-          "file": "src/lib/scientificValidation/types.ts",
-          "token": "#162",
-          "sample": "* Evidence-resolver follow-up (post-PR #162): tells `classifySource`"
-        },
-        "production-hex :: src/lib/scientificValidation/userStdPropagation.ts :: #168": {
-          "count": 1,
-          "file": "src/lib/scientificValidation/userStdPropagation.ts",
-          "token": "#168",
-          "sample": "* `parameter_uncertainties.std`. (Scientific PR #168 / #169.)"
-        },
-        "production-hex :: src/lib/scientificValidation/userStdPropagation.ts :: #169": {
-          "count": 1,
-          "file": "src/lib/scientificValidation/userStdPropagation.ts",
-          "token": "#169",
-          "sample": "* `parameter_uncertainties.std`. (Scientific PR #168 / #169.)"
+          "sample": "'flip_thresholds_status is not yet emitted by PLoT (PR #167 work in flight). ' +"
         },
         "production-hex :: src/lib/tldrawAdapter.ts :: #E5E7EB": {
           "count": 1,
@@ -6467,48 +5632,6 @@
           "file": "src/lib/tldrawAdapter.ts",
           "token": "#FFF",
           "sample": "li.style.background = '#fff'"
-        },
-        "production-hex :: src/lib/v5CapturePipelineStatus.ts :: #153": {
-          "count": 5,
-          "file": "src/lib/v5CapturePipelineStatus.ts",
-          "token": "#153",
-          "sample": "* Round-8 (follow-up to PR #153): the Run-analysis button fires"
-        },
-        "production-hex :: src/lib/v5CapturePipelineStatus.ts :: #147": {
-          "count": 1,
-          "file": "src/lib/v5CapturePipelineStatus.ts",
-          "token": "#147",
-          "sample": "// is the canonical PR #147 invariant signature; emit it as a visible"
-        },
-        "production-hex :: src/lib/v5EmbeddedEvidence.ts :: #162": {
-          "count": 1,
-          "file": "src/lib/v5EmbeddedEvidence.ts",
-          "token": "#162",
-          "sample": "* V5 embedded-evidence resolver (post-PR #162 follow-up)."
-        },
-        "production-hex :: src/lib/v5EmbeddedEvidence.ts :: #168": {
-          "count": 1,
-          "file": "src/lib/v5EmbeddedEvidence.ts",
-          "token": "#168",
-          "sample": "*      Manual staging validation of PR #168 (commit `5e9847db`,"
-        },
-        "production-hex :: src/lib/v5EmbeddedEvidence.ts :: #169": {
-          "count": 2,
-          "file": "src/lib/v5EmbeddedEvidence.ts",
-          "token": "#169",
-          "sample": "*      while top-level `cee_response.blocks` was absent. PR #169"
-        },
-        "production-hex :: src/lib/v5TraceMatching.ts :: #156": {
-          "count": 2,
-          "file": "src/lib/v5TraceMatching.ts",
-          "token": "#156",
-          "sample": "* `src/lib/scientificValidation/index.ts` (PR #156 round-4 P0)."
-        },
-        "production-hex :: src/lib/v5TraceMatching.ts :: #153": {
-          "count": 1,
-          "file": "src/lib/v5TraceMatching.ts",
-          "token": "#153",
-          "sample": "// (PR #153 round-4) closed. These helpers extend the pathname-only"
         },
         "production-hex :: src/main.tsx :: #F8FAFC": {
           "count": 1,
@@ -6660,12 +5783,6 @@
           "token": "#E5E7EB",
           "sample": "<article key={d.id || idx} data-testid=\"ghost-card\" style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: 12, "
         },
-        "production-hex :: src/routes/CanvasIsolationTest.tsx :: #185": {
-          "count": 1,
-          "file": "src/routes/CanvasIsolationTest.tsx",
-          "token": "#185",
-          "sample": "// REACT #185 DEBUG: Minimal test component for structural isolation"
-        },
         "production-hex :: src/routes/CanvasIsolationTest.tsx :: #F00": {
           "count": 1,
           "file": "src/routes/CanvasIsolationTest.tsx",
@@ -6677,12 +5794,6 @@
           "file": "src/routes/CanvasIsolationTest.tsx",
           "token": "#FFF",
           "sample": "color: '#fff',"
-        },
-        "production-hex :: src/routes/CanvasMVP.tsx :: #185": {
-          "count": 1,
-          "file": "src/routes/CanvasMVP.tsx",
-          "token": "#185",
-          "sample": "// React #185 FIX: runMeta is an object - use shallow comparison to prevent infinite re-renders"
         },
         "production-hex :: src/routes/PlotShowcase.tsx :: #E5E7EB": {
           "count": 1,
@@ -6731,7 +5842,7 @@
     "uppercase-text": {
       "mode": "ratchet",
       "description": "Styling-driven all-caps (uppercase class) — sentence case required (DS v5 §2)",
-      "total": 82,
+      "total": 79,
       "byFile": {
         "src/components/decisions/DecisionList.tsx": 7,
         "src/canvas/compare/EdgeDiffTable.tsx": 6,
@@ -6741,7 +5852,6 @@
         "src/canvas/components/DecisionSummary.tsx": 3,
         "src/pages/sandbox-guide/components/panel/states/PostRunState.tsx": 3,
         "src/canvas/components/CompareView.tsx": 2,
-        "src/canvas/components/InputsDock.tsx": 2,
         "src/canvas/components/ScenarioSwitcher.tsx": 2,
         "src/canvas/help/KeyboardLegend.tsx": 2,
         "src/canvas/ui/inspector/InspectorAccordion.tsx": 2,
@@ -6755,7 +5865,6 @@
         "src/canvas/components/InterventionDisplay.tsx": 1,
         "src/canvas/components/KeyboardCheatsheet.tsx": 1,
         "src/canvas/components/ModelSettingsPopover.tsx": 1,
-        "src/canvas/components/OutcomesSignal.tsx": 1,
         "src/canvas/components/RecommendationCard/ConstraintViolationsSection.tsx": 1,
         "src/canvas/components/RecommendationCard/index.tsx": 1,
         "src/canvas/components/SequentialView/index.tsx": 1,
@@ -6830,12 +5939,6 @@
           "token": "uppercase",
           "sample": "<p className={`${typography.panelMeta} uppercase tracking-wide text-ink-500`}>"
         },
-        "uppercase-text :: src/canvas/components/InputsDock.tsx :: uppercase": {
-          "count": 2,
-          "file": "src/canvas/components/InputsDock.tsx",
-          "token": "uppercase",
-          "sample": "<h2 className={`${typography.code} font-semibold text-ink-900 uppercase tracking-wide`}>"
-        },
         "uppercase-text :: src/canvas/components/InterventionDisplay.tsx :: uppercase": {
           "count": 1,
           "file": "src/canvas/components/InterventionDisplay.tsx",
@@ -6853,12 +5956,6 @@
           "file": "src/canvas/components/ModelSettingsPopover.tsx",
           "token": "uppercase",
           "sample": "<div className={`${typography.labelSmall} text-ink-400 px-2 py-1 text-xs uppercase tracking-wider`}>"
-        },
-        "uppercase-text :: src/canvas/components/OutcomesSignal.tsx :: uppercase": {
-          "count": 1,
-          "file": "src/canvas/components/OutcomesSignal.tsx",
-          "token": "uppercase",
-          "sample": "<span className={`${typography.caption} font-medium text-sky-700 uppercase tracking-wide`}>"
         },
         "uppercase-text :: src/canvas/components/RecommendationCard/ConstraintViolationsSection.tsx :: uppercase": {
           "count": 1,
@@ -7069,12 +6166,18 @@
     "panel-typography-scoped": {
       "mode": "ratchet",
       "description": "Raw text-/font- utilities in panel scope — must use panelHeader/Body/Meta (DS v5 §2.4)",
-      "total": 14,
+      "total": 34,
       "byFile": {
+        "src/components/results/coaching/AskOlumiDrawer.tsx": 8,
+        "src/components/results/strengthen/StrengthenPanel.tsx": 4,
         "src/canvas/panels/TemplatesPanel.tsx": 3,
         "src/canvas/ui/EdgeInspector.tsx": 3,
         "src/canvas/panels/AdapterStatusBanner.tsx": 2,
+        "src/components/results/analysis-hero/AnalysisHeroPanel.tsx": 2,
+        "src/components/results/analysis-hero/HeroEvidenceDisclosure.tsx": 2,
         "src/components/results/analysisHeroV17/HeroFooter.tsx": 2,
+        "src/components/results/decision-overview/ActionsMenu.tsx": 2,
+        "src/components/results/decision-overview/DecisionOverviewCard.tsx": 2,
         "src/canvas/panels/InspectorPanel.tsx": 1,
         "src/canvas/panels/IssuesPanel.tsx": 1,
         "src/components/results/CompactOptionSpread.tsx": 1,
@@ -7135,6 +6238,18 @@
           "token": "font-semibold",
           "sample": "<span className=\"font-semibold whitespace-nowrap\">{dominantLabel}</span>"
         },
+        "panel-typography-scoped :: src/components/results/analysis-hero/AnalysisHeroPanel.tsx :: font-semibold": {
+          "count": 2,
+          "file": "src/components/results/analysis-hero/AnalysisHeroPanel.tsx",
+          "token": "font-semibold",
+          "sample": "className={`${typography.panelMeta} inline-flex items-center rounded-full bg-primary px-3 py-1.5 font-semibold text-text"
+        },
+        "panel-typography-scoped :: src/components/results/analysis-hero/HeroEvidenceDisclosure.tsx :: font-semibold": {
+          "count": 2,
+          "file": "src/components/results/analysis-hero/HeroEvidenceDisclosure.tsx",
+          "token": "font-semibold",
+          "sample": "className={`font-semibold ${d.direction === 'positive' ? 'text-success' : 'text-danger'}`}"
+        },
         "panel-typography-scoped :: src/components/results/analysisHeroV17/HeroFooter.tsx :: font-semibold": {
           "count": 1,
           "file": "src/components/results/analysisHeroV17/HeroFooter.tsx",
@@ -7146,6 +6261,42 @@
           "file": "src/components/results/analysisHeroV17/HeroFooter.tsx",
           "token": "font-medium",
           "sample": "className={`px-3 py-1.5 rounded-full bg-primary text-text-on-color border border-primary hover:bg-primary-hover focus-vi"
+        },
+        "panel-typography-scoped :: src/components/results/coaching/AskOlumiDrawer.tsx :: text-sm": {
+          "count": 1,
+          "file": "src/components/results/coaching/AskOlumiDrawer.tsx",
+          "token": "text-sm",
+          "sample": "<h2 className=\"flex-1 text-sm font-semibold text-text-header\">"
+        },
+        "panel-typography-scoped :: src/components/results/coaching/AskOlumiDrawer.tsx :: font-semibold": {
+          "count": 2,
+          "file": "src/components/results/coaching/AskOlumiDrawer.tsx",
+          "token": "font-semibold",
+          "sample": "<h2 className=\"flex-1 text-sm font-semibold text-text-header\">"
+        },
+        "panel-typography-scoped :: src/components/results/coaching/AskOlumiDrawer.tsx :: text-xs": {
+          "count": 5,
+          "file": "src/components/results/coaching/AskOlumiDrawer.tsx",
+          "token": "text-xs",
+          "sample": "className=\"mb-2 rounded-[9px] border border-info px-2.5 py-2 text-xs text-text-body\""
+        },
+        "panel-typography-scoped :: src/components/results/decision-overview/ActionsMenu.tsx :: font-semibold": {
+          "count": 2,
+          "file": "src/components/results/decision-overview/ActionsMenu.tsx",
+          "token": "font-semibold",
+          "sample": "<span className={`${typography.panelBody} block font-semibold text-text-header`}>{m.title}</span>"
+        },
+        "panel-typography-scoped :: src/components/results/decision-overview/DecisionOverviewCard.tsx :: font-semibold": {
+          "count": 2,
+          "file": "src/components/results/decision-overview/DecisionOverviewCard.tsx",
+          "token": "font-semibold",
+          "sample": "<span className={`${typography.panelBody} block font-semibold text-text-header`}>{copy.line}</span>"
+        },
+        "panel-typography-scoped :: src/components/results/strengthen/StrengthenPanel.tsx :: font-semibold": {
+          "count": 4,
+          "file": "src/components/results/strengthen/StrengthenPanel.tsx",
+          "token": "font-semibold",
+          "sample": "<span className={`${typography.panelBody} block font-semibold text-text-header`}>"
         }
       }
     },

@@ -181,6 +181,42 @@ className="border border-danger/30 text-danger"
 
 Text on pills is **always** `text-text-body` — never `text-{colour}`. Colour is carried by the border only.
 
+## Canvas Graph (nodes and edges)
+
+### State never overwrites kind
+
+A node's **kind** is carried by its border hue + shape glyph; its **state** may
+change the border *style* (solid → dashed) and add a badge — it must never
+replace the kind hue. A factor that needs input stays factor-tan, dashed, with
+a "Needs input" badge; painting it warning-orange makes it read risk-adjacent
+(warning `#FFA656` sits one perceptual step from risk `#EA7B4B`) and deletes
+the kind channel from the border. The one sanctioned colour-swap is the goal's
+no-target state (dashed goal-yellow), which is that kind's own colour.
+
+### Edge polarity tokens
+
+Causal-edge colours are tokens, not literals: `--edge-positive` /
+`--edge-negative` / `--edge-neutral` (+ `-dark` variants) in `brand.css`,
+with the full CVD/ΔE rationale attached to the tokens. `directionStroke.ts`
+owns the *rule* (which state gets which token); the token file owns the hues.
+Truly uninitialised edges use `--goal` yellow; amber stays reserved for the
+warning/fragility family.
+
+### Edge-label grammar
+
+One grammar for every on-edge label: **strength word · optional metric ·
+confidence marker** — e.g. `Moderate boost · 26% · (uncertain)`. Never mix
+free-prose labels ("Moderate boost (uncertain)"), bare metrics ("88% conf."),
+and warning pills ("Sensitive · 26%") on one canvas. Labels render in
+`typography.edgeLabel`; collision spacing is handled by
+`edgeLabelCollision.ts` — the grammar is what keeps stacked labels scannable.
+
+### In-node affordance budget
+
+At most **two persistent icon affordances** per node (e.g. edit + confirm).
+Everything else — AI suggestions, visibility, help — appears on hover or
+selection. Icons are Lucide only; text glyphs (✓ ✕ ⚠) are never icons.
+
 ## Patterns
 
 ```tsx
@@ -220,6 +256,33 @@ Universal threshold system for quality metrics (readiness, stability, quality sc
 | ≥ 70% | `text-success` | Strong |
 
 Does **not** apply to: driver influence bars (use `text-info`), win probability, count badges.
+
+## Canonical State Copy
+
+One system state renders **one sentence, everywhere**. Every user-facing state
+string is an exported constant next to the logic that owns it — never a
+re-typed literal — so panel, chat, and canvas cannot drift into different
+dialects (the July incident class: one surface said "Results may be outdated"
+while another said "Cannot confirm whether this analysis is current" for the
+same state).
+
+| State | Canonical sentence | Constant |
+|-------|--------------------|----------|
+| Analysis fresh | Analysis reflects the current model. | `FRESHNESS_COPY.fresh` |
+| Model changed since analysis (CEE verdict) | Model changed since this analysis. Re-run to update. | `FRESHNESS_COPY.stale` |
+| Freshness unknown | Cannot confirm whether this analysis is current. | `FRESHNESS_COPY.unknown` |
+| No analysis yet | No analysis yet. | `FRESHNESS_COPY.none` |
+| Engine cannot see the model | Draft or save a model first, then run analysis. | `CEE_DRAFT_FIRST_REFUSAL` |
+| Template load failed | Failed to load template. | `TEMPLATE_LOAD_FAILED_MESSAGE` |
+
+Rules:
+- New state → new constant + a row here, in the same PR.
+- Specs pin the **raw literal** (not the constant) so a reworded constant
+  cannot silently drift from the sentence the tests promise.
+- The locally-edited-while-fresh state currently renders **two different
+  sentences on two surfaces** (`resolveDisplayedFreshness` → unknown copy vs
+  `classifyFreshnessForDisplay` → changed copy). This is a known conflict
+  awaiting a product wording decision — do not add a third dialect.
 
 ## Legacy Aliases (Migration In Progress)
 
