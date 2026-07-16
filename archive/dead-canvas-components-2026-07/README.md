@@ -1,7 +1,8 @@
 # Archived: dead canvas components (2026-07-16)
 
 Eight components moved here from `src/canvas/components/` (plus their
-co-located specs) after a full reference census at staging `8762a9b4`
+specs — four co-located in `src/.../__tests__/`, one in the root
+`tests/` mirror, which the first sweep missed and CI caught) after a full reference census at staging `8762a9b4`
 found **zero live references** for each — no static import, no lazy
 `import()`, no JSX use, no re-export; the only mentions in `src/` were
 comments. `DriversSignal` and `OutcomesSignal` were imported solely by
