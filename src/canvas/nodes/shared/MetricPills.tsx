@@ -1,6 +1,8 @@
 /**
  * MetricPills — compact row of small outlined pills at the bottom of Standard view nodes.
- * Three pill types: Influence (I:%), Confidence (C:%), and optional bias icon.
+ * Three pill types: Influence, Confidence (plain words, not I:/C: — the
+ * first-five-minutes review found the abbreviations unreadable at first
+ * contact; the tooltip/aria still carry the full provenance), and bias icon.
  * Font 10px (edgeLabel). Pill padding 1px 5px. Border-radius 10px. Gap 3px.
  *
  * Lane C4 (influence-scale disclosure): the influence number comes from the
@@ -58,12 +60,12 @@ export function MetricPills({ influencePct, influenceProvenance, confidencePct, 
           role="img"
           aria-label={influenceAria}
         >
-          I: {influencePct}%
+          Influence {influencePct}%
         </span>
       )}
       {hasConfidence && (
         <span className="text-[10px] font-sans leading-tight px-[5px] py-[1px] rounded-[10px] border border-factor/60 text-text-body">
-          C: {confidencePct}%
+          Confidence {confidencePct}%
         </span>
       )}
       {hasBias && (

@@ -36,7 +36,7 @@ describe('MetricPills — influence-scale disclosure (lane C4)', () => {
     const pill = screen.getByRole('img', {
       name: 'Influence 100%, relative to the strongest factor. The top driver always shows 100%',
     })
-    expect(pill.textContent).toBe('I: 100%')
+    expect(pill.textContent).toBe('Influence 100%')
     expect(pill.getAttribute('title')).toBe(RELATIVE_TITLE)
   })
 
@@ -45,7 +45,7 @@ describe('MetricPills — influence-scale disclosure (lane C4)', () => {
     const pill = screen.getByRole('img', {
       name: 'Influence 62%, an absolute causal influence score from the analysis',
     })
-    expect(pill.textContent).toBe('I: 62%')
+    expect(pill.textContent).toBe('Influence 62%')
     expect(pill.getAttribute('title')).toBe(ABSOLUTE_TITLE)
     expect(pill.getAttribute('title')).not.toContain('always shows 100%')
   })
@@ -53,7 +53,7 @@ describe('MetricPills — influence-scale disclosure (lane C4)', () => {
   it('no provenance (fail-closed): generic honest label, no basis claim', () => {
     render(<MetricPills influencePct={80} />)
     const pill = screen.getByRole('img', { name: 'Influence 80%' })
-    expect(pill.textContent).toBe('I: 80%')
+    expect(pill.textContent).toBe('Influence 80%')
     expect(pill.getAttribute('title')).toBe(GENERIC_TITLE)
   })
 
@@ -64,7 +64,7 @@ describe('MetricPills — influence-scale disclosure (lane C4)', () => {
 
   it('unchanged behaviour: confidence pill renders without an influence disclosure', () => {
     render(<MetricPills confidencePct={45} />)
-    expect(screen.getByText('C: 45%')).toBeDefined()
+    expect(screen.getByText('Confidence 45%')).toBeDefined()
     expect(screen.queryByText(/^I: /)).toBeNull()
   })
 })
