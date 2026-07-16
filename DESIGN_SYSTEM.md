@@ -212,14 +212,22 @@ owns the *rule* (which state gets which token); the token file owns the hues.
 Truly uninitialised edges use `--goal` yellow; amber stays reserved for the
 warning/fragility family.
 
-### Edge-label grammar
+### Edge-label signals
 
-One grammar for every on-edge label: **strength word · optional metric ·
-confidence marker** — e.g. `Moderate boost · 26% · (uncertain)`. Never mix
-free-prose labels ("Moderate boost (uncertain)"), bare metrics ("88% conf."),
-and warning pills ("Sensitive · 26%") on one canvas. Labels render in
-`typography.edgeLabel`; collision spacing is handled by
-`edgeLabelCollision.ts` — the grammar is what keeps stacked labels scannable.
+Three DISTINCT signals may appear on or near an edge — each has one owner and
+one format; never invent a fourth or blend them:
+
+| Signal | Format | Owner |
+|--------|--------|-------|
+| Weight label | "Strong boost" / "Moderate drag (uncertain)" — or numeric via the mode toggle | `domain/edgeLabels.ts` grammar |
+| Fragility badge | "Sensitive · NN%" warning pill (analysis result) | robustness surface |
+| Existence confidence | "NN% conf." (hover panel row, with title/aria disclosure) | `ConnRow` |
+
+Labels render in `typography.edgeLabel`; stacking is spaced by
+`edgeLabelCollision.ts`. Known density issue: several options converging on
+one goal can stack near-identical weight labels — prefer suppressing
+duplicates at the convergence (visibility rules live in
+`edgeLabelVisibility.ts`) over shrinking or restyling them.
 
 ### In-node affordance budget
 
