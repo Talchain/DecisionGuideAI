@@ -183,15 +183,25 @@ Text on pills is **always** `text-text-body` — never `text-{colour}`. Colour i
 
 ## Canvas Graph (nodes and edges)
 
-### State never overwrites kind
+### Border vocabulary (ratified, wireframe v4)
 
-A node's **kind** is carried by its border hue + shape glyph; its **state** may
-change the border *style* (solid → dashed) and add a badge — it must never
-replace the kind hue. A factor that needs input stays factor-tan, dashed, with
-a "Needs input" badge; painting it warning-orange makes it read risk-adjacent
-(warning `#FFA656` sits one perceptual step from risk `#EA7B4B`) and deletes
-the kind channel from the border. The one sanctioned colour-swap is the goal's
-no-target state (dashed goal-yellow), which is that kind's own colour.
+A node's **kind** is carried by its border hue + shape glyph. Two ratified
+border modifiers exist, and they mean different things — never conflate them:
+
+- **Dashed border = "outside your control"** (external factors).
+- **Amber border = "needs your judgement"** (a controllable node missing its
+  value; the goal missing its target).
+
+External factors NEVER get amber, even with no value (pinned in
+`FactorNode.spec.tsx`). New states must reuse this vocabulary, not invent a
+third border treatment.
+
+> **Open question (flagged 2026-07-16, Paul to rule):** amber-on-incomplete
+> replaces the kind hue on the border, and amber `#FFA656` sits one perceptual
+> step from the risk border `#EA7B4B` — the same ΔE neighbourhood the E1 edge
+> work deliberately moved away from. An alternative (kind-hue border + amber
+> badge for needs-judgement) would preserve the kind channel; changing it
+> means re-ruling wireframe v4, so it is recorded here rather than changed.
 
 ### Edge polarity tokens
 
