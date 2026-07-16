@@ -67,7 +67,17 @@ vi.mock('../../../flags', async (importOriginal) => {
   }
 })
 
-vi.mock('../../../v5/eligibility', () => ({ isV5Eligible: mockIsV5Eligible }))
+vi.mock('../../../v5/eligibility', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../v5/eligibility')>()
+  const flags = await import('../../../flags')
+  return {
+    ...actual,
+    isV5Eligible: mockIsV5Eligible,
+    isV5CanonicalRunPath: () =>
+      flags.isV5CanonicalAnalysisEnabled() &&
+      mockIsV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible,
+  }
+})
 
 vi.mock('../../hooks/useV2Run', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../hooks/useV2Run')>()
