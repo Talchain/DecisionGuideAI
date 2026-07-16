@@ -771,12 +771,22 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     s.graphHealth?.issues?.some((i: { severity: string }) => i.severity === 'error' || i.severity === 'blocker') ?? false
   )
 
+  // #343 honest stopgap: a template-inserted graph exists only client-side
+  // (insertBlueprint stamps data.templateId; no CEE draft path ever does).
+  // On the V5-canonical run path — the SAME condition runCanonicalAnalysis
+  // branches on — the run dispatches to CEE, which has no scenario state for
+  // it and refuses. The gate must say so up front, not claim availability.
+  const hasTemplateProvenance = nodes.some((n) => (n.data as { templateId?: unknown } | undefined)?.templateId != null)
+  const runRoutesThroughCee =
+    isV5CanonicalAnalysisEnabled() &&
+    isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
   const runGateResult = canRunAnalysisUtil({
     graphHealth: graphHealth ?? null,
     readiness,
     hasBlockers: hasValidationBlockers,
     nodeCount: nodes.length,
     isRunning,
+    ceeCannotSeeModel: hasTemplateProvenance && runRoutesThroughCee,
   })
   const canRunAnalysis = runGateResult.allowed
   const runBlockedTooltip = getRunButtonTooltip(runGateResult)

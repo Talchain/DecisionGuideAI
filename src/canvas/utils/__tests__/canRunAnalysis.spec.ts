@@ -320,3 +320,34 @@ describe('getRunButtonAriaLabel', () => {
     expect(label).toBe('Run analysis')
   })
 })
+
+describe('canRunAnalysis — #343 honest stopgap (model invisible to CEE)', () => {
+  const base = {
+    graphHealth: null,
+    readiness: null,
+    hasBlockers: false,
+    nodeCount: 5,
+  }
+
+  it('blocks with CEE\'s own refusal sentence when the model cannot be seen by CEE', () => {
+    // Reproduced live (2026-07-16, build f5a22c1e): starter-template model →
+    // panel said "Analysis available — Analyse first pass" → CEE replied
+    // "Draft or save a model first, then run analysis." The panel must never
+    // contradict the engine on a new user's likeliest first click.
+    // MUTATION-CHECK: remove the ceeCannotSeeModel branch and this goes RED.
+    const result = canRunAnalysis({ ...base, ceeCannotSeeModel: true })
+    expect(result.allowed).toBe(false)
+    expect(result.reason).toBe('Draft or save a model first, then run analysis.')
+  })
+
+  it('does not block when the model is CEE-visible (flag false/omitted)', () => {
+    expect(canRunAnalysis({ ...base, ceeCannotSeeModel: false }).allowed).toBe(true)
+    expect(canRunAnalysis({ ...base }).allowed).toBe(true)
+  })
+
+  it('empty canvas still wins over the CEE-visibility blocker (more fundamental reason first)', () => {
+    const result = canRunAnalysis({ ...base, nodeCount: 0, ceeCannotSeeModel: true })
+    expect(result.allowed).toBe(false)
+    expect(result.reason).toBe('Add some nodes to get started')
+  })
+})

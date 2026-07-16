@@ -69,6 +69,17 @@ export interface CanRunAnalysisParams {
   nodeCount: number
   /** Whether analysis is currently running */
   isRunning?: boolean
+  /**
+   * True when the canvas model exists ONLY client-side and the run would
+   * route through CEE (the V5-canonical path), which analyses its own
+   * scenario state — not the canvas. Today that is a template-inserted
+   * graph: the insert never touches CEE, so CEE answers "Draft or save a
+   * model first" while this gate used to say "Analysis available" (#343,
+   * reproduced live 2026-07-16). The honest gate blocks with CEE's OWN
+   * sentence so panel and chat speak one dialect instead of contradicting
+   * each other on a new user's likeliest first click.
+   */
+  ceeCannotSeeModel?: boolean
 }
 
 /**
@@ -78,7 +89,7 @@ export interface CanRunAnalysisParams {
  * @returns CanRunAnalysisResult with allowed status and reason
  */
 export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResult {
-  const { graphHealth, readiness, hasBlockers, nodeCount, isRunning = false } = params
+  const { graphHealth, readiness, hasBlockers, nodeCount, isRunning = false, ceeCannotSeeModel = false } = params
 
   const blockingReasons: string[] = []
 
@@ -97,6 +108,16 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
       allowed: false,
       reason: 'Add some nodes to get started',
       blockingReasons: ['No nodes in graph'],
+    }
+  }
+
+  // 2.5 Model invisible to the analysis engine (see CanRunAnalysisParams doc).
+  // The copy is deliberately CEE's own refusal sentence, verbatim.
+  if (ceeCannotSeeModel) {
+    return {
+      allowed: false,
+      reason: 'Draft or save a model first, then run analysis.',
+      blockingReasons: ['Model not in Olumi scenario state (template insert)'],
     }
   }
 
