@@ -25,10 +25,11 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
-import { BiasSignalCoachingCard } from '../BiasSignalCoachingCard'
-import { InlineBlocks } from '../../../canvas/conversation/InlineBlocks'
-import { buildDraftBiasSignalBlocks } from '../../../canvas/conversation/draftBiasSignalBlocks'
-import type { V5CoachingBlock as V5CoachingBlockType } from '../../../canvas/conversation/types'
+import { BiasSignalCoachingCard } from '../../../v5/blocks/BiasSignalCoachingCard'
+import { InlineBlocks } from '../InlineBlocks'
+import { buildDraftBiasSignalBlocks } from '../draftBiasSignalBlocks'
+import type { V5CoachingBlock as V5CoachingBlockType } from '../types'
+import type { CEEDraftCoaching } from '../../../adapters/cee/types'
 
 const BIAS_BLOCK: V5CoachingBlockType = {
   type: 'v5_coaching',
@@ -139,12 +140,16 @@ describe('builder → InlineBlocks end-to-end (fixture wire shape)', () => {
   ]
 
   function buildFromWire(signals: typeof WIRE_SIGNALS) {
+    // Post-adapter shape, as the canvas store holds it (CEEDraftCoaching).
+    const draftCoaching: CEEDraftCoaching = {
+      summary: null,
+      strengthenItems: [],
+      wideningLog: [],
+      biasSignals: signals,
+    }
     return buildDraftBiasSignalBlocks({
       isDraftTurn: true,
-      store: {
-        draftCoaching: { summary: null, strengthenItems: [], wideningLog: [], biasSignals: signals },
-        nodes: NODES,
-      },
+      store: { draftCoaching, nodes: NODES },
       existingBlocks: [],
     })
   }
