@@ -37,6 +37,7 @@ import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectR
 import { resolveDisplayedFreshness } from '../store/analysisFreshness'
 import { getScenario } from '../store/scenarios'
 import { AnalysisFreshnessNotice } from '../../components/results/AnalysisFreshnessNotice'
+import { useAnalysisStateSource } from '../hooks/useAnalysisStateSource'
 import { DecisionOverviewCard } from '../../components/results/decision-overview/DecisionOverviewCard'
 import { isDecisionOverviewEnabled } from '../../flags'
 import { deriveResultsTabFreshness } from './resultsTabFreshness'
@@ -610,7 +611,14 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // action, the footer is STATUS-ONLY (robustness verdict + producer meta
   // stay); when the strip shows no action the footer keeps its Rerun so the
   // tab never loses its only recovery affordance.
-  const freshnessStripOwnsRerun = displayedFreshness != null && displayedFreshness !== 'none'
+  // F11 fold: the strip ALSO renders (with the one Rerun) for an ORPHANED
+  // result with no verdict — the ownership predicate must match the strip's
+  // real render condition or two Rerun owners appear (C1). Same source the
+  // strip itself uses; never a hand-mirror of its old condition.
+  const { source: analysisStateSource } = useAnalysisStateSource()
+  const orphanedResult = analysisStateSource === 'orphaned_plot_result'
+  const freshnessStripOwnsRerun =
+    (displayedFreshness != null && displayedFreshness !== 'none') || orphanedResult
   // Within the not-fresh window, distinguish a model that definitely CHANGED since
   // the run (CEE 'stale' or a local edit that downgraded a retained 'fresh') from a
   // CANNOT-CONFIRM state where CEE could not determine freshness — so the stale
@@ -1615,7 +1623,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
   // AI panel v2: freshness indicator on the Results tab label. Driven by the CEE
   // freshness verdict + local dirty overlay (displayedFreshness), NOT the legacy
-  // useStaleGuard graph-hash path (_internal.graphHash is never written, so its
+  // the deleted graph-hash stale guard graph-hash path (_internal.graphHash is never written, so its
   // isStale can never fire and would contradict the CEE-derived Results state).
   // Strictly FF-gated — no behaviour change when FF_AI_PANEL_V2 is off.
   //

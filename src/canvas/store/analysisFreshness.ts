@@ -1,7 +1,7 @@
 /**
  * Analysis freshness slice — sourced ONLY from `response.analysis_ready`.
  *
- * Deliberately independent of `v5AnalysisFact` and `useStaleGuard` (both
+ * Deliberately independent of `v5AnalysisFact` and `the deleted graph-hash stale guard` (both
  * excluded by the brief) and of `ceeAnalysisReady` (which is cleared on
  * analyse-turns-without-analysis_ready and on graph edits — that conflicts with
  * the "retain last verdict" requirement). This slice holds CEE's last freshness
@@ -17,6 +17,15 @@
  */
 
 export type AnalysisFreshnessValue = 'fresh' | 'stale' | 'unknown' | 'none'
+
+/**
+ * Reason code written by the RUN-COMPLETION path (not by CEE): an
+ * analysis_result landed with a new hash but the response carried no
+ * explicit freshness verdict. Displayed as cannot-confirm — never as a
+ * retained pre-run 'stale', which would claim "model changed" over results
+ * the run itself just produced (F10, Paul's 16-Jul session).
+ */
+export const RUN_COMPLETED_WITHOUT_VERDICT = 'run_completed_without_verdict'
 
 export interface AnalysisFreshnessState {
   freshness: AnalysisFreshnessValue
@@ -134,7 +143,7 @@ export type FreshnessDisplaySemantic = 'current' | 'changed' | 'cannot_confirm' 
  * Classify the displayed freshness for COPY decisions across the visible
  * AI-panel surfaces (composer placeholder, Results stale banner, chip relabel).
  * Single source so those surfaces can't drift from each other or from the CEE
- * verdict — and so none of them re-derive currentness from the dead useStaleGuard.
+ * verdict — and so none of them re-derive currentness from the dead the deleted graph-hash stale guard.
  *
  * Distinguishes a model that definitely CHANGED since the run — a CEE 'stale'
  * verdict, OR a local edit that downgraded a retained 'fresh' (the dirty overlay)

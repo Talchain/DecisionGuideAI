@@ -448,9 +448,14 @@ export function extractPhase3FromV5Response(
  * Convenience predicate: does this V5 response carry signals that an
  * analysis turn completed and produced a persisted fact?
  *
- * Per correction 3: rely on hasRunAnalysisFact when CEE emits it; otherwise
- * accept analysisFreshness === 'fresh' AND presence of an analysis_result
- * block as a conservative fallback. analysis_ready alone is NOT sufficient.
+ * Rely on hasRunAnalysisFact when CEE emits it; otherwise the presence of an
+ * analysis_result block IS the run signal — regardless of the freshness
+ * verdict. F10 (Paul's 16-Jul session): the old fallback also required
+ * freshness === 'fresh', so a run turn whose own response carried a 'stale'
+ * verdict minted NO fact → the orphan banner stacked on top of the freshness
+ * strip for the very run the user just watched complete. "Ran" and
+ * "current" are different questions; this predicate answers only the first.
+ * analysis_ready alone is still NOT sufficient.
  */
 export function v5ResponseHasRunAnalysisFact(
   response: OlumiResponse | OlumiResponseWithExtensions,
@@ -459,8 +464,5 @@ export function v5ResponseHasRunAnalysisFact(
   const ext = extraction ?? extractPhase3FromV5Response(response)
   if (ext.hasRunAnalysisFact === true) return true
   if (ext.hasRunAnalysisFact === false) return false
-  if (ext.analysisFreshness === 'fresh') {
-    return response.blocks.some((b) => b.type === 'analysis_result')
-  }
-  return false
+  return response.blocks.some((b) => b.type === 'analysis_result')
 }

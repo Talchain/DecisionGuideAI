@@ -11,7 +11,6 @@ import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
-import { useStaleGuard } from '../useStaleGuard'
 import {
   GROUP_LABELS,
   DESCRIPTION_PLACEHOLDERS,
@@ -47,7 +46,6 @@ export const OptionPanel = memo(function OptionPanel({
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
-  const { isStale } = useStaleGuard()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'option')
 
   // Description — EmptyDescriptionPrompt pattern
@@ -316,7 +314,7 @@ export const OptionPanel = memo(function OptionPanel({
           || (allOptions.length > 1 && allOptions.some(o => o.winPct != null))
         return (
         <PanelGroup kind="impact" label={GROUP_LABELS.impact}>
-          <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
+          <StaleGuardBanner hasResults={isResultsMode}>
             {hasImpactContent ? (
             <div>
               {/* Win probability hero */}

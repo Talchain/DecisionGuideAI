@@ -88,6 +88,11 @@ export interface V5ApplicatorStore {
   setAnalysisFreshness?: (rawAnalysisReady: unknown) => void
   /** Optional: clear the local dirty overlay when a genuinely new analysis run completes (new analysis_result response_hash). */
   clearAnalysisFreshnessDirty?: () => void
+  /** Optional (F10): a genuinely new analysis_result landed with NO explicit
+   *  freshness verdict on the response — overwrite the freshness slice to
+   *  unknown/run_completed_without_verdict instead of retaining a pre-run
+   *  'stale' over the run's own results. */
+  noteRunCompletedWithoutVerdict?: () => void
   /**
    * Results hydration (V5-exclusive path). When the response carries an
    * analysis_result block, the applicator builds a ReportV1 via
@@ -770,6 +775,12 @@ export function applyV5State(
           (['fresh', 'stale', 'unknown', 'none'] as const).includes(ar.freshness as 'fresh')
         if (hasExplicitFreshness) {
           store.clearAnalysisFreshnessDirty?.()
+        } else {
+          // F10: the run completed but the engine said nothing about
+          // freshness. A retained pre-run 'stale' would keep rendering
+          // "Model changed since this analysis" OVER the results this very
+          // run produced (Paul's 16-Jul session). Unknown, honestly.
+          store.noteRunCompletedWithoutVerdict?.()
         }
         logV5StateStep({
           step_number: 5,

@@ -16,7 +16,6 @@ import type { DecisionNodeData } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
-import { useStaleGuard } from '../ui/inspector-v2/useStaleGuard'
 import { typography } from '../../styles/typography'
 import { NodeChip, NodePopover } from './shared'
 import { isGoalDefined } from '../../utils/isGoalDefined'
@@ -117,8 +116,6 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   const { showPopover, nodeHandlers, popoverHandlers, nodeElRef } = usePopoverHover()
   // Audit §8 P1: result-derived decorations mirror the panels' freshness
   // verdict (opacity + title only — no layout shift, chips stay interactive).
-  const { isStale } = useStaleGuard()
-  const staleTitle = isStale ? 'Model changed since this analysis' : undefined
 
   const optionCount = useMemo(() => {
     const outgoingEdges = edges.filter(e => e.source === id)
@@ -306,9 +303,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         {headline ? (
           <div className="mt-1">
             <div
-              className={`${typography.nodeLabel} text-text-body${isStale ? ' opacity-50' : ''}`}
-              title={staleTitle}
-              data-stale={isStale || undefined}
+              className={`${typography.nodeLabel} text-text-body`}
             >
               {headline.winnerLabel} leads in {headline.winProb != null ? `${Math.round(headline.winProb * 100)}%` : ''} of scenarios{biggestRisk && biggestRisk.label ? (
                 <>
@@ -330,9 +325,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 popover below. */}
             {isDetailed && stabilityDisplay && (
               <div
-                className={`${typography.edgeLabel} text-text-light mt-1${isStale ? ' opacity-50' : ''}`}
-                title={staleTitle}
-                data-stale={isStale || undefined}
+                className={`${typography.edgeLabel} text-text-light mt-1`}
               >
                 Stability: {stabilityDisplay.pct}% ({stabilityDisplay.tier})
               </div>

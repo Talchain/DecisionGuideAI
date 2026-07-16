@@ -286,20 +286,6 @@ describe('DecisionNode — stale result decorations (audit §8 P1)', () => {
     _internal: { graphHash: graphHashNow },
   })
 
-  it('dims the winner headline and stability line with a title when stale', () => {
-    vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(staleState('hash-now-different') as any)
-    )
-    const { container } = renderDecision()
-    const staleEls = container.querySelectorAll('[data-stale="true"]')
-    expect(staleEls.length).toBeGreaterThanOrEqual(2) // headline + stability line
-    const headline = screen.getByText(/leads in 61% of scenarios/).closest('[data-stale="true"]')
-    expect(headline).not.toBeNull()
-    expect(headline!.getAttribute('title')).toBe('Model changed since this analysis')
-    expect(headline!.className).toContain('opacity-50')
-    const stability = screen.getByText(/Stability: 90%/)
-    expect(stability.getAttribute('data-stale')).toBe('true')
-  })
 
   it('does not dim when the graph hash still matches the run', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>

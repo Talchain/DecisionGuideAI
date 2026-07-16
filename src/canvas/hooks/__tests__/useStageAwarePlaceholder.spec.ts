@@ -1,9 +1,9 @@
 /**
  * useStageAwarePlaceholder — composer placeholder derives from the CEE freshness
- * verdict + local dirty overlay, NOT the dead useStaleGuard graph-hash path.
+ * verdict + local dirty overlay, NOT the dead the deleted graph-hash stale guard graph-hash path.
  *
  * Regression for the review finding: after a graph edit the composer kept claiming
- * "Ask about the latest analysis…" (because useStaleGuard.analysisState stayed
+ * "Ask about the latest analysis…" (because the deleted graph-hash stale guard.analysisState stayed
  * 'current' — _internal.graphHash is never written), contradicting the Results
  * surface's cannot-confirm state. It must never claim "latest" unless the verdict
  * is confirmed-fresh.

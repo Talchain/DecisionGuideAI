@@ -97,7 +97,7 @@ function isRunAnalysisAffordance(chip: ActionChip): boolean {
  * back to a conversation turn ("promises action, delivers chat"). So it stays a
  * plain 'keep' chip, shown only when the readiness gate is satisfied.
  *
- * This replaces the legacy `isStale` from useStaleGuard, whose production input
+ * This replaces the legacy graph-hash stale flag (deleted 2026-07-16), whose production input
  * `_internal.graphHash` is never written, so it never fired.
  */
 type RunAnalysisPolish = 'suppress' | 'relabel-rerun' | 'keep'
@@ -151,7 +151,7 @@ export function SuggestedChips({
   // no analysis → keep; confirmed-current → suppress; stale/cannot-confirm →
   // "Rerun" (gate-bypassing); complete-but-no-verdict → keep (gate decides).
   // `freshnessSemantic` is the shared freshness display semantic, NOT the dead
-  // useStaleGuard graph-hash path.
+  // deleted graph-hash stale path.
   const ceeFreshness = useCanvasStore((s) => s.analysisFreshness)
   const freshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
   const freshnessSemantic = classifyFreshnessForDisplay(ceeFreshness, freshnessDirty)

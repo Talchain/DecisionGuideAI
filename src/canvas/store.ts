@@ -16,7 +16,7 @@ import type { V2RunResponse } from '../adapters/plot/v2/types'
 import type { PLoTEnrichment } from '../adapters/plot/enrichment'
 import { trackResultsViewed, trackIssuesOpened } from './utils/sandboxTelemetry'
 import { addRun, generateGraphHash, loadRuns, type StoredRun } from './store/runHistory'
-import { deriveAnalysisFreshnessUpdate, type AnalysisFreshnessState } from './store/analysisFreshness'
+import { RUN_COMPLETED_WITHOUT_VERDICT, deriveAnalysisFreshnessUpdate, type AnalysisFreshnessState } from './store/analysisFreshness'
 import * as scenarios from './store/scenarios'
 import type { ScenarioFraming } from './store/scenarios'
 import type { GraphHealth, ValidationIssue, NeedleMover } from './validation/types'
@@ -714,6 +714,8 @@ interface CanvasState {
   markAnalysisFreshnessDirty: () => void
   /** Atomically set all three staleness flags — the entry point for external structural mutators. */
   markGraphStructurallyEdited: () => void
+  /** F10: run completed (new analysis_result hash) with no freshness verdict on the response. */
+  noteRunCompletedWithoutVerdict: () => void
   /** Clear the dirty overlay when a genuinely new analysis run completes (reliable run identity, e.g. a new analysis_result response_hash). */
   clearAnalysisFreshnessDirty: () => void
   setDraftCoaching: (coaching: CEEDraftCoaching | null) => void
@@ -3776,6 +3778,21 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   markGraphStructurallyEdited: () => {
     set(() => ({ graphEditedSinceLastRun: true, analysisStateReady: false }))
     markAnalysisFreshnessDirty(get, set)
+  },
+  // F10: an analysis_result landed (new hash) but the response carried NO
+  // freshness verdict. Overwrite the slice — never retain a pre-run 'stale'
+  // over results the run itself just produced — and clear the local dirty
+  // overlay (the run consumed the current graph). Deliberately bypasses
+  // deriveAnalysisFreshnessUpdate: that reducer's retain-on-absence rule is
+  // for CEE turns; this is a run-completion event, not a CEE verdict.
+  noteRunCompletedWithoutVerdict: () => {
+    set(() => ({
+      analysisFreshness: {
+        freshness: 'unknown' as const,
+        freshnessReason: RUN_COMPLETED_WITHOUT_VERDICT,
+      },
+      analysisFreshnessDirty: false,
+    }))
   },
   clearAnalysisFreshnessDirty: () => {
     if (get().analysisFreshnessDirty) set(() => ({ analysisFreshnessDirty: false }))

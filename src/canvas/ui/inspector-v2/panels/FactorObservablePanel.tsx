@@ -15,7 +15,6 @@ import { useNodeMutations } from '../useInspectorMutations'
 import { useEditConfirmation } from '../useEditConfirmation'
 import { EditConfirmation } from '../shared/EditConfirmation'
 import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
-import { useStaleGuard } from '../useStaleGuard'
 import { unwrapInterventionValue } from '../../../utils/labelUtils'
 import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 import {
@@ -51,7 +50,6 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
-  const { isStale } = useStaleGuard()
   const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
 
@@ -160,7 +158,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
         </div>
 
         {/* Post-analysis: ImportanceBar + VoI folded in (no separate bordered card) */}
-        <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
+        <StaleGuardBanner hasResults={isResultsMode}>
           <div className="mt-2 space-y-2">
             <ImportanceBar
               importanceScore={displayMetadata.influence}

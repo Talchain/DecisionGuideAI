@@ -92,7 +92,7 @@ describe('CoachingCard', () => {
 describe('StaleGuardBanner', () => {
   it('shows empty state when no results', () => {
     render(
-      <StaleGuardBanner isStale={false} hasResults={false}>
+      <StaleGuardBanner hasResults={false}>
         <div>Content</div>
       </StaleGuardBanner>,
     )
@@ -102,7 +102,7 @@ describe('StaleGuardBanner', () => {
 
   it('renders children at full opacity when not stale', () => {
     const { container } = render(
-      <StaleGuardBanner isStale={false} hasResults={true}>
+      <StaleGuardBanner hasResults={true}>
         <div>Fresh content</div>
       </StaleGuardBanner>,
     )
@@ -110,26 +110,7 @@ describe('StaleGuardBanner', () => {
     expect(screen.queryByText('Results may have changed')).toBeNull()
   })
 
-  it('shows warning banner and renders children at 0.75 opacity when stale', () => {
-    render(
-      <StaleGuardBanner isStale={true} hasResults={true}>
-        <div>Stale content</div>
-      </StaleGuardBanner>,
-    )
-    expect(screen.getByText('Results may have changed since your last edit')).toBeTruthy()
-    expect(screen.getByText('Stale content')).toBeTruthy()
-  })
 
-  it('shows Re-run button when onRerun provided', () => {
-    const onRerun = vi.fn()
-    render(
-      <StaleGuardBanner isStale={true} hasResults={true} onRerun={onRerun}>
-        <div>Content</div>
-      </StaleGuardBanner>,
-    )
-    fireEvent.click(screen.getByText('Re-run'))
-    expect(onRerun).toHaveBeenCalledOnce()
-  })
 })
 
 describe('ProbabilityArc', () => {

@@ -18,7 +18,6 @@ import {
 } from '../utils/interventionDisplay'
 import { readFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { detectBaseline } from '../utils/baselineDetection'
-import { useStaleGuard } from '../ui/inspector-v2/useStaleGuard'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodeChip, ActionIcons, BriefIcon, MetricPills, NodePopover, ScienceIcon } from './shared'
 import { selectGoalProbability } from '../../components/results/utils/selectGoalProbability'
@@ -390,8 +389,6 @@ export const OptionNode = memo((props: NodeProps) => {
   // Audit §8 P1: canvas result decorations must reflect the same freshness
   // verdict the panels use (StaleGuardBanner / bottom-bar "Analysis stale").
   // Display-only: opacity + title, no layout shift.
-  const { isStale } = useStaleGuard()
-  const staleTitle = isStale ? 'Model changed since this analysis' : undefined
 
   const isRecommended = useMemo(() => {
     if (!displayMetadata.isResultsMode || displayMetadata.winRate === null) return false
@@ -1087,9 +1084,7 @@ export const OptionNode = memo((props: NodeProps) => {
       {/* Winner badge -- top-right */}
       {isRecommended && (
         <span
-          className={`absolute -top-2 -right-2 z-10 ${typography.edgeLabel} font-medium bg-panel border-2 border-option text-text-body rounded-full px-1.5 py-0.5${isStale ? ' opacity-50' : ''}`}
-          title={staleTitle}
-          data-stale={isStale || undefined}
+          className={`absolute -top-2 -right-2 z-10 ${typography.edgeLabel} font-medium bg-panel border-2 border-option text-text-body rounded-full px-1.5 py-0.5`}
         >
           Leading option
         </span>
@@ -1121,9 +1116,7 @@ export const OptionNode = memo((props: NodeProps) => {
         {/* Win probability bar (post-analysis, both views) */}
         {displayMetadata.isResultsMode && displayMetadata.winRate !== null && (
           <div
-            className={`mt-1.5 mb-1${isStale ? ' opacity-50' : ''}`}
-            title={staleTitle}
-            data-stale={isStale || undefined}
+            className={`mt-1.5 mb-1`}
           >
             <div className={`${typography.nodeLabel} text-text-body`}>
               {formatWinProbability(displayMetadata.winRate)} win probability

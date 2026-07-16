@@ -9,7 +9,7 @@
  *
  * Source rules live in the slice reducer (retain / order-by-computed_at /
  * never-absence→fresh). This component is display-only: it does NOT use
- * v5AnalysisFact, useStaleGuard, or any local graph-hash computation, and it
+ * v5AnalysisFact, the deleted graph-hash stale guard, or any local graph-hash computation, and it
  * never shows the technical reason/hash fields as copy (they ride on data-*).
  *
  * ALWAYS-VISIBILITY CONTRACT (C1 — one Rerun owner per viewport)
@@ -41,6 +41,7 @@
 import { useEffect, useRef } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { useCanvasStore } from '@/canvas/store'
+import { useAnalysisStateSource } from '@/canvas/hooks/useAnalysisStateSource'
 import { typography } from '@/styles/typography'
 import {
   resolveDisplayedFreshness,
@@ -74,6 +75,12 @@ export interface AnalysisFreshnessNoticeProps {
   /** Override the local dirty overlay (tests / Storybook). `undefined` → read the store. */
   dirty?: boolean
   className?: string
+}
+
+/** Orphan axis only — the strip already owns verdict + running locally. */
+function useAnalysisTrustSource(): { orphaned: boolean } {
+  const { source } = useAnalysisStateSource()
+  return { orphaned: source === 'orphaned_plot_result' }
 }
 
 export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, className = '' }: AnalysisFreshnessNoticeProps) {
@@ -110,12 +117,23 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
     }
   }, [isRunning, resultsStatus, showToast])
 
-  // No verdict yet → no notice (never claim a freshness state we don't hold).
-  if (!state) return null
+  // F11 fold: the orphan banner is DELETED as a separate surface — a result
+  // with no live run fact (recovered session) is this strip's no-verdict
+  // cannot-confirm variant, carrying the SAME single Rerun action (C1: one
+  // Rerun owner). Before the fold, one underlying state could stack two
+  // banners ("Results may be outdated" + "Refresh analysis") — Paul's
+  // 16-Jul session, F10+F11.
+  const { orphaned } = useAnalysisTrustSource()
+
+  // No verdict AND no orphaned result → nothing to say (never claim a
+  // freshness state we don't hold).
+  const effectiveState: AnalysisFreshnessState | null =
+    state ?? (orphaned ? { freshness: 'unknown', freshnessReason: 'orphaned_result' } : null)
+  if (!effectiveState) return null
 
   // CEE verdict is the source of truth; the local dirty overlay may only
   // downgrade a retained 'fresh' to cannot-confirm (never fabricate 'stale').
-  const freshness = resolveDisplayedFreshness(state, dirty) as AnalysisFreshnessValue
+  const freshness = resolveDisplayedFreshness(effectiveState, dirty) as AnalysisFreshnessValue
   const isStale = freshness === 'stale'
   // Recovery applies to BOTH not-confirmably-fresh states: a stale verdict
   // and a cannot-confirm 'unknown' (e.g. recovered session, local edit
@@ -127,15 +145,16 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
   const offersRerun = freshness !== 'none'
   // Mark when the displayed verdict differs from CEE's because of a local edit —
   // technical signal for tests/debug only, not user copy.
-  const downgraded = state.freshness === 'fresh' && freshness === 'unknown'
+  const downgraded = effectiveState.freshness === 'fresh' && freshness === 'unknown'
 
   return (
     <div
       data-testid="analysis-freshness-notice"
       data-freshness={freshness}
-      data-cee-freshness={state.freshness}
+      data-cee-freshness={effectiveState.freshness}
       data-freshness-dirty={downgraded ? 'true' : undefined}
-      data-freshness-reason={state.freshnessReason}
+      data-orphaned={orphaned && !state ? 'true' : undefined}
+      data-freshness-reason={effectiveState.freshnessReason}
       // C1: `sticky top-0 z-10` is load-bearing, not decoration — see the
       // always-visibility contract in the file header. Do not remove.
       className={`sticky top-0 z-10 flex items-center gap-2 rounded-md border px-3 py-2 bg-panel ${isStale ? 'border-warning/30' : 'border-panel-border'} ${className}`.trim()}

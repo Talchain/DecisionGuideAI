@@ -12,7 +12,6 @@ import { GoalProgressChecklist } from '../../inspector/GoalProgressChecklist'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
-import { useStaleGuard } from '../useStaleGuard'
 import type { NodeType } from '../../../domain/nodes'
 import {
   GROUP_LABELS,
@@ -62,7 +61,6 @@ export const GoalPanel = memo(function GoalPanel({
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
-  const { isStale } = useStaleGuard()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'goal')
 
   const thresholdUnit = (node?.data as Record<string, unknown>)?.goal_threshold_unit as string | undefined
@@ -386,7 +384,7 @@ export const GoalPanel = memo(function GoalPanel({
       {isResultsMode && (
         <PanelGroup kind="impact" label={GROUP_LABELS.impact}>
           {typeof probGoal === 'number' ? (
-            <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
+            <StaleGuardBanner hasResults={isResultsMode}>
               <div className="flex items-center gap-4 py-2">
                 <ProbabilityArc value={probGoal} color="var(--success)" />
                 <div>

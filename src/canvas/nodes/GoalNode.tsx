@@ -32,7 +32,6 @@ import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
-import { useStaleGuard } from '../ui/inspector-v2/useStaleGuard'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 
 export const GoalNode = memo((props: NodeProps) => {
@@ -50,8 +49,6 @@ export const GoalNode = memo((props: NodeProps) => {
   const hasAnyProbability = useHasAnyRealProbability()
   // Audit §8 P1: canvas result decorations mirror the panels' freshness
   // verdict (opacity + title only — no layout shift).
-  const { isStale } = useStaleGuard()
-  const staleTitle = isStale ? 'Model changed since this analysis' : undefined
 
   const robustnessData = useMemo(() => {
     if (!isPostAnalysis || !report) return null
@@ -164,9 +161,7 @@ export const GoalNode = memo((props: NodeProps) => {
       {/* Stability bar — stale-dimmed when the model changed since the run */}
       {stabilityValue !== null && (
         <div
-          className={`mb-1${isStale ? ' opacity-50' : ''}`}
-          title={staleTitle}
-          data-stale={isStale || undefined}
+          className={`mb-1`}
         >
           <div className="flex items-center gap-1.5 mb-0.5">
             <span className={`${typography.edgeLabel} text-text-light`}>Decision stability</span>

@@ -1,6 +1,5 @@
 export { InspectorRouter } from './InspectorRouter'
 export { InspectorShell } from './InspectorShell'
 export { useTechToggle } from './useTechToggle'
-export { useStaleGuard } from './useStaleGuard'
 export { useNodeMutations, useEdgeMutations } from './useInspectorMutations'
 export type { InspectorPanelProps, InspectorShellProps, AnalysisState } from './types'

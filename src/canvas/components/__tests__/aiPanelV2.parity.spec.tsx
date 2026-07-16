@@ -50,10 +50,6 @@ import { SelectionPill } from '../SelectionPill'
 vi.mock('../../hooks/useSelectionContext', () => ({
   useSelectionContext: () => null,
 }))
-// StaleAnalysisBadge reads useStaleGuard; mock to not-stale.
-vi.mock('../../ui/inspector-v2/useStaleGuard', () => ({
-  useStaleGuard: () => ({ analysisState: 'none', isStale: false }),
-}))
 // useV2Run pulls in heavy deps — mock minimal shape used by StaleAnalysisBadge.
 vi.mock('../../hooks/useV2Run', () => ({
   useV2Run: () => ({ runV2Analysis: () => Promise.resolve() }),

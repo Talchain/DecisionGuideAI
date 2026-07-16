@@ -10,7 +10,6 @@ import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
-import { useStaleGuard } from '../useStaleGuard'
 import {
   SECTION_TITLES,
   GROUP_LABELS,
@@ -150,7 +149,6 @@ export const OutcomePanel = memo(function OutcomePanel({
   const isResultsMode = resultsStatus === 'complete'
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
-  const { isStale } = useStaleGuard()
 
   // Outbound edge to goal — for contribution bar
   const goalContribution = useMemo(() => {
@@ -220,7 +218,7 @@ export const OutcomePanel = memo(function OutcomePanel({
       {(!isResultsMode || (!isOptionComparisonFailed(resultsReport) && hasOptionComparisonData(resultsReport))) && (
         <PanelGroup kind="impact">
           <InlineSectionLabel>{SECTION_TITLES.predictedRange.label}</InlineSectionLabel>
-          <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
+          <StaleGuardBanner hasResults={isResultsMode}>
             {isResultsMode ? (
               <OptionComparisonSection report={resultsReport} techMode={techMode} onNavigate={onNavigate} />
             ) : (

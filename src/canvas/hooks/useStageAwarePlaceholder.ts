@@ -7,7 +7,7 @@ import { useSelectionContext } from './useSelectionContext'
  * should display, derived from the current canvas + analysis + selection state.
  *
  * Freshness comes from the CEE verdict + local dirty overlay
- * (classifyFreshnessForDisplay), NOT the legacy useStaleGuard graph-hash path
+ * (classifyFreshnessForDisplay), NOT the legacy graph-hash stale path (deleted 2026-07-16)
  * (_internal.graphHash is never written, so its 'stale' never fired and its
  * 'current' falsely persisted after an edit — the composer would still claim
  * "latest analysis" once the Results surface had moved to cannot-confirm).

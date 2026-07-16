@@ -18,7 +18,6 @@ import { SignedStrengthSlider } from '../../inspector/SignedStrengthSlider'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
 import { useEdgeMutations } from '../useInspectorMutations'
-import { useStaleGuard } from '../useStaleGuard'
 import {
   SECTION_TITLES,
   GROUP_LABELS,
@@ -138,7 +137,6 @@ export const EdgePanel = memo(function EdgePanel({
   const edge = edgeId ? edges.find(e => e.id === edgeId) : undefined
   const mutations = useEdgeMutations(edgeId ?? '')
   const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
-  const { isStale } = useStaleGuard()
 
   // Source/target nodes
   const sourceNode = useMemo(() => nodes.find(n => n.id === edge?.source), [nodes, edge?.source])
@@ -245,7 +243,7 @@ export const EdgePanel = memo(function EdgePanel({
           {/* ── Context group ─────────────────────────────────── */}
           {isFragile && isResultsMode && (
             <PanelGroup kind="context" label={GROUP_LABELS.context}>
-              <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
+              <StaleGuardBanner hasResults={isResultsMode}>
                 <div className="bg-panel border border-danger/30 p-2.5 rounded-lg">
                   <div className={`${typography.panelBody} font-medium text-danger flex items-center gap-1`}>
                     <AlertTriangle size={13} className="text-danger" />

@@ -89,9 +89,6 @@ vi.mock('../../conversation/useConversation', () => ({
 
 // Stale guard + stage placeholder — unused outputs, but the dock body
 // transitively touches them via the strip / Olumi tab body.
-vi.mock('../../ui/inspector-v2/useStaleGuard', () => ({
-  useStaleGuard: () => ({ analysisState: 'none', isStale: false }),
-}))
 // PreAnalysisPanel pulls in ToastProvider + readiness fetches that fail
 // outside the full app shell. Stub it to a placeholder so the dock can
 // expand for tests that require non-empty canvas state.

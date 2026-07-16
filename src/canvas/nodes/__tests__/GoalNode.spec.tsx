@@ -875,24 +875,6 @@ describe('GoalNode — stale stability bar (audit §8 P1)', () => {
     })
   })
 
-  it('dims the stability bar and titles it when the graph changed since the run', () => {
-    vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(makeStoreState({
-        results: {
-          status: 'complete',
-          graphHash: 'hash-at-run',
-          report: { robustness: { recommendation_stability: 0.8 } },
-        },
-        _internal: { graphHash: 'hash-now-different' },
-      }) as any)
-    )
-    const { container } = renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
-    const staleEl = container.querySelector('[data-stale="true"]')
-    expect(staleEl).not.toBeNull()
-    expect(staleEl!.getAttribute('title')).toBe('Model changed since this analysis')
-    expect(staleEl!.className).toContain('opacity-50')
-    expect(staleEl!.textContent).toContain('Decision stability')
-  })
 
   it('leaves the stability bar untouched when hashes match', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>

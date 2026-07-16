@@ -12,7 +12,6 @@ import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
-import { useStaleGuard } from '../useStaleGuard'
 import {
   GROUP_LABELS,
   INLINE_LABELS,
@@ -56,7 +55,6 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
-  const { isStale } = useStaleGuard()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
 
   // Description — conditional edit state for EmptyDescriptionPrompt pattern
@@ -181,7 +179,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
         </div>
 
         {/* Post-analysis: ImportanceBar + VoI folded in (no separate bordered card) */}
-        <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
+        <StaleGuardBanner hasResults={isResultsMode}>
           <div className="mt-2 space-y-2">
             <ImportanceBar
               importanceScore={displayMetadata.influence}
