@@ -36,9 +36,14 @@ export type VisionType = 'normal' | 'protan' | 'deutan' | 'tritan'
 type Vec3 = [number, number, number]
 type Mat3 = [Vec3, Vec3, Vec3]
 
-/** The shipped polarity strokes (light theme) — see directionStroke.ts. */
-export const POLARITY_POSITIVE = '#62B290'
-export const POLARITY_NEGATIVE = '#D6336C'
+/*
+ * This module is palette-agnostic on purpose: it measures whatever hexes it
+ * is handed. The shipped polarity VALUES live in brand.css
+ * (--edge-positive/--edge-negative; rule in directionStroke.ts) and the
+ * DS ratchet forbids duplicating them into production source — the pinned
+ * copies live in polarityContrast.spec, which is where a value change
+ * should fail first anyway.
+ */
 
 /** Exported only for the inverse-identity pin in polarityContrast.spec. */
 export const RGB_TO_LMS: Mat3 = [

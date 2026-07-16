@@ -17,11 +17,20 @@ import {
   deltaE76,
   toLab,
   lightness,
-  POLARITY_POSITIVE,
-  POLARITY_NEGATIVE,
   RGB_TO_LMS,
   LMS_TO_RGB,
 } from '../cvdContrast'
+
+/**
+ * The shipped polarity strokes (light theme). These are deliberate PINNED
+ * COPIES of brand.css's --edge-positive/--edge-negative: cvdContrast is
+ * palette-agnostic and the DS ratchet forbids hex duplicates in production
+ * source, so the spec carries the values. If a palette ruling changes the
+ * tokens, update these AND re-derive every figure in this file — that is
+ * the point of the pins.
+ */
+const POLARITY_POSITIVE = '#62B290'
+const POLARITY_NEGATIVE = '#D6336C'
 
 /** Below this, two strokes read as "more similar than different" to that viewer. */
 const CLEARLY_DISTINCT = 20
