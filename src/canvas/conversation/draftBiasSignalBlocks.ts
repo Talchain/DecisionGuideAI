@@ -66,9 +66,17 @@ export const BIAS_SIGNAL_TITLES: Record<string, string> = {
 /** Allowlist lookup. Returns null for unknown / non-string codes (fail closed). */
 export function humaniseBiasSignalCode(code: unknown): string | null {
   if (typeof code !== 'string') return null
-  const trimmed = code.trim()
-  if (!trimmed) return null
-  return BIAS_SIGNAL_TITLES[trimmed.toLowerCase()] ?? null
+  const key = code.trim().toLowerCase()
+  if (!key) return null
+  // Own-key guard: a bare object-literal index walks the prototype chain,
+  // so the hostile wire codes '__proto__' (returns Object.prototype, a
+  // truthy object React refuses to render, crashing the assistant-message
+  // subtree) and 'constructor' (returns a Function) would escape both the
+  // `?? null` here and the caller's `if (!title)` check. Only own keys are
+  // titles; everything else fails closed like any other unknown code.
+  return Object.prototype.hasOwnProperty.call(BIAS_SIGNAL_TITLES, key)
+    ? BIAS_SIGNAL_TITLES[key]
+    : null
 }
 
 /** The minimal canvas-store surface the builder reads. */
