@@ -36,7 +36,7 @@ const {
   mockIsOrchestratorV2Enabled: vi.fn(() => true),
   mockIsLegacyDirectRunEnabled: vi.fn(() => false),
   mockIsV5CanonicalAnalysisEnabled: vi.fn(() => false),
-  mockIsV5Eligible: vi.fn(() => ({ eligible: false, reason: 'flag_off' })),
+  mockIsV5Eligible: vi.fn((_input?: { flag: string | undefined }) => ({ eligible: false, reason: 'flag_off' })),
   mockUseV2Run: vi.fn(() => ({ runV2Analysis: vi.fn(), cancelRun: vi.fn() })),
   mockShowToast: vi.fn(),
   mockUsePreAnalysisData: vi.fn(() => ({})),
