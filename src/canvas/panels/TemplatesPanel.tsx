@@ -16,6 +16,7 @@ import { PlotHealthPill } from '../../adapters/plot/v1/components/PlotHealthPill
 import { AdapterStatusBanner } from './AdapterStatusBanner'
 import { PanelShell } from './_shared/PanelShell'
 import { coerceNodes, type BackendNode } from '../adapters/backendKinds'
+import { useShowToastSafe } from '../ToastContext'
 import { PanelSection } from './_shared/PanelSection'
 import { useCanvasStore } from '../store'
 import { loadTemplateBlueprint, confirmReplaceCanvas, fetchTemplateList, TEMPLATE_LOAD_FAILED_MESSAGE } from '../blueprints/loadTemplateBlueprint'
@@ -43,7 +44,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   const [templateVersion, setTemplateVersion] = useState<string | undefined>(undefined)
   const [showDevControls, setShowDevControls] = useState(false)
   const [seed, setSeed] = useState<string>('1337')
-  const [toastMessage, setToastMessage] = useState<string | null>(null)
+
   const panelRef = useRef<HTMLDivElement>(null)
 
   const { loading, progress, canCancel, result, error, run, cancel, clearError } = useTemplatesRun()
@@ -109,10 +110,11 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   }, [isOpen])
 
   // Toast notification helper (must be declared before handleInsert/handleMerge)
-  const showToast = useCallback((msg: string) => {
-    setToastMessage(msg)
-    setTimeout(() => setToastMessage(null), 3000)
-  }, [])
+  // One toast system (DS: Canonical State Copy / severity owns persistence).
+  // This panel ran its own 3s-fixed local toast for years — the second
+  // dialect the ToastContext consolidation retires. Safe variant: no-ops
+  // if a mount ever lacks the provider rather than crashing the panel.
+  const showToast = useShowToastSafe()
 
   // Retry loading templates after failure
   const retryLoadTemplates = useCallback(() => {
@@ -172,7 +174,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
       if (import.meta.env.DEV) {
         console.error('Failed to load template:', err)
       }
-      showToast(TEMPLATE_LOAD_FAILED_MESSAGE)
+      showToast(TEMPLATE_LOAD_FAILED_MESSAGE, 'error')
     }
   }, [onInsertBlueprint])
 
@@ -268,7 +270,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
       if (import.meta.env.DEV) {
         console.error('Failed to merge template:', err)
       }
-      showToast('Failed to merge template.')
+      showToast('Failed to merge template.', 'error')
     }
   }, [showToast])
 
@@ -276,7 +278,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
     if (!selectedBlueprintId) return
     let seedNum = parseInt(seed, 10)
     if (isNaN(seedNum) || seedNum < 1) {
-      showToast('Please enter a valid seed (≥1)')
+      showToast('Please enter a valid seed (≥1)', 'warning')
       trackRunAttempt({ canRun: false, reason: 'validation', message: '' })
       return
     }
@@ -325,7 +327,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
     // User cancelled or entered empty name
     if (!name || !name.trim()) {
       if (name === '') {
-        showToast('Scenario name cannot be empty.')
+        showToast('Scenario name cannot be empty.', 'warning')
       }
       return
     }
@@ -339,7 +341,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
     if (duplicate) {
       const overwrite = window.confirm(`A scenario named "${trimmedName}" already exists. Overwrite it?`)
       if (!overwrite) {
-        showToast('Scenario save cancelled.')
+        showToast('Scenario save cancelled.', 'warning')
         return
       }
       // Remove the duplicate before saving new one
@@ -777,16 +779,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
             </div>
           )}
 
-            {/* Toast */}
-            {toastMessage && (
-              <div
-                role="status"
-                aria-live="polite"
-                className={`absolute bottom-4 left-0 right-0 mx-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-panel ${typography.panelBody}`}
-              >
-                {toastMessage}
-              </div>
-            )}
+
           </div>
         </PanelShell>
       </div>

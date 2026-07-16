@@ -9,6 +9,7 @@
  */
 
 import { memo } from 'react'
+import { Button } from '../../../../components/ui'
 import { typography, typo } from '../../../../styles/typography'
 import { FOOTER_COPY } from '../constants'
 import { guardCeeText } from '../signals/ceeTextGuard'
@@ -73,19 +74,16 @@ export const PanelFooter = memo(function PanelFooter({
         <p className={typo('panelBody', 'text-text-header')}>{display.headline}</p>
         <p className={`${typography.panelMeta} text-text-light`}>{display.subline}</p>
       </div>
-      <button
-        type="button"
+      <Button
+        size="sm"
+        className="flex-none"
         onClick={onAnalyse}
         disabled={disabled}
         title={!isAnalysing && !canRun ? safeBlockedReason || FOOTER_COPY.notReadySubFallback : undefined}
-        className={typo(
-          'buttonSmall',
-          'flex-none whitespace-nowrap rounded-full bg-primary px-4 py-2 text-text-on-color transition-colors hover:bg-primary-hover focus-visible:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 disabled:cursor-not-allowed disabled:opacity-40',
-        )}
         data-testid="pre-analysis-v3-analyse"
       >
         {isAnalysing ? 'Analysing…' : FOOTER_COPY.analyse}
-      </button>
+      </Button>
     </div>
   )
 })

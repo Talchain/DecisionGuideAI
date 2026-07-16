@@ -7,6 +7,7 @@ import { useParams } from 'react-router-dom'
 import ReactFlowGraph from '../canvas/ReactFlowGraph'
 import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintEventBus } from '../canvas/blueprints/eventBus'
+import { ToastProvider } from '../canvas/ToastContext'
 import { useCanvasStore } from '../canvas/store'
 import { useResultsRun } from '../canvas/hooks/useResultsRun'
 import { useDebugShortcut } from '../canvas/hooks/useDebugShortcut'
@@ -235,6 +236,11 @@ export default function CanvasMVP() {
   }, [isPersistenceActive, createSharedBrief])
 
   return (
+    // ToastProvider at route level so surfaces OUTSIDE ReactFlowGraph
+    // (TemplatesPanel above all) share the one toast system. RFG keeps its
+    // own inner provider — nested providers simply scope to their subtree,
+    // so RFG-originated toasts render exactly as before.
+    <ToastProvider>
     <div style={{ height: '100vh', width: '100vw', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <TopBar
         scenarioTitle={scenarioTitle}
@@ -280,5 +286,6 @@ export default function CanvasMVP() {
         )}
       </div>
     </div>
+    </ToastProvider>
   )
 }

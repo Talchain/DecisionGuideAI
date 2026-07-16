@@ -20,8 +20,14 @@ export { VerdictCard } from '../../canvas/components/VerdictCard'
 export { DeltaInterpretation } from '../../canvas/components/DeltaInterpretation'
 export { ObjectiveBanner } from '../../canvas/components/ObjectiveBanner'
 
-// Existing UI Components (to be added as they're discovered)
-// export { Button } from './Button'
-// export { Tooltip, TooltipTrigger, TooltipContent } from './Tooltip'
-// export { Spinner } from './Spinner'
-// export { ErrorAlert } from './ErrorAlert'
+// DS bricks (2026-07-16, extraction-first — see DESIGN_SYSTEM.md):
+export { Button } from './Button'
+export type { ButtonProps, ButtonVariant, ButtonSize } from './Button'
+export { Pill } from './Pill'
+export type { PillProps, PillTone } from './Pill'
+export { Skeleton } from './Skeleton'
+export type { SkeletonProps } from './Skeleton'
+// Modal: promote the existing token-compliant dialog rather than rebuild.
+export { ConfirmDialog } from '../../canvas/components/ConfirmDialog'
+// Toasts: the brick is ToastContext (severity owns persistence) — import
+// useShowToastSafe from src/canvas/ToastContext; do NOT build local toasts.
