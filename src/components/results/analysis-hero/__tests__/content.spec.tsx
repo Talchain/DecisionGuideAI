@@ -462,8 +462,12 @@ describe('AnalysisHeroPanel — content', () => {
     expect(screen.queryByTestId('hero-option-row-1')).toBeNull()
     expect(screen.queryByTestId('hero-caption')).toBeNull()
     fireEvent.click(screen.getByTestId('hero-lens-tab-whatChanged'))
+    // F15: the placeholder must name the real dependency (producer-versioned
+    // run comparisons, PLoT #212) in the ratified honest-unavailable
+    // register, and must never read as a session-local unlock or promise a
+    // local approximation.
     expect(screen.getByTestId('hero-lens-unavailable')).toHaveTextContent(
-      'This view compares runs. It unlocks when the analysis can report what changed between runs.',
+      'Run comparison is not available yet. This unlocks with versioned run comparisons. Olumi will not approximate it locally.',
     )
   })
 

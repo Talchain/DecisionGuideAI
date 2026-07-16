@@ -53,8 +53,14 @@ export const HERO_COPY = {
     outcome: 'Likely outcome is not available for this run.',
     stability:
       'This view needs per-option stability data, which the analysis does not provide yet.',
+    /**
+     * F15: names the real dependency (producer-versioned run comparisons,
+     * PLoT #212) in the ratified honest-unavailable register. Must never
+     * read as a session-local unlock, and must state that Olumi will not
+     * approximate the comparison locally (no client-side run diffing).
+     */
     whatChanged:
-      'This view compares runs. It unlocks when the analysis can report what changed between runs.',
+      'Run comparison is not available yet. This unlocks with versioned run comparisons. Olumi will not approximate it locally.',
   } as const,
 
   headline: {

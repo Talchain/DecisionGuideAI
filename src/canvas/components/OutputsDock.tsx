@@ -1128,7 +1128,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   }, [nodes, edges, applyAutoFixChanges])
 
   const canonicalBands = report?.run?.bands ?? null
-  const mostLikelyValue = canonicalBands ? canonicalBands.p50 : report?.results.likely ?? null
+  // #353: `.results` must be optional-chained too — a Supabase-hydrated
+  // report can lack the bands block entirely (the hydration invariant checks
+  // only `status === 'complete' && report`), and the unguarded read
+  // hard-crashed the whole canvas. Fail closed to null (verdict below
+  // already treats null as "no value"); never fabricate a number.
+  const mostLikelyValue = canonicalBands ? canonicalBands.p50 : report?.results?.likely ?? null
   // Lane 3 (SF2): the retained report keeps RENDERING through every status —
   // resultsStart/resultsAnalysing/resultsError/resultsCancelled all preserve
   // `results.report` by contract ("so UI doesn't flash empty"), but the old
