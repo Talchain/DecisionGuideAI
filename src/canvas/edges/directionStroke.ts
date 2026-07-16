@@ -22,9 +22,9 @@
  * "CVD-aware" when it shipped, but no deficiency was ever simulated; the
  * later measurement (cvdContrast.ts, polarityContrast.spec) found the pair
  * separates WORSE for a dichromat than the green/red it replaced — ΔE2000
- * 12.2 under deuteranopia versus the old pair's 29.6. The cause is lightness,
+ * 11.7 under deuteranopia versus the old pair's 28.3. The cause is lightness,
  * not hue: the old green sat at L* 90.3, this one at L* 66.9. Paul's amber
- * would have been no better (14.5 under protanopia). The hues stand — they
+ * would have been no better (13.8 under protanopia). The hues stand — they
  * are Paul's ruling — but the +/− glyph, not the colour, is what carries
  * polarity for a red-green dichromat here. Do not remove it, and do not let
  * a future change lean on these hues alone.

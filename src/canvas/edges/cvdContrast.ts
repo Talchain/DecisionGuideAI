@@ -29,15 +29,25 @@ type Mat3 = [Vec3, Vec3, Vec3]
 export const POLARITY_POSITIVE = '#62B290'
 export const POLARITY_NEGATIVE = '#D6336C'
 
-const RGB_TO_LMS: Mat3 = [
+/** Exported only for the inverse-identity pin in polarityContrast.spec. */
+export const RGB_TO_LMS: Mat3 = [
   [17.8824, 43.5161, 4.11935],
   [3.45565, 27.1554, 3.86714],
   [0.0299566, 0.184309, 1.46709],
 ]
 
-const LMS_TO_RGB: Mat3 = [
+/**
+ * MUST be the matrix inverse of RGB_TO_LMS — the simulation is
+ * RGB → LMS → (projection) → RGB, and any drift here biases every ΔE this
+ * module reports. The first cut of this file shipped [1][0] as -0.011248
+ * (a mistranscription, 9.75% off the true -0.0102485335); the round-trip
+ * error that introduced was ~4.9e-2 in linear G — enough to move the
+ * headline figures by ~0.5–1.3 ΔE. The inverse-identity test in
+ * polarityContrast.spec pins this permanently.
+ */
+export const LMS_TO_RGB: Mat3 = [
   [0.080944, -0.130504, 0.116721],
-  [-0.011248, 0.0540193, -0.113615],
+  [-0.0102485335, 0.0540193266, -0.113614708],
   [-0.000365, -0.0041216, 0.693513],
 ]
 

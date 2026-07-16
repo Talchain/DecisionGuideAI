@@ -12,7 +12,14 @@
  * hues — the shipped values are Paul's call.
  */
 import { describe, it, expect } from 'vitest'
-import { deltaE2000, deltaE76, POLARITY_POSITIVE, POLARITY_NEGATIVE } from '../cvdContrast'
+import {
+  deltaE2000,
+  deltaE76,
+  POLARITY_POSITIVE,
+  POLARITY_NEGATIVE,
+  RGB_TO_LMS,
+  LMS_TO_RGB,
+} from '../cvdContrast'
 
 /** Below this, two strokes read as "more similar than different" to that viewer. */
 const CLEARLY_DISTINCT = 20
@@ -32,20 +39,20 @@ describe('polarity edge colours — normal-vision ΔE (reproduces PR #282 prose)
 })
 
 describe('polarity edge colours — CVD separation (what #282 never measured)', () => {
-  it("Paul's amber pair collapses under protanopia (ΔE2000 ~14.5, ΔL* ~1.7)", () => {
+  it("Paul's amber pair collapses under protanopia (ΔE2000 ~13.8, ΔL* ~1.8)", () => {
     // #FFA656 was Paul's original E1 ruling for negative. Under protanopia it
     // lands within ~2 L* of the green: two muddy tans of near-identical
     // lightness. Recorded, not shipped — the palette shipped rose instead.
     const d = deltaE2000('#62B290', '#FFA656', 'protan')
-    expect(d).toBeCloseTo(14.5, 0)
+    expect(d).toBeCloseTo(13.8, 0)
     expect(d).toBeLessThan(CLEARLY_DISTINCT)
   })
 
-  it('the SHIPPED rose pair collapses under deuteranopia (ΔE2000 ~12.2)', () => {
+  it('the SHIPPED rose pair collapses under deuteranopia (ΔE2000 ~11.7)', () => {
     // Deuteranopia is the most common CVD. This is the shipped palette's
     // worst case and it is worse than the amber it was chosen over.
     const d = deltaE2000('#62B290', '#D6336C', 'deutan')
-    expect(d).toBeCloseTo(12.2, 0)
+    expect(d).toBeCloseTo(11.7, 0)
     expect(d).toBeLessThan(CLEARLY_DISTINCT)
   })
 
@@ -61,8 +68,8 @@ describe('polarity edge colours — CVD separation (what #282 never measured)', 
       deltaE2000('#62B290', '#D6336C', 'protan'),
       deltaE2000('#62B290', '#D6336C', 'deutan'),
     )
-    expect(oldWorst).toBeCloseTo(29.6, 0)
-    expect(shippedWorst).toBeCloseTo(12.2, 0)
+    expect(oldWorst).toBeCloseTo(28.3, 0)
+    expect(shippedWorst).toBeCloseTo(11.7, 0)
     expect(shippedWorst).toBeLessThan(oldWorst)
   })
 
@@ -71,9 +78,9 @@ describe('polarity edge colours — CVD separation (what #282 never measured)', 
       Math.min(deltaE2000(a, b, 'protan'), deltaE2000(a, b, 'deutan'))
     // Amber (Paul's ruling) is marginally better worst-case than the shipped
     // rose; both sit well under the old pair. Neither clears CLEARLY_DISTINCT.
-    expect(worst('#62B290', '#FFA656')).toBeCloseTo(14.5, 0)
-    expect(worst('#62B290', '#D6336C')).toBeCloseTo(12.2, 0)
-    expect(worst('#a7f3d0', '#ef4444')).toBeCloseTo(29.6, 0)
+    expect(worst('#62B290', '#FFA656')).toBeCloseTo(13.8, 0)
+    expect(worst('#62B290', '#D6336C')).toBeCloseTo(11.7, 0)
+    expect(worst('#a7f3d0', '#ef4444')).toBeCloseTo(28.3, 0)
   })
 
   it('neither shipped polarity hue is safe on colour alone — the glyph is load-bearing', () => {
@@ -88,6 +95,29 @@ describe('polarity edge colours — CVD separation (what #282 never measured)', 
 })
 
 describe('cvdContrast validator — method sanity', () => {
+  it('LMS_TO_RGB is the inverse of RGB_TO_LMS (RGB→LMS→RGB round-trips)', () => {
+    // The simulation is RGB → LMS → projection → RGB, so LMS_TO_RGB must be
+    // the true matrix inverse or every ΔE this module reports is biased.
+    // This is not hypothetical: the first cut shipped [1][0] mistranscribed
+    // as -0.011248 (true value -0.0102485335), which put ~4.9e-2 of error
+    // into linear G on every round-trip and moved the headline figures by
+    // 0.5–1.3 ΔE (12.2→11.7, 14.5→13.8, 29.6→28.3).
+    //
+    // Tolerance: the published Viénot coefficients are quoted to ~6
+    // significant figures, so the product deviates from identity by ~1.4e-5,
+    // not machine epsilon. 1e-4 gives 7x headroom over that quotation noise
+    // while sitting 400x below the 4.4e-2 deviation of the transcription bug.
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        const product =
+          LMS_TO_RGB[i][0] * RGB_TO_LMS[0][j] +
+          LMS_TO_RGB[i][1] * RGB_TO_LMS[1][j] +
+          LMS_TO_RGB[i][2] * RGB_TO_LMS[2][j]
+        expect(Math.abs(product - (i === j ? 1 : 0))).toBeLessThan(1e-4)
+      }
+    }
+  })
+
   it('simulates the textbook dichromat confusions', () => {
     // Blue is untouched by red-green deficiency; identical colours are ΔE 0.
     expect(deltaE2000('#0000ff', '#0000ff', 'protan')).toBe(0)
