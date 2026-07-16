@@ -169,8 +169,8 @@ describe('OutputsDock bands-less hydrated report (#353)', () => {
     expect(results.report).toBe(bandslessHydratedReport)
     // The defect precondition, asserted so this spec fails loud if a future
     // upstream guarantee makes the render-side pin vacuous.
-    expect((results.report as Record<string, unknown>).results).toBeUndefined()
-    expect((results.report as Record<string, unknown>).run).toBeUndefined()
+    expect((results.report as unknown as Record<string, unknown>).results).toBeUndefined()
+    expect((results.report as unknown as Record<string, unknown>).run).toBeUndefined()
   })
 
   it('renders the dock WITHOUT throwing on the bands-less report, keeping the results body mounted (fail closed, no fabricated value)', () => {
