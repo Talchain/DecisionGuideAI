@@ -386,9 +386,11 @@ export const OptionNode = memo((props: NodeProps) => {
   // numbering registers. undefined until analysis registers this option.
   const stableOptionNumber = useCanvasStore(state => state.optionNumbering?.[props.id])
   const isPostAnalysis = resultsStatus === 'complete'
-  // Audit §8 P1: canvas result decorations must reflect the same freshness
-  // verdict the panels use (StaleGuardBanner / bottom-bar "Analysis stale").
-  // Display-only: opacity + title, no layout shift.
+  // Canvas result decorations carry no freshness treatment of their own:
+  // the graph-hash stale guard that once drove a dim + "Model changed" title
+  // here was deleted on 2026-07-16 (its hash keys had zero write sites, so
+  // it could never fire). Freshness verdicts render on the panel surfaces
+  // via the composed trust semantic (useAnalysisTrust).
 
   const isRecommended = useMemo(() => {
     if (!displayMetadata.isResultsMode || displayMetadata.winRate === null) return false

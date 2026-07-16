@@ -1,8 +1,9 @@
 /**
  * Analysis freshness slice — sourced ONLY from `response.analysis_ready`.
  *
- * Deliberately independent of `v5AnalysisFact` and `the deleted graph-hash stale guard` (both
- * excluded by the brief) and of `ceeAnalysisReady` (which is cleared on
+ * Deliberately independent of `v5AnalysisFact` and of the graph-hash stale
+ * guard deleted on 2026-07-16 (both excluded by the brief) and of
+ * `ceeAnalysisReady` (which is cleared on
  * analyse-turns-without-analysis_ready and on graph edits — that conflicts with
  * the "retain last verdict" requirement). This slice holds CEE's last freshness
  * verdict verbatim and follows three rules:
@@ -35,6 +36,17 @@ export interface AnalysisFreshnessState {
   currentGraphHash?: string
   /** ISO timestamp used to order updates. */
   computedAt?: string
+  /**
+   * Provenance for the RUN-COMPLETION overwrite only: the CEE verdict that
+   * `noteRunCompletedWithoutVerdict` replaced. The echo guard compares
+   * incoming payloads against the last CEE payload, and after the run write
+   * the stored verdict is no longer that payload — without this field, a
+   * byte-identical pre-run 'stale' re-delivered on the next conversational
+   * turn would read as a NEW verdict and resurrect "model changed" over the
+   * results the run just produced. Never rendered; at most one level deep
+   * (the run write flattens).
+   */
+  supersededVerdict?: AnalysisFreshnessState
 }
 
 const VALID: ReadonlySet<AnalysisFreshnessValue> = new Set([
@@ -106,11 +118,47 @@ export function deriveAnalysisFreshnessUpdate(
   // analysis_ready (e.g. echoed on a conversational turn) would look like a new
   // verdict and wrongly clear the local dirty overlay. With it, a reference
   // change reliably means "a genuinely new/changed verdict".
-  if (prev && sameVerdict(prev, next)) {
+  //
+  // The guard's invariant is "compare against the last CEE payload". The
+  // run-completion overwrite (`noteRunCompletedWithoutVerdict`) changes the
+  // STORED verdict without a CEE payload, so it records the verdict it
+  // replaced in `supersededVerdict` — an echo of that pre-run payload must
+  // also be a no-op, or it would silently revert the run's honest 'unknown'
+  // back to a pre-run 'stale' one turn later.
+  if (
+    prev &&
+    (sameVerdict(prev, next) ||
+      (prev.supersededVerdict != null && sameVerdict(prev.supersededVerdict, next)))
+  ) {
     return prev
   }
 
   return next
+}
+
+/**
+ * Verdict semantics: a 'stale' verdict whose own payload carries IDENTICAL
+ * at-run and current graph hashes is self-contradictory — the payload itself
+ * proves the model did not change. Such a verdict must never be rendered as
+ * the factual "model changed" claim; the display downgrades it to
+ * cannot-confirm ('unknown'). Keyed on hash EQUALITY only (both present and
+ * non-empty) — the hashes are technical fields and are never rendered as
+ * copy. This is a semantic rule, not a workaround for observed engine
+ * behaviour: it stays correct after the engine-side guard fix (it simply
+ * stops firing). Missing hashes leave the verdict untouched — absence of
+ * evidence is not evidence of contradiction.
+ */
+export function isSelfContradictoryStale(
+  freshness: unknown,
+  graphHashAtRun: unknown,
+  currentGraphHash: unknown,
+): boolean {
+  return (
+    freshness === 'stale' &&
+    typeof graphHashAtRun === 'string' &&
+    graphHashAtRun.length > 0 &&
+    graphHashAtRun === currentGraphHash
+  )
 }
 
 /**
@@ -124,6 +172,13 @@ export function deriveAnalysisFreshnessUpdate(
  * `unknown` (cannot-confirm) — it never fabricates `stale`, never upgrades, and
  * never touches a CEE `stale`/`unknown`/`none` verdict. Returns the value to
  * display, or null when there is no verdict to show.
+ *
+ * Separately from the overlay, a self-contradictory 'stale' verdict (identical
+ * at-run/current hashes — see `isSelfContradictoryStale`) displays as
+ * 'unknown': the copy must be the cannot-confirm variant, never a factual
+ * "model changed" claim the verdict's own payload disproves. The slice still
+ * HOLDS the verbatim CEE verdict (`data-cee-freshness` and debug exports keep
+ * it); only the display value downgrades.
  */
 export function resolveDisplayedFreshness(
   state: AnalysisFreshnessState | null,
@@ -131,8 +186,12 @@ export function resolveDisplayedFreshness(
 ): AnalysisFreshnessValue | null {
   if (!state) return null
   // Suppress a stale-since-edit 'fresh' verdict to cannot-confirm. CEE 'stale'
-  // stays 'stale'; everything else passes through unchanged.
+  // stays 'stale' (unless self-contradictory below); everything else passes
+  // through unchanged.
   if (state.freshness === 'fresh' && dirty) return 'unknown'
+  if (isSelfContradictoryStale(state.freshness, state.graphHashAtRun, state.currentGraphHash)) {
+    return 'unknown'
+  }
   return state.freshness
 }
 
@@ -143,14 +202,17 @@ export type FreshnessDisplaySemantic = 'current' | 'changed' | 'cannot_confirm' 
  * Classify the displayed freshness for COPY decisions across the visible
  * AI-panel surfaces (composer placeholder, Results stale banner, chip relabel).
  * Single source so those surfaces can't drift from each other or from the CEE
- * verdict — and so none of them re-derive currentness from the dead the deleted graph-hash stale guard.
+ * verdict — and so none of them re-derive currentness from the graph-hash
+ * stale guard deleted on 2026-07-16.
  *
  * Distinguishes a model that definitely CHANGED since the run — a CEE 'stale'
  * verdict, OR a local edit that downgraded a retained 'fresh' (the dirty overlay)
  * — from a CANNOT-CONFIRM state where CEE itself could not determine freshness
  * (a present analysis_ready with missing/invalid freshness → 'unknown'). The two
  * warrant different copy: "you've changed the model" vs the neutral "can't confirm
- * this is current". 'changed' must never be claimed for a CEE-sourced 'unknown'.
+ * this is current". 'changed' must never be claimed for a CEE-sourced 'unknown',
+ * nor for a self-contradictory 'stale' whose identical hashes disprove the
+ * change (see `isSelfContradictoryStale`).
  */
 export function classifyFreshnessForDisplay(
   state: AnalysisFreshnessState | null,

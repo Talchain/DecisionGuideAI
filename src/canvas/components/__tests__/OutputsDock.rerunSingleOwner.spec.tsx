@@ -12,10 +12,14 @@
  *     rerun exists anywhere in the tab tree;
  *   - no freshness verdict held (strip renders nothing) → the footer KEEPS
  *     its Rerun action, so the tab never loses its only recovery affordance;
- *   - no rerun offered by the strip ('none' verdict) → the footer KEEPS its
- *     Rerun, pinning the `!== 'none'` clause of `freshnessStripOwnsRerun`;
- *   - orphan banner active (V5 canonical flag on, no V5 fact) → the footer
- *     keeps its robustness status.
+ *   - no rerun offered by the strip (NON-orphan 'none' verdict) → the footer
+ *     KEEPS its Rerun, pinning the `!== 'none'` clause of
+ *     `freshnessStripOwnsRerun`;
+ *   - orphaned result (V5 canonical flag on, no V5 fact) → the strip ALWAYS
+ *     offers the one Rerun: a held fresh/stale/unknown verdict wins, and a
+ *     null or 'none' verdict synthesises the cannot-confirm variant
+ *     (resolveTrustEffectiveState) — the footer stays status-only, keeping
+ *     its robustness status.
  *
  * VISIBILITY IS A STRUCTURAL PROXY HERE. jsdom has no layout engine, so no
  * assertion in this file can prove the sole owner is on SCREEN:
@@ -430,8 +434,10 @@ describe('OutputsDock — one Rerun owner per viewport (C1)', () => {
   it('orphan state with NO verdict: the strip renders the cannot-confirm variant with the ONE Rerun (F11 fold upgrade)', () => {
     // Pre-fold, this state rendered the orphan banner INSIDE the scroller
     // (its CTA scrolled away) while the strip rendered nothing. Post-fold the
-    // strip itself carries the orphan state — and the strip is sticky, so the
-    // recovery action can no longer scroll out of view at all.
+    // strip itself carries the orphan state — and the strip is sticky
+    // (structural proxy asserted below; jsdom cannot prove pinning visually —
+    // the real-browser acceptance run remains the pre-merge gate for the
+    // visibility claim).
     mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
     mockIsAnalysisHeroPanelEnabled.mockReturnValue(true)
     seedPostRun({ analysisFreshness: null, v5AnalysisFact: null })
@@ -441,9 +447,51 @@ describe('OutputsDock — one Rerun owner per viewport (C1)', () => {
     const strip = screen.getByTestId('analysis-freshness-notice')
     expect(strip).toHaveAttribute('data-orphaned', 'true')
     expect(strip).toHaveAttribute('data-freshness', 'unknown')
-    expect(screen.getByTestId('freshness-strip-rerun')).toBeInTheDocument()
+    const stripRerun = screen.getByTestId('freshness-strip-rerun')
+    expect(stripRerun).toBeInTheDocument()
 
     // With the strip holding a state, the footer is status-only (C1: one owner).
     expect(screen.queryByTestId('results-analysis-footer-action')).not.toBeInTheDocument()
+
+    // Whole-tree sweep: exactly ONE rerun control under any spelling — this
+    // is the one genuinely NEW ownership state the fold created, so it gets
+    // the same sweep + cannot-scroll-away rigour as the verdict states.
+    expect([...collectRerunControls(document.body as HTMLElement)]).toEqual([stripRerun])
+    expectRerunOwnerCannotScrollAway(stripRerun, { insideScroller: true })
+  })
+
+  it("orphan state with a 'none' verdict: the strip PREFERS the cannot-confirm variant and keeps the ONE Rerun (no zero-affordance hole)", () => {
+    // The C1 blocker cell: canonical flag ON, results present, no V5 fact
+    // (orphaned — reachable because a 'none' turn also CLEARS the fact),
+    // and a held {freshness:'none'} verdict. Pre-fix the strip rendered
+    // "No analysis yet." (no Rerun — offersRerun is freshness !== 'none')
+    // above a full results body while `freshnessStripOwnsRerun`'s orphan
+    // term stripped the footer action too: ZERO recovery controls in the
+    // tab, and incoherent copy. The precedence rule
+    // (resolveTrustEffectiveState) now prefers the orphan cannot-confirm
+    // variant over a 'none' verdict when results exist, so the strip owns
+    // the one Rerun and the copy is honest.
+    mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
+    mockIsAnalysisHeroPanelEnabled.mockReturnValue(true)
+    seedPostRun({
+      analysisFreshness: { freshness: 'none', computedAt: 1 },
+      v5AnalysisFact: null,
+    })
+    render(<OutputsDock />)
+
+    const strip = screen.getByTestId('analysis-freshness-notice')
+    expect(strip).toHaveAttribute('data-orphaned', 'true')
+    expect(strip).toHaveAttribute('data-freshness', 'unknown')
+    expect(strip).toHaveTextContent('Cannot confirm whether this analysis is current.')
+    expect(strip).not.toHaveTextContent('No analysis yet.')
+
+    const stripRerun = screen.getByTestId('freshness-strip-rerun')
+    expect(stripRerun).toBeInTheDocument()
+    expect(screen.queryByTestId('results-analysis-footer-action')).not.toBeInTheDocument()
+
+    // ≥1 recovery affordance ALWAYS (the C1 invariant this cell violated):
+    // exactly one, and it cannot scroll away.
+    expect([...collectRerunControls(document.body as HTMLElement)]).toEqual([stripRerun])
+    expectRerunOwnerCannotScrollAway(stripRerun, { insideScroller: true })
   })
 })

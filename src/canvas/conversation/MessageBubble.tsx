@@ -26,6 +26,7 @@ import { FeedbackRow } from './FeedbackRow'
 import { StalenessPill, type StalenessFreshness } from './StalenessPill'
 import { isOrchestratorRenderingV2Enabled, isDeterministicCeeEnabled, isAiPanelV2Enabled, isReasoningDisclosureEnabled } from '../../flags'
 import { useCanvasStore } from '../store'
+import { isSelfContradictoryStale } from '../store/analysisFreshness'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { FALLBACK_TEXT } from './validateResponse'
 import { SYSTEM_MESSAGE_SENTINEL, isNonConversationalContent } from './useConversation'
@@ -198,12 +199,24 @@ export const MessageBubble = memo(function MessageBubble({
   // Freshness pill: derive from the first graph_patch block whose
   // analysis_ready.freshness is 'stale' or 'unknown'. Fresh/none/absent → no pill.
   // User messages and the streaming-thinking placeholder bypass this branch.
+  // Verdict semantics: a 'stale' verdict whose own payload carries IDENTICAL
+  // at-run/current hashes is self-contradictory — it must never render the
+  // factual "model changed" pill; it downgrades to the cannot-confirm
+  // 'unknown' pill (same rule as the Results freshness strip).
   const stalenessFreshness = useMemo<StalenessFreshness | null>(() => {
     if (isUser || !message.blocks) return null
     for (const block of message.blocks) {
       if (block.type !== 'graph_patch') continue
-      const f = (block as GraphPatchBlock).analysis_ready?.freshness
-      if (f === 'stale' || f === 'unknown') return f
+      const ar = (block as GraphPatchBlock).analysis_ready as
+        | { freshness?: string; graph_hash_at_run?: unknown; current_graph_hash?: unknown }
+        | undefined
+      const f = ar?.freshness
+      if (f === 'stale') {
+        return isSelfContradictoryStale(f, ar?.graph_hash_at_run, ar?.current_graph_hash)
+          ? 'unknown'
+          : 'stale'
+      }
+      if (f === 'unknown') return f
     }
     return null
   }, [isUser, message.blocks])

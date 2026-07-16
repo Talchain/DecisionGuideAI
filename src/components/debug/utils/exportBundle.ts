@@ -2588,8 +2588,11 @@ export async function captureDisplayState(
     const { deriveAnalysisDisplayState } = await import(
       '../../../canvas/utils/deriveAnalysisDisplayState'
     )
-    const { classifyFreshnessForDisplay } = await import(
-      '../../../canvas/store/analysisFreshness'
+    const { computeAnalysisTrust } = await import(
+      '../../../canvas/hooks/useAnalysisTrust'
+    )
+    const { readAnalysisStateSourceFromStore } = await import(
+      '../../../canvas/hooks/useAnalysisStateSource'
     )
     const state = useCanvasStore.getState()
 
@@ -2805,13 +2808,19 @@ export async function captureDisplayState(
     const ceeStatus = (state as { ceeAnalysisReady?: { status?: string } | null })
       .ceeAnalysisReady?.status
     const hasReport = Boolean((results as { report?: unknown } | null | undefined)?.report)
-    // CEE-sourced staleness (shared display semantic === 'changed'), mirroring
-    // the runtime hook — NOT the local graphEditedSinceLastRun flag.
-    const analysisChanged =
-      classifyFreshnessForDisplay(
-        (state as { analysisFreshness?: Parameters<typeof classifyFreshnessForDisplay>[0] }).analysisFreshness ?? null,
-        Boolean((state as { analysisFreshnessDirty?: boolean }).analysisFreshnessDirty),
-      ) === 'changed'
+    // The composed trust answer (semantic 'changed' OR orphaned), mirroring
+    // the runtime hook (useAnalysisDisplayState) EXACTLY — NOT the local
+    // graphEditedSinceLastRun flag, and not a partial re-derivation (an
+    // earlier version omitted the orphan OR and drifted from the hook).
+    const trust = computeAnalysisTrust({
+      freshness:
+        (state as { analysisFreshness?: Parameters<typeof computeAnalysisTrust>[0]['freshness'] })
+          .analysisFreshness ?? null,
+      dirty: Boolean((state as { analysisFreshnessDirty?: boolean }).analysisFreshnessDirty),
+      source: readAnalysisStateSourceFromStore().source,
+      resultsStatus: (results as { status?: string } | null | undefined)?.status ?? null,
+    })
+    const analysisChanged = trust.semantic === 'changed' || trust.orphaned
     const displayView = deriveAnalysisDisplayState({
       ceeAnalysisReadyStatus: ceeStatus,
       hasReport,

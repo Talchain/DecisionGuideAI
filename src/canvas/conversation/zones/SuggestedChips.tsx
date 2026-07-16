@@ -20,7 +20,8 @@ import { logV5StateEvent } from '../../../v5/debugLog'
 import { isAiPanelV2Enabled } from '../../../flags'
 import { useAnalysisStatus } from '../../hooks/useAnalysisReady'
 import { useCanvasStore } from '../../store'
-import { classifyFreshnessForDisplay, type FreshnessDisplaySemantic } from '../../store/analysisFreshness'
+import { type FreshnessDisplaySemantic } from '../../store/analysisFreshness'
+import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import type { ActionChip } from '../types'
 
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
@@ -150,11 +151,11 @@ export function SuggestedChips({
   // Decision is via `decideRunAnalysisPolish` (product rule, see helper above):
   // no analysis → keep; confirmed-current → suppress; stale/cannot-confirm →
   // "Rerun" (gate-bypassing); complete-but-no-verdict → keep (gate decides).
-  // `freshnessSemantic` is the shared freshness display semantic, NOT the dead
-  // deleted graph-hash stale path.
-  const ceeFreshness = useCanvasStore((s) => s.analysisFreshness)
-  const freshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
-  const freshnessSemantic = classifyFreshnessForDisplay(ceeFreshness, freshnessDirty)
+  // `freshnessSemantic` is the composed trust semantic (useAnalysisTrust),
+  // NOT the graph-hash stale path deleted on 2026-07-16. The orphan fold
+  // means a recovered-session result with no verdict reads cannot-confirm
+  // here too, so the chip relabels to "Rerun" in step with the strip.
+  const freshnessSemantic = useAnalysisTrust().semantic
   const resultsComplete = useCanvasStore((s) => s.results?.status === 'complete')
   const aiPanelV2On = isAiPanelV2Enabled()
   useEffect(() => {

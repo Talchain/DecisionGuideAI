@@ -10,7 +10,7 @@ import { selectTopItem } from '../stores/guidanceStore'
 import type { GuidanceState } from '../stores/guidanceStore'
 import type { ConversationMessage, GraphPatchBlock } from './types'
 import type { PatchBlockState } from './useConversation'
-import { classifyFreshnessForDisplay, type AnalysisFreshnessState } from '../store/analysisFreshness'
+import type { FreshnessDisplaySemantic } from '../store/analysisFreshness'
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -52,15 +52,13 @@ export interface ConversationStatusInput {
   /** Whether analysis has completed at least once this session */
   hasCompletedFirstRun: boolean
   /**
-   * CEE freshness slice + local dirty overlay — the single source the visible
-   * "Results outdated" status derives from, via `classifyFreshnessForDisplay`
-   * (=== 'changed'). Replaces the old `graphEditedSinceLastRun` / `wireFreshness`
-   * pair: the slice IS the retained CEE wire verdict, and the classifier folds
-   * in the dirty overlay, so this surface never independently derives stale from
+   * The composed trust semantic (`useAnalysisTrust().semantic`) — the single
+   * source the visible "Results outdated" status derives from (=== 'changed').
+   * The caller supplies it from the composed hook so this surface can never
+   * drift from the freshness strip: it never independently derives stale from
    * the local edit flag, and a CEE-unknown verdict never fabricates 'outdated'.
    */
-  analysisFreshness: AnalysisFreshnessState | null
-  analysisFreshnessDirty: boolean
+  trustSemantic: FreshnessDisplaySemantic
   /** Guidance store state snapshot */
   guidance: GuidanceState
   /** Conversation messages */
@@ -131,19 +129,18 @@ export function selectConversationStatus(input: ConversationStatusInput): Conver
     nodeCount,
     resultsStatus,
     hasCompletedFirstRun,
-    analysisFreshness,
-    analysisFreshnessDirty,
+    trustSemantic,
     guidance,
     messages,
     patchBlockStates,
   } = input
 
-  // Single source of truth: the CEE freshness verdict + local dirty overlay via
-  // the shared display semantic. 'changed' (CEE 'stale' OR a retained-fresh-now-
-  // dirtied) is the only state that renders "Results outdated"; 'cannot_confirm'
-  // (CEE-unknown) and 'current'/'none' do not — so this surface never fabricates
-  // stale, and never independently derives it from `graphEditedSinceLastRun`.
-  const isStale = classifyFreshnessForDisplay(analysisFreshness, analysisFreshnessDirty) === 'changed'
+  // Single source of truth: the composed trust semantic. 'changed' (CEE
+  // 'stale' OR a retained-fresh-now-dirtied) is the only state that renders
+  // "Results outdated"; 'cannot_confirm' (CEE-unknown / orphan fold) and
+  // 'current'/'none' do not — so this surface never fabricates stale, and
+  // never independently derives it from `graphEditedSinceLastRun`.
+  const isStale = trustSemantic === 'changed'
 
   const topGuidanceItem = selectTopItem(guidance)
   const guidanceCount = guidance.guidanceItems.length
@@ -166,8 +163,8 @@ export function selectConversationStatus(input: ConversationStatusInput): Conver
     return { status: 'brief_ready', topGuidanceItem, guidanceCount, ctaKind: 'view_brief' }
   }
 
-  // Analysis completed — check staleness via the CEE-derived isStale signal
-  // above (classifyFreshnessForDisplay === 'changed'; no local-flag fallback).
+  // Analysis completed — check staleness via the composed isStale signal
+  // above (trustSemantic === 'changed'; no local-flag fallback).
   if (hasCompletedFirstRun && resultsStatus === 'complete') {
     if (isStale) {
       return { status: 'analysis_stale', topGuidanceItem, guidanceCount, ctaKind: 'view_results' }

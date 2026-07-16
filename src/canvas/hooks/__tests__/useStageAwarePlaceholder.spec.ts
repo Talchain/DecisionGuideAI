@@ -1,12 +1,13 @@
 /**
- * useStageAwarePlaceholder — composer placeholder derives from the CEE freshness
- * verdict + local dirty overlay, NOT the dead the deleted graph-hash stale guard graph-hash path.
+ * useStageAwarePlaceholder — composer placeholder derives from the composed
+ * trust semantic (CEE freshness verdict + local dirty overlay), NOT the
+ * graph-hash stale path deleted on 2026-07-16.
  *
- * Regression for the review finding: after a graph edit the composer kept claiming
- * "Ask about the latest analysis…" (because the deleted graph-hash stale guard.analysisState stayed
- * 'current' — _internal.graphHash is never written), contradicting the Results
- * surface's cannot-confirm state. It must never claim "latest" unless the verdict
- * is confirmed-fresh.
+ * Regression for the review finding: after a graph edit the composer kept
+ * claiming "Ask about the latest analysis…" (because the deleted guard's
+ * analysisState stayed 'current' — _internal.graphHash was never written),
+ * contradicting the Results surface's cannot-confirm state. It must never
+ * claim "latest" unless the verdict is confirmed-fresh.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'

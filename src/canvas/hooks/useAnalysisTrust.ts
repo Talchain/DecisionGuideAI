@@ -36,6 +36,33 @@ export interface AnalysisTrust {
 
 const RUNNING_STATUSES = new Set(['preparing', 'connecting', 'streaming'])
 
+/** Reason code carried by the synthesised orphan state — debug only, never user copy. */
+export const ORPHANED_RESULT = 'orphaned_result'
+
+/**
+ * The F11 fold's ONE precedence rule, shared by the hook and the freshness
+ * strip so they cannot diverge (they previously did: the strip synthesised
+ * cannot-confirm for orphan-with-no-verdict while the hook said 'none').
+ *
+ * An orphaned result (results exist with no live run fact) with NO verdict —
+ * or with a held 'none' verdict, which claims "no analysis yet" over a
+ * visible results body — renders as the cannot-confirm variant WITH the one
+ * Rerun action. A held fresh/stale/unknown verdict always wins over the
+ * orphan fallback (one banner, verdict precedence).
+ */
+export function resolveTrustEffectiveState(
+  state: AnalysisFreshnessState | null,
+  orphaned: boolean,
+): { state: AnalysisFreshnessState | null; orphanSynthesised: boolean } {
+  if (orphaned && (state === null || state.freshness === 'none')) {
+    return {
+      state: { freshness: 'unknown', freshnessReason: ORPHANED_RESULT },
+      orphanSynthesised: true,
+    }
+  }
+  return { state, orphanSynthesised: false }
+}
+
 /** Pure core — selectors and tests use this; the hook is the store binding. */
 export function computeAnalysisTrust(input: {
   freshness: AnalysisFreshnessState | null
@@ -44,11 +71,16 @@ export function computeAnalysisTrust(input: {
   resultsStatus: string | null | undefined
 }): AnalysisTrust {
   const { freshness, dirty, source, resultsStatus } = input
+  const orphaned = source === 'orphaned_plot_result'
+  // Same effective state the strip renders — the orphan fold happens HERE,
+  // not per-consumer, so adopting surfaces inherit the F11 precedence rather
+  // than re-implementing (or missing) it.
+  const { state: effective } = resolveTrustEffectiveState(freshness, orphaned)
   return {
-    semantic: classifyFreshnessForDisplay(freshness, dirty),
-    orphaned: source === 'orphaned_plot_result',
+    semantic: classifyFreshnessForDisplay(effective, dirty),
+    orphaned,
     isRunning: RUNNING_STATUSES.has(resultsStatus ?? ''),
-    reason: freshness?.freshnessReason,
+    reason: effective?.freshnessReason,
   }
 }
 

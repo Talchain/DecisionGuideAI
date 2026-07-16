@@ -99,6 +99,63 @@ describe('AnalysisFreshnessNotice — local dirty overlay (display rule)', () =>
   })
 })
 
+describe('AnalysisFreshnessNotice — self-contradictory stale verdict (a16a0e82 acceptance)', () => {
+  // Brief item 1, first acceptance bullet: a 'stale' verdict with IDENTICAL
+  // graph_hash_at_run/current_graph_hash must NOT assert "Model changed
+  // since this analysis" as fact — the copy must be the cannot-confirm
+  // variant. Verdict SEMANTICS (hash equality), not a pin of buggy-era
+  // engine frequency: the rule stays correct after the CEE-side guard fix.
+  it('identical hashes → cannot-confirm copy, never the factual "model changed" claim', () => {
+    render(
+      <AnalysisFreshnessNotice
+        state={{
+          freshness: 'stale',
+          freshnessReason: 'analysed_options_diverged',
+          graphHashAtRun: '595d1a7b7ec9272b',
+          currentGraphHash: '595d1a7b7ec9272b',
+        }}
+      />,
+    )
+    const el = screen.getByTestId(TESTID)
+    expect(el).toHaveTextContent(FRESHNESS_COPY.unknown)
+    expect(el.textContent ?? '').not.toContain(FRESHNESS_COPY.stale)
+    expect(el).toHaveAttribute('data-freshness', 'unknown')
+    // CEE's verbatim verdict is preserved for traceability (debug only).
+    expect(el).toHaveAttribute('data-cee-freshness', 'stale')
+    // The hashes themselves are never rendered as copy.
+    expect(el.textContent ?? '').not.toContain('595d1a7b7ec9272b')
+  })
+
+  it('POSITIVE CONTROL: differing hashes keep the factual stale claim and the warning treatment', () => {
+    render(
+      <AnalysisFreshnessNotice
+        state={{
+          freshness: 'stale',
+          freshnessReason: 'analysed_options_diverged',
+          graphHashAtRun: '595d1a7b7ec9272b',
+          currentGraphHash: 'a-genuinely-different-hash',
+        }}
+      />,
+    )
+    const el = screen.getByTestId(TESTID)
+    expect(el).toHaveTextContent(FRESHNESS_COPY.stale)
+    expect(el).toHaveAttribute('data-freshness', 'stale')
+  })
+
+  it('the cannot-confirm variant still offers the Rerun recovery action', () => {
+    render(
+      <AnalysisFreshnessNotice
+        state={{
+          freshness: 'stale',
+          graphHashAtRun: 'same',
+          currentGraphHash: 'same',
+        }}
+      />,
+    )
+    expect(screen.getByTestId('freshness-strip-rerun')).toBeInTheDocument()
+  })
+})
+
 describe('AnalysisFreshnessNotice — accessibility', () => {
   it.each(['fresh', 'stale', 'unknown', 'none'] as const)('has no axe violations: %s', async (freshness) => {
     const { container } = render(<AnalysisFreshnessNotice state={{ freshness }} />)

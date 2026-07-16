@@ -1,16 +1,17 @@
 import { useCanvasStore, selectResultsStatus } from '../store'
-import { classifyFreshnessForDisplay } from '../store/analysisFreshness'
+import { useAnalysisTrust } from './useAnalysisTrust'
 import { useSelectionContext } from './useSelectionContext'
 
 /**
  * Returns the placeholder text the persistent input strip / floating composer
  * should display, derived from the current canvas + analysis + selection state.
  *
- * Freshness comes from the CEE verdict + local dirty overlay
- * (classifyFreshnessForDisplay), NOT the legacy graph-hash stale path (deleted 2026-07-16)
- * (_internal.graphHash is never written, so its 'stale' never fired and its
- * 'current' falsely persisted after an edit — the composer would still claim
- * "latest analysis" once the Results surface had moved to cannot-confirm).
+ * Freshness comes from the composed trust semantic (useAnalysisTrust: CEE
+ * verdict + local dirty overlay + orphan fold), NOT the legacy graph-hash
+ * stale path (deleted 2026-07-16) (_internal.graphHash is never written, so
+ * its 'stale' never fired and its 'current' falsely persisted after an edit —
+ * the composer would still claim "latest analysis" once the Results surface
+ * had moved to cannot-confirm).
  *
  * Priority (highest first):
  *   1. Node/edge selected            → "Ask about [label]..."
@@ -25,10 +26,8 @@ import { useSelectionContext } from './useSelectionContext'
 export function useStageAwarePlaceholder(): string {
   const nodeCount = useCanvasStore((s) => s.nodes.length)
   const resultsStatus = useCanvasStore(selectResultsStatus)
-  const ceeFreshness = useCanvasStore((s) => s.analysisFreshness)
-  const freshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
   const selection = useSelectionContext()
-  const freshness = classifyFreshnessForDisplay(ceeFreshness, freshnessDirty)
+  const freshness = useAnalysisTrust().semantic
 
   if (selection) {
     return `Ask about ${selection.label}…`

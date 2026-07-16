@@ -3785,11 +3785,20 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // overlay (the run consumed the current graph). Deliberately bypasses
   // deriveAnalysisFreshnessUpdate: that reducer's retain-on-absence rule is
   // for CEE turns; this is a run-completion event, not a CEE verdict.
+  //
+  // The overwrite records the CEE verdict it replaced in `supersededVerdict`
+  // so the reducer's echo guard keeps comparing against the last CEE payload
+  // — otherwise a byte-identical pre-run 'stale' echoed on the next
+  // conversational turn would read as NEW and resurrect "model changed" over
+  // the run's own results. Flattened: chained run writes carry the deepest
+  // CEE verdict, never a nested run write.
   noteRunCompletedWithoutVerdict: () => {
-    set(() => ({
+    set((state) => ({
       analysisFreshness: {
         freshness: 'unknown' as const,
         freshnessReason: RUN_COMPLETED_WITHOUT_VERDICT,
+        supersededVerdict:
+          state.analysisFreshness?.supersededVerdict ?? state.analysisFreshness ?? undefined,
       },
       analysisFreshnessDirty: false,
     }))

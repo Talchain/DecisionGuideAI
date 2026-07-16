@@ -135,7 +135,31 @@ describe('classifyAnalysisStateSource', () => {
     expect(r.showOrphanBanner).toBe(true)
   })
 
-  it('correction 3: stale freshness alone is not proof of a fact', () => {
+  it('F10: a minted fact is believed regardless of its freshness verdict — a stale-verdict run still RAN', () => {
+    // The OLD gate here re-tested freshness (hasRunAnalysisFact===true ||
+    // freshness==='fresh'), so the exact fact the mint site writes for a
+    // stale-verdict run classified as orphaned — the ran-vs-current
+    // conflation surviving one layer above the fixed mint gate. Ran is
+    // decided ONCE, at deriveV5AnalysisFactUpdate; the classifier trusts a
+    // minted, scenario-matched fact.
+    const r = classifyAnalysisStateSource({
+      canonicalFlagOn: true,
+      reportPresent: true,
+      reportHash: 'hash-A',
+      currentScenarioId: scenarioId,
+      fact: {
+        scenarioId,
+        analysisHash: 'hash-A',
+        hasRunAnalysisFact: true,
+        freshness: 'stale',
+      },
+    })
+    expect(r.source).toBe('cee_v5_run_analysis')
+    expect(r.showOrphanBanner).toBe(false)
+    expect(r.factPresentForScenario).toBe(true)
+  })
+
+  it('F10: a legacy-shaped fact (hasRunAnalysisFact=null, freshness=stale) is also believed — only explicit false is disbelieved', () => {
     const r = classifyAnalysisStateSource({
       canonicalFlagOn: true,
       reportPresent: true,
@@ -148,6 +172,7 @@ describe('classifyAnalysisStateSource', () => {
         freshness: 'stale',
       },
     })
-    expect(r.source).toBe('orphaned_plot_result')
+    expect(r.source).toBe('cee_v5_run_analysis')
+    expect(r.showOrphanBanner).toBe(false)
   })
 })

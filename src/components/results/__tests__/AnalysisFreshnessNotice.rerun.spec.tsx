@@ -3,7 +3,7 @@
  * ONE Rerun action (brief §5.2), routed through the canonical runner.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 
 import { AnalysisFreshnessNotice } from '../AnalysisFreshnessNotice'
 import { useCanvasStore } from '../../../canvas/store'
@@ -22,7 +22,9 @@ const FRESH = { freshness: 'fresh' as const, freshnessReason: null, computedAt: 
 
 beforeEach(() => {
   __resetCanonicalRunnerForTests()
+  showToast.mockClear()
   useCanvasStore.getState().resultsReset()
+  useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false })
 })
 afterEach(() => __resetCanonicalRunnerForTests())
 
@@ -74,5 +76,69 @@ describe('AnalysisFreshnessNotice — strip Rerun (Wave F-B)', () => {
     useCanvasStore.getState().resultsAnalysing()
     rerender(<AnalysisFreshnessNotice state={STALE as never} dirty={false} />)
     expect(screen.getByTestId('freshness-strip-rerun')).toBeDisabled()
+  })
+})
+
+describe('AnalysisFreshnessNotice — completion toast agrees with the strip (acceptance: they can never disagree)', () => {
+  // The toast copy derives from the SAME classification the strip renders.
+  // Pre-fix the toast said "Analysis rerun completed with the current model"
+  // purely on the running→complete transition while the same component's
+  // render showed "Model changed since this analysis." for a retained stale
+  // verdict — the brief line-17 bonus contradiction.
+  const REPORT = { model_card: { response_hash: 'h-new' } } as never
+
+  function completeRun() {
+    act(() => {
+      useCanvasStore.getState().resultsStart({ seed: 1 })
+    })
+    act(() => {
+      useCanvasStore.getState().resultsComplete({ report: REPORT, hash: 'h-new' })
+    })
+  }
+
+  it('retained stale verdict → NEUTRAL completion toast, never "with the current model"', () => {
+    act(() => {
+      useCanvasStore.setState({
+        analysisFreshness: { freshness: 'stale', freshnessReason: 'analysed_options_diverged' },
+        analysisFreshnessDirty: false,
+      })
+    })
+    render(<AnalysisFreshnessNotice />)
+    completeRun()
+    expect(showToast).toHaveBeenCalledWith('Analysis rerun completed')
+    expect(showToast).not.toHaveBeenCalledWith('Analysis rerun completed with the current model')
+    // ...while the strip in the same render carries the stale claim: the two
+    // surfaces no longer contradict.
+    expect(screen.getByTestId('analysis-freshness-notice')).toHaveAttribute('data-freshness', 'stale')
+  })
+
+  it('fresh verdict → the "with the current model" toast is still earned', () => {
+    act(() => {
+      useCanvasStore.setState({
+        analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' },
+        analysisFreshnessDirty: false,
+      })
+    })
+    render(<AnalysisFreshnessNotice />)
+    completeRun()
+    expect(showToast).toHaveBeenCalledWith('Analysis rerun completed with the current model')
+  })
+
+  it('self-contradictory stale (identical hashes) → neutral toast, matching the cannot-confirm strip', () => {
+    act(() => {
+      useCanvasStore.setState({
+        analysisFreshness: {
+          freshness: 'stale',
+          freshnessReason: 'analysed_options_diverged',
+          graphHashAtRun: '595d1a7b7ec9272b',
+          currentGraphHash: '595d1a7b7ec9272b',
+        },
+        analysisFreshnessDirty: false,
+      })
+    })
+    render(<AnalysisFreshnessNotice />)
+    completeRun()
+    expect(showToast).toHaveBeenCalledWith('Analysis rerun completed')
+    expect(showToast).not.toHaveBeenCalledWith('Analysis rerun completed with the current model')
   })
 })
