@@ -65,9 +65,15 @@ vi.mock('../../../v5/v5Adapter', () => ({
 // on a clean checkout where the flag is undefined and sendMessage takes the
 // V4 path instead, so mockCallV5Turn is never invoked). Mocking the gate
 // itself makes the suite self-contained.
-vi.mock('../../../v5/eligibility', () => ({
-  isV5Eligible: () => ({ eligible: true as const }),
-}))
+vi.mock('../../../v5/eligibility', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../v5/eligibility')>()
+  const flags = await import('../../../flags')
+  return {
+    ...actual,
+    isV5Eligible: () => ({ eligible: true as const }),
+    isV5CanonicalRunPath: () => flags.isV5CanonicalAnalysisEnabled(),
+  }
+})
 
 const mockGetUserId = vi.fn<[], Promise<string | null>>()
 vi.mock('../../../lib/supabase', () => ({

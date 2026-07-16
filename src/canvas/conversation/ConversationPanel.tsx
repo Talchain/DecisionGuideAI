@@ -26,11 +26,10 @@ import { prefillInto } from './prefillTarget'
 import type { BriefReadiness } from './hooks/useBriefSignals'
 import { useThreadPersistence } from './hooks/useThreadPersistence'
 import { beginInteractionChain, getUiSurfaceState, recordCrossSurfaceEvent, recordInteractionEvent, recordUserAction, type InteractionStateSnapshot } from '../../lib/debug-state'
-import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../utils/canRunAnalysis'
+import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip, computeCeeCannotSeeModel } from '../utils/canRunAnalysis'
 import { useV2Run } from '../hooks/useV2Run'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
-import { isV5CanonicalAnalysisEnabled } from '../../flags'
-import { isV5Eligible } from '../../v5/eligibility'
+import { isV5CanonicalRunPath } from '../../v5/eligibility'
 
 interface ConversationPanelProps {
   conversation: UseConversationReturn
@@ -425,13 +424,18 @@ export const ConversationPanel = memo(function ConversationPanel({
   })
   const isAnalysisRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
 
+  // Boolean selector: recomputes on store writes but only re-renders on a
+  // flip. Same honest gate as OutputsDock — without it this surface's run
+  // button re-created the exact panel-vs-engine contradiction #343 fixed.
+  const ceeCannotSeeModel = useCanvasStore((s) => computeCeeCannotSeeModel(s.nodes))
   const runGateResult = useMemo(() => canRunAnalysisUtil({
     graphHealth: graphHealth ?? null,
     readiness,
     hasBlockers,
     nodeCount,
     isRunning: isAnalysisRunning,
-  }), [graphHealth, readiness, hasBlockers, nodeCount, isAnalysisRunning])
+    ceeCannotSeeModel,
+  }), [graphHealth, readiness, hasBlockers, nodeCount, isAnalysisRunning, ceeCannotSeeModel])
 
   // In-flight takes priority over structural reasons: the composer button
   // is disabled for either cause, but the user-visible tooltip should explain
@@ -468,10 +472,7 @@ export const ConversationPanel = memo(function ConversationPanel({
     // are on, route through the existing chip-action dispatch so CEE
     // persists a run_analysis fact. Mirrors OutputsDock.handleRunAnalysis.
     // Same exact payload shape as suggested chips — never free-text.
-    if (
-      isV5CanonicalAnalysisEnabled() &&
-      isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
-    ) {
+    if (isV5CanonicalRunPath()) {
       void dispatchAction({
         action_type: 'run_analysis',
         label: 'Run analysis',

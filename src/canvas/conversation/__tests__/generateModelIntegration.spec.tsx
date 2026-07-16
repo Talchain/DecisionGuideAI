@@ -98,6 +98,10 @@ vi.mock('../zones/CoachingTip', () => ({
 
 vi.mock('../../../flags', () => ({
   isBilPreviewEnabled: () => false,
+  // The run gate reaches this via computeCeeCannotSeeModel → isV5CanonicalRunPath;
+  // false = canonical dispatch off, preserving this suite's pre-gate behaviour.
+  // (Hand-listed factory debt: vitest fails loud on any OTHER missing export.)
+  isV5CanonicalAnalysisEnabled: () => false,
   isOrchestratorV2Enabled: () => true,
   isOrchestratorStreamingEnabled: () => false,
 }))

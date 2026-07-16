@@ -47,7 +47,7 @@ import {
   trackAutoFixSuccess,
   trackAutoFixFailed,
 } from '../utils/sandboxTelemetry'
-import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled, isV5CanonicalAnalysisEnabled, isPreAnalysisV3Enabled } from '../../flags'
+import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled, isPreAnalysisV3Enabled } from '../../flags'
 import { OlumiTabBody } from './OlumiTabBody'
 import { PersistentInputStrip } from './PersistentInputStrip'
 import { SelectionPill } from './SelectionPill'
@@ -57,7 +57,7 @@ import { useFloatingPanelState } from '../hooks/useFloatingPanelState'
 import { dockHostsOlumi } from './olumiSurface'
 import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { focusFloating } from '../hooks/useFloatingFocus'
-import { isV5Eligible } from '../../v5/eligibility'
+import { isV5CanonicalRunPath } from '../../v5/eligibility'
 import { countFactorsToVerify, deriveFactorInfluenceMap } from './model-tab/utils'
 import { getGoalDirection } from '../utils/getObjectiveText'
 import { deriveVerdict } from '../utils/interpretOutcome'
@@ -72,7 +72,7 @@ import {
 // Lazy: flag-off users never pay the v3 bundle cost.
 const PreAnalysisPanelV3 = lazy(() => import('./pre-analysis-v3'))
 import { useConversation } from '../conversation/useConversation'
-import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../utils/canRunAnalysis'
+import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip, computeCeeCannotSeeModel } from '../utils/canRunAnalysis'
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
@@ -771,22 +771,13 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     s.graphHealth?.issues?.some((i: { severity: string }) => i.severity === 'error' || i.severity === 'blocker') ?? false
   )
 
-  // #343 honest stopgap: a template-inserted graph exists only client-side
-  // (insertBlueprint stamps data.templateId; no CEE draft path ever does).
-  // On the V5-canonical run path — the SAME condition runCanonicalAnalysis
-  // branches on — the run dispatches to CEE, which has no scenario state for
-  // it and refuses. The gate must say so up front, not claim availability.
-  const hasTemplateProvenance = nodes.some((n) => (n.data as { templateId?: unknown } | undefined)?.templateId != null)
-  const runRoutesThroughCee =
-    isV5CanonicalAnalysisEnabled() &&
-    isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
   const runGateResult = canRunAnalysisUtil({
     graphHealth: graphHealth ?? null,
     readiness,
     hasBlockers: hasValidationBlockers,
     nodeCount: nodes.length,
     isRunning,
-    ceeCannotSeeModel: hasTemplateProvenance && runRoutesThroughCee,
+    ceeCannotSeeModel: computeCeeCannotSeeModel(nodes),
   })
   const canRunAnalysis = runGateResult.allowed
   const runBlockedTooltip = getRunButtonTooltip(runGateResult)
@@ -843,8 +834,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
     // Canonical V5 chip-action path. Mirrors what suggested chips do for
     // action_type:'run_analysis' — same chip metadata, same dispatcher.
-    const canonical = isV5CanonicalAnalysisEnabled() &&
-      isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
+    const canonical = isV5CanonicalRunPath()
     if (canonical) {
       const dispatch = useGuidanceStore.getState()._dispatchAction
       if (dispatch) {

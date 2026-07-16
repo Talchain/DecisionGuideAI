@@ -311,16 +311,8 @@ describe('mergeAppliedGraphAdditive — review fixups (edge-pair self-dedupe, st
   })
 
   it('marks the freshness overlay dirty on a structural add — the banner must never keep claiming currency', () => {
-    // Reproduced live on staging (2026-07-16): a chat edit confirmed via
-    // "yes" merged a new risk node through THIS path while the analysis
-    // banner kept showing "Analysis reflects the current model" — because the
-    // merge set only the legacy graphEditedSinceLastRun flag, which no
-    // freshness surface reads. The surfaces read the CEE verdict + the
-    // analysisFreshnessDirty overlay, so the merge must mark the overlay like
-    // every other mutation path does (applyDraftResult, edit chokepoints,
-    // commitValidatedMutation).
-    // MUTATION-CHECK: remove the markAnalysisFreshnessDirty call from
-    // mergeAppliedGraphAdditive's commit block and this test goes RED.
+    // The freshness banners read analysisFreshnessDirty, not the legacy
+    // graphEditedSinceLastRun flag — see mergeAppliedGraphAdditive's commit block.
     useCanvasStore.setState({ analysisFreshnessDirty: false } as any)
 
     mergeAppliedGraphAdditive({

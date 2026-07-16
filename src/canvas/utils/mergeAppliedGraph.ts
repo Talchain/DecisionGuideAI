@@ -180,23 +180,14 @@ export function mergeAppliedGraphAdditive(
   useCanvasStore.setState({
     nodes: [...canvas.nodes, ...addedNodes],
     edges: [...canvas.edges, ...addedEdges],
-    // Set the staleness flags EXPLICITLY: pushToHistory sets them too, but
-    // early-returns without flipping either when the pre-merge state equals
-    // the last history snapshot (dedupe guard, store.ts) — and a structural
-    // add always makes the last analysis snapshot stale.
-    graphEditedSinceLastRun: true,
-    analysisStateReady: false,
   })
 
-  // The freshness surfaces (AnalysisFreshnessNotice + useAnalysisDisplayState)
-  // read the CEE verdict + the analysisFreshnessDirty overlay — NOT
-  // graphEditedSinceLastRun above. Without this mark, a confirmed
-  // conversational edit lands nodes on the canvas while the banner keeps
-  // claiming "Analysis reflects the current model" — a false currency claim
-  // sitting next to CEE's own "run the analysis again" (reproduced live on
-  // staging, 2026-07-16). Every other mutation path (applyDraftResult, the
-  // edit chokepoints, commitValidatedMutation) already marks this.
-  useCanvasStore.getState().markAnalysisFreshnessDirty?.()
+  // Staleness flags set EXPLICITLY (not via pushToHistory, which early-returns
+  // without flipping them when the pre-merge state equals the last snapshot),
+  // and ATOMICALLY: the freshness banners read the analysisFreshnessDirty
+  // overlay, not the legacy pair, and every other mutation path already marks
+  // all three (applyDraftResult, the edit chokepoints, commitValidatedMutation).
+  useCanvasStore.getState().markGraphStructurallyEdited?.()
 
   // Warning-only schema validation on the added nodes (mirrors applyDraftResult).
   validateNodesBatch(addedNodes)

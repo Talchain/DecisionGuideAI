@@ -78,9 +78,17 @@ vi.mock('../../../v5/v5Adapter', () => ({
 // unaffected; the V5-only blocks below flip it on for their scope.
 const mockIsV5Eligible = vi.fn<[{ flag: string | undefined }], { eligible: boolean; reason?: string }>()
 
-vi.mock('../../../v5/eligibility', () => ({
-  isV5Eligible: (...args: unknown[]) => mockIsV5Eligible(...(args as [{ flag: string | undefined }])),
-}))
+vi.mock('../../../v5/eligibility', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../v5/eligibility')>()
+  const flags = await import('../../../flags')
+  return {
+    ...actual,
+    isV5Eligible: (...args: unknown[]) => mockIsV5Eligible(...(args as [{ flag: string | undefined }])),
+    isV5CanonicalRunPath: () =>
+      flags.isV5CanonicalAnalysisEnabled() &&
+      mockIsV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible,
+  }
+})
 
 // 1.16i: telemetry sink for the run-click swallow guard.
 const mockTrackEvent = vi.fn()
