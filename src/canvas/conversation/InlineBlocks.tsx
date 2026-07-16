@@ -47,6 +47,7 @@ import { V5ComparisonBlock } from '../../v5/blocks/V5ComparisonBlock'
 import { V5FlipAnalysisBlock } from '../../v5/blocks/V5FlipAnalysisBlock'
 import { V5ReviewCardBlock } from '../../v5/blocks/V5ReviewCardBlock'
 import { V5CoachingBlock } from '../../v5/blocks/V5CoachingBlock'
+import { BiasSignalCoachingCard } from '../../v5/blocks/BiasSignalCoachingCard'
 import { V5EvidenceBlock } from '../../v5/blocks/V5EvidenceBlock'
 import { V5ExerciseBlock } from '../../v5/blocks/V5ExerciseBlock'
 import { V5UnsupportedBlock } from '../../v5/blocks/V5UnsupportedBlock'
@@ -307,6 +308,12 @@ function BlockRenderer({
       return <V5ReviewCardBlock block={block} />
 
     case 'v5_coaching':
+      // Leg 3 (bias coaching): bias-signal coaching renders through the
+      // DS-recipe card (neutral bg + coloured left border); every other
+      // coaching_kind keeps the existing V5CoachingBlock renderer.
+      if (block.coaching_kind === 'bias_signal') {
+        return <BiasSignalCoachingCard block={block} />
+      }
       return <V5CoachingBlock block={block} />
 
     // Track C slice 2 (Lane UI-W4 C): 0.13.1-typed evidence + exercise.

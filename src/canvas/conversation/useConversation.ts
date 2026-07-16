@@ -45,6 +45,7 @@ import { FAILURE_USER_TEXT } from '@talchain/schemas/boundary'
 import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled, isPreAnalysisEnrichedEnabled, isReasoningDisclosureEnabled } from '../../flags'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { maybeBuildModelReceiptBlock } from '../adapters/modelCardAdapter'
+import { buildDraftBiasSignalBlocks } from './draftBiasSignalBlocks'
 import { assembleAnalysisInputsSummary } from '../analysis/assembleAnalysisInputsSummary'
 import { useResultsStore } from '../stores/resultsStore'
 import { hydrateMessagesFromThread, formatSessionBoundary } from './utils/hydrateThread'
@@ -3356,7 +3357,26 @@ export function useConversation(): UseConversationReturn {
               isDraftTurn: draftAppliedThisTurn,
               store: useCanvasStore.getState(),
             })
-            const renderBlocks = receipt ? [...finalBlocks, receipt] : finalBlocks
+
+            // Leg 3 (bias coaching, BIAS-COACHING-PROPOSAL-2026-07-16 §2
+            // FRAME beat): bridge the draft response's coaching.bias_signals
+            // (committed to the store by applyDraftResult synchronously
+            // above) into ≤2 typed v5_coaching blocks with coaching_kind
+            // 'bias_signal'. Same gate pattern as the model receipt: fires
+            // only on the turn that applied a fresh draft graph. Fail-closed
+            // throughout (absent/empty/unknown/malformed/ungrounded entries
+            // render nothing); producer-typed bias coaching in finalBlocks
+            // suppresses the bridge entirely.
+            const biasSignalBlocks = buildDraftBiasSignalBlocks({
+              isDraftTurn: draftAppliedThisTurn,
+              store: useCanvasStore.getState(),
+              existingBlocks: finalBlocks,
+            })
+            const renderBlocks = [
+              ...finalBlocks,
+              ...(receipt ? [receipt] : []),
+              ...biasSignalBlocks,
+            ]
 
             // V5 suggested_actions → ActionChip. CEE caps count server-side;
             // UI additionally caps rendering per DS v5 §21.4 in SuggestedChips.
