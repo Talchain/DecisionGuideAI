@@ -28,7 +28,7 @@ import { StickyFooter } from './StickyFooter'
 import { focusNodeById } from '../../utils/focusHelpers'
 import { withObservedStateUpdate } from '../../utils/observedStateHelpers'
 import { useCanvasStore } from '../../store'
-import { BIAS_SIGNAL_TITLES } from '../../shared/biasSignalTitles'
+import { resolveBiasSignal } from '../../shared/biasSignalTitles'
 import { useDraftStore } from '../../stores/draftStore'
 import { useRetryDraft } from '../../hooks/useRetryDraft'
 import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
@@ -75,60 +75,14 @@ import { WhatOlumiAddedSection } from './WhatOlumiAddedSection'
 /** AI source provenance labels */
 const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred', 'ai_estimate', 'engine'])
 
-/**
- * Icon + title lookup for CEE bias type strings.
- * Defined at module scope so the biasTriggers useMemo dependency array stays stable.
- *
- * Two key spaces are supported because CEE has two field conventions in flight:
- *   1. Lowercase `type` (existing CEEBiasFinding.type field) — anchoring,
- *      framing, confidence, confirmation, blind_spots
- *   2. Uppercase `code` (newer schema variant — AUTHORITY_BIAS, etc.) — these
- *      need explicit mapping per the brief.
- *
- * Any unrecognised key falls back to BIAS_FALLBACK (EyeOff) per the brief.
- *
- * #356 fast-follow: TITLES derive from the ONE canonical map
- * (src/canvas/shared/biasSignalTitles.ts) shared with the conversation
- * bias-signal cards — one bias, one name, every surface. Only the ICON
- * channel stays panel-local. A key with no canonical title is omitted
- * (falls through to BIAS_FALLBACK — fail closed, never an invented
- * title); the parity spec's drift trap fails loud if that ever happens.
- * Exported for that drift trap (biasSignalTitles.parity.spec.ts).
- */
-const BIAS_TYPE_ICON_CHANNEL: Record<string, typeof Frame> = {
-  // Lowercase type values (existing field convention)
-  framing:           Frame,
-  framing_bias:      Frame,
-  narrow_framing:    Frame,
-  anchoring:         Anchor,
-  anchoring_bias:    Anchor,
-  confidence:        Gauge,
-  overconfidence:    Gauge,
-  optimism_bias:     Gauge,
-  blind_spots:       EyeOff,
-  status_quo_bias:   EyeOff,
-  confirmation:      Frame,
-  confirmation_bias: Frame,
-  authority_bias:    Anchor,
-  availability_bias: Frame,
-  sunk_cost:         Anchor,
-  // Uppercase code values (newer schema)
-  AUTHORITY_BIAS:    Anchor,
-  CONFIRMATION_BIAS: Gauge,
-  SUNK_COST:         Anchor,
-  NARROW_FRAMING:    Frame,
-  STATUS_QUO_BIAS:   EyeOff,
-}
-
-export const BIAS_TYPE_ICON: Record<string, { icon: typeof Frame; title: string }> =
-  Object.fromEntries(
-    Object.entries(BIAS_TYPE_ICON_CHANNEL).flatMap(([key, icon]) => {
-      const title = Object.prototype.hasOwnProperty.call(BIAS_SIGNAL_TITLES, key.toLowerCase())
-        ? BIAS_SIGNAL_TITLES[key.toLowerCase()]
-        : undefined
-      return title ? [[key, { icon, title }] as const] : []
-    }),
-  )
+// Icon + title lookup for CEE bias type strings: THE shared bias registry
+// (src/canvas/shared/biasSignalTitles.ts — resolveBiasSignal). One
+// lowercase-keyed map for both wire conventions (lowercase `type`,
+// uppercase `code` — the resolver lowercases), one guarded lookup (own-key
+// check, so hostile prototype-chain codes like 'constructor'/'__proto__'
+// fail closed instead of crashing the panel). Any unrecognised key falls
+// back to safeBiasTitle / BIAS_FALLBACK per the brief. Replaces the
+// panel-local BIAS_TYPE_ICON dual-case mirror (review-folds 2026-07-17).
 
 /**
  * Entity-ID prefixes that must NEVER appear in user-facing copy. If a CEE bug
@@ -231,8 +185,7 @@ export function mapDraftBiasSignalToTrigger(
 ): NormalisedBiasTrigger | null {
   const explanation = signal.detail.trim()
   if (!explanation) return null
-  const lookupKey = signal.type.toLowerCase()
-  const matched = BIAS_TYPE_ICON[lookupKey] ?? BIAS_TYPE_ICON[signal.type]
+  const matched = resolveBiasSignal(signal.type)
   const safeTitle = matched ? null : safeBiasTitle(signal.type)
   const config = matched ?? (safeTitle ? { icon: BIAS_FALLBACK.icon, title: safeTitle } : BIAS_FALLBACK)
   const targetId = signal.target ?? null
@@ -391,9 +344,11 @@ export function normaliseCeeBiasFinding(
   idx: number,
   resolveLabel: (id: string) => string | null,
 ): NormalisedBiasTrigger | null {
-  // Lookup key: prefer uppercase `code`, fall back to lowercase `type`.
+  // Lookup key: prefer `code`, fall back to `type` — the registry resolver
+  // is case-insensitive, so both wire conventions (uppercase code,
+  // lowercase type) land on the same entry.
   const lookupKey = raw.code || raw.type || ''
-  const config = BIAS_TYPE_ICON[lookupKey] ?? BIAS_FALLBACK
+  const config = resolveBiasSignal(lookupKey) ?? BIAS_FALLBACK
 
   // Subtitle text: prefer `explanation` (newer schema), fall back to `description`.
   const fullExplanation = (raw.explanation || raw.description || '').trim()
@@ -1488,7 +1443,9 @@ export function PreAnalysisPanel({
       pushDeterministic(
         'narrow_framing',
         Frame,
-        'Narrow framing',
+        // Bias NAME from the one registry (review-folds C15) — the
+        // explanation copy stays local to this trigger.
+        resolveBiasSignal('narrow_framing')!.title,
         'Consider structurally different approaches. What would a competitor do?',
       )
     }
@@ -1524,7 +1481,8 @@ export function PreAnalysisPanel({
             pushDeterministic(
               'overconfidence',
               Gauge,
-              'Overconfidence',
+              // Bias NAME from the one registry (review-folds C15).
+              resolveBiasSignal('overconfidence')!.title,
               `${label} drives most of the outcome but has no supporting evidence. Validate it before relying on it.`,
             )
           }

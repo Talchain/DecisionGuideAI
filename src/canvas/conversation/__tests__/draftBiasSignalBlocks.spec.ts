@@ -28,11 +28,11 @@
 import { describe, it, expect } from 'vitest'
 
 import {
-  BIAS_SIGNAL_TITLES,
   DRAFT_BIAS_SIGNAL_CARD_CAP,
   buildDraftBiasSignalBlocks,
   humaniseBiasSignalCode,
 } from '../draftBiasSignalBlocks'
+import { BIAS_SIGNAL_REGISTRY } from '../../shared/biasSignalTitles'
 import type { ConversationBlock, V5CoachingBlock } from '../types'
 
 // ─── Fixtures ────────────────────────────────────────────────────────────
@@ -113,11 +113,16 @@ describe('buildDraftBiasSignalBlocks — happy path', () => {
     ])
   })
 
-  it('assigns stable block ids and 1-based priority ranks in wire order', () => {
+  it('assigns stable distinct block ids and FABRICATES no producer-owned fields', () => {
     const blocks = build([SIGNAL_STATUS_QUO, SIGNAL_ANCHORING])
     expect(blocks[0].block_id).not.toBe(blocks[1].block_id)
-    expect(blocks[0].priority_rank).toBe(1)
-    expect(blocks[1].priority_rank).toBe(2)
+    // priority_rank / freshness are producer-owned Phase 3 fields the wire
+    // bias_signals never carry — the bridge must not invent them
+    // (review-folds 2026-07-17 Conv1; verified zero consumers).
+    for (const b of blocks) {
+      expect(b).not.toHaveProperty('priority_rank')
+      expect(b).not.toHaveProperty('freshness')
+    }
   })
 })
 
@@ -244,7 +249,7 @@ describe('humaniseBiasSignalCode — prototype-chain escapes (hostile wire codes
 
 describe('buildDraftBiasSignalBlocks — no raw code string in visible copy (sweep)', () => {
   it('every allowlisted code humanises to a title that is not the raw code and carries no snake_case', () => {
-    const codes = Object.keys(BIAS_SIGNAL_TITLES)
+    const codes = Object.keys(BIAS_SIGNAL_REGISTRY)
     expect(codes.length).toBeGreaterThan(0)
     for (const code of codes) {
       const blocks = build([

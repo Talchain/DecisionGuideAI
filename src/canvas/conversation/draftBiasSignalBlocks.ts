@@ -33,37 +33,24 @@
  */
 import type { CEEDraftCoaching } from '../../adapters/cee/types'
 import type { ConversationBlock, V5CoachingBlock } from './types'
-import { BIAS_SIGNAL_TITLES } from '../shared/biasSignalTitles'
+import { resolveBiasSignal } from '../shared/biasSignalTitles'
 
-/** Ratified cap: at most two bias-signal cards per draft turn. */
+/**
+ * UI-SEM-084: ratified cap — at most two bias-signal cards per draft turn
+ * (display budget only; drops the third-and-later grounded signals, never
+ * transforms any value).
+ */
 export const DRAFT_BIAS_SIGNAL_CARD_CAP = 2
 
 /**
- * Humanised titles for the known CEE bias codes — re-exported from the ONE
- * canonical map (src/canvas/shared/biasSignalTitles.ts) that the
- * pre-analysis surface also derives from, so one bias renders one name on
- * every surface by construction (#356 fast-follow: was a hand-maintained
- * mirror of PreAnalysisPanel's BIAS_TYPE_ICON titles). Keys are lowercase;
- * lookup is case-insensitive to cover both wire conventions (lowercase
- * `type`, uppercase `code`). Unknown codes are NOT sentence-cased — they
- * fail closed (no card), so a raw wire token can never leak into copy.
+ * Allowlist lookup through the ONE bias registry
+ * (src/canvas/shared/biasSignalTitles.ts) — the trim/lowercase/own-key
+ * guard lives there, shared with every other surface. Returns null for
+ * unknown / non-string codes (fail closed): unknown codes are NOT
+ * sentence-cased, so a raw wire token can never leak into copy.
  */
-export { BIAS_SIGNAL_TITLES }
-
-/** Allowlist lookup. Returns null for unknown / non-string codes (fail closed). */
 export function humaniseBiasSignalCode(code: unknown): string | null {
-  if (typeof code !== 'string') return null
-  const key = code.trim().toLowerCase()
-  if (!key) return null
-  // Own-key guard: a bare object-literal index walks the prototype chain,
-  // so the hostile wire codes '__proto__' (returns Object.prototype, a
-  // truthy object React refuses to render, crashing the assistant-message
-  // subtree) and 'constructor' (returns a Function) would escape both the
-  // `?? null` here and the caller's `if (!title)` check. Only own keys are
-  // titles; everything else fails closed like any other unknown code.
-  return Object.prototype.hasOwnProperty.call(BIAS_SIGNAL_TITLES, key)
-    ? BIAS_SIGNAL_TITLES[key]
-    : null
+  return resolveBiasSignal(code)?.title ?? null
 }
 
 /** The minimal canvas-store surface the builder reads. */
@@ -75,12 +62,12 @@ export interface DraftBiasSignalStoreSlice {
 /** Resolve a node id to a non-blank label, or null (fail closed). */
 function resolveNodeForTarget(
   target: unknown,
-  nodes: DraftBiasSignalStoreSlice['nodes'],
+  nodesById: ReadonlyMap<string, DraftBiasSignalStoreSlice['nodes'][number]>,
 ): { id: string; label: string; kind: string } | null {
   if (typeof target !== 'string') return null
   const id = target.trim()
   if (!id) return null
-  const node = nodes.find((n) => n.id === id)
+  const node = nodesById.get(id)
   if (!node) return null
   const label = (node.data as Record<string, unknown> | undefined)?.label
   if (typeof label !== 'string' || !label.trim()) return null
@@ -115,11 +102,15 @@ export function buildDraftBiasSignalBlocks(args: {
   if (!Array.isArray(signals) || signals.length === 0) return []
 
   const out: V5CoachingBlock[] = []
-  // #356 fast-follow: dedupe identical (bias, target) signals BEFORE the
-  // cap, so a producer duplicate can never displace a distinct third
-  // signal. Identity is the canonical humanised title (alias codes like
-  // anchoring/anchoring_bias are the same bias — one bias, one name) plus
-  // the resolved target node id. First occurrence wins.
+  // One lookup map for the whole signal loop (was a nodes.find per signal).
+  const nodesById = new Map(store.nodes.map((n) => [n.id, n]))
+  // UI-SEM-083 (#356 fast-follow): alias-equivalence dedupe — identical
+  // (bias, target) signals collapse BEFORE the cap, so a producer duplicate
+  // can never displace a distinct third signal. Identity is the canonical
+  // humanised title (alias codes like anchoring/anchoring_bias are the same
+  // bias — one bias, one name) plus the resolved target node id. First
+  // occurrence wins. Display-side equivalence judgement, never a value
+  // transform.
   const seen = new Set<string>()
   for (let i = 0; i < signals.length && out.length < DRAFT_BIAS_SIGNAL_CARD_CAP; i++) {
     const signal = signals[i] as unknown
@@ -132,13 +123,19 @@ export function buildDraftBiasSignalBlocks(args: {
     const detail = typeof s.detail === 'string' ? s.detail.trim() : ''
     if (!detail) continue
 
-    const ref = resolveNodeForTarget(s.target, store.nodes)
+    const ref = resolveNodeForTarget(s.target, nodesById)
     if (!ref) continue
 
     const identity = `${title}|${ref.id}`
     if (seen.has(identity)) continue
     seen.add(identity)
 
+    // No priority_rank / freshness: those are PRODUCER-owned Phase 3 fields
+    // and the wire bias_signals carry neither — fabricating them here
+    // ("rank = arrival order", "freshness = fresh") was invention, not
+    // passthrough. Verified zero consumers: the bridge blocks are appended
+    // AFTER composePhase3BridgedBlocks' rank sort, and the only runtime
+    // read was the renderer's data-freshness attribute (now simply absent).
     out.push({
       type: 'v5_coaching',
       block_id: `draft_bias_signal_${i}`,
@@ -147,8 +144,6 @@ export function buildDraftBiasSignalBlocks(args: {
       coaching_kind: 'bias_signal',
       source: 'draft_graph',
       target_refs: [ref],
-      priority_rank: out.length + 1,
-      freshness: 'fresh',
     })
   }
   return out

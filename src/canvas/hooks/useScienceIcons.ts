@@ -11,6 +11,7 @@ import { useNodeDisplayMetadata } from './useNodeDisplayMetadata'
 import {
   FileQuestion, Sparkles, Unlink, Frame, ShieldAlert, EyeOff, Anchor, Gauge,
 } from 'lucide-react'
+import { resolveBiasSignal } from '../shared/biasSignalTitles'
 import type { ComponentType } from 'react'
 import type { NodeType } from '../domain/nodes'
 import { computeSignedMean } from '../domain/edges'
@@ -175,7 +176,9 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
         icons.push({
           id: 'status-quo-bias',
           icon: EyeOff,
-          tooltip: 'Status quo bias: inaction risks often underestimated.',
+          // Bias NAME composed from the one registry (review-folds C15) —
+          // rendered output byte-identical to the old literal.
+          tooltip: `${resolveBiasSignal('status_quo_bias')!.title}: inaction risks often underestimated.`,
           action: 'What could go wrong with doing nothing?',
           colour: 'text-warning',
           priority: 6,
