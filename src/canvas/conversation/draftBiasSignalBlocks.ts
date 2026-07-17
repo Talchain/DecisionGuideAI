@@ -33,35 +33,22 @@
  */
 import type { CEEDraftCoaching } from '../../adapters/cee/types'
 import type { ConversationBlock, V5CoachingBlock } from './types'
+import { BIAS_SIGNAL_TITLES } from '../shared/biasSignalTitles'
 
 /** Ratified cap: at most two bias-signal cards per draft turn. */
 export const DRAFT_BIAS_SIGNAL_CARD_CAP = 2
 
 /**
- * Humanised titles for the known CEE bias codes — the same canonical names
- * the pre-analysis surface uses (PreAnalysisPanel BIAS_TYPE_ICON), so one
- * bias renders one name on every surface. Keys are lowercase; lookup is
- * case-insensitive to cover both wire conventions (lowercase `type`,
- * uppercase `code`). Unknown codes are NOT sentence-cased — they fail
- * closed (no card), so a raw wire token can never leak into copy.
+ * Humanised titles for the known CEE bias codes — re-exported from the ONE
+ * canonical map (src/canvas/shared/biasSignalTitles.ts) that the
+ * pre-analysis surface also derives from, so one bias renders one name on
+ * every surface by construction (#356 fast-follow: was a hand-maintained
+ * mirror of PreAnalysisPanel's BIAS_TYPE_ICON titles). Keys are lowercase;
+ * lookup is case-insensitive to cover both wire conventions (lowercase
+ * `type`, uppercase `code`). Unknown codes are NOT sentence-cased — they
+ * fail closed (no card), so a raw wire token can never leak into copy.
  */
-export const BIAS_SIGNAL_TITLES: Record<string, string> = {
-  framing: 'Narrow framing',
-  framing_bias: 'Narrow framing',
-  narrow_framing: 'Narrow framing',
-  anchoring: 'Anchoring',
-  anchoring_bias: 'Anchoring',
-  confidence: 'Overconfidence',
-  overconfidence: 'Overconfidence',
-  optimism_bias: 'Optimism bias',
-  blind_spots: 'Blind spots',
-  status_quo_bias: 'Status quo bias',
-  confirmation: 'Confirmation bias',
-  confirmation_bias: 'Confirmation bias',
-  authority_bias: 'Authority bias',
-  availability_bias: 'Availability bias',
-  sunk_cost: 'Sunk cost',
-}
+export { BIAS_SIGNAL_TITLES }
 
 /** Allowlist lookup. Returns null for unknown / non-string codes (fail closed). */
 export function humaniseBiasSignalCode(code: unknown): string | null {
