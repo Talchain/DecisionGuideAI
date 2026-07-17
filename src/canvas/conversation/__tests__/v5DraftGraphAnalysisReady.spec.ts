@@ -22,7 +22,7 @@ describe('attachAnalysisReadyToInlineDraftGraph', () => {
       ],
     }
 
-    const result = attachAnalysisReadyToInlineDraftGraph(draftGraph, responseAnalysisReady)
+    const result = attachAnalysisReadyToInlineDraftGraph(draftGraph, { analysis_ready: responseAnalysisReady })
 
     expect(result).toMatchObject({
       nodes: draftGraph.nodes,
@@ -61,16 +61,18 @@ describe('attachAnalysisReadyToInlineDraftGraph', () => {
     }
 
     const result = attachAnalysisReadyToInlineDraftGraph(draftGraph, {
-      status: 'ready',
-      goal_node_id: 'goal_1',
-      options: [
-        {
-          option_id: 'opt_response',
-          label: 'Response option',
-          status: 'ready',
-          interventions: {},
-        },
-      ],
+      analysis_ready: {
+        status: 'ready',
+        goal_node_id: 'goal_1',
+        options: [
+          {
+            option_id: 'opt_response',
+            label: 'Response option',
+            status: 'ready',
+            interventions: {},
+          },
+        ],
+      },
     })
 
     expect(result).toBe(draftGraph)
@@ -83,8 +85,10 @@ describe('attachAnalysisReadyToInlineDraftGraph', () => {
     }
 
     const result = attachAnalysisReadyToInlineDraftGraph(draftGraph, {
-      goal_node_id: 'goal_1',
-      options: [{ option_id: 'opt_a', label: 'Option A', interventions: {} }],
+      analysis_ready: {
+        goal_node_id: 'goal_1',
+        options: [{ option_id: 'opt_a', label: 'Option A', interventions: {} }],
+      },
     })
 
     expect(result).toBe(draftGraph)

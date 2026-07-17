@@ -643,42 +643,46 @@ export function normaliseAnalysisReady(raw: unknown): CEEAnalysisReady | undefin
 
 export function attachAnalysisReadyToInlineDraftGraph(
   draftGraph: unknown,
-  responseAnalysisReady: unknown,
-  // ROADMAP 1.22 residual (filed alongside UI PR #250): CEE places
-  // `goal_constraints` at the V5 response ROOT, as a SIBLING of
-  // `draft_graph` — it is never nested inside draft_graph. applyDraftResult
-  // only ever reads goal_constraints off the object it is handed, so on the
-  // inline-draft-graph turn path (the only caller of this function) the
-  // response root's goal_constraints was silently dropped and the "no
-  // constraints" branch fired on every inline-draft turn, clearing
-  // useCanvasStore's goalConstraints back to null even when the true root
-  // carried real constraints. Attach the root's value here — mirroring
-  // exactly how analysis_ready is attached below — so applyDraftResult's
-  // existing read sees it.
-  responseGoalConstraints?: unknown,
-  // Leg 3 blocker fix (PR #356 review): CEE places `coaching` at the V5
-  // response ROOT, as a SIBLING of `draft_graph` — same class as the
-  // goal_constraints residual above. At the pinned boundary schema
-  // (0.15.0) the strict OlumiResponseSchema declares NO `coaching` key,
-  // so the parser demotes it to the non-enumerable `__additive__` sidecar
-  // (it must NOT be added to KNOWN_OLUMI_TOP_LEVEL_KEYS — the schema is
-  // .strict(), so routing an undeclared key into strict validation would
-  // fail the whole parse; formalising `coaching` at the root is a
-  // @talchain/schemas ask, tracked in the PR record). That means the read
-  // needs the full parsed response object — a destructured `coaching`
-  // property is always absent — so this parameter takes the response
-  // itself, reads the sidecar (formal root key first, should the schema
-  // ever declare it), maps the wire shape through
-  // mapDraftCoachingFromResponse, and attaches the post-adapter
-  // `draftCoaching` field that applyDraftResult already reads and
-  // commits to the store. Absent/malformed coaching attaches nothing, so
-  // applyDraftResult's existing "new draft clears stale coaching"
-  // semantics are preserved unchanged.
+  // The FULL parsed V5 response (review-folds A3: this used to be three
+  // all-optional-unknown positional params — analysis_ready,
+  // goal_constraints, response — where the first two were literally reads
+  // off the third at the call site, an invisible-transposition hazard).
+  // Everything this helper needs lives on the response:
+  //  - `analysis_ready` (strict surface) — attached below, mirroring the
+  //    original behaviour.
+  //  - `goal_constraints` (ROADMAP 1.22 residual, filed alongside UI PR
+  //    #250): CEE places it at the response ROOT as a SIBLING of
+  //    `draft_graph`, never nested inside it. applyDraftResult only reads
+  //    goal_constraints off the object it is handed, so without this
+  //    attachment the "no constraints" branch fired on every inline-draft
+  //    turn and cleared the store even when the root carried real
+  //    constraints.
+  //  - `coaching` (Leg 3 blocker fix, PR #356 review): also at the
+  //    response ROOT. At the pinned boundary schema (0.15.0) the strict
+  //    OlumiResponseSchema declares NO `coaching` key, so the parser
+  //    demotes it to the non-enumerable `__additive__` sidecar (it must
+  //    NOT be added to KNOWN_OLUMI_TOP_LEVEL_KEYS — the schema is
+  //    .strict(), so routing an undeclared key into strict validation
+  //    would fail the whole parse; formalising `coaching` at the root is a
+  //    @talchain/schemas ask, tracked in the PR record). The read checks
+  //    the formal root key first (should the schema ever declare it),
+  //    falls back to the sidecar, maps the wire shape through
+  //    mapDraftCoachingFromResponse, and attaches the post-adapter
+  //    `draftCoaching` field that applyDraftResult already reads and
+  //    commits to the store. Absent/malformed coaching attaches nothing,
+  //    so applyDraftResult's existing "new draft clears stale coaching"
+  //    semantics are preserved unchanged.
   parsedResponse?: unknown,
 ): Record<string, unknown> | undefined {
   if (draftGraph == null || typeof draftGraph !== 'object') return undefined
 
   const graph = draftGraph as Record<string, unknown>
+  const responseAnalysisReady = (
+    parsedResponse as { analysis_ready?: unknown } | null | undefined
+  )?.analysis_ready
+  const responseGoalConstraints = (
+    parsedResponse as { goal_constraints?: unknown } | null | undefined
+  )?.goal_constraints
 
   // Only attach when the inline object doesn't already carry its own
   // goal_constraints AND the root genuinely has a non-empty array — a
@@ -1095,7 +1099,12 @@ export function composePhase3BridgedBlocks(
       if (adapted) {
         if (!seenTypedBlockIds.has(adapted.block_id)) {
           seenTypedBlockIds.add(adapted.block_id)
-          typed.push({ block: adapted, rank: adapted.priority_rank, order: order++ })
+          // adaptTypedCoachingBlock fails closed without a finite
+          // priority_rank, so the ?? arm is unreachable at runtime — it
+          // exists because the V5CoachingBlock TYPE now allows rank-less
+          // blocks (the UI-side bias bridge), using the same missing-rank
+          // convention as exercises below.
+          typed.push({ block: adapted, rank: adapted.priority_rank ?? Number.POSITIVE_INFINITY, order: order++ })
         }
         continue
       }
@@ -3274,22 +3283,14 @@ export function useConversation(): UseConversationReturn {
             // diverged). Works in guest mode — no auth required.
             const canvasIsEmpty = useCanvasStore.getState().nodes.length === 0
             const scenarioIdAtDispatch = currentScenarioId
+            // The helper reads analysis_ready, the response-root
+            // goal_constraints (ROADMAP 1.22 residual) and the sidecar-borne
+            // root `coaching` (Leg 3) off the full parsed response
+            // internally — see its doc comment. Seam pinned by
+            // draftBiasSignalBlocks.seam.spec.ts — keep the spec's driveSeam
+            // wiring in step with this call.
             const inlineGraph = attachAnalysisReadyToInlineDraftGraph(
               target.response.draft_graph,
-              (target.response as { analysis_ready?: unknown }).analysis_ready,
-              // ROADMAP 1.22 residual: thread the true response-root
-              // goal_constraints through so applyDraftResult (called below
-              // with `inlineGraph`, not the full response) doesn't always
-              // see it as absent and clear the store on every inline-draft
-              // turn.
-              (target.response as { goal_constraints?: unknown }).goal_constraints,
-              // Leg 3 blocker fix: pass the full parsed response — root
-              // `coaching` rides the __additive__ sidecar at the pinned
-              // 0.15.0 schema (a destructured property would always be
-              // absent). The helper maps it to the post-adapter
-              // `draftCoaching` field applyDraftResult commits to the store.
-              // Seam pinned by draftBiasSignalBlocks.seam.spec.ts — keep the
-              // spec's driveSeam wiring in step with this call.
               target.response,
             )
             const inlineNodeCount = (inlineGraph?.nodes as unknown[] | undefined)?.length ?? 0

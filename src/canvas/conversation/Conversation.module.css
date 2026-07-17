@@ -1299,7 +1299,9 @@
 .showMoreToggle:focus-visible,
 .showMoreTextToggle:focus-visible,
 .graphPatchShowDetails:focus-visible,
-.briefExpandToggle:focus-visible {
+.briefExpandToggle:focus-visible,
+.phase3PacingToggle:focus-visible,
+.vocabularyLegendToggle:focus-visible {
   outline: 2px solid var(--info, #52A3C8);
   outline-offset: 2px;
 }
@@ -1953,19 +1955,6 @@
  * § F16 — phase-3 card pacing + graph vocabulary legend
  * ---------------------------------------------------------------------------*/
 
-/* Visually hidden, screen-reader-only status text. */
-.srOnly {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-  border: 0;
-}
-
 /* The single count affordance for collapsed phase-3 cards — outlined per DS,
  * never filled. */
 .phase3PacingToggle {
@@ -2037,8 +2026,5 @@
   color: var(--text-light, #908D8D);
 }
 
-.phase3PacingToggle:focus-visible,
-.vocabularyLegendToggle:focus-visible {
-  outline: 2px solid var(--info, #52A3C8);
-  outline-offset: 2px;
-}
+/* Focus-visible for these toggles lives in the shared "Toggles and
+ * details" group above (review-folds R4: one outline recipe, one place). */

@@ -10,7 +10,9 @@
  * While the Analysis tab is fronted the announcer yields, because that
  * tab's own furniture already announces: the running banner's narration div
  * at start (announcing on top of it is the #329 double-announce trap) and
- * the completion toast / error alert at settle. That yield rule is the pure
+ * the completion toast / error alert at settle. Exception (review-folds
+ * C6): a FIRST-run settle does not yield — the toast only fires on reruns,
+ * so nothing else announces it. That yield rule is the pure
  * `runAnnouncementForTransition` in analysisRunStatus.ts, next to the
  * Wave1-L2 ongoing-narration rule it extends.
  *
@@ -34,45 +36,47 @@ export interface AnalysisRunAnnouncerProps {
 export function AnalysisRunAnnouncer({ analysisTabFronted }: AnalysisRunAnnouncerProps) {
   const { isRunning } = useAnalysisTrust()
   const resultsStatus = useCanvasStore((s) => s.results?.status ?? null)
+  // C2: a settle that restored the OLD report (abort/timeout) must announce
+  // the honest resultless copy, never "Analysis complete."
+  const settledWithoutNewReport = useCanvasStore(
+    (s) => s.results?.settledWithoutNewReport ?? false,
+  )
 
   const [message, setMessage] = useState('')
 
-  // Read at transition time via refs so the effect below fires ONLY on
-  // isRunning transitions: a tab switch or status refinement mid-run must
-  // never re-announce.
-  const frontedRef = useRef(analysisTabFronted)
-  frontedRef.current = analysisTabFronted
-  const statusRef = useRef(resultsStatus)
-  statusRef.current = resultsStatus
-
   // The settled status held BEFORE a run starts (updated only while not
   // running). runAnnouncementForTransition uses it to recognise a FIRST run
-  // (from idle/cancelled), which the dock's I.1 auto-switch fronts onto the
-  // Analysis tab in the same breath — the announcer yields there rather
-  // than racing the auto-switch commit.
+  // (from idle/cancelled): the start yields to the dock's I.1 auto-switch
+  // furniture rather than racing its commit, and the settle deliberately
+  // does NOT yield — nothing else announces a first-run completion (see the
+  // asymmetry note on the rule).
   const preRunStatusRef = useRef(resultsStatus)
 
   // Initialised to the CURRENT value: a mount mid-run observed no
   // transition, so it announces nothing retroactively.
   const wasRunningRef = useRef(isRunning)
 
+  // The message changes ONLY when isRunning transitions (the wasRunningRef
+  // guard below): re-runs of this effect from a tab switch or a mid-run
+  // status refinement hit the early return and never re-announce.
   useEffect(() => {
     if (isRunning === wasRunningRef.current) {
-      if (!isRunning) preRunStatusRef.current = statusRef.current
+      if (!isRunning) preRunStatusRef.current = resultsStatus
       return
     }
     wasRunningRef.current = isRunning
     const announcement = runAnnouncementForTransition({
       transition: isRunning ? 'start' : 'settle',
-      settledStatus: statusRef.current,
+      settledStatus: resultsStatus,
       preRunStatus: preRunStatusRef.current,
-      analysisTabFronted: frontedRef.current,
+      analysisTabFronted,
+      settledWithoutNewReport,
     })
-    if (!isRunning) preRunStatusRef.current = statusRef.current
+    if (!isRunning) preRunStatusRef.current = resultsStatus
     // A yielded transition clears the region (an empty string announces
     // nothing) rather than holding stale text into the next transition.
     setMessage(announcement ?? '')
-  }, [isRunning, resultsStatus])
+  }, [isRunning, resultsStatus, analysisTabFronted, settledWithoutNewReport])
 
   return (
     <div

@@ -5,6 +5,7 @@ import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useScienceIcons } from '../hooks/useScienceIcons'
+import { resolveBiasSignal } from '../shared/biasSignalTitles'
 import { useCanvasStore } from '../store'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
@@ -1209,7 +1210,8 @@ export const OptionNode = memo((props: NodeProps) => {
         {isPostAnalysis && isBaselineOption && (
           <MetricPills
             biasType="status-quo"
-            biasTip="Status quo bias: inaction risks often underestimated."
+            // Bias NAME composed from the one registry (review-folds C15).
+            biasTip={`${resolveBiasSignal('status_quo_bias')!.title}: inaction risks often underestimated.`}
             biasLinkLabel="Explore risks of inaction"
             biasLinkMessage="What are the risks of choosing to do nothing?"
           />

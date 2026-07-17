@@ -127,14 +127,11 @@ async function driveSeam(body: Record<string, unknown>) {
     throw new Error(`expected a parsed response, got ${result.kind}`)
   }
   const response = result.response
+  // Full parsed response: the helper reads analysis_ready /
+  // goal_constraints / sidecar coaching off it internally (review-folds A3
+  // collapsed the positional params).
   const inlineGraph = attachAnalysisReadyToInlineDraftGraph(
     response.draft_graph,
-    (response as { analysis_ready?: unknown }).analysis_ready,
-    (response as { goal_constraints?: unknown }).goal_constraints,
-    // Full parsed response: at the pinned 0.15.0 schema the root `coaching`
-    // key rides the non-enumerable __additive__ sidecar, so the helper needs
-    // the response object itself, not a destructured (and therefore absent)
-    // property.
     response,
   )
   expect(inlineGraph).toBeTruthy()

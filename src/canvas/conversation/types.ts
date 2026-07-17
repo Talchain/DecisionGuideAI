@@ -227,6 +227,14 @@ export interface V5ReviewCardBlock {
  * Track C slice 1 (D-5): typed coaching conversation block mirroring the
  * 0.13.x CoachingBlockSchema render-relevant fields EXACTLY. Same
  * verbatim-copy contract as V5ReviewCardBlock (provisional_doctrine_v0).
+ *
+ * priority_rank / freshness are OPTIONAL: producer-adapted blocks always
+ * carry them (adaptTypedCoachingBlock fails closed without them), but the
+ * UI-side draft bias-signal bridge (draftBiasSignalBlocks.ts) builds
+ * v5_coaching blocks from wire coaching.bias_signals, which carry neither —
+ * requiring them here forced the bridge to FABRICATE both (review-folds
+ * 2026-07-17, Conv1). Absent values render nothing (no data-freshness
+ * attribute) and sort after every ranked block.
  */
 export interface V5CoachingBlock {
   type: 'v5_coaching'
@@ -236,8 +244,8 @@ export interface V5CoachingBlock {
   coaching_kind: string
   source: string
   target_refs: V5BlockTargetRef[]
-  priority_rank: number
-  freshness: V5Phase3Freshness
+  priority_rank?: number
+  freshness?: V5Phase3Freshness
   action_intent?: string
   action_label?: string
 }

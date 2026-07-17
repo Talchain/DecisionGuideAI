@@ -98,7 +98,10 @@ describe('Track C slice 1 — live fixture (cee-response-b82c89dd), typed Phase 
         (b): b is V5ReviewCardBlock | V5CoachingBlock =>
           b.type === 'v5_review_card' || b.type === 'v5_coaching',
       )
-      .map((b) => b.priority_rank)
+      // priority_rank is optional on the TYPE (the UI-side bias bridge
+      // omits it) but always present on producer-adapted blocks; missing
+      // ranks take +Infinity — the composePhase3BridgedBlocks convention.
+      .map((b) => b.priority_rank ?? Number.POSITIVE_INFINITY)
     expect(typedRanks).toEqual([...typedRanks].sort((a, b) => a - b))
 
     // Highest-priority card first, copy verbatim from the live payload.

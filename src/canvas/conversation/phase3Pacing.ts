@@ -50,11 +50,23 @@ export function isPhase3CardBlock(block: ConversationBlock): boolean {
   return PHASE3_CARD_TYPES.has(block.type)
 }
 
+/**
+ * Review-folds C1: bias-signal coaching cards are exempt from BOTH
+ * visibility budgets — they carry their own ≤2 cap
+ * (buildDraftBiasSignalBlocks DRAFT_BIAS_SIGNAL_CARD_CAP), so per the
+ * ratified #356 acceptance they ALWAYS render by default. They neither
+ * count toward the >3 pacing trigger nor collapse (here), and InlineBlocks
+ * excludes them from the legacy per-turn budget too.
+ */
+export function isBiasSignalCoachingBlock(block: ConversationBlock): boolean {
+  return block.type === 'v5_coaching' && block.coaching_kind === 'bias_signal'
+}
+
 /** Pure pacing computation over a turn's full block list. */
 export function computePhase3Pacing(blocks: readonly ConversationBlock[]): Phase3Pacing {
   const phase3Indices: number[] = []
   for (let i = 0; i < blocks.length; i++) {
-    if (isPhase3CardBlock(blocks[i])) phase3Indices.push(i)
+    if (isPhase3CardBlock(blocks[i]) && !isBiasSignalCoachingBlock(blocks[i])) phase3Indices.push(i)
   }
   if (phase3Indices.length <= PHASE3_DEFAULT_EXPANDED) {
     return {

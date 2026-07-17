@@ -1683,6 +1683,21 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   }
 
   return (
+    <>
+      {/* F9: THE single aria-live region for run start/settle, mounted once
+          at the dock call site so it survives tab switches and speaks for
+          runs dispatched from ANY tab. It is a SIBLING of the aside, not a
+          child (review-folds C3): the aside hides with the `hidden` class
+          while an overlay panel is active, and display:none removes its
+          whole subtree from the accessibility tree — the announcer must
+          keep speaking exactly then. It yields while the Analysis tab is
+          fronted (except a first-run settle) — that tab's own furniture
+          (narration banner, completion toast, error alert) already
+          announces there. Rule: runAnnouncementForTransition in
+          analysisRunStatus.ts. */}
+      <AnalysisRunAnnouncer
+        analysisTabFronted={effectiveIsOpen && effectiveActiveTab === 'results'}
+      />
     <aside
       className={`${transitionClass} flex flex-col transition-shadow pointer-events-auto${isOverlayPanelActive ? ' hidden' : ''}`}
       style={asideStyle}
@@ -1698,15 +1713,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
           openDefineSuccess()/openDecisionRecord() work from any surface. */}
       <DefineSuccessModal />
       <DecisionRecordModal />
-      {/* F9: THE single aria-live region for run start/settle, mounted once
-          at the dock root so it survives tab switches and speaks for runs
-          dispatched from ANY tab. It yields while the Analysis tab is
-          fronted — that tab's own furniture (narration banner, completion
-          toast, error alert) already announces there. Rule:
-          runAnnouncementForTransition in analysisRunStatus.ts. */}
-      <AnalysisRunAnnouncer
-        analysisTabFronted={effectiveIsOpen && effectiveActiveTab === 'results'}
-      />
       {effectiveIsOpen && (
         <div
           aria-hidden="true"
@@ -2489,5 +2495,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
         {/* Legacy v7 sticky footer removed — superseded by AnalysisFooter above */}
     </aside>
+    </>
   )
 }
