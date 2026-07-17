@@ -40,7 +40,7 @@ import { ArtefactBlock as ArtefactBlockComponent } from '../../components/chat/A
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import { MAX_VISIBLE_BLOCKS_PER_TURN } from './types'
 import { GraphPatchBlockRenderer, ProposalBlockRenderer } from './blocks/GraphPatchBlockRenderer'
-import { computePhase3Pacing, isPhase3CardBlock } from './phase3Pacing'
+import { computePhase3Pacing, isPhase3CardBlock, isBiasSignalCoachingBlock } from './phase3Pacing'
 import { GraphVocabularyLegend } from './GraphVocabularyLegend'
 import { V5AnalysisResultBlock } from '../../v5/blocks/V5AnalysisResultBlock'
 import { V5GraphPatchBlock } from '../../v5/blocks/V5GraphPatchBlock'
@@ -49,7 +49,6 @@ import { V5ComparisonBlock } from '../../v5/blocks/V5ComparisonBlock'
 import { V5FlipAnalysisBlock } from '../../v5/blocks/V5FlipAnalysisBlock'
 import { V5ReviewCardBlock } from '../../v5/blocks/V5ReviewCardBlock'
 import { V5CoachingBlock } from '../../v5/blocks/V5CoachingBlock'
-import { BiasSignalCoachingCard } from '../../v5/blocks/BiasSignalCoachingCard'
 import { V5EvidenceBlock } from '../../v5/blocks/V5EvidenceBlock'
 import { V5ExerciseBlock } from '../../v5/blocks/V5ExerciseBlock'
 import { V5UnsupportedBlock } from '../../v5/blocks/V5UnsupportedBlock'
@@ -145,9 +144,13 @@ export const InlineBlocks = memo(function InlineBlocks({
   // Legacy per-turn budget. When phase-3 pacing is active, the phase-3
   // cards carry their own budget (the pacing group), so the legacy cap
   // counts only the non-phase-3 blocks; otherwise behaviour is unchanged
-  // (cap across all blocks, as before F16).
+  // (cap across all blocks, as before F16). Bias-signal cards are exempt
+  // UNCONDITIONALLY (review-folds C1): they carry their own ≤2 cap
+  // upstream, so they never join this budget and never hide behind
+  // "Show N more" — the ratified #356 acceptance.
   const budgetIndices: number[] = []
   for (let i = 0; i < blocks.length; i++) {
+    if (isBiasSignalCoachingBlock(blocks[i])) continue
     if (pacing.pacingActive && isPhase3CardBlock(blocks[i])) continue
     budgetIndices.push(i)
   }
@@ -369,12 +372,16 @@ function BlockRenderer({
 
     case 'v5_coaching':
       // Leg 3 (bias coaching): bias-signal coaching renders through the
-      // DS-recipe card (neutral bg + coloured left border); every other
-      // coaching_kind keeps the existing V5CoachingBlock renderer.
-      if (block.coaching_kind === 'bias_signal') {
-        return <BiasSignalCoachingCard block={block} />
-      }
-      return <V5CoachingBlock block={block} />
+      // SAME V5CoachingBlock with the DS-recipe variant (neutral bg +
+      // coloured left border, bias-signal-card testids) — one structure,
+      // so producer fields (action_label pill included) can never drop on
+      // one fork (review-folds C10+R1).
+      return (
+        <V5CoachingBlock
+          block={block}
+          variant={block.coaching_kind === 'bias_signal' ? 'bias_signal' : 'default'}
+        />
+      )
 
     // Track C slice 2 (Lane UI-W4 C): 0.13.1-typed evidence + exercise.
     // Same doctrine — producer copy verbatim, enum tokens data-* only.
