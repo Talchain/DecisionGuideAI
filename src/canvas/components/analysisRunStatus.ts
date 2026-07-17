@@ -74,35 +74,63 @@ export function runStatusRegion({
  * "exactly one announcement per transition" is structural, not per-consumer
  * discipline.
  *
- * FIRST runs are a special case of the same rule. The dock's I.1 auto-switch
- * fronts the Analysis tab whenever status transitions from idle/cancelled
- * into an active state, so on a FIRST run the user lands on the Analysis
- * tab (and its furniture) in the same breath as the start — but the
- * announcer's effect observes the transition BEFORE the dock's auto-switch
- * effect re-renders, so its `analysisTabFronted` input is one commit stale.
- * Rather than race that commit, the rule encodes the auto-switch contract:
- * a start from idle/cancelled yields unconditionally. RERUNS (from
- * complete/error) do not auto-switch — that is exactly the case F9 exists
- * for (rerun dispatched while Compare/Model is fronted stayed silent and
- * frozen) — so there the current frontedness decides.
+ * FIRST runs are a special case with an ASYMMETRY between the two
+ * transitions (review-folds C6):
+ *
+ *  - START: the dock's I.1 auto-switch fronts the Analysis tab whenever
+ *    status transitions from idle/cancelled into an active state, so on a
+ *    FIRST run the user lands on the Analysis tab (and its furniture) in
+ *    the same breath as the start — but the announcer's effect observes
+ *    the transition BEFORE the dock's auto-switch effect re-renders, so
+ *    its `analysisTabFronted` input is one commit stale. Rather than race
+ *    that commit, the rule encodes the auto-switch contract: a start from
+ *    idle/cancelled yields unconditionally.
+ *  - SETTLE: a FIRST-run settle does NOT yield, even while fronted —
+ *    NOTHING else announces it. The completion toast
+ *    (AnalysisFreshnessNotice) mounts post-settle with
+ *    wasRunningRef = false, so it only fires on RERUNS it watched from the
+ *    start; the first run's settle was fully silent before this rule.
+ *    Rerun settles keep the yield (the toast genuinely fires there).
+ *
+ * RERUNS (from complete/error) do not auto-switch — that is exactly the
+ * case F9 exists for (rerun dispatched while Compare/Model is fronted
+ * stayed silent and frozen) — so there the current frontedness decides.
  *
  * Settle copy never fabricates an outcome: only statuses the store actually
  * settles into ('complete' | 'error' | 'cancelled') get a line; anything
- * else (a reset to 'idle', an unknown value) announces nothing.
+ * else (a reset to 'idle', an unknown value) announces nothing. A settle
+ * that restored the OLD report (results.settledWithoutNewReport — abort or
+ * timeout) never claims completion: it announces the same honest copy the
+ * completion toast uses, from the shared constant below (review-folds C2).
  */
+
+/**
+ * The honest resultless-settle copy — ONE constant shared by the
+ * AnalysisFreshnessNotice toast and the run announcer so the two surfaces
+ * can never drift (review-folds C2).
+ */
+export const RUN_ENDED_WITHOUT_NEW_RESULTS_COPY =
+  'The run ended without new results. Showing your previous analysis.'
+
 export interface RunAnnouncementInput {
   /** Which transition just happened. */
   transition: 'start' | 'settle'
   /** The results status the run settled into (settle transitions only). */
   settledStatus?: string | null
   /**
-   * The results status held BEFORE the run started (start transitions
-   * only). idle/cancelled marks a FIRST run, which the dock auto-switches
-   * to the Analysis tab (see above).
+   * The results status held BEFORE the run started. idle/cancelled marks a
+   * FIRST run: its start yields to the auto-switch furniture, but its
+   * settle must NOT yield (see the asymmetry above).
    */
   preRunStatus?: string | null
   /** The Analysis tab is fronted (dock open, results tab active). */
   analysisTabFronted: boolean
+  /**
+   * The settle restored the previous report without new results
+   * (results.settledWithoutNewReport — abort/timeout). Settle transitions
+   * only.
+   */
+  settledWithoutNewReport?: boolean
 }
 
 export function runAnnouncementForTransition({
@@ -110,17 +138,26 @@ export function runAnnouncementForTransition({
   settledStatus,
   preRunStatus,
   analysisTabFronted,
+  settledWithoutNewReport,
 }: RunAnnouncementInput): string | null {
-  if (analysisTabFronted) return null
+  const firstRun = preRunStatus === 'idle' || preRunStatus === 'cancelled'
   if (transition === 'start') {
+    if (analysisTabFronted) return null
     // First run: the dock's auto-switch is about to front the Analysis tab,
     // whose own furniture speaks. Announcing here would double up.
-    if (preRunStatus === 'idle' || preRunStatus === 'cancelled') return null
+    if (firstRun) return null
     return 'Analysis started.'
   }
+  // Settle: yield to the fronted Analysis tab's completion toast / error
+  // alert — EXCEPT on a first run, whose settle nothing else announces
+  // (the asymmetry documented above).
+  if (analysisTabFronted && !firstRun) return null
   switch (settledStatus) {
     case 'complete':
-      return 'Analysis complete.'
+      // C2: a settle that carried no new report must not claim completion.
+      return settledWithoutNewReport
+        ? RUN_ENDED_WITHOUT_NEW_RESULTS_COPY
+        : 'Analysis complete.'
     case 'error':
       return 'Analysis failed.'
     case 'cancelled':

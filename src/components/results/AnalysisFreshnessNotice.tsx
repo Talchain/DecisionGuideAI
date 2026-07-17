@@ -53,6 +53,7 @@ import {
 import { resolveTrustEffectiveState } from '@/canvas/hooks/useAnalysisTrust'
 import { executeCanonicalRun } from '@/canvas/analysis/canonicalRunRegistry'
 import { useShowToastSafe } from '@/canvas/ToastContext'
+import { RUN_ENDED_WITHOUT_NEW_RESULTS_COPY } from '@/canvas/components/analysisRunStatus'
 
 /** Cautious, non-scientific copy. One short line per state. */
 export const FRESHNESS_COPY: Record<AnalysisFreshnessValue, string> = {
@@ -134,7 +135,9 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
         // the body now mounted through the run, announcing "rerun completed"
         // for that case would be a lie.
         if (useCanvasStore.getState().results?.settledWithoutNewReport) {
-          showToast('The run ended without new results. Showing your previous analysis.')
+          // Shared constant (review-folds C2): the dock-level announcer
+          // speaks the SAME copy for this settle — one string, no drift.
+          showToast(RUN_ENDED_WITHOUT_NEW_RESULTS_COPY)
         } else if (completionSemantic === 'current') {
           showToast('Analysis rerun completed with the current model')
         } else {

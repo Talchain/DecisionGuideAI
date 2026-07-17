@@ -142,4 +142,47 @@ describe('F9: AnalysisRunAnnouncer', () => {
     const { container } = render(<AnalysisRunAnnouncer analysisTabFronted={false} />)
     expect(container.querySelectorAll('[aria-live]')).toHaveLength(1)
   })
+
+  // Review-folds C2: a settle that restored the OLD report (abort/timeout —
+  // results.settledWithoutNewReport) must never claim completion.
+  it('announces the honest resultless-settle copy, never "Analysis complete.", when the run ended without new results', () => {
+    setResults({ status: 'complete' })
+    const { rerender } = render(<AnalysisRunAnnouncer analysisTabFronted={false} />)
+    setResults({ status: 'streaming', startedAt: Date.now() })
+    rerender(<AnalysisRunAnnouncer analysisTabFronted={false} />)
+    mockCanvasState = {
+      ...mockCanvasState,
+      results: { status: 'complete', settledWithoutNewReport: true },
+    }
+    rerender(<AnalysisRunAnnouncer analysisTabFronted={false} />)
+    expect(announcer()).toHaveTextContent(
+      'The run ended without new results. Showing your previous analysis.',
+    )
+    expect(announcer()).not.toHaveTextContent('Analysis complete.')
+  })
+
+  // Review-folds C6: nothing else announces a FIRST-run settle (the
+  // freshness toast only fires on reruns), so the announcer must speak even
+  // though the auto-switch fronted the Analysis tab.
+  it('announces a FIRST-run settle even while the Analysis tab is fronted (nothing else speaks there)', () => {
+    // preRunStatus idle marks the first run.
+    const { rerender } = render(<AnalysisRunAnnouncer analysisTabFronted={true} />)
+    setResults({ status: 'streaming', startedAt: Date.now() })
+    rerender(<AnalysisRunAnnouncer analysisTabFronted={true} />)
+    // Start yields (the auto-switch furniture speaks) — no announcement yet.
+    expect(announcer()).toHaveTextContent('')
+    setResults({ status: 'complete' })
+    rerender(<AnalysisRunAnnouncer analysisTabFronted={true} />)
+    expect(announcer()).toHaveTextContent('Analysis complete.')
+  })
+
+  it('still yields a RERUN settle while the Analysis tab is fronted (the completion toast speaks there)', () => {
+    setResults({ status: 'complete' })
+    const { rerender } = render(<AnalysisRunAnnouncer analysisTabFronted={true} />)
+    setResults({ status: 'streaming', startedAt: Date.now() })
+    rerender(<AnalysisRunAnnouncer analysisTabFronted={true} />)
+    setResults({ status: 'complete' })
+    rerender(<AnalysisRunAnnouncer analysisTabFronted={true} />)
+    expect(announcer()).toHaveTextContent('')
+  })
 })
