@@ -145,9 +145,13 @@ describe('InlineBlocks — phase-3 card pacing (F16)', () => {
     expect(screen.getAllByRole('button', { name: /show \d+ more/i })).toHaveLength(1)
   })
 
-  it('screen reader status announces the collapsed count', () => {
-    render(<InlineBlocks blocks={floodBlocks()} />)
-    expect(screen.getByRole('status')).toHaveTextContent(/7 more/i)
+  it('a static sr-only summary carries the collapsed count (no nested live region — review-folds C4)', () => {
+    const { container } = render(<InlineBlocks blocks={floodBlocks()} />)
+    expect(screen.getByText(/7 more coaching and review cards collapsed/i)).toBeInTheDocument()
+    // The toggle's accessible name already carries the count; InlineBlocks
+    // must contribute no live region of its own (the old role="status"
+    // replayed on unhide and double-announced every toggle).
+    expect(container.querySelector('[role="status"]')).toBeNull()
   })
 
   it('ONE interaction reveals all 10 cards with order preserved exactly', () => {

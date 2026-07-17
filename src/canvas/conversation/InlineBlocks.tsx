@@ -7,7 +7,7 @@
  * always stay visible — budget is enforced upstream in useConversation).
  */
 
-import { useState, useCallback, memo } from 'react'
+import { useState, useCallback, useMemo, memo } from 'react'
 import { Lightbulb, AlertTriangle, ChevronDown, ChevronUp, ExternalLink, Wand2 } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -139,7 +139,7 @@ export const InlineBlocks = memo(function InlineBlocks({
   // cards expanded, the remainder behind ONE count affordance.
   const [showAllPhase3, setShowAllPhase3] = useState(false)
 
-  const pacing = computePhase3Pacing(blocks)
+  const pacing = useMemo(() => computePhase3Pacing(blocks), [blocks])
 
   // Legacy per-turn budget. When phase-3 pacing is active, the phase-3
   // cards carry their own budget (the pacing group), so the legacy cap
@@ -148,29 +148,59 @@ export const InlineBlocks = memo(function InlineBlocks({
   // UNCONDITIONALLY (review-folds C1): they carry their own ≤2 cap
   // upstream, so they never join this budget and never hide behind
   // "Show N more" — the ratified #356 acceptance.
-  const budgetIndices: number[] = []
-  for (let i = 0; i < blocks.length; i++) {
-    if (isBiasSignalCoachingBlock(blocks[i])) continue
-    if (pacing.pacingActive && isPhase3CardBlock(blocks[i])) continue
-    budgetIndices.push(i)
-  }
-  const hiddenByBudget = new Set(
-    showAll ? [] : budgetIndices.slice(MAX_VISIBLE_BLOCKS_PER_TURN),
-  )
-  const hasOverflow = budgetIndices.length > MAX_VISIBLE_BLOCKS_PER_TURN
-  const hiddenCount = budgetIndices.length - MAX_VISIBLE_BLOCKS_PER_TURN
+  const { hiddenByBudget, hasOverflow, hiddenCount } = useMemo(() => {
+    const budgetIndices: number[] = []
+    for (let i = 0; i < blocks.length; i++) {
+      if (isBiasSignalCoachingBlock(blocks[i])) continue
+      if (pacing.pacingActive && isPhase3CardBlock(blocks[i])) continue
+      budgetIndices.push(i)
+    }
+    return {
+      hiddenByBudget: new Set(
+        showAll ? [] : budgetIndices.slice(MAX_VISIBLE_BLOCKS_PER_TURN),
+      ),
+      hasOverflow: budgetIndices.length > MAX_VISIBLE_BLOCKS_PER_TURN,
+      hiddenCount: budgetIndices.length - MAX_VISIBLE_BLOCKS_PER_TURN,
+    }
+  }, [blocks, pacing, showAll])
   // DS v5 §21.2: block type badge dots are always on (no v2 flag gate).
   const showBadgeDots = true
 
   const phase3Collapsed = pacing.pacingActive && !showAllPhase3
 
+  // C13: the graph-vocabulary legend gates on a phase-3 card being
+  // CURRENTLY RENDERED — never on mere presence in the turn (a legend for
+  // cards hidden behind the pacing collapse or the legacy budget explained
+  // vocabulary the user could not see).
+  const phase3Rendered = useMemo(
+    () =>
+      blocks.some(
+        (b, i) =>
+          isPhase3CardBlock(b) &&
+          !hiddenByBudget.has(i) &&
+          !(pacing.pacingActive && !showAllPhase3 && pacing.collapsedIndices.has(i)),
+      ),
+    [blocks, hiddenByBudget, pacing, showAllPhase3],
+  )
+
+  // C11: citations can point at collapsed content. Handed to the
+  // commentary renderer only while something is actually collapsed, so a
+  // genuinely dangling citation stays a no-op.
+  const revealHiddenBlocks = useCallback(() => {
+    setShowAllPhase3(true)
+    setShowAll(true)
+  }, [])
+  const hasCollapsedContent = phase3Collapsed || hiddenByBudget.size > 0
+
   return (
     <div className={styles.blockContainer}>
       {pacing.pacingActive && (
-        // Collapsed-count announcement for screen readers. The affordance's
-        // accessible name carries the count too; this status region also
-        // announces the change on reveal.
-        <span role="status" className={styles.srOnly}>
+        // Static sr-only summary of the collapsed count. Deliberately NOT
+        // a live region (C4): the toggle's accessible name already carries
+        // the count, and revealed cards entering ChatThread's role=log
+        // announce their own addition — a nested role=status here replayed
+        // the text on unhide and double-announced every toggle.
+        <span className="sr-only">
           {phase3Collapsed
             ? `${pacing.collapsedCount} more coaching and review cards collapsed`
             : `Showing all ${pacing.phase3Count} coaching and review cards`}
@@ -226,6 +256,7 @@ export const InlineBlocks = memo(function InlineBlocks({
               onArtefactMessage={onArtefactMessage}
               onProposalConfirm={onProposalConfirm}
               assistantTextWordCount={assistantTextWordCount}
+              onRevealHiddenBlocks={hasCollapsedContent ? revealHiddenBlocks : undefined}
             />
           </div>
         )
@@ -241,8 +272,9 @@ export const InlineBlocks = memo(function InlineBlocks({
           {showAll ? 'Show less' : `Show ${hiddenCount} more`}
         </button>
       )}
-      {/* F16: graph-vocabulary legend affordance near the phase-3 cards. */}
-      {pacing.phase3Count > 0 && <GraphVocabularyLegend />}
+      {/* F16: graph-vocabulary legend affordance near the phase-3 cards —
+          only when at least one is currently rendered (C13). */}
+      {phase3Rendered && <GraphVocabularyLegend />}
     </div>
   )
 })
@@ -261,6 +293,8 @@ interface BlockRendererProps {
   onArtefactMessage?: (message: string) => void
   onProposalConfirm?: (proposalId: string) => void
   assistantTextWordCount?: number
+  /** C11: reveal collapsed pacing/budget content (present only while something is collapsed). */
+  onRevealHiddenBlocks?: () => void
 }
 
 function BlockRenderer({
@@ -273,10 +307,17 @@ function BlockRenderer({
   onArtefactMessage,
   onProposalConfirm,
   assistantTextWordCount = 0,
+  onRevealHiddenBlocks,
 }: BlockRendererProps) {
   switch (block.type) {
     case 'commentary':
-      return <CommentaryBlockRenderer block={block} assistantTextWordCount={assistantTextWordCount} />
+      return (
+        <CommentaryBlockRenderer
+          block={block}
+          assistantTextWordCount={assistantTextWordCount}
+          onRevealHiddenBlocks={onRevealHiddenBlocks}
+        />
+      )
 
     case 'review_card':
       return (
@@ -421,28 +462,52 @@ function BlockRenderer({
 // ---------------------------------------------------------------------------
 
 
+/** Scroll to and pulse-highlight a citation target element. */
+function scrollToCitationTarget(target: Element): void {
+  if ('scrollIntoView' in target && typeof target.scrollIntoView === 'function') {
+    target.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
+  target.classList.add(styles.citationHighlightPulse)
+  setTimeout(() => {
+    target.classList.remove(styles.citationHighlightPulse)
+  }, 1000)
+}
+
 const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
   block,
   assistantTextWordCount = 0,
+  onRevealHiddenBlocks,
 }: {
   block: CommentaryBlockType
   /** Word count of the assistant_text in the same turn — used for default expand logic */
   assistantTextWordCount?: number
+  /** C11: reveal collapsed pacing/budget content (present only while something is collapsed). */
+  onRevealHiddenBlocks?: () => void
 }) {
   const renderingV2 = isOrchestratorRenderingV2Enabled()
 
   const handleCitationClick = useCallback((index: number) => {
     // Scroll to the referenced block element by citation index
     const target = document.querySelector(`[data-citation-target="${index}"]`)
-    if (!target) return
-    if ('scrollIntoView' in target && typeof target.scrollIntoView === 'function') {
-      target.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    if (target) {
+      scrollToCitationTarget(target)
+      return
     }
-    target.classList.add(styles.citationHighlightPulse)
-    setTimeout(() => {
-      target.classList.remove(styles.citationHighlightPulse)
-    }, 1000)
-  }, [])
+    // C11: the target may sit behind the phase-3 pacing collapse or the
+    // legacy per-turn budget (collapsed blocks render no
+    // data-citation-target node). When collapsed content exists, reveal
+    // it, wait for the commit (double rAF), then retry the lookup and
+    // scroll. Fail silent only when the target is STILL missing (a
+    // genuinely dangling citation).
+    if (!onRevealHiddenBlocks) return
+    onRevealHiddenBlocks()
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const revealed = document.querySelector(`[data-citation-target="${index}"]`)
+        if (revealed) scrollToCitationTarget(revealed)
+      })
+    })
+  }, [onRevealHiddenBlocks])
 
   const toneClass =
     block.tone === 'warning'
