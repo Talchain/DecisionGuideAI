@@ -40,6 +40,8 @@ import { ArtefactBlock as ArtefactBlockComponent } from '../../components/chat/A
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import { MAX_VISIBLE_BLOCKS_PER_TURN } from './types'
 import { GraphPatchBlockRenderer, ProposalBlockRenderer } from './blocks/GraphPatchBlockRenderer'
+import { computePhase3Pacing, isPhase3CardBlock } from './phase3Pacing'
+import { GraphVocabularyLegend } from './GraphVocabularyLegend'
 import { V5AnalysisResultBlock } from '../../v5/blocks/V5AnalysisResultBlock'
 import { V5GraphPatchBlock } from '../../v5/blocks/V5GraphPatchBlock'
 import { V5ExplanationBlock } from '../../v5/blocks/V5ExplanationBlock'
@@ -134,16 +136,71 @@ export const InlineBlocks = memo(function InlineBlocks({
   assistantTextWordCount = 0,
 }: InlineBlocksProps) {
   const [showAll, setShowAll] = useState(false)
+  // F16: phase-3 card pacing — flood turns default to the top 3 phase-3
+  // cards expanded, the remainder behind ONE count affordance.
+  const [showAllPhase3, setShowAllPhase3] = useState(false)
 
-  const visible = showAll ? blocks : blocks.slice(0, MAX_VISIBLE_BLOCKS_PER_TURN)
-  const hasOverflow = blocks.length > MAX_VISIBLE_BLOCKS_PER_TURN
-  const hiddenCount = blocks.length - MAX_VISIBLE_BLOCKS_PER_TURN
+  const pacing = computePhase3Pacing(blocks)
+
+  // Legacy per-turn budget. When phase-3 pacing is active, the phase-3
+  // cards carry their own budget (the pacing group), so the legacy cap
+  // counts only the non-phase-3 blocks; otherwise behaviour is unchanged
+  // (cap across all blocks, as before F16).
+  const budgetIndices: number[] = []
+  for (let i = 0; i < blocks.length; i++) {
+    if (pacing.pacingActive && isPhase3CardBlock(blocks[i])) continue
+    budgetIndices.push(i)
+  }
+  const hiddenByBudget = new Set(
+    showAll ? [] : budgetIndices.slice(MAX_VISIBLE_BLOCKS_PER_TURN),
+  )
+  const hasOverflow = budgetIndices.length > MAX_VISIBLE_BLOCKS_PER_TURN
+  const hiddenCount = budgetIndices.length - MAX_VISIBLE_BLOCKS_PER_TURN
   // DS v5 §21.2: block type badge dots are always on (no v2 flag gate).
   const showBadgeDots = true
 
+  const phase3Collapsed = pacing.pacingActive && !showAllPhase3
+
   return (
     <div className={styles.blockContainer}>
-      {visible.map((block, i) => {
+      {pacing.pacingActive && (
+        // Collapsed-count announcement for screen readers. The affordance's
+        // accessible name carries the count too; this status region also
+        // announces the change on reveal.
+        <span role="status" className={styles.srOnly}>
+          {phase3Collapsed
+            ? `${pacing.collapsedCount} more coaching and review cards collapsed`
+            : `Showing all ${pacing.phase3Count} coaching and review cards`}
+        </span>
+      )}
+      {blocks.map((block, i) => {
+        // The single phase-3 count affordance sits at the position of the
+        // first collapsed card, so reading order is preserved exactly.
+        const affordance =
+          pacing.pacingActive && i === pacing.affordanceIndex ? (
+            <button
+              type="button"
+              className={styles.phase3PacingToggle}
+              onClick={() => setShowAllPhase3((v) => !v)}
+              aria-expanded={showAllPhase3}
+              aria-label={
+                showAllPhase3
+                  ? 'Show fewer coaching and review cards'
+                  : `Show ${pacing.collapsedCount} more coaching and review card${pacing.collapsedCount !== 1 ? 's' : ''}`
+              }
+            >
+              {showAllPhase3 ? (
+                <><ChevronUp size={12} aria-hidden="true" /> Show less</>
+              ) : (
+                <><ChevronDown size={12} aria-hidden="true" /> Show {pacing.collapsedCount} more</>
+              )}
+            </button>
+          ) : null
+
+        if (hiddenByBudget.has(i) || (phase3Collapsed && pacing.collapsedIndices.has(i))) {
+          return affordance ? <div key={i}>{affordance}</div> : null
+        }
+
         const badgeDotClass = showBadgeDots ? resolveBlockBadgeDotClass(block) : null
         return (
           // data-citation-target is 1-based; CitationRef.index matches this
@@ -154,6 +211,7 @@ export const InlineBlocks = memo(function InlineBlocks({
             className={badgeDotClass ? styles.blockWithBadge : undefined}
             {...(block.type === 'graph_patch' ? { 'data-patch-id': block.patch_id } : {})}
           >
+            {affordance}
             {badgeDotClass && <span className={badgeDotClass} data-testid="block-badge-dot" aria-hidden="true" />}
             <BlockRenderer
               block={block}
@@ -180,6 +238,8 @@ export const InlineBlocks = memo(function InlineBlocks({
           {showAll ? 'Show less' : `Show ${hiddenCount} more`}
         </button>
       )}
+      {/* F16: graph-vocabulary legend affordance near the phase-3 cards. */}
+      {pacing.phase3Count > 0 && <GraphVocabularyLegend />}
     </div>
   )
 })
