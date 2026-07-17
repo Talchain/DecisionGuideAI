@@ -4,10 +4,10 @@
  * applyDraftResult only ever reads `goal_constraints` from the object it is
  * given. On the inline-draft-graph turn path (useConversation.ts sendTurn),
  * that object is `attachAnalysisReadyToInlineDraftGraph(response.draft_graph,
- * response.analysis_ready)` — i.e. the `draft_graph` sub-object, NOT the true
- * V5 response root. CEE places `goal_constraints` at the response root as a
- * SIBLING of `draft_graph`, never nested inside it, so the inline object
- * never carries its own `goal_constraints` key.
+ * response)` — i.e. the `draft_graph` sub-object, NOT the true V5 response
+ * root. CEE places `goal_constraints` at the response root as a SIBLING of
+ * `draft_graph`, never nested inside it, so the inline object never carries
+ * its own `goal_constraints` key.
  *
  * Net effect (pre-fix): applyDraftResult's `isCEEv3Response(draftData)` check
  * passes (analysis_ready + nodes/edges are present via the existing
@@ -38,11 +38,10 @@ describe('ROADMAP 1.22 residual: inline-draft goal_constraints from response roo
       edges: [],
     }
 
-    const result = attachAnalysisReadyToInlineDraftGraph(
-      draftGraph,
-      { status: 'ready', goal_node_id: 'goal_1', options: [] },
-      constraints,
-    )
+    const result = attachAnalysisReadyToInlineDraftGraph(draftGraph, {
+      analysis_ready: { status: 'ready', goal_node_id: 'goal_1', options: [] },
+      goal_constraints: constraints,
+    })
 
     expect(result).toMatchObject({ goal_constraints: constraints })
   })
@@ -53,7 +52,7 @@ describe('ROADMAP 1.22 residual: inline-draft goal_constraints from response roo
       edges: [],
     }
 
-    const result = attachAnalysisReadyToInlineDraftGraph(draftGraph, undefined, undefined)
+    const result = attachAnalysisReadyToInlineDraftGraph(draftGraph, {})
 
     expect(result).not.toHaveProperty('goal_constraints')
   })
@@ -64,7 +63,7 @@ describe('ROADMAP 1.22 residual: inline-draft goal_constraints from response roo
       edges: [],
     }
 
-    const result = attachAnalysisReadyToInlineDraftGraph(draftGraph, undefined, [])
+    const result = attachAnalysisReadyToInlineDraftGraph(draftGraph, { goal_constraints: [] })
 
     expect(result).not.toHaveProperty('goal_constraints')
   })
@@ -83,7 +82,7 @@ describe('ROADMAP 1.22 residual: inline-draft goal_constraints from response roo
       { id: 'c-root', label: 'Root constraint', operator: '<=', value: 2 },
     ]
 
-    const result = attachAnalysisReadyToInlineDraftGraph(draftGraph, undefined, rootConstraints)
+    const result = attachAnalysisReadyToInlineDraftGraph(draftGraph, { goal_constraints: rootConstraints })
 
     expect((result as { goal_constraints?: unknown }).goal_constraints).toBe(ownConstraints)
   })
