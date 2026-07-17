@@ -29,6 +29,7 @@ import { recordUiSurfaceState } from '../../../lib/debug-state'
 import type { BriefElementKind } from '../primitives/NodeShape'
 import type { BriefReadiness } from '../hooks/useBriefSignals'
 import type { UseConversationReturn } from '../useConversation'
+import { typography } from '../../../styles/typography'
 import type { ScenarioStage } from '../../../types/scenario'
 
 // ChatTopBar is removed (Tranche 1 item 30); GenerateState now lives here.
@@ -233,8 +234,8 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
         {/* 3b. BIL summary line (flag-gated, soft guidance only) */}
         {bilSummaryLine && (
           <p
-            className="text-text-light"
-            style={{ fontSize: 11, lineHeight: 1.4, margin: 0, padding: '0 2px' }}
+            className={`text-text-light ${typography.panelMeta}`}
+            style={{ margin: 0, padding: '0 2px' }}
             role="status"
             aria-live="polite"
             data-testid="bil-summary"
@@ -246,8 +247,8 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
         {/* 3c. Causal framing coaching tip (weak framing + sufficient text) */}
         {bilResult?.causal_framing_score === 'weak' && debouncedValue.length > 50 && (
           <p
-            className="text-text-light"
-            style={{ fontSize: 11, lineHeight: 1.4, margin: 0, padding: '0 2px', fontStyle: 'italic' }}
+            className={`text-text-light ${typography.panelMeta}`}
+            style={{ margin: 0, padding: '0 2px', fontStyle: 'italic' }}
             data-testid="bil-causal-tip"
           >
             Tip: describe how factors cause outcomes, not just list them.
@@ -347,10 +348,8 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             disabled={isThinking}
             rows={1}
             aria-label="Message input"
-            className="flex-1 bg-transparent border-none outline-none resize-none text-text-body placeholder:text-text-light"
+            className={`flex-1 bg-transparent border-none outline-none resize-none text-text-body placeholder:text-text-light ${typography.bodySmall}`}
             style={{
-              fontSize: 14,
-              lineHeight: 1.5,
               fontFamily: 'inherit',
               padding: '12px 4px',
               minHeight: 88,
@@ -466,7 +465,7 @@ function InlineGenerateButton({ state, onClick }: { state: GenerateState; onClic
       onClick={onClick}
       data-active={isActive || undefined}
       data-loading={isLoading || undefined}
-      className="inline-gen-btn flex-shrink-0"
+      className={`inline-gen-btn flex-shrink-0 ${typography.panelMeta} font-semibold`}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -475,8 +474,6 @@ function InlineGenerateButton({ state, onClick }: { state: GenerateState; onClic
         padding: '0 10px',
         borderRadius: 999,
         marginLeft: 'auto',
-        fontSize: 11,
-        fontWeight: 600,
         whiteSpace: 'nowrap' as const,
         transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
         background: (isActive || isLoading) ? 'var(--primary, #2B7FA2)' : 'transparent',

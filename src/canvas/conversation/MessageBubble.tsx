@@ -248,7 +248,7 @@ export const MessageBubble = memo(function MessageBubble({
       data-testid={`message-${message.role}`}
     >
       <div
-        className={`${compact ? typography.panelBody : typography.body} ${styles.markdownContent} ${
+        className={`${compact ? typography.panelBody : typography.chatProse} ${styles.markdownContent} ${
           compact ? styles.markdownContentCompact : ''
         } ${isProvisional ? styles.provisionalText : ''} ${
           !isUser && isOrchestratorRenderingV2Enabled() ? styles.v2AssistantText : ''

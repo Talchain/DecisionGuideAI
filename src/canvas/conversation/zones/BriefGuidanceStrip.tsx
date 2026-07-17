@@ -10,6 +10,7 @@
 import { NodeShape } from '../primitives/NodeShape'
 import type { BriefElement } from '../hooks/useBriefSignals'
 import type { BriefElementKind } from '../primitives/NodeShape'
+import { typography } from '../../../styles/typography'
 
 /** Map brief element kinds to their DS v4 entity border colours. */
 const ENTITY_BORDERS: Record<BriefElementKind, string> = {
@@ -46,6 +47,7 @@ export function BriefGuidanceStrip({ elements, onElementClick }: BriefGuidanceSt
             transition-all duration-200
             focus-visible:ring-2 focus-visible:ring-info focus-visible:outline-none
             hover:bg-panel-hover
+            ${typography.panelMeta} font-medium
           `}
           style={{
             gap: 4,
@@ -56,8 +58,6 @@ export function BriefGuidanceStrip({ elements, onElementClick }: BriefGuidanceSt
               ? `1px solid ${ENTITY_BORDERS[el.kind]}`
               : '1px solid var(--border-default, #EEE6D8)',
             opacity: el.detected ? 1 : 0.5,
-            fontSize: 11,
-            fontWeight: 500,
             color: el.detected
               ? 'var(--text-body, #3F3F3E)'
               : 'var(--text-light, #908D8D)',
