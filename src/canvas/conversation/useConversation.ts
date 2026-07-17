@@ -44,7 +44,12 @@ import { recordDroppedContent } from '../../lib/droppedContentCounter'
 import { FAILURE_USER_TEXT } from '@talchain/schemas/boundary'
 import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled, isPreAnalysisEnrichedEnabled, isReasoningDisclosureEnabled } from '../../flags'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
+// Leg 3 blocker fix: the wire->camelCase coaching mapper lives in the CEE
+// client adapter (DraftChat/useRetryDraft path); the V5 inline-draft seam
+// reuses it so one mapper owns the coaching wire shape.
+import { mapDraftCoachingFromResponse } from '../../adapters/cee/client'
 import { maybeBuildModelReceiptBlock } from '../adapters/modelCardAdapter'
+import { buildDraftBiasSignalBlocks } from './draftBiasSignalBlocks'
 import { assembleAnalysisInputsSummary } from '../analysis/assembleAnalysisInputsSummary'
 import { useResultsStore } from '../stores/resultsStore'
 import { hydrateMessagesFromThread, formatSessionBoundary } from './utils/hydrateThread'
@@ -651,6 +656,25 @@ export function attachAnalysisReadyToInlineDraftGraph(
   // exactly how analysis_ready is attached below — so applyDraftResult's
   // existing read sees it.
   responseGoalConstraints?: unknown,
+  // Leg 3 blocker fix (PR #356 review): CEE places `coaching` at the V5
+  // response ROOT, as a SIBLING of `draft_graph` — same class as the
+  // goal_constraints residual above. At the pinned boundary schema
+  // (0.15.0) the strict OlumiResponseSchema declares NO `coaching` key,
+  // so the parser demotes it to the non-enumerable `__additive__` sidecar
+  // (it must NOT be added to KNOWN_OLUMI_TOP_LEVEL_KEYS — the schema is
+  // .strict(), so routing an undeclared key into strict validation would
+  // fail the whole parse; formalising `coaching` at the root is a
+  // @talchain/schemas ask, tracked in the PR record). That means the read
+  // needs the full parsed response object — a destructured `coaching`
+  // property is always absent — so this parameter takes the response
+  // itself, reads the sidecar (formal root key first, should the schema
+  // ever declare it), maps the wire shape through
+  // mapDraftCoachingFromResponse, and attaches the post-adapter
+  // `draftCoaching` field that applyDraftResult already reads and
+  // commits to the store. Absent/malformed coaching attaches nothing, so
+  // applyDraftResult's existing "new draft clears stale coaching"
+  // semantics are preserved unchanged.
+  parsedResponse?: unknown,
 ): Record<string, unknown> | undefined {
   if (draftGraph == null || typeof draftGraph !== 'object') return undefined
 
@@ -671,13 +695,30 @@ export function attachAnalysisReadyToInlineDraftGraph(
     ? { ...graph, goal_constraints: rootGoalConstraints }
     : graph
 
-  if (graphWithConstraints.analysis_ready != null) return graphWithConstraints
+  // Root coaching → post-adapter draftCoaching (see the parameter note
+  // above). Attach only when the inline object doesn't already carry its
+  // own and the mapping yields a real payload (mapDraftCoachingFromResponse
+  // is fail-closed: null for absent/non-object input).
+  const rootCoaching =
+    (parsedResponse as { coaching?: unknown } | null | undefined)?.coaching ??
+    (parsedResponse as OlumiResponseWithExtensions | null | undefined)?.[
+      ADDITIVE_EXTENSIONS_KEY
+    ]?.['coaching']
+  const mappedCoaching =
+    graphWithConstraints.draftCoaching == null
+      ? mapDraftCoachingFromResponse(rootCoaching)
+      : null
+  const graphWithCoaching = mappedCoaching
+    ? { ...graphWithConstraints, draftCoaching: mappedCoaching }
+    : graphWithConstraints
+
+  if (graphWithCoaching.analysis_ready != null) return graphWithCoaching
 
   const normalised = normaliseAnalysisReady(responseAnalysisReady)
-  if (!normalised) return graphWithConstraints
+  if (!normalised) return graphWithCoaching
 
   return {
-    ...graphWithConstraints,
+    ...graphWithCoaching,
     analysis_ready: normalised,
   }
 }
@@ -3242,6 +3283,14 @@ export function useConversation(): UseConversationReturn {
               // see it as absent and clear the store on every inline-draft
               // turn.
               (target.response as { goal_constraints?: unknown }).goal_constraints,
+              // Leg 3 blocker fix: pass the full parsed response — root
+              // `coaching` rides the __additive__ sidecar at the pinned
+              // 0.15.0 schema (a destructured property would always be
+              // absent). The helper maps it to the post-adapter
+              // `draftCoaching` field applyDraftResult commits to the store.
+              // Seam pinned by draftBiasSignalBlocks.seam.spec.ts — keep the
+              // spec's driveSeam wiring in step with this call.
+              target.response,
             )
             const inlineNodeCount = (inlineGraph?.nodes as unknown[] | undefined)?.length ?? 0
 
@@ -3356,7 +3405,33 @@ export function useConversation(): UseConversationReturn {
               isDraftTurn: draftAppliedThisTurn,
               store: useCanvasStore.getState(),
             })
-            const renderBlocks = receipt ? [...finalBlocks, receipt] : finalBlocks
+
+            // Leg 3 (bias coaching, BIAS-COACHING-PROPOSAL-2026-07-16 §2
+            // FRAME beat): bridge the draft response's coaching.bias_signals
+            // into ≤2 typed v5_coaching blocks with coaching_kind
+            // 'bias_signal'. The coaching arrives at the response ROOT
+            // (demoted to the __additive__ sidecar at the pinned 0.15.0
+            // schema); attachAnalysisReadyToInlineDraftGraph maps it onto
+            // the inline graph as `draftCoaching`, and applyDraftResult
+            // committed it to the store synchronously above — on any other
+            // path (no fresh draft applied) the store slice is stale, which
+            // is why the isDraftTurn gate below is load-bearing. Same gate
+            // pattern as the model receipt: fires only on the turn that
+            // applied a fresh draft graph. Fail-closed throughout
+            // (absent/empty/unknown/malformed/ungrounded entries render
+            // nothing); producer-typed bias coaching in finalBlocks
+            // suppresses the bridge entirely. Seam pinned end to end by
+            // draftBiasSignalBlocks.seam.spec.ts.
+            const biasSignalBlocks = buildDraftBiasSignalBlocks({
+              isDraftTurn: draftAppliedThisTurn,
+              store: useCanvasStore.getState(),
+              existingBlocks: finalBlocks,
+            })
+            const renderBlocks = [
+              ...finalBlocks,
+              ...(receipt ? [receipt] : []),
+              ...biasSignalBlocks,
+            ]
 
             // V5 suggested_actions → ActionChip. CEE caps count server-side;
             // UI additionally caps rendering per DS v5 §21.4 in SuggestedChips.
