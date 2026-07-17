@@ -3434,7 +3434,8 @@ export function useConversation(): UseConversationReturn {
             ]
 
             // V5 suggested_actions → ActionChip. CEE caps count server-side;
-            // UI additionally caps rendering per DS v5 §21.4 in SuggestedChips.
+            // UI additionally caps rendering at 3 in SuggestedChips (ruled
+            // doctrine D-K, closed 15 Jul: 0-3 chips, no fabricated filler).
             // action_type when present drives deterministic routing on next click.
             const actionChips: ActionChip[] = target.response.suggested_actions.map((a) => ({
               id: a.id,
