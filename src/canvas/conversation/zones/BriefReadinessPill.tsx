@@ -7,6 +7,7 @@
  */
 
 import type { BriefReadiness } from '../hooks/useBriefSignals'
+import { typography } from '../../../styles/typography'
 
 const READINESS_CONFIG: Record<BriefReadiness, { label: string; dotColor: string; borderColor: string }> = {
   low:    { label: 'Low readiness',    dotColor: 'var(--factor, #B0A899)', borderColor: 'var(--factor-light, rgba(176,168,153,0.3))' },
@@ -34,6 +35,7 @@ export function BriefReadinessPill({ readiness, expanded, onToggle }: BriefReadi
         hover:bg-panel-hover transition-all duration-200
         focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-info
         focus-visible:outline-none
+        ${typography.panelMeta} font-medium
       `}
       style={{
         gap: 5,
@@ -41,8 +43,6 @@ export function BriefReadinessPill({ readiness, expanded, onToggle }: BriefReadi
         padding: '0 9px',
         borderRadius: 999,
         border: `1px solid ${config.borderColor}`,
-        fontSize: 11,
-        fontWeight: 500,
       }}
       data-testid="brief-readiness-pill"
     >

@@ -1,6 +1,29 @@
 /* A.5+ Conversation Panel — CSS Module with Design System v2.1 tokens */
 
 /* ---------------------------------------------------------------------------
+ * § 0 — ONE type scale (lane F3, register 1.69(a))
+ *
+ * Every font-size / font-weight / line-height in this module MUST go through
+ * these tokens. They mirror the panel steps in src/styles/typography.ts
+ * (panelHeader 14/600 · chatProse 14/400 · panelBody 12 · panelMeta 11);
+ * the mirror cannot drift silently — scripts/conversation-type-census.mjs
+ * + tests/ci-guards/conversation-type-census.spec.ts pin both sides and a
+ * raw px declaration outside this block turns the suite red.
+ * ---------------------------------------------------------------------------*/
+
+:root {
+  --conv-type-size-prominent: 14px; /* panelHeader (w/ semibold) · chatProse / bodySmall (regular) */
+  --conv-type-size-body: 12px;      /* panelBody */
+  --conv-type-size-meta: 11px;      /* panelMeta */
+  --conv-type-weight-regular: 400;
+  --conv-type-weight-medium: 500;
+  --conv-type-weight-semibold: 600;
+  --conv-type-line-snug: 1.375;
+  --conv-type-line-normal: 1.5;
+  --conv-type-line-relaxed: 1.625;
+}
+
+/* ---------------------------------------------------------------------------
  * § 1 — Message list container
  * ---------------------------------------------------------------------------*/
 
@@ -28,14 +51,14 @@
 /* Markdown content inside message bubbles */
 .markdownContent {
   white-space: normal;
-  line-height: 1.65;
+  line-height: var(--conv-type-line-relaxed); /* F3 snap: 1.65 → 1.625 */
 }
 /* Compact variant for AI panel v2 — DS v5 panelBody (12px) typography
    plus normalised line-height so the same prose renders identically
    across Compact / Conversation / Focus modes. Focus reveals more
    content via WIDTH, not by changing leading. */
 .markdownContentCompact {
-  line-height: 1.5;
+  line-height: var(--conv-type-line-normal);
 }
 .markdownContent p {
   margin: 0 0 14px;
@@ -72,7 +95,7 @@
   background: var(--bg-panel-hover, #FEF9F3);
   padding: 1px 5px;
   border-radius: 4px;
-  font-size: 12px; /* code token */
+  font-size: var(--conv-type-size-body);
   font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', Menlo, monospace;
 }
 .markdownContent pre {
@@ -82,7 +105,7 @@
   padding: 10px 12px;
   margin: 6px 0;
   overflow-x: auto;
-  font-size: 12px; /* code token */
+  font-size: var(--conv-type-size-body);
 }
 .markdownContent pre code {
   background: none;
@@ -96,11 +119,11 @@
   color: var(--text-light, #908D8D);
 }
 .markdownContent strong {
-  font-weight: 600;
+  font-weight: var(--conv-type-weight-semibold);
 }
 .markdownContent h1, .markdownContent h2, .markdownContent h3,
 .markdownContent h4, .markdownContent h5, .markdownContent h6 {
-  font-weight: 600;
+  font-weight: var(--conv-type-weight-semibold);
   margin: 8px 0 4px;
 }
 .markdownContent h1 { font-size: inherit; }
@@ -150,7 +173,7 @@
 
 /* § 2b — V2 assistant text rhythm (ORCHESTRATOR_RENDERING_V2) */
 .v2AssistantText {
-  line-height: 1.65;
+  line-height: var(--conv-type-line-relaxed); /* F3 snap: 1.65 → 1.625 */
 }
 .v2AssistantText li {
   /* List items sit closer than the 12px inter-block gap (md-gap / ul margins)
@@ -177,8 +200,8 @@
 }
 
 .showMoreTextToggle {
-  font-size: 14px; /* bodySmall */
-  font-weight: 500;
+  font-size: var(--conv-type-size-prominent);
+  font-weight: var(--conv-type-weight-medium);
   color: var(--info, #52A3C8);
   background: none;
   border: none;
@@ -242,7 +265,7 @@
 }
 
 .longRunningHint {
-  font-size: 12px; /* panelBody */
+  font-size: var(--conv-type-size-body);
   color: var(--text-light, #908D8D);
   margin-top: 4px;
 }
@@ -312,7 +335,7 @@
 }
 
 .reviewCardTitle {
-  font-weight: 600;
+  font-weight: var(--conv-type-weight-semibold);
   margin-bottom: 4px;
 }
 
@@ -328,30 +351,30 @@
 }
 
 .factValue {
-  font-weight: 600;
-  font-size: 18px; /* one-off display value */
+  font-weight: var(--conv-type-weight-semibold);
+  font-size: var(--conv-type-size-prominent); /* F3 snap: 18px → 14px */
   color: var(--text-header, #262626);
 }
 
 .factLabel {
-  font-size: 12px; /* panelBody */
+  font-size: var(--conv-type-size-body);
   color: var(--text-light, #908D8D);
 }
 
 .factSource {
-  font-size: 11px; /* panelMeta */
+  font-size: var(--conv-type-size-meta);
   color: var(--text-light, #908D8D);
   font-style: italic;
 }
 
 .showMoreToggle {
-  font-size: 12px; /* panelBody */
+  font-size: var(--conv-type-size-body);
   color: var(--info, #52A3C8);
   background: none;
   border: none;
   cursor: pointer;
   padding: 4px 0;
-  font-weight: 500;
+  font-weight: var(--conv-type-weight-medium);
 }
 
 .showMoreToggle:hover {
@@ -397,28 +420,28 @@
   /* DS v5 §21.2: block type signalled by the goal/30 border + dot. Eyebrow
      uses muted secondary text — no second status colour. */
   color: var(--text-secondary, #6B6B6A);
-  font-weight: 600;
+  font-weight: var(--conv-type-weight-semibold);
 }
 
 .graphPatchReceiptEyebrow {
   color: var(--text-secondary, #6B6B6A);
-  font-weight: 600;
+  font-weight: var(--conv-type-weight-semibold);
 }
 
 .graphPatchSummary {
-  font-weight: 500;
+  font-weight: var(--conv-type-weight-medium);
   color: var(--text-body, #404040);
 }
 
 /* Entity names in summaries render as label token (DS v5: 14px, semibold) */
 .graphPatchSummary strong {
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: var(--conv-type-weight-semibold);
+  font-size: var(--conv-type-size-prominent);
   color: var(--text-header, #262626);
 }
 
 .graphPatchMeta {
-  font-size: 12px; /* panelBody */
+  font-size: var(--conv-type-size-body);
   color: var(--text-light, #908D8D);
 }
 
@@ -458,7 +481,7 @@
   flex-shrink: 0;
   padding: 0;
   color: var(--text-light, #908D8D);
-  font-weight: 400;
+  font-weight: var(--conv-type-weight-regular);
 }
 
 .graphPatchActions {
@@ -476,8 +499,8 @@
   min-height: 44px;
   border-radius: 999px;
   border: none;
-  font-size: 14px; /* panelHeader */
-  font-weight: 500;
+  font-size: var(--conv-type-size-prominent);
+  font-weight: var(--conv-type-weight-medium);
   cursor: pointer;
   background: var(--primary, #52A3C8);
   color: var(--text-on-color, #FFFFFF);
@@ -503,8 +526,8 @@
   min-height: 44px;
   border-radius: 999px;
   border: 1px solid var(--border-default, #EEE6D8);
-  font-size: 14px; /* panelHeader */
-  font-weight: 500;
+  font-size: var(--conv-type-size-prominent);
+  font-weight: var(--conv-type-weight-medium);
   cursor: pointer;
   background: transparent;
   color: var(--text-body, #3F3F3E);
@@ -521,8 +544,8 @@
 }
 
 .graphPatchStatus {
-  font-size: 12px; /* panelBody */
-  font-weight: 500;
+  font-size: var(--conv-type-size-body);
+  font-weight: var(--conv-type-weight-medium);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -544,7 +567,7 @@
 }
 
 .graphPatchError {
-  font-size: 12px; /* panelBody */
+  font-size: var(--conv-type-size-body);
   color: var(--danger, #EA7B4B);
   margin-top: 4px;
 }
@@ -557,7 +580,7 @@
   border: 1px solid var(--danger, #EA7B4B);
   background: none;
   color: var(--danger, #EA7B4B);
-  font-size: 12px; /* panelBody */
+  font-size: var(--conv-type-size-body);
   cursor: pointer;
   margin-top: 4px;
 }
@@ -567,13 +590,13 @@
 }
 
 .graphPatchViolations {
-  font-size: 12px; /* panelBody */
+  font-size: var(--conv-type-size-body);
   color: var(--text-body, #3F3F3E);
   margin-top: 4px;
 }
 
 .graphPatchShowDetails {
-  font-size: 14px; /* bodySmall */
+  font-size: var(--conv-type-size-prominent);
   color: var(--info, #52A3C8);
   background: none;
   border: none;
@@ -593,9 +616,9 @@
    Spec: DS v5 §21.3 — 11px panelMeta, info-blue, no underline on hover. */
 .inlineDisclosureToggle {
   font-family: inherit;
-  font-size: 11px; /* typography.panelMeta */
-  line-height: 1.4;
-  font-weight: 400;
+  font-size: var(--conv-type-size-meta);
+  line-height: var(--conv-type-line-snug); /* F3 snap: 1.4 → 1.375 */
+  font-weight: var(--conv-type-weight-regular);
   color: var(--info, #52A3C8);
   background: none;
   border: none;
@@ -628,15 +651,15 @@
   border-radius: 6px;
 }
 .reasoningPanelHeading {
-  font-size: 11px; /* typography.panelMeta */
-  font-weight: 600;
+  font-size: var(--conv-type-size-meta);
+  font-weight: var(--conv-type-weight-semibold);
   color: var(--text-light, #908D8D);
   margin: 0 0 6px 0;
   text-transform: none;
 }
 .reasoningPanelBody {
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: var(--conv-type-size-prominent); /* F3 snap: 13px → 14px */
+  line-height: var(--conv-type-line-normal);
   color: var(--text-body, #4A4642);
   white-space: pre-wrap;
   word-break: break-word;
@@ -659,8 +682,8 @@
 }
 
 .framingGoal {
-  font-weight: 600;
-  font-size: 14px; /* panelHeader */
+  font-weight: var(--conv-type-weight-semibold);
+  font-size: var(--conv-type-size-prominent);
   color: var(--text-header, #262626);
 }
 
@@ -675,8 +698,8 @@
   border-radius: 999px;
   background: transparent;
   color: var(--text-body, #3F3F3E);
-  font-size: 12px; /* panelBody */
-  font-weight: 500;
+  font-size: var(--conv-type-size-body);
+  font-weight: var(--conv-type-weight-medium);
   border: 1px solid color-mix(in srgb, var(--info, #52A3C8) 30%, transparent);
 }
 
@@ -687,14 +710,14 @@
 }
 
 .framingSectionLabel {
-  font-size: 11px; /* panelMeta */
-  font-weight: 600;
+  font-size: var(--conv-type-size-meta);
+  font-weight: var(--conv-type-weight-semibold);
   color: var(--text-light, #908D8D);
   letter-spacing: 0.04em;
 }
 
 .framingItem {
-  font-size: 13px; /* between panelBody 12px and panelHeader 14px — intentional */
+  font-size: var(--conv-type-size-prominent); /* F3 snap: 13px → 14px */
   color: var(--text-body, #3F3F3E);
   padding-left: 8px;
   border-left: none;
@@ -716,7 +739,7 @@
 }
 
 .briefTitle {
-  font-weight: 600;
+  font-weight: var(--conv-type-weight-semibold);
   margin-bottom: 2px;
 }
 
@@ -739,7 +762,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px; /* panelBody */
+  font-size: var(--conv-type-size-body);
   color: var(--info, #52A3C8);
   background: none;
   border: none;
@@ -756,7 +779,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px; /* panelBody */
+  font-size: var(--conv-type-size-body);
   color: var(--info, #52A3C8);
   text-decoration: none;
 }
@@ -795,14 +818,14 @@
 }
 
 .factBarLabel {
-  font-size: 12px; /* panelBody */
+  font-size: var(--conv-type-size-body);
   color: var(--text-body, #3F3F3E);
   min-width: 80px;
   flex-shrink: 0;
 }
 
 .factBarValue {
-  font-size: 12px; /* panelBody */
+  font-size: var(--conv-type-size-body);
   color: var(--text-light, #908D8D);
   flex-shrink: 0;
   min-width: 36px;
@@ -828,8 +851,8 @@
 }
 
 .factConstraintBadgePass {
-  font-size: 11px; /* panelMeta */
-  font-weight: 600;
+  font-size: var(--conv-type-size-meta);
+  font-weight: var(--conv-type-weight-semibold);
   padding: 2px 6px;
   border-radius: 4px;
   background: transparent;
@@ -840,8 +863,8 @@
 }
 
 .factConstraintBadgeFail {
-  font-size: 11px; /* panelMeta */
-  font-weight: 600;
+  font-size: var(--conv-type-size-meta);
+  font-weight: var(--conv-type-weight-semibold);
   padding: 2px 6px;
   border-radius: 4px;
   background: transparent;
@@ -852,7 +875,7 @@
 }
 
 .factLineage {
-  font-size: 11px; /* panelMeta */
+  font-size: var(--conv-type-size-meta);
   color: var(--text-light, #908D8D);
   font-style: italic;
   margin-top: 4px;
@@ -863,8 +886,8 @@
  * ---------------------------------------------------------------------------*/
 
 .priorityBadge {
-  font-size: 10px; /* one-off badge */
-  font-weight: 700;
+  font-size: var(--conv-type-size-meta); /* F3 snap: 10px → 11px */
+  font-weight: var(--conv-type-weight-semibold); /* F3 snap: 700 → 600 */
   padding: 1px 6px;
   border-radius: 3px;
   color: var(--text-on-color, #FFFFFF);
@@ -904,7 +927,7 @@
  * ---------------------------------------------------------------------------*/
 
 .citationLegend {
-  font-size: 11px; /* panelMeta */
+  font-size: var(--conv-type-size-meta);
   color: var(--text-light, #908D8D);
   margin-top: 6px;
   border-top: 1px solid var(--border-default, #EEE6D8);
@@ -925,7 +948,7 @@
 }
 
 .citationIndex {
-  font-weight: 600;
+  font-weight: var(--conv-type-weight-semibold);
   color: var(--info, #52A3C8);
   flex-shrink: 0;
 }
@@ -992,9 +1015,9 @@
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
-  font-size: 11px; /* panelMeta */
+  font-size: var(--conv-type-size-meta);
   color: var(--info, #52A3C8);
-  font-weight: 500;
+  font-weight: var(--conv-type-weight-medium);
 }
 
 /* Expanded content: DS v5 §19 pattern — mt-2 pl-3 border-l-2 border-panel-border */
@@ -1066,7 +1089,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px; /* panelMeta */
+  font-size: var(--conv-type-size-meta);
   color: var(--info, #52A3C8);
   text-decoration: none;
 }
@@ -1098,8 +1121,8 @@
   min-height: 44px;
   border-radius: 999px;
   border: 1px solid var(--danger, #EA7B4B);
-  font-size: 14px; /* panelHeader */
-  font-weight: 500;
+  font-size: var(--conv-type-size-prominent);
+  font-weight: var(--conv-type-weight-medium);
   cursor: pointer;
   background: none;
   color: var(--danger, #EA7B4B);
@@ -1135,8 +1158,8 @@
   border-radius: 999px;
   border-width: 1px;
   border-style: solid;
-  font-size: 12px; /* panelBody token */
-  font-weight: 500;
+  font-size: var(--conv-type-size-body);
+  font-weight: var(--conv-type-weight-medium);
   cursor: pointer;
   min-height: 44px;
   transition: background 150ms, color 150ms;
@@ -1320,8 +1343,8 @@
   gap: 3px;
   padding: 2px 7px;
   border-radius: 999px;
-  font-size: 11px; /* panelMeta */
-  font-weight: 500;
+  font-size: var(--conv-type-size-meta);
+  font-weight: var(--conv-type-weight-medium);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -1358,7 +1381,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-body, #3F3F3E);
-  font-size: 12px; /* panelBody token */
+  font-size: var(--conv-type-size-body);
   min-width: 0;
 }
 
@@ -1371,8 +1394,8 @@
   border: 1px solid var(--info, #52A3C8);
   background: transparent;
   color: var(--info, #52A3C8);
-  font-size: 12px; /* panelBody */
-  font-weight: 500;
+  font-size: var(--conv-type-size-body);
+  font-weight: var(--conv-type-weight-medium);
   cursor: pointer;
   transition: background 150ms;
   white-space: nowrap;
@@ -1440,8 +1463,8 @@
   background: var(--bg-panel, #FEFEFE);
   color: var(--text-body, #3F3F3E);
   font-family: 'Inter', sans-serif;
-  font-size: 16px; /* input field — intentionally larger */
-  line-height: 1.5;
+  font-size: var(--conv-type-size-prominent); /* F3 snap: 16px → 14px — parity with the live ChatComposer textarea */
+  line-height: var(--conv-type-line-normal);
   resize: none;
   outline: none;
   overflow: hidden;
@@ -1518,8 +1541,8 @@
   border-radius: 999px;
   background: var(--info, #52A3C8);
   color: var(--text-on-color, #FFFFFF);
-  font-size: 12px; /* panelBody */
-  font-weight: 500;
+  font-size: var(--conv-type-size-body);
+  font-weight: var(--conv-type-weight-medium);
   border: none;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
@@ -1572,12 +1595,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-body, #3F3F3E);
-  font-size: 12px; /* panelBody token */
+  font-size: var(--conv-type-size-body);
   min-width: 0;
 }
 
 .actionStripCount {
-  font-size: 11px; /* panelMeta token */
+  font-size: var(--conv-type-size-meta);
   color: var(--text-light, #908D8D);
   white-space: nowrap;
   flex-shrink: 0;
@@ -1590,8 +1613,8 @@
   border: 1px solid var(--border-default, #EEE6D8);
   background: var(--bg-panel, #FEFEFE);
   color: var(--text-body, #3F3F3E);
-  font-size: 12px; /* panelBody */
-  font-weight: 500;
+  font-size: var(--conv-type-size-body);
+  font-weight: var(--conv-type-weight-medium);
   cursor: pointer;
   white-space: nowrap;
   transition: background 150ms;
@@ -1602,8 +1625,8 @@
 }
 
 .actionStripBadge {
-  font-size: 11px; /* panelMeta */
-  font-weight: 500;
+  font-size: var(--conv-type-size-meta);
+  font-weight: var(--conv-type-weight-medium);
   padding: 2px 7px;
   border-radius: 999px;
   white-space: nowrap;
@@ -1630,7 +1653,7 @@
 
 /* Patch staleness warning */
 .patchStalenessWarning {
-  font-size: 12px; /* panelBody */
+  font-size: var(--conv-type-size-body);
   color: var(--warning, #FFA656);
   margin-top: 4px;
   padding: 6px 8px;
@@ -1686,7 +1709,7 @@
   align-items: center;
   gap: 6px;
   padding: 4px 0;
-  font-size: 14px; /* bodySmall token */
+  font-size: var(--conv-type-size-prominent);
   color: var(--text-light, #908D8D);
 }
 
@@ -1836,8 +1859,8 @@
   border: 1px solid color-mix(in srgb, var(--info, #52A3C8) 30%, transparent);
   color: var(--text-body, #3F3F3E);
   background: transparent;
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--conv-type-size-meta);
+  font-weight: var(--conv-type-weight-medium);
   white-space: nowrap;
 }
 
@@ -1950,8 +1973,8 @@
   align-items: center;
   gap: 6px;
   align-self: flex-start;
-  font-size: 12px; /* panelBody */
-  font-weight: 500;
+  font-size: var(--conv-type-size-body);
+  font-weight: var(--conv-type-weight-medium);
   color: var(--text-body, #262626);
   background: transparent;
   border: 1px solid var(--border-default, #E4E2E0);
@@ -1975,7 +1998,7 @@
   align-items: center;
   gap: 4px;
   align-self: flex-start;
-  font-size: 11px; /* panelMeta */
+  font-size: var(--conv-type-size-meta);
   color: var(--text-light, #908D8D);
   background: none;
   border: none;

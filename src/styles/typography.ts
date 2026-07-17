@@ -53,10 +53,20 @@ export const typography = {
   panelBody: 'text-xs font-sans leading-relaxed',                 // 12px — body text, descriptions, bullets, card content
   panelMeta: 'text-[11px] font-sans leading-snug',                // 11px — badges, pills, axis labels, tertiary metadata
 
+  // Conversation panel — ONE type scale (lane F3, register 1.69(a)).
+  // The panel renders exactly three sizes — 14 (panelHeader / chatProse /
+  // bodySmall), 12 (panelBody), 11 (panelMeta) — plus the named 24px
+  // first-use hero (welcomeHeading below). chatProse is the message-prose
+  // step: same 14px as panelHeader but regular weight with relaxed rhythm
+  // for multi-line reading. Census-enforced: scripts/conversation-type-census.mjs
+  // + tests/ci-guards/conversation-type-census.spec.ts fail on any new size.
+  chatProse: 'text-sm font-sans leading-relaxed',                // 14px — chat message prose
+
   // AI Panel v2 first-use hero heading. Inter, 24px, semibold, calm rhythm.
-  // Used exclusively by the FirstUseComposer welcome surface so the hero
-  // reads as a prominent invitation without breaking the strict panel-text
-  // hierarchy used elsewhere. Neutral letter spacing — display tightening
+  // Used exclusively by first-use welcome surfaces (FirstUseComposer, the
+  // conversation EmptyState hero) so the hero reads as a prominent
+  // invitation without breaking the strict panel-text hierarchy used
+  // elsewhere. Neutral letter spacing — display tightening
   // (tracking-tight) felt off on this hero scale.
   welcomeHeading: 'text-[24px] font-semibold font-sans leading-snug', // 24px — AI Panel v2 hero only
 

@@ -13,6 +13,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { CheckCircle, Info } from 'lucide-react'
 import type { RealtimeSignals } from '../../signals/realtime-signals'
+import { typography } from '../../styles/typography'
 import {
   extractAlternativeSnippet,
   extractOutcomeSnippet,
@@ -121,7 +122,7 @@ export function ReadinessPill({ signals, briefText }: ReadinessPillProps) {
         onClick={toggle}
         className={`
           inline-flex items-center rounded-full font-medium
-          px-2 py-0.5 text-xs
+          px-2 py-0.5 ${typography.caption}
           bg-panel ${textClass}
           transition-opacity duration-200
           hover:opacity-80
@@ -148,7 +149,7 @@ export function ReadinessPill({ signals, briefText }: ReadinessPillProps) {
               ) : (
                 <Info className="w-3.5 h-3.5 text-text-light flex-shrink-0 mt-0.5" aria-hidden="true" />
               )}
-              <span className={`text-xs ${row.detected ? 'text-text-body' : 'text-text-light'}`}>
+              <span className={`${typography.caption} ${row.detected ? 'text-text-body' : 'text-text-light'}`}>
                 {row.detected ? row.presentLabel : row.missingLabel}
               </span>
             </div>

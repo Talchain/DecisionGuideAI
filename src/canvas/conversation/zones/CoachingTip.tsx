@@ -7,6 +7,7 @@
  */
 
 import { Sparkles } from 'lucide-react'
+import { typography } from '../../../styles/typography'
 
 interface CoachingTipProps {
   tip: string
@@ -26,7 +27,7 @@ export function CoachingTip({ tip, onDismiss }: CoachingTipProps) {
       data-testid="coaching-tip"
     >
       <Sparkles className="w-3.5 h-3.5 text-info flex-shrink-0 mt-0.5" aria-hidden="true" />
-      <p className="text-text-body flex-1" style={{ fontSize: 12, lineHeight: 1.5 }}>{tip}</p>
+      <p className={`text-text-body flex-1 ${typography.panelBody}`}>{tip}</p>
       <button
         type="button"
         onClick={onDismiss}
