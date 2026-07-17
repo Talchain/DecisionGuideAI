@@ -2,7 +2,8 @@
  * Tests for SuggestedChips.
  *
  * Verifies:
- * - Chip count: 0, 1, 2 (max); 0 chips renders no container
+ * - Chip count: 0-3 (ruled doctrine D-K, closed 15 Jul); 0 chips renders no
+ *   container (never a fabricated filler chip); 4+ offered still caps at 3
  * - Chips without message field are not rendered
  * - Click dispatches chip.message (not chip.label) — verified via onChipClick call arg
  * - Click failure shows inline error that auto-dismisses after 5s
@@ -57,7 +58,7 @@ describe('SuggestedChips — 0 chips', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Chip count: 1, 2, 3, 4
+// Chip count: 0-3 (ruled doctrine D-K)
 // ---------------------------------------------------------------------------
 
 describe('SuggestedChips — chip count', () => {
@@ -66,19 +67,38 @@ describe('SuggestedChips — chip count', () => {
     expect(screen.getAllByRole('button')).toHaveLength(1)
   })
 
-  it('renders 2 chips', () => {
+  it('renders 2 chips (existing 2-chip behaviour unchanged)', () => {
     const chips = [chip({ id: 'c1' }), chip({ id: 'c2' })]
     render(<SuggestedChips chips={chips} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
     expect(screen.getAllByRole('button')).toHaveLength(2)
   })
 
-  it('caps at 2 chips even when more are supplied (DS v5 §21.4)', () => {
+  it('renders 3 chips when 3 are offered, in offered order (ruled doctrine D-K)', () => {
+    const chips = [
+      chip({ id: 'c1', label: 'First' }),
+      chip({ id: 'c2', label: 'Second' }),
+      chip({ id: 'c3', label: 'Third' }),
+    ]
+    render(<SuggestedChips chips={chips} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
+    const buttons = screen.getAllByRole('button')
+    expect(buttons).toHaveLength(3)
+    // Order preserved: DOM order matches offered order
+    expect(buttons.map(b => b.getAttribute('data-testid'))).toEqual([
+      'suggested-chip-c1',
+      'suggested-chip-c2',
+      'suggested-chip-c3',
+    ])
+  })
+
+  it('caps at 3 chips when 4+ are supplied (ruled doctrine D-K: 0-3)', () => {
     const chips = [
       chip({ id: 'c1' }), chip({ id: 'c2' }), chip({ id: 'c3' }),
       chip({ id: 'c4' }), chip({ id: 'c5' }),
     ]
     render(<SuggestedChips chips={chips} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    expect(screen.getAllByRole('button')).toHaveLength(2)
+    expect(screen.getAllByRole('button')).toHaveLength(3)
+    expect(screen.queryByTestId('suggested-chip-c4')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('suggested-chip-c5')).not.toBeInTheDocument()
   })
 
   it('does not render chips without a message field', () => {

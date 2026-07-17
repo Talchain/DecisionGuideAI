@@ -2,7 +2,9 @@
  * SuggestedChips — stagger-animated action chips after AI messages.
  *
  * Each chip fades in + slides up with 70ms delay between.
- * Up to 2 chips (DS v5 §21.4 cap). Chip base: bg-panel, border
+ * 0-3 chips (ruled doctrine D-K, closed 15 Jul: render up to 3 when CEE
+ * offers 3; render none when CEE offers none — never fabricate a filler
+ * chip; labels render verbatim as sent by CEE). Chip base: bg-panel, border
  * border-panel-border, hover:bg-panel-hover. Role metadata preserved via
  * data-chip-role and aria-label for styling/accessibility.
  *
@@ -253,8 +255,10 @@ export function SuggestedChips({
         )
     : supported
 
-  // DS v5 §21.4: max 2 suggested action chips
-  const visible = polished.filter(c => !!(c.message || c.prompt)).slice(0, 2)
+  // Ruled doctrine D-K (closed 15 Jul): 0-3 suggested action chips — render
+  // up to 3 when offered, none when none offered (no filler). Supersedes the
+  // DS v5 §21.4 "max 2" cap; the DS doc amendment is owned by the DS-1 lane.
+  const visible = polished.filter(c => !!(c.message || c.prompt)).slice(0, 3)
   if (visible.length === 0) return null
 
   const disabled = isThinking || isHistorical
