@@ -80,7 +80,6 @@ const framing: FramingBlock = { type: 'framing', goal: 'A goal', options: [] }
 const brief: BriefBlock = { type: 'brief', title: 'A brief', summary: 'Summary.' }
 
 let scrollSpy: ReturnType<typeof vi.fn>
-let rafSpy: ReturnType<typeof vi.spyOn> | null = null
 
 beforeEach(() => {
   scrollSpy = vi.fn()
@@ -88,16 +87,16 @@ beforeEach(() => {
   // Deterministic double-rAF: queue callbacks as macrotasks so they run
   // AFTER React commits the reveal (matching real frame timing), and let
   // waitFor flush them.
-  rafSpy = vi
-    .spyOn(window, 'requestAnimationFrame')
-    .mockImplementation((cb: FrameRequestCallback) => {
+  vi.spyOn(window, 'requestAnimationFrame').mockImplementation(
+    (cb: FrameRequestCallback) => {
       setTimeout(() => cb(0), 0)
       return 0
-    })
+    },
+  )
 })
 
 afterEach(() => {
-  rafSpy?.mockRestore()
+  vi.restoreAllMocks()
 })
 
 describe('C11 — citation to collapsed content reveals and scrolls', () => {
