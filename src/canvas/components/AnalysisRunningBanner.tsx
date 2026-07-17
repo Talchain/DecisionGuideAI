@@ -106,9 +106,18 @@ export interface AnalysisRunningBannerProps {
    * origin is mount time, which is what the round-2 regression was.
    */
   startedAt?: number
+  /**
+   * F9: whether this mount is a live region (role=status, aria-live).
+   * Default true — the Analysis tab's mount keeps today's behaviour
+   * unchanged. Mounts OUTSIDE the Analysis tab (via AnalysisRunStateCover)
+   * pass false: the dock-level AnalysisRunAnnouncer is the single voice for
+   * run transitions there, and one live region per surface is exactly the
+   * stacked-narration class the Wave1-L2 rule exists to prevent.
+   */
+  announces?: boolean
 }
 
-export function AnalysisRunningBanner({ startedAt }: AnalysisRunningBannerProps = {}) {
+export function AnalysisRunningBanner({ startedAt, announces = true }: AnalysisRunningBannerProps = {}) {
   const prefersReducedMotion = usePrefersReducedMotion()
 
   // Fallback origin, captured once so it cannot drift across re-renders.
@@ -157,8 +166,7 @@ export function AnalysisRunningBanner({ startedAt }: AnalysisRunningBannerProps 
     <div
       className="mx-3 mb-2 flex items-center gap-2 rounded-md border border-panel-border bg-panel px-3 py-2"
       data-testid="analysis-running-banner"
-      role="status"
-      aria-live="polite"
+      {...(announces ? ({ role: 'status', 'aria-live': 'polite' } as const) : {})}
     >
       <Loader2
         className={`h-4 w-4 text-info ${prefersReducedMotion ? '' : 'animate-spin'}`}

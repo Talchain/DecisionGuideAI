@@ -1226,3 +1226,122 @@ describe('Wave1-L2: single run-status live region', () => {
     vi.useRealTimers()
   })
 })
+
+/**
+ * F9 (UI brief 2026-07-16 item 3): run start/settle is announced by ONE
+ * dock-level live region, whichever tab is fronted.
+ *
+ * The Wave1-L2 rule above guarantees at most one ONGOING narration region
+ * inside the Analysis tab. These cases pin its F9 extension: a single
+ * always-mounted announcer speaks run START and SETTLE for every other tab,
+ * and YIELDS while the Analysis tab is fronted, whose own furniture (the
+ * banner's narration div at start, the completion toast at settle) already
+ * announces there. Without the yield, an Analysis-tab run start would be
+ * spoken twice (the #329 narration-div trap).
+ */
+describe('F9: dock-level run announcer (single voice for start/settle)', () => {
+  beforeEach(cleanupDockState)
+
+  function seedIdle(withReport: boolean) {
+    const baseResults = useCanvasStore.getState().results
+    useCanvasStore.setState({
+      nodes: testNodes,
+      edges: testEdges,
+      hasCompletedFirstRun: withReport,
+      results: {
+        ...baseResults,
+        status: withReport ? 'complete' : 'idle',
+        report: withReport ? fakeReportForTests : null,
+      },
+    } as any)
+  }
+
+  function startRun(withReport: boolean) {
+    const current = useCanvasStore.getState().results
+    act(() => {
+      useCanvasStore.setState({
+        results: {
+          ...current,
+          status: 'streaming',
+          startedAt: Date.now(),
+          report: withReport ? fakeReportForTests : null,
+        },
+      } as any)
+    })
+  }
+
+  function settleRun(status: 'complete' | 'error') {
+    const current = useCanvasStore.getState().results
+    act(() => {
+      useCanvasStore.setState({
+        results: { ...current, status },
+      } as any)
+    })
+  }
+
+  it('mounts exactly one announcer at dock level', () => {
+    seedIdle(false)
+    renderOutputsDock()
+    expect(screen.getAllByTestId('analysis-run-announcer')).toHaveLength(1)
+  })
+
+  it('announces rerun start and settle while the Compare tab is fronted, exactly once', () => {
+    // A RERUN (complete -> streaming) does not trip the I.1 auto-switch, so
+    // Compare stays fronted for the whole run — exactly the F9 scenario
+    // (rerun dispatched with another tab in view was silent and frozen).
+    seedIdle(true)
+    renderOutputsDock()
+    fireEvent.click(screen.getByRole('button', { name: 'Compare' }))
+
+    startRun(true)
+    expect(screen.getByTestId('analysis-run-announcer')).toHaveTextContent(
+      'Analysis started.',
+    )
+    // Structural single-voice pin: no OTHER live region carries the
+    // announcement (one aria-live announcement per transition).
+    const speakingRegions = Array.from(
+      document.querySelectorAll('[aria-live]'),
+    ).filter((el) => (el.textContent ?? '').includes('Analysis started.'))
+    expect(speakingRegions).toHaveLength(1)
+
+    settleRun('complete')
+    expect(screen.getByTestId('analysis-run-announcer')).toHaveTextContent(
+      'Analysis complete.',
+    )
+  })
+
+  it('announces rerun failure honestly while the Model tab is fronted', () => {
+    seedIdle(true)
+    renderOutputsDock()
+    fireEvent.click(screen.getByRole('button', { name: 'Model' }))
+
+    startRun(true)
+    settleRun('error')
+    expect(screen.getByTestId('analysis-run-announcer')).toHaveTextContent(
+      'Analysis failed.',
+    )
+  })
+
+  it('stays silent on a FIRST run: the auto-switch fronts the Analysis tab, whose furniture speaks', () => {
+    seedIdle(false)
+    renderOutputsDock()
+    fireEvent.click(screen.getByRole('button', { name: 'Compare' }))
+
+    startRun(false)
+    // The I.1 auto-switch yanked the dock to the Analysis tab, where the
+    // results skeleton is the visible run furniture...
+    expect(screen.getByTestId('headline-skeleton')).toBeInTheDocument()
+    // ...so the announcer yields the start rather than double-announcing.
+    expect(screen.getByTestId('analysis-run-announcer')).toHaveTextContent('')
+  })
+
+  it('yields while the Analysis tab is fronted: the narration banner speaks, the announcer stays silent', () => {
+    seedIdle(true)
+    renderOutputsDock()
+
+    startRun(true)
+    // The Analysis tab's own narration region is the run-start voice here.
+    expect(screen.getByTestId('analysis-running-banner')).toBeInTheDocument()
+    expect(screen.getByTestId('analysis-run-announcer')).toHaveTextContent('')
+  })
+})

@@ -18,6 +18,8 @@ import {
 } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import { useCanvasStore } from '../store'
+import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
+import { AnalysisRunStateCover } from './AnalysisRunStateCover'
 import { useUIStore } from '../../stores/uiStore'
 import { getDisplayEdgeId, buildFragileEdgeLookup } from '../utils/edgeIdentity'
 import { getCausalEdges } from '../domain/edgeUtils'
@@ -156,6 +158,10 @@ export const ModelTabBody = memo(function ModelTabBody({
     })
     useUIStore.getState().requestModelTabSection(null)
   }, [pendingSection])
+
+  // F9 (UI brief 2026-07-16 item 3): run-state coverage. One trust surface:
+  // the composed useAnalysisTrust answer drives the in-flight treatment.
+  const trust = useAnalysisTrust()
 
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
   const ceePipelineTrace = useCanvasStore(s => s.ceePipelineTrace)
@@ -578,7 +584,20 @@ export const ModelTabBody = memo(function ModelTabBody({
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-4 pb-4" data-testid="model-tab">
+    <div
+      className="space-y-4 pb-4"
+      data-testid="model-tab"
+      aria-busy={trust.isRunning || undefined}
+    >
+
+      {/* F9: run in flight — banner above the retained model (marked, never
+          blanked); defensive skeleton when there is no model to retain. The
+          dock-level announcer carries the aria-live announcement. */}
+      <AnalysisRunStateCover
+        isRunning={trust.isRunning}
+        startedAt={trust.runStartedAt}
+        contentRetained={nodes.length > 0}
+      />
 
       {/* ── Header: factor/edge counts + "Show full detail" toggle ─────────── */}
       <ModelTabHeader

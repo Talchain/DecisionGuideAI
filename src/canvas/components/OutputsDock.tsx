@@ -29,6 +29,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
 import { AnalysisRunningBanner } from './AnalysisRunningBanner'
+import { AnalysisRunAnnouncer } from './AnalysisRunAnnouncer'
 import { runStatusRegion } from './analysisRunStatus'
 import { registerCanonicalRunner, type CanonicalRunOptions, type CanonicalRunOutcome } from '../analysis/canonicalRunRegistry'
 import { useShowToastSafe } from '../ToastContext'
@@ -1697,6 +1698,15 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
           openDefineSuccess()/openDecisionRecord() work from any surface. */}
       <DefineSuccessModal />
       <DecisionRecordModal />
+      {/* F9: THE single aria-live region for run start/settle, mounted once
+          at the dock root so it survives tab switches and speaks for runs
+          dispatched from ANY tab. It yields while the Analysis tab is
+          fronted — that tab's own furniture (narration banner, completion
+          toast, error alert) already announces there. Rule:
+          runAnnouncementForTransition in analysisRunStatus.ts. */}
+      <AnalysisRunAnnouncer
+        analysisTabFronted={effectiveIsOpen && effectiveActiveTab === 'results'}
+      />
       {effectiveIsOpen && (
         <div
           aria-hidden="true"

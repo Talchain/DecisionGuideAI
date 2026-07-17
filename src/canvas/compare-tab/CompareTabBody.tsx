@@ -7,6 +7,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useCanvasStore } from '../store'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
+import { AnalysisRunStateCover } from '../components/AnalysisRunStateCover'
 import { useAnalysisSnapshotStore, selectSnapshots } from '../stores/analysisSnapshotStore'
 import { useUIStore } from '../../stores/uiStore'
 import { deriveCompareState } from './deriveCompareState'
@@ -29,11 +30,14 @@ const EXPERT_STORAGE_KEY = 'feature.compareExpert'
 export function CompareTabBody({ onRunAnalysis }: CompareTabBodyProps) {
   // Snapshot data
   const snapshots = useAnalysisSnapshotStore(selectSnapshots)
+  // One trust surface (F10/F11): staleness AND run state both come from the
+  // composed useAnalysisTrust answer, never from local flags.
   // "Results outdated" must reflect the composed trust semantic being
   // 'changed' (CEE 'stale' OR a retained-fresh-now-dirtied), NOT the local
   // `graphEditedSinceLastRun` flag, which would independently fabricate a
   // stale state.
-  const graphIsStale = useAnalysisTrust().semantic === 'changed'
+  const trust = useAnalysisTrust()
+  const graphIsStale = trust.semantic === 'changed'
 
   // UI state
   const [preset, setPreset] = useState<RunPreset>('prev')
@@ -114,12 +118,25 @@ export function CompareTabBody({ onRunAnalysis }: CompareTabBodyProps) {
     useUIStore.getState().setActiveOutputTab('results')
   }, [])
 
-  // Empty state
+  // Empty state. F9: while a run is in flight there is no content to
+  // retain here, so the skeleton stands in for the frozen empty state
+  // (which invites a run that is already happening). Settle, complete or
+  // error, restores the honest empty state.
   if (snapshots.length < 2) {
     return (
       <div className="flex flex-col h-full" data-testid="compare-tab-body">
         <TabHeader showExpert={showExpert} onToggleExpert={handleToggleExpert} />
-        <EmptyState onViewResults={switchToResults} />
+        {trust.isRunning ? (
+          <div className="pt-3">
+            <AnalysisRunStateCover
+              isRunning
+              startedAt={trust.runStartedAt}
+              contentRetained={false}
+            />
+          </div>
+        ) : (
+          <EmptyState onViewResults={switchToResults} />
+        )}
       </div>
     )
   }
@@ -133,7 +150,17 @@ export function CompareTabBody({ onRunAnalysis }: CompareTabBodyProps) {
         runCount={snapshots.length}
         showExpert={showExpert}
       />
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      {/* F9: run in flight over retained snapshots — banner above, content
+          marked busy below, never blanked (v6 doctrine). */}
+      {trust.isRunning && (
+        <div className="pt-2">
+          <AnalysisRunStateCover isRunning startedAt={trust.runStartedAt} contentRetained />
+        </div>
+      )}
+      <div
+        className="flex-1 min-h-0 overflow-y-auto"
+        aria-busy={trust.isRunning || undefined}
+      >
         <Hero state={compareState} snapshots={snapshots} showExpert={showExpert} />
         <TrajectorySection snapshots={snapshots} showExpert={showExpert} />
         <TransitionsSection

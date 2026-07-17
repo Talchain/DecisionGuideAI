@@ -30,6 +30,15 @@ export interface AnalysisTrust {
   orphaned: boolean
   /** An analysis is in flight right now. */
   isRunning: boolean
+  /**
+   * Wall-clock ms when the current/most recent run started (the store's
+   * `results.startedAt`, stamped by every path that enters a running
+   * status). F9: reused run-state banners narrate from THIS clock so a
+   * mid-run mount reports the age of the RUN, never the age of the
+   * component (the #327 round-2 regression class). Meaningful alongside
+   * `isRunning`; undefined when no run has ever started.
+   */
+  runStartedAt?: number
   /** Technical reason code (debug/telemetry; never user copy). */
   reason?: string
 }
@@ -69,8 +78,9 @@ export function computeAnalysisTrust(input: {
   dirty: boolean
   source: AnalysisStateSource | null | undefined
   resultsStatus: string | null | undefined
+  resultsStartedAt?: number
 }): AnalysisTrust {
-  const { freshness, dirty, source, resultsStatus } = input
+  const { freshness, dirty, source, resultsStatus, resultsStartedAt } = input
   const orphaned = source === 'orphaned_plot_result'
   // Same effective state the strip renders — the orphan fold happens HERE,
   // not per-consumer, so adopting surfaces inherit the F11 precedence rather
@@ -80,6 +90,7 @@ export function computeAnalysisTrust(input: {
     semantic: classifyFreshnessForDisplay(effective, dirty),
     orphaned,
     isRunning: RUNNING_STATUSES.has(resultsStatus ?? ''),
+    runStartedAt: resultsStartedAt,
     reason: effective?.freshnessReason,
   }
 }
@@ -88,6 +99,7 @@ export function useAnalysisTrust(): AnalysisTrust {
   const freshness = useCanvasStore((s) => s.analysisFreshness)
   const dirty = useCanvasStore((s) => s.analysisFreshnessDirty)
   const resultsStatus = useCanvasStore((s) => s.results?.status)
+  const resultsStartedAt = useCanvasStore((s) => s.results?.startedAt)
   const { source } = useAnalysisStateSource()
-  return computeAnalysisTrust({ freshness, dirty, source, resultsStatus })
+  return computeAnalysisTrust({ freshness, dirty, source, resultsStatus, resultsStartedAt })
 }
