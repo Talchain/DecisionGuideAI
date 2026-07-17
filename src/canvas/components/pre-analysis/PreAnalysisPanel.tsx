@@ -28,6 +28,7 @@ import { StickyFooter } from './StickyFooter'
 import { focusNodeById } from '../../utils/focusHelpers'
 import { withObservedStateUpdate } from '../../utils/observedStateHelpers'
 import { useCanvasStore } from '../../store'
+import { BIAS_SIGNAL_TITLES } from '../../shared/biasSignalTitles'
 import { useDraftStore } from '../../stores/draftStore'
 import { useRetryDraft } from '../../hooks/useRetryDraft'
 import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
@@ -85,31 +86,49 @@ const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred', 'ai_estimate', 'e
  *      need explicit mapping per the brief.
  *
  * Any unrecognised key falls back to BIAS_FALLBACK (EyeOff) per the brief.
+ *
+ * #356 fast-follow: TITLES derive from the ONE canonical map
+ * (src/canvas/shared/biasSignalTitles.ts) shared with the conversation
+ * bias-signal cards — one bias, one name, every surface. Only the ICON
+ * channel stays panel-local. A key with no canonical title is omitted
+ * (falls through to BIAS_FALLBACK — fail closed, never an invented
+ * title); the parity spec's drift trap fails loud if that ever happens.
+ * Exported for that drift trap (biasSignalTitles.parity.spec.ts).
  */
-const BIAS_TYPE_ICON: Record<string, { icon: typeof Frame; title: string }> = {
+const BIAS_TYPE_ICON_CHANNEL: Record<string, typeof Frame> = {
   // Lowercase type values (existing field convention)
-  framing:           { icon: Frame,  title: 'Narrow framing' },
-  framing_bias:      { icon: Frame,  title: 'Narrow framing' },
-  narrow_framing:    { icon: Frame,  title: 'Narrow framing' },
-  anchoring:         { icon: Anchor, title: 'Anchoring' },
-  anchoring_bias:    { icon: Anchor, title: 'Anchoring' },
-  confidence:        { icon: Gauge,  title: 'Overconfidence' },
-  overconfidence:    { icon: Gauge,  title: 'Overconfidence' },
-  optimism_bias:     { icon: Gauge,  title: 'Optimism bias' },
-  blind_spots:       { icon: EyeOff, title: 'Blind spots' },
-  status_quo_bias:   { icon: EyeOff, title: 'Status quo bias' },
-  confirmation:      { icon: Frame,  title: 'Confirmation bias' },
-  confirmation_bias: { icon: Frame,  title: 'Confirmation bias' },
-  authority_bias:    { icon: Anchor, title: 'Authority bias' },
-  availability_bias: { icon: Frame,  title: 'Availability bias' },
-  sunk_cost:         { icon: Anchor, title: 'Sunk cost' },
+  framing:           Frame,
+  framing_bias:      Frame,
+  narrow_framing:    Frame,
+  anchoring:         Anchor,
+  anchoring_bias:    Anchor,
+  confidence:        Gauge,
+  overconfidence:    Gauge,
+  optimism_bias:     Gauge,
+  blind_spots:       EyeOff,
+  status_quo_bias:   EyeOff,
+  confirmation:      Frame,
+  confirmation_bias: Frame,
+  authority_bias:    Anchor,
+  availability_bias: Frame,
+  sunk_cost:         Anchor,
   // Uppercase code values (newer schema)
-  AUTHORITY_BIAS:    { icon: Anchor, title: 'Authority bias' },
-  CONFIRMATION_BIAS: { icon: Gauge,  title: 'Confirmation bias' },
-  SUNK_COST:         { icon: Anchor, title: 'Sunk cost' },
-  NARROW_FRAMING:    { icon: Frame,  title: 'Narrow framing' },
-  STATUS_QUO_BIAS:   { icon: EyeOff, title: 'Status quo bias' },
+  AUTHORITY_BIAS:    Anchor,
+  CONFIRMATION_BIAS: Gauge,
+  SUNK_COST:         Anchor,
+  NARROW_FRAMING:    Frame,
+  STATUS_QUO_BIAS:   EyeOff,
 }
+
+export const BIAS_TYPE_ICON: Record<string, { icon: typeof Frame; title: string }> =
+  Object.fromEntries(
+    Object.entries(BIAS_TYPE_ICON_CHANNEL).flatMap(([key, icon]) => {
+      const title = Object.prototype.hasOwnProperty.call(BIAS_SIGNAL_TITLES, key.toLowerCase())
+        ? BIAS_SIGNAL_TITLES[key.toLowerCase()]
+        : undefined
+      return title ? [[key, { icon, title }] as const] : []
+    }),
+  )
 
 /**
  * Entity-ID prefixes that must NEVER appear in user-facing copy. If a CEE bug

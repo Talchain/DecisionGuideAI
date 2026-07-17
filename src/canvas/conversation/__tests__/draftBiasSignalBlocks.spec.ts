@@ -268,3 +268,41 @@ describe('buildDraftBiasSignalBlocks — no raw code string in visible copy (swe
     expect(blocks[0].title).toBe('Status quo bias')
   })
 })
+
+// ─── #356 fast-follow: (bias, target) dedupe ahead of the cap ────────────
+
+describe('buildDraftBiasSignalBlocks — duplicate (type,target) dedupe (#356 fast-follow)', () => {
+  it('an identical (type,target) duplicate cannot displace a distinct third signal', () => {
+    const blocks = build([
+      SIGNAL_ANCHORING,
+      { ...SIGNAL_ANCHORING, detail: 'Same anchoring signal, reworded by the producer.' },
+      SIGNAL_STATUS_QUO,
+    ])
+    expect(blocks).toHaveLength(2)
+    expect(blocks.map((b) => b.title)).toEqual(['Anchoring', 'Status quo bias'])
+    // First occurrence wins — its detail is the rendered body.
+    expect(blocks[0].body).toBe(SIGNAL_ANCHORING.detail)
+  })
+
+  it('dedupes on canonical bias identity: alias codes for the same bias on the same target', () => {
+    const blocks = build([
+      SIGNAL_ANCHORING,
+      { ...SIGNAL_ANCHORING, type: 'anchoring_bias' },
+      SIGNAL_SUNK_COST,
+    ])
+    expect(blocks).toHaveLength(2)
+    expect(blocks.map((b) => b.title)).toEqual(['Anchoring', 'Sunk cost'])
+  })
+
+  it('the same bias on DIFFERENT targets is two distinct signals — both render', () => {
+    const blocks = build([
+      SIGNAL_ANCHORING,
+      { ...SIGNAL_ANCHORING, target: 'fac_current_supplier' },
+    ])
+    expect(blocks).toHaveLength(2)
+    expect(blocks.map((b) => b.target_refs[0].id)).toEqual([
+      'fac_initial_quote',
+      'fac_current_supplier',
+    ])
+  })
+})
