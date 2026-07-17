@@ -115,6 +115,12 @@ export function buildDraftBiasSignalBlocks(args: {
   if (!Array.isArray(signals) || signals.length === 0) return []
 
   const out: V5CoachingBlock[] = []
+  // #356 fast-follow: dedupe identical (bias, target) signals BEFORE the
+  // cap, so a producer duplicate can never displace a distinct third
+  // signal. Identity is the canonical humanised title (alias codes like
+  // anchoring/anchoring_bias are the same bias — one bias, one name) plus
+  // the resolved target node id. First occurrence wins.
+  const seen = new Set<string>()
   for (let i = 0; i < signals.length && out.length < DRAFT_BIAS_SIGNAL_CARD_CAP; i++) {
     const signal = signals[i] as unknown
     if (!signal || typeof signal !== 'object') continue
@@ -128,6 +134,10 @@ export function buildDraftBiasSignalBlocks(args: {
 
     const ref = resolveNodeForTarget(s.target, store.nodes)
     if (!ref) continue
+
+    const identity = `${title}|${ref.id}`
+    if (seen.has(identity)) continue
+    seen.add(identity)
 
     out.push({
       type: 'v5_coaching',
