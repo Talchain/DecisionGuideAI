@@ -5,8 +5,8 @@
  *
  *   C11: a citation click whose [data-citation-target] sits behind the
  *        pacing/budget collapse used to hit `if (!target) return` — a
- *        silent no-op. Now it reveals the collapsed content, retries after
- *        the commit (double rAF) and scrolls; it fails silent only when
+ *        silent no-op. Now it reveals the collapsed content, flushes the
+ *        commit synchronously and scrolls; it fails silent only when
  *        the target is STILL missing.
  *   C13: the graph-vocabulary legend used to gate on phase3Count > 0 — it
  *        rendered for a turn whose ONLY phase-3 card was hidden behind the
@@ -18,7 +18,7 @@
  *        text stays; the live-region role goes.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { InlineBlocks } from '../InlineBlocks'
 import type {
   BriefBlock,
@@ -84,15 +84,9 @@ let scrollSpy: ReturnType<typeof vi.fn>
 beforeEach(() => {
   scrollSpy = vi.fn()
   Element.prototype.scrollIntoView = scrollSpy as unknown as typeof Element.prototype.scrollIntoView
-  // Deterministic double-rAF: queue callbacks as macrotasks so they run
-  // AFTER React commits the reveal (matching real frame timing), and let
-  // waitFor flush them.
-  vi.spyOn(window, 'requestAnimationFrame').mockImplementation(
-    (cb: FrameRequestCallback) => {
-      setTimeout(() => cb(0), 0)
-      return 0
-    },
-  )
+  // No rAF mock needed: the handler reveals via flushSync and re-queries
+  // synchronously (/simplify item 6), so every assertion below is
+  // synchronous — no waitFor, no macrotask flush.
 })
 
 afterEach(() => {
@@ -100,7 +94,7 @@ afterEach(() => {
 })
 
 describe('C11 — citation to collapsed content reveals and scrolls', () => {
-  it('a citation targeting a pacing-collapsed phase-3 card expands the collapse and scrolls to it', async () => {
+  it('a citation targeting a pacing-collapsed phase-3 card expands the collapse and scrolls to it', () => {
     // blocks[0] commentary with a citation at index 6 → blocks[5] (rc_5),
     // which sits behind the phase-3 pacing collapse (5 phase-3 cards,
     // default-expanded 3).
@@ -125,10 +119,10 @@ describe('C11 — citation to collapsed content reveals and scrolls', () => {
 
     // Revealed and scrolled — not a silent no-op.
     expect(screen.getByText('Review card 5')).toBeInTheDocument()
-    await waitFor(() => expect(scrollSpy).toHaveBeenCalled())
+    expect(scrollSpy).toHaveBeenCalled()
   })
 
-  it('a citation targeting a budget-hidden block expands "Show more" and scrolls to it', async () => {
+  it('a citation targeting a budget-hidden block expands "Show more" and scrolls to it', () => {
     // Pacing inactive (1 phase-3 card); the 5th block (index 4, citation
     // target 5) hides behind the legacy per-turn budget of 4.
     const commentary: CommentaryBlock = {
@@ -143,10 +137,10 @@ describe('C11 — citation to collapsed content reveals and scrolls', () => {
     fireEvent.click(screen.getByRole('button', { name: /citation 5/i }))
 
     expect(screen.getByText('Coaching card 1')).toBeInTheDocument()
-    await waitFor(() => expect(scrollSpy).toHaveBeenCalled())
+    expect(scrollSpy).toHaveBeenCalled()
   })
 
-  it('a citation whose target is genuinely missing stays a silent no-op (no crash, nothing revealed)', async () => {
+  it('a citation whose target is genuinely missing stays a silent no-op (no crash, nothing revealed)', () => {
     const commentary: CommentaryBlock = {
       type: 'commentary',
       text: 'Dangling citation. [9]',
@@ -154,8 +148,8 @@ describe('C11 — citation to collapsed content reveals and scrolls', () => {
     }
     render(<InlineBlocks blocks={[commentary, fact]} />)
     fireEvent.click(screen.getByRole('button', { name: /citation 9/i }))
-    // Flush any queued rAF retries before asserting the negative.
-    await new Promise((resolve) => setTimeout(resolve, 10))
+    // The reveal + retry are synchronous, so the negative is safe to assert
+    // immediately — no macrotask flush to wait on.
     expect(scrollSpy).not.toHaveBeenCalled()
   })
 
