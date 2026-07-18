@@ -556,9 +556,15 @@ export class CEEClient {
         headers,
       })
 
-      clearTimeout(timeoutId)
-
-      // Record response for observability
+      // NOTE: the abort timer is deliberately NOT cleared here. `fetch` resolves
+      // as soon as the HEADERS arrive, so clearing it at this point left both
+      // `response.json()` reads below unprotected: a headers-then-body stall
+      // (the Netlify-edge hang class this project has hit before) left this
+      // promise pending forever, so the draft and coaching surfaces awaiting
+      // this client sat in a pending state with no escape control — the exact
+      // failure the F-67 headers-phase timeout was added to prevent, reachable
+      // one phase later. The timer is cleared in the `finally` instead, once the
+      // body read has completed or thrown. Mirrors the runV2 fix in #367.
       recordBffResponse(correlationId, url, response, startTime)
 
       if (!response.ok) {
@@ -585,8 +591,6 @@ export class CEEClient {
       recordBffResponsePayload(correlationId, response, body, startTime)
       return body
     } catch (error) {
-      clearTimeout(timeoutId)
-
       // Record error for observability
       recordBffError(correlationId, url, startTime, error)
 
@@ -594,6 +598,13 @@ export class CEEClient {
         throw new CEEError('Request timeout', 408, undefined, correlationId)
       }
       throw error
+    } finally {
+      // Cleared here, and only here — after the body read has settled on every
+      // path (success, HTTP error, abort). An abort raised mid-body rejects the
+      // body read with an AbortError, which the catch above maps to the same
+      // CEEError('Request timeout', 408) a headers-phase timeout already
+      // produced — no new error shape.
+      clearTimeout(timeoutId)
     }
   }
 
