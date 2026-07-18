@@ -233,7 +233,13 @@ describe('scenarioService', () => {
       const [rpcName, params] = mockRpc.mock.calls[0] as [string, Record<string, unknown>]
       expect(rpcName).toBe('apply_patch_and_log')
       expect(params.p_scenario_id).toBe('scenario-1')
-      expect(params.p_graph).toBe(GRAPH)
+      // B3: p_graph is now BUILT (buildPersistedGraph) rather than passed
+      // through by reference, so identity no longer holds. The contract that
+      // matters is the VALUE — and specifically that a constraint-free save
+      // still writes exactly the historical { nodes, edges } bytes, with no
+      // stray goal_constraints key appearing on every row in the estate.
+      expect(params.p_graph).toEqual({ nodes: GRAPH.nodes, edges: GRAPH.edges })
+      expect(params.p_graph).not.toHaveProperty('goal_constraints')
       expect(params.p_event_id).toBe(VALID_EVENT_ID)
       expect(params.p_event_type).toBe('graph_saved')
       expect(params.p_turn_id).toBeNull()
