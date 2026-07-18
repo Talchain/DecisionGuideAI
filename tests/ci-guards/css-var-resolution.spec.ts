@@ -166,9 +166,17 @@ const KNOWN_UNDEFINED_CSS_PALETTE = [
  *
  * NOTE the six fallbacks this PR introduced — `--success, #67C89E`,
  * `--danger, #EA7B4B`, `--option, #AAA7E4`, `--text-light, #908D8D`,
- * `--border-emphasis, #DDD4C4`, `--border-default, #EEE6D8` — are
+ * `--text-body, #3F3F3E`, `--border-default, #EEE6D8` — are
  * deliberately ABSENT from this list: they match brand.css exactly, and
  * this guard is what will notice the day they stop matching.
+ *
+ * `--border-emphasis, #DDD4C4` was the sixth until the ghost-option outline
+ * moved to `--text-body` on WCAG 1.4.11 grounds; the retarget to
+ * `--border-emphasis` fixed the dangling reference but moved contrast by
+ * nothing (1.46:1 → 1.46:1 against the panel fill), so it was rejected.
+ * `--border-emphasis` is still defined and still referenced bare at
+ * TornadoChart.tsx:563, so it does not dangle — it simply no longer has a
+ * hardcoded fallback anywhere for this guard to compare.
  */
 const KNOWN_FALLBACK_DRIFT = [
   '--bg-panel|#FEF9F3',
