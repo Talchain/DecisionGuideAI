@@ -197,7 +197,7 @@ Owns node fills on canvas.
 
 Purely ordinal. No semantic meaning. Chart fills may use light shades for bar/area fills with main shade borders.
 
-**Implementation status:** Only 6 tokens (`chart-1` through `chart-6`) are currently defined in `brand.css` as CSS var aliases. Tailwind utility classes are not yet mapped. Tokens `chart-7` and `chart-8` are planned.
+**Implementation status:** 6 tokens (`chart-1` through `chart-6`) are defined in `brand.css` and mapped to Tailwind utilities. Tokens `chart-7` and `chart-8` are planned. Series 1–4 reuse entity colours; series 5–6 are **ordinal** and alias nothing (see the v5 spec §3.9 for the D3 correction and the CVD reasoning).
 
 | Token | Alias / Hex | Status | Usage |
 |-------|-------------|--------|-------|
@@ -205,8 +205,8 @@ Purely ordinal. No semantic meaning. Chart fills may use light shades for bar/ar
 | `chart-2` | → `--success` (#67C89E) | Implemented | Secondary series |
 | `chart-3` | → `--goal` (#F5C433) | Implemented | Highlight series |
 | `chart-4` | → `--option` (#AAA7E4) | Implemented | Comparison series |
-| `chart-5` | #5C9BB8 | Implemented | Additional series |
-| `chart-6` | #C9D9FF | Implemented | Tertiary fill |
+| `chart-5` | #12514C (deep teal, ordinal) | Implemented | Additional series |
+| `chart-6` | #4B5E00 (deep olive, ordinal) | Implemented | Tertiary fill |
 | `chart-7` | #62B28F | Planned | Alt series |
 | `chart-8` | #FFE497 | Planned | Soft highlight |
 

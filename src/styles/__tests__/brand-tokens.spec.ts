@@ -1,5 +1,5 @@
 /**
- * Canonical brand-token pins (DS delta audit 2026-07-16, decision D1).
+ * Canonical brand-token pins (DS delta audit 2026-07-16, decisions D1 + D3).
  *
  * D1 — info blue. This token previously carried THREE documented values
  * (#52A3C8 in brand.css, #2B7FA2 in DESIGN_SYSTEM.md, #63ADCF in the v5 spec)
@@ -14,6 +14,13 @@
  * moves --info to a non-compliant value this test fails on the maths, not on
  * a stale string. A positive control proves the computation can detect a
  * FAILING colour, so the assertion cannot pass vacuously.
+ *
+ * D3 — chart series. All six chart tokens must be mutually distinct, and
+ * series 5/6 must not alias any semantic token (they previously aliased
+ * --warning and --danger, so a neutral 5th data series rendered in the colour
+ * that means "warning" everywhere else). Perceptual separation under
+ * protan/deutan is validated out-of-tree and recorded in the PR body; what is
+ * pinned HERE is the structural property — ordinal tokens alias nothing.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -96,5 +103,34 @@ describe('D1 — canonical info blue', () => {
       .join('\n')
     expect(declarations).not.toMatch(/#52A3C8/i)
     expect(declarations).not.toMatch(/#63ADCF/i)
+  })
+})
+
+describe('D3 — chart series are ordinal, not semantic aliases', () => {
+  const chart = [1, 2, 3, 4, 5, 6].map(n => resolve(`chart-${n}`).toUpperCase())
+
+  it('all six chart tokens are pairwise distinct', () => {
+    expect(new Set(chart).size).toBe(6)
+  })
+
+  it('series 5 and 6 are not aliases of any semantic token', () => {
+    // The defect: --chart-5 was var(--warning) and --chart-6 was var(--danger),
+    // so a neutral data series rendered in a colour that means something.
+    const semantic = ['danger', 'success', 'info', 'warning', 'goal', 'option', 'factor']
+      .map(n => resolve(n).toUpperCase())
+    expect(semantic).not.toContain(chart[4])
+    expect(semantic).not.toContain(chart[5])
+  })
+
+  it('series 5 and 6 are declared as literal ordinal hues, not var() indirection', () => {
+    expect(token('chart-5')).toMatch(/^#[0-9A-F]{6}$/i)
+    expect(token('chart-6')).toMatch(/^#[0-9A-F]{6}$/i)
+  })
+
+  it('series 5 and 6 clear 3:1 against both the canvas and panel grounds', () => {
+    for (const c of [token('chart-5'), token('chart-6')]) {
+      expect(contrastRatio(c, token('bg-canvas'))).toBeGreaterThanOrEqual(AA_UI)
+      expect(contrastRatio(c, token('bg-panel'))).toBeGreaterThanOrEqual(AA_UI)
+    }
   })
 })

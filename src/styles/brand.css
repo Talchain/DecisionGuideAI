@@ -297,12 +297,26 @@
      CHART COLORS (Data Visualization)
      ============================================ */
 
+  /* Series 1-4 reuse entity colours, which is legitimate: those series ARE
+     those entities on the charts that render them. Series 5-6 are ORDINAL —
+     they name nothing, so they must alias nothing. They previously aliased
+     --warning and --danger, which meant a neutral 5th data series rendered in
+     the colour that means "warning" everywhere else in the product (D3, DS
+     delta audit 2026-07-16).
+
+     The two new hues are literal, deliberately not var() indirection, so the
+     "aliases nothing" property is structural rather than a convention. Values
+     chosen by search under protan/deutan simulation (Vienot-Brettel-Mollon
+     1999), not by eye — see the PR body for the full dE2000 matrix. Both sit
+     in the low-lightness band the existing four leave empty (L* 31 and 37 vs
+     50/74/81/71), because red-green deficiency collapses hue onto a
+     blue-yellow axis and LIGHTNESS is the separation that survives it. */
   --chart-1: var(--info);
   --chart-2: var(--success);
   --chart-3: var(--goal);
   --chart-4: var(--option);
-  --chart-5: var(--warning);
-  --chart-6: var(--danger);
+  --chart-5: #12514C;  /* deep teal  — ordinal only, aliases nothing */
+  --chart-6: #4B5E00;  /* deep olive — ordinal only, aliases nothing */
 }
 
 /* ============================================
