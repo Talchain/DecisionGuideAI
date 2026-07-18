@@ -505,7 +505,7 @@ if (isMinimized) {
 ```css
 --accent: #EA7B4B      /* Warm coral — selection, hover, accent */
 --success: #67C89E     /* Mint green — connection handles (target) */
---info: #63ADCF        /* Sky blue — connection handles (source) */
+--info: #2B7FA2        /* Sky blue — connection handles (source) */
 --neutral-100: #f9fafb /* Backgrounds */
 --neutral-200: #e5e7eb /* Borders */
 --neutral-700: #374151 /* Text */

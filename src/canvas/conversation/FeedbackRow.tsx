@@ -102,7 +102,7 @@ export const FeedbackRow = memo(function FeedbackRow({ turnId, onFeedback }: Fee
           outline-offset: 2px;
         }
         .feedback-btn:not(:disabled):hover {
-          color: var(--info, #52A3C8);
+          color: var(--info, #2B7FA2);
         }
       `}</style>
     </div>

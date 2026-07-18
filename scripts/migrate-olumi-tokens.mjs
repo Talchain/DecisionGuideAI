@@ -14,7 +14,7 @@ import { join } from 'path';
 // Token mapping from LEGACY_TOKEN_MIGRATION.md
 const TOKEN_MAPPINGS = {
   // Primary/Interactive colors
-  "var(--olumi-primary, #5B6CFF)": "var(--semantic-info, #63ADCF)",
+  "var(--olumi-primary, #5B6CFF)": "var(--semantic-info, #2B7FA2)",
   "var(--olumi-primary)": "var(--semantic-info)",
   "var(--olumi-primary-600, #4256F6)": "var(--info-hover, #73B5D9)",
   "var(--olumi-primary-600)": "var(--info-hover)",

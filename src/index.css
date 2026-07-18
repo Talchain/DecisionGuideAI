@@ -413,7 +413,7 @@
 
 /* N2 (graph-visuals): a gentle real pulse when the AI points at a node
    (applied edits, what-changed, R4 directives). Uses the info/AI colour
-   (--info #52A3C8) so it does not overload the goal channel, and its OWN
+   (--info #2B7FA2) so it does not overload the goal channel, and its OWN
    keyframe — it must NOT reuse pulse-fade, which powers .animate-pulse on
    15+ skeleton/status components. The Tailwind ring on the node stays
    visible; this only adds the expanding halo. Reduced-motion drops the
