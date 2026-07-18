@@ -9,8 +9,6 @@
  * - listScenarios selects only list columns, orders by updated_at DESC
  */
 
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ScenarioPersistenceError } from '../../types/scenario'
 
@@ -288,31 +286,12 @@ describe('scenarioService', () => {
     })
   })
 
-  // -----------------------------------------------------------------------
-  // Source guard — no raw scenarios.graph writer may be re-introduced
-  //
-  // Fail-loud on drift (rule: derive/enforce from the source of truth, never
-  // trust a hand-maintained memory that a bypass "won't come back"). If a
-  // future edit adds `.update({ graph ... })` on the scenarios table, this
-  // trips immediately rather than silently reopening the trust-spine hole.
-  // -----------------------------------------------------------------------
-
-  describe('source guard: no raw graph writer', () => {
-    // Resolve from the repo root (vitest cwd) — robust across transforms.
-    const source = readFileSync(
-      resolve(process.cwd(), 'src/services/scenarioService.ts'),
-      'utf8',
-    )
-
-    it('contains no raw `.update({ graph ... })` on the scenarios table', () => {
-      // Matches update payloads whose first key is `graph` (the bypass shape).
-      expect(/\.update\(\s*\{\s*graph\b/.test(source)).toBe(false)
-    })
-
-    it('writes scenarios.graph only through the apply_patch_and_log RPC', () => {
-      expect(source.includes("supabase.rpc('apply_patch_and_log'")).toBe(true)
-    })
-  })
+  // NOTE: the source-level "no raw graph writer" guard formerly lived here and
+  // read ONLY this file — so a raw write introduced in useScenario.ts (or any
+  // component reaching for supabase directly) evaded it. It has been replaced
+  // by the repo-wide, shape-directed scan in
+  // services/__tests__/graphWriteSourceGuard.spec.ts, which carries its own
+  // detector-bites positive controls.
 
   describe('saveFraming', () => {
     it('calls UPDATE with framing payload', async () => {
