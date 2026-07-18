@@ -7,7 +7,8 @@
  * always stay visible — budget is enforced upstream in useConversation).
  */
 
-import { useState, useCallback, useMemo, memo } from 'react'
+import { useState, useCallback, useMemo, memo, useRef } from 'react'
+import type { RefObject } from 'react'
 import { flushSync } from 'react-dom'
 import { Lightbulb, AlertTriangle, ChevronDown, ChevronUp, ExternalLink, Wand2 } from 'lucide-react'
 import { typography } from '../../styles/typography'
@@ -193,8 +194,16 @@ export const InlineBlocks = memo(function InlineBlocks({
   }, [])
   const hasCollapsedContent = phase3Collapsed || hiddenByBudget.size > 0
 
+  // Citation targets are numbered 1-based PER TURN, so in a thread with
+  // several assistant turns on screen every turn carries its own
+  // data-citation-target="1", "2", … A document-wide lookup would resolve to
+  // the FIRST match in document order — the oldest turn's block — and scroll
+  // the user away from the turn they clicked in. The handler resolves inside
+  // this container only, so a citation lands in its own turn or nowhere.
+  const blockContainerRef = useRef<HTMLDivElement>(null)
+
   return (
-    <div className={styles.blockContainer}>
+    <div className={styles.blockContainer} ref={blockContainerRef}>
       {pacing.pacingActive && (
         // Static sr-only summary of the collapsed count. Deliberately NOT
         // a live region (C4): the toggle's accessible name already carries
@@ -258,6 +267,7 @@ export const InlineBlocks = memo(function InlineBlocks({
               onProposalConfirm={onProposalConfirm}
               assistantTextWordCount={assistantTextWordCount}
               onRevealHiddenBlocks={hasCollapsedContent ? revealHiddenBlocks : undefined}
+              blockContainerRef={blockContainerRef}
             />
           </div>
         )
@@ -296,6 +306,8 @@ interface BlockRendererProps {
   assistantTextWordCount?: number
   /** C11: reveal collapsed pacing/budget content (present only while something is collapsed). */
   onRevealHiddenBlocks?: () => void
+  /** Scope for citation-target lookups — the emitting turn's own block container. */
+  blockContainerRef: RefObject<HTMLDivElement | null>
 }
 
 function BlockRenderer({
@@ -309,6 +321,7 @@ function BlockRenderer({
   onProposalConfirm,
   assistantTextWordCount = 0,
   onRevealHiddenBlocks,
+  blockContainerRef,
 }: BlockRendererProps) {
   switch (block.type) {
     case 'commentary':
@@ -317,6 +330,7 @@ function BlockRenderer({
           block={block}
           assistantTextWordCount={assistantTextWordCount}
           onRevealHiddenBlocks={onRevealHiddenBlocks}
+          blockContainerRef={blockContainerRef}
         />
       )
 
@@ -478,18 +492,29 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
   block,
   assistantTextWordCount = 0,
   onRevealHiddenBlocks,
+  blockContainerRef,
 }: {
   block: CommentaryBlockType
   /** Word count of the assistant_text in the same turn — used for default expand logic */
   assistantTextWordCount?: number
   /** C11: reveal collapsed pacing/budget content (present only while something is collapsed). */
   onRevealHiddenBlocks?: () => void
+  /** Scope for citation-target lookups — the emitting turn's own block container. */
+  blockContainerRef: RefObject<HTMLDivElement | null>
 }) {
   const renderingV2 = isOrchestratorRenderingV2Enabled()
 
   const handleCitationClick = useCallback((index: number) => {
-    // Scroll to the referenced block element by citation index
-    const target = document.querySelector(`[data-citation-target="${index}"]`)
+    // CitationRef.index is 1-based WITHIN THE TURN, and every rendered turn
+    // emits its own data-citation-target="1", "2", … A document-wide lookup
+    // resolves to the first match in document order — the OLDEST turn's
+    // block — so a citation clicked in turn 5 scrolled the user to turn 1.
+    // Scoped to the emitting turn's container: a citation lands in its own
+    // turn or nowhere. Fails CLOSED when the container is not mounted — a
+    // document-wide fallback here would silently reinstate the cross-turn bug.
+    const scope = blockContainerRef.current
+    if (!scope) return
+    const target = scope.querySelector(`[data-citation-target="${index}"]`)
     if (target) {
       scrollToCitationTarget(target)
       return
@@ -502,9 +527,9 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
     // target is STILL missing (a genuinely dangling citation).
     if (!onRevealHiddenBlocks) return
     flushSync(onRevealHiddenBlocks)
-    const revealed = document.querySelector(`[data-citation-target="${index}"]`)
+    const revealed = scope.querySelector(`[data-citation-target="${index}"]`)
     if (revealed) scrollToCitationTarget(revealed)
-  }, [onRevealHiddenBlocks])
+  }, [onRevealHiddenBlocks, blockContainerRef])
 
   const toneClass =
     block.tone === 'warning'

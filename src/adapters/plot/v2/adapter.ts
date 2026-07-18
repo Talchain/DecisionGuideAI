@@ -1408,7 +1408,14 @@ export async function runV2(
       signal: controller.signal,
     })
 
-    clearTimeout(timeoutId)
+    // NOTE: the abort timer is deliberately NOT cleared here. `fetch` resolves
+    // as soon as the HEADERS arrive, so clearing it at this point left every
+    // `response.json()` below unprotected: a headers-then-body stall (the
+    // Netlify-edge hang class this project has hit before) left this promise
+    // pending forever, useV2Run's catch/finally never ran, and results.status
+    // stayed 'preparing'/'connecting' with no escape control in the UI. The
+    // timer is cleared in the `finally` instead, once the body read has
+    // completed or thrown.
 
     // Handle 422 - returns V2RunError directly (not wrapped in error.v1)
     if (response.status === 422) {
@@ -1486,8 +1493,6 @@ export async function runV2(
 
     return result
   } catch (error) {
-    clearTimeout(timeoutId)
-
     const errorMessage = error instanceof Error && error.name === 'AbortError'
       ? 'V2 run request timed out'
       : error instanceof Error ? error.message : 'Unknown error'
@@ -1509,6 +1514,12 @@ export async function runV2(
     }
 
     throw error
+  } finally {
+    // Cleared here, and only here — after the body read has settled on every
+    // path (success, HTTP error, 422, abort). An abort raised mid-body still
+    // surfaces through the catch above as the same 'V2 run request timed out'
+    // error a headers-phase timeout already produced.
+    clearTimeout(timeoutId)
   }
 }
 
