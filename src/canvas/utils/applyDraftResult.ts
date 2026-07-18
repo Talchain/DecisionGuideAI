@@ -14,8 +14,8 @@
 import { useCanvasStore } from '../store'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { saveAutosave } from '../store/scenarios'
-import { hasAnalysisReady, isCEEv3Response } from '../../adapters/cee/types'
-import type { CEEDraftResponse, CEEv2Response, CEEv3Response, EffectDirection } from '../../adapters/cee/types'
+import { hasAnalysisReady } from '../../adapters/cee/types'
+import type { CEEDraftResponse, CEEGoalConstraint, CEEv2Response, CEEv3Response, EffectDirection } from '../../adapters/cee/types'
 import { commitDraftCoachingToStore, edgeProvenanceDisplayPatch } from './draftIngestion'
 import { logger } from '../../lib/logger'
 import { validateNodesBatch } from '../domain/nodes'
@@ -260,26 +260,47 @@ export function applyDraftResult(
     backfillGoalThresholdOntoGoalNode(analysisReadyWithCoaching)
   }
 
-  // Store goal_constraints from V3 response root (for non-orchestrator draft flow).
-  // Orchestrator flow handles this in useConversation.handleEnvelope.
-  // Must also clear stale constraints when the new draft has none — mirrors
-  // DraftChat.tsx:720 and useConversation.ts:1832-1835 clearing logic.
-  if (isCEEv3Response(draftData)) {
-    if (Array.isArray(draftData.goal_constraints) && draftData.goal_constraints.length > 0) {
-      useCanvasStore.getState().setGoalConstraints(draftData.goal_constraints)
-      logger.info('[constraint-trace] store-write', {
-        source: 'applyDraftResult',
-        count: draftData.goal_constraints.length,
-        constraint_ids: draftData.goal_constraints.map((c) => c.constraint_id),
-      })
-    } else {
-      useCanvasStore.getState().setGoalConstraints(null)
-      logger.info('[constraint-trace] store-write', {
-        source: 'applyDraftResult',
-        count: 0,
-        constraint_ids: [],
-      })
-    }
+  // Store goal_constraints off whatever draft object we were handed.
+  //
+  // Sources, both of which land here as `draftData.goal_constraints`:
+  //   - V5 `/orchestrate/v2/turn`: nested INSIDE the `draft_graph` block
+  //     (@talchain/schemas 0.18.0 declares it there); useConversation passes
+  //     that block in via attachAnalysisReadyToInlineDraftGraph, whose
+  //     `hasOwnGoalConstraints` guard leaves a nested value untouched.
+  //   - legacy V3 `/assist/v1/draft-graph`: at the response ROOT, lifted onto
+  //     the inline object by that same helper.
+  //
+  // This read is deliberately NOT gated on isCEEv3Response(). That guard
+  // requires a VALID `analysis_ready` — and validateAnalysisReadyContract
+  // rejects any payload whose status is not exactly 'ready'. A fresh draft
+  // whose options still need intervention mapping reports
+  // status:'needs_user_input', which is an ordinary, common outcome — so the
+  // old gate silently discarded the user's stated hard constraint on exactly
+  // those turns, and cleared nothing either. Constraint extraction and
+  // analysis-readiness are independent facts about a draft; coupling them
+  // made a routine readiness state erase a user-stated constraint.
+  // Pinned by draftGoalConstraints.wire.spec.ts (HOP 3) against real CEE
+  // wire bytes whose analysis_ready is 'needs_user_input'.
+  //
+  // Clearing on absence is retained: a draft apply is a wholesale graph
+  // replacement (see the goalThreshold/outcomeNodeId clears above), so a
+  // previous decision's constraints must not ride the new graph.
+  const rawGoalConstraints = (draftData as { goal_constraints?: unknown }).goal_constraints
+  if (Array.isArray(rawGoalConstraints) && rawGoalConstraints.length > 0) {
+    const constraints = rawGoalConstraints as CEEGoalConstraint[]
+    useCanvasStore.getState().setGoalConstraints(constraints)
+    logger.info('[constraint-trace] store-write', {
+      source: 'applyDraftResult',
+      count: constraints.length,
+      constraint_ids: constraints.map((c) => c.constraint_id),
+    })
+  } else {
+    useCanvasStore.getState().setGoalConstraints(null)
+    logger.info('[constraint-trace] store-write', {
+      source: 'applyDraftResult',
+      count: 0,
+      constraint_ids: [],
+    })
   }
 
   // Store quality dimensions

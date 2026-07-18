@@ -88,7 +88,16 @@ export const GoalPanel = memo(function GoalPanel({
   // Already-constrained factor labels (case-insensitive)
   const constrainedLabels = useMemo(() => {
     if (!goalConstraints?.length) return new Set<string>()
-    return new Set(goalConstraints.map(c => c.label.toLowerCase().trim()))
+    // `label` is optional on the wire (CEE's producer schema and the
+    // @talchain/schemas draft contract both declare it optional), so an
+    // unguarded `.toLowerCase()` throws on a perfectly valid constraint.
+    // Unlabelled constraints simply cannot match a factor label — drop them
+    // rather than crash the panel.
+    return new Set(
+      goalConstraints
+        .map(c => c.label?.toLowerCase().trim())
+        .filter((l): l is string => !!l),
+    )
   }, [goalConstraints])
 
   const handleAddConstraint = useCallback(() => {
