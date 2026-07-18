@@ -74,7 +74,11 @@ import { handleLayoutWithRecovery } from './layout/handleLayoutWithRecovery'
 const IssuesPanel = lazy(() => import(/* webpackChunkName: "issues-panel" */ './panels/IssuesPanel').then(m => ({ default: m.IssuesPanel })))
 const AIClarifierChat = lazy(() => import(/* webpackChunkName: "ai-clarifier" */ './panels/AIClarifierChat').then(m => ({ default: m.AIClarifierChat })))
 // NeedleMoversOverlay removed - consolidated into DriversSignal (OutputsDock)
-// CoachingNudge and useCEECoaching removed - coaching now in GuidancePanel (OutputsDock)
+// CoachingNudge and useCEECoaching removed from this file. Coaching is now driven by
+// guidanceStore (./stores/guidanceStore.ts) and rendered by several surfaces: on-canvas via
+// CoachingCard in ./nodes/FactorNode.tsx, in-conversation via ./conversation/GuidanceStrip.tsx
+// and ./conversation/InlineBlocks.tsx, and in the dock via ./components/OlumiTabBody.tsx.
+// Not GuidancePanel.tsx — that component has no importers.
 import { DocumentsManager } from './components/DocumentsManager'
 import { ProvenanceHubTab } from './components/ProvenanceHubTab'
 import { ConnectPrompt } from './components/ConnectPrompt'
@@ -356,7 +360,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     return [...nodes, ghostNode]
   }, [nodes, resultsStatus, viewMode])
 
-  // Week 3: AI Coaching moved to GuidancePanel in OutputsDock
+  // AI coaching is rendered by the guidanceStore consumers, not here — see
+  // ./nodes/FactorNode.tsx (on-canvas CoachingCard) and ./conversation/GuidanceStrip.tsx.
 
   const { getViewport, fitView, zoomIn, zoomOut, zoomTo, screenToFlowPosition } = useReactFlow()
 
@@ -2187,7 +2192,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         currentEdges={edges.length}
       />
 
-      {/* Week 3: AI Coaching nudges moved to GuidancePanel in OutputsDock */}
+      {/* Coaching nudges render on the nodes themselves
+          (./nodes/FactorNode.tsx → ./components/CoachingCard.tsx), not as a canvas overlay */}
 
       {/* Reset Canvas Confirmation */}
       <BottomSheet isOpen={showResetConfirm} onClose={() => setShowResetConfirm(false)} title="Start fresh?">
