@@ -142,3 +142,58 @@ describe('AnalysisFreshnessNotice — completion toast agrees with the strip (ac
     expect(showToast).not.toHaveBeenCalledWith('Analysis rerun completed with the current model')
   })
 })
+
+/**
+ * /simplify item 10 — the C6 whisper contract, pinned on the COUNTERPARTY.
+ *
+ * runAnnouncementForTransition encodes "a FIRST-run settle does NOT yield,
+ * because nothing else announces it". That rule was pinned only on the pure
+ * function's own side, where it passes by construction. The claim it rests
+ * on is about THIS surface: the completion toast mounts post-settle with
+ * wasRunningRef = false, so it stays silent on a first run.
+ *
+ * If this surface ever started toasting a first-run settle, the announcer's
+ * non-yield would become a DOUBLE announcement — and nothing would catch it.
+ */
+describe('C6 counterparty — the completion toast is silent on a FIRST-run settle', () => {
+  const FIRST_RUN_REPORT = { model_card: { response_hash: 'h-first' } } as never
+
+  it('mounting AFTER the settle fires no toast — the first run is this surface’s blind spot', () => {
+    act(() => {
+      useCanvasStore.setState({
+        analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' },
+        analysisFreshnessDirty: false,
+      })
+    })
+    // The entire run happens before this surface exists — exactly the first-run
+    // case, where the dock's auto-switch fronts the Analysis tab and the notice
+    // mounts onto an already-settled store.
+    act(() => {
+      useCanvasStore.getState().resultsStart({ seed: 1 })
+    })
+    act(() => {
+      useCanvasStore.getState().resultsComplete({ report: FIRST_RUN_REPORT, hash: 'h-first' })
+    })
+
+    render(<AnalysisFreshnessNotice />)
+
+    expect(showToast).not.toHaveBeenCalled()
+  })
+
+  it('positive control: the SAME harness does toast when the notice watched the run', () => {
+    act(() => {
+      useCanvasStore.setState({
+        analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' },
+        analysisFreshnessDirty: false,
+      })
+    })
+    render(<AnalysisFreshnessNotice />)
+    act(() => {
+      useCanvasStore.getState().resultsStart({ seed: 1 })
+    })
+    act(() => {
+      useCanvasStore.getState().resultsComplete({ report: FIRST_RUN_REPORT, hash: 'h-first' })
+    })
+    expect(showToast).toHaveBeenCalled()
+  })
+})

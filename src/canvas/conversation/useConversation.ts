@@ -1099,12 +1099,7 @@ export function composePhase3BridgedBlocks(
       if (adapted) {
         if (!seenTypedBlockIds.has(adapted.block_id)) {
           seenTypedBlockIds.add(adapted.block_id)
-          // adaptTypedCoachingBlock fails closed without a finite
-          // priority_rank, so the ?? arm is unreachable at runtime — it
-          // exists because the V5CoachingBlock TYPE now allows rank-less
-          // blocks (the UI-side bias bridge), using the same missing-rank
-          // convention as exercises below.
-          typed.push({ block: adapted, rank: adapted.priority_rank ?? Number.POSITIVE_INFINITY, order: order++ })
+          typed.push({ block: adapted, rank: adapted.priority_rank, order: order++ })
         }
         continue
       }
