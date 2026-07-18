@@ -141,17 +141,20 @@ export function runAnnouncementForTransition({
   settledWithoutNewReport,
 }: RunAnnouncementInput): string | null {
   const firstRun = preRunStatus === 'idle' || preRunStatus === 'cancelled'
-  if (transition === 'start') {
-    if (analysisTabFronted) return null
-    // First run: the dock's auto-switch is about to front the Analysis tab,
-    // whose own furniture speaks. Announcing here would double up.
-    if (firstRun) return null
-    return 'Analysis started.'
-  }
-  // Settle: yield to the fronted Analysis tab's completion toast / error
-  // alert — EXCEPT on a first run, whose settle nothing else announces
-  // (the asymmetry documented above).
-  if (analysisTabFronted && !firstRun) return null
+  // The C6 asymmetry as ONE expression (/simplify item 8), so the two
+  // transitions' yield rules sit side by side and cannot drift:
+  //  - START yields when the tab is fronted OR the run is a first run (the
+  //    dock's auto-switch is about to front the Analysis tab, whose own
+  //    furniture speaks — announcing here would double up).
+  //  - SETTLE yields only when fronted AND it is NOT a first run: nothing
+  //    else announces a first-run settle (the completion toast mounts
+  //    post-settle with wasRunningRef = false).
+  const yieldsToTabFurniture =
+    transition === 'start' ? analysisTabFronted || firstRun : analysisTabFronted && !firstRun
+  if (yieldsToTabFurniture) return null
+  if (transition === 'start') return 'Analysis started.'
+  // settledStatus is a raw store string — keep the switch. An object lookup
+  // would reintroduce the prototype-chain hazard fix set A just closed.
   switch (settledStatus) {
     case 'complete':
       // C2: a settle that carried no new report must not claim completion.

@@ -20,7 +20,7 @@ import { typography } from '../../styles/typography'
 import { NodeChip, NodePopover } from './shared'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { cleanFactorLabel } from '../utils/labelUtils'
-import { resolveBiasSignal } from '../shared/biasSignalTitles'
+import { biasSignal } from '../shared/biasSignalTitles'
 
 /** Truncate text at word boundary. */
 function truncateAtWord(text: string, maxLength: number): string {
@@ -83,16 +83,16 @@ function useModelReadiness(decisionId: string): ModelReadiness {
     // literals). 'Missing risks' is a graph-signal label, not a registry
     // bias code, so it stays local.
     const biasTriggers: string[] = []
-    if (optionNodes.length < 3) biasTriggers.push(`${resolveBiasSignal('narrow_framing')!.title}: < 3 options`)
+    if (optionNodes.length < 3) biasTriggers.push(`${biasSignal('narrow_framing').title}: < 3 options`)
     if (riskNodes.length <= 1) biasTriggers.push('Missing risks: \u2264 1 risk identified')
     const hasBaseline = optionNodes.some(n => (n.data as Record<string, unknown> | undefined)?.is_baseline === true)
-    if (hasBaseline) biasTriggers.push(`${resolveBiasSignal('status_quo_bias')!.title}: baseline present`)
+    if (hasBaseline) biasTriggers.push(`${biasSignal('status_quo_bias').title}: baseline present`)
     // Overconfidence: any factor is inferred (unvalidated estimate)
     const hasInferredFactor = factorNodes.some(n => {
       const os = (n.data as Record<string, unknown> | undefined)?.observedState as Record<string, unknown> | undefined
       return os?.extractionType === 'inferred'
     })
-    if (hasInferredFactor) biasTriggers.push(`${resolveBiasSignal('overconfidence')!.title}: top factor unvalidated`)
+    if (hasInferredFactor) biasTriggers.push(`${biasSignal('overconfidence').title}: top factor unvalidated`)
 
     return {
       explicitCount,

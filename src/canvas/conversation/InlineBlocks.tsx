@@ -8,6 +8,7 @@
  */
 
 import { useState, useCallback, useMemo, memo } from 'react'
+import { flushSync } from 'react-dom'
 import { Lightbulb, AlertTriangle, ChevronDown, ChevronUp, ExternalLink, Wand2 } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -145,13 +146,14 @@ export const InlineBlocks = memo(function InlineBlocks({
   // cards carry their own budget (the pacing group), so the legacy cap
   // counts only the non-phase-3 blocks; otherwise behaviour is unchanged
   // (cap across all blocks, as before F16). Bias-signal cards are exempt
-  // UNCONDITIONALLY (review-folds C1): they carry their own ≤2 cap
-  // upstream, so they never join this budget and never hide behind
-  // "Show N more" — the ratified #356 acceptance.
+  // (review-folds C1) — but only the FIRST DRAFT_BIAS_SIGNAL_CARD_CAP of
+  // them (/simplify item 5), from the ONE exempt set computePhase3Pacing
+  // already derived, so this budget and the pacing budget cannot disagree.
+  // Bias cards beyond the cap fall through to the normal budget path.
   const { hiddenByBudget, hasOverflow, hiddenCount } = useMemo(() => {
     const budgetIndices: number[] = []
     for (let i = 0; i < blocks.length; i++) {
-      if (isBiasSignalCoachingBlock(blocks[i])) continue
+      if (pacing.biasSignalExemptIndices.has(i)) continue
       if (pacing.pacingActive && isPhase3CardBlock(blocks[i])) continue
       budgetIndices.push(i)
     }
@@ -168,20 +170,19 @@ export const InlineBlocks = memo(function InlineBlocks({
 
   const phase3Collapsed = pacing.pacingActive && !showAllPhase3
 
+  // THE visibility rule — one predicate, both consumers (/simplify item 4).
+  // The render guard below and the legend gate were De Morgan duals of this
+  // and could drift apart.
+  const isBlockHidden = useCallback(
+    (i: number) => hiddenByBudget.has(i) || (phase3Collapsed && pacing.collapsedIndices.has(i)),
+    [hiddenByBudget, phase3Collapsed, pacing],
+  )
+
   // C13: the graph-vocabulary legend gates on a phase-3 card being
   // CURRENTLY RENDERED — never on mere presence in the turn (a legend for
   // cards hidden behind the pacing collapse or the legacy budget explained
   // vocabulary the user could not see).
-  const phase3Rendered = useMemo(
-    () =>
-      blocks.some(
-        (b, i) =>
-          isPhase3CardBlock(b) &&
-          !hiddenByBudget.has(i) &&
-          !(pacing.pacingActive && !showAllPhase3 && pacing.collapsedIndices.has(i)),
-      ),
-    [blocks, hiddenByBudget, pacing, showAllPhase3],
-  )
+  const phase3Rendered = blocks.some((b, i) => isPhase3CardBlock(b) && !isBlockHidden(i))
 
   // C11: citations can point at collapsed content. Handed to the
   // commentary renderer only while something is actually collapsed, so a
@@ -230,7 +231,7 @@ export const InlineBlocks = memo(function InlineBlocks({
             </button>
           ) : null
 
-        if (hiddenByBudget.has(i) || (phase3Collapsed && pacing.collapsedIndices.has(i))) {
+        if (isBlockHidden(i)) {
           return affordance ? <div key={i}>{affordance}</div> : null
         }
 
@@ -420,7 +421,7 @@ function BlockRenderer({
       return (
         <V5CoachingBlock
           block={block}
-          variant={block.coaching_kind === 'bias_signal' ? 'bias_signal' : 'default'}
+          variant={isBiasSignalCoachingBlock(block) ? 'bias_signal' : 'default'}
         />
       )
 
@@ -495,18 +496,14 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
     }
     // C11: the target may sit behind the phase-3 pacing collapse or the
     // legacy per-turn budget (collapsed blocks render no
-    // data-citation-target node). When collapsed content exists, reveal
-    // it, wait for the commit (double rAF), then retry the lookup and
-    // scroll. Fail silent only when the target is STILL missing (a
-    // genuinely dangling citation).
+    // data-citation-target node). When collapsed content exists, reveal it
+    // and flush the commit synchronously, so the retried lookup sees the
+    // revealed node in this same click handler. Fail silent only when the
+    // target is STILL missing (a genuinely dangling citation).
     if (!onRevealHiddenBlocks) return
-    onRevealHiddenBlocks()
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const revealed = document.querySelector(`[data-citation-target="${index}"]`)
-        if (revealed) scrollToCitationTarget(revealed)
-      })
-    })
+    flushSync(onRevealHiddenBlocks)
+    const revealed = document.querySelector(`[data-citation-target="${index}"]`)
+    if (revealed) scrollToCitationTarget(revealed)
   }, [onRevealHiddenBlocks])
 
   const toneClass =

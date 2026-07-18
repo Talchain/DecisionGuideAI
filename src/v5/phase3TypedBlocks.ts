@@ -135,8 +135,16 @@ export function adaptTypedReviewCardBlock(raw: unknown): V5ReviewCardBlock | nul
  * Adapt a verbatim raw payload to a typed v5_coaching block.
  * Returns null when the payload is not a well-formed 0.13.x coaching block
  * (fail-closed; the caller counts + suppresses).
+ *
+ * The return type pins `priority_rank` as PRESENT (/simplify item 9): the
+ * guard below fails closed without a finite rank, so callers no longer need
+ * a defensive missing-rank arm — the compiler now proves it dead. The
+ * V5CoachingBlock TYPE keeps rank optional for the UI-side bias bridge,
+ * which legitimately builds rank-less blocks.
  */
-export function adaptTypedCoachingBlock(raw: unknown): V5CoachingBlock | null {
+export function adaptTypedCoachingBlock(
+  raw: unknown,
+): (V5CoachingBlock & { priority_rank: number }) | null {
   if (!isPlainObject(raw)) return null
   if (raw.type !== 'coaching') return null
 

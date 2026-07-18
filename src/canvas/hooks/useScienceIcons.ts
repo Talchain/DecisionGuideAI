@@ -9,9 +9,9 @@ import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import { useNodeDisplayMetadata } from './useNodeDisplayMetadata'
 import {
-  FileQuestion, Sparkles, Unlink, Frame, ShieldAlert, EyeOff, Anchor, Gauge,
+  FileQuestion, Sparkles, Unlink, Frame, ShieldAlert, Anchor, Gauge,
 } from 'lucide-react'
-import { resolveBiasSignal } from '../shared/biasSignalTitles'
+import { biasSignal } from '../shared/biasSignalTitles'
 import type { ComponentType } from 'react'
 import type { NodeType } from '../domain/nodes'
 import { computeSignedMean } from '../domain/edges'
@@ -173,12 +173,15 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
       // 6. Status quo bias
       const isBaseline = (nodeData as any)?.is_baseline === true
       if (isBaseline) {
+        // BOTH channels — name AND icon — from the one registry entry, so
+        // the icon can no longer drift from the title it sits beside
+        // (review-folds C15; /simplify item 3). Rendered output is
+        // byte-identical to the old literals.
+        const statusQuo = biasSignal('status_quo_bias')
         icons.push({
           id: 'status-quo-bias',
-          icon: EyeOff,
-          // Bias NAME composed from the one registry (review-folds C15) —
-          // rendered output byte-identical to the old literal.
-          tooltip: `${resolveBiasSignal('status_quo_bias')!.title}: inaction risks often underestimated.`,
+          icon: statusQuo.icon,
+          tooltip: `${statusQuo.title}: inaction risks often underestimated.`,
           action: 'What could go wrong with doing nothing?',
           colour: 'text-warning',
           priority: 6,

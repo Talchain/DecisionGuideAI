@@ -35,7 +35,7 @@ export interface BiasSignalEntry {
   icon: LucideIcon
 }
 
-export const BIAS_SIGNAL_REGISTRY: Record<string, BiasSignalEntry> = {
+export const BIAS_SIGNAL_REGISTRY = {
   framing: { title: 'Narrow framing', icon: Frame },
   framing_bias: { title: 'Narrow framing', icon: Frame },
   narrow_framing: { title: 'Narrow framing', icon: Frame },
@@ -51,12 +51,33 @@ export const BIAS_SIGNAL_REGISTRY: Record<string, BiasSignalEntry> = {
   authority_bias: { title: 'Authority bias', icon: Anchor },
   availability_bias: { title: 'Availability bias', icon: Frame },
   sunk_cost: { title: 'Sunk cost', icon: Anchor },
+} as const satisfies Record<string, BiasSignalEntry>
+
+/**
+ * The registry's own key space, as a literal union. Composed call sites
+ * (`biasSignal('narrow_framing')`) type against THIS, so renaming or
+ * removing a registry key is a compile error at every surface that composes
+ * copy from it — the compiler replaces the hand-maintained
+ * COMPOSED_TRIGGER_CODES allowlist the parity spec used to carry
+ * (review-folds /simplify item 2; platform trap 12 — derive, don't mirror).
+ */
+export type KnownBiasCode = keyof typeof BIAS_SIGNAL_REGISTRY
+
+/**
+ * TOTAL accessor for COMPOSED copy — the code is a compile-time literal the
+ * registry provably holds, so the lookup cannot fail and needs no `!`.
+ * Wire input must go through `resolveBiasSignal` instead: only that path
+ * carries the trim/lowercase/own-key guard.
+ */
+export function biasSignal(code: KnownBiasCode): BiasSignalEntry {
+  return BIAS_SIGNAL_REGISTRY[code]
 }
 
 /**
- * THE guarded registry lookup, shared by every surface (the guard logic
- * lived in draftBiasSignalBlocks.humaniseBiasSignalCode; it now lives here
- * once — that function delegates).
+ * THE guarded registry lookup for WIRE input, shared by every surface. The
+ * guard logic used to live in the draft bridge's humaniseBiasSignalCode
+ * delegate; it lives here once now, and that delegate is gone
+ * (/simplify item 7).
  *
  * - trims + lowercases, so both wire conventions resolve;
  * - own-key guard: a bare object-literal index walks the prototype chain,
@@ -71,6 +92,6 @@ export function resolveBiasSignal(code: unknown): BiasSignalEntry | null {
   const key = code.trim().toLowerCase()
   if (!key) return null
   return Object.prototype.hasOwnProperty.call(BIAS_SIGNAL_REGISTRY, key)
-    ? BIAS_SIGNAL_REGISTRY[key]
+    ? (BIAS_SIGNAL_REGISTRY as Record<string, BiasSignalEntry>)[key]
     : null
 }
