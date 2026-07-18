@@ -24,7 +24,7 @@ export const GhostOptionNode = memo((_props: NodeProps) => {
       aria-label="Add another option"
       className="rounded-lg cursor-pointer hover:bg-panel-hover transition-colors flex items-center justify-center nodrag nopan"
       style={{
-        border: '1.5px dashed var(--border-secondary, #d1d5db)',
+        border: '1.5px dashed var(--border-emphasis, #DDD4C4)',
         background: 'var(--bg-panel, #FEFEFE)',
         minHeight: '56px',
         minWidth: '140px',

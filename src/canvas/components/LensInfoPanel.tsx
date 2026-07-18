@@ -82,8 +82,8 @@ function CausalPanel() {
                   <td style={{ padding: '2px 4px', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.from}>{r.from}</td>
                   <td style={{ padding: '2px 4px', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.to}>{r.to}</td>
                   <td style={{ padding: '2px 4px' }}>{r.mean >= 0 ? '+' : ''}{r.mean.toFixed(2)}</td>
-                  <td style={{ padding: '2px 4px', color: r.std === null ? 'var(--text-disabled, #C5C0B8)' : undefined }}>{r.std !== null ? r.std.toFixed(2) : '\u2014'}</td>
-                  <td style={{ padding: '2px 4px', color: r.existsProb === null ? 'var(--text-disabled, #C5C0B8)' : undefined }}>{r.existsProb !== null ? `${Math.round(r.existsProb * 100)}%` : '\u2014'}</td>
+                  <td style={{ padding: '2px 4px', color: r.std === null ? 'var(--text-light, #908D8D)' : undefined }}>{r.std !== null ? r.std.toFixed(2) : '\u2014'}</td>
+                  <td style={{ padding: '2px 4px', color: r.existsProb === null ? 'var(--text-light, #908D8D)' : undefined }}>{r.existsProb !== null ? `${Math.round(r.existsProb * 100)}%` : '\u2014'}</td>
                 </tr>
               ))}
             </tbody>

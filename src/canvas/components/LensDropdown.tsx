@@ -238,7 +238,7 @@ export function LensDropdown({ isOpen, onClose, onToggle, anchorRef, hideChip }:
               label={opt.option_label}
               isActive={lensMode === 'option' && lensOptionId === opt.option_id}
               onClick={() => handleSelect('option', opt.option_id)}
-              dotColor="var(--semantic-option, #8b5cf6)"
+              dotColor="var(--option, #AAA7E4)"
             />
           ))}
 
@@ -330,7 +330,7 @@ function LensMenuItem({ label, description, isActive, onClick, dotColor, disable
         fontSize: 12,
         fontWeight: isActive ? 500 : 400,
         color: disabled
-          ? 'var(--text-disabled, #C5C0B8)'
+          ? 'var(--text-light, #908D8D)'
           : isActive ? 'var(--info)' : 'var(--text-body, #3F3F3E)',
         textAlign: 'left',
         transition: 'background 100ms ease',
@@ -360,7 +360,9 @@ function LensMenuItem({ label, description, isActive, onClick, dotColor, disable
               display: 'block',
               fontSize: 11,
               fontWeight: 400,
-              color: disabled ? 'var(--text-disabled, #C5C0B8)' : 'var(--text-light, #908D8D)',
+              // Disabled dimming comes from the parent button's opacity: 0.6,
+              // so both states share the muted text token.
+              color: 'var(--text-light, #908D8D)',
               marginTop: 1,
             }}
           >
