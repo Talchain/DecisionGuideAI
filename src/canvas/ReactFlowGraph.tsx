@@ -2100,6 +2100,40 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       )}
 
       {/* Task C: Unified right-panel orchestrator — only one overlay panel at a time */}
+
+      {/* ⚠ BOTH PANELS BELOW ARE STRANDED — no opener exists for either. Verified at
+        * the bytes across all of src/ (case-insensitive): every `setShowProvenanceHub(…)`
+        * and `setShowAIClarifier(…)` call site passes `false`. Neither flag has a
+        * true-setter. They got here by DIFFERENT routes — one deliberate, one accidental —
+        * but both are superseded today. Do not "fix" this by adding a button; read on:
+        *
+        * Provenance Hub — opener removed DELIBERATELY BY THE REPO OWNER in c80f0fe8
+        *   (29 Mar 2026) "refactor(sidebar): remove Run Analysis, Compare Runs, and
+        *   Evidence & Provenance from left menu". Independently, its data source is dead:
+        *   `addCitation` has zero callers in all of history, so `citations` is always []
+        *   and this panel renders an empty state by construction (see store.ts addCitation).
+        *   Live successor: conversation CitationLegend (InlineBlocks.tsx), V5-fed.
+        *   NOTE: this flag IS persisted + rehydrated (uiPreferences SHOW_PROVENANCE_HUB),
+        *   so a returning user carrying a stale `ui.showProvenanceHub=true` from a pre-
+        *   c80f0fe8 build can still surface the empty panel. Open question for the owner.
+        *
+        * AI Clarifier — stranded BY ACCIDENT, then overtaken by events. Its opener shipped
+        *   in 723be292 (5 Dec 2025, 20:02) and was dropped four minutes later by merge
+        *   commit 4ce7117d (20:06) "chore: resolve merge conflicts with main", which took
+        *   main's side of this file and never mentions the clarifier. (`git log -S` misses
+        *   this: pickaxe skips merge commits. Proven by direct revision scan —
+        *   `setShowAIClarifier(true)` in this file: 723be292=1, 4ce7117d=0, and 0 ever after.)
+        *   So it was not retired on purpose — but the job has since genuinely moved. The
+        *   sidebar AI button outlived the binding and by 13c4c3b8 (31 Jan 2026) read
+        *   `onAiClick={() => setShowDraftChat(true)}` before being removed as redundant;
+        *   DraftChat / FloatingOlumiPanelHost are now mounted unconditionally a few hundred
+        *   lines below (the aiPanelV2 pair). Reviving this panel would duplicate a live
+        *   surface AND SHIP A WORSE DRAFT PATH: applyClarifierGraph keeps only
+        *   {label, body, uncertainty} and drops observed_state, edge weight, direction and
+        *   belief — the fields the V2 adapter needs for PLoT.
+        *
+        * Retained pending the owner's ruling; see PR "stranded panels" for the full case.
+        */}
       {showProvenanceHub && (
         <RightPanel
           width="32rem"
