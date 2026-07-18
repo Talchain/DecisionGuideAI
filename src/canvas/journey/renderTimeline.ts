@@ -170,6 +170,15 @@ const HEADLINE_BUILDERS: Partial<Record<ScenarioEventType, HeadlineBuilder>> = {
 // ---------------------------------------------------------------------------
 
 /**
+ * Event types that are persistence/system machinery, not user-facing
+ * milestones. Rendered nowhere in the Journey timeline. `graph_saved` is the
+ * gated autosave marker: one is appended on every debounced graph write, so
+ * surfacing it would bury the meaningful entries under save noise. The richer,
+ * per-element `direct_edit` events remain the user-visible edit trail.
+ */
+const TIMELINE_HIDDEN_TYPES = new Set<string>(['graph_saved'])
+
+/**
  * Transform raw scenario events into renderable timeline entries.
  *
  * - Sorts by `seq` ascending
@@ -190,6 +199,11 @@ export function renderTimeline(events: ScenarioEvent[]): TimelineEntry[] {
       const to = str(event.details, 'to') as ScenarioStage
       if (to) currentStage = to
     }
+
+    // Skip system persistence markers (graph_saved autosave events).
+    // Placed AFTER the stage-tracking update so a hidden event still cannot
+    // desync the running stage (defensive — graph_saved never carries a stage).
+    if (TIMELINE_HIDDEN_TYPES.has(event.event_type)) continue
 
     const meta = EVENT_META[event.event_type] ?? DEFAULT_META
     const buildHeadline = HEADLINE_BUILDERS[event.event_type]

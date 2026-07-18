@@ -151,7 +151,11 @@ export function useScenario(): UseScenarioReturn {
 
         try {
           const currentState = useCanvasStore.getState()
-          await scenarioService.saveGraph(saveSid, { nodes: currentState.nodes, edges: currentState.edges })
+          await scenarioService.saveGraphViaGatedPath(
+            saveSid,
+            { nodes: currentState.nodes, edges: currentState.edges },
+            crypto.randomUUID(),
+          )
           lastSavedGraphRef.current = JSON.stringify({ nodes: currentState.nodes, edges: currentState.edges })
           if (mountedRef.current) {
             const now = Date.now()
@@ -172,7 +176,11 @@ export function useScenario(): UseScenarioReturn {
             if (!retrySid || !mountedRef.current) return
             try {
               const retryState = useCanvasStore.getState()
-              await scenarioService.saveGraph(retrySid, { nodes: retryState.nodes, edges: retryState.edges })
+              await scenarioService.saveGraphViaGatedPath(
+                retrySid,
+                { nodes: retryState.nodes, edges: retryState.edges },
+                crypto.randomUUID(),
+              )
               lastSavedGraphRef.current = JSON.stringify({ nodes: retryState.nodes, edges: retryState.edges })
               if (mountedRef.current) {
                 const now = Date.now()
@@ -253,7 +261,7 @@ export function useScenario(): UseScenarioReturn {
         const sid = scenarioIdRef.current
         if (sid) {
           const { nodes: n, edges: e } = useCanvasStore.getState()
-          scenarioService.saveGraph(sid, { nodes: n, edges: e }).catch((err) => {
+          scenarioService.saveGraphViaGatedPath(sid, { nodes: n, edges: e }, crypto.randomUUID()).catch((err) => {
             console.error('[useScenario] Unmount graph flush failed:', err)
           })
         }

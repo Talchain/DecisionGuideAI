@@ -114,6 +114,10 @@ export type ScenarioEventType =
   | 'patch_dismissed'
   | 'patch_rejected'
   | 'direct_edit'
+  // Persistence marker — appended by the gated autosave write
+  // (saveGraphViaGatedPath). System-level: hidden from the Journey timeline and
+  // excluded from the edit-count summary; carries the persisted graph_hash.
+  | 'graph_saved'
   // Analysis
   | 'analysis_run'
   | 'analysis_failed'

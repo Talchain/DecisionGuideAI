@@ -9,6 +9,8 @@
  * - listScenarios selects only list columns, orders by updated_at DESC
  */
 
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ScenarioPersistenceError } from '../../types/scenario'
 
@@ -209,29 +211,106 @@ describe('scenarioService', () => {
   })
 
   // -----------------------------------------------------------------------
-  // saveGraph / saveFraming / saveTitle (direct UPDATE, no RPC)
+  // saveGraphViaGatedPath (apply_patch_and_log RPC — the ONE gated graph write)
+  //
+  // Trust-spine board #2: the former `saveGraph` raw-UPDATE bypass is gone.
+  // Every scenarios.graph write is now the gated RPC that records an event + a
+  // derived graph hash. These tests pin: (a) the RPC is called (never a raw
+  // UPDATE), (b) event_type is 'graph_saved', (c) the graph_hash is present and
+  // derived from the graph being written, (d) the old export no longer exists.
   // -----------------------------------------------------------------------
 
-  describe('saveGraph', () => {
-    it('calls UPDATE on scenarios table', async () => {
-      const eqFn = vi.fn().mockResolvedValue({ error: null })
-      const updateFn = vi.fn().mockReturnValue({ eq: eqFn })
-      mockFrom.mockReturnValue({ update: updateFn, select: vi.fn(), insert: mockInsert, delete: mockDelete })
+  describe('saveGraphViaGatedPath', () => {
+    const GRAPH = {
+      nodes: [{ id: 'n1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'A' } }],
+      edges: [{ id: 'e1', source: 'n1', target: 'n1', data: { weight: 0.5 } }],
+    } as unknown as Parameters<typeof service.saveGraphViaGatedPath>[1]
 
-      await service.saveGraph('scenario-1', { nodes: [], edges: [] })
+    it('calls apply_patch_and_log with a graph_saved event and a derived graph_hash', async () => {
+      mockRpc.mockResolvedValue({ data: {}, error: null })
 
-      expect(mockFrom).toHaveBeenCalledWith('scenarios')
-      expect(updateFn).toHaveBeenCalledWith({ graph: { nodes: [], edges: [] } })
-      expect(eqFn).toHaveBeenCalledWith('id', 'scenario-1')
+      await service.saveGraphViaGatedPath('scenario-1', GRAPH, VALID_EVENT_ID)
+
+      expect(mockRpc).toHaveBeenCalledTimes(1)
+      const [rpcName, params] = mockRpc.mock.calls[0] as [string, Record<string, unknown>]
+      expect(rpcName).toBe('apply_patch_and_log')
+      expect(params.p_scenario_id).toBe('scenario-1')
+      expect(params.p_graph).toBe(GRAPH)
+      expect(params.p_event_id).toBe(VALID_EVENT_ID)
+      expect(params.p_event_type).toBe('graph_saved')
+      expect(params.p_turn_id).toBeNull()
+      // Hash is recorded and non-empty (records WHAT graph state was persisted)
+      const hashes = params.p_hashes as { graph_hash?: string }
+      expect(typeof hashes.graph_hash).toBe('string')
+      expect(hashes.graph_hash.length).toBeGreaterThan(0)
     })
 
-    it('does not call any RPC', async () => {
-      const eqFn = vi.fn().mockResolvedValue({ error: null })
-      const updateFn = vi.fn().mockReturnValue({ eq: eqFn })
-      mockFrom.mockReturnValue({ update: updateFn, select: vi.fn(), insert: mockInsert, delete: mockDelete })
+    it('records a hash derived from the graph being written (changes with the graph)', async () => {
+      mockRpc.mockResolvedValue({ data: {}, error: null })
 
-      await service.saveGraph('scenario-1', {})
-      expect(mockRpc).not.toHaveBeenCalled()
+      await service.saveGraphViaGatedPath('scenario-1', GRAPH, VALID_EVENT_ID)
+      const hashA = (mockRpc.mock.calls[0][1] as { p_hashes: { graph_hash: string } }).p_hashes.graph_hash
+
+      mockRpc.mockClear()
+      const GRAPH2 = {
+        nodes: [
+          ...(GRAPH as { nodes: unknown[] }).nodes,
+          { id: 'n2', type: 'option', position: { x: 1, y: 1 }, data: { label: 'B' } },
+        ],
+        edges: (GRAPH as { edges: unknown[] }).edges,
+      } as unknown as Parameters<typeof service.saveGraphViaGatedPath>[1]
+      await service.saveGraphViaGatedPath('scenario-1', GRAPH2, VALID_EVENT_ID)
+      const hashB = (mockRpc.mock.calls[0][1] as { p_hashes: { graph_hash: string } }).p_hashes.graph_hash
+
+      expect(hashB).not.toBe(hashA)
+    })
+
+    it('does NOT perform a raw scenarios UPDATE (no bypass writer)', async () => {
+      const updateFn = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) })
+      mockFrom.mockReturnValue({ update: updateFn, select: vi.fn(), insert: mockInsert, delete: mockDelete })
+      mockRpc.mockResolvedValue({ data: {}, error: null })
+
+      await service.saveGraphViaGatedPath('scenario-1', GRAPH, VALID_EVENT_ID)
+
+      expect(updateFn).not.toHaveBeenCalled()
+    })
+
+    it('throws ScenarioPersistenceError on RPC failure', async () => {
+      mockRpc.mockResolvedValue({ data: null, error: { message: 'DB error' } })
+
+      await expect(
+        service.saveGraphViaGatedPath('scenario-1', GRAPH, VALID_EVENT_ID),
+      ).rejects.toMatchObject({ code: 'SAVE_GRAPH_FAILED' })
+    })
+
+    it('the raw-write bypass export `saveGraph` no longer exists', () => {
+      expect((service as Record<string, unknown>).saveGraph).toBeUndefined()
+    })
+  })
+
+  // -----------------------------------------------------------------------
+  // Source guard — no raw scenarios.graph writer may be re-introduced
+  //
+  // Fail-loud on drift (rule: derive/enforce from the source of truth, never
+  // trust a hand-maintained memory that a bypass "won't come back"). If a
+  // future edit adds `.update({ graph ... })` on the scenarios table, this
+  // trips immediately rather than silently reopening the trust-spine hole.
+  // -----------------------------------------------------------------------
+
+  describe('source guard: no raw graph writer', () => {
+    // Resolve from the repo root (vitest cwd) — robust across transforms.
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/services/scenarioService.ts'),
+      'utf8',
+    )
+
+    it('contains no raw `.update({ graph ... })` on the scenarios table', () => {
+      // Matches update payloads whose first key is `graph` (the bypass shape).
+      expect(/\.update\(\s*\{\s*graph\b/.test(source)).toBe(false)
+    })
+
+    it('writes scenarios.graph only through the apply_patch_and_log RPC', () => {
+      expect(source.includes("supabase.rpc('apply_patch_and_log'")).toBe(true)
     })
   })
 

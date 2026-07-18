@@ -8,8 +8,8 @@
  * browser owns is the draft that only exists locally: the `canvas-storage`
  * graph a guest built before signing in. This module offers a one-time
  * import of that draft through the EXISTING authenticated create/persist
- * path (scenarioService.createScenario + saveGraph) — no new persistence
- * machinery, real user_id stamped by the existing seam.
+ * path (scenarioService.createScenario + saveGraphViaGatedPath) — no new
+ * persistence machinery, real user_id stamped by the existing seam.
  *
  * Order matters: the draft graph is saved into the new scenario row BEFORE
  * any navigation, because /scenario/:id hydrates the canvas store from the
@@ -88,7 +88,11 @@ export async function importGuestDraft(userId: string): Promise<string> {
   }
   const eventId = crypto.randomUUID()
   const row = await scenarioService.createScenario(userId, eventId, 'Imported draft')
-  await scenarioService.saveGraph(row.id, { nodes: draft.nodes, edges: draft.edges })
+  await scenarioService.saveGraphViaGatedPath(
+    row.id,
+    { nodes: draft.nodes, edges: draft.edges },
+    crypto.randomUUID(),
+  )
   setMarker('imported')
   return row.id
 }

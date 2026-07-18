@@ -203,6 +203,35 @@ describe('Fixture 4 — Single stage', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Fixture 4b — graph_saved autosave markers are hidden from the timeline
+//   (positive control: a real user event in the SAME list still renders)
+// ---------------------------------------------------------------------------
+
+describe('Fixture 4b — graph_saved filter', () => {
+  it('excludes graph_saved autosave markers but keeps user events', () => {
+    const events = [
+      makeEvent('direct_edit', { change_type: 'update_node', target_label: 'Revenue' }),
+      makeEvent('graph_saved', {}, { hashes: { graph_hash: 'abc123' } }),
+      makeEvent('graph_saved', {}, { hashes: { graph_hash: 'def456' } }),
+    ]
+    const entries = renderTimeline(events)
+    // Positive control: the direct_edit renders...
+    expect(entries).toHaveLength(1)
+    expect(entries[0].headline).toBe('You updated Revenue')
+    // ...and NO entry came from a graph_saved event.
+    expect(entries.some(e => e.headline.toLowerCase().includes('graph saved'))).toBe(false)
+  })
+
+  it('renders nothing for a timeline of only graph_saved markers', () => {
+    const events = [
+      makeEvent('graph_saved', {}, { hashes: { graph_hash: 'a' } }),
+      makeEvent('graph_saved', {}, { hashes: { graph_hash: 'b' } }),
+    ]
+    expect(renderTimeline(events)).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Fixture 5 — direct_edit with target_label / fallback to target_id
 // ---------------------------------------------------------------------------
 

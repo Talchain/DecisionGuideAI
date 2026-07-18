@@ -40,7 +40,7 @@ vi.mock('../../contexts/AuthContext', () => ({
 const mockCreateScenario = vi.fn()
 const mockLoadScenario = vi.fn()
 const mockDeleteScenario = vi.fn()
-const mockSaveGraph = vi.fn()
+const mockSaveGraphViaGatedPath = vi.fn()
 const mockSaveFraming = vi.fn()
 const mockStoreAnalysis = vi.fn()
 const mockStoreAnalysisFailure = vi.fn()
@@ -55,7 +55,7 @@ vi.mock('../../services/scenarioService', () => ({
   createScenario: (...args: unknown[]) => mockCreateScenario(...args),
   loadScenario: (...args: unknown[]) => mockLoadScenario(...args),
   deleteScenario: (...args: unknown[]) => mockDeleteScenario(...args),
-  saveGraph: (...args: unknown[]) => mockSaveGraph(...args),
+  saveGraphViaGatedPath: (...args: unknown[]) => mockSaveGraphViaGatedPath(...args),
   saveFraming: (...args: unknown[]) => mockSaveFraming(...args),
   storeAnalysis: (...args: unknown[]) => mockStoreAnalysis(...args),
   storeAnalysisFailure: (...args: unknown[]) => mockStoreAnalysisFailure(...args),
@@ -88,6 +88,11 @@ const mockSetState = vi.fn((partial: Record<string, unknown>) => {
   storeState = { ...storeState, ...partial }
 })
 
+// Capture every subscribe callback so a test can drive the debounced autosave
+// subscription directly (the graph-autosave effect subscribes first).
+type StoreSubscriber = (state: Record<string, unknown>, prev: Record<string, unknown>) => void
+const mockSubscribeCallbacks: StoreSubscriber[] = []
+
 vi.mock('../../canvas/store', () => ({
   useCanvasStore: Object.assign(
     // The hook-style call: useCanvasStore(selector)
@@ -95,8 +100,11 @@ vi.mock('../../canvas/store', () => ({
     {
       getState: () => mockGetState(),
       setState: (partial: Record<string, unknown>) => mockSetState(partial),
-      // subscribe mock — returns an unsubscribe function (no-op for tests)
-      subscribe: vi.fn(() => vi.fn()),
+      // subscribe mock — records the callback and returns an unsubscribe no-op
+      subscribe: (cb: StoreSubscriber) => {
+        mockSubscribeCallbacks.push(cb)
+        return () => {}
+      },
     },
   ),
 }))
@@ -137,6 +145,7 @@ function renderUseScenario() {
 describe('useScenario', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockSubscribeCallbacks.length = 0
     storeState = {
       currentScenarioId: null,
       nodes: [],
@@ -148,7 +157,7 @@ describe('useScenario', () => {
     }
     setAuth(null, false)
     // Default mock returns — flush-on-unmount calls .catch() on these
-    mockSaveGraph.mockResolvedValue(undefined)
+    mockSaveGraphViaGatedPath.mockResolvedValue(undefined)
     mockSaveFraming.mockResolvedValue(undefined)
     mockSaveTitle.mockResolvedValue(undefined)
     vi.useFakeTimers()
@@ -321,9 +330,79 @@ describe('useScenario', () => {
         await result.current.loadScenario('scenario-2')
       })
 
-      // Should have called resetAnalysisStatus (not saveGraph) to reset the interrupted analysis
+      // Should have called resetAnalysisStatus (not a graph write) to reset the interrupted analysis
       expect(mockResetAnalysisStatus).toHaveBeenCalledWith('scenario-2')
-      expect(mockSaveGraph).not.toHaveBeenCalled()
+      expect(mockSaveGraphViaGatedPath).not.toHaveBeenCalled()
+    })
+  })
+
+  // -----------------------------------------------------------------------
+  // Graph autosave routing (trust-spine board #2)
+  //
+  // The debounced autosave MUST persist through the single gated path
+  // (saveGraphViaGatedPath → apply_patch_and_log, event + hash), never a raw
+  // write. Reverting the hook back to a raw `saveGraph` call flips this RED.
+  // -----------------------------------------------------------------------
+
+  describe('graph autosave routing', () => {
+    it('routes the debounced autosave through saveGraphViaGatedPath', async () => {
+      setAuth(REAL_USER_ID, true)
+      setStoreState({
+        currentScenarioId: 'scenario-1',
+        nodes: [{ id: 'n1' }],
+        edges: [],
+        results: { status: 'idle' },
+      })
+
+      renderUseScenario()
+
+      // The graph-autosave effect subscribes first.
+      expect(mockSubscribeCallbacks.length).toBeGreaterThan(0)
+      const graphSub = mockSubscribeCallbacks[0]
+
+      const prev = { nodes: [{ id: 'n1' }], edges: [], results: { status: 'idle' } }
+      const nextNodes = [{ id: 'n1' }, { id: 'n2' }]
+      const next = { nodes: nextNodes, edges: [], results: { status: 'idle' } }
+      // getState() (read inside the debounce timer) must reflect the change too.
+      setStoreState({ nodes: nextNodes, edges: [] })
+
+      await act(async () => {
+        graphSub(next, prev)
+        await vi.advanceTimersByTimeAsync(1600)
+      })
+
+      expect(mockSaveGraphViaGatedPath).toHaveBeenCalledTimes(1)
+      const [sid, graph, eventId] = mockSaveGraphViaGatedPath.mock.calls[0]
+      expect(sid).toBe('scenario-1')
+      expect(graph).toEqual({ nodes: nextNodes, edges: [] })
+      expect(typeof eventId).toBe('string')
+      expect(eventId.length).toBeGreaterThan(0)
+    })
+
+    it('does not autosave in guest mode (persistence inactive)', async () => {
+      setAuth('guest', true)
+      setStoreState({
+        currentScenarioId: 'scenario-1',
+        nodes: [{ id: 'n1' }],
+        edges: [],
+        results: { status: 'idle' },
+      })
+
+      renderUseScenario()
+
+      // Subscription still registers, but the callback must no-op for guests.
+      const graphSub = mockSubscribeCallbacks[0]
+      if (graphSub) {
+        await act(async () => {
+          graphSub(
+            { nodes: [{ id: 'n1' }, { id: 'n2' }], edges: [], results: { status: 'idle' } },
+            { nodes: [{ id: 'n1' }], edges: [], results: { status: 'idle' } },
+          )
+          await vi.advanceTimersByTimeAsync(1600)
+        })
+      }
+
+      expect(mockSaveGraphViaGatedPath).not.toHaveBeenCalled()
     })
   })
 
