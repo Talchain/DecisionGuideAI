@@ -30,7 +30,6 @@ import { describe, it, expect } from 'vitest'
 import {
   DRAFT_BIAS_SIGNAL_CARD_CAP,
   buildDraftBiasSignalBlocks,
-  humaniseBiasSignalCode,
 } from '../draftBiasSignalBlocks'
 import { BIAS_SIGNAL_REGISTRY } from '../../shared/biasSignalTitles'
 import type { ConversationBlock, V5CoachingBlock } from '../types'
@@ -222,22 +221,17 @@ describe('buildDraftBiasSignalBlocks — fail closed', () => {
   })
 })
 
-describe('humaniseBiasSignalCode — prototype-chain escapes (hostile wire codes)', () => {
+describe('bias-signal titles — prototype-chain escapes (hostile wire codes)', () => {
   // A bare object-literal index walks the prototype chain: '__proto__'
   // yields Object.prototype (a truthy object — React throws "Objects are
   // not valid as a React child", crashing the assistant-message subtree)
   // and 'constructor' yields the Object function (blank title + console
-  // error). Both must fail closed like any other unknown code. Only these
-  // two survive the toLowerCase() normalisation; 'toString' / 'valueOf' /
-  // 'hasOwnProperty' miss the camelCase prototype properties already.
-  it("'__proto__' fails closed — Object.prototype must never become a card title", () => {
-    expect(humaniseBiasSignalCode('__proto__')).toBeNull()
-  })
-
-  it("'constructor' fails closed — a Function must never become a card title", () => {
-    expect(humaniseBiasSignalCode('constructor')).toBeNull()
-  })
-
+  // error). Both must fail closed like any other unknown code.
+  //
+  // The direct resolver-level assertions that used to sit here are covered
+  // (with more cases) by biasSignalTitles.parity.spec.ts C7. What this
+  // spec uniquely owns is the INTEGRATION below: hostile codes arriving as
+  // grounded signals must produce no cards.
   it('grounded signals carrying hostile codes render no cards (case-insensitive path included)', () => {
     const blocks = build([
       { type: '__proto__', detail: 'Hostile wire code.', target: 'fac_initial_quote' },

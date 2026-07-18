@@ -33,25 +33,14 @@
  */
 import type { CEEDraftCoaching } from '../../adapters/cee/types'
 import type { ConversationBlock, V5CoachingBlock } from './types'
+import { DRAFT_BIAS_SIGNAL_CARD_CAP } from './types'
+import { isBiasSignalCoachingBlock } from './phase3Pacing'
 import { resolveBiasSignal } from '../shared/biasSignalTitles'
 
-/**
- * UI-SEM-084: ratified cap — at most two bias-signal cards per draft turn
- * (display budget only; drops the third-and-later grounded signals, never
- * transforms any value).
- */
-export const DRAFT_BIAS_SIGNAL_CARD_CAP = 2
-
-/**
- * Allowlist lookup through the ONE bias registry
- * (src/canvas/shared/biasSignalTitles.ts) — the trim/lowercase/own-key
- * guard lives there, shared with every other surface. Returns null for
- * unknown / non-string codes (fail closed): unknown codes are NOT
- * sentence-cased, so a raw wire token can never leak into copy.
- */
-export function humaniseBiasSignalCode(code: unknown): string | null {
-  return resolveBiasSignal(code)?.title ?? null
-}
+// The cap's one definition lives with the other render budgets in ./types
+// (/simplify item 5) — the render layer consumes it too. Re-exported here
+// because this bridge is where it is enforced on the producing side.
+export { DRAFT_BIAS_SIGNAL_CARD_CAP }
 
 /** The minimal canvas-store surface the builder reads. */
 export interface DraftBiasSignalStoreSlice {
@@ -93,10 +82,7 @@ export function buildDraftBiasSignalBlocks(args: {
   const { isDraftTurn, store, existingBlocks = [] } = args
   if (!isDraftTurn) return []
 
-  const producerHasBiasCoaching = existingBlocks.some(
-    (b) => b.type === 'v5_coaching' && b.coaching_kind === 'bias_signal',
-  )
-  if (producerHasBiasCoaching) return []
+  if (existingBlocks.some(isBiasSignalCoachingBlock)) return []
 
   const signals = store.draftCoaching?.biasSignals
   if (!Array.isArray(signals) || signals.length === 0) return []
@@ -117,7 +103,11 @@ export function buildDraftBiasSignalBlocks(args: {
     if (!signal || typeof signal !== 'object') continue
     const s = signal as Record<string, unknown>
 
-    const title = humaniseBiasSignalCode(s.type)
+    // Allowlist lookup through the ONE bias registry — the
+    // trim/lowercase/own-key guard lives there, shared with every other
+    // surface. Unknown / non-string codes fail closed (never
+    // sentence-cased), so a raw wire token can never leak into copy.
+    const title = resolveBiasSignal(s.type)?.title ?? null
     if (!title) continue
 
     const detail = typeof s.detail === 'string' ? s.detail.trim() : ''

@@ -631,6 +631,20 @@ export const MAX_SUGGESTED_ACTIONS = 3
 /** Max visible blocks per assistant turn before "Show more" toggle */
 export const MAX_VISIBLE_BLOCKS_PER_TURN = 4
 
+/**
+ * UI-SEM-084: ratified cap — at most two bias-signal coaching cards render
+ * budget-exempt per turn (display budget only; never transforms a value).
+ *
+ * Defined HERE, alongside the other render budgets, because it has two
+ * consumers that must not import each other: the draft bridge
+ * (draftBiasSignalBlocks, which stops emitting past the cap) and the render
+ * layer (phase3Pacing/InlineBlocks, which exempts only the first N from the
+ * visibility budgets). Before /simplify item 5 the cap lived only in the
+ * bridge, so PRODUCER bias blocks — which the bridge stands down for — were
+ * exempt from both budgets and capped by nothing.
+ */
+export const DRAFT_BIAS_SIGNAL_CARD_CAP = 2
+
 // ---------------------------------------------------------------------------
 // § 4 — System events (type-defined now, wired in follow-up PR)
 // ---------------------------------------------------------------------------
