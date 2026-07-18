@@ -28,13 +28,15 @@ import { StickyFooter } from './StickyFooter'
 import { focusNodeById } from '../../utils/focusHelpers'
 import { withObservedStateUpdate } from '../../utils/observedStateHelpers'
 import { useCanvasStore } from '../../store'
-import { resolveBiasSignal } from '../../shared/biasSignalTitles'
+import { biasSignal, resolveBiasSignal } from '../../shared/biasSignalTitles'
+import type { KnownBiasCode } from '../../shared/biasSignalTitles'
 import { useDraftStore } from '../../stores/draftStore'
 import { useRetryDraft } from '../../hooks/useRetryDraft'
 import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
 import { useShowToast } from '../../ToastContext'
 import { copyTextToClipboard } from '../../../utils/clipboard'
-import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, Frame, ShieldAlert, Gauge, Anchor, EyeOff, Link as LinkIcon } from 'lucide-react'
+import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, ShieldAlert, EyeOff, Link as LinkIcon } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import { getCausalEdges } from '../../domain/edgeUtils'
 import type { EdgeData } from '../../domain/edges'
@@ -74,15 +76,6 @@ import { WhatOlumiAddedSection } from './WhatOlumiAddedSection'
 
 /** AI source provenance labels */
 const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred', 'ai_estimate', 'engine'])
-
-// Icon + title lookup for CEE bias type strings: THE shared bias registry
-// (src/canvas/shared/biasSignalTitles.ts — resolveBiasSignal). One
-// lowercase-keyed map for both wire conventions (lowercase `type`,
-// uppercase `code` — the resolver lowercases), one guarded lookup (own-key
-// check, so hostile prototype-chain codes like 'constructor'/'__proto__'
-// fail closed instead of crashing the panel). Any unrecognised key falls
-// back to safeBiasTitle / BIAS_FALLBACK per the brief. Replaces the
-// panel-local BIAS_TYPE_ICON dual-case mirror (review-folds 2026-07-17).
 
 /**
  * Entity-ID prefixes that must NEVER appear in user-facing copy. If a CEE bug
@@ -134,7 +127,7 @@ export function safeBiasTitle(token: string): string | null {
 }
 
 /** Generic fallback for unrecognised bias codes per the brief. */
-const BIAS_FALLBACK: { icon: typeof Frame; title: string } = {
+const BIAS_FALLBACK: { icon: LucideIcon; title: string } = {
   icon: EyeOff,
   title: 'Bias detected',
 }
@@ -309,7 +302,7 @@ type RawBiasFinding = {
 
 export interface NormalisedBiasTrigger {
   id: string
-  icon: typeof Frame
+  icon: LucideIcon
   title: string
   subtitle: string
   fullExplanation: string
@@ -1418,12 +1411,21 @@ export function PreAnalysisPanel({
     // no target factor — these are graph-level signals that do not anchor to
     // a single node).
 
-    const pushDeterministic = (
-      id: string,
-      icon: typeof Frame,
-      title: string,
-      explanation: string,
-    ) => {
+    /**
+     * A deterministic trigger's identity. `{ code }` derives BOTH channels —
+     * title and icon — from the ONE bias registry, so the two can never
+     * drift apart at a call site (/simplify item 3). The explicit
+     * `{ id, title, icon }` arm is for non-bias graph signals:
+     * `missing_risks` is a graph-signal label, NOT a bias code, and is
+     * deliberately kept out of the registry.
+     */
+    type DeterministicTriggerSpec =
+      | { code: KnownBiasCode }
+      | { id: string; title: string; icon: LucideIcon }
+
+    const pushDeterministic = (spec: DeterministicTriggerSpec, explanation: string) => {
+      const { id, title, icon } =
+        'code' in spec ? { id: spec.code, ...biasSignal(spec.code) } : spec
       triggers.push({
         id,
         icon,
@@ -1440,22 +1442,20 @@ export function PreAnalysisPanel({
     // 1. Narrow framing: fewer than 2 non-baseline options
     const nonBaselineOptions = data.optionPreviews.filter(o => !o.isBaseline)
     if (nonBaselineOptions.length < 2) {
+      // Title AND icon from the one registry; the explanation copy stays
+      // local to this trigger.
       pushDeterministic(
-        'narrow_framing',
-        Frame,
-        // Bias NAME from the one registry (review-folds C15) — the
-        // explanation copy stays local to this trigger.
-        resolveBiasSignal('narrow_framing')!.title,
+        { code: 'narrow_framing' },
         'Consider structurally different approaches. What would a competitor do?',
       )
     }
 
     // 2. Missing risks: 0 or 1 risk nodes
     if (data.nodesByKind.risk.length <= 1) {
+      // Non-bias graph signal — explicit label + icon, deliberately not a
+      // registry entry.
       pushDeterministic(
-        'missing_risks',
-        ShieldAlert,
-        'Missing risks',
+        { id: 'missing_risks', title: 'Missing risks', icon: ShieldAlert },
         'Your model has few risks. Consider what could go wrong with each option.',
       )
     }
@@ -1479,10 +1479,7 @@ export function PreAnalysisPanel({
           if (source && AI_SOURCES.has(source) && (!drivers || drivers.length === 0)) {
             const label = (nd.label as string) ?? topFactorId
             pushDeterministic(
-              'overconfidence',
-              Gauge,
-              // Bias NAME from the one registry (review-folds C15).
-              resolveBiasSignal('overconfidence')!.title,
+              { code: 'overconfidence' },
               `${label} drives most of the outcome but has no supporting evidence. Validate it before relying on it.`,
             )
           }
@@ -1523,9 +1520,7 @@ export function PreAnalysisPanel({
           }
           if (allNarrow && hasValidFactor) {
             pushDeterministic(
-              'anchoring',
-              Anchor,
-              'Anchoring',
+              { code: 'anchoring' },
               'Your options are similar. Try a wider range of approaches.',
             )
           }

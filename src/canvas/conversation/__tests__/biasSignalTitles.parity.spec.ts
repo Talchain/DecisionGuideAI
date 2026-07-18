@@ -19,9 +19,10 @@
  *     findings path is case-insensitive (C8).
  */
 import { describe, it, expect, vi } from 'vitest'
+import { Anchor, EyeOff, Frame, Gauge } from 'lucide-react'
 
-import { BIAS_SIGNAL_REGISTRY, resolveBiasSignal } from '../../shared/biasSignalTitles'
-import { humaniseBiasSignalCode } from '../draftBiasSignalBlocks'
+import { BIAS_SIGNAL_REGISTRY, biasSignal, resolveBiasSignal } from '../../shared/biasSignalTitles'
+import type { KnownBiasCode } from '../../shared/biasSignalTitles'
 import {
   mapDraftBiasSignalToTrigger,
   normaliseCeeBiasFinding,
@@ -39,20 +40,13 @@ vi.mock('../../store', () => {
   }
 })
 
-/**
- * Every bias code a UI surface composes copy from via
- * resolveBiasSignal('<code>')!. Keep in step with the literal call sites:
- *   - PreAnalysisPanel.tsx pushDeterministic (narrow_framing, overconfidence)
- *   - useScienceIcons.ts / OptionNode.tsx status-quo tooltips
- *   - DecisionNode.tsx bias trigger strings
- * A code missing from the registry would make those sites throw at render —
- * this trap fails first.
- */
-const COMPOSED_TRIGGER_CODES = [
-  'narrow_framing',
-  'overconfidence',
-  'status_quo_bias',
-] as const
+// The composed-trigger allowlist that used to live here is GONE
+// (/simplify item 2). Composed call sites now go through the TOTAL accessor
+// `biasSignal(code: KnownBiasCode)`, whose parameter type is
+// `keyof typeof BIAS_SIGNAL_REGISTRY` — so renaming or removing a registry
+// key is a TYPECHECK error at every site that composes copy from it. The
+// compiler enforces what a hand-maintained list could only mirror
+// (platform trap 12: derive, don't mirror).
 
 describe('bias-signal registry — drift traps over the SOURCE (C9)', () => {
   it('every registry key is lowercase with a non-empty sentence-case title AND an icon', () => {
@@ -67,16 +61,31 @@ describe('bias-signal registry — drift traps over the SOURCE (C9)', () => {
     }
   })
 
-  it('every code the deterministic-trigger literals compose from resolves', () => {
-    for (const code of COMPOSED_TRIGGER_CODES) {
-      const entry = resolveBiasSignal(code)
-      expect(entry, `composed-trigger code ${code} must resolve`).not.toBeNull()
+  it('the total accessor agrees with the guarded wire resolver on every registry code', () => {
+    for (const code of Object.keys(BIAS_SIGNAL_REGISTRY) as KnownBiasCode[]) {
+      expect(biasSignal(code)).toEqual(resolveBiasSignal(code))
     }
   })
 
-  it('pins one composed trigger string byte-identical to the pre-registry literal (C15)', () => {
-    expect(`${resolveBiasSignal('status_quo_bias')!.title}: inaction risks often underestimated.`)
+  it('pins the composed trigger strings byte-identical to the pre-registry literals (C15)', () => {
+    expect(`${biasSignal('status_quo_bias').title}: inaction risks often underestimated.`)
       .toBe('Status quo bias: inaction risks often underestimated.')
+    expect(`${biasSignal('narrow_framing').title}: < 3 options`)
+      .toBe('Narrow framing: < 3 options')
+    expect(`${biasSignal('status_quo_bias').title}: baseline present`)
+      .toBe('Status quo bias: baseline present')
+    expect(`${biasSignal('overconfidence').title}: top factor unvalidated`)
+      .toBe('Overconfidence: top factor unvalidated')
+  })
+
+  it('pins the ICON each composed site now resolves from the registry (/simplify item 3)', () => {
+    // Both channels come from one entry, so these are the icons the
+    // status-quo science icon and the three deterministic panel triggers
+    // render — byte-identical to the pre-migration hardcoded literals.
+    expect(biasSignal('status_quo_bias').icon).toBe(EyeOff)
+    expect(biasSignal('narrow_framing').icon).toBe(Frame)
+    expect(biasSignal('overconfidence').icon).toBe(Gauge)
+    expect(biasSignal('anchoring').icon).toBe(Anchor)
   })
 
   it('CONFIRMATION_BIAS resolves ONE icon for both wire cases (the divergence is dead)', () => {
@@ -112,8 +121,8 @@ describe('bias-signal registry — every surface resolves through it', () => {
 
   it('the conversation resolver agrees with the registry, case-insensitively', () => {
     for (const [code, entry] of Object.entries(BIAS_SIGNAL_REGISTRY)) {
-      expect(humaniseBiasSignalCode(code)).toBe(entry.title)
-      expect(humaniseBiasSignalCode(code.toUpperCase())).toBe(entry.title)
+      expect(resolveBiasSignal(code)?.title).toBe(entry.title)
+      expect(resolveBiasSignal(code.toUpperCase())?.title).toBe(entry.title)
     }
   })
 
