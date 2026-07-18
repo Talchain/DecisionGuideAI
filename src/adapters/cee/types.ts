@@ -265,12 +265,45 @@ export type CEEEdgeOrigin = 'user' | 'ai' | 'default'
  * Passed through to PLoT /v2/run so ISL can compute joint goal probability.
  */
 export interface CEEGoalConstraint {
-  /** Constraint-specific identifier (e.g. "c1"), NOT a graph node ID */
-  id: string
-  label: string
+  /**
+   * Constraint-specific identifier (e.g. "c1"), NOT a graph node ID.
+   *
+   * OPTIONAL because this interface carries constraints from two different
+   * seams. Constraints extracted at DRAFT time (CEE `draft_graph
+   * .goal_constraints`, @talchain/schemas `DraftGoalConstraintSchema`) identify
+   * themselves with `constraint_id` and carry no `id` at all. Read `id`
+   * defensively; prefer `constraint_id ?? id` when you need an identity.
+   */
+  id?: string
+  /**
+   * Human-readable label.
+   *
+   * OPTIONAL, and genuinely absent in practice: CEE's own producer schema
+   * (`src/schemas/assist.ts` GoalConstraintSchema) declares
+   * `label: z.string().optional()`, as does the wire contract. Guard every
+   * read — `c.label.toLowerCase()` throws on a perfectly valid constraint.
+   */
+  label?: string
   operator: '>=' | '<=' | '>' | '<' | '='
   value: number
   probability?: number | null
+
+  // ── Draft-seam fields (CEE draft_graph.goal_constraints, schemas 0.18.0) ──
+  // Present on constraints extracted from the brief at draft time; absent on
+  // the PLoT run-request shape. Declared so the draft payload is typed rather
+  // than riding as an anonymous cast.
+  /** Unique constraint identifier (CEE: `constraint_<node_id>_<min|max>`). */
+  constraint_id?: string
+  /** Graph node this constraint binds to. Resolves against the drafted nodes. */
+  node_id?: string
+  /** Unit if known ('£', '%', 'fraction', ...). */
+  unit?: string
+  /** Verbatim span from the brief that produced this constraint. */
+  source_quote?: string
+  /** Extraction confidence (0-1). Regex path: 0.85 explicit / 0.6 inferred. */
+  confidence?: number
+  /** How the constraint was obtained — drives UI provenance display. */
+  provenance?: 'explicit' | 'inferred' | 'proxy'
 }
 
 /**

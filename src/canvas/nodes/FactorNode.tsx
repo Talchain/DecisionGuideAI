@@ -388,8 +388,11 @@ export const FactorNode = memo((props: NodeProps) => {
   const goalConstraints = useCanvasStore(state => state.goalConstraints)
   const constraintTooltip = useMemo(() => {
     if (!isGraphBadgesEnabled() || !goalConstraints?.length) return null
+    // `label` is optional on the wire — guard before comparing, or a valid
+    // unlabelled constraint throws here and takes the node render with it.
+    const target = cleanedLabel.toLowerCase().trim()
     const matching = goalConstraints.filter(c =>
-      c.label.toLowerCase().trim() === cleanedLabel.toLowerCase().trim()
+      c.label?.toLowerCase().trim() === target
     )
     if (matching.length === 0) return null
     return matching.map(c => `Constrained: ${c.label} ${c.operator} ${c.value ?? '-'}`).join('; ')
