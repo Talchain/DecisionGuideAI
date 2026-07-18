@@ -2126,7 +2126,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     same 20s/40s thresholds — never both live regions at once. */}
                 {runStatus === 'slow-run' && slowRunMessage && (
                   <div
-                    className="flex items-center gap-2 px-3 py-2 bg-info-bg border border-info/30 rounded text-text-header"
+                    className="flex items-center gap-2 px-3 py-2 bg-panel border border-info/30 rounded text-text-header"
                     role="status"
                     aria-live="polite"
                     data-testid="slow-run-message"
@@ -2240,7 +2240,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     but previous results are still visible */}
                 {isError && report && (
                   <div
-                    className="flex items-center gap-2 px-3 py-2 bg-warning-bg border border-warning/30 rounded"
+                    className="flex items-center gap-2 px-3 py-2 bg-panel border border-warning/30 rounded"
                     role="status"
                     data-testid="stale-results-banner"
                   >

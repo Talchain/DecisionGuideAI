@@ -77,12 +77,10 @@ export default {
         danger: {
           DEFAULT: 'var(--danger)',
           light: 'var(--danger-light)',
-          bg: 'var(--danger-bg)',
           hover: 'var(--danger-hover)',
           active: 'var(--danger-active)',
           disabled: 'var(--danger-disabled)',
           // Legacy numeric aliases for backward compatibility
-          50: 'var(--danger-bg)',
           100: 'var(--danger-light)',
           200: 'var(--danger-light)',
           500: 'var(--danger)',
@@ -94,12 +92,10 @@ export default {
         success: {
           DEFAULT: 'var(--success)',
           light: 'var(--success-light)',
-          bg: 'var(--success-bg)',
           hover: 'var(--success-hover)',
           active: 'var(--success-active)',
           disabled: 'var(--success-disabled)',
           // Legacy numeric aliases for backward compatibility
-          50: 'var(--success-bg)',
           100: 'var(--success-light)',
           200: 'var(--success-light)',
           500: 'var(--success)',
@@ -111,12 +107,10 @@ export default {
         info: {
           DEFAULT: 'var(--info)',
           light: 'var(--info-light)',
-          bg: 'var(--info-bg)',
           hover: 'var(--info-hover)',
           active: 'var(--info-active)',
           disabled: 'var(--info-disabled)',
           // Legacy numeric aliases for backward compatibility
-          50: 'var(--info-bg)',
           100: 'var(--info-light)',
           200: 'var(--info-light)',
           500: 'var(--info)',
@@ -128,12 +122,10 @@ export default {
         warning: {
           DEFAULT: 'var(--warning)',
           light: 'var(--warning-light)',
-          bg: 'var(--warning-bg)',
           hover: 'var(--warning-hover)',
           active: 'var(--warning-active)',
           disabled: 'var(--warning-disabled)',
           // Legacy numeric aliases for backward compatibility
-          50: 'var(--warning-bg)',
           100: 'var(--warning-light)',
           200: 'var(--warning-light)',
           500: 'var(--warning)',

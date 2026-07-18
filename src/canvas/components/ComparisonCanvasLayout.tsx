@@ -199,7 +199,7 @@ function ComparisonStatsBar({ comparison }: { comparison: ComparisonResult | nul
       count: removed,
       icon: Minus,
       color: 'text-danger-600',
-      bgColor: 'bg-danger-50',
+      bgColor: 'bg-panel',
     },
     {
       label: 'Modified',

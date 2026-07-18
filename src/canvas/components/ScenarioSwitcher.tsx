@@ -258,7 +258,7 @@ export function ScenarioSwitcher() {
                       </button>
                       <button
                         onClick={() => handleDelete(currentScenarioId)}
-                        className={`px-3 py-2 ${typography.body} text-danger-600 hover:bg-danger-50 rounded transition-colors`}
+                        className={`px-3 py-2 ${typography.body} text-danger-600 hover:bg-panel-hover rounded transition-colors`}
                         type="button"
                         role="menuitem"
                         title="Delete"
@@ -310,7 +310,7 @@ export function ScenarioSwitcher() {
                           key={scenario.id}
                           onClick={() => handleLoadScenario(scenario.id)}
                           className={`w-full text-left px-4 py-2 ${typography.body} hover:bg-gray-100 transition-colors ${
-                            scenario.id === currentScenarioId ? 'bg-info-50 text-info-700 font-medium' : 'text-gray-700'
+                            scenario.id === currentScenarioId ? 'bg-panel-hover text-info-700 font-medium' : 'text-gray-700'
                           }`}
                           type="button"
                           role="menuitem"
@@ -343,7 +343,7 @@ export function ScenarioSwitcher() {
                           key={scenario.id}
                           onClick={() => handleLoadScenario(scenario.id)}
                           className={`w-full text-left px-4 py-2 ${typography.body} hover:bg-gray-100 transition-colors ${
-                            scenario.id === currentScenarioId ? 'bg-info-50 text-info-700 font-medium' : 'text-gray-700'
+                            scenario.id === currentScenarioId ? 'bg-panel-hover text-info-700 font-medium' : 'text-gray-700'
                           }`}
                           type="button"
                           role="menuitem"

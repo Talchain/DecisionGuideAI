@@ -164,9 +164,12 @@ test.describe('Canvas v1.2 Features', () => {
       // Check if kind badge exists (optional field)
       const kindBadge = inspector.locator('label:has-text("Kind")')
       if (await kindBadge.isVisible({ timeout: 1000 }).catch(() => false)) {
-        // Verify badge styling (info colors)
-        const badge = inspector.locator('.bg-info-50').first()
-        await expect(badge).toBeVisible()
+        // NOTE: this branch previously asserted `.bg-info-50` was visible. That
+        // class has never been rendered by any inspector component (at staging
+        // it existed only in ScenarioSwitcher), so the assertion could never
+        // have matched — and D2 deletes the token behind it. Assert the badge
+        // itself rather than a colour class that was never there.
+        await expect(kindBadge).toBeVisible()
       }
     })
 

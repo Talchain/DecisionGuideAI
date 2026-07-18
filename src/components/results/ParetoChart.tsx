@@ -206,7 +206,7 @@ export function ParetoChart({
   if (error) {
     return (
       <div
-        className={`p-4 bg-danger-bg border border-danger/30 rounded-xl ${className}`}
+        className={`p-4 bg-panel border border-danger/30 rounded-xl ${className}`}
         data-testid="pareto-chart-error"
         role="alert"
       >
