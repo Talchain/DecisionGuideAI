@@ -1,5 +1,5 @@
 /**
- * Tests for mergeAppliedGraphAdditive (POC Lane C — applied-edit receipt
+ * Tests for reconcileAppliedGraph (POC Lane C — applied-edit receipt
  * ingestion on a non-empty canvas).
  *
  * Uses the REAL canvas store (mirrors the hook-level fixture in
@@ -17,9 +17,31 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { mergeAppliedGraphAdditive } from '../mergeAppliedGraph'
+import { reconcileAppliedGraph, type ReconcileAppliedGraphResult } from '../mergeAppliedGraph'
 import { useCanvasStore } from '../../store'
 import { logger } from '../../../lib/logger'
+// Derived, never hardcoded: the pair separator is a NUL, which is invisible
+// in source and unwritable as a literal without corrupting the file.
+import { edgePairKey } from '../graphIdentity'
+
+/**
+ * Fill the counters a case does not mention with 0, so every assertion checks
+ * ALL SIX exactly. Deliberately not `objectContaining`: an unasserted counter
+ * is how an unintended removal would slip through.
+ */
+function counts(
+  p: Partial<ReconcileAppliedGraphResult> = {},
+): ReconcileAppliedGraphResult {
+  return {
+    addedNodeCount: 0,
+    addedEdgeCount: 0,
+    updatedNodeCount: 0,
+    updatedEdgeCount: 0,
+    removedNodeCount: 0,
+    removedEdgeCount: 0,
+    ...p,
+  }
+}
 
 const EXISTING_NODES = [
   {
@@ -52,6 +74,11 @@ function seedCanvas() {
     nodes: structuredClone(EXISTING_NODES) as any,
     edges: structuredClone(EXISTING_EDGES) as any,
     ceeAnalysisReady: null,
+    // B2: default to "CEE has acknowledged nothing" so the deletion path is
+    // OFF unless a case opts in. Without this reset the field would leak
+    // between cases and a later test could delete the seed graph.
+    lastAuthoritativeGraph: null,
+    history: { past: [], future: [] },
   } as any)
 }
 
@@ -59,9 +86,9 @@ beforeEach(() => {
   seedCanvas()
 })
 
-describe('mergeAppliedGraphAdditive', () => {
+describe('reconcileAppliedGraph', () => {
   it('adds wire nodes/edges missing from the canvas and leaves existing elements untouched', () => {
-    const result = mergeAppliedGraphAdditive({
+    const result = reconcileAppliedGraph({
       nodes: [
         { id: 'goal-1', kind: 'goal', label: 'Revenue' },
         { id: 'factor-1', kind: 'factor', label: 'Spend', observed_state: { value: 100 } },
@@ -73,7 +100,7 @@ describe('mergeAppliedGraphAdditive', () => {
       ],
     } as any)
 
-    expect(result).toEqual({ addedNodeCount: 1, addedEdgeCount: 1 })
+    expect(result).toEqual(counts({ addedNodeCount: 1, addedEdgeCount: 1 }))
 
     const { nodes, edges } = useCanvasStore.getState()
     expect(nodes).toHaveLength(3)
@@ -99,7 +126,7 @@ describe('mergeAppliedGraphAdditive', () => {
   })
 
   it('places added nodes right of the existing bounding box (no re-layout of existing nodes)', () => {
-    mergeAppliedGraphAdditive({
+    reconcileAppliedGraph({
       nodes: [
         { id: 'goal-1', kind: 'goal', label: 'Revenue' },
         { id: 'factor-1', kind: 'factor', label: 'Spend' },
@@ -121,7 +148,7 @@ describe('mergeAppliedGraphAdditive', () => {
   })
 
   it('does not re-add an existing edge whose local id differs from the wire id (endpoint-pair dedupe)', () => {
-    const result = mergeAppliedGraphAdditive({
+    const result = reconcileAppliedGraph({
       nodes: [
         { id: 'goal-1', kind: 'goal', label: 'Revenue' },
         { id: 'factor-1', kind: 'factor', label: 'Spend' },
@@ -130,12 +157,12 @@ describe('mergeAppliedGraphAdditive', () => {
       edges: [{ id: 'factor-1::goal-1::0', from: 'factor-1', to: 'goal-1', weight: 0.7 }],
     } as any)
 
-    expect(result).toEqual({ addedNodeCount: 0, addedEdgeCount: 0 })
+    expect(result).toEqual(counts({ addedNodeCount: 0, addedEdgeCount: 0 }))
     expect(useCanvasStore.getState().edges).toHaveLength(1)
   })
 
   it('drops a dangling wire edge fail-closed (endpoint not on canvas and not being added)', () => {
-    const result = mergeAppliedGraphAdditive({
+    const result = reconcileAppliedGraph({
       nodes: [
         { id: 'goal-1', kind: 'goal', label: 'Revenue' },
         { id: 'factor-1', kind: 'factor', label: 'Spend' },
@@ -144,12 +171,12 @@ describe('mergeAppliedGraphAdditive', () => {
       edges: [{ id: 'ghost-1::goal-1::0', from: 'ghost-1', to: 'goal-1', weight: 0.5 }],
     } as any)
 
-    expect(result).toEqual({ addedNodeCount: 0, addedEdgeCount: 0 })
+    expect(result).toEqual(counts({ addedNodeCount: 0, addedEdgeCount: 0 }))
     expect(useCanvasStore.getState().edges).toHaveLength(1)
   })
 
   it('uniquifies the mapper fallback edge id against existing canvas ids', () => {
-    const result = mergeAppliedGraphAdditive({
+    const result = reconcileAppliedGraph({
       nodes: [
         { id: 'goal-1', kind: 'goal', label: 'Revenue' },
         { id: 'factor-1', kind: 'factor', label: 'Spend' },
@@ -160,7 +187,7 @@ describe('mergeAppliedGraphAdditive', () => {
       edges: [{ from: 'factor-2', to: 'goal-1', weight: 0.3 }],
     } as any)
 
-    expect(result).toEqual({ addedNodeCount: 1, addedEdgeCount: 1 })
+    expect(result).toEqual(counts({ addedNodeCount: 1, addedEdgeCount: 1 }))
     const { edges } = useCanvasStore.getState()
     expect(edges).toHaveLength(2)
     const ids = edges.map((e) => e.id)
@@ -169,11 +196,25 @@ describe('mergeAppliedGraphAdditive', () => {
     expect(addedEdge.id).not.toBe('e-0')
   })
 
-  it('is a strict no-op (no history entry) when the receipt carries nothing new', () => {
+  // ---------------------------------------------------------------------
+  // B2 (Codex deep review, 2026-07-18) — CORRECTED, NOT DELETED.
+  //
+  // This case used to be titled "is a strict no-op (no history entry) when
+  // the receipt carries nothing new" and fed a receipt in which factor-1's
+  // observed value was 250 while the canvas held 100 — then asserted that
+  // NOTHING happened. That is the defect, written down as an expectation:
+  // the green suite was pinning the data-loss. A receipt carrying a value
+  // the canvas does not have is not "nothing new", it is the whole point of
+  // the edit.
+  //
+  // The genuine no-op case (a receipt that really does carry nothing new)
+  // still exists and is asserted separately, below and at the end of the
+  // file — losing it would have been the opposite mistake.
+  // ---------------------------------------------------------------------
+  it('APPLIES an updated value on an existing node (B2 — this receipt is authoritative)', () => {
     const historyBefore = (useCanvasStore.getState() as any).history?.past?.length ?? 0
-    const nodesBefore = useCanvasStore.getState().nodes
 
-    const result = mergeAppliedGraphAdditive({
+    const result = reconcileAppliedGraph({
       nodes: [
         { id: 'goal-1', kind: 'goal', label: 'Revenue' },
         { id: 'factor-1', kind: 'factor', label: 'Spend', observed_state: { value: 250 } },
@@ -181,15 +222,46 @@ describe('mergeAppliedGraphAdditive', () => {
       edges: [{ id: 'e-0', from: 'factor-1', to: 'goal-1', weight: 0.7 }],
     } as any)
 
-    expect(result).toEqual({ addedNodeCount: 0, addedEdgeCount: 0 })
+    expect(result).toEqual(counts({ updatedNodeCount: 1 }))
+
+    // The value CEE committed is now what the canvas shows.
+    const factor1 = useCanvasStore.getState().nodes.find((n) => n.id === 'factor-1') as any
+    expect(factor1?.data?.observedState).toEqual({ value: 250 })
+
+    // ...and it is a real, undoable mutation, not a silent overwrite.
+    const historyAfter = (useCanvasStore.getState() as any).history?.past?.length ?? 0
+    expect(historyAfter).toBe(historyBefore + 1)
+
+    // LAYOUT PRESERVED — the whole reason this is an overlay and not a
+    // replace. CEE's node schema has no position field; if the reconcile
+    // took the mapper's node wholesale, this would be {x:0,y:0}.
+    expect(factor1?.position).toEqual({ x: 40, y: 200 })
+  })
+
+  it('is a strict no-op (no history entry, no store write) when the receipt genuinely matches the canvas', () => {
+    const historyBefore = (useCanvasStore.getState() as any).history?.past?.length ?? 0
+    const nodesBefore = useCanvasStore.getState().nodes
+    const edgesBefore = useCanvasStore.getState().edges
+
+    const result = reconcileAppliedGraph({
+      nodes: [
+        { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+        // Same value the canvas already holds.
+        { id: 'factor-1', kind: 'factor', label: 'Spend', observed_state: { value: 100 } },
+      ],
+      edges: [{ id: 'e-0', from: 'factor-1', to: 'goal-1', weight: 0.7 }],
+    } as any)
+
+    expect(result).toEqual(counts())
     const historyAfter = (useCanvasStore.getState() as any).history?.past?.length ?? 0
     expect(historyAfter).toBe(historyBefore)
-    // Node identity preserved — no store write at all.
+    // Identity preserved — no store write at all.
     expect(useCanvasStore.getState().nodes).toBe(nodesBefore)
+    expect(useCanvasStore.getState().edges).toBe(edgesBefore)
   })
 
   it('handles the nested graph shape ({ graph: { nodes, edges } })', () => {
-    const result = mergeAppliedGraphAdditive({
+    const result = reconcileAppliedGraph({
       graph: {
         nodes: [
           { id: 'goal-1', kind: 'goal', label: 'Revenue' },
@@ -200,7 +272,7 @@ describe('mergeAppliedGraphAdditive', () => {
       },
     } as any)
 
-    expect(result).toEqual({ addedNodeCount: 1, addedEdgeCount: 0 })
+    expect(result).toEqual(counts({ addedNodeCount: 1, addedEdgeCount: 0 }))
     expect(useCanvasStore.getState().nodes.map((n) => n.id)).toContain('risk-1')
   })
 })
@@ -209,7 +281,161 @@ describe('mergeAppliedGraphAdditive', () => {
 // Fixup round (adversarial review on PR #266)
 // ---------------------------------------------------------------------------
 
-describe('mergeAppliedGraphAdditive — zero-overlap structural guard', () => {
+// ---------------------------------------------------------------------------
+// B2 — deletions, and the acknowledgement guard that makes them safe
+// ---------------------------------------------------------------------------
+
+describe('reconcileAppliedGraph — deletions', () => {
+  it('REMOVES a node CEE previously acknowledged and now omits (absence == deletion)', () => {
+    // CEE has seen both factor-1 and goal-1 (e.g. from the draft or a prior
+    // receipt), so their absence from this receipt is authoritative.
+    useCanvasStore.getState().setLastAuthoritativeGraph({
+      nodeIds: ['goal-1', 'factor-1'],
+      edgePairs: [edgePairKey('factor-1', 'goal-1')],
+    })
+
+    const result = reconcileAppliedGraph({
+      nodes: [{ id: 'goal-1', kind: 'goal', label: 'Revenue' }],
+      edges: [],
+    } as any)
+
+    // The node AND the edge that hung off it are gone.
+    expect(result).toEqual(counts({ removedNodeCount: 1, removedEdgeCount: 1 }))
+    expect(useCanvasStore.getState().nodes.map((n) => n.id)).toEqual(['goal-1'])
+    expect(useCanvasStore.getState().edges).toHaveLength(0)
+  })
+
+  it('does NOT remove a local node CEE has never acknowledged (unsaved local work survives)', () => {
+    // The user added factor-99 seconds ago; the 1500ms autosave has not run,
+    // so CEE built its post-state without it. Absence here is ignorance, not
+    // deletion — removing it would be a worse bug than the one B2 fixes.
+    useCanvasStore.setState({
+      nodes: [
+        ...structuredClone(EXISTING_NODES),
+        { id: 'factor-99', type: 'factor', position: { x: 900, y: 900 }, data: { kind: 'factor', label: 'Local only' } },
+      ] as any,
+    })
+    useCanvasStore.getState().setLastAuthoritativeGraph({
+      nodeIds: ['goal-1', 'factor-1'], // factor-99 deliberately absent
+      edgePairs: [edgePairKey('factor-1', 'goal-1')],
+    })
+
+    const result = reconcileAppliedGraph({
+      nodes: [
+        { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+        { id: 'factor-1', kind: 'factor', label: 'Spend', observed_state: { value: 100 } },
+      ],
+      edges: [{ id: 'e-0', from: 'factor-1', to: 'goal-1', weight: 0.7 }],
+    } as any)
+
+    expect(result).toEqual(counts())
+    expect(useCanvasStore.getState().nodes.map((n) => n.id)).toContain('factor-99')
+  })
+
+  it('removes NOTHING when no authoritative graph has been recorded yet (fail-safe)', () => {
+    useCanvasStore.getState().setLastAuthoritativeGraph(null)
+
+    const result = reconcileAppliedGraph({
+      nodes: [{ id: 'goal-1', kind: 'goal', label: 'Revenue' }],
+      edges: [],
+    } as any)
+
+    expect(result).toEqual(counts())
+    expect(useCanvasStore.getState().nodes).toHaveLength(2)
+  })
+
+  it('records the receipt as the new authoritative set even on a no-op turn', () => {
+    // Otherwise an idempotent turn would leave the acknowledgement set stale
+    // and a LATER receipt could not delete what this one confirmed.
+    useCanvasStore.getState().setLastAuthoritativeGraph(null)
+
+    reconcileAppliedGraph({
+      nodes: [
+        { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+        { id: 'factor-1', kind: 'factor', label: 'Spend', observed_state: { value: 100 } },
+      ],
+      edges: [{ id: 'e-0', from: 'factor-1', to: 'goal-1', weight: 0.7 }],
+    } as any)
+
+    expect(useCanvasStore.getState().lastAuthoritativeGraph).toEqual({
+      nodeIds: ['goal-1', 'factor-1'],
+      edgePairs: [edgePairKey('factor-1', 'goal-1')],
+    })
+  })
+})
+
+describe('reconcileAppliedGraph — updates preserve layout and local-only data', () => {
+  it('keeps position/size/selection while overlaying the wire value', () => {
+    useCanvasStore.setState({
+      nodes: [
+        {
+          id: 'factor-1',
+          type: 'factor',
+          position: { x: 40, y: 200 },
+          width: 180,
+          height: 90,
+          selected: true,
+          data: { kind: 'factor', label: 'Spend', observedState: { value: 100 }, is_baseline: true },
+        },
+        ...structuredClone(EXISTING_NODES).filter((n) => n.id === 'goal-1'),
+      ] as any,
+    })
+
+    const result = reconcileAppliedGraph({
+      nodes: [
+        { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+        { id: 'factor-1', kind: 'factor', label: 'Spend', observed_state: { value: 250 } },
+      ],
+      edges: [],
+    } as any)
+
+    expect(result).toEqual(counts({ updatedNodeCount: 1 }))
+    const f = useCanvasStore.getState().nodes.find((n) => n.id === 'factor-1') as any
+    expect(f.data.observedState).toEqual({ value: 250 })
+    // Layout-only React Flow state survives untouched.
+    expect(f.position).toEqual({ x: 40, y: 200 })
+    expect(f.width).toBe(180)
+    expect(f.height).toBe(90)
+    expect(f.selected).toBe(true)
+    // UI-side backfill the wire never mentions is not wiped.
+    expect(f.data.is_baseline).toBe(true)
+  })
+
+  it('does not splat edge-mapper DEFAULTS over a locally-tuned edge', () => {
+    // A wire edge carrying no analytical fields must not overwrite the
+    // canvas edge's weight/direction with DEFAULT_EDGE_DATA — otherwise
+    // every receipt would churn history and reset the user's edges.
+    const edgesBefore = useCanvasStore.getState().edges
+    const result = reconcileAppliedGraph({
+      nodes: [
+        { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+        { id: 'factor-1', kind: 'factor', label: 'Spend', observed_state: { value: 100 } },
+      ],
+      edges: [{ id: 'e-0', from: 'factor-1', to: 'goal-1' }],
+    } as any)
+
+    expect(result).toEqual(counts())
+    expect(useCanvasStore.getState().edges).toBe(edgesBefore)
+    expect((edgesBefore[0] as any).data.weight).toBeCloseTo(0.7)
+  })
+
+  it('APPLIES a changed edge weight from the receipt', () => {
+    const result = reconcileAppliedGraph({
+      nodes: [
+        { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+        { id: 'factor-1', kind: 'factor', label: 'Spend', observed_state: { value: 100 } },
+      ],
+      edges: [{ id: 'e-0', from: 'factor-1', to: 'goal-1', weight: -0.9 }],
+    } as any)
+
+    expect(result).toEqual(counts({ updatedEdgeCount: 1 }))
+    const e = useCanvasStore.getState().edges[0] as any
+    expect(e.data.weight).toBeCloseTo(0.9)
+    expect(e.data.direction).toBe('negative')
+  })
+})
+
+describe('reconcileAppliedGraph — zero-overlap structural guard', () => {
   let warnSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
@@ -229,7 +455,7 @@ describe('mergeAppliedGraphAdditive — zero-overlap structural guard', () => {
     const nodesBefore = useCanvasStore.getState().nodes
     const edgesBefore = useCanvasStore.getState().edges
 
-    const result = mergeAppliedGraphAdditive({
+    const result = reconcileAppliedGraph({
       nodes: [
         { id: 'goal_1', kind: 'goal', label: 'Unrelated goal' },
         { id: 'opt_1', kind: 'option', label: 'Unrelated option' },
@@ -238,7 +464,7 @@ describe('mergeAppliedGraphAdditive — zero-overlap structural guard', () => {
       edges: [{ id: 'opt_1::out_1::0', from: 'opt_1', to: 'out_1', weight: 0.5 }],
     } as any)
 
-    expect(result).toEqual({ addedNodeCount: 0, addedEdgeCount: 0 })
+    expect(result).toEqual(counts({ addedNodeCount: 0, addedEdgeCount: 0 }))
     // Store untouched — identity preserved, nothing grafted.
     expect(useCanvasStore.getState().nodes).toBe(nodesBefore)
     expect(useCanvasStore.getState().edges).toBe(edgesBefore)
@@ -248,7 +474,7 @@ describe('mergeAppliedGraphAdditive — zero-overlap structural guard', () => {
   })
 
   it('still merges the normal superset receipt (overlap present) without warning', () => {
-    const result = mergeAppliedGraphAdditive({
+    const result = reconcileAppliedGraph({
       nodes: [
         { id: 'goal-1', kind: 'goal', label: 'Revenue' },
         { id: 'factor-1', kind: 'factor', label: 'Spend' },
@@ -257,16 +483,16 @@ describe('mergeAppliedGraphAdditive — zero-overlap structural guard', () => {
       edges: [],
     } as any)
 
-    expect(result).toEqual({ addedNodeCount: 1, addedEdgeCount: 0 })
+    expect(result).toEqual(counts({ addedNodeCount: 1, addedEdgeCount: 0 }))
     expect(warnSpy).not.toHaveBeenCalled()
   })
 })
 
-describe('mergeAppliedGraphAdditive — review fixups (edge-pair self-dedupe, staleness flags)', () => {
+describe('reconcileAppliedGraph — review fixups (edge-pair self-dedupe, staleness flags)', () => {
   it('dedupes two NEW wire edges sharing the same endpoint pair against each other', () => {
     // Direct setState bypasses addEdge's duplicate guard, so the merge must
     // self-dedupe wire edges that share an endpoint pair.
-    const result = mergeAppliedGraphAdditive({
+    const result = reconcileAppliedGraph({
       nodes: [
         { id: 'goal-1', kind: 'goal', label: 'Revenue' },
         { id: 'factor-1', kind: 'factor', label: 'Spend' },
@@ -278,7 +504,7 @@ describe('mergeAppliedGraphAdditive — review fixups (edge-pair self-dedupe, st
       ],
     } as any)
 
-    expect(result).toEqual({ addedNodeCount: 1, addedEdgeCount: 1 })
+    expect(result).toEqual(counts({ addedNodeCount: 1, addedEdgeCount: 1 }))
     const pairs = useCanvasStore
       .getState()
       .edges.filter((e) => e.source === 'factor-2' && e.target === 'goal-1')
@@ -296,7 +522,7 @@ describe('mergeAppliedGraphAdditive — review fixups (edge-pair self-dedupe, st
       analysisStateReady: true,
     } as any)
 
-    const result = mergeAppliedGraphAdditive({
+    const result = reconcileAppliedGraph({
       nodes: [
         { id: 'goal-1', kind: 'goal', label: 'Revenue' },
         { id: 'factor-1', kind: 'factor', label: 'Spend' },
@@ -305,17 +531,17 @@ describe('mergeAppliedGraphAdditive — review fixups (edge-pair self-dedupe, st
       edges: [],
     } as any)
 
-    expect(result).toEqual({ addedNodeCount: 1, addedEdgeCount: 0 })
+    expect(result).toEqual(counts({ addedNodeCount: 1, addedEdgeCount: 0 }))
     expect(useCanvasStore.getState().graphEditedSinceLastRun).toBe(true)
     expect(useCanvasStore.getState().analysisStateReady).toBe(false)
   })
 
   it('marks the freshness overlay dirty on a structural add — the banner must never keep claiming currency', () => {
     // The freshness banners read analysisFreshnessDirty, not the legacy
-    // graphEditedSinceLastRun flag — see mergeAppliedGraphAdditive's commit block.
+    // graphEditedSinceLastRun flag — see reconcileAppliedGraph's commit block.
     useCanvasStore.setState({ analysisFreshnessDirty: false } as any)
 
-    mergeAppliedGraphAdditive({
+    reconcileAppliedGraph({
       nodes: [
         { id: 'goal-1', kind: 'goal', label: 'Revenue' },
         { id: 'factor-1', kind: 'factor', label: 'Spend' },
@@ -330,7 +556,7 @@ describe('mergeAppliedGraphAdditive — review fixups (edge-pair self-dedupe, st
   it('does NOT dirty the freshness overlay on a nothing-new receipt (strict no-op stays a no-op)', () => {
     useCanvasStore.setState({ analysisFreshnessDirty: false } as any)
 
-    const result = mergeAppliedGraphAdditive({
+    const result = reconcileAppliedGraph({
       nodes: [
         { id: 'goal-1', kind: 'goal', label: 'Revenue' },
         { id: 'factor-1', kind: 'factor', label: 'Spend' },
@@ -338,7 +564,7 @@ describe('mergeAppliedGraphAdditive — review fixups (edge-pair self-dedupe, st
       edges: [],
     } as any)
 
-    expect(result).toEqual({ addedNodeCount: 0, addedEdgeCount: 0 })
+    expect(result).toEqual(counts({ addedNodeCount: 0, addedEdgeCount: 0 }))
     expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
   })
 })

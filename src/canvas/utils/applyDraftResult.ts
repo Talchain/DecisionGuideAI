@@ -21,6 +21,7 @@ import { logger } from '../../lib/logger'
 import { validateNodesBatch } from '../domain/nodes'
 import { devLog } from '../../utils/debugLog'
 import { detectBaseline } from './baselineDetection'
+import { identityFromCanvasGraph } from './graphIdentity'
 
 /**
  * Map one CEE wire node → React Flow canvas node.
@@ -173,6 +174,15 @@ export function applyDraftResult(
   // Warning-only schema validation at the mutation boundary. Non-throwing —
   // shape drift is logged via devWarn in DEV builds only.
   validateNodesBatch(nodes)
+
+  // B2: a fresh draft IS an authoritative CEE graph. Recording its element
+  // identities is what lets the NEXT applied-edit receipt reconcile a
+  // deletion — reconcileAppliedGraph only removes elements CEE has
+  // previously acknowledged, so without this the first deletion after a
+  // draft would be silently ignored.
+  useCanvasStore.getState().setLastAuthoritativeGraph(
+    identityFromCanvasGraph(nodes, edges),
+  )
 
   // Draft application replaces the graph via bare setState (bypasses the edit
   // chokepoints), so mark the freshness overlay dirty. If the draft carries an

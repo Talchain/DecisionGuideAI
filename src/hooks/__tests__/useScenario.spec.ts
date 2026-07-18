@@ -283,6 +283,11 @@ describe('useScenario', () => {
           },
         ],
         currentScenarioId: 'scenario-1',
+        // B3: every full-context load now assigns the loaded constraints OR
+        // null. This row has none, so null — asserted explicitly, because
+        // "key absent" was exactly the bug (it let the previous scenario's
+        // constraint ride the new one).
+        goalConstraints: null,
       })
 
       // Verify framing and metadata were set

@@ -20,6 +20,7 @@ const mockSetCeeAnalysisReady = vi.fn()
 const mockSetCeePipelineTrace = vi.fn()
 const mockSetCeeQuality = vi.fn()
 const mockSetGoalConstraints = vi.fn()
+const mockSetLastAuthoritativeGraph = vi.fn()
 const mockSetDraftCoaching = vi.fn()
 const mockSetPreAnalysisSensitivity = vi.fn()
 const mockMarkAnalysisFreshnessDirty = vi.fn()
@@ -46,6 +47,14 @@ vi.mock('../../store', () => ({
         setCeePipelineTrace: mockSetCeePipelineTrace,
         setCeeQuality: mockSetCeeQuality,
         setGoalConstraints: mockSetGoalConstraints,
+        // B2. NOTE: this getState() block is a HAND-MAINTAINED MIRROR of the
+        // store's action surface — a `vi.mock` factory REPLACES the module, so
+        // any action added to the store and called by applyDraftResult throws
+        // here until someone remembers to add it. That is how this line came
+        // to exist. It is left strict (no `?.()` at the call site) on purpose:
+        // a loud throw in one spec is far better than an optional call that
+        // silently no-ops the deletion-authorisation record in production.
+        setLastAuthoritativeGraph: mockSetLastAuthoritativeGraph,
         setDraftCoaching: mockSetDraftCoaching,
         setPreAnalysisSensitivity: mockSetPreAnalysisSensitivity,
         currentScenarioId: null,
