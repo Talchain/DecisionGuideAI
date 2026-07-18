@@ -5,6 +5,7 @@
  */
 
 import type { ScenarioEvent, ScenarioEventType, ScenarioStage } from '../../types/scenario'
+import { SYSTEM_MARKER_EVENT_TYPES } from '../../types/scenario'
 import type { TimelineEntry, TimelineIconKey, TimelineColourClass } from './types'
 
 // ---------------------------------------------------------------------------
@@ -190,6 +191,12 @@ export function renderTimeline(events: ScenarioEvent[]): TimelineEntry[] {
       const to = str(event.details, 'to') as ScenarioStage
       if (to) currentStage = to
     }
+
+    // Skip system persistence markers (e.g. graph_saved autosave events),
+    // derived from the shared source of truth in types/scenario.
+    // Placed AFTER the stage-tracking update so a hidden event still cannot
+    // desync the running stage (defensive — markers never carry a stage).
+    if (SYSTEM_MARKER_EVENT_TYPES.has(event.event_type)) continue
 
     const meta = EVENT_META[event.event_type] ?? DEFAULT_META
     const buildHeadline = HEADLINE_BUILDERS[event.event_type]

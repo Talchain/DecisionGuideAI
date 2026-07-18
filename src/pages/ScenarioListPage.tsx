@@ -17,6 +17,7 @@ import { GuestDraftImportBanner } from '../components/auth/GuestDraftImportBanne
 import { useScenario } from '../hooks/useScenario'
 import * as scenarioService from '../services/scenarioService'
 import type { ScenarioListItem, ScenarioStage, AnalysisStatus, ScenarioEvent } from '../types/scenario'
+import { SYSTEM_MARKER_EVENT_TYPES } from '../types/scenario'
 import { Skeleton } from '../components/Skeleton'
 import { formatRelativeTime } from '../utils/formatRelativeTime'
 import { UserAvatarMenu } from '../components/layout/UserAvatarMenu'
@@ -74,7 +75,24 @@ function formatLastActivity(events: ScenarioEvent[] | null | undefined, updatedA
   if (!events || events.length === 0) {
     return `Created ${formatRelativeTime(updatedAt)}`
   }
-  const lastEvent = events[events.length - 1]
+  // Walk back past system persistence markers to the last event that represents
+  // real user activity. The gated autosave appends a `graph_saved` marker after
+  // EVERY graph write, so it is almost always the trailing event — reading
+  // events[length-1] blindly would collapse every card to the generic
+  // "Updated X ago" and silently lose "Model drafted…" / "Model updated…".
+  // The skip-set is derived from the shared source of truth, never hand-listed.
+  let lastEvent: ScenarioEvent | undefined
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (!SYSTEM_MARKER_EVENT_TYPES.has(events[i].event_type)) {
+      lastEvent = events[i]
+      break
+    }
+  }
+  // Only markers (e.g. a freshly-autosaved scenario with no other activity):
+  // fall back to the relative time of the newest marker.
+  if (!lastEvent) {
+    return `Updated ${formatRelativeTime(events[events.length - 1].timestamp ?? updatedAt)}`
+  }
   const details = lastEvent.details ?? {}
 
   switch (lastEvent.event_type) {

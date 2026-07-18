@@ -13,8 +13,15 @@
  * idempotency control with the caller.
  */
 
+import type { Node, Edge } from '@xyflow/react'
 import { supabase } from '../lib/supabase'
 import { clearSuppressedScenarioId } from './threadService'
+// Seedless structural+data graph hash. Deliberately the seedless twin
+// (`canvas/utils/graphHash`), NOT the seed-bearing analysis hash in
+// `canvas/store/runHistory`: a persisted-graph event records WHAT graph state
+// was written, independent of any run/seed. Both are pure (type-only imports +
+// a pure edge-key fn), so importing here introduces no React/store dependency.
+import { generateGraphHash } from '../canvas/utils/graphHash'
 import type {
   ScenarioRow,
   ScenarioListItem,
@@ -146,17 +153,35 @@ export async function loadScenario(
 }
 
 // ---------------------------------------------------------------------------
-// 4. saveGraph (direct UPDATE, no event — §6.1)
+// 4. saveGraphViaGatedPath (apply_patch_and_log RPC — the ONE gated graph write)
+//
+// Trust-spine board #2: this REPLACES the former `saveGraph`, which wrote
+// `scenarios.graph` via a RAW `UPDATE` with no event and no hash — a second,
+// unaudited mutation path. Every Supabase write to `scenarios.graph` now goes
+// through the single gated RPC that atomically (a) writes the graph and
+// (b) appends a `graph_saved` event carrying the graph hash. There is no
+// second writer: `apply_patch_and_log` is the sole client-side graph writer.
+//
+// The event hash is DERIVED here from the exact graph being written (never
+// mirrored from a caller-supplied value), so the recorded hash always
+// describes the persisted bytes.
 // ---------------------------------------------------------------------------
 
-export async function saveGraph(
+export async function saveGraphViaGatedPath(
   scenarioId: string,
-  graph: unknown,
+  graph: { nodes: Node[]; edges: Edge[] },
+  eventId: string,
+  turnId?: string,
 ): Promise<void> {
-  const { error } = await supabase
-    .from('scenarios')
-    .update({ graph })
-    .eq('id', scenarioId)
+  const { error } = await supabase.rpc('apply_patch_and_log', {
+    p_scenario_id: scenarioId,
+    p_graph: graph,
+    p_event_id: eventId,
+    p_event_type: 'graph_saved',
+    p_details: {},
+    p_hashes: { graph_hash: generateGraphHash(graph.nodes, graph.edges) },
+    p_turn_id: turnId ?? null,
+  })
 
   if (error) {
     throw new ScenarioPersistenceError(

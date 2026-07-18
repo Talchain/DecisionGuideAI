@@ -8,7 +8,8 @@
 import type { Node, Edge } from '@xyflow/react'
 import type { V2RunResponse, V2FactorSensitivity, V2OptionComparison } from '../../adapters/plot/v2/types'
 import type { ReportV1 } from '../../adapters/plot/types'
-import type { ScenarioEvent } from '../../types/scenario'
+import type { ScenarioEvent, ScenarioEventType } from '../../types/scenario'
+import { SYSTEM_MARKER_EVENT_TYPES } from '../../types/scenario'
 import type { AnalysisSnapshot, FactorSensitivitySummary } from '../compare-tab/types'
 import { generateGraphHash } from '../utils/graphHash'
 import { hasObservedData } from '../utils/observedStateHelpers'
@@ -159,12 +160,15 @@ function extractInferenceWarnings(
 // Edit summary derivation
 // ---------------------------------------------------------------------------
 
-const EDIT_EVENT_TYPES = new Set([
-  'direct_edit',
-  'patch_accepted',
-  'graph_drafted',
-  'stage_changed',
-])
+// Events that count as a user edit for the Compare-tab summary.
+// Derived, not hand-kept-disjoint: any type classified as a system persistence
+// marker (types/scenario SYSTEM_MARKER_EVENT_TYPES) is structurally removed
+// here, so a future marker can never start inflating the edit count just
+// because someone forgot this list existed.
+const EDIT_EVENT_TYPES: ReadonlySet<ScenarioEventType> = new Set(
+  (['direct_edit', 'patch_accepted', 'graph_drafted', 'stage_changed'] as ScenarioEventType[])
+    .filter((t) => !SYSTEM_MARKER_EVENT_TYPES.has(t)),
+)
 
 function deriveEditSummary(
   events: ScenarioEvent[],

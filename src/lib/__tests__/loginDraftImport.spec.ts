@@ -4,16 +4,16 @@
  * The UI's localStorage half of guest-claim (the server half is CEE's
  * claim_guest_scenario RPC — service_role-only; the browser NEVER calls it).
  * Routes through the EXISTING authenticated create/persist path
- * (scenarioService.createScenario + saveGraph), no new persistence machinery.
+ * (scenarioService.createScenario + saveGraphViaGatedPath), no new persistence machinery.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 const createScenario = vi.fn()
-const saveGraph = vi.fn()
+const saveGraphViaGatedPath = vi.fn()
 
 vi.mock('../../services/scenarioService', () => ({
   createScenario: (...args: unknown[]) => createScenario(...args),
-  saveGraph: (...args: unknown[]) => saveGraph(...args),
+  saveGraphViaGatedPath: (...args: unknown[]) => saveGraphViaGatedPath(...args),
 }))
 
 import {
@@ -40,7 +40,7 @@ function flagOn() {
 beforeEach(() => {
   localStorage.clear()
   createScenario.mockReset()
-  saveGraph.mockReset()
+  saveGraphViaGatedPath.mockReset()
 })
 
 afterEach(() => {
@@ -104,7 +104,7 @@ describe('importGuestDraft', () => {
   it('creates a scenario via the existing path, saves the draft graph, marks imported, returns the id', async () => {
     seedDraft()
     createScenario.mockResolvedValue({ id: 'scn-1' })
-    saveGraph.mockResolvedValue(undefined)
+    saveGraphViaGatedPath.mockResolvedValue(undefined)
 
     const id = await importGuestDraft(REAL_USER.id)
 
@@ -116,8 +116,8 @@ describe('importGuestDraft', () => {
     expect(eventId).toMatch(/^[0-9a-f-]{36}$/)
     // The draft graph is persisted into the new row BEFORE any navigation,
     // so the /scenario/:id server-hydration loads the draft, not an empty graph.
-    expect(saveGraph).toHaveBeenCalledTimes(1)
-    const [scenarioId, graph] = saveGraph.mock.calls[0]
+    expect(saveGraphViaGatedPath).toHaveBeenCalledTimes(1)
+    const [scenarioId, graph] = saveGraphViaGatedPath.mock.calls[0]
     expect(scenarioId).toBe('scn-1')
     expect((graph as { nodes: unknown[] }).nodes).toHaveLength(1)
     expect(localStorage.getItem(DRAFT_IMPORT_MARKER_KEY)).toBe('imported')
@@ -126,7 +126,7 @@ describe('importGuestDraft', () => {
   it('keeps the localStorage draft after import (never deletes user data)', async () => {
     seedDraft()
     createScenario.mockResolvedValue({ id: 'scn-1' })
-    saveGraph.mockResolvedValue(undefined)
+    saveGraphViaGatedPath.mockResolvedValue(undefined)
     await importGuestDraft(REAL_USER.id)
     expect(localStorage.getItem('canvas-storage')).not.toBeNull()
   })
@@ -140,7 +140,7 @@ describe('importGuestDraft', () => {
   it('does NOT mark imported when persistence fails (offer can retry)', async () => {
     seedDraft()
     createScenario.mockResolvedValue({ id: 'scn-1' })
-    saveGraph.mockRejectedValue(new Error('save failed'))
+    saveGraphViaGatedPath.mockRejectedValue(new Error('save failed'))
     await expect(importGuestDraft(REAL_USER.id)).rejects.toThrow('save failed')
     expect(localStorage.getItem(DRAFT_IMPORT_MARKER_KEY)).toBeNull()
   })
