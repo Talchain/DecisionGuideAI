@@ -120,7 +120,7 @@ export function KPIHeadline({
             padding: '0.5rem 0.75rem',
             borderRadius: '0.5rem',
             backgroundColor: comparison.isPositive ? 'rgba(22, 163, 74, 0.1)' : 'rgba(220, 38, 38, 0.1)',
-            color: comparison.isPositive ? 'var(--success-600)' : 'var(--danger-600)'
+            color: comparison.isPositive ? 'var(--success, #67C89E)' : 'var(--danger, #EA7B4B)'
           }}
           title={comparison.tooltip}
         >

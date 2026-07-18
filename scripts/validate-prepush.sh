@@ -105,8 +105,14 @@ fi
 header "Check 4 — Smoke tests (critical data-flow paths)"
 
 # Core data-flow pipeline: CEE → Canvas → PLoT → Results
-# These 8 test files cover the critical render + data flow paths.
+# These test files cover the critical render + data flow paths.
 # Full suite (6,900+ tests) runs in CI post-push.
+#
+# NOTE the css-var guard is here deliberately. It has no static `src/`
+# import — it shells out to a census script — so `vitest --changed` can
+# NEVER select it, and without this line a freshly-dangling token or a
+# freshly-drifted fallback is caught only after the push, in CI. The whole
+# point of the guard is to catch it before the colour ships.
 SMOKE_FILES=(
   "src/adapters/plot/v2/__tests__/adapter.spec.ts"
   "src/adapters/plot/v2/__tests__/responseMapper.spec.ts"
@@ -116,6 +122,7 @@ SMOKE_FILES=(
   "src/components/results/__tests__/buildResultsVM.spec.ts"
   "src/components/results/__tests__/useResultsSectionData.spec.ts"
   "src/components/results/__tests__/HeroSection.spec.tsx"
+  "tests/ci-guards/css-var-resolution.spec.ts"
 )
 
 # Filter to files that exist

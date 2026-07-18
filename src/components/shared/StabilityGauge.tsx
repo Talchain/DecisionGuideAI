@@ -42,7 +42,7 @@ export function StabilityGauge({ value, size = 24 }: StabilityGaugeProps) {
         <path
           d={arcPath}
           fill="none"
-          stroke="var(--panel-border)"
+          stroke="var(--border-default, #EEE6D8)"
           strokeWidth={3}
           strokeLinecap="round"
           opacity={0.5}
