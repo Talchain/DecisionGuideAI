@@ -4304,6 +4304,21 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     saveSortPreferences(field, direction)
   },
 
+  // ⚠ NO CALLERS. `addCitation` has never been called — not here, not anywhere in
+  // src/, and not once in the repo's entire history (`git log --all -S'addCitation('`
+  // returns zero commits). `citations` is therefore empty by construction: it is
+  // initialised `[]`, only ever FILTERED (on document delete), and the sole push is
+  // the line below, which nothing reaches.
+  //
+  // Consequence: the Provenance Hub (ProvenanceHubTab, rendered from ReactFlowGraph)
+  // can only ever render "0 citations from N documents" / "No citations found". The
+  // M5 Grounding & Provenance milestone shipped its UI and its document-upload half,
+  // but the citation-production half was never built. Do not wire an opener onto that
+  // panel without first wiring a producer here.
+  //
+  // The live citation surface today is the conversation CitationLegend
+  // (src/canvas/conversation/InlineBlocks.tsx), fed from the V5 stream at
+  // useConversation.ts:~1300 — a different, working pipeline. See PR "stranded panels".
   addCitation: (citation) => {
     const id = crypto.randomUUID()
     const newCitation: Citation = {
