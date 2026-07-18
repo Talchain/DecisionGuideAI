@@ -337,7 +337,10 @@ function collectFromSource(sourceFile) {
   const malformedSites = [] // {region, reason, line}
   let prose = 0
 
-  const record = (result, line, exprs) => {
+  // `exprs` defaults to [] so a caller with no interpolations (a plain
+  // string literal, JSX text) can never produce a dynamic site carrying an
+  // undefined expression list.
+  const record = (result, line, exprs = []) => {
     for (const s of result.statics) staticRefs.push({ ...s, line })
     for (const d of result.dynamics) dynamicSites.push({ ...d, exprs, line })
     for (const m of result.malformed) malformedSites.push({ ...m, line })
