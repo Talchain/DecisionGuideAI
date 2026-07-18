@@ -10,6 +10,11 @@ export default function HealthIndicator({ pause = false }: { pause?: boolean }) 
   const timeoutMs = isE2EEnabled() ? 100 : 1_000
   const backoffRef = useRef<number>(base)
   const lastProbeRef = useRef<number | null>(null)
+  // Guards the async tail of an in-flight tick(): the unmount cleanup below runs
+  // clearTimer() once, so a tick that resolves AFTER unmount would otherwise
+  // re-arm a timer nothing will ever clear — an orphaned poll loop that keeps
+  // fetching (and setting state on an unmounted tree) for the life of the page.
+  const mountedRef = useRef(true)
 
   const clearTimer = () => {
     if (timerRef.current != null) {
@@ -38,19 +43,27 @@ export default function HealthIndicator({ pause = false }: { pause?: boolean }) 
       const t = setTimeout(() => ac.abort(), timeoutMs)
       try {
         const res = await fetch(mkUrl('/health'), { signal: ac.signal })
-        clearTimeout(t)
         if (res.ok) return true
-      } catch {}
+      } catch {
+        // fall through to the /report probe
+      } finally {
+        // `finally`, not the success path only: when fetch REJECTS (abort or
+        // network error) the abort timer would otherwise be left pending.
+        clearTimeout(t)
+      }
+      const ac2 = new AbortController()
+      const t2 = setTimeout(() => ac2.abort(), timeoutMs)
       try {
-        const ac2 = new AbortController()
-        const t2 = setTimeout(() => ac2.abort(), timeoutMs)
         const res2 = await fetch(mkUrl('/report?probe=1'), { signal: ac2.signal })
-        clearTimeout(t2)
         return !!res2?.ok
-      } catch {}
-      return false
+      } catch {
+        return false
+      } finally {
+        clearTimeout(t2)
+      }
     }
     const okNow = await tryProbe()
+    if (!mountedRef.current) return
     setOk(okNow)
     lastProbeRef.current = Date.now()
     if (okNow) {
@@ -62,8 +75,9 @@ export default function HealthIndicator({ pause = false }: { pause?: boolean }) 
   }
 
   useEffect(() => {
+    mountedRef.current = true
     void tick() // run immediately on mount
-    return () => clearTimer()
+    return () => { mountedRef.current = false; clearTimer() }
     // REVIEWED: Intentional mount-only effect. tick/clearTimer/schedule use refs for state,
     // not state variables, so including them would cause infinite loops.
     // eslint-disable-next-line react-hooks/exhaustive-deps
