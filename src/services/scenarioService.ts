@@ -22,6 +22,10 @@ import { clearSuppressedScenarioId } from './threadService'
 // was written, independent of any run/seed. Both are pure (type-only imports +
 // a pure edge-key fn), so importing here introduces no React/store dependency.
 import { generateGraphHash } from '../canvas/utils/graphHash'
+// B3: the canonical `scenarios.graph` payload shape. Pure builder — no store
+// or React dependency, consistent with this module's constraints.
+import { buildPersistedGraph } from '../canvas/utils/persistedGraph'
+import type { CEEGoalConstraint } from '../adapters/cee/types'
 import type {
   ScenarioRow,
   ScenarioListItem,
@@ -172,13 +176,26 @@ export async function saveGraphViaGatedPath(
   graph: { nodes: Node[]; edges: Edge[] },
   eventId: string,
   turnId?: string,
+  /**
+   * B3: the scenario's validated hard constraints, persisted INTO the same
+   * `scenarios.graph` payload. Passed through the SAME single gated RPC — this
+   * adds a key to the payload, it does not add a write path (the
+   * single-gated-mutation-path property from PR #364 is unchanged).
+   *
+   * Omitted/null/empty writes the historical `{ nodes, edges }` bytes exactly.
+   */
+  goalConstraints?: CEEGoalConstraint[] | null,
 ): Promise<void> {
   const { error } = await supabase.rpc('apply_patch_and_log', {
     p_scenario_id: scenarioId,
-    p_graph: graph,
+    p_graph: buildPersistedGraph(graph.nodes, graph.edges, goalConstraints),
     p_event_id: eventId,
     p_event_type: 'graph_saved',
     p_details: {},
+    // Hash stays over { nodes, edges } ONLY. It is compared against CEE's own
+    // graph hash, so widening the hashed surface here would fork the two
+    // definitions and make every scenario read as changed. Constraints ride
+    // the column, not the hash.
     p_hashes: { graph_hash: generateGraphHash(graph.nodes, graph.edges) },
     p_turn_id: turnId ?? null,
   })

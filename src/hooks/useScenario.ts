@@ -24,6 +24,7 @@ import type { ScenarioStage, AnalysisProvenance, AnalysisStatus } from '../types
 import { hydrateAnalysisFromV2Response } from './hydrateAnalysis'
 import type { Edge } from '@xyflow/react'
 import { DEFAULT_EDGE_DATA, type EdgeData } from '../canvas/domain/edges'
+import { readPersistedGoalConstraints } from '../canvas/utils/persistedGraph'
 
 export type SaveStatus = 'saved' | 'saving' | 'error'
 
@@ -69,6 +70,28 @@ export interface UseScenarioReturn {
 const GRAPH_DEBOUNCE_MS = 1500
 const FRAMING_DEBOUNCE_MS = 1500
 const RETRY_DELAY_MS = 3000
+
+/**
+ * The "have I already saved this?" key for the debounced graph autosave.
+ *
+ * ONE definition, used by the subscription, the save, the retry, and the
+ * post-load priming. It previously existed as four hand-written
+ * `JSON.stringify({ nodes, edges })` copies; B3 had to add a third field to
+ * the payload, and a copy missed would have meant either a save storm (key
+ * never matches) or a silently dropped constraint (key matches when the
+ * payload differs).
+ */
+function graphSaveKey(s: {
+  nodes: unknown
+  edges: unknown
+  goalConstraints: unknown
+}): string {
+  return JSON.stringify({
+    nodes: s.nodes,
+    edges: s.edges,
+    goalConstraints: s.goalConstraints ?? null,
+  })
+}
 
 export function useScenario(): UseScenarioReturn {
   const { user, authenticated } = useAuth()
@@ -125,15 +148,21 @@ export function useScenario(): UseScenarioReturn {
 
   useEffect(() => {
     const unsubscribe = useCanvasStore.subscribe((state, prevState) => {
-      // Only react to nodes/edges changes
-      if (state.nodes === prevState.nodes && state.edges === prevState.edges) return
+      // React to nodes/edges changes — and to goalConstraints, which B3 made
+      // part of the persisted graph payload. Without the third check a
+      // constraint arriving on a turn that did not touch the graph would
+      // never reach the database.
+      if (
+        state.nodes === prevState.nodes &&
+        state.edges === prevState.edges &&
+        state.goalConstraints === prevState.goalConstraints
+      ) return
 
       const sid = scenarioIdRef.current
       if (!isPersistenceActiveRef.current || !sid) return
       if (!mountedRef.current) return
 
-      const { nodes, edges } = state
-      const graphSnapshot = JSON.stringify({ nodes, edges })
+      const graphSnapshot = graphSaveKey(state)
       if (graphSnapshot === lastSavedGraphRef.current) return
 
       // Mark results as stale when graph changes after a completed analysis
@@ -155,8 +184,10 @@ export function useScenario(): UseScenarioReturn {
             saveSid,
             { nodes: currentState.nodes, edges: currentState.edges },
             crypto.randomUUID(),
+            undefined,
+            currentState.goalConstraints,
           )
-          lastSavedGraphRef.current = JSON.stringify({ nodes: currentState.nodes, edges: currentState.edges })
+          lastSavedGraphRef.current = graphSaveKey(currentState)
           if (mountedRef.current) {
             const now = Date.now()
             setSaveStatus('saved')
@@ -180,8 +211,10 @@ export function useScenario(): UseScenarioReturn {
                 retrySid,
                 { nodes: retryState.nodes, edges: retryState.edges },
                 crypto.randomUUID(),
+                undefined,
+                retryState.goalConstraints,
               )
-              lastSavedGraphRef.current = JSON.stringify({ nodes: retryState.nodes, edges: retryState.edges })
+              lastSavedGraphRef.current = graphSaveKey(retryState)
               if (mountedRef.current) {
                 const now = Date.now()
                 setSaveStatus('saved')
@@ -260,10 +293,12 @@ export function useScenario(): UseScenarioReturn {
         clearTimeout(graphSaveTimerRef.current)
         const sid = scenarioIdRef.current
         if (sid) {
-          const { nodes: n, edges: e } = useCanvasStore.getState()
-          scenarioService.saveGraphViaGatedPath(sid, { nodes: n, edges: e }, crypto.randomUUID()).catch((err) => {
-            console.error('[useScenario] Unmount graph flush failed:', err)
-          })
+          const { nodes: n, edges: e, goalConstraints: gc } = useCanvasStore.getState()
+          scenarioService
+            .saveGraphViaGatedPath(sid, { nodes: n, edges: e }, crypto.randomUUID(), undefined, gc)
+            .catch((err) => {
+              console.error('[useScenario] Unmount graph flush failed:', err)
+            })
         }
       }
       if (framingSaveTimerRef.current) {
@@ -397,20 +432,32 @@ export function useScenario(): UseScenarioReturn {
         },
       }))
 
+      // B3: the scenario's persisted hard constraints. Read defensively —
+      // this is untyped JSONB and the value feeds the run request.
+      const loadedGoalConstraints = readPersistedGoalConstraints(row.graph)
+
       // Update local refs BEFORE hydrating the store to prevent the
       // subscription callbacks from scheduling a redundant re-save when
-      // hydrateGraphSlice fires synchronous store updates.
-      lastSavedGraphRef.current = JSON.stringify({
+      // hydrateGraphSlice fires synchronous store updates. The key MUST
+      // include the constraints for the same reason it includes the graph:
+      // priming it with a different value than the store is about to hold
+      // would schedule an immediate no-op save on every scenario open.
+      lastSavedGraphRef.current = graphSaveKey({
         nodes: graphNodes,
         edges: graphEdges,
+        goalConstraints: loadedGoalConstraints,
       })
       lastSavedFramingRef.current = JSON.stringify(row.framing ?? null)
 
-      // Hydrate graph slice (resets history, selection, reseeds IDs)
+      // Hydrate graph slice (resets history, selection, reseeds IDs).
+      // B3: goalConstraints is passed on EVERY load — the value or null. It
+      // is not conditional, because "this scenario has no constraint" must
+      // overwrite the previous scenario's, not fall through to it.
       useCanvasStore.getState().hydrateGraphSlice({
         nodes: graphNodes,
         edges: graphEdges,
         currentScenarioId: row.id,
+        goalConstraints: loadedGoalConstraints,
       })
 
       // Hydrate framing + stage.

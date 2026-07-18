@@ -89,7 +89,7 @@ import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPa
 import { applyAnalysisReadyPatch } from './utils/mirrorAnalysisReady'
 import { loadScenario as loadScenarioFromDb } from '../../services/scenarioService'
 import { applyDraftResult, backfillGoalThresholdOntoGoalNode } from '../utils/applyDraftResult'
-import { mergeAppliedGraphAdditive } from '../utils/mergeAppliedGraph'
+import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
 import { getSessionIdentity } from '../../lib/supabase'
 import { trackEvent } from '../../lib/posthog'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
@@ -3313,18 +3313,37 @@ export function useConversation(): UseConversationReturn {
               // keeps a fresh-draft draft_graph away from a non-empty canvas
               // is CEE's continuation guard (route-v2 isDraftGraphShape
               // requires no prior committed turns on the scenario) — plus the
-              // client-side zero-overlap guard inside mergeAppliedGraphAdditive
+              // client-side zero-overlap guard inside reconcileAppliedGraph
               // for the residual misfire (fresh scenario_id + populated canvas
-              // + first brief-shaped message). Merge ADDITIVELY so a confirmed
-              // added factor/edge appears without a reload. Existing elements
-              // are never repositioned or rewritten; a receipt with nothing
-              // new is a strict no-op (see mergeAppliedGraphAdditive).
+              // + first brief-shaped message).
+              //
+              // B2 (Codex deep review, 2026-07-18): this reconcile is ATOMIC —
+              // adds, UPDATES and deletions. It used to be additive-only, on
+              // the stated belief that "value updates arrive separately as
+              // graph_patch blocks". That belief was FALSE for the edit_graph
+              // path: a successful edit returns `blocks: []`
+              // (edit-graph-dispatch.ts:832-833) and the receipt's draft_graph
+              // is the entire committed post-state. So a confirmed "set Spend
+              // to 250" left the canvas on 100, and the debounced autosave
+              // then wrote that 100 back over CEE's committed 250. Layout
+              // stays canvas-owned throughout — CEE's node schema has no
+              // position field. See reconcileAppliedGraph's header.
               if (useCanvasStore.getState().currentScenarioId === scenarioIdAtDispatch) {
-                const merged = mergeAppliedGraphAdditive(inlineGraph as any)
-                if (import.meta.env.DEV && (merged.addedNodeCount > 0 || merged.addedEdgeCount > 0)) {
+                const merged = reconcileAppliedGraph(inlineGraph as any)
+                if (
+                  import.meta.env.DEV &&
+                  (merged.addedNodeCount > 0 ||
+                    merged.addedEdgeCount > 0 ||
+                    merged.updatedNodeCount > 0 ||
+                    merged.updatedEdgeCount > 0 ||
+                    merged.removedNodeCount > 0 ||
+                    merged.removedEdgeCount > 0)
+                ) {
                   console.log(
-                    '[sendTurn V5] applied-edit receipt merged into canvas:',
-                    merged.addedNodeCount, 'nodes,', merged.addedEdgeCount, 'edges',
+                    '[sendTurn V5] applied-edit receipt reconciled into canvas:',
+                    `+${merged.addedNodeCount}n/+${merged.addedEdgeCount}e`,
+                    `~${merged.updatedNodeCount}n/~${merged.updatedEdgeCount}e`,
+                    `-${merged.removedNodeCount}n/-${merged.removedEdgeCount}e`,
                   )
                 }
               }

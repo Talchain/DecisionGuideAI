@@ -39,6 +39,7 @@ import type {
 import type { LimitsV1 } from '../adapters/plot/types'
 import type { ScenarioStage, ScenarioEvent } from '../types/scenario'
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
+import { identityFromCanvasGraph } from './utils/graphIdentity'
 import { isCompareTabEnabled } from '../flags'
 import { useAnalysisSnapshotStore } from './stores/analysisSnapshotStore'
 import { buildAnalysisSnapshot } from './stores/analysisSnapshotFactory'
@@ -422,6 +423,26 @@ interface CanvasState {
   ceeAnalysisReadyNodeIds: string[] | null
   // CEE goal constraints from draft-graph response root (for PLoT multi-constraint analysis)
   goalConstraints: CEEGoalConstraint[] | null
+  /**
+   * B2 (Codex deep review, 2026-07-18): the element identities of the most
+   * recent AUTHORITATIVE graph the UI has seen from CEE — a fresh draft, an
+   * applied-edit receipt, or a graph loaded from the DB (which is CEE's own
+   * view of the scenario).
+   *
+   * This exists to make DELETION safe. An applied-edit receipt is a complete
+   * post-state, so "absent from the receipt" means "deleted" — but CEE builds
+   * that post-state from the PERSISTED graph, and the UI's save is debounced
+   * 1500ms. A node the user added moments ago is therefore legitimately absent
+   * from the receipt without having been deleted. Reconciling absence to
+   * deletion unconditionally would trade B2's value-loss for a worse
+   * node-loss. So the reconciler only removes an element that CEE has
+   * previously ACKNOWLEDGED (present in this set) and that the new receipt
+   * omits; anything CEE has never seen is local work and survives untouched.
+   *
+   * Null means "no authoritative graph seen yet" — the fail-safe state, in
+   * which the reconciler removes nothing.
+   */
+  lastAuthoritativeGraph: { nodeIds: string[]; edgePairs: string[] } | null
   // CEE Pipeline trace from last draft-graph response (for debug panel)
   ceePipelineTrace: CeePipelineTrace | null
   // CEE V3: Per-node LLM reasoning (node ID → why text) for rationale tooltips
@@ -720,6 +741,10 @@ interface CanvasState {
   clearAnalysisFreshnessDirty: () => void
   setDraftCoaching: (coaching: CEEDraftCoaching | null) => void
   setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => void
+  /** B2: record the identities of an authoritative CEE graph (see the field). */
+  setLastAuthoritativeGraph: (
+    graph: { nodeIds: string[]; edgePairs: string[] } | null,
+  ) => void
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => void
   setCeeQuality: (quality: CeeQualityDimensions | null) => void
   // Phase 1b actions
@@ -800,7 +825,17 @@ interface CanvasState {
   ) => void
   exitComparisonMode: () => void
   // P2: Hydration hygiene
-  hydrateGraphSlice: (loaded: { nodes?: Node[]; edges?: Edge<EdgeData>[]; currentScenarioId?: string | null }) => void
+  hydrateGraphSlice: (loaded: {
+    nodes?: Node[]
+    edges?: Edge<EdgeData>[]
+    currentScenarioId?: string | null
+    /**
+     * B3: the loaded scenario's persisted hard constraints. MUST be passed on
+     * every full-context load — `undefined` and `null` both resolve to null so
+     * an absent value CLEARS rather than inheriting the previous scenario's.
+     */
+    goalConstraints?: CEEGoalConstraint[] | null
+  }) => void
   // A.7: External mutation suppression — prevents direct_graph_edit events firing
   // during patch-apply, envelope-applied changes, scenario hydration, etc.
   /** Reference count: >0 while a non-user graph mutation is in progress */
@@ -1053,6 +1088,19 @@ const DECISION_CONTEXT_CLEAR = {
   ceeAnalysisReady: null,
   ceeAnalysisReadyNodeIds: null,
   outcomeNodeId: null,
+  // B3 (Codex deep review, 2026-07-18): goalConstraints was the ONE member of
+  // the goal context missing from this set, so it was the one that leaked.
+  // A scenario's hard constraint ("stay under £50k") is per-decision state in
+  // exactly the same sense as goalThreshold — READINESS_CLEAR_FIELDS and
+  // resetCanvas both already cleared it; only the PRODUCTION scenario-load
+  // path (useScenario.loadScenario → hydrateGraphSlice) did not. Switching
+  // A→B therefore left A's cap in place and B's first run could ship it.
+  // hydrateGraphSlice re-assigns the LOADED value (or null) immediately after
+  // applying this set — see the `goalConstraints` handling there.
+  goalConstraints: null,
+  // B2: element identities are graph-specific. A previous scenario's set would
+  // authorise deleting same-id nodes in the newly loaded graph.
+  lastAuthoritativeGraph: null,
 } as const
 
 /**
@@ -1388,6 +1436,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   draftCoaching: null,
   // CEE goal constraints from draft-graph response root
   goalConstraints: null,
+  // B2: no authoritative graph seen yet — reconciler removes nothing.
+  lastAuthoritativeGraph: null,
   // CEE Pipeline trace from last draft
   ceePipelineTrace: null,
   // CEE V3: Per-node LLM reasoning for rationale tooltips
@@ -2507,16 +2557,18 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       touchedNodeIds: new Set(),
       nextNodeId: 1,
       nextEdgeId: 1,
-      // Clear CEE analysis_ready payload, pipeline trace, quality, and
-      // constraints. (ceeAnalysisReady + ceeAnalysisReadyNodeIds are cleared
-      // via DECISION_CONTEXT_CLEAR below — Lane 5.)
+      // Clear CEE analysis_ready payload, pipeline trace and quality.
+      // (ceeAnalysisReady, ceeAnalysisReadyNodeIds, goalConstraints and
+      // lastAuthoritativeGraph are all cleared via DECISION_CONTEXT_CLEAR
+      // below — Lane 5, extended by B2/B3. They are deliberately NOT repeated
+      // here: the duplicate keys this file used to carry were dead weight
+      // that only agreed with the spread by coincidence.)
       analysisFreshness: null,
       analysisFreshnessDirty: false,
       // V5 canonical analysis fact — clear on scenario reset (the fact does
       // not survive a graph reset; rerun analysis to mint a fresh one).
       v5AnalysisFact: null,
       draftCoaching: null,
-      goalConstraints: null,
       ceePipelineTrace: null,
       nodeRationales: {},
       ceeQuality: null,
@@ -3811,6 +3863,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set({ goalConstraints: constraints })
   },
 
+  setLastAuthoritativeGraph: (graph) => {
+    set({ lastAuthoritativeGraph: graph })
+  },
+
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => {
     if (import.meta.env.DEV && trace) {
       console.warn('[Canvas] setCeePipelineTrace:', {
@@ -4683,6 +4739,20 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // empties the goal selector, nor left stale).
       Object.assign(updates, DECISION_CONTEXT_CLEAR)
       updates.outcomeNodeId = firstGoalNodeId(loaded.nodes)
+      // B3: assign the LOADED constraints or null — never leave the previous
+      // scenario's in place. DECISION_CONTEXT_CLEAR above already nulled the
+      // field; this line is what makes a cold load RESTORE it. The `?? null`
+      // is load-bearing: an absent key must clear, not inherit.
+      updates.goalConstraints = loaded.goalConstraints ?? null
+      // B2: the persisted graph IS CEE's view of this scenario, so everything
+      // in it is an element CEE has acknowledged. Seeding the identity set
+      // here is what lets the FIRST applied-edit receipt after a cold load
+      // reconcile a deletion; without it the reconciler would fail safe and
+      // never remove anything until a second receipt arrived.
+      updates.lastAuthoritativeGraph = identityFromCanvasGraph(
+        loaded.nodes,
+        loaded.edges,
+      )
     }
 
     // Apply updates without clobbering panels/results/other slices
