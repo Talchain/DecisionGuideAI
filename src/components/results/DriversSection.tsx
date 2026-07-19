@@ -242,7 +242,7 @@ function ContestedDriverQuickSelect({ driver }: { driver: DriverItem }) {
             padding: '4px 10px',
             borderRadius: '999px',
             border: `1px solid ${selectedIndex === i ? 'var(--info)' : 'var(--border-default)'}`,
-            background: selectedIndex === i ? 'rgba(82,163,200,0.1)' : 'transparent',
+            background: selectedIndex === i ? 'color-mix(in srgb, var(--info) 10%, transparent)' : 'transparent',
             cursor: 'pointer',
           }}
         >

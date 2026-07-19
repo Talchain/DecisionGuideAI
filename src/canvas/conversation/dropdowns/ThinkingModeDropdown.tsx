@@ -140,7 +140,7 @@ export function ThinkingModeDropdown({
               padding: '9px 11px',
               borderRadius: 12,
               border: mode.enabled && isSelected
-                ? '1px solid rgba(82,163,200,0.4)'
+                ? '1px solid color-mix(in srgb, var(--info) 40%, transparent)'
                 : '1px solid var(--border-default, #EEE6D8)',
               background: mode.enabled && isSelected ? 'var(--bg-panel-hover, #FEF9F3)' : 'transparent',
               marginBottom: 4,
