@@ -2113,9 +2113,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         *   `addCitation` has zero callers in all of history, so `citations` is always []
         *   and this panel renders an empty state by construction (see store.ts addCitation).
         *   Live successor: conversation CitationLegend (InlineBlocks.tsx), V5-fed.
-        *   NOTE: this flag IS persisted + rehydrated (uiPreferences SHOW_PROVENANCE_HUB),
-        *   so a returning user carrying a stale `ui.showProvenanceHub=true` from a pre-
-        *   c80f0fe8 build can still surface the empty panel. Open question for the owner.
+        *   CLOSED 2026-07-19: this flag used to be rehydrated (uiPreferences
+        *   SHOW_PROVENANCE_HUB), so a returning user carrying a stale
+        *   `ui.showProvenanceHub=true` from a pre-c80f0fe8 build still surfaced the
+        *   empty panel. loadUIPreferences() no longer reads that key, so the panel is
+        *   now genuinely unreachable — no opener, no rehydration. The write and the
+        *   store slice are untouched; retiring the component is still the owner's call.
         *
         * AI Clarifier — stranded BY ACCIDENT, then overtaken by events. Its opener shipped
         *   in 723be292 (5 Dec 2025, 20:02) and was dropped four minutes later by merge

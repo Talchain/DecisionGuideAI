@@ -99,14 +99,17 @@ function runCensus(): Census {
  *     call site anywhere sets it true (every setter passes `false`), and
  *     it is absent from UIPreferences so it cannot rehydrate true.
  *   · RightPanel.module.css — 2 sites — sits behind the same gates.
- *     `showProvenanceHub` likewise has no true-setter, but unlike
- *     showAIClarifier it IS persisted (saveUIPreference → rehydrated at
- *     store.ts:1376), so only a returning user carrying a stale
- *     `ui.showProvenanceHub=true` in localStorage can reach it. The
- *     degradation there: `.closeButton` colour falls back to inherited and
- *     the hover background is missing.
+ *     `showProvenanceHub` likewise has no true-setter. It USED to be
+ *     reachable anyway, because unlike showAIClarifier it was persisted AND
+ *     rehydrated (saveUIPreference → loadUIPreferences at store.ts:1376), so
+ *     a returning user carrying a stale `ui.showProvenanceHub=true` from a
+ *     pre-c80f0fe8 build still got the panel. Closed 2026-07-19:
+ *     loadUIPreferences no longer reads that key, so BOTH panels are now
+ *     unreachable by the same argument. The degradation if either were ever
+ *     revived: `.closeButton` colour falls back to inherited and the hover
+ *     background is missing.
  *
- * So: two dead stylesheets and one unreachable panel. Quarantined rather
+ * So: two dead stylesheets and two unreachable panels. Quarantined rather
  * than fixed because repairing them means choosing 22 replacement colours,
  * which is a design ruling and overlaps the open DS token work in #369 —
  * and choosing colours for surfaces nobody can see is the wrong order.

@@ -49,7 +49,21 @@ export function loadUIPreferences(): UIPreferences {
   // Default Olumi AI (Draft Chat) to open on first load until user toggles it off
   prefs.showDraftChat = loadBoolean(STORAGE_KEYS.SHOW_DRAFT_CHAT, true)
   prefs.showIssuesPanel = loadBoolean(STORAGE_KEYS.SHOW_ISSUES_PANEL)
-  prefs.showProvenanceHub = loadBoolean(STORAGE_KEYS.SHOW_PROVENANCE_HUB)
+  // showProvenanceHub is DELIBERATELY NOT REHYDRATED. The Provenance Hub's
+  // opener was removed by the repo owner in c80f0fe8 (29 Mar 2026) and PR #372
+  // recorded the panel as RETIRED, but this line was still restoring it: a
+  // returning user whose browser carried `ui.showProvenanceHub=true` from a
+  // pre-c80f0fe8 build got the panel back, and it can never have content
+  // (`addCitation` has zero callers in all of history, so `citations` is always
+  // [] and the panel renders "0 citations" by construction).
+  //
+  // Reading is what was broken, so only reading is stopped: the key stays in
+  // STORAGE_KEYS so clearUIPreferences() still clears the stale value, and
+  // setShowProvenanceHub's write is left alone — a write nothing reads is inert.
+  // Omitting the key entirely (rather than assigning false) matters: this object
+  // is SPREAD over the store defaults, so an explicit `undefined` would override
+  // the `showProvenanceHub: false` default with undefined.
+  // Pinned by src/canvas/store/__tests__/uiPreferences.provenanceHub.spec.ts.
   prefs.showDocumentsDrawer = loadBoolean(STORAGE_KEYS.SHOW_DOCUMENTS_DRAWER)
   prefs.showComparePanel = loadBoolean(STORAGE_KEYS.SHOW_COMPARE_PANEL)
 
