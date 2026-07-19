@@ -155,11 +155,40 @@ describe('InspectorCoaching', () => {
     // And the token it points at must really be declared — `var(--typo)` renders
     // NO border at all, which the assertions above cannot distinguish. Read the
     // source of truth rather than trusting the name (trap 12: derive, don't mirror).
+    //
+    // Assert the RESOLVED VALUE, not the file's current spelling. This used to
+    // regex for `--info: #RRGGBB`, which broke the moment the channel split
+    // (#379) restated the token as `--info-rgb: 39 122 157; --info:
+    // rgb(var(--info-rgb))`, a change that left the colour bit-for-bit
+    // identical. Pinning the prose format made a correct refactor look like a
+    // regression, so follow the `var()` chain instead: any spelling that bottoms
+    // out in a real colour passes, and only a token that is missing or dangling
+    // fails. That is the property this assertion was always about.
     const brandCss = readFileSync(
       join(__dirname, '../../../../styles/brand.css'),
       'utf-8',
     )
-    expect(brandCss).toMatch(/^\s*--info:\s*#[0-9A-Fa-f]{6}\s*;/m)
+    // Comments in brand.css illustrate the token shape; they are not declarations.
+    const declared = new Map<string, string>()
+    for (const m of Array.from(
+      brandCss.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g),
+    )) {
+      declared.set(m[1], m[2].trim())
+    }
+
+    const resolve = (value: string, depth = 0): string =>
+      depth > 10
+        ? value
+        : value.replace(/var\(\s*(--[\w-]+)\s*\)/g, (whole, name: string) => {
+            const next = declared.get(name)
+            return next === undefined ? whole : resolve(next, depth + 1)
+          })
+
+    expect(declared.has('--info'), '--info is not declared in brand.css').toBe(true)
+    expect(
+      resolve(declared.get('--info')!),
+      '--info must resolve to a real colour, not a dangling var()',
+    ).toMatch(/^(#[0-9A-Fa-f]{3,8}|rgba?\([\d\s,./%]+\))$/)
   })
 
   // ── related_elements matching ──────────────────────────────────────
