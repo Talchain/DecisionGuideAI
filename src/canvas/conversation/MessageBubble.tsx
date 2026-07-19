@@ -272,7 +272,7 @@ export const MessageBubble = memo(function MessageBubble({
       {message.stoppedByUser && (
         <div
           className={typography.panelMeta}
-          style={{ color: 'var(--text-light, #706D6D)', marginTop: 4 }}
+          style={{ color: 'var(--text-light, #6E6B6B)', marginTop: 4 }}
           data-testid="response-stopped-indicator"
         >
           Response stopped.

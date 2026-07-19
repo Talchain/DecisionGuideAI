@@ -38,7 +38,7 @@ function LensChip({ isActive, onClick, chipRef }: LensChipProps) {
         gap: 4,
         height: 30,
         padding: '0 8px',
-        color: isActive ? 'var(--info)' : 'var(--text-light, #706D6D)',
+        color: isActive ? 'var(--info)' : 'var(--text-light, #6E6B6B)',
         fontSize: 13,
         fontWeight: 500,
         whiteSpace: 'nowrap' as const,
@@ -330,7 +330,7 @@ function LensMenuItem({ label, description, isActive, onClick, dotColor, disable
         fontSize: 12,
         fontWeight: isActive ? 500 : 400,
         color: disabled
-          ? 'var(--text-light, #706D6D)'
+          ? 'var(--text-light, #6E6B6B)'
           : isActive ? 'var(--info)' : 'var(--text-body, #3F3F3E)',
         textAlign: 'left',
         transition: 'background 100ms ease',
@@ -362,7 +362,7 @@ function LensMenuItem({ label, description, isActive, onClick, dotColor, disable
               fontWeight: 400,
               // Disabled dimming comes from the parent button's opacity: 0.6,
               // so both states share the muted text token.
-              color: 'var(--text-light, #706D6D)',
+              color: 'var(--text-light, #6E6B6B)',
               marginTop: 1,
             }}
           >

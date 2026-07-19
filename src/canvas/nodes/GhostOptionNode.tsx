@@ -42,9 +42,9 @@ export const GhostOptionNode = memo((_props: NodeProps) => {
         // ⚠ THE CONSTRAINT THAT PICKED --text-body HAS SINCE BEEN LIFTED, and
         // this comment used to assert it as still-true. --text-light was
         // rejected here because at #908D8D it measured 3.26 on the fill and
-        // 2.90 on the canvas — a 3:1 failure. It was retinted to #706D6D on
+        // 2.90 on the canvas — a 3:1 failure. It was retinted to #6E6B6B on
         // WCAG 1.4.3 grounds (it was not a legal TEXT colour at any size), and
-        // now measures 5.08 / 4.51 — it clears 3:1 on both adjacent colours
+        // now measures 5.23 / 4.65 — it clears 3:1 on both adjacent colours
         // with room to spare, and is exactly the "quiet neutral" this comment
         // says the palette lacks. Quieting this outline to --text-light is
         // therefore now AVAILABLE. It is deliberately NOT taken in the retint

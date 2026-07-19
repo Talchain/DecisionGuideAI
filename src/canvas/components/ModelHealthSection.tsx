@@ -74,7 +74,7 @@ function IssueRow({ issue }: { issue: HealthIssue }) {
         <div style={{ fontWeight: 500, color: 'var(--text-body, #3F3F3E)' }}>
           {issue.title}
         </div>
-        <div style={{ color: 'var(--text-light, #706D6D)', marginTop: 1 }}>
+        <div style={{ color: 'var(--text-light, #6E6B6B)', marginTop: 1 }}>
           {issue.description}
         </div>
       </div>
@@ -145,7 +145,7 @@ export function ModelHealthSection() {
       )}
 
       {isExpanded && !hasIssues && (
-        <div style={{ fontSize: 11, color: 'var(--text-light, #706D6D)', marginTop: 4 }}>
+        <div style={{ fontSize: 11, color: 'var(--text-light, #6E6B6B)', marginTop: 4 }}>
           All structural checks pass. The model is ready for analysis.
         </div>
       )}

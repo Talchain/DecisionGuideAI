@@ -27,15 +27,20 @@
      3.26:1 on --bg-panel and 2.90:1 on --bg-canvas against SC 1.4.3's 4.5:1,
      with zero of its ~785 live sites qualifying for the large-text exemption
      (that needs >=24px, or >=18.66px bold; the largest muted site is 20px).
-     Retinted to #706D6D: 5.08:1 on --bg-panel, 4.51:1 on --bg-canvas — the
-     LIGHTEST value preserving this token's warm cast (R = G+3, B = G) that
-     clears 4.5:1 on both real grounds, so it stays as muted as the law allows.
-     The canvas margin is thin by construction (4.51 vs 4.50). Darkening
-     --bg-canvas, or lightening this token, breaks SC 1.4.3 — and
+     Retinted to #6E6B6B: 5.23:1 on --bg-panel, 4.65:1 on --bg-canvas, both
+     preserving this token's warm cast (R = G+3, B = G).
+     WHY NOT LIGHTER. #706D6D is the lightest value that clears 4.5:1 on both
+     grounds (5.08 / 4.51), and it was rejected DELIBERATELY: 4.51 clears the
+     bar by 0.33%, which is close enough that a third-party checker rounding
+     differently, or a one-step tweak to --bg-canvas, would flip a compliance
+     CLAIM. #6E6B6B clears by 3.33% — 10x the headroom — and the two extra
+     steps cost ΔE2000 0.77, below the ~1.0 just-noticeable difference, so
+     nothing is lost in quietness. --bg-canvas is the binding ground; darken
+     it, or lighten this token far, and SC 1.4.3 breaks.
      tests/ci-guards/text-light-contrast.spec.ts DERIVES both sides from this
-     file and will go red if either moves. Do not hand-edit this value without
-     re-running that guard. */
-  --text-light: #706D6D;
+     file and pins the MARGIN, not just the bar, so it goes red if either
+     moves. Do not hand-edit this value without re-running that guard. */
+  --text-light: #6E6B6B;
   --text-on-color: #FFFFFF;
 
   /* Legacy aliases (for gradual migration) */

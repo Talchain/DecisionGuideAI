@@ -96,7 +96,7 @@
   }
 
   .olumi-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: var(--text-light, #706D6D);
+    background: var(--text-light, #6E6B6B);
   }
 }
 

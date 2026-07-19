@@ -33,7 +33,7 @@
  *
  * WHAT THIS DELIBERATELY DOES NOT COVER: sites where an ancestor `opacity`
  * suppresses the text (11 known live sites at opacity-50/60/70 measure
- * 1.9-2.8:1 even after the retint). A colour token cannot fix those — they
+ * 1.9-2.9:1 even after the retint). A colour token cannot fix those — they
  * need the opacity removed — and pretending this guard covers them would be
  * the more dangerous failure. See the retint PR body for the list.
  */
@@ -43,6 +43,14 @@ import { join } from 'node:path'
 
 /** SC 1.4.3 — normal-size text. Large text (>=24px / >=18.66px bold) may use 3:1. */
 const WCAG_TEXT_MIN = 4.5
+
+/**
+ * The bar this palette actually holds itself to. Compliance is a CLAIM someone
+ * else may re-check with a different tool, so clearing 4.5 by a hairline is not
+ * good enough — see the margin test below for the reasoning and the rejected
+ * alternative.
+ */
+const WCAG_TEXT_MARGIN = 4.6
 
 const BRAND_CSS_PATH = join(__dirname, '../../src/styles/brand.css')
 const brandCss = readFileSync(BRAND_CSS_PATH, 'utf-8')
@@ -111,22 +119,29 @@ describe('--text-light is a legal text colour (WCAG SC 1.4.3)', () => {
     ).toBeGreaterThanOrEqual(WCAG_TEXT_MIN)
   })
 
-  it('stays the LIGHTEST compliant value — it must not be over-darkened either', () => {
-    // The token's job is to read as muted. Compliance was bought with the
-    // smallest darkening that clears the bar, and this records that intent so
-    // a later "make it safer" nudge is a deliberate decision, not a drift.
-    // --bg-canvas is the binding ground; one step lighter must FAIL there.
+  it('clears the bar by a MARGIN, not by a hairline', () => {
+    // A compliance CLAIM needs more than arithmetic that scrapes over the line.
+    // #706D6D is the lightest value clearing 4.5:1 on both grounds, at 4.5149
+    // on --bg-canvas — 0.33% over. It was rejected deliberately: a third-party
+    // checker rounding differently, or a single step of drift in --bg-canvas,
+    // flips "we pass" to "we fail" without anyone touching this token. The
+    // shipped #6E6B6B clears by 3.33%, and the two extra steps cost ΔE2000
+    // 0.77 — below the ~1.0 just-noticeable difference — so the headroom is
+    // bought for nothing perceptible.
+    //
+    // This is the ONE-SIDED half of the intent. The opposite risk, darkening
+    // until muted stops reading as muted, is pinned by the separation test
+    // below; together they bracket the token from both directions.
     const fg = declared('--text-light')
     const canvas = declared('--bg-canvas')
-    const [r, g, b] = [0, 2, 4].map((i) => parseInt(fg.replace('#', '').slice(i, i + 2), 16))
-    const oneStepLighter = `#${[r + 1, g + 1, b + 1]
-      .map((n) => Math.min(255, n).toString(16).padStart(2, '0'))
-      .join('')}`
+    const ratio = contrast(fg, canvas)
     expect(
-      contrast(oneStepLighter, canvas),
-      `--text-light ${fg} is darker than it needs to be: ${oneStepLighter} also clears ` +
-        `4.5:1 on --bg-canvas. Use the lighter value — this token is meant to be quiet.`,
-    ).toBeLessThan(WCAG_TEXT_MIN)
+      ratio,
+      `--text-light ${fg} measures ${ratio.toFixed(4)}:1 on --bg-canvas ${canvas} — over ` +
+        `SC 1.4.3's ${WCAG_TEXT_MIN}:1, but by less than the ${(WCAG_TEXT_MARGIN - WCAG_TEXT_MIN).toFixed(2)} ` +
+        `headroom this palette requires. A margin that thin makes the compliance claim ` +
+        `fragile to rounding and to any tweak of --bg-canvas. Darken --text-light slightly.`,
+    ).toBeGreaterThanOrEqual(WCAG_TEXT_MARGIN)
   })
 
   it('white text on a --text-light FILL also clears 4.5:1 (.priorityBadgeLow)', () => {

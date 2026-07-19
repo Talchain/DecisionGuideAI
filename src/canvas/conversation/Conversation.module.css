@@ -116,7 +116,7 @@
   border-left: none;
   margin: 6px 0;
   padding: 4px 12px;
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
 }
 .markdownContent strong {
   font-weight: var(--conv-type-weight-semibold);
@@ -154,7 +154,7 @@
   display: inline-flex;
   align-items: center;
   background: var(--bg-panel-hover, #FEF9F3);
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
   border-radius: var(--radius-pill, 999px);
   padding: var(--space-1, 4px) var(--space-2, 8px);
   max-width: 85%;
@@ -243,7 +243,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--text-light, #706D6D);
+  background: var(--text-light, #6E6B6B);
   animation: typingBounce 1.4s ease-in-out infinite;
 }
 
@@ -266,7 +266,7 @@
 
 .longRunningHint {
   font-size: var(--conv-type-size-body);
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
   margin-top: 4px;
 }
 
@@ -283,7 +283,7 @@
 
 .commentaryBlock {
   /* DS v5 §21.2 — Commentary is inline: no border, muted text, slight indent. */
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
   padding-left: 12px;
 }
 
@@ -358,12 +358,12 @@
 
 .factLabel {
   font-size: var(--conv-type-size-body);
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
 }
 
 .factSource {
   font-size: var(--conv-type-size-meta);
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
   font-style: italic;
 }
 
@@ -442,7 +442,7 @@
 
 .graphPatchMeta {
   font-size: var(--conv-type-size-body);
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
 }
 
 .graphPatchProposalList {
@@ -474,13 +474,13 @@
 }
 
 .graphPatchProposalLabel {
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
 }
 
 .graphPatchProposalBadge {
   flex-shrink: 0;
   padding: 0;
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
   font-weight: var(--conv-type-weight-regular);
 }
 
@@ -513,7 +513,7 @@
 
 .graphPatchAccept:disabled {
   background: var(--border-default, #EEE6D8);
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
   cursor: not-allowed;
 }
 
@@ -539,7 +539,7 @@
 }
 
 .graphPatchDismiss:disabled {
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
   cursor: not-allowed;
 }
 
@@ -563,7 +563,7 @@
 
 .graphPatchStatusDismissed {
   composes: graphPatchStatus;
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
 }
 
 .graphPatchError {
@@ -653,7 +653,7 @@
 .reasoningPanelHeading {
   font-size: var(--conv-type-size-meta);
   font-weight: var(--conv-type-weight-semibold);
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
   margin: 0 0 6px 0;
   text-transform: none;
 }
@@ -712,7 +712,7 @@
 .framingSectionLabel {
   font-size: var(--conv-type-size-meta);
   font-weight: var(--conv-type-weight-semibold);
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
   letter-spacing: 0.04em;
 }
 
@@ -826,7 +826,7 @@
 
 .factBarValue {
   font-size: var(--conv-type-size-body);
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
   flex-shrink: 0;
   min-width: 36px;
   text-align: right;
@@ -876,7 +876,7 @@
 
 .factLineage {
   font-size: var(--conv-type-size-meta);
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
   font-style: italic;
   margin-top: 4px;
 }
@@ -912,7 +912,7 @@
 
 .priorityBadgeLow {
   composes: priorityBadge;
-  background: var(--text-light, #706D6D);
+  background: var(--text-light, #6E6B6B);
 }
 
 .reviewCardBadgeRow {
@@ -928,7 +928,7 @@
 
 .citationLegend {
   font-size: var(--conv-type-size-meta);
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
   margin-top: 6px;
   border-top: 1px solid var(--border-default, #EEE6D8);
   padding-top: 4px;
@@ -1099,11 +1099,11 @@
 }
 
 .evidenceConfidence {
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
 }
 
 .evidenceQuery {
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
   font-style: italic;
   margin-top: 4px;
 }
@@ -1134,7 +1134,7 @@
 }
 
 .graphPatchDanger:disabled {
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
   border-color: var(--border-default, #EEE6D8);
   cursor: not-allowed;
 }
@@ -1230,7 +1230,7 @@
 }
 
 .baseRateLabel {
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
 }
 
 .baseRateRow {
@@ -1422,7 +1422,7 @@
   border-radius: 6px;
   border: none;
   background: transparent;
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
   cursor: pointer;
   transition: color 150ms;
 }
@@ -1473,7 +1473,7 @@
 }
 
 .growingInput::placeholder {
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
 }
 
 .sendButton {
@@ -1498,7 +1498,7 @@
 .sendButtonDisabled {
   composes: sendButton;
   background: var(--border-default, #EEE6D8);
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
   cursor: not-allowed;
 }
 
@@ -1603,7 +1603,7 @@
 
 .actionStripCount {
   font-size: var(--conv-type-size-meta);
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -1712,7 +1712,7 @@
   gap: 6px;
   padding: 4px 0;
   font-size: var(--conv-type-size-prominent);
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
 }
 
 .toolLoadingDot {
@@ -1988,7 +1988,7 @@
   gap: 4px;
   align-self: flex-start;
   font-size: var(--conv-type-size-meta);
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
   background: none;
   border: none;
   padding: 2px 0;
@@ -2023,7 +2023,7 @@
 
 .vocabularyLegendDefinition {
   margin: 0;
-  color: var(--text-light, #706D6D);
+  color: var(--text-light, #6E6B6B);
 }
 
 /* Focus-visible for these toggles lives in the shared "Toggles and
