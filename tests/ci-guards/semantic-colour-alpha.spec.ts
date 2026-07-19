@@ -43,9 +43,10 @@
  * so a colour used with a modifier tomorrow is covered tomorrow — including
  * sub-shades (`bg-warning-light/70`) and legacy aliases (`bg-carrot-500/10`).
  */
-import { describe, it, expect, beforeAll } from 'vitest'
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { readFileSync, readdirSync, statSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { join, resolve as resolvePath } from 'node:path'
+import { tmpdir } from 'node:os'
 import postcss from 'postcss'
 import tailwind from 'tailwindcss'
 import config from '../../tailwind.config.js'
@@ -73,6 +74,18 @@ function walk(dir: string, out: string[] = []): string[] {
   return out
 }
 
+/**
+ * Remove comments from a file's text BEFORE the utility scan runs, so a Tailwind
+ * token quoted in a comment is never mistaken for a shipped class.
+ *
+ * STUB (RED checkpoint): returns the text unchanged. The scan therefore still
+ * sees comment tokens, so the footgun tests below fail. The real literal-aware
+ * strippers replace this body in the follow-up commit.
+ */
+function stripComments(text: string, _file: string): string {
+  return text
+}
+
 /** The config's colour key paths, flattened the way Tailwind names them. */
 function colourKeys(): string[] {
   const colours = (config as { theme: { extend: { colors: Record<string, unknown> } } }).theme.extend.colors
@@ -94,11 +107,11 @@ function colourKeys(): string[] {
  * scope here: this guard is about declaration FORM, and a colour that does not
  * exist has no form to get wrong.
  */
-function usedClasses(): string[] {
+function usedClasses(root: string = SRC): string[] {
   const keys = new Set(colourKeys())
   const found = new Set<string>()
-  for (const file of walk(SRC)) {
-    const text = readFileSync(file, 'utf8')
+  for (const file of walk(root)) {
+    const text = stripComments(readFileSync(file, 'utf8'), file)
     for (const m of text.matchAll(MODIFIED)) {
       const [whole, , colour] = m
       if (keys.has(colour)) found.add(whole)
@@ -226,4 +239,116 @@ describe('semantic colours emit CSS when used with an opacity modifier', () => {
     expect(css.css).toMatch(/border-color:\s*rgb\(var\(--info-rgb\)\s*\/\s*0?\.3\)/)
     expect(css.css).toMatch(/background-color:\s*rgb\(var\(--danger-rgb\)\s*\/\s*0?\.2\)/)
   }, 60_000)
+})
+
+/**
+ * THE FOOTGUN. The scan reads raw file text, so a utility QUOTED IN A COMMENT is
+ * pulled into the required set and compiled like a shipped class. `bg-info/4`
+ * (4 is not a legal opacity step, so it emits NO rule) sat in ExpertBlock's
+ * header comment and reddened origin/staging exactly this way (#385, healed only
+ * by rewording the comment; the footgun itself remained). A token in a comment
+ * renders nothing, so it is a non-defect; scanning comments also punishes authors
+ * for documenting the very anti-pattern this guard teaches. So comments are
+ * stripped from the INPUT TEXT before the scan; nothing else changes: every
+ * surviving match still compiles against the real Tailwind and every emission
+ * assertion above is untouched.
+ */
+describe('the scan ignores tokens that live only in comments (footgun #385)', () => {
+  let dir: string
+
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), 'guard-strip-comments-'))
+    // `bg-info/4`, the illegal step that emits nothing, appears ONLY in
+    // comments, in all three forms the guard scans: a `//` line comment, a
+    // `/* */` block comment, and a CSS `/* */` comment. Real, shipped utilities
+    // (`border-info/30` as a className AND as a CSS `@apply`, `bg-info/5` as a
+    // className) sit in genuine code and MUST survive the stripping.
+    writeFileSync(
+      join(dir, 'line.tsx'),
+      '// documented anti-pattern: never ship bg-info/4, it emits no CSS\n' +
+        'export const A = () => <div className="border-info/30" />\n',
+    )
+    writeFileSync(
+      join(dir, 'block.tsx'),
+      '/* the faint info tint bg-info/4 is illegal; the nearest legal step is bg-info/5 */\n' +
+        'export const B = () => <div className="bg-info/5" />\n',
+    )
+    writeFileSync(
+      join(dir, 'style.css'),
+      '/* never author bg-info/4 in a stylesheet, 4 is not a scale step */\n' +
+        '.pill { @apply border-info/30; }\n',
+    )
+  })
+
+  afterAll(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('an illegal utility quoted ONLY in a comment is not scanned (the headline)', () => {
+    // RED before stripping: the passthrough stub leaves `bg-info/4` in the text,
+    // so the scan pulls it from the // , /* */ and CSS /* */ comments and the
+    // required set contains a class that provably emits nothing.
+    expect(
+      usedClasses(dir),
+      'bg-info/4 lives only in comments and renders nothing; the scan must ignore it',
+    ).not.toContain('bg-info/4')
+  })
+
+  it('a REAL utility in genuine code survives stripping (className and CSS @apply)', () => {
+    const used = usedClasses(dir)
+    // The existing mutation control asserts `border-info/30` stays in the scanned
+    // set; prove a real usage is not collateral of comment stripping.
+    expect(used, 'a real border-info/30 (className and @apply) must still be scanned')
+      .toContain('border-info/30')
+    expect(used, 'a real bg-info/5 className must still be scanned')
+      .toContain('bg-info/5')
+  })
+})
+
+/**
+ * LITERAL-SAFETY PINS. A naive line-comment regex strip eats real code: a URL in
+ * a string, a class after content-['//'], a regex full of slashes. These pin the
+ * tokeniser so a comment-opening sequence inside a string, template or regex
+ * literal is treated as code, and a class inside a template interpolation is real
+ * code. Each hostile class has its own case; swapping the tokeniser for the naive
+ * stripper turns these RED (mutation-checked in the PR).
+ */
+describe('literal-aware stripping: comment markers inside string/template/regex are code', () => {
+  const scan = (text: string, file = 'hostile.tsx'): Set<string> =>
+    new Set([...stripComments(text, file).matchAll(MODIFIED)].map((m) => m[0]))
+
+  it('`//` inside a string does not strip a real class later on the same line', () => {
+    const src = "const u = 'https://cdn.example/x'; const c = 'border-info/30'"
+    expect(scan(src)).toContain('border-info/30')
+  })
+
+  it('a class inside a template `${...}` interpolation survives', () => {
+    const src = "const c = `p-2 ${cond ? 'bg-info/30' : ''}`"
+    expect(scan(src)).toContain('bg-info/30')
+  })
+
+  it('`/*` and `*/` inside a string neither open nor close a comment', () => {
+    const src = "const a = '/*'; const c = 'bg-danger/20'; const b = '*/'"
+    expect(scan(src)).toContain('bg-danger/20')
+  })
+
+  it('`//` inside a regex literal is not a comment', () => {
+    const src = "const re = /\\/\\//g; const c = 'text-info/40'"
+    expect(scan(src)).toContain('text-info/40')
+  })
+
+  it("`content-['//']` keeps the class that follows it", () => {
+    const src = '<div className="before:content-[\'//\'] border-info/30" />'
+    expect(scan(src)).toContain('border-info/30')
+  })
+
+  it('a genuine `//` line comment IS still stripped', () => {
+    const found = scan("const c = 'bg-info/5' // ship note: bg-info/4 is illegal")
+    expect(found).toContain('bg-info/5')
+    expect(found).not.toContain('bg-info/4')
+  })
+
+  it('a genuine `/* */` block comment IS still stripped', () => {
+    const found = scan("const c = 'bg-info/5' /* avoid bg-info/4 here */")
+    expect(found).toContain('bg-info/5')
+    expect(found).not.toContain('bg-info/4')
+  })
 })
