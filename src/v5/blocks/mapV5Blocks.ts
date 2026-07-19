@@ -29,7 +29,18 @@ import type { ConversationBlock } from '../../canvas/conversation/types'
 
 type V5Block = OlumiResponse['blocks'][number]
 
-export function mapV5Block(block: V5Block): ConversationBlock | null {
+/**
+ * Top-level suggested action (wire ActionSchema: id + label + message).
+ * `held_proposal` blocks reference these by id for their confirm/decline
+ * affordances; the mapper resolves the ref to {label, message} at map time so
+ * the rendered block is self-contained.
+ */
+type SuggestedActionRef = OlumiResponse['suggested_actions'][number]
+
+export function mapV5Block(
+  block: V5Block,
+  suggestedActions: readonly SuggestedActionRef[] = [],
+): ConversationBlock | null {
   switch (block.type) {
     case 'text':
       // CEE emits text blocks primarily as inline commentary alongside
@@ -159,16 +170,33 @@ export function mapV5Block(block: V5Block): ConversationBlock | null {
         target_refs: block.target_refs,
         freshness: block.freshness,
       }
-    case 'held_proposal':
-      // 0.15.0 wave: KNOWN kind, deliberately not rendered yet — R8 builds
-      // the held-proposal card (producer-dormant as of this re-vendor).
-      // It is real content, so until R8 lands it degrades to the honest
-      // unsupported card (R7) rather than dropping silently.
-      return {
-        type: 'v5_unsupported',
-        blockType: block.type,
-        raw: block,
+    case 'held_proposal': {
+      // R8 (roadmap 2.27): render the held CEE mutation as an honest card.
+      // The confirm/decline affordances are refs into the response's
+      // top-level suggested_actions[] — resolve them here so the rendered
+      // block is self-contained. The confirm chip is ALWAYS present on the
+      // wire (every held verdict carries one); if it cannot be resolved the
+      // block is drifted/corrupt, so fail closed to the R7 unsupported card
+      // (never crash, never vanish). decline is optional today (CEE's decline
+      // path is free-text) — an absent or unresolvable decline_action_id
+      // simply drives a local-only dismiss in the renderer.
+      const confirm = suggestedActions.find((a) => a.id === block.confirm_action_id)
+      if (!confirm) {
+        return { type: 'v5_unsupported', blockType: block.type, raw: block }
       }
+      const decline = block.decline_action_id
+        ? suggestedActions.find((a) => a.id === block.decline_action_id)
+        : undefined
+      return {
+        type: 'v5_held_proposal',
+        proposal_id: block.proposal_id,
+        summary: block.summary,
+        mutation_class: block.mutation_class,
+        reason_code: block.reason_code,
+        confirm: { label: confirm.label, message: confirm.message },
+        ...(decline ? { decline: { label: decline.label, message: decline.message } } : {}),
+      }
+    }
     case 'ui_directive':
       // 0.15.0 wave: KNOWN kind, dispatcher is R4's lane. Directives are
       // advisory presentation hints whose SCHEMA-SPECIFIED degrade is
@@ -198,10 +226,19 @@ export function mapV5Block(block: V5Block): ConversationBlock | null {
  * filtering out nulls (fatal errors routed via typed_error; advisory
  * warn/info errors intentionally absent from chat surface).
  */
-export function mapV5Blocks(blocks: V5Block[]): ConversationBlock[] {
+export function mapV5Blocks(
+  blocks: V5Block[],
+  suggestedActions: readonly SuggestedActionRef[] = [],
+): ConversationBlock[] {
+  // The `= []` default only covers `undefined`. A null (schema drift, or a
+  // caller bypassing the parser) would make the held_proposal branch's
+  // `.find()` throw and take the WHOLE mapper down. Normalise so an absent or
+  // malformed actions list degrades the held card to the R7 unsupported
+  // placeholder — the same fail-closed route as an unresolvable confirm ref.
+  const actions = Array.isArray(suggestedActions) ? suggestedActions : []
   const out: ConversationBlock[] = []
   for (const b of blocks) {
-    const mapped = mapV5Block(b)
+    const mapped = mapV5Block(b, actions)
     if (mapped) out.push(mapped)
   }
   return out

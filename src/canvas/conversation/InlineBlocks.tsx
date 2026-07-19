@@ -53,6 +53,7 @@ import { V5ReviewCardBlock } from '../../v5/blocks/V5ReviewCardBlock'
 import { V5CoachingBlock } from '../../v5/blocks/V5CoachingBlock'
 import { V5EvidenceBlock } from '../../v5/blocks/V5EvidenceBlock'
 import { V5ExerciseBlock } from '../../v5/blocks/V5ExerciseBlock'
+import { V5HeldProposalBlock } from '../../v5/blocks/V5HeldProposalBlock'
 import { V5UnsupportedBlock } from '../../v5/blocks/V5UnsupportedBlock'
 import { safeRichText, plainTextPreview } from '../utils/safeRichText'
 import { isOrchestratorRenderingV2Enabled } from '../../flags'
@@ -102,6 +103,8 @@ function resolveBlockBadgeDotClass(block: ConversationBlock): string | null {
     case 'v5_evidence':
       return block.severity === 'info' ? styles.blockBadgeDotInfo : styles.blockBadgeDotDanger
     case 'v5_exercise': return styles.blockBadgeDotInfo
+    // R8: held proposal is an info-channel proposal card (matches its border).
+    case 'v5_held_proposal': return styles.blockBadgeDotInfo
     default: return null
   }
 }
@@ -446,6 +449,10 @@ function BlockRenderer({
 
     case 'v5_exercise':
       return <V5ExerciseBlock block={block} />
+
+    // R8 (roadmap 2.27): held CEE mutation → honest confirm/dismiss card.
+    case 'v5_held_proposal':
+      return <V5HeldProposalBlock block={block} />
 
     case 'v5_unsupported':
       return <V5UnsupportedBlock block={block} />
