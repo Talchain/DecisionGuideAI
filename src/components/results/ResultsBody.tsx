@@ -603,7 +603,7 @@ export function DevBuildMarker({
 }) {
   if (!isDev || !expertMode) return null
   return (
-    <div className={`${typography.panelMeta} text-text-light/40 text-center py-1`} data-testid="dev-build-marker">
+    <div className={`${typography.panelMeta} text-text-light text-center py-1`} data-testid="dev-build-marker">
       {sha}
     </div>
   )

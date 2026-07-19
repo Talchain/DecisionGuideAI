@@ -71,7 +71,7 @@ export const FocusModeChip = memo(function FocusModeChip({ className = '' }: Foc
       aria-live="polite"
       data-testid="focus-mode-chip"
     >
-      <span className="text-sm text-ink-900/70">
+      <span className="text-sm text-ink-900">
         Showing paths from{' '}
         <strong className="font-medium" title={nodeTitle ?? undefined}>
           {displayTitle}

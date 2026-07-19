@@ -34,7 +34,7 @@ export function DeltaInterpretation({
   const colorMap = {
     better: 'text-success-700',
     worse: 'text-danger-700',
-    similar: 'text-ink-900/70',
+    similar: 'text-ink-900',
   }
 
   const directionText = {
@@ -62,7 +62,7 @@ export function DeltaInterpretation({
           {objectiveText}.
         </p>
         {delta.direction !== 'similar' && (
-          <p className={`${typography.bodySmall} text-ink-900/70 mt-1`}>
+          <p className={`${typography.bodySmall} text-ink-900 mt-1`}>
             Expected outcome moved from {formatValue(fromValue)} to {formatValue(toValue)}
             {delta.deltaPercent !== null && (
               <>

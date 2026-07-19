@@ -194,7 +194,7 @@ export function UnifiedStatusBadge({
 
           {/* Expand/collapse chevron */}
           {hasDetails && (
-            <span className="text-ink-900/40">
+            <span className="text-ink-900">
               {isExpanded ? (
                 <ChevronUp className="w-4 h-4" aria-hidden="true" />
               ) : (

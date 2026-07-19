@@ -93,7 +93,7 @@ export function HelpMenu({ onShowOnboarding, onShowKeyboardLegend, onShowInfluen
           aria-label="Canvas help"
           className="absolute right-0 mt-2 w-72 bg-panel rounded-lg shadow-panel border border-panel-border py-2 z-[1100]"
         >
-          <p className={`px-4 pb-2 ${typography.caption} uppercase tracking-wide text-ink-900/70`}>Need a refresher?</p>
+          <p className={`px-4 pb-2 ${typography.caption} uppercase tracking-wide text-ink-900`}>Need a refresher?</p>
           <div className="flex flex-col">
             {menuItems.map(item => (
               <button
@@ -103,7 +103,7 @@ export function HelpMenu({ onShowOnboarding, onShowKeyboardLegend, onShowInfluen
                 className="text-left px-4 py-3 hover:bg-paper-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info"
               >
                 <span className={`block ${typography.label} text-ink-900`}>{item.label}</span>
-                <span className={`block ${typography.caption} text-ink-900/70`}>{item.description}</span>
+                <span className={`block ${typography.caption} text-ink-900`}>{item.description}</span>
               </button>
             ))}
           </div>

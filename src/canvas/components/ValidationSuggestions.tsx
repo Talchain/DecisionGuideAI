@@ -84,7 +84,7 @@ export function ValidationSuggestionsSection() {
   if (nodes.length === 0) {
     return (
       <div className="p-4">
-        <p className={`${typography.body} text-ink-900/50 text-center py-8`}>
+        <p className={`${typography.body} text-ink-900 text-center py-8`}>
           Add nodes to your graph to see validation suggestions
         </p>
       </div>

@@ -1719,7 +1719,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
             <button
               type="button"
               onClick={toggleOpen}
-              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header/70 hover:bg-panel`}
+              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header hover:bg-panel`}
               aria-label={effectiveIsOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
             >
               {effectiveIsOpen ? '>' : '<'}
@@ -1747,7 +1747,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   className={`flex-1 px-2 py-1 rounded ${typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                     effectiveActiveTab === tab.id
                       ? 'text-info border-b-2 border-info'
-                      : 'text-text-header/70 hover:bg-panel hover:text-text-header border-b-2 border-transparent'
+                      : 'text-text-header hover:bg-panel border-b-2 border-transparent'
                   }`}
                   style={
                     effectiveActiveTab === tab.id
@@ -1803,7 +1803,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
             <button
               type="button"
               onClick={toggleOpen}
-              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header/70 hover:bg-panel`}
+              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header hover:bg-panel`}
               aria-label={effectiveIsOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
             >
               {effectiveIsOpen ? '>' : '<'}
@@ -1836,7 +1836,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 className={`flex items-center justify-center w-7 h-7 rounded-full border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                   effectiveActiveTab === tab.id
                     ? 'text-info border-info'
-                    : 'text-text-header/70 bg-panel border-panel-border hover:bg-panel hover:text-text-header'
+                    : 'text-text-header bg-panel border-panel-border hover:bg-panel'
                 }`}
                 style={effectiveActiveTab === tab.id ? { backgroundColor: 'color-mix(in srgb, var(--info) 15%, transparent)' } : undefined}
                 aria-label={tab.label}
@@ -1850,7 +1850,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       )}
 
       {effectiveIsOpen && (
-        <div className={`flex-1 min-h-0 ${typography.caption} text-text-header/70 ${effectiveActiveTab === 'results' || effectiveActiveTab === 'olumi' ? 'flex flex-col overflow-hidden' : 'olumi-scrollbar px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
+        <div className={`flex-1 min-h-0 ${typography.caption} text-text-header ${effectiveActiveTab === 'results' || effectiveActiveTab === 'olumi' ? 'flex flex-col overflow-hidden' : 'olumi-scrollbar px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
             {effectiveActiveTab === 'results' && (
               <div className="flex-1 min-h-0 flex flex-col">
                 {aiPanelV2On && transitionReceipt === 'model-drafted' ? (
@@ -2007,7 +2007,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                       }`}>
                         {friendlyError.headline}
                       </div>
-                      <div className={`${typography.caption} text-text-header/80`}>
+                      <div className={`${typography.caption} text-text-header`}>
                         {friendlyError.explanation}
                       </div>
                       <div className="flex flex-col gap-2 mt-1">
@@ -2061,7 +2061,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                           )}
                         </div>
                         {/* Task P.3.5: Coaching text for repeated failures */}
-                        <p className={`${typography.caption} text-text-header/70`}>
+                        <p className={`${typography.caption} text-text-header`}>
                           If analysis keeps failing, try simplifying to 8-10 of the most important factors.
                         </p>
                       </div>

@@ -43,21 +43,38 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { resolveTokenHex } from '../channelTriple.mjs'
 
 const css = readFileSync(join(__dirname, '../brand.css'), 'utf-8')
 
-/** Read a `--token: value;` declaration out of brand.css. */
+/**
+ * The RAW declared text of a `--token` in brand.css — not resolved.
+ * Used only where the assertion is about the DECLARATION itself (chart-5/6
+ * must be literal hexes, aliasing nothing). Every colour READ goes through
+ * `resolve()`, because a raw read now returns `rgb(var(--x-rgb))` for most
+ * semantic tokens and would be measured as a malformed colour.
+ */
 function token(name: string): string {
   const m = css.match(new RegExp(`^\\s*--${name}:\\s*([^;]+);`, 'm'))
   if (!m) throw new Error(`brand.css: --${name} not found`)
   return m[1].trim()
 }
 
-/** Resolve one level of `var(--x)` indirection so aliases compare by value. */
+/**
+ * The literal colour a token resolves to, across all three declaration forms
+ * brand.css uses: a literal hex, a `var()` alias (`--primary: var(--info)`),
+ * and the channel-triple form (`--info-rgb: 39 122 157; --info:
+ * rgb(var(--info-rgb))`) that lets Tailwind emit opacity-modified utilities.
+ *
+ * Delegated to the shared resolver so all five brand.css parsers read the file
+ * identically rather than each carrying its own regex — which is how they
+ * would come to disagree. Throws rather than defaulting, so no ratio below can
+ * be computed against a silently-wrong colour.
+ */
 function resolve(name: string): string {
-  const raw = token(name)
-  const alias = raw.match(/^var\(--([a-z0-9-]+)\)$/i)
-  return alias ? resolve(alias[1]) : raw
+  const hex = resolveTokenHex(css, `--${name}`)
+  if (!hex) throw new Error(`brand.css: --${name} does not resolve to a literal colour`)
+  return hex
 }
 
 const hexToRgb = (hex: string): [number, number, number] => {
@@ -108,9 +125,9 @@ const over = (fg: string, alpha: number, bg: string): string => {
  */
 const TEXT_GROUNDS = (): Array<[string, string]> => [
   ['#FFFFFF (legacy white cards)', WHITE],
-  ['--bg-panel (dominant text ground)', token('bg-panel')],
-  ['bg-panel/95 over canvas (dock, edge labels)', over(token('bg-panel'), 0.95, token('bg-canvas'))],
-  ['--bg-panel-hover (the binding ground)', token('bg-panel-hover')],
+  ['--bg-panel (dominant text ground)', resolve('bg-panel')],
+  ['bg-panel/95 over canvas (dock, edge labels)', over(resolve('bg-panel'), 0.95, resolve('bg-canvas'))],
+  ['--bg-panel-hover (the binding ground)', resolve('bg-panel-hover')],
 ]
 
 describe('D1 — canonical info blue', () => {
@@ -123,7 +140,19 @@ describe('D1 — canonical info blue', () => {
   })
 
   it('--info is the single canonical value', () => {
-    expect(token('info').toUpperCase()).toBe(CANONICAL_INFO)
+    expect(resolve('info')).toBe(CANONICAL_INFO)
+  })
+
+  it('--info carries its channels as the source of truth, and they agree with the hex', () => {
+    // `--info` is no longer a literal hex: it is derived from `--info-rgb` so
+    // Tailwind can emit `border-info/30` and friends, which previously emitted
+    // NO RULE AT ALL. The channels are now the single source of truth, so the
+    // thing that must not drift is the channels-to-hex agreement — assert the
+    // DECLARATION FORM as well as the resolved value, or a future edit could
+    // reinstate a literal hex and silently un-emit every opacity utility again.
+    expect(token('info')).toBe('rgb(var(--info-rgb))')
+    expect(token('info-rgb')).toBe('39 122 157')
+    expect(resolve('info')).toBe(CANONICAL_INFO)
   })
 
   it('--primary resolves to the same canonical value (one value, not a copy)', () => {
@@ -134,7 +163,7 @@ describe('D1 — canonical info blue', () => {
   // a value through that failed on --bg-panel by 0.03. Each ground is read from
   // brand.css, so a retint of ANY of them re-measures rather than going stale.
   it.each(TEXT_GROUNDS())('clears WCAG AA text 4.5:1 on %s — computed from brand.css, not hardcoded', (_label, ground) => {
-    expect(contrastRatio(token('info'), ground)).toBeGreaterThanOrEqual(AA_TEXT)
+    expect(contrastRatio(resolve('info'), ground)).toBeGreaterThanOrEqual(AA_TEXT)
   })
 
   it('POSITIVE CONTROL: the TEXT_GROUNDS assertion can actually FAIL', () => {
@@ -146,26 +175,26 @@ describe('D1 — canonical info blue', () => {
     }
     // ...and so must the value this decision corrected, on the panel grounds
     // it actually missed. This is the regression pin for THIS defect.
-    expect(contrastRatio('#2B7FA2', token('bg-panel'))).toBeLessThan(AA_TEXT)
-    expect(contrastRatio('#2B7FA2', token('bg-panel-hover'))).toBeLessThan(AA_TEXT)
+    expect(contrastRatio('#2B7FA2', resolve('bg-panel'))).toBeLessThan(AA_TEXT)
+    expect(contrastRatio('#2B7FA2', resolve('bg-panel-hover'))).toBeLessThan(AA_TEXT)
   })
 
   it('clears the 3:1 SC 1.4.11 bar on --bg-canvas, where info blue is glyphs only', () => {
     // Deliberately 3:1, not 4.5:1 — see the file header for why.
-    expect(contrastRatio(token('info'), token('bg-canvas'))).toBeGreaterThanOrEqual(AA_UI)
+    expect(contrastRatio(resolve('info'), resolve('bg-canvas'))).toBeGreaterThanOrEqual(AA_UI)
   })
 
   it('white text ON an --info fill still clears AA (the primary button)', () => {
     // --info is also a BACKGROUND (bg-primary/bg-info) with --text-on-color on
     // it. Darkening the token helps here, but the pairing must stay pinned so a
     // future LIGHTENING cannot silently break the most-used button in the app.
-    expect(contrastRatio(resolve('text-on-color'), token('info'))).toBeGreaterThanOrEqual(AA_TEXT)
+    expect(contrastRatio(resolve('text-on-color'), resolve('info'))).toBeGreaterThanOrEqual(AA_TEXT)
   })
 
   it('keeps the hover/active progression darker than the base', () => {
-    const base = contrastRatio(token('info'), WHITE)
-    expect(contrastRatio(token('info-hover'), WHITE)).toBeGreaterThan(base)
-    expect(contrastRatio(token('info-active'), WHITE)).toBeGreaterThan(base)
+    const base = contrastRatio(resolve('info'), WHITE)
+    expect(contrastRatio(resolve('info-hover'), WHITE)).toBeGreaterThan(base)
+    expect(contrastRatio(resolve('info-active'), WHITE)).toBeGreaterThan(base)
   })
 
   it('no superseded info-blue hex survives in brand.css declarations', () => {
@@ -202,9 +231,9 @@ describe('D3 — chart series are ordinal, not semantic aliases', () => {
   })
 
   it('series 5 and 6 clear 3:1 against both the canvas and panel grounds', () => {
-    for (const c of [token('chart-5'), token('chart-6')]) {
-      expect(contrastRatio(c, token('bg-canvas'))).toBeGreaterThanOrEqual(AA_UI)
-      expect(contrastRatio(c, token('bg-panel'))).toBeGreaterThanOrEqual(AA_UI)
+    for (const c of [resolve('chart-5'), resolve('chart-6')]) {
+      expect(contrastRatio(c, resolve('bg-canvas'))).toBeGreaterThanOrEqual(AA_UI)
+      expect(contrastRatio(c, resolve('bg-panel'))).toBeGreaterThanOrEqual(AA_UI)
     }
   })
 })

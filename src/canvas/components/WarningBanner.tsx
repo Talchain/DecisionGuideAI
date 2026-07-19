@@ -67,7 +67,7 @@ export function WarningBanner({ warnings, onDismiss, onViewAffected }: WarningBa
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
-            className={`${typography.caption} mt-1 text-warning flex items-center gap-1 hover:text-warning/80`}
+            className={`${typography.caption} mt-1 text-warning flex items-center gap-1`}
           >
             {isExpanded ? (
               <ChevronDown className="w-3 h-3" />
@@ -93,7 +93,7 @@ export function WarningBanner({ warnings, onDismiss, onViewAffected }: WarningBa
           <button
             type="button"
             onClick={() => onViewAffected(firstWarning.affected_ids!)}
-            className={`mt-2 ${typography.caption} font-medium underline text-warning hover:text-warning/80`}
+            className={`mt-2 ${typography.caption} font-medium underline text-warning`}
           >
             View {firstWarning.affected_ids.length} affected{' '}
             {firstWarning.affected_ids.length === 1 ? 'item' : 'items'}

@@ -63,7 +63,7 @@ export function GoalModePanel({ onClose }: GoalModePanelProps) {
           </div>
           <button
             onClick={onClose}
-            className="text-ink-900/60 hover:text-ink-900 transition-colors"
+            className="text-ink-900 transition-colors"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -179,7 +179,7 @@ export function GoalModePanel({ onClose }: GoalModePanelProps) {
                   </div>
 
                   <div className="flex items-center gap-2 mb-2">
-                    <span className={`${typography.body} text-ink-900/70`}>
+                    <span className={`${typography.body} text-ink-900`}>
                       {step.currentValue} → {step.targetValue}
                     </span>
                     <TrendingUp className="w-4 h-4 text-mint-600" />
@@ -190,7 +190,7 @@ export function GoalModePanel({ onClose }: GoalModePanelProps) {
                   </div>
 
                   {step.impact.sideEffects.length > 0 && (
-                    <div className={`${typography.caption} text-ink-900/60`}>
+                    <div className={`${typography.caption} text-ink-900`}>
                       Side effects: {step.impact.sideEffects[0].nodeLabel}
                       {step.impact.sideEffects[0].expectedChange > 0 ? ' +' : ' '}
                       {step.impact.sideEffects[0].expectedChange.toFixed(1)}

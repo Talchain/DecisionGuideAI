@@ -38,7 +38,7 @@ export function RangeLabels({
     return (
       <div className="flex flex-col items-center gap-1 relative">
         <div className="flex items-center gap-1">
-          <span className={`${typography.code} font-medium text-ink-900/70`}>
+          <span className={`${typography.code} font-medium text-ink-900`}>
             {config.userLabel}
           </span>
           {showTooltips && (
@@ -46,7 +46,7 @@ export function RangeLabels({
               type="button"
               onMouseEnter={() => setHoveredRange(rangeKey)}
               onMouseLeave={() => setHoveredRange(null)}
-              className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-ink-900/50 hover:text-ink-900/80 hover:bg-sand-100"
+              className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-ink-900 hover:bg-sand-100"
               aria-label={`Show details for ${config.userLabel}`}
             >
               <Info className="w-2.5 h-2.5" aria-hidden="true" />
@@ -66,7 +66,7 @@ export function RangeLabels({
             <div className={`${typography.caption} font-medium mb-1`}>
               {config.technicalTerm}
             </div>
-            <div className={`${typography.caption} text-paper-50/90`}>
+            <div className={`${typography.caption}`}>
               {config.description}
             </div>
             {/* Arrow */}

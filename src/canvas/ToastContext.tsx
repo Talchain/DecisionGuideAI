@@ -139,10 +139,10 @@ const TOAST_ICON_CLASS: Record<Toast['type'], string> = {
 }
 
 const TOAST_ACTION_CLASS: Record<Toast['type'], string> = {
-  success: 'text-success hover:text-success/80',
-  error:   'text-danger hover:text-danger/80',
-  info:    'text-info hover:text-info/80',
-  warning: 'text-warning hover:text-warning/80',
+  success: 'text-success',
+  error:   'text-danger',
+  info:    'text-info hover:text-info',
+  warning: 'text-warning',
 }
 
 function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: string) => void }) {
