@@ -98,11 +98,11 @@ export const FeedbackRow = memo(function FeedbackRow({ turnId, onFeedback }: Fee
       </button>
       <style>{`
         .feedback-btn:focus-visible {
-          outline: 2px solid var(--info, #2B7FA2);
+          outline: 2px solid var(--info, #277A9D);
           outline-offset: 2px;
         }
         .feedback-btn:not(:disabled):hover {
-          color: var(--info, #2B7FA2);
+          color: var(--info, #277A9D);
         }
       `}</style>
     </div>

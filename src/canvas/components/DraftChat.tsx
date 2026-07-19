@@ -1050,7 +1050,7 @@ export function DraftChat() {
                 disabled={!canSubmit}
                 className="absolute right-1 bottom-0 p-2 rounded-full transition-colors"
                 style={{
-                  backgroundColor: canSubmit ? 'var(--primary, #2B7FA2)' : '#E8E5E1',
+                  backgroundColor: canSubmit ? 'var(--primary, #277A9D)' : '#E8E5E1',
                   color: canSubmit ? '#FFFFFF' : '#9B9B9B',
                   cursor: canSubmit ? 'pointer' : 'not-allowed'
                 }}
@@ -1446,7 +1446,7 @@ export function DraftChat() {
                   style={{
                     right: '12px',
                     bottom: '12px',
-                    backgroundColor: canSubmit ? 'var(--primary, #2B7FA2)' : '#E8E5E1',
+                    backgroundColor: canSubmit ? 'var(--primary, #277A9D)' : '#E8E5E1',
                     color: canSubmit ? '#FFFFFF' : '#9B9B9B',
                     cursor: canSubmit ? 'pointer' : 'not-allowed'
                   }}

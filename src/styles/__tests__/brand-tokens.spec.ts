@@ -5,15 +5,33 @@
  * (#52A3C8 in brand.css, #2B7FA2 in DESIGN_SYSTEM.md, #63ADCF in the v5 spec)
  * and the SHIPPED one failed WCAG AA: #52A3C8 computes to 2.83:1 on white,
  * below both the 4.5:1 text threshold and the 3:1 UI-component threshold.
- * #2B7FA2 is now canonical and clears both. This file replaces
+ * #277A9D is now canonical and clears both. This file replaces
  * brand-css-comment-integrity.spec.ts, whose premise (that brand.css must
  * NOT claim compliance, ROADMAP 1.51b) is inverted by the fix: the colour is
  * now genuinely compliant, so the honest pin is the computed ratio itself.
  *
- * The contrast ratio is COMPUTED from the token, never hardcoded — if someone
- * moves --info to a non-compliant value this test fails on the maths, not on
- * a stale string. A positive control proves the computation can detect a
- * FAILING colour, so the assertion cannot pass vacuously.
+ * MEASURE AGAINST THE REAL GROUND. The first attempt at this fix asserted AA
+ * against #FFFFFF ONLY, and picked a value (#2B7FA2) that cleared white by
+ * 0.006 — while failing on --bg-panel (4.47:1) and --bg-panel-hover (4.30:1),
+ * the surfaces info-blue text is actually painted on. A test that measures the
+ * wrong ground cannot see the defect it exists to catch. So:
+ *
+ *   - The set of TEXT grounds below is asserted against tokens READ FROM
+ *     brand.css, not hardcoded hexes. Retint --bg-panel and this test
+ *     re-measures against the new panel automatically.
+ *   - The canonical hex is read from brand.css too; the ratios are COMPUTED.
+ *     Nothing here is a copy of the value it is supposed to police, so it
+ *     keeps biting after future retints.
+ *   - --bg-canvas is deliberately held to the 3:1 SC 1.4.11 bar, NOT 4.5:1.
+ *     Info blue is never used as TEXT on the raw canvas ground (the only
+ *     info-blue there is non-text glyphs: the auth spinners, the
+ *     StarterDecisions arrow, the selected-edge arrowhead). Requiring 4.5:1
+ *     there would darken the brand blue for no text-legibility gain. If that
+ *     ever stops being true — if info-blue TEXT lands on the canvas — move
+ *     --bg-canvas into TEXT_GROUNDS and retint; do not weaken this file.
+ *
+ * A positive control proves the computation can detect a FAILING colour, so
+ * the assertions cannot pass vacuously.
  *
  * D3 — chart series. All six chart tokens must be mutually distinct, and
  * series 5/6 must not alias any semantic token (they previously aliased
@@ -61,9 +79,39 @@ const contrastRatio = (a: string, b: string): number => {
 }
 
 const WHITE = '#FFFFFF'
-const CANONICAL_INFO = '#2B7FA2'
+const CANONICAL_INFO = '#277A9D'
 const AA_TEXT = 4.5
 const AA_UI = 3.0
+
+/**
+ * Alpha-composite `fg` over `bg`. Several real grounds are translucent panels
+ * over the canvas (the OutputsDock is rgba(255,255,255,0.95); edge labels are
+ * bg-panel/95), so the ground a reader actually sees is a composite, not a
+ * declared token. Computing it here keeps those grounds honest.
+ */
+const over = (fg: string, alpha: number, bg: string): string => {
+  const [f, b] = [hexToRgb(fg), hexToRgb(bg)]
+  return (
+    '#' +
+    [0, 1, 2]
+      .map(i => Math.round((f[i] * alpha + b[i] * (1 - alpha)) * 255).toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase()
+  )
+}
+
+/**
+ * Every ground on which `--info` is painted as TEXT, derived from brand.css.
+ * Sourced from a full call-site sweep plus live-DOM measurement of the running
+ * app (see the D1 section of the PR body for the enumeration and its scope).
+ * `--bg-canvas` is deliberately ABSENT — see the file header.
+ */
+const TEXT_GROUNDS = (): Array<[string, string]> => [
+  ['#FFFFFF (legacy white cards)', WHITE],
+  ['--bg-panel (dominant text ground)', token('bg-panel')],
+  ['bg-panel/95 over canvas (dock, edge labels)', over(token('bg-panel'), 0.95, token('bg-canvas'))],
+  ['--bg-panel-hover (the binding ground)', token('bg-panel-hover')],
+]
 
 describe('D1 — canonical info blue', () => {
   it('POSITIVE CONTROL: the contrast computation detects the superseded failing colour', () => {
@@ -82,10 +130,36 @@ describe('D1 — canonical info blue', () => {
     expect(resolve('primary').toUpperCase()).toBe(CANONICAL_INFO)
   })
 
-  it('clears WCAG AA for text (4.5:1) and UI components (3:1) on white — computed, not asserted', () => {
-    const ratio = contrastRatio(token('info'), WHITE)
-    expect(ratio).toBeGreaterThanOrEqual(AA_TEXT)
-    expect(ratio).toBeGreaterThanOrEqual(AA_UI)
+  // THE PIN THIS DECISION EXISTS FOR. Measuring only against WHITE is what let
+  // a value through that failed on --bg-panel by 0.03. Each ground is read from
+  // brand.css, so a retint of ANY of them re-measures rather than going stale.
+  it.each(TEXT_GROUNDS())('clears WCAG AA text 4.5:1 on %s — computed from brand.css, not hardcoded', (_label, ground) => {
+    expect(contrastRatio(token('info'), ground)).toBeGreaterThanOrEqual(AA_TEXT)
+  })
+
+  it('POSITIVE CONTROL: the TEXT_GROUNDS assertion can actually FAIL', () => {
+    // Trap 13: an absence/threshold assertion must first prove it can see a
+    // violation. The superseded blue must fail on EVERY ground listed above —
+    // if this ever passes, the grounds or the maths have gone vacuous.
+    for (const [, ground] of TEXT_GROUNDS()) {
+      expect(contrastRatio('#52A3C8', ground)).toBeLessThan(AA_TEXT)
+    }
+    // ...and so must the value this decision corrected, on the panel grounds
+    // it actually missed. This is the regression pin for THIS defect.
+    expect(contrastRatio('#2B7FA2', token('bg-panel'))).toBeLessThan(AA_TEXT)
+    expect(contrastRatio('#2B7FA2', token('bg-panel-hover'))).toBeLessThan(AA_TEXT)
+  })
+
+  it('clears the 3:1 SC 1.4.11 bar on --bg-canvas, where info blue is glyphs only', () => {
+    // Deliberately 3:1, not 4.5:1 — see the file header for why.
+    expect(contrastRatio(token('info'), token('bg-canvas'))).toBeGreaterThanOrEqual(AA_UI)
+  })
+
+  it('white text ON an --info fill still clears AA (the primary button)', () => {
+    // --info is also a BACKGROUND (bg-primary/bg-info) with --text-on-color on
+    // it. Darkening the token helps here, but the pairing must stay pinned so a
+    // future LIGHTENING cannot silently break the most-used button in the app.
+    expect(contrastRatio(resolve('text-on-color'), token('info'))).toBeGreaterThanOrEqual(AA_TEXT)
   })
 
   it('keeps the hover/active progression darker than the base', () => {

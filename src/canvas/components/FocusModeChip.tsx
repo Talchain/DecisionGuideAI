@@ -10,7 +10,7 @@
  * - Border radius: pill (999px)
  * - Shadow: shadow-1 (0 1px 2px rgba(38,38,38,0.06))
  * - Text: ink-900 (#262626) @ 70% opacity, 14px
- * - Clear button: sky-500 (#2B7FA2)
+ * - Clear button: sky-500 (#277A9D)
  * - Z-index: 100 (dropdown level)
  */
 

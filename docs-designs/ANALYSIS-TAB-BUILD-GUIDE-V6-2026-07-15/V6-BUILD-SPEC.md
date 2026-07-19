@@ -138,7 +138,7 @@ The prototype models only current/stale. The app contract is four-valued: `fresh
 `quality` (conflict collapses the whole panel to pause-read); `measure` (Goal-fit lens content + which rec the route targets); producer analysis payload supplies headline, options, ranges, drivers, flip risks, trade-offs (all copy above is fixture data for the "Technical Co-Founder" decision).
 
 ### 3h. Tokens
-`--primary` (active lens/tab fill — value equals `--info` #2B7FA2), `--text-on-colour`, `--option` #AAA7E4 (option numbers, range fill/dot; non-token tint `rgba(170,167,228,.38)` proto:100), `--info` (leading fills; non-token tint `rgba(99,173,207,.38)`), `--success`/`--danger` (driver signs), `--border-default` (tracks, bars, dividers), `--text-header/-body/-light`, `--panel-header/-body/-meta`, `--bg-panel-hover` (row hover). ⚠ The two `rgba()` tints and the `→`/`◎`/`ⓘ`/`⌄` glyphs are hard-coded, not tokenised.
+`--primary` (active lens/tab fill — value equals `--info` #277A9D), `--text-on-colour`, `--option` #AAA7E4 (option numbers, range fill/dot; non-token tint `rgba(170,167,228,.38)` proto:100), `--info` (leading fills; non-token tint `rgba(99,173,207,.38)`), `--success`/`--danger` (driver signs), `--border-default` (tracks, bars, dividers), `--text-header/-body/-light`, `--panel-header/-body/-meta`, `--bg-panel-hover` (row hover). ⚠ The two `rgba()` tints and the `→`/`◎`/`ⓘ`/`⌄` glyphs are hard-coded, not tokenised.
 
 ---
 
@@ -276,12 +276,12 @@ Tokens: `--info` (context border), `--shadow-2`, `--border-default`, `--bg-panel
 | `--text-on-colour` | `#FFFFFF` | text on primary/info fills, toast text |
 | `--danger` | `#EA7B4B` | conflict icon/dot, negative sign, errors |
 | `--success` | `#67C89E` | ready/current icons, default brief-dots, positive sign, addressed accents |
-| `--info` | `#2B7FA2` | text-buttons, icon-buttons, active-segment border, field focus, drawer context, "Try this", In-progress, flip bars, next-route icon |
+| `--info` | `#277A9D` | text-buttons, icon-buttons, active-segment border, field focus, drawer context, "Try this", In-progress, flip bars, next-route icon |
 | `--warning` | `#FFA656` | thin icon/dot, stale icon |
 | `--goal` | `#F5C433` | measure-preview border only |
 | `--option` | `#AAA7E4` | option numbers, range fill/dot |
 | `--factor` | `#B0A899` | recommendation icons |
-| `--primary` | `#2B7FA2` | primary buttons, active lens/tab fill (== `--info` by value) |
+| `--primary` | `#277A9D` | primary buttons, active lens/tab fill (== `--info` by value) |
 | `--primary-hover` | `#67C89E` | primary hover (== `--success` by value) |
 | `--primary-active` | `#5AA88A` | primary active |
 | `--panel-header` | `14px` | card titles, modal/drawer heads, summary, next-icon |

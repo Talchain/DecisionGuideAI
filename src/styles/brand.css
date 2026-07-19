@@ -91,22 +91,41 @@
   /* Border: rgba(103, 200, 158, 0.3) */
 
   /* Info / Decision / Navigation (Blue)
-     CANONICAL VALUE — #2B7FA2 is the single source of truth for info blue and
+     CANONICAL VALUE — #277A9D is the single source of truth for info blue and
      is aliased by --primary, --sky-500, --semantic-info, --focus-color,
      --link-color and --chart-1. Do not introduce a second value: this token
      previously carried THREE documented values (#52A3C8 here, #2B7FA2 in
      DESIGN_SYSTEM.md, #63ADCF in the v5 spec), which is why the quick-ref
      colour table could not be trusted.
-     A11y (ROADMAP 1.51, CLOSED by this value): #2B7FA2 on white computes to
-     4.51:1 — it clears BOTH the WCAG AA 4.5:1 text threshold and the 3:1
-     UI-component threshold. The superseded #52A3C8 computed to 2.83:1 and
-     failed both. The ratio is recomputed from this token, not hardcoded, in
-     src/styles/__tests__/brand-tokens.spec.ts — that test fails if the value
-     moves below AA.
+
+     A11y (ROADMAP 1.51). MEASURE AGAINST THE GROUND THE TEXT IS PAINTED ON,
+     NOT AGAINST WHITE. The first attempt at this fix chose #2B7FA2 because it
+     computes to 4.51:1 on pure #FFFFFF — but almost nothing in this product is
+     painted on pure white. On --bg-panel (#FEFEFE), the surface info-blue text
+     overwhelmingly DOES sit on, #2B7FA2 computed to 4.47:1, and on
+     --bg-panel-hover (#FEF9F3) to 4.30:1. It failed SC 1.4.3 on both. A 0.03
+     miss that measuring against white cannot see.
+
+     #277A9D clears 4.5:1 on every ground where --info is used as TEXT:
+         #FFFFFF pure white ................ 4.82:1
+         --bg-panel      #FEFEFE ........... 4.78:1
+         bg-panel/95 over canvas #FDFDFD ... 4.74:1   (dock, edge labels)
+         --bg-panel-hover #FEF9F3 .......... 4.60:1   <- the binding ground
+     On --bg-canvas (#F4F0EA) it computes to 4.25:1. That ground is deliberately
+     held to the 3:1 SC 1.4.11 bar, not 4.5:1: info blue is never used as TEXT
+     on the canvas. The only info-blue on the raw canvas ground is non-text
+     glyphs — the AuthGuard/AuthCallback spinners, the StarterDecisions arrow
+     and the selected-edge arrowhead — all of which are UI components. Forcing
+     4.5:1 there would darken the brand blue by roughly twice as much for no
+     text-legibility gain.
+
+     The ratios are RECOMPUTED from this token against the ground tokens, never
+     hardcoded, in src/styles/__tests__/brand-tokens.spec.ts — that test fails
+     if this value, or any of those ground tokens, moves below AA.
      Light shade kept for canvas node fills and selection backgrounds. */
-  --info: #2B7FA2;
+  --info: #277A9D;
   --info-light: #BAD7E4;
-  /* Border: rgba(43, 127, 162, 0.3) */
+  /* Border: rgba(39, 122, 157, 0.3) */
 
   /* Warning (Orange) - Separate from Danger */
   --warning: #FFA656;
@@ -189,18 +208,23 @@
   --primary: var(--info);
   --primary-hover: #67C89E;
   --primary-active: #5AA88A;
-  --primary-disabled: rgba(43, 127, 162, 0.4);
+  --primary-disabled: rgba(39, 122, 157, 0.4);
 
   /* Danger */
   --danger-hover: #D96A3A;
   --danger-active: #C85A2A;
   --danger-disabled: rgba(234, 123, 75, 0.4);
 
-  /* Info — derived from canonical --info (#2B7FA2); both stay darker than the
-     base (5.69:1 and 6.75:1 on white) so the hover/active progression holds. */
+  /* Info — hover/active for the canonical --info (#277A9D). Both stay darker
+     than the base (5.69:1 and 6.75:1 on white, vs the base's 4.82:1) so the
+     progression still reads in the right direction. Darkening the base to
+     #277A9D compressed the base->hover step from 6.33 to 4.45 ΔE2000, which
+     leaves it above the ~2.3 just-noticeable threshold AND very close to the
+     hover->active step (4.23) — the ramp is now more evenly spaced than it
+     was, so these two values are deliberately left unchanged. */
   --info-hover: #236E8E;
   --info-active: #1D6280;
-  --info-disabled: rgba(43, 127, 162, 0.4);
+  --info-disabled: rgba(39, 122, 157, 0.4);
 
   /* Success */
   --success-hover: #5AB88D;
