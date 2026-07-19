@@ -87,7 +87,7 @@ import type {
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
 import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPatch'
 import { applyAnalysisReadyPatch } from './utils/mirrorAnalysisReady'
-import { loadScenario as loadScenarioFromDb } from '../../services/scenarioService'
+import { loadScenario as loadScenarioFromDb, storeAnalysis } from '../../services/scenarioService'
 import { applyDraftResult, backfillGoalThresholdOntoGoalNode } from '../utils/applyDraftResult'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
 import { getSessionIdentity } from '../../lib/supabase'
@@ -2312,6 +2312,51 @@ export function useConversation(): UseConversationReturn {
                 source: 'conversation',
               },
             })
+
+            // Journey step 8 — reload persistence. resultsComplete above only
+            // hydrates the IN-SESSION results slice; it does NOT write the
+            // scenario row's analysis columns. The standalone Run path persists
+            // via persistAnalysisSuccess (useV2Run.ts:997 → storeAnalysis), so a
+            // Run-button answer survives a reload — but a conversation-driven
+            // analysis (the actual user journey) never reached that call, so
+            // loadScenario found analysis_status !== 'ready' on reload and the
+            // user's answer was lost while the graph (autosaved on its own
+            // subscription) survived. Persist the same V2RunResponse through the
+            // same store_analysis_and_log RPC the Run path uses, so the existing
+            // hydrateAnalysisFromV2Response → resultsHydrateFromSupabase path
+            // restores it on reload — with the honest 'unknown' freshness that
+            // path already stamps, never a fabricated 'fresh'
+            // (store.resultsHydrateFromSupabase). Seed provenance is the same
+            // T2b null-safe echo used for the mapper above — no fabricated 0.
+            //
+            // Best-effort and fire-and-forget, mirroring the createSnapshot call
+            // below and the "always-on normalised persistence" contract
+            // (threadService header): the write is gated on a scenario id, and a
+            // guest / unauthenticated call fails the RPC's row-level security and
+            // is swallowed here rather than surfacing to the user.
+            if (store.currentScenarioId) {
+              const analysisGraphHash = generateGraphHash(store.nodes, store.edges)
+              void storeAnalysis(
+                store.currentScenarioId,
+                raw,
+                analysisGraphHash,
+                seedUsed,
+                result.response_hash,
+                crypto.randomUUID(),
+                {
+                  option_count: Array.isArray(raw.option_comparison)
+                    ? raw.option_comparison.length
+                    : 0,
+                  analysis_status: raw.analysis_status,
+                  source: 'conversation',
+                },
+                envelope.client_turn_id ?? undefined,
+              ).catch((err) => {
+                if (import.meta.env.DEV) {
+                  console.warn('[handleEnvelope] Supabase analysis persistence failed', err)
+                }
+              })
+            }
 
             // BIL Phase 1: cache assembled analysis summary for subsequent turn requests.
             // Always-on persistence — not gated behind BIL preview flag.
