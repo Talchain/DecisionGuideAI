@@ -104,6 +104,29 @@ describe('extractCeeRecovery — recovery suggestion', () => {
     expect(extractCeeRecovery({ retryable: false, suggested_action: 'UPSTREAM_TIMEOUT' }).suggestion).toBeUndefined()
   })
 
+  it('rejects multi-token code dumps (no lowercase letter anywhere)', () => {
+    for (const dump of ['UPSTREAM_TIMEOUT: CEE_LLM_TIMEOUT', 'ERR_A, ERR_B', 'CEE_X / CEE_Y', '500 CEE_INTERNAL_ERROR']) {
+      expect(extractCeeRecovery({ recovery_suggestion: dump }).suggestion).toBeUndefined()
+    }
+  })
+
+  it('reject-only: legitimate prose is passed through byte-for-byte, never rewritten', () => {
+    // Prose that a naive normaliser would corrupt: em dash, US spelling,
+    // capitalised proper noun, an embedded upper-snake identifier. All must
+    // survive verbatim — house style on this field is the producer's job.
+    const cases = [
+      'Add one clear goal and two options, then send again.',
+      'Your brief is too long — try naming a single decision.',
+      'Analyze fewer options at once.',
+      'Ask CEE for a shorter draft.',
+      'Set GRAPH_MODE in your brief to a supported value.',
+      'OK, but add a goal.',
+    ]
+    for (const prose of cases) {
+      expect(extractCeeRecovery({ recovery_suggestion: prose }).suggestion).toBe(prose)
+    }
+  })
+
   it('ignores empty / whitespace-only suggestions and trims real ones', () => {
     expect(extractCeeRecovery({ recovery_suggestion: '   ' }).suggestion).toBeUndefined()
     expect(extractCeeRecovery({ recovery_suggestion: '  Add a goal.  ' }).suggestion).toBe('Add a goal.')
@@ -116,34 +139,79 @@ describe('extractCeeRecovery — recovery suggestion', () => {
 })
 
 describe('buildFailureRender — surface (a) recovery + (b) honest retry', () => {
-  const base = 'Service temporarily unavailable. Please try again shortly.'
+  const RETRY_BASE = 'Service temporarily unavailable. Please try again shortly.'
+  const NO_RETRY_BASE = 'Service temporarily unavailable. Please wait a moment before continuing.'
 
-  it('non-retryable: hides retry and appends the specific recovery suggestion', () => {
+  /**
+   * Stand-in for useConversation's buildErrorMessage: retry-directive copy when
+   * a retry chip will exist, non-retry-directive copy when it will not.
+   */
+  const buildBase = (showRetry: boolean): string => (showRetry ? RETRY_BASE : NO_RETRY_BASE)
+
+  /**
+   * RETIRED PIN (deliberate). The previous spec here read:
+   *
+   *   it('non-retryable: hides retry and appends the specific recovery
+   *      suggestion', … expect(out.content).toContain(RETRY_BASE) …)
+   *
+   * with `showRetry` false. That asserted the *retry-directive* base survives
+   * into copy rendered with no retry control — i.e. it pinned the defect as
+   * intended behaviour. It is replaced by the two specs below, which keep the
+   * append behaviour it was really guarding and additionally forbid the retry
+   * directive. See buildErrorMessage.spec.ts for the end-to-end copy pins.
+   */
+  it('non-retryable: hides retry, uses the non-retry-directive base, appends the suggestion', () => {
     const err = { body: { error: 'CEE_LLM_VALIDATION_FAILED', retryable: false, recovery_suggestion: 'Add one clear goal and two options.' } }
-    const out = buildFailureRender(base, err)
+    const out = buildFailureRender(buildBase, err)
     expect(out.showRetry).toBe(false)
-    expect(out.content).toContain(base)
+    expect(out.content).toContain(NO_RETRY_BASE)
     expect(out.content).toContain('Add one clear goal and two options.')
   })
 
-  it('retryable: keeps retry', () => {
+  it('non-retryable: the rendered copy never directs a retry it cannot offer', () => {
+    const err = { body: { retryable: false, recovery_suggestion: 'Add one clear goal.' } }
+    const out = buildFailureRender(buildBase, err)
+    expect(out.showRetry).toBe(false)
+    expect(out.content).not.toContain(RETRY_BASE)
+    expect(out.content).not.toMatch(/try again/i)
+  })
+
+  it('retryable: keeps retry and the retry-directive base', () => {
     const err = { body: { error: 'CEE_LLM_TIMEOUT', retryable: true } }
-    expect(buildFailureRender(base, err).showRetry).toBe(true)
+    const out = buildFailureRender(buildBase, err)
+    expect(out.showRetry).toBe(true)
+    expect(out.content).toContain(RETRY_BASE)
   })
 
-  it('fail closed: absent retryable marker keeps retry (never strand)', () => {
-    expect(buildFailureRender(base, new Error('network')).showRetry).toBe(true)
+  it('fail open: absent retryable marker keeps retry AND today\'s copy (never strand)', () => {
+    const out = buildFailureRender(buildBase, new Error('network'))
+    expect(out.showRetry).toBe(true)
+    expect(out.content).toBe(RETRY_BASE)
   })
 
-  it('fail closed: absent suggestion keeps the generic copy verbatim', () => {
-    const out = buildFailureRender(base, { body: { error: 'CEE_LLM_TIMEOUT', retryable: true } })
-    expect(out.content).toBe(base)
+  it('fail open: absent suggestion keeps the generic copy verbatim', () => {
+    const out = buildFailureRender(buildBase, { body: { error: 'CEE_LLM_TIMEOUT', retryable: true } })
+    expect(out.content).toBe(RETRY_BASE)
   })
 
   it('suggestion is surfaced even when the failure is retryable', () => {
     const err = { body: { retryable: true, recovery_suggestion: 'You can also simplify the brief.' } }
-    const out = buildFailureRender(base, err)
+    const out = buildFailureRender(buildBase, err)
     expect(out.showRetry).toBe(true)
     expect(out.content).toContain('You can also simplify the brief.')
+  })
+
+  it('passes the resolved retry state to the base builder exactly once', () => {
+    const seen: boolean[] = []
+    const spy = (showRetry: boolean): string => {
+      seen.push(showRetry)
+      return 'base'
+    }
+    buildFailureRender(spy, { body: { retryable: false } })
+    expect(seen).toEqual([false])
+
+    seen.length = 0
+    buildFailureRender(spy, { body: { retryable: true } })
+    expect(seen).toEqual([true])
   })
 })

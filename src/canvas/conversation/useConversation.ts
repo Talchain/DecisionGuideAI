@@ -381,8 +381,31 @@ export function stripDiagnostics(text: string): string {
   return cleaned.replace(/^\n+/, '').replace(/\n{3,}/g, '\n\n').trimEnd()
 }
 
-/** Build a user-facing error message from a caught error */
-export function buildErrorMessage(err: unknown): string {
+export interface BuildErrorMessageOptions {
+  /**
+   * Whether a "Try again" affordance will actually be rendered alongside this
+   * copy. Defaults to `true` (fail open — today's behaviour and copy).
+   *
+   * When `false` the caller has decided, from the CEE `retryable` marker, that
+   * no retry control will exist. The copy must then NOT instruct the user to
+   * retry: an instruction with no control to carry it out is a dead end. Each
+   * retry-directive base below has a non-retry-directive counterpart that
+   * states what happened and names an action the user can still take without a
+   * retry button (refresh, wait, rephrase and send a new message).
+   */
+  canRetry?: boolean
+}
+
+/**
+ * Build a user-facing error message from a caught error.
+ *
+ * `opts.canRetry === false` selects the non-retry-directive copy variants. See
+ * BuildErrorMessageOptions and ./ceeRecovery — `buildFailureRender` is the
+ * single composition point that decides `canRetry` from the wire and calls
+ * back into this function, so the two can never disagree.
+ */
+export function buildErrorMessage(err: unknown, opts?: BuildErrorMessageOptions): string {
+  const canRetry = opts?.canRetry !== false
   // Always log structured detail for development console output (never rendered).
   if (err instanceof OrchestratorError) {
     if (import.meta.env.DEV) {
@@ -394,21 +417,34 @@ export function buildErrorMessage(err: unknown): string {
     }
   }
   if (!(err instanceof OrchestratorError)) {
-    return 'Something went wrong. Try again or rephrase your message.'
+    return canRetry
+      ? 'Something went wrong. Try again or rephrase your message.'
+      : 'Something went wrong. Rephrasing your message may help.'
   }
   // DEV-only ref suffix to aid debugging; never in production bundles.
   const ref = import.meta.env.DEV && err.requestId ? ` [ref: ${err.requestId}]` : ''
   switch (true) {
     case err.status === 401:
-      return `Authentication error.${ref} Please refresh and try again.`
+      return canRetry
+        ? `Authentication error.${ref} Please refresh and try again.`
+        : `Authentication error.${ref} Please refresh the page to continue.`
     case err.status === 429:
-      return `Too many requests.${ref} Please wait a moment and try again.`
+      return canRetry
+        ? `Too many requests.${ref} Please wait a moment and try again.`
+        : `Too many requests.${ref} Please wait a moment before sending another message.`
     case err.status === 400:
+      // No retry directive in either variant: "rephrase your message" is an
+      // action the user can always take from the composer, with or without a
+      // retry chip. Single copy on purpose.
       return `Request error.${ref} Try rephrasing your message.`
     case err.status !== undefined && err.status >= 500:
-      return `Service temporarily unavailable.${ref} Please try again shortly.`
+      return canRetry
+        ? `Service temporarily unavailable.${ref} Please try again shortly.`
+        : `Service temporarily unavailable.${ref} Please wait a moment before continuing.`
     default:
-      return `Something went wrong.${ref} Try again or rephrase your message.`
+      return canRetry
+        ? `Something went wrong.${ref} Try again or rephrase your message.`
+        : `Something went wrong.${ref} Rephrasing your message may help.`
   }
 }
 
@@ -3947,9 +3983,14 @@ export function useConversation(): UseConversationReturn {
           // suggestion (see ./ceeRecovery for wire provenance + the schema
           // ask) so we (a) surface the suggestion alongside the generic copy
           // and (b) hide "Try again" when the failure is explicitly
-          // non-retryable — a retry that cannot work. Fail closed: absent
-          // suggestion → generic copy; absent marker → keep retry.
-          const { content: errorMessage, showRetry } = buildFailureRender(buildErrorMessage(err), err)
+          // non-retryable — a retry that cannot work. The base copy is built
+          // *from* that same retry decision, so we never tell the user to try
+          // again while withholding the control. Fail open: absent suggestion →
+          // generic copy; absent marker → keep retry + today's copy.
+          const { content: errorMessage, showRetry } = buildFailureRender(
+            (canRetry) => buildErrorMessage(err, { canRetry }),
+            err,
+          )
           const retryChips: ActionChip[] = showRetry
             ? [{ id: 'retry', label: 'Try again', intent: 'primary' as const }]
             : []

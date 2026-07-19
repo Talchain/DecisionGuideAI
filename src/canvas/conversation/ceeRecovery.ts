@@ -103,11 +103,25 @@ function collectContainers(err: unknown): Record<string, unknown>[] {
   return out
 }
 
-/** True when the string looks like an enum/error code rather than prose. */
+/**
+ * True when the string looks like machine output rather than prose.
+ *
+ * Two rejections, both *reject-only* — this module never rewrites producer
+ * copy (see the normalisation note at the bottom of this file):
+ *
+ *   1. a single upper-snake token: CEE_LLM_TIMEOUT, UPSTREAM_TIMEOUT, …
+ *   2. any value with no lowercase letter at all, which catches multi-token
+ *      code dumps the single-token test misses ("UPSTREAM_TIMEOUT:
+ *      CEE_LLM_TIMEOUT", "ERR_A, ERR_B"). English prose always contains a
+ *      lowercase letter, so this cannot reject a legitimate suggestion.
+ *
+ * Rejecting is safe: the caller falls back to its own generic copy, which is
+ * already honest for the retry state.
+ */
 function looksLikeCode(value: string): boolean {
-  // e.g. CEE_LLM_TIMEOUT, UPSTREAM_TIMEOUT, INGRESS_CONTRACT_VIOLATION — all
-  // upper-snake, no lowercase, no spaces. Real suggestions are sentences.
-  return /^[A-Z][A-Z0-9_]{2,}$/.test(value.trim())
+  const trimmed = value.trim()
+  if (/^[A-Z][A-Z0-9_]{2,}$/.test(trimmed)) return true
+  return !/[a-z]/.test(trimmed)
 }
 
 /**
@@ -148,9 +162,9 @@ export function extractCeeRecovery(err: unknown): CeeRecovery {
 
 export interface FailureRender {
   /**
-   * Message body to render: the caller's generic copy, with the specific CEE
-   * recovery suggestion appended when one is present (never replacing it —
-   * layering keeps the honest fallback visible).
+   * Message body to render: the caller's generic copy for this retry state,
+   * with the specific CEE recovery suggestion appended when one is present
+   * (never replacing it — layering keeps the honest fallback visible).
    */
   content: string
   /**
@@ -161,12 +175,50 @@ export interface FailureRender {
 }
 
 /**
- * Compose the failure render from the caller's generic message plus the CEE
- * envelope. Pure — the caller owns actually building the chip/button.
+ * Builds the generic base copy for a given retry state.
+ *
+ * Deliberately a callback rather than a plain string. The retry decision is
+ * made here, from the wire, and the base copy has to agree with it: copy that
+ * says "please try again" beside a hidden retry chip instructs the user to do
+ * something the UI gives them no way to do. Taking a resolver makes it
+ * structurally impossible to compose the base copy without first knowing
+ * whether the retry affordance will exist.
  */
-export function buildFailureRender(baseMessage: string, err: unknown): FailureRender {
+export type FailureBaseBuilder = (showRetry: boolean) => string
+
+/**
+ * Compose the failure render from the CEE envelope plus retry-state-aware base
+ * copy. Pure — the caller owns actually building the chip/button.
+ *
+ * Fail open is unchanged: an absent `retryable` marker yields `showRetry:true`,
+ * so `buildBase(true)` is called and today's copy is returned verbatim.
+ */
+export function buildFailureRender(buildBase: FailureBaseBuilder, err: unknown): FailureRender {
   const { retryable, suggestion } = extractCeeRecovery(err)
-  const content = suggestion ? `${baseMessage}\n\n${suggestion}` : baseMessage
   const showRetry = retryable !== false
+  const baseMessage = buildBase(showRetry)
+  const content = suggestion ? `${baseMessage}\n\n${suggestion}` : baseMessage
   return { content, showRetry }
 }
+
+/**
+ * Normalisation note (deliberate non-decision)
+ * -------------------------------------------
+ * The CEE recovery suggestion is rendered VERBATIM. House copy standards
+ * (British English, no em dashes, no raw codes, sentence case) are therefore
+ * delegated to the producer, guarded here only by the *reject-only* checks in
+ * `looksLikeCode`.
+ *
+ * We deliberately do NOT rewrite producer prose — no en-dash substitution, no
+ * -ize/-ise mapping, no case fixing. Any such rewrite is lossy on inputs it
+ * cannot distinguish: an em dash inside a quoted user brief, "analyze" inside
+ * a field name or a quoted identifier, a proper noun that must stay
+ * capitalised. Corrupting a correct suggestion is worse than passing through
+ * a stylistically off one, because the suggestion is the *only* specific
+ * guidance the user gets on a non-retryable failure.
+ *
+ * Reject-only guards are safe because rejection degrades to the caller's own
+ * generic copy. Rewriting has no such safe fallback. If house style needs
+ * enforcing on this field, it belongs at the producer (see the SCHEMA ASK
+ * above) or in a shared copy linter, not in a defensive UI reader.
+ */
