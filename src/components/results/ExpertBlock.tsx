@@ -16,7 +16,7 @@ export function ExpertBlock({ children }: ExpertBlockProps) {
   return (
     <div
       className="rounded-md px-3 py-2 mt-1"
-      style={{ backgroundColor: 'rgba(99, 173, 207, 0.04)' }}
+      style={{ backgroundColor: 'color-mix(in srgb, var(--info) 4%, transparent)' }}
     >
       {children}
     </div>

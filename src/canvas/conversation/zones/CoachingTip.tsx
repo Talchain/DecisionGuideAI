@@ -21,7 +21,7 @@ export function CoachingTip({ tip, onDismiss }: CoachingTipProps) {
       style={{
         gap: 8,
         padding: '8px 12px',
-        border: '1px solid rgba(82,163,200,0.12)',
+        border: '1px solid color-mix(in srgb, var(--info) 12%, transparent)',
         boxShadow: '0 1px 2px rgba(38,38,38,0.06)',
       }}
       data-testid="coaching-tip"

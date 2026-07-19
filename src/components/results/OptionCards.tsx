@@ -246,7 +246,7 @@ function OptionRangeBar({
           style={{
             left: `${leftPct}%`,
             width: `${Math.max(2, widthPct)}%`,
-            background: 'rgba(82,163,200,0.3)',
+            background: 'color-mix(in srgb, var(--info) 30%, transparent)',
           }}
         />
         {dotPct != null && (

@@ -417,16 +417,28 @@
    keyframe — it must NOT reuse pulse-fade, which powers .animate-pulse on
    15+ skeleton/status components. The Tailwind ring on the node stays
    visible; this only adds the expanding halo. Reduced-motion drops the
-   animation and leaves the static ring, so the highlight is still legible. */
+   animation and leaves the static ring, so the highlight is still legible.
+
+   The opening stop is DERIVED from --info via color-mix rather than restating
+   the hue: this keyframe previously hardcoded rgba(82,163,200,·) — the PRE-D1
+   blue — as a channel triple, so it survived every hex-based sweep and drifted
+   away from the token while this very comment claimed it was #277A9D.
+
+   The fade-out stops are plain `transparent`, not a 0-alpha info. color-mix
+   cannot express "this hue at zero alpha" (mixing 0% of a colour yields
+   transparent BLACK, losing the hue), and it does not need to: CSS Color 4
+   mandates PREMULTIPLIED interpolation for animated colours, so fading to
+   `transparent` is visually identical to fading to rgba(info, 0) — no grey/black
+   halo. Do not "restore" a hue here; it would only re-introduce a literal. */
 @keyframes ai-highlight-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(82, 163, 200, 0.55);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--info) 55%, transparent);
   }
   70% {
-    box-shadow: 0 0 0 8px rgba(82, 163, 200, 0);
+    box-shadow: 0 0 0 8px transparent;
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(82, 163, 200, 0);
+    box-shadow: 0 0 0 0 transparent;
   }
 }
 

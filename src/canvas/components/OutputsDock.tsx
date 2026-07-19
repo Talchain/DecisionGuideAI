@@ -1761,7 +1761,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   }`}
                   style={
                     effectiveActiveTab === tab.id
-                      ? { backgroundColor: 'rgba(82,163,200,0.15)' }
+                      ? { backgroundColor: 'color-mix(in srgb, var(--info) 15%, transparent)' }
                       : undefined
                   }
                 >
@@ -1848,7 +1848,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     ? 'text-info border-info'
                     : 'text-text-header/70 bg-panel border-panel-border hover:bg-panel hover:text-text-header'
                 }`}
-                style={effectiveActiveTab === tab.id ? { backgroundColor: 'rgba(82,163,200,0.15)' } : undefined}
+                style={effectiveActiveTab === tab.id ? { backgroundColor: 'color-mix(in srgb, var(--info) 15%, transparent)' } : undefined}
                 aria-label={tab.label}
                 title={tab.label}
               >
