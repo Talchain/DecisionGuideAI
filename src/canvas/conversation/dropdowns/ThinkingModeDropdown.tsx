@@ -112,7 +112,7 @@ export function ThinkingModeDropdown({
         <span
           className={typography.panelMeta}
           style={{
-            color: 'var(--text-light, #908D8D)',
+            color: 'var(--text-light, #6E6B6B)',
             padding: '2px 8px',
             borderRadius: 999,
             border: '1px solid var(--border-default, #EEE6D8)',
@@ -164,14 +164,14 @@ export function ThinkingModeDropdown({
             </div>
             <div>
               <div className={`${typography.panelBody} font-semibold`} style={{ color: 'var(--text-header, #262626)' }}>{mode.label}</div>
-              <div className={typography.panelMeta} style={{ color: 'var(--text-light, #908D8D)', marginTop: 1 }}>{mode.description}</div>
+              <div className={typography.panelMeta} style={{ color: 'var(--text-light, #6E6B6B)', marginTop: 1 }}>{mode.description}</div>
             </div>
           </button>
         )
       })}
 
       {/* Footer */}
-      <p className={typography.panelMeta} style={{ color: 'var(--text-light, #908D8D)', marginTop: 8 }}>
+      <p className={typography.panelMeta} style={{ color: 'var(--text-light, #6E6B6B)', marginTop: 8 }}>
         Select the depth of reasoning for your analysis. Available in an upcoming release.
       </p>
 

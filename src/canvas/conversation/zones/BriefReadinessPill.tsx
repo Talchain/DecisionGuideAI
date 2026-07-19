@@ -56,7 +56,7 @@ export function BriefReadinessPill({ readiness, expanded, onToggle }: BriefReadi
         width="10" height="10" viewBox="0 0 24 24" fill="none"
         aria-hidden="true"
         className="flex-shrink-0"
-        style={{ stroke: 'var(--text-light, #908D8D)', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }}
+        style={{ stroke: 'var(--text-light, #6E6B6B)', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }}
       >
         {expanded
           ? <path d="M18 15l-6-6-6 6" />

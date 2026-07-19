@@ -60,7 +60,7 @@ export function BriefGuidanceStrip({ elements, onElementClick }: BriefGuidanceSt
             opacity: el.detected ? 1 : 0.5,
             color: el.detected
               ? 'var(--text-body, #3F3F3E)'
-              : 'var(--text-light, #908D8D)',
+              : 'var(--text-light, #6E6B6B)',
           }}
           title={el.coachingTip}
           aria-label={`${el.label}: ${el.detected ? 'detected' : 'not detected'}`}
@@ -71,7 +71,7 @@ export function BriefGuidanceStrip({ elements, onElementClick }: BriefGuidanceSt
               <NodeShape kind={el.kind} size={10} />
             </span>
           ) : (
-            <span className="flex-shrink-0" style={{ width: 7, height: 7, borderRadius: 999, border: '1.5px solid var(--text-light, #908D8D)' }} />
+            <span className="flex-shrink-0" style={{ width: 7, height: 7, borderRadius: 999, border: '1.5px solid var(--text-light, #6E6B6B)' }} />
           )}
           <span>{el.label}</span>
         </button>

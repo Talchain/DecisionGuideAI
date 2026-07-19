@@ -740,7 +740,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           >
             {causalEdgeParams.mean >= 0 ? '+' : ''}{causalEdgeParams.mean.toFixed(2)}
             {causalEdgeParams.existsProb !== null && (
-              <span style={{ color: 'var(--text-light, #908D8D)' }}>
+              <span style={{ color: 'var(--text-light, #6E6B6B)' }}>
                 {' '}({Math.round(causalEdgeParams.existsProb * 100)}%)
               </span>
             )}
