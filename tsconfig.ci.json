@@ -30,7 +30,12 @@
     // reference.
     "src/canvas/components/pre-analysis/utils/isReviewedByUser.ts",
     "src/canvas/components/pre-analysis/utils/isAiSource.ts",
-    "src/canvas/components/pre-analysis/utils/buildPriorityProgress.ts"
+    "src/canvas/components/pre-analysis/utils/buildPriorityProgress.ts",
+
+    // failure-recovery (A1 brief item 2): the CEE failure-recovery reader is a
+    // zero-import pure leaf (operates on `unknown`), so it typechecks cleanly
+    // under the narrow gate without dragging in the conversation graph.
+    "src/canvas/conversation/ceeRecovery.ts"
   ],
   "exclude": [
     "src/components/teams/**",

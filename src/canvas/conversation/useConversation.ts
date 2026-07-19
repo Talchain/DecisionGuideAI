@@ -12,6 +12,7 @@ import { setCurrentScenarioId } from '../store/scenarios'
 import { useDraftStore } from '../stores/draftStore'
 import { generateGraphHash } from '../utils/graphHash'
 import { callOrchestratorTurn, streamOrchestratorTurn, OrchestratorError } from './turnService'
+import { buildFailureRender } from './ceeRecovery'
 import { callV5Turn, getV5Endpoint } from '../../v5/v5Adapter'
 import { routeV5Response } from '../../v5/responseRouter'
 import { getTimeoutMs } from '../../v5/getTimeoutMs'
@@ -3940,7 +3941,18 @@ export function useConversation(): UseConversationReturn {
         if (mode === 'user' && !hidden) {
           setLastFailedInput(message)
 
-          const errorMessage = buildErrorMessage(err)
+          // A1 brief item 2 — failure recovery on screen. A non-2xx CEE turn
+          // throws OrchestratorError carrying the CEE error envelope in
+          // `err.body`. Read its retryable marker + specific recovery
+          // suggestion (see ./ceeRecovery for wire provenance + the schema
+          // ask) so we (a) surface the suggestion alongside the generic copy
+          // and (b) hide "Try again" when the failure is explicitly
+          // non-retryable — a retry that cannot work. Fail closed: absent
+          // suggestion → generic copy; absent marker → keep retry.
+          const { content: errorMessage, showRetry } = buildFailureRender(buildErrorMessage(err), err)
+          const retryChips: ActionChip[] = showRetry
+            ? [{ id: 'retry', label: 'Try again', intent: 'primary' as const }]
+            : []
 
           // If the streaming path pre-created a message, reuse it instead
           // of creating a duplicate.
@@ -3951,7 +3963,7 @@ export function useConversation(): UseConversationReturn {
               isProvisional: false,
               toolLoadingState: null,
               synthetic: true,
-              actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' as const }],
+              actionChips: retryChips,
             })
             streamingMsgIdRef.current = null
           } else {
@@ -3960,7 +3972,7 @@ export function useConversation(): UseConversationReturn {
               role: 'assistant',
               content: errorMessage,
               synthetic: true,
-              actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' }],
+              actionChips: retryChips,
               timestamp: new Date(),
             })
           }
