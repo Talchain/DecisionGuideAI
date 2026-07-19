@@ -14,7 +14,6 @@ import { useCanvasStore } from '../../canvas/store'
 import { typography } from '../../styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { buildResultsVM } from './buildResultsVM'
-import type { GuidanceItem } from '../../canvas/stores/guidanceStore'
 import { DriversSection } from './DriversSection'
 import { TornadoChart, type TornadoRow } from './TornadoChart'
 import { Accordion } from './Accordion'
@@ -65,13 +64,6 @@ export interface ResultsBodyProps {
   identifiability?: string | null
   /** Goal direction for tornado bar colouring — maximize means higher outcome = good */
   goalDirection?: 'maximize' | 'minimize'
-  /**
-   * Orchestrator guidance items for the results surface.
-   * When present (length > 0), replaces NextActionItem list in "Your next steps".
-   * Only items with target_object.type in {graph, option, framing} or no target_object
-   * are passed here — node/edge items are filtered out by the caller.
-   */
-  guidanceItems?: GuidanceItem[]
   /** Callback to activate a guidance item (sets activeGuidanceItemId in store) */
   onActivateGuidanceItem?: (itemId: string) => void
   /** Transition bridge: count of items user verified pre-analysis */
@@ -117,7 +109,6 @@ export const ResultsBody = memo(function ResultsBody({
   edgeCount,
   identifiability,
   goalDirection,
-  guidanceItems: _guidanceItems,
   verifiedCount,
   influenceCoverage,
   driversExpanded,

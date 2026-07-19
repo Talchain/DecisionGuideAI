@@ -19,6 +19,16 @@ const base: StrengthenInputs = {
 
 const ids = (input: StrengthenInputs) => buildRecommendations(input).map((r) => r.id)
 
+// UI-SEM-085: every phase-3 fixture below carries
+// `priorityIsProducerSupplied: true`. These fixtures all set an explicit
+// `priorityRank`, so they have always modelled PRODUCER-RANKED blocks — the
+// flag makes that state explicit rather than changing what they assert. It is
+// not a state a real unranked item can reach: an unranked block takes the
+// UI's priority 50, which inverts to `priorityRank` 50, so `priorityRank: 1`
+// with no producer rank cannot occur in production. Unranked behaviour (the
+// demotion band + its source line) is pinned separately in
+// guidanceRankHonesty.spec.ts.
+
 describe('buildRecommendations — trigger grounding (§8.6)', () => {
   it('success-measure: fires iff the effective goal threshold is null (deterministic)', () => {
     expect(ids({ ...base, goalThreshold: null })).toContain('strengthen:success-measure')
@@ -148,8 +158,8 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
     const input: StrengthenInputs = {
       ...base,
       phase3Items: [
-        { id: 'blk_1', title: 'Confirm this assumption', actionIntent: 'confirm_factor', actionLabel: 'Confirm it', targetIds: ['node_x'], priorityRank: 1 },
-        { id: 'blk_2', title: 'Check your framing', targetIds: [], priorityRank: 2 },
+        { id: 'blk_1', title: 'Confirm this assumption', actionIntent: 'confirm_factor', actionLabel: 'Confirm it', targetIds: ['node_x'], priorityRank: 1, priorityIsProducerSupplied: true },
+        { id: 'blk_2', title: 'Check your framing', targetIds: [], priorityRank: 2, priorityIsProducerSupplied: true },
       ],
     }
     const recs = buildRecommendations(input)
@@ -168,7 +178,7 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
       goalThreshold: null,
       fragileEdges: [{ edgeId: 'e1', factorLabel: 'X', switchProbability: 0.5 }],
       factors: [{ factorId: 'f1', label: 'Churn', worthInvestigating: true, canFocus: true }],
-      phase3Items: [{ id: 'b1', title: 'T', targetIds: [], priorityRank: 1 }],
+      phase3Items: [{ id: 'b1', title: 'T', targetIds: [], priorityRank: 1, priorityIsProducerSupplied: true }],
     }
     const recs = buildRecommendations(input).sort((a, b) => a.priority - b.priority)
     const order = recs.map((r) => r.id)
@@ -181,12 +191,12 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
     const input: StrengthenInputs = {
       ...base,
       phase3Items: [
-        { id: 'b1', title: 'One', targetIds: [], priorityRank: 5 },
-        { id: 'b2', title: 'Two', targetIds: [], priorityRank: 1 },
-        { id: 'b3', title: 'Three', targetIds: [], priorityRank: 2 },
-        { id: 'b4', title: 'Four', targetIds: [], priorityRank: 3 },
-        { id: 'b5', title: 'Five', targetIds: [], priorityRank: 4 },
-        { id: 'b6', title: 'Six', targetIds: [], priorityRank: 6 },
+        { id: 'b1', title: 'One', targetIds: [], priorityRank: 5, priorityIsProducerSupplied: true },
+        { id: 'b2', title: 'Two', targetIds: [], priorityRank: 1, priorityIsProducerSupplied: true },
+        { id: 'b3', title: 'Three', targetIds: [], priorityRank: 2, priorityIsProducerSupplied: true },
+        { id: 'b4', title: 'Four', targetIds: [], priorityRank: 3, priorityIsProducerSupplied: true },
+        { id: 'b5', title: 'Five', targetIds: [], priorityRank: 4, priorityIsProducerSupplied: true },
+        { id: 'b6', title: 'Six', targetIds: [], priorityRank: 6, priorityIsProducerSupplied: true },
       ],
     }
     const phase3 = buildRecommendations(input).filter((r) => r.id.startsWith('strengthen:phase3:'))
@@ -205,9 +215,9 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
     const input: StrengthenInputs = {
       ...base,
       phase3Items: [
-        { id: 'b1', title: 'A load-bearing assumption', targetIds: [], priorityRank: 1 },
-        { id: 'b2', title: 'A load-bearing assumption', targetIds: [], priorityRank: 2 },
-        { id: 'b3', title: 'a load-bearing  assumption', targetIds: [], priorityRank: 3 }, // case/space variant
+        { id: 'b1', title: 'A load-bearing assumption', targetIds: [], priorityRank: 1, priorityIsProducerSupplied: true },
+        { id: 'b2', title: 'A load-bearing assumption', targetIds: [], priorityRank: 2, priorityIsProducerSupplied: true },
+        { id: 'b3', title: 'a load-bearing  assumption', targetIds: [], priorityRank: 3, priorityIsProducerSupplied: true }, // case/space variant
       ],
     }
     const recs = buildRecommendations(input)
@@ -236,6 +246,7 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
         body,
         targetIds: [],
         priorityRank: 71 + i, // the fixture's real ranks
+        priorityIsProducerSupplied: true,
       })),
     }
     const phase3 = buildRecommendations(input).filter((r) => r.id.startsWith('strengthen:phase3:'))
@@ -250,9 +261,9 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
     const input: StrengthenInputs = {
       ...base,
       phase3Items: [
-        { id: 'b1', title: 'A load-bearing assumption', body: 'Same body.', targetIds: [], priorityRank: 1 },
-        { id: 'b2', title: 'A load-bearing assumption', body: 'Same body.', targetIds: [], priorityRank: 2 },
-        { id: 'b3', title: 'a load-bearing  assumption', body: ' same  body. ', targetIds: [], priorityRank: 3 },
+        { id: 'b1', title: 'A load-bearing assumption', body: 'Same body.', targetIds: [], priorityRank: 1, priorityIsProducerSupplied: true },
+        { id: 'b2', title: 'A load-bearing assumption', body: 'Same body.', targetIds: [], priorityRank: 2, priorityIsProducerSupplied: true },
+        { id: 'b3', title: 'a load-bearing  assumption', body: ' same  body. ', targetIds: [], priorityRank: 3, priorityIsProducerSupplied: true },
       ],
     }
     const phase3 = buildRecommendations(input).filter((r) => r.id.startsWith('strengthen:phase3:'))
@@ -265,7 +276,7 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
     const input: StrengthenInputs = {
       ...base,
       phase3Items: [
-        { id: 'b1', title: 'A load-bearing assumption', body: 'Team Maturity continues to support higher output as expected.', targetIds: [], priorityRank: 1 },
+        { id: 'b1', title: 'A load-bearing assumption', body: 'Team Maturity continues to support higher output as expected.', targetIds: [], priorityRank: 1, priorityIsProducerSupplied: true },
       ],
     }
     const rec = buildRecommendations(input).find((r) => r.id === 'strengthen:phase3:b1')
@@ -283,7 +294,7 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
     const input: StrengthenInputs = {
       ...base,
       phase3Items: [
-        { id: 'b1', title: 'A load-bearing assumption', body, targetIds: [], priorityRank: 1 },
+        { id: 'b1', title: 'A load-bearing assumption', body, targetIds: [], priorityRank: 1, priorityIsProducerSupplied: true },
       ],
     }
     const rec = buildRecommendations(input).find((r) => r.id === 'strengthen:phase3:b1')
@@ -294,7 +305,7 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
   it('T3(c): subtitle AND whyNow fall back to their boilerplate when the block has no body', () => {
     const input: StrengthenInputs = {
       ...base,
-      phase3Items: [{ id: 'b1', title: 'Check your framing', targetIds: [], priorityRank: 1 }],
+      phase3Items: [{ id: 'b1', title: 'Check your framing', targetIds: [], priorityRank: 1, priorityIsProducerSupplied: true }],
     }
     const rec = buildRecommendations(input).find((r) => r.id === 'strengthen:phase3:b1')
     expect(rec).toBeDefined()
@@ -316,9 +327,9 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
       robustness: { status: 'computed', level: 'low' },
       phase3Items: [
         // Identical visible identity from the producer side (case/space variant).
-        { id: 'b1', title: 'Pressure-test the leading option', body: ' the current lead does not hold up strongly under  stress-testing. ', targetIds: [], priorityRank: 1 },
+        { id: 'b1', title: 'Pressure-test the leading option', body: ' the current lead does not hold up strongly under  stress-testing. ', targetIds: [], priorityRank: 1, priorityIsProducerSupplied: true },
         // Same headline, DISTINCT body — the widened key must keep it.
-        { id: 'b2', title: 'Pressure-test the leading option', body: 'A different, distinct producer finding under the same headline.', targetIds: [], priorityRank: 2 },
+        { id: 'b2', title: 'Pressure-test the leading option', body: 'A different, distinct producer finding under the same headline.', targetIds: [], priorityRank: 2, priorityIsProducerSupplied: true },
       ],
     }
     const recs = buildRecommendations(input)
@@ -340,12 +351,12 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
     const input: StrengthenInputs = {
       ...base,
       phase3Items: [
-        { id: 'a1', title: 'A load-bearing assumption', body: 'Body one.', targetIds: [], priorityRank: 1 },
-        { id: 'a2', title: 'A load-bearing assumption', body: 'Body one.', targetIds: [], priorityRank: 2 }, // true duplicate of a1
-        { id: 'b', title: 'Second finding', body: 'Body two.', targetIds: [], priorityRank: 3 },
-        { id: 'c', title: 'Third finding', body: 'Body three.', targetIds: [], priorityRank: 4 },
-        { id: 'd', title: 'Fourth finding', body: 'Body four.', targetIds: [], priorityRank: 5 },
-        { id: 'e', title: 'Fifth finding', body: 'Body five.', targetIds: [], priorityRank: 6 },
+        { id: 'a1', title: 'A load-bearing assumption', body: 'Body one.', targetIds: [], priorityRank: 1, priorityIsProducerSupplied: true },
+        { id: 'a2', title: 'A load-bearing assumption', body: 'Body one.', targetIds: [], priorityRank: 2, priorityIsProducerSupplied: true }, // true duplicate of a1
+        { id: 'b', title: 'Second finding', body: 'Body two.', targetIds: [], priorityRank: 3, priorityIsProducerSupplied: true },
+        { id: 'c', title: 'Third finding', body: 'Body three.', targetIds: [], priorityRank: 4, priorityIsProducerSupplied: true },
+        { id: 'd', title: 'Fourth finding', body: 'Body four.', targetIds: [], priorityRank: 5, priorityIsProducerSupplied: true },
+        { id: 'e', title: 'Fifth finding', body: 'Body five.', targetIds: [], priorityRank: 6, priorityIsProducerSupplied: true },
       ],
     }
     const phase3 = buildRecommendations(input).filter((r) => r.id.startsWith('strengthen:phase3:'))

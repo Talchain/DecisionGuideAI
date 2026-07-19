@@ -89,6 +89,13 @@ export interface StrengthenPhase3Item {
   actionLabel?: string
   targetIds: string[]
   priorityRank?: number
+  /**
+   * UI-SEM-085: true ONLY when the producer ranked this block. When false or
+   * absent, `priorityRank` is derived from the UI's 50 default and carries no
+   * merit — the item is demoted below the producer-backed ladder and labelled
+   * "not ranked" rather than presented as a ranked fix.
+   */
+  priorityIsProducerSupplied?: boolean
 }
 
 export interface StrengthenInputs {

@@ -141,6 +141,10 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
         // GuidanceItem priority is 0-100 higher-first; the engine wants
         // ascending, so invert onto its phase-3 band.
         priorityRank: 100 - (item.priority ?? 0),
+        // UI-SEM-085: passed through from the single defaulting site in
+        // deriveGuidance. Strict explicit-true read (fail-closed) — an item
+        // that cannot prove a producer rank is treated as unranked.
+        priorityIsProducerSupplied: item.priorityIsProducerSupplied === true,
       })),
     }
   }, [data, guidanceItems, biasSignals, currentStage])

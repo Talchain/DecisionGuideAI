@@ -96,7 +96,6 @@ import type { TornadoRow } from '../../components/results/TornadoChart'
 import { useCanvasResultsSync } from '../../components/results/useCanvasResultsSync'
 import { ResultsBody } from '../../components/results/ResultsBody'
 import { useGuidanceStore } from '../stores/guidanceStore'
-import type { GuidanceItem } from '../stores/guidanceStore'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
 import { getStrengthCorrections } from '../../adapters/plot/v2/adapter'
 // P0.6: User-friendly error messages
@@ -418,16 +417,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const setCeeAnalysisReady = useCanvasStore(s => s.setCeeAnalysisReady)
   // P2: Success target affordance - threshold update
   const setGoalThreshold = useCanvasStore(s => s.setGoalThreshold)
-  // Guidance items for results surface — filter to graph/option/framing targets only
-  const allGuidanceItems = useGuidanceStore(s => s.guidanceItems)
   const setActiveGuidanceItem = useGuidanceStore(s => s.setActiveGuidanceItem)
-  const resultsGuidanceItems = useMemo<GuidanceItem[]>(() => {
-    if (allGuidanceItems.length === 0) return []
-    return allGuidanceItems.filter((item) => {
-      const t = item.target_object?.type
-      return !t || t === 'graph' || t === 'option' || t === 'framing'
-    })
-  }, [allGuidanceItems])
 
   // Derived values from runMeta
   const diagnostics = runMeta.diagnostics
@@ -2331,7 +2321,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     edgeCount={edges.length}
                     identifiability={report?.model_card?.identifiability_tag}
                     goalDirection={goalDirection}
-                    guidanceItems={resultsGuidanceItems}
                     onActivateGuidanceItem={setActiveGuidanceItem}
                     verifiedCount={transitionBridgeRef.current.verifiedCount}
                     influenceCoverage={transitionBridgeRef.current.influenceCoverage}

@@ -48,6 +48,15 @@ export interface GuidanceItem {
   citations?: string[]
   /** 0–100, higher = more urgent */
   priority: number
+  /**
+   * UI-SEM-085: true ONLY when the producer emitted `priority`/`priority_rank`
+   * for this item; absent or false means `priority` is the UI's 50 default and
+   * carries NO merit information. Set at the single defaulting site in
+   * `deriveGuidance` (src/v5/extractPhase3FromV5Response.ts) — read it, never
+   * re-derive it. Consumers treat absence as NOT producer-supplied
+   * (fail-closed: we do not claim a ranking we cannot prove).
+   */
+  priorityIsProducerSupplied?: boolean
   dsk_claim_id?: string
   evidence_strength?: EvidenceStrength
 }

@@ -17,7 +17,9 @@
  *
  * Priority is deterministic (ascending): the framing foundation first, then
  * the producer's own Phase-3 ranking, then evidence work, then challenge,
- * then commit last. Reprioritisation reorders; the lifecycle store owns
+ * then commit — and last, the UI-SEM-085 unranked phase-3 band (guidance
+ * blocks CEE sent with no priority, whose order is arrival order and is
+ * labelled as such). Reprioritisation reorders; the lifecycle store owns
  * status and never resets it. When the producer supplies an adaptive
  * priority (inputs.adaptivePriority), matching-helpType recs float above
  * the rest while preserving relative order within each group.
@@ -48,16 +50,34 @@ const MAX_PHASE3_PROMOTED = 4
  * every non-matching band while in-band relative order is preserved. */
 const ADAPTIVE_MATCH_BOOST = 10_000
 
+// UI-SEM-085: two phase-3 bands, not one. A guidance block the producer
+// actually ranked keeps its historic place near the top of the ladder
+// (phase3Base). A block whose priority is the UI's 50 default carries NO merit
+// information — inverted it lands at rank 50, banding to 60, which used to sort
+// ABOVE the producer-backed flip trigger (100) purely because of where it sat
+// in the wire array. Those rows now drop to phase3Unranked, BELOW every
+// producer-backed trigger, and each says so in its source line. This is
+// demotion + disclosure ONLY: no replacement priority is derived from
+// `category` (that would stack a second UI invention on the first), and the
+// order WITHIN the unranked band remains the arrival order — now labelled as
+// such instead of presented as a ranking.
 const PRIORITY = {
   successMeasure: 0,
-  phase3Base: 10, // + priority_rank
+  phase3Base: 10, // + priority_rank (producer-ranked only)
   flip: 100,
   lehi: 110,
   voi: 120,
   robustness: 130,
   broaden: 140,
   commit: 200,
+  phase3Unranked: 210, // + priority_rank; below the whole producer-backed ladder
 } as const
+
+/** UI-SEM-085 source lines. Producer-ranked rows keep the original line; a
+ * defaulted row must not imply an ordering the producer never sent. */
+const PHASE3_SOURCE_RANKED = 'Source: Olumi model review.'
+const PHASE3_SOURCE_UNRANKED =
+  'Source: Olumi model review (not ranked — shown in the order received).'
 
 /** Text normalisation for the UI-SEM-075 dedupe keys (case/whitespace only). */
 function normaliseText(text: string): string {
@@ -110,9 +130,20 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   // emits several review cards under one generic headline with different
   // bodies (fixture cee-response-b82c89dd-trimmed). The cap is a display
   // budget and still applies AFTER true-duplicate removal.
+  // UI-SEM-085: producer-ranked items sort ahead of unranked ones BEFORE the
+  // MAX_PHASE3_PROMOTED budget is applied. Without this the cap could be spent
+  // on unranked rows (which are then demoted to the bottom anyway) while a
+  // genuinely producer-ranked block is dropped from the panel entirely.
+  // Strict explicit-true read — absence is treated as unranked (fail-closed).
+  const isProducerRanked = (i: StrengthenInputs['phase3Items'][number]): boolean =>
+    i.priorityIsProducerSupplied === true
   const seenPhase3Keys = new Set<string>()
   const promotedPhase3 = [...inputs.phase3Items]
-    .sort((a, b) => (a.priorityRank ?? 99) - (b.priorityRank ?? 99))
+    .sort((a, b) => {
+      const rankedDelta = Number(isProducerRanked(b)) - Number(isProducerRanked(a))
+      if (rankedDelta !== 0) return rankedDelta
+      return (a.priorityRank ?? 99) - (b.priorityRank ?? 99)
+    })
     .filter((item) => {
       const key = dedupeKey(item.title, item.body)
       if (seenPhase3Keys.has(key)) return false
@@ -137,7 +168,9 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       signal: item.body ?? 'Olumi flagged this while reviewing your model.',
       whyNow: item.body ?? 'Resolving it improves what the analysis can tell you.',
       tryThis: item.actionLabel ?? 'Work through it with Olumi.',
-      sourceLine: 'Source: Olumi model review.',
+      // UI-SEM-085: the label IS the band marker — an unranked row states that
+      // its position is arrival order, not merit.
+      sourceLine: isProducerRanked(item) ? PHASE3_SOURCE_RANKED : PHASE3_SOURCE_UNRANKED,
       action: {
         kind: 'ai-dialogue',
         label: item.actionLabel ?? 'Work through with Olumi',
@@ -146,7 +179,11 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
         prompt: item.title,
       },
       targetId: item.targetIds[0] ?? null,
-      priority: PRIORITY.phase3Base + (item.priorityRank ?? 99),
+      // UI-SEM-085: producer-ranked keeps the historic band; defaulted rank
+      // drops below the entire producer-backed ladder.
+      priority:
+        (isProducerRanked(item) ? PRIORITY.phase3Base : PRIORITY.phase3Unranked) +
+        (item.priorityRank ?? 99),
     })
   }
 
