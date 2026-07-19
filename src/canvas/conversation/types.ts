@@ -122,6 +122,7 @@ export type ConversationBlock =
   | V5CoachingBlock
   | V5EvidenceBlock
   | V5ExerciseBlock
+  | V5HeldProposalBlock
   | V5UnsupportedBlock
 
 /**
@@ -313,6 +314,50 @@ export interface V5UnsupportedBlock {
   type: 'v5_unsupported'
   blockType: string
   raw: unknown
+}
+
+/**
+ * R8 (seamless-workspace, roadmap 2.27): a held CEE graph mutation surfaced
+ * as an honest, non-error-styled card (0.18.0 HeldProposalBlockSchema). CEE's
+ * graph-management referee gate holds a structural/tunable mutation pending
+ * the user's go-ahead and emits this block INSTEAD of the error-styled block
+ * the 1.43 fix retired.
+ *
+ * Render-relevant fields only. `summary` is CEE's display-safe description of
+ * the change (rendered verbatim). `reason_code` is code-keyed by design —
+ * mapped to the UI's OWN user-facing copy so the internal-doctrine-prose leak
+ * 1.43 flagged cannot recur; widened to `string` here so a future
+ * held-reachable code passes through to the generic copy without a UI release
+ * (same forward-compat rule as V5BlockTargetRef.kind).
+ *
+ * `confirm` / `decline` are RESOLVED at map time from the response's top-level
+ * `suggested_actions[]` (the schema's `confirm_action_id` / `decline_action_id`
+ * are refs into that array; the block never embeds its own action objects).
+ * The card dispatches `confirm.message` through the existing chip-send seam —
+ * the change is applied by CEE server-side on that turn (single-writer
+ * doctrine, post-#364), never by a client-minted mutation path. `decline` is
+ * optional: CEE does not emit a dedicated decline chip today (the decline path
+ * is free-text), so its absence drives a local-only dismiss.
+ *
+ * Internal identifiers (`proposal_id`, `mutation_class`, `reason_code`, the
+ * `held_proposal` type token) NEVER render as user-facing copy.
+ */
+export interface V5HeldProposalAction {
+  /** Producer-owned chip label (rendered verbatim on the confirm affordance). */
+  label: string
+  /** Message dispatched to CEE when the affordance is taken (the apply turn). */
+  message: string
+}
+
+export interface V5HeldProposalBlock {
+  type: 'v5_held_proposal'
+  /** CEE-internal held handle (gmh_…). Carried for telemetry/data-* only, never rendered. */
+  proposal_id: string
+  summary: string
+  mutation_class: 'structural' | 'tunable'
+  reason_code: string
+  confirm: V5HeldProposalAction
+  decline?: V5HeldProposalAction
 }
 
 // ---------------------------------------------------------------------------

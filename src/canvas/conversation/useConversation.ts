@@ -3399,7 +3399,12 @@ export function useConversation(): UseConversationReturn {
             }
 
             const mappedBlocks =
-              target.kind === 'blocks' ? mapV5Blocks(target.response.blocks) : []
+              target.kind === 'blocks'
+                // Pass suggested_actions so the held-proposal mapper (R8) can
+                // resolve confirm_action_id / decline_action_id refs into the
+                // {label, message} the card dispatches through the chip seam.
+                ? mapV5Blocks(target.response.blocks, target.response.suggested_actions)
+                : []
 
             // Phase 3 rendering bridge (Track C slice 1, D-5) — surface
             // CEE-produced 0.13.x coaching + review_card blocks as typed
