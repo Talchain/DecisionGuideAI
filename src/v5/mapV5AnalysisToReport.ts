@@ -92,6 +92,20 @@ interface NormalisedFactor {
    * sensitivity-flavoured copy for pinned factors.
    */
   zero_reason?: string
+  /**
+   * EVPI family (value-of-information), producer-owned. P0 F5: the live V5
+   * mapper previously stripped all four before the store, so the EVPI/VoI
+   * surfaces went dark on the conversational path (the V4 mapper preserves
+   * them — responseMapper.ts:281,336 — and ModelTabBody.tsx:209-217 renders
+   * the EVPI map from `evpi_percentage_points` ?? `value_of_information * 100`;
+   * useResultsSectionData.ts:358 reads `value_of_information`). Additive
+   * passthrough only — never derived, never defaulted, never scaled; a real
+   * 0 is data (a below-resolution EVPI), an absent field stays absent.
+   */
+  value_of_information?: number
+  evpi_percentage_points?: number
+  evpi_method?: string
+  evpi_status?: string
 }
 
 /**
@@ -142,6 +156,15 @@ function normaliseFactorEntry(entry: unknown): NormalisedFactor | null {
   const influenceRank = safeFiniteNumber(entry.influence_rank)
   const zeroReason = safeString(entry.zero_reason)
 
+  // P0 F5: EVPI family (value-of-information) carried through verbatim. No
+  // derivation, no defaults, no scaling — safeFiniteNumber(0) === 0 preserves
+  // a real below-resolution EVPI, while an absent field yields undefined so
+  // the conditional spread omits the key (fail closed).
+  const valueOfInformation = safeFiniteNumber(entry.value_of_information)
+  const evpiPercentagePoints = safeFiniteNumber(entry.evpi_percentage_points)
+  const evpiMethod = safeString(entry.evpi_method)
+  const evpiStatus = safeString(entry.evpi_status)
+
   return {
     factor_id: factorId,
     factor_label: factorLabel,
@@ -150,6 +173,10 @@ function normaliseFactorEntry(entry: unknown): NormalisedFactor | null {
     ...(influenceScore !== undefined ? { influence_score: influenceScore } : {}),
     ...(influenceRank !== undefined ? { influence_rank: influenceRank } : {}),
     ...(zeroReason !== undefined ? { zero_reason: zeroReason } : {}),
+    ...(valueOfInformation !== undefined ? { value_of_information: valueOfInformation } : {}),
+    ...(evpiPercentagePoints !== undefined ? { evpi_percentage_points: evpiPercentagePoints } : {}),
+    ...(evpiMethod !== undefined ? { evpi_method: evpiMethod } : {}),
+    ...(evpiStatus !== undefined ? { evpi_status: evpiStatus } : {}),
   }
 }
 
@@ -471,6 +498,27 @@ export function mapV5AnalysisToReport(
   const robustnessRaw = isPlainObject(enrichment?.robustness)
     ? enrichment!.robustness
     : undefined
+
+  // P0 F6: edge E-values. PLoT emits `edge_e_values` at the TOP LEVEL of
+  // enrichment (enrichment.edge_e_values); the legacy nested copy
+  // (enrichment.robustness.edge_e_values) is no longer populated on the live
+  // V5 wire (A3 Codex compute-wave, 19 Jul 2026). Every UI consumer reads
+  // `report.robustness.edge_e_values` (useAnalysisResults.ts:54,
+  // ModelTabBody.tsx:238, useResultsSectionData.ts:2491/2958,
+  // analysisSnapshotFactory.ts:115), so it must be sourced from the REAL wire
+  // location — top-level first (real), the nested copy as a legacy fallback,
+  // and fail closed (omit) when neither carries a non-empty array. An empty
+  // array is treated as "no data" so a stale/empty top-level does not mask a
+  // populated legacy copy.
+  const topLevelEdgeEValuesRaw = enrichment?.edge_e_values
+  const nestedEdgeEValuesRaw = robustnessRaw?.edge_e_values
+  const robustnessEdgeEValues =
+    Array.isArray(topLevelEdgeEValuesRaw) && topLevelEdgeEValuesRaw.length > 0
+      ? topLevelEdgeEValuesRaw
+      : Array.isArray(nestedEdgeEValuesRaw) && nestedEdgeEValuesRaw.length > 0
+        ? nestedEdgeEValuesRaw
+        : undefined
+
   const robustness = robustnessRaw
     ? {
         // Receipts fail closed (T2): preserve ABSENCE. Keys are emitted
@@ -510,8 +558,11 @@ export function mapV5AnalysisToReport(
         ...(Array.isArray(robustnessRaw.flip_thresholds)
           ? { flip_thresholds: robustnessRaw.flip_thresholds }
           : {}),
-        ...(Array.isArray(robustnessRaw.edge_e_values)
-          ? { edge_e_values: robustnessRaw.edge_e_values }
+        // P0 F6: sourced from the real wire location (top-level first, nested
+        // legacy fallback) so report.robustness.edge_e_values — the slot every
+        // edge consumer reads — is populated from PLoT's top-level emit.
+        ...(robustnessEdgeEValues !== undefined
+          ? { edge_e_values: robustnessEdgeEValues }
           : {}),
         ...(Array.isArray(robustnessRaw.conditional_winners)
           ? { conditional_winners: robustnessRaw.conditional_winners }
@@ -689,6 +740,14 @@ export function mapV5AnalysisToReport(
       ...(f.influence_score !== undefined ? { influence_score: f.influence_score } : {}),
       ...(f.influence_rank !== undefined ? { influence_rank: f.influence_rank } : {}),
       ...(f.zero_reason !== undefined ? { zero_reason: f.zero_reason } : {}),
+      // P0 F5: EVPI family reaches the store so ModelTabBody's EVPI map
+      // (evpi_percentage_points ?? value_of_information * 100) and the
+      // useResultsSectionData value_of_information read light up on the V5
+      // path. Omitted when absent (no fabricated 0).
+      ...(f.value_of_information !== undefined ? { value_of_information: f.value_of_information } : {}),
+      ...(f.evpi_percentage_points !== undefined ? { evpi_percentage_points: f.evpi_percentage_points } : {}),
+      ...(f.evpi_method !== undefined ? { evpi_method: f.evpi_method } : {}),
+      ...(f.evpi_status !== undefined ? { evpi_status: f.evpi_status } : {}),
     }))
   }
   if (robustness) widened.robustness = robustness
