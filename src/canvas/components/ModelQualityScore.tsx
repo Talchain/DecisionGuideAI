@@ -91,7 +91,7 @@ function MetricRow({ label, value, tooltip }: MetricRowProps) {
   return (
     <Tooltip content={tooltip} position="right">
       <div className="flex items-center justify-between gap-3 py-1">
-        <span className={`${typography.bodySmall} text-ink-900/70`}>
+        <span className={`${typography.bodySmall} text-ink-900`}>
           {label}
         </span>
         <div className="flex items-center gap-2">
@@ -224,7 +224,7 @@ export function ModelQualityScore({
             )}
 
             {/* Expand/collapse chevron */}
-            <span className="text-ink-900/40">
+            <span className="text-ink-900">
               {isExpanded ? (
                 <ChevronUp className="w-4 h-4" aria-hidden="true" />
               ) : (
@@ -259,7 +259,7 @@ export function ModelQualityScore({
             />
             {/* Show local evidence count detail when available */}
             {localEvidenceCounts && localEvidenceCounts.total > 0 && (
-              <div className={`flex items-center justify-between py-0.5 pl-4 ${typography.caption} text-ink-900/60`}>
+              <div className={`flex items-center justify-between py-0.5 pl-4 ${typography.caption} text-ink-900`}>
                 <span>{localEvidenceCounts.evidenced}/{localEvidenceCounts.total} edges documented</span>
                 {localEvidencePercent !== null && Math.abs(localEvidencePercent - evidence_coverage) > 0.05 && (
                   <span className="text-warning" title="Local count differs from engine assessment">
@@ -286,7 +286,7 @@ export function ModelQualityScore({
                   className="w-4 h-4 text-warning flex-shrink-0 mt-0.5"
                   aria-hidden="true"
                 />
-                <span className={`${typography.bodySmall} text-ink-900/80`}>
+                <span className={`${typography.bodySmall} text-ink-900`}>
                   {recommendation}
                 </span>
               </div>

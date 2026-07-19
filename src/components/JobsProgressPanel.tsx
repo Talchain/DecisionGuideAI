@@ -66,15 +66,15 @@ export default function JobsProgressPanel() {
           const isActive = j.status === 'queued' || j.status === 'running'
           return (
             <li key={j.id} data-testid="job-item" className="flex items-center gap-2">
-              <span data-testid="job-status" className="text-xs px-2 py-0.5 rounded-full border border-sand-200 bg-paper-50 text-ink-900/80">
+              <span data-testid="job-status" className="text-xs px-2 py-0.5 rounded-full border border-sand-200 bg-paper-50 text-ink-900">
                 {j.status === 'queued' && 'Queued'}
                 {j.status === 'running' && 'Running'}
                 {j.status === 'done' && 'Done'}
                 {j.status === 'failed' && 'Failed'}
                 {j.status === 'cancelled' && 'Cancelled'}
               </span>
-              <span className="text-xs text-ink-900/80">{j.id}</span>
-              <time data-testid="job-time" className="text-[11px] text-ink-900/50 ml-1">just now</time>
+              <span className="text-xs text-ink-900">{j.id}</span>
+              <time data-testid="job-time" className="text-[11px] text-ink-900 ml-1">just now</time>
               <div className="ml-auto flex items-center gap-2">
                 {typeof j.progress === 'number' && (
                   <div className="w-24 bg-sand-200 rounded h-2" aria-hidden="true">
@@ -87,7 +87,7 @@ export default function JobsProgressPanel() {
                     data-testid="job-cancel-btn"
                     aria-label={`Cancel job ${j.id}`}
                     title="Cancel job"
-                    className="px-2 py-0.5 rounded border border-sand-200 text-xs text-ink-900/80 hover:bg-paper-50"
+                    className="px-2 py-0.5 rounded border border-sand-200 text-xs text-ink-900 hover:bg-paper-50"
                     onClick={() => cancel(j.id)}
                     ref={cancelBtnRef}
                     disabled={cancelling}

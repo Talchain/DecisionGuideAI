@@ -42,7 +42,7 @@ export function ConformalPredictionSection() {
   if (nodes.length === 0) {
     return (
       <div className="p-4">
-        <p className={`${typography.body} text-ink-900/50 text-center py-8`}>
+        <p className={`${typography.body} text-ink-900 text-center py-8`}>
           Add nodes to your graph to enable conformal prediction
         </p>
       </div>
@@ -103,7 +103,7 @@ export function ConformalPredictionSection() {
 
       {!enabled && (
         <div className="p-3 bg-paper-50 border border-sand-200 rounded-lg">
-          <p className={`${typography.body} text-ink-900/70`}>
+          <p className={`${typography.body} text-ink-900`}>
             Enable to see 95% confidence intervals for outcome predictions
           </p>
         </div>

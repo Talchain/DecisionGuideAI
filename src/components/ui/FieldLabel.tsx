@@ -58,7 +58,7 @@ export function FieldLabel({
             onClick={() => setShowTooltip(!showTooltip)}
             onMouseEnter={() => setShowTooltip(true)}
             onMouseLeave={() => setShowTooltip(false)}
-            className="inline-flex items-center justify-center w-4 h-4 rounded-full text-ink-900/50 hover:text-ink-900/80 hover:bg-sand-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500"
+            className="inline-flex items-center justify-center w-4 h-4 rounded-full text-ink-900 hover:bg-sand-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500"
             aria-label="Show technical details"
             data-testid="field-label-info-button"
           >
@@ -73,8 +73,13 @@ export function FieldLabel({
               {technicalTerm && (
                 <div className="font-medium mb-1">{technicalTerm}</div>
               )}
+              {/* No colour class, deliberately: this named the near-white
+                  panel token at 90% opacity, which never emitted a rule (see
+                  the channel-triple note in src/styles/brand.css), and at full
+                  strength that token is invisible on this ground. Inherited
+                  colour, exactly as it has always rendered. */}
               {technicalDescription && (
-                <div className="text-paper-50/90">{technicalDescription}</div>
+                <div>{technicalDescription}</div>
               )}
               {/* Tooltip arrow */}
               <div

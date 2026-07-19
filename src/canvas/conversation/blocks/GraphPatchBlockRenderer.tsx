@@ -603,7 +603,7 @@ export function GraphPatchBlockRenderer({
             return (
               <span key={`${id}-${i}`} className="inline-flex items-center">
                 <EntityLink id={id} label={label} kind={kind} />
-                {i < relatedElements.length - 1 && <span className="text-text-light/60" aria-hidden="true">,</span>}
+                {i < relatedElements.length - 1 && <span className="text-text-light" aria-hidden="true">,</span>}
               </span>
             )
           })}

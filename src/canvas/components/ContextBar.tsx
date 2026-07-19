@@ -47,19 +47,19 @@ export function ContextBar() {
       aria-label="Graph context"
     >
       <div className={`flex items-center justify-between ${typography.caption} text-ink-900`}>
-        <span className="font-medium text-ink-900/80">Graph</span>
+        <span className="font-medium text-ink-900">Graph</span>
         <span className="tabular-nums text-ink-900">
           {nodesCount} nodes • {edgesCount} edges
         </span>
       </div>
 
-      <div className={`flex flex-wrap items-start gap-x-6 gap-y-1 ${typography.caption} text-ink-900/80`}>
+      <div className={`flex flex-wrap items-start gap-x-6 gap-y-1 ${typography.caption} text-ink-900`}>
         <div className="flex-1 min-w-[10rem]">
           <div className="font-medium text-ink-900">Limits</div>
           <div className="text-ink-900" aria-live="polite">
             {limitsView.label}
           </div>
-          <div className="text-ink-900/70" aria-live="polite">
+          <div className="text-ink-900" aria-live="polite">
             {limitsView.message}
           </div>
         </div>
@@ -69,7 +69,7 @@ export function ContextBar() {
           <div className="text-ink-900" aria-live="polite">
             {healthView.label}
           </div>
-          <div className="text-ink-900/70" aria-live="polite">
+          <div className="text-ink-900" aria-live="polite">
             {healthView.detail}
           </div>
         </div>

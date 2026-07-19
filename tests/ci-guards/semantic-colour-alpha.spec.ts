@@ -168,8 +168,15 @@ describe('semantic colours emit CSS when used with an opacity modifier', () => {
     // The scan must actually be finding the code it asserts about. Floors sit
     // ~10% under the observed figure so a partial blinding is visible rather
     // than merely "still above a number".
-    expect(used.length, `${used.length} distinct modified classes found (was 118 when set)`)
-      .toBeGreaterThanOrEqual(100)
+    // Floor sits ~10% under the observed figure so a partial blinding is
+    // visible, rather than one count under it. RE-BASELINED 118 -> 96 in this
+    // change: the 132 `text-*/NN` call sites were swept to solid tokens (or
+    // removed, where the token fails AA at full strength), which retired 22
+    // distinct TEXT classes from the scan. The floor moved because the tree
+    // moved, NOT to accommodate a failure — every remaining class still has to
+    // emit, and the mutation control below still has to bite.
+    expect(used.length, `${used.length} distinct modified classes found (was 96 when set)`)
+      .toBeGreaterThanOrEqual(86)
     expect(used, 'the documented outlined-pill recipe must be in the scanned set')
       .toContain('border-info/30')
 

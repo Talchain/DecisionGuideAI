@@ -81,7 +81,7 @@ function WarningCard({ icon: Icon, title, description, action }: WarningCardProp
       <Icon className="w-4 h-4 flex-shrink-0 text-warning" aria-hidden="true" />
       <div className="flex-1">
         <p className={`${typography.label} text-sun-800`}>{title}</p>
-        <p className={`${typography.bodySmall} text-ink-900/70`}>{description}</p>
+        <p className={`${typography.bodySmall} text-ink-900`}>{description}</p>
         <button className={`${typography.caption} text-sky-600 underline hover:text-sky-700 mt-1`}>
           {action}
         </button>

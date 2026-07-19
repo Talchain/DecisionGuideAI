@@ -40,27 +40,27 @@ interface IconBtnProps {
 const variantStyles: Record<IconBtnVariant, { enabled: string; disabled: string }> = {
   default: {
     enabled: 'text-text-light hover:text-text-body hover:bg-panel-hover',
-    disabled: 'text-text-light/50 cursor-not-allowed',
+    disabled: 'text-text-light cursor-not-allowed',
   },
   confirm: {
     enabled: 'text-success hover:bg-panel-hover',
-    disabled: 'text-text-light/50 cursor-not-allowed',
+    disabled: 'text-text-light cursor-not-allowed',
   },
   edit: {
     enabled: 'text-info hover:bg-panel-hover',
-    disabled: 'text-text-light/50 cursor-not-allowed',
+    disabled: 'text-text-light cursor-not-allowed',
   },
   assume: {
     enabled: 'text-warning hover:bg-panel-hover',
-    disabled: 'text-text-light/50 cursor-not-allowed',
+    disabled: 'text-text-light cursor-not-allowed',
   },
   primary: {
     enabled: 'text-info hover:bg-panel-hover',
-    disabled: 'text-text-light/50 cursor-not-allowed',
+    disabled: 'text-text-light cursor-not-allowed',
   },
   ghost: {
     enabled: 'text-text-light hover:text-text-body',
-    disabled: 'text-text-light/50 cursor-not-allowed',
+    disabled: 'text-text-light cursor-not-allowed',
   },
 }
 

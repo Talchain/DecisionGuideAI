@@ -29,7 +29,7 @@ export function HelpTooltip({ term, explanation, citation, learnMoreUrl }: HelpT
         {term}
       </button>
       <Info
-        className="w-3 h-3 text-ink-900/40 group-hover:text-sky-600 group-focus-within:text-sky-600 transition-colors"
+        className="w-3 h-3 text-ink-900 group-hover:text-sky-600 group-focus-within:text-sky-600 transition-colors"
         aria-hidden="true"
       />
 
@@ -52,7 +52,7 @@ export function HelpTooltip({ term, explanation, citation, learnMoreUrl }: HelpT
         </p>
 
         {citation && (
-          <p className={`${typography.caption} text-ink-900/60 mt-2`}>
+          <p className={`${typography.caption} text-ink-900 mt-2`}>
             {citation}
           </p>
         )}

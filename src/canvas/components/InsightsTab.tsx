@@ -62,7 +62,7 @@ export function InsightsTabBody() {
   if (nodes.length === 0) {
     return (
       <div className="p-4">
-        <p className={`${typography.body} text-ink-900/50 text-center py-8`}>
+        <p className={`${typography.body} text-ink-900 text-center py-8`}>
           Add nodes to your graph to see insights
         </p>
       </div>
@@ -94,10 +94,10 @@ export function InsightsTabBody() {
             </div>
 
             <div className={`flex items-center gap-4 ${typography.body}`}>
-              <span className={`${typography.bodySmall} text-ink-900/70`}>
+              <span className={`${typography.bodySmall} text-ink-900`}>
                 {data.bias_findings.filter(b => b.severity === 'high').length} high-priority biases
               </span>
-              <span className={`${typography.bodySmall} text-ink-900/70`}>
+              <span className={`${typography.bodySmall} text-ink-900`}>
                 {data.structural_health.warnings.length} structural warnings
               </span>
             </div>
@@ -293,7 +293,7 @@ function BiasCard({ bias, checked, expanded, onToggle, onExpand }: BiasCardProps
             <span className={`${typography.label} text-carrot-700`}>
               {bias.severity === 'high' ? '[High]' : '[Medium]'} {bias.type}
             </span>
-            <p className={`${typography.bodySmall} text-ink-900/70 mt-1`}>
+            <p className={`${typography.bodySmall} text-ink-900 mt-1`}>
               {bias.description}
             </p>
           </div>
@@ -326,11 +326,11 @@ function BiasCard({ bias, checked, expanded, onToggle, onExpand }: BiasCardProps
 
           {expanded && bias.mechanism && (
             <div className="p-2 bg-paper-50 rounded border-l-2 border-sky-500">
-              <p className={`${typography.bodySmall} text-ink-900/70`}>
+              <p className={`${typography.bodySmall} text-ink-900`}>
                 {bias.mechanism}
               </p>
               {bias.citation && (
-                <p className={`${typography.caption} text-ink-900/50 mt-1`}>
+                <p className={`${typography.caption} text-ink-900 mt-1`}>
                   {bias.citation}
                 </p>
               )}

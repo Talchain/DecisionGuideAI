@@ -82,7 +82,7 @@ export function DegradedBanner() {
               ? 'Engine currently unavailable; try again shortly.'
               : 'Engine running in degraded mode; performance reduced.'}
           </p>
-          <p className={`mt-1 ${typography.caption} text-warning/80`}>
+          <p className={`mt-1 ${typography.caption}`}>
             {isDown
               ? 'Runs may fail until the engine recovers. You can still explore your graph and past results.'
               : 'Some runs may be slower or limited while the engine is in degraded mode.'}

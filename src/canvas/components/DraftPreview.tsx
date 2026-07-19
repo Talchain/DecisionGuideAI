@@ -76,12 +76,12 @@ export function DraftPreview({
     return (
       <div className="space-y-4 p-4 bg-white rounded-lg border border-sand-200 shadow-panel" data-testid="draft-preview-empty">
         <div className="flex items-center gap-3 p-3 rounded-lg border bg-paper-50 border-sand-200">
-          <CloudOff className="w-5 h-5 text-ink-900/50" />
+          <CloudOff className="w-5 h-5 text-ink-900" />
           <div className="flex-1">
             <p className={`${typography.label} text-ink-900`}>
               No draft available
             </p>
-            <p className={`${typography.caption} text-ink-900/60`}>
+            <p className={`${typography.caption} text-ink-900`}>
               The AI assistant couldn't generate a draft. Try describing your decision differently or check your connection.
             </p>
           </div>
@@ -114,7 +114,7 @@ export function DraftPreview({
               className="max-w-full max-h-[180px] mx-auto"
             />
           ) : (
-            <p className={`${typography.caption} text-ink-900/50 text-center py-8`}>
+            <p className={`${typography.caption} text-ink-900 text-center py-8`}>
               Graph preview will appear on canvas
             </p>
           )}

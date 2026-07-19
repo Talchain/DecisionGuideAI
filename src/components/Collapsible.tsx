@@ -38,12 +38,12 @@ export function Collapsible({
             {title}
           </div>
           {description && (
-            <div className={`${typography.code} text-ink-900/70`}>
+            <div className={`${typography.code} text-ink-900`}>
               {description}
             </div>
           )}
         </div>
-        <Icon className="w-4 h-4 text-ink-900/70 flex-shrink-0" aria-hidden="true" />
+        <Icon className="w-4 h-4 text-ink-900 flex-shrink-0" aria-hidden="true" />
       </button>
       {isOpen && (
         <div

@@ -140,7 +140,7 @@ export function RangeDisplay({
 
   if (!hasAnyValue) {
     return (
-      <div className={`${typography.caption} text-ink-900/70`} data-testid="range-display">
+      <div className={`${typography.caption} text-ink-900`} data-testid="range-display">
         Range is not available for this run.
       </div>
     )
