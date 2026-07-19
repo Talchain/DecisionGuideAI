@@ -221,7 +221,7 @@ const KNOWN_FALLBACK_DRIFT = [
 ].sort()
 
 /**
- * The two dynamic `var(--${…})` sites in the tree, pinned by FILE and by
+ * The dynamic `var(--${…})` sites in the tree, pinned by FILE and by
  * the concrete property names they expand to.
  *
  * A `>= 2` floor here was near-worthless: a real blinding mutation dropped
@@ -230,8 +230,16 @@ const KNOWN_FALLBACK_DRIFT = [
  * `evaluative.ts` is a `.ts` file, so this pin also fails outright if the
  * file walk ever stops covering `.ts` (the exact hole a partial blinding
  * exploited).
+ *
+ * Was TWO files until 2026-07-19: `src/components/shared/StabilityGauge.tsx`
+ * left `src/` for `archive/dead-ui-components-2026-07/` (zero consumers). The
+ * pin is NARROWED to match the tree, not weakened — it stays exact and
+ * bidirectional, so re-adding a dynamic site anywhere still fails here.
+ * `EXPECTED_DYNAMIC_NAMES` is unchanged: `evaluative.ts` expands to the same
+ * success|warning|danger union StabilityGauge did, so no name was lost —
+ * verified by this suite, which failed on the FILE list alone.
  */
-const EXPECTED_DYNAMIC_SITE_FILES = ['src/components/shared/StabilityGauge.tsx', 'src/styles/evaluative.ts'].sort()
+const EXPECTED_DYNAMIC_SITE_FILES = ['src/styles/evaluative.ts'].sort()
 const EXPECTED_DYNAMIC_NAMES = ['--danger', '--success', '--warning'].sort()
 
 describe('css custom-property resolution guard', () => {
@@ -300,9 +308,17 @@ describe('css custom-property resolution guard', () => {
       'the property names the dynamic references expand to changed — if this SHRANK, ' +
         'the type checker stopped seeing a union member and the guard has gone partially blind.',
     ).toEqual(EXPECTED_DYNAMIC_NAMES)
-    // Two sites × the three-member evaluative union = 6 expansions.
-    expect(census.counts.dynamicSites).toBe(2)
-    expect(census.counts.resolvedDynamicNames).toBe(6)
+    // Each site × the three-member evaluative union. DERIVED from the pins
+    // above, not re-typed: these were hardcoded `2` and `6`, a hand-maintained
+    // mirror of the same two constants, and it drifted the moment
+    // StabilityGauge.tsx was archived (2026-07-19) — two literals to update
+    // for one real change is how a pin rots. Still an exact pin, and still
+    // bidirectional: adding a dynamic site without listing it above fails on
+    // the file-set assertion, and losing a union member fails here.
+    expect(census.counts.dynamicSites).toBe(EXPECTED_DYNAMIC_SITE_FILES.length)
+    expect(census.counts.resolvedDynamicNames).toBe(
+      EXPECTED_DYNAMIC_SITE_FILES.length * EXPECTED_DYNAMIC_NAMES.length,
+    )
   })
 
   it('CSS-side dangling properties stay pinned to the known legacy palette', () => {
