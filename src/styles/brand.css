@@ -11,7 +11,48 @@
  * Usage:
  * - Always use CSS variables, never raw hex values
  * - Use semantic tokens in components
- * - Borders: Use rgba() with main color at 0.3 opacity
+ * - Borders: `border-{colour}/30` (see THE CHANNEL-TRIPLE FORM below)
+ *
+ * ============================================================
+ * THE CHANNEL-TRIPLE FORM — read before editing any colour
+ * ============================================================
+ *
+ * Semantic colours are declared as their CHANNELS, with the colour derived
+ * from them:
+ *
+ *     --info-rgb: 39 122 157;
+ *     --info: rgb(var(--info-rgb));
+ *
+ * The TRIPLE is the single source of truth. The hex form is derived, so the
+ * two can never disagree — do not "helpfully" restore a literal hex and leave
+ * the triple behind, and never state the same colour in both places.
+ *
+ * WHY. Tailwind can only apply an opacity modifier to a colour it can
+ * decompose into channels. Against a bare `var(--info)`, Tailwind 3.4 emits
+ * NO RULE AT ALL for `border-info/30` — no warning, no error, no fallback
+ * declaration. The element silently keeps whatever colour it would otherwise
+ * have had, which for a border is preflight's `#e5e7eb`. That is exactly what
+ * happened: the outlined-pill recipe this design system documents as canonical
+ * had never emitted a single rule for any semantic colour, so the colour
+ * channel that carries "how it's doing" was dropped product-wide.
+ *
+ * The triple lets tailwind.config.js hand Tailwind
+ * `rgb(var(--info-rgb) / <alpha-value>)`, which emits. Every existing
+ * `var(--info)` reference is unaffected — it resolves to the same colour.
+ *
+ * WHAT ENFORCES IT. tests/ci-guards/semantic-colour-alpha.spec.ts compiles the
+ * REAL Tailwind config and fails if any opacity-modified utility used in src/
+ * emits nothing; it carries its own negative control, so reverting a colour to
+ * the bare `var()` form turns it red. A colour that is NOT used with a modifier
+ * anywhere may stay a plain literal — the guard derives the list from usage,
+ * so the day it is used with a modifier, it fails loud rather than silently
+ * rendering nothing.
+ *
+ * READERS OF THIS FILE. Five parsers recover token values from this file (the
+ * artefact-template mirror, the --text-light contrast pin, the brand-token AA
+ * suite, the ghost-outline pin and the css-var census). They all resolve the
+ * triple form through ONE shared implementation, src/styles/channelTriple.mjs
+ * — extend that, never a local regex, or they will come to disagree.
  */
 
 :root {
@@ -20,7 +61,8 @@
      ============================================ */
 
   /* Text Colors */
-  --text-header: #262626;
+  --text-header-rgb: 38 38 38;
+  --text-header: rgb(var(--text-header-rgb));
   --text-body: #3F3F3E;
   /* Muted / meta text.
      A11y: this was #908D8D, which was NOT a legal text colour at any size —
@@ -40,7 +82,8 @@
      tests/ci-guards/text-light-contrast.spec.ts DERIVES both sides from this
      file and pins the MARGIN, not just the bar, so it goes red if either
      moves. Do not hand-edit this value without re-running that guard. */
-  --text-light: #6E6B6B;
+  --text-light-rgb: 110 107 107;
+  --text-light: rgb(var(--text-light-rgb));
   --text-on-color: #FFFFFF;
 
   /* Legacy aliases (for gradual migration) */
@@ -54,9 +97,12 @@
      ============================================ */
 
   --bg-canvas: #F4F0EA;
-  --bg-panel: #FEFEFE;
-  --bg-panel-hover: #FEF9F3;
-  --border-default: #EEE6D8;
+  --bg-panel-rgb: 254 254 254;
+  --bg-panel: rgb(var(--bg-panel-rgb));
+  --bg-panel-hover-rgb: 254 249 243;
+  --bg-panel-hover: rgb(var(--bg-panel-hover-rgb));
+  --border-default-rgb: 238 230 216;
+  --border-default: rgb(var(--border-default-rgb));
 
   /* Legacy aliases */
   --canvas-25: var(--bg-canvas);
@@ -81,13 +127,17 @@
      ============================================ */
 
   /* Danger / Risk / Critical (Red) */
-  --danger: #EA7B4B;
-  --danger-light: #FFB393;
+  --danger-rgb: 234 123 75;
+  --danger: rgb(var(--danger-rgb));
+  --danger-light-rgb: 255 179 147;
+  --danger-light: rgb(var(--danger-light-rgb));
   /* Border: rgba(234, 123, 75, 0.3) */
 
   /* Success / Outcome / Positive (Green) */
-  --success: #67C89E;
-  --success-light: #B8E2D0;
+  --success-rgb: 103 200 158;
+  --success: rgb(var(--success-rgb));
+  --success-light-rgb: 184 226 208;
+  --success-light: rgb(var(--success-light-rgb));
   /* Border: rgba(103, 200, 158, 0.3) */
 
   /* Info / Decision / Navigation (Blue)
@@ -123,17 +173,22 @@
      hardcoded, in src/styles/__tests__/brand-tokens.spec.ts — that test fails
      if this value, or any of those ground tokens, moves below AA.
      Light shade kept for canvas node fills and selection backgrounds. */
-  --info: #277A9D;
-  --info-light: #BAD7E4;
+  --info-rgb: 39 122 157;
+  --info: rgb(var(--info-rgb));
+  --info-light-rgb: 186 215 228;
+  --info-light: rgb(var(--info-light-rgb));
   /* Border: rgba(39, 122, 157, 0.3) */
 
   /* Warning (Orange) - Separate from Danger */
-  --warning: #FFA656;
-  --warning-light: #FCC798;
+  --warning-rgb: 255 166 86;
+  --warning: rgb(var(--warning-rgb));
+  --warning-light-rgb: 252 199 152;
+  --warning-light: rgb(var(--warning-light-rgb));
   /* Border: rgba(255, 166, 86, 0.3) */
 
   /* Border emphasis (stronger than --border-default) */
-  --border-emphasis: #DDD4C4;
+  --border-emphasis-rgb: 221 212 196;
+  --border-emphasis: rgb(var(--border-emphasis-rgb));
 
   /* Neutral track fill (for empty progress-bar tracks and similar
      "outline of a container" surfaces). Reads as clearly neutral
@@ -165,18 +220,25 @@
   --edge-negative-dark: #F06595;
   --edge-neutral-dark: #A1A1AA;
 
-  --goal: #F5C433;
-  --goal-light: #F4DB92;
+  --goal-rgb: 245 196 51;
+
+  --goal: rgb(var(--goal-rgb));
+  --goal-light-rgb: 244 219 146;
+  --goal-light: rgb(var(--goal-light-rgb));
   /* Border: rgba(245, 196, 51, 0.3) */
 
   /* Option (Purple) */
-  --option: #AAA7E4;
-  --option-light: #DDDCF5;
+  --option-rgb: 170 167 228;
+  --option: rgb(var(--option-rgb));
+  --option-light-rgb: 221 220 245;
+  --option-light: rgb(var(--option-light-rgb));
   /* Border: rgba(170, 167, 228, 0.3) */
 
   /* Factor (Stone) */
-  --factor: #B0A899;
-  --factor-light: #EEE6D8;
+  --factor-rgb: 176 168 153;
+  --factor: rgb(var(--factor-rgb));
+  --factor-light-rgb: 238 230 216;
+  --factor-light: rgb(var(--factor-light-rgb));
   /* Border: rgba(176, 168, 153, 0.3) */
 
   /* ============================================
@@ -205,15 +267,16 @@
   /* Primary (Info Blue — v5 §3.10: hover shifts to success green "ready to act")
      --primary is the canonical info blue; --primary-hover/-active are the
      DELIBERATE green shift documented in v5 §3.10 and are left unchanged. */
-  --primary: var(--info);
+  --primary-rgb: var(--info-rgb);
+  --primary: rgb(var(--primary-rgb));
   --primary-hover: #67C89E;
   --primary-active: #5AA88A;
-  --primary-disabled: rgba(39, 122, 157, 0.4);
+  --primary-disabled: rgb(var(--info-rgb) / 0.4);
 
   /* Danger */
   --danger-hover: #D96A3A;
   --danger-active: #C85A2A;
-  --danger-disabled: rgba(234, 123, 75, 0.4);
+  --danger-disabled: rgb(var(--danger-rgb) / 0.4);
 
   /* Info — hover/active for the canonical --info (#277A9D). Both stay darker
      than the base (5.69:1 and 6.75:1 on white, vs the base's 4.82:1) so the
@@ -224,17 +287,17 @@
      was, so these two values are deliberately left unchanged. */
   --info-hover: #236E8E;
   --info-active: #1D6280;
-  --info-disabled: rgba(39, 122, 157, 0.4);
+  --info-disabled: rgb(var(--info-rgb) / 0.4);
 
   /* Success */
   --success-hover: #5AB88D;
   --success-active: #4DA87C;
-  --success-disabled: rgba(103, 200, 158, 0.4);
+  --success-disabled: rgb(var(--success-rgb) / 0.4);
 
   /* Warning */
   --warning-hover: #E89545;
   --warning-active: #D18534;
-  --warning-disabled: rgba(255, 166, 86, 0.4);
+  --warning-disabled: rgb(var(--warning-rgb) / 0.4);
 
   /* ============================================
      FOCUS & ACCESSIBILITY

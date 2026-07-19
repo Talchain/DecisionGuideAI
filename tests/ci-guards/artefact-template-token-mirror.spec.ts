@@ -31,6 +31,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { resolveTokenHex } from '../../src/styles/channelTriple.mjs'
 
 const BRAND_CSS_PATH = join(__dirname, '../../src/styles/brand.css')
 const TEMPLATE_PATH = join(__dirname, '../../src/components/chat/artefactIframeTemplate.ts')
@@ -53,15 +54,18 @@ function templateTokens(): Array<[string, string]> {
  * some tokens as ALIASES rather than copies — `--primary: var(--info)` is the
  * whole point of D1 ("one value that cannot drift"). Comparing only literal
  * hexes would report every alias as UNCOMPARABLE, which is how this guard
- * would go blind on exactly the tokens that were made safe. Depth-limited so a
- * malformed cycle cannot hang the suite.
+ * would go blind on exactly the tokens that were made safe.
+ *
+ * It ALSO resolves the channel-triple form — `--danger-rgb: 234 123 75;
+ * --danger: rgb(var(--danger-rgb))` — which is what lets Tailwind emit
+ * opacity-modified utilities. Twelve of the fifteen tokens this template
+ * restates are declared that way now, so without this the guard would report
+ * all twelve as uncomparable and go blind on the exact drift it exists to
+ * catch. Resolution is delegated to the shared resolver rather than restated
+ * here, so all five brand.css parsers agree by construction.
  */
-function declared(token: string, depth = 0): string | null {
-  if (depth > 8) return null
-  const literal = brandCss.match(new RegExp(`^\\s*${token}:\\s*(#[0-9A-Fa-f]{3,8})\\s*;`, 'm'))
-  if (literal) return literal[1].toUpperCase()
-  const alias = brandCss.match(new RegExp(`^\\s*${token}:\\s*var\\((--[a-z0-9-]+)\\)\\s*;`, 'm'))
-  return alias ? declared(alias[1], depth + 1) : null
+function declared(token: string): string | null {
+  return resolveTokenHex(brandCss, token)
 }
 
 /**
@@ -103,6 +107,19 @@ describe('artefact iframe template mirrors brand.css', () => {
     // And it must be able to detect a divergence at all — assert against a
     // value brand.css definitely does not hold.
     expect(declared('--text-light')).not.toBe('#DEADBE')
+
+    // It must resolve the CHANNEL-TRIPLE form specifically, and to the right
+    // colour. Twelve of the fifteen tokens below are declared that way; a
+    // resolver that mis-assembled the channels would compare the template
+    // against a wrong-but-plausible hex and report drift that is not there —
+    // or worse, miss drift that is. Pinned to concrete values, and to the
+    // declaration form itself, so this cannot pass by resolving nothing.
+    expect(brandCss).toMatch(/--danger:\s*rgb\(var\(--danger-rgb\)\)/)
+    expect(declared('--danger')).toBe('#EA7B4B')
+    // `--primary: rgb(var(--primary-rgb))` where `--primary-rgb: var(--info-rgb)`
+    // — the triple form THROUGH an alias hop, which is the deepest chain here.
+    expect(declared('--primary')).toBe(declared('--info'))
+    expect(declared('--primary')).toBe('#277A9D')
   })
 
   it('every token the template restates matches brand.css', () => {
@@ -125,7 +142,8 @@ describe('artefact iframe template mirrors brand.css', () => {
     expect(
       unknownInBrand,
       `the template restates ${unknownInBrand.length} token(s) that brand.css does not ` +
-        `declare as a literal hex, so they cannot be compared:\n  ${unknownInBrand.join('\n  ')}`,
+        `resolve to a literal colour (literal hex, var() alias, or channel triple), ` +
+        `so they cannot be compared:\n  ${unknownInBrand.join('\n  ')}`,
     ).toEqual([])
 
     const added = found.filter((f) => !KNOWN_TEMPLATE_TOKEN_DRIFT.includes(f))

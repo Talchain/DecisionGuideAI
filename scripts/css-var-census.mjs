@@ -74,6 +74,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
+import { resolveChannelTriple } from '../src/styles/channelTriple.mjs'
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SRC = path.join(REPO_ROOT, 'src')
@@ -174,10 +175,34 @@ function collectDefinitions(cssFiles, scriptFiles, markupFiles) {
 }
 
 /**
+ * Read a token's first statically-known declared value out of the defs map.
+ * The lookup `resolveChannelTriple` needs to follow `--x-rgb` (and the one
+ * alias hop `--primary-rgb: var(--info-rgb)`).
+ */
+const tripleLookup = (defs) => (n) => (defs.get(n) ?? []).find((e) => e.value)?.value ?? null
+
+/**
+ * If `value` is the channel-triple colour form — `rgb(var(--info-rgb))`, with
+ * `--info-rgb: 39 122 157` — return the literal hex it resolves to.
+ *
+ * WHY THIS BRANCH EXISTS. Semantic colours are declared as their CHANNELS so
+ * that Tailwind can emit opacity-modified utilities (`border-info/30`), which
+ * previously emitted no rule at all. Without this the census would classify
+ * every one of them as "a compound var() expression" and report each hardcoded
+ * fallback against them as UNCOMPARABLE — which would quietly retire the
+ * fallback-drift pin on exactly the tokens most likely to be retinted. Shared
+ * with the four spec-side parsers so all five agree by construction.
+ */
+function channelTripleValue(value, defs) {
+  return resolveChannelTriple(value, tripleLookup(defs))
+}
+
+/**
  * The concrete value(s) a token resolves to, following at most ONE level of
- * `var()` indirection (`--text-primary: var(--text-header)`). Returns a list
- * of `{kind:'value'|'uncomparable'}` — a token declared twice (a theme
- * override) legitimately has more than one.
+ * `var()` indirection (`--text-primary: var(--text-header)`) plus the
+ * channel-triple form at either end of that hop. Returns a list of
+ * `{kind:'value'|'uncomparable'}` — a token declared twice (a theme override)
+ * legitimately has more than one.
  */
 function definitionValues(name, defs) {
   const out = []
@@ -194,12 +219,24 @@ function definitionValues(name, defs) {
         continue
       }
       for (const ie of inner) {
-        if (ie.value == null || ie.value === '' || /var\(/.test(ie.value)) {
+        // `--sky-500: var(--info)` where `--info: rgb(var(--info-rgb))` — the
+        // triple sits one hop away, so try it before giving up on the chain.
+        const viaTriple = ie.value ? channelTripleValue(ie.value, defs) : null
+        if (viaTriple) {
+          out.push({ kind: 'value', value: viaTriple, via: `${name} → ${indirect[1]} (${ie.at})` })
+        } else if (ie.value == null || ie.value === '' || /var\(/.test(ie.value)) {
           out.push({ kind: 'uncomparable', reason: `${name} → ${indirect[1]} needs more than one level of indirection` })
         } else {
           out.push({ kind: 'value', value: ie.value, via: `${name} → ${indirect[1]} (${ie.at})` })
         }
       }
+      continue
+    }
+    // `--info: rgb(var(--info-rgb))` — a compound var() expression that IS
+    // statically resolvable, so it must not be written off as one that is not.
+    const triple = channelTripleValue(entry.value, defs)
+    if (triple) {
+      out.push({ kind: 'value', value: triple, via: `${name} (${entry.at})` })
       continue
     }
     if (/var\(/.test(entry.value)) {

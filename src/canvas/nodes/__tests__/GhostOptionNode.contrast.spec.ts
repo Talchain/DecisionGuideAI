@@ -33,6 +33,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { resolveTokenHex } from '../../../styles/channelTriple.mjs'
 
 const WCAG_NON_TEXT_MIN = 3
 
@@ -55,11 +56,20 @@ function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05)
 }
 
-/** Declared value of a `--token` at :root in brand.css. */
+/**
+ * Declared colour of a `--token` at :root in brand.css.
+ *
+ * Delegated to the shared resolver so this guard reads brand.css identically
+ * to the other four parsers. It understands the channel-triple form
+ * (`--bg-panel-rgb: 254 254 254; --bg-panel: rgb(var(--bg-panel-rgb))`), which
+ * is what allows Tailwind to emit opacity-modified utilities; a literal-hex-only
+ * regex went red the moment that landed. Still throws on anything it cannot
+ * resolve, so no assertion below can go vacuous.
+ */
 function declared(token: string): string {
-  const m = brandCss.match(new RegExp(`^\\s*${token}:\\s*(#[0-9A-Fa-f]{3,8})\\s*;`, 'm'))
-  if (!m) throw new Error(`${token} is not declared with a literal hex in brand.css`)
-  return m[1]
+  const hex = resolveTokenHex(brandCss, token)
+  if (!hex) throw new Error(`${token} does not resolve to a literal colour in brand.css`)
+  return hex
 }
 
 /** The outline's `var(--token, #fallback)`, parsed out of the component. */

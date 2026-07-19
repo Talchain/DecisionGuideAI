@@ -31,8 +31,31 @@ const CHART_CLASS_EXPECTATIONS: ReadonlyArray<{ cls: string; property: string }>
   { cls: HERO_TOKEN_BORDER, property: 'border-color' },
 ]
 
-/** Known-broken modifier forms, pinned so the workaround is revisited if the theme ever becomes alpha-capable. */
-const KNOWN_NON_COMPILING = ['bg-option/40', 'bg-primary/50', 'border-option/40']
+/**
+ * The three modifier forms this chart originally used, and which silently
+ * compiled to NOTHING — the cause of the invisible-range-bars defect.
+ *
+ * They COMPILE NOW. The theme moved to alpha-capable
+ * `rgb(var(--x-rgb) / <alpha-value>)` colours, which is the exact condition
+ * the previous version of this pin named as its trigger:
+ *
+ *     "If this ever starts failing (the classes begin to compile — e.g. the
+ *      theme moves to alpha-capable rgb(var(--x) / <alpha-value>) colours),
+ *      the solid light-token workaround can be revisited"
+ *
+ * That tripwire fired exactly as designed, and this is it being answered. The
+ * assertion is INVERTED rather than deleted, so it stays bidirectional: if the
+ * theme ever regresses to bare `var(--x)`, these go red again instead of the
+ * defect returning unnoticed.
+ *
+ * THE WORKAROUND IS DELIBERATELY LEFT IN PLACE. `HERO_BAR_FILL` still uses
+ * solid `-light` tokens (with two `brand-tokens/no-bare-light-bg` eslint
+ * exceptions, issue 222). Reverting it to `/40` and `/50` would visibly change
+ * this chart's fills, which is a design ruling and not this change's to make —
+ * this change only removes the technical obstacle that forced the workaround.
+ * Revisiting it is now unblocked.
+ */
+const PREVIOUSLY_NON_COMPILING = ['bg-option/40', 'bg-primary/50', 'border-option/40']
 
 /**
  * Boundary-anchored selector matcher: `.cls` not followed by a word char or
@@ -59,7 +82,7 @@ beforeAll(async () => {
         {
           raw: `<div class="${[
             ...CHART_CLASS_EXPECTATIONS.map((e) => e.cls),
-            ...KNOWN_NON_COMPILING,
+            ...PREVIOUSLY_NON_COMPILING,
           ].join(' ')}"></div>`,
           extension: 'html',
         },
@@ -86,16 +109,28 @@ describe('hero chart classes compile against the real Tailwind config', () => {
     }
   })
 
-  it('documents the defect class: opacity modifiers on these theme colours do NOT compile', () => {
-    // If this ever starts failing (the classes begin to compile — e.g. the
-    // theme moves to alpha-capable `rgb(var(--x) / <alpha-value>)` colours),
-    // the solid light-token workaround can be revisited — until then, any
-    // `/NN` modifier on option/primary is an invisible no-op, not a style.
-    for (const cls of KNOWN_NON_COMPILING) {
+  it('opacity modifiers on these theme colours now compile (the defect that caused invisible bars)', () => {
+    // The inversion of the original pin. These three classes emitted no rule
+    // at all, so the bar had geometry and animation but no background. They
+    // must now emit, AND carry a real alpha — a rule that compiled but ignored
+    // the modifier would render identically to the broken behaviour.
+    for (const cls of PREVIOUSLY_NON_COMPILING) {
+      const match = css.match(selectorPattern(cls))
       expect(
-        css.match(selectorPattern(cls)),
-        `"${cls}" unexpectedly compiled — the alpha-capability assumption changed`,
-      ).toBeNull()
+        match,
+        `"${cls}" compiled to nothing — the theme has regressed to a colour form that ` +
+          `cannot take an opacity modifier, which is the invisible-styling defect class ` +
+          `this suite exists for.`,
+      ).not.toBeNull()
+
+      const start = match!.index!
+      const body = css.slice(start, css.indexOf('}', start))
+      const alpha = cls.split('/')[1]
+      expect(
+        body,
+        `"${cls}" emitted a rule but without its ${alpha}% alpha — it would look ` +
+          `identical to the un-emitted case on screen.`,
+      ).toMatch(/\/\s*0?\.\d+\)/)
     }
   })
 })

@@ -40,6 +40,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { resolveTokenHex } from '../../src/styles/channelTriple.mjs'
 
 /** SC 1.4.3 — normal-size text. Large text (>=24px / >=18.66px bold) may use 3:1. */
 const WCAG_TEXT_MIN = 4.5
@@ -75,11 +76,23 @@ function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05)
 }
 
-/** Declared value of a `--token` at :root in brand.css. Throws rather than defaulting. */
+/**
+ * Declared colour of a `--token` at :root in brand.css. Throws rather than
+ * defaulting.
+ *
+ * Resolution is delegated to the SHARED resolver so this guard understands
+ * exactly the same declaration forms as the other four brand.css parsers —
+ * literal hex, `var()` alias, and the channel-triple form
+ * (`--text-light-rgb: 110 107 107; --text-light: rgb(var(--text-light-rgb))`)
+ * that lets Tailwind emit opacity-modified utilities. This guard previously
+ * matched a literal hex only, so it went red the moment the triple landed:
+ * fail-loud, exactly as designed. Teaching it the form does NOT relax it —
+ * an unresolvable token still throws, and the ratios are still computed.
+ */
 function declared(token: string): string {
-  const m = brandCss.match(new RegExp(`^\\s*${token}:\\s*(#[0-9A-Fa-f]{3,8})\\s*;`, 'm'))
-  if (!m) throw new Error(`${token} is not declared with a literal hex in src/styles/brand.css`)
-  return m[1]
+  const hex = resolveTokenHex(brandCss, token)
+  if (!hex) throw new Error(`${token} does not resolve to a literal colour in src/styles/brand.css`)
+  return hex
 }
 
 /** Every ground `--text-light` is painted on as TEXT, worst case included. */
@@ -104,6 +117,15 @@ describe('--text-light is a legal text colour (WCAG SC 1.4.3)', () => {
     // 3. The parser must actually be reading brand.css, not silently
     //    defaulting: an undeclared token throws rather than returning a value.
     expect(() => declared('--token-that-does-not-exist')).toThrow()
+
+    // 4. The channel-triple form must resolve to the SAME colour the literal
+    //    hex used to declare. `--text-light` is declared as
+    //    `rgb(var(--text-light-rgb))` now; if the resolver mis-assembled the
+    //    channels, every ratio below would be measured against the wrong
+    //    colour and would still look like a pass. This is the one assertion
+    //    that pins the new declaration form to a concrete value.
+    expect(declared('--text-light')).toBe('#6E6B6B')
+    expect(brandCss).toMatch(/--text-light:\s*rgb\(var\(--text-light-rgb\)\)/)
   })
 
   it.each(GROUNDS)('clears 4.5:1 on %s', (ground) => {
