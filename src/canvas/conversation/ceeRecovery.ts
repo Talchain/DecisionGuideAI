@@ -211,8 +211,8 @@ export function buildFailureRender(buildBase: FailureBaseBuilder, err: unknown):
  *
  * We deliberately do NOT rewrite producer prose — no en-dash substitution, no
  * -ize/-ise mapping, no case fixing. Any such rewrite is lossy on inputs it
- * cannot distinguish: an em dash inside a quoted user brief, "analyze" inside
- * a field name or a quoted identifier, a proper noun that must stay
+ * cannot distinguish: an em dash inside a quoted user brief, a wire field name
+ * like `analyze_sentiment` or a quoted identifier, a proper noun that must stay
  * capitalised. Corrupting a correct suggestion is worse than passing through
  * a stylistically off one, because the suggestion is the *only* specific
  * guidance the user gets on a non-retryable failure.
