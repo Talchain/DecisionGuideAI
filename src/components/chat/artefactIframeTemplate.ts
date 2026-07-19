@@ -20,6 +20,15 @@ const TEMPLATE_PREFIX = `<!DOCTYPE html>
       --border-default: #EEE6D8;
       --text-header: #262626;
       --text-body: #3F3F3E;
+      /* Literal, deliberately: this is the iframe-local DEFINITION of
+         --text-light, not a reference to the parent document's. Custom
+         properties do not cross a document boundary, so a var() here would
+         resolve to nothing and artefact body copy would silently lose its
+         colour. Held equal to brand.css by
+         artefact-template-token-mirror.spec.ts and pinned as WCAG-legal by
+         text-light-contrast.spec.ts, so the raw hex is recorded as a
+         deliberate exception in tools/ci-guards/ds-compliance-baseline.json
+         rather than tokenised. */
       --text-light: #6E6B6B;
       --primary: #277A9D;
       --primary-hover: #67C89E;
