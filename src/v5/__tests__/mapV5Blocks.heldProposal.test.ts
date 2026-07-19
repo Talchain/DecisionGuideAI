@@ -12,7 +12,7 @@
  * cannot drift.
  */
 import { describe, it, expect } from 'vitest'
-import { mapV5Block } from '../blocks/mapV5Blocks'
+import { mapV5Block, mapV5Blocks } from '../blocks/mapV5Blocks'
 import type { OlumiResponse } from '@talchain/schemas/boundary'
 
 type HeldProposalWire = Extract<OlumiResponse['blocks'][number], { type: 'held_proposal' }>
@@ -88,6 +88,16 @@ describe('mapV5Block — held_proposal → v5_held_proposal (R8)', () => {
     // suggested_actions (drift/corruption) — never crash, never vanish.
     const mapped = mapV5Block(heldBlock(), [])
     expect(mapped).toMatchObject({ type: 'v5_unsupported', blockType: 'held_proposal' })
+  })
+
+  it('degrades (never throws) when suggested_actions is null, not just undefined', () => {
+    // The `= []` default only covers undefined. A null must not take the whole
+    // mapper down via `.find()` — it degrades to the R7 unsupported card.
+    const nullActions = null as unknown as undefined
+    expect(() => mapV5Blocks([heldBlock()], nullActions)).not.toThrow()
+    expect(mapV5Blocks([heldBlock()], nullActions)).toMatchObject([
+      { type: 'v5_unsupported', blockType: 'held_proposal' },
+    ])
   })
 
   it('carries only render-relevant fields (wire-only fields are not forwarded)', () => {

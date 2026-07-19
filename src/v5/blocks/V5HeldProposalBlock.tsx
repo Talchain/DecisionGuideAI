@@ -31,8 +31,11 @@
  * Lucide only, typography tokens, British English, no em dashes.
  *
  * Fail-closed: `_sendChip` unavailable (no conversation host registered) → the
- * confirm click is a safe no-op. Malformed blocks never reach here — the
- * mapper degrades an unresolvable confirm ref to the R7 unsupported card.
+ * confirm click is a safe no-op AND the card does not acknowledge, because
+ * nothing was sent; the affordance stays live so the user can confirm once a
+ * host registers. Malformed blocks never reach here — the mapper degrades an
+ * unresolvable confirm ref to the R7 unsupported card. Unknown `reason_code`
+ * values degrade to the generic held sentence, never the raw code.
  */
 import { type ReactElement, useCallback, useState } from 'react'
 import { Hand } from 'lucide-react'
@@ -70,11 +73,21 @@ export function V5HeldProposalBlock({ block }: V5HeldProposalBlockProps): ReactE
 
   const { confirm, decline } = block
 
+  /** Visible dismiss text: the producer's decline label when CEE emits one. */
+  const dismissLabel = decline ? decline.label : HELD_PROPOSAL_DISMISS_LABEL
+
   const handleConfirm = useCallback(() => {
     if (settled) return
+    // Fail closed WITHOUT acknowledging: with no conversation host registered
+    // there is nothing to send, and "Sent for you to apply." would be a false
+    // claim. Return early so the affordance stays live and the user can confirm
+    // once a host registers (the EvidenceBlock "Apply to model" precedent —
+    // InlineBlocks `if (!sendChip) return`). Re-firing is already bounded by the
+    // `settled` guard above on the success path.
+    if (!sendChip) return
     // Single-writer apply path: send the producer's confirm message as a turn;
     // CEE applies the held mutation server-side. No client-minted mutation.
-    sendChip?.(confirm.label, confirm.message)
+    sendChip(confirm.label, confirm.message)
     setSettled('accepted')
   }, [settled, sendChip, confirm.label, confirm.message])
 
@@ -127,11 +140,16 @@ export function V5HeldProposalBlock({ block }: V5HeldProposalBlockProps): ReactE
           <button
             type="button"
             onClick={handleDismiss}
-            aria-label="Dismiss this proposed change"
+            // WCAG 2.5.3 "Label in Name": the accessible name must CONTAIN the
+            // visible label, or speech input cannot activate the control by its
+            // visible words. Built with the ratified SuggestedChips construction
+            // (`${prefix}: ${label}`), so it holds for the producer's decline
+            // label too, not just the UI-owned default.
+            aria-label={`Dismiss: ${dismissLabel}`}
             className={CHIP_CLASS}
             data-testid="v5-held-proposal-dismiss"
           >
-            {decline ? decline.label : HELD_PROPOSAL_DISMISS_LABEL}
+            {dismissLabel}
           </button>
         </div>
       ) : (

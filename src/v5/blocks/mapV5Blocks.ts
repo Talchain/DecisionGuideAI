@@ -230,9 +230,15 @@ export function mapV5Blocks(
   blocks: V5Block[],
   suggestedActions: readonly SuggestedActionRef[] = [],
 ): ConversationBlock[] {
+  // The `= []` default only covers `undefined`. A null (schema drift, or a
+  // caller bypassing the parser) would make the held_proposal branch's
+  // `.find()` throw and take the WHOLE mapper down. Normalise so an absent or
+  // malformed actions list degrades the held card to the R7 unsupported
+  // placeholder — the same fail-closed route as an unresolvable confirm ref.
+  const actions = Array.isArray(suggestedActions) ? suggestedActions : []
   const out: ConversationBlock[] = []
   for (const b of blocks) {
-    const mapped = mapV5Block(b, suggestedActions)
+    const mapped = mapV5Block(b, actions)
     if (mapped) out.push(mapped)
   }
   return out
