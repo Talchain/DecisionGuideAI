@@ -290,7 +290,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             style={{
               width: 34, height: 34, borderRadius: '50%',
               marginBottom: 2, background: 'transparent',
-              border: 'none', color: 'var(--text-light, #908D8D)', cursor: 'pointer',
+              border: 'none', color: 'var(--text-light, #706D6D)', cursor: 'pointer',
               transition: 'all 150ms',
             }}
             data-testid="composer-attach-button"
@@ -306,7 +306,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             style={{
               width: 34, height: 34, borderRadius: '50%',
               marginBottom: 2, background: 'transparent',
-              border: 'none', color: 'var(--text-light, #908D8D)',
+              border: 'none', color: 'var(--text-light, #706D6D)',
               cursor: 'not-allowed', opacity: 0.5, transition: 'all 150ms',
             }}
             data-testid="composer-voice-button"
@@ -328,7 +328,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
                 marginBottom: 2,
                 background: 'transparent',
                 border: 'none',
-                color: 'var(--text-light, #908D8D)',
+                color: 'var(--text-light, #706D6D)',
                 cursor: runDisabled ? 'not-allowed' : 'pointer',
                 opacity: runDisabled ? 0.5 : 1,
                 transition: 'all 150ms',
@@ -418,7 +418,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
               <ArrowUp
                 className="w-[15px] h-[15px]"
                 strokeWidth={2.2}
-                style={{ stroke: composer.canSend ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #908D8D)' }}
+                style={{ stroke: composer.canSend ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #706D6D)' }}
                 aria-hidden="true"
               />
             </button>
@@ -478,7 +478,7 @@ function InlineGenerateButton({ state, onClick }: { state: GenerateState; onClic
         transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
         background: (isActive || isLoading) ? 'var(--primary, #2B7FA2)' : 'transparent',
         border: (isActive || isLoading) ? 'none' : '1px solid rgba(176,168,153,0.3)',
-        color: (isActive || isLoading) ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #908D8D)',
+        color: (isActive || isLoading) ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #706D6D)',
         boxShadow: (isActive || isLoading) ? '0 1px 2px rgba(38,38,38,0.06)' : 'none',
         opacity: (isActive || isLoading) ? 1 : 0.55,
         cursor: isActive ? 'pointer' : isLoading ? 'wait' : 'default',
@@ -495,7 +495,7 @@ function InlineGenerateButton({ state, onClick }: { state: GenerateState; onClic
         <Play
           className="w-[11px] h-[11px] flex-shrink-0"
           strokeWidth={2}
-          style={{ stroke: isActive ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #908D8D)' }}
+          style={{ stroke: isActive ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #706D6D)' }}
           aria-hidden="true"
         />
       )}

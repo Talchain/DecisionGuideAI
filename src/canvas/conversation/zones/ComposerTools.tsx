@@ -118,7 +118,7 @@ export function ComposerTools({
           marginBottom: 2,
           background: 'transparent',
           border: '1px solid var(--border-default, #EEE6D8)',
-          color: 'var(--text-light, #908D8D)',
+          color: 'var(--text-light, #706D6D)',
           cursor: 'pointer',
           transition: 'all 150ms',
         }}

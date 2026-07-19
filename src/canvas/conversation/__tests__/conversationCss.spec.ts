@@ -155,7 +155,7 @@ describe('index.css — olumi scrollbar utility', () => {
     expect(css).toContain('width: 4px')
     expect(css).toContain('height: 4px')
     expect(css).toContain('var(--border-default, #EEE6D8)')
-    expect(css).toContain('var(--text-light, #908D8D)')
+    expect(css).toContain('var(--text-light, #706D6D)')
   })
 
   it('is applied to the AI thread and right-hand panel sources', () => {

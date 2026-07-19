@@ -20,7 +20,7 @@ const TEMPLATE_PREFIX = `<!DOCTYPE html>
       --border-default: #EEE6D8;
       --text-header: #262626;
       --text-body: #3F3F3E;
-      --text-light: #908D8D;
+      --text-light: #706D6D;
       --primary: #2B7FA2;
       --primary-hover: #67C89E;
       --danger: #EA7B4B;

@@ -32,14 +32,25 @@ export const GhostOptionNode = memo((_props: NodeProps) => {
         // first opaque ancestor, with accumulated opacity 1.0 through the whole
         // react-flow chain. --text-body clears 3:1 on both (10.45:1 / 9.29:1).
         //
-        // It is louder than a ghost ideally wants. Every quieter token either
-        // fails 3:1 (--text-light #908D8D is 3.26 on the fill but 2.90 on the
-        // canvas) or collides with a neighbouring canvas state: --danger-hover
-        // sits ΔE2000 5.3 from the --danger risk border, --info-hover 19.5 from
-        // the --info focus/AI-highlight ring. A NEUTRAL is also the correct
-        // three-channel choice — every semantic token would make a health claim
-        // this placeholder cannot support. The palette has no quiet neutral
-        // between #908D8D and #3F3F3E; closing that gap is a brand.css decision.
+        // It is louder than a ghost ideally wants. The quieter tokens either
+        // collide with a neighbouring canvas state — --danger-hover sits ΔE2000
+        // 5.3 from the --danger risk border, --info-hover 19.5 from the --info
+        // focus/AI-highlight ring — or, historically, failed 3:1. A NEUTRAL is
+        // also the correct three-channel choice: every semantic token would
+        // make a health claim this placeholder cannot support.
+        //
+        // ⚠ THE CONSTRAINT THAT PICKED --text-body HAS SINCE BEEN LIFTED, and
+        // this comment used to assert it as still-true. --text-light was
+        // rejected here because at #908D8D it measured 3.26 on the fill and
+        // 2.90 on the canvas — a 3:1 failure. It was retinted to #706D6D on
+        // WCAG 1.4.3 grounds (it was not a legal TEXT colour at any size), and
+        // now measures 5.08 / 4.51 — it clears 3:1 on both adjacent colours
+        // with room to spare, and is exactly the "quiet neutral" this comment
+        // says the palette lacks. Quieting this outline to --text-light is
+        // therefore now AVAILABLE. It is deliberately NOT taken in the retint
+        // PR: that change alters this affordance's appearance and wants its
+        // own review, not a free ride on a token edit. Whoever takes it must
+        // re-measure both grounds here rather than trusting this note.
         //
         // Quietness is carried by the dashed 1.5px stroke, not by hue. Note the
         // incomplete-node border is ALSO dashed (2px --warning #FFA656), so hue

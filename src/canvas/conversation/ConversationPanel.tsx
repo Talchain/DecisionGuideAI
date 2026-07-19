@@ -614,7 +614,7 @@ export const ConversationPanel = memo(function ConversationPanel({
             width: 28, height: 28,
             background: 'transparent',
             border: 'none',
-            color: 'var(--text-light, #908D8D)',
+            color: 'var(--text-light, #706D6D)',
             cursor: 'pointer',
             transition: 'all 150ms',
           }}

@@ -40,7 +40,7 @@
 }
 
 .headerCollapseIcon {
-  color: var(--text-light, #908D8D);
+  color: var(--text-light, #706D6D);
   flex-shrink: 0;
 }
 
@@ -60,7 +60,7 @@
 
 .headerDescription {
   font-size: 12px;
-  color: var(--text-light, #908D8D);
+  color: var(--text-light, #706D6D);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -74,7 +74,7 @@
   width: 28px;
   height: 28px;
   border-radius: 6px;
-  color: var(--text-light, #908D8D);
+  color: var(--text-light, #706D6D);
   cursor: pointer;
   flex-shrink: 0;
   transition: background 150ms, color 150ms;
@@ -194,7 +194,7 @@
   width: 32px;
   height: 32px;
   border-radius: 6px;
-  color: var(--text-light, #908D8D);
+  color: var(--text-light, #706D6D);
   cursor: pointer;
   transition: background 150ms, color 150ms;
 }

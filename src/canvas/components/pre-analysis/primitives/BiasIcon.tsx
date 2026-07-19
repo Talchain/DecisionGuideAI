@@ -7,7 +7,7 @@
  * - Confidence (Gauge icon): AI-estimated value (source === 'cee_inference')
  * - Blind spots (EyeOff icon): No constraints, no risks, or no negative edges
  *
- * Always rendered in #908D8D (text-light).
+ * Always rendered in #706D6D (text-light).
  * Tooltip on hover: "{plain-English why} · {Bias category name}"
  */
 

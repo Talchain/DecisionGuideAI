@@ -22,7 +22,20 @@
   /* Text Colors */
   --text-header: #262626;
   --text-body: #3F3F3E;
-  --text-light: #908D8D;
+  /* Muted / meta text.
+     A11y: this was #908D8D, which was NOT a legal text colour at any size —
+     3.26:1 on --bg-panel and 2.90:1 on --bg-canvas against SC 1.4.3's 4.5:1,
+     with zero of its ~785 live sites qualifying for the large-text exemption
+     (that needs >=24px, or >=18.66px bold; the largest muted site is 20px).
+     Retinted to #706D6D: 5.08:1 on --bg-panel, 4.51:1 on --bg-canvas — the
+     LIGHTEST value preserving this token's warm cast (R = G+3, B = G) that
+     clears 4.5:1 on both real grounds, so it stays as muted as the law allows.
+     The canvas margin is thin by construction (4.51 vs 4.50). Darkening
+     --bg-canvas, or lightening this token, breaks SC 1.4.3 — and
+     tests/ci-guards/text-light-contrast.spec.ts DERIVES both sides from this
+     file and will go red if either moves. Do not hand-edit this value without
+     re-running that guard. */
+  --text-light: #706D6D;
   --text-on-color: #FFFFFF;
 
   /* Legacy aliases (for gradual migration) */

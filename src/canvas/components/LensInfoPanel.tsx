@@ -46,7 +46,7 @@ function CausalPanel() {
       <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
         Causal model
       </div>
-      <div style={{ fontSize: 11, color: 'var(--text-light, #908D8D)', lineHeight: 1.5 }}>
+      <div style={{ fontSize: 11, color: 'var(--text-light, #706D6D)', lineHeight: 1.5 }}>
         Showing the causal model used for inference.{' '}
         {variableCount} variable{variableCount !== 1 ? 's' : ''},{' '}
         {causalEdgeCount} causal edge{causalEdgeCount !== 1 ? 's' : ''}.{' '}
@@ -68,7 +68,7 @@ function CausalPanel() {
         <div className="mt-2 max-h-[200px] overflow-y-auto" style={{ fontSize: 11, fontFamily: 'ui-monospace, monospace' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ color: 'var(--text-light, #908D8D)', textAlign: 'left' }}>
+              <tr style={{ color: 'var(--text-light, #706D6D)', textAlign: 'left' }}>
                 <th style={{ padding: '2px 4px' }}>From</th>
                 <th style={{ padding: '2px 4px' }}>To</th>
                 <th style={{ padding: '2px 4px' }}>Mean</th>
@@ -82,8 +82,8 @@ function CausalPanel() {
                   <td style={{ padding: '2px 4px', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.from}>{r.from}</td>
                   <td style={{ padding: '2px 4px', maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.to}>{r.to}</td>
                   <td style={{ padding: '2px 4px' }}>{r.mean >= 0 ? '+' : ''}{r.mean.toFixed(2)}</td>
-                  <td style={{ padding: '2px 4px', color: r.std === null ? 'var(--text-light, #908D8D)' : undefined }}>{r.std !== null ? r.std.toFixed(2) : '\u2014'}</td>
-                  <td style={{ padding: '2px 4px', color: r.existsProb === null ? 'var(--text-light, #908D8D)' : undefined }}>{r.existsProb !== null ? `${Math.round(r.existsProb * 100)}%` : '\u2014'}</td>
+                  <td style={{ padding: '2px 4px', color: r.std === null ? 'var(--text-light, #706D6D)' : undefined }}>{r.std !== null ? r.std.toFixed(2) : '\u2014'}</td>
+                  <td style={{ padding: '2px 4px', color: r.existsProb === null ? 'var(--text-light, #706D6D)' : undefined }}>{r.existsProb !== null ? `${Math.round(r.existsProb * 100)}%` : '\u2014'}</td>
                 </tr>
               ))}
             </tbody>
@@ -124,7 +124,7 @@ function EvidencePanel() {
       <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
         Evidence quality
       </div>
-      <div style={{ fontSize: 11, color: 'var(--text-light, #908D8D)', lineHeight: 1.5 }}>
+      <div style={{ fontSize: 11, color: 'var(--text-light, #706D6D)', lineHeight: 1.5 }}>
         {nodeCounts.grounded} of {nodeCounts.total} factor{nodeCounts.total !== 1 ? 's' : ''} have evidence.{' '}
         {assumedEdgeCount} edge{assumedEdgeCount !== 1 ? 's are' : ' is'} model-assumed.
       </div>
@@ -191,7 +191,7 @@ function RobustnessPanel() {
       <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
         Robustness
       </div>
-      <div style={{ fontSize: 11, color: 'var(--text-light, #908D8D)', lineHeight: 1.5 }}>
+      <div style={{ fontSize: 11, color: 'var(--text-light, #706D6D)', lineHeight: 1.5 }}>
         {stability !== null && (
           <>Recommendation stability: {stability}%. </>
         )}

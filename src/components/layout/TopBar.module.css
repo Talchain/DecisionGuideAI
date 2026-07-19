@@ -81,7 +81,7 @@
 }
 
 .chevronIcon {
-  color: var(--text-light, #908D8D);
+  color: var(--text-light, #706D6D);
   transition: transform 150ms;
 }
 
@@ -274,7 +274,7 @@
 }
 
 .dropdownMenuButton svg {
-  color: var(--text-light, #908D8D);
+  color: var(--text-light, #706D6D);
   flex-shrink: 0;
 }
 
@@ -288,7 +288,7 @@
   padding: 8px 10px 4px;
   font-size: 12px;
   font-weight: 500;
-  color: var(--text-light, #908D8D);
+  color: var(--text-light, #706D6D);
 }
 
 /* Canvas settings (flattened in kebab menu) */
@@ -336,7 +336,7 @@
   display: flex;
   justify-content: space-between;
   font-size: 10px;
-  color: var(--text-light, #908D8D);
+  color: var(--text-light, #706D6D);
 }
 
 /* A.15: Stage lifecycle pill — true pill shape (999px radius, 2px border) */
@@ -387,7 +387,7 @@
   flex-shrink: 0;
   width: 14px;
   height: 14px;
-  color: var(--text-light, #908D8D);
+  color: var(--text-light, #706D6D);
 }
 
 .metadataLabel {
