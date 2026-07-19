@@ -93,7 +93,7 @@
   font-size: 14px;
   font-weight: 400;
   padding: 4px 8px;
-  border: 2px solid var(--info, #2B7FA2);
+  border: 2px solid var(--info, #277A9D);
   border-radius: 6px;
   background: white;
   max-width: 200px;
@@ -310,7 +310,7 @@
 .settingsCheckbox {
   width: 14px;
   height: 14px;
-  accent-color: var(--info, #2B7FA2);
+  accent-color: var(--info, #277A9D);
   cursor: pointer;
 }
 
@@ -328,7 +328,7 @@
   height: 4px;
   border-radius: 2px;
   background: var(--border-default, #EEE6D8);
-  accent-color: var(--info, #2B7FA2);
+  accent-color: var(--info, #277A9D);
   cursor: pointer;
 }
 
@@ -406,13 +406,13 @@
 }
 
 .metadataChip[data-status="running"] {
-  border-color: var(--info, #2B7FA2);
+  border-color: var(--info, #277A9D);
   background: var(--info-light, #BAD7E4);
   color: var(--text-header, #262626);
 }
 
 .metadataChip[data-status="running"] svg {
-  color: var(--info, #2B7FA2);
+  color: var(--info, #277A9D);
 }
 
 .metadataChip[data-status="error"] {

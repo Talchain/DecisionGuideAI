@@ -71,34 +71,65 @@
      SEMANTIC COLORS (Two-Shade System)
      Each has: Main (text/icons) + Light (backgrounds)
      Borders: Use main color at 30% opacity
+
+     EXACTLY TWO SHADES. There is no third "-bg" tint (D2, DS delta audit
+     2026-07-16). --danger-bg/--success-bg/--info-bg/--warning-bg used to
+     exist here, undocumented and contradicting the ratified two-shade law.
+     They were barely perceptible (1.04–1.07:1 against the panel ground) and
+     duplicated the documented recipe. For a tinted container use:
+         bg-panel  +  border-{colour}/30
      ============================================ */
 
   /* Danger / Risk / Critical (Red) */
   --danger: #EA7B4B;
   --danger-light: #FFB393;
-  --danger-bg: #FFF5F0;
   /* Border: rgba(234, 123, 75, 0.3) */
 
   /* Success / Outcome / Positive (Green) */
   --success: #67C89E;
   --success-light: #B8E2D0;
-  --success-bg: #F0FAF5;
   /* Border: rgba(103, 200, 158, 0.3) */
 
   /* Info / Decision / Navigation (Blue)
-     A11y: #52A3C8 fails WCAG AA 3:1 UI-component contrast on white (computes
-     to 2.83:1). A compliant replacement is pending a product colour decision
-     — see ROADMAP 1.51. Do not re-claim compliance here until that lands.
+     CANONICAL VALUE — #277A9D is the single source of truth for info blue and
+     is aliased by --primary, --sky-500, --semantic-info, --focus-color,
+     --link-color and --chart-1. Do not introduce a second value: this token
+     previously carried THREE documented values (#52A3C8 here, #2B7FA2 in
+     DESIGN_SYSTEM.md, #63ADCF in the v5 spec), which is why the quick-ref
+     colour table could not be trusted.
+
+     A11y (ROADMAP 1.51). MEASURE AGAINST THE GROUND THE TEXT IS PAINTED ON,
+     NOT AGAINST WHITE. The first attempt at this fix chose #2B7FA2 because it
+     computes to 4.51:1 on pure #FFFFFF — but almost nothing in this product is
+     painted on pure white. On --bg-panel (#FEFEFE), the surface info-blue text
+     overwhelmingly DOES sit on, #2B7FA2 computed to 4.47:1, and on
+     --bg-panel-hover (#FEF9F3) to 4.30:1. It failed SC 1.4.3 on both. A 0.03
+     miss that measuring against white cannot see.
+
+     #277A9D clears 4.5:1 on every ground where --info is used as TEXT:
+         #FFFFFF pure white ................ 4.82:1
+         --bg-panel      #FEFEFE ........... 4.78:1
+         bg-panel/95 over canvas #FDFDFD ... 4.74:1   (dock, edge labels)
+         --bg-panel-hover #FEF9F3 .......... 4.60:1   <- the binding ground
+     On --bg-canvas (#F4F0EA) it computes to 4.25:1. That ground is deliberately
+     held to the 3:1 SC 1.4.11 bar, not 4.5:1: info blue is never used as TEXT
+     on the canvas. The only info-blue on the raw canvas ground is non-text
+     glyphs — the AuthGuard/AuthCallback spinners, the StarterDecisions arrow
+     and the selected-edge arrowhead — all of which are UI components. Forcing
+     4.5:1 there would darken the brand blue by roughly twice as much for no
+     text-legibility gain.
+
+     The ratios are RECOMPUTED from this token against the ground tokens, never
+     hardcoded, in src/styles/__tests__/brand-tokens.spec.ts — that test fails
+     if this value, or any of those ground tokens, moves below AA.
      Light shade kept for canvas node fills and selection backgrounds. */
-  --info: #52A3C8;
+  --info: #277A9D;
   --info-light: #BAD7E4;
-  --info-bg: #F0F7FB;
-  /* Border: rgba(82, 163, 200, 0.3) */
+  /* Border: rgba(39, 122, 157, 0.3) */
 
   /* Warning (Orange) - Separate from Danger */
   --warning: #FFA656;
   --warning-light: #FCC798;
-  --warning-bg: #FFF8F0;
   /* Border: rgba(255, 166, 86, 0.3) */
 
   /* Border emphasis (stronger than --border-default) */
@@ -171,21 +202,29 @@
      (Derived from main colors)
      ============================================ */
 
-  /* Primary (Info Blue — v5 §3.10: hover shifts to success green "ready to act") */
-  --primary: #52A3C8;
+  /* Primary (Info Blue — v5 §3.10: hover shifts to success green "ready to act")
+     --primary is the canonical info blue; --primary-hover/-active are the
+     DELIBERATE green shift documented in v5 §3.10 and are left unchanged. */
+  --primary: var(--info);
   --primary-hover: #67C89E;
   --primary-active: #5AA88A;
-  --primary-disabled: rgba(82, 163, 200, 0.4);
+  --primary-disabled: rgba(39, 122, 157, 0.4);
 
   /* Danger */
   --danger-hover: #D96A3A;
   --danger-active: #C85A2A;
   --danger-disabled: rgba(234, 123, 75, 0.4);
 
-  /* Info — derived from updated --info (#52A3C8) */
+  /* Info — hover/active for the canonical --info (#277A9D). Both stay darker
+     than the base (5.69:1 and 6.75:1 on white, vs the base's 4.82:1) so the
+     progression still reads in the right direction. Darkening the base to
+     #277A9D compressed the base->hover step from 6.33 to 4.45 ΔE2000, which
+     leaves it above the ~2.3 just-noticeable threshold AND very close to the
+     hover->active step (4.23) — the ramp is now more evenly spaced than it
+     was, so these two values are deliberately left unchanged. */
   --info-hover: #236E8E;
   --info-active: #1D6280;
-  --info-disabled: rgba(82, 163, 200, 0.4);
+  --info-disabled: rgba(39, 122, 157, 0.4);
 
   /* Success */
   --success-hover: #5AB88D;
@@ -282,12 +321,26 @@
      CHART COLORS (Data Visualization)
      ============================================ */
 
+  /* Series 1-4 reuse entity colours, which is legitimate: those series ARE
+     those entities on the charts that render them. Series 5-6 are ORDINAL —
+     they name nothing, so they must alias nothing. They previously aliased
+     --warning and --danger, which meant a neutral 5th data series rendered in
+     the colour that means "warning" everywhere else in the product (D3, DS
+     delta audit 2026-07-16).
+
+     The two new hues are literal, deliberately not var() indirection, so the
+     "aliases nothing" property is structural rather than a convention. Values
+     chosen by search under protan/deutan simulation (Vienot-Brettel-Mollon
+     1999), not by eye — see the PR body for the full dE2000 matrix. Both sit
+     in the low-lightness band the existing four leave empty (L* 31 and 37 vs
+     50/74/81/71), because red-green deficiency collapses hue onto a
+     blue-yellow axis and LIGHTNESS is the separation that survives it. */
   --chart-1: var(--info);
   --chart-2: var(--success);
   --chart-3: var(--goal);
   --chart-4: var(--option);
-  --chart-5: var(--warning);
-  --chart-6: var(--danger);
+  --chart-5: #12514C;  /* deep teal  — ordinal only, aliases nothing */
+  --chart-6: #4B5E00;  /* deep olive — ordinal only, aliases nothing */
 }
 
 /* ============================================

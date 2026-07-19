@@ -376,7 +376,7 @@
 /* Canvas Focus Animation */
 .node-focused,
 .react-flow__node.node-focused {
-  outline: 3px solid var(--sky-500, #2B7FA2);
+  outline: 3px solid var(--sky-500, #277A9D);
   outline-offset: 4px;
   animation: focus-pulse 0.6s ease-in-out;
   z-index: 1000;
@@ -384,7 +384,7 @@
 
 .edge-focused,
 .react-flow__edge.edge-focused path {
-  stroke: var(--sky-500, #2B7FA2) !important;
+  stroke: var(--sky-500, #277A9D) !important;
   stroke-width: 3px !important;
   animation: focus-pulse 0.6s ease-in-out;
 }
@@ -413,7 +413,7 @@
 
 /* N2 (graph-visuals): a gentle real pulse when the AI points at a node
    (applied edits, what-changed, R4 directives). Uses the info/AI colour
-   (--info #52A3C8) so it does not overload the goal channel, and its OWN
+   (--info #277A9D) so it does not overload the goal channel, and its OWN
    keyframe — it must NOT reuse pulse-fade, which powers .animate-pulse on
    15+ skeleton/status components. The Tailwind ring on the node stays
    visible; this only adds the expanding halo. Reduced-motion drops the
@@ -518,16 +518,16 @@
  * ---------------------------------------------------------------------------*/
 
 .guidance-pulse-ring > * {
-  outline: 2.5px solid var(--info, #2B7FA2);
+  outline: 2.5px solid var(--info, #277A9D);
   outline-offset: 3px;
   border-radius: 8px;
   animation: guidance-pulse 600ms ease-out 1 forwards;
 }
 
 .react-flow__edge.guidance-pulse-ring .react-flow__edge-path {
-  stroke: var(--info, #2B7FA2);
+  stroke: var(--info, #277A9D);
   stroke-width: 3;
-  filter: drop-shadow(0 0 3px var(--info, #2B7FA2));
+  filter: drop-shadow(0 0 3px var(--info, #277A9D));
   animation: guidance-edge-pulse 600ms ease-out 1 forwards;
 }
 
@@ -537,11 +537,11 @@
     outline-width: 4px;
   }
   30% {
-    outline-color: var(--info, #2B7FA2);
+    outline-color: var(--info, #277A9D);
     outline-width: 4px;
   }
   100% {
-    outline-color: var(--info, #2B7FA2);
+    outline-color: var(--info, #277A9D);
     outline-width: 2.5px;
   }
 }
@@ -570,7 +570,7 @@
 
 /* should_fix variant — info colour (advisory, not critical) */
 .guidance-pulse-ring[data-guidance-category="should_fix"] > * {
-  outline-color: var(--info, #2B7FA2);
+  outline-color: var(--info, #277A9D);
   animation-name: guidance-pulse;
 }
 
@@ -592,7 +592,7 @@
 @media (prefers-reduced-motion: reduce) {
   .guidance-pulse-ring > * {
     animation: none;
-    outline: 2.5px solid var(--info, #2B7FA2);
+    outline: 2.5px solid var(--info, #277A9D);
     outline-offset: 3px;
   }
 
@@ -601,7 +601,7 @@
   }
 
   .guidance-pulse-ring[data-guidance-category="should_fix"] > * {
-    outline-color: var(--info, #2B7FA2);
+    outline-color: var(--info, #277A9D);
   }
 
   .react-flow__edge.guidance-pulse-ring .react-flow__edge-path {

@@ -45,10 +45,23 @@ function templateTokens(): Array<[string, string]> {
   return [...block[1].matchAll(/(--[a-z0-9-]+):\s*(#[0-9A-Fa-f]{3,8})\s*;/g)].map((m) => [m[1], m[2]])
 }
 
-/** Declared value of a `--token` at :root in brand.css, or null if not a literal hex. */
-function declared(token: string): string | null {
-  const m = brandCss.match(new RegExp(`^\\s*${token}:\\s*(#[0-9A-Fa-f]{3,8})\\s*;`, 'm'))
-  return m ? m[1].toUpperCase() : null
+/**
+ * Declared value of a `--token` at :root in brand.css, or null if it does not
+ * resolve to a literal hex.
+ *
+ * Resolves `var(--other)` indirection, because brand.css deliberately declares
+ * some tokens as ALIASES rather than copies — `--primary: var(--info)` is the
+ * whole point of D1 ("one value that cannot drift"). Comparing only literal
+ * hexes would report every alias as UNCOMPARABLE, which is how this guard
+ * would go blind on exactly the tokens that were made safe. Depth-limited so a
+ * malformed cycle cannot hang the suite.
+ */
+function declared(token: string, depth = 0): string | null {
+  if (depth > 8) return null
+  const literal = brandCss.match(new RegExp(`^\\s*${token}:\\s*(#[0-9A-Fa-f]{3,8})\\s*;`, 'm'))
+  if (literal) return literal[1].toUpperCase()
+  const alias = brandCss.match(new RegExp(`^\\s*${token}:\\s*var\\((--[a-z0-9-]+)\\)\\s*;`, 'm'))
+  return alias ? declared(alias[1], depth + 1) : null
 }
 
 /**
@@ -56,20 +69,23 @@ function declared(token: string): string | null {
  * existed. Pinned, not fixed — each is a colour decision, not a typo, and this
  * guard's job is to surface them, not to rule on them.
  *
- * `--primary` — the template says #2B7FA2, brand.css says #52A3C8. So artefact
- * buttons render in a different blue from every other button in the product.
- * #2B7FA2 is the replacement value proposed for `--info`/`--primary` under
- * ROADMAP 1.51 (PR #369), so the template appears to have been moved to the
- * NEW value ahead of brand.css — note the sweep in `a8c42590`
- * ("#63ADCF → #52A3C8") did not touch this file. Worth knowing before #369
- * lands: #2B7FA2 measures 4.47:1 on `--bg-panel` #FEFEFE, so it does NOT clear
- * SC 1.4.3's 4.5:1 on the surface it is actually painted on — it only clears
- * against pure #FFFFFF (4.51:1). Resolving this belongs to that colour
- * decision, NOT to the --text-light retint that added this guard.
+ * `--primary|#2B7FA2` was the sole entry, and it is now REPAIRED and removed.
+ * This guard's own note predicted it: the template had been moved to #2B7FA2
+ * ahead of brand.css, and #2B7FA2 measures 4.47:1 on `--bg-panel` #FEFEFE, so
+ * it did NOT clear SC 1.4.3 on the surface it is painted on — it only cleared
+ * against pure #FFFFFF (4.51:1). That prediction was correct, and the colour
+ * decision it deferred to has now been made: `--info` (and therefore
+ * `--primary`, which aliases it) is #277A9D, and the template was swept to
+ * match. Both sides now agree, so the exact bidirectional pin required this
+ * entry to come off — working as designed.
+ *
+ * The list is deliberately left EMPTY rather than deleted: an empty exact pin
+ * still fails the moment a NEW divergence appears, which is the property that
+ * matters. Do not relax it to additions-only.
  *
  * Format: `--token|#IFRAME_VALUE`.
  */
-const KNOWN_TEMPLATE_TOKEN_DRIFT = ['--primary|#2B7FA2'].sort()
+const KNOWN_TEMPLATE_TOKEN_DRIFT: string[] = []
 
 describe('artefact iframe template mirrors brand.css', () => {
   it('the parser can SEE the tokens it is asserting about (positive control)', () => {

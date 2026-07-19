@@ -180,6 +180,21 @@ const KNOWN_UNDEFINED_CSS_PALETTE = [
  * `--border-emphasis` is still defined and still referenced bare at
  * TornadoChart.tsx:563, so it does not dangle — it simply no longer has a
  * hardcoded fallback anywhere for this guard to compare.
+ *
+ * REPAIRED BY D1 (info-blue retint to #277A9D), removed from this list:
+ * `--info|#2B7FA2`, `--primary|#2B7FA2`, `--semantic-info|#2B7FA2` and
+ * `--sky-500|#2B7FA2`. Those fallbacks were written against the value
+ * DESIGN_SYSTEM.md documented while brand.css shipped #52A3C8, so they drifted
+ * by definition. D1 swept every one of them to the canonical value, so they
+ * now AGREE with brand.css and the exact pin is what forced this edit —
+ * working exactly as designed. The pin stays EXACT and bidirectional: it is
+ * never relaxed to additions-only, because "a repaired pair no longer listed"
+ * is the signal that tells us a colour decision actually landed.
+ *
+ * `--info-hover|#2B7FA2` deliberately REMAINS. It is a different token:
+ * `--info-hover` is #236E8E, and EmptyState.tsx:21 still falls back to the
+ * base blue. That is a genuine, still-live drift with its own history, and D1
+ * did not touch it.
  */
 const KNOWN_FALLBACK_DRIFT = [
   '--bg-panel|#FEF9F3',
@@ -196,20 +211,16 @@ const KNOWN_FALLBACK_DRIFT = [
   '--factor|#6b7280',
   '--factor-light|rgba(176,168,153,0.3)',
   '--goal|#f59e0b',
-  '--info|#2B7FA2',
   '--info|#3b82f6',
   '--info-hover|#2B7FA2',
   '--leftsidebar-w|52px',
   '--option|#7BAD55',
   '--option|#8b5cf6',
-  '--primary|#2B7FA2',
   '--semantic-danger|#ef4444',
-  '--semantic-info|#2B7FA2',
   '--semantic-info|#3b82f6',
   '--semantic-success|#22c55e',
   '--semantic-warning|#eab308',
   '--shadow-2|0 4px 12px rgba(0,0,0,0.08)',
-  '--sky-500|#2B7FA2',
   '--success|#10b981',
   '--success-light|rgba(103,200,158,0.3)',
   '--surface-card|#FEF9F3',

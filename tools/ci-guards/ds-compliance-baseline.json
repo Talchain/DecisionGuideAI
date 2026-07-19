@@ -5477,11 +5477,11 @@
           "token": "#908D8D",
           "sample": "--text-light: #908D8D;"
         },
-        "production-hex :: src/components/chat/artefactIframeTemplate.ts :: #2B7FA2": {
+        "production-hex :: src/components/chat/artefactIframeTemplate.ts :: #277A9D": {
           "count": 1,
           "file": "src/components/chat/artefactIframeTemplate.ts",
-          "token": "#2B7FA2",
-          "sample": "--primary: #2B7FA2;"
+          "token": "#277A9D",
+          "sample": "--primary: #277A9D;"
         },
         "production-hex :: src/components/chat/artefactIframeTemplate.ts :: #67C89E": {
           "count": 2,

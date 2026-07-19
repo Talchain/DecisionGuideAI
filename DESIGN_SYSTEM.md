@@ -134,7 +134,7 @@ Each colour has exactly TWO shades: **main** (text/icons/borders) + **light** (c
 |--------|------|-------|-------|
 | **Danger** | #EA7B4B | #FFB393 | Errors, risks, critical |
 | **Success** | #67C89E | #B8E2D0 | Positive outcomes, confirmations |
-| **Info** | #2B7FA2 | #BAD7E4 | Informational, decisions, navigation |
+| **Info** | #277A9D | #BAD7E4 | Informational, decisions, navigation |
 | **Warning** | #FFA656 | #FCC798 | Cautions, alerts |
 
 ### Node-Specific Colours

@@ -177,7 +177,7 @@ Owns borders, status indicators, state styling.
 |--------|------|-------|------------|-------------|
 | **Danger** | #EA7B4B | #FFB393 | Error text, risk borders, alert icons | Risk node canvas fill, panel hover |
 | **Success** | #67C89E | #B8E2D0 | Positive text, confirmation icons, success borders | Outcome node canvas fill, panel hover |
-| **Info** | #63ADCF | #BAD7E4 | Links, nav text, info borders, primary buttons | Decision node canvas fill, panel hover |
+| **Info** | #277A9D | #BAD7E4 | Links, nav text, info borders, primary buttons | Decision node canvas fill, panel hover |
 | **Warning** | #FFA656 | #FCC798 | Warning text, caution icons, warning borders | Panel hover only |
 
 ### 3.8 Entity colours (Layer 2)
@@ -197,16 +197,16 @@ Owns node fills on canvas.
 
 Purely ordinal. No semantic meaning. Chart fills may use light shades for bar/area fills with main shade borders.
 
-**Implementation status:** Only 6 tokens (`chart-1` through `chart-6`) are currently defined in `brand.css` as CSS var aliases. Tailwind utility classes are not yet mapped. Tokens `chart-7` and `chart-8` are planned.
+**Implementation status:** 6 tokens (`chart-1` through `chart-6`) are defined in `brand.css` and mapped to Tailwind utilities. Tokens `chart-7` and `chart-8` are planned. Series 1–4 reuse entity colours; series 5–6 are **ordinal** and alias nothing (see the v5 spec §3.9 for the D3 correction and the CVD reasoning).
 
 | Token | Alias / Hex | Status | Usage |
 |-------|-------------|--------|-------|
-| `chart-1` | → `--info` (#63ADCF) | Implemented | Primary series |
+| `chart-1` | → `--info` (#277A9D) | Implemented | Primary series |
 | `chart-2` | → `--success` (#67C89E) | Implemented | Secondary series |
 | `chart-3` | → `--goal` (#F5C433) | Implemented | Highlight series |
 | `chart-4` | → `--option` (#AAA7E4) | Implemented | Comparison series |
-| `chart-5` | #5C9BB8 | Implemented | Additional series |
-| `chart-6` | #C9D9FF | Implemented | Tertiary fill |
+| `chart-5` | #12514C (deep teal, ordinal) | Implemented | Additional series |
+| `chart-6` | #4B5E00 (deep olive, ordinal) | Implemented | Tertiary fill |
 | `chart-7` | #62B28F | Planned | Alt series |
 | `chart-8` | #FFE497 | Planned | Soft highlight |
 
@@ -228,10 +228,10 @@ Goal yellow (#F5C433) remains the brand/entity colour for goal nodes and progres
 
 | Token | Hex | Usage |
 |-------|-----|-------|
-| `--primary` | #63ADCF | Primary buttons, CTAs |
+| `--primary` | #277A9D | Primary buttons, CTAs |
 | `--primary-hover` | #67C89E | Hover state (success green — signals "ready to act") |
 | `--primary-active` | #5AA88A | Active/pressed state (darker green) |
-| `--primary-disabled` | rgba(99,173,207,0.40) | Disabled state |
+| `--primary-disabled` | rgba(39,122,157,0.40) | Disabled state |
 
 ```tsx
 className="bg-primary text-text-on-color hover:bg-primary-hover active:bg-primary-active disabled:bg-primary-disabled"
@@ -356,7 +356,7 @@ Warm-tinted (ink-900 rgba, not pure black).
 |----------|-------|
 | Width | 2px |
 | Offset | 2px |
-| Colour | `info` (#63ADCF) |
+| Colour | `info` (#277A9D) |
 | Tailwind | `focus:ring-2 focus:ring-offset-2 focus:ring-info` |
 
 Never remove outline. Focus indicators must always be visible.
@@ -411,7 +411,7 @@ Never remove outline. Focus indicators must always be visible.
 
 **Primary:**
 ```css
-background: var(--primary);         /* #63ADCF — info blue */
+background: var(--primary);         /* #277A9D — info blue */
 color: var(--text-on-color);        /* #FFFFFF */
 padding: 12px 24px;
 border-radius: 999px;
@@ -500,7 +500,7 @@ A count of "0" shows no badge. Treatment follows the outlined pill pattern (§8.
 
 | Property | Value |
 |----------|-------|
-| Colour | `text-info` (#63ADCF) |
+| Colour | `text-info` (#277A9D) |
 | Default underline | None |
 | Hover | Underline |
 | Focus | §6.3 ring |
@@ -512,7 +512,7 @@ In panels, links use `panelBody` (12px) size. Outside panels, links inherit pare
 
 **App bar:** 64px height, `bg-panel`, logo left, user avatar right. Active item: 2px underline `info`.
 
-**Tabs:** 44px height. Selected: pill background `rgba(99,173,207,0.15)`. Transition 200ms.
+**Tabs:** 44px height. Selected: pill background `rgba(39,122,157,0.15)`. Transition 200ms.
 
 ### 8.9 Sticky footer (panels)
 
@@ -636,7 +636,7 @@ Shapes identify node type on the canvas. Grounded in causal graph convention whe
 | Factor | Circle | `factor` (#B0A899) | Standard causal graph convention for observed variables |
 | Option | Square | `option` (#AAA7E4) | Influence diagram convention for decision nodes |
 | Goal | Diamond | `goal` (#F5C433) | Influence diagram convention for utility/value nodes |
-| Decision | Hexagon | `info` (#63ADCF) | Distinct junction shape — where paths converge to a resolution |
+| Decision | Hexagon | `info` (#277A9D) | Distinct junction shape — where paths converge to a resolution |
 | Risk | Inverted triangle | `danger` (#EA7B4B) | Intuitive extension — universal caution symbol |
 | Outcome | Upward triangle | `success` (#67C89E) | Paired opposite to risk's inverted triangle — positive direction |
 
@@ -662,7 +662,7 @@ Confidence is communicated through a context-dependent combination of cues — b
 | Level | Range | Colour | Glyph |
 |-------|-------|--------|-------|
 | High | 70–100% | Success (#67C89E) | ✓ |
-| Medium | 40–69% | Info (#63ADCF) | ~ |
+| Medium | 40–69% | Info (#277A9D) | ~ |
 | Low | 0–39% | Factor (#B0A899) | ? |
 
 Confidence glyphs are rendered as text characters (not Lucide icons) inside styled badge containers.
@@ -732,7 +732,7 @@ Implement as shared utility: `getThresholdColour(value: number): string`.
 | State | Border | Background | Lucide icon |
 |-------|--------|------------|-------------|
 | Draft | 2px `factor` (#B0A899) | `bg-panel` | `Pencil` |
-| Active | 2px `info` (#63ADCF) | `bg-panel` | `Play` |
+| Active | 2px `info` (#277A9D) | `bg-panel` | `Play` |
 | Complete | 2px `success` (#67C89E) | `bg-panel` | `Check` |
 | Blocked | 2px `danger` (#EA7B4B) | `bg-panel` | `AlertTriangle` |
 
@@ -766,7 +766,7 @@ Uses data layer tokens (§3.9). Ordinal only — no semantic meaning in charts.
 Tornado charts and directional indicators use semantic layer colours:
 - **Positive direction:** success (#67C89E) fill at low opacity, success border
 - **Negative direction:** danger (#EA7B4B) fill at low opacity, danger border
-- **Uncertainty bands:** info (#63ADCF) at 30% opacity
+- **Uncertainty bands:** info (#277A9D) at 30% opacity
 - **Target lines:** dashed, goal (#F5C433)
 - **Threshold lines:** dotted, danger (#EA7B4B)
 - **Gridlines:** panel-border (#EEE6D8) at 50% opacity
@@ -966,14 +966,14 @@ Type-specific top borders (3px). Block type badges are small coloured dots (8px 
 
 | Block type | Border colour | Badge colour | Rationale |
 |-----------|--------------|-------------|-----------|
-| FramingBlock | `info` (#63ADCF) | `info` | Information/structuring |
+| FramingBlock | `info` (#277A9D) | `info` | Information/structuring |
 | GraphPatchBlock | `goal` (#F5C433) | `goal` | Action required |
 | FactBlock | `success` (#67C89E) | `success` | Computed results |
 | CommentaryBlock | None (inline) | None | Explanation, no action |
 | ReviewCardBlock | `danger` or `info` | `danger` or `info` | Alert or coaching — see §15.2 |
 | ScenarioBlock | `option` (#AAA7E4) | `option` | Comparison |
 | BriefBlock | `success` (#67C89E) | `success` | Deliverable |
-| EvidenceBlock | `info` (#63ADCF) | `info` | External information |
+| EvidenceBlock | `info` (#277A9D) | `info` | External information |
 
 **Block actions:** Accept — primary button (`bg-primary text-text-on-color`). Edit — secondary button. Dismiss — text link (`text-text-light`).
 

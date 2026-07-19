@@ -174,7 +174,7 @@ When referencing a colour in documentation or code comments, use the Tailwind cl
 |--------|------|-------|------------|-------------|
 | **Danger** | #EA7B4B | #FFB393 | Error text, risk borders, alert icons | Risk node canvas fill, panel hover |
 | **Success** | #67C89E | #B8E2D0 | Positive text, confirmation icons, success borders | Outcome node canvas fill, panel hover |
-| **Info** | #63ADCF | #BAD7E4 | Links, nav text, info borders, primary buttons | Decision node canvas fill, panel hover |
+| **Info** | #277A9D | #BAD7E4 | Links, nav text, info borders, primary buttons | Decision node canvas fill, panel hover |
 | **Warning** | #FFA656 | #FCC798 | Warning text, caution icons, warning borders | Panel hover only |
 
 ### 3.8 Entity colours (Layer 2)
@@ -192,18 +192,24 @@ When referencing a colour in documentation or code comments, use the Tailwind cl
 
 Purely ordinal. No semantic meaning. Chart fills may use light shades for bar/area fills with main shade borders.
 
-**Implementation status:** Only 6 tokens (`chart-1` through `chart-6`) are currently defined in `brand.css` as CSS var aliases. Tailwind utility classes are not yet mapped. Tokens `chart-7` and `chart-8` are planned.
+**Implementation status:** 6 tokens (`chart-1` through `chart-6`) are defined in `brand.css` and mapped to Tailwind utilities (`bg-chart-1`, `text-chart-5`, …). Tokens `chart-7` and `chart-8` are planned.
+
+Series 1–4 reuse entity colours — legitimate, because on the charts that render them those series *are* those entities. Series 5–6 are **ordinal**: they name nothing, so they alias nothing. They are declared as literal hexes rather than `var()` indirection so the property is structural.
 
 | Token | Alias / Hex | Status |
 |-------|-------------|--------|
-| `chart-1` | → `--info` (#63ADCF) | ✅ Implemented |
+| `chart-1` | → `--info` (#277A9D) | ✅ Implemented |
 | `chart-2` | → `--success` (#67C89E) | ✅ Implemented |
 | `chart-3` | → `--goal` (#F5C433) | ✅ Implemented |
 | `chart-4` | → `--option` (#AAA7E4) | ✅ Implemented |
-| `chart-5` | #5C9BB8 | ✅ Implemented |
-| `chart-6` | #C9D9FF | ✅ Implemented |
+| `chart-5` | #12514C (deep teal, ordinal) | ✅ Implemented |
+| `chart-6` | #4B5E00 (deep olive, ordinal) | ✅ Implemented |
 | `chart-7` | #62B28F | 🔲 Planned |
 | `chart-8` | #FFE497 | 🔲 Planned |
+
+> **Corrected 2026-07-16 (D3).** This table previously listed `chart-5` as #5C9BB8 and `chart-6` as #C9D9FF, marked Implemented. Neither value was ever in `brand.css`: the tokens aliased `--warning` and `--danger`, so a neutral 5th data series rendered in the colour that means "warning" everywhere else, and the 5th and 6th series sat 5.54 ΔE2000 from `chart-3` under deuteranopia — effectively indistinguishable. The replacements were chosen by search under protan/deutan simulation, not by eye. Both sit in the low-lightness band the other four leave empty (L\* 31 and 37 against 50/74/81/71), because red-green deficiency collapses hue onto a blue-yellow axis and lightness is the separation that survives it.
+>
+> **Colour is never the sole channel.** These two are further apart than the incumbents, but the palette's own floor (`chart-1` vs `chart-4`, 16.39 under protan) is set by pre-existing colours — charts must still carry direct labels or shape/pattern cues.
 
 ### 3.10 Primary action colour
 
@@ -213,10 +219,10 @@ Goal yellow (#F5C433) remains the brand/entity colour for goal nodes and progres
 
 | Token | Hex | Usage |
 |-------|-----|-------|
-| `--primary` | #63ADCF | Primary buttons, CTAs |
+| `--primary` | #277A9D | Primary buttons, CTAs |
 | `--primary-hover` | #67C89E | Hover state (success green: "ready to act") |
 | `--primary-active` | #5AA88A | Active/pressed state (darker green) |
-| `--primary-disabled` | rgba(99,173,207,0.40) | Disabled state |
+| `--primary-disabled` | rgba(39,122,157,0.40) | Disabled state |
 
 ```tsx
 className="bg-primary text-on-color hover:bg-primary-hover active:bg-primary-active disabled:bg-primary-disabled"
@@ -287,8 +293,8 @@ className="bg-info/[0.04]"  // May fail silently
 
 **Long-term fix:** Convert all colour definitions in `brand.css` from hex to space-separated RGB channels:
 ```css
-/* Before: */ --info: #63ADCF;
-/* After:  */ --info: 99 173 207;  /* Tailwind resolves as rgb(99 173 207) */
+/* Before: */ --info: #277A9D;
+/* After:  */ --info: 39 122 157;  /* Tailwind resolves as rgb(39 122 157) */
 ```
 
 ---
@@ -365,7 +371,7 @@ Warm-tinted (ink-900 rgba, not pure black). There is no `shadow-0` token. For fl
 |----------|-------|
 | Width | 2px |
 | Offset | 2px |
-| Colour | `info` (#63ADCF) |
+| Colour | `info` (#277A9D) |
 | Tailwind | `focus:ring-2 focus:ring-offset-2 focus:ring-info` |
 
 Never remove outline. Focus indicators must always be visible.
@@ -467,7 +473,7 @@ When analysis completes, the panel content crossfades (300ms `--duration-base`).
 
 **Primary:**
 ```css
-background: var(--primary);         /* #63ADCF */
+background: var(--primary);         /* #277A9D */
 color: var(--text-on-color);        /* #FFFFFF */
 padding: 12px 24px;
 border-radius: 999px;
@@ -557,7 +563,7 @@ A count of "0" shows no badge. Treatment follows the outlined pill pattern (§8.
 
 | Property | Value |
 |----------|-------|
-| Colour | `text-info` (#63ADCF) |
+| Colour | `text-info` (#277A9D) |
 | Default underline | None |
 | Hover | Underline |
 | Focus | §6.3 ring |
@@ -569,7 +575,7 @@ In panels, links use `panelBody` (12px). Outside panels, links inherit parent fo
 
 **App bar:** 64px height, `bg-panel`, logo left, user avatar right. Active item: 2px underline `info`.
 
-**Tabs:** 44px height. Selected: pill background `rgba(99,173,207,0.15)` (info blue at 15%). Transition 200ms. Never use legacy `bg-sky-200` or `text-sky-600`.
+**Tabs:** 44px height. Selected: pill background `rgba(39,122,157,0.15)` (info blue at 15%). Transition 200ms. Never use legacy `bg-sky-200` or `text-sky-600`.
 
 ### 8.9 Sticky footer (panels)
 
@@ -751,7 +757,7 @@ Shapes identify node type on the canvas. See §1 three-channel principle.
 | Factor | Circle | `factor` (#B0A899) | Standard causal graph convention |
 | Option | Square | `option` (#AAA7E4) | Influence diagram convention |
 | Goal | Diamond | `goal` (#F5C433) | Influence diagram convention |
-| Decision | Hexagon | `info` (#63ADCF) | Distinct junction shape |
+| Decision | Hexagon | `info` (#277A9D) | Distinct junction shape |
 | Risk | Inverted triangle | `danger` (#EA7B4B) | Universal caution symbol |
 | Outcome | Upward triangle | `success` (#67C89E) | Paired opposite to risk |
 
@@ -775,7 +781,7 @@ Use node-type icons (§9.4), not shapes, when referencing nodes outside the canv
 | Level | Range | Colour | Glyph |
 |-------|-------|--------|-------|
 | High | 70–100% | Success (#67C89E) | ✓ |
-| Medium | 40–69% | Info (#63ADCF) | ~ |
+| Medium | 40–69% | Info (#277A9D) | ~ |
 | Low | 0–39% | Factor (#B0A899) | ? |
 
 Glyphs are text characters (not Lucide icons) inside styled badge containers. Glyph colour matches the level: ✓ `text-success`, ~ `text-info`, ? `text-factor`.

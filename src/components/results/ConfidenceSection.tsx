@@ -238,8 +238,8 @@ function UncertaintyRow({
   }, [onFocus])
 
   // v7.4 Task 7: Use group-based styling instead of severity-based
-  // Group 1 (high-risk): danger-bg with danger border
-  // Group 2 (refinement): warning-bg with warning border
+  // Group 1 (high-risk): bg-panel with danger border
+  // Group 2 (refinement): bg-panel with warning border
   const severity = item.severity || 'warning'
   const baseSeverityConfig = SEVERITY_CONFIG[severity]
 

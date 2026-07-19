@@ -501,7 +501,7 @@ export function CanvasToolbar() {
             <button
               onClick={() => setShowResetConfirm(true)}
               disabled={nodes.length === 0 && edges.length === 0}
-              className="p-1.5 text-danger-600 bg-danger-50 rounded hover:bg-danger-100 transition-colors focus:outline-none focus:ring-2 focus:ring-danger-400 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              className="p-1.5 text-danger-600 bg-panel rounded hover:bg-danger-light transition-colors focus:outline-none focus:ring-2 focus:ring-danger-400 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
               aria-label="Reset canvas"
               data-testid="btn-reset-canvas"
             >
