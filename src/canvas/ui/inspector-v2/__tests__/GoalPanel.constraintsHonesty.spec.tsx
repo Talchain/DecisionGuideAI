@@ -48,7 +48,7 @@ vi.mock('../../../../contexts/AuthContext', async (importOriginal) => {
 
 // Raw literal — must match GOAL_CONSTRAINT_COPY.guestConstraintsNotInAnalysis.
 const HONEST_LITERAL =
-  "In guest mode, constraints added here aren't included in the analysis — add them in chat instead."
+  "In guest mode, constraints added here aren't included in the analysis. Add them in chat instead."
 
 // Auth states routed through the canonical predicate.
 const GUEST_AUTH = { authenticated: true, user: { id: 'guest', email: 'guest@poc' } }

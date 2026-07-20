@@ -295,5 +295,5 @@ export const GOAL_CONSTRAINT_COPY = {
   // constraints ARE analysed. Authenticated users' panel edits persist too, so
   // they never see this. Owned here; pinned as a raw literal in specs.
   guestConstraintsNotInAnalysis:
-    "In guest mode, constraints added here aren't included in the analysis — add them in chat instead.",
+    "In guest mode, constraints added here aren't included in the analysis. Add them in chat instead.",
 } as const
