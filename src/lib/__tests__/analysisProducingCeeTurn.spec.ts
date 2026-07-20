@@ -501,7 +501,11 @@ describe('findLatestAnalysisProducingCeeTurn — round-2 P0 + round-3 P0: hash m
         ...(contextHash !== undefined ? { context_hash: contextHash } : {}),
         dsk_version_hash: null,
       },
-      stage_indicator: { stage: 'ideate' },
+      // Canonical wire stage for an analysis-producing turn (frame|analyse|decide|
+      // review). The selector reads lineage.response_hash, never the stage, so this
+      // is decoration — but it now matches the canonical vocabulary the comment above
+      // claims. Was 'ideate' (retired UI/DB vocab, off the canonical enum).
+      stage_indicator: { stage: 'analyse' },
     }
   }
 

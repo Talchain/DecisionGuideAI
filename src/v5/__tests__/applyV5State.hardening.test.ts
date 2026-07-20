@@ -59,7 +59,11 @@ describe('applyV5State — analyse-turn with missing analysis_ready', () => {
       blocks: [
         { type: 'analysis_result', block_id: 'b1', enrichment: {} } as unknown as OlumiResponse['blocks'][number],
       ],
-      stage_indicator: { stage: 'ideate', confidence: 'high', source: 'inferred' },
+      // Non-analyse stage (canonical wire vocab: frame|analyse|decide|review) — a
+      // deliberate distractor. This test proves the analysis_result BLOCK drives the
+      // clear, independent of stage. (Was 'ideate' — retired UI/DB vocab that
+      // normaliseStage rejects, so it silently exercised the unrecognised-stage path.)
+      stage_indicator: { stage: 'frame', confidence: 'high', source: 'inferred' },
     } as unknown as OlumiResponse
 
     applyV5State(response, store)
@@ -68,17 +72,25 @@ describe('applyV5State — analyse-turn with missing analysis_ready', () => {
 })
 
 describe('applyV5State — conversational turn preserves ceeAnalysisReady', () => {
-  it('does not call setCeeAnalysisReady when analysis_ready is absent on an ideate-stage conversational turn', () => {
+  it('does not call setCeeAnalysisReady when analysis_ready is absent on a frame-stage conversational turn', () => {
     const store = makeStore()
     const response = {
       turn_id: 't',
       assistant_text: 'hi',
       blocks: [],
-      stage_indicator: { stage: 'ideate', confidence: 'high', source: 'inferred' },
+      // Canonical non-analyse wire stage. Was 'ideate' (retired UI/DB vocab):
+      // normaliseStage rejected it, so the turn was treated as an *unrecognised*
+      // stage rather than a *recognised conversational* one — the intended path
+      // was never exercised.
+      stage_indicator: { stage: 'frame', confidence: 'high', source: 'inferred' },
     } as unknown as OlumiResponse
 
     applyV5State(response, store)
     expect(store.setCeeAnalysisReady).not.toHaveBeenCalled()
+    // The stage is now genuinely recognised and applied — this is what the
+    // fixture always intended. Reverting to 'ideate' makes normaliseStage return
+    // null, this assertion fails, and the vacuous unrecognised-stage path returns.
+    expect(store.setCurrentStage).toHaveBeenCalledWith('frame')
   })
 })
 
@@ -308,11 +320,16 @@ describe('applyV5State — hydration regression', () => {
         turn_id: 'turn_conv',
         assistant_text: 'thinking through it',
         blocks: [],
-        stage_indicator: { stage: 'ideate', confidence: 'high', source: 'inferred' },
+        // Canonical non-analyse wire stage (was 'ideate' — retired UI/DB vocab
+        // that normaliseStage rejects, silently exercising the unrecognised path).
+        stage_indicator: { stage: 'frame', confidence: 'high', source: 'inferred' },
       } as unknown as OlumiResponse,
       store,
     )
     expect(setCeeAnalysisReady).not.toHaveBeenCalled()
+    // The conversational stage is recognised and applied. Reverting to 'ideate'
+    // drops this write and re-introduces the vacuous unrecognised-stage path.
+    expect(store.setCurrentStage).toHaveBeenCalledWith('frame')
 
     // 2. Analyse-shaped turn with no analysis_ready → explicit clear.
     applyV5State(
