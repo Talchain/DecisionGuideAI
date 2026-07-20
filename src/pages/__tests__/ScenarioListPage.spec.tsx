@@ -304,4 +304,37 @@ describe('ScenarioListPage', () => {
     renderPage()
     expect(screen.getByText('Sign in')).toBeTruthy()
   })
+
+  // -------------------------------------------------------------------------
+  // Front-door guest path. A fresh guest landing at root must have a way INTO
+  // the product: guest mode is the POC's primary flow and #/canvas works fully
+  // as guest, but this branch used to render only a Sign in button — a dead
+  // end. The CTA is the secondary affordance (sign-in stays primary) and its
+  // copy must not promise persistence a guest doesn't get.
+  // -------------------------------------------------------------------------
+
+  it('offers guests a path into the canvas with an accessible name', () => {
+    mockAuthValue = { user: { id: 'guest' }, authenticated: true }
+    renderPage()
+
+    const guestCta = screen.getByRole('button', { name: /continue without an account/i })
+    expect(guestCta).toBeTruthy()
+
+    fireEvent.click(guestCta)
+    expect(mockNavigate).toHaveBeenCalledWith('/canvas')
+  })
+
+  it('keeps Sign in as the primary affordance alongside the guest path', () => {
+    mockAuthValue = { user: { id: 'guest' }, authenticated: true }
+    renderPage()
+
+    const signIn = screen.getByRole('button', { name: /^sign in$/i })
+    expect(signIn.className).toContain('bg-primary')
+
+    const guestCta = screen.getByRole('button', { name: /continue without an account/i })
+    expect(guestCta.className).not.toContain('bg-primary')
+
+    fireEvent.click(signIn)
+    expect(mockNavigate).toHaveBeenCalledWith('/login')
+  })
 })
