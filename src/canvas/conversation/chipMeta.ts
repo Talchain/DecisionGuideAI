@@ -55,26 +55,35 @@ export function toLegacyChipMetadata(
 }
 
 /**
- * Wire intents whose NAME is signed off for a FUTURE @talchain/schemas
- * version but which are not yet present in the vendored enum. Registries
- * (spark registry, NodeChip call sites) may map these immediately; the
- * schema-derived wire gate in buildV5Payload (sanitiseActionType →
- * KNOWN_ACTION_TYPES → ActionType.options) withholds them from the wire —
- * no `action_type` key, no chip_click promotion — until a re-vendor
- * publishes the value, at which point the send lights up with zero further
- * code change. CEE ingress validates action_type FAIL-CLOSED, so sending
- * early would 422 the whole turn.
+ * Wire intents whose NAME is signed off for a FUTURE state but which are not
+ * yet FULLY LIVE — meaning BOTH published in the vendored @talchain/schemas
+ * enum AND accepted by CEE's deployed service. Registries (spark registry,
+ * NodeChip call sites) may map these immediately; the send gate in
+ * buildV5Payload (sanitiseActionType → isSendableActionType, which requires
+ * membership in KNOWN_ACTION_TYPES AND in CEE_ACCEPTED_ACTION_TYPES) withholds
+ * them from the wire — no `action_type` key, no chip_click promotion — until
+ * the value is fully live, at which point the send lights up with zero further
+ * code change. CEE ingress validates action_type FAIL-CLOSED, so sending early
+ * would 422 the whole turn.
  *
- * Members are added to the ARRAY on name sign-off (the type derives from
- * it) and removed once the schema re-vendor makes them part of
- * ActionTypeLiteral — the contract spec's list-hygiene test goes RED at
- * that moment, forcing the removal. An entry here is a tested declaration,
- * not a comment.
+ * This list is DECLARATIVE staging, not the gate itself: an entry documents a
+ * mapped-but-not-yet-live intent so the contract spec's per-spark tests read
+ * the withhold arm against REAL registry data. The gate that actually withholds
+ * is CEE_ACCEPTED_ACTION_TYPES in buildPayload — a value CEE has not accepted is
+ * withheld whether or not it appears here.
  *
- * - `analysis_readiness` (signed off 2026-07-20, lands in 0.20.0):
- *   assess/coach readiness for analysis — the intent behind the
- *   "Prepare first analysis" defect spark. Intent-shaped, not a command.
+ * Members are added on name sign-off (the type derives from the array) and
+ * removed once the value is fully live. Because "fully live" now includes
+ * publication, the contract spec's list-hygiene test goes RED the moment the
+ * re-vendor publishes a still-listed value, forcing its removal. An entry here
+ * is a tested declaration, not a comment.
+ *
+ * Currently EMPTY. `analysis_readiness` graduated on 2026-07-20 — schemas
+ * 0.20.0 re-vendor (published) plus CEE #578 merged and A1's deploy
+ * confirmation (accepted) — so it now SENDS via CEE_ACCEPTED_ACTION_TYPES and
+ * was removed from this list. The mechanism survives for the next
+ * signed-off-but-not-yet-live value.
  */
-export const PENDING_WIRE_ACTION_TYPES = ['analysis_readiness'] as const
+export const PENDING_WIRE_ACTION_TYPES = [] as const
 
 export type PendingWireActionType = (typeof PENDING_WIRE_ACTION_TYPES)[number]

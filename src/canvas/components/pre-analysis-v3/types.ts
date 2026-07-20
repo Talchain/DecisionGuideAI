@@ -22,10 +22,11 @@ export interface SparkPrompt {
   label: string
   prompt: string
   /**
-   * Wire intent decision: a published schema ActionType value (sent), a
-   * signed-off pending value (mapped but withheld by the schema-derived
-   * wire gate until re-vendor — see PendingWireActionType), or null when no
-   * honest value exists (coaching/readiness sparks).
+   * Wire intent decision: a fully-live schema ActionType value (published AND
+   * CEE-accepted, so sent), a signed-off pending value (mapped but withheld by
+   * the send gate until the value is both re-vendored AND CEE-accepted — see
+   * PendingWireActionType, currently empty), or null when no honest value
+   * exists (coaching/readiness sparks).
    */
   action_type: ActionTypeLiteral | PendingWireActionType | null
 }

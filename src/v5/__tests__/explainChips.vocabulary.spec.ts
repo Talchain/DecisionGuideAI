@@ -73,6 +73,10 @@ describe('explain-chips vocabulary — parser → filter seam (V-P0-2)', () => {
     // have no V5 end-to-end chip handler; explain_from_structure has no
     // ACTION_TO_TURN_TYPE dispatch mapping yet (rendering it would promise
     // action and deliver default routing — add filter + mapping together).
+    // analysis_readiness (added to the enum in schemas 0.20.0) is an OUTBOUND
+    // spark-send intent — the UI sends it as a spark's chip.action_type; it is
+    // never a chip CEE SUGGESTS back for us to render, so it deliberately has
+    // no V5_ENABLED_ACTIONS affordance and belongs here.
     const excluded = ActionType.options.filter((t) => !V5_ENABLED_ACTIONS.has(t))
     expect(new Set(excluded)).toEqual(
       new Set([
@@ -81,6 +85,7 @@ describe('explain-chips vocabulary — parser → filter seam (V-P0-2)', () => {
         'adjust_edge_strength',
         'compare_options',
         'explain_from_structure',
+        'analysis_readiness',
       ]),
     )
   })
