@@ -1156,6 +1156,103 @@ export interface BuildV2RequestOptions {
   scenarioId?: string | null
 }
 
+/** Operators PLoT's constraint preflight accepts. Anything else is a blocker. */
+const PLOT_CONSTRAINT_OPERATORS = new Set(['>=', '<='])
+
+/**
+ * Unicode forms of the two accepted operators, mapped to their ASCII spelling.
+ *
+ * MEANING-PRESERVING ONLY. '≥' and '>=' are the same relation written two ways,
+ * so rewriting one to the other is an encoding fix, not a semantic transform.
+ * '>' / '<' / '=' are deliberately ABSENT: mapping a strict inequality onto a
+ * non-strict one (or an equality onto either) would silently change what the
+ * user asked for, so those are dropped and reported instead of guessed at.
+ *
+ * @talchain/schemas documents CEE as already normalising these away, but the
+ * envelope has historically carried the Unicode forms (see
+ * goalConstraintsEnvelope.regression.spec.ts), and dropping a valid constraint
+ * over its spelling would be worse than accepting it.
+ */
+const UNICODE_OPERATOR_ALIASES: Record<string, '>=' | '<='> = {
+  '≥': '>=', // ≥
+  '≤': '<=', // ≤
+}
+
+/**
+ * UI-SEM-086 — goal-constraint request gate.
+ *
+ * Normalises each constraint's `node_id` through the SAME idMap every other ID
+ * in the request goes through, then DROPS any constraint PLoT's preflight would
+ * reject as a blocker. Dropping is deliberate: a single malformed constraint
+ * 422s the ENTIRE run (`validateGoalConstraints` emits blockers), taking every
+ * other constraint, the goal threshold and the whole analysis down with it. A
+ * user whose persisted graph already carries a constraint minted before this fix
+ * would otherwise be permanently unable to run anything.
+ *
+ * No value is transformed — this is a validity gate plus the ID normalisation
+ * the constraints were previously skipping. Drops are logged loudly and
+ * reported to the caller so they can be surfaced rather than swallowed.
+ *
+ * Mirrors PLoT `src/validation/preflight-v2.ts` validateGoalConstraints:
+ *  - CONSTRAINT_TARGET_NOT_FOUND  — node_id absent, or not a node in the graph
+ *  - CONSTRAINT_INVALID_OPERATOR  — operator outside {'>=', '<='}
+ *  - CONSTRAINT_DUPLICATE_ID      — two constraints sharing a constraint_id
+ */
+export function prepareGoalConstraintsForRequest(
+  goalConstraints: CEEGoalConstraint[] | null | undefined,
+  idMap: Map<string, string>,
+  graphNodeIds: Set<string>,
+): { constraints: CEEGoalConstraint[]; dropped: Array<{ constraint: CEEGoalConstraint; reason: string }> } {
+  const constraints: CEEGoalConstraint[] = []
+  const dropped: Array<{ constraint: CEEGoalConstraint; reason: string }> = []
+  const seenIds = new Set<string>()
+
+  for (const c of goalConstraints ?? []) {
+    // Identity: constraint_id is the wire field PLoT reads. Fall back to the
+    // legacy `id` so pre-fix persisted constraints that DO carry a usable
+    // target are not thrown away for want of a rename.
+    const constraintId = c.constraint_id ?? c.id
+    if (!constraintId) {
+      dropped.push({ constraint: c, reason: 'CONSTRAINT_MISSING_ID' })
+      continue
+    }
+    if (seenIds.has(constraintId)) {
+      dropped.push({ constraint: c, reason: 'CONSTRAINT_DUPLICATE_ID' })
+      continue
+    }
+
+    if (!c.node_id) {
+      dropped.push({ constraint: c, reason: 'CONSTRAINT_TARGET_NOT_FOUND' })
+      continue
+    }
+    // Route node_id through the idMap exactly as node IDs, edge from/to, option
+    // IDs and the goal node ID are. Without this an imported/normalised graph
+    // renames its nodes and the constraint points at an ID that no longer
+    // exists — a false 422 on a perfectly valid constraint.
+    const normalisedNodeId = idMap.get(c.node_id) ?? c.node_id
+    if (!graphNodeIds.has(normalisedNodeId)) {
+      dropped.push({ constraint: c, reason: 'CONSTRAINT_TARGET_NOT_FOUND' })
+      continue
+    }
+
+    const operator = UNICODE_OPERATOR_ALIASES[c.operator as string] ?? c.operator
+    if (!PLOT_CONSTRAINT_OPERATORS.has(operator)) {
+      dropped.push({ constraint: c, reason: 'CONSTRAINT_INVALID_OPERATOR' })
+      continue
+    }
+
+    if (typeof c.value !== 'number' || !Number.isFinite(c.value)) {
+      dropped.push({ constraint: c, reason: 'CONSTRAINT_VALUE_NOT_FINITE' })
+      continue
+    }
+
+    seenIds.add(constraintId)
+    constraints.push({ ...c, constraint_id: constraintId, node_id: normalisedNodeId, operator })
+  }
+
+  return { constraints, dropped }
+}
+
 /**
  * Build V2RunRequest preferring CEE analysis_ready when available.
  *
@@ -1259,6 +1356,14 @@ export function buildV2RequestFromAnalysisReady(
     })
   }
 
+  // Step 5b: Goal constraints get the SAME idMap treatment as every other ID,
+  // and are gated against PLoT's constraint preflight before they go out.
+  const preparedConstraints = prepareGoalConstraintsForRequest(
+    goalConstraints,
+    normalised.idMap,
+    new Set(normalised.graph.nodes.map((n) => n.id)),
+  )
+
   // Step 6: Build final request
   // ALLOWLIST: Only PLoT-accepted top-level fields may appear here.
   // PLoT uses extra='forbid' — unknown fields cause 400.
@@ -1277,27 +1382,41 @@ export function buildV2RequestFromAnalysisReady(
     ...(brief && { brief }),
     // Goal threshold (normalised 0-1) — accepted by PLoT. Only present when analysisReady provided it.
     ...(analysisReady?.goal_threshold != null && { goal_threshold: analysisReady.goal_threshold }),
-    // Goal constraints for multi-constraint analysis (from CEE response root, not analysis_ready)
-    ...(goalConstraints?.length && { goal_constraints: goalConstraints }),
+    // Goal constraints for multi-constraint analysis (from CEE response root, not analysis_ready).
+    // UI-SEM-086: node_id normalised through the same idMap as every other ID,
+    // and PLoT-blocker-shaped constraints dropped rather than 422ing the run.
+    ...(preparedConstraints.constraints.length && { goal_constraints: preparedConstraints.constraints }),
   }
 
-  // XOR: goal_constraints take precedence over goal_threshold (PLoT contract §3.3.5).
-  // When constraints are present, ISL uses probability_of_joint_goal instead of probability_of_goal.
-  // delete is safe here: V2RunRequest marks goal_threshold as optional, so removing it
-  // produces a valid request object.
-  if (Array.isArray(request.goal_constraints) && request.goal_constraints.length > 0) {
-    if (request.goal_threshold != null && import.meta.env.DEV) {
-      console.debug('[V2Adapter] XOR: removed goal_threshold (%.2f) — goal_constraints present (%d)', request.goal_threshold, request.goal_constraints.length)
-    }
-    delete request.goal_threshold
-  }
+  // NO XOR. goal_threshold and goal_constraints are BOTH sent when both exist.
+  //
+  // The removed code deleted a valid, user-authored goal_threshold whenever any
+  // constraint was present, citing "PLoT contract §3.3.5". PLoT does not require
+  // that: `src/routes/v2/run.ts` Phase 1e (Precedence Routing) accepts both and
+  // applies the precedence ITSELF, recording an explicit repair entry
+  // ("goal_constraints present. goal_threshold=... ignored") and, where the
+  // constraint on the goal node conflicts, naming the conflicting constraint.
+  // Deleting the threshold client-side destroyed the user's success target
+  // before PLoT could see it, so that decision — and its audit trail — was lost,
+  // and the target silently vanished from the run the moment a constraint was
+  // added. Send both; let the producer route and report.
 
   const requestConstraintCount = request.goal_constraints?.length ?? 0
+  if (preparedConstraints.dropped.length > 0) {
+    console.error('[V2Adapter] Dropped goal constraints PLoT would reject as blockers', {
+      dropped: preparedConstraints.dropped.map((d) => ({
+        reason: d.reason,
+        constraint_id: d.constraint.constraint_id ?? d.constraint.id,
+        node_id: d.constraint.node_id,
+        operator: d.constraint.operator,
+      })),
+    })
+  }
   console.info('[constraint-trace] plot-request', {
     source: 'adapter.buildRunRequest',
     goal_constraints_count: requestConstraintCount,
+    goal_constraints_dropped: preparedConstraints.dropped.length,
     goal_threshold_present: 'goal_threshold' in request,
-    xor_applied: requestConstraintCount > 0 && !('goal_threshold' in request),
   })
 
   return { request, reverseIdMap: normalised.reverseIdMap }
@@ -1639,16 +1758,14 @@ export async function executeV2RunWithAnalysisReady(
     request.goal_threshold = goalThreshold
   }
 
-  // XOR: goal_constraints take precedence over goal_threshold (PLoT contract §3.3.5).
-  // This catches the case where goalThreshold is injected via the function parameter
-  // after the builder already set goal_constraints.
-  // delete is safe: V2RunRequest marks goal_threshold as optional.
-  if (Array.isArray(request.goal_constraints) && request.goal_constraints.length > 0) {
-    if (request.goal_threshold != null && import.meta.env.DEV) {
-      console.debug('[V2Adapter] XOR (execute path): removed goal_threshold (%.2f) — goal_constraints present (%d)', request.goal_threshold, request.goal_constraints.length)
-    }
-    delete request.goal_threshold
-  }
+  // NO XOR on the execute path either.
+  //
+  // This is the SECOND deletion site, and the one that actually bites in
+  // production: useV2Run calls executeV2RunWithAnalysisReady and re-injects the
+  // user's threshold through the `goalThreshold` parameter immediately above,
+  // so removing only the builder's XOR would have left the live wire unchanged.
+  // Both sites now send goal_threshold and goal_constraints together and let
+  // PLoT's Phase 1e precedence routing decide, as it already does.
 
   if (import.meta.env.DEV) {
     console.warn('[V2Adapter] Sending request (via analysisReady path):', {

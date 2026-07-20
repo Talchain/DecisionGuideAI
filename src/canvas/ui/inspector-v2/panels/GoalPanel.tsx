@@ -70,10 +70,16 @@ export const GoalPanel = memo(function GoalPanel({
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
   const [isEditingDescription, setIsEditingDescription] = useState(false)
 
-  // B.5: Add constraint form state
+  // B.5: Add constraint form state.
+  // The dropdown carries the factor's NODE ID, not its label: PLoT's constraint
+  // preflight resolves `node_id` against graph.nodes, so a label here produces
+  // CONSTRAINT_TARGET_NOT_FOUND and 422s the whole run.
   const [showAddConstraint, setShowAddConstraint] = useState(false)
-  const [newConstraintLabel, setNewConstraintLabel] = useState('')
-  const [newConstraintOperator, setNewConstraintOperator] = useState<'>=' | '<=' | '='>('>=')
+  const [newConstraintNodeId, setNewConstraintNodeId] = useState('')
+  // Operator is restricted to the two ASCII forms PLoT accepts. '=' is NOT a
+  // valid constraint operator (preflight-v2 CONSTRAINT_INVALID_OPERATOR), and
+  // @talchain/schemas DraftGoalConstraintSchema declares z.enum(['>=', '<=']).
+  const [newConstraintOperator, setNewConstraintOperator] = useState<'>=' | '<='>('>=')
   const [newConstraintValue, setNewConstraintValue] = useState('')
   const [constraintError, setConstraintError] = useState('')
 
@@ -85,24 +91,37 @@ export const GoalPanel = memo(function GoalPanel({
     })),
   [nodes])
 
-  // Already-constrained factor labels (case-insensitive)
-  const constrainedLabels = useMemo(() => {
-    if (!goalConstraints?.length) return new Set<string>()
-    // `label` is optional on the wire (CEE's producer schema and the
-    // @talchain/schemas draft contract both declare it optional), so an
-    // unguarded `.toLowerCase()` throws on a perfectly valid constraint.
-    // Unlabelled constraints simply cannot match a factor label — drop them
-    // rather than crash the panel.
-    return new Set(
-      goalConstraints
-        .map(c => c.label?.toLowerCase().trim())
-        .filter((l): l is string => !!l),
-    )
+  // Already-constrained factors, keyed by node ID where the constraint carries
+  // one and by lower-cased label otherwise. Constraints minted before this panel
+  // captured node IDs (and any legacy persisted graph) carry only a label, so
+  // the label leg has to stay for the "(already constrained)" hint to keep
+  // working on those — but node ID is the identity that actually matters.
+  //
+  // `label` is optional on the wire (CEE's producer schema and the
+  // @talchain/schemas draft contract both declare it optional), so an
+  // unguarded `.toLowerCase()` throws on a perfectly valid constraint.
+  const constrainedTargets = useMemo(() => {
+    const byNodeId = new Set<string>()
+    const byLabel = new Set<string>()
+    for (const c of goalConstraints ?? []) {
+      if (c.node_id) byNodeId.add(c.node_id)
+      const l = c.label?.toLowerCase().trim()
+      if (l) byLabel.add(l)
+    }
+    return { byNodeId, byLabel }
   }, [goalConstraints])
 
   const handleAddConstraint = useCallback(() => {
     const value = parseFloat(newConstraintValue)
-    if (!newConstraintLabel) {
+    if (!newConstraintNodeId) {
+      setConstraintError(GOAL_CONSTRAINT_COPY.errorSelectFactor)
+      return
+    }
+    // The dropdown only ever offers factor node IDs, but resolve rather than
+    // trust: a stale selection whose node has since been deleted must not mint
+    // a constraint pointing at a node that is no longer in the graph.
+    const targetNode = factorNodes.find(f => f.id === newConstraintNodeId)
+    if (!targetNode) {
       setConstraintError(GOAL_CONSTRAINT_COPY.errorSelectFactor)
       return
     }
@@ -111,19 +130,31 @@ export const GoalPanel = memo(function GoalPanel({
       return
     }
     const base = preAnalysisConstraints ?? []
+    // Conforms to @talchain/schemas DraftGoalConstraintSchema (0.19.0):
+    // constraint_id and node_id are both REQUIRED and min(1); operator is
+    // z.enum(['>=', '<=']). PLoT's own preflight (validateGoalConstraints)
+    // reads exactly these fields, so anything less 422s the run.
+    //
+    // constraint_id is a UUID rather than a positional `c${n}`: the positional
+    // scheme regenerates an existing id after a delete-then-add, which PLoT
+    // rejects with CONSTRAINT_DUPLICATE_ID.
     const newConstraint: CEEGoalConstraint = {
-      id: `c${base.length + 1}`,
-      label: newConstraintLabel,
+      constraint_id: crypto.randomUUID(),
+      node_id: targetNode.id,
       operator: newConstraintOperator,
       value,
+      label: targetNode.label,
+      // The user typed this constraint into the panel themselves — it is not
+      // inferred from the brief and not a proxy for something else.
+      provenance: 'explicit',
     }
     setGoalConstraints([...base, newConstraint])
     setShowAddConstraint(false)
-    setNewConstraintLabel('')
+    setNewConstraintNodeId('')
     setNewConstraintOperator('>=')
     setNewConstraintValue('')
     setConstraintError('')
-  }, [newConstraintLabel, newConstraintOperator, newConstraintValue, preAnalysisConstraints, setGoalConstraints])
+  }, [factorNodes, newConstraintNodeId, newConstraintOperator, newConstraintValue, preAnalysisConstraints, setGoalConstraints])
 
   // Inbound connections (outcomes/risks → goal)
   const inboundConnections = useMemo(() => {
@@ -234,7 +265,7 @@ export const GoalPanel = memo(function GoalPanel({
                     ? 'border-info/30'
                     : prob >= 0.7 ? 'border-success/30' : prob >= 0.4 ? 'border-warning/30' : 'border-danger/30'
                   return (
-                    <div key={c.id ?? i} className={`px-2.5 py-1.5 bg-panel border ${colourClass} rounded-lg`}>
+                    <div key={c.constraint_id ?? c.id ?? i} className={`px-2.5 py-1.5 bg-panel border ${colourClass} rounded-lg`}>
                       <div className="flex items-center justify-between gap-2">
                         <span className={`${typography.panelBody} text-text-body truncate`}>{c.label ?? `Constraint ${i + 1}`}</span>
                         {prob !== null && (
@@ -279,8 +310,15 @@ export const GoalPanel = memo(function GoalPanel({
                               const parsed = parseFloat(e.target.value)
                               if (Number.isNaN(parsed) || parsed === c.value) return
                               const base = preAnalysisConstraints ?? []
+                              // Identity is `constraint_id ?? id` — panel-minted
+                              // constraints carry only constraint_id, so keying
+                              // on `id` alone silently fell through to index
+                              // matching (wrong row after any reorder/delete).
+                              const identity = c.constraint_id ?? c.id
                               const updated = base.map((pc, idx) =>
-                                (c.id !== undefined ? pc.id === c.id : idx === i)
+                                (identity !== undefined
+                                  ? (pc.constraint_id ?? pc.id) === identity
+                                  : idx === i)
                                   ? { ...pc, value: parsed }
                                   : pc
                               )
@@ -318,16 +356,18 @@ export const GoalPanel = memo(function GoalPanel({
             <div className="mt-2 p-2.5 bg-panel border border-panel-border rounded-lg space-y-2" data-testid="add-constraint-form">
               {/* Factor dropdown */}
               <select
-                value={newConstraintLabel}
-                onChange={e => { setNewConstraintLabel(e.target.value); setConstraintError('') }}
+                value={newConstraintNodeId}
+                onChange={e => { setNewConstraintNodeId(e.target.value); setConstraintError('') }}
                 className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel text-text-body`}
                 aria-label={GOAL_CONSTRAINT_COPY.factorLabel}
               >
                 <option value="">{GOAL_CONSTRAINT_COPY.selectFactor}</option>
                 {factorNodes.map(f => {
-                  const alreadyConstrained = constrainedLabels.has(f.label.toLowerCase().trim())
+                  const alreadyConstrained =
+                    constrainedTargets.byNodeId.has(f.id)
+                    || constrainedTargets.byLabel.has(f.label.toLowerCase().trim())
                   return (
-                    <option key={f.id} value={f.label} disabled={alreadyConstrained}>
+                    <option key={f.id} value={f.id} disabled={alreadyConstrained}>
                       {f.label}{alreadyConstrained ? ` ${GOAL_CONSTRAINT_COPY.alreadyConstrained}` : ''}
                     </option>
                   )
@@ -337,13 +377,13 @@ export const GoalPanel = memo(function GoalPanel({
               <div className="flex items-center gap-1.5">
                 <select
                   value={newConstraintOperator}
-                  onChange={e => setNewConstraintOperator(e.target.value as '>=' | '<=' | '=')}
+                  onChange={e => setNewConstraintOperator(e.target.value as '>=' | '<=')}
                   className={`${typography.panelMeta} w-16 border border-panel-border rounded-lg px-1.5 py-1.5 bg-panel text-text-body`}
                   aria-label={GOAL_CONSTRAINT_COPY.operatorLabel}
                 >
+                  {/* No '=' option: PLoT accepts >= and <= only. */}
                   <option value=">=">{'\u2265'}</option>
                   <option value="<=">{'\u2264'}</option>
-                  <option value="=">=</option>
                 </select>
                 <input
                   type="number"

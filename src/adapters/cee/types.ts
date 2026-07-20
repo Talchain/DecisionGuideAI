@@ -284,7 +284,19 @@ export interface CEEGoalConstraint {
    * read — `c.label.toLowerCase()` throws on a perfectly valid constraint.
    */
   label?: string
-  operator: '>=' | '<=' | '>' | '<' | '='
+  /**
+   * SCHEMA-AUTHORITATIVE (@talchain/schemas 0.19.0 `DraftGoalConstraintSchema`):
+   * `z.enum(['>=', '<='])`, documented "ASCII only — CEE normalises away '<',
+   * '>' and the Unicode forms". PLoT's own preflight agrees: any other operator
+   * is a CONSTRAINT_INVALID_OPERATOR blocker (`validation/preflight-v2.ts`).
+   *
+   * This union previously also admitted '>' | '<' | '=', which let the GoalPanel
+   * offer an '=' the producer cannot accept. Narrowed to match the contract.
+   * Runtime drift is still gated, not assumed away — see UI-SEM-086
+   * (`prepareGoalConstraintsForRequest`), which re-checks the operator at the
+   * wire boundary rather than trusting this type.
+   */
+  operator: '>=' | '<='
   value: number
   probability?: number | null
 
