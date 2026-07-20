@@ -86,10 +86,14 @@ describe('AdvancedSection', () => {
     expect(screen.getByTestId('receipt-result-stability')).toHaveTextContent('Robustness not assessed')
   })
 
-  it('falls closed to "Robustness unknown" when the verdict is missing', () => {
+  // Fail-closed doctrine: an ABSENT verdict renders NO row (never a
+  // "Robustness unknown" placeholder row — no row beats an empty-value row).
+  it('renders NO Result-stability row when the verdict is missing (fail-closed)', () => {
     render(<AdvancedSection />)
     fireEvent.click(screen.getByText('Advanced and receipts'))
-    expect(screen.getByTestId('receipt-result-stability')).toHaveTextContent('Robustness unknown')
+    expect(screen.queryByTestId('receipt-result-stability')).not.toBeInTheDocument()
+    expect(screen.queryByText('Result stability')).not.toBeInTheDocument()
+    expect(screen.queryByText('Robustness unknown')).not.toBeInTheDocument()
   })
 
   // NEGATIVE PIN (premise 1): AdvancedSection renders NO

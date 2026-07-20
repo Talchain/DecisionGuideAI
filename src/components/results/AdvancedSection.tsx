@@ -402,11 +402,17 @@ export function AdvancedSection({
           </h4>
           <dl className={`grid grid-cols-2 gap-x-4 gap-y-1.5 ${typography.panelMeta}`}>
             {/* Result stability — display-safe verdict only (never the
-                deprecated recommendation_stability %). */}
-            <div className="contents" data-testid="receipt-result-stability">
-              <dt className="text-text-light">Result stability</dt>
-              <dd className="text-text-header">{resultStabilityLabel}</dd>
-            </div>
+                deprecated recommendation_stability %). Fail-closed: a real
+                producer verdict ('robust'|'moderate'|'fragile'|'not_assessed')
+                renders its mapped label; an ABSENT verdict renders NO row —
+                never a "Robustness unknown" placeholder row (no row beats an
+                empty-value row, per the receipts fail-closed doctrine). */}
+            {robustnessVerdict != null && (
+              <div className="contents" data-testid="receipt-result-stability">
+                <dt className="text-text-light">Result stability</dt>
+                <dd className="text-text-header">{resultStabilityLabel}</dd>
+              </div>
+            )}
             {/* Simulations — path-conditional honesty: the count renders ONLY
                 when the current run actually carries it (V2 path). On a pure
                 V5 turn `meta` is stripped upstream so nSamples is null and the
