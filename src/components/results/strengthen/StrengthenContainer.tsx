@@ -43,7 +43,7 @@ import {
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { openDefineSuccess, openDecisionRecord, useDecisionRecordForScenario } from '../modals'
 import { openAskOlumi } from '../coaching/askOlumiStore'
-import { buildRecommendations } from './buildRecommendations'
+import { buildRecommendations, toStrengthenPhase3Item } from './buildRecommendations'
 import { STRENGTHEN_COPY as COPY } from './strengthenCopy'
 import type { HelpType, StrengthenInputs } from './strengthenTypes'
 import { StrengthenPanel } from './StrengthenPanel'
@@ -131,21 +131,11 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
       biasFindingTypes: (biasSignals ?? []).map((b) => b.type),
       // Producer stage signal → adaptive priority (UI-SEM-076, ordering only).
       adaptivePriority: adaptivePriorityFromStage(currentStage),
-      phase3Items: guidanceItems.map((item) => ({
-        id: item.item_id,
-        title: item.title,
-        body: item.detail,
-        actionIntent: item.primary_action.type === 'discuss' ? 'discuss' : item.primary_action.type,
-        actionLabel: undefined,
-        targetIds: item.target_object?.id ? [item.target_object.id] : [],
-        // GuidanceItem priority is 0-100 higher-first; the engine wants
-        // ascending, so invert onto its phase-3 band.
-        priorityRank: 100 - (item.priority ?? 0),
-        // UI-SEM-085: passed through from the single defaulting site in
-        // deriveGuidance. Strict explicit-true read (fail-closed) — an item
-        // that cannot prove a producer rank is treated as unranked.
-        priorityIsProducerSupplied: item.priorityIsProducerSupplied === true,
-      })),
+      // UI-SEM-085 (narrowed): the shared mapper carries the producer's
+      // `priority_rank` VERBATIM (ascending, unbounded, presence =
+      // producer-ranked) — the historic `100 - priority` re-inversion here
+      // is what collapsed the coaching band. Never reintroduce a local map.
+      phase3Items: guidanceItems.map(toStrengthenPhase3Item),
     }
   }, [data, guidanceItems, biasSignals, currentStage])
 

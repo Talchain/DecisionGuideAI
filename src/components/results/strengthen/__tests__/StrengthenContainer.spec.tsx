@@ -322,3 +322,35 @@ describe('StrengthenContainer — adaptive priority from the producer stage (UI-
     expect(active[0].id).toBe('strengthen:voi:fac_churn')
   })
 })
+
+describe('StrengthenContainer — producer priority_rank rides through VERBATIM (UI-SEM-085 narrowed)', () => {
+  it('coaching-band ranks (>= 100) order the phase-3 rows ascending — never re-inverted, never collapsed', () => {
+    // The container is the historic inversion site (`100 - priority`). Seed
+    // the store the way the fixed extractor writes it — rank verbatim,
+    // coarse urgency equal across items (band-granular ties are normal) —
+    // and require the PANEL order to be the producer's ascending rank, not
+    // the arrival order a collapse would leave behind.
+    const mk = (item_id: string, priorityRank: number) => ({
+      item_id,
+      signal_code: 'coaching',
+      category: 'should_fix' as const,
+      source: 'analysis' as const,
+      title: `Finding ${item_id}`,
+      primary_action: { type: 'discuss' as const, prompt: 'p' },
+      priority: 70,
+      priorityRank,
+    })
+    useGuidanceStore.setState({
+      guidanceItems: [mk('c-201', 201), mk('c-101', 101), mk('c-150', 150)],
+    } as never)
+    render(<StrengthenContainer data={makeData({ goalThreshold: 62 })} />)
+    const phase3 = selectActive(useStrengthenStore.getState())
+      .map((r) => r.id)
+      .filter((id) => id.startsWith('strengthen:phase3:'))
+    expect(phase3).toEqual([
+      'strengthen:phase3:c-101',
+      'strengthen:phase3:c-150',
+      'strengthen:phase3:c-201',
+    ])
+  })
+})

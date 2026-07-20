@@ -90,8 +90,13 @@ describe('extractPhase3FromV5Response', () => {
       analysis_hash: 'analysis-xyz',
       graph_hash: 'graph-abc',
     })
-    // priority_rank 3 → 100 - 3 = 97
-    expect(g.priority).toBe(97)
+    // UI-SEM-085 (narrowed): priority_rank rides through VERBATIM (0.19.0
+    // ascending ordinal — never inverted, never clamped); the coarse urgency
+    // `priority` is NOT derived from it (wire priority absent → 50 default,
+    // disclosed by the flag).
+    expect(g.priorityRank).toBe(3)
+    expect(g.priority).toBe(50)
+    expect(g.priorityIsProducerSupplied).toBe(false)
   })
 
   it('reads Phase 3 content from analysis_ready passthrough', () => {

@@ -1,26 +1,22 @@
 /**
- * UI-SEM-085 — guidance rank honesty.
+ * UI-SEM-085 (narrowed) — guidance rank honesty.
  *
- * The defect this pins: on the only LIVE guidance writer (V5,
- * useConversation.ts:3271 <- extractPhase3FromV5Response.deriveGuidance),
- * `priority` defaults to 50 when CEE omits both `priority` and
- * `priority_rank`. StrengthenContainer inverts that to
- * `priorityRank = 100 - 50 = 50`, and buildRecommendations banded it to
- * `phase3Base(10) + 50 = 60` — which sorts ABOVE the producer-backed flip
- * trigger (100). The sort is stable and every default is identical, so the
- * visible order was simply the wire array order, presented as merit.
+ * The ORIGINAL defect this file pinned: `priority` defaulted to 50 when CEE
+ * omitted both wire fields, StrengthenContainer inverted it to
+ * `priorityRank = 100 - 50 = 50`, and buildRecommendations banded it ABOVE
+ * the producer-backed flip trigger — so wire array order was presented as
+ * merit. Stage 1 fixed that by DISCLOSE + DEMOTE.
  *
- * Stage 1 fix = DISCLOSE + DEMOTE, never re-invent: a defaulted row drops
- * below the whole producer-backed ladder and says so in its source line. No
- * replacement priority is derived from `category`.
- *
- * SCOPE, measured not assumed: a probe over the live capture
- * `cee-response-b82c89dd-trimmed.json` showed CEE DOES send `priority_rank` on
- * all 10 of its blocks, so the 50 default does NOT fire there — `category` and
- * `signal_code` are the universally-defaulted pair. The priority default is
- * still real (the two `exercise` blocks in
- * `phase3-evidence-exercise.bundle-shaped.json` carry neither field), which is
- * what these tests pin.
+ * Since then the producer half landed (0.19.0): CEE emits `category` +
+ * `priority` on every guidance block, and `priority_rank` is REQUIRED on
+ * review_card/coaching/evidence blocks (absent by contract on exercise
+ * blocks). The consumer now takes each field on its own contract terms —
+ * `priorityRank` verbatim (ascending, unbounded, presence = ranked),
+ * `priority` verbatim (0-100 urgency, higher = more urgent, never a display
+ * order), no inversions anywhere. See producerGuidancePriority.spec.ts for
+ * the coaching-band collapse pins; THIS file keeps the honesty half: the
+ * fail-closed defaults still exist for genuine absence, unranked rows stay
+ * demoted + labelled, and no replacement rank is ever invented.
  *
  * NOTE ON LOCATION: this spec deliberately lives OUTSIDE `src/v5/**` (the
  * CI-tsc widening trap) even though it exercises the v5 extractor.
@@ -53,9 +49,9 @@ const withFlip: Pick<StrengthenInputs, 'fragileEdges'> = {
 const UNRANKED_LINE = 'Source: Olumi model review (not ranked — shown in the order received).'
 const RANKED_LINE = 'Source: Olumi model review.'
 
-// ─── Leg 1: the flag is set at the single defaulting site ──────────────────
+// ─── Leg 1: the single defaulting site discloses provenance honestly ───────
 
-describe('UI-SEM-085 — deriveGuidance marks producer-supplied vs UI-defaulted rank', () => {
+describe('UI-SEM-085 — deriveGuidance marks producer-supplied vs UI-defaulted priority', () => {
   /** Feeds one coaching block through the real sidecar path the live V5
    * writer uses, and returns the derived guidance item. */
   const extractOne = (block: Record<string, unknown>) => {
@@ -80,21 +76,25 @@ describe('UI-SEM-085 — deriveGuidance marks producer-supplied vs UI-defaulted 
     return res.guidanceItems[0]
   }
 
-  it('flags a block carrying explicit `priority` as producer-supplied', () => {
+  it('consumes explicit `priority` verbatim and flags it producer-supplied', () => {
     const item = extractOne({ title: 'Ranked finding', priority: 90 })
     expect(item.priority).toBe(90)
     expect(item.priorityIsProducerSupplied).toBe(true)
   })
 
-  it('flags a block carrying `priority_rank` as producer-supplied', () => {
+  it('carries `priority_rank` VERBATIM and never derives urgency from it', () => {
+    // The historic behaviour (priority = 100 - rank = 98) was the inversion
+    // defect: an order is not a score. Rank rides its own field, untouched.
     const item = extractOne({ title: 'Rank-ordered finding', priority_rank: 2 })
-    expect(item.priority).toBe(98)
-    expect(item.priorityIsProducerSupplied).toBe(true)
+    expect(item.priorityRank).toBe(2)
+    expect(item.priority).toBe(50)
+    expect(item.priorityIsProducerSupplied).toBe(false)
   })
 
-  it('flags a block carrying NEITHER as UI-defaulted (the live CEE case)', () => {
+  it('flags a block carrying NEITHER field as UI-defaulted (pre-0.19.0 case)', () => {
     const item = extractOne({ title: 'Unranked finding' })
     expect(item.priority).toBe(50)
+    expect(item.priorityRank).toBeUndefined()
     expect(item.priorityIsProducerSupplied).toBe(false)
   })
 
@@ -110,18 +110,13 @@ describe('UI-SEM-085 — deriveGuidance marks producer-supplied vs UI-defaulted 
 // ─── Leg 2: demotion + disclosure in the Strengthen ladder ─────────────────
 
 describe('UI-SEM-085 — unranked guidance is demoted below the producer ladder', () => {
-  it('THE DEFECT: an unranked phase-3 row no longer outranks the flip trigger', () => {
+  it('THE DEFECT: an unranked phase-3 row never outranks the flip trigger', () => {
     const input: StrengthenInputs = {
       ...base,
       ...withFlip,
       phase3Items: [
-        {
-          id: 'g1',
-          title: 'Unranked finding',
-          targetIds: [],
-          priorityRank: 50, // 100 - 50 default
-          priorityIsProducerSupplied: false,
-        },
+        // No priorityRank — the producer sent no ordering for this block.
+        { id: 'g1', title: 'Unranked finding', targetIds: [] },
       ],
     }
     const recs = buildRecommendations(input)
@@ -134,15 +129,7 @@ describe('UI-SEM-085 — unranked guidance is demoted below the producer ladder'
     const input: StrengthenInputs = {
       ...base,
       ...withFlip,
-      phase3Items: [
-        {
-          id: 'g1',
-          title: 'Ranked finding',
-          targetIds: [],
-          priorityRank: 1,
-          priorityIsProducerSupplied: true,
-        },
-      ],
+      phase3Items: [{ id: 'g1', title: 'Ranked finding', targetIds: [], priorityRank: 1 }],
     }
     const recs = buildRecommendations(input)
     const phase3 = recs.find((r) => r.id === 'strengthen:phase3:g1')!
@@ -154,8 +141,8 @@ describe('UI-SEM-085 — unranked guidance is demoted below the producer ladder'
     const input: StrengthenInputs = {
       ...base,
       phase3Items: [
-        { id: 'ranked', title: 'A', targetIds: [], priorityRank: 1, priorityIsProducerSupplied: true },
-        { id: 'unranked', title: 'B', targetIds: [], priorityRank: 50, priorityIsProducerSupplied: false },
+        { id: 'ranked', title: 'A', targetIds: [], priorityRank: 1 },
+        { id: 'unranked', title: 'B', targetIds: [] },
       ],
     }
     const recs = buildRecommendations(input)
@@ -163,50 +150,47 @@ describe('UI-SEM-085 — unranked guidance is demoted below the producer ladder'
     expect(recs.find((r) => r.id === 'strengthen:phase3:unranked')!.sourceLine).toBe(UNRANKED_LINE)
   })
 
-  it('treats an ABSENT flag as unranked (fail-closed — never claims an unproven rank)', () => {
+  it('treats rank ABSENCE as unranked (fail-closed — never claims an unproven rank)', () => {
     const input: StrengthenInputs = {
       ...base,
-      phase3Items: [{ id: 'g1', title: 'No flag at all', targetIds: [], priorityRank: 50 }],
+      phase3Items: [{ id: 'g1', title: 'No rank at all', targetIds: [] }],
     }
     const rec = buildRecommendations(input).find((r) => r.id === 'strengthen:phase3:g1')!
     expect(rec.sourceLine).toBe(UNRANKED_LINE)
     expect(rec.priority).toBeGreaterThan(200) // below `commit`, the ladder's old floor
   })
 
-  it('does NOT derive a replacement rank: every unranked row lands in one band, arrival order kept', () => {
-    // All four defaulted identically (priorityRank 50). Their relative order
-    // must remain the order received — demotion must not silently reorder
-    // them by category, title, or anything else the UI invented.
+  it('does NOT derive a replacement rank: unranked rows keep arrival order in one band', () => {
+    // All four unranked. Their relative order must remain the order received
+    // — demotion must not silently reorder them by category, title, or
+    // anything else the UI invented. (Band offsets are dense ARRIVAL indices
+    // — positional bookkeeping, not a merit ranking.)
     const input: StrengthenInputs = {
       ...base,
       phase3Items: ['a', 'b', 'c', 'd'].map((id) => ({
         id,
         title: `Finding ${id}`,
         targetIds: [],
-        priorityRank: 50,
-        priorityIsProducerSupplied: false,
       })),
     }
-    const phase3 = buildRecommendations(input).filter((r) => r.id.startsWith('strengthen:phase3:'))
+    const phase3 = buildRecommendations(input)
+      .filter((r) => r.id.startsWith('strengthen:phase3:'))
+      .sort((a, b) => a.priority - b.priority)
     expect(phase3.map((r) => r.id)).toEqual([
       'strengthen:phase3:a',
       'strengthen:phase3:b',
       'strengthen:phase3:c',
       'strengthen:phase3:d',
     ])
-    expect(new Set(phase3.map((r) => r.priority)).size).toBe(1)
+    expect(phase3.every((r) => r.sourceLine === UNRANKED_LINE)).toBe(true)
   })
 
   it('spends the promotion budget on producer-ranked rows before unranked ones', () => {
-    // MAX_PHASE3_PROMOTED is 4. Five items: four UNRANKED at the default
-    // priorityRank 50, and one genuinely producer-ranked whose rank is WORSE
-    // than that default (priorityRank 60 = producer priority 40).
-    //
-    // The 60 is the whole point: sorting on priorityRank ALONE puts all four
-    // defaults (50) ahead of the real rank (60), so the cap silently drops the
-    // one item the producer actually ranked — while the four that displaced it
-    // get demoted to the bottom of the panel anyway. The demotion has to apply
-    // at the budget sort too, or the cap quietly re-privileges unranked rows.
+    // MAX_PHASE3_PROMOTED is 4. Five items: four UNRANKED arrivals ahead of
+    // one genuinely producer-ranked block whose rank (201, prompt band) is
+    // numerically enormous. Rank PRESENCE must win the budget — a sort on
+    // rank value alone would let four unranked sentinels displace the one
+    // block the producer actually ranked.
     const input: StrengthenInputs = {
       ...base,
       phase3Items: [
@@ -214,16 +198,8 @@ describe('UI-SEM-085 — unranked guidance is demoted below the producer ladder'
           id,
           title: `Unranked ${id}`,
           targetIds: [],
-          priorityRank: 50,
-          priorityIsProducerSupplied: false,
         })),
-        {
-          id: 'ranked',
-          title: 'Ranked finding',
-          targetIds: [],
-          priorityRank: 60,
-          priorityIsProducerSupplied: true,
-        },
+        { id: 'ranked', title: 'Ranked finding', targetIds: [], priorityRank: 201 },
       ],
     }
     const ids = buildRecommendations(input)

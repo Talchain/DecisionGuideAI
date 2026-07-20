@@ -16,15 +16,39 @@
  *   option counting) — no live emission until CEE ships the signal.
  *
  * Priority is deterministic (ascending): the framing foundation first, then
- * the producer's own Phase-3 ranking, then evidence work, then challenge,
- * then commit — and last, the UI-SEM-085 unranked phase-3 band (guidance
- * blocks CEE sent with no priority, whose order is arrival order and is
- * labelled as such). Reprioritisation reorders; the lifecycle store owns
+ * the producer's own Phase-3 ranking (ascending `priority_rank`, verbatim),
+ * then evidence work, then challenge, then commit — and last, the UI-SEM-085
+ * unranked phase-3 band (guidance blocks CEE sent with no `priority_rank` —
+ * by contract, exercise and pre-0.19.0 blocks — whose order is arrival order
+ * and is labelled as such). Reprioritisation reorders; the lifecycle store owns
  * status and never resets it. When the producer supplies an adaptive
  * priority (inputs.adaptivePriority), matching-helpType recs float above
  * the rest while preserving relative order within each group.
  */
-import type { Recommendation, StrengthenInputs } from './strengthenTypes'
+import type { GuidanceItem } from '../../../canvas/stores/guidanceStore'
+import type { Recommendation, StrengthenInputs, StrengthenPhase3Item } from './strengthenTypes'
+
+/**
+ * GuidanceItem → StrengthenPhase3Item, the ONE store→engine mapping
+ * (UI-SEM-085 narrowed). `priorityRank` rides through VERBATIM — ascending,
+ * lower = first, unbounded, presence = producer-ranked. Nothing is inverted
+ * and nothing is defaulted here: the historic `100 - priority` re-inversion
+ * at this seam is what collapsed the coaching band (every rank >= 100 had
+ * already clamped to priority 0 upstream, so 101 and 201 became one tie
+ * broken by wire array order). Exported so specs can pin the live seam
+ * instead of re-implementing it.
+ */
+export function toStrengthenPhase3Item(item: GuidanceItem): StrengthenPhase3Item {
+  return {
+    id: item.item_id,
+    title: item.title,
+    body: item.detail,
+    actionIntent: item.primary_action.type === 'discuss' ? 'discuss' : item.primary_action.type,
+    actionLabel: undefined,
+    targetIds: item.target_object?.id ? [item.target_object.id] : [],
+    ...(typeof item.priorityRank === 'number' ? { priorityRank: item.priorityRank } : {}),
+  }
+}
 
 /** UI-SEM-014-class VOI visibility floor (percentage points). */
 const VOI_EVPI_FLOOR_PP = 5
@@ -50,27 +74,32 @@ const MAX_PHASE3_PROMOTED = 4
  * every non-matching band while in-band relative order is preserved. */
 const ADAPTIVE_MATCH_BOOST = 10_000
 
-// UI-SEM-085: two phase-3 bands, not one. A guidance block the producer
-// actually ranked keeps its historic place near the top of the ladder
-// (phase3Base). A block whose priority is the UI's 50 default carries NO merit
-// information — inverted it lands at rank 50, banding to 60, which used to sort
-// ABOVE the producer-backed flip trigger (100) purely because of where it sat
-// in the wire array. Those rows now drop to phase3Unranked, BELOW every
-// producer-backed trigger, and each says so in its source line. This is
-// demotion + disclosure ONLY: no replacement priority is derived from
-// `category` (that would stack a second UI invention on the first), and the
-// order WITHIN the unranked band remains the arrival order — now labelled as
+// UI-SEM-085 (narrowed, 0.19.0): two phase-3 bands, not one. A guidance
+// block the producer ranked (it carries `priority_rank` — ascending, lower =
+// first, UNBOUNDED) keeps its place near the top of the ladder (phase3Base).
+// A block the producer did NOT rank (pre-0.19.0 blocks, exercise blocks —
+// the contract gives them no rank) has no producer ORDER — those rows drop
+// to phase3Unranked, BELOW every producer-backed trigger, and each says so
+// in its source line. Demotion + disclosure ONLY: no replacement order is
+// derived from `category`/`priority` (urgency is not an order), and the
+// order WITHIN the unranked band remains the arrival order — labelled as
 // such instead of presented as a ranking.
+//
+// Band offsets are DENSE indices into the promoted list (0..3 under
+// MAX_PHASE3_PROMOTED), NOT the raw rank: ranks are unbounded, so adding
+// them (the historic `phase3Base + rank`) let a coaching-band rank (>= 100)
+// spill past the flip trigger and even past the unranked band. An ordinal
+// carries only ORDER — the dense index preserves it exactly.
 const PRIORITY = {
   successMeasure: 0,
-  phase3Base: 10, // + priority_rank (producer-ranked only)
+  phase3Base: 10, // + dense promoted-list index (producer-ranked only)
   flip: 100,
   lehi: 110,
   voi: 120,
   robustness: 130,
   broaden: 140,
   commit: 200,
-  phase3Unranked: 210, // + priority_rank; below the whole producer-backed ladder
+  phase3Unranked: 210, // + dense index; below the whole producer-backed ladder
 } as const
 
 /** UI-SEM-085 source lines. Producer-ranked rows keep the original line; a
@@ -130,19 +159,29 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   // emits several review cards under one generic headline with different
   // bodies (fixture cee-response-b82c89dd-trimmed). The cap is a display
   // budget and still applies AFTER true-duplicate removal.
-  // UI-SEM-085: producer-ranked items sort ahead of unranked ones BEFORE the
-  // MAX_PHASE3_PROMOTED budget is applied. Without this the cap could be spent
-  // on unranked rows (which are then demoted to the bottom anyway) while a
-  // genuinely producer-ranked block is dropped from the panel entirely.
-  // Strict explicit-true read — absence is treated as unranked (fail-closed).
+  // UI-SEM-085 (narrowed): producer-ranked items sort ahead of unranked ones
+  // BEFORE the MAX_PHASE3_PROMOTED budget is applied. Without this the cap
+  // could be spent on unranked rows (which are then demoted to the bottom
+  // anyway) while a genuinely producer-ranked block is dropped entirely.
+  // Ranked-ness IS rank presence (0.19.0: `priority_rank` is the producer's
+  // ordering; exercise blocks and pre-0.19.0 blocks legitimately lack it).
   const isProducerRanked = (i: StrengthenInputs['phase3Items'][number]): boolean =>
-    i.priorityIsProducerSupplied === true
+    typeof i.priorityRank === 'number'
   const seenPhase3Keys = new Set<string>()
   const promotedPhase3 = [...inputs.phase3Items]
     .sort((a, b) => {
       const rankedDelta = Number(isProducerRanked(b)) - Number(isProducerRanked(a))
       if (rankedDelta !== 0) return rankedDelta
-      return (a.priorityRank ?? 99) - (b.priorityRank ?? 99)
+      // Ascending producer rank — lower = first, verbatim wire semantics
+      // (unbounded; the bands are disjoint numeric ranges, so plain numeric
+      // order respects them — no cross-band re-ranking). Equal ranks are
+      // producer-order ties: sort() is stable, arrival order holds, which is
+      // what the contract prescribes. Unranked pairs both hit the sentinel →
+      // stable → arrival order, labelled as such below.
+      return (
+        (a.priorityRank ?? Number.MAX_SAFE_INTEGER) -
+        (b.priorityRank ?? Number.MAX_SAFE_INTEGER)
+      )
     })
     .filter((item) => {
       const key = dedupeKey(item.title, item.body)
@@ -151,6 +190,7 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       return true
     })
     .slice(0, MAX_PHASE3_PROMOTED)
+  let promotedIndex = 0
   for (const item of promotedPhase3) {
     recs.push({
       id: `strengthen:phase3:${item.id}`,
@@ -179,11 +219,16 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
         prompt: item.title,
       },
       targetId: item.targetIds[0] ?? null,
-      // UI-SEM-085: producer-ranked keeps the historic band; defaulted rank
-      // drops below the entire producer-backed ladder.
+      // UI-SEM-085 (narrowed): producer-ranked keeps the top band, unranked
+      // drops below the entire producer-backed ladder. The offset is the
+      // DENSE position in the promoted list (never the raw rank — unbounded
+      // ranks spill across bands; an ordinal carries only order, and the
+      // dense index preserves it exactly). Ranked rows precede unranked rows
+      // in promotedPhase3, so one running index keeps both bands in
+      // producer/arrival order without ever colliding with the flip trigger.
       priority:
         (isProducerRanked(item) ? PRIORITY.phase3Base : PRIORITY.phase3Unranked) +
-        (item.priorityRank ?? 99),
+        promotedIndex++,
     })
   }
 

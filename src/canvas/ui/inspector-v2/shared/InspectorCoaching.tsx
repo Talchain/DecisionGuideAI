@@ -12,7 +12,7 @@
  */
 
 import { useMemo, useCallback } from 'react'
-import { useGuidanceStore } from '../../../stores/guidanceStore'
+import { useGuidanceStore, compareGuidanceDisplayOrder } from '../../../stores/guidanceStore'
 import { revealOlumiSurface } from '../../../conversation/revealOlumi'
 import { CoachingCard } from './CoachingCard'
 import { resolveAskTemplate } from '../inspectorStrings'
@@ -52,12 +52,13 @@ export function InspectorCoaching({
     )
     if (items.length === 0) return null
     // Direct target_object.id matches take precedence over related_elements
-    // matches. Within each group, highest priority wins.
+    // matches. Within each group, the shared display-order doctrine decides
+    // (UI-SEM-085: producer rank ascending; unranked by urgency descending).
     return [...items].sort((a, b) => {
       const aDirect = a.target_object?.id === elementId ? 1 : 0
       const bDirect = b.target_object?.id === elementId ? 1 : 0
       if (bDirect !== aDirect) return bDirect - aDirect
-      return b.priority - a.priority
+      return compareGuidanceDisplayOrder(a, b)
     })[0]
   }, [guidanceItems, elementId])
 
