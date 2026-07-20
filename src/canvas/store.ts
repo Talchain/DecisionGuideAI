@@ -19,6 +19,7 @@ import { addRun, generateGraphHash, loadRuns, type StoredRun } from './store/run
 import { RUN_COMPLETED_WITHOUT_VERDICT, deriveAnalysisFreshnessUpdate, type AnalysisFreshnessState } from './store/analysisFreshness'
 import * as scenarios from './store/scenarios'
 import type { ScenarioFraming } from './store/scenarios'
+import { projectAutosaveData, autosaveSourceFromStore } from './store/autosaveProjection'
 import { registerCrashSnapshotProvider } from './persist/crashFlush'
 import type { GraphHealth, ValidationIssue, NeedleMover } from './validation/types'
 import type { Document, Citation } from './share/types'
@@ -3727,12 +3728,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       lens: createDefaultLensState(),
     })
 
-    // Crash resilience
-    scenarios.saveAutosave({
-      timestamp: Date.now(),
-      nodes: draftChatPreDraftSnapshot.nodes,
-      edges: draftChatPreDraftSnapshot.edges,
-    })
+    // Crash resilience. Sourced from the POST-set() state (Zustand's set is
+    // synchronous), so the autosave records exactly what the undo produced:
+    // the pre-draft graph, and ceeAnalysisReady deliberately CLEARED by
+    // READINESS_CLEAR_FIELDS above — the drafted verdict must not survive onto
+    // a graph whose option nodes no longer exist. Previously this literal
+    // omitted scenarioId, ceeAnalysisReady and selectedGoalNode, so an undo
+    // REPLACED the periodic autosave with one that had lost the scenario id
+    // and the goal selection.
+    scenarios.saveAutosave(projectAutosaveData(autosaveSourceFromStore(get())))
   },
 
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => {
@@ -4842,6 +4846,16 @@ registerCrashSnapshotProvider(() => {
     edges: s.edges,
     scenarioId: s.currentScenarioId,
     ceeAnalysisReady: s.ceeAnalysisReady ?? undefined,
+    // Must match the periodic autosave's field set — the crash flush REPLACES
+    // whatever the 30s timer last wrote. CrashSnapshot's fields are required
+    // so an omission here is a compile error, not a silent field drop.
+    //
+    // Read through an index cast because `selectedGoalNode` is NOT declared on
+    // CanvasState (see autosaveProjection's note): RecoveryBanner writes it via
+    // a bare setState and useAutosave reads it through a pre-existing wide-tsc
+    // error. Casting here keeps the crash path at parity with the timer without
+    // inventing a store field this lane has no mandate to add.
+    selectedGoalNode: (s as unknown as { selectedGoalNode?: string | null }).selectedGoalNode ?? null,
   }
 })
 

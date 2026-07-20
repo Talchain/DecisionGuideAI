@@ -21,7 +21,6 @@ import { typography } from '../../styles/typography'
 import { safeRichText } from '../utils/safeRichText'
 import { InlineBlocks } from './InlineBlocks'
 import { AlertCircle, ChevronDown, ChevronUp, ListPlus, AlignLeft, RefreshCw } from 'lucide-react'
-import { BaseRateChipRow } from './BaseRateChipRow'
 import { FeedbackRow } from './FeedbackRow'
 import { StalenessPill, type StalenessFreshness } from './StalenessPill'
 import { isOrchestratorRenderingV2Enabled, isDeterministicCeeEnabled, isAiPanelV2Enabled, isReasoningDisclosureEnabled } from '../../flags'
@@ -119,7 +118,6 @@ interface MessageBubbleProps {
   /** When true, suppress inline ActionChipRow (chips rendered externally by SuggestedChips) */
   hideChips?: boolean
   /** When true, inline ActionChipRow is visible but non-interactive (historical turn) */
-  historicalChips?: boolean
   onChipClick: (chip: ActionChip) => Promise<void>
   patchBlockStates?: Map<string, PatchBlockState>
   patchRejections?: Map<string, PatchRejectionInfo>
@@ -148,7 +146,6 @@ interface MessageBubbleProps {
 
 export const MessageBubble = memo(function MessageBubble({
   message,
-  historicalChips = false,
   patchBlockStates,
   patchRejections,
   onPatchAccept,
@@ -375,13 +372,6 @@ export const MessageBubble = memo(function MessageBubble({
           onArtefactMessage={onArtefactMessage}
           onProposalConfirm={onProposalConfirm}
           assistantTextWordCount={displayContent.trim().split(/\s+/).filter(Boolean).length}
-        />
-      )}
-      {!isUser && message.baseRateChips && !historicalChips && onArtefactMessage && (
-        <BaseRateChipRow
-          chipSet={message.baseRateChips}
-          onSendMessage={onArtefactMessage}
-          disabled={isStreaming}
         />
       )}
       {/* Explain more + Summarise are AI Panel v2 affordances only — MessageBubble

@@ -21,18 +21,34 @@
 
 import { saveAutosave, getCurrentScenarioId } from '../store/scenarios'
 import type { AutosaveData } from '../store/scenarios'
+import { projectAutosaveData } from '../store/autosaveProjection'
+import type { AutosaveProjectionSource } from '../store/autosaveProjection'
 
+/**
+ * What the store's registered provider must hand back.
+ *
+ * Every field is REQUIRED (see autosaveProjection's "FAIL LOUD ON DRIFT"). The
+ * first version of this interface made them optional and the provider simply
+ * did not supply `selectedGoalNode` — which, because `saveAutosave` REPLACES
+ * rather than merges, meant the crash flush overwrote a complete autosave with
+ * one missing a field RecoveryBanner reads back. Required fields turn that
+ * class of omission into a compile error.
+ *
+ * `nodes`/`edges` stay `unknown[]` because the plausibility gates below run
+ * before anything is persisted.
+ */
 export interface CrashSnapshot {
   nodes: unknown[]
   edges: unknown[]
-  scenarioId?: string | null
+  scenarioId: string | null | undefined
   /**
    * Passed through opaquely: the store's CEEAnalysisReady is a wider union
    * than AutosaveData's inline shape, and the restore path
    * (restoreCeeAnalysisReady → validateCeeAnalysisReady) validates before use
    * — a boundary cast at the write is safe by construction.
    */
-  ceeAnalysisReady?: unknown
+  ceeAnalysisReady: unknown
+  selectedGoalNode: string | null | undefined
 }
 
 export type CrashSnapshotProvider = () => CrashSnapshot | null
@@ -106,14 +122,18 @@ export function flushWorkToAutosave(): boolean {
     const edges = snapshot.edges.filter((e) => isPlausibleEdge(e, keptNodeIds))
     if (nodes.length === 0 && edges.length === 0) return false
 
-    saveAutosave({
-      timestamp: Date.now(),
-      scenarioId: snapshot.scenarioId ?? getCurrentScenarioId() ?? undefined,
+    // Spread FIRST so any field added to CrashSnapshot flows through without a
+    // second edit here; the explicit members below are the ones this path
+    // deliberately overrides (filtered graph, scenario-id fallback).
+    const source: AutosaveProjectionSource = {
+      ...snapshot,
       nodes: nodes as AutosaveData['nodes'],
       edges: edges as AutosaveData['edges'],
+      scenarioId: snapshot.scenarioId ?? getCurrentScenarioId(),
       // Boundary cast — see CrashSnapshot doc: restore validates before use.
       ceeAnalysisReady: (snapshot.ceeAnalysisReady ?? undefined) as AutosaveData['ceeAnalysisReady'],
-    })
+    }
+    saveAutosave(projectAutosaveData(source))
     return true
   } catch {
     return false

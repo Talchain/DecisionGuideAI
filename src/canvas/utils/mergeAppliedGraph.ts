@@ -124,6 +124,7 @@ import { useCanvasStore } from '../store'
 import { validateNodesBatch } from '../domain/nodes'
 import { logger } from '../../lib/logger'
 import { saveAutosave } from '../store/scenarios'
+import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
 import { pulseAppliedTargets } from './appliedEditPulse'
 import { canvasEdgePairKey, wireEdgePairKey } from './graphIdentity'
 import {
@@ -493,13 +494,10 @@ export function reconcileAppliedGraph(
 
   // Immediate autosave for crash resilience (mirrors applyDraftResult).
   try {
-    const current = useCanvasStore.getState()
-    saveAutosave({
-      timestamp: Date.now(),
-      scenarioId: current.currentScenarioId || undefined,
-      nodes: current.nodes,
-      edges: current.edges,
-    })
+    // Shared projection — previously this literal omitted ceeAnalysisReady and
+    // selectedGoalNode, and saveAutosave REPLACES, so applying a merge dropped
+    // both from whatever the periodic autosave had last written.
+    saveAutosave(projectAutosaveData(autosaveSourceFromStore(useCanvasStore.getState())))
   } catch {
     // Non-critical — swallow save errors
   }

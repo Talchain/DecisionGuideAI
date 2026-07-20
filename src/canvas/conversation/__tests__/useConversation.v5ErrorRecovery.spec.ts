@@ -177,8 +177,16 @@ describe('V5 live-chain error recovery — non-2xx BoundaryError through the rea
     expect(last.actionChips ?? []).toHaveLength(0)
     // And the copy must not instruct a retry the UI does not offer.
     expect(last.content).not.toMatch(/please retry|try again/i)
-    // Non-retryable failures do not arm the retry-input restore.
-    expect(result.current.lastFailedInput).toBeNull()
+    // The failure notice is still raised — a non-retryable failure must not be
+    // SILENT — but it is marked non-retryable so no surface offers a retry.
+    // (This assertion previously read `lastFailedInput === null`. That field
+    // was set only when `retryable` was true and has been deleted; the two
+    // signals genuinely differ here, so the check moved onto the flag that
+    // actually governs the affordance rather than onto payload presence.)
+    expect(result.current.lastSendFailure?.retryable).toBe(false)
+    // The user's text is still preserved for restore-into-composer — losing
+    // typing is never the right answer, retryable or not.
+    expect(result.current.lastSendFailure?.inputText).toBe('draft my decision')
   })
 
   it('envelope WITHOUT recovery + server retryable:true → canonical copy with retry affordance, machine reason still never leaks', async () => {

@@ -111,6 +111,38 @@ describe('spark registry — every spark ships explicit intent metadata', () => 
     const sparkIds = Object.values(SPARK_PROMPTS).map(s => s.id)
     expect(new Set(sparkIds).size).toBe(sparkIds.length)
   })
+
+  /**
+   * Cross-collection agreement. Uniqueness WITHIN each collection was the only
+   * check, so the five entries SPARK_PROMPTS shared with ACTIONS_MENU could
+   * drift apart — including the `action_type` wire adjudication — and ship
+   * green. SPARK_PROMPTS now derives from ACTIONS_MENU by id, and this pins
+   * that: a re-introduced copy that differs in any field fails here.
+   *
+   * The shared-id set is derived by intersection, never hand-listed.
+   */
+  it('every id shared with ACTIONS_MENU carries an IDENTICAL entry', () => {
+    const menuById = new Map<string, (typeof ACTIONS_MENU)[number]>(
+      ACTIONS_MENU.map(item => [item.id, item]),
+    )
+    const shared = Object.values(SPARK_PROMPTS).filter(s => menuById.has(s.id))
+
+    // Positive control: an empty intersection would make the loop vacuous.
+    expect(shared.length).toBeGreaterThan(0)
+
+    for (const spark of shared) {
+      const menuItem = menuById.get(spark.id)!
+      expect(
+        { id: spark.id, label: spark.label, prompt: spark.prompt, action_type: spark.action_type },
+        `SPARK_PROMPTS."${spark.id}" diverges from its ACTIONS_MENU entry — the two must stay one declaration, not two copies`,
+      ).toEqual({
+        id: menuItem.id,
+        label: menuItem.label,
+        prompt: menuItem.prompt,
+        action_type: menuItem.action_type,
+      })
+    }
+  })
 })
 
 describe('spark click → outgoing wire payload (real send funnel)', () => {

@@ -163,7 +163,7 @@ describe('sendSystemEvent', () => {
     expect(result.current.messages).toHaveLength(0)
   })
 
-  it('does not set lastFailedInput on system event failure', async () => {
+  it('does not set lastSendFailure.inputText on system event failure', async () => {
     mockCallTurn.mockRejectedValue(new Error('fail'))
 
     const { result } = renderHook(() => useConversation())
@@ -176,7 +176,7 @@ describe('sendSystemEvent', () => {
     })
 
     // System events should NOT restore input
-    expect(result.current.lastFailedInput).toBeNull()
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBeNull()
   })
 
   it('processes blocks and stage_indicator from envelope', async () => {

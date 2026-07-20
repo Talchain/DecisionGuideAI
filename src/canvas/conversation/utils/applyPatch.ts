@@ -9,6 +9,7 @@
 import { useCanvasStore } from '../../store'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import { saveAutosave } from '../../store/scenarios'
+import { projectAutosaveData, autosaveSourceFromStore } from '../../store/autosaveProjection'
 import { pulseAppliedTargets } from '../../utils/appliedEditPulse'
 import { extractTargetIdsFromPatch } from './extractTargetIds'
 import { validateNodesBatch } from '../../domain/nodes'
@@ -355,13 +356,10 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
 
   // 8. Autosave for crash resilience
   try {
-    const current = useCanvasStore.getState()
-    saveAutosave({
-      timestamp: Date.now(),
-      scenarioId: current.currentScenarioId || undefined,
-      nodes: current.nodes,
-      edges: current.edges,
-    })
+    // Shared projection — previously this literal omitted ceeAnalysisReady and
+    // selectedGoalNode, and saveAutosave REPLACES, so every applied patch
+    // stripped both from the last good autosave.
+    saveAutosave(projectAutosaveData(autosaveSourceFromStore(useCanvasStore.getState())))
   } catch {
     // Non-critical
   }

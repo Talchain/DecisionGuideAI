@@ -26,10 +26,7 @@
 
 import type { TypedErrorTransportMeta } from '../../v5/responseRouter'
 import type { CeeRecovery } from './ceeRecovery'
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
+import { isRecord } from './ceeRecovery'
 
 /**
  * True when the raw non-2xx body looks like a CEE error envelope rather

@@ -163,15 +163,13 @@
 /** Outlined retry affordance on the failed message itself (DS pill rules).
  *  Type scale comes from typography.panelMeta applied in JSX (F3 census). */
 .sendFailedRetryButton {
-  display: inline-flex;
-  align-items: center;
+  composes: pillBase;
   gap: 4px;
   background: transparent;
-  border: 1px solid color-mix(in srgb, var(--danger, #EA7B4B) 30%, transparent);
-  border-radius: var(--radius-pill, 999px);
+  border-color: color-mix(in srgb, var(--danger, #EA7B4B) 30%, transparent);
   color: var(--text-body, #3F3F3E);
+  /* Compact by design — meta scale, not the 44px body-scale action chip. */
   padding: 2px 8px;
-  cursor: pointer;
 }
 
 .sendFailedRetryButton:hover {
@@ -1196,18 +1194,31 @@
   margin-bottom: 8px;
 }
 
-.chip {
+/**
+ * Shared outlined-pill geometry. `.chip` (body scale, 44px action chip) and
+ * `.sendFailedRetryButton` (compact meta-scale affordance) both hand-rolled
+ * this same block; only the SIZE and TYPE differ between them, so only those
+ * stay per-class. Composing rather than merging the two: they are deliberately
+ * different scales, and folding the retry button into `.chip` would restyle it
+ * (padding 2px 8px → 6px 12px, min-height → 44px, and a font-size that fights
+ * the `typography.panelMeta` class the JSX applies).
+ */
+.pillBase {
   display: inline-flex;
   align-items: center;
-  padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill, 999px);
   border-width: 1px;
   border-style: solid;
+  cursor: pointer;
+  transition: background 150ms, color 150ms;
+}
+
+.chip {
+  composes: pillBase;
+  padding: 6px 12px;
   font-size: var(--conv-type-size-body);
   font-weight: var(--conv-type-weight-medium);
-  cursor: pointer;
   min-height: 44px;
-  transition: background 150ms, color 150ms;
 }
 
 .chipPrimary {

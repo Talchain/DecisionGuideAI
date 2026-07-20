@@ -14,6 +14,7 @@ import { RateLimitNotice } from './RateLimitNotice'
 import { ThinkingModePopover } from './ThinkingModePopover'
 import { DEFAULT_EDGE_DATA, trimProvenance } from '../domain/edges'
 import { saveAutosave } from '../store/scenarios'
+import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
 import { hasAnalysisReady, isCeePipelineTrace } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEv2Response, EffectDirection } from '../../adapters/cee/types'
 import { commitDraftCoachingToStore, edgeProvenanceDisplayPatch } from '../utils/draftIngestion'
@@ -670,12 +671,9 @@ export function DraftChat() {
     // This eliminates the vulnerability window where AI drafts could be lost
     try {
       const currentState = useCanvasStore.getState()
-      saveAutosave({
-        timestamp: Date.now(),
-        scenarioId: currentState.currentScenarioId || undefined,
-        nodes: currentState.nodes,
-        edges: currentState.edges,
-      })
+      // Shared projection — previously this literal omitted ceeAnalysisReady
+      // and selectedGoalNode, and saveAutosave REPLACES rather than merges.
+      saveAutosave(projectAutosaveData(autosaveSourceFromStore(currentState)))
       if (import.meta.env.DEV) {
         console.warn('[DraftChat] Immediate autosave after draft applied', {
           nodes: currentState.nodes.length,

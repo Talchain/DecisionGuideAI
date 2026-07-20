@@ -281,7 +281,7 @@ export const HERO_COPY = {
  */
 export type ActionsMenuItem = SparkPrompt
 
-export const ACTIONS_MENU: ReadonlyArray<ActionsMenuItem> = [
+export const ACTIONS_MENU = [
   {
     id: 'pressure_test_frame',
     label: 'Pressure-test the frame',
@@ -349,39 +349,47 @@ export const ACTIONS_MENU: ReadonlyArray<ActionsMenuItem> = [
     // until the 0.20.0 re-vendor.
     action_type: 'analysis_readiness',
   },
-]
+] as const satisfies ReadonlyArray<ActionsMenuItem>
 
-// Ids shared with ACTIONS_MENU where the prompt is identical — same product
-// intent, same wire identity, same action_type adjudication (calibrate maps
-// to the pending analysis_readiness; the rest are elicitation/reflection
-// intents with no honest entry — see the ACTIONS_MENU doc).
+/** The ids ACTIONS_MENU actually declares — derived, so it cannot go stale. */
+type ActionsMenuId = (typeof ACTIONS_MENU)[number]['id']
+
+/**
+ * Look an ACTIONS_MENU entry up by id.
+ *
+ * The parameter is the DERIVED id union, so a typo or a removed menu entry is
+ * a COMPILE error, not a runtime surprise. The throw is unreachable given that
+ * constraint — it exists only to discharge `.find`'s `| undefined` without an
+ * assertion that would silently pass `undefined` through if the constraint
+ * were ever loosened.
+ */
+function fromActionsMenu(id: ActionsMenuId): SparkPrompt {
+  const entry = ACTIONS_MENU.find(item => item.id === id)
+  if (!entry) throw new Error(`SPARK_PROMPTS: no ACTIONS_MENU entry for id "${id}"`)
+  return entry
+}
+
+/**
+ * The sparks the panel surfaces directly (hero, model section, signal registry).
+ *
+ * DERIVED from ACTIONS_MENU by id — five of these entries used to be
+ * byte-identical COPIES of menu entries, including the `action_type`
+ * adjudication. That made every intent decision a two-place edit with nothing
+ * checking the two agreed: `sparkIntentContract.spec.ts` asserted id-uniqueness
+ * WITHIN each collection but never that a shared id carried the same
+ * label/prompt/action_type in both, so a one-sided edit shipped green. The
+ * `analysis_readiness` mapping is exactly the kind of adjudication that must
+ * never diverge between the menu and the panel.
+ *
+ * Only the two sparks with NO menu equivalent are declared inline below.
+ */
 export const SPARK_PROMPTS = {
-  widenOptions: {
-    id: 'widen_options',
-    label: 'Widen the options',
-    prompt: 'Suggest materially different options that work through a different mechanism from the ones I already have.',
-    action_type: null,
-  },
-  preMortem: {
-    id: 'pre_mortem',
-    label: 'Run a pre-mortem',
-    prompt: 'Run a pre-mortem with me: imagine this choice failed a year from now. What went wrong?',
-    action_type: null,
-  },
-  calibrate: {
-    id: 'calibrate_estimates',
-    label: 'Check estimates',
-    prompt: 'Help me check the estimates that matter most to the analysis.',
-    // Same id + adjudication as the ACTIONS_MENU entry: readiness-directed
-    // calibration coaching. Pending: withheld until the 0.20.0 re-vendor.
-    action_type: 'analysis_readiness',
-  },
-  pressureTestFrame: {
-    id: 'pressure_test_frame',
-    label: 'Pressure-test the frame',
-    prompt: 'Is this the right question to be asking, and does it fit my wider goals?',
-    action_type: null,
-  },
+  widenOptions: fromActionsMenu('widen_options'),
+  preMortem: fromActionsMenu('pre_mortem'),
+  calibrate: fromActionsMenu('calibrate_estimates'),
+  pressureTestFrame: fromActionsMenu('pressure_test_frame'),
+  findRisks: fromActionsMenu('risks_upside'),
+  // --- panel-only sparks: no ACTIONS_MENU counterpart ---
   defineSuccess: {
     id: 'define_success',
     label: 'Define success with Olumi',
@@ -390,16 +398,10 @@ export const SPARK_PROMPTS = {
     // a conversation — no honest entry.
     action_type: null,
   },
-  findRisks: {
-    id: 'risks_upside',
-    label: 'Find risks and upside',
-    prompt: 'What risks and best-case upsides are missing from my model?',
-    action_type: null,
-  },
   reflectBias: {
     id: 'reflect_bias',
     label: 'Talk it through with Olumi',
     prompt: 'You flagged a possible blind spot in how my model leans. Help me think it through.',
     action_type: null,
   },
-} as const satisfies Record<string, SparkPrompt>
+} satisfies Record<string, SparkPrompt>
