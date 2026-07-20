@@ -1,6 +1,7 @@
 import { Component, ReactNode } from 'react'
 import { XCircle, AlertTriangle, ChevronRight } from 'lucide-react'
 import { captureError } from '../lib/monitoring'
+import { flushWorkToAutosave } from './persist/crashFlush'
 
 interface Props {
   children: ReactNode
@@ -21,6 +22,47 @@ const GITHUB_ISSUES_URL = 'https://github.com/Talchain/DecisionGuideAI/issues/ne
 // If more than this many errors in the time window, consider it a recurring error
 const RECURRING_ERROR_THRESHOLD = 3
 const RECURRING_ERROR_WINDOW_MS = 5000
+
+// Stale-chunk auto-recovery: a failed dynamic import after a mid-session deploy
+// is fixed by exactly one reload (the new index.html references the new chunks).
+// One automatic reload, rate-limited via sessionStorage so a genuinely broken
+// deploy cannot produce a reload loop — within the window the user gets the
+// normal error panel with the manual "Reload editor" button instead.
+const CHUNK_RELOAD_GUARD_KEY = 'olumi-chunk-reload-at'
+const CHUNK_RELOAD_GUARD_WINDOW_MS = 5 * 60 * 1000
+
+/**
+ * Detect a failed-lazy-chunk error (deploy race / stale index.html). Message
+ * shapes across browsers: Chrome "Failed to fetch dynamically imported module",
+ * Firefox "error loading dynamically imported module", Safari "Importing a
+ * module script failed", plus webpack-era "Loading chunk N failed" kept for
+ * safety.
+ */
+export function isChunkLoadError(error: Error | null): boolean {
+  if (!error) return false
+  const message = `${error.name ?? ''} ${error.message ?? ''}`
+  return /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Failed to load module script|Loading chunk [\w-]+ failed|ChunkLoadError/i.test(
+    message
+  )
+}
+
+/**
+ * HashRouter guard: reload must land back on the SAME route. location.reload()
+ * preserves the hash, but the recorded replaceState-desync gotcha means the
+ * visible hash can have been dropped by earlier history writes — and a guest
+ * reloading WITHOUT a route hash lands on the sign-in gate, which reads as
+ * total data loss. If the hash is not a route, pin it to the canvas before
+ * reloading.
+ */
+function ensureRouteHash(): void {
+  try {
+    if (!window.location.hash || !window.location.hash.startsWith('#/')) {
+      window.location.hash = '#/canvas'
+    }
+  } catch {
+    // Fail-soft: reloading with the current URL is still better than nothing.
+  }
+}
 
 export class CanvasErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
@@ -48,6 +90,37 @@ export class CanvasErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: any) {
     console.error('[CANVAS ERROR]:', error, errorInfo)
+
+    // Crash-moment flush: persist the CURRENT in-memory graph into the
+    // autosave slot the boot path restores from, BEFORE any reload can happen.
+    // The periodic 30s autosave leaves the newest work unpersisted exactly
+    // when a crash strikes; this is what makes the panel's "Your work is
+    // auto-saved" promise true at the moment it is shown. Fail-soft: an empty
+    // or unreadable store flushes nothing and never clobbers a good autosave.
+    const flushed = flushWorkToAutosave()
+
+    // Stale-chunk auto-recovery: one reload fixes a deploy race. Rate-limited
+    // so a broken deploy shows the error panel instead of reload-looping.
+    if (isChunkLoadError(error) && typeof window !== 'undefined') {
+      let lastAttempt = 0
+      try {
+        lastAttempt = Number(sessionStorage.getItem(CHUNK_RELOAD_GUARD_KEY)) || 0
+      } catch {
+        // sessionStorage unavailable → treat as recently attempted (no auto
+        // reload) rather than risking an unguarded loop.
+        lastAttempt = Date.now()
+      }
+      if (Date.now() - lastAttempt > CHUNK_RELOAD_GUARD_WINDOW_MS) {
+        try {
+          sessionStorage.setItem(CHUNK_RELOAD_GUARD_KEY, String(Date.now()))
+          ensureRouteHash()
+          // Defer past the commit phase — never reload mid-render.
+          setTimeout(() => window.location.reload(), 0)
+        } catch {
+          // Fall through to the normal error panel.
+        }
+      }
+    }
 
     // Track error count for recurring error detection
     const now = Date.now()
@@ -82,6 +155,8 @@ export class CanvasErrorBoundary extends Component<Props, State> {
               componentStack: errorInfo?.componentStack?.slice(0, 600),
               errorCount: newErrorCount,
               isRecurring,
+              flushedWorkToAutosave: flushed,
+              isChunkLoadError: isChunkLoadError(error),
             },
           })
         }
@@ -101,18 +176,6 @@ export class CanvasErrorBoundary extends Component<Props, State> {
 
   handleReload = () => {
     window.location.reload()
-  }
-
-  handleCopyState = async () => {
-    try {
-      const state = localStorage.getItem('canvas-state-v1')
-      if (state) {
-        await navigator.clipboard.writeText(state)
-        this.showToast('Canvas state copied to clipboard.')
-      }
-    } catch (e) {
-      console.error('Failed to copy state:', e)
-    }
   }
 
   handleReportIssue = () => {
@@ -145,7 +208,9 @@ export class CanvasErrorBoundary extends Component<Props, State> {
         url: window.location.href,
         userAgent: navigator.userAgent,
         timestamp: new Date().toISOString(),
-        canvasState: localStorage.getItem('canvas-state-v1'),
+        // The autosave slot the boot path restores from — the live persistence
+        // mechanism (the old 'canvas-state-v1' key had no reader or writer).
+        canvasAutosave: localStorage.getItem('olumi-canvas-autosave'),
       }
       await navigator.clipboard.writeText(JSON.stringify(debugInfo, null, 2))
       this.showToast('Debug info copied to clipboard.')
@@ -177,26 +242,21 @@ export class CanvasErrorBoundary extends Component<Props, State> {
   }
 
   handleRecover = () => {
-    // Try to recover from last snapshot
-    try {
-      const snapshots = Object.keys(localStorage)
-        .filter(k => k.startsWith('canvas-snapshot-'))
-        .sort()
-        .reverse()
+    // Flush the current in-memory graph into the autosave slot that the
+    // production boot path actually restores from (olumi-canvas-autosave →
+    // ReactFlowGraph's init effect). The previous implementation here copied
+    // `canvas-snapshot-*` (written only by the manual ⌘S snapshot feature)
+    // into `canvas-state-v1` (read by NOTHING on boot) — a restore promise
+    // wired to two dead keys, which is how the 2026-07-20 rehearsal lost a
+    // whole session to a reassuring "Reload editor" button. The store is a
+    // module singleton and still holds the graph while this panel is shown,
+    // so the flush captures work right up to the crash.
+    flushWorkToAutosave()
 
-      if (snapshots.length > 0) {
-        const lastSnapshot = localStorage.getItem(snapshots[0])
-        if (lastSnapshot) {
-          localStorage.setItem('canvas-state-v1', lastSnapshot)
-          window.location.reload()
-          return
-        }
-      }
-    } catch (e) {
-      console.error('Recovery failed:', e)
-    }
-
-    // Fallback: just reload
+    // Reload must reconnect to the SAME route (and thereby the same scenario:
+    // identity is persisted in olumi-canvas-current-scenario-id and the graph
+    // in the autosave slot keyed alongside it).
+    ensureRouteHash()
     this.handleReload()
   }
 
@@ -334,7 +394,7 @@ export class CanvasErrorBoundary extends Component<Props, State> {
             </div>
 
             <p className="text-xs text-text-light text-center mt-6">
-              Your work is auto-saved. Reloading will restore the last snapshot.
+              Your work is auto-saved. Reloading will restore your latest work.
             </p>
           </div>
         </div>
