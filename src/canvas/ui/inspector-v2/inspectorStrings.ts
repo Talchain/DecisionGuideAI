@@ -286,4 +286,10 @@ export const GOAL_CONSTRAINT_COPY = {
   addConstraintButton: '+ Add constraint',
   runForProbability:   'Run the simulation to see the probability of reaching this target.',
   targetUnlocks:       'Adding a specific target unlocks probability calculations.',
+  // Canonical State Copy (see DESIGN_SYSTEM.md): honest status for the
+  // V5-canonical run path, where a run is a thin run_analysis chip that
+  // carries no graph/constraints — the engine reads its own server-side
+  // scenario graph, so a constraint typed here does not shape that run.
+  // Owned here (next to the constraint UI); pinned as a raw literal in specs.
+  constraintsNotUsedInAnalysis: 'Saved with your decision — not yet used in the analysis.',
 } as const

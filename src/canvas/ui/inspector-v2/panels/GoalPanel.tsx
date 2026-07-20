@@ -37,6 +37,7 @@ import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
 import type { ConditionalProbability } from '../../../../types/constraints'
 import { resolveCoaching } from '../coachingConfig'
 import { GoalAdvancedEditor } from '../editors/GoalAdvancedEditor'
+import { isV5CanonicalRunPath } from '../../../../v5/eligibility'
 
 export const GoalPanel = memo(function GoalPanel({
   nodeId,
@@ -58,6 +59,21 @@ export const GoalPanel = memo(function GoalPanel({
   // Prefer post-analysis (has probability scores) over pre-analysis preview
   const goalConstraints: Array<CEEGoalConstraint & { probability?: number }> | null =
     isResultsMode ? (postAnalysisConstraints ?? preAnalysisConstraints) : preAnalysisConstraints
+
+  // UI-SEM-087: display-honesty gate (same class as UI-SEM-071/082 — gate on
+  // truth, never fabricate). On the V5-canonical run path the run is a thin
+  // `run_analysis` chip (src/v5/buildPayload.ts → message + chip.action_type,
+  // no graph, no goal_constraints); the engine reads goal_constraints off its
+  // OWN server-side scenario graph, never off anything the client sends
+  // (confirmed at HeroSection.tsx:91 + olumi-assistants-service chip-click
+  // dispatch). So a constraint typed/edited here does not shape that run.
+  // The V2 direct-run path (isV5CanonicalRunPath() === false) DOES send
+  // goal_constraints (useV2Run → buildV2RunRequest), so the note gates on the
+  // EXACT predicate the runner branches on — never absolute. Pre-analysis only
+  // (entry is disabled in results mode, and post-analysis probabilities would
+  // contradict the note). Remove when routing is unified (held joint decision).
+  const constraintsInert = !isResultsMode && isV5CanonicalRunPath()
+  const hasConstraints = Array.isArray(goalConstraints) && goalConstraints.length > 0
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
@@ -336,8 +352,30 @@ export const GoalPanel = memo(function GoalPanel({
                     {GOAL_CONSTRAINT_COPY.jointProbability}: <strong>{Math.round(probJoint * 100)}%</strong>
                   </p>
                 )}
+                {/* UI-SEM-087: honest status when the constraints displayed here
+                    do not reach the engine on the live (V5-canonical) run path. */}
+                {constraintsInert && (
+                  <p
+                    className={`${typography.panelMeta} text-text-light mt-1`}
+                    data-testid="constraints-inert-note"
+                  >
+                    {GOAL_CONSTRAINT_COPY.constraintsNotUsedInAnalysis}
+                  </p>
+                )}
               </div>
             </div>
+          )}
+
+          {/* UI-SEM-087: honest status at the point of ENTRY, shown only when
+              no constraint list is present to carry the note (mutually
+              exclusive with the display-surface note above — never stacked). */}
+          {constraintsInert && !hasConstraints && (
+            <p
+              className={`${typography.panelMeta} text-text-light mt-2`}
+              data-testid="constraints-inert-note-entry"
+            >
+              {GOAL_CONSTRAINT_COPY.constraintsNotUsedInAnalysis}
+            </p>
           )}
 
           {/* B.5: Add constraint button + inline form.

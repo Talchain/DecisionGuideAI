@@ -291,6 +291,7 @@ same state).
 | Freshness unknown | Cannot confirm whether this analysis is current. | `FRESHNESS_COPY.unknown` |
 | No analysis yet | No analysis yet. | `FRESHNESS_COPY.none` |
 | Engine cannot see the model | Draft or save a model first, then run analysis. | `CEE_DRAFT_FIRST_REFUSAL` |
+| Constraint saved but not sent (V5-canonical run path) | Saved with your decision — not yet used in the analysis. | `GOAL_CONSTRAINT_COPY.constraintsNotUsedInAnalysis` |
 | Template load failed | Failed to load template. | `TEMPLATE_LOAD_FAILED_MESSAGE` |
 
 Rules:
