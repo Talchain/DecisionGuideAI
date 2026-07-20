@@ -65,8 +65,14 @@
           fetch(edge + '/health').then(function(r){ return r.json(); }).then(function(d){
             healthEl.textContent = 'OK via proxy\n' + JSON.stringify(d, null, 2);
           }).catch(function(){
-            fetch('https://plot-lite-service.onrender.com/health').then(function(r){ return r.json(); }).then(function(d){
-              healthEl.textContent = 'OK via direct\n' + JSON.stringify(d, null, 2);
+            // Same-origin retry only — never a cross-origin service host from
+            // this inline script. The per-environment _redirects/netlify.toml
+            // decide which backend /bff/engine/* reaches, so staging probes
+            // staging and production probes production. (The previous
+            // hardcoded production host was CSP-blocked console noise on
+            // every staging load — rehearsal 2026-07-20.)
+            fetch('/bff/engine/health').then(function(r){ return r.json(); }).then(function(d){
+              healthEl.textContent = 'OK via bff\n' + JSON.stringify(d, null, 2);
             }).catch(function(e2){
               healthEl.textContent = 'FAIL\n' + String(e2);
             });
