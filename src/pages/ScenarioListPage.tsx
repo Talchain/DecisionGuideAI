@@ -352,7 +352,11 @@ export default function ScenarioListPage() {
     }
   }
 
-  // Guest mode — redirect to login
+  // Guest mode — offer sign-in (primary) and a guest path into the canvas
+  // (secondary). Guest mode is the POC's primary flow and #/canvas works fully
+  // as guest, so this branch must never be a dead end. The guest copy
+  // deliberately promises nothing about persistence — the sign-in copy above
+  // it already frames signing in as the way to save.
   if (!isPersistenceActive) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-canvas p-8">
@@ -361,12 +365,20 @@ export default function ScenarioListPage() {
           <p className={`${typography.body} text-text-body mt-4`}>
             Sign in to save and manage your decisions.
           </p>
-          <button
-            onClick={() => navigate('/login')}
-            className={`${typography.button} mt-6 px-6 py-3 rounded-pill bg-primary text-text-on-color shadow-1 hover:bg-primary-hover transition-all duration-fast`}
-          >
-            Sign in
-          </button>
+          <div className="mt-6 flex flex-col items-center gap-3">
+            <button
+              onClick={() => navigate('/login')}
+              className={`${typography.button} px-6 py-3 rounded-pill bg-primary text-text-on-color shadow-1 hover:bg-primary-hover transition-all duration-fast`}
+            >
+              Sign in
+            </button>
+            <button
+              onClick={() => navigate('/canvas')}
+              className={`${typography.button} px-6 py-3 rounded-pill border border-[rgba(38,38,38,0.16)] text-text-body hover:bg-panel-hover transition-colors duration-fast`}
+            >
+              Continue without an account
+            </button>
+          </div>
         </div>
       </div>
     )
