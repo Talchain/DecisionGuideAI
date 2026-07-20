@@ -1,28 +1,32 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://olumi.ai/contracts/cee/analysis-state.v1.json",
-  "title": "CEE Analysis State",
-  "description": "Shape of analysis_state included in post-analysis turn requests. V2 fields (option_comparison, robustness, drivers, etc.) live at top level.",
-  "type": "object",
-  "required": ["analysis_status", "meta"],
-  "properties": {
-    "analysis_status": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Status of the analysis run (e.g. 'complete', 'computed')"
-    },
-    "meta": {
-      "type": "object",
-      "required": ["response_hash"],
-      "properties": {
-        "response_hash": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Hash identifying the analysis run result"
+  "$ref": "#/definitions/AnalysisStateSchema",
+  "definitions": {
+    "AnalysisStateSchema": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "meta": {
+              "type": "object",
+              "properties": {
+                "response_hash": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "response_hash"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
+        {
+          "type": "null"
         }
-      },
-      "additionalProperties": true
+      ]
     }
   },
-  "additionalProperties": true
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }

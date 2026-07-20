@@ -1,74 +1,61 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://olumi.ai/contracts/cee/graph-state.v1.json",
-  "title": "CEE Graph State",
-  "description": "Graph state payload sent with turn requests. Contains V3-format nodes and edges.",
-  "type": "object",
-  "required": ["nodes", "edges"],
-  "properties": {
-    "nodes": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["id", "kind", "label"],
-        "properties": {
-          "id": { "type": "string" },
-          "kind": {
-            "type": "string",
-            "enum": ["goal", "factor", "outcome", "decision", "risk", "action", "option"]
-          },
-          "label": { "type": "string" },
-          "description": { "type": "string" },
-          "observed_state": {
-            "type": "object",
-            "required": ["value"],
-            "properties": {
-              "value": { "type": "number" },
-              "baseline": { "type": "number" },
-              "unit": { "type": "string" },
-              "source": { "type": "string" },
-              "raw_value": { "type": "number" },
-              "cap": { "type": "number" }
+  "$ref": "#/definitions/GraphSchema",
+  "definitions": {
+    "GraphSchema": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "nodes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "kind"
+                ],
+                "additionalProperties": true
+              }
             },
-            "additionalProperties": true
-          },
-          "category": {
-            "type": "string",
-            "enum": ["controllable", "observable", "external"]
-          }
-        },
-        "additionalProperties": true
-      }
-    },
-    "edges": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["from", "to"],
-        "properties": {
-          "from": { "type": "string" },
-          "to": { "type": "string" },
-          "strength": {
-            "type": "object",
-            "required": ["mean"],
-            "properties": {
-              "mean": { "type": "number" },
-              "std": { "type": "number" }
+            "edges": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ],
+                "additionalProperties": true
+              }
             }
           },
-          "exists_probability": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1
-          },
-          "effect_direction": {
-            "type": "string",
-            "enum": ["positive", "negative"]
-          }
+          "required": [
+            "nodes",
+            "edges"
+          ],
+          "additionalProperties": true
         },
-        "additionalProperties": true
-      }
+        {
+          "type": "null"
+        }
+      ]
     }
   },
-  "additionalProperties": false
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }
