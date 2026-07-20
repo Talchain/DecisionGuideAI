@@ -87,7 +87,7 @@ jobs:
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
   security-audit:
-    name: Security Audit (npm)
+    name: Security Audit (pnpm)
     needs: install
     runs-on: ubuntu-latest
     steps:
@@ -111,6 +111,8 @@ jobs:
           key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Audit for high/critical vulnerabilities
+        # pnpm audit --prod --audit-level high — fails the job on any prod-tree
+        # high/critical advisory. Moderate/low are surfaced but do not block.
         run: pnpm run security:audit
 
   # ── Static analysis ────────────────────────────────────────────────────
