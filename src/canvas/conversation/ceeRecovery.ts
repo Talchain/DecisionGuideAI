@@ -312,11 +312,17 @@ export function formatRecoveryHints(hints: string[] | undefined): string {
  *
  * We deliberately do NOT rewrite producer prose — no en-dash substitution, no
  * -ize/-ise mapping, no case fixing. Any such rewrite is lossy on inputs it
- * cannot distinguish: an em dash inside a quoted user brief, a wire field name
- * like `analyze_sentiment` or a quoted identifier, a proper noun that must stay
- * capitalised. Corrupting a correct suggestion is worse than passing through
- * a stylistically off one, because the suggestion is the *only* specific
- * guidance the user gets on a non-retryable failure.
+ * cannot distinguish: an em dash inside a quoted user brief, an American spelling
+ * the producer deliberately chose (it may write `analyze`, not `analyse`), a wire
+ * field name or quoted identifier, a proper noun that must stay capitalised.
+ * Corrupting a correct suggestion is worse than passing through a stylistically
+ * off one, because the suggestion is the *only* specific guidance the user gets
+ * on a non-retryable failure.
+ *
+ * (This natural wording — a bare `analyze` — was previously mangled to
+ * `analyze_sentiment` in commit 49e8c53e purely to dodge the British-English CI
+ * guard, which then scanned comments. That guard is now comment-aware, so the
+ * example reads plainly again and stands as the living proof of the fix.)
  *
  * Reject-only guards are safe because rejection degrades to the caller's own
  * generic copy. Rewriting has no such safe fallback. If house style needs

@@ -50,6 +50,7 @@ import { tmpdir } from 'node:os'
 import postcss from 'postcss'
 import tailwind from 'tailwindcss'
 import config from '../../tailwind.config.js'
+import { stripComments } from '../helpers/stripSourceComments'
 
 const SRC = resolvePath(__dirname, '../../src')
 
@@ -74,159 +75,11 @@ function walk(dir: string, out: string[] = []): string[] {
   return out
 }
 
-/**
- * Remove comments from a file's text BEFORE the utility scan runs, so a Tailwind
- * token quoted in a comment is never mistaken for a shipped class.
- *
- * WHY. This guard catches opacity-modified utilities that reach the browser and
- * silently emit no CSS. A token inside a comment renders nothing, so it is a
- * non-defect; worse, scanning comments punishes authors for documenting the very
- * anti-pattern this guard teaches (`bg-info/4` in ExpertBlock's header comment
- * reddened staging exactly this way, #385). Only the INPUT TEXT is pre-processed
- * here: every surviving match still compiles against the real Tailwind and every
- * emission assertion is untouched.
- *
- * Comment characters are replaced with spaces (newlines kept) so any line/column
- * the scan reports stays accurate and offsets do not shift; the file is never
- * collapsed.
- *
- * A `//`, a comment-open or a comment-close inside a string, template literal or
- * regex literal is NOT a comment: `content-['//']`, a URL in a string and a
- * regex of slashes all keep their code. Template `${...}` interpolations are real
- * code, so a class inside `${cond ? 'bg-info/30' : ''}` survives.
- *
- * This is a small hand-written state machine rather than a dependency: the repo
- * ships no comment-stripper (strip-comments / strip-json-comments are absent from
- * package.json and node_modules), and a general JS parser (acorn/espree) is not a
- * dependency either, so pulling one in for a CI guard's input pre-pass would be a
- * heavier, less transparent addition than the tokeniser below.
- */
-function stripComments(text: string, file: string): string {
-  return /\.css$/.test(file) ? stripCssComments(text) : stripJsComments(text)
-}
-
-/** May a `/` here begin a regex literal, given the previous significant char? */
-function regexCanStart(prev: string): boolean {
-  // After a value (identifier, number, `)`, `]`, `}`, `.`, or a string/template
-  // close) a `/` is division. Everywhere else (operators, `(`, `,`, `=`, `:`,
-  // `[`, `{`, `;`, `!`, `&`, `|`, `?`, `+`, `-`, `*`, `%`, `<`, `>`, `^`, `~`) or
-  // at the start of the file, a `/` opens a regex.
-  return prev === '' || !/[A-Za-z0-9_$)\].}'"`]/.test(prev)
-}
-
-/**
- * Strip `//` line and block comments from JS/TS/JSX/TSX, treating string,
- * template and regex literals (and `${...}` interpolations) as code.
- */
-function stripJsComments(src: string): string {
-  const a = src.split('')
-  const n = a.length
-  const blank = (i: number): void => {
-    if (a[i] !== '\n' && a[i] !== '\r') a[i] = ' '
-  }
-
-  type State = 'code' | 'line' | 'block' | 'single' | 'double' | 'template' | 'regex'
-  let state: State = 'code'
-  let prev = '' // previous significant code char, for regex detection
-  let regexClass = false // inside a regex `[...]` char class, where `/` is literal
-  let interp = 0 // brace depth inside the current `${...}`; 0 = not in one
-  const interpStack: number[] = [] // suspended depths, for templates nested in `${...}`
-
-  let i = 0
-  while (i < n) {
-    const c = a[i]
-    const d = i + 1 < n ? a[i + 1] : ''
-
-    if (state === 'code') {
-      if (c === '/' && d === '/') { blank(i); blank(i + 1); state = 'line'; i += 2; continue }
-      if (c === '/' && d === '*') { blank(i); blank(i + 1); state = 'block'; i += 2; continue }
-      if (c === "'") { state = 'single'; prev = c; i++; continue }
-      if (c === '"') { state = 'double'; prev = c; i++; continue }
-      if (c === '`') { state = 'template'; prev = c; i++; continue }
-      if (c === '/' && regexCanStart(prev)) { state = 'regex'; regexClass = false; prev = c; i++; continue }
-      if (interp > 0) {
-        if (c === '{') interp++
-        else if (c === '}') {
-          interp--
-          if (interp === 0) { state = 'template'; interp = interpStack.pop() ?? 0; prev = c; i++; continue }
-        }
-      }
-      if (!/\s/.test(c)) prev = c
-      i++
-      continue
-    }
-    if (state === 'line') {
-      if (c === '\n') { state = 'code'; i++; continue }
-      blank(i); i++; continue
-    }
-    if (state === 'block') {
-      if (c === '*' && d === '/') { blank(i); blank(i + 1); state = 'code'; i += 2; continue }
-      blank(i); i++; continue
-    }
-    if (state === 'single') {
-      if (c === '\\') { i += 2; continue }
-      if (c === "'") { state = 'code'; prev = c; i++; continue }
-      i++; continue
-    }
-    if (state === 'double') {
-      if (c === '\\') { i += 2; continue }
-      if (c === '"') { state = 'code'; prev = c; i++; continue }
-      i++; continue
-    }
-    if (state === 'template') {
-      if (c === '\\') { i += 2; continue }
-      if (c === '`') { state = 'code'; prev = c; i++; continue }
-      if (c === '$' && d === '{') { interpStack.push(interp); interp = 1; state = 'code'; prev = '{'; i += 2; continue }
-      i++; continue
-    }
-    // state === 'regex'
-    if (c === '\\') { i += 2; continue }
-    if (c === '[') { regexClass = true; i++; continue }
-    if (c === ']') { regexClass = false; i++; continue }
-    if (c === '/' && !regexClass) { state = 'code'; prev = c; i++; continue }
-    i++
-  }
-  return a.join('')
-}
-
-/** Strip only block comments from CSS (no line comments), treating strings as code. */
-function stripCssComments(src: string): string {
-  const a = src.split('')
-  const n = a.length
-  const blank = (i: number): void => {
-    if (a[i] !== '\n' && a[i] !== '\r') a[i] = ' '
-  }
-
-  type State = 'code' | 'block' | 'single' | 'double'
-  let state: State = 'code'
-
-  let i = 0
-  while (i < n) {
-    const c = a[i]
-    const d = i + 1 < n ? a[i + 1] : ''
-
-    if (state === 'code') {
-      if (c === '/' && d === '*') { blank(i); blank(i + 1); state = 'block'; i += 2; continue }
-      if (c === "'") { state = 'single'; i++; continue }
-      if (c === '"') { state = 'double'; i++; continue }
-      i++; continue
-    }
-    if (state === 'block') {
-      if (c === '*' && d === '/') { blank(i); blank(i + 1); state = 'code'; i += 2; continue }
-      blank(i); i++; continue
-    }
-    if (state === 'single') {
-      if (c === '\\') { i += 2; continue }
-      if (c === "'") { state = 'code'; i++; continue }
-      i++; continue
-    }
-    // state === 'double'
-    if (c === '\\') { i += 2; continue }
-    if (c === '"') { state = 'code'; i++; continue }
-    i++
-  }
-  return a.join('')
-}
+// The literal-aware comment stripper wired into `usedClasses` below now lives in
+// the shared tests/helpers/stripSourceComments module, so this guard and the
+// British-English copy guard cannot drift apart (see #386 and that module's
+// header for the full rationale). Its behaviour is pinned by the two describe
+// blocks at the foot of this file plus the shared module's own spec.
 
 /** The config's colour key paths, flattened the way Tailwind names them. */
 function colourKeys(): string[] {
