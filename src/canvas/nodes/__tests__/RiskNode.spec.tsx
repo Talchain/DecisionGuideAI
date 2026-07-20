@@ -134,8 +134,13 @@ describe('RiskNode', () => {
       }) as any)
     )
     renderRisk()
-    // v1.1: displayed as "60%" (bold danger) + "goal drag" (meta text)
-    expect(screen.getByText(/goal drag/)).toBeDefined()
+    // UI-SEM-089 (F3, display honesty): the Layer-1 percentage is the static
+    // assumed edge strength, NOT a computed goal drag. Post-analysis it must
+    // keep the honest "assumed strength" wording and must NEVER relabel to
+    // "goal drag" just because results.status flipped to 'complete'.
+    expect(screen.getByText(/assumed strength/)).toBeDefined()
+    expect(screen.queryByText(/goal drag/)).toBeNull()
+    expect(screen.getByText(/60%/)).toBeDefined()
   })
 
   it('does not show certainty even when beliefExists is present', () => {

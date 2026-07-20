@@ -43,7 +43,6 @@ export const OutcomeNode = memo((props: NodeProps) => {
     return {
       signedMean,
       bridgeStrengthPct: signedMean != null ? Math.round(Math.abs(signedMean) * 100) : null,
-      contributionPct: weight != null ? Math.round(weight * 100) : null,
     }
   }, [edges, nodes, props.id])
 
@@ -201,16 +200,18 @@ export const OutcomeNode = memo((props: NodeProps) => {
       >
         {/* ===== LAYER 1: Standard body (always visible) ===== */}
 
-        {/* Post-analysis: "55%" (semibold entity colour) + "of your goal" (meta) */}
-        {isPostAnalysis && bridgeEdgeData?.contributionPct != null && (
-          <div className="mt-1 inline-flex items-center gap-1">
-            <span className={`${typography.nodeLabel} font-semibold text-success`}>{bridgeEdgeData.contributionPct}%</span>
-            <span className={`${typography.edgeLabel} text-text-light`}>of your goal</span>
-          </div>
-        )}
-
-        {/* Pre-analysis: assumed strength percentage */}
-        {!isPostAnalysis && bridgeEdgeData?.bridgeStrengthPct != null && (
+        {/* Assumed bridge-strength percentage — honest in ALL states.
+            UI-SEM-089 (display honesty — assumed input never presented as
+            computed output): this number is the STATIC graph edge weight
+            (the user's / CEE's assumed strength toward the goal), not an
+            engine-computed contribution. It previously flipped its label
+            from "assumed strength" to "of your goal" the moment
+            results.status became 'complete' — masquerading an un-computed
+            input as a computed goal contribution without any producer
+            attribution behind it. Kept as "assumed strength" pre- AND
+            post-analysis. Removal trigger: a producer supplies a typed
+            per-node goal-attribution field. */}
+        {bridgeEdgeData?.bridgeStrengthPct != null && (
           <div className="mt-1 inline-flex items-center gap-1">
             <span className={`${typography.nodeLabel} font-semibold text-success`}>{bridgeEdgeData.bridgeStrengthPct}%</span>
             <span className={`${typography.edgeLabel} text-text-light`}>assumed strength</span>

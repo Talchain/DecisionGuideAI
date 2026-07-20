@@ -1250,3 +1250,51 @@ describe('mapV5AnalysisToReport — receipts fail closed (no fabricated defaults
     expect(report.robustness?.fragile_edges).toEqual([])
   })
 })
+
+describe('mapV5AnalysisToReport — F12: response_hash_algo labelled truthfully', () => {
+  // The local digest is FNV-1a 64-bit (deriveBlockHash), NOT SHA-256. The
+  // model_card.response_hash_algo must name the algorithm actually used, paired
+  // with the correct source. Invariant over the algorithm/source pairs:
+  //   - no producer hash  → locally-derived FNV-1a → algo 'fnv1a-64', source 'local'
+  //   - producer hash     → carried verbatim        → algo 'sha256',   source 'producer'
+  it('no producer hash → algo "fnv1a-64" + source "local" (the local content digest)', () => {
+    const block = baseBlock({ win_probabilities: { opt_a: 0.7, opt_b: 0.3 } })
+    const report = mapV5AnalysisToReport(block)
+    expect(report.model_card.response_hash_algo).toBe('fnv1a-64')
+    expect(report.model_card.response_hash_source).toBe('local')
+    // The local digest carries the deriveBlockHash `v5:` prefix — proving it is
+    // the FNV-1a path, never a real SHA-256 hex string.
+    expect(report.model_card.response_hash.startsWith('v5:')).toBe(true)
+  })
+
+  it('never labels the local FNV-1a digest as "sha256"', () => {
+    const report = mapV5AnalysisToReport(baseBlock({ win_probabilities: { opt_a: 0.5, opt_b: 0.5 } }))
+    expect(report.model_card.response_hash_algo).not.toBe('sha256')
+  })
+
+  it('producer-supplied hash → carried verbatim, algo "sha256" + source "producer"', () => {
+    const producerHash = 'a'.repeat(64)
+    const report = mapV5AnalysisToReport(
+      baseBlock({ win_probabilities: { opt_a: 0.6, opt_b: 0.4 } }),
+      { responseHash: producerHash },
+    )
+    expect(report.model_card.response_hash).toBe(producerHash)
+    expect(report.model_card.response_hash_algo).toBe('sha256')
+    expect(report.model_card.response_hash_source).toBe('producer')
+  })
+
+  it('invariant: algo and source agree across both pairs (fnv1a-64↔local, sha256↔producer)', () => {
+    const cases: Array<{ responseHash?: string; algo: string; source: string }> = [
+      { algo: 'fnv1a-64', source: 'local' },
+      { responseHash: 'b'.repeat(64), algo: 'sha256', source: 'producer' },
+    ]
+    for (const c of cases) {
+      const report = mapV5AnalysisToReport(
+        baseBlock({ win_probabilities: { opt_a: 0.55, opt_b: 0.45 } }),
+        c.responseHash ? { responseHash: c.responseHash } : {},
+      )
+      expect(report.model_card.response_hash_algo).toBe(c.algo)
+      expect(report.model_card.response_hash_source).toBe(c.source)
+    }
+  })
+})
