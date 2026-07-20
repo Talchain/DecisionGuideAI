@@ -160,6 +160,31 @@
   color: var(--danger, #EA7B4B);
 }
 
+/**
+ * Shared outlined-pill geometry. `.chip` (body scale, 44px action chip) and
+ * `.sendFailedRetryButton` (compact meta-scale affordance) both hand-rolled
+ * this same block; only the SIZE and TYPE differ between them, so only those
+ * stay per-class. Composing rather than merging the two: they are deliberately
+ * different scales, and folding the retry button into `.chip` would restyle it
+ * (padding 2px 8px → 6px 12px, min-height → 44px, and a font-size that fights
+ * the `typography.panelMeta` class the JSX applies).
+ *
+ * DEFINED HERE, ABOVE ITS FIRST USE: CSS Modules resolves `composes` at
+ * parse time and requires the composed class to already exist in the file.
+ * Declaring it lower down (next to `.chip`) built fine under vitest/tsc/lint
+ * — none of which parse CSS Modules — and failed only in `pnpm run build`
+ * with `referenced class name "pillBase" in composes not found`.
+ */
+.pillBase {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-pill, 999px);
+  border-width: 1px;
+  border-style: solid;
+  cursor: pointer;
+  transition: background 150ms, color 150ms;
+}
+
 /** Outlined retry affordance on the failed message itself (DS pill rules).
  *  Type scale comes from typography.panelMeta applied in JSX (F3 census). */
 .sendFailedRetryButton {
@@ -1192,25 +1217,6 @@
   gap: 8px;
   margin-top: 16px;
   margin-bottom: 8px;
-}
-
-/**
- * Shared outlined-pill geometry. `.chip` (body scale, 44px action chip) and
- * `.sendFailedRetryButton` (compact meta-scale affordance) both hand-rolled
- * this same block; only the SIZE and TYPE differ between them, so only those
- * stay per-class. Composing rather than merging the two: they are deliberately
- * different scales, and folding the retry button into `.chip` would restyle it
- * (padding 2px 8px → 6px 12px, min-height → 44px, and a font-size that fights
- * the `typography.panelMeta` class the JSX applies).
- */
-.pillBase {
-  display: inline-flex;
-  align-items: center;
-  border-radius: var(--radius-pill, 999px);
-  border-width: 1px;
-  border-style: solid;
-  cursor: pointer;
-  transition: background 150ms, color 150ms;
 }
 
 .chip {
