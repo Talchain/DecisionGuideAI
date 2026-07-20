@@ -747,7 +747,18 @@ interface CanvasState {
   /** Clear the dirty overlay when a genuinely new analysis run completes (reliable run identity, e.g. a new analysis_result response_hash). */
   clearAnalysisFreshnessDirty: () => void
   setDraftCoaching: (coaching: CEEDraftCoaching | null) => void
-  setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => void
+  /**
+   * Set the goal constraints. A USER edit (GoalPanel add/remove/change) is
+   * analysis-affecting — the constraints are sent to PLoT (same class as the
+   * goal threshold) — so a genuine content change dirties the freshness overlay
+   * that every trust surface reads. Producer/reset paths (draft ingestion, V5
+   * state apply, run reset) pass `{ fromProducerSync: true }` so an ingestion
+   * write does NOT self-dirty (mirrors setGoalThreshold's `fromCeeSync`).
+   */
+  setGoalConstraints: (
+    constraints: CEEGoalConstraint[] | null,
+    opts?: { fromProducerSync?: boolean },
+  ) => void
   /** B2: record the identities of an authoritative CEE graph (see the field). */
   setLastAuthoritativeGraph: (
     graph: { nodeIds: string[]; edgePairs: string[] } | null,
@@ -1198,6 +1209,24 @@ function markAnalysisFreshnessDirty(
   if (!get().analysisFreshnessDirty) {
     set(() => ({ analysisFreshnessDirty: true }))
   }
+}
+
+/**
+ * By-value equality for the goal-constraints array — used by setGoalConstraints
+ * to honour the no-op discipline (a set whose content matches the current value
+ * must not dirty freshness). Conservative: ANY structural content difference
+ * (identity, operator, value, node binding, unit, probability, provenance)
+ * counts as a change; one-null-one-array counts as a change. A null↔null or
+ * same-reference set is a no-op.
+ */
+function goalConstraintsEqual(
+  a: CEEGoalConstraint[] | null,
+  b: CEEGoalConstraint[] | null,
+): boolean {
+  if (a === b) return true
+  if (a == null || b == null) return false
+  if (a.length !== b.length) return false
+  return JSON.stringify(a) === JSON.stringify(b)
 }
 
 function invalidateAnalysisReady(
@@ -3872,8 +3901,20 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (get().analysisFreshnessDirty) set(() => ({ analysisFreshnessDirty: false }))
   },
 
-  setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => {
+  setGoalConstraints: (constraints, opts) => {
+    // The goal constraints are sent to PLoT, so a USER change is
+    // analysis-affecting → dirty the freshness overlay on a real content
+    // change. Same class as setGoalThreshold (analysis-affecting-but-not-
+    // structural): it uses markAnalysisFreshnessDirty ONLY, never the legacy
+    // structural pair — the graph hash is constraint-blind (single-graph
+    // 0.21.0, Paul-gated), and the banners that claimed a false "analysis
+    // reflects the current model" read the freshness overlay. Producer/reset
+    // callers (draft ingestion, V5 apply, run reset) pass fromProducerSync so
+    // their ingestion write does not self-dirty. No-op discipline: a set whose
+    // content equals the current value must NOT dirty.
+    const changed = !goalConstraintsEqual(get().goalConstraints, constraints)
     set({ goalConstraints: constraints })
+    if (changed && !opts?.fromProducerSync) markAnalysisFreshnessDirty(get, set)
   },
 
   setLastAuthoritativeGraph: (graph) => {

@@ -65,7 +65,10 @@ export interface V5ApplicatorStore {
    * the V4 envelope path's ADD semantics but without its clear-on-empty-patch
    * behaviour, which has no V5 equivalent signal to gate on).
    */
-  setGoalConstraints?: (constraints: CEEGoalConstraint[] | null) => void
+  setGoalConstraints?: (
+    constraints: CEEGoalConstraint[] | null,
+    opts?: { fromProducerSync?: boolean },
+  ) => void
   /**
    * Optional: backfill goal_threshold_raw/unit/cap onto the goal node's data
    * (ROADMAP 1.22). Wired at the real call site to the shared
@@ -630,7 +633,8 @@ export function applyV5State(
   // "a new graph patch was applied" signal to gate a clear on.
   const rawGoalConstraints = (response as { goal_constraints?: unknown }).goal_constraints
   if (Array.isArray(rawGoalConstraints) && rawGoalConstraints.length > 0) {
-    store.setGoalConstraints?.(rawGoalConstraints as CEEGoalConstraint[])
+    // Producer sync (V5 state apply) — must not self-dirty the freshness overlay.
+    store.setGoalConstraints?.(rawGoalConstraints as CEEGoalConstraint[], { fromProducerSync: true })
     applied.push('goal_constraints:set')
   }
   if (rawAnalysisReady !== undefined) {

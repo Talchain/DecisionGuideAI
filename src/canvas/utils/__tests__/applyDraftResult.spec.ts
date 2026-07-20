@@ -607,7 +607,8 @@ describe('applyDraftResult', () => {
 
     applyDraftResult(draftData)
 
-    expect(mockSetGoalConstraints).toHaveBeenCalledWith(constraints)
+    // Producer sync — passes fromProducerSync so the ingestion write does not self-dirty freshness.
+    expect(mockSetGoalConstraints).toHaveBeenCalledWith(constraints, { fromProducerSync: true })
   })
 
   it('clears stale goal_constraints when V3 response has none (no-constraint draft after constrained draft)', () => {
@@ -629,7 +630,7 @@ describe('applyDraftResult', () => {
 
     applyDraftResult(draftData)
 
-    expect(mockSetGoalConstraints).toHaveBeenCalledWith(null)
+    expect(mockSetGoalConstraints).toHaveBeenCalledWith(null, { fromProducerSync: true })
   })
 
   it('clears stale is_baseline when baseline option changes', () => {

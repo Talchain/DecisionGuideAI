@@ -530,9 +530,10 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
               reason: staleCheck.reason,
             })
           }
-          // Clear stale analysis_ready and goal_constraints from store
+          // Clear stale analysis_ready and goal_constraints from store.
+          // System run-prep cleanup, not a user edit → do not self-dirty freshness.
           setCeeAnalysisReady(null)
-          setGoalConstraints(null)
+          setGoalConstraints(null, { fromProducerSync: true })
           effectiveAnalysisReady = null
           effectiveGoalConstraints = null
         }

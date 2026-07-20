@@ -40,7 +40,12 @@ vi.mock('../../layoutStore', () => ({
     selector({ layoutNodeWidth: null })
   ),
 }))
-vi.mock('../../../flags', () => ({
+// Spread the real flags module so newly-added flags (e.g. any flag GoalNode
+// transitively reads through useAnalysisTrust → useAnalysisStateSource) never go
+// silently absent and throw at render — see CLAUDE.md #12 (derive, don't mirror).
+// Only the three flags this suite deliberately pins are overridden to false.
+vi.mock('../../../flags', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../flags')>()),
   isGraphBadgesEnabled: vi.fn(() => false),
   isCrossHighlightEnabled: vi.fn(() => false),
   isGraphLensEnabled: vi.fn(() => false),

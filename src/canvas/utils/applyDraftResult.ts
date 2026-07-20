@@ -298,14 +298,15 @@ export function applyDraftResult(
   const rawGoalConstraints = (draftData as { goal_constraints?: unknown }).goal_constraints
   if (Array.isArray(rawGoalConstraints) && rawGoalConstraints.length > 0) {
     const constraints = rawGoalConstraints as CEEGoalConstraint[]
-    useCanvasStore.getState().setGoalConstraints(constraints)
+    // Producer sync (draft ingestion) — must not self-dirty the freshness overlay.
+    useCanvasStore.getState().setGoalConstraints(constraints, { fromProducerSync: true })
     logger.info('[constraint-trace] store-write', {
       source: 'applyDraftResult',
       count: constraints.length,
       constraint_ids: constraints.map((c) => c.constraint_id),
     })
   } else {
-    useCanvasStore.getState().setGoalConstraints(null)
+    useCanvasStore.getState().setGoalConstraints(null, { fromProducerSync: true })
     logger.info('[constraint-trace] store-write', {
       source: 'applyDraftResult',
       count: 0,
