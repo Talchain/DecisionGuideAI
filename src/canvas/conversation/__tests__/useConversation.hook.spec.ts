@@ -2570,6 +2570,35 @@ describe('dispatchAction — chip parameters ride the real V5 payload', () => {
     expect(payload.chip).toBeDefined()
     expect(payload.chip).not.toHaveProperty('parameters')
   })
+
+  it('an identity-only dispatch (parameters, no action_type) still ships chip.parameters — the null-intent spark/chip case (A1 meta-decision diagnosis, 2026-07-20)', async () => {
+    // Before buildChipMeta, dispatchAction gated chip metadata on
+    // action_type presence, silently stripping identity-only chips: the
+    // product-authored spark then travelled as anonymous text and CEE's
+    // draft-shape regex misread it as a decision brief. This pin exercises
+    // the REAL dispatchAction → REAL buildV5Payload chain (only the network
+    // runner is mocked), so reverting the construction goes RED here.
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.dispatchAction({
+        parameters: { spark_id: 'prepare_first_analysis' },
+        label: 'Prepare first analysis',
+        message: 'What should I check before running the first analysis?',
+        source: 'chip' as const,
+      })
+    })
+
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    const payload = mockCallV5Turn.mock.calls[0][0] as {
+      source?: string
+      chip?: { action_type?: string; parameters?: Record<string, unknown> }
+    }
+    expect(payload.source).toBe('chip')
+    expect(payload.chip).toBeDefined()
+    expect(payload.chip?.parameters).toEqual({ spark_id: 'prepare_first_analysis' })
+    // No action_type fabricated for a null-intent chip.
+    expect(payload.chip && 'action_type' in payload.chip).toBe(false)
+  })
 })
 
 describe('1.16i — rerun UX integrity', () => {

@@ -472,6 +472,8 @@ export const FactorNode = memo((props: NodeProps) => {
       chips.push(
         <NodeChip
           key="estimate"
+          chipId="factor_help_estimate"
+          actionType={null}
           label="Help me estimate this"
           message={`Help me estimate a reasonable value for ${cleanedLabel}`}
         />
@@ -480,6 +482,8 @@ export const FactorNode = memo((props: NodeProps) => {
       chips.push(
         <NodeChip
           key="external-change"
+          chipId="factor_what_if_changes"
+          actionType={null}
           label="What if this changes?"
           message={`What if ${cleanedLabel} changes? How should I plan for that?`}
         />
@@ -488,6 +492,8 @@ export const FactorNode = memo((props: NodeProps) => {
       chips.push(
         <NodeChip
           key="evidence"
+          chipId="factor_evidence_supports"
+          actionType={null}
           label="What evidence supports this?"
           message={`What evidence supports my assumption about ${cleanedLabel}?`}
         />

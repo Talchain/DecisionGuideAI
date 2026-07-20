@@ -1016,8 +1016,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               )}
               {/* Coaching chips */}
               <div className="flex flex-col gap-1 mt-2 pt-1.5 border-t border-panel-border">
-                <NodeChip label="What evidence supports this?" message={`What evidence supports the ${dirLabel.toLowerCase()} relationship between ${srcTitle} and ${tgtTitle}?`} />
-                <NodeChip label="Adjust strength" message={`I want to adjust the strength of the relationship between ${srcTitle} and ${tgtTitle}. Current strength is ${strengthPct}%.`} />
+                <NodeChip chipId="edge_evidence_supports" actionType={null} label="What evidence supports this?" message={`What evidence supports the ${dirLabel.toLowerCase()} relationship between ${srcTitle} and ${tgtTitle}?`} />
+                <NodeChip chipId="edge_adjust_strength" actionType="adjust_edge_strength" label="Adjust strength" message={`I want to adjust the strength of the relationship between ${srcTitle} and ${tgtTitle}. Current strength is ${strengthPct}%.`} />
               </div>
             </div>
           </EdgeLabelRenderer>

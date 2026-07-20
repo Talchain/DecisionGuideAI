@@ -102,7 +102,7 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason }: PreAnalysi
           }))
           break
         case 'send_prompt':
-          sendPrompt(action.label, action.prompt)
+          sendPrompt(action.spark)
           break
         case 'run_analysis':
           runOrExplain()

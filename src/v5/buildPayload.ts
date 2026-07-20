@@ -28,6 +28,7 @@ import type {
   TurnSourceLiteral,
   ActionTypeLiteral,
 } from '@talchain/schemas/boundary'
+import { ActionType } from '@talchain/schemas/boundary'
 
 import type { SystemEvent } from '../canvas/conversation/types'
 
@@ -81,14 +82,24 @@ export function buildV5Payload(input: BuildV5PayloadInput): BuildV5PayloadResult
     return { ok: false, reason: 'missing_message' }
   }
 
-  // Derive source: chipMeta presence with an action_type signals a bound
-  // chip click regardless of what the caller labelled it. Keeps downstream
-  // CEE routing accurate when the UI's sendChip path currently passes
-  // source='chip' uniformly (see useConversation.dispatchAction). Retry is
-  // always honoured over chip-derivation so retryLast() still hits the
-  // retry branch on the CEE side.
+  // Publication gate (schema-derived, sanitise BEFORE source derivation):
+  // CEE ingress validates action_type FAIL-CLOSED against ITS vendored enum,
+  // so an unpublished value on the wire would 422 the whole turn. The gate
+  // is derived from OUR vendored enum (sanitiseActionType → KNOWN_ACTION_TYPES
+  // → ActionType.options): a mapped-but-unpublished value is withheld
+  // entirely — no action_type key AND no chip_click promotion — so the turn
+  // behaves exactly like today's identity-only chip until a schema re-vendor
+  // lights the value up with zero code change here.
+  const wireActionType = sanitiseActionType(input.chipMeta?.action_type)
+
+  // Derive source: chipMeta presence with a PUBLISHED action_type signals a
+  // bound chip click regardless of what the caller labelled it. Keeps
+  // downstream CEE routing accurate when the UI's sendChip path currently
+  // passes source='chip' uniformly (see useConversation.dispatchAction).
+  // Retry is always honoured over chip-derivation so retryLast() still hits
+  // the retry branch on the CEE side.
   const rawSource = input.source
-  const hasBoundAction = Boolean(input.chipMeta?.action_type)
+  const hasBoundAction = Boolean(wireActionType) || rawSource === 'chip_click'
   const effectiveSource =
     rawSource === 'retry'
       ? 'retry'
@@ -109,12 +120,12 @@ export function buildV5Payload(input: BuildV5PayloadInput): BuildV5PayloadResult
     source,
   }
 
-  // Chip sub-object — only on chip / chip_click sources.
+  // Chip sub-object — only on chip / chip_click sources. Carries only the
+  // gate-passed (published) action_type; identity parameters always travel.
   if ((source === 'chip' || source === 'chip_click') && input.chipMeta) {
-    const action_type = sanitiseActionType(input.chipMeta.action_type)
     const parameters = input.chipMeta.parameters
     base.chip = {
-      ...(action_type ? { action_type } : {}),
+      ...(wireActionType ? { action_type: wireActionType } : {}),
       ...(parameters ? { parameters } : {}),
     }
   }
@@ -239,22 +250,15 @@ function stringField(src: Record<string, unknown> | undefined, key: string): str
 // action_type, we'd fail ingress; drop it to let CEE's classifier dispatch
 // from message text alone.
 //
-// V-P0-2 fold: this set MUST equal the vendored @talchain/schemas ActionType
-// enum exactly — a hand-copied subset silently strips schema-valid values at
-// the wire (it was 2 generations stale: 7 members vs the 0.15 enum's 9,
-// missing explain_results + explain_from_structure). Parity is pinned by
-// explainChips.vocabulary.spec.ts, which imports the enum and fails on drift.
-export const KNOWN_ACTION_TYPES: ReadonlySet<ActionTypeLiteral> = new Set<ActionTypeLiteral>([
-  'run_analysis',
-  'set_factor_value',
-  'add_constraint',
-  'adjust_edge_strength',
-  'explain_result',
-  'explain_results',
-  'explain_from_structure',
-  'compare_options',
-  'what_would_flip',
-])
+// V-P0-2 fold, completed 2026-07-20: DERIVED from the vendored
+// @talchain/schemas ActionType enum — the hand-copied list this replaced
+// went 2 generations stale (7 members vs the enum's 9, silently stripping
+// explain_results + explain_from_structure at the wire). The parity spec in
+// explainChips.vocabulary.spec.ts stays as the guard against anyone
+// reverting to a hand list.
+export const KNOWN_ACTION_TYPES: ReadonlySet<ActionTypeLiteral> = new Set<ActionTypeLiteral>(
+  ActionType.options,
+)
 
 function sanitiseActionType(raw: string | undefined): ActionTypeLiteral | undefined {
   if (!raw) return undefined

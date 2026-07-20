@@ -80,8 +80,8 @@ export const RiskNode = memo((props: NodeProps) => {
   // directly; they live in popovers (Standard) or inline in Detailed view.
   const riskChips = useMemo(() => (
     <div className="flex gap-1 flex-wrap mt-1.5">
-      <NodeChip label="What reduces this?" message={`What factors or actions could reduce ${cleanedLabel || 'this risk'}?`} />
-      <NodeChip label="Add mitigation" message={`Suggest a mitigation strategy for ${cleanedLabel || 'this risk'}`} />
+      <NodeChip chipId="risk_what_reduces" actionType={null} label="What reduces this?" message={`What factors or actions could reduce ${cleanedLabel || 'this risk'}?`} />
+      <NodeChip chipId="risk_add_mitigation" actionType={null} label="Add mitigation" message={`Suggest a mitigation strategy for ${cleanedLabel || 'this risk'}`} />
     </div>
   ), [cleanedLabel])
 

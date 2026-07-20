@@ -105,11 +105,7 @@ export const SIGNAL_REGISTRY: ReadonlyArray<SignalDef> = [
           : undefined,
         rationale: SIGNAL_COPY.optionRationale,
         entityKind: 'option',
-        action: {
-          type: 'send_prompt',
-          label: SPARK_PROMPTS.widenOptions.label,
-          prompt: SPARK_PROMPTS.widenOptions.prompt,
-        },
+        action: { type: 'send_prompt', spark: SPARK_PROMPTS.widenOptions },
         spark: SPARK_PROMPTS.widenOptions,
       }
     },
@@ -130,11 +126,7 @@ export const SIGNAL_REGISTRY: ReadonlyArray<SignalDef> = [
         copy: { lead: copy.lead, emphasis: copy.emphasis },
         rationale: SIGNAL_COPY.riskRationale,
         entityKind: 'risk',
-        action: {
-          type: 'send_prompt',
-          label: SPARK_PROMPTS.preMortem.label,
-          prompt: SPARK_PROMPTS.preMortem.prompt,
-        },
+        action: { type: 'send_prompt', spark: SPARK_PROMPTS.preMortem },
         spark: SPARK_PROMPTS.preMortem,
       }
     },
@@ -171,11 +163,7 @@ export const SIGNAL_REGISTRY: ReadonlyArray<SignalDef> = [
         ceeOverride: { text: input.biasFindingExplanation, attribution: { kind: 'olumi' } },
         rationale: SIGNAL_COPY.ceeBiasRationale,
         entityKind: 'decision',
-        action: {
-          type: 'send_prompt',
-          label: SPARK_PROMPTS.reflectBias.label,
-          prompt: SPARK_PROMPTS.reflectBias.prompt,
-        },
+        action: { type: 'send_prompt', spark: SPARK_PROMPTS.reflectBias },
         spark: SPARK_PROMPTS.reflectBias,
       }
     },

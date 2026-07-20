@@ -8,7 +8,9 @@
  * signals/__tests__/registry.spec.ts.
  */
 
-import type { BarKey, BarState } from './types'
+import type { BarKey, BarState, SparkPrompt } from './types'
+
+export type { SparkPrompt } from './types'
 
 /**
  * Bar labels — single constants object by design. The alternative set
@@ -248,87 +250,156 @@ export const HERO_COPY = {
 } as const
 
 /**
- * Actions overflow menu — named methods, every item resolves to a prefilled
- * conversation prompt (sent immediately via the existing chip convention).
- * No contract intents are attached: routing happens from the message text,
- * so none of the dead-end intents can be emitted.
+ * Actions overflow menu — named methods, every item a SparkPrompt with
+ * EXPLICIT wire intent.
+ *
+ * History: this registry previously attached NO intent ("routing happens
+ * from the message text") — a deliberate choice to avoid emitting dead-end
+ * intents. That choice was reversed on A1's meta-decision diagnosis
+ * (2026-07-20): CEE re-infers anonymous text with a draft-shape regex, and
+ * on an empty canvas EVERY spark here matched it — the "Prepare first
+ * analysis" spark was captured as a decision BRIEF and the drafter modelled
+ * the meta-decision ("should we run the analysis?") instead of coaching.
+ * The product knows the intent at authoring time; discarding it and
+ * re-inferring by regex IS the defect mechanism.
+ *
+ * `action_type` is the wire intent: a @talchain/schemas ActionType enum
+ * value (strict at CEE ingress — out-of-enum values 422), a declared
+ * pending value (PENDING_WIRE_ACTION_TYPES in conversation/chipMeta.ts —
+ * mapped now, WITHHELD from the wire by buildV5Payload's schema-derived
+ * gate until the re-vendor publishes it), or `null` when no honest entry
+ * exists — we do NOT force a wrong one. Every spark still ships its
+ * identity as `chip.parameters.spark_id`, the deterministic hook CEE's
+ * routing half keys on. The contract test in
+ * __tests__/sparkIntentContract.spec.ts validates values against the enum
+ * itself (derived, never a hand-kept list).
+ *
+ * `analysis_readiness` (signed off for 0.20.0) means "assess/coach
+ * readiness for analysis". Mapped ONLY where that is the spark's honest
+ * intent — elicitation/reflection sparks whose readiness link is incidental
+ * stay null rather than being recast as analysis-gate conversations.
  */
-export interface ActionsMenuItem {
-  id: string
-  label: string
-  prompt: string
-}
+export type ActionsMenuItem = SparkPrompt
 
 export const ACTIONS_MENU: ReadonlyArray<ActionsMenuItem> = [
   {
     id: 'pressure_test_frame',
     label: 'Pressure-test the frame',
     prompt: 'Is this the right question to be asking, and does it fit my wider goals?',
+    // Frame-challenge coaching. explain_from_structure EXPLAINS the model;
+    // this spark challenges it — no honest vocabulary entry.
+    action_type: null,
   },
   {
     id: 'widen_options',
     label: 'Widen the options',
     prompt: 'Suggest materially different options that work through a different mechanism from the ones I already have.',
+    // Option-elicitation coaching; the boundary enum has no add_option.
+    action_type: null,
   },
   {
     id: 'outside_view',
     label: 'Take the outside view',
     prompt: 'Take the outside view on this decision: what do similar decisions and base rates suggest?',
+    // Base-rate coaching — no vocabulary entry.
+    action_type: null,
   },
   {
     id: 'pre_mortem',
     label: 'Run a pre-mortem',
     prompt: 'Run a pre-mortem with me: imagine this choice failed a year from now. What went wrong?',
+    // Failure-imagination coaching — no vocabulary entry.
+    action_type: null,
   },
   {
     id: 'risks_upside',
     label: 'Find risks and upside',
     prompt: 'What risks and best-case upsides are missing from my model?',
+    // Gap-elicitation coaching (what is MISSING) — explain_* describes what
+    // is present; no honest entry.
+    action_type: null,
   },
   {
     id: 'calibrate_estimates',
     label: 'Check estimates',
     prompt: 'Help me check the estimates that matter most to the analysis.',
+    // Analysis-preparation coaching: "the estimates that matter most to
+    // the ANALYSIS" is readiness-directed — the readiness capability's
+    // estimate-gap signals are the honest answer. NOT what_would_flip
+    // (post-analysis sensitivity; its deterministic handler demands prior
+    // analysis facts). Pending: withheld until the 0.20.0 re-vendor.
+    action_type: 'analysis_readiness',
   },
   {
     id: 'compare_view',
     label: 'Compare my view with Olumi',
     prompt: 'Compare my view of this decision with yours. Where do we differ, and why?',
+    // compare_options compares DECISION OPTIONS, not the user's view vs the
+    // model's — stamping it would misdeclare the intent.
+    action_type: null,
   },
   {
     id: 'prepare_first_analysis',
     label: 'Prepare first analysis',
     prompt: 'What should I check before running the first analysis?',
+    // THE readiness spark (A1's defect reproduction) — the verbatim intent
+    // analysis_readiness was coined for. NOT run_analysis, which would RUN
+    // the analysis the user is asking how to prepare for — the exact
+    // wrongness class this metadata exists to kill. Pending: withheld
+    // until the 0.20.0 re-vendor.
+    action_type: 'analysis_readiness',
   },
 ]
 
+// Ids shared with ACTIONS_MENU where the prompt is identical — same product
+// intent, same wire identity, same action_type adjudication (calibrate maps
+// to the pending analysis_readiness; the rest are elicitation/reflection
+// intents with no honest entry — see the ACTIONS_MENU doc).
 export const SPARK_PROMPTS = {
   widenOptions: {
+    id: 'widen_options',
     label: 'Widen the options',
     prompt: 'Suggest materially different options that work through a different mechanism from the ones I already have.',
+    action_type: null,
   },
   preMortem: {
+    id: 'pre_mortem',
     label: 'Run a pre-mortem',
     prompt: 'Run a pre-mortem with me: imagine this choice failed a year from now. What went wrong?',
+    action_type: null,
   },
   calibrate: {
+    id: 'calibrate_estimates',
     label: 'Check estimates',
     prompt: 'Help me check the estimates that matter most to the analysis.',
+    // Same id + adjudication as the ACTIONS_MENU entry: readiness-directed
+    // calibration coaching. Pending: withheld until the 0.20.0 re-vendor.
+    action_type: 'analysis_readiness',
   },
   pressureTestFrame: {
+    id: 'pressure_test_frame',
     label: 'Pressure-test the frame',
     prompt: 'Is this the right question to be asking, and does it fit my wider goals?',
+    action_type: null,
   },
   defineSuccess: {
+    id: 'define_success',
     label: 'Define success with Olumi',
     prompt: 'Help me define a measurable success target for this goal.',
+    // Goal-target coaching; set_factor_value is a validated mutation, not
+    // a conversation — no honest entry.
+    action_type: null,
   },
   findRisks: {
+    id: 'risks_upside',
     label: 'Find risks and upside',
     prompt: 'What risks and best-case upsides are missing from my model?',
+    action_type: null,
   },
   reflectBias: {
+    id: 'reflect_bias',
     label: 'Talk it through with Olumi',
     prompt: 'You flagged a possible blind spot in how my model leans. Help me think it through.',
+    action_type: null,
   },
-} as const
+} as const satisfies Record<string, SparkPrompt>
