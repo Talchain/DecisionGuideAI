@@ -159,7 +159,11 @@ describe('StressTestSection — Brief 5.8B D4', () => {
       expect(screen.queryByText(/Sensitive assumptions/)).not.toBeInTheDocument()
     })
 
-    it('"What if this changes?" chip routes the prompt through onSendMessage', () => {
+    it('"What if this changes?" chip prefills the Ask-Olumi drawer instead of auto-sending', async () => {
+      // Codex finding 6: exploratory CTA routes through openAskOlumi (prefilled
+      // editable draft) — it must NOT call the threaded onSendMessage.
+      const { useAskOlumiStore } = await import('../coaching/askOlumiStore')
+      useAskOlumiStore.getState().close()
       const onSendMessage = vi.fn()
       render(
         <StressTestSection
@@ -171,8 +175,10 @@ describe('StressTestSection — Brief 5.8B D4', () => {
         />,
       )
       fireEvent.click(screen.getByText('What if this changes?'))
-      expect(onSendMessage).toHaveBeenCalledTimes(1)
-      expect(onSendMessage.mock.calls[0][0]).toMatch(/Customer churn rate/)
+      expect(onSendMessage).not.toHaveBeenCalled()
+      const state = useAskOlumiStore.getState()
+      expect(state.isOpen).toBe(true)
+      expect(state.draft).toMatch(/Customer churn rate/)
     })
   })
 

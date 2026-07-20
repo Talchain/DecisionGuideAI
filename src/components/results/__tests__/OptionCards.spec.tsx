@@ -656,7 +656,11 @@ describe('OptionCards', () => {
       expect(screen.getByTestId('option-cards-different-approach')).toBeInTheDocument()
     })
 
-    it('clicking the link routes a prompt through onSendMessage', () => {
+    it('clicking the link prefills the Ask-Olumi drawer instead of auto-sending', async () => {
+      // Codex finding 6: exploratory CTA routes through openAskOlumi (prefilled
+      // editable draft) — it must NOT call the threaded onSendMessage.
+      const { useAskOlumiStore } = await import('../coaching/askOlumiStore')
+      useAskOlumiStore.getState().close()
       const onSendMessage = vi.fn()
       render(
         <OptionCards
@@ -666,8 +670,10 @@ describe('OptionCards', () => {
         />,
       )
       fireEvent.click(screen.getByTestId('option-cards-different-approach'))
-      expect(onSendMessage).toHaveBeenCalledTimes(1)
-      expect(onSendMessage.mock.calls[0][0]).toMatch(/different approach/i)
+      expect(onSendMessage).not.toHaveBeenCalled()
+      const state = useAskOlumiStore.getState()
+      expect(state.isOpen).toBe(true)
+      expect(state.draft).toMatch(/different approach/i)
     })
   })
 })

@@ -41,6 +41,7 @@ import {
   buildOutsideViewCard,
 } from './utils/stressTestTemplates'
 import { SensitivityReferenceCaption } from './SensitivityReferenceCaption'
+import { openAskOlumi } from './coaching/askOlumiStore'
 import type { DriverItem } from './types'
 
 const RANK_FLIP_THRESHOLD = 0.15
@@ -138,9 +139,11 @@ function SensitiveAssumptionCard({
         type="button"
         disabled={!onSendMessage}
         onClick={onSendMessage
-          ? () => onSendMessage(
-              `What if ${cleanLabel} changes? Walk me through the impact.`,
-            )
+          ? () => openAskOlumi({
+              context: `${cleanLabel} — a shift could change the result.`,
+              draft: `What if ${cleanLabel} changes? Walk me through the impact.`,
+              label: 'What if this changes?',
+            })
           : undefined}
         className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2.5 py-1 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 disabled:cursor-default disabled:opacity-50`}
         aria-label={`Explore what happens if ${cleanLabel} changes`}
@@ -174,7 +177,13 @@ function ThinkingPatternCardView({
       <button
         type="button"
         disabled={!onSendMessage}
-        onClick={onSendMessage ? () => onSendMessage(promptBuilder()) : undefined}
+        onClick={onSendMessage
+          ? () => openAskOlumi({
+              context: card.context ? `${card.question} ${card.context}` : card.question,
+              draft: promptBuilder(),
+              label: card.chipLabel,
+            })
+          : undefined}
         className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2.5 py-1 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 disabled:cursor-default disabled:opacity-50`}
         aria-label={card.chipLabel}
       >

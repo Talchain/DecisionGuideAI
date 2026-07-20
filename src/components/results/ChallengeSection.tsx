@@ -25,6 +25,7 @@ import { HelpCircle, AlertTriangle, Info } from 'lucide-react'
 import { stripEncodingNotation, stripStatusQuoSuffixForDisplay } from './utils/cleanFactorLabel'
 import type { EvidenceGapItem, DriverItem } from './types'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
+import { openAskOlumi } from './coaching/askOlumiStore'
 import { ExpertBlock } from './ExpertBlock'
 
 /** E-value entry for an edge */
@@ -135,7 +136,7 @@ function ChallengeCard({
             <DiscussWithAiButton
               variant="secondary"
               element={{ kind: 'missing' }}
-              onSend={() => onSendMessage(ctaPrompt)}
+              onSend={() => openAskOlumi({ context: cleanTitle, draft: ctaPrompt, label: 'Explore this' })}
             />
           </div>
         )}
@@ -182,7 +183,7 @@ function ChallengeCard({
             <DiscussWithAiButton
               variant="secondary"
               element={{ kind: 'missing' }}
-              onSend={() => onSendMessage(ctaPrompt)}
+              onSend={() => openAskOlumi({ context: cleanTitle, draft: ctaPrompt, label: 'Explore this' })}
             />
           </div>
         )}
@@ -286,13 +287,15 @@ export function FragileEdgeGroupCard({
           <DiscussWithAiButton
             variant="secondary"
             element={{ kind: 'missing' }}
-            onSend={() => onSendMessage(
-              altWinnerLabel && multiple
+            onSend={() => openAskOlumi({
+              context: 'Fragile relationships',
+              draft: altWinnerLabel && multiple
                 ? `Are these ${edges.length} relationships that could flip the result to ${altWinnerLabel} reliable?`
                 : altWinnerLabel
                   ? `Is the relationship between ${stripEncodingNotation(edges[0].from_label)} and ${stripEncodingNotation(edges[0].to_label)} reliable?`
-                  : `Are these ${edges.length} fragile relationships in my model reliable?`
-            )}
+                  : `Are these ${edges.length} fragile relationships in my model reliable?`,
+              label: 'Discuss fragile relationships',
+            })}
           />
         </div>
       )}
@@ -322,7 +325,7 @@ function IdentifiabilityCard({ onSendMessage }: { onSendMessage?: (text: string)
           <DiscussWithAiButton
             variant="secondary"
             element={{ kind: 'goal', label: 'success target' }}
-            onSend={() => onSendMessage('What baseline should I use for the success target? The current one is a default.')}
+            onSend={() => openAskOlumi({ context: 'The success target relies on a default baseline', draft: 'What baseline should I use for the success target? The current one is a default.', label: 'Discuss the baseline' })}
           />
         </div>
       )}

@@ -36,6 +36,7 @@ import { safeInterpolatedLabel } from './analysisHeroV17/glossaryCheck'
 import { typography } from '@/styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { MissingKnowledgePrompt } from '@/components/shared/MissingKnowledgePrompt'
+import { openAskOlumi } from './coaching/askOlumiStore'
 import { useCanvasStore } from '@/canvas/store'
 import {
   buildStrengthenOverlayMap,
@@ -386,13 +387,19 @@ function T1DominantNudge({
           Validate
         </button>
       )}
-      {/* (Round-5 P1.1) Research chip dispatches `onSendMessage` — auto-send.
-          v17 hero has zero auto-send paths, so the chip is suppressed when
-          useV17Copy is true. Legacy panel still renders it. */}
+      {/* (Round-5 P1.1) Research chip is exploratory/question-shaped. Codex
+          finding 6: prefill the Ask-Olumi drawer (editable draft, user presses
+          Send) instead of auto-sending. Suppressed under v17 copy (which has its
+          own affordances); the legacy panel still renders it. Gated on
+          onSendMessage as the "chat is available" signal. */}
       {!useV17Copy && onSendMessage && (
         <button
           type="button"
-          onClick={() => onSendMessage(`Can you research ${dominantLabel} and suggest a reasonable estimate with sources?`)}
+          onClick={() => openAskOlumi({
+            context: `Research ${dominantLabel}`,
+            draft: `Can you research ${dominantLabel} and suggest a reasonable estimate with sources?`,
+            label: 'Research',
+          })}
           className={`flex-shrink-0 px-2 py-0.5 rounded-full ${typography.panelMeta} text-warning border border-warning/30 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-warning`}
           aria-label={`Research ${dominantLabel}`}
         >

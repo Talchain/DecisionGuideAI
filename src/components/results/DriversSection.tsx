@@ -44,6 +44,7 @@ import {
 } from './influenceScaleCopy'
 import { ExpandableCoachingText } from '../../components/shared/ExpandableCoachingText'
 import { isExpertField } from './utils/isExpertField'
+import { openAskOlumi } from './coaching/askOlumiStore'
 
 interface DriversSectionProps {
   data: DriversSectionData
@@ -701,9 +702,13 @@ function DriverRow({
             type="button"
             data-testid={`driver-technique-chip-${driver.factorKey}`}
             onClick={() => {
-              onSendMessage(
-                `${techniqueSuggestion} could help with "${cleanedLabel}". How would you apply it here?`,
-              )
+              // Codex finding 6: exploratory CTA — prefill the Ask-Olumi drawer
+              // (editable draft, user presses Send), never auto-send.
+              openAskOlumi({
+                context: `${techniqueSuggestion} for "${cleanedLabel}"`,
+                draft: `${techniqueSuggestion} could help with "${cleanedLabel}". How would you apply it here?`,
+                label: techniqueSuggestion,
+              })
             }}
             className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
             aria-label={`Discuss ${techniqueSuggestion.replace(/^Try:\s*/i, '')} for ${cleanedLabel}`}
