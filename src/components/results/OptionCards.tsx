@@ -40,6 +40,7 @@ import {
 import { buildSegmentColorMap, WIN_GAUGE_COLORS } from './WinGauge'
 import Tooltip from '../Tooltip'
 import { winnerChipLabel, winnerChipPrompt } from './utils/winnerChipCopy'
+import { openAskOlumi } from './coaching/askOlumiStore'
 
 export interface OptionCardsProps {
   options: OptionResult[]
@@ -539,7 +540,14 @@ function OptionCard({
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
-                onSendMessage(winnerChipPrompt(isWinner, option.label))
+                // Codex finding 6: exploratory question-shaped CTA — prefill the
+                // Ask-Olumi drawer (editable draft, user presses Send) instead of
+                // auto-sending into a possibly-hidden conversation.
+                openAskOlumi({
+                  context: `About "${option.label}"`,
+                  draft: winnerChipPrompt(isWinner, option.label),
+                  label: winnerChipLabel(isWinner, confidenceTier, recommendationStability),
+                })
               }}
               className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2.5 py-1 bg-transparent hover:bg-panel-hover cursor-pointer`}
             >
@@ -721,12 +729,16 @@ export function OptionCards({
             </button>
           )}
           {/* Brief 5.8B D3 step 3: "What if I tried a different approach?" link.
-              Routes the prompt through the existing onSendMessage pathway so the
-              conversation panel reuses the same coaching loop the AI chips use. */}
+              Codex finding 6: exploratory CTA — prefills the Ask-Olumi drawer
+              (editable draft, user presses Send) rather than auto-sending. */}
           {onSendMessage && (
             <button
               type="button"
-              onClick={() => onSendMessage('What if I tried a different approach? Suggest one or two alternative options I could compare against the current set.')}
+              onClick={() => openAskOlumi({
+                context: 'Explore a different approach',
+                draft: 'What if I tried a different approach? Suggest one or two alternative options I could compare against the current set.',
+                label: 'A different approach',
+              })}
               className={`self-start ${typography.panelBody} text-info hover:underline cursor-pointer`}
               data-testid="option-cards-different-approach"
             >
