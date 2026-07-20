@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OutputsDock } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
@@ -197,7 +197,7 @@ describe('OutputsDock analyse convergence', () => {
     useSuccessMeasureStore.getState()._reset()
   })
 
-  it('dispatches direct V2 run instead of the shared conversation callback', () => {
+  it('dispatches direct V2 run instead of the shared conversation callback', async () => {
     const runViaConversation = vi.fn()
     const runV2Analysis = vi.fn()
 
@@ -208,11 +208,13 @@ describe('OutputsDock analyse convergence', () => {
 
     fireEvent.click(screen.getByTestId('outputs-run-button'))
 
-    expect(runV2Analysis).toHaveBeenCalledTimes(1)
+    // The run now awaits the pre-dispatch save flush (F1 barrier) before
+    // reaching the V2/dispatch path, so the spy resolves on a later microtask.
+    await waitFor(() => expect(runV2Analysis).toHaveBeenCalledTimes(1))
     expect(runViaConversation).not.toHaveBeenCalled()
   })
 
-  it('runs directly without opening the AI panel or warning toast when no conversation callback is registered', () => {
+  it('runs directly without opening the AI panel or warning toast when no conversation callback is registered', async () => {
     const runV2Analysis = vi.fn()
     mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
 
@@ -220,7 +222,7 @@ describe('OutputsDock analyse convergence', () => {
 
     fireEvent.click(screen.getByTestId('outputs-run-button'))
 
-    expect(runV2Analysis).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(runV2Analysis).toHaveBeenCalledTimes(1))
     expect(mockShowToast).not.toHaveBeenCalled()
     expect(useCanvasStore.getState().showDraftChat).toBe(false)
     expect(
@@ -236,7 +238,7 @@ describe('OutputsDock analyse convergence', () => {
   })
 
   describe('v5 canonical analysis routing (v5-canonical-analysis brief)', () => {
-    it('fires chip-shaped dispatchAction with action_type=run_analysis when canonical flag is on AND V5 eligible', () => {
+    it('fires chip-shaped dispatchAction with action_type=run_analysis when canonical flag is on AND V5 eligible', async () => {
       const dispatchAction = vi.fn()
       const runV2Analysis = vi.fn()
       mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
@@ -250,7 +252,7 @@ describe('OutputsDock analyse convergence', () => {
 
       // Correction 8: exact chip/action payload shape — action_type
       // 'run_analysis', source 'chip', no free-text LLM route.
-      expect(dispatchAction).toHaveBeenCalledTimes(1)
+      await waitFor(() => expect(dispatchAction).toHaveBeenCalledTimes(1))
       const call = dispatchAction.mock.calls[0][0]
       expect(call.action_type).toBe('run_analysis')
       expect(call.source).toBe('chip')
@@ -264,7 +266,7 @@ describe('OutputsDock analyse convergence', () => {
       expect(runV2Analysis).not.toHaveBeenCalled()
     })
 
-    it('falls back to direct V2 when canonical flag is off (control case)', () => {
+    it('falls back to direct V2 when canonical flag is off (control case)', async () => {
       const dispatchAction = vi.fn()
       const runV2Analysis = vi.fn()
       mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
@@ -276,11 +278,11 @@ describe('OutputsDock analyse convergence', () => {
       renderOutputsDock()
       fireEvent.click(screen.getByTestId('outputs-run-button'))
 
-      expect(runV2Analysis).toHaveBeenCalledTimes(1)
+      await waitFor(() => expect(runV2Analysis).toHaveBeenCalledTimes(1))
       expect(dispatchAction).not.toHaveBeenCalled()
     })
 
-    it('falls back to direct V2 when canonical flag is on but V5 is not eligible', () => {
+    it('falls back to direct V2 when canonical flag is on but V5 is not eligible', async () => {
       const dispatchAction = vi.fn()
       const runV2Analysis = vi.fn()
       mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
@@ -292,11 +294,11 @@ describe('OutputsDock analyse convergence', () => {
       renderOutputsDock()
       fireEvent.click(screen.getByTestId('outputs-run-button'))
 
-      expect(runV2Analysis).toHaveBeenCalledTimes(1)
+      await waitFor(() => expect(runV2Analysis).toHaveBeenCalledTimes(1))
       expect(dispatchAction).not.toHaveBeenCalled()
     })
 
-    it('falls back to direct V2 when canonical flag is on but no _dispatchAction is registered', () => {
+    it('falls back to direct V2 when canonical flag is on but no _dispatchAction is registered', async () => {
       const runV2Analysis = vi.fn()
       mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
       mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
@@ -309,7 +311,7 @@ describe('OutputsDock analyse convergence', () => {
       renderOutputsDock()
       fireEvent.click(screen.getByTestId('outputs-run-button'))
 
-      expect(runV2Analysis).toHaveBeenCalledTimes(1)
+      await waitFor(() => expect(runV2Analysis).toHaveBeenCalledTimes(1))
     })
   })
 

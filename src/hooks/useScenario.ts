@@ -66,6 +66,11 @@ export interface UseScenarioReturn {
   // Graph staleness — true when graph has been edited after the last analysis
   analysisStale: boolean
   clearAnalysisStale: () => void
+
+  // F1: awaitable barrier — flush any pending/dirty debounced graph save so a
+  // run dispatched immediately after an edit analyses the CURRENT graph. No-op
+  // for guests/inactive persistence; rejects on save failure (caller aborts).
+  flushPendingSaves: () => Promise<void>
 }
 
 const GRAPH_DEBOUNCE_MS = 1500
@@ -92,6 +97,104 @@ function graphSaveKey(s: {
     edges: s.edges,
     goalConstraints: s.goalConstraints ?? null,
   })
+}
+
+// ---------------------------------------------------------------------------
+// Single-owner autosave coordination (Codex findings F1 + F4)
+//
+// F4 — DOUBLE PIPELINE: useScenario() mounts in BOTH CanvasMVP and OutputsDock.
+// Two instances each installed their own store subscriptions and debounce
+// timers, so a single edit scheduled TWO independent saves; the DB write has no
+// revision check, so a slower stale save could overwrite newer work. The fix is
+// ONE writer: a module-level ownership registry. Every mount installs passive
+// subscriptions, but only the mount at the head of `activeAutosaveOwners`
+// actually persists. Ownership is checked at call time (not install time), so it
+// transfers to a surviving mount the instant the owner unmounts — no gap.
+//
+// F1 — RACE: an authenticated user who edits then presses Analyse within the
+// 1500ms debounce window gets analysis of the PREVIOUS graph (a canonical V5 run
+// sends only scenario_id; CEE reads its persisted scenario graph). The fix is a
+// single awaitable barrier — `flushPendingGraphSave` — awaited before run
+// dispatch. It shares the "already persisted" key and the in-flight save promise
+// below with the debounced autosave so the two never disagree on cleanliness or
+// double-write.
+const activeAutosaveOwners: string[] = []
+function isAutosaveOwner(id: string): boolean {
+  return activeAutosaveOwners.length > 0 && activeAutosaveOwners[0] === id
+}
+
+// Shared across every mount AND the flush barrier: the key of the graph payload
+// already persisted, and the in-flight graph save (if any). Module-level so the
+// pre-analysis flush and the debounced autosave agree on "clean" and never
+// double-write. Reset when the last mount unmounts (see the ownership effect).
+let sharedLastSavedGraphKey = ''
+let inFlightGraphSave: Promise<void> | null = null
+
+// Record the in-flight save so the flush barrier can await it, and self-clear
+// when it settles. The housekeeping `.finally` chain swallows its own rejection
+// (`.catch`) so it never surfaces as an unhandled rejection — the ACTUAL result
+// is always awaited by the caller (the autosave try/catch, or the flush
+// barrier), which is where a real failure is handled.
+function trackInFlightGraphSave(p: Promise<void>): void {
+  inFlightGraphSave = p
+  void p
+    .finally(() => {
+      if (inFlightGraphSave === p) inFlightGraphSave = null
+    })
+    .catch(() => {})
+}
+
+/**
+ * Persist the current canvas graph immediately via the gated write path.
+ * Shared by the debounced autosave, its retry, and the flush barrier so there is
+ * ONE write code path. Updates the shared "already persisted" key and marks the
+ * store clean on success. Rejects (propagates) on failure — callers decide.
+ */
+async function persistGraphNow(sid: string): Promise<void> {
+  const state = useCanvasStore.getState()
+  const key = graphSaveKey(state)
+  await scenarioService.saveGraphViaGatedPath(
+    sid,
+    { nodes: state.nodes, edges: state.edges },
+    crypto.randomUUID(),
+    undefined,
+    state.goalConstraints,
+  )
+  sharedLastSavedGraphKey = key
+  const now = Date.now()
+  useCanvasStore.getState().markClean()
+  useCanvasStore.setState({ lastSavedAt: now })
+}
+
+/**
+ * F1 barrier: flush any pending/dirty debounced graph save and await it, so a
+ * run dispatched right after an edit analyses the CURRENT graph.
+ *
+ * Contract:
+ * - Persistence inactive (guests / signed-out) → no-op, resolves immediately.
+ *   Their runs carry the graph on the wire and are gated elsewhere.
+ * - No active scenario id → no-op resolve.
+ * - Graph already persisted (clean) → resolves immediately.
+ * - Dirty → saves now, awaits, and REJECTS on failure. A failed flush must NOT
+ *   silently proceed to dispatch; the caller aborts the run.
+ */
+export async function flushPendingGraphSave(isPersistenceActive: boolean): Promise<void> {
+  if (!isPersistenceActive) return
+  const sid = useCanvasStore.getState().currentScenarioId
+  if (!sid) return
+  // Await any autosave already mid-flight so we settle on top of it.
+  if (inFlightGraphSave) {
+    try {
+      await inFlightGraphSave
+    } catch {
+      // A failed in-flight autosave is re-evaluated below: if still dirty we
+      // retry the save here and surface its outcome to the caller.
+    }
+  }
+  if (graphSaveKey(useCanvasStore.getState()) === sharedLastSavedGraphKey) return
+  const p = persistGraphNow(sid)
+  trackInFlightGraphSave(p)
+  await p
 }
 
 export function useScenario(): UseScenarioReturn {
@@ -130,9 +233,35 @@ export function useScenario(): UseScenarioReturn {
     return () => { mountedRef.current = false }
   }, [])
 
-  // Track the last saved graph to skip redundant saves.
-  // Uses a serialised snapshot (JSON string) for deep comparison.
-  const lastSavedGraphRef = useRef<string>('')
+  // F4: register this mount in the module-level autosave ownership registry.
+  // First-in wins; only the head owner drives the debounced writers. On unmount
+  // the id is removed and a surviving mount silently becomes owner. When the
+  // last mount unmounts, reset the shared save state so a future canvas session
+  // (or a test) starts clean.
+  const instanceIdRef = useRef<string>('')
+  if (!instanceIdRef.current) {
+    instanceIdRef.current =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `own_${Math.random().toString(36).slice(2)}`
+  }
+  useEffect(() => {
+    const id = instanceIdRef.current
+    activeAutosaveOwners.push(id)
+    return () => {
+      const i = activeAutosaveOwners.indexOf(id)
+      if (i >= 0) activeAutosaveOwners.splice(i, 1)
+      if (activeAutosaveOwners.length === 0) {
+        sharedLastSavedGraphKey = ''
+        inFlightGraphSave = null
+      }
+    }
+  }, [])
+
+  // Track the last saved framing to skip redundant saves (per-instance; only
+  // the owner writes framing, so no cross-mount coordination is needed here).
+  // The graph "already persisted" key is module-level (sharedLastSavedGraphKey)
+  // because the flush barrier must agree with the autosave on cleanliness.
   const lastSavedFramingRef = useRef<string>('')
 
   // Stable reference to the current scenario ID for use inside timers
@@ -164,9 +293,11 @@ export function useScenario(): UseScenarioReturn {
       const sid = scenarioIdRef.current
       if (!isPersistenceActiveRef.current || !sid) return
       if (!mountedRef.current) return
+      // F4: only the owning mount schedules writes.
+      if (!isAutosaveOwner(instanceIdRef.current)) return
 
       const graphSnapshot = graphSaveKey(state)
-      if (graphSnapshot === lastSavedGraphRef.current) return
+      if (graphSnapshot === sharedLastSavedGraphKey) return
 
       // Mark results as stale when graph changes after a completed analysis
       if (state.results.status === 'complete') {
@@ -178,26 +309,21 @@ export function useScenario(): UseScenarioReturn {
       graphSaveTimerRef.current = setTimeout(async () => {
         const saveSid = scenarioIdRef.current
         if (!saveSid || !mountedRef.current) return
+        // Re-check ownership + cleanliness at fire time: a flush barrier or the
+        // other mount may have persisted this exact graph in the meantime.
+        if (!isAutosaveOwner(instanceIdRef.current)) return
+        if (graphSaveKey(useCanvasStore.getState()) === sharedLastSavedGraphKey) return
 
         if (mountedRef.current) setSaveStatus('saving')
 
         try {
-          const currentState = useCanvasStore.getState()
-          await scenarioService.saveGraphViaGatedPath(
-            saveSid,
-            { nodes: currentState.nodes, edges: currentState.edges },
-            crypto.randomUUID(),
-            undefined,
-            currentState.goalConstraints,
-          )
-          lastSavedGraphRef.current = graphSaveKey(currentState)
+          const p = persistGraphNow(saveSid)
+          trackInFlightGraphSave(p)
+          await p
           if (mountedRef.current) {
-            const now = Date.now()
             setSaveStatus('saved')
-            setLastSavedAt(now)
+            setLastSavedAt(Date.now())
             setSaveError(null)
-            useCanvasStore.getState().markClean()
-            useCanvasStore.setState({ lastSavedAt: now })
           }
         } catch (err) {
           if (mountedRef.current) {
@@ -209,22 +335,13 @@ export function useScenario(): UseScenarioReturn {
             const retrySid = scenarioIdRef.current
             if (!retrySid || !mountedRef.current) return
             try {
-              const retryState = useCanvasStore.getState()
-              await scenarioService.saveGraphViaGatedPath(
-                retrySid,
-                { nodes: retryState.nodes, edges: retryState.edges },
-                crypto.randomUUID(),
-                undefined,
-                retryState.goalConstraints,
-              )
-              lastSavedGraphRef.current = graphSaveKey(retryState)
+              const rp = persistGraphNow(retrySid)
+              trackInFlightGraphSave(rp)
+              await rp
               if (mountedRef.current) {
-                const now = Date.now()
                 setSaveStatus('saved')
-                setLastSavedAt(now)
+                setLastSavedAt(Date.now())
                 setSaveError(null)
-                useCanvasStore.getState().markClean()
-                useCanvasStore.setState({ lastSavedAt: now })
               }
             } catch (retryErr) {
               console.error('[useScenario] save retry failed:', retryErr)
@@ -252,6 +369,8 @@ export function useScenario(): UseScenarioReturn {
       const sid = scenarioIdRef.current
       if (!isPersistenceActiveRef.current || !sid) return
       if (!mountedRef.current) return
+      // F4: only the owning mount schedules writes.
+      if (!isAutosaveOwner(instanceIdRef.current)) return
 
       const framing = state.currentScenarioFraming
       if (!framing) return
@@ -331,6 +450,8 @@ export function useScenario(): UseScenarioReturn {
     const tryAutoTitle = () => {
       const sid = scenarioIdRef.current
       if (!isPersistenceActiveRef.current || !sid) return
+      // F4: only the owning mount writes the auto-title.
+      if (!isAutosaveOwner(instanceIdRef.current)) return
       if (titleAutoSetForScenarioRef.current === sid) return
 
       const framingObj = useCanvasStore.getState().currentScenarioFraming as Record<string, unknown> | null
@@ -445,7 +566,7 @@ export function useScenario(): UseScenarioReturn {
       // include the constraints for the same reason it includes the graph:
       // priming it with a different value than the store is about to hold
       // would schedule an immediate no-op save on every scenario open.
-      lastSavedGraphRef.current = graphSaveKey({
+      sharedLastSavedGraphKey = graphSaveKey({
         nodes: graphNodes,
         edges: graphEdges,
         goalConstraints: loadedGoalConstraints,
@@ -611,6 +732,12 @@ export function useScenario(): UseScenarioReturn {
     setAnalysisStale(false)
   }, [])
 
+  // F1: awaitable flush barrier bound to this session's persistence state.
+  const flushPendingSaves = useCallback(
+    () => flushPendingGraphSave(isPersistenceActive),
+    [isPersistenceActive],
+  )
+
   const persistAnalysisSuccess = useCallback(
     async (
       analysis: unknown,
@@ -704,6 +831,7 @@ export function useScenario(): UseScenarioReturn {
       createSharedBrief,
       analysisStale,
       clearAnalysisStale,
+      flushPendingSaves,
     }),
     [
       createScenario,
@@ -722,6 +850,7 @@ export function useScenario(): UseScenarioReturn {
       createSharedBrief,
       analysisStale,
       clearAnalysisStale,
+      flushPendingSaves,
     ],
   )
 }
