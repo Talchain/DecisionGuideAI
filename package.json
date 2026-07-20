@@ -25,8 +25,8 @@
     "preview": "vite preview",
     "test:connection": "node --loader ts-node/esm src/lib/test-connection.ts",
     "test": "vitest run --reporter=verbose",
-    "security:audit": "npm audit --audit-level=high",
-    "security:audit:fix": "npm audit fix",
+    "security:audit": "pnpm audit --prod --audit-level high",
+    "security:audit:fix": "pnpm audit --prod --fix",
     "test:unit": "vitest run",
     "test:contracts": "vitest run tests/contracts/ src/test/__tests__/results-panel-contract.test.ts",
     "test:scoped-closeout": "vitest run src/components/results src/canvas/components/pre-analysis src/components/shared",
@@ -173,6 +173,28 @@
     "react-dom": "^18.3.1",
     "use-sync-external-store": "^1.2.0",
     "zustand": "^5.0.8"
+  },
+  "pnpm": {
+    "overrides": {
+      "protobufjs@>=7.5.0 <7.6.5": "^7.6.5",
+      "fast-uri@<3.1.2": "^3.1.2",
+      "form-data@>=4.0.0 <4.0.6": "^4.0.6",
+      "ws@>=8.0.0 <8.21.0": "^8.21.0",
+      "dompurify@<3.4.11": "^3.4.11",
+      "react-router@<6.30.4": "^6.30.4",
+      "@opentelemetry/core@<2.8.0": "^2.8.0"
+    }
+  },
+  "//overrides-provenance": {
+    "_comment": "Security overrides added for CI audit gate (claude-ui/security-audit-gate). Each entry pins a transitive dep to a patched version. Remove an entry once every dependent ships a fixed range natively. Provenance:",
+    "protobufjs": "GHSA-xq3m-2v4x-88gg (critical) + GHSA-66ff/-75px/-jvwf/-685m/-wcpc (high) via posthog-js>@opentelemetry/otlp-transformer. Patched >=7.6.5. Remove when posthog-js bumps its otlp-transformer chain.",
+    "fast-uri": "GHSA-q3j6-qgpj-74h6 + GHSA-v39h-62p7-jpjc (high) via ajv. Patched >=3.1.2. Remove when ajv bumps fast-uri.",
+    "form-data": "GHSA-hmw2-7cc7-3qxx (high) via openai>@types/node-fetch. Patched >=4.0.6. Remove when openai's node-fetch types drop the vulnerable range.",
+    "ws": "GHSA-96hv-2xvq-fx4p (high) + GHSA-58qx-3vcg-4xpx (moderate) via @supabase/realtime-js. Patched >=8.21.0. Remove when @supabase/realtime-js bumps ws.",
+    "dompurify": "GHSA-cmwh-pvxp-8882 + others (moderate/low) via posthog-js. Patched >=3.4.11. Remove when posthog-js bumps dompurify.",
+    "react-router": "GHSA-2j2x-hqr9-3h42 (moderate) via react-router-dom. Patched >=6.30.4. Remove when react-router-dom bumps within 6.x.",
+    "@opentelemetry/core": "GHSA-8988-4f7v-96qf (moderate) via posthog-js. Patched >=2.8.0. Remove when posthog-js bumps opentelemetry.",
+    "_deferred_uuid": "GHSA-w5hq-g745-h8pq (moderate) — direct dep uuid is ^9.0.1; the patched range is >=11.1.1, a MAJOR bump that could change runtime behaviour, so it is NOT overridden here. Below the critical+high gate threshold. Follow-up: raise the direct uuid dependency to ^11 with a compat check."
   },
   "optionalDependencies": {
     "@esbuild/darwin-arm64": "0.21.5",

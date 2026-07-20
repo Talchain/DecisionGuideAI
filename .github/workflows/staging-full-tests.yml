@@ -120,6 +120,39 @@ jobs:
       - name: React 185 guard (Zustand selectors)
         run: pnpm run ci:guard:zustand
 
+  # ── Security audit ───────────────────────────────────────────────────
+  # Staging is the live PoC — the dependency-audit gate must run where deploys
+  # actually happen (the #404 precedent: alarms fire on the staging path, not
+  # only at promotion). Mirrors ci.yml's security-audit job.
+  security-audit:
+    name: Security Audit (pnpm)
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Audit for high/critical vulnerabilities
+        # pnpm audit --prod --audit-level high — fails on any prod-tree
+        # high/critical advisory. Moderate/low surfaced but non-blocking.
+        run: pnpm run security:audit
+
   # ── Full test suite (sharded 4-way) ───────────────────────────────────
   vitest:
     name: Full Test Suite (shard ${{ matrix.shard }}/${{ strategy.job-total }})
