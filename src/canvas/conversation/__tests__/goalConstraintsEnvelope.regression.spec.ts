@@ -18,9 +18,16 @@ describe('Issue 2 regression: goal_constraints extraction', () => {
       data: {
         operations: [],
         auto_apply: true,
+        // OFF-CONTRACT ON PURPOSE. CEEGoalConstraint.operator is now
+        // '>=' | '<=' (schema-authoritative: @talchain/schemas
+        // DraftGoalConstraintSchema is z.enum(['>=', '<='])), but the envelope
+        // has historically carried the Unicode forms, which is exactly what
+        // this passthrough regression is here to keep working. The V2 adapter
+        // rewrites '≥'/'≤' to ASCII at the wire boundary (UI-SEM-086); this
+        // block only asserts adaptCEEBlock does not lose the constraints.
         goal_constraints: [
-          { id: 'c1', label: 'Revenue ≥ $1M', operator: '≥', value: 1000000 },
-          { id: 'c2', label: 'Time ≤ 6 months', operator: '≤', value: 6 },
+          { id: 'c1', label: 'Revenue ≥ $1M', operator: '≥' as never, value: 1000000 },
+          { id: 'c2', label: 'Time ≤ 6 months', operator: '≤' as never, value: 6 },
         ],
       },
     }
@@ -44,14 +51,22 @@ describe('Issue 2 regression: goal_constraints extraction', () => {
   })
 
   it('envelope root goal_constraints type matches CEEGoalConstraint shape', () => {
-    // Verify the constraint shape is compatible
+    // Verify the constraint shape is compatible.
+    //
+    // The operator is ASCII: CEEGoalConstraint.operator is now '>=' | '<=',
+    // matching @talchain/schemas DraftGoalConstraintSchema (z.enum(['>=','<=']))
+    // and PLoT's preflight, which treats anything else as a
+    // CONSTRAINT_INVALID_OPERATOR blocker. This spec previously declared '≥'
+    // here, which no longer type-checks — and would not have reached PLoT.
     const constraint: CEEGoalConstraint = {
-      id: 'c1',
+      constraint_id: 'c1',
+      node_id: 'fac_revenue',
       label: 'Revenue',
-      operator: '≥',
+      operator: '>=',
       value: 1000000,
     }
-    expect(constraint.id).toBe('c1')
+    expect(constraint.constraint_id).toBe('c1')
+    expect(constraint.node_id).toBe('fac_revenue')
     expect(constraint.label).toBe('Revenue')
   })
 })
