@@ -1,6 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { AdvancedSection } from '../AdvancedSection'
+import {
+  AdvancedSection,
+  translateFreshnessReason,
+  FRESHNESS_RECEIPT_D1_MODE,
+} from '../AdvancedSection'
 
 // Mock useRiskProfile hook
 vi.mock('../../../canvas/hooks/useRiskProfile', () => ({
@@ -57,12 +61,56 @@ describe('AdvancedSection', () => {
     )
   })
 
-  it('renders stability percentage when provided', () => {
-    render(<AdvancedSection stability={0.85} expertMode />)
+  // ── B1 receipts: Result-stability row keyed on the display-safe verdict ──
+  // (premise 1) — NEVER the deprecated recommendation_stability. The mapping
+  // is the shared ROBUSTNESS-VERDICT-CONTRACT (derivePostFooterStatus).
+  it('renders "Stable result" for a robust display verdict', () => {
+    render(<AdvancedSection robustnessVerdict="robust" />)
     fireEvent.click(screen.getByText('Advanced and receipts'))
+    const row = screen.getByTestId('receipt-result-stability')
+    expect(row).toHaveTextContent('Result stability')
+    expect(row).toHaveTextContent('Stable result')
+  })
 
-    expect(screen.getByText('Stability')).toBeInTheDocument()
-    expect(screen.getByText('85%')).toBeInTheDocument()
+  it('renders "Sensitive to assumptions" for moderate and fragile verdicts', () => {
+    const { rerender } = render(<AdvancedSection robustnessVerdict="moderate" />)
+    fireEvent.click(screen.getByText('Advanced and receipts'))
+    expect(screen.getByTestId('receipt-result-stability')).toHaveTextContent('Sensitive to assumptions')
+    rerender(<AdvancedSection robustnessVerdict="fragile" />)
+    expect(screen.getByTestId('receipt-result-stability')).toHaveTextContent('Sensitive to assumptions')
+  })
+
+  it('renders "Robustness not assessed" for the producer not_assessed verdict', () => {
+    render(<AdvancedSection robustnessVerdict="not_assessed" />)
+    fireEvent.click(screen.getByText('Advanced and receipts'))
+    expect(screen.getByTestId('receipt-result-stability')).toHaveTextContent('Robustness not assessed')
+  })
+
+  // Fail-closed doctrine: an ABSENT verdict renders NO row (never a
+  // "Robustness unknown" placeholder row — no row beats an empty-value row).
+  it('renders NO Result-stability row when the verdict is missing (fail-closed)', () => {
+    render(<AdvancedSection />)
+    fireEvent.click(screen.getByText('Advanced and receipts'))
+    expect(screen.queryByTestId('receipt-result-stability')).not.toBeInTheDocument()
+    expect(screen.queryByText('Result stability')).not.toBeInTheDocument()
+    expect(screen.queryByText('Robustness unknown')).not.toBeInTheDocument()
+  })
+
+  // NEGATIVE PIN (premise 1): AdvancedSection renders NO
+  // recommendation_stability-sourced value. The fixture's 0.4375 (== the
+  // leader's win probability, the deprecated stability's exact value) must
+  // never surface as a percentage. Mutation: re-add the old Stability % row →
+  // this goes RED.
+  it('renders NO recommendation_stability-sourced value (negative pin)', () => {
+    render(<AdvancedSection stability={0.4375} robustnessVerdict="robust" nSamples={1000} />)
+    fireEvent.click(screen.getByText('Advanced and receipts'))
+    // The deprecated stability % (44% / 43%) must not appear anywhere.
+    expect(screen.queryByText('44%')).not.toBeInTheDocument()
+    expect(screen.queryByText('43%')).not.toBeInTheDocument()
+    // Nor the old "Stability" dt label.
+    expect(screen.queryByText('Stability')).not.toBeInTheDocument()
+    // The honest verdict row is what shows instead.
+    expect(screen.getByTestId('receipt-result-stability')).toHaveTextContent('Stable result')
   })
 
   it('renders convergence sample count', () => {
@@ -201,18 +249,18 @@ describe('AdvancedSection', () => {
   })
 
   it('renders analysis details in default (non-expert) mode — receipts are for everyone', () => {
-    render(<AdvancedSection stability={0.85} nSamples={5000} />)
+    render(<AdvancedSection robustnessVerdict="robust" nSamples={5000} />)
     fireEvent.click(screen.getByText('Advanced and receipts'))
 
     expect(screen.getByText('Analysis details')).toBeInTheDocument()
-    expect(screen.getByText('Stability')).toBeInTheDocument()
-    expect(screen.getByText('85%')).toBeInTheDocument()
+    expect(screen.getByText('Result stability')).toBeInTheDocument()
+    expect(screen.getByText('5,000 simulations')).toBeInTheDocument()
   })
 
   it('renders all analysis details together', () => {
     render(
       <AdvancedSection
-        stability={0.72}
+        robustnessVerdict="robust"
         nSamples={5000}
         fragileEdgeCount={2}
         robustEdgeCount={8}
@@ -226,7 +274,7 @@ describe('AdvancedSection', () => {
     )
     fireEvent.click(screen.getByText('Advanced and receipts'))
 
-    expect(screen.getByText('72%')).toBeInTheDocument()
+    expect(screen.getByTestId('receipt-result-stability')).toHaveTextContent('Stable result')
     expect(screen.getByText('5,000 simulations')).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument()
     expect(screen.getByText('8')).toBeInTheDocument()
@@ -234,5 +282,73 @@ describe('AdvancedSection', () => {
     expect(screen.getByText('Identifiable')).toBeInTheDocument()
     expect(screen.getByText('99')).toBeInTheDocument()
     expect(screen.getByText('hash12345678…')).toBeInTheDocument()
+  })
+
+  // ── B1 receipts: Simulations row path-conditional honesty (premise 2) ────
+  describe('Simulations row — path-conditional honesty', () => {
+    it('omits the Simulations row when nSamples is null (V5-path fail-closed)', () => {
+      // On a pure V5 turn `meta` is stripped upstream so nSamples is null.
+      render(<AdvancedSection nSamples={null} robustnessVerdict="robust" />)
+      fireEvent.click(screen.getByText('Advanced and receipts'))
+      expect(screen.queryByText('Simulation quality')).not.toBeInTheDocument()
+      expect(screen.queryByText(/simulations$/)).not.toBeInTheDocument()
+    })
+
+    it('shows the count only when the run carries it (V2 path)', () => {
+      render(<AdvancedSection nSamples={1000} robustnessVerdict="robust" />)
+      fireEvent.click(screen.getByText('Advanced and receipts'))
+      expect(screen.getByText('Simulation quality')).toBeInTheDocument()
+      expect(screen.getByText('1,000 simulations')).toBeInTheDocument()
+    })
+  })
+
+  // ── B1 receipts: Freshness receipt row — D1 both branches (premise 3) ────
+  describe('Freshness receipt row (D1 ask #16)', () => {
+    it('translates ONLY known reason codes; unknown/absent fail closed to null', () => {
+      expect(translateFreshnessReason('graph_hash_match')).toBe('Graph hash match')
+      expect(translateFreshnessReason('graph_hash_mismatch')).toBe('Model changed since this analysis')
+      // Unknown wire strings are NEVER echoed — they fail closed.
+      expect(translateFreshnessReason('some_unmapped_internal_code')).toBeNull()
+      expect(translateFreshnessReason(undefined)).toBeNull()
+      expect(translateFreshnessReason(null)).toBeNull()
+      expect(translateFreshnessReason('')).toBeNull()
+    })
+
+    it('mounted branch is the fail-closed default: the row is omitted even with a known reason', () => {
+      // The un-ruled D1 default: FRESHNESS_RECEIPT_D1_MODE === 'omit'. Flipping
+      // that single constant to 'translate' activates the row (no rebuild, no
+      // runtime flag) — asserted here so a drift of the default is caught.
+      expect(FRESHNESS_RECEIPT_D1_MODE).toBe('omit')
+      render(<AdvancedSection freshnessReason="graph_hash_match" robustnessVerdict="robust" />)
+      fireEvent.click(screen.getByText('Advanced and receipts'))
+      expect(screen.queryByTestId('receipt-freshness')).not.toBeInTheDocument()
+      expect(screen.queryByText('Graph hash match')).not.toBeInTheDocument()
+    })
+  })
+
+  // ── B1 receipts: local hash labelled local (premise 4) ───────────────────
+  describe('Result hash provenance labelling', () => {
+    it('labels a producer hash "Hash" (no local suffix)', () => {
+      render(<AdvancedSection responseHash="abc123def456ghi789" responseHashIsLocal={false} />)
+      fireEvent.click(screen.getByText('Advanced and receipts'))
+      const row = screen.getByTestId('advanced-hash-row')
+      expect(row).toHaveTextContent('Hash')
+      expect(row).not.toHaveTextContent('local')
+    })
+
+    it('labels a device-derived hash "Hash (local)" so it is not read as engine identity', () => {
+      render(<AdvancedSection responseHash="abc123def456ghi789" responseHashIsLocal />)
+      fireEvent.click(screen.getByText('Advanced and receipts'))
+      expect(screen.getByText('Hash (local)')).toBeInTheDocument()
+    })
+  })
+
+  // ── B1 receipts: Seed row stays absent when there is no real seed ────────
+  // (premise 5, assert-only). T2 (#326) fails the V5 path closed to null; this
+  // pins the fail-closed absence at the display layer.
+  it('omits the Seed row when seedUsed is null (fail-closed, no fabricated 0)', () => {
+    render(<AdvancedSection seedUsed={null} robustnessVerdict="robust" />)
+    fireEvent.click(screen.getByText('Advanced and receipts'))
+    expect(screen.queryByText('Seed')).not.toBeInTheDocument()
   })
 })
