@@ -1272,7 +1272,11 @@ describe('handleEnvelope — CEE wire shape handling', () => {
     mockCallTurn.mockResolvedValue({
       assistant_text: 'Here is your model.',
       client_turn_id: 'resp-stage-obj',
-      stage_indicator: { stage: 'ideate', confidence: 'high', source: 'inferred' },
+      // Canonical WIRE vocabulary (schemas `Stage`): frame|analyse|decide|review.
+      // This fixture previously sent 'ideate' — a UI/DB `ScenarioStage` value
+      // that the wire never emits — and asserted it was written through
+      // unmapped, pinning the drift instead of catching it.
+      stage_indicator: { stage: 'analyse', confidence: 'high', source: 'inferred' },
     })
 
     const { result } = renderHook(() => useConversation())
@@ -1280,7 +1284,8 @@ describe('handleEnvelope — CEE wire shape handling', () => {
       await result.current.sendMessage('build model')
     })
 
-    expect(setCurrentStage).toHaveBeenCalledWith('ideate')
+    // wire 'analyse' → UI 'evaluate'
+    expect(setCurrentStage).toHaveBeenCalledWith('evaluate')
   })
 
   it('handles plain string stage_indicator', async () => {
@@ -1290,7 +1295,8 @@ describe('handleEnvelope — CEE wire shape handling', () => {
     mockCallTurn.mockResolvedValue({
       assistant_text: 'Running analysis.',
       client_turn_id: 'resp-stage-str',
-      stage_indicator: 'evaluate',
+      // Canonical WIRE value (was 'evaluate' — a UI/DB value, never on the wire).
+      stage_indicator: 'review',
     })
 
     const { result } = renderHook(() => useConversation())
@@ -1298,7 +1304,8 @@ describe('handleEnvelope — CEE wire shape handling', () => {
       await result.current.sendMessage('run analysis')
     })
 
-    expect(setCurrentStage).toHaveBeenCalledWith('evaluate')
+    // wire 'review' → UI 'optimise'
+    expect(setCurrentStage).toHaveBeenCalledWith('optimise')
   })
 
   it('skips stage update when stage_indicator is absent', async () => {

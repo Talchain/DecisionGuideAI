@@ -5,7 +5,7 @@
  * messages, blocks, chips, turn requests/responses, and system events.
  */
 
-import type { ScenarioStage } from '../../types/scenario'
+import type { StageType } from '@talchain/schemas/boundary'
 import type { CEEAnalysisReady, CEEGoalConstraint, CEEInterventionV3 } from '../../adapters/cee/types'
 
 // ---------------------------------------------------------------------------
@@ -792,10 +792,25 @@ export const MAX_HISTORY_PAIRS = 5
 /**
  * CEE stage_indicator wire format — may be a plain string or an object.
  * The object form includes confidence and source metadata from the orchestrator.
+ *
+ * The stage vocabulary here is the CANONICAL WIRE enum `StageType` from
+ * `@talchain/schemas` (`frame | analyse | decide | review`) — NOT the UI/DB
+ * lifecycle enum `ScenarioStage` (`frame | ideate | evaluate | decide |
+ * optimise`, pinned by the `scenarios.stage` CHECK constraint). The two
+ * vocabularies overlap only on `frame` and `decide`.
+ *
+ * This was previously declared as `ScenarioStage` — a hand-maintained mirror
+ * that mis-stated the producer's enum. Because the wrong type still
+ * type-checked at the ingestion call site, it SILENCED the compiler at the
+ * one place that needed to map, letting the raw wire value be written into
+ * the store unmapped. Schemas 0.19.0 documents this exact drift on the
+ * `Stage` enum: consumers MUST derive from `StageType`, never re-declare.
+ *
+ * Translate to/from `ScenarioStage` via `src/v5/stageMapper.ts`.
  */
 export type StageIndicatorWire =
-  | ScenarioStage
-  | { stage: ScenarioStage; confidence?: string; source?: string }
+  | StageType
+  | { stage: StageType; confidence?: string; source?: string }
 
 export interface OrchestratorResponseEnvelopeV2 {
   /** Response format version. 2 = deterministic (plain text, typed blocks). Absent = legacy XML path. */
