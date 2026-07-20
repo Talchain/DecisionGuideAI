@@ -10,10 +10,11 @@ import { memo } from 'react'
 import { ActionsMenu } from './ActionsMenu'
 import { HealthBars } from './HealthBars'
 import type { BarsModel } from '../selectors/computeBars'
+import type { SparkPrompt } from '../types'
 
 interface PanelHeaderProps {
   bars: BarsModel
-  onAction: (label: string, prompt: string) => void
+  onAction: (spark: SparkPrompt) => void
 }
 
 export const PanelHeader = memo(function PanelHeader({ bars, onAction }: PanelHeaderProps) {

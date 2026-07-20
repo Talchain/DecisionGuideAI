@@ -17,11 +17,11 @@ import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { ATTRIBUTION_COPY } from '../constants'
 import { PanelIconButton } from '../ui/PanelIconButton'
 import type { NodeType } from '../../../domain/nodes'
-import type { SignalView } from '../types'
+import type { SignalView, SparkPrompt } from '../types'
 
 interface SignalRowProps {
   view: SignalView
-  onSendPrompt: (label: string, prompt: string) => void
+  onSendPrompt: (spark: SparkPrompt) => void
   onAction: (view: SignalView) => void
 }
 
@@ -85,7 +85,7 @@ export const SignalRow = memo(function SignalRow({ view, onSendPrompt, onAction 
                 aria-label={detection.spark.label}
                 onClick={() =>
                   detection.action?.type === 'send_prompt'
-                    ? onSendPrompt(detection.spark!.label, detection.spark!.prompt)
+                    ? onSendPrompt(detection.spark!)
                     : onAction(view)
                 }
               >

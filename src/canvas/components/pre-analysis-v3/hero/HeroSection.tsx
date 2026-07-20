@@ -24,7 +24,7 @@ import { BestNextStep } from './BestNextStep'
 import { CoachingSlot } from './CoachingSlot'
 import { InlineField } from './InlineField'
 import type { PreAnalysisModel } from '../hooks/usePreAnalysisModel'
-import type { LadderStep } from '../types'
+import type { LadderStep, SparkPrompt } from '../types'
 
 export const GOAL_INPUT_ID = 'pre-analysis-v3-goal'
 export const SUCCESS_INPUT_ID = 'pre-analysis-v3-success'
@@ -32,7 +32,7 @@ export const SUCCESS_INPUT_ID = 'pre-analysis-v3-success'
 interface HeroSectionProps {
   hero: PreAnalysisModel['hero']
   ladder: LadderStep
-  onSendPrompt: (label: string, prompt: string) => void
+  onSendPrompt: (spark: SparkPrompt) => void
   onLadderAct: (step: LadderStep) => void
 }
 
@@ -158,9 +158,7 @@ export const HeroSection = memo(function HeroSection({
           <PanelIconButton
             variant="ai"
             aria-label="Pressure-test the frame with Olumi"
-            onClick={() =>
-              onSendPrompt(SPARK_PROMPTS.pressureTestFrame.label, SPARK_PROMPTS.pressureTestFrame.prompt)
-            }
+            onClick={() => onSendPrompt(SPARK_PROMPTS.pressureTestFrame)}
           >
             <Sparkles className="h-3.5 w-3.5" aria-hidden />
           </PanelIconButton>
@@ -181,12 +179,7 @@ export const HeroSection = memo(function HeroSection({
               <PanelIconButton
                 variant="ai"
                 aria-label="Pressure-test the goal with Olumi"
-                onClick={() =>
-                  onSendPrompt(
-                    SPARK_PROMPTS.pressureTestFrame.label,
-                    SPARK_PROMPTS.pressureTestFrame.prompt,
-                  )
-                }
+                onClick={() => onSendPrompt(SPARK_PROMPTS.pressureTestFrame)}
               >
                 <Sparkles className="h-3.5 w-3.5" aria-hidden />
               </PanelIconButton>
@@ -208,9 +201,7 @@ export const HeroSection = memo(function HeroSection({
                 <PanelIconButton
                   variant="ai"
                   aria-label="Define success with Olumi"
-                  onClick={() =>
-                    onSendPrompt(SPARK_PROMPTS.defineSuccess.label, SPARK_PROMPTS.defineSuccess.prompt)
-                  }
+                  onClick={() => onSendPrompt(SPARK_PROMPTS.defineSuccess)}
                 >
                   <Sparkles className="h-3.5 w-3.5" aria-hidden />
                 </PanelIconButton>

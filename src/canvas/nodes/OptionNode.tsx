@@ -842,16 +842,16 @@ export const OptionNode = memo((props: NodeProps) => {
         // Baseline chips already pre-existed inside layer2Content; keep them.
         return (
           <div className="flex gap-1 flex-wrap mt-1.5">
-            <NodeChip label="Why does this win/lose?" message={`Why does the status quo (${optionLabel}) win or lose compared to other options?`} />
-            <NodeChip label="Risks of inaction" message="What are the risks of choosing to do nothing?" />
+            <NodeChip chipId="option_why_win_lose" actionType="explain_results" label="Why does this win/lose?" message={`Why does the status quo (${optionLabel}) win or lose compared to other options?`} />
+            <NodeChip chipId="option_risks_of_inaction" actionType={null} label="Risks of inaction" message="What are the risks of choosing to do nothing?" />
           </div>
         )
       }
       if (isRecommended) {
         return (
           <div className="flex gap-1 flex-wrap mt-1.5">
-            <NodeChip label="What would change this?" message={`What would need to change for ${optionLabel} to no longer be the best choice?`} />
-            <NodeChip label="Why does this lead?" message={`Why does ${optionLabel} lead over the other options?`} />
+            <NodeChip chipId="option_what_would_change" actionType="what_would_flip" label="What would change this?" message={`What would need to change for ${optionLabel} to no longer be the best choice?`} />
+            <NodeChip chipId="option_why_lead" actionType="explain_results" label="Why does this lead?" message={`Why does ${optionLabel} lead over the other options?`} />
           </div>
         )
       }
@@ -861,11 +861,13 @@ export const OptionNode = memo((props: NodeProps) => {
           <div className="flex gap-1 flex-wrap mt-1.5">
             {closeCallGapPp != null && (
               <NodeChip
+                chipId="option_what_would_change_close_call"
+                actionType="what_would_flip"
                 label="What would change this?"
                 message={`What would need to change for ${optionLabel} to become the leader?`}
               />
             )}
-            <NodeChip label="What would make this lead?" message={`What would need to change for ${optionLabel} to lead?`} />
+            <NodeChip chipId="option_what_would_make_lead" actionType="what_would_flip" label="What would make this lead?" message={`What would need to change for ${optionLabel} to lead?`} />
           </div>
         )
       }
@@ -875,7 +877,7 @@ export const OptionNode = memo((props: NodeProps) => {
     if (!isBaselineOption) {
       return (
         <div className="flex gap-1 flex-wrap mt-1.5">
-          <NodeChip label="What could go wrong?" message={`What could go wrong if we choose ${optionLabel}?`} />
+          <NodeChip chipId="option_what_could_go_wrong" actionType={null} label="What could go wrong?" message={`What could go wrong if we choose ${optionLabel}?`} />
         </div>
       )
     }

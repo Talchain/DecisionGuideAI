@@ -13,9 +13,10 @@ import { memo, useEffect, useId, useRef, useState } from 'react'
 import { ChevronDown, Sparkles } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ACTIONS_MENU } from '../constants'
+import type { SparkPrompt } from '../types'
 
 interface ActionsMenuProps {
-  onAction: (label: string, prompt: string) => void
+  onAction: (spark: SparkPrompt) => void
 }
 
 export const ActionsMenu = memo(function ActionsMenu({ onAction }: ActionsMenuProps) {
@@ -113,7 +114,7 @@ export const ActionsMenu = memo(function ActionsMenu({ onAction }: ActionsMenuPr
               tabIndex={-1}
               onClick={() => {
                 close(true)
-                onAction(item.label, item.prompt)
+                onAction(item)
               }}
               className={`${typography.panelBody} flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-text-body outline-none transition-colors hover:bg-panel-hover focus:bg-panel-hover`}
             >

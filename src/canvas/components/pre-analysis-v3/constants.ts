@@ -8,7 +8,9 @@
  * signals/__tests__/registry.spec.ts.
  */
 
-import type { BarKey, BarState } from './types'
+import type { BarKey, BarState, SparkPrompt } from './types'
+
+export type { SparkPrompt } from './types'
 
 /**
  * Bar labels — single constants object by design. The alternative set
@@ -248,87 +250,144 @@ export const HERO_COPY = {
 } as const
 
 /**
- * Actions overflow menu — named methods, every item resolves to a prefilled
- * conversation prompt (sent immediately via the existing chip convention).
- * No contract intents are attached: routing happens from the message text,
- * so none of the dead-end intents can be emitted.
+ * Actions overflow menu — named methods, every item a SparkPrompt with
+ * EXPLICIT wire intent.
+ *
+ * History: this registry previously attached NO intent ("routing happens
+ * from the message text") — a deliberate choice to avoid emitting dead-end
+ * intents. That choice was reversed on A1's meta-decision diagnosis
+ * (2026-07-20): CEE re-infers anonymous text with a draft-shape regex, and
+ * on an empty canvas EVERY spark here matched it — the "Prepare first
+ * analysis" spark was captured as a decision BRIEF and the drafter modelled
+ * the meta-decision ("should we run the analysis?") instead of coaching.
+ * The product knows the intent at authoring time; discarding it and
+ * re-inferring by regex IS the defect mechanism.
+ *
+ * `action_type` is the wire intent, constrained to the @talchain/schemas
+ * 0.19.0 ActionType enum (a strict enum at CEE ingress — out-of-enum values
+ * 422). `null` means: this spark is a coaching/readiness intent and the
+ * current vocabulary has NO honest entry for it — we do NOT force a wrong
+ * one. Every spark still ships its identity as `chip.parameters.spark_id`,
+ * the deterministic hook CEE's routing half keys on. When the schema gains
+ * a coaching/readiness action_type, flip the nulls — the contract test in
+ * __tests__/sparkIntentContract.spec.ts validates values against the enum
+ * itself (derived, never a hand-kept list).
  */
-export interface ActionsMenuItem {
-  id: string
-  label: string
-  prompt: string
-}
+export type ActionsMenuItem = SparkPrompt
 
 export const ACTIONS_MENU: ReadonlyArray<ActionsMenuItem> = [
   {
     id: 'pressure_test_frame',
     label: 'Pressure-test the frame',
     prompt: 'Is this the right question to be asking, and does it fit my wider goals?',
+    // Frame-challenge coaching. explain_from_structure EXPLAINS the model;
+    // this spark challenges it — no honest vocabulary entry.
+    action_type: null,
   },
   {
     id: 'widen_options',
     label: 'Widen the options',
     prompt: 'Suggest materially different options that work through a different mechanism from the ones I already have.',
+    // Option-elicitation coaching; the boundary enum has no add_option.
+    action_type: null,
   },
   {
     id: 'outside_view',
     label: 'Take the outside view',
     prompt: 'Take the outside view on this decision: what do similar decisions and base rates suggest?',
+    // Base-rate coaching — no vocabulary entry.
+    action_type: null,
   },
   {
     id: 'pre_mortem',
     label: 'Run a pre-mortem',
     prompt: 'Run a pre-mortem with me: imagine this choice failed a year from now. What went wrong?',
+    // Failure-imagination coaching — no vocabulary entry.
+    action_type: null,
   },
   {
     id: 'risks_upside',
     label: 'Find risks and upside',
     prompt: 'What risks and best-case upsides are missing from my model?',
+    // Gap-elicitation coaching (what is MISSING) — explain_* describes what
+    // is present; no honest entry.
+    action_type: null,
   },
   {
     id: 'calibrate_estimates',
     label: 'Check estimates',
     prompt: 'Help me check the estimates that matter most to the analysis.',
+    // Pre-analysis calibration coaching. what_would_flip is post-analysis
+    // sensitivity and its deterministic chip handler demands prior analysis
+    // facts — stamping it would turn this spark into "run analysis first".
+    action_type: null,
   },
   {
     id: 'compare_view',
     label: 'Compare my view with Olumi',
     prompt: 'Compare my view of this decision with yours. Where do we differ, and why?',
+    // compare_options compares DECISION OPTIONS, not the user's view vs the
+    // model's — stamping it would misdeclare the intent.
+    action_type: null,
   },
   {
     id: 'prepare_first_analysis',
     label: 'Prepare first analysis',
     prompt: 'What should I check before running the first analysis?',
+    // Readiness coaching (the spark in A1's defect reproduction).
+    // run_analysis would RUN the analysis the user is asking how to prepare
+    // for — the exact wrongness class this metadata exists to kill.
+    action_type: null,
   },
 ]
 
+// Every entry is a coaching intent: action_type stays null until the schema
+// vocabulary gains a coaching/readiness entry (see SparkPrompt doc). Ids
+// shared with ACTIONS_MENU where the prompt is identical — same product
+// intent, same wire identity.
 export const SPARK_PROMPTS = {
   widenOptions: {
+    id: 'widen_options',
     label: 'Widen the options',
     prompt: 'Suggest materially different options that work through a different mechanism from the ones I already have.',
+    action_type: null,
   },
   preMortem: {
+    id: 'pre_mortem',
     label: 'Run a pre-mortem',
     prompt: 'Run a pre-mortem with me: imagine this choice failed a year from now. What went wrong?',
+    action_type: null,
   },
   calibrate: {
+    id: 'calibrate_estimates',
     label: 'Check estimates',
     prompt: 'Help me check the estimates that matter most to the analysis.',
+    action_type: null,
   },
   pressureTestFrame: {
+    id: 'pressure_test_frame',
     label: 'Pressure-test the frame',
     prompt: 'Is this the right question to be asking, and does it fit my wider goals?',
+    action_type: null,
   },
   defineSuccess: {
+    id: 'define_success',
     label: 'Define success with Olumi',
     prompt: 'Help me define a measurable success target for this goal.',
+    // Goal-target coaching; set_factor_value is a validated mutation, not
+    // a conversation — no honest entry.
+    action_type: null,
   },
   findRisks: {
+    id: 'risks_upside',
     label: 'Find risks and upside',
     prompt: 'What risks and best-case upsides are missing from my model?',
+    action_type: null,
   },
   reflectBias: {
+    id: 'reflect_bias',
     label: 'Talk it through with Olumi',
     prompt: 'You flagged a possible blind spot in how my model leans. Help me think it through.',
+    action_type: null,
   },
-} as const
+} as const satisfies Record<string, SparkPrompt>

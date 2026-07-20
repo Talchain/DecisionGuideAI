@@ -146,6 +146,8 @@ export const OutcomeNode = memo((props: NodeProps) => {
     return (
       <div className="flex gap-1 flex-wrap mt-1.5">
         <NodeChip
+          chipId="outcome_what_strengthens"
+          actionType={null}
           label="What strengthens this?"
           message={`What upstream factors strengthen ${(props.data?.label as string) ?? 'this outcome'}?`}
         />

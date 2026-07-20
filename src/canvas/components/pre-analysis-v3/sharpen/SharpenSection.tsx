@@ -10,11 +10,11 @@ import { memo, useState } from 'react'
 import { typography, typo } from '../../../../styles/typography'
 import { PANEL_COPY, SHARPEN_DEFAULT_VISIBLE } from '../constants'
 import { SignalRow } from './SignalRow'
-import type { SignalView } from '../types'
+import type { SignalView, SparkPrompt } from '../types'
 
 interface SharpenSectionProps {
   signals: SignalView[]
-  onSendPrompt: (label: string, prompt: string) => void
+  onSendPrompt: (spark: SparkPrompt) => void
   onAction: (view: SignalView) => void
 }
 

@@ -7,6 +7,29 @@
  * See docs/pre-analysis-panel-solution-design-v1.md.
  */
 
+import type { ActionTypeLiteral } from '@talchain/schemas/boundary'
+import type { PendingWireActionType } from '../../conversation/chipMeta'
+
+/**
+ * A product-authored spark: a prefilled prompt the product sends on the
+ * user's behalf, carrying EXPLICIT intent metadata on the wire. See the
+ * registry doc in constants.ts (SparkPrompt history + A1 meta-decision
+ * diagnosis, 2026-07-20) for why intent is mandatory.
+ */
+export interface SparkPrompt {
+  /** Stable registry id — ships on the wire as chip.parameters.spark_id. */
+  id: string
+  label: string
+  prompt: string
+  /**
+   * Wire intent decision: a published schema ActionType value (sent), a
+   * signed-off pending value (mapped but withheld by the schema-derived
+   * wire gate until re-vendor — see PendingWireActionType), or null when no
+   * honest value exists (coaching/readiness sparks).
+   */
+  action_type: ActionTypeLiteral | PendingWireActionType | null
+}
+
 /**
  * Collaboration-ready source attribution: a named person or Olumi, never a
  * you-versus-AI binary. Single user today; personId arrives with collaboration.
@@ -114,14 +137,14 @@ export interface SignalDetection {
   /** Primary action target — absent on resolved confirmations. */
   action?: PanelAction
   /** Optional ask-Olumi spark (prefilled prompt, sent immediately). */
-  spark?: { label: string; prompt: string }
+  spark?: SparkPrompt
 }
 
 export type PanelAction =
   | { type: 'focus_success_field' }
   | { type: 'focus_goal_field' }
   | { type: 'open_estimates'; nodeId?: string }
-  | { type: 'send_prompt'; label: string; prompt: string }
+  | { type: 'send_prompt'; spark: SparkPrompt }
   | { type: 'run_analysis' }
 
 export type SignalStatus = 'live' | 'resolved'

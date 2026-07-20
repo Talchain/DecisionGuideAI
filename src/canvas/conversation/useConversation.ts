@@ -48,6 +48,7 @@ import {
 // surface (malformed / no renderer / legacy suppression). Counting only —
 // recordDroppedContent never throws and never changes composition output.
 import { recordDroppedContent } from '../../lib/droppedContentCounter'
+import { buildChipMeta, toLegacyChipMetadata, type ChipMeta } from './chipMeta'
 import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled, isPreAnalysisEnrichedEnabled, isReasoningDisclosureEnabled } from '../../flags'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 // Leg 3 blocker fix: the wire->camelCase coaching mapper lives in the CEE
@@ -1880,7 +1881,7 @@ export function useConversation(): UseConversationReturn {
       clientTurnId?: string
       turnType: TurnType
       systemEventWire?: WireSystemEvent
-      chipMeta?: { action_type: string; parameters?: Record<string, unknown> }
+      chipMeta?: ChipMeta
     }): TurnRequestPayload => {
       const store = useCanvasStore.getState()
       const { nodeIds, edgeIds } = store.selection
@@ -2158,7 +2159,9 @@ export function useConversation(): UseConversationReturn {
             graph_state: graphState,
             selected_elements: selectedElements,
             analysis_state: analysisState,
-            chip_metadata: opts.chipMeta,
+            // V4 wire requires action_type on chip_metadata; identity-only
+            // meta (parameters without action_type) is V5-only.
+            chip_metadata: toLegacyChipMetadata(opts.chipMeta),
             client_turn_id: opts.clientTurnId,
           })
         }
@@ -2211,7 +2214,9 @@ export function useConversation(): UseConversationReturn {
         graph_state: graphState,
         selected_elements: selectedElements,
         analysis_state: analysisState,
-        chip_metadata: opts.chipMeta,
+        // V4 wire requires action_type on chip_metadata; identity-only
+        // meta (parameters without action_type) is V5-only.
+        chip_metadata: toLegacyChipMetadata(opts.chipMeta),
         client_turn_id: opts.clientTurnId,
       })
     },
@@ -2902,7 +2907,7 @@ export function useConversation(): UseConversationReturn {
       rightPanelAccidentallySubmittedComposerContent?: boolean
       turnType?: Exclude<TurnType, 'system_event'>
       /** Deterministic chip metadata forwarded for CEE action routing */
-      chipMeta?: { action_type: string; parameters?: Record<string, unknown> }
+      chipMeta?: ChipMeta
       /** When true, render the user bubble as a compact action indicator */
       chipInitiated?: boolean
     }) => {
@@ -4256,9 +4261,12 @@ export function useConversation(): UseConversationReturn {
         payloadSummary: { label: opts.label, source: opts.source, action_type: opts.action_type },
       })
 
-      const chipMeta = opts.action_type
-        ? { action_type: opts.action_type, ...(opts.parameters ? { parameters: opts.parameters } : {}) }
-        : undefined
+      // Chip metadata construction lives in the pure chipMeta module (the
+      // seam the spark/node-chip intent contract specs exercise). It travels
+      // whenever EITHER field is present — see buildChipMeta's doc: identity
+      // parameters (chip_id / spark_id) must reach the wire even when no
+      // honest action_type exists (A1 meta-decision diagnosis, 2026-07-20).
+      const chipMeta = buildChipMeta(opts)
 
       // Resolve turn type: deterministic map first, then keyword heuristic for legacy chips
       let turnType: Exclude<TurnType, 'system_event'> = 'conversation'

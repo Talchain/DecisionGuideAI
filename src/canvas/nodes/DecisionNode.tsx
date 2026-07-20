@@ -250,17 +250,17 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // ready, because that's a primary action button rather than coaching.
   const preAnalysisCoachingChips = useMemo(() => (
     <div className="flex items-center gap-1 flex-wrap mt-1.5">
-      <NodeChip label="Explore more options" message="Suggest a third option I haven't considered for this decision" />
+      <NodeChip chipId="decision_explore_more_options" actionType={null} label="Explore more options" message="Suggest a third option I haven't considered for this decision" />
       {!showRunAnalysis && (
-        <NodeChip label="What could go wrong?" message="What could go wrong with this decision?" />
+        <NodeChip chipId="decision_what_could_go_wrong" actionType={null} label="What could go wrong?" message="What could go wrong with this decision?" />
       )}
     </div>
   ), [showRunAnalysis])
 
   const postAnalysisCoachingChips = useMemo(() => (
     <div className="flex gap-1 flex-wrap mt-1.5">
-      <NodeChip label="Challenge this result" message="What assumptions would need to change for a different option to win?" />
-      <NodeChip label="Compare options" message="Compare the options side by side" />
+      <NodeChip chipId="decision_challenge_result" actionType="what_would_flip" label="Challenge this result" message="What assumptions would need to change for a different option to win?" />
+      <NodeChip chipId="decision_compare_options" actionType="compare_options" label="Compare options" message="Compare the options side by side" />
     </div>
   ), [])
 
@@ -352,7 +352,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 live in the popover below — see preAnalysisCoachingChips. */}
             {showRunAnalysis && (
               <div className="flex items-center gap-1 flex-wrap mt-1.5">
-                <NodeChip label="Run analysis" message="Run the analysis now" />
+                <NodeChip chipId="decision_run_analysis" actionType="run_analysis" label="Run analysis" message="Run the analysis now" />
               </div>
             )}
           </>

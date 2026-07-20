@@ -210,9 +210,9 @@ export const GoalNode = memo((props: NodeProps) => {
       {hasThreshold && (
         <div className="flex gap-1 flex-wrap mt-1.5">
           {displayMetadata.achievementProbability !== null && displayMetadata.achievementProbability < 0.10 && (
-            <NodeChip label="Why is this so low?" message="Why is the probability of reaching my goal target so low? What are the main drivers?" />
+            <NodeChip chipId="goal_why_so_low" actionType="explain_results" label="Why is this so low?" message="Why is the probability of reaching my goal target so low? What are the main drivers?" />
           )}
-          <NodeChip label="Is my target realistic?" message="Is my current goal target realistic given the factors in my model? What would be a more achievable target?" />
+          <NodeChip chipId="goal_target_realistic" actionType={null} label="Is my target realistic?" message="Is my current goal target realistic given the factors in my model? What would be a more achievable target?" />
         </div>
       )}
     </>
@@ -249,7 +249,7 @@ export const GoalNode = memo((props: NodeProps) => {
                 : 'Analysis finished. Set a target and check the graph for incomplete inputs.'}
             </p>
             <div className="mt-1.5">
-              <NodeChip label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
+              <NodeChip chipId="goal_help_set_target" actionType={null} label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
             </div>
           </>
         )}
@@ -264,7 +264,7 @@ export const GoalNode = memo((props: NodeProps) => {
               Add a measurable success target, e.g. metric, threshold or deadline
             </p>
             <div className="mt-1.5">
-              <NodeChip label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
+              <NodeChip chipId="goal_help_set_target" actionType={null} label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
             </div>
           </>
         )}
@@ -370,7 +370,7 @@ export const GoalNode = memo((props: NodeProps) => {
             first-time users. */}
         {hasThreshold && !isPostAnalysis && (
           <div className="mt-1.5">
-            <NodeChip label="Run analysis" message="Run the analysis now" />
+            <NodeChip chipId="goal_run_analysis" actionType="run_analysis" label="Run analysis" message="Run the analysis now" />
           </div>
         )}
 
