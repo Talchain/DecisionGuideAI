@@ -32,18 +32,30 @@ function GoalSectionInner({ goalNode, onSendMessage }: GoalSectionProps) {
   const data = goalNode.data as Record<string, unknown>
   const label = String(data.label ?? goalNode.id)
 
-  // Success threshold — prefer raw value with unit, fall back to normalised
+  // Success threshold — representation contract (store.ts getGoalContext,
+  // computeSuccessState, the ONLY production writer setGoalThresholdAndUpdateNode):
+  // `success_threshold` under threshold_source 'user' is RAW user units, never 0–1.
+  // Priority mirrors computeSuccessState: user raw → CEE raw anchor → normalised.
+  // (Dress-rehearsal 2026-07-20: routing a user raw value through the ×100
+  // normalised branch rendered the 50012 mis-parse as "5,001,200% likelihood".)
   const rawThreshold = data.goal_threshold_raw as number | undefined
   const thresholdUnit = data.goal_threshold_unit as string | undefined
-  const thresholdNorm = data.success_threshold as number | undefined ?? data.goal_threshold as number | undefined
   const thresholdSource = data.threshold_source as string | undefined
+  const userRawThreshold = thresholdSource === 'user' && typeof data.success_threshold === 'number'
+    ? data.success_threshold as number
+    : undefined
+  const thresholdNorm = (typeof data.goal_threshold === 'number' ? data.goal_threshold as number : undefined)
+    ?? (thresholdSource !== 'user' && typeof data.success_threshold === 'number'
+      ? data.success_threshold as number
+      : undefined)
+  const effectiveRaw = userRawThreshold ?? rawThreshold
 
   const thresholdCap = data.goal_threshold_cap as number | undefined
 
-  const displayThreshold = rawThreshold !== undefined && thresholdUnit
-    ? formatValueWithUnit(rawThreshold, thresholdUnit)
-    : rawThreshold !== undefined
-      ? String(formatSmartNumber(rawThreshold))
+  const displayThreshold = effectiveRaw !== undefined && thresholdUnit
+    ? formatValueWithUnit(effectiveRaw, thresholdUnit)
+    : effectiveRaw !== undefined
+      ? formatSmartNumber(effectiveRaw)
       : thresholdNorm !== undefined
         ? `${formatSmartNumber(thresholdNorm * 100)}% likelihood`
         : null
@@ -51,8 +63,8 @@ function GoalSectionInner({ goalNode, onSendMessage }: GoalSectionProps) {
   // Feasibility warning: shown when target is within 15% of the model's upper bound.
   // This is a presentation heuristic (not a semantic transform) — no UI-SEM tag.
   // Rationale: targets near the cap are harder to achieve and may yield unreliable results.
-  const showFeasibilityWarning = rawThreshold !== undefined && thresholdCap !== undefined
-    && thresholdCap > 0 && rawThreshold > thresholdCap * 0.85
+  const showFeasibilityWarning = effectiveRaw !== undefined && thresholdCap !== undefined
+    && thresholdCap > 0 && effectiveRaw > thresholdCap * 0.85
 
   const handleThresholdSave = useCallback((val: string) => {
     const num = parseFloat(val)
@@ -96,7 +108,7 @@ function GoalSectionInner({ goalNode, onSendMessage }: GoalSectionProps) {
         <span className={`${typography.panelMeta} text-text-light`}>Target:</span>
         {displayThreshold !== null ? (
           <InlineEdit
-            value={rawThreshold !== undefined ? String(rawThreshold) : String((thresholdNorm ?? 0) * 100)}
+            value={effectiveRaw !== undefined ? String(effectiveRaw) : String((thresholdNorm ?? 0) * 100)}
             displayValue={displayThreshold}
             onSave={handleThresholdSave}
             validate={validateThreshold}

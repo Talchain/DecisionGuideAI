@@ -54,6 +54,22 @@ describe('setGoalThresholdAndUpdateNode — store↔node invariant', () => {
     expect(data.threshold_confirmed).toBe(false)
   })
 
+  it('records the unit the user input carried (UI-SEM-086) and leaves it untouched when none given', () => {
+    useCanvasStore.getState().setGoalThresholdAndUpdateNode('goal_1', 500000, { unit: '£' })
+
+    let data = useCanvasStore.getState().nodes.find((n) => n.id === 'goal_1')!
+      .data as { success_threshold?: number | null; goal_threshold_unit?: string }
+    expect(data.success_threshold).toBe(500000)
+    expect(data.goal_threshold_unit).toBe('£')
+
+    // A later unit-less commit keeps the existing unit rather than clobbering it.
+    useCanvasStore.getState().setGoalThresholdAndUpdateNode('goal_1', 600000)
+    data = useCanvasStore.getState().nodes.find((n) => n.id === 'goal_1')!
+      .data as { success_threshold?: number | null; goal_threshold_unit?: string }
+    expect(data.success_threshold).toBe(600000)
+    expect(data.goal_threshold_unit).toBe('£')
+  })
+
   it('null clears BOTH the global value and the node annotation', () => {
     useCanvasStore.getState().setGoalThresholdAndUpdateNode('goal_1', 60)
     useCanvasStore.getState().setGoalThresholdAndUpdateNode('goal_1', null)
