@@ -32,7 +32,6 @@
  */
 import type { OlumiResponse, FailureTypeLiteral, BoundaryError } from '@talchain/schemas/boundary';
 
-import type { ErrorSource, ParseFailureKind } from './responseParser';
 import type { V5CallResult } from './v5Adapter';
 
 /**
@@ -45,13 +44,20 @@ import type { V5CallResult } from './v5Adapter';
  * didn't go through") instead of the false server-fault claim
  * ("Something went wrong on our side").
  */
+/**
+ * Reduced 2026-07-20 to the one field anything actually reads. `httpStatus`,
+ * `source` and `parseFailureKind` were written here and read NOWHERE — a
+ * complete reader sweep across `src` (including co-located `__tests__`) and
+ * `tests` found zero consumers, with the `network` read at
+ * transportFailure.ts:85 as the positive control proving the sweep could see
+ * a reader. The object is never spread, stringified, logged or attached to a
+ * message, so there was no whole-object passthrough keeping them alive
+ * either; useConversation only forwards it, and transportFailure reads
+ * `network` alone. Debug export already reconstructs `parse_failure_kind`
+ * independently from the raw CEE envelope
+ * (components/debug/utils/exportBundle.ts), so diagnostics lose nothing.
+ */
 export interface TypedErrorTransportMeta {
-  /** HTTP status of the failed response. Absent when fetch itself threw. */
-  httpStatus?: number;
-  /** Header/body-derived origin classification from the parser. */
-  source?: ErrorSource;
-  /** Which parse failure fired (non_json / non_ok_non_boundary / ...). */
-  parseFailureKind?: ParseFailureKind;
   /**
    * True when the request never produced a response at all (fetch threw:
    * offline, DNS, CORS preflight). The strongest "didn't reach the server"
@@ -101,11 +107,6 @@ export function routeV5Response(result: V5CallResult): RenderTarget {
       code: 'INTERNAL_ERROR',
       ...(result.raw !== undefined ? { rawBody: result.raw } : {}),
       transportMeta: {
-        ...(result.http_status !== undefined ? { httpStatus: result.http_status } : {}),
-        ...(result.source !== undefined ? { source: result.source } : {}),
-        ...(result.parse_failure_kind !== undefined
-          ? { parseFailureKind: result.parse_failure_kind }
-          : {}),
         // The fetch-threw parse_error (v5Adapter catch) is the only one
         // with no http_status — every parseV5Response branch stamps one.
         network: result.http_status === undefined,

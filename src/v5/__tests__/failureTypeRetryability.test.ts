@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import type { BoundaryError } from '@talchain/schemas/boundary'
+import { FAILURE_USER_TEXT } from '@talchain/schemas/boundary'
+import type { BoundaryError, FailureTypeLiteral } from '@talchain/schemas/boundary'
 import {
   isRetryable,
   checkRetryableAgreement,
@@ -166,3 +167,41 @@ describe('resolveFailureBaseCopy — copy agrees with the retry decision', () =>
     )
   })
 })
+
+// ---------------------------------------------------------------------------
+// DERIVED guard — the strip must hold for EVERY code in the vendored table,
+// not for a hand-listed three. The strip used to be three exact-suffix
+// literals mirroring sentence endings inside @talchain/schemas; a re-vendor
+// that rephrased a code would silently no-op the strip (fail open) and no
+// test would notice. This derives the expectation from the table itself.
+// ---------------------------------------------------------------------------
+describe('resolveFailureBaseCopy — DERIVED over the whole vendored table', () => {
+  const CODES = Object.keys(FAILURE_USER_TEXT) as FailureTypeLiteral[]
+
+  it('has a non-trivial table to iterate (positive control)', () => {
+    // An empty/absent table would make every assertion below vacuous.
+    expect(CODES.length).toBeGreaterThanOrEqual(8)
+    expect(
+      CODES.filter(c => /retry|try\s+again/i.test(FAILURE_USER_TEXT[c])).length,
+    ).toBeGreaterThan(0)
+  })
+
+  it('leaves NO retry language in any code once the affordance is withheld', () => {
+    const survivors = CODES.filter(code =>
+      /retry|try\s+again/i.test(resolveFailureBaseCopy(code, false)),
+    )
+    expect(survivors).toEqual([])
+  })
+
+  it('never empties the copy, and never alters it when retry IS offered', () => {
+    for (const code of CODES) {
+      expect(resolveFailureBaseCopy(code, false).length).toBeGreaterThan(0)
+      expect(resolveFailureBaseCopy(code, true)).toBe(FAILURE_USER_TEXT[code])
+    }
+  })
+})
+
+// The drift-simulation counterpart (a re-vendor that rephrases the retry
+// instruction) lives in failureTypeRetryability.drift.spec.ts — it needs a
+// module mock, and vi.mock is hoisted file-wide, which would corrupt the
+// verbatim-copy expectations above.

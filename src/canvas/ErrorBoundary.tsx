@@ -251,6 +251,32 @@ export class CanvasErrorBoundary extends Component<Props, State> {
     // whole session to a reassuring "Reload editor" button. The store is a
     // module singleton and still holds the graph while this panel is shown,
     // so the flush captures work right up to the crash.
+    //
+    // NOT a duplicate of the componentDidCatch flush, though it looks like
+    // one. It re-reads the store (crashFlush pulls useCanvasStore.getState()
+    // fresh on every call — it holds no snapshot), and the store CAN move
+    // between the crash and this click:
+    //   · This boundary is mounted at several depths. The inner mount
+    //     (PreAnalysisPanelV3 → PanelBody) sits BELOW ConversationProvider, so
+    //     a crash there never unmounts useConversation and never runs its
+    //     abort cleanup. An in-flight turn parked on `await callV5Turn` then
+    //     resolves and runs straight into applyDraftResult/reconcileAppliedGraph,
+    //     which setState the whole graph — after componentDidCatch returned.
+    //   · The "Dismiss and continue" branch below re-renders the live canvas
+    //     under a banner and wires its Reload to this same handler, so the user
+    //     may keep editing for an unbounded period before clicking.
+    //   · applyDraftResult's own saveAutosave is partial (omits
+    //     ceeAnalysisReady/selectedGoalNode) and fires before its later
+    //     backfill setStates, which otherwise reach storage only via the 30s
+    //     periodic autosave — and that interval is cleared when an outer crash
+    //     unmounts useAutosave.
+    //   · On an empty graph crashFlush returns without writing at all, so the
+    //     first flush can be a no-op.
+    // handleReload() below is a hard destroy-and-rehydrate: anything in memory
+    // and not in the autosave slot at this instant is gone permanently. This
+    // call is the last-write barrier before that, and is correct as a barrier
+    // even where no mutation happened — the alternative is auditing every
+    // async store writer in the app, forever.
     flushWorkToAutosave()
 
     // Reload must reconnect to the SAME route (and thereby the same scenario:
