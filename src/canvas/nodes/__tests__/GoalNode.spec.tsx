@@ -723,17 +723,41 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
   })
 
-  it('target SET + no probability (post-analysis): says rerun, no set-a-target chip', () => {
+  // F5a (Codex review): a CURRENT run (no genuine 'changed'/'stale' freshness)
+  // that simply produced no goal probability must NOT demand a rerun — that
+  // contradicted the panel's "Analysis reflects the current model". It shows the
+  // honest absent-state copy instead.
+  it('target SET + no probability + CURRENT run: honest absent-state copy, NOT a rerun demand', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         results: { status: 'complete', report: {} },
+        // No genuine change signal: freshness fresh, overlay clean → 'current'.
+        analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' },
+        analysisFreshnessDirty: false,
+      }) as any)
+    )
+    renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
+    expect(screen.getByText('Target set. This run did not produce a goal probability.')).toBeDefined()
+    expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
+    // The live bug: card said "Analysis complete. Set a target to see your
+    // chances." while a target was set. Must never render here.
+    expect(screen.queryByText(/Set a target to see your chances/)).toBeNull()
+    expect(screen.queryByText('Help me set a target')).toBeNull()
+  })
+
+  // Positive control: a GENUINELY stale/changed model (freshness 'stale' →
+  // 'changed' semantic) DOES warrant the rerun prompt.
+  it('target SET + no probability + CHANGED model: shows the rerun demand', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: {} },
+        analysisFreshness: { freshness: 'stale', freshnessReason: 'graph_changed' },
+        analysisFreshnessDirty: true,
       }) as any)
     )
     renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
     expect(screen.getByText('Target set. Rerun the analysis to update your results.')).toBeDefined()
-    // The live bug: card said "Analysis complete. Set a target to see your
-    // chances." while a target was set. Must never render here.
-    expect(screen.queryByText(/Set a target to see your chances/)).toBeNull()
+    expect(screen.queryByText(/This run did not produce a goal probability/)).toBeNull()
     expect(screen.queryByText('Help me set a target')).toBeNull()
   })
 

@@ -32,6 +32,7 @@ import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
+import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 
 export const GoalNode = memo((props: NodeProps) => {
@@ -47,6 +48,13 @@ export const GoalNode = memo((props: NodeProps) => {
   // per-option win_probability means the engine finished but produced no
   // probability. We must not render "Analysis complete" copy in that case.
   const hasAnyProbability = useHasAnyRealProbability()
+  // F5a (Codex review): the rerun prompt must be driven by the ACTUAL freshness
+  // state — the same composed trust surface AnalysisFreshnessNotice reads — never
+  // by value absence. A completed CURRENT run can legitimately carry no goal
+  // probability (producer returned none), and demanding a rerun then contradicts
+  // the panel's "Analysis reflects the current model". Only a genuinely
+  // changed/stale model ('changed' semantic) warrants "Rerun the analysis".
+  const analysisChanged = useAnalysisTrust().semantic === 'changed'
   // Audit §8 P1: canvas result decorations mirror the panels' freshness
   // verdict (opacity + title only — no layout shift).
 
@@ -285,10 +293,17 @@ export const GoalNode = memo((props: NodeProps) => {
             probability for it (target set after the run, or the run produced
             none). The old branches ignored this quadrant, leaving a card
             that showed a target with no path to a probability. No new CTA —
-            the edit affordance and Run flows already exist elsewhere. */}
+            the edit affordance and Run flows already exist elsewhere.
+            F5a (Codex review): the copy is driven by the freshness/dirty state,
+            not by value absence — a CURRENT run that simply produced no goal
+            probability shows the honest absent-state copy (never a rerun demand
+            that would contradict the panel's "reflects the current model"); only
+            a genuinely changed model prompts a rerun. */}
         {hasThreshold && isPostAnalysis && displayMetadata.achievementProbability === null && (
           <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>
-            Target set. Rerun the analysis to update your results.
+            {analysisChanged
+              ? 'Target set. Rerun the analysis to update your results.'
+              : 'Target set. This run did not produce a goal probability.'}
           </p>
         )}
 

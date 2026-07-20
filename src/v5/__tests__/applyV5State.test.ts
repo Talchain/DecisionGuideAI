@@ -723,7 +723,8 @@ describe('applyV5State — goal-threshold quad ingestion (ROADMAP 1.22)', () => 
       ),
       store,
     )
-    expect(setGoalConstraints).toHaveBeenCalledWith(constraints)
+    // Producer sync — passes fromProducerSync so the ingestion write does not self-dirty freshness.
+    expect(setGoalConstraints).toHaveBeenCalledWith(constraints, { fromProducerSync: true })
   })
 
   it('does not call setGoalConstraints when the response carries none (additive only — no clearing)', () => {

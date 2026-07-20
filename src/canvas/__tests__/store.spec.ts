@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useCanvasStore } from '../store'
 import { __resetTelemetryCounters, __getTelemetryCounters } from '../../lib/telemetry'
+import { classifyFreshnessForDisplay } from '../store/analysisFreshness'
 
 function seedDemoGraph() {
   useCanvasStore.setState({
@@ -909,6 +910,75 @@ describe('Canvas Store', () => {
 
       // goalConstraints was never set — must still be null
       expect(useCanvasStore.getState().goalConstraints).toBeNull()
+    })
+  })
+
+  // F2a (Codex review): a USER constraint edit is analysis-affecting (constraints
+  // are sent to PLoT, same class as the goal threshold), so it must dirty the
+  // freshness overlay every trust surface reads — otherwise the results keep
+  // claiming "Analysis reflects the current model" after a hard constraint change.
+  describe('F2a: constraint edits dirty analysis freshness', () => {
+    const FRESH = { freshness: 'fresh' as const, freshnessReason: 'graph_hash_match' }
+
+    beforeEach(() => {
+      useCanvasStore.getState().reset()
+      // reset() deliberately does NOT clear goalConstraints (F8) — normalise it
+      // here so each case starts from a known baseline.
+      // A retained CEE 'fresh' verdict with a clean overlay renders as 'current'.
+      useCanvasStore.setState({
+        goalConstraints: null,
+        analysisFreshness: FRESH,
+        analysisFreshnessDirty: false,
+      })
+    })
+
+    it('a user constraint edit dirties freshness → display downgrades fresh→changed', () => {
+      // Precondition (positive control): fresh + not-dirty reads as 'current'.
+      let s = useCanvasStore.getState()
+      expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty)).toBe('current')
+
+      // User edit via the GoalPanel path (no fromProducerSync opt-out).
+      useCanvasStore.getState().setGoalConstraints([
+        { id: 'c1', operator: '<=', value: 4 },
+      ] as any)
+
+      s = useCanvasStore.getState()
+      expect(s.analysisFreshnessDirty).toBe(true)
+      expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty)).toBe('changed')
+    })
+
+    it('a no-op set (identical content) does NOT dirty freshness', () => {
+      const constraints = [{ id: 'c1', operator: '<=', value: 4 }] as any
+      useCanvasStore.setState({ goalConstraints: constraints })
+      // Re-set with a byte-identical (but new-reference) array.
+      useCanvasStore.getState().setGoalConstraints([{ id: 'c1', operator: '<=', value: 4 }] as any)
+
+      const s = useCanvasStore.getState()
+      expect(s.analysisFreshnessDirty).toBe(false)
+      expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty)).toBe('current')
+    })
+
+    it('null→null is a no-op and does NOT dirty freshness', () => {
+      useCanvasStore.getState().setGoalConstraints(null)
+      expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
+    })
+
+    it('a producer-sync write ({ fromProducerSync: true }) does NOT dirty freshness', () => {
+      useCanvasStore.getState().setGoalConstraints(
+        [{ id: 'c1', operator: '<=', value: 4 }] as any,
+        { fromProducerSync: true },
+      )
+      const s = useCanvasStore.getState()
+      expect(s.analysisFreshnessDirty).toBe(false)
+      expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty)).toBe('current')
+    })
+
+    it('clearing a real constraint (array→null) dirties freshness', () => {
+      useCanvasStore.setState({ goalConstraints: [{ id: 'c1', operator: '<=', value: 4 }] as any })
+      useCanvasStore.getState().setGoalConstraints(null)
+      const s = useCanvasStore.getState()
+      expect(s.analysisFreshnessDirty).toBe(true)
+      expect(classifyFreshnessForDisplay(s.analysisFreshness, s.analysisFreshnessDirty)).toBe('changed')
     })
   })
 
