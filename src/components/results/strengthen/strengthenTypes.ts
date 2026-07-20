@@ -88,14 +88,17 @@ export interface StrengthenPhase3Item {
   actionIntent?: string
   actionLabel?: string
   targetIds: string[]
-  priorityRank?: number
   /**
-   * UI-SEM-085: true ONLY when the producer ranked this block. When false or
-   * absent, `priorityRank` is derived from the UI's 50 default and carries no
-   * merit — the item is demoted below the producer-backed ladder and labelled
-   * "not ranked" rather than presented as a ranked fix.
+   * The producer's 0.19.0 `priority_rank` VERBATIM (ascending display
+   * ordinal, lower = shown first; positive integers, UNBOUNDED — bands: 1-9
+   * lifecycle, 10-99 review cards, 100-199 coaching, 200+ prompts; never
+   * inverted, never clamped). PRESENCE is the "producer ranked this" fact
+   * (UI-SEM-085): when absent the item is demoted below the producer-backed
+   * ladder and labelled "not ranked — shown in the order received" rather
+   * than presented as a ranked fix. No companion flag — deriving ranked-ness
+   * from anything other than the rank itself is a hand-maintained mirror.
    */
-  priorityIsProducerSupplied?: boolean
+  priorityRank?: number
 }
 
 export interface StrengthenInputs {

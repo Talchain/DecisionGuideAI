@@ -46,15 +46,33 @@ export interface GuidanceItem {
   valid_while?: { analysis_hash?: string; graph_hash?: string }
   fact_ids?: string[]
   citations?: string[]
-  /** 0–100, higher = more urgent */
+  /**
+   * COARSE 0-100 urgency, higher = more urgent (the producer's 0.19.0
+   * `priority` verbatim when supplied — band-granular, ties normal — else
+   * the UI's 50 fail-closed default). Budget/filter/style on it. It is NOT
+   * a display order: the contract says to order by `priorityRank` ascending.
+   * Every ordering consumer must go through `compareGuidanceDisplayOrder`
+   * below — never hand-roll a priority sort (that is how the UI-SEM-085
+   * `100 - rank` inversion happened).
+   */
   priority: number
   /**
-   * UI-SEM-085: true ONLY when the producer emitted `priority`/`priority_rank`
-   * for this item; absent or false means `priority` is the UI's 50 default and
-   * carries NO merit information. Set at the single defaulting site in
+   * The producer's 0.19.0 `priority_rank` VERBATIM: ASCENDING display
+   * ordinal, LOWER = shown FIRST, positive integers, UNBOUNDED (never
+   * invert against 100 — ranks >= 100 are routine; bands: 1-9 lifecycle,
+   * 10-99 review cards, 100-199 coaching, 200+ prompts). Equal ranks are
+   * producer-order ties. PRESENCE = the producer ranked this item; absence
+   * (pre-0.19.0 blocks, exercise blocks, V4-envelope items) = unranked, and
+   * consumers fall closed to their unranked treatment.
+   */
+  priorityRank?: number
+  /**
+   * UI-SEM-085: true ONLY when the producer emitted `priority` for this
+   * item; absent or false means `priority` is the UI's 50 default and
+   * carries NO urgency information. Set at the single defaulting site in
    * `deriveGuidance` (src/v5/extractPhase3FromV5Response.ts) — read it, never
-   * re-derive it. Consumers treat absence as NOT producer-supplied
-   * (fail-closed: we do not claim a ranking we cannot prove).
+   * re-derive it (a producer may legitimately send 50). Rank provenance
+   * needs no flag: `priorityRank` presence IS it.
    */
   priorityIsProducerSupplied?: boolean
   dsk_claim_id?: string
@@ -308,10 +326,38 @@ export function selectItemsForTarget(state: GuidanceState, targetId: string): Gu
   return state.guidanceItems.filter((i) => i.target_object?.id === targetId)
 }
 
-/** Returns the single highest-priority item (or null if empty). */
+/**
+ * THE display-order doctrine for guidance items, in one place (0.19.0
+ * contract; UI-SEM-085 narrowed). Producer-ranked items come first, in
+ * ASCENDING `priorityRank` order (lower = shown first — verbatim wire
+ * semantics, never inverted). Equal ranks are producer-order ties:
+ * `Array.prototype.sort` is stable, so wire arrival order holds, which is
+ * exactly what the contract prescribes. Unranked items follow, ordered by
+ * descending coarse `priority` (the legacy urgency fallback — the contract
+ * gives us nothing better for items the producer did not rank).
+ *
+ * Every surface that orders or tops guidance items MUST use this comparator
+ * (selectTopItem, GuidanceStrip, DecisionOverviewCard, inspector sections)
+ * — two hand-rolled conventions in the same pipe is how the coaching band
+ * collapsed.
+ */
+export function compareGuidanceDisplayOrder(a: GuidanceItem, b: GuidanceItem): number {
+  const aRank = typeof a.priorityRank === 'number' ? a.priorityRank : undefined
+  const bRank = typeof b.priorityRank === 'number' ? b.priorityRank : undefined
+  if (aRank !== undefined && bRank !== undefined) return aRank - bRank
+  if (aRank !== undefined) return -1
+  if (bRank !== undefined) return 1
+  return b.priority - a.priority
+}
+
+/**
+ * Returns the single item the display-order doctrine puts FIRST (or null if
+ * empty): lowest producer `priorityRank` when any item carries one, else the
+ * highest coarse `priority`. Full ties keep the earliest-arrival item.
+ */
 export function selectTopItem(state: GuidanceState): GuidanceItem | null {
   if (state.guidanceItems.length === 0) return null
   return state.guidanceItems.reduce((best, item) =>
-    item.priority > best.priority ? item : best,
+    compareGuidanceDisplayOrder(item, best) < 0 ? item : best,
   )
 }

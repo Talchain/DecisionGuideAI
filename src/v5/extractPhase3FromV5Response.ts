@@ -79,13 +79,34 @@ export interface DerivedGuidanceItem {
   target_object?: { type: 'node' | 'edge' | 'option' | 'graph' | 'framing'; id?: string; label?: string }
   related_elements?: Array<{ id?: string; type?: string; label?: string }>
   valid_while?: { analysis_hash?: string; graph_hash?: string }
+  /**
+   * COARSE 0-100 urgency, HIGHER = more urgent — the producer's 0.19.0
+   * `priority` VERBATIM when emitted (band-granular, derived 1:1 from
+   * `category` producer-side; ties are expected and normal), else the 50
+   * fail-closed default. Budget/filter/style on it. It is NOT a display
+   * order — order by `priorityRank` (the contract says so explicitly) — and
+   * it is NEVER derived from `priority_rank` (an order is not a score; that
+   * derivation was the UI-SEM-085 `100 - rank` defect).
+   */
   priority: number
   /**
+   * The producer's 0.19.0 `priority_rank` VERBATIM: an ASCENDING display
+   * ordinal, LOWER = shown FIRST. Positive integers, UNBOUNDED — never
+   * invert it against 100 (ranks >= 100 are routine; bands: 1-9 lifecycle,
+   * 10-99 review cards, 100-199 coaching, 200+ prompts). Unique only WITHIN
+   * a band: equal ranks are producer-order ties. PRESENCE of this field is
+   * the "producer ranked this block" fact — absent means the producer sent
+   * no ordering (pre-0.19.0 blocks, exercise blocks, malformed ranks) and
+   * consumers fall closed to their unranked treatment.
+   */
+  priorityRank?: number
+  /**
    * UI-SEM-085 disclosure carrier. True ONLY when the producer emitted
-   * `priority` or `priority_rank` on the block; false when `priority` is the
-   * UI's 50 default. Set at the single defaulting site in `deriveGuidance` —
-   * downstream consumers MUST read this flag rather than re-deriving it (a
-   * second derivation is a second invention).
+   * `priority` on the block; false when `priority` is the UI's 50 default.
+   * Set at the single defaulting site in `deriveGuidance` — downstream
+   * consumers MUST read this flag rather than re-deriving it (a second
+   * derivation is a second invention; a producer may legitimately send 50).
+   * NOTE: rank provenance needs no flag — `priorityRank` presence IS it.
    */
   priorityIsProducerSupplied: boolean
 }
@@ -246,45 +267,43 @@ function guidanceTargetType(
  * fabricate copy).
  */
 /**
- * UI-SEM-085 — `deriveGuidance`: guidance-item defaults on the only live (V5)
- * writer. `category`→`'should_fix'`, `source`→`'analysis'`,
- * `signal_code`→`block.type`, `priority`→`50` when the producer emits neither
- * `priority` nor `priority_rank`. These are UI-authored SEVERITY and ORDERING
- * signals consumed downstream by `selectTopItem` (guidanceStore) and the
- * Strengthen phase-3 band (buildRecommendations). Copy is never fabricated
- * (title-less blocks return null below); RANK is.
+ * UI-SEM-085 (NARROWED, 0.19.0) — `deriveGuidance` is THE ONE wire→internal
+ * mapping site for guidance-block priority semantics. The 0.19.0 contract
+ * (vendored tarball, boundary/blocks JSDoc — authoritative) states:
  *
- * The defaulted rank is not inert: `StrengthenContainer` inverts it to
- * `priorityRank = 100 - priority`, and `buildRecommendations` bands it to
- * `phase3Base(10) + 50 = 60`, which sorts ABOVE the producer-backed flip
- * trigger (100). With the sort stable and every default identical, the
- * resulting order is simply the wire array order — which the panel would
- * otherwise present as merit. `priorityIsProducerSupplied` carries that fact
- * downstream so unranked rows are demoted below the producer-backed ladder
- * and labelled, instead of silently ranked.
+ *   - `priority_rank`: ASCENDING ordinal, LOWER = shown FIRST. Positive
+ *     integers, UNBOUNDED — "never invert it against 100 (ranks >= 100 are
+ *     routine)". Bands encode block class (1-9 lifecycle, 10-99 review
+ *     cards, 100-199 coaching, 200+ prompts); equal ranks are
+ *     producer-order ties. REQUIRED on review_card/coaching/evidence
+ *     blocks; absent by contract on exercise blocks.
+ *   - `priority` (optional): COARSE 0-100 urgency, HIGHER = more urgent,
+ *     band-granular (derived 1:1 from `category` producer-side; ties
+ *     normal). NOT a display order — order by `priority_rank`; budget,
+ *     filter and style by `priority`/`category`.
+ *   - `category` (optional): four-value code-keyed class.
  *
- * MEASURED, not assumed (probe over the live capture
- * `cee-response-b82c89dd-trimmed.json` through parseV5Response → this
- * extractor → the Strengthen ladder):
- * - `category` is defaulted on 10/10 blocks — CEE sends no `category`, and the
- *   review_cards' `severity:'info'` is not one of the four canonical values, so
- *   it falls through too. `signal_code` is defaulted on 10/10 (to 'review_card'
- *   / 'coaching' — block TYPES, not signal codes).
- * - `priority` is NOT defaulted on that capture: CEE sends `priority_rank` on
- *   all 10 blocks. The 50 default is real but narrower than it looks — it fires
- *   where CEE omits both fields (e.g. the two `exercise` blocks in
- *   `phase3-evidence-exercise.bundle-shaped.json`).
+ * Mapping decisions (each field on its own contract terms, no inversions):
+ *   - `priorityRank` ← `priority_rank` VERBATIM (positive integers only;
+ *     malformed ranks fail closed to absent = unranked). Its PRESENCE is the
+ *     "producer ranked this" fact consumed by every ordering surface.
+ *   - `priority` ← `priority` VERBATIM (clamped [0,100] for safety) when
+ *     emitted, else the 50 fail-closed default — now the RARE path (0.19.0
+ *     CEE emits `priority` on every guidance block; pre-0.19.0 blocks and
+ *     malformed payloads still default). NEVER derived from `priority_rank`:
+ *     the historic `100 - rank` inversion assumed a bounded 1..N ordinal, so
+ *     every rank >= 100 clamped to 0 and the whole coaching band collapsed
+ *     into one tie broken by wire array order (the UI-SEM-085 defect,
+ *     confirmed by an external Codex review).
+ *   - `category` ← wire `category` when canonical — the NORMAL path since
+ *     0.19.0 — else the legacy severity match, else 'should_fix' fail-closed.
  *
- * ⚠ SEPARATE, UNFIXED DEFECT in the line below (reported, deliberately not
- * changed here): `100 - rank` assumes `priority_rank` is a 1..N ordinal. CEE's
- * observed scale is BANDED — review_card 71-74, coaching 101-104, exercise
- * 201-202 — so every rank ≥ 100 clamps to 0 and SIX distinct producer ranks
- * collapse into one tie broken by array index. Fixing it needs CEE's intended
- * scale semantics, which are unstated; filed as a cross-repo ask.
- *
- * Remove when CEE guarantees `priority` and `category` on every guidance
- * block (cross-repo ask: UI-CROSS-REPO-ASKS-2026-07-15.md — "guidance block
- * priority + category").
+ * Still UI-authored (the residual UI-SEM-085 inventions):
+ * `signal_code`→`block.type` (schemas-blocked: `signal_code` verified absent
+ * from the published 0.19.0 tarball; on the orchestrator's queue),
+ * `source`→`'analysis'`, and the fail-closed defaults above when a producer
+ * field is genuinely absent. Copy is never fabricated (title-less blocks
+ * return null below).
  */
 function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
   const r = block.raw
@@ -296,9 +315,10 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
   if (!title) return null
   const detail = safeString(r.detail) ?? safeString(r.body) ?? safeString(r.message)
 
-  // Category — accept the four canonical values or fall back to should_fix
-  // for evidence/review_card surfaces (which expect attention without being
-  // blockers). Coaching defaults to should_fix.
+  // Category — the producer's code-keyed four-value class VERBATIM (the
+  // NORMAL path since 0.19.0). Legacy fallbacks for genuine absence only:
+  // `severity` if it happens to be canonical (it never is on 0.19.0 wires —
+  // severity is info/warning/critical), else should_fix fail-closed.
   const rawCategory = safeString(r.category) ?? safeString(r.severity)
   const category: DerivedGuidanceItem['category'] =
     rawCategory === 'must_fix' || rawCategory === 'should_fix' ||
@@ -314,20 +334,23 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
       ? rawSource
       : 'analysis'
 
-  // priority: prefer CEE-emitted numeric, fall back to priority_rank
-  // ordering (1 = highest → 100, descending). Default 50.
-  const explicit = safeNumber(r.priority)
+  // priority_rank — VERBATIM, no inversion, no bound (see the contract note
+  // on the function doc). Positive integers only; anything else fails closed
+  // to absent, which every ordering consumer treats as unranked.
   const rank = safeNumber(r.priority_rank)
+  const priorityRank =
+    rank !== undefined && Number.isInteger(rank) && rank >= 1 ? rank : undefined
+  // priority — VERBATIM coarse urgency (0-100, higher = more urgent) when
+  // the producer emitted one; 50 fail-closed default otherwise. NEVER
+  // derived from priority_rank (an order is not a score — that derivation
+  // was the `100 - rank` coaching-band-collapse defect).
   // UI-SEM-085: the SINGLE defaulting site. This flag is the only place the
   // producer-supplied/UI-defaulted distinction is decided — never recompute it
   // downstream from `priority === 50` (a producer may legitimately send 50).
-  const priorityIsProducerSupplied = explicit !== undefined || rank !== undefined
+  const explicit = safeNumber(r.priority)
+  const priorityIsProducerSupplied = explicit !== undefined
   const priority =
-    explicit !== undefined
-      ? Math.max(0, Math.min(100, Math.round(explicit)))
-      : rank !== undefined
-        ? Math.max(0, Math.min(100, 100 - rank))
-        : 50
+    explicit !== undefined ? Math.max(0, Math.min(100, Math.round(explicit))) : 50
 
   // target_object: prefer explicit, else read the first target_refs entry —
   // contract `kind` or legacy `type` convention, via guidanceTargetType.
@@ -405,6 +428,7 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
     ...(related_elements ? { related_elements } : {}),
     ...(valid_while ? { valid_while } : {}),
     priority,
+    ...(priorityRank !== undefined ? { priorityRank } : {}),
     priorityIsProducerSupplied,
   }
 }

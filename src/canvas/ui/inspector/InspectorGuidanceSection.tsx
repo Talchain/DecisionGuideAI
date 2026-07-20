@@ -11,6 +11,7 @@ import { AlertTriangle, Lightbulb } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import {
   useGuidanceStore,
+  compareGuidanceDisplayOrder,
   type GuidanceItem,
   type GuidanceAction,
 } from '../../stores/guidanceStore'
@@ -200,12 +201,13 @@ export const InspectorGuidanceSection = memo(function InspectorGuidanceSection({
   const activeId = useGuidanceStore((s) => s.activeGuidanceItemId)
   const setActiveGuidanceItem = useGuidanceStore((s) => s.setActiveGuidanceItem)
 
-  // Sort by priority descending, show max 2
+  // Display-order doctrine (UI-SEM-085): producer rank ascending via the
+  // shared comparator (unranked fall back to urgency descending). Show max 2.
   const sorted = useMemo(
     () =>
       allItems
         .filter((i) => i.target_object?.id === elementId)
-        .sort((a, b) => b.priority - a.priority),
+        .sort(compareGuidanceDisplayOrder),
     [allItems, elementId],
   )
   const visible = sorted.slice(0, MAX_VISIBLE)

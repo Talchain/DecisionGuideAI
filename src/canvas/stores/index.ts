@@ -56,6 +56,7 @@ export {
   selectActiveItem,
   selectItemsForTarget,
   selectTopItem,
+  compareGuidanceDisplayOrder,
 } from './guidanceStore'
 
 // Graph readiness store (consolidated from useGraphReadiness hook)

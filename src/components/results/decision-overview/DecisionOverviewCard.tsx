@@ -25,7 +25,7 @@ import { ChevronDown } from 'lucide-react'
 
 import { useCanvasStore } from '../../../canvas/store'
 import { useSuccessMeasureForScenario } from '../modals'
-import { useGuidanceStore, type GuidanceItem } from '../../../canvas/stores/guidanceStore'
+import { useGuidanceStore, compareGuidanceDisplayOrder, type GuidanceItem } from '../../../canvas/stores/guidanceStore'
 import { isDecisionOverviewEnabled } from '../../../flags'
 import { typography } from '../../../styles/typography'
 import { openAskOlumi } from '../coaching/askOlumiStore'
@@ -224,7 +224,9 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
       (i) => i.primary_action.type === 'discuss' && qualifiesForFramingSlot(i),
     )
     if (items.length === 0) return null
-    return items.reduce((best, i) => (i.priority > best.priority ? i : best), items[0])
+    // Display-order doctrine (UI-SEM-085): producer rank ascending via the
+    // shared comparator — never a hand-rolled priority reduce.
+    return items.reduce((best, i) => (compareGuidanceDisplayOrder(i, best) < 0 ? i : best), items[0])
   })
 
   // UI-SEM-079: framing-quality derivation. Only ready / needs-input arrive

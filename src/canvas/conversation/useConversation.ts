@@ -3361,8 +3361,10 @@ export function useConversation(): UseConversationReturn {
                 ...(g.related_elements ? { related_elements: g.related_elements } : {}),
                 ...(g.valid_while ? { valid_while: g.valid_while } : {}),
                 priority: g.priority,
-                // UI-SEM-085: carry the producer-supplied/UI-defaulted fact
-                // through verbatim — never recomputed here.
+                // UI-SEM-085 (narrowed): carry the producer's verbatim rank
+                // and the priority-provenance fact through unchanged — never
+                // recomputed, never inverted here.
+                ...(typeof g.priorityRank === 'number' ? { priorityRank: g.priorityRank } : {}),
                 priorityIsProducerSupplied: g.priorityIsProducerSupplied,
               }))
               useGuidanceStore.getState().setGuidanceItems(guidance)

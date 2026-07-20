@@ -8,7 +8,7 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { X as XIcon, AlertTriangle, Lightbulb } from 'lucide-react'
 import { typography } from '../../styles/typography'
-import { useGuidanceStore, selectTopItem, type GuidanceItem, type GuidanceAction } from '../stores/guidanceStore'
+import { useGuidanceStore, selectTopItem, compareGuidanceDisplayOrder, type GuidanceItem, type GuidanceAction } from '../stores/guidanceStore'
 import { isDecisionOverviewEnabled } from '@/flags'
 import styles from './Conversation.module.css'
 import { trackGuidance, type GuidanceEventPayload } from '../../telemetry/guidanceEvents'
@@ -111,11 +111,16 @@ export const GuidanceStrip = memo(function GuidanceStrip({
     if (!base || !isDecisionOverviewEnabled()) return base
     const discussItems = s.guidanceItems.filter((i) => i.primary_action.type === 'discuss')
     if (discussItems.length === 0) return base
-    const overviewOwned = discussItems.reduce((best, i) => (i.priority > best.priority ? i : best), discussItems[0])
+    // Display-order doctrine (UI-SEM-085): all "top item" picks go through
+    // compareGuidanceDisplayOrder — producer rank ascending, never a
+    // hand-rolled priority reduce.
+    const topOf = (items: GuidanceItem[]) =>
+      items.reduce((best, i) => (compareGuidanceDisplayOrder(i, best) < 0 ? i : best), items[0])
+    const overviewOwned = topOf(discussItems)
     if (base.item_id !== overviewOwned.item_id) return base
     const rest = s.guidanceItems.filter((i) => i.item_id !== overviewOwned.item_id)
     if (rest.length === 0) return null
-    return rest.reduce((best, i) => (i.priority > best.priority ? i : best), rest[0])
+    return topOf(rest)
   })
   // Track the items array reference — when a new envelope arrives, the reference
   // changes and we should allow previously-dismissed items to show again.
