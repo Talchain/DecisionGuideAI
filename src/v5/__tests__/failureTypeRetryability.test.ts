@@ -5,6 +5,8 @@ import {
   checkRetryableAgreement,
   extractReason,
   resolveGuidance,
+  resolveRetryable,
+  resolveFailureBaseCopy,
 } from '../failureTypeRetryability'
 
 describe('isRetryable — exhaustive over FailureTypeLiteral', () => {
@@ -109,5 +111,58 @@ describe('resolveGuidance — shared guidance resolver', () => {
     const g = resolveGuidance(code)
     expect(g.length).toBeGreaterThan(0)
     expect(g).toMatch(pattern)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Codex F6 — server-authoritative retryability + retry-consistent base copy
+// ---------------------------------------------------------------------------
+
+describe('resolveRetryable — server marker authoritative, table covers absence', () => {
+  it('server false beats a client-retryable code', () => {
+    expect(resolveRetryable('INTERNAL_ERROR', false)).toBe(false)
+    expect(resolveRetryable('UPSTREAM_TIMEOUT', false)).toBe(false)
+  })
+
+  it('server true beats a client-non-retryable code', () => {
+    expect(resolveRetryable('INGRESS_CONTRACT_VIOLATION', true)).toBe(true)
+    expect(resolveRetryable('TURN_BUDGET_EXCEEDED', true)).toBe(true)
+  })
+
+  it('absence falls back to the client table', () => {
+    expect(resolveRetryable('INTERNAL_ERROR', undefined)).toBe(true)
+    expect(resolveRetryable('FEATURE_NOT_ENABLED', undefined)).toBe(false)
+  })
+})
+
+describe('resolveFailureBaseCopy — copy agrees with the retry decision', () => {
+  it('returns the canonical text verbatim when retry is offered', () => {
+    expect(resolveFailureBaseCopy('INTERNAL_ERROR', true)).toBe(
+      'Something went wrong on our side. Please retry.',
+    )
+  })
+
+  it('drops the retry-instruction sentence when the affordance is withheld', () => {
+    expect(resolveFailureBaseCopy('INTERNAL_ERROR', false)).toBe(
+      'Something went wrong on our side.',
+    )
+    expect(resolveFailureBaseCopy('INGRESS_CONTRACT_VIOLATION', false)).toBe(
+      'We could not process that request.',
+    )
+    expect(resolveFailureBaseCopy('LLM_UNAVAILABLE', false)).toBe(
+      'The model is temporarily unavailable.',
+    )
+    expect(resolveFailureBaseCopy('TURN_BUDGET_EXCEEDED', false)).toBe(
+      'That took longer than we allow for a single turn.',
+    )
+  })
+
+  it('copy without a retry instruction passes through unchanged (fail open)', () => {
+    expect(resolveFailureBaseCopy('FEATURE_NOT_ENABLED', false)).toBe(
+      'This feature is not enabled in your environment.',
+    )
+    expect(resolveFailureBaseCopy('UPSTREAM_UNAVAILABLE', false)).toBe(
+      'An upstream service is temporarily unavailable.',
+    )
   })
 })

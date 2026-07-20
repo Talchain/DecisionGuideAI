@@ -1,11 +1,16 @@
 /**
  * Failure-type retryability classifier.
  *
- * BoundaryError in @talchain/schemas@0.7.0 carries a top-level `retryable:
- * boolean`, but the UI also classifies client-side to stay stable when the
- * server field is absent (e.g. when the router surfaces a synthetic
- * typed_error from a block-level error_code, or a parse_error). The
- * client-side table is the canonical UI-side source.
+ * ⚠ AUTHORITY ORDER (Codex F6 fix): the SERVER's `retryable` marker on the
+ * error envelope is authoritative — `BoundaryError.retryable` is a typed,
+ * REQUIRED boolean on every non-2xx `/orchestrate/v2/turn` body, and CEE
+ * computes it per-failure (e.g. `mapDraftGraphPipelineReason`:
+ * CEE_LLM_VALIDATION_FAILED → false, CEE_TIMEOUT → true — both surface as
+ * `INTERNAL_ERROR` at the envelope level). The client-side table below is
+ * the FALLBACK for the marker's ABSENCE only (synthetic typed_errors from a
+ * 200-response error block, or parse_errors where no envelope exists). It
+ * must never override what the server said — a client-forced retry on a
+ * server-non-retryable failure is a retry that cannot work.
  *
  * Retryable codes — transient, worth offering a retry action:
  *   UPSTREAM_TIMEOUT       — CEE → PLoT/LLM call timed out
@@ -19,10 +24,10 @@
  *   FEATURE_NOT_ENABLED        — flag gated
  *   TURN_BUDGET_EXCEEDED       — session limit hit; new decision required
  *
- * Keep this table in lockstep with CEE's retryable determination at
- * olumi-assistants-service/src/orchestrator/route-v2.ts. If they diverge,
- * checkRetryableAgreement surfaces a DEV warning so ops can reconcile.
+ * checkRetryableAgreement still surfaces a DEV warning when the table and
+ * the server disagree, so drift stays visible in staging telemetry.
  */
+import { FAILURE_USER_TEXT } from '@talchain/schemas/boundary'
 import type { FailureTypeLiteral, BoundaryError } from '@talchain/schemas/boundary'
 
 const RETRYABLE: ReadonlySet<FailureTypeLiteral> = new Set<FailureTypeLiteral>([
@@ -34,6 +39,54 @@ const RETRYABLE: ReadonlySet<FailureTypeLiteral> = new Set<FailureTypeLiteral>([
 
 export function isRetryable(code: FailureTypeLiteral): boolean {
   return RETRYABLE.has(code)
+}
+
+/**
+ * Resolve the effective retry decision for a typed error: the server's
+ * envelope marker when it exists, the client table otherwise. See the
+ * authority-order note at the top of this file. Absence resolves through
+ * the table, never to a hard-coded default, so an unknown-marker envelope
+ * still degrades to today's behaviour.
+ */
+export function resolveRetryable(
+  code: FailureTypeLiteral,
+  serverRetryable: boolean | undefined,
+): boolean {
+  return typeof serverRetryable === 'boolean' ? serverRetryable : isRetryable(code)
+}
+
+/**
+ * Sentences in FAILURE_USER_TEXT that instruct the user to retry. When the
+ * retry affordance is withheld (server said non-retryable), copy telling the
+ * user to "please retry" beside a missing Try-again chip instructs an action
+ * the UI gives them no way to take — the same honesty rule
+ * ceeRecovery.buildFailureRender enforces on the V4 path. Exact-suffix
+ * matches only; unmatched copy passes through unchanged (fail open).
+ */
+const RETRY_INSTRUCTION_SUFFIXES = [
+  ' Please retry.',
+  ' Please try again.',
+  ' Please retry shortly.',
+] as const
+
+/**
+ * Base failure copy that AGREES with the retry decision. With the retry
+ * affordance shown, this is exactly FAILURE_USER_TEXT[code]. With it
+ * withheld, any trailing retry-instruction sentence is dropped so the copy
+ * never tells the user to do something the UI won't offer.
+ */
+export function resolveFailureBaseCopy(
+  code: FailureTypeLiteral,
+  showRetry: boolean,
+): string {
+  const canonical = FAILURE_USER_TEXT[code]
+  if (showRetry) return canonical
+  for (const suffix of RETRY_INSTRUCTION_SUFFIXES) {
+    if (canonical.endsWith(suffix)) {
+      return canonical.slice(0, canonical.length - suffix.length)
+    }
+  }
+  return canonical
 }
 
 /**

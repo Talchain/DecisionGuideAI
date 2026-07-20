@@ -43,6 +43,16 @@ export type RenderTarget =
       code: FailureTypeLiteral;
       requestId?: string;
       boundaryError?: BoundaryError;
+      /**
+       * Raw non-2xx JSON body when the parse failed to be a BoundaryError.
+       * 0.19.0 types the CEE error envelope (`CeeTypedErrorSchema`, root
+       * export) with `retryable` + flat `recovery_suggestion` + nested
+       * `recovery` — an envelope of THAT shape is not a BoundaryError, so
+       * without this passthrough its typed recovery data would be dropped
+       * here and the user shown a generic INTERNAL_ERROR. Consumers read it
+       * defensively via ceeRecovery.extractCeeRecovery (fail closed).
+       */
+      rawBody?: unknown;
     };
 
 export function routeV5Response(result: V5CallResult): RenderTarget {
@@ -55,7 +65,11 @@ export function routeV5Response(result: V5CallResult): RenderTarget {
     };
   }
   if (result.kind === 'parse_error') {
-    return { kind: 'typed_error', code: 'INTERNAL_ERROR' };
+    return {
+      kind: 'typed_error',
+      code: 'INTERNAL_ERROR',
+      ...(result.raw !== undefined ? { rawBody: result.raw } : {}),
+    };
   }
 
   // Happy path: an OlumiResponse.
