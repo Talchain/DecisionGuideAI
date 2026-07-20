@@ -26,6 +26,16 @@ export interface ReportV1 {
   model_card: {
     response_hash: string
     response_hash_algo: 'sha256'
+    /**
+     * Provenance of `response_hash`. `'producer'` = the engine's own hash
+     * (V2/PLoT path, carried verbatim). `'local'` = a device-derived content
+     * hash the UI computed because the producer sent none (V5 conversational
+     * path — a non-crypto digest, NOT an engine identity). Receipts label the
+     * local case explicitly so the hash is never read as a producer identity.
+     * Absent on older reports → treated as producer (never mislabels a real
+     * engine hash as local).
+     */
+    response_hash_source?: 'producer' | 'local'
     normalized: true
     // P0 Engine Features (optional - may not be present in all responses)
     // identifiability_tag can be enum OR string (from top-level identifiability field)

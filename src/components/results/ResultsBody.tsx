@@ -166,6 +166,15 @@ export const ResultsBody = memo(function ResultsBody({
   // positional ranks) and ONLY inside the rebuild flag: flag-off cards are
   // byte-identical to today.
   const optionNumbering = useCanvasStore(s => s.optionNumbering)
+
+  // B1 receipts: freshness reason (D1 'translate' branch input, unused while
+  // the mode is 'omit') + local-hash provenance. Read directly from the store
+  // here (same pattern as engineDegradedCritique / optionNumbering above) so
+  // the receipts wiring needs no OutputsDock prop-plumbing (V2 cluster).
+  const freshnessReason = useCanvasStore(s => s.analysisFreshness?.freshnessReason)
+  const responseHashIsLocal = useCanvasStore(
+    s => s.results?.report?.model_card?.response_hash_source === 'local',
+  )
   const stableNumbersForCards = useMemo(() => {
     if (!isAnalysisHeroPanelEnabled()) return undefined
     const all = resultsSectionData.recommendation.allOptions
@@ -530,7 +539,9 @@ export const ResultsBody = memo(function ResultsBody({
       <SectionErrorBoundary section="Advanced">
       <div>
         <AdvancedSection
-          stability={resultsSectionData.recommendation.recommendationStability}
+          robustnessVerdict={resultsSectionData.recommendation.robustnessVerdict}
+          freshnessReason={freshnessReason}
+          responseHashIsLocal={responseHashIsLocal}
           nSamples={nSamples}
           seedUsed={seedUsed}
           fragileEdgeCount={fragileEdgeCount}

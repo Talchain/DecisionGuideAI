@@ -708,6 +708,12 @@ export function mapV5AnalysisToReport(
     model_card: {
       response_hash: responseHash,
       response_hash_algo: 'sha256',
+      // Provenance for the receipts hash row: when the caller supplied a
+      // producer hash it is 'producer'; otherwise `responseHash` is the
+      // locally-derived `deriveBlockHash` digest (the V5 contract carries no
+      // engine hash) and must be labelled 'local' so the UI never presents it
+      // as an engine identity.
+      response_hash_source: options.responseHash ? 'producer' : 'local',
       normalized: true,
     },
     // Type lies (number, not number | null) — V4 does the same. Downstream
