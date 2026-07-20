@@ -9,6 +9,13 @@ import { describe, test, expect, vi } from 'vitest'
 import Ajv from 'ajv'
 import addFormats from 'ajv-formats'
 
+// The canonical wire stage vocabulary — single source of truth. Exactly
+// frame | analyse | decide | review (British `analyse`). The committed CEE
+// JSON-schema mirror below diverges from this (see the "KNOWN DEFECT" tests
+// at the end of the response-envelope block); assert stage VALUES against
+// this enum, not against the drifted mirror.
+import { Stage } from '@talchain/schemas/boundary'
+
 import responseSchema from '../../contracts/cee/orchestrator-response-v2.schema.json'
 import streamEventSchema from '../../contracts/cee/stream-event.schema.json'
 
@@ -72,7 +79,10 @@ const successEnvelope = {
       priority: 70,
     },
   ],
-  stage_indicator: { stage: 'ideate', confidence: 'high', source: 'inferred' },
+  // Canonical wire stage (was 'ideate' — retired UI/DB vocab). 'frame' is the only
+  // value in the canonical enum that the drifted committed mirror also accepts, so
+  // it keeps the schema-shape assertions green without ratifying the wrong vocabulary.
+  stage_indicator: { stage: 'frame', confidence: 'high', source: 'inferred' },
   client_turn_id: 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4',
 }
 
@@ -97,7 +107,12 @@ const analysisEnvelope = {
     critiques: [],
     response_hash: 'hash-abc123',
   },
-  stage_indicator: 'evaluate',
+  // stage_indicator omitted deliberately. This envelope represents a completed
+  // analysis, whose canonical wire stage is 'analyse' — but the committed CEE
+  // mirror (enum [frame, ideate, evaluate]) REJECTS 'analyse', so a canonically
+  // correct value cannot be asserted valid here. Rather than tag an analysis turn
+  // with a wrong stage, drop the field (it is optional and this test exercises
+  // option_comparison, not stage). See the KNOWN DEFECT tests / cross-repo ask.
 }
 
 /** Error: analysis failed */
@@ -129,7 +144,8 @@ const graphOnlyEnvelope = {
 /** System event ack: stage update only */
 const ackEnvelope = {
   assistant_text: 'Noted. I\'ve updated the model.',
-  stage_indicator: { stage: 'ideate', confidence: 'medium', source: 'event' },
+  // Canonical wire stage (was 'ideate'). See successEnvelope note on 'frame'.
+  stage_indicator: { stage: 'frame', confidence: 'medium', source: 'event' },
   client_turn_id: 'deadbeef-1234-5678-abcd-ef0123456789',
 }
 
@@ -222,21 +238,52 @@ describe('Response envelope contract', () => {
     expect(valid).toBe(true)
   })
 
-  test('string stage_indicator validates', () => {
-    const envelope = { assistant_text: 'Hello', stage_indicator: 'evaluate' }
+  test('canonical string stage_indicator validates', () => {
+    // 'frame' is a canonical wire member AND accepted by the committed mirror.
+    // The stage VALUE is asserted canonical against Stage (source of truth);
+    // reverting to 'evaluate' makes this Stage assertion fail (evaluate is not a
+    // canonical wire stage — it is retired UI/DB vocab).
+    const envelope = { assistant_text: 'Hello', stage_indicator: 'frame' }
+    expect(Stage.safeParse(envelope.stage_indicator).success).toBe(true)
     const valid = validateResponseSchema(envelope)
     if (!valid) console.error('Validation errors:', validateResponseSchema.errors)
     expect(valid).toBe(true)
   })
 
-  test('object stage_indicator validates', () => {
+  test('canonical object stage_indicator validates', () => {
     const envelope = {
       assistant_text: 'Hello',
-      stage_indicator: { stage: 'ideate', confidence: 'high', source: 'inferred' },
+      stage_indicator: { stage: 'frame', confidence: 'high', source: 'inferred' },
     }
+    expect(Stage.safeParse(envelope.stage_indicator.stage).success).toBe(true)
     const valid = validateResponseSchema(envelope)
     if (!valid) console.error('Validation errors:', validateResponseSchema.errors)
     expect(valid).toBe(true)
+  })
+
+  // ── KNOWN DEFECT tripwires — cross-repo ask (see PR body) ────────────────
+  // These PIN the current divergence between the canonical wire vocabulary
+  // (@talchain/schemas Stage) and the committed CEE JSON-schema mirror. They are
+  // GREEN today and FAIL LOUD the moment the mirror is corrected to canonical
+  // (re-synced from a fixed CEE export). Do not "fix" them by editing values —
+  // they are the tripwire; when they go red, the mirror has been made canonical
+  // and the fixtures above should switch to the real values (analyse/decide/review).
+
+  test('KNOWN DEFECT: committed response mirror is mis-typed — rejects canonical wire values, accepts retired UI vocab', () => {
+    // The response mirror is NOT permissive — it is an enum of the WRONG set:
+    // [frame, ideate, evaluate]. It rejects canonical 'analyse' and accepts
+    // retired 'ideate'. Positive control (nonsense) confirms it is enum-typed,
+    // not a bare string.
+    const canonicalButRejected = { assistant_text: 'x', stage_indicator: 'analyse' }
+    expect(validateResponseSchema(canonicalButRejected)).toBe(false) // WRONG: 'analyse' is canonical
+    expect(Stage.safeParse('analyse').success).toBe(true)
+
+    const retiredButAccepted = { assistant_text: 'x', stage_indicator: 'ideate' }
+    expect(validateResponseSchema(retiredButAccepted)).toBe(true) // WRONG: 'ideate' is retired
+    expect(Stage.safeParse('ideate').success).toBe(false)
+
+    const nonsense = { assistant_text: 'x', stage_indicator: 'not_a_stage_xyz' }
+    expect(validateResponseSchema(nonsense)).toBe(false) // proves the field IS enum-typed
   })
 })
 
@@ -246,10 +293,23 @@ describe('Response envelope contract', () => {
 
 describe('Stream event contract', () => {
   test('turn_start event validates', () => {
-    const event = { type: 'turn_start', seq: 1, turn_id: 't-1', routing: 'llm', stage: 'ideate' }
+    // Canonical wire stage (was 'ideate'). NB the stream mirror types `stage` as a
+    // bare string (no enum) — see the KNOWN GAP tripwire below — so any value would
+    // validate; 'frame' is used to keep the fixture canonical regardless.
+    const event = { type: 'turn_start', seq: 1, turn_id: 't-1', routing: 'llm', stage: 'frame' }
     const valid = validateStreamEvent(event)
     if (!valid) console.error('Validation errors:', validateStreamEvent.errors)
     expect(valid).toBe(true)
+  })
+
+  test('KNOWN GAP: stream turn_start.stage is an untyped bare string — nonsense validates', () => {
+    // The stream-event mirror types `stage` as { type: 'string' } with no enum, so
+    // it cannot catch a wrong stage value at all. Positive control proves it: an
+    // absurd value validates. Tripwire — fails loud if `stage` is ever tightened to
+    // the canonical Stage enum. See PR body / cross-repo ask.
+    const nonsense = { type: 'turn_start', seq: 1, turn_id: 't-1', routing: 'llm', stage: 'not_a_stage_xyz' }
+    expect(validateStreamEvent(nonsense)).toBe(true) // permissive — zero protection
+    expect(Stage.safeParse('not_a_stage_xyz').success).toBe(false)
   })
 
   test('text_delta event validates', () => {
