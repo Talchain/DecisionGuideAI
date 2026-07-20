@@ -37,7 +37,8 @@ import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
 import type { ConditionalProbability } from '../../../../types/constraints'
 import { resolveCoaching } from '../coachingConfig'
 import { GoalAdvancedEditor } from '../editors/GoalAdvancedEditor'
-import { isV5CanonicalRunPath } from '../../../../v5/eligibility'
+import { useAuth } from '../../../../contexts/AuthContext'
+import { isPersistenceActive } from '../../../../lib/persistenceActive'
 
 export const GoalPanel = memo(function GoalPanel({
   nodeId,
@@ -61,18 +62,22 @@ export const GoalPanel = memo(function GoalPanel({
     isResultsMode ? (postAnalysisConstraints ?? preAnalysisConstraints) : preAnalysisConstraints
 
   // UI-SEM-087: display-honesty gate (same class as UI-SEM-071/082 — gate on
-  // truth, never fabricate). On the V5-canonical run path the run is a thin
-  // `run_analysis` chip (src/v5/buildPayload.ts → message + chip.action_type,
-  // no graph, no goal_constraints); the engine reads goal_constraints off its
-  // OWN server-side scenario graph, never off anything the client sends
-  // (confirmed at HeroSection.tsx:91 + olumi-assistants-service chip-click
-  // dispatch). So a constraint typed/edited here does not shape that run.
-  // The V2 direct-run path (isV5CanonicalRunPath() === false) DOES send
-  // goal_constraints (useV2Run → buildV2RunRequest), so the note gates on the
-  // EXACT predicate the runner branches on — never absolute. Pre-analysis only
-  // (entry is disabled in results mode, and post-analysis probabilities would
-  // contradict the note). Remove when routing is unified (held joint decision).
-  const constraintsInert = !isResultsMode && isV5CanonicalRunPath()
+  // truth, never fabricate). Live wire-probe (parallel-briefs/S-AUDIT-2026-07-20)
+  // REFUTED the original "constraints reach nothing" premise in BOTH directions:
+  // an authenticated user's panel constraints persist (gated write-through →
+  // scenarios.graph → CEE run_analysis reads its own server graph), and a
+  // GUEST's CHAT-entered constraints also reach analysis (CEE's add_constraint
+  // handler persists server-side regardless of auth). The ONLY dead leg is the
+  // GUEST GoalPanel → client-RPC persistence hop: guest writes are scenario-id
+  // /RLS-gated and silently swallowed, so a guest's PANEL-entered constraint
+  // never reaches the server graph. So the honest condition is exactly "this
+  // session's writes don't persist" — the canonical isPersistenceActive
+  // predicate (shared with useScenario / loginDraftImport), NOT the run path.
+  // Pre-analysis only (entry is disabled in results mode, and post-analysis
+  // probabilities would contradict the note). Remove when the guest panel→graph
+  // persistence hop lands (or a producer echo confirms the constraints were used).
+  const { user, authenticated } = useAuth()
+  const constraintsInert = !isResultsMode && !isPersistenceActive(authenticated, user)
   const hasConstraints = Array.isArray(goalConstraints) && goalConstraints.length > 0
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
@@ -353,13 +358,13 @@ export const GoalPanel = memo(function GoalPanel({
                   </p>
                 )}
                 {/* UI-SEM-087: honest status when the constraints displayed here
-                    do not reach the engine on the live (V5-canonical) run path. */}
+                    do not reach the engine — guest panel writes are RLS-swallowed. */}
                 {constraintsInert && (
                   <p
                     className={`${typography.panelMeta} text-text-light mt-1`}
                     data-testid="constraints-inert-note"
                   >
-                    {GOAL_CONSTRAINT_COPY.constraintsNotUsedInAnalysis}
+                    {GOAL_CONSTRAINT_COPY.guestConstraintsNotInAnalysis}
                   </p>
                 )}
               </div>
@@ -374,7 +379,7 @@ export const GoalPanel = memo(function GoalPanel({
               className={`${typography.panelMeta} text-text-light mt-2`}
               data-testid="constraints-inert-note-entry"
             >
-              {GOAL_CONSTRAINT_COPY.constraintsNotUsedInAnalysis}
+              {GOAL_CONSTRAINT_COPY.guestConstraintsNotInAnalysis}
             </p>
           )}
 
