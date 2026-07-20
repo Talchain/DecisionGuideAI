@@ -16,6 +16,7 @@
 import { describe, expect, it } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { stripComments } from '../../../../../tests/helpers/stripSourceComments'
 
 const MODULE_DIR = resolve(process.cwd(), 'src', 'components', 'results', 'analysis-hero')
 
@@ -26,7 +27,14 @@ function productionSources(dir: string, acc: { file: string; content: string }[]
     if (statSync(full).isDirectory()) {
       productionSources(full, acc)
     } else if (/\.(ts|tsx)$/.test(name)) {
-      acc.push({ file: name, content: readFileSync(full, 'utf8') })
+      // stripComments blanks comments but KEEPS strings/templates as code, so a
+      // design-note comment that mentions `fetch(`/`robustnessVerdict`/a
+      // threshold no longer false-reds (the #386/#403 footgun) while a real
+      // bracket-key read (`data['robustnessVerdict']`) or a live
+      // `coaching-panel/focus-now` import string is still caught. blankNonCode
+      // would blank those strings and weaken detection, so it is the wrong tool
+      // (reclassified from the #403 manifest's "blankNonCode class").
+      acc.push({ file: name, content: stripComments(readFileSync(full, 'utf8'), name) })
     }
   }
   return acc
@@ -72,5 +80,25 @@ describe('Analysis hero source hygiene', () => {
     // assertion; the source bytes just no longer spell out that shape.
     const focusNowSpecifier = ['@/canvas/components/coaching-panel', 'focus-now'].join('/')
     expect(/coaching-panel\/focus-now/.test(`import x from '${focusNowSpecifier}'`)).toBe(true)
+  })
+
+  it('comment-strip both directions: comment mentions vanish, code (incl. bracket-key) still trips', () => {
+    const fetchRe = /\bfetch\s*\(|\baxios\b|XMLHttpRequest|EventSource|WebSocket/
+    const verdictRe = /robustnessLevel|robustnessLabel|robustnessVerdict|recommendationStability/
+    // Comment-borne mentions are blanked → not scanned (the #386/#403 footgun):
+    expect(fetchRe.test(stripComments('// must never introduce a second fetch(', 'x.ts'))).toBe(false)
+    expect(verdictRe.test(stripComments('/* must not read robustnessVerdict */', 'x.ts'))).toBe(false)
+    // Real code still trips, INCLUDING a bracket-string read (why we keep
+    // strings — blankNonCode would have blanked this and missed it):
+    expect(fetchRe.test(stripComments('const r = await fetch(url)', 'x.ts'))).toBe(true)
+    expect(verdictRe.test(stripComments("const v = data['robustnessVerdict']", 'x.ts'))).toBe(true)
+    // A live focus-now import string is kept and caught. Assemble the
+    // specifier (do NOT spell out an import-shaped focus-now literal in source)
+    // — the sibling focus-now inertness guard regex-scans this file; same
+    // .join technique as the positive control above.
+    const fnSpecifier = ['./coaching-panel', 'focus-now'].join('/')
+    expect(
+      /coaching-panel\/focus-now/.test(stripComments(`import x from '${fnSpecifier}'`, 'x.ts')),
+    ).toBe(true)
   })
 })

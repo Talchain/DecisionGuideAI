@@ -9,6 +9,7 @@
 import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
+import { stripComments } from '../../../../../../tests/helpers/stripSourceComments'
 import { SIGNAL_REGISTRY, type SignalDetectionInput } from '../registry'
 import {
   ACTIONS_MENU,
@@ -122,7 +123,13 @@ describe('boundary rules — static source assertions over the v3 directory', ()
       if (entry.isDirectory()) {
         if (entry.name !== '__tests__') collect(full)
       } else if (/\.(ts|tsx)$/.test(entry.name)) {
-        sources.push(fs.readFileSync(full, 'utf8'))
+        // stripComments blanks comments but KEEPS strings as code, so a comment
+        // mentioning a dead-end intent no longer false-reds (the #386/#403
+        // footgun) while a real `intent: 'confirm_factor'` string literal or a
+        // `x['readiness_level']` bracket-key read is still caught. blankNonCode
+        // would blank those strings and go blind to a real intent reference, so
+        // it is the wrong tool (reclassified from the "blankNonCode class").
+        sources.push(stripComments(fs.readFileSync(full, 'utf8'), entry.name))
       }
     }
   }
@@ -141,6 +148,16 @@ describe('boundary rules — static source assertions over the v3 directory', ()
 
   it('never uses dangerouslySetInnerHTML', () => {
     expect(blob.includes('dangerouslySetInnerHTML')).toBe(false)
+  })
+
+  it('comment-strip both directions: comment mentions ignored, string/bracket-key still caught', () => {
+    const strip = (s: string) => stripComments(s, 'x.ts')
+    // A comment mentioning a dead-end intent is blanked → not scanned:
+    expect(strip('// never add confirm_factor here').includes('confirm_factor')).toBe(false)
+    // A real intent STRING literal is kept and still caught:
+    expect(strip("const intent = 'confirm_factor'").includes('confirm_factor')).toBe(true)
+    // A bracket-key read of the banned enum survives (why we keep strings):
+    expect(strip("const r = data['readiness_level']").includes('readiness_level')).toBe(true)
   })
 })
 

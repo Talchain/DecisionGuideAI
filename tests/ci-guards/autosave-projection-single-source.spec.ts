@@ -17,6 +17,7 @@
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { blankNonCode } from '../helpers/stripSourceComments'
 
 const SRC = join(process.cwd(), 'src')
 
@@ -52,7 +53,12 @@ function findCallSites(): CallSite[] {
   for (const file of walk(SRC)) {
     const rel = relative(SRC, file).split('\\').join('/')
     if (DEFINITION_FILES.includes(rel)) continue
-    const lines = readFileSync(file, 'utf8').split('\n')
+    // blankNonCode blanks comments AND string bodies (offsets preserved), so a
+    // `saveAutosave(` named inside a comment OR a string literal is no longer a
+    // false call site — the #386/#403 footgun. A real call is executable code
+    // and survives. (This subsumes the line-level comment/import skips below,
+    // which are kept as a cheap belt-and-braces.)
+    const lines = blankNonCode(readFileSync(file, 'utf8')).split('\n')
     lines.forEach((text, i) => {
       const m = /(?:^|[^.\w])(?:scenarios\.)?saveAutosave\(/.exec(text)
       if (!m) return
@@ -91,5 +97,26 @@ describe('autosave payload has a single constructor', () => {
     // `nodes:` in the same object passed to saveAutosave.
     const handBuilt = sites.filter(s => /^\{|timestamp\s*:/.test(s.argument))
     expect(handBuilt.map(o => `${o.file}:${o.line}`)).toEqual([])
+  })
+})
+
+/**
+ * Both-directions mutation proof for the blankNonCode strip (#386/#403).
+ * A real call still counts; a comment- or string-borne mention no longer does.
+ */
+describe('autosave guard — detector contract (comment/string mentions ignored)', () => {
+  const hasCall = (src: string): boolean =>
+    /(?:^|[^.\w])(?:scenarios\.)?saveAutosave\(/.test(blankNonCode(src))
+
+  it('STILL sees a live call', () => {
+    expect(hasCall('  scenarios.saveAutosave(projectAutosaveData(s))')).toBe(true)
+  })
+
+  it('does NOT see a call named in a // comment', () => {
+    expect(hasCall('// replaces scenarios.saveAutosave(payload)')).toBe(false)
+  })
+
+  it('does NOT see a call named in a string literal', () => {
+    expect(hasCall('throw new Error("saveAutosave(x) failed")')).toBe(false)
   })
 })

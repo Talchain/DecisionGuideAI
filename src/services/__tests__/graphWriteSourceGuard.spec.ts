@@ -25,17 +25,19 @@
  * reach here; the RPC-shape assertions in scenarioService.spec and the
  * behavioural pins in useScenario.spec are the complementary cover.
  *
- * NOTE: `blankNonCode`/`argsAt` intentionally mirror the proven helpers in
- * canvas/__tests__/cameraMotion.sourceScan.spec.ts. They are pure text utils,
- * and each copy is independently pinned by its own detector-contract block
- * below — a drifted copy fails its own positive controls rather than silently
- * returning a wrong verdict. (Deduping the two onto a shared test helper is a
- * tidy-up, deliberately not bundled into this fix.)
+ * NOTE: `blankNonCode` is now the SHARED helper in
+ * tests/helpers/stripSourceComments.ts (converged 2026-07-20 — the two
+ * hand-duplicated copies here and in cameraMotion.sourceScan.spec.ts were
+ * folded into one). `argsAt` remains a small local text util. The
+ * detector-contract block below still independently pins the shared
+ * `blankNonCode` — a drift fails these positive controls rather than silently
+ * returning a wrong verdict.
  */
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, dirname, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { blankNonCode } from '../../../tests/helpers/stripSourceComments'
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
@@ -61,44 +63,10 @@ function sourceFiles(dir: string): string[] {
   return out
 }
 
-/**
- * Blank out comments and string/template bodies, preserving offsets and
- * newlines, so documentation of the rule is never mistaken for a violation.
- */
-function blankNonCode(src: string): string {
-  const out = src.split('')
-  let i = 0
-  const blankTo = (end: number) => {
-    for (let k = i; k < end && k < src.length; k++) if (out[k] !== '\n') out[k] = ' '
-  }
-  while (i < src.length) {
-    const two = src.slice(i, i + 2)
-    if (two === '//') {
-      let end = src.indexOf('\n', i)
-      if (end === -1) end = src.length
-      blankTo(end)
-      i = end
-    } else if (two === '/*') {
-      let end = src.indexOf('*/', i + 2)
-      end = end === -1 ? src.length : end + 2
-      blankTo(end)
-      i = end
-    } else if (src[i] === '"' || src[i] === "'" || src[i] === '`') {
-      const quote = src[i]
-      let j = i + 1
-      while (j < src.length && src[j] !== quote) {
-        if (src[j] === '\\') j++
-        j++
-      }
-      i++ // keep the opening quote so the token still parses as a value
-      blankTo(j)
-      i = Math.min(j + 1, src.length)
-    } else {
-      i++
-    }
-  }
-  return out.join('')
-}
+// `blankNonCode` (blanks comments + string/template bodies, offset-preserving)
+// is now the shared helper in tests/helpers/stripSourceComments.ts — the
+// detector contract below still pins its behaviour so documentation of the
+// rule is never mistaken for a violation.
 
 /** Extract the balanced `(...)` argument text starting at `openIdx`. */
 function argsAt(src: string, openIdx: number): string {

@@ -16,6 +16,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
+import { stripComments } from '../../../../../tests/helpers/stripSourceComments'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
@@ -140,7 +141,11 @@ describe('fixture isolation — import boundary (machine-enforced, fails CI)', (
       if (file.startsWith(join(MODULE_DIR, '__tests__') + sep)) continue
       if (file.startsWith(join(MODULE_DIR, 'fixtures') + sep)) continue
       if (file === GALLERY_ROUTE) continue
-      const content = readFileSync(file, 'utf8')
+      // stripComments blanks comments but KEEPS the import string, so a comment
+      // that mentions `analysis-hero/fixtures` no longer false-reds (the
+      // residual #386/#403 footgun on the un-anchored path check) while a real
+      // fixture import string is still caught.
+      const content = stripComments(readFileSync(file, 'utf8'), file)
       // Aliased/absolute form (any importer) plus the relative forms only
       // module-internal files could use — both are offences.
       const internal = file.startsWith(MODULE_DIR + sep)
@@ -166,6 +171,18 @@ describe('fixture isolation — import boundary (machine-enforced, fails CI)', (
 
   it('positive control: the gallery route itself does import the fixtures', () => {
     expect(/analysis-hero\/fixtures/.test(readFileSync(GALLERY_ROUTE, 'utf8'))).toBe(true)
+  })
+
+  it('comment-strip both directions: a commented fixtures path is not an offender; a real import is', () => {
+    const strip = (s: string) => stripComments(s, 'x.tsx')
+    // A prose comment mentioning the path is blanked → not flagged:
+    expect(/analysis-hero\/fixtures/.test(strip('// see analysis-hero/fixtures for examples'))).toBe(false)
+    // A real fixture import string is kept → flagged:
+    expect(
+      /analysis-hero\/fixtures/.test(
+        strip("import { GALLERY_ENTRIES } from '@/components/results/analysis-hero/fixtures/galleryModels'"),
+      ),
+    ).toBe(true)
   })
 })
 
