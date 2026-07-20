@@ -162,12 +162,43 @@ export function useThreadPersistence(
 
     // Track every currently-pending visible user send — new dispatches AND
     // failed bubbles re-pended by a retry.
-    for (const msg of messages) {
-      if (msg.role !== 'user') continue
+    //
+    // This does NOT need a full-transcript walk. A user message can only
+    // BECOME 'pending' in two places, both in useConversation's dispatch
+    // block (~3120-3136):
+    //   1. a fresh dispatch (`addUserBubble`) — appends a new bubble, so it
+    //      always arrives in `newMessages`;
+    //   2. a retryLast re-pend (`skipUserBubble`) — always targets
+    //      `lastVisibleUserBubbleIdRef`, which is only ever assigned the id of
+    //      a just-added bubble, i.e. the LAST user-role message. (ChatThread
+    //      wires its retry affordance off this same derivation.)
+    // So the candidate set is `newMessages` + that one message. A third case
+    // would have to mutate deliveryState from outside that block; there is
+    // none.
+    const trackIfPending = (msg: ConversationMessage) => {
+      if (msg.role !== 'user') return
       if (msg.deliveryState === 'pending' && !handledMessageIdsRef.current.has(msg.id)) {
         deferredPendingIdsRef.current.add(msg.id)
       }
     }
+    for (const msg of newMessages) trackIfPending(msg)
+    // The retry re-pend target: the last user-role message. Scans back only
+    // over the trailing non-user messages, not the transcript.
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i]
+      if (msg.role === 'user') {
+        trackIfPending(msg)
+        break
+      }
+    }
+
+    // Bail out before the resolution walk when there is provably nothing to
+    // do. With no deferred ids the resolution pass below is a no-op (it is
+    // gated on the same condition) and `resolvedUserMessages` stays empty, so
+    // this returns exactly where the check at the end of this block would —
+    // it just skips a full-transcript walk to get there. Restores the O(1)
+    // early return that the pre-deferral version had as a length compare.
+    if (newMessages.length === 0 && deferredPendingIdsRef.current.size === 0) return
 
     // Resolution pass: deferred messages whose delivery state has settled.
     // 'sent' → persist now; 'failed' → drop for good (never committed —

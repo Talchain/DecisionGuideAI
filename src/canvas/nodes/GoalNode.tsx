@@ -218,6 +218,15 @@ export const GoalNode = memo((props: NodeProps) => {
     </>
   ) : null
 
+  // Rendered identically by the two no-target branches below (post-analysis
+  // and pre-analysis). They are mutually exclusive on `isPostAnalysis`, so one
+  // element serves both.
+  const helpSetTargetChip = (
+    <div className="mt-1.5">
+      <NodeChip chipId="goal_help_set_target" actionType={null} label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
+    </div>
+  )
+
   return (
     <div
       ref={nodeElRef as React.Ref<HTMLDivElement>}
@@ -248,9 +257,7 @@ export const GoalNode = memo((props: NodeProps) => {
                 ? 'Analysis complete. Set a target to see your chances.'
                 : 'Analysis finished. Set a target and check the graph for incomplete inputs.'}
             </p>
-            <div className="mt-1.5">
-              <NodeChip chipId="goal_help_set_target" actionType={null} label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
-            </div>
+            {helpSetTargetChip}
           </>
         )}
 
@@ -263,9 +270,7 @@ export const GoalNode = memo((props: NodeProps) => {
             <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
               Add a measurable success target, e.g. metric, threshold or deadline
             </p>
-            <div className="mt-1.5">
-              <NodeChip chipId="goal_help_set_target" actionType={null} label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
-            </div>
+            {helpSetTargetChip}
           </>
         )}
 

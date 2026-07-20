@@ -102,12 +102,22 @@ export const ChatThread = memo(function ChatThread({
   // resend — the LAST user message. Older failed attempts keep the
   // "Not delivered" marker without a retry button (clicking retry there
   // would resend different text than the bubble shows).
-  const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')
+  // One backwards pass captures both last-of-role messages. Previously this
+  // was two `[...messages].reverse().find(...)` chains — two full array copies
+  // plus two reverses per render, on a path that runs ~60x/sec once streaming
+  // is enabled.
+  let lastUserMsg: ConversationMessage | undefined
+  let lastAssistantMsg: ConversationMessage | undefined
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (!lastUserMsg && m.role === 'user') lastUserMsg = m
+    if (!lastAssistantMsg && m.role === 'assistant') lastAssistantMsg = m
+    if (lastUserMsg && lastAssistantMsg) break
+  }
   const failedSendRetryId =
     lastUserMsg && lastUserMsg.deliveryState === 'failed' ? lastUserMsg.id : null
 
   // Get suggested chips from last assistant message
-  const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant')
   const suggestedChips = lastAssistantMsg?.actionChips ?? []
   // Only hide inline chips when SuggestedChips will actually render something.
   // SuggestedChips filters out chips without a message field (e.g. retry chips),

@@ -56,18 +56,27 @@ export function resolveRetryable(
 }
 
 /**
- * Sentences in FAILURE_USER_TEXT that instruct the user to retry. When the
- * retry affordance is withheld (server said non-retryable), copy telling the
- * user to "please retry" beside a missing Try-again chip instructs an action
- * the UI gives them no way to take — the same honesty rule
- * ceeRecovery.buildFailureRender enforces on the V4 path. Exact-suffix
- * matches only; unmatched copy passes through unchanged (fail open).
+ * Trailing sentence in FAILURE_USER_TEXT that instructs the user to retry.
+ * When the retry affordance is withheld (server said non-retryable), copy
+ * telling the user to "please retry" beside a missing Try-again chip
+ * instructs an action the UI gives them no way to take — the same honesty
+ * rule ceeRecovery.buildFailureRender enforces on the V4 path.
+ *
+ * This was three exact-suffix literals (' Please retry.', ' Please try
+ * again.', ' Please retry shortly.') — a HAND-KEPT MIRROR of sentence endings
+ * inside the vendored @talchain/schemas copy. A re-vendor phrasing a code
+ * differently ("Please try again in a moment.") silently no-opped the strip
+ * and FAILED OPEN, with no test to catch it. The pattern generalises over the
+ * sentence instead: any trailing "Please retry…" / "Please try again…"
+ * sentence, however it continues. `[^.]*` keeps it from crossing a sentence
+ * boundary. Copy with no such sentence passes through unchanged (fail open).
+ *
+ * The derived guard in failureTypeRetryability.test.ts iterates every key of
+ * FAILURE_USER_TEXT and asserts no retry language survives showRetry=false,
+ * so the next re-vendor that drifts the phrasing fails loudly rather than
+ * silently shipping copy that contradicts the UI.
  */
-const RETRY_INSTRUCTION_SUFFIXES = [
-  ' Please retry.',
-  ' Please try again.',
-  ' Please retry shortly.',
-] as const
+const RETRY_INSTRUCTION_SENTENCE = /\s*Please\s+(?:retry|try\s+again)\b[^.]*\.\s*$/i
 
 /**
  * Base failure copy that AGREES with the retry decision. With the retry
@@ -81,12 +90,10 @@ export function resolveFailureBaseCopy(
 ): string {
   const canonical = FAILURE_USER_TEXT[code]
   if (showRetry) return canonical
-  for (const suffix of RETRY_INSTRUCTION_SUFFIXES) {
-    if (canonical.endsWith(suffix)) {
-      return canonical.slice(0, canonical.length - suffix.length)
-    }
-  }
-  return canonical
+  const stripped = canonical.replace(RETRY_INSTRUCTION_SENTENCE, '')
+  // Fail open rather than render nothing: copy that is ONLY a retry
+  // instruction keeps its canonical text.
+  return stripped.length > 0 ? stripped : canonical
 }
 
 /**
