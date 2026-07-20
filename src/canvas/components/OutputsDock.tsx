@@ -581,6 +581,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     persistAnalysisSuccess,
     persistAnalysisFailure,
     isPersistenceActive: _isPersistenceActive,
+    flushPendingSaves,
   } = useScenario()
 
   // Results-surface staleness is driven by the CEE freshness slice (the single
@@ -811,6 +812,22 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     if (!canRunAnalysis) {
       return { status: 'blocked', reason: runBlockedTooltip || 'Analysis is not available right now.' }
     }
+    // F1 barrier: an authenticated user who edits then presses Analyse within
+    // the 1500ms autosave debounce would otherwise dispatch a canonical V5 run
+    // (scenario_id only, no graph on the wire) that CEE resolves against the
+    // PREVIOUS persisted graph. Flush any pending/dirty save and AWAIT it before
+    // dispatch. No-op for guests/inactive persistence (their runs carry the
+    // graph and are gated elsewhere). A failed flush must NOT proceed to a run
+    // of a stale persisted graph — abort with a surfaced reason.
+    try {
+      await flushPendingSaves()
+    } catch (err) {
+      console.error('[OutputsDock] pre-run save flush failed; aborting run:', err)
+      return {
+        status: 'blocked',
+        reason: 'Could not save your latest changes. Check your connection and try again.',
+      }
+    }
     // Capture pre-analysis review progress for transition bridge
     const storeState = useCanvasStore.getState()
     const { verifiedCount, influenceCoverage } = computeInfluenceCoverage(
@@ -904,7 +921,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     }
     await runV2Analysis()
     return { status: 'v2' }
-  }, [canRunAnalysis, runBlockedTooltip, isRunning, runV2Analysis, framing])
+  }, [canRunAnalysis, runBlockedTooltip, isRunning, runV2Analysis, framing, flushPendingSaves])
 
   // Expose the canonical runner to other surfaces (canvas shortcut, palette).
   useEffect(() => registerCanonicalRunner(runCanonicalAnalysis), [runCanonicalAnalysis])
