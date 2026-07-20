@@ -31,6 +31,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'fs'
 import { join, relative } from 'path'
+import { stripComments } from '../../../../tests/helpers/stripSourceComments'
 
 const REPO_SRC = join(__dirname, '..', '..', '..')
 const SCAN_ROOTS = [
@@ -106,6 +107,31 @@ function isSanctionedChain(lines: string[], i: number, matchIndex: number): bool
   return /displayInfluence[^]*\?\?\s*$/.test(prev.trimEnd())
 }
 
+/**
+ * Raw-metric reads in `content`, comments stripped first (a commented-out
+ * `// return d.influenceScore` must not false-red — the #386/#403 footgun).
+ * String and TEMPLATE literals are KEPT as code, so a real `${d.influenceScore}`
+ * interpolation still trips: this is a policy tripwire, and blanking string
+ * bodies (the `blankNonCode` class) would make it blind to a template-literal
+ * read — strictly weaker detection. filePath only steers .css vs .js dispatch.
+ */
+function findRawInfluenceReads(content: string, filePath: string): string[] {
+  const lines = stripComments(content, filePath).split('\n')
+  const violations: string[] = []
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const member = RAW_MEMBER_READ.exec(line)
+    if (member && !isSanctionedChain(lines, i, member.index)) {
+      violations.push(`  L${i + 1}: ${line.trim()}`)
+      continue
+    }
+    if (RAW_DESTRUCTURE.test(line)) {
+      violations.push(`  L${i + 1}: ${line.trim()} (destructured raw key)`)
+    }
+  }
+  return violations
+}
+
 describe('driver-display policy: no raw influence reads outside the policy', () => {
   const sourceFiles = SCAN_ROOTS.flatMap((root) => getSourceFiles(root))
   expect(sourceFiles.length).toBeGreaterThan(50) // scan actually ran
@@ -130,19 +156,7 @@ describe('driver-display policy: no raw influence reads outside the policy', () 
         return
       }
 
-      const lines = content.split('\n')
-      const violations: string[] = []
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]
-        const member = RAW_MEMBER_READ.exec(line)
-        if (member && !isSanctionedChain(lines, i, member.index)) {
-          violations.push(`  L${i + 1}: ${line.trim()}`)
-          continue
-        }
-        if (RAW_DESTRUCTURE.test(line)) {
-          violations.push(`  L${i + 1}: ${line.trim()} (destructured raw key)`)
-        }
-      }
+      const violations = findRawInfluenceReads(content, filePath)
 
       if (violations.length > 0) {
         throw new Error(
@@ -155,4 +169,68 @@ describe('driver-display policy: no raw influence reads outside the policy', () 
       }
     })
   }
+})
+
+/**
+ * Both-directions mutation proof for the comment-strip (#386/#403 remediation).
+ *
+ * The RED-detection power of this POLICY tripwire must be provably UNCHANGED by
+ * the strip: every real code read still trips, only comment-borne mentions stop
+ * tripping. The first block re-runs the documented FOUR-bypass RED history (the
+ * July-13 audit) verbatim as live code and asserts each is STILL caught.
+ * (Mutation-verified 2026-07-20: disabling the strip turns exactly the
+ * commented-out cases RED while every "STILL catches" case stays green.)
+ */
+describe('driver-display policy — detector contract (RED power preserved)', () => {
+  // The four live bypasses the audit found, expressed as source lines. Each is
+  // a raw read NOT preceded by displayInfluence — the exact shape the guard
+  // exists to catch.
+  const FOUR_BYPASS_RED_HISTORY: Array<[string, string]> = [
+    ['tornado ordering', 'rows.sort((a, b) => (b.influenceScore ?? b.normalisedInfluence) - (a.influenceScore ?? a.normalisedInfluence))'],
+    ['TriageActionCards nudge', 'const nudge = factor.influenceScore ?? 0'],
+    ['strengthen LEHI ranking', 'const lehi = lever.normalisedInfluence ?? lever.influenceScore'],
+    ['model-tab factor map', 'return { ...f, weight: f.influenceScore }'],
+  ]
+
+  it.each(FOUR_BYPASS_RED_HISTORY)('STILL catches the live bypass: %s', (_label, line) => {
+    expect(findRawInfluenceReads(line, 'x.ts').length).toBeGreaterThan(0)
+  })
+
+  it('STILL catches a destructured raw key in live code', () => {
+    expect(findRawInfluenceReads('const { influenceScore } = driver', 'x.ts').length).toBeGreaterThan(0)
+  })
+
+  it('STILL catches a raw read inside a template literal (blankNonCode would miss this)', () => {
+    // A `${d.influenceScore}` read is a real policy violation; keeping string
+    // literals as code is why this guard uses stripComments, not blankNonCode.
+    expect(findRawInfluenceReads('const s = `infl=${d.influenceScore}`', 'x.ts').length).toBeGreaterThan(0)
+  })
+
+  it('STILL honours the sanctioned displayInfluence-first chain (no false RED)', () => {
+    expect(
+      findRawInfluenceReads('const v = d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence', 'x.ts'),
+    ).toEqual([])
+  })
+
+  it('STILL flags the WRONG-ORDERED chain (influenceScore before displayInfluence)', () => {
+    expect(
+      findRawInfluenceReads('const v = d.influenceScore ?? d.displayInfluence', 'x.ts').length,
+    ).toBeGreaterThan(0)
+  })
+
+  // The OTHER direction: the same bypasses, now commented out, must NOT trip.
+  it.each(FOUR_BYPASS_RED_HISTORY)('does NOT trip on a `//`-commented bypass: %s', (_label, line) => {
+    expect(findRawInfluenceReads(`// ${line}`, 'x.ts')).toEqual([])
+  })
+
+  it('does NOT trip on a bypass inside a /* block comment */ or JSDoc', () => {
+    expect(findRawInfluenceReads('/* was: return d.influenceScore */', 'x.ts')).toEqual([])
+    expect(
+      findRawInfluenceReads('/**\n * @example const x = d.normalisedInfluence\n */', 'x.ts'),
+    ).toEqual([])
+  })
+
+  it('does NOT trip on a commented-out destructure', () => {
+    expect(findRawInfluenceReads('// const { normalisedInfluence } = row', 'x.ts')).toEqual([])
+  })
 })

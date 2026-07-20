@@ -25,6 +25,7 @@ import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, dirname, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { blankNonCode } from '../../../tests/helpers/stripSourceComments'
 
 const CANVAS_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -49,45 +50,11 @@ function sourceFiles(dir: string): string[] {
   return out
 }
 
-/**
- * Blank out comments and string/template bodies, preserving offsets and
- * newlines. Prose about camera moves (this file's own docstring, the contract
- * note in useFitViewOnLayoutVersion) must not read as a call site.
- */
-export function blankNonCode(src: string): string {
-  const out = src.split('')
-  let i = 0
-  const blankTo = (end: number) => {
-    for (let k = i; k < end && k < src.length; k++) if (out[k] !== '\n') out[k] = ' '
-  }
-  while (i < src.length) {
-    const two = src.slice(i, i + 2)
-    if (two === '//') {
-      let end = src.indexOf('\n', i)
-      if (end === -1) end = src.length
-      blankTo(end)
-      i = end
-    } else if (two === '/*') {
-      let end = src.indexOf('*/', i + 2)
-      end = end === -1 ? src.length : end + 2
-      blankTo(end)
-      i = end
-    } else if (src[i] === '"' || src[i] === "'" || src[i] === '`') {
-      const quote = src[i]
-      let j = i + 1
-      while (j < src.length && src[j] !== quote) {
-        if (src[j] === '\\') j++
-        j++
-      }
-      i++ // keep the opening quote so the token still parses as a value
-      blankTo(j)
-      i = Math.min(j + 1, src.length)
-    } else {
-      i++
-    }
-  }
-  return out.join('')
-}
+// `blankNonCode` (blanks comments + string/template bodies, offset-preserving)
+// is the shared helper in tests/helpers/stripSourceComments.ts — the detector
+// contract below still pins its behaviour for this guard. Prose about camera
+// moves (this file's own docstring, the contract note in
+// useFitViewOnLayoutVersion) must not read as a call site.
 
 /** Extract the balanced `(...)` argument text starting at `openIdx`. */
 function argsAt(src: string, openIdx: number): string {

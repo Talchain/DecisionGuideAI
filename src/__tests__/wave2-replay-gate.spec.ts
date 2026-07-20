@@ -16,6 +16,7 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import { formatTargetValue } from '../components/results/utils/formatTargetValue'
 import { formatPercent } from '../utils/formatPercent'
+import { blankNonCode } from '../../tests/helpers/stripSourceComments'
 
 // =============================================================================
 // 1. Formatter behaviour contracts
@@ -72,7 +73,13 @@ describe('formatPercent — contract', () => {
 // =============================================================================
 describe('Trust boundary — cast budget', () => {
   const filePath = join(process.cwd(), 'src/components/results/useResultsSectionData.ts')
-  const content = readFileSync(filePath, 'utf-8')
+  const rawContent = readFileSync(filePath, 'utf-8')
+  // blankNonCode blanks comments AND string bodies (offsets preserved) so a
+  // comment- or string-borne `as any` mention can no longer inflate the cast
+  // count (the #386/#403 footgun). Real casts are executable code and survive;
+  // the boundary-field tokens the second test checks are dot-access code and
+  // survive too (verified: no bracket-string field access on any cast line).
+  const content = blankNonCode(rawContent)
 
   it('useResultsSectionData.ts has ≤ 16 "as any" casts (debug-only window access + PLoT-adapter boundary reads)', () => {
     // Packet A (2026-04-19): raised from 6 to 14 with documented rationale.
@@ -214,5 +221,28 @@ describe('No technical-string leakage', () => {
     expect(formatPercent(0)).toBe('0%')
     expect(formatPercent(100)).toBe('100%')
     expect(formatPercent(0.5, { fromDecimal: true })).toBe('50%')
+  })
+})
+
+// =============================================================================
+// 6. Cast-budget strip — both-directions detector contract (#386/#403)
+// =============================================================================
+describe('cast budget — comment/string mentions do not count', () => {
+  const countCasts = (src: string): number => (blankNonCode(src).match(/as any/g) || []).length
+
+  it('STILL counts a real cast', () => {
+    expect(countCasts('const x = (report as any).conditional_winners')).toBe(1)
+  })
+
+  it('does NOT count `as any` in a // comment', () => {
+    expect(countCasts('// removed the (foo as any) cast here')).toBe(0)
+  })
+
+  it('does NOT count `as any` inside a string literal', () => {
+    expect(countCasts('const note = "was cast as any previously"')).toBe(0)
+  })
+
+  it('boundary-field token on a real cast line survives (dot-access is code)', () => {
+    expect(blankNonCode('const r = (report as any).conditional_winners')).toContain('conditional_winners')
   })
 })

@@ -121,6 +121,102 @@ export function stripJsComments(src: string): string {
   return a.join('')
 }
 
+/**
+ * Blank comments AND string/template bodies, preserving byte offsets and
+ * newlines. This is the `blankNonCode` CLASS of stripper (distinct from
+ * `stripComments` above): where `stripComments` keeps string/template/regex
+ * literals as CODE, `blankNonCode` also erases the INSIDE of every quoted
+ * string — the opening quote is kept so the remaining token still parses as a
+ * value. Use it for CODE-PATTERN guards where the forbidden thing (a raw
+ * `.update({ graph })`, an `as any` cast, a camera-move `duration:`) is only
+ * ever real when it appears as executable code, never inside a string; there,
+ * a mention of the pattern quoted in a doc string must not read as a call site.
+ *
+ * Do NOT use it for guards whose forbidden pattern legitimately lives in a
+ * string literal — an import specifier (`from './x'`), a route string
+ * (`'#/sandbox'`), a bracket-key read (`x['field']`) — blanking the string
+ * body there would make the guard blind to real violations. Those want
+ * `stripComments` (comments only).
+ *
+ * CONVERGED (2026-07-20): this is the single implementation of the state
+ * machine that was hand-duplicated in cameraMotion.sourceScan.spec.ts and
+ * graphWriteSourceGuard.spec.ts. Both now import it; each still carries its own
+ * detector-contract block (incl. "ignores … comments and strings") that pins
+ * this function, so a drift would fail those positive controls loudly rather
+ * than returning a wrong verdict.
+ */
+export function blankNonCode(src: string): string {
+  const out = src.split('')
+  let i = 0
+  const blankTo = (end: number): void => {
+    for (let k = i; k < end && k < src.length; k++) if (out[k] !== '\n') out[k] = ' '
+  }
+  while (i < src.length) {
+    const two = src.slice(i, i + 2)
+    if (two === '//') {
+      let end = src.indexOf('\n', i)
+      if (end === -1) end = src.length
+      blankTo(end)
+      i = end
+    } else if (two === '/*') {
+      let end = src.indexOf('*/', i + 2)
+      end = end === -1 ? src.length : end + 2
+      blankTo(end)
+      i = end
+    } else if (src[i] === '"' || src[i] === "'" || src[i] === '`') {
+      const quote = src[i]
+      let j = i + 1
+      while (j < src.length && src[j] !== quote) {
+        if (src[j] === '\\') j++
+        j++
+      }
+      i++ // keep the opening quote so the token still parses as a value
+      blankTo(j)
+      i = Math.min(j + 1, src.length)
+    } else {
+      i++
+    }
+  }
+  return out.join('')
+}
+
+/**
+ * Blank HTML comments (`<!-- … -->`) AND the JS comments inside every
+ * `<script>…</script>` block, preserving byte offsets and newlines so a
+ * source-scanning guard's positions stay accurate.
+ *
+ * A hand-written HTML document (index.html) is neither pure JS nor pure CSS:
+ * `stripJsComments` cannot be applied to the whole file because a bare `//`
+ * in an `https://…` URL that sits in HTML text (not inside a JS string) would
+ * be misread as the start of a line comment. So this handles the two comment
+ * grammars that actually occur: HTML `<!-- -->` markers anywhere, and JS line
+ * and block comments inside `<script>` bodies (delegated to `stripJsComments`,
+ * which keeps string/regex literals — so a quoted URL in a `fetch()` argument
+ * survives while a `//`-commented copy of it does not).
+ */
+export function stripHtmlComments(html: string): string {
+  const a = html.split('')
+  let i = 0
+  while (i < a.length) {
+    if (html.startsWith('<!--', i)) {
+      let end = html.indexOf('-->', i + 4)
+      end = end === -1 ? html.length : end + 3
+      for (let k = i; k < end; k++) if (a[k] !== '\n' && a[k] !== '\r') a[k] = ' '
+      i = end
+    } else {
+      i++
+    }
+  }
+  // stripJsComments preserves length exactly, so replacing each script body
+  // in place never shifts any offset outside the block.
+  return a
+    .join('')
+    .replace(
+      /(<script\b[^>]*>)([\s\S]*?)(<\/script>)/gi,
+      (_m, open: string, body: string, close: string) => open + stripJsComments(body) + close,
+    )
+}
+
 /** Strip only block comments from CSS (no line comments), treating strings as code. */
 export function stripCssComments(src: string): string {
   const a = src.split('')
