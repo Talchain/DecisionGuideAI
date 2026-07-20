@@ -35,6 +35,7 @@ import type { ReportV1, CritiqueItemV1, ConfidenceLevel } from '../types'
 import type { DriversPayload, DriverItem } from '../../driversAdapter'
 import { recordDataShapeAnomaly } from '../../../lib/payload-trace-store'
 import { safeArray, safeArrayWithMeta } from '../../../lib/array-utils'
+import { PLOT_CONSTRAINT_NUMBERS_SUSPECT } from '../constraintTrust'
 import type {
   CeeDecisionReviewPayloadV1,
   CeeTrace,
@@ -661,7 +662,15 @@ export function mapV2ResponseToReportV1(
             }
           })(),
           // Multi-constraint analysis (when goal_constraints were provided in request)
-          constraint_analysis: opt.constraint_analysis,
+          // Honesty gate (UI-SEM-088): while PLoT constraint normalisation is
+          // broken (ROADMAP 2.83) the per-constraint / joint probabilities in
+          // here can INVERT, so we omit the whole block. Downstream surfaces
+          // (TargetProbabilityBars, OptionCards' joint badge, the analysis-hero
+          // "and limits" wording via UI-SEM-056, GoalNode/OutcomeNode
+          // achievement via useNodeDisplayMetadata) all take their existing
+          // absent-constraint branch. Flip PLOT_CONSTRAINT_NUMBERS_SUSPECT on
+          // the A1 deployed-and-verified signal to restore.
+          constraint_analysis: PLOT_CONSTRAINT_NUMBERS_SUSPECT ? undefined : opt.constraint_analysis,
         }
         return acc
       },

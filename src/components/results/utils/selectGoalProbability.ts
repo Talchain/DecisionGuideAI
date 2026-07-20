@@ -15,6 +15,8 @@
  * fallback logic.
  */
 
+import { PLOT_CONSTRAINT_NUMBERS_SUSPECT } from '../../../adapters/plot/constraintTrust'
+
 export interface GoalProbabilityInput {
   goal_probability?: number
   probability_of_joint_goal?: number
@@ -35,6 +37,21 @@ export function selectGoalProbability(
     typeof prob?.probability_of_joint_goal === 'number' ? prob.probability_of_joint_goal : null
   const unconstrained =
     typeof prob?.goal_probability === 'number' ? prob.goal_probability : null
+
+  // Honesty gate (UI-SEM-088): while PLoT constraint normalisation is broken
+  // (ROADMAP 2.83), `probability_of_joint_goal` can INVERT, so we NEVER
+  // substitute it — every surface falls back to the unconstrained
+  // `goal_probability`. Gated on the constant, not on `constraint_analysis`
+  // presence, because the live V5 path never populates per-option
+  // `constraint_analysis`, so the joint number arrives with no client-visible
+  // constraint marker; the constant is the only signal that survives. We drop
+  // the auto-derived `?? jointGoalProb` tail too (returning null rather than a
+  // possibly-inverted joint): the no-user-target case it served is already
+  // suppressed upstream by UI-SEM-071. Presence of a target is unaffected.
+  if (PLOT_CONSTRAINT_NUMBERS_SUSPECT) {
+    return { goalProbability: unconstrained, goalProbabilityIsJoint: false }
+  }
+
   const hasConstraints = (prob?.constraint_analysis?.constraints?.length ?? 0) > 0
 
   // Mirrors the goalProbability branch directly below (rather than comparing

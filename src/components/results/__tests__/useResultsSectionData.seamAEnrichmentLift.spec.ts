@@ -12,13 +12,24 @@
  * the mapper simply never read them. UI-BOUNDARY-DATA-INVENTORY.md §4.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import type { AnalysisResultBlock } from '@talchain/schemas/boundary'
 
 import { useResultsSectionData } from '../useResultsSectionData'
 import { useCanvasStore } from '../../../canvas/store'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
+
+// UI-SEM-088 gate. On the live V5 path a joint-goal figure arrives with no
+// per-option constraint_analysis marker, so selectGoalProbability suppresses it
+// while the gate is ON. Mutable getter drives the gate-ON pin + gate-OFF
+// positive control.
+const mockTrust = vi.hoisted(() => ({ suspect: true }))
+vi.mock('../../../adapters/plot/constraintTrust', () => ({
+  get PLOT_CONSTRAINT_NUMBERS_SUSPECT() {
+    return mockTrust.suspect
+  },
+}))
 
 const OPTION_NODES = [
   { id: 'opt_a', type: 'option', position: { x: 0, y: 0 }, data: { kind: 'option', label: 'Option A' } },
@@ -42,6 +53,7 @@ function setStoreFromLiveSeamABlock(block: AnalysisResultBlock): void {
 
 describe('useResultsSectionData — Seam-A live fixture carrying the 4 lifted fields', () => {
   beforeEach(() => {
+    mockTrust.suspect = true
     useCanvasStore.setState({
       results: null,
       rawV2Response: null,
@@ -87,32 +99,52 @@ describe('useResultsSectionData — Seam-A live fixture carrying the 4 lifted fi
     expect(result.current.confidence.tier.tier).toBe('fair')
   })
 
-  it('goal_fit_basis caveat flag is true ONLY for the option whose displayed number is the modelled joint-goal figure', () => {
-    setStoreFromLiveSeamABlock({
-      type: 'analysis_result',
-      summary: 'Option A leads',
-      leading_option_id: 'opt_a',
-      win_probabilities: { opt_a: 0.6, opt_b: 0.4 },
-      enrichment: {
-        option_comparison: [
-          {
-            option_id: 'opt_a',
-            win_probability: 0.6,
-            probability_of_joint_goal: 0.42,
-            goal_fit_basis: {
-              scored_from: 'modelled_outcome_distribution',
-              node_ids: ['node_budget'],
-            },
+  const JOINT_CAVEAT_BLOCK = {
+    type: 'analysis_result',
+    summary: 'Option A leads',
+    leading_option_id: 'opt_a',
+    win_probabilities: { opt_a: 0.6, opt_b: 0.4 },
+    enrichment: {
+      option_comparison: [
+        {
+          option_id: 'opt_a',
+          win_probability: 0.6,
+          probability_of_joint_goal: 0.42,
+          goal_fit_basis: {
+            scored_from: 'modelled_outcome_distribution',
+            node_ids: ['node_budget'],
           },
-          {
-            // No goal_fit_basis at all — must not acquire a fabricated caveat.
-            option_id: 'opt_b',
-            win_probability: 0.4,
-            probability_of_goal: 0.55,
-          },
-        ],
-      },
-    } as unknown as AnalysisResultBlock)
+        },
+        {
+          // No goal_fit_basis at all — must not acquire a fabricated caveat.
+          option_id: 'opt_b',
+          win_probability: 0.4,
+          probability_of_goal: 0.55,
+        },
+      ],
+    },
+  } as unknown as AnalysisResultBlock
+
+  it('gate ON: suppresses the joint-only goal figure (and its caveat) while the constraint numbers are suspect', () => {
+    mockTrust.suspect = true
+    setStoreFromLiveSeamABlock(JOINT_CAVEAT_BLOCK)
+
+    const { result } = renderHook(() => useResultsSectionData())
+    const byId = new Map(
+      (result.current.recommendation?.allOptions ?? []).map((o) => [o.id, o]),
+    )
+    // opt_a carries only the suspect joint figure → suppressed → null, and with
+    // no number shown the modelled-basis caveat cannot render.
+    expect(byId.get('opt_a')?.goalProbability).toBeNull()
+    expect(byId.get('opt_a')?.goalFitIsModelledBasis).toBe(false)
+    // opt_b's unconstrained goal_probability is untouched by the gate.
+    expect(byId.get('opt_b')?.goalProbability).toBe(0.55)
+    expect(byId.get('opt_b')?.goalFitIsModelledBasis).toBe(false)
+  })
+
+  it('POSITIVE CONTROL (gate OFF): goal_fit_basis caveat flag is true ONLY for the option whose displayed number is the modelled joint-goal figure', () => {
+    mockTrust.suspect = false
+    setStoreFromLiveSeamABlock(JOINT_CAVEAT_BLOCK)
 
     const { result } = renderHook(() => useResultsSectionData())
     const byId = new Map(
