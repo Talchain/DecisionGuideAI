@@ -16,7 +16,7 @@
  *   - retryable marker absent → undefined → caller keeps retry
  */
 import { describe, it, expect } from 'vitest'
-import { extractCeeRecovery, buildFailureRender } from '../ceeRecovery'
+import { extractCeeRecovery, buildFailureRender, formatRecoveryHints, isDisplaySafeReason } from '../ceeRecovery'
 
 describe('extractCeeRecovery — retryable marker', () => {
   it('reads a flat 0.18.0 CeeTypedError { retryable:false }', () => {
@@ -213,5 +213,98 @@ describe('buildFailureRender — surface (a) recovery + (b) honest retry', () =>
     seen.length = 0
     buildFailureRender(spy, { body: { retryable: true } })
     expect(seen).toEqual([true])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 0.19.0 nested recovery shape ({ recovery: { hints, suggestion, example? } })
+// — the shape the LIVE V5 wire carries at BoundaryError.details.recovery.
+// ---------------------------------------------------------------------------
+
+describe('extractCeeRecovery — 0.19.0 nested recovery object', () => {
+  const NESTED = {
+    hints: ['Name the decision', 'List two options'],
+    suggestion: 'Add more detail to your brief, then draft again.',
+    example: 'Should we expand to Berlin or Munich next year?',
+  }
+
+  it('reads suggestion + hints from a BoundaryError-shaped details.recovery', () => {
+    const boundaryError = {
+      error: 'INTERNAL_ERROR',
+      boundary: 'B1',
+      direction: 'egress',
+      validator: 'draft_graph_pipeline',
+      details: { retryable: false, reason: 'draft_graph_cee_llm_validation_failed', recovery: NESTED },
+      request_id: 'req_1',
+      retryable: false,
+    }
+    const out = extractCeeRecovery(boundaryError)
+    expect(out.retryable).toBe(false)
+    expect(out.suggestion).toBe(NESTED.suggestion)
+    expect(out.hints).toEqual(NESTED.hints)
+  })
+
+  it('flat recovery_suggestion has priority over the nested suggestion in the same container', () => {
+    const out = extractCeeRecovery({
+      body: {
+        retryable: true,
+        recovery_suggestion: 'Flat wins.',
+        recovery: { hints: ['a hint here'], suggestion: 'Nested loses.' },
+      },
+    })
+    expect(out.suggestion).toBe('Flat wins.')
+    expect(out.hints).toEqual(['a hint here'])
+  })
+
+  it('rejects code-like nested suggestions and hints (reject-only guard)', () => {
+    const out = extractCeeRecovery({
+      body: {
+        recovery: {
+          hints: ['CEE_LLM_TIMEOUT', '  ', 'keep this real hint'],
+          suggestion: 'UPSTREAM_TIMEOUT',
+        },
+      },
+    })
+    expect(out.suggestion).toBeUndefined()
+    expect(out.hints).toEqual(['keep this real hint'])
+  })
+
+  it('non-object recovery values fall back to the legacy string reading', () => {
+    const out = extractCeeRecovery({ body: { recovery: 'Just try a shorter brief.' } })
+    expect(out.suggestion).toBe('Just try a shorter brief.')
+    expect(out.hints).toBeUndefined()
+  })
+})
+
+describe('isDisplaySafeReason — machine reasons never render, prose does', () => {
+  it.each([
+    ['draft_graph_cee_llm_validation_failed', false],
+    ['draft_graph_cee_timeout', false],
+    ['CEE_LLM_TIMEOUT', false],
+    ['', false],
+    ['   ', false],
+    ['turn_id must be a UUID v4', true],
+    ['The upstream model returned an empty response', true],
+  ])('%s → %s', (value, expected) => {
+    expect(isDisplaySafeReason(value)).toBe(expected)
+  })
+})
+
+describe('formatRecoveryHints + buildFailureRender hint layering', () => {
+  it('renders hints as bullet lines', () => {
+    expect(formatRecoveryHints(['one', 'two'])).toBe('• one\n• two')
+    expect(formatRecoveryHints([])).toBe('')
+    expect(formatRecoveryHints(undefined)).toBe('')
+  })
+
+  it('buildFailureRender appends suggestion then hints beneath the base copy', () => {
+    const out = buildFailureRender(() => 'Base copy.', {
+      body: {
+        retryable: false,
+        recovery: { hints: ['hint one', 'hint two'], suggestion: 'Do the specific thing.' },
+      },
+    })
+    expect(out.showRetry).toBe(false)
+    expect(out.content).toBe('Base copy.\n\nDo the specific thing.\n\n• hint one\n• hint two')
   })
 })

@@ -237,8 +237,14 @@ describe('V5 typed error — layered content assembly', () => {
   });
 
   it('boundary_error with details.reason produces canonical + reason + guidance layers', async () => {
-    // Mirrors the three-layer join in useConversation's typed_error branch:
-    //   FAILURE_USER_TEXT[code] + extractReason(boundaryError) + resolveGuidance(code)
+    // Mirrors the layered join in useConversation's typed_error branch for
+    // the no-recovery-suggestion case:
+    //   resolveFailureBaseCopy(code, retryable) + extractReason(boundaryError)
+    //   [prose only, via isDisplaySafeReason] + resolveGuidance(code)
+    // (Codex F6: server `retryable` is authoritative; recovery suggestions,
+    // when present, replace the reason/guidance slots. The LIVE-chain
+    // rendering coverage is useConversation.v5ErrorRecovery.spec.ts — this
+    // test pins the adapter→router layer inputs only.)
     // A refactor that drops any layer or substitutes a generic string would fail this test.
     const boundaryErr: BoundaryError = {
       error: 'INGRESS_CONTRACT_VIOLATION',

@@ -12,17 +12,23 @@ import { setCurrentScenarioId } from '../store/scenarios'
 import { useDraftStore } from '../stores/draftStore'
 import { generateGraphHash } from '../utils/graphHash'
 import { callOrchestratorTurn, streamOrchestratorTurn, OrchestratorError } from './turnService'
-import { buildFailureRender } from './ceeRecovery'
+import {
+  buildFailureRender,
+  extractCeeRecovery,
+  formatRecoveryHints,
+  isDisplaySafeReason,
+} from './ceeRecovery'
 import { callV5Turn, getV5Endpoint } from '../../v5/v5Adapter'
 import { routeV5Response } from '../../v5/responseRouter'
 import { getTimeoutMs } from '../../v5/getTimeoutMs'
 import { isV5Eligible } from '../../v5/eligibility'
 import { buildV5Payload } from '../../v5/buildPayload'
 import {
-  isRetryable as isV5ErrorRetryable,
   checkRetryableAgreement,
   extractReason as extractV5ErrorReason,
   resolveGuidance as resolveV5ErrorGuidance,
+  resolveRetryable as resolveV5Retryable,
+  resolveFailureBaseCopy,
 } from '../../v5/failureTypeRetryability'
 import { mapV5Blocks } from '../../v5/blocks/mapV5Blocks'
 import { deriveV5Stage, v5StageToScenarioStage } from '../../v5/stageMapper'
@@ -42,7 +48,6 @@ import {
 // surface (malformed / no renderer / legacy suppression). Counting only —
 // recordDroppedContent never throws and never changes composition output.
 import { recordDroppedContent } from '../../lib/droppedContentCounter'
-import { FAILURE_USER_TEXT } from '@talchain/schemas/boundary'
 import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled, isPreAnalysisEnrichedEnabled, isReasoningDisclosureEnabled } from '../../flags'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 // Leg 3 blocker fix: the wire->camelCase coaching mapper lives in the CEE
@@ -3596,20 +3601,49 @@ export function useConversation(): UseConversationReturn {
             })
             if (inputForRestore) setLastFailedInput(inputForRestore)
           } else {
-            // Typed error. Layer server reason beneath the canonical text;
-            // offer Try again chip when the error is retryable (client table
-            // is authoritative; DEV warning fires if server disagrees).
+            // Typed error — the LIVE V5 error surface (Codex F6 fix; #383's
+            // recovery rendering was wired only to the dead V4 handleEnvelope
+            // path, which this branch's `return` makes unreachable).
+            //
+            // Authority order: the server's `retryable` marker on the error
+            // envelope is authoritative (BoundaryError.retryable is typed +
+            // required; CEE computes it per-failure, so INTERNAL_ERROR is NOT
+            // uniformly retryable). The client table covers only its absence
+            // (200-response error blocks / parse errors carry no envelope).
             if (target.boundaryError) {
               checkRetryableAgreement(target.boundaryError)
             }
-            const retryable = isV5ErrorRetryable(target.code)
-            const canonicalText = FAILURE_USER_TEXT[target.code]
+            // extractCeeRecovery reads the typed 0.19.0 recovery shapes:
+            // nested `details.recovery` ({ hints, suggestion }) on the live
+            // BoundaryError wire, flat `recovery_suggestion` on
+            // CeeTypedError-shaped bodies (via rawBody), plus the server
+            // retryable marker. Fail closed on every field.
+            const recovery = extractCeeRecovery(target.boundaryError ?? target.rawBody)
+            const retryable = resolveV5Retryable(target.code, recovery.retryable)
+            // Layered content, each layer display-honest:
+            //   1. canonical taxonomy text, stripped of retry instructions
+            //      when the retry affordance is withheld;
+            //   2. the CEE recovery suggestion (specific what-to-do) when
+            //      present; otherwise the wire reason ONLY when it reads as
+            //      prose — machine reasons (draft_graph_cee_timeout) never
+            //      render to users;
+            //   3. recovery hints as bullets;
+            //   4. generic code-keyed guidance only when no specific
+            //      suggestion filled the what-next slot (non-retryable codes
+            //      only — the Try again chip serves that role otherwise).
+            const baseCopy = resolveFailureBaseCopy(target.code, retryable)
             const reason = extractV5ErrorReason(target.boundaryError)
-            const guidance = resolveV5ErrorGuidance(target.code)
-            // Layer: canonical taxonomy text → server reason (if any) →
-            // code-specific guidance (non-retryable only). Retryable errors
-            // omit guidance because the Try again chip serves that role.
-            const content = [canonicalText, reason, guidance]
+            const reasonLayer =
+              recovery.suggestion === undefined && isDisplaySafeReason(reason) ? reason : ''
+            const guidance =
+              recovery.suggestion === undefined ? resolveV5ErrorGuidance(target.code) : ''
+            const content = [
+              baseCopy,
+              recovery.suggestion ?? '',
+              reasonLayer,
+              formatRecoveryHints(recovery.hints),
+              guidance,
+            ]
               .filter((s) => s.length > 0)
               .join('\n\n')
             const retryChips: ActionChip[] = retryable && mode === 'user' && !hidden
