@@ -263,15 +263,21 @@ export const HERO_COPY = {
  * The product knows the intent at authoring time; discarding it and
  * re-inferring by regex IS the defect mechanism.
  *
- * `action_type` is the wire intent, constrained to the @talchain/schemas
- * 0.19.0 ActionType enum (a strict enum at CEE ingress — out-of-enum values
- * 422). `null` means: this spark is a coaching/readiness intent and the
- * current vocabulary has NO honest entry for it — we do NOT force a wrong
- * one. Every spark still ships its identity as `chip.parameters.spark_id`,
- * the deterministic hook CEE's routing half keys on. When the schema gains
- * a coaching/readiness action_type, flip the nulls — the contract test in
+ * `action_type` is the wire intent: a @talchain/schemas ActionType enum
+ * value (strict at CEE ingress — out-of-enum values 422), a declared
+ * pending value (PENDING_WIRE_ACTION_TYPES in conversation/chipMeta.ts —
+ * mapped now, WITHHELD from the wire by buildV5Payload's schema-derived
+ * gate until the re-vendor publishes it), or `null` when no honest entry
+ * exists — we do NOT force a wrong one. Every spark still ships its
+ * identity as `chip.parameters.spark_id`, the deterministic hook CEE's
+ * routing half keys on. The contract test in
  * __tests__/sparkIntentContract.spec.ts validates values against the enum
  * itself (derived, never a hand-kept list).
+ *
+ * `analysis_readiness` (signed off for 0.20.0) means "assess/coach
+ * readiness for analysis". Mapped ONLY where that is the spark's honest
+ * intent — elicitation/reflection sparks whose readiness link is incidental
+ * stay null rather than being recast as analysis-gate conversations.
  */
 export type ActionsMenuItem = SparkPrompt
 
@@ -317,10 +323,12 @@ export const ACTIONS_MENU: ReadonlyArray<ActionsMenuItem> = [
     id: 'calibrate_estimates',
     label: 'Check estimates',
     prompt: 'Help me check the estimates that matter most to the analysis.',
-    // Pre-analysis calibration coaching. what_would_flip is post-analysis
-    // sensitivity and its deterministic chip handler demands prior analysis
-    // facts — stamping it would turn this spark into "run analysis first".
-    action_type: null,
+    // Analysis-preparation coaching: "the estimates that matter most to
+    // the ANALYSIS" is readiness-directed — the readiness capability's
+    // estimate-gap signals are the honest answer. NOT what_would_flip
+    // (post-analysis sensitivity; its deterministic handler demands prior
+    // analysis facts). Pending: withheld until the 0.20.0 re-vendor.
+    action_type: 'analysis_readiness',
   },
   {
     id: 'compare_view',
@@ -334,17 +342,19 @@ export const ACTIONS_MENU: ReadonlyArray<ActionsMenuItem> = [
     id: 'prepare_first_analysis',
     label: 'Prepare first analysis',
     prompt: 'What should I check before running the first analysis?',
-    // Readiness coaching (the spark in A1's defect reproduction).
-    // run_analysis would RUN the analysis the user is asking how to prepare
-    // for — the exact wrongness class this metadata exists to kill.
-    action_type: null,
+    // THE readiness spark (A1's defect reproduction) — the verbatim intent
+    // analysis_readiness was coined for. NOT run_analysis, which would RUN
+    // the analysis the user is asking how to prepare for — the exact
+    // wrongness class this metadata exists to kill. Pending: withheld
+    // until the 0.20.0 re-vendor.
+    action_type: 'analysis_readiness',
   },
 ]
 
-// Every entry is a coaching intent: action_type stays null until the schema
-// vocabulary gains a coaching/readiness entry (see SparkPrompt doc). Ids
-// shared with ACTIONS_MENU where the prompt is identical — same product
-// intent, same wire identity.
+// Ids shared with ACTIONS_MENU where the prompt is identical — same product
+// intent, same wire identity, same action_type adjudication (calibrate maps
+// to the pending analysis_readiness; the rest are elicitation/reflection
+// intents with no honest entry — see the ACTIONS_MENU doc).
 export const SPARK_PROMPTS = {
   widenOptions: {
     id: 'widen_options',
@@ -362,7 +372,9 @@ export const SPARK_PROMPTS = {
     id: 'calibrate_estimates',
     label: 'Check estimates',
     prompt: 'Help me check the estimates that matter most to the analysis.',
-    action_type: null,
+    // Same id + adjudication as the ACTIONS_MENU entry: readiness-directed
+    // calibration coaching. Pending: withheld until the 0.20.0 re-vendor.
+    action_type: 'analysis_readiness',
   },
   pressureTestFrame: {
     id: 'pressure_test_frame',

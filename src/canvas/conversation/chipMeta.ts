@@ -65,12 +65,16 @@ export function toLegacyChipMetadata(
  * code change. CEE ingress validates action_type FAIL-CLOSED, so sending
  * early would 422 the whole turn.
  *
- * Currently empty: the 0.20.0 chip-intent value name is pending sign-off.
- * Add the literal to the ARRAY when the name lands (the type derives from
- * it); remove it once the schema re-vendor makes it part of
- * ActionTypeLiteral. The spark intent contract spec consults this list, so
- * an entry here is a tested declaration, not a comment.
+ * Members are added to the ARRAY on name sign-off (the type derives from
+ * it) and removed once the schema re-vendor makes them part of
+ * ActionTypeLiteral — the contract spec's list-hygiene test goes RED at
+ * that moment, forcing the removal. An entry here is a tested declaration,
+ * not a comment.
+ *
+ * - `analysis_readiness` (signed off 2026-07-20, lands in 0.20.0):
+ *   assess/coach readiness for analysis — the intent behind the
+ *   "Prepare first analysis" defect spark. Intent-shaped, not a command.
  */
-export const PENDING_WIRE_ACTION_TYPES = [] as const
+export const PENDING_WIRE_ACTION_TYPES = ['analysis_readiness'] as const
 
 export type PendingWireActionType = (typeof PENDING_WIRE_ACTION_TYPES)[number]

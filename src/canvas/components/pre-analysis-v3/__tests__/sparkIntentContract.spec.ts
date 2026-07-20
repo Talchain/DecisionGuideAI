@@ -219,6 +219,28 @@ describe('spark click → outgoing wire payload (real send funnel)', () => {
       ).toBe(false)
     }
   })
+
+  it('publication gate: analysis_readiness is DECLARED pending and currently WITHHELD (the gate is holding something back, not vacuously empty)', () => {
+    // Signed off 2026-07-20 for schemas 0.20.0: "assess/coach readiness
+    // for analysis". This test flips RED on the 0.20.0 re-vendor (the
+    // value joins the enum) — at that point remove it from
+    // PENDING_WIRE_ACTION_TYPES; the mapped sparks then SEND it with no
+    // further change (the per-spark wire tests' published arm takes over).
+    expect(PENDING_SET.has('analysis_readiness')).toBe(true)
+    expect(SCHEMA_ACTION_TYPES.has('analysis_readiness')).toBe(false)
+  })
+
+  it('publication gate: at least one registry spark maps to a pending value (the withhold arm is exercised by REAL registry data)', () => {
+    // Without this, the withhold arm would be proven only by the synthetic
+    // control above — a registry regression to all-null would silently
+    // stop exercising it. prepare_first_analysis (the defect spark) and
+    // calibrate_estimates carry analysis_readiness today.
+    const pendingMapped = ALL_SPARKS.filter(
+      (s) => s.action_type !== null && PENDING_SET.has(s.action_type),
+    )
+    expect(pendingMapped.length).toBeGreaterThanOrEqual(1)
+    expect(pendingMapped.map((s) => s.id)).toContain('prepare_first_analysis')
+  })
 })
 
 describe('free-typed text is NEVER stamped with product intent', () => {
