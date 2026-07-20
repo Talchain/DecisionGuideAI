@@ -250,20 +250,67 @@ describe('GOAL-CONSTRAINT JOURNEY — UI "Add constraint" to PLoT request bytes'
 
   // ── Defect 3: positional ids collide after delete-then-add ──────────────
   it('constraint ids stay unique across a delete-then-add cycle', () => {
-    seedStore()
-    addConstraintViaUI({ value: '50000' })
-    const first = useCanvasStore.getState().goalConstraints![0]
+    // The collision is only reachable by DRIVING THE UI through the real
+    // sequence. An earlier version of this test minted the second id itself and
+    // therefore passed with the positional scheme restored — it proved nothing.
+    // `c${base.length + 1}` reissues an id that is already in use:
+    //   add A -> base [] -> "c1"
+    //   add B -> base [A] -> "c2"
+    //   delete A -> base [B("c2")]
+    //   add C -> base [B] -> "c2"  <-- collides with B
+    // PLoT rejects that with CONSTRAINT_DUPLICATE_ID.
+    seedStore({
+      nodes: [
+        ...nodes,
+        {
+          id: 'fac_headcount',
+          type: 'factor',
+          position: { x: 0, y: 120 },
+          data: { label: 'Headcount', kind: 'factor', value: 10 },
+        },
+        {
+          id: 'fac_runway',
+          type: 'factor',
+          position: { x: 0, y: 240 },
+          data: { label: 'Runway', kind: 'factor', value: 12 },
+        },
+      ],
+    })
 
-    // Simulate the collision path: the user removes a constraint and adds
-    // another. `c${base.length + 1}` regenerates an id that is already in use,
-    // which PLoT rejects with CONSTRAINT_DUPLICATE_ID.
-    const second = { ...first, constraint_id: crypto.randomUUID() }
-    useCanvasStore.getState().setGoalConstraints([first, second])
+    const addFor = (factorId: string, value: string) => {
+      const view = render(
+        <GoalPanel nodeId={GOAL_ID} techMode={false} onClose={() => {}} onNavigate={() => {}} />,
+      )
+      fireEvent.click(view.getByTestId('add-constraint-button'))
+      fireEvent.change(view.getByLabelText('Constraint target factor'), {
+        target: { value: factorId },
+      })
+      fireEvent.change(view.getByLabelText('Constraint target value'), { target: { value } })
+      fireEvent.click(view.getByTestId('confirm-add-constraint'))
+      view.unmount()
+    }
 
-    const request = buildRequestFromStore()
-    const ids = request.goal_constraints!.map((c) => c.constraint_id ?? c.id)
+    addFor(FACTOR_ID, '50000')
+    addFor('fac_headcount', '10')
+
+    // The user deletes the FIRST constraint.
+    const afterTwo = useCanvasStore.getState().goalConstraints!
+    expect(afterTwo).toHaveLength(2)
+    useCanvasStore.getState().setGoalConstraints([afterTwo[1]])
+
+    // ...and adds another. This is the reissue point.
+    addFor('fac_runway', '12')
+
+    const finalConstraints = useCanvasStore.getState().goalConstraints!
+    expect(finalConstraints).toHaveLength(2)
+
+    const ids = finalConstraints.map((c) => c.constraint_id ?? c.id)
     expect(new Set(ids).size).toBe(ids.length)
-    expect(first.constraint_id).not.toBe(second.constraint_id)
+
+    // And the request must carry both — the UI-SEM-086 gate drops duplicates,
+    // so a collision here silently costs the user a constraint.
+    const request = buildRequestFromStore()
+    expect(request.goal_constraints).toHaveLength(2)
   })
 })
 
