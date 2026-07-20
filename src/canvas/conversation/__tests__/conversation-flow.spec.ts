@@ -46,6 +46,16 @@ vi.mock('../../../flags', async () => {
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
+  // This spec exercises the V4 non-streaming path (it mocks turnService's
+  // callOrchestratorTurn and forces isOrchestratorStreamingEnabled=false).
+  // Routing to V4 is gated on VITE_ENABLE_V5_ORCHESTRATOR !== 'true' (read via
+  // import.meta.env in useConversation.sendTurn, NOT via the flags module the
+  // mock above replaces). CI leaves the var unset so the V4 path runs and the
+  // mock is hit; a local .env.local that sets it to 'true' routes every turn to
+  // the unmocked V5 dispatch instead, which fails with "message didn't reach the
+  // server" (12/12 red locally, green in CI). Pin it off so the path under test
+  // is env-independent.
+  vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'false')
   vi.useFakeTimers()
   mockCallTurn.mockReset()
   mockTrackEvent.mockReset()
@@ -61,6 +71,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.unstubAllEnvs()
   vi.useRealTimers()
 })
 
