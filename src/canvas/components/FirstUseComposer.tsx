@@ -1,7 +1,9 @@
 import { memo, useCallback, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { AlertCircle } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { useConversationContext } from '../conversation/ConversationContext'
+import type { SendFailureNotice } from '../conversation/useConversation'
 import { useFloatingPanelState, canAutoDock } from '../hooks/useFloatingPanelState'
 import { useUIStore } from '../../stores/uiStore'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
@@ -42,6 +44,29 @@ interface FirstUseComposerProps {
 const PANEL_WIDTH = 960
 const PANEL_MARGIN = 16
 
+/**
+ * Point-of-failure copy for the hero (dress-rehearsal trust item #3,
+ * paired defect). The hero is the ONE Olumi surface with no visible
+ * transcript — before this notice, a failed draft send reset the composer
+ * to pristine while the only error copy rendered inside the collapsed
+ * outputs dock, so the user's text appeared to vanish into silence.
+ * Transport failures (the rehearsal's 4/4 proxy 504s) get transport-honest
+ * copy — never the false "server processing" claim, never an invented
+ * recovery suggestion.
+ */
+function heroFailureCopy(failure: SendFailureNotice): string {
+  switch (failure.kind) {
+    case 'transport':
+      return "That didn't get through. The server didn't respond, so no model was drafted. Your text wasn't lost. It's back in the box above; send it again when you're ready."
+    case 'timeout':
+      return "That took too long, so we stopped waiting. No model was drafted. Your text wasn't lost. It's back in the box above; send it again when you're ready."
+    case 'server':
+      return failure.retryable
+        ? "Something went wrong on our side and your brief couldn't be processed. Your text wasn't lost. It's back in the box above; try rephrasing or send it again."
+        : "Something went wrong on our side and your brief couldn't be processed. Your text wasn't lost. It's back in the box above."
+  }
+}
+
 /** Reposition margin when post-graph auto-anchoring the floating panel. */
 const REPOSITION_EDGE_MARGIN = 16
 
@@ -68,7 +93,7 @@ const REPOSITION_EDGE_MARGIN = 16
  */
 export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick, blueprintEventBus }: FirstUseComposerProps) {
   const nodeCount = useCanvasStore((s) => s.nodes.length)
-  const { messages, isThinking } = useConversationContext()
+  const { messages, isThinking, lastSendFailure, draft, setDraft } = useConversationContext()
   const realMessageCount = messages.filter((m) => !m.synthetic).length
   // Round-12: during the first-use generating window (user submitted a
   // brief, no graph yet) the composer freezes, its placeholder swaps to
@@ -80,6 +105,27 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick, blu
   // indicator unmounts as soon as the first graph appears (nodeCount > 0
   // → hero unmounts entirely).
   const isGenerating = isThinking && nodeCount === 0
+
+  // Trust item #3 (paired defect): when the send fails while the hero is
+  // the active surface, the failure must be visible HERE — not only in the
+  // collapsed dock's transcript. Notice below the composer + the user's
+  // text restored into it, so nothing reads as vanished.
+  const showSendFailure = lastSendFailure !== null && !isGenerating
+
+  // Restore the failed text into the composer once per failure instance —
+  // never clobber text the user has already retyped.
+  const restoredForFailureRef = useRef<SendFailureNotice | null>(null)
+  useEffect(() => {
+    if (!lastSendFailure) {
+      restoredForFailureRef.current = null
+      return
+    }
+    if (restoredForFailureRef.current === lastSendFailure) return
+    restoredForFailureRef.current = lastSendFailure
+    if (draft.trim() === '' && lastSendFailure.inputText) {
+      setDraft(lastSendFailure.inputText)
+    }
+  }, [lastSendFailure, draft, setDraft])
 
   const isOpen = useFloatingPanelState((s) => s.isOpen)
   const source = useFloatingPanelState((s) => s.source)
@@ -287,6 +333,20 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick, blu
           </div>
         ) : null}
       </div>
+      {/* Trust item #3: send-failure notice at the point of failure. Plain
+          visible content — deliberately NOT a live region (the
+          conversation's role="log" owner announces; adding aria-live here
+          would violate the single-live-region invariant). Hidden while a
+          new attempt is generating; cleared by the next dispatch. */}
+      {showSendFailure && lastSendFailure ? (
+        <div
+          data-testid="first-use-send-failure"
+          className="w-full max-w-2xl flex items-start gap-2 rounded-lg bg-panel border border-danger/30 px-3 py-2.5"
+        >
+          <AlertCircle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" aria-hidden="true" />
+          <p className="text-sm text-text-body m-0">{heroFailureCopy(lastSendFailure)}</p>
+        </div>
+      ) : null}
       {/* Starter decisions — the second way in, COMPLEMENTING the composer
           above (type, or pick a worked example). Suppressed during the
           generating window: the user has already committed a brief, so

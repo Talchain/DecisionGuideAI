@@ -32,7 +32,33 @@
  */
 import type { OlumiResponse, FailureTypeLiteral, BoundaryError } from '@talchain/schemas/boundary';
 
+import type { ErrorSource, ParseFailureKind } from './responseParser';
 import type { V5CallResult } from './v5Adapter';
+
+/**
+ * Parse-failure metadata forwarded on typed_error targets that originated
+ * from a `parse_error` (transcript honesty, trust item #3). A parse_error
+ * means NO typed CEE body reached the UI — the failure may be pure
+ * transport (proxy 504 `PROXY_UPSTREAM_TIMEOUT`, Netlify edge timeout HTML,
+ * a thrown network TypeError). Consumers combine this with the absence of
+ * any CEE recovery signal to render transport-honest copy ("your message
+ * didn't go through") instead of the false server-fault claim
+ * ("Something went wrong on our side").
+ */
+export interface TypedErrorTransportMeta {
+  /** HTTP status of the failed response. Absent when fetch itself threw. */
+  httpStatus?: number;
+  /** Header/body-derived origin classification from the parser. */
+  source?: ErrorSource;
+  /** Which parse failure fired (non_json / non_ok_non_boundary / ...). */
+  parseFailureKind?: ParseFailureKind;
+  /**
+   * True when the request never produced a response at all (fetch threw:
+   * offline, DNS, CORS preflight). The strongest "didn't reach the server"
+   * signal.
+   */
+  network: boolean;
+}
 
 export type RenderTarget =
   | { kind: 'text_only'; response: OlumiResponse }
@@ -53,6 +79,11 @@ export type RenderTarget =
        * defensively via ceeRecovery.extractCeeRecovery (fail closed).
        */
       rawBody?: unknown;
+      /**
+       * Present exactly when this typed_error came from a parse_error (no
+       * BoundaryError envelope on the wire). See TypedErrorTransportMeta.
+       */
+      transportMeta?: TypedErrorTransportMeta;
     };
 
 export function routeV5Response(result: V5CallResult): RenderTarget {
@@ -69,6 +100,16 @@ export function routeV5Response(result: V5CallResult): RenderTarget {
       kind: 'typed_error',
       code: 'INTERNAL_ERROR',
       ...(result.raw !== undefined ? { rawBody: result.raw } : {}),
+      transportMeta: {
+        ...(result.http_status !== undefined ? { httpStatus: result.http_status } : {}),
+        ...(result.source !== undefined ? { source: result.source } : {}),
+        ...(result.parse_failure_kind !== undefined
+          ? { parseFailureKind: result.parse_failure_kind }
+          : {}),
+        // The fetch-threw parse_error (v5Adapter catch) is the only one
+        // with no http_status — every parseV5Response branch stamps one.
+        network: result.http_status === undefined,
+      },
     };
   }
 

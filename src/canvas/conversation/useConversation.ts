@@ -18,6 +18,7 @@ import {
   formatRecoveryHints,
   isDisplaySafeReason,
 } from './ceeRecovery'
+import { buildTransportFailureCopy, isTransportFailure } from './transportFailure'
 import { callV5Turn, getV5Endpoint } from '../../v5/v5Adapter'
 import { routeV5Response } from '../../v5/responseRouter'
 import { getTimeoutMs } from '../../v5/getTimeoutMs'
@@ -1592,12 +1593,37 @@ function resolveUserTurnType(
   return 'conversation'
 }
 
+/**
+ * Structured record of the most recent visible user send that failed
+ * (transcript honesty, trust item #3). Unlike `lastFailedInput` (retryable
+ * failures only), this fires for EVERY failed visible user send so
+ * point-of-failure surfaces with no visible transcript (the first-use hero)
+ * can show feedback instead of failing silently. Cleared on the next
+ * visible user dispatch, clearHistory, and scenario switch.
+ */
+export interface SendFailureNotice {
+  /**
+   * 'transport': no CEE body reached the UI (proxy 504, network throw) —
+   *   the turn never produced a server outcome.
+   * 'timeout':   the browser's own timer aborted the wait.
+   * 'server':    the server received the turn and failed it (typed error /
+   *   empty response).
+   */
+  kind: 'transport' | 'timeout' | 'server'
+  /** Whether the retry affordance is being offered for this failure. */
+  retryable: boolean
+  /** The submitted input text, for restore-into-composer affordances. */
+  inputText: string
+}
+
 export interface UseConversationReturn {
   messages: ConversationMessage[]
   isThinking: boolean
   longRunningHint: string | null
   /** The user's last input text, restored on error so they can edit and resend */
   lastFailedInput: string | null
+  /** Most recent visible-user-send failure, all classes. Null when none. */
+  lastSendFailure: SendFailureNotice | null
   sendMessage: (text: string, opts?: {
     hidden?: boolean
     turnType?: Exclude<TurnType, 'system_event'>
@@ -1646,6 +1672,7 @@ export function useConversation(): UseConversationReturn {
   useEffect(() => { isThinkingRef.current = isThinking }, [isThinking])
   const [longRunningHint, setLongRunningHint] = useState<string | null>(null)
   const [lastFailedInput, setLastFailedInput] = useState<string | null>(null)
+  const [lastSendFailure, setLastSendFailure] = useState<SendFailureNotice | null>(null)
   const [patchBlockStates, setPatchBlockStates] = useState<Map<string, PatchBlockState>>(new Map())
   const [patchRejections, setPatchRejectionsMap] = useState<Map<string, PatchRejectionInfo>>(new Map())
 
@@ -1662,6 +1689,11 @@ export function useConversation(): UseConversationReturn {
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const elapsedIntervalRef = useRef<ReturnType<typeof setInterval>>()
   const lastUserInputRef = useRef<{ message: string; clientTurnId?: string }>({ message: '' })
+  // Transcript honesty (trust item #3): id of the most recent VISIBLE user
+  // bubble. Written when the V5 path adds a user bubble; read by the
+  // retryLast/skipUserBubble path so a retry re-pends and (on the next
+  // outcome) re-marks the ORIGINAL bubble instead of minting a duplicate.
+  const lastVisibleUserBubbleIdRef = useRef<string | null>(null)
   // Tracks the client_turn_id of the most-recently-dispatched V5 turn of ANY
   // kind — visible, hidden, or system. Used by applyV5State's stale-turn
   // guard so that hidden and system responses are NOT falsely treated as
@@ -1763,6 +1795,7 @@ export function useConversation(): UseConversationReturn {
             useDraftStore.getState().setIsGenerating(false)
             setLongRunningHint(null)
             setLastFailedInput(null)
+            setLastSendFailure(null)
 
             // Persist session boundary entry (best-effort)
             if (isThreadPersistEnabled()) {
@@ -1787,6 +1820,7 @@ export function useConversation(): UseConversationReturn {
             useDraftStore.getState().setIsGenerating(false)
             setLongRunningHint(null)
             setLastFailedInput(null)
+            setLastSendFailure(null)
           } finally {
             // Clear from store to prevent re-hydration (even on error)
             useCanvasStore.setState({ _hydratedThread: null })
@@ -1802,6 +1836,7 @@ export function useConversation(): UseConversationReturn {
       useDraftStore.getState().setIsGenerating(false)
       setLongRunningHint(null)
       setLastFailedInput(null)
+      setLastSendFailure(null)
     }
   }, [scenarioId])
 
@@ -3064,6 +3099,7 @@ export function useConversation(): UseConversationReturn {
           })
           lastUserInputRef.current = { message, clientTurnId: turnClientId }
           setLastFailedInput(null)
+          setLastSendFailure(null)
         } else if (hidden && source === 'right_panel_action') {
           recordUserAction({
             actionType: 'clicked run analysis',
@@ -3073,16 +3109,32 @@ export function useConversation(): UseConversationReturn {
 
         // User bubble — HARD RULE: system events never get one, and `hidden`
         // turns skip the bubble too. See docs/v5/ui-outbound-payload-coverage.md.
+        //
+        // Transcript honesty (trust item #3): the bubble starts
+        // deliveryState 'pending' and this turn's outcome resolves it to
+        // 'sent' or 'failed' — a send lost to a 504 must not sit in the
+        // transcript looking identical to a delivered one. A retryLast
+        // re-dispatch (skipUserBubble) re-pends the ORIGINAL bubble so the
+        // failed marker clears for the new attempt without a duplicate.
+        let userBubbleIdForTurn: string | null = null
         if (addUserBubble) {
+          userBubbleIdForTurn = crypto.randomUUID()
+          lastVisibleUserBubbleIdRef.current = userBubbleIdForTurn
           addMessage({
-            id: crypto.randomUUID(),
+            id: userBubbleIdForTurn,
             role: 'user',
             content: displayText ?? message,
             displayContent: displayText,
             submittedPrompt: message,
             timestamp: new Date(),
+            deliveryState: 'pending',
             ...(chipInitiated ? { chipInitiated: true } : {}),
           })
+        } else if (skipUserBubble && mode === 'user' && !hidden) {
+          userBubbleIdForTurn = lastVisibleUserBubbleIdRef.current
+          if (userBubbleIdForTurn) {
+            updateMessage(userBubbleIdForTurn, { deliveryState: 'pending' })
+          }
         }
 
         // Lazy UUID allocation — mirrors V4 buildRequest above.
@@ -3143,6 +3195,10 @@ export function useConversation(): UseConversationReturn {
           // buildV5Payload refused — missing message or unsupported system
           // event. Surface a typed error rather than a malformed request.
           if (mode === 'user' && !hidden) {
+            // Nothing was dispatched — the bubble must not read as sent.
+            if (userBubbleIdForTurn) {
+              updateMessage(userBubbleIdForTurn, { deliveryState: 'failed' })
+            }
             const msg = build.reason === 'missing_message'
               ? 'Please enter a message.'
               : "This action isn't supported yet. Try a different approach."
@@ -3189,10 +3245,18 @@ export function useConversation(): UseConversationReturn {
           setLongRunningHint(null)
           if (inputForRestore) setLastFailedInput(inputForRestore)
           if (mode === 'user' && !hidden) {
+            // Transcript honesty: we stopped waiting — the turn produced no
+            // response, so the bubble must not read as delivered.
+            if (userBubbleIdForTurn) {
+              updateMessage(userBubbleIdForTurn, { deliveryState: 'failed' })
+            }
+            if (inputForRestore) {
+              setLastSendFailure({ kind: 'timeout', retryable: true, inputText: inputForRestore })
+            }
             addMessage({
               id: crypto.randomUUID(),
               role: 'assistant',
-              content: 'This is taking longer than expected. Try again or rephrase your message.',
+              content: 'This is taking longer than expected. We stopped waiting, so your message has not gone through. Nothing you typed was lost. Try again or rephrase your message.',
               synthetic: true,
               actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' }],
               timestamp: new Date(),
@@ -3251,6 +3315,16 @@ export function useConversation(): UseConversationReturn {
           }
 
           const target = routeV5Response(v5Result)
+
+          // Transcript honesty: resolve this turn's user bubble. Any server
+          // response (including an empty one) means the send was delivered;
+          // only typed_error leaves it failed. Resolved BEFORE rendering so
+          // the marker and the outcome message land in the same commit.
+          if (userBubbleIdForTurn) {
+            updateMessage(userBubbleIdForTurn, {
+              deliveryState: target.kind === 'typed_error' ? 'failed' : 'sent',
+            })
+          }
 
           if (target.kind === 'text_only' || target.kind === 'blocks') {
             // Apply side-effects (stage, graph_patch mutations) BEFORE the
@@ -3606,7 +3680,12 @@ export function useConversation(): UseConversationReturn {
                 : [],
               timestamp: new Date(),
             })
-            if (inputForRestore) setLastFailedInput(inputForRestore)
+            if (inputForRestore) {
+              setLastFailedInput(inputForRestore)
+              // Delivered but produced nothing — the hero must still show
+              // feedback rather than fail silently (server class).
+              setLastSendFailure({ kind: 'server', retryable: true, inputText: inputForRestore })
+            }
           } else {
             // Typed error — the LIVE V5 error surface (Codex F6 fix; #383's
             // recovery rendering was wired only to the dead V4 handleEnvelope
@@ -3627,32 +3706,49 @@ export function useConversation(): UseConversationReturn {
             // retryable marker. Fail closed on every field.
             const recovery = extractCeeRecovery(target.boundaryError ?? target.rawBody)
             const retryable = resolveV5Retryable(target.code, recovery.retryable)
-            // Layered content, each layer display-honest:
-            //   1. canonical taxonomy text, stripped of retry instructions
-            //      when the retry affordance is withheld;
-            //   2. the CEE recovery suggestion (specific what-to-do) when
-            //      present; otherwise the wire reason ONLY when it reads as
-            //      prose — machine reasons (draft_graph_cee_timeout) never
-            //      render to users;
-            //   3. recovery hints as bullets;
-            //   4. generic code-keyed guidance only when no specific
-            //      suggestion filled the what-next slot (non-retryable codes
-            //      only — the Try again chip serves that role otherwise).
-            const baseCopy = resolveFailureBaseCopy(target.code, retryable)
-            const reason = extractV5ErrorReason(target.boundaryError)
-            const reasonLayer =
-              recovery.suggestion === undefined && isDisplaySafeReason(reason) ? reason : ''
-            const guidance =
-              recovery.suggestion === undefined ? resolveV5ErrorGuidance(target.code) : ''
-            const content = [
-              baseCopy,
-              recovery.suggestion ?? '',
-              reasonLayer,
-              formatRecoveryHints(recovery.hints),
-              guidance,
-            ]
-              .filter((s) => s.length > 0)
-              .join('\n\n')
+            // Transcript honesty (trust item #3): the rehearsal's 504s carry
+            // NO CEE body — the proxy timeout JSON is not a server-processing
+            // fault, and "Something went wrong on our side" was a false
+            // claim for that class. A parse_error-originated target with
+            // zero CEE signal renders transport-honest copy instead, and
+            // never invents a recovery suggestion.
+            const transportFailure = isTransportFailure({
+              hasBoundaryError: target.boundaryError !== undefined,
+              transportMeta: target.transportMeta,
+              recovery,
+              rawBody: target.rawBody,
+            })
+            let content: string
+            if (transportFailure && target.transportMeta) {
+              content = buildTransportFailureCopy(target.transportMeta, retryable)
+            } else {
+              // CEE-class — layered content, each layer display-honest:
+              //   1. canonical taxonomy text, stripped of retry instructions
+              //      when the retry affordance is withheld;
+              //   2. the CEE recovery suggestion (specific what-to-do) when
+              //      present; otherwise the wire reason ONLY when it reads as
+              //      prose — machine reasons (draft_graph_cee_timeout) never
+              //      render to users;
+              //   3. recovery hints as bullets;
+              //   4. generic code-keyed guidance only when no specific
+              //      suggestion filled the what-next slot (non-retryable codes
+              //      only — the Try again chip serves that role otherwise).
+              const baseCopy = resolveFailureBaseCopy(target.code, retryable)
+              const reason = extractV5ErrorReason(target.boundaryError)
+              const reasonLayer =
+                recovery.suggestion === undefined && isDisplaySafeReason(reason) ? reason : ''
+              const guidance =
+                recovery.suggestion === undefined ? resolveV5ErrorGuidance(target.code) : ''
+              content = [
+                baseCopy,
+                recovery.suggestion ?? '',
+                reasonLayer,
+                formatRecoveryHints(recovery.hints),
+                guidance,
+              ]
+                .filter((s) => s.length > 0)
+                .join('\n\n')
+            }
             const retryChips: ActionChip[] = retryable && mode === 'user' && !hidden
               ? [{ id: 'retry', label: 'Try again', intent: 'primary' }]
               : []
@@ -3665,6 +3761,13 @@ export function useConversation(): UseConversationReturn {
               timestamp: new Date(),
             })
             if (retryable && inputForRestore) setLastFailedInput(inputForRestore)
+            if (inputForRestore) {
+              setLastSendFailure({
+                kind: transportFailure ? 'transport' : 'server',
+                retryable,
+                inputText: inputForRestore,
+              })
+            }
           }
         } catch (err) {
           clearLifecycleTimers()
@@ -3672,15 +3775,23 @@ export function useConversation(): UseConversationReturn {
           // Timeout-triggered aborts render their own bubble (above). User
           // stops and concurrent cancellations are silent by design.
           if (!isAbort && mode === 'user' && !hidden) {
+            // Transcript honesty: the dispatch itself threw — nothing
+            // reached the server, so the bubble must not read as sent.
+            if (userBubbleIdForTurn) {
+              updateMessage(userBubbleIdForTurn, { deliveryState: 'failed' })
+            }
             addMessage({
               id: crypto.randomUUID(),
               role: 'assistant',
               synthetic: true,
-              content: 'Something went wrong sending your message. Try again.',
+              content: "Your message didn't reach the server, so it has not been added to the conversation. Nothing you typed was lost. Try again.",
               actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' }],
               timestamp: new Date(),
             })
-            if (inputForRestore) setLastFailedInput(inputForRestore)
+            if (inputForRestore) {
+              setLastFailedInput(inputForRestore)
+              setLastSendFailure({ kind: 'transport', retryable: true, inputText: inputForRestore })
+            }
           }
           if (import.meta.env.DEV && !isAbort) {
             console.warn('[sendTurn V5] Dispatch error:', err)
@@ -3726,6 +3837,7 @@ export function useConversation(): UseConversationReturn {
           })
           lastUserInputRef.current = { message, clientTurnId: turnClientId }
           setLastFailedInput(null)
+          setLastSendFailure(null)
 
           if (!skipUserBubble) {
             addMessage({
@@ -4370,6 +4482,7 @@ export function useConversation(): UseConversationReturn {
     useDraftStore.getState().setIsGenerating(false)
     setLongRunningHint(null)
     setLastFailedInput(null)
+    setLastSendFailure(null)
     setPatchBlockStates(new Map())
     setPatchRejectionsMap(new Map())
     abortRef.current?.abort()
@@ -4442,6 +4555,7 @@ export function useConversation(): UseConversationReturn {
     isThinking,
     longRunningHint,
     lastFailedInput,
+    lastSendFailure,
     sendMessage,
     sendSystemEvent,
     sendChip,

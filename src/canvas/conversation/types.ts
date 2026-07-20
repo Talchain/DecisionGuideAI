@@ -65,6 +65,20 @@ export interface ConversationMessage {
    * Ephemeral: excluded from thread persistence (session-only).
    */
   reasoning?: string
+  /**
+   * Transcript honesty (dress-rehearsal trust item #3, 2026-07-20): delivery
+   * state of a visible user send on the LIVE V5 path.
+   *   - 'pending': dispatched, turn unresolved. Not yet persisted.
+   *   - 'sent':    the turn resolved with a server response — normal history.
+   *   - 'failed':  the turn produced no assistant response (504/network
+   *     transport failure, typed error, browser timeout). Renders the
+   *     "Not delivered" marker + retry affordance and is NEVER persisted —
+   *     a turn the server never served must not be committed as if it
+   *     happened.
+   * `undefined` = legacy/delivered (assistant messages, V4 path, hydrated
+   * history) — treated as sent everywhere.
+   */
+  deliveryState?: 'pending' | 'sent' | 'failed'
 }
 
 /** A set of frequency-framed chips for a single factor's base rate elicitation */

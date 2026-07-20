@@ -139,6 +139,51 @@
 }
 
 /**
+ * Transcript honesty (trust item #3): a user send whose turn failed must
+ * look visibly different from delivered history. Danger-tinted border (DS
+ * rule: borders via opacity, never extra shade tokens) + slightly muted
+ * body so the "Not delivered" marker below reads as the message's status.
+ */
+.messageBubbleUserFailed {
+  border: 1px solid color-mix(in srgb, var(--danger, #EA7B4B) 30%, transparent);
+  opacity: 0.85;
+}
+
+/** Failed-send marker row: icon + "Not delivered" + optional Retry.
+ *  Type scale comes from typography.panelMeta applied in JSX (F3 census). */
+.sendFailedRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-end;
+  margin-top: 4px;
+  color: var(--danger, #EA7B4B);
+}
+
+/** Outlined retry affordance on the failed message itself (DS pill rules).
+ *  Type scale comes from typography.panelMeta applied in JSX (F3 census). */
+.sendFailedRetryButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--danger, #EA7B4B) 30%, transparent);
+  border-radius: var(--radius-pill, 999px);
+  color: var(--text-body, #3F3F3E);
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.sendFailedRetryButton:hover {
+  background: var(--bg-panel-hover, #FEF9F3);
+}
+
+.sendFailedRetryButton:focus-visible {
+  outline: 2px solid var(--info, #277A9D);
+  outline-offset: 1px;
+}
+
+/**
  * Compact pill for chip/pill-initiated user turns — no avatar, no timestamp, no copy/retry.
  * Right-aligned to match user bubble position in conversation flow.
  *

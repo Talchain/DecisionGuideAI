@@ -97,6 +97,15 @@ export const ChatThread = memo(function ChatThread({
       showEmptyState, isThinking, nodeCount, hasFinalizedAssistant, messages.length, !!streamingText)
   }
 
+  // Transcript honesty (trust item #3): the retry affordance on a failed
+  // user message is wired ONLY for the message retryLast would actually
+  // resend — the LAST user message. Older failed attempts keep the
+  // "Not delivered" marker without a retry button (clicking retry there
+  // would resend different text than the bubble shows).
+  const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')
+  const failedSendRetryId =
+    lastUserMsg && lastUserMsg.deliveryState === 'failed' ? lastUserMsg.id : null
+
   // Get suggested chips from last assistant message
   const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant')
   const suggestedChips = lastAssistantMsg?.actionChips ?? []
@@ -140,6 +149,7 @@ export const ChatThread = memo(function ChatThread({
             historicalChips={!isLastAssistant}
             onChipClick={onChipClick}
             onRetry={onRetry}
+            showFailedSendRetry={msg.id === failedSendRetryId}
             patchBlockStates={patchBlockStates}
             patchRejections={patchRejections}
             onPatchAccept={onPatchAccept}
