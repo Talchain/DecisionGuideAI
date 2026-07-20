@@ -20,7 +20,7 @@ import { memo, useState, useMemo, useRef } from 'react'
 import { typography } from '../../styles/typography'
 import { safeRichText } from '../utils/safeRichText'
 import { InlineBlocks } from './InlineBlocks'
-import { ChevronDown, ChevronUp, ListPlus, AlignLeft } from 'lucide-react'
+import { AlertCircle, ChevronDown, ChevronUp, ListPlus, AlignLeft, RefreshCw } from 'lucide-react'
 import { BaseRateChipRow } from './BaseRateChipRow'
 import { FeedbackRow } from './FeedbackRow'
 import { StalenessPill, type StalenessFreshness } from './StalenessPill'
@@ -136,6 +136,14 @@ interface MessageBubbleProps {
    * preserve FF-off behaviour.
    */
   compact?: boolean
+  /**
+   * Transcript honesty (trust item #3): retry handler for a FAILED user
+   * message (deliveryState 'failed'). Wired by ChatThread only for the
+   * message retryLast would actually resend (the last user message) —
+   * older failed attempts show the "Not delivered" marker without the
+   * affordance. Ignored for non-failed or assistant messages.
+   */
+  onRetryFailedSend?: () => void
 }
 
 export const MessageBubble = memo(function MessageBubble({
@@ -149,8 +157,33 @@ export const MessageBubble = memo(function MessageBubble({
   onArtefactMessage,
   onProposalConfirm,
   compact = false,
+  onRetryFailedSend,
 }: MessageBubbleProps) {
   const isUser = message.role === 'user'
+  // Transcript honesty (trust item #3): a user send whose turn failed must
+  // LOOK failed — marker + optional retry affordance on the message itself.
+  const sendFailed = isUser && message.deliveryState === 'failed'
+  const sendFailedMarker = sendFailed ? (
+    <div
+      className={`${styles.sendFailedRow} ${typography.panelMeta}`}
+      data-testid="send-failed-indicator"
+    >
+      <AlertCircle size={12} aria-hidden="true" />
+      <span>Not delivered</span>
+      {onRetryFailedSend && (
+        <button
+          type="button"
+          className={`${styles.sendFailedRetryButton} ${typography.panelMeta}`}
+          onClick={onRetryFailedSend}
+          data-testid="send-failed-retry"
+          aria-label="Retry sending this message"
+        >
+          <RefreshCw size={12} aria-hidden="true" />
+          Retry
+        </button>
+      )}
+    </div>
+  ) : null
 
   // Defensive guard: never render the [system] sentinel as a user bubble
   if (isUser && message.content === SYSTEM_MESSAGE_SENTINEL) return null
@@ -164,9 +197,12 @@ export const MessageBubble = memo(function MessageBubble({
   // Chip-initiated user messages render as a compact pill, not a full bubble
   if (isUser && message.chipInitiated) {
     return (
-      <div className={styles.chipActionIndicator} data-testid="chip-action-indicator">
-        <span className={typography.caption}>{message.displayContent ?? message.content}</span>
-      </div>
+      <>
+        <div className={styles.chipActionIndicator} data-testid="chip-action-indicator">
+          <span className={typography.caption}>{message.displayContent ?? message.content}</span>
+        </div>
+        {sendFailedMarker}
+      </>
     )
   }
 
@@ -244,8 +280,13 @@ export const MessageBubble = memo(function MessageBubble({
     <>
     {stalenessFreshness && <StalenessPill freshness={stalenessFreshness} />}
     <div
-      className={isUser ? styles.messageBubbleUser : styles.messageBubbleAssistant}
+      className={
+        isUser
+          ? `${styles.messageBubbleUser}${sendFailed ? ` ${styles.messageBubbleUserFailed}` : ''}`
+          : styles.messageBubbleAssistant
+      }
       data-testid={`message-${message.role}`}
+      data-delivery-state={isUser ? message.deliveryState : undefined}
     >
       <div
         className={`${compact ? typography.panelBody : typography.chatProse} ${styles.markdownContent} ${
@@ -267,6 +308,10 @@ export const MessageBubble = memo(function MessageBubble({
           {message.toolLoadingState}
         </div>
       )}
+      {/* Transcript honesty (trust item #3): failed-send marker + retry
+        * affordance on the message itself. Cleared when a retry delivers
+        * (deliveryState flips back to 'sent'). */}
+      {sendFailedMarker}
       {/* T6: persistent "Response stopped." indicator on user-cancelled turns.
         * Set by useConversation.cancelTurn(); never cleared by late chunks. */}
       {message.stoppedByUser && (

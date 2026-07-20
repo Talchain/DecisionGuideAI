@@ -51,6 +51,12 @@ interface ChatMessageProps {
   onProposalConfirm?: (proposalId: string) => void
   /** AI panel v2 surface — render message body at panelBody (12px). */
   compact?: boolean
+  /**
+   * Transcript honesty (trust item #3): when true, this failed user message
+   * is the one retryLast would resend — wire onRetry as the message's own
+   * retry affordance. ChatThread sets this for at most ONE message.
+   */
+  showFailedSendRetry?: boolean
 }
 
 export const ChatMessage = memo(function ChatMessage({
@@ -68,6 +74,7 @@ export const ChatMessage = memo(function ChatMessage({
   onArtefactMessage,
   onProposalConfirm,
   compact,
+  showFailedSendRetry,
 }: ChatMessageProps) {
   const category = getMessageCategory(message)
   const borderClass = CATEGORY_BORDER[category]
@@ -109,6 +116,7 @@ export const ChatMessage = memo(function ChatMessage({
         onArtefactMessage={onArtefactMessage}
         onProposalConfirm={onProposalConfirm}
         compact={compact}
+        onRetryFailedSend={showFailedSendRetry ? onRetry : undefined}
       />
     </div>
   )
