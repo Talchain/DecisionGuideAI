@@ -184,7 +184,9 @@ describe('sendSystemEvent', () => {
       assistant_text: 'Analysis complete.',
       blocks: [{ type: 'fact', label: 'Winner', value: 'Option A' }],
       suggested_actions: [{ id: 'explore', label: 'Explore', intent: 'primary', message: 'explore options' }],
-      stage_indicator: 'evaluate',
+      // Canonical WIRE vocabulary (schemas `Stage`): frame|analyse|decide|review.
+      // Was 'evaluate' — a UI/DB `ScenarioStage` value the wire never emits.
+      stage_indicator: 'analyse',
       client_turn_id: 'resp-4',
     })
 
@@ -204,6 +206,7 @@ describe('sendSystemEvent', () => {
     expect(msg.blocks).toHaveLength(1)
     expect(msg.blocks![0].type).toBe('fact')
     expect(msg.actionChips).toHaveLength(1)
+    // wire 'analyse' → UI 'evaluate'
     expect(setCurrentStage).toHaveBeenCalledWith('evaluate')
   })
 

@@ -25,7 +25,7 @@ import {
   resolveGuidance as resolveV5ErrorGuidance,
 } from '../../v5/failureTypeRetryability'
 import { mapV5Blocks } from '../../v5/blocks/mapV5Blocks'
-import { deriveV5Stage } from '../../v5/stageMapper'
+import { deriveV5Stage, v5StageToScenarioStage } from '../../v5/stageMapper'
 import { applyV5State } from '../../v5/applyV5State'
 import {
   extractPhase3FromV5Response,
@@ -2278,11 +2278,23 @@ export function useConversation(): UseConversationReturn {
 
       // Update stage if provided. CEE sends either a plain string or
       // { stage, confidence, source } — extract the stage string.
+      //
+      // The extracted value is in the CANONICAL WIRE vocabulary
+      // (`frame | analyse | decide | review`) and MUST be mapped to the UI/DB
+      // `ScenarioStage` lifecycle vocabulary before it reaches the store —
+      // `currentStage` is persisted to `scenarios.stage`, whose CHECK
+      // constraint admits only `frame | ideate | evaluate | decide | optimise`.
+      // This previously wrote the raw wire value straight through (the
+      // mis-typed `StageIndicatorWire` hid it from the compiler), so a
+      // canonical `analyse` landed as an unrecognised stage: `useStagePill`
+      // failed its `isKnownStage` check and silently fell back to local
+      // derivation. Mirrors the V5 path in `applyV5State.ts`, which already
+      // maps correctly.
       if (envelope.stage_indicator) {
         const raw = envelope.stage_indicator
         const stage = typeof raw === 'string' ? raw : raw.stage
         if (stage) {
-          useCanvasStore.getState().setCurrentStage(stage)
+          useCanvasStore.getState().setCurrentStage(v5StageToScenarioStage(stage))
         }
       }
 
