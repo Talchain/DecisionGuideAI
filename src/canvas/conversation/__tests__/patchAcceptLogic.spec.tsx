@@ -81,7 +81,11 @@ function makeMockConversation(messages: ConversationMessage[]): {
     messages,
     isThinking: false,
     longRunningHint: null,
-    lastFailedInput: null,
+    // Completing the UseConversationReturn shape — these three were already
+    // missing before this change (pre-existing TS2739 in the wide config).
+    lastSendFailure: null,
+    dispatchAction: vi.fn().mockResolvedValue(undefined),
+    cancelTurn: vi.fn(),
     sendMessage: vi.fn().mockResolvedValue(undefined),
     sendSystemEvent,
     sendChip: vi.fn().mockResolvedValue(undefined),

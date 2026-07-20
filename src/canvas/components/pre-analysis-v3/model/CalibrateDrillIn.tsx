@@ -19,6 +19,7 @@ import { FIELD_FEEDBACK_COPY } from '../constants'
 import { useCanvasStore } from '../../../store'
 import { withObservedStateUpdate } from '../../../utils/observedStateHelpers'
 import { PanelIconButton } from '../ui/PanelIconButton'
+import { parseSuccessTarget } from '../hero/parseSuccessTarget'
 import type { EstimateRowModel } from '../types'
 
 interface CalibrateDrillInProps {
@@ -57,15 +58,27 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
   const [hint, setHint] = useState<string | null>(null)
 
   const save = () => {
-    // Lenient like the hero field: extract the number from natural phrasing;
-    // hint (never a silent no-op) when none exists.
-    const cleaned = draft.replace(/[^0-9.,-]/g, '').replace(/,/g, '')
-    const parsed = cleaned.trim() === '' ? NaN : Number.parseFloat(cleaned)
-    if (!Number.isFinite(parsed)) {
+    // Shares the hero field's parser (#396). The digit-strip this replaced
+    // (`replace(/[^0-9.,-]/g,'').replace(/,/g,'')`) was byte-identical to the
+    // `parseDisplayNumber` deleted from HeroSection: it dropped magnitude
+    // suffixes and FUSED unrelated numbers, so "£500k" committed 500 and
+    // "£500k within 12 months" committed 50012. This field writes through
+    // commitValue into node observedState, so those fabrications reached the
+    // ANALYSIS, not just a label.
+    //
+    // parseSuccessTarget fails CLOSED on ambiguity (returns null), which is the
+    // behaviour this call site wants: an unresolvable estimate must hint rather
+    // than guess, exactly as the old unparseable branch did.
+    //
+    // `unit` is deliberately ignored — the drill-in's scale comes from
+    // `row.cap` (see commitValue), so consuming the parser's unit here would
+    // add a second, conflicting scale authority.
+    const parsed = parseSuccessTarget(draft)
+    if (parsed === null) {
       setHint(FIELD_FEEDBACK_COPY.numberHint)
       return
     }
-    commitValue(row.nodeId, parsed, row.cap)
+    commitValue(row.nodeId, parsed.value, row.cap)
     onDone()
   }
 

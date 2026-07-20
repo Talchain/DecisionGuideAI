@@ -44,9 +44,6 @@ export interface ConversationMessage {
   toolLoadingState?: string | null
   /** Deterministic CEE insights — rendered between assistant_text and chips */
   insights?: Insight[]
-  /** Base rate elicitation chips derived from MISSING_BASE_RATE guidance items.
-   *  Ephemeral — consumed on click, never persisted in conversation history. */
-  baseRateChips?: BaseRateChipSet
   /** When true, this user message was initiated by a pill/chip click.
    *  Renders as a compact action indicator instead of a full user bubble. */
   chipInitiated?: boolean
@@ -79,16 +76,6 @@ export interface ConversationMessage {
    * history) — treated as sent everywhere.
    */
   deliveryState?: 'pending' | 'sent' | 'failed'
-}
-
-/** A set of frequency-framed chips for a single factor's base rate elicitation */
-export interface BaseRateChipSet {
-  /** Factor name from guidance item target_label (fallback: "This factor") */
-  factorLabel: string
-  /** Guidance item_id — used to dismiss guidance after user responds */
-  itemId: string
-  /** Factor node ID from guidance target_object.id — used for action routing */
-  factorId?: string
 }
 
 // ---------------------------------------------------------------------------

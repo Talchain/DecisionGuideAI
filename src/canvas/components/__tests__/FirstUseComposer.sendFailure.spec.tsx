@@ -84,7 +84,6 @@ vi.mock('../../conversation/useConversation', async () => {
         messages: messagesMockState.messages,
         isThinking: thinkingMockState.isThinking,
         longRunningHint: null,
-        lastFailedInput: failureMockState.lastSendFailure?.inputText ?? null,
         lastSendFailure: failureMockState.lastSendFailure,
         sendMessage,
         sendSystemEvent,

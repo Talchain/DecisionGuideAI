@@ -89,7 +89,6 @@ import type {
   CommentaryBlock,
   ProposalReviewItem,
   RelatedElementRef,
-  BaseRateChipSet,
   ReviewCardBlock,
 } from './types'
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
@@ -560,27 +559,6 @@ export function extractAssistantText(raw: string): string {
     }
   }
   return raw
-}
-
-/**
- * Extract a BaseRateChipSet from guidance items for the MISSING_BASE_RATE signal.
- * Returns the highest-priority match (lowest number = highest priority), or undefined.
- * Exported for unit testing.
- */
-export function extractBaseRateChipSet(
-  items: GuidanceItem[] | undefined | null,
-): BaseRateChipSet | undefined {
-  if (!Array.isArray(items) || items.length === 0) return undefined
-  const matches = items
-    .filter((g) =>
-      g.signal_code === 'MISSING_BASE_RATE'
-      && g.primary_action?.type === 'discuss',
-    )
-    .sort((a, b) => (a.priority ?? 100) - (b.priority ?? 100))
-  const top = matches[0]
-  if (!top) return undefined
-  const label = top.target_object?.label || 'This factor'
-  return { factorLabel: label, itemId: top.item_id, factorId: top.target_object?.id }
 }
 
 /**
@@ -1595,8 +1573,8 @@ function resolveUserTurnType(
 
 /**
  * Structured record of the most recent visible user send that failed
- * (transcript honesty, trust item #3). Unlike `lastFailedInput` (retryable
- * failures only), this fires for EVERY failed visible user send so
+ * (transcript honesty, trust item #3). This fires for EVERY failed visible
+ * user send — including the ones no transcript shows — so
  * point-of-failure surfaces with no visible transcript (the first-use hero)
  * can show feedback instead of failing silently. Cleared on the next
  * visible user dispatch, clearHistory, and scenario switch.
@@ -1621,7 +1599,6 @@ export interface UseConversationReturn {
   isThinking: boolean
   longRunningHint: string | null
   /** The user's last input text, restored on error so they can edit and resend */
-  lastFailedInput: string | null
   /** Most recent visible-user-send failure, all classes. Null when none. */
   lastSendFailure: SendFailureNotice | null
   sendMessage: (text: string, opts?: {
@@ -1671,7 +1648,6 @@ export function useConversation(): UseConversationReturn {
   const isThinkingRef = useRef(false)
   useEffect(() => { isThinkingRef.current = isThinking }, [isThinking])
   const [longRunningHint, setLongRunningHint] = useState<string | null>(null)
-  const [lastFailedInput, setLastFailedInput] = useState<string | null>(null)
   const [lastSendFailure, setLastSendFailure] = useState<SendFailureNotice | null>(null)
   const [patchBlockStates, setPatchBlockStates] = useState<Map<string, PatchBlockState>>(new Map())
   const [patchRejections, setPatchRejectionsMap] = useState<Map<string, PatchRejectionInfo>>(new Map())
@@ -1794,7 +1770,6 @@ export function useConversation(): UseConversationReturn {
             setIsThinking(false)
             useDraftStore.getState().setIsGenerating(false)
             setLongRunningHint(null)
-            setLastFailedInput(null)
             setLastSendFailure(null)
 
             // Persist session boundary entry (best-effort)
@@ -1819,7 +1794,6 @@ export function useConversation(): UseConversationReturn {
             setIsThinking(false)
             useDraftStore.getState().setIsGenerating(false)
             setLongRunningHint(null)
-            setLastFailedInput(null)
             setLastSendFailure(null)
           } finally {
             // Clear from store to prevent re-hydration (even on error)
@@ -1835,7 +1809,6 @@ export function useConversation(): UseConversationReturn {
       setIsThinking(false)
       useDraftStore.getState().setIsGenerating(false)
       setLongRunningHint(null)
-      setLastFailedInput(null)
       setLastSendFailure(null)
     }
   }, [scenarioId])
@@ -2831,10 +2804,6 @@ export function useConversation(): UseConversationReturn {
         ? rawEnvelope.insights as import('./types').Insight[]
         : undefined
 
-      // Extract base rate elicitation chips from MISSING_BASE_RATE guidance items.
-      // One factor per turn — take only the highest-priority match (lowest number).
-      const baseRateChips = extractBaseRateChipSet(envelope.guidance_items)
-
       // Guard: skip or filter non-conversational assistant turns.
       // Covers empty responses, error fallback text, system sentinels.
       const hasContent = assistantText.trim().length > 0
@@ -2879,7 +2848,6 @@ export function useConversation(): UseConversationReturn {
           blocks: hasBlocks ? orderedBlocks : undefined,
           actionChips: chips.length > 0 ? chips : undefined,
           insights,
-          baseRateChips,
           isStreaming: false,
           isProvisional: false,
           toolLoadingState: null,
@@ -2892,7 +2860,6 @@ export function useConversation(): UseConversationReturn {
           blocks: hasBlocks ? orderedBlocks : undefined,
           actionChips: chips.length > 0 ? chips : undefined,
           insights,
-          baseRateChips,
           timestamp: new Date(),
           clientTurnId: envelope.client_turn_id,
         }
@@ -3063,7 +3030,7 @@ export function useConversation(): UseConversationReturn {
       // is off (rollback path).
       //
       // This block owns the full request lifecycle: AbortController, timeout
-      // timer, long-running hint, recordUserAction, lastFailedInput. System
+      // timer, long-running hint, recordUserAction, lastSendFailure. System
       // events never render a user bubble — enforced via
       // `mode === 'system'`, not the incidental `hidden` flag.
       const v5Eligibility = isV5Eligible({
@@ -3098,7 +3065,6 @@ export function useConversation(): UseConversationReturn {
             },
           })
           lastUserInputRef.current = { message, clientTurnId: turnClientId }
-          setLastFailedInput(null)
           setLastSendFailure(null)
         } else if (hidden && source === 'right_panel_action') {
           recordUserAction({
@@ -3194,6 +3160,21 @@ export function useConversation(): UseConversationReturn {
         if (!build.ok) {
           // buildV5Payload refused — missing message or unsupported system
           // event. Surface a typed error rather than a malformed request.
+          //
+          // ⚠ The `mode === 'user'` branch below is currently UNREACHABLE, and
+          // a 2026-07-20 review that mapped this as "the exit that sets no
+          // failure notice" missed why. buildV5Payload can only fail two ways:
+          //   · 'missing_message'          — mode 'user' only, and the guard at
+          //     the top of this block (`if (mode === 'user' && !message.trim())`)
+          //     already returned, so it never gets here;
+          //   · 'unsupported_system_event' — reachable only via
+          //     buildSystemEventPayload, i.e. mode === 'system', which fails
+          //     this very `mode === 'user'` test.
+          // So for a user send this is dead, and adding a failure notice here
+          // would be dead code. Left in place as a defensive backstop; if a
+          // third refusal reason is ever added for user mode, it MUST raise a
+          // SendFailureNotice — the hero has no transcript to show the
+          // synthetic bubble below.
           if (mode === 'user' && !hidden) {
             // Nothing was dispatched — the bubble must not read as sent.
             if (userBubbleIdForTurn) {
@@ -3243,7 +3224,6 @@ export function useConversation(): UseConversationReturn {
           setIsThinking(false)
           useDraftStore.getState().setIsGenerating(false)
           setLongRunningHint(null)
-          if (inputForRestore) setLastFailedInput(inputForRestore)
           if (mode === 'user' && !hidden) {
             // Transcript honesty: we stopped waiting — the turn produced no
             // response, so the bubble must not read as delivered.
@@ -3681,7 +3661,6 @@ export function useConversation(): UseConversationReturn {
               timestamp: new Date(),
             })
             if (inputForRestore) {
-              setLastFailedInput(inputForRestore)
               // Delivered but produced nothing — the hero must still show
               // feedback rather than fail silently (server class).
               setLastSendFailure({ kind: 'server', retryable: true, inputText: inputForRestore })
@@ -3760,7 +3739,6 @@ export function useConversation(): UseConversationReturn {
               actionChips: retryChips,
               timestamp: new Date(),
             })
-            if (retryable && inputForRestore) setLastFailedInput(inputForRestore)
             if (inputForRestore) {
               setLastSendFailure({
                 kind: transportFailure ? 'transport' : 'server',
@@ -3789,7 +3767,6 @@ export function useConversation(): UseConversationReturn {
               timestamp: new Date(),
             })
             if (inputForRestore) {
-              setLastFailedInput(inputForRestore)
               setLastSendFailure({ kind: 'transport', retryable: true, inputText: inputForRestore })
             }
           }
@@ -3836,7 +3813,6 @@ export function useConversation(): UseConversationReturn {
             },
           })
           lastUserInputRef.current = { message, clientTurnId: turnClientId }
-          setLastFailedInput(null)
           setLastSendFailure(null)
 
           if (!skipUserBubble) {
@@ -3895,8 +3871,6 @@ export function useConversation(): UseConversationReturn {
         }, 5_000)
       }, LONG_RUNNING_THRESHOLD_MS)
 
-      // Dynamic timeout — hidden sends must not restore input or show retry chips
-      const inputForRestore = (mode === 'user' && !hidden) ? message : null
       timeoutTimerRef.current = setTimeout(() => {
         controller.abort()
         clearTimeout(longRunningTimerRef.current)
@@ -3904,7 +3878,6 @@ export function useConversation(): UseConversationReturn {
         setIsThinking(false)
         useDraftStore.getState().setIsGenerating(false)
         setLongRunningHint(null)
-        if (inputForRestore) setLastFailedInput(inputForRestore)
         // Only visible user sends show a timeout error bubble.
         // Hidden sends and system events time out silently (matches catch block).
         if (mode === 'user' && !hidden) {
@@ -4190,7 +4163,6 @@ export function useConversation(): UseConversationReturn {
         if ((err as Error).name === 'AbortError') return // timeout already handled
 
         if (mode === 'user' && !hidden) {
-          setLastFailedInput(message)
 
           // A1 brief item 2 — failure recovery on screen. A non-2xx CEE turn
           // throws OrchestratorError carrying the CEE error envelope in
@@ -4481,7 +4453,6 @@ export function useConversation(): UseConversationReturn {
     setIsThinking(false)
     useDraftStore.getState().setIsGenerating(false)
     setLongRunningHint(null)
-    setLastFailedInput(null)
     setLastSendFailure(null)
     setPatchBlockStates(new Map())
     setPatchRejectionsMap(new Map())
@@ -4554,7 +4525,6 @@ export function useConversation(): UseConversationReturn {
     messages,
     isThinking,
     longRunningHint,
-    lastFailedInput,
     lastSendFailure,
     sendMessage,
     sendSystemEvent,

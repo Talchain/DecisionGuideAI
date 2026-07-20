@@ -178,7 +178,7 @@ describe('transcript honesty on 504 — failed sends look failed (LIVE V5 chain)
     expect(last.actionChips).toEqual([
       { id: 'retry', label: 'Try again', intent: 'primary' },
     ])
-    expect(result.current.lastFailedInput).toBe('coffee subscription brief')
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBe('coffee subscription brief')
   })
 
   it('504 proxy timeout: structured lastSendFailure fires with transport class (point-of-failure surfaces consume this)', async () => {

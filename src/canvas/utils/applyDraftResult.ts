@@ -14,6 +14,7 @@
 import { useCanvasStore } from '../store'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { saveAutosave } from '../store/scenarios'
+import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
 import { hasAnalysisReady } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEGoalConstraint, CEEv2Response, CEEv3Response, EffectDirection } from '../../adapters/cee/types'
 import { commitDraftCoachingToStore, edgeProvenanceDisplayPatch } from './draftIngestion'
@@ -198,13 +199,12 @@ export function applyDraftResult(
 
   // Immediate autosave for crash resilience
   try {
-    const current = useCanvasStore.getState()
-    saveAutosave({
-      timestamp: Date.now(),
-      scenarioId: current.currentScenarioId || undefined,
-      nodes: current.nodes,
-      edges: current.edges,
-    })
+    // Shared projection — previously this literal omitted ceeAnalysisReady and
+    // selectedGoalNode. NOTE: this runs BEFORE setCeeAnalysisReady below, so
+    // the value persisted here is the pre-draft one; the 30s timer corrects it.
+    // That is still strictly better than the old behaviour, which DELETED
+    // whatever ceeAnalysisReady the last autosave held.
+    saveAutosave(projectAutosaveData(autosaveSourceFromStore(useCanvasStore.getState())))
   } catch {
     // Non-critical — swallow save errors
   }

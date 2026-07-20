@@ -32,7 +32,6 @@ vi.mock('../../conversation/useConversation', async () => {
         messages,
         isThinking,
         longRunningHint: null,
-        lastFailedInput: null,
         sendMessage: vi.fn((text: string) => {
           setMessages((m) => [
             ...m,

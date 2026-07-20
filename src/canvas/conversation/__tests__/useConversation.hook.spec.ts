@@ -2,7 +2,7 @@
  * Hook-level tests for useConversation
  *
  * Tests timeout progression (10s/20s/30s), input restore on error,
- * and lastFailedInput cleanup on clearHistory/scenario switch.
+ * and lastSendFailure.inputText cleanup on clearHistory/scenario switch.
  *
  * Uses vi.useFakeTimers() + renderHook from @testing-library/react.
  */
@@ -275,7 +275,9 @@ describe('timeout progression (10s / 20s / 30s)', () => {
 // Input restore on error
 // ---------------------------------------------------------------------------
 
-// Minimal valid V5 response (for "success" path in lastFailedInput tests)
+// Minimal valid V5 response (for "success" path in lastSendFailure.inputText tests)
+import { EXTENDED_TIMEOUT_MS } from '../../../v5/getTimeoutMs'
+
 const makeV5SuccessResult = (text = 'OK') => ({
   kind: 'response' as const,
   response: {
@@ -288,8 +290,20 @@ const makeV5SuccessResult = (text = 'OK') => ({
   },
 })
 
-describe('input restore on error (lastFailedInput)', () => {
-  it('sets lastFailedInput on network error', async () => {
+describe('input restore on error (lastSendFailure.inputText)', () => {
+  // Flipped to the V5 path deliberately. This block used to assert on
+  // `lastFailedInput`, which the V4 branch set and which has now been deleted
+  // (zero readers; `lastSendFailure.inputText` carries the same payload and IS
+  // consumed, by FirstUseComposer). `lastSendFailure` is only ever CLEARED in
+  // the V4 branch — every set site lives inside the V5 block — so keeping these
+  // on V4 would assert against a signal that path never raises. V5 is also the
+  // deployed path, so this converts five dead-branch tests into live-branch
+  // ones rather than dropping the coverage.
+  beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
+  })
+
+  it('sets lastSendFailure.inputText on network error', async () => {
     mockCallTurn.mockRejectedValue(new Error('Network error'))
     mockCallV5Turn.mockRejectedValue(new Error('Network error'))
 
@@ -299,10 +313,10 @@ describe('input restore on error (lastFailedInput)', () => {
       await result.current.sendMessage('my important question')
     })
 
-    expect(result.current.lastFailedInput).toBe('my important question')
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBe('my important question')
   })
 
-  it('sets lastFailedInput on timeout', async () => {
+  it('sets lastSendFailure.inputText on timeout', async () => {
     mockCallTurn.mockReturnValue(new Promise(() => {}))
     // mockCallV5Turn already hangs by default from beforeEach
 
@@ -313,13 +327,16 @@ describe('input restore on error (lastFailedInput)', () => {
     })
 
     act(() => {
-      vi.advanceTimersByTime(60_000)
+      // Derived from the production constant, not a hard-coded 60_000: on the
+      // V5 path an empty canvas derives stage 'frame', which selects the
+      // EXTENDED (130s) budget, so a 60s advance never reaches the timeout.
+      vi.advanceTimersByTime(EXTENDED_TIMEOUT_MS + 1_000)
     })
 
-    expect(result.current.lastFailedInput).toBe('timeout question')
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBe('timeout question')
   })
 
-  it('clears lastFailedInput on next successful send', async () => {
+  it('clears lastSendFailure.inputText on next successful send', async () => {
     // First call fails
     mockCallTurn.mockRejectedValueOnce(new Error('fail'))
     mockCallV5Turn.mockRejectedValueOnce(new Error('fail'))
@@ -337,16 +354,16 @@ describe('input restore on error (lastFailedInput)', () => {
     await act(async () => {
       await result.current.sendMessage('first attempt')
     })
-    expect(result.current.lastFailedInput).toBe('first attempt')
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBe('first attempt')
 
     // Second send — succeeds
     await act(async () => {
       await result.current.sendMessage('second attempt')
     })
-    expect(result.current.lastFailedInput).toBeNull()
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBeNull()
   })
 
-  it('clears lastFailedInput on clearHistory', async () => {
+  it('clears lastSendFailure.inputText on clearHistory', async () => {
     mockCallTurn.mockRejectedValue(new Error('fail'))
     mockCallV5Turn.mockRejectedValue(new Error('fail'))
 
@@ -355,15 +372,15 @@ describe('input restore on error (lastFailedInput)', () => {
     await act(async () => {
       await result.current.sendMessage('failing message')
     })
-    expect(result.current.lastFailedInput).toBe('failing message')
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBe('failing message')
 
     act(() => {
       result.current.clearHistory()
     })
-    expect(result.current.lastFailedInput).toBeNull()
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBeNull()
   })
 
-  it('clears lastFailedInput on scenario switch', async () => {
+  it('clears lastSendFailure.inputText on scenario switch', async () => {
     mockCallTurn.mockRejectedValue(new Error('fail'))
     mockCallV5Turn.mockRejectedValue(new Error('fail'))
 
@@ -372,14 +389,14 @@ describe('input restore on error (lastFailedInput)', () => {
     await act(async () => {
       await result.current.sendMessage('failing message')
     })
-    expect(result.current.lastFailedInput).toBe('failing message')
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBe('failing message')
 
     // Simulate scenario switch
     act(() => {
       useCanvasStore.setState({ currentScenarioId: 'b1b1b1b1-c2c2-4d3d-9e4e-f5f5f5f5f5f5' })
     })
 
-    expect(result.current.lastFailedInput).toBeNull()
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBeNull()
   })
 })
 
@@ -1465,7 +1482,7 @@ describe('hidden send lifecycle', () => {
   })
 
   // TODO: streaming path produces synthetic error for hidden sends — needs separate fix
-  it.skip('does not set lastFailedInput on hidden send error', async () => {
+  it.skip('does not set lastSendFailure.inputText on hidden send error', async () => {
     mockCallTurn.mockRejectedValue(new Error('Network error'))
 
 
@@ -1475,13 +1492,13 @@ describe('hidden send lifecycle', () => {
       await result.current.sendMessage('run it', { hidden: true })
     })
 
-    expect(result.current.lastFailedInput).toBeNull()
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBeNull()
     // No error bubble should appear
     const syntheticMessages = result.current.messages.filter(m => m.synthetic)
     expect(syntheticMessages).toHaveLength(0)
   })
 
-  it('does not set lastFailedInput on hidden send timeout', async () => {
+  it('does not set lastSendFailure.inputText on hidden send timeout', async () => {
     mockCallTurn.mockReturnValue(new Promise(() => {}))
 
     const { result } = renderHook(() => useConversation())
@@ -1494,7 +1511,7 @@ describe('hidden send lifecycle', () => {
       vi.advanceTimersByTime(60_000)
     })
 
-    expect(result.current.lastFailedInput).toBeNull()
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBeNull()
     // No timeout error bubble
     const syntheticMessages = result.current.messages.filter(m => m.synthetic)
     expect(syntheticMessages).toHaveLength(0)
@@ -1591,7 +1608,7 @@ describe('hidden send lifecycle', () => {
     const userMsgs = result.current.messages.filter(m => m.role === 'user')
     expect(userMsgs).toHaveLength(1)
     expect(userMsgs[0].content).toBe('my question')
-    expect(result.current.lastFailedInput).toBeNull()
+    expect((result.current.lastSendFailure?.inputText ?? null)).toBeNull()
   })
 
   it('records generate_model trigger source and request summary', async () => {

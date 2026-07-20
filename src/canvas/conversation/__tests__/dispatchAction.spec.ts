@@ -3,13 +3,15 @@
  *
  * Tests:
  * 1. ACTION_TO_TURN_TYPE deterministic mapping against expected values
- * 2. extractBaseRateChipSet populates factorId from target_object.id
- * 3. BASE_RATE_VALUES numeric mapping
+ *
+ * The former T2 (extractBaseRateChipSet) and T3 (BASE_RATE_VALUES) blocks were
+ * removed with the dead V4 base-rate-chip chain. T3 additionally asserted a
+ * locally-declared literal against itself and never imported the module it
+ * claimed to cover, so it could not have failed.
  */
 
 import { describe, it, expect } from 'vitest'
-import { extractBaseRateChipSet, ACTION_TO_TURN_TYPE } from '../useConversation'
-import type { GuidanceItem } from '../../stores/guidanceStore'
+import { ACTION_TO_TURN_TYPE } from '../useConversation'
 
 // ---------------------------------------------------------------------------
 // T1 — ACTION_TO_TURN_TYPE deterministic mapping
@@ -54,67 +56,5 @@ describe('ACTION_TO_TURN_TYPE mapping', () => {
     expect(Object.keys(ACTION_TO_TURN_TYPE).sort()).toEqual(
       Object.keys(expectedMappings).sort(),
     )
-  })
-})
-
-// ---------------------------------------------------------------------------
-// T2 — extractBaseRateChipSet populates factorId
-// ---------------------------------------------------------------------------
-
-describe('extractBaseRateChipSet — factorId population', () => {
-  const makeGuidanceItem = (overrides?: Partial<GuidanceItem>): GuidanceItem => ({
-    item_id: 'guid-1',
-    signal_code: 'MISSING_BASE_RATE',
-    category: 'should_fix',
-    priority: 1,
-    title: 'Missing base rate',
-    primary_action: { type: 'discuss', prompt: 'test' },
-    target_object: { type: 'node', id: 'fac_churn', label: 'Churn Rate' },
-    ...overrides,
-  })
-
-  it('populates factorId from target_object.id', () => {
-    const result = extractBaseRateChipSet([makeGuidanceItem()])
-    expect(result).toBeDefined()
-    expect(result!.factorId).toBe('fac_churn')
-    expect(result!.factorLabel).toBe('Churn Rate')
-  })
-
-  it('factorId is undefined when target_object has no id', () => {
-    const result = extractBaseRateChipSet([
-      makeGuidanceItem({
-        target_object: { type: 'node', id: undefined as unknown as string, label: 'Test' },
-      }),
-    ])
-    expect(result).toBeDefined()
-    expect(result!.factorId).toBeUndefined()
-  })
-
-  it('factorId is undefined when target_object is absent', () => {
-    const result = extractBaseRateChipSet([
-      makeGuidanceItem({ target_object: undefined }),
-    ])
-    expect(result).toBeDefined()
-    expect(result!.factorId).toBeUndefined()
-  })
-})
-
-// ---------------------------------------------------------------------------
-// T3 — BASE_RATE_VALUES numeric mapping
-// ---------------------------------------------------------------------------
-
-describe('BASE_RATE_VALUES mapping', () => {
-  it('maps frequency words to expected numeric values', () => {
-    // These values are defined in BaseRateChipRow.tsx
-    const expectedValues: Record<string, number> = {
-      rarely: 0.2,
-      sometimes: 0.5,
-      usually: 0.8,
-    }
-
-    // Verify these are the values documented in the brief
-    expect(expectedValues.rarely).toBe(0.2)
-    expect(expectedValues.sometimes).toBe(0.5)
-    expect(expectedValues.usually).toBe(0.8)
   })
 })

@@ -70,7 +70,6 @@ const stableConversation = {
   messages: [] as any[],
   isThinking: false,
   longRunningHint: null as any,
-  lastFailedInput: null as any,
   sendMessage: vi.fn(),
   sendSystemEvent: vi.fn(),
   sendChip: vi.fn(),

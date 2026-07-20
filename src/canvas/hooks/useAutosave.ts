@@ -19,6 +19,8 @@
 import { useEffect, useRef, useCallback, useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import { saveAutosave, loadAutosave } from '../store/scenarios'
+import { projectAutosaveData } from '../store/autosaveProjection'
+import type { AutosaveProjectionSource } from '../store/autosaveProjection'
 
 const AUTOSAVE_INTERVAL_MS = 30 * 1000 // 30 seconds
 const DEBOUNCE_MS = 500 // Debounce writes to reduce localStorage contention
@@ -117,15 +119,24 @@ export function useAutosave() {
       // Only write if no autosave exists, or our data is newer (within tolerance)
       // This prevents race conditions where multiple tabs try to write simultaneously
       if (!existingAutosave || (now - existingAutosave.timestamp) >= DEBOUNCE_MS) {
-        saveAutosave({
-          timestamp: now,
-          scenarioId: currentScenarioId || undefined,
-          nodes,
-          edges,
-          // V3: Persist analysis_ready and goal selection
-          ceeAnalysisReady: ceeAnalysisReady ?? undefined,
-          selectedGoalNode: selectedGoalNode ?? undefined,
-        })
+        // Shared projection (store/autosaveProjection) — the ONE place the
+        // autosave payload is assembled. `now` is threaded through so the
+        // instant persisted is the same one the staleness guard above compared.
+        saveAutosave(
+          projectAutosaveData(
+            {
+              nodes,
+              edges,
+              scenarioId: currentScenarioId,
+              // Boundary cast — the store's CEEAnalysisReady is a WIDER union
+              // than AutosaveData's inline shape; the restore path validates
+              // before use (same justification as crashFlush's).
+              ceeAnalysisReady: ceeAnalysisReady as AutosaveProjectionSource['ceeAnalysisReady'],
+              selectedGoalNode,
+            },
+            now,
+          ),
+        )
 
         // P1 Fix: Update last saved hash after successful save
         lastSavedHashRef.current = currentHash

@@ -80,7 +80,6 @@ vi.mock('../../conversation/useConversation', async () => {
         ],
         isThinking: false,
         longRunningHint: null,
-        lastFailedInput: null,
         sendMessage,
         sendSystemEvent: vi.fn(),
         sendChip: vi.fn(),

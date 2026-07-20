@@ -156,7 +156,6 @@ export const ChatThread = memo(function ChatThread({
             message={msg}
             isFirst={i === 0}
             hideChips={isLastAssistant && suggestedChipsWillRender}
-            historicalChips={!isLastAssistant}
             onChipClick={onChipClick}
             onRetry={onRetry}
             showFailedSendRetry={msg.id === failedSendRetryId}

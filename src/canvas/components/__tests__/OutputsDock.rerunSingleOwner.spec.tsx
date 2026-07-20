@@ -84,7 +84,6 @@ vi.mock('../../conversation/useConversation', () => ({
     messages: [],
     isThinking: false,
     longRunningHint: null,
-    lastFailedInput: null,
     sendMessage: vi.fn(),
     sendSystemEvent: vi.fn(),
     sendChip: vi.fn(),
