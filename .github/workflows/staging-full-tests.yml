@@ -117,6 +117,13 @@ jobs:
       - name: Type check
         run: pnpm run typecheck
 
+      # Runs the SAME React #185 (Zustand selector) guard as ci.yml's main-only
+      # `tsc` job. Without this, the guard first fires at staging→main promotion,
+      # i.e. the alarm goes off at the worst possible moment. Enforcing here (it
+      # is green) so a regression is caught on the staging path before promotion.
+      - name: React 185 guard (Zustand selectors)
+        run: pnpm run ci:guard:zustand
+
   # ── Full test suite (sharded 4-way) ───────────────────────────────────
   vitest:
     name: Full Test Suite (shard ${{ matrix.shard }}/${{ strategy.job-total }})

@@ -14,7 +14,6 @@
 
 import { useMemo, useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
-import { useShallow } from 'zustand/shallow'
 import type { Node, Edge } from '@xyflow/react'
 import type { UIOption } from '../../types/options'
 import { normaliseOptionFromLegacyNode, type LegacyOptionNode } from '../../types/options'
@@ -779,13 +778,16 @@ function createValidationFingerprint(
  * When ceeAnalysisReady is present in the store, its options take priority
  * over canvas node options for validation (CEE has resolved interventions).
  *
- * Uses shallow selectors and fingerprinting to prevent unnecessary re-renders.
+ * Uses individual field selectors and fingerprinting to prevent unnecessary re-renders.
  */
 export function usePreRunValidation(): ValidationResult {
   const outcomeNodeId = useCanvasStore((s) => s.outcomeNodeId)
-  // Use shallow comparison to prevent re-renders when array content is the same
-  const nodes = useCanvasStore(useShallow((s) => s.nodes))
-  const edges = useCanvasStore(useShallow((s) => s.edges))
+  // Individual field selectors (React #185 guard): the store only replaces the
+  // nodes/edges array when a node/edge object actually changes (applyNodeChanges/
+  // applyEdgeChanges), so the reference is stable between real changes and the
+  // default Object.is equality is sufficient — no useShallow needed.
+  const nodes = useCanvasStore((s) => s.nodes)
+  const edges = useCanvasStore((s) => s.edges)
   const ceeAnalysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
   const setOutcomeNode = useCanvasStore((s) => s.setOutcomeNode)
 
