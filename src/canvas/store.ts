@@ -19,6 +19,7 @@ import { addRun, generateGraphHash, loadRuns, type StoredRun } from './store/run
 import { RUN_COMPLETED_WITHOUT_VERDICT, deriveAnalysisFreshnessUpdate, type AnalysisFreshnessState } from './store/analysisFreshness'
 import * as scenarios from './store/scenarios'
 import type { ScenarioFraming } from './store/scenarios'
+import { registerCrashSnapshotProvider } from './persist/crashFlush'
 import type { GraphHealth, ValidationIssue, NeedleMover } from './validation/types'
 import type { Document, Citation } from './share/types'
 import type { ComparisonResult } from './snapshots/types'
@@ -4828,6 +4829,21 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 if (typeof window !== 'undefined') {
   ;(window as any).useCanvasStore = useCanvasStore
 }
+
+// Crash-moment autosave flush: give the canvas error boundary (entry chunk,
+// must not import this module) a way to snapshot the CURRENT graph into the
+// autosave slot the production boot path restores from. Registered at module
+// init so it covers every surface that mounts the store, with no mount-order
+// or unmount-timing dependency. See persist/crashFlush.ts.
+registerCrashSnapshotProvider(() => {
+  const s = useCanvasStore.getState()
+  return {
+    nodes: s.nodes,
+    edges: s.edges,
+    scenarioId: s.currentScenarioId,
+    ceeAnalysisReady: s.ceeAnalysisReady ?? undefined,
+  }
+})
 
 // F3 (graph-visuals): the focus dim must never survive its focused node.
 // Nodes can be removed by MANY paths (delete action, AI patch, undo, full
