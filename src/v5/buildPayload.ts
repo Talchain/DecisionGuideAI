@@ -15,8 +15,10 @@
  *      Other UI system events that V5 rejects (feedback_submitted) return null
  *      so callers can pre-filter.
  *
- * CEE contract: @talchain/schemas — the UI pins 0.15.0 (see package.json for
- * the authoritative version; CEE pins 0.16.0, and the pins can drift).
+ * CEE contract: @talchain/schemas. The authoritative UI pin is the
+ * `@talchain/schemas` dependency in package.json; CEE pins its own copy and
+ * the two can drift. Deliberately not naming a version here — version-naming
+ * comments rot (this one already had, twice).
  */
 
 import type {
@@ -82,14 +84,15 @@ export function buildV5Payload(input: BuildV5PayloadInput): BuildV5PayloadResult
     return { ok: false, reason: 'missing_message' }
   }
 
-  // Publication gate (schema-derived, sanitise BEFORE source derivation):
-  // CEE ingress validates action_type FAIL-CLOSED against ITS vendored enum,
-  // so an unpublished value on the wire would 422 the whole turn. The gate
-  // is derived from OUR vendored enum (sanitiseActionType → KNOWN_ACTION_TYPES
-  // → ActionType.options): a mapped-but-unpublished value is withheld
-  // entirely — no action_type key AND no chip_click promotion — so the turn
-  // behaves exactly like today's identity-only chip until a schema re-vendor
-  // lights the value up with zero code change here.
+  // Send gate (two independent signals, applied BEFORE source derivation):
+  // CEE ingress validates action_type FAIL-CLOSED, so a value CEE does not
+  // accept would 422 the whole turn. sanitiseActionType requires BOTH that the
+  // value is published in OUR vendored enum (KNOWN_ACTION_TYPES) AND that CEE's
+  // deployed service accepts it (CEE_ACCEPTED_ACTION_TYPES) — never our own
+  // publication alone, which says nothing about whether CEE accepts it. A value
+  // failing either signal is withheld entirely — no action_type key AND no
+  // chip_click promotion — so the turn behaves exactly like today's
+  // identity-only chip until the value is BOTH re-vendored and accepted.
   const wireActionType = sanitiseActionType(input.chipMeta?.action_type)
 
   // Derive source: chipMeta presence with a PUBLISHED action_type signals a
@@ -121,7 +124,8 @@ export function buildV5Payload(input: BuildV5PayloadInput): BuildV5PayloadResult
   }
 
   // Chip sub-object — only on chip / chip_click sources. Carries only the
-  // gate-passed (published) action_type; identity parameters always travel.
+  // gate-passed (published AND CEE-accepted) action_type; identity parameters
+  // always travel.
   if ((source === 'chip' || source === 'chip_click') && input.chipMeta) {
     const parameters = input.chipMeta.parameters
     base.chip = {
@@ -256,13 +260,88 @@ function stringField(src: Record<string, unknown> | undefined, key: string): str
 // explain_results + explain_from_structure at the wire). The parity spec in
 // explainChips.vocabulary.spec.ts stays as the guard against anyone
 // reverting to a hand list.
+//
+// KNOWN_ACTION_TYPES answers ONE question: "is this value published in the
+// enum WE vendored?" That is necessary but NOT sufficient to send — the send
+// gate also requires CEE_ACCEPTED_ACTION_TYPES (below).
 export const KNOWN_ACTION_TYPES: ReadonlySet<ActionTypeLiteral> = new Set<ActionTypeLiteral>(
   ActionType.options,
 )
 
+/**
+ * CEE-acceptance registry — the SECOND, independent signal the send gate
+ * requires. It answers a DIFFERENT question from KNOWN_ACTION_TYPES: not "did
+ * WE publish this value?" but "does CEE's DEPLOYED service accept it at
+ * ingress?"
+ *
+ * Why it exists (the whole point of the send gate): CEE ingress validates
+ * action_type FAIL-CLOSED, so a value CEE does not accept 422s the whole turn.
+ * The gate used to key on publication ALONE — but OUR publishing a value says
+ * nothing about whether CEE accepts it, so a publication-only gate can only
+ * ever be right by luck. The two facts are now DECOUPLED: a value is sent only
+ * when BOTH hold (see isSendableActionType). A newly re-vendored value is
+ * WITHHELD until it is added here with provenance — publication can never again
+ * open the gate on its own.
+ *
+ * This is a DELIBERATE hand-maintained allowlist that CANNOT be derived from
+ * our vendored enum (deriving it would re-couple the two facts and re-create
+ * the defect). It is safe as a hand list because it fails CLOSED: a value
+ * absent here is withheld (behaves like today's identity-only chip — never a
+ * 422), never sent. Drift therefore over-blocks (a chip visibly fails to light
+ * up), it can never leak a CEE-rejected value onto the wire. The element type
+ * is ActionTypeLiteral, so an entry that is not (or no longer) in the vendored
+ * enum is a COMPILE error — you cannot list an accepted value you have not
+ * vendored (it would be inert), which keeps the registry honest.
+ *
+ * Provenance per value:
+ * - run_analysis, set_factor_value, add_constraint, adjust_edge_strength,
+ *   explain_result, explain_results, explain_from_structure, compare_options,
+ *   what_would_flip: present in the vendored enum since <= 0.19.0 and permitted
+ *   by the publication-only gate that preceded this registry. They have been
+ *   live on the wire without an ingress 422 (explain_results + the singular
+ *   legacy alias are the V-P0-2 chip vocabulary) — i.e. empirically
+ *   CEE-accepted. Grandfathered here on that OBSERVED behaviour; they are the
+ *   only values whose acceptance predates the registry.
+ * - analysis_readiness: CEE #578 (their 0.20.0 re-vendor) MERGED and in the
+ *   serving build lineage + A1 deploy confirmation 2026-07-20 ("CEE accepts
+ *   analysis_readiness on the deployed service"). Accepted at INGRESS; sparks
+ *   are currently claimed by CEE's process-meta branch (deterministic, safe),
+ *   with a dedicated typed routing arm queued as a separate CEE build.
+ *   Ingress-acceptance is exactly what the send gate needs — the typed arm is
+ *   not required for the turn to be accepted rather than 422'd.
+ */
+export const CEE_ACCEPTED_ACTION_TYPES: ReadonlySet<ActionTypeLiteral> =
+  new Set<ActionTypeLiteral>([
+    'run_analysis',
+    'set_factor_value',
+    'add_constraint',
+    'adjust_edge_strength',
+    'explain_result',
+    'explain_results',
+    'explain_from_structure',
+    'compare_options',
+    'what_would_flip',
+    'analysis_readiness',
+  ])
+
+/**
+ * The send gate, factored out as a PURE predicate so a test can drive it with
+ * SYNTHETIC registries and prove the AND actually bites — that publication
+ * alone (or acceptance alone) can never open it. A value is sendable IFF it is
+ * BOTH published in the vendored enum AND present in the CEE-acceptance
+ * registry.
+ */
+export function isSendableActionType(
+  raw: string,
+  published: ReadonlySet<string>,
+  accepted: ReadonlySet<string>,
+): boolean {
+  return published.has(raw) && accepted.has(raw)
+}
+
 function sanitiseActionType(raw: string | undefined): ActionTypeLiteral | undefined {
   if (!raw) return undefined
-  return (KNOWN_ACTION_TYPES as ReadonlySet<string>).has(raw)
+  return isSendableActionType(raw, KNOWN_ACTION_TYPES, CEE_ACCEPTED_ACTION_TYPES)
     ? (raw as ActionTypeLiteral)
     : undefined
 }

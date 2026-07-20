@@ -16,17 +16,20 @@
  *     12: hand-maintained mirrors drift green).
  *  2. The spark click path carries that metadata to the outgoing wire
  *     payload (chip.parameters.spark_id always; chip.action_type when the
- *     registry declares one) — asserted at the built-payload JSON, through
- *     the REAL production seams (useConversationActions → ActionChip →
- *     buildChipMeta → buildV5Payload).
- *  3. THE PUBLICATION GATE: CEE ingress validates action_type FAIL-CLOSED
- *     against ITS vendored enum, so an unpublished value would 422 the
- *     whole turn. A mapped value present in OUR vendored enum is sent (and
- *     promotes source to chip_click); a mapped-but-unpublished value
- *     (PENDING_WIRE_ACTION_TYPES) is withheld ENTIRELY — no action_type
- *     key, no chip_click promotion, identity parameters still travel — so
- *     the turn is no worse than today until a schema re-vendor lights the
- *     value up with zero code change.
+ *     registry declares one AND the send gate lets it through) — asserted at
+ *     the built-payload JSON, through the REAL production seams
+ *     (useConversationActions → ActionChip → buildChipMeta → buildV5Payload).
+ *  3. THE SEND GATE — TWO INDEPENDENT SIGNALS. CEE ingress validates
+ *     action_type FAIL-CLOSED, so a value CEE does not accept would 422 the
+ *     whole turn. A mapped value reaches the wire IFF it is BOTH published in
+ *     OUR vendored enum (KNOWN_ACTION_TYPES) AND present in the CEE-acceptance
+ *     registry (CEE_ACCEPTED_ACTION_TYPES) — never our own publication alone,
+ *     which says nothing about whether CEE accepts it. A value failing either
+ *     signal is withheld ENTIRELY — no action_type key, no chip_click
+ *     promotion, identity parameters still travel — so the turn is no worse
+ *     than today. The class-killer test below proves publication alone can
+ *     NEVER open the gate: that is what makes the "we published it, so it
+ *     sends, so CEE 422s it" class impossible.
  *  4. Free-typed user text is NEVER stamped with product intent — the
  *     composer payload carries no chip object at all (the same honesty
  *     requirement in reverse).
@@ -39,7 +42,12 @@ import { ActionType } from '@talchain/schemas/boundary'
 import { ACTIONS_MENU, SPARK_PROMPTS } from '../constants'
 import type { SparkPrompt } from '../types'
 import { buildChipMeta, PENDING_WIRE_ACTION_TYPES } from '../../../conversation/chipMeta'
-import { buildV5Payload } from '../../../../v5/buildPayload'
+import {
+  buildV5Payload,
+  KNOWN_ACTION_TYPES,
+  CEE_ACCEPTED_ACTION_TYPES,
+  isSendableActionType,
+} from '../../../../v5/buildPayload'
 import type { ActionChip } from '../../../conversation/types'
 
 // ---------------------------------------------------------------------------
@@ -67,12 +75,19 @@ const ALL_SPARKS: ReadonlyArray<SparkPrompt> = [
   ...Object.values(SPARK_PROMPTS),
 ]
 
+/** "Published" — present in the enum WE vendored. One of the two send signals. */
 const SCHEMA_ACTION_TYPES: ReadonlySet<string> = new Set(ActionType.options)
 const PENDING_SET: ReadonlySet<string> = new Set<string>(PENDING_WIRE_ACTION_TYPES)
 
-/** Gate verdict for a mapped value: published values send; pending withhold. */
-function isPublished(actionType: string): boolean {
-  return SCHEMA_ACTION_TYPES.has(actionType)
+/**
+ * The REAL send gate: a value reaches the wire IFF it is BOTH published in the
+ * vendored enum AND accepted by CEE. Deferred to the PRODUCTION predicate and
+ * the PRODUCTION registries so this spec cannot drift from the gate it guards
+ * (and so the acceptance-registry mutation-check bites the concrete-outcome
+ * tests below, not this helper).
+ */
+function isSendable(actionType: string): boolean {
+  return isSendableActionType(actionType, KNOWN_ACTION_TYPES, CEE_ACCEPTED_ACTION_TYPES)
 }
 
 beforeEach(() => {
@@ -147,7 +162,7 @@ describe('spark registry — every spark ships explicit intent metadata', () => 
 
 describe('spark click → outgoing wire payload (real send funnel)', () => {
   it.each(ALL_SPARKS.map(s => [s.id, s] as const))(
-    'spark %s ships spark_id (and any action_type) on the built payload',
+    'spark %s ships spark_id (and any sendable action_type) on the built payload',
     (_id, spark) => {
       const { result } = renderHook(() => useConversationActions())
       const accepted = result.current.sendPrompt(spark)
@@ -188,14 +203,14 @@ describe('spark click → outgoing wire payload (real send funnel)', () => {
         chip?: { action_type?: string; parameters?: Record<string, unknown> }
       }
 
-      // The wire carries the product intent explicitly — through the
-      // publication gate: published values send (and promote the source to
-      // CEE's deterministic chip branch); pending values are withheld
-      // entirely; null-intent sparks ship identity only.
+      // The wire carries the product intent explicitly — through the SEND
+      // GATE: a sendable value (published AND CEE-accepted) is sent and
+      // promotes the source to CEE's deterministic chip branch; anything else
+      // is withheld entirely; null-intent sparks ship identity only.
       expect(payload.message).toBe(spark.prompt)
       expect(payload.chip).toBeDefined()
       expect(payload.chip?.parameters).toEqual({ spark_id: spark.id })
-      if (spark.action_type !== null && isPublished(spark.action_type)) {
+      if (spark.action_type !== null && isSendable(spark.action_type)) {
         expect(payload.source).toBe('chip_click')
         expect(payload.chip?.action_type).toBe(spark.action_type)
       } else {
@@ -205,18 +220,84 @@ describe('spark click → outgoing wire payload (real send funnel)', () => {
     },
   )
 
-  it('publication gate: a mapped-but-unpublished value is withheld entirely (positive control for the withhold arm)', () => {
-    // The pending set is empty today, so no registry spark exercises the
-    // withhold arm — this synthetic value proves the gate BITES: without it
-    // every "pending values are withheld" claim above would be vacuously
-    // green (trap 13: an absence assertion needs a positive control).
-    const syntheticPending = 'coach_readiness_value_pending_0_20_0'
-    expect(SCHEMA_ACTION_TYPES.has(syntheticPending)).toBe(false)
+  it('the sendable arm is exercised by REAL registry data (analysis_readiness sparks send)', () => {
+    // Positive control for the send arm: at least one registry spark maps to a
+    // fully-live value, so a regression to all-null/all-withheld would stop
+    // exercising chip_click and be caught here. prepare_first_analysis (the
+    // defect spark) and calibrate_estimates carry analysis_readiness.
+    const sendableMapped = ALL_SPARKS.filter(
+      (s) => s.action_type !== null && isSendable(s.action_type),
+    )
+    expect(sendableMapped.length).toBeGreaterThanOrEqual(1)
+    expect(sendableMapped.map((s) => s.id)).toContain('prepare_first_analysis')
+  })
 
-    const chipMeta = buildChipMeta({
-      action_type: syntheticPending,
-      parameters: { spark_id: 'prepare_first_analysis' },
+  it('SENDABLE: analysis_readiness reaches the wire BECAUSE both signals hold (published in 0.20.0 AND CEE-accepted)', () => {
+    // Independent, HARDCODED expectations — deliberately NOT derived from the
+    // registries, so removing analysis_readiness from CEE_ACCEPTED_ACTION_TYPES
+    // (the mutation-check) turns this RED. That is what proves the gate keys
+    // off ACCEPTANCE and not merely publication: under a publication-only gate
+    // this would stay green when acceptance is removed.
+    expect(KNOWN_ACTION_TYPES.has('analysis_readiness')).toBe(true) // published — 0.20.0 re-vendor
+    expect(CEE_ACCEPTED_ACTION_TYPES.has('analysis_readiness')).toBe(true) // accepted — CEE #578 + A1 (2026-07-20)
+
+    const built = buildV5Payload({
+      turnId: '00000000-0000-4000-8000-000000000007',
+      scenarioId: '00000000-0000-4000-8000-000000000008',
+      stage: 'frame',
+      turnClass: 'frame',
+      mode: 'user',
+      message: 'What should I check before running the first analysis?',
+      source: 'chip',
+      chipMeta: buildChipMeta({
+        action_type: 'analysis_readiness',
+        parameters: { spark_id: 'prepare_first_analysis' },
+      }),
     })
+    if (!built.ok) throw new Error('payload build failed')
+    const payload = built.payload as {
+      source: string
+      chip?: { action_type?: string; parameters?: Record<string, unknown> }
+    }
+    expect(payload.source).toBe('chip_click')
+    expect(payload.chip?.action_type).toBe('analysis_readiness')
+    expect(payload.chip?.parameters).toEqual({ spark_id: 'prepare_first_analysis' })
+  })
+
+  it('CLASS-KILLER: a value PUBLISHED in the enum but NOT in the acceptance registry is WITHHELD — publication alone can never open the gate', () => {
+    // This is the test that makes the 422 class impossible. It drives the REAL
+    // send predicate with SYNTHETIC registries so it can model a value that is
+    // published-but-unaccepted — a state no real value is in today, precisely
+    // because the acceptance registry is the second signal. Under the old
+    // publication-only gate `isSendableActionType` would ignore `accepted` and
+    // this would be RED.
+    const synthetic = 'synthetic_published_but_unaccepted_value'
+
+    // Premise: synthetic is treated as PUBLISHED (in the enum set we pass) yet
+    // is genuinely absent from the CEE-acceptance registry.
+    const publishedWithSynthetic = new Set<string>([...KNOWN_ACTION_TYPES, synthetic])
+    expect(publishedWithSynthetic.has(synthetic)).toBe(true)
+    expect((CEE_ACCEPTED_ACTION_TYPES as ReadonlySet<string>).has(synthetic)).toBe(false)
+
+    // The AND bites on the ACCEPTANCE signal: published but unaccepted → withheld.
+    expect(isSendableActionType(synthetic, publishedWithSynthetic, CEE_ACCEPTED_ACTION_TYPES)).toBe(false)
+
+    // Mirror — acceptance WITHOUT publication is also insufficient, so neither
+    // signal can open the gate alone.
+    const acceptedWithSynthetic = new Set<string>([...CEE_ACCEPTED_ACTION_TYPES, synthetic])
+    expect((KNOWN_ACTION_TYPES as ReadonlySet<string>).has(synthetic)).toBe(false)
+    expect(isSendableActionType(synthetic, KNOWN_ACTION_TYPES, acceptedWithSynthetic)).toBe(false)
+  })
+
+  it('CLASS-KILLER (end-to-end): an unrecognised value is withheld by buildV5Payload — identity-only chip, never a 422 (positive control: the send arm above proves the gate CAN pass a value)', () => {
+    // Complements the pure-predicate class-killer by driving the FULL wire
+    // builder: an action_type that clears neither signal must never reach the
+    // wire. Paired with the SENDABLE test above (which proves the same builder
+    // DOES pass a genuinely-live value), this is a real presence/absence pair
+    // (trap 13), not a vacuous absence.
+    const unrecognised = 'coach_readiness_value_pending_0_20_0'
+    expect(isSendable(unrecognised)).toBe(false)
+
     const built = buildV5Payload({
       turnId: '00000000-0000-4000-8000-000000000005',
       scenarioId: '00000000-0000-4000-8000-000000000006',
@@ -225,53 +306,35 @@ describe('spark click → outgoing wire payload (real send funnel)', () => {
       mode: 'user',
       message: 'What should I check before running the first analysis?',
       source: 'chip',
-      chipMeta,
+      chipMeta: buildChipMeta({
+        action_type: unrecognised,
+        parameters: { spark_id: 'prepare_first_analysis' },
+      }),
     })
     if (!built.ok) throw new Error('payload build failed')
     const payload = built.payload as {
       source: string
       chip?: { action_type?: string; parameters?: Record<string, unknown> }
     }
-
-    // Withheld ENTIRELY: no action_type key, no chip_click promotion —
-    // exactly today's identity-only chip, never a 422 risk.
     expect(payload.source).toBe('chip')
     expect(payload.chip).toBeDefined()
     expect(payload.chip && 'action_type' in payload.chip).toBe(false)
     expect(payload.chip?.parameters).toEqual({ spark_id: 'prepare_first_analysis' })
   })
 
-  it('publication gate: every declared pending value is genuinely unpublished (list hygiene)', () => {
-    // A pending entry that already exists in the vendored enum is a stale
-    // declaration — the re-vendor landed; remove it from the list.
+  it('list hygiene: every declared pending value is genuinely NOT yet sendable (a graduated value must be removed from the list)', () => {
+    // PENDING_WIRE_ACTION_TYPES is DECLARATIVE staging, not the gate. A value
+    // listed there must still be withheld by the REAL gate; the moment it goes
+    // fully live (published AND CEE-accepted) this asserts RED, forcing its
+    // removal. Currently empty — analysis_readiness graduated on 2026-07-20 —
+    // so this loop is vacuous by design; the class-killer + withhold tests
+    // above are the standing positive controls for the withhold arm.
     for (const pending of PENDING_SET) {
       expect(
-        SCHEMA_ACTION_TYPES.has(pending),
-        `PENDING_WIRE_ACTION_TYPES entry "${pending}" is now published in the vendored enum — remove it from the pending list`,
+        isSendable(pending),
+        `PENDING_WIRE_ACTION_TYPES entry "${pending}" is now fully live (published AND CEE-accepted) — remove it from the pending list`,
       ).toBe(false)
     }
-  })
-
-  it('publication gate: analysis_readiness is DECLARED pending and currently WITHHELD (the gate is holding something back, not vacuously empty)', () => {
-    // Signed off 2026-07-20 for schemas 0.20.0: "assess/coach readiness
-    // for analysis". This test flips RED on the 0.20.0 re-vendor (the
-    // value joins the enum) — at that point remove it from
-    // PENDING_WIRE_ACTION_TYPES; the mapped sparks then SEND it with no
-    // further change (the per-spark wire tests' published arm takes over).
-    expect(PENDING_SET.has('analysis_readiness')).toBe(true)
-    expect(SCHEMA_ACTION_TYPES.has('analysis_readiness')).toBe(false)
-  })
-
-  it('publication gate: at least one registry spark maps to a pending value (the withhold arm is exercised by REAL registry data)', () => {
-    // Without this, the withhold arm would be proven only by the synthetic
-    // control above — a registry regression to all-null would silently
-    // stop exercising it. prepare_first_analysis (the defect spark) and
-    // calibrate_estimates carry analysis_readiness today.
-    const pendingMapped = ALL_SPARKS.filter(
-      (s) => s.action_type !== null && PENDING_SET.has(s.action_type),
-    )
-    expect(pendingMapped.length).toBeGreaterThanOrEqual(1)
-    expect(pendingMapped.map((s) => s.id)).toContain('prepare_first_analysis')
   })
 })
 

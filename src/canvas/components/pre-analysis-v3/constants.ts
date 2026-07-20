@@ -266,18 +266,19 @@ export const HERO_COPY = {
  * `action_type` is the wire intent: a @talchain/schemas ActionType enum
  * value (strict at CEE ingress — out-of-enum values 422), a declared
  * pending value (PENDING_WIRE_ACTION_TYPES in conversation/chipMeta.ts —
- * mapped now, WITHHELD from the wire by buildV5Payload's schema-derived
- * gate until the re-vendor publishes it), or `null` when no honest entry
- * exists — we do NOT force a wrong one. Every spark still ships its
+ * mapped now but WITHHELD from the wire by buildV5Payload's send gate until
+ * the value is BOTH re-vendored AND CEE-accepted), or `null` when no honest
+ * entry exists — we do NOT force a wrong one. Every spark still ships its
  * identity as `chip.parameters.spark_id`, the deterministic hook CEE's
  * routing half keys on. The contract test in
  * __tests__/sparkIntentContract.spec.ts validates values against the enum
  * itself (derived, never a hand-kept list).
  *
- * `analysis_readiness` (signed off for 0.20.0) means "assess/coach
- * readiness for analysis". Mapped ONLY where that is the spark's honest
- * intent — elicitation/reflection sparks whose readiness link is incidental
- * stay null rather than being recast as analysis-gate conversations.
+ * `analysis_readiness` means "assess/coach readiness for analysis". It went
+ * fully live on 2026-07-20 (schemas 0.20.0 re-vendor + CEE #578 / A1 deploy
+ * confirmation) and now SENDS. It is mapped ONLY where that is the spark's
+ * honest intent — elicitation/reflection sparks whose readiness link is
+ * incidental stay null rather than being recast as analysis-gate conversations.
  */
 export type ActionsMenuItem = SparkPrompt
 
@@ -327,7 +328,8 @@ export const ACTIONS_MENU = [
     // the ANALYSIS" is readiness-directed — the readiness capability's
     // estimate-gap signals are the honest answer. NOT what_would_flip
     // (post-analysis sensitivity; its deterministic handler demands prior
-    // analysis facts). Pending: withheld until the 0.20.0 re-vendor.
+    // analysis facts). Live since the 0.20.0 re-vendor + CEE acceptance
+    // (2026-07-20) — now sends.
     action_type: 'analysis_readiness',
   },
   {
@@ -345,8 +347,8 @@ export const ACTIONS_MENU = [
     // THE readiness spark (A1's defect reproduction) — the verbatim intent
     // analysis_readiness was coined for. NOT run_analysis, which would RUN
     // the analysis the user is asking how to prepare for — the exact
-    // wrongness class this metadata exists to kill. Pending: withheld
-    // until the 0.20.0 re-vendor.
+    // wrongness class this metadata exists to kill. Live since the 0.20.0
+    // re-vendor + CEE acceptance (2026-07-20) — now sends.
     action_type: 'analysis_readiness',
   },
 ] as const satisfies ReadonlyArray<ActionsMenuItem>
