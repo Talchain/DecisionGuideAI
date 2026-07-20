@@ -1,27 +1,225 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://olumi.ai/contracts/cee/system-event.v1.json",
-  "title": "CEE System Event",
-  "description": "Wire-safe system event payload sent to CEE to signal UI-side actions.",
-  "type": "object",
-  "required": ["type"],
-  "properties": {
-    "type": {
-      "type": "string",
-      "enum": [
-        "direct_graph_edit",
-        "direct_analysis_run",
-        "patch_accepted",
-        "patch_dismissed",
-        "feedback_submitted"
-      ],
-      "description": "Discriminator for the system event kind"
-    },
-    "payload": {
-      "type": "object",
-      "additionalProperties": true,
-      "description": "Event-specific payload (e.g. changed_node_ids for direct_graph_edit)"
+  "$ref": "#/definitions/SystemEventSchema",
+  "definitions": {
+    "SystemEventSchema": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "event_type": {
+              "type": "string",
+              "const": "patch_accepted"
+            },
+            "timestamp": {
+              "type": "string"
+            },
+            "event_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "details": {
+              "type": "object",
+              "properties": {
+                "patch_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "block_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "operations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                },
+                "applied_graph_hash": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "operations"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "event_type",
+            "timestamp",
+            "event_id",
+            "details"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "event_type": {
+              "type": "string",
+              "const": "patch_dismissed"
+            },
+            "timestamp": {
+              "$ref": "#/definitions/SystemEventSchema/anyOf/0/properties/timestamp"
+            },
+            "event_id": {
+              "$ref": "#/definitions/SystemEventSchema/anyOf/0/properties/event_id"
+            },
+            "details": {
+              "type": "object",
+              "properties": {
+                "patch_id": {
+                  "type": "string"
+                },
+                "block_id": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "event_type",
+            "timestamp",
+            "event_id",
+            "details"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "event_type": {
+              "type": "string",
+              "const": "direct_graph_edit"
+            },
+            "timestamp": {
+              "$ref": "#/definitions/SystemEventSchema/anyOf/0/properties/timestamp"
+            },
+            "event_id": {
+              "$ref": "#/definitions/SystemEventSchema/anyOf/0/properties/event_id"
+            },
+            "details": {
+              "type": "object",
+              "properties": {
+                "changed_node_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "changed_edge_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "operations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "add",
+                      "update",
+                      "remove"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "changed_node_ids",
+                "changed_edge_ids",
+                "operations"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "event_type",
+            "timestamp",
+            "event_id",
+            "details"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "event_type": {
+              "type": "string",
+              "const": "direct_analysis_run"
+            },
+            "timestamp": {
+              "$ref": "#/definitions/SystemEventSchema/anyOf/0/properties/timestamp"
+            },
+            "event_id": {
+              "$ref": "#/definitions/SystemEventSchema/anyOf/0/properties/event_id"
+            },
+            "details": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "event_type",
+            "timestamp",
+            "event_id",
+            "details"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "event_type": {
+              "type": "string",
+              "const": "feedback_submitted"
+            },
+            "timestamp": {
+              "$ref": "#/definitions/SystemEventSchema/anyOf/0/properties/timestamp"
+            },
+            "event_id": {
+              "$ref": "#/definitions/SystemEventSchema/anyOf/0/properties/event_id"
+            },
+            "details": {
+              "type": "object",
+              "properties": {
+                "turn_id": {
+                  "type": "string"
+                },
+                "rating": {
+                  "type": "string",
+                  "enum": [
+                    "up",
+                    "down"
+                  ]
+                },
+                "comment": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "turn_id",
+                "rating"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "event_type",
+            "timestamp",
+            "event_id",
+            "details"
+          ],
+          "additionalProperties": false
+        }
+      ]
     }
   },
-  "additionalProperties": false
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }

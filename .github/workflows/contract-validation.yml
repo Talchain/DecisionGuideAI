@@ -4,9 +4,20 @@
 # the CEE orchestrator's boundary schemas. Catches shape mismatches at
 # CI-time instead of staging.
 #
-# Schema source: CEE repo exports JSON Schema files. This workflow checks
-# out the CEE repo's contracts/ directory and copies them locally before
-# running the contract test suite.
+# Schema source: CEE repo (Talchain/olumi-assistants-service, public) exports
+# JSON Schema files in contracts/. This workflow checks out CEE's STAGING tip
+# (the integration branch — CEE's default branch `main` is stale and has no
+# contracts/ directory), strict-syncs the schemas over contracts/cee/, and runs
+# the contract suite against the REAL schemas.
+#
+# FAILURE POSTURE (deliberate — 2026-07-20): the checkout and sync steps FAIL
+# THE JOB on any error. The previous version checked out a non-existent org
+# (Olumi/…, 404) under continue-on-error and silently fell back to the
+# committed mirror for the gate's entire life — a cross-service gate that never
+# saw the other service. No silent fallback path remains. Mirror drift against
+# the fetched tip is reported as a loud warning annotation (not a failure:
+# CEE moving first is the normal cross-repo flow, and breaking drift already
+# fails via the tests, which run against the fetched schemas).
 
 name: Contract Validation
 
@@ -42,18 +53,20 @@ jobs:
       - name: Checkout UI repo
         uses: actions/checkout@v4
 
-      # Attempt to fetch CEE contracts from the CEE repo.
-      # If the CEE repo isn't accessible (private repo, no token), fall back
-      # to the reference copies committed in contracts/cee/.
-      - name: Checkout CEE contracts (optional)
+      # Fetch CEE contracts from the real CEE repo (public — no token needed).
+      # ref: staging is required: CEE's default branch is stale and carries no
+      # contracts/ directory, so an unpinned checkout would "succeed" and then
+      # silently exercise nothing. No continue-on-error: a failed checkout
+      # fails the gate.
+      - name: Checkout CEE contracts (Talchain/olumi-assistants-service@staging)
         uses: actions/checkout@v4
         with:
-          repository: Olumi/olumi-assistants-service
+          repository: Talchain/olumi-assistants-service
+          ref: staging
           path: cee-repo
           sparse-checkout: |
             contracts/
             schemas/
-        continue-on-error: true
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -81,19 +94,27 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
 
-      - name: Sync CEE contracts (strict when CEE repo available)
+      # Strict, always: every expected schema must be present in the CEE
+      # checkout or the job fails. The old "using committed reference schemas"
+      # fallback is deliberately GONE — it was the silent path that masked the
+      # dead checkout.
+      - name: Sync CEE contracts (strict — no fallback)
         run: |
-          if [ -d "cee-repo/contracts" ] || [ -d "cee-repo/schemas" ]; then
-            CEE_REPO_PATH=./cee-repo STRICT_CONTRACTS=1 bash scripts/fetch-cee-contracts.sh
+          echo "CEE source: $(git -C cee-repo rev-parse HEAD)"
+          CEE_REPO_PATH=./cee-repo STRICT_CONTRACTS=1 bash scripts/fetch-cee-contracts.sh
+
+      # The tests below run against the FETCHED schemas (the sync overwrote
+      # contracts/cee/). If the committed mirror has drifted from CEE's staging
+      # tip, local runs and CI are validating different bytes — surface that
+      # loudly on the run/PR, but do not fail: breaking drift already fails via
+      # the tests; benign drift needs a visible prompt to re-sync the mirror.
+      - name: Report committed-mirror drift (loud, non-blocking)
+        run: |
+          if git diff --quiet -- contracts/cee/; then
+            echo "Committed mirror matches CEE staging tip."
           else
-            echo "CEE repo not available — using committed reference schemas"
-            echo "Verifying all 6 expected schemas are present..."
-            actual=$(ls contracts/cee/*.json 2>/dev/null | wc -l | tr -d ' ')
-            if [ "$actual" -ne 6 ]; then
-              echo "ERROR: Expected 6 schemas in contracts/cee/, found $actual"
-              exit 1
-            fi
-            echo "All 6 reference schemas present."
+            echo "::warning title=CEE contract mirror drift::contracts/cee/ no longer matches Talchain/olumi-assistants-service@staging ($(git -C cee-repo rev-parse --short HEAD)). Tests in this job run against the FETCHED schemas; local runs use the committed mirror. Re-sync via scripts/fetch-cee-contracts.sh and update contracts/cee/README.md."
+            git --no-pager diff --stat -- contracts/cee/
           fi
 
       - name: Run contract tests
