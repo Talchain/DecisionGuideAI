@@ -1,24 +1,32 @@
 /**
- * useResultsSectionData — goalProbability collapse (T6 P0-3 + staging fix).
+ * useResultsSectionData — goalProbability collapse (T6 P0-3 + staging fix),
+ * as seen THROUGH the UI-SEM-088 constraint honesty gate.
  *
- * The adapted per-option `goalProbability` must never discard a producer
- * goal answer. Precedence:
- *   1. probability_of_joint_goal when the option carries constraint_analysis
- *      constraints (joint = goal AND limits);
- *   2. goal_probability (unconstrained) when present;
- *   3. probability_of_joint_goal as final fallback — when ISL auto-derives
- *      the goal threshold as a constraint the run has NO goal_probability
- *      and NO constraint_analysis, yet the joint value IS the goal
- *      probability. Discarding it hid "every option at 0% chance of the
- *      target" on staging.
+ * The full producer precedence (joint when constrained → goal_probability →
+ * joint as auto-derived fallback) is exercised in the POSITIVE-CONTROL block,
+ * which flips PLOT_CONSTRAINT_NUMBERS_SUSPECT false. While the gate is ON
+ * (default) the two seams it guards (the V2 responseMapper's constraint_analysis
+ * passthrough + selectGoalProbability) collapse every option to the
+ * unconstrained goal_probability and never surface a constraint-derived joint
+ * figure.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { useResultsSectionData } from '../useResultsSectionData'
 import { useCanvasStore } from '../../../canvas/store'
 import { mapV2ResponseToReportV1 } from '../../../adapters/plot/v2/responseMapper'
 import type { V2RunResponse } from '../../../adapters/plot/v2/types'
+
+// The gate constant is imported by BOTH guarded seams (the responseMapper and
+// selectGoalProbability), which resolve to this one module — a single mutable
+// getter mock drives both.
+const mockTrust = vi.hoisted(() => ({ suspect: true }))
+vi.mock('../../../adapters/plot/constraintTrust', () => ({
+  get PLOT_CONSTRAINT_NUMBERS_SUSPECT() {
+    return mockTrust.suspect
+  },
+}))
 
 type ComparisonEntry = Record<string, unknown>
 
@@ -80,8 +88,70 @@ function adaptedGoalProbabilities(): Record<string, number | null | undefined> {
   return out
 }
 
-describe('useResultsSectionData — goalProbability collapse', () => {
+describe('useResultsSectionData — goalProbability collapse — gate ON (default)', () => {
   beforeEach(() => {
+    mockTrust.suspect = true
+    useCanvasStore.setState({
+      results: null,
+      rawV2Response: null,
+      nodes: [],
+      edges: [],
+      hasCompletedFirstRun: false,
+    } as any)
+  })
+
+  it('suppresses the auto-derived joint figure (no goal_probability, no constraint_analysis) → null', () => {
+    // Staging shape: ISL auto-derived the goal threshold as a constraint —
+    // joint present (zero!), unconstrained and constraint_analysis absent.
+    // The joint arrives with no client-visible constraint marker, so while
+    // suspect we cannot trust it and fall back to the (absent) unconstrained.
+    setStoreWithMappedReport(makeV2Response(
+      { probability_of_joint_goal: 0 },
+      { probability_of_joint_goal: 0 },
+    ))
+    const probs = adaptedGoalProbabilities()
+    expect(probs.opt_a).toBeNull()
+    expect(probs.opt_b).toBeNull()
+  })
+
+  it('prefers unconstrained goal_probability when no constraint_analysis exists', () => {
+    setStoreWithMappedReport(makeV2Response(
+      { probability_of_goal: 0.4, probability_of_joint_goal: 0.2 },
+      { probability_of_goal: 0.7 },
+    ))
+    const probs = adaptedGoalProbabilities()
+    expect(probs.opt_a).toBe(0.4)
+    expect(probs.opt_b).toBe(0.7)
+  })
+
+  it('NEVER substitutes the joint figure for a constrained option → unconstrained goal_probability', () => {
+    setStoreWithMappedReport(makeV2Response(
+      {
+        probability_of_goal: 0.4,
+        probability_of_joint_goal: 0.2,
+        constraint_analysis: {
+          constraints: [{ constraint_id: 'c1', node_id: 'n1', direction: 'max', threshold: 1 }],
+          joint_probability: 0.2,
+        },
+      },
+      { probability_of_goal: 0.7 },
+    ))
+    const probs = adaptedGoalProbabilities()
+    expect(probs.opt_a).toBe(0.4)
+    expect(probs.opt_b).toBe(0.7)
+  })
+
+  it('stays null when the producer sent no goal answer at all', () => {
+    setStoreWithMappedReport(makeV2Response({}, {}))
+    const probs = adaptedGoalProbabilities()
+    expect(probs.opt_a).toBeNull()
+    expect(probs.opt_b).toBeNull()
+  })
+})
+
+describe('useResultsSectionData — goalProbability collapse — POSITIVE CONTROL: gate OFF', () => {
+  beforeEach(() => {
+    mockTrust.suspect = false
     useCanvasStore.setState({
       results: null,
       rawV2Response: null,
@@ -92,8 +162,6 @@ describe('useResultsSectionData — goalProbability collapse', () => {
   })
 
   it('falls back to probability_of_joint_goal when goal_probability and constraint_analysis are absent (auto goal threshold)', () => {
-    // Staging shape: ISL auto-derived the goal threshold as a constraint —
-    // joint present (zero!), unconstrained and constraint_analysis absent.
     setStoreWithMappedReport(makeV2Response(
       { probability_of_joint_goal: 0 },
       { probability_of_joint_goal: 0 },
@@ -128,12 +196,5 @@ describe('useResultsSectionData — goalProbability collapse', () => {
     const probs = adaptedGoalProbabilities()
     expect(probs.opt_a).toBe(0.2)
     expect(probs.opt_b).toBe(0.7)
-  })
-
-  it('stays null when the producer sent no goal answer at all', () => {
-    setStoreWithMappedReport(makeV2Response({}, {}))
-    const probs = adaptedGoalProbabilities()
-    expect(probs.opt_a).toBeNull()
-    expect(probs.opt_b).toBeNull()
   })
 })
