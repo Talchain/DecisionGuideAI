@@ -83,6 +83,24 @@
   # to production by adding to [build.environment] ONLY after sign-off.
   VITE_FEATURE_STRENGTHEN_PANEL = "1"
 
+  # Front door (real sign-in) — keep the REAL Supabase SDK in the staging
+  # bundle. Without this, vite.config.ts aliases @supabase/supabase-js to
+  # src/stubs/supabase-stub.mjs on every guest build, and that stub does not
+  # implement signInWithOtp/signInWithOAuth at all — so sign-in cannot work
+  # no matter what the requireLogin flag says (the runbook in src/flags.ts
+  # `requireLogin` documents exactly this trap).
+  #
+  # This does NOT turn guest mode off: VITE_AUTH_MODE stays "guest", so
+  # unauthenticated visitors still land on the guest canvas exactly as today
+  # and the other workstreams' staging QA is unaffected. It only makes real
+  # sign-in POSSIBLE for anyone who opts in per-browser with
+  # `localStorage.setItem('feature.requireLogin', '1')`.
+  #
+  # Staging-scoped deliberately — production (main) inherits only from
+  # [build.environment] and keeps the stub. Promote to [build.environment]
+  # ONLY after sign-off.
+  VITE_STUB_SUPABASE = "0"
+
   # Hero fixture gallery — internal-only /dev/hero-gallery route rendering
   # prototype hero states from typed fixtures (visible internal-preview
   # banner on every instance). Staging-only for design review; never add to

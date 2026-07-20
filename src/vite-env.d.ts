@@ -19,6 +19,13 @@ interface ImportMetaEnv {
   readonly VITE_BUILD_ID?: string
   readonly VITE_POC_ONLY?: string
   readonly VITE_AUTH_MODE?: string
+  /**
+   * Build-time only. "0" keeps the REAL @supabase/supabase-js in the bundle
+   * on a PoC/guest build (see vite.config.ts `stubSupabase`). Unset/any other
+   * value preserves the historical behaviour: stub whenever PoC/guest.
+   * Not read at runtime — the alias decision happens in vite.config.ts.
+   */
+  readonly VITE_STUB_SUPABASE?: string
   readonly VITE_STORAGE_KEY?: string
   readonly VITE_RELEASE_VERSION?: string
   readonly VITE_SESSION_ID?: string

@@ -2,6 +2,9 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
+// Single source of truth for the Supabase-stub decision (unit-tested in
+// tests/ci-guards/vite.supabase-stub-decoupling.spec.ts).
+import { shouldStubSupabase } from './scripts/supabase-stub-decision.mjs';
 
 // ⚠️  CRITICAL: DO NOT ADD use-sync-external-store shim aliases!
 // The custom shim causes React #185 infinite loops because useCallback dependencies
@@ -17,6 +20,27 @@ export default defineConfig(({ mode, command }) => {
   const isPoc =
     env.VITE_POC_ONLY === '1' ||
     env.VITE_AUTH_MODE === 'guest';
+
+  // Front-door fix: the Supabase SDK stub is DECOUPLED from PoC mode.
+  //
+  // Historically `isPoc` did three jobs at once: mint a guest user
+  // (src/lib/poc.ts `isGuestAuth`), stub `@tanstack/react-query`, AND alias
+  // the real Supabase SDK out of the bundle. That last one made real sign-in
+  // impossible on any guest build — the stub in src/stubs/supabase-stub.mjs
+  // does not even implement `signInWithOtp` / `signInWithOAuth`, which are
+  // the only two methods src/contexts/AuthContext.tsx actually calls.
+  //
+  // `VITE_STUB_SUPABASE=0` keeps the REAL client in the bundle while leaving
+  // guest mode as the default, so:
+  //   • unauthenticated visitors still get the guest canvas (no regression),
+  //   • anyone opting in via `localStorage feature.requireLogin = 1` gets a
+  //     working magic-link sign-in instead of a silent no-op.
+  //
+  // Default (unset) preserves today's behaviour exactly: stub whenever isPoc.
+  // The two Supabase aliases move TOGETHER — aliasing `@supabase/gotrue-js`
+  // to `export default {}` while leaving the real supabase-js in place would
+  // break the real client, which imports GoTrueClient from it.
+  const stubSupabase = shouldStubSupabase(env);
 
   // Proxy config only applies to serve/preview, not build
   const isServing = command === 'serve';
@@ -66,10 +90,15 @@ export default defineConfig(({ mode, command }) => {
     alias: [
       // @ → src/ path alias (used by 60+ files)
       { find: /^@\//, replacement: path.resolve(__dirname, 'src') + '/' },
-      // POC/test stubs for guest mode
-      ...(isPoc ? [
+      // POC/test stubs for guest mode.
+      // Supabase pair is gated on `stubSupabase` (see above) so real sign-in
+      // can be restored without un-stubbing anything else; react-query stays
+      // on `isPoc` and is unaffected by the front-door fix.
+      ...(stubSupabase ? [
         { find: '@supabase/supabase-js', replacement: path.resolve(__dirname, 'src/stubs/supabase-stub.mjs') },
         { find: '@supabase/gotrue-js',   replacement: path.resolve(__dirname, 'src/stubs/gotrue-stub.mjs') },
+      ] : []),
+      ...(isPoc ? [
         { find: '@tanstack/react-query', replacement: path.resolve(__dirname, 'src/stubs/react-query-stub.mjs') },
       ] : []),
       // ⚠️  NO use-sync-external-store aliases - use real package with dedupe only!
