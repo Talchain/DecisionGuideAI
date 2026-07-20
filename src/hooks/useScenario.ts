@@ -25,6 +25,7 @@ import { hydrateAnalysisFromV2Response } from './hydrateAnalysis'
 import type { Edge } from '@xyflow/react'
 import { DEFAULT_EDGE_DATA, type EdgeData } from '../canvas/domain/edges'
 import { readPersistedGoalConstraints } from '../canvas/utils/persistedGraph'
+import { isPersistenceActive as computeIsPersistenceActive } from '../lib/persistenceActive'
 
 export type SaveStatus = 'saved' | 'saving' | 'error'
 
@@ -97,8 +98,10 @@ export function useScenario(): UseScenarioReturn {
   const { user, authenticated } = useAuth()
   const navigate = useNavigate()
 
-  // Persistence is active only for real Supabase users, not guest mode
-  const isPersistenceActive = authenticated && !!user && user.id !== 'guest'
+  // Persistence is active only for real Supabase users, not guest mode.
+  // Canonical predicate lives in lib/persistenceActive (shared with the
+  // GoalPanel constraint-honesty gate and loginDraftImport — derive, don't mirror).
+  const isPersistenceActive = computeIsPersistenceActive(authenticated, user)
 
   // Canvas store selectors — only scalars/functions that don't create new
   // references on every ReactFlow tick.  nodes/edges/framing are read via

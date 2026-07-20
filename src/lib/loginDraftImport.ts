@@ -19,6 +19,7 @@
 import { loadState } from '../canvas/persist'
 import * as scenarioService from '../services/scenarioService'
 import { isRequireLoginEnabled } from '../flags'
+import { isPersistenceActive } from './persistenceActive'
 
 export const DRAFT_IMPORT_MARKER_KEY = 'login.draftImport.v1'
 
@@ -52,7 +53,7 @@ export function shouldOfferDraftImport(
   authenticated: boolean,
 ): boolean {
   if (!isRequireLoginEnabled()) return false
-  if (!authenticated || !user || user.id === 'guest') return false
+  if (!isPersistenceActive(authenticated, user)) return false
   if (getMarker() !== null) return false
   const draft = loadState()
   return !!draft && draft.nodes.length > 0
