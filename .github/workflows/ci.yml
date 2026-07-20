@@ -56,8 +56,6 @@ jobs:
         with:
           node-version-file: .nvmrc
           registry-url: https://npm.pkg.github.com
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Cache node_modules
         id: cache-nm
@@ -105,8 +103,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Restore node_modules cache
         uses: actions/cache@v4
@@ -135,8 +131,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Restore node_modules cache
         uses: actions/cache@v4
@@ -238,8 +232,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Restore node_modules cache
         uses: actions/cache@v4
@@ -285,8 +277,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Restore node_modules cache
         uses: actions/cache@v4
@@ -320,8 +310,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Restore node_modules cache
         uses: actions/cache@v4
@@ -367,8 +355,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
@@ -426,8 +412,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
       - name: Restore node_modules cache
         uses: actions/cache@v4
         with:
@@ -459,8 +443,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
       - name: Restore node_modules cache
         uses: actions/cache@v4
         with:
@@ -491,8 +473,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
       - name: Restore node_modules cache
         uses: actions/cache@v4
         with:
@@ -546,8 +526,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4

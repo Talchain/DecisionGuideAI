@@ -78,8 +78,6 @@ jobs:
         with:
           node-version-file: .nvmrc
           registry-url: https://npm.pkg.github.com
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Cache node_modules
         id: cache-nm
