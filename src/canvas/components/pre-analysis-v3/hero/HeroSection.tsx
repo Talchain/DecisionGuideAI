@@ -23,6 +23,7 @@ import { PanelIconButton } from '../ui/PanelIconButton'
 import { BestNextStep } from './BestNextStep'
 import { CoachingSlot } from './CoachingSlot'
 import { InlineField } from './InlineField'
+import { parseSuccessTarget } from './parseSuccessTarget'
 import type { PreAnalysisModel } from '../hooks/usePreAnalysisModel'
 import type { LadderStep, SparkPrompt } from '../types'
 
@@ -36,12 +37,11 @@ interface HeroSectionProps {
   onLadderAct: (step: LadderStep) => void
 }
 
-function parseDisplayNumber(raw: string): number | null {
-  const cleaned = raw.replace(/[^0-9.,-]/g, '').replace(/,/g, '')
-  if (cleaned.trim() === '') return null
-  const parsed = Number.parseFloat(cleaned)
-  return Number.isFinite(parsed) ? parsed : null
-}
+// UI-SEM-086: the old digit-strip parse here (`raw.replace(/[^0-9.,-]/g,'')`)
+// fabricated targets from prose — "Reach £500k … within 12 months" became
+// 50012 (dress-rehearsal 2026-07-20: "Target: 50,012" on the goal node,
+// "5,001,200% likelihood" in the Model tab). parseSuccessTarget extracts the
+// amount the user actually stated, or fails closed.
 
 export const HeroSection = memo(function HeroSection({
   hero,
@@ -76,9 +76,15 @@ export const HeroSection = memo(function HeroSection({
     (raw: string): true | string => {
       const goalNodeId = hero.goalNodeId
       if (!goalNodeId) return FIELD_FEEDBACK_COPY.successNeedsGoalHint
-      const parsed = parseDisplayNumber(raw)
+      const parsed = parseSuccessTarget(raw)
       if (parsed === null) return FIELD_FEEDBACK_COPY.successFormatHint
-      useCanvasStore.getState().setGoalThresholdAndUpdateNode(goalNodeId, parsed)
+      useCanvasStore
+        .getState()
+        .setGoalThresholdAndUpdateNode(
+          goalNodeId,
+          parsed.value,
+          parsed.unit ? { unit: parsed.unit } : undefined,
+        )
 
       // ROADMAP 1.1 fix (Gate 3 blocker, acceptance-evidence/6b-goal-capture):
       // the store write above is LOCAL-ONLY — CEE never learns this target,
@@ -111,8 +117,8 @@ export const HeroSection = memo(function HeroSection({
         const message = isDescriptive
           ? `My success target is: ${trimmed}`
           : goalLabel
-            ? `My success target for "${goalLabel}" is ${parsed}.`
-            : `My success target is ${parsed}.`
+            ? `My success target for "${goalLabel}" is ${parsed.value}.`
+            : `My success target is ${parsed.value}.`
         dispatch({
           action_type: 'add_constraint',
           parameters: { description: message },

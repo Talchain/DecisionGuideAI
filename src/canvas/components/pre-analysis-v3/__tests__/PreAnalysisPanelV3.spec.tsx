@@ -466,6 +466,42 @@ describe('no silent failures (diagnose-and-fix pass)', () => {
     expect(call.message).toContain('ship 25% faster')
   })
 
+  // Dress-rehearsal 2026-07-20 regression: the digit-strip parser turned
+  // "Reach £500k incremental ARR within 12 months of launch" into 50012
+  // ("£500k" lost its k multiplier → 500; "12 months" concatenated on),
+  // which rendered as "Target: 50,012" on the goal node and
+  // "5,001,200% likelihood" in the Model tab. The commit must extract the
+  // currency amount the user actually stated — never digit-concatenate.
+  it('a descriptive sentence with a currency amount commits that amount, never digit-concatenation', () => {
+    const dispatchAction = vi.fn()
+    useGuidanceStore.setState({ _dispatchAction: dispatchAction } as never)
+    renderPanel()
+    const input = screen.getByLabelText('Success measure')
+    fireEvent.change(input, {
+      target: { value: 'Reach £500k incremental ARR within 12 months of launch' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save success' }))
+
+    expect(useCanvasStore.getState().goalThreshold).toBe(500000)
+    const goal = useCanvasStore.getState().nodes.find(n => n.id === 'g1')
+    const goalData = goal?.data as { success_threshold?: number; goal_threshold_unit?: string }
+    expect(goalData?.success_threshold).toBe(500000)
+    expect(goalData?.goal_threshold_unit).toBe('£')
+    // The committed value flows back down in the user's own unit.
+    expect(input).toHaveValue('£500,000')
+    // The verbatim sentence still rides to CEE.
+    expect(dispatchAction.mock.calls[0][0].message).toContain('£500k')
+  })
+
+  it('a timeframe number is never fabricated into the target (fail closed with the hint)', () => {
+    renderPanel()
+    const input = screen.getByLabelText('Success measure')
+    fireEvent.change(input, { target: { value: 'double revenue within 12 months' } })
+    fireEvent.blur(input)
+    expect(useCanvasStore.getState().goalThreshold).toBeNull()
+    expect(screen.getByText('Enter a number, like 20 or 15%')).toBeInTheDocument()
+  })
+
   it('does not throw when saving a success target with no _dispatchAction registered (graceful degradation)', () => {
     useGuidanceStore.setState({ _dispatchAction: null } as any)
     renderPanel()

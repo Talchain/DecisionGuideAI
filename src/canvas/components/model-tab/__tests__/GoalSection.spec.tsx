@@ -62,6 +62,45 @@ describe('GoalSection', () => {
     expect(screen.getByText(/£500,000/)).toBeInTheDocument()
   })
 
+  // Dress-rehearsal 2026-07-20 regression: a USER-set success_threshold is
+  // RAW user units (store.ts setGoalThresholdAndUpdateNode — the only
+  // production writer — and computeSuccessState both define it so). This
+  // section rendered it through the normalised ×100 branch, showing the
+  // 50012 mis-parse as "5,001,200% likelihood".
+  it('renders a user-set success_threshold as the raw number — never ×100 "% likelihood"', () => {
+    render(<GoalSection goalNode={makeGoalNode({
+      success_threshold: 50012,
+      threshold_source: 'user',
+      goal_threshold: undefined,
+      goal_threshold_raw: undefined,
+    })} />)
+    expect(screen.getByText(/50,012/)).toBeInTheDocument()
+    expect(screen.queryByText(/likelihood/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/5,001,200/)).not.toBeInTheDocument()
+  })
+
+  it('renders a user-set success_threshold with the captured unit', () => {
+    render(<GoalSection goalNode={makeGoalNode({
+      success_threshold: 500000,
+      threshold_source: 'user',
+      goal_threshold_unit: '£',
+      goal_threshold: undefined,
+      goal_threshold_raw: undefined,
+    })} />)
+    expect(screen.getByText(/£500,000/)).toBeInTheDocument()
+  })
+
+  it('a user-set threshold wins over a stale CEE raw anchor (mirrors computeSuccessState priority)', () => {
+    render(<GoalSection goalNode={makeGoalNode({
+      success_threshold: 600000,
+      threshold_source: 'user',
+      goal_threshold_raw: 500000,
+      goal_threshold_unit: '£',
+    })} />)
+    expect(screen.getByText(/£600,000/)).toBeInTheDocument()
+    expect(screen.queryByText(/£500,000/)).not.toBeInTheDocument()
+  })
+
   it('renders editable "Not set" when no threshold data available', () => {
     render(<GoalSection goalNode={makeGoalNode({ success_threshold: undefined, goal_threshold: undefined })} />)
     // InlineEdit renders with -display suffix in display mode

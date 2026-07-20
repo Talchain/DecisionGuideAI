@@ -642,8 +642,13 @@ interface CanvasState {
     threshold: number | null,
     opts?: { fromCeeSync?: boolean; representation?: 'raw' | 'normalised' },
   ) => void
-  /** Unified threshold + node data update. Prefer over calling setGoalThreshold + updateNode separately. */
-  setGoalThresholdAndUpdateNode: (goalNodeId: string, value: number | null) => void
+  /**
+   * Unified threshold + node data update. Prefer over calling setGoalThreshold + updateNode separately.
+   * `opts.unit` records the unit the user's own input carried (currency symbol or '%',
+   * UI-SEM-086) onto the goal node's goal_threshold_unit so every display surface
+   * (GoalNode, Model tab, hero success field) can render the raw value honestly.
+   */
+  setGoalThresholdAndUpdateNode: (goalNodeId: string, value: number | null, opts?: { unit?: string }) => void
   // Results actions
   resultsStart: (params: { seed: number; wasForced?: boolean }) => void
   resultsConnecting: (runId: string) => void
@@ -2785,7 +2790,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (changed && !opts?.fromCeeSync) markAnalysisFreshnessDirty(get, set)
   },
 
-  setGoalThresholdAndUpdateNode: (goalNodeId, value) => {
+  setGoalThresholdAndUpdateNode: (goalNodeId, value, opts) => {
     // User commit → raw user units (Lane 5).
     set({ goalThreshold: value, goalThresholdRepresentation: value == null ? null : 'raw' })
     pushToHistory(get, set)
@@ -2808,6 +2813,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
                 success_threshold: value,
                 threshold_source: value !== null ? 'user' : undefined,
                 threshold_confirmed: false,
+                // UI-SEM-086: keep the unit the user's own input carried; leave
+                // any existing (CEE-backfilled) unit untouched when none given.
+                ...(value !== null && opts?.unit ? { goal_threshold_unit: opts.unit } : {}),
               },
             }
           : n
