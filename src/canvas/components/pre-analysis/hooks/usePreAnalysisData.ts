@@ -17,7 +17,6 @@
 
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../store'
-import { useShallow } from 'zustand/shallow'
 import { CURRENCY_SYMBOLS, classifyUnit, unwrapInterventionValue } from '../../../utils/labelUtils'
 import type { Node, Edge } from '@xyflow/react'
 import type { BiasType } from '../primitives/BiasIcon'
@@ -594,9 +593,12 @@ function hasNegativeStrength(edge: Edge): boolean {
  */
 export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData {
   // M2 merge point: _coaching parameter will be used when CEE CoachingPayload is available
-  // Store selectors
-  const nodes = useCanvasStore(useShallow(s => s.nodes))
-  const edges = useCanvasStore(useShallow(s => s.edges))
+  // Store selectors — individual field selectors (React #185 guard): the store
+  // only replaces the nodes/edges array when a node/edge object actually changes
+  // (applyNodeChanges/applyEdgeChanges), so the reference is stable between real
+  // changes and the default Object.is equality is sufficient — no useShallow needed.
+  const nodes = useCanvasStore(s => s.nodes)
+  const edges = useCanvasStore(s => s.edges)
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
   const m1ReviewAssumptions = useCanvasStore(s => s.runMeta?.m1ReviewAssumptions)
   const m1AssumptionsLedger = useCanvasStore(s => s.runMeta?.m1Coaching?.assumptions_ledger as Array<{ severity: string; message: string }> | undefined)
