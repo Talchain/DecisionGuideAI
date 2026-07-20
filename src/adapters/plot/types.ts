@@ -25,7 +25,15 @@ export interface ReportV1 {
   }
   model_card: {
     response_hash: string
-    response_hash_algo: 'sha256'
+    /**
+     * Digest algorithm behind `response_hash`. `'sha256'` on the producer /
+     * PLoT paths (V1/V2). `'fnv1a-64'` on the V5 conversational path, where the
+     * UI derives a LOCAL, non-crypto content digest (FNV-1a 64-bit — see
+     * `deriveBlockHash` in mapV5AnalysisToReport.ts) because the V5 contract
+     * carries no engine hash. F12: this field previously read `'sha256'` on the
+     * V5 path too, which misrepresented the algorithm actually used.
+     */
+    response_hash_algo: 'sha256' | 'fnv1a-64'
     /**
      * Provenance of `response_hash`. `'producer'` = the engine's own hash
      * (V2/PLoT path, carried verbatim). `'local'` = a device-derived content

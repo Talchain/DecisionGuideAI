@@ -19,17 +19,16 @@
  *     and not blurred into the UI's "unknown")
  *   - missing / undefined (older PLoT builds)   → neutral "Robustness unknown"
  *
- * Meta: raw stability may appear ONLY as neutral metadata ("{N}% stability"),
- * never as a verdict — and ONLY when a determinate display-safe verdict
- * exists ('robust' | 'moderate' | 'fragile'). When the verdict is absent or
- * 'not_assessed', rendering "59% stability" beside it (a number that is in
- * fact the leader's win probability) contradicts it — so the stability
- * segment is SUPPRESSED, not relabelled.
+ * Meta (F7 — display honesty): the raw `stability` number is NEVER rendered.
+ * It is the legacy `recommendation_stability` field, which is in fact the
+ * LEADER'S WIN PROBABILITY (see the field note where the hook populates it),
+ * not a stability/robustness measure — so "{N}% stability" mislabelled a win
+ * probability as stability. The numeric segment has been removed entirely
+ * (previously it was gated to a determinate verdict; now it never renders).
+ * Only the display-safe verdict/reason and the evidence-gap text survive:
  *   - the producer's `robustnessVerdictReason` — leading segment, VERBATIM
  *     (producer-owned display phrase; never authored in the UI, never shown
  *     without its verdict)
- *   - "{N}% stability" — appended when stability is finite AND the verdict
- *     is determinate
  *   - "Evidence gaps remain" — appended when any review-card confidence < 50%
  *   - "Evidence strong"      — appended when there are gaps AND none weak
  *   - omitted entirely when there are no review cards at all
@@ -112,26 +111,27 @@ export function derivePostFooterStatus(
 }
 
 export function derivePostFooterMeta({
-  stability,
+  // `stability` is intentionally NOT destructured/read — see the F7 note
+  // below. It remains on `PostFooterMetaInput` for caller compatibility.
   robustnessVerdict,
   robustnessVerdictReason,
   reviewCards,
 }: PostFooterMetaInput): string | null {
-  // Stability-honesty gate: the "{N}% stability" segment renders ONLY when a
-  // determinate display-safe verdict exists (the same allowlist family as
-  // the status — never a non-neutral catch-all). While the footer status is
-  // "Robustness unknown" / "Robustness not assessed", a raw stability
-  // percentage would contradict it, so the segment is suppressed entirely.
-  // Suppress, never relabel.
-  const verdictDeterminate =
+  // F7 (display honesty): the "{N}% stability" numeric segment is REMOVED.
+  // `stability` here is the legacy `recommendation_stability` field, which
+  // this file's own header comment documents is in fact the LEADER'S WIN
+  // PROBABILITY, not a robustness/stability measure — so rendering it as
+  // "{N}% stability" mislabels a win probability as stability (same doctrine
+  // #407 applied to the Advanced receipts). Only the display-safe
+  // verdict/reason and the evidence-gap text survive. The `stability` input
+  // is retained on the interface for caller compatibility but no longer read.
+  // Removal trigger: PLoT supplies a genuine numeric robustness/stability
+  // field distinct from the win probability.
+  const verdictKnown =
     robustnessVerdict === 'robust' ||
     robustnessVerdict === 'moderate' ||
-    robustnessVerdict === 'fragile'
-  const verdictKnown = verdictDeterminate || robustnessVerdict === 'not_assessed'
-  const stabPct =
-    verdictDeterminate && typeof stability === 'number' && Number.isFinite(stability)
-      ? Math.round(stability * 100)
-      : null
+    robustnessVerdict === 'fragile' ||
+    robustnessVerdict === 'not_assessed'
   const evidenceWeak = reviewCards.some(g => typeof g.confidence === 'number' && g.confidence < 50)
   const evidenceText = reviewCards.length === 0
     ? null
@@ -146,7 +146,6 @@ export function derivePostFooterMeta({
   ) {
     parts.push(robustnessVerdictReason)
   }
-  if (stabPct != null) parts.push(`${stabPct}% stability`)
   if (evidenceText) parts.push(evidenceText)
   return parts.length > 0 ? parts.join(' · ') : null
 }

@@ -133,8 +133,13 @@ describe('OutcomeNode', () => {
       }) as any)
     )
     renderOutcome()
-    // v1.1: displayed as "75%" (bold entity colour) + "of your goal" (meta text)
-    expect(screen.getByText(/of your goal/)).toBeDefined()
+    // UI-SEM-089 (F3, display honesty): the Layer-1 percentage is the static
+    // assumed edge strength, NOT a computed goal contribution. Post-analysis it
+    // must keep the honest "assumed strength" wording and must NEVER relabel to
+    // "of your goal" just because results.status flipped to 'complete'.
+    expect(screen.getByText(/assumed strength/)).toBeDefined()
+    expect(screen.queryByText(/of your goal/)).toBeNull()
+    expect(screen.getByText(/75%/)).toBeDefined()
   })
 
   it('does not show certainty even when beliefExists is present', () => {

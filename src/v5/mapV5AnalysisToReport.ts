@@ -707,7 +707,14 @@ export function mapV5AnalysisToReport(
     },
     model_card: {
       response_hash: responseHash,
-      response_hash_algo: 'sha256',
+      // F12 (truthful labelling): `deriveBlockHash` below is FNV-1a 64-bit, not
+      // SHA-256. When a producer hash is supplied it is carried verbatim (its
+      // own algorithm, assumed 'sha256' per the producer paths); otherwise the
+      // hash is the locally-derived FNV-1a digest and MUST be labelled as such
+      // so the receipts never misrepresent the algorithm. NOTE: this is a
+      // labelling fix only — deliberately NOT a switch to real SHA-256
+      // (async/web-crypto churn, out of scope).
+      response_hash_algo: options.responseHash ? 'sha256' : 'fnv1a-64',
       // Provenance for the receipts hash row: when the caller supplied a
       // producer hash it is 'producer'; otherwise `responseHash` is the
       // locally-derived `deriveBlockHash` digest (the V5 contract carries no
