@@ -96,6 +96,13 @@ export const PANEL_COPY = {
   bestNextStep: 'Best next step',
 } as const
 
+/**
+ * Singularise the "option(s)" noun for the two scaffold-copy sites
+ * (LADDER_COPY.run_scaffold and FOOTER_COPY.scaffoldSub). One helper so the
+ * two identical `n === 1 ? 'option' : 'options'` ternaries can never drift.
+ */
+const pluralOptions = (n: number): string => (n === 1 ? 'option' : 'options')
+
 export const LADDER_COPY = {
   set_goal: 'Set the goal this decision serves, so every option can be judged against it.',
   set_success: 'Define what success means here, so the analysis can judge the options.',
@@ -108,7 +115,7 @@ export const LADDER_COPY = {
    * draft the remaining options on run, so the offer to run is honest.
    */
   run_scaffold: (n: number) =>
-    `Run your first analysis. Olumi will draft the remaining ${n} ${n === 1 ? 'option' : 'options'}.`,
+    `Run your first analysis. Olumi will draft the remaining ${n} ${pluralOptions(n)}.`,
   run_scaffold_nocount: 'Run your first analysis. Olumi will draft the remaining options.',
 } as const
 
@@ -215,7 +222,7 @@ export const FOOTER_COPY = {
    * not-ready copy so the footer never contradicts the enabled run button.
    */
   scaffoldSub: (n: number) =>
-    `Olumi will draft the remaining ${n} ${n === 1 ? 'option' : 'options'}`,
+    `Olumi will draft the remaining ${n} ${pluralOptions(n)}`,
   scaffoldSubNoCount: 'Olumi will draft the remaining options',
   running: 'Analysis running',
   runningSub: 'Hold on while the first pass completes',

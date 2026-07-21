@@ -28,8 +28,12 @@
  * response — EXACTLY as it does the `_reasoning` sidecar. There is no retained
  * pre-parse raw body on the success path (V5ParseResult carries only the parsed
  * `response`), so `response[ADDITIVE_EXTENSIONS_KEY]._answer_shape` IS the wire
- * value. We read it there, and ALSO probe a formal top-level field so a future
- * schema promotion (as 0.15.0 did for `reasoning`) lights up without an edit.
+ * value. We read it there, and ALSO probe the SAME `_answer_shape` key at the
+ * top level as a defensive fallback (guards a future parser change that leaves
+ * the underscore key un-demoted). NOTE: this fallback does NOT catch a formal
+ * schema promotion — a real promotion (as 0.15.0 did for `reasoning`) drops the
+ * underscore, exposing `answer_shape`, which NEITHER probe reads. Lighting that
+ * up would require an explicit edit here (a new field name), not just this read.
  *
  * FAIL-SAFE: parseAnswerShape returns null on anything malformed, so before
  * CEE's unconditional emit lands (the CEE lane deleting the flag + pinning the
@@ -47,6 +51,13 @@ export interface AnswerShape {
   /** The full supporting explanation, revealed behind "Show more". Non-blank per the contract. */
   detail: string
 }
+
+/**
+ * A string trimmed to its content, or '' for a non-string or blank value.
+ * Shared by the three field reads in parseAnswerShape so "is this a usable
+ * string?" is expressed once rather than hand-rolled per field.
+ */
+const nonBlank = (v: unknown): string => (typeof v === 'string' && v.trim().length > 0 ? v.trim() : '')
 
 /**
  * Defensive validation of the confirmed shape { headline, bullets, detail }.
@@ -69,16 +80,14 @@ export function parseAnswerShape(raw: unknown): AnswerShape | null {
   if (!raw || typeof raw !== 'object') return null
   const o = raw as Record<string, unknown>
 
-  const headline = typeof o.headline === 'string' ? o.headline.trim() : ''
+  const headline = nonBlank(o.headline)
   if (headline.length === 0) return null
 
-  const detail = typeof o.detail === 'string' ? o.detail.trim() : ''
+  const detail = nonBlank(o.detail)
   if (detail.length === 0) return null
 
   const bullets = Array.isArray(o.bullets)
-    ? o.bullets
-        .filter((b): b is string => typeof b === 'string' && b.trim().length > 0)
-        .map((b) => b.trim())
+    ? o.bullets.map(nonBlank).filter((b) => b.length > 0)
     : []
 
   return { headline, bullets, detail }
@@ -86,17 +95,21 @@ export function parseAnswerShape(raw: unknown): AnswerShape | null {
 
 /**
  * Confirmed wire field name (2026-07-21). We read it from the additive-
- * extensions sidecar (where the parser demotes it today) AND from a formal
- * top-level field (future schema promotion), in that precedence.
+ * extensions sidecar (where the parser demotes it today) AND, as a defensive
+ * fallback, from the SAME `_answer_shape` key at the top level. That fallback
+ * does NOT catch a formal schema promotion — a real promotion drops the
+ * underscore (→ `answer_shape`), which this constant does not name.
  */
 const ANSWER_SHAPE_FIELD = '_answer_shape' as const
 
 /**
  * Wire binding. Reads the answer-shape sidecar off a live CEE turn response.
  * Mirrors extractReasoningSidecar: reads the additive-extensions sidecar the
- * parser demotes unknown keys into, and also a formal top-level field. Fail-
- * closed through parseAnswerShape — any absent/malformed shape yields null, and
- * the caller then renders the free-text body unchanged.
+ * parser demotes unknown keys into, and also the same `_answer_shape` key at
+ * the top level as a defensive fallback (NOT a schema-promotion catch — see
+ * ANSWER_SHAPE_FIELD). Fail-closed through parseAnswerShape — any absent/
+ * malformed shape yields null, and the caller then renders the free-text body
+ * unchanged.
  */
 export function extractAnswerShapeSidecar(response: unknown): AnswerShape | null {
   if (!response || typeof response !== 'object') return null
