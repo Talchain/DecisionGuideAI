@@ -4,11 +4,16 @@
  *
  * The full producer precedence (joint when constrained → goal_probability →
  * joint as auto-derived fallback) is exercised in the POSITIVE-CONTROL block,
- * which flips PLOT_CONSTRAINT_NUMBERS_SUSPECT false. While the gate is ON
- * (default) the two seams it guards (the V2 responseMapper's constraint_analysis
- * passthrough + selectGoalProbability) collapse every option to the
- * unconstrained goal_probability and never surface a constraint-derived joint
- * figure.
+ * which flips the trust constants false. While the gates are ON the two seams
+ * they guard (the V2 responseMapper's constraint_analysis passthrough +
+ * selectGoalProbability) collapse every option to the unconstrained
+ * goal_probability and never surface a constraint-derived joint figure.
+ *
+ * Post-split (UI-SEM-088): the two seams now carry independent constants
+ * (PLOT_JOINT_HEADLINE_SUSPECT for selectGoalProbability, seam 1;
+ * PLOT_PER_OPTION_CONSTRAINTS_SUSPECT for the responseMapper, seam 2). This
+ * end-to-end suite drives BOTH together, so the single `suspect` toggle maps to
+ * both getters — modelling the both-gated and both-restored extremes.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -18,12 +23,15 @@ import { useCanvasStore } from '../../../canvas/store'
 import { mapV2ResponseToReportV1 } from '../../../adapters/plot/v2/responseMapper'
 import type { V2RunResponse } from '../../../adapters/plot/v2/types'
 
-// The gate constant is imported by BOTH guarded seams (the responseMapper and
-// selectGoalProbability), which resolve to this one module — a single mutable
-// getter mock drives both.
+// Both guarded seams resolve to this one module. A single mutable getter drives
+// BOTH split constants in lockstep so the suite can pin the both-gated and
+// both-restored extremes of the end-to-end flow.
 const mockTrust = vi.hoisted(() => ({ suspect: true }))
 vi.mock('../../../adapters/plot/constraintTrust', () => ({
-  get PLOT_CONSTRAINT_NUMBERS_SUSPECT() {
+  get PLOT_JOINT_HEADLINE_SUSPECT() {
+    return mockTrust.suspect
+  },
+  get PLOT_PER_OPTION_CONSTRAINTS_SUSPECT() {
     return mockTrust.suspect
   },
 }))

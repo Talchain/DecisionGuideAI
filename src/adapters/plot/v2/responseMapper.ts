@@ -35,7 +35,7 @@ import type { ReportV1, CritiqueItemV1, ConfidenceLevel } from '../types'
 import type { DriversPayload, DriverItem } from '../../driversAdapter'
 import { recordDataShapeAnomaly } from '../../../lib/payload-trace-store'
 import { safeArray, safeArrayWithMeta } from '../../../lib/array-utils'
-import { PLOT_CONSTRAINT_NUMBERS_SUSPECT } from '../constraintTrust'
+import { PLOT_PER_OPTION_CONSTRAINTS_SUSPECT } from '../constraintTrust'
 import type {
   CeeDecisionReviewPayloadV1,
   CeeTrace,
@@ -662,15 +662,18 @@ export function mapV2ResponseToReportV1(
             }
           })(),
           // Multi-constraint analysis (when goal_constraints were provided in request)
-          // Honesty gate (UI-SEM-088): while PLoT constraint normalisation is
-          // broken (ROADMAP 2.83) the per-constraint / joint probabilities in
-          // here can INVERT, so we omit the whole block. Downstream surfaces
-          // (TargetProbabilityBars, OptionCards' joint badge, the analysis-hero
-          // "and limits" wording via UI-SEM-056, GoalNode/OutcomeNode
-          // achievement via useNodeDisplayMetadata) all take their existing
-          // absent-constraint branch. Flip PLOT_CONSTRAINT_NUMBERS_SUSPECT on
-          // the A1 deployed-and-verified signal to restore.
-          constraint_analysis: PLOT_CONSTRAINT_NUMBERS_SUSPECT ? undefined : opt.constraint_analysis,
+          // Honesty gate (UI-SEM-088, seam 2): STILL SUSPECT. Unlike the
+          // headline seam (selectGoalProbability), the per-option block is NOT
+          // cleared by A3's normalisation fix — it is blocked on a separate
+          // UI-side mapper-seam defect (our read shape ≠ what PLoT emits on V5;
+          // #410's positive control was a synthetic fixture). So we omit the
+          // whole block. Downstream surfaces (TargetProbabilityBars,
+          // OptionCards' joint badge, the analysis-hero "and limits" wording via
+          // UI-SEM-056, GoalNode/OutcomeNode achievement via
+          // useNodeDisplayMetadata) all take their existing absent-constraint
+          // branch. Flip PLOT_PER_OPTION_CONSTRAINTS_SUSPECT false only when the
+          // mapper-seam work lands (see constraintTrust.ts).
+          constraint_analysis: PLOT_PER_OPTION_CONSTRAINTS_SUSPECT ? undefined : opt.constraint_analysis,
         }
         return acc
       },

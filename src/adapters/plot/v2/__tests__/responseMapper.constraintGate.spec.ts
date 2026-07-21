@@ -1,21 +1,27 @@
 /**
  * responseMapper — UI-SEM-088 constraint honesty gate (seam 2).
  *
- * Pins that while PLOT_CONSTRAINT_NUMBERS_SUSPECT is true the per-option
- * `constraint_analysis` block is omitted from the mapped report, and a positive
- * control that flipping the constant false passes it through verbatim (so the
- * restoration PR is provably safe).
+ * Pins that while PLOT_PER_OPTION_CONSTRAINTS_SUSPECT is true (its CURRENT
+ * default — seam 2 stays gated on the mapper-seam defect even though seam 1's
+ * headline flow is restored) the per-option `constraint_analysis` block is
+ * omitted from the mapped report, and a mutation proof that flipping the
+ * constant false passes it through verbatim — proving the two seams are
+ * independently controlled and the eventual seam-2 restoration PR is safe.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mapV2ResponseToReportV1 } from '../responseMapper'
 import type { V2RunResponse } from '../types'
 import type { ConstraintAnalysis } from '../../../../types/constraints'
 
-const mockTrust = vi.hoisted(() => ({ suspect: true }))
+// The mock replaces the whole module, so it must export BOTH split constants.
+// This spec drives seam 2 (per-option); seam 1's headline constant is fixed to
+// its restored default (false) here.
+const mockTrust = vi.hoisted(() => ({ perOptionSuspect: true }))
 vi.mock('../../constraintTrust', () => ({
-  get PLOT_CONSTRAINT_NUMBERS_SUSPECT() {
-    return mockTrust.suspect
+  get PLOT_PER_OPTION_CONSTRAINTS_SUSPECT() {
+    return mockTrust.perOptionSuspect
   },
+  PLOT_JOINT_HEADLINE_SUSPECT: false,
 }))
 
 const CONSTRAINT_ANALYSIS: ConstraintAnalysis = {
@@ -58,9 +64,9 @@ function makeResponseWithConstraint(): V2RunResponse {
   }
 }
 
-describe('responseMapper constraint honesty gate — gate ON (default)', () => {
+describe('responseMapper constraint honesty gate — CURRENT STATE: seam 2 STILL gated (default true)', () => {
   beforeEach(() => {
-    mockTrust.suspect = true
+    mockTrust.perOptionSuspect = true
   })
 
   it('omits per-option constraint_analysis from the mapped report', () => {
@@ -69,9 +75,9 @@ describe('responseMapper constraint honesty gate — gate ON (default)', () => {
   })
 })
 
-describe('responseMapper constraint honesty gate — POSITIVE CONTROL: gate OFF', () => {
+describe('responseMapper constraint honesty gate — MUTATION PROOF: flip seam 2 false → per-option restored (independent of seam 1)', () => {
   beforeEach(() => {
-    mockTrust.suspect = false
+    mockTrust.perOptionSuspect = false
   })
 
   it('passes per-option constraint_analysis through verbatim when the constant is flipped false', () => {
