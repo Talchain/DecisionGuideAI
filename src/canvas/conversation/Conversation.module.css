@@ -734,6 +734,24 @@
   margin: 0;
 }
 
+/* F1 — answer-shape structured body (headline + ≤3 bullets + show-more detail).
+   LAYOUT ONLY: no font-size / font-weight / line-height here — all type sizing
+   comes from typography.* tokens on the elements themselves (panelHeader /
+   chatProse / panelBody), so the conversation type-scale census (11/12/14) is
+   unaffected. Bullet disc markers + indent are inherited from the enclosing
+   .markdownContent ul/li rules. */
+.answerHeadline {
+  margin: 0 0 8px;
+  color: var(--text-body, #4A4642);
+}
+.answerBullets {
+  margin: 4px 0 6px;
+}
+.answerDetail {
+  margin-top: 8px;
+  color: var(--text-body, #4A4642);
+}
+
 /* ---------------------------------------------------------------------------
  * § 4c — FramingBlock
  * ---------------------------------------------------------------------------*/

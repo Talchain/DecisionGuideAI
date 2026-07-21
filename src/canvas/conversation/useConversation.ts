@@ -52,6 +52,7 @@ import { recordDroppedContent } from '../../lib/droppedContentCounter'
 import { buildChipMeta, toLegacyChipMetadata, type ChipMeta } from './chipMeta'
 import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled, isPreAnalysisEnrichedEnabled, isReasoningDisclosureEnabled } from '../../flags'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
+import { extractAnswerShapeSidecar } from './answerShape'
 // Leg 3 blocker fix: the wire->camelCase coaching mapper lives in the CEE
 // client adapter (DraftChat/useRetryDraft path); the V5 inline-draft seam
 // reuses it so one mapper owns the coaching wire shape.
@@ -3639,6 +3640,17 @@ export function useConversation(): UseConversationReturn {
             const reasoning = isReasoningDisclosureEnabled()
               ? extractReasoningSidecar(target.response)
               : undefined
+            // F1 (Paul's #1, answer-shape progressive disclosure): CEE ships an
+            // answer-shape sidecar (confirmed: top-level `_answer_shape` on the
+            // V5 body, { headline, bullets, detail }) UNCONDITIONALLY (no UI
+            // flag). The parser demotes that top-level key into
+            // target.response[__additive__] exactly like `_reasoning`;
+            // extractAnswerShapeSidecar reads it there and fail-closes to null
+            // on absent/malformed, so the bubble renders `content` as today
+            // until the sidecar lands on the wire, then auto-lights-up. NEVER
+            // merged into `content` (attached as its own field, rendered by
+            // AnswerBody). See answerShape.ts for the full contract note.
+            const answerShape = extractAnswerShapeSidecar(target.response)
             addMessage({
               id: crypto.randomUUID(),
               role: 'assistant',
@@ -3646,6 +3658,7 @@ export function useConversation(): UseConversationReturn {
               ...(renderBlocks.length > 0 ? { blocks: renderBlocks } : {}),
               ...(actionChips.length > 0 ? { actionChips } : {}),
               ...(reasoning ? { reasoning } : {}),
+              ...(answerShape ? { answerShape } : {}),
               timestamp: new Date(),
             })
           } else if (target.kind === 'empty') {
