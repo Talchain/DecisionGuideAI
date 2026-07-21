@@ -379,3 +379,117 @@ describe('readinessStore', () => {
     })
   })
 })
+
+// ── F4: factor observed_state on the graph-readiness REQUEST ─────────
+//
+// Request-side contract (A1, byte-confirmed against merged CEE schema):
+//   FACTOR nodes emit TOP-LEVEL `observed_state: { value, raw_value? }`
+//   (sibling of `data`, snake_case). `value` REQUIRED (0-1 model scale);
+//   `raw_value` OPTIONAL (display magnitude). NO metadata/unit/source key —
+//   a metadata-shaped key routes CEE to the strict constraint branch → 400.
+//   Non-factor nodes never get observed_state. Lets CEE report
+//   scaffold_plan.will_scaffold_options (fixes "blocked despite scaffold fired").
+
+/** Parse the POSTed graph-readiness request body and return graph.nodes keyed by id. */
+async function captureRequestNodesById(): Promise<Record<string, any>> {
+  const call = [...mockFetch.mock.calls]
+    .reverse()
+    .find((c) => typeof c?.[0] === 'string' && c[0].endsWith('/graph-readiness'))
+  expect(call, 'expected a POST to /graph-readiness').toBeDefined()
+  const body = JSON.parse((call![1] as any).body as string)
+  const byId: Record<string, any> = {}
+  for (const node of body.graph.nodes) byId[node.id] = node
+  return byId
+}
+
+/** Seed a mixed graph exercising every observed_state gate, then fetch & capture. */
+async function seedAndCaptureF4Graph(): Promise<Record<string, any>> {
+  useCanvasStore.setState({
+    nodes: [
+      // factor with numeric value + raw_value; also carries data.value to prove the
+      // observed_state attach is independent of the data:{value} branch.
+      {
+        id: 'fac1',
+        type: 'factor',
+        position: { x: 0, y: 0 },
+        data: { label: 'Team size', kind: 'factor', value: 0.9, observedState: { value: 0.4, raw_value: 200 } },
+      },
+      // factor with value but unit/source and NO raw_value.
+      {
+        id: 'fac2',
+        type: 'factor',
+        position: { x: 0, y: 0 },
+        data: { label: 'Spend', kind: 'factor', observedState: { value: 0.4, unit: '%', source: 'cee_inference' } },
+      },
+      // factor with NO observedState.
+      {
+        id: 'fac3',
+        type: 'factor',
+        position: { x: 0, y: 0 },
+        data: { label: 'Bare factor', kind: 'factor' },
+      },
+      // factor with observedState but non-numeric value.
+      {
+        id: 'fac4',
+        type: 'factor',
+        position: { x: 0, y: 0 },
+        data: { label: 'Nullish factor', kind: 'factor', observedState: { value: null, raw_value: 5 } },
+      },
+      // NON-factor (constraint) carrying a numeric observedState.value.
+      {
+        id: 'con1',
+        type: 'constraint',
+        position: { x: 0, y: 0 },
+        data: { label: 'Budget cap', kind: 'constraint', observedState: { value: 0.7, raw_value: 1000 } },
+      },
+      // NON-factor (goal) carrying a numeric observedState.value.
+      {
+        id: 'goal1',
+        type: 'goal',
+        position: { x: 0, y: 0 },
+        data: { label: 'Goal', kind: 'goal', observedState: { value: 0.6 } },
+      },
+    ] as any,
+    edges: [] as any,
+  })
+
+  useReadinessStore.getState().startListening()
+  await vi.runAllTimersAsync()
+  return captureRequestNodesById()
+}
+
+describe('readinessStore — F4 factor observed_state (request-side)', () => {
+  // (1) factor with value + raw_value → observed_state {value, raw_value}; no leak; data:{value} intact.
+  it('attaches observed_state {value, raw_value} on a factor and leaks no metadata/unit/source', async () => {
+    const nodes = await seedAndCaptureF4Graph()
+    expect(nodes.fac1.observed_state).toEqual({ value: 0.4, raw_value: 200 })
+    expect(nodes.fac1.observed_state).not.toHaveProperty('metadata')
+    expect(nodes.fac1.observed_state).not.toHaveProperty('unit')
+    expect(nodes.fac1.observed_state).not.toHaveProperty('source')
+    // The independent data:{value} branch is unaffected by the restructure.
+    expect(nodes.fac1.data).toEqual({ value: 0.9 })
+  })
+
+  // (2) factor with value + unit/source but no raw_value → observed_state {value} only.
+  it('emits observed_state {value} only when raw_value is absent, never leaking unit/source', async () => {
+    const nodes = await seedAndCaptureF4Graph()
+    expect(nodes.fac2.observed_state).toEqual({ value: 0.4 })
+    expect(nodes.fac2.observed_state).not.toHaveProperty('raw_value')
+    expect(nodes.fac2.observed_state).not.toHaveProperty('unit')
+    expect(nodes.fac2.observed_state).not.toHaveProperty('source')
+  })
+
+  // (3) factor with no observedState / non-numeric value → no observed_state key.
+  it('omits observed_state when the factor has no observedState or a non-numeric value', async () => {
+    const nodes = await seedAndCaptureF4Graph()
+    expect(nodes.fac3).not.toHaveProperty('observed_state')
+    expect(nodes.fac4).not.toHaveProperty('observed_state')
+  })
+
+  // (4) non-factor nodes never get observed_state (kind gate).
+  it('never attaches observed_state to non-factor nodes (constraint, goal)', async () => {
+    const nodes = await seedAndCaptureF4Graph()
+    expect(nodes.con1).not.toHaveProperty('observed_state')
+    expect(nodes.goal1).not.toHaveProperty('observed_state')
+  })
+})

@@ -205,17 +205,34 @@ async function fetchReadiness(): Promise<void> {
       const payload: Record<string, unknown> = {
         graph: {
           nodes: currentNodes.map((n) => {
-            const nodeKind = (n.data as any)?.kind || n.type || 'factor'
-            const baseNode = {
+            const data = n.data as any
+            const nodeKind = data?.kind || n.type || 'factor'
+            const node: Record<string, unknown> = {
               id: n.id,
               type: nodeKind,
               kind: nodeKind,
-              label: (n.data as any)?.label || n.id,
+              label: data?.label || n.id,
             }
-            if (typeof (n.data as any)?.value === 'number') {
-              return { ...baseNode, data: { value: (n.data as any).value } }
+            if (typeof data?.value === 'number') {
+              node.data = { value: data.value }
             }
-            return baseNode
+            // F4 (A1 GO 21 Jul — CEE widen merged + deploy-verified live): send factor
+            // observed_state so /assist/v1/graph-readiness can report
+            // scaffold_plan.will_scaffold_options (fixes "blocked despite scaffold fired").
+            // Built EXPLICITLY (never spread observedState) so unit/source and any
+            // metadata-shaped key are excluded — a metadata key routes CEE to the strict
+            // constraint branch (needs metadata.operator) → HTTP 400. value REQUIRED (0-1
+            // model scale); raw_value OPTIONAL (display magnitude), only when numeric.
+            const observedState = data?.observedState
+            if (nodeKind === 'factor' && typeof observedState?.value === 'number') {
+              node.observed_state = {
+                value: observedState.value,
+                ...(typeof observedState.raw_value === 'number'
+                  ? { raw_value: observedState.raw_value }
+                  : {}),
+              }
+            }
+            return node
           }),
           /**
            * UI-SEM-011: Default belief injection (belief: 0.8).
