@@ -264,6 +264,76 @@ describe('spark click → outgoing wire payload (real send funnel)', () => {
     expect(payload.chip?.parameters).toEqual({ spark_id: 'prepare_first_analysis' })
   })
 
+  it('CROSS-REPO PIN: an analysis_readiness spark tap sends source=chip_click + chip.action_type=analysis_readiness through the REAL funnel (CEE typed-readiness routing)', () => {
+    // WHY THIS PIN EXISTS — a cross-repo regression tripwire, not a fix.
+    //
+    // CEE's typed-readiness arm (olumi-assistants-service route-v2.ts:1882-1885,
+    // merged #594; A1 confirmed at the CEE bytes 2026-07-21) routes on the
+    // MESSAGE-turn shape `ingress.source === 'chip_click' && chip.action_type
+    // !== undefined`, then `chip.action_type === 'analysis_readiness'` → the
+    // readiness arm. It reads NO chip.parameters. Our side satisfies this by
+    // construction post-#405: the acceptance gate graduated analysis_readiness
+    // and buildPayload promotes source→'chip_click' when a published+accepted
+    // action_type is bound. If that promotion ever silently breaks, the ONLY
+    // symptom is zero `v5.readiness_intake` telemetry — no error, no 422. Hence
+    // an explicit, funnel-real pin on the two wire fields CEE routes on.
+    //
+    // Real funnel only (no hand-built chipMeta): each analysis_readiness spark
+    // is tapped via useConversationActions.sendPrompt → sendChip → the SAME
+    // production build seams the generic funnel test above uses. Sparks derived
+    // from the registry (never hand-listed — trap 12), so a spark added or
+    // re-mapped is covered automatically.
+    const readinessSparks = Array.from(
+      new Map(
+        ALL_SPARKS
+          .filter((s) => s.action_type === 'analysis_readiness')
+          .map((s) => [s.id, s] as const),
+      ).values(),
+    )
+
+    // Positive control: the readiness sparks must actually exist, or the loop
+    // below asserts nothing (trap 13 — an absence proof needs a presence proof).
+    expect(readinessSparks.length).toBeGreaterThanOrEqual(1)
+    expect(readinessSparks.map((s) => s.id)).toContain('prepare_first_analysis')
+
+    for (const spark of readinessSparks) {
+      const { result } = renderHook(() => useConversationActions())
+      sendChipSpy.mockClear()
+      const accepted = result.current.sendPrompt(spark)
+      expect(accepted, `sendPrompt rejected ${spark.id}`).toBe(true)
+      expect(sendChipSpy).toHaveBeenCalledTimes(1)
+
+      const chip = (sendChipSpy.mock.calls[0] as unknown[])[0] as ActionChip
+      const chipMeta = buildChipMeta({
+        action_type: chip.action_type,
+        parameters: chip.parameters,
+      })
+      const built = buildV5Payload({
+        turnId: '00000000-0000-4000-8000-000000000009',
+        scenarioId: '00000000-0000-4000-8000-00000000000a',
+        stage: 'frame',
+        turnClass: 'frame',
+        mode: 'user',
+        message: chip.message ?? '',
+        source: 'chip',
+        chipMeta,
+      })
+      if (!built.ok) throw new Error('payload build failed: ' + JSON.stringify(built))
+      const payload = built.payload as {
+        source: string
+        chip?: { action_type?: string }
+      }
+
+      // The two fields, and only these two, that CEE route-v2.ts:1882-1885
+      // keys the typed-readiness arm off.
+      expect(payload.source, `${spark.id} must promote to chip_click`).toBe('chip_click')
+      expect(
+        payload.chip?.action_type,
+        `${spark.id} must carry chip.action_type=analysis_readiness on the wire`,
+      ).toBe('analysis_readiness')
+    }
+  })
+
   it('CLASS-KILLER: a value PUBLISHED in the enum but NOT in the acceptance registry is WITHHELD — publication alone can never open the gate', () => {
     // This is the test that makes the 422 class impossible. It drives the REAL
     // send predicate with SYNTHETIC registries so it can model a value that is
