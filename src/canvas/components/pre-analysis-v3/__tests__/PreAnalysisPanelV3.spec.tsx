@@ -385,6 +385,25 @@ describe('footer readiness', () => {
     expect(footer).toHaveTextContent('Two options need target values before analysis.')
   })
 
+  // UI-SEM-091: readiness reports not-runnable, but CEE will draft the
+  // remaining options — the footer discloses the draft, never the not-ready
+  // copy, so it agrees with the (enabled) run gate.
+  it('discloses the scaffold draft instead of the not-ready copy when CEE will draft the options', () => {
+    seedReadiness(false, 'Two options need target values before analysis.')
+    useReadinessStore.setState({
+      readiness: {
+        ...useReadinessStore.getState().readiness!,
+        scaffold_plan: { will_scaffold_options: true, option_count: 2 },
+      },
+    })
+    // canRun mirrors the run gate (canRunAnalysis util), which ORs the scaffold.
+    renderPanel({ canRun: true })
+    const footer = screen.getByTestId('pre-analysis-v3-footer')
+    expect(footer).toHaveTextContent('Olumi will draft the remaining 2 options')
+    expect(footer).not.toHaveTextContent('Not ready for analysis yet')
+    expect(footer).not.toHaveTextContent('Two options need target values before analysis.')
+  })
+
   it('the analyse button obeys the external gate authority (canRun)', () => {
     const onAnalyse = vi.fn()
     renderPanel({ onAnalyse, canRun: false, blockedReason: 'Add a goal first' })

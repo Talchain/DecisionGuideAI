@@ -172,12 +172,32 @@ export interface GraphImprovement {
   current_score?: number
 }
 
+/**
+ * CEE graph-readiness scaffold intent (CEE #612). When the engine will draft
+ * the remaining options for the user, it rides this alongside the readiness
+ * verdict so the UI can offer the run rather than false-block it.
+ * Not a @talchain/schemas type — it is a CEE endpoint-response shape, typed
+ * UI-side (verify the wire field name against A1's contract before widening).
+ */
+export interface ScaffoldPlan {
+  /** True when CEE will draft the remaining options on run. */
+  will_scaffold_options: boolean
+  /** How many options CEE will draft. Present only when will_scaffold_options. */
+  option_count?: number
+}
+
 export interface GraphReadiness {
   readiness_score: number // 0-100
   readiness_level: ReadinessLevel
   can_run_analysis: boolean
   confidence_explanation: string
   improvements: GraphImprovement[]
+  /**
+   * UI-SEM-091 input. Optional — absent on older CEE builds and on the local
+   * 404/429 fallback, so its absence is fail-safe: the gate collapses to
+   * `allowed = can_run_analysis`, byte-identical to pre-scaffold behaviour.
+   */
+  scaffold_plan?: ScaffoldPlan
 }
 
 // ── Hook (thin wrapper) ────────────────────────────────────────────

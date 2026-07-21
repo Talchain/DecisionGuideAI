@@ -157,7 +157,19 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
   }
 
   // 5. Check CEE readiness
-  if (readiness && !readiness.can_run_analysis) {
+  //
+  // UI-SEM-091: runnable-via-scaffold. CEE (#612) rides a scaffold intent on
+  // the readiness response — when it will draft the remaining options
+  // (scaffold_plan.will_scaffold_options), the run triggers that draft, so the
+  // graph is runnable even though can_run_analysis is false. Effective gate:
+  //   allowed = can_run_analysis || scaffold_plan.will_scaffold_options === true
+  // Fail-safe: scaffold_plan absent/undefined ⇒ this term is false, so the gate
+  // collapses to `allowed = can_run_analysis`, byte-identical to pre-scaffold.
+  if (
+    readiness &&
+    !readiness.can_run_analysis &&
+    readiness.scaffold_plan?.will_scaffold_options !== true
+  ) {
     if (!blockingReasons.includes(readiness.confidence_explanation)) {
       blockingReasons.push(readiness.confidence_explanation || 'Graph not ready for analysis')
     }

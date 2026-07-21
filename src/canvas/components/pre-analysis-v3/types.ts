@@ -163,6 +163,14 @@ export interface LadderInput {
   canRunAnalysis: boolean | null
   /** CEE-authored explanation, mirrored verbatim when present. */
   readinessExplanation: string | null
+  /**
+   * UI-SEM-091: CEE (#612) will draft the remaining options on run, so the
+   * graph is runnable despite a closed readiness gate. Undefined ⇒ pre-scaffold
+   * behaviour (the readiness_blocker rung still gates). See computeLadder.
+   */
+  willScaffoldOptions?: boolean
+  /** Options CEE will draft; drives the disclosure copy when present. */
+  scaffoldOptionCount?: number
 }
 
 export interface BarsInput {

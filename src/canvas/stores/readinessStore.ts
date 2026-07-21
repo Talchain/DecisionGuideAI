@@ -382,6 +382,19 @@ async function fetchReadiness(): Promise<void> {
                 typeof imp.current_score === 'number' ? imp.current_score : undefined,
             }))
           : [],
+        // UI-SEM-091 (CEE #612): forward the scaffold intent verbatim. Without
+        // this explicit forward the field would be silently dropped by the
+        // normaliser (the schema-skew hazard). Absent/malformed ⇒ undefined,
+        // which is fail-safe (gate collapses to can_run_analysis).
+        scaffold_plan:
+          data.scaffold_plan && typeof data.scaffold_plan.will_scaffold_options === 'boolean'
+            ? {
+                will_scaffold_options: data.scaffold_plan.will_scaffold_options,
+                ...(typeof data.scaffold_plan.option_count === 'number'
+                  ? { option_count: data.scaffold_plan.option_count }
+                  : {}),
+              }
+            : undefined,
       }
 
       // Only cache the payload hash after a successful fetch — failed fetches

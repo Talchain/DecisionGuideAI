@@ -267,6 +267,86 @@ describe('canRunAnalysis', () => {
       expect(result.reason).toBe('Validation error')
     })
   })
+
+  // UI-SEM-091: runnable-via-scaffold — CEE (#612) rides a scaffold intent on
+  // the readiness response; when it will draft the remaining options the panel
+  // is runnable even though can_run_analysis is false.
+  describe('runnable-via-scaffold (UI-SEM-091)', () => {
+    const notRunnable = {
+      readiness_score: 20,
+      readiness_level: 'needs_work' as const,
+      can_run_analysis: false,
+      confidence_explanation: 'Two options still need to be drafted.',
+      improvements: [],
+    }
+
+    it('is runnable when can_run_analysis is false but will_scaffold_options is true', () => {
+      const result = canRunAnalysis({
+        ...defaultParams,
+        readiness: {
+          ...notRunnable,
+          scaffold_plan: { will_scaffold_options: true, option_count: 2 },
+        },
+      })
+
+      expect(result.allowed).toBe(true)
+      // The readiness refusal must NOT surface as a blocker in this state.
+      expect(result.blockingReasons ?? []).not.toContain('Two options still need to be drafted.')
+    })
+
+    it('is runnable when will_scaffold_options is true with no option_count', () => {
+      const result = canRunAnalysis({
+        ...defaultParams,
+        readiness: {
+          ...notRunnable,
+          scaffold_plan: { will_scaffold_options: true },
+        },
+      })
+
+      expect(result.allowed).toBe(true)
+    })
+
+    // Positive control: the OR term only fires on an explicit true.
+    it('stays blocked when will_scaffold_options is false', () => {
+      const result = canRunAnalysis({
+        ...defaultParams,
+        readiness: {
+          ...notRunnable,
+          scaffold_plan: { will_scaffold_options: false },
+        },
+      })
+
+      expect(result.allowed).toBe(false)
+      expect(result.blockingReasons).toContain('Two options still need to be drafted.')
+    })
+
+    // Positive control (fail-safe): absent scaffold_plan ⇒ byte-identical to
+    // pre-scaffold behaviour (blocked exactly as today).
+    it('stays blocked when scaffold_plan is absent', () => {
+      const result = canRunAnalysis({ ...defaultParams, readiness: notRunnable })
+
+      expect(result.allowed).toBe(false)
+      expect(result.blockingReasons).toContain('Two options still need to be drafted.')
+    })
+
+    // The OR is scoped to the readiness dimension only — real structural
+    // blockers still gate even while scaffolding.
+    it('validation blockers still gate even when scaffolding', () => {
+      const result = canRunAnalysis({
+        ...defaultParams,
+        readiness: {
+          ...notRunnable,
+          scaffold_plan: { will_scaffold_options: true, option_count: 2 },
+        },
+        graphHealth: {
+          issues: [{ severity: 'error', code: 'CYCLE', message: 'Circular dependency' }],
+        },
+      })
+
+      expect(result.allowed).toBe(false)
+      expect(result.blockingReasons).toContain('Circular dependency')
+    })
+  })
 })
 
 describe('getRunButtonTooltip', () => {

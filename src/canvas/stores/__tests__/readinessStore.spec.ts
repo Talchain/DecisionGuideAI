@@ -337,4 +337,45 @@ describe('readinessStore', () => {
       expect(state.readiness!.can_run_analysis).toBe(false)
     })
   })
+
+  // UI-SEM-091: the scaffold intent must survive the normaliser — an
+  // unforwarded field would be silently dropped (the schema-skew hazard).
+  describe('scaffold_plan forwarding (UI-SEM-091)', () => {
+    it('forwards a well-formed scaffold_plan verbatim', async () => {
+      mockFetch.mockResolvedValue(
+        mockSuccessResponse({
+          can_run_analysis: false,
+          scaffold_plan: { will_scaffold_options: true, option_count: 3 },
+        }),
+      )
+      seedCanvasWithNodes(3)
+      useReadinessStore.getState().startListening()
+      await vi.runAllTimersAsync()
+
+      const r = useReadinessStore.getState().readiness!
+      expect(r.can_run_analysis).toBe(false)
+      expect(r.scaffold_plan).toEqual({ will_scaffold_options: true, option_count: 3 })
+    })
+
+    it('omits option_count when the wire omits it', async () => {
+      mockFetch.mockResolvedValue(
+        mockSuccessResponse({ scaffold_plan: { will_scaffold_options: false } }),
+      )
+      seedCanvasWithNodes(3)
+      useReadinessStore.getState().startListening()
+      await vi.runAllTimersAsync()
+
+      const r = useReadinessStore.getState().readiness!
+      expect(r.scaffold_plan).toEqual({ will_scaffold_options: false })
+    })
+
+    it('leaves scaffold_plan undefined when the wire omits it (fail-safe)', async () => {
+      mockFetch.mockResolvedValue(mockSuccessResponse())
+      seedCanvasWithNodes(3)
+      useReadinessStore.getState().startListening()
+      await vi.runAllTimersAsync()
+
+      expect(useReadinessStore.getState().readiness!.scaffold_plan).toBeUndefined()
+    })
+  })
 })

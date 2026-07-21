@@ -25,6 +25,20 @@ export function computeLadder(input: LadderInput): LadderStep {
       targetFactorId: input.topUncalibrated.id,
     }
   }
+  // UI-SEM-091: runnable-via-scaffold. The readiness gate is closed, but CEE
+  // (#612) will draft the remaining options on run — so skip the blocker rung,
+  // offer the run, and disclose the draft so panel and gate never contradict.
+  // Kept as a 'run_first' step: the panel's run handler and the gate already
+  // treat that kind as "run now", so no new rung wiring is needed.
+  if (input.canRunAnalysis === false && input.willScaffoldOptions === true) {
+    return {
+      kind: 'run_first',
+      copy:
+        typeof input.scaffoldOptionCount === 'number'
+          ? LADDER_COPY.run_scaffold(input.scaffoldOptionCount)
+          : LADDER_COPY.run_scaffold_nocount,
+    }
+  }
   // Explicit false only — loading/unknown readiness never gates the ladder.
   if (input.canRunAnalysis === false) {
     const explanation = input.readinessExplanation?.trim()

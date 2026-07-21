@@ -103,6 +103,13 @@ export const LADDER_COPY = {
     `Check ${label}, it may matter most to the analysis.`,
   readiness_fallback: 'Analysis is not available yet.',
   run_first: 'Run your first analysis, then stress-test what it depends on.',
+  /**
+   * UI-SEM-091: runnable-via-scaffold rung copy. Discloses that Olumi will
+   * draft the remaining options on run, so the offer to run is honest.
+   */
+  run_scaffold: (n: number) =>
+    `Run your first analysis. Olumi will draft the remaining ${n} ${n === 1 ? 'option' : 'options'}.`,
+  run_scaffold_nocount: 'Run your first analysis. Olumi will draft the remaining options.',
 } as const
 
 export const SIGNAL_COPY = {
@@ -202,6 +209,14 @@ export const FOOTER_COPY = {
   readySubAllSet: 'Ready when you are',
   notReady: 'Not ready for analysis yet',
   notReadySubFallback: 'Add a decision, a goal and at least two options',
+  /**
+   * UI-SEM-091: runnable-via-scaffold subline. Shown when readiness reports
+   * not-runnable but CEE (#612) will draft the remaining options — replaces the
+   * not-ready copy so the footer never contradicts the enabled run button.
+   */
+  scaffoldSub: (n: number) =>
+    `Olumi will draft the remaining ${n} ${n === 1 ? 'option' : 'options'}`,
+  scaffoldSubNoCount: 'Olumi will draft the remaining options',
   running: 'Analysis running',
   runningSub: 'Hold on while the first pass completes',
   analyse: 'Analyse first pass',

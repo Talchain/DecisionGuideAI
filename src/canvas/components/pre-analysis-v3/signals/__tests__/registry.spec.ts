@@ -173,7 +173,12 @@ describe('glossary — every copy string passes the banned-terms scan', () => {
     }
   }
   push('PANEL_COPY', PANEL_COPY)
-  push('LADDER_COPY', { ...LADDER_COPY, calibrate_top: LADDER_COPY.calibrate_top('Tech lead impact') })
+  push('LADDER_COPY', {
+    ...LADDER_COPY,
+    calibrate_top: LADDER_COPY.calibrate_top('Tech lead impact'),
+    // UI-SEM-091: invoke the runnable-via-scaffold rung so its copy is scanned.
+    run_scaffold: LADDER_COPY.run_scaffold(2),
+  })
   push('SIGNAL_COPY', {
     ...SIGNAL_COPY,
     optionBreadth: SIGNAL_COPY.optionBreadth(2),
@@ -184,7 +189,8 @@ describe('glossary — every copy string passes the banned-terms scan', () => {
   push('ATTRIBUTION_COPY', ATTRIBUTION_COPY)
   push('RANK_LABEL_COPY', RANK_LABEL_COPY)
   push('MODEL_VIEW_COPY', { ...MODEL_VIEW_COPY, estimatesMeta: MODEL_VIEW_COPY.estimatesMeta(1, 6, 0), goalRow: MODEL_VIEW_COPY.goalRow('Increase output') })
-  push('FOOTER_COPY', FOOTER_COPY)
+  // UI-SEM-091: invoke the runnable-via-scaffold subline so its copy is scanned.
+  push('FOOTER_COPY', { ...FOOTER_COPY, scaffoldSub: FOOTER_COPY.scaffoldSub(2) })
   push('HERO_COPY', HERO_COPY)
   push('ACTIONS_MENU', ACTIONS_MENU)
   push('SPARK_PROMPTS', SPARK_PROMPTS)
