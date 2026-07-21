@@ -3,12 +3,10 @@
  *
  * Pins the stable selectors the Playwright acceptance harness needs on the
  * Analysis (Results) tab:
- *   - freshness strip:     data-testid="analysis-freshness-notice" (sole stale owner)
- *   - its Rerun button:    data-testid="freshness-strip-rerun"     (Wave F-B)
+ *   - freshness strip:     data-testid="analysis-freshness-notice" (informational)
  *   - footer Rerun action: data-testid="results-analysis-footer-action"
- *     (AnalysisFooter stamps `${testId}-action` on its action button —
- *     C1: rendered only while the freshness strip shows no Rerun of its
- *     own, i.e. when no freshness verdict is held)
+ *     (AnalysisFooter stamps `${testId}-action` on its action button — the
+ *     bottom anchor is the sole Rerun owner; the strip carries no Rerun)
  *
  * Test-support attributes only — zero behaviour change. Scaffolding mirrors
  * OutputsDock.conversationSingleton.spec.tsx (stable useConversation stub;
@@ -147,30 +145,26 @@ describe('OutputsDock testability selectors (Analysis tab)', () => {
     } as never)
   })
 
-  it('the freshness strip and its Rerun are the ONE stale surface (Wave F-B)', () => {
+  it('the freshness strip states stale but carries NO Rerun (anchor-run-control)', () => {
     render(<OutputsDock />)
 
-    // The old top-level banner is retired — the strip owns stale + Rerun.
+    // The old top-level banner is retired; the strip is informational only.
     expect(screen.queryByTestId('graph-stale-banner')).not.toBeInTheDocument()
     const strip = screen.getByTestId('analysis-freshness-notice')
     expect(strip).toHaveAttribute('data-freshness', 'stale')
-    const rerun = screen.getByTestId('freshness-strip-rerun')
-    expect(rerun).toBeInTheDocument()
-    expect(rerun).toHaveTextContent('Rerun')
+    expect(screen.queryByTestId('freshness-strip-rerun')).not.toBeInTheDocument()
   })
 
-  it('stale: the footer is STATUS-ONLY (C1 — the strip above owns the one Rerun)', () => {
-    // RETIRED PIN: this test formerly asserted the footer action rendered
-    // alongside the stale strip — two always-visible Reruns in one viewport.
+  it('stale: the bottom anchor footer carries the verdict AND the one Rerun', () => {
     render(<OutputsDock />)
 
     expect(screen.getByTestId('results-analysis-footer')).toBeInTheDocument()
-    expect(screen.queryByTestId('results-analysis-footer-action')).not.toBeInTheDocument()
+    const action = screen.getByTestId('results-analysis-footer-action')
+    expect(action).toBeInTheDocument()
+    expect(action).toHaveTextContent('Rerun')
   })
 
-  it('AnalysisFooter action button derives `${testId}-action` (no freshness verdict → footer keeps its Rerun)', () => {
-    // With no verdict held the strip renders nothing, so the footer is the
-    // tab's only recovery affordance and keeps its action.
+  it('AnalysisFooter action button derives `${testId}-action` (no freshness verdict → footer still owns its Rerun)', () => {
     useCanvasStore.setState({ analysisFreshness: null } as never)
     render(<OutputsDock />)
 

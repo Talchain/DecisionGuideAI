@@ -38,7 +38,6 @@ import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectR
 import { resolveDisplayedFreshness } from '../store/analysisFreshness'
 import { getScenario } from '../store/scenarios'
 import { AnalysisFreshnessNotice } from '../../components/results/AnalysisFreshnessNotice'
-import { useAnalysisStateSource } from '../hooks/useAnalysisStateSource'
 import { DecisionOverviewCard } from '../../components/results/decision-overview/DecisionOverviewCard'
 import { isDecisionOverviewEnabled } from '../../flags'
 import { deriveResultsTabFreshness } from './resultsTabFreshness'
@@ -596,27 +595,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const freshnessDirty = useCanvasStore(s => s.analysisFreshnessDirty)
   const displayedFreshness = resolveDisplayedFreshness(ceeFreshness, freshnessDirty)
   const analysisNotConfirmedFresh = displayedFreshness === 'stale' || displayedFreshness === 'unknown'
-  // C1 (one Rerun owner per viewport, brief §5 / §2.2): AnalysisFreshnessNotice
-  // mounts under the SAME post-run condition as the AnalysisFooter below and
-  // renders its Rerun whenever a verdict is held ('fresh'/'stale'/'unknown' —
-  // only 'none'/unset draw no action). While the strip owns that recovery
-  // action, the footer is STATUS-ONLY (robustness verdict + producer meta
-  // stay); when the strip shows no action the footer keeps its Rerun so the
-  // tab never loses its only recovery affordance.
-  // F11 fold: the strip ALSO renders (with the one Rerun) for an ORPHANED
-  // result — the ownership predicate must match the strip's OFFERS-RERUN
-  // condition (not merely its render condition) or the tab is left with
-  // either two Rerun owners or none (C1). The strip's precedence rule
-  // (resolveTrustEffectiveState) makes an orphaned result ALWAYS offer the
-  // Rerun: a held fresh/stale/unknown verdict wins (left disjunct), and a
-  // null or 'none' verdict synthesises the cannot-confirm variant with the
-  // Rerun (right disjunct). Only a NON-orphaned 'none'/unset verdict draws
-  // no strip control, and there the footer keeps its action. Same source the
-  // strip itself uses; never a hand-mirror of its old condition.
-  const { source: analysisStateSource } = useAnalysisStateSource()
-  const orphanedResult = analysisStateSource === 'orphaned_plot_result'
-  const freshnessStripOwnsRerun =
-    (displayedFreshness != null && displayedFreshness !== 'none') || orphanedResult
+  // Anchor-run-control (Paul, 21-Jul): the sticky bottom AnalysisFooter is the
+  // SOLE Rerun owner in every post-run state — it carries the robustness
+  // verdict AND the Rerun action together, and being OUTSIDE the scroller it is
+  // the tab's most reliable always-visible recovery affordance. The freshness
+  // strip (AnalysisFreshnessNotice) still states fresh/stale/unknown but no
+  // longer renders a Rerun, so there is exactly one Rerun and no duplicate.
   // Within the not-fresh window, distinguish a model that definitely CHANGED since
   // the run (CEE 'stale' or a local edit that downgraded a retained 'fresh') from a
   // CANNOT-CONFIRM state where CEE could not determine freshness — so the stale
@@ -755,19 +739,17 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // banner's "Refresh analysis · Coaching may be out of date".
   //
   // The suppression's only REAL effect was CTA dedupe against the banner's
-  // own "Run analysis" — and post-C1 that is already handled, better, by
-  // `freshnessStripOwnsRerun`: when a verdict is held the footer renders no
-  // action at all, so suppressing the whole footer deleted nothing but the
-  // robustness verdict + producer meta that C1 says must STAY. (The cited
-  // "4-CTA corner case" cannot arise post-C1: the max is 2.)
+  // own "Run analysis" — and the footer already carries its own robustness
+  // verdict + producer meta (never freshness copy), so suppressing the whole
+  // footer would have deleted the verdict + the anchor's Rerun, which the
+  // anchor-run-control fix says must STAY.
   //
   // It must not come back as an action-level gate either. AnalysisOrphanBanner
   // (deleted in the F11 fold) mounted inside ResultsBody — INSIDE the
   // scroller — so it scrolled away. Letting a scrolling surface suppress the
   // footer's action would recreate the exact zero-affordance blocker this
-  // lane fixed, in the state where the strip holds no verdict and the footer
-  // is the tab's only always-visible owner. The footer yields its action
-  // ONLY to the strip, which is pinned.
+  // lane fixed: the footer is the tab's only always-visible Rerun owner (it
+  // sits outside the scroller) and must never yield its action.
   //
   // Net: banner + footer can coexist — which is precisely what the base
   // already did on the legacy path, deliberately ("the legacy
@@ -2292,9 +2274,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 {isDecisionOverviewEnabled() && !isPreRun && hasInlineSummary && resultsSectionData && (
                   <DecisionOverviewCard title={overviewTitle} />
                 )}
-                {/* Wave F-B review (a): the sole freshness strip + its Rerun
-                    mount ABOVE the dim wrapper at full opacity — the recovery
-                    control must never sit inside an aria-disabled region. */}
+                {/* The freshness strip states fresh/stale/unknown (informational
+                    only — the anchor footer below owns the Rerun). It mounts
+                    ABOVE the dim wrapper at full opacity so the freshness signal
+                    never sits inside an aria-disabled region. */}
                 {!isPreRun && hasInlineSummary && resultsSectionData && (
                   <AnalysisFreshnessNotice />
                 )}
@@ -2359,15 +2342,18 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 )}
                 </div>
                 {/* Brief 5.4 Phase 11: "Create decision brief" placeholder removed.
-                    C1 (one Rerun owner per viewport): while the freshness strip
-                    above owns the one Rerun, this footer is STATUS-ONLY — the
-                    robustness verdict + producer meta stay, the action goes.
-                    The action renders only when the strip shows none (no
-                    freshness verdict held, or a 'none' verdict), preserving the
-                    tab's recovery — the footer is then the only ALWAYS-VISIBLE
-                    owner (it sits outside the scroller, unlike the strip which
-                    needs `sticky` to qualify). See the orphan-banner note above
-                    for why nothing else may suppress this footer. */}
+                    Anchor-run-control (Paul, 21-Jul): the sticky bottom anchor
+                    is the SOLE Rerun owner. It shows the robustness verdict AND
+                    the Rerun action ALONGSIDE each other — never the verdict in
+                    place of the run control (Paul's finding: "the bottom anchor
+                    shows the verdict in the slot where the run-analysis control
+                    should be"). The footer is the tab's most reliable
+                    always-visible owner — it sits OUTSIDE the scroller, so it
+                    can never scroll away. The freshness strip above keeps
+                    stating fresh/stale/unknown but no longer carries a Rerun, so
+                    there is exactly one Rerun and no duplicate. See the
+                    orphan-banner note above for why nothing else may suppress
+                    this footer. */}
                 {!isPreRun && hasInlineSummary && resultsSectionData && (
                   <AnalysisFooter
                     statusIcon={postRunFooter.icon}
@@ -2375,17 +2361,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     statusText={postRunFooter.label}
                     metaText={postRunMetaText}
                     metaPlacement="stacked"
-                    {...(freshnessStripOwnsRerun
-                      ? {}
-                      : {
-                          actionLabel: isRunning ? 'Running analysis…' : 'Rerun',
-                          actionVariant: 'secondary' as const,
-                          onAction: handleRunAnalysis,
-                          actionDisabled: isRunning || !canRunAnalysis,
-                          actionLoading: isRunning,
-                          actionTitle:
-                            !canRunAnalysis && !isRunning ? runBlockedTooltip : undefined,
-                        })}
+                    actionLabel={isRunning ? 'Running analysis…' : 'Rerun'}
+                    actionVariant="secondary"
+                    onAction={handleRunAnalysis}
+                    actionDisabled={isRunning || !canRunAnalysis}
+                    actionLoading={isRunning}
+                    actionTitle={!canRunAnalysis && !isRunning ? runBlockedTooltip : undefined}
                     testId="results-analysis-footer"
                   />
                 )}

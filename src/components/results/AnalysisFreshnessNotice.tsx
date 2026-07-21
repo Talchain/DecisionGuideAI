@@ -13,34 +13,18 @@
  * or any local graph-hash computation, and it never shows the technical
  * reason/hash fields as copy (they ride on data-*).
  *
- * ALWAYS-VISIBILITY CONTRACT (C1 — one Rerun owner per viewport)
- * -------------------------------------------------------------
- * This strip is the SOLE owner of the Rerun action: while it offers one, the
- * AnalysisFooter deliberately renders NO action (OutputsDock). Sole ownership
- * only holds if the strip is always visible — so `sticky top-0 z-10` on the
- * root is LOAD-BEARING and must not be dropped.
+ * RERUN OWNERSHIP (anchor-run-control, Paul 21-Jul)
+ * -------------------------------------------------
+ * This strip is INFORMATIONAL: it states fresh/stale/unknown but carries NO
+ * Rerun. The one Rerun lives in the sticky bottom AnalysisFooter (OutputsDock),
+ * ALONGSIDE the robustness verdict — the always-visible anchor Paul expects the
+ * run control to occupy. The footer sits OUTSIDE the tab's one scroller, so it
+ * can never scroll away; there is exactly one Rerun and no duplicate.
  *
- * Why: the strip's only mount site (OutputsDock) is INSIDE the Analysis tab's
- * one scroller, above the entire ResultsBody (hero, options, drivers,
- * Strengthen). Unstuck, it scrolls off on the first scroll — and because the
- * footer yields its action to the strip, the viewport would then carry ZERO
- * rerun affordance exactly when a stale verdict says one is needed. Its
- * structural counterpart is AnalysisFooter's `sticky bottom-0 z-10`.
- *
- * `bg-panel` on the root is what makes `z-10` opaque to the scrolling body.
- *
- * Known cosmetic nuance: the scroller's own `py-3` insets the pinned strip by
- * 12px, because a sticky box is clamped to its containing block (the
- * scroller's CONTENT box) while overflow clips at the PADDING box. A 12px
- * sliver of body content therefore passes above the strip. The strip itself
- * stays fully visible and clickable, so the recovery affordance holds.
- *
- * jsdom cannot prove visual visibility (no layout engine), so the guarantee is
- * pinned STRUCTURALLY instead — see OutputsDock.rerunSingleOwner.spec.tsx
- * ('rerun owner is always-visible (structural proxy)').
+ * `sticky top-0 z-10 bg-panel` is kept so the freshness line stays legible over
+ * the scrolling body (not to pin a control) — see OutputsDock.rerunSingleOwner.
  */
 import { useEffect, useRef } from 'react'
-import { RefreshCw } from 'lucide-react'
 import { useCanvasStore } from '@/canvas/store'
 import { useAnalysisStateSource } from '@/canvas/hooks/useAnalysisStateSource'
 import { typography } from '@/styles/typography'
@@ -51,7 +35,6 @@ import {
   type AnalysisFreshnessValue,
 } from '@/canvas/store/analysisFreshness'
 import { resolveTrustEffectiveState } from '@/canvas/hooks/useAnalysisTrust'
-import { executeCanonicalRun } from '@/canvas/analysis/canonicalRunRegistry'
 import { useShowToastSafe } from '@/canvas/ToastContext'
 import { RUN_ENDED_WITHOUT_NEW_RESULTS_COPY } from '@/canvas/components/analysisRunStatus'
 
@@ -153,14 +136,6 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
   // downgrade a retained 'fresh' to cannot-confirm (never fabricate 'stale').
   const freshness = resolveDisplayedFreshness(effectiveState, dirty) as AnalysisFreshnessValue
   const isStale = freshness === 'stale'
-  // Recovery applies to BOTH not-confirmably-fresh states: a stale verdict
-  // and a cannot-confirm 'unknown' (e.g. recovered session, local edit
-  // downgrade). The old top-level banner offered Rerun for both — the strip
-  // must not drop that affordance. 'none' has nothing to rerun.
-  // Parity audit: the prototype offers Rerun in the FRESH state too (rerun
-  // against the current model is always a legitimate action); only 'none'
-  // (nothing analysed yet) has nothing to rerun.
-  const offersRerun = freshness !== 'none'
   // Mark when the displayed verdict differs from CEE's because of a local edit —
   // technical signal for tests/debug only, not user copy.
   const downgraded = effectiveState.freshness === 'fresh' && freshness === 'unknown'
@@ -173,8 +148,8 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
       data-freshness-dirty={downgraded ? 'true' : undefined}
       data-orphaned={orphanSynthesised ? 'true' : undefined}
       data-freshness-reason={effectiveState.freshnessReason}
-      // C1: `sticky top-0 z-10` is load-bearing, not decoration — see the
-      // always-visibility contract in the file header. Do not remove.
+      // `sticky top-0 z-10 bg-panel` keeps the freshness line legible over the
+      // scrolling body; the Rerun lives in the bottom anchor (see header).
       className={`sticky top-0 z-10 flex items-center gap-2 rounded-md border px-3 py-2 bg-panel ${isStale ? 'border-warning/30' : 'border-panel-border'} ${className}`.trim()}
     >
       <span
@@ -182,37 +157,12 @@ export function AnalysisFreshnessNotice({ state: stateProp, dirty: dirtyProp, cl
         aria-hidden="true"
         data-testid="freshness-dot"
       />
-      {/* Live region on the copy only (review c) — never around the button.
-          Stale message renders in header colour per the prototype's heavier
-          emphasis; a run in flight states so honestly. */}
+      {/* Live region on the freshness copy. Stale message renders in header
+          colour per the prototype's heavier emphasis; a run in flight states
+          so honestly. Recovery (Rerun) lives in the bottom anchor footer. */}
       <span role="status" className={`${typography.panelBody} ${isStale ? 'text-text-header' : 'text-text-body'} flex-1`}>
         {isRunning ? 'Rerunning the analysis with the current model…' : FRESHNESS_COPY[freshness]}
       </span>
-      {offersRerun && (
-        // Wave F-B (brief §5.2): the strip is the sole stale owner and carries
-        // THE recovery action — canonical-runner routed, never a private
-        // pipeline. Disabled while any run is analysing ('preparing' from V2
-        // resultsStart or V5 resultsAnalysing, plus the SSE states).
-        <button
-          type="button"
-          data-testid="freshness-strip-rerun"
-          onClick={() => {
-            // Honest recovery (brief §5.2 'the recovery action remains
-            // crisp'): a blocked or unavailable run says WHY instead of
-            // silently doing nothing.
-            void executeCanonicalRun({ source: 'freshness-strip' }).then((outcome) => {
-              if (outcome.status === 'blocked' || outcome.status === 'unavailable') {
-                showToast(outcome.reason)
-              }
-            })
-          }}
-          disabled={isRunning}
-          className={`${typography.panelBody} inline-flex items-center gap-1 px-3 py-1 rounded-pill border border-panel-border text-text-body hover:bg-panel-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-fast`}
-        >
-          <RefreshCw size={12} aria-hidden="true" />
-          Rerun
-        </button>
-      )}
     </div>
   )
 }

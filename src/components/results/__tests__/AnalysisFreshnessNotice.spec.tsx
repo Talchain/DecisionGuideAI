@@ -142,7 +142,7 @@ describe('AnalysisFreshnessNotice — self-contradictory stale verdict (a16a0e82
     expect(el).toHaveAttribute('data-freshness', 'stale')
   })
 
-  it('the cannot-confirm variant still offers the Rerun recovery action', () => {
+  it('the cannot-confirm variant renders its copy but no Rerun (recovery lives in the anchor footer)', () => {
     render(
       <AnalysisFreshnessNotice
         state={{
@@ -152,7 +152,10 @@ describe('AnalysisFreshnessNotice — self-contradictory stale verdict (a16a0e82
         }}
       />,
     )
-    expect(screen.getByTestId('freshness-strip-rerun')).toBeInTheDocument()
+    // Anchor-run-control: the strip is informational; the Rerun is in the
+    // bottom AnalysisFooter, not here.
+    expect(screen.getByTestId('analysis-freshness-notice')).toBeInTheDocument()
+    expect(screen.queryByTestId('freshness-strip-rerun')).not.toBeInTheDocument()
   })
 })
 
