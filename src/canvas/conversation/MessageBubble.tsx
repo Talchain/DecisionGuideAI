@@ -19,6 +19,7 @@
 import { memo, useState, useMemo, useRef } from 'react'
 import { typography } from '../../styles/typography'
 import { safeRichText } from '../utils/safeRichText'
+import { AnswerBody } from './AnswerBody'
 import { InlineBlocks } from './InlineBlocks'
 import { AlertCircle, ChevronDown, ChevronUp, ListPlus, AlignLeft, RefreshCw } from 'lucide-react'
 import { FeedbackRow } from './FeedbackRow'
@@ -218,10 +219,20 @@ export const MessageBubble = memo(function MessageBubble({
     ? message.content
     : extractFromRawJson(message.content)
 
-  // Progressive disclosure: truncate at natural boundaries (paragraph / sentence)
+  // F1 (answer-shape progressive disclosure): when a well-formed answer-shape
+  // sidecar is present on a settled assistant turn, the structured view
+  // (headline + ≤3 bullets + Show-more detail) OWNS the body in place of the
+  // free-text render. Absent / malformed / streaming / user → falls through to
+  // the free-text render below, byte-for-byte unchanged (no regression).
+  const showStructuredAnswer = !isUser && !isStreaming && Boolean(message.answerShape)
+
+  // Progressive disclosure (free-text path): truncate at natural boundaries
+  // (paragraph / sentence). Suppressed when the structured answer view owns the
+  // body — its own Show-more governs disclosure there.
   const canTruncate = !isUser
     && !isStreaming
     && !message.synthetic
+    && !showStructuredAnswer
     && (!message.blocks || message.blocks.length === 0)
   const truncatedContent = canTruncate ? findNaturalTruncation(displayContent) : null
   const [expanded, setExpanded] = useState(false)
@@ -285,20 +296,33 @@ export const MessageBubble = memo(function MessageBubble({
       data-testid={`message-${message.role}`}
       data-delivery-state={isUser ? message.deliveryState : undefined}
     >
-      <div
-        className={`${compact ? typography.panelBody : typography.chatProse} ${styles.markdownContent} ${
-          compact ? styles.markdownContentCompact : ''
-        } ${isProvisional ? styles.provisionalText : ''} ${
-          !isUser && isOrchestratorRenderingV2Enabled() ? styles.v2AssistantText : ''
-        }`}
-        data-streaming={isStreaming || undefined}
-        // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li; br.md-gap for rule degradation)
-        dangerouslySetInnerHTML={{
-          __html: safeRichText(
-            truncatedContent && !expanded ? truncatedContent : displayContent,
-          ) + (isStreaming ? '<span class="streaming-cursor" aria-hidden="true">|</span>' : ''),
-        }}
-      />
+      {showStructuredAnswer && message.answerShape ? (
+        <div
+          className={`${compact ? typography.panelBody : typography.chatProse} ${styles.markdownContent} ${
+            compact ? styles.markdownContentCompact : ''
+          } ${isProvisional ? styles.provisionalText : ''} ${
+            !isUser && isOrchestratorRenderingV2Enabled() ? styles.v2AssistantText : ''
+          }`}
+          data-testid="message-answer-structured"
+        >
+          <AnswerBody answer={message.answerShape} compact={compact} />
+        </div>
+      ) : (
+        <div
+          className={`${compact ? typography.panelBody : typography.chatProse} ${styles.markdownContent} ${
+            compact ? styles.markdownContentCompact : ''
+          } ${isProvisional ? styles.provisionalText : ''} ${
+            !isUser && isOrchestratorRenderingV2Enabled() ? styles.v2AssistantText : ''
+          }`}
+          data-streaming={isStreaming || undefined}
+          // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li; br.md-gap for rule degradation)
+          dangerouslySetInnerHTML={{
+            __html: safeRichText(
+              truncatedContent && !expanded ? truncatedContent : displayContent,
+            ) + (isStreaming ? '<span class="streaming-cursor" aria-hidden="true">|</span>' : ''),
+          }}
+        />
+      )}
       {hasToolLoading && (
         <div className={styles.toolLoadingState} data-testid="tool-loading-state">
           <span className={styles.toolLoadingDot} />

@@ -7,6 +7,7 @@
 
 import type { StageType } from '@talchain/schemas/boundary'
 import type { CEEAnalysisReady, CEEGoalConstraint, CEEInterventionV3 } from '../../adapters/cee/types'
+import type { AnswerShape } from './answerShape'
 
 // ---------------------------------------------------------------------------
 // § 1 — Conversation messages
@@ -62,6 +63,18 @@ export interface ConversationMessage {
    * Ephemeral: excluded from thread persistence (session-only).
    */
   reasoning?: string
+  /**
+   * F1 (Paul's #1, answer-shape progressive disclosure): CEE's answer-shape
+   * sidecar (confirmed contract — top-level `_answer_shape` on the V5 body,
+   * { headline, bullets, detail }), parsed + fail-closed by
+   * `extractAnswerShapeSidecar` (answerShape.ts). When present the bubble
+   * renders a concise headline + ≤3 bullets with the long tail behind a
+   * "Show more" toggle; when absent the bubble renders `content` exactly as
+   * today (no regression). No flag — auto-lights-up when the sidecar lands on
+   * the wire. Ephemeral: derived from the live turn, NOT persisted — hydrated
+   * history falls back to the full-text render (same treatment as `reasoning`).
+   */
+  answerShape?: AnswerShape
   /**
    * Transcript honesty (dress-rehearsal trust item #3, 2026-07-20): delivery
    * state of a visible user send on the LIVE V5 path.
