@@ -1,37 +1,57 @@
 /**
- * constraintTrust — single suppression switch for constraint-derived numbers.
+ * constraintTrust — independently-controlled suppression switches for the two
+ * seams that carry PLoT constraint-derived numbers into the UI.
  *
- * PROVENANCE (2026-07-20)
- * -----------------------
- * PLoT's constraint normalisation is broken when a constrained node lacks an
- * explicit scale (ROADMAP 2.83, a PLoT P0). In that state the constraint
- * probabilities PLoT returns are not merely imprecise — they can INVERT: a
- * VIOLATED cap can be reported as `prob_satisfied` / `probability_of_joint_goal`
- * ≈ 1.0 ("100% chance you hit your target" when the target was missed), and the
- * failure margins are +25–43% off. The bite is the COMMON case: a CEE-drafted
- * graph rarely carries an explicit scale on its nodes, so the defect fires on
- * ordinary conversational runs.
+ * BACKGROUND (the original blanket gate, 2026-07-20)
+ * --------------------------------------------------
+ * PLoT's constraint normalisation was broken when a constrained node lacked an
+ * explicit scale (ROADMAP 2.83, a PLoT P0): the constraint probabilities could
+ * INVERT — a VIOLATED cap reported as `prob_satisfied` /
+ * `probability_of_joint_goal` ≈ 1.0 — and margins were +25–43% off. #410
+ * shipped ONE constant, `PLOT_CONSTRAINT_NUMBERS_SUSPECT = true`, that
+ * blanket-suppressed BOTH seams at once.
  *
- * We cannot trust the wire here, and we deliberately do NOT try to detect the
- * bite condition client-side (replicating a producer defect predicate on the
- * consumer is the hand-maintained-mirror class that drifts silently — see the
- * two-repo `generateGraphHash` twins and the vitest flags-mock allowlist). So
- * this is a BLANKET honesty gate: while it is `true`, every constraint-derived
- * number is suppressed at the two seams that carry it into the UI
- * (`selectGoalProbability` and the V2 responseMapper's per-option
- * `constraint_analysis` passthrough), and every downstream surface falls back
- * to its existing absent-constraint branch. Presence-only copy (that a target
- * or constraint EXISTS, with no number) is untouched.
+ * THE SPLIT (2026-07-21)
+ * ----------------------
+ * The two seams have now diverged: the producer fix that clears seam 1 does
+ * NOT clear seam 2 (seam 2 is blocked on a separate, UI-side mapper-seam
+ * defect). One constant can no longer describe reality, so it is split into two
+ * independently-flippable flags — one per seam, each with its own provenance.
  *
- * FLIP TRIGGER
- * ------------
- * Flip to `false` — a one-line PR — ONLY when the A1 orchestrator signals the
- * PLoT normalisation fix is DEPLOYED-AND-VERIFIED (not merely merged). The
- * positive-control spec (`constraintTrust`/`selectGoalProbability` suites)
- * pins that flipping this constant restores the full constraint-number flow,
- * so the restoration PR is safe.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * SEAM 1 — headline goal probability (`selectGoalProbability`)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * PLoT's constraint-normalisation fix is DEPLOYED-AND-VERIFIED (not merely
+ * merged): A3, 2026-07-16, PLoT staging tip ea106565 (== /health), evidence
+ * `acceptance-evidence/a3-verify-2026-07-16/constraint-norm-split/
+ * POSTFIX-VERIFICATION.md`. On a violated-cap option the deployed V5
+ * `probability_of_joint_goal` now flips 1→0 IN LOCKSTEP with the standalone
+ * constraint probability — i.e. the headline value is CORRECT AT SOURCE. The
+ * joint→headline substitution is therefore RESTORED.
+ *   ⇒ FALSE (trusted, restored).
+ */
+export const PLOT_JOINT_HEADLINE_SUSPECT = false
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * SEAM 2 — per-option constraint_analysis block (V2 `responseMapper`)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * STILL SUSPECT — for a different reason than the (now-fixed) normalisation
+ * defect. Our mappers read a `constraint_analysis` SHAPE that PLoT never emits
+ * on the live V5 path, so #410's seam-2 positive control was a SYNTHETIC
+ * fixture, and `selectGoalProbability` prefers the unconstrained number when
+ * both fields are present. Restoring per-option bars/verdict is blocked on the
+ * mapper-seam work (align the read shape to what PLoT actually emits) plus A3's
+ * forthcoming `scale_provenance` / `constraints_decision_grade` markers. Until
+ * then the per-option block stays omitted.
+ *   ⇒ TRUE (suspect, still gated).
  *
- * Removal (delete the constant + inline the `false` branch) is tracked as
+ * FLIP TRIGGER (seam 2): flip to `false` only when the mapper-seam defect is
+ * fixed AND A3 signals the decision-grade markers are deployed-and-verified.
+ * The `responseMapper.constraintGate` positive control pins that flipping this
+ * constant restores the per-option passthrough, so that PR is safe.
+ *
+ * Removal of both constants (delete + inline the branches) is tracked as
  * UI-SEM-088.
  */
-export const PLOT_CONSTRAINT_NUMBERS_SUSPECT = true
+export const PLOT_PER_OPTION_CONSTRAINTS_SUSPECT = true

@@ -15,7 +15,7 @@
  * fallback logic.
  */
 
-import { PLOT_CONSTRAINT_NUMBERS_SUSPECT } from '../../../adapters/plot/constraintTrust'
+import { PLOT_JOINT_HEADLINE_SUSPECT } from '../../../adapters/plot/constraintTrust'
 
 export interface GoalProbabilityInput {
   goal_probability?: number
@@ -38,17 +38,23 @@ export function selectGoalProbability(
   const unconstrained =
     typeof prob?.goal_probability === 'number' ? prob.goal_probability : null
 
-  // Honesty gate (UI-SEM-088): while PLoT constraint normalisation is broken
-  // (ROADMAP 2.83), `probability_of_joint_goal` can INVERT, so we NEVER
-  // substitute it — every surface falls back to the unconstrained
-  // `goal_probability`. Gated on the constant, not on `constraint_analysis`
-  // presence, because the live V5 path never populates per-option
-  // `constraint_analysis`, so the joint number arrives with no client-visible
-  // constraint marker; the constant is the only signal that survives. We drop
-  // the auto-derived `?? jointGoalProb` tail too (returning null rather than a
-  // possibly-inverted joint): the no-user-target case it served is already
-  // suppressed upstream by UI-SEM-071. Presence of a target is unaffected.
-  if (PLOT_CONSTRAINT_NUMBERS_SUSPECT) {
+  // Honesty gate (UI-SEM-088, seam 1): while true, `probability_of_joint_goal`
+  // can INVERT, so we NEVER substitute it — every surface falls back to the
+  // unconstrained `goal_probability`. Gated on the constant, not on
+  // `constraint_analysis` presence, because the live V5 path never populates
+  // per-option `constraint_analysis`, so the joint number arrives with no
+  // client-visible constraint marker; the constant is the only signal that
+  // survives. We drop the auto-derived `?? jointGoalProb` tail too (returning
+  // null rather than a possibly-inverted joint): the no-user-target case it
+  // served is already suppressed upstream by UI-SEM-071.
+  //
+  // As of 2026-07-21 this seam is RESTORED (constant FALSE): A3's PLoT
+  // constraint-normalisation fix is deployed-and-verified (PLoT ea106565,
+  // POSTFIX-VERIFICATION.md — joint flips 1→0 in lockstep on a violated cap),
+  // so the branch below no longer fires and the full joint→headline flow runs.
+  // Seam 2 (per-option `constraint_analysis` in the responseMapper) stays
+  // gated on its own constant. Presence of a target is unaffected either way.
+  if (PLOT_JOINT_HEADLINE_SUSPECT) {
     return { goalProbability: unconstrained, goalProbabilityIsJoint: false }
   }
 

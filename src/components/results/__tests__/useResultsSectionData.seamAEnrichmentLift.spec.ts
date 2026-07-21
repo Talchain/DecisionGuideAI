@@ -20,15 +20,16 @@ import { useResultsSectionData } from '../useResultsSectionData'
 import { useCanvasStore } from '../../../canvas/store'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 
-// UI-SEM-088 gate. On the live V5 path a joint-goal figure arrives with no
-// per-option constraint_analysis marker, so selectGoalProbability suppresses it
-// while the gate is ON. Mutable getter drives the gate-ON pin + gate-OFF
-// positive control.
+// UI-SEM-088 seam 1. On the live V5 path a joint-goal figure arrives with no
+// per-option constraint_analysis marker, so selectGoalProbability reads
+// PLOT_JOINT_HEADLINE_SUSPECT. `suspect` drives that flag; the mock also exports
+// the seam-2 constant (whole-module replacement) fixed to its current default.
 const mockTrust = vi.hoisted(() => ({ suspect: true }))
 vi.mock('../../../adapters/plot/constraintTrust', () => ({
-  get PLOT_CONSTRAINT_NUMBERS_SUSPECT() {
+  get PLOT_JOINT_HEADLINE_SUSPECT() {
     return mockTrust.suspect
   },
+  PLOT_PER_OPTION_CONSTRAINTS_SUSPECT: true,
 }))
 
 const OPTION_NODES = [

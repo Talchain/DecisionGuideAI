@@ -36,11 +36,16 @@ vi.mock('../../store', () => ({
 // UI-SEM-088 gate: OptionNode's "chance of target" badge routes through
 // selectGoalProbability, which reads this constant. Mutable getter so the
 // suite can pin both the gate-ON suppression and the gate-OFF positive control.
+// UI-SEM-088 seam 1: OptionNode's badge flows through selectGoalProbability,
+// which reads PLOT_JOINT_HEADLINE_SUSPECT. `suspect` drives that flag; the mock
+// also exports the seam-2 constant (whole-module replacement) fixed to its
+// current default.
 const mockTrust = vi.hoisted(() => ({ suspect: true }))
 vi.mock('../../../adapters/plot/constraintTrust', () => ({
-  get PLOT_CONSTRAINT_NUMBERS_SUSPECT() {
+  get PLOT_JOINT_HEADLINE_SUSPECT() {
     return mockTrust.suspect
   },
+  PLOT_PER_OPTION_CONSTRAINTS_SUSPECT: true,
 }))
 
 vi.mock('../../layoutStore', () => ({
