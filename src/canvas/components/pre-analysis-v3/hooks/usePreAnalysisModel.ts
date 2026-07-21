@@ -152,6 +152,13 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     [decisionPresent, facts, success.isSet, coverage.influenceCoverage, rowCounts],
   )
 
+  // UI-SEM-091: runnable-via-scaffold. CEE (#612) rides a scaffold intent on
+  // the readiness response; when it will draft the remaining options the graph
+  // is runnable despite can_run_analysis being false. Both the footer and the
+  // ladder disclose it instead of showing the not-ready copy.
+  const willScaffoldOptions = readiness?.scaffold_plan?.will_scaffold_options === true
+  const scaffoldOptionCount = readiness?.scaffold_plan?.option_count
+
   const ladder = useMemo(
     () =>
       computeLadder({
@@ -162,8 +169,10 @@ export function usePreAnalysisModel(): PreAnalysisModel {
         readinessExplanation: readiness?.confidence_explanation
           ? guardCeeText(readiness.confidence_explanation, LADDER_COPY.readiness_fallback).text
           : null,
+        willScaffoldOptions,
+        scaffoldOptionCount,
       }),
-    [facts.goalNode, success.isSet, top, readiness],
+    [facts.goalNode, success.isSet, top, readiness, willScaffoldOptions, scaffoldOptionCount],
   )
 
   const narrowFramingDetail = useMemo(() => {
@@ -265,8 +274,22 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     [nodes],
   )
 
-  const canRun = readiness ? readiness.can_run_analysis : null
+  // UI-SEM-091: effective runnable ORs the scaffold intent, so advanced.canRun
+  // and the footer agree with the run gate (canRunAnalysis util).
+  const canRun = readiness ? readiness.can_run_analysis || willScaffoldOptions : null
   const footer = useMemo(() => {
+    // UI-SEM-091: readiness reports not-runnable, but CEE will draft the
+    // remaining options — disclose the draft, never the not-ready copy.
+    if (readiness?.can_run_analysis === false && willScaffoldOptions) {
+      return {
+        dot: 'warning' as const,
+        headline: FOOTER_COPY.ready,
+        subline:
+          typeof scaffoldOptionCount === 'number'
+            ? FOOTER_COPY.scaffoldSub(scaffoldOptionCount)
+            : FOOTER_COPY.scaffoldSubNoCount,
+      }
+    }
     if (canRun === false) {
       const explanation = readiness?.confidence_explanation?.trim()
       return {
@@ -289,7 +312,15 @@ export function usePreAnalysisModel(): PreAnalysisModel {
       headline: FOOTER_COPY.ready,
       subline: top ? FOOTER_COPY.readySubEstimates : FOOTER_COPY.readySubAllSet,
     }
-  }, [canRun, success.isSet, top, readiness?.confidence_explanation])
+  }, [
+    canRun,
+    willScaffoldOptions,
+    scaffoldOptionCount,
+    success.isSet,
+    top,
+    readiness?.can_run_analysis,
+    readiness?.confidence_explanation,
+  ])
 
   // Memoised slices so the memo()'d sections actually bail out when their
   // inputs are unchanged (a fresh object tree every render defeats them).
