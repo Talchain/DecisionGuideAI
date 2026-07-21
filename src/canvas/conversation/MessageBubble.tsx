@@ -284,6 +284,15 @@ export const MessageBubble = memo(function MessageBubble({
     )
   }
 
+  // Body text className — identical in the structured-answer branch and the
+  // free-text branch below. Hoisted to one const so the two render paths can
+  // never drift; rebuilding it verbatim in both was pure duplication.
+  const bodyClassName = `${compact ? typography.panelBody : typography.chatProse} ${styles.markdownContent} ${
+    compact ? styles.markdownContentCompact : ''
+  } ${isProvisional ? styles.provisionalText : ''} ${
+    !isUser && isOrchestratorRenderingV2Enabled() ? styles.v2AssistantText : ''
+  }`
+
   return (
     <>
     {stalenessFreshness && <StalenessPill freshness={stalenessFreshness} />}
@@ -298,22 +307,14 @@ export const MessageBubble = memo(function MessageBubble({
     >
       {showStructuredAnswer && message.answerShape ? (
         <div
-          className={`${compact ? typography.panelBody : typography.chatProse} ${styles.markdownContent} ${
-            compact ? styles.markdownContentCompact : ''
-          } ${isProvisional ? styles.provisionalText : ''} ${
-            !isUser && isOrchestratorRenderingV2Enabled() ? styles.v2AssistantText : ''
-          }`}
+          className={bodyClassName}
           data-testid="message-answer-structured"
         >
           <AnswerBody answer={message.answerShape} compact={compact} />
         </div>
       ) : (
         <div
-          className={`${compact ? typography.panelBody : typography.chatProse} ${styles.markdownContent} ${
-            compact ? styles.markdownContentCompact : ''
-          } ${isProvisional ? styles.provisionalText : ''} ${
-            !isUser && isOrchestratorRenderingV2Enabled() ? styles.v2AssistantText : ''
-          }`}
+          className={bodyClassName}
           data-streaming={isStreaming || undefined}
           // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li; br.md-gap for rule degradation)
           dangerouslySetInnerHTML={{

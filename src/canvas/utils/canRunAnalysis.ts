@@ -98,6 +98,23 @@ export interface CanRunAnalysisParams {
 }
 
 /**
+ * readinessWillScaffold — the single strict-boolean reader of the scaffold
+ * intent (UI-SEM-091). CEE (#612) rides `scaffold_plan.will_scaffold_options`
+ * on the readiness response, and two surfaces consume it with OPPOSITE polarity:
+ * the run GATE here (fail-closed — block unless strictly true) and the
+ * pre-analysis DISPLAY in usePreAnalysisModel (fail-safe — disclose only when
+ * strictly true). They previously read the raw field independently with `!==
+ * true` vs `=== true`, agreeing only because readinessStore normalises the
+ * field. Extracting the one `=== true` strict test guarantees the two reads
+ * can never drift: an absent/undefined scaffold_plan is uniformly false
+ * (fail-closed for the gate via `!readinessWillScaffold`, no-disclosure for the
+ * display).
+ */
+export function readinessWillScaffold(readiness: GraphReadiness | null | undefined): boolean {
+  return readiness?.scaffold_plan?.will_scaffold_options === true
+}
+
+/**
  * Determine if analysis can run based on current state
  *
  * @param params - State from store and hooks
@@ -168,7 +185,7 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
   if (
     readiness &&
     !readiness.can_run_analysis &&
-    readiness.scaffold_plan?.will_scaffold_options !== true
+    !readinessWillScaffold(readiness)
   ) {
     if (!blockingReasons.includes(readiness.confidence_explanation)) {
       blockingReasons.push(readiness.confidence_explanation || 'Graph not ready for analysis')

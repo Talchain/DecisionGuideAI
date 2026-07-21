@@ -17,7 +17,7 @@
  * panelBody 12/400) and the shared .inlineDisclosureToggle (11px) — no new
  * font sizes, so the conversation type-scale census (11/12/14) is unaffected.
  */
-import { memo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { safeRichText } from '../utils/safeRichText'
@@ -44,7 +44,15 @@ interface AnswerBodyProps {
 
 export const AnswerBody = memo(function AnswerBody({ answer, compact = false }: AnswerBodyProps) {
   const [expanded, setExpanded] = useState(false)
-  const bullets = answer.bullets.slice(0, MAX_BULLETS) // UI-SEM-090
+  // Memoise the XSS-safe sanitiser output: `answer` is a stable prop and this
+  // component is memo'd, so `expanded` is the only re-render trigger. Without
+  // these memos every Show more/less toggle would re-sanitise the unchanged
+  // headline, bullets and detail. Pure perf — identical output.
+  const headlineHtml = useMemo(() => safeRichText(answer.headline), [answer.headline])
+  // UI-SEM-090: clamp the producer's bullet list to at most MAX_BULLETS at the
+  // display boundary (see MAX_BULLETS above) before sanitising each.
+  const bulletHtml = useMemo(() => answer.bullets.slice(0, MAX_BULLETS).map(safeRichText), [answer.bullets])
+  const detailHtml = useMemo(() => (answer.detail ? safeRichText(answer.detail) : ''), [answer.detail])
   const bodyType = compact ? typography.panelBody : typography.chatProse
 
   return (
@@ -53,15 +61,15 @@ export const AnswerBody = memo(function AnswerBody({ answer, compact = false }: 
         className={`${typography.panelHeader} ${styles.answerHeadline}`}
         data-testid="answer-headline"
         // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li, span)
-        dangerouslySetInnerHTML={{ __html: safeRichText(answer.headline) }}
+        dangerouslySetInnerHTML={{ __html: headlineHtml }}
       />
-      {bullets.length > 0 && (
+      {bulletHtml.length > 0 && (
         <ul className={`${bodyType} ${styles.answerBullets}`} data-testid="answer-bullets">
-          {bullets.map((b, i) => (
+          {bulletHtml.map((html, i) => (
             <li
               key={i}
               // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText
-              dangerouslySetInnerHTML={{ __html: safeRichText(b) }}
+              dangerouslySetInnerHTML={{ __html: html }}
             />
           ))}
         </ul>
@@ -91,7 +99,7 @@ export const AnswerBody = memo(function AnswerBody({ answer, compact = false }: 
               className={`${bodyType} ${styles.answerDetail}`}
               data-testid="answer-detail"
               // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText
-              dangerouslySetInnerHTML={{ __html: safeRichText(answer.detail) }}
+              dangerouslySetInnerHTML={{ __html: detailHtml }}
             />
           )}
         </>

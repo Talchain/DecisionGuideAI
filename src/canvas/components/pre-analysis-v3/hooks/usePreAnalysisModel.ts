@@ -10,6 +10,7 @@
 import { useEffect, useMemo } from 'react'
 import { useCanvasStore } from '../../../store'
 import { useGraphReadiness } from '../../../hooks/useGraphReadiness'
+import { readinessWillScaffold } from '../../../utils/canRunAnalysis'
 import { isReviewedByUser } from '../../pre-analysis/utils/isReviewedByUser'
 import { computeBars, type BarsModel } from '../selectors/computeBars'
 import { computeEstimateRanking } from '../selectors/computeEstimateRanking'
@@ -156,7 +157,7 @@ export function usePreAnalysisModel(): PreAnalysisModel {
   // the readiness response; when it will draft the remaining options the graph
   // is runnable despite can_run_analysis being false. Both the footer and the
   // ladder disclose it instead of showing the not-ready copy.
-  const willScaffoldOptions = readiness?.scaffold_plan?.will_scaffold_options === true
+  const willScaffoldOptions = readinessWillScaffold(readiness)
   const scaffoldOptionCount = readiness?.scaffold_plan?.option_count
 
   const ladder = useMemo(
