@@ -246,6 +246,37 @@ export const ResultsBody = memo(function ResultsBody({
   return (
     <div className="flex flex-col gap-4" data-testid="outputs-results-redesign">
 
+      {/* ══ V7 ASSESSMENT-MODE SCAFFOLD (V7 Lane L3) ═══════════════════════
+          Paul's ruling (V6-RESPEC-2026-07-23 §1, "Option A GO — additive,
+          never replace"): the panel renders in two stacked groups so Paul can
+          assess new V7 components against today's live panel in one scroll.
+          L3 is re-parenting + a divider ONLY — no component deleted, no logic
+          changed, no flag. The Current-view group retires once Paul signs off
+          (V6-RESPEC Paul-question P2). */}
+
+      {/* ▛ V7 (new) top group ▟ — the L4–L6 mount point. Empty today (those
+          components do not exist yet); `empty:hidden` keeps it out of layout
+          until a lane fills it, so the scaffold is invisible-but-present. */}
+      <div className="flex flex-col gap-4 empty:hidden" data-testid="v7-top-group" />
+
+      {/* ── "Current view" divider ─────────────────────────────────────────
+          Plain SectionHeader-style separator (sentence case, muted, no accent
+          fill). COMPLETE border only — the four-sided neutral border obeys the
+          L1 rule (complete-borders guard); never a one-sided accent edge.
+          Everything beneath is the shipped panel, re-parented, zero logic
+          change. */}
+      <div
+        data-testid="assessment-current-view-divider"
+        className="flex items-center rounded-lg border border-panel-border bg-panel px-3 py-1.5"
+      >
+        <h3 className={`${typography.panelMeta} text-text-light`}>Current view</h3>
+      </div>
+
+      {/* ── Current view group — today's components, UNCHANGED, pushed down ──
+          Same order, same props, same stores as before L3. This wrapper only
+          re-parents them beneath the divider; the inner `gap-4` preserves the
+          exact inter-component spacing the outer container gave them. */}
+      <div className="flex flex-col gap-4" data-testid="assessment-current-view-group">
 
       {/* Freshness/staleness — CEE analysis_ready.freshness verdict. Renders
           nothing until a verdict exists; never asserts a state we don't hold. */}
@@ -592,6 +623,8 @@ export const ResultsBody = memo(function ResultsBody({
           extracted into `DevBuildMarker` so the production-vs-expert
           combination is unit-testable. */}
       <DevBuildMarker isDev={import.meta.env.DEV} expertMode={!!expertMode} sha={typeof __GIT_SHA__ !== 'undefined' ? __GIT_SHA__ : 'dev'} />
+      {/* ── end Current view group (V7 L3 assessment-mode scaffold) ── */}
+      </div>
     </div>
   )
 })
