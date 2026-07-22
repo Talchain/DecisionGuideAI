@@ -29,6 +29,9 @@ describe('ACTION_TO_TURN_TYPE mapping', () => {
     explain_results: 'explain',
     compare_options: 'explain',
     what_would_flip: 'explain',
+    // F2 CHANGE B: the "What changed?" pill is an analytical comparison —
+    // same explanation class as its siblings above.
+    what_changed: 'explain',
     challenge_assumption: 'conversation',
     set_factor_value: 'conversation',
     add_factor: 'conversation',

@@ -309,6 +309,24 @@ export const KNOWN_ACTION_TYPES: ReadonlySet<ActionTypeLiteral> = new Set<Action
  *   with a dedicated typed routing arm queued as a separate CEE build.
  *   Ingress-acceptance is exactly what the send gate needs — the typed arm is
  *   not required for the turn to be accepted rather than 422'd.
+ * - what_changed: F2 CHANGE B (2026-07-22). The typed door for the "What
+ *   changed?" pill (WhatChangedChip). Published half comes from the re-vendored
+ *   @talchain/schemas 0.21.0 enum (KNOWN_ACTION_TYPES, derived); this accepted
+ *   half is the hand-listed mirror. Accepting counterpart is CEE PR #620
+ *   (feat/f2b-accept-what-changed) — DO NOT MERGE this UI change before #620 is
+ *   merged + deploy-verified, or the send 422s the whole turn (CEE is
+ *   fail-closed on the enum). See parallel-briefs/F2B-BYTE-CONFIRM §6 landing
+ *   order.
+ *
+ * ⚠ DRIFT HAZARD (the dominant Olumi defect class): this list is a
+ * HAND-MAINTAINED mirror of what CEE's deployed service accepts. It is
+ * DELIBERATELY not derived from our vendored enum — there is no shared contract
+ * artefact to derive CEE's *deployed acceptance* from today, and deriving it
+ * from our own enum would re-couple the two facts and re-create the bug the send
+ * gate exists to prevent (publication says nothing about CEE acceptance). It
+ * fails CLOSED (a missing entry over-blocks: the chip visibly no-ops, never a
+ * 422), so the risk is silent under-send, not a leak. Every new enum value MUST
+ * be added here by hand with provenance, in lockstep with CEE deploy.
  */
 export const CEE_ACCEPTED_ACTION_TYPES: ReadonlySet<ActionTypeLiteral> =
   new Set<ActionTypeLiteral>([
@@ -322,6 +340,7 @@ export const CEE_ACCEPTED_ACTION_TYPES: ReadonlySet<ActionTypeLiteral> =
     'compare_options',
     'what_would_flip',
     'analysis_readiness',
+    'what_changed',
   ])
 
 /**

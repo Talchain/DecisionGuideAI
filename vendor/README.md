@@ -7,6 +7,44 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
+### `talchain-schemas-0.21.0.tgz`
+
+**⚠ PREP tarball — NOT the publishable artefact. Deliberately built ADDITIVE-ONLY
+(see anchor-drift note).** The `ActionType` enum gains `what_changed` as the 11th
+value, after `analysis_readiness` — and NOTHING else moves relative to the UI's
+current 0.20.0 pin.
+
+**Provenance (anchor drift corrected).** The F2B brief said to pack olumi-schemas
+`feat/actiontype-what-changed` (PR #17, enum commit `d27b1bb`, tip `798a395`)
+directly. That branch, however, sits on top of PR #13 (compute-seam analysis
+JSON-Schema types, `636c78b`) and PR #14 (`GoalConstraintSchema` →
+`LegacyGoalConstraintStubSchema` rename, `9edcb34`) — both landed on `main`
+AFTER the UI's committed 0.20.0 tarball, which was built from `1b936ec` (PR #12,
+the 0.20.0 release — verified byte-identical `.d.ts` to the committed
+`talchain-schemas-0.20.0.tgz`). Packing the raw branch head drags #13/#14 into
+the UI and introduces ~113 non-additive `tsc` errors (the #14 rename in
+particular), violating "additive only; nothing else moves".
+
+So this prep tgz is built from `1b936ec` + ONLY the `what_changed` enum value
+(version set to `0.21.0`), so the ONLY `.d.ts` delta vs 0.20.0 is the additive
+`| "what_changed"` union member wherever `ActionType` is embedded
+(`enums`, `boundary/olumi-response`, `boundary/turn-payload`,
+`orchestrator/session`). Built + packed via `npm ci && npm run build &&
+npm pack`; the schemas package suite is **1012/1012 green** at the branch head
+(incl. `actiontype-what-changed.test.ts`).
+
+**This tarball MUST be re-packed + sha-verified from the MERGED + PUBLISHED
+0.21.0 tip before this UI change merges** (same protocol CEE PR #620 used for its
+prep tgz). ⚠ The real published 0.21.0 will be built from `main` and WILL carry
+PR #13 + #14 — so the re-pack step must be paired with a SEPARATE UI change that
+absorbs those ~113 non-additive type deltas; that fold is out of scope for this
+additive send PR. SHA256 manifest lives alongside as
+`talchain-schemas-0.21.0.tgz.sha256`
+(`41033f067cfbe1f6bd716d57140ef586816bb836ac312d8d9c0cf4ac3945e63f`), checked by
+the pre-push gate (Check 6a). Landing is blocked on olumi-schemas #17 merge +
+publish → CEE #620 merge + deploy-verify (see parallel-briefs/F2B-BYTE-CONFIRM
+§6). `src/lib/talchainSchemasVersion.ts` is bumped to `0.21.0` in lockstep.
+
 ### `talchain-schemas-0.19.0.tgz`
 
 Built from **olumi-schemas `main`** @ `8088d4e` — the merge commit of
