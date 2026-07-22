@@ -31,10 +31,15 @@
 
 /**
  * Remove comments from a file's text, dispatching on extension: `.css` files get
- * block-comment stripping only; everything else is treated as JS/TS/JSX/TSX.
+ * block-comment stripping only; `.tsx`/`.jsx` get JSX-aware JS tokenisation (a
+ * JSX close `</` or self-close `/>` slash is never mistaken for a regex open);
+ * every other extension (`.ts`/`.js`/`.mjs`/…) is plain JS/TS, tokenised exactly
+ * as before — the JSX rule is opt-in by extension so it cannot change how a
+ * non-JSX file is read.
  */
 export function stripComments(text: string, file: string): string {
-  return /\.css$/.test(file) ? stripCssComments(text) : stripJsComments(text)
+  if (/\.css$/.test(file)) return stripCssComments(text)
+  return stripJsComments(text, /\.(tsx|jsx)$/.test(file))
 }
 
 /** May a `/` here begin a regex literal, given the previous significant char? */
@@ -49,8 +54,25 @@ export function regexCanStart(prev: string): boolean {
 /**
  * Strip `//` line and block comments from JS/TS/JSX/TSX, treating string,
  * template and regex literals (and `${...}` interpolations) as code.
+ *
+ * JSX AWARENESS (`jsx = true`, set by `stripComments` for `.tsx`/`.jsx`). In JSX,
+ * `<` is a tag opener rather than a less-than operator, so the `/` in a close tag
+ * (`</div>`, `</>`) and the `/` in a self-close (`<Foo />`, `<br/>`) are tag
+ * syntax, not the start of a regex literal. The plain tokeniser (`regexCanStart`)
+ * only inspects the previous significant char, where after `<` a `/` looks like a
+ * regex open — so on `</div>` it enters `regex` state and, finding no closing `/`
+ * before EOF (or latching onto a later stray `/`), swallows every comment past
+ * that point. The guard below suppresses the regex open for exactly the two JSX
+ * shapes: a `/` whose previous significant char is `<` (close tag), and a `/`
+ * whose next char is `>` (self-close). It runs AFTER the `//`/`/*` comment checks,
+ * so a real comment immediately following a tag is still stripped, and only when
+ * `jsx` is set — plain `.ts`/`.js` tokenisation (including the rare, legitimate
+ * `a < /re/ … /` division-then-regex) is left byte-for-byte unchanged. In `.tsx`
+ * that same `a < /re/` reads as JSX by design (JSX context wins), the documented
+ * trade-off; a genuine regex whose FIRST char is not `>` still opens normally
+ * (its opening `/` has neither a `<` before it nor a `>` after it).
  */
-export function stripJsComments(src: string): string {
+export function stripJsComments(src: string, jsx = false): string {
   const a = src.split('')
   const n = a.length
   const blank = (i: number): void => {
@@ -75,6 +97,11 @@ export function stripJsComments(src: string): string {
       if (c === "'") { state = 'single'; prev = c; i++; continue }
       if (c === '"') { state = 'double'; prev = c; i++; continue }
       if (c === '`') { state = 'template'; prev = c; i++; continue }
+      // JSX tag slash (`.tsx`/`.jsx` only): a `/` in a close tag (`</…`, prev is
+      // `<`) or a self-close (`…/>`, next char is `>`) is tag syntax, not a regex
+      // open. Kept as an ordinary code char so tokenisation stays aligned and any
+      // comment after the tag is still seen. Runs before the regex check below.
+      if (c === '/' && jsx && (prev === '<' || d === '>')) { prev = c; i++; continue }
       if (c === '/' && regexCanStart(prev)) { state = 'regex'; regexClass = false; prev = c; i++; continue }
       if (interp > 0) {
         if (c === '{') interp++

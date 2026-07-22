@@ -98,6 +98,106 @@ describe('stripComments — dispatches on file extension', () => {
     // In CSS `//` is NOT a comment; the JS path would wrongly blank it.
     expect(stripComments('a // b', 'x.css')).toContain('// b')
   })
+
+  it('.tsx / .jsx select the JSX-aware path; other extensions stay plain JS', () => {
+    // A `//` comment after a JSX close tag is only reliably stripped on the JSX
+    // path (see the JSX block below for why). This pins the extension dispatch.
+    for (const ext of ['x.tsx', 'x.jsx']) {
+      expect(stripComments('const x = (<div>hi</div>)\n// gone\n', ext)).not.toContain('gone')
+    }
+    // Plain `.ts` keeps the pre-fix (non-JSX) tokenisation exactly — the `</div>`
+    // slash opens a phantom regex and the trailing comment survives. This is the
+    // deliberately-unchanged legacy behaviour, asserted so a future edit that
+    // silently JSX-ifies `.ts` is caught.
+    expect(stripComments('const x = (<div>hi</div>)\n// kept\n', 'x.ts')).toContain('kept')
+  })
+})
+
+describe('stripJsComments — JSX-aware mode (`.tsx`/`.jsx`)', () => {
+  // REGRESSION PIN (the bug this file's fix closes). Pre-fix, the `/` in a JSX
+  // close tag `</div>` was read as a regex open (its previous significant char is
+  // `<`, which `regexCanStart` treats as an operator), so the tokeniser entered
+  // `regex` state and swallowed every comment after it. The minimal repro:
+  it('MINIMAL REPRO: a `//` after `</div>` is blanked in JSX mode', () => {
+    const out = stripJsComments('const x = (<div>hi</div>)\n// SENTINEL\n', true)
+    expect(out).not.toContain('SENTINEL')
+    expect(out).toContain('const x =') // code before the tag is untouched
+  })
+
+  it('blanks a `//` line comment after a JSX close tag', () => {
+    const out = stripJsComments('return <div>x</div> // trailing note\n', true)
+    expect(out).not.toContain('trailing note')
+  })
+
+  it('blanks a `/* … */` block comment after a JSX close tag', () => {
+    const out = stripJsComments('return <div>x</div> /* block note */\n', true)
+    expect(out).not.toContain('block note')
+  })
+
+  it('blanks a comment after a fragment close `</>`', () => {
+    const line = stripJsComments('return <>x</> // frag note\n', true)
+    expect(line).not.toContain('frag note')
+    const block = stripJsComments('return <>x</> /* frag block */\n', true)
+    expect(block).not.toContain('frag block')
+  })
+
+  it('blanks a comment after a self-closing tag `<Foo />` and `<br/>`', () => {
+    expect(stripJsComments('return <Foo /> // sc note\n', true)).not.toContain('sc note')
+    expect(stripJsComments('return <br/> /* sc block */\n', true)).not.toContain('sc block')
+  })
+
+  it('a real forbidden-looking token in CODE after JSX stays visible', () => {
+    // The whole point of stripping: real call sites must survive so the guard
+    // still bites. A `.update({ graph })`-style token after a close tag is code.
+    const out = stripJsComments("const x = <div/>\nstore.setState({ nodes })\n", true)
+    expect(out).toContain('store.setState({ nodes })')
+  })
+
+  it('keeps string, template and regex literals around JSX', () => {
+    const out = stripJsComments(
+      'const u = "http://x/y"\nreturn <div/>\nconst re = /a\\/b/g\nconst t = `p // q`\n// gone\n',
+      true,
+    )
+    expect(out).toContain('http://x/y') // string with `//` kept
+    expect(out).toContain('/a\\/b/g') // regex literal kept whole
+    expect(out).toContain('p // q') // template body kept
+    expect(out).not.toContain('gone') // the real trailing comment IS stripped
+  })
+
+  it('a genuine regex whose first char is not `>` still opens in JSX mode', () => {
+    // The self-close rule only suppresses a `/` immediately BEFORE a `>` (i.e.
+    // `/>`). A regex like `/x>/` opens on its first `/` (prev `=`, next `x`), so
+    // it is still recognised and the trailing comment after it is stripped.
+    const out = stripJsComments('const re = /x>/g // trailing\n', true)
+    expect(out).toContain('/x>/g')
+    expect(out).not.toContain('trailing')
+  })
+
+  it('DECISION — plain `.ts`/`.js` keeps `a < /re/ … /` as a regex literal (unchanged)', () => {
+    // In plain JS `a < /re/.source.length` is legal: `<` is less-than, `/re/` is a
+    // regex. The non-JSX path (default `jsx=false`) preserves this exactly: the
+    // regex opens after `<` and consumes to its closing `/`, so the trailing
+    // comment is stripped. We keep this behaviour byte-for-byte for `.ts`/`.js`.
+    const plain = stripJsComments('const n = a < /re/.source.length // gone\n')
+    expect(plain).toContain('/re/')
+    expect(plain).not.toContain('gone')
+  })
+
+  it('DECISION — in JSX mode `a < /re/` reads as JSX (JSX context wins), the trade-off', () => {
+    // The rare valid-JS `a < /re/` is ambiguous against a JSX close tag. For
+    // `.tsx`/`.jsx` we let JSX win: the `/` after `<` is treated as tag syntax,
+    // NOT a regex open. Consequence — the `/re/` is plain code, so a real comment
+    // after it is still correctly stripped (the priority we want for JSX files).
+    const jsxOut = stripJsComments('const n = a < /re/.x // gone\n', true)
+    expect(jsxOut).not.toContain('gone')
+  })
+
+  it('is byte-length- and newline-preserving in JSX mode', () => {
+    preservesLayout(
+      (s: string) => stripJsComments(s, true),
+      'return (\n  <div>hi</div> // c\n)\n{/* jsx block\n   note */}\n',
+    )
+  })
 })
 
 describe('stripCssComments — block comments only, literal-aware', () => {

@@ -18,12 +18,16 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { stripComments } from '../../../../tests/helpers/stripSourceComments'
 
-const stripComments = (src: string) =>
-  src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
-
+// TemplatesPanel.tsx is JSX-heavy; the naive regex strip PR #432 had to keep
+// here mis-handled it, and the shared strip's earlier JSX tokeniser bug (a
+// `</tag>` slash mistaken for a regex open) made the migration unsafe until the
+// stripper was made JSX-aware. Now it is, so route through the shared helper —
+// passing the real `.tsx` filename selects the JSX-aware path.
 const source = stripComments(
   readFileSync(join(process.cwd(), 'src/canvas/panels/TemplatesPanel.tsx'), 'utf8'),
+  'TemplatesPanel.tsx',
 )
 
 describe('TemplatesPanel — merge actions dirty the freshness overlay', () => {
