@@ -102,15 +102,75 @@ function resolveTripleProperty(name, lookup, depth = 0) {
 }
 
 /**
+ * Strip CSS block comments from a source string, replacing comment characters
+ * with spaces so newlines and column offsets are preserved. Literal-aware: a
+ * comment-open sequence that appears inside a single- or double-quoted CSS
+ * string (e.g. `content: "..."`) stays code and is not treated as a comment.
+ *
+ * WHY declaredValue NEEDS THIS. The declaration regex uses a multiline `^` and
+ * takes the FIRST match, so a superseded value quoted at line-start inside a
+ * design-note comment ABOVE the live declaration was returned INSTEAD of the
+ * live value — a silent wrong read (a comment holding old `--text-light:
+ * #908D8D` shadowed the live `#6E6B6B`). Stripping comments first makes the
+ * first match the live declaration.
+ *
+ * This mirrors `stripCssComments` in tests/helpers/stripSourceComments.ts. It is
+ * re-implemented here rather than imported because this module is `.mjs`,
+ * consumed by the plain node script scripts/css-var-census.mjs which cannot
+ * import a TypeScript helper — the same constraint that already forces this
+ * module to be `.mjs` (see the header). CSS has no `//` line comments, so only
+ * the block-comment form is handled.
+ *
+ * @param {string} css
+ * @returns {string}
+ */
+function stripCssComments(css) {
+  const a = String(css).split('')
+  const n = a.length
+  const blank = (i) => {
+    if (a[i] !== '\n' && a[i] !== '\r') a[i] = ' '
+  }
+  /** @type {'code' | 'block' | 'single' | 'double'} */
+  let state = 'code'
+  let i = 0
+  while (i < n) {
+    const c = a[i]
+    const d = i + 1 < n ? a[i + 1] : ''
+    if (state === 'code') {
+      if (c === '/' && d === '*') { blank(i); blank(i + 1); state = 'block'; i += 2; continue }
+      if (c === "'") { state = 'single'; i++; continue }
+      if (c === '"') { state = 'double'; i++; continue }
+      i++; continue
+    }
+    if (state === 'block') {
+      if (c === '*' && d === '/') { blank(i); blank(i + 1); state = 'code'; i += 2; continue }
+      blank(i); i++; continue
+    }
+    if (state === 'single') {
+      if (c === '\\') { i += 2; continue }
+      if (c === "'") { state = 'code'; i++; continue }
+      i++; continue
+    }
+    // state === 'double'
+    if (c === '\\') { i += 2; continue }
+    if (c === '"') { state = 'code'; i++; continue }
+    i++
+  }
+  return a.join('')
+}
+
+/**
  * Read a `--token`'s declared value straight out of a brand.css source string.
- * Shared so the callers do not each carry their own declaration regex.
+ * Shared so the callers do not each carry their own declaration regex. Comments
+ * are stripped first (see `stripCssComments`) so a declaration quoted inside a
+ * comment cannot be mistaken for the live one.
  *
  * @param {string} css
  * @param {string} token  including the leading `--`
  * @returns {string | null}
  */
 export function declaredValue(css, token) {
-  const m = css.match(new RegExp(`^\\s*${token}:\\s*([^;]+);`, 'm'))
+  const m = stripCssComments(css).match(new RegExp(`^\\s*${token}:\\s*([^;]+);`, 'm'))
   return m ? m[1].trim() : null
 }
 
