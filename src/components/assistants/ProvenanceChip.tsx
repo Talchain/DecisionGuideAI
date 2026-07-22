@@ -97,7 +97,7 @@ export function ProvenanceChip({ documents, redacted = true, onToggleRedaction }
 
           <div className="space-y-2">
             {displayDocuments.map((doc) => (
-              <div key={doc.id} className="border-l-2 border-option/30 pl-2">
+              <div key={doc.id} className="border border-option/30 rounded px-2 py-1">
                 <div className="font-medium text-xs text-gray-900">{doc.name}</div>
                 {doc.snippet && (
                   <div className="text-xs text-gray-600 mt-0.5 italic">

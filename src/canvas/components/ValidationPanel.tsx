@@ -334,7 +334,7 @@ function CritiqueItemRow({
 
   return (
     <div
-      className={`rounded-lg border-l-4 ${borderColorClass} bg-white p-3 shadow-sm transition-all duration-300 ${
+      className={`rounded-lg border ${borderColorClass} bg-white p-3 shadow-sm transition-all duration-300 ${
         isFixed ? 'opacity-60' : ''
       }`}
       data-testid={`critique-item-${item.code || 'unknown'}`}

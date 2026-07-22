@@ -516,7 +516,7 @@ export function ConfidenceSection({
       {decisionState && hinge && (
         <div
           id="mvs-card"
-          className="bg-panel p-4 border border-success/30 border-l-[3px] border-l-success rounded-lg shadow-1" /* §6.4 coaching accent card — p-4 intentional (border-l-[3px]) */
+          className="bg-panel p-4 border border-success/30 rounded-lg shadow-1" /* §6.4 coaching accent card — p-4 intentional; complete border, one-sided accent retired (V7 L1) */
           data-testid="voi-promoted-block"
         >
           <div className="flex items-start gap-2 mb-1">

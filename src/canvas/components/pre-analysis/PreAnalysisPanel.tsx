@@ -805,7 +805,7 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
             return (
               <div
                 key={entry.card.key}
-                className={emphasised ? 'rounded-[10px] border border-info/50 border-l-[3px] border-l-info bg-info/[0.02]' : ''}
+                className={emphasised ? 'rounded-[10px] border border-info/50 bg-info/[0.02]' : ''}
                 data-testid={emphasised ? 't1-triage-emphasised' : undefined}
               >
                 <TriageCard
@@ -2001,7 +2001,7 @@ export function PreAnalysisPanel({
             detail and is hidden from non-expert users. */}
         {isFailed && lastDraftError && (
           <div
-            className="rounded-md bg-panel border border-panel-border border-t-[3px] border-t-danger px-4 py-2.5"
+            className="rounded-md bg-panel border border-danger px-4 py-2.5"
             data-testid="draft-error-card"
           >
             <p className={`${typography.panelHeader} text-danger`}>Draft failed</p>

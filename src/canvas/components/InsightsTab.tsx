@@ -325,7 +325,7 @@ function BiasCard({ bias, checked, expanded, onToggle, onExpand }: BiasCardProps
           </div>
 
           {expanded && bias.mechanism && (
-            <div className="p-2 bg-paper-50 rounded border-l-2 border-sky-500">
+            <div className="p-2 bg-paper-50 rounded border border-sky-500">
               <p className={`${typography.bodySmall} text-ink-900`}>
                 {bias.mechanism}
               </p>

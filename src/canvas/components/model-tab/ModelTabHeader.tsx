@@ -43,7 +43,7 @@ export function ModelTabHeader({
           </span>
         )}
       </div>
-      <div className={showDetail ? 'border-t-2 border-info/40 pt-3' : ''}>
+      <div className={showDetail ? 'mt-2 border border-info/40 rounded p-3' : ''}>
         {children}
       </div>
     </DetailToggleContext.Provider>

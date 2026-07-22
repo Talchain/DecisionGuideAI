@@ -4,8 +4,9 @@
  * The post-analysis T1 card now ranks evidence-gap and next-action items into
  * a single EVPI-sorted stack:
  *   - Top 3 → unified queue with the first card visually emphasised
- *     (`border-info/50 bg-info/[0.02]` plus a `border-l-[3px] border-l-info`
- *     left accent per DS v5 §6.4, mirroring the pre-analysis `.ac.em`).
+ *     (a complete `border-info/50` + `bg-info/[0.02]`, mirroring the
+ *     pre-analysis `.ac.em`; V7 L1 retired the one-sided `border-l-[3px]`
+ *     left accent — the state colour now rides the complete border).
  *   - Items 4-6 → `AlsoConsiderDisclosure` (compact rows, collapsed by default).
  *   - Stability narrative renders above the queue when there is at least one
  *     item; suppressed otherwise.
@@ -150,10 +151,11 @@ describe('DecisionConfidencePanel — Brief 5.8B D2b unified triage queue', () =
     expect(screen.getByTestId('unified-triage-queue')).toBeInTheDocument()
     const emphasised = screen.getByTestId('unified-triage-emphasised')
     expect(emphasised).toBeInTheDocument()
-    // 5.8B hotfix Fix 10 — strengthened emphasis: border-info/50 + 3px left accent.
+    // 5.8B hotfix Fix 10 — strengthened emphasis. V7 L1: complete border only;
+    // the one-sided left accent is retired (state colour rides the complete border).
     expect(emphasised.className).toContain('border-info/50')
-    expect(emphasised.className).toContain('border-l-[3px]')
-    expect(emphasised.className).toContain('border-l-info')
+    expect(emphasised.className).not.toContain('border-l-[3px]')
+    expect(emphasised.className).not.toContain('border-l-info')
   })
 
   it('removes the legacy split sub-headers (D2b unified them into one queue)', () => {
