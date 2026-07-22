@@ -42,6 +42,11 @@ function resolveUserText(code: FailureTypeLiteral): string {
     case 'UPSTREAM_UNAVAILABLE':
     case 'LLM_UNAVAILABLE':
     case 'INTERNAL_ERROR':
+    case 'GRAPH_DIVERGED':
+      // GRAPH_DIVERGED joined BoundaryErrorCode in @talchain/schemas 0.22.0 (the
+      // analysed graph drifted from the live one). Its canonical copy is authored
+      // in the vendored FAILURE_USER_TEXT table, so it renders through the same
+      // data-driven path as every other code.
       return FAILURE_USER_TEXT[code]
     default: {
       const _exhaustive: never = code

@@ -74,11 +74,14 @@ const UI_COVERAGE: Record<
     kind: 'message_via_chip',
     chipActionType: 'run_analysis',
   },
-  // feedback_submitted has no V5 handler (not in SystemEventKind union).
-  // Builder returns { ok: false, reason: 'unsupported_system_event' }.
+  // feedback_submitted: `feedback` joined SystemEventKind in 0.22.0, but the UI
+  // still has NO emission path for it (buildV5Payload has no case → null →
+  // unsupported), and emission is HELD under the ingress-mirror rule until
+  // CEE >=0.22.0 is deploy-verified. Builder returns
+  // { ok: false, reason: 'unsupported_system_event' }.
   feedback_submitted: {
     kind: 'unsupported',
-    reason: 'not in v0.7.0 SystemEventKind union',
+    reason: 'UI emission held pending CEE 0.22 deploy (ingress-mirror rule)',
   },
 }
 
@@ -166,6 +169,12 @@ describe('UI ↔ V5 system event parity', () => {
       // path (debounced selection_change on canvas selection) is the R5 UI
       // half — a scheduled Experience lane; CEE consumes it already.
       'selection_change',
+      // 0.22.0: feedback joined the wire union (typed feedback event). UI
+      // emission is HELD under the ingress-mirror rule — CEE >=0.22.0 is not
+      // yet deploy-verified, so the UI must not start sending feedback events
+      // in the schemas-0.22 absorption lane. buildV5Payload still refuses
+      // feedback_submitted (unsupported_system_event); this is the deferral.
+      'feedback',
     ])
 
     for (const kind of V5_EVENT_KINDS) {
@@ -179,14 +188,16 @@ describe('UI ↔ V5 system event parity', () => {
     }
   })
 
-  it('locks UI emission count at 3 of 7 V5 SystemEventKind values', () => {
+  it('locks UI emission count at 3 of 8 V5 SystemEventKind values', () => {
     // Explicit canary: if someone adds a new UI emission (extending the
     // system_event branch of UI_COVERAGE) without updating this test, the
     // count will drift and flag for docs reconciliation.
+    // 0.22.0 grew the wire union to 8 (added `feedback`); UI emission count is
+    // unchanged at 3 — feedback is held (see knownDeferred rationale above).
     const uiEmittedCount = Object.values(UI_COVERAGE).filter(
       (c) => c.kind === 'system_event',
     ).length
     expect(uiEmittedCount).toBe(3)
-    expect(V5_EVENT_KINDS).toHaveLength(7)
+    expect(V5_EVENT_KINDS).toHaveLength(8)
   })
 })

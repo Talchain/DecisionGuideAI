@@ -152,6 +152,13 @@ export function resolveGuidance(code: FailureTypeLiteral): string {
     case 'LLM_UNAVAILABLE':
     case 'INTERNAL_ERROR':
       return ''
+    // GRAPH_DIVERGED (new in @talchain/schemas 0.22.0): the analysed graph
+    // drifted from the current one. It is non-retryable — re-sending the same
+    // turn would diverge again — but its canonical FAILURE_USER_TEXT copy
+    // already carries the actionable "Re-run the analysis" instruction, so no
+    // secondary guidance line is added.
+    case 'GRAPH_DIVERGED':
+      return ''
     default: {
       const _exhaustive: never = code
       return _exhaustive
