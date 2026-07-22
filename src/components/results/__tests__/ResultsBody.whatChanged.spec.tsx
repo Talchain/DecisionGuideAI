@@ -2,9 +2,13 @@
  * ResultsBody — WhatChangedChip mount (seamlessness R6 / ROADMAP 2.1 slice 1).
  *
  * The run-delta chip mounts in the analysis-tab header stack, after the
- * freshness notice slot and above the hero block. It self-hides (<2 stored
- * runs or zero delta), so mounting it must be a no-op for first runs.
- * Fixture pattern mirrors ResultsBody.heroPlacement.spec.tsx.
+ * freshness notice slot and above the hero block. It self-hides only when
+ * there is no previous run to reference (<2 stored runs); once a previous run
+ * exists it STAYS mounted and actionable even with a zero local delta, because
+ * its CEE send fires unconditionally (the server owns freshness honesty — see
+ * WhatChangedChip.sendUnconditional.spec.tsx). Only the canvas pulse is gated
+ * on local-diff availability. Fixture pattern mirrors
+ * ResultsBody.heroPlacement.spec.tsx.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -156,10 +160,15 @@ describe('ResultsBody — WhatChangedChip mount (R6)', () => {
     expect(screen.queryByTestId('what-changed-chip')).not.toBeInTheDocument()
   })
 
-  it('renders no chip when nothing changed between runs', () => {
+  it('KEEPS the chip mounted and actionable when nothing changed between runs (send is unconditional; only the pulse is gated)', () => {
     const same = [nodeFx('a', 'A')]
     loadRunsMock.mockReturnValue([runFx(same, 1), runFx(same, 2)])
     renderBody()
-    expect(screen.queryByTestId('what-changed-chip')).not.toBeInTheDocument()
+    // A previous run exists, so the chip stays actionable even at zero local
+    // delta — its resting name is the ACTION, not a "(not available)" claim.
+    const chip = screen.getByTestId('what-changed-chip')
+    expect(chip.textContent).toMatch(/what changed\?/i)
+    const existingHero = screen.getByTestId('decision-confidence-panel')
+    expect(before(chip, existingHero), 'chip must precede the hero block').toBe(true)
   })
 })
