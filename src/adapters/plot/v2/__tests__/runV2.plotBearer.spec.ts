@@ -61,6 +61,12 @@ function headersOfFirstFetch(): Record<string, string> {
 describe('runV2 PLoT Bearer seam (the analysis-run path)', () => {
   it('attaches Authorization: Bearer <token> to POST /v2/run when VITE_PLOT_BEARER is set', async () => {
     vi.stubEnv('VITE_PLOT_BEARER', 'staging-token-run')
+    // The real callers (useV2Run / useScenarioComparison) derive this baseUrl
+    // from VITE_PLOT_PROXY_BASE. Declaring it here keeps the fixture faithful to
+    // that wiring and lets plotFetch's F5 origin guard recognise http://plot.test
+    // as the configured PLoT base (rather than a foreign origin the Bearer must
+    // not ride to).
+    vi.stubEnv('VITE_PLOT_PROXY_BASE', 'http://plot.test')
 
     await runV2(config, request)
 
