@@ -11,9 +11,12 @@
  * `status_quo_bias` + `anchoring`, both grounded. Copy here is synthetic.
  *
  * Pinned behaviour:
- *   1. DS coaching-card recipe (DESIGN_SYSTEM.md:256-264): bg-panel +
- *      coloured LEFT border (border-l-[3px] border-info) + rounded-lg
- *      px-4 py-3 — NOT the full-border idiom of the default variant.
+ *   1. DS coaching-card recipe (DESIGN_SYSTEM.md §16): bg-panel + a COMPLETE
+ *      coloured border (border border-info) + rounded-lg px-4 py-3. V7 L2
+ *      retired the one-sided `border-l-[3px]` accent — Paul's complete-borders
+ *      rule is categorical. The variant still differs from the default idiom
+ *      by colour strength (full border-info vs default border-info/30) and by
+ *      its rounded-lg px-4 py-3 shape.
  *   2. Humanised title and producer-verbatim body render; the grounded
  *      reference label is visible.
  *   3. coaching_kind / source ride as data-* only — no raw code string
@@ -63,17 +66,19 @@ const OTHER_COACHING_BLOCK: V5CoachingBlockType = {
 }
 
 describe('V5CoachingBlock bias_signal variant — DS coaching-card recipe', () => {
-  it('uses the DS recipe: bg-panel + coloured left border, no full border', () => {
+  it('uses the DS recipe: bg-panel + a COMPLETE coloured border (V7 L2: no one-sided accent)', () => {
     render(<V5CoachingBlock block={BIAS_BLOCK} variant="bias_signal" />)
     const card = screen.getByTestId('bias-signal-card')
     expect(card.classList.contains('bg-panel')).toBe(true)
-    expect(card.classList.contains('border-l-[3px]')).toBe(true)
+    // Complete border in the full-strength semantic colour — the retired
+    // one-sided left accent must not come back (Paul's categorical rule).
+    expect(card.classList.contains('border')).toBe(true)
     expect(card.classList.contains('border-info')).toBe(true)
+    expect(card.classList.contains('border-l-[3px]')).toBe(false)
     expect(card.classList.contains('rounded-lg')).toBe(true)
     expect(card.classList.contains('px-4')).toBe(true)
     expect(card.classList.contains('py-3')).toBe(true)
-    // NOT the full-border idiom (the DS-audit non-compliance we must not propagate).
-    expect(card.classList.contains('border')).toBe(false)
+    // Distinct from the default variant's softer border-info/30.
     expect(card.classList.contains('border-info/30')).toBe(false)
     // Neutral background only — never a coloured card background.
     expect([...card.classList].some((c) => /^bg-(info|warning|danger|success)/.test(c))).toBe(false)
@@ -199,7 +204,9 @@ describe('builder → InlineBlocks end-to-end (fixture wire shape)', () => {
     expect(cards).toHaveLength(2)
     for (const card of cards) {
       expect(card.classList.contains('bg-panel')).toBe(true)
-      expect(card.classList.contains('border-l-[3px]')).toBe(true)
+      expect(card.classList.contains('border')).toBe(true)
+      expect(card.classList.contains('border-info')).toBe(true)
+      expect(card.classList.contains('border-l-[3px]')).toBe(false)
     }
   })
 

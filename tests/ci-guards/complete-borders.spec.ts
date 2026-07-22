@@ -39,11 +39,13 @@
  *     tab-underline indicators (`border-b-2 border-info`) — none live in the
  *     content-card set below, so they are out of scope by file selection.
  *
- * OUT OF THIS LANE (tracked as Paul-questions, deliberately NOT swept here):
- *   · §16 conversation coaching blocks (V5CoachingBlock `border-l-[3px] border-info`)
- *     — pinned by an intentional design-contract test.
- *   · §17 toast notifications (ToastContext inline `borderLeft`).
- *   These surfaces are excluded by file selection, not by a colour exception.
+ * SWEPT IN V7 L2 (the last two one-sided accents — Paul's rule is categorical):
+ *   · §16 conversation coaching blocks (V5CoachingBlock `bias_signal` variant):
+ *     `border-l-[3px] border-info` -> complete `border border-info`.
+ *   · §17 toast notifications (ToastContext inline `borderLeft: 3px` ->
+ *     complete `border: 1px`).
+ *   Both files are now in the scan set below and their design-contract specs
+ *   pin the complete-border form. No surface remains behind a colour exception.
  *
  * CONTROLS (run every CI pass, not once by hand):
  *   · POSITIVE — a synthetic `border-l-[3px]` and a `border-t-2` MUST be flagged,
@@ -88,6 +90,9 @@ const CONTENT_CARD_FILES = [
   'components/results/v7/V7SuggestedChips.tsx',
   'components/results/v7/V7SharpenLine.tsx',
   'components/results/v7/V7FreshnessStrip.tsx',
+  // V7 L2 — the final two one-sided accents, now converted to complete borders.
+  'v5/blocks/V5CoachingBlock.tsx',
+  'canvas/ToastContext.tsx',
 ]
 
 /** Single-side border width with an arbitrary value: `border-l-[3px]`. */
