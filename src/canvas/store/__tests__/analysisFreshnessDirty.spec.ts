@@ -14,6 +14,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { stripComments } from '../../../../tests/helpers/stripSourceComments'
 import type { Node, Edge } from '@xyflow/react'
 import { useCanvasStore } from '../../store'
 import type { EdgeData } from '../../domain/edges'
@@ -294,10 +295,11 @@ describe('#9 no forbidden freshness paths', () => {
   // The overlay must never depend on v5AnalysisFact.freshness, useStaleGuard,
   // _context_summary, or any client graph hash. Comments legitimately *mention*
   // those names ("deliberately independent of …"), so scan comment-stripped code.
-  const stripComments = (src: string) =>
-    src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
-
-  const read = (rel: string) => stripComments(readFileSync(join(process.cwd(), rel), 'utf8'))
+  // One of the scanned files (AnalysisFreshnessNotice.tsx) is JSX, which the naive
+  // regex here mis-stripped and the shared helper's earlier JSX bug made unsafe to
+  // adopt; now the shared strip is JSX-aware, so pass each file's real extension
+  // and let it pick the correct (JSX/JS/CSS) tokeniser.
+  const read = (rel: string) => stripComments(readFileSync(join(process.cwd(), rel), 'utf8'), rel)
 
   it('the dedicated freshness modules use no forbidden API', () => {
     const freshnessFiles = [
