@@ -4,6 +4,7 @@
  * Probes production endpoint to detect v1 route availability.
  * Falls back to mock adapter when v1 routes unavailable.
  */
+import { plotFetch } from '../../../lib/plotFetch'
 
 export const PROBE_CACHE_KEY = 'plot_v1_capability_probe';
 const PROBE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -131,7 +132,7 @@ export async function probeCapability(
 
   try {
     // Step 1: Check health endpoint (primary: /v1/health)
-    const healthResponse = await fetch(`${resolvedBase}/v1/health`, {
+    const healthResponse = await plotFetch(`${resolvedBase}/v1/health`, {
       method: 'GET',
       signal: AbortSignal.timeout(5000),
     });
@@ -151,7 +152,7 @@ export async function probeCapability(
       }
 
       // Try fallback /health (non-versioned)
-      const fallbackResponse = await fetch(`${resolvedBase}/health`, {
+      const fallbackResponse = await plotFetch(`${resolvedBase}/health`, {
         method: 'GET',
         signal: AbortSignal.timeout(5000),
       });

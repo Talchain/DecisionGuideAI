@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useCanvasStore } from '../store'
+import { plotFetch } from '../../lib/plotFetch'
 import type { EdgeFunctionType, EdgeFunctionParams } from '../domain/edges'
 
 export interface EdgeFunctionSuggestion {
@@ -108,7 +109,7 @@ export function useEdgeFunctionSuggestion({
       }
 
       // Call the suggest endpoint
-      const response = await fetch('/bff/engine/v1/suggest/edge-function', {
+      const response = await plotFetch('/bff/engine/v1/suggest/edge-function', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

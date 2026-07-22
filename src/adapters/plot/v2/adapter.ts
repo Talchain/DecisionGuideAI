@@ -32,6 +32,7 @@ import type { CEEAnalysisReady, CEEGoalConstraint, CEEOptionV3 } from '../../cee
 import { recordRequestPayload, recordResponsePayload } from '../../../lib/payload-trace-store'
 import { STRENGTH_BOUNDS, clampStrength } from '../../../canvas/domain/edges'
 import { logger } from '../../../lib/logger'
+import { plotFetch } from '../../../lib/plotFetch'
 
 // ============================================================================
 // Canvas Data Types (input format)
@@ -1520,7 +1521,7 @@ export async function runV2(
   })
 
   try {
-    const response = await fetch(`${resolvedBaseUrl}/v2/run`, {
+    const response = await plotFetch(`${resolvedBaseUrl}/v2/run`, {
       method: 'POST',
       headers,
       body: JSON.stringify(request),

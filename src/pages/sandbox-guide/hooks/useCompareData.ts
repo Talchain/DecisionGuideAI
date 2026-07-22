@@ -11,6 +11,7 @@
 
 import { useState, useEffect } from 'react'
 import { loadRuns, type StoredRun } from '../../../canvas/store/runHistory'
+import { plotFetch } from '../../../lib/plotFetch'
 
 export interface CompareData {
   baseline: StoredRun | null
@@ -123,7 +124,7 @@ export function useCompareData({
       setError(null)
 
       try {
-        const response = await fetch('/bff/engine/v1/diff', {
+        const response = await plotFetch('/bff/engine/v1/diff', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

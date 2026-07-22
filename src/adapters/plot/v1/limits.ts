@@ -7,6 +7,7 @@
  */
 
 import type { V1LimitsResponse } from './types'
+import { plotFetch } from '../../../lib/plotFetch'
 
 /**
  * Get proxy base URL, aligned with http.ts pattern
@@ -89,7 +90,7 @@ export async function fetchLimits(): Promise<V1LimitsResponse> {
   const timeoutId = setTimeout(() => controller.abort(), 5000)
 
   try {
-    const response = await fetch(`${base}/v1/limits`, {
+    const response = await plotFetch(`${base}/v1/limits`, {
       method: 'GET',
       signal: controller.signal,
     })

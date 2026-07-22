@@ -35,6 +35,7 @@ import { V1SyncRunResponseSchema, warnOnInvalidApiResponse } from '../../../lib/
 // 438) wrote to the store, which left the entry without `service` /
 // `endpoint` and the bundle silently rejected it.
 import { recordRequestPayload, recordResponsePayload } from '../../../lib/payload-trace-store'
+import { plotFetch } from '../../../lib/plotFetch'
 
 const getProxyBase = (): string => {
   return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
@@ -82,7 +83,7 @@ export async function getCapabilities(): Promise<CapabilitiesResponse> {
   const timeoutId = setTimeout(() => controller.abort(), 5000)
 
   try {
-    const response = await fetch(`${base}/version`, {
+    const response = await plotFetch(`${base}/version`, {
       method: 'GET',
       signal: controller.signal,
     })
@@ -303,7 +304,7 @@ export async function health(): Promise<V1HealthResponse> {
   const timeoutId = setTimeout(() => controller.abort(), 5000)
 
   try {
-    const response = await fetch(`${base}/v1/health`, {
+    const response = await plotFetch(`${base}/v1/health`, {
       method: 'GET',
       signal: controller.signal,
     })
@@ -443,7 +444,7 @@ async function runSyncOnce(
       body: requestForBody,
     })
 
-    const response = await fetch(endpoint, {
+    const response = await plotFetch(endpoint, {
       method: 'POST',
       headers,
       body: JSON.stringify(requestForBody),
@@ -703,7 +704,7 @@ export async function cancel(runId: string): Promise<void> {
   const base = getProxyBase()
 
   try {
-    const response = await fetch(`${base}/v1/run/${runId}/cancel`, {
+    const response = await plotFetch(`${base}/v1/run/${runId}/cancel`, {
       method: 'POST',
     })
 
@@ -726,7 +727,7 @@ export async function templates(): Promise<V1TemplateListResponse> {
   const timeoutId = setTimeout(() => controller.abort(), 10000)
 
   try {
-    const response = await fetch(`${base}/v1/templates`, {
+    const response = await plotFetch(`${base}/v1/templates`, {
       method: 'GET',
       signal: controller.signal,
     })
@@ -764,7 +765,7 @@ export async function templateGraph(id: string): Promise<V1TemplateGraphResponse
   const timeoutId = setTimeout(() => controller.abort(), 10000)
 
   try {
-    const response = await fetch(`${base}/v1/templates/${encodeURIComponent(id)}/graph`, {
+    const response = await plotFetch(`${base}/v1/templates/${encodeURIComponent(id)}/graph`, {
       method: 'GET',
       signal: controller.signal,
     })
@@ -823,7 +824,7 @@ export async function validate(request: V1ValidateRequest): Promise<V1ValidateRe
     )
     startTime = obsStartTime
 
-    const response = await fetch(endpoint, {
+    const response = await plotFetch(endpoint, {
       method: 'POST',
       headers,
       body: JSON.stringify(request),
@@ -870,7 +871,7 @@ export async function limits(): Promise<V1LimitsResponse> {
   const timeoutId = setTimeout(() => controller.abort(), 5000)
 
   try {
-    const response = await fetch(`${base}/v1/limits`, {
+    const response = await plotFetch(`${base}/v1/limits`, {
       method: 'GET',
       signal: controller.signal,
     })
@@ -930,7 +931,7 @@ export async function runBundle(request: V1RunBundleRequest): Promise<V1RunBundl
     )
     startTime = obsStartTime
 
-    const response = await fetch(endpoint, {
+    const response = await plotFetch(endpoint, {
       method: 'POST',
       headers,
       body: JSON.stringify(request),

@@ -12,6 +12,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { plotFetch } from '../lib/plotFetch'
 
 const PARETO_ENDPOINT = '/bff/engine/v1/analysis/pareto'
 const REQUEST_TIMEOUT_MS = 10000
@@ -160,7 +161,7 @@ export function usePareto({
 
       const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
-      const response = await fetch(PARETO_ENDPOINT, {
+      const response = await plotFetch(PARETO_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
