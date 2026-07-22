@@ -21,6 +21,7 @@ import type {
 import {
   __test__ as dedupUtils,
 } from '../hooks/useGraphReadiness'
+import { plotAuthHeaders } from '../../lib/plotAuthHeaders'
 
 // Re-export types consumers need
 export type { GraphReadiness, GraphImprovement }
@@ -285,6 +286,10 @@ async function fetchReadiness(): Promise<void> {
           `${CEE_BASE_URL}/graph-readiness`,
           payloadJson,
           correlationId,
+          // Optional env-injected Bearer for the PLoT-direct graph-readiness
+          // call. Empty {} until VITE_PLOT_BEARER is provisioned → today's
+          // behaviour, byte-for-byte.
+          plotAuthHeaders(),
         )
         currentInflightEntry = entry
         response = await promise

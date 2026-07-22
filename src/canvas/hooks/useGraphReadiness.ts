@@ -58,6 +58,7 @@ function deduplicatedFetch(
   url: string,
   payloadJson: string,
   correlationId: string,
+  extraHeaders: Record<string, string> = {},
 ): { promise: Promise<DeduplicatedResponse>; entry: InflightEntry; isReused: boolean } {
   const cacheKey = `${url}:${payloadJson}`
   const existing = inflightCache.get(cacheKey)
@@ -78,6 +79,7 @@ function deduplicatedFetch(
       headers: {
         'Content-Type': 'application/json',
         'X-Request-ID': correlationId,
+        ...extraHeaders,
       },
       body: payloadJson,
       signal: controller.signal,
