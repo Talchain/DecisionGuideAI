@@ -345,7 +345,49 @@ describe('buildV5Payload — system_event payloads', () => {
     if (!r.ok) expect(r.reason).toBe('unsupported_system_event')
   })
 
-  it('feedback_submitted is unsupported (CEE has no V5 handler)', () => {
+  // F7 (feedback thumbs = wire). Seam test driven from the REAL emitter shape:
+  // ConversationPanel.handleFeedback dispatches
+  //   { type: 'feedback_submitted', payload: { turn_id, rating } }
+  // for a whole-turn thumbs rating. These pin that exact object through the
+  // builder to the vendored 0.22 boundary schema (was pinned as a silent drop).
+  it('feedback_submitted (thumbs up) → typed feedback wire event', () => {
+    const r = assertOk(
+      buildV5Payload({
+        turnId: TURN_ID,
+        scenarioId: SCENARIO_ID,
+        stage: 'frame',
+        turnClass: 'frame',
+        mode: 'system',
+        systemEvent: { type: 'feedback_submitted', payload: { turn_id: TURN_ID, rating: 'up' } },
+      }),
+    )
+    expect(r.payload).toMatchObject({
+      kind: 'system_event',
+      event: { kind: 'feedback', rating: 'up', target: { id: TURN_ID, kind: 'turn' } },
+    })
+    // Real boundary: the vendored 0.22 Zod schema must accept the output.
+    expect(() => OrchestratorTurnPayloadSchema.parse(r.payload)).not.toThrow()
+  })
+
+  it('feedback_submitted (thumbs down) → rating carried through unchanged', () => {
+    const r = assertOk(
+      buildV5Payload({
+        turnId: TURN_ID,
+        scenarioId: SCENARIO_ID,
+        stage: 'frame',
+        turnClass: 'frame',
+        mode: 'system',
+        systemEvent: { type: 'feedback_submitted', payload: { turn_id: TURN_ID, rating: 'down' } },
+      }),
+    )
+    expect(r.payload).toMatchObject({
+      kind: 'system_event',
+      event: { kind: 'feedback', rating: 'down', target: { id: TURN_ID, kind: 'turn' } },
+    })
+    expect(() => OrchestratorTurnPayloadSchema.parse(r.payload)).not.toThrow()
+  })
+
+  it('feedback_submitted with an invalid rating → unsupported (fail closed)', () => {
     const r = buildV5Payload({
       turnId: TURN_ID,
       scenarioId: SCENARIO_ID,

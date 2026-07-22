@@ -74,14 +74,15 @@ const UI_COVERAGE: Record<
     kind: 'message_via_chip',
     chipActionType: 'run_analysis',
   },
-  // feedback_submitted: `feedback` joined SystemEventKind in 0.22.0, but the UI
-  // still has NO emission path for it (buildV5Payload has no case → null →
-  // unsupported), and emission is HELD under the ingress-mirror rule until
-  // CEE >=0.22.0 is deploy-verified. Builder returns
-  // { ok: false, reason: 'unsupported_system_event' }.
+  // feedback_submitted: F7 (feedback thumbs = wire). `feedback` joined
+  // SystemEventKind in 0.22.0 and CEE >=0.22.0 is deploy-verified, so the
+  // ingress-mirror hold is LIFTED. buildV5Payload maps the emitter's
+  // { turn_id, rating } shape onto the typed `feedback` system event (a
+  // whole-turn thumbs rating → target.kind 'turn').
   feedback_submitted: {
-    kind: 'unsupported',
-    reason: 'UI emission held pending CEE 0.22 deploy (ingress-mirror rule)',
+    kind: 'system_event',
+    eventKind: 'feedback',
+    payload: { turn_id: TURN_ID, rating: 'up' },
   },
 }
 
@@ -158,9 +159,10 @@ describe('UI ↔ V5 system event parity', () => {
     )
 
     // Schema kinds NOT in the emitted set are deferred UI work — chip_click,
-    // undo, redo. They're valid on the wire (CEE handles them per the
-    // turn-shape matrix) but the UI has no emission site yet. This is the
-    // parity boundary the reviewer's P0 #3 flagged; the test locks it.
+    // undo, redo, selection_change. They're valid on the wire (CEE handles them
+    // per the turn-shape matrix) but the UI has no emission site yet. This is
+    // the parity boundary the reviewer's P0 #3 flagged; the test locks it.
+    // (0.22.0 `feedback` left this set in F7 — it is now UI-emitted, see above.)
     const knownDeferred: ReadonlySet<(typeof V5_EVENT_KINDS)[number]> = new Set([
       'chip_click',
       'undo',
@@ -169,12 +171,6 @@ describe('UI ↔ V5 system event parity', () => {
       // path (debounced selection_change on canvas selection) is the R5 UI
       // half — a scheduled Experience lane; CEE consumes it already.
       'selection_change',
-      // 0.22.0: feedback joined the wire union (typed feedback event). UI
-      // emission is HELD under the ingress-mirror rule — CEE >=0.22.0 is not
-      // yet deploy-verified, so the UI must not start sending feedback events
-      // in the schemas-0.22 absorption lane. buildV5Payload still refuses
-      // feedback_submitted (unsupported_system_event); this is the deferral.
-      'feedback',
     ])
 
     for (const kind of V5_EVENT_KINDS) {
@@ -188,16 +184,17 @@ describe('UI ↔ V5 system event parity', () => {
     }
   })
 
-  it('locks UI emission count at 3 of 8 V5 SystemEventKind values', () => {
+  it('locks UI emission count at 4 of 8 V5 SystemEventKind values', () => {
     // Explicit canary: if someone adds a new UI emission (extending the
     // system_event branch of UI_COVERAGE) without updating this test, the
     // count will drift and flag for docs reconciliation.
-    // 0.22.0 grew the wire union to 8 (added `feedback`); UI emission count is
-    // unchanged at 3 — feedback is held (see knownDeferred rationale above).
+    // 0.22.0 grew the wire union to 8 (added `feedback`); F7 wired feedback
+    // emission, so UI emission count is now 4 (patch_accepted, patch_dismissed,
+    // direct_graph_edit, feedback).
     const uiEmittedCount = Object.values(UI_COVERAGE).filter(
       (c) => c.kind === 'system_event',
     ).length
-    expect(uiEmittedCount).toBe(3)
+    expect(uiEmittedCount).toBe(4)
     expect(V5_EVENT_KINDS).toHaveLength(8)
   })
 })
