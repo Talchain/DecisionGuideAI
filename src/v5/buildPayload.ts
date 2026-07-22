@@ -12,8 +12,8 @@
  *   3. `retry_of` is present ONLY when `source === 'retry'`.
  *   4. `direct_analysis_run` SystemEvent from the UI (not in V5 SystemEventKind)
  *      is mapped to a `kind: 'message'` payload with `chip.action_type: 'run_analysis'`.
- *      Other UI system events that V5 rejects (feedback_submitted) return null
- *      so callers can pre-filter.
+ *      UI system events with no wire member still return null so callers can
+ *      pre-filter (unsupported_system_event).
  *
  * CEE contract: @talchain/schemas. The authoritative UI pin is the
  * `@talchain/schemas` dependency in package.json; CEE pins its own copy and
@@ -160,8 +160,8 @@ function buildSystemEventPayload(input: BuildV5PayloadInput): BuildV5PayloadResu
 
   if (payload === null) {
     // Some UI SystemEvent types map to kind='message' (direct_analysis_run)
-    // or are unsupported (feedback_submitted). Handle the analysis case here;
-    // return unsupported for anything else.
+    // rather than a system_event, or have no wire member at all. Handle the
+    // analysis case here; return unsupported for anything else.
     if (systemEvent.type === 'direct_analysis_run') {
       return buildDirectAnalysisRunMessage(input)
     }
@@ -201,6 +201,21 @@ function systemEventToPayload(args: {
       const operation = stringField(eventPayload, 'operation')
       if (!target_id || !operation) return null
       return { ...base, event: { kind: 'direct_graph_edit', target_id, operation } }
+    }
+    case 'feedback_submitted': {
+      // F7 (feedback thumbs = wire): map the UI's optimistic thumbs event onto
+      // the typed 0.22 `feedback` system event. The emitter
+      // (ConversationPanel.handleFeedback) sends { turn_id, rating } for a
+      // whole-turn rating, so target.kind is 'turn' and target.id is the turn
+      // id. rating is fail-closed to the schema enum: anything but 'up'/'down',
+      // or a missing turn id, returns null -> unsupported, never a wire 422.
+      const rating = stringField(eventPayload, 'rating')
+      const target_id = stringField(eventPayload, 'turn_id')
+      if ((rating !== 'up' && rating !== 'down') || !target_id) return null
+      return {
+        ...base,
+        event: { kind: 'feedback', rating, target: { id: target_id, kind: 'turn' } },
+      }
     }
     // V5 schema includes chip_click, undo, redo — not currently emitted by
     // the UI as SystemEvent.type (no WireSystemEventType entries). Kept

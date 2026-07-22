@@ -17,7 +17,7 @@ const feedbackBtnFocusClass = 'feedback-btn'
 interface FeedbackRowProps {
   /** clientTurnId echoed from orchestrator envelope; undefined for synthetic messages */
   turnId: string | undefined
-  onFeedback: (turnId: string, rating: 'up' | 'down') => void
+  onFeedback: (turnId: string, rating: 'up' | 'down') => void | Promise<void>
 }
 
 export const FeedbackRow = memo(function FeedbackRow({ turnId, onFeedback }: FeedbackRowProps) {
@@ -26,10 +26,18 @@ export const FeedbackRow = memo(function FeedbackRow({ turnId, onFeedback }: Fee
   // Don't render for synthetic messages (no canonical turn ID to send)
   if (turnId === undefined) return null
 
-  const handleVote = (rating: 'up' | 'down') => {
+  const handleVote = async (rating: 'up' | 'down') => {
     if (voted !== null) return // Already voted
-    setVoted(rating)
-    onFeedback(turnId, rating)
+    setVoted(rating) // Optimistic: disable the buttons immediately.
+    try {
+      await onFeedback(turnId, rating)
+    } catch {
+      // The feedback turn failed to reach the server. Revert the optimistic
+      // vote so the thumbs re-enable — the user's action must not vanish
+      // silently; they can rate again. No new surface (mirrors the panel's
+      // existing failed-send handling, e.g. handlePatchAccept's retry path).
+      setVoted(null)
+    }
   }
 
   return (

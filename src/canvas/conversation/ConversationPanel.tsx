@@ -383,12 +383,15 @@ export const ConversationPanel = memo(function ConversationPanel({
   )
 
   const handleFeedback = useCallback(
-    (turnId: string, rating: 'up' | 'down') => {
+    // Return the send promise so FeedbackRow can revert its optimistic vote if
+    // the feedback turn fails to reach the server (the thumbs re-enable for
+    // retry — no new surface). The typed 0.22 mapping lives in buildV5Payload
+    // (feedback_submitted -> feedback wire event); this is the emitter half.
+    (turnId: string, rating: 'up' | 'down') =>
       sendSystemEvent({
         type: 'feedback_submitted',
         payload: { turn_id: turnId, rating },
-      })
-    },
+      }),
     [sendSystemEvent],
   )
 
