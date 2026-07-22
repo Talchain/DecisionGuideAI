@@ -23,10 +23,12 @@
  * duplicated this whole structure and silently DROPPED action_label):
  *   - 'default': full border-info/30 card (the existing idiom).
  *   - 'bias_signal': the DS coaching-card recipe (DESIGN_SYSTEM.md
- *     "Coaching Cards (v4 §15)") — neutral bg-panel + coloured LEFT border
- *     (border-l-[3px] border-info), testid prefix `bias-signal-card` (the
- *     #356 specs key on it). ONLY the container class and testid prefix
- *     differ; structure, refs and the action_label pill are identical.
+ *     "Coaching Cards (v4 §15)") — neutral bg-panel + a COMPLETE coloured
+ *     border (border border-info; V7 L2 retired the one-sided
+ *     `border-l-[3px]` accent under Paul's categorical complete-borders
+ *     rule), testid prefix `bias-signal-card` (the #356 specs key on it).
+ *     ONLY the container class and testid prefix differ; structure, refs and
+ *     the action_label pill are identical.
  */
 import { type ReactElement } from 'react'
 import { Lightbulb } from 'lucide-react'
@@ -41,7 +43,7 @@ export interface V5CoachingBlockProps {
 
 const CONTAINER_CLASS: Record<'default' | 'bias_signal', string> = {
   default: 'rounded-xl border border-info/30 bg-panel p-4 space-y-2',
-  bias_signal: 'bg-panel border-l-[3px] border-info rounded-lg px-4 py-3 space-y-2',
+  bias_signal: 'bg-panel border border-info rounded-lg px-4 py-3 space-y-2',
 }
 
 export function V5CoachingBlock({ block, variant = 'default' }: V5CoachingBlockProps): ReactElement {

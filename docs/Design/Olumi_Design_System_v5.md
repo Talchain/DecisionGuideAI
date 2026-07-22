@@ -384,7 +384,7 @@ Coloured borders communicate state or type. Neutral borders separate content. Ev
 |-------------|-----------------|---------|
 | **Panel section cards** (options, factors, assumptions, quality, improvements) | Full border, all sides: `border border-{colour}/30 rounded-lg` | `border border-option/30` |
 | **Conversation blocks** (§21.2) | Top 3px accent: `border-t-[3px] border-{colour}` | `border-t-[3px] border-info` |
-| **Coaching cards** (§16) | Left 3px accent: `border-l-[3px] border-info` | Only exception for left-only border |
+| **Coaching cards** (§16) | Complete border: `border border-info` | V7 L2 — one-sided accent retired |
 | **MVS card** (§16.1) | Left 3px accent: `border-l-[3px] border-success` | Elevated coaching |
 | **Alert cards** (§16.2) | Top 3px accent: `border-t-[3px] border-danger` | Blocking issues |
 | **Canvas nodes** | Full border, confidence-based: `border-2 border-{confidence-colour} border-{style}` | Solid green = high confidence |
@@ -394,7 +394,7 @@ Coloured borders communicate state or type. Neutral borders separate content. Ev
 | **Non-winner option cards** (results) | Full border: `border border-panel-border rounded-lg` | Neutral |
 
 **Rules:**
-- Left-only coloured borders are prohibited except for coaching cards (§16) and MVS cards (§16.1).
+- Left-only coloured borders are prohibited. (Coaching cards (§16) were the last exception; V7 L2 converted them to a complete `border border-info`.)
 - Structural borders (dividers, separators) always use `border-panel-border`.
 - Coloured borders always mean something. If a border is decorative, it should be `border-panel-border`.
 
@@ -918,7 +918,7 @@ Use one shared accordion component with smooth CSS height transition (`transitio
 Distinct from error/warning. Feels encouraging, not blocking.
 
 ```tsx
-<div className="bg-panel border-l-[3px] border-info rounded-lg px-4 py-3">
+<div className="bg-panel border border-info rounded-lg px-4 py-3">
   <div className="flex items-center gap-2 mb-1">
     <Lightbulb className="text-info w-4 h-4" />
     <span className={typography.panelHeader + " text-info"}>Strengthen your model</span>
@@ -929,7 +929,9 @@ Distinct from error/warning. Feels encouraging, not blocking.
 </div>
 ```
 
-**Key differences from alerts:** left border (not top), `bg-panel` background, Lucide `Lightbulb` icon, encouraging copy.
+**Key differences from alerts:** complete `border border-info` (V7 L2 retired the
+one-sided `border-l-[3px]` accent under Paul's categorical complete-borders rule),
+`bg-panel` background, Lucide `Lightbulb` icon, encouraging copy.
 
 ### 16.1 Most Valuable Step (MVS) card
 
@@ -945,7 +947,7 @@ Elevated coaching card for the single highest-priority action.
 | Variant | When | Border | Background | Icon | Tone |
 |---------|------|--------|------------|------|------|
 | **Alert** (default) | Risks, critical issues, blocking items | Top 3px `danger` | `bg-panel` | `AlertTriangle` | Direct |
-| **Coaching** | Suggestions, evidence gaps, optional enhancements | Left 3px `info` | `bg-panel` | `Lightbulb` | Encouraging |
+| **Coaching** | Suggestions, evidence gaps, optional enhancements | Complete `border-info` (V7 L2) | `bg-panel` | `Lightbulb` | Encouraging |
 
 ---
 
@@ -973,7 +975,9 @@ background: var(--bg-panel);
 border-radius: 12px;
 padding: 12px 16px;
 box-shadow: var(--shadow-2);
-border-left: 3px solid {severity colour};
+/* V7 L2 — complete border (severity colour on all four sides). The one-sided
+   `border-left: 3px` accent was retired under Paul's categorical rule. */
+border: 1px solid {severity colour};
 max-width: 360px;
 ```
 
