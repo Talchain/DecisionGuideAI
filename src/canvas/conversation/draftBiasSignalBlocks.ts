@@ -22,13 +22,22 @@
  *     wire vocabulary, never visible copy, so an unmapped code has no
  *     honest rendering (mirrors, and tightens, the PreAnalysisPanel
  *     convention: no safeBiasTitle sentence-casing here)
- *   - ungrounded (missing / unresolvable / blank-label target) → skipped —
- *     same resolvable-target rule as PreAnalysisPanel Brief 5.8A D2
  *   - producer-typed bias coaching already on the turn → [] (producer wins)
+ *
+ * Grounding is OPTIONAL (mirrors CEE #541). The canonical deployed wire
+ * schema is `BiasSignalSchema = z.object({ type, detail }).strict()`
+ * (@talchain/schemas) — real signals carry ONLY `{ type, detail }` and NEVER
+ * a `target`, so the old `if (!ref) continue` skipped every real signal and
+ * the fallback emitted zero cards. A known-type, non-blank-detail signal now
+ * emits whether or not it names a resolvable node: when a `target` IS present
+ * and resolves it rides as a target_ref, otherwise the card is ungrounded
+ * (`target_refs: []`). The renderer already guards its ref pills on
+ * `target_refs.length > 0` (V5CoachingBlock.tsx), so an empty list renders no
+ * pills.
  *
  * Copy: title is the humanised bias name (same canonical names as the
  * pre-analysis surface, one bias one name everywhere); body is the
- * producer's `detail` verbatim; the grounded reference rides as a
+ * producer's `detail` verbatim; the reference, when resolvable, rides as a
  * target_ref resolved against the live graph.
  */
 import type { CEEDraftCoaching } from '../../adapters/cee/types'
@@ -90,13 +99,15 @@ export function buildDraftBiasSignalBlocks(args: {
   const out: V5CoachingBlock[] = []
   // One lookup map for the whole signal loop (was a nodes.find per signal).
   const nodesById = new Map(store.nodes.map((n) => [n.id, n]))
-  // UI-SEM-083 (#356 fast-follow): alias-equivalence dedupe — identical
-  // (bias, target) signals collapse BEFORE the cap, so a producer duplicate
-  // can never displace a distinct third signal. Identity is the canonical
-  // humanised title (alias codes like anchoring/anchoring_bias are the same
-  // bias — one bias, one name) plus the resolved target node id. First
-  // occurrence wins. Display-side equivalence judgement, never a value
-  // transform.
+  // UI-SEM-083 (#356 fast-follow; CEE #541 parity): alias-equivalence dedupe —
+  // equivalent signals collapse BEFORE the cap, so a producer duplicate can
+  // never displace a distinct third signal. Identity is the canonical humanised
+  // TITLE only (alias codes like anchoring/anchoring_bias are the same bias —
+  // one bias, one name): the same bias is one card regardless of which node(s)
+  // it names. Grounding is no longer part of the identity — now that most
+  // signals are ungrounded, keying on the target id would let every ungrounded
+  // same-bias signal through (their id fragment being identically empty). First
+  // occurrence wins. Display-side equivalence judgement, never a value transform.
   const seen = new Set<string>()
   for (let i = 0; i < signals.length && out.length < DRAFT_BIAS_SIGNAL_CARD_CAP; i++) {
     const signal = signals[i] as unknown
@@ -113,10 +124,12 @@ export function buildDraftBiasSignalBlocks(args: {
     const detail = typeof s.detail === 'string' ? s.detail.trim() : ''
     if (!detail) continue
 
+    // Grounding is OPTIONAL: resolve a ref when the (optional) target names a
+    // live node, but a null ref no longer skips the signal — it emits
+    // ungrounded (target_refs: [] below).
     const ref = resolveNodeForTarget(s.target, nodesById)
-    if (!ref) continue
 
-    const identity = `${title}|${ref.id}`
+    const identity = title
     if (seen.has(identity)) continue
     seen.add(identity)
 
@@ -133,7 +146,7 @@ export function buildDraftBiasSignalBlocks(args: {
       body: detail,
       coaching_kind: 'bias_signal',
       source: 'draft_graph',
-      target_refs: [ref],
+      target_refs: ref ? [ref] : [],
     })
   }
   return out
