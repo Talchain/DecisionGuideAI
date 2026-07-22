@@ -27,6 +27,7 @@
 import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../../../store'
 import { plotProxyBase } from '../../../../lib/config'
+import { plotFetch } from '../../../../lib/plotFetch'
 import { buildV2Request } from '../../../../adapters/plot/v2/adapter'
 import type { PreAnalysisSensitivity } from '../../../../adapters/cee/types'
 import { computeGraphFacts, kindOf } from '../selectors/graphFacts'
@@ -105,7 +106,7 @@ export function useSensitivityRanking(enabled: boolean): void {
           [],
           facts.goalNode!.id,
         )
-        const res = await fetch(`${plotProxyBase}/v1/pre-analysis-sensitivity`, {
+        const res = await plotFetch(`${plotProxyBase}/v1/pre-analysis-sensitivity`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
           body: JSON.stringify({ graph: request.graph, goal_node_id: request.goal_node_id }),

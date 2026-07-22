@@ -13,6 +13,7 @@ import type {
   V1Error,
 } from './types'
 import { TIMEOUTS } from './constants'
+import { plotFetch } from '../../../lib/plotFetch'
 // PR follow-up to #153: record the streaming SSE request + completion
 // into the payload-trace-store so the debug bundle's PLoT selector can
 // find this entry. Gate-checked inside the helpers; closed gate makes
@@ -133,7 +134,7 @@ export function runStream(
     },
   }
 
-  fetch(url, {
+  plotFetch(url, {
     method: 'POST',
     headers,
     body: JSON.stringify(requestForBody),

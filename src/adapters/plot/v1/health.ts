@@ -4,6 +4,7 @@
  * Probes engine health using HEAD /v1/run
  * Returns 204 = healthy, anything else = unhealthy
  */
+import { plotFetch } from '../../../lib/plotFetch'
 
 const getProxyBase = (): string => {
   return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
@@ -21,7 +22,7 @@ export async function probeHealth(): Promise<HealthStatus> {
   const timeoutId = setTimeout(() => controller.abort(), 5000)
 
   try {
-    const response = await fetch(`${base}/v1/run`, {
+    const response = await plotFetch(`${base}/v1/run`, {
       method: 'HEAD',
       signal: controller.signal,
     })

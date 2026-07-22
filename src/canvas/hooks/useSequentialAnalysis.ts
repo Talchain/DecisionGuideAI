@@ -12,6 +12,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useCanvasStore } from '../store'
+import { plotFetch } from '../../lib/plotFetch'
 import type {
   SequentialMetadata,
   SequentialAnalysisRequest,
@@ -198,7 +199,7 @@ export function useSequentialAnalysis(
     }
 
     try {
-      const response = await fetch(`${BFF_BASE_URL}/v1/analysis/sequential`, {
+      const response = await plotFetch(`${BFF_BASE_URL}/v1/analysis/sequential`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -246,7 +247,7 @@ export function useSequentialAnalysis(
     }
 
     try {
-      const response = await fetch(`${BFF_BASE_URL}/v1/explain/policy`, {
+      const response = await plotFetch(`${BFF_BASE_URL}/v1/explain/policy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

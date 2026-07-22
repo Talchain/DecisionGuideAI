@@ -13,6 +13,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useCanvasStore } from '../store'
 import { useComparisonStore } from '../stores/comparisonStore'
+import { plotFetch } from '../../lib/plotFetch'
 import type {
   ConditionalRecommendRequest,
   ConditionalRecommendResponse,
@@ -108,7 +109,7 @@ export function useConditionalRecommendations(
     }
 
     try {
-      const response = await fetch(`${BFF_BASE_URL}/v1/analysis/conditional-recommend`, {
+      const response = await plotFetch(`${BFF_BASE_URL}/v1/analysis/conditional-recommend`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -153,7 +154,7 @@ export function useConditionalRecommendations(
     }
 
     try {
-      const response = await fetch(`${BFF_BASE_URL}/v1/narrate/conditions`, {
+      const response = await plotFetch(`${BFF_BASE_URL}/v1/narrate/conditions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

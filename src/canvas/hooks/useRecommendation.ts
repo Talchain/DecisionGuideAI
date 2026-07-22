@@ -8,6 +8,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useCanvasStore } from '../store'
 import { useComparisonStore } from '../stores/comparisonStore'
+import { plotFetch } from '../../lib/plotFetch'
 import type {
   GenerateRecommendationRequest,
   GenerateRecommendationResponse,
@@ -158,7 +159,7 @@ export function useRecommendation(
         narrative_style: narrativeStyle,
       }
 
-      const response = await fetch(`${BFF_BASE_URL}/v1/recommend/generate`, {
+      const response = await plotFetch(`${BFF_BASE_URL}/v1/recommend/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
