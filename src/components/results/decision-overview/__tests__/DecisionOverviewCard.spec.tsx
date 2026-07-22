@@ -121,23 +121,27 @@ describe('DecisionOverviewCard — ready state (live)', () => {
   })
 })
 
-describe('DecisionOverviewCard — classification pills (UI-SEM-077)', () => {
+describe('DecisionOverviewCard — classification pills (UI-SEM-077, L2 values-not-labels)', () => {
   beforeEach(() => {
     flagOn()
     resetCanvas({ ceeAnalysisReady: READY, goalThreshold: 20 })
   })
 
-  it('renders all four dimensions fail-closed as "not set" when no signal exists', () => {
+  it('collapsed shows ONE muted "+N to set" aggregate, never per-field "not set" name chips', () => {
     render(<DecisionOverviewCard title="t" />)
-    expect(screen.getByTestId('decision-pill-stakes')).toHaveTextContent(OVERVIEW_COPY.stakesUnset)
-    expect(screen.getByTestId('decision-pill-reversibility')).toHaveTextContent(
-      OVERVIEW_COPY.reversibilityUnset,
-    )
-    expect(screen.getByTestId('decision-pill-horizon')).toHaveTextContent(OVERVIEW_COPY.horizonUnset)
-    expect(screen.getByTestId('decision-pill-risk')).toHaveTextContent(OVERVIEW_COPY.riskUnset)
+    // V6-RESPEC §4: collapsed = what IS. The four classification dimensions
+    // have no live signal → all empty → folded into a single muted chip, never
+    // an inventory of hidden field names.
+    expect(screen.getByTestId('decision-pills-unset')).toHaveTextContent('+4 to set')
+    // The retired "what ISN'T" per-field name chips are gone.
+    expect(screen.queryByTestId('decision-pill-stakes')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('decision-pill-reversibility')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('decision-pill-horizon')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('decision-pill-risk')).not.toBeInTheDocument()
+    expect(screen.queryByText(/not set/i)).not.toBeInTheDocument()
   })
 
-  it('horizon pill shows the decision-node brief timeframe verbatim when present', () => {
+  it('a FILLED field renders as a value chip; only the empty remainder aggregates', () => {
     useCanvasStore.setState({
       nodes: [
         {
@@ -149,17 +153,38 @@ describe('DecisionOverviewCard — classification pills (UI-SEM-077)', () => {
       ],
     } as never)
     render(<DecisionOverviewCard title="t" />)
+    // Horizon is the one dimension with a live signal → its value renders as a
+    // chip (the brief timeframe verbatim); the other three fold into "+3 to set".
     expect(screen.getByTestId('decision-pill-horizon')).toHaveTextContent('Horizon: within 6 months')
+    expect(screen.getByTestId('decision-pills-unset')).toHaveTextContent('+3 to set')
   })
 
-  it('pill click opens the Ask-Olumi drawer with the classification review ask', () => {
+  it('the "+N to set" aggregate expands the card (no new focus plumbing)', () => {
     render(<DecisionOverviewCard title="t" />)
-    fireEvent.click(screen.getByTestId('decision-pill-stakes'))
+    // Ready state is collapsed by default.
+    expect(screen.getByTestId('brief-bar')).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(screen.getByTestId('decision-pills-unset'))
+    expect(screen.getByTestId('brief-bar')).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('a filled value chip still opens the Ask-Olumi drawer with the classification review ask', () => {
+    useCanvasStore.setState({
+      nodes: [
+        {
+          id: 'd1',
+          type: 'decision',
+          position: { x: 0, y: 0 },
+          data: { label: 'Decide', brief: { timeframe: 'Q3' } },
+        },
+      ],
+    } as never)
+    render(<DecisionOverviewCard title="t" />)
+    fireEvent.click(screen.getByTestId('decision-pill-horizon'))
     const drawer = useAskOlumiStore.getState()
     expect(drawer.isOpen).toBe(true)
-    expect(drawer.label).toBe('Review stakes')
+    expect(drawer.label).toBe('Review horizon')
     expect(drawer.context).toBe(OVERVIEW_COPY.pillContext)
-    expect(drawer.draft).toBe('Help me work through: Review stakes')
+    expect(drawer.draft).toBe('Help me work through: Review horizon')
   })
 })
 
