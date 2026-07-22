@@ -81,6 +81,13 @@ const CONTENT_CARD_FILES = [
   'canvas/components/model-tab/ModelTabHeader.tsx',
   'canvas/ui/inspector/InspectorGuidanceSection.tsx',
   'components/assistants/ProvenanceChip.tsx',
+  // V7 Lane L4 — top-matter content cards (complete borders only).
+  'components/results/v7/V7TopMatter.tsx',
+  'components/results/v7/V7Hero.tsx',
+  'components/results/v7/V7SignalRow.tsx',
+  'components/results/v7/V7SuggestedChips.tsx',
+  'components/results/v7/V7SharpenLine.tsx',
+  'components/results/v7/V7FreshnessStrip.tsx',
 ]
 
 /** Single-side border width with an arbitrary value: `border-l-[3px]`. */
