@@ -112,7 +112,7 @@
     "react-router-dom": "^6.30.3",
     "recharts": "^3.8.1",
     "use-sync-external-store": "^1.2.0",
-    "uuid": "^9.0.1",
+    "uuid": "^11.1.1",
     "web-vitals": "^5.1.0",
     "y-websocket": "^3.0.0",
     "yjs": "^13.6.27",
@@ -137,7 +137,6 @@
     "@types/pako": "^2.0.4",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
-    "@types/uuid": "^9.0.8",
     "@typescript-eslint/eslint-plugin": "8.6.0",
     "@typescript-eslint/parser": "8.6.0",
     "@vitejs/plugin-react": "^4.3.1",
@@ -193,8 +192,7 @@
     "ws": "GHSA-96hv-2xvq-fx4p (high) + GHSA-58qx-3vcg-4xpx (moderate) via @supabase/realtime-js. Patched >=8.21.0. Remove when @supabase/realtime-js bumps ws.",
     "dompurify": "GHSA-cmwh-pvxp-8882 + others (moderate/low) via posthog-js. Patched >=3.4.11. Remove when posthog-js bumps dompurify.",
     "react-router": "GHSA-2j2x-hqr9-3h42 (moderate) via react-router-dom. Patched >=6.30.4. Remove when react-router-dom bumps within 6.x.",
-    "@opentelemetry/core": "GHSA-8988-4f7v-96qf (moderate) via posthog-js. Patched >=2.8.0. Remove when posthog-js bumps opentelemetry.",
-    "_deferred_uuid": "GHSA-w5hq-g745-h8pq (moderate) — direct dep uuid is ^9.0.1; the patched range is >=11.1.1, a MAJOR bump that could change runtime behaviour, so it is NOT overridden here. Below the critical+high gate threshold. Follow-up: raise the direct uuid dependency to ^11 with a compat check."
+    "@opentelemetry/core": "GHSA-8988-4f7v-96qf (moderate) via posthog-js. Patched >=2.8.0. Remove when posthog-js bumps opentelemetry."
   },
   "optionalDependencies": {
     "@esbuild/darwin-arm64": "0.21.5",
