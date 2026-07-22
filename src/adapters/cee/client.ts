@@ -14,6 +14,7 @@ import { useGateStore } from '../../lib/gate-state'
 import { CEEDraftResponseSchema, warnOnInvalidApiResponse } from '../../lib/api-schemas'
 import { withRetry } from '../../lib/fetchWithRetry'
 import { devWarn } from '../../utils/debugLog'
+import { plotAuthHeaders } from '../../lib/plotAuthHeaders'
 
 const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
 // CEE Draft Engine base URL
@@ -546,6 +547,9 @@ export class CEEClient {
           'Content-Type': 'application/json',
           'x-correlation-id': correlationId,
           ...(options.headers as Record<string, string>),
+          // Optional env-injected Bearer for PLoT-direct calls. Empty {} until
+          // VITE_PLOT_BEARER is provisioned → today's behaviour, byte-for-byte.
+          ...plotAuthHeaders(),
         },
         correlationId
       )
