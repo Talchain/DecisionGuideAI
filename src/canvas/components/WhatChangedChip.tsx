@@ -243,20 +243,37 @@ export function WhatChangedChip() {
     ? `Since your last run: ${parts.join(', ')}. Highlight the changes on the canvas.`
     : 'What changed?'
 
+  // F8 (honesty): the click can only DO something when either the pulse is
+  // available (a computable local delta) OR a dispatcher is in scope (the CEE
+  // send). With NEITHER, the button is a dead affordance — clicking is a pure
+  // no-op — so it must present itself as disabled rather than actionable. When a
+  // dispatcher exists it stays enabled and the send fires unconditionally (F2-B),
+  // regardless of local-diff availability.
+  const isNoOp = !localHighlightAvailable && !dispatchAction
+
   return (
     <span className="inline-flex flex-col items-start gap-0.5">
     <button
       type="button"
       onClick={handleClick}
+      disabled={isNoOp}
       className={[
         'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full',
         'bg-transparent border border-info/30 text-text-body',
         typography.caption,
         'font-medium cursor-pointer hover:border-info/50 hover:underline',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-info',
+        'disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:no-underline',
       ].join(' ')}
       aria-label={ariaLabel}
-      title="Compared with the previous analysis stored on this device"
+      // F8 (honesty): the device-local comparison basis is only claimed when a
+      // real local comparison happened (an alignable pair with a computable,
+      // non-empty delta). With no such pair the tooltip must not assert one.
+      title={
+        localHighlightAvailable
+          ? 'Compared with the previous analysis stored on this device'
+          : undefined
+      }
       data-testid="what-changed-chip"
     >
       <GitCompareArrows size={14} className="text-info flex-none" aria-hidden="true" />
@@ -264,10 +281,15 @@ export function WhatChangedChip() {
     </button>
     {/* Paul's ruling 2026-07-12 (keep + improve): the comparison basis is a
         VISIBLE label, never tooltip-only — this is a device-local diff of
-        the last two runs, not producer-versioned comparison. */}
-    <span className={`${typography.panelMeta} text-text-light pl-1`}>
-      Compared with your previous run on this device
-    </span>
+        the last two runs, not producer-versioned comparison.
+        F8 (honesty): shown ONLY when a real local pair was compared
+        (localHighlightAvailable) — never when no pair exists, where the claim
+        would be false. */}
+    {localHighlightAvailable && (
+      <span className={`${typography.panelMeta} text-text-light pl-1`}>
+        Compared with your previous run on this device
+      </span>
+    )}
     </span>
   )
 }
