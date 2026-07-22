@@ -32,6 +32,18 @@
  * availability, and the resting accessible name is the ACTION ("What changed?"),
  * never a disability claim.
  *
+ * F2B follow-up (2026-07-22) — MOUNT decoupled from the local run count. The
+ * one surviving mount boundary (#425 kept `runs.length < 2 → return null`) was
+ * still a dead precondition: on the live guest path runHistory stays EMPTY even
+ * after several completed analyses (the resultsComplete writer records a run
+ * only when `results.seed` is set, which the conversation/V5 envelope path never
+ * sets — see store.ts resultsComplete), so the chip never mounted and the send
+ * stayed stranded. Because the SERVER owns comparison honesty, the chip now
+ * mounts and stays actionable whenever its host analysis surface (ResultsBody)
+ * renders — 0, 1, or many stored runs. Clicking always fires the typed send;
+ * CEE answers "only one run so far, nothing to compare yet" honestly when true.
+ * Local runHistory continues to gate ONLY the pulse/highlight extras.
+ *
  * Click pulses the added+modified elements via pulseAppliedTargets (same
  * 2s ring as applied AI edits). Removed elements no longer exist on the
  * canvas and are excluded — the pulse util would filter them fail-closed
@@ -136,12 +148,18 @@ export function WhatChangedChip() {
   // skipped and only the canvas pulse fires. Hook is read unconditionally
   // (before the early returns below) to keep hook order stable.
   const dispatchAction = useOptionalConversationContext()?.dispatchAction
-  // No PREVIOUS run at all → there is no "last run" to compare and nothing for
-  // the server to compare either; the chip's whole premise is absent. This is
-  // the "no comparison target" boundary, NOT a local-diff-unavailable state.
-  if (runs.length < 2) return null
-
-  const [latest, previous] = runs // newest-first per loadRuns()'s sort
+  // F2B (2026-07-22): the chip's MOUNT is decoupled from the local run count.
+  // The old `runs.length < 2 → return null` boundary stranded the CEE send
+  // behind a dead precondition — on the live guest path runHistory stays EMPTY
+  // even after completed analyses (the writer never records there), so the chip
+  // never mounted and the send was unreachable. The SERVER owns comparison
+  // honesty (its what_changed gate answers insufficient_runs / stale /
+  // unconfirmed / incomparable), so the chip renders and stays actionable
+  // whenever its host analysis surface (ResultsBody) renders — regardless of how
+  // many runs are stored locally. Only the pulse/highlight extras below stay
+  // gated on a computable local pair.
+  const latest = runs[0] // newest-first per loadRuns()'s sort; may be undefined
+  const previous = runs[1] // second-newest; undefined with < 2 stored runs
   // LOCAL structural diff — only computable when BOTH runs carry an alignable
   // graph snapshot. A run without one (legacy pre-v1.2 entries) is
   // NON-COMPARABLE locally, not empty — diffing against [] would fabricate an
@@ -150,7 +168,7 @@ export function WhatChangedChip() {
   // "Snapshot unavailable" precedent). The SERVER can still answer the
   // outcome delta, so the chip stays actionable regardless.
   const diff =
-    latest.graph && previous.graph
+    latest?.graph && previous?.graph
       ? computeGraphDiff(
           latest.graph.nodes ?? [],
           latest.graph.edges ?? [],

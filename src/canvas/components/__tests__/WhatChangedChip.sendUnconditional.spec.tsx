@@ -161,6 +161,46 @@ describe('WhatChangedChip — the CEE send fires on every click, unconditionally
   })
 })
 
+describe('WhatChangedChip — F2B: mounts and sends with NO comparison pair (empty / single run history)', () => {
+  it('EMPTY run history (the live finding): the chip mounts and the typed what_changed send fires — pulse does NOT', () => {
+    // RED against the pre-F2B component: `runs.length < 2 → return null`, so the
+    // chip never renders, getByTestId throws, and the send is unreachable. This
+    // is the exact live catch-22 — completed analyses, empty runHistory, dead chip.
+    const dispatchMock = vi.fn().mockResolvedValue(undefined)
+    ctxMock.mockReturnValue({ dispatchAction: dispatchMock })
+    loadRunsMock.mockReturnValue([])
+
+    render(<WhatChangedChip />)
+    fireEvent.click(screen.getByTestId('what-changed-chip'))
+
+    expect(dispatchMock).toHaveBeenCalledTimes(1)
+    expect(dispatchMock).toHaveBeenCalledWith(EXPECTED_DISPATCH)
+    expect(pulseMock).not.toHaveBeenCalled()
+  })
+
+  it('SINGLE stored run: the chip mounts and the typed what_changed send fires — pulse does NOT', () => {
+    const dispatchMock = vi.fn().mockResolvedValue(undefined)
+    ctxMock.mockReturnValue({ dispatchAction: dispatchMock })
+    loadRunsMock.mockReturnValue([run({ nodes: [node('a', 'A')], edges: [edge('e1', 0.5)] })])
+
+    render(<WhatChangedChip />)
+    fireEvent.click(screen.getByTestId('what-changed-chip'))
+
+    expect(dispatchMock).toHaveBeenCalledTimes(1)
+    expect(dispatchMock).toHaveBeenCalledWith(EXPECTED_DISPATCH)
+    expect(pulseMock).not.toHaveBeenCalled()
+  })
+
+  it('EMPTY run history, no conversation hook: click is a safe no-op (fail-safe holds)', () => {
+    ctxMock.mockReturnValue(null)
+    loadRunsMock.mockReturnValue([])
+
+    render(<WhatChangedChip />)
+    expect(() => fireEvent.click(screen.getByTestId('what-changed-chip'))).not.toThrow()
+    expect(pulseMock).not.toHaveBeenCalled()
+  })
+})
+
 describe('WhatChangedChip — resting accessible name is the action, not a disability claim', () => {
   it('names the ACTION "What changed?" when no local highlight is available', () => {
     ctxMock.mockReturnValue({ dispatchAction: vi.fn().mockResolvedValue(undefined) })
