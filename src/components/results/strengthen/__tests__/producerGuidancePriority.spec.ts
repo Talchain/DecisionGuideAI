@@ -140,16 +140,36 @@ describe('deriveGuidance — consumes 0.19.0 producer fields on their own terms'
     expect(item.priorityRank).toBe(101)
   })
 
-  it('consumes producer `category` for all four canonical values; fail-closed default only on genuine absence', () => {
+  it('surfaces producer `category` verbatim for all four canonical values; absent stays absent (never invented)', () => {
     const res = extract([
       coachingBlock({ block_id: 'c-1', title: 'A', category: 'technique', priority: 30 }),
       coachingBlock({ block_id: 'c-2', title: 'B', category: 'could_fix', priority: 50 }),
-      coachingBlock({ block_id: 'c-3', title: 'C' }), // pre-0.19.0 block
+      coachingBlock({ block_id: 'c-3', title: 'C' }), // producer omitted category
     ])
+    // Passthrough: an omitted `category` stays undefined — the producer owns
+    // this field now, so the UI never invents a value. This pin doubles as the
+    // mutation guard: re-adding the old `?? 'should_fix'` default reddens it.
     expect(res.guidanceItems.map((g) => g.category)).toEqual([
       'technique',
       'could_fix',
-      'should_fix', // fail-closed default, rare path
+      undefined,
+    ])
+  })
+
+  it('surfaces producer `signal_code` verbatim; absent stays absent — NEVER the block type', () => {
+    const res = extract([
+      coachingBlock({ block_id: 'c-1', title: 'Coded', signal_code: 'MISSING_BASE_RATE' }),
+      coachingBlock({ block_id: 'c-2', title: 'Uncoded coaching' }), // producer omitted signal_code
+      { type: 'review_card', block_id: 'rc-1', title: 'Uncoded review' }, // no signal_code either
+    ])
+    // Passthrough: a block WITH a producer code surfaces it verbatim (open,
+    // SCREAMING_SNAKE, producer-owned vocabulary); a block WITHOUT one yields
+    // undefined — NOT the old `block.type` invention ('coaching'/'review_card'
+    // were never real codes). Mutation guard: re-adding `?? block.type` reddens.
+    expect(res.guidanceItems.map((g) => g.signal_code)).toEqual([
+      'MISSING_BASE_RATE',
+      undefined,
+      undefined,
     ])
   })
 

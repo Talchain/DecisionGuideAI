@@ -29,8 +29,20 @@ export type GuidanceAction =
 
 export interface GuidanceItem {
   item_id: string
-  signal_code: string
-  category: GuidanceCategory
+  /**
+   * Producer `signal_code` VERBATIM when supplied — an OPEN, producer-owned
+   * SCREAMING_SNAKE vocabulary (never allowlisted, never rendered as user copy;
+   * data-* only). Absent when the producer sent none: the V5 derivation never
+   * invents one from the block type. V4-envelope guidance always carries it.
+   */
+  signal_code?: string
+  /**
+   * Producer four-value `category` VERBATIM when supplied; absent otherwise —
+   * the V5 derivation never defaults it. Rendering surfaces fall back to a
+   * neutral display treatment (or suppress the category badge), never a
+   * synthesised data value. V4-envelope guidance always carries it.
+   */
+  category?: GuidanceCategory
   source: GuidanceSource
   title: string
   detail?: string

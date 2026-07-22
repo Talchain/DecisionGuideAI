@@ -70,8 +70,21 @@ export interface Phase3RawBlock {
  * need the full fidelity. */
 export interface DerivedGuidanceItem {
   item_id: string
-  signal_code: string
-  category: 'must_fix' | 'should_fix' | 'could_fix' | 'technique'
+  /**
+   * The producer's `signal_code` VERBATIM when emitted — an OPEN,
+   * producer-owned SCREAMING_SNAKE vocabulary (MISSING_BASE_RATE,
+   * PRE_MORTEM, …). Never allowlisted, never rendered as user copy (data-*
+   * only). Absent when the producer sent none: the UI does NOT invent a code
+   * from the block type ('coaching'/'review_card' are block classes, not
+   * codes).
+   */
+  signal_code?: string
+  /**
+   * The producer's four-value `category` VERBATIM when emitted; absent when
+   * the producer sent none. Passthrough — never defaulted to 'should_fix',
+   * never synthesised from `severity`.
+   */
+  category?: 'must_fix' | 'should_fix' | 'could_fix' | 'technique'
   source: 'analysis' | 'structural' | 'prompt'
   title: string
   detail?: string
@@ -295,15 +308,19 @@ function guidanceTargetType(
  *     every rank >= 100 clamped to 0 and the whole coaching band collapsed
  *     into one tie broken by wire array order (the UI-SEM-085 defect,
  *     confirmed by an external Codex review).
- *   - `category` ← wire `category` when canonical — the NORMAL path since
- *     0.19.0 — else the legacy severity match, else 'should_fix' fail-closed.
+ *   - `category` ← wire `category` when canonical, else ABSENT. Passthrough:
+ *     the producer owns this field (real on every 0.19.0 guidance block); a
+ *     non-canonical or omitted value stays undefined — never synthesised from
+ *     `severity`, never defaulted to 'should_fix'.
+ *   - `signal_code` ← wire `signal_code` VERBATIM, else ABSENT. Passthrough:
+ *     an OPEN, producer-owned SCREAMING_SNAKE vocabulary. The UI never invents
+ *     one from `block.type` ('coaching'/'review_card' are block classes, not
+ *     codes — they never matched real codes like MISSING_BASE_RATE), never
+ *     allowlists the set, and never renders codes as user copy.
  *
- * Still UI-authored (the residual UI-SEM-085 inventions):
- * `signal_code`→`block.type` (schemas-blocked: `signal_code` verified absent
- * from the published 0.19.0 tarball; on the orchestrator's queue),
- * `source`→`'analysis'`, and the fail-closed defaults above when a producer
- * field is genuinely absent. Copy is never fabricated (title-less blocks
- * return null below).
+ * Residual UI-authored fields: `source`→`'analysis'` and the `priority` 50
+ * fail-closed default (disclosed by `priorityIsProducerSupplied`). Copy is
+ * never fabricated (title-less blocks return null below).
  */
 function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
   const r = block.raw
@@ -315,16 +332,21 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
   if (!title) return null
   const detail = safeString(r.detail) ?? safeString(r.body) ?? safeString(r.message)
 
-  // Category — the producer's code-keyed four-value class VERBATIM (the
-  // NORMAL path since 0.19.0). Legacy fallbacks for genuine absence only:
-  // `severity` if it happens to be canonical (it never is on 0.19.0 wires —
-  // severity is info/warning/critical), else should_fix fail-closed.
-  const rawCategory = safeString(r.category) ?? safeString(r.severity)
-  const category: DerivedGuidanceItem['category'] =
+  // Category — the producer's code-keyed four-value class VERBATIM. Passthrough:
+  // an absent or non-canonical `category` stays undefined. The producer owns
+  // this field (real on every 0.19.0 guidance block); the UI never synthesises
+  // it from `severity` nor falls closed to a 'should_fix' default.
+  const rawCategory = safeString(r.category)
+  const category: DerivedGuidanceItem['category'] | undefined =
     rawCategory === 'must_fix' || rawCategory === 'should_fix' ||
     rawCategory === 'could_fix' || rawCategory === 'technique'
       ? rawCategory
-      : 'should_fix'
+      : undefined
+
+  // signal_code — the producer's OPEN, SCREAMING_SNAKE code VERBATIM when
+  // emitted; absent otherwise. Passthrough: the UI never invents one from
+  // `block.type` (block classes are not codes), never allowlists the set.
+  const signal_code = safeString(r.signal_code)
 
   // Source — analysis when emitted as part of a run_analysis turn,
   // structural for graph-shaped advice. Fall back to analysis.
@@ -418,8 +440,10 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
 
   return {
     item_id: block.id,
-    signal_code: safeString(r.signal_code) ?? block.type,
-    category,
+    // signal_code / category: producer-owned passthrough — included only when
+    // the producer supplied them; absent stays absent, never invented.
+    ...(signal_code ? { signal_code } : {}),
+    ...(category ? { category } : {}),
     source,
     title,
     ...(detail ? { detail } : {}),
