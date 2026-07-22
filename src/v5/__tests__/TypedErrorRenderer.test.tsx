@@ -15,8 +15,11 @@ import { TypedErrorRenderer } from '../TypedErrorRenderer';
 describe('TypedErrorRenderer — one render per FailureType', () => {
   const codes = FailureType.options as readonly FailureTypeLiteral[];
 
-  it('enumerates all eight failure types', () => {
-    expect(codes.length).toBe(8);
+  it('enumerates all nine failure types', () => {
+    // 0.22.0 added GRAPH_DIVERGED to BoundaryErrorCode/FailureType (8 → 9).
+    // The per-code render loop below covers it via the vendored
+    // FAILURE_USER_TEXT table.
+    expect(codes.length).toBe(9);
   });
 
   for (const code of codes) {
