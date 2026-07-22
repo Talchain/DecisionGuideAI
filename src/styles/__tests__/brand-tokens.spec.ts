@@ -44,8 +44,19 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { resolveTokenHex } from '../channelTriple.mjs'
+import { stripComments } from '../../../tests/helpers/stripSourceComments'
 
 const css = readFileSync(join(__dirname, '../brand.css'), 'utf-8')
+
+/**
+ * brand.css with block comments blanked (newline-preserving). `token()` and the
+ * "no superseded hex in declarations" pin both scan this, not the raw text: a
+ * multiline `^--x:` regex over raw text takes the FIRST match, so a superseded
+ * value quoted at line-start inside a design-note comment ABOVE the live
+ * declaration would be read as the live value (the silent-wrong-read footgun the
+ * shared stripper exists to close). resolveTokenHex already strips internally.
+ */
+const cssNoComments = stripComments(css, 'brand.css')
 
 /**
  * The RAW declared text of a `--token` in brand.css — not resolved.
@@ -55,7 +66,7 @@ const css = readFileSync(join(__dirname, '../brand.css'), 'utf-8')
  * semantic tokens and would be measured as a malformed colour.
  */
 function token(name: string): string {
-  const m = css.match(new RegExp(`^\\s*--${name}:\\s*([^;]+);`, 'm'))
+  const m = cssNoComments.match(new RegExp(`^\\s*--${name}:\\s*([^;]+);`, 'm'))
   if (!m) throw new Error(`brand.css: --${name} not found`)
   return m[1].trim()
 }
@@ -199,8 +210,9 @@ describe('D1 — canonical info blue', () => {
 
   it('no superseded info-blue hex survives in brand.css declarations', () => {
     // Comments may reference the old values as history; declarations may not.
-    const declarations = css
-      .replace(/\/\*[\s\S]*?\*\//g, '')
+    // Scan the shared-stripper output so this pin and `token()` agree on what
+    // counts as a comment, instead of carrying a second local strip regex.
+    const declarations = cssNoComments
       .split('\n')
       .filter(l => l.includes('--'))
       .join('\n')
