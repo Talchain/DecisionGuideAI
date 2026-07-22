@@ -11,7 +11,7 @@
  * could quietly weaken every guard at once. This is that missing direct pin.
  *
  * The properties asserted are exactly the ones the guards depend on:
- *   - JS `//` line and `/* … *​/` block comments are removed;
+ *   - JS `//` line and `/*` block comments are removed;
  *   - string, template and regex literals are KEPT as code (their contents, incl.
  *     comment-like sequences, survive) — so a real call site is still seen;
  *   - CSS gets block-comment stripping only (no `//` line comments);
