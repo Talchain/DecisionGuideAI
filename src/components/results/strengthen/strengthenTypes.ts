@@ -7,6 +7,8 @@
  * ResultsSectionDataReturn shape.
  */
 
+import type { GuidanceCategory } from '../../../canvas/stores/guidanceStore'
+
 /** §8.2 adaptive help types — internal only, never shown as stages. */
 export type HelpType = 'clarify' | 'broaden' | 'challenge' | 'evaluate' | 'commit'
 
@@ -51,6 +53,13 @@ export interface Recommendation {
   targetId: string | null
   /** Engine priority (ascending = more important). Reprioritises, never resets. */
   priority: number
+  /**
+   * The producer's four-value `category` VERBATIM (Stage 2) — set only on
+   * phase-3 guidance recs, the only recs the producer categorises. Drives the
+   * honest severity badge; absent = no badge (never synthesised for the UI's
+   * own deterministic triggers, which the producer never categorised).
+   */
+  category?: GuidanceCategory
 }
 
 // ── Engine inputs (narrow, fixture-friendly) ─────────────────────────────────
@@ -87,6 +96,19 @@ export interface StrengthenPhase3Item {
   body?: string
   actionIntent?: string
   actionLabel?: string
+  /**
+   * The producer's four-value `category` VERBATIM (Stage 2). Primary display
+   * order in the engine (severity-major); drives the row's severity badge.
+   * Absent = uncategorised (honest absence; never synthesised).
+   */
+  category?: GuidanceCategory
+  /**
+   * The producer's `signal` display line VERBATIM (Stage 2) — user-facing
+   * producer copy carried today only on the deterministic stale-rerun nudge.
+   * When present it is the row's subtitle, preferred over the body; absent
+   * everywhere else.
+   */
+  signal?: string
   targetIds: string[]
   /**
    * The producer's 0.19.0 `priority_rank` VERBATIM (ascending display

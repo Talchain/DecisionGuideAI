@@ -25,6 +25,15 @@ export const STRENGTHEN_COPY = {
   markAddressed: 'Mark as addressed',
   inProgressPill: 'In progress', // (spec — rec-state pill)
   reopenedPill: 'Reopened',
+  // Stage 2 — honest severity badge labels (en-GB, sentence case). Rendered
+  // ONLY from the producer's four-value `category`; absent = no badge. The
+  // labels match the guidance-strip vocabulary so the surfaces read as one.
+  severityLabel: {
+    must_fix: 'Must fix',
+    should_fix: 'Should fix',
+    could_fix: 'Could fix',
+    technique: 'Technique',
+  } as const,
   reopenedPrefix: 'Reopened:',
   tryThisLead: 'Try this', // (spec — bold info lead-in, followed by a space + tip)
   dismissedNotice: 'Recommendation dismissed', // (spec — toast copy)

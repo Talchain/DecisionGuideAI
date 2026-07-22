@@ -88,6 +88,20 @@ export interface DerivedGuidanceItem {
   source: 'analysis' | 'structural' | 'prompt'
   title: string
   detail?: string
+  /**
+   * The producer's `action_label` VERBATIM when supplied; absent otherwise.
+   * Passthrough — the UI never authors a CTA label of its own from it. Stage 1
+   * carried the raw block but this derived field was missing, so every
+   * downstream consumer (the Strengthen mapper) fell back to boilerplate.
+   */
+  actionLabel?: string
+  /**
+   * The producer's `signal` display line VERBATIM when supplied; absent
+   * otherwise. Distinct from `signal_code` (a data-* code, never copy): this
+   * IS user-facing producer copy, carried today only on the deterministic
+   * stale-rerun nudge. Rendered verbatim where present, never synthesised.
+   */
+  signal?: string
   primary_action: { type: 'discuss'; prompt: string }
   target_object?: { type: 'node' | 'edge' | 'option' | 'graph' | 'framing'; id?: string; label?: string }
   related_elements?: Array<{ id?: string; type?: string; label?: string }>
@@ -348,6 +362,18 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
   // `block.type` (block classes are not codes), never allowlists the set.
   const signal_code = safeString(r.signal_code)
 
+  // action_label — the producer's CTA label VERBATIM when supplied; absent
+  // otherwise. Passthrough only (never UI-authored). Stage 1 preserved it on
+  // the raw block but dropped it from this derived shape, so the Strengthen
+  // mapper always fell back to boilerplate.
+  const actionLabel = safeString(r.action_label)
+
+  // signal — the producer's user-facing display line VERBATIM when supplied;
+  // absent otherwise. NOT `signal_code` (that is a data-* code, never copy):
+  // this is producer copy, carried today only on the deterministic stale-rerun
+  // nudge. Rendered verbatim where present, never synthesised.
+  const signal = safeString(r.signal)
+
   // Source — analysis when emitted as part of a run_analysis turn,
   // structural for graph-shaped advice. Fall back to analysis.
   const rawSource = safeString(r.source)
@@ -447,6 +473,10 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
     source,
     title,
     ...(detail ? { detail } : {}),
+    // action_label / signal: producer-owned passthrough — included only when
+    // the producer supplied them; absent stays absent, never invented.
+    ...(actionLabel ? { actionLabel } : {}),
+    ...(signal ? { signal } : {}),
     primary_action: { type: 'discuss', prompt: intentPrompt },
     ...(target_object ? { target_object } : {}),
     ...(related_elements ? { related_elements } : {}),
