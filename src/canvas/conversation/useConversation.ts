@@ -3422,8 +3422,10 @@ export function useConversation(): UseConversationReturn {
             if (phase3.guidanceItems.length > 0) {
               const guidance: GuidanceItem[] = phase3.guidanceItems.map((g) => ({
                 item_id: g.item_id,
-                signal_code: g.signal_code,
-                category: g.category,
+                // signal_code / category are producer-owned passthrough: carry
+                // them only when the producer supplied them, never invented.
+                ...(g.signal_code ? { signal_code: g.signal_code } : {}),
+                ...(g.category ? { category: g.category } : {}),
                 source: g.source,
                 title: g.title,
                 ...(g.detail ? { detail: g.detail } : {}),

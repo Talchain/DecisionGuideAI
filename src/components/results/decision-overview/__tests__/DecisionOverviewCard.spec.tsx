@@ -513,9 +513,10 @@ describe('DecisionOverviewCard — framing-slot honesty (production leak)', () =
   it('a max-priority rerun nudge (non-interrogative detail, discuss action) never renders the framing card', () => {
     useGuidanceStore.setState({
       guidanceItems: [
-        // signal_code 'review_card' is the real derived value: extractPhase3
-        // stamps signal_code = block.type when the block carries none.
-        { item_id: 'g-rerun', signal_code: 'review_card', category: 'should_fix', source: 'analysis', title: 'Analysis may be out of date', detail: LEAKED_RERUN_SENTENCE, primary_action: { type: 'discuss', prompt: LEAKED_RERUN_SENTENCE }, priority: 99 },
+        // A guidance item derived from a block with no producer signal_code:
+        // extractPhase3 now leaves signal_code ABSENT (it never invents one
+        // from block.type). The card does not branch on signal_code.
+        { item_id: 'g-rerun', category: 'should_fix', source: 'analysis', title: 'Analysis may be out of date', detail: LEAKED_RERUN_SENTENCE, primary_action: { type: 'discuss', prompt: LEAKED_RERUN_SENTENCE }, priority: 99 },
       ],
     } as never)
     render(<DecisionOverviewCard title="t" />)
@@ -528,8 +529,8 @@ describe('DecisionOverviewCard — framing-slot honesty (production leak)', () =
   it('a genuine interrogative item wins the slot even when a rerun nudge carries higher priority', () => {
     useGuidanceStore.setState({
       guidanceItems: [
-        { item_id: 'g-rerun', signal_code: 'coaching', category: 'should_fix', source: 'analysis', title: 'Analysis may be out of date', detail: LEAKED_RERUN_SENTENCE, primary_action: { type: 'discuss', prompt: LEAKED_RERUN_SENTENCE }, priority: 99 },
-        { item_id: 'g-question', signal_code: 'review_card', category: 'should_fix', source: 'analysis', title: 'What would make option B clearly better?', primary_action: { type: 'discuss', prompt: 'p' }, priority: 40 },
+        { item_id: 'g-rerun', category: 'should_fix', source: 'analysis', title: 'Analysis may be out of date', detail: LEAKED_RERUN_SENTENCE, primary_action: { type: 'discuss', prompt: LEAKED_RERUN_SENTENCE }, priority: 99 },
+        { item_id: 'g-question', category: 'should_fix', source: 'analysis', title: 'What would make option B clearly better?', primary_action: { type: 'discuss', prompt: 'p' }, priority: 40 },
       ],
     } as never)
     render(<DecisionOverviewCard title="t" />)
@@ -543,7 +544,7 @@ describe('DecisionOverviewCard — framing-slot honesty (production leak)', () =
   it('a framing-scoped imperative item qualifies and keeps the composed question', () => {
     useGuidanceStore.setState({
       guidanceItems: [
-        { item_id: 'g-framing', signal_code: 'coaching', category: 'should_fix', source: 'analysis', title: 'Broaden the option set', primary_action: { type: 'discuss', prompt: 'p' }, priority: 50, target_object: { type: 'framing' } },
+        { item_id: 'g-framing', category: 'should_fix', source: 'analysis', title: 'Broaden the option set', primary_action: { type: 'discuss', prompt: 'p' }, priority: 50, target_object: { type: 'framing' } },
       ],
     } as never)
     render(<DecisionOverviewCard title="t" />)

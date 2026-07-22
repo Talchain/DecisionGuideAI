@@ -45,6 +45,9 @@ function cardBorderClass(category: GuidanceItem['category']): string {
     case 'could_fix':
     case 'technique':
       return 'border-l-info'
+    // Category absent (producer sent none): neutral low-urgency styling.
+    default:
+      return 'border-l-info'
   }
 }
 
@@ -55,6 +58,8 @@ function cardBgClass(category: GuidanceItem['category']): string {
       return 'bg-panel'
     case 'could_fix':
     case 'technique':
+      return 'bg-panel'
+    default:
       return 'bg-panel'
   }
 }

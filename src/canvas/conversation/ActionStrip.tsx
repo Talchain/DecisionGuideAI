@@ -140,9 +140,11 @@ export function ActionStrip({ messages, patchBlockStates, onNavigate }: ActionSt
       >
         {topGuidanceItem && (
           <>
-            <span className={CATEGORY_STYLES[topGuidanceItem.category] ?? styles.guidanceBadgeInfo}>
-              {topGuidanceItem.category.replace('_', ' ')}
-            </span>
+            {topGuidanceItem.category && (
+              <span className={CATEGORY_STYLES[topGuidanceItem.category] ?? styles.guidanceBadgeInfo}>
+                {topGuidanceItem.category.replace('_', ' ')}
+              </span>
+            )}
             <span className={styles.actionStripTitle}>
               {topGuidanceItem.title}
             </span>

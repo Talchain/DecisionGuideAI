@@ -23,7 +23,9 @@ const FOCUS_DEBOUNCE_MS = 150
 // Category badge helpers
 // ---------------------------------------------------------------------------
 
-function categoryLabel(cat: GuidanceItem['category']): string {
+// Render helpers take a DEFINED category — the badge that calls them is
+// suppressed when the producer sent none (absent field = absent, visually too).
+function categoryLabel(cat: NonNullable<GuidanceItem['category']>): string {
   switch (cat) {
     case 'must_fix': return 'Must fix'
     case 'should_fix': return 'Should fix'
@@ -32,7 +34,7 @@ function categoryLabel(cat: GuidanceItem['category']): string {
   }
 }
 
-function categoryBadgeClass(cat: GuidanceItem['category']): string {
+function categoryBadgeClass(cat: NonNullable<GuidanceItem['category']>): string {
   switch (cat) {
     case 'must_fix': return styles.guidanceBadgeDanger
     case 'should_fix': return styles.guidanceBadgeInfo
@@ -78,6 +80,11 @@ function coachingItemType(cat: GuidanceItem['category']): GuidanceEventPayload['
     case 'could_fix':
     case 'technique':
       return 'technique_rec'
+    // Category absent (producer sent none): neutral telemetry bucket — a
+    // required enum with no "unknown" member, so this is a classification
+    // fallback for the event stream only, never user-facing copy.
+    default:
+      return 'bias_alert'
   }
 }
 
@@ -275,11 +282,13 @@ export const GuidanceStrip = memo(function GuidanceStrip({
       data-item-id={topItem.item_id}
       data-severity={topItem.category}
     >
-      {/* Category badge */}
-      <span className={`${styles.guidanceBadge} ${categoryBadgeClass(topItem.category)}`}>
-        {categoryIcon(topItem.category)}
-        <span>{categoryLabel(topItem.category)}</span>
-      </span>
+      {/* Category badge — suppressed when the producer sent no category */}
+      {topItem.category && (
+        <span className={`${styles.guidanceBadge} ${categoryBadgeClass(topItem.category)}`}>
+          {categoryIcon(topItem.category)}
+          <span>{categoryLabel(topItem.category)}</span>
+        </span>
+      )}
 
       {/* Title — truncated */}
       <span className={`${styles.guidanceStripTitle} ${typography.bodySmall}`}>
