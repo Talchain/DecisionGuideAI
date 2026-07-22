@@ -4,26 +4,35 @@
  * typed `v5_coaching` conversation blocks with
  * `coaching_kind: 'bias_signal'` (the 0.15.0 boundary enum value).
  *
- * Fixture provenance: shape mirrors the live-verified draft response on
- * CEE staging (build 57959b2c3, 16 Jul 2026) — a 15-node draft whose
- * `coaching.bias_signals` carried `status_quo_bias` + `anchoring`, both
- * grounded (target set to a real node id). Labels and ids here are
- * synthetic; the wire shape ({ type, detail, target? }) is the verified
- * one (CEEDraftCoachingWire.bias_signals, src/adapters/cee/types.ts).
+ * Fixture provenance: the CANONICAL deployed wire shape is
+ * `BiasSignalSchema = z.object({ type, detail }).strict()`
+ * (@talchain/schemas dist/coaching.js) — real signals carry ONLY
+ * `{ type, detail }` and NEVER a `target`. `CEEDraftCoachingWire.bias_signals`
+ * declares an OPTIONAL `target?` (a UI-adapter widening), but the strict wire
+ * never sends it, so requiring it skipped every real signal. Grounding is
+ * therefore OPTIONAL here — mirroring CEE #541: a known-type, non-blank-detail
+ * signal emits whether or not it names a resolvable node; when a target IS
+ * present and resolves it rides as a target_ref, otherwise the card is
+ * ungrounded (renderer guards pills on target_refs.length > 0). Labels and ids
+ * here are synthetic.
  *
  * Pinned behaviour (ratified: cards capped at 2):
- *   1. Two grounded signals → two typed blocks, humanised titles.
- *   2. Three or more grounded signals → exactly two (wire order).
+ *   1. A real-wire signal ({ type, detail }, no target) → one ungrounded card
+ *      (target_refs []). Grounded signals ride the resolved ref.
+ *   2. Three or more signals → exactly two (wire order, post-dedupe).
  *   3. Not a draft turn → nothing.
  *   4. Absent coaching / empty array → nothing.
  *   5. Unknown bias code → that signal renders nothing (others unaffected).
  *   6. Malformed entry (blank detail / blank type / wrong types) → nothing
  *      for that entry, never a crash.
- *   7. Ungrounded (missing / unresolvable target) → nothing for that entry.
+ *   7. Ungrounded (missing / unresolvable / blank-label target) → STILL emits,
+ *      ungrounded (target_refs []) — grounding is optional.
  *   8. No raw code string ever becomes visible copy (sweep across the
  *      known-code allowlist).
  *   9. Producer-typed bias coaching already on the turn → builder yields
  *      nothing (producer blocks win; no doubled cards).
+ *  10. Dedupe by canonical humanised TITLE only — the same bias is one card
+ *      regardless of which node(s) it names (CEE #541 parity).
  */
 import { describe, it, expect } from 'vitest'
 
@@ -125,6 +134,60 @@ describe('buildDraftBiasSignalBlocks — happy path', () => {
   })
 })
 
+describe('buildDraftBiasSignalBlocks — ungrounded emit (the REAL deployed wire shape)', () => {
+  // The canonical deployed schema is z.object({ type, detail }).strict()
+  // (@talchain/schemas dist/coaching.js) — real signals carry ONLY
+  // { type, detail }, never a target. The prior `if (!ref) continue` skipped
+  // every such signal, so the fallback emitted zero cards. Grounding is now
+  // OPTIONAL (CEE #541 parity).
+  it('a signal of exactly { type, detail } (NO target) → one card with target_refs []', () => {
+    const blocks = build([
+      { type: 'anchoring', detail: 'Estimates cluster tightly around the initial quote.' },
+    ])
+    expect(blocks).toHaveLength(1)
+    expect(blocks[0].type).toBe('v5_coaching')
+    expect(blocks[0].coaching_kind).toBe('bias_signal')
+    expect(blocks[0].source).toBe('draft_graph')
+    expect(blocks[0].title).toBe('Anchoring')
+    expect(blocks[0].body).toBe('Estimates cluster tightly around the initial quote.')
+    expect(blocks[0].target_refs).toEqual([])
+  })
+
+  it('distinct ungrounded signals each emit (up to the cap), all with target_refs []', () => {
+    const blocks = build([
+      { type: 'anchoring', detail: 'Anchoring prose, no target.' },
+      { type: 'status_quo_bias', detail: 'Status quo prose, no target.' },
+    ])
+    expect(blocks).toHaveLength(2)
+    expect(blocks.map((b) => b.title)).toEqual(['Anchoring', 'Status quo bias'])
+    for (const b of blocks) expect(b.target_refs).toEqual([])
+  })
+
+  it('an unresolvable / off-canvas / blank-label / whitespace target does NOT suppress the card — it emits ungrounded', () => {
+    // None of these targets resolves to a ref, but each is a known-type,
+    // non-blank-detail signal, so each still emits with target_refs []. (Same
+    // bias type would dedupe by title, so each case is asserted on its own.)
+    expect(build([{ type: 'anchoring', detail: 'No target at all.' }])[0].target_refs).toEqual([])
+    expect(
+      build([{ type: 'anchoring', detail: 'Off-canvas target.', target: 'fac_ghost' }])[0].target_refs,
+    ).toEqual([])
+    expect(
+      build([{ type: 'anchoring', detail: 'Blank-label target.', target: 'fac_blank_label' }])[0]
+        .target_refs,
+    ).toEqual([])
+    expect(
+      build([{ type: 'anchoring', detail: 'Whitespace target.', target: '   ' }])[0].target_refs,
+    ).toEqual([])
+  })
+
+  it('when a target IS present and resolves, it rides as the target_ref (grounded path retained)', () => {
+    const blocks = build([SIGNAL_STATUS_QUO])
+    expect(blocks[0].target_refs).toEqual([
+      { id: 'fac_current_supplier', label: 'Current supplier terms', kind: 'factor' },
+    ])
+  })
+})
+
 describe('buildDraftBiasSignalBlocks — the ratified cap (≤2 cards)', () => {
   it('pins the cap constant at 2', () => {
     expect(DRAFT_BIAS_SIGNAL_CARD_CAP).toBe(2)
@@ -138,7 +201,7 @@ describe('buildDraftBiasSignalBlocks — the ratified cap (≤2 cards)', () => {
 
   it('the cap counts rendered cards, not raw entries — dropped entries do not consume slots', () => {
     const blocks = build([
-      { ...SIGNAL_STATUS_QUO, target: 'missing_node' }, // ungrounded → dropped
+      { type: 'made_up_bias', detail: 'Unknown code → dropped.', target: 'fac_initial_quote' }, // unknown → dropped
       SIGNAL_ANCHORING,
       SIGNAL_SUNK_COST,
     ])
@@ -188,14 +251,20 @@ describe('buildDraftBiasSignalBlocks — fail closed', () => {
     expect(build(malformed)).toEqual([])
   })
 
-  it('ungrounded signals → nothing: missing target, unresolvable target, blank-label target', () => {
+  it('ungrounded signals still emit (grounding optional) — see the ungrounded-emit suite for target_refs []', () => {
+    // Grounding is NOT a fail-closed condition: a known-type, non-blank-detail
+    // signal with an unresolvable target still emits (ungrounded). The four
+    // cases here are all `anchoring`, so dedupe-by-title collapses them to a
+    // SINGLE ungrounded card — the inverse of the old "→ nothing" pin.
     const blocks = build([
       { type: 'anchoring', detail: 'No target at all.' },
       { type: 'anchoring', detail: 'Target not on the canvas.', target: 'fac_ghost' },
       { type: 'anchoring', detail: 'Target label is blank.', target: 'fac_blank_label' },
       { type: 'anchoring', detail: 'Whitespace target.', target: '   ' },
     ])
-    expect(blocks).toEqual([])
+    expect(blocks).toHaveLength(1)
+    expect(blocks[0].title).toBe('Anchoring')
+    expect(blocks[0].target_refs).toEqual([])
   })
 
   it('producer-typed bias coaching already on the turn → builder yields nothing', () => {
@@ -268,10 +337,10 @@ describe('buildDraftBiasSignalBlocks — no raw code string in visible copy (swe
   })
 })
 
-// ─── #356 fast-follow: (bias, target) dedupe ahead of the cap ────────────
+// ─── Dedupe by canonical TITLE only (CEE #541 parity) ────────────────────
 
-describe('buildDraftBiasSignalBlocks — duplicate (type,target) dedupe (#356 fast-follow)', () => {
-  it('an identical (type,target) duplicate cannot displace a distinct third signal', () => {
+describe('buildDraftBiasSignalBlocks — dedupe by canonical title (CEE #541 parity)', () => {
+  it('an identical duplicate cannot displace a distinct third signal', () => {
     const blocks = build([
       SIGNAL_ANCHORING,
       { ...SIGNAL_ANCHORING, detail: 'Same anchoring signal, reworded by the producer.' },
@@ -283,7 +352,7 @@ describe('buildDraftBiasSignalBlocks — duplicate (type,target) dedupe (#356 fa
     expect(blocks[0].body).toBe(SIGNAL_ANCHORING.detail)
   })
 
-  it('dedupes on canonical bias identity: alias codes for the same bias on the same target', () => {
+  it('dedupes on canonical bias identity: alias codes for the same bias', () => {
     const blocks = build([
       SIGNAL_ANCHORING,
       { ...SIGNAL_ANCHORING, type: 'anchoring_bias' },
@@ -293,15 +362,19 @@ describe('buildDraftBiasSignalBlocks — duplicate (type,target) dedupe (#356 fa
     expect(blocks.map((b) => b.title)).toEqual(['Anchoring', 'Sunk cost'])
   })
 
-  it('the same bias on DIFFERENT targets is two distinct signals — both render', () => {
+  it('the same bias on DIFFERENT targets dedupes to ONE card (title-only identity)', () => {
+    // The old identity was `${title}|${ref.id}`, which let the same bias on two
+    // nodes render twice. CEE #541 dedupes by canonical title ONLY, so the same
+    // bias is one card regardless of which node it names — first occurrence wins.
     const blocks = build([
       SIGNAL_ANCHORING,
-      { ...SIGNAL_ANCHORING, target: 'fac_current_supplier' },
+      { ...SIGNAL_ANCHORING, target: 'fac_current_supplier', detail: 'Same bias, other node.' },
     ])
-    expect(blocks).toHaveLength(2)
-    expect(blocks.map((b) => b.target_refs[0].id)).toEqual([
-      'fac_initial_quote',
-      'fac_current_supplier',
+    expect(blocks).toHaveLength(1)
+    expect(blocks[0].title).toBe('Anchoring')
+    expect(blocks[0].body).toBe(SIGNAL_ANCHORING.detail)
+    expect(blocks[0].target_refs).toEqual([
+      { id: 'fac_initial_quote', label: 'Initial quote', kind: 'factor' },
     ])
   })
 })

@@ -20,7 +20,11 @@
  *
  * Fixture provenance: shape mirrors the live-verified draft response on
  * CEE staging (build 57959b2c3, 16 Jul 2026) — root `coaching.bias_signals`
- * as a SIBLING of `draft_graph`, signals grounded on real node ids.
+ * as a SIBLING of `draft_graph`. The canonical deployed BiasSignalSchema is
+ * `z.object({ type, detail }).strict()` (no target), so the primary pin drives
+ * the real ungrounded wire shape; a grounded variant (target on a real node id,
+ * a UI-adapter widening) is kept as secondary coverage of the ref-resolution
+ * branch.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 
@@ -175,6 +179,40 @@ describe('draft bias-signal bridge — REAL applyDraftResult seam', () => {
     for (const b of blocks) {
       expect(b.type).toBe('v5_coaching')
       expect(b.coaching_kind).toBe('bias_signal')
+    }
+  })
+
+  it('real-wire signals ({ type, detail }, NO target) render 2 UNGROUNDED cards (target_refs [])', async () => {
+    // The canonical deployed BiasSignalSchema is z.object({ type, detail }).strict()
+    // — the wire NEVER sends a target. This is the shape the seam actually
+    // receives in production; the old `if (!ref) continue` dropped every one of
+    // these, so the fallback rendered nothing. Grounding is optional (CEE #541).
+    const blocks = await driveSeam(
+      wireBody({
+        coaching: {
+          summary: 'The draft leans on the current arrangement and the first quote.',
+          bias_signals: [
+            {
+              type: 'status_quo_bias',
+              detail:
+                'The model leans on keeping the current supplier without weighing the switch on equal terms.',
+            },
+            {
+              type: 'anchoring',
+              detail:
+                'Estimates cluster tightly around the initial quote rather than an independent range.',
+            },
+          ],
+        },
+      }),
+    )
+
+    expect(useCanvasStore.getState().draftCoaching?.biasSignals).toHaveLength(2)
+    expect(blocks).toHaveLength(2)
+    expect(blocks.map((b) => b.title)).toEqual(['Status quo bias', 'Anchoring'])
+    for (const b of blocks) {
+      expect(b.coaching_kind).toBe('bias_signal')
+      expect(b.target_refs).toEqual([])
     }
   })
 
