@@ -16,8 +16,13 @@
  *   every node modified on every run).
  * - Copy is honest about the client-side cached-run basis ("since your last
  *   run") — the engine-backed delta is a later contract (ROADMAP 2.1).
- * - Hidden entirely (<2 runs, or zero delta). Ignores the LIVE canvas —
- *   the delta is between analyses, not live edits.
+ * - Hidden entirely only when there is NO previous run to reference (<2 runs).
+ *   When a previous run exists but the LOCAL diff is unavailable (identical
+ *   runs / a missing snapshot), the chip STAYS actionable (its CEE send fires
+ *   unconditionally — the server owns freshness honesty; see
+ *   WhatChangedChip.sendUnconditional.spec.tsx) and only the canvas pulse is
+ *   gated on local-diff availability. Ignores the LIVE canvas — the delta is
+ *   between analyses, not live edits.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
@@ -67,38 +72,55 @@ describe('WhatChangedChip — visibility', () => {
     expect(screen.queryByTestId('what-changed-chip')).not.toBeInTheDocument()
   })
 
-  it('renders nothing when the last two runs are identical', () => {
+  it('STAYS actionable when the last two runs are identical — no local delta, so no pulse, but the chip renders', () => {
+    // Pre-fix this self-hid (zero delta → return null), stranding the CEE send
+    // behind the local-diff gate. The send now fires unconditionally, so the
+    // chip must render; only the pulse is gated (nothing to highlight).
     const g = { nodes: [node('a', 'A')], edges: [edge('e1', 0.5)] }
     loadRunsMock.mockReturnValue([run(g), run(g)])
     render(<WhatChangedChip />)
-    expect(screen.queryByTestId('what-changed-chip')).not.toBeInTheDocument()
+    const chip = screen.getByTestId('what-changed-chip')
+    expect(chip.textContent).toMatch(/what changed\?/i)
+    fireEvent.click(chip)
+    expect(pulseMock).not.toHaveBeenCalled()
   })
 
-  it('renders nothing when a run lacks a graph snapshot (older stored runs)', () => {
+  it('STAYS actionable when a run lacks a graph snapshot (older stored runs) — no pulse', () => {
     loadRunsMock.mockReturnValue([
       { id: 'r-nograph-1', ts: 2 },
       { id: 'r-nograph-2', ts: 1 },
     ])
     render(<WhatChangedChip />)
-    expect(screen.queryByTestId('what-changed-chip')).not.toBeInTheDocument()
+    const chip = screen.getByTestId('what-changed-chip')
+    expect(chip.textContent).toMatch(/what changed\?/i)
+    fireEvent.click(chip)
+    expect(pulseMock).not.toHaveBeenCalled()
   })
 
-  it('hides on a SINGLE-SIDED missing snapshot — never fabricates an everything-added delta', () => {
+  it('a SINGLE-SIDED missing snapshot stays actionable but NEVER fabricates an everything-added delta', () => {
     loadRunsMock.mockReturnValue([
       run({ nodes: [node('a', 'A'), node('b', 'B')], edges: [] }), // latest has a graph
       { id: 'r-legacy', ts: 1 }, // previous predates v1.2 snapshots
     ])
     render(<WhatChangedChip />)
-    expect(screen.queryByTestId('what-changed-chip')).not.toBeInTheDocument()
+    const chip = screen.getByTestId('what-changed-chip')
+    // Anti-fabrication contract preserved: no "+2 nodes" conjured from []-diff.
+    expect(chip.textContent).not.toMatch(/[+~-]\d/)
+    expect(chip.textContent).toMatch(/what changed\?/i)
+    fireEvent.click(chip)
+    expect(pulseMock).not.toHaveBeenCalled()
   })
 
-  it('hides when only the LATEST run lacks a snapshot (reverse single-sided case)', () => {
+  it('stays actionable but pulses nothing when only the LATEST run lacks a snapshot (reverse single-sided case)', () => {
     loadRunsMock.mockReturnValue([
       { id: 'r-legacy', ts: 2 },
       run({ nodes: [node('a', 'A')], edges: [] }),
     ])
     render(<WhatChangedChip />)
-    expect(screen.queryByTestId('what-changed-chip')).not.toBeInTheDocument()
+    const chip = screen.getByTestId('what-changed-chip')
+    expect(chip.textContent).not.toMatch(/[+~-]\d/)
+    fireEvent.click(chip)
+    expect(pulseMock).not.toHaveBeenCalled()
   })
 })
 
@@ -128,13 +150,19 @@ describe('WhatChangedChip — diffs the last two runs (newest-first order)', () 
     expect(screen.getByTestId('what-changed-chip').textContent).toMatch(/Nodes: \+1, -1, ~1/)
   })
 
-  it('position-only moves are NOT counted as modified (layout is not an analytical delta)', () => {
+  it('position-only moves are NOT counted as modified (layout is not an analytical delta) — chip stays actionable, no count, no pulse', () => {
     loadRunsMock.mockReturnValue([
       run({ nodes: [node('a', 'A', 500, 500)], edges: [] }),
       run({ nodes: [node('a', 'A', 0, 0)], edges: [] }),
     ])
     render(<WhatChangedChip />)
-    expect(screen.queryByTestId('what-changed-chip')).not.toBeInTheDocument()
+    const chip = screen.getByTestId('what-changed-chip')
+    // A layout-only move yields a zero analytical delta: no count shown, and
+    // no pulse — but the chip is still actionable (the CEE send is unblocked).
+    expect(chip.textContent).not.toMatch(/[+~-]\d/)
+    expect(chip.textContent).toMatch(/what changed\?/i)
+    fireEvent.click(chip)
+    expect(pulseMock).not.toHaveBeenCalled()
   })
 
   it('counts edge weight/belief changes as modified', () => {
