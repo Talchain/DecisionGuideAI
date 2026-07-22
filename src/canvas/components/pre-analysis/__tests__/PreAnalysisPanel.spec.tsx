@@ -546,10 +546,11 @@ describe('PreAnalysisPanel', () => {
       const emphasised = screen.getByTestId('t1-triage-emphasised')
       expect(emphasised).toBeInTheDocument()
       // Matches the post-analysis emphasis treatment (DecisionConfidencePanel
-      // unified-triage-emphasised) — border-info/50 + 3px left accent.
+      // unified-triage-emphasised). V7 L1: complete border-info/50 only; the
+      // one-sided left accent is retired (state colour rides the complete border).
       expect(emphasised.className).toContain('border-info/50')
-      expect(emphasised.className).toContain('border-l-[3px]')
-      expect(emphasised.className).toContain('border-l-info')
+      expect(emphasised.className).not.toContain('border-l-[3px]')
+      expect(emphasised.className).not.toContain('border-l-info')
     })
   })
 

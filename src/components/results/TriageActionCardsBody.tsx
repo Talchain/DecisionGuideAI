@@ -747,7 +747,7 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
                 return (
                   <div
                     key={item.key}
-                    className={emphasised ? 'rounded-[10px] border border-info/50 border-l-[3px] border-l-info bg-info/[0.02]' : ''}
+                    className={emphasised ? 'rounded-[10px] border border-info/50 bg-info/[0.02]' : ''}
                     data-testid={emphasised ? 'unified-triage-emphasised' : undefined}
                   >
                     <TriageCard

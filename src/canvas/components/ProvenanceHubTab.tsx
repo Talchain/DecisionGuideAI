@@ -197,7 +197,7 @@ function CitationCard({
       </button>
 
       {/* Snippet */}
-      <div className={`${typography.body} text-gray-700 italic border-l-2 border-option/30 pl-3 mb-2`}>
+      <div className={`${typography.body} text-gray-700 italic border border-option/30 rounded px-3 py-1.5 mb-2`}>
         "{snippet}"
       </div>
 

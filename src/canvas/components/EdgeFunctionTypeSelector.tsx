@@ -201,7 +201,7 @@ export const EdgeFunctionTypeSelector = memo(function EdgeFunctionTypeSelector({
 
       {/* Function parameters (for non-linear types) */}
       {value !== 'linear' && showParams && (
-        <div className="pl-2 pt-2 border-l-2 border-sand-200 space-y-3">
+        <div className="p-2 border border-sand-200 rounded space-y-3">
           {value === 'threshold' && (
             <SliderWithLabel
               id="func-threshold"

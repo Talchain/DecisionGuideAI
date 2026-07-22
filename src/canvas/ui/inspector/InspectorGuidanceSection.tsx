@@ -38,16 +38,18 @@ function actionLabel(action: GuidanceAction): string {
 }
 
 function cardBorderClass(category: GuidanceItem['category']): string {
+  // V7 L1: complete borders only — the state colour rides all four sides, never
+  // a one-sided left accent.
   switch (category) {
     case 'must_fix':
     case 'should_fix':
-      return 'border-l-danger'
+      return 'border-danger'
     case 'could_fix':
     case 'technique':
-      return 'border-l-info'
+      return 'border-info'
     // Category absent (producer sent none): neutral low-urgency styling.
     default:
-      return 'border-l-info'
+      return 'border-info'
   }
 }
 
@@ -133,9 +135,9 @@ const GuidanceCard = memo(function GuidanceCard({
     <div
       ref={cardRef}
       className={`
-        flex items-start gap-2 p-2 rounded border-l-4
+        flex items-start gap-2 p-2 rounded border
         ${cardBorderClass(item.category)}
-        ${isActive ? `${cardBgClass(item.category)} ring-1 ring-info/40` : 'bg-panel border border-panel-border border-l-4'}
+        ${isActive ? `${cardBgClass(item.category)} ring-1 ring-info/40` : 'bg-panel'}
         transition-colors
       `}
       onMouseEnter={handleMouseEnter}
