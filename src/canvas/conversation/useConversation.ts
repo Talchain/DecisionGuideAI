@@ -3165,23 +3165,35 @@ export function useConversation(): UseConversationReturn {
         })
 
         if (!build.ok) {
-          // buildV5Payload refused — missing message or unsupported system
-          // event. Surface a typed error rather than a malformed request.
+          // buildV5Payload refused. Surface a typed error rather than a
+          // malformed request.
           //
           // ⚠ The `mode === 'user'` branch below is currently UNREACHABLE, and
           // a 2026-07-20 review that mapped this as "the exit that sets no
-          // failure notice" missed why. buildV5Payload can only fail two ways:
+          // failure notice" missed why. buildV5Payload can fail three ways:
           //   · 'missing_message'          — mode 'user' only, and the guard at
           //     the top of this block (`if (mode === 'user' && !message.trim())`)
           //     already returned, so it never gets here;
           //   · 'unsupported_system_event' — reachable only via
           //     buildSystemEventPayload, i.e. mode === 'system', which fails
-          //     this very `mode === 'user'` test.
+          //     this very `mode === 'user'` test;
+          //   · 'unencodable_graph_edit'   — F6, mode === 'system' only (see the
+          //     retryable branch immediately below).
           // So for a user send this is dead, and adding a failure notice here
           // would be dead code. Left in place as a defensive backstop; if a
           // third refusal reason is ever added for user mode, it MUST raise a
           // SendFailureNotice — the hero has no transcript to show the
           // synthetic bubble below.
+          //
+          // F6: a batch direct_graph_edit whose ids yield no encodable
+          // representative target is a RETRYABLE failure (mode === 'system').
+          // Route it through the failed-event path (setLastSendFailure) so it is
+          // NOT a silent drop and the DEV-only warning below is no longer its
+          // only trace. `kind: 'transport'` — nothing reached CEE; `inputText`
+          // stays '' (a system event has no composer text to restore).
+          if (build.reason === 'unencodable_graph_edit') {
+            setLastSendFailure({ kind: 'transport', retryable: true, inputText: '' })
+          }
           if (mode === 'user' && !hidden) {
             // Nothing was dispatched — the bubble must not read as sent.
             if (userBubbleIdForTurn) {

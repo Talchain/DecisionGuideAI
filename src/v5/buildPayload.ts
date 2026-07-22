@@ -63,7 +63,19 @@ export interface BuildV5PayloadInput {
 
 export type BuildV5PayloadResult =
   | { ok: true; payload: OrchestratorTurnPayload }
-  | { ok: false; reason: 'missing_message' | 'unsupported_system_event'; detail?: string }
+  | {
+      ok: false
+      /**
+       * `unencodable_graph_edit` (F6): a batch `direct_graph_edit` event whose
+       * ids yield no encodable representative target. Distinct from
+       * `unsupported_system_event` because it is RETRYABLE — the caller should
+       * route it through the failed-event path, never drop it silently.
+       */
+      reason: 'missing_message' | 'unsupported_system_event' | 'unencodable_graph_edit'
+      /** True when re-issuing the same action could succeed (F6 retryable path). */
+      retryable?: boolean
+      detail?: string
+    }
 
 /**
  * Convert a sendTurn invocation into the v0.7.0 wire payload.
@@ -165,6 +177,19 @@ function buildSystemEventPayload(input: BuildV5PayloadInput): BuildV5PayloadResu
     if (systemEvent.type === 'direct_analysis_run') {
       return buildDirectAnalysisRunMessage(input)
     }
+    if (systemEvent.type === 'direct_graph_edit') {
+      // F6: the direct_graph_edit adapter (systemEventToPayload, below) returns
+      // null ONLY when a batch has no encodable representative target (e.g. all
+      // changed-id lists empty). That is NOT "unsupported" — it is a RETRYABLE
+      // failure. Surface it so the send leg routes it through the failed-event
+      // path rather than dropping it silently or fabricating a target.
+      return {
+        ok: false,
+        reason: 'unencodable_graph_edit',
+        retryable: true,
+        detail: 'direct_graph_edit batch had no encodable representative target (empty changed ids)',
+      }
+    }
     return {
       ok: false,
       reason: 'unsupported_system_event',
@@ -197,10 +222,9 @@ function systemEventToPayload(args: {
       return { ...base, event: { kind: 'patch_dismissed', patch_id } }
     }
     case 'direct_graph_edit': {
-      const target_id = stringField(eventPayload, 'target_id')
-      const operation = stringField(eventPayload, 'operation')
-      if (!target_id || !operation) return null
-      return { ...base, event: { kind: 'direct_graph_edit', target_id, operation } }
+      const event = adaptDirectGraphEdit(eventPayload)
+      if (event === null) return null
+      return { ...base, event }
     }
     // V5 schema includes chip_click, undo, redo — not currently emitted by
     // the UI as SystemEvent.type (no WireSystemEventType entries). Kept
@@ -248,6 +272,103 @@ function stringField(src: Record<string, unknown> | undefined, key: string): str
   if (!src) return ''
   const val = src[key]
   return typeof val === 'string' && val.length > 0 ? val : ''
+}
+
+// Narrow an optional unknown field to an array of non-empty strings.
+function stringArrayField(src: Record<string, unknown> | undefined, key: string): string[] {
+  if (!src) return []
+  const val = src[key]
+  if (!Array.isArray(val)) return []
+  return val.filter((v): v is string => typeof v === 'string' && v.length > 0)
+}
+
+// The wire `direct_graph_edit` event (0.22), derived from the vendored schema
+// so the shape here can never drift from what `OrchestratorTurnPayloadSchema`
+// will accept.
+type DirectGraphEditWireEvent = Extract<
+  SystemEventTurnPayload['event'],
+  { kind: 'direct_graph_edit' }
+>
+
+// `fields_changed` arrives from the real emitter (useGraphEditEvents.ts) as a
+// MAP (element id → touched field names). The 0.22 wire types `fields_changed`
+// as a flat string[] that "names the touched fields" — no id association.
+// Flatten DETERMINISTICALLY: the sorted, de-duplicated UNION of every element's
+// field names. Non-map / malformed input yields [].
+function flattenFieldsChangedToNames(src: Record<string, unknown> | undefined): string[] {
+  if (!src) return []
+  const raw = src['fields_changed']
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return []
+  const names = new Set<string>()
+  for (const value of Object.values(raw as Record<string, unknown>)) {
+    if (!Array.isArray(value)) continue
+    for (const field of value) {
+      if (typeof field === 'string' && field.length > 0) names.add(field)
+    }
+  }
+  return [...names].sort()
+}
+
+/**
+ * F6 — batch `direct_graph_edit` → 0.22 wire adapter.
+ *
+ * The UI's REAL debounced emitter (src/canvas/conversation/useGraphEditEvents.ts,
+ * the `sendSystemEvent({ type: 'direct_graph_edit', payload })` call) emits a
+ * BATCH payload — `{ changed_node_ids, changed_edge_ids, operations,
+ * fields_changed (a MAP), summary }` — and NO singular `target_id` / `operation`.
+ * The vendored 0.22 `DirectGraphEditEvent` STILL REQUIRES the singular
+ * `{ target_id, operation }` pair (back-compat for consumers on an older pin)
+ * and accepts the batch fields ADDITIVELY, typing `fields_changed` as string[]
+ * (not a map). Before this adapter the singular-only read returned null, the
+ * turn was never built, and real batch edits were silently discarded.
+ *
+ * This adapter (a) derives a DETERMINISTIC representative singular pair and
+ * (b) carries the additive batch fields, converting `fields_changed` map →
+ * string[]. It returns null ONLY when no representative target is encodable
+ * (empty ids); the caller turns that into a RETRYABLE failure. It NEVER
+ * fabricates a target.
+ *
+ * Representative-choice rule (documented here because it cannot be read off the
+ * wire shape alone, and MUST be deterministic):
+ *   • target_id = an explicit `target_id` if the caller supplied one (a direct
+ *     singular caller / back-compat), else the FIRST changed id in stable
+ *     order — `changed_node_ids` (sorted ascending) take precedence over
+ *     `changed_edge_ids` (sorted ascending). In words: "first changed node,
+ *     else first changed edge".
+ *   • operation = an explicit `operation` if supplied, else `operations[0]`
+ *     (sorted ascending) — the batch's first operation verb. The wire batch
+ *     carries only the SET of operations (no per-id map), so this describes the
+ *     batch, not necessarily `target_id`'s own op. It is a stable representative.
+ *
+ * Ids and the `operations` array are sorted defensively so the wire output is a
+ * pure function of the input SET, independent of the caller's array order.
+ */
+function adaptDirectGraphEdit(
+  eventPayload: Record<string, unknown> | undefined,
+): DirectGraphEditWireEvent | null {
+  const changedNodeIds = [...stringArrayField(eventPayload, 'changed_node_ids')].sort()
+  const changedEdgeIds = [...stringArrayField(eventPayload, 'changed_edge_ids')].sort()
+  const operations = [...stringArrayField(eventPayload, 'operations')].sort()
+  const fieldsChanged = flattenFieldsChangedToNames(eventPayload)
+  const summary = stringField(eventPayload, 'summary')
+
+  const explicitTarget = stringField(eventPayload, 'target_id')
+  const explicitOperation = stringField(eventPayload, 'operation')
+
+  const target_id = explicitTarget || changedNodeIds[0] || changedEdgeIds[0] || ''
+  const operation = explicitOperation || operations[0] || ''
+
+  // Unencodable: no representative target/operation (e.g. empty ids). Signal
+  // null so the caller raises a RETRYABLE failure. NEVER fabricate a target.
+  if (!target_id || !operation) return null
+
+  const event: DirectGraphEditWireEvent = { kind: 'direct_graph_edit', target_id, operation }
+  if (changedNodeIds.length > 0) event.changed_node_ids = changedNodeIds
+  if (changedEdgeIds.length > 0) event.changed_edge_ids = changedEdgeIds
+  if (operations.length > 0) event.operations = operations
+  if (fieldsChanged.length > 0) event.fields_changed = fieldsChanged
+  if (summary) event.summary = summary
+  return event
 }
 
 // ActionType is a strict enum on the wire. If the UI passes an unknown
