@@ -32,6 +32,7 @@ import {
   resolveFailureBaseCopy,
 } from '../../v5/failureTypeRetryability'
 import { mapV5Blocks } from '../../v5/blocks/mapV5Blocks'
+import { buildSuggestedActionChips } from '../../v5/blocks/suggestedActionChips'
 import { deriveV5Stage, v5StageToScenarioStage } from '../../v5/stageMapper'
 import { applyV5State } from '../../v5/applyV5State'
 import {
@@ -3621,13 +3622,19 @@ export function useConversation(): UseConversationReturn {
             // UI additionally caps rendering at 3 in SuggestedChips (ruled
             // doctrine D-K, closed 15 Jul: 0-3 chips, no fabricated filler).
             // action_type when present drives deterministic routing on next click.
-            const actionChips: ActionChip[] = target.response.suggested_actions.map((a) => ({
-              id: a.id,
-              label: a.label,
-              intent: 'primary',
-              message: a.message,
-              ...(a.action_type ? { action_type: a.action_type } : {}),
-            }))
+            //
+            // F4 (single confirm owner): on a held-proposal turn the held card
+            // (V5HeldProposalBlock, from mappedBlocks above) is the SOLE owner
+            // of the confirm/decline affordance it resolves via
+            // confirm_action_id / decline_action_id. buildSuggestedActionChips
+            // drops exactly those consumed ids from the generic chip row so the
+            // user sees the confirm once — keyed on the block's referenced ids,
+            // never on action_type. Off the held-proposal path the chip row is
+            // unchanged (no held_proposal block ⇒ nothing suppressed).
+            const actionChips: ActionChip[] = buildSuggestedActionChips(
+              target.response.blocks,
+              target.response.suggested_actions,
+            )
             // ROADMAP 1.42 (Show-reasoning progressive disclosure — verbatim,
             // labelled): CEE MAY carry a top-level `_reasoning` string. At the
             // pinned schema (0.13.1) this unknown key is auto-demoted by the
