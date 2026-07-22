@@ -16,10 +16,12 @@
  *   every node modified on every run).
  * - Copy is honest about the client-side cached-run basis ("since your last
  *   run") — the engine-backed delta is a later contract (ROADMAP 2.1).
- * - Hidden entirely only when there is NO previous run to reference (<2 runs).
- *   When a previous run exists but the LOCAL diff is unavailable (identical
- *   runs / a missing snapshot), the chip STAYS actionable (its CEE send fires
- *   unconditionally — the server owns freshness honesty; see
+ * - F2B (2026-07-22): the chip's MOUNT is decoupled from the local run count.
+ *   It renders whenever its host analysis surface renders — even with 0 or 1
+ *   stored runs — because the SERVER owns comparison honesty (its gate answers
+ *   insufficient_runs / stale / unconfirmed / incomparable). When the LOCAL diff
+ *   is unavailable (no pair / identical runs / a missing snapshot), the chip
+ *   STAYS actionable (its CEE send fires unconditionally; see
  *   WhatChangedChip.sendUnconditional.spec.tsx) and only the canvas pulse is
  *   gated on local-diff availability. Ignores the LIVE canvas — the delta is
  *   between analyses, not live edits.
@@ -66,10 +68,29 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('WhatChangedChip — visibility', () => {
-  it('renders nothing with fewer than 2 runs', () => {
+  it('F2B: mounts and stays actionable with a SINGLE stored run (no comparison pair yet — server owns honesty)', () => {
+    // Pre-F2B this self-hid (runs.length < 2 → return null), stranding the CEE
+    // send behind a dead precondition. The server answers "insufficient_runs"
+    // honestly, so the chip must render and be clickable; only the pulse is
+    // gated (no alignable pair to highlight).
     loadRunsMock.mockReturnValue([run({ nodes: [node('a', 'A')], edges: [] })])
     render(<WhatChangedChip />)
-    expect(screen.queryByTestId('what-changed-chip')).not.toBeInTheDocument()
+    const chip = screen.getByTestId('what-changed-chip')
+    expect(chip.textContent).toMatch(/what changed\?/i)
+    expect(() => fireEvent.click(chip)).not.toThrow()
+    expect(pulseMock).not.toHaveBeenCalled()
+  })
+
+  it('F2B: mounts and stays actionable with an EMPTY run history (the live finding: analysis present, zero stored runs)', () => {
+    // Reproduces the deployed-build finding: a real guest session completes
+    // analyses but runHistory is EMPTY (the writer never records on the live
+    // path), so the old `runs.length < 2` boundary hid the chip entirely.
+    loadRunsMock.mockReturnValue([])
+    render(<WhatChangedChip />)
+    const chip = screen.getByTestId('what-changed-chip')
+    expect(chip.textContent).toMatch(/what changed\?/i)
+    expect(() => fireEvent.click(chip)).not.toThrow()
+    expect(pulseMock).not.toHaveBeenCalled()
   })
 
   it('STAYS actionable when the last two runs are identical — no local delta, so no pulse, but the chip renders', () => {

@@ -2,12 +2,15 @@
  * ResultsBody — WhatChangedChip mount (seamlessness R6 / ROADMAP 2.1 slice 1).
  *
  * The run-delta chip mounts in the analysis-tab header stack, after the
- * freshness notice slot and above the hero block. It self-hides only when
- * there is no previous run to reference (<2 stored runs); once a previous run
- * exists it STAYS mounted and actionable even with a zero local delta, because
- * its CEE send fires unconditionally (the server owns freshness honesty — see
- * WhatChangedChip.sendUnconditional.spec.tsx). Only the canvas pulse is gated
- * on local-diff availability. Fixture pattern mirrors
+ * freshness notice slot and above the hero block. F2B (2026-07-22): its MOUNT
+ * is decoupled from the local run count — it renders whenever THIS analysis
+ * surface (ResultsBody) renders, even with an EMPTY run history (the live
+ * finding: a real guest session's runHistory stays empty after completed
+ * analyses). It STAYS mounted and actionable because its CEE send fires
+ * unconditionally (the SERVER owns comparison honesty — its gate answers
+ * insufficient_runs / stale / unconfirmed / incomparable; see
+ * WhatChangedChip.sendUnconditional.spec.tsx). Only the canvas pulse/highlight
+ * extras are gated on local-diff availability. Fixture pattern mirrors
  * ResultsBody.heroPlacement.spec.tsx.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -154,10 +157,25 @@ describe('ResultsBody — WhatChangedChip mount (R6)', () => {
     expect(before(chip, existingHero), 'chip must precede the hero block').toBe(true)
   })
 
-  it('renders no chip on a first run (fewer than 2 stored runs)', () => {
+  it('F2B — mounts the chip when runHistory is EMPTY but the analysis surface is present (the live finding)', () => {
+    // The deployed guest build renders ResultsBody after completed analyses, yet
+    // runHistory is EMPTY (no run/history key written on the live path). Under
+    // the old `runs.length < 2` boundary the chip never mounted and the CEE send
+    // was stranded. The chip must now mount and stay actionable — the server
+    // answers "only one run so far, nothing to compare yet" honestly on click.
+    loadRunsMock.mockReturnValue([])
+    renderBody()
+    const chip = screen.getByTestId('what-changed-chip')
+    expect(chip.textContent).toMatch(/what changed\?/i)
+    const existingHero = screen.getByTestId('decision-confidence-panel')
+    expect(before(chip, existingHero), 'chip must precede the hero block').toBe(true)
+  })
+
+  it('F2B — mounts the chip on a single stored run (still no comparison pair)', () => {
     loadRunsMock.mockReturnValue([runFx([nodeFx('a', 'A')], 1)])
     renderBody()
-    expect(screen.queryByTestId('what-changed-chip')).not.toBeInTheDocument()
+    const chip = screen.getByTestId('what-changed-chip')
+    expect(chip.textContent).toMatch(/what changed\?/i)
   })
 
   it('KEEPS the chip mounted and actionable when nothing changed between runs (send is unconditional; only the pulse is gated)', () => {
