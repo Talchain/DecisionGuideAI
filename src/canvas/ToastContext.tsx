@@ -123,7 +123,9 @@ const TOAST_ICONS = {
   warning: AlertTriangle,
 } as const
 
-// Maps toast type to the semantic CSS variable for the left border colour
+// Maps toast type to the semantic CSS variable for the complete border colour
+// (V7 L2: a complete border carries the severity colour on all four sides —
+// the one-sided `borderLeft` accent was retired under Paul's categorical rule).
 const TOAST_BORDER_COLOR: Record<Toast['type'], string> = {
   success: 'var(--success)',
   error:   'var(--danger)',
@@ -156,7 +158,7 @@ function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: 
           <div
             key={toast.id}
             className="bg-panel rounded-lg shadow-2 flex items-center gap-3 px-4 py-3 max-w-[360px] animate-slideDown"
-            style={{ borderLeft: `3px solid ${TOAST_BORDER_COLOR[toast.type]}` }}
+            style={{ border: `1px solid ${TOAST_BORDER_COLOR[toast.type]}` }}
             role="alert"
           >
             <Icon className={`w-4 h-4 flex-shrink-0 ${TOAST_ICON_CLASS[toast.type]}`} aria-hidden="true" />

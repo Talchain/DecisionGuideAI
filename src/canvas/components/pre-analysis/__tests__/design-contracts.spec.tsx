@@ -2,8 +2,9 @@
  * Design contract regression tests for pre-analysis components.
  *
  * Guards against reintroduction of:
- * 1. Non-exempt coloured left-border (border-l-*) classes — only coaching/MVS/alert/toast
- *    cards may have left-accent borders per §6.4 / §16–§17 of the design system.
+ * 1. Coloured left-border (border-l-*) classes in pre-analysis content cards.
+ *    Complete borders only — V7 L2 converted the last exceptions (§16 coaching
+ *    cards, §17 toasts) to complete borders, so Paul's rule is categorical now.
  * 2. Em-dash characters (— / \u2014) in user-visible UI strings per the copy style guide.
  */
 
@@ -64,16 +65,17 @@ function getAllClassNames(container: HTMLElement): string {
 }
 
 /**
- * Exempt left-border patterns per §6.4 / §16–§17:
- * - border-l-[3px] border-l-{colour} — coaching card (§16) / MVS card (§16.1)
- * - border-l-2 border-panel-border — neutral indent guides are NOT exempt; all
- *   left borders are banned in analysis-tab content cards after this pass.
+ * Left-border patterns are banned outright in pre-analysis content cards:
+ * - border-l-[3px] border-l-{colour} — the coaching-card accent, converted to a
+ *   complete border in V7 L2 (§16); no coaching card renders here anyway.
+ * - border-l-2 border-panel-border — neutral indent guides are also banned; all
+ *   left borders are prohibited in analysis-tab content cards.
  *
- * This helper returns true if a class string contains a non-exempt coloured left border.
+ * This helper returns true if a class string contains any coloured/structural
+ * left border.
  */
 function hasNonExemptLeftBorder(classString: string): boolean {
-  // Any border-l class is non-exempt in pre-analysis content cards.
-  // (ConfidenceSection MVS card is in results/, not tested here.)
+  // Any border-l class is banned in pre-analysis content cards.
   return /\bborder-l-/.test(classString)
 }
 

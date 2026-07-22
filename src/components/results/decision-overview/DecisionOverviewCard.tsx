@@ -68,10 +68,10 @@ export const OVERVIEW_COPY = {
   capturedInBrief: 'Captured in brief',
   notCaptured: 'Not captured yet',
   optionsNoteEmpty: 'No options mapped yet',
-  stakesUnset: 'Stakes not set',
-  reversibilityUnset: 'Reversibility not set',
-  horizonUnset: 'Horizon not set',
-  riskUnset: 'Risk approach not set',
+  // V6-RESPEC §4: empty classification fields fold into ONE muted aggregate
+  // chip ("+N to set") — collapsed shows what IS, never a per-field inventory
+  // of what ISN'T. The old per-field "not set" name labels are retired.
+  classificationUnsetSuffix: 'to set',
 } as const
 
 const STATE_COPY: Record<BriefState, { line: string; note: string }> = {
@@ -265,18 +265,24 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
         ? { line: OVERVIEW_COPY.thin, note: OVERVIEW_COPY.thinLiveNote }
         : STATE_COPY[state]
 
-  // UI-SEM-077: decision-classification pill inference. No producer
-  // classification contract exists; the only honest client-side input today
-  // is the decision node's brief timeframe (-> horizon). Stakes,
-  // reversibility and risk appetite have NO live signal, so those pills
-  // fail closed to an explicit "not set" state — values are NEVER
-  // fabricated. Remove when CEE provides decision_classification.
-  const pillLabels: Record<ClassificationDimension, string> = {
-    stakes: OVERVIEW_COPY.stakesUnset,
-    reversibility: OVERVIEW_COPY.reversibilityUnset,
-    horizon: horizonText ? `Horizon: ${horizonText}` : OVERVIEW_COPY.horizonUnset,
-    risk: OVERVIEW_COPY.riskUnset,
+  // UI-SEM-077 (+ V7 L2, values-not-labels): decision-classification pill
+  // inference. No producer classification contract exists; the only honest
+  // client-side input today is the decision node's brief timeframe
+  // (-> horizon). Stakes, reversibility and risk appetite have NO live
+  // signal, so those fields fail closed to EMPTY (value null) — values are
+  // NEVER fabricated. Collapsed doctrine (V6-RESPEC §4): a FILLED field
+  // renders as its value chip; every EMPTY field folds into ONE muted
+  // "+N to set" aggregate — the card shows what IS, never an inventory of
+  // hidden field names. Remove the null fallbacks when CEE provides
+  // decision_classification.
+  const pillValues: Record<ClassificationDimension, string | null> = {
+    stakes: null,
+    reversibility: null,
+    horizon: horizonText ? `Horizon: ${horizonText}` : null,
+    risk: null,
   }
+  const filledDims = CLASSIFICATION_DIMENSIONS.filter((dim) => pillValues[dim] != null)
+  const unsetCount = CLASSIFICATION_DIMENSIONS.length - filledDims.length
 
   const reviewClassification = (dim: ClassificationDimension) =>
     openAskOlumi({
@@ -347,7 +353,7 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
             {title || OVERVIEW_COPY.titleFallback}
           </h2>
           <div aria-label="Decision classification" className="mt-1.5 flex flex-wrap gap-1.5">
-            {CLASSIFICATION_DIMENSIONS.map((dim) => (
+            {filledDims.map((dim) => (
               <button
                 key={dim}
                 type="button"
@@ -355,9 +361,22 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
                 onClick={() => reviewClassification(dim)}
                 className={`${typography.panelMeta} max-w-full truncate rounded-pill border border-panel-border bg-transparent px-2 py-0.5 text-text-body hover:bg-panel-hover`}
               >
-                {pillLabels[dim]}
+                {pillValues[dim]}
               </button>
             ))}
+            {/* One muted aggregate for every empty field (V6-RESPEC §4).
+                Clicking it expands the card — the existing boolean expand
+                behaviour, no new focus plumbing. Complete (dashed) border. */}
+            {unsetCount > 0 && (
+              <button
+                type="button"
+                data-testid="decision-pills-unset"
+                onClick={() => setExpanded(true)}
+                className={`${typography.panelMeta} max-w-full truncate rounded-pill border border-dashed border-panel-border bg-transparent px-2 py-0.5 text-text-light hover:bg-panel-hover`}
+              >
+                +{unsetCount} {OVERVIEW_COPY.classificationUnsetSuffix}
+              </button>
+            )}
           </div>
         </div>
         <ActionsMenu />

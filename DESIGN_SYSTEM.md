@@ -255,12 +255,19 @@ className="border-danger-200"  // DOESN'T EXIST
 
 ### Coaching Cards (v4 §15)
 
+Complete borders only (V7 L2 — Paul's categorical rule). The neutral `bg-panel`
+plus the semantic border **colour on all four sides** is the coaching signal;
+the retired `border-l-[3px]` one-sided accent must not come back.
+
 ```tsx
-// ✅ Correct — neutral bg, coloured left border
+// ✅ Correct — neutral bg, complete coloured border
+<div className="bg-panel border border-info rounded-lg px-4 py-3">
+
+// ❌ Wrong — one-sided left accent (retired in V7 L2)
 <div className="bg-panel border-l-[3px] border-info rounded-lg px-4 py-3">
 
 // ❌ Wrong — coloured background
-<div className="bg-info-light border-l-[3px] border-info rounded-lg px-4 py-3">
+<div className="bg-info-light border border-info rounded-lg px-4 py-3">
 ```
 
 ### Evaluative Colour Thresholds (v4 §11.6)
