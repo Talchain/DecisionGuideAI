@@ -8,6 +8,19 @@
  * is CLIENT-SIDE over cached runs only — the copy says so; an engine-backed
  * run delta is a later contract.
  *
+ * F2 CHANGE B (2026-07-22) — AUGMENT, not replace. Ruled decision: the canvas
+ * pulse STAYS (it answers the STRUCTURAL graph-diff question, device-local),
+ * AND the click ADDITIONALLY dispatches a real CEE turn (which answers the
+ * OUTCOME-delta question — the run-over-run comparison, server-side). The two
+ * answer different questions, so both fire. The CEE send goes through the
+ * EXISTING chip dispatch mechanism (dispatchAction → buildChipMeta →
+ * buildV5Payload); it carries message "What changed since the last run?" and
+ * chip.action_type 'what_changed', and the send gate promotes source to
+ * 'chip_click' (buildPayload.ts hasBoundAction) — the payload is never
+ * hand-built here. FAIL-SAFE: when no conversation hook is in scope
+ * (useOptionalConversationContext() === null), the send is simply skipped and
+ * the chip degrades to today's pulse-only behaviour — never a broken chip.
+ *
  * Click pulses the added+modified elements via pulseAppliedTargets (same
  * 2s ring as applied AI edits). Removed elements no longer exist on the
  * canvas and are excluded — the pulse util would filter them fail-closed
@@ -25,6 +38,14 @@ import { pulseAppliedTargets } from '../utils/appliedEditPulse'
 import type { Node, Edge } from '@xyflow/react'
 import { GitCompareArrows } from 'lucide-react'
 import { typography } from '../../styles/typography'
+import { useOptionalConversationContext } from '../conversation/ConversationContext'
+import { WHAT_CHANGED_CHIP_MESSAGE } from './whatChangedChipMessage'
+
+// Re-exported for callers/tests already importing it from the component. The
+// canonical source is the zero-import leaf module ./whatChangedChipMessage,
+// so the narrow-gate wire spec can assert it without pulling this component's
+// transitive hook graph into the typecheck.
+export { WHAT_CHANGED_CHIP_MESSAGE }
 
 interface GraphDiff {
   nodes: { added: string[]; removed: string[]; modified: string[] }
@@ -99,6 +120,11 @@ export function WhatChangedChip() {
   const version = useSyncExternalStore(subscribeToRuns, getRunsVersion)
   // eslint-disable-next-line react-hooks/exhaustive-deps -- version is the cache key for the localStorage read
   const runs = useMemo(() => loadRuns(), [version])
+  // FAIL-SAFE seam: optional context is null when this chip renders outside a
+  // <ConversationProvider> (no conversation hook) — the CEE send is then
+  // skipped and only the canvas pulse fires. Hook is read unconditionally
+  // (before the early returns below) to keep hook order stable.
+  const dispatchAction = useOptionalConversationContext()?.dispatchAction
   if (runs.length < 2) return null
 
   const [latest, previous] = runs // newest-first per loadRuns()'s sort
@@ -120,6 +146,7 @@ export function WhatChangedChip() {
   if (parts.length === 0) return null
 
   const handleClick = () => {
+    // (1) STRUCTURAL answer — the canvas pulse STAYS (F2 CHANGE B: augment).
     // F4 (graph-visuals): fit-before-pulse lives at the pulse choke point —
     // appliedEditPulse's flush fits every surviving target into view before
     // the ring fires, for EVERY feeder (applyPatch, applyV5State, this chip).
@@ -130,6 +157,25 @@ export function WhatChangedChip() {
       nodeIds: [...diff.nodes.added, ...diff.nodes.modified],
       edgeIds: [...diff.edges.added, ...diff.edges.modified],
     })
+
+    // (2) OUTCOME answer — ADDITIONALLY dispatch a real CEE turn through the
+    // existing chip dispatch mechanism (dispatchAction → buildChipMeta →
+    // buildV5Payload). The send gate promotes source to 'chip_click' because
+    // 'what_changed' now passes isSendableActionType; the payload is not built
+    // here. The answer renders in the conversation panel via the normal turn
+    // flow (no new render surface). FAIL-SAFE: when dispatchAction is absent
+    // (no conversation hook), the structural pulse above is the whole story.
+    if (dispatchAction) {
+      void dispatchAction({
+        action_type: 'what_changed',
+        label: WHAT_CHANGED_CHIP_MESSAGE,
+        message: WHAT_CHANGED_CHIP_MESSAGE,
+        source: 'chip',
+      }).catch(() => {
+        // The pulse has already fired; a failed CEE send must never break the
+        // chip. The conversation panel surfaces its own send-failure notice.
+      })
+    }
   }
 
   return (

@@ -46,6 +46,12 @@ export const V5_ENABLED_ACTIONS = new Set<string>([
   // not have its chip silently hidden.
   'explain_result',
   'what_would_flip',
+  // F2 CHANGE B (2026-07-22): the typed door for the "What changed?" pill.
+  // A CEE-emitted / product `what_changed` chip must render as an enabled,
+  // dispatchable action; without it the V5 filter below would HIDE it. Its
+  // wire counterpart is CEE_ACCEPTED_ACTION_TYPES in buildPayload.ts and CEE
+  // PR #620 (the accepting service half). See parallel-briefs/F2B-BYTE-CONFIRM.
+  'what_changed',
 ])
 
 // Chips whose action_type is in this set require analysis readiness

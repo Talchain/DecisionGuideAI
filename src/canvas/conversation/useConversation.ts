@@ -1527,6 +1527,11 @@ export const ACTION_TO_TURN_TYPE: Record<string, Exclude<TurnType, 'system_event
   explain_results: 'explain',
   compare_options: 'explain',
   what_would_flip: 'explain',
+  // F2 CHANGE B (2026-07-22): the "What changed?" pill is an analytical
+  // comparison — same explanation class as what_would_flip / compare_options,
+  // so it dispatches as an 'explain' turn (correct timeout class + local
+  // handling). The CEE answer is a direct_answer run-over-run delta.
+  what_changed: 'explain',
   challenge_assumption: 'conversation',
   set_factor_value: 'conversation',
   add_factor: 'conversation',
