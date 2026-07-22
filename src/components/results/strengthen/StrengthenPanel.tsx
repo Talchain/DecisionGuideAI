@@ -35,6 +35,17 @@ import {
 import { typography } from '../../../styles/typography'
 import { STRENGTHEN_COPY as COPY } from './strengthenCopy'
 import type { RecRecord } from '../../../canvas/stores/strengthenStore'
+import type { GuidanceCategory } from '../../../canvas/stores/guidanceStore'
+
+/** Stage 2 — severity badge treatment per producer `category`. Sensible
+ * visual hierarchy (danger → warning → info → muted); the badge itself is
+ * rendered ONLY when the producer sent a category (absent = no badge). */
+const SEVERITY_BADGE_CLASS: Record<GuidanceCategory, string> = {
+  must_fix: 'border-danger/40 text-danger',
+  should_fix: 'border-warning/40 text-warning',
+  could_fix: 'border-info/40 text-info',
+  technique: 'border-panel-border text-text-light',
+}
 
 export interface StrengthenPanelProps {
   active: RecRecord[]
@@ -125,6 +136,19 @@ function RecRow({
         <span className="min-w-0">
           <span className={`${typography.panelBody} block font-semibold text-text-header`}>
             {rec.title}
+            {/* Stage 2 — honest severity badge: rendered ONLY when the producer
+                categorised this finding (phase-3 recs). Absent category = no
+                badge (the PR-427 honest-absent posture); the UI's own triggers
+                are uncategorised and stay badge-free. */}
+            {rec.category && (
+              <span
+                data-testid="strengthen-rec-severity"
+                data-category={rec.category}
+                className={`${typography.panelMeta} ml-1.5 inline-flex items-center rounded-pill border bg-transparent px-1.5 font-normal align-middle ${SEVERITY_BADGE_CLASS[rec.category]}`}
+              >
+                {COPY.severityLabel[rec.category]}
+              </span>
+            )}
             {record.status === 'in_progress' && (
               <span
                 className={`${typography.panelMeta} ml-1.5 inline-flex items-center rounded-pill border border-info/30 bg-transparent px-1.5 font-normal text-text-body align-middle`}

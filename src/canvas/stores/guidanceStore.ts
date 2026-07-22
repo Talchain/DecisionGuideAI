@@ -46,6 +46,19 @@ export interface GuidanceItem {
   source: GuidanceSource
   title: string
   detail?: string
+  /**
+   * Producer `action_label` VERBATIM when supplied; absent otherwise. The CTA
+   * label the producer authored for this item — the UI renders it verbatim and
+   * never invents its own. V4-envelope guidance always carries it.
+   */
+  actionLabel?: string
+  /**
+   * Producer `signal` display line VERBATIM when supplied; absent otherwise.
+   * User-facing producer copy (distinct from `signal_code`, which is a data-*
+   * code and never rendered) — carried today only on the deterministic
+   * stale-rerun nudge. Rendered verbatim where present, never synthesised.
+   */
+  signal?: string
   primary_action: GuidanceAction
   target_object?: GuidanceTargetObject
   /**
@@ -62,10 +75,10 @@ export interface GuidanceItem {
    * COARSE 0-100 urgency, higher = more urgent (the producer's 0.19.0
    * `priority` verbatim when supplied — band-granular, ties normal — else
    * the UI's 50 fail-closed default). Budget/filter/style on it. It is NOT
-   * a display order: the contract says to order by `priorityRank` ascending.
-   * Every ordering consumer must go through `compareGuidanceDisplayOrder`
-   * below — never hand-roll a priority sort (that is how the UI-SEM-085
-   * `100 - rank` inversion happened).
+   * a display order: the display order is severity-major (`category`) then
+   * ascending `priorityRank` (Stage 2). Every ordering consumer must go
+   * through `compareGuidanceDisplayOrder` below — never hand-roll a priority
+   * sort (that is how the UI-SEM-085 `100 - rank` inversion happened).
    */
   priority: number
   /**
@@ -339,10 +352,35 @@ export function selectItemsForTarget(state: GuidanceState, targetId: string): Gu
 }
 
 /**
+ * Severity rank for the four-value producer `category` (Stage 2). Lower =
+ * shown first: must_fix, then should_fix, could_fix, technique. An ABSENT
+ * category sorts into ONE trailing bucket — the producer owns this field, so
+ * the UI never invents a severity for items it did not categorise; those keep
+ * their existing rank/urgency order among themselves.
+ */
+export function guidanceCategoryRank(cat: GuidanceItem['category']): number {
+  switch (cat) {
+    case 'must_fix': return 0
+    case 'should_fix': return 1
+    case 'could_fix': return 2
+    case 'technique': return 3
+    default: return 4 // absent — honest, never invented
+  }
+}
+
+/**
  * THE display-order doctrine for guidance items, in one place (0.19.0
- * contract; UI-SEM-085 narrowed). Producer-ranked items come first, in
- * ASCENDING `priorityRank` order (lower = shown first — verbatim wire
- * semantics, never inverted). Equal ranks are producer-order ties:
+ * contract; UI-SEM-085 narrowed; Stage 2 severity-major).
+ *
+ * PRIMARY: the producer's `category` severity (must_fix → should_fix →
+ * could_fix → technique). This is the user-facing hierarchy — a must_fix
+ * finding outranks a should_fix one whatever their ranks. Items the producer
+ * did not categorise fall into one trailing bucket (honest absence, never a
+ * synthesised severity).
+ *
+ * WITHIN a category (and among uncategorised items): producer-ranked items
+ * come first, in ASCENDING `priorityRank` order (lower = shown first — verbatim
+ * wire semantics, never inverted). Equal ranks are producer-order ties:
  * `Array.prototype.sort` is stable, so wire arrival order holds, which is
  * exactly what the contract prescribes. Unranked items follow, ordered by
  * descending coarse `priority` (the legacy urgency fallback — the contract
@@ -354,6 +392,8 @@ export function selectItemsForTarget(state: GuidanceState, targetId: string): Gu
  * collapsed.
  */
 export function compareGuidanceDisplayOrder(a: GuidanceItem, b: GuidanceItem): number {
+  const catDelta = guidanceCategoryRank(a.category) - guidanceCategoryRank(b.category)
+  if (catDelta !== 0) return catDelta
   const aRank = typeof a.priorityRank === 'number' ? a.priorityRank : undefined
   const bRank = typeof b.priorityRank === 'number' ? b.priorityRank : undefined
   if (aRank !== undefined && bRank !== undefined) return aRank - bRank
@@ -364,8 +404,9 @@ export function compareGuidanceDisplayOrder(a: GuidanceItem, b: GuidanceItem): n
 
 /**
  * Returns the single item the display-order doctrine puts FIRST (or null if
- * empty): lowest producer `priorityRank` when any item carries one, else the
- * highest coarse `priority`. Full ties keep the earliest-arrival item.
+ * empty): the highest-severity `category` (must_fix first), then the lowest
+ * producer `priorityRank`, then the highest coarse `priority`. Full ties keep
+ * the earliest-arrival item.
  */
 export function selectTopItem(state: GuidanceState): GuidanceItem | null {
   if (state.guidanceItems.length === 0) return null

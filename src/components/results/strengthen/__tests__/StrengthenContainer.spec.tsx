@@ -354,3 +354,16 @@ describe('StrengthenContainer — producer priority_rank rides through VERBATIM 
     ])
   })
 })
+
+describe('StrengthenContainer — guidance surface is absent before any analysis (standing rule)', () => {
+  it('with no completed analysis and no producer guidance, no phase-3 rows or severity badges surface', () => {
+    // Guidance blocks arrive with/after a run; pre-run the guidance store is
+    // empty (cleared in beforeEach), so no producer coaching promotes and the
+    // Stage 2 severity badge never appears. The MOUNT itself is separately
+    // gated `!isPreRun && resultsSectionData` in OutputsDock.
+    render(<StrengthenContainer data={makeData({ goalThreshold: 62, analysisStatus: 'unavailable' })} />)
+    const ids = selectActive(useStrengthenStore.getState()).map((r) => r.id)
+    expect(ids.some((id) => id.startsWith('strengthen:phase3:'))).toBe(false)
+    expect(screen.queryByTestId('strengthen-rec-severity')).toBeNull()
+  })
+})

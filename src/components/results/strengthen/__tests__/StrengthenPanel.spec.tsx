@@ -331,3 +331,35 @@ describe('StrengthenPanel — §8.9 history', () => {
     expect(container.textContent).not.toMatch(/\d+\s*%|\d+\s*\/\s*\d+ complete/i)
   })
 })
+
+describe('StrengthenPanel — Stage 2 honest severity badge from producer category', () => {
+  it('renders a severity badge for a categorised rec (sentence-case label + data-category)', () => {
+    render(<StrengthenPanel {...baseProps} active={[record('mf', {}, { category: 'must_fix' })]} />)
+    const badge = screen.getByTestId('strengthen-rec-severity')
+    expect(badge).toHaveTextContent('Must fix')
+    expect(badge).toHaveAttribute('data-category', 'must_fix')
+  })
+
+  it('uses the right sentence-case label for each canonical category', () => {
+    const cases = [
+      ['must_fix', 'Must fix'],
+      ['should_fix', 'Should fix'],
+      ['could_fix', 'Could fix'],
+      ['technique', 'Technique'],
+    ] as const
+    for (const [category, label] of cases) {
+      const { unmount } = render(
+        <StrengthenPanel {...baseProps} active={[record('x', {}, { category })]} />,
+      )
+      const badge = screen.getByTestId('strengthen-rec-severity')
+      expect(badge).toHaveTextContent(label)
+      expect(badge).toHaveAttribute('data-category', category)
+      unmount()
+    }
+  })
+
+  it('renders NO badge when the producer sent no category (keeps the PR-427 honest-absent posture)', () => {
+    render(<StrengthenPanel {...baseProps} active={[record('none')]} />)
+    expect(screen.queryByTestId('strengthen-rec-severity')).toBeNull()
+  })
+})

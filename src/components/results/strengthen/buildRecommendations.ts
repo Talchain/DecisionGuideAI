@@ -25,18 +25,23 @@
  * priority (inputs.adaptivePriority), matching-helpType recs float above
  * the rest while preserving relative order within each group.
  */
-import type { GuidanceItem } from '../../../canvas/stores/guidanceStore'
+import { guidanceCategoryRank, type GuidanceItem } from '../../../canvas/stores/guidanceStore'
 import type { Recommendation, StrengthenInputs, StrengthenPhase3Item } from './strengthenTypes'
 
 /**
  * GuidanceItem → StrengthenPhase3Item, the ONE store→engine mapping
- * (UI-SEM-085 narrowed). `priorityRank` rides through VERBATIM — ascending,
- * lower = first, unbounded, presence = producer-ranked. Nothing is inverted
- * and nothing is defaulted here: the historic `100 - priority` re-inversion
- * at this seam is what collapsed the coaching band (every rank >= 100 had
- * already clamped to priority 0 upstream, so 101 and 201 became one tie
- * broken by wire array order). Exported so specs can pin the live seam
- * instead of re-implementing it.
+ * (UI-SEM-085 narrowed; Stage 2). `priorityRank` rides through VERBATIM —
+ * ascending, lower = first, unbounded, presence = producer-ranked. Nothing is
+ * inverted and nothing is defaulted here: the historic `100 - priority`
+ * re-inversion at this seam is what collapsed the coaching band (every rank
+ * >= 100 had already clamped to priority 0 upstream, so 101 and 201 became one
+ * tie broken by wire array order).
+ *
+ * Stage 2: `category`, `actionLabel` and `signal` now ride through VERBATIM
+ * too. Stage 1 hardcoded `actionLabel: undefined` here, silently dropping the
+ * producer's CTA label for every phase-3 row; `category` and `signal` were
+ * never carried. Exported so specs can pin the live seam instead of
+ * re-implementing it.
  */
 export function toStrengthenPhase3Item(item: GuidanceItem): StrengthenPhase3Item {
   return {
@@ -44,7 +49,9 @@ export function toStrengthenPhase3Item(item: GuidanceItem): StrengthenPhase3Item
     title: item.title,
     body: item.detail,
     actionIntent: item.primary_action.type === 'discuss' ? 'discuss' : item.primary_action.type,
-    actionLabel: undefined,
+    actionLabel: item.actionLabel,
+    ...(item.category ? { category: item.category } : {}),
+    ...(item.signal ? { signal: item.signal } : {}),
     targetIds: item.target_object?.id ? [item.target_object.id] : [],
     ...(typeof item.priorityRank === 'number' ? { priorityRank: item.priorityRank } : {}),
   }
@@ -170,9 +177,22 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   const seenPhase3Keys = new Set<string>()
   const promotedPhase3 = [...inputs.phase3Items]
     .sort((a, b) => {
+      // Stage 2 — SEVERITY-major: the producer's `category` is the primary
+      // display order (must_fix → should_fix → could_fix → technique). It is
+      // the user-facing hierarchy, so a must_fix finding outranks a should_fix
+      // one whatever their ranks. Items the producer did NOT categorise fall
+      // into one trailing bucket (honest absence — never a synthesised
+      // severity), preserving their existing ranked/arrival order among
+      // themselves (guidanceRankHonesty pins that category-less rows are never
+      // silently reordered).
+      const catDelta = guidanceCategoryRank(a.category) - guidanceCategoryRank(b.category)
+      if (catDelta !== 0) return catDelta
+      // Within a category: producer-ranked before unranked (UI-SEM-085 — rank
+      // PRESENCE is the "producer ordered this" fact; the ranked/unranked band
+      // split below then keeps unranked rows demoted + disclosed).
       const rankedDelta = Number(isProducerRanked(b)) - Number(isProducerRanked(a))
       if (rankedDelta !== 0) return rankedDelta
-      // Ascending producer rank — lower = first, verbatim wire semantics
+      // Then ascending producer rank — lower = first, verbatim wire semantics
       // (unbounded; the bands are disjoint numeric ranges, so plain numeric
       // order respects them — no cross-band re-ranking). Equal ranks are
       // producer-order ties: sort() is stable, arrival order holds, which is
@@ -205,7 +225,11 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       //   degraded every phase-3 drawer ask to boilerplate (round 2).
       // Boilerplate is the no-body fallback only. The PANEL dedupes display:
       // an open row renders the body once, in full, never clamp + full copy.
-      signal: item.body ?? 'Olumi flagged this while reviewing your model.',
+      // Stage 2: a producer `signal` display line (carried today only on the
+      // deterministic stale-rerun nudge) is preferred VERBATIM over the body —
+      // it is the producer's own subtitle. Body is the fallback; boilerplate
+      // the no-copy floor.
+      signal: item.signal ?? item.body ?? 'Olumi flagged this while reviewing your model.',
       whyNow: item.body ?? 'Resolving it improves what the analysis can tell you.',
       tryThis: item.actionLabel ?? 'Work through it with Olumi.',
       // UI-SEM-085: the label IS the band marker — an unranked row states that
@@ -229,6 +253,10 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       priority:
         (isProducerRanked(item) ? PRIORITY.phase3Base : PRIORITY.phase3Unranked) +
         promotedIndex++,
+      // Stage 2: the producer's severity, VERBATIM — drives the row badge.
+      // Only phase-3 recs carry it (the UI's own triggers are uncategorised,
+      // so they show no badge — honest absence).
+      ...(item.category ? { category: item.category } : {}),
     })
   }
 
