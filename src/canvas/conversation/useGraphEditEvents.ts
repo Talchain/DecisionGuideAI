@@ -266,15 +266,27 @@ export function useGraphEditEvents(
           if (fields.size > 0) fieldsChangedMap[id] = [...fields].sort()
         }
 
-        sendSystemEvent({
-          type: 'direct_graph_edit',
-          payload: {
-            changed_node_ids: changedNodeIds,
-            changed_edge_ids: changedEdgeIds,
-            operations,
-            fields_changed: fieldsChangedMap,
-            summary: buildSummary(batchAcc),
-          },
+        // Best-effort background sync: sendSystemEvent now REJECTS on a failed
+        // POST (SystemEventSendError). This debounced edit-mirror has no
+        // user-facing surface, so consume the rejection here to avoid an
+        // unhandled promise rejection — same best-effort `.catch()` pattern as
+        // the sibling appendEvent calls below. Promise.resolve() coerces the
+        // injected dispatcher's return so a non-thenable stub can't throw here.
+        void Promise.resolve(
+          sendSystemEvent({
+            type: 'direct_graph_edit',
+            payload: {
+              changed_node_ids: changedNodeIds,
+              changed_edge_ids: changedEdgeIds,
+              operations,
+              fields_changed: fieldsChangedMap,
+              summary: buildSummary(batchAcc),
+            },
+          }),
+        ).catch((err) => {
+          if (import.meta.env.DEV) {
+            console.warn('[useGraphEditEvents] direct_graph_edit sync failed (best-effort):', err)
+          }
         })
 
         // Emit direct_edit scenario events with target_label (Journey tab data).

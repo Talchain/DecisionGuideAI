@@ -1601,6 +1601,50 @@ export interface SendFailureNotice {
   inputText: string
 }
 
+/**
+ * SystemEventSendError — the rejection `sendTurn` raises when a SYSTEM-mode
+ * turn (feedback / patch_accepted / patch_dismissed / direct_graph_edit) fails
+ * to reach or complete at the server: a network reject, a 4xx/5xx, a parse
+ * failure, or a thrown dispatch error.
+ *
+ * CONTRACT — system-event send-failure propagation (why this exists):
+ *   System turns have NO transcript surface of their own. They never render a
+ *   user bubble, and (post-fix) they never render a synthetic assistant error
+ *   bubble either — an out-of-context "Something went wrong" in the chat for a
+ *   background feedback/patch/graph-edit turn is noise, and it matches V4's
+ *   established "system failures are silent in the transcript" behaviour. The
+ *   ONLY honest way for such a failure to surface is for its dispatcher to
+ *   react. So `sendSystemEvent` (which `await`s `sendTurn` in system mode)
+ *   rejects with this error, letting each caller reach for its OWN existing
+ *   affordance:
+ *     • FeedbackRow        → revert the optimistic thumbs vote (its `catch`)
+ *     • handlePatchAccept  → the existing NETWORK_ERROR retry card
+ *     • background dispatchers (graph-edit / patch_dismissed) → best-effort log
+ *
+ *   Rethrow (not a returned result) is deliberate: PR #435's FeedbackRow does
+ *   `try { await onFeedback() } catch { revert }`, and `handleFeedback` returns
+ *   the `sendSystemEvent` promise unchanged — a rejection is what reverts the
+ *   vote with ZERO churn to that just-landed code. A resolved `{ ok: false }`
+ *   would silently pass FeedbackRow's `catch`.
+ *
+ *   USER-mode turns NEVER throw: they keep rendering their in-transcript
+ *   synthetic bubble + `setLastSendFailure` exactly as before. This asymmetry
+ *   is the whole point and is pinned by regression tests.
+ */
+export class SystemEventSendError extends Error {
+  /** 'transport': nothing reached the server (network / proxy timeout).
+   *  'server':    the server received the turn and failed it (typed error). */
+  readonly kind: 'transport' | 'server'
+  constructor(kind: 'transport' | 'server', options?: { cause?: unknown }) {
+    super(`System event send failed (${kind})`)
+    this.name = 'SystemEventSendError'
+    this.kind = kind
+    if (options?.cause !== undefined) {
+      ;(this as Error & { cause?: unknown }).cause = options.cause
+    }
+  }
+}
+
 export interface UseConversationReturn {
   messages: ConversationMessage[]
   isThinking: boolean
@@ -3280,6 +3324,14 @@ export function useConversation(): UseConversationReturn {
           setLongRunningHint(null)
         }
 
+        // System-event send-failure carrier. Populated ONLY on a system-mode
+        // failure (typed error / thrown dispatch), then rethrown AFTER the
+        // `finally` settles lifecycle state so `sendSystemEvent` — and through
+        // it FeedbackRow / handlePatchAccept / the graph-edit dispatcher — can
+        // react. See the SystemEventSendError contract above. Never set for
+        // user-mode turns, which surface in-transcript and return void.
+        let systemSendFailure: SystemEventSendError | null = null
+
         try {
           // Resolve session identity once — X-User-Id + Authorization Bearer
           // (login 3.4 UI half) and the post-response graph re-fetch auth
@@ -3758,20 +3810,33 @@ export function useConversation(): UseConversationReturn {
             const retryChips: ActionChip[] = retryable && mode === 'user' && !hidden
               ? [{ id: 'retry', label: 'Try again', intent: 'primary' }]
               : []
-            addMessage({
-              id: crypto.randomUUID(),
-              role: 'assistant',
-              synthetic: true,
-              content,
-              actionChips: retryChips,
-              timestamp: new Date(),
-            })
+            // System turns get NO transcript bubble — the failure propagates to
+            // the dispatcher instead (see SystemEventSendError). Gating here
+            // matches the empty/catch/timeout branches, which already user-gate
+            // their bubbles, and keeps V4 parity ("system failures are silent
+            // in the transcript"). User-mode rendering is unchanged.
+            if (mode === 'user') {
+              addMessage({
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                synthetic: true,
+                content,
+                actionChips: retryChips,
+                timestamp: new Date(),
+              })
+            }
             if (inputForRestore) {
               setLastSendFailure({
                 kind: transportFailure ? 'transport' : 'server',
                 retryable,
                 inputText: inputForRestore,
               })
+            } else if (mode === 'system') {
+              // inputForRestore is null for system turns; record the failure so
+              // it is rethrown after `finally` and the dispatcher can react.
+              systemSendFailure = new SystemEventSendError(
+                transportFailure ? 'transport' : 'server',
+              )
             }
           }
         } catch (err) {
@@ -3797,6 +3862,13 @@ export function useConversation(): UseConversationReturn {
               setLastSendFailure({ kind: 'transport', retryable: true, inputText: inputForRestore })
             }
           }
+          if (!isAbort && mode === 'system') {
+            // A system turn threw before/around the network (e.g. a fetch
+            // reject re-raised by callV5Turn, or an internal error). Propagate
+            // to the dispatcher — an aborted turn (user stop / timeout) is not
+            // a failure and is excluded above.
+            systemSendFailure = new SystemEventSendError('transport', { cause: err })
+          }
           if (import.meta.env.DEV && !isAbort) {
             console.warn('[sendTurn V5] Dispatch error:', err)
           }
@@ -3814,6 +3886,14 @@ export function useConversation(): UseConversationReturn {
             activeRunTurnIdRef.current = null
             useCanvasStore.getState().resultsSettle()
           }
+        }
+        // Rethrow a system-mode send failure AFTER `finally` has settled the
+        // lifecycle. This is the seam that makes silent system-event drops
+        // impossible: sendSystemEvent's `await` now rejects, so its callers
+        // react. The abort-discard `return` inside the try bypasses this (an
+        // aborted turn never sets systemSendFailure). User turns never set it.
+        if (systemSendFailure) {
+          throw systemSendFailure
         }
         return
       }

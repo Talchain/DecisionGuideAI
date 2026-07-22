@@ -166,9 +166,43 @@ export const ConversationPanel = memo(function ConversationPanel({
     [sendMessage],
   )
 
+  // Best-effort system-event dispatch: for background acks (patch_dismissed,
+  // and — via useGraphEditEvents — direct_graph_edit) whose failure has no
+  // user-facing surface. sendSystemEvent now REJECTS on a failed POST
+  // (SystemEventSendError), so we must consume the rejection here to avoid an
+  // unhandled promise rejection. Mirrors the existing best-effort `.catch()`
+  // pattern for background events; not a silent drop for the failures that DO
+  // own a surface (feedback → FeedbackRow revert, patch accept → NETWORK_ERROR).
+  const sendSystemEventBestEffort = useCallback(
+    (event: Parameters<typeof sendSystemEvent>[0]) => {
+      // Promise.resolve() coerces the return so a non-thenable stub can't throw.
+      void Promise.resolve(sendSystemEvent(event)).catch((err) => {
+        if (import.meta.env.DEV) {
+          console.warn('[ConversationPanel] Best-effort system event failed:', event.type, err)
+        }
+      })
+    },
+    [sendSystemEvent],
+  )
+
   // ── Patch handlers (unchanged from previous version) ──────────────────
   const handlePatchAccept = useCallback(
     async (stateKey: string, block: GraphPatchBlock) => {
+      // Notify CEE that the user accepted — AFTER the patch has been applied
+      // optimistically. sendSystemEvent now rejects on a failed POST, so surface
+      // that via the EXISTING NETWORK_ERROR retry affordance (block returns to
+      // 'proposed' so the "Try again" control renders) rather than dropping the
+      // failure silently. No new UI surface — same card as the validate-path
+      // catch below. The applied graph stays applied; retry re-confirms.
+      const notifyPatchAccepted = (payload: Record<string, unknown>) => {
+        void Promise.resolve(sendSystemEvent({ type: 'patch_accepted', payload })).catch(() => {
+          setPatchBlockState(stateKey, 'proposed')
+          setPatchRejection(stateKey, {
+            code: 'NETWORK_ERROR',
+            message: 'Failed to apply — try again',
+          })
+        })
+      }
       const chainId = beginInteractionChain({
         triggerSurface: 'proposal_accept',
         sourceSurface: 'ai_panel',
@@ -211,7 +245,7 @@ export const ConversationPanel = memo(function ConversationPanel({
             code: 'UNSUPPORTED_OPERATION',
             message: `Unsupported operation: ${unknownOps[0].op}`,
           })
-          sendSystemEvent({
+          sendSystemEventBestEffort({
             type: 'patch_dismissed',
             payload: { patch_id: block.patch_id, reason: 'unsupported_operation' },
           })
@@ -271,13 +305,10 @@ export const ConversationPanel = memo(function ConversationPanel({
               useGuidanceStore.getState().clearItemsByTargetIds(allIds)
             }
 
-            sendSystemEvent({
-              type: 'patch_accepted',
-              payload: {
-                patch_id: block.patch_id,
-                operations: block.operations,
-                applied_graph_hash: typeof result.graph_hash === 'string' ? result.graph_hash : undefined,
-              },
+            notifyPatchAccepted({
+              patch_id: block.patch_id,
+              operations: block.operations,
+              applied_graph_hash: typeof result.graph_hash === 'string' ? result.graph_hash : undefined,
             })
 
             // Track 2: persist block state change
@@ -293,7 +324,7 @@ export const ConversationPanel = memo(function ConversationPanel({
               message: result.message ?? 'Patch validation failed',
               violations,
             })
-            sendSystemEvent({
+            sendSystemEventBestEffort({
               type: 'patch_dismissed',
               payload: { patch_id: block.patch_id, reason: 'validation_failed' },
             })
@@ -332,13 +363,10 @@ export const ConversationPanel = memo(function ConversationPanel({
             useGuidanceStore.getState().clearItemsByTargetIds(ids)
           }
 
-          sendSystemEvent({
-            type: 'patch_accepted',
-            payload: {
-              patch_id: block.patch_id,
-              operations: block.operations,
-              applied_graph_hash: undefined,
-            },
+          notifyPatchAccepted({
+            patch_id: block.patch_id,
+            operations: block.operations,
+            applied_graph_hash: undefined,
           })
 
           // Track 2: persist block state change
@@ -352,7 +380,7 @@ export const ConversationPanel = memo(function ConversationPanel({
         })
       }
     },
-    [setPatchBlockState, setPatchRejection, sendSystemEvent, onBlockAction],
+    [setPatchBlockState, setPatchRejection, sendSystemEvent, sendSystemEventBestEffort, onBlockAction],
   )
 
   const handlePatchDismiss = useCallback(
@@ -370,7 +398,7 @@ export const ConversationPanel = memo(function ConversationPanel({
       setPatchBlockState(stateKey, 'dismissed')
       const message = messages.find((candidate) => candidate.id && stateKey.startsWith(`${candidate.id}:`))
       const patchId = message?.id ? stateKey.slice(message.id.length + 1) : stateKey
-      sendSystemEvent({
+      sendSystemEventBestEffort({
         type: 'patch_dismissed',
         payload: { patch_id: patchId },
       })
@@ -379,7 +407,7 @@ export const ConversationPanel = memo(function ConversationPanel({
       const turnId = extractTurnIdFromStateKey(stateKey, patchId)
       void onBlockAction(turnId, patchId, 'dismissed', `Dismissed suggestion`)
     },
-    [messages.length, setPatchBlockState, sendSystemEvent, onBlockAction],
+    [messages.length, setPatchBlockState, sendSystemEventBestEffort, onBlockAction],
   )
 
   const handleFeedback = useCallback(
