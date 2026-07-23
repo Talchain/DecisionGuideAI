@@ -3394,6 +3394,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Reseed IDs to avoid conflicts
     get().reseedIds(nodes, edges)
 
+    // Re-derive the goal/outcome selection AND the goal-threshold scalar from the
+    // restored graph's own goal node (both computed once). outcomeNodeId is never
+    // persisted; the threshold rides the node's success_threshold
+    // (threshold_source==='user') and must follow it across a refresh, or the V7
+    // goal lens gates 'no_target' post-reload (mirror of the hydrateGraphSlice
+    // fix, live defect 2026-07-23). Returns {null,null} when the goal node carries
+    // no user target — leaving the CEE bare-sync below free to repopulate.
+    const restoredGoalId = firstGoalNodeId(nodes)
+    const restoredGoalThreshold = deriveGoalThresholdFromNode(nodes, restoredGoalId)
+
     // A.7: Suppress direct_graph_edit events during scenario hydration
     set((s) => ({ _externalMutationActive: s._externalMutationActive + 1 }))
     try {
@@ -3431,16 +3441,17 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       draftComposerText: null,
       // Lane 1b/5 review folds: the goal threshold is per-decision — the
       // previous scenario's target must not ride this scenario's runs (the V2
-      // boundary reads it every run; canonical V5 runs default-attach it). The
-      // CEE-sync (bare goal_threshold on analysis_ready ingestion) or a fresh
-      // user commit repopulates the threshold for THIS scenario.
-      goalThreshold: null,
-      goalThresholdRepresentation: null,
+      // boundary reads it every run; canonical V5 runs default-attach it). It is
+      // re-derived (not cleared) from THIS scenario's own goal node below, so a
+      // user's success target survives a refresh; a target-less goal yields
+      // {null,null} and the CEE-sync (bare goal_threshold on analysis_ready
+      // ingestion) or a fresh user commit repopulates it as before.
+      ...restoredGoalThreshold,
       // loadScenario restores ceeAnalysisReady below, but outcomeNodeId is
       // NEITHER persisted NOR restored (review fold: the earlier comment was
       // wrong) — re-derive it to the LOADED graph's goal node so a stale id
       // from the previous scenario cannot collide with a same-id node here.
-      outcomeNodeId: firstGoalNodeId(nodes),
+      outcomeNodeId: restoredGoalId,
     })
 
     // Exit comparison mode when switching scenarios (lives in useComparisonStore as of C3-3)
@@ -4850,6 +4861,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // empties the goal selector, nor left stale).
       Object.assign(updates, DECISION_CONTEXT_CLEAR)
       updates.outcomeNodeId = firstGoalNodeId(loaded.nodes)
+      // Re-derive the goal-threshold scalar from the RESTORED goal node so a
+      // user success target survives a refresh. The node's success_threshold
+      // (threshold_source==='user') rides nodes[] and is the durable source of
+      // truth; the scalar is a derived cache. DECISION_CONTEXT_CLEAR above nulled
+      // it — without this re-derive the guest autosave restore path left it null
+      // and the V7 goal lens gated 'no_target' though the node carried a target
+      // (live defect, 2026-07-23). Same helper as undo/redo/delete/reselect;
+      // returns {null,null} when the goal node carries no user target.
+      Object.assign(updates, deriveGoalThresholdFromNode(loaded.nodes, updates.outcomeNodeId))
       // B3: assign the LOADED constraints or null — never leave the previous
       // scenario's in place. DECISION_CONTEXT_CLEAR above already nulled the
       // field; this line is what makes a cold load RESTORE it. The `?? null`

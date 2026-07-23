@@ -214,6 +214,51 @@ describe('useAutosave — value-bearing data changes must flip the dirty hash', 
     expect(savedEdge?.data?.direction).toBe('negative')
   })
 
+  it('saves again after a success-target set (setGoalThresholdAndUpdateNode path)', () => {
+    renderHook(() => useAutosave())
+
+    // Baseline save with no target.
+    advanceOneAutosaveCycle()
+    expect(mockSaveAutosave).toHaveBeenCalledTimes(1)
+
+    // The exact node write GoalThresholdEditor → setGoalThresholdAndUpdateNode
+    // performs when the user sets a success target (no unit): success_threshold +
+    // threshold_source='user' on the goal node. Position, label, kind, id and
+    // goal_threshold_unit all stay identical — none of the fields the legacy hash
+    // covered.
+    act(() => {
+      const s = useCanvasStore.getState()
+      useCanvasStore.setState({
+        nodes: s.nodes.map((n: any) =>
+          n.id === 'goal-1'
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  success_threshold: 20,
+                  threshold_source: 'user',
+                  threshold_confirmed: false,
+                },
+              }
+            : n,
+        ) as any,
+      })
+    })
+
+    advanceOneAutosaveCycle()
+
+    // RED before the fix: the hash ignored success_threshold/threshold_source, the
+    // save was skipped, and localStorage never received the target — on reload the
+    // goal node carries no threshold (live defect, 2026-07-23).
+    expect(mockSaveAutosave).toHaveBeenCalledTimes(2)
+    const lastCall = mockSaveAutosave.mock.calls.at(-1)?.[0] as {
+      nodes: Array<{ id: string; data?: { success_threshold?: number; threshold_source?: string } }>
+    }
+    const savedGoal = lastCall.nodes.find((n) => n.id === 'goal-1')
+    expect(savedGoal?.data?.success_threshold).toBe(20)
+    expect(savedGoal?.data?.threshold_source).toBe('user')
+  })
+
   it('does NOT re-save when nothing changed (dirty-hash guard intact)', () => {
     renderHook(() => useAutosave())
 

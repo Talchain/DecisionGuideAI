@@ -56,6 +56,13 @@ function computeGraphHash(nodes: any[], edges: any[]): string {
         gtRaw: n.data?.goal_threshold_raw ?? null,
         gtUnit: n.data?.goal_threshold_unit ?? null,
         gtCap: n.data?.goal_threshold_cap ?? null,
+        // The user's own success target (setGoalThresholdAndUpdateNode writes
+        // success_threshold + threshold_source='user'). GoalThresholdEditor passes
+        // no unit, so a target-set changes NONE of the fields above — without
+        // these two the dirty hash never flipped, the autosave was skipped, and
+        // the target never reached localStorage (lost on reload, 2026-07-23).
+        st: n.data?.success_threshold ?? null,
+        ts: n.data?.threshold_source ?? null,
       }))
       .sort((a, b) => a.id.localeCompare(b.id)),
     edges: edges
