@@ -21,77 +21,111 @@ import { useCanvasStore } from '../store'
 import { saveAutosave, loadAutosave } from '../store/scenarios'
 import { projectAutosaveData } from '../store/autosaveProjection'
 import type { AutosaveProjectionSource } from '../store/autosaveProjection'
-import { PERSIST_NODE_FIELDS, PERSIST_EDGE_FIELDS } from '../domain/analyticalNodeFields'
+import { EPHEMERAL_NODE_FIELDS, EPHEMERAL_EDGE_FIELDS } from '../domain/analyticalNodeFields'
+
+// The autosave hash now covers node/edge `data.*` BY DEFAULT (Codex P1-1) and
+// EXCLUDES only the small ephemeral denylist below (transient UI/session state +
+// derived caches re-computed on restore). Sets for O(1) membership.
+const EPHEMERAL_NODE_SET: ReadonlySet<string> = new Set(EPHEMERAL_NODE_FIELDS)
+const EPHEMERAL_EDGE_SET: ReadonlySet<string> = new Set(EPHEMERAL_EDGE_FIELDS)
+
+/**
+ * Deterministic JSON with object keys sorted at every depth. Key-order-insensitive
+ * so re-serialising the same content in a different insertion order (a field
+ * deleted+re-added, a re-normalised object) produces the SAME hash and never
+ * fabricates a spurious save. Used only for the in-memory dirty comparison.
+ */
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null'
+  if (Array.isArray(value)) return '[' + value.map(stableStringify).join(',') + ']'
+  const obj = value as Record<string, unknown>
+  return (
+    '{' +
+    Object.keys(obj)
+      .sort()
+      .map((k) => JSON.stringify(k) + ':' + stableStringify(obj[k]))
+      .join(',') +
+    '}'
+  )
+}
+
+/** Copy `data` minus the ephemeral denylist keys (shallow — denylist is top-level). */
+function serializableData(
+  data: Record<string, unknown>,
+  ephemeral: ReadonlySet<string>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const key of Object.keys(data)) {
+    if (ephemeral.has(key)) continue
+    out[key] = data[key]
+  }
+  return out
+}
 
 const AUTOSAVE_INTERVAL_MS = 30 * 1000 // 30 seconds
 const DEBOUNCE_MS = 500 // Debounce writes to reduce localStorage contention
 
 /**
- * P1 Fix: Compute a canonical hash of graph state for dirty detection.
- * Includes node kind, label, position and edge source/target/weight.
- * Sorted to ensure consistent ordering.
+ * Compute a canonical hash of graph state for autosave dirty-detection.
  *
- * Lane A fix (edit-journey display closure, 2026-07-11): the hash must also
- * cover VALUE-BEARING data. Conversational edits (V5 graph_patch
- * set_factor_value → node.data.observedState merge; adjust_edge_strength →
- * edge.data weight/direction write; intervention / goal-threshold backfill)
- * change none of id/kind/label/position or edge endpoints, so the legacy
- * hash never flipped, the autosave skipped, and localStorage kept the
- * PRE-EDIT values — on reload the recovery path could hydrate the stale
- * graph while the server copy was correct (the "reload visual revert").
- * Extra fields here can only cause an extra save, never a missed one.
+ * HASH-BY-DEFAULT with an ephemeral denylist (Codex P1-1). The hash covers the
+ * structural signals (id / kind via RF `type` / label / position; edge endpoints
+ * + the legacy `confidence ?? weight` composite) PLUS every `data.*` field EXCEPT
+ * the small ephemeral denylist (EPHEMERAL_NODE_FIELDS / EPHEMERAL_EDGE_FIELDS from
+ * the analyticalNodeFields registry).
  *
- * The value-bearing `data.*` fields covered here now DERIVE from the single
- * analyticalNodeFields registry (PERSIST_NODE_FIELDS / PERSIST_EDGE_FIELDS) — the
- * same source the analysis-staleness gate derives from. This closes the drift that
- * caused #457 (success_threshold/threshold_source missing here) and is verified by
- * analyticalNodeFields.registry.spec.ts. Structural signals (id / kind via RF type
- * / label / position; edge endpoints + the legacy confidence??weight composite)
- * stay inline — the registry enumerates value-bearing data fields only. The hash is
- * compared only against itself in-memory (lastSavedHashRef), so the object key names
- * are immaterial; only the SET of fields covered affects dirty-detection.
+ * WHY inverted from an allowlist (adjudicated, do not re-litigate): the previous
+ * version hashed only a hand-curated PERSIST allowlist, so user-editable fields
+ * never on it (`description`, `category`, `extractionType`, `factor_type`,
+ * `state_space`, `uncertainty_drivers`) never flipped the dirty hash → the 30s
+ * autosave skipped → the edit was lost on reload. That is the #457 loss class, one
+ * allowlist-omission at a time. Hashing by default makes the safe direction the
+ * default: a new field that is NOT denylisted merely causes an extra (debounced)
+ * save — harmless; a user-editable field can no longer be silently dropped by
+ * omission. The denylist only excludes transient UI/session state and derived
+ * caches re-computed on restore, so it cannot churn per-render (the debounce
+ * further bounds writes).
  *
- * Exported for the drift guard's behavioural cross-check (registry persist fields
- * must each flip this hash).
+ * `data.*` is serialised with STABLE KEY ORDER at every depth (stableStringify),
+ * so a re-normalised object with identical content does not fabricate a save. The
+ * hash is compared only against itself in-memory (lastSavedHashRef), so object key
+ * names are immaterial; only the SET of fields and their VALUES matter.
+ *
+ * Exported for the drift guard's behavioural cross-check: an ephemeral field must
+ * NOT flip this hash; any non-ephemeral data field MUST.
  */
 export function computeGraphHash(nodes: any[], edges: any[]): string {
   const canonical = {
     nodes: nodes
       .map(n => {
         const data = (n.data ?? {}) as Record<string, unknown>
-        const analytical: Record<string, unknown> = {}
-        // Value-bearing node data — derived from the persist registry subset.
-        for (const field of PERSIST_NODE_FIELDS) analytical[field] = data[field] ?? null
         return {
           id: n.id,
           kind: n.type ?? n.data?.kind,
           label: n.data?.label ?? '',
           x: Math.round(n.position?.x ?? 0),
           y: Math.round(n.position?.y ?? 0),
-          ...analytical,
+          // All node data by default, minus the ephemeral denylist.
+          data: serializableData(data, EPHEMERAL_NODE_SET),
         }
       })
       .sort((a, b) => a.id.localeCompare(b.id)),
     edges: edges
       .map(e => {
         const data = (e.data ?? {}) as Record<string, unknown>
-        const analytical: Record<string, unknown> = {}
-        // Value-bearing edge data — adjust_edge_strength writes these via
-        // updateEdgeData without touching the endpoints. Derived from the persist
-        // registry subset.
-        for (const field of PERSIST_EDGE_FIELDS) analytical[field] = data[field] ?? null
         return {
           from: e.source,
           to: e.target,
-          // Legacy composite (redundant with weight/confidence above, kept to
-          // preserve the exact dirty-detection behaviour).
+          // Legacy composite kept inline to preserve exact dirty-detection for the
+          // old callers; redundant with `data.confidence`/`data.weight` below.
           weight: e.data?.confidence ?? e.data?.weight ?? '',
-          ...analytical,
+          // All edge data by default, minus the ephemeral denylist (empty today).
+          data: serializableData(data, EPHEMERAL_EDGE_SET),
         }
       })
       .sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to)),
   }
-  return JSON.stringify(canonical)
+  return stableStringify(canonical)
 }
 
 export function useAutosave() {

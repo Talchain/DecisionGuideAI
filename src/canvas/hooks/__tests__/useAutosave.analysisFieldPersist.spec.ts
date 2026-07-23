@@ -12,20 +12,19 @@
  *   • impact      — RiskPanel → setImpact      → updateNode(data.impact)
  *   • prior       — FactorExternalPanel → setPriorRange → updateNode(data.prior)
  *
- * Task #23 flips them INTO the persist subset. These are the RED-first round-trip
- * pins, one per field: edit ONLY that field through the real store edit seam
- * (updateNode, the chokepoint every panel setter routes through) →
+ * These are the round-trip pins, one per field: edit ONLY that field through the
+ * real store edit seam (updateNode, the chokepoint every panel setter routes
+ * through) →
  *   (1) computeGraphHash flips,
  *   (2) the next autosave interval FIRES saveAutosave (spy) and the serialized
  *       node carries the new value,
  *   (3) a real saveAutosave → loadAutosave round-trip hydrates it back.
  *
- * RED before the flip: PERSIST_NODE_FIELDS excludes these fields, so
- * computeGraphHash ignores them, the save is skipped, and (1)/(2) fail.
- *
- * Mutation-check: un-flip any one field in the registry (and its EXPECTED_PERSIST_NODE
- * mirror) → EXACTLY that field's pins here go RED; the #461 drift guard stays green
- * (its consumer-tie derives from the registry). See analyticalNodeFields.registry.spec.ts.
+ * Codex P1-1 note: the dirty-gate is now hash-by-default with an ephemeral
+ * denylist, so these analysis-affecting fields are persisted automatically. The
+ * historical defect these pins guard against was the OLD persist-allowlist
+ * excluding them; the discriminator control below edits an EPHEMERAL field and
+ * asserts NO save, so the pins are not passing because "any edit saves".
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -147,8 +146,9 @@ describe('task #23 — analysis-affecting node fields survive reload (persist ro
           [{ id: 'n1', type: c.nodeId === RISK_ID ? 'risk' : 'factor', position: { x: 0, y: 0 }, data: { [c.field]: c.value } }],
           [],
         )
-        // RED before the flip: PERSIST_NODE_FIELDS excludes this field, so the
-        // hash object omits it and the two hashes are identical.
+        // These fields are analysis-affecting AND now persisted by hash-by-default
+        // (Codex P1-1); under the old persist-allowlist they were excluded and the
+        // two hashes were identical (the #457 loss class).
         expect(after, `${c.field} does not flip computeGraphHash`).not.toBe(before)
       })
 
@@ -162,8 +162,8 @@ describe('task #23 — analysis-affecting node fields survive reload (persist ro
         editOnlyField(c.nodeId, c.field, c.value)
         advanceOneAutosaveCycle()
 
-        // RED before the flip: the hash ignores this field, the save is skipped,
-        // and localStorage keeps the pre-edit value (the reload revert).
+        // The hash now covers this field, so the edit triggers a re-save; before
+        // the fix the save was skipped and localStorage kept the pre-edit value.
         expect(mockSaveAutosave, `${c.field}-only edit did not trigger a re-save`).toHaveBeenCalledTimes(2)
 
         const saved = mockSaveAutosave.mock.calls.at(-1)?.[0] as AutosaveData
@@ -192,15 +192,33 @@ describe('task #23 — analysis-affecting node fields survive reload (persist ro
     })
   }
 
-  it('control: a cosmetic-only node edit still does NOT re-save (dirty-hash guard intact)', () => {
+  it('FLIPPED DEFECT PIN (Codex P1-1): a description-only edit now DOES re-save', () => {
+    // This test previously pinned the DEFECT — it asserted a `description` edit did
+    // NOT re-save (description was excluded from the old PERSIST_NODE_FIELDS
+    // allowlist), so a user's description edit was silently lost on reload. Under
+    // hash-by-default `description` is persisted, so the edit must now trigger a save.
     renderHook(() => useAutosave())
     advanceOneAutosaveCycle()
     expect(mockSaveAutosave).toHaveBeenCalledTimes(1)
 
-    // `description` is cosmetic — excluded from PERSIST_NODE_FIELDS. Proves the
-    // pins above discriminate (they are not passing because ANY edit saves).
     editOnlyField(RISK_ID, 'description', 'new copy')
     advanceOneAutosaveCycle()
+    expect(mockSaveAutosave, 'description edit did not persist — hash-by-default regressed').toHaveBeenCalledTimes(2)
+    const saved = mockSaveAutosave.mock.calls.at(-1)?.[0] as AutosaveData
+    expect((saved.nodes.find((n) => n.id === RISK_ID)?.data as any)?.description).toBe('new copy')
+  })
+
+  it('control: an EPHEMERAL-only node edit still does NOT re-save (denylist discriminates)', () => {
+    // The new discriminator under hash-by-default: an edit touching ONLY a
+    // denylisted ephemeral field (goal_threshold — a derived cache re-computed on
+    // restore) must NOT trigger a save. Proves the pins above are not passing
+    // vacuously because "any edit saves".
+    renderHook(() => useAutosave())
+    advanceOneAutosaveCycle()
     expect(mockSaveAutosave).toHaveBeenCalledTimes(1)
+
+    editOnlyField(RISK_ID, 'goal_threshold', 0.42)
+    advanceOneAutosaveCycle()
+    expect(mockSaveAutosave, 'ephemeral goal_threshold edit wrongly triggered a save').toHaveBeenCalledTimes(1)
   })
 })

@@ -5,17 +5,27 @@
  * the same week: the autosave dirty-gate missed success_threshold/threshold_source
  * (#457, targets not persisted) and the staleness gate missed probability/impact
  * (#453, risk edits didn't stale the analysis). Both now derive from ONE registry
- * (analyticalNodeFields.ts). This guard proves:
+ * (analyticalNodeFields.ts).
  *
- *   1. The registry is well-formed (no dupes, every field noted + purposed).
- *   2. The derived subsets equal the behavioural CONTRACT the two bugs established
- *      — reported as a NAMED-FIELD symmetric diff, never a bare boolean.
- *   3. The two real consumers (hasAnalyticalNodeChange / hasAnalyticalEdgeChange for
- *      'stale'; computeGraphHash for 'persist') actually HONOUR the registry — a
- *      field flagged for a purpose whose consumer ignores it fails RED.
- *   4. POSITIVE CONTROL: the same diff + behavioural machinery goes RED on a
- *      synthetic drift (a dropped field / a cosmetic field), so the green in (2)/(3)
- *      is load-bearing, not vacuous (traps #11, #13).
+ * Codex P1-1 inverted the autosave dirty-gate from an ALLOWLIST (`persist`) to a
+ * hash-by-default + EPHEMERAL DENYLIST. This guard is updated to the new shape and
+ * proves:
+ *
+ *   1. The registry is well-formed (no dupes, every field noted + purposed, only
+ *      the known purposes 'ephemeral'/'stale').
+ *   2. The derived subsets equal the behavioural CONTRACT — reported as a
+ *      NAMED-FIELD symmetric diff, never a bare boolean. Now includes the ephemeral
+ *      denylist (deny direction).
+ *   3. The two real consumers HONOUR the registry:
+ *        • 'stale'     → hasAnalyticalNodeChange / hasAnalyticalEdgeChange flag every
+ *                        stale field.
+ *        • 'ephemeral' → computeGraphHash does NOT flip for any ephemeral field,
+ *                        AND flips for a non-ephemeral field (hash-by-default).
+ *      Plus the DENY-DIRECTION SAFETY assertion: no field a live editor writes as
+ *      persistent state may appear on the ephemeral denylist (a wrongly-denylisted
+ *      persistent field = silent reload loss — this fails the guard RED).
+ *   4. POSITIVE CONTROLS: the diff + behavioural machinery goes RED on a synthetic
+ *      drift, so the green in (2)/(3) is load-bearing, not vacuous (traps #11, #13).
  */
 import { describe, it, expect } from 'vitest'
 import type { Edge, Node } from '@xyflow/react'
@@ -23,9 +33,9 @@ import {
   NODE_FIELD_REGISTRY,
   EDGE_FIELD_REGISTRY,
   deriveFields,
-  PERSIST_NODE_FIELDS,
+  EPHEMERAL_NODE_FIELDS,
   STALE_NODE_FIELDS,
-  PERSIST_EDGE_FIELDS,
+  EPHEMERAL_EDGE_FIELDS,
   STALE_EDGE_FIELDS,
   type AnalyticalFieldSpec,
 } from '../analyticalNodeFields'
@@ -33,29 +43,39 @@ import { ANALYTICAL_NODE_DATA_FIELDS, ANALYTICAL_EDGE_FIELDS, hasAnalyticalNodeC
 import { computeGraphHash } from '../../hooks/useAutosave'
 
 // ---------------------------------------------------------------------------
-// The behavioural CONTRACT — the field sets the two bugs (#453/#457) and the
-// current shipped behaviour require. Kept as an EXACT bidirectional lock: a field
-// added to or removed from the registry MUST be mirrored here deliberately, which
-// is exactly the drift-detection this guard exists to force.
+// The behavioural CONTRACT — the field sets the two bugs (#453/#457), task #23,
+// and Codex P1-1/P1-2 require. Kept as an EXACT bidirectional lock: a field added
+// to or removed from the registry MUST be mirrored here deliberately, which is
+// exactly the drift-detection this guard exists to force.
 // ---------------------------------------------------------------------------
 
-const EXPECTED_PERSIST_NODE = [
-  'observedState', 'interventions', 'is_baseline', 'success_threshold',
-  'goal_threshold_raw', 'goal_threshold_unit', 'goal_threshold_cap', 'threshold_source',
-  // Task #23: analysis-affecting node fields that are user-editable in isolation on
-  // the live path (probability/impact via RiskPanel, prior via FactorExternalPanel)
-  // were flipped INTO persist so an edit touching only them survives reload (#457 class).
-  'prior', 'probability', 'impact',
-]
+// EPHEMERAL = the autosave-hash DENYLIST. Everything else on node/edge data is
+// persisted by default (hash-by-default), so this list is intentionally tiny.
+const EXPECTED_EPHEMERAL_NODE = ['goalThreshold', 'goal_threshold', '_baseline_snapshot']
+const EXPECTED_EPHEMERAL_EDGE: string[] = []
+
 const EXPECTED_STALE_NODE = [
   'observedState', 'interventions', 'is_baseline', 'success_threshold',
-  'goal_threshold_raw', 'prior', 'kind', 'goalThreshold', 'goal_threshold',
-  'probability', 'impact',
+  'goal_threshold_raw', 'goal_threshold_cap', 'prior', 'kind', 'goalThreshold',
+  'goal_threshold', 'probability', 'impact',
 ]
-const EXPECTED_PERSIST_EDGE = ['weight', 'direction', 'strengthStd', 'confidence', 'beliefExists']
 const EXPECTED_STALE_EDGE = [
   'weight', 'direction', 'strengthStd', 'confidence', 'beliefExists',
   'beliefStrength', 'belief', 'exists_probability',
+]
+
+// Fields a LIVE user editor writes as persistent state. None may ever appear on the
+// ephemeral denylist — a denylisted persistent field is silently dropped on reload
+// (the exact #457 loss class). See "deny-direction safety" below.
+const KNOWN_EDITOR_PERSIST_NODE_FIELDS = [
+  'observedState', 'interventions', 'is_baseline', 'success_threshold',
+  'goal_threshold_raw', 'goal_threshold_cap', 'goal_threshold_unit', 'threshold_source',
+  'prior', 'probability', 'impact',
+  'description', 'category', 'extractionType', 'factor_type', 'state_space',
+  'uncertainty_drivers', 'label',
+]
+const KNOWN_EDITOR_PERSIST_EDGE_FIELDS = [
+  'weight', 'direction', 'strengthStd', 'confidence', 'beliefExists',
 ]
 
 /** Symmetric difference reported as named fields — the guard's failure message. */
@@ -90,7 +110,7 @@ describe('analyticalNodeFields registry — well-formed', () => {
       }
     })
     it(`${name}: purposes are the known set only`, () => {
-      const known = new Set(['persist', 'stale'])
+      const known = new Set(['ephemeral', 'stale'])
       for (const spec of registry) {
         for (const p of spec.purposes) expect(known.has(p), `${spec.field}: unknown purpose ${p}`).toBe(true)
       }
@@ -103,14 +123,14 @@ describe('analyticalNodeFields registry — well-formed', () => {
 // ---------------------------------------------------------------------------
 
 describe('analyticalNodeFields registry — derived subsets match the contract', () => {
-  it('node persist subset', () => {
-    expect(fieldDiff(EXPECTED_PERSIST_NODE, PERSIST_NODE_FIELDS)).toEqual(NO_DIFF)
+  it('node ephemeral denylist', () => {
+    expect(fieldDiff(EXPECTED_EPHEMERAL_NODE, EPHEMERAL_NODE_FIELDS)).toEqual(NO_DIFF)
   })
   it('node stale subset', () => {
     expect(fieldDiff(EXPECTED_STALE_NODE, STALE_NODE_FIELDS)).toEqual(NO_DIFF)
   })
-  it('edge persist subset', () => {
-    expect(fieldDiff(EXPECTED_PERSIST_EDGE, PERSIST_EDGE_FIELDS)).toEqual(NO_DIFF)
+  it('edge ephemeral denylist (empty today)', () => {
+    expect(fieldDiff(EXPECTED_EPHEMERAL_EDGE, EPHEMERAL_EDGE_FIELDS)).toEqual(NO_DIFF)
   })
   it('edge stale subset', () => {
     expect(fieldDiff(EXPECTED_STALE_EDGE, STALE_EDGE_FIELDS)).toEqual(NO_DIFF)
@@ -148,32 +168,55 @@ describe('analyticalNodeFields registry — staleness consumer honours every sta
       expect(changed, `stale edge field '${field}' not seen by hasAnalyticalEdgeChange`).toBe(true)
     }
   })
-  it('does NOT flag a cosmetic field (proves the probe discriminates — trap #13)', () => {
-    // If this were true, the loop above would pass vacuously.
+  it('does NOT flag a cosmetic field for staleness (proves the probe discriminates — trap #13)', () => {
+    // description/body are persisted (hash-by-default) but are NOT analysis-affecting,
+    // so they must not stale. If they did, the loop above could pass vacuously.
     expect(hasAnalyticalNodeChange(nodeWith({}), { data: { description: 'new copy' } })).toBe(false)
     expect(hasAnalyticalNodeChange(nodeWith({}), { data: { body: 'x' } })).toBe(false)
   })
 })
 
-describe('analyticalNodeFields registry — persist consumer honours every persist field', () => {
-  it('computeGraphHash flips for a change to each persist node field', () => {
-    for (const field of PERSIST_NODE_FIELDS) {
+describe('analyticalNodeFields registry — autosave hash honours the ephemeral denylist (hash-by-default)', () => {
+  it('computeGraphHash does NOT flip for a change to any ephemeral node field', () => {
+    for (const field of EPHEMERAL_NODE_FIELDS) {
       const before = computeGraphHash([nodeWith({})], [])
       const after = computeGraphHash([nodeWith({ [field]: SENTINEL })], [])
-      expect(after, `persist node field '${field}' does not flip computeGraphHash`).not.toBe(before)
+      expect(after, `ephemeral node field '${field}' wrongly flips computeGraphHash`).toBe(before)
     }
   })
-  it('computeGraphHash flips for a change to each persist edge field', () => {
-    for (const field of PERSIST_EDGE_FIELDS) {
+  it('computeGraphHash does NOT flip for a change to any ephemeral edge field', () => {
+    for (const field of EPHEMERAL_EDGE_FIELDS) {
       const before = computeGraphHash([], [edgeWith({})])
       const after = computeGraphHash([], [edgeWith({ [field]: SENTINEL })])
-      expect(after, `persist edge field '${field}' does not flip computeGraphHash`).not.toBe(before)
+      expect(after, `ephemeral edge field '${field}' wrongly flips computeGraphHash`).toBe(before)
     }
   })
-  it('computeGraphHash does NOT flip for a cosmetic node field (proves the probe discriminates)', () => {
+  it('computeGraphHash FLIPS for a non-ephemeral node data field (hash-by-default)', () => {
+    // description is NOT on the denylist → it is persisted, so it MUST flip the hash.
+    // This is the exact behaviour the old persist-allowlist suppressed (the defect).
     const before = computeGraphHash([nodeWith({})], [])
     const after = computeGraphHash([nodeWith({ description: 'new copy' })], [])
-    expect(after).toBe(before)
+    expect(after).not.toBe(before)
+  })
+  it('computeGraphHash FLIPS for every stale node field (they are all persisted too)', () => {
+    for (const field of STALE_NODE_FIELDS) {
+      if (EPHEMERAL_NODE_FIELDS.includes(field)) continue // stale+ephemeral derived caches
+      const before = computeGraphHash([nodeWith({})], [])
+      const after = computeGraphHash([nodeWith({ [field]: SENTINEL })], [])
+      expect(after, `stale node field '${field}' does not flip computeGraphHash`).not.toBe(before)
+    }
+  })
+
+  // DENY-DIRECTION SAFETY (Codex P1-1): a field a live editor writes as persistent
+  // state must NEVER be on the ephemeral denylist. If it were, an edit touching only
+  // that field would be silently lost on reload — the #457 class this fix removes.
+  it('no live-editor persistent NODE field is denylisted', () => {
+    const wronglyDenied = KNOWN_EDITOR_PERSIST_NODE_FIELDS.filter((f) => EPHEMERAL_NODE_FIELDS.includes(f))
+    expect(wronglyDenied, `persistent editor field(s) wrongly on the ephemeral denylist: ${wronglyDenied.join(', ')}`).toEqual([])
+  })
+  it('no live-editor persistent EDGE field is denylisted', () => {
+    const wronglyDenied = KNOWN_EDITOR_PERSIST_EDGE_FIELDS.filter((f) => EPHEMERAL_EDGE_FIELDS.includes(f))
+    expect(wronglyDenied, `persistent editor field(s) wrongly on the ephemeral denylist: ${wronglyDenied.join(', ')}`).toEqual([])
   })
 })
 
@@ -189,34 +232,40 @@ describe('analyticalNodeFields registry — positive controls (guard catches dri
     const diff = fieldDiff(EXPECTED_STALE_NODE, drifted)
     expect(diff.missing).toEqual(['probability'])
     expect(diff.extra).toEqual([])
-    // And it is NOT equal to NO_DIFF — the assertion in (2) would fail RED.
     expect(diff).not.toEqual(NO_DIFF)
   })
 
-  it('fieldDiff names a field ADDED to the registry but not to the contract', () => {
-    const drifted = [...STALE_NODE_FIELDS, 'newlyAddedField']
-    const diff = fieldDiff(EXPECTED_STALE_NODE, drifted)
-    expect(diff.extra).toEqual(['newlyAddedField'])
+  it('fieldDiff names a field ADDED to the ephemeral denylist but not to the contract', () => {
+    const drifted = [...EPHEMERAL_NODE_FIELDS, 'newlyDeniedField']
+    const diff = fieldDiff(EXPECTED_EPHEMERAL_NODE, drifted)
+    expect(diff.extra).toEqual(['newlyDeniedField'])
     expect(diff).not.toEqual(NO_DIFF)
   })
 
-  it('the behavioural tie catches a stale field NO consumer handles', () => {
-    // Simulate a registry field flagged 'stale' that the consumer ignores. The
-    // loop in (3) does exactly this check; here we prove that check can fail: a
-    // synthetic field absent from ANALYTICAL_NODE_DATA_FIELDS is NOT seen by
-    // hasAnalyticalNodeChange, so it would trip the guard RED.
-    const synthetic: AnalyticalFieldSpec = { field: 'ghostField', purposes: ['stale'], note: 'x' }
-    expect(synthetic.purposes).toContain('stale')
-    expect(hasAnalyticalNodeChange(nodeWith({}), { data: { ghostField: SENTINEL } })).toBe(false)
+  it('the deny-direction safety catches a persistent field wrongly denylisted', () => {
+    // Simulate someone denylisting success_threshold (a user target — the #457 field).
+    const drifted = [...EPHEMERAL_NODE_FIELDS, 'success_threshold']
+    const wronglyDenied = KNOWN_EDITOR_PERSIST_NODE_FIELDS.filter((f) => drifted.includes(f))
+    expect(wronglyDenied).toEqual(['success_threshold'])
+    expect(wronglyDenied).not.toEqual([])
+  })
+
+  it('the hash behavioural tie catches an ephemeral field computeGraphHash still hashes', () => {
+    // If a "denylisted" field were NOT actually excluded by serializableData, its
+    // change would flip the hash. Proves the tie in (3) can fail: a NON-denylisted
+    // field flips, so if an ephemeral field flipped it would trip the guard RED.
+    const before = computeGraphHash([nodeWith({})], [])
+    const after = computeGraphHash([nodeWith({ notDenylisted: SENTINEL })], [])
+    expect(after).not.toBe(before)
   })
 
   it('deriveFields partitions by purpose (sanity of the derivation itself)', () => {
     const reg: readonly AnalyticalFieldSpec[] = [
-      { field: 'both', purposes: ['persist', 'stale'], note: 'n' },
-      { field: 'p', purposes: ['persist'], note: 'n' },
+      { field: 'both', purposes: ['ephemeral', 'stale'], note: 'n' },
+      { field: 'e', purposes: ['ephemeral'], note: 'n' },
       { field: 's', purposes: ['stale'], note: 'n' },
     ]
-    expect(deriveFields(reg, 'persist')).toEqual(['both', 'p'])
+    expect(deriveFields(reg, 'ephemeral')).toEqual(['both', 'e'])
     expect(deriveFields(reg, 'stale')).toEqual(['both', 's'])
   })
 })

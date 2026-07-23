@@ -7,14 +7,18 @@
  * `readout` string, or the italic `placeholder` when there is no value. Click
  * enters edit mode.
  *
- * Edit mode: a number input seeded with `editSeed`; blur OR Enter commits.
- * On a commit that parses to a number the parsed value is handed to `onSave`
- * (the CALLER owns any scale conversion — e.g. percent → 0-1 — and the edit
- * confirmation, so semantic transforms stay tagged at their panel); a
- * non-numeric entry is discarded. Either outcome returns to display mode.
+ * Edit mode: a number input seeded with the EXACT current `value` (Codex P1-4);
+ * blur OR Enter commits. On commit the parsed number is handed to `onSave` (the
+ * CALLER owns any scale conversion — e.g. percent → 0-1 — and the edit
+ * confirmation, so semantic transforms stay tagged at their panel).
  *
- * Rendering is byte-identical to the two original inline editors — the panels'
- * existing specs pin the testids/markup and stay green.
+ * PRECISION / NO-OP (Codex P1-4): the draft is seeded from the UNROUNDED `value`,
+ * never from a rounded display string, and a commit whose parsed draft EQUALS the
+ * seeded exact `value` is a NO-OP (onSave is not called). This fixes a passthrough
+ * violation where opening a 0.376 probability (displayed "38%") and tabbing out
+ * committed 0.38 — destroying producer precision and falsely marking the graph
+ * dirty. Display formatting stays separate: `readout` may still be rounded.
+ * Fractional input is permitted (step defaults to "any").
  */
 import { useState, useCallback } from 'react'
 import { typography } from '../../../../styles/typography'
@@ -24,11 +28,17 @@ interface InlineNumberEditorProps {
   readout: string | null
   /** Italic copy shown when `readout` is null (e.g. "No value set. Click to enter."). */
   placeholder: string
-  /** Seeds the input's editable string when entering edit mode. */
-  editSeed: string
   /**
-   * Called with the parsed number on a valid commit. The caller applies any
-   * scale conversion and edit confirmation (keeping UI-SEM tags at the panel).
+   * The EXACT current value in the editor's own scale (percent for RiskPanel, raw
+   * for FactorObservablePanel). Seeds the input unrounded and is the no-op
+   * baseline: a commit that parses to this exact value does not call `onSave`.
+   * `null` means "no current value" — the input seeds empty.
+   */
+  value: number | null
+  /**
+   * Called with the parsed number on a valid commit that DIFFERS from `value`.
+   * The caller applies any scale conversion and edit confirmation (keeping
+   * UI-SEM tags at the panel).
    */
   onSave: (parsed: number) => void
   /** data-testid for the display button. */
@@ -40,14 +50,15 @@ interface InlineNumberEditorProps {
   /** Optional numeric input constraints + aria-label (e.g. risk's 0–100 %). */
   min?: number
   max?: number
-  step?: number
+  /** Input step. Defaults to "any" so fractional producer values are editable. */
+  step?: number | 'any'
   ariaLabel?: string
 }
 
 export function InlineNumberEditor({
   readout,
   placeholder,
-  editSeed,
+  value,
   onSave,
   displayTestId,
   inputTestId,
@@ -61,10 +72,16 @@ export function InlineNumberEditor({
   const [draft, setDraft] = useState<string>('')
 
   const handleSave = useCallback(() => {
-    const parsed = parseFloat(draft)
-    if (!isNaN(parsed)) onSave(parsed)
     setIsEditing(false)
-  }, [draft, onSave])
+    const parsed = parseFloat(draft)
+    // Non-numeric entry is discarded.
+    if (isNaN(parsed)) return
+    // No-op blur (Codex P1-4): the parsed draft equals the seeded exact value, so
+    // nothing changed — do NOT call onSave (which would round-trip through the
+    // caller's scale conversion, corrupting precision and falsely dirtying).
+    if (value != null && parsed === value) return
+    onSave(parsed)
+  }, [draft, onSave, value])
 
   if (!isEditing) {
     return (
@@ -73,7 +90,8 @@ export function InlineNumberEditor({
         data-testid={displayTestId}
         className={`${typography.panelHeader} text-xl text-left w-full cursor-text hover:bg-panel-hover rounded px-0.5 -mx-0.5 transition-colors`}
         onClick={() => {
-          setDraft(editSeed)
+          // Seed from the EXACT value, never a rounded display string.
+          setDraft(value != null ? String(value) : '')
           setIsEditing(true)
         }}
         title={title}
@@ -91,7 +109,7 @@ export function InlineNumberEditor({
       type="number"
       min={min}
       max={max}
-      step={step}
+      step={step ?? 'any'}
       data-testid={inputTestId}
       value={draft}
       autoFocus
