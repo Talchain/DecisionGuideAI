@@ -101,6 +101,9 @@ const CONTENT_CARD_FILES = [
   // V7 L2 — the final two one-sided accents, now converted to complete borders.
   'v5/blocks/V5CoachingBlock.tsx',
   'canvas/ToastContext.tsx',
+  // Bias-coaching slice (proposal 2026-07-16 §1.5(2)) — the EXPLORE node-icon
+  // popover carries a complete border; lock the rule in against a future accent.
+  'canvas/nodes/shared/ScienceIcon.tsx',
 ]
 
 /** Single-side border width with an arbitrary value: `border-l-[3px]`. */
