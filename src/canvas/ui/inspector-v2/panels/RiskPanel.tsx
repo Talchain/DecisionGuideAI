@@ -122,14 +122,15 @@ export const RiskPanel = memo(function RiskPanel({
             <InlineNumberEditor
               readout={probabilityPct != null ? `${probabilityPct}%` : null}
               placeholder={INLINE_LABELS.riskNotSet}
-              editSeed={probabilityPct != null ? String(probabilityPct) : ''}
+              // Exact percent (unrounded) so opening + blurring a 0.376 (shown
+              // "38%") is a no-op and preserves the producer's precision (P1-4).
+              value={probability != null ? probability * 100 : null}
               onSave={handleProbabilitySave}
               displayTestId="risk-probability-display"
               inputTestId="risk-probability-input"
               title="Click to set likelihood"
               min={0}
               max={100}
-              step={1}
               ariaLabel="Likelihood percentage"
             />
           </div>

@@ -203,7 +203,8 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
           <InlineNumberEditor
             readout={displayValue != null ? formatValue(displayValue) : null}
             placeholder="No value set. Click to enter."
-            editSeed={String(displayValue ?? '')}
+            // Exact raw value (no scale conversion here) → unchanged-blur is a no-op (P1-4).
+            value={displayValue ?? null}
             onSave={handleValueSave}
             displayTestId="observable-value-display"
             inputTestId="observable-value-input"
