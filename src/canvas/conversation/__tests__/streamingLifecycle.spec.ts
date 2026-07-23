@@ -62,6 +62,18 @@ async function* fakeStream(events: OrchestratorStreamEvent[]): AsyncGenerator<Or
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
+  // Pin the V5-orchestrator flag OFF for this spec (see envelopeAnalysisWiring
+  // .spec.ts / PR #460 for the full rationale). These tests exercise the legacy
+  // V4 STREAMING path (`streamOrchestratorTurn`, mocked above). `sendTurn`
+  // branches FIRST on `isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR })`:
+  // when the flag is 'true' every turn routes to the V5 exclusive path
+  // (`callV5Turn`) which this spec does NOT mock — the real fetch throws, the
+  // turn is classed a transport failure, and `streamOrchestratorTurn` never
+  // fires. CI leaves the flag undefined (→ V4 → green); a fresh-clone lane that
+  // copies `.env.local` (which sets VITE_ENABLE_V5_ORCHESTRATOR=true) gets the
+  // V5 path → red. Pinning it here makes the intended V4 streaming path
+  // deterministic; afterEach restores via unstubAllEnvs so nothing leaks.
+  vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'false')
   vi.useFakeTimers()
   mockCallTurn.mockReset()
   mockStreamTurn.mockReset()
@@ -80,6 +92,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.unstubAllEnvs()
 })
 
 // ---------------------------------------------------------------------------

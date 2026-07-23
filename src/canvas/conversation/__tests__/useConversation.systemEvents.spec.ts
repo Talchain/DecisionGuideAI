@@ -44,6 +44,14 @@ vi.mock('../../../flags', () => ({
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
+  // Pin V5-orchestrator flag OFF — same root cause as PR #460 and the three
+  // named specs in this sweep. This spec mocks the legacy V4 turn path
+  // (`callOrchestratorTurn`) but does NOT mock V5; with the fresh-clone
+  // `.env.local` setting VITE_ENABLE_V5_ORCHESTRATOR=true, sendTurn routes every
+  // turn to the unmocked V5 path (`callV5Turn`) → real fetch throws → the V4
+  // spy never fires. Pinning the flag makes the intended V4 path deterministic;
+  // afterEach restores via unstubAllEnvs so nothing leaks to siblings.
+  vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'false')
   vi.useFakeTimers()
   mockCallTurn.mockReset()
   flagValue = true
@@ -60,6 +68,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.unstubAllEnvs()
 })
 
 // ---------------------------------------------------------------------------

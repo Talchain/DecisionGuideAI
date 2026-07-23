@@ -105,6 +105,21 @@ const SCENARIO_ID = 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4'
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
+  // Pin the V5-orchestrator flag OFF for this spec (see envelopeAnalysisWiring
+  // .spec.ts / PR #460 for the full rationale). These tests exercise
+  // `handleEnvelope` on the legacy V4 turn path (`callOrchestratorTurn`, mocked
+  // above) to assert the analysis is persisted via `scenarioService.storeAnalysis`.
+  // `sendTurn` branches FIRST on
+  // `isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR })`: when the
+  // flag is 'true' every turn routes to the V5 exclusive path (`callV5Turn`)
+  // which this spec does NOT mock — the real fetch throws, the turn is classed a
+  // transport failure, and handleEnvelope never runs (storeAnalysis sees 0
+  // calls, and the negative-assertion tests pass for the WRONG reason). CI
+  // leaves the flag undefined (→ V4 → green); a fresh-clone lane that copies
+  // `.env.local` (which sets VITE_ENABLE_V5_ORCHESTRATOR=true) gets the V5 path →
+  // red. Pinning it here makes the intended V4 path deterministic; afterEach
+  // restores via unstubAllEnvs so nothing leaks to siblings.
+  vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'false')
   vi.useFakeTimers()
   mockCallTurn.mockReset()
   mockStoreAnalysis.mockClear()
@@ -123,6 +138,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.unstubAllEnvs()
 })
 
 // ---------------------------------------------------------------------------
