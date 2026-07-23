@@ -60,6 +60,48 @@ export function latestRealMessageIsAssistantReply(
   return hasProse || hasChips
 }
 
+/**
+ * True when the latest REAL (non-synthetic) message is a user send whose
+ * delivery FAILED (`deliveryState === 'failed'`). This is the honest ERROR
+ * counterpart to `latestRealMessageIsAssistantReply`: an invisible error is
+ * worse than an invisible question, so a failed turn must surface the same way
+ * a clarify reply does.
+ *
+ * Every user-mode failure path in useConversation.ts — buildV5Payload refusal,
+ * the request timeout, a typed_error response, and a thrown dispatch — marks
+ * the user bubble `deliveryState: 'failed'` (useConversation.ts:3254, 3304,
+ * 3386, 3873) and then appends a SYNTHETIC assistant error bubble carrying the
+ * "Not delivered" copy + Retry chip + recovery guidance. `updateMessage`
+ * patches the user bubble in place (useConversation.ts:1888), so it keeps its
+ * original position AHEAD of the appended synthetic bubble. Skipping synthetics
+ * (exactly as the assistant-reply scan does), the latest real message is
+ * therefore that failed user bubble.
+ *
+ * Deliberately narrow — matches a genuinely FAILED user send only:
+ *   - a delivered-but-empty turn leaves the user bubble `deliveryState: 'sent'`
+ *     (useConversation.ts:3386) and matches neither predicate — that's the
+ *     blank-response case #446 already stands down on;
+ *   - a system / background failure adds no user bubble at all (its transcript
+ *     bubble is suppressed), so there is no failed user send to find.
+ * This does NOT loosen `latestRealMessageIsAssistantReply` — the two are
+ * mutually exclusive by construction (the latest real message is one role or
+ * the other).
+ */
+export function latestRealMessageIsFailedTurn(
+  messages: readonly ConversationMessage[] | undefined | null,
+): boolean {
+  if (!messages || messages.length === 0) return false
+  let latestReal: ConversationMessage | undefined
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (!messages[i].synthetic) {
+      latestReal = messages[i]
+      break
+    }
+  }
+  if (!latestReal || latestReal.role !== 'user') return false
+  return latestReal.deliveryState === 'failed'
+}
+
 export interface CollapsedResponseSignalInput {
   /** aiPanelV2 floating-first UX is active. The whole signal is FF-gated. */
   aiPanelV2On: boolean
@@ -90,12 +132,24 @@ export interface CollapsedResponseSignalInput {
   floatingTranscriptVisible: boolean
   /** The just-settled turn produced a genuine assistant reply (prose or chips). */
   hasAssistantReply: boolean
+  /**
+   * The just-settled turn FAILED — its user send is marked
+   * `deliveryState: 'failed'` (timeout / typed error / thrown dispatch) and the
+   * "Not delivered" + Retry + recovery guidance renders only inside the
+   * collapsed dock. Surfaced for the same reason as a reply: an invisible error
+   * is worse than an invisible question.
+   */
+  hasFailedTurn: boolean
 }
 
 /**
- * Whether a just-settled assistant turn must auto-expand the collapsed dock to
- * its Olumi tab so the response is visible. All gates must hold; any one false
- * stands the signal down (no surprise motion, no fighting the draft path).
+ * Whether a just-settled turn must auto-expand the collapsed dock to its Olumi
+ * tab so its outcome is visible. All five context gates must hold, and the turn
+ * must have produced something worth surfacing — a genuine assistant reply OR a
+ * failed send whose recovery affordance is otherwise stranded in the collapsed
+ * dock. Any context gate false stands the signal down (no surprise motion, no
+ * fighting the draft path); a turn that produced neither a reply nor a failure
+ * surfaces nothing.
  */
 export function shouldAutoExpandDockForResponse(
   input: CollapsedResponseSignalInput,
@@ -106,6 +160,6 @@ export function shouldAutoExpandDockForResponse(
     input.dockCollapsed &&
     !input.hasGraphContent &&
     !input.floatingTranscriptVisible &&
-    input.hasAssistantReply
+    (input.hasAssistantReply || input.hasFailedTurn)
   )
 }
