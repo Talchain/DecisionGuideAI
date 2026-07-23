@@ -428,7 +428,7 @@ export const KNOWN_ACTION_TYPES: ReadonlySet<ActionTypeLiteral> = new Set<Action
  * The gate used to key on publication ALONE — but OUR publishing a value says
  * nothing about whether CEE accepts it, so a publication-only gate can only
  * ever be right by luck. The two facts are now DECOUPLED: a value is sent only
- * when BOTH hold (see isSendableActionType). A newly re-vendored value is
+ * when BOTH hold (see isSendableToken). A newly re-vendored value is
  * WITHHELD until it is added here with provenance — publication can never again
  * open the gate on its own.
  *
@@ -493,13 +493,16 @@ export const CEE_ACCEPTED_ACTION_TYPES: ReadonlySet<ActionTypeLiteral> =
   ])
 
 /**
- * The send gate, factored out as a PURE predicate so a test can drive it with
- * SYNTHETIC registries and prove the AND actually bites — that publication
- * alone (or acceptance alone) can never open it. A value is sendable IFF it is
- * BOTH published in the vendored enum AND present in the CEE-acceptance
- * registry.
+ * The send gate, factored out as ONE PURE predicate shared by BOTH the
+ * action_type and intent sanitisers, so a test can drive it with SYNTHETIC
+ * registries and prove the AND actually bites — that publication alone (or
+ * acceptance alone) can never open it. A token is sendable IFF it is BOTH
+ * published in the vendored enum AND present in the matching CEE-acceptance
+ * registry. The two registries (action_type + intent) remain SEPARATE and
+ * hand-maintained per the doctrine above; this predicate is only the generic
+ * AND that each of them applies to its own token.
  */
-export function isSendableActionType(
+export function isSendableToken(
   raw: string,
   published: ReadonlySet<string>,
   accepted: ReadonlySet<string>,
@@ -509,7 +512,7 @@ export function isSendableActionType(
 
 function sanitiseActionType(raw: string | undefined): ActionTypeLiteral | undefined {
   if (!raw) return undefined
-  return isSendableActionType(raw, KNOWN_ACTION_TYPES, CEE_ACCEPTED_ACTION_TYPES)
+  return isSendableToken(raw, KNOWN_ACTION_TYPES, CEE_ACCEPTED_ACTION_TYPES)
     ? (raw as ActionTypeLiteral)
     : undefined
 }
@@ -554,23 +557,9 @@ export const CEE_ACCEPTED_INTENTS: ReadonlySet<IntentLiteral> = new Set<IntentLi
   'add_option',
 ])
 
-/**
- * The intent send gate, factored out as a PURE predicate (mirrors
- * isSendableActionType) so a test can drive it with SYNTHETIC registries and
- * prove the AND actually bites — publication alone (or acceptance alone) can
- * never open it.
- */
-export function isSendableIntent(
-  raw: string,
-  published: ReadonlySet<string>,
-  accepted: ReadonlySet<string>,
-): boolean {
-  return published.has(raw) && accepted.has(raw)
-}
-
 function sanitiseIntent(raw: string | undefined): IntentLiteral | undefined {
   if (!raw) return undefined
-  return isSendableIntent(raw, KNOWN_INTENTS, CEE_ACCEPTED_INTENTS)
+  return isSendableToken(raw, KNOWN_INTENTS, CEE_ACCEPTED_INTENTS)
     ? (raw as IntentLiteral)
     : undefined
 }

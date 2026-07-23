@@ -46,7 +46,7 @@ import {
   buildV5Payload,
   KNOWN_ACTION_TYPES,
   CEE_ACCEPTED_ACTION_TYPES,
-  isSendableActionType,
+  isSendableToken,
 } from '../../../../v5/buildPayload'
 import type { ActionChip } from '../../../conversation/types'
 
@@ -87,7 +87,7 @@ const PENDING_SET: ReadonlySet<string> = new Set<string>(PENDING_WIRE_ACTION_TYP
  * tests below, not this helper).
  */
 function isSendable(actionType: string): boolean {
-  return isSendableActionType(actionType, KNOWN_ACTION_TYPES, CEE_ACCEPTED_ACTION_TYPES)
+  return isSendableToken(actionType, KNOWN_ACTION_TYPES, CEE_ACCEPTED_ACTION_TYPES)
 }
 
 beforeEach(() => {
@@ -339,7 +339,7 @@ describe('spark click → outgoing wire payload (real send funnel)', () => {
     // send predicate with SYNTHETIC registries so it can model a value that is
     // published-but-unaccepted — a state no real value is in today, precisely
     // because the acceptance registry is the second signal. Under the old
-    // publication-only gate `isSendableActionType` would ignore `accepted` and
+    // publication-only gate `isSendableToken` would ignore `accepted` and
     // this would be RED.
     const synthetic = 'synthetic_published_but_unaccepted_value'
 
@@ -350,13 +350,13 @@ describe('spark click → outgoing wire payload (real send funnel)', () => {
     expect((CEE_ACCEPTED_ACTION_TYPES as ReadonlySet<string>).has(synthetic)).toBe(false)
 
     // The AND bites on the ACCEPTANCE signal: published but unaccepted → withheld.
-    expect(isSendableActionType(synthetic, publishedWithSynthetic, CEE_ACCEPTED_ACTION_TYPES)).toBe(false)
+    expect(isSendableToken(synthetic, publishedWithSynthetic, CEE_ACCEPTED_ACTION_TYPES)).toBe(false)
 
     // Mirror — acceptance WITHOUT publication is also insufficient, so neither
     // signal can open the gate alone.
     const acceptedWithSynthetic = new Set<string>([...CEE_ACCEPTED_ACTION_TYPES, synthetic])
     expect((KNOWN_ACTION_TYPES as ReadonlySet<string>).has(synthetic)).toBe(false)
-    expect(isSendableActionType(synthetic, KNOWN_ACTION_TYPES, acceptedWithSynthetic)).toBe(false)
+    expect(isSendableToken(synthetic, KNOWN_ACTION_TYPES, acceptedWithSynthetic)).toBe(false)
   })
 
   it('CLASS-KILLER (end-to-end): an unrecognised value is withheld by buildV5Payload — identity-only chip, never a 422 (positive control: the send arm above proves the gate CAN pass a value)', () => {

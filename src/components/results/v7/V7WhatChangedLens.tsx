@@ -21,6 +21,7 @@
  * so this component is a pure function of its props. COMPLETE borders only.
  */
 
+import { useMemo } from 'react'
 import { typography } from '@/styles/typography'
 import { compareRuns, computeRunSummary, type StoredRun } from '@/canvas/store/runHistory'
 import { V7_LENS_COPY } from './v7LensCopy'
@@ -32,6 +33,13 @@ export interface V7WhatChangedLensProps {
   runs: StoredRun[]
 }
 
+/** ≥2 stored runs — the shared predicate for "there is something to compare".
+ * Used by both this lens's empty-state gate and V7LensGroup's tab availability
+ * so the two cannot disagree about when the What-changed lens has data. */
+export function hasComparableRuns(runs: StoredRun[]): boolean {
+  return runs.length >= 2
+}
+
 function driverLabel(d: { id?: string; label?: string }): string {
   return d.label ?? d.id ?? 'Unknown driver'
 }
@@ -40,9 +48,25 @@ export function V7WhatChangedLens({ runs }: V7WhatChangedLensProps) {
   const latest = runs[0]
   const prior = runs[1]
 
+  // Derive the run-over-run summary + driver deltas once, keyed by the two run
+  // ids — stored runs are immutable, so the ids fully determine the result.
+  const derived = useMemo(() => {
+    if (!latest || !prior) return null
+    const summary = computeRunSummary(latest, prior)
+    // compareRuns(A, B): driversAdded = in B not A. Pass prior as A and latest
+    // as B so "added" reads as new-in-the-latest-run and "removed" as gone-since.
+    const comparison = compareRuns(prior.id, latest.id)
+    return {
+      summary,
+      added: comparison?.driversAdded ?? [],
+      removed: comparison?.driversRemoved ?? [],
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the run ids: stored runs are immutable, so the ids fully determine the memo (same pattern as WhatChangedChip's version-keyed read)
+  }, [latest?.id, prior?.id])
+
   // Honest empty state — the common case. Fewer than two runs means there is
   // nothing to compare; never fabricate a delta.
-  if (!latest || !prior) {
+  if (!hasComparableRuns(runs) || !derived) {
     return (
       <div data-testid="v7-what-changed-empty">
         <p className={`${typography.panelBody} text-text-header font-semibold`}>{C.heading}</p>
@@ -52,12 +76,7 @@ export function V7WhatChangedLens({ runs }: V7WhatChangedLensProps) {
     )
   }
 
-  const summary = computeRunSummary(latest, prior)
-  // compareRuns(A, B): driversAdded = in B not A. Pass prior as A and latest
-  // as B so "added" reads as new-in-the-latest-run and "removed" as gone-since.
-  const comparison = compareRuns(prior.id, latest.id)
-  const added = comparison?.driversAdded ?? []
-  const removed = comparison?.driversRemoved ?? []
+  const { summary, added, removed } = derived
 
   return (
     <div className="space-y-2" data-testid="v7-what-changed">

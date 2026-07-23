@@ -26,7 +26,7 @@ import {
 import { ExpertBlock } from './ExpertBlock'
 import { formatOptionLabelForCard } from './utils/cleanFactorLabel'
 import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
-import { formatRangeValue } from './utils/formatRangeValue'
+import { OptionRangeBar, computeOptionScale } from './shared/OptionRangeBar'
 import { SUB_ONE_PERCENT_FLOOR } from './utils/displayFloors'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from './utils/goalFitBasisCaveatCopy'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
@@ -211,69 +211,10 @@ function StatBar({
 // (utils/formatRangeValue) — the same rule formatThreshold's user-unit
 // percent branch uses, so card labels and hero readouts share one scale.
 // TODO: PLoT should provide outcome_unit for proper display.
-
-/**
- * OptionRangeBar — thin 4px bar showing p10-to-p90 range with dot at median.
- *
- * All option range bars share the same [globalMin, globalMax] scale
- * for visual comparability between options. The bar fill width
- * represents each option's range within the shared scale.
- */
-function OptionRangeBar({
-  p10,
-  p50,
-  p90,
-  globalMin,
-  globalMax,
-}: {
-  p10: number
-  p50?: number
-  p90: number
-  globalMin: number
-  globalMax: number
-}) {
-  const span = globalMax - globalMin
-  if (span <= 0) return null
-
-  const leftPct = ((p10 - globalMin) / span) * 100
-  const widthPct = ((p90 - p10) / span) * 100
-  const dotPct = p50 != null ? ((p50 - globalMin) / span) * 100 : undefined
-
-  return (
-    <div data-testid="option-range-bar">
-      <div className="relative" style={{ height: 4, background: 'var(--border-default)', borderRadius: 2 }}>
-        <div
-          className="absolute top-0 h-full rounded-sm"
-          style={{
-            left: `${leftPct}%`,
-            width: `${Math.max(2, widthPct)}%`,
-            background: 'color-mix(in srgb, var(--info) 30%, transparent)',
-          }}
-        />
-        {dotPct != null && (
-          <div
-            className="absolute top-1/2 -translate-y-1/2 rounded-full"
-            style={{
-              left: `${dotPct}%`,
-              width: 8,
-              height: 8,
-              background: 'var(--info)',
-              border: '1.5px solid var(--bg-panel)',
-              transform: `translate(-50%, -50%)`,
-            }}
-          />
-        )}
-      </div>
-      <div className={`flex justify-between mt-0.5 ${typography.panelMeta}`}>
-        <span className="text-text-light">{formatRangeValue(p10)}</span>
-        {p50 != null && (
-          <span className="text-text-header">{formatRangeValue(p50)}</span>
-        )}
-        <span className="text-text-light">{formatRangeValue(p90)}</span>
-      </div>
-    </div>
-  )
-}
+//
+// OptionRangeBar + the [globalMin, globalMax] scale now live in the shared
+// ./shared/OptionRangeBar module (consumed here and by the V7 lens group) so
+// the two surfaces cannot drift.
 
 /** Single option card */
 function OptionCard({
@@ -608,13 +549,9 @@ export function OptionCards({
   const sorted = sortOptionsForDisplay(options)
 
   // Range bar global scale: shared [globalMin, globalMax] across all options
-  // so bar widths are visually comparable. Falls back to mean when percentiles absent.
-  const globalMin = Math.min(
-    ...options.map(o => o.outcome?.p10 ?? o.outcome?.mean ?? 0),
-  )
-  const globalMax = Math.max(
-    ...options.map(o => o.outcome?.p90 ?? o.outcome?.mean ?? 0),
-  )
+  // so bar widths are visually comparable. Falls back to mean when percentiles
+  // absent (computeOptionScale — the same formula the V7 lens shares).
+  const { globalMin, globalMax } = computeOptionScale(options)
 
   // Brief 5.8B D3 collapsed the per-rank border palette to a 2-state
   // (winner / non-winner) hierarchy, so `buildSegmentBorderClassMap` /

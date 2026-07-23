@@ -11,6 +11,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { V7LensGroup } from '../V7LensGroup'
+import { buildV7Lenses } from '../buildV7Lenses'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { OptionResult } from '../../types'
 
@@ -65,7 +66,7 @@ beforeEach(() => {
 
 describe('V7LensGroup (V7 L5)', () => {
   it('renders all four lens tabs', () => {
-    render(<V7LensGroup resultsSectionData={WITH_RANGE} />)
+    render(<V7LensGroup model={buildV7Lenses(WITH_RANGE)} />)
     expect(screen.getByTestId('v7-lens-tab-outcome')).toBeInTheDocument()
     expect(screen.getByTestId('v7-lens-tab-goal')).toBeInTheDocument()
     expect(screen.getByTestId('v7-lens-tab-stability')).toBeInTheDocument()
@@ -73,14 +74,14 @@ describe('V7LensGroup (V7 L5)', () => {
   })
 
   it('defaults to the Likely outcome lens with range bars and win readouts', () => {
-    render(<V7LensGroup resultsSectionData={WITH_RANGE} />)
+    render(<V7LensGroup model={buildV7Lenses(WITH_RANGE)} />)
     expect(screen.getByTestId('v7-lens-outcome')).toBeInTheDocument()
     expect(screen.getAllByTestId('v7-range-bar').length).toBe(2)
     expect(screen.getByText(/Leads 70%/)).toBeInTheDocument()
   })
 
   it('shows the no-target gate on the Goal fit lens when no success target is set', () => {
-    render(<V7LensGroup resultsSectionData={WITH_RANGE} />)
+    render(<V7LensGroup model={buildV7Lenses(WITH_RANGE)} />)
     fireEvent.click(screen.getByTestId('v7-lens-tab-goal'))
     expect(screen.getByTestId('v7-lens-goal-gate')).toHaveTextContent('Set a success target to unlock Goal fit.')
   })
@@ -94,7 +95,7 @@ describe('V7LensGroup (V7 L5)', () => {
       recommendedId: 'a',
       goalThreshold: 80,
     })
-    render(<V7LensGroup resultsSectionData={withGoal} />)
+    render(<V7LensGroup model={buildV7Lenses(withGoal)} />)
     fireEvent.click(screen.getByTestId('v7-lens-tab-goal'))
     expect(screen.getByTestId('v7-lens-goal')).toBeInTheDocument()
     expect(screen.getAllByTestId('v7-goal-row').length).toBe(2)
@@ -102,20 +103,20 @@ describe('V7LensGroup (V7 L5)', () => {
   })
 
   it('always shows the honest gap on the Stability lens', () => {
-    render(<V7LensGroup resultsSectionData={WITH_RANGE} />)
+    render(<V7LensGroup model={buildV7Lenses(WITH_RANGE)} />)
     fireEvent.click(screen.getByTestId('v7-lens-tab-stability'))
     expect(screen.getByTestId('v7-lens-stability-gate')).toHaveTextContent('will not infer it')
   })
 
   it('shows the honest empty state on the What-changed lens with empty run history', () => {
-    render(<V7LensGroup resultsSectionData={WITH_RANGE} />)
+    render(<V7LensGroup model={buildV7Lenses(WITH_RANGE)} />)
     fireEvent.click(screen.getByTestId('v7-lens-tab-whatChanged'))
     expect(screen.getByTestId('v7-what-changed-empty')).toBeInTheDocument()
     expect(screen.getByText('Snapshot unavailable — rerun to compare.')).toBeInTheDocument()
   })
 
   it('renders nothing when there are no analysed options (pre-analysis)', () => {
-    const { container } = render(<V7LensGroup resultsSectionData={data({ allOptions: [] })} />)
+    const { container } = render(<V7LensGroup model={buildV7Lenses(data({ allOptions: [] }))} />)
     expect(container.firstChild).toBeNull()
   })
 })

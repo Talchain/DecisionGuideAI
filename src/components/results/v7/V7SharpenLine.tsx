@@ -23,6 +23,7 @@
 
 import { AlertTriangle } from 'lucide-react'
 import { typography } from '@/styles/typography'
+import { V7_MODEL_LIMIT_CAVEAT } from './v7GuidanceCopy'
 
 export interface V7SharpenInput {
   /** Display label — an evidence-gap factor label. */
@@ -65,8 +66,7 @@ export function V7SharpenLine({ briefWording, inputs, onFocusNode }: V7SharpenLi
         </p>
       )}
       <p className={`${typography.panelMeta} text-text-light mt-1`}>
-        Olumi can point to what the model implies, but not guarantee the real world behaves the same.
-        Confirm these before you lean on the result.
+        {V7_MODEL_LIMIT_CAVEAT} Confirm these before you lean on the result.
       </p>
       <ul className="mt-2 space-y-0.5">
         {shown.map((input, i) => {

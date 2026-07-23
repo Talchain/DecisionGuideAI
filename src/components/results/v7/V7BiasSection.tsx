@@ -26,6 +26,20 @@ import { V7_GUIDANCE_COPY } from './v7GuidanceCopy'
 
 const B = V7_GUIDANCE_COPY.bias
 
+/** The producer minutes estimate, rendered identically in both slots (with or
+ * without steps). One leaf so the testid + classes cannot drift between them. */
+function MinutesBadge({ minutes }: { minutes: number }) {
+  return (
+    <span
+      data-testid="v7-bias-minutes"
+      className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-light`}
+    >
+      <Clock aria-hidden="true" className="h-3 w-3 flex-none" />
+      {B.minutes(minutes)}
+    </span>
+  )
+}
+
 function BiasCard({ finding }: { finding: V7BiasFinding }) {
   return (
     <div
@@ -54,13 +68,7 @@ function BiasCard({ finding }: { finding: V7BiasFinding }) {
               {B.stepsLabel}
             </span>
             {finding.estimatedMinutes != null && (
-              <span
-                data-testid="v7-bias-minutes"
-                className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-light`}
-              >
-                <Clock aria-hidden="true" className="h-3 w-3 flex-none" />
-                {B.minutes(finding.estimatedMinutes)}
-              </span>
+              <MinutesBadge minutes={finding.estimatedMinutes} />
             )}
           </div>
           <ol className="space-y-0.5">
@@ -75,13 +83,7 @@ function BiasCard({ finding }: { finding: V7BiasFinding }) {
 
       {/* Minutes with no steps still surfaces the estimate honestly. */}
       {finding.steps.length === 0 && finding.estimatedMinutes != null && (
-        <span
-          data-testid="v7-bias-minutes"
-          className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-light`}
-        >
-          <Clock aria-hidden="true" className="h-3 w-3 flex-none" />
-          {B.minutes(finding.estimatedMinutes)}
-        </span>
+        <MinutesBadge minutes={finding.estimatedMinutes} />
       )}
     </div>
   )
