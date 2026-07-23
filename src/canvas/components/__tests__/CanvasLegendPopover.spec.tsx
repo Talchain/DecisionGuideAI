@@ -11,7 +11,7 @@ import { CanvasLegendPopover } from '../CanvasLegendPopover'
 const APPROVED = [
   'Decision', 'Option', 'Factor', 'Outcome', 'Risk', 'Goal', 'Outside your control',
   'Raises', 'Lowers', 'Solid connection: established', 'Dashed connection: less certain',
-  'Weak influence', 'Moderate influence', 'Strong influence',
+  'Weak effect', 'Moderate effect', 'Strong effect',
 ]
 
 describe('CanvasLegendPopover', () => {
@@ -71,13 +71,15 @@ describe('CanvasLegendPopover', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  // The folded-in influence scale renders its three samples (was the standalone
-  // EdgeThicknessLegend; now one consolidated key).
-  it('renders the influence-thickness scale', () => {
+  // The folded-in effect-strength scale renders its three samples (was the
+  // standalone EdgeThicknessLegend; now one consolidated key). P2.9: thickness
+  // means effect strength (weight magnitude) in both phases, so the labels read
+  // "effect" not "influence".
+  it('renders the effect-strength thickness scale', () => {
     render(<CanvasLegendPopover />)
     fireEvent.click(screen.getByRole('button', { name: 'How to read this' }))
-    expect(screen.getByText('Weak influence')).toBeDefined()
-    expect(screen.getByText('Moderate influence')).toBeDefined()
-    expect(screen.getByText('Strong influence')).toBeDefined()
+    expect(screen.getByText('Weak effect')).toBeDefined()
+    expect(screen.getByText('Moderate effect')).toBeDefined()
+    expect(screen.getByText('Strong effect')).toBeDefined()
   })
 })

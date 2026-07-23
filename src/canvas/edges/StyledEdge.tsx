@@ -34,7 +34,7 @@ import { EdgeEditPopover } from './EdgeEditPopover'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
 import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn } from '../utils/fragileEdgeMatch'
-import { existenceCertaintyToLineStyle, calculateEdgeImportance, importanceToStrokeWidth, weightMagnitudeToStrokeWidth } from '../utils/graphDisplayCalculations'
+import { existenceCertaintyToLineStyle, calculateEdgeImportance, weightMagnitudeToStrokeWidth } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
 import { getStrengthDescription, getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
@@ -222,58 +222,18 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [weight, style, curvature, selected, isDark]
   )
 
-  // Task A: Edge thickness based on importance (Results) or weight magnitude (Edit)
-  const edgeStrokeWidth = useMemo(() => {
-    if (!isResultsMode || !report) {
-      // D.1: Pre-run mode — stroke width encodes weight magnitude
-      return weightMagnitudeToStrokeWidth(computeSignedMean(edgeData as Record<string, unknown> | undefined))
-    }
-
-    // Get factor_sensitivity data
-    const factorSensitivity = report.enrichment?.sensitivity_analysis?.factors ||
-                             report.factor_sensitivity ||
-                             []
-
-    if (factorSensitivity.length === 0) {
-      return visualProps.strokeWidth // Fallback: no sensitivity data
-    }
-
-    // Find the source node's elasticity (goal_sensitivity)
-    // Fix 4: For edges from non-factor nodes (Outcome/Risk/Goal), use elasticity=1.0 fallback
-    const sourceFactor = factorSensitivity.find((f: any) => {
-      const factorId = f.factor_id || f.factorId || f.node_id || f.nodeId
-      return factorId === source
-    })
-    const goalSensitivity = sourceFactor ?
-      Math.abs(sourceFactor.elasticity ?? sourceFactor.sensitivity_score ?? sourceFactor.importance_score ?? 0) :
-      1.0 // Fallback for non-factor nodes: use 1.0 to provide meaningful variation based on belief×strength
-
-    // Calculate importance for this edge
-    const belief = edgeData?.beliefExists
-    const strength = weight // edge weight represents causal strength
-    const importance = calculateEdgeImportance(belief, strength, goalSensitivity)
-
-    // Get all edges to find max importance
-    const allEdges = getEdges()
-    const importances = allEdges.map(edge => {
-      const edgeSource = edge.source
-      const edgeData = edge.data as EdgeData | undefined
-      const sourceFactor = factorSensitivity.find((f: any) => {
-        const factorId = f.factor_id || f.factorId || f.node_id || f.nodeId
-        return factorId === edgeSource
-      })
-      const goalSens = sourceFactor ?
-        Math.abs(sourceFactor.elasticity ?? sourceFactor.sensitivity_score ?? sourceFactor.importance_score ?? 0) :
-        1.0 // Fix 4: Fallback for non-factor edges
-      const belief = edgeData?.beliefExists
-      const strength = edgeData?.weight ?? 0.5 // Aligned with DEFAULT_EDGE_DATA.weight
-      return calculateEdgeImportance(belief, strength, goalSens)
-    })
-    const maxImportance = Math.max(...importances, 0)
-
-    // Map to stroke width (1-8px range)
-    return importanceToStrokeWidth(importance, maxImportance)
-  }, [isResultsMode, report, source, edgeData?.beliefExists, weight, getEdges, edgeData?.direction])
+  // P2.9: Stroke width encodes WEIGHT MAGNITUDE in BOTH phases. Previously it
+  // switched meaning — |strength.mean| pre-run, composite importance
+  // (belief × strength × goal_sensitivity) post-run — so the one visual a user
+  // learns pre-run silently re-scaled the moment results arrived. Width is now
+  // the stable, learnable channel; post-run importance is already surfaced via
+  // the edge label, the top-3 auto-labels, and the #451 projection halo, so it
+  // no longer needs to hijack thickness. (Deliberate, Paul-approved encoding
+  // change — see PR body.)
+  const edgeStrokeWidth = useMemo(
+    () => weightMagnitudeToStrokeWidth(computeSignedMean(edgeData as Record<string, unknown> | undefined)),
+    [edgeData]
+  )
 
   // F.2 + E1: direction-based stroke colour (see directionStroke.ts for the
   // CVD-aware polarity palette and the ΔE rationale). Applies pre-run and
@@ -706,20 +666,18 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             }
             return isHighlightedEdge ? 'var(--semantic-info)' : (directionStroke ?? visualProps.stroke)
           })(),
-          // Graph Lens: opacity for dimmed edges
-          // Graph Editing Experience Task 9b: Confidence opacity layered on top
-          // Structural edges always full opacity (no exists_probability gating).
+          // Opacity is a lens-only channel now. exists_probability is a SINGLE
+          // encoding — the dash (existenceCertaintyDash above), which stays
+          // legible at every zoom level and doesn't fight the analysis halo.
+          // The former Task 9b belief→opacity coupling was dropped (P2.9): two
+          // channels for one variable is exactly the encoding overload the
+          // audit flags, and a dimmed edge collided with lens dimming and the
+          // projection halo. Opacity therefore returns to a constant except for
+          // the lens's own dim/sensitivity states. Structural edges: full opacity.
           opacity: isStructuralEdge ? undefined
             : isLensDimmed ? 0.2
             : (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ25 !== null && lensSensWeight <= lensQ25) ? 0.4
-            : (() => {
-                // Task 9b: Encode exists_probability as opacity
-                const ep = beliefExists
-                if (ep === undefined || ep === null) return undefined
-                if (ep >= 0.8) return undefined // full opacity (1.0)
-                if (ep >= 0.5) return 0.7
-                return 0.4
-              })(),
+            : undefined,
           // Graph Lens: subtle glow for high-sensitivity edges.
           // Analysis-graph projection: a viewed flip-risk edge gets a WARNING
           // halo (drop-shadow, a separate CSS channel) so the marker composes
@@ -794,9 +752,17 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         </EdgeLabelRenderer>
       )}
 
-      {/* Direction sign indicator: Detailed view, post-analysis only.
-          Structural edges have no semantic direction — exclude defensively. */}
-      {viewMode !== 'standard' && isResultsMode && direction && lensMode !== 'causal' && !isStructuralEdge && (
+      {/* Polarity glyph (+/−): rendered whenever a non-structural edge has a
+          direction — in Standard view AND pre-run, not only Expert+results.
+          directionStroke.ts's docblock is explicit that the glyph, not the
+          green/rose colour, is what carries polarity for a red-green dichromat
+          (the palette separates WORSE than green/red under deuteranopia), so
+          colour-alone polarity pre-run/Standard was a legibility gap. Positioned
+          at the target end (targetX/Y − 18), away from the mid-path label, so it
+          collision-avoids labels exactly as before. Causal lens shows its own
+          numeric parameter label instead. Structural edges have no semantic
+          direction — excluded defensively. */}
+      {direction && lensMode !== 'causal' && !isStructuralEdge && (
         <EdgeLabelRenderer>
           <div
             style={{

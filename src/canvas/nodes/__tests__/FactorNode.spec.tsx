@@ -722,6 +722,55 @@ describe('FactorNode', () => {
   })
 
   // -------------------------------------------------------------------------
+  // P2.9 item 4 (factor-badge de-noise): the MetricPills influence/confidence
+  // pills are a Standard-view compact summary. In Detailed view the labelled
+  // Influence/Confidence bars (Layer 2) carry the SAME two numbers, so the pills
+  // were a duplicate channel — one of the "three % semantics in identical pill
+  // dress" the audit flagged, doubled in the densest view. They are now gated to
+  // Standard only. "Influence NN%" is a single text node the bar never produces
+  // (the bar renders "Influence" and "NN%" separately), so it uniquely
+  // identifies the pill.
+  // -------------------------------------------------------------------------
+  describe('MetricPills are Standard-only; Detailed shows the bars, not the duplicate pills', () => {
+    const setup = (viewMode: 'standard' | 'expert') => {
+      vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
+        selector({
+          hoveredOptionId: null, nodes: [], edges: [], ceeAnalysisReady: null,
+          results: { status: 'complete', report: null },
+          highlightedNodes: new Set(), dimmedNodeIds: new Set(),
+          goalThreshold: null, goalConstraints: [], viewMode,
+        })
+      )
+      vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+        sensitivityRank: 1, influence: 0.8, influenceProvenance: 'influence_score',
+        confidence: 0.45, inSensitivityAnalysis: true,
+        achievementProbability: null, achievementProbabilityIsModelledBasis: false,
+        stabilityPercentage: null, winRate: null, isResultsMode: true,
+        predictedOutcome: null, valueOfInformation: null, voiRank: null,
+      })
+      renderFactor({ label: 'Salary', type: 'factor', observedState: { value: 0.5 } })
+    }
+
+    it('Standard view: renders the MetricPills influence + confidence pills', () => {
+      setup('standard')
+      expect(screen.getByText('Influence 80%')).toBeDefined()
+      expect(screen.getByText('Confidence 45%')).toBeDefined()
+    })
+
+    it('Detailed view: the duplicate pills are gone; the labelled bars remain', () => {
+      setup('expert')
+      // The pills (single "Influence NN%" / "Confidence NN%" nodes) are suppressed…
+      expect(screen.queryByText('Influence 80%')).toBeNull()
+      expect(screen.queryByText('Confidence 45%')).toBeNull()
+      // …while the Layer-2 bars still carry the numbers (label + value separate).
+      expect(screen.getByText('Influence')).toBeDefined()
+      expect(screen.getByText('Confidence')).toBeDefined()
+      expect(screen.getByText('80%')).toBeDefined()
+      expect(screen.getByText('45%')).toBeDefined()
+    })
+  })
+
+  // -------------------------------------------------------------------------
   // Review fix 4: the DETAILED view renders the same display-model number one
   // level up from the pill ('Influence' + DataBar + 'NN%') and had NO basis
   // disclosure at all — the identical misread class the pill fix addressed.
