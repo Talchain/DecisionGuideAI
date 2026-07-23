@@ -42,14 +42,23 @@
  * are handled inline by each consumer and are deliberately NOT in this registry —
  * it enumerates `data.*` fields only.
  *
- * ── ⚠ KNOWN persist/stale ASYMMETRIES (behaviour preserved; NOT fixed here) ─────
- * Some analysis-affecting fields are NOT in the persist gate today — the SAME
- * class of gap as #457 (an edit to ONLY that field would not flip the autosave
- * dirty hash). They are flagged `stale`-only below with a "KNOWN GAP" note and
- * left as-is so this refactor preserves both behaviours exactly. Candidates for a
- * follow-up: node `probability`, `impact`, `prior`; edge `beliefStrength`,
- * `belief`, `exists_probability`. Making the registry surface these openly is the
- * point of the exercise.
+ * ── persist/stale ASYMMETRIES — adjudicated in task #23 (was ⚠ KNOWN GAP) ───────
+ * Six analysis-affecting fields were flagged `stale`-only with a "KNOWN GAP" note:
+ * an edit touching ONLY that field would not flip the autosave dirty hash — the
+ * SAME class of bug as #457. Task #23 adjudicated each PER FIELD on the LIVE path
+ * (honest verification, not a blanket flip):
+ *
+ *   • node `probability`, `impact` (RiskPanel setters, live since #453) and
+ *     `prior` (FactorExternalPanel setPriorRange) are genuinely user-editable IN
+ *     ISOLATION and analysis-affecting → FLIPPED into `persist`. computeGraphHash
+ *     derives PERSIST_NODE_FIELDS from this registry, so the flip reaches it
+ *     automatically (that is the point of #461). Round-trip pinned in
+ *     useAutosave.analysisFieldPersist.spec.ts.
+ *   • edge `beliefStrength`, `belief`, `exists_probability` have NO live editor
+ *     that writes them in isolation (creation-time defaults / the DEAD v1 edge
+ *     inspector / CEE-ingestion that always co-writes the persisted `beliefExists`
+ *     in the same edge rebuild). An uneditable field cannot be lost by an isolated
+ *     edit → deliberately LEFT `stale`-only. See each field's note for the trace.
  */
 
 export type AnalyticalFieldPurpose = 'persist' | 'stale'
@@ -110,8 +119,8 @@ export const NODE_FIELD_REGISTRY: readonly AnalyticalFieldSpec[] = [
   },
   {
     field: 'prior',
-    purposes: ['stale'],
-    note: "A factor's prior belief — analysis-affecting. ⚠ KNOWN GAP: not in the persist dirty-gate today (a prior-only edit would not trigger an autosave — same class as #457). Behaviour preserved; follow-up candidate. Consumers: staleness.",
+    purposes: ['persist', 'stale'],
+    note: "A factor's prior belief range — analysis-affecting AND user-editable in isolation on the live path (External-factor inspector: FactorExternalPanel/FactorExternalEditor setPriorRange → updateNode(data.prior), routed live via InspectorRouter 'factor-external'; also read by the V1 mapper → PLoT). Task #23: FLIPPED into persist — a prior-only edit must survive reload (was the same class as #457). Consumers: staleness, autosave, V1 mapper.",
   },
   {
     field: 'kind',
@@ -130,13 +139,13 @@ export const NODE_FIELD_REGISTRY: readonly AnalyticalFieldSpec[] = [
   },
   {
     field: 'probability',
-    purposes: ['stale'],
-    note: "A risk's likelihood [0,1] — passes through to PLoT (V2 adapter) and drives calculateRiskSeverity. #453 root cause when missing from staleness. ⚠ KNOWN GAP: not in the persist dirty-gate today (top-level node.data field, not nested in observedState — a probability-only edit would not trigger an autosave, same class as #457). Behaviour preserved; follow-up candidate. Consumers: staleness, RiskPanel, V2 adapter.",
+    purposes: ['persist', 'stale'],
+    note: "A risk's likelihood [0,1] — user-editable in isolation via RiskPanel (setProbability → updateNode(data.probability), live since #453) and analysis-affecting (drives calculateRiskSeverity; passes to PLoT). It is a top-level node.data field, not nested in observedState. #453 root cause when missing from staleness. Task #23: FLIPPED into persist — a probability-only edit must survive reload (was the same class as #457). Consumers: staleness, autosave, RiskPanel, V2 adapter.",
   },
   {
     field: 'impact',
-    purposes: ['stale'],
-    note: "A risk's impact enum (low..critical); with probability drives severity. #453. ⚠ KNOWN GAP: same persist gap as probability. Behaviour preserved; follow-up candidate. Consumers: staleness, RiskPanel.",
+    purposes: ['persist', 'stale'],
+    note: "A risk's impact enum (low..critical); with probability drives severity. User-editable in isolation via RiskPanel (setImpact → updateNode(data.impact)). #453. Task #23: FLIPPED into persist — an impact-only edit must survive reload (same class as #457). Consumers: staleness, autosave, RiskPanel.",
   },
 ] as const
 
@@ -173,17 +182,17 @@ export const EDGE_FIELD_REGISTRY: readonly AnalyticalFieldSpec[] = [
   {
     field: 'beliefStrength',
     purposes: ['stale'],
-    note: 'Belief magnitude on the edge — analysis-affecting. ⚠ KNOWN GAP: not in the persist dirty-gate today. Behaviour preserved; follow-up candidate. Consumers: staleness.',
+    note: "Belief magnitude on the edge — analysis-affecting. Task #23 adjudication: deliberately NOT persisted — NO live editor writes edge.data.beliefStrength in isolation. It is set only at edge CREATION (DEFAULT_EDGE_DATA default 0.5) and by CEE normalisation in edges.ts; the live edge inspector (EdgePanel → useEdgeMutations) writes weight/direction/strengthStd/beliefExists, never beliefStrength. An uneditable field can't be lost by an isolated edit. Consumers: staleness.",
   },
   {
     field: 'belief',
     purposes: ['stale'],
-    note: 'Legacy belief scalar — analysis-affecting. ⚠ KNOWN GAP: not in the persist dirty-gate today. Behaviour preserved; follow-up candidate. Consumers: staleness.',
+    note: "Legacy belief scalar — analysis-affecting. Task #23 adjudication: deliberately NOT persisted — the only editor that writes edge.data.belief is the DEAD v1 edge inspector (EdgeInspector/InspectorPanel; InspectorModal hardcodes USE_INSPECTOR_V2=true so the live path is EdgePanel, which writes beliefExists, not belief). No live user editor → no isolated edit to lose. Consumers: staleness.",
   },
   {
     field: 'exists_probability',
     purposes: ['stale'],
-    note: 'snake_case existence probability — analysis-affecting. ⚠ KNOWN GAP: not in the persist dirty-gate today. Behaviour preserved; follow-up candidate. Consumers: staleness.',
+    note: "snake_case existence probability — analysis-affecting. Task #23 adjudication: deliberately NOT persisted — no isolated user editor. It is written ONLY by the CEE ingestion paths (applyPatch/applyDraftResult buildEdge), each of which co-writes beliefExists (a persist field) in the same edge rebuild, so any change already flips the autosave dirty hash; the live user editor (EdgePanel setExistsProbability) writes beliefExists. Consumers: staleness.",
   },
 ] as const
 

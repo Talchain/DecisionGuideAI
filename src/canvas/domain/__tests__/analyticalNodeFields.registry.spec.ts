@@ -42,6 +42,10 @@ import { computeGraphHash } from '../../hooks/useAutosave'
 const EXPECTED_PERSIST_NODE = [
   'observedState', 'interventions', 'is_baseline', 'success_threshold',
   'goal_threshold_raw', 'goal_threshold_unit', 'goal_threshold_cap', 'threshold_source',
+  // Task #23: analysis-affecting node fields that are user-editable in isolation on
+  // the live path (probability/impact via RiskPanel, prior via FactorExternalPanel)
+  // were flipped INTO persist so an edit touching only them survives reload (#457 class).
+  'prior', 'probability', 'impact',
 ]
 const EXPECTED_STALE_NODE = [
   'observedState', 'interventions', 'is_baseline', 'success_threshold',
