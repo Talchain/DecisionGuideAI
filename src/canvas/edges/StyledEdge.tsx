@@ -779,7 +779,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               fontSize: '16px',
               fontWeight: 700,
               color: direction === 'positive' ? '#059669' : '#dc2626',
-              backgroundColor: '#F4F0EA',
+              // Chip surface = the panel token, matching the sibling edge-label
+              // chips (bg-panel) so it no longer glares on a dark canvas. Inline
+              // CSS-var idiom mirrors the other token refs in this file
+              // (e.g. the leader line's var(--border-default, #d4d4d8)); the
+              // hex is only a var() fallback, not a live literal.
+              backgroundColor: 'var(--bg-panel, #FEFEFE)',
               padding: '0 3px',
               borderRadius: '2px',
             }}
