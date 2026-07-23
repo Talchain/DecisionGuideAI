@@ -5,7 +5,6 @@ import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { biasSignal } from '../shared/biasSignalTitles'
 import { useCanvasStore } from '../store'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
@@ -20,7 +19,7 @@ import {
 import { readFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
-import { NodeChip, ActionIcons, BriefIcon, MetricPills, NodePopover, ScienceIcon } from './shared'
+import { NodeChip, ActionIcons, BriefIcon, NodePopover, ScienceIcon } from './shared'
 import { selectGoalProbability } from '../../components/results/utils/selectGoalProbability'
 
 /** Truncate text at word boundary to avoid mid-word cuts. */
@@ -1208,16 +1207,12 @@ export const OptionNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* Post-analysis: status quo bias -- MetricPills with EyeOff bias */}
-        {isPostAnalysis && isBaselineOption && (
-          <MetricPills
-            biasType="status-quo"
-            // Bias NAME composed from the one registry (review-folds C15).
-            biasTip={`${biasSignal('status_quo_bias').title}: inaction risks often underestimated.`}
-            biasLinkLabel="Explore risks of inaction"
-            biasLinkMessage="What are the risks of choosing to do nothing?"
-          />
-        )}
+        {/* Status-quo bias coaching lives on the header ScienceIcon now — one
+            bias-coaching surface per node (bias-coaching slice, proposal
+            2026-07-16 §1.5(2)). useScienceIcons emits `status-quo-bias` for
+            baseline options (pre- and post-analysis), and the ScienceIcon
+            popover carries the "discuss with AI" turn the retired node-level
+            BiasIcon twin used to provide. No second bias surface is mounted. */}
 
         {/* Coaching chips moved into popover (Standard) / Detailed inline
             layer-2. See `optionChips` useMemo above and the popover branches

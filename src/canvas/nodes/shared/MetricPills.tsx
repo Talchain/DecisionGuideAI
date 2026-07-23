@@ -1,8 +1,10 @@
 /**
  * MetricPills — compact row of small outlined pills at the bottom of Standard view nodes.
- * Three pill types: Influence, Confidence (plain words, not I:/C: — the
+ * Two pill types: Influence and Confidence (plain words, not I:/C: — the
  * first-five-minutes review found the abbreviations unreadable at first
- * contact; the tooltip/aria still carry the full provenance), and bias icon.
+ * contact; the tooltip/aria still carry the full provenance). Bias coaching is
+ * NOT a pill here: it lives on the header ScienceIcon (one bias-coaching
+ * surface per node — bias-coaching slice, proposal 2026-07-16 §1.5(2)).
  * Font 10px (edgeLabel). Pill padding 1px 5px. Border-radius 10px. Gap 3px.
  *
  * Lane C4 (influence-scale disclosure): the influence number comes from the
@@ -17,30 +19,21 @@
  * (influenceScaleCopy) DriversSection consumes too, so the surfaces cannot
  * drift (review fix 3).
  */
-import { BiasIcon } from './BiasIcon'
-import type { ComponentProps } from 'react'
 import type { DriverDisplayProvenance } from '../../../components/results/driverDisplayModel'
 import { influenceExplanation, influencePillAriaLabel } from '../../../components/results/influenceScaleCopy'
-
-type BiasIconProps = ComponentProps<typeof BiasIcon>
 
 interface MetricPillsProps {
   influencePct?: number | null
   /** Which basis produced influencePct (see driverDisplayModel). Absent → generic copy. */
   influenceProvenance?: DriverDisplayProvenance | null
   confidencePct?: number | null
-  biasType?: BiasIconProps['bias']
-  biasTip?: string
-  biasLinkLabel?: string
-  biasLinkMessage?: string
 }
 
-export function MetricPills({ influencePct, influenceProvenance, confidencePct, biasType, biasTip, biasLinkLabel, biasLinkMessage }: MetricPillsProps) {
+export function MetricPills({ influencePct, influenceProvenance, confidencePct }: MetricPillsProps) {
   const hasInfluence = influencePct != null && influencePct > 0
   const hasConfidence = confidencePct != null && confidencePct > 0
-  const hasBias = biasType && biasTip
 
-  if (!hasInfluence && !hasConfidence && !hasBias) return null
+  if (!hasInfluence && !hasConfidence) return null
 
   const influenceTitle = influenceExplanation(influenceProvenance)
   const influenceAria = influencePillAriaLabel(influencePct ?? 0, influenceProvenance)
@@ -66,11 +59,6 @@ export function MetricPills({ influencePct, influenceProvenance, confidencePct, 
       {hasConfidence && (
         <span className="text-[10px] font-sans leading-tight px-[5px] py-[1px] rounded-[10px] border border-factor/60 text-text-body">
           Confidence {confidencePct}%
-        </span>
-      )}
-      {hasBias && (
-        <span className="inline-flex px-1 py-[1px] rounded-[10px] border border-warning/40">
-          <BiasIcon bias={biasType} tip={biasTip} linkLabel={biasLinkLabel} linkMessage={biasLinkMessage} />
         </span>
       )}
     </div>
