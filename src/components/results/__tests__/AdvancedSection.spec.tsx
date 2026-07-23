@@ -351,4 +351,12 @@ describe('AdvancedSection', () => {
     fireEvent.click(screen.getByText('Advanced and receipts'))
     expect(screen.queryByText('Seed')).not.toBeInTheDocument()
   })
+
+  // ── V7 L6 row 12: receipt labels name the real wire meta field ──────────
+  it('names the real wire fields on the Seed and Simulation rows (row 12)', () => {
+    render(<AdvancedSection nSamples={1000} seedUsed={42} />)
+    fireEvent.click(screen.getByText('Advanced and receipts'))
+    expect(screen.getByText('Seed')).toHaveAttribute('title', 'meta.seed')
+    expect(screen.getByText('Simulation quality')).toHaveAttribute('title', 'meta.n_samples')
+  })
 })

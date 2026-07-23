@@ -94,6 +94,10 @@ const CONTENT_CARD_FILES = [
   'components/results/v7/V7LensGroup.tsx',
   'components/results/v7/V7EvidenceDisclosure.tsx',
   'components/results/v7/V7WhatChangedLens.tsx',
+  // V7 Lane L6 — guidance list, held-proposal pointer card, bias coaching.
+  'components/results/v7/V7GuidanceSection.tsx',
+  'components/results/v7/V7HeldProposalCard.tsx',
+  'components/results/v7/V7BiasSection.tsx',
   // V7 L2 — the final two one-sided accents, now converted to complete borders.
   'v5/blocks/V5CoachingBlock.tsx',
   'canvas/ToastContext.tsx',

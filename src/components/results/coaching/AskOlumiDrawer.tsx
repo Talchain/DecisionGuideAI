@@ -27,6 +27,7 @@ import { X } from 'lucide-react'
 
 import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
+import { V7_MODEL_LIMIT_CAVEAT } from '../v7/v7GuidanceCopy'
 import { useAskOlumiStore } from './askOlumiStore'
 
 const TOAST_MS = 1800
@@ -144,6 +145,14 @@ export function AskOlumiDrawer() {
                 {context}
               </p>
             )}
+            {/* Row 15: the drawer ALWAYS carries the model-limit caveat, so a
+                work-through never reads as a real-world forecast. Copy only. */}
+            <p
+              data-testid="ask-olumi-model-limit"
+              className="mb-2 text-[11px] leading-snug text-text-light"
+            >
+              {V7_MODEL_LIMIT_CAVEAT}
+            </p>
             <textarea
               ref={textareaRef}
               data-testid="ask-olumi-draft"

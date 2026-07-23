@@ -419,7 +419,8 @@ export function AdvancedSection({
                 row is omitted — never a per-option or stale-prior-run number. */}
             {nSamples != null && (
               <>
-                <dt className="text-text-light">Simulation quality</dt>
+                {/* Row 12: label carries the real wire field name (`meta.n_samples`). */}
+                <dt className="text-text-light" title="meta.n_samples">Simulation quality</dt>
                 <dd className="text-text-header">{nSamples.toLocaleString()} simulations</dd>
               </>
             )}
@@ -463,7 +464,8 @@ export function AdvancedSection({
             )}
             {seedUsed != null && (
               <>
-                <dt className="text-text-light">Seed</dt>
+                {/* Row 12: label carries the real wire field name (`meta.seed`). */}
+                <dt className="text-text-light" title="meta.seed">Seed</dt>
                 <dd className="text-text-header font-mono">{seedUsed}</dd>
               </>
             )}
