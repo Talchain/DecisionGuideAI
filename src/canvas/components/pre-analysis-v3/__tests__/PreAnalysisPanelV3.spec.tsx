@@ -16,6 +16,7 @@ import '@testing-library/jest-dom/vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import type { Node } from '@xyflow/react'
 import { PreAnalysisPanelV3 } from '../PreAnalysisPanelV3'
+import { SUCCESS_INPUT_ID } from '../hero/HeroSection'
 import { ToastProvider } from '../../../ToastContext'
 import { useCanvasStore } from '../../../store'
 import { useReadinessStore } from '../../../stores/readinessStore'
@@ -751,5 +752,40 @@ describe('assessment-pass regressions', () => {
     const bar = screen.getByTestId('pre-analysis-v3-bar-estimates')
     expect(bar).toHaveAccessibleName('Estimates: No estimates yet')
     expect(bar).not.toHaveTextContent('medium')
+  })
+})
+
+describe('Success-target nudge (V3)', () => {
+  it('renders the nudge when a drafted graph has a goal but no success target', () => {
+    // beforeEach seeds seedGraph(): goal g1 present, no goal_threshold →
+    // success unset. The V3 panel is the LIVE staging surface, so the nudge
+    // must be present here (regression guard for the dark-nudge defect).
+    renderPanel()
+    expect(screen.getByTestId('goal-target-nudge')).toBeInTheDocument()
+  })
+
+  it('hides the nudge once a success target is set', () => {
+    seedGraph({ successSet: true })
+    renderPanel()
+    expect(screen.queryByTestId('goal-target-nudge')).not.toBeInTheDocument()
+  })
+
+  it('does not render the nudge when there is no goal node', () => {
+    useCanvasStore.setState({
+      nodes: useCanvasStore
+        .getState()
+        .nodes.filter(n => (n.data as { kind?: string }).kind !== 'goal'),
+    })
+    renderPanel()
+    expect(screen.queryByTestId('goal-target-nudge')).not.toBeInTheDocument()
+  })
+
+  it('CTA reaches the V3 setter seam (focuses the inline success field)', () => {
+    // Same route handleLadderAct('set_success') / handleSignalAction(
+    // 'focus_success_field') use — focus the inline success field by id. No
+    // second editor.
+    renderPanel()
+    fireEvent.click(screen.getByTestId('goal-target-nudge-cta'))
+    expect(document.getElementById(SUCCESS_INPUT_ID)).toHaveFocus()
   })
 })

@@ -22,6 +22,7 @@ import { SuccessTarget } from './SuccessTarget'
 import { BlockersSection } from './BlockersSection'
 import { OptionPreview } from './OptionPreview'
 import { SharpenYourThinking } from './SharpenYourThinking'
+import { GoalTargetNudge } from './GoalTargetNudge'
 import { AnalysisSettings } from './AnalysisSettings'
 import { deriveExpertiseGroups } from './hooks/deriveExpertiseGroups'
 import { StickyFooter } from './StickyFooter'
@@ -2096,6 +2097,21 @@ export function PreAnalysisPanel({
               />
             </SectionErrorBoundary>
           )}
+
+          {/* Success-target elicitation nudge. When a draft has landed with a
+              goal but no success target, this is the single always-visible,
+              value-framed pointer into the EXISTING target-setter (routes via
+              handleSetTargetFocus — the same seam SharpenYourThinking uses).
+              It unlocks the honestly-gated Goal-fit lens (buildHeroModel
+              UI-SEM-071/072; buildV7Lenses goalThreshold==null gate). Presence
+              /absence only — vanishes the instant a target is set, never blocks
+              analysis (target stays optional). Sits above the T1 readiness card
+              so it lands where the eye already is post-draft. */}
+          <GoalTargetNudge
+            hasGoalNode={hasGoalNode}
+            hasSuccessTarget={hasGoalTarget}
+            onSetTarget={handleSetTargetFocus}
+          />
 
           {/* Brief 5.8A D3a: T1 "Decision readiness" card. The .sc wrapper
               hosts the ring + 4 dimension bars (ModelHealthCard compact mode),

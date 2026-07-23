@@ -71,6 +71,7 @@ const SRC = resolvePath(__dirname, '../../src')
  */
 const CONTENT_CARD_FILES = [
   'canvas/components/pre-analysis/PreAnalysisPanel.tsx',
+  'canvas/components/pre-analysis/GoalTargetNudge.tsx',
   'components/results/TriageActionCardsBody.tsx',
   'components/results/ConfidenceSection.tsx',
   'canvas/components/GuidanceCard.tsx',
