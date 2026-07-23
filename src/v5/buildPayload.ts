@@ -29,8 +29,9 @@ import type {
   TurnClassType,
   TurnSourceLiteral,
   ActionTypeLiteral,
+  IntentLiteral,
 } from '@talchain/schemas/boundary'
-import { ActionType } from '@talchain/schemas/boundary'
+import { ActionType, Intent } from '@talchain/schemas/boundary'
 
 import type { SystemEvent } from '../canvas/conversation/types'
 
@@ -46,7 +47,9 @@ export interface BuildV5PayloadInput {
   /** sendTurn source string. Maps to TurnSource. */
   source?: string | undefined
   /** Chip metadata forwarded by chip click handlers. */
-  chipMeta?: { action_type?: string; parameters?: Record<string, unknown> } | undefined
+  chipMeta?:
+    | { id?: string; action_type?: string; intent?: string; parameters?: Record<string, unknown> }
+    | undefined
   /**
    * Prior client_turn_id being retried. Today's UI reuses the prior
    * client_turn_id as the new turn's `turn_id` for idempotent replay
@@ -106,6 +109,12 @@ export function buildV5Payload(input: BuildV5PayloadInput): BuildV5PayloadResult
   // chip_click promotion — so the turn behaves exactly like today's
   // identity-only chip until the value is BOTH re-vendored and accepted.
   const wireActionType = sanitiseActionType(input.chipMeta?.action_type)
+  // The typed authored intent (0.22 `chip.intent`) rides the SAME two-signal
+  // gate discipline as action_type: published in OUR vendored enum AND accepted
+  // by CEE's deployed service. `add_option` is the only value CEE currently
+  // routes (see CEE_ACCEPTED_INTENTS); every other intent is withheld and the
+  // chip behaves exactly like today's identity-only chip until CEE confirms it.
+  const wireIntent = sanitiseIntent(input.chipMeta?.intent)
 
   // Derive source: chipMeta presence with a PUBLISHED action_type signals a
   // bound chip click regardless of what the caller labelled it. Keeps
@@ -135,13 +144,17 @@ export function buildV5Payload(input: BuildV5PayloadInput): BuildV5PayloadResult
     source,
   }
 
-  // Chip sub-object — only on chip / chip_click sources. Carries only the
-  // gate-passed (published AND CEE-accepted) action_type; identity parameters
-  // always travel.
+  // Chip sub-object — only on chip / chip_click sources. Carries the first-class
+  // chip `id`, the gate-passed (published AND CEE-accepted) `action_type` and
+  // `intent`, and the identity `parameters` (which always travel). Key order
+  // mirrors the 0.22 schema (id, action_type, intent, parameters).
   if ((source === 'chip' || source === 'chip_click') && input.chipMeta) {
     const parameters = input.chipMeta.parameters
+    const id = input.chipMeta.id
     base.chip = {
+      ...(id ? { id } : {}),
       ...(wireActionType ? { action_type: wireActionType } : {}),
+      ...(wireIntent ? { intent: wireIntent } : {}),
       ...(parameters ? { parameters } : {}),
     }
   }
@@ -498,5 +511,66 @@ function sanitiseActionType(raw: string | undefined): ActionTypeLiteral | undefi
   if (!raw) return undefined
   return isSendableActionType(raw, KNOWN_ACTION_TYPES, CEE_ACCEPTED_ACTION_TYPES)
     ? (raw as ActionTypeLiteral)
+    : undefined
+}
+
+/**
+ * KNOWN_INTENTS — "is this value published in the `Intent` enum WE vendored?"
+ * DERIVED from the vendored @talchain/schemas `Intent` enum (never a hand list),
+ * the exact derive-don't-mirror discipline KNOWN_ACTION_TYPES uses. `Intent` is
+ * the 0.22 authored-intent set (`add_option`, `elicit_options`, coaching
+ * intents…). Necessary but NOT sufficient to send — the send gate also requires
+ * CEE_ACCEPTED_INTENTS.
+ */
+export const KNOWN_INTENTS: ReadonlySet<IntentLiteral> = new Set<IntentLiteral>(Intent.options)
+
+/**
+ * CEE-acceptance registry for typed intents — the SECOND, independent send-gate
+ * signal, answering "does CEE's DEPLOYED service ROUTE this intent?" (not "did
+ * WE publish it?"). Same rationale + hazards as CEE_ACCEPTED_ACTION_TYPES: a
+ * DELIBERATE hand-maintained allowlist that CANNOT be derived from our vendored
+ * enum (deriving it would re-couple publication with CEE acceptance and re-create
+ * the silent-drop bug the gate prevents). It fails CLOSED — an intent absent here
+ * is WITHHELD (the chip behaves like today's identity-only chip, never a wire
+ * 422), so drift over-blocks, never leaks. The element type is IntentLiteral, so
+ * an entry not in the vendored enum is a COMPILE error.
+ *
+ * Provenance per value:
+ * - add_option: C3's atomic add-option transaction, live on CEE staging since
+ *   `03d03e9`+ and present in build `e7f312d` (the edge-chip-door build).
+ *   route-v2.ts fires the add-option pre-route on
+ *   `(source ∈ {chip, chip_click}) && chip.intent === 'add_option'`, building ONE
+ *   atomic held proposal via add-option-transaction.ts; an incomplete/absent
+ *   `chip.parameters` falls through benignly to the coach (never a 422).
+ *
+ * NOT yet listed (deliberately withheld): the coaching / elicitation intents
+ * (`elicit_options`, `challenge_frame`, `challenge_assumption`, `outside_view`,
+ * `pre_mortem`, `elicit_risks`, `estimate_help`, `mitigation_help`,
+ * `define_success`, `discuss`). Their typed CEE routing arm (design §3.1) is not
+ * confirmed on the deployed service; the registry-stamping lane adds them here
+ * WITH deploy provenance, in lockstep with the CEE coaching-arm deploy.
+ */
+export const CEE_ACCEPTED_INTENTS: ReadonlySet<IntentLiteral> = new Set<IntentLiteral>([
+  'add_option',
+])
+
+/**
+ * The intent send gate, factored out as a PURE predicate (mirrors
+ * isSendableActionType) so a test can drive it with SYNTHETIC registries and
+ * prove the AND actually bites — publication alone (or acceptance alone) can
+ * never open it.
+ */
+export function isSendableIntent(
+  raw: string,
+  published: ReadonlySet<string>,
+  accepted: ReadonlySet<string>,
+): boolean {
+  return published.has(raw) && accepted.has(raw)
+}
+
+function sanitiseIntent(raw: string | undefined): IntentLiteral | undefined {
+  if (!raw) return undefined
+  return isSendableIntent(raw, KNOWN_INTENTS, CEE_ACCEPTED_INTENTS)
+    ? (raw as IntentLiteral)
     : undefined
 }
