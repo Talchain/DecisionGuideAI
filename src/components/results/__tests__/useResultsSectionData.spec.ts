@@ -1636,6 +1636,44 @@ describe('B2: hook-level fragile edge severity', () => {
     // 0.71 > 0.7 → legacy classifies as 'critical'
     expect(saEdge?.severity).toBe('critical')
   })
+
+  it('challengeFragileEdges carries from_id AND to_id through (analysis-graph projection endpoint resolution)', () => {
+    useCanvasStore.setState({
+      results: {
+        status: 'complete',
+        progress: 100,
+        report: {
+          run: { critique: [] },
+          option_comparison: [],
+          robustness: {
+            fragile_edges: [
+              {
+                edge_id: 'fac_c::goal_1',
+                from_id: 'fac_c', to_id: 'goal_1',
+                from_label: 'Factor C', to_label: 'Goal',
+                switch_probability: 0.4,
+                alternative_winner_label: 'Alt option',
+              },
+            ],
+          },
+        },
+      } as any,
+      hasCompletedFirstRun: true,
+      runMeta: {},
+      nodes: [
+        { id: 'goal_1', type: 'goal', data: { label: 'Goal', kind: 'goal' }, position: { x: 0, y: 0 } },
+        { id: 'fac_c', type: 'factor', data: { label: 'Factor C', kind: 'factor' }, position: { x: 0, y: 0 } },
+      ] as any,
+      edges: [],
+    })
+
+    const { result } = renderHook(() => useResultsSectionData())
+    const fe = result.current.confidence.challengeFragileEdges?.[0]
+    // Both endpoints must survive: the projection resolves a flip risk to its
+    // canvas edge via the from→to pair, so a dropped to_id silently disables it.
+    expect(fe?.from_id).toBe('fac_c')
+    expect(fe?.to_id).toBe('goal_1')
+  })
 })
 
 describe('Codex B2 — ranking doctrine: order and crown follow the DISPLAYED influence metric', () => {

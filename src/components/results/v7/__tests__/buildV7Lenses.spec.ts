@@ -151,6 +151,20 @@ describe('buildV7Lenses — passthrough lens + evidence model (V7 L5)', () => {
       ])
     })
 
+    it('passes to_id + edge_id through so the analysis-graph projection can resolve the canvas edge', () => {
+      const m = buildV7Lenses(
+        data({
+          allOptions: [opt('a', 'A', { win: 0.6 })],
+          challengeFragileEdges: [
+            { edge_id: 'plot-e-9', from_id: 'n1', to_id: 'n2', from_label: 'Price', to_label: 'Profit', switch_probability: 0.48 },
+          ],
+        }),
+      )
+      expect(m.evidence.flipRisks[0].fromId).toBe('n1')
+      expect(m.evidence.flipRisks[0].toId).toBe('n2')
+      expect(m.evidence.flipRisks[0].edgeId).toBe('plot-e-9')
+    })
+
     it('narrates trade-offs from conditional_winners producer values (nothing invented)', () => {
       const m = buildV7Lenses(
         data({

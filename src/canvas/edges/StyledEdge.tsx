@@ -87,13 +87,17 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   }, [])
   // ── Consolidated store selectors (2 subscriptions instead of 13) ──
   // Group 1: Core store data (results, review, actions)
-  const { updateEdgeData, ceeReview, resultsStatus, report, isHighlightedEdge, viewMode } = useCanvasStore(
+  const { updateEdgeData, ceeReview, resultsStatus, report, isHighlightedEdge, isAnalysisFragileEdge, viewMode } = useCanvasStore(
     useShallow(s => ({
       updateEdgeData: s.updateEdgeData,
       ceeReview: s.runMeta.ceeReview,
       resultsStatus: s.results.status,
       report: s.results.report,
       isHighlightedEdge: s.highlightedEdges.has(id),
+      // Analysis-graph projection: this edge is a flip risk being viewed in the
+      // V7 evidence disclosure. Optional-chained so store doubles without the
+      // slice stay safe (same pattern as editedSinceRunNodeIds).
+      isAnalysisFragileEdge: s.analysisHighlight?.source === 'flip_risks' && s.analysisHighlight?.edgeIds?.has(id) === true,
       viewMode: s.viewMode,
     })),
   )
@@ -615,7 +619,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           here so they fire regardless of whether the pointer is over the custom
           hitbox path or BaseEdge's interaction path (which renders on top in SVG
           paint order). Both paths bubble mouseenter/mouseleave to this <g>. */}
-      <g onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+      <g
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        data-analysis-fragile={isAnalysisFragileEdge && !isStructuralEdge ? 'true' : undefined}
+      >
       {/* Invisible hitbox — wider than visual stroke; carries test-id and
           structural tooltip. pointer-events:stroke so the <g> receives events
           from this area even when no visual fill is present. */}
@@ -635,6 +643,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         style={{
           // Graph Interaction P1: Highlighted edges get thicker stroke
           strokeWidth: (() => {
+            const base = (() => {
             // Structural edges: fixed 1px regardless of lens / hover / highlight
             if (isStructuralEdge) return 1
             // Causal lens: thickness encodes |strength.mean|
@@ -658,6 +667,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             // Hover thickening: 2px to 3px on hover
             if (isHovered) return Math.max(edgeStrokeWidth, 3)
             return isHighlightedEdge ? Math.max(edgeStrokeWidth, 3) : edgeStrokeWidth
+            })()
+            // Analysis-graph projection: a viewed flip-risk edge thickens so the
+            // warning halo below reads clearly. Composes with the direction
+            // stroke (colour is never replaced). Structural edges are never
+            // fragile-badged, so they never bump.
+            return isAnalysisFragileEdge && !isStructuralEdge ? Math.max(base, 4) : base
           })(),
           // Fix 1: Use existence certainty for line style, fallback to visual props
           // B.I.10: Pre-run incomplete edges get dashed stroke to indicate "needs attention"
@@ -705,16 +720,24 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 if (ep >= 0.5) return 0.7
                 return 0.4
               })(),
-          // Graph Lens: subtle glow for high-sensitivity edges
-          filter: (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ75 !== null && lensSensWeight >= lensQ75)
-            ? 'drop-shadow(0 0 2px var(--semantic-info, #3b82f6))'
-            : undefined,
+          // Graph Lens: subtle glow for high-sensitivity edges.
+          // Analysis-graph projection: a viewed flip-risk edge gets a WARNING
+          // halo (drop-shadow, a separate CSS channel) so the marker composes
+          // with the green/red direction stroke instead of replacing it — the
+          // DS "colour = state" rule, without colliding with polarity colour.
+          filter: (() => {
+            if (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ75 !== null && lensSensWeight >= lensQ75)
+              return 'drop-shadow(0 0 2px var(--semantic-info, #3b82f6))'
+            if (isAnalysisFragileEdge && !isStructuralEdge)
+              return 'drop-shadow(0 0 4px var(--semantic-warning, #eab308))'
+            return undefined
+          })(),
           // Performance: use will-change for frequent updates
-          willChange: selected || isHighlightedEdge ? 'stroke, stroke-width, stroke-dasharray' : undefined,
+          willChange: selected || isHighlightedEdge || isAnalysisFragileEdge ? 'stroke, stroke-width, stroke-dasharray, filter' : undefined,
           // D.1: Smooth transitions for live styling; respect prefers-reduced-motion (§7.4)
           transition: prefersReducedMotion
             ? 'none'
-            : 'stroke 200ms ease, stroke-width 200ms ease, stroke-dasharray 300ms ease-out, opacity 300ms ease',
+            : 'stroke 200ms ease, stroke-width 200ms ease, stroke-dasharray 300ms ease-out, opacity 300ms ease, filter 200ms ease',
         }}
       />
       </g>
