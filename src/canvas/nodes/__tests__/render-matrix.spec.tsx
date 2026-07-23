@@ -29,12 +29,6 @@ vi.mock('@xyflow/react', async () => {
   return { ...actual, Handle: () => null }
 })
 
-vi.mock('../../../hooks/useCEEInsights', () => ({
-  useCEEInsights: vi.fn(() => ({ data: null })),
-}))
-vi.mock('../../../hooks/useISLValidation', () => ({
-  useISLValidation: vi.fn(() => ({ data: null })),
-}))
 vi.mock('../../layoutStore', () => ({
   useLayoutStore: vi.fn((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
     selector({ layoutNodeWidth: null })

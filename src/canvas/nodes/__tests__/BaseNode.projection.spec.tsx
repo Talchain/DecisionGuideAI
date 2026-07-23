@@ -54,8 +54,6 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   })),
 }))
 
-vi.mock('../../../hooks/useCEEInsights', () => ({ useCEEInsights: vi.fn(() => ({ data: null })) }))
-vi.mock('../../../hooks/useISLValidation', () => ({ useISLValidation: vi.fn(() => ({ data: null })) }))
 vi.mock('../shared/NodePopover', () => ({
   NodePopover: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))

@@ -46,14 +46,6 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   })),
 }))
 
-vi.mock('../../../hooks/useCEEInsights', () => ({
-  useCEEInsights: vi.fn(() => ({ data: null })),
-}))
-
-vi.mock('../../../hooks/useISLValidation', () => ({
-  useISLValidation: vi.fn(() => ({ data: null })),
-}))
-
 // Make NodePopover transparent in tests so we can directly assert what its
 // content would render. The real popover is hidden by a 300ms hover delay
 // and a position-tracking guard, neither of which fire in jsdom without a

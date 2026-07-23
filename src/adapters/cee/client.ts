@@ -891,16 +891,4 @@ export class CEEClient {
       suggestions: [],
     }
   }
-
-  /**
-   * @deprecated Use biasCheck() or sensitivityCoach() instead.
-   * Keeping for backward compatibility with useCEEInsights hook.
-   */
-  async analyzeInsights(graph: {
-    nodes: Array<{ id: string; label: string; type: string }>
-    edges: Array<{ from: string; to: string }>
-  }): Promise<CEEInsightsResponse> {
-    // Delegate to biasCheck which is the correct endpoint
-    return this.biasCheck(graph)
-  }
 }
