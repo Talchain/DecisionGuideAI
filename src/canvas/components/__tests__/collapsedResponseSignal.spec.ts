@@ -14,6 +14,7 @@ import { describe, it, expect } from 'vitest'
 import type { ConversationMessage } from '../../conversation/types'
 import {
   latestRealMessageIsAssistantReply,
+  latestRealMessageIsFailedTurn,
   shouldAutoExpandDockForResponse,
   type CollapsedResponseSignalInput,
 } from '../collapsedResponseSignal'
@@ -36,6 +37,21 @@ const CLARIFY_COLLAPSED: CollapsedResponseSignalInput = {
   hasGraphContent: false,
   floatingTranscriptVisible: false,
   hasAssistantReply: true,
+  hasFailedTurn: false,
+}
+
+// The failed-turn-while-collapsed scenario: all context gates satisfied, but the
+// turn produced NO assistant reply — its send failed (deliveryState 'failed')
+// and the "Not delivered" + Retry + recovery guidance are stranded in the
+// collapsed dock.
+const FAILED_COLLAPSED: CollapsedResponseSignalInput = {
+  aiPanelV2On: true,
+  thinkingSettled: true,
+  dockCollapsed: true,
+  hasGraphContent: false,
+  floatingTranscriptVisible: false,
+  hasAssistantReply: false,
+  hasFailedTurn: true,
 }
 
 describe('latestRealMessageIsAssistantReply', () => {
@@ -94,6 +110,76 @@ describe('latestRealMessageIsAssistantReply', () => {
   })
 })
 
+describe('latestRealMessageIsFailedTurn', () => {
+  it('true when the latest real message is a failed user send behind a synthetic error bubble', () => {
+    // The live failure shape: the user bubble is patched deliveryState 'failed'
+    // in place (so it keeps its position) and a SYNTHETIC assistant error bubble
+    // — "Not delivered" copy + Retry chip — is appended after it.
+    expect(
+      latestRealMessageIsFailedTurn([
+        msg({ id: 'u1', role: 'user', content: 'should I switch jobs?', deliveryState: 'failed' }),
+        msg({
+          id: 'err',
+          role: 'assistant',
+          synthetic: true,
+          content: 'This is taking longer than expected. We stopped waiting…',
+          actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' }],
+        }),
+      ]),
+    ).toBe(true)
+  })
+
+  it('true when the failed user send is the only message', () => {
+    expect(
+      latestRealMessageIsFailedTurn([
+        msg({ id: 'u1', role: 'user', content: 'help', deliveryState: 'failed' }),
+      ]),
+    ).toBe(true)
+  })
+
+  it('false for a delivered send (deliveryState "sent" — e.g. blank-response turn)', () => {
+    // Delivered-but-empty leaves the user bubble 'sent'; that is the #446
+    // blank-response case, not a failure — neither predicate fires for it.
+    expect(
+      latestRealMessageIsFailedTurn([
+        msg({ id: 'u1', role: 'user', content: 'help', deliveryState: 'sent' }),
+        msg({ id: 'blank', role: 'assistant', synthetic: true, content: "I couldn't generate a response." }),
+      ]),
+    ).toBe(false)
+  })
+
+  it('false while the send is still in flight (deliveryState "pending")', () => {
+    expect(
+      latestRealMessageIsFailedTurn([
+        msg({ id: 'u1', role: 'user', content: 'help', deliveryState: 'pending' }),
+      ]),
+    ).toBe(false)
+  })
+
+  it('false for a legacy/hydrated user send with no deliveryState', () => {
+    expect(
+      latestRealMessageIsFailedTurn([
+        msg({ id: 'u1', role: 'user', content: 'help' }),
+      ]),
+    ).toBe(false)
+  })
+
+  it('false when the latest real message is a successful assistant reply (mutually exclusive with the reply scan)', () => {
+    const messages = [
+      msg({ id: 'u1', role: 'user', content: 'help', deliveryState: 'sent' }),
+      msg({ id: 'a1', role: 'assistant', content: "What's your timeframe?" }),
+    ]
+    expect(latestRealMessageIsFailedTurn(messages)).toBe(false)
+    expect(latestRealMessageIsAssistantReply(messages)).toBe(true)
+  })
+
+  it('false for an empty / missing transcript', () => {
+    expect(latestRealMessageIsFailedTurn([])).toBe(false)
+    expect(latestRealMessageIsFailedTurn(undefined)).toBe(false)
+    expect(latestRealMessageIsFailedTurn(null)).toBe(false)
+  })
+})
+
 describe('shouldAutoExpandDockForResponse', () => {
   it('THE DEFECT: clarify turn settles while the dock is collapsed → auto-expand', () => {
     // Before the fix nothing surfaced this: the user typed, the spinner ended,
@@ -123,7 +209,42 @@ describe('shouldAutoExpandDockForResponse', () => {
     ).toBe(false)
   })
 
-  it('stands down when the settled turn produced no genuine assistant reply (send failure)', () => {
-    expect(shouldAutoExpandDockForResponse({ ...CLARIFY_COLLAPSED, hasAssistantReply: false })).toBe(false)
+  it('stands down when the settled turn produced neither a reply nor a failure', () => {
+    expect(
+      shouldAutoExpandDockForResponse({
+        ...CLARIFY_COLLAPSED,
+        hasAssistantReply: false,
+        hasFailedTurn: false,
+      }),
+    ).toBe(false)
+  })
+
+  it('THE ERROR DEFECT: a failed turn settles while the dock is collapsed → auto-expand', () => {
+    // The residual gap #446 left: the user typed, waited ~90s, the send failed,
+    // and the "Not delivered" + Retry + recovery guidance stayed invisible in the
+    // collapsed dock. A failure surfaces the same as a reply — no assistant reply
+    // required (hasAssistantReply is false here).
+    expect(shouldAutoExpandDockForResponse(FAILED_COLLAPSED)).toBe(true)
+  })
+
+  it('failed turn stands down when no live turn settled (background/hydration failure — no isThinking edge)', () => {
+    // The thinking-edge guard must still gate: a failure that surfaces without a
+    // user's own composer send (page load, background/system turn) must NOT move
+    // the dock.
+    expect(
+      shouldAutoExpandDockForResponse({ ...FAILED_COLLAPSED, thinkingSettled: false }),
+    ).toBe(false)
+  })
+
+  it('failed turn stands down when a graph already exists (draft path owns that surface)', () => {
+    expect(
+      shouldAutoExpandDockForResponse({ ...FAILED_COLLAPSED, hasGraphContent: true }),
+    ).toBe(false)
+  })
+
+  it('failed turn stands down when aiPanelV2 is off (legacy DraftChat path)', () => {
+    expect(
+      shouldAutoExpandDockForResponse({ ...FAILED_COLLAPSED, aiPanelV2On: false }),
+    ).toBe(false)
   })
 })

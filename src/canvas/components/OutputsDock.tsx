@@ -59,6 +59,7 @@ import { dockHostsOlumi } from './olumiSurface'
 import {
   shouldAutoExpandDockForResponse,
   latestRealMessageIsAssistantReply,
+  latestRealMessageIsFailedTurn,
 } from './collapsedResponseSignal'
 import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { focusFloating } from '../hooks/useFloatingFocus'
@@ -523,11 +524,19 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // neither fires. Surface it by docking the Olumi tab — the same rail-override
   // drop + tab-dock the user's own chevron-expand performs (toggleOpen).
   //
-  // The decision + the "genuine assistant reply" scan are pure/tested helpers
+  // The same gap swallows a FAILED turn: when the send times out / errors, the
+  // "Not delivered" marker + Retry + recovery guidance render only inside the
+  // collapsed dock (the user typed, waited, and saw nothing). An invisible error
+  // is worse than an invisible question, so a failed turn surfaces the same way
+  // (latestRealMessageIsFailedTurn) — a distinct predicate, never a loosening of
+  // the assistant-reply scan.
+  //
+  // The decision + both message scans are pure/tested helpers
   // (collapsedResponseSignal.ts); this effect only gathers inputs and, on the
   // true→false isThinking EDGE of a live send, acts. The edge is the reliable
   // "user's own composer send" discriminator — hydration/session-resume set
-  // isThinking=false without a preceding true, so a page load never trips it.
+  // isThinking=false without a preceding true, so a page load never trips it,
+  // and a background/system failure (which adds no user bubble) surfaces nothing.
   const conversationIsThinking = conversationCtxForFirstUse?.isThinking ?? false
   const prevConversationThinkingRef = useRef(conversationIsThinking)
   const conversationMessagesRef = useRef(conversationCtxForFirstUse?.messages)
@@ -550,6 +559,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       hasGraphContent,
       floatingTranscriptVisible,
       hasAssistantReply: latestRealMessageIsAssistantReply(conversationMessagesRef.current),
+      hasFailedTurn: latestRealMessageIsFailedTurn(conversationMessagesRef.current),
     })
     if (!surface) return
     // Same override the user's explicit rail-expand uses: drop the first-use
