@@ -24,7 +24,6 @@ export const SECTION_TITLES = {
   connections:         { label: 'Connections',                   icon: 'GitBranch'      },
   predictedRange:      { label: 'Predicted range by option',     icon: 'BarChart3'      },
   riskExposure:        { label: 'Risk exposure by option',       icon: 'BarChart3'      },
-  scientificBasis:     { label: 'Scientific basis',              icon: 'Beaker'         },
   investigationValue:  { label: 'Value of investigation',        icon: 'TrendingUp'     },
 } as const
 
@@ -187,8 +186,6 @@ export const EDGE_COPY = {
   sensitiveContext: 'Small changes here could shift which option performs best.',
   flipRiskTooltip: (pct: number) =>
     `If this edge's strength changes significantly, there is a ${pct}% probability the leading option would change.`,
-  noEvidenceBody: 'Olumi estimated this from your brief. Providing evidence would improve trust.',
-  noEvidenceTitle: 'No evidence yet',
   sliderMinUnlikely: 'Unlikely',
   sliderMaxVeryLikely: 'Very likely',
   sliderMinPrecise: 'Precise',

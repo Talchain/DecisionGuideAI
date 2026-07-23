@@ -113,11 +113,67 @@ describe('EdgePanel v6.2 — your input group', () => {
 })
 
 describe('EdgePanel v6.2 — evidence group', () => {
-  it('shows no-evidence state with provenance message', () => {
+  // The permanently-empty "No evidence yet" placeholder was removed (honesty
+  // sweep): DraftChat strips per-edge provenance upstream, so it rendered a
+  // fixed note for every edge that never reflected real evidence.
+  it('does NOT render the removed no-evidence placeholder', () => {
     setStore()
     render(<EdgePanel {...panelProps} />)
-    expect(screen.getByText('No evidence yet')).toBeTruthy()
-    expect(screen.getByText(/Olumi estimated this from your brief/)).toBeTruthy()
+    expect(screen.queryByText('No evidence yet')).toBeNull()
+    expect(screen.queryByText(/Olumi estimated this from your brief/)).toBeNull()
+  })
+
+  it('omits the Evidence group entirely for a non-contested edge', () => {
+    setStore()
+    const { container } = render(<EdgePanel {...panelProps} />)
+    expect(container.querySelector('[data-panel-group="evidence"]')).toBeNull()
+  })
+
+  it('renders the Evidence group with the live contested-validation calibration', () => {
+    // The contested-validation surface is live (CEE multi-pass disagreement on
+    // edge.data.validation) — it must survive the note removal.
+    const contestedValidation = {
+      status: 'contested',
+      contested_reasons: ['raw_magnitude'],
+      pass1: { strength_mean: 0.35, strength_std: 0.15, exists_probability: 0.82 },
+      pass2: {
+        strength_mean: 0.62,
+        strength_std: 0.2,
+        exists_probability: 0.7,
+        reasoning: 'Second pass read the brief as a stronger link.',
+        basis: 'domain_prior',
+        needs_user_input: true,
+      },
+      max_divergence: 0.27,
+      distance_to_goal: 1,
+      evoi_rank: null,
+      evoi_impact: null,
+      surfaced: true,
+      was_shown: false,
+      user_action: 'pending',
+      resolved_value: null,
+      resolved_by: 'default',
+    }
+    setStore({
+      edges: [
+        {
+          id: 'e1',
+          source: 'fac1',
+          target: 'out1',
+          data: {
+            weight: 0.35,
+            direction: 'positive',
+            beliefExists: 0.82,
+            strengthStd: 0.15,
+            validation: contestedValidation,
+          },
+        },
+      ],
+    })
+    const { container } = render(<EdgePanel {...panelProps} />)
+    expect(container.querySelector('[data-panel-group="evidence"]')).not.toBeNull()
+    expect(screen.getByText('Needs your judgement')).toBeTruthy()
+    expect(screen.getByText(/Second pass read the brief as a stronger link/)).toBeTruthy()
   })
 })
 
