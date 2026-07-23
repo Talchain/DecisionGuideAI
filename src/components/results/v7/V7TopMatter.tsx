@@ -14,6 +14,7 @@
  * pre-analysis; nothing below the divider changes).
  */
 
+import { useMemo } from 'react'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { DecisionState } from '../types'
 import { V7FreshnessStrip } from './V7FreshnessStrip'
@@ -54,10 +55,11 @@ export function V7TopMatter({
   const briefWording = recommendation.goalText ?? resultsSectionData.goalLabel ?? null
 
   // L5 lens group + evidence disclosure — passthrough over the SAME
-  // resultsSectionData the live panel consumes. The evidence model is built
-  // once here and handed to the disclosure; the lens group reads live fields
-  // (and local run history for the What-changed lens) itself.
-  const { evidence } = buildV7Lenses(resultsSectionData)
+  // resultsSectionData the live panel consumes. The lens model is built ONCE
+  // here (memoised on resultsSectionData) and handed to BOTH the lens group and
+  // the evidence disclosure; the lens group still reads local run history for
+  // the What-changed lens itself.
+  const model = useMemo(() => buildV7Lenses(resultsSectionData), [resultsSectionData])
 
   return (
     <div className="flex flex-col gap-4" data-testid="v7-top-matter">
@@ -71,8 +73,8 @@ export function V7TopMatter({
         onFocusNode={onFocusNode}
         onSendMessage={onSendMessage}
       />
-      <V7LensGroup resultsSectionData={resultsSectionData} />
-      <V7EvidenceDisclosure evidence={evidence} onFocusNode={onFocusNode} />
+      <V7LensGroup model={model} />
+      <V7EvidenceDisclosure evidence={model.evidence} onFocusNode={onFocusNode} />
       {/* L6 — "What to do next" (guidance + held-proposal pointer card) and
           "Challenge your assumptions" (bias coaching). Both read their own
           stores (guidance store / canvas ceeReview) and render nothing when

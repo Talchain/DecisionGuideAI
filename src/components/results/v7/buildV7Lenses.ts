@@ -27,8 +27,9 @@
  * of resultsSectionData.
  */
 
-import type { OptionResult, OutcomeUnitType, DriverItem, ConditionalWinner } from '../types'
+import type { OptionResult, DriverItem, ConditionalWinner } from '../types'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
+import { computeOptionScale } from '../shared/OptionRangeBar'
 
 /** One flip-risk row — the challengeFragileEdges slice, unchanged. */
 export interface V7FlipRisk {
@@ -73,8 +74,6 @@ export interface V7OutcomeLens {
   /** True when any option carries a full p10/p90 range (gates the caption). */
   hasRange: boolean
   winnerId?: string
-  outcomeUnit?: OutcomeUnitType
-  outcomeUnitSymbol?: string
 }
 
 export interface V7GoalLens {
@@ -113,14 +112,10 @@ export function buildV7Lenses(data: ResultsSectionDataReturn): V7LensesModel {
   const hasWin = options.some(
     (o) => typeof o.winProbability === 'number' && Number.isFinite(o.winProbability),
   )
-  // Shared [globalMin, globalMax] scale — identical to OptionCards (p10/p90
-  // with mean fallback), so the V7 bars and the cards below share one scale.
-  const globalMin = options.length
-    ? Math.min(...options.map((o) => o.outcome?.p10 ?? o.outcome?.mean ?? 0))
-    : 0
-  const globalMax = options.length
-    ? Math.max(...options.map((o) => o.outcome?.p90 ?? o.outcome?.mean ?? 0))
-    : 1
+  // Shared [globalMin, globalMax] scale — computeOptionScale is the exact
+  // OptionCards formula (p10/p90 with mean fallback), so the V7 bars and the
+  // cards below share one scale.
+  const { globalMin, globalMax } = computeOptionScale(options)
 
   const outcome: V7OutcomeLens = {
     available: options.length > 0 && (hasRange || hasWin),
@@ -129,8 +124,6 @@ export function buildV7Lenses(data: ResultsSectionDataReturn): V7LensesModel {
     globalMax,
     hasRange,
     winnerId,
-    outcomeUnit: recommendation.outcomeUnit,
-    outcomeUnitSymbol: recommendation.outcomeUnitSymbol,
   }
 
   // ── Goal fit ───────────────────────────────────────────────────────────

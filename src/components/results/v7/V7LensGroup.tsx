@@ -28,77 +28,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { typography } from '@/styles/typography'
 import { formatPercent, formatProbabilityWithResolution } from '@/utils/formatPercent'
-import { formatRangeValue } from '../utils/formatRangeValue'
 import { loadRuns, type StoredRun } from '@/canvas/store/runHistory'
 import * as runsBus from '@/canvas/store/runsBus'
-import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { OptionResult } from '../types'
-import { buildV7Lenses } from './buildV7Lenses'
+import { OptionRangeBar } from '../shared/OptionRangeBar'
+import type { V7LensesModel } from './buildV7Lenses'
 import { V7_LENS_COPY } from './v7LensCopy'
 import { SUB_ONE_PERCENT_FLOOR } from '../utils/displayFloors'
-import { V7WhatChangedLens } from './V7WhatChangedLens'
+import { V7WhatChangedLens, hasComparableRuns } from './V7WhatChangedLens'
 
 export type V7Lens = 'outcome' | 'goal' | 'stability' | 'whatChanged'
 
 const ALL_LENSES: readonly V7Lens[] = ['outcome', 'goal', 'stability', 'whatChanged']
 
 export interface V7LensGroupProps {
-  resultsSectionData: ResultsSectionDataReturn
-}
-
-/** Thin p10-to-p90 range bar with a median dot — replicates OptionCards'
- * inline OptionRangeBar (layout only), sharing formatRangeValue so the
- * numbers cannot drift from the cards below. */
-function V7RangeBar({
-  p10,
-  p50,
-  p90,
-  globalMin,
-  globalMax,
-}: {
-  p10: number
-  p50?: number
-  p90: number
-  globalMin: number
-  globalMax: number
-}) {
-  const span = globalMax - globalMin
-  if (span <= 0) return null
-  const leftPct = ((p10 - globalMin) / span) * 100
-  const widthPct = ((p90 - p10) / span) * 100
-  const dotPct = p50 != null ? ((p50 - globalMin) / span) * 100 : undefined
-  return (
-    <div data-testid="v7-range-bar">
-      <div className="relative" style={{ height: 4, background: 'var(--border-default)', borderRadius: 2 }}>
-        <div
-          className="absolute top-0 h-full rounded-sm"
-          style={{
-            left: `${leftPct}%`,
-            width: `${Math.max(2, widthPct)}%`,
-            background: 'color-mix(in srgb, var(--info) 30%, transparent)',
-          }}
-        />
-        {dotPct != null && (
-          <div
-            className="absolute top-1/2 rounded-full"
-            style={{
-              left: `${dotPct}%`,
-              width: 8,
-              height: 8,
-              background: 'var(--info)',
-              border: '1.5px solid var(--bg-panel)',
-              transform: 'translate(-50%, -50%)',
-            }}
-          />
-        )}
-      </div>
-      <div className={`flex justify-between mt-0.5 ${typography.panelMeta}`}>
-        <span className="text-text-light">{formatRangeValue(p10)}</span>
-        {p50 != null && <span className="text-text-header">{formatRangeValue(p50)}</span>}
-        <span className="text-text-light">{formatRangeValue(p90)}</span>
-      </div>
-    </div>
-  )
+  /** The lens model, built once in V7TopMatter (buildV7Lenses). */
+  model: V7LensesModel
 }
 
 /** Likely-outcome option row: label + win readout, then the range bar. */
@@ -136,12 +81,13 @@ function OutcomeRow({
         )}
       </div>
       {hasRange && (
-        <V7RangeBar
+        <OptionRangeBar
           p10={p10 as number}
           p50={option.outcome?.p50 ?? option.outcome?.mean ?? undefined}
           p90={p90 as number}
           globalMin={globalMin}
           globalMax={globalMax}
+          data-testid="v7-range-bar"
         />
       )}
     </div>
@@ -191,7 +137,7 @@ function GateLine({ testId, children }: { testId: string; children: React.ReactN
   )
 }
 
-export function V7LensGroup({ resultsSectionData }: V7LensGroupProps) {
+export function V7LensGroup({ model }: V7LensGroupProps) {
   const [active, setActive] = useState<V7Lens>('outcome')
   const tabRefs = useRef<Partial<Record<V7Lens, HTMLButtonElement | null>>>({})
 
@@ -203,17 +149,14 @@ export function V7LensGroup({ resultsSectionData }: V7LensGroupProps) {
     return unsub
   }, [])
 
-  const model = buildV7Lenses(resultsSectionData)
-  const options = resultsSectionData.recommendation.allOptions ?? []
-
   // Analysis-presence guard (belt-and-suspenders — V7TopMatter already gates).
-  if (options.length === 0) return null
+  if (model.outcome.options.length === 0) return null
 
   const available: Record<V7Lens, boolean> = {
     outcome: model.outcome.available,
     goal: model.goal.available,
     stability: false, // per-option stability is never on the wire (honest gap)
-    whatChanged: runs.length >= 2,
+    whatChanged: hasComparableRuns(runs),
   }
 
   const moveTo = (index: number) => {

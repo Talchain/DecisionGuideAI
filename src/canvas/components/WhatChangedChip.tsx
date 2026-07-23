@@ -216,7 +216,7 @@ export function WhatChangedChip() {
     // hide the honest server answer behind a device-side heuristic — the exact
     // catch-22 this fixes. Dispatch goes through the existing chip mechanism
     // (dispatchAction → buildChipMeta → buildV5Payload); the send gate promotes
-    // source to 'chip_click' because 'what_changed' passes isSendableActionType
+    // source to 'chip_click' because 'what_changed' passes isSendableToken
     // — the payload is not built here. FAIL-SAFE: when dispatchAction is absent
     // (no conversation hook), the click is a no-op beyond the optional pulse.
     if (dispatchAction) {

@@ -41,6 +41,21 @@ export interface V7EvidenceDisclosureProps {
   onFocusNode?: (nodeId: string) => void
 }
 
+/** Honest-gate line — one leaf for the three identical per-view gate copies
+ * (same classes; only the testid + copy differ per view). */
+function EvidenceGate({ testId, children }: { testId: string; children: React.ReactNode }) {
+  return (
+    <p className={`${typography.panelBody} text-text-light`} data-testid={testId}>
+      {children}
+    </p>
+  )
+}
+
+/** The muted lead-in note above a view's rows — three identical copies. */
+function EvidenceNote({ children }: { children: React.ReactNode }) {
+  return <p className={`${typography.panelMeta} text-text-light`}>{children}</p>
+}
+
 export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclosureProps) {
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<EvidenceView>('drivers')
@@ -108,7 +123,7 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
             <div className="space-y-1.5" data-testid="v7-evidence-drivers">
               {hasDrivers ? (
                 <>
-                  <p className={`${typography.panelMeta} text-text-light`}>{E.driversNote}</p>
+                  <EvidenceNote>{E.driversNote}</EvidenceNote>
                   {visibleDrivers.map((d, i) => {
                     const canFocus = Boolean(d.focusId && onFocusNode)
                     const body = (
@@ -167,9 +182,7 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
                   )}
                 </>
               ) : (
-                <p className={`${typography.panelBody} text-text-light`} data-testid="v7-evidence-drivers-gate">
-                  {E.driversGate}
-                </p>
+                <EvidenceGate testId="v7-evidence-drivers-gate">{E.driversGate}</EvidenceGate>
               )}
             </div>
           )}
@@ -178,7 +191,7 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
             <div className="space-y-1.5" data-testid="v7-evidence-flip-risks">
               {hasFlipRisks ? (
                 <>
-                  <p className={`${typography.panelMeta} text-text-light`}>{E.flipRisksNote}</p>
+                  <EvidenceNote>{E.flipRisksNote}</EvidenceNote>
                   {evidence.flipRisks.map((r, i) => {
                     const canFocus = Boolean(r.fromId && onFocusNode)
                     const body = (
@@ -214,9 +227,7 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
                   })}
                 </>
               ) : (
-                <p className={`${typography.panelBody} text-text-light`} data-testid="v7-evidence-flip-risks-gate">
-                  {E.flipRisksGate}
-                </p>
+                <EvidenceGate testId="v7-evidence-flip-risks-gate">{E.flipRisksGate}</EvidenceGate>
               )}
             </div>
           )}
@@ -225,7 +236,7 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
             <div className="space-y-1.5" data-testid="v7-evidence-trade-offs">
               {hasTradeOffs ? (
                 <>
-                  <p className={`${typography.panelMeta} text-text-light`}>{E.tradeOffsNote}</p>
+                  <EvidenceNote>{E.tradeOffsNote}</EvidenceNote>
                   {evidence.tradeOffs.map((t, i) => (
                     <div key={`${t.factorId}-${i}`} className="flex items-start gap-1.5">
                       <GitBranch aria-hidden="true" className="mt-0.5 h-3 w-3 flex-none text-info" />
@@ -241,9 +252,7 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
                   ))}
                 </>
               ) : (
-                <p className={`${typography.panelBody} text-text-light`} data-testid="v7-evidence-trade-offs-gate">
-                  {E.tradeOffsGate}
-                </p>
+                <EvidenceGate testId="v7-evidence-trade-offs-gate">{E.tradeOffsGate}</EvidenceGate>
               )}
             </div>
           )}

@@ -3,7 +3,7 @@
  *
  * These specs pin the WIRE CONTRACT for the typed `what_changed` chip_click and
  * mutation-check the send gate, both built from the REAL production seams
- * (buildChipMeta + buildV5Payload + the exported isSendableActionType predicate)
+ * (buildChipMeta + buildV5Payload + the exported isSendableToken predicate)
  * — never a hand-built payload object. The bug class this guards against is a
  * green test whose fixture encodes the very assumption under test, so:
  *
@@ -26,7 +26,7 @@ import {
 } from '@talchain/schemas/boundary'
 import {
   buildV5Payload,
-  isSendableActionType,
+  isSendableToken,
   KNOWN_ACTION_TYPES,
   CEE_ACCEPTED_ACTION_TYPES,
 } from '../buildPayload'
@@ -103,12 +103,12 @@ describe('what_changed send gate — the CEE-accept mirror is load-bearing (muta
 
     // Drop: published but NOT accepted → withheld from the wire.
     expect(
-      isSendableActionType('what_changed', KNOWN_ACTION_TYPES, acceptedWithout),
+      isSendableToken('what_changed', KNOWN_ACTION_TYPES, acceptedWithout),
     ).toBe(false)
 
     // Restore (the real registry, post-edit): published AND accepted → sends.
     expect(
-      isSendableActionType('what_changed', KNOWN_ACTION_TYPES, CEE_ACCEPTED_ACTION_TYPES),
+      isSendableToken('what_changed', KNOWN_ACTION_TYPES, CEE_ACCEPTED_ACTION_TYPES),
     ).toBe(true)
   })
 
@@ -116,9 +116,9 @@ describe('what_changed send gate — the CEE-accept mirror is load-bearing (muta
     const onlyAccepted = new Set(['what_changed'])
     const onlyPublished = new Set(['what_changed'])
     // Accepted but not published (e.g. UI on an older schema pin) → dropped.
-    expect(isSendableActionType('what_changed', new Set(), onlyAccepted)).toBe(false)
+    expect(isSendableToken('what_changed', new Set(), onlyAccepted)).toBe(false)
     // Published but not accepted (CEE has not deployed acceptance) → dropped.
-    expect(isSendableActionType('what_changed', onlyPublished, new Set())).toBe(false)
+    expect(isSendableToken('what_changed', onlyPublished, new Set())).toBe(false)
   })
 
   it('the accepted registry actually contains what_changed after the mirror edit', () => {

@@ -99,7 +99,7 @@ export function toLegacyChipMetadata(
  * yet FULLY LIVE — meaning BOTH published in the vendored @talchain/schemas
  * enum AND accepted by CEE's deployed service. Registries (spark registry,
  * NodeChip call sites) may map these immediately; the send gate in
- * buildV5Payload (sanitiseActionType → isSendableActionType, which requires
+ * buildV5Payload (sanitiseActionType → isSendableToken, which requires
  * membership in KNOWN_ACTION_TYPES AND in CEE_ACCEPTED_ACTION_TYPES) withholds
  * them from the wire — no `action_type` key, no chip_click promotion — until
  * the value is fully live, at which point the send lights up with zero further

@@ -8,7 +8,7 @@ import { Intent } from '@talchain/schemas/boundary'
 import {
   KNOWN_INTENTS,
   CEE_ACCEPTED_INTENTS,
-  isSendableIntent,
+  isSendableToken,
 } from '../buildPayload'
 
 describe('intent wire allowlist — schema parity (derive-don\'t-mirror)', () => {
@@ -31,25 +31,25 @@ describe('intent wire allowlist — schema parity (derive-don\'t-mirror)', () =>
   })
 })
 
-describe('isSendableIntent — the AND actually bites', () => {
+describe('isSendableToken — the AND actually bites', () => {
   const published = new Set(['add_option', 'elicit_options'])
   const accepted = new Set(['add_option'])
 
   it('sends only when BOTH signals hold', () => {
-    expect(isSendableIntent('add_option', published, accepted)).toBe(true)
+    expect(isSendableToken('add_option', published, accepted)).toBe(true)
   })
 
   it('publication ALONE does not open the gate', () => {
     // elicit_options is published but not accepted → withheld.
-    expect(isSendableIntent('elicit_options', published, accepted)).toBe(false)
+    expect(isSendableToken('elicit_options', published, accepted)).toBe(false)
   })
 
   it('acceptance ALONE (unpublished) does not open the gate', () => {
     const acceptedOnly = new Set(['ghost_intent'])
-    expect(isSendableIntent('ghost_intent', new Set<string>(), acceptedOnly)).toBe(false)
+    expect(isSendableToken('ghost_intent', new Set<string>(), acceptedOnly)).toBe(false)
   })
 
   it('an unknown value is never sendable', () => {
-    expect(isSendableIntent('nonsense', published, accepted)).toBe(false)
+    expect(isSendableToken('nonsense', published, accepted)).toBe(false)
   })
 })
