@@ -12,6 +12,7 @@ import { typography } from '../../../styles/typography'
 import {
   useGuidanceStore,
   compareGuidanceDisplayOrder,
+  guidanceCategoryTone,
   type GuidanceItem,
   type GuidanceAction,
 } from '../../stores/guidanceStore'
@@ -39,18 +40,9 @@ function actionLabel(action: GuidanceAction): string {
 
 function cardBorderClass(category: GuidanceItem['category']): string {
   // V7 L1: complete borders only — the state colour rides all four sides, never
-  // a one-sided left accent.
-  switch (category) {
-    case 'must_fix':
-    case 'should_fix':
-      return 'border-danger'
-    case 'could_fix':
-    case 'technique':
-      return 'border-info'
-    // Category absent (producer sent none): neutral low-urgency styling.
-    default:
-      return 'border-info'
-  }
+  // a one-sided left accent. Tone derived from the single source of truth
+  // (guidanceCategoryTone) so this card and the on-canvas node marker never drift.
+  return guidanceCategoryTone(category) === 'danger' ? 'border-danger' : 'border-info'
 }
 
 function cardBgClass(category: GuidanceItem['category']): string {

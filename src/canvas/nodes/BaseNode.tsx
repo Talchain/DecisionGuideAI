@@ -16,9 +16,7 @@ import { ChevronDown, ChevronUp, Flag as FlagIcon, ArrowUp, ArrowDown, Minus, ty
 import { useEditPreviewStore } from '../stores/editPreviewStore'
 import { sanitizeMarkdown } from '../../lib/renderSafeRichText'
 import { UnknownKindWarning } from '../components/UnknownKindWarning'
-import { NodeBadge } from '../components/NodeBadge'
-import { useCEEInsights } from '../../hooks/useCEEInsights'
-import { useISLValidation } from '../../hooks/useISLValidation'
+import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { useCanvasStore } from '../store'
 import { useLayoutStore } from '../layoutStore'
 import { NODE_CARD_MAX_W } from '../utils/nodeLayoutConstants'
@@ -72,10 +70,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const [isExpanded, setIsExpanded] = useState(false)
   const updateNodeInternals = useUpdateNodeInternals()
 
-  // Phase 2: Badge system integration
-  const { data: ceeInsights } = useCEEInsights()
-  const { data: islValidation } = useISLValidation()
-
   // Phase 3: Node highlighting
   // React #185 FIX: Return primitive boolean from selector to prevent re-renders
   // on every store update. Selecting the entire Set causes infinite loops since
@@ -128,40 +122,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
   // Decision Graph Display v2: Get Results-mode display metadata
   const displayMetadata = useNodeDisplayMetadata(id, nodeType)
-
-  const ceeWarnings = ceeInsights?.structural_health.warnings || []
-  const islAffected = islValidation?.suggestions.some(suggestion =>
-    suggestion.affectedNodes.includes(id)
-  ) || false
-
-  // Open diagnostics tab in OutputsDock using DOM click pattern
-  // (Same approach as DegradedBanner.tsx for consistency - avoids undefined store methods)
-  const handleBadgeClick = () => {
-    try {
-      const btn = document.querySelector('[data-testid="outputs-dock-tab-diagnostics"]') as HTMLButtonElement | null
-      if (btn) {
-        btn.click()
-        btn.focus()
-        return
-      }
-      // Fallback: update sessionStorage so OutputsDock opens on next render
-      if (typeof sessionStorage !== 'undefined') {
-        const existingRaw = sessionStorage.getItem('canvas.outputsDock.v1')
-        let next: { isOpen: boolean; activeTab: string } = { isOpen: true, activeTab: 'diagnostics' }
-        if (existingRaw) {
-          try {
-            const parsed = JSON.parse(existingRaw)
-            next = { ...parsed, isOpen: true, activeTab: 'diagnostics' }
-          } catch {
-            // ignore parse errors
-          }
-        }
-        sessionStorage.setItem('canvas.outputsDock.v1', JSON.stringify(next))
-      }
-    } catch {
-      // noop - badge click is best-effort
-    }
-  }
 
   // Phase 2: Uncertain node styling
   const isUncertain = Number(data?.uncertainty ?? 0) > 0.4
@@ -327,13 +287,11 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-warning border border-canvas"
         />
       )}
-      {/* Phase 2: Node badges for CEE/ISL warnings */}
-      <NodeBadge
-        nodeId={id}
-        ceeWarnings={ceeWarnings}
-        islAffected={islAffected}
-        onClick={handleBadgeClick}
-      />
+      {/* On-canvas coaching marker: rendered ONLY when a live guidance item names
+          this node (target_object.id). Replaces the permanently-empty CEE/ISL
+          NodeBadge (23-Jul audit G3). Click opens the same guidance surface the
+          inspector uses. */}
+      <NodeCoachingMarker nodeId={id} />
 
       {/* Context menu: Assumption flag badge (Hard rule 3 — UI-only annotation) */}
       {Boolean(data?.flagged_as_assumption) && (

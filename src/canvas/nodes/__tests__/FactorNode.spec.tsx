@@ -49,14 +49,6 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   })),
 }))
 
-vi.mock('../../../hooks/useCEEInsights', () => ({
-  useCEEInsights: vi.fn(() => ({ data: null })),
-}))
-
-vi.mock('../../../hooks/useISLValidation', () => ({
-  useISLValidation: vi.fn(() => ({ data: null })),
-}))
-
 vi.mock('../../hooks/useScienceIcons', () => ({
   useScienceIcons: vi.fn(() => []),
 }))

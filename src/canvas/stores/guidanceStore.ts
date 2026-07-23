@@ -368,6 +368,28 @@ export function guidanceCategoryRank(cat: GuidanceItem['category']): number {
   }
 }
 
+/** DS v5 state channel a guidance item's `category` rides. */
+export type GuidanceTone = 'danger' | 'info'
+
+/**
+ * The single source of truth for the display TONE (colour = state, DS v5) of a
+ * guidance item's four-value producer `category`. Every surface that colours a
+ * guidance element MUST derive from this — the inspector cards and the on-canvas
+ * node coaching marker share it so the marker's tint matches the card it opens
+ * (derive, don't mirror). must_fix / should_fix ride the danger channel;
+ * could_fix / technique — and items the producer never categorised — ride the
+ * info channel (honest absence → info, never a synthesised severity).
+ */
+export function guidanceCategoryTone(cat: GuidanceItem['category']): GuidanceTone {
+  switch (cat) {
+    case 'must_fix':
+    case 'should_fix':
+      return 'danger'
+    default:
+      return 'info' // could_fix, technique, or absent — low-urgency info channel
+  }
+}
+
 /**
  * THE display-order doctrine for guidance items, in one place (0.19.0
  * contract; UI-SEM-085 narrowed; Stage 2 severity-major).

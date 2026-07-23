@@ -51,12 +51,15 @@ export {
   type GuidanceSource,
   type EvidenceStrength,
   type GuidanceTargetObject,
+  type GuidanceTone,
   selectGuidanceItems,
   selectActiveGuidanceItemId,
   selectActiveItem,
   selectItemsForTarget,
   selectTopItem,
   compareGuidanceDisplayOrder,
+  guidanceCategoryRank,
+  guidanceCategoryTone,
 } from './guidanceStore'
 
 // Graph readiness store (consolidated from useGraphReadiness hook)

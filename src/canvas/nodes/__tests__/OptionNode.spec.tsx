@@ -72,14 +72,6 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   })),
 }))
 
-vi.mock('../../../hooks/useCEEInsights', () => ({
-  useCEEInsights: vi.fn(() => ({ data: null })),
-}))
-
-vi.mock('../../../hooks/useISLValidation', () => ({
-  useISLValidation: vi.fn(() => ({ data: null })),
-}))
-
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { useLayoutStore } from '../../layoutStore'
@@ -1945,7 +1937,6 @@ describe('OptionNode — display coherence (audit §8)', () => {
   })
 
   // Item 6: stale treatment on result decorations
-
 
   // Item 7: per-option intervention list containment
   it('caps the "What this option changes:" list at 3 rows with "+N more in inspector"', () => {
