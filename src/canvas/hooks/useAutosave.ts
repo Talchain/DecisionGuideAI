@@ -21,6 +21,7 @@ import { useCanvasStore } from '../store'
 import { saveAutosave, loadAutosave } from '../store/scenarios'
 import { projectAutosaveData } from '../store/autosaveProjection'
 import type { AutosaveProjectionSource } from '../store/autosaveProjection'
+import { PERSIST_NODE_FIELDS, PERSIST_EDGE_FIELDS } from '../domain/analyticalNodeFields'
 
 const AUTOSAVE_INTERVAL_MS = 30 * 1000 // 30 seconds
 const DEBOUNCE_MS = 500 // Debounce writes to reduce localStorage contention
@@ -39,45 +40,55 @@ const DEBOUNCE_MS = 500 // Debounce writes to reduce localStorage contention
  * PRE-EDIT values — on reload the recovery path could hydrate the stale
  * graph while the server copy was correct (the "reload visual revert").
  * Extra fields here can only cause an extra save, never a missed one.
+ *
+ * The value-bearing `data.*` fields covered here now DERIVE from the single
+ * analyticalNodeFields registry (PERSIST_NODE_FIELDS / PERSIST_EDGE_FIELDS) — the
+ * same source the analysis-staleness gate derives from. This closes the drift that
+ * caused #457 (success_threshold/threshold_source missing here) and is verified by
+ * analyticalNodeFields.registry.spec.ts. Structural signals (id / kind via RF type
+ * / label / position; edge endpoints + the legacy confidence??weight composite)
+ * stay inline — the registry enumerates value-bearing data fields only. The hash is
+ * compared only against itself in-memory (lastSavedHashRef), so the object key names
+ * are immaterial; only the SET of fields covered affects dirty-detection.
+ *
+ * Exported for the drift guard's behavioural cross-check (registry persist fields
+ * must each flip this hash).
  */
-function computeGraphHash(nodes: any[], edges: any[]): string {
+export function computeGraphHash(nodes: any[], edges: any[]): string {
   const canonical = {
     nodes: nodes
-      .map(n => ({
-        id: n.id,
-        kind: n.type ?? n.data?.kind,
-        label: n.data?.label ?? '',
-        x: Math.round(n.position?.x ?? 0),
-        y: Math.round(n.position?.y ?? 0),
-        // Value-bearing node data (see doc comment above).
-        os: n.data?.observedState ?? null,
-        iv: n.data?.interventions ?? null,
-        base: n.data?.is_baseline ?? null,
-        gtRaw: n.data?.goal_threshold_raw ?? null,
-        gtUnit: n.data?.goal_threshold_unit ?? null,
-        gtCap: n.data?.goal_threshold_cap ?? null,
-        // The user's own success target (setGoalThresholdAndUpdateNode writes
-        // success_threshold + threshold_source='user'). GoalThresholdEditor passes
-        // no unit, so a target-set changes NONE of the fields above — without
-        // these two the dirty hash never flipped, the autosave was skipped, and
-        // the target never reached localStorage (lost on reload, 2026-07-23).
-        st: n.data?.success_threshold ?? null,
-        ts: n.data?.threshold_source ?? null,
-      }))
+      .map(n => {
+        const data = (n.data ?? {}) as Record<string, unknown>
+        const analytical: Record<string, unknown> = {}
+        // Value-bearing node data — derived from the persist registry subset.
+        for (const field of PERSIST_NODE_FIELDS) analytical[field] = data[field] ?? null
+        return {
+          id: n.id,
+          kind: n.type ?? n.data?.kind,
+          label: n.data?.label ?? '',
+          x: Math.round(n.position?.x ?? 0),
+          y: Math.round(n.position?.y ?? 0),
+          ...analytical,
+        }
+      })
       .sort((a, b) => a.id.localeCompare(b.id)),
     edges: edges
-      .map(e => ({
-        from: e.source,
-        to: e.target,
-        weight: e.data?.confidence ?? e.data?.weight ?? '',
+      .map(e => {
+        const data = (e.data ?? {}) as Record<string, unknown>
+        const analytical: Record<string, unknown> = {}
         // Value-bearing edge data — adjust_edge_strength writes these via
-        // updateEdgeData without touching the endpoints.
-        w: e.data?.weight ?? null,
-        dir: e.data?.direction ?? null,
-        conf: e.data?.confidence ?? null,
-        be: e.data?.beliefExists ?? null,
-        std: e.data?.strengthStd ?? null,
-      }))
+        // updateEdgeData without touching the endpoints. Derived from the persist
+        // registry subset.
+        for (const field of PERSIST_EDGE_FIELDS) analytical[field] = data[field] ?? null
+        return {
+          from: e.source,
+          to: e.target,
+          // Legacy composite (redundant with weight/confidence above, kept to
+          // preserve the exact dirty-detection behaviour).
+          weight: e.data?.confidence ?? e.data?.weight ?? '',
+          ...analytical,
+        }
+      })
       .sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to)),
   }
   return JSON.stringify(canonical)
