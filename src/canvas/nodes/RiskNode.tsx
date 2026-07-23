@@ -1,4 +1,4 @@
-import { memo, useMemo, useCallback } from 'react'
+import { memo, useMemo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
@@ -84,7 +84,9 @@ export const RiskNode = memo((props: NodeProps) => {
     </div>
   ), [cleanedLabel])
 
-  // Severity badge (Detailed view, independent of isPostAnalysis — derived from node probability/impact)
+  // Severity badge — derived from node probability × impact via calculateRiskSeverity
+  // (the existing probability×impact derivation, reused not re-added). P1.7: now
+  // rendered in the always-visible Standard body (Layer 1), not Expert/popover-only.
   const detailedMetrics = severity ? (
     <div
       className={`${severityColors.bg} ${severityColors.border} ${severityColors.text} border rounded px-1.5 py-0.5 ${typography.edgeLabel} mb-1`}
@@ -92,6 +94,19 @@ export const RiskNode = memo((props: NodeProps) => {
     >
       {severity.charAt(0).toUpperCase() + severity.slice(1)} Risk
     </div>
+  ) : null
+
+  // The defining probability × impact pair (P1.7). Honest absence: each half only
+  // renders when its value exists — never a fabricated 0% or default impact. The
+  // percentage is display formatting of the 0-1 probability (same untagged pattern
+  // as confidence display in lib/format.ts), not a semantic transform.
+  const probabilityPct = typeof probability === 'number' ? Math.round(probability * 100) : null
+  const exposureReadout = [
+    probabilityPct != null ? `${probabilityPct}% likely` : null,
+    impact ? `${impact.charAt(0).toUpperCase()}${impact.slice(1)} impact` : null,
+  ].filter(Boolean).join(' · ')
+  const riskExposureLine = exposureReadout ? (
+    <div className={`${typography.edgeLabel} text-text-light mt-1`}>{exposureReadout}</div>
   ) : null
 
   // ----- Layer 2 content: post-analysis (shared between popover and Detailed inline) -----
@@ -205,15 +220,19 @@ export const RiskNode = memo((props: NodeProps) => {
           </div>
         )}
 
+        {/* Severity badge + probability × impact pair — visible in STANDARD view
+            (P1.7). Both are derived/read straight from node data; no fabrication
+            when data is absent. */}
+        {detailedMetrics && <div className="mt-1">{detailedMetrics}</div>}
+        {riskExposureLine}
+
         {/* Coaching chips moved to popovers — see `riskChips` useMemo above
             and the popover branches at the bottom of this file. In Detailed
             view they appear inline beneath layer-2 content. */}
 
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) =====
-            Graph v1.1 Task 4: align with wireframe v4. Severity badge is a
-            state indicator (not coaching text) so it's retained alongside the
-            percentage + chips already in Layer 1. */}
-        {isDetailed && detailedMetrics}
+            Graph v1.1 Task 4: align with wireframe v4. The severity badge now
+            lives in Layer 1 (Standard-visible, P1.7) so it is NOT repeated here. */}
         {isDetailed && layer2ContentPost}
 
         {/* Detailed pre-analysis: inbound factor list — max 3 whole rows in
@@ -252,7 +271,8 @@ export const RiskNode = memo((props: NodeProps) => {
           onMouseLeave={popoverHandlers.onMouseLeave}
           anchorRef={nodeElRef}
         >
-          {detailedMetrics}
+          {/* Severity badge lives in Layer 1 (Standard-visible, P1.7) — the popover
+              carries only the post-analysis detail + coaching chips. */}
           {layer2ContentPost}
           {riskChips}
         </NodePopover>

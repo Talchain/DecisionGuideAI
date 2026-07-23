@@ -7,6 +7,7 @@
 
 import { useCallback } from 'react'
 import { useCanvasStore } from '../../store'
+import type { RiskImpact } from '../../domain/nodes'
 
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {
@@ -164,6 +165,26 @@ export function useNodeMutations(nodeId: string) {
     updateNode(nodeId, { data: { ...node.data, goal_threshold_cap: cap } })
   }, [nodeId, updateNode, getNode])
 
+  // ── risk probability × impact (P1.7) ──
+  // Canonical scales (RiskNodeDataSchema): probability is a 0-1 number, impact is
+  // the RiskImpact enum. Callers pass values already on those scales — the panel
+  // owns any percentage↔decimal conversion. The clamp here is defensive
+  // normalisation only (same class as the observed/belief clamps).
+
+  const setProbability = useCallback((probability: number) => {
+    const node = getNode()
+    if (!node) return
+    if (Number.isNaN(probability)) return
+    const clamped = Math.min(1, Math.max(0, probability))
+    updateNode(nodeId, { data: { ...node.data, probability: clamped } })
+  }, [nodeId, updateNode, getNode])
+
+  const setImpact = useCallback((impact: RiskImpact) => {
+    const node = getNode()
+    if (!node) return
+    updateNode(nodeId, { data: { ...node.data, impact } })
+  }, [nodeId, updateNode, getNode])
+
   return {
     setLabel, setDescription, setThreshold, setObservedValue,
     setIntervention, removeIntervention, setPriorRange,
@@ -171,6 +192,7 @@ export function useNodeMutations(nodeId: string) {
     setObservedBaseline, setObservedStd, setObservedSource,
     setCategory, setExtractionType, setFactorType,
     setStateSpaceRange, setUncertaintyDrivers, setGoalCap,
+    setProbability, setImpact,
   }
 }
 

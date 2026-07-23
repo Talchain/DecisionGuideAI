@@ -22,6 +22,10 @@ export const ANALYTICAL_NODE_DATA_FIELDS = [
   // inspector); the V2 adapter derives the PLoT goal_threshold from it, so a change
   // IS analysis-affecting.
   'goal_threshold_raw', 'goal_threshold',
+  // A risk's defining probability × impact pair (P1.7): both pass through to PLoT
+  // (V2 adapter — not blocklisted) and drive calculateRiskSeverity, so a user edit
+  // must stale the analysis exactly like a factor observedState edit.
+  'probability', 'impact',
 ] as const
 
 export const ANALYTICAL_EDGE_FIELDS = [

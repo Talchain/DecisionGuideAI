@@ -109,6 +109,44 @@ describe('RiskNode', () => {
     expect(screen.queryByText(/^(High|Medium|Low) Risk$/)).toBeNull()
   })
 
+  // P1.7 — severity badge visible in STANDARD view (was Expert/popover-only).
+  it('shows the severity badge in STANDARD view (not Expert-only)', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({ viewMode: 'standard' }) as any)
+    )
+    renderRisk({ probability: 0.9, impact: 'high' })
+    expect(screen.getByText('High Risk')).toBeDefined()
+  })
+
+  // P1.7 — the defining probability × impact pair is shown in the body.
+  it('shows the probability/impact pair in STANDARD view', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({ viewMode: 'standard' }) as any)
+    )
+    renderRisk({ probability: 0.9, impact: 'high' })
+    expect(screen.getByText('90% likely · High impact')).toBeDefined()
+  })
+
+  // P1.7 — honest absence: no fabricated pair when data is missing.
+  it('does not show a probability/impact pair when both are absent', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({ viewMode: 'standard' }) as any)
+    )
+    renderRisk()
+    expect(screen.queryByText(/% likely/)).toBeNull()
+    expect(screen.queryByText(/impact$/)).toBeNull()
+  })
+
+  // P1.7 — partial data: show only the part that exists (probability only).
+  it('shows only likelihood when impact is absent', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({ viewMode: 'standard' }) as any)
+    )
+    renderRisk({ probability: 0.5 })
+    expect(screen.getByText('50% likely')).toBeDefined()
+    expect(screen.queryByText(/impact/)).toBeNull()
+  })
+
   // T9: Bridge edge data
   it('does not show bridge edge data when results status is not complete', () => {
     renderRisk()
