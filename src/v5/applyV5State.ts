@@ -13,9 +13,13 @@
  *   1. stage_indicator → canvas.currentStage
  *   2. graph_patch (applied) → canvas store mutation for set_factor_value,
  *      adjust_edge_strength, and add_constraint. add_constraint maps `after`
- *      into a CEEGoalConstraint and APPENDS it (deduped) to the canvas
- *      `goalConstraints` slice via setGoalConstraints — the SAME slice
- *      GoalPanel's "Add constraint" flow writes. Also: ui_directive verbs
+ *      into a CEEGoalConstraint and UPSERTS it (by constraint id) into the
+ *      canvas `goalConstraints` slice via setGoalConstraints — the SAME slice
+ *      GoalPanel's "Add constraint" flow writes. A patch that carries the
+ *      constraint_id of one already stored REPLACES it in place (CEE edits a
+ *      constraint's value/label/unit while retaining its id — see
+ *      add-constraint.ts); only a deep-semantic no-op (all fields equal after
+ *      normalisation) writes nothing. Also: ui_directive verbs
  *      (highlight / focus / open_inspector) — the AI's "point at the graph"
  *      gestures, each reusing the seam its user-driven equivalent uses.
  *   3. analysis_result.enrichment.decision_review → runMeta.ceeReviewV1.
@@ -63,23 +67,25 @@ export interface V5ApplicatorStore {
   /** Write (or clear) the CEE analysis_ready payload that gates the run. */
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
   /**
-   * Optional: write goal_constraints (ROADMAP 1.22). CEE places these at the
-   * response root on the V5 "commit response" path — additive only, this
-   * applicator never clears a prior turn's constraints on this slot (mirrors
-   * the V4 envelope path's ADD semantics but without its clear-on-empty-patch
-   * behaviour, which has no V5 equivalent signal to gate on).
+   * Optional: write goal_constraints (ROADMAP 1.22). On the V5 path this
+   * applicator writes via `add_constraint` graph_patch blocks only, UPSERTING
+   * by constraint id (step 2) — additive/replace, never a clear (a turn with no
+   * constraint patch leaves the slice untouched; there is no V5 clear signal to
+   * gate on). The other live source, CEE's `draft_graph.goal_constraints`, is
+   * owned by applyDraftResult, not here.
    */
   setGoalConstraints?: (
     constraints: CEEGoalConstraint[] | null,
     opts?: { fromProducerSync?: boolean },
   ) => void
   /**
-   * Current goal constraints, read to append an `add_constraint` graph_patch's
-   * constraint without dropping the ones already present. Snapshot-frozen at
-   * apply time (the applicator receives a spread of getState()), so multiple
-   * add_constraint patches in one turn are coalesced into a single
-   * setGoalConstraints write after the block loop — reading this field again
-   * after a mid-loop set would return the stale pre-turn value.
+   * Current goal constraints, read to UPSERT an `add_constraint` graph_patch's
+   * constraint (replace by id, or append when new) without dropping the ones
+   * already present. Snapshot-frozen at apply time (the applicator receives a
+   * spread of getState()), so multiple add_constraint patches in one turn are
+   * coalesced into a single setGoalConstraints write after the block loop —
+   * reading this field again after a mid-loop set would return the stale
+   * pre-turn value.
    */
   goalConstraints?: CEEGoalConstraint[] | null
   /**
@@ -392,6 +398,29 @@ function constraintsSameIdentity(a: CEEGoalConstraint, b: CEEGoalConstraint): bo
   )
 }
 
+/**
+ * Deep-semantic equality for an UPSERT no-op check. Two constraints are equal
+ * only when every content field matches after normalisation (undefined treated
+ * as absent). Identity alone is NOT sufficient: CEE edits a constraint in place
+ * retaining its constraint_id, so a value/label/unit change shares identity but
+ * differs in content and MUST write. This gate lets an exact re-send (byte-
+ * identical echo / double-fire) coalesce to zero writes while a genuine update
+ * still lands.
+ */
+function constraintsDeepEqual(a: CEEGoalConstraint, b: CEEGoalConstraint): boolean {
+  return (
+    (a.constraint_id ?? a.id) === (b.constraint_id ?? b.id) &&
+    a.node_id === b.node_id &&
+    a.operator === b.operator &&
+    a.value === b.value &&
+    (a.label ?? undefined) === (b.label ?? undefined) &&
+    (a.unit ?? undefined) === (b.unit ?? undefined) &&
+    (a.source_quote ?? undefined) === (b.source_quote ?? undefined) &&
+    (a.confidence ?? undefined) === (b.confidence ?? undefined) &&
+    (a.provenance ?? undefined) === (b.provenance ?? undefined)
+  )
+}
+
 type V5Block = OlumiResponse['blocks'][number]
 
 export interface ApplyV5StateResult {
@@ -609,22 +638,38 @@ export function applyV5State(
             })
             break
           }
-          // Idempotency + dedupe: skip when an equal constraint already exists
-          // (store OR queued earlier this turn) so a double-fire / echo never
-          // double-appends. Mirrors the neighbours' keyed-assignment idempotency.
+          // UPSERT by identity (P1-3). CEE updates an existing goal constraint
+          // in place, retaining its constraint_id (add-constraint.ts) — so a
+          // matching id is NOT a duplicate to skip; it is an edit to apply. Look
+          // up the current value for this identity (queued-this-turn wins over
+          // the store snapshot, so coalesced patches settle on the last write).
+          //   - deep-equal existing  → no-op, write nothing (exact re-send / echo)
+          //   - different content    → replace it (value/label/unit update)
+          //   - no existing          → new constraint
           const priorConstraints = store.goalConstraints ?? []
-          const isDuplicate = [...priorConstraints, ...pendingConstraints].some((c) =>
+          const pendingIdx = pendingConstraints.findIndex((c) =>
             constraintsSameIdentity(c, constraint),
           )
-          if (isDuplicate) {
+          const existing =
+            pendingIdx >= 0
+              ? pendingConstraints[pendingIdx]
+              : priorConstraints.find((c) => constraintsSameIdentity(c, constraint))
+          if (existing && constraintsDeepEqual(existing, constraint)) {
+            // Deep-semantic no-op: identical content already present/queued.
             deferred.push({
-              reason: 'add_constraint_duplicate_skipped',
+              reason: 'add_constraint_noop_skipped',
               block,
               detail: constraint.constraint_id ?? constraint.node_id ?? target,
             })
             break
           }
-          pendingConstraints.push(constraint)
+          if (pendingIdx >= 0) {
+            // Coalesce: a later patch for the same identity supersedes the
+            // earlier queued one (last-write-wins within the turn).
+            pendingConstraints[pendingIdx] = constraint
+          } else {
+            pendingConstraints.push(constraint)
+          }
           applied.push(`graph_patch:add_constraint:${constraint.node_id ?? target}`)
           break
         }
@@ -768,14 +813,20 @@ export function applyV5State(
   // Flush any add_constraint patches in ONE setGoalConstraints write (see
   // pendingConstraints declaration). fromProducerSync: true — a CEE-applied
   // constraint is a producer sync, not a user edit; the response's own
-  // analysis_ready.freshness verdict governs staleness (same reasoning as the
-  // response-root goal_constraints path below), so the write must not
-  // self-dirty the freshness overlay. Additive: prior constraints are spread
-  // first (the response-root goal_constraints path, if present, still owns the
-  // authoritative full-set replace at step 4).
+  // analysis_ready.freshness verdict governs staleness, so the write must not
+  // self-dirty the freshness overlay. Upsert semantics (P1-3): each pending
+  // constraint REPLACES a stored one of the same identity in place (preserving
+  // order) or is appended when new — a same-id edit updates rather than
+  // duplicates. No-ops never reach this list, so a pending constraint always
+  // represents a real add or change.
   if (pendingConstraints.length > 0) {
-    const base = store.goalConstraints ?? []
-    store.setGoalConstraints?.([...base, ...pendingConstraints], { fromProducerSync: true })
+    const merged = [...(store.goalConstraints ?? [])]
+    for (const pc of pendingConstraints) {
+      const idx = merged.findIndex((c) => constraintsSameIdentity(c, pc))
+      if (idx >= 0) merged[idx] = pc
+      else merged.push(pc)
+    }
+    store.setGoalConstraints?.(merged, { fromProducerSync: true })
   }
   const blockAppliedCount = applied.length - appliedCountBeforeBlocks
   logV5StateStep({
@@ -846,19 +897,13 @@ export function applyV5State(
   // Independent of ceeAnalysisReady (which clears on analyse-turns-without-analysis_ready).
   store.setAnalysisFreshness?.(rawAnalysisReady)
 
-  // ROADMAP 1.22 — goal_constraints at the response root. CEE places these
-  // outside analysis_ready (mirrors the V4 envelope path at
-  // useConversation.ts:2376+); goal_constraints is an untyped passthrough
-  // field on OlumiResponse (not in @talchain/schemas), so it is read via
-  // duck-typing. Additive only — a turn with no constraints does not clear
-  // a prior turn's, since (unlike the V4 path) this applicator has no
-  // "a new graph patch was applied" signal to gate a clear on.
-  const rawGoalConstraints = (response as { goal_constraints?: unknown }).goal_constraints
-  if (Array.isArray(rawGoalConstraints) && rawGoalConstraints.length > 0) {
-    // Producer sync (V5 state apply) — must not self-dirty the freshness overlay.
-    store.setGoalConstraints?.(rawGoalConstraints as CEEGoalConstraint[], { fromProducerSync: true })
-    applied.push('goal_constraints:set')
-  }
+  // NOTE: there is intentionally no response-ROOT goal_constraints read here.
+  // Constraints reach the store via the two LIVE paths only: CEE's
+  // `draft_graph.goal_constraints` (applyDraftResult) and `add_constraint`
+  // graph_patch blocks (upserted in step 2 above). A former root-level compat
+  // leg was dead — responseParser demotes every unknown top-level key to the
+  // non-enumerable `__additive__` sidecar, so `response.goal_constraints` is
+  // never set on a really-parsed OlumiResponse (Codex P2-2, removed).
   if (rawAnalysisReady !== undefined) {
     const normalised = normaliseV5AnalysisReady(rawAnalysisReady)
     if (normalised) {

@@ -287,12 +287,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-warning border border-canvas"
         />
       )}
-      {/* On-canvas coaching marker: rendered ONLY when a live guidance item names
-          this node (target_object.id). Replaces the permanently-empty CEE/ISL
-          NodeBadge (23-Jul audit G3). Click opens the same guidance surface the
-          inspector uses. */}
-      <NodeCoachingMarker nodeId={id} />
-
       {/* Context menu: Assumption flag badge (Hard rule 3 — UI-only annotation) */}
       {Boolean(data?.flagged_as_assumption) && (
         <div
@@ -343,16 +337,39 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         </div>
       )}
 
-      {/* Sensitivity rank badge — top-right (Results mode, top 3 factors) */}
-      {typeof displayMetadata.sensitivityRank === 'number' && (
-        <span
-          className={`absolute -top-2 -right-2 z-10 ${typography.nodeLabel} font-semibold text-text-body bg-panel-border rounded-full flex items-center justify-center shadow-sm`}
-          style={{ minWidth: '20px', height: '20px', padding: '0 4px', pointerEvents: 'none' }}
-          title={`Key driver #${displayMetadata.sensitivityRank}: ranked by influence on the outcome`}
-        >
-          #{displayMetadata.sensitivityRank}
-        </span>
-      )}
+      {/* Top-right corner STACK — a single absolutely-positioned flex row that
+          OWNS this corner so the sensitivity-rank badge and the coaching marker
+          never collide. Both previously rendered at `absolute -top-2 -right-2
+          z-10`, identical z, so the rank obscured the coaching marker (Codex
+          P1-5, browser-confirmed). They are now static siblings here: rank
+          FIRST (reads "key driver #N"), coaching beside it. The row is anchored
+          by its right edge and grows leftward, keeping both inside the top band
+          (no title overlap) and off the node's right side; siblings never
+          overlap, so both stay visible and the coaching button stays clickable.
+          Each child self-gates, so the container is empty (0×0, inert) when
+          neither applies. */}
+      <div
+        data-testid={`node-corner-stack-${id}`}
+        className="absolute -top-2 -right-2 z-10 flex items-center gap-1"
+      >
+        {/* Sensitivity rank badge — Results mode, top 3 factors. */}
+        {typeof displayMetadata.sensitivityRank === 'number' && (
+          <span
+            data-testid={`sensitivity-rank-${id}`}
+            className={`${typography.nodeLabel} font-semibold text-text-body bg-panel-border rounded-full flex items-center justify-center shadow-sm`}
+            style={{ minWidth: '20px', height: '20px', padding: '0 4px', pointerEvents: 'none' }}
+            title={`Key driver #${displayMetadata.sensitivityRank}: ranked by influence on the outcome`}
+          >
+            #{displayMetadata.sensitivityRank}
+          </span>
+        )}
+
+        {/* On-canvas coaching marker — renders ONLY when a live guidance item
+            names this node (target_object.id). Replaces the permanently-empty
+            CEE/ISL NodeBadge (23-Jul audit G3). Click opens the same guidance
+            surface the inspector uses. */}
+        <NodeCoachingMarker nodeId={id} />
+      </div>
 
       {/* Node header — shape + title on same row (spec Section 3.2) */}
       {!isCausalLens && (

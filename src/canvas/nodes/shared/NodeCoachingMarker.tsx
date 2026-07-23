@@ -95,6 +95,10 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
       ? `${count} coaching suggestions for this node. Top: ${top.title}`
       : `Coaching suggestion: ${top.title}`
 
+  // Positioning is owned by BaseNode's top-right corner STACK — this marker
+  // renders as a static flex child there (alongside the sensitivity-rank badge)
+  // so the two never collide (Codex P1-5). It carries no `absolute`/offset of
+  // its own; only its intrinsic pill styling.
   return (
     <button
       type="button"
@@ -106,7 +110,7 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
       title={label}
       aria-label={label}
       className={`
-        nodrag nopan absolute -top-2 -right-2 z-10
+        nodrag nopan
         inline-flex items-center gap-0.5 h-5 min-w-5 px-1
         rounded-full bg-panel border ${borderColour} shadow-1
         cursor-pointer hover:scale-110 transition-transform
