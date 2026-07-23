@@ -12,9 +12,12 @@
  * Scope:
  *   1. stage_indicator → canvas.currentStage
  *   2. graph_patch (applied) → canvas store mutation for set_factor_value,
- *      adjust_edge_strength. add_constraint is a NEEDS_FIX marker (no 1:1
- *      UI store target yet; constraints live on node prior fields and
- *      require a canonical source of truth from CEE).
+ *      adjust_edge_strength, and add_constraint. add_constraint maps `after`
+ *      into a CEEGoalConstraint and APPENDS it (deduped) to the canvas
+ *      `goalConstraints` slice via setGoalConstraints — the SAME slice
+ *      GoalPanel's "Add constraint" flow writes. Also: ui_directive verbs
+ *      (highlight / focus / open_inspector) — the AI's "point at the graph"
+ *      gestures, each reusing the seam its user-driven equivalent uses.
  *   3. analysis_result.enrichment.decision_review → runMeta.ceeReviewV1.
  *      Block enrichment is the canonical source. A secondary check on a
  *      non-schema top-level enrichment field (future CEE extension) is
@@ -38,6 +41,7 @@ import type { CeeDecisionReviewPayloadV1 } from '../types/cee'
 import type { ScenarioStage } from '../types/scenario'
 import { logV5StateStep } from './debugLog'
 import { pulseAppliedTargets } from '../canvas/utils/appliedEditPulse'
+import { focusNodeById, focusEdgeById } from '../canvas/utils/focusHelpers'
 import { extractDecisionReview } from './decisionReviewAdapter'
 import { mapV5AnalysisToReport } from './mapV5AnalysisToReport'
 import { v5StageToScenarioStage } from './stageMapper'
@@ -69,6 +73,23 @@ export interface V5ApplicatorStore {
     constraints: CEEGoalConstraint[] | null,
     opts?: { fromProducerSync?: boolean },
   ) => void
+  /**
+   * Current goal constraints, read to append an `add_constraint` graph_patch's
+   * constraint without dropping the ones already present. Snapshot-frozen at
+   * apply time (the applicator receives a spread of getState()), so multiple
+   * add_constraint patches in one turn are coalesced into a single
+   * setGoalConstraints write after the block loop — reading this field again
+   * after a mid-loop set would return the stale pre-turn value.
+   */
+  goalConstraints?: CEEGoalConstraint[] | null
+  /**
+   * Optional: select a node without a history entry — the SAME seam a user
+   * click uses to open/retarget inspector-v2 (store.ts). Wired for the
+   * `open_inspector` ui_directive verb; selection only, no viewport move.
+   */
+  selectNodeWithoutHistory?: (nodeId: string) => void
+  /** Optional: select an edge without a history entry (edge inspector). */
+  selectEdgeWithoutHistory?: (edgeId: string) => void
   /**
    * Optional: backfill goal_threshold_raw/unit/cap onto the goal node's data
    * (ROADMAP 1.22). Wired at the real call site to the shared
@@ -270,6 +291,107 @@ function inlinePathWillOwnAnalysisReadyWrite(
   return wouldPassStrictAttachContract(normalisedAnalysisReady)
 }
 
+function isNonEmptyString(v: unknown): v is string {
+  return typeof v === 'string' && v.length > 0
+}
+
+/**
+ * Resolve an `add_constraint` patch operator, tolerant of both wire
+ * vocabularies: the schema/DraftGoalConstraint form ('>=' / '<=') and the
+ * chip-parameter form ('at_least' / 'at_most', chipParameters.ts). Returns
+ * null when neither maps — the caller then fail-closes the whole patch.
+ */
+function resolveConstraintOperator(
+  operatorRaw: unknown,
+  constraintTypeRaw: unknown,
+): '>=' | '<=' | null {
+  if (operatorRaw === '>=' || operatorRaw === '<=') return operatorRaw
+  if (constraintTypeRaw === 'at_least') return '>='
+  if (constraintTypeRaw === 'at_most') return '<='
+  return null
+}
+
+/**
+ * Map an `add_constraint` graph_patch's `after` record (untyped on the wire)
+ * into a CEEGoalConstraint — the shape the canvas `goalConstraints` slice and
+ * PLoT's preflight both read. UI-is-a-passthrough: never coerce a value, never
+ * fabricate an operator. Returns null (→ deferred, an A1 ask if it recurs)
+ * when a node id, a valid operator, OR a finite numeric value cannot be
+ * resolved.
+ *
+ * node_id resolution order: explicit `after.node_id`, then `after.target_id`,
+ * then the patch's own `target_id` (the constrained node). constraint_id
+ * prefers the wire value; when absent it is derived deterministically as CEE's
+ * own `constraint_<node_id>_<min|max>` scheme so a re-applied identical patch
+ * dedupes by id (idempotency — no crypto/random, which would defeat it).
+ */
+function normaliseAddConstraintPatch(
+  after: Record<string, unknown> | null,
+  patchTargetId: string | undefined,
+): CEEGoalConstraint | null {
+  if (!after || typeof after !== 'object') return null
+
+  const nodeId = isNonEmptyString(after.node_id)
+    ? after.node_id
+    : isNonEmptyString(after.target_id)
+      ? after.target_id
+      : isNonEmptyString(patchTargetId)
+        ? patchTargetId
+        : undefined
+  if (!nodeId) return null
+
+  const operator = resolveConstraintOperator(after.operator, after.constraint_type)
+  if (!operator) return null
+
+  const value = after.value
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+
+  const constraint_id = isNonEmptyString(after.constraint_id)
+    ? after.constraint_id
+    : isNonEmptyString(after.id)
+      ? after.id
+      : `constraint_${nodeId}_${operator === '>=' ? 'min' : 'max'}`
+
+  const constraint: CEEGoalConstraint = {
+    constraint_id,
+    node_id: nodeId,
+    operator,
+    value,
+  }
+  if (isNonEmptyString(after.label)) constraint.label = after.label
+  if (isNonEmptyString(after.unit)) constraint.unit = after.unit
+  if (isNonEmptyString(after.source_quote)) constraint.source_quote = after.source_quote
+  if (typeof after.confidence === 'number' && Number.isFinite(after.confidence)) {
+    constraint.confidence = after.confidence
+  }
+  if (
+    after.provenance === 'explicit' ||
+    after.provenance === 'inferred' ||
+    after.provenance === 'proxy'
+  ) {
+    constraint.provenance = after.provenance
+  }
+  return constraint
+}
+
+/**
+ * Constraint identity for dedupe/idempotency: a shared constraint_id/id, OR the
+ * same (node_id, operator, value) triple. The triple check keeps a re-applied
+ * patch that carries NO constraint_id idempotent even though a fresh derived id
+ * would otherwise differ across fires.
+ */
+function constraintsSameIdentity(a: CEEGoalConstraint, b: CEEGoalConstraint): boolean {
+  const aId = a.constraint_id ?? a.id
+  const bId = b.constraint_id ?? b.id
+  if (aId && bId && aId === bId) return true
+  return (
+    a.node_id != null &&
+    a.node_id === b.node_id &&
+    a.operator === b.operator &&
+    a.value === b.value
+  )
+}
+
 type V5Block = OlumiResponse['blocks'][number]
 
 export interface ApplyV5StateResult {
@@ -398,6 +520,11 @@ export function applyV5State(
   // the targets that actually apply below and pulse once after the loop.
   const pulsedNodeIds: string[] = []
   const pulsedEdgeIds: string[] = []
+  // add_constraint patches are collected here and flushed to
+  // setGoalConstraints ONCE after the loop: the store snapshot's
+  // goalConstraints is frozen at apply time, so a per-patch read-modify-write
+  // would drop every constraint but the last.
+  const pendingConstraints: CEEGoalConstraint[] = []
   // R4 dispatcher rate limit: the producer contract is at most ONE
   // ui_directive per turn — the UI enforces it defensively; extras defer.
   let uiDirectiveExecuted = false
@@ -455,15 +582,50 @@ export function applyV5State(
           break
         }
         case 'add_constraint': {
-          // Not wired yet — constraints live on goal node prior fields.
-          // A translator from CEE's constraint shape → prior.range_min/
-          // range_max / threshold is deferred until CEE + UI agree on the
-          // canonical source of truth.
-          deferred.push({
-            reason: 'add_constraint_not_wired',
-            block,
-            detail: 'Constraint application deferred; see walkthrough NEEDS_FIX.',
-          })
+          // Constraints live in the canvas `goalConstraints` slice (the same
+          // one GoalPanel writes via setGoalConstraints) — NOT on goal-node
+          // prior fields as the old NEEDS_FIX marker assumed. Map `after` →
+          // CEEGoalConstraint and queue it; the loop flushes all queued
+          // constraints in one setGoalConstraints call afterwards.
+          if (typeof store.setGoalConstraints !== 'function') {
+            deferred.push({
+              reason: 'add_constraint_store_lacks_setter',
+              block,
+              detail: 'Applicator store has no setGoalConstraints; constraint not applied.',
+            })
+            break
+          }
+          const constraint = normaliseAddConstraintPatch(
+            block.after as Record<string, unknown> | null,
+            target,
+          )
+          if (!constraint) {
+            // Fail-closed: the `after` record could not resolve a node id, a
+            // valid operator, and a finite value. Never fabricate — surface it.
+            deferred.push({
+              reason: 'add_constraint_unmappable_shape',
+              block,
+              detail: 'after did not resolve to node_id + operator + finite value.',
+            })
+            break
+          }
+          // Idempotency + dedupe: skip when an equal constraint already exists
+          // (store OR queued earlier this turn) so a double-fire / echo never
+          // double-appends. Mirrors the neighbours' keyed-assignment idempotency.
+          const priorConstraints = store.goalConstraints ?? []
+          const isDuplicate = [...priorConstraints, ...pendingConstraints].some((c) =>
+            constraintsSameIdentity(c, constraint),
+          )
+          if (isDuplicate) {
+            deferred.push({
+              reason: 'add_constraint_duplicate_skipped',
+              block,
+              detail: constraint.constraint_id ?? constraint.node_id ?? target,
+            })
+            break
+          }
+          pendingConstraints.push(constraint)
+          applied.push(`graph_patch:add_constraint:${constraint.node_id ?? target}`)
           break
         }
         default: {
@@ -476,22 +638,36 @@ export function applyV5State(
         }
       }
     } else if (block.type === 'ui_directive') {
-      // R4 UI half (surfacing gate 4): execute directives at the
+      // R4 UI half: execute the AI's "point at the graph" directives at the
       // once-per-envelope side-effect site — never render-driven, so
-      // re-renders cannot re-fire them. Slice 1 executes `highlight` only,
-      // by feeding the SAME coalesced pulse the applied-edit path uses
-      // (fail-closed in-graph filter downstream, one 2s static ring, zero
-      // viewport movement — the AI cannot hijack what the user is doing).
-      // `focus`/`open_inspector` move the viewport/panels and get their own
-      // rate-limit design in a later slice; they defer fail-closed, as do
-      // verbs this build doesn't know. duration_ms is a producer hint not
-      // yet honoured (the ring is fixed 2s).
+      // re-renders cannot re-fire them. Three verbs are wired, each reusing
+      // the SAME seam its user-driven equivalent uses (the AI can point at the
+      // graph, never do something the user cannot):
+      //   - highlight      → the coalesced applied-edit pulse (one 2s static
+      //                       ring, fail-closed in-graph filter, no viewport
+      //                       or selection change) — the AI cannot hijack what
+      //                       the user is doing.
+      //   - focus          → focusNodeById / focusEdgeById, the guidance
+      //                       click-to-focus seam (centre viewport + select +
+      //                       brief glow). Single-target.
+      //   - open_inspector → selectNodeWithoutHistory / selectEdgeWithoutHistory,
+      //                       the user-selection seam that opens/retargets
+      //                       inspector-v2. Selection only, no camera move.
+      //                       Single-target.
+      // Unknown verbs (a newer producer) defer fail-closed. duration_ms is a
+      // producer hint not yet honoured (the highlight ring is a fixed 2s).
+      // Every verb is fail-closed on the target id: an off-canvas / unknown id
+      // is recorded not-found and never executed (keeps applied[] truthful and
+      // mirrors the graph_patch path's honesty).
       const targets = Array.isArray(block.targets) ? block.targets : []
-      if (block.verb !== 'highlight') {
+      const verb = block.verb
+      const verbSupported =
+        verb === 'highlight' || verb === 'focus' || verb === 'open_inspector'
+      if (!verbSupported) {
         deferred.push({
           reason: 'ui_directive_verb_deferred',
           block,
-          detail: String(block.verb),
+          detail: String(verb),
         })
       } else if (targets.length === 0) {
         deferred.push({ reason: 'ui_directive_no_targets', block })
@@ -503,11 +679,12 @@ export function applyV5State(
         })
       } else {
         uiDirectiveExecuted = true
+        // focus / open_inspector act on a SINGLE target (the viewport centres
+        // on one element / the inspector opens one element); highlight pulses
+        // every resolvable target.
+        let singleTargetActioned = false
         for (const t of targets) {
           if (!t?.id) continue
-          // Mirror the graph_patch path's honesty: an off-canvas target is
-          // recorded as not-found, never as an execution (the pulse filter
-          // would drop it downstream anyway — this keeps applied[] truthful).
           const isEdge = t.kind === 'edge'
           const exists = isEdge
             ? store.edges.some((e) => e.id === t.id)
@@ -520,12 +697,45 @@ export function applyV5State(
             })
             continue
           }
-          if (isEdge) {
-            pulsedEdgeIds.push(t.id)
-          } else {
-            pulsedNodeIds.push(t.id)
+          if (verb === 'highlight') {
+            if (isEdge) pulsedEdgeIds.push(t.id)
+            else pulsedNodeIds.push(t.id)
+            applied.push(`ui_directive:highlight:${t.id}`)
+            continue
           }
-          applied.push(`ui_directive:highlight:${t.id}`)
+          // focus / open_inspector: act on the first resolvable target only;
+          // later targets are extraneous for a viewport/panel verb — record
+          // them as ignored so applied[] stays truthful.
+          if (singleTargetActioned) {
+            deferred.push({
+              reason: 'ui_directive_extra_target_ignored',
+              block,
+              detail: t.id,
+            })
+            continue
+          }
+          if (verb === 'focus') {
+            if (isEdge) focusEdgeById(t.id)
+            else focusNodeById(t.id)
+            applied.push(`ui_directive:focus:${t.id}`)
+            singleTargetActioned = true
+          } else {
+            // open_inspector
+            const selectFn = isEdge
+              ? store.selectEdgeWithoutHistory
+              : store.selectNodeWithoutHistory
+            if (typeof selectFn === 'function') {
+              selectFn(t.id)
+              applied.push(`ui_directive:open_inspector:${t.id}`)
+              singleTargetActioned = true
+            } else {
+              deferred.push({
+                reason: 'ui_directive_open_inspector_store_lacks_setter',
+                block,
+                detail: t.id,
+              })
+            }
+          }
         }
       }
     } else if (block.type === 'analysis_result') {
@@ -554,6 +764,18 @@ export function applyV5State(
   }
   if (pulsedNodeIds.length > 0 || pulsedEdgeIds.length > 0) {
     pulseAppliedTargets({ nodeIds: pulsedNodeIds, edgeIds: pulsedEdgeIds })
+  }
+  // Flush any add_constraint patches in ONE setGoalConstraints write (see
+  // pendingConstraints declaration). fromProducerSync: true — a CEE-applied
+  // constraint is a producer sync, not a user edit; the response's own
+  // analysis_ready.freshness verdict governs staleness (same reasoning as the
+  // response-root goal_constraints path below), so the write must not
+  // self-dirty the freshness overlay. Additive: prior constraints are spread
+  // first (the response-root goal_constraints path, if present, still owns the
+  // authoritative full-set replace at step 4).
+  if (pendingConstraints.length > 0) {
+    const base = store.goalConstraints ?? []
+    store.setGoalConstraints?.([...base, ...pendingConstraints], { fromProducerSync: true })
   }
   const blockAppliedCount = applied.length - appliedCountBeforeBlocks
   logV5StateStep({
