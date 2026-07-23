@@ -828,10 +828,14 @@ export const FactorNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* Post-analysis: MetricPills. Lane C4: pass the display model's
-            provenance through so the "I: NN%" pill discloses the basis
-            (set-relative top ≡ 100% vs absolute producer score). */}
-        {isPostAnalysis && (
+        {/* Post-analysis: MetricPills — the Standard-view compact influence/
+            confidence summary. Lane C4: provenance passes through so the pill
+            discloses its basis (set-relative top ≡ 100% vs absolute producer
+            score). P2.9 item 4 (factor-badge de-noise): gated to Standard only —
+            in Detailed the Layer-2 Influence/Confidence bars below carry the same
+            two numbers with more context, so the pills were a duplicate % channel
+            in the densest view. No information is lost; the bars remain. */}
+        {isPostAnalysis && !isDetailed && (
           <MetricPills
             influencePct={influencePct}
             influenceProvenance={displayMetadata.influenceProvenance}
