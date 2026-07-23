@@ -19,6 +19,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useCanvasStore } from '../../store'
 import { useGoalNodeActions } from '../../components/GoalNodeSelector'
+import * as scenarios from '../scenarios'
 
 const goalNode = (id: string, extra: Record<string, unknown> = {}) => ({
   id,
@@ -219,6 +220,75 @@ describe('P0-1 round 2: goal reselection strips the previous goal producer targe
     expect(s.ceeAnalysisReady?.goal_threshold ?? null).toBeNull()
     expect(s.ceeAnalysisReady?.goal_threshold_raw ?? null).toBeNull()
     expect(s.ceeAnalysisReady?.goal_threshold_unit ?? null).toBeNull()
+  })
+})
+
+// ─── Refresh persistence (live defect 2026-07-23, 15d60a0c) ────────────────
+//
+// The COMPLEMENT of every case above: there the scalar wrongly OUTLIVED a node
+// that lost its target; here the node KEEPS its user target across a refresh
+// (it rides nodes[] / the persisted scenario graph) but the store scalar was
+// cleared on the previous context and must be RE-DERIVED from the restored
+// node. Before the fix, hydrateGraphSlice and loadScenario cleared goalThreshold
+// (DECISION_CONTEXT_CLEAR) and re-derived only outcomeNodeId — never the scalar
+// — so the V7 goal lens (buildV7Lenses gate: goalThreshold == null → no_target)
+// reported "no target" even though the goal node carried one.
+
+describe('refresh persistence: restore re-derives the goal-threshold scalar from the restored node', () => {
+  beforeEach(() => useCanvasStore.getState().reset())
+
+  it('hydrateGraphSlice (guest autosave restore) adopts a restored user target', () => {
+    useCanvasStore.setState({ goalThreshold: null, goalThresholdRepresentation: null } as never)
+    useCanvasStore.getState().hydrateGraphSlice({
+      nodes: [goalNode('goal_1', { success_threshold: 20, threshold_source: 'user' })] as never,
+      edges: [],
+    })
+    const s = useCanvasStore.getState()
+    // RED before the fix: the scalar stayed null while the node carried 20.
+    expect(s.goalThreshold).toBe(20)
+    expect(s.goalThresholdRepresentation).toBe('raw')
+  })
+
+  it('hydrateGraphSlice with a target-LESS goal node leaves the scalar null', () => {
+    useCanvasStore.getState().hydrateGraphSlice({
+      nodes: [goalNode('goal_1')] as never,
+      edges: [],
+    })
+    const s = useCanvasStore.getState()
+    expect(s.goalThreshold).toBeNull()
+    expect(s.goalThresholdRepresentation).toBeNull()
+  })
+
+  it('hydrateGraphSlice ignores a node-level threshold that is NOT user-set (CEE-only)', () => {
+    // Only a user commit (threshold_source === 'user') is a durable target; a
+    // bare CEE-derived value must not be adopted as the scalar here.
+    useCanvasStore.getState().hydrateGraphSlice({
+      nodes: [goalNode('goal_1', { success_threshold: 20 })] as never,
+      edges: [],
+    })
+    expect(useCanvasStore.getState().goalThreshold).toBeNull()
+  })
+
+  it('loadScenario (logged-in restore) adopts the restored user target', () => {
+    const id = 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4'
+    scenarios.saveScenarios([
+      {
+        id,
+        name: 'Refresh scenario',
+        createdAt: 1,
+        updatedAt: 2,
+        graph: {
+          nodes: [goalNode('goal_1', { success_threshold: 20, threshold_source: 'user' })] as never,
+          edges: [],
+        },
+      },
+    ])
+    const ok = useCanvasStore.getState().loadScenario(id)
+    expect(ok).toBe(true)
+    const s = useCanvasStore.getState()
+    // RED before the fix: loadScenario set goalThreshold: null and never re-derived.
+    expect(s.goalThreshold).toBe(20)
+    expect(s.goalThresholdRepresentation).toBe('raw')
   })
 })
 
