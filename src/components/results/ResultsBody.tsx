@@ -31,6 +31,7 @@ import { StrengthenContainer } from './strengthen/StrengthenContainer'
 import { InferenceWarningStrip } from './InferenceWarningStrip'
 import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
 import { AnalysisHeroContainer } from './analysis-hero'
+import { V7TopMatter } from './v7/V7TopMatter'
 import { openDefineSuccess } from './modals'
 import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled, isFocusNowPanelEnabled, isAnalysisHeroPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
 
@@ -254,10 +255,22 @@ export const ResultsBody = memo(function ResultsBody({
           changed, no flag. The Current-view group retires once Paul signs off
           (V6-RESPEC Paul-question P2). */}
 
-      {/* ▛ V7 (new) top group ▟ — the L4–L6 mount point. Empty today (those
-          components do not exist yet); `empty:hidden` keeps it out of layout
-          until a lane fills it, so the scaffold is invisible-but-present. */}
-      <div className="flex flex-col gap-4 empty:hidden" data-testid="v7-top-group" />
+      {/* ▛ V7 (new) top group ▟ — the L4–L6 mount point. `empty:hidden` keeps
+          it out of layout until a lane fills it. L4 (V7 top matter — freshness
+          strip, sharpen line, V7 hero + signal row + max-2 chips) mounts here;
+          V7TopMatter returns null pre-analysis, so the group stays hidden until
+          analysis data exists. Reads the SAME resultsSectionData + vm the live
+          panel below consumes — additive, passthrough, no flag. */}
+      <div className="flex flex-col gap-4 empty:hidden" data-testid="v7-top-group">
+        <SectionErrorBoundary section="V7 top matter">
+          <V7TopMatter
+            resultsSectionData={resultsSectionData}
+            decisionState={vm.decisionState}
+            onFocusNode={onFocusNode}
+            onSendMessage={onSendMessage}
+          />
+        </SectionErrorBoundary>
+      </div>
 
       {/* ── "Current view" divider ─────────────────────────────────────────
           Plain SectionHeader-style separator (sentence case, muted, no accent
