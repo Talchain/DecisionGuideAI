@@ -7,12 +7,12 @@
  */
 
 import { useRef, useCallback, useEffect, useMemo, memo } from 'react'
-import { AlertTriangle, Lightbulb } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import {
   useGuidanceStore,
   compareGuidanceDisplayOrder,
   guidanceCategoryTone,
+  guidanceCategoryIcon,
   type GuidanceItem,
   type GuidanceAction,
 } from '../../stores/guidanceStore'
@@ -45,28 +45,13 @@ function cardBorderClass(category: GuidanceItem['category']): string {
   return guidanceCategoryTone(category) === 'danger' ? 'border-danger' : 'border-info'
 }
 
-function cardBgClass(category: GuidanceItem['category']): string {
-  switch (category) {
-    case 'must_fix':
-    case 'should_fix':
-      return 'bg-panel'
-    case 'could_fix':
-    case 'technique':
-      return 'bg-panel'
-    default:
-      return 'bg-panel'
-  }
-}
-
 function cardIcon(category: GuidanceItem['category']) {
-  switch (category) {
-    case 'must_fix':
-    case 'should_fix':
-      return <AlertTriangle size={12} className="flex-shrink-0 mt-0.5 text-danger" aria-hidden="true" />
-    case 'could_fix':
-    case 'technique':
-      return <Lightbulb size={12} className="flex-shrink-0 mt-0.5 text-info" aria-hidden="true" />
-  }
+  // Icon + tint from the single source of truth shared with the on-canvas node
+  // coaching marker (guidanceCategoryIcon) so the two never drift. An
+  // uncategorised item shows the info Lightbulb here, same as the marker (was
+  // previously no icon on the card — a live card/marker divergence).
+  const { Icon, tintClass } = guidanceCategoryIcon(category)
+  return <Icon size={12} className={`flex-shrink-0 mt-0.5 ${tintClass}`} aria-hidden="true" />
 }
 
 // ---------------------------------------------------------------------------
@@ -129,7 +114,7 @@ const GuidanceCard = memo(function GuidanceCard({
       className={`
         flex items-start gap-2 p-2 rounded border
         ${cardBorderClass(item.category)}
-        ${isActive ? `${cardBgClass(item.category)} ring-1 ring-info/40` : 'bg-panel'}
+        ${isActive ? 'bg-panel ring-1 ring-info/40' : 'bg-panel'}
         transition-colors
       `}
       onMouseEnter={handleMouseEnter}

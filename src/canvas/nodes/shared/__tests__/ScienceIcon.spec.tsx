@@ -93,3 +93,37 @@ describe('ScienceIcon — disclosure step (icon -> popover)', () => {
     expect(screen.queryByTestId('science-icon-discuss')).toBeNull()
   })
 })
+
+describe('ScienceIcon — popover dismissal (matches CanvasLegendPopover idiom)', () => {
+  it('closes the popover on Escape', () => {
+    renderIcon()
+    fireEvent.click(screen.getByLabelText(TOOLTIP))
+    expect(screen.getByRole('dialog')).toBeTruthy()
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    // RED before the fix: the popover had no Esc handler and stayed open.
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('closes the popover on an outside click', () => {
+    renderIcon()
+    fireEvent.click(screen.getByLabelText(TOOLTIP))
+    expect(screen.getByRole('dialog')).toBeTruthy()
+
+    fireEvent.mouseDown(document.body)
+    // RED before the fix: no outside-click handler → stayed open.
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('an inside mousedown (on the icon itself) does NOT dismiss via the outside handler', () => {
+    renderIcon()
+    const btn = screen.getByLabelText(TOOLTIP)
+    fireEvent.click(btn)
+    expect(screen.getByRole('dialog')).toBeTruthy()
+
+    // A mousedown that lands inside the wrapper is not an outside click; the
+    // popover stays open (the second full click is what toggles it closed).
+    fireEvent.mouseDown(btn)
+    expect(screen.getByRole('dialog')).toBeTruthy()
+  })
+})

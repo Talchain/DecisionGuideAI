@@ -23,7 +23,6 @@ export const SECTION_TITLES = {
   fragility:           { label: 'Sensitive assumptions',           icon: 'AlertTriangle'  },
   connections:         { label: 'Connections',                   icon: 'GitBranch'      },
   predictedRange:      { label: 'Predicted range by option',     icon: 'BarChart3'      },
-  riskExposure:        { label: 'Risk exposure by option',       icon: 'BarChart3'      },
   investigationValue:  { label: 'Value of investigation',        icon: 'TrendingUp'     },
 } as const
 

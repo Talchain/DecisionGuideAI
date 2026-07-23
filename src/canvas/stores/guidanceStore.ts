@@ -5,6 +5,7 @@
  * and tracks the currently focused item across the strip, inspector, and canvas.
  */
 import { create } from 'zustand'
+import { AlertTriangle, Lightbulb, type LucideIcon } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
 // § 1 — CEE contract types
@@ -388,6 +389,27 @@ export function guidanceCategoryTone(cat: GuidanceItem['category']): GuidanceTon
     default:
       return 'info' // could_fix, technique, or absent — low-urgency info channel
   }
+}
+
+/**
+ * The single source of truth for a guidance item's display ICON + tint, paired
+ * with `guidanceCategoryTone` above (icon = affordance / colour = state, DS v5).
+ * Every surface that shows a guidance icon — the inspector card
+ * (`InspectorGuidanceSection`) and the on-canvas node coaching marker
+ * (`NodeCoachingMarker`) — derives from THIS, so the marker's icon always
+ * matches the card it opens (derive, don't mirror). Tone decides both: the
+ * danger channel (must_fix / should_fix) shows AlertTriangle in `text-danger`;
+ * the info channel (could_fix, technique, and items the producer never
+ * categorised) shows Lightbulb in `text-info`. An uncategorised item therefore
+ * shows the info Lightbulb EVERYWHERE — honest absence → info, never a missing
+ * icon and never a synthesised severity.
+ */
+export function guidanceCategoryIcon(
+  cat: GuidanceItem['category'],
+): { Icon: LucideIcon; tintClass: string } {
+  return guidanceCategoryTone(cat) === 'danger'
+    ? { Icon: AlertTriangle, tintClass: 'text-danger' }
+    : { Icon: Lightbulb, tintClass: 'text-info' }
 }
 
 /**

@@ -139,6 +139,37 @@ describe('InspectorGuidanceSection — selection changes', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Category icon — shared source of truth with the on-canvas node marker
+// ---------------------------------------------------------------------------
+
+describe('InspectorGuidanceSection — category icon (shared SOT)', () => {
+  it('renders the danger AlertTriangle on a must_fix/should_fix card', () => {
+    useGuidanceStore.getState().setGuidanceItems([
+      makeItem({ category: 'must_fix', target_object: { type: 'node', id: 'node-a' } }),
+    ])
+    render(<InspectorGuidanceSection elementId="node-a" />)
+    const icon = screen.getByTestId('inspector-guidance-card').querySelector('svg')
+    expect(icon).not.toBeNull()
+    expect(icon?.getAttribute('class')).toContain('text-danger')
+  })
+
+  it('renders the info Lightbulb on an UNCATEGORISED card (unified with the canvas marker)', () => {
+    // Deliberate behaviour change: an item the producer never categorised used
+    // to render NO icon on the card while the on-canvas marker showed the
+    // Lightbulb — a live divergence. Both now derive from guidanceCategoryIcon,
+    // so the card shows the info Lightbulb too. RED before the fix (cardIcon had
+    // no default branch → undefined → no svg).
+    useGuidanceStore.getState().setGuidanceItems([
+      makeItem({ category: undefined, target_object: { type: 'node', id: 'node-a' } }),
+    ])
+    render(<InspectorGuidanceSection elementId="node-a" />)
+    const icon = screen.getByTestId('inspector-guidance-card').querySelector('svg')
+    expect(icon).not.toBeNull()
+    expect(icon?.getAttribute('class')).toContain('text-info')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // External activeGuidanceItemId highlights matching card
 // ---------------------------------------------------------------------------
 

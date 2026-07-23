@@ -17,7 +17,7 @@
  * Honest absence: with no conversation registered (`_sendMessage` null) the
  * popover still explains, but shows no button that would do nothing.
  */
-import { useState, useCallback, type ComponentType } from 'react'
+import { useState, useRef, useEffect, useCallback, type ComponentType } from 'react'
 import { Sparkles } from 'lucide-react'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { typography } from '../../../styles/typography'
@@ -32,9 +32,33 @@ interface ScienceIconProps {
 export function ScienceIcon({ icon: Icon, tooltip, action, colour = 'text-text-light' }: ScienceIconProps) {
   const [showTip, setShowTip] = useState(false)
   const [open, setOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
   // Primitive selector (safe): re-renders only when the callback reference
   // changes — never an inline-selector new-array landmine.
   const sendMessage = useGuidanceStore((s) => s._sendMessage)
+
+  const close = useCallback(() => setOpen(false), [])
+
+  // Dismiss the popover on outside-click or Esc — the exact idiom the sibling
+  // CanvasLegendPopover uses (document mousedown outside wrapRef, or Escape).
+  // Listeners attach only while open. The icon/discuss buttons live inside
+  // wrapRef, so clicking them is never an "outside" click (the toggle and
+  // discuss handlers own those paths).
+  useEffect(() => {
+    if (!open) return
+    const onDocPointer = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) close()
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close()
+    }
+    document.addEventListener('mousedown', onDocPointer)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDocPointer)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open, close])
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -48,7 +72,7 @@ export function ScienceIcon({ icon: Icon, tooltip, action, colour = 'text-text-l
   }, [sendMessage, action])
 
   return (
-    <div className="relative inline-flex">
+    <div ref={wrapRef} className="relative inline-flex">
       <button
         type="button"
         className={`nodrag nopan p-0 border-0 bg-transparent cursor-pointer ${colour}`}
