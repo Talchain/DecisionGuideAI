@@ -21,6 +21,8 @@ import { V7SharpenLine, type V7SharpenInput } from './V7SharpenLine'
 import { V7Hero } from './V7Hero'
 import { V7LensGroup } from './V7LensGroup'
 import { V7EvidenceDisclosure } from './V7EvidenceDisclosure'
+import { V7GuidanceSection } from './V7GuidanceSection'
+import { V7BiasSection } from './V7BiasSection'
 import { buildV7Lenses } from './buildV7Lenses'
 
 export interface V7TopMatterProps {
@@ -71,6 +73,12 @@ export function V7TopMatter({
       />
       <V7LensGroup resultsSectionData={resultsSectionData} />
       <V7EvidenceDisclosure evidence={evidence} onFocusNode={onFocusNode} />
+      {/* L6 — "What to do next" (guidance + held-proposal pointer card) and
+          "Challenge your assumptions" (bias coaching). Both read their own
+          stores (guidance store / canvas ceeReview) and render nothing when
+          their backing data is absent. */}
+      <V7GuidanceSection onFocusNode={onFocusNode} onSendMessage={onSendMessage} />
+      <V7BiasSection />
     </div>
   )
 }

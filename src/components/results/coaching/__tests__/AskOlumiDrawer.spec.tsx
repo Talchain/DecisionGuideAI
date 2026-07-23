@@ -115,4 +115,13 @@ describe('AskOlumiDrawer', () => {
     act(() => openAskOlumi(payload))
     expect(screen.queryByRole('button', { name: 'Focus on canvas' })).not.toBeInTheDocument()
   })
+
+  // ── V7 L6 row 15: the drawer ALWAYS carries the model-limit caveat ──────
+  it('always shows the model-limit caveat, even with no context line', () => {
+    render(<AskOlumiDrawer />)
+    act(() => openAskOlumi({ ...payload, context: '' }))
+    const caveat = screen.getByTestId('ask-olumi-model-limit')
+    expect(caveat).toBeInTheDocument()
+    expect(caveat).toHaveTextContent(/not guarantee the real world/i)
+  })
 })
