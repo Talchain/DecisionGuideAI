@@ -473,8 +473,8 @@ describe('FactorNode', () => {
     expect(screen.queryByText('Measurable')).toBeNull()
   })
 
-  // P3: Rank badge in header row
-  it('rank badge renders with absolute positioning (P3)', () => {
+  // P3: Rank badge in the top-right corner stack
+  it('rank badge renders inside the top-right corner stack (P3)', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: 1,
       influence: null,
@@ -496,10 +496,15 @@ describe('FactorNode', () => {
     // Badge renders with expected text
     const badge = screen.getByText('#1')
     expect(badge).toBeDefined()
-    // Badge uses absolute positioning (top-right corner of node)
-    expect(badge.className).toContain('absolute')
-    expect(badge.className).toContain('-top-2')
-    expect(badge.className).toContain('-right-2')
+    // Positioning is owned by the shared corner STACK (Codex P1-5), not the
+    // badge itself — that is what stops the rank badge and the coaching marker
+    // colliding in the same corner. The badge is a static flex child.
+    const stack = badge.parentElement!
+    expect(stack.getAttribute('data-testid')).toMatch(/^node-corner-stack-/)
+    expect(stack.className).toContain('absolute')
+    expect(stack.className).toContain('-top-2')
+    expect(stack.className).toContain('-right-2')
+    expect(badge.className).not.toContain('absolute')
     // Category icons removed — science icons replace them
   })
 

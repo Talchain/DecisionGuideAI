@@ -74,7 +74,11 @@ vi.mock('../../hooks/useFirstTimeHints', () => ({ useEdgeEditHint: () => ({ show
 vi.mock('../../hooks/usePrefersReducedMotion', () => ({ usePrefersReducedMotion: () => false }))
 // Lens ENABLED so the sensitivity glow branch can fire (the other StyledEdge
 // specs disable it because they exercise non-lens encodings).
-vi.mock('../../flags', () => ({ isGraphLensEnabled: () => true }))
+// Path is '../../../flags' (src/flags) — the module StyledEdge imports. The
+// spec sits one level deeper (edges/__tests__/), so '../../flags' resolved to
+// the non-existent src/canvas/flags and the mock silently no-op'd, leaving
+// these two tests depending on ambient VITE_FEATURE_GRAPH_LENS (Codex P2-1).
+vi.mock('../../../flags', () => ({ isGraphLensEnabled: () => true }))
 vi.mock('../../utils/fragileEdgeMatch', () => ({
   isEdgeFragile: () => false,
   getFragileEdgeSwitchProbability: () => null,

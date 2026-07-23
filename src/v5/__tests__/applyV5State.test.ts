@@ -712,37 +712,13 @@ describe('applyV5State — goal-threshold quad ingestion (ROADMAP 1.22)', () => 
     expect(backfillGoalThreshold).not.toHaveBeenCalled()
   })
 
-  it('ingests goal_constraints from the response root additively', () => {
-    const { store, setGoalConstraints } = makeStore([goalNode])
-    const constraints = [
-      { constraint_id: 'c1', factor_id: 'f1', label: 'Budget', threshold: 100 },
-    ]
-    applyV5State(
-      responseWith(
-        {
-          status: 'ready',
-          goal_node_id: 'goal-1',
-          options: [readyOption],
-        },
-        { goal_constraints: constraints },
-      ),
-      store,
-    )
-    // Producer sync — passes fromProducerSync so the ingestion write does not self-dirty freshness.
-    expect(setGoalConstraints).toHaveBeenCalledWith(constraints, { fromProducerSync: true })
-  })
-
-  it('does not call setGoalConstraints when the response carries none (additive only — no clearing)', () => {
-    const { store, setGoalConstraints } = makeStore([goalNode])
-    applyV5State(
-      responseWith({
-        status: 'ready',
-        goal_node_id: 'goal-1',
-        options: [readyOption],
-      }),
-      store,
-    )
-    expect(setGoalConstraints).not.toHaveBeenCalled()
-  })
+  // NOTE (Codex P2-2): the former "ingests goal_constraints from the response
+  // ROOT" tests were removed with the dead root-level compat leg. responseParser
+  // demotes every unknown top-level key to the non-enumerable `__additive__`
+  // sidecar, so `response.goal_constraints` is never set on a really-parsed
+  // OlumiResponse — the old positive test only passed by fabricating a typed
+  // response that bypassed the parser. Live constraint ingestion is covered by
+  // applyV5State.addConstraint.test.ts (add_constraint graph_patch) and
+  // applyDraftResult.spec.ts / draftGoalConstraints.wire.spec.ts (draft_graph).
 })
 

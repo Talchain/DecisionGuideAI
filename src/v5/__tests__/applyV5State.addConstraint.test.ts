@@ -6,10 +6,13 @@
  * Wire shape: a graph_patch block with operation 'add_constraint' carries the
  * constrained node in `target_id` and the constraint payload in `after`
  * (untyped Record on the wire). The applicator maps `after` → CEEGoalConstraint
- * and APPENDS it (deduped) to the existing constraints via setGoalConstraints
- * with { fromProducerSync: true } (a producer sync — the response's own
- * analysis_ready.freshness verdict governs staleness, so the write must not
- * self-dirty the freshness overlay).
+ * and UPSERTS it (by constraint id) into the existing constraints via
+ * setGoalConstraints with { fromProducerSync: true } (a producer sync — the
+ * response's own analysis_ready.freshness verdict governs staleness, so the
+ * write must not self-dirty the freshness overlay). A patch that shares the id
+ * of a stored constraint but changes its value/label/unit REPLACES it in place
+ * (CEE edits constraints in place, keeping the id); only a deep-semantic no-op
+ * (all fields equal) writes nothing (P1-3).
  *
  * Operator vocabulary tolerance: `after.operator` may be the schema form
  * ('>=' / '<=') OR the chip form ('at_least' / 'at_most'); node id may be
@@ -163,7 +166,7 @@ describe('applyV5State — add_constraint graph_patch', () => {
     expect(constraints[0].node_id).toBe('goal-node')
   })
 
-  it('IDEMPOTENT: applying the same response twice does not double-append', () => {
+  it('IDEMPOTENT: re-sending a byte-identical constraint writes nothing', () => {
     const store = makeStore(null)
     const response = baseResponse({
       blocks: [
@@ -172,11 +175,88 @@ describe('applyV5State — add_constraint graph_patch', () => {
     })
     applyV5State(response, store)
     const firstArray = (store.setGoalConstraints as ReturnType<typeof vi.fn>).mock.calls[0][0]
-    // second fire: the store now already holds that constraint
+    // second fire: the store now already holds that exact constraint
     const store2 = makeStore(firstArray)
     const result2 = applyV5State(response, store2)
     expect(store2.setGoalConstraints).not.toHaveBeenCalled()
-    expect(result2.deferred.some((d) => d.reason === 'add_constraint_duplicate_skipped')).toBe(true)
+    expect(result2.deferred.some((d) => d.reason === 'add_constraint_noop_skipped')).toBe(true)
+  })
+
+  it('UPSERT: a same-id patch with a changed value REPLACES the stored constraint in place (not appended)', () => {
+    const existing: CEEGoalConstraint = {
+      constraint_id: 'gc-stable',
+      node_id: 'factor-a',
+      operator: '>=',
+      value: 5,
+    }
+    const store = makeStore([existing])
+    const result = applyV5State(
+      baseResponse({
+        blocks: [
+          constraintPatch({
+            constraint_id: 'gc-stable',
+            node_id: 'factor-a',
+            operator: '>=',
+            value: 10,
+          }),
+        ],
+      }),
+      store,
+    )
+    expect(store.setGoalConstraints).toHaveBeenCalledTimes(1)
+    const [constraints] = (store.setGoalConstraints as ReturnType<typeof vi.fn>).mock.calls[0]
+    // Replaced in place — still ONE constraint under this id, now value 10.
+    expect(constraints).toHaveLength(1)
+    expect(constraints[0]).toMatchObject({ constraint_id: 'gc-stable', value: 10 })
+    expect(result.applied).toContain('graph_patch:add_constraint:factor-a')
+  })
+
+  it('UPSERT: a same-id label/unit edit (value unchanged) still writes (identity match is not a no-op)', () => {
+    const existing: CEEGoalConstraint = {
+      constraint_id: 'gc-stable',
+      node_id: 'factor-a',
+      operator: '<=',
+      value: 250,
+      label: 'Budget',
+      unit: '£',
+    }
+    const store = makeStore([existing])
+    applyV5State(
+      baseResponse({
+        blocks: [
+          constraintPatch({
+            constraint_id: 'gc-stable',
+            node_id: 'factor-a',
+            operator: '<=',
+            value: 250,
+            label: 'Budget cap',
+            unit: '£',
+          }),
+        ],
+      }),
+      store,
+    )
+    expect(store.setGoalConstraints).toHaveBeenCalledTimes(1)
+    const [constraints] = (store.setGoalConstraints as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect(constraints).toHaveLength(1)
+    expect(constraints[0]).toMatchObject({ constraint_id: 'gc-stable', label: 'Budget cap' })
+  })
+
+  it('COALESCE: multiple same-id patches in one turn settle on the LAST write', () => {
+    const store = makeStore(null)
+    applyV5State(
+      baseResponse({
+        blocks: [
+          constraintPatch({ constraint_id: 'gc-x', node_id: 'factor-a', operator: '>=', value: 5 }),
+          constraintPatch({ constraint_id: 'gc-x', node_id: 'factor-a', operator: '>=', value: 12 }),
+        ],
+      }),
+      store,
+    )
+    expect(store.setGoalConstraints).toHaveBeenCalledTimes(1)
+    const [constraints] = (store.setGoalConstraints as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect(constraints).toHaveLength(1)
+    expect(constraints[0].value).toBe(12)
   })
 
   it('coalesces multiple add_constraint patches into ONE setGoalConstraints call', () => {
