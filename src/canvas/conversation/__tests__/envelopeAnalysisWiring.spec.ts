@@ -105,6 +105,25 @@ const mockResultsComplete = vi.fn()
 const mockResultsError = vi.fn()
 
 beforeEach(() => {
+  // Pin the V5-orchestrator flag OFF for this spec.
+  //
+  // These tests exercise `handleEnvelope` — the results-store wiring on the
+  // legacy V4/V2 orchestrator path (`callOrchestratorTurn`, which the spec
+  // mocks above). `sendTurn` in useConversation.ts branches FIRST on
+  // `isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR })`:
+  // when that flag is 'true', every turn routes to the V5 exclusive path
+  // (`callV5Turn` in ../../v5/v5Adapter) which this spec does NOT mock —
+  // so the real fetch throws, the turn is classed a transport failure, and
+  // handleEnvelope never runs (all envelope-path spies see 0 calls).
+  //
+  // The flag's value is environment-dependent, which is what made this spec
+  // order/env-dependent: CI sets Supabase env but NOT this flag (undefined →
+  // V4 path → green), while a local fresh-clone lane copies `.env.local`
+  // (needed for Supabase env) which ALSO sets VITE_ENABLE_V5_ORCHESTRATOR=true
+  // → V5 path → red. Pinning the flag here makes the intended V4 path
+  // deterministic regardless of ambient env or sibling env-stub leakage.
+  // afterEach restores via unstubAllEnvs so we never leak 'false' to siblings.
+  vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'false')
   vi.useFakeTimers()
   mockCallTurn.mockReset()
   mockMapV2ResponseToReportV1.mockClear()
@@ -126,6 +145,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.unstubAllEnvs()
 })
 
 // ---------------------------------------------------------------------------
