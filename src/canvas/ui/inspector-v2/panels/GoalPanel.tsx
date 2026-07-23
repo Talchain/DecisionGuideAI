@@ -10,6 +10,7 @@ import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { GoalThresholdEditor } from '../../inspector/GoalThresholdEditor'
 import { GoalProgressChecklist } from '../../inspector/GoalProgressChecklist'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
+import { useAnalysisMetadata } from '../../../hooks/useAnalysisMetadata'
 import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
 import type { NodeType } from '../../../domain/nodes'
@@ -53,6 +54,11 @@ export const GoalPanel = memo(function GoalPanel({
   const goalThreshold = useCanvasStore(s => s.goalThreshold)
   const probGoal = useCanvasStore(s => s.results?.report?.probability_of_goal)
   const probJoint = useCanvasStore(s => s.results?.report?.probability_of_joint_goal)
+  // Passthrough: the REAL Monte Carlo sample count from this run's meta.n_samples
+  // (canonical reader — same source AdvancedSection's "Simulation quality" row
+  // uses). Null on the V5 conversational path (meta stripped upstream), in which
+  // case the "Based on N simulations" line is omitted rather than fabricated.
+  const { scenarioCount } = useAnalysisMetadata()
   const postAnalysisConstraints = useGoalConstraints()
   const conditionalProbabilities = useConditionalProbabilities()
   const preAnalysisConstraints = useCanvasStore(s => s.goalConstraints)
@@ -481,7 +487,11 @@ export const GoalPanel = memo(function GoalPanel({
                 <ProbabilityArc value={probGoal} color="var(--success)" />
                 <div>
                   <div className={`${typography.panelHeader}`}>{Math.round(probGoal * 100)}% chance of success</div>
-                  <div className={`${typography.panelMeta} text-text-light mt-0.5`}>Based on 1,000 simulations</div>
+                  {scenarioCount != null && (
+                    <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
+                      Based on {scenarioCount.toLocaleString('en-GB')} simulations
+                    </div>
+                  )}
                   <div className="mt-1"><ResultsLink label="View full results" tab="results" /></div>
                   {typeof probJoint === 'number' && (
                     <div className={`${typography.panelBody} text-text-body mt-1.5`}>

@@ -22,11 +22,12 @@ import { devWarn } from '../../utils/debugLog'
 /**
  * All canvas node type identifiers.
  *
- * NOTE — 'constraint': schema-defined and has a ConstraintNode renderer + registry entry,
+ * NOTE — 'constraint': schema-defined (kept for wire tolerance / ref resolution),
  * but CEE/PLoT never emits canvas nodes with type 'constraint'. Constraints surface as
  * badge data on GoalNode (store.goalConstraints + results.report.goal_constraints), not as
- * standalone canvas nodes. The ConstraintNode rendering path is dead in production.
- * Do not add CEE-driven constraint node emission without a design review.
+ * standalone canvas nodes. The dead ConstraintNode renderer + its registry entry were
+ * removed (honesty sweep) — there is no 'constraint' ReactFlow renderer.
+ * Do not add CEE-driven constraint node emission (or re-add a renderer) without a design review.
  */
 export const NodeTypeEnum = z.enum(['goal', 'decision', 'option', 'factor', 'risk', 'outcome', 'action', 'constraint'])
 export type NodeType = z.infer<typeof NodeTypeEnum>

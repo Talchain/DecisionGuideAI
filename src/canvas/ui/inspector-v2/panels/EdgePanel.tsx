@@ -6,7 +6,7 @@
  */
 
 import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
 import { useRobustness, useEdgeEValues } from '../useAnalysisResults'
 import { useEditConfirmation } from '../useEditConfirmation'
@@ -19,7 +19,6 @@ import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
 import { useEdgeMutations } from '../useInspectorMutations'
 import {
-  SECTION_TITLES,
   GROUP_LABELS,
   INLINE_LABELS,
   EDGE_LINK_NOTICES,
@@ -35,12 +34,9 @@ import { UncertaintyBand } from '../shared/UncertaintyBand'
 import { ResultsLink } from '../shared/ResultsLink'
 import type { InspectorPanelProps } from '../types'
 import { isEdgeFragile, getFragileEdgeSwitchProbability } from '../../../utils/fragileEdgeMatch'
-import { extractCausalClaims, claimTypeLabel } from '../../../adapters/causalClaimsAdapter'
-import { trackGuidance } from '../../../../telemetry/guidanceEvents'
 import { resolveCoaching } from '../coachingConfig'
 import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
 import { StrengthBandButtons } from '../shared/StrengthBandButtons'
-import { InlineSectionLabel } from '../shared/InlineSectionLabel'
 import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
 
 // ─── Slider component for confidence and uncertainty ───────────────
@@ -373,28 +369,20 @@ export const EdgePanel = memo(function EdgePanel({
           </PanelGroup>
 
           {/* ── Evidence group ─────────────────────────────────── */}
-          <PanelGroup kind="evidence" label={GROUP_LABELS.evidence}>
-            {/* Per-edge provenance is stripped by DraftChat (known limitation).
-                Default to fixed copy for all edges until un-stripped. */}
-            <div className="bg-panel border border-panel-border rounded-lg p-2.5">
-              <span
-                className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body`}
-                style={{ border: '1px solid var(--warning)4D' }}
-              >
-                {EDGE_COPY.noEvidenceTitle}
-              </span>
-              <p className={`${typography.panelMeta} text-text-light mt-1.5`}>
-                {EDGE_COPY.noEvidenceBody}
-              </p>
-            </div>
-
-            {/* Calibration — contested validation */}
-            {(() => {
-              const validation = (edge?.data as Record<string, unknown>)?.validation as
-                import('../../../../canvas/domain/validation').ValidationMetadata | undefined
-              if (!validation || validation.status !== 'contested') return null
-              return (
-                <div className="mt-2 bg-panel border border-warning/30 rounded-lg p-2.5">
+          {/* The generic "No evidence yet" note was removed: DraftChat strips
+              per-edge provenance upstream, so it rendered a fixed placeholder
+              for EVERY edge — never real evidence. Re-add an evidence surface
+              here when DraftChat stops stripping edge provenance. The
+              contested-validation calibration below is live (CEE multi-pass
+              disagreement, edge.data.validation) so the group renders only when
+              an edge is actually contested. */}
+          {(() => {
+            const validation = (edge?.data as Record<string, unknown>)?.validation as
+              import('../../../../canvas/domain/validation').ValidationMetadata | undefined
+            if (!validation || validation.status !== 'contested') return null
+            return (
+              <PanelGroup kind="evidence" label={GROUP_LABELS.evidence}>
+                <div className="bg-panel border border-warning/30 rounded-lg p-2.5">
                   <div className={`${typography.panelBody} font-medium text-warning flex items-center gap-1`}>
                     <AlertTriangle size={13} className="text-warning" />
                     {EDGE_COPY.needsYourJudgement}
@@ -429,9 +417,9 @@ export const EdgePanel = memo(function EdgePanel({
                     </span>
                   )}
                 </div>
-              )
-            })()}
-          </PanelGroup>
+              </PanelGroup>
+            )
+          })()}
 
           {/* ── Expert-only model detail ───────────────────────── */}
           <TechnicalDisclosure visible={techMode} label={INLINE_LABELS.modelDetail}>
@@ -455,80 +443,3 @@ export const EdgePanel = memo(function EdgePanel({
     </div>
   )
 })
-
-// ---------------------------------------------------------------------------
-// CausalClaimsSection — Scientific basis for an edge (Phase 2A)
-// ---------------------------------------------------------------------------
-
-const MAX_CLAIMS_VISIBLE = 3
-
-/** @internal Exported for testing only */
-export function CausalClaimsSection({ edgeId, edgeData }: { edgeId: string; edgeData: Record<string, unknown> }) {
-  const claims = useMemo(() => extractCausalClaims(edgeData), [edgeData])
-  const [expanded, setExpanded] = useState(false)
-
-  const visible = expanded ? claims : claims.slice(0, MAX_CLAIMS_VISIBLE)
-  const remaining = claims.length - MAX_CLAIMS_VISIBLE
-
-  const handleExpand = () => {
-    setExpanded(true)
-    const state = useCanvasStore.getState()
-    trackGuidance('CAUSAL_CLAIM_EXPANDED', {
-      item_id: edgeId,
-      item_type: 'claim',
-      surface: 'inspector',
-      scenario_id: state.currentScenarioId ?? undefined,
-      profile_stage: (state.currentStage ?? undefined) as 'frame' | 'ideate' | 'evaluate' | 'decide' | undefined,
-    })
-  }
-
-  return (
-    <>
-      <InlineSectionLabel>{SECTION_TITLES.scientificBasis.label}</InlineSectionLabel>
-
-      {claims.length === 0 ? (
-        <p className={`${typography.panelMeta} text-text-light`}>
-          No scientific claims attached to this relationship.
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {visible.map((claim) => (
-            <div key={`${claim.claim_type}-${claim.statement.slice(0, 40)}`} className="bg-panel border border-panel-border rounded-lg p-2.5 space-y-1">
-              <span
-                className={`${typography.panelMeta} font-medium inline-flex items-center px-1.5 py-0.5 rounded-full bg-transparent border border-info/30 text-text-body`}
-              >
-                {claimTypeLabel(claim.claim_type)}
-              </span>
-              <p className={`${typography.panelBody} text-text-body`}>{claim.statement}</p>
-              {claim.source && (
-                <p className={`${typography.panelMeta} text-text-light`}>{claim.source}</p>
-              )}
-            </div>
-          ))}
-
-          {remaining > 0 && !expanded && (
-            <button
-              type="button"
-              onClick={handleExpand}
-              className={`${typography.panelMeta} text-info hover:underline inline-flex items-center gap-1`}
-            >
-              and {remaining} more
-              <ChevronDown className="w-3 h-3" aria-hidden="true" />
-            </button>
-          )}
-
-          {expanded && remaining > 0 && (
-            <button
-              type="button"
-              onClick={() => setExpanded(false)}
-              className={`${typography.panelMeta} text-info hover:underline inline-flex items-center gap-1`}
-            >
-              Show fewer
-              <ChevronRight className="w-3 h-3" aria-hidden="true" />
-            </button>
-          )}
-        </div>
-      )}
-    </>
-  )
-}

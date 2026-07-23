@@ -236,9 +236,13 @@ const LEGACY_SCHEMA_KNOWN_BLOCK_TYPES: ReadonlySet<string> = new Set([
   'comparison',
   'flip_analysis',
   'draft_graph',
-  // 0.15.0 wave (re-vendor lane): schema-known, renderer-deferred — the
-  // mapper degrades both to the honest v5_unsupported card until R8 (held
-  // proposal card) and R4 (ui_directive dispatcher) land. Producer-dormant.
+  // 0.15.0 wave (re-vendor lane): schema-known and now fully handled — both are
+  // LIVE (R8 + R4 landed; #539/C3). `held_proposal` maps to the R8 held-proposal
+  // card (mapV5Blocks → 'v5_held_proposal' → V5HeldProposalBlock; it fails closed
+  // to v5_unsupported only on a drifted block whose confirm ref cannot resolve).
+  // `ui_directive` is dispatched by the R4 dispatcher in applyV5State (highlight
+  // verbs → targets); the chat mapper returns null because a directive is an
+  // advisory presentation hint, not a chat card.
   'held_proposal',
   'ui_directive',
 ]);
