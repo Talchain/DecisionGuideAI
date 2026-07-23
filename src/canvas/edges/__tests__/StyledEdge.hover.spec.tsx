@@ -71,7 +71,7 @@ vi.mock('../../hooks/usePrefersReducedMotion', () => ({
   usePrefersReducedMotion: () => false,
 }))
 
-vi.mock('../../flags', () => ({
+vi.mock('../../../flags', () => ({
   isGraphLensEnabled: () => false,
 }))
 
