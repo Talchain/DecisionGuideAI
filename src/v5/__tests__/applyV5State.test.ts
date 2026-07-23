@@ -272,8 +272,12 @@ describe('applyV5State — analysis_result: decision_review wiring', () => {
 })
 
 describe('applyV5State — deferred operations', () => {
-  it('add_constraint is explicitly deferred as NEEDS_FIX', () => {
-    const { store } = makeStore()
+  it('add_constraint with an unmappable `after` shape defers fail-closed (never fabricates)', () => {
+    // `after` carries no operator and no numeric value — the applicator must
+    // NOT invent a constraint from it. Full add_constraint wiring (valid
+    // shapes, dedupe, coalescing, operator vocabularies) is pinned in
+    // applyV5State.addConstraint.test.ts.
+    const { store, setGoalConstraints } = makeStore()
     const result = applyV5State(
       baseResponse({
         blocks: [
@@ -289,7 +293,8 @@ describe('applyV5State — deferred operations', () => {
       }),
       store,
     )
-    expect(result.deferred[0]?.reason).toBe('add_constraint_not_wired')
+    expect(result.deferred[0]?.reason).toBe('add_constraint_unmappable_shape')
+    expect(setGoalConstraints).not.toHaveBeenCalled()
   })
 
   it('ignores render-only block kinds (text, explanation, comparison, flip_analysis)', () => {
