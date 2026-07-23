@@ -11,7 +11,7 @@
  * analysis via hasAnalyticalNodeChange exactly like a factor observedState edit.
  */
 
-import { memo, useMemo, useState, useCallback } from 'react'
+import { memo, useMemo, useCallback } from 'react'
 import { useCanvasStore } from '../../../store'
 import type { NodeType, RiskImpact } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
@@ -24,6 +24,7 @@ import {
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
+import { InlineNumberEditor } from '../shared/InlineNumberEditor'
 import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
 import { DriversList, type DriverItem } from '../shared/DriversList'
 import { EditConfirmation } from '../shared/EditConfirmation'
@@ -66,20 +67,14 @@ export const RiskPanel = memo(function RiskPanel({
   const severity = calculateRiskSeverity(probability, impact)
   const severityColors = getRiskSeverityColors(severity)
 
-  // Click-to-edit likelihood state (mirrors FactorObservablePanel's value editor).
-  const [isEditingProbability, setIsEditingProbability] = useState(false)
-  const [draftProbability, setDraftProbability] = useState<string>('')
-
-  const handleProbabilitySave = useCallback(() => {
-    const parsed = parseFloat(draftProbability)
-    if (!isNaN(parsed)) {
-      // UI-SEM-092: percentage input → canonical 0-1 store value (format
-      // conversion, same class as UI-SEM-058). setProbability clamps to [0,1].
-      mutations.setProbability(parsed / 100)
-      confirmEdit('probability')
-    }
-    setIsEditingProbability(false)
-  }, [draftProbability, mutations, confirmEdit])
+  // Click-to-edit likelihood (shared InlineNumberEditor, same field as the
+  // factor observed-value editor).
+  const handleProbabilitySave = useCallback((parsed: number) => {
+    // UI-SEM-092: percentage input → canonical 0-1 store value (format
+    // conversion, same class as UI-SEM-058). setProbability clamps to [0,1].
+    mutations.setProbability(parsed / 100)
+    confirmEdit('probability')
+  }, [mutations, confirmEdit])
 
   const handleImpactSelect = useCallback((value: RiskImpact) => {
     mutations.setImpact(value)
@@ -124,38 +119,19 @@ export const RiskPanel = memo(function RiskPanel({
           {/* Likelihood — click-to-edit percentage */}
           <div>
             <div className={`${typography.panelMeta} text-text-light mb-1`}>{INLINE_LABELS.riskLikelihood}</div>
-            {!isEditingProbability ? (
-              <button
-                type="button"
-                data-testid="risk-probability-display"
-                className={`${typography.panelHeader} text-xl text-left w-full cursor-text hover:bg-panel-hover rounded px-0.5 -mx-0.5 transition-colors`}
-                onClick={() => {
-                  setDraftProbability(probabilityPct != null ? String(probabilityPct) : '')
-                  setIsEditingProbability(true)
-                }}
-                title="Click to set likelihood"
-              >
-                {probabilityPct != null
-                  ? `${probabilityPct}%`
-                  : <span className={`${typography.panelMeta} text-text-light italic font-normal text-sm`}>{INLINE_LABELS.riskNotSet}</span>
-                }
-              </button>
-            ) : (
-              <input
-                type="number"
-                min={0}
-                max={100}
-                step={1}
-                data-testid="risk-probability-input"
-                value={draftProbability}
-                autoFocus
-                aria-label="Likelihood percentage"
-                onChange={e => setDraftProbability(e.target.value)}
-                onBlur={handleProbabilitySave}
-                onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
-                className={`${typography.panelHeader} text-xl w-full bg-transparent border-b border-panel-border focus:border-primary outline-none py-0.5 transition-colors`}
-              />
-            )}
+            <InlineNumberEditor
+              readout={probabilityPct != null ? `${probabilityPct}%` : null}
+              placeholder={INLINE_LABELS.riskNotSet}
+              editSeed={probabilityPct != null ? String(probabilityPct) : ''}
+              onSave={handleProbabilitySave}
+              displayTestId="risk-probability-display"
+              inputTestId="risk-probability-input"
+              title="Click to set likelihood"
+              min={0}
+              max={100}
+              step={1}
+              ariaLabel="Likelihood percentage"
+            />
           </div>
 
           {/* Impact — segmented control over the RiskImpact enum */}

@@ -1196,6 +1196,36 @@ function deriveGoalThresholdFromNode(
 }
 
 /**
+ * The full goal CONTEXT (outcome selection + threshold scalar + its
+ * representation) re-derived FROM a graph's own goal node, in ONE call. This
+ * pairs `firstGoalNodeId` (the outcome selection) with
+ * `deriveGoalThresholdFromNode` (the threshold that rides the node's
+ * `success_threshold`) so the two can never drift apart — #457 was exactly one
+ * half of this pair re-derived (outcomeNodeId) while the other (the scalar) was
+ * left null, gating the V7 goal lens to 'no_target' after a refresh even though
+ * the goal node carried a user target.
+ *
+ * Every full-graph-replacement path that RE-DERIVES the goal context from the
+ * loaded/restored nodes (loadScenario, hydrateGraphSlice) MUST use this, not the
+ * two helpers by hand. Paths that PRESERVE the existing outcome selection and
+ * re-derive only the threshold (undo/redo, delete, in-session reselection), and
+ * paths that deliberately CLEAR the target on a fresh context (importCanvas,
+ * draft undo), keep calling `deriveGoalThresholdFromNode` directly — they are
+ * not the same pairing.
+ *
+ * `outcomeNodeId` is null when the graph has no goal node;
+ * `goalThreshold`/`goalThresholdRepresentation` are null when the goal node
+ * carries no user target.
+ */
+function deriveGoalContext(
+  nodes: ReadonlyArray<{ id: string; type?: string; data?: unknown }> | undefined,
+): { outcomeNodeId: string | null; goalThreshold: number | null; goalThresholdRepresentation: 'raw' | null } {
+  const outcomeNodeId = firstGoalNodeId(nodes)
+  const { goalThreshold, goalThresholdRepresentation } = deriveGoalThresholdFromNode(nodes, outcomeNodeId)
+  return { outcomeNodeId, goalThreshold, goalThresholdRepresentation }
+}
+
+/**
  * Observability hook for constraint passthrough investigation.
  * Logs when goalConstraints are about to be cleared so we can correlate
  * the clearing trigger with the downstream PLoT auto_goal_threshold symptom.
@@ -3401,8 +3431,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // goal lens gates 'no_target' post-reload (mirror of the hydrateGraphSlice
     // fix, live defect 2026-07-23). Returns {null,null} when the goal node carries
     // no user target — leaving the CEE bare-sync below free to repopulate.
-    const restoredGoalId = firstGoalNodeId(nodes)
-    const restoredGoalThreshold = deriveGoalThresholdFromNode(nodes, restoredGoalId)
+    const { outcomeNodeId: restoredGoalId, ...restoredGoalThreshold } = deriveGoalContext(nodes)
 
     // A.7: Suppress direct_graph_edit events during scenario hydration
     set((s) => ({ _externalMutationActive: s._externalMutationActive + 1 }))
@@ -4860,16 +4889,17 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // RE-DERIVED to the loaded graph's own goal node (not left null, which
       // empties the goal selector, nor left stale).
       Object.assign(updates, DECISION_CONTEXT_CLEAR)
-      updates.outcomeNodeId = firstGoalNodeId(loaded.nodes)
-      // Re-derive the goal-threshold scalar from the RESTORED goal node so a
-      // user success target survives a refresh. The node's success_threshold
+      // Re-derive the full goal context (outcome selection + threshold scalar +
+      // representation) from the RESTORED graph's own goal node, in one call, so
+      // the two halves cannot drift. The node's success_threshold
       // (threshold_source==='user') rides nodes[] and is the durable source of
       // truth; the scalar is a derived cache. DECISION_CONTEXT_CLEAR above nulled
       // it — without this re-derive the guest autosave restore path left it null
       // and the V7 goal lens gated 'no_target' though the node carried a target
-      // (live defect, 2026-07-23). Same helper as undo/redo/delete/reselect;
-      // returns {null,null} when the goal node carries no user target.
-      Object.assign(updates, deriveGoalThresholdFromNode(loaded.nodes, updates.outcomeNodeId))
+      // (live defect, 2026-07-23). outcomeNodeId is re-derived here (not left
+      // null, which empties the goal selector, nor left stale); the threshold is
+      // {null,null} when the goal node carries no user target.
+      Object.assign(updates, deriveGoalContext(loaded.nodes))
       // B3: assign the LOADED constraints or null — never leave the previous
       // scenario's in place. DECISION_CONTEXT_CLEAR above already nulled the
       // field; this line is what makes a cold load RESTORE it. The `?? null`

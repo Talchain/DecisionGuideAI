@@ -8,8 +8,6 @@ import type {
   ISLConformalRequest,
   ContrastiveExplanationRequest,
   ContrastiveExplanationResponse,
-  TransportabilityRequest,
-  TransportabilityResponse,
 } from './types'
 import { withObservabilityHeaders, recordBffResponse, recordBffError } from '../../lib/observability-headers'
 import { useGateStore } from '../../lib/gate-state'
@@ -213,18 +211,6 @@ export class ISLClient {
     request: ContrastiveExplanationRequest
   ): Promise<ContrastiveExplanationResponse> {
     return this.fetch<ContrastiveExplanationResponse>('/explain/contrastive', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    })
-  }
-
-  /**
-   * Phase 2: Transportability - Check if model transfers to different context
-   */
-  async checkTransportability(
-    request: TransportabilityRequest
-  ): Promise<TransportabilityResponse> {
-    return this.fetch<TransportabilityResponse>('/transport', {
       method: 'POST',
       body: JSON.stringify(request),
     })

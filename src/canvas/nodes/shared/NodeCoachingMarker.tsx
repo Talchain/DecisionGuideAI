@@ -27,11 +27,11 @@
  */
 
 import { useCallback, useMemo } from 'react'
-import { AlertTriangle, Lightbulb } from 'lucide-react'
 import {
   useGuidanceStore,
   compareGuidanceDisplayOrder,
   guidanceCategoryTone,
+  guidanceCategoryIcon,
   type GuidanceItem,
 } from '../../stores/guidanceStore'
 import { useCanvasStore } from '../../store'
@@ -83,8 +83,10 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
   if (!top) return null
 
   const tone = guidanceCategoryTone(top.category)
-  const Icon = tone === 'danger' ? AlertTriangle : Lightbulb
-  const iconColour = tone === 'danger' ? 'text-danger' : 'text-info'
+  // Icon + tint from the shared source of truth (same one the inspector card
+  // uses) so the marker's icon matches the card it opens. Border still rides the
+  // tone channel directly.
+  const { Icon, tintClass: iconColour } = guidanceCategoryIcon(top.category)
   const borderColour = tone === 'danger' ? 'border-danger/30' : 'border-info/30'
   const count = items.length
 

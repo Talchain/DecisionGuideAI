@@ -684,11 +684,18 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // with the green/red direction stroke instead of replacing it — the
           // DS "colour = state" rule, without colliding with polarity colour.
           filter: (() => {
+            // Two independent drop-shadow signals can BOTH apply to one edge: a
+            // top-sensitivity lens edge (info glow) that is ALSO a viewed
+            // flip-risk (warning halo). CSS `filter` takes a space-separated
+            // list, so compose them rather than letting the first branch win and
+            // silently drop the flip-risk halo. Order preserved: sensitivity
+            // glow first, fragile halo second.
+            const shadows: string[] = []
             if (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ75 !== null && lensSensWeight >= lensQ75)
-              return 'drop-shadow(0 0 2px var(--semantic-info, #3b82f6))'
+              shadows.push('drop-shadow(0 0 2px var(--semantic-info, #3b82f6))')
             if (isAnalysisFragileEdge && !isStructuralEdge)
-              return 'drop-shadow(0 0 4px var(--semantic-warning, #eab308))'
-            return undefined
+              shadows.push('drop-shadow(0 0 4px var(--semantic-warning, #eab308))')
+            return shadows.length > 0 ? shadows.join(' ') : undefined
           })(),
           // Performance: use will-change for frequent updates
           willChange: selected || isHighlightedEdge || isAnalysisFragileEdge ? 'stroke, stroke-width, stroke-dasharray, filter' : undefined,
