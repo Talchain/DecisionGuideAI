@@ -1549,8 +1549,18 @@ export type ActionSource = 'chip' | 'insight' | 'canvas_coaching' | 'pre_analysi
 
 /** Options for the unified action dispatch function */
 export interface DispatchActionOpts {
-  /** Deterministic action type for CEE routing */
+  /**
+   * First-class chip identity (0.22 `chip.id`). Optional — when omitted,
+   * buildChipMeta lifts it from `parameters.chip_id` / `parameters.spark_id`.
+   */
+  id?: string
+  /** Deterministic action type for CEE routing (11-member `ActionType`) */
   action_type?: string
+  /**
+   * Typed authored intent (0.22 `chip.intent`, incl. `add_option`). Withheld
+   * from the wire unless CEE accepts it (buildV5Payload's CEE_ACCEPTED_INTENTS).
+   */
+  intent?: string
   /** Structured parameters for action execution */
   parameters?: Record<string, unknown>
   /** Display label for the action indicator and aria */
@@ -4518,8 +4528,12 @@ export function useConversation(): UseConversationReturn {
 
       const messageToSend = chip.message || chip.prompt
       if (messageToSend) {
-        // Delegate to dispatchAction for unified metadata handling
+        // Delegate to dispatchAction for unified metadata handling.
+        // Thread the chip's first-class identity (`chip.id` on the 0.22 wire) —
+        // NOT `chip.intent`, which is the UI *styling* intent ('primary' |
+        // 'secondary' | 'undo'), a different concept from the wire `Intent` set.
         await dispatchAction({
+          id: chip.id,
           action_type: chip.action_type,
           parameters: chip.parameters,
           label: chip.label,

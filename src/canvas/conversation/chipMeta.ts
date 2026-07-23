@@ -16,24 +16,62 @@
  */
 
 export interface ChipMetaInput {
-  /** Deterministic action type for CEE routing. */
+  /**
+   * First-class chip identity (@talchain/schemas 0.22.0 `chip.id`). When
+   * omitted, buildChipMeta LIFTS it from the identity already carried inside
+   * `parameters` (`chip_id` / `spark_id`) — the promotion the S2 design asks
+   * for ("populate chip.id from the existing chip_id/spark_id the UI already
+   * sends inside parameters"). An explicit `id` always wins over the lift.
+   */
+  id?: string
+  /** Deterministic action type for CEE routing (11-member `ActionType`). */
   action_type?: string
+  /**
+   * Typed authored intent (@talchain/schemas 0.22.0 `chip.intent`, an 11-member
+   * `Intent` set incl. `add_option`). Decoupled from `action_type`: an intent
+   * names WHAT the user wants; the send gate in buildV5Payload
+   * (sanitiseIntent → CEE_ACCEPTED_INTENTS) decides whether it reaches the wire.
+   */
+  intent?: string
   /** Structured parameters for action execution / chip identity. */
   parameters?: Record<string, unknown>
 }
 
 export interface ChipMeta {
+  id?: string
   action_type?: string
+  intent?: string
   parameters?: Record<string, unknown>
 }
 
+/**
+ * Derive the first-class chip id: an explicit `id` wins, else the identity the
+ * UI already ships inside `parameters` (`chip_id`, then `spark_id`). This is a
+ * pure identity LIFT (same value, promoted to a typed field) — not a meaning
+ * transform. `parameters` keeps carrying the id too, for back-compat with the
+ * presence-based routing until CEE reads `chip.id`.
+ */
+function deriveChipId(opts: ChipMetaInput): string | undefined {
+  if (typeof opts.id === 'string' && opts.id.length > 0) return opts.id
+  const p = opts.parameters
+  if (!p) return undefined
+  const chipId = p['chip_id']
+  if (typeof chipId === 'string' && chipId.length > 0) return chipId
+  const sparkId = p['spark_id']
+  if (typeof sparkId === 'string' && sparkId.length > 0) return sparkId
+  return undefined
+}
+
 export function buildChipMeta(opts: ChipMetaInput): ChipMeta | undefined {
-  return opts.action_type || opts.parameters
-    ? {
-        ...(opts.action_type ? { action_type: opts.action_type } : {}),
-        ...(opts.parameters ? { parameters: opts.parameters } : {}),
-      }
-    : undefined
+  const id = deriveChipId(opts)
+  const hasAny = id || opts.action_type || opts.intent || opts.parameters
+  if (!hasAny) return undefined
+  return {
+    ...(id ? { id } : {}),
+    ...(opts.action_type ? { action_type: opts.action_type } : {}),
+    ...(opts.intent ? { intent: opts.intent } : {}),
+    ...(opts.parameters ? { parameters: opts.parameters } : {}),
+  }
 }
 
 /**
@@ -41,7 +79,9 @@ export function buildChipMeta(opts: ChipMetaInput): ChipMeta | undefined {
  * (turn-request-builder.ts ChipMetadata). Identity-only meta (parameters
  * without an action_type — the null-intent sparks/chips) is a V5-only
  * concept and must NOT be coerced onto the V4 wire; it is dropped here,
- * matching V4's pre-existing behaviour exactly.
+ * matching V4's pre-existing behaviour exactly. The 0.22 `id` and `intent`
+ * fields are likewise V5-only and intentionally absent from the V4 shape —
+ * they are simply not read here.
  */
 export function toLegacyChipMetadata(
   meta: ChipMeta | undefined,
