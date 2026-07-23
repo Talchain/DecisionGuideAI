@@ -60,7 +60,7 @@ vi.mock('../../store/edgeLabelMode', () => ({ useEdgeLabelMode: (s: any) => s({ 
 vi.mock('../../hooks/useTheme', () => ({ useIsDark: () => false }))
 vi.mock('../../hooks/useFirstTimeHints', () => ({ useEdgeEditHint: () => ({ showHint: false, dismissHint: vi.fn() }) }))
 vi.mock('../../hooks/usePrefersReducedMotion', () => ({ usePrefersReducedMotion: () => false }))
-vi.mock('../../flags', () => ({ isGraphLensEnabled: () => false }))
+vi.mock('../../../flags', () => ({ isGraphLensEnabled: () => false }))
 vi.mock('../../utils/fragileEdgeMatch', () => ({
   isEdgeFragile: () => false,
   getFragileEdgeSwitchProbability: () => null,
