@@ -56,6 +56,10 @@ import { CogPopover } from './CogPopover'
 import { useConversationContext, useOptionalConversationContext } from '../conversation/ConversationContext'
 import { useFloatingPanelState } from '../hooks/useFloatingPanelState'
 import { dockHostsOlumi } from './olumiSurface'
+import {
+  shouldAutoExpandDockForResponse,
+  latestRealMessageIsAssistantReply,
+} from './collapsedResponseSignal'
 import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { focusFloating } from '../hooks/useFloatingFocus'
 import { isV5CanonicalRunPath } from '../../v5/eligibility'
@@ -507,6 +511,63 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     }
   }, [hasGraphContent, state.activeTab, effectiveIsOpen])
   const openFloatingByUser = useFloatingPanelState((s) => s.open)
+
+  // First-touch response signal (collapsed-dock defect). On the empty-canvas
+  // first-use journey the dock is the collapsed rail and the floating hero
+  // (FirstUseComposer) — which has NO transcript — is the entry point. When the
+  // user sends a brief and CEE replies with a clarify_v2 question + chips (a
+  // conversational turn that drafts no graph), that response renders ONLY in the
+  // collapsed Olumi tab: the user typed, the spinner ended, and nothing visibly
+  // happened. A DRAFT turn masks the same gap (canvas populates + the 0→N
+  // reposition force-activates Analysis); a clarify turn adds no nodes, so
+  // neither fires. Surface it by docking the Olumi tab — the same rail-override
+  // drop + tab-dock the user's own chevron-expand performs (toggleOpen).
+  //
+  // The decision + the "genuine assistant reply" scan are pure/tested helpers
+  // (collapsedResponseSignal.ts); this effect only gathers inputs and, on the
+  // true→false isThinking EDGE of a live send, acts. The edge is the reliable
+  // "user's own composer send" discriminator — hydration/session-resume set
+  // isThinking=false without a preceding true, so a page load never trips it.
+  const conversationIsThinking = conversationCtxForFirstUse?.isThinking ?? false
+  const prevConversationThinkingRef = useRef(conversationIsThinking)
+  const conversationMessagesRef = useRef(conversationCtxForFirstUse?.messages)
+  conversationMessagesRef.current = conversationCtxForFirstUse?.messages
+  const floatingPanelIsOpen = useFloatingPanelState((s) => s.isOpen)
+  const floatingPanelSource = useFloatingPanelState((s) => s.source)
+  const floatingPanelMinimised = useFloatingPanelState((s) => s.isMinimised)
+  useEffect(() => {
+    const wasThinking = prevConversationThinkingRef.current
+    prevConversationThinkingRef.current = conversationIsThinking
+    const thinkingSettled = wasThinking && !conversationIsThinking
+    // A floating panel showing its own transcript already displays the reply —
+    // the transcript-less first-use hero (source 'system-first-use') does not.
+    const floatingTranscriptVisible =
+      floatingPanelIsOpen && !floatingPanelMinimised && floatingPanelSource !== 'system-first-use'
+    const surface = shouldAutoExpandDockForResponse({
+      aiPanelV2On,
+      thinkingSettled,
+      dockCollapsed: !effectiveIsOpen,
+      hasGraphContent,
+      floatingTranscriptVisible,
+      hasAssistantReply: latestRealMessageIsAssistantReply(conversationMessagesRef.current),
+    })
+    if (!surface) return
+    // Same override the user's explicit rail-expand uses: drop the first-use
+    // rail lock for the session and dock the Olumi tab. The close-effect above
+    // then retires the first-use hero, leaving exactly one Olumi surface.
+    userExplicitlyOpenedRailRef.current = true
+    setState((prev) => ({ ...prev, isOpen: true, activeTab: 'olumi' }))
+    useUIStore.getState().setActiveOutputTab('olumi' as OutputTab)
+  }, [
+    conversationIsThinking,
+    aiPanelV2On,
+    effectiveIsOpen,
+    hasGraphContent,
+    floatingPanelIsOpen,
+    floatingPanelSource,
+    floatingPanelMinimised,
+    setState,
+  ])
 
   // Round-14: coordinates a user-initiated float-out from ANY trigger
   // (the OlumiTabBody float-out icon, the persistent strip's chevron, the
