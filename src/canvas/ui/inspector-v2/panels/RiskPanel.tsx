@@ -2,43 +2,89 @@
  * RiskPanel — Inspector for risk nodes (v6.2 three-group layout)
  *
  * Mirrors OutcomePanel structure. Danger-themed where appropriate.
- * Groups: Context → Risk exposure → What drives this
+ * Groups: Context → Your input (likelihood × impact) → What drives this
+ *
+ * P1.7 — the "Risk exposure" placeholder is replaced by a real probability ×
+ * impact editing surface. Likelihood is click-to-edit (following
+ * FactorObservablePanel); impact is a segmented control over the RiskImpact enum.
+ * Edits route through useNodeMutations (setProbability/setImpact), which stale the
+ * analysis via hasAnalyticalNodeChange exactly like a factor observedState edit.
  */
 
-import { memo, useMemo } from 'react'
+import { memo, useMemo, useState, useCallback } from 'react'
 import { useCanvasStore } from '../../../store'
-import type { NodeType } from '../../../domain/nodes'
+import type { NodeType, RiskImpact } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
 import {
-  SECTION_TITLES,
   GROUP_LABELS,
   INLINE_LABELS,
   EMPTY_STATES,
   DESCRIPTION_PLACEHOLDERS,
 } from '../inspectorStrings'
-import { InlineSectionLabel } from '../shared/InlineSectionLabel'
 import { PanelGroup } from '../shared/PanelGroup'
+import { PrimaryControlCard } from '../shared/PrimaryControlCard'
 import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
 import { DriversList, type DriverItem } from '../shared/DriversList'
-import { StaleGuardBanner } from '../shared/StaleGuardBanner'
+import { EditConfirmation } from '../shared/EditConfirmation'
+import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
+import { useNodeMutations } from '../useInspectorMutations'
+import { useEditConfirmation } from '../useEditConfirmation'
+import {
+  calculateRiskSeverity,
+  getRiskSeverityColors,
+} from '../../../utils/graphDisplayCalculations'
 import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
 import { RiskAdvancedEditor } from '../editors/RiskAdvancedEditor'
 
+/** Impact enum options, ordered low → critical. Labels are the capitalised enum. */
+const IMPACT_OPTIONS: { value: RiskImpact; label: string }[] = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'critical', label: 'Critical' },
+]
+
 export const RiskPanel = memo(function RiskPanel({
   nodeId,
   techMode,
-  onClose,
   onNavigate,
 }: InspectorPanelProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
-  const resultsStatus = useCanvasStore(s => s.results?.status)
-  const isResultsMode = resultsStatus === 'complete'
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
+  const mutations = useNodeMutations(nodeId ?? '')
+  const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
+
+  // Canonical scales (RiskNodeDataSchema): probability is 0-1, impact is the enum.
+  const probability = node?.data?.probability as number | undefined
+  const impact = node?.data?.impact as RiskImpact | undefined
+  const probabilityPct = typeof probability === 'number' ? Math.round(probability * 100) : null
+  const severity = calculateRiskSeverity(probability, impact)
+  const severityColors = getRiskSeverityColors(severity)
+
+  // Click-to-edit likelihood state (mirrors FactorObservablePanel's value editor).
+  const [isEditingProbability, setIsEditingProbability] = useState(false)
+  const [draftProbability, setDraftProbability] = useState<string>('')
+
+  const handleProbabilitySave = useCallback(() => {
+    const parsed = parseFloat(draftProbability)
+    if (!isNaN(parsed)) {
+      // UI-SEM-092: percentage input → canonical 0-1 store value (format
+      // conversion, same class as UI-SEM-058). setProbability clamps to [0,1].
+      mutations.setProbability(parsed / 100)
+      confirmEdit('probability')
+    }
+    setIsEditingProbability(false)
+  }, [draftProbability, mutations, confirmEdit])
+
+  const handleImpactSelect = useCallback((value: RiskImpact) => {
+    mutations.setImpact(value)
+    confirmEdit('impact')
+  }, [mutations, confirmEdit])
 
   // Inbound factors (drivers)
   const inboundFactors: DriverItem[] = useMemo(() => {
@@ -60,6 +106,7 @@ export const RiskPanel = memo(function RiskPanel({
   if (!nodeId || !node) return null
 
   const description = String(node.data?.description ?? '')
+  const showEditFeedback = lastConfirmed?.field === 'probability' || lastConfirmed?.field === 'impact'
 
   return (
     <div>
@@ -71,23 +118,101 @@ export const RiskPanel = memo(function RiskPanel({
         }
       </PanelGroup>
 
-      {/* ── Risk exposure group ────────────────────────────────── */}
-      <PanelGroup kind="impact">
-        <InlineSectionLabel>{SECTION_TITLES.riskExposure.label}</InlineSectionLabel>
-        <StaleGuardBanner hasResults={isResultsMode}>
-          {isResultsMode ? (
-            <div className="bg-panel border border-panel-border rounded-lg p-3">
-              <p className={`${typography.panelMeta} text-text-light`}>
-                {INLINE_LABELS.riskExposurePlaceholder}
-              </p>
+      {/* ── Your input: likelihood × impact (P1.7) ─────────────── */}
+      <PanelGroup kind="input" label={GROUP_LABELS.input}>
+        <PrimaryControlCard>
+          {/* Likelihood — click-to-edit percentage */}
+          <div>
+            <div className={`${typography.panelMeta} text-text-light mb-1`}>{INLINE_LABELS.riskLikelihood}</div>
+            {!isEditingProbability ? (
+              <button
+                type="button"
+                data-testid="risk-probability-display"
+                className={`${typography.panelHeader} text-xl text-left w-full cursor-text hover:bg-panel-hover rounded px-0.5 -mx-0.5 transition-colors`}
+                onClick={() => {
+                  setDraftProbability(probabilityPct != null ? String(probabilityPct) : '')
+                  setIsEditingProbability(true)
+                }}
+                title="Click to set likelihood"
+              >
+                {probabilityPct != null
+                  ? `${probabilityPct}%`
+                  : <span className={`${typography.panelMeta} text-text-light italic font-normal text-sm`}>{INLINE_LABELS.riskNotSet}</span>
+                }
+              </button>
+            ) : (
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                data-testid="risk-probability-input"
+                value={draftProbability}
+                autoFocus
+                aria-label="Likelihood percentage"
+                onChange={e => setDraftProbability(e.target.value)}
+                onBlur={handleProbabilitySave}
+                onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                className={`${typography.panelHeader} text-xl w-full bg-transparent border-b border-panel-border focus:border-primary outline-none py-0.5 transition-colors`}
+              />
+            )}
+          </div>
+
+          {/* Impact — segmented control over the RiskImpact enum */}
+          <div className="mt-3 pt-3 border-t border-panel-border">
+            <div className={`${typography.panelMeta} text-text-light mb-1`}>{INLINE_LABELS.riskImpact}</div>
+            <div role="radiogroup" aria-label="Impact" className="flex gap-1 flex-wrap">
+              {IMPACT_OPTIONS.map(opt => {
+                const active = impact === opt.value
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    data-testid={`risk-impact-${opt.value}`}
+                    onClick={() => handleImpactSelect(opt.value)}
+                    className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${
+                      active
+                        ? 'border-primary bg-panel-hover text-text-body'
+                        : 'border-panel-border bg-transparent text-text-light hover:bg-panel-hover'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
             </div>
-          ) : null}
-        </StaleGuardBanner>
-        {!isResultsMode && (
-          <p className={`${typography.panelMeta} text-text-light mt-2`}>
-            {INLINE_LABELS.runAnalysisRisk}
-          </p>
-        )}
+            {impact == null && (
+              <p className={`${typography.panelMeta} text-text-light italic mt-1`}>{INLINE_LABELS.riskImpactNotSet}</p>
+            )}
+          </div>
+
+          {/* Derived severity — reuses calculateRiskSeverity; renders only when
+              BOTH inputs exist (the derivation returns null otherwise — no
+              fabricated severity). */}
+          {severity && (
+            <div className="mt-3 pt-3 border-t border-panel-border flex items-center gap-2">
+              <span className={`${typography.panelMeta} text-text-light`}>{INLINE_LABELS.riskSeverity}</span>
+              <span
+                data-testid="risk-severity-badge"
+                className={`${severityColors.bg} ${severityColors.border} ${severityColors.text} border rounded px-1.5 py-0.5 ${typography.panelMeta}`}
+              >
+                {severity.charAt(0).toUpperCase() + severity.slice(1)}
+              </span>
+            </div>
+          )}
+
+          {/* Edit feedback + re-run nudge (shared with the factor editors) */}
+          {showEditFeedback && (
+            <div className="flex items-center gap-2 mt-2">
+              <EditConfirmation trigger={lastConfirmed?.ts ?? null} />
+              <InlineRerunPrompt visible={isStaleAfterEdit} />
+            </div>
+          )}
+        </PrimaryControlCard>
+
+        <p className={`${typography.panelMeta} text-text-light mt-2`}>{INLINE_LABELS.riskExposureHint}</p>
       </PanelGroup>
 
       {/* ── What drives this group ────────────────────────────── */}
