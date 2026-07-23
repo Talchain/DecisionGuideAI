@@ -2999,6 +2999,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           return {
             edge_id: fe.edge_id ? String(fe.edge_id) : undefined,
             from_id: fe.from_id ?? fe.fromId ?? fe.source ?? undefined,
+            // to_id passthrough (mirrors from_id): the analysis-graph projection
+            // resolves a flip risk to its canvas edge via the from→to endpoint
+            // pair. Pure passthrough — no default, no inference.
+            to_id: fe.to_id ?? fe.toId ?? fe.target ?? undefined,
             from_label: String(fe.from_label),
             to_label: String(fe.to_label),
             switch_probability: Number(fe.switch_probability),

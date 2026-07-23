@@ -34,6 +34,12 @@ import { computeOptionScale } from '../shared/OptionRangeBar'
 /** One flip-risk row — the challengeFragileEdges slice, unchanged. */
 export interface V7FlipRisk {
   fromId?: string
+  /** Producer target node id — passthrough for the analysis-graph projection's
+   * from→to canvas-edge resolution (never displayed). */
+  toId?: string
+  /** Producer edge id — passthrough for the analysis-graph projection's edge_id
+   * canvas-edge resolution (never displayed). */
+  edgeId?: string
   fromLabel: string
   toLabel: string
   /** Producer switch probability in [0,1], or null when non-finite. */
@@ -164,6 +170,8 @@ export function buildV7Lenses(data: ResultsSectionDataReturn): V7LensesModel {
 
   const flipRisks: V7FlipRisk[] = (confidence.challengeFragileEdges ?? []).map((e) => ({
     fromId: e.from_id,
+    toId: e.to_id,
+    edgeId: e.edge_id,
     fromLabel: e.from_label,
     toLabel: e.to_label,
     switchProbability:

@@ -474,6 +474,20 @@ interface CanvasState {
   // Phase 3: Interaction enhancements (Set for O(1) lookup)
   highlightedNodes: Set<string>
   highlightedEdges: Set<string>
+  /**
+   * Analysis-graph projection — the "graph-as-explanation-surface" slice.
+   * While the user views the V7 evidence disclosure's Flip-risks or Drivers
+   * tab, the RESOLVABLE canvas elements named by that view are marked here so
+   * edge/node components can render a projection marker. `source` names which
+   * evidence view owns the marks; the id Sets hold canvas React-Flow ids
+   * (never producer ids). Cleared when the disclosure closes or the view
+   * switches away. Pure id projection — no fabricated values, no thresholds.
+   */
+  analysisHighlight: {
+    source: 'flip_risks' | 'drivers' | null
+    edgeIds: Set<string>
+    nodeIds: Set<string>
+  }
   dimmedNodeIds: Set<string>
   /** F3 (graph-visuals): non-null while a TRANSIENT focus dim owns
    * dimmedNodeIds — set by handleFocusNode (dim = non-neighbours of the
@@ -783,6 +797,15 @@ interface CanvasState {
   // Phase 3: Interaction actions
   setHighlightedNodes: (ids: string[]) => void
   setHighlightedEdges: (ids: string[]) => void
+  /** Analysis-graph projection: mark the resolved canvas ids owned by an
+   * evidence view. Replaces any previous projection wholesale. */
+  setAnalysisHighlight: (
+    source: 'flip_risks' | 'drivers',
+    ids: { edgeIds?: string[]; nodeIds?: string[] },
+  ) => void
+  /** Analysis-graph projection: clear all projection marks. No-op (no state
+   * write, no Set-identity churn) when nothing is currently projected. */
+  clearAnalysisHighlight: () => void
   setDimmedNodes: (ids: string[]) => void
   /** F3: start a transient focus dim — dims `dimmedIds` and marks the dim as
    * owned by the focus on `sourceId` until clearFocusDim(). */
@@ -1499,6 +1522,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   needleMovers: [],
   highlightedNodes: new Set<string>(),
   highlightedEdges: new Set<string>(),
+  analysisHighlight: { source: null, edgeIds: new Set<string>(), nodeIds: new Set<string>() },
   dimmedNodeIds: new Set<string>(),
   focusDimSourceId: null,
   editedSinceRunNodeIds: new Set<string>(),
@@ -4127,6 +4151,24 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
   setHighlightedEdges: (ids: string[]) => {
     set({ highlightedEdges: new Set(ids) })
+  },
+  // Analysis-graph projection (accepts arrays, stores as Sets for O(1) lookup
+  // by edge/node components; same idiom as the highlight sets above).
+  setAnalysisHighlight: (source, ids) => {
+    set({
+      analysisHighlight: {
+        source,
+        edgeIds: new Set(ids.edgeIds ?? []),
+        nodeIds: new Set(ids.nodeIds ?? []),
+      },
+    })
+  },
+  clearAnalysisHighlight: () => {
+    const cur = get().analysisHighlight
+    // Idempotent: skip the write when already clear so we never churn the Set
+    // identity and needlessly re-run every edge/node projection selector.
+    if (cur.source === null && cur.edgeIds.size === 0 && cur.nodeIds.size === 0) return
+    set({ analysisHighlight: { source: null, edgeIds: new Set<string>(), nodeIds: new Set<string>() } })
   },
   setDimmedNodes: (ids: string[]) => {
     set({ dimmedNodeIds: new Set(ids) })

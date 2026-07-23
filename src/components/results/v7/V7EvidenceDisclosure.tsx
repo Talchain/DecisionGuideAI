@@ -23,13 +23,14 @@
  * flagless. COMPLETE borders only (L1 guard).
  */
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ChevronDown, AlertTriangle, Crosshair, GitBranch } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { formatPercent } from '@/utils/formatPercent'
 import { formatRangeValue } from '../utils/formatRangeValue'
 import type { V7EvidenceModel } from './buildV7Lenses'
 import { V7_LENS_COPY } from './v7LensCopy'
+import { useAnalysisProjection } from '@/canvas/highlighting/useAnalysisProjection'
 
 const E = V7_LENS_COPY.evidence
 const VISIBLE_DRIVERS = 3
@@ -60,6 +61,20 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<EvidenceView>('drivers')
   const [showAllDrivers, setShowAllDrivers] = useState(false)
+
+  // Analysis-graph projection: while this disclosure is open on the Flip-risks
+  // or Drivers view, mark the resolvable canvas elements it names (fragile edges
+  // / driver nodes). Closing the disclosure or switching to Trade-offs clears
+  // the marks. Hook runs unconditionally (before the nothing-to-disclose return
+  // below) so it also clears when there is nothing to show.
+  const projectionActive: 'flip_risks' | 'drivers' | null =
+    !open ? null : view === 'flipRisks' ? 'flip_risks' : view === 'drivers' ? 'drivers' : null
+  const driverFocusIds = useMemo(() => evidence.drivers.map((d) => d.focusId), [evidence.drivers])
+  useAnalysisProjection({
+    active: projectionActive,
+    flipRisks: evidence.flipRisks,
+    driverFocusIds,
+  })
 
   const hasDrivers = evidence.drivers.length > 0
   const hasFlipRisks = evidence.flipRisks.length > 0

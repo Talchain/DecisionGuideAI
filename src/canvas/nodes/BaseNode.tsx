@@ -84,6 +84,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // N3: edited since the last analysis run (amber corner dot; undefined-safe
   // for node-spec store doubles without the slice).
   const isEditedSinceRun = useCanvasStore(s => s.editedSinceRunNodeIds?.has(id) === true)
+  // Analysis-graph projection: this node is a key driver being viewed in the V7
+  // evidence disclosure. Primitive-boolean selector (React #185) + optional
+  // chaining so store doubles without the slice stay safe.
+  const isAnalysisDriver = useCanvasStore(
+    s => s.analysisHighlight?.source === 'drivers' && s.analysisHighlight?.nodeIds?.has(id) === true,
+  )
   // D2: level-of-detail — at low zoom nodes simplify to their coloured shape;
   // only goal / decision / explicitly-kept nodes (the leading option) keep a
   // readable title. Undefined-safe for spec store doubles without the slice.
@@ -273,6 +279,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       aria-expanded={description ? isExpanded : undefined}
       {...(isIncomplete ? { 'data-testid': nodeType === 'goal' ? 'overlay-missing-threshold-node' : 'overlay-missing-value' } : {})}
       {...(nodeType === 'factor' && data?.category === 'external' ? { title: 'Outside your control' } : {})}
+      {...(isAnalysisDriver ? { 'data-analysis-driver': 'true' } : {})}
       className={`
         relative rounded-lg ${isCausalLens ? 'border' : isIncomplete ? 'border-2' : borderWidth} shadow-1
         ${isCausalLens ? (causalBorderClass ?? '') : isIncomplete ? 'border-warning border-dashed' : borderClassOverride ?? `${colors.border} ${borderStyle}`}
@@ -283,6 +290,13 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-60' : ''}
       `}
       style={{
+        // Analysis-graph projection: an info RING around a viewed driver node.
+        // outline is a separate CSS channel from box-shadow, so it composes with
+        // the selection / hover rings and shadow-1 instead of clobbering them;
+        // it wraps all four sides (never a one-sided accent) and uses the info
+        // state token. Animates via the div's transition-all.
+        outline: isAnalysisDriver ? '2px solid var(--semantic-info)' : undefined,
+        outlineOffset: isAnalysisDriver ? '3px' : undefined,
         backgroundColor: evidenceBgStyle ?? 'var(--bg-panel)',
         // Footer padding reserved only on node types that actually render
         // ActionIcons (factor, option). Other types keep symmetric padding.
