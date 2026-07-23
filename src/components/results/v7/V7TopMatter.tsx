@@ -19,6 +19,9 @@ import type { DecisionState } from '../types'
 import { V7FreshnessStrip } from './V7FreshnessStrip'
 import { V7SharpenLine, type V7SharpenInput } from './V7SharpenLine'
 import { V7Hero } from './V7Hero'
+import { V7LensGroup } from './V7LensGroup'
+import { V7EvidenceDisclosure } from './V7EvidenceDisclosure'
+import { buildV7Lenses } from './buildV7Lenses'
 
 export interface V7TopMatterProps {
   resultsSectionData: ResultsSectionDataReturn
@@ -48,6 +51,12 @@ export function V7TopMatter({
   }))
   const briefWording = recommendation.goalText ?? resultsSectionData.goalLabel ?? null
 
+  // L5 lens group + evidence disclosure — passthrough over the SAME
+  // resultsSectionData the live panel consumes. The evidence model is built
+  // once here and handed to the disclosure; the lens group reads live fields
+  // (and local run history for the What-changed lens) itself.
+  const { evidence } = buildV7Lenses(resultsSectionData)
+
   return (
     <div className="flex flex-col gap-4" data-testid="v7-top-matter">
       <V7FreshnessStrip />
@@ -60,6 +69,8 @@ export function V7TopMatter({
         onFocusNode={onFocusNode}
         onSendMessage={onSendMessage}
       />
+      <V7LensGroup resultsSectionData={resultsSectionData} />
+      <V7EvidenceDisclosure evidence={evidence} onFocusNode={onFocusNode} />
     </div>
   )
 }
