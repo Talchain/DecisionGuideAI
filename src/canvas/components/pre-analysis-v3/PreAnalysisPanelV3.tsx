@@ -15,6 +15,7 @@ import { guardCeeText } from './signals/ceeTextGuard'
 import { usePreAnalysisModel } from './hooks/usePreAnalysisModel'
 import { useConversationActions } from './hooks/useConversationActions'
 import { useSensitivityRanking } from './hooks/useSensitivityRanking'
+import { GoalTargetNudge } from '../pre-analysis/GoalTargetNudge'
 import { PanelHeader } from './header/PanelHeader'
 import { HeroSection, GOAL_INPUT_ID, SUCCESS_INPUT_ID } from './hero/HeroSection'
 import { SharpenSection } from './sharpen/SharpenSection'
@@ -117,6 +118,24 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason }: PreAnalysi
       {/* No flex-1: content sits at natural height (footer follows it), and
           shrinks to keep the footer visible only when it overflows. */}
       <div className="min-h-0 overflow-y-auto">
+        {/* Success-target elicitation nudge (also mounted in the legacy
+            PreAnalysisPanel). On the deployed staging build the V3 panel is
+            the LIVE surface (flags baked via the Netlify dashboard env, not
+            netlify.toml), so the nudge must live here too or it is dark. Same
+            gating as the legacy mount — a goal exists AND no success target is
+            set — expressed in V3 model terms (hero.goal / hero.success.isSet).
+            Routes into the V3 panel's OWN setter seam: focus the inline
+            success field by id, the same route handleLadderAct('set_success')
+            and handleSignalAction('focus_success_field') use — no second
+            editor. Unlocks the honestly-gated Goal-fit lens; vanishes the
+            instant a target is set; never blocks analysis. */}
+        <div className="px-4 pt-4">
+          <GoalTargetNudge
+            hasGoalNode={model.hero.goal != null}
+            hasSuccessTarget={model.hero.success.isSet}
+            onSetTarget={() => document.getElementById(SUCCESS_INPUT_ID)?.focus()}
+          />
+        </div>
         <PanelHeader bars={model.bars} onAction={sendPrompt} />
         <HeroSection
           hero={model.hero}
