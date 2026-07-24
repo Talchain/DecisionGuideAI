@@ -41,6 +41,7 @@ import {
 } from '../analyticalNodeFields'
 import { ANALYTICAL_NODE_DATA_FIELDS, ANALYTICAL_EDGE_FIELDS, hasAnalyticalNodeChange, hasAnalyticalEdgeChange } from '../analyticalChange'
 import { computeGraphHash } from '../../hooks/useAutosave'
+import { EDITOR_WRITTEN_FIELDS } from '../../ui/inspector-v2/useInspectorMutations'
 
 // ---------------------------------------------------------------------------
 // The behavioural CONTRACT — the field sets the two bugs (#453/#457), task #23,
@@ -67,15 +68,31 @@ const EXPECTED_STALE_EDGE = [
 // Fields a LIVE user editor writes as persistent state. None may ever appear on the
 // ephemeral denylist — a denylisted persistent field is silently dropped on reload
 // (the exact #457 loss class). See "deny-direction safety" below.
+//
+// The inspector-hook portion is DERIVED from EDITOR_WRITTEN_FIELDS (declared beside
+// the setters in useInspectorMutations.ts, behaviourally pinned by
+// useInspectorMutations.writtenFields.spec.tsx) — NOT re-typed here. The old
+// hand-list silently OMITTED edge `label`, so denylisting `label` left this guard
+// green (Codex P2); deriving from the setters closes that.
+//
+// Fields written by editors OUTSIDE the inspector hook stay as a small residual
+// list, each annotated with its write site. (Follow-up: centralise these editors
+// behind the same manifest so this residual can go too.)
+const NON_INSPECTOR_PERSIST_NODE_FIELDS = [
+  'is_baseline',        // OutputsDock baseline toggle, useAddBaseline, applyDraftResult
+  'success_threshold',  // store.ts setGoalThreshold action, model-tab GoalSection
+  'threshold_source',   // store.ts setGoalThreshold action, model-tab GoalSection
+]
+const NON_INSPECTOR_PERSIST_EDGE_FIELDS = [
+  'confidence',         // useModelActionApply (model-action apply path)
+]
 const KNOWN_EDITOR_PERSIST_NODE_FIELDS = [
-  'observedState', 'interventions', 'is_baseline', 'success_threshold',
-  'goal_threshold_raw', 'goal_threshold_cap', 'goal_threshold_unit', 'threshold_source',
-  'prior', 'probability', 'impact',
-  'description', 'category', 'extractionType', 'factor_type', 'state_space',
-  'uncertainty_drivers', 'label',
+  ...EDITOR_WRITTEN_FIELDS.node,
+  ...NON_INSPECTOR_PERSIST_NODE_FIELDS,
 ]
 const KNOWN_EDITOR_PERSIST_EDGE_FIELDS = [
-  'weight', 'direction', 'strengthStd', 'confidence', 'beliefExists',
+  ...EDITOR_WRITTEN_FIELDS.edge,
+  ...NON_INSPECTOR_PERSIST_EDGE_FIELDS,
 ]
 
 /** Symmetric difference reported as named fields — the guard's failure message. */
@@ -247,6 +264,18 @@ describe('analyticalNodeFields registry — positive controls (guard catches dri
     const drifted = [...EPHEMERAL_NODE_FIELDS, 'success_threshold']
     const wronglyDenied = KNOWN_EDITOR_PERSIST_NODE_FIELDS.filter((f) => drifted.includes(f))
     expect(wronglyDenied).toEqual(['success_threshold'])
+    expect(wronglyDenied).not.toEqual([])
+  })
+
+  it('the deny-direction safety catches edge `label` wrongly denylisted (Codex P2 probe)', () => {
+    // setLabel (useInspectorMutations) writes edge.data.label — a persistent editor
+    // field. Denylisting it would silently drop relabels on reload. Pre-fix the edge
+    // persist list omitted `label`, so this exact probe stayed GREEN; now that the
+    // list DERIVES from EDITOR_WRITTEN_FIELDS.edge (which includes `label`), it bites.
+    expect(KNOWN_EDITOR_PERSIST_EDGE_FIELDS).toContain('label')
+    const drifted = [...EPHEMERAL_EDGE_FIELDS, 'label']
+    const wronglyDenied = KNOWN_EDITOR_PERSIST_EDGE_FIELDS.filter((f) => drifted.includes(f))
+    expect(wronglyDenied).toEqual(['label'])
     expect(wronglyDenied).not.toEqual([])
   })
 

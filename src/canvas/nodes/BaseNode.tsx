@@ -274,19 +274,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         minHeight: isExpanded ? '120px' : undefined,
       }}
     >
-      {/* N3 (graph-visuals): amber corner dot — this node was edited since
-          the last analysis run (device-local diff vs the run snapshot; the
-          freshness strip stays the single freshness owner, this is WHERE).
-          Amber = the warning family per Paul's C2 hue ruling. */}
-      {isEditedSinceRun && (
-        <span
-          data-testid={`edited-since-run-${id}`}
-          role="img"
-          aria-label="Edited since the last analysis"
-          title="Edited since the last analysis"
-          className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-warning border border-canvas"
-        />
-      )}
       {/* Context menu: Assumption flag badge (Hard rule 3 — UI-only annotation) */}
       {Boolean(data?.flagged_as_assumption) && (
         <div
@@ -338,16 +325,22 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       )}
 
       {/* Top-right corner STACK — a single absolutely-positioned flex row that
-          OWNS this corner so the sensitivity-rank badge and the coaching marker
-          never collide. Both previously rendered at `absolute -top-2 -right-2
-          z-10`, identical z, so the rank obscured the coaching marker (Codex
-          P1-5, browser-confirmed). They are now static siblings here: rank
-          FIRST (reads "key driver #N"), coaching beside it. The row is anchored
-          by its right edge and grows leftward, keeping both inside the top band
-          (no title overlap) and off the node's right side; siblings never
-          overlap, so both stay visible and the coaching button stays clickable.
-          Each child self-gates, so the container is empty (0×0, inert) when
-          neither applies. */}
+          OWNS this corner so the sensitivity-rank badge, the edited-since-run
+          dot and the coaching marker never collide. All three previously
+          rendered independently in this same corner (rank + coaching at
+          `-top-2 -right-2 z-10`; the edited dot at `-top-1 -right-1`, default
+          z), so the coaching marker fully covered the edited dot when both were
+          present (Codex P2, browser-confirmed) — the same class of same-corner
+          overlap the P1-5 rank/coaching fix addressed. They are now static flex
+          siblings here, ordered smallest-in-the-middle for legibility: rank
+          FIRST (reads "key driver #N"), then the small 10px edited-since-run
+          freshness dot, then the interactive coaching marker anchored at the
+          corner (rightmost — the easiest click target). The row is anchored by
+          its right edge and grows leftward, keeping all three inside the top
+          band (no title overlap) and off the node's right side; siblings never
+          overlap, so each stays visible and the coaching button stays
+          clickable. Each child self-gates, so the container is empty (0×0,
+          inert) when none applies. */}
       <div
         data-testid={`node-corner-stack-${id}`}
         className="absolute -top-2 -right-2 z-10 flex items-center gap-1"
@@ -362,6 +355,22 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           >
             #{displayMetadata.sensitivityRank}
           </span>
+        )}
+
+        {/* N3 (graph-visuals): amber corner dot — this node was edited since the
+            last analysis run (device-local diff vs the run snapshot; the
+            freshness strip stays the single freshness owner, this is WHERE).
+            Amber = the warning family per Paul's C2 hue ruling. A static flex
+            child here (no absolute/offset of its own) so it sits beside — never
+            under — the coaching marker. `shrink-0` keeps the 10px dot round. */}
+        {isEditedSinceRun && (
+          <span
+            data-testid={`edited-since-run-${id}`}
+            role="img"
+            aria-label="Edited since the last analysis"
+            title="Edited since the last analysis"
+            className="shrink-0 h-2.5 w-2.5 rounded-full bg-warning border border-canvas"
+          />
         )}
 
         {/* On-canvas coaching marker — renders ONLY when a live guidance item
