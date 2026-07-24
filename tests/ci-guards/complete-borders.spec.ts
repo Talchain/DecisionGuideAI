@@ -58,7 +58,7 @@
  *     comment must NOT be flagged (the #385/#386 footgun).
  */
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve as resolvePath } from 'node:path'
 import { stripComments } from '../helpers/stripSourceComments'
 
@@ -77,7 +77,6 @@ const CONTENT_CARD_FILES = [
   'canvas/components/GuidanceCard.tsx',
   'canvas/components/ActionsSignal.tsx',
   'canvas/components/ValidationPanel.tsx',
-  'canvas/components/InsightsTab.tsx',
   'canvas/components/ProvenanceHubTab.tsx',
   'canvas/components/GraphTextView.tsx',
   'canvas/components/EdgeFunctionTypeSelector.tsx',
@@ -124,6 +123,18 @@ interface Violation {
   snippet: string
 }
 
+/**
+ * Fail-loud on scan-list drift: a listed file that no longer exists is list-drift,
+ * NOT a silent pass and NOT a raw `readFileSync` ENOENT (which reads as an infra
+ * crash, not "remove the entry"). Repo doctrine: a hand-maintained list must FAIL
+ * LOUD on drift. This is exactly the #455 footgun — `InsightsTab.tsx` was deleted
+ * but left in the scan set, so the unconditional read threw ENOENT and reddened the
+ * staging gate as if the harness had broken, obscuring the one-line cause.
+ */
+function findMissingScanFiles(files: string[]): string[] {
+  return files.filter((rel) => !existsSync(resolvePath(SRC, rel)))
+}
+
 /** Scan already-comment-stripped text for one-sided border accents. */
 function findAccentViolations(stripped: string, file: string): Violation[] {
   const out: Violation[] = []
@@ -143,10 +154,26 @@ function findAccentViolations(stripped: string, file: string): Violation[] {
 }
 
 describe('complete-borders guard: analysis-surface content cards carry complete borders only', () => {
+  it('every scan-list file exists (fail loud on list drift, never a raw ENOENT)', () => {
+    const missing = findMissingScanFiles(CONTENT_CARD_FILES)
+    if (missing.length) {
+      const report = missing
+        .map((rel) => `  scan-list entry "${rel}" no longer exists at src/${rel} — remove it or fix the path`)
+        .join('\n')
+      throw new Error(
+        `complete-borders scan-list drift — ${missing.length} listed file(s) no longer exist:\n${report}`,
+      )
+    }
+    expect(missing).toHaveLength(0)
+  })
+
   it('has no one-sided coloured border accent in any swept content-card file', () => {
     const violations: Violation[] = []
     for (const rel of CONTENT_CARD_FILES) {
       const abs = resolvePath(SRC, rel)
+      // A missing file is list-drift, asserted by the dedicated test above with a
+      // named message; skip it here so this scan never masks that as a raw ENOENT.
+      if (!existsSync(abs)) continue
       const text = readFileSync(abs, 'utf8')
       const stripped = stripComments(text, abs)
       violations.push(...findAccentViolations(stripped, rel))
@@ -184,6 +211,13 @@ describe('complete-borders guard: analysis-surface content cards carry complete 
     ].join('\n')
     const found = findAccentViolations(stripComments(negative, 'control.tsx'), 'control.tsx')
     expect(found).toHaveLength(0)
+  })
+
+  it('DRIFT control: findMissingScanFiles flags a non-existent path (detector is not blind)', () => {
+    const bogus = 'canvas/components/__ThisFileDoesNotExist__.tsx'
+    expect(findMissingScanFiles([bogus])).toEqual([bogus])
+    // And a real, present file is NOT reported as missing.
+    expect(findMissingScanFiles(['canvas/components/ValidationPanel.tsx'])).toHaveLength(0)
   })
 
   it('COMMENT control: a border-l-[3px] living only in a comment is not flagged', () => {

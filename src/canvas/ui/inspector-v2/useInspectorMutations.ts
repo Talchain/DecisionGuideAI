@@ -9,6 +9,71 @@ import { useCallback } from 'react'
 import { useCanvasStore } from '../../store'
 import type { RiskImpact } from '../../domain/nodes'
 
+// ─── Editor-written-field manifest (single source of truth) ────────────
+//
+// Every setter below writes one or more top-level `data` fields. Which fields
+// each setter writes is declared ONCE here, co-located with the setters, rather
+// than re-typed into a hand-list inside a distant guard spec (that mirror
+// silently drifted and OMITTED edge `label`, so `label` could be denylisted with
+// the deny-direction guard staying green — Codex P2).
+//
+// This map CANNOT drift from the setters: the co-located behavioural spec
+// (__tests__/useInspectorMutations.writtenFields.spec.tsx) renders the hooks,
+// asserts the returned setter names EQUAL these keys (a new/removed setter fails
+// RED), and DRIVES every setter to assert the data-field keys it actually writes
+// EQUAL the value here (a setter that starts writing a new/renamed field fails
+// RED). `analyticalNodeFields.registry.spec.ts` imports EDITOR_WRITTEN_FIELDS as
+// its deny-direction persist set (no persistent editor field may be denylisted),
+// so the manifest, the setters and the guard can no longer disagree.
+//
+// Fields written by editors OUTSIDE this hook (e.g. the goal-threshold store
+// action, the baseline toggle, the model-action apply path) are NOT listed here
+// — they are named in the registry guard's residual list with their write sites.
+
+/** node setter name → the top-level `data` field(s) that setter writes. */
+export const NODE_SETTER_FIELDS = {
+  setLabel: ['label'],
+  setDescription: ['description'],
+  setThreshold: ['goal_threshold_raw', 'goal_threshold_unit'],
+  setObservedValue: ['observedState'],
+  setIntervention: ['interventions'],
+  removeIntervention: ['interventions'],
+  setPriorRange: ['prior'],
+  setObservedRawValue: ['observedState'],
+  setObservedUnit: ['observedState'],
+  setObservedCap: ['observedState'],
+  setObservedBaseline: ['observedState'],
+  setObservedStd: ['observedState'],
+  setObservedSource: ['observedState'],
+  setCategory: ['category'],
+  setExtractionType: ['extractionType'],
+  setFactorType: ['factor_type'],
+  setStateSpaceRange: ['state_space'],
+  setUncertaintyDrivers: ['uncertainty_drivers'],
+  setGoalCap: ['goal_threshold_cap'],
+  setProbability: ['probability'],
+  setImpact: ['impact'],
+} as const satisfies Record<string, readonly string[]>
+
+/** edge setter name → the top-level `data` field(s) that setter writes. */
+export const EDGE_SETTER_FIELDS = {
+  setStrength: ['weight', 'direction'],
+  setStd: ['strengthStd'],
+  setExistsProbability: ['beliefExists'],
+  setLabel: ['label'],
+  setDirection: ['direction'],
+} as const satisfies Record<string, readonly string[]>
+
+/**
+ * The flattened, de-duplicated set of node/edge `data` fields the inspector
+ * setters write. Derived from the per-setter maps above so it cannot disagree
+ * with them. This is the export the deny-direction registry guard consumes.
+ */
+export const EDITOR_WRITTEN_FIELDS = {
+  node: [...new Set(Object.values(NODE_SETTER_FIELDS).flat())],
+  edge: [...new Set(Object.values(EDGE_SETTER_FIELDS).flat())],
+} as const
+
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {
   const updateNode = useCanvasStore(s => s.updateNode)

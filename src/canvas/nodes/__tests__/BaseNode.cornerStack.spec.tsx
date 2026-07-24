@@ -9,14 +9,23 @@
  * two render as static flex siblings, so they can no longer occupy the same
  * point.
  *
+ * The edited-since-run dot (Codex P2) was a third, independently-positioned
+ * element in this same corner (`-top-1 -right-1`, default z) — the coaching
+ * marker at `-top-2 -right-2 z-10` drew fully OVER it. It is now folded into the
+ * same stack as a static middle child (rank · edited-dot · coaching), so the
+ * same non-overlap guarantee covers all three.
+ *
  * These pins assert STRUCTURE (jsdom cannot measure pixels — see the honesty
  * note on the non-overlap test):
  *   - both present  → both rendered, inside the shared stack, rank first, and
  *                     neither child carries its own absolute/offset classes
  *                     (the layout-relevant signal that they can't self-collide)
+ *   - all three     → rank · edited-dot · coaching, three distinct siblings in
+ *                     order, the dot carrying no absolute/offset of its own
  *   - each alone    → renders in its place inside the stack
  *   - click-through → the coaching button's onClick still fires with the rank
- *                     badge present (it is a sibling, never covered)
+ *                     badge (and with the edited dot) present — it is a sibling,
+ *                     never covered
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -30,9 +39,12 @@ vi.mock('@xyflow/react', async () => {
 })
 
 // Hoisted so the vi.mock factory (also hoisted) can close over these spies.
-const { selectNodeWithoutHistory, setShowInspectorPanel } = vi.hoisted(() => ({
+// `editedNodeIds` is a mutable set the store mock reads for isEditedSinceRun; a
+// test opts a node in via editedNodeIds.add(id) and beforeEach clears it.
+const { selectNodeWithoutHistory, setShowInspectorPanel, editedNodeIds } = vi.hoisted(() => ({
   selectNodeWithoutHistory: vi.fn(),
   setShowInspectorPanel: vi.fn(),
+  editedNodeIds: new Set<string>(),
 }))
 
 vi.mock('../../store', () => {
@@ -42,7 +54,7 @@ vi.mock('../../store', () => {
     results: { status: 'complete', report: null },
     highlightedNodes: new Set(),
     dimmedNodeIds: new Set(),
-    editedSinceRunNodeIds: new Set(),
+    editedSinceRunNodeIds: editedNodeIds,
     analysisHighlight: { source: null, edgeIds: new Set(), nodeIds: new Set() },
     lens: { _dimmedNodeIds: new Set(), _hiddenNodeIds: new Set(), active: 'full' },
     goalThreshold: null,
@@ -112,6 +124,7 @@ const renderNode = () =>
 beforeEach(() => {
   vi.clearAllMocks()
   sensitivityRank = null
+  editedNodeIds.clear()
   useGuidanceStore.getState().clearGuidanceItems()
 })
 
@@ -147,6 +160,55 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
     expect(rank.className).not.toContain('absolute')
     expect(coaching.className).not.toContain('absolute')
     expect(coaching.className).not.toContain('-right-2')
+  })
+
+  it('ALL THREE present: rank, edited-dot and coaching are distinct siblings in order, none absolute', () => {
+    sensitivityRank = 1
+    editedNodeIds.add('node-a')
+    useGuidanceStore.getState().setGuidanceItems([makeItem()])
+    renderNode()
+
+    const stack = screen.getByTestId('node-corner-stack-node-a')
+    const rank = screen.getByTestId('sensitivity-rank-node-a')
+    const edited = screen.getByTestId('edited-since-run-node-a')
+    const coaching = screen.getByTestId('node-coaching-marker-node-a')
+
+    // Three distinct children, all inside the single positioned stack.
+    expect(stack).toContainElement(rank)
+    expect(stack).toContainElement(edited)
+    expect(stack).toContainElement(coaching)
+
+    // Deterministic order: rank · edited-dot · coaching (smallest in the middle).
+    const kids = Array.from(stack.children)
+    expect(kids).toHaveLength(3)
+    expect(kids[0]).toBe(rank)
+    expect(kids[1]).toBe(edited)
+    expect(kids[2]).toBe(coaching)
+
+    // The edited dot is a static flex child — no absolute/offset of its own, so
+    // it can no longer be drawn under the coaching marker (the P2 defect).
+    expect(edited.className).not.toContain('absolute')
+    expect(edited.className).not.toContain('-right-1')
+    expect(edited.className).not.toContain('-top-1')
+  })
+
+  it('EDITED alone: the edited-since-run dot renders in the stack, no rank or coaching', () => {
+    editedNodeIds.add('node-a')
+    renderNode()
+    const stack = screen.getByTestId('node-corner-stack-node-a')
+    expect(stack).toContainElement(screen.getByTestId('edited-since-run-node-a'))
+    expect(screen.queryByTestId('sensitivity-rank-node-a')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('node-coaching-marker-node-a')).not.toBeInTheDocument()
+  })
+
+  it('CLICK-THROUGH with edited dot present: coaching onClick still fires', () => {
+    editedNodeIds.add('node-a')
+    useGuidanceStore.getState().setGuidanceItems([makeItem({ item_id: 'edit-item' })])
+    renderNode()
+
+    expect(screen.getByTestId('edited-since-run-node-a')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('node-coaching-marker-node-a'))
+    expect(useGuidanceStore.getState().activeGuidanceItemId).toBe('edit-item')
   })
 
   it('RANK alone: rank badge renders in the stack, no coaching marker', () => {
