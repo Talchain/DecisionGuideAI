@@ -19,13 +19,14 @@ interface FirstUseComposerProps {
   /** Cog popover handler. Receives the cog button element for anchoring. */
   onCogClick: (anchorEl: HTMLElement) => void
   /**
-   * The insert pipeline for the starter strip, threaded from the SAME prop
-   * ReactFlowGraph subscribes to. Optional because not every ReactFlowGraph
-   * mount has one (PlotWorkspace and the sandbox canvas pass none) — and on
-   * those mounts the strip must not render at all: emitting on a bus nobody
-   * subscribes to is a silent no-op (eventBus.emit returns {} for zero
-   * listeners), which turns a starter click into a dead click. No bus ⇒ no
-   * cards ⇒ no dead click.
+   * Presence of the blueprint bus is the "this is the PRIMARY canvas mount"
+   * signal, and it gates the starter strip.
+   *
+   * It no longer feeds the strip: starters are pre-drafted CEE graphs applied
+   * through `applyStarter`, not blueprint emits (P1-2). The gate is retained
+   * deliberately — only the primary canvas passes a bus; PlotWorkspace and the
+   * sandbox canvas pass none, and those mounts must not offer a first-run
+   * starter strip. Dropping the gate would newly surface starter cards on both.
    */
   blueprintEventBus?: BlueprintEventBus
 }
@@ -354,7 +355,7 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick, blu
           none of the featured templates resolve, leaving the hero exactly as
           it was. Gated on the bus so mounts without an insert pipeline never
           show cards that cannot work. */}
-      {!isGenerating && blueprintEventBus ? <StarterDecisions bus={blueprintEventBus} /> : null}
+      {!isGenerating && blueprintEventBus ? <StarterDecisions /> : null}
     </div>,
     document.body,
   )

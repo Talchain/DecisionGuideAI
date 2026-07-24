@@ -92,6 +92,7 @@ import { isAiPanelV2Enabled } from '../flags'
 import { ConversationProvider } from './conversation/ConversationContext'
 import { FloatingOlumiPanel } from './components/FloatingOlumiPanel'
 import { FirstUseComposer } from './components/FirstUseComposer'
+import { StarterProvenanceBanner } from './components/StarterProvenanceBanner'
 import { CogPopover } from './components/CogPopover'
 import { useFloatingPanelState } from './hooks/useFloatingPanelState'
 import { useUIStore } from '../stores/uiStore'
@@ -2312,6 +2313,11 @@ function FloatingOlumiPanelHost({ blueprintEventBus }: { blueprintEventBus?: Blu
     <>
       <FloatingOlumiPanel onDock={handleDock} onCogClick={handleCogClick} />
       <FirstUseComposer onCogClick={handleCogClick} blueprintEventBus={blueprintEventBus} />
+      {/* Saved-example disclosure + live re-draft. Self-gates on starter
+          provenance in the graph, so it costs nothing on every other canvas.
+          Mounted HERE (inside the conversation provider) because the re-draft
+          sends a real turn through useConversationContext. */}
+      <StarterProvenanceBanner />
       <CogPopover isOpen={cogAnchor !== null} anchorEl={cogAnchor} onClose={handleCogClose} />
     </>
   )
