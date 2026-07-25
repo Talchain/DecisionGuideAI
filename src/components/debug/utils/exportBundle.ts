@@ -1017,6 +1017,18 @@ export interface EnrichedGraphEdge {
   edge_type?: string
   provenance_source?: string
   exists_probability?: number
+  /**
+   * F7: set-vs-defaulted markers for the two provenanced values above.
+   *
+   * `strength_mean` / `weight` / `belief_exists` / `exists_probability` are
+   * `DEFAULT_EDGE_DATA` on any edge nobody characterised, and this interface
+   * carried NO source field — so provenance could not survive the bundle even
+   * if a later reader wanted it. `undefined` means "nothing proves this value
+   * was set", the same reading as everywhere else in the tree.
+   * See `canvas/domain/edgeValueProvenance.ts`.
+   */
+  weight_source?: string
+  belief_exists_source?: string
 }
 
 /** V1.5: Enriched full_graph with _meta */
@@ -1892,6 +1904,9 @@ export interface FullGraphData {
       weight?: number
       label?: string
       kind?: string
+      /** F7: canvas provenance stamps — see EnrichedGraphEdge. */
+      weightSource?: string
+      beliefExistsSource?: string
     }
   }>
 }
@@ -2101,6 +2116,10 @@ function transformGraphDataEnriched(graphData: FullGraphData): EnrichedFullGraph
     edge_type: edge.data?.edge_type,
     provenance_source: edge.data?.provenance_source,
     exists_probability: edge.data?.exists_probability ?? edge.data?.beliefExists,
+    // F7: carried verbatim. Absent stamp ⇒ absent field ⇒ "nothing proves this
+    // was set" — the honest state, and the same reading the canvas uses.
+    weight_source: edge.data?.weightSource,
+    belief_exists_source: edge.data?.beliefExistsSource,
   }))
 
   return {

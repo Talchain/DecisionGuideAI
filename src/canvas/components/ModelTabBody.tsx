@@ -22,6 +22,7 @@ import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { AnalysisRunStateCover } from './AnalysisRunStateCover'
 import { useUIStore } from '../../stores/uiStore'
 import { getDisplayEdgeId, buildFragileEdgeLookup } from '../utils/edgeIdentity'
+import { edgeValueSource } from '../domain/edgeValueProvenance'
 import { getCausalEdges } from '../domain/edgeUtils'
 import { SectionErrorBoundary } from './GraphTextView'
 import type { MappedRobustness } from '../../lib/mappers/types'
@@ -593,15 +594,26 @@ export const ModelTabBody = memo(function ModelTabBody({
         observedState: (n.data as any)?.observedState ?? (n.data as any)?.observed_state ?? null,
         prior: (n.data as any)?.prior ?? null,
       })),
-      edges: sortedEdges.map(e => ({
-        id: getDisplayEdgeId(e),
-        source: e.source,
-        target: e.target,
-        weight: (e.data as any)?.weight ?? null,
-        direction: (e.data as any)?.direction ?? null,
-        beliefExists: (e.data as any)?.beliefExists ?? null,
-        provenance: (e.data as any)?.provenance ?? null,
-      })),
+      // ⛔ F7. The three numbers below are `DEFAULT_EDGE_DATA` /
+      // `USER_EDGE_DEFAULTS` on any edge nobody characterised, and this
+      // payload lands on the user's clipboard — where nothing downstream can
+      // tell a chosen 0.3 from a fabricated one. The stamps now travel WITH
+      // the values, derived from the same accessor the renderers use, so the
+      // export cannot disagree with the screen about what is known.
+      edges: sortedEdges.map(e => {
+        const data = e.data as Record<string, unknown> | undefined
+        return {
+          id: getDisplayEdgeId(e),
+          source: e.source,
+          target: e.target,
+          weight: (data as Record<string, unknown> | undefined)?.weight ?? null,
+          weightSource: edgeValueSource(data, 'weight'),
+          direction: (data as Record<string, unknown> | undefined)?.direction ?? null,
+          beliefExists: (data as Record<string, unknown> | undefined)?.beliefExists ?? null,
+          beliefExistsSource: edgeValueSource(data, 'beliefExists'),
+          provenance: (data as Record<string, unknown> | undefined)?.provenance ?? null,
+        }
+      }),
     }
     const json = JSON.stringify(payload, null, 2)
     navigator.clipboard?.writeText(json).catch(() => {})

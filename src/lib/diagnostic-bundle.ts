@@ -663,6 +663,7 @@ async function computeEdgeValueSummary(
   let canvas: EdgeValueSummary['canvas'] = null
   try {
     const { useCanvasStore } = await import('../canvas/store')
+    const { isEdgeValueSet } = await import('../canvas/domain/edgeValueProvenance')
     const canvasEdges = useCanvasStore.getState().edges
     if (canvasEdges && canvasEdges.length > 0) {
       const weights = canvasEdges.map(e => e.data?.weight)
@@ -671,7 +672,17 @@ async function computeEdgeValueSummary(
         total: canvasEdges.length,
         unique_weights: uniqueSorted(weights),
         unique_belief_exists: uniqueSorted(beliefs),
-        all_default: canvasEdges.every(e => (e.data?.weight ?? 0.5) === 0.5),
+        // ⛔ F7. This was `every(e => (e.data?.weight ?? 0.5) === 0.5)` — a
+        // VALUE-EQUALITY heuristic for exactly the question the provenance
+        // marker answers exactly. It was wrong in both directions: a user who
+        // deliberately chose 0.5 was reported as "all default", and a canvas
+        // full of USER_EDGE_DEFAULTS (weight 0.3) was reported as NOT default.
+        // The CEE and PLoT summaries below keep the heuristic on purpose —
+        // those are wire shapes with no marker to read, so a heuristic is the
+        // honest best available there, and saying so is the point.
+        all_default: canvasEdges.every(
+          e => !isEdgeValueSet(e.data as Record<string, unknown> | undefined, 'weight'),
+        ),
       }
     }
   } catch {

@@ -599,6 +599,50 @@ describe('NF-1: Copy as JSON button', () => {
     expect(screen.getByTestId('model-copy-json')).toBeInTheDocument()
     expect(screen.getByTestId('model-copy-json')).toHaveTextContent('JSON')
   })
+
+  // ── F7 ──────────────────────────────────────────────────────────────────
+  // The copied payload lands on the user's clipboard, where nothing
+  // downstream can tell a chosen 0.3 from `USER_EDGE_DEFAULTS.weight`. The
+  // numbers may still be exported — this is a data export, not a display
+  // surface — but the provenance has to travel with them.
+  describe('F7: the exported edge carries its provenance', () => {
+    function copyAndParse(edges: Edge[]) {
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText },
+        configurable: true,
+      })
+      const nodes = [makeFactorNode('f1', 'A'), makeFactorNode('f2', 'B')]
+      render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
+      fireEvent.click(screen.getByTestId('model-copy-json'))
+      expect(writeText).toHaveBeenCalledTimes(1)
+      return JSON.parse(writeText.mock.calls[0][0] as string)
+    }
+
+    it('POSITIVE CONTROL: stamps a value somebody set', () => {
+      // makeEdge stamps 'user' on both fields.
+      const payload = copyAndParse([makeEdge('e1', 'f1', 'f2', { weight: 0.42 })])
+      expect(payload.edges).toHaveLength(1)
+      expect(payload.edges[0].weight).toBe(0.42)
+      expect(payload.edges[0].weightSource).toBe('user')
+    })
+
+    it('exports the number but marks it UNSOURCED when nothing set it', () => {
+      const unstamped: Edge = {
+        id: 'e1',
+        source: 'f1',
+        target: 'f2',
+        data: { weight: 0.3, beliefExists: 0.8, direction: 'positive' },
+      }
+      const payload = copyAndParse([unstamped])
+      // The row is still exported — the relationship is real…
+      expect(payload.edges).toHaveLength(1)
+      expect(payload.edges[0].weight).toBe(0.3)
+      // …and the consumer can now tell that nobody chose these numbers.
+      expect(payload.edges[0].weightSource).toBeNull()
+      expect(payload.edges[0].beliefExistsSource).toBeNull()
+    })
+  })
 })
 
 describe('DS v4 contract: section header icons are plain (no badge container)', () => {
