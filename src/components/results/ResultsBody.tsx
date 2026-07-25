@@ -32,7 +32,7 @@ import { InferenceWarningStrip } from './InferenceWarningStrip'
 import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
 import { AnalysisHeroContainer } from './analysis-hero'
 import { V7TopMatter } from './v7/V7TopMatter'
-import { openDefineSuccess } from './modals'
+import { openDefineSuccess, HowComputedTrigger } from './modals'
 import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled, isFocusNowPanelEnabled, isAnalysisHeroPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
 
 export interface StrengthCorrectionDisplay {
@@ -246,6 +246,15 @@ export const ResultsBody = memo(function ResultsBody({
 
   return (
     <div className="flex flex-col gap-4" data-testid="outputs-results-redesign">
+
+      {/* ── P1-9 provenance: Model-Card-Lite entry point ───────────────────
+          Sits above every number it explains so "where did that number come
+          from?" is answerable without hunting. Gated on results being on
+          screen — a method note for an analysis that has not run would be
+          explaining numbers that do not exist. */}
+      <HowComputedTrigger
+        hasResults={(resultsSectionData.recommendation.allOptions?.length ?? 0) > 0}
+      />
 
       {/* ══ V7 ASSESSMENT-MODE SCAFFOLD (V7 Lane L3) ═══════════════════════
           Paul's ruling (V6-RESPEC-2026-07-23 §1, "Option A GO — additive,

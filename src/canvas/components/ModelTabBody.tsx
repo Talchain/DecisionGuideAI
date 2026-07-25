@@ -206,14 +206,25 @@ export const ModelTabBody = memo(function ModelTabBody({
       const id = f?.node_id ?? f?.factor_id
       if (!id) continue
 
-      // EVPI: prefer evpi_percentage_points; fall back to value_of_information * 100
-      // (UI-SEM-049 reinstated — PLoT does not yet guarantee evpi_percentage_points
-      // on every code path, so the fallback keeps EVPI surfaces alive.)
+      // EVPI in PERCENTAGE POINTS — `evpi_percentage_points` and nothing else.
+      //
+      // ⛔ P1-9: the former `value_of_information * 100` fallback was a UNIT
+      // CONFLATION that shipped a fabricated number. `value_of_information` is
+      // a 0–1 VoI score on a different scale entirely; `evpi_percentage_points`
+      // is the shift in outcome probability. In the golden staging capture
+      // fac_acquisition carries value_of_information 0.175 alongside a true
+      // evpi_percentage_points of 2.1 — the fallback rendered "Worth 18pp if
+      // resolved … would improve confidence by 18 percentage points", an 8.5x
+      // overstatement presented as a precise claim.
+      //
+      // When the producer does not send evpi_percentage_points we do not know
+      // the figure, so we say nothing: the EVPI chip and the EVPI detail row
+      // are already absent-safe (`evpiPp != null`). Keeping a surface "alive"
+      // with a wrong number is worse than leaving it blank. Do NOT reinstate a
+      // fallback from any other field — derive it producer-side instead.
       const pp = typeof f?.evpi_percentage_points === 'number' && Number.isFinite(f.evpi_percentage_points)
         ? f.evpi_percentage_points
-        : typeof f?.value_of_information === 'number' && Number.isFinite(f.value_of_information)
-          ? Math.round(f.value_of_information * 100)
-          : null
+        : null
       if (pp != null) evpi.set(id, pp)
 
       // Attribution stability (from PLoT, when present — no UI derivation)

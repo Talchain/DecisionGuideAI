@@ -122,7 +122,7 @@ import { derivePostFooterStatus, derivePostFooterMeta } from './utils/postAnalys
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
 import { AskOlumiDrawer } from '../../components/results/coaching/AskOlumiDrawer'
-import { DefineSuccessModal, DecisionRecordModal } from '../../components/results/modals'
+import { DefineSuccessModal, DecisionRecordModal, HowComputedModal } from '../../components/results/modals'
 
 /**
  * Map API critique format (CritiqueItemV1) to ValidationPanel format
@@ -1773,6 +1773,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
           openDefineSuccess()/openDecisionRecord() work from any surface. */}
       <DefineSuccessModal />
       <DecisionRecordModal />
+      {/* P1-9: Model-Card-Lite. Mounted at the same root so
+          openHowComputed() works from the results header (and, later, from a
+          number's own affordance) without prop drilling. */}
+      <HowComputedModal />
       {effectiveIsOpen && (
         <div
           aria-hidden="true"
