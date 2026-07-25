@@ -8,6 +8,7 @@
  */
 
 import type { GuidanceCategory } from '../../../canvas/stores/guidanceStore'
+import type { FactorConfidenceDisplay } from '../driverConfidenceDisplayPolicy'
 
 /** §8.2 adaptive help types — internal only, never shown as stages. */
 export type HelpType = 'clarify' | 'broaden' | 'challenge' | 'evaluate' | 'commit'
@@ -81,8 +82,24 @@ export interface StrengthenFactor {
    * (Lane 2, Codex R3-B1 class).
    */
   influence?: number
-  /** Producer per-factor confidence (present only on newer wires). */
-  confidence?: number | null
+  /**
+   * Factor confidence RESOLVED THROUGH THE DISPLAY POLICY, never the raw
+   * producer number.
+   *
+   * This used to be `confidence?: number | null` and the engine gated the LEHI
+   * recommendation ("High influence, low evidence.") on `confidence < 0.4`.
+   * The producer's value here IS the placeholder — `0.25` with
+   * `confidence_components.sampling_stability: 0` in both real staging
+   * captures — so the ceiling always passed and the panel asserted "low
+   * evidence" about a number nobody measured. The old comment
+   * "producer confidence ONLY" was true and beside the point.
+   *
+   * Carrying `FactorConfidenceDisplay` instead of a number means the engine
+   * CANNOT read a value without also reading whether it is fit to speak;
+   * `show: false` has no `.value` to compare against, so re-opening the fork
+   * is a type error rather than a `<` that silently always fires.
+   */
+  confidenceDisplay: FactorConfidenceDisplay
   /** True when the producer explicitly flagged this factor worth investigating. */
   worthInvestigating?: boolean
   /** EVPI in percentage points when provided. */

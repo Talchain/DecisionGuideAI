@@ -95,58 +95,28 @@ describe('StrengthenContainer — worth_investigating threading', () => {
   })
 })
 
-describe('StrengthenContainer — LEHI keys on the DISPLAY influence policy (Lane 2)', () => {
-  it('policy divergence: raw 0.9 / display 0.2 → below the LEHI floor, no rec', () => {
-    // Under partial producer coverage the shared driverDisplayModel ranks by
-    // normalised elasticity; a LEHI gate on the raw score would flag a
-    // factor the panel's own bars show as weak (Codex R3-B1 class).
-    render(
-      <StrengthenContainer
-        data={makeData({
-          goalThreshold: 62,
-          drivers: [
-            {
-              factorKey: 'fac_div',
-              factorLabel: 'Divergent',
-              displayInfluence: 0.2,
-              influenceScore: 0.9,
-              confidence: 0.2,
-              canFocus: true,
-            },
-          ],
-        })}
-      />,
-    )
-    const lehi = selectActive(useStrengthenStore.getState()).find((r) =>
-      r.id.startsWith('strengthen:lehi:'),
-    )
-    expect(lehi).toBeUndefined()
-  })
-
-  it('policy divergence: raw 0.1 / display 0.9 → clears the floor, rec exists', () => {
-    render(
-      <StrengthenContainer
-        data={makeData({
-          goalThreshold: 62,
-          drivers: [
-            {
-              factorKey: 'fac_div2',
-              factorLabel: 'Divergent2',
-              displayInfluence: 0.9,
-              influenceScore: 0.1,
-              confidence: 0.2,
-              canFocus: true,
-            },
-          ],
-        })}
-      />,
-    )
-    const lehi = selectActive(useStrengthenStore.getState()).find((r) =>
-      r.id.startsWith('strengthen:lehi:'),
-    )
-    expect(lehi).toBeDefined()
-  })
-})
+// ⚠ RELOCATED, NOT DELETED (F5a/F5b).
+//
+// This describe block asserted the Lane-2 / Codex-R3-B1 rule that the LEHI
+// trigger keys on `displayInfluence`, not raw `influenceScore`. It used LEHI
+// as its PROBE — and LEHI is confidence-gated. Once the factor-confidence
+// display policy was applied (the F5b fix: the engine can no longer read a
+// bare `confidence` number, and `DISPLAY_SAFE_DRIVER_CONFIDENCE` is `false`),
+// LEHI cannot fire from this container at all, so BOTH divergence cases would
+// have gone green by returning `undefined` for the same reason — a pair of
+// assertions that no longer discriminate anything. Leaving them here would
+// have been exactly the guarantee-theatre this lane exists to remove: two
+// green tests protecting nothing.
+//
+// The rule itself is unchanged and still worth pinning, so the assertions
+// moved DOWN to the engine, where the policy's documented `displaySafe` test
+// seam can open the confidence gate and let the influence floor be the only
+// variable:
+//   src/components/results/strengthen/__tests__/buildRecommendations.spec.ts
+//   → "LEHI floor keys on the DISPLAY influence, not the raw producer score"
+//
+// The container's own mapping (`influence: d.displayInfluence ?? d.influenceScore`,
+// StrengthenContainer.tsx) is unchanged by this lane.
 
 describe('StrengthenContainer — producer bias signal gates broaden', () => {
   it('a CEE narrow_framing bias signal admits the broaden rec', () => {

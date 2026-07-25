@@ -42,6 +42,7 @@ import {
 } from './utils/stressTestTemplates'
 import { SensitivityReferenceCaption } from './SensitivityReferenceCaption'
 import { openAskOlumi } from './coaching/askOlumiStore'
+import { resolveFactorConfidenceDisplay } from './driverConfidenceDisplayPolicy'
 import type { DriverItem } from './types'
 
 const RANK_FLIP_THRESHOLD = 0.15
@@ -210,16 +211,25 @@ export const StressTestSection = memo(function StressTestSection({
   const sensitiveFactors = selectSensitiveFactors(drivers)
 
   // ── Thinking patterns (deterministic templates) ──────────────────────────
-  // Top driver is the highest-influence driver. Confidence pinned to the
-  // factor_sensitivity field that flows through DriverItem.confidence —
-  // useResultsSectionData maps factor_sensitivity[i].confidence to that
-  // field directly (see useResultsSectionData.ts:1526-1527), so reading
-  // driver.confidence here matches the brief's authoritative-source rule.
+  // Top driver is the highest-influence driver. Its confidence comes from the
+  // factor_sensitivity field that flows through DriverItem.confidence
+  // (useResultsSectionData maps factor_sensitivity[i].confidence to it), which
+  // settles WHICH field — the display policy below settles whether it may be
+  // spoken.
   const topDriver = drivers[0]
   const topDriverLabel = topDriver
     ? stripEncodingNotation(topDriver.factorLabel)
     : 'this factor'
-  const topDriverConfidence = topDriver?.confidence
+  // ⛔ Resolved through THE policy module, not read raw. The comment that used
+  // to sit here justified reading `driver.confidence` directly ("matches the
+  // brief's authoritative-source rule") — true about WHICH field, silent about
+  // whether that field is fit to speak. It is not: the value is the 0.25
+  // placeholder, and the card asserted "limited evidence" from it.
+  const topDriverConfidence = resolveFactorConfidenceDisplay({
+    confidence: topDriver?.confidence,
+    isDefaulted: topDriver?.isDefaultedConfidence,
+    confidenceProvenance: topDriver?.confidenceProvenance,
+  })
 
   const disconfirmation = buildDisconfirmationCard({
     winnerLabel,

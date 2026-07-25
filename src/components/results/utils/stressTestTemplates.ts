@@ -12,6 +12,8 @@
  * function produced it.
  */
 
+import type { FactorConfidenceDisplay } from '../driverConfidenceDisplayPolicy'
+
 export interface ThinkingPatternCard {
   /** Primary question rendered in panelBody. */
   question: string
@@ -27,11 +29,20 @@ export interface DisconfirmationInputs {
   alternativeLabel: string
   topDriverLabel: string
   /**
-   * Top-driver confidence sourced from `factor_sensitivity` (the authoritative
-   * post-analysis source per useResultsSectionData.ts:1316-1322), NOT from any
-   * per-row triage `confidence` field that may shadow it. 0..1 scale.
+   * Top-driver confidence RESOLVED THROUGH THE DISPLAY POLICY
+   * (`components/results/driverConfidenceDisplayPolicy.ts`), never the raw
+   * `factor_sensitivity[].confidence`.
+   *
+   * This used to be `number | null | undefined` and the card asserted
+   * *"…which has limited evidence."* whenever it was `< 0.5`. The producer's
+   * value here IS the placeholder — `0.25` with
+   * `confidence_components.sampling_stability: 0` in both real staging
+   * captures — so the card made an evidence claim about a number nobody
+   * measured, on every analysis. Taking the union instead of a number means
+   * the "limited evidence" branch cannot be reached without a value the ruled
+   * policy has cleared for display.
    */
-  topDriverConfidence: number | null | undefined
+  topDriverConfidence: FactorConfidenceDisplay
 }
 
 export interface OutsideViewInputs {
@@ -50,10 +61,9 @@ export function buildDisconfirmationCard({
   topDriverLabel,
   topDriverConfidence,
 }: DisconfirmationInputs): ThinkingPatternCard {
-  const showContext =
-    typeof topDriverConfidence === 'number'
-    && Number.isFinite(topDriverConfidence)
-    && topDriverConfidence < 0.5
+  // ⛔ Display-policy gate. `show: false` carries no `.value`, so the
+  // threshold below is unreachable for a confidence the policy hides.
+  const showContext = topDriverConfidence.show && topDriverConfidence.value < 0.5
   return {
     question: `What could make you switch your recommendation from ${winnerLabel} to ${alternativeLabel}?`,
     context: showContext

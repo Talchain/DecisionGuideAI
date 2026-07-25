@@ -4,6 +4,7 @@
  * suppresses when the signal is absent; no local heuristics.
  */
 import { describe, expect, it } from 'vitest'
+import { resolveFactorConfidenceDisplay, DISPLAY_SAFE_DRIVER_CONFIDENCE } from '../../driverConfidenceDisplayPolicy'
 import { buildRecommendations } from '../buildRecommendations'
 import type { StrengthenInputs } from '../strengthenTypes'
 
@@ -25,6 +26,22 @@ const ids = (input: StrengthenInputs) => buildRecommendations(input).map((r) => 
 // no companion flag exists any more). Unranked behaviour (the demotion band
 // + its source line) is pinned separately in guidanceRankHonesty.spec.ts;
 // the coaching-band collapse pins live in producerGuidancePriority.spec.ts.
+
+
+// ── F5b: the engine may no longer see a bare confidence number ──────────────
+//
+// `StrengthenFactor.confidence?: number` became
+// `confidenceDisplay: FactorConfidenceDisplay`, because the LEHI trigger
+// ("High influence, low evidence.") gated on `confidence < 0.4` and the
+// producer's value IS the 0.25 placeholder — so the ceiling always passed.
+//
+// These helpers use the policy module's documented TEST SEAM (`displaySafe`)
+// rather than hand-building the union, so a fixture cannot claim a shape the
+// production resolver would never emit.
+const cleared = (value: number) => resolveFactorConfidenceDisplay({ confidence: value }, true)
+const absent = () => resolveFactorConfidenceDisplay({ confidence: null }, true)
+/** What PRODUCTION emits today for ANY value: the ruled policy hides it. */
+const ruledOut = (value: number) => resolveFactorConfidenceDisplay({ confidence: value })
 
 describe('buildRecommendations — trigger grounding (§8.6)', () => {
   it('success-measure: fires iff the effective goal threshold is null (deterministic)', () => {
@@ -69,7 +86,7 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
     const withConfidence: StrengthenInputs = {
       ...base,
       factors: [
-        { factorId: 'f1', label: 'Engineering capacity', influence: 0.8, confidence: 0.25, canFocus: true },
+        { factorId: 'f1', label: 'Engineering capacity', influence: 0.8, confidenceDisplay: cleared(0.25), canFocus: true },
       ],
     }
     const recs = buildRecommendations(withConfidence)
@@ -81,20 +98,78 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
     // Same factor WITHOUT producer confidence → never fires (no beliefExists fallback).
     const noConfidence: StrengthenInputs = {
       ...base,
-      factors: [{ factorId: 'f1', label: 'Engineering capacity', influence: 0.8, confidence: null, canFocus: true }],
+      factors: [{ factorId: 'f1', label: 'Engineering capacity', influence: 0.8, confidenceDisplay: absent(), canFocus: true }],
     }
     expect(ids(noConfidence)).not.toContain('strengthen:lehi:f1')
+  })
+
+  // ── F5b ────────────────────────────────────────────────────────────────
+  // The two tests above use the policy's `displaySafe` TEST SEAM, so they
+  // prove the trigger still WORKS. This one proves what the product actually
+  // does today, which is the finding: `factor_sensitivity[].confidence` is
+  // `0.25` with `sampling_stability: 0` in both real staging captures, the
+  // ruled policy says that has no display-safe source, and the panel was
+  // nonetheless asserting "High influence, low evidence." about it.
+  it('F5b: does NOT assert "low evidence" from a confidence the ruled policy hides', () => {
+    // Positive control on the constant itself, so this test cannot pass for
+    // the wrong reason if someone flips the doctrine without reading here.
+    expect(DISPLAY_SAFE_DRIVER_CONFIDENCE).toBe(false)
+
+    const productionShape: StrengthenInputs = {
+      ...base,
+      factors: [
+        // The exact live value: high influence, the placeholder confidence.
+        { factorId: 'f1', label: 'Engineering capacity', influence: 0.8, confidenceDisplay: ruledOut(0.25), canFocus: true },
+      ],
+    }
+    const recs = buildRecommendations(productionShape)
+    expect(ids(productionShape)).not.toContain('strengthen:lehi:f1')
+    expect(recs.some(r => r.signal === 'High influence, low evidence.')).toBe(false)
+
+    // POSITIVE CONTROL (trap 13): the SAME engine, the SAME factor, the SAME
+    // 0.25 — only the display policy differs. It fires. So the absence above
+    // is caused by the gate and by nothing else.
+    const sameInputPolicyOpen: StrengthenInputs = {
+      ...productionShape,
+      factors: [{ ...productionShape.factors[0], confidenceDisplay: cleared(0.25) }],
+    }
+    const openRecs = buildRecommendations(sameInputPolicyOpen)
+    expect(ids(sameInputPolicyOpen)).toContain('strengthen:lehi:f1')
+    expect(openRecs.some(r => r.signal === 'High influence, low evidence.')).toBe(true)
+  })
+
+  // ── RELOCATED from StrengthenContainer.spec.tsx (Lane 2 / Codex R3-B1) ──
+  // The LEHI floor must key on the DISPLAY influence the panel's own bars
+  // show, not the raw producer `influence_score`; under partial producer
+  // coverage the two diverge and a raw-score gate would flag a factor the
+  // panel renders as weak. The container test that used to assert this became
+  // non-discriminating once the confidence policy closed LEHI off entirely
+  // (both divergence cases returned undefined for the same reason), so it
+  // lives here, where the policy seam can hold confidence constant and leave
+  // influence as the only variable.
+  it('LEHI floor keys on the DISPLAY influence, not the raw producer score', () => {
+    const withInfluence = (influence: number): StrengthenInputs => ({
+      ...base,
+      factors: [
+        { factorId: 'f1', label: 'Divergent', influence, confidenceDisplay: cleared(0.2), canFocus: true },
+      ],
+    })
+
+    // Display influence 0.9 (raw producer score would have been 0.1) → fires.
+    expect(ids(withInfluence(0.9))).toContain('strengthen:lehi:f1')
+    // Display influence 0.2 (raw producer score would have been 0.9) → does not.
+    expect(ids(withInfluence(0.2))).not.toContain('strengthen:lehi:f1')
   })
 
   it('lehi: high confidence or low influence suppresses', () => {
     const confident: StrengthenInputs = {
       ...base,
-      factors: [{ factorId: 'f1', label: 'X', influence: 0.8, confidence: 0.9, canFocus: true }],
+      factors: [{ factorId: 'f1', label: 'X', influence: 0.8, confidenceDisplay: cleared(0.9), canFocus: true }],
     }
     expect(ids(confident)).not.toContain('strengthen:lehi:f1')
     const weak: StrengthenInputs = {
       ...base,
-      factors: [{ factorId: 'f1', label: 'X', influence: 0.1, confidence: 0.25, canFocus: true }],
+      factors: [{ factorId: 'f1', label: 'X', influence: 0.1, confidenceDisplay: cleared(0.25), canFocus: true }],
     }
     expect(ids(weak)).not.toContain('strengthen:lehi:f1')
   })
@@ -102,7 +177,7 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
   it('voi: producer worth_investigating flag cites the producer; UI evpi fallback is HONESTLY labelled', () => {
     const producer: StrengthenInputs = {
       ...base,
-      factors: [{ factorId: 'f1', label: 'Churn', worthInvestigating: true, evpiPercentagePoints: 8, canFocus: true }],
+      factors: [{ factorId: 'f1', label: 'Churn', worthInvestigating: true, evpiPercentagePoints: 8, canFocus: true, confidenceDisplay: absent() }],
     }
     const rec = buildRecommendations(producer).find((r) => r.id === 'strengthen:voi:f1')
     expect(rec).toBeDefined()
@@ -111,7 +186,7 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
 
     const fallback: StrengthenInputs = {
       ...base,
-      factors: [{ factorId: 'f1', label: 'Churn', evpiPercentagePoints: 8, canFocus: true }],
+      factors: [{ factorId: 'f1', label: 'Churn', evpiPercentagePoints: 8, canFocus: true, confidenceDisplay: absent() }],
     }
     const rec2 = buildRecommendations(fallback).find((r) => r.id === 'strengthen:voi:f1')
     expect(rec2).toBeDefined()
@@ -122,7 +197,7 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
   it('voi: sub-threshold evpi without the producer flag suppresses', () => {
     const tiny: StrengthenInputs = {
       ...base,
-      factors: [{ factorId: 'f1', label: 'Churn', evpiPercentagePoints: 0.5, canFocus: true }],
+      factors: [{ factorId: 'f1', label: 'Churn', evpiPercentagePoints: 0.5, canFocus: true, confidenceDisplay: absent() }],
     }
     expect(ids(tiny)).not.toContain('strengthen:voi:f1')
   })
@@ -174,7 +249,7 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
       ...base,
       goalThreshold: null,
       fragileEdges: [{ edgeId: 'e1', factorLabel: 'X', switchProbability: 0.5 }],
-      factors: [{ factorId: 'f1', label: 'Churn', worthInvestigating: true, canFocus: true }],
+      factors: [{ factorId: 'f1', label: 'Churn', worthInvestigating: true, canFocus: true, confidenceDisplay: absent() }],
       phase3Items: [{ id: 'b1', title: 'T', targetIds: [], priorityRank: 1 }],
     }
     const recs = buildRecommendations(input).sort((a, b) => a.priority - b.priority)
@@ -389,7 +464,7 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
       ...base,
       adaptivePriority: 'evaluate',
       fragileEdges: [{ edgeId: 'e1', factorLabel: 'X', switchProbability: 0.5 }],
-      factors: [{ factorId: 'f1', label: 'Churn', worthInvestigating: true, canFocus: true }],
+      factors: [{ factorId: 'f1', label: 'Churn', worthInvestigating: true, canFocus: true, confidenceDisplay: absent() }],
     }
     const order = buildRecommendations(input)
       .sort((a, b) => a.priority - b.priority)
