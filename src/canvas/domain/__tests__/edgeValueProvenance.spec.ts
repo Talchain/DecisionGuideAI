@@ -12,6 +12,8 @@ import {
   edgeValueSource,
   isEdgeValueSet,
   edgeValueSourcePatch,
+  resolveEdgeValueDisplay,
+  resolveEdgeSignedStrengthDisplay,
   EDGE_PROVENANCED_FIELDS,
 } from '../edgeValueProvenance'
 
@@ -115,5 +117,103 @@ describe('EdgeDataSchema — the markers survive a parse', () => {
     const parsed = EdgeDataSchema.parse({ ...USER_EDGE_DEFAULTS })
     expect(parsed.beliefExistsSource).toBeUndefined()
     expect(parsed.weightSource).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// resolveEdgeValueDisplay — the read-side gate
+// ---------------------------------------------------------------------------
+//
+// Paired throughout: every "hidden" assertion sits next to the stamped twin
+// that proves the resolver CAN show a value. Without the positive control the
+// hidden assertions would pass on a resolver that returned `show: false`
+// unconditionally.
+describe('resolveEdgeValueDisplay', () => {
+  it.each(EDGE_PROVENANCED_FIELDS)(
+    'hides %s on a freshly drawn edge — the number is there, the source is not',
+    (field) => {
+      const drawn = { ...USER_EDGE_DEFAULTS } as Record<string, unknown>
+      expect(typeof drawn[field]).toBe('number')
+      expect(resolveEdgeValueDisplay(drawn, field)).toEqual({ show: false, reason: 'not_set' })
+    },
+  )
+
+  it.each(EDGE_PROVENANCED_FIELDS)('POSITIVE CONTROL: shows %s once stamped', (field) => {
+    const stamped = {
+      ...USER_EDGE_DEFAULTS,
+      ...edgeValueSourcePatch({ [field]: 'user' } as never),
+    } as Record<string, unknown>
+    const got = resolveEdgeValueDisplay(stamped, field)
+    expect(got.show).toBe(true)
+    expect(got).toMatchObject({ source: 'user', value: (USER_EDGE_DEFAULTS as Record<string, number>)[field] })
+  })
+
+  it('distinguishes "not set" from "absent" — they are different sentences', () => {
+    expect(resolveEdgeValueDisplay({ weight: 0.3 }, 'weight')).toEqual({ show: false, reason: 'not_set' })
+    expect(resolveEdgeValueDisplay({}, 'weight')).toEqual({ show: false, reason: 'absent' })
+    expect(resolveEdgeValueDisplay(undefined, 'weight')).toEqual({ show: false, reason: 'absent' })
+  })
+
+  it('honours the legacy `belief` field, and back-compat producer evidence', () => {
+    // exists_probability is written ONLY by CEE ingestion, so it proves a producer value
+    // on graphs saved before the marker existed.
+    expect(resolveEdgeValueDisplay({ belief: 0.42, exists_probability: 0.42 }, 'beliefExists')).toEqual({
+      show: true,
+      value: 0.42,
+      source: 'cee',
+    })
+    // ...but a bare legacy number with no evidence stays hidden.
+    expect(resolveEdgeValueDisplay({ belief: 0.42 }, 'beliefExists')).toEqual({
+      show: false,
+      reason: 'not_set',
+    })
+  })
+
+  it('never returns a value without a source (the type-level guarantee, checked at runtime)', () => {
+    const samples: Array<Record<string, unknown>> = [
+      { ...DEFAULT_EDGE_DATA },
+      { ...USER_EDGE_DEFAULTS },
+      { weight: 0.9, direction: 'negative' },
+      { beliefExists: 0.8 },
+      {},
+    ]
+    for (const sample of samples) {
+      for (const field of EDGE_PROVENANCED_FIELDS) {
+        const got = resolveEdgeValueDisplay(sample, field)
+        if (got.show) expect(got.source).toBeTruthy()
+      }
+    }
+  })
+})
+
+describe('resolveEdgeSignedStrengthDisplay', () => {
+  it('hides the signed strength of a freshly drawn edge — the DIRECTION is defaulted too', () => {
+    // USER_EDGE_DEFAULTS pins direction 'positive'. Rendering "Raises" for an
+    // edge nobody characterised is the same fabrication as rendering "30%".
+    expect(resolveEdgeSignedStrengthDisplay({ ...USER_EDGE_DEFAULTS })).toEqual({
+      show: false,
+      reason: 'not_set',
+    })
+  })
+
+  it('POSITIVE CONTROL: shows it once the weight is stamped, and carries the sign', () => {
+    expect(
+      resolveEdgeSignedStrengthDisplay({ weight: 0.4, direction: 'negative', weightSource: 'user' }),
+    ).toEqual({ show: true, value: -0.4, source: 'user' })
+    expect(
+      resolveEdgeSignedStrengthDisplay({ weight: 0.4, direction: 'positive', weightSource: 'cee' }),
+    ).toEqual({ show: true, value: 0.4, source: 'cee' })
+  })
+
+  it('prefers CEE pre-signed strength_mean, which is itself back-compat evidence', () => {
+    expect(resolveEdgeSignedStrengthDisplay({ strength_mean: -0.62, weight: 0.62 })).toEqual({
+      show: true,
+      value: -0.62,
+      source: 'cee',
+    })
+  })
+
+  it('reports absent when there is no number at all', () => {
+    expect(resolveEdgeSignedStrengthDisplay({})).toEqual({ show: false, reason: 'absent' })
   })
 })
