@@ -1204,7 +1204,16 @@ export function PreAnalysisPanel({
     // computeSignedMean falls through to weight + direction (the canvas schema path).
     // Mark `userReviewedStrength: true` so `buildPriorityProgress` recognises
     // the edge as confirmed in the top-3 priority counter (pre-analysis-power-v2).
-    updateEdgeData(edgeId, { weight: value, strength_mean: undefined, userReviewedStrength: true })
+    //
+    // ⛔ `weightSource: 'user'` is REQUIRED here, not decorative. This handler
+    // fires when the user explicitly picks Weakly / Moderately / Strongly in
+    // `KeyRelationships`, i.e. the one case where the number genuinely came
+    // from a person. Without the stamp that real choice is indistinguishable
+    // from `USER_EDGE_DEFAULTS.weight`, so every downstream surface keeps
+    // saying "Not set" while the picker shows the chosen band highlighted —
+    // the two channels contradicting each other, which is the whole defect
+    // family. Mirrors `useInspectorMutations.setStrength`.
+    updateEdgeData(edgeId, { weight: value, strength_mean: undefined, userReviewedStrength: true, weightSource: 'user' })
   }, [])
 
   // Brief 5.8A D3b/D3c — bundle of T1 handlers. Stable identity so the

@@ -21,6 +21,7 @@ import { NodeChip, NodePopover } from './shared'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { cleanFactorLabel } from '../utils/labelUtils'
 import { biasSignal } from '../shared/biasSignalTitles'
+import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
 
 /** Truncate text at word boundary. */
 function truncateAtWord(text: string, maxLength: number): string {
@@ -157,18 +158,32 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     }
 
     // 2. Inferred factors with high leverage — top 2 by edge weight sum across all factors
+    //
+    // ⛔ Provenance gate — THE HIGHEST-CONSEQUENCE ONE IN THIS FAMILY. The line
+    // this produces ("Top gap: validate X") is the product TELLING THE USER
+    // WHICH FACTOR TO GO AND FIX. Every contribution to the ranking sum used to
+    // be `w ?? 0.5`, and `USER_EDGE_DEFAULTS`/`DEFAULT_EDGE_DATA` always define
+    // `weight`, so on a graph where nobody had set a single strength every
+    // factor scored `0.5 × (its out-degree)` — i.e. the recommendation was
+    // decided by out-degree and node iteration order, and presented as
+    // leverage. `aggregateEdgeSignedStrength` counts ONLY sourced strengths, so
+    // a factor with no evidence of leverage yields `show: false` and is left
+    // out of the ranking rather than handed a fabricated score; if NO factor
+    // has any sourced strength the whole step has nothing to rank on and falls
+    // through to the next triage rule instead of inventing a winner.
     const scoredFactors = factorNodes
       .filter(n => (n.data as Record<string, unknown> | undefined)?.category !== 'external')
-      .map(n => {
-        const outEdges = edges.filter(e => e.source === n.id)
-        const weightSum = outEdges.reduce((sum, e) => {
-          const w = (e.data as Record<string, unknown> | undefined)?.weight as number | undefined
-          return sum + (w ?? 0.5)
-        }, 0)
-        return { node: n, weightSum }
-      })
-      .sort((a, b) => b.weightSum - a.weightSum)
-    const topTwoIds = new Set(scoredFactors.slice(0, 2).map(s => s.node.id))
+      .map(n => ({
+        node: n,
+        leverage: aggregateEdgeSignedStrength(
+          edges.filter(e => e.source === n.id).map(e => e.data as Record<string, unknown> | undefined),
+          { magnitude: true },
+        ),
+      }))
+      .sort((a, b) => compareEdgeValueAggregates(a.leverage, b.leverage))
+    const topTwoIds = new Set(
+      scoredFactors.filter(s => s.leverage.show).slice(0, 2).map(s => s.node.id),
+    )
     const topInferred = scoredFactors.find(s => {
       if (!topTwoIds.has(s.node.id)) return false
       const os = (s.node.data as Record<string, unknown> | undefined)?.observedState as Record<string, unknown> | undefined

@@ -165,11 +165,16 @@ describe('Render matrix — FactorNode × view × phase', () => {
       { id: 'factor-4', type: 'factor', data: { type: 'factor', label: 'F4' } },
       { id: 'outcome-1', type: 'outcome', data: { type: 'outcome', label: 'Revenue' } },
     ],
+    // `weightSource` is REQUIRED on every edge here: the pre-analysis priority
+    // ranking is provenance-gated, and with no sourced strength anywhere there
+    // is no ranking, so no factor is quieted and the low-priority case below
+    // could not be reached at all. These are the weights the ranking is
+    // supposed to read.
     edges: [
-      { id: 'e1', source: 'factor-1', target: 'outcome-1', data: { weight: 1, direction: 'positive' } },
-      { id: 'e2', source: 'factor-2', target: 'outcome-1', data: { weight: 0.1, direction: 'positive' } },
-      { id: 'e3', source: 'factor-3', target: 'outcome-1', data: { weight: 0.1, direction: 'positive' } },
-      { id: 'e4', source: 'factor-4', target: 'outcome-1', data: { weight: 0.1, direction: 'positive' } },
+      { id: 'e1', source: 'factor-1', target: 'outcome-1', data: { weight: 1, direction: 'positive', weightSource: 'cee' } },
+      { id: 'e2', source: 'factor-2', target: 'outcome-1', data: { weight: 0.1, direction: 'positive', weightSource: 'cee' } },
+      { id: 'e3', source: 'factor-3', target: 'outcome-1', data: { weight: 0.1, direction: 'positive', weightSource: 'cee' } },
+      { id: 'e4', source: 'factor-4', target: 'outcome-1', data: { weight: 0.1, direction: 'positive', weightSource: 'cee' } },
     ],
   })
 

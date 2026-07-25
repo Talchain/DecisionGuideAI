@@ -30,6 +30,8 @@ import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
 import { OptionAdvancedEditor } from '../editors/OptionAdvancedEditor'
 import { ResultsLink } from '../shared/ResultsLink'
+import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
+import type { EdgeValueDisplay } from '../../../domain/edgeValueProvenance'
 
 export const OptionPanel = memo(function OptionPanel({
   nodeId,
@@ -122,7 +124,7 @@ export const OptionPanel = memo(function OptionPanel({
           nodeId: e.target,
           nodeKind: kind,
           label: String(tgt.data?.label ?? e.target),
-          strength: { weight: e.data?.weight ?? 0, direction: (e.data?.direction ?? 'positive') as 'positive' | 'negative' },
+          strength: resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined),
         }
       })
       .filter(Boolean) as Array<{
@@ -130,7 +132,7 @@ export const OptionPanel = memo(function OptionPanel({
         nodeId: string
         nodeKind: NodeType
         label: string
-        strength: { weight: number; direction: 'positive' | 'negative' }
+        strength: EdgeValueDisplay
       }>
   }, [edges, nodes, nodeId, interventionIds])
 

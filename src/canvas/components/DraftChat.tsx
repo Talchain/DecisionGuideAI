@@ -630,6 +630,7 @@ export function DraftChat() {
           ...edgeValueSourcePatch({
             beliefExists: (beliefExistsValue ?? confidence) !== undefined ? 'cee' : undefined,
             weight: weightSource !== 'default' ? 'cee' : undefined,
+            strengthStd: strengthStd !== undefined ? 'cee' : undefined,
           }),
           provenance: provenanceText,
           // Brief v2.2: New edge properties

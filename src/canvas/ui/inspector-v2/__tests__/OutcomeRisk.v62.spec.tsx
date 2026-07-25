@@ -25,7 +25,7 @@ function setOutcomeStore(overrides: Record<string, unknown> = {}) {
     edges: [
       { id: 'e1', source: 'fac1', target: 'out1', data: { weight: 0.65, direction: 'positive' } },
       { id: 'e2', source: 'fac2', target: 'out1', data: { weight: 0.3, direction: 'negative' } },
-      { id: 'e3', source: 'out1', target: 'goal1', data: { weight: 0.8 } },
+      { id: 'e3', source: 'out1', target: 'goal1', data: { weight: 0.8, weightSource: 'cee' } },
     ],
     results: { status: 'none', report: null },
     ...overrides,

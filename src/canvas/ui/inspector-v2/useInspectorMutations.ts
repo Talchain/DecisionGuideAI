@@ -62,7 +62,7 @@ export const EDGE_SETTER_FIELDS = {
   // into a set one, so the stamp is written in the same update as the value
   // and can never lag behind it.
   setStrength: ['weight', 'direction', 'weightSource'],
-  setStd: ['strengthStd'],
+  setStd: ['strengthStd', 'strengthStdSource'],
   setExistsProbability: ['beliefExists', 'beliefExistsSource'],
   setLabel: ['label'],
   setDirection: ['direction'],
@@ -285,7 +285,7 @@ export function useEdgeMutations(edgeId: string) {
   const setStd = useCallback((std: number) => {
     const edge = getEdge()
     if (!edge) return
-    updateEdge(edgeId, { data: { ...edge.data, strengthStd: std } })
+    updateEdge(edgeId, { data: { ...edge.data, strengthStd: std, strengthStdSource: 'user' } })
   }, [edgeId, updateEdge, getEdge])
 
   const setExistsProbability = useCallback((ep: number) => {

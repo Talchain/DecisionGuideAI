@@ -40,6 +40,7 @@ import { resolveCoaching } from '../coachingConfig'
 import { GoalAdvancedEditor } from '../editors/GoalAdvancedEditor'
 import { useAuth } from '../../../../contexts/AuthContext'
 import { isPersistenceActive } from '../../../../lib/persistenceActive'
+import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 
 export const GoalPanel = memo(function GoalPanel({
   nodeId,
@@ -190,14 +191,12 @@ export const GoalPanel = memo(function GoalPanel({
       .map(e => {
         const sourceNode = nodes.find(n => n.id === e.source)
         const kind = (sourceNode?.type || sourceNode?.data?.kind || 'factor') as NodeType
-        const weight = e.data?.weight ?? 0
-        const direction = (e.data?.direction ?? 'positive') as 'positive' | 'negative'
         return {
           edgeId: e.id,
           nodeId: e.source,
           nodeKind: kind,
           label: String(sourceNode?.data?.label ?? e.source),
-          strength: { weight, direction },
+          strength: resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined),
         }
       })
   }, [edges, nodes, nodeId])

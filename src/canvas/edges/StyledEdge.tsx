@@ -26,10 +26,12 @@ import { shouldShowEdgeLabel } from './edgeLabelVisibility'
 import { computeDirectionStroke } from './directionStroke'
 import { resolvePersistentLabelPlacements, type PlacementEdge } from './edgeLabelCollision'
 import { applyEdgeVisualProps } from '../theme/edges'
-import { formatConfidence, shouldShowLabel, getEdgeConfidence, computeSignedMean } from '../domain/edges'
+import { formatConfidence, shouldShowLabel, getEdgeConfidence } from '../domain/edges'
 import {
   resolveEdgeValueDisplay,
   resolveEdgeSignedStrengthDisplay,
+  compareEdgeValueDisplays,
+  type EdgeValueDisplay,
 } from '../domain/edgeValueProvenance'
 import { useIsDark } from '../hooks/useTheme'
 import { getEdgeLabel } from '../domain/edgeLabels'
@@ -38,7 +40,7 @@ import { EdgeEditPopover } from './EdgeEditPopover'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
 import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn } from '../utils/fragileEdgeMatch'
-import { existenceCertaintyToLineStyle, calculateEdgeImportance, weightMagnitudeToStrokeWidth } from '../utils/graphDisplayCalculations'
+import { existenceCertaintyToLineStyle, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
 import { getStrengthDescription, getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
@@ -234,17 +236,30 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // the edge label, the top-3 auto-labels, and the #451 projection halo, so it
   // no longer needs to hijack thickness. (Deliberate, Paul-approved encoding
   // change — see PR body.)
-  const edgeStrokeWidth = useMemo(
-    () => weightMagnitudeToStrokeWidth(computeSignedMean(edgeData as Record<string, unknown> | undefined)),
+  // ⛔ Provenance gate. `computeSignedMean` falls back to `weight`, which the
+  // edge defaults always define, so thickness — the channel the UI explicitly
+  // TEACHES the user to read as strength — reported 2px ("Strong") for every
+  // CEE edge whose strength nobody had set. An unset edge now draws at the
+  // floor width: it still has to be drawn, and the minimum is the only width
+  // that cannot be mistaken for a measurement. Colour (grey, above) carries
+  // the "no verdict" claim; width simply stops asserting one.
+  const edgeSignedStrength = useMemo(
+    () => resolveEdgeSignedStrengthDisplay(edgeData as Record<string, unknown> | undefined),
     [edgeData]
+  )
+  const edgeStrokeWidth = useMemo(
+    () => edgeSignedStrength.show
+      ? weightMagnitudeToStrokeWidth(edgeSignedStrength.value)
+      : UNSET_EDGE_STROKE_WIDTH,
+    [edgeSignedStrength]
   )
 
   // F.2 + E1: direction-based stroke colour (see directionStroke.ts for the
   // CVD-aware polarity palette and the ΔE rationale). Applies pre-run and
   // post-run; one source of truth shared with directionColour.spec.
   const directionStroke = useMemo(
-    () => computeDirectionStroke(direction, weight, edgeData?.weight, isDark),
-    [direction, weight, edgeData?.weight, isDark],
+    () => computeDirectionStroke(direction, edgeSignedStrength, isDark),
+    [direction, edgeSignedStrength, isDark],
   )
 
   // Decision Graph Display v2: Existence certainty line style
@@ -458,12 +473,23 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       return new Set(scores.slice(0, 3).map(s => s.id))
     }
 
-    // Pre-analysis: rank by |strength.mean|
-    const strengths = causalEdges.map(e => ({
-      id: e.id,
-      strength: Math.abs(computeSignedMean(e.data as Record<string, unknown> | undefined)),
-    }))
-    strengths.sort((a, b) => b.strength - a.strength)
+    // Pre-analysis: rank by |strength.mean|.
+    //
+    // ⛔ Provenance gate on the ORDER. `computeSignedMean` falls back to
+    // `weight`, which the edge defaults always supply, so on an unset graph
+    // every edge scored 0.3/0.5 and the three edges granted a PERMANENT
+    // on-canvas label were chosen by iteration order and presented as the
+    // strongest three. An edge whose strength nobody set is not a candidate:
+    // unset sorts last and is then dropped, so when fewer than three edges
+    // have a sourced strength fewer than three labels are pinned — rather
+    // than filling the quota from edges we know nothing about.
+    const strengths: Array<{ id: string; magnitude: EdgeValueDisplay }> = []
+    for (const e of causalEdges) {
+      const display = resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined)
+      if (!display.show) continue
+      strengths.push({ id: e.id, magnitude: { ...display, value: Math.abs(display.value) } })
+    }
+    strengths.sort((a, b) => compareEdgeValueDisplays(a.magnitude, b.magnitude, 'desc'))
     return new Set(strengths.slice(0, 3).map(s => s.id))
   }, [getEdges, getNode, isResultsMode, report])
 

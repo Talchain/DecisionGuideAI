@@ -41,6 +41,7 @@ import type { ValidationMetadata, UserAction } from '../../domain/validation'
 import {
   resolveEdgeValueDisplay,
   resolveEdgeSignedStrengthDisplay,
+  compareEdgeValueDisplays,
 } from '../../domain/edgeValueProvenance'
 
 /** Repair display entry for edge detail */
@@ -578,12 +579,16 @@ function RelationshipsSectionInner({
       const bSwitchProb = fragileEdgeSwitchProbMap.get(bId) ?? -1
       if (aSwitchProb !== bSwitchProb) return bSwitchProb - aSwitchProb
 
-      const aData = a.data as Record<string, unknown>
-      const bData = b.data as Record<string, unknown>
-      // Missing weight → sort last (-Infinity in descending order)
-      const aWeight = aData?.weight != null ? (aData.weight as number) : -Infinity
-      const bWeight = bData?.weight != null ? (bData.weight as number) : -Infinity
-      return bWeight - aWeight
+      // ⛔ Provenance gate on the ORDER. #473 gated this section's colour,
+      // width, StrengthBar and band label — the SORT was the one channel left,
+      // and its `!= null` guard was a tautology, so a card whose own body reads
+      // "Not set" still ranked above a measured one. Unset now sorts last for
+      // real, via the shared comparator rather than a sentinel.
+      return compareEdgeValueDisplays(
+        resolveEdgeValueDisplay(a.data as Record<string, unknown> | undefined, 'weight'),
+        resolveEdgeValueDisplay(b.data as Record<string, unknown> | undefined, 'weight'),
+        'desc',
+      )
     })
   }, [nonContestedEdges, fragileEdgeSwitchProbMap])
 

@@ -144,6 +144,7 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
       ...edgeValueSourcePatch({
         beliefExists: beliefExists !== undefined ? 'cee' : undefined,
         weight: wireSuppliedStrength ? 'cee' : undefined,
+        strengthStd: strengthStd !== undefined ? 'cee' : undefined,
       }),
       // CEE display provenance (snake_case → camelCase). Distinct from `provenance_source`.
       ...edgeProvenanceDisplayPatch(e),

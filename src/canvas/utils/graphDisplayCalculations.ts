@@ -122,6 +122,18 @@ export function existenceCertaintyToLineStyle(
  *   |mean| <  0.4 → 1.5px
  * Calls Math.abs internally — pass the signed mean directly.
  */
+/**
+ * The width an edge draws at when NOBODY HAS SET ITS STRENGTH.
+ *
+ * Equal to the thinnest measured band on purpose. An edge must be drawn, so
+ * some width is unavoidable; the floor is the only one that cannot be read as
+ * "this influence is strong". Callers reach it via the provenance gate
+ * (`resolveEdgeSignedStrengthDisplay`), never by passing a fabricated number
+ * into `weightMagnitudeToStrokeWidth` below — that function takes a `number`
+ * and so, by construction, cannot tell a measurement from a default.
+ */
+export const UNSET_EDGE_STROKE_WIDTH = 1.5
+
 export function weightMagnitudeToStrokeWidth(signedMean: number): number {
   const magnitude = Math.abs(signedMean)
   if (magnitude >= 0.7) return 3

@@ -26,11 +26,16 @@ import {
 
 describe('edgeValueProvenance — the UI defaults are NOT a source', () => {
   it.each(EDGE_PROVENANCED_FIELDS)(
-    'DEFAULT_EDGE_DATA carries a number for %s but no source, so it reads as NOT SET',
+    'DEFAULT_EDGE_DATA never counts as a source for %s',
     (field) => {
-      // The number IS there — this is exactly the trap: the value is present
-      // and plausible, which is why presence could never have been the test.
-      expect(typeof (DEFAULT_EDGE_DATA as Record<string, unknown>)[field]).toBe('number')
+      const raw = (DEFAULT_EDGE_DATA as Record<string, unknown>)[field]
+      // Where the constant DOES fabricate a value, the number IS there — that
+      // is exactly the trap: the value is present and plausible, which is why
+      // presence could never have been the test. `strengthStd` is the one
+      // provenanced field DEFAULT_EDGE_DATA omits (only USER_EDGE_DEFAULTS
+      // fabricates it), so it is legitimately absent here rather than unset.
+      if (raw !== undefined) expect(typeof raw).toBe('number')
+      // The half that matters holds either way.
       expect(edgeValueSource(DEFAULT_EDGE_DATA as Record<string, unknown>, field)).toBeNull()
       expect(isEdgeValueSet(DEFAULT_EDGE_DATA as Record<string, unknown>, field)).toBe(false)
     },

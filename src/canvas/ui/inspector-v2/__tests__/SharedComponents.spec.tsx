@@ -168,7 +168,7 @@ describe('ConnectionRow', () => {
       <ConnectionRow
         nodeKind="outcome"
         label="Revenue growth"
-        strength={{ weight: 0.45, direction: 'positive' }}
+        strength={{ show: true, value: 0.45, source: 'cee' }}
       />,
     )
     expect(screen.getByText('Revenue growth')).toBeTruthy()
@@ -180,7 +180,7 @@ describe('ConnectionRow', () => {
       <ConnectionRow
         nodeKind="outcome"
         label="Revenue growth"
-        strength={{ weight: 0.45, direction: 'positive' }}
+        strength={{ show: true, value: 0.45, source: 'cee' }}
         techMode={true}
       />,
     )

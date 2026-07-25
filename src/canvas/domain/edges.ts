@@ -238,6 +238,15 @@ export const EdgeDataSchema = z.object({
   beliefExistsSource: EdgeValueSourceEnum.optional(),
   /** Where `weight` came from. Absent ⇒ nobody set it (UI default). */
   weightSource: EdgeValueSourceEnum.optional(),
+  /**
+   * Where `strengthStd` came from. Absent ⇒ nobody set it (UI default).
+   *
+   * `USER_EDGE_DEFAULTS.strengthStd = 0.15` below, so a user-drawn edge carries
+   * a fabricated uncertainty that `KeyRelationships` rendered as a "Moderate
+   * confidence" dot. Unlike `weight`/`beliefExists` there is no producer-only
+   * raw field to fall back on — see the note in `edgeValueSource`.
+   */
+  strengthStdSource: EdgeValueSourceEnum.optional(),
 
   // Phase 3: Non-linear edge functions
   functionType: EdgeFunctionTypeEnum.default('linear'),   // How input transforms to output

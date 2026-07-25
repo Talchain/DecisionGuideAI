@@ -28,6 +28,7 @@ import { ResultsLink } from '../shared/ResultsLink'
 import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
 import { OutcomeAdvancedEditor } from '../editors/OutcomeAdvancedEditor'
+import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 
 // ─── Option comparison helpers ─────────────────────────────────────
 
@@ -158,8 +159,16 @@ export const OutcomePanel = memo(function OutcomePanel({
       const kind = tgt?.type || tgt?.data?.kind
       return kind === 'goal'
     })
-    if (!goalEdge || goalEdge.data?.weight == null) return null
-    return Math.round((goalEdge.data.weight as number) * 100)
+    if (!goalEdge) return null
+    // ⛔ Provenance gate. `goalEdge.data?.weight == null` was a TAUTOLOGY:
+    // `DEFAULT_EDGE_DATA`/`USER_EDGE_DEFAULTS` always define `weight`, so the
+    // null arm was dead and this rendered `USER_EDGE_DEFAULTS.weight` (0.3) as
+    // a green "Contributes to goal" bar plus a bold "30%". This is the literal
+    // twin of the defect already fixed in `OutcomeNode.tsx` — same shape, same
+    // comment, one file over, unfixed. Copied the fix rather than re-deriving.
+    const display = resolveEdgeSignedStrengthDisplay(goalEdge.data as Record<string, unknown> | undefined)
+    if (!display.show) return null
+    return Math.round(Math.abs(display.value) * 100)
   }, [edges, nodes, nodeId])
 
   // Inbound factors (drivers)
@@ -174,7 +183,7 @@ export const OutcomePanel = memo(function OutcomePanel({
           nodeId: e.source,
           nodeKind: kind,
           label: String(src?.data?.label ?? e.source),
-          strength: { weight: e.data?.weight ?? 0, direction: (e.data?.direction ?? 'positive') as 'positive' | 'negative' },
+          strength: resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined),
         }
       })
   }, [edges, nodes, nodeId])
