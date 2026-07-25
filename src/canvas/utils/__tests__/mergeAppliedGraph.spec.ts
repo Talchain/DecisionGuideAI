@@ -601,6 +601,35 @@ describe('reconcileAppliedGraph — edge value provenance', () => {
     expect(edge.data.weightSource).toBeUndefined() // …and is not credited to CEE
   })
 
+  it('drops an ORPHAN stamp even when the receipt DOES write (the escape-catcher)', () => {
+    // ⚠ THE MUTATION THAT ESCAPED FIRST TIME. The sibling case above passes
+    // even with the coupling rule deleted, because the no-op guard catches it
+    // instead — an assertion passing for the wrong reason. Here the receipt
+    // genuinely changes beliefExists, so the overlay DOES write; the no-op
+    // guard cannot mask anything. Weight is sent as 0.5 (== the mapper
+    // default) so it is NOT applied, and its orphan stamp must be dropped —
+    // otherwise 'CEE set this' lands on the user's own 0.7.
+    reconcileAppliedGraph({
+      nodes: [
+        { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+        { id: 'factor-1', kind: 'factor', label: 'Spend' },
+      ],
+      edges: [{
+        id: 'e-0', from: 'factor-1', to: 'goal-1',
+        weight: 0.5, belief_exists: 0.9,
+      }],
+    } as any)
+
+    const edge = useCanvasStore.getState().edges.find((e) => e.id === 'e-0') as any
+    // Proof the overlay really did write — without this the assertion below
+    // could pass simply because nothing happened at all.
+    expect(edge.data.beliefExists).toBe(0.9)
+    expect(edge.data.beliefExistsSource).toBe('cee')
+    // …and the orphan is gone.
+    expect(edge.data.weight).toBe(0.7)
+    expect(edge.data.weightSource).toBeUndefined()
+  })
+
   it('is still a strict no-op when only the stamp would change', () => {
     const historyBefore = (useCanvasStore.getState() as any).history?.past?.length
     const edgesBefore = useCanvasStore.getState().edges

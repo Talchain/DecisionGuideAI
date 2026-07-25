@@ -44,7 +44,7 @@
 
 import { normalizeAutoNoiseProvenance } from '../types'
 import { isValidConfidenceProvenance } from '../useResultsSectionData'
-import { resolveSeedUsed } from '../../../canvas/hooks/useV2Run'
+import { resolveSeedUsed } from '../../../canvas/hooks/resolveSeedUsed'
 
 /** Either this run reported the fact, or it did not. No defaults, no third state. */
 export type Provenanced<T> = { known: true; value: T } | { known: false }

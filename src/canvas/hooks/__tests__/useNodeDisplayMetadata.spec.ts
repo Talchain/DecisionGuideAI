@@ -430,7 +430,14 @@ describe('useNodeDisplayMetadata — unified row feed (C4 fix 2)', () => {
     }
     const { result } = renderHook(() => useNodeDisplayMetadata('B', 'factor'))
     expect(result.current.inSensitivityAnalysis).toBe(true)
-    expect(result.current.confidence).toBeCloseTo(0.7)
+    // ⚠ Was `toBeCloseTo(0.7)`. The subject of this case is that a METRIC-LESS
+    // ROW SURVIVES the merge — proven by the three assertions around this one,
+    // which are untouched. The confidence readback was incidental, and it now
+    // goes through the shared display policy
+    // (components/results/driverConfidenceDisplayPolicy): there is no
+    // display-safe driver-confidence source today, so the canvas withholds the
+    // figure exactly as the Drivers panel does. Row B is still IN the set.
+    expect(result.current.confidence).toBeNull()
     expect(result.current.influence).toBe(0)
     expect(result.current.influenceProvenance).toBe('normalised_elasticity')
   })
