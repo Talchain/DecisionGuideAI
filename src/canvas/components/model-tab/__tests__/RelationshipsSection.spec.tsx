@@ -94,6 +94,57 @@ function makeEdge(id: string, source: string, target: string, opts: {
 
 const nodes = [makeNode('f1', 'Factor A'), makeNode('f2', 'Factor B')]
 
+/** An edge exactly as a user drag produces it: numbers present, no stamps. */
+function makeUnstampedEdge(id: string, source: string, target: string, weight: number): Edge {
+  return {
+    id,
+    source,
+    target,
+    data: { ...USER_EDGE_DEFAULTS, weight, provenance: 'assumption' },
+  } as Edge
+}
+
+/**
+ * ORDER is a channel too, and it was the last one leaking here.
+ *
+ * #473 gated this section's colour, width, StrengthBar and band label. The
+ * SORT still read `aData?.weight != null ? weight : -Infinity` — a TAUTOLOGY,
+ * because `USER_EDGE_DEFAULTS`/`DEFAULT_EDGE_DATA` always define `weight`. So
+ * the `-Infinity` arm was dead and a card whose own body says "Not set" ranked
+ * above a measured one purely on its default.
+ *
+ * CLAIM TYPE: rendered ORDER — the sequence of `edge-card-*` testids in the
+ * DOM. Not visibility, not layout.
+ */
+describe('RelationshipsSection — sort order is provenance-gated', () => {
+  function renderedOrder(): string[] {
+    return Array.from(document.querySelectorAll('[data-testid^="edge-card-"]')).map(
+      el => el.getAttribute('data-testid') as string,
+    )
+  }
+
+  it('ranks an unset edge BELOW a measured one, even when its default is larger', () => {
+    // The unset edge's fabricated weight (0.9) beats the measured one (0.2).
+    // Under the old sentinel it sorted first; "we measured a small effect"
+    // must outrank "nobody has said".
+    const edges = [
+      makeUnstampedEdge('unset', 'f1', 'f2', 0.9),
+      makeEdge('measured', 'f2', 'f1', { weight: 0.2 }),
+    ]
+    render(<RelationshipsSection edges={edges} nodes={nodes} />)
+    expect(renderedOrder()).toEqual(['edge-card-measured', 'edge-card-unset'])
+  })
+
+  it('still orders two MEASURED edges by weight descending (discrimination)', () => {
+    const edges = [
+      makeEdge('weak', 'f1', 'f2', { weight: 0.2 }),
+      makeEdge('strong', 'f2', 'f1', { weight: 0.9 }),
+    ]
+    render(<RelationshipsSection edges={edges} nodes={nodes} />)
+    expect(renderedOrder()).toEqual(['edge-card-strong', 'edge-card-weak'])
+  })
+})
+
 describe('RelationshipsSection', () => {
   it('renders empty state when no causal edges', () => {
     render(<RelationshipsSection edges={[]} nodes={nodes} />)
