@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OutcomeNode } from '../OutcomeNode'
-import { USER_EDGE_DEFAULTS } from '../../domain/edges'
+import { USER_EDGE_DEFAULTS, DEFAULT_EDGE_DATA } from '../../domain/edges'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -380,5 +380,53 @@ describe('OutcomeNode — Depends on overflow disclosure (audit §8 P0-5)', () =
       expect(screen.queryByText('30%')).toBeNull()
     })
 
+  })
+
+  // ── NEW-1: the bridge-to-goal % had a gate that could not fire ───────────
+  // `hasStrength = strength_mean present || weight != null` is a TAUTOLOGY —
+  // DEFAULT_EDGE_DATA / USER_EDGE_DEFAULTS always define `weight` — so every
+  // edge rendered the default as a bold coloured contribution figure. Same
+  // shape as F1's dead read gate, in a different file.
+  describe('bridge-to-goal contribution % (NEW-1)', () => {
+    const bridgeStore = (edgeData: Record<string, unknown>) =>
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector(makeStoreState({
+          results: { status: 'complete', report: null },
+          nodes: [
+            { id: 'outcome-1', type: 'outcome', data: { type: 'outcome' } },
+            { id: 'goal-1', data: { type: 'goal' } },
+          ],
+          edges: [{ id: 'b1', source: 'outcome-1', target: 'goal-1', data: edgeData }],
+        }) as any)
+      )
+
+    it('POSITIVE CONTROL: renders the figure for a strength somebody set', () => {
+      bridgeStore({ weight: 0.6, direction: 'positive', weightSource: 'user' })
+      renderOutcome()
+      expect(screen.getByText(/assumed strength/)).toBeDefined()
+      expect(screen.getByText(/60%/)).toBeDefined()
+    })
+
+    it('renders NOTHING for an edge nobody characterised (USER_EDGE_DEFAULTS)', () => {
+      bridgeStore({ ...USER_EDGE_DEFAULTS })
+      renderOutcome()
+      expect(USER_EDGE_DEFAULTS.weight).toBe(0.3)
+      expect(screen.queryByText(/30%/)).toBeNull()
+      expect(screen.queryByText(/assumed strength/)).toBeNull()
+    })
+
+    it('renders NOTHING for a bare DEFAULT_EDGE_DATA weight of 0.5', () => {
+      bridgeStore({ ...DEFAULT_EDGE_DATA })
+      renderOutcome()
+      expect(DEFAULT_EDGE_DATA.weight).toBe(0.5)
+      expect(screen.queryByText(/50%/)).toBeNull()
+      expect(screen.queryByText(/assumed strength/)).toBeNull()
+    })
+
+    it('POSITIVE CONTROL: accepts CEE back-compat evidence (strength_mean)', () => {
+      bridgeStore({ strength_mean: 0.45, weight: 0.3 })
+      renderOutcome()
+      expect(screen.getByText(/45%/)).toBeDefined()
+    })
   })
 })

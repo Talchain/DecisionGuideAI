@@ -370,8 +370,12 @@ describe('AdvancedSection', () => {
 // derived from the same `isDefaultedConfidence` flag the Drivers panel's
 // "Default estimate" pill uses.
 describe('AdvancedSection — the default-estimate disclosure (F10)', () => {
+  // NOTE: deliberately NO `trustLevel` / `trustReason`. The sentence used to
+  // live inside a paragraph gated on those two props, which no call site
+  // supplies — so a test that passed `trustLevel` would have gone green while
+  // the product showed nothing.
   function renderExpanded(props: Record<string, unknown>) {
-    render(<AdvancedSection trustLevel="moderate" {...props} />)
+    render(<AdvancedSection {...props} />)
     fireEvent.click(screen.getByText('Advanced and receipts'))
   }
 
