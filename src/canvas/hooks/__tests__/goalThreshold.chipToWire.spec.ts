@@ -9,11 +9,11 @@
  * asserts on JSON.parse(init.body). The wire is the truth; unit and parity
  * specs are supporting pins.
  *
- * PLACEMENT: lives under canvas/hooks (NOT src/v5/__tests__) deliberately —
- * tsconfig.ci.json's typecheck scope includes src/v5/**, and a v5-located
- * spec importing useV2Run would drag the whole canvas/adapter graph into
- * that scope, surfacing its pre-existing wide-baseline type errors (same
- * constraint documented in responseParser.actionTypeAlias.spec.ts).
+ * PLACEMENT: lives under canvas/hooks (NOT src/v5/__tests__). This was
+ * originally a workaround for the narrow tsconfig.ci.json gate, which only
+ * covered src/v5/**; that gate is gone and the whole tree is now typechecked,
+ * with pre-existing errors frozen in scripts/ci/typecheck-baseline.txt. The
+ * placement is now just conventional — co-located with the hook it pins.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest'
 

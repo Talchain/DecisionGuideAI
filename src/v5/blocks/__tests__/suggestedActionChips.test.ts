@@ -14,8 +14,10 @@
  * The whole-render "confirm renders exactly once" pin (both surfaces mounted in
  * one tree) lives in
  *   src/canvas/conversation/__tests__/heldProposalSingleConfirmOwner.spec.tsx
- * — it cannot live here because importing the conversation render graph would
- * drag ~1000 pre-existing errors into the narrow tsconfig.ci.json typecheck.
+ * — it was split out because importing the conversation render graph would
+ * drag ~1000 pre-existing errors into the old narrow tsconfig.ci.json
+ * typecheck. Those errors are now baselined repo-wide, so this is a
+ * separation-of-concerns split rather than a CI constraint.
  */
 import { describe, it, expect } from 'vitest'
 

@@ -4,12 +4,13 @@
  *
  * This is the debug-bundle counterpart to
  *   src/v5/__tests__/parser.phase3-blocks-tolerance.spec.ts
- * The bundle assertions live here (not in v5/__tests__) because
- * tsconfig.ci.json `include` is a small set of files plus the src/v5/
- * tree — pulling buildDebugBundleAsync / DebugData into the v5 graph
- * would surface latent type errors in untouched debug modules and break
- * CI. Debug __tests__ already live outside the ci typecheck graph (the
- * existing exportBundle specs use the same imports).
+ * The bundle assertions live here (not in v5/__tests__) originally because
+ * tsconfig.ci.json's `include` was a small hand-written set plus the src/v5/
+ * tree, so pulling buildDebugBundleAsync / DebugData into the v5 graph would
+ * surface latent type errors in untouched debug modules and break CI. That
+ * gate was replaced on 2026-07-25: everything is typechecked now and the
+ * pre-existing errors are frozen in scripts/ci/typecheck-baseline.txt. The
+ * split is retained because it keeps each spec on one subject.
  *
  * Acceptance points covered:
  *   - Unknown blocks[] types are TOLERATED (defensive hardening, 2026-06):

@@ -18,10 +18,12 @@
  * fixtures are genuinely legacy-shaped.
  *
  * Lives in `src/canvas/conversation/__tests__/` rather than in `src/v5/__tests__/`
- * deliberately. Importing `useConversation.ts` (where the bridge composition
- * function lives) from within `src/v5/**` would drag the entire conversation
- * graph into the tsconfig.ci.json typecheck scope (which is intentionally
- * limited to v5/**), surfacing pre-existing type errors in unrelated files.
+ * deliberately, though the original reason is now historical: importing
+ * `useConversation.ts` (where the bridge composition function lives) from
+ * within `src/v5/**` used to drag the conversation graph into the narrow
+ * tsconfig.ci.json scope and surface unrelated pre-existing errors. The gate
+ * now compiles everything, with those errors frozen in
+ * scripts/ci/typecheck-baseline.txt, so placement no longer affects CI.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'

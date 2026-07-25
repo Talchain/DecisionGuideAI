@@ -43,11 +43,11 @@ import { extractPhase3FromV5Response } from '../extractPhase3FromV5Response'
 
 // NOTE: end-to-end bridge wiring assertions (10a + 10b in the brief) live
 // in `src/canvas/conversation/__tests__/phase3ReviewCardBridge.liveFixture.spec.ts`.
-// Importing `composePhase3BridgedBlocks` from useConversation.ts here would
-// drag the entire conversation/adapter graph into the tsconfig.ci.json
-// typecheck scope (which is intentionally scoped to src/v5/**), surfacing
-// pre-existing type errors in unrelated files. Keeping this spec parser-
-// focused preserves the CI scope.
+// Importing `composePhase3BridgedBlocks` from useConversation.ts here used to
+// drag the conversation/adapter graph into the narrow tsconfig.ci.json scope
+// and surface unrelated pre-existing errors. That gate is gone — the whole tree
+// is typechecked and those errors are frozen in
+// scripts/ci/typecheck-baseline.txt — so this split is now for focus, not CI.
 
 // ─── Fixture loader ─────────────────────────────────────────────────────
 

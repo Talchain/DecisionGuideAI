@@ -39,7 +39,7 @@ function fixtureWithBlocks(blocks: unknown[]): Record<string, unknown> {
   }
 }
 
-// Concrete-call ReturnType keeps the spy typed under tsconfig.ci.json
+// Concrete-call ReturnType keeps the spy correctly typed
 // (bare `ReturnType<typeof vi.spyOn>` collapses to MockInstance<unknown[], unknown>
 // and fails assignment from the console.info overload).
 function spyOnConsoleInfo() {

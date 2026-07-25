@@ -25,11 +25,11 @@
  *
  * NOTE: debug-bundle integration assertions live in
  *   src/components/debug/__tests__/v5-cee-capture.phase3-tolerance.spec.ts
- * Pulling buildDebugBundleAsync / DebugData into the v5 typecheck graph
- * (tsconfig.ci.json includes only specific files plus the src/v5/ tree)
- * would surface latent type errors in untouched debug modules and break
- * CI. Keep the v5 spec focused on parser/extractor and runtime store
- * behaviour.
+ * Pulling buildDebugBundleAsync / DebugData into the v5 typecheck graph used
+ * to surface latent type errors in untouched debug modules and break CI, back
+ * when tsconfig.ci.json covered only a hand-listed set plus src/v5/. The gate
+ * now compiles the whole tree against a frozen baseline, so this split is kept
+ * for focus: the v5 spec stays on parser/extractor and runtime store behaviour.
  */
 import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
