@@ -39,7 +39,6 @@ fi
 
 mkdir -p contracts/cee
 
-EXPECTED_COUNT=6
 SCHEMAS=(
   "turn-request.schema.json"
   "analysis-state.schema.json"
@@ -48,6 +47,25 @@ SCHEMAS=(
   "orchestrator-response-v2.schema.json"
   "stream-event.schema.json"
 )
+
+# Non-schema contract artefacts synced from elsewhere in the CEE tree.
+# Format: "<path relative to CEE repo root>:<destination basename in contracts/cee/>"
+#
+# field-coverage.allowlist.json is CEE's field-coverage audit allowlist. Its
+# entries assert, per wire path, that the field is "never rendered as text" /
+# "not user-facing". Those RENDERING claims cannot be enforced from CEE — the
+# render sites live in THIS repo — so DGAI enforces them in
+# tests/contracts/cee-rendering-claims.contract.test.ts against this synced
+# copy. Keeping the sync live is what stops the allowlist decaying into dated
+# hand-verified evidence.
+EXTRA_ARTEFACTS=(
+  "tests/contract/field-coverage.allowlist.json:field-coverage.allowlist.json"
+)
+
+# Derived, never hand-maintained: the count check below must always equal the
+# number of files this script is actually responsible for. A hardcoded literal
+# here would silently under-count the moment an artefact is added.
+EXPECTED_COUNT=$(( ${#SCHEMAS[@]} + ${#EXTRA_ARTEFACTS[@]} ))
 
 copied=0
 missing=0
@@ -67,15 +85,34 @@ for schema in "${SCHEMAS[@]}"; do
   fi
 done
 
+# Extra artefacts live outside CEE's contracts/ export dir, so they are read
+# from the CEE repo root rather than $CEE_CONTRACTS.
+for entry in "${EXTRA_ARTEFACTS[@]}"; do
+  src="${entry%%:*}"
+  dest="${entry##*:}"
+  if [ -f "$CEE_REPO/$src" ]; then
+    cp "$CEE_REPO/$src" "contracts/cee/$dest"
+    copied=$((copied + 1))
+  else
+    missing_names+=("$src")
+    missing=$((missing + 1))
+    if [ -n "$STRICT" ]; then
+      echo "ERROR: $src not found in $CEE_REPO"
+    else
+      echo "WARN: $src not found in $CEE_REPO (using local reference copy)"
+    fi
+  fi
+done
+
 # Verify final count matches expected
 actual_count=$(ls contracts/cee/*.json 2>/dev/null | wc -l | tr -d ' ')
 echo "CEE contracts synced: $copied copied, $missing using local reference"
-echo "Schema files in contracts/cee/: $actual_count (expected: $EXPECTED_COUNT)"
+echo "Files in contracts/cee/: $actual_count (expected: $EXPECTED_COUNT)"
 
 if [ -n "$STRICT" ]; then
   if [ "$missing" -gt 0 ]; then
     echo ""
-    echo "STRICT MODE: $missing required schema(s) missing from CEE repo:"
+    echo "STRICT MODE: $missing required contract artefact(s) missing from CEE repo:"
     printf '  - %s\n' "${missing_names[@]}"
     echo ""
     echo "Either update the CEE repo to export these schemas,"
@@ -86,5 +123,5 @@ if [ -n "$STRICT" ]; then
     echo "ERROR: Expected $EXPECTED_COUNT schemas in contracts/cee/, found $actual_count"
     exit 1
   fi
-  echo "All $EXPECTED_COUNT schemas synced successfully."
+  echo "All $EXPECTED_COUNT contract artefacts synced successfully."
 fi

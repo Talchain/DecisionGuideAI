@@ -67,6 +67,7 @@ jobs:
           sparse-checkout: |
             contracts/
             schemas/
+            tests/contract/
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
