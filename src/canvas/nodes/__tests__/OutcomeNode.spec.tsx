@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OutcomeNode } from '../OutcomeNode'
+import { USER_EDGE_DEFAULTS } from '../../domain/edges'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -119,7 +120,10 @@ describe('OutcomeNode', () => {
             id: 'e1',
             source: 'outcome-1',
             target: 'goal-1',
-            data: { weight: 0.75, direction: 'positive', beliefExists: null },
+            // Fixture stamped `weightSource: 'user'` (F4 follow-up) — see the
+            // matching note in RiskNode.spec.tsx. An unstamped 0.75 is
+            // indistinguishable from a UI default and no longer renders.
+            data: { weight: 0.75, direction: 'positive', beliefExists: null, weightSource: 'user' },
           },
         ],
       }) as any)
@@ -335,5 +339,46 @@ describe('OutcomeNode — Depends on overflow disclosure (audit §8 P0-5)', () =
     )
     renderOutcome()
     expect(screen.queryByText(/more in inspector/)).toBeNull()
+  })
+
+  // ── F4: pre-analysis "Strongest: X at N%." was a UI default spoken as prose ──
+  //
+  // POSITIVE CONTROL FIRST. Without a demonstrated PRESENCE the absence cases
+  // below prove nothing (trap 13): they would also pass if the popover simply
+  // never rendered.
+  describe('pre-analysis inbound strengths (F4)', () => {
+    const preAnalysisStore = (edgeData: Record<string, unknown>) =>
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector(makeStoreState({
+          results: { status: 'idle', report: null },
+          nodes: [
+            { id: 'outcome-1', type: 'outcome', data: { type: 'outcome', label: 'Revenue growth' } },
+            { id: 'f1', type: 'factor', data: { type: 'factor', label: 'Unit price' } },
+          ],
+          edges: [{ id: 'e1', source: 'f1', target: 'outcome-1', data: edgeData }],
+          viewMode: 'expert',
+        }) as any)
+      )
+
+    it('POSITIVE CONTROL: DOES render the figure for a strength somebody set', () => {
+      preAnalysisStore({ weight: 0.42, direction: 'positive', weightSource: 'cee' })
+      renderOutcome()
+      expect(screen.getByText(/Driven by:/)).toBeDefined()
+      expect(screen.getByText('42%')).toBeDefined()
+      expect(screen.queryByText(/Not set/)).toBeNull()
+    })
+
+    it('renders "Not set", never the USER_EDGE_DEFAULTS weight, for an edge merely drawn', () => {
+      preAnalysisStore({ ...USER_EDGE_DEFAULTS })
+      renderOutcome()
+      // The row IS rendered — the relationship is real, only the number is not.
+      expect(screen.getByText(/Driven by:/)).toBeDefined()
+      expect(screen.getByText('Unit price')).toBeDefined()
+      expect(screen.getByTestId('pre-analysis-strength-unset-e1')).toBeDefined()
+      // 0.3 → "30%" must not appear anywhere in the card.
+      expect(USER_EDGE_DEFAULTS.weight).toBe(0.3)
+      expect(screen.queryByText('30%')).toBeNull()
+    })
+
   })
 })

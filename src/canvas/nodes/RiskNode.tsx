@@ -6,12 +6,13 @@ import type { RiskImpact } from '../domain/nodes'
 import { calculateRiskSeverity, getRiskSeverityColors, cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { computeSignedMean } from '../domain/edges'
+import { resolveEdgeSignedStrengthDisplay } from '../domain/edgeValueProvenance'
 
 import { useNodeConnections } from '../hooks/useNodeConnections'
+import { usePreAnalysisInbound } from '../hooks/usePreAnalysisInbound'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, ConnRowsOverflow, Sep, NodeChip, NodePopover, ScienceIcon } from './shared'
+import { ConnRow, ConnRowsOverflow, Sep, NodeChip, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 
 export const RiskNode = memo((props: NodeProps) => {
@@ -44,9 +45,14 @@ export const RiskNode = memo((props: NodeProps) => {
     if (!goalNode) return null
     const edge = edges.find(e => e.source === props.id && e.target === goalNode.id)
     if (!edge) return null
-    const weight = (edge.data as any)?.weight as number | undefined
-    const hasStrength = typeof (edge.data as any)?.strength_mean === 'number' || weight != null
-    const signedMean = hasStrength ? computeSignedMean(edge.data as Record<string, unknown> | undefined) : null
+    // ⛔ Provenance gate. The previous test — `strength_mean` present OR
+    // `weight != null` — could NOT fire: `DEFAULT_EDGE_DATA`/`USER_EDGE_DEFAULTS`
+    // always define `weight`, so `hasStrength` was true for every edge that
+    // exists in the product and this rendered `USER_EDGE_DEFAULTS.weight` (0.3)
+    // as a bold coloured "contribution" figure. Same shape as the F1 defect in
+    // `RelationshipsSection`: a gate whose condition is a tautology.
+    const display = resolveEdgeSignedStrengthDisplay(edge.data as Record<string, unknown> | undefined)
+    const signedMean = display.show ? display.value : null
     return {
       signedMean,
       bridgeStrengthPct: signedMean != null ? Math.round(Math.abs(signedMean) * 100) : null,
@@ -56,21 +62,9 @@ export const RiskNode = memo((props: NodeProps) => {
   // ConnRow data: "Depends on:" — inbound edges from factors (post-analysis only)
   const inboundConnections = useNodeConnections(props.id, 'inbound')
 
-  // Pre-analysis inbound edges with strengths (for popover)
-  const preAnalysisInbound = useMemo(() => {
-    if (isPostAnalysis) return []
-    const inbound = edges.filter(e => e.target === props.id)
-    const items: { nodeLabel: string; strengthPct: number }[] = []
-    for (const edge of inbound) {
-      const sourceNode = nodes.find(n => n.id === edge.source)
-      if (!sourceNode) continue
-      const label = (sourceNode.data?.label as string) ?? 'Untitled'
-      const sm = computeSignedMean(edge.data as Record<string, unknown> | undefined)
-      items.push({ nodeLabel: label, strengthPct: Math.round(Math.abs(sm) * 100) })
-    }
-    items.sort((a, b) => b.strengthPct - a.strengthPct)
-    return items
-  }, [edges, nodes, props.id, isPostAnalysis])
+  // Pre-analysis inbound edges with strengths (for popover). Provenance-gated
+  // and shared with OutcomeNode — see `usePreAnalysisInbound`.
+  const { items: preAnalysisInbound, topSetItem: preAnalysisTopSet } = usePreAnalysisInbound(props.id)
 
   // Top factor for actionable guidance
   const topFactor = inboundConnections.length > 0 ? inboundConnections[0] : null
@@ -160,18 +154,8 @@ export const RiskNode = memo((props: NodeProps) => {
   // ----- Layer 2 content: pre-analysis popover -----
   const preAnalysisPopoverContent = !isPostAnalysis && preAnalysisInbound.length > 0 ? (
     <>
-      <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
-        Driven by {preAnalysisInbound.length} factor{preAnalysisInbound.length !== 1 ? 's' : ''}.
-        {preAnalysisInbound[0] && (
-          <> Strongest: {preAnalysisInbound[0].nodeLabel} at {preAnalysisInbound[0].strengthPct}%.</>
-        )}
-      </p>
-      {preAnalysisInbound.slice(0, 5).map((item, i) => (
-        <div key={i} className={`${typography.edgeLabel} text-text-light m-0 flex justify-between gap-2`}>
-          <span className="truncate">{item.nodeLabel}</span>
-          <span className={`${typography.nodeLabel} font-semibold shrink-0`}>{item.strengthPct}%</span>
-        </div>
-      ))}
+      <PreAnalysisDrivenByLine items={preAnalysisInbound} topSetItem={preAnalysisTopSet} />
+      <PreAnalysisInboundRows items={preAnalysisInbound.slice(0, 5)} />
       {/* Polish 4 review: removed the "Are there other risks?" /
           "What's the worst case?" chips. The body now carries the canonical
           pair ("What reduces this?" + "Add mitigation") in both phases — the
@@ -241,12 +225,7 @@ export const RiskNode = memo((props: NodeProps) => {
           <>
             <Sep />
             <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Driven by:</p>
-            {preAnalysisInbound.slice(0, 3).map((item, i) => (
-              <div key={i} className={`${typography.edgeLabel} text-text-light m-0 flex justify-between gap-2`}>
-                <span className="truncate">{item.nodeLabel}</span>
-                <span className={`${typography.nodeLabel} font-semibold shrink-0`}>{item.strengthPct}%</span>
-              </div>
-            ))}
+            <PreAnalysisInboundRows items={preAnalysisInbound.slice(0, 3)} />
             <ConnRowsOverflow total={preAnalysisInbound.length} shown={3} />
           </>
         )}

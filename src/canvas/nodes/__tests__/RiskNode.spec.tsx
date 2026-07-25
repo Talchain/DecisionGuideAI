@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { RiskNode } from '../RiskNode'
+import { USER_EDGE_DEFAULTS } from '../../domain/edges'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -158,7 +159,14 @@ describe('RiskNode', () => {
             id: 'e1',
             source: 'risk-1',
             target: 'goal-1',
-            data: { weight: 0.6, direction: 'negative', beliefExists: null },
+            // Fixture stamped `weightSource: 'user'` (F4 follow-up). Before the
+            // provenance gate an UNSTAMPED 0.6 rendered as "60% assumed strength",
+            // so this golden-UI test was pinning a value the product could not
+            // distinguish from `USER_EDGE_DEFAULTS.weight`. The test's subject is
+            // the LABEL WORDING for a strength somebody set, so the fixture now
+            // says somebody set it. The unstamped case is asserted separately
+            // below — that pair is the positive/negative control.
+            data: { weight: 0.6, direction: 'negative', beliefExists: null, weightSource: 'user' },
           },
         ],
       }) as any)
@@ -239,5 +247,46 @@ describe('RiskNode', () => {
     expect(screen.getByText('Risk Factor Three')).toBeDefined()
     expect(screen.queryByText('Risk Factor Four')).toBeNull()
     expect(screen.queryByText('Risk Factor Five')).toBeNull()
+  })
+
+  // ── F4: pre-analysis "Strongest: X at N%." was a UI default spoken as prose ──
+  //
+  // POSITIVE CONTROL FIRST. Without a demonstrated PRESENCE the absence cases
+  // below prove nothing (trap 13): they would also pass if the popover simply
+  // never rendered.
+  describe('pre-analysis inbound strengths (F4)', () => {
+    const preAnalysisStore = (edgeData: Record<string, unknown>) =>
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector(makeStoreState({
+          results: { status: 'idle', report: null },
+          nodes: [
+            { id: 'risk-1', type: 'risk', data: { type: 'risk', label: 'Key person dependency' } },
+            { id: 'f1', type: 'factor', data: { type: 'factor', label: 'Unit price' } },
+          ],
+          edges: [{ id: 'e1', source: 'f1', target: 'risk-1', data: edgeData }],
+          viewMode: 'expert',
+        }) as any)
+      )
+
+    it('POSITIVE CONTROL: DOES render the figure for a strength somebody set', () => {
+      preAnalysisStore({ weight: 0.42, direction: 'positive', weightSource: 'cee' })
+      renderRisk()
+      expect(screen.getByText(/Driven by:/)).toBeDefined()
+      expect(screen.getByText('42%')).toBeDefined()
+      expect(screen.queryByText(/Not set/)).toBeNull()
+    })
+
+    it('renders "Not set", never the USER_EDGE_DEFAULTS weight, for an edge merely drawn', () => {
+      preAnalysisStore({ ...USER_EDGE_DEFAULTS })
+      renderRisk()
+      // The row IS rendered — the relationship is real, only the number is not.
+      expect(screen.getByText(/Driven by:/)).toBeDefined()
+      expect(screen.getByText('Unit price')).toBeDefined()
+      expect(screen.getByTestId('pre-analysis-strength-unset-e1')).toBeDefined()
+      // 0.3 → "30%" must not appear anywhere in the card.
+      expect(USER_EDGE_DEFAULTS.weight).toBe(0.3)
+      expect(screen.queryByText('30%')).toBeNull()
+    })
+
   })
 })
