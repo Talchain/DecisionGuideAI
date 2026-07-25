@@ -140,7 +140,9 @@ function setStore(s: Scenario): void {
   } as never)
 }
 
-const nodeProps = (id: string) => ({
+type OptionNodeProps = Parameters<typeof OptionNode>[0]
+
+const nodeProps = (id: string): OptionNodeProps => ({
   id,
   type: 'option',
   data: OPTION_NODES.find(n => n.id === id)!.data,
@@ -151,7 +153,7 @@ const nodeProps = (id: string) => ({
   positionAbsoluteY: 0,
   dragging: false,
   zIndex: 0,
-}) as never
+} as unknown as OptionNodeProps)
 
 /** What the CANVAS says: does any option node claim to be the leading option? */
 function canvasAssertsLeadingOption(): boolean {

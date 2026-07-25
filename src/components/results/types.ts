@@ -10,6 +10,7 @@
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import type { ConstraintAnalysis } from '../../types/constraints'
 import type { M1CoachingReadiness } from '../../types/cee'
+import type { DecisionVerdict } from '../../lib/decisionVerdict'
 import type { ReportV1, OptionProbability } from '../../adapters/plot/types'
 import type { V2FactorSensitivity, V2OptionComparison } from '../../adapters/plot/v2/types'
 
@@ -461,6 +462,9 @@ export function normalizeAutoNoiseProvenance(raw: unknown): AutoNoiseProvenance 
 // (`useResultsSectionData`, the normaliser spec) keeps working unchanged.
 export type { HeadlineBandedBand, HeadlineBanded } from '../../lib/decisionVerdict'
 export { normalizeHeadlineBanded } from '../../lib/decisionVerdict'
+// `export ... from` re-exports without binding the names locally, and this
+// file references both below.
+import type { HeadlineBanded } from '../../lib/decisionVerdict'
 
 export interface DriverItem {
   /** Canonical identifier: node_id ?? factor_id ?? id ?? normalised(label) */
