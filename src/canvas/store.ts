@@ -3062,9 +3062,33 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // This allows comparison display: "+X pts above 'do nothing'"
     // Future: Could store per-option outcomes for cross-option comparison
 
-    // Save to run history
-    if (report && results.seed !== undefined) {
-      const graphHash = generateGraphHash(nodes, edges, results.seed)
+    // Save to run history.
+    //
+    // `results.seed` is set by `resultsStart`, which ONLY the direct Run-button
+    // path calls. The canonical V5 / conversation path dispatches through
+    // `resultsAnalysing` ("no seed is known yet"), so on a fresh session
+    // `results.seed` is `undefined` and this write was skipped entirely —
+    // while `last_result_hash` above was written regardless. A returning user
+    // therefore had a scenario record pointing at a run that had never been
+    // stored, `tryRestoreResultsFromHistory` found nothing, and the answer
+    // was replaced by the pre-analysis "Analyse first pass" state with the
+    // model still on the canvas. Verified live on staging 25 Jul 2026:
+    // `olumi-canvas-run-history` was never created by a conversation-driven run.
+    //
+    // The fallback is the engine's OWN echo (`meta.seed_used`) — the same
+    // value `useConversation` maps into the report — NOT a fabricated 0. When
+    // there is no echo either, the write is still skipped: a run identity
+    // built on an invented seed would fork the graph hash (CLAUDE.md trap #10).
+    const echoedSeed = (() => {
+      const raw = rawV2Response?.meta?.seed_used
+      if (raw == null) return undefined
+      const n = Number(raw)
+      return Number.isFinite(n) ? n : undefined
+    })()
+    const runHistorySeed = results.seed ?? echoedSeed
+
+    if (report && runHistorySeed !== undefined) {
+      const graphHash = generateGraphHash(nodes, edges, runHistorySeed)
 
       const graphSnapshot = JSON.parse(JSON.stringify({ nodes, edges })) as {
         nodes: typeof nodes
@@ -3074,7 +3098,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       const storedRun: StoredRun = {
         id: results.runId || crypto.randomUUID(),
         ts: Date.now(),
-        seed: results.seed,
+        seed: runHistorySeed,
         hash,
         adapter: 'auto', // TODO: Track actual adapter used
         summary: (report as any).summary || '',
