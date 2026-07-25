@@ -25,6 +25,7 @@ import { useCanvasStore } from '../store'
 import { useInitialLayoutGuard } from '../hooks/useInitialLayoutGuard'
 import { useMeasureThenLayout } from '../hooks/useMeasureThenLayout'
 import { useFitViewOnLayoutVersion } from '../hooks/useFitViewOnLayoutVersion'
+import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
 
 let mockNodesInitialized = true
 let mockNodeLookup = new Map<string, { measured?: { width?: number; height?: number } }>()
@@ -180,7 +181,7 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
     // fitView fired exactly once with the production contract — asserted
     // directly against the real useFitViewOnLayoutVersion hook output.
     expect(fitViewSpy).toHaveBeenCalledTimes(1)
-    expect(fitViewSpy).toHaveBeenCalledWith({ padding: FIT_PADDING, duration: 400 })
+    expect(fitViewSpy).toHaveBeenCalledWith({ padding: FIT_PADDING, minZoom: LABEL_LEGIBLE_ZOOM, duration: 400 })
 
     expect(useCanvasStore.getState().pendingLayout).toBe(false)
     expect(useCanvasStore.getState().layoutInProgress).toBe(false)
@@ -252,7 +253,7 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
     const lockedFinal = final.find((n) => n.id === 'locked')
     expect(lockedFinal?.position).toEqual({ x: 0, y: 0 })
     expect(fitViewSpy).toHaveBeenCalledTimes(1)
-    expect(fitViewSpy).toHaveBeenCalledWith({ padding: FIT_PADDING, duration: 400 })
+    expect(fitViewSpy).toHaveBeenCalledWith({ padding: FIT_PADDING, minZoom: LABEL_LEGIBLE_ZOOM, duration: 400 })
   })
 
   it('scenario A→B switch lays out B when B is stacked and fires fitView once for B (acceptance #5 + #6)', async () => {
@@ -297,6 +298,6 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
     const xs = final.map((n) => (n.position as { x: number }).x)
     expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(40)
     expect(fitViewSpy).toHaveBeenCalledTimes(1)
-    expect(fitViewSpy).toHaveBeenCalledWith({ padding: FIT_PADDING, duration: 400 })
+    expect(fitViewSpy).toHaveBeenCalledWith({ padding: FIT_PADDING, minZoom: LABEL_LEGIBLE_ZOOM, duration: 400 })
   })
 })
