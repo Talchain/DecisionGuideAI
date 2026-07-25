@@ -7,17 +7,21 @@
  * positive control that proves the reader can see a presence at all.
  */
 import { describe, it, expect } from 'vitest'
-import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS, EdgeDataSchema } from '../edges'
+import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS, EDGE_CONSTRAINTS, EdgeDataSchema } from '../edges'
 import {
   edgeValueSource,
   isEdgeValueSet,
   edgeValueSourcePatch,
   resolveEdgeValueDisplay,
   resolveEdgeSignedStrengthDisplay,
+  edgeValueBand,
+  withLiveEdgeValue,
+  EDGE_VALUE_BAND_CUTS,
   EDGE_PROVENANCED_FIELDS,
   EDGE_VALUE_SOURCE_KEYS,
   edgeSourceKey,
   stripEdgeValueSourceKeys,
+  type EdgeValueBand,
 } from '../edgeValueProvenance'
 
 describe('edgeValueProvenance — the UI defaults are NOT a source', () => {
@@ -267,5 +271,88 @@ describe('EDGE_VALUE_SOURCE_KEYS / stripEdgeValueSourceKeys (F11)', () => {
 
     const cleaned = { ...DEFAULT_EDGE_DATA, ...stripEdgeValueSourceKeys({ weightSource: 'user' }) }
     expect(isEdgeValueSet(cleaned, 'weight')).toBe(false)
+  })
+})
+
+// ───────────────────────────────────────────────────────────────────────────
+// edgeValueBand / withLiveEdgeValue — the NON-TEXT channels
+//
+// #472/#473/#474 gated the number. `EdgePanel.thresholdColor(v: number)` then
+// banded the very same defaults into a colour: `EDGE_CONSTRAINTS.beliefExists
+// .default` (0.7) and `USER_EDGE_DEFAULTS.beliefExists` (0.8) both landed in
+// the green band. These cases pin `unset` as a band in its own right and, per
+// the file's rule, pair every absence with the presence that proves the
+// function can still discriminate.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('edgeValueBand — a value nobody set has no band but `unset`', () => {
+  it('bands both non-showing reasons as unset', () => {
+    expect(edgeValueBand({ show: false, reason: 'not_set' })).toBe('unset')
+    expect(edgeValueBand({ show: false, reason: 'absent' })).toBe('unset')
+  })
+
+  it('POSITIVE CONTROL: a sourced value bands by magnitude', () => {
+    expect(edgeValueBand({ show: true, value: 0.9, source: 'user' })).toBe('high')
+    expect(edgeValueBand({ show: true, value: 0.5, source: 'cee' })).toBe('moderate')
+    expect(edgeValueBand({ show: true, value: 0.1, source: 'template' })).toBe('low')
+  })
+
+  it('cuts on the raw value at the documented boundaries, inclusive', () => {
+    expect(edgeValueBand({ show: true, value: EDGE_VALUE_BAND_CUTS.high, source: 'user' })).toBe('high')
+    expect(edgeValueBand({ show: true, value: 0.6999, source: 'user' })).toBe('moderate')
+    expect(edgeValueBand({ show: true, value: EDGE_VALUE_BAND_CUTS.moderate, source: 'user' })).toBe('moderate')
+    expect(edgeValueBand({ show: true, value: 0.3999, source: 'user' })).toBe('low')
+  })
+
+  it('THE DEFECT: the two real unset states used to band green — they now band unset', () => {
+    // Both of these are numbers a real edge carries, and both are >= 0.7.
+    expect(USER_EDGE_DEFAULTS.beliefExists).toBeGreaterThanOrEqual(EDGE_VALUE_BAND_CUTS.high)
+    expect(EDGE_CONSTRAINTS.beliefExists.default).toBeGreaterThanOrEqual(EDGE_VALUE_BAND_CUTS.high)
+
+    // Routed through the gate, neither can reach the green band.
+    expect(edgeValueBand(resolveEdgeValueDisplay(USER_EDGE_DEFAULTS as Record<string, unknown>, 'beliefExists'))).toBe('unset')
+    expect(edgeValueBand(resolveEdgeValueDisplay(DEFAULT_EDGE_DATA as Record<string, unknown>, 'beliefExists'))).toBe('unset')
+
+    // POSITIVE CONTROL: stamp the same number and the band appears.
+    const stamped = { ...USER_EDGE_DEFAULTS, beliefExistsSource: 'user' as const }
+    expect(edgeValueBand(resolveEdgeValueDisplay(stamped as Record<string, unknown>, 'beliefExists'))).toBe('high')
+  })
+
+  it('the type admits no number-only call — a band always names a verdict', () => {
+    // Compile-time property, asserted at runtime as documentation: every band
+    // this function can return is one of the four, and `unset` is reachable.
+    const bands = new Set<EdgeValueBand>([
+      edgeValueBand({ show: false, reason: 'not_set' }),
+      edgeValueBand({ show: true, value: 0.2, source: 'user' }),
+      edgeValueBand({ show: true, value: 0.5, source: 'user' }),
+      edgeValueBand({ show: true, value: 0.8, source: 'user' }),
+    ])
+    expect(bands).toEqual(new Set(['unset', 'low', 'moderate', 'high']))
+  })
+})
+
+describe('withLiveEdgeValue — retargets the value, never the verdict', () => {
+  it('re-points a shown display at the in-flight control value', () => {
+    const got = withLiveEdgeValue({ show: true, value: 0.2, source: 'cee' }, 0.85)
+    expect(got).toEqual({ show: true, value: 0.85, source: 'cee' })
+    expect(edgeValueBand(got)).toBe('high')
+  })
+
+  it('CANNOT launder: an unset display stays unset whatever value is passed', () => {
+    expect(withLiveEdgeValue({ show: false, reason: 'not_set' }, 0.95)).toEqual({
+      show: false,
+      reason: 'not_set',
+    })
+    expect(withLiveEdgeValue({ show: false, reason: 'absent' }, 0.95)).toEqual({
+      show: false,
+      reason: 'absent',
+    })
+    expect(edgeValueBand(withLiveEdgeValue({ show: false, reason: 'not_set' }, 0.95))).toBe('unset')
+  })
+
+  it('ignores a non-finite live value rather than banding NaN', () => {
+    const base = { show: true, value: 0.5, source: 'user' } as const
+    expect(withLiveEdgeValue(base, NaN)).toEqual(base)
+    expect(withLiveEdgeValue(base, Infinity)).toEqual(base)
   })
 })

@@ -35,7 +35,13 @@ import { ResultsLink } from '../shared/ResultsLink'
 import type { InspectorPanelProps } from '../types'
 import { isEdgeFragile, getFragileEdgeSwitchProbability } from '../../../utils/fragileEdgeMatch'
 import { resolveEdgeValuesCoaching } from '../coachingConfig'
-import { edgeValueSource } from '../../../domain/edgeValueProvenance'
+import {
+  edgeValueBand,
+  edgeValueSource,
+  resolveEdgeValueDisplay,
+  withLiveEdgeValue,
+  type EdgeValueBand,
+} from '../../../domain/edgeValueProvenance'
 import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
 import { StrengthBandButtons } from '../shared/StrengthBandButtons'
 import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
@@ -105,17 +111,37 @@ function InspectorSlider({
   )
 }
 
-// ─── Confidence threshold colour ───────────────────────────────────
-function thresholdColor(v: number): string {
-  if (v >= 0.7) return 'text-success'
-  if (v >= 0.4) return 'text-warning'
-  return 'text-danger'
+// ─── Existence band → channel tokens ───────────────────────────────
+//
+// ⛔ These used to be `thresholdColor(v: number)` / `thresholdTrackVar(v:
+// number)`: three branches each, `>= 0.7` green / `>= 0.4` amber / else red,
+// and NO branch that could express "nobody set this". `beliefExists` falls
+// through to `EDGE_CONSTRAINTS.beliefExists.default` (0.7) when absent and
+// `USER_EDGE_DEFAULTS` pins it at 0.8 when the user simply drew the edge — so
+// BOTH unset states banded GREEN, directly beneath this panel's own coaching
+// sentence "Nobody has said how likely this connection is to exist yet."
+// #472/#473 gated the number; the colour carried the same claim wordlessly,
+// and pre-attentively, which makes it the harder one to disbelieve.
+//
+// The input is now `EdgeValueBand`, which is derived from `EdgeValueDisplay`
+// and therefore cannot be produced without a provenance verdict — a future
+// caller has no way to ask for "the colour of 0.7, source unknown". `Record`
+// rather than `switch`: adding a band is a type error here, not a silent
+// inheritance of a neighbour's colour.
+const EXISTENCE_BAND_TEXT: Record<EdgeValueBand, string> = {
+  unset: 'text-text-light',
+  low: 'text-danger',
+  moderate: 'text-warning',
+  high: 'text-success',
 }
 
-function thresholdTrackVar(v: number): string {
-  if (v >= 0.7) return 'var(--success)'
-  if (v >= 0.4) return 'var(--warning)'
-  return 'var(--danger)'
+// `undefined` ⇒ `InspectorSlider` renders no fill overlay at all. An unset
+// value gets a plain track, not a grey bar sized to a number nobody chose.
+const EXISTENCE_BAND_TRACK: Record<EdgeValueBand, string | undefined> = {
+  unset: undefined,
+  low: 'var(--danger)',
+  moderate: 'var(--warning)',
+  high: 'var(--success)',
 }
 
 export const EdgePanel = memo(function EdgePanel({
@@ -173,6 +199,22 @@ export const EdgePanel = memo(function EdgePanel({
   const [localStrength, setLocalStrength] = useState(signedValue)
   const [localBelief, setLocalBelief] = useState(beliefExists)
   const [localStd, setLocalStd] = useState(strengthStd)
+
+  // Existence band for the colour + track-fill channels. Provenance comes from
+  // the STORE (the only thing that knows whether anyone set this); the value
+  // comes from the live slider, so the colour bands the number on screen rather
+  // than one a debounce tick behind it. `withLiveEdgeValue` cannot upgrade an
+  // unset verdict, so this composition cannot fabricate a source.
+  const existenceBand: EdgeValueBand = useMemo(
+    () =>
+      edgeValueBand(
+        withLiveEdgeValue(
+          resolveEdgeValueDisplay(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
+          localBelief,
+        ),
+      ),
+    [edge?.data, localBelief],
+  )
 
   // Fragility check
   const isFragile = useMemo(() => {
@@ -338,11 +380,11 @@ export const EdgePanel = memo(function EdgePanel({
                     max={1}
                     step={0.05}
                     onChange={handleBeliefChange}
-                    trackFillColor={thresholdTrackVar(localBelief)}
+                    trackFillColor={EXISTENCE_BAND_TRACK[existenceBand]}
                     aria-label="Connection existence probability"
                   />
                 </div>
-                <span className={`${typography.panelBody} min-w-[32px] text-right ${thresholdColor(localBelief)}`}>
+                <span data-testid="edge-existence-readout" className={`${typography.panelBody} min-w-[32px] text-right ${EXISTENCE_BAND_TEXT[existenceBand]}`}>
                   {Math.round(localBelief * 100)}%
                 </span>
               </div>
