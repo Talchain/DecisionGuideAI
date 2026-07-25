@@ -1808,14 +1808,31 @@ export function useConversation(): UseConversationReturn {
         })
       }
       out.push(...restored.messages)
-      out.push({
-        id: `boundary-${crypto.randomUUID().slice(0, 8)}`,
-        role: 'assistant',
-        content: '',
-        timestamp: new Date(),
-        synthetic: true,
-        sessionDivider: formatSessionBoundary(new Date()),
-      })
+      // Collapse consecutive boundaries. Each return appends a divider and the
+      // divider is itself persisted, so opening a decision five times without
+      // saying anything stacked five "Session resumed" lines with nothing
+      // between them (seen live 25 Jul). A boundary is only information when
+      // there is something on BOTH sides of it: if the restored history already
+      // ends with a divider, that divider IS this boundary — replace its
+      // timestamp rather than adding another.
+      const last = out[out.length - 1]
+      const endsWithDivider = last != null && typeof last.sessionDivider === 'string'
+      if (endsWithDivider) {
+        out[out.length - 1] = {
+          ...last,
+          timestamp: new Date(),
+          sessionDivider: formatSessionBoundary(new Date()),
+        }
+      } else {
+        out.push({
+          id: `boundary-${crypto.randomUUID().slice(0, 8)}`,
+          role: 'assistant',
+          content: '',
+          timestamp: new Date(),
+          synthetic: true,
+          sessionDivider: formatSessionBoundary(new Date()),
+        })
+      }
       return out
     },
     [],
