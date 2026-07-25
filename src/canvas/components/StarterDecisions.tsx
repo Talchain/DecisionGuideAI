@@ -3,7 +3,7 @@ import { ArrowUpRight } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { useShowToastSafe } from '../ToastContext'
 import { confirmReplaceCanvas } from '../blueprints/loadTemplateBlueprint'
-import { STARTERS, applyStarter } from '../starters/loadStarter'
+import { STARTERS, applyStarter, loadStarterPayload } from '../starters/loadStarter'
 import { typography } from '../../styles/typography'
 
 /**
@@ -77,13 +77,22 @@ export function StarterDecisions() {
         // without prompting (isDirty false, nodes.length 0).
         if (!confirmReplaceCanvas()) return
 
-        // Re-check emptiness immediately before applying: the confirm ran
-        // before the chunk await, and the canvas may have gained content in
-        // between (a hydrating saved scenario, a CEE draft landing).
-        // applyStarter REPLACES the whole graph, so dropping a stale click is
-        // the honest outcome — silently destroying visible work is not.
+        // Warm the fixture chunk WITHOUT touching the store. The payload is
+        // ~28 KB over the network on a cold first click, which is long enough
+        // for the canvas to gain content underneath us (a hydrating saved
+        // scenario, a CEE draft landing). Loading first puts the emptiness
+        // re-check immediately before the only call that mutates the canvas,
+        // rather than in front of the fetch.
+        await loadStarterPayload(starterId)
+
+        // applyStarter REPLACES the whole graph. If content arrived while the
+        // chunk was in flight it is visible on screen, and dropping a stale
+        // click is the honest outcome — silently destroying it is not. The
+        // user's click was made against an empty canvas, so re-prompting would
+        // be asking them to confirm a decision they never made.
         if (useCanvasStore.getState().nodes.length > 0) return
 
+        // The dynamic import is module-cached by now, so this does not refetch.
         await applyStarter(starterId)
       } catch (err) {
         if (import.meta.env.DEV) {

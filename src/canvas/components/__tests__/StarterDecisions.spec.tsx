@@ -28,9 +28,14 @@ vi.mock('../../blueprints/loadTemplateBlueprint', async (importOriginal) => {
 })
 
 const applyStarterMock = vi.fn(async (_id: string) => ({ nodeCount: 18, edgeCount: 35 }))
+const loadStarterPayloadMock = vi.fn(async (_id: string) => ({ nodes: [], edges: [] }))
 vi.mock('../../starters/loadStarter', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../starters/loadStarter')>()
-  return { ...actual, applyStarter: (id: string) => applyStarterMock(id) }
+  return {
+    ...actual,
+    applyStarter: (id: string) => applyStarterMock(id),
+    loadStarterPayload: (id: string) => loadStarterPayloadMock(id),
+  }
 })
 
 const showToastMock = vi.fn()
@@ -59,6 +64,7 @@ describe('StarterDecisions', () => {
     vi.clearAllMocks()
     confirmReplaceCanvasMock.mockReturnValue(true)
     applyStarterMock.mockResolvedValue({ nodeCount: 18, edgeCount: 35 })
+    loadStarterPayloadMock.mockResolvedValue({ nodes: [], edges: [] })
     setGraph(0)
   })
 
@@ -128,6 +134,25 @@ describe('StarterDecisions', () => {
       await waitFor(() =>
         expect(showToastMock).toHaveBeenCalledWith(STARTER_LOAD_FAILED_MESSAGE, 'error'),
       )
+    })
+
+    it('drops the click when the canvas gains content WHILE the chunk is loading', async () => {
+      // The guard this pins: the confirm was made against an empty canvas, but
+      // the ~28 KB fixture fetch is long enough for a hydrating scenario or a
+      // landing CEE draft to populate the canvas. applyStarter REPLACES the
+      // graph, so applying now would silently destroy work the user can see and
+      // was never asked about.
+      loadStarterPayloadMock.mockImplementation(async () => {
+        setGraph(12) // content arrives mid-fetch
+        return { nodes: [], edges: [] }
+      })
+      const user = userEvent.setup()
+      render(<StarterDecisions />)
+      await user.click(screen.getByTestId('starter-decision-market-entry'))
+      expect(applyStarterMock).not.toHaveBeenCalled()
+      // ...and it is dropped SILENTLY — a toast would blame the user for a
+      // race they did not cause.
+      expect(showToastMock).not.toHaveBeenCalled()
     })
 
     it('re-entrancy latch: a double click applies exactly once', async () => {
