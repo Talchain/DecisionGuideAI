@@ -128,6 +128,42 @@ jobs:
       - name: Starter fixtures match their source captures
         run: pnpm run ci:guard:starters
 
+  # ── Typecheck gate self-test (positive control) ──────────────────────
+  # The `tsc` job above asserts an ABSENCE ("no new type errors, no invisible
+  # files"). That assertion is worth nothing unless the gate can be shown to
+  # detect a PRESENCE — the gate it replaced was green for months while loading
+  # 9% of src, and nobody had ever watched it go red. This job deliberately
+  # breaks the tree four ways and asserts the gate fails each time (and passes
+  # when clean). Its own job so it runs in parallel and costs no serial time.
+  typecheck-selftest:
+    name: Typecheck Gate Self-Test
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      # The self-test derives the source set with `git ls-files`, so it needs a
+      # real checkout (actions/checkout gives one) and a clean working tree.
+      - name: Prove the typecheck gate actually bites
+        run: pnpm run typecheck:selftest
+
   # ── Security audit ───────────────────────────────────────────────────
   # Staging is the live PoC — the dependency-audit gate must run where deploys
   # actually happen (the #404 precedent: alarms fire on the staging path, not
@@ -430,18 +466,20 @@ jobs:
   # ── Gate (single required check for branch protection) ───────────────
   gate:
     name: Staging Gate
-    needs: [tsc, vitest, vitest-summary, build]
+    needs: [tsc, typecheck-selftest, vitest, vitest-summary, build]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Check all jobs passed
         run: |
           echo "Job results:"
-          echo "  tsc:             ${{ needs.tsc.result }}"
-          echo "  vitest:          ${{ needs.vitest.result }}"
-          echo "  vitest-summary:  ${{ needs.vitest-summary.result }}"
-          echo "  build:           ${{ needs.build.result }}"
+          echo "  tsc:                 ${{ needs.tsc.result }}"
+          echo "  typecheck-selftest:  ${{ needs.typecheck-selftest.result }}"
+          echo "  vitest:              ${{ needs.vitest.result }}"
+          echo "  vitest-summary:      ${{ needs.vitest-summary.result }}"
+          echo "  build:               ${{ needs.build.result }}"
           if [ "${{ needs.tsc.result }}" != "success" ] || \
+             [ "${{ needs.typecheck-selftest.result }}" != "success" ] || \
              [ "${{ needs.vitest.result }}" != "success" ] || \
              [ "${{ needs.vitest-summary.result }}" != "success" ] || \
              [ "${{ needs.build.result }}" != "success" ]; then
@@ -459,6 +497,9 @@ jobs:
             fi
             if [ "${{ needs.vitest-summary.result }}" != "success" ]; then
               echo "::error::vitest-summary is '${{ needs.vitest-summary.result }}' — cross-shard test-file count fell below the floor, or a shard artifact was missing. Open its job log."
+            fi
+            if [ "${{ needs.typecheck-selftest.result }}" != "success" ]; then
+              echo "::error::typecheck-selftest is '${{ needs.typecheck-selftest.result }}' — the typecheck gate did NOT go red when it should have. Treat every 'typecheck clean' claim on this branch as UNPROVEN until it passes."
             fi
             exit 1
           fi
