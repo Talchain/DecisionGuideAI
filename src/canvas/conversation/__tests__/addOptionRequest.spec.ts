@@ -20,6 +20,7 @@ import {
   NO_OUTCOME_CLAIM_VOCABULARY,
 } from '../addOptionRequest'
 import { buildChipMeta } from '../chipMeta'
+import { normaliseRawFactorValue } from '../../utils/observedStateHelpers'
 import { buildV5Payload } from '../../../v5/buildPayload'
 import { MAX_ADD_OPTION_INTERVENTIONS } from '../../../v5/chipParameters'
 
@@ -70,10 +71,24 @@ describe('detectAddOptionRequest', () => {
     ['Do you think we should add an option called Hybrid?'],
     ['Is it worth adding an option called Hybrid'],
     ['What if I add an option called Hybrid?'],
+    // ISOLATES THE QUESTION-MARK RULE. Every case above is also blocked by the
+    // imperative test, so without these the '?' rejection is untested — a
+    // mutation removing it escaped 68 green tests until they were added.
+    ['Can you add an option called Hybrid Pilot?'],
+    ['Please add an option called Hybrid Pilot?'],
+    ['Add an option called Hybrid Pilot?'],
     // Plural = a brainstorm request for the coach, not one resolved option.
     ['Add more options'],
     ['Add some alternatives to consider'],
     ['Create three new options'],
+    // ISOLATES THE SINGULAR RULE. The three above are all blocked by the
+    // quantifier word ("more"/"some"/"three"), not by the plural — so without
+    // these the singular constraint is untested, and a mutation admitting
+    // plurals escaped 68 green tests.
+    ['Add options called Hybrid and Franchise'],
+    ['Add alternatives called Hybrid'],
+    ['Create choices called Hybrid'],
+    ['Add the options called Hybrid'],
     // No nameable label — the free-text lane still handles it.
     ['Add an option'],
     ['Add an option to the model'],
@@ -125,6 +140,54 @@ describe('resolveAddOptionTargets', () => {
 
   it('reports no decision node on an empty canvas', () => {
     expect(resolveAddOptionTargets([]).decisionId).toBeNull()
+  })
+})
+
+// --- 2b. the raw→model-space rule -------------------------------------------
+
+describe('normaliseRawFactorValue', () => {
+  it('divides by a genuine positive cap', () => {
+    expect(normaliseRawFactorValue(20000, 40000)).toBe(0.5)
+  })
+
+  // A cap of 0 divides to Infinity and a negative cap flips the sign — both
+  // would reach CEE as a "genuine finite number" and commit silently. The
+  // guard, not the caller, is what stops them.
+  it.each([
+    ['zero', 0],
+    ['negative', -40000],
+    ['NaN', Number.NaN],
+    ['Infinity', Number.POSITIVE_INFINITY],
+  ])('treats a %s cap as no scale and returns the raw figure', (_name, cap) => {
+    expect(normaliseRawFactorValue(20000, cap)).toBe(20000)
+  })
+
+  it('treats a missing cap as no scale', () => {
+    expect(normaliseRawFactorValue(0.8, undefined)).toBe(0.8)
+    expect(normaliseRawFactorValue(0.8, null)).toBe(0.8)
+  })
+
+  it('never invents a value from a non-finite input', () => {
+    expect(normaliseRawFactorValue(Number.NaN, 40000)).toBeNaN()
+  })
+})
+
+describe('a zero cap cannot produce a non-finite intervention', () => {
+  const ZERO_CAP: Node[] = [
+    node('dec_1', 'decision', 'D'),
+    node('fac_zero', 'factor', 'Zero Cap', { value: 0, cap: 0, unit: '£' }),
+  ]
+  it('sends the typed figure, never Infinity', () => {
+    const r = buildAddOptionDispatch({
+      label: 'X',
+      changes: [{ factorId: 'fac_zero', rawValue: 500 }],
+      nodes: ZERO_CAP,
+    })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    const value = r.dispatch.parameters.interventions[0].value
+    expect(Number.isFinite(value)).toBe(true)
+    expect(value).toBe(500)
   })
 })
 
@@ -362,19 +425,18 @@ describe('the producer never claims an outcome', () => {
       nodes: GRAPH,
     })
     if (!r.ok) throw new Error('expected ok')
-    const strings = [r.dispatch.label, r.dispatch.message]
-    for (const s of strings) {
+    // SUBSTRING, not a word-boundary regex. A boundary assertion is the weaker
+    // prohibition (it misses "addedA", "successfully"), and weaker is the wrong
+    // direction for a rule whose whole job is to catch a claim.
+    for (const s of [r.dispatch.label, r.dispatch.message]) {
       for (const banned of NO_OUTCOME_CLAIM_VOCABULARY) {
-        expect(s.toLowerCase()).not.toMatch(new RegExp(`\\b${banned}\\b`))
+        expect(s.toLowerCase()).not.toContain(banned)
       }
     }
   })
 
   it('positive control — the vocabulary check can SEE a violation', () => {
-    const claim = 'Added option "Hybrid"'
-    const hits = NO_OUTCOME_CLAIM_VOCABULARY.filter((w) =>
-      new RegExp(`\\b${w}\\b`).test(claim.toLowerCase()),
-    )
-    expect(hits).toContain('added')
+    const claim = 'Added option "Hybrid"'.toLowerCase()
+    expect(NO_OUTCOME_CLAIM_VOCABULARY.filter((w) => claim.includes(w))).toContain('added')
   })
 })

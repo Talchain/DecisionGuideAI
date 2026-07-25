@@ -16,7 +16,24 @@ import type { ReactNode } from 'react'
 
 import { AIInputBar } from '../AIInputBar'
 import { ConversationProvider } from '../../conversation/ConversationContext'
+import { NO_OUTCOME_CLAIM_VOCABULARY } from '../../conversation/addOptionRequest'
 import { useCanvasStore } from '../../store'
+
+/**
+ * Lower-cased visible text, with text NODES joined by a space.
+ *
+ * `element.textContent` concatenates adjacent nodes with no separator, which
+ * silently welds the end of one string to the start of the next and defeats any
+ * word-boundary assertion across that seam. Every prohibition in this file runs
+ * through here so it cannot be fooled that way.
+ */
+function renderedText(el: Element): string {
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+  const parts: string[] = []
+  let node: Node | null
+  while ((node = walker.nextNode()) !== null) parts.push(node.textContent ?? '')
+  return parts.join(' ').toLowerCase()
+}
 
 const sendMessage = vi.fn()
 const dispatchAction = vi.fn()
@@ -254,11 +271,25 @@ describe('AIInputBar — add-option interception', () => {
   it('claims no outcome anywhere in the panel', () => {
     renderBar()
     send('Add an option called Hybrid Pilot')
-    const text = screen.getByTestId('add-option-panel').textContent!.toLowerCase()
-    for (const banned of ['added', 'created', 'saved', 'applied', 'updated', 'success']) {
-      expect(text).not.toMatch(new RegExp(`\\b${banned}\\b`))
+    const text = renderedText(screen.getByTestId('add-option-panel'))
+    for (const banned of NO_OUTCOME_CLAIM_VOCABULARY) {
+      expect(text).not.toContain(banned)
     }
-    // Positive control: the assertion above can SEE a claim when one is present.
-    expect('option added to your model').toMatch(/\badded\b/)
+  })
+
+  // ⭐ POSITIVE CONTROL, through the REAL check. Two earlier versions of this
+  // assertion were vacuous: `element.textContent` concatenates adjacent text
+  // nodes with no separator, so a heading mutated to "Option added" rendered as
+  // "Option addedA new option under…" and `\badded\b` did not match — the
+  // mutation escaped 68 green tests. `renderedText` joins text NODES, and the
+  // prohibition is a substring, not a word boundary.
+  it('positive control — renderedText + the vocabulary check SEE a planted claim', () => {
+    const host = document.createElement('div')
+    host.innerHTML = '<h3>Option added</h3><p>A new option under "D".</p>'
+    document.body.appendChild(host)
+    const text = renderedText(host)
+    expect(text).toContain('added')
+    expect(NO_OUTCOME_CLAIM_VOCABULARY.filter((w) => text.includes(w))).toContain('added')
+    host.remove()
   })
 })
