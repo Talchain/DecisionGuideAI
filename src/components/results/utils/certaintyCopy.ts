@@ -10,9 +10,13 @@
  *
  * Decision table (top-down, first match wins):
  *
- *   1. recommendationStability < 0.70
+ *   1. verdict.separation === 'tied'   (SINGLE VERDICT, 2026-07-25)
  *      → "no clear leading option, the result is sensitive to your estimates"
  *      (sub: "{winner} leads slightly more often", caveat: null)
+ *      The tie call belongs to `deriveDecisionVerdict`, which reads PLoT's
+ *      own `robustness.near_tie`. This rule used to fire on
+ *      `recommendationStability < 0.70`, denying a 52-point lead because it
+ *      was fragile — see the block comment at the rule itself.
  *
  *   2. analysisStatus === 'partial'
  *      → "Some analysis steps did not complete"
@@ -58,6 +62,7 @@
  */
 
 import type { M1CoachingReadiness } from '../../../types/cee'
+import type { DecisionVerdict } from '../../../lib/decisionVerdict'
 import type { ConfidenceTier } from '../types'
 
 export interface CertaintyCopyInput {
@@ -74,6 +79,13 @@ export interface CertaintyCopyInput {
    * without over-confident language.
    */
   winProbabilityGap?: number
+  /**
+   * SINGLE VERDICT: the shared answer to "is there a leading option?"
+   * (`src/lib/decisionVerdict.ts`), derived from the same PLoT report the
+   * canvas reads. This is the ONLY input entitled to make Rule 1 deny a
+   * leading option. Absent (older fixtures / callers) ⇒ no denial is made.
+   */
+  verdict?: DecisionVerdict
 }
 
 export interface CertaintyCopy {
@@ -130,6 +142,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
     analysisStatus,
     optionCount,
     winProbabilityGap,
+    verdict,
   } = input
 
   // Brief 5.2 Task 1: "by N points" suffix preserves the numeric lead in the
@@ -151,7 +164,26 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
     }
   }
 
-  if (recommendationStability != null && recommendationStability < 0.70) {
+  // SINGLE VERDICT (2026-07-25) — Rule 1 rewritten.
+  //
+  // It used to read `recommendationStability < 0.70` → "no clear leading
+  // option ... {winner} leads slightly more often". That is a CATEGORY ERROR
+  // and it produced the worst defect the end-to-end journey lane found: on a
+  // run where the winner held 72% against 20%, this printed "no clear leading
+  // option" and "leads slightly more often" about a **52-point lead**, while
+  // the canvas four inches away badged the same option "Leading option".
+  //
+  // Low stability means the ranking is FRAGILE, not that the options are
+  // TIED. Those are two different facts and the product must not trade one
+  // for the other. Whether a leading option exists is now answered in exactly
+  // one place — `deriveDecisionVerdict`, from PLoT's own `robustness.near_tie`
+  // — and every surface quotes it. Fragility keeps its own separate voice
+  // (the stability label, the footer, and the uncertainty calibration line
+  // this panel already renders beneath the headline).
+  //
+  // 'unknown' separation licenses SILENCE, never a denial: with fewer than
+  // two comparable options there is nothing to be close about.
+  if (verdict?.separation === 'tied') {
     return {
       headline: 'no clear leading option, the result is sensitive to your estimates',
       sub: `${winnerLabel} leads slightly more often`,

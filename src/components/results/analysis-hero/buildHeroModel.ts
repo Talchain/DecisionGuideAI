@@ -438,6 +438,21 @@ export function buildHeroModel(
   //   very_close     → 'none'    ("No option is clearly ahead.")
   // robustness_gated downgrades arrive already folded into the band by the
   // producer, so no copy keys off the flag here.
+  // SINGLE VERDICT (2026-07-25): the hero no longer resolves the producer band
+  // or bands win probabilities itself. Both are now done once, in
+  // `deriveDecisionVerdict` (src/lib/decisionVerdict.ts), and every surface
+  // that asserts or denies a leading option quotes that one answer — this
+  // hero, the results-panel headline, the canvas badge and the checks footer.
+  // The local resolution below is kept ONLY as the fallback for callers that
+  // do not yet supply a verdict (older fixtures), and is byte-identical to
+  // what it did before.
+  const sharedVerdict = recommendation.verdict ?? null
+  const sharedVerdictApplies =
+    sharedVerdict != null &&
+    headlineRow != null &&
+    sharedVerdict.separation !== 'unknown' &&
+    sharedVerdict.leaderId === headlineRow.id
+
   const producerBand = recommendation.headlineBanded ?? null
   const producerBandApplies =
     producerBand != null &&
@@ -456,7 +471,17 @@ export function buildHeroModel(
   const WIN_STRONG_LEADER = 0.65
   const WIN_MAJORITY = 0.5
   let leaderBand: 'strong' | 'ahead' | 'none' | null = null
-  if (producerBandApplies) {
+  if (sharedVerdictApplies) {
+    // clear → "most likely to be strongest overall"
+    // slight → "slightly ahead"
+    // tied → "No option is clearly ahead."
+    leaderBand =
+      sharedVerdict!.separation === 'clear'
+        ? 'strong'
+        : sharedVerdict!.separation === 'slight'
+          ? 'ahead'
+          : 'none'
+  } else if (producerBandApplies) {
     leaderBand =
       producerBand.band === 'clearly_ahead'
         ? 'strong'

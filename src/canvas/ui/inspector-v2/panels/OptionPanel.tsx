@@ -30,6 +30,7 @@ import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
 import { OptionAdvancedEditor } from '../editors/OptionAdvancedEditor'
 import { ResultsLink } from '../shared/ResultsLink'
+import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../../../lib/decisionVerdict'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import type { EdgeValueDisplay } from '../../../domain/edgeValueProvenance'
 
@@ -45,6 +46,18 @@ export const OptionPanel = memo(function OptionPanel({
   const isResultsMode = resultsStatus === 'complete'
   const optionComparison = useCanvasStore(s => s.results?.report?.option_comparison)
   const storyHeadlines = useCanvasStore(s => s.results?.report?.story_headlines)
+  // SINGLE VERDICT: the shared "is there a leading option?" answer, derived
+  // from the same PLoT report the canvas badge and results panel read.
+  const resultsReport = useCanvasStore(s => s.results?.report)
+
+  const verdict = useMemo(
+    () => deriveDecisionVerdict(resultsReport as DecisionVerdictReportLike | null | undefined, {
+      visibleOptionIds: new Set(
+        nodes.filter(n => n.type === 'option' || n.data?.type === 'option').map(n => n.id),
+      ),
+    }),
+    [resultsReport, nodes],
+  )
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
@@ -339,6 +352,12 @@ export const OptionPanel = memo(function OptionPanel({
                 const leaderPct = leader.winPct ?? 0
                 const gap = leaderPct - myPct
                 if (leader.isCurrent) {
+                  // SINGLE VERDICT (2026-07-25): the inspector may only say
+                  // "the leading option" when the shared verdict says one
+                  // exists. Previously this fired on being the local win-max,
+                  // so it could assert a leader in the same session where the
+                  // results panel said "no clear leading option".
+                  if (verdict.hasLeadingOption === false) return null
                   return <p className={`${typography.panelBody} text-success mt-1`}>Currently the leading option.</p>
                 }
                 if (gap <= 5) {

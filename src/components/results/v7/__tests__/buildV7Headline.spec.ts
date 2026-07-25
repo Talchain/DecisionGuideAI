@@ -54,7 +54,8 @@ describe('buildV7Headline — passthrough hero copy (V7 L4)', () => {
     expect(model.subline).toBe('Option A leads slightly more often')
   })
 
-  it('indeterminate decision state → "No clear leading option"', () => {
+  // Legacy path (no shared verdict supplied): both historic denials intact.
+  it('indeterminate decision state → "No clear leading option" (no-verdict legacy path)', () => {
     const winner = opt('a', 'Option A', 0.34, true)
     const model = buildV7Headline(
       rec({ recommendedOption: winner, allOptions: [winner, opt('b', 'Option B', 0.33)] }),
@@ -82,5 +83,49 @@ describe('buildV7Headline — passthrough hero copy (V7 L4)', () => {
     expect(model.headline).toBe('Option A performs best')
     // No runner-up gap is claimed when the winner carries no probability.
     expect(model.subline).toBeNull()
+  })
+})
+
+// ─── SINGLE VERDICT (2026-07-25) ────────────────────────────────────────────
+// This headline used to hold TWO independent denials of a leading option:
+// the producer's `nearTie.isTie` (correct) and `decisionState ===
+// 'indeterminate'` (which folds in stability thresholds, so a genuinely clear
+// lead was denied for being FRAGILE — the same category error the results
+// panel made, and the co-visible contradiction the journey lane caught).
+// Both are now one gate on the shared verdict.
+describe('buildV7Headline — SINGLE VERDICT gate', () => {
+  const clearVerdict = { leaderId: 'a', separation: 'clear' as const, hasLeadingOption: true, gapPp: 40, source: 'producer_near_tie' as const }
+  const tiedVerdict = { leaderId: 'a', separation: 'tied' as const, hasLeadingOption: false, gapPp: 3, source: 'producer_near_tie' as const }
+
+  it('does NOT deny a leading option merely because decisionState is indeterminate', () => {
+    const winner = opt('a', 'Option A', 0.70, true)
+    const model = buildV7Headline(
+      rec({ recommendedOption: winner, allOptions: [winner, opt('b', 'Option B', 0.30)], verdict: clearVerdict }),
+      'indeterminate',
+    )
+    expect(model.headline).not.toContain('No clear leading option')
+    expect(model.headline).toBe('Option A performs best')
+  })
+
+  it('DOES deny one when the shared verdict says the top two are tied', () => {
+    const winner = opt('a', 'Option A', 0.52, true)
+    const model = buildV7Headline(
+      rec({ recommendedOption: winner, allOptions: [winner, opt('b', 'Option B', 0.48)], verdict: tiedVerdict }),
+      'robust',
+    )
+    expect(model.headline).toBe('No clear leading option')
+  })
+
+  it('with no verdict (older fixtures) the historic producer-near-tie behaviour is unchanged', () => {
+    const winner = opt('a', 'Option A', 0.52, true)
+    const model = buildV7Headline(
+      rec({
+        recommendedOption: winner,
+        allOptions: [winner, opt('b', 'Option B', 0.48)],
+        nearTie: { isTie: true, topOptionId: 'a', secondOptionId: 'b', tiedOptionIds: [], gap: 0.04, threshold: 0.1 },
+      }),
+      'robust',
+    )
+    expect(model.headline).toBe('Too close to call')
   })
 })

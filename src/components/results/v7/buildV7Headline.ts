@@ -69,20 +69,31 @@ export function buildV7Headline(
     }
   }
 
-  // Near-tie — the producer's near-tie detection (recommendation.nearTie).
-  if (recommendation.nearTie?.isTie === true) {
+  // SINGLE VERDICT (2026-07-25): ONE gate for "is there a leading option?".
+  //
+  // This block used to hold TWO independent denials — `nearTie.isTie` (the
+  // producer's, correct) and `decisionState === 'indeterminate'` (which folds
+  // in stability thresholds 0.80/0.55, so a genuinely clear lead was denied
+  // for being FRAGILE). That second denial is the same category error the
+  // results-panel headline made, and it is removed: fragility is disclosed on
+  // its own surfaces, never by pretending the options are tied.
+  //
+  // The tie call now comes from the shared verdict (src/lib/decisionVerdict.ts),
+  // which reads PLoT's own `robustness.near_tie` — so this headline, the
+  // results-panel headline, the canvas badge, the analysis hero, the inspector
+  // and the checks footer all quote one answer. Absent verdict (older
+  // fixtures) keeps the historic producer-near-tie behaviour.
+  const verdict = recommendation.verdict
+  const noLeadingOption = verdict
+    ? verdict.separation === 'tied'
+    // No verdict (older fixtures / callers): byte-identical legacy behaviour,
+    // both denials intact. The live path always carries one.
+    : (recommendation.nearTie?.isTie === true || decisionState === 'indeterminate')
+  if (noLeadingOption) {
     return {
-      headline: 'Too close to call',
-      subline: `${winnerLabel} leads slightly more often`,
-      winProbability,
-      winnerLabel,
-    }
-  }
-
-  // Indeterminate (GAP) — no clear leader.
-  if (decisionState === 'indeterminate') {
-    return {
-      headline: 'No clear leading option',
+      // "Too close to call" is reserved for the producer's own explicit tie
+      // flag; the shared verdict's other tied paths use the plainer form.
+      headline: recommendation.nearTie?.isTie === true ? 'Too close to call' : 'No clear leading option',
       subline: `${winnerLabel} leads slightly more often`,
       winProbability,
       winnerLabel,

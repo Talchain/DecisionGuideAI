@@ -203,6 +203,9 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       analysisStatus: data.recommendation.analysisStatus,
       optionCount: data.recommendation.allOptions.length,
       winProbabilityGap,
+      // SINGLE VERDICT: the shared "is there a leading option?" answer,
+      // derived from the same PLoT report the canvas badge reads.
+      verdict: data.recommendation.verdict,
     })
   }, [
     data.recommendation.recommendedOption,
@@ -212,6 +215,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
     data.recommendation.allOptions.length,
     data.confidence.tier.tier,
     winProbabilityGap,
+    data.recommendation.verdict,
   ])
 
   // Brief 5.2 follow-up (ChatGPT P0 #1): the earlier gate was too narrow —
