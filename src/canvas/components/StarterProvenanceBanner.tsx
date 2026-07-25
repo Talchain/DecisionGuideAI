@@ -99,9 +99,14 @@ export function StarterProvenanceBanner() {
         <p className={`${typography.bodySmall} text-text-header`}>
           Saved example — Olumi drafted this model on {starter.provenance.capturedAt}. It wasn’t generated just now.
         </p>
+        {/* Says ONLY what the gate actually does. An earlier draft of this copy
+            read "…drafted or saved into your own decision", which was a promise
+            the product does not keep: the starter stamp rides a save, so
+            saving does NOT re-enable analysis. Re-drafting is the one route
+            that does, because the resulting graph comes from a CEE turn. */}
         <p className={`mt-1 ${typography.caption} text-text-light`}>
-          Edit anything on the canvas. Analysis is held until the model is drafted or saved into your
-          own decision — re-draft it live to run one.
+          Edit anything on the canvas. Analysis is held on a saved example — re-draft it live to
+          run one.
         </p>
         <button
           type="button"

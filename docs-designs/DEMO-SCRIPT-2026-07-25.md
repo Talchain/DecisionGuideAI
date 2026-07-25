@@ -37,8 +37,9 @@ Then, if it comes up, the honest detail:
   drafting) is on the roadmap. Simpler briefs draft at ~100%.
 - **Analysis is held on a saved example.** The banner says so. That is deliberate:
   the analysis engine works from its own copy of your decision, and a saved
-  example was never sent to it. Re-drafting or saving into your own decision is
-  what makes it analysable. It is a refusal, not a failure — the product would
+  example was never sent to it. **Re-drafting is what makes it analysable** —
+  saving does not, because the saved-example marker rides the save.
+  It is a refusal, not a failure — the product would
   rather decline than give you a number about a model it never received.
 
 ---

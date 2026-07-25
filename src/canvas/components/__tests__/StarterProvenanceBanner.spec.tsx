@@ -70,6 +70,19 @@ describe('StarterProvenanceBanner', () => {
       expect(screen.getByTestId('starter-provenance-banner')).toHaveTextContent(/analysis is held/i)
     })
 
+    it('does NOT promise that saving re-enables analysis — the stamp rides a save', () => {
+      // An earlier draft of this copy said "drafted or saved into your own
+      // decision". Saving does not strip `starterId`, so the gate still
+      // refuses: that sentence promised something the product does not do.
+      // Copy that overstates the product is the defect class this repo hunts,
+      // so it is pinned rather than left to review.
+      render(<StarterProvenanceBanner />)
+      const banner = screen.getByTestId('starter-provenance-banner')
+      expect(banner.textContent ?? '').not.toMatch(/saved into your own decision/i)
+      // The one route that DOES work is named.
+      expect(banner).toHaveTextContent(/re-draft it live/i)
+    })
+
     it('does not render on a graph with no starter provenance (a real CEE draft)', () => {
       setNodes({})
       const { container } = render(<StarterProvenanceBanner />)
