@@ -8,6 +8,21 @@
  */
 export { DefineSuccessModal, DEFINE_SUCCESS_COPY } from './DefineSuccessModal'
 export { DecisionRecordModal, DECISION_RECORD_COPY } from './DecisionRecordModal'
+export { HowComputedModal, HowComputedCard, HOW_COMPUTED_COPY } from './HowComputedModal'
+export { HowComputedTrigger } from './HowComputedTrigger'
+export {
+  useHowComputedStore,
+  openHowComputed,
+  closeHowComputed,
+  type HowComputedState,
+} from './howComputedStore'
+export {
+  buildMethodCard,
+  type MethodCardModel,
+  type Provenanced,
+  type ConfidenceCalibration,
+  type StabilityThresholds,
+} from './buildMethodCard'
 export {
   useSuccessMeasureStore,
   selectSuccessMeasure,
