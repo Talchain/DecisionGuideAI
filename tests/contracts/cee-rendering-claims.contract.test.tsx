@@ -402,7 +402,6 @@ describe('CEE rendering claims — coverage is exhaustive both ways', () => {
       lines.push(`  ${d}: ${list.length}`)
       for (const k of list) lines.push(`    - ${k}`)
     }
-    // eslint-disable-next-line no-console
     console.info(lines.join('\n'))
 
     // The one hard floor: if the probe set ever empties, this suite would be
