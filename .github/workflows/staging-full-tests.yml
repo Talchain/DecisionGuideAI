@@ -120,6 +120,14 @@ jobs:
       - name: React 185 guard (Zustand selectors)
         run: pnpm run ci:guard:zustand
 
+      # Starter scenarios are REAL captured CEE drafts. This re-derives the
+      # shipped fixtures + manifest from the committed source captures and
+      # byte-compares. Without it, the fixtures, the card copy and the redraft
+      # brief are three hand-maintainable mirrors that would drift green — the
+      # exact defect class CLAUDE.md trap 12 names. Fails the gate on drift.
+      - name: Starter fixtures match their source captures
+        run: pnpm run ci:guard:starters
+
   # ── Security audit ───────────────────────────────────────────────────
   # Staging is the live PoC — the dependency-audit gate must run where deploys
   # actually happen (the #404 precedent: alarms fire on the staging path, not

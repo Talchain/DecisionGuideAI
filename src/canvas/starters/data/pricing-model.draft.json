@@ -1,0 +1,1598 @@
+{
+  "schema_version": "3.0",
+  "nodes": [
+    {
+      "id": "dec_pricing",
+      "kind": "decision",
+      "label": "Pricing Model Transition Strategy",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "fac_enterprise_concentration",
+      "kind": "factor",
+      "label": "Top-10 Account Revenue Concentration",
+      "category": "external",
+      "prior": {
+        "distribution": "uniform",
+        "range_min": 0.2,
+        "range_max": 0.6000000000000001
+      },
+      "extractionType": "explicit",
+      "display_value": "0.2 to 0.6",
+      "provenance": "from_brief"
+    },
+    {
+      "id": "fac_enterprise_revenue_risk",
+      "kind": "factor",
+      "label": "Enterprise Account Revenue Exposure",
+      "observed_state": {
+        "value": 0.1,
+        "source": "cee_inference",
+        "extractionType": "inferred",
+        "factor_type": "revenue",
+        "uncertainty_drivers": [
+          "Not provided"
+        ]
+      },
+      "category": "controllable",
+      "display_value": "Low enterprise exposure (baseline)",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "fac_market_usage_appetite",
+      "kind": "factor",
+      "label": "Market Appetite for Usage-Based Pricing",
+      "category": "external",
+      "prior": {
+        "distribution": "uniform",
+        "range_min": 0.3,
+        "range_max": 0.8
+      },
+      "display_value": "0.3 to 0.8",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "fac_new_logo_conversion",
+      "kind": "factor",
+      "label": "New Logo Conversion Rate",
+      "observed_state": {
+        "value": 0.2,
+        "source": "cee_inference",
+        "extractionType": "inferred",
+        "factor_type": "probability",
+        "uncertainty_drivers": [
+          "Not provided"
+        ]
+      },
+      "category": "controllable",
+      "display_value": "Low new logo conversion (baseline)",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "fac_pricing_complexity",
+      "kind": "factor",
+      "label": "Pricing Model Operational Complexity",
+      "observed_state": {
+        "value": 0.2,
+        "source": "cee_inference",
+        "extractionType": "inferred",
+        "factor_type": "other",
+        "uncertainty_drivers": [
+          "Not provided"
+        ]
+      },
+      "category": "controllable",
+      "display_value": "Low operational complexity (baseline)",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "fac_usage_adoption",
+      "kind": "factor",
+      "label": "Bottom-Up Usage Adoption Enablement",
+      "observed_state": {
+        "value": 0.2,
+        "source": "cee_inference",
+        "extractionType": "inferred",
+        "factor_type": "probability",
+        "uncertainty_drivers": [
+          "Not provided"
+        ]
+      },
+      "category": "controllable",
+      "display_value": "Low adoption enablement (baseline)",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "goal_pricing_transition",
+      "kind": "goal",
+      "label": "Achieve Net Revenue Retention Above 110% While Enabling Bottom-Up Adoption",
+      "goal_threshold": 1.1,
+      "goal_threshold_raw": 110,
+      "goal_threshold_unit": "%",
+      "goal_threshold_cap": 150,
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "opt_full_switch",
+      "kind": "option",
+      "label": "Full Switch to Usage-Based at Renewal",
+      "interventions": {
+        "fac_usage_adoption": {
+          "value": 0.8,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_usage_adoption",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_enterprise_revenue_risk": {
+          "value": 0.8,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_enterprise_revenue_risk",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_new_logo_conversion": {
+          "value": 0.7,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_new_logo_conversion",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_pricing_complexity": {
+          "value": 0.3,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_pricing_complexity",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        }
+      },
+      "is_baseline": false,
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "opt_hybrid",
+      "kind": "option",
+      "label": "Hybrid Platform Fee Plus Usage",
+      "interventions": {
+        "fac_usage_adoption": {
+          "value": 0.5,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_usage_adoption",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_enterprise_revenue_risk": {
+          "value": 0.4,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_enterprise_revenue_risk",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_new_logo_conversion": {
+          "value": 0.5,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_new_logo_conversion",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_pricing_complexity": {
+          "value": 0.7,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_pricing_complexity",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        }
+      },
+      "is_baseline": false,
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "opt_new_logos_only",
+      "kind": "option",
+      "label": "Usage Pricing for New Logos Only",
+      "interventions": {
+        "fac_usage_adoption": {
+          "value": 0.4,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_usage_adoption",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_enterprise_revenue_risk": {
+          "value": 0.1,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_enterprise_revenue_risk",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_new_logo_conversion": {
+          "value": 0.6,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_new_logo_conversion",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_pricing_complexity": {
+          "value": 0.5,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_pricing_complexity",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        }
+      },
+      "is_baseline": false,
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "opt_status_quo",
+      "kind": "option",
+      "label": "Keep Per-Seat Pricing (Status Quo)",
+      "interventions": {
+        "fac_usage_adoption": {
+          "value": 0.2,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_usage_adoption",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_enterprise_revenue_risk": {
+          "value": 0.1,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_enterprise_revenue_risk",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_new_logo_conversion": {
+          "value": 0.2,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_new_logo_conversion",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_pricing_complexity": {
+          "value": 0.2,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_pricing_complexity",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        }
+      },
+      "is_baseline": true,
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "out_new_logo_growth",
+      "kind": "outcome",
+      "label": "New Logo Revenue Growth",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "out_nrr",
+      "kind": "outcome",
+      "label": "Net Revenue Retention",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "risk_billing_ops",
+      "kind": "risk",
+      "label": "Billing and Operational Complexity Burden",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "risk_enterprise_churn",
+      "kind": "risk",
+      "label": "Enterprise Account Downsell or Churn",
+      "observed_state": {
+        "value": 0.4,
+        "unit": "%",
+        "source": "brief_extraction",
+        "raw_value": 40,
+        "cap": 100,
+        "extractionType": "explicit",
+        "factor_type": "revenue"
+      },
+      "display_value": "40% of revenue at risk",
+      "provenance": "from_brief"
+    }
+  ],
+  "edges": [
+    {
+      "from": "dec_pricing",
+      "to": "opt_full_switch",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "dec_pricing",
+      "to": "opt_hybrid",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "dec_pricing",
+      "to": "opt_new_logos_only",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "dec_pricing",
+      "to": "opt_status_quo",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_enterprise_concentration",
+      "to": "risk_enterprise_churn",
+      "strength": {
+        "mean": 0.25,
+        "std": 0.1
+      },
+      "exists_probability": 0.95,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_enterprise_revenue_risk",
+      "to": "out_nrr",
+      "strength": {
+        "mean": -0.24782608695652172,
+        "std": 0.11565217391304349
+      },
+      "exists_probability": 0.85,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_enterprise_revenue_risk",
+      "to": "risk_enterprise_churn",
+      "strength": {
+        "mean": 0.65,
+        "std": 0.15
+      },
+      "exists_probability": 0.92,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_market_usage_appetite",
+      "to": "out_new_logo_growth",
+      "strength": {
+        "mean": 0.17131147540983604,
+        "std": 0.09344262295081965
+      },
+      "exists_probability": 0.72,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_market_usage_appetite",
+      "to": "out_nrr",
+      "strength": {
+        "mean": 0.12391304347826086,
+        "std": 0.08260869565217392
+      },
+      "exists_probability": 0.65,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_new_logo_conversion",
+      "to": "out_new_logo_growth",
+      "strength": {
+        "mean": 0.35040983606557374,
+        "std": 0.09344262295081965
+      },
+      "exists_probability": 0.87,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_new_logo_conversion",
+      "to": "out_nrr",
+      "strength": {
+        "mean": 0.16521739130434784,
+        "std": 0.08260869565217392
+      },
+      "exists_probability": 0.75,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_pricing_complexity",
+      "to": "out_nrr",
+      "strength": {
+        "mean": -0.12391304347826086,
+        "std": 0.08260869565217392
+      },
+      "exists_probability": 0.7,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_pricing_complexity",
+      "to": "risk_billing_ops",
+      "strength": {
+        "mean": 0.6,
+        "std": 0.14
+      },
+      "exists_probability": 0.88,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_usage_adoption",
+      "to": "out_new_logo_growth",
+      "strength": {
+        "mean": 0.4282786885245901,
+        "std": 0.10901639344262294
+      },
+      "exists_probability": 0.88,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_usage_adoption",
+      "to": "out_nrr",
+      "strength": {
+        "mean": 0.2891304347826087,
+        "std": 0.12391304347826086
+      },
+      "exists_probability": 0.82,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_full_switch",
+      "to": "fac_enterprise_revenue_risk",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_full_switch",
+      "to": "fac_new_logo_conversion",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_full_switch",
+      "to": "fac_pricing_complexity",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_full_switch",
+      "to": "fac_usage_adoption",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_hybrid",
+      "to": "fac_enterprise_revenue_risk",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_hybrid",
+      "to": "fac_new_logo_conversion",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_hybrid",
+      "to": "fac_pricing_complexity",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_hybrid",
+      "to": "fac_usage_adoption",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_new_logos_only",
+      "to": "fac_enterprise_revenue_risk",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_new_logos_only",
+      "to": "fac_new_logo_conversion",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_new_logos_only",
+      "to": "fac_pricing_complexity",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_new_logos_only",
+      "to": "fac_usage_adoption",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_status_quo",
+      "to": "fac_enterprise_revenue_risk",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_status_quo",
+      "to": "fac_new_logo_conversion",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_status_quo",
+      "to": "fac_pricing_complexity",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_status_quo",
+      "to": "fac_usage_adoption",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "out_new_logo_growth",
+      "to": "goal_pricing_transition",
+      "strength": {
+        "mean": 0.3,
+        "std": 0.12
+      },
+      "exists_probability": 0.88,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "out_nrr",
+      "to": "goal_pricing_transition",
+      "strength": {
+        "mean": 0.65,
+        "std": 0.12
+      },
+      "exists_probability": 0.95,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "risk_billing_ops",
+      "to": "goal_pricing_transition",
+      "strength": {
+        "mean": -0.2,
+        "std": 0.1
+      },
+      "exists_probability": 0.8,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "risk_enterprise_churn",
+      "to": "goal_pricing_transition",
+      "strength": {
+        "mean": -0.55,
+        "std": 0.14
+      },
+      "exists_probability": 0.92,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    }
+  ],
+  "options": [
+    {
+      "id": "opt_full_switch",
+      "label": "Full Switch to Usage-Based at Renewal",
+      "status": "ready",
+      "interventions": {
+        "fac_usage_adoption": {
+          "value": 0.8,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_usage_adoption",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_enterprise_revenue_risk": {
+          "value": 0.8,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_enterprise_revenue_risk",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_new_logo_conversion": {
+          "value": 0.7,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_new_logo_conversion",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_pricing_complexity": {
+          "value": 0.3,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_pricing_complexity",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        }
+      },
+      "provenance": {
+        "source": "brief_extraction"
+      },
+      "is_baseline": false
+    },
+    {
+      "id": "opt_hybrid",
+      "label": "Hybrid Platform Fee Plus Usage",
+      "status": "ready",
+      "interventions": {
+        "fac_usage_adoption": {
+          "value": 0.5,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_usage_adoption",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_enterprise_revenue_risk": {
+          "value": 0.4,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_enterprise_revenue_risk",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_new_logo_conversion": {
+          "value": 0.5,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_new_logo_conversion",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_pricing_complexity": {
+          "value": 0.7,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_pricing_complexity",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        }
+      },
+      "provenance": {
+        "source": "brief_extraction"
+      },
+      "is_baseline": false
+    },
+    {
+      "id": "opt_new_logos_only",
+      "label": "Usage Pricing for New Logos Only",
+      "status": "ready",
+      "interventions": {
+        "fac_usage_adoption": {
+          "value": 0.4,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_usage_adoption",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_enterprise_revenue_risk": {
+          "value": 0.1,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_enterprise_revenue_risk",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_new_logo_conversion": {
+          "value": 0.6,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_new_logo_conversion",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_pricing_complexity": {
+          "value": 0.5,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_pricing_complexity",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        }
+      },
+      "provenance": {
+        "source": "brief_extraction"
+      },
+      "is_baseline": false
+    },
+    {
+      "id": "opt_status_quo",
+      "label": "Keep Per-Seat Pricing (Status Quo)",
+      "status": "ready",
+      "interventions": {
+        "fac_usage_adoption": {
+          "value": 0.2,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_usage_adoption",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_enterprise_revenue_risk": {
+          "value": 0.1,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_enterprise_revenue_risk",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_new_logo_conversion": {
+          "value": 0.2,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_new_logo_conversion",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_pricing_complexity": {
+          "value": 0.2,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_pricing_complexity",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        }
+      },
+      "provenance": {
+        "source": "brief_extraction"
+      },
+      "is_baseline": true
+    }
+  ],
+  "goal_node_id": "goal_pricing_transition",
+  "validation_warnings": [
+    {
+      "code": "CAUSAL_CLAIM_DROPPED",
+      "message": "Dropped 8 malformed causal claim(s)",
+      "severity": "warn",
+      "details": {
+        "count": 8,
+        "first_3_reasons": [
+          "type: Invalid discriminator value. Expected 'direct_effect' | 'mediation_only' | 'no_direct_effect' | 'unmeasured_confounder'",
+          "type: Invalid discriminator value. Expected 'direct_effect' | 'mediation_only' | 'no_direct_effect' | 'unmeasured_confounder'",
+          "type: Invalid discriminator value. Expected 'direct_effect' | 'mediation_only' | 'no_direct_effect' | 'unmeasured_confounder'"
+        ]
+      }
+    },
+    {
+      "code": "OPTION_SIMILARITY",
+      "message": "Options \"Full Switch to Usage-Based at Renewal\" and \"Hybrid Platform Fee Plus Usage\" affect the same factors (Jaccard 1.00). Consider whether they represent genuinely different approaches.",
+      "severity": "info",
+      "details": {
+        "optionA": "opt_full_switch",
+        "optionB": "opt_hybrid",
+        "jaccard": 1
+      },
+      "suggestion": "Options affect the same factors — consider whether they represent genuinely different approaches"
+    },
+    {
+      "code": "OPTION_SIMILARITY",
+      "message": "Options \"Full Switch to Usage-Based at Renewal\" and \"Usage Pricing for New Logos Only\" affect the same factors (Jaccard 1.00). Consider whether they represent genuinely different approaches.",
+      "severity": "info",
+      "details": {
+        "optionA": "opt_full_switch",
+        "optionB": "opt_new_logos_only",
+        "jaccard": 1
+      },
+      "suggestion": "Options affect the same factors — consider whether they represent genuinely different approaches"
+    }
+  ],
+  "goal_constraints": [
+    {
+      "constraint_id": "constraint_out_nrr_min",
+      "node_id": "out_nrr",
+      "operator": ">=",
+      "value": 1.1,
+      "label": "net revenue retention floor",
+      "unit": "%",
+      "source_quote": "net revenue retention above 110%",
+      "confidence": 0.85,
+      "provenance": "explicit"
+    }
+  ],
+  "coaching": {
+    "summary": "The graph captures the core tension between enterprise revenue protection and bottom-up growth, but it underweights how each option differentially affects the top-10 accounts and lacks a mechanism linking enterprise concentration directly to NRR. Sharpening those links and adding a usage-floor constraint will make the trade-offs between the three live options much clearer.",
+    "strengthen_items": [
+      {
+        "id": "add-edge-concentration-to-nrr",
+        "label": "Wire enterprise concentration directly to NRR",
+        "detail": "Top-10 Account Revenue Concentration currently only flows to Enterprise Account Downsell or Churn, but 40% revenue concentration means even modest downsell directly moves Net Revenue Retention—add an edge from Top-10 Account Revenue Concentration to Net Revenue Retention to make that arithmetic visible.",
+        "action_type": "add_edge",
+        "bias_category": "neglect_of_base_rate"
+      },
+      {
+        "id": "quantify-enterprise-revenue-risk",
+        "label": "Quantify the revenue exposure per option for top-10 accounts",
+        "detail": "Assign a numeric range to Enterprise Account Revenue Exposure under each option (e.g., estimated ARR at risk if top-10 reprice to actual usage) so Hybrid Platform Fee Plus Usage and Usage Pricing for New Logos Only can be compared against the 110% NRR threshold rather than ranked qualitatively.",
+        "action_type": "quantify",
+        "bias_category": "overconfidence"
+      },
+      {
+        "id": "add-minimum-commit-constraint",
+        "label": "Add a minimum-commit or usage-floor constraint",
+        "detail": "A contractual usage floor on enterprise accounts is the primary lever that lets Hybrid Platform Fee Plus Usage protect NRR while still enabling bottom-up adoption; modeling it as an explicit constraint node would show which options can satisfy it and which cannot.",
+        "action_type": "add_constraint"
+      },
+      {
+        "id": "clarify-goal-dual-metric",
+        "label": "Separate NRR and bottom-up adoption into two ranked goals",
+        "detail": "Achieve Net Revenue Retention Above 110% While Enabling Bottom-Up Adoption bundles two potentially conflicting success criteria—clarify whether 110% NRR is a hard constraint or a target, and whether bottom-up adoption is a leading indicator or a co-equal goal, so trade-off decisions have a clear tiebreaker.",
+        "action_type": "clarify_goal",
+        "bias_category": "ambiguity_aversion"
+      }
+    ],
+    "widening_log": {
+      "elements_added": [],
+      "elements_considered_but_excluded": [
+        "Competitive pricing pressure node — relevant but not mentioned in brief and would require new factor",
+        "Customer success capacity node — operational but outside graph scope",
+        "Grandfathering / price-lock option — brief implies three live options are exhaustive"
+      ],
+      "brief_completeness": "partial"
+    },
+    "bias_signals": [
+      {
+        "type": "overconfidence",
+        "detail": "The brief assumes usage-based pricing will improve new logo conversion without evidence of Market Appetite for Usage-Based Pricing strength in the actual segment; this assumption flows unchecked into New Logo Revenue Growth.",
+        "target": "fac_market_usage_appetite"
+      },
+      {
+        "type": "loss_aversion",
+        "detail": "Framing Keep Per-Seat Pricing (Status Quo) as a live option alongside three transition strategies may anchor deliberation toward inaction; the status quo's own NRR trajectory under seat-pricing pressure is not modeled.",
+        "target": "opt_status_quo"
+      },
+      {
+        "type": "availability",
+        "detail": "Concentration on the top-10 accounts' downside risk may cause the team to underweight the compounding upside of Bottom-Up Usage Adoption Enablement on New Logo Revenue Growth over a multi-year horizon.",
+        "target": "fac_enterprise_concentration"
+      }
+    ]
+  },
+  "causal_claims": [],
+  "topology_plan": [],
+  "draft_warnings": [
+    {
+      "id": "goal_no_baseline_value",
+      "severity": "low",
+      "node_ids": [
+        "goal_pricing_transition"
+      ],
+      "edge_ids": [],
+      "affected_node_ids": [
+        "goal_pricing_transition"
+      ],
+      "affected_edge_ids": [],
+      "explanation": "Goal node has no observed_state.value set.",
+      "fix_hint": "Set goal node's observed_state.value to establish baseline for comparison"
+    }
+  ],
+  "analysis_ready": {
+    "options": [
+      {
+        "id": "opt_full_switch",
+        "label": "Full Switch to Usage-Based at Renewal",
+        "status": "ready",
+        "status_reason": "4 intervention(s) ready for analysis",
+        "interventions": {
+          "fac_usage_adoption": {
+            "value": 0.8,
+            "source": "brief_extraction",
+            "display_value": "Low adoption enablement (baseline)"
+          },
+          "fac_enterprise_revenue_risk": {
+            "value": 0.8,
+            "source": "brief_extraction",
+            "display_value": "Low enterprise exposure (baseline)"
+          },
+          "fac_new_logo_conversion": {
+            "value": 0.7,
+            "source": "brief_extraction",
+            "display_value": "Low new logo conversion (baseline)"
+          },
+          "fac_pricing_complexity": {
+            "value": 0.3,
+            "source": "brief_extraction",
+            "display_value": "Low operational complexity (baseline)"
+          }
+        },
+        "extraction_metadata": {
+          "source": "brief_extraction",
+          "confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "intervention_details": {
+          "fac_usage_adoption": {
+            "display_value": "Low adoption enablement (baseline)",
+            "normalised_value": 0.8
+          },
+          "fac_enterprise_revenue_risk": {
+            "display_value": "Low enterprise exposure (baseline)",
+            "normalised_value": 0.8
+          },
+          "fac_new_logo_conversion": {
+            "display_value": "Low new logo conversion (baseline)",
+            "normalised_value": 0.7
+          },
+          "fac_pricing_complexity": {
+            "display_value": "Low operational complexity (baseline)",
+            "normalised_value": 0.3
+          }
+        }
+      },
+      {
+        "id": "opt_hybrid",
+        "label": "Hybrid Platform Fee Plus Usage",
+        "status": "ready",
+        "status_reason": "4 intervention(s) ready for analysis",
+        "interventions": {
+          "fac_usage_adoption": {
+            "value": 0.5,
+            "source": "brief_extraction",
+            "display_value": "Low adoption enablement (baseline)"
+          },
+          "fac_enterprise_revenue_risk": {
+            "value": 0.4,
+            "source": "brief_extraction",
+            "display_value": "Low enterprise exposure (baseline)"
+          },
+          "fac_new_logo_conversion": {
+            "value": 0.5,
+            "source": "brief_extraction",
+            "display_value": "Low new logo conversion (baseline)"
+          },
+          "fac_pricing_complexity": {
+            "value": 0.7,
+            "source": "brief_extraction",
+            "display_value": "Low operational complexity (baseline)"
+          }
+        },
+        "extraction_metadata": {
+          "source": "brief_extraction",
+          "confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "intervention_details": {
+          "fac_usage_adoption": {
+            "display_value": "Low adoption enablement (baseline)",
+            "normalised_value": 0.5
+          },
+          "fac_enterprise_revenue_risk": {
+            "display_value": "Low enterprise exposure (baseline)",
+            "normalised_value": 0.4
+          },
+          "fac_new_logo_conversion": {
+            "display_value": "Low new logo conversion (baseline)",
+            "normalised_value": 0.5
+          },
+          "fac_pricing_complexity": {
+            "display_value": "Low operational complexity (baseline)",
+            "normalised_value": 0.7
+          }
+        }
+      },
+      {
+        "id": "opt_new_logos_only",
+        "label": "Usage Pricing for New Logos Only",
+        "status": "ready",
+        "status_reason": "4 intervention(s) ready for analysis",
+        "interventions": {
+          "fac_usage_adoption": {
+            "value": 0.4,
+            "source": "brief_extraction",
+            "display_value": "Low adoption enablement (baseline)"
+          },
+          "fac_enterprise_revenue_risk": {
+            "value": 0.1,
+            "source": "brief_extraction",
+            "display_value": "Low enterprise exposure (baseline)"
+          },
+          "fac_new_logo_conversion": {
+            "value": 0.6,
+            "source": "brief_extraction",
+            "display_value": "Low new logo conversion (baseline)"
+          },
+          "fac_pricing_complexity": {
+            "value": 0.5,
+            "source": "brief_extraction",
+            "display_value": "Low operational complexity (baseline)"
+          }
+        },
+        "extraction_metadata": {
+          "source": "brief_extraction",
+          "confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "intervention_details": {
+          "fac_usage_adoption": {
+            "display_value": "Low adoption enablement (baseline)",
+            "normalised_value": 0.4
+          },
+          "fac_enterprise_revenue_risk": {
+            "display_value": "Low enterprise exposure (baseline)",
+            "normalised_value": 0.1
+          },
+          "fac_new_logo_conversion": {
+            "display_value": "Low new logo conversion (baseline)",
+            "normalised_value": 0.6
+          },
+          "fac_pricing_complexity": {
+            "display_value": "Low operational complexity (baseline)",
+            "normalised_value": 0.5
+          }
+        }
+      },
+      {
+        "id": "opt_status_quo",
+        "label": "Keep Per-Seat Pricing (Status Quo)",
+        "status": "ready",
+        "status_reason": "4 intervention(s) ready for analysis",
+        "interventions": {
+          "fac_usage_adoption": {
+            "value": 0.2,
+            "source": "brief_extraction",
+            "display_value": "Low adoption enablement (baseline)"
+          },
+          "fac_enterprise_revenue_risk": {
+            "value": 0.1,
+            "source": "brief_extraction",
+            "display_value": "Low enterprise exposure (baseline)"
+          },
+          "fac_new_logo_conversion": {
+            "value": 0.2,
+            "source": "brief_extraction",
+            "display_value": "Low new logo conversion (baseline)"
+          },
+          "fac_pricing_complexity": {
+            "value": 0.2,
+            "source": "brief_extraction",
+            "display_value": "Low operational complexity (baseline)"
+          }
+        },
+        "extraction_metadata": {
+          "source": "brief_extraction",
+          "confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "is_baseline": true,
+        "intervention_details": {
+          "fac_usage_adoption": {
+            "display_value": "Low adoption enablement (baseline)",
+            "normalised_value": 0.2
+          },
+          "fac_enterprise_revenue_risk": {
+            "display_value": "Low enterprise exposure (baseline)",
+            "normalised_value": 0.1
+          },
+          "fac_new_logo_conversion": {
+            "display_value": "Low new logo conversion (baseline)",
+            "normalised_value": 0.2
+          },
+          "fac_pricing_complexity": {
+            "display_value": "Low operational complexity (baseline)",
+            "normalised_value": 0.2
+          }
+        }
+      }
+    ],
+    "goal_node_id": "goal_pricing_transition",
+    "status": "ready",
+    "bias_findings": [],
+    "goal_threshold": 1.1,
+    "model_adjustments": [
+      {
+        "code": "category_reclassified",
+        "node_id": "fac_enterprise_concentration",
+        "field": "nodes[fac_enterprise_concentration].category",
+        "reason": "Reclassified unreachable factor \"Top-10 Account Revenue Concentration\" to external with synthesised prior [0.2, 0.6000000000000001]",
+        "source": "deterministic_sweep"
+      },
+      {
+        "code": "category_reclassified",
+        "node_id": "fac_market_usage_appetite",
+        "field": "nodes[fac_market_usage_appetite].category",
+        "reason": "Reclassified unreachable factor \"Market Appetite for Usage-Based Pricing\" to external",
+        "source": "deterministic_sweep"
+      }
+    ]
+  },
+  "meta": {
+    "roots": [
+      "dec_pricing",
+      "fac_enterprise_concentration",
+      "fac_market_usage_appetite"
+    ],
+    "leaves": [
+      "goal_pricing_transition"
+    ],
+    "source": "assistant"
+  },
+  "quality": {
+    "overall": 9,
+    "structure": 8,
+    "coverage": 10,
+    "structural_proxy": 8,
+    "safety": 8
+  },
+  "_pipeline_outcome": {
+    "graph_drafted": true,
+    "graph_structurally_valid": true,
+    "deterministic_sweep_violations": 0,
+    "verification_status": "failed_degraded",
+    "validation_status": "skipped",
+    "enrichment_status": "complete",
+    "coaching_status": "complete",
+    "warnings": [
+      {
+        "stage": "verification",
+        "error": "Response does not conform to expected schema",
+        "degraded": true
+      }
+    ],
+    "rescue_score": 16,
+    "factor_value_coverage": {
+      "total": 6,
+      "explicit": 0,
+      "inferred_with_evidence": 4,
+      "fallback_default": 2
+    },
+    "edge_strength_unique_count": 14,
+    "llm_repair": {
+      "triggered": false,
+      "outcome": "skipped",
+      "fallback_reason": null,
+      "attempts": 0
+    },
+    "repair_provenance": [
+      {
+        "rule": "CONTROLLABLE_MISSING_DATA",
+        "code": "CONTROLLABLE_MISSING_DATA",
+        "node_or_edge_id": "nodes[fac_enterprise_revenue_risk].data",
+        "field": "graph",
+        "before": null,
+        "after": null,
+        "source": "fallback_default"
+      },
+      {
+        "rule": "CONTROLLABLE_MISSING_DATA",
+        "code": "CONTROLLABLE_MISSING_DATA",
+        "node_or_edge_id": "nodes[fac_new_logo_conversion].data",
+        "field": "graph",
+        "before": null,
+        "after": null,
+        "source": "fallback_default"
+      },
+      {
+        "rule": "CONTROLLABLE_MISSING_DATA",
+        "code": "CONTROLLABLE_MISSING_DATA",
+        "node_or_edge_id": "nodes[fac_pricing_complexity].data",
+        "field": "graph",
+        "before": null,
+        "after": null,
+        "source": "fallback_default"
+      },
+      {
+        "rule": "CONTROLLABLE_MISSING_DATA",
+        "code": "CONTROLLABLE_MISSING_DATA",
+        "node_or_edge_id": "nodes[fac_usage_adoption].data",
+        "field": "graph",
+        "before": null,
+        "after": null,
+        "source": "fallback_default"
+      },
+      {
+        "rule": "OBSERVABLE_EXTRA_DATA",
+        "code": "OBSERVABLE_EXTRA_DATA",
+        "node_or_edge_id": "nodes[fac_enterprise_concentration].data",
+        "field": "graph",
+        "before": null,
+        "after": null,
+        "source": "fallback_default"
+      },
+      {
+        "rule": "UNREACHABLE_FACTOR_RECLASSIFIED",
+        "code": "UNREACHABLE_FACTOR_RECLASSIFIED",
+        "node_or_edge_id": "nodes[fac_enterprise_concentration].category",
+        "field": "graph",
+        "before": null,
+        "after": null,
+        "source": "structure"
+      },
+      {
+        "rule": "UNREACHABLE_FACTOR_RECLASSIFIED",
+        "code": "UNREACHABLE_FACTOR_RECLASSIFIED",
+        "node_or_edge_id": "nodes[fac_market_usage_appetite].category",
+        "field": "graph",
+        "before": null,
+        "after": null,
+        "source": "structure"
+      },
+      {
+        "rule": "INBOUND_BUDGET_RESCALED",
+        "code": "INBOUND_BUDGET_RESCALED",
+        "node_or_edge_id": "edges[*→out_new_logo_growth]",
+        "field": "graph",
+        "before": null,
+        "after": null,
+        "source": "structure"
+      },
+      {
+        "rule": "INBOUND_BUDGET_RESCALED",
+        "code": "INBOUND_BUDGET_RESCALED",
+        "node_or_edge_id": "edges[*→out_nrr]",
+        "field": "graph",
+        "before": null,
+        "after": null,
+        "source": "structure"
+      }
+    ]
+  }
+}

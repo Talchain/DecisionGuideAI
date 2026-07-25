@@ -72,6 +72,7 @@
     "ci:guard:sandbox": "node tools/ci-guards/check-gotosandbox.mjs",
     "ci:guard:flags": "node tools/ci-guards/check-flags-drift.mjs",
     "ci:guard:zustand": "node tools/ci-guards/check-zustand-selectors.mjs",
+    "ci:guard:starters": "node scripts/build-starter-fixtures.mjs --check",
     "ci:guard:duplicates": "node tools/ci-guards/check-duplicates.mjs",
     "ci:guard:ds": "node tools/ci-guards/check-ds-compliance.mjs",
     "ci:guard:ds:enforce": "node tools/ci-guards/check-ds-compliance.mjs --enforce",

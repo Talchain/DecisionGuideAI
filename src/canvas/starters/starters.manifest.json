@@ -1,0 +1,114 @@
+{
+  "_generated": "scripts/build-starter-fixtures.mjs — DO NOT EDIT BY HAND. Run the script; `--check` fails CI on drift.",
+  "_strippedKeys": [
+    "trace",
+    "_timings"
+  ],
+  "starters": [
+    {
+      "id": "vendor-selection",
+      "title": "Customer Data Platform Selection",
+      "summary": "Replace CDP Within Budget, Deadline, and GDPR Constraints",
+      "brief": "We need to replace our customer data platform before the current contract renews in March. The shortlist is Segment, RudderStack, or building on our existing Snowflake warehouse with Fivetran. Our constraint is a £120k annual budget and a two-person data team who can't absorb much operational overhead. We also have GDPR obligations that rule out any vendor without EU data residency.",
+      "nodeCount": 17,
+      "edgeCount": 33,
+      "optionCount": 4,
+      "provenance": {
+        "source": "POST https://cee-staging.onrender.com/assist/v1/draft-graph",
+        "ceeBuild": "1b9d596",
+        "capturedAt": "2026-07-24",
+        "requestId": "26594773-dff4-48c1-aad5-7f9d0283e9c7",
+        "model": "claude-sonnet-4-6",
+        "promptVersion": "draft_graph_default@v195 (staging)",
+        "coachingStatus": "complete",
+        "captureFile": "docs/evidence/starters/raw/vendor-selection.capture.json",
+        "captureSha256": "8bf07d9591fe04a644b26d4a64d316042e5ce7dbf770abc02ab5f81bc8196720",
+        "note": "probe idx 11 — 17n/33e/4opt, 61.4s, coaching complete (the other vendor pass ran coaching skipped_budget)"
+      }
+    },
+    {
+      "id": "market-entry",
+      "title": "International Expansion Strategy",
+      "summary": "Grow Total ARR Materially Within 12 Months",
+      "brief": "We're a UK B2B SaaS company at £8M ARR and the board wants international expansion next year. The options are Germany first, the Nordics first, or staying UK-only and going deeper into financial services. We have budget for one new market team of about six people, and we can't afford to slow UK growth while we do it. Localisation and compliance effort differ a lot between these markets and we're not sure how to weigh that against market size.",
+      "nodeCount": 18,
+      "edgeCount": 35,
+      "optionCount": 3,
+      "provenance": {
+        "source": "POST https://cee-staging.onrender.com/assist/v1/draft-graph",
+        "ceeBuild": "1b9d596",
+        "capturedAt": "2026-07-24",
+        "requestId": "c17771c1-89a0-4839-bfb6-b269c21783e6",
+        "model": "claude-sonnet-4-6",
+        "promptVersion": "draft_graph_default@v195 (staging)",
+        "coachingStatus": "complete",
+        "captureFile": "docs/evidence/starters/raw/market-entry.capture.json",
+        "captureSha256": "3eb1e71a1144944a0e9e7deb0027f3cc83b193b4e6c89552a6be005b0f59af93",
+        "note": "probe idx 1 — 18n/35e/3opt, 60.8s, coaching complete. The ONLY market-entry pass in 5 attempts (1/5 live) — which is precisely why this starter ships pre-drafted."
+      }
+    },
+    {
+      "id": "build-vs-buy",
+      "title": "Usage-Based Billing System Approach",
+      "summary": "Deliver Accurate Usage-Based Billing Within Two Quarters",
+      "brief": "Our billing system is breaking as we move to usage-based pricing. We can build metering and invoicing in-house, buy a vendor like Metronome or Orb, or extend our existing Stripe setup with custom middleware. We need this live within two quarters and we only have four backend engineers who are already committed to the platform migration. Getting billing wrong damages customer trust in a way that's hard to recover from.",
+      "nodeCount": 19,
+      "edgeCount": 37,
+      "optionCount": 4,
+      "provenance": {
+        "source": "POST https://cee-staging.onrender.com/assist/v1/draft-graph",
+        "ceeBuild": "1b9d596",
+        "capturedAt": "2026-07-24",
+        "requestId": "6bfee040-2c01-4443-b243-2c10468d79e1",
+        "model": "claude-sonnet-4-6",
+        "promptVersion": "draft_graph_default@v195 (staging)",
+        "coachingStatus": "complete",
+        "captureFile": "docs/evidence/starters/raw/build-vs-buy.capture.json",
+        "captureSha256": "c8b6cb0a801207dc886350af3e3121965df80977a3c5c5401b5e7c2ba43c156a",
+        "note": "probe idx 12 — 19n/37e/4opt, 59.1s, coaching complete (the other build-vs-buy pass ran coaching skipped_budget)"
+      }
+    },
+    {
+      "id": "headcount-allocation",
+      "title": "Headcount Allocation Decision",
+      "summary": "Achieve ARR Growth by Q3",
+      "brief": "We have approved headcount for four hires next year but not the money for six. The choice is three account executives to push revenue now, four platform engineers to pay down the reliability debt driving our biggest churn complaints, or a two-and-two split. Our constraint is that the sales team already misses quota with the current product reliability, and engineering attrition is rising. The board wants to see ARR growth by Q3.",
+      "nodeCount": 16,
+      "edgeCount": 26,
+      "optionCount": 4,
+      "provenance": {
+        "source": "POST https://cee-staging.onrender.com/assist/v1/draft-graph",
+        "ceeBuild": "1b9d596",
+        "capturedAt": "2026-07-24",
+        "requestId": "256a604f-165a-41a9-ae39-23ab410ebee3",
+        "model": "claude-sonnet-4-6",
+        "promptVersion": "draft_graph_default@v195 (staging)",
+        "coachingStatus": "complete",
+        "captureFile": "docs/evidence/starters/raw/headcount-allocation.capture.json",
+        "captureSha256": "6ba32538f1b1f622cf8557140e124391a859d09e4e7353e97fa78da19755ebf3",
+        "note": "probe idx 3 — 16n/26e/4opt, 49.4s, coaching complete. Most stable brief in the run (4/4)."
+      }
+    },
+    {
+      "id": "pricing-model",
+      "title": "Pricing Model Transition Strategy",
+      "summary": "Achieve Net Revenue Retention Above 110% While Enabling Bottom-Up Adoption",
+      "brief": "We're considering moving from per-seat pricing to usage-based pricing across our whole customer base. The options are a full switch at renewal, a hybrid platform-fee-plus-usage model, or leaving existing customers on seats and only selling usage to new logos. Our largest ten accounts are 40% of revenue and several of them would pay less under usage pricing. We need to protect net revenue retention above 110% while making the product easier to adopt bottom-up.",
+      "nodeCount": 16,
+      "edgeCount": 35,
+      "optionCount": 4,
+      "provenance": {
+        "source": "POST https://cee-staging.onrender.com/assist/v1/draft-graph",
+        "ceeBuild": "1b9d596",
+        "capturedAt": "2026-07-24",
+        "requestId": "e659509d-aad2-43c8-8dfc-933dd79d5e4d",
+        "model": "claude-sonnet-4-6",
+        "promptVersion": "draft_graph_default@v195 (staging)",
+        "coachingStatus": "complete",
+        "captureFile": "docs/evidence/starters/raw/pricing-model.capture.json",
+        "captureSha256": "97d60506a2154554b51b8ac833a3dc092d14b4786e3f7197213044941b3839d1",
+        "note": "probe idx 14 — 16n/35e/4opt, 91.6s, coaching complete"
+      }
+    }
+  ]
+}

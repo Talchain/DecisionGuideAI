@@ -47,18 +47,44 @@ import { isV5CanonicalRunPath } from '../../v5/eligibility'
 export const CEE_DRAFT_FIRST_REFUSAL = 'Draft or save a model first, then run analysis.'
 
 /**
- * True when the canvas model is invisible to the analysis engine: the graph
- * carries template provenance (only insertBlueprint stamps data.templateId;
- * no CEE draft path does) AND the run would route through CEE, which analyses
- * its own scenario state — not the canvas (#343). A V2-direct run can analyse
- * canvas graphs, so the gate stays open off the canonical path.
+ * Provenance stamps that mark a graph as INJECTED CLIENT-SIDE rather than
+ * produced by a CEE turn.
+ *
+ * `templateId` — stamped only by insertBlueprint (PLoT template insert).
+ * `starterId`  — stamped only by applyStarter (pre-drafted starter scenario,
+ *                src/canvas/starters/loadStarter.ts).
+ *
+ * No CEE draft path stamps either one, which is exactly what makes them a
+ * sound discriminator. Kept as one named list so a third injection source
+ * cannot be added without meeting this decision.
+ */
+const CLIENT_INJECTED_PROVENANCE_KEYS = ['templateId', 'starterId'] as const
+
+/**
+ * True when the canvas model is invisible to the analysis engine: the graph was
+ * injected client-side (see CLIENT_INJECTED_PROVENANCE_KEYS) AND the run would
+ * route through CEE, which analyses its own scenario state — not the canvas
+ * (#343). A V2-direct run can analyse canvas graphs, so the gate stays open off
+ * the canonical path.
+ *
+ * The V5 turn body carries no graph at all — `src/v5/buildPayload.ts` emits
+ * turn ids/stage/message/source/chip and the vendored MessageTurnPayloadSchema
+ * is `.strict()` — so CEE's only route to the nodes is its persisted scenario
+ * row, which `flushPendingGraphSave` writes ONLY when persistence is active.
+ * A guest session therefore has no server-side graph for an injected model, and
+ * refusing the run is the honest outcome: the alternative is dispatching a run
+ * that returns an answer about a graph nobody analysed.
+ *
  * ONE home for the predicate: both gate callers (OutputsDock,
  * ConversationPanel) consume this instead of re-deriving it.
  */
 export function computeCeeCannotSeeModel(
   nodes: ReadonlyArray<{ data?: Record<string, unknown> | undefined }>,
 ): boolean {
-  return isV5CanonicalRunPath() && nodes.some((n) => n.data?.templateId != null)
+  return (
+    isV5CanonicalRunPath() &&
+    nodes.some((n) => CLIENT_INJECTED_PROVENANCE_KEYS.some((k) => n.data?.[k] != null))
+  )
 }
 
 export interface CanRunAnalysisResult {
