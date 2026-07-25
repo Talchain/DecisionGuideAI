@@ -124,8 +124,6 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
         // row or robustness VOI suggestion joined by factor id) — strict
         // explicit-true read, so the engine's source line stays honest.
         worthInvestigating: d.worthInvestigating === true,
-        evpiPercentagePoints:
-          typeof d.evpiPercentagePoints === 'number' ? d.evpiPercentagePoints : null,
         canFocus: d.canFocus,
       })),
       robustness: {

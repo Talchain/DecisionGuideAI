@@ -13,7 +13,6 @@ describe('StatusBar', () => {
         factorsToVerify={0}
         fragileEdgeCount={0}
         contestedCount={0}
-        evpiMap={new Map()}
         recommendationStability={null}
         hasAnalysisData={false}
       />
@@ -27,7 +26,6 @@ describe('StatusBar', () => {
         factorsToVerify={3}
         fragileEdgeCount={0}
         contestedCount={0}
-        evpiMap={new Map()}
         recommendationStability={null}
         hasAnalysisData={false}
       />
@@ -35,19 +33,17 @@ describe('StatusBar', () => {
     expect(screen.getByTestId('status-verify')).toHaveTextContent('3 to verify')
   })
 
-  it('hides contested and EVPI pre-analysis', () => {
+  it('hides contested pre-analysis', () => {
     render(
       <StatusBar
         factorsToVerify={1}
         fragileEdgeCount={0}
         contestedCount={2}
-        evpiMap={new Map([['f1', 8], ['f2', 5]])}
         recommendationStability={0.71}
         hasAnalysisData={false}
       />
     )
     expect(screen.queryByTestId('status-contested')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('status-evpi')).not.toBeInTheDocument()
     expect(screen.queryByTestId('status-stability')).not.toBeInTheDocument()
   })
 
@@ -57,7 +53,6 @@ describe('StatusBar', () => {
         factorsToVerify={2}
         fragileEdgeCount={4}
         contestedCount={1}
-        evpiMap={new Map([['f1', 8], ['f2', 5], ['f3', 3], ['f4', 1]])}
         recommendationStability={0.71}
         hasAnalysisData={true}
       />
@@ -65,8 +60,12 @@ describe('StatusBar', () => {
     expect(screen.getByTestId('status-verify')).toHaveTextContent('2 to verify')
     expect(screen.getByTestId('status-fragile')).toHaveTextContent('4 fragile')
     expect(screen.getByTestId('status-contested')).toHaveTextContent('1 contested')
-    // Top 3 EVPI: 8 + 5 + 3 = 16
-    expect(screen.getByTestId('status-evpi')).toHaveTextContent('16pp via EVPI')
+    // The `status-evpi` segment ("16pp via EVPI" — the SUM of the top three
+    // evpi_percentage_points) is removed. Each addend is a figure ISL measures
+    // at 0.0 for the same factor in the same payload, so the sum compounded
+    // three refuted numbers into one headline. Absence pinned in
+    // evpiSurfacesRemoved.canvas.honesty.spec.tsx.
+    expect(screen.queryByTestId('status-evpi')).not.toBeInTheDocument()
     expect(screen.getByTestId('status-stability')).toHaveTextContent('71% stability')
   })
 
@@ -76,7 +75,6 @@ describe('StatusBar', () => {
         factorsToVerify={1}
         fragileEdgeCount={0}
         contestedCount={0}
-        evpiMap={new Map()}
         recommendationStability={0.5}
         hasAnalysisData={true}
       />
@@ -93,7 +91,6 @@ describe('StatusBar', () => {
         factorsToVerify={2}
         fragileEdgeCount={0}
         contestedCount={0}
-        evpiMap={new Map()}
         recommendationStability={null}
         hasAnalysisData={false}
       />

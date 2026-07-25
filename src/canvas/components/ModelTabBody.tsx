@@ -185,8 +185,7 @@ export const ModelTabBody = memo(function ModelTabBody({
   //   2. rawV2Response.factor_sensitivity / downstream_calls — fresh-run fallback
   //      when the V1 mapper hasn't populated the report yet.
 
-  const { evpiMap, attributionStabilityMap, elasticityMap, rankFlipRateMap, factorConfidenceMap } = useMemo(() => {
-    const evpi = new Map<string, number>()
+  const { attributionStabilityMap, elasticityMap, rankFlipRateMap, factorConfidenceMap } = useMemo(() => {
     const stability = new Map<string, string>()
     const elasticity = new Map<string, number>()
     const flipRate = new Map<string, number>()
@@ -201,33 +200,38 @@ export const ModelTabBody = memo(function ModelTabBody({
       (Array.isArray(rawDownstreamFactors) && rawDownstreamFactors) ||
       []
     if (!Array.isArray(factors)) {
-      return { evpiMap: evpi, attributionStabilityMap: stability, elasticityMap: elasticity, rankFlipRateMap: flipRate, factorConfidenceMap: confidence }
+      return { attributionStabilityMap: stability, elasticityMap: elasticity, rankFlipRateMap: flipRate, factorConfidenceMap: confidence }
     }
 
     for (const f of factors) {
       const id = f?.node_id ?? f?.factor_id
       if (!id) continue
 
-      // EVPI in PERCENTAGE POINTS — `evpi_percentage_points` and nothing else.
+      // ⛔ EVPI PERCENTAGE POINTS — EXTRACTION REMOVED, DO NOT REINSTATE.
       //
-      // ⛔ P1-9: the former `value_of_information * 100` fallback was a UNIT
-      // CONFLATION that shipped a fabricated number. `value_of_information` is
-      // a 0–1 VoI score on a different scale entirely; `evpi_percentage_points`
-      // is the shift in outcome probability. In the golden staging capture
-      // fac_acquisition carries value_of_information 0.175 alongside a true
-      // evpi_percentage_points of 2.1 — the fallback rendered "Worth 18pp if
-      // resolved … would improve confidence by 18 percentage points", an 8.5x
-      // overstatement presented as a precise claim.
+      // This built `evpiMap`, which fed three user-visible surfaces on the
+      // model tab: the "Worth Xpp if resolved" factor chip, the `EVPI  Xpp`
+      // detail row, the StatusBar `"Xpp via EVPI"` chip (a SUM of the top three
+      // figures) — plus the factor list's ORDER and the visible
+      // `ranked by EVPI` label above it.
       //
-      // When the producer does not send evpi_percentage_points we do not know
-      // the figure, so we say nothing: the EVPI chip and the EVPI detail row
-      // are already absent-safe (`evpiPp != null`). Keeping a surface "alive"
-      // with a wrong number is worse than leaving it blank. Do NOT reinstate a
-      // fallback from any other field — derive it producer-side instead.
-      const pp = typeof f?.evpi_percentage_points === 'number' && Number.isFinite(f.evpi_percentage_points)
-        ? f.evpi_percentage_points
-        : null
-      if (pp != null) evpi.set(id, pp)
+      // `evpi_percentage_points` is not merely uncalibrated, it is REFUTED.
+      // Replayed live 2026-07-25 against PLoT 1dd45b6a → ISL 3aea011c: PLoT
+      // published 12.3pp for *Market Receptivity to Feature* while ISL, in the
+      // SAME response one level away, measured that factor at
+      // `p_win_delta_percentage_points: 0.0` and `factor_evppi: 0.0`. Likewise
+      // 10.2 and 6.6 on decision a4b32ee2, both 0.0 at ISL.
+      //
+      // The formula (PLoT coaching/evidence-gaps.ts:75) is
+      // `voi × winProbSpread × 100` — it multiplies BY the top-two
+      // win-probability gap, INVERTING decision theory: a foregone conclusion
+      // scores high and a coin-flip scores ~0. ISL measures the near-tied
+      // decision as worth 16× the foregone one; PLoT ranks them opposite.
+      //
+      // The earlier P1-9 note here was right that a unit-conflated fallback was
+      // worse than a blank surface. This goes one step further: the field
+      // itself does not support the claim, so there is no honest surface to
+      // keep alive. See tests/contracts/no-evpi-display.contract.test.ts.
 
       // Attribution stability (from PLoT, when present — no UI derivation)
       if (typeof f?.attribution_stability === 'string') stability.set(id, f.attribution_stability)
@@ -254,7 +258,7 @@ export const ModelTabBody = memo(function ModelTabBody({
       confidence.set(id, resolveRawFactorConfidenceDisplay(f))
     }
 
-    return { evpiMap: evpi, attributionStabilityMap: stability, elasticityMap: elasticity, rankFlipRateMap: flipRate, factorConfidenceMap: confidence }
+    return { attributionStabilityMap: stability, elasticityMap: elasticity, rankFlipRateMap: flipRate, factorConfidenceMap: confidence }
   }, [rawV2Response, results?.report])
 
   // Edge E-value map from ISL edge_e_values (already passed through in response mapper)
@@ -652,12 +656,16 @@ export const ModelTabBody = memo(function ModelTabBody({
       />
 
       {/* ── Header: factor/edge counts + "Show full detail" toggle ─────────── */}
+      {/* No sort label post-analysis. The list is ordered by influence, and we
+          do not assert that its order encodes value — the previous
+          'ranked by EVPI' label named a quantity our own compute layer
+          contradicts, and it was a VISIBLE claim, not just an internal sort. */}
       <ModelTabHeader
         factorCount={grouped.factor.length}
         edgeCount={causalEdges.length}
         fragileCount={fragileEdgeCount > 0 ? fragileEdgeCount : undefined}
         contestedCount={contestedPendingCount > 0 ? contestedPendingCount : undefined}
-        sortNote={hasRobustnessData && evpiMap.size > 0 ? 'ranked by EVPI' : hasRobustnessData ? undefined : 'alphabetical'}
+        sortNote={hasRobustnessData ? undefined : 'alphabetical'}
         showDetail={expertMode ?? false}
       >
         {/* ── Status bar ─────────────────────────────────────────────── */}
@@ -665,7 +673,6 @@ export const ModelTabBody = memo(function ModelTabBody({
           factorsToVerify={factorsToVerify}
           fragileEdgeCount={fragileEdgeCount}
           contestedCount={contestedPendingCount}
-          evpiMap={evpiMap}
           recommendationStability={robustness?.recommendationStability}
           hasAnalysisData={hasRobustnessData}
         />
@@ -691,7 +698,6 @@ export const ModelTabBody = memo(function ModelTabBody({
             factorInfluence={factorInfluence}
             synthesisedPriorMap={synthesisedPriorMap}
             selectedNodeIds={selectionNodeIds}
-            evpiMap={evpiMap}
             attributionStabilityMap={attributionStabilityMap}
             elasticityMap={elasticityMap}
             rankFlipRateMap={rankFlipRateMap}

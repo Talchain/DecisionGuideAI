@@ -101,7 +101,6 @@ function makeData(opts: FixtureOpts): ResultsSectionDataReturn {
       factorLabel: 'Value of Strategic Work',
       confidence: 55,
       voi: 0.6,
-      evpiPp: 40,
       suggestion: 'Gather evidence',
     }],
     nextActions: [],

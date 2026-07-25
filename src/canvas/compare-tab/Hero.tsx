@@ -28,17 +28,24 @@ function getHeroCopy(
           ? `Confidence improving · Model ${latest.stabilityLabel}`
           : 'Confidence improving',
         actionPrefix: 'Calibrate ',
-        actionLink: latest.topEvpiFactor,
-        actionNodeId: latest.topEvpiFactorId,
-        detail: `${latest.topElasticity}% influence, resolving could improve confidence by ${latest.topEvpiValue}pp`,
+        actionLink: latest.topCalibrationFactor,
+        actionNodeId: latest.topCalibrationFactorId,
+        // ⛔ The clause ", resolving could improve confidence by {topEvpiValue}pp"
+        // is REMOVED. `evpi_percentage_points` is refuted by our own compute
+        // layer — ISL measures 0.0pp for the factors PLoT scores at 12.3 /
+        // 10.2 / 6.6 — and `?? 0` upstream published absence as a confident
+        // zero, so this line could read "improve confidence by 0pp" on a
+        // producer that simply sent nothing. The influence figure that remains
+        // is elasticity-derived and is the basis for choosing this factor.
+        detail: `${latest.topElasticity}% influence`,
       }
     case 'noWinner':
       return {
         line1: `Run ${latest.runNumber} · No clear leading option (${latest.winnerLabel} ${latest.winnerProbability}%, ${latest.runnerUpLabel ?? '—'} ${latest.runnerUpProbability ?? 0}%)`,
         line2: 'Model improving · Result uncertain',
         actionPrefix: 'Calibrate ',
-        actionLink: latest.topEvpiFactor,
-        actionNodeId: latest.topEvpiFactorId,
+        actionLink: latest.topCalibrationFactor,
+        actionNodeId: latest.topCalibrationFactorId,
         detail: 'to separate the options',
       }
     case 'converged':

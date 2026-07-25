@@ -14,8 +14,6 @@ export interface FactorSensitivitySummary {
   id: string
   label: string
   elasticity: number
-  /** EVPI in percentage points */
-  evpiPp: number
   rankFlipRate: number
   /** Attribution stability label from PLoT bootstrap */
   attributionStability: string
@@ -63,11 +61,20 @@ export interface AnalysisSnapshot {
   topFactors: FactorSensitivitySummary[]
   /** max |elasticity| / sum |elasticity|, as percentage */
   influenceConcentration: number
-  /** Label of highest EVPI factor */
-  topEvpiFactor: string
+  /**
+   * The factor the Compare hero invites the user to calibrate: the top factor
+   * by |elasticity|, i.e. the same one whose influence the hero already prints.
+   *
+   * ⛔ Was `topEvpiFactor` / `topEvpiFactorId` / `topEvpiValue`, selected by
+   * max `evpi_percentage_points` with `?? 0` fabricating absence as zero.
+   * Renamed rather than left pointing at a quantity it no longer carries — a
+   * field named for something it is not is the defect this estate keeps
+   * paying for. `topEvpiValue` had exactly one reader (the removed hero
+   * clause) and is gone entirely.
+   */
+  topCalibrationFactor: string
   /** Node ID for canvas linking */
-  topEvpiFactorId: string
-  topEvpiValue: number
+  topCalibrationFactorId: string
   /** As percentage */
   topElasticity: number
   /** From top factor */

@@ -865,11 +865,12 @@ export function ConfidenceSection({
                                   {actionItem.subtitle}
                                 </p>
                               )}
-                              {typeof actionItem.evpiPp === 'number' && actionItem.evpiPp > 0 && (
-                                <p className={`${typography.panelMeta} text-info mt-0.5`}>
-                                  Resolving could improve confidence by up to {Math.round(actionItem.evpiPp)}pp
-                                </p>
-                              )}
+                              {/* ⛔ REMOVED: "Resolving could improve confidence by up to
+                                  {Math.round(actionItem.evpiPp)}pp". The figure was
+                                  `evpi_percentage_points`, which our own compute layer
+                                  contradicts — ISL measured 0.0pp for the very factors PLoT
+                                  scored at 12.3 / 10.2 / 6.6. Do not reinstate a percentage-point
+                                  claim here. See tests/contracts/no-evpi-display.contract.test.ts. */}
                               {(actionItem.whatCouldHappen || actionItem.whatToDo) && (
                                 <WhyThisMatters
                                   whatCouldHappen={actionItem.whatCouldHappen}

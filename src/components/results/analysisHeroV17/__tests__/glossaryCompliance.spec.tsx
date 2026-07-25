@@ -69,7 +69,6 @@ function makeData(overrides: {
     factorLabel: label,
     confidence: 60,
     voi: 0.5 - i * 0.1,
-    evpiPp: 25,
     suggestion: 'Compare this estimate against recent data.',
     targetNodeId: `n_${i}`,
   } as EvidenceGapItem))

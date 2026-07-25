@@ -209,56 +209,36 @@ describe('FactorsSection', () => {
     expect(card.className).not.toMatch(/ring-1/)
   })
 
-  // ── EVPI chip tests ─────────────────────────────────────────────────────────
+  // ── EVPI chip tests — REMOVED ───────────────────────────────────────────────
+  //
+  // Six specs lived here pinning the "Worth {n}pp if resolved" chip, its
+  // >= 1pp rounding gate, and an EVPI-descending sort. All six pinned a
+  // REFUTED quantity: replayed live 2026-07-25, PLoT published
+  // evpi_percentage_points 12.3 / 10.2 / 6.6 for three factors ISL measured at
+  // p_win_delta_percentage_points 0.0 in the SAME response. The chip, the row,
+  // the sort and its visible "ranked by EVPI" label are all gone; the absence
+  // is pinned in evpiSurfacesRemoved.canvas.honesty.spec.tsx.
+  //
+  // The ordering behaviour that REPLACED the EVPI sort is pinned here, because
+  // this is the file that owns FactorsSection's sort.
 
-  it('renders EVPI chip when evpiMap has data and hasAnalysisData is true', () => {
-    const nodes = [makeFactorNode('f1', 'Ad spend')]
-    const evpiMap = new Map([['f1', 8]])
-    render(<FactorsSection factorNodes={nodes} evpiMap={evpiMap} hasAnalysisData />)
-    // EVPI chip is gated behind card expansion (progressive disclosure)
-    fireEvent.click(screen.getByTestId('factor-card-f1'))
-    expect(screen.getByTestId('factor-f1-evpi')).toBeInTheDocument()
-    expect(screen.getByText(/Worth 8pp if resolved/)).toBeInTheDocument()
-  })
-
-  it('does not render EVPI chip when evpiMap is empty', () => {
-    const nodes = [makeFactorNode('f1', 'Ad spend')]
-    render(<FactorsSection factorNodes={nodes} evpiMap={new Map()} hasAnalysisData />)
-    expect(screen.queryByTestId('factor-f1-evpi')).not.toBeInTheDocument()
-  })
-
-  it('does not render EVPI chip pre-analysis', () => {
-    const nodes = [makeFactorNode('f1', 'Ad spend')]
-    const evpiMap = new Map([['f1', 8]])
-    render(<FactorsSection factorNodes={nodes} evpiMap={evpiMap} hasAnalysisData={false} />)
-    expect(screen.queryByTestId('factor-f1-evpi')).not.toBeInTheDocument()
-  })
-
-  it('does not render EVPI chip when pp rounds to 0', () => {
-    const nodes = [makeFactorNode('f1', 'Ad spend')]
-    const evpiMap = new Map([['f1', 0.4]])
-    render(<FactorsSection factorNodes={nodes} evpiMap={evpiMap} hasAnalysisData />)
-    expect(screen.queryByTestId('factor-f1-evpi')).not.toBeInTheDocument()
-  })
-
-  it('renders EVPI chip when pp rounds to exactly 1', () => {
-    const nodes = [makeFactorNode('f1', 'Ad spend')]
-    const evpiMap = new Map([['f1', 1]])
-    render(<FactorsSection factorNodes={nodes} evpiMap={evpiMap} hasAnalysisData />)
-    fireEvent.click(screen.getByTestId('factor-card-f1'))
-    expect(screen.getByTestId('factor-f1-evpi')).toBeInTheDocument()
-  })
-
-  it('sorts by EVPI descending when evpiMap has data', () => {
+  it('sorts by influence descending post-analysis', () => {
     const nodes = [
-      makeFactorNode('f1', 'Low EVPI'),
-      makeFactorNode('f2', 'High EVPI'),
+      makeFactorNode('f1', 'Low influence'),
+      makeFactorNode('f2', 'High influence'),
     ]
-    const evpiMap = new Map([['f1', 3], ['f2', 12]])
-    render(<FactorsSection factorNodes={nodes} evpiMap={evpiMap} hasAnalysisData />)
+    const influence = new Map([['f1', 0.3], ['f2', 0.9]])
+    render(<FactorsSection factorNodes={nodes} factorInfluence={influence} hasAnalysisData />)
     const cards = screen.getAllByTestId(/^factor-card-/)
     expect(cards[0]).toHaveAttribute('data-testid', 'factor-card-f2')
     expect(cards[1]).toHaveAttribute('data-testid', 'factor-card-f1')
+  })
+
+  it('falls back to alphabetical pre-analysis', () => {
+    const nodes = [makeFactorNode('f2', 'Zebra'), makeFactorNode('f1', 'Apple')]
+    render(<FactorsSection factorNodes={nodes} />)
+    const cards = screen.getAllByTestId(/^factor-card-/)
+    expect(cards[0]).toHaveAttribute('data-testid', 'factor-card-f1')
   })
 
   // ── Attribution stability tests ─────────────────────────────────────────────

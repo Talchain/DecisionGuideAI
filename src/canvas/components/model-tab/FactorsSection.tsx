@@ -14,7 +14,7 @@
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { Node } from '@xyflow/react'
-import { Info, Check, MessageCircle } from 'lucide-react'
+import { Check, MessageCircle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
 import { SectionErrorBoundary } from '../GraphTextView'
@@ -112,7 +112,6 @@ function FactorCard({
   influence,
   synthesisedPrior,
   isSelected,
-  evpiPp,
   attributionStability,
   showAttributionStability,
   hasAnalysisData,
@@ -124,8 +123,6 @@ function FactorCard({
   influence: number | undefined
   synthesisedPrior?: SynthesisedPrior
   isSelected?: boolean
-  /** EVPI in percentage points (from evpi_percentage_points or VOI * 100 fallback) */
-  evpiPp?: number
   /** Attribution stability label from PLoT (when present) */
   attributionStability?: string
   /** Whether to show the stability pill — hidden when all factors share same label */
@@ -441,18 +438,12 @@ function FactorCard({
             </div>
           )}
 
-          {/* EVPI chip (post-analysis only) — only when >= 1pp meaningful improvement */}
-          {cardExpanded && hasAnalysisData && evpiPp != null && Math.round(evpiPp) >= 1 && (
-            <div
-              className="flex items-start gap-1.5 mt-1.5 p-2 rounded-lg bg-info/[0.06] border border-info/25"
-              data-testid={`factor-${node.id}-evpi`}
-            >
-              <Info className="w-3.5 h-3.5 text-info shrink-0 mt-0.5" aria-hidden="true" />
-              <span className={`${typography.panelMeta} text-info leading-relaxed`}>
-                Worth {evpiPp}pp if resolved: your knowledge of {label} would improve confidence by {evpiPp} percentage points
-              </span>
-            </div>
-          )}
+          {/* ⛔ REMOVED: the EVPI chip — "Worth {evpiPp}pp if resolved: your
+              knowledge of {label} would improve confidence by {evpiPp}
+              percentage points". The strongest value claim the product made
+              about a single factor, and it was refuted by our own compute
+              layer: ISL measured 0.0pp for the very factors PLoT scored at
+              12.3 / 10.2 / 6.6 in the same payload. Do not reinstate. */}
         </div>
       )}
 
@@ -493,7 +484,7 @@ function FactorCard({
           )}
 
           {/* Group 2: Sensitivity — only shown when at least one sensitivity metric exists */}
-          {((uncertaintyDrivers && uncertaintyDrivers.length > 0) || evpiPp != null || elasticity != null || rankFlipRate != null || factorConfidence?.show === true) && (
+          {((uncertaintyDrivers && uncertaintyDrivers.length > 0) || elasticity != null || rankFlipRate != null || factorConfidence?.show === true) && (
             <div className="border-t border-panel-border mt-2 pt-2">
               <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Sensitivity</div>
               {uncertaintyDrivers && uncertaintyDrivers.length > 0 && (
@@ -503,14 +494,8 @@ function FactorCard({
                 </div>
               )}
               <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-                {evpiPp != null && (
-                  <>
-                    <span className={`${typography.panelMeta} text-text-light`}>EVPI</span>
-                    <span className={`${typography.panelBody} text-text-body font-mono text-right`}>
-                      {evpiPp}pp
-                    </span>
-                  </>
-                )}
+                {/* ⛔ REMOVED: the `EVPI  {evpiPp}pp` metric row. Same refuted
+                    figure as the chip above, presented as a precise metric. */}
                 {elasticity != null && (
                   <>
                     <span className={`${typography.panelMeta} text-text-light`}>Elasticity</span>
@@ -567,8 +552,6 @@ interface FactorsSectionProps {
   factorInfluence?: FactorInfluenceMap
   synthesisedPriorMap?: Map<string, SynthesisedPrior>
   selectedNodeIds?: Set<string>
-  /** EVPI map: factorId → percentage points */
-  evpiMap?: Map<string, number>
   /** Attribution stability map: factorId → level string */
   attributionStabilityMap?: Map<string, string>
   /** Elasticity map: factorId → raw elasticity */
@@ -588,7 +571,7 @@ interface FactorsSectionProps {
 
 function FactorsSectionInner({
   factorNodes, factorInfluence, synthesisedPriorMap, selectedNodeIds,
-  evpiMap, attributionStabilityMap, elasticityMap, rankFlipRateMap, factorConfidenceMap,
+  attributionStabilityMap, elasticityMap, rankFlipRateMap, factorConfidenceMap,
   hasAnalysisData, onSendMessage, isExpanded, onExpandChange,
 }: FactorsSectionProps) {
   // All hooks must run before any conditional return (Rules of Hooks)
@@ -602,15 +585,15 @@ function FactorsSectionInner({
   }, [attributionStabilityMap])
 
   const sorted = useMemo(() => {
-    // Post-analysis with EVPI data: sort by EVPI descending (gated on analysis state)
-    if (hasAnalysisData && evpiMap && evpiMap.size > 0) {
-      return [...factorNodes].sort((a, b) => {
-        const ea = evpiMap.get(a.id) ?? -1
-        const eb = evpiMap.get(b.id) ?? -1
-        return eb - ea
-      })
-    }
-    // Post-analysis with influence (no EVPI): sort by influence descending
+    // ⛔ The EVPI-descending branch that used to sit here is REMOVED. Ordering
+    // is a claim: #477 landed one commit earlier specifically to close the
+    // "NON-TEXT channels — order, bar, stroke — that still spoke the default",
+    // and an EVPI-ranked list under a visible 'ranked by EVPI' label was that
+    // exact class. Influence — PLoT's normalised impact, already the fallback
+    // whenever EVPI was absent — now orders the list in every post-analysis
+    // case, so this is the file's own pre-existing second choice, not a new
+    // ranking invented here.
+    // Post-analysis: sort by influence descending
     if (hasAnalysisData && factorInfluence && factorInfluence.size > 0) {
       return [...factorNodes].sort((a, b) => {
         const ia = factorInfluence.get(a.id) ?? -1
@@ -624,7 +607,7 @@ function FactorsSectionInner({
       const lb = String((b.data as Record<string, unknown>)?.label ?? b.id).toLowerCase()
       return la.localeCompare(lb)
     })
-  }, [factorNodes, factorInfluence, evpiMap, hasAnalysisData])
+  }, [factorNodes, factorInfluence, hasAnalysisData])
 
   const toVerifyCount = useMemo(() => countFactorsToVerify(factorNodes), [factorNodes])
 
@@ -654,7 +637,6 @@ function FactorsSectionInner({
           influence={factorInfluence?.get(node.id)}
           synthesisedPrior={synthesisedPriorMap?.get(node.id)}
           isSelected={selectedNodeIds?.has(node.id)}
-          evpiPp={evpiMap?.get(node.id)}
           attributionStability={attributionStabilityMap?.get(node.id)}
           showAttributionStability={showAttributionStability}
           elasticity={elasticityMap?.get(node.id)}

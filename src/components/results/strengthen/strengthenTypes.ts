@@ -103,7 +103,6 @@ export interface StrengthenFactor {
   /** True when the producer explicitly flagged this factor worth investigating. */
   worthInvestigating?: boolean
   /** EVPI in percentage points when provided. */
-  evpiPercentagePoints?: number | null
   canFocus: boolean
 }
 

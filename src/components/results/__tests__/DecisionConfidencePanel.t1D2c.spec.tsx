@@ -58,7 +58,6 @@ function makeGap(overrides: Partial<EvidenceGapItem> = {}): EvidenceGapItem {
     factorLabel: 'Evidence Gap A',
     confidence: 70,
     voi: 0.5,
-    evpiPp: 25,
     suggestion: 'Gather data',
     targetNodeId: 'node_g',
     ...overrides,

@@ -61,7 +61,6 @@ describe('StrengthenContainer — worth_investigating threading', () => {
               factorKey: 'fac_churn',
               factorLabel: 'Churn',
               worthInvestigating: true,
-              evpiPercentagePoints: 8,
               canFocus: true,
             },
           ],
@@ -76,13 +75,20 @@ describe('StrengthenContainer — worth_investigating threading', () => {
     expect(voi!.snapshot.sourceLine.toLowerCase()).not.toContain('ui threshold')
   })
 
-  it('without the producer flag the UI-threshold fallback stays honestly labelled', () => {
+  it('without the producer flag nothing is recommended — the UI threshold is gone, not relabelled', () => {
+    // ⛔ This spec used to assert that an unflagged factor still produced a
+    // recommendation, "honestly labelled" as resting on a UI threshold. The
+    // label was honest; the THRESHOLD was not. It admitted factors on
+    // `evpi_percentage_points > 5` — a figure ISL measures at 0.0 for the very
+    // factors PLoT scores at 12.3 / 10.2 / 6.6 in the same response. Disclosing
+    // the basis of a refuted number does not make it evidence. Selection is now
+    // the producer's explicit flag and nothing else.
     render(
       <StrengthenContainer
         data={makeData({
           goalThreshold: 62,
           drivers: [
-            { factorKey: 'fac_churn', factorLabel: 'Churn', evpiPercentagePoints: 8, canFocus: true },
+            { factorKey: 'fac_churn', factorLabel: 'Churn', canFocus: true },
           ],
         })}
       />,
@@ -90,8 +96,7 @@ describe('StrengthenContainer — worth_investigating threading', () => {
     const voi = selectActive(useStrengthenStore.getState()).find((r) =>
       r.id.startsWith('strengthen:voi:'),
     )
-    expect(voi).toBeDefined()
-    expect(voi!.snapshot.sourceLine.toLowerCase()).toContain('ui threshold')
+    expect(voi).toBeUndefined()
   })
 })
 

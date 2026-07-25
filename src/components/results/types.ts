@@ -566,8 +566,12 @@ export interface DriverItem {
   rankFlipRate?: number
   /** ISL EVPI: expected value of perfect information */
   evpi?: number
-  /** ISL EVPI: expected improvement in percentage points */
-  evpiPercentagePoints?: number
+  /**
+   * ⛔ `evpiPercentagePoints` DELETED. Its only reader was the Strengthen
+   * "Knowing this better could shift the result by about {N} percentage
+   * points" line plus a UI-invented `> 5pp` selection threshold — both removed.
+   * See tests/contracts/no-evpi-display.contract.test.ts.
+   */
   /** Track S: provenance of the factor value. Optional; absent on pre-Track-S payloads. */
   valueSource?: string
   /** Track S: how the value was obtained (explicit / inferred / …). Optional. */
@@ -683,8 +687,16 @@ export interface EvidenceGapItem {
   voi: number
   /** ISL EVPI: expected value of perfect information (absolute units) — gated on presence */
   evpi?: number
-  /** ISL EVPI: expected improvement in percentage points — for display text */
-  evpiPp?: number
+  /**
+   * ⛔ `evpiPp` DELETED — do not reinstate.
+   *
+   * `evpi_percentage_points` is refuted, not merely uncalibrated: PLoT
+   * publishes 12.3pp for a factor ISL measures at 0.0pp in the same payload,
+   * and the formula multiplies BY the top-two win-probability gap, inverting
+   * decision theory. It was rendered to users in eight places and used as a
+   * SELECTION GATE that emptied the evidence-gap list on a near-tie.
+   * See tests/contracts/no-evpi-display.contract.test.ts.
+   */
   suggestion: string
   /** Node ID for canvas focus (may differ from factorId) */
   targetNodeId?: string
@@ -788,13 +800,16 @@ export interface ConfidenceSectionData {
 
   /** M1 Coaching evidence gaps - areas where more data would improve decision confidence */
   evidenceGaps?: EvidenceGapItem[]
-  /** M1 Coaching top evidence gaps (max 3, sorted by VOI, filtered by EVPI > 0) */
-  topEvidenceGaps?: EvidenceGapItem[]
   /**
-   * True when evidenceGaps existed but none had positive EVPI percentage points.
-   * Drives an empty-state card instead of an empty silent section.
+   * M1 Coaching top evidence gaps — the first 3 of `evidenceGaps`, in the
+   * producer's emission order. No client-side selection gate and no
+   * client-side re-rank: PLoT already selects (non-lever ∧ top-k by ISL
+   * `importance_rank` ∧ confidence < 0.7) and emits in its own order.
+   *
+   * `topEvidenceGapsEmpty` was deleted with the EVPI gate that was its only
+   * cause. It can no longer arise: this list is empty iff `evidenceGaps` is.
    */
-  topEvidenceGapsEmpty?: boolean
+  topEvidenceGaps?: EvidenceGapItem[]
   /** M1 Coaching next actions - prioritised recommendations */
   nextActions?: NextActionItem[]
   /** M1 Coaching top next actions (max 3, sorted by priority) */
@@ -951,7 +966,6 @@ export interface UiFactorSensitivity {
   attributionStability?: 'high' | 'moderate' | 'low' | 'negligible'
   rankFlipRate?: number
   evpi?: number
-  evpiPercentagePoints?: number
   /** Track S: provenance of the factor value. Optional; absent on pre-Track-S payloads. */
   valueSource?: string
   /** Track S: how the value was obtained (explicit / inferred / …). Optional. */

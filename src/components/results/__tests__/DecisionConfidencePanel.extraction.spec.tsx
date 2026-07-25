@@ -84,7 +84,6 @@ function makeData(opts: FixtureOpts = { withFragile: true, withDominant: true, w
     factorLabel: 'Evidence Gap A',
     confidence: 70,
     voi: 0.5,
-    evpiPp: 25,
     suggestion: 'Gather data',
     targetNodeId: 'node_g',
   } : undefined
@@ -349,6 +348,17 @@ describe('DecisionConfidencePanel — TriageActionCardsBody extraction regressio
   // health header and the action-card body whenever the wire carries a
   // robustness signal (see calibrateUncertaintyCopy). Not an extraction
   // regression — a deliberate new feature addition.
+  //
+  // RE-CAPTURED AGAIN for the EVPI removal. Two deliberate deletions show up in
+  // the rich fixture, and both are the point of that change:
+  //   · `<span>25.0pp</span>` — the TriageCard percentage-point pill, fed from
+  //     `evidence_gaps[].evpi_percentage_points`. Replayed live 2026-07-25,
+  //     PLoT published 12.3 / 10.2 / 6.6 pp for three factors ISL measured at
+  //     0.0 pp in the SAME response.
+  //   · `<p>Ranked by evidence value</p>` — a VISIBLE ordering claim the queue
+  //     can no longer support, plus the lede's superlative ("would most improve
+  //     confidence" → "Inputs worth confirming").
+  // Not an extraction regression.
 
   it('rich state: current rendering matches the literal pre-extraction baseline fixture', () => {
     const { container } = render(<DecisionConfidencePanel data={makeData()} onSendMessage={() => {}} />)

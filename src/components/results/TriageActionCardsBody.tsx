@@ -113,7 +113,6 @@ interface MappedActionItem {
   subtitle: string | undefined
   category: TriageCardCategory
   influence: number | null
-  evoiImpact: number | null
   action: TriageCardAction | undefined
   targetNodeId: string | undefined
   editorConfig: ScientificEditorProps | null
@@ -164,7 +163,6 @@ function mapEvidenceGapsToActions(
       subtitle: undefined,
       category: 'add_evidence' as const,
       influence: gap.voi > 0 ? gap.voi : null,
-      evoiImpact: gap.evpiPp ?? null,
       action: {
         kind: 'set_value' as const,
         label: 'Set value',
@@ -195,7 +193,6 @@ function mapNextActionsToCards(data: ResultsSectionDataReturn): MappedActionItem
     subtitle: undefined,
     category: 'strengthen' as const,
     influence: null,
-    evoiImpact: null,
     action: action.targetId ? {
       kind: 'edit' as const,
       label: 'Edit',
@@ -553,13 +550,25 @@ function StabilityNarrative({
     typeof stabilityScore === 'number' && Number.isFinite(stabilityScore)
       ? Math.round(stabilityScore * 100)
       : null
+  // ⛔ Two claims removed here, both of which the queue can no longer support.
+  //
+  // "Ranked by evidence value" was a VISIBLE ordering claim, and the only thing
+  // that ever ordered this queue by value was `evpi_percentage_points` — a
+  // figure ISL measures at 0.0 for the factors PLoT scores at 12.3 / 10.2 /
+  // 6.6, produced by multiplying BY the top-two win-probability gap, which
+  // inverts decision theory. The queue is now in the producer's emission order
+  // and asserts no ranking, so the label would be false.
+  //
+  // "These items would most improve confidence" was a SUPERLATIVE resting on
+  // the same figure. What the product can still defend is membership, not rank:
+  // these are the factors the engine judged important and is not confident
+  // about. So the copy states that, and nothing more.
   const lede = stabilityPct != null
-    ? `Stability: ${stabilityPct}%. These items would most improve confidence:`
-    : 'These items would most improve confidence:'
+    ? `Stability: ${stabilityPct}%. Inputs worth confirming:`
+    : 'Inputs worth confirming:'
   return (
     <div className="flex flex-col gap-0.5" data-testid="stability-narrative">
       <p className={`${typography.panelBody} text-text-body`}>{lede}</p>
-      <p className={`${typography.panelMeta} text-text-light`}>Ranked by evidence value</p>
     </div>
   )
 }
@@ -606,7 +615,6 @@ function AlsoConsiderDisclosure({
               subtitle={item.subtitle}
               category={item.category}
               influence={item.influence}
-              evoiImpact={item.evoiImpact}
               action={item.action}
               variant="compact"
               editorConfig={item.editorConfig}
@@ -666,12 +674,13 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
     const merged = [...gaps, ...next].map(item =>
       applyOverlayToItem(item, findStrengthenOverlay(item, strengthenOverlayMap)),
     )
-    merged.sort((a, b) => {
-      const aEvoi = a.evoiImpact ?? -1
-      const bEvoi = b.evoiImpact ?? -1
-      if (aEvoi !== bEvoi) return bEvoi - aEvoi
-      return (b.influence ?? 0) - (a.influence ?? 0)
-    })
+    // The primary sort key here was the EVPI percentage-point figure.
+    // Removed: our own compute layer contradicts it (ISL measures 0.0pp for
+    // the factors PLoT scores at 12.3 / 10.2 / 6.6) and the ordering it
+    // induces is inverted against ISL. Gaps now arrive in the producer's own
+    // order; the surviving `influence` tie-break is PLoT's normalised impact,
+    // which is not a function of the discredited confidence figure.
+    merged.sort((a, b) => (b.influence ?? 0) - (a.influence ?? 0))
     // Dedup by canonical factor identity (targetNodeId) after sort so the
     // highest-ranked occurrence survives. See `dedupTriageItems` for the rule
     // (targetNodeId first, normalised-title fallback).
@@ -730,19 +739,21 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
           here would duplicate the surface. The other body blocks
           (flip-risk, conditional scenarios, dominant nudge, T1 checks
           footer) are contextual signals and stay rendered. */}
-      {!suppressTriageQueue && (top3.length > 0 || data.confidence.topEvidenceGapsEmpty) && (
+      {!suppressTriageQueue && top3.length > 0 && (
         <div className="border-t border-panel-border pt-3 space-y-2">
           <StabilityNarrative
             itemCount={top3.length}
             stabilityScore={stabilityScore}
           />
 
-          {top3.length === 0 && data.confidence.topEvidenceGapsEmpty && (
-            <p className={`${typography.panelBody} text-text-light`}>
-              No high-value evidence gaps. Your current uncertainties have minimal impact on the result.
-            </p>
-          )}
-
+          {/* ⛔ REMOVED: the "No high-value evidence gaps. Your current
+              uncertainties have minimal impact on the result." empty state.
+              It was reachable ONLY via `topEvidenceGapsEmpty`, which was set
+              when every gap failed the `evpiPp > 0` filter — including on a
+              perfect tie, where PLoT emits no figure at all and information is
+              MOST valuable. The copy asserted "minimal impact" on the strength
+              of a number ISL measures at zero for the same factors. Both the
+              flag and the claim are gone. */}
           {top3.length > 0 && (
             <div className="flex flex-col gap-1.5" data-testid="unified-triage-queue">
               {top3.map((item, i) => {
@@ -761,7 +772,6 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
                       subtitle={item.subtitle}
                       category={item.category}
                       influence={item.influence}
-                      evoiImpact={item.evoiImpact}
                       action={item.action}
                       editorConfig={item.editorConfig}
                       sourcePill={item.sourcePill}
