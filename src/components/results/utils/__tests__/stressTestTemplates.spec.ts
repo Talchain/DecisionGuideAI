@@ -36,14 +36,14 @@ describe('buildDisconfirmationCard', () => {
   }
 
   it('emits the approved question with winner + alternative interpolated', () => {
-    const card = buildDisconfirmationCard({ ...base, topDriverConfidence: 0.8 })
+    const card = buildDisconfirmationCard({ ...base, topDriverConfidence: cleared(0.8) })
     expect(card.question).toBe(
       'What could make you switch your recommendation from Option A to Option B?',
     )
   })
 
   it('chip label is "Explore this challenge"', () => {
-    const card = buildDisconfirmationCard({ ...base, topDriverConfidence: 0.8 })
+    const card = buildDisconfirmationCard({ ...base, topDriverConfidence: cleared(0.8) })
     expect(card.chipLabel).toBe('Explore this challenge')
   })
 

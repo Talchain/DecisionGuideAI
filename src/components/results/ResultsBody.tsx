@@ -14,6 +14,7 @@ import { useCanvasStore } from '../../canvas/store'
 import { typography } from '../../styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { buildResultsVM } from './buildResultsVM'
+import { deriveDefaultEstimateDisclosure } from './utils/defaultEstimateDisclosure'
 import { DriversSection } from './DriversSection'
 import { TornadoChart, type TornadoRow } from './TornadoChart'
 import { Accordion } from './Accordion'
@@ -256,14 +257,10 @@ export const ResultsBody = memo(function ResultsBody({
   // isDefaultedConfidenceFromRaw), so the count cannot disagree with the pills
   // it is counting. Omitted entirely when there are no drivers: "0 of 0" is
   // not a disclosure, it is noise.
-  const defaultEstimateDisclosure = useMemo(() => {
-    const drivers = resultsSectionData.drivers.drivers ?? []
-    if (drivers.length === 0) return {}
-    return {
-      defaultEstimateCount: drivers.filter(d => d.isDefaultedConfidence === true).length,
-      totalFactorCount: drivers.length,
-    }
-  }, [resultsSectionData.drivers.drivers])
+  const defaultEstimateDisclosure = useMemo(
+    () => deriveDefaultEstimateDisclosure(resultsSectionData.drivers.drivers),
+    [resultsSectionData.drivers.drivers],
+  )
 
   return (
     <div className="flex flex-col gap-4" data-testid="outputs-results-redesign">
