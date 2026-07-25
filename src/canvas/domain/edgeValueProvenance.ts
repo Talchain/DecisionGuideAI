@@ -178,6 +178,73 @@ export function resolveEdgeValueDisplay(
 }
 
 /**
+ * The band a display value falls in — for the NON-TEXT channels.
+ *
+ * WHY THIS EXISTS, GIVEN `EdgeValueDisplay` ALREADY DID
+ * ----------------------------------------------------
+ * #472/#473/#474 gated the NUMBER. They did not gate the CHANNELS that carry
+ * the same claim without words. `EdgePanel.thresholdColor(v: number)` was the
+ * proof: three branches, `>= 0.7 → green`, `>= 0.4 → amber`, else red, and NO
+ * branch that could express "nobody set this". An edge with no `beliefExists`
+ * fell through to `EDGE_CONSTRAINTS.beliefExists.default` (0.7) and rendered
+ * GREEN, 70% — directly under the panel's own coaching sentence "Nobody has
+ * said how likely this connection is to exist yet." Colour is read
+ * pre-attentively and delivers a verdict ("this is fine") that nobody
+ * consciously evaluates, so it is the stronger of the two claims on that
+ * screen, and it was the false one.
+ *
+ * `unset` is therefore a FIRST-CLASS band, not a fallthrough. Because this
+ * function takes an `EdgeValueDisplay` and NOT a `number`, a future caller
+ * cannot reach a colour without first passing through the provenance gate:
+ * there is no argument they can construct that means "0.7, source unknown".
+ * That is the property `thresholdColor(v: number)` lacked, and the reason this
+ * lives beside the union rather than as a conditional at the call site.
+ *
+ * Consumers map the band to their own channel tokens via a
+ * `Record<EdgeValueBand, …>` (see `EdgePanel`), so ADDING a band is a type
+ * error at every consumer rather than a silent inheritance of a neighbour's
+ * colour — same rule as `STRENGTH_PROVENANCE_COPY` in `coachingConfig`.
+ */
+export type EdgeValueBand = 'unset' | 'low' | 'moderate' | 'high'
+
+/**
+ * Band cut points for the 0–1 probability channels (`beliefExists`).
+ *
+ * Named because they were a hand-copied literal in three places
+ * (`EdgePanel.thresholdColor`, `EdgePanel.thresholdTrackVar`,
+ * `RelationshipsSection.likelihoodColour`) — the mirror shape this codebase
+ * keeps paying for. Cut on the RAW value, never on a rounded percentage.
+ */
+export const EDGE_VALUE_BAND_CUTS = { high: 0.7, moderate: 0.4 } as const
+
+/** Which band a resolved display falls in. `show: false` ⇒ `unset`, always. */
+export function edgeValueBand(display: EdgeValueDisplay): EdgeValueBand {
+  if (!display.show) return 'unset'
+  if (display.value >= EDGE_VALUE_BAND_CUTS.high) return 'high'
+  if (display.value >= EDGE_VALUE_BAND_CUTS.moderate) return 'moderate'
+  return 'low'
+}
+
+/**
+ * Re-point a resolved display at the value a LIVE control is currently showing.
+ *
+ * An editing surface (the existence slider) holds the in-flight value in local
+ * state, so the number on screen can lead the store by one debounce tick. The
+ * colour must band the number the user is LOOKING AT, or the two channels
+ * disagree — which is the whole defect, just smaller.
+ *
+ * The provenance verdict is deliberately NOT re-derived: `show: false` in ⇒
+ * `show: false` out, unchanged. There is no argument to this function that can
+ * turn an unsourced value into a sourced one, so it cannot be used — by
+ * accident or otherwise — to launder a default into a claim.
+ */
+export function withLiveEdgeValue(display: EdgeValueDisplay, live: number): EdgeValueDisplay {
+  if (!display.show) return display
+  if (typeof live !== 'number' || !Number.isFinite(live)) return display
+  return { ...display, value: live }
+}
+
+/**
  * Signed strength for display: magnitude from `weight`, sign from `direction`.
  *
  * Gated on `weight`'s provenance, because the DIRECTION defaults too
