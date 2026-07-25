@@ -8,6 +8,7 @@ import '@xyflow/react/dist/style.css'
 import { useCanvasStore } from './store'
 import { useComparisonStore } from './stores/comparisonStore'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS } from './domain/edges'
+import { edgeValueSourcePatch } from './domain/edgeValueProvenance'
 import { parseRunHash } from './utils/shareLink'
 import { useInitialLayoutGuard } from './hooks/useInitialLayoutGuard'
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion'
@@ -1177,6 +1178,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           confidence: edge.probability,
           belief: edge.belief ?? edge.probability,      // v1.2: prefer belief, fallback to probability
           provenance: edge.provenance ?? 'template',    // v1.2: default to template source
+          // Set-vs-defaulted markers (domain/edgeValueProvenance.ts). A blueprint
+          // weight was authored by a template author — a real value, not a UI
+          // fallthrough — so it is 'template', NOT 'cee': it is not an estimate
+          // of THIS user's decision. Matches useBlueprintInsert.
+          ...edgeValueSourcePatch({
+            weight: edge.weight != null ? 'template' : undefined,
+          }),
           templateId: blueprint.id
         }
       }
