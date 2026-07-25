@@ -63,6 +63,11 @@ import { buildDraftBiasSignalBlocks } from './draftBiasSignalBlocks'
 import { assembleAnalysisInputsSummary } from '../analysis/assembleAnalysisInputsSummary'
 import { useResultsStore } from '../stores/resultsStore'
 import { hydrateMessagesFromThread, formatSessionBoundary } from './utils/hydrateThread'
+import {
+  loadTranscript,
+  saveTranscript,
+  formatTruncationNotice,
+} from './utils/transcriptStore'
 import { appendThreadEntries, createSnapshot } from '../../services/threadService'
 import type { ThreadEntry } from '../journey/threadTypes'
 import { useGuidanceStore, type GuidanceItem } from '../stores/guidanceStore'
@@ -1785,8 +1790,80 @@ export function useConversation(): UseConversationReturn {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Clear conversation when scenario changes (with Track 3 thread hydration)
+  // ── Returning-user continuity ──────────────────────────────────────────
+  // Build the restored view of a stored transcript: the real turns, a
+  // truncation disclosure when (and only when) something was dropped, and a
+  // session-boundary divider marking where the previous session ended.
+  const buildRestoredMessages = useCallback(
+    (restored: NonNullable<ReturnType<typeof loadTranscript>>): ConversationMessage[] => {
+      const out: ConversationMessage[] = []
+      if (restored.droppedCount > 0) {
+        out.push({
+          id: `transcript-truncated-${crypto.randomUUID().slice(0, 8)}`,
+          role: 'assistant',
+          content: '',
+          timestamp: restored.messages[0]?.timestamp ?? new Date(),
+          synthetic: true,
+          sessionDivider: formatTruncationNotice(restored.droppedCount),
+        })
+      }
+      out.push(...restored.messages)
+      out.push({
+        id: `boundary-${crypto.randomUUID().slice(0, 8)}`,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+        synthetic: true,
+        sessionDivider: formatSessionBoundary(new Date()),
+      })
+      return out
+    },
+    [],
+  )
+
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
+
+  // MOUNT-TIME restore. This is the path a returning user actually takes and
+  // the one that was missing: on a reload the canvas store initialises
+  // `currentScenarioId` SYNCHRONOUSLY from localStorage
+  // (`store.ts` — `currentScenarioId: scenarios.getCurrentScenarioId()`), so
+  // the id never changes and the scenario-switch effect below NEVER FIRES.
+  // Nothing hydrated the panel, `messages` stayed `[]`, and `OlumiTabBody`
+  // rendered `olumi-tab-empty` — the first-use placeholder — over a fully
+  // restored 19-node model. Verified live on staging 25 Jul 2026.
+  const didMountRestoreRef = useRef(false)
+  useEffect(() => {
+    if (didMountRestoreRef.current) return
+    if (!scenarioId) return
+    didMountRestoreRef.current = true
+    // Only restore into a genuinely empty panel — never over live messages.
+    if (messagesRef.current.length > 0) return
+    try {
+      const restored = loadTranscript(scenarioId)
+      // Only a transcript from an EARLIER page load is something to restore.
+      // One this page load wrote is either already on screen or was cleared
+      // on purpose; replaying it would duplicate the live conversation and
+      // mint a "Session resumed" divider mid-session.
+      if (!restored || !restored.fromPreviousSession) return
+      const next = buildRestoredMessages(restored)
+      messagesRef.current = next
+      setMessages(next)
+    } catch (err) {
+      console.error('[useConversation] Transcript restore failed — starting fresh', err)
+    }
+  }, [scenarioId, buildRestoredMessages])
+
+  // Persist the transcript whenever it changes, so the next session can
+  // restore it. Guest sessions never reach Supabase (`isPersistenceActive` is
+  // false under `VITE_AUTH_MODE=guest`) and the graph itself already rides
+  // localStorage, so the transcript rides the same lifecycle.
+  useEffect(() => {
+    if (!scenarioId) return
+    if (messages.length === 0) return
+    saveTranscript(scenarioId, messages)
+  }, [messages, scenarioId])
+
+  // Clear conversation when scenario changes (with Track 3 thread hydration)
   const prevScenarioRef = useRef(scenarioId)
   useEffect(() => {
     if (scenarioId !== prevScenarioRef.current) {
@@ -1799,6 +1876,23 @@ export function useConversation(): UseConversationReturn {
       if (wasNull && scenarioId) {
         if (import.meta.env.DEV) {
           console.debug('[useConversation] Skipping reset — initial scenario_id assignment:', scenarioId)
+        }
+        // The reset must still be skipped (it would wipe an in-flight turn),
+        // but an EMPTY panel here is the other reload shape — the id arrived
+        // after mount rather than at store-init. Restoring is safe precisely
+        // because there is nothing in flight to protect.
+        if (messagesRef.current.length === 0) {
+          didMountRestoreRef.current = true
+          try {
+            const restored = loadTranscript(scenarioId)
+            if (restored && restored.fromPreviousSession) {
+              const next = buildRestoredMessages(restored)
+              messagesRef.current = next
+              setMessages(next)
+            }
+          } catch (err) {
+            console.error('[useConversation] Transcript restore failed — starting fresh', err)
+          }
         }
         return
       }
@@ -1864,15 +1958,31 @@ export function useConversation(): UseConversationReturn {
         }
       }
 
-      messagesRef.current = []
+      // A real scenario switch. The CEE session state belongs to the scenario
+      // we are leaving, so it always clears — but the conversation we are
+      // switching TO gets restored when one is stored, so returning to a
+      // decision shows what was left there rather than a blank slate.
       sessionStateRef.current = null
-      setMessages([])
       setIsThinking(false)
       useDraftStore.getState().setIsGenerating(false)
       setLongRunningHint(null)
       setLastSendFailure(null)
+
+      let restoredForSwitch: ConversationMessage[] | null = null
+      if (scenarioId) {
+        try {
+          const restored = loadTranscript(scenarioId)
+          if (restored && restored.fromPreviousSession) {
+            restoredForSwitch = buildRestoredMessages(restored)
+          }
+        } catch (err) {
+          console.error('[useConversation] Transcript restore failed — starting fresh', err)
+        }
+      }
+      messagesRef.current = restoredForSwitch ?? []
+      setMessages(restoredForSwitch ?? [])
     }
-  }, [scenarioId])
+  }, [scenarioId, buildRestoredMessages])
 
   const addMessage = useCallback((msg: ConversationMessage) => {
     setMessages((prev) => {
