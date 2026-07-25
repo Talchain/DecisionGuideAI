@@ -568,3 +568,103 @@ describe('reconcileAppliedGraph — review fixups (edge-pair self-dedupe, stalen
     expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
   })
 })
+
+/**
+ * Edge value provenance (`beliefExistsSource` / `weightSource`) through the
+ * overlay. Two invariants, both discovered by this suite going red:
+ *
+ *  1. A stamp must never be applied WITHOUT the value it describes. The overlay
+ *     deliberately under-applies a wire value that equals the mapper default —
+ *     but a stamp differs from the baseline whenever the wire supplied
+ *     anything, so without coupling, a receipt carrying weight 0.5 would stamp
+ *     "CEE set this" onto an edge still showing the user's own 0.7. That is the
+ *     exact defect class the marker exists to close.
+ *  2. A stamp ALONE must not trigger a store write. `reconcileAppliedGraph`
+ *     guarantees a matching receipt is a strict no-op; metadata about an
+ *     unchanged number does not earn an exception.
+ */
+describe('reconcileAppliedGraph — edge value provenance', () => {
+  it('does NOT stamp a CEE source when the wire value was not applied (equals the mapper default)', () => {
+    // Local edge is the user's 0.7. The wire sends 0.5 — DEFAULT_EDGE_DATA.weight
+    // — which the baseline filter treats as unsupplied, so the displayed number
+    // stays 0.7. The stamp must not travel without it.
+    reconcileAppliedGraph({
+      nodes: [
+        { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+        { id: 'factor-1', kind: 'factor', label: 'Spend' },
+      ],
+      edges: [{ id: 'e-0', from: 'factor-1', to: 'goal-1', weight: 0.5 }],
+    } as any)
+
+    const edge = useCanvasStore.getState().edges.find((e) => e.id === 'e-0') as any
+    expect(edge.data.weight).toBe(0.7)          // the user's value survived…
+    expect(edge.data.weightSource).toBeUndefined() // …and is not credited to CEE
+  })
+
+  it('drops an ORPHAN stamp even when the receipt DOES write (the escape-catcher)', () => {
+    // ⚠ THE MUTATION THAT ESCAPED FIRST TIME. The sibling case above passes
+    // even with the coupling rule deleted, because the no-op guard catches it
+    // instead — an assertion passing for the wrong reason. Here the receipt
+    // genuinely changes beliefExists, so the overlay DOES write; the no-op
+    // guard cannot mask anything. Weight is sent as 0.5 (== the mapper
+    // default) so it is NOT applied, and its orphan stamp must be dropped —
+    // otherwise 'CEE set this' lands on the user's own 0.7.
+    reconcileAppliedGraph({
+      nodes: [
+        { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+        { id: 'factor-1', kind: 'factor', label: 'Spend' },
+      ],
+      edges: [{
+        id: 'e-0', from: 'factor-1', to: 'goal-1',
+        weight: 0.5, belief_exists: 0.9,
+      }],
+    } as any)
+
+    const edge = useCanvasStore.getState().edges.find((e) => e.id === 'e-0') as any
+    // Proof the overlay really did write — without this the assertion below
+    // could pass simply because nothing happened at all.
+    expect(edge.data.beliefExists).toBe(0.9)
+    expect(edge.data.beliefExistsSource).toBe('cee')
+    // …and the orphan is gone.
+    expect(edge.data.weight).toBe(0.7)
+    expect(edge.data.weightSource).toBeUndefined()
+  })
+
+  it('is still a strict no-op when only the stamp would change', () => {
+    const historyBefore = (useCanvasStore.getState() as any).history?.past?.length
+    const edgesBefore = useCanvasStore.getState().edges
+
+    const result = reconcileAppliedGraph({
+      nodes: [
+        { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+        { id: 'factor-1', kind: 'factor', label: 'Spend', observed_state: { value: 100 } },
+      ],
+      edges: [{ id: 'e-0', from: 'factor-1', to: 'goal-1', weight: 0.7 }],
+    } as any)
+
+    expect(result).toEqual(counts())
+    expect(useCanvasStore.getState().edges).toBe(edgesBefore)
+    expect((useCanvasStore.getState() as any).history?.past?.length).toBe(historyBefore)
+  })
+
+  // POSITIVE CONTROL — without this, both assertions above would pass against
+  // an overlay that had simply stopped writing provenance at all.
+  it('DOES stamp the source when the wire genuinely changes the value', () => {
+    reconcileAppliedGraph({
+      nodes: [
+        { id: 'goal-1', kind: 'goal', label: 'Revenue' },
+        { id: 'factor-1', kind: 'factor', label: 'Spend' },
+      ],
+      edges: [{
+        id: 'e-0', from: 'factor-1', to: 'goal-1',
+        weight: 0.42, belief_exists: 0.9,
+      }],
+    } as any)
+
+    const edge = useCanvasStore.getState().edges.find((e) => e.id === 'e-0') as any
+    expect(edge.data.weight).toBe(0.42)
+    expect(edge.data.weightSource).toBe('cee')
+    expect(edge.data.beliefExists).toBe(0.9)
+    expect(edge.data.beliefExistsSource).toBe('cee')
+  })
+})

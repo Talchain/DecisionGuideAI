@@ -44,6 +44,7 @@ import { StreamingDiagnostics } from './model-tab/StreamingDiagnostics'
 import { buildSynthesisedPriorMap } from './model-tab/synthesisedPriorHelpers'
 import { countFactorsToVerify } from './model-tab/utils'
 import { ModelAdjustments } from './model-tab/ModelAdjustments'
+import { resolveRawFactorConfidenceDisplay } from '../../components/results/driverConfidenceDisplayPolicy'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -236,8 +237,17 @@ export const ModelTabBody = memo(function ModelTabBody({
       // Rank flip rate
       if (typeof f?.rank_flip_rate === 'number') flipRate.set(id, f.rank_flip_rate)
 
-      // Confidence (0-1)
-      if (typeof f?.confidence === 'number') confidence.set(id, f.confidence)
+      // Confidence (0-1) — resolved through THE shared display policy
+      // (components/results/driverConfidenceDisplayPolicy), never read raw.
+      //
+      // ⛔ This map fed "Confidence NN%" in the factor detail rows off the same
+      // `factor_sensitivity[].confidence` the Drivers panel refuses to render.
+      // In both real staging captures that value is a defaulted 0.25. The
+      // resolver reads the confidence fields off the RAW row here (this surface
+      // never touches the normalised driver feed), so there is still only one
+      // implementation of the rule.
+      const confidenceDisplay = resolveRawFactorConfidenceDisplay(f)
+      if (confidenceDisplay.show) confidence.set(id, confidenceDisplay.value)
     }
 
     return { evpiMap: evpi, attributionStabilityMap: stability, elasticityMap: elasticity, rankFlipRateMap: flipRate, factorConfidenceMap: confidence }
@@ -523,6 +533,9 @@ export const ModelTabBody = memo(function ModelTabBody({
       const patch: DataPatch = {
         weight: Math.abs(mean),
         direction: mean >= 0 ? 'positive' : 'negative',
+        // The accepted value is the producer's pass-2 strength, so the edge
+        // now carries a real estimate rather than the UI default.
+        weightSource: 'cee',
         validation: updatedValidation,
       }
       updateEdge(edgeId, { data: patch as EdgeData })
@@ -533,6 +546,8 @@ export const ModelTabBody = memo(function ModelTabBody({
       const patch: DataPatch = {
         weight: Math.abs(customMean),
         direction: customMean >= 0 ? 'positive' : 'negative',
+        // The user overrode the producer with their own number.
+        weightSource: 'user',
         validation: { ...updatedValidation, resolved_value: { strength_mean: customMean } },
       }
       updateEdge(edgeId, { data: patch as EdgeData })

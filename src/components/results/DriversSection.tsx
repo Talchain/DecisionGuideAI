@@ -44,6 +44,7 @@ import {
 } from './influenceScaleCopy'
 import { ExpandableCoachingText } from '../../components/shared/ExpandableCoachingText'
 import { isExpertField } from './utils/isExpertField'
+import { DISPLAY_SAFE_DRIVER_CONFIDENCE } from './driverConfidenceDisplayPolicy'
 import { openAskOlumi } from './coaching/askOlumiStore'
 
 interface DriversSectionProps {
@@ -88,7 +89,12 @@ const BAR_COLORS = {
 // certified display-safe driver-confidence source exists; the gated Confidence
 // column + glyph + tooltip signals below then light up, and the grid widens to
 // match via gridCols().
-const DISPLAY_SAFE_DRIVER_CONFIDENCE = false
+//
+// ⚠ The constant now lives in ./driverConfidenceDisplayPolicy and is IMPORTED,
+// not re-declared. It used to be private to this file while three canvas
+// surfaces + the Model tab read the identical `factor_sensitivity[].confidence`
+// with no gate at all — this panel refused to print a number the canvas printed
+// bare, from the same report. One binding makes that fork unrepresentable.
 
 // Fragility ("could change the result") belongs in the fragile-factors section,
 // NOT the driver section. Acceptance: driver section = "this matters most";

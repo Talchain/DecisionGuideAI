@@ -5,6 +5,7 @@ import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportC
 import { setsEqual, mapsEqual } from './store/utils'
 import { assignStableOptionNumbers } from './store/stableOptionNumbers'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS, type EdgeData } from './domain/edges'
+import { edgeValueSourcePatch } from './domain/edgeValueProvenance'
 import { NODE_REGISTRY, type NodeType, type NodeData } from './domain/nodes'
 import { hasAnalyticalNodeChange, hasAnalyticalEdgeChange } from './domain/analyticalChange'
 import { applyLayout, applyLayoutWithPolicy } from './layout'
@@ -4699,6 +4700,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
             weight: e.weight ?? 0.5,
             belief: e.belief ?? confidence,
             confidence,
+            // Set-vs-defaulted markers (domain/edgeValueProvenance.ts). Stamped
+            // only when the clarifier actually sent the value; the `?? 0.5`
+            // fallthrough above is a UI default and stays unstamped.
+            ...edgeValueSourcePatch({
+              weight: e.weight != null ? 'cee' : undefined,
+            }),
             isPreview: true,
           },
           style: {
@@ -4786,6 +4793,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
             weight: e.weight ?? 0.5,
             belief: e.belief ?? confidence,
             confidence,
+            // As in the preview path above: stamp only what the clarifier sent.
+            ...edgeValueSourcePatch({
+              weight: e.weight != null ? 'cee' : undefined,
+            }),
             provenance: e.provenance || 'AI-drafted',
           },
         }

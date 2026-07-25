@@ -18,6 +18,7 @@ import { useCanvasStore } from '../../canvas/store'
 import { THRESHOLDS, LIMITS } from '../../lib/mappers/constants'
 import { useShallow } from 'zustand/react/shallow'
 import { findNodeMatches, type Driver } from '../../canvas/utils/driverMatching'
+import { isDefaultedConfidenceFromRaw } from './driverConfidenceDisplayPolicy'
 import type { Node } from '@xyflow/react'
 import type {
   DecisionResultData,
@@ -48,6 +49,7 @@ import type {
   ConfidenceFormulaVersion,
   ConfidenceCalibrationStatus,
   ConfidenceInputQuality,
+  ConfidenceProvenance,
 } from './types'
 import { normalizeAutoNoiseProvenance, normalizeHeadlineBanded } from './types'
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
@@ -299,28 +301,13 @@ export function isValidConfidenceProvenance(value: unknown): value is {
 }
 
 /**
- * Derive `isDefaultedConfidence` from a normalised factor sensitivity row.
- *
- * Tracks ISL-side bootstrap degeneracy (sampling_stability detected as 0,
- * indicating ISL emitted a placeholder) — NOT PLoT-side `fallback_degenerate`,
- * which is a different concept. Audit A1-PRIMARY: the source-name list accepts
- * BOTH legacy values ('isl', 'isl_default') AND the new honest enum
- * ('plot_unified_from_isl_bootstrap') so the derivation survives both deploy
- * directions (old PLoT + new UI, and new PLoT + old UI).
- *
- * Exported for direct unit testing of cross-version compat behaviour.
+ * Re-exported from `driverConfidenceDisplayPolicy`, where the rule now lives
+ * alongside the display gate that consumes it (one small module the canvas can
+ * import without pulling in this hook file). Kept exported here so existing
+ * importers and the cross-version compat unit tests are unaffected — there is
+ * exactly ONE implementation, not two.
  */
-export function isDefaultedConfidenceFromRaw(raw: {
-  confidenceSource?: string
-  samplingStability?: number | null
-}): boolean {
-  return (
-    raw.confidenceSource === 'isl'
-    || raw.confidenceSource === 'isl_default'
-    || raw.confidenceSource === 'plot_unified_from_isl_bootstrap'
-  )
-    && raw.samplingStability === 0
-}
+export { isDefaultedConfidenceFromRaw }
 
 export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, string>): UiFactorSensitivity {
   if (raw == null || typeof raw !== 'object') return { factorId: '', label: 'Unknown factor', elasticity: 0, direction: 'positive' as const, confidence: null, importanceRank: 0 }
@@ -474,6 +461,17 @@ export interface DriverPolicyRow {
   rawElasticity: number
   /** Factor confidence (0-1) when the wire carried one. */
   confidence: number | null
+  /**
+   * True when `confidence` above is a producer PLACEHOLDER rather than a
+   * computed figure (`isDefaultedConfidenceFromRaw`). Carried on the shared
+   * feed so the canvas surfaces resolve the SAME verdict as the Drivers panel
+   * for the same report — previously the panel derived it and the canvas hook
+   * could not see it at all, which is how the canvas ended up printing a
+   * defaulted 0.25 the panel refuses to show.
+   */
+  confidenceIsDefaulted: boolean
+  /** PLoT's confidence disclosure object, when the wire carried a valid one. */
+  confidenceProvenance: ConfidenceProvenance | undefined
   /** value_of_information (snake or camel wire field) when present. */
   valueOfInformation: number | undefined
 }
@@ -634,6 +632,13 @@ export function selectDriverPolicyFeed(
       // disclose it read the signed wire row from `rawFactors`.
       rawElasticity: Math.abs(getRawElasticity(norm)),
       confidence: norm.confidence,
+      // Derived from the SAME normalised row the confidence itself came from,
+      // by the SAME function the panel uses — not a second reading of the wire.
+      confidenceIsDefaulted: isDefaultedConfidenceFromRaw({
+        confidenceSource: norm.confidenceSource,
+        samplingStability: norm.samplingStability,
+      }),
+      confidenceProvenance: norm.confidenceProvenance,
       valueOfInformation: norm.valueOfInformation,
     }
   })

@@ -14,6 +14,7 @@ import type { NodeType } from '../domain/nodes'
 import { compareByDisplayModel } from '../../components/results/driverDisplayModel'
 import type { DriverDisplayProvenance } from '../../components/results/driverDisplayModel'
 import { selectDriverPolicyFeed } from '../../components/results/useResultsSectionData'
+import { resolveFactorConfidenceDisplay } from '../../components/results/driverConfidenceDisplayPolicy'
 import type { ResultsReport } from '../../components/results/types'
 
 interface NodeDisplayMetadata {
@@ -30,8 +31,29 @@ interface NodeDisplayMetadata {
    * the Drivers panel. Null whenever `influence` is null.
    */
   influenceProvenance: DriverDisplayProvenance | null
-  /** Factor confidence score (0-1) - Task 3 */
+  /**
+   * Factor confidence score (0-1), ALREADY GATED by the shared display policy
+   * (`components/results/driverConfidenceDisplayPolicy`). Null when the
+   * producer sent none OR when the ruled policy says the figure is not fit to
+   * show — consumers must not second-guess it or read the raw field.
+   *
+   * Until this lane, this returned the raw `factor_sensitivity[].confidence`
+   * ungated while `DriversSection` refused to render the very same number: in
+   * both real staging captures that value is a defaulted `0.25` (ISL's own
+   * computed figure in the same bundle was 0.3756), and the canvas printed it
+   * bare on the node pill, the Detailed-view bar, and — worse — turned it into
+   * the spoken line "Low confidence."
+   */
   confidence: number | null
+  /**
+   * True when the gated `confidence` above is a producer placeholder. Only
+   * meaningful when `confidence` is non-null; surfaces MUST render the
+   * "Default estimate" disclosure alongside the number when this is true, so
+   * that flipping the policy gate can never re-introduce a bare figure.
+   */
+  confidenceIsDefaulted: boolean
+  /** True when PLoT marked the confidence calibration provisional. */
+  confidenceIsProvisional: boolean
   /** Whether this factor was found in the sensitivity analysis (false for root nodes like "Value") */
   inSensitivityAnalysis: boolean
   /** Outcome/Goal achievement probability (0-1) */
@@ -89,6 +111,8 @@ export function useNodeDisplayMetadata(
         influence: null,
         influenceProvenance: null,
         confidence: null,
+        confidenceIsDefaulted: false,
+        confidenceIsProvisional: false,
         inSensitivityAnalysis: false,
         achievementProbability: null,
         achievementProbabilityIsModelledBasis: false,
@@ -106,6 +130,8 @@ export function useNodeDisplayMetadata(
     let influence: number | null = null
     let influenceProvenance: DriverDisplayProvenance | null = null
     let confidence: number | null = null
+    let confidenceIsDefaulted = false
+    let confidenceIsProvisional = false
     let inSensitivityAnalysis = false
     let valueOfInformation: number | null = null
     let voiRank: number | null = null
@@ -175,13 +201,23 @@ export function useNodeDisplayMetadata(
           influenceProvenance = modelEntry.provenance
         }
 
-        // Confidence: Direct extraction (already 0-1)
-        // Note: Intentionally NOT using value_of_information as fallback - VOI is semantically
-        // different from confidence (it measures value of learning more, not certainty)
-        const rawConfidence = factorRow.confidence
-
-        if (typeof rawConfidence === 'number' && rawConfidence >= 0 && rawConfidence <= 1) {
-          confidence = rawConfidence
+        // Confidence: resolved through THE shared display policy, never read
+        // raw. Note: intentionally NOT using value_of_information as a fallback
+        // — VoI is semantically different from confidence (it measures the
+        // value of learning more, not certainty).
+        //
+        // The policy is the same binding `DriversSection` gates on, and the
+        // defaulted verdict comes off the same shared feed row, so the canvas
+        // and the panel cannot disagree about this number for one report.
+        const confidenceDisplay = resolveFactorConfidenceDisplay({
+          confidence: factorRow.confidence,
+          isDefaulted: factorRow.confidenceIsDefaulted,
+          confidenceProvenance: factorRow.confidenceProvenance,
+        })
+        if (confidenceDisplay.show) {
+          confidence = confidenceDisplay.value
+          confidenceIsDefaulted = confidenceDisplay.isDefaulted
+          confidenceIsProvisional = confidenceDisplay.isProvisional
         }
       }
     }
@@ -259,6 +295,8 @@ export function useNodeDisplayMetadata(
       influence,
       influenceProvenance,
       confidence,
+      confidenceIsDefaulted,
+      confidenceIsProvisional,
       inSensitivityAnalysis,
       achievementProbability,
       achievementProbabilityIsModelledBasis,

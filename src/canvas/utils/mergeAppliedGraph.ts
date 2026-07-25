@@ -127,6 +127,10 @@ import { saveAutosave } from '../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
 import { pulseAppliedTargets } from './appliedEditPulse'
 import { canvasEdgePairKey, wireEdgePairKey } from './graphIdentity'
+import { EDGE_PROVENANCED_FIELDS, edgeSourceKey } from '../domain/edgeValueProvenance'
+
+/** Derived from EDGE_PROVENANCED_FIELDS — never a hand-listed set. */
+const EDGE_SOURCE_KEYS: ReadonlySet<string> = new Set(EDGE_PROVENANCED_FIELDS.map(edgeSourceKey))
 import {
   backfillInterventionsOntoOptionNodes,
   mapDraftEdgeToCanvas,
@@ -248,7 +252,37 @@ function overlayEdge(existing: any, wireEdge: any): any {
   for (const [k, v] of Object.entries(mappedData)) {
     if (!sameValue(v, defaults[k])) supplied[k] = v
   }
+
+  // A provenance stamp must never outlive or precede the value it describes.
+  //
+  // The filter above deliberately UNDER-applies: a wire value that happens to
+  // equal the mapper default is treated as unsupplied and does not overwrite
+  // local state. A `*Source` stamp, though, differs from the baseline whenever
+  // the wire supplied ANYTHING — so without this coupling a receipt carrying
+  // weight 0.5 (== DEFAULT_EDGE_DATA.weight, therefore not applied) would still
+  // stamp `weightSource: 'cee'` onto an edge still showing the user's own 0.7.
+  // That is the exact defect class this marker exists to close: a claim about
+  // where a number came from, attached to a different number. Derived from
+  // EDGE_PROVENANCED_FIELDS, never a hand-kept pair list.
+  for (const field of EDGE_PROVENANCED_FIELDS) {
+    const sourceKey = edgeSourceKey(field)
+    if (sourceKey in supplied && !(field in supplied)) delete supplied[sourceKey]
+  }
+
   if (Object.keys(supplied).length === 0) return existing
+
+  // …and a stamp alone must not trigger a write. A receipt that genuinely
+  // matches the canvas is a STRICT no-op here — no history entry, no store
+  // write — and metadata about an unchanged number does not earn an exception:
+  // it would churn every user's history on their first turn after this ships,
+  // for a display outcome identical either way. So the no-op test is made
+  // against the data WITHOUT the stamps; when a real value does change, the
+  // stamps ride along with it.
+  const nextDataWithoutStamps = { ...(existing.data ?? {}) }
+  for (const [k, v] of Object.entries(supplied)) {
+    if (!EDGE_SOURCE_KEYS.has(k)) nextDataWithoutStamps[k] = v
+  }
+  if (sameValue(existing.data, nextDataWithoutStamps)) return existing
 
   const nextData = { ...(existing.data ?? {}), ...supplied }
   if (sameValue(existing.data, nextData)) return existing

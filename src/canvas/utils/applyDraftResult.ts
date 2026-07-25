@@ -13,6 +13,7 @@
 
 import { useCanvasStore } from '../store'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
+import { edgeValueSourcePatch } from '../domain/edgeValueProvenance'
 import { saveAutosave } from '../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
 import { hasAnalysisReady } from '../../adapters/cee/types'
@@ -66,6 +67,15 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
     typeof e.id === 'string' && e.id.trim().length > 0 ? e.id : `e-${i}`
 
   // Weight priority: strength.mean > strength_mean > weight > default
+  //
+  // `wireSuppliedStrength` is derived from the SAME three probes the priority
+  // chain uses (not a hand-kept copy of them), so it cannot drift from the
+  // value it describes: true exactly when the last branch — the UI default —
+  // was NOT taken.
+  const wireSuppliedStrength =
+    typeof e.strength?.mean === 'number'
+    || typeof e.strength_mean === 'number'
+    || typeof e.weight === 'number'
   const rawWeight: number =
     typeof e.strength?.mean === 'number'
       ? e.strength.mean
@@ -126,6 +136,15 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
       ...(edgeType !== undefined ? { edge_type: edgeType } : {}),
       ...(provenanceSource !== undefined ? { provenance_source: provenanceSource } : {}),
       ...(existsProbability !== undefined ? { exists_probability: existsProbability } : {}),
+      // Set-vs-defaulted markers. Derived from the resolved values themselves,
+      // never from "we are in the CEE mapper so it must be CEE": when the wire
+      // carried no belief at all, `beliefExists` is `undefined` here and the
+      // stamp is omitted, so the edge reads as NOT SET rather than claiming a
+      // producer estimate that was never sent.
+      ...edgeValueSourcePatch({
+        beliefExists: beliefExists !== undefined ? 'cee' : undefined,
+        weight: wireSuppliedStrength ? 'cee' : undefined,
+      }),
       // CEE display provenance (snake_case → camelCase). Distinct from `provenance_source`.
       ...edgeProvenanceDisplayPatch(e),
     },

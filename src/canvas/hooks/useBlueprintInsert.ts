@@ -13,6 +13,7 @@ import { useReactFlow } from '@xyflow/react'
 import type { Blueprint } from '../../templates/blueprints/types'
 import { useCanvasStore } from '../store'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
+import { edgeValueSourcePatch } from '../domain/edgeValueProvenance'
 import { checkLimits, formatLimitError } from '../utils/limitGuard'
 import { useEngineLimits } from './useEngineLimits'
 
@@ -99,6 +100,15 @@ export function useBlueprintInsert() {
           label,
           confidence: edge.probability,
           belief: edge.belief ?? edge.probability,  // v1.2: prefer belief, fallback to probability for legacy
+          // Set-vs-defaulted markers (canvas/domain/edgeValueProvenance.ts).
+          // A blueprint weight was authored by a template author — a real
+          // value, not a UI fallthrough — so it is stamped 'template' rather
+          // than 'cee': it is not an estimate of THIS user's decision. When the
+          // blueprint omits the field the stamp is omitted with it, and the
+          // 0.5/0.8 defaults stay visibly unset.
+          ...edgeValueSourcePatch({
+            weight: edge.weight != null ? 'template' : undefined,
+          }),
           provenance: edge.provenance,              // v1.2: source tracking
           templateId: blueprint.id
         }

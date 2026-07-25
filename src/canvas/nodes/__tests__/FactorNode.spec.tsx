@@ -706,6 +706,8 @@ describe('FactorNode', () => {
       influence: 1,
       influenceProvenance: 'normalised_elasticity',
       confidence: null,
+      confidenceIsDefaulted: false,
+      confidenceIsProvisional: false,
       inSensitivityAnalysis: true,
       achievementProbability: null,
       achievementProbabilityIsModelledBasis: false,
@@ -748,7 +750,8 @@ describe('FactorNode', () => {
       )
       vi.mocked(useNodeDisplayMetadata).mockReturnValue({
         sensitivityRank: 1, influence: 0.8, influenceProvenance: 'influence_score',
-        confidence: 0.45, inSensitivityAnalysis: true,
+        confidence: 0.45, confidenceIsDefaulted: false, confidenceIsProvisional: false,
+        inSensitivityAnalysis: true,
         achievementProbability: null, achievementProbabilityIsModelledBasis: false,
         stabilityPercentage: null, winRate: null, isResultsMode: true,
         predictedOutcome: null, valueOfInformation: null, voiRank: null,
