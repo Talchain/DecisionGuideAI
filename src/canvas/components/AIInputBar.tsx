@@ -14,6 +14,15 @@ import { typo } from '../../styles/typography'
 import { useCanvasStore } from '../store'
 import { useConversationContext } from '../conversation/ConversationContext'
 import { useStageAwarePlaceholder } from '../hooks/useStageAwarePlaceholder'
+import { AddOptionPanel } from '../conversation/AddOptionPanel'
+import {
+  buildAddOptionDispatch,
+  describeAddOptionRefusal,
+  detectAddOptionRequest,
+  resolveAddOptionTargets,
+  type AddOptionCanvasTargets,
+  type AddOptionChange,
+} from '../conversation/addOptionRequest'
 import { messageForElapsed } from './DraftLoadingAnimation'
 
 export type AIInputBarVariant = 'strip' | 'docked-tab' | 'floating' | 'first-use' | 'welcome'
@@ -123,7 +132,8 @@ export const AIInputBar = memo(
     },
     ref,
   ) {
-    const { draft, setDraft, clearDraft, sendMessage, isThinking } = useConversationContext()
+    const { draft, setDraft, clearDraft, sendMessage, dispatchAction, isThinking } =
+      useConversationContext()
     const stagePlaceholder = useStageAwarePlaceholder()
     const textareaRef = useRef<HTMLTextAreaElement | null>(null)
     // Empty canvas → the user's send should DRAFT a model (not chat).
@@ -199,6 +209,29 @@ export const AIInputBar = memo(
       el.style.height = `${Math.min(Math.max(el.scrollHeight, minHeightPx), maxHeightPx)}px`
     }, [draft, minHeightPx, maxHeightPx])
 
+    // --- add-option interception ------------------------------------------
+    // A typed "add an option called X" is routed into CEE's zero-LLM
+    // add_option transaction instead of the free-text edit lane, via a short
+    // configuration step that resolves the ids locally (see addOptionRequest.ts
+    // for why prose-derived ids silently degrade to a 20s LLM path). Holding
+    // the ORIGINAL text means nothing the user typed is ever lost: cancel keeps
+    // it in the composer, "send as a message instead" sends it verbatim.
+    const [addOption, setAddOption] = useState<{
+      label: string
+      text: string
+      targets: AddOptionCanvasTargets
+    } | null>(null)
+    const [addOptionRefusal, setAddOptionRefusal] = useState<string | null>(null)
+
+    const sendPlainMessage = useCallback(
+      (text: string) => {
+        sendMessage(text)
+        clearDraft()
+        onAfterSend?.(text)
+      },
+      [sendMessage, clearDraft, onAfterSend],
+    )
+
     const handleSend = useCallback(() => {
       const text = draft.trim()
       if (!text || disabled || isThinking) return
@@ -209,12 +242,68 @@ export const AIInputBar = memo(
           debugSource: 'generate_model',
           debugSourceSurface: 'ai_panel',
         })
-      } else {
-        sendMessage(text)
+        clearDraft()
+        onAfterSend?.(text)
+        return
       }
-      clearDraft()
-      onAfterSend?.(text)
-    }, [draft, disabled, isThinking, nodeCount, sendMessage, clearDraft, onAfterSend])
+      const detected = detectAddOptionRequest(text)
+      if (detected) {
+        // Read the graph imperatively: the composer must not re-render on every
+        // node change just to be ready for a request it usually never sees.
+        const targets = resolveAddOptionTargets(useCanvasStore.getState().nodes)
+        if (targets.decisionId) {
+          setAddOptionRefusal(null)
+          setAddOption({ label: detected.label, text, targets })
+          return
+        }
+        // No decision node — there is nothing to hang an option off, so fall
+        // through to the ordinary lane rather than open a form that must refuse.
+      }
+      sendPlainMessage(text)
+    }, [
+      draft,
+      disabled,
+      isThinking,
+      nodeCount,
+      sendMessage,
+      clearDraft,
+      onAfterSend,
+      sendPlainMessage,
+    ])
+
+    const closeAddOption = useCallback(() => {
+      setAddOption(null)
+      setAddOptionRefusal(null)
+    }, [])
+
+    const handleAddOptionSendAsMessage = useCallback(() => {
+      const text = addOption?.text ?? ''
+      closeAddOption()
+      if (text) sendPlainMessage(text)
+    }, [addOption, closeAddOption, sendPlainMessage])
+
+    const handleAddOptionSubmit = useCallback(
+      (label: string, changes: readonly AddOptionChange[]) => {
+        // Re-resolve against the LIVE canvas, not the snapshot the panel opened
+        // with: a node deleted while the panel was open must refuse here rather
+        // than ship an id CEE cannot find.
+        const built = buildAddOptionDispatch({
+          label,
+          changes,
+          nodes: useCanvasStore.getState().nodes,
+        })
+        if (!built.ok) {
+          setAddOptionRefusal(describeAddOptionRefusal(built.refusal))
+          return
+        }
+        const originalText = addOption?.text ?? ''
+        closeAddOption()
+        void dispatchAction({ ...built.dispatch, source: 'chip' })
+        clearDraft()
+        onAfterSend?.(originalText)
+      },
+      [addOption, closeAddOption, dispatchAction, clearDraft, onAfterSend],
+    )
 
     const handleKeyDown = useCallback(
       (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -281,6 +370,19 @@ export const AIInputBar = memo(
     const textareaRightPad = isWelcome ? 'pr-12' : isStrip ? 'pr-14' : 'pr-12'
 
     return (
+      <>
+      {addOption && (
+        <AddOptionPanel
+          initialLabel={addOption.label}
+          decisionLabel={addOption.targets.decisionLabel}
+          factors={addOption.targets.factors}
+          refusal={addOptionRefusal}
+          busy={isThinking}
+          onSubmit={handleAddOptionSubmit}
+          onSendAsMessage={handleAddOptionSendAsMessage}
+          onCancel={closeAddOption}
+        />
+      )}
       <div className={containerClasses} data-testid={testId ?? `ai-input-bar-${variant}`}>
         <div className="relative flex-1 bg-panel border border-panel-border rounded-lg transition-colors focus-within:border-info">
           <textarea
@@ -363,6 +465,7 @@ export const AIInputBar = memo(
           </button>
         ) : null}
       </div>
+      </>
     )
   }),
 )

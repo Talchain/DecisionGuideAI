@@ -112,6 +112,29 @@ export function isFactorNeedsInput(nodeData: unknown): boolean {
 }
 
 /**
+ * Convert a raw, real-world factor figure into the normalised model-space
+ * `value` the engine consumes.
+ *
+ * This is the rule every value-edit path in the UI already applies —
+ * PreAnalysisPanel.handleInlineEditValue and CalibrateDrillIn.commitValue both
+ * inline `cap != null && cap > 0 ? rawValue / cap : rawValue`. It is factored
+ * out here (the canonical home for observed-state logic) so new callers derive
+ * the rule instead of re-typing it. The two existing inline copies are
+ * unchanged by this commit and are tracked for convergence.
+ *
+ * A missing, non-finite or non-positive cap means "no honest scale exists", in
+ * which case the typed number IS the model-space value — the same fallback the
+ * existing call sites take. Never throws; a non-finite raw value is returned
+ * unchanged so the caller's own finite-number guard is the single rejection
+ * point rather than a silent coercion here.
+ */
+export function normaliseRawFactorValue(rawValue: number, cap: number | undefined | null): number {
+  if (!Number.isFinite(rawValue)) return rawValue
+  if (typeof cap !== 'number' || !Number.isFinite(cap) || cap <= 0) return rawValue
+  return rawValue / cap
+}
+
+/**
  * Build a node data patch that writes observed_state updates to BOTH keys.
  * Spreads existing state, then overlays the updates.
  *
