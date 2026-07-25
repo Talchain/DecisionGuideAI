@@ -235,6 +235,13 @@ export interface DecisionResultData {
   baselineOutcome?: number | null
   /** Near-tie detection: when top options are too close to call */
   nearTie?: NearTieInfo
+  /**
+   * SINGLE VERDICT: the ONE answer to "is there a leading option?", derived by
+   * `src/lib/decisionVerdict.ts` from the same PLoT report the canvas reads.
+   * Every surface that asserts or denies a leading option must gate on this
+   * and must not compute its own. See that module for the diagnosis.
+   */
+  verdict?: DecisionVerdict
   /** Task 6: Flip thresholds for tipping points visualisation */
   flipThresholds?: FlipThreshold[]
   /**
@@ -445,57 +452,15 @@ export function normalizeAutoNoiseProvenance(raw: unknown): AutoNoiseProvenance 
 
 // ─── Producer leader-confidence band (Lane UI-W4, PLoT #200) ────────────────
 //
-// PLoT's decision_brief now carries `headline_banded` — the producer leg of
-// the UI's UI-SEM-060 leader-claim banding debt ("Remove when PLoT provides a
-// leader-confidence band / close-call signal"). The UI consumes ONLY the
-// fields it needs to select existing copy: the band token, the leader
-// identity (so a producer claim about option X is never applied to option Y),
-// and the robustness_gated disclosure flag. The producer's `text` sentence is
-// deliberately NOT consumed — hero copy stays the glossary-scanned UI strings
-// in heroCopy.ts, selected by band (no new wording, provisional_doctrine_v0).
-
-/** Producer band tokens (PLoT BriefBandedHeadline.band, closed set). */
-export type HeadlineBandedBand = 'very_close' | 'slightly_ahead' | 'clearly_ahead'
-
-export interface HeadlineBanded {
-  band: HeadlineBandedBand
-  /** PLoT option id of the leader the band describes (win-probability rank 1). */
-  leaderOptionId: string
-  /**
-   * True when the gap alone qualified for 'clearly_ahead' but robustness was
-   * not established, so the PRODUCER downgraded the claim to
-   * 'slightly_ahead'. Disclosure metadata only — the downgrade is already
-   * folded into `band`, so no UI copy keys off this flag.
-   */
-  robustnessGated: boolean
-}
-
-const HEADLINE_BANDED_BANDS: ReadonlySet<string> = new Set([
-  'very_close',
-  'slightly_ahead',
-  'clearly_ahead',
-])
-
-/**
- * Normalise a raw PLoT `decision_brief.headline_banded` payload into the
- * UI's `HeadlineBanded`. Fail-closed trust boundary (same class as
- * `normalizeAutoNoiseProvenance`): unknown band tokens, missing/empty
- * leader id, or a non-object all return `null` — a future producer band is
- * never guessed into existing copy, and the UI-SEM-060 fallback banding
- * applies instead. Unknown additive producer fields are ignored.
- */
-export function normalizeHeadlineBanded(raw: unknown): HeadlineBanded | null {
-  if (raw === null || typeof raw !== 'object') return null
-  const r = raw as Record<string, unknown>
-  if (typeof r.band !== 'string' || !HEADLINE_BANDED_BANDS.has(r.band)) return null
-  if (typeof r.leader_option_id !== 'string' || r.leader_option_id.length === 0) return null
-  return {
-    band: r.band as HeadlineBandedBand,
-    leaderOptionId: r.leader_option_id,
-    // Strict read: only an explicit producer `true` records the downgrade.
-    robustnessGated: r.robustness_gated === true,
-  }
-}
+// MOVED (2026-07-25, SINGLE VERDICT lane): `HeadlineBanded` and
+// `normalizeHeadlineBanded` now live in `src/lib/decisionVerdict.ts`, next to
+// the one function entitled to turn producer signals into a leader verdict.
+// `src/lib` must not import from `src/components`, and duplicating the
+// normaliser here would be exactly the hand-maintained mirror this programme
+// keeps getting bitten by. Re-exported so every existing import site
+// (`useResultsSectionData`, the normaliser spec) keeps working unchanged.
+export type { HeadlineBandedBand, HeadlineBanded } from '../../lib/decisionVerdict'
+export { normalizeHeadlineBanded } from '../../lib/decisionVerdict'
 
 export interface DriverItem {
   /** Canonical identifier: node_id ?? factor_id ?? id ?? normalised(label) */

@@ -2080,9 +2080,16 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
         status: 'complete',
         report: {
           robustness: { recommended_option_id: 'option-1' },
+          // SINGLE VERDICT (2026-07-25): widened from 0.54/0.45. That 9pp gap
+          // sits INSIDE PLoT's own near-tie threshold (0.10), so under the
+          // shared verdict there is no leading option and the leader copy
+          // these tests are about is correctly suppressed. The win split is
+          // incidental to what this block asserts (which FACTOR winsVia names
+          // and whether it may claim "#1 driver"), so it is set to a genuine
+          // lead rather than the suppression case.
           option_probabilities: {
-            'option-1': { win_probability: 0.54 },
-            'option-2': { win_probability: 0.45 },
+            'option-1': { win_probability: 0.70 },
+            'option-2': { win_probability: 0.29 },
           },
           factor_sensitivity: opts.factors,
         },

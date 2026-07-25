@@ -22,8 +22,20 @@
 
 import { describe, it, expect } from 'vitest'
 import { buildCertaintyCopy, shouldSoftenPhrasing } from '../certaintyCopy'
+import type { DecisionVerdict } from '../../../../lib/decisionVerdict'
 
 const WINNER = 'Option A'
+
+// SINGLE VERDICT helpers — the shape `deriveDecisionVerdict` returns. Built by
+// hand here ONLY because this is a unit spec of the copy function; the
+// cross-surface spec (singleVerdict.crossSurface.spec.tsx) drives the real
+// derivation from a real PLoT report so these shapes cannot drift unnoticed.
+const tiedVerdict = (): DecisionVerdict => ({
+  leaderId: 'opt_a', separation: 'tied', hasLeadingOption: false, gapPp: 3, source: 'producer_near_tie',
+})
+const clearVerdict = (): DecisionVerdict => ({
+  leaderId: 'opt_a', separation: 'clear', hasLeadingOption: true, gapPp: 52, source: 'producer_near_tie',
+})
 
 describe('buildCertaintyCopy — decision table', () => {
   it('row 1: partial analysis overrides all tier inputs', () => {
@@ -43,13 +55,21 @@ describe('buildCertaintyCopy — decision table', () => {
     })
   })
 
-  it('row 2: stability < 0.70 produces the canonical no-clear-leader headline', () => {
+  // SINGLE VERDICT (2026-07-25): row 2 used to fire on
+  // `recommendationStability < 0.70`. That denied a leading option because the
+  // result was FRAGILE, which is a different fact — on the reported staging run
+  // it printed "no clear leading option / leads slightly more often" about a
+  // 52-point lead while the canvas badged the same option "Leading option".
+  // The tie call now belongs to `deriveDecisionVerdict` (src/lib), which reads
+  // PLoT's own `robustness.near_tie`. These two tests pin BOTH directions.
+  it('row 2: a TIED verdict produces the canonical no-clear-leader headline', () => {
     expect(
       buildCertaintyCopy({
         winnerLabel: WINNER,
         recommendationStability: 0.55,
         confidenceTier: 'strong',
         coachingReadiness: 'ready',
+        verdict: tiedVerdict(),
       }),
     ).toEqual({
       headline: 'no clear leading option, the result is sensitive to your estimates',
@@ -57,6 +77,21 @@ describe('buildCertaintyCopy — decision table', () => {
       caveat: null,
       conservative: true,
     })
+  })
+
+  it('row 2 REGRESSION PIN: low stability alone must NOT deny a leading option', () => {
+    // The exact journey run: 72% vs 20% (a 52-point lead) with stability 0.55.
+    const result = buildCertaintyCopy({
+      winnerLabel: WINNER,
+      recommendationStability: 0.55,
+      confidenceTier: 'strong',
+      coachingReadiness: 'ready',
+      winProbabilityGap: 52,
+      verdict: clearVerdict(),
+    })
+    expect(result.headline).not.toContain('no clear leading option')
+    expect(result.headline).not.toContain('slightly more often')
+    expect(result.headline).toContain(WINNER)
   })
 
   it('row 2 boundary: stability exactly 0.70 is considered stable (Rule 4 fires for needs_work)', () => {
@@ -280,12 +315,13 @@ describe('buildCertaintyCopy — decision table', () => {
   })
 
   describe('precedence policy', () => {
-    it('unstable (stability < 0.70) wins over weak tier — canonical unstable headline, no caveat', () => {
+    it('a TIED verdict wins over weak tier — canonical unstable headline, no caveat', () => {
       const result = buildCertaintyCopy({
         winnerLabel: WINNER,
         recommendationStability: 0.55,
         confidenceTier: 'needs_work',
         coachingReadiness: 'needs_evidence',
+        verdict: tiedVerdict(),
       })
       expect(result.headline).toBe(
         'no clear leading option, the result is sensitive to your estimates',
@@ -416,11 +452,12 @@ describe('buildCertaintyCopy — decision table', () => {
       }
     })
 
-    it('row 2 (unstable) ignores gap — canonical unstable copy is preserved', () => {
+    it('row 2 (tied) ignores gap — canonical unstable copy is preserved', () => {
       const result = buildCertaintyCopy({
         winnerLabel: WINNER,
         recommendationStability: 0.55,
         winProbabilityGap: 95,
+        verdict: tiedVerdict(),
       })
       expect(result.headline).toBe(
         'no clear leading option, the result is sensitive to your estimates',

@@ -21,6 +21,7 @@ import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodeChip, ActionIcons, BriefIcon, NodePopover, ScienceIcon } from './shared'
 import { selectGoalProbability } from '../../components/results/utils/selectGoalProbability'
+import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 
 /** Truncate text at word boundary to avoid mid-word cuts. */
 function truncateAtWord(text: string, maxLength: number): string {
@@ -392,32 +393,26 @@ export const OptionNode = memo((props: NodeProps) => {
   // it could never fire). Freshness verdicts render on the panel surfaces
   // via the composed trust semantic (useAnalysisTrust).
 
+  // SINGLE VERDICT (2026-07-25): the canvas no longer decides for itself
+  // whether a leading option exists. It quotes `deriveDecisionVerdict` — the
+  // one module entitled to answer that — computed from the SAME PLoT report
+  // the results panel reads. Before this, the badge asked only "WHO leads?"
+  // (producer recommendation, else win-probability argmax) with no gate for
+  // "is there a leader at all", so it fired on 100% of completed runs while
+  // the panel independently printed "no clear leading option" beside it. See
+  // src/lib/decisionVerdict.ts for the full diagnosis.
+  const verdict = useMemo(() => {
+    const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
+    return deriveDecisionVerdict(resultsReport as DecisionVerdictReportLike | null, {
+      visibleOptionIds: new Set(optionNodes.map(n => n.id)),
+    })
+  }, [nodes, resultsReport])
+
+  /** True only when this node is the leader AND a leading option exists at all. */
   const isRecommended = useMemo(() => {
     if (!displayMetadata.isResultsMode || displayMetadata.winRate === null) return false
-    const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
-    if (optionNodes.length < 2) return false
-    const visibleOptionIds = new Set(optionNodes.map(n => n.id))
-    const report = resultsReport as any
-    // Prefer the backend's own recommendation so the canvas "Leading option"
-    // badge agrees with the Results Panel (which honours recommended_option_id
-    // first) and with this node's own closeCallGapPp/behindReason. Backend
-    // recommendation and win-probability argmax diverge on close/indeterminate
-    // runs — badging the win-max option while the panel recommends another is
-    // the #1-vs-#4 cross-surface disagreement. Win-max is the fallback only
-    // when the producer sends no recommendation (or it is not a visible node).
-    const recommendedId = report?.robustness?.recommended_option_id as string | undefined
-    if (recommendedId && visibleOptionIds.has(recommendedId)) {
-      return props.id === recommendedId
-    }
-    const optionProbabilities: Record<string, { win_probability?: number }> = report?.option_probabilities ?? {}
-    const allRates = Object.entries(optionProbabilities)
-      .filter(([id]) => visibleOptionIds.has(id))
-      .map(([, v]) => typeof v?.win_probability === 'number' ? v.win_probability : null)
-      .filter((v): v is number => v !== null)
-    if (allRates.length === 0) return false
-    const maxRate = Math.max(...allRates)
-    return displayMetadata.winRate >= maxRate - 0.0001
-  }, [displayMetadata.isResultsMode, displayMetadata.winRate, nodes, resultsReport, props.id])
+    return verdict.hasLeadingOption && verdict.leaderId === props.id
+  }, [displayMetadata.isResultsMode, displayMetadata.winRate, verdict, props.id])
 
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   // UI-SEM-082 (Lane 4): the "chance of target" badge is a goal-fit claim, so it
@@ -438,23 +433,21 @@ export const OptionNode = memo((props: NodeProps) => {
   // missing. Returns null when not in close-call territory or pre-analysis.
   const closeCallGapPp = useMemo<number | null>(() => {
     if (!isPostAnalysis || isRecommended) return null
+    // SINGLE VERDICT: `isRecommended` is now false for the front-runner too
+    // when no leading option exists (a tied run). Without this guard the
+    // front-runner would compute a zero gap against itself and render
+    // "Close call: within 1 percentage point" on its own card.
+    if (verdict.leaderId === props.id) return null
     const report = resultsReport as any
     const probs: Record<string, { win_probability?: number }> | undefined = report?.option_probabilities
     if (!probs) return null
     const thisWin = probs[props.id]?.win_probability
     if (typeof thisWin !== 'number') return null
-    let leaderWin: number | null = null
-    const recommendedId = report?.robustness?.recommended_option_id as string | undefined
-    if (recommendedId && typeof probs[recommendedId]?.win_probability === 'number') {
-      leaderWin = probs[recommendedId]!.win_probability!
-    } else {
-      // Fallback: scan for max
-      for (const id in probs) {
-        const w = probs[id]?.win_probability
-        if (typeof w === 'number' && (leaderWin == null || w > leaderWin)) leaderWin = w
-      }
-    }
-    if (leaderWin == null) return null
+    // SINGLE VERDICT: leader identity comes from the shared verdict, not a
+    // second local resolution of `recommended_option_id`-else-argmax.
+    const leaderId = verdict.leaderId
+    const leaderWin = leaderId != null ? probs[leaderId]?.win_probability : undefined
+    if (typeof leaderWin !== 'number') return null
     const gap = leaderWin - thisWin
     if (gap < 0 || gap > 0.05) return null
     // Floor to at least 1pp so the line never reads "within 0 percentage
@@ -462,7 +455,7 @@ export const OptionNode = memo((props: NodeProps) => {
     // early return (within-0.0001 tolerance), but rounding can still produce
     // 0 from a small positive gap like 0.004.
     return Math.max(1, Math.round(gap * 100))
-  }, [isPostAnalysis, isRecommended, resultsReport, props.id])
+  }, [isPostAnalysis, isRecommended, verdict, resultsReport, props.id])
 
   const allInterventionChips = useMemo<InterventionChip[]>(() => {
     // Primary: ceeAnalysisReady.options[optionId].interventions

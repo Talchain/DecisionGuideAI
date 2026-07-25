@@ -425,7 +425,17 @@ function T1ChecksFooter({
   aiAffordance?: ReactNode
   useV17Copy?: boolean
 }) {
-  const hasWinner = !!data.recommendation.recommendedOption
+  // SINGLE VERDICT (2026-07-25): this check used to be presence-only
+  // (`!!recommendedOption`), and `determineWinnerSelection` always returns a
+  // winner when any option exists — so the footer could tick "Winner" in the
+  // same panel whose headline said "no clear leading option". It now quotes
+  // the shared verdict (src/lib/decisionVerdict.ts), the same one the
+  // headline and the canvas badge use. Absent verdict (older fixtures) falls
+  // back to the historic presence check rather than silently reading false.
+  const verdict = data.recommendation.verdict
+  const hasWinner = verdict
+    ? verdict.hasLeadingOption
+    : !!data.recommendation.recommendedOption
   // Robustness glyph: driven ONLY by the display-safe robustness verdict
   // (`robustnessVerdict`) — never PLoT `report.robustness.level`, never the
   // UI-SEM-005 stability fallback, never a recommendationStability threshold.

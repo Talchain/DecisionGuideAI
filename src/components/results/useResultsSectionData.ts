@@ -52,6 +52,7 @@ import type {
   ConfidenceProvenance,
 } from './types'
 import { normalizeAutoNoiseProvenance, normalizeHeadlineBanded } from './types'
+import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
 import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
@@ -1720,6 +1721,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       baselineOutcome,
       // Near-tie detection: when top options are too close to call
       nearTie,
+      // SINGLE VERDICT (2026-07-25): the ONE answer to "is there a leading
+      // option?", derived from the SAME `report` object the canvas reads —
+      // not re-derived from this hook's mapped fields, so canvas and panel
+      // cannot drift apart. Every surface asserting or denying a leading
+      // option quotes this. See src/lib/decisionVerdict.ts.
+      verdict: deriveDecisionVerdict(report as DecisionVerdictReportLike | null | undefined, {
+        visibleOptionIds: new Set(optionNodes.map((n) => n.id)),
+        rawHeadlineBanded,
+      }),
       // Task 6: Flip thresholds for tipping points visualisation
       flipThresholds: flipThresholds.length > 0 ? flipThresholds : undefined,
       // Display-honesty: PLoT-side classification of flip_thresholds[].
