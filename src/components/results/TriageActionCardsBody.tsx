@@ -20,6 +20,11 @@ import { useMemo, memo, useState, type ReactNode } from 'react'
 import { AlertTriangle, Check, ChevronDown, ChevronRight, HelpCircle, X } from 'lucide-react'
 import { ConditionalWinnerCards } from './ConditionalWinnerCards'
 import { resolveTriageBodyText } from '@/components/shared/resolveTriageBodyText'
+import {
+  resolveEvidenceGapConfidenceDisplay,
+  evidenceGapGenericText,
+  evidenceGapSourcePill,
+} from './utils/evidenceGapConfidenceDisplay'
 import { dedupTriageItems } from './utils/dedupTriageItems'
 import { TriageCard } from '@/components/shared/TriageCard'
 import type { TriageCardCategory, TriageCardAction } from '@/components/shared/TriageCard'
@@ -129,12 +134,7 @@ function applyOverlayToItem(
   }
 }
 
-// Source pill mapping based on confidence level
-function getSourcePill(confidence: number): { label: string; borderClass: string } {
-  if (confidence <= 0) return { label: 'No data', borderClass: 'border-danger/30' }
-  if (confidence < 40) return { label: 'AI estimate', borderClass: 'border-info/30' }
-  return { label: 'Estimated', borderClass: 'border-warning/30' }
-}
+
 
 function mapEvidenceGapsToActions(
   data: ResultsSectionDataReturn,
@@ -150,9 +150,12 @@ function mapEvidenceGapsToActions(
     const currentCap = nodeMeta?.cap ?? null
     // Post-analysis body precedence (coaching → generic fallback) goes
     // through the shared resolver so pre- and post-analysis agree.
+    // ⛔ F6 gate. `gap.confidence` was fabricated as `?? 0` upstream and this
+    // sentence asserted it: "This factor has 0% confidence."
+    const confidenceDisplay = resolveEvidenceGapConfidenceDisplay(gap.confidence)
     const { text: detail } = resolveTriageBodyText({
       coaching: gap.suggestion,
-      generic: `This factor has ${gap.confidence}% confidence. Improving it could change the result.`,
+      generic: evidenceGapGenericText(confidenceDisplay),
     })
     return {
       key: `gap-${gap.factorId}-${i}`,
@@ -177,7 +180,7 @@ function mapEvidenceGapsToActions(
         onSave: (rawValue: number) => onSetValue(targetId, rawValue),
         onCancel: () => {},
       } : null,
-      sourcePill: getSourcePill(gap.confidence),
+      sourcePill: evidenceGapSourcePill(confidenceDisplay),
       passiveLabels: undefined,
     }
   })

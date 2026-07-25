@@ -2733,7 +2733,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         const evidenceGaps = sortedGaps.map((gap: any) => ({
           factorId: gap.factor_id,
           factorLabel: gap.factor_label ?? gap.factor_id,
-          confidence: gap.confidence ?? 0,
+          // ⛔ No absence-fabrication. `?? 0` used to turn "the producer sent
+          // no confidence" into "the producer said zero", which the triage
+          // card then spoke as "This factor has 0% confidence."
+          confidence: typeof gap.confidence === 'number' && Number.isFinite(gap.confidence)
+            ? gap.confidence
+            : null,
           voi: gap.voi_score ?? gap.voi ?? 0,
           evpi: typeof gap.evpi === 'number' ? gap.evpi : undefined,
           evpiPp: typeof gap.evpi_percentage_points === 'number' ? gap.evpi_percentage_points : undefined,
