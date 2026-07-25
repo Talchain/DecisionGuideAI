@@ -1,10 +1,11 @@
 /**
  * Phase 4 — null-probability guard fixture coverage.
  *
- * Kept in the canvas/ui-v2 directory (not src/v5/) so the v5-scoped
- * typecheck (tsconfig.ci.json) does not transitively pull canvas types
- * into scope via a v5-local import. The v5 applyV5State fixtures test
- * does its own behaviour assertions without importing this helper.
+ * Kept in the canvas/ui-v2 directory (not src/v5/). The original reason —
+ * keeping canvas types out of the old narrow tsconfig.ci.json typecheck scope —
+ * no longer applies: `pnpm run typecheck` now compiles all of src. The
+ * placement is retained simply because the v5 applyV5State fixtures test does
+ * its own behaviour assertions without importing this helper.
  */
 import { describe, it, expect } from 'vitest'
 

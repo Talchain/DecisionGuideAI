@@ -148,8 +148,8 @@ describe('pulseAppliedTargets', () => {
 describe('F4 — the flush fits every surviving target into view BEFORE the pulse fires', () => {
   // Typed to the real seam signature: `ReturnType<typeof vi.fn>` is
   // Mock<any[], unknown>, which the zero-arg implementation below is not
-  // assignable to (tsc -p tsconfig.app.json; tsconfig.ci.json does not cover
-  // this file, so CI never surfaced it).
+  // assignable to. This file is now covered by `pnpm run typecheck` (which
+  // compiles tsconfig.app.json); under the old narrow gate CI never saw it.
   let fitSpy: Mock<[readonly string[]], void>
   let highlightsAtFitTime: string[] | null
   let unregister: (() => void) | null = null

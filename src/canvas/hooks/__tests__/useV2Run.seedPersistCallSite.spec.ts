@@ -105,9 +105,10 @@ function seedCanvas() {
  * than cast through `unknown`.
  *
  * What that buys, stated honestly: a missing required member surfaces under
- * `tsc -p tsconfig.app.json` and in an editor. It does NOT fail the CI gate —
- * `pnpm typecheck` uses tsconfig.ci.json, whose include list does not cover
- * src/canvas/hooks at all. So the type is a helpful tripwire, not a guarantee.
+ * `tsc -p tsconfig.app.json` and in an editor. As of 2026-07-25 that IS the CI
+ * gate — `pnpm run typecheck` compiles all of src (it previously used
+ * tsconfig.ci.json, whose hand-written include list did not cover
+ * src/canvas/hooks at all, so the type was a tripwire and not a guarantee).
  *
  * The REAL protection is the runtime guard inside seedPersistedFor: every test
  * routes through it, and it asserts persistAnalysisSuccess was actually called.

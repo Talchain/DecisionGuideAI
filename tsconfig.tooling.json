@@ -1,0 +1,50 @@
+{
+  // Non-app TypeScript: e2e specs, contract/integration tests outside src,
+  // build + CI tooling, netlify/supabase functions, storybook config, and the
+  // root *.config.ts files.
+  //
+  // DERIVED BY SUBTRACTION, deliberately. `include` is a whole-tree glob and
+  // `exclude` names only (a) build outputs, (b) `src` — which tsconfig.app.json
+  // already compiles — and (c) `archive`, whose files are listed one-by-one in
+  // scripts/ci/typecheck-uncovered.txt. A new top-level directory of TypeScript
+  // is therefore covered automatically; nobody has to remember to add it.
+  //
+  // `**/*` does not match dot-directories in a tsconfig glob, so `.storybook`
+  // needs its own explicit entry. scripts/ci/typecheck-gate.sh's coverage phase
+  // is what catches the next such case: it diffs `git ls-files` against what the
+  // compiler actually loaded, and FAILS on anything unaccounted for.
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    // Node globals are legitimate out here (scripts, netlify handlers, configs)
+    // and are deliberately NOT added to tsconfig.app.json, so browser code
+    // cannot quietly start depending on them.
+    "types": ["node", "vite/client", "react", "react-dom"]
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.mts",
+    "**/*.cts",
+    ".storybook/**/*.ts",
+    ".storybook/**/*.tsx"
+  ],
+  // `exclude` is not merged with the extended config's, so the git-ignored
+  // patterns from tsconfig.app.json are repeated here deliberately. Everything
+  // listed is either a build output, git-ignored cruft, already covered by
+  // tsconfig.app.json (`src`), or itemised in typecheck-uncovered.txt
+  // (`archive`). Nothing tracked and unaccounted-for can hide behind this list:
+  // scripts/ci/typecheck-gate.sh phase 1 would fail.
+  "exclude": [
+    "node_modules",
+    "dist",
+    "coverage",
+    "playwright-report",
+    "test-results",
+    "src",
+    "archive",
+    "storybook-static",
+    "**/* 2.ts",
+    "**/* 2.tsx",
+    "tests/p2-1-stream-canary.test.ts"
+  ]
+}

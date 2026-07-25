@@ -50,7 +50,11 @@ installs or scripts — `package-lock.json` must never be created or committed.
 pnpm run dev          # Start dev server (port 5173)
 pnpm run build        # Production build
 pnpm run lint         # ESLint
-pnpm run typecheck    # TypeScript check (tsc -p tsconfig.ci.json --noEmit)
+pnpm run typecheck    # THE typecheck gate — scripts/ci/typecheck-gate.sh
+                      #   phase 1: every tracked .ts/.tsx is loaded by a project (derived from git ls-files)
+                      #   phase 2: per-file error ratchet vs scripts/ci/typecheck-baseline.txt
+                      #   accept intended drift: `bash scripts/ci/typecheck-gate.sh --update-baseline`
+pnpm run typecheck:selftest  # Positive control: proves the gate actually goes RED (own CI job)
 pnpm test             # Run tests (vitest run --reporter=verbose)
 pnpm run test:full    # Full suite with increased memory (NODE_OPTIONS=--max-old-space-size=6144)
 ```
