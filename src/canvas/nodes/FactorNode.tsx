@@ -432,11 +432,27 @@ export const FactorNode = memo((props: NodeProps) => {
   }, [props.id, observedState])
 
   const influencePct = displayMetadata.influence != null ? Math.round(displayMetadata.influence * 100) : null
+  // Already gated by the shared display policy — see useNodeDisplayMetadata.
+  // Null whenever the ruled policy says the figure is not display-safe, which
+  // is why every confidence surface on this node (pill, bar, AND the
+  // synthesised coaching line below) goes quiet together.
   const confidencePct = displayMetadata.confidence != null ? Math.round(displayMetadata.confidence * 100) : null
+  const confidenceDisclosure = [
+    displayMetadata.confidenceIsDefaulted ? 'Default estimate — not yet validated with evidence' : null,
+    displayMetadata.confidenceIsProvisional ? 'Calibration is provisional' : null,
+  ].filter((q): q is string => q !== null).join('. ') || null
 
   // Graph v1.1 Task 3: synthesised one-line coaching for Standard view post-analysis
   // top-ranked factors. This replaces standalone coaching text (BiasNote etc.) on
   // the same node so there's a single source of guidance.
+  //
+  // ⛔ EVERY branch below is a CLAIM ABOUT CONFIDENCE spoken in prose — "High
+  // influence, low confidence.", "Low confidence." Fed by the ungated raw
+  // field, this node was telling the user their factor had "low confidence" on
+  // the strength of a defaulted 0.25 the Drivers panel refuses to print. The
+  // `confidencePct == null` guard was already here; what changed is that
+  // `confidencePct` is now null whenever the confidence is not display-safe, so
+  // the prose falls silent with the numbers instead of outliving them.
   const synthesisedCoaching = useMemo<{ prefix: string } | null>(() => {
     if (!isPostAnalysis || !isHighPriority) return null
     if (influencePct == null || confidencePct == null) return null
@@ -626,13 +642,35 @@ export const FactorNode = memo((props: NodeProps) => {
               <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{influencePct}%</span>
             </div>
           )}
+          {/* Confidence — gated upstream by the shared display policy
+              (components/results/driverConfidenceDisplayPolicy): `confidencePct`
+              is null whenever the ruled policy says the figure is not fit to
+              show, so this bar simply does not render. When the policy is
+              flipped the disclosure below travels WITH the number — the bar can
+              never appear bare. */}
           {confidencePct != null && confidencePct > 0 && (
-            <div className="flex items-center gap-1.5">
+            <div
+              className="flex items-center gap-1.5"
+              title={confidenceDisclosure ?? undefined}
+            >
               <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>Confidence</span>
               <div className="flex-1 min-w-0">
-                <DataBar value={confidencePct / 100} label="Confidence" colour="info" />
+                <DataBar
+                  value={confidencePct / 100}
+                  label={confidenceDisclosure ? `Confidence. ${confidenceDisclosure}` : 'Confidence'}
+                  colour="info"
+                />
               </div>
               <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{confidencePct}%</span>
+              {displayMetadata.confidenceIsDefaulted && (
+                <span
+                  className={`${typography.edgeLabel} text-text-light shrink-0`}
+                  aria-hidden="true"
+                  data-testid="factor-node-confidence-default-estimate"
+                >
+                  *
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -840,6 +878,8 @@ export const FactorNode = memo((props: NodeProps) => {
             influencePct={influencePct}
             influenceProvenance={displayMetadata.influenceProvenance}
             confidencePct={confidencePct}
+            confidenceIsDefaulted={displayMetadata.confidenceIsDefaulted}
+            confidenceIsProvisional={displayMetadata.confidenceIsProvisional}
           />
         )}
 

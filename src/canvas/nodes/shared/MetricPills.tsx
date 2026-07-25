@@ -26,10 +26,25 @@ interface MetricPillsProps {
   influencePct?: number | null
   /** Which basis produced influencePct (see driverDisplayModel). Absent → generic copy. */
   influenceProvenance?: DriverDisplayProvenance | null
+  /**
+   * Already gated by the shared display policy
+   * (`components/results/driverConfidenceDisplayPolicy`) — this component must
+   * never resolve the raw field itself. Null ⇒ render no confidence pill.
+   */
   confidencePct?: number | null
+  /** True ⇒ the figure is a producer placeholder; disclosed, never bare. */
+  confidenceIsDefaulted?: boolean
+  /** True ⇒ PLoT marked the calibration provisional; disclosed, never bare. */
+  confidenceIsProvisional?: boolean
 }
 
-export function MetricPills({ influencePct, influenceProvenance, confidencePct }: MetricPillsProps) {
+export function MetricPills({
+  influencePct,
+  influenceProvenance,
+  confidencePct,
+  confidenceIsDefaulted = false,
+  confidenceIsProvisional = false,
+}: MetricPillsProps) {
   const hasInfluence = influencePct != null && influencePct > 0
   const hasConfidence = confidencePct != null && confidencePct > 0
 
@@ -37,6 +52,18 @@ export function MetricPills({ influencePct, influenceProvenance, confidencePct }
 
   const influenceTitle = influenceExplanation(influenceProvenance)
   const influenceAria = influencePillAriaLabel(influencePct ?? 0, influenceProvenance)
+
+  // Confidence disclosure — composed from the two flags the shared policy
+  // returns, so the pill states exactly what it was told and never claims a
+  // quality it was not given.
+  const confidenceQualifiers = [
+    confidenceIsDefaulted ? 'Default estimate — not yet validated with evidence' : null,
+    confidenceIsProvisional ? 'Calibration is provisional' : null,
+  ].filter((q): q is string => q !== null)
+  const confidenceTitle = confidenceQualifiers.length > 0
+    ? confidenceQualifiers.join('. ')
+    : 'Confidence in this factor’s influence'
+  const confidenceAria = `Confidence ${confidencePct ?? 0}%. ${confidenceTitle}`
 
   return (
     <div className="flex gap-[3px] mt-1.5 items-center flex-wrap">
@@ -57,8 +84,23 @@ export function MetricPills({ influencePct, influenceProvenance, confidencePct }
         </span>
       )}
       {hasConfidence && (
-        <span className="text-[10px] font-sans leading-tight px-[5px] py-[1px] rounded-[10px] border border-factor/60 text-text-body">
+        <span
+          className="text-[10px] font-sans leading-tight px-[5px] py-[1px] rounded-[10px] border border-factor/60 text-text-body inline-flex items-center gap-0.5"
+          // Disclosure travels WITH the number, in the same element, so the
+          // figure cannot be rendered bare. Same vocabulary the Drivers panel
+          // ships ("Default estimate — not yet validated with evidence" /
+          // provisional calibration), not a second pattern.
+          role="img"
+          title={confidenceTitle}
+          aria-label={confidenceAria}
+          data-testid="metric-pill-confidence"
+        >
           Confidence {confidencePct}%
+          {confidenceIsDefaulted && (
+            <span aria-hidden="true" data-testid="metric-pill-confidence-default-estimate">
+              *
+            </span>
+          )}
         </span>
       )}
     </div>

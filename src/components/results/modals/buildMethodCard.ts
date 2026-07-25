@@ -26,7 +26,25 @@
  *
  * Read directly off `rawV2Response` (canvas store) because every field below
  * is a straight wire passthrough with no display policy attached.
+ *
+ * ⚠ CORRECTED 2026-07-25. The sentence above was true of the SOURCE but was
+ * taken as licence to hand-roll the PARSES, and three of them were wrong or
+ * duplicated — on the one card whose entire purpose is honest provenance:
+ *   · `auto_noise_provenance` was read for PRESENCE, so a payload explicitly
+ *     saying `{ applied: false }` rendered as "Applied" — the exact opposite of
+ *     what `ModelTabBody` showed for the same bytes, via the shared normaliser.
+ *   · `confidence_provenance` was reduced without `isValidConfidenceProvenance`,
+ *     so a malformed object counted as a calibration statement.
+ *   · `meta.seed_used` was a FOURTH independent parse of a field whose
+ *     canonical resolver (`resolveSeedUsed`) exists precisely because earlier
+ *     hand-rolls fabricated a 0 three different ways.
+ * Every one of those is now delegated. A passthrough field still needs THE
+ * shared reader — "no display policy" is not "no parsing rule".
  */
+
+import { normalizeAutoNoiseProvenance } from '../types'
+import { isValidConfidenceProvenance } from '../useResultsSectionData'
+import { resolveSeedUsed } from '../../../canvas/hooks/useV2Run'
 
 /** Either this run reported the fact, or it did not. No defaults, no third state. */
 export type Provenanced<T> = { known: true; value: T } | { known: false }
@@ -87,14 +105,15 @@ function finiteNumber(v: unknown): Provenanced<number> {
 }
 
 /**
- * A non-empty string, or unknown. `seed_used` arrives as a string in real
- * captures ("485977") but is number-typed in some contract revisions, so both
- * are accepted — and anything else is unknown rather than String()-coerced.
+ * Seed, via THE canonical resolver. `seed_used` arrives as a string in real
+ * captures ("485977") but is number-typed in some contract revisions;
+ * `resolveSeedUsed` already owns both cases AND the hard-won rule that an
+ * unparseable value stays unknown rather than becoming 0. This function only
+ * adapts its `number | null` to the card's `Provenanced<string>`.
  */
-function idString(v: unknown): Provenanced<string> {
-  if (typeof v === 'string' && v.trim() !== '') return known(v)
-  if (typeof v === 'number' && Number.isFinite(v)) return known(String(v))
-  return UNKNOWN
+function seedString(v: unknown): Provenanced<string> {
+  const resolved = resolveSeedUsed(v)
+  return resolved === null ? UNKNOWN : known(String(resolved))
 }
 
 /**
@@ -119,22 +138,22 @@ export function buildMethodCard(rawV2Response: unknown): MethodCardModel {
     : []
 
   // ── Confidence calibration ────────────────────────────────────────────
-  // Only factors that actually carry a confidence_provenance object count.
-  // Zero carriers = unknown (the 2026-04-05 capture is exactly this case);
-  // it must NOT read as "calibrated".
+  // Only factors carrying a VALID confidence_provenance object count, gated by
+  // the same `isValidConfidenceProvenance` the Drivers panel's disclosure runs
+  // through. Before this, any object under that key counted — a half-populated
+  // payload could be reduced into a confident-sounding calibration statement on
+  // the provenance card itself. Zero valid carriers = unknown (the 2026-04-05
+  // capture is exactly this case); it must NOT read as "calibrated".
   const provenances = factors
-    .map((f) => asRecord(f.confidence_provenance))
-    .filter((p): p is Record<string, unknown> => p !== null)
+    .map((f) => f.confidence_provenance)
+    .filter(isValidConfidenceProvenance)
 
   const confidenceCalibration: Provenanced<ConfidenceCalibration> =
     provenances.length === 0
       ? UNKNOWN
       : known({
           isProvisional: provenances.some((p) => p.is_provisional === true),
-          status:
-            typeof provenances[0].calibration_status === 'string'
-              ? (provenances[0].calibration_status as string)
-              : null,
+          status: provenances[0].calibration_status,
         })
 
   // ── Stability thresholds ──────────────────────────────────────────────
@@ -148,14 +167,18 @@ export function buildMethodCard(rawV2Response: unknown): MethodCardModel {
         })
 
   // ── Auto-noise ────────────────────────────────────────────────────────
-  // Presence of the provenance object IS the signal that the adjustment ran.
-  // Absence is unknown, never "no adjustment was applied".
+  // ⛔ Read the `applied` FLAG through the shared normaliser — never infer from
+  // presence. Presence-inference rendered "Applied" for a payload that
+  // explicitly said `{ applied: false }`, while `ModelTabBody` (which uses the
+  // normaliser) showed the opposite for the same bytes. A malformed or absent
+  // object normalises to null ⇒ unknown, never "no adjustment was applied".
+  const autoNoise = normalizeAutoNoiseProvenance(root?.auto_noise_provenance)
   const autoNoiseApplied: Provenanced<boolean> =
-    asRecord(root?.auto_noise_provenance) !== null ? known(true) : UNKNOWN
+    autoNoise === null ? UNKNOWN : known(autoNoise.applied)
 
   return {
     nSamples: finiteNumber(meta?.n_samples),
-    seed: idString(meta?.seed_used),
+    seed: seedString(meta?.seed_used),
     evpiMethod: unanimousString(factors, 'evpi_method'),
     confidenceCalibration,
     stabilityThresholds,

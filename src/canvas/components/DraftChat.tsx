@@ -13,6 +13,7 @@ import { DraftGuidancePanel } from './DraftGuidancePanel'
 import { RateLimitNotice } from './RateLimitNotice'
 import { ThinkingModePopover } from './ThinkingModePopover'
 import { DEFAULT_EDGE_DATA, trimProvenance } from '../domain/edges'
+import { edgeValueSourcePatch } from '../domain/edgeValueProvenance'
 import { saveAutosave } from '../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
 import { hasAnalysisReady, isCeePipelineTrace } from '../../adapters/cee/types'
@@ -615,6 +616,14 @@ export function DraftChat() {
           confidence,
           // P0 Fix: Use belief_exists (structural certainty) for beliefExists, fallback to belief (confidence)
           beliefExists: beliefExistsValue ?? confidence,
+          // Set-vs-defaulted markers (canvas/domain/edgeValueProvenance.ts).
+          // `weightSource` here is the LOCAL string above, which records which
+          // wire probe won — 'default' means the UI filled it in, so that case
+          // is deliberately NOT stamped.
+          ...edgeValueSourcePatch({
+            beliefExists: (beliefExistsValue ?? confidence) !== undefined ? 'cee' : undefined,
+            weight: weightSource !== 'default' ? 'cee' : undefined,
+          }),
           provenance: provenanceText,
           // Brief v2.2: New edge properties
           ...(direction ? { direction } : {}),

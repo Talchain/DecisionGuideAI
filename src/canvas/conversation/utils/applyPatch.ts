@@ -8,6 +8,7 @@
 
 import { useCanvasStore } from '../../store'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
+import { edgeValueSourcePatch } from '../../domain/edgeValueProvenance'
 import { saveAutosave } from '../../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../../store/autosaveProjection'
 import { pulseAppliedTargets } from '../../utils/appliedEditPulse'
@@ -96,6 +97,12 @@ function buildEdge(op: PatchOperation) {
 
   // Weight priority: strength.mean > strength_mean > weight > default
   const strength = d.strength as Record<string, unknown> | undefined
+  // Derived from the SAME three probes the priority chain below uses, so it
+  // cannot drift: true exactly when the UI-default branch was NOT taken.
+  const wireSuppliedStrength =
+    typeof strength?.mean === 'number'
+    || typeof d.strength_mean === 'number'
+    || typeof d.weight === 'number'
   const rawWeight: number =
     typeof strength?.mean === 'number'
       ? strength.mean
@@ -155,6 +162,14 @@ function buildEdge(op: PatchOperation) {
       ...(edgeType !== undefined ? { edge_type: edgeType } : {}),
       ...(provenanceSource !== undefined ? { provenance_source: provenanceSource } : {}),
       ...(existsProbability !== undefined ? { exists_probability: existsProbability } : {}),
+      // Set-vs-defaulted markers — see domain/edgeValueProvenance.ts. Omitted
+      // when the patch carried no value, so an operation that supplies neither
+      // leaves the edge honestly marked as unset rather than claiming a
+      // producer estimate.
+      ...edgeValueSourcePatch({
+        beliefExists: beliefExists !== undefined ? 'cee' : undefined,
+        weight: wireSuppliedStrength ? 'cee' : undefined,
+      }),
     },
   }
 }

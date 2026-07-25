@@ -132,10 +132,30 @@ describe('buildMethodCard — fabrication guards', () => {
   it('treats confidence as provisional when ANY factor is provisional', () => {
     // Conservative direction — matches the policy DriversSection already
     // ships (`drivers.some(d => d.confidenceProvenance?.isProvisional)`).
+    //
+    // ⚠ Both payloads below are now FULLY FORMED. They used to be two-key
+    // stubs, and they passed — because this module hand-rolled the read and
+    // accepted any object under the key. See the rejection test below.
     const model = buildMethodCard({
       factor_sensitivity: [
-        { confidence_provenance: { is_provisional: false, calibration_status: 'calibrated' } },
-        { confidence_provenance: { is_provisional: true, calibration_status: 'provisional' } },
+        {
+          confidence_provenance: {
+            computation_source: 'plot_unified_from_graph',
+            formula_version: 'plot_unified_v2',
+            is_provisional: false,
+            calibration_status: 'calibrated',
+            input_quality: 'standard',
+          },
+        },
+        {
+          confidence_provenance: {
+            computation_source: 'plot_unified_from_isl_bootstrap',
+            formula_version: 'plot_unified_v2',
+            is_provisional: true,
+            calibration_status: 'provisional',
+            input_quality: 'standard',
+          },
+        },
       ],
     })
     expect(model.confidenceCalibration).toEqual({
@@ -144,8 +164,73 @@ describe('buildMethodCard — fabrication guards', () => {
     })
   })
 
+  it('REJECTS a malformed confidence_provenance instead of reducing it into a claim', () => {
+    // The pre-2026-07-25 read was `asRecord(f.confidence_provenance) !== null`,
+    // so a half-populated object became a calibration statement on the one card
+    // whose purpose is honest provenance. It now runs through the SAME
+    // `isValidConfidenceProvenance` gate the Drivers panel's disclosure uses.
+    const model = buildMethodCard({
+      factor_sensitivity: [
+        { confidence_provenance: { is_provisional: true, calibration_status: 'provisional' } },
+        { confidence_provenance: { computation_source: 'made_up', formula_version: 'v9' } },
+      ],
+    })
+    expect(model.confidenceCalibration.known).toBe(false)
+  })
+
   it('refuses a non-boolean stability provisional flag rather than coercing truthiness', () => {
     expect(buildMethodCard({ stability_thresholds: { provisional: 'true' } }).stabilityThresholds.known).toBe(false)
     expect(buildMethodCard({ stability_thresholds: {} }).stabilityThresholds.known).toBe(false)
+  })
+})
+
+/**
+ * 🔴 The auto-noise fabrication — reported by the reuse review, 2026-07-25.
+ *
+ * `autoNoiseApplied` inferred from the PRESENCE of `auto_noise_provenance`
+ * rather than reading its `applied` flag through the shared normaliser. A
+ * payload explicitly stating `{ applied: false }` therefore rendered as
+ * "Applied" ON THE PROVENANCE CARD — while `ModelTabBody`, which uses
+ * `normalizeAutoNoiseProvenance`, showed the opposite for the same bytes.
+ *
+ * The shape below is the one the existing autoNoise integration suite uses
+ * (`useResultsSectionData.autoNoise.spec.ts:47-56`) — the same fields PLoT
+ * sends — with only `applied` varied between the two arms.
+ */
+describe('buildMethodCard — auto-noise reads the FLAG, never the presence', () => {
+  const validProvenance = {
+    applied: true,
+    effect: 'widens_outcome_and_risk_uncertainty',
+    formula_version: 'plot_auto_v1',
+    multiplier: 1.0,
+    noise_distribution: 'normal_zero_mean_outcome_std',
+    filter_scope: 'outcome_and_risk_nodes',
+    is_provisional: true,
+    calibration_status: 'provisional_pending_pilot_calibration',
+  }
+
+  it('reports applied=false as FALSE — the defect: this used to render "Applied"', () => {
+    const model = buildMethodCard({
+      auto_noise_provenance: { ...validProvenance, applied: false },
+    })
+    expect(model.autoNoiseApplied).toEqual({ known: true, value: false })
+  })
+
+  // POSITIVE CONTROL: without this the assertion above would pass against a
+  // function that always reported false.
+  it('reports applied=true as TRUE', () => {
+    const model = buildMethodCard({ auto_noise_provenance: validProvenance })
+    expect(model.autoNoiseApplied).toEqual({ known: true, value: true })
+  })
+
+  it('reports a MALFORMED provenance as unknown rather than as applied', () => {
+    // Presence-inference read this as "Applied"; the normaliser rejects it.
+    const { multiplier: _dropped, ...missingMultiplier } = validProvenance
+    expect(buildMethodCard({ auto_noise_provenance: missingMultiplier }).autoNoiseApplied.known).toBe(false)
+    expect(buildMethodCard({ auto_noise_provenance: { applied: true } }).autoNoiseApplied.known).toBe(false)
+  })
+
+  it('still reports an ABSENT provenance as unknown, never as "not applied"', () => {
+    expect(buildMethodCard({}).autoNoiseApplied.known).toBe(false)
   })
 })

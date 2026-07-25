@@ -178,7 +178,10 @@ function EdgeCard({
   const handleWeightSave = useCallback((val: string) => {
     const n = parseFloat(val)
     if (isNaN(n) || n < 0 || n > 2) return
-    updateEdge(edgeId, { data: { ...data, weight: n } })
+    // The user typed this number, so it stops being a default (see
+    // canvas/domain/edgeValueProvenance.ts) — stamped in the same update as the
+    // value so the marker can never lag the number it describes.
+    updateEdge(edgeId, { data: { ...data, weight: n, weightSource: 'user' } })
   }, [edgeId, data, updateEdge])
 
   const handleDirectionToggle = useCallback((dir: 'positive' | 'negative') => {
@@ -188,7 +191,7 @@ function EdgeCard({
   const handleLikelihoodSave = useCallback((val: string) => {
     const pct = parseFloat(val)
     if (isNaN(pct) || pct < 0 || pct > 100) return
-    updateEdge(edgeId, { data: { ...data, beliefExists: pct / 100 } })
+    updateEdge(edgeId, { data: { ...data, beliefExists: pct / 100, beliefExistsSource: 'user' } })
   }, [edgeId, data, updateEdge])
 
   return (

@@ -5,6 +5,7 @@
 
 import { z } from 'zod'
 import type { ValidationMetadata } from './validation'
+import { EdgeValueSourceEnum } from './edgeValueProvenance'
 
 /**
  * Edge style options for visualisation
@@ -227,6 +228,17 @@ export const EdgeDataSchema = z.object({
   /** Raw exists probability from CEE V3 (preserved alongside beliefExists) */
   exists_probability: z.number().min(0).max(1).optional(),
 
+  // Set-vs-defaulted markers. ABSENT MEANS DEFAULTED — see
+  // ./edgeValueProvenance.ts for the full rationale. Stamped only where the
+  // value demonstrably came from a named source, so a construction site that
+  // does nothing is correct by default and forgetting to stamp can only
+  // under-disclose, never over-claim. Do NOT add these to DEFAULT_EDGE_DATA or
+  // USER_EDGE_DEFAULTS.
+  /** Where `beliefExists` came from. Absent ⇒ nobody set it (UI default). */
+  beliefExistsSource: EdgeValueSourceEnum.optional(),
+  /** Where `weight` came from. Absent ⇒ nobody set it (UI default). */
+  weightSource: EdgeValueSourceEnum.optional(),
+
   // Phase 3: Non-linear edge functions
   functionType: EdgeFunctionTypeEnum.default('linear'),   // How input transforms to output
   functionParams: EdgeFunctionParamsSchema.optional(),    // Parameters for non-linear functions
@@ -277,6 +289,12 @@ export type EdgeData = z.infer<typeof EdgeDataSchema> & {
 /**
  * Default edge data for new edges (used by adapters, CEE, PLoT as fallback).
  * Keep weight at 0.5 for backward compatibility with downstream services.
+ *
+ * ⛔ These numbers are ASSUMPTIONS, not measurements. Deliberately carries NO
+ * `beliefExistsSource` / `weightSource`: an edge built from these defaults has
+ * had nothing set, and every display surface must be able to see that (see
+ * ./edgeValueProvenance.ts). Adding a source stamp here would launder every
+ * fallthrough into a claim.
  */
 export const DEFAULT_EDGE_DATA: EdgeData = {
   weight: 0.5,
@@ -295,6 +313,11 @@ export const DEFAULT_EDGE_DATA: EdgeData = {
  * Graph Editing Experience Task 6a: Defaults for user-created edges only.
  * More conservative starting point that encourages calibration.
  * Not used by adapters/CEE/PLoT (those keep DEFAULT_EDGE_DATA for compatibility).
+ *
+ * ⛔ Same rule as DEFAULT_EDGE_DATA: NO source stamps. Drawing an edge is not
+ * the same as estimating its strength or its likelihood of existing — until the
+ * user actually sets those, the surfaces must say so rather than report 0.8/0.3
+ * as if the user had chosen them.
  */
 export const USER_EDGE_DEFAULTS: EdgeData = {
   weight: 0.3,            // Moderate starting strength (encourages calibration)

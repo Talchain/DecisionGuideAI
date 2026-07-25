@@ -57,9 +57,13 @@ export const NODE_SETTER_FIELDS = {
 
 /** edge setter name → the top-level `data` field(s) that setter writes. */
 export const EDGE_SETTER_FIELDS = {
-  setStrength: ['weight', 'direction'],
+  // The `*Source` markers ride along with the value each setter writes: a
+  // user moving the slider is the ONLY thing that turns a defaulted number
+  // into a set one, so the stamp is written in the same update as the value
+  // and can never lag behind it.
+  setStrength: ['weight', 'direction', 'weightSource'],
   setStd: ['strengthStd'],
-  setExistsProbability: ['beliefExists'],
+  setExistsProbability: ['beliefExists', 'beliefExistsSource'],
   setLabel: ['label'],
   setDirection: ['direction'],
 } as const satisfies Record<string, readonly string[]>
@@ -273,7 +277,9 @@ export function useEdgeMutations(edgeId: string) {
     if (!edge) return
     const absWeight = Math.abs(mean)
     const direction = mean >= 0 ? 'positive' : 'negative'
-    updateEdge(edgeId, { data: { ...edge.data, weight: absWeight, direction } })
+    updateEdge(edgeId, {
+      data: { ...edge.data, weight: absWeight, direction, weightSource: 'user' },
+    })
   }, [edgeId, updateEdge, getEdge])
 
   const setStd = useCallback((std: number) => {
@@ -285,7 +291,9 @@ export function useEdgeMutations(edgeId: string) {
   const setExistsProbability = useCallback((ep: number) => {
     const edge = getEdge()
     if (!edge) return
-    updateEdge(edgeId, { data: { ...edge.data, beliefExists: ep } })
+    updateEdge(edgeId, {
+      data: { ...edge.data, beliefExists: ep, beliefExistsSource: 'user' },
+    })
   }, [edgeId, updateEdge, getEdge])
 
   const setLabel = useCallback((value: string) => {
