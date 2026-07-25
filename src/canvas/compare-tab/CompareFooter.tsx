@@ -32,8 +32,8 @@ export function CompareFooter({ state, latestSnapshot, onRunAnalysis, onSwitchTo
     useUIStore.getState().setActiveOutputTab('results')
 
     // State-specific focus after tab switch
-    if (state === 'noWinner' && latestSnapshot?.topEvpiFactorId) {
-      setTimeout(() => focusNodeById(latestSnapshot.topEvpiFactorId), 150)
+    if (state === 'noWinner' && latestSnapshot?.topCalibrationFactorId) {
+      setTimeout(() => focusNodeById(latestSnapshot.topCalibrationFactorId), 150)
     } else if (state === 'flipped' && latestSnapshot?.winnerId) {
       setTimeout(() => focusNodeById(latestSnapshot.winnerId), 150)
     }

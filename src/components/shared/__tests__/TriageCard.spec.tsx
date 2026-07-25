@@ -20,38 +20,30 @@ import { TriageCard } from '../TriageCard'
 // own the rendered AI-affordance button — consumers do — so the slot test
 // uses a lightweight stub that mirrors the real `data-testid` only.
 
-describe('TriageCard — compact EVPI pp pill (consistency with default variant)', () => {
-  it('renders Npp pill in compact variant when evoiImpact is provided', () => {
-    // Surfaced evidence-gap cards ranked 4-6 live in the compact variant via
-    // AlsoConsiderDisclosure. They need the Npp signal for the same reason
-    // the default variant's top-3 cards do (Brief 4 Phase 8 P1 #2).
-    render(
-      <TriageCard
-        cardKey="k1"
-        ordinal={4}
-        title="Factor X"
-        detail="Detail"
-        category="add_evidence"
-        variant="compact"
-        evoiImpact={2.5}
-      />,
-    )
-    expect(screen.getByText('2.5pp')).toBeInTheDocument()
-  })
-
-  it('omits the EVPI pill in compact when evoiImpact is null', () => {
-    render(
-      <TriageCard
-        cardKey="k1"
-        ordinal={4}
-        title="Factor X"
-        detail="Detail"
-        category="add_evidence"
-        variant="compact"
-      />,
-    )
-    expect(screen.queryByText(/pp$/)).not.toBeInTheDocument()
-  })
+// ⛔ The "compact EVPI pp pill" describe that stood here pinned a REFUTED
+// figure. `evoiImpact` was fed from `evidence_gaps[].evpi_percentage_points`;
+// replayed live 2026-07-25, PLoT published 12.3 / 10.2 / 6.6 pp for three
+// factors ISL measured at 0.0 pp in the SAME response, via a formula that
+// multiplies BY the top-two win-probability gap and so inverts decision
+// theory. The prop and both pills are gone.
+describe('TriageCard — no percentage-point pill on either variant', () => {
+  it.each(['compact', 'default'] as const)(
+    'renders no Npp pill in the %s variant even if a caller supplies the old prop',
+    variant => {
+      const props = {
+        cardKey: 'k1',
+        ordinal: 4,
+        title: 'Factor X',
+        detail: 'Detail',
+        category: 'add_evidence' as const,
+        variant,
+      }
+      render(<TriageCard {...({ ...props, evoiImpact: 2.5 } as typeof props)} />)
+      // Positive control: the card really did render.
+      expect(screen.getByText('Factor X')).toBeInTheDocument()
+      expect(screen.queryByText('2.5pp')).not.toBeInTheDocument()
+    },
+  )
 })
 
 describe('TriageCard — compact subtitle no longer truncates (Brief 4 hotfix Task 2 + Brief 5.2 Task 5 regression)', () => {
@@ -342,7 +334,7 @@ describe('TriageCard — edge title truncation (P1.5 follow-up, updated 5.8B hot
 // Axes covered:
 //   - Task 2: ExpandableCoachingText renders the full subtitle (no "…")
 //   - Task 4: ordinal badge is hidden when ordinal is undefined
-//   - Task 8 / EVPI pill: Npp pill renders when evoiImpact is set, is absent when null
+//   - Task 8 / EVPI pill: REMOVED — the pp figure is refuted; the pill is gone
 //
 // Task 3 (editor pre-fill / cap hint subtitle) is deliberately excluded —
 // the compact variant has no inline editor by design, so the subtitle-hint
@@ -402,22 +394,9 @@ describe.each(['default', 'compact'] as const)(
       expect(screen.getByText('3')).toBeInTheDocument()
     })
 
-    it('renders the Npp EVPI pill when evoiImpact is set (Phase 8 P1 #2)', () => {
-      render(
-        <TriageCard
-          cardKey="k-parity-evpi"
-          ordinal={2}
-          title="Factor D"
-          detail="Detail"
-          category="add_evidence"
-          variant={variant}
-          evoiImpact={2.5}
-        />,
-      )
-      expect(screen.getByText('2.5pp')).toBeInTheDocument()
-    })
-
-    it('omits the Npp pill when evoiImpact is null', () => {
+    // The "renders the Npp EVPI pill" parity spec is removed with the prop —
+    // see the note at the top of this file.
+    it('renders no Npp pill', () => {
       render(
         <TriageCard
           cardKey="k-parity-no-evpi"

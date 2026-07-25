@@ -65,7 +65,6 @@ function extractTopFactors(
       id: f.node_id ?? f.factor_id ?? '',
       label: f.factor_label ?? f.label ?? '',
       elasticity: f.elasticity ?? 0,
-      evpiPp: f.evpi_percentage_points ?? 0,
       rankFlipRate: f.rank_flip_rate ?? 0,
       attributionStability: f.attribution_stability ?? 'unknown',
     }))
@@ -234,9 +233,18 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
   const factors = rawV2Response.factor_sensitivity ?? []
   const topFactors = extractTopFactors(factors)
 
-  // Top EVPI factor
-  const topEvpiFactor = [...factors]
-    .sort((a, b) => (b.evpi_percentage_points ?? 0) - (a.evpi_percentage_points ?? 0))[0]
+  // The factor the Compare hero invites the user to calibrate.
+  //
+  // ⛔ This used to be `max evpi_percentage_points`, with `?? 0` fabricating
+  // absence as a confident zero — twice (here and on `topEvpiValue`). The
+  // quantity is refuted: ISL measures 0.0pp for the very factors PLoT scores
+  // at 12.3 / 10.2 / 6.6 in the same payload, and the formula multiplies BY
+  // the top-two win-probability gap, inverting decision theory.
+  //
+  // It is now `topFactors[0]` — max |elasticity| — which is the SAME quantity
+  // the hero already prints one clause earlier as "{topElasticity}% influence".
+  // One sentence, one source, and no new number introduced.
+  const topCalibrationFactor = topFactors[0]
 
   // Robustness
   //
@@ -302,9 +310,8 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
 
     topFactors,
     influenceConcentration: computeInfluenceConcentration(factors),
-    topEvpiFactor: topEvpiFactor?.factor_label ?? topEvpiFactor?.label ?? '',
-    topEvpiFactorId: topEvpiFactor?.node_id ?? topEvpiFactor?.factor_id ?? '',
-    topEvpiValue: topEvpiFactor?.evpi_percentage_points ?? 0,
+    topCalibrationFactor: topCalibrationFactor?.label ?? '',
+    topCalibrationFactorId: topCalibrationFactor?.id ?? '',
     topElasticity: topFactors.length > 0
       ? Math.round(Math.abs(topFactors[0].elasticity) * 100)
       : 0,

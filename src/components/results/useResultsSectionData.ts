@@ -413,7 +413,6 @@ export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<strin
     attributionStability: (typed.attribution_stability === 'high' || typed.attribution_stability === 'moderate' || typed.attribution_stability === 'low' || typed.attribution_stability === 'negligible') ? typed.attribution_stability : undefined,
     rankFlipRate: typeof typed.rank_flip_rate === 'number' ? typed.rank_flip_rate : undefined,
     evpi: typeof typed.evpi === 'number' ? typed.evpi : undefined,
-    evpiPercentagePoints: typeof typed.evpi_percentage_points === 'number' ? typed.evpi_percentage_points : undefined,
     worthInvestigating,
   }
 }
@@ -2123,7 +2122,6 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           attributionStability: f.raw.attributionStability,
           rankFlipRate: f.raw.rankFlipRate,
           evpi: f.raw.evpi,
-          evpiPercentagePoints: f.raw.evpiPercentagePoints,
           // V14.2: Default estimate pill — derivation extracted to
           // `isDefaultedConfidenceFromRaw` so cross-version compat behaviour
           // is unit-testable in isolation. See audit A1-PRIMARY.
@@ -2718,19 +2716,36 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           return true
         })
 
-        // Default sort (full evidenceGaps list): EVPI → VOI. Preserves
-        // existing consumers that iterate all gaps (e.g. debug/admin views).
-        const sortedGaps = uniqueGaps.sort((a: any, b: any) => {
-          const aEvpi = typeof a.evpi === 'number' ? a.evpi : -1
-          const bEvpi = typeof b.evpi === 'number' ? b.evpi : -1
-          if (aEvpi >= 0 && bEvpi >= 0) return bEvpi - aEvpi
-          const aVoi = typeof a.voi_score === 'number' ? a.voi_score : typeof a.voi === 'number' ? a.voi : 0
-          const bVoi = typeof b.voi_score === 'number' ? b.voi_score : typeof b.voi === 'number' ? b.voi : 0
-          return bVoi - aVoi
-        })
+        // ⛔ NO CLIENT-SIDE RE-RANK. The producer's emission order is kept.
+        //
+        // This list used to be sorted EVPI → VOI here, and then the top-3 slice
+        // below re-sorted by `evpi_percentage_points`. Both are gone. The
+        // quantity is not merely uncalibrated, it is REFUTED: replayed live on
+        // 2026-07-25 against PLoT 1dd45b6a → ISL 3aea011c, PLoT published
+        // `evpi_percentage_points: 12.3` for *Market Receptivity to Feature*
+        // while ISL, in the SAME response one level away, measured that same
+        // factor at `p_win_delta_percentage_points: 0.0` and
+        // `factor_evppi: 0.0`. Same for 10.2 and 6.6 on decision a4b32ee2.
+        //
+        // The formula (PLoT coaching/evidence-gaps.ts:75) is
+        // `voi × winProbSpread × 100`, multiplying BY the top-two
+        // win-probability gap — which INVERTS decision theory. ISL measures the
+        // near-tied decision as worth 16× the foregone one; PLoT ranks them
+        // opposite.
+        //
+        // Losing this sort is not a downgrade. `winProbSpread` is a SINGLE
+        // PER-RESPONSE SCALAR, so within one response "by evpi_pp desc" and
+        // "by voi desc" are the SAME ordering — and "by voi desc" is exactly
+        // what PLoT already emits. Preserving producer order therefore
+        // reproduces the previous on-screen order on live data, without the UI
+        // depending on, or asserting, the refuted figure.
+        //
+        // Do NOT reinstate a sort here. If an ordering claim is ever wanted
+        // again it must come from a quantity our own compute layer corroborates.
+        const orderedGaps = uniqueGaps
 
         // Map to UI format (defensive: accept both voi_score/voi field names)
-        const evidenceGaps = sortedGaps.map((gap: any) => ({
+        const evidenceGaps = orderedGaps.map((gap: any) => ({
           factorId: gap.factor_id,
           factorLabel: gap.factor_label ?? gap.factor_id,
           // ⛔ No absence-fabrication. `?? 0` used to turn "the producer sent
@@ -2741,25 +2756,39 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
             : null,
           voi: gap.voi_score ?? gap.voi ?? 0,
           evpi: typeof gap.evpi === 'number' ? gap.evpi : undefined,
-          evpiPp: typeof gap.evpi_percentage_points === 'number' ? gap.evpi_percentage_points : undefined,
           suggestion: gap.suggestion ?? '',
           targetNodeId: gap.target_node_id,
         }))
 
-        // Brief 4 Task 9 (revised per review): filter to positive EVPI
-        // percentage points FIRST, then sort by evpi_pp descending, then take
-        // the top 3. Sort-key mismatch previously let a gap with high `evpi`
-        // but zero `evpi_pp` rank ahead of a meaningful 1pp gap.
-        const positiveEvpi = evidenceGaps
-          .filter(g => (g.evpiPp ?? 0) > 0)
-          .sort((a, b) => (b.evpiPp ?? 0) - (a.evpiPp ?? 0))
-        const topEvidenceGaps = positiveEvpi.slice(0, 3)
-        const topEvidenceGapsEmpty = evidenceGaps.length > 0 && positiveEvpi.length === 0
+        // ⛔ NO SECOND SELECTION GATE. The producer's set IS the selection.
+        //
+        // This was `.filter(g => (g.evpiPp ?? 0) > 0)` — and it was not an
+        // ordering, it decided MEMBERSHIP. Its worst mode was not
+        // "misordered", it was EMPTY: PLoT's `computeEvpiPercentagePoints`
+        // returns undefined when `winProbSpread <= 0`, so on a PERFECT TIE
+        // between the top two options — precisely where information is most
+        // valuable — PLoT omits the field, `?? 0` turned that absence into a
+        // confident zero, `0 > 0` was false, and EVERY suggested evidence gap
+        // vanished. A user with a genuinely close decision saw none.
+        //
+        // What selects now: PLoT's own membership decision, which is
+        // `non-lever ∧ top-k by ISL importance_rank ∧ confidence < 0.7`
+        // (coaching/evidence-gaps.ts). That is defensible in words — "a factor
+        // that matters to the result, that we are not confident about" — and
+        // contains no EVPI. The UI simply stops stacking a second, refuted
+        // numeric gate on top of it. No replacement number is introduced;
+        // substituting one unvalidated figure for another is the mistake this
+        // whole track exists to stop.
+        //
+        // `topEvidenceGapsEmpty` went with the gate: it could only ever be true
+        // because of that filter, and the copy it drove ("No high-value
+        // evidence gaps. Your current uncertainties have minimal impact on the
+        // result.") was itself an EVPI claim.
+        const topEvidenceGaps = evidenceGaps.slice(0, 3)
 
         return {
           evidenceGaps,
           topEvidenceGaps,
-          topEvidenceGapsEmpty,
         }
       })(),
       // Task 5 (M1 Coaching): Next actions - sorted by priority, deduped against fragile edges

@@ -97,7 +97,6 @@ function makeData(): ResultsSectionDataReturn {
     factorLabel: 'Capacity',
     confidence: 50,
     voi: 0.6,
-    evpiPp: 30,
     suggestion: 'Pull last quarter\'s staffing numbers.',
     targetNodeId: 'n_cap',
   } as EvidenceGapItem

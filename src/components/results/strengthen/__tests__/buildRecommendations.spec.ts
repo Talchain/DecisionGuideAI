@@ -174,32 +174,36 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
     expect(ids(weak)).not.toContain('strengthen:lehi:f1')
   })
 
-  it('voi: producer worth_investigating flag cites the producer; UI evpi fallback is HONESTLY labelled', () => {
+  // ⛔ The two specs that stood here pinned a UI-invented `evpiPercentagePoints
+  // > 5` FALLBACK pool — factors the producer had NOT flagged, admitted on a
+  // threshold the UI made up over a REFUTED figure (PLoT publishes 12.3 / 10.2
+  // / 6.6 pp for factors ISL measures at 0.0 pp in the same response). The
+  // fallback, its threshold, its sort key and the "shift the result by about
+  // {N} percentage points" sentence are all gone.
+  //
+  // What is pinned instead: selection is the producer's explicit flag, and
+  // nothing is admitted without it.
+
+  it('voi: fires on the producer worth_investigating flag and cites the producer', () => {
     const producer: StrengthenInputs = {
       ...base,
-      factors: [{ factorId: 'f1', label: 'Churn', worthInvestigating: true, evpiPercentagePoints: 8, canFocus: true, confidenceDisplay: absent() }],
+      factors: [{ factorId: 'f1', label: 'Churn', worthInvestigating: true, canFocus: true, confidenceDisplay: absent() }],
     }
     const rec = buildRecommendations(producer).find((r) => r.id === 'strengthen:voi:f1')
     expect(rec).toBeDefined()
     expect(rec!.sourceLine.toLowerCase()).toContain('value of information')
     expect(rec!.sourceLine.toLowerCase()).not.toContain('ui threshold')
-
-    const fallback: StrengthenInputs = {
-      ...base,
-      factors: [{ factorId: 'f1', label: 'Churn', evpiPercentagePoints: 8, canFocus: true, confidenceDisplay: absent() }],
-    }
-    const rec2 = buildRecommendations(fallback).find((r) => r.id === 'strengthen:voi:f1')
-    expect(rec2).toBeDefined()
-    // UI-SEM-014-class basis must be named, never claimed as producer provenance.
-    expect(rec2!.sourceLine.toLowerCase()).toContain('ui threshold')
+    // No percentage-point claim survives in the rendered signal.
+    expect(rec!.signal).not.toMatch(/percentage points/i)
+    expect(rec!.signal).not.toMatch(/\d+\s*pp\b/i)
   })
 
-  it('voi: sub-threshold evpi without the producer flag suppresses', () => {
-    const tiny: StrengthenInputs = {
+  it('voi: suppresses entirely without the producer flag, whatever the UI might have inferred', () => {
+    const unflagged: StrengthenInputs = {
       ...base,
-      factors: [{ factorId: 'f1', label: 'Churn', evpiPercentagePoints: 0.5, canFocus: true, confidenceDisplay: absent() }],
+      factors: [{ factorId: 'f1', label: 'Churn', canFocus: true, confidenceDisplay: absent() }],
     }
-    expect(ids(tiny)).not.toContain('strengthen:voi:f1')
+    expect(ids(unflagged)).not.toContain('strengthen:voi:f1')
   })
 
   it('robustness challenge: fires on low/very_low robustness only', () => {

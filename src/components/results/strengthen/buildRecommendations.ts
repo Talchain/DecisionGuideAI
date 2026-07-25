@@ -57,8 +57,13 @@ export function toStrengthenPhase3Item(item: GuidanceItem): StrengthenPhase3Item
   }
 }
 
-/** UI-SEM-014-class VOI visibility floor (percentage points). */
-const VOI_EVPI_FLOOR_PP = 5
+// ⛔ `VOI_EVPI_FLOOR_PP = 5` REMOVED. It was a UI-invented threshold on
+// `evpi_percentage_points`, used to admit factors the PRODUCER had not flagged.
+// The quantity is refuted — replayed live 2026-07-25, PLoT published 12.3 /
+// 10.2 / 6.6 pp for three factors ISL measured at 0.0 pp in the SAME response,
+// via a formula that multiplies BY the top-two win-probability gap and so
+// inverts decision theory. A UI threshold on a refuted number selected factors
+// on evidence our own compute layer contradicts.
 /** Producer influence above this + confidence below the low bar = LEHI. */
 const LEHI_INFLUENCE_FLOOR = 0.5
 const LEHI_CONFIDENCE_CEILING = 0.4
@@ -326,37 +331,30 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
 
   // ── Evaluate: highest value of information ────────────────────────────────
   if (inputs.analysisComplete) {
-    const producerFlagged = inputs.factors.filter((f) => f.worthInvestigating === true)
-    const fallback = inputs.factors.filter(
-      (f) =>
-        f.worthInvestigating !== true &&
-        typeof f.evpiPercentagePoints === 'number' &&
-        f.evpiPercentagePoints > VOI_EVPI_FLOOR_PP,
-    )
-    const pool = producerFlagged.length > 0 ? producerFlagged : fallback
-    const top = [...pool].sort(
-      (a, b) => (b.evpiPercentagePoints ?? 0) - (a.evpiPercentagePoints ?? 0),
-    )[0]
+    // Selection is the PRODUCER's explicit flag and nothing else. That flag is
+    // a strict read of wire `worth_investigating === true` (see
+    // useResultsSectionData's factor extractor, which deliberately refuses the
+    // canvas adapter's `?? evpi > 0.05` default). No UI numeric gate, and no
+    // re-rank: the producer's own order stands.
+    const top = inputs.factors.filter((f) => f.worthInvestigating === true)[0]
     if (top) {
-      const producerBacked = top.worthInvestigating === true
       recs.push({
         id: `strengthen:voi:${top.factorId}`,
         helpType: 'evaluate',
         title: `Investigate ${top.label} before relying on the ranking`,
-        signal:
-          typeof top.evpiPercentagePoints === 'number'
-            ? `Knowing this better could shift the result by about ${Math.round(top.evpiPercentagePoints)} percentage points.`
-            : 'Knowing this better has the highest information value in your model.',
+        // ⛔ The percentage-point variant of this sentence is REMOVED:
+        // "Knowing this better could shift the result by about {N} percentage
+        // points." It is the same claim as the factor chip and the confidence
+        // line, in the Strengthen panel, from the same refuted field.
+        signal: 'The engine flagged this as worth investigating before you rely on the ranking.',
         whyNow: 'Of everything uncertain, this is the most valuable thing to learn next.',
         tryThis: 'Spend a short, time-boxed effort narrowing this down before deciding.',
-        sourceLine: producerBacked
-          ? 'Source: value of information analysis (flagged by the engine).'
-          : 'Source: value of information estimate (UI threshold, engine flag not available).',
+        sourceLine: 'Source: value of information analysis (flagged by the engine).',
         action: {
           kind: 'ai-dialogue',
           label: 'Plan the investigation',
           actionType: 'discuss',
-          parameters: { factor_id: top.factorId, evpi_percentage_points: top.evpiPercentagePoints ?? null },
+          parameters: { factor_id: top.factorId },
           prompt: `Help me plan a quick investigation into ${top.label}.`,
         },
         targetId: top.canFocus ? top.factorId : null,

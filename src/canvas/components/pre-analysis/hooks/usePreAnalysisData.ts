@@ -135,11 +135,14 @@ export interface ImprovementItem {
    * subtitle when the CEE `hint` is absent. Populated by usePreAnalysisData
    * from m1_coaching.evidence_gaps and the graph structure. Consumers
    * should pick the first populated field in the priority order:
-   * voi → evpiPp → downstreamDegree.
+   * voi → downstreamDegree.
+   *
+   * ⛔ `evpiPp` removed — it fed "Resolving could improve confidence by {pp}pp"
+   * in mapImprovementToTriageCard. The figure is `evpi_percentage_points`, which
+   * ISL measures at 0.0 for the very factors PLoT scores at 12.3 / 10.2 / 6.6.
    */
   sensitivityContext?: {
     voi?: number
-    evpiPp?: number
     downstreamDegree?: number
   }
 }
@@ -814,10 +817,10 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       }
 
       // Brief 4 Task 8: derive deterministic context for the mapper's fallback
-      // subtitle. VoI + EVPI come from m1 coaching when present; downstream
-      // degree is always available from the graph.
+      // subtitle. VoI comes from m1 coaching when present; downstream degree
+      // is always available from the graph.
       const factorEvidenceGap = Array.isArray(m1EvidenceGaps)
-        ? (m1EvidenceGaps as Array<{ factor_id?: string; voi_score?: number; voi?: number; evpi_percentage_points?: number }>).find(
+        ? (m1EvidenceGaps as Array<{ factor_id?: string; voi_score?: number; voi?: number }>).find(
           g => g.factor_id === factor.id,
         )
         : undefined
@@ -827,9 +830,6 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         voi: typeof factorInfluence === 'number'
           ? factorInfluence
           : (factorEvidenceGap?.voi_score ?? factorEvidenceGap?.voi),
-        evpiPp: typeof factorEvidenceGap?.evpi_percentage_points === 'number'
-          ? factorEvidenceGap.evpi_percentage_points
-          : undefined,
         downstreamDegree: downstreamDegree > 0 ? downstreamDegree : undefined,
       }
 

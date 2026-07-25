@@ -197,7 +197,6 @@ function gap(
     factorLabel: label,
     confidence: 50,
     voi,
-    evpiPp: voi * 50,
     suggestion,
     targetNodeId: factorId,
   } as EvidenceGapItem
