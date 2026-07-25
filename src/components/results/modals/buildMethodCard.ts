@@ -58,15 +58,11 @@ function known<T>(value: T): Provenanced<T> {
 export interface ConfidenceCalibration {
   /** True when the producer stamped the confidence figure provisional. */
   isProvisional: boolean
-  /** Producer's calibration status string, when it sent one. */
-  status: string | null
 }
 
 export interface StabilityThresholds {
   /** True when the producer stamped its stability bands provisional. */
   isProvisional: boolean
-  /** Producer's threshold-set version, when it sent one. */
-  version: string | null
 }
 
 export interface MethodCardModel {
@@ -153,7 +149,6 @@ export function buildMethodCard(rawV2Response: unknown): MethodCardModel {
       ? UNKNOWN
       : known({
           isProvisional: provenances.some((p) => p.is_provisional === true),
-          status: provenances[0].calibration_status,
         })
 
   // ── Stability thresholds ──────────────────────────────────────────────
@@ -163,7 +158,6 @@ export function buildMethodCard(rawV2Response: unknown): MethodCardModel {
       ? UNKNOWN
       : known({
           isProvisional: rawThresholds.provisional,
-          version: typeof rawThresholds.version === 'string' ? rawThresholds.version : null,
         })
 
   // ── Auto-noise ────────────────────────────────────────────────────────

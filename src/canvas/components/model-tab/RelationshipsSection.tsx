@@ -38,6 +38,10 @@ import { StrengthBar } from '../../ui/inspector/StrengthBar'
 import { ContestedEdgeCard } from './ContestedEdgeCard'
 import { CoachingCard } from './CoachingCard'
 import type { ValidationMetadata, UserAction } from '../../domain/validation'
+import {
+  resolveEdgeValueDisplay,
+  resolveEdgeSignedStrengthDisplay,
+} from '../../domain/edgeValueProvenance'
 
 /** Repair display entry for edge detail */
 export interface EdgeRepairDisplay {
@@ -135,22 +139,33 @@ function EdgeCard({
   const fromLabel = String((sourceNode?.data as Record<string, unknown>)?.label ?? edge.source)
   const toLabel = String((targetNode?.data as Record<string, unknown>)?.label ?? edge.target)
 
-  // Read raw values — treat absent fields as truly unset (no silent defaults)
-  const rawWeight = data?.weight as number | undefined
+  // PROVENANCE-GATED READ, not a presence check.
+  //
+  // This block used to read `rawWeight !== undefined`. `DEFAULT_EDGE_DATA` and
+  // `USER_EDGE_DEFAULTS` ALWAYS define `weight` and `beliefExists`, so that
+  // test was true for every edge that exists in the product and the "Not set"
+  // branches below were statically unreachable — while the comment here
+  // claimed the opposite. A drawn edge rendered `+0.30`, `Moderate positive`,
+  // `p0.80` and a GREEN 80% "Likelihood" bar, all UI defaults, under a tooltip
+  // attributing the confidence to the user.
+  //
+  // `resolveEdgeValueDisplay` cannot hand back a number without a source, so
+  // the fabrication is no longer expressible here.
+  const strengthDisplay = resolveEdgeSignedStrengthDisplay(data)
+  const likelihoodDisplay = resolveEdgeValueDisplay(data, 'beliefExists')
+
   const rawDirection = data?.direction as string | undefined
   const safeDirection: 'positive' | 'negative' =
     rawDirection === 'negative' ? 'negative' : rawDirection === 'positive' ? 'positive' : 'positive'
   const strengthStd = data?.strengthStd ?? data?.strength_std
 
-  const hasStrength = rawWeight !== undefined
-  const signedMean = hasStrength ? (safeDirection === 'negative' ? -rawWeight! : rawWeight!) : undefined
+  const hasStrength = strengthDisplay.show
+  const rawWeight = strengthDisplay.show ? Math.abs(strengthDisplay.value) : undefined
+  const signedMean = strengthDisplay.show ? strengthDisplay.value : undefined
 
-  // Likelihood — absent means unset, not 70%
-  // Canvas store canonical name — CEE ingestion normalises to beliefExists
-  const rawBelief = data?.beliefExists ?? data?.confidence ?? data?.belief
-  const hasLikelihood = rawBelief !== undefined
-  const beliefExists = hasLikelihood ? (rawBelief as number) : undefined
-  const likelihoodPct = hasLikelihood ? Math.round(beliefExists! * 100) : undefined
+  const hasLikelihood = likelihoodDisplay.show
+  const beliefExists = likelihoodDisplay.show ? likelihoodDisplay.value : undefined
+  const likelihoodPct = likelihoodDisplay.show ? Math.round(likelihoodDisplay.value * 100) : undefined
 
   const likelihoodColour = likelihoodPct === undefined
     ? 'bg-panel-border'

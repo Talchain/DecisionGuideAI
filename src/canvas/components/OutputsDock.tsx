@@ -90,7 +90,7 @@ import {
 import { resolveScenarioKey } from '../../components/results/modals/scenarioKey'
 import { useScenario } from '../../hooks/useScenario'
 import { focusExistingTarget } from '../utils/focusHelpers'
-import { withObservedStateUpdate } from '../utils/observedStateHelpers'
+import { normaliseRawFactorValue, withObservedStateUpdate } from '../utils/observedStateHelpers'
 import { ModelTabBody } from './ModelTabBody'
 import { JourneyTabBody } from '../journey/JourneyTabBody'
 import { CompareTabBody as CompareTabBodyV2 } from '../compare-tab/CompareTabBody'
@@ -1289,7 +1289,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     const nd = node.data as Record<string, unknown>
     const existing = (nd?.observedState ?? nd?.observed_state ?? {}) as Record<string, unknown>
     const cap = (existing.cap as number | null) ?? null
-    const normalised = cap != null && cap > 0 ? rawValue / cap : rawValue
+    const normalised = normaliseRawFactorValue(rawValue, cap)
     updateNode(nodeId, {
       data: withObservedStateUpdate(node.data, {
         raw_value: rawValue,

@@ -216,6 +216,43 @@ jobs:
       - name: Design System v5 drift (report-only soak)
         run: pnpm run ci:guard:ds
 
+  # ── Typecheck gate self-test (positive control) ──────────────────────
+  # PARITY WITH staging-full-tests.yml. The `tsc` job above asserts an ABSENCE
+  # ("no new type errors, no invisible files"). That assertion is worth nothing
+  # unless the gate can be shown to detect a PRESENCE — the gate it replaced was
+  # green for months while loading 9% of src, and nobody had ever watched it go
+  # red. #470 wired this self-test into the Staging Gate but not into ci.yml, so
+  # the `TypeScript` check required on `main` was running an unproven gate.
+  # Its own job so it runs in parallel and costs no serial time.
+  typecheck-selftest:
+    name: Typecheck Gate Self-Test
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      # The self-test derives the source set with `git ls-files`, so it needs a
+      # real checkout (actions/checkout gives one) and a clean working tree.
+      - name: Prove the typecheck gate actually bites
+        run: pnpm run typecheck:selftest
+
   # ── Unit tests + coverage (merged — was two separate jobs running tests twice) ──
   vitest:
     name: Tests + Coverage

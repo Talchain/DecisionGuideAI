@@ -141,6 +141,63 @@ describe('resolveAddOptionTargets', () => {
   it('reports no decision node on an empty canvas', () => {
     expect(resolveAddOptionTargets([]).decisionId).toBeNull()
   })
+
+  // ── the string-typed raw_value defect ────────────────────────────────────
+  //
+  // `ObservedStateData.raw_value` is typed `number | string | null`
+  // (observedStateHelpers.ts:22) and a string genuinely arrives on the wire —
+  // `denormaliseInterventionValue` takes `string | number | null` for exactly
+  // that reason. This builder used to probe it with a bare
+  // `typeof observed.raw_value === 'number'`, so a string raw figure was
+  // discarded and the prefill fell through to `value * cap`.
+  //
+  // For the £70k-cap factor below that is 0.69 × 70000 = 48300 — the user is
+  // shown "48.3" where they typed "49". Rounding error presented as their own
+  // stated figure, in the field they are about to edit.
+  it('honours a STRING raw_value instead of recomputing it from the cap', () => {
+    const graph = [
+      node('dec_x', 'decision', 'Fund the platform rebuild'),
+      node('fac_budget', 'factor', 'Engineering Budget', {
+        value: 0.69,
+        raw_value: '49000',
+        unit: '£',
+        cap: 70000,
+      }),
+    ] as Node[]
+    const budget = resolveAddOptionTargets(graph).factors[0]
+    // 49000, NOT 0.69 × 70000 = 48300.
+    expect(budget.currentRaw).toBe(49000)
+  })
+
+  it('still derives the raw figure from the cap when no raw_value exists at all', () => {
+    const graph = [
+      node('dec_x', 'decision', 'Fund the platform rebuild'),
+      node('fac_budget', 'factor', 'Engineering Budget', { value: 0.69, unit: '£', cap: 70000 }),
+    ] as Node[]
+    expect(resolveAddOptionTargets(graph).factors[0].currentRaw).toBeCloseTo(48300)
+  })
+
+  it('ignores an unparseable raw_value rather than surfacing NaN', () => {
+    const graph = [
+      node('dec_x', 'decision', 'Fund the platform rebuild'),
+      node('fac_budget', 'factor', 'Engineering Budget', {
+        value: 0.69,
+        raw_value: 'about fifty grand',
+        cap: 70000,
+      }),
+    ] as Node[]
+    const currentRaw = resolveAddOptionTargets(graph).factors[0].currentRaw
+    expect(currentRaw).not.toBeNaN()
+    expect(currentRaw).toBeCloseTo(48300)
+  })
+
+  it('carries a string raw_value through even when the factor has no model value', () => {
+    const graph = [
+      node('dec_x', 'decision', 'Fund the platform rebuild'),
+      node('fac_budget', 'factor', 'Engineering Budget', { raw_value: '49000', unit: '£' }),
+    ] as Node[]
+    expect(resolveAddOptionTargets(graph).factors[0].currentRaw).toBe(49000)
+  })
 })
 
 // --- 2b. the raw→model-space rule -------------------------------------------

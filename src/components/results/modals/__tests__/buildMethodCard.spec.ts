@@ -49,7 +49,7 @@ describe('buildMethodCard — real capture, 2026-04-05 (no confidence provenance
   it('reports the robustness bands as provisional, per the producer stamp', () => {
     expect(model.stabilityThresholds).toEqual({
       known: true,
-      value: { isProvisional: true, version: 'v1.0-operational-defaults' },
+      value: { isProvisional: true },
     })
   })
 
@@ -72,7 +72,7 @@ describe('buildMethodCard — real capture, 2026-05-10 (POSITIVE CONTROL: proven
   it('surfaces the producer provisional stamp rather than claiming calibration', () => {
     expect(model.confidenceCalibration).toEqual({
       known: true,
-      value: { isProvisional: true, status: 'provisional_pending_pilot_calibration' },
+      value: { isProvisional: true },
     })
   })
 
@@ -160,7 +160,7 @@ describe('buildMethodCard — fabrication guards', () => {
     })
     expect(model.confidenceCalibration).toEqual({
       known: true,
-      value: { isProvisional: true, status: 'calibrated' },
+      value: { isProvisional: true },
     })
   })
 

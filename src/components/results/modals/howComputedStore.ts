@@ -13,15 +13,12 @@ export interface HowComputedState {
   isOpen: boolean
   open: () => void
   close: () => void
-  /** Test/reset seam. */
-  _reset: () => void
 }
 
 export const useHowComputedStore = create<HowComputedState>((set) => ({
   isOpen: false,
   open: () => set({ isOpen: true }),
   close: () => set({ isOpen: false }),
-  _reset: () => set({ isOpen: false }),
 }))
 
 /**

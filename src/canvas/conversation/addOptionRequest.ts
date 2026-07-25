@@ -53,6 +53,7 @@ import {
   type ChipParametersFailReason,
 } from '../../v5/chipParameters'
 import { getObservedState, normaliseRawFactorValue } from '../utils/observedStateHelpers'
+import { denormaliseInterventionValue, toFiniteNumber } from '../utils/labelUtils'
 import { computeGraphFacts } from '../components/pre-analysis-v3/selectors/graphFacts'
 
 // ---------------------------------------------------------------------------
@@ -174,6 +175,24 @@ function labelOf(node: Node): string {
 }
 
 /**
+ * The raw, real-world figure to prefill for one factor — i.e. what the user
+ * would recognise as the number they typed.
+ *
+ * Flat, not nested: each branch is a complete answer on its own.
+ */
+function resolveCurrentRawFigure(
+  observed: { value?: unknown; raw_value?: unknown },
+  cap: number | undefined,
+): number | null {
+  const modelValue =
+    typeof observed.value === 'number' && Number.isFinite(observed.value) ? observed.value : null
+  // No model-space value to anchor the mapping on: the wire's raw figure is
+  // all there is (and `null` when that is unusable too).
+  if (modelValue === null) return toFiniteNumber(observed.raw_value)
+  return denormaliseInterventionValue(modelValue, cap ?? null, modelValue, toFiniteNumber(observed.raw_value))
+}
+
+/**
  * Derive the add-option targets from the live canvas. DERIVED, never mirrored:
  * `computeGraphFacts` is the repo's single kind-resolver (it handles the
  * `data.kind` vs `type` divergence that the ad-hoc `n.type === 'decision'`
@@ -187,18 +206,15 @@ export function resolveAddOptionTargets(nodes: ReadonlyArray<Node>): AddOptionCa
     const cap = typeof observed.cap === 'number' && Number.isFinite(observed.cap) && observed.cap > 0
       ? observed.cap
       : undefined
-    const rawCandidate = typeof observed.raw_value === 'number' ? observed.raw_value : undefined
-    const modelValue = typeof observed.value === 'number' ? observed.value : undefined
-    // Present whatever the user would type: the raw figure when we have one,
-    // else the raw figure implied by the cap, else the model-space value.
-    const currentRaw =
-      rawCandidate !== undefined && Number.isFinite(rawCandidate)
-        ? rawCandidate
-        : cap !== undefined && modelValue !== undefined && Number.isFinite(modelValue)
-          ? modelValue * cap
-          : modelValue !== undefined && Number.isFinite(modelValue)
-            ? modelValue
-            : null
+    // Present whatever the user would type. `denormaliseInterventionValue` is
+    // the repo's single normalised→raw mapping; anchoring it on the factor's
+    // OWN baseline makes it return the user's stated raw figure verbatim when
+    // one exists and fall back to the cap scale when it does not. Re-deriving
+    // that here as `modelValue * cap` is what made a £70k-cap factor prefill
+    // 48.3 where the user had typed 49: a string-typed `raw_value` (the field
+    // is `number | string | null`) failed a bare `typeof === 'number'` probe
+    // and the honest figure was thrown away for a rounded recomputation.
+    const currentRaw = resolveCurrentRawFigure(observed, cap)
     return {
       id: node.id,
       label: labelOf(node),
@@ -325,6 +341,34 @@ export function buildAddOptionDispatch(input: {
 }
 
 /**
+ * THE single home for add-option refusal copy.
+ *
+ * The same sentences are spoken from two places — this module (refusals raised
+ * while BUILDING the dispatch) and `AddOptionPanel` (the live validation hints
+ * shown while the user is still ticking boxes). They were written out
+ * independently in both files, so the user could be told "Every factor you tick
+ * needs a number." in two subtly different wordings depending on which check
+ * fired first, and a copy edit in one file silently left the other behind.
+ *
+ * Both surfaces now read these constants. There is no third wording to keep in
+ * step, because there is no third copy.
+ */
+export const ADD_OPTION_REFUSAL_COPY = {
+  labelRequired: 'Give the option a name first.',
+  noDecisionNode: 'This model has no decision node yet, so there is nothing to add an option to.',
+  factorNeedsNumber: 'Every factor you tick needs a number.',
+  duplicateFactor: 'The same factor is listed twice.',
+  unknownFactor:
+    'One of the factors you picked is no longer on the canvas, so it was not included. Close this and try again.',
+  /**
+   * The cap sentence takes its max as an argument: the builder reports the cap
+   * the REFUSAL carried, the panel reports the compile-time constant. One
+   * wording, two callers, no drift.
+   */
+  overCap: (max: number) => `An option can change at most ${max} factors in one go.`,
+} as const
+
+/**
  * User-facing text for a refusal. Names WHICH part was refused and WHY, in the
  * product's own vocabulary — never a code, never a generic "something went
  * wrong".
@@ -332,13 +376,13 @@ export function buildAddOptionDispatch(input: {
 export function describeAddOptionRefusal(refusal: AddOptionRefusal): string {
   switch (refusal.kind) {
     case 'label_required':
-      return 'Give the option a name first.'
+      return ADD_OPTION_REFUSAL_COPY.labelRequired
     case 'no_decision_node':
-      return 'This model has no decision node yet, so there is nothing to add an option to.'
+      return ADD_OPTION_REFUSAL_COPY.noDecisionNode
     case 'unknown_factor':
-      return `One of the factors you picked is no longer on the canvas, so it was not included. Close this and try again.`
+      return ADD_OPTION_REFUSAL_COPY.unknownFactor
     case 'too_many_changes':
-      return `An option can change at most ${refusal.max} factors in one go. Remove some and add the rest afterwards.`
+      return `${ADD_OPTION_REFUSAL_COPY.overCap(refusal.max)} Remove some and add the rest afterwards.`
     case 'parameters':
       return describeParametersRefusal(refusal.reason)
   }
@@ -347,16 +391,16 @@ export function describeAddOptionRefusal(refusal: AddOptionRefusal): string {
 function describeParametersRefusal(reason: ChipParametersFailReason): string {
   switch (reason) {
     case 'label_required':
-      return 'Give the option a name first.'
+      return ADD_OPTION_REFUSAL_COPY.labelRequired
     case 'value_not_finite':
     case 'raw_value_not_finite':
-      return 'Every factor you tick needs a number.'
+      return ADD_OPTION_REFUSAL_COPY.factorNeedsNumber
     case 'duplicate_factor':
-      return 'The same factor is listed twice.'
+      return ADD_OPTION_REFUSAL_COPY.duplicateFactor
     case 'too_many_interventions':
-      return `An option can change at most ${MAX_ADD_OPTION_INTERVENTIONS} factors in one go.`
+      return ADD_OPTION_REFUSAL_COPY.overCap(MAX_ADD_OPTION_INTERVENTIONS)
     case 'parent_decision_id_required':
-      return 'This model has no decision node yet, so there is nothing to add an option to.'
+      return ADD_OPTION_REFUSAL_COPY.noDecisionNode
     default:
       // Every remaining reason belongs to a different builder (edge/constraint
       // chips) and is unreachable here; say so honestly rather than invent copy.

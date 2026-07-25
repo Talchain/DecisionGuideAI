@@ -19,6 +19,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent
 import { typography } from '../../styles/typography'
 import { formatValueWithUnit } from '../utils/formatValueWithUnit'
 import { MAX_ADD_OPTION_INTERVENTIONS } from '../../v5/chipParameters'
+import { ADD_OPTION_REFUSAL_COPY } from './addOptionRequest'
 import type { AddOptionChange, AddOptionFactorTarget } from './addOptionRequest'
 
 export interface AddOptionPanelProps {
@@ -226,13 +227,13 @@ export function AddOptionPanel({
 
         {overCap && (
           <p className={`${typography.panelBody} text-danger mb-3`} data-testid="add-option-over-cap">
-            An option can change at most {MAX_ADD_OPTION_INTERVENTIONS} factors in one go. Untick{' '}
+            {ADD_OPTION_REFUSAL_COPY.overCap(MAX_ADD_OPTION_INTERVENTIONS)} Untick{' '}
             {checkedIds.length - MAX_ADD_OPTION_INTERVENTIONS} of them.
           </p>
         )}
         {invalidIds.length > 0 && (
           <p className={`${typography.panelBody} text-danger mb-3`} data-testid="add-option-invalid">
-            Every factor you tick needs a number.
+            {ADD_OPTION_REFUSAL_COPY.factorNeedsNumber}
           </p>
         )}
         {refusal && (

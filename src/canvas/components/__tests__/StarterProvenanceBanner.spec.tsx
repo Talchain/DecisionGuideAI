@@ -70,6 +70,42 @@ describe('StarterProvenanceBanner', () => {
       expect(screen.getByTestId('starter-provenance-banner')).toHaveTextContent(/analysis is held/i)
     })
 
+    // ── the two-shapes defect ────────────────────────────────────────────
+    //
+    // `computeCeeCannotSeeModel` (canRunAnalysis.ts) refuses the run when ANY
+    // node carries starter provenance — `nodes.some(...)`. This banner used to
+    // read `nodes[0]?.data?.starterId`, i.e. the FIRST node only. Two shapes
+    // for one question, and they disagree exactly when an unstamped node sits
+    // at index 0: the gate still refuses to analyse, and the banner that
+    // exists to explain the refusal is gone. That is the precise failure this
+    // component's own docstring says it exists to prevent — "a user who does
+    // not know why will read it as the product being broken".
+    it('discloses provenance when a LATER node carries the stamp, matching the run gate', () => {
+      useCanvasStore.setState({
+        nodes: [
+          // A node added after the starter loaded — no stamp.
+          { id: 'n_user', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'My own factor' } },
+          {
+            id: 'n_starter',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: { label: 'From the starter', starterId: 'market-entry', starterTitle: MARKET.title },
+          },
+        ] as never,
+        edges: [] as never,
+      })
+      render(<StarterProvenanceBanner />)
+      expect(screen.getByTestId('starter-provenance-banner')).toHaveTextContent(/saved example/i)
+    })
+
+    it('renders nothing when NO node carries starter provenance', () => {
+      // Positive control for the assertion above: the same query that found the
+      // banner must be able to NOT find it, or "it renders" proves nothing.
+      setNodes({})
+      render(<StarterProvenanceBanner />)
+      expect(screen.queryByTestId('starter-provenance-banner')).toBeNull()
+    })
+
     it('does NOT promise that saving re-enables analysis — the stamp rides a save', () => {
       // An earlier draft of this copy said "drafted or saved into your own
       // decision". Saving does not strip `starterId`, so the gate still

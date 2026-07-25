@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { STARTERS, loadStarterPayload, starterBrief } from '../loadStarter'
+import { STARTERS, loadStarterPayload, getStarter } from '../loadStarter'
 
 interface DraftFixture {
   nodes: Array<{ id: string; kind: string; label: string }>
@@ -72,7 +72,13 @@ describe('starter fixtures', () => {
     })
 
     it('carries the verbatim brief the redraft re-sends', () => {
-      const brief = starterBrief(id)
+      // Reads the brief the way the redraft actually reads it
+      // (StarterProvenanceBanner: `getStarter(starterId)` then `starter.brief`).
+      // The retired `starterBrief()` wrapper claimed in its own docstring that
+      // "the redraft affordance re-sends THIS string" — it did not; nothing on
+      // the live path ever called it. Testing the wrapper proved nothing about
+      // the sentence the user actually gets.
+      const brief = getStarter(id)?.brief
       expect(typeof brief).toBe('string')
       // Long enough to be the real enterprise brief, not a shortened one. The
       // probe lane's explicit instruction was NOT to shorten these: a short

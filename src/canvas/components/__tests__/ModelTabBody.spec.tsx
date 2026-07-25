@@ -17,6 +17,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ModelTabBody } from '../ModelTabBody'
 import type { Node, Edge } from '@xyflow/react'
+import { edgeValueSourcePatch } from '../../domain/edgeValueProvenance'
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -101,6 +102,10 @@ function makeEdge(
       strengthStd: opts.strengthStd ?? 0.125,
       provenance: opts.provenance ?? 'assumption',
       direction: opts.direction ?? 'positive',
+      // A characterised edge is a STAMPED edge — the RelationshipsSection card
+      // is provenance-gated, so an unstamped fixture renders "Not set" no
+      // matter what numbers it carries.
+      ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user' }),
     },
   }
 }
@@ -336,11 +341,11 @@ describe('Golden UI test — headline numbers regression guard', () => {
   // Causal edges (between factors + goal)
   const e1: Edge = {
     id: 'e1', source: 'f1', target: 'g1',
-    data: { weight: 0.8, strengthStd: 0.1, provenance: 'user_study', direction: 'positive', beliefExists: 0.85 },
+    data: { weight: 0.8, strengthStd: 0.1, provenance: 'user_study', direction: 'positive', beliefExists: 0.85, ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user' }) },
   }
   const e2: Edge = {
     id: 'e2', source: 'f2', target: 'g1',
-    data: { weight: 0.6, strengthStd: 0.15, provenance: 'assumption', direction: 'negative', beliefExists: 0.90 },
+    data: { weight: 0.6, strengthStd: 0.15, provenance: 'assumption', direction: 'negative', beliefExists: 0.90, ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user' }) },
   }
   // Organisational edges (to/from decision+options — excluded from causal)
   const e3: Edge = { id: 'e3', source: 'd1', target: 'opt_a', data: {} }
@@ -372,7 +377,7 @@ describe('Golden UI test — headline numbers regression guard', () => {
     // Canvas store canonical name — CEE ingestion normalises to beliefExists
     const edgeWithExistsProb: Edge = {
       id: 'e-ep', source: 'f1', target: 'g1',
-      data: { weight: 0.7, strengthStd: 0.1, provenance: 'assumption', direction: 'positive', beliefExists: 0.73 },
+      data: { weight: 0.7, strengthStd: 0.1, provenance: 'assumption', direction: 'positive', beliefExists: 0.73, ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user' }) },
     }
     render(
       <ModelTabBody
@@ -519,7 +524,7 @@ describe('DS-4: Likelihood bars use evaluative threshold colours', () => {
     const nodes = [makeFactorNode('f1', 'A'), makeFactorNode('f2', 'B')]
     const edges: import('@xyflow/react').Edge[] = [{
       id: 'e1', source: 'f1', target: 'f2',
-      data: { weight: 0.5, strengthStd: 0.1, direction: 'positive', beliefExists: 0.3 },
+      data: { weight: 0.5, strengthStd: 0.1, direction: 'positive', beliefExists: 0.3, ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user' }) },
     }]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
     // Edge cards are collapsed by default — click to expand

@@ -27,6 +27,10 @@ import { computeDirectionStroke } from './directionStroke'
 import { resolvePersistentLabelPlacements, type PlacementEdge } from './edgeLabelCollision'
 import { applyEdgeVisualProps } from '../theme/edges'
 import { formatConfidence, shouldShowLabel, getEdgeConfidence, computeSignedMean } from '../domain/edges'
+import {
+  resolveEdgeValueDisplay,
+  resolveEdgeSignedStrengthDisplay,
+} from '../domain/edgeValueProvenance'
 import { useIsDark } from '../hooks/useTheme'
 import { getEdgeLabel } from '../domain/edgeLabels'
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
@@ -972,10 +976,27 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           minWidth: '140px',
           maxWidth: '220px',
         }
-        const signedVal = direction === 'negative' ? -weight : weight
-        const strengthPct = Math.round(Math.abs(signedVal) * 100)
-        const confidencePct = Math.round((beliefExists ?? 0.8) * 100)
-        const dirLabel = signedVal >= 0 ? 'Positive' : 'Negative'
+        // PROVENANCE-GATED. `weight` (:202) and `beliefExists` (:250) both fall
+        // through to UI defaults, and the old `(beliefExists ?? 0.8)` here was a
+        // SECOND literal copy of the fabricated constant — removing the default
+        // from the schema would not have silenced this line.
+        //
+        // The direction is gated with the strength deliberately: `direction`
+        // defaults to 'positive', so "Positive" is itself a fabrication on an
+        // edge nobody characterised.
+        const strengthDisplay = resolveEdgeSignedStrengthDisplay(
+          edgeData as Record<string, unknown> | undefined,
+        )
+        const confidenceDisplay = resolveEdgeValueDisplay(
+          edgeData as Record<string, unknown> | undefined,
+          'beliefExists',
+        )
+        const signedVal = strengthDisplay.show ? strengthDisplay.value : null
+        const strengthPct = signedVal !== null ? Math.round(Math.abs(signedVal) * 100) : null
+        const confidencePct = confidenceDisplay.show
+          ? Math.round(confidenceDisplay.value * 100)
+          : null
+        const dirLabel = signedVal !== null ? (signedVal >= 0 ? 'Positive' : 'Negative') : null
         const causalPopoverStyle: React.CSSProperties = {
           ...popoverStyle,
           pointerEvents: 'all',
@@ -990,24 +1011,39 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               onMouseEnter={handlePopoverEnter}
               onMouseLeave={handlePopoverLeave}
             >
-              {/* Direction */}
-              <div className={`${typography.edgeLabel} font-bold text-text-body`}>
-                {dirLabel}
-              </div>
-              {/* Confidence */}
-              <div className={`${typography.edgeLabel} text-text-light`}>
-                {confidencePct}% confident
-              </div>
-              {/* Strength bar */}
-              <div className="flex items-center gap-1.5">
-                <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${signedVal >= 0 ? 'bg-success' : 'bg-danger'}`}
-                    style={{ width: `${Math.max(4, strengthPct)}%` }}
-                  />
+              {/* Direction — only when the strength that gives it its sign was set */}
+              {dirLabel !== null && (
+                <div className={`${typography.edgeLabel} font-bold text-text-body`}>
+                  {dirLabel}
                 </div>
-                <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{strengthPct}%</span>
-              </div>
+              )}
+              {/* Confidence */}
+              {confidencePct !== null && (
+                <div className={`${typography.edgeLabel} text-text-light`}>
+                  {confidencePct}% confident
+                </div>
+              )}
+              {/* Strength bar */}
+              {signedVal !== null && strengthPct !== null && (
+                <div className="flex items-center gap-1.5">
+                  <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${signedVal >= 0 ? 'bg-success' : 'bg-danger'}`}
+                      style={{ width: `${Math.max(4, strengthPct)}%` }}
+                    />
+                  </div>
+                  <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{strengthPct}%</span>
+                </div>
+              )}
+              {/* Nothing characterised yet — say that, rather than a number */}
+              {dirLabel === null && confidencePct === null && (
+                <div
+                  className={`${typography.edgeLabel} text-text-light`}
+                  data-testid="edge-hover-popover-unset"
+                >
+                  Strength and likelihood not set
+                </div>
+              )}
               {/* Fragile warning with switch probability */}
               {isFragileEdge && (
                 <div className={`${typography.edgeLabel} text-warning flex items-center gap-1`}>
@@ -1017,8 +1053,37 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               )}
               {/* Coaching chips */}
               <div className="flex flex-col gap-1 mt-2 pt-1.5 border-t border-panel-border">
-                <NodeChip chipId="edge_evidence_supports" actionType={null} label="What evidence supports this?" message={`What evidence supports the ${dirLabel.toLowerCase()} relationship between ${srcTitle} and ${tgtTitle}?`} />
-                <NodeChip chipId="edge_adjust_strength" actionType="adjust_edge_strength" label="Adjust strength" message={`I want to adjust the strength of the relationship between ${srcTitle} and ${tgtTitle}. Current strength is ${strengthPct}%.`} />
+                {/*
+                  * LLM-FACING. These messages are dispatched to CEE verbatim via
+                  * `useGuidanceStore._dispatchAction`, so a fabricated number here
+                  * is asserted to the model as the user's own statement about
+                  * their model — worse than one on screen, because the model
+                  * cannot see the canvas to catch it.
+                  *
+                  * When nothing was set the chips still appear (the user still
+                  * wants to act) but claim nothing: no direction adjective, no
+                  * percentage.
+                  */}
+                <NodeChip
+                  chipId="edge_evidence_supports"
+                  actionType={null}
+                  label="What evidence supports this?"
+                  message={
+                    dirLabel !== null
+                      ? `What evidence supports the ${dirLabel.toLowerCase()} relationship between ${srcTitle} and ${tgtTitle}?`
+                      : `What evidence supports the relationship between ${srcTitle} and ${tgtTitle}?`
+                  }
+                />
+                <NodeChip
+                  chipId="edge_adjust_strength"
+                  actionType="adjust_edge_strength"
+                  label="Adjust strength"
+                  message={
+                    strengthPct !== null
+                      ? `I want to adjust the strength of the relationship between ${srcTitle} and ${tgtTitle}. Current strength is ${strengthPct}%.`
+                      : `I want to set the strength of the relationship between ${srcTitle} and ${tgtTitle}. It has not been set yet.`
+                  }
+                />
               </div>
             </div>
           </EdgeLabelRenderer>
