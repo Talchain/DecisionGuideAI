@@ -66,7 +66,11 @@ export const OVERVIEW_COPY = {
     'Help me check whether this decision classification is right and how it should affect the process.',
   goalNoteMissing: 'Success measure missing',
   capturedInBrief: 'Captured in brief',
-  notCaptured: 'Not captured yet',
+  // 'Not captured yet' is RETIRED — it was rendered by both the Context and
+  // the Constraints chip and was wrong on each, in opposite ways. See the
+  // chip-note derivation below. Its absence is pinned by
+  // DecisionOverviewCard.spec.tsx, which asserts the literal sentence.
+  constraintsNoteEmpty: 'No limits on record',
   optionsNoteEmpty: 'No options mapped yet',
   // V6-RESPEC §4: empty classification fields fold into ONE muted aggregate
   // chip ("+N to set") — collapsed shows what IS, never a per-field inventory
@@ -316,16 +320,42 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
       : goalThreshold == null
         ? OVERVIEW_COPY.goalNoteMissing
         : `Success target ≥ ${formatTargetValue(goalThreshold, unit, symbol)}`
-  const contextNote = briefPresent ? OVERVIEW_COPY.capturedInBrief : OVERVIEW_COPY.notCaptured
+  // CONTEXT — no claim, rather than a false denial.
+  //
+  // `currentBriefText` has exactly ONE non-null writer in the whole of src/:
+  // ChatComposer.tsx, mirroring the AI-panel composer's own textarea on a
+  // 500 ms debounce (so it also reverts to null the moment that composer
+  // clears on send). The live first-draft surface is FirstUseComposer →
+  // AIInputBar, which contains ZERO references to the field. Live-confirmed
+  // on deployed staging: the store read `currentBriefText: null` with a
+  // 470-character brief on screen and a drafted graph behind it.
+  //
+  // So a falsy read carries no information about whether the user gave any
+  // context — it is a dead read on the path that matters, and rendering
+  // "Not captured yet" denied something the user plainly did. When the field
+  // IS populated the claim is truthful and stays; otherwise the chip makes no
+  // factual claim at all and remains a "Review Context" affordance. A capture
+  // signal is deliberately NOT synthesised from the transcript: transcriptStore
+  // is scenario-scoped, so the chip would flip on reload.
+  const contextNote = briefPresent ? OVERVIEW_COPY.capturedInBrief : null
+  // CONSTRAINTS — the read is right; only the sentence was wrong.
+  //
+  // `goalConstraints` is genuinely producer-fed (applyDraftResult writes CEE's
+  // `draft_graph.goal_constraints`; applyV5State writes add_constraint
+  // patches), so a zero count is TRUE — about STRUCTURED goal constraints.
+  // What it never licensed was "Not captured yet", a claim about the user's
+  // own input: CEE demonstrably reads soft constraints out of the brief and
+  // says so in its coaching while deliberately not encoding them as limits.
+  // The note therefore describes the record, not the user.
   const constraintsNote =
     constraintCount > 0
       ? `${constraintCount} ${constraintCount === 1 ? 'limit' : 'limits'} captured`
-      : OVERVIEW_COPY.notCaptured
+      : OVERVIEW_COPY.constraintsNoteEmpty
   const optionsNote =
     optionCount > 0
       ? `${optionCount} ${optionCount === 1 ? 'option' : 'options'} mapped`
       : OVERVIEW_COPY.optionsNoteEmpty
-  const chips: Array<{ dim: Dimension; note: string; dotTone: string }> = [
+  const chips: Array<{ dim: Dimension; note: string | null; dotTone: string }> = [
     // Dot borders track brief QUALITY per the prototype (Goal warns only in
     // thin, Options flags only in the fixture conflict state) — success-
     // outlined otherwise.
@@ -422,7 +452,11 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
                 />
                 <span className="min-w-0">
                   <span className={`${typography.panelBody} block font-semibold text-text-header`}>{dim}</span>
-                  <span className={`${typography.panelMeta} block truncate text-text-light`}>{note}</span>
+                  {/* A null note renders NOTHING — not an empty line. Silence is
+                      the honest state for a dimension we cannot speak to. */}
+                  {note !== null && (
+                    <span className={`${typography.panelMeta} block truncate text-text-light`}>{note}</span>
+                  )}
                 </span>
               </button>
             ))}

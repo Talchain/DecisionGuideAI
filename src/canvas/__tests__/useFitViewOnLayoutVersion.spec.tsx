@@ -14,6 +14,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useCanvasStore } from '../store'
 import { useFitViewOnLayoutVersion } from '../hooks/useFitViewOnLayoutVersion'
+import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
 
 const fitViewSpy = vi.fn()
 
@@ -78,7 +79,13 @@ describe('useFitViewOnLayoutVersion', () => {
     })
 
     expect(fitViewSpy).toHaveBeenCalledTimes(1)
-    expect(fitViewSpy).toHaveBeenCalledWith({ padding: FIT_PADDING, duration: 400 })
+    // The legibility floor joined this contract on 25 Jul 2026 — see
+    // autoFitLegibility.spec.tsx for why it exists and what guards it.
+    expect(fitViewSpy).toHaveBeenCalledWith({
+      padding: FIT_PADDING,
+      minZoom: LABEL_LEGIBLE_ZOOM,
+      duration: 400,
+    })
 
     rafSpy.mockRestore()
   })

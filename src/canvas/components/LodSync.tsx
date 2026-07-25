@@ -11,12 +11,20 @@
 import { useEffect } from 'react'
 import { useStore } from '@xyflow/react'
 import { useCanvasStore } from '../store'
+import { LABEL_LEGIBLE_ZOOM, labelsRenderedAtZoom } from '../utils/zoomLegibility'
 
-/** Below this zoom, full node cards are unreadable soup — simplify (D2). */
-export const LOD_ZOOM_THRESHOLD = 0.5
+/**
+ * Below this zoom, full node cards are unreadable soup — simplify (D2).
+ *
+ * DERIVED, never restated: this used to be its own hand-written `0.5`, twinned
+ * with `cameraComfort.MIN_READABLE_ZOOM`. They agreed by luck, and the
+ * post-draft auto-fit was floored by neither — the 25 Jul blank-first-view
+ * defect. The number now lives once, in `utils/zoomLegibility.ts`.
+ */
+export const LOD_ZOOM_THRESHOLD = LABEL_LEGIBLE_ZOOM
 
 export function isLodZoom(zoom: number): boolean {
-  return zoom < LOD_ZOOM_THRESHOLD
+  return !labelsRenderedAtZoom(zoom)
 }
 
 export function LodSync() {

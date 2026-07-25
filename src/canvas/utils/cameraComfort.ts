@@ -19,9 +19,15 @@
  */
 
 import { computeFitPadding, type FitPadding } from './computeFitPadding'
+import { LABEL_LEGIBLE_ZOOM } from './zoomLegibility'
 
-/** Below this zoom a node's label is not readably rendered — never "comfortable". */
-export const MIN_READABLE_ZOOM = 0.5
+/**
+ * Below this zoom a node's label is not readably rendered — never "comfortable".
+ *
+ * DERIVED, never restated: this was its own hand-written `0.5`, twinned with
+ * `LodSync.LOD_ZOOM_THRESHOLD`. One number, one home — `./zoomLegibility`.
+ */
+export const MIN_READABLE_ZOOM = LABEL_LEGIBLE_ZOOM
 /** Forgives animation-end drift and lets an exactly-fitted frame count as comfortable. */
 export const COMFORT_SLACK_PX = 8
 /** Fallbacks for nodes that have not reported measured dimensions yet. */

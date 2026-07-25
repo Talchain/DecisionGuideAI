@@ -23,6 +23,13 @@ function flagOn() {
   localStorage.setItem('feature.decisionOverview', '1')
 }
 
+/**
+ * The retired sentence, spelled out as the user read it on staging. Kept as a
+ * literal (not a copy-object reference) so removing the constant from
+ * production cannot silently turn the absence assertions into no-ops.
+ */
+const FALSE_DENIAL = 'Not captured yet'
+
 const READY = { status: 'ready', options: [{ id: 'o1' }], goal_node_id: 'g1' }
 const NEEDS_INPUT = {
   status: 'needs_user_input',
@@ -240,11 +247,48 @@ describe('DecisionOverviewCard — brief-dimension chips', () => {
     expect(screen.getByTestId('brief-dim-constraints')).toHaveTextContent('1 limit captured')
   })
 
-  it('Context and Constraints chips fail closed to "Not captured yet"', () => {
+  /**
+   * The two chips were wrong in OPPOSITE ways and take opposite fixes.
+   *
+   * Context — `currentBriefText` is a DEAD READ on the live first-draft path.
+   * Its only non-null writer is ChatComposer (the AI-panel composer's own
+   * textarea, 500 ms debounced); the live first-use composer is
+   * FirstUseComposer → AIInputBar, which contains ZERO references to the
+   * field. Live-confirmed on deployed staging: `currentBriefText: null` with
+   * a 470-character brief on screen. So "Not captured yet" was a FALSE DENIAL
+   * produced by a dead read — the honest move is to make no claim at all.
+   *
+   * Constraints — `goalConstraints` IS producer-fed (applyDraftResult writes
+   * CEE's `draft_graph.goal_constraints`). Zero really does mean zero, so the
+   * READ stays; only the SENTENCE was wrong. It must describe the record
+   * ("no structured limits"), never deny that the user said something.
+   */
+  it('Context chip makes NO claim when the (dead-on-the-live-path) brief field is empty', () => {
     render(<DecisionOverviewCard title="t" />)
     fireEvent.click(screen.getByTestId('brief-bar'))
-    expect(screen.getByTestId('brief-dim-context')).toHaveTextContent(OVERVIEW_COPY.notCaptured)
-    expect(screen.getByTestId('brief-dim-constraints')).toHaveTextContent(OVERVIEW_COPY.notCaptured)
+    const chip = screen.getByTestId('brief-dim-context')
+    // The chip survives as a "Review Context" affordance…
+    expect(chip).toHaveTextContent('Context')
+    // …but it no longer denies the user captured anything.
+    expect(chip).not.toHaveTextContent(FALSE_DENIAL)
+    expect(chip.textContent?.trim()).toBe('Context')
+  })
+
+  it('Constraints chip states the RECORD, never a denial of the user\'s input', () => {
+    render(<DecisionOverviewCard title="t" />)
+    fireEvent.click(screen.getByTestId('brief-bar'))
+    const chip = screen.getByTestId('brief-dim-constraints')
+    expect(chip).toHaveTextContent(OVERVIEW_COPY.constraintsNoteEmpty)
+    expect(chip).not.toHaveTextContent(FALSE_DENIAL)
+  })
+
+  it('the false-denial sentence is gone from the card entirely', () => {
+    // The one string both chips shared. Neither may use it: one chip must stay
+    // silent, the other must describe the record. Asserted as the literal the
+    // user would read, so deleting the copy constant cannot make this vacuous.
+    render(<DecisionOverviewCard title="t" />)
+    fireEvent.click(screen.getByTestId('brief-bar'))
+    expect(screen.getByTestId('decision-overview')).not.toHaveTextContent(FALSE_DENIAL)
   })
 
   it('chip click opens the drawer with the dimension-strengthen ask (lower-cased dimension)', () => {
