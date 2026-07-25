@@ -28,6 +28,10 @@ import { DataBar } from '../../ui/shared/DataBar'
 import { DetailToggleContext } from './DetailToggleContext'
 import { CoachingCard } from './CoachingCard'
 import type { ObservedState, FactorInfluenceMap } from './types'
+import {
+  factorConfidenceDisclosure,
+  type FactorConfidenceDisplay,
+} from '../../../components/results/driverConfidenceDisplayPolicy'
 
 // ── Category badge ─────────────────────────────────────────────────────────────
 
@@ -132,8 +136,16 @@ function FactorCard({
   elasticity?: number
   /** Rank flip rate from PLoT bootstrap */
   rankFlipRate?: number
-  /** Factor confidence from PLoT (0-1) */
-  factorConfidence?: number
+  /**
+   * Factor confidence RESOLVED THROUGH THE DISPLAY POLICY (F9).
+   *
+   * This was `factorConfidence?: number` — a bare number with no provenance
+   * companion, so any future caller could re-open the display fork silently,
+   * with no call to `resolveFactorConfidenceDisplay` anywhere in the diff.
+   * The policy module's own header claimed that could not happen. Taking the
+   * union makes the claim true by construction.
+   */
+  factorConfidence?: FactorConfidenceDisplay
 }) {
   const cardRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -481,7 +493,7 @@ function FactorCard({
           )}
 
           {/* Group 2: Sensitivity — only shown when at least one sensitivity metric exists */}
-          {((uncertaintyDrivers && uncertaintyDrivers.length > 0) || evpiPp != null || elasticity != null || rankFlipRate != null || factorConfidence != null) && (
+          {((uncertaintyDrivers && uncertaintyDrivers.length > 0) || evpiPp != null || elasticity != null || rankFlipRate != null || factorConfidence?.show === true) && (
             <div className="border-t border-panel-border mt-2 pt-2">
               <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Sensitivity</div>
               {uncertaintyDrivers && uncertaintyDrivers.length > 0 && (
@@ -515,11 +527,16 @@ function FactorCard({
                     </span>
                   </>
                 )}
-                {factorConfidence != null && (
+                {factorConfidence?.show === true && (
                   <>
-                    <span className={`${typography.panelMeta} text-text-light`}>Confidence</span>
+                    <span
+                      className={`${typography.panelMeta} text-text-light`}
+                      title={factorConfidenceDisclosure(factorConfidence) ?? undefined}
+                    >
+                      Confidence
+                    </span>
                     <span className={`${typography.panelBody} text-text-body font-mono text-right`}>
-                      {Math.round(factorConfidence * 100)}%
+                      {Math.round(factorConfidence.value * 100)}%
                     </span>
                   </>
                 )}
@@ -558,8 +575,8 @@ interface FactorsSectionProps {
   elasticityMap?: Map<string, number>
   /** Rank flip rate map: factorId → rate */
   rankFlipRateMap?: Map<string, number>
-  /** Factor confidence map: factorId → confidence (0-1) */
-  factorConfidenceMap?: Map<string, number>
+  /** Factor confidence map: factorId → resolved display (F9; never a bare number). */
+  factorConfidenceMap?: Map<string, FactorConfidenceDisplay>
   /** Whether post-analysis data is available */
   hasAnalysisData?: boolean
   onSendMessage?: (message: string) => void

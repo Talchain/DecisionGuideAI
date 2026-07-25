@@ -45,7 +45,7 @@ import { StreamingDiagnostics } from './model-tab/StreamingDiagnostics'
 import { buildSynthesisedPriorMap } from './model-tab/synthesisedPriorHelpers'
 import { countFactorsToVerify } from './model-tab/utils'
 import { ModelAdjustments } from './model-tab/ModelAdjustments'
-import { resolveRawFactorConfidenceDisplay } from '../../components/results/driverConfidenceDisplayPolicy'
+import { resolveRawFactorConfidenceDisplay, type FactorConfidenceDisplay } from '../../components/results/driverConfidenceDisplayPolicy'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -190,7 +190,7 @@ export const ModelTabBody = memo(function ModelTabBody({
     const stability = new Map<string, string>()
     const elasticity = new Map<string, number>()
     const flipRate = new Map<string, number>()
-    const confidence = new Map<string, number>()
+    const confidence = new Map<string, FactorConfidenceDisplay>()
 
     const reportFactors = (results?.report as any)?.factor_sensitivity
     const rawTopLevelFactors = (rawV2Response as any)?.factor_sensitivity
@@ -247,8 +247,11 @@ export const ModelTabBody = memo(function ModelTabBody({
       // resolver reads the confidence fields off the RAW row here (this surface
       // never touches the normalised driver feed), so there is still only one
       // implementation of the rule.
-      const confidenceDisplay = resolveRawFactorConfidenceDisplay(f)
-      if (confidenceDisplay.show) confidence.set(id, confidenceDisplay.value)
+      // F9: the MAP now carries the resolved DISPLAY, not the value. A number
+      // in this map was a value stripped of the decision that produced it —
+      // the next reader had to re-derive whether it was showable, which is the
+      // fork this module exists to close.
+      confidence.set(id, resolveRawFactorConfidenceDisplay(f))
     }
 
     return { evpiMap: evpi, attributionStabilityMap: stability, elasticityMap: elasticity, rankFlipRateMap: flipRate, factorConfidenceMap: confidence }

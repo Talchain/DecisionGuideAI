@@ -13,7 +13,7 @@ import { DraftGuidancePanel } from './DraftGuidancePanel'
 import { RateLimitNotice } from './RateLimitNotice'
 import { ThinkingModePopover } from './ThinkingModePopover'
 import { DEFAULT_EDGE_DATA, trimProvenance } from '../domain/edges'
-import { edgeValueSourcePatch } from '../domain/edgeValueProvenance'
+import { edgeValueSourcePatch, stripEdgeValueSourceKeys } from '../domain/edgeValueProvenance'
 import { saveAutosave } from '../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
 import { hasAnalysisReady, isCeePipelineTrace } from '../../adapters/cee/types'
@@ -610,7 +610,14 @@ export function DraftChat() {
         type: 'styled' as const,
         data: {
           ...DEFAULT_EDGE_DATA,
-          ...edgeRest,                             // spread-first: preserve unknown CEE edge fields
+          // ⛔ F11. `edgeRest` is UNTRUSTED wire remainder and it spreads FIRST,
+        // so any `weightSource` / `beliefExistsSource` the wire happened to
+        // carry survived whenever `edgeValueSourcePatch` below omitted that
+        // key — which is exactly the case where the wire sent no value. The
+        // marker would have outlived the number it describes. Stripped from a
+        // list DERIVED from EDGE_PROVENANCED_FIELDS, so it cannot rot the way
+        // the hand-listed destructure above did.
+        ...stripEdgeValueSourceKeys(edgeRest),   // spread-first: preserve unknown CEE edge fields
           weight,
           pathType: 'bezier' as const,
           confidence,

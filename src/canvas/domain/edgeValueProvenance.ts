@@ -212,6 +212,40 @@ export function resolveEdgeSignedStrengthDisplay(
 }
 
 /**
+ * Every marker key, DERIVED from the field list — never hand-listed.
+ *
+ * `DraftChat`'s CEE passthrough destructures the wire edge and spreads the
+ * remainder (`...edgeRest`) over `DEFAULT_EDGE_DATA`. Its strip-list is a
+ * hand-maintained literal (`style, curvature, kind, functionType,
+ * beliefStrength, schemaVersion`) whose own comment says it exists to
+ * "prevent collision with DEFAULT_EDGE_DATA values" — and the two marker keys
+ * were never added to it. Because `edgeValueSourcePatch` OMITS a key it cannot
+ * justify, a wire-supplied `weightSource` survived the spread in exactly the
+ * case where the wire sent NO strength: the marker outlived the number it
+ * described and laundered a default into a claim.
+ *
+ * Deriving the list from `EDGE_PROVENANCED_FIELDS` means adding a provenanced
+ * field extends the strip automatically. This is the one thing a strip-list
+ * must never be: a copy.
+ */
+export const EDGE_VALUE_SOURCE_KEYS = EDGE_PROVENANCED_FIELDS.map(edgeSourceKey)
+
+/**
+ * Remove every provenance marker from an untrusted record.
+ *
+ * Use on ANY object about to be spread into edge `data` from outside the
+ * canvas. A marker is a claim about where a number came from; only a
+ * construction site that knows the answer may write one.
+ */
+export function stripEdgeValueSourceKeys<T extends Record<string, unknown>>(
+  record: T,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...record }
+  for (const key of EDGE_VALUE_SOURCE_KEYS) delete out[key]
+  return out
+}
+
+/**
  * Build the marker patch for a construction site.
  *
  * Pass `undefined` for a field the wire/user did NOT supply — the key is then

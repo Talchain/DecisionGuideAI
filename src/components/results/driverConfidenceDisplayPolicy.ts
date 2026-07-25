@@ -24,9 +24,26 @@
  *
  * A gate that lives in one component and is re-decided in the next is the
  * hand-maintained-mirror defect class. So the constant lives HERE and every
- * surface resolves through `resolveFactorConfidenceDisplay`. Adding a surface
- * that renders confidence without calling this function is the only way to
- * re-open the fork, and that is now a visible, reviewable act.
+ * surface resolves through `resolveFactorConfidenceDisplay`.
+ *
+ * ⚠ CORRECTED (F9). This paragraph used to end:
+ *   "Adding a surface that renders confidence without calling this function is
+ *    the only way to re-open the fork, and that is now a visible, reviewable
+ *    act."
+ * That was NOT TRUE WHEN WRITTEN, and it was the same defect class the module
+ * exists to remove — a completeness claim nobody could check. Two of the five
+ * surfaces named above were never opened by the PR that wrote it; they were in
+ * fact gated, but only TRANSITIVELY, and both accepted a BARE NUMBER
+ * (`factorConfidence?: number`, `Map<string, number>`) with no provenance
+ * companion. Any future caller could have re-opened the fork silently, with no
+ * call to this function anywhere in the diff.
+ *
+ * The claim is now true BY CONSTRUCTION rather than by assertion: every prop
+ * on those surfaces carries `FactorConfidenceDisplay`, so a caller cannot hand
+ * one a number at all — there is no shape of the type that carries a value
+ * without the decision that it may be shown. That is a type error, which is
+ * the only kind of "visible, reviewable act" that does not depend on somebody
+ * remembering.
  *
  * WHAT THIS MODULE DOES NOT DO
  * ----------------------------
@@ -134,6 +151,32 @@ export function resolveFactorConfidenceDisplay(
     isDefaulted: input.isDefaulted === true,
     isProvisional: input.confidenceProvenance?.isProvisional === true,
   }
+}
+
+/**
+ * The disclosure line that MUST accompany a shown confidence.
+ *
+ * `FactorNode` derived this inline and `NodeInspector` did not derive it at
+ * all — so the inspector's *"High influence but low confidence. Consider
+ * gathering more data…"* prose and its confidence bar would have spoken a
+ * defaulted 0.25 BARE the moment `DISPLAY_SAFE_DRIVER_CONFIDENCE` was flipped,
+ * while the sibling node surfaces disclosed. The module header promises that
+ * flipping the constant lights everything up "WITH disclosure"; that promise
+ * only holds if the disclosure is one function rather than one component's
+ * private array. Returns `null` when there is nothing to disclose.
+ */
+export function factorConfidenceDisclosure(input: {
+  isDefaulted?: boolean
+  isProvisional?: boolean
+}): string | null {
+  return (
+    [
+      input.isDefaulted === true ? 'Default estimate — not yet validated with evidence' : null,
+      input.isProvisional === true ? 'Calibration is provisional' : null,
+    ]
+      .filter((q): q is string => q !== null)
+      .join('. ') || null
+  )
 }
 
 /**
