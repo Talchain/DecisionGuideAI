@@ -5,11 +5,12 @@
  *
  * WHY THIS MODULE EXISTS (live defect, deployed staging `039f479a`, 25 Jul
  * 2026, measured in a real browser): after a ~60 s first draft the canvas
- * auto-fitted an 18-node model to **0.4331** zoom and the payoff moment was a
+ * auto-fitted a 19-node model to **0.4456** zoom and the payoff moment was a
  * page of blank rectangles — **16 of 18 node titles** and **all 18 node
  * bodies** resolved to `visibility: hidden`. The same defect fires on the
- * templates entry path (measured **0.45**). Nothing was broken in isolation;
- * three rules simply disagreed, and nothing made them agree:
+ * templates entry path: an 18-node saved example at **0.4509**, 15 of 17
+ * titles and all 17 bodies hidden. Nothing was broken in isolation; three
+ * rules simply disagreed, and nothing made them agree:
  *
  *   - `LodSync` hid every non-goal/decision label below **0.5** zoom.
  *   - `cameraComfort` separately declared **0.5** the readable floor, as its

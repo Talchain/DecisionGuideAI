@@ -3,11 +3,11 @@
  * declares unreadable.
  *
  * LIVE DEFECT (deployed staging `039f479a`, 25 Jul 2026, measured in a real
- * browser): after a ~60 s first draft the post-layout auto-fit landed an
- * 18-node model at **0.4331** zoom. `LodSync` hides node labels below 0.5, so
+ * browser): after a ~60 s first draft the post-layout auto-fit landed a
+ * 19-node model at **0.4456** zoom. `LodSync` hides node labels below 0.5, so
  * 16 of 18 titles and ALL 18 bodies rendered `visibility: hidden` — the first
  * thing the user saw after a minute of waiting was a page of blank boxes. The
- * same defect fires on the templates entry path (measured 0.45).
+ * same defect fires on the templates entry path, measured at **0.4509**.
  *
  * CLAIM TYPE (trap 3): this spec is a CONTRACT assertion in jsdom — it proves
  * the auto-fit ASKS xyflow for a floor at or above the legibility threshold.
@@ -41,10 +41,10 @@ vi.mock('../utils/computeFitPadding', () => ({
   computeFitPadding: () => FIT_PADDING,
 }))
 
-/** The zoom the live 18-node first view actually landed on, before the fix. */
-const LIVE_FIRST_VIEW_ZOOM = 0.4331
-/** The zoom the live templates entry path landed on, before the fix. */
-const LIVE_TEMPLATE_ENTRY_ZOOM = 0.45
+/** The zoom the live 19-node first view actually landed on, before the fix. */
+const LIVE_FIRST_VIEW_ZOOM = 0.4456
+/** The zoom the live 18-node templates entry path landed on, before the fix. */
+const LIVE_TEMPLATE_ENTRY_ZOOM = 0.4509
 
 /** Drive one completed layout and hand back the options the hook passed fitView. */
 function captureAutoFitOptions(): Record<string, unknown> {

@@ -20,9 +20,13 @@ import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
  *
  * THE FLOOR — why it is here and only here. This is the product choosing the
  * first view for the user, and unfloored it chose an unreadable one: on
- * deployed staging an 18-node first draft auto-fitted to 0.4331, below the
- * level-of-detail threshold, so 16 of 18 titles and every node body rendered
- * `visibility: hidden`. `minZoom` is honoured by xyflow — `fitViewport` passes
+ * deployed staging a 19-node first draft auto-fitted to 0.4456 and an 18-node
+ * saved-example template to 0.4509 — both below the level-of-detail threshold,
+ * so 16 of 18 (resp. 15 of 17) titles and EVERY node body rendered
+ * `visibility: hidden`. The landing zoom is a function of node count and pane
+ * size, which is why the fix floors the fit rather than moving a threshold:
+ * lowering the threshold to suit one graph leaves the next one unreadable.
+ * `minZoom` is honoured by xyflow — `fitViewport` passes
  * `options?.minZoom` into `getViewportForBounds`, which does
  * `clamp(zoom, minZoom, maxZoom)` and re-centres on the clamped zoom
  * (@xyflow/system 0.0.76); it clamps and re-frames, it does not no-op. The
