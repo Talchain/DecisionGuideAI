@@ -3079,6 +3079,38 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // value `useConversation` maps into the report — NOT a fabricated 0. When
     // there is no echo either, the write is still skipped: a run identity
     // built on an invented seed would fork the graph hash (CLAUDE.md trap #10).
+    //
+    // ⚠ THIS FALLBACK IS CURRENTLY INERT ON THE DEPLOYED PATH — do not read it
+    // as "the returning-user answer is fixed". Corrected 25 Jul 2026 after
+    // capturing the live wire (CLAUDE.md trap #16: a grepped symbol proves
+    // presence-in-repo, never presence-on-the-live-wire).
+    //
+    // The branch this fallback was written against — `envelope.analysis_response`
+    // in useConversation.ts, which carries the "Journey step 8" comment and the
+    // #381 storeAnalysis fix — IS NOT THE LIVE PATH. Captured twice from
+    // deployed staging, a real analysis returns on POST /proxy/v5/turn with NO
+    // `analysis_response` key at all: the result is `blocks[0]` of type
+    // `analysis_result`, payload at `blocks[0].enrichment.option_comparison`,
+    // and `seed_used` appears NOWHERE in the envelope. The live handler is
+    // applyV5State.ts (~L1015) and it calls resultsComplete with
+    // `rawV2Response: null` explicitly ("V5 carries no V2 envelope").
+    //
+    // So on the deployed path BOTH inputs are absent: `results.seed` is
+    // undefined (only resultsStart sets it, and only the direct Run button
+    // calls that) and `rawV2Response` is null. `runHistorySeed` stays
+    // undefined, this write is still skipped, and — because the Supabase
+    // storeAnalysis call lives in that same dead branch — the answer has NO
+    // store at all. `last_result_hash` above is still written unconditionally,
+    // so a returning session looks up a run that was never saved.
+    // Live-confirmed 3/3: `olumi-canvas-run-history` does not exist as a
+    // localStorage key even after a completed analysis.
+    //
+    // Reviving this needs a producer-boundary decision, not a UI change: CEE
+    // echoes a run seed/identity on the `analysis_result` block, or run
+    // identity is re-based on `report.model_card.response_hash` (which IS
+    // present) instead of a seed-bearing graph hash. This code is kept because
+    // it is correct and is the right shape for that moment — not because it
+    // does anything today. See parallel-briefs/RETURNING-USER-2026-07-25.md §3.
     const echoedSeed = (() => {
       const raw = rawV2Response?.meta?.seed_used
       if (raw == null) return undefined

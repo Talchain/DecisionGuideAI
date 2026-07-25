@@ -18,9 +18,17 @@
  * Live corroboration: after a conversation-driven analysis on staging, the
  * `olumi-canvas-run-history` localStorage key did not exist at all.
  *
+ * ⚠ SCOPE CORRECTION (25 Jul 2026, after capturing the live wire): these tests
+ * pin the STORE CONTRACT, and the fix they pin is INERT ON THE DEPLOYED PATH.
+ * Do not cite this file as evidence that a returning user gets their answer
+ * back — they do not. The live V5 handler (`applyV5State.ts` ~L1015) calls
+ * `resultsComplete` with `rawV2Response: null`, and the live envelope carries
+ * no `seed_used` anywhere, so `runHistorySeed` is undefined in production and
+ * this write never fires. Live acceptance recorded this as a FAIL, honestly.
+ * See `parallel-briefs/RETURNING-USER-2026-07-25.md` §3.
+ *
  * CLAIM TYPE: this is a STORE-STATE pin (what the results panel branches on),
- * not a rendering or visibility claim. The on-screen proof is the live
- * before/after in `parallel-briefs/RETURNING-USER-2026-07-25.md`.
+ * not a rendering or visibility claim, and NOT a claim about deployed behaviour.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
