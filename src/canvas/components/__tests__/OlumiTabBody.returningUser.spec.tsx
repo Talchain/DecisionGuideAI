@@ -166,3 +166,42 @@ describe('returning user — the chat pane after a reload', () => {
     expect(screen.queryByTestId('olumi-tab-empty')).not.toBeInTheDocument()
   })
 })
+
+describe('returning repeatedly does not stack session dividers', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    useCanvasStore.setState({ currentScenarioId: null })
+    if (!Element.prototype.scrollIntoView) {
+      Element.prototype.scrollIntoView = () => {}
+    }
+    vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => {})
+  })
+
+  it('shows ONE boundary no matter how many times the decision is reopened', async () => {
+    // A history that already ends with a divider — i.e. the user came back,
+    // said nothing, and is coming back again.
+    storePriorSession([
+      ...priorSession(),
+      {
+        id: 'd-old',
+        role: 'assistant',
+        content: '',
+        timestamp: new Date('2026-07-25T21:32:00Z'),
+        synthetic: true,
+        sessionDivider: 'Session resumed - 25 Jul, 21:32',
+      },
+    ])
+    useCanvasStore.setState({ currentScenarioId: SID })
+
+    const { container } = renderPanel()
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="message-user"]')).not.toBeNull()
+    })
+    const dividers = container.querySelectorAll('[data-testid="session-divider"]')
+    expect(dividers).toHaveLength(1)
+    // And the real turns are still there — collapsing must not eat history.
+    expect(container.querySelectorAll('[data-testid="message-user"]')).toHaveLength(1)
+    expect(container.querySelectorAll('[data-testid="message-assistant"]')).toHaveLength(1)
+  })
+})
