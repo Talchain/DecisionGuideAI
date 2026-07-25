@@ -17,7 +17,7 @@ import Tooltip from '../../../../components/Tooltip'
 import { typography, typo } from '../../../../styles/typography'
 import { FIELD_FEEDBACK_COPY } from '../constants'
 import { useCanvasStore } from '../../../store'
-import { withObservedStateUpdate } from '../../../utils/observedStateHelpers'
+import { normaliseRawFactorValue, withObservedStateUpdate } from '../../../utils/observedStateHelpers'
 import { PanelIconButton } from '../ui/PanelIconButton'
 import { parseSuccessTarget } from '../hero/parseSuccessTarget'
 import type { EstimateRowModel } from '../types'
@@ -31,7 +31,7 @@ function commitValue(nodeId: string, rawValue: number, cap: number | null): void
   const { nodes, updateNode } = useCanvasStore.getState()
   const node = nodes.find(n => n.id === nodeId)
   if (!node) return
-  const normalised = cap != null && cap > 0 ? rawValue / cap : rawValue
+  const normalised = normaliseRawFactorValue(rawValue, cap)
   updateNode(nodeId, {
     data: withObservedStateUpdate(node.data, {
       raw_value: rawValue,

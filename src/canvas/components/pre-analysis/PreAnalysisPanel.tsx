@@ -27,7 +27,7 @@ import { AnalysisSettings } from './AnalysisSettings'
 import { deriveExpertiseGroups } from './hooks/deriveExpertiseGroups'
 import { StickyFooter } from './StickyFooter'
 import { focusNodeById } from '../../utils/focusHelpers'
-import { withObservedStateUpdate } from '../../utils/observedStateHelpers'
+import { normaliseRawFactorValue, withObservedStateUpdate } from '../../utils/observedStateHelpers'
 import { useCanvasStore } from '../../store'
 import { biasSignal, resolveBiasSignal } from '../../shared/biasSignalTitles'
 import type { KnownBiasCode } from '../../shared/biasSignalTitles'
@@ -1185,7 +1185,7 @@ export function PreAnalysisPanel({
     const node = nodes.find(n => n.id === nodeId)
     if (!node) return
 
-    const normalised = cap != null && cap > 0 ? rawValue / cap : rawValue
+    const normalised = normaliseRawFactorValue(rawValue, cap)
     updateNode(nodeId, {
       data: withObservedStateUpdate(node.data, {
         raw_value: rawValue,

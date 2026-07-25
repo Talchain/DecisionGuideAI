@@ -7,8 +7,8 @@
  * expects — vendor selection · market entry · build-vs-buy — at 5/14 = 35.7%
  * (market entry 1/5). The content is good; the single-request delivery is not.
  * Shipping the captured graphs removes that wall from the demo path. The brief
- * that produced each graph ships alongside it so the user can re-draft it live
- * (see `starterBrief`) — the escape hatch, not the default.
+ * that produced each graph ships alongside it (`StarterSummary.brief`) so the
+ * user can re-draft it live — the escape hatch, not the default.
  *
  * PROVENANCE IS NOT OPTIONAL. A starter graph is a SAVED EXAMPLE, not a live
  * computation, and the UI must never imply otherwise. Every node carries
@@ -63,14 +63,26 @@ export function getStarter(id: string): StarterSummary | undefined {
 }
 
 /**
- * The brief that produced a starter, verbatim.
+ * THE predicate for "is this canvas a starter graph", and which starter.
  *
- * The redraft affordance re-sends THIS string. It comes from the same
- * generated manifest as the graph, so "re-draft this example" cannot quietly
- * send a different brief from the one the shown graph was drafted from.
+ * Scans EVERY node, deliberately. `computeCeeCannotSeeModel` (canRunAnalysis)
+ * refuses the run when ANY node carries the stamp, so a disclosure that read
+ * only `nodes[0]` disagreed with the gate the moment an unstamped node sat
+ * first — the run stayed refused while the banner explaining the refusal
+ * vanished. One question, one shape.
+ *
+ * Derived from the graph itself, never from a separate "which starter is
+ * loaded" store slot: the stamp lives on the nodes, so it disappears exactly
+ * when the starter graph does.
  */
-export function starterBrief(id: string): string | undefined {
-  return getStarter(id)?.brief
+export function resolveStarterId(
+  nodes: ReadonlyArray<{ data?: Record<string, unknown> | undefined }>,
+): string | null {
+  for (const node of nodes) {
+    const id = node.data?.starterId
+    if (typeof id === 'string' && id.length > 0) return id
+  }
+  return null
 }
 
 /**

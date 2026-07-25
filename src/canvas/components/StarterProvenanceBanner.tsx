@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { BookmarkCheck, X } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { useConversationContext } from '../conversation/ConversationContext'
-import { getStarter } from '../starters/loadStarter'
+import { getStarter, resolveStarterId } from '../starters/loadStarter'
 import { typography } from '../../styles/typography'
 
 /**
@@ -34,14 +34,9 @@ export function StarterProvenanceBanner() {
   const redraftInFlight = useRef(false)
   const { sendMessage } = useConversationContext()
 
-  // Derive from the graph itself, never from a separate "which starter is
-  // loaded" store slot — a second source of truth would drift the moment the
-  // user drafts over the starter. The stamp lives on the nodes, so it
-  // disappears exactly when the starter graph does.
-  const starterId = useCanvasStore((s) => {
-    const first = s.nodes[0]?.data?.starterId
-    return typeof first === 'string' ? first : null
-  })
+  // `resolveStarterId` is the single shape for this question, shared with the
+  // run gate — see its docstring for why reading nodes[0] alone was wrong.
+  const starterId = useCanvasStore((s) => resolveStarterId(s.nodes))
 
   const handleRedraft = useCallback(() => {
     if (redraftInFlight.current || !starterId) return

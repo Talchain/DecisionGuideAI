@@ -383,7 +383,14 @@ function sanitiseUnit(unit: string | undefined): string | undefined {
   return isSuppressedUnit(unit) ? undefined : unit
 }
 
-function toFiniteNumber(value: unknown): number | null {
+/**
+ * Coerce a wire value to a finite number, or `null`.
+ *
+ * Exported because `observed_state.raw_value` is typed `number | string | null`
+ * and every consumer that probes it with a bare `typeof x === 'number'`
+ * silently discards the string form — the defect this helper exists to stop.
+ */
+export function toFiniteNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value
   if (typeof value === 'string' && value.trim() !== '') {
     const parsed = Number(value)
