@@ -114,7 +114,13 @@ vi.mock('../../utils/fragileEdgeMatch', () => ({
   isTopFragileEdge: () => false,
 }))
 
-vi.mock('../../utils/graphDisplayCalculations', () => ({
+vi.mock('../../utils/graphDisplayCalculations', async (importOriginal) => ({
+  // ⛔ importOriginal-SPREAD, not a hand-listed replacement. A `vi.mock`
+  // factory REPLACES the module, so every export added after this mock was
+  // written silently vanished — adding `UNSET_EDGE_STROKE_WIDTH` took 49 tests
+  // down across seven files at once. The spread makes the mock derive from the
+  // real module and override only what it means to stub.
+  ...(await importOriginal<typeof import('../../utils/graphDisplayCalculations')>()),
   existenceCertaintyToLineStyle: () => undefined,
   calculateEdgeImportance: () => 0.5,
   importanceToStrokeWidth: () => 2,

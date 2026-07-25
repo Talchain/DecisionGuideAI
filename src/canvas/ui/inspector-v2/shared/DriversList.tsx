@@ -8,13 +8,15 @@
 
 import { ConnectionRow } from './ConnectionRow'
 import type { NodeType } from '../../../domain/nodes'
+import type { EdgeValueDisplay } from '../../../domain/edgeValueProvenance'
 
 export interface DriverItem {
   edgeId: string
   nodeId: string
   nodeKind: NodeType
   label: string
-  strength: { weight: number; direction: 'positive' | 'negative' }
+  /** Already through the provenance gate — see `ConnectionRowProps.strength`. */
+  strength: EdgeValueDisplay
 }
 
 interface DriversListProps {

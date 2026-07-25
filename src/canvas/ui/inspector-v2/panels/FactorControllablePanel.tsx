@@ -36,6 +36,7 @@ import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
 import { resolveCoaching } from '../coachingConfig'
 import { FactorControllableEditor } from '../editors/FactorControllableEditor'
+import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 
 /**
  * Extract a non-empty string intervention value, accepting either a bare
@@ -168,7 +169,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
           nodeId: e.target,
           nodeKind: kind,
           label: String(tgt?.data?.label ?? e.target),
-          strength: { weight: e.data?.weight ?? 0, direction: (e.data?.direction ?? 'positive') as 'positive' | 'negative' },
+          strength: resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined),
         }
       })
   }, [edges, nodes, nodeId])

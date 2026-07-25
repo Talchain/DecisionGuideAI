@@ -58,13 +58,38 @@ import { z } from 'zod'
 export const EdgeValueSourceEnum = z.enum(['user', 'cee', 'template'])
 export type EdgeValueSource = z.infer<typeof EdgeValueSourceEnum>
 
-/** The edge fields that carry a set-vs-defaulted marker. */
-export const EDGE_PROVENANCED_FIELDS = ['beliefExists', 'weight'] as const
+/**
+ * The edge fields that carry a set-vs-defaulted marker.
+ *
+ * ⚠ THIS ARRAY IS THE REGISTRY. A field missing from it is not "unprotected at
+ * one call site" — it is a field for which the mechanism does not exist, so no
+ * consumer can gate it even if it wants to. `strengthStd` was exactly that gap:
+ * `USER_EDGE_DEFAULTS.strengthStd = 0.15` fabricates an uncertainty on every
+ * user-drawn edge, and `KeyRelationships.getConfidenceBand` painted it as a
+ * "Moderate confidence" dot with no way to ask where it came from.
+ *
+ * Adding a field here extends `EdgeValueSourceKey`, `EDGE_VALUE_SOURCE_KEYS`
+ * (the strip list) and `edgeValueSourcePatch`'s argument type automatically —
+ * see `edgeSourceKey` below. Nothing about a provenanced field is hand-listed.
+ */
+export const EDGE_PROVENANCED_FIELDS = ['beliefExists', 'weight', 'strengthStd'] as const
 export type EdgeProvenancedField = (typeof EDGE_PROVENANCED_FIELDS)[number]
 
+/**
+ * The marker key for a provenanced field, DERIVED from its name.
+ *
+ * Was a hand-written ternary returning a hand-written union
+ * (`'beliefExistsSource' | 'weightSource'`) — a two-entry mirror of the array
+ * above, and adding a third field to the array would have silently mapped it
+ * to `'weightSource'` (the ternary's else branch) rather than failing. The
+ * template-literal type makes the union a projection of the registry, so the
+ * two cannot drift.
+ */
+export type EdgeValueSourceKey = `${EdgeProvenancedField}Source`
+
 /** Marker key for a provenanced field, e.g. `beliefExists` → `beliefExistsSource`. */
-export function edgeSourceKey(field: EdgeProvenancedField): 'beliefExistsSource' | 'weightSource' {
-  return field === 'beliefExists' ? 'beliefExistsSource' : 'weightSource'
+export function edgeSourceKey(field: EdgeProvenancedField): EdgeValueSourceKey {
+  return `${field}Source`
 }
 
 function asSource(value: unknown): EdgeValueSource | null {
@@ -92,6 +117,12 @@ export function edgeValueSource(
   // the marker existed. See the module header for why these two specifically.
   if (field === 'beliefExists' && typeof data.exists_probability === 'number') return 'cee'
   if (field === 'weight' && typeof data.strength_mean === 'number') return 'cee'
+  // `strengthStd` has NO back-compat fallback. `DraftChat` destructures
+  // `strength_std` OUT of its passthrough spread and `applyDraftResult` never
+  // writes it, so no producer-only raw std survives into edge `data` to serve
+  // as evidence — while `USER_EDGE_DEFAULTS` DOES fabricate `strengthStd:
+  // 0.15`. Inventing a fallback here would launder that default, which is the
+  // one failure mode this module exists to make impossible.
 
   return null
 }
@@ -165,8 +196,8 @@ export function resolveEdgeValueDisplay(
         : typeof data.belief === 'number'
           ? data.belief
           : undefined
-      : typeof data.weight === 'number'
-        ? data.weight
+      : typeof data[field] === 'number'
+        ? (data[field] as number)
         : undefined
 
   if (typeof raw !== 'number' || !Number.isFinite(raw)) return { show: false, reason: 'absent' }
@@ -325,12 +356,135 @@ export function stripEdgeValueSourceKeys<T extends Record<string, unknown>>(
  *                                   weight: wireHadStrength ? 'cee' : undefined }) }
  * ```
  */
-export function edgeValueSourcePatch(sources: {
-  beliefExists?: EdgeValueSource
-  weight?: EdgeValueSource
-}): { beliefExistsSource?: EdgeValueSource; weightSource?: EdgeValueSource } {
-  const patch: { beliefExistsSource?: EdgeValueSource; weightSource?: EdgeValueSource } = {}
-  if (sources.beliefExists) patch.beliefExistsSource = sources.beliefExists
-  if (sources.weight) patch.weightSource = sources.weight
+export function edgeValueSourcePatch(
+  sources: Partial<Record<EdgeProvenancedField, EdgeValueSource>>,
+): Partial<Record<EdgeValueSourceKey, EdgeValueSource>> {
+  const patch: Partial<Record<EdgeValueSourceKey, EdgeValueSource>> = {}
+  for (const field of EDGE_PROVENANCED_FIELDS) {
+    const source = sources[field]
+    if (source) patch[edgeSourceKey(field)] = source
+  }
   return patch
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * ORDERING — the channel that has no words at all
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * #472–#476 gated the NUMBER and then the COLOUR. Neither touched ORDER, which
+ * is the quietest channel and in one case the most consequential: the "Top gap:
+ * validate X" line on the decision node ranks factors by a sum of edge weights
+ * and then TELLS THE USER WHICH FACTOR TO GO FIX. Every contribution to that
+ * sum was `weight ?? 0.5`, so on a graph where nobody had set a single strength
+ * the recommendation was decided by a constant — i.e. by node iteration order.
+ *
+ * The recurring shape at the leaking sites was a SENTINEL:
+ *
+ *     const aWeight = aData?.weight != null ? aData.weight : -Infinity
+ *
+ * which is wrong three times over:
+ *  1. It is TAUTOLOGICAL — `USER_EDGE_DEFAULTS`/`DEFAULT_EDGE_DATA` always
+ *     define `weight`, so the `-Infinity` arm is dead and every defaulted edge
+ *     ranks as a measured one. Same dead-branch shape as the two defects
+ *     already fixed in `OutcomeNode` and `RelationshipsSection`.
+ *  2. The sentinel's SIGN hand-compensates for the sort direction
+ *     (`ModelTabBody` uses `+Infinity` for an ascending key and `-Infinity` for
+ *     a descending one, two lines apart). That is a mirror: flip the order and
+ *     "unset last" silently becomes "unset first".
+ *  3. A sentinel is a number, so it composes with arithmetic. `-Infinity`
+ *     inside a `reduce` poisons a whole aggregate.
+ *
+ * So ordering gets the same treatment as colour: helpers that take
+ * `EdgeValueDisplay` and never a bare `number`, with "unset" as an explicit
+ * position rather than an extreme value.
+ */
+
+/**
+ * Compare two resolved edge values for sorting. **Unset always sorts last**,
+ * whichever direction `order` requests.
+ *
+ * That asymmetry is deliberate and is the reason this is not a subtraction.
+ * "We do not know this number" is not a small number or a large one; it is not
+ * on the scale at all, so it cannot be expressed as a sentinel that flips with
+ * the comparator. Reversing the sort must not promote the values nobody set.
+ */
+export function compareEdgeValueDisplays(
+  a: EdgeValueDisplay,
+  b: EdgeValueDisplay,
+  order: 'asc' | 'desc' = 'desc',
+): number {
+  if (!a.show && !b.show) return 0
+  if (!a.show) return 1
+  if (!b.show) return -1
+  return order === 'asc' ? a.value - b.value : b.value - a.value
+}
+
+/**
+ * An aggregate (a sum/rank) built from several edge values.
+ *
+ * Same discriminated shape as `EdgeValueDisplay`, so forgetting to handle "no
+ * evidence" is a type error rather than a rank derived from nothing. The counts
+ * are carried because a PARTIAL aggregate is a real state: a factor with two
+ * sourced edges and three defaulted ones has some leverage evidence, and a
+ * surface may legitimately want to qualify or exclude it.
+ */
+export type EdgeValueAggregate =
+  | {
+      show: false
+      /** `not_set` — numbers were present, none sourced. `absent` — nothing to sum. */
+      reason: 'not_set' | 'absent'
+    }
+  | { show: true; value: number; sourcedCount: number; unsourcedCount: number }
+
+/**
+ * Sum the SOURCED signed strengths of a set of edges; ignore the rest.
+ *
+ * An edge whose strength nobody set contributes NOTHING — not `0.5`, not `0`
+ * dressed up as a measurement. It is counted in `unsourcedCount` so the caller
+ * can see the aggregate is partial, and if no edge is sourced the result is
+ * `show: false` and the caller must not rank on it at all.
+ *
+ * `magnitude: true` sums `|signed|` — for "how much does this factor matter",
+ * where a strong negative influence is as important as a strong positive one.
+ */
+export function aggregateEdgeSignedStrength(
+  edgeData: Iterable<Record<string, unknown> | undefined | null>,
+  opts: { magnitude?: boolean } = {},
+): EdgeValueAggregate {
+  let value = 0
+  let sourcedCount = 0
+  let unsourcedCount = 0
+
+  for (const data of edgeData) {
+    const display = resolveEdgeSignedStrengthDisplay(data)
+    if (display.show) {
+      value += opts.magnitude ? Math.abs(display.value) : display.value
+      sourcedCount += 1
+    } else {
+      unsourcedCount += 1
+    }
+  }
+
+  if (sourcedCount === 0) {
+    return { show: false, reason: unsourcedCount > 0 ? 'not_set' : 'absent' }
+  }
+  return { show: true, value, sourcedCount, unsourcedCount }
+}
+
+/**
+ * Compare two aggregates. **Unset always sorts last**, as above.
+ *
+ * Split from `compareEdgeValueDisplays` rather than widened to a union because
+ * the two carry different evidence and a caller should not be able to sort an
+ * aggregate against a single value by accident.
+ */
+export function compareEdgeValueAggregates(
+  a: EdgeValueAggregate,
+  b: EdgeValueAggregate,
+  order: 'asc' | 'desc' = 'desc',
+): number {
+  if (!a.show && !b.show) return 0
+  if (!a.show) return 1
+  if (!b.show) return -1
+  return order === 'asc' ? a.value - b.value : b.value - a.value
 }

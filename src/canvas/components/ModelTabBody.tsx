@@ -22,7 +22,7 @@ import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { AnalysisRunStateCover } from './AnalysisRunStateCover'
 import { useUIStore } from '../../stores/uiStore'
 import { getDisplayEdgeId, buildFragileEdgeLookup } from '../utils/edgeIdentity'
-import { edgeValueSource } from '../domain/edgeValueProvenance'
+import { edgeValueSource, resolveEdgeValueDisplay, compareEdgeValueDisplays } from '../domain/edgeValueProvenance'
 import { getCausalEdges } from '../domain/edgeUtils'
 import { SectionErrorBoundary } from './GraphTextView'
 import type { MappedRobustness } from '../../lib/mappers/types'
@@ -481,21 +481,32 @@ export const ModelTabBody = memo(function ModelTabBody({
       const bSwitchProb = fragileEdgeSwitchProbMap.get(bId) ?? -1
       if (aSwitchProb !== bSwitchProb) return bSwitchProb - aSwitchProb
 
-      const aData = a.data as any
-      const bData = b.data as any
-      // Display-only defaults for edge sort order — below UI-SEM tagging threshold.
-      // Missing confidence → sort last (Infinity in ascending order)
-      // Canvas store canonical name — CEE ingestion normalises to beliefExists
-      const aConf = aData?.beliefExists ?? aData?.confidence
-      const bConf = bData?.beliefExists ?? bData?.confidence
-      const aConfVal = aConf != null ? aConf : Infinity
-      const bConfVal = bConf != null ? bConf : Infinity
-      if (Math.abs(aConfVal - bConfVal) > 0.001) return aConfVal - bConfVal
+      const aData = a.data as Record<string, unknown> | undefined
+      const bData = b.data as Record<string, unknown> | undefined
 
-      // Missing weight → sort last (-Infinity in descending order)
-      const aWeight = aData?.weight != null ? aData.weight : -Infinity
-      const bWeight = bData?.weight != null ? bData.weight : -Infinity
-      return bWeight - aWeight
+      // ⛔ Provenance gate on the ORDER. The sentinels here were wrong twice:
+      // `!= null` is a tautology (`DEFAULT_EDGE_DATA`/`USER_EDGE_DEFAULTS`
+      // always define both fields, so neither arm could fire and every
+      // defaulted edge ranked as a measured one), and the two sentinels had
+      // OPPOSITE SIGNS — `+Infinity` for the ascending key, `-Infinity` for the
+      // descending one — a hand-compensation that silently inverts the moment
+      // either sort direction changes. `compareEdgeValueDisplays` puts unset
+      // last in BOTH directions without a sentinel, so the order cannot drift
+      // from the intent. The export payload below this list was already gated;
+      // this brings the on-screen order into line with the copied JSON.
+      const aConf = resolveEdgeValueDisplay(aData, 'beliefExists')
+      const bConf = resolveEdgeValueDisplay(bData, 'beliefExists')
+      const confOrder = compareEdgeValueDisplays(aConf, bConf, 'asc')
+      const bothConfShown = aConf.show && bConf.show
+      if (!bothConfShown ? confOrder !== 0 : Math.abs(aConf.value - bConf.value) > 0.001) {
+        return confOrder
+      }
+
+      return compareEdgeValueDisplays(
+        resolveEdgeValueDisplay(aData, 'weight'),
+        resolveEdgeValueDisplay(bData, 'weight'),
+        'desc',
+      )
     })
   }, [causalEdges, fragileEdgeSwitchProbMap])
 

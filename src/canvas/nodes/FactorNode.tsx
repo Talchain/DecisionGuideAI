@@ -23,7 +23,7 @@ import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, ConnRowsOverflow, Sep, NodeChip, ActionIcons, MetricPills, NodePopover, ScienceIcon, EdgePills } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
-import { computeSignedMean } from '../domain/edges'
+import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 
 /**
@@ -109,21 +109,49 @@ export const FactorNode = memo((props: NodeProps) => {
     if (isPostAnalysis) return null
     const factorNodes = nodes.filter(n => n.type === 'factor' || n.data?.type === 'factor')
     if (factorNodes.length <= 3) return 1
-    // Single O(N + E) pass: build a map of factor id → weight sum, then sort.
-    const scores = new Map<string, number>()
-    for (const f of factorNodes) scores.set(f.id, 0)
+    // ⛔ Provenance gate. This ranking decides which factors stay full-fat and
+    // which are visually quieted, and it used `computeSignedMean`, which falls
+    // back to `weight` — a constant `USER_EDGE_DEFAULTS`/`DEFAULT_EDGE_DATA`
+    // always supply. So the "structural centrality" score was out-degree × 0.3
+    // for every factor on an unset graph, and the quieting was arbitrary.
+    // Only SOURCED strengths are counted now.
+    const contributions = new Map<string, Array<Record<string, unknown> | undefined>>()
+    for (const f of factorNodes) contributions.set(f.id, [])
     for (const e of edges) {
-      if (!scores.has(e.source)) continue
+      const bucket = contributions.get(e.source)
+      if (!bucket) continue
       const target = nodes.find(n => n.id === e.target)
       if (!target) continue
       const targetKind = target.type ?? target.data?.type
       if (targetKind !== 'outcome' && targetKind !== 'risk') continue
-      const weight = Math.abs(computeSignedMean(e.data as Record<string, unknown> | undefined))
-      scores.set(e.source, (scores.get(e.source) ?? 0) + weight)
+      bucket.push(e.data as Record<string, unknown> | undefined)
     }
-    const sorted = Array.from(scores.entries()).sort((a, b) => b[1] - a[1])
-    const idx = sorted.findIndex(([id]) => id === props.id)
-    return idx < 0 ? null : idx + 1
+    const scored = Array.from(contributions.entries()).map(([id, datas]) => ({
+      id,
+      leverage: aggregateEdgeSignedStrength(datas, { magnitude: true }),
+    }))
+    // No factor has a single sourced strength ⇒ there is no ranking to be had.
+    // Same escape hatch the `<= 3` case above already uses: when we cannot
+    // rank, we quieten NOBODY rather than quietening everybody on no evidence.
+    if (!scored.some(s => s.leverage.show)) return 1
+    scored.sort((a, b) => compareEdgeValueAggregates(a.leverage, b.leverage))
+    const idx = scored.findIndex(s => s.id === props.id)
+    if (idx < 0) return null
+    const mine = scored[idx].leverage
+    if (mine.show) return idx + 1
+    // Unranked — but the two unranked states are NOT the same claim.
+    //
+    // `absent`: this factor has NO outbound edge to an outcome or risk at all.
+    // That is a STRUCTURAL fact read straight off the graph, not a number
+    // anybody had to supply, so ranking it below the measured factors invents
+    // nothing. It keeps its place at the bottom of the sort.
+    //
+    // `not_set`: the edges exist and nobody set their strengths. Here we
+    // genuinely do not know, and quieting the factor would be the same
+    // fabrication in the visual channel that this gate removes from the
+    // numeric one. Treat it as high-priority (i.e. quieten nobody) rather than
+    // demote it on evidence we do not have.
+    return mine.reason === 'absent' ? idx + 1 : 1
   }, [isPostAnalysis, nodes, edges, props.id])
 
   const priorityRank: number | null = isPostAnalysis

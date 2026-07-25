@@ -1424,6 +1424,54 @@ describe('FactorNode — intervention hover', () => {
             { id: 'outcome-1', type: 'outcome', data: { type: 'outcome', label: 'Outcome' } },
           ],
           edges: [
+            // `weightSource` is REQUIRED: the pre-analysis priority ranking is
+            // provenance-gated, and when NO factor has a sourced strength there is
+            // no ranking to be had, so nobody is quieted. These stamps make the
+            // rivals genuinely higher-leverage rather than fabricated-higher.
+            { id: 'e2', source: 'factor-2', target: 'outcome-1', data: { weight: 1, direction: 'positive', weightSource: 'cee' } },
+            { id: 'e3', source: 'factor-3', target: 'outcome-1', data: { weight: 1, direction: 'positive', weightSource: 'cee' } },
+            { id: 'e4', source: 'factor-4', target: 'outcome-1', data: { weight: 1, direction: 'positive', weightSource: 'cee' } },
+            { id: 'e5', source: 'factor-5', target: 'outcome-1', data: { weight: 1, direction: 'positive', weightSource: 'cee' } },
+          ],
+          ceeAnalysisReady: null,
+          results: { status: 'idle', report: null },
+          highlightedNodes: new Set(),
+          dimmedNodeIds: new Set(),
+          goalThreshold: null,
+          goalConstraints: [],
+          viewMode: 'standard',
+        })
+      )
+      renderFactor({
+        label: 'Low priority',
+        type: 'factor',
+        category: 'controllable',
+        observedState: { value: 0.5 },
+      })
+      expect(screen.queryByTestId('factor-node-popover')).toBeNull()
+    })
+
+    // ⛔ The other half of the provenance gate. Identical topology to the test
+    // above — factor-1 still has no outbound edge — but the RIVALS' strengths
+    // are unstamped, so the ranking has no evidence to rank on. Quieting a
+    // factor on a ranking derived from `USER_EDGE_DEFAULTS.weight` would be
+    // the same fabrication in the visual channel that #472-#476 removed from
+    // the numeric one, so nobody is quieted. Without this the `not_set` arm of
+    // preAnalysisFactorRank could be deleted and the suite would stay green.
+    it('does NOT quieten anyone when no rival strength was ever set', () => {
+      vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
+        selector({
+          hoveredOptionId: null,
+          nodes: [
+            { id: 'factor-1', type: 'factor', data: { type: 'factor', label: 'Low priority' } },
+            { id: 'factor-2', type: 'factor', data: { type: 'factor', label: 'F2' } },
+            { id: 'factor-3', type: 'factor', data: { type: 'factor', label: 'F3' } },
+            { id: 'factor-4', type: 'factor', data: { type: 'factor', label: 'F4' } },
+            { id: 'factor-5', type: 'factor', data: { type: 'factor', label: 'F5' } },
+            { id: 'outcome-1', type: 'outcome', data: { type: 'outcome', label: 'Outcome' } },
+          ],
+          edges: [
+            // Same weights as the quieting test, WITHOUT the source stamps.
             { id: 'e2', source: 'factor-2', target: 'outcome-1', data: { weight: 1, direction: 'positive' } },
             { id: 'e3', source: 'factor-3', target: 'outcome-1', data: { weight: 1, direction: 'positive' } },
             { id: 'e4', source: 'factor-4', target: 'outcome-1', data: { weight: 1, direction: 'positive' } },
@@ -1444,7 +1492,7 @@ describe('FactorNode — intervention hover', () => {
         category: 'controllable',
         observedState: { value: 0.5 },
       })
-      expect(screen.queryByTestId('factor-node-popover')).toBeNull()
+      expect(screen.queryByTestId('factor-node-popover')).not.toBeNull()
     })
 
     it('does render the popover for a high-priority (top-3) factor in Standard view', () => {

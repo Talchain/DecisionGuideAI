@@ -25,6 +25,8 @@ import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
 import { DecisionAdvancedEditor } from '../editors/DecisionAdvancedEditor'
+import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
+import type { EdgeValueDisplay } from '../../../domain/edgeValueProvenance'
 
 export const DecisionPanel = memo(function DecisionPanel({
   nodeId,
@@ -108,7 +110,7 @@ export const DecisionPanel = memo(function DecisionPanel({
           nodeId: otherId,
           nodeKind: kind,
           label: String(otherNode.data?.label ?? otherId),
-          strength: { weight: e.data?.weight ?? 0, direction: (e.data?.direction ?? 'positive') as 'positive' | 'negative' },
+          strength: resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined),
         }
       })
       .filter(Boolean) as Array<{
@@ -116,7 +118,7 @@ export const DecisionPanel = memo(function DecisionPanel({
         nodeId: string
         nodeKind: NodeType
         label: string
-        strength: { weight: number; direction: 'positive' | 'negative' }
+        strength: EdgeValueDisplay
       }>
   }, [edges, nodes, nodeId])
 

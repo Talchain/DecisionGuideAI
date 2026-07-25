@@ -31,6 +31,7 @@ import type { InspectorPanelProps } from '../types'
 import { resolveCoaching } from '../coachingConfig'
 import { FactorExternalEditor } from '../editors/FactorExternalEditor'
 import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
+import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 
 // Quick-set presets
 const QUICK_SET = {
@@ -125,7 +126,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
           nodeId: e.target,
           nodeKind: kind,
           label: String(tgt?.data?.label ?? e.target),
-          strength: { weight: e.data?.weight ?? 0, direction: (e.data?.direction ?? 'positive') as 'positive' | 'negative' },
+          strength: resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined),
         }
       })
   }, [edges, nodes, nodeId])

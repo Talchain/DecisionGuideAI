@@ -148,7 +148,7 @@ describe('InspectorRouter', () => {
         { id: 'g1', type: 'goal', data: { label: 'Target', kind: 'goal' }, position: { x: 100, y: 0 } },
       ],
       [
-        { id: 'e1', source: 'out1', target: 'g1', data: { weight: 0.65, direction: 'positive' } },
+        { id: 'e1', source: 'out1', target: 'g1', data: { weight: 0.65, direction: 'positive', weightSource: 'cee' } },
       ],
     )
     render(<InspectorRouter nodeId="out1" edgeId={null} onClose={onClose} />)
@@ -172,7 +172,7 @@ describe('InspectorRouter', () => {
         { id: 'g1', type: 'goal', data: { label: 'Target', kind: 'goal' }, position: { x: 100, y: 0 } },
       ],
       [
-        { id: 'e1', source: 'out1', target: 'g1', data: { weight: 0.5, direction: 'positive' } },
+        { id: 'e1', source: 'out1', target: 'g1', data: { weight: 0.5, direction: 'positive', weightSource: 'cee' } },
       ],
     )
     // results status is 'idle' — pre-analysis
@@ -187,7 +187,7 @@ describe('InspectorRouter', () => {
         { id: 'g1', type: 'goal', data: { label: 'Target', kind: 'goal' }, position: { x: 100, y: 0 } },
       ],
       [
-        { id: 'e1', source: 'out1', target: 'g1', data: { weight: 0.5, direction: 'positive' } },
+        { id: 'e1', source: 'out1', target: 'g1', data: { weight: 0.5, direction: 'positive', weightSource: 'cee' } },
       ],
     )
     useCanvasStore.setState({ results: { status: 'complete' } } as never)

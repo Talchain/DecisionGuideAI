@@ -39,6 +39,7 @@ import {
 import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
 import { RiskAdvancedEditor } from '../editors/RiskAdvancedEditor'
+import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 
 /** Impact enum options, ordered low → critical. Labels are the capitalised enum. */
 const IMPACT_OPTIONS: { value: RiskImpact; label: string }[] = [
@@ -93,7 +94,7 @@ export const RiskPanel = memo(function RiskPanel({
           nodeId: e.source,
           nodeKind: kind,
           label: String(src?.data?.label ?? e.source),
-          strength: { weight: e.data?.weight ?? 0, direction: (e.data?.direction ?? 'positive') as 'positive' | 'negative' },
+          strength: resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined),
         }
       })
   }, [edges, nodes, nodeId])

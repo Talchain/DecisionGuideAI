@@ -101,7 +101,13 @@ vi.mock('../../utils/fragileEdgeMatch', () => ({
 }))
 // Distinct width outputs so an assertion can tell the two formulas apart;
 // dash reflects the real <0.7 rule so the belief-dash pin is meaningful.
-vi.mock('../../utils/graphDisplayCalculations', () => ({
+vi.mock('../../utils/graphDisplayCalculations', async (importOriginal) => ({
+  // ⛔ importOriginal-SPREAD, not a hand-listed replacement. A `vi.mock`
+  // factory REPLACES the module, so every export added after this mock was
+  // written silently vanished — adding `UNSET_EDGE_STROKE_WIDTH` took 49 tests
+  // down across seven files at once. The spread makes the mock derive from the
+  // real module and override only what it means to stub.
+  ...(await importOriginal<typeof import('../../utils/graphDisplayCalculations')>()),
   existenceCertaintyToLineStyle: (p: number | undefined) => (p !== undefined && p < 0.7 ? '6,4' : undefined),
   calculateEdgeImportance: () => 0.5,
   importanceToStrokeWidth: () => 7,
@@ -191,6 +197,11 @@ describe('StyledEdge — belief is a single channel: dash, not opacity (item 2)'
   })
 })
 
+// `weightSource` is REQUIRED on these two fixtures. Stroke width is now
+// provenance-gated: an edge whose strength nobody set draws at
+// UNSET_EDGE_STROKE_WIDTH, so without the stamp these tests would be
+// measuring the unset floor rather than the weight-vs-importance choice they
+// exist to pin. The claim under test is unchanged.
 describe('StyledEdge — stroke width means weight magnitude in both phases (item 3)', () => {
   beforeEach(() => {
     for (const k of Object.keys(nodeKinds)) delete nodeKinds[k]
@@ -201,7 +212,7 @@ describe('StyledEdge — stroke width means weight magnitude in both phases (ite
   it('pre-run: width follows weight magnitude (2), not importance (7)', () => {
     setStore({ viewMode: 'standard', resultsStatus: 'idle', report: null })
     const { container } = render(
-      <StyledEdge {...(baseProps as any)} data={{ weight: 0.6, direction: 'positive', beliefExists: 0.8 }} />
+      <StyledEdge {...(baseProps as any)} data={{ weight: 0.6, direction: 'positive', beliefExists: 0.8, weightSource: 'cee' }} />
     )
     expect(styleOf(container).strokeWidth).toBe('2')
   })
@@ -209,7 +220,7 @@ describe('StyledEdge — stroke width means weight magnitude in both phases (ite
   it('post-run: width STILL follows weight magnitude (2), not composite importance (7)', () => {
     setStore({ viewMode: 'standard', resultsStatus: 'complete', report: RESULTS_REPORT })
     const { container } = render(
-      <StyledEdge {...(baseProps as any)} data={{ weight: 0.6, direction: 'positive', beliefExists: 0.8 }} />
+      <StyledEdge {...(baseProps as any)} data={{ weight: 0.6, direction: 'positive', beliefExists: 0.8, weightSource: 'cee' }} />
     )
     expect(styleOf(container).strokeWidth).toBe('2')
   })

@@ -7,6 +7,7 @@
 import { useCallback } from 'react'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import type { NodeType } from '../../../domain/nodes'
+import type { EdgeValueDisplay } from '../../../domain/edgeValueProvenance'
 import { typography } from '../../../../styles/typography'
 import { getStrengthLabel } from '../inspectorStrings'
 
@@ -24,7 +25,24 @@ interface ConnectionRowProps {
   nodeKind: NodeType
   label: string
   badge?: React.ReactNode
-  strength?: { weight: number; direction: 'positive' | 'negative' }
+  /**
+   * The connection's strength, ALREADY resolved through the provenance gate
+   * (`resolveEdgeSignedStrengthDisplay`).
+   *
+   * ⛔ THIS TYPE IS THE FIX. It used to be `{ weight: number; direction:
+   * 'positive' | 'negative' }` — a shape that cannot express "nobody set
+   * this", exactly like the `thresholdColor(v: number)` signature removed in
+   * #476. Every one of the nine construction sites therefore wrote
+   * `{ weight: e.data?.weight ?? 0, direction: e.data?.direction ?? 'positive' }`
+   * and this row painted `USER_EDGE_DEFAULTS.weight` as a coloured bar, a
+   * "Moderate +" band label and a ± glyph across EIGHT inspector panels.
+   *
+   * Fixing the eight consumers would have left the enabler in place. Taking
+   * `EdgeValueDisplay` means there is no argument a caller can construct that
+   * means "0.3, source unknown", and handling the unset case is a type error
+   * rather than something a tenth panel can forget.
+   */
+  strength?: EdgeValueDisplay
   techMode?: boolean
   onClick?: () => void
   /** When true, label is not truncated (used by DriversList where full names matter) */
@@ -44,9 +62,13 @@ export function ConnectionRow({
 
   const handleClick = useCallback(() => onClick?.(), [onClick])
 
-  const signedValue = strength
-    ? strength.direction === 'negative' ? -strength.weight : strength.weight
-    : null
+  // `show: true` is the ONLY path to a number here. `not_set` keeps the row
+  // (the connection is real — the user drew it) and says so in words instead
+  // of painting a bar sized to a value nobody chose; `absent` means there is
+  // no strength channel on this row at all (e.g. the option rows in
+  // FactorControllablePanel, which pass no `strength` prop).
+  const signedValue = strength?.show ? strength.value : null
+  const showNotSet = strength?.show === false && strength.reason === 'not_set'
 
   return (
     <div
@@ -61,8 +83,16 @@ export function ConnectionRow({
       <NodeShapeIndicator nodeKind={nodeKind} size={16} />
       <span className={`${typography.panelBody} text-text-body flex-1 ${fullLabel ? 'break-words' : 'truncate'}`}>{label}</span>
       {badge}
-      {strength && signedValue !== null && (
-        <div className="flex items-center gap-1.5 min-w-[90px]">
+      {showNotSet && (
+        <span
+          data-testid="connection-row-strength-not-set"
+          className={`${typography.panelMeta} text-text-light min-w-[90px] text-right`}
+        >
+          Not set
+        </span>
+      )}
+      {signedValue !== null && (
+        <div className="flex items-center gap-1.5 min-w-[90px]" data-testid="connection-row-strength">
           {/* Strength bar */}
           <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
             <div
