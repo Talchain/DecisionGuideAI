@@ -215,43 +215,67 @@ interface CoverageRecord {
  */
 const COVERAGE: Record<string, CoverageRecord> = {
   // ── structured_pointer_allowed — the id-pointer claims. ────────────────
-  referenced_option_ids: {
+  'blocks[].referenced_option_ids': {
     disposition: 'probed',
     reason:
       'Rendered by V5ExplanationBlock. This entry is the harness positive ' +
-      'control: its "never rendered as text" claim was FALSE when this ' +
-      'harness was written.',
+      'control: its v1 "never rendered as text" claim was FALSE, and CEE #689 ' +
+      'corrected it to record that the UI printed each id as visible chip ' +
+      'text. Fixed here; the probe keeps it fixed.',
   },
-  factor_id: {
+  'blocks[].enrichment.flip_thresholds[].factor_id': {
     disposition: 'probed',
     reason:
-      'Rendered as the visible row label by V5FlipAnalysisBlock. The ' +
-      'allowlist claims from_label / factor_label are the rendered text.',
+      'The sibling V5 flip_analysis block rendered this id raw as each row\'s ' +
+      'visible label (V5FlipAnalysisBlock) — the hazard CEE #689 flags on this ' +
+      'entry. Fixed here; the probe keeps it fixed.',
   },
-  option_id: {
-    disposition: 'probed',
+  'blocks[].enrichment.option_comparison[].option_id': {
+    disposition: 'documented-violation-not-owned-here',
     reason:
-      'V5ComparisonBlock consumes option_id as a React key + data-testid and ' +
-      'renders the sibling label as text — the reference implementation of ' +
-      'the correct pattern, and proof this harness passes clean code.',
+      'PARTIALLY probed. V5ComparisonBlock is clean and IS probed here — it ' +
+      'uses option_id as React key + data-testid and renders the sibling ' +
+      'label, the reference implementation. But the same wire path reaches a ' +
+      'SECOND surface that is NOT clean: inspector-v2/panels/OutcomePanel.tsx:101 ' +
+      'renders `{opt.option_label ?? opt.option_id}`, and the same fallback ' +
+      'appears in RiskAdvancedEditor.tsx:32, OutcomeAdvancedEditor.tsx:32 and ' +
+      'OptionPanel.tsx:167 — all verified reaching visible text at 0dfb075d. ' +
+      'Those are inspector-panel surfaces needing a canvas/store mount; not ' +
+      'fixed by this lane and deliberately recorded rather than dropped.',
   },
-  'bias_signals[].target': {
+  'blocks[].enrichment.factor_sensitivity[].factor_id': {
+    disposition: 'documented-violation-not-owned-here',
+    reason:
+      'KNOWN FALSE and not fixed here. components/results/useResultsSectionData.ts:2051-2056 ' +
+      'prettifies the raw key into displayLabel when both canvasLabel and ' +
+      'f.raw.label are absent, and :2735 does `gap.factor_label ?? gap.factor_id`. ' +
+      'Both reach visible text (DriversSection, V7SignalRow, ChallengeSection, ' +
+      'StressTestSection, TriageActionCardsBody). ChallengeSection.tsx:97-99 ' +
+      'carries a THIRD independent id-prettifying fallback. Verified at ' +
+      '0dfb075d. Each needs its own copy decision ("unnamed factor" vs omit), ' +
+      'so this belongs in a lane that can carry them properly.',
+  },
+  'coaching.bias_signals[].target': {
     disposition: 'uncovered',
     reason:
       'Coaching bias-signal targets drive a canvas highlight rather than a ' +
       'self-contained block component; probing needs a full canvas mount, ' +
       'which jsdom cannot render faithfully (trap 3). Not swept here.',
   },
-  node_id: {
+  'analysis_ready.model_adjustments[].node_id': {
     disposition: 'uncovered',
     reason:
-      'CEE PR #689 re-anchors this away from the removed coaching.widening_log[] ' +
-      'shape to analysis_ready.model_adjustments[].node_id and ' +
-      'goal_constraints[].node_id. The v1 key names a shape that no longer ' +
-      'exists at @talchain/schemas v0.11.0, so there is nothing coherent to ' +
-      'probe until the re-anchored keys arrive.',
+      'Re-anchored by CEE #689 from the removed coaching.widening_log[] shape. ' +
+      'The consuming surface needs a results/analysis-ready mount. Not swept.',
   },
-  edge_id: {
+  'goal_constraints[].node_id': {
+    disposition: 'uncovered',
+    reason:
+      'CEE #689 states the rendering half of this entry was NOT individually ' +
+      'swept on the DGAI side either. It remains unswept — recorded honestly ' +
+      'rather than inheriting CEE\'s unverified assumption.',
+  },
+  'blocks[].enrichment.robustness.fragile_edges[].edge_id': {
     disposition: 'uncovered',
     reason:
       'Fragile-edge pointers inside decision-review enrichment. The consuming ' +
@@ -260,47 +284,53 @@ const COVERAGE: Record<string, CoverageRecord> = {
   },
 
   // ── machine_routing_allowed. ───────────────────────────────────────────
-  id: {
-    disposition: 'uncovered',
-    reason:
-      'Bare "id" spans chips, insights, blocks, nodes, edges and options — six ' +
-      'surfaces under one key. CEE #689 splits it into five anchored keys; ' +
-      'probing the conflated key would assert something imprecise. Chip ids ' +
-      'are separately guarded by expectNoChipMetadataLeaks.',
-  },
-  action_type: {
+  'coaching.strengthen_items[].action_type': {
     disposition: 'not-a-dgai-render-surface',
     reason:
       'Already enforced, and more strictly than this harness would: ' +
       'src/test/helpers/expectNoChipMetadataLeaks.ts blocklists every ' +
       'action_type literal against chip outerHTML, attributes included.',
   },
-  error_code: {
-    disposition: 'documented-violation-not-owned-here',
-    reason:
-      'src/v5/TypedErrorRenderer.tsx renders the failure-type literal ungated ' +
-      'as visible text (line 82), but the component has ZERO non-test ' +
-      'importers and is mounted on no route — unreachable rather than ' +
-      'leaking. Complete importer manifest verified at 0dfb075d. Recorded so ' +
-      'the claim is not silently dropped.',
-  },
-  request_id: {
-    disposition: 'documented-violation-not-owned-here',
-    reason:
-      'src/routes/templates/components/ErrorBanner.tsx:104 prints "Reference ' +
-      'ID: {error.request_id}" inside a production role="alert" ' +
-      'aria-live="assertive" banner with NO dev guard, on live paths ' +
-      '(TemplatesPanel + the /templates route). Deliberately NOT changed by ' +
-      'this lane: a support reference a user quotes when reporting a problem ' +
-      'is plausibly intentional. Escalated to product for a ruling. CEE #689 ' +
-      'separately finds no top-level request_id on any response body.',
-  },
-  correlation_id: {
+  'suggested_actions[].action_type': {
     disposition: 'not-a-dgai-render-surface',
     reason:
-      'CEE #689 verified no client response body carries a top-level ' +
-      'correlation_id; it ships as trace.correlation_id and an HTTP header. ' +
-      'No DGAI surface could render it.',
+      'Same as coaching.strengthen_items[].action_type — covered by the ' +
+      'existing chip-metadata blocklist against outerHTML.',
+  },
+  'coaching.strengthen_items[].id': {
+    disposition: 'uncovered',
+    reason:
+      'Chip ids are deliberately present in data-testid (expectNoChipMetadataLeaks ' +
+      'documents this as the contract), so the existing helper cannot ' +
+      'distinguish id-in-testid from id-as-text. A sentinel probe on the chip ' +
+      'row could, and does not exist yet. Not swept.',
+  },
+  'suggested_actions[].id': {
+    disposition: 'uncovered',
+    reason: 'Same as coaching.strengthen_items[].id — not swept.',
+  },
+  'nodes[].id': {
+    disposition: 'uncovered',
+    reason:
+      'Canvas node identifiers. Probing needs a real canvas mount; jsdom ' +
+      'cannot prove what a canvas node visually renders (trap 3). Not swept.',
+  },
+  'options[].id': {
+    disposition: 'uncovered',
+    reason:
+      'Canvas option-node identifiers, same constraint as nodes[].id. Note ' +
+      'the inspector-panel fallbacks recorded under ' +
+      'blocks[].enrichment.option_comparison[].option_id are the live hazard ' +
+      'for option identifiers. Not swept.',
+  },
+  'blocks[].error_code': {
+    disposition: 'documented-violation-not-owned-here',
+    reason:
+      'src/v5/TypedErrorRenderer.tsx:82 renders the failure-type literal ' +
+      'ungated as visible text, but the component has ZERO non-test importers ' +
+      'and is mounted on no route — unreachable rather than leaking. Complete ' +
+      'importer manifest verified at 0dfb075d. Recorded so the claim is not ' +
+      'silently dropped if it is ever mounted.',
   },
 }
 
@@ -482,7 +512,7 @@ describe('rendering claim: blocks[].referenced_option_ids', () => {
       element: container.firstElementChild as HTMLElement,
       sentinel,
       witness: NARRATIVE,
-      claim: 'structured_pointer_allowed.referenced_option_ids',
+      claim: 'structured_pointer_allowed.blocks[].referenced_option_ids',
     })
   })
 
@@ -507,7 +537,7 @@ describe('rendering claim: blocks[].referenced_option_ids', () => {
       sentinel,
       witness: NARRATIVE,
       claim:
-        'structured_pointer_allowed.referenced_option_ids (unresolvable label)',
+        'structured_pointer_allowed.blocks[].referenced_option_ids (unresolvable label)',
     })
   })
 })
@@ -542,7 +572,7 @@ describe('rendering claim: blocks[].enrichment.flip_thresholds[].factor_id', () 
       element: container.firstElementChild as HTMLElement,
       sentinel,
       witness: NARRATIVE,
-      claim: 'structured_pointer_allowed.factor_id',
+      claim: 'structured_pointer_allowed.blocks[].enrichment.flip_thresholds[].factor_id',
     })
   })
 
@@ -573,7 +603,8 @@ describe('rendering claim: blocks[].enrichment.flip_thresholds[].factor_id', () 
       element: container.firstElementChild as HTMLElement,
       sentinel,
       witness: NARRATIVE,
-      claim: 'structured_pointer_allowed.factor_id (unresolvable label)',
+      claim:
+        'structured_pointer_allowed.blocks[].enrichment.flip_thresholds[].factor_id (unresolvable label)',
     })
   })
 })
@@ -615,7 +646,8 @@ describe('rendering claim: blocks[].enrichment.option_comparison[].option_id', (
       element,
       sentinel,
       witness: 'Hire in London',
-      claim: 'structured_pointer_allowed.option_id',
+      claim:
+        'structured_pointer_allowed.blocks[].enrichment.option_comparison[].option_id',
     })
   })
 })
