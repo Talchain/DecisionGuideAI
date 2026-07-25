@@ -41,7 +41,9 @@ function expectFactNotReported(testId: string) {
 }
 
 beforeEach(() => {
-  useHowComputedStore.getState()._reset()
+  // `_reset` was a byte-identical alias of `close` with zero production
+  // callers — one name per behaviour.
+  useHowComputedStore.getState().close()
 })
 
 describe('HowComputedCard — real capture 2026-04-05 (partial provenance)', () => {

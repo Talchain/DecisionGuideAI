@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { BookmarkCheck, X } from 'lucide-react'
 import { useCanvasStore } from '../store'
@@ -31,7 +31,6 @@ import { typography } from '../../styles/typography'
  */
 export function StarterProvenanceBanner() {
   const [dismissed, setDismissed] = useState(false)
-  const redraftInFlight = useRef(false)
   const { sendMessage } = useConversationContext()
 
   // `resolveStarterId` is the single shape for this question, shared with the
@@ -39,7 +38,7 @@ export function StarterProvenanceBanner() {
   const starterId = useCanvasStore((s) => resolveStarterId(s.nodes))
 
   const handleRedraft = useCallback(() => {
-    if (redraftInFlight.current || !starterId) return
+    if (!starterId) return
     const starter = getStarter(starterId)
     if (!starter) return
 
@@ -56,8 +55,13 @@ export function StarterProvenanceBanner() {
     )
     if (!confirmed) return
 
-    redraftInFlight.current = true
-    try {
+    // NOTE: no re-entrancy guard here, deliberately. There was one; it set a
+    // ref true and cleared it in a `finally` within the SAME synchronous span
+    // (`sendMessage` is async and was never awaited), so the read could never
+    // observe `true`. The double-send it appeared to prevent is prevented
+    // structurally instead: `resetCanvas` empties the graph, `starterId` goes
+    // null, and the early return below unmounts the banner and its button.
+    {
       // Reset FIRST so the canvas is genuinely empty: the composer treats an
       // empty canvas as "draft a model" rather than "chat about this one", and
       // the first-use hero re-engages to show thinking state and — on failure —
@@ -72,8 +76,6 @@ export function StarterProvenanceBanner() {
         debugSource: 'generate_model',
         debugSourceSurface: 'starter_redraft',
       })
-    } finally {
-      redraftInFlight.current = false
     }
   }, [starterId, sendMessage])
 

@@ -44,7 +44,6 @@
     "archive",
     "storybook-static",
     "**/* 2.ts",
-    "**/* 2.tsx",
-    "tests/p2-1-stream-canary.test.ts"
+    "**/* 2.tsx"
   ]
 }
