@@ -34,7 +34,8 @@ import { UncertaintyBand } from '../shared/UncertaintyBand'
 import { ResultsLink } from '../shared/ResultsLink'
 import type { InspectorPanelProps } from '../types'
 import { isEdgeFragile, getFragileEdgeSwitchProbability } from '../../../utils/fragileEdgeMatch'
-import { resolveCoaching } from '../coachingConfig'
+import { resolveEdgeValuesCoaching } from '../coachingConfig'
+import { edgeValueSource } from '../../../domain/edgeValueProvenance'
 import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
 import { StrengthBandButtons } from '../shared/StrengthBandButtons'
 import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
@@ -145,6 +146,21 @@ export const EdgePanel = memo(function EdgePanel({
   // Organisational / intervention edge gate
   const isOrganisational = sourceKind === 'decision' && targetKind === 'option'
   const isIntervention = sourceKind === 'option' && targetKind === 'factor'
+
+  // ⛔ PROVENANCE DISCLOSURE. The coaching card under this group used to say
+  // "This value was generated automatically." unconditionally. On a freshly
+  // drawn edge nothing generated either value — they are USER_EDGE_DEFAULTS —
+  // and on an edge the user had just adjusted the sentence was false in the
+  // other direction. A disclosure that answers "where did this come from?"
+  // with a fixed string is a stronger over-claim than the number it sits
+  // under, so it is now derived from the edge's actual stamps.
+  const edgeValuesCoaching = useMemo(
+    () => resolveEdgeValuesCoaching({
+      strength: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'weight'),
+      existence: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
+    }),
+    [edge?.data],
+  )
 
   // UI-SEM-029: Edge weight/direction defaults for display (0.5 / 'positive').
   const weight = edge?.data?.weight ?? 0.5
@@ -363,7 +379,7 @@ export const EdgePanel = memo(function EdgePanel({
             <InspectorCoaching
               elementId={edgeId}
               panelType="edge"
-              fallbackText={resolveCoaching('edgeWeight', { factorName: sourceLabel })}
+              fallbackText={edgeValuesCoaching}
               labelContext={{ label: `${sourceLabel} \u2192 ${targetLabel}`, sourceLabel, targetLabel }}
             />
           </PanelGroup>

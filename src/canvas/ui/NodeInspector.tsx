@@ -24,6 +24,7 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { formatWinProbability } from '../utils/labelUtils'
 import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
+import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 
 interface ObservedState {
   value: number
@@ -166,6 +167,19 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
     displayMetadata.confidence !== null &&
     displayMetadata.influence >= 0.7 &&
     displayMetadata.confidence < 0.5
+
+  // ⛔ F9 (latent flip hazard). `displayMetadata.confidence` is already gated
+  // by the shared policy, so both the card above and the bar below are
+  // unreachable today ONLY because the hook returns null. The moment
+  // `DISPLAY_SAFE_DRIVER_CONFIDENCE` is flipped they light up — and, unlike
+  // FactorNode and MetricPills, they carried NO disclosure, so a defaulted
+  // 0.25 would have been spoken bare as "low confidence". The module header's
+  // promise that flipping the constant lights everything up "WITH disclosure"
+  // did not hold for this file. It does now.
+  const confidenceDisclosure = factorConfidenceDisclosure({
+    isDefaulted: displayMetadata.confidenceIsDefaulted,
+    isProvisional: displayMetadata.confidenceIsProvisional,
+  })
 
   // F.4: Context label — find nearest meaningful parent for context line
   // Any connected node of a different kind can provide context (not just decision/goal)
@@ -374,7 +388,10 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
           {hasCoachingCard ? (
             <div className={`flex items-start gap-1.5 p-2 bg-panel border border-warning/30 rounded ${typography.panelMeta} text-warning mb-2`}>
               <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
-              <span>High influence but low confidence. Consider gathering more data to reduce uncertainty.</span>
+              <span>
+                High influence but low confidence. Consider gathering more data to reduce uncertainty.
+                {confidenceDisclosure && <> ({confidenceDisclosure}.)</>}
+              </span>
             </div>
           ) : (
             <>
@@ -407,8 +424,20 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
               {displayMetadata.confidence !== null && (
                 <div className="mb-2">
                   <div className="flex justify-between items-center mb-1">
-                    <span className={`${typography.panelMeta} text-text-light`}>Confidence</span>
-                    <span className={`${typography.panelMeta} text-text-body`}>
+                    <span
+                      className={`${typography.panelMeta} text-text-light`}
+                      title={confidenceDisclosure ?? undefined}
+                    >
+                      Confidence
+                    </span>
+                    <span
+                      className={`${typography.panelMeta} text-text-body`}
+                      aria-label={
+                        confidenceDisclosure
+                          ? `${Math.round(displayMetadata.confidence * 100)}% confidence. ${confidenceDisclosure}`
+                          : undefined
+                      }
+                    >
                       {Math.round(displayMetadata.confidence * 100)}%
                     </span>
                   </div>

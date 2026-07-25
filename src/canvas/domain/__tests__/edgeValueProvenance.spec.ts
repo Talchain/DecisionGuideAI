@@ -15,6 +15,9 @@ import {
   resolveEdgeValueDisplay,
   resolveEdgeSignedStrengthDisplay,
   EDGE_PROVENANCED_FIELDS,
+  EDGE_VALUE_SOURCE_KEYS,
+  edgeSourceKey,
+  stripEdgeValueSourceKeys,
 } from '../edgeValueProvenance'
 
 describe('edgeValueProvenance — the UI defaults are NOT a source', () => {
@@ -215,5 +218,54 @@ describe('resolveEdgeSignedStrengthDisplay', () => {
 
   it('reports absent when there is no number at all', () => {
     expect(resolveEdgeSignedStrengthDisplay({})).toEqual({ show: false, reason: 'absent' })
+  })
+})
+
+
+// ── F11 ──────────────────────────────────────────────────────────────────
+// `DraftChat` spreads the untrusted CEE wire remainder (`...edgeRest`) over
+// `DEFAULT_EDGE_DATA` BEFORE stamping. Because `edgeValueSourcePatch` omits a
+// key it cannot justify, a wire-supplied `weightSource` survived exactly when
+// the wire sent NO strength — the marker outliving the number it describes,
+// laundering a default into a claim. The strip must be DERIVED, because the
+// hand-listed destructure it sat next to had already failed to learn these two
+// keys.
+describe('EDGE_VALUE_SOURCE_KEYS / stripEdgeValueSourceKeys (F11)', () => {
+  it('is DERIVED from EDGE_PROVENANCED_FIELDS, not a copy', () => {
+    // Not `toEqual(['beliefExistsSource','weightSource'])` — that literal would
+    // be the very mirror this exists to remove. Adding a provenanced field
+    // must extend the list with no edit here.
+    expect(EDGE_VALUE_SOURCE_KEYS).toEqual(EDGE_PROVENANCED_FIELDS.map(edgeSourceKey))
+    expect(EDGE_VALUE_SOURCE_KEYS).toHaveLength(EDGE_PROVENANCED_FIELDS.length)
+  })
+
+  it('POSITIVE CONTROL: leaves every other key untouched', () => {
+    const wire = { edge_type: 'influence', label: 'x', weight: 0.4, someFutureField: 1 }
+    expect(stripEdgeValueSourceKeys(wire)).toEqual(wire)
+  })
+
+  it('removes a wire-supplied marker so it cannot survive the spread', () => {
+    const wire = {
+      edge_type: 'influence',
+      weightSource: 'user',
+      beliefExistsSource: 'cee',
+    }
+    const stripped = stripEdgeValueSourceKeys(wire)
+    expect(stripped).toEqual({ edge_type: 'influence' })
+    expect('weightSource' in stripped).toBe(false)
+    expect('beliefExistsSource' in stripped).toBe(false)
+    // …and the input is not mutated.
+    expect(wire.weightSource).toBe('user')
+  })
+
+  it('the laundering case: a stripped marker leaves the value reading as UNSET', () => {
+    // The wire sent a source but no strength. Before the strip, this edge
+    // would have read as "weight set by the user" while carrying
+    // DEFAULT_EDGE_DATA.weight.
+    const launderedRaw = { ...DEFAULT_EDGE_DATA, weightSource: 'user' as const }
+    expect(isEdgeValueSet(launderedRaw, 'weight')).toBe(true) // ← the defect
+
+    const cleaned = { ...DEFAULT_EDGE_DATA, ...stripEdgeValueSourceKeys({ weightSource: 'user' }) }
+    expect(isEdgeValueSet(cleaned, 'weight')).toBe(false)
   })
 })

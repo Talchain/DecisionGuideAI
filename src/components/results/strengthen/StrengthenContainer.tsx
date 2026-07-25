@@ -47,6 +47,7 @@ import { buildRecommendations, toStrengthenPhase3Item } from './buildRecommendat
 import { STRENGTHEN_COPY as COPY } from './strengthenCopy'
 import type { HelpType, StrengthenInputs } from './strengthenTypes'
 import { StrengthenPanel } from './StrengthenPanel'
+import { resolveFactorConfidenceDisplay } from '../driverConfidenceDisplayPolicy'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { ScenarioStage } from '../../../types/scenario'
 
@@ -112,7 +113,13 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
         // selectDriverDisplayModel; raw influenceScore only as legacy
         // fallback (runtime-dead, fixture-only).
         influence: d.displayInfluence ?? d.influenceScore,
-        confidence: d.confidence ?? null,
+        // Resolved once, here, through THE policy module — the engine never
+        // sees the raw producer number (see StrengthenFactor.confidenceDisplay).
+        confidenceDisplay: resolveFactorConfidenceDisplay({
+          confidence: d.confidence,
+          isDefaulted: d.isDefaultedConfidence,
+          confidenceProvenance: d.confidenceProvenance,
+        }),
         // Producer flag threaded through the drivers VM (factor_sensitivity
         // row or robustness VOI suggestion joined by factor id) — strict
         // explicit-true read, so the engine's source line stays honest.

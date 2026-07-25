@@ -22,6 +22,7 @@ import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { AnalysisRunStateCover } from './AnalysisRunStateCover'
 import { useUIStore } from '../../stores/uiStore'
 import { getDisplayEdgeId, buildFragileEdgeLookup } from '../utils/edgeIdentity'
+import { edgeValueSource } from '../domain/edgeValueProvenance'
 import { getCausalEdges } from '../domain/edgeUtils'
 import { SectionErrorBoundary } from './GraphTextView'
 import type { MappedRobustness } from '../../lib/mappers/types'
@@ -44,7 +45,7 @@ import { StreamingDiagnostics } from './model-tab/StreamingDiagnostics'
 import { buildSynthesisedPriorMap } from './model-tab/synthesisedPriorHelpers'
 import { countFactorsToVerify } from './model-tab/utils'
 import { ModelAdjustments } from './model-tab/ModelAdjustments'
-import { resolveRawFactorConfidenceDisplay } from '../../components/results/driverConfidenceDisplayPolicy'
+import { resolveRawFactorConfidenceDisplay, type FactorConfidenceDisplay } from '../../components/results/driverConfidenceDisplayPolicy'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -189,7 +190,7 @@ export const ModelTabBody = memo(function ModelTabBody({
     const stability = new Map<string, string>()
     const elasticity = new Map<string, number>()
     const flipRate = new Map<string, number>()
-    const confidence = new Map<string, number>()
+    const confidence = new Map<string, FactorConfidenceDisplay>()
 
     const reportFactors = (results?.report as any)?.factor_sensitivity
     const rawTopLevelFactors = (rawV2Response as any)?.factor_sensitivity
@@ -246,8 +247,11 @@ export const ModelTabBody = memo(function ModelTabBody({
       // resolver reads the confidence fields off the RAW row here (this surface
       // never touches the normalised driver feed), so there is still only one
       // implementation of the rule.
-      const confidenceDisplay = resolveRawFactorConfidenceDisplay(f)
-      if (confidenceDisplay.show) confidence.set(id, confidenceDisplay.value)
+      // F9: the MAP now carries the resolved DISPLAY, not the value. A number
+      // in this map was a value stripped of the decision that produced it —
+      // the next reader had to re-derive whether it was showable, which is the
+      // fork this module exists to close.
+      confidence.set(id, resolveRawFactorConfidenceDisplay(f))
     }
 
     return { evpiMap: evpi, attributionStabilityMap: stability, elasticityMap: elasticity, rankFlipRateMap: flipRate, factorConfidenceMap: confidence }
@@ -593,15 +597,26 @@ export const ModelTabBody = memo(function ModelTabBody({
         observedState: (n.data as any)?.observedState ?? (n.data as any)?.observed_state ?? null,
         prior: (n.data as any)?.prior ?? null,
       })),
-      edges: sortedEdges.map(e => ({
-        id: getDisplayEdgeId(e),
-        source: e.source,
-        target: e.target,
-        weight: (e.data as any)?.weight ?? null,
-        direction: (e.data as any)?.direction ?? null,
-        beliefExists: (e.data as any)?.beliefExists ?? null,
-        provenance: (e.data as any)?.provenance ?? null,
-      })),
+      // ⛔ F7. The three numbers below are `DEFAULT_EDGE_DATA` /
+      // `USER_EDGE_DEFAULTS` on any edge nobody characterised, and this
+      // payload lands on the user's clipboard — where nothing downstream can
+      // tell a chosen 0.3 from a fabricated one. The stamps now travel WITH
+      // the values, derived from the same accessor the renderers use, so the
+      // export cannot disagree with the screen about what is known.
+      edges: sortedEdges.map(e => {
+        const data = e.data as Record<string, unknown> | undefined
+        return {
+          id: getDisplayEdgeId(e),
+          source: e.source,
+          target: e.target,
+          weight: (data as Record<string, unknown> | undefined)?.weight ?? null,
+          weightSource: edgeValueSource(data, 'weight'),
+          direction: (data as Record<string, unknown> | undefined)?.direction ?? null,
+          beliefExists: (data as Record<string, unknown> | undefined)?.beliefExists ?? null,
+          beliefExistsSource: edgeValueSource(data, 'beliefExists'),
+          provenance: (data as Record<string, unknown> | undefined)?.provenance ?? null,
+        }
+      }),
     }
     const json = JSON.stringify(payload, null, 2)
     navigator.clipboard?.writeText(json).catch(() => {})

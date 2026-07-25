@@ -25,6 +25,7 @@ import {
   isDefaultedConfidenceFromRaw,
   resolveFactorConfidenceDisplay,
   resolveRawFactorConfidenceDisplay,
+  factorConfidenceDisclosure,
 } from '../driverConfidenceDisplayPolicy'
 import bundle from '../../debug/__tests__/fixtures/staging-bundles/olumi-debug-50b336a6-20260510.pre-fix.json'
 
@@ -134,5 +135,52 @@ describe('resolveFactorConfidenceDisplay — rejects values it cannot trust', ()
   it('never infers a disclosure flag that was not supplied', () => {
     const out = resolveFactorConfidenceDisplay({ confidence: 0.5 }, true)
     expect(out).toEqual({ show: true, value: 0.5, isDefaulted: false, isProvisional: false })
+  })
+})
+
+
+// ── F9 ───────────────────────────────────────────────────────────────────
+// The module header promises that flipping `DISPLAY_SAFE_DRIVER_CONFIDENCE`
+// lights every surface up "WITH disclosure". That promise did not hold:
+// `FactorNode` derived the disclosure line in a PRIVATE inline array and
+// `NodeInspector` — which renders the same signal, including the spoken line
+// "High influence but low confidence." — derived nothing at all. One
+// derivation is the only way the promise can be kept.
+describe('factorConfidenceDisclosure — one derivation for every surface (F9)', () => {
+  it('discloses a defaulted estimate', () => {
+    expect(factorConfidenceDisclosure({ isDefaulted: true })).toBe(
+      'Default estimate — not yet validated with evidence',
+    )
+  })
+
+  it('discloses a provisional calibration', () => {
+    expect(factorConfidenceDisclosure({ isProvisional: true })).toBe('Calibration is provisional')
+  })
+
+  it('joins both when both apply', () => {
+    expect(factorConfidenceDisclosure({ isDefaulted: true, isProvisional: true })).toBe(
+      'Default estimate — not yet validated with evidence. Calibration is provisional',
+    )
+  })
+
+  it('returns null — not an empty string — when there is nothing to disclose', () => {
+    expect(factorConfidenceDisclosure({})).toBeNull()
+    expect(factorConfidenceDisclosure({ isDefaulted: false, isProvisional: false })).toBeNull()
+  })
+
+  it('is strict: only an explicit true discloses (an absent flag is not a claim)', () => {
+    expect(factorConfidenceDisclosure({ isDefaulted: undefined })).toBeNull()
+  })
+
+  it('composes with the resolver, so a shown value always has its disclosure available', () => {
+    const shown = resolveFactorConfidenceDisplay(
+      { confidence: 0.25, isDefaulted: true, confidenceProvenance: { isProvisional: true } },
+      true,
+    )
+    expect(shown.show).toBe(true)
+    if (!shown.show) throw new Error('unreachable — asserted above')
+    expect(factorConfidenceDisclosure(shown)).toBe(
+      'Default estimate — not yet validated with evidence. Calibration is provisional',
+    )
   })
 })

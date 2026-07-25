@@ -213,7 +213,18 @@ describe('StressTestSection — Brief 5.8B D4', () => {
       expect(card).toHaveTextContent('Explore this challenge')
     })
 
-    it('Disconfirmation context line appears when topDriverConfidence < 0.5', () => {
+    // ⚠ INVERTED, NOT DELETED (F5a). This test asserted that a driver
+    // confidence of 0.3 made the card say "…which has limited evidence." —
+    // i.e. it pinned the defect. `factor_sensitivity[].confidence` is `0.25`
+    // with `sampling_stability: 0` in both real staging captures, and the
+    // ruled policy (DISPLAY_SAFE_DRIVER_CONFIDENCE) is that the value has no
+    // display-safe source, so the sentence was an evidence claim about a
+    // number nobody measured. The gate the test was checking still exists and
+    // is proven at the template level in
+    // `utils/__tests__/stressTestTemplates.spec.ts` (with the policy seam
+    // open); what this component-level test now pins is the PRODUCT's
+    // behaviour, which is silence.
+    it('F5a: makes NO evidence claim from a low driver confidence the policy hides', () => {
       const lowConfTop = makeDriver({
         factorKey: 'fac_low',
         factorLabel: 'Customer churn rate',
@@ -229,9 +240,12 @@ describe('StressTestSection — Brief 5.8B D4', () => {
         />,
       )
       const card = screen.getByTestId('stress-test-disconfirmation')
+      // NON-VACUOUS: the card renders and still asks its question…
       expect(card).toHaveTextContent(
-        'The analysis depends on Customer churn rate, which has limited evidence.',
+        'What could make you switch your recommendation from Option A to Option B?',
       )
+      // …it just no longer characterises the evidence behind the top driver.
+      expect(card).not.toHaveTextContent('limited evidence')
     })
 
     it('Disconfirmation context line is suppressed when topDriverConfidence >= 0.5', () => {

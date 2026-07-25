@@ -14,6 +14,7 @@ import { useCanvasStore } from '../../canvas/store'
 import { typography } from '../../styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { buildResultsVM } from './buildResultsVM'
+import { deriveDefaultEstimateDisclosure } from './utils/defaultEstimateDisclosure'
 import { DriversSection } from './DriversSection'
 import { TornadoChart, type TornadoRow } from './TornadoChart'
 import { Accordion } from './Accordion'
@@ -242,6 +243,23 @@ export const ResultsBody = memo(function ResultsBody({
       onSendMessage={onSendMessage}
       aiAffordance={aiAffordance}
     />
+  )
+
+  // ── F10: the disclosure that existed and was wired to nothing ────────────
+  // `AdvancedSection` has rendered "{N} of {M} factors use default confidence
+  // values." since it was written, behind props NO CALL SITE PASSED —
+  // `ResultsBody` omitted both and the only other caller passes neither. The
+  // sentence the product should be showing about its own defaults was dead in
+  // the tree while five surfaces printed the defaults themselves.
+  //
+  // Derived from the SAME `isDefaultedConfidence` flag the Drivers panel's
+  // "Default estimate" pill uses (useResultsSectionData →
+  // isDefaultedConfidenceFromRaw), so the count cannot disagree with the pills
+  // it is counting. Omitted entirely when there are no drivers: "0 of 0" is
+  // not a disclosure, it is noise.
+  const defaultEstimateDisclosure = useMemo(
+    () => deriveDefaultEstimateDisclosure(resultsSectionData.drivers.drivers),
+    [resultsSectionData.drivers.drivers],
   )
 
   return (
@@ -610,6 +628,7 @@ export const ResultsBody = memo(function ResultsBody({
           robustnessLevel={resultsSectionData.recommendation.robustnessLevel}
           expertMode={expertMode}
           inferenceWarnings={resultsSectionData.confidence.inferenceWarnings}
+          {...defaultEstimateDisclosure}
         />
       </div>
       </SectionErrorBoundary>

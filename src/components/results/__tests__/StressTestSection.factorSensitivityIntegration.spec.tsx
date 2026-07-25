@@ -136,14 +136,28 @@ describe('StressTestSection — factor_sensitivity → DriverItem.confidence int
     })
   })
 
-  it('Disconfirmation context line fires when factor_sensitivity[0].confidence < 0.5', () => {
+  // ⚠ SPLIT IN TWO, NOT DELETED (F5a). This test had one name and two
+  // subjects: (a) the WIRE contract — `factor_sensitivity[i].confidence`
+  // reaches `DriverItem.confidence` and not some shadowing triage field — and
+  // (b) the DISPLAY contract — that a value below 0.5 makes the card say
+  // "…which has limited evidence.". (a) is still exactly right and is kept
+  // verbatim. (b) was the F5a defect: the producer's value IS the 0.25
+  // placeholder, so the card asserted an evidence finding about a number
+  // nobody measured. The display half is now asserted the other way round.
+  it('WIRE CONTRACT: factor_sensitivity[0].confidence reaches DriverItem.confidence', () => {
     setupCanvasState({ topDriverConfidence: 0.3 })
     const { result } = renderHook(() => useResultsSectionData())
 
-    // Verify the data hook propagated the confidence faithfully.
     const drivers = result.current.drivers.drivers
     expect(drivers).toHaveLength(1)
     expect(drivers[0].confidence).toBe(0.3)
+    expect(drivers[0].factorLabel).toBe('Customer churn rate')
+  })
+
+  it('F5a: the card renders the driver but makes NO evidence claim from that value', () => {
+    setupCanvasState({ topDriverConfidence: 0.3 })
+    const { result } = renderHook(() => useResultsSectionData())
+    const drivers = result.current.drivers.drivers
 
     render(
       <StressTestSection
@@ -155,16 +169,14 @@ describe('StressTestSection — factor_sensitivity → DriverItem.confidence int
     )
 
     const card = screen.getByTestId('stress-test-disconfirmation')
-    // Context line is the data-flow contract assertion: confidence < 0.5
-    // → "The analysis depends on {topDriverLabel}, which has limited
-    // evidence." The {topDriverLabel} interpolation also confirms the
-    // driver label flowed through end-to-end.
+    // NON-VACUOUS: the card is present and asks its question.
     expect(card).toHaveTextContent(
-      'The analysis depends on Customer churn rate, which has limited evidence.',
+      'What could make you switch your recommendation from Option A to Option B?',
     )
+    expect(card).not.toHaveTextContent('limited evidence')
   })
 
-  it('Disconfirmation context line is suppressed when factor_sensitivity[0].confidence >= 0.5', () => {
+  it('stays silent for a high confidence too (the gate is not value-dependent today)', () => {
     setupCanvasState({ topDriverConfidence: 0.8 })
     const { result } = renderHook(() => useResultsSectionData())
 

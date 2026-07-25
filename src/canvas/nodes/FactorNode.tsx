@@ -24,6 +24,7 @@ import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, ConnRowsOverflow, Sep, NodeChip, ActionIcons, MetricPills, NodePopover, ScienceIcon, EdgePills } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { computeSignedMean } from '../domain/edges'
+import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 
 /**
  * Parse a display string that is a BARE numeric range ("0.2 to 0.8",
@@ -437,10 +438,13 @@ export const FactorNode = memo((props: NodeProps) => {
   // is why every confidence surface on this node (pill, bar, AND the
   // synthesised coaching line below) goes quiet together.
   const confidencePct = displayMetadata.confidence != null ? Math.round(displayMetadata.confidence * 100) : null
-  const confidenceDisclosure = [
-    displayMetadata.confidenceIsDefaulted ? 'Default estimate — not yet validated with evidence' : null,
-    displayMetadata.confidenceIsProvisional ? 'Calibration is provisional' : null,
-  ].filter((q): q is string => q !== null).join('. ') || null
+  // Converged (F9): this array used to live here and NOWHERE ELSE, so
+  // `NodeInspector` — which renders the same signal — had no disclosure at all.
+  // One derivation, every surface.
+  const confidenceDisclosure = factorConfidenceDisclosure({
+    isDefaulted: displayMetadata.confidenceIsDefaulted,
+    isProvisional: displayMetadata.confidenceIsProvisional,
+  })
 
   // Graph v1.1 Task 3: synthesised one-line coaching for Standard view post-analysis
   // top-ranked factors. This replaces standalone coaching text (BiasNote etc.) on

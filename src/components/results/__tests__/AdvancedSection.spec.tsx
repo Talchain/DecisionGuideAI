@@ -360,3 +360,39 @@ describe('AdvancedSection', () => {
     expect(screen.getByText('Simulation quality')).toHaveAttribute('title', 'meta.n_samples')
   })
 })
+
+// ── F10 ──────────────────────────────────────────────────────────────────
+// This sentence has existed since AdvancedSection was written and NO CALL
+// SITE PASSED ITS PROPS — `ResultsBody` omitted both. The one honest
+// disclosure the product had about its own defaults was dead in the tree
+// while five other surfaces printed the defaults themselves. These tests
+// pin the rendering contract; `ResultsBody` now supplies the counts,
+// derived from the same `isDefaultedConfidence` flag the Drivers panel's
+// "Default estimate" pill uses.
+describe('AdvancedSection — the default-estimate disclosure (F10)', () => {
+  // NOTE: deliberately NO `trustLevel` / `trustReason`. The sentence used to
+  // live inside a paragraph gated on those two props, which no call site
+  // supplies — so a test that passed `trustLevel` would have gone green while
+  // the product showed nothing.
+  function renderExpanded(props: Record<string, unknown>) {
+    render(<AdvancedSection {...props} />)
+    fireEvent.click(screen.getByText('Advanced and receipts'))
+  }
+
+  it('POSITIVE CONTROL: states the count when the props arrive', () => {
+    renderExpanded({ defaultEstimateCount: 3, totalFactorCount: 7 })
+    expect(
+      screen.getByText(/3 of 7 factors use default confidence values\./),
+    ).toBeInTheDocument()
+  })
+
+  it('says nothing when NO factor uses a default (never "0 of 7")', () => {
+    renderExpanded({ defaultEstimateCount: 0, totalFactorCount: 7 })
+    expect(screen.queryByText(/default confidence values/)).not.toBeInTheDocument()
+  })
+
+  it('says nothing when the counts are absent (never fabricates a zero)', () => {
+    renderExpanded({})
+    expect(screen.queryByText(/default confidence values/)).not.toBeInTheDocument()
+  })
+})

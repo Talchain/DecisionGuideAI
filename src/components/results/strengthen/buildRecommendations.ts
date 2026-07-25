@@ -293,8 +293,15 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
     const lehi = inputs.factors
       .filter(
         (f) =>
-          typeof f.confidence === 'number' && // producer confidence ONLY
-          f.confidence < LEHI_CONFIDENCE_CEILING &&
+          // ⛔ Display-policy gate (driverConfidenceDisplayPolicy.ts). "High
+          // influence, low evidence." is a confidence-DERIVED assertion, and
+          // the ruled policy is that factor confidence has no display-safe
+          // source today — "no raw %, no bar, no dash, no confidence-derived
+          // prose". This recommendation was the prose. `show: false` carries
+          // no value to compare, so the ceiling below can only be reached by a
+          // number the policy has cleared.
+          f.confidenceDisplay.show &&
+          f.confidenceDisplay.value < LEHI_CONFIDENCE_CEILING &&
           (f.influence ?? 0) > LEHI_INFLUENCE_FLOOR,
       )
       .sort((a, b) => (b.influence ?? 0) - (a.influence ?? 0))[0]

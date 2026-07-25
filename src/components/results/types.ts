@@ -667,8 +667,18 @@ export interface FilteredItemsDisclosure {
 export interface EvidenceGapItem {
   factorId: string
   factorLabel: string
-  /** Confidence (0-100) */
-  confidence: number
+  /**
+   * Confidence (0-100), or `null` when the producer sent none.
+   *
+   * ⚠ This was `number`, fabricated at the mapper with `gap.confidence ?? 0`.
+   * `0` is a VALUE, and the triage card asserted it as one —
+   * "This factor has 0% confidence." plus a "No data" pill computed from
+   * `confidence <= 0`. Absence must suppress the sentence, not print a zero:
+   * "we were not told" and "we were told zero" are different facts and the
+   * user cannot tell them apart from a rendered 0. Nullable so every consumer
+   * has to decide, and so a future `?? 0` is a visible act.
+   */
+  confidence: number | null
   /** Value of Information (0-1) - higher = more impactful to investigate */
   voi: number
   /** ISL EVPI: expected value of perfect information (absolute units) — gated on presence */

@@ -277,9 +277,22 @@ export function AdvancedSection({
               <p>
                 {trustLevel && <>{trustLevel.charAt(0).toUpperCase()}{trustLevel.slice(1)} confidence. </>}
                 {trustReason && <>{trustReason.charAt(0).toUpperCase()}{trustReason.slice(1)}. </>}
-                {defaultEstimateCount != null && totalFactorCount != null && defaultEstimateCount > 0 && (
-                  <>{defaultEstimateCount} of {totalFactorCount} factors use default confidence values. </>
-                )}
+              </p>
+            )}
+
+            {/* ⛔ F10. This sentence used to live INSIDE the paragraph above,
+                so it rendered only when `trustLevel` or `trustReason` was
+                supplied — and NO CALL SITE SUPPLIES EITHER. It was therefore
+                dead twice over: its own two props were unwired, and the gate
+                enclosing it was unsatisfiable. Wiring only the counts would
+                have left it invisible, and a component-level test that passes
+                `trustLevel` would not have noticed.
+                It is an independent disclosure about the analysis's own
+                defaults; it does not depend on unrelated trust copy, so it
+                stands on its own condition. */}
+            {defaultEstimateCount != null && totalFactorCount != null && defaultEstimateCount > 0 && (
+              <p data-testid="default-estimate-disclosure">
+                {defaultEstimateCount} of {totalFactorCount} factors use default confidence values.
               </p>
             )}
 

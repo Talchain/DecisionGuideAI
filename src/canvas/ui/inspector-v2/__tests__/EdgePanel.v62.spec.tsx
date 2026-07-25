@@ -178,11 +178,69 @@ describe('EdgePanel v6.2 — evidence group', () => {
 })
 
 describe('EdgePanel v6.2 — coaching', () => {
-  it('renders static coaching fallback when no guidance items', () => {
+  // ⚠ ASSERTION REPLACED, TEST KEPT. This used to assert
+  //     expect(screen.getByText(/generated automatically/)).toBeTruthy()
+  // against the DEFAULT fixture edge — which carries no provenance stamp at
+  // all. So the test was pinning the panel telling the user a number had been
+  // "generated automatically" when nothing had generated it. The subject of
+  // the test (does the static fallback render at all, when no guidance item
+  // matches?) is unchanged; only the sentence it expects is now the honest one.
+  it('renders the static coaching fallback when no guidance items — and claims NO origin for an unstamped edge', () => {
     setStore()
     useGuidanceStore.setState({ _prefillChat: vi.fn() })
     render(<EdgePanel {...panelProps} />)
-    expect(screen.getByText(/generated automatically/)).toBeTruthy()
+    expect(screen.getByText(/No strength has been set for this connection yet/)).toBeTruthy()
+    expect(screen.queryByText(/generated automatically/)).toBeNull()
+  })
+
+  // POSITIVE CONTROL — the disclosure is not simply switched off: a stamped
+  // edge DOES get an origin sentence, and it names the right origin.
+  it('names the producer when the edge values really did come from one', () => {
+    setStore({
+      edges: [
+        {
+          id: 'e1',
+          source: 'fac1',
+          target: 'out1',
+          data: {
+            weight: 0.35,
+            direction: 'positive',
+            beliefExists: 0.82,
+            strengthStd: 0.15,
+            weightSource: 'cee',
+            beliefExistsSource: 'cee',
+          },
+        },
+      ],
+    })
+    useGuidanceStore.setState({ _prefillChat: vi.fn() })
+    render(<EdgePanel {...panelProps} />)
+    expect(screen.getByText(/Olumi estimated this strength/)).toBeTruthy()
+    expect(screen.queryByText(/No strength has been set/)).toBeNull()
+  })
+
+  it('attributes a user-set strength to the user, not to a generator', () => {
+    setStore({
+      edges: [
+        {
+          id: 'e1',
+          source: 'fac1',
+          target: 'out1',
+          data: {
+            weight: 0.35,
+            direction: 'positive',
+            beliefExists: 0.82,
+            strengthStd: 0.15,
+            weightSource: 'user',
+            beliefExistsSource: 'user',
+          },
+        },
+      ],
+    })
+    useGuidanceStore.setState({ _prefillChat: vi.fn() })
+    render(<EdgePanel {...panelProps} />)
+    expect(screen.getByText(/You set this strength/)).toBeTruthy()
+    expect(screen.queryByText(/Olumi estimated/)).toBeNull()
   })
 
   it('renders orchestrator guidance when matching item exists', () => {

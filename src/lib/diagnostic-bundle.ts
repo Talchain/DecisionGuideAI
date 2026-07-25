@@ -635,6 +635,31 @@ function safeArray(data: unknown): unknown[] {
  * Compute edge value summary from available sources
  * Wrapped in try-catch to ensure export doesn't fail if any source is unavailable
  */
+/**
+ * "Did NOBODY set a weight on this canvas?" — F7.
+ *
+ * This was `every(e => (e.data?.weight ?? 0.5) === 0.5)`: a VALUE-EQUALITY
+ * heuristic for exactly the question the provenance marker answers exactly,
+ * and wrong in BOTH directions. A user who deliberately chose 0.5 was reported
+ * as "all default", and a canvas full of `USER_EDGE_DEFAULTS` (weight 0.3) was
+ * reported as NOT default — the precise inversion of the truth, in the
+ * diagnostic whose job is to tell an engineer where the values came from.
+ *
+ * The CEE and PLoT summaries in the same function KEEP their heuristics on
+ * purpose: those read wire shapes that carry no marker, so a heuristic is the
+ * honest best available there. Saying which is which is the point.
+ *
+ * `isSet` is injected because `diagnostic-bundle` reaches the canvas through a
+ * dynamic import (circular-dependency avoidance) — keeping this function pure
+ * is what makes the rule assertable at all.
+ */
+export function canvasEdgeWeightsAllDefault(
+  edges: ReadonlyArray<{ data?: unknown }>,
+  isSet: (data: Record<string, unknown> | undefined, field: 'weight') => boolean,
+): boolean {
+  return edges.every(e => !isSet(e.data as Record<string, unknown> | undefined, 'weight'))
+}
+
 async function computeEdgeValueSummary(
   ceePipelineTrace: CeePipelineTrace | null | undefined,
   payloads: unknown[]
@@ -663,6 +688,7 @@ async function computeEdgeValueSummary(
   let canvas: EdgeValueSummary['canvas'] = null
   try {
     const { useCanvasStore } = await import('../canvas/store')
+    const { isEdgeValueSet } = await import('../canvas/domain/edgeValueProvenance')
     const canvasEdges = useCanvasStore.getState().edges
     if (canvasEdges && canvasEdges.length > 0) {
       const weights = canvasEdges.map(e => e.data?.weight)
@@ -671,7 +697,7 @@ async function computeEdgeValueSummary(
         total: canvasEdges.length,
         unique_weights: uniqueSorted(weights),
         unique_belief_exists: uniqueSorted(beliefs),
-        all_default: canvasEdges.every(e => (e.data?.weight ?? 0.5) === 0.5),
+        all_default: canvasEdgeWeightsAllDefault(canvasEdges, isEdgeValueSet),
       }
     }
   } catch {
