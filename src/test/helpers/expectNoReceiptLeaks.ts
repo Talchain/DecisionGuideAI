@@ -18,6 +18,7 @@
 
 import { expect } from 'vitest'
 import { RAW_ID_PATTERN } from '../../canvas/conversation/friendlyOperation'
+import { userFacingSurface } from './userFacingSurface'
 
 /**
  * Forbidden internal terms in the rendered receipt DOM. Exported so failing
@@ -178,12 +179,11 @@ export function expectNoReceiptLeaks(element: HTMLElement): void {
  * surface that already has clean attributes (V5 receipts).
  */
 export function expectNoReceiptUserFacingTextLeaks(element: HTMLElement): void {
-  const textContent = element.textContent ?? ''
-  const elementOwnAriaLabel = element.getAttribute('aria-label') ?? ''
-  const childAriaLabels = Array.from(element.querySelectorAll('[aria-label]'))
-    .map((el) => el.getAttribute('aria-label') ?? '')
-    .join('\n')
-  const surface = [textContent, elementOwnAriaLabel, childAriaLabels].join('\n')
+  // Surface composition is shared with the CEE rendering-claims harness
+  // (`userFacingSurface`) so both enforce the same definition of "what the
+  // user reads or hears". Default options reproduce this helper's original
+  // textContent + own aria-label + descendant aria-labels composition exactly.
+  const surface = userFacingSurface(element)
   const lowered = surface.toLowerCase()
 
   expect(
