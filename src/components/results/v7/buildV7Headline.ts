@@ -86,7 +86,9 @@ export function buildV7Headline(
   const verdict = recommendation.verdict
   const noLeadingOption = verdict
     ? verdict.separation === 'tied'
-    : recommendation.nearTie?.isTie === true
+    // No verdict (older fixtures / callers): byte-identical legacy behaviour,
+    // both denials intact. The live path always carries one.
+    : (recommendation.nearTie?.isTie === true || decisionState === 'indeterminate')
   if (noLeadingOption) {
     return {
       // "Too close to call" is reserved for the producer's own explicit tie

@@ -457,6 +457,45 @@ describe('buildHeroModel — producer band consumption (PLoT decision_brief.head
     expect(m.headline).toBe('Upskill the team is slightly ahead.')
   })
 
+  // ── SINGLE VERDICT (2026-07-25) ──────────────────────────────────────────
+  // The hero now quotes the shared verdict (src/lib/decisionVerdict.ts) — the
+  // SAME answer the canvas badge, the results-panel headline and the checks
+  // footer use — instead of resolving the producer band and banding win
+  // probabilities itself. It takes precedence over both local paths.
+  it('SINGLE VERDICT: a tied verdict denies a leader even where the local banding would claim one', () => {
+    const m = chart(buildHeroModel(makeHeroData({
+      options: options(),
+      recommendation: {
+        // Local paths would BOTH claim a leader here; the shared verdict wins.
+        headlineBanded: { band: 'clearly_ahead', leaderOptionId: 'opt_b', robustnessGated: false },
+        verdict: { leaderId: 'opt_b', separation: 'tied', hasLeadingOption: false, gapPp: 3, source: 'producer_near_tie' },
+      },
+    })))
+    expect(m.headline).toBe('No option is clearly ahead.')
+  })
+
+  it('SINGLE VERDICT: a clear verdict claims a leader even where the producer band said very_close', () => {
+    const m = chart(buildHeroModel(makeHeroData({
+      options: options(),
+      recommendation: {
+        headlineBanded: { band: 'very_close', leaderOptionId: 'opt_b', robustnessGated: false },
+        verdict: { leaderId: 'opt_b', separation: 'clear', hasLeadingOption: true, gapPp: 52, source: 'producer_near_tie' },
+      },
+    })))
+    expect(m.headline).toBe('Upskill the team is most likely to be strongest overall.')
+  })
+
+  it('SINGLE VERDICT identity gate: a verdict naming a different leader is not applied', () => {
+    const m = chart(buildHeroModel(makeHeroData({
+      options: options(),
+      recommendation: {
+        verdict: { leaderId: 'opt_a', separation: 'tied', hasLeadingOption: false, gapPp: 1, source: 'producer_near_tie' },
+      },
+    })))
+    // Falls through to the UI fallback (55% win → "slightly ahead").
+    expect(m.headline).toBe('Upskill the team is slightly ahead.')
+  })
+
   it('absent producer band → UI fallback banding unchanged (UI-SEM-060 residual)', () => {
     const m = chart(buildHeroModel(makeHeroData({ options: options() })))
     expect(m.headline).toBe('Upskill the team is slightly ahead.')
