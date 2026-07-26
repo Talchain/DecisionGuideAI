@@ -27,6 +27,33 @@
  * this write never fires. Live acceptance recorded this as a FAIL, honestly.
  * See `parallel-briefs/RETURNING-USER-2026-07-25.md` §3.
  *
+ * ⚠⚠ STATUS UPDATE, 26 Jul 2026 — THE CORRECTION ABOVE STANDS, AND THE USER-
+ * FACING DEFECT IS NOW FIXED SOMEWHERE ELSE. Read both halves of that sentence.
+ *
+ *   - STILL TRUE: everything above. The seed-gated run-history write these
+ *     tests exercise remains INERT on the deployed V5 path. Nothing in this
+ *     file has become deployed-path evidence, and it must still never be cited
+ *     as such. Re-probed on live staging 26 Jul after a real conversation-
+ *     driven analysis: `'seed' in results === false` and
+ *     `olumi-canvas-run-history` does not exist as a key.
+ *   - NEWLY TRUE: the returning user DOES now get the answer back — via a
+ *     different mechanism that does not need a seed. The completed analysis is
+ *     persisted into the autosave record beside the graph it was computed over
+ *     (`store/scenarios.ts` → `PersistedAnalysis`) and restored from there.
+ *     A second dead link the 25 Jul pass had not found is also closed: the
+ *     `last_result_hash` POINTER was written onto a scenario record that guest
+ *     mode never creates (`olumi-canvas-scenarios` absent, live-probed), so
+ *     even a stored run could not have been found.
+ *
+ * These tests are KEPT rather than deleted: they are a valid pin on the store
+ * contract, they document the seed hazard (never fabricate one — trap #10), and
+ * they are the right shape for the day CEE echoes a run identity. They are
+ * simply not the thing that fixed the user's problem.
+ *
+ * The deployed-path evidence lives in
+ * `src/canvas/__tests__/analysisSurvivesLeaveAndReturn.spec.ts` plus the live
+ * leave-and-return acceptance recorded in that PR — not here.
+ *
  * CLAIM TYPE: this is a STORE-STATE pin (what the results panel branches on),
  * not a rendering or visibility claim, and NOT a claim about deployed behaviour.
  */

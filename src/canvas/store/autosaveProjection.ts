@@ -48,7 +48,7 @@
  * the diff instead.
  */
 
-import type { AutosaveData } from './scenarios'
+import type { AutosaveData, PersistedAnalysis } from './scenarios'
 
 /**
  * What a caller must state in order to write an autosave.
@@ -63,6 +63,18 @@ export interface AutosaveProjectionSource {
   scenarioId: string | null | undefined
   ceeAnalysisReady: AutosaveData['ceeAnalysisReady'] | undefined
   selectedGoalNode: string | null | undefined
+  /**
+   * The completed analysis for this graph, or null for "persist no answer".
+   *
+   * Required like every other field here, for the reason in "FAIL LOUD ON
+   * DRIFT" above — and this field needs it most. `saveAutosave` REPLACES, so a
+   * caller that omitted the analysis would silently strip the user's answer
+   * from the last good autosave, which is exactly the bug class that made this
+   * module necessary (`ceeAnalysisReady`, #386). One caller genuinely wants to
+   * clear it: `undoDraftChatGraph` reverts to the pre-draft graph, and an
+   * analysis of a graph whose option nodes no longer exist must not survive.
+   */
+  analysis: AutosaveData['analysis'] | undefined
 }
 
 /**
@@ -98,6 +110,49 @@ export interface AutosaveStoreSlice {
    * — see the PR body; it is not resolved here.
    */
   selectedGoalNode?: string | null
+  /**
+   * The results slice. Structural and narrow: only what decides whether there
+   * is an answer worth persisting, and what identifies it.
+   */
+  results: {
+    status: string
+    report?: unknown
+    hash?: string
+    runId?: string
+    seed?: number
+    finishedAt?: number
+    drivers?: Array<{ kind: 'node' | 'edge'; id: string }>
+    resultsSource?: 'direct' | 'conversation'
+  }
+}
+
+/**
+ * The ONE store → PersistedAnalysis projection.
+ *
+ * Returns null unless the store actually holds a COMPLETE analysis with a
+ * report. Deliberately not "whatever is on `results`": a run that is
+ * `analysing`, `error` or `cancelled` has no answer to restore, and persisting
+ * a half-state would put the returning user in a state no live run produces.
+ *
+ * `hash` is `results.hash` (the V5 `response_hash`) — the identity that exists
+ * on the wire. `seed` is copied ONLY when the store has one (the direct Run
+ * path); it is never defaulted, because a fabricated seed forks the graph hash
+ * (CLAUDE.md trap #10).
+ */
+export function analysisSnapshotFromStore(
+  state: Pick<AutosaveStoreSlice, 'results'>,
+): PersistedAnalysis | null {
+  const r = state.results
+  if (!r || r.status !== 'complete' || !r.report) return null
+  return {
+    hash: r.hash,
+    computedAt: new Date(r.finishedAt ?? Date.now()).toISOString(),
+    resultsSource: r.resultsSource,
+    runId: r.runId,
+    seed: r.seed,
+    drivers: r.drivers,
+    report: r.report as PersistedAnalysis['report'],
+  }
 }
 
 /**
@@ -118,6 +173,7 @@ export function autosaveSourceFromStore(
     scenarioId: state.currentScenarioId,
     ceeAnalysisReady: (state.ceeAnalysisReady ?? undefined) as AutosaveData['ceeAnalysisReady'],
     selectedGoalNode: state.selectedGoalNode ?? null,
+    analysis: analysisSnapshotFromStore(state),
     ...overrides,
   }
 }
@@ -141,5 +197,10 @@ export function projectAutosaveData(
     edges: source.edges,
     ceeAnalysisReady: source.ceeAnalysisReady ?? undefined,
     selectedGoalNode: source.selectedGoalNode ?? undefined,
+    // `null` is meaningful here (an explicit "no answer"), so it is preserved
+    // rather than collapsed to `undefined` — `loadAutosave` treats an absent
+    // key and an explicit null the same on read, but the diff at each call site
+    // stays readable.
+    analysis: source.analysis ?? null,
   }
 }

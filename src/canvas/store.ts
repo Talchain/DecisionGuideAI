@@ -16,11 +16,11 @@ import type { ReportV1 } from '../adapters/plot/types'
 import type { V2RunResponse } from '../adapters/plot/v2/types'
 import type { PLoTEnrichment } from '../adapters/plot/enrichment'
 import { trackResultsViewed, trackIssuesOpened } from './utils/sandboxTelemetry'
-import { addRun, generateGraphHash, loadRuns, type StoredRun } from './store/runHistory'
+import { addRun, generateGraphHash, loadRuns, type StoredRun, type RestorableRun } from './store/runHistory'
 import { RUN_COMPLETED_WITHOUT_VERDICT, deriveAnalysisFreshnessUpdate, type AnalysisFreshnessState } from './store/analysisFreshness'
 import * as scenarios from './store/scenarios'
 import type { ScenarioFraming } from './store/scenarios'
-import { projectAutosaveData, autosaveSourceFromStore } from './store/autosaveProjection'
+import { projectAutosaveData, autosaveSourceFromStore, analysisSnapshotFromStore } from './store/autosaveProjection'
 import { registerCrashSnapshotProvider } from './persist/crashFlush'
 import type { GraphHealth, ValidationIssue, NeedleMover } from './validation/types'
 import type { Document, Citation } from './share/types'
@@ -711,7 +711,14 @@ interface CanvasState {
    * analysisStateReady) or 'idle' when none does; no-op otherwise. A landed
    * analysis_result has already flipped 'complete' via resultsComplete. */
   resultsSettle: () => void
-  resultsLoadHistorical: (run: StoredRun) => void
+  /**
+   * Put a previously-computed answer back on screen. Accepts `RestorableRun`
+   * (widened from `StoredRun`) so the canonical autosave snapshot — which has
+   * no seed on the live V5 path — can restore through the SAME action, with the
+   * same honest `analysisFreshness: 'unknown'` semantics, rather than a second
+   * restore path that could drift from this one.
+   */
+  resultsLoadHistorical: (run: RestorableRun) => void
   /** Hydrate results from Supabase row.analysis (V2RunResponse already mapped to store shape) */
   resultsHydrateFromSupabase: (hydrated: {
     results: Partial<ResultsState>
@@ -3158,6 +3165,32 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       }))
     }
 
+    // ⭐ THE ANSWER IS PERSISTED HERE, beside the graph it was computed over.
+    //
+    // This is what makes the returning user's result survive; everything above
+    // it about run history is the OLD, seed-gated path and stays inert on the
+    // live V5 wire (see the block comment there). See store/scenarios.ts
+    // `PersistedAnalysis` for the full two-dead-links diagnosis.
+    //
+    // IT MUST BE HERE AND NOT LEFT TO THE 30s TIMER. useAutosave's dirty check
+    // is `computeGraphHash(nodes, edges)` — GRAPH ONLY. Completing an analysis
+    // changes no node and no edge, so the hash is identical and the timer's
+    // `currentHash === lastSavedHashRef.current` early-return SKIPS the write
+    // entirely. Relying on the timer would have persisted the answer only if
+    // the user happened to edit the graph afterwards — i.e. a fix that passes a
+    // store test and does nothing for the user who runs an analysis and leaves.
+    //
+    // Sourced from the POST-set() state (Zustand's set is synchronous), so the
+    // record written is exactly the one this completion produced.
+    try {
+      scenarios.saveAutosave(projectAutosaveData(autosaveSourceFromStore(get())))
+    } catch (err) {
+      // Never let a persistence failure take down a completed run — the answer
+      // is already on screen. saveAutosave already handles quota by dropping
+      // the analysis and keeping the graph; this catch covers the rest.
+      console.warn('[resultsComplete] Failed to persist analysis to autosave', err)
+    }
+
     // Refinement Journey: capture analysis snapshot for Compare tab
     if (isCompareTabEnabled() && rawV2Response && report) {
       try {
@@ -3290,7 +3323,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }
   },
 
-  resultsLoadHistorical: (run: StoredRun) => {
+  resultsLoadHistorical: (run: RestorableRun) => {
     if (typeof window !== 'undefined') {
       try {
         const win = window as any
@@ -5056,6 +5089,9 @@ registerCrashSnapshotProvider(() => {
     // error. Casting here keeps the crash path at parity with the timer without
     // inventing a store field this lane has no mandate to add.
     selectedGoalNode: (s as unknown as { selectedGoalNode?: string | null }).selectedGoalNode ?? null,
+    // The answer rides the crash flush too — a crash after a completed analysis
+    // must not be the one path that silently drops it.
+    analysis: analysisSnapshotFromStore(s),
   }
 })
 

@@ -14,6 +14,7 @@
 
 import type { Node, Edge } from '@xyflow/react'
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
+import type { ReportV1 } from '../../adapters/plot/types'
 
 export interface ScenarioFraming {
   title?: string          // Decision or question
@@ -528,6 +529,56 @@ export function promoteSnapshot(
 }
 
 /**
+ * The completed analysis, persisted IN the autosave record — beside the graph
+ * it was computed over, not in a second store keyed on something else.
+ *
+ * WHY THIS EXISTS (live defect, reproduced 1/1 on deployed staging 26 Jul 2026)
+ * The answer did not survive leaving the canvas and returning via "Continue
+ * without an account": the graph came back, the conversation came back, and the
+ * Results panel reset to "Analyse first pass". Two independent links were dead,
+ * BOTH of them on the deployed guest path:
+ *
+ *  1. The WRITE. `resultsComplete` gates its run-history `addRun` on a SEED.
+ *     `results.seed` is set only by `resultsStart`, which only the direct
+ *     Run-button path calls; the live V5 path goes through `resultsAnalysing`
+ *     and `applyV5State` passes `rawV2Response: null`. Live-probed after a real
+ *     analysis: `'seed' in results === false`, `olumi-canvas-run-history` absent.
+ *  2. The POINTER. `resultsComplete` writes `last_result_hash` onto the SCENARIO
+ *     record — but guest mode never creates one. Live-probed:
+ *     `olumi-canvas-scenarios` absent. So the boot restore
+ *     (ReactFlowGraph init → `scenarios.getScenario(autosave.scenarioId)`)
+ *     found no record, and its graphHash fallback scanned an empty run history.
+ *
+ * The record that DID survive and IS read back at boot is this one: the
+ * autosave already carries `nodes`, `edges`, `scenarioId` and `ceeAnalysisReady`
+ * — written together, read together. The answer was the only part of the
+ * scenario not riding it. Putting it here means every surface restores from ONE
+ * record instead of re-deriving agreement between three.
+ *
+ * IDENTITY IS THE RESPONSE HASH, NOT A SEED. `response_hash` is present on the
+ * live V5 wire (`v5:c9185f4c9c602851`, captured 26 Jul); the seed is not, and a
+ * fabricated one would fork the graph hash (CLAUDE.md trap #10). Nothing here
+ * invents a seed — `seed` is optional and simply absent on the V5 path.
+ */
+export interface PersistedAnalysis {
+  /**
+   * `report.model_card.response_hash` — the run identity that IS on the wire.
+   * Also what `resultsLoadHistorical` puts back into `results.hash`.
+   */
+  hash?: string
+  /** ISO instant the run completed, for provenance on the restored surface. */
+  computedAt: string
+  /** A.9 provenance: which path produced it. */
+  resultsSource?: 'direct' | 'conversation'
+  runId?: string
+  /** Present only on the direct Run path, which does know a seed. Never faked. */
+  seed?: number
+  drivers?: Array<{ kind: 'node' | 'edge'; id: string }>
+  /** The full report the Results surfaces render. ~21 kB in the live 5-option case. */
+  report: ReportV1
+}
+
+/**
  * Autosave: Store current graph state temporarily
  * Used to recover unsaved work on reload
  */
@@ -536,6 +587,11 @@ export interface AutosaveData {
   scenarioId?: string // If editing an existing scenario
   nodes: Node[]
   edges: Edge[]
+  /**
+   * The completed analysis for THIS graph, or null/absent when none has run.
+   * See PersistedAnalysis. Dropped (never the graph) if the write hits quota.
+   */
+  analysis?: PersistedAnalysis | null
   // V3: Persist analysis_ready so options survive page refresh
   ceeAnalysisReady?: {
     options: Array<{
@@ -580,6 +636,33 @@ export function saveAutosave(data: AutosaveData): void {
       console.log('[scenarios] Autosave written')
     }
   } catch (error) {
+    // DECLARED DEGRADATION, in this order deliberately.
+    //
+    // The analysis report is the largest thing in this record (~21 kB live) and
+    // it is the OPTIONAL half: the graph is the user's work, the analysis can be
+    // recomputed. Before this field existed a quota failure lost only the newest
+    // graph edits; it must not now be able to lose the GRAPH because an analysis
+    // pushed the payload over the limit. So on any write failure, retry once
+    // without the analysis rather than leaving the slot at its previous value.
+    //
+    // Both the retry and its own failure are reported — silence here would make
+    // a lost graph look identical to a successful save (the failure-reads-as-
+    // green class this repo keeps catching).
+    if (data.analysis) {
+      try {
+        const withoutAnalysis = JSON.stringify({ ...data, analysis: null })
+        localStorage.setItem(AUTOSAVE_KEY, withoutAnalysis)
+        lastAutosavePayload = withoutAnalysis
+        console.warn(
+          '[scenarios] Autosave too large — persisted the graph WITHOUT the analysis. ' +
+            'The results panel will not restore this run on return.',
+          error,
+        )
+        return
+      } catch (retryError) {
+        console.error('[scenarios] Failed to save autosave (graph-only retry):', retryError)
+      }
+    }
     console.error('[scenarios] Failed to save autosave:', error)
   }
 }
