@@ -38,7 +38,7 @@ export const HOW_COMPUTED_COPY = {
     {
       heading: 'It tests your options against uncertainty',
       body:
-        'We run the model on your canvas many times over. Each run draws a different plausible value for every input you left a range on. "Leads across scenarios" is simply the share of those runs in which an option came out ahead — not a prediction that it will win.',
+        'We run the model on your canvas many times over. Each run draws a different plausible value for every input you left a range on. "Win probability across scenarios" is simply the share of those runs in which an option came out ahead — not a prediction that it will win.',
     },
     {
       heading: 'It finds what actually moves the result',

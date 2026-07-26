@@ -45,6 +45,20 @@ import { openAskOlumi } from './coaching/askOlumiStore'
 export interface OptionCardsProps {
   options: OptionResult[]
   winnerId?: string
+  /**
+   * ROADMAP 1.223 — `DecisionVerdict.hasLeadingOption`, the single boolean any
+   * surface must gate on before asserting a leading option exists.
+   *
+   * Deliberately SEPARATE from `winnerId`, which stays populated on a withheld
+   * turn: `winnerId` is an IDENTITY and it still drives segment colours, the
+   * lens crown and card ordering, none of which claim anything. This flag is
+   * the ENTITLEMENT, and it gates only the comparative SENTENCES.
+   *
+   * `undefined` ⇒ legacy behaviour, matching the same concession
+   * `certaintyCopy` and `buildV7Headline` make for callers/fixtures predating
+   * the shared verdict. The one live caller (ResultsBody) always supplies it.
+   */
+  hasLeadingOption?: boolean
   /** Paul's ruling 2026-07-12: when the risk-appetite lens is active the
    * crowned card presents as lens-strongest, never as THE recommendation. */
   lensActive?: boolean
@@ -88,14 +102,24 @@ export interface OptionCardsProps {
 }
 
 /** Fallback description when no story headline is available */
-function fallbackDescription(option: OptionResult, totalOptions: number): string {
+function fallbackDescription(
+  option: OptionResult,
+  totalOptions: number,
+  hasLeadingOption?: boolean,
+): string {
+  // ROADMAP 1.223: both leader-presupposing strings below are withheld when
+  // the producer made no leader claim. Returning '' suppresses the line
+  // entirely (the caller renders nothing) rather than substituting invented
+  // copy — the card still shows the option's label, its win probability and
+  // its bar, so no DATA is lost. Only the claim is.
+  const noLeader = hasLeadingOption === false
   if (option.isRecommended && totalOptions > 1) {
-    return 'Top-performing option based on current estimates.'
+    return noLeader ? '' : 'Top-performing option based on current estimates.'
   }
   if (option.isBaseline) {
     return 'Baseline for comparison.'
   }
-  return 'Compare against the leading option.'
+  return noLeader ? '' : 'Compare against the leading option.'
 }
 
 /**
@@ -110,11 +134,29 @@ function hingeAwareDescription(
   hinge: HingeInfo | null | undefined,
   winnerWinProbability?: number | null,
   lensActive = false,
+  hasLeadingOption?: boolean,
 ): string {
+  // ROADMAP 1.223: every string in this function is comparative — it either
+  // names an option as the leader ("Highest leading-option likelihood"),
+  // measures against one ("Behind by N percentage points"), or DENIES one
+  // ("Statistically tied with the leading option"). On a turn where the
+  // producer withheld the leader claim the UI is entitled to none of the
+  // three: the denial is not a safe default, it is a second unearned claim,
+  // and it is the same silence-not-denial rule this roadmap row applies at
+  // `deriveDecisionVerdict`. So the whole line is withheld ('' ⇒ the caller
+  // renders nothing) and the card falls back to label + win % + bar, which
+  // are DATA and stay.
+  //
+  // The lens branch is exempt by construction: it describes the risk-appetite
+  // LENS ("strongest under this lens"), which is a per-view argmax over data
+  // on screen, not the producer's designation — the same distinction that
+  // keeps the hero's per-lens crown alive.
+  const noLeader = hasLeadingOption === false
   if (isWinner) {
     if (lensActive) {
       return 'Strongest under this lens. The overall recommendation is unchanged.'
     }
+    if (noLeader) return ''
     if (hinge?.reason === 'fragile_edge') {
       return `Highest leading-option likelihood but depends on ${hinge.label}`
     }
@@ -124,9 +166,13 @@ function hingeAwareDescription(
     return 'Highest leading-option likelihood across simulated scenarios'
   }
   if (isRunnerUp) {
+    // Conditional-flip copy names a factor and this option, never a leader, so
+    // it survives: "if X shifts, this option overtakes" is true whether or not
+    // a leader was designated.
     if (hinge?.alternativeWinnerLabel && hinge.alternativeWinnerLabel === option.label) {
       return `If ${hinge.label} shifts, this option overtakes`
     }
+    if (noLeader) return ''
     // Task 9: Gap-based fallback instead of generic "Second highest"
     if (winnerWinProbability != null && option.winProbability != null) {
       const gapPct = Math.round((winnerWinProbability - option.winProbability) * 100)
@@ -137,10 +183,12 @@ function hingeAwareDescription(
     }
     return 'Close competitor'
   }
-  // Task 9: Status quo / baseline — specific copy
+  // Task 9: Status quo / baseline — specific copy. Non-comparative (it
+  // describes this option's own risk/outcome profile), so it is not gated.
   if (option.isBaseline) {
     return 'Lowest risk but lowest expected outcome'
   }
+  if (noLeader) return ''
   // Task 9: Other non-winner — gap-based
   if (winnerWinProbability != null && option.winProbability != null) {
     const gapPct = Math.round((winnerWinProbability - option.winProbability) * 100)
@@ -239,9 +287,13 @@ function OptionCard({
   confidenceTier,
   recommendationStability,
   leadingOptionDownsideFlag,
+  hasLeadingOption,
 }: {
   option: OptionResult
   isWinner: boolean
+  /** ROADMAP 1.223 — see OptionCardsProps. Gates the comparative SENTENCES
+   *  only; `isWinner` still drives styling, ordering and the lens crown. */
+  hasLeadingOption?: boolean
   /** Codex B1: lens crown restyles only — leader predicates stay on isWinner. */
   isLensCrowned?: boolean
   /** True when the risk-appetite lens is non-neutral (suppresses the canonical crown styling). */
@@ -350,7 +402,7 @@ function OptionCard({
                 ? 'This option did not lead in any of the simulation runs, so its true chance may be below the current resolution.'
                 : isAboveSimulationResolution(option.winProbability, option.nValidSamples)
                   ? 'This option led in every simulation run, so its display value reflects the current simulation resolution.'
-                  : `Leads in ${formatProbabilityWithResolution(option.winProbability, option.nValidSamples)} of simulated scenarios`
+                  : `Came out ahead in ${formatProbabilityWithResolution(option.winProbability, option.nValidSamples)} of simulated scenarios`
             }
           >
             <span
@@ -363,17 +415,21 @@ function OptionCard({
         )}
       </div>
 
-      {/* Description: story headline or fallback */}
-      <p className={`${typography.panelBody} text-text-light line-clamp-2`}>
-        {description}
-      </p>
+      {/* Description: story headline or fallback. Empty ⇒ the comparative
+          sentence was withheld (ROADMAP 1.223); render nothing rather than an
+          empty paragraph that still occupies a line. */}
+      {description ? (
+        <p className={`${typography.panelBody} text-text-light line-clamp-2`}>
+          {description}
+        </p>
+      ) : null}
 
       {/* Task 6b: Coloured fill bar matching wins-bar segment colour */}
       {option.winProbability != null && segmentFillColor && !neutralised && (
         <div
           className="w-full rounded-full overflow-hidden"
           style={{ height: 5, backgroundColor: 'var(--border-default, #EEE6D8)' }}
-          title={`Leading-option probability: ${formatProbabilityWithResolution(option.winProbability, option.nValidSamples)}`}
+          title={`Win probability: ${formatProbabilityWithResolution(option.winProbability, option.nValidSamples)}`}
         >
           <div
             className="h-full rounded-full transition-all duration-300"
@@ -389,7 +445,7 @@ function OptionCard({
           option when its lower simulated range includes meaningful downside.
           Reuses the existing outlined-pill pattern (border-info/30) — no new
           colour or component primitive. */}
-      {isWinner && leadingOptionDownsideFlag === true && !neutralised && (
+      {isWinner && hasLeadingOption !== false && leadingOptionDownsideFlag === true && !neutralised && (
         <p
           className={`${typography.panelMeta} text-text-light`}
           data-testid={`leading-option-downside-${option.id}`}
@@ -486,13 +542,13 @@ function OptionCard({
                 // auto-sending into a possibly-hidden conversation.
                 openAskOlumi({
                   context: `About "${option.label}"`,
-                  draft: winnerChipPrompt(isWinner, option.label),
-                  label: winnerChipLabel(isWinner, confidenceTier, recommendationStability),
+                  draft: winnerChipPrompt(isWinner, option.label, hasLeadingOption),
+                  label: winnerChipLabel(isWinner, confidenceTier, recommendationStability, hasLeadingOption),
                 })
               }}
               className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2.5 py-1 bg-transparent hover:bg-panel-hover cursor-pointer`}
             >
-              {winnerChipLabel(isWinner, confidenceTier, recommendationStability)}
+              {winnerChipLabel(isWinner, confidenceTier, recommendationStability, hasLeadingOption)}
             </button>
           )}
           {!option.isBaseline && onFocusNode && (
@@ -531,6 +587,7 @@ export function OptionCards({
   confidenceTier,
   recommendationStability,
   leadingOptionDownsideFlag,
+  hasLeadingOption,
 }: OptionCardsProps) {
   // Internal ref map if none provided externally
   const internalRefMap = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -603,14 +660,14 @@ export function OptionCards({
         // the lens crown is a separate identity that only restyles + relabels.
         const isLensCrowned = lensActive && option.id === (lensHighlightedId ?? winnerId)
         const description = isLensCrowned
-          ? hingeAwareDescription(option, true, isRunnerUp, hinge, winnerOpt?.winProbability, true)
+          ? hingeAwareDescription(option, true, isRunnerUp, hinge, winnerOpt?.winProbability, true, hasLeadingOption)
           : decisionState
-            ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, false)
+            ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, false, hasLeadingOption)
             : headline
               ? headline
               : (winnerOpt?.winProbability != null || option.winProbability != null)
-                ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, false)
-                : fallbackDescription(option, options.length)
+                ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, false, hasLeadingOption)
+                : fallbackDescription(option, options.length, hasLeadingOption)
 
         const segmentFillColor = segmentColorMap[option.id]
         return (
@@ -645,6 +702,7 @@ export function OptionCards({
             confidenceTier={confidenceTier}
             recommendationStability={recommendationStability}
             leadingOptionDownsideFlag={leadingOptionDownsideFlag}
+            hasLeadingOption={hasLeadingOption}
           />
         )
       })}

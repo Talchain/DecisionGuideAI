@@ -79,7 +79,7 @@ describe('AnalysisHero — accessibility', () => {
     // Goal lens leader = the recommended option (row 2).
     const leaderRow = screen.getByRole('button', { name: /Upskill the team/ })
     expect(leaderRow).toHaveAttribute('aria-current', 'true')
-    expect(leaderRow).toHaveTextContent('Leads on this view')
+    expect(leaderRow).toHaveTextContent('Highest on this view')
     const otherRow = screen.getByRole('button', { name: /Two developers/ })
     expect(otherRow).not.toHaveAttribute('aria-current')
   })

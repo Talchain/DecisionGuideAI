@@ -343,8 +343,20 @@ export const HERO_COPY = {
     },
   },
 
-  /** Screen-reader-only cue so the leader is perceivable without colour. */
-  srLeader: 'Leads on this view',
+  /**
+   * Screen-reader-only cue so the crowned row is perceivable without colour.
+   *
+   * ROADMAP 1.223: was "Leads on this view". REWORDED, deliberately NOT gated
+   * on the leader verdict. The hero's per-lens crown is an ARGMAX over the
+   * data that lens is currently drawing (outcome centre, goal probability) —
+   * it is a property of the view, not the producer's leader designation, and
+   * suppressing it would be the over-suppression class this same roadmap row
+   * had to fix once already in DecisionNode. The wording now states what it
+   * actually marks: the highest row on the lens in view. Note it is sr-only
+   * but NOT invisible to auditing — text extraction sees it, which is how the
+   * render probe caught it.
+   */
+  srLeader: 'Highest on this view',
 
   /** Screen-reader suffix for lenses whose data is unavailable this run. */
   srLensUnavailable: 'not available for this run',

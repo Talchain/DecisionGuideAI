@@ -150,9 +150,19 @@ export function WinGauge({
 
   return (
     <div className={`mb-4${isDeemphasised ? ' opacity-70' : ''}`} role="figure" aria-label="Win probability distribution across options">
-      <Tooltip content="Proportion of Monte Carlo simulations each option leads">
+      <Tooltip content="Share of Monte Carlo simulations in which each option came out ahead">
+        {/* ROADMAP 1.223: was "Leads across scenarios". The bar is a
+            DISTRIBUTION over options — it shows a share per option, and it is
+            drawn on every completed run, including turns where the producer
+            withheld the leader claim. The old label read as a designation
+            ("who leads"), which is the one thing this chart does not say.
+            Relabelled rather than gated: the DATA is honest on every run, and
+            a carve-out list of "leader words that are actually fine" is the
+            hand-maintained mirror CLAUDE.md trap 12 is about. The wording now
+            names the metric the product already uses elsewhere (the
+            confidence panel's ring caption reads "win probability"). */}
         <p className={`${typography.panelMeta} text-text-light mb-1`}>
-          Leads across scenarios
+          Win probability across scenarios
         </p>
       </Tooltip>
       {/* Stacked bar — use clamped raw percentage for width to avoid rounding gaps */}
