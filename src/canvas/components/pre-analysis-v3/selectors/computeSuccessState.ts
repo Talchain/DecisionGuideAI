@@ -32,27 +32,24 @@ export interface SuccessState {
 
 /**
  * The wire spells the percent unit as the WORD 'percent' (CEE's
- * `goal_threshold_unit`), but `classifyUnit` recognises only the glyph '%'
- * (see src/utils/unitClassifier.ts — `if (trimmed === '%')`). So 'percent'
- * fell through to `kind: 'other'` and rendered as a trailing suffix:
- * "20 percent" rather than "20%".
+ * `goal_threshold_unit`). `classifyUnit` NOW RECOGNISES IT — the word forms
+ * were folded into its existing `kind: 'percent'` branch in U2 (see
+ * `PERCENT_UNIT_SPELLINGS` in src/utils/unitClassifier.ts).
  *
- * Surfaced by C2, when the Decision Overview card was routed through this
- * selector: the card's own retired unit mapper DID recognise the word, so the
- * two surfaces disagreed on the same value — the card said "20%" and the
- * pre-analysis hero said "20 percent". Normalising here makes both agree, on
- * the better of the two renderings, without widening `classifyUnit` (a
- * primitive with many other consumers and its own tests).
+ * HISTORY, because the reasoning was wrong the first time and the record should
+ * say so: C2 added a LOCAL `normaliseUnitForDisplay` here rather than widening
+ * `classifyUnit`, on the grounds that the classifier was "a primitive with many
+ * other consumers and its own tests". That made this the FIFTH live recogniser
+ * of the same word, and the six had already drifted apart — the graph-patch
+ * receipt's copy never learned `'percentage'` at all. Having many consumers and
+ * its own tests is the argument for widening the primitive ONCE, guarded, not
+ * for cloning it. All six copies are retired; the parity is pinned by
+ * src/utils/__tests__/percentWordSingleSource.spec.ts.
  */
-function normaliseUnitForDisplay(unit: string): string {
-  const lower = unit.trim().toLowerCase()
-  return lower === 'percent' || lower === 'percentage' ? '%' : unit
-}
-
 function formatWithUnit(value: number, unit: string | null): string {
   const formatted = Math.abs(value) >= 1000 ? value.toLocaleString('en-GB') : String(value)
   if (!unit) return formatted
-  const { kind, canonical } = classifyUnit(normaliseUnitForDisplay(unit))
+  const { kind, canonical } = classifyUnit(unit)
   if (kind === 'symbol') return `${canonical}${formatted}`
   if (kind === 'iso') return `${canonical} ${formatted}`
   if (kind === 'percent') return `${formatted}%`

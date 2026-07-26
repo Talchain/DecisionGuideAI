@@ -21,7 +21,7 @@ import { InspectorGuidanceSection } from './inspector/InspectorGuidanceSection'
 import { typography } from '../../styles/typography'
 import { detectBaseline } from '../utils/baselineDetection'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
-import { formatWinProbability } from '../utils/labelUtils'
+import { formatWinProbability, classifyUnit } from '../utils/labelUtils'
 import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
@@ -337,7 +337,13 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
             const unit = (node?.data as Record<string, unknown>)?.goal_threshold_unit
               ?? ((node?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined)?.unit
             const unitStr = typeof unit === 'string' ? unit.toLowerCase() : ''
-            if (unitStr === '%' || unitStr === 'percent' || unitStr === 'percentage') return formatTargetValue(goalThreshold, 'percent')
+            // U2: percent recognition routed through classifyUnit (the single
+            // source of truth) instead of a local three-literal copy. Identical
+            // for those literals, and additionally correct for the whitespace
+            // form this site missed (`.toLowerCase()` without `.trim()`).
+            if (classifyUnit(typeof unit === 'string' ? unit : null).kind === 'percent') {
+              return formatTargetValue(goalThreshold, 'percent')
+            }
             if (unitStr && unitStr !== 'count') return formatTargetValue(goalThreshold, 'currency', typeof unit === 'string' ? unit : undefined)
             return formatTargetValue(goalThreshold)
           })()}

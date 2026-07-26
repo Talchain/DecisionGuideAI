@@ -62,6 +62,7 @@ import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
 import { deriveStabilityLevel } from '../../lib/stability'
 import { deriveResultCompleteness, type ResultCompleteness } from './useResultCompleteness'
 import { computeNormalisedInfluences, selectDriverDisplayModel } from './driverDisplayModel'
+import { classifyUnit } from '../../utils/unitClassifier'
 
 // =============================================================================
 // Winner Selection Helper
@@ -1263,8 +1264,20 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     const unitLower = String(rawUnit).toLowerCase()
 
-    // Percentage variants
-    if (unitLower === '%' || unitLower === 'percent' || unitLower === 'percentage') {
+    // Percentage variants — U2: routed through classifyUnit, the single source
+    // of truth, instead of a local `'%' | 'percent' | 'percentage'` copy.
+    // Identical for those three literals, and additionally correct for the
+    // whitespace forms this site missed (it lowercased but never trimmed).
+    //
+    // NOTE this is the read of `observedState.unit` that C2 named as the "third
+    // divergence" and deferred: the goal node's OBSERVED unit and its
+    // `goal_threshold_unit` are two different fields, and this hook prefers the
+    // former while computeSuccessState reads only the latter. Which field wins is
+    // a doctrine question about what the outcome axis measures, NOT a formatting
+    // one, so it is deliberately still open — U2 makes the two agree on how to
+    // RECOGNISE a percent unit, which is all a single-source-of-truth change can
+    // honestly claim. Flagged, not silently folded.
+    if (classifyUnit(String(rawUnit)).kind === 'percent') {
       return { outcomeUnit: 'percent' as const, outcomeUnitSymbol: undefined }
     }
 

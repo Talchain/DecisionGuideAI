@@ -26,7 +26,7 @@ import { formatTargetValue } from '../../components/results/utils/formatTargetVa
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
 import { getStabilityClassification } from '../../lib/stability'
-import { isCurrencyUnit } from '../utils/labelUtils'
+import { isCurrencyUnit, classifyUnit } from '../utils/labelUtils'
 import { NodeChip, NodePopover, ScienceIcon } from './shared'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -134,7 +134,14 @@ export const GoalNode = memo((props: NodeProps) => {
     const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
     if (Number.isNaN(raw)) return String(thresholdRaw)
     const u = typeof thresholdUnit === 'string' ? thresholdUnit.toLowerCase() : ''
-    if (u === '%' || u === 'percent' || u === 'percentage') return formatTargetValue(Math.round(raw), 'percent')
+    // U2: percent recognition routed through classifyUnit (the single source of
+    // truth) instead of a local `'%' | 'percent' | 'percentage'` copy. Identical
+    // for those three literals; additionally correct for the whitespace and
+    // mixed-case forms this site used to miss (`.toLowerCase()` without `.trim()`
+    // meant `' percent'` rendered as "20  percent").
+    if (classifyUnit(thresholdUnit as string | null | undefined).kind === 'percent') {
+      return formatTargetValue(Math.round(raw), 'percent')
+    }
     if (u === 'count' || u === '') return formatTargetValue(raw)
     if (thresholdUnit && isCurrencyUnit(thresholdUnit)) return formatTargetValue(raw, 'currency', thresholdUnit)
     return `${raw.toLocaleString()} ${thresholdUnit}`
