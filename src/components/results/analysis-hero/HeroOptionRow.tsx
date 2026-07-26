@@ -7,7 +7,7 @@
  * aria-controls, the detail region is mounted only when open and labelled by
  * the row, and one-open-at-a-time is controlled by the parent. The lens
  * leader is perceivable without colour: filled (vs outlined) number token,
- * aria-current on the row button, and a visually-hidden "Leads on this view"
+ * aria-current on the row button, and a visually-hidden "Highest on this view"
  * cue.
  *
  * Track positions are LAYOUT ONLY — percentages of the track width computed

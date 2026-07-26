@@ -447,6 +447,12 @@ export const ResultsBody = memo(function ResultsBody({
             <OptionCards
               options={resultsSectionData.recommendation.allOptions}
               winnerId={resultsSectionData.recommendation.recommendedOption?.id}
+              // ROADMAP 1.223: the ENTITLEMENT, kept separate from the identity
+              // above. `winnerId` deliberately still flows on a withheld turn —
+              // it drives segment colours, the lens crown and card ordering,
+              // none of which claim anything. This flag gates only the
+              // comparative sentences inside the cards.
+              hasLeadingOption={resultsSectionData.recommendation.verdict?.hasLeadingOption}
               lensActive={riskAppetite !== 'neutral'}
               lensHighlightedId={riskAppetite !== 'neutral' && lensComparison.comparable ? lensComparison.id : undefined}
               stableNumbers={stableNumbersForCards}

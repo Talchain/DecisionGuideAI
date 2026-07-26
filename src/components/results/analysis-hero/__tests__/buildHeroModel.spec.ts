@@ -1091,7 +1091,7 @@ describe('buildHeroModel — detail lines and footer (sourced or omitted)', () =
 describe('buildHeroModel — goal-fit crown follows the goal argmax (UI-SEM-072)', () => {
   // Live staging evidence (acceptance-evidence/goal-fit/6b-browser, 2026-07-08):
   // the WIN-probability leader carried the LOWEST goal fit (4% vs 7%/6%) yet was
-  // crowned "best fits your goal" + "(Leads on this view)" on the Goal fit lens.
+  // crowned "best fits your goal" + "(Highest on this view)" on the Goal fit lens.
   // The crown must follow the highest goalProbability (= the collapsed
   // probability_of_joint_goal when constraints exist) — never the recommendation
   // re-crowned onto a view it does not lead.
