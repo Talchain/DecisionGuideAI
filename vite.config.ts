@@ -114,7 +114,26 @@ export default defineConfig(({ mode, command }) => {
     outDir: 'dist',
     assetsDir: 'assets',
     emptyOutDir: true,
-    sourcemap: true,
+    // Source maps are NOT published. `sourcemap: true` emitted 77 `.js.map`
+    // files (~21 MB) into `dist/`, and Netlify serves `dist/` verbatim — so
+    // the full unminified source of the app was publicly downloadable from
+    // the deployed site.
+    //
+    // Nothing consumed them. Verified before flipping this:
+    //   * no `@sentry/vite-plugin`, no `sentry-cli`, no `SENTRY_AUTH_TOKEN`
+    //     / `SENTRY_ORG` / `SENTRY_PROJECT`, no `sourcemaps upload` step
+    //     anywhere in the repo (workflows, netlify.toml, scripts, package.json);
+    //   * every bundle script that walks `dist/` filters `.map` OUT
+    //     (measure-bundle, report-chunks, ci-bundle-budget, verify-bundle-budget);
+    //   * `netlify/edge-functions/csp-nonce.ts` lists `/*.map` only as an
+    //     excludedPath, i.e. it declines to touch them;
+    //   * `src/lib/monitoring.ts` only calls `Sentry.init` when
+    //     `VITE_SENTRY_DSN` is set, and it is not set for the staging build.
+    //
+    // If a monitoring consumer is ever added, use `'hidden'` (emit maps for
+    // upload, omit the `//# sourceMappingURL=` comment) rather than `true`,
+    // and add the upload step in the same change.
+    sourcemap: false,
     minify: 'terser',
     terserOptions: {
       compress: {
