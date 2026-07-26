@@ -15,8 +15,10 @@
  *   · "No clear leading option"       — indeterminate / GAP form
  *     (certaintyCopy.ts rule 1: "no clear leading option, …")
  *   · "Too close to call"             — near-tie form (recommendation.nearTie)
- *   · "{winner} leads slightly more often" / " by N points" sublines
- *     (certaintyCopy.ts rules 1 and 4)
+ *   · "Leads by N points" subline (certaintyCopy.ts rule 4)
+ *     (the companion "{winner} leads slightly more often" was REMOVED from
+ *      both this file and certaintyCopy.ts — ROADMAP 1.223: a denial of a
+ *      leading option must not carry a leader claim as its subline)
  *
  * Honest absence: with no recommended option the headline is empty and the
  * hero renders nothing (the caller gates the whole top group on analysis
