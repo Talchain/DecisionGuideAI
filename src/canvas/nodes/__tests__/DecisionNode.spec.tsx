@@ -33,9 +33,11 @@ vi.mock('../../store', () => ({
 // ROADMAP 1.223 — RENDER the producer's leader claim, never DERIVE one.
 // DecisionNode's "{winner} leads in N% of scenarios" headline now quotes
 // `deriveDecisionVerdict` and renders NOTHING unless a producer signal claimed
-// a leader. The whole post-analysis body hangs off that headline (stability
-// line + post chips included), so every post-analysis fixture below needs
-// BOTH halves the verdict requires:
+// a leader. (The stability line and the post-analysis chips do NOT hang off it
+// — they branch on the analysis lifecycle instead, so withholding the leader
+// claim never withholds the fragility disclosure. See the over-suppression
+// guards in ownedLeaderClaim.canvas.spec.tsx.) Every post-analysis fixture
+// below needs BOTH halves the verdict requires:
 //   1. at least TWO options with win probabilities — "leading" is meaningless
 //      below two comparable options, and
 //   2. a producer signal (PLoT `computeNearTie`) naming the WIN-PROBABILITY
