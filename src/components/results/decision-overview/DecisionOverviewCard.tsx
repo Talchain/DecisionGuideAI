@@ -20,7 +20,7 @@
  * DS v4/5: bg-panel card, panel typography tokens only, Lucide, sentence
  * case, en-GB, no em dashes in prose.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 
 import { useCanvasStore } from '../../../canvas/store'
@@ -29,7 +29,8 @@ import { useGuidanceStore, compareGuidanceDisplayOrder, type GuidanceItem } from
 import { isDecisionOverviewEnabled } from '../../../flags'
 import { typography } from '../../../styles/typography'
 import { openAskOlumi } from '../coaching/askOlumiStore'
-import { formatTargetValue } from '../utils/formatTargetValue'
+import { computeSuccessState } from '../../../canvas/components/pre-analysis-v3/selectors/computeSuccessState'
+import { computeGraphFacts } from '../../../canvas/components/pre-analysis-v3/selectors/graphFacts'
 import { ActionsMenu } from './ActionsMenu'
 import { REVIEW_BRIEF_ASK } from './actionsCatalogue'
 
@@ -106,24 +107,6 @@ type Dimension = 'Goal' | 'Context' | 'Constraints' | 'Options'
 const CLASSIFICATION_DIMENSIONS = ['stakes', 'reversibility', 'horizon', 'risk'] as const
 type ClassificationDimension = (typeof CLASSIFICATION_DIMENSIONS)[number]
 
-/**
- * Map a raw outcome-unit string onto formatTargetValue's unit vocabulary.
- * Same classification useResultsSectionData applies (display formatting,
- * not a semantic transform — values pass through unchanged).
- */
-function mapOutcomeUnit(raw: string | null): {
-  unit?: 'currency' | 'percent' | 'count'
-  symbol?: string
-} {
-  if (!raw) return {}
-  const lower = raw.toLowerCase()
-  if (lower === '%' || lower === 'percent' || lower === 'percentage') return { unit: 'percent' }
-  if (['$', '£', '€', 'usd', 'gbp', 'eur', 'dollar', 'pound', 'euro'].some((c) => lower.includes(c))) {
-    return { unit: 'currency', symbol: raw.match(/[$£€]/)?.[0] ?? '$' }
-  }
-  return { unit: 'count' }
-}
-
 /** Genuinely interrogative wire copy: title or detail ends in "?". */
 function isInterrogative(item: Pick<GuidanceItem, 'title' | 'detail'>): boolean {
   return (
@@ -179,8 +162,40 @@ export interface DecisionOverviewCardProps {
 
 export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewCardProps) {
   const analysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
-  // All selectors below return primitives (Zustand inline-selector rule).
-  const goalThreshold = useCanvasStore((s) => s.goalThreshold)
+  // All selectors below return primitives (Zustand inline-selector rule) —
+  // except `nodes`, whose array reference is stable in the store and which is
+  // consumed through a useMemo below rather than a derived-object selector.
+  const nodes = useCanvasStore((s) => s.nodes)
+  const goalConstraints = useCanvasStore((s) => s.goalConstraints)
+  /**
+   * SUCCESS MEASURE — one reader of one fact (C2).
+   *
+   * This used to read `store.goalThreshold`, which `deriveGoalThresholdFromNode`
+   * (canvas/store.ts) populates ONLY when `data.threshold_source === 'user'`.
+   * A CEE-DERIVED threshold (`goal_threshold_raw`, the drafting path's normal
+   * output) therefore never reached this card, and it rendered "Success
+   * measure missing" — and fell to the derived `thin` state — for a decision
+   * that demonstrably had a measure. Meanwhile `computeSuccessState`, reading
+   * the same fact off the wire two panels away, returned `isSet: true` and
+   * rendered the value. One fact, two selectors, opposite answers; the one
+   * the user saw was the wrong one.
+   *
+   * Fixed by REUSING the existing pair rather than adding a third read:
+   * `computeGraphFacts` for goal-node selection and `computeSuccessState` for
+   * the measure — exactly what `usePreAnalysisModel` does. Writing a local
+   * goal-node finder here would have minted precisely the kind of mirror this
+   * change exists to retire.
+   */
+  const successState = useMemo(
+    () =>
+      computeSuccessState(
+        computeGraphFacts(nodes as never).goalNode,
+        (analysisReady as Record<string, unknown> | null) ?? null,
+        null,
+        goalConstraints,
+      ),
+    [nodes, analysisReady, goalConstraints],
+  )
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
   const optionCount = useCanvasStore((s) => s.nodes.filter((n) => n.type === 'option').length)
   const constraintCount = useCanvasStore((s) => s.goalConstraints?.length ?? 0)
@@ -203,17 +218,6 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
       if (typeof t === 'string' && t.trim()) return t.trim()
     }
     return null
-  })
-  const goalUnitRaw = useCanvasStore((s) => {
-    const goal = s.nodes.find((n) => n.type === 'goal')
-    const d = goal?.data as Record<string, unknown> | undefined
-    const observed = (d?.observedState ?? d?.observed_state) as { unit?: string } | undefined
-    return (
-      observed?.unit ??
-      (typeof d?.goal_threshold_unit === 'string' ? d.goal_threshold_unit : undefined) ??
-      s.ceeAnalysisReady?.goal_threshold_unit ??
-      null
-    )
   })
   // Review S3: promote only DISCUSSION challenges (never mechanical-fix
   // items like approve_patch/open_inspector) — closest honest v1 to the
@@ -247,7 +251,7 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
       ? 'blocked'
       : analysisReady.status !== 'ready'
         ? 'needs_input'
-        : goalThreshold == null
+        : !successState.isSet
           ? 'thin'
           : 'ready'
   const state: BriefState = stateOverride ?? liveState
@@ -309,7 +313,6 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
   // Context: brief presence only. Constraints: structured goal-constraint
   // count. Options: canvas option count. No diversity/quality claims — the
   // producer option-similarity signal does not exist yet.
-  const { unit, symbol } = mapOutcomeUnit(goalUnitRaw)
   // Round-2 wiring: prefer the FULL saved success measure (Define-success
   // modal, scenario-keyed) — metric + direction + threshold+unit + timeframe.
   // Falls back to the bare committed threshold, then to 'missing'.
@@ -317,9 +320,9 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
   const goalNote =
     savedMeasure != null
       ? `${savedMeasure.metric}: ${savedMeasure.direction === 'decrease_below' ? '≤' : '≥'} ${savedMeasure.threshold}${savedMeasure.unit === 'none' ? '' : savedMeasure.unit}, ${savedMeasure.timeframe}`
-      : goalThreshold == null
+      : !successState.isSet
         ? OVERVIEW_COPY.goalNoteMissing
-        : `Success target ≥ ${formatTargetValue(goalThreshold, unit, symbol)}`
+        : `Success target ≥ ${successState.displayText}`
   // CONTEXT — no claim, rather than a false denial.
   //
   // `currentBriefText` has exactly ONE non-null writer in the whole of src/:

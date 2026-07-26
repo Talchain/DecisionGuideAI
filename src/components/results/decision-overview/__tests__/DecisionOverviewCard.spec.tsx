@@ -30,6 +30,32 @@ function flagOn() {
  */
 const FALSE_DENIAL = 'Not captured yet'
 
+/**
+ * A goal node carrying a USER-set success measure.
+ *
+ * RE-POINTED AT SOURCE (C2) — rationale, since this touches many tests:
+ * every test below that used to say `goalThreshold: 20` was expressing one
+ * thing — "this decision HAS a success measure". It said so through
+ * `store.goalThreshold`, which was the field the card read at the time.
+ *
+ * That field is populated ONLY when `threshold_source === 'user'`
+ * (deriveGoalThresholdFromNode, canvas/store.ts), so it was blind to a
+ * CEE-derived measure and the card denied measures the product had captured.
+ * The card now reads the measure through computeGraphFacts +
+ * computeSuccessState — the same pair the pre-analysis hero uses.
+ *
+ * So the FIXTURE moves to where the real reader looks. Every test keeps its
+ * original intent and its original assertions; none was deleted, weakened or
+ * baselined away. `goalThreshold: 20` is kept alongside it so the store field
+ * stays consistent with the node for any other reader.
+ */
+const GOAL_NODE_WITH_MEASURE = {
+  id: 'g1',
+  type: 'goal',
+  position: { x: 0, y: 0 },
+  data: { label: 'G', threshold_source: 'user', success_threshold: 20 },
+}
+
 const READY = { status: 'ready', options: [{ id: 'o1' }], goal_node_id: 'g1' }
 const NEEDS_INPUT = {
   status: 'needs_user_input',
@@ -72,7 +98,7 @@ beforeEach(() => {
 
 describe('DecisionOverviewCard — flag gate', () => {
   it('renders NOTHING when the flag is off (byte-identical pin)', () => {
-    resetCanvas({ ceeAnalysisReady: READY, goalThreshold: 20 })
+    resetCanvas({ ceeAnalysisReady: READY, goalThreshold: 20, nodes: [GOAL_NODE_WITH_MEASURE] })
     const { container } = render(<DecisionOverviewCard title="Launch decision" />)
     expect(container.firstChild).toBeNull()
   })
@@ -83,7 +109,7 @@ describe('DecisionOverviewCard — ready state (live)', () => {
     flagOn()
     // Ready requires BOTH the producer ready status AND a success measure
     // (UI-SEM-079: a missing measure derives thin).
-    resetCanvas({ ceeAnalysisReady: READY, goalThreshold: 20 })
+    resetCanvas({ ceeAnalysisReady: READY, goalThreshold: 20, nodes: [GOAL_NODE_WITH_MEASURE] })
   })
 
   it('collapsed and quiet: meta label, title, framing-has-the-basics line', () => {
@@ -131,7 +157,7 @@ describe('DecisionOverviewCard — ready state (live)', () => {
 describe('DecisionOverviewCard — classification pills (UI-SEM-077, L2 values-not-labels)', () => {
   beforeEach(() => {
     flagOn()
-    resetCanvas({ ceeAnalysisReady: READY, goalThreshold: 20 })
+    resetCanvas({ ceeAnalysisReady: READY, goalThreshold: 20, nodes: [GOAL_NODE_WITH_MEASURE] })
   })
 
   it('collapsed shows ONE muted "+N to set" aggregate, never per-field "not set" name chips', () => {
@@ -151,6 +177,7 @@ describe('DecisionOverviewCard — classification pills (UI-SEM-077, L2 values-n
   it('a FILLED field renders as a value chip; only the empty remainder aggregates', () => {
     useCanvasStore.setState({
       nodes: [
+        GOAL_NODE_WITH_MEASURE,
         {
           id: 'd1',
           type: 'decision',
@@ -177,6 +204,7 @@ describe('DecisionOverviewCard — classification pills (UI-SEM-077, L2 values-n
   it('a filled value chip still opens the Ask-Olumi drawer with the classification review ask', () => {
     useCanvasStore.setState({
       nodes: [
+        GOAL_NODE_WITH_MEASURE,
         {
           id: 'd1',
           type: 'decision',
@@ -198,7 +226,7 @@ describe('DecisionOverviewCard — classification pills (UI-SEM-077, L2 values-n
 describe('DecisionOverviewCard — brief-dimension chips', () => {
   beforeEach(() => {
     flagOn()
-    resetCanvas({ ceeAnalysisReady: READY, goalThreshold: 20 })
+    resetCanvas({ ceeAnalysisReady: READY, goalThreshold: 20, nodes: [GOAL_NODE_WITH_MEASURE] })
   })
 
   it('Goal chip shows the persisted success target when set', () => {
@@ -211,7 +239,9 @@ describe('DecisionOverviewCard — brief-dimension chips', () => {
   })
 
   it('Goal chip shows "Success measure missing" when no target exists (fail-closed)', () => {
-    useCanvasStore.setState({ goalThreshold: null } as never)
+    // Re-pointed (C2): the measure now lives on the node, so expressing
+    // "no measure" means clearing the node too, not just the store field.
+    useCanvasStore.setState({ goalThreshold: null, nodes: [] } as never)
     render(<DecisionOverviewCard title="t" />)
     // thin auto-expands (missing measure)
     expect(screen.getByTestId('brief-dim-goal')).toHaveTextContent(OVERVIEW_COPY.goalNoteMissing)
@@ -222,7 +252,7 @@ describe('DecisionOverviewCard — brief-dimension chips', () => {
       nodes: [
         { id: 'o1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'A' } },
         { id: 'o2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'B' } },
-        { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'G' } },
+        GOAL_NODE_WITH_MEASURE,
       ],
     } as never)
     render(<DecisionOverviewCard title="t" />)
@@ -306,7 +336,7 @@ describe('DecisionOverviewCard — brief-dimension chips', () => {
 describe('DecisionOverviewCard — brief-actions row', () => {
   beforeEach(() => {
     flagOn()
-    resetCanvas({ ceeAnalysisReady: READY, goalThreshold: 20 })
+    resetCanvas({ ceeAnalysisReady: READY, goalThreshold: 20, nodes: [GOAL_NODE_WITH_MEASURE] })
   })
 
   it('renders the review link + one-issue-at-a-time helper when expanded', () => {
@@ -361,6 +391,7 @@ describe('DecisionOverviewCard — live quality derivation (UI-SEM-079)', () => 
     resetCanvas({
       ceeAnalysisReady: READY,
       goalThreshold: 20,
+      nodes: [GOAL_NODE_WITH_MEASURE],
       graphHealth: {
         status: 'errors',
         issues: [{ id: 'i1', type: 'cycle', severity: 'blocker', message: 'x' }],
@@ -378,6 +409,7 @@ describe('DecisionOverviewCard — live quality derivation (UI-SEM-079)', () => 
     resetCanvas({
       ceeAnalysisReady: READY,
       goalThreshold: 20,
+      nodes: [GOAL_NODE_WITH_MEASURE],
       graphHealth: {
         status: 'warnings',
         issues: [{ id: 'i1', type: 'missing_label', severity: 'warning', message: 'x' }],
@@ -410,7 +442,7 @@ describe('DecisionOverviewCard — review folds (S1/S2/S3)', () => {
   })
 
   it('S3: only DISCUSSION items are promoted — a mechanical top item is not a question', () => {
-    resetCanvas({ ceeAnalysisReady: READY, goalThreshold: 20 })
+    resetCanvas({ ceeAnalysisReady: READY, goalThreshold: 20, nodes: [GOAL_NODE_WITH_MEASURE] })
     useGuidanceStore.setState({
       guidanceItems: [
         { item_id: 'g1', signal_code: 's', category: 'must_fix', source: 'structural', title: 'Connect the isolated risk', primary_action: { type: 'open_inspector', target_id: 'n1' }, priority: 95 },
@@ -504,7 +536,7 @@ describe('deriveFramingQuestion (UI-SEM-078, hardened)', () => {
 describe('DecisionOverviewCard — framing question (producer-backed)', () => {
   beforeEach(() => {
     flagOn()
-    resetCanvas({ ceeAnalysisReady: READY, goalThreshold: 20 })
+    resetCanvas({ ceeAnalysisReady: READY, goalThreshold: 20, nodes: [GOAL_NODE_WITH_MEASURE] })
   })
 
   it('promotes the TOP guidance item as the one framing question with a drawer route', () => {
@@ -576,7 +608,7 @@ describe('DecisionOverviewCard — framing-slot honesty (production leak)', () =
 
   beforeEach(() => {
     flagOn()
-    resetCanvas({ ceeAnalysisReady: READY, goalThreshold: 20 })
+    resetCanvas({ ceeAnalysisReady: READY, goalThreshold: 20, nodes: [GOAL_NODE_WITH_MEASURE] })
   })
 
   it('a max-priority rerun nudge (non-interrogative detail, discuss action) never renders the framing card', () => {
