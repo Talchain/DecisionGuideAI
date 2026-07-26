@@ -54,15 +54,31 @@ interface Scenario {
   winnerWin: number
   runnerUpWin: number
   stability: number
+  /**
+   * PLoT's OWN tie call (`robustness.near_tie.is_tie`, from `computeNearTie`).
+   *
+   * ROADMAP 1.223: the UI no longer derives "is there a leading option?" from
+   * the win-probability gap — the producer states it and every surface quotes
+   * it. So each scenario now carries the producer verdict the gap used to
+   * imply, and the values below are exactly what PLoT's 0.10 threshold
+   * produces for these numbers. The INVARIANT under test is untouched: no two
+   * surfaces may disagree about whether a leading option exists.
+   */
+  isTie: boolean
 }
 
-const JOURNEY_RUN: Scenario = { winnerWin: 0.72, runnerUpWin: 0.20, stability: 0.55 }
+/**
+ * The journey run: a 52-point lead that is FRAGILE. `isTie: false` is the
+ * point of this scenario — low stability means the ranking could flip, NOT
+ * that the options are tied, and the product must not trade one for the other.
+ */
+const JOURNEY_RUN: Scenario = { winnerWin: 0.72, runnerUpWin: 0.20, stability: 0.55, isTie: false }
 
 /** A genuinely indeterminate run — the case where "no clear leader" is TRUE. */
-const TIED_RUN: Scenario = { winnerWin: 0.52, runnerUpWin: 0.48, stability: 0.55 }
+const TIED_RUN: Scenario = { winnerWin: 0.52, runnerUpWin: 0.48, stability: 0.55, isTie: true }
 
 /** A clear, robust run — the case where "leading option" is TRUE. */
-const CLEAR_RUN: Scenario = { winnerWin: 0.72, runnerUpWin: 0.20, stability: 0.92 }
+const CLEAR_RUN: Scenario = { winnerWin: 0.72, runnerUpWin: 0.20, stability: 0.92, isTie: false }
 
 function makeV2Response(s: Scenario): V2RunResponse {
   const outcome = (mean: number) => ({
@@ -105,6 +121,16 @@ function makeV2Response(s: Scenario): V2RunResponse {
       robust_edges: ['e1'],
       recommended_option_id: WINNER_ID,
       recommendation_stability: s.stability,
+      // The producer's own leader verdict — the only authority entitled to
+      // answer "is there a leading option?" (ROADMAP 1.223). Carried through
+      // to the UI by the V2 responseMapper's near_tie passthrough.
+      near_tie: {
+        is_tie: s.isTie,
+        top_option_id: WINNER_ID,
+        second_option_id: RUNNER_UP_ID,
+        gap: s.winnerWin - s.runnerUpWin,
+        threshold: 0.1,
+      },
     } as never,
     response_hash: 'h',
     meta: { seed_used: '42', n_samples: 1000, detail_level: 'standard', latency_ms: 100 },
@@ -235,9 +261,12 @@ describe('SINGLE VERDICT — canvas and results panel must not contradict each o
     { label: 'clear lead, robust', s: CLEAR_RUN },
     { label: 'clear lead, fragile (the journey run)', s: JOURNEY_RUN },
     { label: 'tied, fragile', s: TIED_RUN },
-    { label: 'tied, robust', s: { winnerWin: 0.52, runnerUpWin: 0.48, stability: 0.92 } },
-    { label: 'narrow lead just under the gap threshold', s: { winnerWin: 0.54, runnerUpWin: 0.46, stability: 0.75 } },
-    { label: 'narrow lead just over the gap threshold', s: { winnerWin: 0.56, runnerUpWin: 0.44, stability: 0.75 } },
+    { label: 'tied, robust', s: { winnerWin: 0.52, runnerUpWin: 0.48, stability: 0.92, isTie: true } },
+    // The two boundary rows keep straddling PLoT's 0.10 threshold (gap 0.08
+    // vs 0.12), so the matrix still exercises both sides of the producer's
+    // own tie call — it is simply the producer making it now, not the UI.
+    { label: 'narrow lead just under the gap threshold', s: { winnerWin: 0.54, runnerUpWin: 0.46, stability: 0.75, isTie: true } },
+    { label: 'narrow lead just over the gap threshold', s: { winnerWin: 0.56, runnerUpWin: 0.44, stability: 0.75, isTie: false } },
   ]
 
   it.each(MATRIX)('$label — canvas and panel agree on whether a leading option exists', ({ s }) => {
