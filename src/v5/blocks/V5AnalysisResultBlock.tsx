@@ -18,6 +18,7 @@ import { type ReactElement } from 'react'
 import { typography } from '../../styles/typography'
 import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../canvas/conversation/types'
 import { extractDecisionReview } from '../decisionReviewAdapter'
+import { resolveLeaderKeys } from '../mapV5AnalysisToReport'
 import { calibrateUncertaintyCopy } from '../../components/results/utils/uncertaintyCalibration'
 
 export interface V5AnalysisResultBlockProps {
@@ -81,12 +82,20 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
   const uncertaintyInputs = resolveUncertaintyInputs(block.enrichment, block.leading_option_id)
   const uncertaintyCopy = calibrateUncertaintyCopy(uncertaintyInputs)
 
+  // `win_probabilities` is keyed by option LABEL on real staging payloads while
+  // `leading_option_id` is an option ID, so a key === leading_option_id test
+  // matches nothing. Resolve the leader's keys once, in whichever space the
+  // producer used. Empty set (e.g. leading_option_id null on a withheld turn)
+  // ⇒ no pill is marked.
+  const leaderKeys = resolveLeaderKeys(block.enrichment, block.leading_option_id)
+
   // Sort so the leading option appears first and the rest descending by prob.
   const sortedProbs = hasProbs
     ? Object.entries(block.win_probabilities as Record<string, number>).sort(
-        ([idA, pA], [idB, pB]) => {
-          if (idA === block.leading_option_id) return -1
-          if (idB === block.leading_option_id) return 1
+        ([keyA, pA], [keyB, pB]) => {
+          const aLeads = leaderKeys.has(keyA)
+          const bLeads = leaderKeys.has(keyB)
+          if (aLeads !== bLeads) return aLeads ? -1 : 1
           return pB - pA
         },
       )
@@ -124,11 +133,17 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
           aria-label="Option win probabilities"
           data-testid="v5-analysis-result-probabilities"
         >
-          {sortedProbs.map(([optionId, prob]) => {
-            const isLeader = optionId === block.leading_option_id
+          {/*
+            `optionKey` is the win_probabilities KEY — an option LABEL on real
+            staging payloads, an option_id on some paths. It is the human string
+            we render, so it is NOT renamed to optionId: the previous name is
+            what disguised the identity-space mismatch fixed here.
+          */}
+          {sortedProbs.map(([optionKey, prob]) => {
+            const isLeader = leaderKeys.has(optionKey)
             return (
               <span
-                key={optionId}
+                key={optionKey}
                 role="listitem"
                 className={[
                   'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5',
@@ -138,7 +153,7 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
                 ].join(' ')}
                 data-leader={isLeader ? 'true' : 'false'}
               >
-                <span className="font-medium">{optionId}</span>
+                <span className="font-medium">{optionKey}</span>
                 <span className="text-text-light">·</span>
                 <span>{formatProbability(prob)}</span>
               </span>

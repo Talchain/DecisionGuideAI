@@ -314,6 +314,97 @@ function resolveOptionEntries(
   return out
 }
 
+/**
+ * Fallback id↔label source: `enrichment.decision_brief.options[]`, whose
+ * entries carry `option_id` + `label`. Used ONLY when `option_comparison` is
+ * absent (it can be — the wire carries a sibling `option_comparison_status`
+ * precisely because that array is not guaranteed). Both sources are supplied
+ * by the producer on the same payload, so this is a fallback chain over
+ * derived data, NOT a second hand-maintained mapping.
+ */
+function resolveDecisionBriefOptions(
+  enrichment: Record<string, unknown> | undefined,
+): ResolvedOptionIdentity[] {
+  const brief = isPlainObject(enrichment?.decision_brief)
+    ? (enrichment!.decision_brief as Record<string, unknown>)
+    : undefined
+  const raw = brief?.options
+  if (!Array.isArray(raw)) return []
+  const out: ResolvedOptionIdentity[] = []
+  for (const entry of raw) {
+    if (!isPlainObject(entry)) continue
+    const optionId = safeString(entry.option_id) ?? safeString(entry.id)
+    if (!optionId) continue
+    out.push({ optionId, label: safeString(entry.label) ?? safeString(entry.option_label) })
+  }
+  return out
+}
+
+interface ResolvedOptionIdentity {
+  optionId: string
+  label: string | undefined
+}
+
+/**
+ * Resolve every `block.win_probabilities` KEY that denotes the leading option.
+ *
+ * The two fields live in DIFFERENT IDENTITY SPACES. `leading_option_id` is an
+ * option ID (`opt_mac`); `win_probabilities` is keyed by option LABEL
+ * (`"Standardise on MacBook Pro"`) on real staging payloads — the same fact
+ * `resolveOptionEntries` above was written for. Comparing a map key to
+ * `leading_option_id` directly therefore matches NOTHING whenever the producer
+ * keys by label: no error, no warning, the leader simply never gets marked.
+ * That is an UNDER-claim, and it made the leader treatment in
+ * V5AnalysisResultBlock unreachable in production.
+ *
+ * Callers iterating `Object.entries(win_probabilities)` test membership of this
+ * set instead, so they work under EITHER keying without having to know which
+ * one the producer used. The id↔label pairing is derived from the same wire
+ * payload (`enrichment.option_comparison[]`, falling back to
+ * `enrichment.decision_brief.options[]`) — there is no second mapping for
+ * anyone to keep in sync.
+ *
+ * Fails closed in both directions — this must never become an OVER-claim:
+ *   - `leadingOptionId` null/absent/empty → EMPTY set → no key is a leader.
+ *     This is the withheld-turn contract; CEE sends `leading_option_id: null`
+ *     when the leader is suppressed and no pill may be marked.
+ *   - a leader label shared by more than one option → the label is omitted.
+ *     A label-keyed Record cannot disambiguate two options sharing a label;
+ *     marking both pills as leader is false precision, marking neither is an
+ *     honest miss. Same rule, same reason as the `labelIsUnique` guard used
+ *     for option_probabilities below.
+ */
+export function resolveLeaderKeys(
+  enrichment: Record<string, unknown> | undefined,
+  leadingOptionId: string | null | undefined,
+): ReadonlySet<string> {
+  if (typeof leadingOptionId !== 'string' || leadingOptionId === '') {
+    return new Set<string>()
+  }
+  // The id itself always counts: some paths/fixtures DO key by option_id.
+  const keys = new Set<string>([leadingOptionId])
+
+  const fromComparison: ResolvedOptionIdentity[] = resolveOptionEntries(enrichment).map((r) => ({
+    optionId: r.optionId,
+    label: r.optionLabel,
+  }))
+  const identities =
+    fromComparison.length > 0 ? fromComparison : resolveDecisionBriefOptions(enrichment)
+
+  const labelOccurrences = new Map<string, number>()
+  for (const identity of identities) {
+    if (identity.label !== undefined) {
+      labelOccurrences.set(identity.label, (labelOccurrences.get(identity.label) ?? 0) + 1)
+    }
+  }
+
+  const leaderLabel = identities.find((i) => i.optionId === leadingOptionId)?.label
+  if (leaderLabel !== undefined && (labelOccurrences.get(leaderLabel) ?? 0) === 1) {
+    keys.add(leaderLabel)
+  }
+  return keys
+}
+
 // ─── Public mapper ─────────────────────────────────────────────────────
 
 export interface MapV5AnalysisOptions {
