@@ -22,6 +22,7 @@
  */
 
 import { RAW_ID_PATTERN } from '../../canvas/conversation/friendlyOperation'
+import { classifyUnit } from '../../utils/unitClassifier'
 import type { V5GraphPatchBlock } from '../../canvas/conversation/types'
 
 // ---------------------------------------------------------------------------
@@ -111,11 +112,19 @@ const CURRENCY_PREFIXES: Record<string, string> = {
   '€': '€',
 }
 
-// Percent unit — match the literal `%` symbol or the word "percent"
-// case-insensitively. Lowercased before lookup so mixed-case forms
-// (e.g. `'Percent'`) collapse to the same path as `'percent'` /
-// `'PERCENT'` (NR2 — defensive, current CEE only emits `%`).
-const PERCENT_UNITS: ReadonlySet<string> = new Set(['%', 'percent'])
+// Percent unit — routed through `classifyUnit`, the single source of truth
+// (U2). This file used to carry its own `PERCENT_UNITS = new Set(['%',
+// 'percent'])`, one of SIX live copies of the same recogniser, and it was the
+// one that had visibly drifted: it never learned `'percentage'`, so a CEE
+// `unit: 'percentage'` rendered "20%" on five surfaces and "20 percentage" in
+// this receipt. `classifyUnit` handles the glyph, both words, case and
+// whitespace in one place.
+//
+// NOTE the CURRENCY path above is deliberately NOT routed through
+// `classifyUnit`: this receipt maps `GBP` to the glyph `£`, whereas
+// `classifyUnit` classifies ISO codes as `kind: 'iso'` with the CODE as
+// canonical ("GBP 500"). Those are different rendering contracts, and collapsing
+// them would silently change receipt copy. Out of scope here, named not hidden.
 
 /**
  * Format a numeric value with optional unit. Currencies render as a
@@ -139,7 +148,7 @@ export function formatConstraintValue(
     if (currencyGlyph) {
       return `${currencyGlyph}${value.toLocaleString('en-GB')}`
     }
-    if (PERCENT_UNITS.has(unit.toLowerCase())) {
+    if (classifyUnit(unit).kind === 'percent') {
       return `${value.toLocaleString('en-GB')}%`
     }
     return `${value.toLocaleString('en-GB')} ${unit}`
