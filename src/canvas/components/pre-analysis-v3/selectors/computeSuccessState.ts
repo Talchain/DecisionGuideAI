@@ -30,10 +30,29 @@ export interface SuccessState {
   scaleAmbiguous: boolean
 }
 
+/**
+ * The wire spells the percent unit as the WORD 'percent' (CEE's
+ * `goal_threshold_unit`), but `classifyUnit` recognises only the glyph '%'
+ * (see src/utils/unitClassifier.ts — `if (trimmed === '%')`). So 'percent'
+ * fell through to `kind: 'other'` and rendered as a trailing suffix:
+ * "20 percent" rather than "20%".
+ *
+ * Surfaced by C2, when the Decision Overview card was routed through this
+ * selector: the card's own retired unit mapper DID recognise the word, so the
+ * two surfaces disagreed on the same value — the card said "20%" and the
+ * pre-analysis hero said "20 percent". Normalising here makes both agree, on
+ * the better of the two renderings, without widening `classifyUnit` (a
+ * primitive with many other consumers and its own tests).
+ */
+function normaliseUnitForDisplay(unit: string): string {
+  const lower = unit.trim().toLowerCase()
+  return lower === 'percent' || lower === 'percentage' ? '%' : unit
+}
+
 function formatWithUnit(value: number, unit: string | null): string {
   const formatted = Math.abs(value) >= 1000 ? value.toLocaleString('en-GB') : String(value)
   if (!unit) return formatted
-  const { kind, canonical } = classifyUnit(unit)
+  const { kind, canonical } = classifyUnit(normaliseUnitForDisplay(unit))
   if (kind === 'symbol') return `${canonical}${formatted}`
   if (kind === 'iso') return `${canonical} ${formatted}`
   if (kind === 'percent') return `${formatted}%`
