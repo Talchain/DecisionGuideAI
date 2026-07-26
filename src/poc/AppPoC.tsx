@@ -117,7 +117,6 @@ export default function AppPoC() {
   const [components, setComponents] = useState<{
     SandboxStreamPanel?: any
     EngineAuditPanel?: any
-    Whiteboard?: any
   }>({})
 
 
@@ -311,12 +310,6 @@ export default function AppPoC() {
       } catch (e) {
         console.warn('POC: EngineAuditPanel not available', e)
       }
-      try {
-        const mod = await import('../components/Whiteboard')
-        loaded.Whiteboard = mod.default
-      } catch (e) {
-        console.warn('POC: Whiteboard not available', e)
-      }
       setComponents(loaded)
     })()
   }, [])
@@ -429,7 +422,7 @@ export default function AppPoC() {
     }
   }
 
-  const { SandboxStreamPanel, EngineAuditPanel, Whiteboard } = components
+  const { SandboxStreamPanel, EngineAuditPanel } = components
   const canUndo = hist.undo.length > 0
   const canRedo = hist.redo.length > 0
   const viewNodes = useMemo(
@@ -836,20 +829,8 @@ export default function AppPoC() {
                 </div>
               )}
 
-              {Whiteboard && (
-                <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '16px' }}>
-                  <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 600 }}>Whiteboard</h3>
-                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
-                    POC: Live collaboration disabled; using local doc
-                  </div>
-                  <Suspense fallback={<div>Loading...</div>}>
-                    <Whiteboard />
-                  </Suspense>
-                </div>
-              )}
-
               {/* POC: Component status */}
-              {!SandboxStreamPanel && !EngineAuditPanel && !Whiteboard && (
+              {!SandboxStreamPanel && !EngineAuditPanel && (
                 <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '16px' }}>
                   <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 600 }}>Real Components</h3>
                   <div style={{ fontSize: '14px', color: '#6b7280' }}>
