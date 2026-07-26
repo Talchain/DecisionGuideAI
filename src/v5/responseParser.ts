@@ -176,22 +176,38 @@ export type OlumiResponseWithExtensions = OlumiResponse & {
   readonly [ADDITIVE_EXTENSIONS_KEY]?: Readonly<Record<string, unknown>>;
 };
 
-/** Top-level keys the strict OlumiResponseSchema declares. */
-const KNOWN_OLUMI_TOP_LEVEL_KEYS: ReadonlySet<string> = new Set([
-  'response_version',
-  'assistant_text',
-  'blocks',
-  'suggested_actions',
-  'insights',
-  'stage_indicator',
-  'draft_graph',
-  'analysis_ready',
-  // 0.15.0: reasoning is a declared optional field on the strict schema —
-  // it must reach strict validation, not be demoted to the __additive__
-  // sidecar (which would blank parsed.reasoning forever once CEE migrates
-  // off the legacy _reasoning sidecar key).
-  'reasoning',
-]);
+/**
+ * Top-level keys the strict OlumiResponseSchema declares — DERIVED from the
+ * schema itself, never restated.
+ *
+ * This used to be a hand-written list, and its docstring made exactly the
+ * claim above while being FALSE: at the vendored 0.22.0 pin the schema
+ * declared 13 keys and the list allowed 9. The four it silently withheld —
+ * `framing_question`, `decision_classification`, `framing_quality`,
+ * `graph_hash` — are precisely the fields the contract added so consumers
+ * could STOP deriving verdicts client-side. Because everything outside this
+ * set is demoted to the non-enumerable `__additive__` sidecar, each of them
+ * would have read `undefined` off the typed response FOREVER, including
+ * after CEE started emitting them, and the silence would have been
+ * indistinguishable from the producer sending nothing.
+ *
+ * `OlumiResponseSchema` is a plain `z.object(...).strict()`, so `.shape` is
+ * directly enumerable and this derivation stays correct across re-vendors
+ * with no human in the loop. Do NOT convert this back into a literal list:
+ * this repo's dominant defect is the hand-maintained mirror, whose drift
+ * always reads green. (CEE performs the same derivation in
+ * `tests/contract/cee-egress-wire-surface-pin.test.ts`.)
+ *
+ * Note this admits DECLARED keys only. An UNDECLARED root key (e.g.
+ * `coaching`, which the schema still does not declare at 0.22.0) must keep
+ * going to the sidecar — the schema is `.strict()`, so routing an undeclared
+ * key into validation would fail the entire parse. Deriving cannot admit
+ * one; hand-adding could, which is why hand-adding is the hazard here.
+ * Pinned end-to-end in `responseParser.declaredKeysReachStrict.spec.ts`.
+ */
+const KNOWN_OLUMI_TOP_LEVEL_KEYS: ReadonlySet<string> = new Set(
+  Object.keys(OlumiResponseSchema.shape),
+);
 
 /**
  * Split a raw response into the known surface (validated by zod) and a map
