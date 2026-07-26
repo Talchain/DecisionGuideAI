@@ -360,6 +360,14 @@ export const OptionPanel = memo(function OptionPanel({
                   if (verdict.hasLeadingOption === false) return null
                   return <p className={`${typography.panelBody} text-success mt-1`}>Currently the leading option.</p>
                 }
+                // ROADMAP 1.223: both remaining branches presuppose a leading
+                // option — one names it ("the leading option"), one names the
+                // option that is ahead ("Behind {label} by Npp"). Each was
+                // ungated, firing off the local win-max and its own 5pp/10pp
+                // threshold, so on a withheld turn they reinstated exactly the
+                // claim the branch above had just declined to make. Same gate,
+                // same silent-omission convention.
+                if (verdict.hasLeadingOption === false) return null
                 if (gap <= 5) {
                   return <p className={`${typography.panelBody} text-text-body mt-1`}>Within {gap}pp of the leading option. Small model changes could shift this.</p>
                 }

@@ -61,9 +61,26 @@
  * "no clear leading option" about the same run.
  *
  * `decision_brief.headline_banded` (`very_close` | `slightly_ahead` |
- * `clearly_ahead`) refines *how far* ahead when present. The win-probability
- * derivation is the residual fallback for reports carrying neither — it is
- * NOT a second opinion and is never consulted when a producer signal applies.
+ * `clearly_ahead`) refines *how far* ahead when present.
+ *
+ * ## RENDER the owned claim — never DERIVE one (ROADMAP 1.223)
+ *
+ * There is no third authority. A report carrying NEITHER producer signal
+ * yields the `unknown` verdict and no surface may claim a leader.
+ *
+ * This used to be untrue: a residual "Authority 3" banded the win
+ * probabilities itself whenever the producer was silent. CEE #711 then made
+ * SILENCE MEANINGFUL — on a turn whose constraint verdict is withheld, CEE
+ * deliberately drops `headline` / `headline_banded` and nulls
+ * `leading_option_id`, while the per-option win probabilities keep riding the
+ * wire because the DATA is not withheld, only the CLAIM. Authority 3 read
+ * exactly those numbers and rebuilt exactly that claim, so the product
+ * asserted a leader in nine places on the same screen as its own "no option
+ * can be put forward yet".
+ *
+ * The lesson generalises past this one field: once a producer's silence
+ * carries information, a consumer-side fallback does not degrade gracefully —
+ * it OVERWRITES the message. So the fallback is deleted, not gated.
  */
 
 // ─── Producer leader-confidence band (Lane UI-W4, PLoT #200) ────────────────
@@ -153,18 +170,16 @@ export interface DecisionVerdict {
   hasLeadingOption: boolean
   /** Win-probability gap, leader vs strongest rival, in percentage points. */
   gapPp: number | null
-  /** Which authority decided `separation`. Disclosure / debugging only. */
-  source: 'producer_near_tie' | 'producer_band' | 'win_probability' | 'none'
+  /**
+   * Which PRODUCER authority decided `separation`. Disclosure / debugging
+   * only. `'none'` means no producer claim applied and the UI made none of its
+   * own — the only two values that can assert a leading option are the two
+   * producer ones. `'win_probability'` was deleted with Authority 3 (ROADMAP
+   * 1.223); it is absent from this union deliberately, so re-introducing a
+   * UI-derived leader is a type error rather than a silent regression.
+   */
+  source: 'producer_near_tie' | 'producer_band' | 'none'
 }
-
-/**
- * Separation boundary for "there is a leading option at all", in win-probability
- * points. Deliberately the SAME 0.10 the results VM already uses for its
- * `indeterminate` decision state (UI-SEM-006 `GAP_THRESHOLD`) — importing it
- * would create a cycle through `buildResultsVM`, so it is defined here as the
- * canonical value and `buildResultsVM` re-exports it. One number, one meaning.
- */
-export const LEADER_GAP_THRESHOLD = 0.10
 
 /**
  * Win probability at or above which the leader is "clear" rather than merely
@@ -335,24 +350,42 @@ export function deriveDecisionVerdict(
     return { leaderId, separation, hasLeadingOption: true, gapPp, source: 'producer_near_tie' }
   }
 
-  // ── Authority 3: residual fallback on win probabilities ─────────────────
-  // Consulted ONLY when no applicable producer signal exists. Separation, and
-  // separation alone — stability is deliberately not read here (see header).
-  // FP tolerance: 0.50 - 0.40 is 0.09999999999999998 in IEEE-754, so a gap
-  // that is mathematically exactly the threshold must not fall to the tied
-  // side of a knife-edge comparison.
-  const separation: LeaderSeparation =
-    gap < LEADER_GAP_THRESHOLD - FP_EPSILON
-      ? 'tied'
-      : top1.win >= LEADER_CLEAR_WIN_PROBABILITY - FP_EPSILON
-        ? 'clear'
-        : 'slight'
-
+  // ── No applicable producer signal ⇒ NO CLAIM ────────────────────────────
+  //
+  // There used to be an "Authority 3" here: a residual fallback that banded
+  // the win probabilities itself (gap >= 0.10 → a leading option exists,
+  // top win >= 0.65 → 'clear'). It is DELETED, and this is the point of
+  // ROADMAP 1.223.
+  //
+  // CEE #711 made absence the signal. On a turn whose constraint verdict is
+  // WITHHELD, the wire carries `leading_option_id: null` and a
+  // `decision_brief` stripped of `headline` / `headline_banded` — while the
+  // per-option win probabilities correctly still ride it, because the DATA is
+  // not withheld, only the CLAIM. Authority 3 read those numbers and rebuilt
+  // the claim CEE had just withheld: on the live withheld run the render probe
+  // captured (gap 0.346, top win 0.66) it returned `separation: 'clear'`,
+  // `hasLeadingOption: true`, and nine leader surfaces rendered beside CEE's
+  // own "no option can be put forward yet".
+  //
+  // A fallback that reconstructs a withheld claim is not a fallback, it is the
+  // defect — so it is deleted rather than gated. There is no shape of input
+  // under which the UI may author a leader claim the producer did not make.
+  //
+  // Fail toward SILENCE, not toward a denial: `unknown` (surfaces make no
+  // claim in either direction), never `tied` (which licenses "no clear leading
+  // option" — a second claim we equally have no authority for). This also
+  // means a report from an older cached shape, which is indistinguishable from
+  // a withheld one by construction, is handled as no-claim.
+  //
+  // IDENTITY SURVIVES. `leaderId` and `gapPp` are still returned: the module's
+  // own doctrine is that identity and entitlement are different questions, and
+  // non-claiming consumers (ordering, focus, the decision record) must keep
+  // working. Only `hasLeadingOption` — the entitlement — is withheld.
   return {
     leaderId,
-    separation,
-    hasLeadingOption: separation === 'clear' || separation === 'slight',
+    separation: 'unknown',
+    hasLeadingOption: false,
     gapPp,
-    source: 'win_probability',
+    source: 'none',
   }
 }

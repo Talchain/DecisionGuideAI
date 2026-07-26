@@ -83,18 +83,34 @@ export function buildV7Headline(
   // results-panel headline, the canvas badge, the analysis hero, the inspector
   // and the checks footer all quote one answer. Absent verdict (older
   // fixtures) keeps the historic producer-near-tie behaviour.
+  // ROADMAP 1.223: gate on `hasLeadingOption` (the ENTITLEMENT), not on
+  // `separation === 'tied'` (one particular REASON there is no leader).
+  // Those differ exactly on `'unknown'` — which is now what a withheld turn
+  // produces — and on the old gate `'unknown'` fell straight through to
+  // "{winner} performs best".
   const verdict = recommendation.verdict
   const noLeadingOption = verdict
-    ? verdict.separation === 'tied'
+    ? !verdict.hasLeadingOption
     // No verdict (older fixtures / callers): byte-identical legacy behaviour,
     // both denials intact. The live path always carries one.
     : (recommendation.nearTie?.isTie === true || decisionState === 'indeterminate')
   if (noLeadingOption) {
+    // Only a POSITIVE tie call licenses denying a leader. `'unknown'` — the
+    // producer withheld the claim, or sent none — licenses silence: the hero
+    // renders nothing rather than asserting the options are close.
+    if (verdict && verdict.separation === 'unknown') {
+      return { headline: '', subline: null, winProbability, winnerLabel }
+    }
     return {
       // "Too close to call" is reserved for the producer's own explicit tie
       // flag; the shared verdict's other tied paths use the plainer form.
       headline: recommendation.nearTie?.isTie === true ? 'Too close to call' : 'No clear leading option',
-      subline: `${winnerLabel} leads slightly more often`,
+      // The subline used to read "{winner} leads slightly more often" — a
+      // leader claim printed directly beneath "No clear leading option", and
+      // the exact contradictory pair `decisionVerdict`'s own header cites as
+      // the original defect. The headline was fixed then; the subline was
+      // not. It is dropped: a denial does not get a leader for a companion.
+      subline: null,
       winProbability,
       winnerLabel,
     }

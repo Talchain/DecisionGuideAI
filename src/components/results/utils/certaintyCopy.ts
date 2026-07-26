@@ -192,6 +192,27 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
     }
   }
 
+  // ROADMAP 1.223 — the 'unknown' case, which the comment above always said
+  // licenses silence but which no branch actually handled: every rule below
+  // asserts a leading option ("is the leading option", "currently leads",
+  // "leads by N points"), and 'unknown' fell straight through to them.
+  //
+  // 'unknown' now means the producer WITHHELD the leader claim (CEE #711
+  // drops `headline_banded` and nulls `leading_option_id` on a withheld
+  // constraint verdict) or sent none at all. Either way the panel has no
+  // authority to name a leader — and equally none to deny one, so this is
+  // not routed into the tied copy above. The headline states what the panel
+  // can still honestly say; the uncertainty, stability and driver surfaces
+  // beneath it are untouched and keep their own voices.
+  if (verdict != null && !verdict.hasLeadingOption && verdict.separation === 'unknown') {
+    return {
+      headline: 'the analysis did not put an option forward',
+      sub: null,
+      caveat: null,
+      conservative: true,
+    }
+  }
+
   if (optionCount === 1) {
     return {
       headline: `${winnerLabel} is your only option`,

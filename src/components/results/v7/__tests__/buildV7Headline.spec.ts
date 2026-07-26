@@ -51,7 +51,12 @@ describe('buildV7Headline — passthrough hero copy (V7 L4)', () => {
       'sensitive',
     )
     expect(model.headline).toBe('Too close to call')
-    expect(model.subline).toBe('Option A leads slightly more often')
+    // ROADMAP 1.223: the subline used to read "Option A leads slightly more
+    // often" — a leader claim printed directly beneath a denial of one, and
+    // the exact contradictory pair `decisionVerdict`'s header cites as the
+    // original defect. The headline was fixed then and the subline was not.
+    // A denial does not get a leader for a companion.
+    expect(model.subline).toBeNull()
   })
 
   // Legacy path (no shared verdict supplied): both historic denials intact.
