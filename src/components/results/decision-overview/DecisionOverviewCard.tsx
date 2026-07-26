@@ -20,7 +20,7 @@
  * DS v4/5: bg-panel card, panel typography tokens only, Lucide, sentence
  * case, en-GB, no em dashes in prose.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 
 import { useCanvasStore } from '../../../canvas/store'
@@ -160,42 +160,81 @@ export interface DecisionOverviewCardProps {
   stateOverride?: BriefStateOverride
 }
 
+/**
+ * The card's success-measure read, as a MODULE-SCOPE selector returning a
+ * PRIMITIVE (`string | null`) — see the U1 note at its call site for why the
+ * `s.nodes` subscription it replaced was a re-render regression.
+ *
+ * Module scope (rather than an inline arrow) is deliberate: a stable function
+ * identity means Zustand does not have to re-establish the subscription on every
+ * render, and it is testable on its own.
+ *
+ * Typed against the store's own state — DERIVED from `useCanvasStore.getState`
+ * rather than mirroring a field list — so a rename of any field it reads is a
+ * COMPILE error here, not a silent `undefined`. (`CanvasState` itself is not
+ * exported from canvas/store.ts; deriving avoids widening this change into that
+ * file to obtain a type it already publishes through its own getter.)
+ */
+type CanvasStoreState = ReturnType<typeof useCanvasStore.getState>
+
+export function selectSuccessMeasureDisplayText(
+  s: Pick<CanvasStoreState, 'nodes' | 'ceeAnalysisReady' | 'goalConstraints'>,
+): string | null {
+  return computeSuccessState(
+    computeGraphFacts(s.nodes as never).goalNode,
+    (s.ceeAnalysisReady as Record<string, unknown> | null) ?? null,
+    null,
+    s.goalConstraints,
+  ).displayText
+}
+
 export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewCardProps) {
   const analysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
-  // All selectors below return primitives (Zustand inline-selector rule) —
-  // except `nodes`, whose array reference is stable in the store and which is
-  // consumed through a useMemo below rather than a derived-object selector.
-  const nodes = useCanvasStore((s) => s.nodes)
-  const goalConstraints = useCanvasStore((s) => s.goalConstraints)
+  // All selectors below return primitives (Zustand inline-selector rule).
   /**
-   * SUCCESS MEASURE — one reader of one fact (C2).
+   * SUCCESS MEASURE — one reader of one fact (C2), read through ONE PRIMITIVE
+   * selector (U1).
    *
-   * This used to read `store.goalThreshold`, which `deriveGoalThresholdFromNode`
+   * C2 (why this reads the wire at all): this used to read
+   * `store.goalThreshold`, which `deriveGoalThresholdFromNode`
    * (canvas/store.ts) populates ONLY when `data.threshold_source === 'user'`.
    * A CEE-DERIVED threshold (`goal_threshold_raw`, the drafting path's normal
    * output) therefore never reached this card, and it rendered "Success
    * measure missing" — and fell to the derived `thin` state — for a decision
    * that demonstrably had a measure. Meanwhile `computeSuccessState`, reading
    * the same fact off the wire two panels away, returned `isSet: true` and
-   * rendered the value. One fact, two selectors, opposite answers; the one
-   * the user saw was the wrong one.
+   * rendered the value. One fact, two selectors, opposite answers; the one the
+   * user saw was the wrong one. Fixed by REUSING the existing pair rather than
+   * adding a third read: `computeGraphFacts` for goal-node selection and
+   * `computeSuccessState` for the measure — exactly what `usePreAnalysisModel`
+   * does. A local goal-node finder here would have minted precisely the kind of
+   * mirror that change exists to retire.
    *
-   * Fixed by REUSING the existing pair rather than adding a third read:
-   * `computeGraphFacts` for goal-node selection and `computeSuccessState` for
-   * the measure — exactly what `usePreAnalysisModel` does. Writing a local
-   * goal-node finder here would have minted precisely the kind of mirror this
-   * change exists to retire.
+   * U1 (why it is ONE primitive selector and not `s.nodes` + a useMemo): C2
+   * subscribed to `s.nodes` and `s.goalConstraints` directly, on the stated
+   * grounds that the `nodes` array reference "is stable in the store". It is
+   * not. `onNodesChange` does `applyNodeChanges(changes, s.nodes)`, which
+   * returns a NEW array for every change including `position` — once per drag
+   * frame — so `Object.is` stopped suppressing anything and this card
+   * re-rendered its whole subtree while the user dragged. That is the normal
+   * case, not an edge case: OutputsDock mounts the card exactly when a
+   * completed analysis sits beside the canvas, which is when the user drags
+   * nodes to revise.
+   *
+   * Computing INSIDE the selector is strictly less work than the subscription
+   * it replaces: `computeGraphFacts` is one O(nodes) pass and
+   * `computeSuccessState` is O(constraints), against a full subtree re-render
+   * per frame.
+   *
+   * `isSet` is NOT a second subscription: `computeSuccessState` returns a
+   * non-null `displayText` on exactly the branches where `isSet` is true, on
+   * all six return sites. That coupling is pinned by
+   * `__tests__/DecisionOverviewCard.primitiveSelectors.spec.tsx` ("INVARIANT"),
+   * so it cannot drift silently into the card claiming a measure is missing
+   * beside a rendered value.
    */
-  const successState = useMemo(
-    () =>
-      computeSuccessState(
-        computeGraphFacts(nodes as never).goalNode,
-        (analysisReady as Record<string, unknown> | null) ?? null,
-        null,
-        goalConstraints,
-      ),
-    [nodes, analysisReady, goalConstraints],
-  )
+  const successDisplayText = useCanvasStore(selectSuccessMeasureDisplayText)
+  const successIsSet = successDisplayText !== null
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
   const optionCount = useCanvasStore((s) => s.nodes.filter((n) => n.type === 'option').length)
   const constraintCount = useCanvasStore((s) => s.goalConstraints?.length ?? 0)
@@ -251,7 +290,7 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
       ? 'blocked'
       : analysisReady.status !== 'ready'
         ? 'needs_input'
-        : !successState.isSet
+        : !successIsSet
           ? 'thin'
           : 'ready'
   const state: BriefState = stateOverride ?? liveState
@@ -320,9 +359,9 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
   const goalNote =
     savedMeasure != null
       ? `${savedMeasure.metric}: ${savedMeasure.direction === 'decrease_below' ? '≤' : '≥'} ${savedMeasure.threshold}${savedMeasure.unit === 'none' ? '' : savedMeasure.unit}, ${savedMeasure.timeframe}`
-      : !successState.isSet
+      : !successIsSet
         ? OVERVIEW_COPY.goalNoteMissing
-        : `Success target ≥ ${successState.displayText}`
+        : `Success target ≥ ${successDisplayText}`
   // CONTEXT — no claim, rather than a false denial.
   //
   // `currentBriefText` has exactly ONE non-null writer in the whole of src/:
