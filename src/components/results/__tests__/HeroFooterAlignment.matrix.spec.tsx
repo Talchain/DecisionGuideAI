@@ -84,15 +84,31 @@ function makeData(
     recommendationStability: stability,
     robustnessLevel: 'high',
     coachingReadiness: readiness,
-    // SINGLE VERDICT: derived by the REAL product function from the same win
-    // probabilities the fixture gives the options — never hand-written, so
+    // SINGLE VERDICT: still derived by the REAL product function from the same
+    // win probabilities the fixture gives the options — never hand-written, so
     // this matrix cannot pin a verdict the product would not produce.
+    //
+    // ROADMAP 1.223: `deriveDecisionVerdict` no longer infers a leader from the
+    // gap — the PRODUCER states it and the UI quotes it. So the fixture must
+    // now supply the producer signal too. `near_tie` here stands in for PLoT's
+    // `computeNearTie` (threshold 0.10) applied to these very numbers, so the
+    // matrix keeps exercising both sides of the tie call: the default 0.80 vs
+    // 0.20 row is a leader, the 0.52 vs 0.48 row is a tie.
     verdict: deriveDecisionVerdict({
       option_probabilities: {
         'opt-a': { win_probability: wins.winner },
         'opt-b': { win_probability: wins.runnerUp },
       },
-      robustness: { recommended_option_id: 'opt-a' },
+      robustness: {
+        recommended_option_id: 'opt-a',
+        near_tie: {
+          is_tie: wins.winner - wins.runnerUp < 0.10,
+          top_option_id: 'opt-a',
+          second_option_id: 'opt-b',
+          gap: wins.winner - wins.runnerUp,
+          threshold: 0.1,
+        },
+      },
     }),
   }
 

@@ -73,7 +73,8 @@ describe('buildCertaintyCopy — decision table', () => {
       }),
     ).toEqual({
       headline: 'no clear leading option, the result is sensitive to your estimates',
-      sub: `${WINNER} leads slightly more often`,
+      // ROADMAP 1.223: a denial does not get a leader for a companion.
+      sub: null,
       caveat: null,
       conservative: true,
     })
@@ -102,6 +103,49 @@ describe('buildCertaintyCopy — decision table', () => {
     })
     expect(result.headline).toBe(`${WINNER} currently leads`)
     expect(result.caveat).toContain('limited evidence')
+  })
+
+  // ROADMAP 1.223 REGRESSION GUARD — the ordering bug this suite was blind to.
+  //
+  // `deriveDecisionVerdict` returns the `unknown` verdict for TWO reasons: the
+  // producer withheld the leader claim, AND "fewer than two comparable
+  // options" — which every healthy single-option run satisfies. The first cut
+  // of 1.223 put the withheld branch ABOVE the single-option branch, so a
+  // perfectly good one-option run rendered "the analysis did not put an option
+  // forward" — untrue there; nothing was withheld.
+  //
+  // Every other verdict test in this file passes optionCount 3 or omits it, so
+  // none of them could see this. This one pins the ORDER.
+  it('row 3b: a single-option run keeps its own copy even though its verdict is `unknown`', () => {
+    const singleOptionVerdict: DecisionVerdict = {
+      leaderId: null, separation: 'unknown', hasLeadingOption: false, gapPp: null, source: 'none',
+    }
+    const result = buildCertaintyCopy({
+      winnerLabel: WINNER,
+      optionCount: 1,
+      confidenceTier: 'strong',
+      coachingReadiness: 'ready',
+      verdict: singleOptionVerdict,
+    })
+    expect(result.headline).toBe(`${WINNER} is your only option`)
+    expect(result.headline).not.toBe('the analysis did not put an option forward')
+  })
+
+  // Positive control for the guard above: the SAME `unknown` verdict on a
+  // MULTI-option run must still produce the withheld copy. Without this, the
+  // guard could be satisfied by deleting the withheld branch entirely.
+  it('row 3c: the same `unknown` verdict on a multi-option run IS the withheld copy', () => {
+    const withheldVerdict: DecisionVerdict = {
+      leaderId: 'opt_a', separation: 'unknown', hasLeadingOption: false, gapPp: 35, source: 'none',
+    }
+    const result = buildCertaintyCopy({
+      winnerLabel: WINNER,
+      optionCount: 3,
+      confidenceTier: 'strong',
+      coachingReadiness: 'ready',
+      verdict: withheldVerdict,
+    })
+    expect(result.headline).toBe('the analysis did not put an option forward')
   })
 
   it('row 3: single option renders its own copy before any tier check', () => {
@@ -326,7 +370,8 @@ describe('buildCertaintyCopy — decision table', () => {
       expect(result.headline).toBe(
         'no clear leading option, the result is sensitive to your estimates',
       )
-      expect(result.sub).toBe(`${WINNER} leads slightly more often`)
+      // ROADMAP 1.223: the contradictory companion sentence is gone.
+      expect(result.sub).toBeNull()
       expect(result.caveat).toBeNull()
     })
 

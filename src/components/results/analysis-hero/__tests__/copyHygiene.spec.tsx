@@ -50,7 +50,6 @@ const UI_COPY: string[] = [
   HERO_COPY.ghostLegend,
   HERO_COPY.headline.goalWithLimits(L),
   HERO_COPY.headline.goalOnly(L),
-  HERO_COPY.headline.analysisLeads(L),
   HERO_COPY.headline.mostLikelyStrongest(L),
   HERO_COPY.headline.slightlyAhead(L),
   HERO_COPY.headline.noClearLeader,

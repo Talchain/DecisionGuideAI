@@ -44,7 +44,6 @@
 
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { FlipThreshold, OptionResult } from '../types'
-import { GAP_THRESHOLD } from '../buildResultsVM'
 import { formatThreshold } from '../RangeVisualization'
 import { stripEncodingNotation } from '../utils/cleanFactorLabel'
 import { THRESHOLDS } from '../../../lib/mappers/constants'
@@ -416,18 +415,10 @@ export function buildHeroModel(
   // producer value or a comparison of two of them — display calibration
   // only, never fed back into ranking or selection.
 
-  // Win probabilities: the headline leader's own, and the strongest rival's
-  // (for the clear-lead gap). null when the producer did not send one.
-  const winProbOf = (o: OptionResult): number | null =>
-    typeof o.winProbability === 'number' ? o.winProbability : null
-  const leaderOption = options.find((o) => o.id === recommendedId) ?? null
-  const leadWinP = leaderOption ? winProbOf(leaderOption) : null
-  let rivalWinP: number | null = null
-  for (const o of options) {
-    if (o.id === recommendedId) continue
-    const w = winProbOf(o)
-    if (w != null && (rivalWinP == null || w > rivalWinP)) rivalWinP = w
-  }
+  // (The headline leader's own win probability and the strongest rival's used
+  // to be computed here, to band the leader claim when the producer sent no
+  // band. Both are gone with that branch — ROADMAP 1.223. The win
+  // probabilities themselves are unaffected: the rows still render them.)
 
   // Producer band (PLoT decision_brief.headline_banded, normalised
   // fail-closed upstream): applied ONLY when it names the exact leader the
@@ -459,17 +450,19 @@ export function buildHeroModel(
     headlineRow != null &&
     producerBand.leaderOptionId === headlineRow.id
 
-  // Band thresholds (UI-SEM-060 residual fallback — consulted ONLY when no
-  // applicable producer band exists): 0.65 = strong/likely leader (the
-  // "most likely to be strongest overall" claim is safe well past the
-  // coin-flip); 0.5 = majority; GAP_THRESHOLD (0.10) is the SAME win-gap
-  // the Results Panel's decisionState uses for 'indeterminate'
-  // (UI-SEM-006), so the hero can never call "no clear leader" by a
-  // different standard than the panel below. Sub-majority leaders with a
-  // clear gap over the strongest rival (win probabilities dilute as the
-  // option count grows) stay "ahead" — never "no clear leader".
-  const WIN_STRONG_LEADER = 0.65
-  const WIN_MAJORITY = 0.5
+  // UI-SEM-060 (ROADMAP 1.223): the band comes from a PRODUCER claim or it
+  // does not come at all.
+  //
+  // A third branch used to sit here, banding the win probabilities itself
+  // (>= 0.65 "strong", >= 0.50 "ahead", gap >= GAP_THRESHOLD "ahead"). It is
+  // DELETED. CEE #711 made the absence of `headline_banded` the signal that
+  // the leader claim is WITHHELD, while the win probabilities keep riding the
+  // wire — so re-banding them here reconstructed precisely the claim the
+  // producer had just withheld, and put "X is slightly ahead" on the same
+  // screen as "no option can be put forward yet".
+  //
+  // `null` now means one thing only: NO OWNED CLAIM. It is handled at the
+  // headline below by declining to name a leader, never by inventing a band.
   let leaderBand: 'strong' | 'ahead' | 'none' | null = null
   if (sharedVerdictApplies) {
     // clear → "most likely to be strongest overall"
@@ -488,13 +481,6 @@ export function buildHeroModel(
         : producerBand.band === 'slightly_ahead'
           ? 'ahead'
           : 'none'
-  } else if (leadWinP != null) {
-    if (leadWinP >= WIN_STRONG_LEADER) leaderBand = 'strong'
-    else if (leadWinP >= WIN_MAJORITY) leaderBand = 'ahead'
-    else if (rivalWinP != null)
-      leaderBand = leadWinP - rivalWinP >= GAP_THRESHOLD ? 'ahead' : 'none'
-    // Below majority with no rival win probability to compare against the
-    // band stays null — the unbanded fallback claim, never a guess.
   }
 
   // Signal (3): the top-two rendered outcome rows' p10-p90 ranges intersect
@@ -614,6 +600,15 @@ export function buildHeroModel(
     // so they stay honest whether or not the leader also has the strongest
     // expected outcome; no band at all falls back to the unbanded
     // analysis claim.
+    // `null` = NO OWNED CLAIM (ROADMAP 1.223). It used to fall through to
+    // `analysisLeads` — "{label} currently leads the overall analysis." —
+    // which is a leader claim, and exactly the sentence a withheld turn must
+    // not produce. It now takes the neutral comparison headline: SILENCE, not
+    // a denial. `noClearLeader` ("No option is clearly ahead.") is reserved
+    // for `'none'`, where the producer positively said the options are close;
+    // asserting it on a withheld turn would swap one unearned claim for
+    // another. Same doctrine as `decisionVerdict`: 'unknown' licenses silence,
+    // never a denial.
     headline =
       leaderBand === 'strong'
         ? HERO_COPY.headline.mostLikelyStrongest(safeLabel(headlineRow))
@@ -621,7 +616,7 @@ export function buildHeroModel(
           ? HERO_COPY.headline.slightlyAhead(safeLabel(headlineRow))
           : leaderBand === 'none'
             ? HERO_COPY.headline.noClearLeader
-            : HERO_COPY.headline.analysisLeads(safeLabel(headlineRow))
+            : HERO_COPY.headline.noLeader
   } else if (outcomeAvailable && outcomeLeaderRow && !topOutcomesReadoutTied) {
     // No recommended option among the rows: headline the outcome fact
     // itself — but ONLY when the outcome lens is actually visible (centres
@@ -644,9 +639,13 @@ export function buildHeroModel(
   let subline: string | null = null
   const bandedNoGoalClaim =
     rows.length > 1 && !allGoalBelowFloor && !goalLeaderRow && headlineRow != null
-  if (bandedNoGoalClaim && leaderBand === 'none') {
+  if (bandedNoGoalClaim && (leaderBand === 'none' || leaderBand === null)) {
     // State C: no leader was claimed, so no divergence exists to state —
     // the companion line points at the comparison without risking a name.
+    // `null` (no owned claim, ROADMAP 1.223) joins this branch: the tension
+    // subline below names an option as having "the highest expected outcome",
+    // which is comparative language derived from raw numbers, and on a
+    // withheld turn it simply relocates the leader claim one line down.
     subline = HERO_COPY.subline.compareTop
   } else if (rows.length > 1 && outcomeAvailable && outcomeLeaderRow) {
     // The row the headline actually names: the goal-fit crown when one

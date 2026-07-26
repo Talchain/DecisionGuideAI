@@ -33,6 +33,23 @@ vi.mock('../../store', () => ({
   useCanvasStore: vi.fn((selector) => selector(makeStoreState())),
 }))
 
+// ROADMAP 1.223 — RENDER the producer's leader claim, never DERIVE one.
+// `deriveDecisionVerdict` no longer bands raw win probabilities into a leader
+// verdict, so a fixture carrying only `option_probabilities` licenses NO leader
+// surface at all. Every fixture below that expects the "Leading option" badge
+// (or any other leader-gated copy) therefore carries an explicit producer
+// signal, and every fixture that expects the badge to be ABSENT carries one too
+// — otherwise the absence assertion passes by testing nothing (trap 13).
+//
+// `near_tie` is PLoT's own answer to "is there a clear leader?"
+// (`computeNearTie`, threshold 0.10). Its `top_option_id` names the
+// WIN-PROBABILITY RANK-1 option, and that is what the verdict's identity gate
+// checks it against — NOT `recommended_option_id`. A producer claim about
+// option X is never re-pointed at option Y.
+const producerLeaderClaim = (winArgmaxOptionId: string) => ({
+  near_tie: { is_tie: false, top_option_id: winArgmaxOptionId },
+})
+
 // UI-SEM-088 gate: OptionNode's "chance of target" badge routes through
 // selectGoalProbability, which reads this constant. Mutable getter so the
 // suite can pin both the gate-ON suppression and the gate-OFF positive control.
@@ -152,7 +169,9 @@ describe('OptionNode', () => {
     expect(screen.getByText('72% win probability')).toBeDefined()
   })
 
-  // T7: Leading option badge
+  // T7: Leading option badge. Post-1.223 this is the POSITIVE CONTROL against
+  // over-suppression: with the producer's own leader claim on the report, the
+  // badge must still render on the option that claim names.
   it('shows Leading option badge for highest winRate option', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -177,6 +196,8 @@ describe('OptionNode', () => {
               'option-1': { goal_probability: 0.8, confidence: 0.5, win_probability: 0.72 },
               'option-2': { goal_probability: 0.4, confidence: 0.5, win_probability: 0.28 },
             },
+            // Producer claim: option-1 (the win argmax) leads.
+            robustness: producerLeaderClaim('option-1'),
           },
         },
         nodes: [
@@ -189,6 +210,10 @@ describe('OptionNode', () => {
     expect(screen.getByText('Leading option')).toBeDefined()
   })
 
+  // Discrimination pin: the producer claim names option-2, and the rendered
+  // node is option-1. The badge must follow the claim's identity, not merely
+  // the presence of a claim — so this stays RED if the badge ever fires on
+  // "some leader exists" without checking WHICH option.
   it('does not show Leading option badge for non-highest option', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -212,6 +237,8 @@ describe('OptionNode', () => {
               'option-1': { goal_probability: 0.4, confidence: 0.5, win_probability: 0.28 },
               'option-2': { goal_probability: 0.8, confidence: 0.5, win_probability: 0.72 },
             },
+            // A leading option DOES exist on this run — it just isn't this node.
+            robustness: producerLeaderClaim('option-2'),
           },
         },
         nodes: [
@@ -227,6 +254,13 @@ describe('OptionNode', () => {
   // Cross-surface parity: the badge follows the backend recommendation
   // (recommended_option_id) so it agrees with the Results Panel, which honours
   // it first. Win-max is only the fallback when no recommendation is sent.
+  //
+  // Post-1.223 these two tests separate the two questions the verdict keeps
+  // apart. ENTITLEMENT ("is there a leader at all?") comes from the producer
+  // signal, whose `top_option_id` describes the WIN-PROBABILITY RANK-1 option.
+  // IDENTITY ("who is it?") is then redirected by `recommended_option_id`.
+  // So both fixtures name the win argmax in `near_tie` and the recommendation
+  // in `recommended_option_id`, and they deliberately disagree.
   it('does not badge the win-max option when the backend recommends another (recommended_option_id wins)', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null, influence: null, confidence: null, inSensitivityAnalysis: false,
@@ -242,7 +276,9 @@ describe('OptionNode', () => {
               'option-1': { win_probability: 0.72 },
               'option-2': { win_probability: 0.28 },
             },
-            robustness: { recommended_option_id: 'option-2' },
+            // Entitlement: the producer says the win argmax (option-1) leads.
+            // Identity: the producer recommends option-2 instead.
+            robustness: { recommended_option_id: 'option-2', ...producerLeaderClaim('option-1') },
           },
         },
         nodes: [
@@ -271,7 +307,11 @@ describe('OptionNode', () => {
               'option-1': { win_probability: 0.28 },
               'option-2': { win_probability: 0.72 },
             },
-            robustness: { recommended_option_id: 'option-1' },
+            // Entitlement: the producer's claim describes the win argmax, which
+            // is option-2 here — naming option-1 would NOT apply (identity gate)
+            // and the badge would vanish from both nodes. Identity: the producer
+            // recommends option-1, so the badge lands on the rendered node.
+            robustness: { recommended_option_id: 'option-1', ...producerLeaderClaim('option-2') },
           },
         },
         nodes: [
@@ -511,6 +551,10 @@ describe('OptionNode', () => {
   })
 
   // V3: Leading option badge uses text-text-body (WCAG AA contrast on bg-success-light)
+  //
+  // Producer signal here is `decision_brief.headline_banded` rather than
+  // `near_tie`, so the canvas badge is pinned against BOTH producer authorities
+  // somewhere in this suite, not just the first one.
   it('Leading option badge uses text-text-body (not text-success)', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -533,6 +577,13 @@ describe('OptionNode', () => {
             option_probabilities: {
               'option-1': { goal_probability: 0.8, confidence: 0.5, win_probability: 0.72 },
               'option-2': { goal_probability: 0.4, confidence: 0.5, win_probability: 0.28 },
+            },
+            decision_brief: {
+              headline_banded: {
+                band: 'clearly_ahead',
+                leader_option_id: 'option-1',
+                robustness_gated: false,
+              },
             },
           },
         },
@@ -895,7 +946,15 @@ describe('OptionNode', () => {
   })
 
   it('shows Leading option badge when a non-canvas option has higher rate in report', () => {
-    // P0-2: only visible canvas option IDs count when computing max
+    // P0-2: only visible canvas option IDs count when computing max.
+    //
+    // Post-1.223 the fixture also pins WHICH argmax the producer's identity gate
+    // is checked against. `near_tie.top_option_id` names option-1, the argmax
+    // among VISIBLE options — the visible filter runs before the argmax is
+    // taken. Drop that filter and rank 1 becomes option-hidden (0.95), the
+    // producer claim no longer applies, the verdict falls to `unknown`, and the
+    // badge disappears — so this stays a real pin on the filter, not just on
+    // the badge.
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -920,6 +979,8 @@ describe('OptionNode', () => {
               'option-1': { goal_probability: 0.8, confidence: 0.5, win_probability: 0.72 },
               'option-2': { goal_probability: 0.4, confidence: 0.5, win_probability: 0.28 },
             },
+            // Names the argmax AMONG VISIBLE OPTIONS, not option-hidden.
+            robustness: producerLeaderClaim('option-1'),
           },
         },
         nodes: [
@@ -2079,14 +2140,16 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
       results: {
         status: 'complete',
         report: {
-          robustness: { recommended_option_id: 'option-1' },
-          // SINGLE VERDICT (2026-07-25): widened from 0.54/0.45. That 9pp gap
-          // sits INSIDE PLoT's own near-tie threshold (0.10), so under the
-          // shared verdict there is no leading option and the leader copy
-          // these tests are about is correctly suppressed. The win split is
-          // incidental to what this block asserts (which FACTOR winsVia names
-          // and whether it may claim "#1 driver"), so it is set to a genuine
-          // lead rather than the suppression case.
+          // ROADMAP 1.223: `winsVia` is leader copy, so it only renders when the
+          // PRODUCER has claimed a leader — the UI may no longer band the win
+          // probabilities into one itself. The claim names option-1, which is
+          // both the win argmax (identity gate) and the recommendation. The
+          // win split is incidental to what this block asserts (which FACTOR
+          // winsVia names, and whether it may claim "#1 driver"); it stays at
+          // 0.70/0.29 — widened from 0.54/0.45 in the 2026-07-25 SINGLE VERDICT
+          // change, because that 9pp gap sat inside PLoT's own near-tie
+          // threshold (0.10).
+          robustness: { recommended_option_id: 'option-1', ...producerLeaderClaim('option-1') },
           option_probabilities: {
             'option-1': { win_probability: 0.70 },
             'option-2': { win_probability: 0.29 },

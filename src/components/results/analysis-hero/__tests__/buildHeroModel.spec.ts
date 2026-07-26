@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildHeroModel } from '../buildHeroModel'
 import { sortOptionsForDisplay } from '../../utils/optionDisplayOrder'
+import { HERO_COPY } from '../heroCopy'
 import type { HeroChartModel } from '../heroTypes'
 import {
   FULL_COMPLETENESS,
@@ -18,6 +19,7 @@ import {
   OPTION_B,
 } from '../__fixtures__/hero.fixtures'
 import type { ResultCompleteness } from '../../useResultCompleteness'
+import type { DecisionResultData } from '../../types'
 
 function chart(model: ReturnType<typeof buildHeroModel>): HeroChartModel {
   expect(model.kind).toBe('chart')
@@ -39,6 +41,26 @@ const CONSTRAINT = {
   ],
   joint_probability: 0.49,
 }
+
+/**
+ * The PRODUCER's leader verdict — the one authority entitled to say whether a
+ * decision has a leading option (src/lib/decisionVerdict.ts). ROADMAP 1.223
+ * deleted the UI's residual win-probability banding, so a run that carries no
+ * producer signal gets NO leader claim however decisive its raw numbers look:
+ * every test below that asserts banded copy must supply this, and every test
+ * that omits it is asserting the no-claim contract.
+ */
+const producerVerdict = (
+  separation: 'clear' | 'slight' | 'tied',
+  gapPp: number,
+  leaderId = 'opt_b',
+) => ({
+  leaderId,
+  separation,
+  hasLeadingOption: separation !== 'tied',
+  gapPp,
+  source: 'producer_near_tie' as const,
+})
 
 describe('buildHeroModel — boundary values', () => {
   it('goal-fit values equal the adapted goalProbability exactly', () => {
@@ -140,26 +162,43 @@ describe('buildHeroModel — leaders and headline', () => {
     // must not claim B "best fits your goal" beside a "—" readout for B.
     // The leader claim reframes to the analysis basis, and the divergence
     // subline is PERSISTENT — B is not the outcome leader, so the tension
-    // is stated even without a goal basis. (winProbability stripped so the
-    // unbanded fallback claim isolates the goal-honesty behaviour.)
+    // is stated even without a goal basis. The reframed claim is the
+    // PRODUCER's verdict naming B (ROADMAP 1.223 — the UI bands nothing
+    // itself); winProbability is stripped so the claim can only be sourced,
+    // never derived, which isolates the goal-honesty behaviour under test.
     const b = makeOption({ ...OPTION_B, goalProbability: undefined, winProbability: undefined })
-    const m = chart(buildHeroModel(makeHeroData({ options: [OPTION_A, b] })))
+    const m = chart(
+      buildHeroModel(
+        makeHeroData({
+          options: [OPTION_A, b],
+          recommendation: { verdict: producerVerdict('slight', 12) },
+        }),
+      ),
+    )
     expect(m.lenses).toContain('goal')
     expect(m.leaders.goal).toBeNull()
-    expect(m.headline).toBe('Upskill the team currently leads the overall analysis.')
-    expect(m.subline).toBe('Two developers has the highest expected outcome.')
+    expect(m.headline).toBe(HERO_COPY.headline.slightlyAhead('Upskill the team'))
+    expect(m.subline).toBe(HERO_COPY.subline.highestOutcome('Two developers'))
   })
 
   it('does not goal-headline a recommended option whose goal value floors below 1% (mixed coverage)', () => {
     // A carries no goal value; recommended B sits below the sub-1% floor.
     // "Best fits your goal" beside a "< 1%" readout would be false — the
-    // headline falls through to the analysis-leader wording. (winProbability
-    // stripped so the unbanded claim isolates the goal-honesty behaviour.)
+    // headline falls through to the analysis-leader wording, banded by the
+    // PRODUCER's verdict (winProbability stripped so the claim can only be
+    // sourced, which isolates the goal-honesty behaviour under test).
     const a = makeOption({ ...OPTION_A, goalProbability: undefined })
     const b = makeOption({ ...OPTION_B, goalProbability: 0.004, winProbability: undefined })
-    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
+    const m = chart(
+      buildHeroModel(
+        makeHeroData({
+          options: [a, b],
+          recommendation: { verdict: producerVerdict('slight', 12) },
+        }),
+      ),
+    )
     expect(m.leaders.goal).toBeNull()
-    expect(m.headline).toBe('Upskill the team currently leads the overall analysis.')
+    expect(m.headline).toBe(HERO_COPY.headline.slightlyAhead('Upskill the team'))
   })
 
   it('no-option-on-track headline is constraint-aware (goal and limits wording)', () => {
@@ -296,7 +335,16 @@ describe('buildHeroModel — leaders and headline', () => {
 
 describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
   // No goal values anywhere: the headline takes the no-goal-basis leader
-  // branch, where the win-probability banding applies.
+  // branch, where the leader claim is banded.
+  //
+  // ROADMAP 1.223: the band is the PRODUCER's (the shared verdict, or
+  // decision_brief.headline_banded) — the UI's own win-probability banding is
+  // DELETED, so these tests supply the producer claim whose COPY SELECTION
+  // (and the subline calibration that hangs off it) is under test. The win
+  // probabilities stay in the fixtures because they still drive the row detail
+  // lines and the display order; they no longer authorise any claim. The runs
+  // that deliberately carry NO producer signal assert the no-claim contract
+  // instead, at both ends of the win-probability range.
   const noGoal = (o: ReturnType<typeof makeOption>) =>
     makeOption({ ...o, goalProbability: undefined })
 
@@ -306,10 +354,13 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
     // Overlap must only append the advisory — never "top options are close".
     const a = noGoal(makeOption({ ...OPTION_A, winProbability: 0.2, expected: 8, outcome: { mean: 8, p10: -5, p50: 8, p90: 25 } }))
     const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.77, expected: 22, outcome: { mean: 22, p10: -1, p50: 22, p90: 45 } }))
-    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
-    expect(m.headline).toBe('Upskill the team is most likely to be strongest overall.')
+    const m = chart(buildHeroModel(makeHeroData({
+      options: [a, b],
+      recommendation: { verdict: producerVerdict('clear', 57) },
+    })))
+    expect(m.headline).toBe(HERO_COPY.headline.mostLikelyStrongest('Upskill the team'))
     expect(m.subline).toBe(
-      'Upskill the team has the highest expected outcome. Realistic ranges overlap, so validate the assumptions before deciding.',
+      `${HERO_COPY.subline.highestOutcome('Upskill the team')} ${HERO_COPY.subline.overlapAdvisory}`,
     )
     expect(`${m.headline} ${m.subline}`).not.toMatch(/close/i)
   })
@@ -318,27 +369,36 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
     // Ranges disjoint: B 70..90, A 40..60.
     const a = noGoal(makeOption({ ...OPTION_A, winProbability: 0.2, expected: 50, outcome: { mean: 50, p10: 40, p50: 50, p90: 60 } }))
     const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.8, expected: 80, outcome: { mean: 80, p10: 70, p50: 80, p90: 90 } }))
-    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
-    expect(m.headline).toBe('Upskill the team is most likely to be strongest overall.')
-    expect(m.subline).toBe('Upskill the team has the highest expected outcome.')
+    const m = chart(buildHeroModel(makeHeroData({
+      options: [a, b],
+      recommendation: { verdict: producerVerdict('clear', 60) },
+    })))
+    expect(m.headline).toBe(HERO_COPY.headline.mostLikelyStrongest('Upskill the team'))
+    expect(m.subline).toBe(HERO_COPY.subline.highestOutcome('Upskill the team'))
   })
 
   it('strong but diverged leader keeps the persistent divergence subline', () => {
     // Recommended B wins 80% but A has the higher centre; disjoint ranges.
     const a = noGoal(makeOption({ ...OPTION_A, winProbability: 0.2, expected: 80, outcome: { mean: 80, p10: 70, p50: 80, p90: 90 } }))
     const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.8, expected: 50, outcome: { mean: 50, p10: 40, p50: 50, p90: 60 } }))
-    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
-    expect(m.headline).toBe('Upskill the team is most likely to be strongest overall.')
-    expect(m.subline).toBe('Two developers has the highest expected outcome.')
+    const m = chart(buildHeroModel(makeHeroData({
+      options: [a, b],
+      recommendation: { verdict: producerVerdict('clear', 60) },
+    })))
+    expect(m.headline).toBe(HERO_COPY.headline.mostLikelyStrongest('Upskill the team'))
+    expect(m.subline).toBe(HERO_COPY.subline.highestOutcome('Two developers'))
   })
 
   it('sub-strong majority leader is "slightly ahead", naming the runner-up ONLY when the outcome gap is genuinely small', () => {
     // Win 55%; centres 68 vs 67 (gap 1 ≤ 15% of 68) → runner-up named.
     const a = noGoal(makeOption({ ...OPTION_A, winProbability: 0.45, expected: 67, outcome: { mean: 67, p10: 55, p50: 67, p90: 80 } }))
     const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.55, expected: 68, outcome: { mean: 68, p10: 56, p50: 68, p90: 82 } }))
-    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
-    expect(m.headline).toBe('Upskill the team is slightly ahead.')
-    expect(m.subline).toBe('Two developers is close on expected outcome.')
+    const m = chart(buildHeroModel(makeHeroData({
+      options: [a, b],
+      recommendation: { verdict: producerVerdict('slight', 10) },
+    })))
+    expect(m.headline).toBe(HERO_COPY.headline.slightlyAhead('Upskill the team'))
+    expect(m.subline).toBe(HERO_COPY.subline.closeOnOutcome('Two developers'))
   })
 
   it('"close on expected outcome" never fires from range overlap when the outcome gap is wide', () => {
@@ -346,9 +406,12 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
     // the closeness line must not appear — overlap is not outcome closeness.
     const a = noGoal(makeOption({ ...OPTION_A, winProbability: 0.45, expected: 8, outcome: { mean: 8, p10: -5, p50: 8, p90: 25 } }))
     const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.55, expected: 22, outcome: { mean: 22, p10: -1, p50: 22, p90: 45 } }))
-    const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
-    expect(m.headline).toBe('Upskill the team is slightly ahead.')
-    expect(m.subline).toBe('Upskill the team also has the strongest expected outcome.')
+    const m = chart(buildHeroModel(makeHeroData({
+      options: [a, b],
+      recommendation: { verdict: producerVerdict('slight', 10) },
+    })))
+    expect(m.headline).toBe(HERO_COPY.headline.slightlyAhead('Upskill the team'))
+    expect(m.subline).toBe(HERO_COPY.subline.aligned('Upskill the team'))
     expect(m.subline).not.toMatch(/close|overlap/i)
   })
 
@@ -358,36 +421,51 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
     const a = noGoal(makeOption({ id: 'opt_a2', label: 'Alpha', winProbability: 0.25, expected: 69, outcome: { mean: 69, p10: 57, p50: 69, p90: 81 } }))
     const b = noGoal(makeOption({ id: 'opt_b2', label: 'Beta', winProbability: 0.2, expected: 50, outcome: { mean: 50, p10: 40, p50: 50, p90: 60 } }))
     const c = noGoal(makeOption({ id: 'opt_c2', label: 'Gamma', winProbability: 0.55, isRecommended: true, expected: 70, outcome: { mean: 70, p10: 58, p50: 70, p90: 82 } }))
-    const m = chart(buildHeroModel(makeHeroData({ options: [b, a, c] })))
+    const m = chart(buildHeroModel(makeHeroData({
+      options: [b, a, c],
+      recommendation: { verdict: producerVerdict('slight', 30, 'opt_c2') },
+    })))
     expect(m.rows.map((r) => r.label)).toEqual(['Gamma', 'Alpha', 'Beta'])
-    expect(m.headline).toBe('Gamma is slightly ahead.')
-    expect(m.subline).toBe('Alpha is close on expected outcome.')
+    expect(m.headline).toBe(HERO_COPY.headline.slightlyAhead('Gamma'))
+    expect(m.subline).toBe(HERO_COPY.subline.closeOnOutcome('Alpha'))
   })
 
-  it('near-tied win probabilities below majority claim NO clear leader (shared GAP_THRESHOLD)', () => {
-    // 30% vs 28% — the same 0.10 win-gap the decisionState uses.
+  // ── ROADMAP 1.223: raw win probabilities authorise NOTHING ───────────────
+  // These two used to assert the UI's own banding at either end of the range
+  // (near-tie → "No option is clearly ahead"; a clear sub-majority gap →
+  // "slightly ahead"). That banding is deleted, so both now pin the contract
+  // that replaced it: with no producer claim the hero makes none either.
+  it('near-tied win probabilities with NO producer signal stay SILENT — silence, never a denial', () => {
+    // 30% vs 28%. The UI used to band this "No option is clearly ahead." —
+    // itself an unearned claim. Denying a leader is as much a claim as
+    // asserting one, and the UI has authority for neither.
     const a = noGoal(makeOption({ ...OPTION_A, winProbability: 0.28, expected: 67, outcome: { mean: 67, p10: 55, p50: 67, p90: 80 } }))
     const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.3, expected: 68, outcome: { mean: 68, p10: 56, p50: 68, p90: 82 } }))
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
-    expect(m.headline).toBe('No option is clearly ahead.')
-    expect(m.subline).toBe('Compare the top options before deciding.')
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(m.headline).not.toBe(HERO_COPY.headline.noClearLeader)
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
   })
 
-  it('a sub-majority leader with a clear win-gap stays "slightly ahead" (dilution guard)', () => {
-    // 45% vs 20% among a larger field is a clear lead even below majority —
-    // absolute win probabilities dilute as the option count grows.
+  it('a decisive win gap with NO producer signal earns NO leader claim (the CEE #711 withheld-turn shape)', () => {
+    // 45% vs 20% — decisive by any threshold, and exactly the shape a
+    // withheld turn puts on the wire: the win probabilities keep riding it
+    // because the DATA is not withheld, only the CLAIM. Re-banding them here
+    // is what reconstructed the withheld claim in nine places.
     const a = noGoal(makeOption({ ...OPTION_A, winProbability: 0.2, expected: 67, outcome: { mean: 67, p10: 55, p50: 67, p90: 80 } }))
     const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.45, expected: 68, outcome: { mean: 68, p10: 56, p50: 68, p90: 82 } }))
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
-    expect(m.headline).toBe('Upskill the team is slightly ahead.')
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
+    expect(`${m.headline} ${m.subline}`).not.toMatch(/slightly|most likely|strongest|highest/i)
   })
 
-  it('missing win probabilities fall back to the unbanded claim — banded copy is never guessed', () => {
+  it('missing win probabilities claim nothing — banded copy is never guessed', () => {
     const a = noGoal(makeOption({ ...OPTION_A, winProbability: undefined, expected: 60, outcome: { mean: 60, p10: 45, p50: 60, p90: 70 } }))
     const b = noGoal(makeOption({ ...OPTION_B, winProbability: undefined, expected: 68, outcome: { mean: 68, p10: 55, p50: 68, p90: 85 } }))
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
-    expect(m.headline).toBe('Upskill the team currently leads the overall analysis.')
-    expect(m.subline).toBe('Upskill the team also has the strongest expected outcome.')
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
     expect(`${m.headline} ${m.subline}`).not.toMatch(/close|overlap|slightly|most likely/i)
   })
 })
@@ -395,21 +473,21 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
 describe('buildHeroModel — producer band consumption (PLoT decision_brief.headline_banded)', () => {
   // Producer leg of UI-SEM-060 (PLoT #200): when the producer emits its own
   // leader-confidence band naming the SAME leader the hero headlines, the
-  // producer band drives the banded copy and the UI's win-probability
-  // banding is NOT consulted. The UI fallback applies ONLY when the
-  // producer band is absent (or names a different leader / fails the
-  // normaliser upstream). Bands map onto the existing copy — no new wording.
+  // producer band drives the banded copy. ROADMAP 1.223 removed the other
+  // leg entirely — there is no UI fallback left, so a band that is absent,
+  // names a different leader, or fails the normaliser upstream now yields NO
+  // leader claim at all. Bands map onto the existing copy — no new wording.
   const noGoal = (o: ReturnType<typeof makeOption>) =>
     makeOption({ ...o, goalProbability: undefined })
 
-  // Leader B at 55% win: the UI fallback would band this 'ahead'
-  // ("slightly ahead") — a producer band that says otherwise must win.
+  // Leader B at 55% win — a shape the deleted UI banding would have called
+  // 'ahead' on its own. Every claim below must now come from the producer.
   const options = () => [
     noGoal(makeOption({ ...OPTION_A, winProbability: 0.45, expected: 50, outcome: { mean: 50, p10: 40, p50: 50, p90: 60 } })),
     noGoal(makeOption({ ...OPTION_B, winProbability: 0.55, expected: 80, outcome: { mean: 80, p10: 70, p50: 80, p90: 90 } })),
   ]
 
-  it('producer clearly_ahead → strong claim even where the UI fallback would say "slightly ahead"', () => {
+  it('producer clearly_ahead → strong claim on a run whose raw win probabilities are merely 55/45', () => {
     const m = chart(buildHeroModel(makeHeroData({
       options: options(),
       recommendation: {
@@ -419,9 +497,9 @@ describe('buildHeroModel — producer band consumption (PLoT decision_brief.head
     expect(m.headline).toBe('Upskill the team is most likely to be strongest overall.')
   })
 
-  it('producer very_close → no-clear-leader claim even where the UI fallback would claim strong', () => {
-    // 80% win would band 'strong' in the UI fallback; the producer's
-    // near-tie verdict must override (producer-first, no second opinion).
+  it('producer very_close → no-clear-leader claim on a run whose leader wins 80%', () => {
+    // An 80% win reads as a strong lead in the raw numbers; only the
+    // producer's near-tie band may speak (producer-first, no second opinion).
     const a = noGoal(makeOption({ ...OPTION_A, winProbability: 0.2, expected: 50, outcome: { mean: 50, p10: 40, p50: 50, p90: 60 } }))
     const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.8, expected: 80, outcome: { mean: 80, p10: 70, p50: 80, p90: 90 } }))
     const m = chart(buildHeroModel(makeHeroData({
@@ -444,17 +522,23 @@ describe('buildHeroModel — producer band consumption (PLoT decision_brief.head
     expect(m.headline).toBe('Upskill the team is slightly ahead.')
   })
 
-  it('producer band naming a DIFFERENT leader than the hero headline is not applied (identity gate → UI fallback)', () => {
+  it('producer band naming a DIFFERENT leader than the hero headline is not applied (identity gate → NO claim)', () => {
     // The producer claim is about opt_a; the hero headlines opt_b (the
-    // Results Panel leader). Applying opt_a\'s band to opt_b would transform
-    // meaning, so the UI fallback (55% win → "slightly ahead") applies.
+    // Results Panel leader). Applying opt_a's band to opt_b would transform
+    // meaning, so the band is dropped — and with ROADMAP 1.223 there is
+    // nothing behind it: the gate fails closed to NO leader claim, not to a
+    // UI-derived one. The load-bearing half is unchanged: opt_a's
+    // "clearly ahead" is never spoken about either option.
     const m = chart(buildHeroModel(makeHeroData({
       options: options(),
       recommendation: {
         headlineBanded: { band: 'clearly_ahead', leaderOptionId: 'opt_a', robustnessGated: false },
       },
     })))
-    expect(m.headline).toBe('Upskill the team is slightly ahead.')
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(m.headline).not.toBe(HERO_COPY.headline.mostLikelyStrongest('Upskill the team'))
+    expect(m.headline).not.toBe(HERO_COPY.headline.mostLikelyStrongest('Two developers'))
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
   })
 
   // ── SINGLE VERDICT (2026-07-25) ──────────────────────────────────────────
@@ -485,20 +569,29 @@ describe('buildHeroModel — producer band consumption (PLoT decision_brief.head
     expect(m.headline).toBe('Upskill the team is most likely to be strongest overall.')
   })
 
-  it('SINGLE VERDICT identity gate: a verdict naming a different leader is not applied', () => {
+  it('SINGLE VERDICT identity gate: a verdict naming a different leader is not applied (→ NO claim)', () => {
     const m = chart(buildHeroModel(makeHeroData({
       options: options(),
       recommendation: {
         verdict: { leaderId: 'opt_a', separation: 'tied', hasLeadingOption: false, gapPp: 1, source: 'producer_near_tie' },
       },
     })))
-    // Falls through to the UI fallback (55% win → "slightly ahead").
-    expect(m.headline).toBe('Upskill the team is slightly ahead.')
+    // The verdict is about opt_a; the hero headlines opt_b. Neither the tie
+    // it declares nor any UI-derived substitute may be spoken about opt_b —
+    // the gate fails closed to silence (ROADMAP 1.223).
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(m.headline).not.toBe(HERO_COPY.headline.noClearLeader)
+    expect(m.headline).not.toBe(HERO_COPY.headline.slightlyAhead('Upskill the team'))
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
   })
 
-  it('absent producer band → UI fallback banding unchanged (UI-SEM-060 residual)', () => {
+  it('absent producer band → NO leader claim (the UI-SEM-060 residual fallback is deleted)', () => {
+    // The residual fallback this test used to pin ("55% win → slightly
+    // ahead") is gone: an absent band is now indistinguishable from a
+    // withheld claim, so the hero declines to speak rather than degrade.
     const m = chart(buildHeroModel(makeHeroData({ options: options() })))
-    expect(m.headline).toBe('Upskill the team is slightly ahead.')
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
   })
 
   it('producer band never invents a leader claim on the goal-basis headline branch', () => {
@@ -521,7 +614,14 @@ describe('buildHeroModel — readout-tie coherence (UI-SEM-070) and span floor (
   // no win probabilities, four options whose expected outcomes all round to
   // "100". The old subline crowned one as "strongest expected outcome" while
   // every rendered readout was identical.
-  const tiedRun = () =>
+  //
+  // The runs below carry a PRODUCER verdict (ROADMAP 1.223: nothing else may
+  // author a leader claim). That is load-bearing for this suite, not
+  // decoration: UI-SEM-070 is a gate ON the subline the leader claim would
+  // otherwise produce, so without a claim the "never says strongest/highest"
+  // assertions would pass by testing nothing — the neutral no-claim subline
+  // contains neither word by construction (trap 13).
+  const tiedRun = (recommendationOverrides: Partial<DecisionResultData> = {}) =>
     makeHeroData({
       recommendation: {
         goalLabel: 'Ship v2 within 6 months',
@@ -531,6 +631,7 @@ describe('buildHeroModel — readout-tie coherence (UI-SEM-070) and span floor (
         isNormalised: false,
         storyHeadlines: undefined,
         flipThresholds: undefined,
+        ...recommendationOverrides,
       },
       options: [
         noGoal(makeOption({ id: 'opt_contractor', label: 'Outsourced Contractor Team', isRecommended: true, expected: 100.4, outcome: { mean: 100.4, p10: 99.7, p50: 100.4, p90: 101.1 } })),
@@ -546,18 +647,23 @@ describe('buildHeroModel — readout-tie coherence (UI-SEM-070) and span floor (
   })
 
   it('never claims "strongest/highest expected outcome" when the top readouts are identical', () => {
-    const m = chart(buildHeroModel(tiedRun()))
-    // Headline still agrees with the panel's recommended leader (unchanged,
-    // no cross-surface contradiction); only the over-claiming subline is fixed.
-    expect(m.headline).toBe('Outsourced Contractor Team currently leads the overall analysis.')
-    expect(m.subline).toBe('The top options are close on expected outcome.')
+    // The producer claims a clear leader — the strongest pressure on the
+    // subline there is (it is the branch that says "has the highest expected
+    // outcome"). The headline still carries the claim and still names the
+    // panel's recommended leader (no cross-surface contradiction); only the
+    // over-claiming subline is gated.
+    const m = chart(buildHeroModel(tiedRun({ verdict: producerVerdict('clear', 12, 'opt_contractor') })))
+    expect(m.headline).toBe(HERO_COPY.headline.mostLikelyStrongest('Outsourced Contractor Team'))
+    expect(m.subline).toBe(HERO_COPY.subline.outcomesClose)
     expect(m.subline).not.toMatch(/strongest|highest/i)
   })
 
   it('coherence invariant: identical rendered readouts ⇒ no strongest/highest claim (any recommended row)', () => {
     // Rotate which option is recommended; the invariant must hold every time.
+    // The verdict follows the rotation so every pass actually reaches the
+    // claim-bearing subline branches the gate has to suppress.
     for (const recId of ['opt_contractor', 'opt_status_quo', 'opt_juniors', 'opt_senior']) {
-      const data = tiedRun()
+      const data = tiedRun({ verdict: producerVerdict('clear', 12, recId) })
       const opts = data.recommendation.allOptions!.map((o) => ({ ...o, isRecommended: o.id === recId }))
       ;(data.recommendation as { allOptions: unknown }).allOptions = opts
       ;(data.recommendation as { recommendedOption: unknown }).recommendedOption =
@@ -738,18 +844,17 @@ describe('buildHeroModel — lens gating and numbering', () => {
   })
 
   it('hides Goal fit when no option has goalProbability, defaulting to outcome', () => {
-    // (winProbability stripped from the recommended option so the unbanded
-    // fallback claim isolates the lens-gating behaviour under test.)
     const a = makeOption({ ...OPTION_A, goalProbability: undefined })
     const b = makeOption({ ...OPTION_B, goalProbability: undefined, winProbability: undefined })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
     expect(m.lenses).toEqual(['outcome'])
     expect(m.defaultLens).toBe('outcome')
-    // Without a goal basis the headline claims the analysis leader (the
-    // canonical Results Panel leader), never a "strongest" outcome claim —
-    // and the persistent subline names the diverging outcome leader.
-    expect(m.headline).toBe('Upskill the team currently leads the overall analysis.')
-    expect(m.subline).toBe('Two developers has the highest expected outcome.')
+    // Incidental to the lens gate under test, but pinned so a leader claim
+    // cannot creep back in through it: this run carries no producer verdict
+    // or band, so the hero claims no leader at all (ROADMAP 1.223) and never
+    // an outcome-lens "strongest" claim in its place.
+    expect(m.headline).toBe(HERO_COPY.headline.noLeader)
+    expect(m.subline).toBe(HERO_COPY.subline.compareTop)
   })
 
   it('hides Likely outcome when no option has a p10-p90 range', () => {

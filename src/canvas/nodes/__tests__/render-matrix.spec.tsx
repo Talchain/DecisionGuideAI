@@ -622,30 +622,48 @@ describe('Render matrix — DecisionNode chip audit', () => {
     } as any)
   })
 
-  // A decision with at least one option so the pre-analysis branch renders.
-  // Post-analysis branch needs a `report.robustness.recommended_option_id`
-  // pointing at an actual option node so the headline computes. Includes a
-  // missing-value factor + an inferred factor so the legacy pill code (now
-  // removed) would have rendered "1 gap" / "1 estimate" pills — used to assert
-  // the pills are gone.
+  // A decision with options so the pre-analysis branch renders.
+  //
+  // Post-analysis branch: ROADMAP 1.223 routes the "{winner} leads in N% of
+  // scenarios" headline through `deriveDecisionVerdict`, and the ENTIRE
+  // post-analysis body hangs off that headline — the Detailed stability line
+  // and the Detailed post chips included. `recommended_option_id` is no longer
+  // sufficient: it answers "who leads?", never "is there a leader at all?".
+  // The verdict needs both halves —
+  //   · TWO comparable options (below two, "leading" has no meaning), and
+  //   · a producer leader claim (PLoT `computeNearTie`) naming the
+  //     win-probability RANK-1 option, which is what its identity gate checks.
+  // The pre-analysis cells are unaffected: `report` is null there, and the
+  // second option keeps optionCount below the 3 that triage rule 4 keys on.
+  //
+  // Includes a missing-value factor + an inferred factor so the legacy pill
+  // code (now removed) would have rendered "1 gap" / "1 estimate" pills — used
+  // to assert the pills are gone.
   const decisionTopology = (viewMode: ViewMode, phase: Phase, stability?: number): MatrixState => ({
     viewMode,
     phase,
     nodes: [
       { id: 'decision-1', type: 'decision', data: { label: 'Hiring decision', type: 'decision' } },
       { id: 'option-1', type: 'option', data: { label: 'Hire 3', type: 'option' } },
+      { id: 'option-2', type: 'option', data: { label: 'Hire none', type: 'option' } },
       { id: 'factor-missing', type: 'factor', data: { type: 'factor', label: 'Cost', category: 'controllable' } },
       { id: 'factor-inferred', type: 'factor', data: { type: 'factor', label: 'Demand', category: 'controllable', observedState: { value: 0.5, extractionType: 'inferred' } } },
     ],
     edges: [
       { id: 'e1', source: 'decision-1', target: 'option-1', data: {} },
+      { id: 'e2', source: 'decision-1', target: 'option-2', data: {} },
     ],
     report: phase === 'post' ? {
       robustness: {
         recommended_option_id: 'option-1',
         recommendation_stability: stability ?? 0.93,
+        // option-1 is the win argmax, so the producer's claim applies to it.
+        near_tie: { is_tie: false, top_option_id: 'option-1' },
       },
-      option_probabilities: { 'option-1': { win_probability: 0.7 } },
+      option_probabilities: {
+        'option-1': { win_probability: 0.7 },
+        'option-2': { win_probability: 0.3 },
+      },
     } : null,
   })
 

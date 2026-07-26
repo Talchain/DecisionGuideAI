@@ -22,6 +22,7 @@ import { isGoalDefined } from '../../utils/isGoalDefined'
 import { cleanFactorLabel } from '../utils/labelUtils'
 import { biasSignal } from '../shared/biasSignalTitles'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
+import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 
 /** Truncate text at word boundary. */
 function truncateAtWord(text: string, maxLength: number): string {
@@ -206,10 +207,26 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   }, [isPostAnalysis, nodes, edges, goalDefined])
 
   // ---- Post-analysis: winner headline ----
+  //
+  // ROADMAP 1.223: "{X} leads in N% of scenarios" is a comparative leader
+  // claim, so it quotes `deriveDecisionVerdict` — the one module entitled to
+  // say a leading option exists — exactly as the sibling `OptionNode` badge
+  // already does. It previously read `robustness.recommended_option_id`
+  // directly, which answers only "WHO leads?" and never "is there a leader at
+  // all", so on a withheld turn the canvas printed this sentence four inches
+  // from CEE's own "no option can be put forward yet", and directly above an
+  // `OptionNode` that had correctly withheld its "Leading option" badge.
   const headline = useMemo(() => {
     if (!isPostAnalysis || !report) return null
-    const robustness = (report as any)?.robustness
-    const recommendedId = robustness?.recommended_option_id ?? robustness?.recommendedOptionId
+    const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
+    const verdict = deriveDecisionVerdict(report as DecisionVerdictReportLike | null, {
+      visibleOptionIds: new Set(optionNodes.map(n => n.id)),
+    })
+    // No owned leader claim ⇒ no sentence. Silence, not a substitute claim:
+    // the node's stability line and triage chips keep their own voices, and
+    // the win probabilities remain readable on the option nodes themselves.
+    if (!verdict.hasLeadingOption) return null
+    const recommendedId = verdict.leaderId
     if (!recommendedId) return null
 
     const winnerNode = nodes.find(n => n.id === recommendedId)
@@ -318,26 +335,42 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         data={data}
         selected={selected}
       >
-        {/* ===== POST-ANALYSIS ===== */}
-        {headline ? (
+        {/* ===== POST-ANALYSIS =====
+            Branches on the ANALYSIS LIFECYCLE, not on the leader claim.
+            It used to branch on `headline`, which coupled three unrelated
+            things to one gate: withholding the leader sentence also withheld
+            the stability line and the post-analysis chips — and then fell
+            through to the PRE-analysis branch, so a completed run rendered
+            "Run analysis" again. Harmless while `headline` was null only in
+            degenerate cases; a live regression the moment a withheld verdict
+            made it null on a real completed run (ROADMAP 1.223).
+
+            Stability is the axis `decisionVerdict` insists is disclosed
+            SEPARATELY from separation, so suppressing it alongside the leader
+            claim would be the over-suppression half of this same defect. */}
+        {isPostAnalysis && report ? (
           <div className="mt-1">
-            <div
-              className={`${typography.nodeLabel} text-text-body`}
-            >
-              {headline.winnerLabel} leads in {headline.winProb != null ? `${Math.round(headline.winProb * 100)}%` : ''} of scenarios{biggestRisk && biggestRisk.label ? (
-                <>
-                  , but sensitive to{' '}
-                  <button
-                    type="button"
-                    className={`${typography.nodeLabel} text-info underline cursor-pointer nodrag nopan`}
-                    onClick={handleRiskClick}
-                    onPointerDown={(e) => e.stopPropagation()}
-                  >
-                    {truncatedRiskLabel}
-                  </button>
-                </>
-              ) : null}
-            </div>
+            {/* The leader sentence — and ONLY this — is gated on the producer's
+                owned claim. */}
+            {headline && (
+              <div
+                className={`${typography.nodeLabel} text-text-body`}
+              >
+                {headline.winnerLabel} leads in {headline.winProb != null ? `${Math.round(headline.winProb * 100)}%` : ''} of scenarios{biggestRisk && biggestRisk.label ? (
+                  <>
+                    , but sensitive to{' '}
+                    <button
+                      type="button"
+                      className={`${typography.nodeLabel} text-info underline cursor-pointer nodrag nopan`}
+                      onClick={handleRiskClick}
+                      onPointerDown={(e) => e.stopPropagation()}
+                    >
+                      {truncatedRiskLabel}
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            )}
 
             {/* Post-analysis Detailed only: stability + chips inline in body
                 (Detailed has no popover). Standard surfaces both via the

@@ -66,15 +66,14 @@ export const HERO_COPY = {
   headline: {
     goalWithLimits: (label: string) => `${label} best meets the goal and your limits.`,
     goalOnly: (label: string) => `${label} best fits your goal.`,
-    /**
-     * No-goal-basis leader claim. Named leader MUST be the Results Panel's
-     * recommendedOption (the canonical analysis leader — producer-supplied
-     * or win-probability argmax), never an outcome-lens inference: the
-     * retired "currently looks strongest" wording implied outcome-lens
-     * evidence and contradicted the visible chart when the two leaders
-     * diverged (staging trust review).
-     */
-    analysisLeads: (label: string) => `${label} currently leads the overall analysis.`,
+    // DELETED 2026-07-26 (ROADMAP 1.223): `analysisLeads` — "{label} currently
+    // leads the overall analysis." It was the UNBANDED leader claim, reached
+    // only when no band could be resolved. Once the UI stopped banding win
+    // probabilities itself, "no band" came to mean "the producer made no
+    // leader claim", so this string became the exact sentence a withheld turn
+    // must not print. That branch now takes `noLeader` below. Deleted rather
+    // than left dangling: dead copy beside a live selector is an invitation to
+    // re-wire it.
     /**
      * Leader-claim banding — producer-first (Lane UI-W4, PLoT #200): the
      * band is PLoT's own decision_brief.headline_banded when present

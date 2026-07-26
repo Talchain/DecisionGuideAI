@@ -186,15 +186,60 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
   if (verdict?.separation === 'tied') {
     return {
       headline: 'no clear leading option, the result is sensitive to your estimates',
-      sub: `${winnerLabel} leads slightly more often`,
+      // ROADMAP 1.223: this used to carry `${winnerLabel} leads slightly more
+      // often` — a leader claim printed directly beneath a denial of one, and
+      // the exact contradictory pair this module's own header cites as the
+      // original defect. `buildV7Headline` dropped its copy of this sentence;
+      // dropping it here too is what makes that fix consistent rather than
+      // partial. A denial does not get a leader for a companion.
+      sub: null,
       caveat: null,
       conservative: true,
     }
   }
 
+  // ORDER IS LOAD-BEARING: the single-option branch MUST come before the
+  // 'unknown' branch below.
+  //
+  // `deriveDecisionVerdict` returns the `unknown` verdict for TWO different
+  // reasons (decisionVerdict.ts): the producer withheld the leader claim, AND
+  // "fewer than two comparable options" — which every healthy single-option
+  // run satisfies by construction. They need different copy, and the first cut
+  // of ROADMAP 1.223 conflated them: with the 'unknown' branch placed above
+  // this one, a perfectly good one-option run rendered "the analysis did not
+  // put an option forward", which is simply untrue there — nothing was
+  // withheld, there was only ever one option to put forward.
+  //
+  // Ordering, rather than `&& optionCount > 1` on the branch below, is
+  // deliberate: `optionCount` is OPTIONAL on this input, so a caller that
+  // omits it would make that guard false and drop a genuinely withheld turn
+  // through to the leader-asserting rules at the bottom of this function —
+  // the original defect, silently restored. Ordering has no such failure mode.
   if (optionCount === 1) {
     return {
       headline: `${winnerLabel} is your only option`,
+      sub: null,
+      caveat: null,
+      conservative: true,
+    }
+  }
+
+  // ROADMAP 1.223 — the 'unknown' case, which the comment above always said
+  // licenses silence but which no branch actually handled: every rule below
+  // asserts a leading option ("is the leading option", "currently leads",
+  // "leads by N points"), and 'unknown' fell straight through to them.
+  //
+  // Reached only for a MULTI-option run (the branch above claimed the
+  // single-option case), so 'unknown' here means the producer WITHHELD the
+  // leader claim (CEE #711 drops `headline_banded` and nulls
+  // `leading_option_id` on a withheld constraint verdict) or sent none at all.
+  // Either way the panel has no authority to name a leader — and equally none
+  // to deny one, so this is not routed into the tied copy above. The
+  // uncertainty, stability and driver surfaces beneath it are untouched and
+  // keep their own voices.
+  if (verdict != null && !verdict.hasLeadingOption && verdict.separation === 'unknown') {
+    return {
+      headline: 'the analysis did not put an option forward',
       sub: null,
       caveat: null,
       conservative: true,
