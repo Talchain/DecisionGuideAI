@@ -152,6 +152,16 @@ describe('projectAutosaveData — every source field reaches the payload', () =>
     scenarioId: 'scenario-42',
     ceeAnalysisReady: analysisReady,
     selectedGoalNode: 'g2',
+    // The completed analysis (store/scenarios.ts PersistedAnalysis). Given a
+    // real value, not null, so the "every field reaches the payload" loop below
+    // actually exercises it — a null would satisfy `toBeDefined()` while
+    // proving nothing about the projection.
+    analysis: {
+      hash: 'v5:parity',
+      computedAt: '2026-07-26T00:00:00.000Z',
+      resultsSource: 'conversation',
+      report: { summary: 'parity' } as never,
+    },
   }
 
   it('projects every field of a fully-populated source', () => {

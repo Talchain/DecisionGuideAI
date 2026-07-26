@@ -88,6 +88,11 @@ describe('Codex P1-1 — hash-by-default persists previously-lost user fields', 
           edges: [],
           scenarioId: undefined,
           ceeAnalysisReady: undefined,
+          // This case is about a GRAPH field surviving serialize → hydrate.
+          // No analysis has run, so "persist no answer" is the honest value —
+          // stated rather than omitted, per AutosaveProjectionSource's
+          // all-required contract.
+          analysis: null,
           selectedGoalNode: null,
         })
         clearAutosave()

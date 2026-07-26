@@ -19,7 +19,7 @@
 import { useEffect, useRef, useCallback, useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import { saveAutosave, loadAutosave } from '../store/scenarios'
-import { projectAutosaveData } from '../store/autosaveProjection'
+import { projectAutosaveData, analysisSnapshotFromStore } from '../store/autosaveProjection'
 import type { AutosaveProjectionSource } from '../store/autosaveProjection'
 import { EPHEMERAL_NODE_FIELDS, EPHEMERAL_EDGE_FIELDS } from '../domain/analyticalNodeFields'
 
@@ -185,6 +185,19 @@ export function useAutosave() {
               // before use (same justification as crashFlush's).
               ceeAnalysisReady: ceeAnalysisReady as AutosaveProjectionSource['ceeAnalysisReady'],
               selectedGoalNode,
+              // Read at WRITE time from the store, not from a subscribed
+              // selector. Two reasons, both deliberate:
+              //  1. `saveAutosave` REPLACES — if this timer wrote without the
+              //     analysis it would strip the answer `resultsComplete` had
+              //     just persisted, on the next graph edit. That is the exact
+              //     partial-write class this projection exists to prevent.
+              //  2. Subscribing to `results` here would re-render this hook on
+              //     every progress tick during a run for no benefit; the
+              //     debounced callback only needs the value as it fires.
+              // Note the timer CANNOT be the primary writer: its dirty check is
+              // computeGraphHash(nodes, edges) and a completed analysis changes
+              // neither, so it skips. `resultsComplete` does the real write.
+              analysis: analysisSnapshotFromStore(useCanvasStore.getState()),
             },
             now,
           ),

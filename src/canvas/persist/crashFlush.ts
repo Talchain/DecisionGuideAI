@@ -49,6 +49,13 @@ export interface CrashSnapshot {
    */
   ceeAnalysisReady: unknown
   selectedGoalNode: string | null | undefined
+  /**
+   * The completed analysis, or null. Required for the same reason as the rest:
+   * `saveAutosave` REPLACES, so a crash flush that omitted it would strip the
+   * user's answer out of the last good autosave — losing the very thing the
+   * boundary's "your work is auto-saved" promise now covers.
+   */
+  analysis: AutosaveData['analysis'] | undefined
 }
 
 export type CrashSnapshotProvider = () => CrashSnapshot | null

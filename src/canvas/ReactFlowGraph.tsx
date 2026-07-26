@@ -68,6 +68,7 @@ import { useLensFilter } from './hooks/useLensFilter'
 import { useGuidancePulseHighlight } from './hooks/useGuidancePulseHighlight'
 import { useEscapePanel } from './hooks/useEscapePanel'
 import { loadRuns, generateGraphHash } from './store/runHistory'
+import { restoreAnalysisFromAutosave } from './store/restoreAnalysisFromAutosave'
 // HealthStatusBar removed - validation consolidated into OutputsDock panel
 import { DegradedBanner } from './components/DegradedBanner'
 import { LayoutProgressBanner } from './components/LayoutProgressBanner'
@@ -1439,9 +1440,23 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           sessionStorage.setItem('autosave-recovery-dismissed', 'true')
         } catch { /* sessionStorage not available */ }
 
-        // Restore results: try scenario hash first, then fall back to graphHash matching
-        let resultsRestored = false
-        if (autosave.scenarioId) {
+        // ⭐ CANONICAL FIRST: the answer travels IN this autosave record, beside
+        // the graph it was computed over and written in the same
+        // `resultsComplete` call. See store/scenarios.ts `PersistedAnalysis`.
+        //
+        // The two paths below it are the legacy re-derivations and BOTH are
+        // dead on the deployed guest path — live-probed 26 Jul after a real
+        // conversation-driven analysis, `olumi-canvas-scenarios` and
+        // `olumi-canvas-run-history` are BOTH absent, so the scenario lookup
+        // finds no record and the graphHash scan iterates an empty array.
+        // They are kept only for records written before this shipped
+        // (an autosave with no `analysis` key), and are now strictly
+        // subordinate: a canonical hit is never overwritten by a hash guess.
+        let resultsRestored = restoreAnalysisFromAutosave(
+          autosave,
+          useCanvasStore.getState().resultsLoadHistorical,
+        )
+        if (!resultsRestored && autosave.scenarioId) {
           const savedScenario = scenarios.getScenario(autosave.scenarioId)
           if (savedScenario?.last_result_hash) {
             try {
