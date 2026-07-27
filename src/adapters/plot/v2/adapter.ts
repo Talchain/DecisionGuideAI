@@ -27,6 +27,7 @@ import {
   normaliseGraphIds,
   translateResponseToUIIds,
 } from '../../../utils/nodeIdNormalisation'
+import { interventionNumericValue, looksLikeIntervention } from '../../../utils/interventionValue'
 import type { UIOption, UIInterventionValue } from '../../../types/options'
 import type { CEEAnalysisReady, CEEGoalConstraint, CEEOptionV3 } from '../../cee/types'
 import { recordRequestPayload, recordResponsePayload } from '../../../lib/payload-trace-store'
@@ -83,10 +84,49 @@ interface CanvasEdgeData {
 // ============================================================================
 
 /**
+ * Build the "why isn't this ready?" questions for an option.
+ *
+ * Uses `user_questions` — the canvas's EXISTING per-option not-ready
+ * affordance, rendered as question chips by UserMappingForm — rather than
+ * inventing a new surface. Two distinct states, deliberately worded
+ * differently so the user knows which one they are in:
+ *
+ *  - a target whose intervention exists but carries no usable number → name it,
+ *    because that is the thing the user has to go and fix;
+ *  - no usable interventions at all → the pre-existing generic pair.
+ */
+function interventionQuestions(
+  unusableTargets: string[],
+  labelByNodeId: Map<string, string>,
+  hasValidInterventions: boolean,
+): string[] {
+  const questions: string[] = []
+  for (const targetId of unusableTargets) {
+    const targetLabel = labelByNodeId.get(targetId) ?? targetId
+    questions.push(
+      `The value set for "${targetLabel}" isn't a number this analysis can use. ` +
+        `What value should "${targetLabel}" have if this option is chosen?`,
+    )
+  }
+  if (!hasValidInterventions) {
+    questions.push('Which causal variable(s) does this option affect?')
+    questions.push('What value should that variable have if this option is chosen?')
+  }
+  return questions
+}
+
+/**
  * Extract options from canvas nodes.
  * Options come from nodes with kind='option' or type='option'.
  *
  * Returns UIOption format with rich intervention metadata.
+ *
+ * Intervention values are admitted only through `interventionNumericValue`,
+ * the single repo-wide predicate (src/utils/interventionValue.ts). An entry
+ * that was authored but carries no usable number is NOT dropped silently: it is
+ * withheld from the map AND the option is denied `status: 'ready'`, with a
+ * `user_questions` entry naming the target. Silently dropping it would send a
+ * different graph than the canvas shows while still returning an answer.
  */
 export function extractOptionsFromNodes(
   nodes: Node<CanvasNodeData>[],
@@ -100,9 +140,20 @@ export function extractOptionsFromNodes(
     return []
   }
 
+  // Canvas labels for the not-ready reason — a bare node id is not something a
+  // user can act on.
+  const labelByNodeId = new Map<string, string>()
+  for (const n of nodes) {
+    const l = n.data?.label
+    if (typeof l === 'string' && l.trim().length > 0) labelByNodeId.set(n.id, l)
+  }
+
   return optionNodes.map((node): UIOption => {
     const interventions: Record<string, UIInterventionValue> = {}
     let hasValidInterventions = false
+    // Targets whose intervention EXISTS but carries no usable numeric value.
+    // Distinct from "no intervention here", which is silence, not a defect.
+    const unusableTargets: string[] = []
 
     // Extract interventions from node data
     // Only include interventions that target valid causal nodes (factors, outcomes, goals)
@@ -129,7 +180,29 @@ export function extractOptionsFromNodes(
           continue
         }
 
-        // Handle both simple number and UIInterventionValue formats
+        // Single-predicate admission. `{value: null}`, `{value: 'tbd'}`, bare
+        // NaN and bare ±Infinity all previously passed here — the first three
+        // reached the wire as a literal null, and every one of them flipped the
+        // option to 'ready'.
+        const numeric = interventionNumericValue(rawValue)
+
+        if (numeric === null) {
+          if (looksLikeIntervention(rawValue)) {
+            // Authored, but unusable. Surfaced below; never silently dropped.
+            unusableTargets.push(key)
+            if (import.meta.env.DEV) {
+              console.warn(
+                `[V2Adapter] Intervention on "${key}" in option "${node.data?.label || node.id}" has no usable numeric value — option withheld from 'ready'`
+              )
+            }
+          }
+          continue
+        }
+
+        // Handle both simple number and UIInterventionValue formats.
+        // The object branch passes the ORIGINAL reference through untouched
+        // (metadata, key order, identity) — the predicate above has already
+        // proved its `.value` is a finite number.
         if (typeof rawValue === 'number') {
           interventions[key] = {
             value: rawValue,
@@ -140,11 +213,10 @@ export function extractOptionsFromNodes(
               confidence: 'high',
             },
           }
-          hasValidInterventions = true
-        } else if (rawValue && typeof rawValue === 'object' && 'value' in rawValue) {
+        } else {
           interventions[key] = rawValue as UIInterventionValue
-          hasValidInterventions = true
         }
+        hasValidInterventions = true
       }
     }
 
@@ -152,18 +224,20 @@ export function extractOptionsFromNodes(
     // Options without valid interventions should have empty interventions
     // and status='needs_user_mapping' — validation will prompt user to configure
 
+    // Disposal doctrine: an option carrying an unusable intervention is NOT
+    // ready even when its other interventions are fine. Marking it ready would
+    // analyse a graph the user never authored and present the result as theirs.
+    const isReady = hasValidInterventions && unusableTargets.length === 0
+
     return {
       id: node.id,
       label: node.data?.label || `Option ${node.id}`,
       description: node.data?.description,
-      status: hasValidInterventions ? 'ready' : 'needs_user_mapping',
+      status: isReady ? 'ready' : 'needs_user_mapping',
       interventions,
-      user_questions: hasValidInterventions
+      user_questions: isReady
         ? undefined
-        : [
-            'Which causal variable(s) does this option affect?',
-            'What value should that variable have if this option is chosen?',
-          ],
+        : interventionQuestions(unusableTargets, labelByNodeId, hasValidInterventions),
       source: 'legacy_node',
     }
   })
@@ -203,6 +277,10 @@ export function extractOptionsFromNodes(
  *
  * This is intentionally permissive on shape and strict on numeric content —
  * an unrecognised entry is dropped, never coerced.
+ *
+ * The per-entry rule is NOT implemented here: it is `interventionNumericValue`
+ * (src/utils/interventionValue.ts), the one predicate every intervention-
+ * validity check in this repo shares. Do not re-inline it.
  */
 export function flattenInterventions(
   raw: unknown,
@@ -210,17 +288,8 @@ export function flattenInterventions(
   const out: Record<string, number> = {}
   if (!raw || typeof raw !== 'object') return out
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-    if (value == null) continue
-    if (typeof value === 'number') {
-      if (Number.isFinite(value)) out[key] = value
-      continue
-    }
-    if (typeof value === 'object' && !Array.isArray(value)) {
-      const inner = (value as { value?: unknown }).value
-      if (typeof inner === 'number' && Number.isFinite(inner)) {
-        out[key] = inner
-      }
-    }
+    const numeric = interventionNumericValue(value)
+    if (numeric !== null) out[key] = numeric
   }
   return out
 }
@@ -279,16 +348,12 @@ function canvasInterventionsToCEE(
       }
       continue
     }
-    if (rawValue == null) continue
-
-    let value: number | undefined
-    if (typeof rawValue === 'number') {
-      value = rawValue
-    } else if (typeof rawValue === 'object' && 'value' in (rawValue as Record<string, unknown>)) {
-      const inner = (rawValue as { value: unknown }).value
-      if (typeof inner === 'number') value = inner
-    }
-    if (value == null) continue
+    // Was a THIRD hand-written copy of the validity rule, and the one that had
+    // drifted: it checked `typeof inner === 'number'` with no Number.isFinite,
+    // so NaN and ±Infinity passed here while the other two copies rejected
+    // them. Now delegates to the single predicate.
+    const value = interventionNumericValue(rawValue)
+    if (value === null) continue
 
     out[targetId] = {
       value,
@@ -544,19 +609,70 @@ export function validateOptionsHaveInterventions(
 }
 
 /**
+ * An option reached the PLoT request edge carrying an intervention value that
+ * is not a finite number.
+ *
+ * Mirrors `EdgeValidationError` — the convention already used in this module
+ * for an invalid canvas value at the request boundary. The code matches PLoT's
+ * own critique code for the same condition, so UI and engine name the failure
+ * identically in logs.
+ */
+export class InterventionValidationError extends Error {
+  public readonly code = 'INVALID_INTERVENTION_VALUE'
+  public readonly optionId: string
+  public readonly optionLabel: string
+  public readonly invalidTargets: string[]
+
+  constructor(optionId: string, optionLabel: string, invalidTargets: string[]) {
+    const targetList = invalidTargets.map((t) => `'${t}'`).join(', ')
+    super(
+      `Option '${optionLabel}' has intervention(s) with no usable numeric value on: ${targetList}. ` +
+        `Set a number for each before running the analysis.`,
+    )
+    this.name = 'InterventionValidationError'
+    this.optionId = optionId
+    this.optionLabel = optionLabel
+    this.invalidTargets = invalidTargets
+  }
+}
+
+/**
  * Convert UIOption to V2Option format.
  * Flattens UIInterventionValue to simple number values.
+ *
+ * THE WIRE BOUNDARY. PLoT's POST /v2/run hard-rejects a non-finite intervention
+ * value (HTTP 422, critique `INVALID_INTERVENTION_VALUE`); before that ruling it
+ * silently dropped a bare `null` and returned HTTP 200 with
+ * `analysis_status: "failed"`. This function previously read `iv.value` with no
+ * check at all, so a `{value: null}` went out as a literal JSON null.
+ *
+ * Disposal doctrine: it REFUSES rather than dropping. Dropping the entry — even
+ * when the option's other interventions are valid — would analyse a graph the
+ * user never authored and hand back the result as though it were theirs. A
+ * request that cannot be built honestly is not sent. Callers surface the throw:
+ * `useScenarioComparison` renders `error.message` in its failure state.
  */
 export function uiOptionToV2Option(option: UIOption): V2Option {
+  const interventions: Record<string, number> = {}
+  const invalidTargets: string[] = []
+
+  for (const [nodeId, iv] of Object.entries(option.interventions)) {
+    const numeric = interventionNumericValue(iv)
+    if (numeric === null) {
+      invalidTargets.push(nodeId)
+      continue
+    }
+    interventions[nodeId] = numeric
+  }
+
+  if (invalidTargets.length > 0) {
+    throw new InterventionValidationError(option.id, option.label, invalidTargets)
+  }
+
   return {
     id: option.id,
     label: option.label,
-    interventions: Object.fromEntries(
-      Object.entries(option.interventions).map(([nodeId, iv]) => [
-        nodeId,
-        typeof iv === 'number' ? iv : iv.value,
-      ])
-    ),
+    interventions,
   }
 }
 
