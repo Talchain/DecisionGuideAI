@@ -171,6 +171,19 @@ export interface HeroEvidenceModel {
     dependsOn: string
     watch: string
   }> | null
+  /**
+   * ROADMAP 1.267. The flip-risk ROWS are producer data and always render;
+   * the lead-in NOTE above them ("Chance the leading option changes…") is a
+   * claim that presupposes a leader. Carried on the model — the disclosure
+   * quotes the one verdict `buildHeroModel` already resolved and never
+   * re-derives one.
+   *
+   * REQUIRED, deliberately (cf. `buildCertaintyCopy`'s `verdict`): an
+   * optional flag that the live producer always sets and every fixture omits
+   * is a hole with a green test suite over it. There are three constructors
+   * of this model in the repo and the compiler names all of them.
+   */
+  designationsWithheld: boolean
 }
 
 export interface HeroChartModel {

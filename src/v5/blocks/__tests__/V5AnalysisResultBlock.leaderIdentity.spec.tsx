@@ -59,6 +59,33 @@ function optionComparison(): Array<Record<string, unknown>> {
   ]
 }
 
+/**
+ * `enrichment.robustness.near_tie` — PLoT's own answer to "is there a clear
+ * leader?", exactly as the captured V5 staging bundle carries it
+ * (`src/v5/__tests__/fixtures/v5-analysis-result.bundle-45c9b625.json`).
+ *
+ * ADDED 2026-07-27 (ROADMAP 1.267). These fixtures previously carried the
+ * identity fields only, which was sufficient while the leader treatment was
+ * gated on `leading_option_id` alone. It is now gated on the shared verdict
+ * (`deriveDecisionVerdict`), because `leading_option_id` answers WHO leads
+ * and not WHETHER anyone does — a near-tie run carries a leading_option_id
+ * and still denies a leading option.
+ *
+ * So a fixture that wants the leader treatment must now depict a run where
+ * the producer PERMITS it. That is not a weakening: it is the same
+ * producer-permission rule the results panel has applied since ROADMAP 1.223,
+ * and these fixtures were previously depicting only half a run.
+ */
+function permittingNearTie(): Record<string, unknown> {
+  return {
+    is_tie: false,
+    top_option_id: 'opt_mac',
+    second_option_id: 'opt_dell',
+    gap: 0.104,
+    threshold: 0.1,
+  }
+}
+
 /** enrichment.decision_brief.options[] as the captured wire carries it. */
 function decisionBriefOptions(): Array<Record<string, unknown>> {
   return [
@@ -83,7 +110,10 @@ function block(overrides: Partial<V5AnalysisResultBlockType> = {}): V5AnalysisRe
     summary: 'MacBook Pro leads on total cost of ownership.',
     leading_option_id: 'opt_mac',
     win_probabilities: labelKeyedProbs(),
-    enrichment: { option_comparison: optionComparison() },
+    enrichment: {
+      option_comparison: optionComparison(),
+      robustness: { near_tie: permittingNearTie() },
+    },
     ...overrides,
   }
 }
@@ -132,7 +162,10 @@ describe('V5AnalysisResultBlock — leader identity space (1.222)', () => {
     render(
       <V5AnalysisResultBlock
         block={block({
-          enrichment: { decision_brief: { options: decisionBriefOptions() } },
+          enrichment: {
+            decision_brief: { options: decisionBriefOptions() },
+            robustness: { near_tie: permittingNearTie() },
+          },
         })}
       />,
     )
@@ -191,16 +224,23 @@ describe('V5AnalysisResultBlock — leader identity space (1.222)', () => {
           block={block({
             win_probabilities: { [shared]: 0.55, [STATUS_QUO]: 0.45 },
             enrichment: {
+              // Per-entry win probabilities are supplied here so the shared
+              // verdict resolves and PERMITS a leader. Without them only one
+              // option would be comparable, the verdict would be 'unknown',
+              // and this case would pass for that reason instead of for the
+              // duplicate-label guard it exists to prove.
               option_comparison: [
-                { id: 'opt_mac', option_id: 'opt_mac', label: shared, option_label: shared },
-                { id: 'opt_dell', option_id: 'opt_dell', label: shared, option_label: shared },
+                { id: 'opt_mac', option_id: 'opt_mac', label: shared, option_label: shared, win_probability: 0.55 },
+                { id: 'opt_dell', option_id: 'opt_dell', label: shared, option_label: shared, win_probability: 0.3 },
                 {
                   id: 'opt_status_quo',
                   option_id: 'opt_status_quo',
                   label: STATUS_QUO,
                   option_label: STATUS_QUO,
+                  win_probability: 0.15,
                 },
               ],
+              robustness: { near_tie: permittingNearTie() },
             },
           })}
         />,

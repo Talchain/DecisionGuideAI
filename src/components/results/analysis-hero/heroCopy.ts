@@ -375,17 +375,52 @@ export const HERO_COPY = {
      * claim is made (the per-row quality slot stays absent until a
      * display-safe producer label exists, issues 219/221). */
     driversNote: 'Ranked by effect on the analysed outcome. Evidence quality is separate.',
-    /** Flip-risks-view note (prototype copy). */
-    flipRisksNote:
-      'Chance the leading option changes when a relationship is varied within its plausible range.',
+    /**
+     * Flip-risks-view note (prototype copy).
+     *
+     * ROADMAP 1.267 — the flip PROBABILITIES are data; "the leading option"
+     * is a claim, and it presupposes one exists. The withheld branch keeps
+     * the same fact (a relationship varied within its plausible range moves
+     * the result) without the presupposition. Permitted is byte-identical to
+     * the string it replaced.
+     *
+     * One function of the verdict, not two sibling constants: a `…Withheld`
+     * twin beside it would be a hand-maintained mirror (trap 12).
+     */
+    flipRisksNote: (designationsWithheld: boolean) =>
+      designationsWithheld
+        ? 'Chance the comparison between options changes when a relationship is varied within its plausible range.'
+        : 'Chance the leading option changes when a relationship is varied within its plausible range.',
     /** Switch-probability meta beside a flip row, e.g. "48% switch". */
     switchMeta: (pct: string) => `${pct} switch`,
     seeAllFactors: 'See all factors',
     showFewer: 'Show fewer',
-    flipRiskWithAlternative: (factor: string, direction: string, value: string, alternative: string) =>
-      `If ${factor} ${direction} ${value}, ${alternative} becomes the likely leader.`,
-    flipRiskNoAlternative: (factor: string, direction: string, value: string) =>
-      `If ${factor} ${direction} ${value}, the leading option is likely to change.`,
+    /**
+     * ROADMAP 1.267. The producer's `alternative_winner_label` SURVIVES on a
+     * withheld run — it is data, and dropping it would be the
+     * over-suppression the ruling forbids. What goes is the designation
+     * verb: "becomes the likely leader" both asserts a leader exists after
+     * the flip and implies a different one exists now.
+     */
+    flipRiskWithAlternative: (
+      factor: string,
+      direction: string,
+      value: string,
+      alternative: string,
+      designationsWithheld: boolean,
+    ) =>
+      designationsWithheld
+        ? `If ${factor} ${direction} ${value}, the comparison shifts towards ${alternative}.`
+        : `If ${factor} ${direction} ${value}, ${alternative} becomes the likely leader.`,
+    flipRiskNoAlternative: (
+      factor: string,
+      direction: string,
+      value: string,
+      designationsWithheld: boolean,
+    ) =>
+      designationsWithheld
+        ? `If ${factor} ${direction} ${value}, the comparison is likely to change.`
+        : `If ${factor} ${direction} ${value}, the leading option is likely to change.`,
     fallsBelow: 'falls below',
     risesAbove: 'rises above',
     // Direction-neutral fallback (UI-SEM-074): used when flip_value equals

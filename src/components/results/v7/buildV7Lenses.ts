@@ -94,6 +94,15 @@ export interface V7EvidenceModel {
   drivers: V7EvidenceDriver[]
   flipRisks: V7FlipRisk[]
   tradeOffs: V7TradeOff[]
+  /**
+   * ROADMAP 1.267. The evidence ROWS are producer data and always render;
+   * the two lead-in NOTES above them ("…can change the leading option",
+   * "Where the leading option depends on an assumption") are claims that
+   * presuppose a leader. Carried on the model rather than resolved in the
+   * component so the one verdict this file already computes is the only
+   * authority — the disclosure never re-derives one.
+   */
+  designationsWithheld: boolean
 }
 
 export interface V7LensesModel {
@@ -206,6 +215,6 @@ export function buildV7Lenses(data: ResultsSectionDataReturn): V7LensesModel {
   return {
     outcome,
     goal,
-    evidence: { drivers: evidenceDrivers, flipRisks, tradeOffs },
+    evidence: { drivers: evidenceDrivers, flipRisks, tradeOffs, designationsWithheld },
   }
 }

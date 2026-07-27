@@ -246,7 +246,7 @@ export function HeroEvidenceDisclosure({
           {activeView === 'flipRisks' && (
             <div className="space-y-1.5" data-testid="hero-evidence-flip-risks">
               <p className={`${typography.panelMeta} text-text-light`}>
-                {HERO_COPY.evidence.flipRisksNote}
+                {HERO_COPY.evidence.flipRisksNote(evidence.designationsWithheld)}
               </p>
               {evidence.flipRisks.map((r, i) => {
                 const key = `flip-${i}`

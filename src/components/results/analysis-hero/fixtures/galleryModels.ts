@@ -56,7 +56,7 @@ function fixtureChart(o: Partial<HeroChartModel>): HeroChartModel {
     showGoalHint: false,
     mainReason: null,
     quickLinks: { mainDriver: null, topFlipRisk: null },
-    evidence: { drivers: [], flipRisks: [], tradeOffs: null },
+    evidence: { drivers: [], flipRisks: [], tradeOffs: null, designationsWithheld: false },
     trustLine: null,
     statusChip: null,
     focusAction: null,

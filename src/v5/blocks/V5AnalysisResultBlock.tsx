@@ -18,7 +18,8 @@ import { type ReactElement } from 'react'
 import { typography } from '../../styles/typography'
 import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../canvas/conversation/types'
 import { extractDecisionReview } from '../decisionReviewAdapter'
-import { resolveLeaderKeys } from '../mapV5AnalysisToReport'
+import { buildV5VerdictReportLike, resolveLeaderKeys } from '../mapV5AnalysisToReport'
+import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
 import { calibrateUncertaintyCopy } from '../../components/results/utils/uncertaintyCalibration'
 
 export interface V5AnalysisResultBlockProps {
@@ -82,14 +83,35 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
   const uncertaintyInputs = resolveUncertaintyInputs(block.enrichment, block.leading_option_id)
   const uncertaintyCopy = calibrateUncertaintyCopy(uncertaintyInputs)
 
-  // `win_probabilities` is keyed by option LABEL on real staging payloads while
-  // `leading_option_id` is an option ID, so a key === leading_option_id test
-  // matches nothing. Resolve the leader's keys once, in whichever space the
-  // producer used. Empty set (e.g. leading_option_id null on a withheld turn)
-  // ⇒ no pill is marked.
-  const leaderKeys = resolveLeaderKeys(block.enrichment, block.leading_option_id)
+  // ROADMAP 1.267 — WHO leads and WHETHER anyone does are different questions.
+  //
+  // The leader treatment below (first position, `data-leader`, the heavier
+  // border) was gated ONLY on `resolveLeaderKeys` returning a non-empty set,
+  // which happens exactly when `leading_option_id` is a non-empty string. That
+  // covers the WITHHELD turn — CEE nulls the field — but it is NOT equivalent
+  // to the shared verdict, and the gap is a live producer state, not a
+  // hypothetical: on a NEAR-TIE run PLoT sends `near_tie.is_tie: true` (or a
+  // `very_close` band) WITH a `leading_option_id`, so `hasLeadingOption` is
+  // false while the implicit gate stays open and this card crowned an option
+  // the producer had just called too close to call.
+  //
+  // So the verdict is wired in explicitly rather than pinned as equivalent.
+  // `deriveDecisionVerdict` is the one module entitled to answer WHETHER; it
+  // is quoted, never re-derived, and `resolveLeaderKeys` keeps answering WHO.
+  const verdict = deriveDecisionVerdict(buildV5VerdictReportLike(block))
+  const leaderKeys = verdict.hasLeadingOption
+    ? resolveLeaderKeys(block.enrichment, block.leading_option_id)
+    : new Set<string>()
 
   // Sort so the leading option appears first and the rest descending by prob.
+  //
+  // The probability-descending tail is DATA ordering over a set the producer
+  // itself ranks, and it stays on a withheld run — the pills carry their own
+  // numbers, so the order restates a fact already on screen rather than
+  // designating a winner. What goes is the leader-first hoist, which promotes
+  // ONE option above its own number. With `leaderKeys` empty the `aLeads`
+  // branch is inert by construction; it is left in place because the sort is
+  // one comparator for both states.
   const sortedProbs = hasProbs
     ? Object.entries(block.win_probabilities as Record<string, number>).sort(
         ([keyA, pA], [keyB, pB]) => {
