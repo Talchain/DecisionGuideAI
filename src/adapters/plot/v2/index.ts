@@ -64,6 +64,7 @@ export {
   flattenInterventions,
   clearStrengthCorrections,
   EdgeValidationError,
+  InterventionValidationError,
 } from './adapter'
 
 export type { V2AdapterConfig, BuildV2RequestOptions } from './adapter'

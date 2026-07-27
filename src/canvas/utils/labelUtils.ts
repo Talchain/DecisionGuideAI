@@ -307,6 +307,7 @@ export {
 export type { UnitClass } from '@/utils/unitClassifier'
 
 import { GENERIC_PLACEHOLDER_UNITS, classifyUnit } from '@/utils/unitClassifier'
+import { interventionNumericValue } from '@/utils/interventionValue'
 
 function isGenericPlaceholderUnit(unit: string | null | undefined): boolean {
   if (unit == null) return false
@@ -616,32 +617,26 @@ export interface UnwrappedIntervention {
 }
 
 export function unwrapInterventionValue(raw: unknown): UnwrappedIntervention {
-  // Scalar form (legacy).
-  if (typeof raw === 'number') {
-    return { value: Number.isFinite(raw) ? raw : null, displayValue: null }
-  }
-  // Object form ({ value, display_value?, ... }) — CEE V3 shape, but also
-  // used for observed_state metadata fields (obs.value, obs.raw_value, etc.)
-  // which may arrive as scalar or wrapped.
-  if (raw != null && typeof raw === 'object') {
-    // Strict numeric check on `.value` — no Number(...) coercion, since
-    // `Number(null) === 0` and `Number('foo') === NaN` cause subtle bugs.
-    let value: number | null = null
-    if ('value' in raw) {
-      const v = (raw as { value: unknown }).value
-      if (typeof v === 'number' && Number.isFinite(v)) value = v
+  // The numeric half is NOT decided here. `interventionNumericValue`
+  // (src/utils/interventionValue.ts) is the one predicate shared with
+  // flattenInterventions and the PLoT request edge, so a display can never
+  // consider a value usable that the wire rejects, or vice versa. Its rule is
+  // the strict one this function has always applied: a finite number, bare or
+  // at `.value`, with no Number(...) coercion.
+  const value = interventionNumericValue(raw)
+
+  // display_value is a CEE-authored label and is independent of numeric
+  // usability — it may be present when `value` is null.
+  let displayValue: string | null = null
+  if (raw != null && typeof raw === 'object' && 'display_value' in raw) {
+    const dv = (raw as { display_value: unknown }).display_value
+    if (typeof dv === 'string') {
+      const trimmed = dv.trim()
+      if (trimmed.length > 0) displayValue = trimmed
     }
-    let displayValue: string | null = null
-    if ('display_value' in raw) {
-      const dv = (raw as { display_value: unknown }).display_value
-      if (typeof dv === 'string') {
-        const trimmed = dv.trim()
-        if (trimmed.length > 0) displayValue = trimmed
-      }
-    }
-    return { value, displayValue }
   }
-  return { value: null, displayValue: null }
+
+  return { value, displayValue }
 }
 
 /**
