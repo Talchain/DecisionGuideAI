@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2547
+# count=2545
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -92,7 +92,7 @@
 12	src/adapters/plot/v2/__tests__/responseMapper.spec.ts
 1	src/adapters/plot/v2/__tests__/runV2.plotBearer.spec.ts
 14	src/adapters/plot/v2/adapter.ts
-17	src/adapters/plot/v2/responseMapper.ts
+16	src/adapters/plot/v2/responseMapper.ts
 12	src/canvas/ReactFlowGraph.tsx
 3	src/canvas/__tests__/__helpers__/renderCanvas.tsx
 1	src/canvas/__tests__/accessibility.spec.tsx
@@ -290,7 +290,7 @@
 1	src/canvas/hooks/useSequentialAnalysis.ts
 20	src/canvas/hooks/useUnifiedActions.ts
 6	src/canvas/hooks/useUtilityWeights.ts
-16	src/canvas/hooks/useV2Run.ts
+15	src/canvas/hooks/useV2Run.ts
 2	src/canvas/nodes/ActionNode.tsx
 1	src/canvas/nodes/BaseNode.tsx
 6	src/canvas/nodes/DecisionNode.tsx
