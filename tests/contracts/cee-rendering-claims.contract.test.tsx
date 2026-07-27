@@ -249,10 +249,14 @@ const COVERAGE: Record<string, CoverageRecord> = {
       'KNOWN FALSE and not fixed here. components/results/useResultsSectionData.ts:2051-2056 ' +
       'prettifies the raw key into displayLabel when both canvasLabel and ' +
       'f.raw.label are absent, and :2735 does `gap.factor_label ?? gap.factor_id`. ' +
-      'Both reach visible text (DriversSection, V7SignalRow, ChallengeSection, ' +
-      'StressTestSection, TriageActionCardsBody). ChallengeSection.tsx:97-99 ' +
-      'carries a THIRD independent id-prettifying fallback. Verified at ' +
-      '0dfb075d. Each needs its own copy decision ("unnamed factor" vs omit), ' +
+      'Both reach visible text (DriversSection, V7SignalRow, ' +
+      'StressTestSection, TriageActionCardsBody). Verified at 0dfb075d. ' +
+      'AMENDED 2026-07-27: this entry used to add "ChallengeSection.tsx:97-99 ' +
+      'carries a THIRD independent id-prettifying fallback" and to list ' +
+      'ChallengeSection among the reaching surfaces. That fallback and that ' +
+      'surface are GONE — ChallengeSection had zero production mounts and was ' +
+      'deleted in the dead-code sweep, so the count is now two, not three. ' +
+      'Each needs its own copy decision ("unnamed factor" vs omit), ' +
       'so this belongs in a lane that can carry them properly.',
   },
   'coaching.bias_signals[].target': {

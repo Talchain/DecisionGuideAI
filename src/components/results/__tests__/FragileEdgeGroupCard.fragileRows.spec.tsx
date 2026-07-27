@@ -1,14 +1,30 @@
 /**
- * ChallengeSection — Brief 5.2 Task 6 + Brief 5.5 D11 fragile-edge rows.
+ * FragileEdgeGroupCard — Brief 5.2 Task 6 + Brief 5.5 D11 fragile-edge rows.
+ *
+ * PORTED from `ChallengeSection.fragileRows.spec.tsx` when the dead
+ * `ChallengeSection` wrapper was removed. Every assertion below is unchanged;
+ * only the MOUNT changed, from the dead wrapper to the live card that always
+ * owned the behaviour. The wrapper used to compute `altWinnerLabel` by
+ * grouping edges on `alternative_winner_label`; those groups are now passed
+ * to the card directly, which is exactly what `StressTestSection` — the live
+ * production caller — does.
+ *
+ * ONE test did NOT belong to the card and was NOT ported here: the
+ * `(Status Quo)` suffix strip is CALLER behaviour (`stripStatusQuoSuffixForDisplay`
+ * runs in the caller's grouping, never in the card). It moved to
+ * `StressTestSection.spec.tsx`, mounted on the live path, rather than being
+ * re-pointed at a card that never performed the strip — which would have
+ * turned a real assertion into one that passes because the test itself did
+ * the stripping.
  *
  * D11 changes the grouping from source → alt-winner: edges sharing an
- * alt-winner collapse into one card. The alt-winner now appears in the
- * card header ("N factors could flip the result to {Y}"), not per-edge.
+ * alt-winner collapse into one card. The alt-winner appears in the card
+ * header ("N factors could flip the result to {Y}"), not per-edge.
  * Per-edge copy is "If {source} shifts" (no inline arrow or alt-winner).
  *
  * Pre-D11 contract preserved:
- * - alt-winner in the header: data-testid="fragile-alt-winner" (now on
- *   the header span, not a per-edge element).
+ * - alt-winner in the header: data-testid="fragile-alt-winner" (on the header
+ *   span, not a per-edge element).
  * - Stability pill top-right (unchanged).
  * - Per-edge Review chip fires with own from_id (unchanged).
  * - Chip suppressed when from_id absent (unchanged).
@@ -17,8 +33,8 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { ChallengeSection } from '../ChallengeSection'
-import type { ChallengeFragileEdge } from '../ChallengeSection'
+import { FragileEdgeGroupCard } from '../FragileEdgeGroupCard'
+import type { ChallengeFragileEdge } from '../FragileEdgeGroupCard'
 
 function makeFragileEdge(overrides: Partial<ChallengeFragileEdge> = {}): ChallengeFragileEdge {
   return {
@@ -32,17 +48,16 @@ function makeFragileEdge(overrides: Partial<ChallengeFragileEdge> = {}): Challen
   }
 }
 
-describe('ChallengeSection — Brief 5.2 Task 6 fragile-row layout', () => {
-  it('D11: alt-winner appears in the card header (not per-edge), stripped of "(Status Quo)"', () => {
+describe('FragileEdgeGroupCard — Brief 5.2 Task 6 fragile-row layout', () => {
+  it('D11: alt-winner appears in the card header (not per-edge)', () => {
     render(
-      <ChallengeSection
+      <FragileEdgeGroupCard
         designationsWithheld={false}
-        biasFindings={[]}
-        preMortemItems={[]}
-        fragileEdges={[makeFragileEdge({ alternative_winner_label: 'Option B' })]}
+        altWinnerLabel="Option B"
+        edges={[makeFragileEdge({ alternative_winner_label: 'Option B' })]}
       />,
     )
-    // Alt-winner now lives in the card header (data-testid="fragile-alt-winner").
+    // Alt-winner lives in the card header (data-testid="fragile-alt-winner").
     const altWinner = screen.getByTestId('fragile-alt-winner')
     expect(altWinner.textContent).toBe('Option B')
     expect(altWinner.className).toContain('font-semibold')
@@ -52,29 +67,12 @@ describe('ChallengeSection — Brief 5.2 Task 6 fragile-row layout', () => {
     expect(document.body.textContent).not.toContain('could win')
   })
 
-  it('D11: strips "(Status Quo)" suffix from alt-winner in the card header', () => {
-    render(
-      <ChallengeSection
-        designationsWithheld={false}
-        biasFindings={[]}
-        preMortemItems={[]}
-        fragileEdges={[makeFragileEdge({
-          alternative_winner_label: 'Continue Without Dedicated Support (Status Quo)',
-        })]}
-      />,
-    )
-    const altWinner = screen.getByTestId('fragile-alt-winner')
-    expect(altWinner.textContent).toBe('Continue Without Dedicated Support')
-    expect(document.body.textContent).not.toContain('(Status Quo)')
-  })
-
   it('D11: no inline arrow in per-edge row — alt-winner is in header, source-shift line has no arrow', () => {
     render(
-      <ChallengeSection
+      <FragileEdgeGroupCard
         designationsWithheld={false}
-        biasFindings={[]}
-        preMortemItems={[]}
-        fragileEdges={[makeFragileEdge({
+        altWinnerLabel="Option B"
+        edges={[makeFragileEdge({
           from_label: 'Factor A',
           to_label: 'Factor B',
           alternative_winner_label: 'Option B',
@@ -91,11 +89,10 @@ describe('ChallengeSection — Brief 5.2 Task 6 fragile-row layout', () => {
 
   it('falls back to neutral phrase when no alternative winner is known', () => {
     render(
-      <ChallengeSection
+      <FragileEdgeGroupCard
         designationsWithheld={false}
-        biasFindings={[]}
-        preMortemItems={[]}
-        fragileEdges={[makeFragileEdge({ alternative_winner_label: undefined })]}
+        altWinnerLabel={null}
+        edges={[makeFragileEdge({ alternative_winner_label: undefined })]}
       />,
     )
 
@@ -105,11 +102,10 @@ describe('ChallengeSection — Brief 5.2 Task 6 fragile-row layout', () => {
 
   it('Stability pill renders at the card top-right (Brief 5.2 Task 6a)', () => {
     render(
-      <ChallengeSection
+      <FragileEdgeGroupCard
         designationsWithheld={false}
-        biasFindings={[]}
-        preMortemItems={[]}
-        fragileEdges={[makeFragileEdge()]}
+        altWinnerLabel="Option B"
+        edges={[makeFragileEdge()]}
       />,
     )
     const pill = screen.getByTestId('fragile-card-stability-pill')
@@ -121,15 +117,14 @@ describe('ChallengeSection — Brief 5.2 Task 6 fragile-row layout', () => {
   })
 })
 
-describe('ChallengeSection — Brief 5.2 Task 6c Review chip', () => {
+describe('FragileEdgeGroupCard — Brief 5.2 Task 6c Review chip', () => {
   it('renders a per-edge Review chip that calls onFocusNode with the edge from_id', () => {
     const onFocusNode = vi.fn()
     render(
-      <ChallengeSection
+      <FragileEdgeGroupCard
         designationsWithheld={false}
-        biasFindings={[]}
-        preMortemItems={[]}
-        fragileEdges={[makeFragileEdge({ from_id: 'node-source-1' })]}
+        altWinnerLabel="Option B"
+        edges={[makeFragileEdge({ from_id: 'node-source-1' })]}
         onFocusNode={onFocusNode}
       />,
     )
@@ -144,11 +139,10 @@ describe('ChallengeSection — Brief 5.2 Task 6c Review chip', () => {
 
   it('Review chip is hidden when onFocusNode is not wired (defensive)', () => {
     render(
-      <ChallengeSection
+      <FragileEdgeGroupCard
         designationsWithheld={false}
-        biasFindings={[]}
-        preMortemItems={[]}
-        fragileEdges={[makeFragileEdge()]}
+        altWinnerLabel="Option B"
+        edges={[makeFragileEdge()]}
       />,
     )
     expect(screen.queryByTestId('fragile-review-chip-0')).not.toBeInTheDocument()
@@ -157,11 +151,10 @@ describe('ChallengeSection — Brief 5.2 Task 6c Review chip', () => {
   it('chip aria-label names the source factor and does not promise "validate"', () => {
     const onFocusNode = vi.fn()
     render(
-      <ChallengeSection
+      <FragileEdgeGroupCard
         designationsWithheld={false}
-        biasFindings={[]}
-        preMortemItems={[]}
-        fragileEdges={[makeFragileEdge({ from_label: 'Market Size', to_label: 'Revenue' })]}
+        altWinnerLabel="Option B"
+        edges={[makeFragileEdge({ from_label: 'Market Size', to_label: 'Revenue' })]}
         onFocusNode={onFocusNode}
       />,
     )
@@ -182,11 +175,10 @@ describe('ChallengeSection — Brief 5.2 Task 6c Review chip', () => {
       makeFragileEdge({ from_id: 'node-2', from_label: 'Factor B', to_label: 'Factor Y' }),
     ]
     render(
-      <ChallengeSection
+      <FragileEdgeGroupCard
         designationsWithheld={false}
-        biasFindings={[]}
-        preMortemItems={[]}
-        fragileEdges={edges}
+        altWinnerLabel="Option B"
+        edges={edges}
         onFocusNode={onFocusNode}
       />,
     )
@@ -207,11 +199,10 @@ describe('ChallengeSection — Brief 5.2 Task 6c Review chip', () => {
       makeFragileEdge({ from_id: 'node-gamma', from_label: 'Factor C' }),
     ]
     render(
-      <ChallengeSection
+      <FragileEdgeGroupCard
         designationsWithheld={false}
-        biasFindings={[]}
-        preMortemItems={[]}
-        fragileEdges={edges}
+        altWinnerLabel="Option B"
+        edges={edges}
         onFocusNode={onFocusNode}
       />,
     )
@@ -231,11 +222,10 @@ describe('ChallengeSection — Brief 5.2 Task 6c Review chip', () => {
       makeFragileEdge({ from_id: 'shared-source', from_label: 'Factor A', to_label: 'Factor Y' }),
     ]
     render(
-      <ChallengeSection
+      <FragileEdgeGroupCard
         designationsWithheld={false}
-        biasFindings={[]}
-        preMortemItems={[]}
-        fragileEdges={edges}
+        altWinnerLabel="Option B"
+        edges={edges}
         onFocusNode={onFocusNode}
       />,
     )
@@ -264,15 +254,14 @@ describe('ChallengeSection — Brief 5.2 Task 6c Review chip', () => {
       // from_id intentionally omitted.
     }
     render(
-      <ChallengeSection
+      <FragileEdgeGroupCard
         designationsWithheld={false}
-        biasFindings={[]}
-        preMortemItems={[]}
-        fragileEdges={[edgeWithoutId]}
+        altWinnerLabel="Option B"
+        edges={[edgeWithoutId]}
         onFocusNode={onFocusNode}
       />,
     )
-    // D11: alt-winner now in card header — still present in DOM.
+    // D11: alt-winner in card header — still present in DOM.
     expect(screen.getByTestId('fragile-alt-winner')).toBeInTheDocument()
     // Chip suppressed because from_id absent.
     expect(screen.queryByTestId('fragile-review-chip-0')).not.toBeInTheDocument()
@@ -288,11 +277,10 @@ describe('ChallengeSection — Brief 5.2 Task 6c Review chip', () => {
       { from_id: 'node-gamma', from_label: 'Factor Gamma', to_label: 'Factor Z', switch_probability: 0.7, alternative_winner_label: 'Option B' },
     ]
     render(
-      <ChallengeSection
+      <FragileEdgeGroupCard
         designationsWithheld={false}
-        biasFindings={[]}
-        preMortemItems={[]}
-        fragileEdges={edges}
+        altWinnerLabel="Option B"
+        edges={edges}
         onFocusNode={onFocusNode}
       />,
     )

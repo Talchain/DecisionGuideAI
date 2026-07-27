@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2545
+# count=2517
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -302,8 +302,6 @@
 7	src/canvas/components/CompareView.tsx	TS2339	Property 'summary' does not exist on type 'ReportV1'.
 1	src/canvas/components/ComparisonTable.tsx	TS6133	'TrendingUp' is declared but its value is never read.
 1	src/canvas/components/ComparisonTable.tsx	TS7015	Element implicitly has an 'any' type because index expression is not of type 'number'.
-1	src/canvas/components/ConditionalGuidance/index.tsx	TS6133	'onConditionClick' is declared but its value is never read.
-1	src/canvas/components/ConditionalGuidance/index.tsx	TS6133	'useMemo' is declared but its value is never read.
 1	src/canvas/components/ConformalPrediction.tsx	TS2345	Argument of type 'CEEAnalysisReady | null' is not assignable to parameter of type '{ options: Record<string, unknown>[]; } | null'.
 1	src/canvas/components/DecisionQuality.tsx	TS6133	'hasIssues' is declared but its value is never read.
 1	src/canvas/components/DecisionReadinessBadge.tsx	TS6133	'ConfidenceLevel' is declared but its value is never read.
@@ -374,16 +372,6 @@
 3	src/canvas/components/PreAnalysisGuidance.tsx	TS2551	Property 'nodeId' does not exist on type 'ValidationIssue'. Did you mean 'nodeIds'?
 1	src/canvas/components/RangeDisplay.tsx	TS6133	'formatOutcomeValue' is declared but its value is never read.
 1	src/canvas/components/RangeDisplay.tsx	TS6133	'formatOutcomeValueCompact' is declared but its value is never read.
-1	src/canvas/components/RecommendationCard/RobustnessBlock.tsx	TS2305	Module '"../../../adapters/plot/types"' has no exported member 'RiskProfilePreset'.
-1	src/canvas/components/RecommendationCard/RobustnessBlock.tsx	TS6133	'Loader2' is declared but its value is never read.
-1	src/canvas/components/RecommendationCard/RobustnessIndicator.tsx	TS6133	'config' is declared but its value is never read.
-1	src/canvas/components/RecommendationCard/index.tsx	TS2345	Argument of type 'string' is not assignable to parameter of type 'CoherenceCheckResult'.
-1	src/canvas/components/RecommendationCard/index.tsx	TS6133	'Ban' is declared but its value is never read.
-1	src/canvas/components/RecommendationCard/index.tsx	TS6133	'ConfidenceIcon' is declared but its value is never read.
-1	src/canvas/components/RecommendationCard/index.tsx	TS6133	'isAnalyzing' is declared but its value is never read.
-1	src/canvas/components/RecommendationCard/index.tsx	TS6133	'optionCount' is declared but its value is never read.
-1	src/canvas/components/RecommendationCard/index.tsx	TS6133	'optionId' is declared but its value is never read.
-1	src/canvas/components/RecommendationCard/index.tsx	TS6133	'robustnessLoading' is declared but its value is never read.
 1	src/canvas/components/RecoveryBanner.tsx	TS2322	Type 'Edge[]' is not assignable to type 'Edge<EdgeData>[]'.
 1	src/canvas/components/RecoveryBanner.tsx	TS2322	Type '{ options: { id: string; label: string; status: "needs_encoding" | "needs_user_mapping" | "ready"; interventions: Record<string, unknown>; user_questions?: string[] | undefined; unresolved_targets?: string[] | undefined; }[]; goal_node_id: string; suggested_seed?: string | undefined; status?: string | undefined; use...' is not assignable to type 'CEEAnalysisReady | null | undefined'.
 1	src/canvas/components/RecoveryBanner.tsx	TS2741	Property 'anchorPosition' is missing in type '{ nodeIds: Set<string>; edgeIds: Set<string>; }' but required in type '{ nodeIds: Set<string>; edgeIds: Set<string>; anchorPosition: { x: number; y: number; } | null; }'.
@@ -599,9 +587,6 @@
 1	src/canvas/hooks/__tests__/useGuidancePulseHighlight.spec.ts	TS6133	'afterEach' is declared but its value is never read.
 1	src/canvas/hooks/__tests__/useGuidancePulseHighlight.spec.ts	TS6133	'vi' is declared but its value is never read.
 13	src/canvas/hooks/__tests__/usePathHighlight.spec.ts	TS2322	Type 'Edge[]' is not assignable to type 'Edge<EdgeData>[]'.
-1	src/canvas/hooks/__tests__/useRecommendation.plotBearer.spec.tsx	TS2322	Type 'null' is not assignable to type 'ResultsState | undefined'.
-1	src/canvas/hooks/__tests__/useRecommendation.plotBearer.spec.tsx	TS2493	Tuple type '[]' of length '0' has no element at index '0'.
-1	src/canvas/hooks/__tests__/useRecommendation.plotBearer.spec.tsx	TS2493	Tuple type '[]' of length '0' has no element at index '1'.
 1	src/canvas/hooks/__tests__/useV2Run.concurrency.spec.ts	TS2339	Property 'aborted' does not exist on type 'never'.
 1	src/canvas/hooks/__tests__/useV2Run.concurrency.spec.ts	TS2353	Object literal may only specify known properties, and 'analysisSummary' does not exist in type '(ResultsStoreState & ResultsActions) | Partial<ResultsStoreState & ResultsActions> | ((state: ResultsStoreState & ResultsActions) => (ResultsStoreState & ResultsActions) | Partial<...>)'.
 1	src/canvas/hooks/__tests__/useV2Run.interventionValidation.spec.ts	TS2353	Object literal may only specify known properties, and 'analysisSummary' does not exist in type '(ResultsStoreState & ResultsActions) | Partial<ResultsStoreState & ResultsActions> | ((state: ResultsStoreState & ResultsActions) => (ResultsStoreState & ResultsActions) | Partial<...>)'.
@@ -614,9 +599,6 @@
 1	src/canvas/hooks/useAutosave.ts	TS2551	Property 'selectedGoalNode' does not exist on type 'CanvasState'. Did you mean 'reselectGoalNode'?
 1	src/canvas/hooks/useBlueprintInsert.ts	TS2339	Property 'prior' does not exist on type 'BlueprintNode'.
 1	src/canvas/hooks/useBlueprintInsert.ts	TS2339	Property 'utility' does not exist on type 'BlueprintNode'.
-2	src/canvas/hooks/useConditionalRecommendations.ts	TS2339	Property 'ranking' does not exist on type 'ComparisonResult'.
-1	src/canvas/hooks/useConditionalRecommendations.ts	TS7006	Parameter 'idx' implicitly has an 'any' type.
-1	src/canvas/hooks/useConditionalRecommendations.ts	TS7006	Parameter 'r' implicitly has an 'any' type.
 1	src/canvas/hooks/useHighlightDispatch.ts	TS6133	'Node' is declared but its value is never read.
 1	src/canvas/hooks/useKeyInsight.ts	TS2305	Module '"../../adapters/plot/types"' has no exported member 'KeyInsightResponse'.
 1	src/canvas/hooks/useLensFilter.ts	TS2345	Argument of type 'CEEOptionV3[]' is not assignable to parameter of type 'CeeOption[]'.
@@ -638,9 +620,6 @@
 1	src/canvas/hooks/usePreviewRun.ts	TS2339	Property 'previewProgress' does not exist on type 'CanvasState'.
 1	src/canvas/hooks/usePreviewRun.ts	TS2339	Property 'previewStart' does not exist on type 'CanvasState'.
 1	src/canvas/hooks/usePreviewRun.ts	TS2551	Property 'previewSetReport' does not exist on type 'CanvasState'. Did you mean 'previousReport'?
-2	src/canvas/hooks/useRecommendation.ts	TS2339	Property 'ranking' does not exist on type 'ComparisonResult'.
-1	src/canvas/hooks/useRecommendation.ts	TS7006	Parameter 'idx' implicitly has an 'any' type.
-1	src/canvas/hooks/useRecommendation.ts	TS7006	Parameter 'r' implicitly has an 'any' type.
 1	src/canvas/hooks/useResultsRun.ts	TS2339	Property 'ceeError' does not exist on type 'ReportV1'.
 1	src/canvas/hooks/useResultsRun.ts	TS2339	Property 'ceeReview' does not exist on type 'ReportV1'.
 1	src/canvas/hooks/useResultsRun.ts	TS2339	Property 'ceeTrace' does not exist on type 'ReportV1'.
@@ -1174,9 +1153,7 @@
 1	src/components/results/__tests__/isl-field-surfacing.spec.tsx	TS2367	This comparison appears to be unintentional because the types '"unknown"' and '"moderate"' have no overlap.
 1	src/components/results/__tests__/isl-field-surfacing.spec.tsx	TS2367	This comparison appears to be unintentional because the types '"unknown"' and '"negligible"' have no overlap.
 1	src/components/results/__tests__/isl-field-surfacing.spec.tsx	TS6133	'React' is declared but its value is never read.
-2	src/components/results/__tests__/v12.2-factor-labels.spec.tsx	TS2322	Type 'UncertaintyItem[]' is not assignable to type 'EvidenceGapItem[]'.
-6	src/components/results/__tests__/v12.2-factor-labels.spec.tsx	TS2353	Object literal may only specify known properties, and 'factorId' does not exist in type 'UncertaintyItem'.
-1	src/components/results/__tests__/v12.2-factor-labels.spec.tsx	TS2353	Object literal may only specify known properties, and 'label' does not exist in type 'DriverItem'.
+4	src/components/results/__tests__/v12.2-factor-labels.spec.tsx	TS2353	Object literal may only specify known properties, and 'factorId' does not exist in type 'UncertaintyItem'.
 1	src/components/results/__tests__/v12.2-factor-labels.spec.tsx	TS2353	Object literal may only specify known properties, and 'voi' does not exist in type 'UncertaintyItem'.
 8	src/components/results/__tests__/v12.2-fixes.spec.tsx	TS2739	Type '{ id: string; label: string; winProbability: number; rank: number; expected: number; isRecommended: false; }' is missing the following properties from type 'OptionResult': outcome, p10, p50, p90
 5	src/components/results/__tests__/v12.2-fixes.spec.tsx	TS2739	Type '{ id: string; label: string; winProbability: number; rank: number; expected: number; isRecommended: true; }' is missing the following properties from type 'OptionResult': outcome, p10, p50, p90

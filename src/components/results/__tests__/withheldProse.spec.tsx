@@ -42,7 +42,7 @@ import type { V7EvidenceModel } from '../v7/buildV7Lenses'
 import { V7_LENS_COPY } from '../v7/v7LensCopy'
 import { flipThresholdStatusNote } from '../utils/flipThresholdStatusNote'
 import { StressTestSection } from '../StressTestSection'
-import { FragileEdgeGroupCard, type ChallengeFragileEdge } from '../ChallengeSection'
+import { FragileEdgeGroupCard, type ChallengeFragileEdge } from '../FragileEdgeGroupCard'
 import {
   fragileDiscussDraft,
   fragileEValueNote,
@@ -453,12 +453,14 @@ describe('StressTestSection fragile factors — STRING 3: the per-edge consequen
 describe('StressTestSection fragile factors — STRING 4: the expert E-value note', () => {
   /**
    * REACHABILITY, stated precisely (CLAUDE.md — name the claim type).
-   * This string is NOT reachable on the live path today: `e_value` reaches
-   * `FragileEdgeGroupCard` only from `ChallengeSection`, which merges
-   * `edgeEValues`, and `ChallengeSection` has no production call site;
-   * `StressTestSection` passes `ChallengeFragileEdge[]`, which carries no
-   * `e_value`. It is fixed and pinned here because it is the same defect in
-   * the same component and one prop away from live.
+   * This string is NOT reachable on the live path today, and is now
+   * unreachable from ANY path: `e_value` used to reach `FragileEdgeGroupCard`
+   * only from `ChallengeSection`, which merged `edgeEValues` — but
+   * `ChallengeSection` had no production call site and was DELETED in the
+   * 2026-07-27 dead-code sweep. The sole remaining caller,
+   * `StressTestSection`, passes `ChallengeFragileEdge[]`, which carries no
+   * `e_value`. The string is fixed and pinned here because it is the same
+   * defect in the same component and one prop away from live.
    */
   const eValueEdges = [{ ...fragileEdge({ alternative_winner_label: undefined }), e_value: 2.0 }]
 
