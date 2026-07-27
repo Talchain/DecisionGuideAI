@@ -1,0 +1,15 @@
+/**
+ * SWAP CONTROL — "after", SAME-field within-file swap.
+ *
+ * The `elasticity` read of swap-before.ts.fixture has been replaced by a
+ * DIFFERENT `elasticity` read. Per-file total unchanged (2) AND per-field
+ * buckets unchanged (1 each), so BOTH count ratchets are silent — this is the
+ * residual that no count can price, and the spec asserts that silence rather
+ * than pretending it is closed. Only the item SET moves: one identity out, one
+ * in. That is what the non-blocking report exists to surface.
+ */
+export function afterSameField(d: Record<string, unknown>) {
+  const movedElsewhere = d.elasticity
+  const b = d.sensitivity_score
+  return [movedElsewhere, b]
+}
