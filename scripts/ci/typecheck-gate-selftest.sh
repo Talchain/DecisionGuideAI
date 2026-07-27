@@ -14,6 +14,7 @@
 #   2. RATCHET BITES      new file with a type error       → exit 1, names the file
 #   3. COVERAGE BITES     new tracked file no project loads→ exit 1, "NO typecheck project loads"
 #   4. STALE EXCEPTION    bogus entry in the uncovered list→ exit 1, "Stale entries"
+#                         (3 and 4 share ONE gate run — see the section itself)
 #   5. DEDUP KEY          one error rendered two ways      → counted ONCE
 #   5m. …AND ITS MUTANT   the same fixture under the OLD full-line key → counted TWICE
 #   6. WITHIN-FILE SWAP   one error traded for another of a different TS
@@ -34,8 +35,30 @@
 # refuses to run on a dirty tree so it can never destroy uncommitted work, and
 # its cleanup trap fires on every exit path.
 #
-# Runtime: ~3 min (scenarios 3 and 4 fail in the cheap coverage phase; 5 and 5m
-# do not compile at all).
+# ── WHAT THIS COSTS CI, AND WHAT IS AND IS NOT SHAREABLE ─────────────────────
+# The gate builds one tsc program per project per phase: two `--listFilesOnly`
+# programs in phase 1, two full checks in phase 2 (PROJECTS is a 2-element array
+# and each phase is one `for` loop containing one `npx tsc`). So a gate run that
+# reaches phase 2 costs 4 program builds, and one that fails in phase 1 costs 2.
+#
+# That made this script 20 program builds across 6 gate runs — 4+4+2+2+4+4 — of
+# which the two newest scenarios (6 and 7) were 8. Merging 3 and 4, whose
+# COMPILER input is identical, takes it to 18.
+#
+# THE REMAINING REDUNDANCY IS REAL AND IS NOT REMOVABLE HERE. Scenarios 1, 6 and
+# 7 also present the compiler with an identical input — a clean tree; they differ
+# only in a baseline artefact the gate reads AFTER compiling — so 12 of the 18
+# builds compile the same tree three times. They cannot share a run because their
+# expected VERDICTS are mutually exclusive: 1 must PASS with the added-diagnostic
+# notice SILENT, 6 must FAIL, and 7 must PASS with that same notice FIRING. No
+# ordering or combination of mutations produces all three from one output.
+# Collapsing them would need the gate to accept a captured diagnostic set the way
+# `--dedup-filter` already accepts a captured diagnostic list — a change to the
+# GATE, which is the thing under test here, and therefore its own reviewed piece
+# of work rather than a side effect of a cost fix.
+#
+# Runtime: dominated by those 18 builds (scenarios 3+4 fail in the cheap coverage
+# phase; 5 and 5m do not compile at all).
 
 set -uo pipefail
 
@@ -167,34 +190,48 @@ expect "the failure names the offending file" nonzero "$BAD_SRC"
 rm -rf "$(dirname "$BAD_SRC")"
 echo
 
-# ── 3. COVERAGE BITES ────────────────────────────────────────────────────────
-# A tracked TypeScript file that no project loads. `archive/` is excluded from
-# tsconfig.tooling.json and its existing files are listed one-by-one in the
-# exception list, so a NEW file there is genuinely invisible to the compiler —
-# and must therefore fail. `git add -N` makes it visible to `git ls-files`
-# (which is how the gate derives the source set) without staging its content.
-echo "3/7  coverage bites on a tracked file NO project loads"
+# ── 3 + 4. THE TWO COVERAGE FAILURES, IN ONE GATE RUN ────────────────────────
+# 3. A tracked TypeScript file that no project loads. `archive/` is excluded from
+#    tsconfig.tooling.json and its existing files are listed one-by-one in the
+#    exception list, so a NEW file there is genuinely invisible to the compiler —
+#    and must therefore fail. `git add -N` makes it visible to `git ls-files`
+#    (which is how the gate derives the source set) without staging its content.
+# 4. The exception list is the one hand-maintained artefact left, so it gets the
+#    bidirectional treatment: an entry that no longer describes reality must fail
+#    too, or the list would rot into a green lie exactly like the include list did.
+#
+# WHY ONE RUN. These two scenarios present the COMPILER with an identical input:
+# the invisible file lives in `archive/`, which no project loads, and the stale
+# entry is a line in a text file the compiler never sees. So both runs were
+# building the same two `--listFilesOnly` programs and diffing them against
+# different git/exception sets — 4 tsc program builds where 2 answer both
+# questions. The gate collects the two coverage failures independently
+# (`COVERAGE_FAIL` is set by each block, and neither short-circuits the other),
+# so both messages appear in one output.
+#
+# WHAT THIS COSTS, stated rather than glossed. Each detector is still asserted on
+# its OWN message and its OWN filename, so a broken detector still reddens this
+# scenario — that half is unchanged. What is no longer directly OBSERVED is
+# "this mutation, alone, produces a non-zero exit"; with both present, the
+# non-zero exit is attributable to either. That claim now rests on reading the
+# gate (each block sets COVERAGE_FAIL, and the exit is unconditional on it)
+# rather than on watching it, which is a weaker kind of evidence and is why it
+# is written down here.
+echo "3+4/7  coverage bites on an invisible tracked file AND a stale exception entry"
 mkdir -p "$(dirname "$INVISIBLE")"
 cat >"$INVISIBLE" <<'TS'
 // Self-test fixture, written and deleted by scripts/ci/typecheck-gate-selftest.sh.
 export const neverChecked = 1;
 TS
 git add -N -- "$INVISIBLE" >/dev/null
+printf 'archive/this-file-does-not-exist.selftest.ts\n' >>"$UNCOVERED"
 run_gate
 expect "invisible tracked file fails coverage" nonzero "NO typecheck project loads"
 expect "the failure names the invisible file" nonzero "$INVISIBLE"
+expect "stale exception entry fails coverage" nonzero "Stale entries"
+expect "the failure names the stale entry" nonzero "archive/this-file-does-not-exist.selftest.ts"
 git rm --cached -q --ignore-unmatch -- "$INVISIBLE" >/dev/null
 rm -rf "$(dirname "$INVISIBLE")"
-echo
-
-# ── 4. STALE EXCEPTION ───────────────────────────────────────────────────────
-# The exception list is the one hand-maintained artefact left, so it gets the
-# bidirectional treatment: an entry that no longer describes reality must fail
-# too, or the list would rot into a green lie exactly like the include list did.
-echo "4/7  stale entry in the exception list fails"
-printf 'archive/this-file-does-not-exist.selftest.ts\n' >>"$UNCOVERED"
-run_gate
-expect "stale exception entry fails coverage" nonzero "Stale entries"
 git checkout -q -- "$UNCOVERED"
 echo
 
@@ -279,7 +316,7 @@ echo "═══ self-test: $PASS passed, $FAIL failed ═══"
 # A run that dies in the middle prints "0 failed" for every scenario it never
 # reached — the harness's own version of the invisibility this gate exists to
 # stop. Assert the arithmetic instead of trusting that the script got here.
-EXPECTED_ASSERTIONS=17
+EXPECTED_ASSERTIONS=18
 if [[ $((PASS + FAIL)) -ne "$EXPECTED_ASSERTIONS" ]]; then
   echo "::error::Self-test ran $((PASS + FAIL)) assertions, expected $EXPECTED_ASSERTIONS — it exited early, so this result means nothing."
   echo "::error::If you added or removed an assertion, update EXPECTED_ASSERTIONS in $0."
