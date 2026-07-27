@@ -77,7 +77,10 @@ describe('V7LensGroup (V7 L5)', () => {
     render(<V7LensGroup model={buildV7Lenses(WITH_RANGE)} />)
     expect(screen.getByTestId('v7-lens-outcome')).toBeInTheDocument()
     expect(screen.getAllByTestId('v7-range-bar').length).toBe(2)
-    expect(screen.getByText(/Leads 70%/)).toBeInTheDocument()
+    // ROADMAP 1.239: the readout is relabelled from the leader VERB to the
+    // metric NOUN, per #493's WinGauge precedent. The number is unchanged —
+    // this is a wording fix, and the data it carries is the point of the test.
+    expect(screen.getByText(/70% win probability/)).toBeInTheDocument()
   })
 
   it('shows the no-target gate on the Goal fit lens when no success target is set', () => {

@@ -33,7 +33,22 @@ export const V7_LENS_COPY = {
     caption: 'Dots show the median. Bars show the realistic range (10th to 90th percentile).',
     /** Shown when no option carries a distribution or a win probability. */
     gate: 'Likely outcome is not available for this run.',
-    winReadout: (formatted: string) => `Leads ${formatted}`,
+    /**
+     * ROADMAP 1.239: was `Leads {formatted}`. The probe found it 18 times on
+     * every run including withheld ones, because the lens labels EVERY option
+     * this way ("Leads 52% / Leads 30% / Leads 18%"). Applied to all options it
+     * designates none — but it is a leader verb on a metric and the ordinal
+     * reads straight off it.
+     *
+     * RELABELLED rather than gated, following #493's WinGauge precedent
+     * exactly: gating would delete the win-probability DATA from the panel
+     * (over-suppression), and a carve-out list of "leader words that are
+     * actually fine" is the hand-maintained mirror trap 12 warns about. The
+     * noun is not new copy — the canvas node, WinGauge and the confidence
+     * ring caption already say it. Number-first matches `goal.hitReadout`
+     * below, so the two lenses stay one voice.
+     */
+    winReadout: (formatted: string) => `${formatted} win probability`,
   },
 
   goal: {

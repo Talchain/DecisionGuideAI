@@ -193,8 +193,12 @@ describe('ScenarioListPage', () => {
 
     renderPage()
 
+    // ROADMAP 1.239: the fixture keeps its `winner` / `probability` on purpose
+    // — that is what makes this a proof the subtitle ignores them — but the
+    // subtitle no longer designates a leader. See
+    // residualComparative.scenarioList.spec.tsx for the full reasoning.
     await waitFor(() => {
-      expect(screen.getByText(/Analysis run — Option A led at 73%/)).toBeTruthy()
+      expect(screen.getByText('Analysis run')).toBeTruthy()
     })
   })
 

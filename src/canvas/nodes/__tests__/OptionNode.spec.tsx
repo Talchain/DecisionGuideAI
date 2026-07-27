@@ -1902,7 +1902,12 @@ describe('OptionNode — display coherence (audit §8)', () => {
   it('suppresses "Behind:" when another non-leading option shares the identical reason', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.2))
     const report = {
-      robustness: { recommended_option_id: 'option-3' },
+      // ROADMAP 1.239: the producer signal is REQUIRED here, not decorative.
+      // "Behind:" now needs an entitled leader, so without it this test would
+      // go on passing while proving nothing about the identical-reason rule it
+      // exists to pin — the absence would be caused by the withheld gate
+      // instead. Trap 13, arriving via a change in a different file.
+      robustness: { recommended_option_id: 'option-3', ...producerLeaderClaim('option-3') },
       option_probabilities: {
         'option-1': { win_probability: 0.2 },
         'option-2': { win_probability: 0.2 },
@@ -1927,7 +1932,8 @@ describe('OptionNode — display coherence (audit §8)', () => {
   it('keeps "Behind:" when the reason differs from the other non-leading option', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.2))
     const report = {
-      robustness: { recommended_option_id: 'option-3' },
+      // ROADMAP 1.239: producer signal — this fixture means "there is a leader".
+      robustness: { recommended_option_id: 'option-3', ...producerLeaderClaim('option-3') },
       option_probabilities: {
         'option-1': { win_probability: 0.2 },
         'option-2': { win_probability: 0.2 },
@@ -1956,7 +1962,8 @@ describe('OptionNode — display coherence (audit §8)', () => {
   it('ranks the "Behind:" factor off certified factor_sensitivity via the shared policy, not enrichment', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.2))
     const report = {
-      robustness: { recommended_option_id: 'option-3' },
+      // ROADMAP 1.239: producer signal — this fixture means "there is a leader".
+      robustness: { recommended_option_id: 'option-3', ...producerLeaderClaim('option-3') },
       option_probabilities: {
         'option-1': { win_probability: 0.2 },
         'option-3': { win_probability: 0.6 },

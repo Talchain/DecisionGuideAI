@@ -152,11 +152,40 @@ function hingeAwareDescription(
   // on screen, not the producer's designation — the same distinction that
   // keeps the hero's per-lens crown alive.
   const noLeader = hasLeadingOption === false
+
+  // ROADMAP 1.239 — ONE gate, ABOVE the branch table.
+  //
+  // #493 placed `if (noLeader) return ''` INSIDE three of the branches and
+  // stated, deliberately, that two lines needed no gate because they "name a
+  // factor and this option, never a leader":
+  //
+  //   runner-up: "If {factor} shifts, this option overtakes"
+  //   baseline:  "Lowest risk but lowest expected outcome"
+  //
+  // A1 has since ruled the class in scope, and both are comparative after all.
+  // "Overtakes" is transitive with the object suppressed — there is nothing to
+  // overtake unless something is ahead — and it renders on the runner-up card
+  // while the front-runner's own sentence is (correctly) withheld, so it points
+  // at the silent card by elimination. "Lowest expected outcome" is a
+  // superlative over the option set: an ordering claim, and the ordering is
+  // exactly what the producer withheld.
+  //
+  // Both returned BEFORE the scattered gates, so the gate was present and
+  // simply unreachable for those branches. Hoisting it is therefore an
+  // ORDERING fix, and ordering is the instrument this arc settled on (#491:
+  // a boolean guard on an OPTIONAL input silently restores the defect for any
+  // caller that omits it; ordering has no such failure mode). It also removes
+  // the three duplicated gates, so a branch added later cannot be born
+  // ungated the way these two were.
+  //
+  // The lens branch stays ABOVE the gate — the one carve-out, and the reason
+  // this is not simply the first line of the function.
+  if (isWinner && lensActive) {
+    return 'Strongest under this lens. The overall recommendation is unchanged.'
+  }
+  if (noLeader) return ''
+
   if (isWinner) {
-    if (lensActive) {
-      return 'Strongest under this lens. The overall recommendation is unchanged.'
-    }
-    if (noLeader) return ''
     if (hinge?.reason === 'fragile_edge') {
       return `Highest leading-option likelihood but depends on ${hinge.label}`
     }
@@ -166,13 +195,13 @@ function hingeAwareDescription(
     return 'Highest leading-option likelihood across simulated scenarios'
   }
   if (isRunnerUp) {
-    // Conditional-flip copy names a factor and this option, never a leader, so
-    // it survives: "if X shifts, this option overtakes" is true whether or not
-    // a leader was designated.
+    // ROADMAP 1.239: reachable only on a permitted turn now — see the gate
+    // above. The conditional-flip line is honest copy where a leader HAS been
+    // designated; it is the designation it presupposes, not the factor it
+    // names, that made it unrenderable on a withheld one.
     if (hinge?.alternativeWinnerLabel && hinge.alternativeWinnerLabel === option.label) {
       return `If ${hinge.label} shifts, this option overtakes`
     }
-    if (noLeader) return ''
     // Task 9: Gap-based fallback instead of generic "Second highest"
     if (winnerWinProbability != null && option.winProbability != null) {
       const gapPct = Math.round((winnerWinProbability - option.winProbability) * 100)
@@ -183,12 +212,14 @@ function hingeAwareDescription(
     }
     return 'Close competitor'
   }
-  // Task 9: Status quo / baseline — specific copy. Non-comparative (it
-  // describes this option's own risk/outcome profile), so it is not gated.
+  // Task 9: Status quo / baseline — specific copy. ROADMAP 1.239 corrects the
+  // note that used to sit here ("non-comparative … so it is not gated"): both
+  // halves are superlatives OVER THE OPTION SET, not descriptions of this
+  // option in isolation, so the line asserts an ordering. It now sits below
+  // the single hoisted gate with everything else.
   if (option.isBaseline) {
     return 'Lowest risk but lowest expected outcome'
   }
-  if (noLeader) return ''
   // Task 9: Other non-winner — gap-based
   if (winnerWinProbability != null && option.winProbability != null) {
     const gapPct = Math.round((winnerWinProbability - option.winProbability) * 100)
