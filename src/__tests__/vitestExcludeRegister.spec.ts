@@ -87,6 +87,7 @@
  * file is: the register is a mirror, and this test is the alarm on it.
  */
 import { describe, it, expect } from 'vitest'
+import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -124,6 +125,94 @@ const DELIBERATELY_UNRUN: Record<string, { reason: string; owner: string; route:
       'the exclude and reading the real failure, exactly as OutputsDock was. Then repair, ' +
       'port, or retire.',
   },
+}
+
+/**
+ * THE SECOND KIND OF EXCLUDE ENTRY, and why it needs its own contract.
+ *
+ * Everything above assumes an exclude entry is a PATH to a real spec that is
+ * being silenced — hence "does it still exist on disk". A PATTERN is a
+ * different animal: it names no file, and it may legitimately match nothing
+ * that is tracked (an exclude aimed at build litter or at sync-conflict copies
+ * is supposed to match nothing real). Filing one under `DELIBERATELY_UNRUN`
+ * would have failed the exists-on-disk check, and "relax that check for
+ * anything with a `*` in it" would have quietly gutted the guard for paths too.
+ *
+ * So a pattern is registered here instead, and it must carry MORE than prose.
+ * The dangerous failure for a pattern is not that it is undocumented; it is
+ * that it is WIDER than its author believed and silences real specs. That claim
+ * cannot be prose, and it cannot be a hand-kept list. Each entry therefore
+ * ships an executable `silencesNothingReal` predicate that is run against the
+ * live `git ls-files` output in CI, plus `controlMustFlag` inputs the predicate
+ * MUST flag — because an absence assertion that has never demonstrated it can
+ * see a PRESENCE is passing by testing nothing.
+ *
+ * DRIFT IS CLOSED BY THE KEY. The register key is the glob's exact literal
+ * text. Edit the glob in `vitest.config.ts` and the old key is no longer
+ * excluded (stale-register test fails) while the new one is unregistered
+ * (unregistered test fails). You cannot widen a pattern without coming back
+ * here and re-justifying its predicate.
+ */
+const EXCLUDED_PATTERNS: Record<
+  string,
+  {
+    reason: string
+    owner: string
+    route: string
+    /** Given a file list, return the entries this pattern would silence. */
+    silencesNothingReal: (files: string[]) => string[]
+    /** Inputs the predicate MUST flag. Anti-vacuity: proves it can see one. */
+    controlMustFlag: string[]
+    /** Inputs it must NOT flag. Proves it is not simply flagging everything. */
+    controlMustNotFlag: string[]
+  }
+> = {
+  '**/* +([0-9]).{test,spec}.?(c|m)[jt]s?(x)': {
+    reason:
+      'iCloud Drive resolves a sync conflict by writing a second file whose basename gains a ' +
+      '" <n>" suffix. `foo 2.test.ts` MATCHES the include glob, so a local run collects a ' +
+      'frozen duplicate of the suite beside the real one — inflating counts and making a fix ' +
+      'to the real file look as though it did not bite, because the stale twin still asserts ' +
+      'the old behaviour. Excluded as a PATTERN over the naming convention rather than as a ' +
+      'list of filenames, since a filename list goes stale at the next sync conflict and its ' +
+      'drift reads as green. NOTE the deliberately narrow scope: iCloud also produces ' +
+      '`foo.test 2.ts`, which does not end in `.{test,spec}.<ext>` and was therefore never ' +
+      'collected — it needs no exclude, and adding one would be machinery that cannot bite.',
+    owner: 'UI/Experience',
+    route:
+      'Nothing to re-enable: this silences no spec that has ever run. It is retired the day ' +
+      'the repo stops living in an iCloud-synced directory — delete the entry here and the ' +
+      'glob together, and the stale-register test will confirm the pair went as one.',
+    silencesNothingReal: (files) =>
+      // The invariant, stated directly rather than by re-implementing glob
+      // semantics: no TRACKED file is named like a conflict copy of a spec.
+      files.filter((f) => / \d+\.(test|spec)\.[cm]?[jt]sx?$/.test(f.split('/').pop() ?? '')),
+    controlMustFlag: [
+      'src/canvas/components/pre-analysis/utils/__tests__/decisionShapeScore 2.test.ts',
+      'src/a/__tests__/foo 10.spec.tsx',
+      'tests/b/bar 2.test.mts',
+    ],
+    controlMustNotFlag: [
+      // The canonical file the copy was made from — must never be silenced.
+      'src/canvas/components/pre-analysis/utils/__tests__/decisionShapeScore.test.ts',
+      // The OTHER conflict shape: not collected by the include, so not our business.
+      'src/canvas/components/pre-analysis/utils/__tests__/decisionShapeScore.test 2.ts',
+      // Digits that are not a conflict marker.
+      'src/a/__tests__/foo2.test.ts',
+      'src/a/__tests__/v2.test.ts',
+    ],
+  },
+}
+
+/** The tracked file set — the same authority the other guards in this repo use. */
+function trackedFiles(): string[] {
+  return execFileSync('git', ['ls-files'], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024,
+  })
+    .split('\n')
+    .filter(Boolean)
 }
 
 function excludeListFromConfig(): string[] {
@@ -183,7 +272,9 @@ function excludeListFromConfig(): string[] {
 
 describe('vitest exclude register — no spec is silenced without an accountable reason', () => {
   it('every excluded path is registered with a reason and an owner', () => {
-    const unregistered = excludeListFromConfig().filter((p) => !(p in DELIBERATELY_UNRUN))
+    const unregistered = excludeListFromConfig().filter(
+      (p) => !(p in DELIBERATELY_UNRUN) && !(p in EXCLUDED_PATTERNS),
+    )
     expect(
       unregistered,
       'A spec was added to vitest.config.ts `exclude` without being registered in ' +
@@ -197,7 +288,9 @@ describe('vitest exclude register — no spec is silenced without an accountable
 
   it('every registered path is still actually excluded (a stale register is a lie)', () => {
     const excluded = new Set(excludeListFromConfig())
-    const stale = Object.keys(DELIBERATELY_UNRUN).filter((p) => !excluded.has(p))
+    const stale = [...Object.keys(DELIBERATELY_UNRUN), ...Object.keys(EXCLUDED_PATTERNS)].filter(
+      (p) => !excluded.has(p),
+    )
     expect(
       stale,
       'These paths are registered as deliberately-unrun but are NOT in vitest.config.ts ' +
@@ -208,6 +301,11 @@ describe('vitest exclude register — no spec is silenced without an accountable
   })
 
   it('every registered path still exists on disk', () => {
+    // PATHS only. A pattern names no file, so "does it exist" is the wrong
+    // question for one — and answering it by skipping anything containing a
+    // `*` would quietly gut this check for paths too. Patterns are held to a
+    // STRONGER contract instead, two tests below: an executable proof that they
+    // silence nothing tracked, and a positive control on that proof.
     const missing = Object.keys(DELIBERATELY_UNRUN).filter(
       (p) => !existsSync(resolve(REPO_ROOT, p)),
     )
@@ -220,10 +318,49 @@ describe('vitest exclude register — no spec is silenced without an accountable
   })
 
   it('the register states a reason, an owner and a route back for each entry', () => {
-    for (const [path, entry] of Object.entries(DELIBERATELY_UNRUN)) {
+    const every = { ...DELIBERATELY_UNRUN, ...EXCLUDED_PATTERNS }
+    for (const [path, entry] of Object.entries(every)) {
       expect(entry.reason.length, `${path}: reason must be substantive`).toBeGreaterThan(40)
       expect(entry.owner.length, `${path}: owner must be named`).toBeGreaterThan(0)
       expect(entry.route.length, `${path}: route back must be substantive`).toBeGreaterThan(20)
+    }
+  })
+
+  it('every excluded PATTERN silences nothing that is tracked', () => {
+    // The dangerous failure for a pattern is being wider than its author
+    // believed. Derived from `git ls-files` on every run, never from a list
+    // someone has to remember to update.
+    const files = trackedFiles()
+    // Guard the guard: a truncated or empty file list would make this pass
+    // vacuously, which is the exact shape of the defect this file exists for.
+    expect(files.length, 'git ls-files returned an implausibly small tree').toBeGreaterThan(2000)
+    for (const [pattern, entry] of Object.entries(EXCLUDED_PATTERNS)) {
+      expect(
+        entry.silencesNothingReal(files),
+        `The exclude pattern ${pattern} matches TRACKED files. An exclude registered as ` +
+          'silencing nothing real is now silencing these. Either the pattern is wider than ' +
+          'it was justified as being, or these files should not be named this way.',
+      ).toEqual([])
+    }
+  })
+
+  it('...and each of those proofs can actually SEE a match (anti-vacuity)', () => {
+    // A predicate that returns [] for everything would satisfy the test above
+    // while proving nothing at all. Every entry must first demonstrate a
+    // PRESENCE on pinned literals, and must leave the look-alikes alone.
+    for (const [pattern, entry] of Object.entries(EXCLUDED_PATTERNS)) {
+      expect(entry.controlMustFlag.length, `${pattern}: needs positive controls`).toBeGreaterThan(0)
+      expect(
+        entry.silencesNothingReal(entry.controlMustFlag).sort(),
+        `${pattern}: its own proof failed to flag inputs it is documented to match — so the ` +
+          'zero-match result above was obtained by testing nothing.',
+      ).toEqual([...entry.controlMustFlag].sort())
+      expect(
+        entry.silencesNothingReal(entry.controlMustNotFlag),
+        `${pattern}: its proof flags files it must leave alone — including the canonical ` +
+          'file a conflict copy was made from. A pattern that swallows the original is worse ' +
+          'than no pattern.',
+      ).toEqual([])
     }
   })
 })
