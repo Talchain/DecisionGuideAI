@@ -661,6 +661,7 @@ describe('Wave 2 (§6.6): Why and what could change it disclosure', () => {
           },
         ],
         tradeOffs: null,
+        designationsWithheld: false,
         ...overrides,
       },
     }

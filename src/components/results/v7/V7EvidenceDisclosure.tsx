@@ -206,7 +206,7 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
             <div className="space-y-1.5" data-testid="v7-evidence-flip-risks">
               {hasFlipRisks ? (
                 <>
-                  <EvidenceNote>{E.flipRisksNote}</EvidenceNote>
+                  <EvidenceNote>{E.flipRisksNote(evidence.designationsWithheld)}</EvidenceNote>
                   {evidence.flipRisks.map((r, i) => {
                     const canFocus = Boolean(r.fromId && onFocusNode)
                     const body = (
@@ -251,7 +251,7 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
             <div className="space-y-1.5" data-testid="v7-evidence-trade-offs">
               {hasTradeOffs ? (
                 <>
-                  <EvidenceNote>{E.tradeOffsNote}</EvidenceNote>
+                  <EvidenceNote>{E.tradeOffsNote(evidence.designationsWithheld)}</EvidenceNote>
                   {evidence.tradeOffs.map((t, i) => (
                     <div key={`${t.factorId}-${i}`} className="flex items-start gap-1.5">
                       <GitBranch aria-hidden="true" className="mt-0.5 h-3 w-3 flex-none text-info" />

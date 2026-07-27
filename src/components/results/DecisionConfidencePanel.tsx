@@ -19,6 +19,7 @@ import { HeroQualifier } from './HeroQualifier'
 import { useCanvasStore } from '@/canvas/store'
 import { resolveDisplayedFreshness } from '@/canvas/store/analysisFreshness'
 import { buildCertaintyCopy } from './utils/certaintyCopy'
+import { NO_CLAIM_VERDICT } from '@/lib/decisionVerdict'
 import { calibrateUncertaintyCopy } from './utils/uncertaintyCalibration'
 import { typography } from '@/styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
@@ -205,7 +206,19 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       winProbabilityGap,
       // SINGLE VERDICT: the shared "is there a leading option?" answer,
       // derived from the same PLoT report the canvas badge reads.
-      verdict: data.recommendation.verdict,
+      //
+      // ROADMAP 1.267: `buildCertaintyCopy` now REQUIRES it, and this is the
+      // one place the hook's optional field is resolved. `verdict` is absent
+      // only on the hook's pre-first-run early return, which also returns
+      // `recommendedOption: null` — so the `if (!winner) return null` above
+      // already claimed that path and the fallback is unreachable in
+      // production. It is still spelled NO_CLAIM_VERDICT rather than left to
+      // an optional parameter, because "unreachable today" is how the
+      // original hole was argued too: the honest fallback is silence, and
+      // returning null here would be WORSE than silence — a null `certainty`
+      // hands the headline to `coachingHeadline` below, which is exactly the
+      // producer copy that says "clear leader".
+      verdict: data.recommendation.verdict ?? NO_CLAIM_VERDICT,
     })
   }, [
     data.recommendation.recommendedOption,

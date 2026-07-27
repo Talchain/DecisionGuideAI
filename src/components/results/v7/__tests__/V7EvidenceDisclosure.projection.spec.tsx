@@ -18,6 +18,7 @@ function model(partial: Partial<V7EvidenceModel>): V7EvidenceModel {
     drivers: partial.drivers ?? [],
     flipRisks: partial.flipRisks ?? [],
     tradeOffs: partial.tradeOffs ?? [],
+    designationsWithheld: partial.designationsWithheld ?? false,
   }
 }
 

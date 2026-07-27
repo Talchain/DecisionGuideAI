@@ -155,6 +155,7 @@ describe('StressTestSection "What if this changes?" — prefill, never auto-send
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
           onSendMessage={onSendMessage}
         />
         <AskOlumiDrawer />

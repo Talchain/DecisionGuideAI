@@ -22,7 +22,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { buildCertaintyCopy, shouldSoftenPhrasing } from '../certaintyCopy'
-import type { DecisionVerdict } from '../../../../lib/decisionVerdict'
+import { NO_CLAIM_VERDICT, type DecisionVerdict } from '../../../../lib/decisionVerdict'
 
 const WINNER = 'Option A'
 
@@ -37,10 +37,26 @@ const clearVerdict = (): DecisionVerdict => ({
   leaderId: 'opt_a', separation: 'clear', hasLeadingOption: true, gapPp: 52, source: 'producer_near_tie',
 })
 
+// ROADMAP 1.267 — WHY EVERY CASE BELOW NOW NAMES A VERDICT.
+//
+// `verdict` used to be OPTIONAL and most of this table omitted it. That was
+// not a tidy default: with no verdict the withheld branch could not fire, so
+// each of these cases silently exercised the leader-ASSERTING rules while
+// documenting nothing about the precondition that entitles them. The
+// parameter is required now, and the tier × stability table is the copy for a
+// run where a leading option EXISTS — so `clearVerdict()` states that
+// precondition at every call site rather than leaving it to a default.
+//
+// The cases that are ABOUT a withheld, tied or single-option run pass their
+// own verdict (rows 2, 3b, 3c and the tie tests) and are untouched: they were
+// already explicit, which is exactly why they were the only ones that could
+// see the defect.
+
 describe('buildCertaintyCopy — decision table', () => {
   it('row 1: partial analysis overrides all tier inputs', () => {
     expect(
       buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         analysisStatus: 'partial',
         confidenceTier: 'strong',
@@ -97,6 +113,7 @@ describe('buildCertaintyCopy — decision table', () => {
 
   it('row 2 boundary: stability exactly 0.70 is considered stable (Rule 4 fires for needs_work)', () => {
     const result = buildCertaintyCopy({
+      verdict: clearVerdict(),
       winnerLabel: WINNER,
       recommendationStability: 0.70,
       confidenceTier: 'needs_work',
@@ -151,6 +168,7 @@ describe('buildCertaintyCopy — decision table', () => {
   it('row 3: single option renders its own copy before any tier check', () => {
     expect(
       buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         optionCount: 1,
         confidenceTier: 'strong',
@@ -167,6 +185,7 @@ describe('buildCertaintyCopy — decision table', () => {
   describe('row 4 — soft headline path (tier ∈ {needs_work, fair} AND stability < 0.85)', () => {
     it('needs_work + absent stability → soft headline + evidence caveat', () => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'needs_work',
       })
@@ -182,6 +201,7 @@ describe('buildCertaintyCopy — decision table', () => {
 
     it('needs_work + stability 0.84 → soft headline + caveat', () => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'needs_work',
         recommendationStability: 0.84,
@@ -192,6 +212,7 @@ describe('buildCertaintyCopy — decision table', () => {
 
     it('fair + absent stability → soft headline, NO caveat (fair is not evidence-weak)', () => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'fair',
       })
@@ -202,6 +223,7 @@ describe('buildCertaintyCopy — decision table', () => {
 
     it('fair + stability 0.84 → soft headline, NO caveat', () => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'fair',
         recommendationStability: 0.84,
@@ -214,6 +236,7 @@ describe('buildCertaintyCopy — decision table', () => {
   describe('stability override (tier ∈ {needs_work, fair} AND stability ≥ 0.85)', () => {
     it('needs_work + 0.85 → confident fallback "is the leading option", no caveat', () => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'needs_work',
         recommendationStability: 0.85,
@@ -225,6 +248,7 @@ describe('buildCertaintyCopy — decision table', () => {
 
     it('needs_work + 0.95 → confident fallback', () => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'needs_work',
         recommendationStability: 0.95,
@@ -235,6 +259,7 @@ describe('buildCertaintyCopy — decision table', () => {
 
     it('fair + 0.87 → confident fallback, no caveat', () => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'fair',
         recommendationStability: 0.87,
@@ -252,6 +277,7 @@ describe('buildCertaintyCopy — decision table', () => {
       ['not_ready'],
     ] as const)('strong + weak readiness %s + stability 0.75 → confident "is the leading option" (readiness never softens strong)', (readiness) => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'strong',
         coachingReadiness: readiness,
@@ -263,6 +289,7 @@ describe('buildCertaintyCopy — decision table', () => {
 
     it('needs_work + readiness=ready + stability 0.75 → soft (readiness does not rescue)', () => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'needs_work',
         coachingReadiness: 'ready',
@@ -274,6 +301,7 @@ describe('buildCertaintyCopy — decision table', () => {
 
     it('needs_work + readiness=needs_evidence + stability 0.90 → confident (stability override beats weak readiness)', () => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'needs_work',
         coachingReadiness: 'needs_evidence',
@@ -285,6 +313,7 @@ describe('buildCertaintyCopy — decision table', () => {
 
     it('fair + readiness=not_ready + stability 0.80 → soft (unambiguous soft path)', () => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'fair',
         coachingReadiness: 'not_ready',
@@ -299,6 +328,7 @@ describe('buildCertaintyCopy — decision table', () => {
     it('close_call + unknown tier → definitive "is the leading option", conservative: true', () => {
       expect(
         buildCertaintyCopy({
+          verdict: clearVerdict(),
           winnerLabel: WINNER,
           confidenceTier: 'unknown',
           coachingReadiness: 'close_call',
@@ -314,6 +344,7 @@ describe('buildCertaintyCopy — decision table', () => {
     it('close_call wins over needs_work + high stability (tier path would reach confident fallback first, but Rule 4 soft gate applies only when stability is weak — so close_call precedence is tested via a tier that does not trigger Rule 4)', () => {
       // Rule 4 takes precedence when applicable. Use a non-soft tier to isolate close_call.
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'strong',
         coachingReadiness: 'close_call',
@@ -326,6 +357,7 @@ describe('buildCertaintyCopy — decision table', () => {
   it('row 6: strong + ready → "is the leading option" (only path allowing coaching override)', () => {
     expect(
       buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'strong',
         coachingReadiness: 'ready',
@@ -340,7 +372,7 @@ describe('buildCertaintyCopy — decision table', () => {
 
   describe('row 7 — confident fallback', () => {
     it('no tier + no readiness + no gap → "is the leading option" (avoids bare "leads")', () => {
-      expect(buildCertaintyCopy({ winnerLabel: WINNER })).toEqual({
+      expect(buildCertaintyCopy({ verdict: clearVerdict(), winnerLabel: WINNER })).toEqual({
         headline: `${WINNER} is the leading option`,
         sub: null,
         caveat: null,
@@ -350,6 +382,7 @@ describe('buildCertaintyCopy — decision table', () => {
 
     it('strong + no readiness + no gap → "is the leading option"', () => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'strong',
       })
@@ -377,6 +410,7 @@ describe('buildCertaintyCopy — decision table', () => {
 
     it('partial analysis wins over unstable wins over weak tier (full chain)', () => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         analysisStatus: 'partial',
         recommendationStability: 0.55,
@@ -390,6 +424,7 @@ describe('buildCertaintyCopy — decision table', () => {
 
     it('single option wins over weak tier (no caveat — no alternative to compare)', () => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         optionCount: 1,
         confidenceTier: 'needs_work',
@@ -401,15 +436,21 @@ describe('buildCertaintyCopy — decision table', () => {
   })
 
   it('UI copy compliance: no em dashes in any returned string', () => {
+    // ROADMAP 1.267: the em-dash sweep now covers BOTH verdict states, so a
+    // withheld-run string can never slip an em dash past it. The permitted
+    // rows carry `clearVerdict()`; the withheld row carries the no-claim
+    // verdict and exercises the branch the other eight cannot reach.
     const cases: Parameters<typeof buildCertaintyCopy>[0][] = [
-      { winnerLabel: WINNER },
-      { winnerLabel: WINNER, analysisStatus: 'partial' },
-      { winnerLabel: WINNER, recommendationStability: 0.55 },
-      { winnerLabel: WINNER, optionCount: 1 },
-      { winnerLabel: WINNER, confidenceTier: 'needs_work' },
-      { winnerLabel: WINNER, confidenceTier: 'fair' },
-      { winnerLabel: WINNER, confidenceTier: 'strong', coachingReadiness: 'ready' },
-      { winnerLabel: WINNER, confidenceTier: 'unknown', coachingReadiness: 'close_call' },
+      { verdict: clearVerdict(), winnerLabel: WINNER },
+      { verdict: clearVerdict(), winnerLabel: WINNER, analysisStatus: 'partial' },
+      { verdict: clearVerdict(), winnerLabel: WINNER, recommendationStability: 0.55 },
+      { verdict: clearVerdict(), winnerLabel: WINNER, optionCount: 1 },
+      { verdict: clearVerdict(), winnerLabel: WINNER, confidenceTier: 'needs_work' },
+      { verdict: clearVerdict(), winnerLabel: WINNER, confidenceTier: 'fair' },
+      { verdict: clearVerdict(), winnerLabel: WINNER, confidenceTier: 'strong', coachingReadiness: 'ready' },
+      { verdict: clearVerdict(), winnerLabel: WINNER, confidenceTier: 'unknown', coachingReadiness: 'close_call' },
+      { verdict: NO_CLAIM_VERDICT, winnerLabel: WINNER, optionCount: 3 },
+      { verdict: tiedVerdict(), winnerLabel: WINNER, optionCount: 3 },
     ]
     for (const input of cases) {
       const result = buildCertaintyCopy(input)
@@ -422,6 +463,7 @@ describe('buildCertaintyCopy — decision table', () => {
   describe('Brief 5.2 Task 1 — winProbabilityGap suffix', () => {
     it('soft path (needs_work + low stability): appends " by N points"', () => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'needs_work',
         winProbabilityGap: 95,
@@ -432,6 +474,7 @@ describe('buildCertaintyCopy — decision table', () => {
 
     it('soft path (fair + low stability): appends suffix, NO caveat', () => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'fair',
         winProbabilityGap: 7,
@@ -443,6 +486,7 @@ describe('buildCertaintyCopy — decision table', () => {
 
     it('close_call: does NOT append suffix — reserved definitive phrasing', () => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'unknown',
         coachingReadiness: 'close_call',
@@ -453,6 +497,7 @@ describe('buildCertaintyCopy — decision table', () => {
 
     it('row 6 (strong + ready): does NOT append suffix — reserved definitive phrasing', () => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'strong',
         coachingReadiness: 'ready',
@@ -463,6 +508,7 @@ describe('buildCertaintyCopy — decision table', () => {
 
     it('confident fallback: appends suffix as "{winner} leads by N points"', () => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         winProbabilityGap: 3,
       })
@@ -471,6 +517,7 @@ describe('buildCertaintyCopy — decision table', () => {
 
     it('singular point uses "point" not "points" (soft path)', () => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'needs_work',
         winProbabilityGap: 1,
@@ -480,6 +527,7 @@ describe('buildCertaintyCopy — decision table', () => {
 
     it('rounds fractional gaps to the nearest whole point (confident fallback)', () => {
       const result = buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         winProbabilityGap: 4.6,
       })
@@ -490,6 +538,7 @@ describe('buildCertaintyCopy — decision table', () => {
       for (const gap of [0, -1, NaN, Infinity, -Infinity]) {
         // Use confident fallback path. No gap → no suffix → "is the leading option".
         const result = buildCertaintyCopy({
+          verdict: clearVerdict(),
           winnerLabel: WINNER,
           winProbabilityGap: gap,
         })
@@ -512,31 +561,32 @@ describe('buildCertaintyCopy — decision table', () => {
 
   describe('conservative flag — Brief 5.2 follow-up invariant', () => {
     it('row 1 (partial analysis) is conservative', () => {
-      expect(buildCertaintyCopy({ winnerLabel: WINNER, analysisStatus: 'partial' }).conservative)
+      expect(buildCertaintyCopy({ verdict: clearVerdict(), winnerLabel: WINNER, analysisStatus: 'partial' }).conservative)
         .toBe(true)
     })
 
     it('row 2 (stability < 0.70) is conservative', () => {
-      expect(buildCertaintyCopy({ winnerLabel: WINNER, recommendationStability: 0.55 }).conservative)
+      expect(buildCertaintyCopy({ verdict: clearVerdict(), winnerLabel: WINNER, recommendationStability: 0.55 }).conservative)
         .toBe(true)
     })
 
     it('row 3 (single option) is conservative', () => {
-      expect(buildCertaintyCopy({ winnerLabel: WINNER, optionCount: 1 }).conservative).toBe(true)
+      expect(buildCertaintyCopy({ verdict: clearVerdict(), winnerLabel: WINNER, optionCount: 1 }).conservative).toBe(true)
     })
 
     it('row 4 (needs_work + low stability) is conservative', () => {
-      expect(buildCertaintyCopy({ winnerLabel: WINNER, confidenceTier: 'needs_work' }).conservative)
+      expect(buildCertaintyCopy({ verdict: clearVerdict(), winnerLabel: WINNER, confidenceTier: 'needs_work' }).conservative)
         .toBe(true)
     })
 
     it('row 4 (fair + low stability) is conservative', () => {
-      expect(buildCertaintyCopy({ winnerLabel: WINNER, confidenceTier: 'fair' }).conservative)
+      expect(buildCertaintyCopy({ verdict: clearVerdict(), winnerLabel: WINNER, confidenceTier: 'fair' }).conservative)
         .toBe(true)
     })
 
     it('row 5 (close_call) is conservative', () => {
       expect(buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         coachingReadiness: 'close_call',
       }).conservative).toBe(true)
@@ -544,6 +594,7 @@ describe('buildCertaintyCopy — decision table', () => {
 
     it('row 6 (strong + ready) is NOT conservative — only path allowing coaching override', () => {
       expect(buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'strong',
         coachingReadiness: 'ready',
@@ -551,11 +602,12 @@ describe('buildCertaintyCopy — decision table', () => {
     })
 
     it('row 7 fallback (no tier / no readiness) is conservative', () => {
-      expect(buildCertaintyCopy({ winnerLabel: WINNER }).conservative).toBe(true)
+      expect(buildCertaintyCopy({ verdict: clearVerdict(), winnerLabel: WINNER }).conservative).toBe(true)
     })
 
     it('row 7 (strong but missing readiness) is conservative — strong alone does not opt in', () => {
       expect(buildCertaintyCopy({
+        verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'strong',
       }).conservative).toBe(true)

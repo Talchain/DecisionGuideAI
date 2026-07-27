@@ -32,6 +32,7 @@
 import type { AnalysisResultBlock } from '@talchain/schemas/boundary'
 
 import type { ReportV1, ConfidenceLevel } from '../adapters/plot/types'
+import type { DecisionVerdictReportLike } from '../lib/decisionVerdict'
 
 // ─── Helpers ───────────────────────────────────────────────────────────
 
@@ -374,6 +375,217 @@ interface ResolvedOptionIdentity {
  *     honest miss. Same rule, same reason as the `labelIsUnique` guard used
  *     for option_probabilities below.
  */
+/**
+ * The option rows to emit, in the mapper's own precedence order.
+ *
+ * Path A — `enrichment.option_comparison` is present: one row per entry,
+ * keyed by canonical option_id.
+ * Path B — absent: one row per `block.win_probabilities` key, verbatim (those
+ * keys may be labels; the Results-panel lookup then honestly misses).
+ */
+function optionIterator(
+  resolvedOptions: ResolvedOptionEntry[],
+  winProbs: Record<string, number>,
+): Array<{ optionId: string; enriched: RawOptionEnrichmentEntry | undefined; label: string | undefined }> {
+  return resolvedOptions.length > 0
+    ? resolvedOptions.map((r) => ({
+        optionId: r.optionId,
+        enriched: r.enriched,
+        label: r.optionLabel,
+      }))
+    : Object.keys(winProbs).map((k) => ({ optionId: k, enriched: undefined, label: undefined }))
+}
+
+/**
+ * option_id → win probability, resolved in ONE place from the three producer
+ * locations, in precedence order:
+ *   1. `enrichment.option_comparison[*].win_probability` (canonical)
+ *   2. `block.win_probabilities[option_id]` (block keyed by id)
+ *   3. `block.win_probabilities[option_label]` (block keyed by label — real
+ *      staging behaviour) — ONLY when that label is unique among the
+ *      option_comparison entries. Duplicate labels with no per-entry value
+ *      collapse to ABSENT rather than to a shared number: a label-keyed
+ *      Record cannot disambiguate two options that share a label, and
+ *      rendering both at the same probability is false precision, not an
+ *      honest miss.
+ *
+ * A key is present in the returned map only when a finite value resolved, so
+ * callers keep their `!== undefined` emit guards and never write a default.
+ *
+ * Extracted (ROADMAP 1.267) because this rule previously existed TWICE in
+ * this file — once here and once, by hand, in the inspector's
+ * `option_comparison` build, whose comment said "Mirror the duplicate-label
+ * guard". A rule a human must remember to keep in sync is the repo's dominant
+ * defect class; the verdict derivation below would have made it a third copy.
+ */
+function resolveWinProbabilitiesById(
+  candidates: WinProbabilityCandidate[],
+  winProbs: Record<string, number>,
+): Map<string, number> {
+  const labelOccurrences = new Map<string, number>()
+  for (const c of candidates) {
+    if (c.optionLabel !== undefined) {
+      labelOccurrences.set(c.optionLabel, (labelOccurrences.get(c.optionLabel) ?? 0) + 1)
+    }
+  }
+  const labelIsUnique = (label: string | undefined): label is string =>
+    label !== undefined && (labelOccurrences.get(label) ?? 0) === 1
+
+  const out = new Map<string, number>()
+  for (const { optionId, optionLabel, ownWinProbability } of candidates) {
+    const winProb =
+      ownWinProbability ??
+      safeFiniteNumber(winProbs[optionId]) ??
+      (labelIsUnique(optionLabel) ? safeFiniteNumber(winProbs[optionLabel]) : undefined)
+    if (winProb !== undefined) out.set(optionId, winProb)
+  }
+  return out
+}
+
+/**
+ * One option as the win-probability join sees it: its canonical id, its label
+ * (for the duplicate-label guard) and the producer's OWN per-entry
+ * probability when one was sent. Narrower than `ResolvedOptionEntry` on
+ * purpose — the join reads three fields, and the verdict view assembles
+ * candidates from `decision_brief.options[]`, which is not an
+ * `option_comparison` entry and must not have to pretend to be one.
+ */
+interface WinProbabilityCandidate {
+  optionId: string
+  optionLabel: string | undefined
+  ownWinProbability: number | undefined
+}
+
+/** Candidates from the mapper's own precedence order (paths A and B). */
+function winProbabilityCandidates(
+  resolvedOptions: ResolvedOptionEntry[],
+  winProbs: Record<string, number>,
+): WinProbabilityCandidate[] {
+  return optionIterator(resolvedOptions, winProbs).map(({ optionId, enriched, label }) => ({
+    optionId,
+    optionLabel: label,
+    ownWinProbability: safeFiniteNumber(enriched?.win_probability),
+  }))
+}
+
+/**
+ * The `decision_brief.options[]` entry for one option id, narrowed to the
+ * single field the win-probability join reads. Returns `undefined` when the
+ * brief carries no probability for it, so the join falls through to the
+ * block's own map rather than inventing a value.
+ */
+function briefWinProbability(
+  enrichment: Record<string, unknown> | undefined,
+  optionId: string,
+): number | undefined {
+  const brief = isPlainObject(enrichment?.decision_brief)
+    ? (enrichment!.decision_brief as Record<string, unknown>)
+    : undefined
+  const raw = Array.isArray(brief?.options) ? brief!.options : []
+  for (const entry of raw) {
+    if (!isPlainObject(entry)) continue
+    const id = safeString(entry.option_id) ?? safeString(entry.id)
+    if (id !== optionId) continue
+    return safeFiniteNumber(entry.win_probability)
+  }
+  return undefined
+}
+
+/**
+ * The `DecisionVerdictReportLike` view of a V5 analysis block — everything
+ * `deriveDecisionVerdict` reads, and nothing else.
+ *
+ * ## Why this exists rather than `deriveDecisionVerdict(mapV5AnalysisToReport(block))`
+ *
+ * `mapV5AnalysisToReport`'s `report.robustness` is an explicit KEEP-LIST and
+ * `near_tie` is not on it — deliberately, and documented as such in
+ * `src/lib/__fixtures__/ownedLeaderClaim.fixtures.ts`. So the mapped report
+ * cannot see PLoT's own tie verdict even though the RAW enrichment this
+ * function reads carries it (`enrichment.robustness.near_tie`, present on the
+ * captured staging bundle at `src/v5/__tests__/fixtures/`). Deriving the
+ * verdict from the raw block therefore uses a STRICTLY richer signal than
+ * deriving it from the mapped report, and does not depend on the keep-list.
+ *
+ * ## Identity space
+ *
+ * Both producer signals (`near_tie.top_option_id`,
+ * `headline_banded.leader_option_id`) are option IDs, so the probabilities
+ * handed to `deriveDecisionVerdict` must be id-keyed too — otherwise its
+ * identity gate compares an id to a label, never matches, and silently
+ * withholds every run. That join is `resolveWinProbabilitiesById`, the same
+ * one the report itself uses.
+ *
+ * The id↔label source falls back to `decision_brief.options[]` exactly as
+ * `resolveLeaderKeys` does, and for the same reason: the verdict decides
+ * WHETHER a leader may be marked and `resolveLeaderKeys` decides WHICH key
+ * it is, so the two MUST resolve identity from the same chain. When they
+ * disagreed, a payload carrying only the brief fallback resolved a leader key
+ * and no verdict — silently withholding a designation the producer permitted.
+ */
+export function buildV5VerdictReportLike(block: {
+  win_probabilities?: Record<string, number> | null
+  enrichment?: unknown
+}): DecisionVerdictReportLike {
+  const enrichment = isPlainObject(block.enrichment) ? block.enrichment : undefined
+  const winProbs = block.win_probabilities ?? {}
+
+  // Same fallback chain as `resolveLeaderKeys`; NOT applied to the report
+  // mapper itself, whose `option_probabilities` keying is a separate,
+  // already-pinned contract (path B keys by win_probabilities verbatim).
+  const fromComparison = resolveOptionEntries(enrichment)
+  const candidates: WinProbabilityCandidate[] =
+    fromComparison.length > 0
+      ? winProbabilityCandidates(fromComparison, winProbs)
+      : resolveDecisionBriefOptions(enrichment).map((identity) => ({
+          optionId: identity.optionId,
+          optionLabel: identity.label,
+          // The brief's own per-option win probability, when it sent one —
+          // the same producer payload, read through the same precedence the
+          // join applies to an option_comparison entry.
+          ownWinProbability: briefWinProbability(enrichment, identity.optionId),
+        }))
+
+  // No id↔label source at all ⇒ fall back to the mapper's path B (the
+  // win_probabilities keys verbatim), so a block with neither producer array
+  // still yields probabilities. They will be LABEL-keyed, the id-space
+  // producer signals will not apply, and the verdict fails closed — which is
+  // the correct outcome, reached without a special case.
+  const winById = resolveWinProbabilitiesById(
+    candidates.length > 0 ? candidates : winProbabilityCandidates([], winProbs),
+    winProbs,
+  )
+
+  const option_probabilities: Record<string, { win_probability?: number | null }> = {}
+  for (const [optionId, win] of winById) {
+    option_probabilities[optionId] = { win_probability: win }
+  }
+
+  const robustnessRaw = isPlainObject(enrichment?.robustness) ? enrichment!.robustness : undefined
+  const briefRaw = isPlainObject(enrichment?.decision_brief)
+    ? (enrichment!.decision_brief as Record<string, unknown>)
+    : undefined
+
+  return {
+    option_probabilities,
+    // Passed through UNNORMALISED on purpose: `deriveDecisionVerdict` reads
+    // both fail-closed (a malformed `near_tie` falls to the next authority,
+    // an unknown band token yields no claim), so re-validating here would be
+    // a second, divergent gate on the same bytes.
+    robustness: robustnessRaw
+      ? {
+          recommended_option_id:
+            typeof robustnessRaw.recommended_option_id === 'string'
+              ? robustnessRaw.recommended_option_id
+              : null,
+          near_tie: robustnessRaw.near_tie,
+        }
+      : null,
+    decision_brief: briefRaw
+      ? ({ headline_banded: briefRaw.headline_banded } as DecisionVerdictReportLike['decision_brief'])
+      : null,
+  }
+}
+
 export function resolveLeaderKeys(
   enrichment: Record<string, unknown> | undefined,
   leadingOptionId: string | null | undefined,
@@ -512,29 +724,14 @@ export function mapV5AnalysisToReport(
   // Path B (no option_comparison): emit entries keyed by win_probabilities
   // keys verbatim. Honest miss in the Results panel when those keys are
   // labels.
-  const labelOccurrences = new Map<string, number>()
-  for (const r of resolvedOptions) {
-    if (r.optionLabel !== undefined) {
-      labelOccurrences.set(r.optionLabel, (labelOccurrences.get(r.optionLabel) ?? 0) + 1)
-    }
-  }
-  const labelIsUnique = (label: string | undefined): label is string =>
-    label !== undefined && (labelOccurrences.get(label) ?? 0) === 1
+  const iterator = optionIterator(resolvedOptions, winProbs)
+  const winProbabilityById = resolveWinProbabilitiesById(
+    winProbabilityCandidates(resolvedOptions, winProbs),
+    winProbs,
+  )
 
-  const iterator: Array<{ optionId: string; enriched: RawOptionEnrichmentEntry | undefined; label: string | undefined }> =
-    resolvedOptions.length > 0
-      ? resolvedOptions.map((r) => ({
-          optionId: r.optionId,
-          enriched: r.enriched,
-          label: r.optionLabel,
-        }))
-      : Object.keys(winProbs).map((k) => ({ optionId: k, enriched: undefined, label: undefined }))
-
-  for (const { optionId, enriched, label } of iterator) {
-    const winProb =
-      safeFiniteNumber(enriched?.win_probability) ??
-      safeFiniteNumber(winProbs[optionId]) ??
-      (labelIsUnique(label) ? safeFiniteNumber(winProbs[label]) : undefined)
+  for (const { optionId, enriched } of iterator) {
+    const winProb = winProbabilityById.get(optionId)
 
     const ci = Array.isArray(enriched?.confidence_interval)
       ? enriched.confidence_interval
@@ -915,15 +1112,14 @@ export function mapV5AnalysisToReport(
       ({ optionId, optionLabel, enriched }) => {
         const entry: InspectorOptionComparison = { option_id: optionId }
         if (optionLabel) entry.option_label = optionLabel
-        // Mirror the duplicate-label guard from the option_probabilities
-        // resolution: labels shared by multiple option_comparison entries
-        // must NOT use the label-keyed winProbs fallback, because the
-        // OutcomePanel would render multiple rows at the same numeric
-        // probability — false precision from ambiguous source data.
-        const winProb =
-          safeFiniteNumber(enriched.win_probability) ??
-          safeFiniteNumber(winProbs[optionId]) ??
-          (labelIsUnique(optionLabel) ? safeFiniteNumber(winProbs[optionLabel]) : undefined)
+        // The duplicate-label guard used to be MIRRORED here, by hand, from
+        // the option_probabilities resolution above ("Mirror the
+        // duplicate-label guard…" — a hand-maintained copy of a rule, which
+        // is the defect class, not the fix). Both now read the SAME resolved
+        // map, so the OutcomePanel rows and the report's option_probabilities
+        // cannot disagree about a win probability, and a change to the
+        // three-place lookup lands in one place.
+        const winProb = winProbabilityById.get(optionId)
         if (winProb !== undefined) entry.win_probability = winProb
         const expected = safeFiniteNumber(enriched.expected_outcome)
         if (expected !== undefined) entry.expected_outcome = expected

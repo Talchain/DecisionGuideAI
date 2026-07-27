@@ -239,13 +239,26 @@ export interface DecisionVerdictOptions {
   rawHeadlineBanded?: unknown
 }
 
-const UNKNOWN_VERDICT: DecisionVerdict = {
+/**
+ * The no-claim verdict: no leader may be asserted AND none may be denied.
+ *
+ * EXPORTED (ROADMAP 1.267) so a consumer that must supply a verdict but has
+ * none available names this constant explicitly rather than passing
+ * `undefined` into an optional parameter. The distinction matters: an omitted
+ * verdict used to fall THROUGH the withheld branch of `buildCertaintyCopy`
+ * into the rules that assert "{winner} is the leading option". Naming the
+ * no-claim case makes the fail-closed choice visible at the call site and
+ * impossible to make by accident.
+ */
+export const NO_CLAIM_VERDICT: DecisionVerdict = {
   leaderId: null,
   separation: 'unknown',
   hasLeadingOption: false,
   gapPp: null,
   source: 'none',
 }
+
+const UNKNOWN_VERDICT: DecisionVerdict = NO_CLAIM_VERDICT
 
 const BAND_TO_SEPARATION: Record<HeadlineBanded['band'], LeaderSeparation> = {
   clearly_ahead: 'clear',

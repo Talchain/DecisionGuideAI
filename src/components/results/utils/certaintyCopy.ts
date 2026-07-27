@@ -83,9 +83,21 @@ export interface CertaintyCopyInput {
    * SINGLE VERDICT: the shared answer to "is there a leading option?"
    * (`src/lib/decisionVerdict.ts`), derived from the same PLoT report the
    * canvas reads. This is the ONLY input entitled to make Rule 1 deny a
-   * leading option. Absent (older fixtures / callers) ⇒ no denial is made.
+   * leading option — and the only one entitled to let Rules 4-7 assert one.
+   *
+   * REQUIRED (ROADMAP 1.267). It used to be optional, and the withheld branch
+   * below guarded on `verdict != null`: so a caller passing `undefined` did
+   * not get silence, it got the four leader-asserting rules underneath. The
+   * live callers always passed a verdict, which is exactly what made the hole
+   * invisible — it was reachable only from fixtures and future call sites,
+   * i.e. from the code nobody had written yet.
+   *
+   * A caller that genuinely has no verdict passes `NO_CLAIM_VERDICT`
+   * (exported from `src/lib/decisionVerdict.ts`) and gets the withheld
+   * headline. Fail-closed is the ratified direction: a report indistinguishable
+   * from a withheld one must be treated as withheld (decisionVerdict.ts).
    */
-  verdict?: DecisionVerdict
+  verdict: DecisionVerdict
 }
 
 export interface CertaintyCopy {
@@ -183,7 +195,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
   //
   // 'unknown' separation licenses SILENCE, never a denial: with fewer than
   // two comparable options there is nothing to be close about.
-  if (verdict?.separation === 'tied') {
+  if (verdict.separation === 'tied') {
     return {
       headline: 'no clear leading option, the result is sensitive to your estimates',
       // ROADMAP 1.223: this used to carry `${winnerLabel} leads slightly more
@@ -237,7 +249,11 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
   // to deny one, so this is not routed into the tied copy above. The
   // uncertainty, stability and driver surfaces beneath it are untouched and
   // keep their own voices.
-  if (verdict != null && !verdict.hasLeadingOption && verdict.separation === 'unknown') {
+  // ROADMAP 1.267: the `verdict != null` guard is GONE with the optional
+  // parameter. It was not defensive — it was the fall-through: `undefined`
+  // made this condition false and delivered the caller to "{winner} is the
+  // leading option" four rules below.
+  if (!verdict.hasLeadingOption && verdict.separation === 'unknown') {
     return {
       headline: 'the analysis did not put an option forward',
       sub: null,

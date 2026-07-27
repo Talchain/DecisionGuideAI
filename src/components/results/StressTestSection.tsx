@@ -59,6 +59,28 @@ export interface StressTestSectionProps {
    * V5 decision_review is the eventual owner). Default true — flag-off
    * behaviour is byte-identical. */
   showThinkingPatterns?: boolean
+  /**
+   * ROADMAP 1.267 — `!DecisionVerdict.hasLeadingOption`, quoted from
+   * `useResultsSectionData`, never re-derived here.
+   *
+   * The two Thinking-pattern cards are UI-AUTHORED and every one of their
+   * four strings names a recommendation the producer has withdrawn:
+   * "switch your recommendation from X to Y", "does X usually outperform Y",
+   * and the two Ask-Olumi prompt drafts. Their only gate was
+   * `if (!winnerLabel) return null` in ResultsBody — and `winnerLabel` still
+   * resolves on a withheld run, because `recommendedOption` comes from
+   * `determineWinnerSelection` (identity), not from the verdict
+   * (entitlement). Identity survives withholding by design
+   * (decisionVerdict.ts); the RECOMMENDATION does not.
+   *
+   * REQUIRED, not optional-defaulting-false: an opt-in gate is a gate every
+   * future call site can forget. The compiler names every call site instead.
+   *
+   * Scope is deliberately the two authored cards ONLY. Sensitive assumptions
+   * and fragile factors are producer data and keep rendering — suppressing
+   * the section wholesale would be the over-suppression the ruling forbids.
+   */
+  designationsWithheld: boolean
   /** Recommended option label (winner) — drives template question phrasing. */
   winnerLabel: string
   /** Runner-up option label (alternative) — drives template question phrasing. */
@@ -206,7 +228,12 @@ export const StressTestSection = memo(function StressTestSection({
   expertMode,
   sensitivityReferenceLabel,
   showThinkingPatterns = true,
+  designationsWithheld,
 }: StressTestSectionProps) {
+  // ROADMAP 1.267. ONE derived boolean, used by both the count and the
+  // render — the #501 lesson that a designation suppressed in the list but
+  // still counted in the header is only half-suppressed.
+  const renderThinkingPatterns = showThinkingPatterns && !designationsWithheld
   // ── Sensitive assumptions (node-based) ───────────────────────────────────
   const sensitiveFactors = selectSensitiveFactors(drivers)
 
@@ -269,7 +296,7 @@ export const StressTestSection = memo(function StressTestSection({
   // Thinking patterns render both deterministic cards when the section
   // opens at all — they're meta-prompts, not data-derived. Wave 2: the
   // merged-panel flag retires them (showThinkingPatterns false).
-  const thinkingPatternsCount = showThinkingPatterns ? 2 : 0
+  const thinkingPatternsCount = renderThinkingPatterns ? 2 : 0
   const totalCount = sensitiveCount + thinkingPatternsCount + fragileCount
 
   const topFactorForPreview = sensitiveFactors[0]
@@ -311,7 +338,7 @@ export const StressTestSection = memo(function StressTestSection({
         )}
 
         {/* ── Thinking patterns ─────────────────────────────────────── */}
-        {showThinkingPatterns && (
+        {renderThinkingPatterns && (
         <div className="space-y-1.5" data-testid="stress-test-thinking-subsection">
           <h4 className={`${typography.panelHeader} text-text-header`}>
             Thinking patterns (2)

@@ -98,10 +98,31 @@ export const V7_LENS_COPY = {
     seeMore: (n: number) => `Show ${n} more`,
     showFewer: 'Show fewer',
     driversGate: 'No drivers to show for this run.',
-    flipRisksNote: 'Relationships whose plausible range can change the leading option.',
+    /**
+     * ROADMAP 1.267 — the note is a CLAIM, the rows beneath it are DATA.
+     *
+     * "…can change the leading option" PRESUPPOSES a leading option exists.
+     * On a withheld run it therefore asserted, in a flagless section, exactly
+     * what CEE had just declined to say — and it did so unconditionally,
+     * because a static string has no gate.
+     *
+     * Taken as ONE function of the verdict rather than two sibling constants:
+     * a `flipRisksNoteWithheld` key beside this one would be a hand-maintained
+     * mirror (trap 12) that a future copy edit could update on one branch
+     * only. The permitted branch is byte-identical to the string it replaced,
+     * so a permitted run cannot change.
+     */
+    flipRisksNote: (designationsWithheld: boolean) =>
+      designationsWithheld
+        ? 'Relationships whose plausible range can change how the options compare.'
+        : 'Relationships whose plausible range can change the leading option.',
     flipSwitchMeta: (pct: string) => `${pct} switch`,
     flipRisksGate: 'No flip risks to show for this run.',
-    tradeOffsNote: 'Where the leading option depends on an assumption.',
+    /** Same treatment, same reason, as `flipRisksNote` above. */
+    tradeOffsNote: (designationsWithheld: boolean) =>
+      designationsWithheld
+        ? 'Where the comparison between options depends on an assumption.'
+        : 'Where the leading option depends on an assumption.',
     tradeOffsGate: 'No trade-offs to show for this run.',
     /** Conditional-winner narration — all values are producer-supplied
      * (factor label, split value/unit, winner labels); nothing invented. */

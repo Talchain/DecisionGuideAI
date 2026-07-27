@@ -15,6 +15,7 @@ import { typography } from '../../styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { buildResultsVM } from './buildResultsVM'
 import { deriveDefaultEstimateDisclosure } from './utils/defaultEstimateDisclosure'
+import { flipThresholdStatusNote } from './utils/flipThresholdStatusNote'
 import { DriversSection } from './DriversSection'
 import { TornadoChart, type TornadoRow } from './TornadoChart'
 import { Accordion } from './Accordion'
@@ -141,6 +142,18 @@ export const ResultsBody = memo(function ResultsBody({
   const suppressMutations = isStale || isRunning
   const staleOnConfirmFactor = suppressMutations ? undefined : onConfirmFactor
   const staleOnSetFactorValue = suppressMutations ? undefined : onSetFactorValue
+
+  // ROADMAP 1.267 — QUOTED, never re-derived. `useResultsSectionData` already
+  // resolved the one verdict (`deriveDecisionVerdict`, the same instance the
+  // canvas reads) and returns it on `recommendation.verdict`; this body only
+  // restates it as the boolean its two withheld-gated surfaces need (the
+  // flip-threshold status note, and the UI-authored stress-test thinking
+  // patterns). Absent verdict ⇒ NOT withheld, the same convention
+  // `buildV7Lenses` and `buildHeroModel` use for a verdict-less caller, so no
+  // fixture-driven mount changes behaviour.
+  const designationsWithheld =
+    resultsSectionData.recommendation.verdict != null
+    && !resultsSectionData.recommendation.verdict.hasLeadingOption
 
   // Risk appetite toggle — Conservative: highest p10, Neutral: highest win prob, Aggressive: highest p90
   const [riskAppetite, setRiskAppetite] = useState<RiskAppetite>('neutral')
@@ -526,27 +539,31 @@ export const ResultsBody = memo(function ResultsBody({
                 flip_thresholds[] as all-no-effect or partial-no-effect,
                 render one short explanatory line so absent markers do not
                 read as actionable insight. Reuses panel typography only —
-                no new colour or component. */}
-            {resultsSectionData.recommendation.flipThresholdsStatus === 'all_no_effect' && (
-              <p
-                className={`${typography.panelBody} text-text-light mb-3`}
-                data-testid="flip-thresholds-status-note"
-                role="note"
-              >
-                No single tested factor changed the leading option within the current range.
-              </p>
-            )}
-            {resultsSectionData.recommendation.flipThresholdsStatus === 'partial_no_effect' && (
-              <p
-                className={`${typography.panelBody} text-text-light mb-3`}
-                data-testid="flip-thresholds-status-note"
-                role="note"
-              >
-                {resultsSectionData.recommendation.flipThresholdsHasUnresolved
-                  ? 'Some factors did not change the leading option within the current range, and others could not be resolved.'
-                  : 'Some factors did not change the leading option within the current range.'}
-              </p>
-            )}
+                no new colour or component.
+
+                ROADMAP 1.267: the three sentences moved into
+                `flipThresholdStatusNote` — all three said "the leading
+                option", which on a withheld run asserts what CEE declined to
+                say, and as inline JSX they could not be unit-tested without
+                mounting the whole panel. One call site, one pure function,
+                pinned against the withheld/permitted fixture pair. */}
+            {(() => {
+              const note = flipThresholdStatusNote({
+                status: resultsSectionData.recommendation.flipThresholdsStatus,
+                hasUnresolved:
+                  resultsSectionData.recommendation.flipThresholdsHasUnresolved === true,
+                designationsWithheld,
+              })
+              return note == null ? null : (
+                <p
+                  className={`${typography.panelBody} text-text-light mb-3`}
+                  data-testid="flip-thresholds-status-note"
+                  role="note"
+                >
+                  {note}
+                </p>
+              )
+            })()}
             <TornadoChart
               rows={tornadoData.rows}
               expectedOutcome={tornadoData.expectedOutcome}
@@ -607,6 +624,7 @@ export const ResultsBody = memo(function ResultsBody({
                   expertMode={expertMode}
                   sensitivityReferenceLabel={resultsSectionData.sensitivityReference?.optionLabel ?? null}
                   showThinkingPatterns={!isAnalysisHeroPanelEnabled()}
+                  designationsWithheld={designationsWithheld}
                 />
               )
             })()}

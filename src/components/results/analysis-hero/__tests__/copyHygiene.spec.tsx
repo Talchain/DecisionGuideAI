@@ -106,16 +106,24 @@ const UI_COPY: string[] = [
   HERO_COPY.evidence.heading,
   HERO_COPY.evidence.subtitle,
   HERO_COPY.evidence.driversNote,
-  HERO_COPY.evidence.flipRisksNote,
+  // ROADMAP 1.267: the three flip-risk strings are now verdict-dependent, so
+  // BOTH branches are swept. A withheld-run sentence is user-facing copy and
+  // is held to the identical hygiene rules — listing only the permitted branch
+  // would leave half the shipped strings unchecked.
+  HERO_COPY.evidence.flipRisksNote(false),
+  HERO_COPY.evidence.flipRisksNote(true),
   HERO_COPY.evidence.switchMeta('48%'),
   HERO_COPY.evidence.driversTab,
   HERO_COPY.evidence.flipRisksTab,
   HERO_COPY.evidence.tradeOffsTab,
   HERO_COPY.evidence.seeAllFactors,
   HERO_COPY.evidence.showFewer,
-  HERO_COPY.evidence.flipRiskWithAlternative('Team capacity', HERO_COPY.evidence.fallsBelow, '30%', 'Two developers'),
-  HERO_COPY.evidence.flipRiskNoAlternative('Salary cost', HERO_COPY.evidence.risesAbove, '$60,000'),
-  HERO_COPY.evidence.flipRiskNoAlternative('Team capacity', HERO_COPY.evidence.crosses, '40%'),
+  HERO_COPY.evidence.flipRiskWithAlternative('Team capacity', HERO_COPY.evidence.fallsBelow, '30%', 'Two developers', false),
+  HERO_COPY.evidence.flipRiskWithAlternative('Team capacity', HERO_COPY.evidence.fallsBelow, '30%', 'Two developers', true),
+  HERO_COPY.evidence.flipRiskNoAlternative('Salary cost', HERO_COPY.evidence.risesAbove, '$60,000', false),
+  HERO_COPY.evidence.flipRiskNoAlternative('Salary cost', HERO_COPY.evidence.risesAbove, '$60,000', true),
+  HERO_COPY.evidence.flipRiskNoAlternative('Team capacity', HERO_COPY.evidence.crosses, '40%', false),
+  HERO_COPY.evidence.flipRiskNoAlternative('Team capacity', HERO_COPY.evidence.crosses, '40%', true),
   HERO_COPY.evidence.tradeOffGain,
   HERO_COPY.evidence.tradeOffGiveUp,
   HERO_COPY.evidence.tradeOffDependsOn,

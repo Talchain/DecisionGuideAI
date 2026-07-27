@@ -114,6 +114,7 @@ describe('StressTestSection surface', () => {
         drivers={[makeDriver()]}
         winnerLabel="Option A"
         alternativeLabel="Option B"
+        designationsWithheld={false}
         sensitivityReferenceLabel="Hire a contractor"
       />,
     )
@@ -128,6 +129,7 @@ describe('StressTestSection surface', () => {
         drivers={[makeDriver()]}
         winnerLabel="Option A"
         alternativeLabel="Option B"
+        designationsWithheld={false}
         sensitivityReferenceLabel={null}
       />,
     )

@@ -74,6 +74,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[makeFragile()]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       expect(screen.getByText('Stress-test your decision')).toBeInTheDocument()
@@ -87,6 +88,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       const preview = screen.getByTestId('stress-test-preview')
@@ -102,6 +104,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       const preview = screen.getByTestId('stress-test-preview')
@@ -118,6 +121,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       expect(screen.getByTestId('stress-test-sensitive-subsection')).toBeInTheDocument()
@@ -140,6 +144,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       expect(screen.getByText('Sensitive assumptions (3)')).toBeInTheDocument()
@@ -153,6 +158,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       expect(screen.queryByTestId('stress-test-sensitive-subsection')).not.toBeInTheDocument()
@@ -171,6 +177,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
           onSendMessage={onSendMessage}
         />,
       )
@@ -190,6 +197,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       expect(screen.getByText('Thinking patterns (2)')).toBeInTheDocument()
@@ -204,6 +212,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       const card = screen.getByTestId('stress-test-disconfirmation')
@@ -237,6 +246,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       const card = screen.getByTestId('stress-test-disconfirmation')
@@ -255,6 +265,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       const card = screen.getByTestId('stress-test-disconfirmation')
@@ -269,6 +280,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       const card = screen.getByTestId('stress-test-outside-view')
@@ -293,6 +305,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           ]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       expect(screen.getByTestId('stress-test-fragile-subsection')).toBeInTheDocument()
@@ -308,6 +321,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       expect(screen.queryByTestId('stress-test-fragile-subsection')).not.toBeInTheDocument()
@@ -324,6 +338,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
           robustnessStatus="computed"
         />,
       )
@@ -341,6 +356,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
           robustnessStatus="unavailable"
         />,
       )
@@ -357,6 +373,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       expect(screen.getByTestId('stress-test-didnt-run')).toBeInTheDocument()
@@ -370,6 +387,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
           robustnessStatus="computed"
           analysisDegraded
         />,
@@ -385,6 +403,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       expect(
@@ -401,6 +420,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           fragileEdges={[makeFragile({ edge_id: 'e1', from_id: 'node_a' })]}
           winnerLabel="Option A"
           alternativeLabel="Option B"
+          designationsWithheld={false}
         />,
       )
       const html = container.innerHTML

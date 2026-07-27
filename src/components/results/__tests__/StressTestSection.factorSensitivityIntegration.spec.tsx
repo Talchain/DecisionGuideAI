@@ -165,6 +165,7 @@ describe('StressTestSection — factor_sensitivity → DriverItem.confidence int
         fragileEdges={[]}
         winnerLabel="Option A"
         alternativeLabel="Option B"
+        designationsWithheld={false}
       />,
     )
 
@@ -189,6 +190,7 @@ describe('StressTestSection — factor_sensitivity → DriverItem.confidence int
         fragileEdges={[]}
         winnerLabel="Option A"
         alternativeLabel="Option B"
+        designationsWithheld={false}
       />,
     )
 

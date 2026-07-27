@@ -892,10 +892,24 @@ export function buildHeroModel(
       const alt = ft.alternative_winner_label
         ? stripEncodingNotation(ft.alternative_winner_label)
         : null
+      // ROADMAP 1.267: the flip VALUE, its unit, its direction and the
+      // producer's alternative-winner label all survive on a withheld run —
+      // only the leader framing around them changes.
       const text =
         alt && !containsBannedTerm(alt)
-          ? HERO_COPY.evidence.flipRiskWithAlternative(label, direction, value, alt)
-          : HERO_COPY.evidence.flipRiskNoAlternative(label, direction, value)
+          ? HERO_COPY.evidence.flipRiskWithAlternative(
+              label,
+              direction,
+              value,
+              alt,
+              designationsWithheld,
+            )
+          : HERO_COPY.evidence.flipRiskNoAlternative(
+              label,
+              direction,
+              value,
+              designationsWithheld,
+            )
       // Fail-closed focus pre-gate: with canvas knowledge supplied, a
       // node_id absent from the canvas yields a text row, not a dead button.
       const rawTarget = ft.node_id || null
@@ -969,7 +983,12 @@ export function buildHeroModel(
     // live adapter has none (producer gap), so the slot is null and the
     // view exists only in gallery fixtures. The UI must not invent
     // trade-offs from labels.
-    evidence: { drivers: evidenceDrivers, flipRisks: evidenceFlipRisks, tradeOffs: null },
+    evidence: {
+      drivers: evidenceDrivers,
+      flipRisks: evidenceFlipRisks,
+      tradeOffs: null,
+      designationsWithheld,
+    },
     // Producer-gap slots — the LIVE adapter NEVER populates these (no
     // display-safe trust/status label: issues 219/221; no coaching
     // top-action contract: issue 220). They render only from typed
