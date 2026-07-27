@@ -433,6 +433,18 @@ export const OptionNode = memo((props: NodeProps) => {
   // missing. Returns null when not in close-call territory or pre-analysis.
   const closeCallGapPp = useMemo<number | null>(() => {
     if (!isPostAnalysis || isRecommended) return null
+    // ROADMAP 1.239: "Close call: within N percentage points" measures a
+    // distance to `verdict.leaderId`, and identity SURVIVES a withheld turn by
+    // design (decisionVerdict.ts returns leaderId and gapPp; only the
+    // entitlement is withheld). So the line would print a gap to a leader the
+    // producer declined to name — the same inverse-form claim as "Behind:".
+    //
+    // The render probe scored this SILENT on its withheld runs, which is not
+    // evidence of a gate: that run's gap was 0.346, far outside the 5pp
+    // window below. Empirically silent, never gated — a withheld run with a
+    // close race fires it. Found while verifying the "Behind:" line at the
+    // bytes rather than dispatched, and gated here as defence in depth.
+    if (!verdict.hasLeadingOption) return null
     // SINGLE VERDICT: `isRecommended` is now false for the front-runner too
     // when no leading option exists (a tied run). Without this guard the
     // front-runner would compute a zero gap against itself and render
@@ -758,6 +770,23 @@ export const OptionNode = memo((props: NodeProps) => {
   // differentiates nothing, so it renders on none of them (audit §8 P1).
   const behindReason = useMemo<string | null>(() => {
     if (!isPostAnalysis || isRecommended) return null
+    // ROADMAP 1.239: "Behind:" is an explicit comparative designation, and on a
+    // withheld turn it was rendering on EVERY option — including the one the
+    // numbers put on top. `isRecommended` is `hasLeadingOption && leaderId ===
+    // id`, so with the claim withheld no option is the leader and the only
+    // gate this line had (`!isRecommended`) is satisfied by all of them. The
+    // probe measured exactly that: 30 occurrences withheld against 20
+    // permitted, i.e. 3 options rather than 2 non-leaders. Everything behind,
+    // nothing ahead.
+    //
+    // A1's ruling is why it is in scope at all: a comparative designation is a
+    // leader claim in inverse form. Gating (rather than reordering, the
+    // instrument this arc prefers) because there is no branch order that
+    // expresses it — the entitlement is a property of the run, not of this
+    // node's position in a chain. `verdict.hasLeadingOption` is a required
+    // boolean computed in this component, never an optional prop, so it
+    // carries none of the omitted-input risk that made #491 choose ordering.
+    if (!verdict.hasLeadingOption) return null
     const report = resultsReport as any
     const myReason = computeBehindReason(props.id, isBaselineOption, report, ceeAnalysisReady, nodes)
     if (!myReason) return null
@@ -783,7 +812,7 @@ export const OptionNode = memo((props: NodeProps) => {
       return computeBehindReason(n.id, siblingIsBaseline, report, ceeAnalysisReady, nodes) === myReason
     })
     return hasDuplicate ? null : myReason
-  }, [isPostAnalysis, isRecommended, isBaselineOption, resultsReport, ceeAnalysisReady, props.id, nodes])
+  }, [isPostAnalysis, isRecommended, verdict, isBaselineOption, resultsReport, ceeAnalysisReady, props.id, nodes])
 
   const handleWinsViaClick = useCallback(() => {
     if (!winsVia) return

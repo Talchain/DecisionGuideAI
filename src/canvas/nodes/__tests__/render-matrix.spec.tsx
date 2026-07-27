@@ -420,7 +420,18 @@ describe('Render matrix — OptionNode × view × phase', () => {
       ],
     },
     report: {
-      robustness: { recommended_option_id: 'option-2' },
+      robustness: {
+        recommended_option_id: 'option-2',
+        // ROADMAP 1.239: the close-call line and the "Behind:" reason now both
+        // require an ENTITLED leader, not merely an identified one. This
+        // fixture has always MEANT "this run has a leader" — it just never
+        // said so, and the deleted win-probability derivation was supplying
+        // the entitlement for it. Adding the producer's own near-tie verdict
+        // makes the fixture state what it means, and keeps the gap-10pp
+        // negative test below honest: without it that test would pass because
+        // the claim is withheld, not because 10pp is outside the 5pp window.
+        near_tie: { is_tie: false, top_option_id: 'option-2' },
+      },
       option_probabilities: {
         'option-1': { win_probability: 0.50 - gapPp / 100 },
         'option-2': { win_probability: 0.50 },
@@ -473,7 +484,12 @@ describe('Render matrix — OptionNode × view × phase', () => {
       ],
       edges: [],
       report: {
-        robustness: { recommended_option_id: 'option-2' },
+        // ROADMAP 1.239: producer signal supplied for the same reason as
+        // `closeCallTopology` above — this fixture means "there is a leader".
+        robustness: {
+          recommended_option_id: 'option-2',
+          near_tie: { is_tie: false, top_option_id: 'option-2' },
+        },
         option_probabilities: {
           'option-1': { win_probability: 0.496 },
           'option-2': { win_probability: 0.500 },

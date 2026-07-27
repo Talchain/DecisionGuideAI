@@ -6,7 +6,9 @@
  *
  * Upgrades:
  * - Target line: single dashed vertical at goal_threshold, label at section bottom
- * - Per-option probability: "{pog}% hit target" or "Wins {wp}%" next to label
+ * - Per-option probability: "{pog}% hit target" or "{wp}% win probability"
+ *   (the second was described here as "Wins {wp}%" and read "Leads {wp}%" in
+ *   the code; ROADMAP 1.239 relabelled it and this line now matches) next to label
  * - User units: tick labels at axis ends using goal node's unit
  * - Top 3 cap with show more/less toggle
  * - Direction-aware driver sentence
@@ -129,7 +131,12 @@ function OptionRangeBar({
       return `${formatPct(option.goalProbability, { fromDecimal: true })} hit target`
     }
     if (option.winProbability != null) {
-      return `Leads ${formatPct(option.winProbability, { fromDecimal: true })}`
+      // ROADMAP 1.239: was `Leads {pct}`. Same relabel as
+      // `V7_LENS_COPY.outcome.winReadout` and #493's WinGauge header — this
+      // readout is drawn for every option on every completed run, so the
+      // leader VERB was the problem, not the metric. Kept byte-identical to
+      // the lens copy so the two surfaces cannot drift apart.
+      return `${formatPct(option.winProbability, { fromDecimal: true })} win probability`
     }
     // C10: Omit suffix entirely when both missing
     return null

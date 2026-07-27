@@ -97,9 +97,20 @@ function formatLastActivity(events: ScenarioEvent[] | null | undefined, updatedA
 
   switch (lastEvent.event_type) {
     case 'analysis_run':
-      if (details.winner && details.probability != null) {
-        return `Analysis run — ${details.winner} led at ${Math.round(Number(details.probability) * 100)}%`
-      }
+      // ROADMAP 1.239: was `Analysis run — ${details.winner} led at N%`, gated
+      // on `details.winner` alone and never on the verdict. Deleted rather
+      // than gated, for the reason set out in full at renderTimeline.ts's
+      // `analysis_run` template: `details.winner` has no writer in this build,
+      // and this page holds `ScenarioEvent[]` and nothing else at render time
+      // — no report, so no `DecisionVerdict`, so no entitlement to consult.
+      // There is no gate to write here, only a claim to stop making.
+      //
+      // The probe's 0-count for this surface is VACUOUS, not clean: its
+      // session was anonymous and the page rendered only the signed-out
+      // prompt. Whether any persisted row carries a `winner` is still
+      // UNVERIFIED LIVE and needs an authenticated-session probe;
+      // residualComparative.scenarioList.spec.tsx supplies the component-level
+      // pin the probe could not.
       return 'Analysis run'
     case 'graph_drafted':
       return `Model drafted with ${details.node_count ?? '?'} factors`
