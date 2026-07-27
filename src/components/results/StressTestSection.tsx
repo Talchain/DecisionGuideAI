@@ -76,9 +76,17 @@ export interface StressTestSectionProps {
    * REQUIRED, not optional-defaulting-false: an opt-in gate is a gate every
    * future call site can forget. The compiler names every call site instead.
    *
-   * Scope is deliberately the two authored cards ONLY. Sensitive assumptions
-   * and fragile factors are producer data and keep rendering — suppressing
-   * the section wholesale would be the over-suppression the ruling forbids.
+   * Sensitive assumptions and fragile factors are producer data and keep
+   * rendering — suppressing the section wholesale would be the
+   * over-suppression the ruling forbids.
+   *
+   * ⚠ AMENDED (this lane): this doc used to end "Scope is deliberately the two
+   * authored cards ONLY", and that sentence was read as settling the fragile
+   * factors — it did not. It settled their VISIBILITY (they stay) and said
+   * nothing about their PROSE, which presupposed a recommendation in five
+   * strings inside `FragileEdgeGroupCard`. The card now takes this same
+   * boolean; the rows, counts, labels and E-values are unchanged. Suppression
+   * scope is still the two authored cards; CLAIM scope is the whole section.
    */
   designationsWithheld: boolean
   /** Recommended option label (winner) — drives template question phrasing. */
@@ -372,6 +380,7 @@ export const StressTestSection = memo(function StressTestSection({
                 onFocusNode={onFocusNode}
                 onSendMessage={onSendMessage}
                 expertMode={expertMode}
+                designationsWithheld={designationsWithheld}
               />
             ))}
           </div>

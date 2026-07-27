@@ -23,6 +23,12 @@ import { CappedList } from './CappedList'
 import { GraphLink } from './GraphLink'
 import { HelpCircle, AlertTriangle, Info } from 'lucide-react'
 import { stripEncodingNotation, stripStatusQuoSuffixForDisplay } from './utils/cleanFactorLabel'
+import {
+  fragileDiscussDraft,
+  fragileEValueNote,
+  fragileEdgeConsequence,
+  fragileEdgeGroupHeader,
+} from './utils/fragileEdgeCopy'
 import type { EvidenceGapItem, DriverItem } from './types'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 import { openAskOlumi } from './coaching/askOlumiStore'
@@ -70,6 +76,16 @@ export interface ChallengeSectionProps {
   identifiabilityTag?: string | null
   /** Expert mode: gates E-value raw numbers in fragile edge cards */
   expertMode?: boolean
+  /**
+   * ROADMAP 1.267 — `!DecisionVerdict.hasLeadingOption`, quoted from the
+   * caller, never re-derived here. Threaded straight through to
+   * `FragileEdgeGroupCard`, whose prose presupposed a recommendation.
+   *
+   * REQUIRED, not optional-defaulting-false, for the same reason
+   * `StressTestSectionProps.designationsWithheld` is: an opt-in gate is a gate
+   * every future call site can forget. The compiler names every call site.
+   */
+  designationsWithheld: boolean
 }
 
 /**
@@ -201,6 +217,7 @@ export function FragileEdgeGroupCard({
   onFocusNode,
   onSendMessage,
   expertMode,
+  designationsWithheld,
 }: {
   /**
    * Shared alt-winner label for this group (D11: grouped by alt-winner).
@@ -211,15 +228,32 @@ export function FragileEdgeGroupCard({
   onFocusNode?: (nodeId: string) => void
   onSendMessage?: (text: string) => void
   expertMode?: boolean
+  /**
+   * ROADMAP 1.267 — `!DecisionVerdict.hasLeadingOption`, quoted from the
+   * caller. This card's five sentences were UNCONDITIONAL claims about "the
+   * result" and "the recommendation"; every one of them is now a function of
+   * this boolean (see `utils/fragileEdgeCopy.ts`).
+   *
+   * The card's DATA is untouched in both states — the fragile-factor rows are
+   * producer output, and `StressTestSection` keeps them visible on a withheld
+   * run by design.
+   *
+   * REQUIRED, not optional-defaulting-false: an opt-in gate is a gate every
+   * future call site can forget.
+   */
+  designationsWithheld: boolean
 }) {
   const hasEValue = edges.some(e => e.e_value != null)
-  const multiple = edges.length > 1
 
-  const headerCopy = altWinnerLabel && multiple
-    ? <>{edges.length} {edges.length === 1 ? 'factor' : 'factors'} could flip the result to <span className={`${typography.panelHeader} text-text-body`} data-testid="fragile-alt-winner">{altWinnerLabel}</span></>
-    : altWinnerLabel
-      ? <>Result could flip to <span className={`${typography.panelHeader} text-text-body`} data-testid="fragile-alt-winner">{altWinnerLabel}</span></>
-      : hasEValue ? 'Fragile result, verify key assumptions' : 'Fragile relationship'
+  const header = fragileEdgeGroupHeader({
+    altWinnerLabel,
+    edgeCount: edges.length,
+    hasEValue,
+    designationsWithheld,
+  })
+  const headerCopy = header.kind === 'altWinner'
+    ? <>{header.lead}<span className={`${typography.panelHeader} text-text-body`} data-testid="fragile-alt-winner">{header.altWinnerLabel}</span></>
+    : header.text
 
   return (
     <div className={`relative border border-panel-border rounded-lg px-3 py-2 pr-16 space-y-1.5 ${onSendMessage ? 'pb-7' : ''}`}>
@@ -256,13 +290,13 @@ export function FragileEdgeGroupCard({
             <div className={`flex items-baseline gap-2 flex-wrap ${typography.panelMeta} text-text-light`}>
               <span>If <span className="text-text-body">{edgeSource}</span> shifts</span>
               {!altWinnerLabel && (
-                <span>the recommendation could change</span>
+                <span>{fragileEdgeConsequence({ designationsWithheld })}</span>
               )}
             </div>
             {edge.e_value != null && expertMode && (
               <ExpertBlock>
                 <p className={`${typography.panelMeta} text-text-light`}>
-                  E-value {edge.e_value.toFixed(1)}: assumptions would only need to be {edge.e_value.toFixed(1)}x wrong to flip the recommendation.
+                  {fragileEValueNote({ eValue: edge.e_value, designationsWithheld })}
                 </p>
               </ExpertBlock>
             )}
@@ -289,11 +323,13 @@ export function FragileEdgeGroupCard({
             element={{ kind: 'missing' }}
             onSend={() => openAskOlumi({
               context: 'Fragile relationships',
-              draft: altWinnerLabel && multiple
-                ? `Are these ${edges.length} relationships that could flip the result to ${altWinnerLabel} reliable?`
-                : altWinnerLabel
-                  ? `Is the relationship between ${stripEncodingNotation(edges[0].from_label)} and ${stripEncodingNotation(edges[0].to_label)} reliable?`
-                  : `Are these ${edges.length} fragile relationships in my model reliable?`,
+              draft: fragileDiscussDraft({
+                edgeCount: edges.length,
+                altWinnerLabel,
+                fromLabel: stripEncodingNotation(edges[0].from_label),
+                toLabel: stripEncodingNotation(edges[0].to_label),
+                designationsWithheld,
+              }),
               label: 'Discuss fragile relationships',
             })}
           />
@@ -346,6 +382,7 @@ export function ChallengeSection({
   fragileEdges: fragileEdgesProp,
   identifiabilityTag,
   expertMode,
+  designationsWithheld,
 }: ChallengeSectionProps) {
   // ── Model structure items ──────────────────────────────────────────────
   // Merge fragile edges with E-value data per edge, group by source node.
@@ -402,6 +439,7 @@ export function ChallengeSection({
               onFocusNode={onFocusNode}
               onSendMessage={onSendMessage}
               expertMode={expertMode}
+              designationsWithheld={designationsWithheld}
             />
           ))}
         </div>

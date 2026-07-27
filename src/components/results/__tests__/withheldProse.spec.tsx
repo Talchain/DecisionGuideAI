@@ -35,16 +35,25 @@
  * visual order. Nothing here claims a visual property.
  */
 import { describe, expect, it } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
+import { useAskOlumiStore } from '../coaching/askOlumiStore'
 import { V7EvidenceDisclosure } from '../v7/V7EvidenceDisclosure'
 import type { V7EvidenceModel } from '../v7/buildV7Lenses'
 import { V7_LENS_COPY } from '../v7/v7LensCopy'
 import { flipThresholdStatusNote } from '../utils/flipThresholdStatusNote'
 import { StressTestSection } from '../StressTestSection'
+import { FragileEdgeGroupCard, type ChallengeFragileEdge } from '../ChallengeSection'
+import {
+  fragileDiscussDraft,
+  fragileEValueNote,
+  fragileEdgeConsequence,
+  fragileEdgeGroupHeader,
+} from '../utils/fragileEdgeCopy'
 import { buildCertaintyCopy } from '../utils/certaintyCopy'
 import { NO_CLAIM_VERDICT } from '../../../lib/decisionVerdict'
 import type { DriverItem } from '../types'
 import {
+  HIGH_ID,
   HIGH_LABEL,
   MID_LABEL,
   PERMITTED_VERDICT,
@@ -261,6 +270,338 @@ describe('StressTestSection — the UI-authored thinking patterns', () => {
     renderStressTest(true)
     expect(screen.getByTestId('stress-test-sensitive-subsection').textContent ?? '')
       .toContain('Team capacity')
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SURFACE 6 — the stress-test FRAGILE-FACTOR cards (FragileEdgeGroupCard)
+//
+// The surface SURFACE 4 missed, one component over. #503 gated the two
+// UI-authored thinking-pattern cards on the verdict and recorded that
+// "sensitive assumptions and fragile factors are producer data and keep
+// rendering". True — and it settled their VISIBILITY, not their PROSE.
+// `FragileEdgeGroupCard` took no verdict at all, so on a withheld run its
+// header asserted "N factors could flip the result to <named option>" directly
+// beneath the panel's own "the analysis did not put an option forward".
+//
+// The line drawn here is the file's line: DATA STAYS (counts, factor labels,
+// E-values, Review chips, the stability pill — all asserted below on the
+// withheld run), CLAIMS GO.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The fragile card's own claim vocabulary.
+ *
+ * Distinct from `LEADER_PRESUPPOSITION_RE` because this card presupposes the
+ * recommendation without ever saying "leading option" or "your recommendation"
+ * — which is precisely why the #503 matcher, pointed at the same panel, could
+ * not see it. "the recommendation" (bare definite article) and "flip the
+ * result to" are the claims: both presuppose that a result/recommendation
+ * exists to be flipped.
+ */
+const FRAGILE_CLAIM_RE = /flip the result to|result could flip to|the recommendation/i
+
+const FRAGILE_FROM = 'Team capacity'
+const FRAGILE_FROM_2 = 'Delivery risk'
+
+function fragileEdge(overrides: Partial<ChallengeFragileEdge> = {}): ChallengeFragileEdge {
+  return {
+    edge_id: 'e_capacity',
+    from_id: 'fac_capacity',
+    from_label: FRAGILE_FROM,
+    to_label: 'Value delivered',
+    switch_probability: 0.48,
+    alternative_winner_id: HIGH_ID,
+    alternative_winner_label: HIGH_LABEL,
+    ...overrides,
+  }
+}
+
+/** Mount the LIVE path: ResultsBody → StressTestSection → FragileEdgeGroupCard. */
+function renderFragile(designationsWithheld: boolean, edges: ChallengeFragileEdge[]) {
+  const utils = render(
+    <StressTestSection
+      drivers={[]}
+      fragileEdges={edges}
+      winnerLabel={HIGH_LABEL}
+      alternativeLabel={MID_LABEL}
+      designationsWithheld={designationsWithheld}
+    />,
+  )
+  return { ...utils, subsection: () => screen.getByTestId('stress-test-fragile-subsection') }
+}
+
+/**
+ * Assertions read the FRAGILE SUBSECTION, never the whole container: the
+ * thinking-pattern cards above it also carry claim vocabulary and are already
+ * suppressed by #503, so a container-wide `not.toMatch` on a withheld run
+ * would pass on someone else's fix.
+ */
+function fragileText(designationsWithheld: boolean, edges: ChallengeFragileEdge[]): string {
+  const { subsection } = renderFragile(designationsWithheld, edges)
+  return subsection().textContent ?? ''
+}
+
+describe('StressTestSection fragile factors — STRING 1: the grouped header', () => {
+  const twoEdges = [
+    fragileEdge(),
+    fragileEdge({ edge_id: 'e_risk', from_id: 'fac_risk', from_label: FRAGILE_FROM_2, switch_probability: 0.31 }),
+  ]
+
+  it('ANTI-VACUITY: the PERMITTED header carries the claim the matcher hunts', () => {
+    const text = fragileText(false, twoEdges)
+    expect(text).toContain('2 factors could flip the result to')
+    expect(text).toMatch(FRAGILE_CLAIM_RE)
+    expect(screen.getByTestId('fragile-alt-winner').textContent).toBe(HIGH_LABEL)
+  })
+
+  it('WITHHELD: the header drops the presupposing verb', () => {
+    const text = fragileText(true, twoEdges)
+    expect(text).toContain('2 factors could shift the comparison towards')
+    expect(text).not.toMatch(FRAGILE_CLAIM_RE)
+  })
+
+  /**
+   * ORCHESTRATOR RULING: the presupposition is the defect; the NAME is data.
+   * `alternative_winner_label` is directional sensitivity — which option this
+   * edge's fragility points toward — and `heroCopy.flipRiskWithAlternative`
+   * (canonical for this field) keeps it on a withheld run. Dropping it here
+   * would both over-suppress and make one screen treat one producer field two
+   * ways. This case is the over-suppression control for that ruling.
+   */
+  it('WITHHELD: the alternative is still NAMED — the name is data, not a claim', () => {
+    renderFragile(true, twoEdges)
+    expect(screen.getByTestId('fragile-alt-winner').textContent).toBe(HIGH_LABEL)
+    expect(screen.getByTestId('stress-test-fragile-subsection').textContent ?? '')
+      .toContain(HIGH_LABEL)
+  })
+
+  it('PERMITTED: the header is byte-identical to today', () => {
+    expect(
+      fragileEdgeGroupHeader({ altWinnerLabel: HIGH_LABEL, edgeCount: 2, hasEValue: false, designationsWithheld: false }),
+    ).toEqual({ kind: 'altWinner', lead: '2 factors could flip the result to ', altWinnerLabel: HIGH_LABEL })
+  })
+
+  it('WITHHELD: the header keeps the altWinner SHAPE — only the lead changes', () => {
+    // Pinned as a shape, not just a substring: a fix that returned a plain
+    // sentence would drop the `fragile-alt-winner` element and the name with it.
+    expect(
+      fragileEdgeGroupHeader({ altWinnerLabel: HIGH_LABEL, edgeCount: 2, hasEValue: false, designationsWithheld: true }),
+    ).toEqual({ kind: 'altWinner', lead: '2 factors could shift the comparison towards ', altWinnerLabel: HIGH_LABEL })
+  })
+})
+
+describe('StressTestSection fragile factors — STRING 2: the singleton header', () => {
+  it('ANTI-VACUITY: the PERMITTED singleton header carries the claim', () => {
+    const text = fragileText(false, [fragileEdge()])
+    expect(text).toContain('Result could flip to')
+    expect(text).toMatch(FRAGILE_CLAIM_RE)
+  })
+
+  it('WITHHELD: the singleton header presupposes no result to flip, and still names the alternative', () => {
+    const text = fragileText(true, [fragileEdge()])
+    expect(text).toContain('The comparison could shift towards')
+    expect(text).not.toMatch(FRAGILE_CLAIM_RE)
+    expect(screen.getByTestId('fragile-alt-winner').textContent).toBe(HIGH_LABEL)
+  })
+
+  it('PERMITTED: the singleton header is byte-identical to today', () => {
+    expect(
+      fragileEdgeGroupHeader({ altWinnerLabel: HIGH_LABEL, edgeCount: 1, hasEValue: false, designationsWithheld: false }),
+    ).toEqual({ kind: 'altWinner', lead: 'Result could flip to ', altWinnerLabel: HIGH_LABEL })
+  })
+
+  it('WITHHELD: the singleton header keeps the altWinner shape', () => {
+    expect(
+      fragileEdgeGroupHeader({ altWinnerLabel: HIGH_LABEL, edgeCount: 1, hasEValue: false, designationsWithheld: true }),
+    ).toEqual({ kind: 'altWinner', lead: 'The comparison could shift towards ', altWinnerLabel: HIGH_LABEL })
+  })
+
+  it('NO ALT-WINNER: both headers are byte-identical in BOTH verdict states', () => {
+    // The verdict-independent branch — a control against a fix that rewrote
+    // copy it had no reason to touch.
+    for (const designationsWithheld of [false, true]) {
+      expect(fragileEdgeGroupHeader({ altWinnerLabel: null, edgeCount: 1, hasEValue: false, designationsWithheld }))
+        .toEqual({ kind: 'plain', text: 'Fragile relationship' })
+      expect(fragileEdgeGroupHeader({ altWinnerLabel: null, edgeCount: 2, hasEValue: true, designationsWithheld }))
+        .toEqual({ kind: 'plain', text: 'Fragile result, verify key assumptions' })
+    }
+  })
+})
+
+describe('StressTestSection fragile factors — STRING 3: the per-edge consequence', () => {
+  // Rendered only when the group has NO named alt-winner.
+  const orphanEdge = [fragileEdge({ alternative_winner_id: undefined, alternative_winner_label: undefined })]
+
+  it('ANTI-VACUITY: the PERMITTED clause names the recommendation', () => {
+    const text = fragileText(false, orphanEdge)
+    expect(text).toContain('the recommendation could change')
+    expect(text).toMatch(FRAGILE_CLAIM_RE)
+  })
+
+  it('WITHHELD: the clause names the comparison instead', () => {
+    const text = fragileText(true, orphanEdge)
+    expect(text).toContain('the comparison could change')
+    expect(text).not.toMatch(FRAGILE_CLAIM_RE)
+  })
+
+  it('PERMITTED: the clause is byte-identical to today', () => {
+    expect(fragileEdgeConsequence({ designationsWithheld: false })).toBe('the recommendation could change')
+  })
+})
+
+describe('StressTestSection fragile factors — STRING 4: the expert E-value note', () => {
+  /**
+   * REACHABILITY, stated precisely (CLAUDE.md — name the claim type).
+   * This string is NOT reachable on the live path today: `e_value` reaches
+   * `FragileEdgeGroupCard` only from `ChallengeSection`, which merges
+   * `edgeEValues`, and `ChallengeSection` has no production call site;
+   * `StressTestSection` passes `ChallengeFragileEdge[]`, which carries no
+   * `e_value`. It is fixed and pinned here because it is the same defect in
+   * the same component and one prop away from live.
+   */
+  const eValueEdges = [{ ...fragileEdge({ alternative_winner_label: undefined }), e_value: 2.0 }]
+
+  function renderCard(designationsWithheld: boolean) {
+    return render(
+      <FragileEdgeGroupCard
+        altWinnerLabel={null}
+        edges={eValueEdges}
+        expertMode
+        designationsWithheld={designationsWithheld}
+      />,
+    )
+  }
+
+  it('ANTI-VACUITY: the PERMITTED note says "flip the recommendation"', () => {
+    const { container } = renderCard(false)
+    expect(container.textContent ?? '').toContain('2.0x wrong to flip the recommendation.')
+    expect(container.textContent ?? '').toMatch(FRAGILE_CLAIM_RE)
+  })
+
+  it('WITHHELD: the note says what would change without naming a recommendation', () => {
+    const { container } = renderCard(true)
+    expect(container.textContent ?? '').toContain('2.0x wrong to change the comparison.')
+    expect(container.textContent ?? '').not.toMatch(FRAGILE_CLAIM_RE)
+  })
+
+  it('WITHHELD DATA PRESERVED: the E-value number itself still renders', () => {
+    const { container } = renderCard(true)
+    expect(container.textContent ?? '').toContain('E-value 2.0')
+  })
+
+  it('PERMITTED: the note is byte-identical to today', () => {
+    expect(fragileEValueNote({ eValue: 2.0, designationsWithheld: false }))
+      .toBe('E-value 2.0: assumptions would only need to be 2.0x wrong to flip the recommendation.')
+  })
+})
+
+describe('StressTestSection fragile factors — STRING 5: the Ask-Olumi draft', () => {
+  // In scope for the reason #503 put the two thinking-pattern drafts in scope:
+  // a draft is prose the product hands the user to send in their own name.
+  const base = { edgeCount: 2, fromLabel: FRAGILE_FROM, toLabel: 'Value delivered' }
+
+  it('ANTI-VACUITY: the PERMITTED grouped draft names the flip target', () => {
+    const draft = fragileDiscussDraft({ ...base, altWinnerLabel: HIGH_LABEL, designationsWithheld: false })
+    expect(draft).toBe(`Are these 2 relationships that could flip the result to ${HIGH_LABEL} reliable?`)
+    expect(draft).toMatch(FRAGILE_CLAIM_RE)
+  })
+
+  it('WITHHELD: the grouped draft asks about the comparison, still naming the alternative', () => {
+    const draft = fragileDiscussDraft({ ...base, altWinnerLabel: HIGH_LABEL, designationsWithheld: true })
+    expect(draft).toBe(`Are these 2 relationships that could shift the comparison towards ${HIGH_LABEL} reliable?`)
+    expect(draft).not.toMatch(FRAGILE_CLAIM_RE)
+    // The user's own question carries every fact the analysis computed.
+    expect(draft).toContain(HIGH_LABEL)
+  })
+
+  /**
+   * The pure-function cases above cannot go red against the pristine
+   * component (they exercise the new module directly). This one drives the
+   * LIVE path — mount, click the sparkle, read what the drawer was handed —
+   * so the draft's gate is proven the same way strings 1-4 are.
+   */
+  function draftFromCta(designationsWithheld: boolean): string {
+    useAskOlumiStore.setState({ draft: '' })
+    render(
+      <StressTestSection
+        drivers={[]}
+        fragileEdges={[
+          fragileEdge(),
+          fragileEdge({ edge_id: 'e_risk', from_id: 'fac_risk', from_label: FRAGILE_FROM_2, switch_probability: 0.31 }),
+        ]}
+        winnerLabel={HIGH_LABEL}
+        alternativeLabel={MID_LABEL}
+        designationsWithheld={designationsWithheld}
+        onSendMessage={() => {}}
+      />,
+    )
+    const subsection = screen.getByTestId('stress-test-fragile-subsection')
+    fireEvent.click(within(subsection).getByTestId('discuss-with-ai'))
+    return useAskOlumiStore.getState().draft
+  }
+
+  it('ANTI-VACUITY: the PERMITTED sparkle prefills the flip-target draft', () => {
+    const draft = draftFromCta(false)
+    expect(draft).toBe(`Are these 2 relationships that could flip the result to ${HIGH_LABEL} reliable?`)
+    expect(draft).toMatch(FRAGILE_CLAIM_RE)
+  })
+
+  it('WITHHELD: the sparkle prefills a draft with no presupposition', () => {
+    const draft = draftFromCta(true)
+    expect(draft).toBe(`Are these 2 relationships that could shift the comparison towards ${HIGH_LABEL} reliable?`)
+    expect(draft).not.toMatch(FRAGILE_CLAIM_RE)
+    expect(draft).toContain(HIGH_LABEL)
+  })
+
+  it('the two already-neutral drafts are byte-identical in BOTH verdict states', () => {
+    for (const designationsWithheld of [false, true]) {
+      expect(fragileDiscussDraft({ ...base, edgeCount: 1, altWinnerLabel: HIGH_LABEL, designationsWithheld }))
+        .toBe(`Is the relationship between ${FRAGILE_FROM} and Value delivered reliable?`)
+      expect(fragileDiscussDraft({ ...base, altWinnerLabel: null, designationsWithheld }))
+        .toBe('Are these 2 fragile relationships in my model reliable?')
+    }
+  })
+})
+
+describe('StressTestSection fragile factors — OVER-SUPPRESSION CONTROLS', () => {
+  const twoEdges = [
+    fragileEdge(),
+    fragileEdge({ edge_id: 'e_risk', from_id: 'fac_risk', from_label: FRAGILE_FROM_2, switch_probability: 0.31 }),
+  ]
+
+  it('WITHHELD: the fragile subsection still renders, with its producer count', () => {
+    // StressTestSection.tsx:79-82 keeps fragile factors visible on a withheld
+    // run BY DESIGN. A fix that silenced the section would pass every string
+    // gate above and be a worse product than the defect.
+    renderFragile(true, twoEdges)
+    const subsection = screen.getByTestId('stress-test-fragile-subsection')
+    expect(subsection.textContent ?? '').toContain('Fragile factors (2)')
+  })
+
+  it('WITHHELD: every source factor and Review chip still renders', () => {
+    renderFragile(true, twoEdges)
+    const text = screen.getByTestId('stress-test-fragile-subsection').textContent ?? ''
+    expect(text).toContain(FRAGILE_FROM)
+    expect(text).toContain(FRAGILE_FROM_2)
+    expect(text).toContain('If')
+    expect(text).toContain('shifts')
+    expect(screen.getAllByTestId('fragile-card-stability-pill').length).toBeGreaterThan(0)
+  })
+
+  it('WITHHELD: the header count is the same number the permitted run shows', () => {
+    const { unmount } = renderFragile(false, twoEdges)
+    const permitted = screen.getByTestId('accordion-stress-test').textContent ?? ''
+    unmount()
+    renderFragile(true, twoEdges)
+    const withheld = screen.getByTestId('accordion-stress-test').textContent ?? ''
+    // #503 removes the two thinking-pattern cards (4 → 2); the two FRAGILE
+    // rows must survive both counts. Asserted on the subsection header, which
+    // counts only this subsection.
+    expect(permitted).toContain('4')
+    expect(withheld).toContain('2')
+    expect(screen.getByTestId('stress-test-fragile-subsection').textContent ?? '')
+      .toContain('Fragile factors (2)')
   })
 })
 

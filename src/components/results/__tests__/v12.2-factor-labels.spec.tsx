@@ -36,6 +36,7 @@ describe('Fix 3: Bias finding affected_elements shows factor labels', () => {
 
     render(
       <ChallengeSection
+        designationsWithheld={false}
         biasFindings={biasFindings}
         preMortemItems={[]}
         evidenceGaps={evidenceGaps}
@@ -72,6 +73,7 @@ describe('Fix 3: Bias finding affected_elements shows factor labels', () => {
 
     render(
       <ChallengeSection
+        designationsWithheld={false}
         biasFindings={biasFindings}
         preMortemItems={[]}
         evidenceGaps={[]}
@@ -95,6 +97,7 @@ describe('Fix 3: Bias finding affected_elements shows factor labels', () => {
 
     render(
       <ChallengeSection
+        designationsWithheld={false}
         biasFindings={biasFindings}
         preMortemItems={[]}
         evidenceGaps={[]}
@@ -130,6 +133,7 @@ describe('Fix 3: Bias finding affected_elements shows factor labels', () => {
 
     render(
       <ChallengeSection
+        designationsWithheld={false}
         biasFindings={biasFindings}
         preMortemItems={[]}
         evidenceGaps={evidenceGaps}
