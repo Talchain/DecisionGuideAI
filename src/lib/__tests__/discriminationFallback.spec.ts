@@ -208,4 +208,43 @@ describe('fromOptionProbabilities', () => {
     const result = fromOptionProbabilities(optionProbs)
     expect(result[0].confidence).toBe(0.9)
   })
+
+  // ── GOAL-PROBABILITY IDENTITY ────────────────────────────────────────────
+  // The discrimination verdict ("too close to call") is computed FROM these
+  // values, so a value chosen by a different rule from the one the panel
+  // displays makes the verdict contradict the numbers on screen. This function
+  // used to read `goal_probability` directly, with no joint fallback; it now
+  // reads `selectGoalProbability`'s choice.
+
+  it('picks up the joint figure when the run carries no goal_probability', () => {
+    // The documented ISL-auto-derived-threshold run. Before routing through the
+    // owner this produced `Math.round(undefined * 100)` = NaN, which then
+    // poisoned the min/max spread the verdict is computed from.
+    const result = fromOptionProbabilities({
+      opt_1: { probability_of_joint_goal: 0.6 } as never,
+      opt_2: { probability_of_joint_goal: 0.2 } as never,
+    })
+    expect(result.map((r) => r.value)).toEqual([60, 20])
+    expect(result.every((r) => Number.isFinite(r.value))).toBe(true)
+  })
+
+  it('drops an option with no admissible number rather than contributing NaN', () => {
+    const result = fromOptionProbabilities({
+      opt_1: { goal_probability: 0.8 },
+      opt_2: {} as never,
+    })
+    expect(result).toHaveLength(1)
+    expect(result[0].optionId).toBe('opt_1')
+  })
+
+  it('is unchanged for a fully-specified input (behaviour-preservation pin)', () => {
+    const result = fromOptionProbabilities(
+      { opt_1: { goal_probability: 0.8, confidence: 0.9 }, opt_2: { goal_probability: 0.6 } },
+      { opt_1: 'Option A', opt_2: 'Option B' },
+    )
+    expect(result).toEqual([
+      { optionId: 'opt_1', optionLabel: 'Option A', value: 80, confidence: 0.9 },
+      { optionId: 'opt_2', optionLabel: 'Option B', value: 60, confidence: undefined },
+    ])
+  })
 })

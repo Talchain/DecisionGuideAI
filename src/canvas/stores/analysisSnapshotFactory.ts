@@ -13,6 +13,10 @@ import { SYSTEM_MARKER_EVENT_TYPES } from '../../types/scenario'
 import type { AnalysisSnapshot, FactorSensitivitySummary } from '../compare-tab/types'
 import { generateGraphHash } from '../utils/graphHash'
 import { hasObservedData } from '../utils/observedStateHelpers'
+import {
+  selectGoalProbability,
+  type GoalProbabilityInput,
+} from '../../components/results/utils/selectGoalProbability'
 
 export interface BuildSnapshotParams {
   rawV2Response: V2RunResponse
@@ -261,11 +265,20 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
     : null
 
   // Goal probability (from winner)
-  const goalProbability = winner?.probability_of_goal != null
-    ? Math.round(winner.probability_of_goal * 100)
+  //
+  // GOAL-PROBABILITY IDENTITY: read the owner's decision, never re-derive it.
+  // This file held a THIRD chooser — `probability_of_goal` with no fallback for
+  // `goal_probability`, and the joint figure taken straight off the wire — so a
+  // snapshot could record a different number from the one the panel and the
+  // canvas showed for the same run, and then outlive the run that produced it.
+  // `selectGoalProbability` accepts the wire spelling (see its registration
+  // header), so the whole option object goes to the owner as-is.
+  const goalDecision = selectGoalProbability(winner as GoalProbabilityInput | undefined)
+  const goalProbability = goalDecision.goalProbability != null
+    ? Math.round(goalDecision.goalProbability * 100)
     : null
-  const jointGoalProbability = winner?.probability_of_joint_goal != null
-    ? Math.round(winner.probability_of_joint_goal * 100)
+  const jointGoalProbability = goalDecision.jointGoalProbability != null
+    ? Math.round(goalDecision.jointGoalProbability * 100)
     : null
 
   // Seed

@@ -27,6 +27,10 @@ import { mapConfidenceToReadiness } from '../canvas/utils/mapConfidenceToReadine
 import { computeBaselineComparison } from '../canvas/utils/baselineComparison'
 import { countEdgesWithEvidence } from '../canvas/utils/evidenceCoverage'
 import { getObjectiveText, getGoalDirection } from '../canvas/utils/getObjectiveText'
+import {
+  selectGoalProbability,
+  type GoalProbabilityInput,
+} from '../components/results/utils/selectGoalProbability'
 import type { OutcomeUnits } from '../lib/format'
 import type { ConfidenceLevel } from '../adapters/plot/types'
 import type { RobustnessResult, SensitiveParameter, ValueOfInformation } from '../canvas/components/RecommendationCard/types'
@@ -313,13 +317,21 @@ export function useResultsPanelData(): ResultsPanelData {
       const currentOptionId = optionNodesLocal[0]?.id
       if (currentOptionId && report.option_probabilities[currentOptionId]) {
         const prob = report.option_probabilities[currentOptionId]
-        goalProbability = {
-          probability: prob.goal_probability,
-          confidence: prob.confidence,
-          goalLabel: report.goal_node.label || 'your goal',
-          optionId: currentOptionId,
-          optionLabel: (optionNodesLocal[0]?.data as any)?.label,
-        }
+        // GOAL-PROBABILITY IDENTITY: this is the second copy of the
+        // DecisionSummary shape, and it carried the same defect — a bare
+        // `goal_probability` read with no joint fallback. Read the chosen
+        // claim from the owner; do not re-derive it here (or there).
+        const decision = selectGoalProbability(prob as GoalProbabilityInput)
+        goalProbability =
+          decision.goalProbability !== null
+            ? {
+                probability: decision.goalProbability,
+                confidence: prob.confidence,
+                goalLabel: report.goal_node.label || 'your goal',
+                optionId: currentOptionId,
+                optionLabel: (optionNodesLocal[0]?.data as any)?.label,
+              }
+            : null
       }
     }
 

@@ -621,6 +621,21 @@ export function mapV2ResponseToReportV1(
         const p90 = safeNumber(outcome?.p90) ?? high
 
         acc[optionId] = {
+          /**
+           * @claim-producer goal-probability
+           * @rationale This is the PLoT V2 wire→internal boundary: the point at
+           *   which `probability_of_goal` and `probability_of_joint_goal` ENTER
+           *   the UI and are written out under the internal `goal_probability`
+           *   name. It creates the fields; it does not choose a displayed claim
+           *   from them. Every display path downstream goes through
+           *   `selectGoalProbability`. The one other read in this file
+           *   (`buildRecommendationBlock`, which orders options by
+           *   `win_probability ?? probability_of_goal` to name a best option in
+           *   a summary sentence) is in the same wire pass and renders no
+           *   goal-probability figure. The count this attestation suppresses is
+           *   recorded in the baseline and ratcheted, so a NEW raw read added
+           *   here is still a RED.
+           */
           // Fix A: Only use actual probability_of_goal from V2 (when threshold was provided)
           // Never fall back to computed values - undefined means "not available"
           goal_probability: safeNumber(opt.probability_of_goal),

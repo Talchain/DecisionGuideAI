@@ -25,10 +25,14 @@ describe('selectGoalProbability — gate-independent behaviour', () => {
     const none = {
       goalProbability: null,
       goalProbabilityIsJoint: false,
+      jointGoalProbability: null,
       basis: 'none' as const,
       goalFitIsModelledBasis: false,
       mayUsePossessiveGoalFraming: false,
     }
+    // Exact shape, deliberately: the selection is a CONTRACT, and a field that
+    // appears (or vanishes) without a decision here is a field some surface will
+    // start deriving for itself.
     expect(selectGoalProbability(undefined)).toEqual(none)
     expect(selectGoalProbability({})).toEqual(none)
   })
@@ -165,5 +169,81 @@ describe('selectGoalProbability — basis and framing permission', () => {
       goal_fit_basis: { scored_from: 'directly_elicited' },
     })
     expect(result.goalFitIsModelledBasis).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// OWNED ALIASES. `probability_of_goal` is the WIRE spelling of the same
+// quantity as `goal_probability` (RawOption declares three names for it; both
+// mappers read the wire name and write the internal one). The selector accepts
+// both because the sites that hold a wire-shaped option — the compare-tab
+// snapshot factory, the inspector's report-level reads — otherwise have no
+// compliant route and end up choosing for themselves, which is the defect.
+// ---------------------------------------------------------------------------
+describe('selectGoalProbability — owned aliases of the goal quantity', () => {
+  beforeEach(() => {
+    mockTrust.headlineSuspect = false
+  })
+
+  it('accepts the wire spelling probability_of_goal', () => {
+    const result = selectGoalProbability({ probability_of_goal: 0.31 })
+    expect(result.goalProbability).toBe(0.31)
+    expect(result.basis).toBe('goal_probability')
+    expect(result.goalProbabilityIsJoint).toBe(false)
+    expect(result.mayUsePossessiveGoalFraming).toBe(true)
+  })
+
+  it('prefers the mapped goal_probability when a payload carries BOTH spellings', () => {
+    // Every pre-existing caller holds a post-mapper shape, so this ordering is
+    // what makes the alias addition behaviour-preserving for all of them.
+    const result = selectGoalProbability({ goal_probability: 0.42, probability_of_goal: 0.31 })
+    expect(result.goalProbability).toBe(0.42)
+  })
+
+  it('treats a non-numeric wire value as absent rather than coercing it', () => {
+    const result = selectGoalProbability({
+      probability_of_goal: undefined,
+      probability_of_joint_goal: 0.5,
+    })
+    expect(result.basis).toBe('joint_goal_substituted')
+    expect(result.goalProbability).toBe(0.5)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// THE JOINT QUANTITY, PUBLISHED. Two surfaces render the joint figure as its
+// own separately-labelled claim next to the goal figure (the inspector's
+// "chance of hitting every target" row; the compare-tab snapshot's
+// jointGoalProbability). They used to read `probability_of_joint_goal` off the
+// producer directly — and a surface holding the raw field can also start
+// CHOOSING with it, which is how there came to be two choosers in the first
+// place. It is published here so every read of the quantity goes through this
+// module, for either purpose.
+// ---------------------------------------------------------------------------
+describe('selectGoalProbability — publishes the joint quantity it read', () => {
+  it('reports the joint figure even when it is NOT the chosen claim', () => {
+    mockTrust.headlineSuspect = false
+    const result = selectGoalProbability({ goal_probability: 0.42, probability_of_joint_goal: 0.07 })
+    expect(result.goalProbability).toBe(0.42) // the chosen claim is the goal quantity
+    expect(result.basis).toBe('goal_probability')
+    expect(result.jointGoalProbability).toBe(0.07) // …and the joint row still has its number
+  })
+
+  it('reports null when the producer sent no joint figure', () => {
+    mockTrust.headlineSuspect = false
+    expect(selectGoalProbability({ goal_probability: 0.42 }).jointGoalProbability).toBeNull()
+  })
+
+  it('preserves a producer-sent zero rather than reading it as absence', () => {
+    mockTrust.headlineSuspect = false
+    expect(selectGoalProbability({ probability_of_joint_goal: 0 }).jointGoalProbability).toBe(0)
+  })
+
+  it('still reports it while the headline seam is suspect (the gate governs SUBSTITUTION, not the labelled row)', () => {
+    mockTrust.headlineSuspect = true
+    const result = selectGoalProbability({ goal_probability: 0.42, probability_of_joint_goal: 0.07 })
+    expect(result.goalProbability).toBe(0.42)
+    expect(result.goalProbabilityIsJoint).toBe(false)
+    expect(result.jointGoalProbability).toBe(0.07)
   })
 })
