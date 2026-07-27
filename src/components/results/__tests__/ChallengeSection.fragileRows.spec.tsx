@@ -36,6 +36,7 @@ describe('ChallengeSection — Brief 5.2 Task 6 fragile-row layout', () => {
   it('D11: alt-winner appears in the card header (not per-edge), stripped of "(Status Quo)"', () => {
     render(
       <ChallengeSection
+        designationsWithheld={false}
         biasFindings={[]}
         preMortemItems={[]}
         fragileEdges={[makeFragileEdge({ alternative_winner_label: 'Option B' })]}
@@ -54,6 +55,7 @@ describe('ChallengeSection — Brief 5.2 Task 6 fragile-row layout', () => {
   it('D11: strips "(Status Quo)" suffix from alt-winner in the card header', () => {
     render(
       <ChallengeSection
+        designationsWithheld={false}
         biasFindings={[]}
         preMortemItems={[]}
         fragileEdges={[makeFragileEdge({
@@ -69,6 +71,7 @@ describe('ChallengeSection — Brief 5.2 Task 6 fragile-row layout', () => {
   it('D11: no inline arrow in per-edge row — alt-winner is in header, source-shift line has no arrow', () => {
     render(
       <ChallengeSection
+        designationsWithheld={false}
         biasFindings={[]}
         preMortemItems={[]}
         fragileEdges={[makeFragileEdge({
@@ -89,6 +92,7 @@ describe('ChallengeSection — Brief 5.2 Task 6 fragile-row layout', () => {
   it('falls back to neutral phrase when no alternative winner is known', () => {
     render(
       <ChallengeSection
+        designationsWithheld={false}
         biasFindings={[]}
         preMortemItems={[]}
         fragileEdges={[makeFragileEdge({ alternative_winner_label: undefined })]}
@@ -102,6 +106,7 @@ describe('ChallengeSection — Brief 5.2 Task 6 fragile-row layout', () => {
   it('Stability pill renders at the card top-right (Brief 5.2 Task 6a)', () => {
     render(
       <ChallengeSection
+        designationsWithheld={false}
         biasFindings={[]}
         preMortemItems={[]}
         fragileEdges={[makeFragileEdge()]}
@@ -121,6 +126,7 @@ describe('ChallengeSection — Brief 5.2 Task 6c Review chip', () => {
     const onFocusNode = vi.fn()
     render(
       <ChallengeSection
+        designationsWithheld={false}
         biasFindings={[]}
         preMortemItems={[]}
         fragileEdges={[makeFragileEdge({ from_id: 'node-source-1' })]}
@@ -139,6 +145,7 @@ describe('ChallengeSection — Brief 5.2 Task 6c Review chip', () => {
   it('Review chip is hidden when onFocusNode is not wired (defensive)', () => {
     render(
       <ChallengeSection
+        designationsWithheld={false}
         biasFindings={[]}
         preMortemItems={[]}
         fragileEdges={[makeFragileEdge()]}
@@ -151,6 +158,7 @@ describe('ChallengeSection — Brief 5.2 Task 6c Review chip', () => {
     const onFocusNode = vi.fn()
     render(
       <ChallengeSection
+        designationsWithheld={false}
         biasFindings={[]}
         preMortemItems={[]}
         fragileEdges={[makeFragileEdge({ from_label: 'Market Size', to_label: 'Revenue' })]}
@@ -175,6 +183,7 @@ describe('ChallengeSection — Brief 5.2 Task 6c Review chip', () => {
     ]
     render(
       <ChallengeSection
+        designationsWithheld={false}
         biasFindings={[]}
         preMortemItems={[]}
         fragileEdges={edges}
@@ -199,6 +208,7 @@ describe('ChallengeSection — Brief 5.2 Task 6c Review chip', () => {
     ]
     render(
       <ChallengeSection
+        designationsWithheld={false}
         biasFindings={[]}
         preMortemItems={[]}
         fragileEdges={edges}
@@ -222,6 +232,7 @@ describe('ChallengeSection — Brief 5.2 Task 6c Review chip', () => {
     ]
     render(
       <ChallengeSection
+        designationsWithheld={false}
         biasFindings={[]}
         preMortemItems={[]}
         fragileEdges={edges}
@@ -254,6 +265,7 @@ describe('ChallengeSection — Brief 5.2 Task 6c Review chip', () => {
     }
     render(
       <ChallengeSection
+        designationsWithheld={false}
         biasFindings={[]}
         preMortemItems={[]}
         fragileEdges={[edgeWithoutId]}
@@ -277,6 +289,7 @@ describe('ChallengeSection — Brief 5.2 Task 6c Review chip', () => {
     ]
     render(
       <ChallengeSection
+        designationsWithheld={false}
         biasFindings={[]}
         preMortemItems={[]}
         fragileEdges={edges}
