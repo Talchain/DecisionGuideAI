@@ -15,7 +15,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { StressTestSection } from '../StressTestSection'
 import type { DriverItem } from '../types'
-import type { ChallengeFragileEdge } from '../ChallengeSection'
+import type { ChallengeFragileEdge } from '../FragileEdgeGroupCard'
 
 vi.mock('../../../canvas/utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
@@ -312,6 +312,33 @@ describe('StressTestSection — Brief 5.8B D4', () => {
       expect(screen.getByText('Fragile factors (2)')).toBeInTheDocument()
       // Same alt-winner → one grouped card.
       expect(screen.getByTestId('fragile-alt-winner')).toHaveTextContent('Option B')
+    })
+
+    // PORTED from ChallengeSection.fragileRows.spec.tsx when the dead
+    // ChallengeSection wrapper was deleted. This assertion is about the
+    // CALLER, not the card: stripStatusQuoSuffixForDisplay runs in the
+    // grouping reduce (StressTestSection.tsx:289-292), and the card renders
+    // whatever altWinnerLabel it is handed. Re-pointing it at
+    // FragileEdgeGroupCard would have made it vacuous — the test would have
+    // had to pre-strip the label itself and then assert the strip happened.
+    // Mounted here it exercises the only production path that performs it.
+    it('D11: strips "(Status Quo)" suffix from the alt-winner in the card header', () => {
+      render(
+        <StressTestSection
+          drivers={[TOP_FACTOR]}
+          fragileEdges={[
+            makeFragile({
+              alternative_winner_label: 'Continue Without Dedicated Support (Status Quo)',
+            }),
+          ]}
+          winnerLabel="Option A"
+          alternativeLabel="Option B"
+          designationsWithheld={false}
+        />,
+      )
+      const altWinner = screen.getByTestId('fragile-alt-winner')
+      expect(altWinner.textContent).toBe('Continue Without Dedicated Support')
+      expect(document.body.textContent).not.toContain('(Status Quo)')
     })
 
     it('omits fragile subsection entirely when no fragile edges', () => {

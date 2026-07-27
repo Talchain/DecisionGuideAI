@@ -128,11 +128,20 @@ function findMessageRenders(content: string, filePath: string): string[] {
  */
 const DEFENCE_IN_DEPTH_FILES: Record<string, RegExp> = {
   'WarningBanner.tsx': /INTERNAL_PATTERN\.test\(/,
-  // ChallengeSection.tsx: InferenceWarningCard renders warning.message with a
-  // hardcoded fallback (Inference warning: ${code}). The message comes from ISL
-  // inference warnings, not PLoT critique data — structurally different type.
-  // Guard: the fallback pattern must be present.
-  'ChallengeSection.tsx': /Inference warning.*warning\.code/,
+  // ChallengeSection.tsx: exemption REMOVED with the file (dead-code sweep,
+  // 2026-07-27). Worth recording WHY, because this entry was already a stale
+  // mirror before the file died: it attested to an `InferenceWarningCard`
+  // rendering `warning.message`, but Brief 4 Task 12 had moved inference
+  // warnings out to ConfidenceSection, leaving ZERO occurrences of the
+  // attested pattern `/Inference warning.*warning\.code/` in the source. The
+  // exemption survived only because it is consulted lazily — the file no
+  // longer rendered `.message`, so `guard.test(content)` was never called and
+  // the false attestation never fired. Had any `.message` render returned to
+  // that file, the exemption would have thrown rather than exempted.
+  // The lesson is the map's shape, not this key: DEFENCE_IN_DEPTH_FILES is a
+  // hand-maintained mirror with no stale-entry check, so an entry whose
+  // subject changes underneath it rots silently. Entries must be re-read
+  // against their file, not trusted.
   // AdvancedSection.tsx: exemption REMOVED (P0-3 fold, external review
   // 2026-07-14). It previously rendered raw `w.message` for ISL inference
   // warnings behind a non-empty-string filter — but that filter does NOT

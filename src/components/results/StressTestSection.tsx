@@ -30,7 +30,7 @@ import { Accordion } from '@/canvas/components/pre-analysis/primitives/Accordion
 import {
   FragileEdgeGroupCard,
   type ChallengeFragileEdge,
-} from './ChallengeSection'
+} from './FragileEdgeGroupCard'
 import {
   stripEncodingNotation,
   stripStatusQuoSuffixForDisplay,
