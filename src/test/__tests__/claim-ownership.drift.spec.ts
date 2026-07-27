@@ -40,6 +40,7 @@ import {
   aggregateItems,
   compareIdentities,
   compareToBaseline,
+  createSourceCache,
   crossCheckArtefacts,
   discoverFamilies,
   findReads,
@@ -63,6 +64,24 @@ describe('claim-ownership drift', () => {
   const all = trackedSourceFiles()
   const prod = productionFiles(all)
 
+  // ONE scan of the tree for the whole file, shared by discovery and the walk.
+  // Discovery reads every tracked file; the walk reads the production subset, so
+  // without this the same bytes are read repeatedly. Measured at 6d474415, the
+  // four `discoverFamilies` calls below cost 11,008 of the run's 13,890
+  // `readFileSync` calls — the same 2,752 files, four times, for an answer that
+  // cannot differ between them inside one spec run.
+  const sources = createSourceCache()
+
+  // LAZY, not eager. Building the promise here in the describe body would create
+  // it at COLLECTION time, and a discovery failure — which this instrument goes
+  // out of its way to make loud — would surface as an unhandled rejection with
+  // no test attached to it. Created on first use instead, so the rejection always
+  // has an awaiter and every test that asks for the families still fails with the
+  // real message, exactly as when each called `discoverFamilies` itself.
+  let familiesOnce: Promise<Family[]> | null = null
+  const discoveredFamilies = (): Promise<Family[]> =>
+    (familiesOnce ??= discoverFamilies(all, sources))
+
   // ── ANTI-VACUITY CONTROLS ─────────────────────────────────────────────────
   // These must fail if the instrument stops seeing anything, rather than the
   // suite passing because it generated nothing to check.
@@ -74,7 +93,7 @@ describe('claim-ownership drift', () => {
   })
 
   it('control 2: the scan is not vacuous — at least one family is registered', async () => {
-    const families = await discoverFamilies(all)
+    const families = await discoveredFamilies()
     expect(
       families.length,
       'ZERO claim families discovered. With passWithNoTests:true a walker that ' +
@@ -84,7 +103,7 @@ describe('claim-ownership drift', () => {
   })
 
   it('control 3a: every registered raw field has EXACTLY ONE owner', async () => {
-    const families = await discoverFamilies(all)
+    const families = await discoveredFamilies()
     const fieldOwner = new Map<string, string>()
     const familyOwner = new Map<string, string>()
     const clashes: string[] = []
@@ -113,7 +132,7 @@ describe('claim-ownership drift', () => {
     // share a name, so the naive alias fix punishes exactly the sites a migration
     // just made compliant. The owner’s output surface is DERIVED here (by
     // calling the selector), never declared, so this cannot rot.
-    const families = await discoverFamilies(all)
+    const families = await discoveredFamilies()
     const collisions: string[] = []
     for (const f of families) {
       for (const field of f.rawFields) {
@@ -382,7 +401,7 @@ describe('claim-ownership drift', () => {
   // ── THE WALK ──────────────────────────────────────────────────────────────
 
   it('no production file re-derives an owned claim beyond the baseline', async () => {
-    const families = await discoverFamilies(all)
+    const families = await discoveredFamilies()
 
     // Per-family floor. A family whose fields vanish from the tree entirely is
     // either fully migrated (regenerate: the stale rows will say so) or the
@@ -404,7 +423,7 @@ describe('claim-ownership drift', () => {
 
     const baseline = parseBaseline(readFileSync(BASELINE_PATH, 'utf8'))
     const identities = parseIdentities(readFileSync(IDENTITIES_PATH, 'utf8'))
-    const { rows, detail, items } = walk(families, prod)
+    const { rows, detail, items } = walk(families, prod, sources)
 
     // The pair must agree before either is trusted. A skew means one artefact
     // was hand-edited or a generator half-ran, and a baseline that disagrees

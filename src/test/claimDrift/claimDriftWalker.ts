@@ -143,6 +143,62 @@ export interface Family {
   outputFields: readonly string[]
 }
 
+/**
+ * Read-once-per-path source access, shared by discovery and the walk.
+ *
+ * ⚠ THIS IS A PERFORMANCE STRUCTURE ONLY. Every method returns exactly what a
+ * bare `readFileSync` / `stripComments` would return for the same path; nothing
+ * here may change a verdict. The reason it exists is that the two phases read
+ * overlapping file sets — discovery scans all tracked files, the walk scans the
+ * production subset — and before this the same bytes were read, and the same
+ * source re-tokenised, several times per run (measured at 6d474415: 13,890
+ * `readFileSync` calls / 117.8 MB for a tree of 2,752 files).
+ *
+ * It is a CALLER-SCOPED object with a fresh default, deliberately, not a
+ * module-level memo. A module-level cache would be a hidden global that goes
+ * stale the moment anything writes to the tree between two calls — and an
+ * instrument that reports a file it can no longer see is worse than a slow one.
+ * A caller that wants the sharing asks for it by passing one in; a caller that
+ * says nothing gets today's exact behaviour, one fresh cache per call.
+ *
+ * IT TRADES MEMORY FOR TIME, and the price is measured, not waved at: holding
+ * one run's sources took peak footprint from 146 MB to 191 MB in a bare-node
+ * replay of the spec's call sequence, for 750 ms → 267 ms. It is transient — the
+ * cache dies with the describe block that made it — but a reviewer weighing a
+ * vitest worker's budget should have the number rather than a reassurance.
+ */
+export interface SourceCache {
+  /** Raw file text. Read at most once per path for the life of this cache. */
+  read(rel: string): string
+  /** Comment-stripped source, split to lines. Tokenised at most once per path. */
+  strippedLines(rel: string): string[]
+}
+
+/** A fresh, empty cache. The default argument of both phases. */
+export function createSourceCache(): SourceCache {
+  const raw = new Map<string, string>()
+  const stripped = new Map<string, string[]>()
+  const read = (rel: string): string => {
+    let s = raw.get(rel)
+    if (s === undefined) {
+      s = readFileSync(join(REPO_ROOT, rel), 'utf8')
+      raw.set(rel, s)
+    }
+    return s
+  }
+  return {
+    read,
+    strippedLines(rel: string): string[] {
+      let lines = stripped.get(rel)
+      if (lines === undefined) {
+        lines = stripComments(read(rel), rel).split('\n')
+        stripped.set(rel, lines)
+      }
+      return lines
+    },
+  }
+}
+
 /** Tracked TS/TSX under src/. The house standard for an absence claim. */
 export function trackedSourceFiles(): string[] {
   const out = execFileSync('git', ['ls-files', '--', 'src/*.ts', 'src/*.tsx'], {
@@ -171,9 +227,12 @@ export function productionFiles(all: string[]): string[] {
  * FAILURE, never a silent skip: an owner the walker cannot read is an owner it
  * is not policing, and that must be loud.
  */
-export async function discoverFamilies(all: string[]): Promise<Family[]> {
+export async function discoverFamilies(
+  all: string[],
+  cache: SourceCache = createSourceCache(),
+): Promise<Family[]> {
   const candidates = all.filter((rel) =>
-    /export\s+const\s+CLAIM_OWNERSHIP\b/.test(readFileSync(join(REPO_ROOT, rel), 'utf8')),
+    /export\s+const\s+CLAIM_OWNERSHIP\b/.test(cache.read(rel)),
   )
 
   const families: Family[] = []
@@ -330,13 +389,40 @@ export function patternsFor(fields: readonly string[]): {
  * compliant chain to sanction.
  */
 export function isSanctioned(lines: string[], i: number, at: number, fam: Family): boolean {
+  return sanctionedWith(lines, i, at, fam, sanctionTrailRe(fam))
+}
+
+/**
+ * The trailing-`??`-chain probe of `isSanctioned`, compiled ONCE PER FAMILY
+ * instead of once per candidate LINE. It depends on nothing but
+ * `fam.callInstead`, so hoisting it out of the line loop cannot change which
+ * lines it matches. `null` for a family with no chooser, which sanctions
+ * nothing and therefore never reaches this probe.
+ *
+ * The pattern carries no `g` flag, so it holds no `lastIndex` state and a single
+ * instance is safe to reuse across every line and every file.
+ */
+function sanctionTrailRe(fam: Family): RegExp | null {
+  return fam.callInstead === null
+    ? null
+    : new RegExp(`${escapeRe(fam.callInstead)}[^]*\\?\\?\\s*$`)
+}
+
+/** `isSanctioned` with its per-family regex supplied. Same predicate, same order. */
+function sanctionedWith(
+  lines: string[],
+  i: number,
+  at: number,
+  fam: Family,
+  trailRe: RegExp | null,
+): boolean {
   if (fam.callInstead === null) return false
   const before = lines[i].slice(0, at)
   if (before.includes(fam.callInstead)) return true
   // A presence probe is not a decision (same exemption the ESLint rule takes).
   if (/typeof\s+$/.test(before)) return true
   const prev = i > 0 ? lines[i - 1] : ''
-  return new RegExp(`${escapeRe(fam.callInstead)}[^]*\\?\\?\\s*$`).test(prev.trimEnd())
+  return (trailRe as RegExp).test(prev.trimEnd())
 }
 
 /**
@@ -396,12 +482,40 @@ export function renderHit(h: Hit): string {
  * not close it for a second read of the SAME field on the same line.
  */
 export function findReads(src: string, rel: string, fam: Family): Hit[] {
-  const p = patternsFor(fam.rawFields)
-  const stripped = stripComments(src, rel).split('\n')
-  const rawLines = src.split('\n')
+  return findReadsIn(
+    src.split('\n'),
+    stripComments(src, rel).split('\n'),
+    fam,
+    patternsFor(fam.rawFields),
+    sanctionTrailRe(fam),
+  )
+}
+
+/**
+ * The scan itself, with everything it does not derive from the SOURCE supplied
+ * by the caller: the split lines, the family's four patterns, and its sanction
+ * probe. This is the split `walk()` needs and `findReads()` does not — the walk
+ * has many files per family, so building those four patterns per (family, file)
+ * and stripping the same file once per family is pure repetition; a caller
+ * holding one source string has nothing to reuse.
+ *
+ * ⚠ IT IS NOT KEYED ON `rel`. Memoising the strip inside `findReads` on the path
+ * would be wrong, not merely different: the detector-contract tests call it with
+ * the SAME synthetic path `'x.ts'` and ten DIFFERENT code strings, so a
+ * path-keyed memo would serve the first fixture's tokens to all ten and every
+ * one of them would pass on the wrong input. Caching belongs where paths are
+ * real and unique — `SourceCache`, driven by the walk.
+ */
+function findReadsIn(
+  rawLines: string[],
+  strippedLines: string[],
+  fam: Family,
+  p: ReturnType<typeof patternsFor>,
+  trailRe: RegExp | null,
+): Hit[] {
   const hits: Hit[] = []
-  for (let i = 0; i < stripped.length; i++) {
-    const line = stripped[i]
+  for (let i = 0; i < strippedLines.length; i++) {
+    const line = strippedLines[i]
     const at = (field: string): Hit => ({
       line: i + 1,
       field,
@@ -409,7 +523,7 @@ export function findReads(src: string, rel: string, fam: Family): Hit[] {
       raw: rawLines[i].trim(),
     })
     const m = p.member.exec(line)
-    if (m && !isSanctioned(stripped, i, m.index, fam)) {
+    if (m && !sanctionedWith(strippedLines, i, m.index, fam, trailRe)) {
       hits.push(at(m[1]))
       continue
     }
@@ -487,24 +601,66 @@ export interface WalkResult {
   items: Item[]
 }
 
-/** Walk every production file for every discovered family. */
-export function walk(families: Family[], prod: string[]): WalkResult {
+/**
+ * Walk every production file for every discovered family.
+ *
+ * FILES OUTER, FAMILIES INNER — and that order is load-bearing for cost, not for
+ * meaning. The pair (family, file) visited is identical either way, and each
+ * pair is visited exactly once; what changes is that a file is now read and
+ * comment-stripped ONCE however many families ask about it, instead of once PER
+ * family. The old order was O(families x files) reads and grew linearly with
+ * every family that registered — measured at 6d474415: 2,882 reads for two
+ * families over 1,442 production files, where 1,442 suffice.
+ *
+ * WHY THE OUTPUT IS UNMOVED BY THE REORDER, stated rather than assumed:
+ *   * `rows` is sorted before return on (family, rel), and each (family, rel)
+ *     yields at most one row, so the sort is TOTAL and the pre-sort push order
+ *     cannot survive into the result.
+ *   * `items` is only ever consumed through `aggregateItems`, which merges
+ *     equal identities and sorts on the whole tuple — order-independent by
+ *     construction, and pinned as such by the "byte-stable under input order"
+ *     control in the spec.
+ *   * `detail` is a Map that is only ever `get`-ed by key. Nothing iterates it,
+ *     so its insertion order is not observable.
+ * The equivalence proof for the restructure is the bytes of both artefacts plus
+ * the flattened detail map, not this paragraph — but the paragraph says which
+ * property each one is resting on.
+ */
+export function walk(
+  families: Family[],
+  prod: string[],
+  cache: SourceCache = createSourceCache(),
+): WalkResult {
   const rows: Row[] = []
   const detail = new Map<string, string[]>()
   const items: Item[] = []
 
-  for (const fam of families) {
-    const fieldRe = new RegExp(fam.rawFields.map(escapeRe).join('|'))
-    for (const rel of prod) {
-      if (rel === fam.ownerRel) continue
-      const src = readFileSync(join(REPO_ROOT, rel), 'utf8')
-      if (!fieldRe.test(src)) continue // cheap prefilter
-      const hits = findReads(src, rel, fam)
-      const exempt = producerAttestation(src, fam.family) !== null
+  // Everything a family carries into the scan, built ONCE per family. Before
+  // this, `patternsFor` constructed its four RegExps per (family, FILE) and
+  // `isSanctioned` constructed one per candidate LINE. None of them depends on
+  // the file or the line, so none of them belonged there. All are flagless, so
+  // they hold no `lastIndex` state and are safe to share across the whole walk.
+  const matchers = families.map((fam) => ({
+    fam,
+    fieldRe: new RegExp(fam.rawFields.map(escapeRe).join('|')),
+    patterns: patternsFor(fam.rawFields),
+    trailRe: sanctionTrailRe(fam),
+  }))
+
+  for (const rel of prod) {
+    let src: string | null = null
+    let rawLines: string[] | null = null
+    for (const m of matchers) {
+      if (rel === m.fam.ownerRel) continue
+      if (src === null) src = cache.read(rel)
+      if (!m.fieldRe.test(src)) continue // cheap prefilter
+      if (rawLines === null) rawLines = src.split('\n')
+      const hits = findReadsIn(rawLines, cache.strippedLines(rel), m.fam, m.patterns, m.trailRe)
+      const exempt = producerAttestation(src, m.fam.family) !== null
       if (hits.length === 0 && !exempt) continue
-      rows.push({ family: fam.family, rel, count: hits.length, exempt })
-      if (hits.length > 0) detail.set(`${fam.family}\t${rel}`, hits.map(renderHit))
-      for (const h of hits) items.push({ family: fam.family, rel, field: h.field, text: h.text })
+      rows.push({ family: m.fam.family, rel, count: hits.length, exempt })
+      if (hits.length > 0) detail.set(`${m.fam.family}\t${rel}`, hits.map(renderHit))
+      for (const h of hits) items.push({ family: m.fam.family, rel, field: h.field, text: h.text })
     }
   }
 
