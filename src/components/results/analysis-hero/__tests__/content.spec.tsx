@@ -32,7 +32,7 @@ describe('AnalysisHeroPanel — content', () => {
   it('renders the headline, tension subline, and goal readouts from response values', () => {
     renderPanel(chartModel())
     expect(screen.getByTestId('hero-headline')).toHaveTextContent(
-      'Upskill the team best fits your goal.',
+      'Upskill the team is most likely to meet every target this run scored.',
     )
     expect(screen.getByTestId('hero-subline')).toHaveTextContent(
       'Two developers has the highest expected outcome.',
