@@ -22,8 +22,15 @@ describe('selectGoalProbability — gate-independent behaviour', () => {
   })
 
   it('returns null when neither source is present', () => {
-    expect(selectGoalProbability(undefined)).toEqual({ goalProbability: null, goalProbabilityIsJoint: false })
-    expect(selectGoalProbability({})).toEqual({ goalProbability: null, goalProbabilityIsJoint: false })
+    const none = {
+      goalProbability: null,
+      goalProbabilityIsJoint: false,
+      basis: 'none' as const,
+      goalFitIsModelledBasis: false,
+      mayUsePossessiveGoalFraming: false,
+    }
+    expect(selectGoalProbability(undefined)).toEqual(none)
+    expect(selectGoalProbability({})).toEqual(none)
   })
 
   it('uses goal_probability (unconstrained) when there are no constraints', () => {
@@ -86,5 +93,77 @@ describe('selectGoalProbability — MUTATION PROOF: flip seam 1 back to true →
     const result = selectGoalProbability({ probability_of_joint_goal: 0.99 })
     expect(result.goalProbability).toBeNull()
     expect(result.goalProbabilityIsJoint).toBe(false)
+  })
+
+  it('reports no basis and no framing permission while the seam is suppressed', () => {
+    const result = selectGoalProbability({ probability_of_joint_goal: 0.99 })
+    expect(result.basis).toBe('none')
+    expect(result.goalFitIsModelledBasis).toBe(false)
+    expect(result.mayUsePossessiveGoalFraming).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// IDENTITY — which producer quantity the number IS, and what prose may say
+// about it. `basis` exists because "may we show a goal probability" is not
+// answerable without knowing which of the two collapsed quantities the value
+// answers; the caveat flag lives here (rather than being re-derived by each
+// consumer) because two consumers deriving it independently is exactly how
+// the results panel and the canvas came to disagree.
+// ---------------------------------------------------------------------------
+describe('selectGoalProbability — basis and framing permission', () => {
+  beforeEach(() => {
+    mockTrust.headlineSuspect = false
+  })
+
+  it('the unconstrained goal quantity licenses the possessive framing', () => {
+    const result = selectGoalProbability({ goal_probability: 0.42 })
+    expect(result.basis).toBe('goal_probability')
+    expect(result.mayUsePossessiveGoalFraming).toBe(true)
+  })
+
+  it('an option carrying its own constraints yields the constrained joint basis', () => {
+    const result = selectGoalProbability({
+      goal_probability: 0.42,
+      probability_of_joint_goal: 0.07,
+      constraint_analysis: { constraints: [{ id: 'c1' }] },
+    })
+    expect(result.basis).toBe('joint_goal_constrained')
+    expect(result.goalProbability).toBe(0.07)
+    expect(result.mayUsePossessiveGoalFraming).toBe(true)
+  })
+
+  it('a joint figure standing in for an absent goal figure shows the NUMBER but withholds the possessive', () => {
+    const result = selectGoalProbability({ probability_of_joint_goal: 0.62 })
+    expect(result.basis).toBe('joint_goal_substituted')
+    expect(result.goalProbability).toBe(0.62)
+    expect(result.goalProbabilityIsJoint).toBe(true)
+    expect(result.mayUsePossessiveGoalFraming).toBe(false)
+  })
+
+  it('carries the modelled-basis caveat on a joint figure the producer marked as modelled', () => {
+    const result = selectGoalProbability({
+      probability_of_joint_goal: 0.62,
+      goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
+    })
+    expect(result.goalFitIsModelledBasis).toBe(true)
+  })
+
+  it('never applies the caveat to the unconstrained goal quantity, even when the marker is present', () => {
+    const result = selectGoalProbability({
+      goal_probability: 0.42,
+      probability_of_joint_goal: 0.62,
+      goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
+    })
+    expect(result.basis).toBe('goal_probability')
+    expect(result.goalFitIsModelledBasis).toBe(false)
+  })
+
+  it('never applies the caveat on a non-modelled scored_from', () => {
+    const result = selectGoalProbability({
+      probability_of_joint_goal: 0.62,
+      goal_fit_basis: { scored_from: 'directly_elicited' },
+    })
+    expect(result.goalFitIsModelledBasis).toBe(false)
   })
 })

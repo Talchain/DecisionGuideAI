@@ -208,6 +208,18 @@ export const HERO_COPY = {
     range: (low: string, high: string) => `Realistic range: ${low} to ${high}.`,
     goalFit: (readout: string) => `${readout} chance of hitting your goal.`,
     goalFitWithLimits: (readout: string) => `${readout} chance of meeting your goal and limits.`,
+    /**
+     * Goal-probability IDENTITY: used when the row's number is
+     * `probability_of_joint_goal` STANDING IN for an absent
+     * `goal_probability` (the ISL-auto-derived-goal-threshold run, flagged
+     * by the shared selector as `basis: 'joint_goal_substituted'`). The
+     * number is shown — it is real and decision-relevant — but it answers
+     * "P(all targets jointly satisfied)", not "P(this option clears YOUR
+     * goal)", so the possessive framing the two lines above use would name
+     * a question this figure does not answer. Same sentence shape, no
+     * possessive, no invented claim.
+     */
+    goalFitJointBasis: (readout: string) => `${readout} chance of meeting all targets together.`,
   },
 
   /**

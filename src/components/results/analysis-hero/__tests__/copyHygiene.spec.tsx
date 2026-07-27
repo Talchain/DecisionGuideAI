@@ -88,6 +88,7 @@ const UI_COPY: string[] = [
   HERO_COPY.detail.range('54', '82'),
   HERO_COPY.detail.goalFit('34%'),
   HERO_COPY.detail.goalFitWithLimits('34%'),
+  HERO_COPY.detail.goalFitJointBasis('34%'),
   HERO_COPY.footer.mainReason('Team capacity'),
   // §6.5 quick-evidence pills (summary row).
   HERO_COPY.pills.mainDriver('Team capacity'),

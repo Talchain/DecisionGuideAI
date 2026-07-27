@@ -307,11 +307,19 @@ export function buildHeroModel(
     // carries its own constraint analysis, so the row's detail line can name
     // the quantity precisely — a constrained option's joint figure is never
     // mislabelled goal-alone in a mixed set.
+    // Goal-probability IDENTITY: when the row's number is the joint figure
+    // STANDING IN for an absent goal probability (`goalFitIsSubstitutedJoint`,
+    // set by the shared selector — never re-derived here), the possessive
+    // "your goal" wording names a question the number does not answer, so the
+    // line states the quantity it actually is. The number itself is unchanged
+    // and still shown: this is a copy switch, never a value transform.
     const goalFit =
       goalValue != null
         ? optionHasConstraints(o)
           ? HERO_COPY.detail.goalFitWithLimits(goalReadout(goalValue))
-          : HERO_COPY.detail.goalFit(goalReadout(goalValue))
+          : o.goalFitIsSubstitutedJoint === true
+            ? HERO_COPY.detail.goalFitJointBasis(goalReadout(goalValue))
+            : HERO_COPY.detail.goalFit(goalReadout(goalValue))
         : undefined
     // Display-honesty (ROADMAP 1.6b follow-up, claim-integrity): the caveat
     // renders ONLY when the goalFit number just above it is actually shown

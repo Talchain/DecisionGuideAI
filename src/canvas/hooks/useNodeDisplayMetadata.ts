@@ -15,6 +15,10 @@ import { compareByDisplayModel } from '../../components/results/driverDisplayMod
 import type { DriverDisplayProvenance } from '../../components/results/driverDisplayModel'
 import { selectDriverPolicyFeed } from '../../components/results/useResultsSectionData'
 import { resolveFactorConfidenceDisplay } from '../../components/results/driverConfidenceDisplayPolicy'
+import {
+  selectGoalProbability,
+  type GoalProbabilityInput,
+} from '../../components/results/utils/selectGoalProbability'
 import type { ResultsReport } from '../../components/results/types'
 
 interface NodeDisplayMetadata {
@@ -56,17 +60,23 @@ interface NodeDisplayMetadata {
   confidenceIsProvisional: boolean
   /** Whether this factor was found in the sensitivity analysis (false for root nodes like "Value") */
   inSensitivityAnalysis: boolean
-  /** Outcome/Goal achievement probability (0-1) */
+  /**
+   * Outcome/Goal achievement probability (0-1), as decided by
+   * `components/results/utils/selectGoalProbability` — THE single source of
+   * truth for which producer quantity may be shown as a goal probability.
+   * This hook does not choose; it reads. The results panel reads the same
+   * function, so the canvas and the panel cannot state different numbers for
+   * one option in one session.
+   */
   achievementProbability: number | null
   /**
-   * Display-honesty (ROADMAP 1.6b follow-up, claim-integrity): true ONLY
-   * when `achievementProbability` above IS the joint-goal figure (mirrors
-   * the hook's own `hasConstraints && jointProb != null` branch that
-   * selects it, exactly as OptionCards' `goalFitIsModelledBasis` mirrors
-   * useResultsSectionData.ts's branches) AND the producer marked it as
-   * scored from a modelled outcome distribution
-   * (`goal_fit_basis.scored_from === 'modelled_outcome_distribution'`).
-   * Never inferred, never applied to the unconstrained goal_probability.
+   * Display-honesty (ROADMAP 1.6b follow-up, claim-integrity): true when the
+   * `achievementProbability` above IS the joint-goal figure AND the producer
+   * marked it as scored from a modelled outcome distribution. Read straight
+   * off the shared selector's `goalFitIsModelledBasis` — NOT mirrored from
+   * it, which is how this flag previously came to disagree with the results
+   * panel's identical-looking one. Surfaces rendering the number MUST render
+   * `GOAL_FIT_BASIS_CAVEAT_COPY` alongside it when this is true.
    */
   achievementProbabilityIsModelledBasis: boolean
   /** Recommendation stability (0-1) - fallback for Goal nodes when probability unavailable */
@@ -235,30 +245,26 @@ export function useNodeDisplayMetadata(
                                   report.robustness?.recommendedOptionId
 
       if (recommendedOptionId) {
-        const rec = optionProbabilities[recommendedOptionId] as any
+        const rec = optionProbabilities[recommendedOptionId] as GoalProbabilityInput | undefined
         if (rec) {
-          // T6 P0-3: Prefer probability_of_joint_goal (constrained) when available,
-          // fall back to goal_probability (unconstrained)
-          const jointProb = typeof rec.probability_of_joint_goal === 'number'
-            ? rec.probability_of_joint_goal : null
-          const hasConstraints = rec.constraint_analysis?.constraints?.length > 0
-          const isJoint = hasConstraints && jointProb != null
-          achievementProbability = isJoint
-            ? jointProb
-            : (rec.goal_probability ?? null)
-          // Display-honesty (ROADMAP 1.6b follow-up, claim-integrity):
-          // mirrors the `isJoint` branch immediately above exactly (rather
-          // than comparing resulting numbers, which could false-match on a
-          // coincidental equal value) so we know precisely WHEN the
-          // achievementProbability just set IS the joint-goal figure the
-          // caveat qualifies — never inferred, never applied to the
-          // unconstrained goal_probability branch.
-          const goalFitBasisScoredFrom =
-            typeof rec.goal_fit_basis?.scored_from === 'string'
-              ? (rec.goal_fit_basis.scored_from as string)
-              : null
-          achievementProbabilityIsModelledBasis =
-            isJoint && goalFitBasisScoredFrom === 'modelled_outcome_distribution'
+          // GOAL-PROBABILITY IDENTITY — ONE chooser, never two.
+          //
+          // This hook used to pick between `probability_of_joint_goal` and
+          // `goal_probability` itself, with a rule that DIFFERED from the
+          // results panel's: it took the joint figure only when the option
+          // carried its own `constraint_analysis` (which no live V5 producer
+          // populates) and otherwise returned `goal_probability ?? null`. On
+          // the documented ISL-auto-derived-goal-threshold run
+          // (`goal_probability` absent, `probability_of_joint_goal` present)
+          // that returned null while the results panel returned the joint
+          // value WITH its provenance caveat — one session, one option, the
+          // panel stating a percentage and the canvas denying any figure
+          // existed. `selectGoalProbability` now owns the decision outright:
+          // which quantity may be shown, and with what provenance. Read it;
+          // never re-derive either field here, and never add a third chooser.
+          const decision = selectGoalProbability(rec)
+          achievementProbability = decision.goalProbability
+          achievementProbabilityIsModelledBasis = decision.goalFitIsModelledBasis
         }
       }
 
