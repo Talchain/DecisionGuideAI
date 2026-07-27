@@ -415,15 +415,36 @@ export const HERO_COPY = {
   /**
    * Screen-reader-only cue so the crowned row is perceivable without colour.
    *
-   * ROADMAP 1.223: was "Leads on this view". REWORDED, deliberately NOT gated
-   * on the leader verdict. The hero's per-lens crown is an ARGMAX over the
-   * data that lens is currently drawing (outcome centre, goal probability) —
-   * it is a property of the view, not the producer's leader designation, and
-   * suppressing it would be the over-suppression class this same roadmap row
-   * had to fix once already in DecisionNode. The wording now states what it
-   * actually marks: the highest row on the lens in view. Note it is sr-only
-   * but NOT invisible to auditing — text extraction sees it, which is how the
+   * ROADMAP 1.223: was "Leads on this view". REWORDED — the wording states
+   * what it marks, the highest row on the lens in view. Note it is sr-only
+   * but NOT invisible to auditing: text extraction sees it, which is how the
    * render probe caught it.
+   *
+   * ⚠ CORRECTED 27 Jul (ROADMAP 1.267). This entry used to continue
+   * "…deliberately NOT gated on the leader verdict", arguing that the
+   * per-lens crown is an ARGMAX over the data the lens is drawing — "a
+   * property of the view, not the producer's leader designation" — and that
+   * suppressing it would be over-suppression.
+   *
+   * THAT REASONING IS OVERTURNED, at the screenshots, in row 1.306. An
+   * argmax rendered as a filled badge, an emphasised readout, `aria-current`
+   * and a spoken label is a DESIGNATION whatever it is derived from, and
+   * this one was being announced to screen-reader users on the same screen
+   * as CEE's own "no option can be put forward yet". Ruling 1.267 draws the
+   * line at designation-vs-data, not at who computed the argmax.
+   *
+   * The STRING is still correct and still used — on a PERMITTED run. It is
+   * now gated at its source: `buildHeroModel` nulls every entry of
+   * `HeroChartModel.leaders` when the verdict withholds, which removes this
+   * cue together with the badge fill, the readout emphasis, the bar colours
+   * and `aria-current` in one place. Pinned by
+   * `__tests__/withheldDesignations.hero.spec.tsx`, including the real
+   * accessible-name computation.
+   *
+   * Kept as a correction rather than a rewrite because the superseded
+   * argument is a good one that was applied to the wrong side of the line —
+   * and a comment that quietly changed its mind would be the stale-label
+   * defect CLAUDE.md trap 14 exists to catch.
    */
   srLeader: 'Highest on this view',
 
