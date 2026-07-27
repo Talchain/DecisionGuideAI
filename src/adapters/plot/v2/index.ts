@@ -51,6 +51,7 @@ export {
   executeV2RunWithAnalysisReady,
   extractOptionsFromNodes,
   reconcileOptionsWithCanvasNodes,
+  reconcileOptionsWithCanvasNodesDetailed,
   uiOptionToV2Option,
   ceeOptionToUIOption,
   ceeOptionToV2Option,
