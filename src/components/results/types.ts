@@ -149,6 +149,17 @@ export interface OptionResult {
    * surface a caveat when this is true (UI-BOUNDARY-DATA-INVENTORY.md §5).
    */
   goalFitIsModelledBasis?: boolean
+  /**
+   * Goal-probability IDENTITY: true when the rendered `goalProbability` is
+   * `probability_of_joint_goal` STANDING IN for an absent `goal_probability`
+   * (the ISL-auto-derived-goal-threshold run). The number is real and the
+   * user is entitled to it, but it answers "P(all constraints jointly
+   * satisfied)", not "P(this option clears the goal)" — so prose showing it
+   * must NOT use the possessive "your goal" framing. Set from
+   * `selectGoalProbability(...).basis === 'joint_goal_substituted'`; never
+   * re-derived at a render site.
+   */
+  goalFitIsSubstitutedJoint?: boolean
 }
 
 /** Outcome unit type for formatting - from goal node observed_state.unit */

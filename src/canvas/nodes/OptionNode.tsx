@@ -21,6 +21,7 @@ import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodeChip, ActionIcons, BriefIcon, NodePopover, ScienceIcon } from './shared'
 import { selectGoalProbability } from '../../components/results/utils/selectGoalProbability'
+import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 
 /** Truncate text at word boundary to avoid mid-word cuts. */
@@ -757,12 +758,19 @@ export const OptionNode = memo((props: NodeProps) => {
   // one useResultsSectionData applies for OptionCards/hero/GoalNode) so this
   // badge can't show a different number than those surfaces on a
   // constrained-goal run.
-  const goalProbability = useMemo(() => {
+  //
+  // Goal-probability IDENTITY: the WHOLE decision is kept, not just the
+  // number. This site previously took `.goalProbability` and discarded the
+  // provenance, so the badge rendered a joint-basis figure with no caveat
+  // while OptionCards, the hero and GoalNode rendered the same figure WITH
+  // one. The caveat now travels with the number to every surface showing it.
+  const goalDecision = useMemo(() => {
     if (!isPostAnalysis || !resultsReport) return null
     const report = resultsReport as any
     const optionProbs = report?.option_probabilities?.[props.id]
-    return selectGoalProbability(optionProbs).goalProbability
+    return selectGoalProbability(optionProbs)
   }, [isPostAnalysis, resultsReport, props.id])
+  const goalProbability = goalDecision?.goalProbability ?? null
 
   // "Behind:" reason for non-winner options (including status quo).
   // Computed via the pure helper so this option's reason can be compared
@@ -926,6 +934,22 @@ export const OptionNode = memo((props: NodeProps) => {
         </p>
       )}
 
+      {/* Display-honesty (ROADMAP 1.6b, claim-integrity): the number above is
+          scored from a MODELLED forward-propagated outcome distribution, not
+          a directly-set base. Same gate and same shared wording as
+          OptionCards / GoalNode / OutcomeNode / NodeInspector — the flag is
+          read off the shared selector, never re-derived, so no surface can
+          show this number with the caveat while another shows it bare. */}
+      {goalThreshold != null && isPostAnalysis && goalProbability !== null && goalProbability < 0.10 &&
+        goalDecision?.goalFitIsModelledBasis === true && (
+        <p
+          className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
+          data-testid={`goal-fit-basis-caveat-option-node-${props.id}`}
+        >
+          {GOAL_FIT_BASIS_CAVEAT_COPY}
+        </p>
+      )}
+
       {/* "What this option changes:" intervention list (never for baseline) */}
       {!isBaselineOption && allInterventionChips.length > 0 && (() => {
         const chipsWithMeta = allInterventionChips.map(chip => {
@@ -1034,7 +1058,7 @@ export const OptionNode = memo((props: NodeProps) => {
           in this inline layer-2 block. Body never renders chips directly. */}
       {optionChips}
     </>
-  ), [isPostAnalysis, goalThreshold, goalProbability, handleGoalReviewClick, allInterventionChips, isBaselineOption, baselineOptionInterventions, isOptionFromCee, props.data, totalInterventionCount, optionChips])
+  ), [isPostAnalysis, goalThreshold, goalProbability, goalDecision, props.id, handleGoalReviewClick, allInterventionChips, isBaselineOption, baselineOptionInterventions, isOptionFromCee, props.data, totalInterventionCount, optionChips])
 
   // ----- Pre-analysis popover content -----
   const preAnalysisPopoverContent = useMemo(() => {

@@ -1475,18 +1475,14 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // ROADMAP 1.49: extracted to selectGoalProbability (utils/) so every
       // surface (this hook, OptionNode's badge) shares one fallback chain
       // instead of re-deriving it.
-      const { goalProbability, goalProbabilityIsJoint } = selectGoalProbability(prob as GoalProbabilityInput)
-      // Display-honesty (ROADMAP 1.6b, doctrine B / PLoT #204): the
-      // provenance caveat renders ONLY when the number just shown is the
-      // joint-goal figure AND the producer marked it as scored from a
-      // modelled outcome distribution — never inferred, never applied to
-      // the unconstrained probability_of_goal number.
-      const goalFitBasisScoredFrom =
-        typeof (prob as any).goal_fit_basis?.scored_from === 'string'
-          ? ((prob as any).goal_fit_basis.scored_from as string)
-          : null
-      const goalFitIsModelledBasis =
-        goalProbabilityIsJoint && goalFitBasisScoredFrom === 'modelled_outcome_distribution'
+      // GOAL-PROBABILITY IDENTITY: the selector owns the whole decision —
+      // which quantity may be shown, and with what provenance. The caveat
+      // flag was previously re-derived HERE from the selector's `isJoint`
+      // plus a local `goal_fit_basis` read, and the canvas hook derived the
+      // same pair independently; the two disagreed live. Read them, never
+      // re-derive them.
+      const goalDecision = selectGoalProbability(prob as GoalProbabilityInput)
+      const { goalProbability, goalFitIsModelledBasis } = goalDecision
 
       // Display-honesty: per-option valid sample count for resolution-aware
       // probability formatting. Fallback chain prefers per-option signal,
@@ -1524,6 +1520,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         nValidSamples,
         goalProbability,
         goalFitIsModelledBasis,
+        // Which quantity `goalProbability` actually IS, carried to the render
+        // layer so prose can name it honestly (see types.ts).
+        goalFitIsSubstitutedJoint: goalDecision.basis === 'joint_goal_substituted',
         // Multi-constraint analysis (from ISL when goal_constraints were provided)
         constraintAnalysis: prob.constraint_analysis,
       }
