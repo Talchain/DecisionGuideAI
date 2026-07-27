@@ -472,9 +472,26 @@ export function buildHeroModel(
     sharedVerdict.leaderId === headlineRow.id
 
   const producerBand = recommendation.headlineBanded ?? null
+  // WITHHELD GATE 1 of 4 (ROADMAP 1.267, prose leg — sweep 2026-07-27).
+  //
+  // The two identity gates anchor on DIFFERENT rows, and that difference is
+  // a live leak: `deriveDecisionVerdict` applies the band only when it names
+  // the win-probability ARGMAX (`top1`), while this local fallback applies it
+  // when it names the RECOMMENDED option (`headlineRow`). PLoT is documented
+  // to recommend a non-argmax option — and on such a run the shared verdict
+  // withholds (`separation: 'unknown'`, `hasLeadingOption: false`) while this
+  // line still resolves a band and re-authors the claim as
+  // "<option> is most likely to be strongest overall."
+  //
+  // That is Authority 3 re-entering by the side door. The shared verdict is
+  // the single answer to "may we name a leader?" (2026-07-25); when it says
+  // no, the local band resolution may not say yes. The producer's own TIE
+  // call is unaffected — it arrives via `sharedVerdictApplies` above, keeps
+  // `leaderBand === 'none'`, and still earns "No option is clearly ahead."
   const producerBandApplies =
     producerBand != null &&
     headlineRow != null &&
+    !designationsWithheld &&
     producerBand.leaderOptionId === headlineRow.id
 
   // UI-SEM-060 (ROADMAP 1.223): the band comes from a PRODUCER claim or it
@@ -582,8 +599,21 @@ export function buildHeroModel(
   //     headline keeps precedence).
   // With no crown the headline falls through to the existing honest
   // branches (banded analysis-leader claim) and the goal lens shows no ring.
+  //
+  // WITHHELD GATE 2 of 4 (ROADMAP 1.267, prose leg — sweep 2026-07-27).
+  // The crown is withheld AT SOURCE on a withheld run, not just where it is
+  // read. `leaders.goal` below already nulled it for the lens ring, and that
+  // gate's own comment states the rule — "null on EVERY lens when the verdict
+  // withholds… a designation whatever it is derived from". But the SAME
+  // argmax also selects the goal-attainment HEADLINE ("<option> is most
+  // likely to meet every target this run scored.") and the `claimedRow` the
+  // subline describes, and neither was gated: the ring went dark while the
+  // sentence above it kept crowning the identical row. Gating the selection
+  // rather than one of its three readers is the single change point — and it
+  // removes the hand-maintained mirror in which each new reader has to
+  // remember to re-apply the rule.
   let goalLeaderRow: HeroRowVM | null = null
-  if (hasUserTarget && rows.every((r) => r.goal.value != null)) {
+  if (!designationsWithheld && hasUserTarget && rows.every((r) => r.goal.value != null)) {
     let best: HeroRowVM | null = null
     let bestValue = -Infinity
     let tiedAtMax = false
@@ -644,7 +674,19 @@ export function buildHeroModel(
           : leaderBand === 'none'
             ? HERO_COPY.headline.noClearLeader
             : HERO_COPY.headline.noLeader
-  } else if (outcomeAvailable && outcomeLeaderRow && !topOutcomesReadoutTied) {
+  } else if (
+    outcomeAvailable &&
+    outcomeLeaderRow &&
+    !topOutcomesReadoutTied &&
+    // WITHHELD GATE 3 of 4 (ROADMAP 1.267, prose leg — sweep 2026-07-27).
+    // "<option> has the highest expected outcome." is a superlative naming a
+    // single option; that it is derived from the outcome lens rather than
+    // from the producer's leader field does not make it less of a
+    // designation — the identical argument was made for the per-lens crown
+    // and overturned at the screenshots (row 1.306). Withheld runs fall to
+    // `noLeader` below: SILENCE, not a denial.
+    !designationsWithheld
+  ) {
     // No recommended option among the rows: headline the outcome fact
     // itself — but ONLY when the outcome lens is actually visible (centres
     // without ranges hide it, and the hero must not assert an
@@ -687,6 +729,28 @@ export function buildHeroModel(
       // diverged. A neutral plural line; naming a runner-up among tied values
       // would be arbitrary. This is the reported run: four "100" readouts.
       subline = HERO_COPY.subline.outcomesClose
+    } else if (designationsWithheld) {
+      // WITHHELD GATE 4 of 4 (ROADMAP 1.267, prose leg — sweep 2026-07-27).
+      // THIS IS THE BRANCH THE SWEEP PHOTOGRAPHED. Every remaining branch in
+      // this chain NAMES an option — `highestOutcome`, `closeOnOutcome`,
+      // `aligned` — so the gate sits once, ahead of all of them, rather than
+      // being repeated on each (a per-branch guard list is a mirror, and the
+      // next branch added would silently miss it: that is exactly how this
+      // defect happened).
+      //
+      // The state-C branch sixteen lines above ALREADY carries this rule in
+      // its comment — "on a withheld turn it simply relocates the leader
+      // claim one line down" — and takes `compareTop` for it. Its condition
+      // reaches only the no-goal-basis case, so the two paths that bypass it
+      // (`allGoalBelowFloor`, and a headlined leader) were left naming an
+      // option. On the sweep's run the headline correctly said "No option is
+      // currently on track…" and this chain answered "<option> has the
+      // highest expected outcome." directly underneath.
+      //
+      // Same neutral line as the sibling, so no new voice is introduced. It
+      // SUBSTITUTES rather than deletes: the sweep proved the surface
+      // renders, so an empty subline would be its own regression.
+      subline = HERO_COPY.subline.compareTop
     } else if (allGoalBelowFloor) {
       // No leader was claimed; the outcome fact is the one honest pointer.
       subline = HERO_COPY.subline.highestOutcome(safeLabel(outcomeLeaderRow))
