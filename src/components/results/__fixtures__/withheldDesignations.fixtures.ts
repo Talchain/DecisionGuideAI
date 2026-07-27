@@ -82,8 +82,44 @@ export const PERMITTED_REPORT: DecisionVerdictReportLike = {
   } as unknown as DecisionVerdictReportLike['decision_brief'],
 }
 
+/**
+ * WITHHELD, third shape: the producer RECOMMENDS an option that is not the
+ * win-probability argmax, and bands THAT option.
+ *
+ * This is not a contrived shape — `decisionVerdict` documents it explicitly
+ * ("PLoT may recommend an option that is not the win-probability argmax"),
+ * and it is the input that separates the two identity gates:
+ *   · `deriveDecisionVerdict` checks the band against `top1` (the win argmax,
+ *     HIGH) → does not apply → no producer signal → `separation: 'unknown'`,
+ *     `hasLeadingOption: false` → the verdict WITHHOLDS.
+ *   · `buildHeroModel` checks the same band against `headlineRow` (the
+ *     RECOMMENDED option, MID) → applies → it re-bands the leader claim the
+ *     verdict just withheld.
+ * Exactly the Authority-3 failure ROADMAP 1.223 deleted, re-entering through
+ * the hero's own local fallback.
+ */
+export const MISALIGNED_BAND_REPORT: DecisionVerdictReportLike = {
+  option_probabilities: OPTION_PROBABILITIES,
+  robustness: { recommended_option_id: MID_ID },
+  decision_brief: {
+    headline_banded: {
+      band: 'clearly_ahead',
+      leader_option_id: MID_ID,
+      robustness_gated: false,
+    },
+  } as unknown as DecisionVerdictReportLike['decision_brief'],
+}
+
+/** The hero-prop form of the same band (`DecisionResultData.headlineBanded`). */
+export const MISALIGNED_BAND = {
+  band: 'clearly_ahead' as const,
+  leaderOptionId: MID_ID,
+  robustnessGated: false,
+}
+
 export const WITHHELD_VERDICT = deriveDecisionVerdict(WITHHELD_REPORT)
 export const PERMITTED_VERDICT = deriveDecisionVerdict(PERMITTED_REPORT)
+export const MISALIGNED_BAND_VERDICT = deriveDecisionVerdict(MISALIGNED_BAND_REPORT)
 
 /** Options in CANONICAL order, as the hook now emits them on a withheld run. */
 export function withheldFixtureOptions(): OptionResult[] {
@@ -126,6 +162,68 @@ export function withheldFixtureOptions(): OptionResult[] {
     },
   ] as OptionResult[]
 }
+
+/**
+ * The SWEEP RUN's shape: every option's goal probability below the shared
+ * sub-1% floor (UI-SEM-057), so `allGoalBelowFloor` is true and the hero
+ * headlines "No option is currently on track…".
+ *
+ * This is the run the 2026-07-27 browser sweep captured on the deployed
+ * build, where the subline underneath still read
+ * "<option> has the highest expected outcome."
+ */
+export function flooredGoalFixtureOptions(): OptionResult[] {
+  return withheldFixtureOptions().map((o) => ({ ...o, goalProbability: 0.002 }))
+}
+
+/**
+ * The MISALIGNED-BAND run's shape: MID is the recommended option, and no
+ * goal crown exists (uniform goal fits tie at the max), so the banded
+ * analysis-leader headline is the branch under test.
+ */
+export function misalignedBandFixtureOptions(): OptionResult[] {
+  return withheldFixtureOptions().map((o) => ({
+    ...o,
+    isRecommended: o.id === MID_ID,
+    goalProbability: 0.4,
+  })) as OptionResult[]
+}
+
+/**
+ * The NO-RECOMMENDATION run's shape: no row is the recommended option, so
+ * the hero falls to the branch that headlines the outcome fact itself.
+ * Goal fits are uniform (tied at the max) so no goal crown intercepts.
+ */
+export function noRecommendationFixtureOptions(): OptionResult[] {
+  return withheldFixtureOptions().map((o) => ({
+    ...o,
+    isRecommended: false,
+    goalProbability: 0.4,
+  })) as OptionResult[]
+}
+
+/**
+ * Superlative/entitlement vocabulary that must not appear in HERO COPY on a
+ * withheld run, over and above the no-label rule.
+ *
+ * Separate from `DESIGNATION_RE` on purpose, and NARROWER: `DESIGNATION_RE`
+ * screens screen-reader strings, where "top option" is itself a designation.
+ * The hero's own sanctioned no-claim lines ("Compare the top options before
+ * deciding.", "The top options are close on expected outcome.") contain that
+ * phrase by design, so screening hero prose with `DESIGNATION_RE` would fail
+ * the very copy this contract prescribes. What hero prose may never do is
+ * assert a superlative or an entitlement — with or without a name.
+ *
+ * Verified inert against every neutral hero string it must tolerate:
+ *   · 'No option is currently on track to meet every target this run scored.'
+ *   · 'No option is currently on track to meet your goal and limits.'
+ *   · 'Here is how your options compare.'
+ *   · 'No option is clearly ahead.'          (a producer TIE claim, not ours)
+ *   · 'Compare the top options before deciding.'
+ *   · 'The top options are close on expected outcome.'
+ */
+export const HERO_CLAIM_RE =
+  /\b(highest|strongest|most likely|slightly ahead|leads|leading|winner|best)\b/i
 
 /**
  * Every string a screen reader can reach that is NOT ordinary body text:
