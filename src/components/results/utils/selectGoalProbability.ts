@@ -62,6 +62,55 @@
 import { PLOT_JOINT_HEADLINE_SUSPECT } from '../../../adapters/plot/constraintTrust'
 
 /**
+ * CLAIM-OWNERSHIP REGISTRATION.
+ *
+ * Declares to the repo-wide drift walker
+ * (`src/test/__tests__/claim-ownership.drift.spec.ts`) that THIS module is the
+ * sole chooser for these producer fields. The walker DISCOVERS this by globbing
+ * `git ls-files` for the export and then dynamically importing the module to
+ * read the value below — so there is no list of families anywhere else, in the
+ * walker or in the lint config, and a new owner registers a new family by
+ * construction. That is deliberate: the predecessor instrument hand-lists its
+ * family in two files, and a list a human must remember to sync is the defect
+ * class that drifts silently.
+ *
+ * This is not decoration. `GoalProbabilityInput` below is DERIVED from
+ * `rawFields`, so a field this selector reads but does not declare is a COMPILE
+ * error, and a field it declares but never reads is dead weight a reviewer can
+ * see. The declaration cannot drift from the implementation.
+ *
+ * WHY `probability_of_goal` IS OWNED AND READ. It is the WIRE spelling of the
+ * same quantity as `goal_probability`: `RawOption` (`src/lib/mappers/types.ts`)
+ * declares three names for it, `mapV5AnalysisToReport` reads
+ * `probability_of_goal` and writes `goal_probability`, and
+ * `responseMapper` does the same. A consumer reaching for the wire spelling is
+ * re-deriving the claim exactly as much as one reaching for the mapped
+ * spelling, so the family owns both — and this selector therefore has to ACCEPT
+ * both, or the sites that hold a wire-shaped option (the compare-tab snapshot
+ * factory, the inspector's report-level reads) would have no compliant route and
+ * the registration would be claiming ownership the code does not back.
+ *
+ * WHY `goalProbability` IS NOT REGISTERED, though it is a fourth alias on
+ * `RawOption`: it is also the name of THIS selector's own output field. A
+ * name-based scanner cannot tell "raw producer alias" from "the owner's own
+ * output property" when they share a name, so registering it measures 23
+ * violator files / 60 hits of which ~14 files are correct code reading the
+ * selector's output — it would punish exactly the compliance the migration
+ * bought. The walker enforces this: `control 3b` fails at registration time if a
+ * `rawField` collides with a key of this function's return value (derived by
+ * calling it, never declared). The real remedy for that alias is a rename, and
+ * it is tracked as a follow-up, not smuggled in here.
+ */
+export const CLAIM_OWNERSHIP = {
+  family: 'goal-probability',
+  rawFields: ['goal_probability', 'probability_of_goal', 'probability_of_joint_goal'],
+  /** Consumers must call this instead. Named in the walker's failure message. */
+  callInstead: 'selectGoalProbability',
+} as const
+
+type OwnedField = (typeof CLAIM_OWNERSHIP.rawFields)[number]
+
+/**
  * Which producer quantity the returned `goalProbability` actually IS. Never
  * inferred by a consumer — consumers read this, they do not re-derive it.
  */
@@ -71,9 +120,7 @@ export type GoalProbabilityBasis =
   | 'joint_goal_constrained'
   | 'joint_goal_substituted'
 
-export interface GoalProbabilityInput {
-  goal_probability?: number
-  probability_of_joint_goal?: number
+export interface GoalProbabilityInput extends Partial<Record<OwnedField, number>> {
   constraint_analysis?: { constraints?: unknown[] } | null
   goal_fit_basis?: { scored_from?: string } | null
 }
@@ -83,6 +130,23 @@ export interface GoalProbabilitySelection {
   goalProbability: number | null
   /** True when `goalProbability` is the joint-goal (constrained) figure. */
   goalProbabilityIsJoint: boolean
+  /**
+   * The raw joint-goal quantity — P(ALL constraints jointly satisfied) — as the
+   * producer sent it, or null when absent. NOT a second answer to "what is this
+   * option's goal probability": that question has exactly one answer, and it is
+   * `goalProbability` above.
+   *
+   * It is published because two surfaces render the joint figure as its OWN,
+   * separately-labelled claim alongside the goal figure — the inspector's
+   * "chance of hitting every target" row, and the compare-tab snapshot's
+   * `jointGoalProbability`. Before this existed, both read
+   * `probability_of_joint_goal` off the producer directly, which is precisely
+   * the reach-around the owner exists to prevent: any surface holding the raw
+   * field can also start CHOOSING with it, and then there are two choosers
+   * again. Reading it here means every read of the quantity, for either
+   * purpose, goes through this module.
+   */
+  jointGoalProbability: number | null
   /** Which producer quantity `goalProbability` is. Never null; 'none' when absent. */
   basis: GoalProbabilityBasis
   /**
@@ -111,8 +175,15 @@ export function selectGoalProbability(
 ): GoalProbabilitySelection {
   const jointGoalProb =
     typeof prob?.probability_of_joint_goal === 'number' ? prob.probability_of_joint_goal : null
+  // Both spellings of the SAME producer quantity (see the registration header):
+  // the mapped `goal_probability` wins where a payload carries both, so every
+  // existing caller — all of which hold post-mapper shapes — is unaffected.
   const unconstrained =
-    typeof prob?.goal_probability === 'number' ? prob.goal_probability : null
+    typeof prob?.goal_probability === 'number'
+      ? prob.goal_probability
+      : typeof prob?.probability_of_goal === 'number'
+        ? prob.probability_of_goal
+        : null
   const goalFitBasisScoredFrom =
     typeof prob?.goal_fit_basis?.scored_from === 'string' ? prob.goal_fit_basis.scored_from : null
 
@@ -136,6 +207,13 @@ export function selectGoalProbability(
     return {
       goalProbability: unconstrained,
       goalProbabilityIsJoint: false,
+      // The honesty gate governs SUBSTITUTION of the joint value into the
+      // headline claim, which is suppressed above. It does not govern a surface
+      // that renders the joint figure as its own separately-labelled row, and
+      // those surfaces read the producer field directly regardless of this
+      // constant today — so publishing it here changes no rendered output in
+      // either state of the gate, while keeping the read inside this module.
+      jointGoalProbability: jointGoalProb,
       basis: unconstrained != null ? 'goal_probability' : 'none',
       goalFitIsModelledBasis: false,
       mayUsePossessiveGoalFraming: unconstrained != null,
@@ -172,6 +250,7 @@ export function selectGoalProbability(
   return {
     goalProbability,
     goalProbabilityIsJoint,
+    jointGoalProbability: jointGoalProb,
     basis,
     goalFitIsModelledBasis:
       goalProbabilityIsJoint && goalFitBasisScoredFrom === 'modelled_outcome_distribution',

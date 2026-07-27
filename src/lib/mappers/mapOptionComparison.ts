@@ -120,6 +120,16 @@ function mapOption(option: RawOption, index: number): MappedOption {
     asOptionalNumber(option.winProbability)
   )
 
+  /**
+   * @claim-producer goal-probability
+   * @rationale This is the RawOption→DisplayOption normalisation boundary: the
+   *   one place that collapses the producer's THREE spellings of the same
+   *   quantity (`goal_probability` / `goalProbability` / `probability_of_goal`)
+   *   into a single field. It resolves a NAME, not a claim — it picks no basis,
+   *   applies no joint fallback and renders nothing; a surface deciding which
+   *   quantity to show still goes through `selectGoalProbability`. Suppressed
+   *   count is baselined and ratcheted.
+   */
   const goalProbability = firstDefined(
     asOptionalNumber(option.goal_probability),
     asOptionalNumber(option.goalProbability),

@@ -558,6 +558,15 @@ export function mapV5AnalysisToReport(
     const goalFitBasis = normaliseGoalFitBasis(enriched?.goal_fit_basis)
 
     option_probabilities[optionId] = {
+      /**
+       * @claim-producer goal-probability
+       * @rationale This is the V5/CEE enrichment wire→internal boundary where
+       *   `probability_of_goal` and `probability_of_joint_goal` ENTER the UI and
+       *   are written out under the internal `goal_probability` name. It creates
+       *   the fields; it does not choose a displayed claim from them — no
+       *   percentage, no basis, no caveat is decided here. Display goes through
+       *   `selectGoalProbability`. Suppressed count is baselined and ratcheted.
+       */
       // No silent defaults — undefined when missing.
       ...(safeFiniteNumber(enriched?.probability_of_goal) !== undefined
         ? { goal_probability: safeFiniteNumber(enriched?.probability_of_goal) }

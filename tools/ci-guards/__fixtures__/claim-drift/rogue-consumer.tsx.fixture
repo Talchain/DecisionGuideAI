@@ -1,0 +1,30 @@
+// Mutation fixture for the claim-ownership drift walker.
+//
+// Carried with a `.fixture` extension so vitest, ESLint and tsc all ignore it in
+// a normal run; the mutation protocol copies it into a THROWAWAY CLONE under a
+// real `.tsx` name (outside the repo root — a worktree under the repo gets
+// globbed by vitest and has manufactured a false RED here before) and asserts
+// the walker goes red NAMING the file.
+//
+// The field names below are PINNED LITERALS. They are deliberately NOT read
+// from the live CLAIM_OWNERSHIP: a control whose reference is "whatever is
+// registered now" is hollowed out the moment a field is renamed, and would then
+// pass by testing nothing.
+//
+// This is the estate's historical defect shape: a new render surface that
+// re-derives the goal-probability claim instead of calling selectGoalProbability.
+
+export function RogueGoalBadge({ prob }: { prob: any }) {
+  const pct = prob.goal_probability ?? prob.probability_of_joint_goal
+  return <span>{Math.round(pct * 100)}%</span>
+}
+
+// The three shapes the SHIPPED family-1 detector misses (measured: 5 of 9
+// evasion shapes defeat it). Pinned here so the widened patterns are proven,
+// not assumed.
+export function evasions(prob: any) {
+  const { goal_probability: g } = prob //  renamed destructure
+  const v = prob['probability_of_joint_goal'] //  quoted computed access
+  const f = ({ goal_probability: p }: any) => p //  renamed param destructure
+  return [g, v, f]
+}

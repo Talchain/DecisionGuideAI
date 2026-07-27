@@ -26,6 +26,10 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { useCanvasStore } from '../store'
+import {
+  selectGoalProbability,
+  type GoalProbabilityInput,
+} from '../../components/results/utils/selectGoalProbability'
 import { useISLConformal } from '../../hooks/useISLConformal'
 import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { buildRichGraphPayload, getRecommendedOptionInterventions } from '../utils/graphPayload'
@@ -274,13 +278,24 @@ export function DecisionSummary({
       const currentOptionId = optionNodesList[0]?.id
       if (currentOptionId && report.option_probabilities[currentOptionId]) {
         const prob = report.option_probabilities[currentOptionId]
-        goalProbability = {
-          probability: prob.goal_probability,
-          confidence: prob.confidence,
-          goalLabel,
-          winProbability: prob.win_probability,
-          threshold: goalThreshold ?? undefined,
-        }
+        // GOAL-PROBABILITY IDENTITY: read the chosen claim, never re-derive it.
+        // This site used to take `prob.goal_probability` with NO joint fallback
+        // — the exact shape #496 repaired elsewhere — so on a run whose goal
+        // threshold ISL auto-derived (goal_probability absent,
+        // probability_of_joint_goal present) this card rendered `NaN%` while
+        // OptionCards, the hero and GoalNode rendered the joint figure. One
+        // chooser, and it is not this file.
+        const decision = selectGoalProbability(prob as GoalProbabilityInput)
+        goalProbability =
+          decision.goalProbability !== null
+            ? {
+                probability: decision.goalProbability,
+                confidence: prob.confidence,
+                goalLabel,
+                winProbability: prob.win_probability,
+                threshold: goalThreshold ?? undefined,
+              }
+            : null
       }
     }
 

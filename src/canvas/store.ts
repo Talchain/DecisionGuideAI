@@ -15,6 +15,10 @@ import { getInvalidNodes as getInvalidNodesUtil, getNextInvalidNode as getNextIn
 import type { ReportV1 } from '../adapters/plot/types'
 import type { V2RunResponse } from '../adapters/plot/v2/types'
 import type { PLoTEnrichment } from '../adapters/plot/enrichment'
+import {
+  selectGoalProbability,
+  type GoalProbabilityInput,
+} from '../components/results/utils/selectGoalProbability'
 import { trackResultsViewed, trackIssuesOpened } from './utils/sandboxTelemetry'
 import { addRun, generateGraphHash, loadRuns, type StoredRun, type RestorableRun } from './store/runHistory'
 import { RUN_COMPLETED_WITHOUT_VERDICT, deriveAnalysisFreshnessUpdate, type AnalysisFreshnessState } from './store/analysisFreshness'
@@ -2991,7 +2995,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         for (const [optId, prob] of Object.entries(optionProbs)) {
           options[optId] = {
             winProbability: prob.win_probability,
-            goalProbability: prob.goal_probability,
+            // GOAL-PROBABILITY IDENTITY: the snapshot must hold the same number
+            // the surfaces showed, not a second derivation of it — a snapshot
+            // that disagrees with the panel it snapshotted is the same defect
+            // one run later. Read the owner's choice.
+            goalProbability:
+              selectGoalProbability(prob as GoalProbabilityInput).goalProbability ?? undefined,
           }
         }
       }

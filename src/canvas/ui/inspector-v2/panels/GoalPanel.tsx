@@ -41,6 +41,10 @@ import { GoalAdvancedEditor } from '../editors/GoalAdvancedEditor'
 import { useAuth } from '../../../../contexts/AuthContext'
 import { isPersistenceActive } from '../../../../lib/persistenceActive'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
+import {
+  selectGoalProbability,
+  type GoalProbabilityInput,
+} from '../../../../components/results/utils/selectGoalProbability'
 
 export const GoalPanel = memo(function GoalPanel({
   nodeId,
@@ -53,8 +57,21 @@ export const GoalPanel = memo(function GoalPanel({
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
   const goalThreshold = useCanvasStore(s => s.goalThreshold)
-  const probGoal = useCanvasStore(s => s.results?.report?.probability_of_goal)
-  const probJoint = useCanvasStore(s => s.results?.report?.probability_of_joint_goal)
+  // GOAL-PROBABILITY IDENTITY: this panel used to read both producer fields
+  // straight off the store, which made it a chooser in its own right — the same
+  // reach-around #496 had to delete from `useNodeDisplayMetadata`, where the
+  // canvas and the results panel ended up stating different things about the
+  // same option in the same session. The owner decides which quantity may be
+  // shown; this panel renders what it is given. The store selector returns the
+  // report reference itself (no object literal, so no React #185 churn) and the
+  // decision is memoised on it.
+  const goalReport = useCanvasStore(s => s.results?.report)
+  const goalDecision = useMemo(
+    () => selectGoalProbability(goalReport as GoalProbabilityInput | undefined),
+    [goalReport],
+  )
+  const probGoal = goalDecision.goalProbability
+  const probJoint = goalDecision.jointGoalProbability
   // Passthrough: the REAL Monte Carlo sample count from this run's meta.n_samples
   // (canonical reader — same source AdvancedSection's "Simulation quality" row
   // uses). Null on the V5 conversational path (meta stripped upstream), in which
