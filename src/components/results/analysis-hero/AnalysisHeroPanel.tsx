@@ -408,6 +408,7 @@ export function AnalysisHeroPanel({
                     row={row}
                     lens={lens}
                     isLeader={row.id === leaderId}
+                    showOrdinal={!model.designationsWithheld}
                     isOpen={openRowId === row.id}
                     onToggle={() => setOpenRowId((cur) => (cur === row.id ? null : row.id))}
                     outcomeDomain={model.outcomeDomain}

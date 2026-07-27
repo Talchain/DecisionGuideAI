@@ -131,20 +131,38 @@ export function buildSegmentColorMap(
 export function WinGauge({
   shares,
   decisionState,
+  designationsWithheld = false,
 }: {
   shares: OptionWinShare[]
   decisionState?: DecisionState
+  /**
+   * ROADMAP 1.267. The LABEL of this chart was already fixed once (see the
+   * comment below the tooltip) but its ORDER was not: segments were sorted
+   * winner-first, and the palette's first entry is commented "Winner —
+   * mint-500", so the leader was designated twice over — by position and by
+   * green — under a caption that had been carefully de-designated.
+   *
+   * Withheld ⇒ segments follow canonical order. The colours stay (a stacked
+   * bar needs distinguishable segments, and the legend maps them by name),
+   * but they now track graph position rather than rank, so green means
+   * "first option you created", not "the winner". The percentages are
+   * untouched — this chart is a distribution, and the distribution is data.
+   */
+  designationsWithheld?: boolean
 }) {
   if (shares.length === 0) return null
 
   const colors = decisionState === 'indeterminate' ? WIN_GAUGE_COLORS_INDETERMINATE : WIN_GAUGE_COLORS
 
-  // Sort: winner first, then by win probability descending
-  const sorted = [...shares].sort((a, b) => {
-    if (a.isWinner && !b.isWinner) return -1
-    if (!a.isWinner && b.isWinner) return 1
-    return b.winProbability - a.winProbability
-  })
+  // Sort: winner first, then by win probability descending.
+  // WITHHELD: no sort at all — `shares` already arrives in canonical order.
+  const sorted = designationsWithheld
+    ? [...shares]
+    : [...shares].sort((a, b) => {
+        if (a.isWinner && !b.isWinner) return -1
+        if (!a.isWinner && b.isWinner) return 1
+        return b.winProbability - a.winProbability
+      })
 
   const isDeemphasised = decisionState === 'indeterminate'
 

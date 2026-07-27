@@ -37,8 +37,15 @@ export interface DisplayOptionRow {
 export function selectDisplayOptions(
   options: readonly OptionResult[],
   numbering: Readonly<Record<string, number>>,
+  /**
+   * ROADMAP 1.267 — see `utils/optionDisplayOrder`. Withheld ⇒ canonical
+   * order and no `displayIndex` designation. Defaulted rather than required
+   * because this selector has no live call site today (only Wave 2/4 plans
+   * and its own spec); the live surfaces pass the flag explicitly.
+   */
+  { designationsWithheld = false }: { designationsWithheld?: boolean } = {},
 ): DisplayOptionRow[] {
-  return sortOptionsForDisplay(options).map((option, i) => ({
+  return sortOptionsForDisplay(options, { designationsWithheld }).map((option, i) => ({
     option,
     displayIndex: i + 1,
     stableNumber: numbering[option.id] ?? null,

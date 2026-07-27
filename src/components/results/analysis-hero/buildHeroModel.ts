@@ -223,11 +223,24 @@ export function buildHeroModel(
   if ((isError && !hasRenderableRows) || recommendation.analysisStatus === 'failed') return statusModel('failed')
   if (recommendation.analysisStatus === 'partial') return statusModel('partial')
 
+  // ROADMAP 1.267 — DESIGNATION vs DATA. On a run whose verdict withholds the
+  // leader claim, ORDER, ORDINALS and the CROWN are designations and go; the
+  // probabilities and every row stay. Read from the verdict the hook already
+  // derived — this surface renders that decision, it never re-derives one
+  // (the same rule that deleted `decisionVerdict`'s Authority 3).
+  //
+  // A caller supplying NO verdict is a legacy fixture, not a withheld run, so
+  // it keeps byte-identical behaviour. The live path always supplies one
+  // (`useResultsSectionData` derives it unconditionally).
+  const designationsWithheld = recommendation.verdict != null && !recommendation.verdict.hasLeadingOption
+
   // Present rows in the SHARED option display order (win probability when
   // complete, else expected — sortOptionsForDisplay) so hero numbering always
   // matches the OptionCards/WinGauge ranking below. Presentation numbering,
   // not graph-node truth; stable across lens switches (asserted in tests).
-  const options = sortOptionsForDisplay(recommendation.allOptions)
+  // WITHHELD: the comparator does not run and `allOptions` arrives in
+  // canonical (graph) order, because the hook skipped its own sort too.
+  const options = sortOptionsForDisplay(recommendation.allOptions, { designationsWithheld })
   // Wave 2 (§6.4): identity-anchored ordinals, all-or-nothing — if ANY row
   // is unregistered every row falls back to the positional index at render
   // (mixing the two schemes in one list could show duplicate numbers).
@@ -917,13 +930,24 @@ export function buildHeroModel(
     defaultLens: goalAvailable ? 'goal' : 'outcome',
     hasConstraints,
     rows,
+    designationsWithheld,
     leaders: {
       // Goal-fit highlight = the goalProbability argmax (UI-SEM-072), the
       // same row the goal-fit headline crowns — never the recommendation
       // re-crowned onto this view. Null when no crown is honest (missing
       // fits, tie at the max, sub-1% floor, no user target).
-      goal: goalLeaderRow?.id ?? null,
-      outcome: outcomeLeaderId,
+      //
+      // ROADMAP 1.267 — and null on EVERY lens when the verdict withholds.
+      // `heroCopy.srLeader` used to argue the per-lens crown was exempt
+      // because it marks "the highest row on the lens in view" rather than
+      // the producer's leader. Row 1.306 overturns that at the screenshots:
+      // an argmax rendered as a filled badge, an emphasised readout,
+      // `aria-current` and a spoken "(Highest on this view)" is a
+      // designation whatever it is derived from, and it reached screen
+      // readers on the same screen as CEE's "no option can be put forward
+      // yet". Suppressing it here is one change point for all four cues.
+      goal: designationsWithheld ? null : goalLeaderRow?.id ?? null,
+      outcome: designationsWithheld ? null : outcomeLeaderId,
       // Stability / What-changed carry no live data (producer gaps 211/212)
       // — no leader can exist on a lens with nothing to lead.
       stability: null,

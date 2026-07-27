@@ -911,7 +911,7 @@ describe('buildHeroModel — lens gating and numbering', () => {
     const m = chart(buildHeroModel(makeHeroData({ options: scrambled })))
 
     // (1) Row order equals the shared comparator applied independently.
-    const expectedOrder = sortOptionsForDisplay(scrambled).map((o) => o.id)
+    const expectedOrder = sortOptionsForDisplay(scrambled, { designationsWithheld: false }).map((o) => o.id)
     expect(m.rows.map((r) => r.id)).toEqual(expectedOrder)
     expect(expectedOrder).toEqual(['opt_a', 'opt_b', 'opt_c', 'opt_d']) // win desc
     // (2) Row NUMBER tokens match row order (1..4), independent of lens.

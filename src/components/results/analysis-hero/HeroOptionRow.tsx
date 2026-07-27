@@ -39,6 +39,19 @@ export interface HeroOptionRowProps {
   onToggle: () => void
   /** Layout-only outcome domain; null hides outcome bars. */
   outcomeDomain: { min: number; max: number } | null
+  /**
+   * ROADMAP 1.267: whether to draw the ordinal number token.
+   *
+   * The token reads `stableNumber ?? index`, and on a first run both are
+   * seeded from the probability order — so "1" IS `rank == 1`, an ordinal
+   * DESIGNATION rather than a measurement. On a withheld run it is omitted
+   * entirely; the row keeps its label, readout, bar and disclosure.
+   *
+   * Separate from `isLeader` on purpose: `isLeader` removes the CROWN (which
+   * marks ONE row), this removes the NUMBERING (which ranks ALL of them).
+   * A withheld run must lose both, and one flag could not express that.
+   */
+  showOrdinal: boolean
 }
 
 /**
@@ -112,6 +125,7 @@ export function HeroOptionRow({
   isOpen,
   onToggle,
   outcomeDomain,
+  showOrdinal,
 }: HeroOptionRowProps) {
   const regionId = useId()
   const labelId = useId()
@@ -207,18 +221,30 @@ export function HeroOptionRow({
     <>
       {/* Row 1: badge · label · readout · chevron. Badge geometry follows
           the prototype (24×24, 7px radius); leader = filled info-blue with
-          white numeral, others outlined. */}
-      <span
-        aria-hidden="true"
-        data-testid="hero-row-number"
-        className={`flex h-6 w-6 flex-none items-center justify-center rounded-[7px] ${typography.panelMeta} ${
-          isLeader
-            ? 'bg-primary text-text-on-color'
-            : `border ${HERO_TOKEN_BORDER} bg-transparent text-text-body`
-        }`}
-      >
-        {row.stableNumber ?? row.index}
-      </span>
+          white numeral, others outlined.
+
+          ROADMAP 1.267: on a withheld run the numeral is a DESIGNATION
+          (`stableNumber ?? index` is seeded from the probability order, so
+          "1" is `rank == 1`) and is not drawn. The 1.5rem grid cell is still
+          occupied by an empty placeholder — the row grid is
+          `grid-cols-[1.5rem_…]`, so omitting the element outright would slide
+          the label into the badge column and silently re-lay-out every row.
+          Suppress the claim, not the layout. */}
+      {showOrdinal ? (
+        <span
+          aria-hidden="true"
+          data-testid="hero-row-number"
+          className={`flex h-6 w-6 flex-none items-center justify-center rounded-[7px] ${typography.panelMeta} ${
+            isLeader
+              ? 'bg-primary text-text-on-color'
+              : `border ${HERO_TOKEN_BORDER} bg-transparent text-text-body`
+          }`}
+        >
+          {row.stableNumber ?? row.index}
+        </span>
+      ) : (
+        <span aria-hidden="true" className="h-6 w-6 flex-none" />
+      )}
       <span
         id={labelId}
         ref={labelRef}

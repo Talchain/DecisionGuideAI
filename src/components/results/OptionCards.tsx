@@ -50,9 +50,19 @@ export interface OptionCardsProps {
    * surface must gate on before asserting a leading option exists.
    *
    * Deliberately SEPARATE from `winnerId`, which stays populated on a withheld
-   * turn: `winnerId` is an IDENTITY and it still drives segment colours, the
-   * lens crown and card ordering, none of which claim anything. This flag is
-   * the ENTITLEMENT, and it gates only the comparative SENTENCES.
+   * turn: `winnerId` is an IDENTITY, and identity still drives the lens crown
+   * and node focus. This flag is the ENTITLEMENT.
+   *
+   * ⚠ CORRECTED 27 Jul (ROADMAP 1.267). This doc used to end "…still drives
+   * segment colours, the lens crown and card ordering, NONE OF WHICH CLAIM
+   * ANYTHING", and that sentence was wrong. Row 1.306 records the confirming
+   * screenshots and names it: "the G-UI-1 closure treated client-side
+   * ordering as benign when it is the designation channel." Ordering,
+   * ordinal swatches and rank-derived colour are claims wearing numbers, so
+   * they are now gated too — see `designationsWithheld` below. This flag
+   * still gates the comparative SENTENCES; the two are separate because a
+   * sentence and a sort fail differently and a single flag hid that for four
+   * slices.
    *
    * `undefined` ⇒ legacy behaviour, matching the same concession
    * `certaintyCopy` and `buildV7Headline` make for callers/fixtures predating
@@ -306,6 +316,7 @@ function OptionCard({
   description,
   cardRef,
   neutralised = false,
+  designationsWithheld = false,
   sortedRank,
   stableNumber = null,
   segmentFillColor,
@@ -322,9 +333,14 @@ function OptionCard({
 }: {
   option: OptionResult
   isWinner: boolean
-  /** ROADMAP 1.223 — see OptionCardsProps. Gates the comparative SENTENCES
-   *  only; `isWinner` still drives styling, ordering and the lens crown. */
+  /** ROADMAP 1.223 — see OptionCardsProps. Gates the comparative SENTENCES. */
   hasLeadingOption?: boolean
+  /**
+   * ROADMAP 1.267 — gates the non-prose DESIGNATIONS on this card: the
+   * ordinal rank swatch, the crowned border, and the leader colour on the
+   * "Hits target" bar. Never the values themselves.
+   */
+  designationsWithheld?: boolean
   /** Codex B1: lens crown restyles only — leader predicates stay on isWinner. */
   isLensCrowned?: boolean
   /** True when the risk-appetite lens is non-neutral (suppresses the canonical crown styling). */
@@ -369,12 +385,21 @@ function OptionCard({
   // Codex B1: under a lens, the CROWN styling follows the lens selection and
   // the canonical leader drops to a neutral border (never two crowns); the
   // canonical leader keeps every SEMANTIC leader predicate below regardless.
-  const crowned = cardLensActive ? isLensCrowned : isWinner
+  // ROADMAP 1.267: a withheld run crowns nothing. The lens crown goes too —
+  // it is a second designation, not an exemption from the first.
+  const crowned = designationsWithheld ? false : cardLensActive ? isLensCrowned : isWinner
   const borderClass = neutralised || !crowned
     ? 'border border-panel-border'
     : 'border border-success/30'
-  // V14.2: Prefer sort-derived rank, fallback to option.rank or winner inference
-  const rank = sortedRank ?? option.rank ?? (isWinner ? 1 : undefined)
+  // V14.2: Prefer sort-derived rank, fallback to option.rank or winner inference.
+  // ROADMAP 1.267: withheld ⇒ no rank at all. Note the fallback chain is
+  // itself three ordinal designations stacked — `sortedRank` is the position
+  // in the probability sort, `option.rank` is documented "1 = best", and
+  // `isWinner ? 1` hands rank 1 to the winner outright — so the suppression
+  // has to sit above the whole chain, not inside one arm of it.
+  const rank = designationsWithheld
+    ? undefined
+    : sortedRank ?? option.rank ?? (isWinner ? 1 : undefined)
 
   return (
     <div
@@ -491,7 +516,9 @@ function OptionCard({
           <StatBar
             value={option.goalProbability}
             label="Hits target"
-            isLeader={isWinner}
+            // ROADMAP 1.267: the bar length stays (it is the goal
+            // probability); only the leader COLOUR is withheld.
+            isLeader={isWinner && !designationsWithheld}
             color="info"
             neutralised={neutralised}
           />
@@ -627,14 +654,29 @@ export function OptionCards({
   // V11: Indeterminate neutralisation — stone colours, no success border
   const neutralised = decisionState === 'indeterminate'
 
+  // ROADMAP 1.267 — DESIGNATION vs DATA. Read from the entitlement boolean
+  // this component already receives; nothing new is derived. `=== false`
+  // (not `!hasLeadingOption`) keeps the documented legacy concession: an
+  // `undefined` prop is a caller predating the shared verdict, not a
+  // withheld run, and behaves byte-identically to before.
+  //
+  // Deliberately NOT folded into `neutralised`, though the two suppress an
+  // overlapping set of styles: `neutralised` also drops the win-probability
+  // FILL BAR entirely (line ~459), and that bar is DATA. Reusing it would
+  // have deleted a computed fact the ruling explicitly protects — the
+  // over-suppression failure mode, arrived at by trying to save a flag.
+  const designationsWithheld = hasLeadingOption === false
+
   // V11: Conditional "Hits target" — hide unless EVERY option has goalProbability
   const allGoalProbability = options.every(o => o.goalProbability != null)
   const showHitsTarget = hasGoalThreshold && allGoalProbability
 
   // V14.2: Sort by win probability descending (same order as WinGauge segments).
   // Shared with the analysis hero via sortOptionsForDisplay so both surfaces
-  // number and order options identically.
-  const sorted = sortOptionsForDisplay(options)
+  // number and order options identically. WITHHELD: canonical order instead
+  // (ROADMAP 1.267) — `options` already arrives canonical from the hook, and
+  // passing the flag here stops this leaf re-imposing the ranking.
+  const sorted = sortOptionsForDisplay(options, { designationsWithheld })
 
   // Range bar global scale: shared [globalMin, globalMax] across all options
   // so bar widths are visually comparable. Falls back to mean when percentiles
@@ -700,7 +742,14 @@ export function OptionCards({
                 ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, false, hasLeadingOption)
                 : fallbackDescription(option, options.length, hasLeadingOption)
 
-        const segmentFillColor = segmentColorMap[option.id]
+        // ROADMAP 1.267: the fill bar's LENGTH is the win probability (data,
+        // kept) but its COLOUR is the rank palette — WIN_GAUGE_COLORS[0] is
+        // commented "Winner — mint-500". On a withheld run the bar still
+        // draws, in one neutral colour for every option: the measurement
+        // survives, the ranking does not.
+        const segmentFillColor = designationsWithheld
+          ? 'var(--factor)'
+          : segmentColorMap[option.id]
         return (
           <OptionCard
             key={option.id}
@@ -712,6 +761,7 @@ export function OptionCards({
             hasGoalThreshold={showHitsTarget}
             description={description}
             neutralised={neutralised}
+            designationsWithheld={designationsWithheld}
             sortedRank={index + 1}
             stableNumber={stableNumbers?.[option.id] ?? null}
             segmentFillColor={segmentFillColor}

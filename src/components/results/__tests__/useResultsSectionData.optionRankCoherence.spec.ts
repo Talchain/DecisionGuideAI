@@ -71,7 +71,20 @@ function makeV2Response(options: OptionShape[]): V2RunResponse {
     drivers: [{ node_id: 'd', label: 'D', contribution: 0.5, direction: 'positive' }],
     edge_sensitivity: [],
     factor_sensitivity: [{ factor_id: 'f1', elasticity: 0.4, importance_rank: 1 }],
-    robustness: { fragile_edges: [], robust_edges: ['e1'] },
+    // ROADMAP 1.267: this spec pins BADGE-METRIC == SORT-METRIC coherence,
+    // which is a property of a PERMITTED run — on a withheld run there is no
+    // ranking to be coherent with, and rows/ordinals go canonical instead
+    // (see withheldDesignations.spec). The fixture therefore has to carry a
+    // producer leader claim; without one `deriveDecisionVerdict` returns
+    // `unknown` (silence is meaningful post-CEE-#711) and this spec would
+    // silently become a withheld-run test asserting the old order.
+    // `near_tie` is PLoT's own "is there a clear leader?" answer and is
+    // passed through verbatim by the V2 responseMapper.
+    robustness: {
+      fragile_edges: [],
+      robust_edges: ['e1'],
+      near_tie: { is_tie: false, top_option_id: 'opt_launch' },
+    },
     response_hash: 'h',
     meta: { seed_used: '42', n_samples: 1000, detail_level: 'standard', latency_ms: 100 },
   }
@@ -132,7 +145,7 @@ describe('useResultsSectionData — option rank coherence', () => {
 
     expect(allOptions.map((o) => o.id)).toEqual(DISPLAY_ORDER_IDS)
     // Self-consistency: the array is already a fixed point of the shared sort.
-    expect(sortOptionsForDisplay(allOptions).map((o) => o.id)).toEqual(
+    expect(sortOptionsForDisplay(allOptions, { designationsWithheld: false }).map((o) => o.id)).toEqual(
       allOptions.map((o) => o.id),
     )
   })

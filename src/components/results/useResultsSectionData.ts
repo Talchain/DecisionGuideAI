@@ -1536,6 +1536,40 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       backendRecommendedId
     )
 
+    // SINGLE VERDICT (2026-07-25): the ONE answer to "is there a leading
+    // option?", derived from the SAME `report` object the canvas reads — not
+    // re-derived from this hook's mapped fields, so canvas and panel cannot
+    // drift apart. Every surface asserting or denying a leading option quotes
+    // this. See src/lib/decisionVerdict.ts.
+    //
+    // HOISTED above the display sort (ROADMAP 1.267): the ordering decision
+    // needs the verdict, and the verdict needs only `report` / `optionNodes` /
+    // `rawHeadlineBanded`, all of which are already in scope here. Computed
+    // ONCE and returned as `verdict` below — deriving it twice would be a
+    // second authority, which is the defect decisionVerdict exists to prevent.
+    const leaderVerdict = deriveDecisionVerdict(
+      report as DecisionVerdictReportLike | null | undefined,
+      {
+        visibleOptionIds: new Set(optionNodes.map((n) => n.id)),
+        rawHeadlineBanded,
+      },
+    )
+
+    // ROADMAP 1.267 — THE ORDER DESIGNATION IS AUTHORED HERE.
+    //
+    // This line is where the CANONICAL order dies. `unsortedOptions` is
+    // built from `optionNodes` (`nodes.filter(kind === 'option')`), i.e. the
+    // canvas graph's own option order — the user's creation order. Every
+    // downstream surface re-sorts `allOptions`, but they were all re-sorting
+    // an array that had ALREADY been ranked here, so gating only the leaf
+    // call sites would have changed nothing. The canonical order has to
+    // survive this line or it is not available to anyone.
+    //
+    // Derived ONCE, here, and passed to the leaf sorts via `allOptions`
+    // already being canonical — plus explicitly to each of them, so a leaf
+    // cannot silently re-impose a ranking.
+    const designationsWithheld = !leaderVerdict.hasLeadingOption
+
     // Order by the SHARED display sort (win probability when every option
     // carries one, else expected value — sortOptionsForDisplay), independent
     // of winner selection. This must be the same comparator the rendering
@@ -1544,7 +1578,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // seeded from an expected-value order while every list sorted by win
     // probability — one metric per surface, so allOptions order, ordinal
     // registration order and row order must be one.
-    const sortedOptions = sortOptionsForDisplay(unsortedOptions)
+    const sortedOptions = sortOptionsForDisplay(unsortedOptions, { designationsWithheld })
 
     // Task 2.1: Resolve baseline option with precedence (PLoT > user > heuristic)
     // Note: userSelectedBaselineId would come from state if we add baseline selection UI
@@ -1733,15 +1767,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       baselineOutcome,
       // Near-tie detection: when top options are too close to call
       nearTie,
-      // SINGLE VERDICT (2026-07-25): the ONE answer to "is there a leading
-      // option?", derived from the SAME `report` object the canvas reads —
-      // not re-derived from this hook's mapped fields, so canvas and panel
-      // cannot drift apart. Every surface asserting or denying a leading
-      // option quotes this. See src/lib/decisionVerdict.ts.
-      verdict: deriveDecisionVerdict(report as DecisionVerdictReportLike | null | undefined, {
-        visibleOptionIds: new Set(optionNodes.map((n) => n.id)),
-        rawHeadlineBanded,
-      }),
+      // SINGLE VERDICT — derived once above (hoisted so the display sort can
+      // read it too, ROADMAP 1.267) and quoted here. One derivation, one
+      // answer, no mirror.
+      verdict: leaderVerdict,
       // Task 6: Flip thresholds for tipping points visualisation
       flipThresholds: flipThresholds.length > 0 ? flipThresholds : undefined,
       // Display-honesty: PLoT-side classification of flip_thresholds[].
@@ -3127,7 +3156,18 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // already carries that order, but first-seen ordinals are frozen forever,
   // so the seeding order must be guaranteed at the registration site, not
   // inherited): badge numbers then match the order every list renders in.
-  const optionIds = sortOptionsForDisplay(recommendation.allOptions).map((o) => o.id)
+  //
+  // ROADMAP 1.267 — AND THE SEEDING ORDER IS ITSELF A DESIGNATION. Because
+  // first-seen ordinals are frozen FOREVER, seeding them from a probability
+  // sort means `Option 1` permanently records who led on the very first run.
+  // "Identity-anchored" only ever meant stable against LATER rank flips, not
+  // free of the first ranking. So a withheld first run seeds in canonical
+  // order — otherwise this slice would suppress the badge on the withheld
+  // screen while quietly minting the same designation into a store that a
+  // later permitted run then displays.
+  const optionIds = sortOptionsForDisplay(recommendation.allOptions, {
+    designationsWithheld: recommendation.verdict != null && !recommendation.verdict.hasLeadingOption,
+  }).map((o) => o.id)
   const optionIdsKey = JSON.stringify(optionIds)
   useEffect(() => {
     if (optionIds.length === 0) return
