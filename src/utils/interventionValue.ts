@@ -66,3 +66,62 @@ export function looksLikeIntervention(raw: unknown): boolean {
   if (typeof raw === 'number') return true
   return raw != null && typeof raw === 'object' && !Array.isArray(raw) && 'value' in raw
 }
+
+/**
+ * The result of splitting an intervention MAP into what can be analysed and
+ * what was authored but cannot.
+ */
+export interface InterventionPartition {
+  /** Every entry that resolved to a finite number, keyed by target id. */
+  usable: Record<string, number>
+  /**
+   * Target ids that are present in the map but carry no usable value.
+   * ORDER: the map's own key order, so messages read in authoring order.
+   */
+  unusableTargets: string[]
+}
+
+/**
+ * Split an intervention map into its usable and unusable halves.
+ *
+ * WHY THIS EXISTS SEPARATELY FROM `interventionNumericValue`
+ * ---------------------------------------------------------
+ * The single-value predicate answers "is this value usable?". It cannot answer
+ * the question the disposal doctrine actually asks, which is about the MAP:
+ * "did this option lose anything on the way to the wire?" Every consumer that
+ * used to answer that by walking the map and silently skipping failures now
+ * calls this instead, so the skipped keys are always available to report.
+ *
+ * KEY PRESENCE IS THE AUTHORING SIGNAL — and that is deliberately NOT
+ * `looksLikeIntervention`.
+ * `looksLikeIntervention` discriminates a lone VALUE ("is this thing an
+ * intervention at all?"), which is the right question at `extractOptionsFromNodes`
+ * where a value arrives with no surrounding context. Inside a map it is the
+ * wrong question, and answering it here would reopen the defect: an entry of a
+ * bare `null` (`{ fac_a: null }`) fails `looksLikeIntervention`, yet the KEY
+ * names a target, so something authored an intervention on `fac_a` and gave it
+ * no value. PR #499 measured that exact shape arriving from CEE and being
+ * written verbatim into `node.data.interventions`. Treating it as "no
+ * intervention here" would silently drop it — the thing this module exists to
+ * prevent. The contract agrees: `CEEOptionV3.interventions` is
+ * `Record<string, CEEInterventionV3>`, so every key is a target by definition.
+ *
+ * Callers that must ignore keys for a DIFFERENT reason — a stale target that is
+ * no longer on the canvas, or an option targeting itself — filter
+ * `unusableTargets` themselves. Those are separate failures with their own
+ * handling, and folding them in here would blur two distinct diagnoses.
+ *
+ * Non-object input yields two empty halves, matching the historical
+ * `flattenInterventions` guard exactly.
+ */
+export function partitionInterventions(raw: unknown): InterventionPartition {
+  const usable: Record<string, number> = {}
+  const unusableTargets: string[] = []
+  if (!raw || typeof raw !== 'object') return { usable, unusableTargets }
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    const numeric = interventionNumericValue(value)
+    if (numeric !== null) usable[key] = numeric
+    else unusableTargets.push(key)
+  }
+  return { usable, unusableTargets }
+}

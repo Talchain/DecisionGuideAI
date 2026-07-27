@@ -17,7 +17,7 @@ import {
   isSuccessfulAnalysis,
   validateV2RunResponseFull,
   sanitizeV2RunResponse,
-  reconcileOptionsWithCanvasNodes,
+  reconcileOptionsWithCanvasNodesDetailed,
   flattenInterventions,
   clearStrengthCorrections,
   type V2AdapterConfig,
@@ -541,12 +541,27 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
         // hide all fallback usage because they return early below before the
         // second reconcile call ever happens. See
         // adapters/plot/v2/adapter.ts:ReconcileOptionsHookOptions.
-        const optionsToValidate = reconcileOptionsWithCanvasNodes(
-          effectiveAnalysisReady,
-          nodes as any,
-          currentNodeIds,
-          { silent: true, phase: 'pre_run_check', scenarioId: framing?.scenario_id ?? null },
-        )
+        // DETAILED form. The plain `reconcileOptionsWithCanvasNodes` returns only
+        // the options, and its canvas-backfill branches have ALREADY discarded any
+        // unusable entry by then — so a gate reading the options alone is
+        // structurally unable to see a partial loss on those branches. The detailed
+        // form reports what the walk removed. See ReconcileOptionsResult.
+        const { options: optionsToValidate, unusableByOptionId } =
+          reconcileOptionsWithCanvasNodesDetailed(
+            effectiveAnalysisReady,
+            nodes as any,
+            currentNodeIds,
+            { silent: true, phase: 'pre_run_check', scenarioId: framing?.scenario_id ?? null },
+          )
+
+        // Node labels for naming a target the way the user sees it on the canvas,
+        // not by node id — the convention PR #499 set for the same disposal.
+        const labelByNodeId = new Map<string, string>()
+        for (const n of nodes as any[]) {
+          const l = (n?.data as Record<string, unknown> | undefined)?.label
+          if (typeof l === 'string' && l.trim().length > 0) labelByNodeId.set(n.id, l)
+        }
+        const targetName = (id: string) => labelByNodeId.get(id) ?? id
 
         // Identify offending options directly by id (not label) so duplicate
         // labels do not collapse two distinct options into one entry.
@@ -554,23 +569,63 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
         // for the human message but loses identity — we re-walk the reconciled
         // list with the same usability rule (flattenInterventions, the single
         // canonical "is this a usable map?" check) and key by opt.id.
-        const affectedOptions: Array<{ id: string; label: string }> = []
+        //
+        // TWO failure modes, one affordance. Both end as MISSING_INTERVENTIONS +
+        // affectedOptions, which OutputsDock renders as the amber "Options need
+        // their effects mapped" banner with a focus button per option:
+        //
+        //   EMPTY   — no usable intervention at all. Pre-existing behaviour,
+        //             wording unchanged.
+        //   PARTIAL — some usable, at least one authored-but-unusable. NEW. This
+        //             used to run: the option was quietly shrunk to its usable
+        //             entries and the user got a confident answer about a graph
+        //             they never authored. Blocking is the doctrine — what gets
+        //             analysed is never silently altered — and blocking BEFORE the
+        //             request is built is what turns the adapter's typed throw
+        //             into an unreachable invariant rather than a crash.
+        const emptyOptions: Array<{ id: string; label: string }> = []
+        const partialOptions: Array<{ id: string; label: string; targets: string[] }> = []
         for (const opt of optionsToValidate) {
+          const label = opt.label || opt.id
           if (Object.keys(flattenInterventions(opt.interventions)).length === 0) {
-            affectedOptions.push({ id: opt.id, label: opt.label || opt.id })
+            emptyOptions.push({ id: opt.id, label })
+            continue
+          }
+          const unusable = unusableByOptionId.get(opt.id)
+          if (unusable && unusable.length > 0) {
+            partialOptions.push({ id: opt.id, label, targets: unusable })
           }
         }
 
+        const affectedOptions: Array<{ id: string; label: string }> = [
+          ...emptyOptions,
+          ...partialOptions.map((o) => ({ id: o.id, label: o.label })),
+        ]
+
         if (affectedOptions.length > 0) {
-          const labels = affectedOptions.map((o) => o.label)
-          const message =
-            affectedOptions.length === 1
-              ? `Option "${labels[0]}" needs intervention values before analysis can run.`
-              : `Options ${labels.map((o) => `"${o}"`).join(', ')} need intervention values before analysis can run.`
+          const labels = emptyOptions.map((o) => o.label)
+          const emptyMessage =
+            emptyOptions.length === 0
+              ? ''
+              : emptyOptions.length === 1
+                ? `Option "${labels[0]}" needs intervention values before analysis can run.`
+                : `Options ${labels.map((o) => `"${o}"`).join(', ')} need intervention values before analysis can run.`
+          const partialMessage = partialOptions
+            .map((o) => {
+              const named = o.targets.map((t) => `"${targetName(t)}"`).join(', ')
+              const noun = o.targets.length === 1 ? 'an effect' : 'effects'
+              return `Option "${o.label}" has ${noun} on ${named} with no usable value. Set a number for each, or remove them, before analysis can run.`
+            })
+            .join(' ')
+          const message = [emptyMessage, partialMessage].filter(Boolean).join(' ')
 
           if (import.meta.env.DEV) {
             console.warn('[useV2Run] Pre-run validation failed: missing interventions', {
               missingOptions: labels,
+              partiallyUnusableOptions: partialOptions.map((o) => ({
+                option: o.label,
+                targets: o.targets,
+              })),
               usingAnalysisReady: !!effectiveAnalysisReady,
             })
           }

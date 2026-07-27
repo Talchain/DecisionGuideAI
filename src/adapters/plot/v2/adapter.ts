@@ -27,7 +27,11 @@ import {
   normaliseGraphIds,
   translateResponseToUIIds,
 } from '../../../utils/nodeIdNormalisation'
-import { interventionNumericValue, looksLikeIntervention } from '../../../utils/interventionValue'
+import {
+  interventionNumericValue,
+  looksLikeIntervention,
+  partitionInterventions,
+} from '../../../utils/interventionValue'
 import type { UIOption, UIInterventionValue } from '../../../types/options'
 import type { CEEAnalysisReady, CEEGoalConstraint, CEEOptionV3 } from '../../cee/types'
 import { recordRequestPayload, recordResponsePayload } from '../../../lib/payload-trace-store'
@@ -285,13 +289,12 @@ export function extractOptionsFromNodes(
 export function flattenInterventions(
   raw: unknown,
 ): Record<string, number> {
-  const out: Record<string, number> = {}
-  if (!raw || typeof raw !== 'object') return out
-  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-    const numeric = interventionNumericValue(value)
-    if (numeric !== null) out[key] = numeric
-  }
-  return out
+  // The walk itself is `partitionInterventions` (src/utils/interventionValue.ts).
+  // This function keeps only the usable half and DISCARDS the record of what it
+  // skipped — which is exactly why it must never be the last word on an option
+  // heading for the wire. Callers that decide whether an analysis may proceed
+  // take the partition instead, so the skipped keys survive to be reported.
+  return partitionInterventions(raw).usable
 }
 
 /**
@@ -453,13 +456,69 @@ export interface ReconcileOptionsHookOptions {
   phase?: 'pre_run_check' | 'request_build' | 'turn_request'
 }
 
-export function reconcileOptionsWithCanvasNodes(
+/**
+ * What `reconcileOptionsWithCanvasNodesDetailed` returns on top of the options.
+ */
+export interface ReconcileOptionsResult {
+  /** Exactly the array `reconcileOptionsWithCanvasNodes` has always returned. */
+  options: CEEOptionV3[]
+  /**
+   * optionId → target ids that were AUTHORED on that option but carry no usable
+   * numeric value, in map order. Absent key = nothing was lost for that option.
+   *
+   * WHY THIS CANNOT BE COMPUTED DOWNSTREAM. Two of the three merge branches
+   * below backfill through `canvasInterventionsToCEE`, which drops unusable
+   * entries as it converts — so by the time any consumer sees the returned
+   * option, the evidence is gone. PR #499 proposed carrying the dropped list out
+   * of `ceeOptionToV2Option` instead; that would have closed the pass-through
+   * branch only and left both backfill branches silently dropping, because
+   * `ceeOptionToV2Option` never sees what the reconciler already removed. The
+   * report has to be emitted by the walk that does the removing.
+   *
+   * Excludes stale targets (not on the canvas) and self-targeting entries: those
+   * are different failures, handled separately, and are dropped by this function
+   * for reasons that have nothing to do with the value being unusable.
+   */
+  unusableByOptionId: Map<string, string[]>
+}
+
+/**
+ * The reconciler, plus a report of every authored-but-unusable intervention it
+ * encountered. See `ReconcileOptionsResult.unusableByOptionId`.
+ *
+ * `reconcileOptionsWithCanvasNodes` is the options-only wrapper over this, kept
+ * because most call sites do not need the report.
+ */
+export function reconcileOptionsWithCanvasNodesDetailed(
   analysisReady: CEEAnalysisReady | null | undefined,
   nodes: Node<CanvasNodeData>[],
   validNodeIds: Set<string>,
   options: ReconcileOptionsHookOptions = {},
-): CEEOptionV3[] {
+): ReconcileOptionsResult {
   const { silent = false, scenarioId = null, phase = 'request_build' } = options
+
+  const unusableByOptionId = new Map<string, string[]>()
+  /**
+   * Record the unusable targets of one option's raw intervention map.
+   *
+   * `ownerId` filters self-targeting and `validNodeIds` filters stale targets,
+   * mirroring the two `continue`s in `canvasInterventionsToCEE` so this report
+   * never accuses a target of being unusable when it was really absent.
+   * `restrictToValidIds` is false on the analysis_ready pass-through branches,
+   * which apply no such filter — reporting there must match what
+   * `ceeOptionToV2Option` will actually refuse.
+   */
+  const recordUnusable = (
+    ownerId: string,
+    rawInterventions: unknown,
+    restrictToValidIds: boolean,
+  ) => {
+    const { unusableTargets } = partitionInterventions(rawInterventions)
+    const reportable = unusableTargets.filter(
+      (t) => t !== ownerId && (!restrictToValidIds || validNodeIds.has(t)),
+    )
+    if (reportable.length > 0) unusableByOptionId.set(ownerId, reportable)
+  }
   const optionNodes = nodes.filter(
     (n) => (n.data as Record<string, unknown> | undefined)?.kind === 'option' || (n.data as Record<string, unknown> | undefined)?.type === 'option',
   )
@@ -522,6 +581,10 @@ export function reconcileOptionsWithCanvasNodes(
 
     if (hasUsableInterventions(arOpt.interventions)) {
       // PRIMARY hot path — analysisReady wins with its native interventions.
+      // Nothing is dropped HERE; the drop happens later, at ceeOptionToV2Option.
+      // Report it now so the pre-run gate can block before the run, rather than
+      // letting the request build throw at the wire edge.
+      recordUnusable(arOpt.id, arOpt.interventions, false)
       result.push(arOpt)
       continue
     }
@@ -531,6 +594,7 @@ export function reconcileOptionsWithCanvasNodes(
     // as-is (legacy permissive behaviour; isAnalysisReadyStale handles deletions).
     const canvasNode = optionNodesById.get(arOpt.id)
     if (!canvasNode) {
+      recordUnusable(arOpt.id, arOpt.interventions, false)
       result.push(arOpt)
       continue
     }
@@ -540,6 +604,9 @@ export function reconcileOptionsWithCanvasNodes(
     // sees the canonical Record<string, number> form. This is the upstream guard for
     // PLoT EMPTY_INTERVENTIONS — see flattenInterventions for the shape contract.
     const nodeData = (canvasNode.data as Record<string, unknown> | undefined) ?? {}
+    // SITE B. The flatten below is what silently removed unusable entries before
+    // any consumer — the pre-run gate included — could see them. Record first.
+    recordUnusable(arOpt.id, nodeData.interventions, true)
     const flatNodeInterventions = flattenInterventions(nodeData.interventions)
     const fallback = canvasInterventionsToCEE(
       arOpt.id,
@@ -561,6 +628,8 @@ export function reconcileOptionsWithCanvasNodes(
     if (seen.has(node.id)) continue
     const nodeData = (node.data as Record<string, unknown> | undefined) ?? {}
     const label = (nodeData.label as string | undefined) || node.id
+    // SITE B, second branch — same silent removal as above. Record first.
+    recordUnusable(node.id, nodeData.interventions, true)
     // Flatten complex shapes before handing off to the CEE converter.
     const flatNodeInterventions = flattenInterventions(nodeData.interventions)
     const fallback = canvasInterventionsToCEE(
@@ -582,7 +651,25 @@ export function reconcileOptionsWithCanvasNodes(
     })
   }
 
-  return result
+  return { options: result, unusableByOptionId }
+}
+
+/**
+ * Options-only view of `reconcileOptionsWithCanvasNodesDetailed`.
+ *
+ * Unchanged signature and unchanged return value — every existing call site that
+ * does not need the unusable-target report keeps working exactly as before.
+ * Callers that decide whether an analysis may RUN must use the detailed form:
+ * this one discards the report, and a caller holding only the options array
+ * cannot tell a complete option from one the reconciler quietly trimmed.
+ */
+export function reconcileOptionsWithCanvasNodes(
+  analysisReady: CEEAnalysisReady | null | undefined,
+  nodes: Node<CanvasNodeData>[],
+  validNodeIds: Set<string>,
+  options: ReconcileOptionsHookOptions = {},
+): CEEOptionV3[] {
+  return reconcileOptionsWithCanvasNodesDetailed(analysisReady, nodes, validNodeIds, options).options
 }
 
 /**
@@ -753,15 +840,37 @@ export function ceeOptionToV2Option(ceeOption: CEEOptionV3): V2Option {
     })
   }
 
-  // Final boundary flatten — invariant: every value at the PLoT request edge is a
-  // finite number. flattenInterventions handles V3 nested, complex canvas
-  // {value, unit, source}, and bare-number shapes uniformly, and drops anything
-  // that cannot be coerced to a finite number rather than smuggling NaN/undefined
-  // through to PLoT.
+  // Final boundary partition — invariant: every value at the PLoT request edge is
+  // a finite number. Handles V3 nested, complex canvas {value, unit, source}, and
+  // bare-number shapes uniformly.
+  //
+  // Disposal doctrine — this function REFUSES a partial loss rather than shrinking
+  // the option. It used to `flattenInterventions` here, which silently discarded
+  // any entry that was not a finite number. When EVERY entry failed, the pre-run
+  // gate caught it downstream. When only SOME failed, nothing did: the option went
+  // to PLoT with fewer interventions than the canvas held, PLoT accepted it (the
+  // surviving values are perfectly valid), and the user was handed a confident
+  // answer to a question they never asked. That is the silent-alteration failure
+  // ruled against twice on 26 Jul, and PR #499 recorded it as the residual gap on
+  // this exact path.
+  //
+  // Refusal, not dropping, and not a warning: this layer has no per-option surface
+  // to render on, so any disposal other than refusing is by construction silent.
+  // The typed throw is the convention its sibling `uiOptionToV2Option` already uses
+  // for the same condition at the same boundary (#499), and it names the same code
+  // PLoT uses. In practice the pre-run gate in useV2Run blocks first and shows the
+  // user the amber banner — this is the invariant behind that gate, not the
+  // user-facing surface, and it is what stops a future caller from reintroducing
+  // the silent shrink by bypassing the gate.
+  const { usable, unusableTargets } = partitionInterventions(ceeOption.interventions)
+  if (unusableTargets.length > 0) {
+    throw new InterventionValidationError(ceeOption.id, ceeOption.label, unusableTargets)
+  }
+
   const result: V2Option = {
     id: ceeOption.id,
     label: ceeOption.label,
-    interventions: flattenInterventions(ceeOption.interventions),
+    interventions: usable,
   }
 
   if (import.meta.env.DEV) {
