@@ -96,6 +96,13 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
     return {
       goalThreshold: data.recommendation.goalThreshold ?? null,
       analysisComplete: data.recommendation.analysisStatus === 'computed',
+      // ROADMAP 1.243: the OWNED leader entitlement, quoted from the single
+      // verdict (`deriveDecisionVerdict`, the same instance the canvas and the
+      // option cards read) and never re-derived. `analysisComplete` above is a
+      // lifecycle fact, not an entitlement — the engine needs both, separately.
+      // Undefined when a legacy caller supplies no verdict; the engine's read
+      // is strict (`=== false`), so only an explicit withheld claim suppresses.
+      hasLeadingOption: data.recommendation.verdict?.hasLeadingOption,
       fragileEdges: fragile
         .filter((fe) => typeof (fe.marginal_switch_probability ?? fe.switch_probability) === 'number')
         .map((fe) => ({

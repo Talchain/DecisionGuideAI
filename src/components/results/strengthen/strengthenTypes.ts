@@ -144,6 +144,23 @@ export interface StrengthenInputs {
   goalThreshold: number | null
   /** Whether a completed analysis exists (most triggers need one). */
   analysisComplete: boolean
+  /**
+   * ROADMAP 1.243 — `DecisionVerdict.hasLeadingOption` VERBATIM: the ONE
+   * boolean any surface must hold before asserting OR presupposing a leading
+   * option. Threaded by `StrengthenContainer` from
+   * `data.recommendation.verdict`, the same instance the canvas reads. Never
+   * re-derived here, and never inferred from `analysisComplete`: a completed
+   * analysis is not an entitlement to name a leader, which is precisely the
+   * conflation that let "Challenge the leader" render on withheld runs.
+   *
+   * Strict read (`=== false` suppresses). `undefined` means no verdict was
+   * supplied and leaves the legacy behaviour untouched — the same concession
+   * `certaintyCopy`, `buildV7Headline` and `OptionCards` already make.
+   * Production always supplies one (`useResultsSectionData` derives it
+   * unconditionally), so `undefined` is a fixture/legacy path; the default is
+   * pinned by test so it cannot drift to silence.
+   */
+  hasLeadingOption?: boolean
   fragileEdges: StrengthenFragileEdge[]
   factors: StrengthenFactor[]
   robustness: { status: string | null; level: string | null }

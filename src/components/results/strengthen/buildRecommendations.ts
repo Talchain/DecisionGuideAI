@@ -139,6 +139,21 @@ function pct(p: number): string {
 export function buildRecommendations(inputs: StrengthenInputs): Recommendation[] {
   const recs: Recommendation[] = []
 
+  // ── ROADMAP 1.243: the leader ENTITLEMENT ────────────────────────────────
+  // `analysisComplete` answers "did a run finish?". It does NOT answer "may we
+  // name a leader?" — and every trigger below used it as though it did. On a
+  // withheld run (CEE declines to put an option forward; `deriveDecisionVerdict`
+  // returns hasLeadingOption false) the challenge trigger still emitted
+  // "Challenge the leader" with the prompt "Build the strongest case against
+  // the current leading option." — the assistant asked to argue against a
+  // leader the producer had explicitly refused to name.
+  //
+  // Strict `=== false`: only an explicit withheld verdict suppresses; an absent
+  // one is a legacy/fixture caller and keeps the previous behaviour. Read ONCE,
+  // here, so a trigger added later cannot quietly reintroduce the conflation by
+  // reaching for `analysisComplete` again.
+  const leaderClaimWithheld = inputs.hasLeadingOption === false
+
   // ── Clarify: define a measurable success (deterministic) ──────────────────
   if (inputs.goalThreshold == null) {
     recs.push({
@@ -146,7 +161,13 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       helpType: 'clarify',
       title: 'Define what success looks like',
       signal: 'No measurable success target is set.',
-      whyNow: 'Without a target the analysis cannot say how likely each option is to succeed, only which is ahead.',
+      // 1.243 RELABEL, unconditional. `whyNow` is not display copy alone: the
+      // container passes it as the Ask-Olumi drawer CONTEXT, so "only which is
+      // ahead" reached the assistant as a statement that the analysis HAD
+      // ranked the options — false on any withheld run, and this rec is not
+      // even analysis-gated, so it also said it before any run existed. The
+      // contrast that motivates the rec is kept; only the ranking claim goes.
+      whyNow: 'Without a target the analysis cannot say how likely each option is to succeed, only how they compare with one another.',
       tryThis: 'Pick the number that would make this decision a win, and the date it matters by.',
       sourceLine: 'Source: your goal has no success threshold (checked directly).',
       action: {
@@ -266,7 +287,18 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   }
 
   // ── Evaluate: the single top flip risk (producer fragile_edges) ──────────
-  if (inputs.analysisComplete && inputs.fragileEdges.length > 0) {
+  // 1.243 GATE. A "flip" is a change in the ORDERING, so this rec is
+  // comparative in all three of its parts: the SELECTION (argmax over
+  // `marginal_switch_probability` — "most likely to change the leader"), the
+  // TITLE, and the SIGNAL, which names `alternative_winner_label` and so
+  // designates by elimination (the #494 residual-1 argument: naming what the
+  // result would flip TO asserts that something else is currently ahead).
+  // Gated rather than relabelled because there is no leader-free reading of
+  // the quantity itself — unlike win probability, which #494 could relabel
+  // because "this option wins in N% of runs" survives without a ranking.
+  // The DATA is not lost: `challengeFragileEdges` also feeds V7SignalRow's
+  // flip-risk chip, buildV7Lenses' flipRisks and V7TopMatter.
+  if (!leaderClaimWithheld && inputs.analysisComplete && inputs.fragileEdges.length > 0) {
     const top = [...inputs.fragileEdges].sort(
       (a, b) => b.switchProbability - a.switchProbability,
     )[0]
@@ -341,12 +373,21 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       recs.push({
         id: `strengthen:voi:${top.factorId}`,
         helpType: 'evaluate',
-        title: `Investigate ${top.label} before relying on the ranking`,
+        // 1.243 RELABEL, not gate, and UNCONDITIONAL. The trigger is the
+        // producer's own per-factor `worth_investigating` flag — leader-
+        // independent, so gating would delete a real producer finding to
+        // remove a two-word phrase. Only "the ranking" presupposed a
+        // comparative standing the producer may have withheld; "this
+        // analysis" is true on every run. Relabelled on BOTH runs rather than
+        // forked per verdict, following #494's "Leads NN%" precedent: a
+        // carve-out list of "leader words that are fine here" is the
+        // hand-maintained mirror trap 12 warns about.
+        title: `Investigate ${top.label} before relying on this analysis`,
         // ⛔ The percentage-point variant of this sentence is REMOVED:
         // "Knowing this better could shift the result by about {N} percentage
         // points." It is the same claim as the factor chip and the confidence
         // line, in the Strengthen panel, from the same refuted field.
-        signal: 'The engine flagged this as worth investigating before you rely on the ranking.',
+        signal: 'The engine flagged this as worth investigating before you rely on this analysis.',
         whyNow: 'Of everything uncertain, this is the most valuable thing to learn next.',
         tryThis: 'Spend a short, time-boxed effort narrowing this down before deciding.',
         sourceLine: 'Source: value of information analysis (flagged by the engine).',
@@ -364,8 +405,16 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   }
 
   // ── Challenge: pressure-test a fragile-looking leader ─────────────────────
+  // 1.243 GATE — the row this change exists for. Every one of its six
+  // user- or assistant-facing fields designates a leader (title, signal,
+  // whyNow, tryThis, action.label, action.prompt) and its `parameters` carry
+  // `topic: 'challenge_leader'` onto the wire. There is nothing left to show
+  // once the claim is withheld, so the whole rec is gated: the chip does not
+  // render and the prompt is never CONSTRUCTED. The robustness grade itself
+  // is not suppressed — it is a run-level grade, and the confidence surfaces
+  // own it (#494 kept "Analysis complete (robust)" for the same reason).
   const level = inputs.robustness.level?.toLowerCase() ?? null
-  if (inputs.analysisComplete && (level === 'low' || level === 'very_low')) {
+  if (!leaderClaimWithheld && inputs.analysisComplete && (level === 'low' || level === 'very_low')) {
     recs.push({
       id: 'strengthen:robustness',
       helpType: 'challenge',

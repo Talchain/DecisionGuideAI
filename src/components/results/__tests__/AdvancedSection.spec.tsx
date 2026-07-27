@@ -4,6 +4,7 @@ import {
   AdvancedSection,
   translateFreshnessReason,
   FRESHNESS_RECEIPT_D1_MODE,
+  RiskAppetiteFilter,
 } from '../AdvancedSection'
 
 // Mock useRiskProfile hook
@@ -394,5 +395,32 @@ describe('AdvancedSection — the default-estimate disclosure (F10)', () => {
   it('says nothing when the counts are absent (never fabricates a zero)', () => {
     renderExpanded({})
     expect(screen.queryByText(/default confidence values/)).not.toBeInTheDocument()
+  })
+})
+
+// ── ROADMAP 1.243 item 4 — the "Winner by:" lens label ──────────────────────
+//
+// ADJUDICATED: LEAVE the label, do NOT relabel. "Winner by:" takes no option as
+// its object — it names the SORT KEY of a display filter, unlike the two
+// strings #493/#494 relabelled ("Leads across scenarios", "Leads NN%"), which
+// rendered ON an option so the ordinal read straight off them. The test is not
+// "is 'winner' a permitted word" (that would be the trap-12 carve-out list); it
+// is "does the string designate an option", which is derivable.
+//
+// But that verdict RESTS ON the disclaimer beneath it (Paul's ruling
+// 2026-07-12), and the disclaimer had ZERO test references at a79683e4 — the
+// one sentence that makes the label honest could have been dropped in a tidy-up
+// with nothing going red. Pinned here, so the reasoning that leaves the label
+// alone is enforced rather than merely asserted. If this sentence ever goes,
+// the label needs re-adjudicating, and now it will say so.
+describe('RiskAppetiteFilter — the lens disclaimer is load-bearing (1.243 item 4)', () => {
+  it('renders the "Winner by:" label AND the sentence that makes it a lens', () => {
+    render(<RiskAppetiteFilter value="neutral" onChange={vi.fn()} />)
+    // Positive control: the component mounted, so the assertion below is not
+    // passing against an empty render.
+    expect(screen.getByText('Winner by:')).toBeInTheDocument()
+    expect(
+      screen.getByText('A view lens for the option cards below. The overall recommendation is unchanged.'),
+    ).toBeInTheDocument()
   })
 })
