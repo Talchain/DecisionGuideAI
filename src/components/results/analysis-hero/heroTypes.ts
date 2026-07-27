@@ -203,8 +203,26 @@ export interface HeroChartModel {
    * Row id highlighted per lens. Goal-fit follows the Results Panel's
    * recommended option (never an independent argmax); outcome is the highest
    * existing centre with deterministic first-in-order tie-break.
+   *
+   * ALL NULL when `designationsWithheld` — see below.
    */
   leaders: Record<HeroLens, string | null>
+  /**
+   * True when the run's verdict withholds the leader claim
+   * (`DecisionVerdict.hasLeadingOption === false`), so this model may render
+   * the DATA but none of the DESIGNATIONS (ROADMAP 1.267).
+   *
+   * Concretely, when true: `rows` are in CANONICAL order rather than
+   * probability-descending, `leaders` is all-null (which removes the crown
+   * fill, the readout emphasis, the bar/dot leader colours, `aria-current`
+   * and the sr-only "Highest on this view" cue), and the row ordinal token
+   * is not rendered at all. The probabilities, the readouts and every row
+   * itself are UNCHANGED — the verdict withholds a claim, not the arithmetic.
+   *
+   * `false` when no verdict was supplied (legacy fixtures), which keeps their
+   * behaviour byte-identical: absence of a signal is not a withheld claim.
+   */
+  designationsWithheld: boolean
   /**
    * Outcome-axis display domain (layout only — never displayed as data).
    * Derived from the option outcome values only; the goal threshold is

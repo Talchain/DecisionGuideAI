@@ -46,6 +46,10 @@ function fixtureChart(o: Partial<HeroChartModel>): HeroChartModel {
     defaultLens: 'outcome',
     hasConstraints: false,
     rows: [],
+    // Gallery fixtures illustrate the PERMITTED presentation (that is what
+    // the internal preview is for), so designations are on unless a specific
+    // fixture overrides it.
+    designationsWithheld: false,
     leaders: { goal: null, outcome: null, stability: null, whatChanged: null },
     outcomeDomain: null,
     outcomeRangedRowCount: 0,

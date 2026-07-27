@@ -440,6 +440,9 @@ export const ResultsBody = memo(function ResultsBody({
                   isWinner: o.isRecommended,
                 }))}
               decisionState={vm.decisionState}
+              designationsWithheld={
+                resultsSectionData.recommendation.verdict?.hasLeadingOption === false
+              }
             />
             {/* Codex B1: winnerId is ALWAYS the canonical leader — every leader
                 predicate (downside sentence, leader CTA/prompt) keys to it. The
@@ -448,10 +451,14 @@ export const ResultsBody = memo(function ResultsBody({
               options={resultsSectionData.recommendation.allOptions}
               winnerId={resultsSectionData.recommendation.recommendedOption?.id}
               // ROADMAP 1.223: the ENTITLEMENT, kept separate from the identity
-              // above. `winnerId` deliberately still flows on a withheld turn —
-              // it drives segment colours, the lens crown and card ordering,
-              // none of which claim anything. This flag gates only the
-              // comparative sentences inside the cards.
+              // above. `winnerId` deliberately still flows on a withheld turn
+              // because identity is not entitlement.
+              //
+              // ⚠ CORRECTED 27 Jul (ROADMAP 1.267): this comment used to end
+              // "it drives segment colours, the lens crown and card ordering,
+              // none of which claim anything", and row 1.306 refutes that at
+              // the screenshots. Ordering, ordinal colour and the crown ARE
+              // claims; OptionCards now gates them off this same boolean.
               hasLeadingOption={resultsSectionData.recommendation.verdict?.hasLeadingOption}
               lensActive={riskAppetite !== 'neutral'}
               lensHighlightedId={riskAppetite !== 'neutral' && lensComparison.comparable ? lensComparison.id : undefined}

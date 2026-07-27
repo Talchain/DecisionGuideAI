@@ -72,7 +72,7 @@ describe('selectDisplayOptions', () => {
     const numbering = assignStableOptionNumbers({}, options.map((o) => o.id))
     const rows = selectDisplayOptions(options, numbering)
     expect(rows.map((r) => r.option.id)).toEqual(
-      sortOptionsForDisplay(options).map((o) => o.id),
+      sortOptionsForDisplay(options, { designationsWithheld: false }).map((o) => o.id),
     )
   })
 

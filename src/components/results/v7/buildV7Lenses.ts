@@ -109,7 +109,19 @@ function driverDirection(d: DriverItem): 'positive' | 'negative' | null {
 export function buildV7Lenses(data: ResultsSectionDataReturn): V7LensesModel {
   const { recommendation, drivers, confidence } = data
   const options = recommendation.allOptions ?? []
-  const winnerId = recommendation.recommendedOption?.id
+  // ROADMAP 1.267. `winnerId` drives the ONLY thing the V7 rows do with a
+  // leader: bold + darken that row's label and readout
+  // (`V7LensGroup.tsx`). On a withheld run the V7 HEADLINE above these rows
+  // already goes silent (`buildV7Headline` returns '' on an `unknown`
+  // verdict, ROADMAP 1.223) — which left a bolded, designated option sitting
+  // under a deliberately empty hero, the emphasis making the claim the
+  // sentence had just been withdrawn. Withholding the id here is one change
+  // point for every `isWinner` style in the group.
+  //
+  // `options` needs no separate treatment: it is `recommendation.allOptions`,
+  // which the hook now leaves in canonical order on a withheld run.
+  const designationsWithheld = recommendation.verdict != null && !recommendation.verdict.hasLeadingOption
+  const winnerId = designationsWithheld ? undefined : recommendation.recommendedOption?.id
 
   // ── Likely outcome ─────────────────────────────────────────────────────
   const hasRange = options.some(
