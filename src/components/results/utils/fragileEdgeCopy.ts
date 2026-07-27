@@ -36,21 +36,31 @@
  * DATA STAYS, in full: the edge count, every source-factor label, every
  * E-value, every Review chip, the stability pill. Only the CLAIM changes.
  *
- * The alt-winner NAME is dropped from the withheld headers (#505 doctrine —
- * silence where we lack authority). `alternative_winner_label` means "the
- * option that would take the lead if this edge flipped", so rendering it in a
- * flip sentence names a would-be leader on a run where no leader may be
- * named. The fragility FACT — that N factors could change the picture — is
- * kept whole.
+ * ## Where the defect actually is: the VERB, not the name (orchestrator ruling)
  *
- * ⚠ DOCTRINE NOTE, deliberately left visible for review: `heroCopy.ts`
- * (`flipRiskWithAlternative`) took the OTHER branch for the same producer
- * field — it KEEPS the alternative's name on a withheld run and neutralises
- * only the verb ("the comparison shifts towards {alt}"), arguing that
- * dropping producer data is itself over-suppression. This module follows the
- * #505 drop-the-name doctrine as briefed; if the programme rules the hero's
- * treatment canonical, `fragileEdgeGroupHeader`'s withheld branch is the one
- * line that changes.
+ * This module first dropped `alternative_winner_label` from the withheld
+ * headers, reading #505 ("silence where we lack authority") as reaching the
+ * name. **That was ruled wrong, and the ruling is recorded here because the
+ * distinction is the whole point of the fix:**
+ *
+ *   · **The PRESUPPOSING VERB is the defect.** "flip the result to {alt}"
+ *     asserts that a current result — a leader — exists to flip *from*. That
+ *     is the claim the verdict withholds, and it is removed.
+ *   · **The NAME is data, not a claim.** `alternative_winner_label` is
+ *     DIRECTIONAL SENSITIVITY: which option this edge's fragility points
+ *     toward. Dropping it is exactly the over-suppression the ruling forbids —
+ *     the product says everything it HAS computed.
+ *   · **One field may not be treated two ways on one screen.** `heroCopy.ts`
+ *     (`flipRiskWithAlternative`, :398-414) already keeps the name and
+ *     neutralises only the verb: "the comparison shifts towards {alt}". A
+ *     panel where the hero names the alternative and the stress-test card
+ *     hides it is the family-1 self-contradiction shape. Consistency across
+ *     surfaces on the same producer field is itself a doctrine requirement,
+ *     so the HERO'S TREATMENT IS CANONICAL and this module follows it.
+ *
+ * So the withheld headers keep `{alt}` and change only the sentence around
+ * it. Strings 3 and 4 name no option at all, so they have no name to keep —
+ * their withheld forms simply drop the presupposition.
  */
 
 /**
@@ -122,12 +132,16 @@ export function fragileEdgeGroupHeader({
   const multiple = edgeCount > 1
 
   if (designationsWithheld) {
-    // The count survives; the flip TARGET does not.
+    // The count survives AND so does the name — the alternative is directional
+    // sensitivity data. What goes is "flip the result TO", which presupposes a
+    // current result to flip from. Same shape as `heroCopy.flipRiskWithAlternative`
+    // ("the comparison shifts towards {alt}"), which is canonical for this field.
     return {
-      kind: 'plain',
-      text: multiple
-        ? `${factorCount(edgeCount)} could change ${FRAGILE_NEUTRAL_OBJECT}`
-        : `${sentenceCase(FRAGILE_NEUTRAL_OBJECT)} could change`,
+      kind: 'altWinner',
+      lead: multiple
+        ? `${factorCount(edgeCount)} could shift ${FRAGILE_NEUTRAL_OBJECT} towards `
+        : `${sentenceCase(FRAGILE_NEUTRAL_OBJECT)} could shift towards `,
+      altWinnerLabel,
     }
   }
 
@@ -169,6 +183,9 @@ export function fragileEValueNote({
  * scope: a draft is prose the product hands the user to send in their own
  * name. Only the grouped-with-alt-winner branch carries a claim; the other
  * two are already neutral and are byte-identical in both states.
+ *
+ * The withheld form keeps `{alt}` for the reason above: the user's own
+ * question should carry every fact the analysis computed.
  */
 export function fragileDiscussDraft({
   edgeCount,
@@ -187,7 +204,7 @@ export function fragileDiscussDraft({
 
   if (altWinnerLabel && multiple) {
     return designationsWithheld
-      ? `Are these ${edgeCount} relationships that could change ${FRAGILE_NEUTRAL_OBJECT} reliable?`
+      ? `Are these ${edgeCount} relationships that could shift ${FRAGILE_NEUTRAL_OBJECT} towards ${altWinnerLabel} reliable?`
       : `Are these ${edgeCount} relationships that could flip the result to ${altWinnerLabel} reliable?`
   }
 

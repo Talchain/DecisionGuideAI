@@ -355,23 +355,39 @@ describe('StressTestSection fragile factors — STRING 1: the grouped header', (
     expect(screen.getByTestId('fragile-alt-winner').textContent).toBe(HIGH_LABEL)
   })
 
-  it('WITHHELD: the header states the fragility without a flip target', () => {
+  it('WITHHELD: the header drops the presupposing verb', () => {
     const text = fragileText(true, twoEdges)
-    expect(text).toContain('2 factors could change the comparison')
+    expect(text).toContain('2 factors could shift the comparison towards')
     expect(text).not.toMatch(FRAGILE_CLAIM_RE)
   })
 
-  it('WITHHELD: the would-be leader is not named (#505 — silence without authority)', () => {
+  /**
+   * ORCHESTRATOR RULING: the presupposition is the defect; the NAME is data.
+   * `alternative_winner_label` is directional sensitivity — which option this
+   * edge's fragility points toward — and `heroCopy.flipRiskWithAlternative`
+   * (canonical for this field) keeps it on a withheld run. Dropping it here
+   * would both over-suppress and make one screen treat one producer field two
+   * ways. This case is the over-suppression control for that ruling.
+   */
+  it('WITHHELD: the alternative is still NAMED — the name is data, not a claim', () => {
     renderFragile(true, twoEdges)
-    expect(screen.queryByTestId('fragile-alt-winner')).toBeNull()
+    expect(screen.getByTestId('fragile-alt-winner').textContent).toBe(HIGH_LABEL)
     expect(screen.getByTestId('stress-test-fragile-subsection').textContent ?? '')
-      .not.toContain(HIGH_LABEL)
+      .toContain(HIGH_LABEL)
   })
 
   it('PERMITTED: the header is byte-identical to today', () => {
     expect(
       fragileEdgeGroupHeader({ altWinnerLabel: HIGH_LABEL, edgeCount: 2, hasEValue: false, designationsWithheld: false }),
     ).toEqual({ kind: 'altWinner', lead: '2 factors could flip the result to ', altWinnerLabel: HIGH_LABEL })
+  })
+
+  it('WITHHELD: the header keeps the altWinner SHAPE — only the lead changes', () => {
+    // Pinned as a shape, not just a substring: a fix that returned a plain
+    // sentence would drop the `fragile-alt-winner` element and the name with it.
+    expect(
+      fragileEdgeGroupHeader({ altWinnerLabel: HIGH_LABEL, edgeCount: 2, hasEValue: false, designationsWithheld: true }),
+    ).toEqual({ kind: 'altWinner', lead: '2 factors could shift the comparison towards ', altWinnerLabel: HIGH_LABEL })
   })
 })
 
@@ -382,17 +398,23 @@ describe('StressTestSection fragile factors — STRING 2: the singleton header',
     expect(text).toMatch(FRAGILE_CLAIM_RE)
   })
 
-  it('WITHHELD: the singleton header presupposes no result to flip', () => {
+  it('WITHHELD: the singleton header presupposes no result to flip, and still names the alternative', () => {
     const text = fragileText(true, [fragileEdge()])
-    expect(text).toContain('The comparison could change')
+    expect(text).toContain('The comparison could shift towards')
     expect(text).not.toMatch(FRAGILE_CLAIM_RE)
-    expect(screen.queryByTestId('fragile-alt-winner')).toBeNull()
+    expect(screen.getByTestId('fragile-alt-winner').textContent).toBe(HIGH_LABEL)
   })
 
   it('PERMITTED: the singleton header is byte-identical to today', () => {
     expect(
       fragileEdgeGroupHeader({ altWinnerLabel: HIGH_LABEL, edgeCount: 1, hasEValue: false, designationsWithheld: false }),
     ).toEqual({ kind: 'altWinner', lead: 'Result could flip to ', altWinnerLabel: HIGH_LABEL })
+  })
+
+  it('WITHHELD: the singleton header keeps the altWinner shape', () => {
+    expect(
+      fragileEdgeGroupHeader({ altWinnerLabel: HIGH_LABEL, edgeCount: 1, hasEValue: false, designationsWithheld: true }),
+    ).toEqual({ kind: 'altWinner', lead: 'The comparison could shift towards ', altWinnerLabel: HIGH_LABEL })
   })
 
   it('NO ALT-WINNER: both headers are byte-identical in BOTH verdict states', () => {
@@ -485,11 +507,12 @@ describe('StressTestSection fragile factors — STRING 5: the Ask-Olumi draft', 
     expect(draft).toMatch(FRAGILE_CLAIM_RE)
   })
 
-  it('WITHHELD: the grouped draft asks about the comparison instead', () => {
+  it('WITHHELD: the grouped draft asks about the comparison, still naming the alternative', () => {
     const draft = fragileDiscussDraft({ ...base, altWinnerLabel: HIGH_LABEL, designationsWithheld: true })
-    expect(draft).toBe('Are these 2 relationships that could change the comparison reliable?')
+    expect(draft).toBe(`Are these 2 relationships that could shift the comparison towards ${HIGH_LABEL} reliable?`)
     expect(draft).not.toMatch(FRAGILE_CLAIM_RE)
-    expect(draft).not.toContain(HIGH_LABEL)
+    // The user's own question carries every fact the analysis computed.
+    expect(draft).toContain(HIGH_LABEL)
   })
 
   /**
@@ -524,11 +547,11 @@ describe('StressTestSection fragile factors — STRING 5: the Ask-Olumi draft', 
     expect(draft).toMatch(FRAGILE_CLAIM_RE)
   })
 
-  it('WITHHELD: the sparkle prefills a draft that names no flip target', () => {
+  it('WITHHELD: the sparkle prefills a draft with no presupposition', () => {
     const draft = draftFromCta(true)
-    expect(draft).toBe('Are these 2 relationships that could change the comparison reliable?')
+    expect(draft).toBe(`Are these 2 relationships that could shift the comparison towards ${HIGH_LABEL} reliable?`)
     expect(draft).not.toMatch(FRAGILE_CLAIM_RE)
-    expect(draft).not.toContain(HIGH_LABEL)
+    expect(draft).toContain(HIGH_LABEL)
   })
 
   it('the two already-neutral drafts are byte-identical in BOTH verdict states', () => {
