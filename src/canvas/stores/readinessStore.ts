@@ -15,16 +15,53 @@ import type { Node, Edge } from '@xyflow/react'
 import { getEdgeKey } from '../domain/edgeUtils'
 import type {
   GraphReadiness,
+  GraphReadinessLevel,
   GraphImprovement,
   DeduplicatedResponse,
 } from '../hooks/useGraphReadiness'
 import {
+  ACCEPTED_READINESS_LEVELS,
   __test__ as dedupUtils,
 } from '../hooks/useGraphReadiness'
 import { plotAuthHeaders } from '../../lib/plotAuthHeaders'
 
 // Re-export types consumers need
 export type { GraphReadiness, GraphImprovement }
+
+/**
+ * Normalise CEE's `readiness_level` onto the accepted pre-analysis vocabulary.
+ *
+ * The accepted set is `ACCEPTED_READINESS_LEVELS` — CEE's own emitted members
+ * (`needs_work | fair | ready`) plus the local-fallback `strong` — and NOT a
+ * literal list maintained here. It used to be `['needs_work','fair','strong']`,
+ * the POST-analysis `EnrichmentConfidenceTier` members applied to this
+ * PRE-analysis field: `ready` was absent, so CEE's top band was silently
+ * rewritten to `fair` on every graph scoring >= 70, and `canRunAnalysis`
+ * then attached "consider improvements for better results" to the Run button
+ * of a model CEE had called ready.
+ *
+ * The guard itself is deliberately kept: unrecognised input still degrades to
+ * `fair` rather than reaching consumers untyped. What changes is (a) the
+ * vocabulary it is measured against and (b) that the degrade is no longer
+ * silent — a silent coercion is exactly why this survived review.
+ */
+function normaliseReadinessLevel(raw: unknown): GraphReadinessLevel {
+  if (
+    typeof raw === 'string' &&
+    (ACCEPTED_READINESS_LEVELS as readonly string[]).includes(raw)
+  ) {
+    return raw as GraphReadinessLevel
+  }
+
+  if (import.meta.env.DEV) {
+    console.warn(
+      `[readinessStore] Unrecognised readiness_level ${JSON.stringify(raw)} — ` +
+        `degrading to 'fair'. Accepted: ${ACCEPTED_READINESS_LEVELS.join(' | ')}. ` +
+        `If CEE now emits this value, widen CEE_READINESS_LEVELS in useGraphReadiness.ts.`,
+    )
+  }
+  return 'fair'
+}
 
 const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
 
@@ -359,9 +396,7 @@ async function fetchReadiness(): Promise<void> {
           typeof data.readiness_score === 'number'
             ? Math.max(0, Math.min(100, data.readiness_score))
             : 50,
-        readiness_level: ['needs_work', 'fair', 'strong'].includes(data.readiness_level)
-          ? data.readiness_level
-          : 'fair',
+        readiness_level: normaliseReadinessLevel(data.readiness_level),
         can_run_analysis:
           typeof data.can_run_analysis === 'boolean' ? data.can_run_analysis : true,
         confidence_explanation:

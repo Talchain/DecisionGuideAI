@@ -239,7 +239,15 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
   // Analysis allowed - check for warnings
   let warning: string | undefined
 
-  // Warn if readiness is low but not blocking
+  // Warn if readiness is low but not blocking.
+  //
+  // ⚠ `fair` MUST stay an exact match. Until 2026-07-27 the readiness
+  // normaliser coerced CEE's top band (`ready`, score >= 70) to `fair`, so this
+  // branch fired for every well-formed model and the Run button's tooltip told
+  // a model CEE had just called READY to go and improve itself. `ready` and
+  // `strong` deliberately have no branch here: the correct guidance for the top
+  // band is silence, and adding a case for them would re-create the defect in a
+  // new spelling.
   if (readiness?.readiness_level === 'fair') {
     warning = 'Analysis available - consider improvements for better results'
   }

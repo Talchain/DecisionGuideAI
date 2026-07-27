@@ -150,7 +150,67 @@ export const __test__ = { deduplicatedFetch, releaseInflightEntry }
 
 // ── Types (re-exported for all consumers) ──────────────────────────
 
-export type ReadinessLevel = 'needs_work' | 'fair' | 'strong'
+// ── PRE-ANALYSIS readiness vocabulary ──────────────────────────────
+//
+// ⚠ THIS IS NOT THE POST-ANALYSIS CONFIDENCE TIER. `EnrichmentConfidenceTier`
+// (`strong | fair | needs_work`, @talchain/schemas dist/boundary/enrichment.d.ts)
+// answers "how much should you trust the answer we just produced?". The field
+// below answers "is this model complete enough to analyse?" — a different claim
+// at a different point in the lifecycle, produced by a different service.
+//
+// Until 2026-07-27 the allowlist in readinessStore's normaliser was the
+// POST-analysis tier's member list applied to this PRE-analysis field. The two
+// sets overlap on `fair` and `needs_work` and differ on exactly one member, so
+// the mistranslation was invisible on two thirds of all inputs and silently
+// coerced CEE's top band (`ready`) to `fair` on EVERY graph scoring >= 70.
+// Keep the two vocabularies named apart so that cannot recur.
+
+/**
+ * The levels CEE emits for `readiness_level` on POST /assist/v1/graph-readiness.
+ *
+ * ⚠ CROSS-REPO MIRROR — it cannot be derived from this repo, because the
+ * pre-analysis readiness surface does not travel through `@talchain/schemas`.
+ * Read at the bytes from olumi-assistants-service `staging`
+ * `b35d09debc0c6843dbcbf7f28a4676810d77c278`:
+ *   - `src/cee/graph-readiness/types.ts:8`
+ *       `export type ReadinessLevel = "ready" | "fair" | "needs_work";`
+ *   - `src/routes/assist.v1.graph-readiness.ts:29` (V1) and `:169` (V3), both
+ *       `readiness_level: "ready" | "fair" | "needs_work";`
+ *   - `src/cee/graph-readiness/index.ts:198-201` assigns `"ready"` at
+ *       `score >= READINESS_THRESHOLDS.ready` (70, `constants.ts:30-31`).
+ * A producer-side change to this set is NOT visible from here; the durable fix
+ * is a boundary-contract test deriving both sides at their real SHAs.
+ */
+export const CEE_READINESS_LEVELS = ['needs_work', 'fair', 'ready'] as const
+export type CeeReadinessLevel = (typeof CEE_READINESS_LEVELS)[number]
+
+/**
+ * `strong` is NOT a CEE value — no CEE code path assigns it to `readiness_level`.
+ * It is emitted only by the UI's own local heuristic,
+ * `readinessStore.calculateFallbackReadiness`, when CEE is unreachable, and that
+ * value is written straight to the store WITHOUT passing through the normaliser.
+ * Accepted here so the field's type covers both writers.
+ *
+ * @deprecated Local-fallback spelling of the top band. The fallback emitting a
+ * BETTER verdict than the producer (CEE down + score 85 => `strong`; CEE up +
+ * score 85 => the top band) is tracked separately and deliberately untouched
+ * here — see the divergence-2 row on the family-3 readiness design.
+ */
+export const LOCAL_FALLBACK_READINESS_LEVELS = ['strong'] as const
+export type LocalFallbackReadinessLevel = (typeof LOCAL_FALLBACK_READINESS_LEVELS)[number]
+
+/**
+ * Every value `GraphReadiness.readiness_level` may hold — the producer's set
+ * plus the local-fallback band. This is what the normaliser accepts; anything
+ * else is unrecognised input and degrades to `fair` (loudly, in DEV).
+ */
+export const ACCEPTED_READINESS_LEVELS = [
+  ...CEE_READINESS_LEVELS,
+  ...LOCAL_FALLBACK_READINESS_LEVELS,
+] as const
+
+export type GraphReadinessLevel = CeeReadinessLevel | LocalFallbackReadinessLevel
+
 export type ImprovementPriority = 'high' | 'medium' | 'low'
 
 export type SuggestedNodeType = 'risk' | 'outcome' | 'option' | 'factor' | 'evidence' | 'goal' | 'decision'
@@ -190,7 +250,7 @@ export interface ScaffoldPlan {
 
 export interface GraphReadiness {
   readiness_score: number // 0-100
-  readiness_level: ReadinessLevel
+  readiness_level: GraphReadinessLevel
   can_run_analysis: boolean
   confidence_explanation: string
   improvements: GraphImprovement[]
