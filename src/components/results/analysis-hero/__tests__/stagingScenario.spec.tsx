@@ -127,7 +127,7 @@ describe('staging scenario — model truth', () => {
 
   it('states the goal truth: no option on track, outcome leader named in the subline', () => {
     const m = stagingModel()
-    expect(m.headline).toBe('No option is currently on track to reach your goal.')
+    expect(m.headline).toBe('No option is currently on track to meet every target this run scored.')
     expect(m.subline).toBe('Use Virtual Assistant Service has the highest expected outcome.')
     // No goal-fit leader ring; the outcome highlight stays factual.
     expect(m.leaders.goal).toBeNull()
@@ -189,7 +189,7 @@ describe('staging scenario — rendered surfaces (numeric parity, check A)', () 
   it('Goal fit still communicates the target shortfall (every option "< 1%", no-on-track headline)', () => {
     renderHero() // Goal fit is the default lens for this run.
     expect(screen.getByTestId('hero-headline')).toHaveTextContent(
-      'No option is currently on track to reach your goal.',
+      'No option is currently on track to meet every target this run scored.',
     )
     expect(screen.getAllByText('< 1%').length).toBe(4)
   })

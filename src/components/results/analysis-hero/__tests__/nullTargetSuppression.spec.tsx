@@ -78,7 +78,8 @@ describe('buildHeroModel — null-target suppression (model truth)', () => {
 
   it('below-floor synthesized values do NOT produce the no-option-on-track goal claim without a target', () => {
     // Staging joint-goal shape (goalProbability 0) but with NO user target:
-    // "No option is currently on track to reach your goal" would reference a
+    // "No option is currently on track to meet every target this run scored"
+    // would reference a
     // goal the user never set — it must not render.
     const m = chart(
       buildHeroModel(
@@ -116,7 +117,7 @@ describe('buildHeroModel — null-target suppression (model truth)', () => {
     const m = chart(buildHeroModel(makeHeroData()))
     expect(m.lenses).toEqual(['goal', 'outcome'])
     expect(m.defaultLens).toBe('goal')
-    expect(m.headline).toBe('Upskill the team best fits your goal.')
+    expect(m.headline).toBe('Upskill the team is most likely to meet every target this run scored.')
     expect(m.leaders.goal).toBe('opt_b')
     expect(m.rows[0].goal.value).toBe(OPTION_A.goalProbability)
     expect(m.rows[0].goal.readout).toBe('34%')
@@ -135,7 +136,7 @@ describe('buildHeroModel — null-target suppression (model truth)', () => {
         }),
       ),
     )
-    expect(m.headline).toBe('No option is currently on track to reach your goal.')
+    expect(m.headline).toBe('No option is currently on track to meet every target this run scored.')
     expect(m.defaultLens).toBe('goal')
   })
 })
@@ -176,11 +177,11 @@ describe('AnalysisHeroPanel — null-target suppression (rendered)', () => {
     // the value-based caption.
     renderPanel(chart(buildHeroModel(makeHeroData())))
     expect(screen.getByTestId('hero-headline')).toHaveTextContent(
-      'Upskill the team best fits your goal.',
+      'Upskill the team is most likely to meet every target this run scored.',
     )
     expect(within(screen.getByTestId('hero-option-row-1')).getByText('34%')).toBeInTheDocument()
     expect(screen.getByTestId('hero-caption')).toHaveTextContent(
-      'Each value is the chance that option hits your goal.',
+      'Each value is the chance that option meets every target this run scored.',
     )
     // No goal tracks and no goal axis exist any more (v6 readout-only table).
     expect(screen.queryAllByTestId('hero-range-bar')).toHaveLength(0)

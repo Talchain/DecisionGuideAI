@@ -14,7 +14,7 @@
  *     back into selection logic.
  *
  * Leader rules (review-locked; goal-fit crown revised by lane 35):
- *   - Goal-fit crown (the "best fits your goal" headline + goal-lens
+ *   - Goal-fit crown (the goal-attainment headline + goal-lens
  *     highlight) = the goalProbability ARGMAX (UI-SEM-072) — the claim
  *     describes the GOAL view, so it must follow the view's own maximum,
  *     never the recommendation re-crowned onto a view it does not lead
@@ -246,9 +246,9 @@ export function buildHeroModel(
   // synthesize auto_goal_threshold and the selector fallback still adopts
   // probability_of_joint_goal as goalProbability — values that describe a
   // target the user never set. Without a user target the hero must not
-  // render fit percentages, the goal axis, or any "best fits your goal" /
-  // "on track to reach your goal" claim, so every row's goal slot is
-  // suppressed at source (below) and the goal lens becomes the honest
+  // render fit percentages, the goal axis, or any goal-attainment claim
+  // (the crown headline, the no-option-on-track headline), so every row's
+  // goal slot is suppressed at source (below) and the goal lens becomes the honest
   // needs-target state. Suppression only — no value is transformed.
   const hasUserTarget = goalThreshold != null
 
@@ -313,6 +313,12 @@ export function buildHeroModel(
     // "your goal" wording names a question the number does not answer, so the
     // line states the quantity it actually is. The number itself is unchanged
     // and still shown: this is a copy switch, never a value transform.
+    // ⚠ On the live V5 wire this is the ONLY branch that runs: the selector's
+    // basis is `joint_goal_substituted` on every run (both discriminating
+    // inputs are pinned constants — see heroCopy's `noneOnTrack` block), and
+    // `optionHasConstraints` is always false. So this line, the headline and
+    // the caption must state ONE claim in one voice — they are read together,
+    // in a single render, about a single number.
     const goalFit =
       goalValue != null
         ? optionHasConstraints(o)
@@ -544,7 +550,7 @@ export function buildHeroModel(
   )
 
   // UI-SEM-072: goal-fit crown = the goalProbability ARGMAX, honestly gated.
-  // The "best fits your goal" headline and the goal-lens "(Leads on this
+  // The goal-attainment headline and the goal-lens "(Leads on this
   // view)" ring describe the GOAL view, so they must crown the row with the
   // HIGHEST goal probability — never the recommendation/win-probability
   // leader re-crowned onto a view it does not lead (live staging evidence:

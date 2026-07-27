@@ -65,7 +65,20 @@ export const HERO_COPY = {
 
   headline: {
     goalWithLimits: (label: string) => `${label} best meets the goal and your limits.`,
-    goalOnly: (label: string) => `${label} best fits your goal.`,
+    /**
+     * GOAL-ATTAINMENT IDENTITY, interim wording (family 2, slice −1) — the
+     * same claim, in the same words, as `caption.goalOnly` and
+     * `detail.goalFitJointBasis`. See the block above `noneOnTrack` for the
+     * full producer trace and why all three had to move together.
+     *
+     * The crown is the UNIQUE argmax of the goal probability among rows that
+     * all carry one (UI-SEM-072), clearing the sub-1% floor — so "most likely
+     * to meet" names exactly the quantity the caption below and the row detail
+     * beneath it show. It was `"{label} best fits your goal."`, which asserted
+     * a possessive over a number that, when the user has set constraints, does
+     * not involve the goal at all.
+     */
+    goalOnly: (label: string) => `${label} is most likely to meet every target this run scored.`,
     // DELETED 2026-07-26 (ROADMAP 1.223): `analysisLeads` — "{label} currently
     // leads the overall analysis." It was the UNBANDED leader claim, reached
     // only when no band could be resolved. Once the UI stopped banding win
@@ -95,13 +108,42 @@ export const HERO_COPY = {
     outcomeLeader: (label: string) => `${label} has the highest expected outcome.`,
     /**
      * Goal honesty: every option's goal probability sits below the sub-1%
-     * floor (UI-SEM-057) — crowning any option "best fits your goal" would
-     * be false, so the headline states the decision-relevant truth instead.
+     * floor (UI-SEM-057) — crowning any option would be false, so the headline
+     * states the decision-relevant truth instead.
      * Constraint-aware like every other goal claim: under constraints the
      * floored figure is the JOINT (goal AND limits) probability, and the
      * axis/caption already say "goal and limits" — the headline must match.
+     *
+     * ⭐ GOAL-ATTAINMENT IDENTITY, interim wording (family 2, slice −1).
+     * This string, `headline.goalOnly`, `caption.goalOnly` and
+     * `detail.goalFitJointBasis` are ONE claim on four surfaces and must stay
+     * in the same voice. They were changed together because they had drifted
+     * apart in a way the user could see in a single render: the row detail
+     * withheld the possessive while the headline and caption above it asserted
+     * it, about the same number, on every live run.
+     *
+     * WHY. The number every live V5 run renders here is
+     * `probability_of_joint_goal`. Two live cases produce it and the UI cannot
+     * tell them apart:
+     *   A. no user constraints — PLoT synthesises ONE constraint from the goal
+     *      threshold, on the goal node, `>=`, and ISL evaluates it against the
+     *      EXACT goal samples. The figure IS goal attainment, over exactly one
+     *      target, and that target is the user's own. "All targets together"
+     *      over-stated plurality on 100% of live runs.
+     *   B. user constraints present — PLoT SKIPS the synthesis and DISCARDS the
+     *      goal threshold, so the number does not involve the goal at all and
+     *      "your goal" would be false.
+     * The discriminator does not exist in contract: PLoT's attestation
+     * (`_meta.constraint_sources`) is stripped at CEE's transport keep-list,
+     * and the only local signal is an undeclared magic string on another
+     * service's internal constant. Sniffing it would be the hand-maintained
+     * mirror this family exists to remove, so the copy asserts neither a count
+     * nor a possessive and is true in BOTH cases.
+     *
+     * INTERIM: retires when CEE ships the goal verdict with an explicit
+     * measure scope and the copy can be exact.
      */
-    noneOnTrack: 'No option is currently on track to reach your goal.',
+    noneOnTrack: 'No option is currently on track to meet every target this run scored.',
     noneOnTrackWithLimits: 'No option is currently on track to meet your goal and limits.',
     singleOption: (label: string) => `${label} is your only option.`,
     noLeader: 'Here is how your options compare.',
@@ -154,7 +196,15 @@ export const HERO_COPY = {
     // Value-based wording (not "each bar"): the goal lens draws no tracks
     // (prototype v6), so the caption describes the readouts it shows.
     goalWithLimits: 'Each value is the chance that option meets your goal and limits together.',
-    goalOnly: 'Each value is the chance that option hits your goal.',
+    /**
+     * GOAL-ATTAINMENT IDENTITY, interim wording (family 2, slice −1) — the
+     * same claim, in the same words, as `headline.goalOnly` /
+     * `headline.noneOnTrack` and `detail.goalFitJointBasis`. See the block
+     * above `noneOnTrack` for the producer trace. It was `"Each value is the
+     * chance that option hits your goal."`, which asserted the possessive the
+     * row detail directly beneath it was written to withhold.
+     */
+    goalOnly: 'Each value is the chance that option meets every target this run scored.',
     /** Base outcome caption — shown when TWO OR MORE rows draw p10-p90 lines. */
     outcome: 'Dots show expected outcome. Lines show the realistic range.',
     /**
@@ -211,15 +261,22 @@ export const HERO_COPY = {
     /**
      * Goal-probability IDENTITY: used when the row's number is
      * `probability_of_joint_goal` STANDING IN for an absent
-     * `goal_probability` (the ISL-auto-derived-goal-threshold run, flagged
-     * by the shared selector as `basis: 'joint_goal_substituted'`). The
-     * number is shown — it is real and decision-relevant — but it answers
-     * "P(all targets jointly satisfied)", not "P(this option clears YOUR
-     * goal)", so the possessive framing the two lines above use would name
-     * a question this figure does not answer. Same sentence shape, no
-     * possessive, no invented claim.
+     * `goal_probability` (flagged by the shared selector as
+     * `basis: 'joint_goal_substituted'` — which, on the live V5 wire, is
+     * EVERY run). The number is shown, unchanged: this is a copy switch,
+     * never a value transform.
+     *
+     * GOAL-ATTAINMENT IDENTITY, interim wording (family 2, slice −1) — the
+     * same claim, in the same words, as `headline.goalOnly` /
+     * `headline.noneOnTrack` and `caption.goalOnly`. See the block above
+     * `noneOnTrack` for the producer trace. It was `"...chance of meeting all
+     * targets together."`, which over-stated plurality: on the ordinary run
+     * there is exactly ONE target and it is the user's own goal threshold.
+     * "Every target" is true over a singleton and over a set, so it asserts
+     * no count — and no possessive, which would be false when the user HAS
+     * set constraints and PLoT discards the goal threshold.
      */
-    goalFitJointBasis: (readout: string) => `${readout} chance of meeting all targets together.`,
+    goalFitJointBasis: (readout: string) => `${readout} chance of meeting every target this run scored.`,
   },
 
   /**

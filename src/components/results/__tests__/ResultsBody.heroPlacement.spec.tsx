@@ -190,7 +190,7 @@ describe('ResultsBody — Analysis hero placement + flag regression', () => {
   it('flag ON: hero consumes the same data (headline names the recommended option)', () => {
     vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
     renderBody()
-    expect(screen.getByTestId('hero-headline')).toHaveTextContent('Option A best fits your goal.')
+    expect(screen.getByTestId('hero-headline')).toHaveTextContent('Option A is most likely to meet every target this run scored.')
   })
 
   it('flag ON + stale: hero authors NO rerun and NO stale surface — the strip owns recovery (C1)', () => {
@@ -208,7 +208,7 @@ describe('ResultsBody — Analysis hero placement + flag regression', () => {
     // its subtree for a run control of any name/testid.
     expect(collectRerunControls(screen.getByTestId('analysis-hero-panel'))).toEqual(new Set())
     // Content stays readable and interactive (no dim/lock regression).
-    expect(screen.getByTestId('hero-headline')).toHaveTextContent('Option A best fits your goal.')
+    expect(screen.getByTestId('hero-headline')).toHaveTextContent('Option A is most likely to meet every target this run scored.')
     // Wave F-B: the freshness strip mounts in OutputsDock ABOVE the dim
     // wrapper (review a) — ResultsBody itself authors NO stale surface,
     // and the hero authors no stale banner either.

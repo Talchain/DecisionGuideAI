@@ -215,7 +215,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
     description:
       'What staging renders now for a goal-bearing run: Goal fit + Likely outcome carry data; Stability and What changed show their honest unavailable states; no trust/status/named-action producer fields exist, so those slots are empty.',
     model: fixtureChart({
-      headline: 'Hire One Tech Lead best fits your goal.',
+      headline: 'Hire One Tech Lead is most likely to meet every target this run scored.',
       subline: 'Hire One Tech Lead also has the strongest expected outcome.',
       lenses: ['goal', 'outcome'],
       defaultLens: 'goal',
@@ -329,7 +329,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
     description:
       'Every goal probability floors below 1%: the headline states the shortfall truth; the goal lens stays default because the "< 1%" rows ARE the story.',
     model: fixtureChart({
-      headline: 'No option is currently on track to reach your goal.',
+      headline: 'No option is currently on track to meet every target this run scored.',
       subline: 'Hire One Tech Lead has the highest expected outcome.',
       lenses: ['goal', 'outcome'],
       defaultLens: 'goal',
@@ -352,7 +352,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
     description:
       'Model edited since the last run: per the ratified v6 guide the hero content stays readable and interactive and the hero authors NO stale surface or rerun of its own — the adjacent freshness strip (not part of this panel) owns the warning and the one Rerun.',
     model: fixtureChart({
-      headline: 'Hire One Tech Lead best fits your goal.',
+      headline: 'Hire One Tech Lead is most likely to meet every target this run scored.',
       subline: 'Hire One Tech Lead also has the strongest expected outcome.',
       lenses: ['goal', 'outcome'],
       defaultLens: 'goal',
@@ -381,7 +381,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
       'What the user sees after committing a change that reruns (e.g. applying a success target): the content stays readable, and the analysis-affecting target-apply controls are disabled while the run is in flight (the freshness strip — not part of this panel — carries the running state and the one Rerun).',
     rerunDisabled: true,
     model: fixtureChart({
-      headline: 'Hire One Tech Lead best fits your goal.',
+      headline: 'Hire One Tech Lead is most likely to meet every target this run scored.',
       subline: 'Hire One Tech Lead also has the strongest expected outcome.',
       lenses: ['goal', 'outcome'],
       defaultLens: 'goal',

@@ -114,7 +114,7 @@ describe('buildHeroModel — leaders and headline', () => {
     // (lane 35; live staging crowned a 4% fit over 7%/6%).
     const a = makeOption({ ...OPTION_A, goalProbability: 0.9 })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, OPTION_B] })))
-    expect(m.headline).toBe('Two developers best fits your goal.')
+    expect(m.headline).toBe('Two developers is most likely to meet every target this run scored.')
     expect(m.leaders.goal).toBe('opt_a')
   })
 
@@ -132,7 +132,7 @@ describe('buildHeroModel — leaders and headline', () => {
   it('diverged leaders produce the tension subline naming the outcome leader', () => {
     const m = chart(buildHeroModel(makeHeroData()))
     expect(m.subline).toBe('Two developers has the highest expected outcome.')
-    expect(m.headline).toBe('Upskill the team best fits your goal.')
+    expect(m.headline).toBe('Upskill the team is most likely to meet every target this run scored.')
   })
 
   it('constraint presence switches the headline to goal-and-limits wording', () => {
@@ -154,12 +154,12 @@ describe('buildHeroModel — leaders and headline', () => {
     const b = makeOption({ ...OPTION_B, constraintAnalysis: CONSTRAINT })
     const m = chart(buildHeroModel(makeHeroData({ options: [OPTION_A, b] })))
     expect(m.hasConstraints).toBe(false)
-    expect(m.headline).toBe('Upskill the team best fits your goal.')
+    expect(m.headline).toBe('Upskill the team is most likely to meet every target this run scored.')
   })
 
   it('does not goal-headline a recommended option that lacks its own goal value', () => {
     // Recommended option B has no goalProbability while A has one: the hero
-    // must not claim B "best fits your goal" beside a "—" readout for B.
+    // must not claim B "is most likely to meet every target this run scored" beside a "—" readout for B.
     // The leader claim reframes to the analysis basis, and the divergence
     // subline is PERSISTENT — B is not the outcome leader, so the tension
     // is stated even without a goal basis. The reframed claim is the
@@ -245,13 +245,13 @@ describe('buildHeroModel — leaders and headline', () => {
 
   it('all goal values below the sub-1% floor produce the no-option-on-track headline', () => {
     // Staging shape: every option carried probability_of_joint_goal 0 —
-    // crowning any option "best fits your goal" would be false. The hero
+    // crowning any option "is most likely to meet every target this run scored" would be false. The hero
     // states the decision-relevant truth, drops the goal-lens leader ring,
     // and keeps the outcome fact as the subline (user-approved pairing).
     const a = makeOption({ ...OPTION_A, goalProbability: 0 })
     const b = makeOption({ ...OPTION_B, goalProbability: 0 })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
-    expect(m.headline).toBe('No option is currently on track to reach your goal.')
+    expect(m.headline).toBe('No option is currently on track to meet every target this run scored.')
     expect(m.subline).toBe('Two developers has the highest expected outcome.')
     expect(m.leaders.goal).toBeNull()
     // Goal lens stays available AND default — the "< 1%" rows ARE the story.
@@ -275,7 +275,7 @@ describe('buildHeroModel — leaders and headline', () => {
     expect(m.lenses).toEqual(['goal'])
     expect(m.subline).toBeNull()
     // The goal-fit headline itself is still honest and allowed.
-    expect(m.headline).toBe('Upskill the team best fits your goal.')
+    expect(m.headline).toBe('Upskill the team is most likely to meet every target this run scored.')
   })
 
   it('equal leaders produce the aligned subline', () => {
@@ -301,7 +301,7 @@ describe('buildHeroModel — leaders and headline', () => {
       ),
     )
     expect(m.leaders.goal).toBe('opt_b')
-    expect(m.headline).toBe('Upskill the team best fits your goal.')
+    expect(m.headline).toBe('Upskill the team is most likely to meet every target this run scored.')
     expect(m.subline).toBe('Two developers has the highest expected outcome.')
   })
 
@@ -602,7 +602,7 @@ describe('buildHeroModel — producer band consumption (PLoT decision_brief.head
         headlineBanded: { band: 'very_close', leaderOptionId: 'opt_b', robustnessGated: false },
       },
     })))
-    expect(m.headline).toBe('Upskill the team best fits your goal.')
+    expect(m.headline).toBe('Upskill the team is most likely to meet every target this run scored.')
   })
 })
 
@@ -714,7 +714,7 @@ describe('buildHeroModel — readout-tie coherence (UI-SEM-070) and span floor (
         }),
       ),
     )
-    expect(m.headline).toBe('No option is currently on track to reach your goal.')
+    expect(m.headline).toBe('No option is currently on track to meet every target this run scored.')
     expect(m.subline).toBe('The top options are close on expected outcome.')
     expect(m.subline).not.toMatch(/highest|strongest/i)
   })
@@ -1091,7 +1091,7 @@ describe('buildHeroModel — detail lines and footer (sourced or omitted)', () =
 describe('buildHeroModel — goal-fit crown follows the goal argmax (UI-SEM-072)', () => {
   // Live staging evidence (acceptance-evidence/goal-fit/6b-browser, 2026-07-08):
   // the WIN-probability leader carried the LOWEST goal fit (4% vs 7%/6%) yet was
-  // crowned "best fits your goal" + "(Highest on this view)" on the Goal fit lens.
+  // crowned "is most likely to meet every target this run scored" + "(Highest on this view)" on the Goal fit lens.
   // The crown must follow the highest goalProbability (= the collapsed
   // probability_of_joint_goal when constraints exist) — never the recommendation
   // re-crowned onto a view it does not lead.
@@ -1124,7 +1124,7 @@ describe('buildHeroModel — goal-fit crown follows the goal argmax (UI-SEM-072)
   it('crowns the max goal probability, never the win-probability leader (live 4/7/6 shape)', () => {
     const m = chart(buildHeroModel(makeHeroData({ options: [relocate, statusQuo, hybrid] })))
     expect(m.leaders.goal).toBe('opt_status_quo')
-    expect(m.headline).toBe('Stay in London best fits your goal.')
+    expect(m.headline).toBe('Stay in London is most likely to meet every target this run scored.')
   })
 
   it('states the tension against the crowned row, not the recommended option', () => {
@@ -1139,7 +1139,7 @@ describe('buildHeroModel — goal-fit crown follows the goal argmax (UI-SEM-072)
     const b = makeOption({ ...OPTION_B, goalProbability: 0.34 })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
     expect(m.leaders.goal).toBeNull()
-    expect(m.headline).not.toContain('best fits your goal')
+    expect(m.headline).not.toContain('is most likely to meet every target this run scored')
   })
 
   it('a tie at the max crowns nobody even when other fits differ', () => {
@@ -1155,7 +1155,7 @@ describe('buildHeroModel — goal-fit crown follows the goal argmax (UI-SEM-072)
     })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b, c] })))
     expect(m.leaders.goal).toBeNull()
-    expect(m.headline).not.toContain('best fits your goal')
+    expect(m.headline).not.toContain('is most likely to meet every target this run scored')
   })
 
   it('partial fit coverage crowns nobody (a max over unmeasured rivals is not "best")', () => {
@@ -1163,7 +1163,7 @@ describe('buildHeroModel — goal-fit crown follows the goal argmax (UI-SEM-072)
     const b = makeOption({ ...OPTION_B, goalProbability: undefined })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
     expect(m.leaders.goal).toBeNull()
-    expect(m.headline).not.toContain('best fits your goal')
+    expect(m.headline).not.toContain('is most likely to meet every target this run scored')
   })
 
   it('a unique max still gets no crown below the sub-1% floor', () => {
@@ -1172,7 +1172,7 @@ describe('buildHeroModel — goal-fit crown follows the goal argmax (UI-SEM-072)
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
     // All rows below the floor: the no-option-on-track honesty takes over.
     expect(m.leaders.goal).toBeNull()
-    expect(m.headline).toBe('No option is currently on track to reach your goal.')
+    expect(m.headline).toBe('No option is currently on track to meet every target this run scored.')
   })
 })
 describe('Wave 2: identity-anchored stable numbers (brief §6.4)', () => {
