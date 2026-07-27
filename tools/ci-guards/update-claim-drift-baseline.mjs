@@ -63,31 +63,42 @@ try {
     throw new Error('No claim families discovered — refusing to write a baseline that polices nothing.')
   }
 
-  const { rows } = engine.walk(families, prod)
+  const { rows, items } = engine.walk(families, prod)
   const next = engine.renderBaseline(rows)
   const path = engine.BASELINE_PATH
   const prev = existsSync(path) ? readFileSync(path, 'utf8') : null
 
-  const summarise = (text) => {
+  // The SECOND artefact, written in this same pass from this same walk. Two
+  // files, one traversal: they cannot disagree about what was scanned, and the
+  // gate cross-checks their totals so a half-run cannot leave them skewed.
+  const nextIds = engine.renderIdentities(items)
+  const idPath = engine.IDENTITIES_PATH
+  const prevIds = existsSync(idPath) ? readFileSync(idPath, 'utf8') : null
+
+  const summarise = (text, keyCols) => {
     if (text === null) return new Map()
     const m = new Map()
     for (const line of text.split('\n')) {
       if (/^\s*(#|$)/.test(line)) continue
-      const [c, family, rel] = line.split('\t')
-      m.set(`${family}\t${rel}`, c)
+      const parts = line.split('\t')
+      m.set(parts.slice(1, 1 + keyCols).join('\t'), parts[0])
     }
     return m
   }
-  const before = summarise(prev)
-  const after = summarise(next)
-
-  const changes = []
-  for (const [k, v] of after) {
-    if (!before.has(k)) changes.push(`+ ${v}\t${k}`)
-    else if (before.get(k) !== v) changes.push(`~ ${before.get(k)} → ${v}\t${k}`)
+  const delta = (prevText, nextText, keyCols) => {
+    const before = summarise(prevText, keyCols)
+    const after = summarise(nextText, keyCols)
+    const out = []
+    for (const [k, v] of after) {
+      if (!before.has(k)) out.push(`+ ${v}\t${k}`)
+      else if (before.get(k) !== v) out.push(`~ ${before.get(k)} → ${v}\t${k}`)
+    }
+    for (const k of before.keys()) if (!after.has(k)) out.push(`- (removed)\t${k}`)
+    return out.sort()
   }
-  for (const k of before.keys()) if (!after.has(k)) changes.push(`- (removed)\t${k}`)
-  changes.sort()
+
+  const changes = delta(prev, next, 2)
+  const idChanges = delta(prevIds, nextIds, 4)
 
   console.log(`families discovered: ${families.length}`)
   for (const f of families) {
@@ -113,9 +124,35 @@ try {
     exitCode = CHECK_ONLY ? 1 : 0
   }
 
+  // Printed separately and always, because this is the delta the per-file
+  // counts above cannot show: a within-file swap leaves `changes` EMPTY and
+  // moves only these rows. An empty baseline delta beside a non-empty item
+  // delta is precisely the state that used to pass unseen.
+  if (idChanges.length === 0) {
+    console.log('item baseline unchanged.')
+  } else {
+    console.log(`\nitem baseline delta (${idChanges.length} identity/identities):`)
+    for (const c of idChanges) console.log(`  ${c}`)
+    // Only meaningful when there was a previous item baseline to move AWAY
+    // from. On first generation every identity is "added" while the counts sit
+    // still, which is not a swap — and an alarm that cries wolf on day one is
+    // an alarm nobody reads on day two.
+    if (changes.length === 0 && prevIds !== null) {
+      console.log(
+        '  ⚠ the per-file counts did NOT move while the item set did — this is a\n' +
+          '    WITHIN-FILE SWAP. Read the rows above before regenerating.',
+      )
+    }
+    exitCode = CHECK_ONLY ? 1 : exitCode
+  }
+
   if (!CHECK_ONLY && prev !== next) {
     writeFileSync(path, next, 'utf8')
     console.log(`\nwrote ${path}`)
+  }
+  if (!CHECK_ONLY && prevIds !== nextIds) {
+    writeFileSync(idPath, nextIds, 'utf8')
+    console.log(`wrote ${idPath}`)
   }
 } catch (err) {
   console.error(`\nclaim-drift baseline generation FAILED: ${err && err.message ? err.message : err}`)

@@ -17,6 +17,9 @@
  * words. Every site currently reading it is therefore recorded in
  * `tools/ci-guards/claim-drift-baseline.tsv`, and the baseline is SHRINK-ONLY:
  * the count may go down when a site is migrated, and any NEW site is a hard RED.
+ * A companion `tools/ci-guards/claim-drift-identities.tsv` records the same
+ * reads per FIELD, because a per-file count cannot see one read inside a file
+ * being swapped for another; both are written by one command in one pass.
  *
  * WHAT THIS IS NOT. It is not an allowlist. An allowlist says "these reads are
  * fine"; this says "these reads are debt, they are counted, and the number may

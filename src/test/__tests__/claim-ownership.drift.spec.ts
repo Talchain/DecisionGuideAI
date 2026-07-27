@@ -32,29 +32,32 @@ import { join } from 'path'
 import {
   ABSENCE_CLAIM_SCOPE,
   BASELINE_PATH,
+  IDENTITIES_PATH,
   MIN_PROD_FILES,
   REPO_ROOT,
   UNDETECTABLE,
   UPDATE_COMMAND,
+  aggregateItems,
+  compareIdentities,
   compareToBaseline,
+  crossCheckArtefacts,
   discoverFamilies,
   findReads,
   parseBaseline,
+  parseIdentities,
   productionFiles,
   producerAttestation,
+  renderBaseline,
+  renderIdentities,
   trackedSourceFiles,
   walk,
   type Family,
+  type Item,
+  type Row,
 } from '../claimDrift/claimDriftWalker'
 
-const ROGUE_FIXTURE = join(
-  REPO_ROOT,
-  'tools',
-  'ci-guards',
-  '__fixtures__',
-  'claim-drift',
-  'rogue-consumer.tsx.fixture',
-)
+const FIXTURES = join(REPO_ROOT, 'tools', 'ci-guards', '__fixtures__', 'claim-drift')
+const ROGUE_FIXTURE = join(FIXTURES, 'rogue-consumer.tsx.fixture')
 
 describe('claim-ownership drift', () => {
   const all = trackedSourceFiles()
@@ -216,6 +219,166 @@ describe('claim-ownership drift', () => {
     expect(producerAttestation(v2, 'goal-probability')).toBeNull()
   })
 
+  // ── THE WITHIN-FILE SWAP CONTROLS, AND THEIR MUTANTS ──────────────────────
+  //
+  // #506 found two defects in scripts/ci/typecheck-gate.sh, the gate whose
+  // ratchet rules this instrument copied while calling it already-reviewed.
+  // Defect 1 (dedup on rendered text) is not inherited: nothing here
+  // deduplicates, and the row identity is (family, path). Defect 2 IS
+  // inherited — a fix-one-add-one inside one already-baselined file moves no
+  // per-file count. Measured by injection against the real gate at 13cca490:
+  // both swap shapes below left every row identical and the suite GREEN.
+  //
+  // These controls drive the SAME functions the gate and the generator use —
+  // findReads, renderIdentities/parseIdentities, compareIdentities,
+  // renderBaseline/parseBaseline — never a local re-implementation of them.
+  // Each is followed by a MUTANT that collapses the one dimension the control
+  // depends on, and asserts the control goes quiet. Without that, a control
+  // that reds for some incidental reason reads exactly like a control that
+  // works (trap 13).
+
+  const SWAP_REL = 'src/fixture/swapControl.ts'
+  const swapFamily: Family = {
+    family: 'swap-control',
+    rawFields: ['elasticity', 'sensitivity_score'],
+    callInstead: null,
+    debtReason:
+      'Pinned control family for the within-file swap ratchet; owns nothing and is never discovered.',
+    ownerRel: 'src/does/not/exist.ts',
+    outputFields: [],
+  }
+
+  /** Walk one pinned fixture exactly as `walk()` would, and return both views. */
+  const stateOf = (fixture: string): { rows: Row[]; items: Item[] } => {
+    const hits = findReads(readFileSync(join(FIXTURES, fixture), 'utf8'), SWAP_REL, swapFamily)
+    return {
+      rows: [{ family: swapFamily.family, rel: SWAP_REL, count: hits.length, exempt: false }],
+      items: hits.map((h) => ({
+        family: swapFamily.family,
+        rel: SWAP_REL,
+        field: h.field,
+        text: h.text,
+      })),
+    }
+  }
+  /** Round-trip through the real serialisers, so the control cannot diverge. */
+  const asBaseline = (rows: Row[]) => parseBaseline(renderBaseline(rows))
+  const asIdentities = (items: Item[]) => parseIdentities(renderIdentities(items))
+  const fields = (items: Item[]) => items.map((i) => i.field).sort()
+  const texts = (items: Item[]) => items.map((i) => i.text).sort()
+
+  const before = stateOf('swap-before.ts.fixture')
+  const diffField = stateOf('swap-different-field.ts.fixture')
+  const sameField = stateOf('swap-same-field.ts.fixture')
+
+  it('control: the fixtures really are SWAPS — same per-file count, different reads', () => {
+    // If this drifts, every assertion below is testing something else.
+    expect(before.items.length).toBe(2)
+    expect(diffField.rows[0].count).toBe(before.rows[0].count)
+    expect(sameField.rows[0].count).toBe(before.rows[0].count)
+    expect(fields(diffField.items)).not.toEqual(fields(before.items))
+    expect(fields(sameField.items)).toEqual(fields(before.items))
+    expect(texts(sameField.items)).not.toEqual(texts(before.items))
+  })
+
+  it('control: the PER-FILE count ratchet is SILENT on both swaps — the hole, asserted', () => {
+    // Not "we believe it cannot see this". It is run, and it says nothing.
+    for (const after of [diffField, sameField]) {
+      expect(
+        compareToBaseline(after.rows, asBaseline(before.rows), new Map(), [swapFamily]),
+      ).toEqual([])
+    }
+  })
+
+  it('control: a DIFFERENT-field within-file swap is BLOCKED by the identities ratchet', () => {
+    const { failures } = compareIdentities(diffField.items, asIdentities(before.items))
+    expect(failures).not.toEqual([])
+    // It must red for the right reason: the field buckets moved, both ways.
+    expect(failures.join('\n')).toMatch(/MORE reads of one field[^]*sensitivity_score/)
+    expect(failures.join('\n')).toMatch(/STALE raw-read field[^]*elasticity/)
+  })
+
+  it('MUTANT: collapse the FIELD dimension and that control goes quiet', () => {
+    // Same two states, every field forced to one value. If the red above came
+    // from anything other than the per-field bucket, it would survive this.
+    const flat = (items: Item[]): Item[] => items.map((i) => ({ ...i, field: 'ONE_BUCKET' }))
+    expect(compareIdentities(flat(diffField.items), asIdentities(flat(before.items))).failures).toEqual(
+      [],
+    )
+  })
+
+  it('control: a SAME-field within-file swap blocks NOTHING, and is REPORTED', () => {
+    const { failures, notices } = compareIdentities(sameField.items, asIdentities(before.items))
+    // The declared limit, pinned so it cannot be quietly overclaimed again.
+    expect(failures).toEqual([])
+    // ...but it is not invisible: exactly one identity out, one in.
+    expect(notices.filter((n) => n.startsWith('+'))).toHaveLength(1)
+    expect(notices.filter((n) => n.startsWith('-'))).toHaveLength(1)
+    expect(notices.join('\n')).toMatch(/elasticity/)
+  })
+
+  it('MUTANT: collapse the TEXT dimension and that report goes quiet', () => {
+    // The report's whole discriminating power is the source text. Collapse it
+    // to a constant and a same-field swap becomes literally unobservable —
+    // which is the state this instrument was in before this PR, stated as a
+    // mutant rather than as a claim.
+    const elide = (items: Item[]): Item[] => items.map((i) => ({ ...i, text: 'TEXT_ELIDED' }))
+    const { failures, notices } = compareIdentities(
+      elide(sameField.items),
+      asIdentities(elide(before.items)),
+    )
+    expect(failures).toEqual([])
+    expect(notices).toEqual([])
+    // And the artefact cannot be muted by hand either: a row with an EMPTY text
+    // column would disable the report for that read, so it is rejected outright
+    // rather than parsed into a silent blind spot.
+    const withEmptyText = renderIdentities(before.items).replace(/\t[^\t\n]+$/m, '\t')
+    expect(() => parseIdentities(withEmptyText)).toThrow(/Malformed identities row/)
+  })
+
+  it('control: the two artefacts must AGREE, and say so loudly when they do not', () => {
+    // Consistent pair: silent.
+    expect(crossCheckArtefacts(before.rows, aggregateItems(before.items))).toEqual([])
+    // Skewed pair — the shape a half-run generator or a hand edit produces.
+    const skewed: Row[] = [{ ...before.rows[0], count: before.rows[0].count + 1 }]
+    expect(crossCheckArtefacts(skewed, aggregateItems(before.items))).not.toEqual([])
+  })
+
+  it('control: the item artefact is byte-stable under input order — no phantom diffs', () => {
+    // #506's Fix 1 in its general form: an artefact whose bytes depend on
+    // anything but the facts it records will diff for no reason, and a diff
+    // with no defect behind it teaches people to regenerate without reading.
+    // Walk order is a `git ls-files` implementation detail; the file must not
+    // encode it.
+    const shuffled = [...before.items, ...diffField.items].sort(() => 0.5 - Math.random())
+    const a = renderIdentities(shuffled)
+    const b = renderIdentities([...shuffled].reverse())
+    expect(a).toBe(b)
+  })
+
+  it('control: duplicate reads are COUNTED, never de-duplicated', () => {
+    // The direction matters. #506 found one diagnostic baselined TWICE by a
+    // `sort -u` over unstable text; the opposite error — collapsing two real
+    // reads into one — would silently license the second. Two identical lines
+    // are two reads, and the artefact says 2.
+    const twice: Item[] = [before.items[0], { ...before.items[0] }]
+    const rows = aggregateItems(twice)
+    expect(rows).toHaveLength(1)
+    expect(rows[0].count).toBe(2)
+    expect(parseIdentities(renderIdentities(twice)).declaredCount).toBe(2)
+  })
+
+  it('control: neither artefact accepts a hand-edited total', () => {
+    const bumpHeader = (text: string, name: string) =>
+      text.replace(new RegExp(`# ${name}=\\d+`), `# ${name}=999`)
+    expect(() => parseBaseline(bumpHeader(renderBaseline(before.rows), 'count'))).toThrow(
+      /internally inconsistent/,
+    )
+    expect(() => parseIdentities(bumpHeader(renderIdentities(before.items), 'count'))).toThrow(
+      /internally inconsistent/,
+    )
+  })
+
   // ── THE WALK ──────────────────────────────────────────────────────────────
 
   it('no production file re-derives an owned claim beyond the baseline', async () => {
@@ -234,12 +397,44 @@ describe('claim-ownership drift', () => {
       `Missing baseline: ${BASELINE_PATH}. Generate it with \`${UPDATE_COMMAND}\`.`,
     ).toBe(true)
 
+    expect(
+      existsSync(IDENTITIES_PATH),
+      `Missing item baseline: ${IDENTITIES_PATH}. Generate it with \`${UPDATE_COMMAND}\`.`,
+    ).toBe(true)
+
     const baseline = parseBaseline(readFileSync(BASELINE_PATH, 'utf8'))
-    const { rows, detail } = walk(families, prod)
+    const identities = parseIdentities(readFileSync(IDENTITIES_PATH, 'utf8'))
+    const { rows, detail, items } = walk(families, prod)
+
+    // The pair must agree before either is trusted. A skew means one artefact
+    // was hand-edited or a generator half-ran, and a baseline that disagrees
+    // with its own detail is the green-lie shape both files exist to prevent.
+    expect(
+      crossCheckArtefacts(baseline.rows, identities.rows).join('\n'),
+      'claim-drift-baseline.tsv and claim-drift-identities.tsv disagree. They are ' +
+        `generated in one pass; regenerate both with \`${UPDATE_COMMAND}\`.`,
+    ).toBe('')
+
     const failures = compareToBaseline(rows, baseline, detail, families)
+    const { failures: idFailures, notices } = compareIdentities(items, identities)
+
+    // NON-BLOCKING, by design and for #506's reason: the identity carries source
+    // TEXT, text moves under reformatting, and a heuristic belongs where its
+    // drift costs noise in a report rather than a red build. This print is the
+    // ONLY place a same-field within-file swap becomes visible.
+    if (notices.length > 0) {
+      console.log(
+        `\n[claim-drift] ${notices.length} raw-read identity change(s) — reported, not blocking:\n` +
+          notices.map((n) => `  ${n}`).join('\n') +
+          (failures.length === 0 && idFailures.length === 0
+            ? '\n  ⚠ every count ratchet is GREEN while the item set moved: this is a\n' +
+              '    WITHIN-FILE SWAP. No count can see one. Read the rows above.\n'
+            : '\n'),
+      )
+    }
 
     expect(
-      failures.join('\n\n'),
+      [...failures, ...idFailures].join('\n\n'),
       `\nScope of the absence claim this instrument supports:\n  ${ABSENCE_CLAIM_SCOPE}\n` +
         `It provably does NOT see:\n${UNDETECTABLE.map((u) => `  • ${u}`).join('\n')}\n`,
     ).toBe('')

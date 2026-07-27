@@ -62,6 +62,12 @@ export const REPO_ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], {
 /** The generated, shrink-only ratchet. Next to the repo's other guard baselines. */
 export const BASELINE_PATH = join(REPO_ROOT, 'tools', 'ci-guards', 'claim-drift-baseline.tsv')
 
+/**
+ * The generated ITEM baseline. Same provenance, same command, written in the
+ * same pass — see THE RATCHET below for why one artefact was not enough.
+ */
+export const IDENTITIES_PATH = join(REPO_ROOT, 'tools', 'ci-guards', 'claim-drift-identities.tsv')
+
 /** The named, no-env-var escape hatch. Printed in every failure message. */
 export const UPDATE_COMMAND = 'node tools/ci-guards/update-claim-drift-baseline.mjs'
 
@@ -83,6 +89,12 @@ export const UNDETECTABLE = [
   // ever sees a committed tree, and it matches how the typecheck gate derives
   // its own file set — but locally, `git add` is what arms the instrument.
   'untracked files: a new file is invisible until `git add` (CI sees only committed trees)',
+  // Added 2026-07-27 after the #506 inheritance check. Both are limits of
+  // COUNTING, not of detection: the reads are seen, the ratchet cannot price
+  // them. Written down here rather than left for someone to discover green.
+  'a second raw read on a line that already has one: findReads records at most one hit per line',
+  'a within-file swap of the SAME field: no count-based ratchet can see one — it is REPORTED ' +
+    'via claim-drift-identities.tsv, and reporting is not blocking',
 ] as const
 
 /**
@@ -328,6 +340,44 @@ export function isSanctioned(lines: string[], i: number, at: number, fam: Family
 }
 
 /**
+ * One raw read: which registered field, on which line, in what text.
+ *
+ * THE IDENTITY OF A READ IS (field, canonical text) — NOT the line number.
+ * This is the deliberate INVERSE of the typecheck gate's dedup key, and the
+ * inversion is the whole point. `tsc` emits diagnostics whose POSITION is
+ * stable and whose WORDING is not (union members re-order between programs), so
+ * that gate keys on file+line+column+code. This walker scans SOURCE, where the
+ * opposite holds: the text of a read is byte-stable at a commit, while its line
+ * number moves every time anything above it is edited. Keying an item on the
+ * line here would manufacture churn on every unrelated edit — the same phantom
+ * signal #506 removed, arrived at from the other direction.
+ */
+export interface Hit {
+  /** 1-based line number. For the human failure message ONLY; not the identity. */
+  line: number
+  /** Which of `fam.rawFields` this read names. Part of the identity. */
+  field: string
+  /** The source line, whitespace-canonicalised. Part of the identity. */
+  text: string
+  /** The source line as written, trimmed. For the failure message. */
+  raw: string
+}
+
+/**
+ * Whitespace-canonicalised so that re-indentation (a Prettier reflow, a change
+ * of nesting depth) is not reported as a new read. Also guarantees the text
+ * carries no TAB, which is what the identities file uses as its separator.
+ */
+export function canonicaliseHitText(line: string): string {
+  return line.replace(/\s+/g, ' ').trim()
+}
+
+/** The failure-message rendering, unchanged from the shape callers expect. */
+export function renderHit(h: Hit): string {
+  return `L${h.line}: ${h.raw}`
+}
+
+/**
  * Raw reads of a family's fields in one file's source.
  *
  * Comments are stripped first, via the SHARED
@@ -338,22 +388,35 @@ export function isSanctioned(lines: string[], i: number, at: number, fam: Family
  * String and TEMPLATE literals are kept as CODE, deliberately: a real
  * `${prob.goal_probability}` interpolation renders, and the quoted-computed-key
  * pattern below needs the string body to survive.
+ *
+ * AT MOST ONE HIT PER LINE, which is an UNDER-count and is declared as such in
+ * `UNDETECTABLE`: two raw reads on one line count once, so adding a second read
+ * to a line that already has one moves no number anywhere. The identities file
+ * narrows that hole (a second FIELD on an existing line is a new item) but does
+ * not close it for a second read of the SAME field on the same line.
  */
-export function findReads(src: string, rel: string, fam: Family): string[] {
+export function findReads(src: string, rel: string, fam: Family): Hit[] {
   const p = patternsFor(fam.rawFields)
   const stripped = stripComments(src, rel).split('\n')
   const rawLines = src.split('\n')
-  const hits: string[] = []
+  const hits: Hit[] = []
   for (let i = 0; i < stripped.length; i++) {
     const line = stripped[i]
+    const at = (field: string): Hit => ({
+      line: i + 1,
+      field,
+      text: canonicaliseHitText(rawLines[i]),
+      raw: rawLines[i].trim(),
+    })
     const m = p.member.exec(line)
     if (m && !isSanctioned(stripped, i, m.index, fam)) {
-      hits.push(`L${i + 1}: ${rawLines[i].trim()}`)
+      hits.push(at(m[1]))
       continue
     }
-    if (p.destructure.test(line) || p.renamed.test(line) || p.computed.test(line)) {
-      hits.push(`L${i + 1}: ${rawLines[i].trim()}`)
-    }
+    // Same predicates, same precedence as before; `exec` rather than `test`
+    // only so the matched FIELD is recoverable for the identities file.
+    const other = p.destructure.exec(line) ?? p.renamed.exec(line) ?? p.computed.exec(line)
+    if (other) hits.push(at(other[1]))
   }
   return hits
 }
@@ -403,16 +466,32 @@ export interface Row {
   exempt: boolean
 }
 
+/**
+ * One raw read as the identities artefact records it. Deliberately carries NO
+ * `exempt` flag: exemption is a property of the (family, file) row and is
+ * already recorded, once, in the count baseline. Recording it twice would be a
+ * second place for it to drift.
+ */
+export interface Item {
+  family: string
+  rel: string
+  field: string
+  text: string
+}
+
 export interface WalkResult {
   rows: Row[]
   /** `${family}\t${rel}` → the offending lines, for the failure message. */
   detail: Map<string, string[]>
+  /** Every hit, flattened. The SET the count ratchet cannot see. */
+  items: Item[]
 }
 
 /** Walk every production file for every discovered family. */
 export function walk(families: Family[], prod: string[]): WalkResult {
   const rows: Row[] = []
   const detail = new Map<string, string[]>()
+  const items: Item[] = []
 
   for (const fam of families) {
     const fieldRe = new RegExp(fam.rawFields.map(escapeRe).join('|'))
@@ -424,20 +503,71 @@ export function walk(families: Family[], prod: string[]): WalkResult {
       const exempt = producerAttestation(src, fam.family) !== null
       if (hits.length === 0 && !exempt) continue
       rows.push({ family: fam.family, rel, count: hits.length, exempt })
-      if (hits.length > 0) detail.set(`${fam.family}\t${rel}`, hits)
+      if (hits.length > 0) detail.set(`${fam.family}\t${rel}`, hits.map(renderHit))
+      for (const h of hits) items.push({ family: fam.family, rel, field: h.field, text: h.text })
     }
   }
 
   rows.sort((a, b) => a.family.localeCompare(b.family) || a.rel.localeCompare(b.rel))
-  return { rows, detail }
+  return { rows, detail, items }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// THE RATCHET. Rules and file shape copied from scripts/ci/typecheck-gate.sh,
-// which has already survived this critique: generator-written only,
-// BIDIRECTIONAL (a stale row is RED, so the baseline cannot rot into a green
-// lie), and a header total cross-checked against the row sum so a hand-edited
-// count cannot loosen the gate without touching the rows.
+// THE RATCHET.
+//
+// ⚠ THIS HEADER PREVIOUSLY SAID the rules were "copied from
+// scripts/ci/typecheck-gate.sh, WHICH HAS ALREADY SURVIVED THIS CRITIQUE".
+// That was false when it was written, and it was load-bearing: it invited every
+// reader to stop checking. #506 landed the same day as this walker and found
+// TWO defects in the gate whose survival was being cited —
+//   (1) `sort -u` deduplicating on RENDERED diagnostic text that the producer
+//       renders differently between runs, so one error was baselined twice; and
+//   (2) per-file counts that were documented as closing the intra-baseline swap
+//       hole and do not: a fix-N-add-N inside ONE file moves no count. 37 real
+//       diagnostics landed green through it, measured.
+// Inheritance of both was then checked HERE rather than assumed. What was
+// actually verified, and how, is recorded below.
+//
+// DEFECT 1 — NOT INHERITED, by construction. This walker performs no
+// deduplication at all, and its row identity is (family, repo-relative path):
+// structural facts from the registration and from `git ls-files`, not text any
+// producer renders. Its unit of count is a source LINE read off disk, which is
+// byte-stable at a commit. It is already keyed the way #506 had to move the
+// typecheck gate.
+//
+// DEFECT 2 — INHERITED, and now closed as far as counting can close it.
+// Measured by injection against the real gate at 13cca490: replacing one raw
+// read with another inside a single already-baselined file left every row
+// identical and the gate GREEN, for a different-field swap AND for a same-field
+// swap. So this file now generates a SECOND artefact, and the pair is
+// cross-checked on every run so it fails loud rather than rotting into
+// disagreement:
+//
+//   claim-drift-baseline.tsv    per (family, file) counts        BLOCKING
+//   claim-drift-identities.tsv  per (family, file, field) counts BLOCKING
+//                               the item SET, by canonical text  REPORTED
+//
+// WHAT THAT GUARANTEES, AND WHAT IT DOES NOT — state both, per #506's lesson.
+// The field bucket closes the within-file swap that changes WHICH owned field
+// is read. A within-file swap of the SAME field — delete one `elasticity` read,
+// add another `elasticity` read — moves no count in either artefact and is
+// invisible to ANY count-based ratchet by construction. It is REPORTED, not
+// blocked, and for the reason #506 established: the report's key includes
+// source text, text moves under reformatting, and a heuristic belongs where its
+// drift costs noise rather than a red build.
+//
+// Both properties the old header claimed, kept and still true of both
+// artefacts: generator-written only; BIDIRECTIONAL (a stale row or bucket is
+// RED, so a baseline cannot rot into a green lie); and header totals
+// cross-checked against the row sums, so a hand-edited number cannot loosen
+// either gate without touching the rows.
+//
+// The gate whose rules these are now proves its own discrimination in
+// `scripts/ci/typecheck-gate-selftest.sh`, which drives it through seven
+// scenarios including the dedup key and the within-file swap, each with a
+// mutant. The equivalents for this instrument are the swap controls and their
+// mutants in `src/test/__tests__/claim-ownership.drift.spec.ts`. Cite those, not
+// a claim that some other gate has been reviewed enough.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface Baseline {
@@ -626,4 +756,275 @@ export function compareToBaseline(
   }
 
   return failures
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THE ITEM BASELINE. What the count ratchet above cannot see.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** One recorded identity: N reads of `field`, all rendering as `text`. */
+export interface IdentityRow {
+  family: string
+  rel: string
+  field: string
+  text: string
+  count: number
+}
+
+export interface Identities {
+  rows: IdentityRow[]
+  declaredCount: number
+  declaredIdentities: number
+}
+
+/** The BLOCKING bucket. Stable under reflow, under line moves, under renaming. */
+const bucket = (r: { family: string; rel: string; field: string }): string =>
+  `${r.family}\t${r.rel}\t${r.field}`
+
+/** The REPORTED identity. Adds the text, which is what a same-field swap moves. */
+const identity = (r: { family: string; rel: string; field: string; text: string }): string =>
+  `${r.family}\t${r.rel}\t${r.field}\t${r.text}`
+
+/**
+ * Aggregate items into counted identity rows.
+ *
+ * COUNTED, not de-duplicated. Two identical reads on two lines of one file are
+ * two reads, and collapsing them would under-count in exactly the direction
+ * #506's Fix 1 over-counted. There is no `sort -u` anywhere in this instrument.
+ */
+export function aggregateItems(items: Item[]): IdentityRow[] {
+  const byId = new Map<string, IdentityRow>()
+  for (const it of items) {
+    const k = identity(it)
+    const prev = byId.get(k)
+    if (prev) prev.count += 1
+    else byId.set(k, { family: it.family, rel: it.rel, field: it.field, text: it.text, count: 1 })
+  }
+  // BYTE order, not `localeCompare`. Collation is locale- and ICU-version
+  // dependent, and this artefact's last column is arbitrary source text full of
+  // punctuation — precisely where two environments disagree. A generator whose
+  // output ordering depends on the machine it ran on produces phantom diffs
+  // with no defect behind them, which is #506's Fix 1 arriving by another road.
+  const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
+  return [...byId.values()].sort(
+    (a, b) =>
+      cmp(a.family, b.family) || cmp(a.rel, b.rel) || cmp(a.field, b.field) || cmp(a.text, b.text),
+  )
+}
+
+/** Serialise the item set as the identities file's exact bytes. */
+export function renderIdentities(items: Item[]): string {
+  const rows = aggregateItems(items)
+  const total = rows.reduce((s, r) => s + r.count, 0)
+  const body = rows.map((r) => `${r.count}\t${r.family}\t${r.rel}\t${r.field}\t${r.text}`).join('\n')
+  return (
+    [
+      '# Claim-ownership drift ITEM baseline — PER-FAMILY, PER-FILE, PER-FIELD raw reads.',
+      `# Generated by: ${UPDATE_COMMAND}`,
+      '# Consumed by:  src/test/__tests__/claim-ownership.drift.spec.ts, alongside',
+      '#               claim-drift-baseline.tsv. The two are written in the SAME pass and',
+      '#               cross-checked on every run, so the pair fails loud rather than',
+      '#               rotting into disagreement.',
+      '#',
+      '# WHY A SECOND FILE. claim-drift-baseline.tsv counts per (family, file). A',
+      '# fix-one-add-one INSIDE one file moves no such count, so a raw read can be',
+      '# replaced by a different raw read with the gate staying green — measured by',
+      '# injection at 13cca490, for a different-field swap and a same-field swap alike.',
+      '# That is the hole #506 measured in the typecheck gate (37 diagnostics landed',
+      '# through its equivalent), inherited here.',
+      '#',
+      '# WHAT BLOCKS: a new (family, file, FIELD) bucket, a bucket whose count rises,',
+      '# or a STALE bucket the walk no longer finds. Bidirectional, like the counts.',
+      '#',
+      '# WHAT IS REPORTED BUT DOES NOT BLOCK: added/removed identities, where the',
+      '# identity includes the canonicalised source TEXT. This is what makes a',
+      '# SAME-field within-file swap visible at all — no count-based ratchet can see',
+      '# one. It does not block because the text moves under reformatting, and a',
+      '# heuristic belongs where its drift costs noise in a report, not a red build.',
+      '#',
+      '# Counted, never de-duplicated: two identical reads on two lines are two reads.',
+      '# No `exempt` column — exemption is a property of the (family, file) row and is',
+      '# recorded once, in claim-drift-baseline.tsv. Twice would be twice to drift.',
+      '#',
+      '# SHRINK-ONLY. No env var, no silent bypass. To accept a change, regenerate in',
+      `# the same PR with \`${UPDATE_COMMAND}\` and say so in the PR body.`,
+      '#',
+      '# Format: <count><TAB><family><TAB><path><TAB><field><TAB><canonicalised source line>',
+      `# count=${total}`,
+      `# identities=${rows.length}`,
+    ].join('\n') + `\n${body}\n`
+  )
+}
+
+/** Parse the identities file. Malformed input is rejected, never treated as absent. */
+export function parseIdentities(text: string): Identities {
+  const lines = text.split('\n')
+
+  const header = (name: string): number => {
+    const found = lines.filter((l) => new RegExp(`^\\s*#\\s*${name}=`).test(l))
+    if (found.length !== 1) {
+      throw new Error(
+        `Identities file must have exactly one '# ${name}=<N>' header (found ${found.length}).`,
+      )
+    }
+    const n = Number(found[0].replace(new RegExp(`.*${name}=`), '').trim())
+    if (!Number.isInteger(n) || n < 0) {
+      throw new Error(`Identities '# ${name}=' must be a non-negative integer.`)
+    }
+    return n
+  }
+
+  const declaredCount = header('count')
+  const declaredIdentities = header('identities')
+
+  const rows: IdentityRow[] = []
+  for (const line of lines) {
+    if (/^\s*(#|$)/.test(line)) continue
+    const parts = line.split('\t')
+    if (parts.length !== 5 || parts.slice(1).some((p) => !p)) {
+      throw new Error(
+        `Malformed identities row (expected ` +
+          `'<count><TAB><family><TAB><path><TAB><field><TAB><text>'): ${line}`,
+      )
+    }
+    const [cell, family, rel, field, itemText] = parts
+    if (!/^\d+$/.test(cell)) {
+      throw new Error(`Malformed identities count (expected digits): ${line}`)
+    }
+    rows.push({ family, rel, field, text: itemText, count: Number(cell) })
+  }
+
+  const check = (name: string, declared: number, actual: number): void => {
+    if (declared !== actual) {
+      throw new Error(
+        `Identities file is internally inconsistent: '# ${name}=${declared}' but the rows give ` +
+          `${actual}. Regenerate with \`${UPDATE_COMMAND}\` instead of editing by hand.`,
+      )
+    }
+  }
+  check('count', declaredCount, rows.reduce((s, r) => s + r.count, 0))
+  check('identities', declaredIdentities, rows.length)
+
+  return { rows, declaredCount, declaredIdentities }
+}
+
+export interface IdentityComparison {
+  /** Blocking. Per (family, file, field) — the sub-case a count CAN close. */
+  failures: string[]
+  /** Non-blocking. The item set — the only place a same-field swap shows up. */
+  notices: string[]
+}
+
+/**
+ * Compare the walked items against the frozen item baseline.
+ *
+ * Two tiers, deliberately, exactly as #506 shipped for the typecheck gate: a
+ * cheap STABLE bucket that blocks, and a text-bearing SET that only reports.
+ */
+export function compareIdentities(current: Item[], baseline: Identities): IdentityComparison {
+  const sum = (rows: Array<{ count: number }>): number => rows.reduce((s, r) => s + r.count, 0)
+
+  const curRows = aggregateItems(current)
+  const group = (rows: IdentityRow[]): Map<string, IdentityRow[]> => {
+    const m = new Map<string, IdentityRow[]>()
+    for (const r of rows) {
+      const k = bucket(r)
+      const list = m.get(k)
+      if (list) list.push(r)
+      else m.set(k, [r])
+    }
+    return m
+  }
+  const curBuckets = group(curRows)
+  const baseBuckets = group(baseline.rows)
+
+  const failures: string[] = []
+  for (const [k, rows] of curBuckets) {
+    const [family, rel, field] = k.split('\t')
+    const b = baseBuckets.get(k)
+    const now = sum(rows)
+    if (!b) {
+      failures.push(
+        `+ NEW raw-read field  ${family}  ${rel}  field "${field}" (${now} read(s))\n` +
+          rows.map((r) => `      ${r.count}× ${r.text}`).join('\n') +
+          `\n    → This file is already in the count baseline, so swapping one owned field\n` +
+          `      for another inside it moves no per-file count. That is the hole this\n` +
+          `      artefact exists to close.`,
+      )
+      continue
+    }
+    const was = sum(b)
+    if (now > was) {
+      failures.push(
+        `! MORE reads of one field than the baseline allows  ${family}  ${rel}  ` +
+          `field "${field}": baseline ${was} → current ${now}\n` +
+          rows.map((r) => `      ${r.count}× ${r.text}`).join('\n'),
+      )
+    }
+  }
+  for (const [k, rows] of baseBuckets) {
+    if (curBuckets.has(k)) continue
+    const [family, rel, field] = k.split('\t')
+    failures.push(
+      `- STALE raw-read field  ${family}  ${rel}  field "${field}"\n` +
+        `    The item baseline still reserves ${sum(rows)} read(s) of this field here, but\n` +
+        `    the walk finds none. Regenerate with \`${UPDATE_COMMAND}\` so the number goes\n` +
+        `    DOWN and stays down.`,
+    )
+  }
+
+  // ── The non-blocking half. A same-field swap lives ONLY here. ──
+  const notices: string[] = []
+  const curById = new Map(curRows.map((r) => [identity(r), r]))
+  const baseById = new Map(baseline.rows.map((r) => [identity(r), r]))
+  for (const [k, r] of curById) {
+    const b = baseById.get(k)
+    if (!b) notices.push(`+ ${r.count}\t${r.family}\t${r.rel}\t${r.field}\t${r.text}`)
+    else if (r.count > b.count) notices.push(`~ ${b.count} → ${r.count}\t${k}`)
+  }
+  for (const [k, b] of baseById) {
+    const r = curById.get(k)
+    if (!r) notices.push(`- ${b.count}\t${k}`)
+    else if (r.count < b.count) notices.push(`~ ${b.count} → ${r.count}\t${k}`)
+  }
+  notices.sort()
+
+  return { failures, notices }
+}
+
+/**
+ * The two artefacts must agree about how many reads each (family, file) holds.
+ *
+ * Generated in one pass from one walk, so a disagreement means one of them was
+ * hand-edited or a generator half-ran. Either way the pair must fail LOUD: a
+ * baseline that silently disagrees with its own detail is the green-lie shape
+ * both files exist to prevent.
+ */
+export function crossCheckArtefacts(rows: Row[], identityRows: IdentityRow[]): string[] {
+  const perRow = new Map<string, number>()
+  for (const r of rows) perRow.set(`${r.family}\t${r.rel}`, r.count)
+  const perItems = new Map<string, number>()
+  for (const r of identityRows) {
+    const k = `${r.family}\t${r.rel}`
+    perItems.set(k, (perItems.get(k) ?? 0) + r.count)
+  }
+  const problems: string[] = []
+  for (const [k, n] of perRow) {
+    const m = perItems.get(k) ?? 0
+    if (n !== m) {
+      problems.push(
+        `${k.replace('\t', '  ')}: claim-drift-baseline.tsv says ${n} read(s), ` +
+          `claim-drift-identities.tsv accounts for ${m}.`,
+      )
+    }
+  }
+  for (const [k, m] of perItems) {
+    if (!perRow.has(k)) {
+      problems.push(
+        `${k.replace('\t', '  ')}: claim-drift-identities.tsv records ${m} read(s) for a ` +
+          `(family, file) that claim-drift-baseline.tsv does not list at all.`,
+      )
+    }
+  }
+  return problems.sort()
 }
