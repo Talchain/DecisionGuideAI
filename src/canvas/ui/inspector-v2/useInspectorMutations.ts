@@ -115,14 +115,33 @@ export function useNodeMutations(nodeId: string) {
     })
   }, [nodeId, updateNode, getNode])
 
-  const setObservedValue = useCallback((value: number) => {
+  /**
+   * Write `observedState.value` — ALWAYS the MODEL-scale number (for a capped
+   * factor, raw/cap), never a display magnitude. The advanced editors bind
+   * straight to it as "Normalised value" (0-1), which is why this setter does
+   * NO normalising of its own: it stores exactly what it is given.
+   *
+   * `rawValue` (ROADMAP 1.346) is the OPTIONAL user-unit magnitude that
+   * produced `value`. It exists so the panel's number input — which shows the
+   * user-unit magnitude — can commit BOTH halves in ONE `updateNode`. Two
+   * separate setter calls would push two history entries and fire two
+   * freshness invalidations for a single user edit, and would leave a window in
+   * which `value` and `raw_value` disagree about the same number. Callers that
+   * genuinely edit only the normalised value (the advanced editors) pass one
+   * argument and are unaffected.
+   */
+  const setObservedValue = useCallback((value: number, rawValue?: number) => {
     const node = getNode()
     if (!node) return
     const existing = (node.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
     updateNode(nodeId, {
       data: {
         ...node.data,
-        observedState: { ...existing, value },
+        observedState: {
+          ...existing,
+          value,
+          ...(typeof rawValue === 'number' && Number.isFinite(rawValue) ? { raw_value: rawValue } : {}),
+        },
       },
     })
   }, [nodeId, updateNode, getNode])

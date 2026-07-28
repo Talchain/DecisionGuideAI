@@ -37,6 +37,8 @@ import type { InspectorPanelProps } from '../types'
 import { resolveCoaching } from '../coachingConfig'
 import { FactorControllableEditor } from '../editors/FactorControllableEditor'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
+import { useOptionalConversationContext } from '../../../conversation/ConversationContext'
+import { buildFactorValueEditEvent, resolveValueInputSeed } from '../../../conversation/factorValueEdit'
 
 /**
  * Extract a non-empty string intervention value, accepting either a bare
@@ -106,16 +108,80 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
   const [isEditingDescription, setIsEditingDescription] = useState(false)
 
-  // Local draft for editable value input
-  const inputDisplayValue = rawValue ?? value
+  // Local draft for editable value input.
+  //
+  // The seed (and, critically, WHICH SCALE it is in) comes from
+  // resolveValueInputSeed — the single definition shared with the wire emitter.
+  // It used to be an inline `rawValue ?? value` here, with the commit guard
+  // below comparing the typed number against `value` alone. That mismatch was
+  // load-bearing: on a capped factor the input shows the USER-UNIT magnitude
+  // (30000) while `value` holds the MODEL-scale number (1), so
+  // `parsed !== value` was true for every commit AND for every re-commit of an
+  // unchanged number. Comparing against the seed the input actually displayed
+  // is what makes "commit the same value → nothing happens" true.
+  const { seed: inputDisplayValue } = resolveValueInputSeed(node?.data)
   const [draftValue, setDraftValue] = useState<string>(inputDisplayValue != null ? String(inputDisplayValue) : '')
+
+  // ROADMAP 1.346 — the inspector value-commit is a REAL TURN.
+  //
+  // Optional by design: the inspector renders in surfaces that are not inside
+  // the ConversationProvider (and in unit tests), and a missing provider must
+  // degrade to "local edit only", never throw. Same pattern as WhatChangedChip.
+  const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
+
   const handleValueBlur = useCallback(() => {
     const parsed = parseFloat(draftValue)
-    if (!isNaN(parsed) && parsed !== value) {
-      mutations.setObservedValue(parsed)
-      confirmEdit('value')
+    // Commit ONCE per genuinely-changed value. `inputDisplayValue` is the
+    // number the field was showing, so a re-blur after a commit — and a commit
+    // of an unchanged number — are both no-ops here. That is the mechanism
+    // behind the negative control (a same-value edit must not claim a change);
+    // CEE's noop dedup is the backstop, not the mechanism.
+    if (isNaN(parsed) || parsed === inputDisplayValue) return
+
+    // ONE derivation feeds BOTH the local store write and the wire, so the two
+    // cannot disagree about the same edit. Building it first (rather than
+    // writing locally and re-deriving for the send) is what makes that
+    // structural instead of a convention someone has to remember.
+    const event = buildFactorValueEditEvent({
+      // `nodeId` is optional on InspectorPanelProps (the router renders the
+      // panel before a selection resolves). An empty id is unencodable and the
+      // builder returns null for it — fail closed rather than emit a mutation
+      // with no target.
+      nodeId: nodeId ?? '',
+      typedValue: parsed,
+      // Read the node as it was BEFORE the local write: the factor's own scale
+      // metadata (cap/unit) is what decides the scale of what the user typed.
+      nodeData: node?.data,
+    })
+    if (!event) return
+    const { value: modelValue, raw_value: rawMagnitude } = event.payload as {
+      value: number
+      raw_value?: number
     }
-  }, [draftValue, value, mutations, confirmEdit])
+
+    // Local store write first, so the canvas and the freshness overlay reflect
+    // the edit immediately even if the turn is slow or fails. Note this writes
+    // the MODEL-scale number into `value` — the live defect wrote the display
+    // magnitude (300000) there, which is exactly what CEE's validator refuses.
+    mutations.setObservedValue(modelValue, rawMagnitude)
+    confirmEdit('value')
+
+    // Then the wire. Before this, the chain ENDED at the store write: the edit
+    // never reached CEE, its graph_hash never moved, and the rerun the
+    // freshness strip invited could not possibly reflect the change.
+    if (!sendSystemEvent) return
+    // Fire-and-forget: the response is ingested by the shared turn path
+    // (applyV5State applies graph_patch + analysis_ready for system-event turns
+    // exactly as it does for message turns), and a send failure surfaces
+    // through the conversation's own failure channel. Awaiting here would block
+    // the blur handler on a network round-trip.
+    void Promise.resolve(sendSystemEvent(event)).catch(() => {
+      // Swallowed deliberately: sendSystemEvent already records the failure via
+      // setLastSendFailure / SystemEventSendError. Re-throwing from a blur
+      // handler would surface as an unhandled rejection and tell the user
+      // nothing they are not already being told.
+    })
+  }, [draftValue, inputDisplayValue, mutations, confirmEdit, sendSystemEvent, nodeId, node?.data])
 
   // Connections: options that set this + outbound influences
   const setByOptions = useMemo(() => {

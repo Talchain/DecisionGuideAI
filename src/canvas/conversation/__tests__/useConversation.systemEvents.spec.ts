@@ -13,6 +13,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useConversation, SYSTEM_MESSAGE_SENTINEL } from '../useConversation'
 import { useCanvasStore } from '../../store'
+import type { WireSystemEvent } from '../types'
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -272,7 +273,17 @@ describe('sendSystemEvent', () => {
     const { result } = renderHook(() => useConversation())
 
     await act(async () => {
-      await result.current.sendSystemEvent({ type: 'session_resume', payload: {} })
+      // DELIBERATE type violation, and the cast is the point of the test rather
+      // than a workaround for it. `session_resume` is an InternalSystemEventType,
+      // so the compiler already refuses it at every call site — but the runtime
+      // pre-filter is a SECOND, independent guard, and it is the one that holds
+      // when an event arrives from somewhere the types do not cover (persisted
+      // state, a hydrated thread, a JS caller). Casting through `unknown` is how
+      // this test reaches the runtime guard at all; without it the assertion
+      // below could only ever be vacuous.
+      await result.current.sendSystemEvent(
+        { type: 'session_resume', payload: {} } as unknown as WireSystemEvent,
+      )
     })
 
     // Pre-filter drops session_resume before sendTurn — no network call

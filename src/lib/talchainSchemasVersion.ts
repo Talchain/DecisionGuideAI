@@ -11,4 +11,4 @@
  * talchain-schemas-<version>.tgz` pin in package.json — update both
  * together when bumping the vendored contract.
  */
-export const TALCHAIN_SCHEMAS_VENDORED_VERSION = '0.22.0' as const
+export const TALCHAIN_SCHEMAS_VENDORED_VERSION = '0.29.0' as const
