@@ -219,9 +219,15 @@ function verifyAgainstVerdict(
  * and gets no new explanation — Paul's dead end with a truthier-sounding
  * sentence.
  *
- * So the promise is licensed only when the verdict itself discloses no OTHER
- * cause. Determined from the VERDICT ALONE, never from the client-side option
- * list, so a stale-evidence downgrade cannot corrupt it.
+ * So the promise is licensed only when no other cause is present IN THE FIELDS
+ * THE UI FORWARDS (not "the verdict itself" — the re-review corrected that
+ * overclaim: the wire verdict also carries `issues[]` and `blocker_reason`,
+ * which the store normaliser does not forward, so a prose-only co-blocker
+ * there could license a promise that a second cause then breaks; residual
+ * rowed, ROADMAP 2.118 — fail-safe fix is forwarding `issues.length` and
+ * suppressing the promise when it exceeds options_total − options_ready).
+ * Determined from the forwarded VERDICT FIELDS ALONE, never from the
+ * client-side option list, so a stale-evidence downgrade cannot corrupt it.
  *
  * ⚠ Honest scope note. The first two clauses are the trivially-licensed cases
  * and are, at every live call site today, FALSE by construction: `canRunAnalysis`
