@@ -1,13 +1,47 @@
 /**
  * useSequentialAnalysis Hook
  *
+ * ## ⚠ DEAD CODE — NOT MOUNTED, AND STEP 2 BELOW CALLS A DELETED ENDPOINT
+ * ## (recorded 28 Jul 2026 — read this before trusting anything under "Flow")
+ *
+ * This hook is not reachable from any live path, and its primary request would
+ * 404 if it ever ran. Both halves were measured, not assumed:
+ *
+ * - **No mount.** Complete importer manifest at UI tip `4facd4a7`: the sole
+ *   importer is `src/canvas/components/SequentialView/index.tsx`, and
+ *   `SequentialView` itself has ZERO importers outside its own directory — no
+ *   JSX renderer, no barrel re-export, no `lazy()`/dynamic import, and no
+ *   registry or lookup-table mount. The two files form a closed, orphaned loop.
+ * - **Not in the shipped bundle.** All 70 JS chunks of
+ *   `staging--olumi.netlify.app` were crawled (5.4 MB, zero fetch failures):
+ *   `analysis/sequential` and the `[useSequentialAnalysis]` log tag below appear
+ *   in 0 chunks, while positive controls (`pre-analysis-sensitivity`,
+ *   `graph-readiness`, `v1/templates`, `bff/engine`) were all present — so the
+ *   absence is a real measurement, not a grep that could see nothing.
+ * - **The endpoint is gone.** PLoT deleted `POST /v1/analysis/sequential` on
+ *   26 Jul 2026 as vacuous (ISL owns the real sequential capability). Probed
+ *   28 Jul 2026 at PLoT staging tip `05529e42`: 404, against positive control
+ *   `POST /v1/run` → 401 and negative control `POST /v1/does-not-exist-xyz` → 404.
+ *
+ * Because nothing mounts it, there is no user-visible breakage. Disposition
+ * (archive under the `archive/dead-*-<YYYY-MM>/` precedent, or delete) is rowed
+ * as separate work. **Do not wire this hook up again without first restoring or
+ * replacing the endpoint** — mounting it as-is ships a guaranteed 404.
+ *
+ * ## ⚠ The service attributions in the original Flow were also wrong
+ *
+ * Steps 2 and 3 named ISL and CEE. Both actually resolve to **PLoT**:
+ * `netlify.toml` redirects `/bff/engine/*` →
+ * `https://plot-lite-service-staging.onrender.com/:splat`, and `BFF_BASE_URL`
+ * below defaults to `/bff/engine`. Corrected inline.
+ *
  * Detects sequential graphs and fetches stage-by-stage analysis.
  * Provides policy recommendations for multi-stage decisions.
  *
  * Flow:
  * 1. Detect if graph has sequential metadata
- * 2. Fetch sequential analysis from ISL /analysis/sequential
- * 3. Get policy explanation from CEE /explain/policy
+ * 2. Fetch sequential analysis from PLoT /v1/analysis/sequential — DELETED, 404s
+ * 3. Get policy explanation from PLoT /v1/explain/policy — this route still exists
  */
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
