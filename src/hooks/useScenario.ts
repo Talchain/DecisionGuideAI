@@ -495,9 +495,17 @@ export function useScenario(): UseScenarioReturn {
 
   const isDirty = useCanvasStore((s) => s.isDirty)
 
+  // A committed inspector edit can be queued behind the conversation's
+  // in-flight lock with the LOCAL save already complete — autosave clears
+  // `isDirty` as soon as the canvas is persisted, which happens well before the
+  // turn carrying that edit reaches CEE. Leaving on `isDirty` alone therefore
+  // waves the user off with an unsent model change still in the buffer, and
+  // the change is gone: the buffer is in-memory. Guard on it too.
+  const pendingEmittedEdits = useCanvasStore((s) => s.pendingEmittedEdits)
+
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      if (saveStatus === 'saving' || isDirty) {
+      if (saveStatus === 'saving' || isDirty || pendingEmittedEdits > 0) {
         e.preventDefault()
         // Required for Chrome — string value is ignored by modern browsers
         e.returnValue = ''
@@ -505,7 +513,7 @@ export function useScenario(): UseScenarioReturn {
     }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
-  }, [saveStatus, isDirty])
+  }, [saveStatus, isDirty, pendingEmittedEdits])
 
   // -----------------------------------------------------------------------
   // createScenario — insert row + navigate to /scenario/:id

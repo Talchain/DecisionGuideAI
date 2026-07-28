@@ -1674,6 +1674,42 @@ export interface SendTurnOpts {
   chipInitiated?: boolean
 }
 
+/** One send held back by the in-flight lock. */
+interface DeferredSystemSend {
+  /** Dedup identity. See `enqueueDeferredSystemSend` for why it omits `field`. */
+  key: string
+  opts: SendTurnOpts
+  /**
+   * The scenario this edit was made in, captured at ENQUEUE. Dispatch reads the
+   * current scenario fresh, so an entry that outlives a scenario switch would
+   * otherwise be sent against the wrong decision's graph.
+   */
+  scenarioId: string | null
+  /** Flush-dispatch failures so far — bounds retrying (see MAX_FLUSH_ATTEMPTS). */
+  attempts: number
+  /**
+   * True while THIS entry is mid-dispatch.
+   *
+   * Required by peek-don't-shift: `sendTurn` releases the in-flight lock in its
+   * `finally`, which runs BEFORE its promise resolves — so the drain re-enters
+   * while the entry is still in the buffer and would send it a second time.
+   * (Observed: one queued edit dispatched twice.) Removing the entry up front
+   * would fix that but reinstates the destroy-the-edit-on-early-return class
+   * this restructure exists to kill, so the entry stays and is marked instead.
+   */
+  dispatching?: boolean
+}
+
+/**
+ * How many times a queued send is re-dispatched before we stop retrying it
+ * automatically. A failing flush takes the lock and releases it again, which
+ * re-enters the drain — so without a cap a persistently-failing edit would spin.
+ * The entry is KEPT after the cap (the server still has not seen it, so the
+ * dirty hold remains truthful); it simply stops being retried until the user
+ * commits a new value for that factor.
+ */
+const MAX_FLUSH_ATTEMPTS = 3
+
 /**
  * What `sendTurn` returns when the in-flight lock stopped it from dispatching.
  *
@@ -1794,7 +1830,7 @@ export function useConversation(): UseConversationReturn {
    * event kind appends, since those are notifications and dropping one is a
    * real loss.
    */
-  const deferredSystemSendsRef = useRef<Array<{ key: string; opts: SendTurnOpts }>>([])
+  const deferredSystemSendsRef = useRef<DeferredSystemSend[]>([])
   const flushingDeferredRef = useRef(false)
   const longRunningTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout>>()
@@ -3152,11 +3188,34 @@ export function useConversation(): UseConversationReturn {
    * mutation — never a separately-incremented counter, which would drift and
    * (on an over-decrement) silently re-enable the false "fresh".
    */
+  /**
+   * Publish the hold count — SCENARIO-SCOPED.
+   *
+   * Only entries belonging to the CURRENTLY-OPEN scenario count. An edit queued
+   * against scenario A must not hold scenario B's freshness overlay dirty: that
+   * would manufacture a "model changed" banner in a decision the user never
+   * touched, and `noteRunCompletedWithoutVerdict` assigns dirty straight from
+   * this count, so a leaked value there is a fabricated verdict, not just a
+   * cosmetic slip.
+   *
+   * Still DERIVED from the buffer at every mutation, never incremented.
+   */
   const publishPendingEditCount = useCallback(() => {
+    const scenarioNow = useCanvasStore.getState().currentScenarioId ?? null
     const modelEdits = deferredSystemSendsRef.current.filter(
-      (d) => d.opts.systemEvent?.type === 'factor_value_edit',
+      (d) => d.opts.systemEvent?.type === 'factor_value_edit' && d.scenarioId === scenarioNow,
     ).length
     useCanvasStore.getState().setPendingEmittedEdits?.(modelEdits)
+  }, [])
+
+  /** Human-readable identity of a queued edit, for the honest-discard notice. */
+  const describeDeferred = useCallback((entry: DeferredSystemSend): string => {
+    const pl = entry.opts.systemEvent?.payload as Record<string, unknown> | undefined
+    const target = typeof pl?.target_id === 'string' ? pl.target_id : 'a factor'
+    const label =
+      useCanvasStore.getState().nodes.find((n) => n.id === target)?.data?.label ?? target
+    const shown = typeof pl?.raw_value === 'number' ? pl.raw_value : pl?.value
+    return `${String(label)}${shown != null ? ` (${String(shown)})` : ''}`
   }, [])
 
   const enqueueDeferredSystemSend = useCallback((opts: SendTurnOpts) => {
@@ -3167,18 +3226,34 @@ export function useConversation(): UseConversationReturn {
     // 25000 is the truth and replaying 20000 after it would persist the wrong
     // number. Every other event kind appends — they are notifications, and
     // collapsing two of them loses information rather than superseding it.
+    //
+    // ⚠ THE KEY DELIBERATELY OMITS `field`. That is safe ONLY because the
+    // contract's `field` is the literal 'value' — the single edited field — so
+    // every factor_value_edit for one target is genuinely superseding. If that
+    // literal is ever widened to a union (e.g. 'baseline'), edits to DIFFERENT
+    // fields of the same factor would collapse into one and the last one would
+    // silently erase the other. Widening `field` therefore REQUIRES adding it
+    // to this key.
     const key =
       ev?.type === 'factor_value_edit' && targetId
         ? `factor_value_edit:${targetId}`
         : `${String(ev?.type)}:${deferredSystemSendsRef.current.length}:${Date.now()}:${Math.random()}`
 
+    // Stamp the scenario at ENQUEUE time. Dispatch reads the scenario fresh, so
+    // without this an edit queued in A would flush into whatever decision
+    // happens to be open when the lock clears.
+    const scenarioId = useCanvasStore.getState().currentScenarioId ?? null
+    const entry: DeferredSystemSend = { key, opts, scenarioId, attempts: 0 }
+
     const existing = deferredSystemSendsRef.current.findIndex((d) => d.key === key)
     if (existing >= 0) {
       // Replace IN PLACE so ordering across DISTINCT targets is preserved —
       // moving the entry to the tail would reorder edits to other factors.
-      deferredSystemSendsRef.current[existing] = { key, opts }
+      // `attempts` resets deliberately: this is a NEW value, not a retry of the
+      // failed one, so it deserves a full set of attempts.
+      deferredSystemSendsRef.current[existing] = entry
     } else {
-      deferredSystemSendsRef.current.push({ key, opts })
+      deferredSystemSendsRef.current.push(entry)
     }
     if (import.meta.env.DEV) {
       console.warn(`[sendTurn] system send DEFERRED behind in-flight lock (${key}); will flush when the lock clears`)
@@ -4645,6 +4720,61 @@ export function useConversation(): UseConversationReturn {
   )
 
   /**
+   * Surface a queued edit that will NOT be applied, in the transcript.
+   *
+   * The SystemEventSendError contract says system turns render no synthetic
+   * bubble, and that is right for BACKGROUND notifications (feedback, patch
+   * acks, graph-edit notices) — an out-of-context "Something went wrong" for
+   * those is noise. A `factor_value_edit` is a different animal: the user
+   * deliberately changed a number and the canvas is now showing it. If that
+   * change is never going to reach the server, saying nothing reproduces the
+   * exact lie this roadmap item exists to kill — canvas shows the new value,
+   * the analysis reflects the old one, and nothing tells the user which is
+   * real. So value edits, and only value edits, get a line.
+   *
+   * `setLastSendFailure` is deliberately NOT used: its rendered copy is
+   * composer-specific ("Your text ... is back in the box above"), which would
+   * be actively false about an inspector edit.
+   */
+  const noticeForUnsentEdit = useCallback((entry: DeferredSystemSend, reason: 'failed' | 'discarded') => {
+    if (entry.opts.systemEvent?.type !== 'factor_value_edit') return
+    const what = describeDeferred(entry)
+    addMessage({
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      synthetic: true,
+      timestamp: new Date(),
+      content:
+        reason === 'failed'
+          ? `Your change to ${what} hasn't reached the server. The analysis still reflects the previous value — re-enter it to try again.`
+          : `An unsent change to ${what} was discarded when the decision changed. It was never applied to the analysis.`,
+    })
+  }, [addMessage, describeDeferred])
+
+  /**
+   * Drop every queued entry belonging to a DIFFERENT scenario than the one now
+   * open, telling the user what was dropped.
+   *
+   * Dispatch resolves the scenario id FRESH at send time, so an entry that
+   * outlived a scenario switch would be sent against the wrong decision's
+   * graph — a silent cross-scenario mutation. Discarding it visibly is the
+   * honest outcome; carrying it across is not.
+   */
+  const pruneForeignScenarioSends = useCallback(() => {
+    const scenarioNow = useCanvasStore.getState().currentScenarioId ?? null
+    const keep: DeferredSystemSend[] = []
+    for (const entry of deferredSystemSendsRef.current) {
+      if (entry.scenarioId === scenarioNow) { keep.push(entry); continue }
+      noticeForUnsentEdit(entry, 'discarded')
+      if (import.meta.env.DEV) {
+        console.warn(`[sendTurn] discarding queued send from another scenario (${entry.key})`)
+      }
+    }
+    deferredSystemSendsRef.current = keep
+    publishPendingEditCount()
+  }, [noticeForUnsentEdit, publishPendingEditCount])
+
+  /**
    * Drain the deferral buffer, one turn at a time.
    *
    * Dispatched ASYNCHRONOUSLY (microtask) because this runs from inside the
@@ -4653,31 +4783,102 @@ export function useConversation(): UseConversationReturn {
    * dispatched turn takes the lock again and re-enters this drain from its own
    * release, which walks the rest of the queue in order.
    *
-   * An entry is REMOVED BEFORE dispatch, not after. If it were removed after,
-   * a throwing dispatch would leave it queued forever and every later flush
-   * would retry the same failing edit ahead of newer ones.
+   * PEEK, DON'T SHIFT. The entry stays in the buffer until a dispatch is
+   * actually ACCEPTED. An earlier version removed it first, which made every
+   * early return between the removal and the network call — including
+   * `sendTurn`'s own bare-returning `isThinkingRef` guard — a
+   * destroy-the-edit exit. Those are all synced today, but "correct only while
+   * four other call sites stay in sync" is exactly the fragility this file's
+   * own history warns about, and the failure mode is a silently lost edit.
+   * Holding the entry until acceptance removes the class rather than the
+   * instances.
    */
   const flushDeferredSystemSends = useCallback(() => {
     if (flushingDeferredRef.current) return
     if (inFlightRef.current) return
     if (deferredSystemSendsRef.current.length === 0) return
     flushingDeferredRef.current = true
-    queueMicrotask(() => {
+    queueMicrotask(async () => {
       flushingDeferredRef.current = false
       if (inFlightRef.current) return
-      const next = deferredSystemSendsRef.current.shift()
-      publishPendingEditCount()
+
+      pruneForeignScenarioSends()
+
+      // First entry still worth trying. Entries past the attempt cap are KEPT
+      // (the server has not seen them, so the dirty hold stays truthful) but
+      // skipped, so one failing edit cannot starve the ones behind it.
+      const next = deferredSystemSendsRef.current.find(
+        (d) => !d.dispatching && d.attempts < MAX_FLUSH_ATTEMPTS,
+      )
       if (!next) return
-      // Failures here reach the normal system-event channel
-      // (SystemEventSendError); this catch only stops an unhandled rejection
-      // escaping a background drain.
-      void Promise.resolve(sendTurn(next.opts)).catch(() => {})
+
+      next.dispatching = true
+      try {
+        const outcome = await sendTurn(next.opts)
+        if (outcome === SEND_DEFERRED || outcome === SEND_BLOCKED) {
+          // Never dispatched — something else took the lock first. Leave it
+          // queued and do NOT count it as a failure; the next release retries.
+          next.dispatching = false
+          return
+        }
+        // Accepted. Only now is it safe to forget.
+        deferredSystemSendsRef.current = deferredSystemSendsRef.current.filter((d) => d !== next)
+        publishPendingEditCount()
+      } catch {
+        // A GENUINE failure (network / 4xx / 5xx / parse) of a DEFERRED edit.
+        //
+        // This rejection has NO listener: the panel's promise already resolved
+        // with SEND_DEFERRED, and a system turn renders no bubble and sets no
+        // `lastSendFailure` (`inputForRestore` is null). Swallowing it would
+        // rebuild the exact terminal state the queue was written to prevent —
+        // canvas showing the new value, server holding the old one, the next
+        // verdict blessing it, and the same-value guard blocking any retype.
+        // So: keep the entry, RE-DIRTY, re-hold the count, and say so.
+        next.attempts += 1
+        next.dispatching = false
+        useCanvasStore.getState().markAnalysisFreshnessDirty?.()
+        publishPendingEditCount()
+        if (next.attempts >= MAX_FLUSH_ATTEMPTS) noticeForUnsentEdit(next, 'failed')
+        if (import.meta.env.DEV) {
+          console.warn(`[sendTurn] deferred send FAILED (${next.key}), attempt ${next.attempts}/${MAX_FLUSH_ATTEMPTS}`)
+        }
+      }
     })
-  }, [sendTurn, publishPendingEditCount])
+  }, [sendTurn, publishPendingEditCount, pruneForeignScenarioSends, noticeForUnsentEdit])
 
   // Keep the ref used by `releaseInFlightLockIfOwned` pointing at the live
   // implementation (see the ref's declaration for why the indirection exists).
   flushDeferredSystemSendsRef.current = flushDeferredSystemSends
+
+  // Scenario switch — prune queued sends belonging to the decision we just
+  // left.
+  //
+  // ORDERING NOTE (load-bearing): the scenario-switch effect that clears
+  // `messages` is declared far EARLIER in this hook, and React runs a
+  // component's effects in declaration order — so that wipe happens first and
+  // the discard notice added below survives it. Moving this effect above the
+  // message-clearing one would silently swallow the notice, which is the whole
+  // point of raising it. Without this the count leaks into the new scenario (manufacturing a
+  // "model changed" banner there, since noteRunCompletedWithoutVerdict assigns
+  // dirty straight from it) and the entry itself would eventually flush against
+  // the wrong graph.
+  const prevScenarioForQueueRef = useRef<string | null | undefined>(undefined)
+  useEffect(() => {
+    const now = scenarioId ?? null
+    if (prevScenarioForQueueRef.current === undefined) { prevScenarioForQueueRef.current = now; return }
+    if (prevScenarioForQueueRef.current === now) return
+    prevScenarioForQueueRef.current = now
+    pruneForeignScenarioSends()
+  }, [scenarioId, pruneForeignScenarioSends])
+
+  // Unmount — the buffer dies with the hook but `pendingEmittedEdits` lives in
+  // the STORE, so leaving it set strands a permanent "model changed" that
+  // nothing can ever clear: the INVERSE of the defect this hold exists to fix,
+  // and worse because no edit is pending at all. Clear it on the way out.
+  useEffect(() => () => {
+    deferredSystemSendsRef.current = []
+    useCanvasStore.getState().setPendingEmittedEdits?.(0)
+  }, [])
 
   // ---------------------------------------------------------------------------
   // Public API: sendMessage, sendSystemEvent, sendChip

@@ -34,6 +34,8 @@ import type { WireSystemEvent } from '../types'
 // listed vi.mock factory REPLACES the module and silently drops what it omits).
 const dispatched: Array<Record<string, unknown>> = []
 let resolveInFlight: ((v: unknown) => void) | null = null
+/** When set, every dispatch AFTER the first (the lock-holder) rejects. */
+let failFlushDispatch = false
 
 vi.mock('../../../v5/v5Adapter', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>()
@@ -45,6 +47,8 @@ vi.mock('../../../v5/v5Adapter', async (importOriginal) => {
       // in-flight lock — this is the concurrency the defect lived in.
       if (dispatched.length === 1) {
         await new Promise((res) => { resolveInFlight = res })
+      } else if (failFlushDispatch) {
+        throw new TypeError('Failed to fetch')
       }
       return { ok: true, response: { assistant_text: 'ok', blocks: [] } }
     }),
@@ -87,6 +91,7 @@ beforeEach(() => {
   vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
   dispatched.length = 0
   resolveInFlight = null
+  failFlushDispatch = false
   useCanvasStore.setState({
     currentScenarioId: SCENARIO,
     nodes: [],
@@ -211,5 +216,136 @@ describe('system-mode sends blocked by the in-flight lock', () => {
     useCanvasStore.setState({ pendingEmittedEdits: 0 } as never)
     act(() => { useCanvasStore.getState().clearAnalysisFreshnessDirty?.() })
     expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
+  })
+})
+
+describe('F1 — a GENUINE failure at flush time must not silently lose the edit', () => {
+  it('re-dirties, re-holds the count, and keeps the edit queued', async () => {
+    const { result } = renderHook(() => useConversation())
+    act(() => { void result.current.sendMessage('run the analysis') })
+    await flush()
+
+    await act(async () => { await result.current.sendSystemEvent(edit('fac_a', 0.5, 25000)) })
+    expect(useCanvasStore.getState().pendingEmittedEdits).toBe(1)
+
+    // The network dies exactly when the queue drains. Under the old code the
+    // entry was already removed and the count already published 0, and the
+    // rejection had NO listener — the panel's promise resolved SEND_DEFERRED
+    // long ago and a system turn renders no bubble. The edit vanished and the
+    // next verdict blessed the stale numbers.
+    failFlushDispatch = true
+    act(() => { useCanvasStore.setState({ analysisFreshnessDirty: false } as never) })
+    await act(async () => { resolveInFlight?.(undefined); await flush() })
+
+    expect(
+      useCanvasStore.getState().pendingEmittedEdits,
+      'the hold must survive a failed flush — the server still has not seen this edit',
+    ).toBeGreaterThan(0)
+    expect(
+      useCanvasStore.getState().analysisFreshnessDirty,
+      're-dirtied: the strip may not affirm freshness over an edit that failed to send',
+    ).toBe(true)
+  })
+
+  it('a verdict arriving after the failed flush still cannot clear the overlay', async () => {
+    const { result } = renderHook(() => useConversation())
+    act(() => { void result.current.sendMessage('run the analysis') })
+    await flush()
+    await act(async () => { await result.current.sendSystemEvent(edit('fac_a', 0.5, 25000)) })
+
+    failFlushDispatch = true
+    await act(async () => { resolveInFlight?.(undefined); await flush() })
+
+    act(() => {
+      useCanvasStore.getState().setAnalysisFreshness?.({
+        freshness: 'fresh', freshness_reason: 'graph_hash_match', computed_at: new Date().toISOString(),
+      })
+    })
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
+  })
+
+  it('stops retrying after the cap but KEEPS the hold (the edit is genuinely unsent)', async () => {
+    const { result } = renderHook(() => useConversation())
+    act(() => { void result.current.sendMessage('run the analysis') })
+    await flush()
+    await act(async () => { await result.current.sendSystemEvent(edit('fac_a', 0.5, 25000)) })
+
+    failFlushDispatch = true
+    await act(async () => { resolveInFlight?.(undefined); await flush() })
+    for (let i = 0; i < 4; i++) await act(async () => { await flush() })
+
+    // Bounded: a failing flush takes and releases the lock, re-entering the
+    // drain, so an uncapped retry would spin forever.
+    const attempts = dispatched.length - 1
+    expect(attempts).toBeLessThanOrEqual(4)
+    // ...but the hold stays: the edit really has not reached the server.
+    expect(useCanvasStore.getState().pendingEmittedEdits).toBeGreaterThan(0)
+  })
+})
+
+describe('F2 — the buffer and the hold are SCENARIO-SCOPED', () => {
+  const OTHER = 'b1b1b1b1-c2c2-4d3d-8e4e-f5f5f5f5f5f5'
+
+  it('never dispatches an edit from one scenario into another', async () => {
+    const { result } = renderHook(() => useConversation())
+    act(() => { void result.current.sendMessage('run the analysis') })
+    await flush()
+    await act(async () => { await result.current.sendSystemEvent(edit('fac_a', 0.5, 25000)) })
+    expect(useCanvasStore.getState().pendingEmittedEdits).toBe(1)
+
+    // The user switches decision while the edit is still queued.
+    act(() => { useCanvasStore.setState({ currentScenarioId: OTHER } as never) })
+    await act(async () => { resolveInFlight?.(undefined); await flush() })
+
+    // Dispatch resolves the scenario FRESH, so without scoping this edit would
+    // have mutated the newly-opened decision's graph.
+    expect(dispatchedEdits(), 'no cross-scenario dispatch').toHaveLength(0)
+  })
+
+  it('does not leak the hold into the new scenario (it would fabricate "model changed")', async () => {
+    const { result } = renderHook(() => useConversation())
+    act(() => { void result.current.sendMessage('run the analysis') })
+    await flush()
+    await act(async () => { await result.current.sendSystemEvent(edit('fac_a', 0.5, 25000)) })
+
+    act(() => { useCanvasStore.setState({ currentScenarioId: OTHER } as never) })
+    await act(async () => { await flush() })
+
+    // noteRunCompletedWithoutVerdict assigns dirty straight from this count, so
+    // a leaked value is a FABRICATED verdict in a decision the user never edited.
+    expect(useCanvasStore.getState().pendingEmittedEdits).toBe(0)
+  })
+
+  it('SURFACES the discard rather than dropping it silently', async () => {
+    const { result } = renderHook(() => useConversation())
+    act(() => { void result.current.sendMessage('run the analysis') })
+    await flush()
+    await act(async () => { await result.current.sendSystemEvent(edit('fac_a', 0.5, 25000)) })
+
+    act(() => { useCanvasStore.setState({ currentScenarioId: OTHER } as never) })
+    await act(async () => { await flush() })
+
+    // Assert on the WHOLE transcript, not on a slice from a remembered index:
+    // switching scenario clears `messages` first (that effect is declared
+    // earlier in the hook and React runs effects in declaration order), so an
+    // index captured beforehand points past the end afterwards. What matters is
+    // that the user can see it, not where it sits.
+    const shown = result.current.messages.map((m) => String(m.content)).join(' ')
+    expect(shown, 'the user is told the edit was discarded').toMatch(/discarded/i)
+    expect(shown, 'and which edit it was').toMatch(/fac_a|25000/)
+  })
+
+  it('unmount clears the hold — a stranded count is a permanent false "model changed"', async () => {
+    const { result, unmount } = renderHook(() => useConversation())
+    act(() => { void result.current.sendMessage('run the analysis') })
+    await flush()
+    await act(async () => { await result.current.sendSystemEvent(edit('fac_a', 0.5, 25000)) })
+    expect(useCanvasStore.getState().pendingEmittedEdits).toBe(1)
+
+    // The buffer dies with the hook but the count lives in the STORE — leaving
+    // it set strands a hold nothing can ever clear. That is the INVERSE defect:
+    // no edit is pending at all, yet the strip insists the model changed.
+    act(() => { unmount() })
+    expect(useCanvasStore.getState().pendingEmittedEdits).toBe(0)
   })
 })
