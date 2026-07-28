@@ -172,14 +172,24 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
     if (!sendSystemEvent) return
     // Fire-and-forget: the response is ingested by the shared turn path
     // (applyV5State applies graph_patch + analysis_ready for system-event turns
-    // exactly as it does for message turns), and a send failure surfaces
-    // through the conversation's own failure channel. Awaiting here would block
-    // the blur handler on a network round-trip.
+    // exactly as it does for message turns). Awaiting here would block the blur
+    // handler on a network round-trip.
+    //
+    // ⚠ The catch below is NOT the safety net it looks like, and an earlier
+    // version of this comment wrongly implied it was. It only catches GENUINE
+    // failures — network rejects, 4xx/5xx, parse errors — which reject as
+    // `SystemEventSendError`. It does NOT catch a send blocked by the
+    // dispatcher's in-flight lock: that path resolves. An edit committed during
+    // a running analysis therefore never reaches this catch, and used to be
+    // dropped outright. What actually protects it is the dispatcher's deferral
+    // buffer, which queues the send and flushes it when the lock clears (and
+    // holds the freshness overlay dirty until it does). See
+    // `useConversation`'s `deferredSystemSendsRef`.
     void Promise.resolve(sendSystemEvent(event)).catch(() => {
-      // Swallowed deliberately: sendSystemEvent already records the failure via
-      // setLastSendFailure / SystemEventSendError. Re-throwing from a blur
-      // handler would surface as an unhandled rejection and tell the user
-      // nothing they are not already being told.
+      // Swallowed deliberately: a genuine send failure is already recorded by
+      // the conversation's own failure channel. Re-throwing from a blur handler
+      // would surface as an unhandled rejection and tell the user nothing they
+      // are not already being told.
     })
   }, [draftValue, inputDisplayValue, mutations, confirmEdit, sendSystemEvent, nodeId, node?.data])
 

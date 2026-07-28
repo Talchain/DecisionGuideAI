@@ -422,6 +422,25 @@ interface CanvasState {
   // fabricating 'stale'. Cleared when a new analysis_ready arrives or on
   // scenario switch/load/import/reset. NOT a graph hash; see analysisFreshness.ts.
   analysisFreshnessDirty: boolean
+  /**
+   * How many model-changing edits have been COMMITTED locally and emitted, but
+   * are still sitting undispatched in the conversation dispatcher's deferral
+   * buffer (see `useConversation`'s in-flight lock).
+   *
+   * It exists to stop the freshness strip telling a lie. Without it, an edit
+   * committed while a turn is in flight is deferred, and then the in-flight
+   * turn's OWN `analysis_ready` verdict arrives and clears
+   * `analysisFreshnessDirty` — so the strip affirms "reflects the current
+   * model" over an edit the server has not seen yet. That is the exact
+   * alarm→futile-action→false-reassurance sequence ROADMAP 1.346 exists to
+   * kill, reappearing on the concurrent path.
+   *
+   * DERIVED, never incremented/decremented: the dispatcher owns the buffer and
+   * writes this from the buffer's own length, so the two cannot drift (a
+   * hand-balanced counter is the mirror defect, and an over-decrement here
+   * would silently re-enable the false "fresh").
+   */
+  pendingEmittedEdits: number
   // CEE coaching payload from last /assist/v1/draft-graph response (build a555cf7b+).
   // Session-local — never persisted; cleared on new draft start and scenario reset.
   draftCoaching: CEEDraftCoaching | null
@@ -770,8 +789,10 @@ interface CanvasState {
   markGraphStructurallyEdited: () => void
   /** F10: run completed (new analysis_result hash) with no freshness verdict on the response. */
   noteRunCompletedWithoutVerdict: () => void
-  /** Clear the dirty overlay when a genuinely new analysis run completes (reliable run identity, e.g. a new analysis_result response_hash). */
+  /** Clear the dirty overlay when a genuinely new analysis run completes (reliable run identity, e.g. a new analysis_result response_hash). No-op while an emitted edit is still undispatched. */
   clearAnalysisFreshnessDirty: () => void
+  /** Publish how many emitted edits are still queued behind the dispatcher's in-flight lock. Derived from that buffer's length by its owner. */
+  setPendingEmittedEdits: (count: number) => void
   setDraftCoaching: (coaching: CEEDraftCoaching | null) => void
   /**
    * Set the goal constraints. A USER edit (GoalPanel add/remove/change) is
@@ -1530,6 +1551,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   analysisFreshness: null,
   // Local dirty overlay — false at cold start (no edits to invalidate a verdict).
   analysisFreshnessDirty: false,
+  // No edit can be awaiting dispatch before any edit has been made.
+  pendingEmittedEdits: 0,
   ceeAnalysisReadyNodeIds: null,
   // V5 canonical analysis fact (v5-canonical-analysis brief)
   v5AnalysisFact: null,
@@ -4015,7 +4038,14 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       const verdictChanged = next !== state.analysisFreshness
       if (!verdictChanged) return {}
       const updates: Partial<CanvasState> = { analysisFreshness: next }
-      if (state.analysisFreshnessDirty) updates.analysisFreshnessDirty = false
+      // ...UNLESS an emitted edit is still undispatched. This verdict was
+      // computed by the server WITHOUT that edit, so clearing the overlay here
+      // would affirm "reflects the current model" over a change the server has
+      // never seen. Keep the verdict (it is the newest thing the server said)
+      // but hold the overlay until the edit actually reaches the wire.
+      if (state.analysisFreshnessDirty && state.pendingEmittedEdits === 0) {
+        updates.analysisFreshnessDirty = false
+      }
       return updates
     })
   },
@@ -4057,11 +4087,26 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         supersededVerdict:
           state.analysisFreshness?.supersededVerdict ?? state.analysisFreshness ?? undefined,
       },
-      analysisFreshnessDirty: false,
+      // Same rule as setAnalysisFreshness: a run that completed without seeing
+      // a still-undispatched edit must not un-dirty the overlay.
+      analysisFreshnessDirty: state.pendingEmittedEdits > 0,
     }))
   },
   clearAnalysisFreshnessDirty: () => {
+    // Called when a genuinely NEW analysis_result lands. It still must not
+    // clear the overlay while an emitted edit is queued behind the in-flight
+    // lock — that analysis was computed without it.
+    if (get().pendingEmittedEdits > 0) return
     if (get().analysisFreshnessDirty) set(() => ({ analysisFreshnessDirty: false }))
+  },
+
+  /**
+   * Publish the dispatcher's undispatched-edit count. DERIVED from the
+   * deferral buffer's own length by its owner — never incremented here.
+   */
+  setPendingEmittedEdits: (count: number) => {
+    const next = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0
+    if (get().pendingEmittedEdits !== next) set(() => ({ pendingEmittedEdits: next }))
   },
 
   setGoalConstraints: (constraints, opts) => {

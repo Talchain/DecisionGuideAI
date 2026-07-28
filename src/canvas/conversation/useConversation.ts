@@ -1646,6 +1646,56 @@ export interface SendFailureNotice {
  *   synthetic bubble + `setLastSendFailure` exactly as before. This asymmetry
  *   is the whole point and is pinned by regression tests.
  */
+/**
+ * `sendTurn`'s argument, named so the deferral buffer can hold one verbatim.
+ * Extracted from the inline signature it used to carry — no members changed.
+ */
+export interface SendTurnOpts {
+  message: string
+  /** Text shown in conversation bubble (defaults to message) */
+  displayText?: string
+  systemEvent?: SystemEvent
+  mode: 'user' | 'system'
+  /** When true, send the request but don't show a user bubble (e.g. programmatic "run it") */
+  hidden?: boolean
+  /** When true, skip adding a user bubble but keep error handling active (retry path) */
+  skipUserBubble?: boolean
+  /** Reuse a previous client_turn_id for idempotent retry */
+  retryClientTurnId?: string
+  source?: string
+  sourceSurface?: string
+  parentChainId?: string | null
+  initiatedBy?: 'user' | 'automatic'
+  rightPanelAccidentallySubmittedComposerContent?: boolean
+  turnType?: Exclude<TurnType, 'system_event'>
+  /** Deterministic chip metadata forwarded for CEE action routing */
+  chipMeta?: ChipMeta
+  /** When true, render the user bubble as a compact action indicator */
+  chipInitiated?: boolean
+}
+
+/**
+ * What `sendTurn` returns when the in-flight lock stopped it from dispatching.
+ *
+ * WHY THIS EXISTS (ROADMAP 1.346 concurrent path). The blocked branch used to
+ * be a bare `return`: DEV-only `console.warn`, promise RESOLVES, no
+ * `SystemEventSendError`, nothing at all in production. A caller doing
+ * `void send(...).catch(...)` therefore could not tell a dispatched turn from a
+ * dropped one — the drop is not a rejection. For an inspector value edit that
+ * meant the edit was committed locally, never sent, and then blessed as fresh
+ * by the next completed turn's verdict.
+ *
+ * A resolve carrying a SENTINEL (rather than a rejection) is deliberate for the
+ * DEFERRED case: the edit is not lost, it is queued, so rejecting would tell
+ * dispatchers like FeedbackRow to revert an optimistic UI that is in fact still
+ * on its way. `SystemEventSendError` remains the channel for genuine failures
+ * — network, 4xx/5xx, parse — which is a different thing and stays different.
+ */
+export const SEND_DEFERRED = 'send_deferred' as const
+/** Blocked and NOT queued (retry-class callers). Detectable, never silent. */
+export const SEND_BLOCKED = 'send_blocked' as const
+export type SendTurnOutcome = typeof SEND_DEFERRED | typeof SEND_BLOCKED | undefined
+
 export class SystemEventSendError extends Error {
   /** 'transport': nothing reached the server (network / proxy timeout).
    *  'server':    the server received the turn and failed it (typed error). */
@@ -1683,7 +1733,11 @@ export interface UseConversationReturn {
     debugParentChainId?: string | null
     debugInitiatedBy?: 'user' | 'automatic'
     debugSourceSurface?: string
-  }) => Promise<void>
+    // Resolves to SEND_DEFERRED when the in-flight lock queued the send instead
+    // of dispatching it, so a caller can tell "queued" from "sent" — the old
+    // `Promise<void>` made those two indistinguishable, which is how an
+    // inspector edit made during an analysis was lost in silence.
+  }) => Promise<SendTurnOutcome>
   sendChip: (chip: ActionChip) => Promise<void>
   /** Unified action dispatch — routes all pill/chip/action triggers through a single path with proper metadata */
   dispatchAction: (opts: DispatchActionOpts) => Promise<void>
@@ -1727,6 +1781,21 @@ export function useConversation(): UseConversationReturn {
   // run from clobbering a newer run's ownership. See the preempt block in
   // sendTurn for the rationale (v5-ui-exclusive-path brief, Phase 8a review).
   const inFlightGenerationRef = useRef(0)
+
+  /**
+   * Deferral buffer for SYSTEM-mode sends blocked by the in-flight lock.
+   *
+   * Ordinary use hits this constantly: the lock is held for a whole analysis
+   * round trip, so ANY inspector edit made while an analysis runs was
+   * previously dropped outright. Order is preserved across distinct targets;
+   * for `factor_value_edit` the entry is REPLACED per target_id, because the
+   * last value the user committed is the only one that is true — replaying an
+   * intermediate typo would end with the wrong number persisted. Every other
+   * event kind appends, since those are notifications and dropping one is a
+   * real loss.
+   */
+  const deferredSystemSendsRef = useRef<Array<{ key: string; opts: SendTurnOpts }>>([])
+  const flushingDeferredRef = useRef(false)
   const longRunningTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const elapsedIntervalRef = useRef<ReturnType<typeof setInterval>>()
@@ -3077,30 +3146,55 @@ export function useConversation(): UseConversationReturn {
   // sendTurn — shared core for user messages and system events
   // ---------------------------------------------------------------------------
 
+  /**
+   * Publish the buffer's length so the freshness overlay cannot clear while an
+   * edit is still undispatched. DERIVED from the array itself at every
+   * mutation — never a separately-incremented counter, which would drift and
+   * (on an over-decrement) silently re-enable the false "fresh".
+   */
+  const publishPendingEditCount = useCallback(() => {
+    const modelEdits = deferredSystemSendsRef.current.filter(
+      (d) => d.opts.systemEvent?.type === 'factor_value_edit',
+    ).length
+    useCanvasStore.getState().setPendingEmittedEdits?.(modelEdits)
+  }, [])
+
+  const enqueueDeferredSystemSend = useCallback((opts: SendTurnOpts) => {
+    const ev = opts.systemEvent
+    const targetId = typeof ev?.payload?.target_id === 'string' ? ev.payload.target_id : null
+    // LAST-WRITE-WINS per target, but ONLY for the value-carrying edit: if the
+    // user typed 20000, then corrected it to 25000 before the lock cleared,
+    // 25000 is the truth and replaying 20000 after it would persist the wrong
+    // number. Every other event kind appends — they are notifications, and
+    // collapsing two of them loses information rather than superseding it.
+    const key =
+      ev?.type === 'factor_value_edit' && targetId
+        ? `factor_value_edit:${targetId}`
+        : `${String(ev?.type)}:${deferredSystemSendsRef.current.length}:${Date.now()}:${Math.random()}`
+
+    const existing = deferredSystemSendsRef.current.findIndex((d) => d.key === key)
+    if (existing >= 0) {
+      // Replace IN PLACE so ordering across DISTINCT targets is preserved —
+      // moving the entry to the tail would reorder edits to other factors.
+      deferredSystemSendsRef.current[existing] = { key, opts }
+    } else {
+      deferredSystemSendsRef.current.push({ key, opts })
+    }
+    if (import.meta.env.DEV) {
+      console.warn(`[sendTurn] system send DEFERRED behind in-flight lock (${key}); will flush when the lock clears`)
+    }
+    publishPendingEditCount()
+  }, [publishPendingEditCount])
+
+  /**
+   * Assigned after `sendTurn` exists (the flush dispatches through it, and
+   * `sendTurn` in turn triggers the flush when it releases the lock — the ref
+   * breaks that definition cycle without reordering the file).
+   */
+  const flushDeferredSystemSendsRef = useRef<() => void>(() => {})
+
   const sendTurn = useCallback(
-    async (opts: {
-      message: string
-      /** Text shown in conversation bubble (defaults to message) */
-      displayText?: string
-      systemEvent?: SystemEvent
-      mode: 'user' | 'system'
-      /** When true, send the request but don't show a user bubble (e.g. programmatic "run it") */
-      hidden?: boolean
-      /** When true, skip adding a user bubble but keep error handling active (retry path) */
-      skipUserBubble?: boolean
-      /** Reuse a previous client_turn_id for idempotent retry */
-      retryClientTurnId?: string
-      source?: string
-      sourceSurface?: string
-      parentChainId?: string | null
-      initiatedBy?: 'user' | 'automatic'
-      rightPanelAccidentallySubmittedComposerContent?: boolean
-      turnType?: Exclude<TurnType, 'system_event'>
-      /** Deterministic chip metadata forwarded for CEE action routing */
-      chipMeta?: ChipMeta
-      /** When true, render the user bubble as a compact action indicator */
-      chipInitiated?: boolean
-    }) => {
+    async (opts: SendTurnOpts): Promise<SendTurnOutcome> => {
       const {
         message,
         systemEvent,
@@ -3145,8 +3239,19 @@ export function useConversation(): UseConversationReturn {
       // v5-ui-exclusive-path brief: when flag is on AND the new caller is
       // a user-initiated free-text / chip send (not a retry or system
       // event), abort the in-flight V5 request rather than drop the send.
-      // Retry/system-event callers still queue (blocked) because they
-      // shouldn't preempt a user's active turn.
+      //
+      // ⚠ THIS COMMENT USED TO SAY "Retry/system-event callers still queue
+      // (blocked)". THAT WAS FALSE, and the falsehood was load-bearing: NO
+      // queue existed anywhere (grep-confirmed) — the branch was a bare
+      // `return`, so a system-event send made during any in-flight turn was
+      // DROPPED, silently, with the promise resolving as if it had been sent.
+      // Because the analysis lock is held for a whole run round trip, an
+      // inspector edit during an analysis was ALWAYS lost, and the completing
+      // run's own verdict then cleared the dirty overlay and affirmed the
+      // stale numbers as fresh. A queue now genuinely exists (see
+      // `deferredSystemSendsRef`) and this comment describes it truthfully.
+      // Retry callers still do not preempt a user's active turn, but they are
+      // now told so via a sentinel rather than a silent resolve.
       //
       // Generation token prevents the aborted run's finally block from
       // clearing the lock while a newer run is executing. Each run
@@ -3172,9 +3277,15 @@ export function useConversation(): UseConversationReturn {
           // (generation token + active-turn ref) so it cannot clobber this
           // newer turn's lock or analysing state.
           isThinkingRef.current = false
+        } else if (opts.mode === 'system' && opts.systemEvent) {
+          // DEFER, do not drop. Returns a sentinel so the caller can tell this
+          // apart from a dispatched turn — the old bare `return` could not be
+          // distinguished from success by any caller, in prod or in a test.
+          enqueueDeferredSystemSend(opts)
+          return SEND_DEFERRED
         } else {
           if (import.meta.env.DEV) console.warn('[sendTurn] Blocked by in-flight lock (rapid double-click?)')
-          return
+          return SEND_BLOCKED
         }
       }
       inFlightRef.current = true
@@ -3184,6 +3295,12 @@ export function useConversation(): UseConversationReturn {
       const releaseInFlightLockIfOwned = () => {
         if (inFlightGenerationRef.current === inFlightGeneration) {
           inFlightRef.current = false
+          // The lock is the ONLY thing that was blocking the deferred sends, so
+          // draining here is what makes the buffer a queue rather than a
+          // graveyard. Every return/finally path already funnels through this
+          // helper, which is why the flush is attached to it rather than to one
+          // exit site (there are eight).
+          flushDeferredSystemSendsRef.current()
         }
       }
 
@@ -4023,6 +4140,14 @@ export function useConversation(): UseConversationReturn {
           }
         } finally {
           setIsThinking(false)
+          // Mirror it into the ref SYNCHRONOUSLY — see the identical line in
+          // the V4 finally below for the full reasoning. Short version:
+          // `isThinkingRef` is effect-synced, so it still reads `true` on the
+          // microtask that drains the deferred-send queue, and `sendTurn`'s
+          // early `isThinkingRef` guard would drop the queued edit. This is not
+          // a new source of truth — the line above sets the same value and the
+          // effect will set it again; this only removes the one-render lag.
+          isThinkingRef.current = false
           useDraftStore.getState().setIsGenerating(false)
           releaseInFlightLockIfOwned()
           // 1.16i: every-exit settle for the analysing state (success
@@ -4502,6 +4627,15 @@ export function useConversation(): UseConversationReturn {
         }
         cleanupStreamRefs()
         setIsThinking(false)
+        // Mirror it into the ref SYNCHRONOUSLY. `isThinkingRef` is normally
+        // effect-synced from the React state, so it stays `true` until React
+        // re-renders — and `sendTurn` has an early `isThinkingRef.current`
+        // guard that returns without dispatching. A queued system send flushed
+        // from the release below would therefore hit that guard and be dropped,
+        // which is the very defect the queue exists to fix, one layer down.
+        // This assignment is not a new source of truth: the line above sets the
+        // same value, and the effect will set it again.
+        isThinkingRef.current = false
         useDraftStore.getState().setIsGenerating(false)
         setLongRunningHint(null)
         releaseInFlightLockIfOwned()
@@ -4509,6 +4643,41 @@ export function useConversation(): UseConversationReturn {
     },
     [addMessage, updateMessage, buildRequest, handleEnvelope, scheduleStreamFlush, cleanupStreamRefs],
   )
+
+  /**
+   * Drain the deferral buffer, one turn at a time.
+   *
+   * Dispatched ASYNCHRONOUSLY (microtask) because this runs from inside the
+   * releasing turn's `finally`: calling `sendTurn` synchronously there would
+   * re-enter it while that frame is still unwinding. One entry per pass — the
+   * dispatched turn takes the lock again and re-enters this drain from its own
+   * release, which walks the rest of the queue in order.
+   *
+   * An entry is REMOVED BEFORE dispatch, not after. If it were removed after,
+   * a throwing dispatch would leave it queued forever and every later flush
+   * would retry the same failing edit ahead of newer ones.
+   */
+  const flushDeferredSystemSends = useCallback(() => {
+    if (flushingDeferredRef.current) return
+    if (inFlightRef.current) return
+    if (deferredSystemSendsRef.current.length === 0) return
+    flushingDeferredRef.current = true
+    queueMicrotask(() => {
+      flushingDeferredRef.current = false
+      if (inFlightRef.current) return
+      const next = deferredSystemSendsRef.current.shift()
+      publishPendingEditCount()
+      if (!next) return
+      // Failures here reach the normal system-event channel
+      // (SystemEventSendError); this catch only stops an unhandled rejection
+      // escaping a background drain.
+      void Promise.resolve(sendTurn(next.opts)).catch(() => {})
+    })
+  }, [sendTurn, publishPendingEditCount])
+
+  // Keep the ref used by `releaseInFlightLockIfOwned` pointing at the live
+  // implementation (see the ref's declaration for why the indirection exists).
+  flushDeferredSystemSendsRef.current = flushDeferredSystemSends
 
   // ---------------------------------------------------------------------------
   // Public API: sendMessage, sendSystemEvent, sendChip
@@ -4569,7 +4738,11 @@ export function useConversation(): UseConversationReturn {
         payloadSummary: event.payload,
       })
 
-      await sendTurn({
+      // Return the outcome so a caller can distinguish DISPATCHED from
+      // DEFERRED. Genuine failures still REJECT (SystemEventSendError), so the
+      // existing `try/catch` dispatchers (FeedbackRow's optimistic revert, the
+      // patch-accept retry card) are untouched.
+      return await sendTurn({
         message: SYSTEM_MESSAGE_SENTINEL,
         systemEvent: event,
         mode: 'system',

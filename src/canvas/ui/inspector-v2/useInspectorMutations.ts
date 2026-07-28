@@ -35,7 +35,9 @@ export const NODE_SETTER_FIELDS = {
   setLabel: ['label'],
   setDescription: ['description'],
   setThreshold: ['goal_threshold_raw', 'goal_threshold_unit'],
-  setObservedValue: ['observedState'],
+  // Also clears the top-level `display_value` — CEE writes that key at either
+  // level, and a value commit invalidates BOTH copies of the old prose.
+  setObservedValue: ['observedState', 'display_value'],
   setIntervention: ['interventions'],
   removeIntervention: ['interventions'],
   setPriorRange: ['prior'],
@@ -137,10 +139,21 @@ export function useNodeMutations(nodeId: string) {
     updateNode(nodeId, {
       data: {
         ...node.data,
+        // `display_value` is CEE-authored prose for the PREVIOUS value ("£30k").
+        // The formatter only lets a fresh raw_value outrank it when the unit is
+        // a meaningful one — so after a commit with no raw_value, or with a
+        // unitless/"scale" unit, a stale display_value keeps rendering verbatim
+        // on the canvas node. Clearing both locations (CEE writes it at the top
+        // level, the canonical home is inside observedState) drops the renderer
+        // to its live fallback until the server's graph_patch supplies a fresh
+        // one. Clearing is right and re-deriving here would be wrong: this
+        // string is the server's to author.
+        display_value: undefined,
         observedState: {
           ...existing,
           value,
           ...(typeof rawValue === 'number' && Number.isFinite(rawValue) ? { raw_value: rawValue } : {}),
+          display_value: undefined,
         },
       },
     })
