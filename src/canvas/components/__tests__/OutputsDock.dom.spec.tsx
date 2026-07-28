@@ -456,127 +456,113 @@ describe('OutputsDock DOM', () => {
 // region these very tests assert on. Wrapping them in a describe that runs the
 // same reset as every other block gives them the isolation they always
 // assumed. Grouping + setup only: no assertion touched.
-describe('OutputsDock DOM: non-blocking CEE + slow-run narration', () => {
+describe('OutputsDock DOM: non-blocking CEE + run narration', () => {
   beforeEach(resetDockEnvironment)
 
 // Phase 1 Section 3.3: Non-blocking CEE and degraded banner tests
 
-// Phase 2 Sprint 1B: Slow-run UX feedback tests
-it('shows "Taking longer than expected..." message after 20 seconds', async () => {
-  vi.useFakeTimers()
-
-  renderOutputsDock()
-
-  // Simulate a long-running analysis
+/**
+ * Phase 2 Sprint 1B shipped these as slow-run-message tests: the dock owned a
+ * 20s/40s escalation of its own, and they pinned its copy and a11y.
+ *
+ * That mechanism is gone (first-five-minutes cluster). AnalysisRunningBanner
+ * now narrates every run from second 0, so the dock no longer needs a second
+ * stage table — and the one it had said "Taking longer than expected..." at
+ * 20s, a wait that is entirely typical. The COVERAGE these cases represent is
+ * unchanged and still worth having, so they are re-pointed at the surviving
+ * mechanism rather than deleted: the dock escalates its narration over a long
+ * run, stops narrating when the run ends, and exposes the region to
+ * assistive tech correctly.
+ */
+function startLongRun() {
   const currentResults = useCanvasStore.getState().results
   act(() => {
     useCanvasStore.setState({
-      results: { ...currentResults, status: 'streaming' },
+      results: { ...currentResults, status: 'streaming', startedAt: Date.now() },
       hasCompletedFirstRun: true,
     } as any)
   })
+}
 
-  // Initially no message
-  expect(screen.queryByTestId('slow-run-message')).not.toBeInTheDocument()
+/** Advance the clock, then flush the banner's 200ms stage crossfade. */
+function advanceTo(ms: number) {
+  act(() => { vi.advanceTimersByTime(ms) })
+  act(() => { vi.advanceTimersByTime(250) })
+}
 
-  // After 20 seconds, show first message
-  act(() => {
-    vi.advanceTimersByTime(20000)
-  })
+it('escalates the narration after 20 seconds', async () => {
+  vi.useFakeTimers()
 
-  expect(screen.getByTestId('slow-run-message')).toBeInTheDocument()
-  expect(screen.getByText('Taking longer than expected...')).toBeInTheDocument()
+  renderOutputsDock()
+  startLongRun()
+
+  // Unlike the old slow-run region, the banner speaks immediately — the
+  // silence this replaced was the defect, not the baseline.
+  expect(screen.getByTestId('analysis-narration')).toHaveTextContent(
+    'Analysing your decision…',
+  )
+
+  advanceTo(20000)
+
+  expect(screen.getByTestId('analysis-narration')).toHaveTextContent(
+    'Still analysing your decision…',
+  )
 
   vi.useRealTimers()
 })
 
-it('escalates to "Still working..." message after 40 seconds', async () => {
+it('escalates again after 40 seconds', async () => {
   vi.useFakeTimers()
 
   renderOutputsDock()
+  startLongRun()
 
-  // Simulate a long-running analysis
-  const currentResults = useCanvasStore.getState().results
-  act(() => {
-    useCanvasStore.setState({
-      results: { ...currentResults, status: 'streaming' },
-      hasCompletedFirstRun: true,
-    } as any)
-  })
+  advanceTo(40000)
 
-  // After 40 seconds, show escalated message
-  act(() => {
-    vi.advanceTimersByTime(40000)
-  })
-
-  expect(screen.getByTestId('slow-run-message')).toBeInTheDocument()
-  expect(screen.getByText('Still working...')).toBeInTheDocument()
+  expect(screen.getByTestId('analysis-narration')).toHaveTextContent(
+    'Still analysing — complex decisions can take a while…',
+  )
 
   vi.useRealTimers()
 })
 
-it('clears slow-run message when analysis completes', async () => {
+it('stops narrating when analysis completes', async () => {
   vi.useFakeTimers()
 
   renderOutputsDock()
+  startLongRun()
 
-  // Simulate a long-running analysis
+  advanceTo(20000)
+  expect(screen.getByTestId('analysis-running-banner')).toBeInTheDocument()
+
   const currentResults = useCanvasStore.getState().results
-  act(() => {
-    useCanvasStore.setState({
-      results: { ...currentResults, status: 'streaming' },
-      hasCompletedFirstRun: true,
-    } as any)
-  })
-
-  // Advance to 20s to show message
-  act(() => {
-    vi.advanceTimersByTime(20000)
-  })
-
-  expect(screen.getByTestId('slow-run-message')).toBeInTheDocument()
-  expect(screen.getByText('Taking longer than expected...')).toBeInTheDocument()
-
-  // Complete the analysis
   act(() => {
     useCanvasStore.setState({
       results: { ...currentResults, status: 'complete' },
     } as any)
   })
 
-  // Message should be cleared
-  expect(screen.queryByTestId('slow-run-message')).not.toBeInTheDocument()
+  expect(screen.queryByTestId('analysis-running-banner')).not.toBeInTheDocument()
 
   vi.useRealTimers()
 })
 
-it('slow-run message has proper accessibility attributes', async () => {
+it('the run-status region has proper accessibility attributes', async () => {
   vi.useFakeTimers()
 
   renderOutputsDock()
+  startLongRun()
 
-  // Simulate a long-running analysis
-  const currentResults = useCanvasStore.getState().results
-  act(() => {
-    useCanvasStore.setState({
-      results: { ...currentResults, status: 'streaming' },
-      hasCompletedFirstRun: true,
-    } as any)
-  })
+  advanceTo(20000)
 
-  // Advance to 20s to show message
-  act(() => {
-    vi.advanceTimersByTime(20000)
-  })
-
-  const message = screen.getByTestId('slow-run-message')
-  expect(message).toHaveAttribute('role', 'status')
-  expect(message).toHaveAttribute('aria-live', 'polite')
+  const region = screen.getByTestId('analysis-running-banner')
+  expect(region).toHaveAttribute('role', 'status')
+  expect(region).toHaveAttribute('aria-live', 'polite')
 
   vi.useRealTimers()
 })
 
-}) // end 'OutputsDock DOM: non-blocking CEE + slow-run narration'
+}) // end 'OutputsDock DOM: non-blocking CEE + run narration'
 
 // P0 Engine Integration: IdentifiabilityBadge in Results tab
 describe('P0 Engine: IdentifiabilityBadge', () => {
@@ -1100,6 +1086,8 @@ describe('Wave1-L2: single run-status live region', () => {
   /** The run-status live regions this dock can render. */
   function runStatusRegions() {
     return [
+      // slow-run-message is retired; kept in the enumeration so a
+      // reintroduction is COUNTED as a second region rather than ignored.
       ...screen.queryAllByTestId('slow-run-message'),
       ...screen.queryAllByTestId('analysis-running-banner'),
     ]
@@ -1198,7 +1186,7 @@ describe('Wave1-L2: single run-status live region', () => {
     vi.useRealTimers()
   })
 
-  it('keeps the standalone slow-run message when there is NO report (banner not mounted)', () => {
+  it('renders exactly ONE run-status live region at 25s when there is NO report', () => {
     vi.useFakeTimers()
     const baseResults = useCanvasStore.getState().results
 
@@ -1208,6 +1196,7 @@ describe('Wave1-L2: single run-status live region', () => {
         ...baseResults,
         status: 'streaming',
         report: null,
+        startedAt: Date.now(),
       },
     } as any)
 
@@ -1217,10 +1206,15 @@ describe('Wave1-L2: single run-status live region', () => {
       vi.advanceTimersByTime(25_000)
     })
 
-    // Skeleton case: the banner does not mount, so the pre-existing slow-run
-    // region is still the single run-status live region and must survive.
-    expect(screen.queryByTestId('analysis-running-banner')).not.toBeInTheDocument()
-    expect(screen.getByTestId('slow-run-message')).toBeInTheDocument()
+    // ⚠ This case previously asserted the OPPOSITE, and in doing so pinned the
+    // first-run silence as correct: with no report the banner did not mount,
+    // and the dock's slow-run line was the only narration — arriving 20s late
+    // and claiming an ordinary wait was longer than expected. The banner now
+    // mounts on this path too, above the (decorative) results skeleton, so the
+    // single-region guarantee holds with the HONEST region rather than the
+    // stale one.
+    expect(screen.getByTestId('analysis-running-banner')).toBeInTheDocument()
+    expect(screen.queryByTestId('slow-run-message')).not.toBeInTheDocument()
     expect(runStatusRegions()).toHaveLength(1)
 
     vi.useRealTimers()

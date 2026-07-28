@@ -1,56 +1,68 @@
 /**
- * Wave1-L2 (seam D-M) — which run-status live region the dock narrates with.
+ * Wave1-L2 (seam D-M) — which run-status region the dock narrates with.
  *
- * The dock has two ways to speak about an in-flight run, and both render
- * role=status aria-live=polite:
+ * ⚠ REVISED (first-five-minutes cluster) — the previous reconciliation was
+ * correct about STACKING and wrong about COVERAGE, and the gap it left fell
+ * entirely on first-time users.
  *
- *  - `slowRunMessage` — the pre-existing 20s/40s escalation, the only
- *    narration available while the results skeleton is up (no report yet).
+ * The dock used to have two ways to speak about an in-flight run:
+ *
+ *  - `slowRunMessage` — a 20s/40s escalation owned by OutputsDock, the only
+ *    narration available while the results skeleton was up (no report yet).
  *  - `AnalysisRunningBanner` — the staged narration, mounted only while a
- *    PREVIOUS report is still on screen.
+ *    PREVIOUS report was still on screen.
  *
- * They used to stack: from ~20s the slow-run line rendered directly above the
- * banner, two live regions making opposing progress claims in exactly the
- * 20-30s window. A screen-reader user heard both.
+ * They used to stack from ~20s, so the first fix made the banner win wherever
+ * it mounted. But the banner's mount condition was `hasReport`, so the
+ * narration a user got depended on whether they had run an analysis BEFORE:
  *
- * Reconciliation: the banner SUBSUMES the slow-run thresholds into its own
- * stage table (see NARRATION_STAGES — same 20s/40s escalation points), so
- * whenever the banner is mounted the standalone slow-run region yields and
- * the user loses nothing. Where the banner does not mount (no report), the
- * slow-run region keeps its existing behaviour untouched.
+ *  - returning user (report on screen) → staged copy from second 0;
+ *  - FIRST run (no report) → nothing at all until 20s, then the slow-run
+ *    line — exactly inverted from what a first-time user needs, in the one
+ *    session where the 60s+ wait is least explicable.
  *
- * Expressing this as ONE decision with ONE return value makes "exactly one
- * run-status live region" structurally true rather than merely tested: the
- * dock drives both render sites from this function alone.
+ * And the copy that survived on that path was the copy the banner's own
+ * honesty doctrine had already rejected: `'Taking longer than expected...'`
+ * at 20s, when 20-30s IS the typical wait (see NARRATION_STAGES, which drops
+ * the comparative family precisely because the client holds no distribution
+ * of past run durations to compare against). The Wave1-L2 honesty fix was
+ * applied to the banner and never to the region it "subsumed" — and because
+ * the subsume only happened where the banner mounted, the un-fixed line was
+ * exactly what survived, on exactly the first run.
+ *
+ * That is the hand-maintained-mirror class: two implementations of one stage
+ * table, sharing thresholds by convention, drifting the moment one was fixed.
+ *
+ * Resolution: there is now ONE narration implementation. The banner mounts
+ * for every in-flight run, first or not, and the slow-run message, its timer
+ * and its render site are deleted rather than yielded to. Nothing is lost:
+ * the banner's stage table carries the same 20s/40s escalation points, from a
+ * strictly more honest clock (the run's true `startedAt`, durable across
+ * remounts, rather than a ref stamped when an effect happened to fire).
+ *
+ * The seam stays because the guarantee is still worth expressing structurally:
+ * ONE decision, ONE return value, ONE call site drives the render, so "exactly
+ * one run-status region" cannot regress into two by local edit.
  */
 
-/** The single run-status live region to render, if any. */
-export type RunStatusRegion = 'banner' | 'slow-run' | 'none'
+/** The single run-status region to render, if any. */
+export type RunStatusRegion = 'banner' | 'none'
 
 export interface RunStatusInput {
   /** A run is in flight (preparing | connecting | streaming). */
   isRunning: boolean
-  /** A previous report is still on screen (the banner's mount condition). */
-  hasReport: boolean
-  /** The dock's 20s/40s escalation copy, or null before the first threshold. */
-  slowRunMessage: string | null
 }
 
 /**
- * Resolve the one region that narrates run status. Order matters: the banner
- * wins wherever it mounts, because its stage table already carries the
- * long-wait acknowledgement the slow-run line would have duplicated.
+ * Resolve the one region that narrates run status.
+ *
+ * Deliberately NOT conditioned on whether a previous report is on screen: that
+ * condition is what made a first run silent. The banner renders above the
+ * results skeleton when there is no report and above the retained report when
+ * there is — the same narration either way.
  */
-export function runStatusRegion({
-  isRunning,
-  hasReport,
-  slowRunMessage,
-}: RunStatusInput): RunStatusRegion {
-  if (isRunning && hasReport) return 'banner'
-  // slowRunMessage is cleared on completion/error, but gate on isRunning too
-  // so a stale value can never narrate a run that is no longer in flight.
-  if (isRunning && slowRunMessage) return 'slow-run'
-  return 'none'
+export function runStatusRegion({ isRunning }: RunStatusInput): RunStatusRegion {
+  return isRunning ? 'banner' : 'none'
 }
 
 /**

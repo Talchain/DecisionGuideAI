@@ -201,8 +201,11 @@ describe('InlineBlocks — graph-vocabulary legend affordance (F16)', () => {
     expect(legendToggle).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(legendToggle)
     expect(legendToggle).toHaveAttribute('aria-expanded', 'true')
-    // Minimal node/edge vocabulary of the cards' target refs.
-    for (const term of ['Factor', 'Option', 'Goal', 'Risk', 'Constraint', 'Link']) {
+    // Minimal node/edge vocabulary of the cards' target refs. Every canvas
+    // node kind must appear: 'Outcome' was missing while the canvas's own
+    // "How to read this" key listed it, so a card pointing at an outcome node
+    // referred to vocabulary this primer did not define.
+    for (const term of ['Decision', 'Factor', 'Option', 'Outcome', 'Goal', 'Risk', 'Constraint', 'Link']) {
       expect(screen.getByText(term)).toBeInTheDocument()
     }
   })

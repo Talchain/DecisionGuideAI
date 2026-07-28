@@ -21,6 +21,10 @@ const LEGEND_TERMS: ReadonlyArray<{ term: string; definition: string }> = [
   { term: 'Decision', definition: 'The choice you are weighing up.' },
   { term: 'Option', definition: 'A course of action you could take.' },
   { term: 'Factor', definition: 'Something that influences how things turn out.' },
+  // Outcome was the one canvas node kind this legend never named, while the
+  // canvas's own "How to read this" key did — so a card referring to an
+  // outcome node pointed at vocabulary the primer did not define.
+  { term: 'Outcome', definition: 'A result the options lead to.' },
   { term: 'Risk', definition: 'An uncertain event that could work against you.' },
   { term: 'Goal', definition: 'The outcome you are trying to achieve.' },
   { term: 'Constraint', definition: 'A limit the decision must respect.' },

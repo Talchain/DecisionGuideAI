@@ -1,96 +1,67 @@
 /**
- * Wave1-L2 (seam D-M): exactly ONE run-status live region.
+ * Wave1-L2 (seam D-M): exactly ONE run-status region — now on every run.
  *
- * The dock can express run status two ways: the pre-existing slowRunMessage
- * (>=20s "Taking longer than expected...", >=40s "Still working...") and the
- * AnalysisRunningBanner narration. Both render role=status aria-live=polite.
- * Before the fix they STACKED from ~20s, making opposing progress claims in
- * exactly the window this lane targets — a screen-reader user heard both.
+ * ⚠ These tests were REWRITTEN, and one of them previously pinned the defect
+ * as correct behaviour. The old suite asserted:
  *
- * The reconciliation is expressed as a single pure decision returning ONE
- * region, so rendering two is structurally impossible rather than merely
- * untested. OutputsDock drives both render sites from this function alone.
+ *     it('narrates nothing before the first slow-run threshold with no report')
+ *       → expect(runStatusRegion({ isRunning: true, hasReport: false,
+ *                                  slowRunMessage: null })).toBe('none')
+ *
+ * That is the first-run silence, written down as a guarantee. It was an
+ * honest description of the code at the time — the suite was defending the
+ * "no regression to the pre-existing slow-run behaviour" of the stacking fix
+ * — but it meant the gap had a green test standing over it, which is why it
+ * survived. Recording that here rather than quietly deleting the case: the
+ * suite that pins a behaviour is where a future reader looks to find out
+ * whether the behaviour was intended.
+ *
+ * The contract now: while a run is in flight the banner narrates, first run
+ * or not; when it is not, nothing does. The dock's own 20s/40s slow-run copy
+ * is deleted (a second stage table for the same thresholds, and the surviving
+ * one made a comparative claim NARRATION_STAGES had already rejected), so
+ * 'slow-run' is no longer a reachable region.
  */
 
 import { describe, it, expect } from 'vitest'
 
 import { runStatusRegion, type RunStatusRegion } from '../analysisRunStatus'
 
-/** The slow-run copy the dock sets at its 20s / 40s thresholds. */
-const SLOW_RUN_20S = 'Taking longer than expected...'
-const SLOW_RUN_40S = 'Still working...'
-
-describe('runStatusRegion: exactly one live region', () => {
+describe('runStatusRegion: exactly one region', () => {
   // The whole point: a single return value cannot name two regions at once.
-  it('returns exactly one region for every reachable input combination', () => {
-    const valid: RunStatusRegion[] = ['banner', 'slow-run', 'none']
+  it('returns exactly one valid region for every reachable input', () => {
+    const valid: RunStatusRegion[] = ['banner', 'none']
 
     for (const isRunning of [true, false]) {
-      for (const hasReport of [true, false]) {
-        for (const slowRunMessage of [null, SLOW_RUN_20S, SLOW_RUN_40S]) {
-          const region = runStatusRegion({ isRunning, hasReport, slowRunMessage })
-          expect(valid).toContain(region)
-        }
-      }
+      expect(valid).toContain(runStatusRegion({ isRunning }))
     }
-  })
-
-  // P1 (three reviewers converged): at 25s with a report on screen the dock
-  // rendered slowRunMessage DIRECTLY ABOVE the banner narration.
-  it('at 25s with a report on screen, only the banner narrates (slow-run yields)', () => {
-    expect(
-      runStatusRegion({ isRunning: true, hasReport: true, slowRunMessage: SLOW_RUN_20S }),
-    ).toBe('banner')
-  })
-
-  it('at 45s with a report on screen, only the banner narrates', () => {
-    expect(
-      runStatusRegion({ isRunning: true, hasReport: true, slowRunMessage: SLOW_RUN_40S }),
-    ).toBe('banner')
   })
 })
 
-describe('no regression to the pre-existing slow-run behaviour', () => {
-  // The banner only mounts when a previous report is still on screen; the
-  // skeleton covers the no-report case, where slowRunMessage is still the
-  // only run-status narration and must keep working exactly as before.
-  it('keeps the standalone slow-run region at 25s when there is NO report', () => {
-    expect(
-      runStatusRegion({ isRunning: true, hasReport: false, slowRunMessage: SLOW_RUN_20S }),
-    ).toBe('slow-run')
+describe('a run in flight always narrates', () => {
+  // THE regression pin. Under the old rule this input — a first run, nothing
+  // on screen yet — returned 'none', and the user watched an undifferentiated
+  // skeleton for 20 seconds.
+  it('narrates from the first moment of a run, with or without a previous report', () => {
+    expect(runStatusRegion({ isRunning: true })).toBe('banner')
   })
 
-  it('keeps the standalone slow-run region at 45s when there is NO report', () => {
-    expect(
-      runStatusRegion({ isRunning: true, hasReport: false, slowRunMessage: SLOW_RUN_40S }),
-    ).toBe('slow-run')
+  // The old signature took `hasReport` and `slowRunMessage`, and the region
+  // it returned depended on both. Nothing about WHICH run this is can change
+  // the answer any more — that dependency was the bug, so its absence is
+  // what this suite defends.
+  it('depends on nothing except whether a run is in flight', () => {
+    const running = runStatusRegion({ isRunning: true })
+    const idle = runStatusRegion({ isRunning: false })
+
+    expect(running).toBe('banner')
+    expect(idle).toBe('none')
+    expect(running).not.toBe(idle)
   })
 })
 
 describe('quiet states', () => {
-  it('narrates nothing before the first slow-run threshold with no report', () => {
-    expect(
-      runStatusRegion({ isRunning: true, hasReport: false, slowRunMessage: null }),
-    ).toBe('none')
-  })
-
-  it('narrates nothing once the run completes (slow-run message cleared)', () => {
-    expect(
-      runStatusRegion({ isRunning: false, hasReport: true, slowRunMessage: null }),
-    ).toBe('none')
-  })
-
-  // Completion/error clears slowRunMessage, but a stale value must never
-  // resurrect narration for a run that is no longer in flight.
-  it('narrates the slow-run line only while a run is in flight', () => {
-    expect(
-      runStatusRegion({ isRunning: false, hasReport: false, slowRunMessage: SLOW_RUN_20S }),
-    ).toBe('none')
-  })
-
-  it('shows the banner as soon as a run starts over an existing report', () => {
-    expect(
-      runStatusRegion({ isRunning: true, hasReport: true, slowRunMessage: null }),
-    ).toBe('banner')
+  it('narrates nothing once the run is no longer in flight', () => {
+    expect(runStatusRegion({ isRunning: false })).toBe('none')
   })
 })
