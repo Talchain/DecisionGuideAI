@@ -215,7 +215,22 @@ export const FOOTER_COPY = {
   readySubEstimates: 'Checking top estimates usually sharpens the result',
   readySubAllSet: 'Ready when you are',
   notReady: 'Not ready for analysis yet',
-  notReadySubFallback: 'Add a decision, a goal and at least two options',
+  /**
+   * ⚠ Last-resort subline. It must make NO factual claim about the model.
+   *
+   * This was `'Add a decision, a goal and at least two options'` until 28 Jul.
+   * It is the fallback `guardCeeText` degrades to, and it was shown to a user
+   * whose model had a decision, a goal and FIVE options — the panel said "5
+   * options" two lines above it. A fallback in this position is reached exactly
+   * when we do NOT know the cause, so it is the one place a specific claim can
+   * never be justified. The honesty guard was manufacturing a dishonest
+   * sentence.
+   *
+   * The real reason is now composed from the readiness verdict's structured
+   * fields (`utils/composeBlockedReason.ts`) and this string is reached only
+   * when even that has nothing specific to say.
+   */
+  notReadySubFallback: 'Olumi is not able to run this yet. Ask in the chat and it will explain what is missing.',
   /**
    * UI-SEM-091: runnable-via-scaffold subline. Shown when readiness reports
    * not-runnable but CEE (#612) will draft the remaining options — replaces the

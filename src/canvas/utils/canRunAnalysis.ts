@@ -38,6 +38,10 @@
 
 import type { GraphReadiness } from '../hooks/useGraphReadiness'
 import { isV5CanonicalRunPath } from '../../v5/eligibility'
+import {
+  composeReadinessBlockedReason,
+  type OptionNeedingValues,
+} from './composeBlockedReason'
 
 /**
  * CEE's refusal sentence, verbatim — the gate must show the engine's own
@@ -121,6 +125,13 @@ export interface CanRunAnalysisParams {
   /** See computeCeeCannotSeeModel — the model exists only client-side and
    *  the run routes through CEE, so the engine would refuse it (#343). */
   ceeCannotSeeModel?: boolean
+  /**
+   * Options the readiness verdict graded as not-yet-ready, with their labels
+   * (build with `selectOptionsNeedingValues`). Used ONLY to compose the
+   * user-facing reason — it never affects `allowed`. Omitted ⇒ the reason
+   * degrades to count-based copy, which is still true.
+   */
+  optionsNeedingValues?: readonly OptionNeedingValues[]
 }
 
 /**
@@ -147,7 +158,7 @@ export function readinessWillScaffold(readiness: GraphReadiness | null | undefin
  * @returns CanRunAnalysisResult with allowed status and reason
  */
 export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResult {
-  const { graphHealth, readiness, hasBlockers, nodeCount, isRunning = false, ceeCannotSeeModel = false } = params
+  const { graphHealth, readiness, hasBlockers, nodeCount, isRunning = false, ceeCannotSeeModel = false, optionsNeedingValues } = params
 
   const blockingReasons: string[] = []
 
@@ -208,13 +219,30 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
   //   allowed = can_run_analysis || scaffold_plan.will_scaffold_options === true
   // Fail-safe: scaffold_plan absent/undefined ⇒ this term is false, so the gate
   // collapses to `allowed = can_run_analysis`, byte-identical to pre-scaffold.
+  //
+  // ⚠ The reason is COMPOSED, not quoted (Paul, 28 Jul). This used to push
+  // `readiness.confidence_explanation` — CEE's own refusal sentence — and that
+  // one string is what every blocked surface shows: the footer subline, the
+  // footer/rerun tooltips, the panel toast, and the ⌘Enter toast. Its wording
+  // (`V3 analysis not ready: 1 option(s) blocked: opt_extend`) carries a
+  // glossary-banned term, an internal node id, and no remedy. On the guarded
+  // surfaces the banned term had no substitution, so the guard DEGRADED to
+  // `'Add a decision, a goal and at least two options'` — a false claim about a
+  // model that already had all three; on the unguarded ⌘Enter surface the raw
+  // id leaked. Three surfaces, three different stories, none of them useful.
+  //
+  // `composeReadinessBlockedReason` renders the SAME verdict from its STRUCTURED
+  // fields, in the product's own language, with the actual remedy named. It
+  // never parses the engine's prose (that would just move the mirror) and never
+  // asserts a fact the panel's own counts could contradict.
   if (
     readiness &&
     !readiness.can_run_analysis &&
     !readinessWillScaffold(readiness)
   ) {
-    if (!blockingReasons.includes(readiness.confidence_explanation)) {
-      blockingReasons.push(readiness.confidence_explanation || 'Graph not ready for analysis')
+    const composed = composeReadinessBlockedReason(readiness, optionsNeedingValues)
+    if (!blockingReasons.includes(composed)) {
+      blockingReasons.push(composed)
     }
   }
 

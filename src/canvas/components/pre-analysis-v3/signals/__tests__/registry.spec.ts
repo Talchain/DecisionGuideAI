@@ -24,6 +24,7 @@ import {
   SPARK_PROMPTS,
 } from '../../constants'
 import { findBannedTerm } from '../../../../../test/glossaryBannedTerms'
+import { BLOCKED_REASON_COPY } from '../../../../utils/composeBlockedReason'
 
 function input(overrides: Partial<SignalDetectionInput> = {}): SignalDetectionInput {
   return {
@@ -191,6 +192,16 @@ describe('glossary — every copy string passes the banned-terms scan', () => {
   push('MODEL_VIEW_COPY', { ...MODEL_VIEW_COPY, estimatesMeta: MODEL_VIEW_COPY.estimatesMeta(1, 6, 0), goalRow: MODEL_VIEW_COPY.goalRow('Increase output') })
   // UI-SEM-091: invoke the runnable-via-scaffold subline so its copy is scanned.
   push('FOOTER_COPY', { ...FOOTER_COPY, scaffoldSub: FOOTER_COPY.scaffoldSub(2) })
+  // The composed blocked-state copy (Paul 28 Jul) — every rung invoked so the
+  // sweep sees the actual sentences a blocked user is shown, not the factories.
+  // The interpolated option label is guarded separately by safeInterpolatedLabel.
+  push('BLOCKED_REASON_COPY', {
+    ...BLOCKED_REASON_COPY,
+    oneOption: BLOCKED_REASON_COPY.oneOption('Buy a vendor platform'),
+    twoOptions: BLOCKED_REASON_COPY.twoOptions('Buy a vendor platform', 'Build in house'),
+    manyOptionsSingular: BLOCKED_REASON_COPY.manyOptions(1),
+    manyOptions: BLOCKED_REASON_COPY.manyOptions(3),
+  })
   push('HERO_COPY', HERO_COPY)
   push('ACTIONS_MENU', ACTIONS_MENU)
   push('SPARK_PROMPTS', SPARK_PROMPTS)

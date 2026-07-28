@@ -23,6 +23,7 @@ import { useReadinessStore } from '../../../stores/readinessStore'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { useSignalSessionStore } from '../signals/signalSessionStore'
 import type { PreAnalysisSensitivity } from '../../../../adapters/cee/types'
+import { BLOCKED_REASON_COPY } from '../../../utils/composeBlockedReason'
 
 function node(
   id: string,
@@ -708,6 +709,55 @@ describe('assessment-pass regressions', () => {
     expect(footer).not.toHaveTextContent('decision graph')
     expect(footer).not.toHaveTextContent('nodes')
     expect(footer).toHaveTextContent('Two factors in the decision model need values')
+  })
+
+  // ⚠ Paul's journey, 28 Jul — the surface he actually saw.
+  //
+  // He added an option by chat on a model with a decision, a goal and five
+  // options. The footer read:
+  //
+  //     Not ready for analysis yet
+  //     Add a decision, a goal and at least two options
+  //
+  // …two lines below the panel's own "5 options · 3 risks · 6 estimates". The
+  // engine's reason contained the banned word "blocked", `guardCeeText` found no
+  // substitution and degraded to that fallback — an honesty guard emitting a
+  // false statement of fact. The gate now hands the footer COMPOSED copy
+  // (utils/composeBlockedReason.ts), and the fallback claims nothing.
+  it("the blocked footer names the real reason and never tells a five-option model to add options", () => {
+    renderPanel({
+      canRun: false,
+      blockedReason: BLOCKED_REASON_COPY.oneOption(
+        'Partner with a specialist consultancy',
+      ),
+    })
+    const footer = screen.getByTestId('pre-analysis-v3-footer')
+    expect(footer).toHaveTextContent('Not ready for analysis yet')
+    expect(footer).toHaveTextContent(
+      '"Partner with a specialist consultancy" has no effect values yet. Tell Olumi what it changes and the analysis can run.',
+    )
+    // The false claim, and the developer-facing string that preceded it.
+    expect(footer).not.toHaveTextContent('Add a decision, a goal and at least two options')
+    expect(footer).not.toHaveTextContent('V3 analysis not ready')
+    expect(footer).not.toHaveTextContent('opt_')
+  })
+
+  it('the composed reason survives the guard verbatim (it is glossary-clean by construction)', () => {
+    // If the composer ever emitted a banned term the guard would silently
+    // replace the whole sentence with the fallback — the failure mode this
+    // whole change exists to remove. Pinned here, at the render.
+    for (const reason of [
+      BLOCKED_REASON_COPY.oneOption('Buy a vendor platform'),
+      BLOCKED_REASON_COPY.twoOptions('Buy a vendor platform', 'Build in house'),
+      BLOCKED_REASON_COPY.manyOptions(3),
+      BLOCKED_REASON_COPY.goalMissing,
+      BLOCKED_REASON_COPY.tooFewOptions,
+      BLOCKED_REASON_COPY.unspecified,
+    ]) {
+      const { unmount } = renderPanel({ canRun: false, blockedReason: reason })
+      expect(screen.getByTestId('pre-analysis-v3-footer')).toHaveTextContent(reason)
+      unmount()
+    }
   })
 
   it('the run rung explains itself instead of silently no-opping when the dock gate is closed', () => {
