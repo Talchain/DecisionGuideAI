@@ -13,14 +13,31 @@
  *   (strict at CEE ingress), or null when the vocabulary has no honest
  *   value for a coaching chip — never force a wrong one.
  *
- * Send path: prefer the unified dispatcher (`_dispatchAction`, the only
- * bridge that carries chip metadata); fall back to `_sendMessage` so the
- * click still lands on hosts that registered only the legacy bridge.
+ * Send path, in two branches:
+ *
+ * 1. A chip whose declared intent is `run_analysis` is a RUN affordance, and
+ *    every run affordance executes the ONE canonical pipeline registered by
+ *    OutputsDock (`canonicalRunRegistry`) — never its own dispatch. Going
+ *    direct to `_dispatchAction` skipped the readiness gate, the
+ *    `flushPendingSaves()` barrier (so a run inside the 1500ms autosave
+ *    debounce resolved against the PREVIOUS persisted graph) and the stored
+ *    `goal_threshold` re-attachment (so the user's saved success target was
+ *    silently dropped) — the same three losses the canvas shortcut and the
+ *    command palette were converged onto the canonical runner to avoid.
+ *    The branch keys on the DECLARED actionType, not on a hand-listed set of
+ *    "run chips", so a future chip that declares run intent converges by
+ *    construction rather than by someone remembering to add it.
+ * 2. Every other chip is a coaching prompt: prefer the unified dispatcher
+ *    (`_dispatchAction`, the only bridge that carries chip metadata); fall
+ *    back to `_sendMessage` so the click still lands on hosts that
+ *    registered only the legacy bridge.
  */
 import { useCallback } from 'react'
 import type { ActionTypeLiteral } from '@talchain/schemas/boundary'
 import type { PendingWireActionType } from '../../conversation/chipMeta'
 import { useGuidanceStore } from '../../stores/guidanceStore'
+import { executeCanonicalRun } from '../../analysis/canonicalRunRegistry'
+import { useShowToastSafe } from '../../ToastContext'
 import { typography } from '../../../styles/typography'
 
 interface NodeChipProps {
@@ -37,8 +54,36 @@ interface NodeChipProps {
 }
 
 export function NodeChip({ label, message, chipId, actionType }: NodeChipProps) {
+  const showToast = useShowToastSafe()
+
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
+
+    // Run affordance → the one canonical pipeline. `chip_id` provenance rides
+    // through the registry's `parameters` channel, so the wire still carries
+    // which chip started the run; OutputsDock merges the stored
+    // `goal_threshold` alongside it.
+    if (actionType === 'run_analysis') {
+      void executeCanonicalRun({
+        source: 'node-chip',
+        parameters: { chip_id: chipId },
+      }).then((outcome) => {
+        // Never a silent click: every non-start outcome carries a reason or
+        // a state the user can see.
+        if (outcome.status === 'blocked') {
+          showToast(outcome.reason, 'warning')
+        } else if (outcome.status === 'unavailable') {
+          showToast(outcome.reason, 'error')
+        } else if (outcome.status === 'already-running') {
+          showToast('An analysis is already running.', 'info')
+        }
+      }).catch((err: unknown) => {
+        console.error('[NodeChip] canonical run failed:', err)
+        showToast('Analysis failed. Please try again.', 'error')
+      })
+      return
+    }
+
     const callbacks = useGuidanceStore.getState()
     if (callbacks._dispatchAction) {
       callbacks._dispatchAction({
@@ -53,7 +98,7 @@ export function NodeChip({ label, message, chipId, actionType }: NodeChipProps) 
     // Legacy bridge — metadata cannot travel; the message still lands.
     const send = callbacks._sendMessage
     if (send) send(message)
-  }, [message, label, chipId, actionType])
+  }, [message, label, chipId, actionType, showToast])
 
   return (
     <button

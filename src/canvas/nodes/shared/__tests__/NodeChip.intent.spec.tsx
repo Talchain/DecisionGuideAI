@@ -88,33 +88,40 @@ function buildWire(opts: DispatchOpts) {
   }
 }
 
-describe('NodeChip — bound action ships explicit intent to the wire', () => {
-  it('run_analysis chip dispatches action_type + chip_id and builds a chip_click payload', () => {
+describe('NodeChip — a bound COACHING action ships explicit intent to the wire', () => {
+  it('a non-run bound action dispatches action_type + chip_id and builds a chip_click payload', () => {
+    // run_analysis is deliberately NOT the example here any more: run chips
+    // route to the canonical runner (see NodeChip.canonicalRun.spec.tsx), so
+    // this contract is pinned on a bound action that is genuinely a prompt.
     const { dispatchAction, sendMessage } = registerBridge(true)
     clickChip(
       <NodeChip
-        chipId="decision_run_analysis"
-        actionType="run_analysis"
-        label="Run analysis"
-        message="Run the analysis now"
+        chipId="decision_challenge_result"
+        actionType="what_would_flip"
+        label="Challenge this result"
+        message="What assumptions would need to change for a different option to win?"
       />,
-      'Run analysis',
+      'Challenge this result',
     )
 
     expect(sendMessage).not.toHaveBeenCalled()
     expect(dispatchAction).toHaveBeenCalledTimes(1)
     const opts = dispatchAction.mock.calls[0][0] as DispatchOpts
-    expect(opts.action_type).toBe('run_analysis')
-    expect(opts.parameters).toEqual({ chip_id: 'decision_run_analysis' })
-    expect(opts.message).toBe('Run the analysis now')
+    expect(opts.action_type).toBe('what_would_flip')
+    expect(opts.parameters).toEqual({ chip_id: 'decision_challenge_result' })
+    expect(opts.message).toBe(
+      'What assumptions would need to change for a different option to win?',
+    )
     expect(opts.source).toBe('chip')
 
     const payload = buildWire(opts)
     // Bound action promotes the source to CEE's deterministic chip branch.
     expect(payload.source).toBe('chip_click')
-    expect(payload.chip?.action_type).toBe('run_analysis')
-    expect(payload.chip?.parameters).toEqual({ chip_id: 'decision_run_analysis' })
-    expect(payload.message).toBe('Run the analysis now')
+    expect(payload.chip?.action_type).toBe('what_would_flip')
+    expect(payload.chip?.parameters).toEqual({ chip_id: 'decision_challenge_result' })
+    expect(payload.message).toBe(
+      'What assumptions would need to change for a different option to win?',
+    )
   })
 })
 

@@ -916,12 +916,20 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
         // flows, so every plain rerun silently dropped the saved target
         // (live wire evidence 2026-07-13: strip Rerun with target 60 saved
         // dispatched no parameters, making the goal node's "rerun to
-        // update" advice futile). When the caller supplies no parameters,
+        // update" advice futile). When the caller supplies no threshold,
         // resolve the store threshold through the same fail-closed
         // normaliser (cap chain + saved-measure unit, UI-SEM-081) and
-        // attach it. Explicit caller parameters always win.
+        // attach it. An explicit caller `goal_threshold` always wins.
+        //
+        // The test is PER-KEY, not "did the caller pass any parameters at
+        // all". It used to be `if (!parameters)`, which made the parameters
+        // channel all-or-nothing: any caller carrying an UNRELATED parameter
+        // (e.g. a node chip's `chip_id` provenance) silently suppressed the
+        // store threshold and re-created the exact V-P0-1 defect this block
+        // exists to fix. Behaviour is unchanged for every caller that passes
+        // `goal_threshold` or passes nothing.
         let parameters = opts?.parameters
-        if (!parameters) {
+        if (parameters?.goal_threshold === undefined) {
           const savedMeasure = selectSuccessMeasure(
             useSuccessMeasureStore.getState(),
             resolveScenarioKey(storeState.currentScenarioId),
@@ -943,7 +951,9 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
             representation: storeState.goalThresholdRepresentation,
           })
           if (storeThreshold !== undefined) {
-            parameters = { goal_threshold: storeThreshold }
+            // Merge, never replace: the caller's other parameters (chip_id
+            // provenance) must survive the threshold re-attachment.
+            parameters = { ...parameters, goal_threshold: storeThreshold }
           }
         }
         // Fire-and-forget — the dispatcher streams the response and
