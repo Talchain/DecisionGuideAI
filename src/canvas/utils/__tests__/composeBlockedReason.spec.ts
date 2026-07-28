@@ -16,6 +16,7 @@ import { describe, it, expect } from 'vitest'
 
 import {
   BLOCKED_REASON_COPY,
+  classifyBlockedReason,
   composeReadinessBlockedReason,
   selectOptionsNeedingValues,
 } from '../composeBlockedReason'
@@ -97,7 +98,7 @@ describe('composeReadinessBlockedReason — specificity ladder', () => {
         { id: 'b', label: 'Wait a year' },
       ],
     )
-    expect(reason).toBe(BLOCKED_REASON_COPY.twoOptions('Buy a vendor platform', 'Wait a year'))
+    expect(reason).toBe(BLOCKED_REASON_COPY.twoOptions('Buy a vendor platform', 'Wait a year', true))
   })
 
   it('degrades to a count at three or more', () => {
@@ -109,7 +110,7 @@ describe('composeReadinessBlockedReason — specificity ladder', () => {
         { id: 'c', label: 'Three' },
       ],
     )
-    expect(reason).toBe(BLOCKED_REASON_COPY.manyOptions(3))
+    expect(reason).toBe(BLOCKED_REASON_COPY.manyOptions(3, true))
   })
 
   it('degrades to a count (singular, grammatical) when the one label is unusable', () => {
@@ -124,7 +125,7 @@ describe('composeReadinessBlockedReason — specificity ladder', () => {
     const reason = composeReadinessBlockedReason(paulReadiness, [
       { id: 'opt_g', label: 'Graph rewrite' },
     ])
-    expect(reason).toBe(BLOCKED_REASON_COPY.manyOptions(1))
+    expect(reason).toBe(BLOCKED_REASON_COPY.manyOptions(1, true))
   })
 
   it('reports a missing goal', () => {
@@ -161,12 +162,17 @@ describe('composeReadinessBlockedReason — stale-evidence cross-check', () => {
   // A turn can land between the readiness fetch and this render. Naming an
   // option on stale evidence is the same class of error as the false fallback,
   // so a disagreement with the verdict's own counts must DOWNGRADE, not guess.
+  // ⚠ AMENDED 28 Jul (adversarial review, finding 2). This test used to expect
+  // `manyOptions(1)` — the length of the list the function had JUST declared
+  // untrustworthy. Emitting it re-created the PR's own defect: a specific
+  // numeric claim built on admitted-stale evidence. The verdict's own
+  // arithmetic is the number now. See AMENDMENT A2 below for the full matrix.
   it('does not name options when the count disagrees with the verdict', () => {
     const reason = composeReadinessBlockedReason(
       { ...paulReadiness, options_ready: 3, options_total: 5 }, // verdict says 2 not ready
       [{ id: 'opt_extend', label: 'Partner with a consultancy' }], // we see 1
     )
-    expect(reason).toBe(BLOCKED_REASON_COPY.manyOptions(1))
+    expect(reason).toBe(BLOCKED_REASON_COPY.manyOptions(2, true))
     expect(reason).not.toContain('Partner with a consultancy')
   })
 
@@ -294,5 +300,189 @@ describe('no blocked-state copy asserts a fact the panel contradicts', () => {
       expect(FOOTER_COPY.notReadySubFallback).not.toMatch(pattern)
     }
     expect(findBannedTerm(FOOTER_COPY.notReadySubFallback)).toBeNull()
+  })
+})
+
+// ══════════════════════════════════════════════════════════════════════════
+// AMENDMENTS — adversarial review of this PR, 28 Jul.
+//
+// The review returned MERGE-SAFE WITH RESIDUALS and three findings that
+// RE-CREATE THIS PR'S OWN DEFECT CLASS (asserting a false fact on the blocked
+// surface). Each block below is the review's own EXECUTED failure scenario,
+// turned into a pin.
+// ══════════════════════════════════════════════════════════════════════════
+
+describe('AMENDMENT A1 — the composed sentence is VETTED, never rewritten', () => {
+  // Finding 1: PanelFooter passed the composed sentence through `guardCeeText`,
+  // whose substitution machinery rewrote the user's own quoted option label
+  // ("Move billing to edge computing" → "…to connection computing"), while the
+  // unguarded ⌘Enter toast showed the real one. Two surfaces, two option names,
+  // one state. The composer therefore exposes a NON-MUTATING classifier the
+  // render path uses instead of the substituting guard.
+
+  it('every rung of BLOCKED_REASON_COPY classifies as composed-safe', () => {
+    // Derived-not-mirrored (trap 12): the key check below FAILS LOUD when a rung
+    // is added without a sample here, because an unrecognised composed sentence
+    // would silently degrade to the non-committal fallback at the footer.
+    const samples: Record<keyof typeof BLOCKED_REASON_COPY, string[]> = {
+      oneOption: [
+        BLOCKED_REASON_COPY.oneOption('Move billing to edge computing', true),
+        BLOCKED_REASON_COPY.oneOption('Buy a vendor platform', false),
+      ],
+      twoOptions: [
+        BLOCKED_REASON_COPY.twoOptions('Buy a vendor platform', 'Build in house', true),
+        BLOCKED_REASON_COPY.twoOptions('Add an edge case queue', 'Wait a year', false),
+      ],
+      manyOptions: [
+        BLOCKED_REASON_COPY.manyOptions(1, true),
+        BLOCKED_REASON_COPY.manyOptions(3, false),
+        BLOCKED_REASON_COPY.manyOptions(12, true),
+      ],
+      goalMissing: [BLOCKED_REASON_COPY.goalMissing],
+      tooFewOptions: [BLOCKED_REASON_COPY.tooFewOptions],
+      unspecified: [BLOCKED_REASON_COPY.unspecified],
+    }
+    expect(Object.keys(samples).sort()).toEqual(Object.keys(BLOCKED_REASON_COPY).sort())
+
+    for (const [rung, texts] of Object.entries(samples)) {
+      for (const text of texts) {
+        expect(classifyBlockedReason(text), `${rung}: ${text}`).toBe('composed-safe')
+      }
+    }
+  })
+
+  it('does not mistake an engine-authored sentence for composed copy', () => {
+    // These must still reach the substituting guard — that contract is intact.
+    expect(classifyBlockedReason('Two nodes in the decision graph need values')).toBe('foreign')
+    expect(classifyBlockedReason('V3 analysis not ready: 1 option(s) blocked: opt_extend')).toBe(
+      'foreign',
+    )
+    expect(classifyBlockedReason('Add some nodes to get started')).toBe('foreign')
+  })
+
+  it('our shape carrying an unvettable label degrades WHOLE, never in place', () => {
+    // Unreachable from the composer (safeDisplayLabel refuses it first), pinned
+    // as defence in depth: the answer is the fallback, never a rewritten label.
+    expect(classifyBlockedReason(BLOCKED_REASON_COPY.oneOption('Graph rewrite', true))).toBe(
+      'composed-unsafe',
+    )
+  })
+})
+
+describe('AMENDMENT A1 — the label is truncated BEFORE it is vetted', () => {
+  // The review's second executed proof: check-then-truncate let the CUT expose a
+  // banned word. 'graphite' passes the vet (no \bgraph\b), the 47-char slice ends
+  // at "… graph", and the ellipsis creates the word boundary — so the footer
+  // guard rewrote it to "… model…". Truncate-then-check removes the whole class.
+  const LONG_LABEL = `${'x'.repeat(41)} graphite dashboards consolidation`
+
+  it('a >48-char label whose cut would expose a banned word degrades to the count', () => {
+    const reason = composeReadinessBlockedReason(paulReadiness, [
+      { id: 'opt_g', label: LONG_LABEL },
+    ])
+    expect(reason).toBe(BLOCKED_REASON_COPY.manyOptions(1, true))
+    expect(findBannedTerm(reason)).toBeNull()
+    expect(reason).not.toContain('x'.repeat(41))
+  })
+
+  it('a >48-char label that is still safe after the cut is quoted, elided', () => {
+    // Positive control: truncate-first must not start refusing safe long labels.
+    const reason = composeReadinessBlockedReason(paulReadiness, [
+      { id: 'opt_x', label: 'Partner with a specialist consultancy to extend the current system' },
+    ])
+    expect(reason).toContain('"Partner with a specialist consultancy to extend…"')
+  })
+})
+
+describe('AMENDMENT A2 — a count mismatch emits the VERDICT’s number, never the client list length', () => {
+  // Finding 2, executed: the function declares the client list untrustworthy and
+  // then publishes its LENGTH as a specific numeric claim. The verdict's own
+  // arithmetic is in its hand at that moment.
+
+  it("the review's scenario: verdict says 2 not ready, the client list has 1", () => {
+    const reason = composeReadinessBlockedReason(
+      { ...paulReadiness, options_ready: 3, options_total: 5 },
+      [{ id: 'opt_extend', label: 'Partner with a consultancy' }],
+    )
+    expect(reason).not.toContain('1 option has no effect values yet')
+    expect(reason).toBe(BLOCKED_REASON_COPY.manyOptions(2, true))
+    expect(reason).not.toContain('Partner with a consultancy')
+  })
+
+  it('schema-drift variant: all five options grade not-ready, the verdict says one', () => {
+    // normaliseV5AnalysisReady maps an absent per-option status to 'unknown', and
+    // selectOptionsNeedingValues counts every status !== 'ready'. A CEE build that
+    // stops sending status must not make the footer say "5 options".
+    const reason = composeReadinessBlockedReason(
+      paulReadiness, // 4 ready of 5 ⇒ the verdict says ONE
+      ['a', 'b', 'c', 'd', 'e'].map((id) => ({ id, label: `Option ${id}` })),
+    )
+    expect(reason).toBe(BLOCKED_REASON_COPY.manyOptions(1, true))
+    expect(reason).not.toContain('5 options')
+  })
+
+  it("degrades to the unspecified copy when the verdict's own arithmetic yields no count", () => {
+    const reason = composeReadinessBlockedReason(
+      { ...paulReadiness, options_ready: 5, options_total: 5 }, // verdict: none outstanding
+      [{ id: 'opt_extend', label: 'Partner with a consultancy' }], // we see one
+    )
+    expect(reason).toBe(BLOCKED_REASON_COPY.unspecified)
+  })
+
+  it('with no counts at all there is no cross-check, so the client list still speaks', () => {
+    const { options_ready: _r, options_total: _t, ...noCounts } = paulReadiness
+    const reason = composeReadinessBlockedReason(noCounts, [
+      { id: 'a', label: '' },
+      { id: 'b', label: '' },
+    ])
+    expect(reason).toBe(BLOCKED_REASON_COPY.manyOptions(2, true))
+  })
+})
+
+describe('AMENDMENT A3 — the "…and the analysis can run" promise only rides when the verdict licenses it', () => {
+  // Finding 3: the claim half can be true while the promise half is false. A
+  // verdict blocking for a SECOND disclosed cause makes "do this and it can run"
+  // a false statement — the user does the named thing and stays blocked.
+
+  it('goal invalid AND an option unconfigured: the claim stays, the promise is dropped', () => {
+    const reason = composeReadinessBlockedReason(
+      { ...paulReadiness, goal_node_valid: false },
+      selectOptionsNeedingValues(paulAnalysisReady),
+    )
+    expect(reason).toContain('has no effect values yet')
+    expect(reason).not.toContain('the analysis can run')
+  })
+
+  it('too few options AND that option unconfigured: the promise is dropped', () => {
+    const reason = composeReadinessBlockedReason(
+      { ...paulReadiness, options_ready: 0, options_total: 1 },
+      [{ id: 'opt_solo', label: 'Do nothing' }],
+    )
+    expect(reason).toBe(BLOCKED_REASON_COPY.oneOption('Do nothing', false))
+    expect(reason).not.toContain('the analysis can run')
+  })
+
+  it('the promise is dropped on the count rung too, not only the named rungs', () => {
+    const reason = composeReadinessBlockedReason(
+      { ...paulReadiness, goal_node_valid: false, options_ready: 2, options_total: 5 },
+      [
+        { id: 'a', label: 'One' },
+        { id: 'b', label: 'Two' },
+        { id: 'c', label: 'Three' },
+      ],
+    )
+    expect(reason).toBe(BLOCKED_REASON_COPY.manyOptions(3, false))
+    // Asserted independently of the factory so this cannot pass by comparing a
+    // string to itself if the licence argument is ever dropped again.
+    expect(reason).not.toContain('the analysis can run')
+    expect(reason).toContain('3 options have no effect values yet')
+  })
+
+  it("single-cause: the promise still rides — the PR's headline copy is unchanged", () => {
+    const reason = composeReadinessBlockedReason(
+      paulReadiness,
+      selectOptionsNeedingValues(paulAnalysisReady),
+    )
+    expect(reason).toContain('and the analysis can run')
   })
 })

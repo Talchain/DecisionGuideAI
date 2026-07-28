@@ -195,12 +195,19 @@ describe('glossary — every copy string passes the banned-terms scan', () => {
   // The composed blocked-state copy (Paul 28 Jul) — every rung invoked so the
   // sweep sees the actual sentences a blocked user is shown, not the factories.
   // The interpolated option label is guarded separately by safeInterpolatedLabel.
+  // Both arms of the A3 promise switch are swept: dropping "…and the analysis
+  // can run" changes the sentence, so the shortened form is copy in its own
+  // right and must pass the same scan.
   push('BLOCKED_REASON_COPY', {
     ...BLOCKED_REASON_COPY,
-    oneOption: BLOCKED_REASON_COPY.oneOption('Buy a vendor platform'),
-    twoOptions: BLOCKED_REASON_COPY.twoOptions('Buy a vendor platform', 'Build in house'),
-    manyOptionsSingular: BLOCKED_REASON_COPY.manyOptions(1),
-    manyOptions: BLOCKED_REASON_COPY.manyOptions(3),
+    oneOption: BLOCKED_REASON_COPY.oneOption('Buy a vendor platform', true),
+    oneOptionNoPromise: BLOCKED_REASON_COPY.oneOption('Buy a vendor platform', false),
+    twoOptions: BLOCKED_REASON_COPY.twoOptions('Buy a vendor platform', 'Build in house', true),
+    twoOptionsNoPromise: BLOCKED_REASON_COPY.twoOptions('Buy a vendor platform', 'Build in house', false),
+    manyOptionsSingular: BLOCKED_REASON_COPY.manyOptions(1, true),
+    manyOptionsSingularNoPromise: BLOCKED_REASON_COPY.manyOptions(1, false),
+    manyOptions: BLOCKED_REASON_COPY.manyOptions(3, true),
+    manyOptionsNoPromise: BLOCKED_REASON_COPY.manyOptions(3, false),
   })
   push('HERO_COPY', HERO_COPY)
   push('ACTIONS_MENU', ACTIONS_MENU)

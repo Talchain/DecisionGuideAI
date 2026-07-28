@@ -23,7 +23,12 @@ import { useReadinessStore } from '../../../stores/readinessStore'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { useSignalSessionStore } from '../signals/signalSessionStore'
 import type { PreAnalysisSensitivity } from '../../../../adapters/cee/types'
-import { BLOCKED_REASON_COPY } from '../../../utils/composeBlockedReason'
+import {
+  BLOCKED_REASON_COPY,
+  composeReadinessBlockedReason,
+  selectOptionsNeedingValues,
+} from '../../../utils/composeBlockedReason'
+import type { GraphReadiness } from '../../../hooks/useGraphReadiness'
 
 function node(
   id: string,
@@ -729,6 +734,7 @@ describe('assessment-pass regressions', () => {
       canRun: false,
       blockedReason: BLOCKED_REASON_COPY.oneOption(
         'Partner with a specialist consultancy',
+        true,
       ),
     })
     const footer = screen.getByTestId('pre-analysis-v3-footer')
@@ -747,9 +753,11 @@ describe('assessment-pass regressions', () => {
     // replace the whole sentence with the fallback — the failure mode this
     // whole change exists to remove. Pinned here, at the render.
     for (const reason of [
-      BLOCKED_REASON_COPY.oneOption('Buy a vendor platform'),
-      BLOCKED_REASON_COPY.twoOptions('Buy a vendor platform', 'Build in house'),
-      BLOCKED_REASON_COPY.manyOptions(3),
+      BLOCKED_REASON_COPY.oneOption('Buy a vendor platform', true),
+      BLOCKED_REASON_COPY.oneOption('Buy a vendor platform', false),
+      BLOCKED_REASON_COPY.twoOptions('Buy a vendor platform', 'Build in house', true),
+      BLOCKED_REASON_COPY.manyOptions(3, true),
+      BLOCKED_REASON_COPY.manyOptions(3, false),
       BLOCKED_REASON_COPY.goalMissing,
       BLOCKED_REASON_COPY.tooFewOptions,
       BLOCKED_REASON_COPY.unspecified,
@@ -758,6 +766,73 @@ describe('assessment-pass regressions', () => {
       expect(screen.getByTestId('pre-analysis-v3-footer')).toHaveTextContent(reason)
       unmount()
     }
+  })
+
+  // ══════════════════════════════════════════════════════════════════════
+  // AMENDMENT A1 (adversarial review of #520, 28 Jul) — EXECUTED FINDING.
+  //
+  // The footer passed the COMPOSED sentence through `guardCeeText`, which
+  // PREFERS IN-PLACE SUBSTITUTION and enforces terms the composer's own label
+  // vet does not (node/nodes/edge/edges/graphs). Proven at the bytes: an option
+  // the user named "Move billing to edge computing" rendered in the footer as
+  // "Move billing to CONNECTION computing" — a label that exists on no canvas —
+  // while the unguarded ⌘Enter toast and dock tooltip showed the real one.
+  // Three surfaces, three stories: the very class this PR exists to remove.
+  //
+  // These two go through the REAL composer, not a hand-written string.
+  // ══════════════════════════════════════════════════════════════════════
+  describe('the blocked footer never rewrites the user’s own option label', () => {
+    const verdict: GraphReadiness = {
+      readiness_score: 90,
+      readiness_level: 'ready',
+      can_run_analysis: false,
+      confidence_explanation: 'V3 analysis not ready: 1 option(s) blocked: opt_edge',
+      improvements: [],
+      scaffold_plan: { will_scaffold_options: false },
+      options_ready: 1,
+      options_total: 2,
+      goal_node_valid: true,
+    }
+
+    const composedFor = (label: string) =>
+      composeReadinessBlockedReason(
+        verdict,
+        selectOptionsNeedingValues({
+          options: [
+            { id: 'opt_keep', label: 'Keep billing where it is', status: 'ready' },
+            { id: 'opt_edge', label, status: 'needs_encoding' },
+          ],
+        }),
+      )
+
+    it('renders the EXACT label the user typed, even when it carries "edge"', () => {
+      const label = 'Move billing to edge computing'
+      const reason = composedFor(label)
+      expect(reason).toContain(label) // the composer quotes it verbatim…
+
+      renderPanel({ canRun: false, blockedReason: reason })
+      const footer = screen.getByTestId('pre-analysis-v3-footer')
+      // …and so does the footer. This is the assertion that was RED.
+      expect(footer).toHaveTextContent(`"${label}" has no effect values yet.`)
+      expect(footer).not.toHaveTextContent('connection computing')
+      expect(footer).not.toHaveTextContent('Olumi is not able to run this yet')
+    })
+
+    it('a long label whose truncation would expose a banned word degrades WHOLE', () => {
+      // The review's second executed proof: 'graphite' passes the vet, the cut
+      // lands after "graph", and the guard rewrote it to "… model…". The honest
+      // answer is the count — never a mutated variant of the user's words.
+      const label = `${'x'.repeat(41)} graphite dashboards consolidation`
+      const reason = composedFor(label)
+
+      renderPanel({ canRun: false, blockedReason: reason })
+      const footer = screen.getByTestId('pre-analysis-v3-footer')
+      const text = footer.textContent ?? ''
+      expect(footer).toHaveTextContent('1 option has no effect values yet')
+      expect(text).not.toContain('x'.repeat(41)) // no fragment of the label at all
+      expect(text).not.toMatch(/\bgraph\b/i) // no banned fragment
+      expect(text).not.toContain('model…') // the mutated variant the review proved
+    })
   })
 
   it('the run rung explains itself instead of silently no-opping when the dock gate is closed', () => {
