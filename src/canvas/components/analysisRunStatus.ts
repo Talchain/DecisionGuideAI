@@ -74,8 +74,11 @@ export function runStatusRegion({ isRunning }: RunStatusInput): RunStatusRegion 
  * furniture already speaks there:
  *
  *  - START: the running banner's narration div (role=status) mounts with
- *    "Analysing your decision…", and the no-report skeleton carries its own
- *    sr-only loading line. A dock announcement on top would be heard twice.
+ *    "Analysing your decision…". A dock announcement on top would be heard
+ *    twice. (This used to read "…and the no-report skeleton carries its own
+ *    sr-only loading line" — the yield's cover on the no-report path. That
+ *    line is gone: the skeleton is decorative now and the banner mounts on
+ *    BOTH paths, so the premise holds through one mechanism instead of two.)
  *  - SETTLE: AnalysisFreshnessNotice fires the completion toast
  *    (role=alert) on the running→complete transition, and the error banner
  *    mounts as role=alert on failure.
