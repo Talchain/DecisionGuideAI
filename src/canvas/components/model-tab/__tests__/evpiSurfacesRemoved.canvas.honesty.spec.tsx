@@ -228,7 +228,7 @@ describe('compare-tab Hero — no pp claim, and the CTA still targets a factor',
 
   it('POSITIVE CONTROL: the improving hero renders its CTA and its influence figure', () => {
     const s = snapshot()
-    const { container } = render(<Hero state="improving" snapshots={[s, s]} showExpert={false} />)
+    const { container } = render(<Hero state="improving" snapshots={[s, s]} showExpert={false} onRunAnalysis={() => {}} />)
     const text = container.textContent ?? ''
     expect(text).toContain('Existing Team Experience Level')
     expect(text).toContain('67% influence')
@@ -236,7 +236,7 @@ describe('compare-tab Hero — no pp claim, and the CTA still targets a factor',
 
   it('states influence without asserting a percentage-point value for resolving it', () => {
     const s = snapshot()
-    const { container } = render(<Hero state="improving" snapshots={[s, s]} showExpert={false} />)
+    const { container } = render(<Hero state="improving" snapshots={[s, s]} showExpert={false} onRunAnalysis={() => {}} />)
     const text = container.textContent ?? ''
     expect(text).not.toMatch(/resolving could improve confidence/i)
     expect(text).not.toMatch(PP_TOKEN)

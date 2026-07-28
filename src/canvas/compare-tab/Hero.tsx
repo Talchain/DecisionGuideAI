@@ -9,6 +9,17 @@ interface HeroProps {
   state: CompareState
   snapshots: AnalysisSnapshot[]
   showExpert: boolean
+  /**
+   * The canonical run, threaded from CompareTabBody (which already holds it
+   * for CompareFooter) and ultimately OutputsDock's `handleRunAnalysis`.
+   *
+   * REQUIRED, deliberately. The 'stale' hero's action reads "Rerun analysis"
+   * and until 2026-07-28 it was an inert `<span>` styled `cursor-pointer` —
+   * a control that looked live and dispatched nothing (ROADMAP 2.102). An
+   * optional prop would let a future call site re-create exactly that, and
+   * silently; a required one makes the compiler refuse.
+   */
+  onRunAnalysis: () => void
 }
 
 function getHeroCopy(
@@ -82,10 +93,17 @@ function getHeroCopy(
   }
 }
 
-export function Hero({ state, snapshots, showExpert }: HeroProps) {
+export function Hero({ state, snapshots, showExpert, onRunAnalysis }: HeroProps) {
   const latest = snapshots[snapshots.length - 1]
   const first = snapshots[0]
   const copy = getHeroCopy(state, latest, first, snapshots.length)
+
+  // 'stale' is the ONLY hero state whose action is a run rather than a
+  // navigation, so it is the only one that gets a real control here. Derived
+  // from `state` in one place rather than carried as a sixth field on every
+  // `getHeroCopy` branch — a per-branch flag is a mirror five call sites must
+  // keep in step (CLAUDE.md trap 12).
+  const actionIsRerun = state === 'stale'
 
   return (
     <div className="px-4 py-3 border-b border-panel-border">
@@ -116,6 +134,20 @@ export function Hero({ state, snapshots, showExpert }: HeroProps) {
               </span>
             </GraphLink>
           </span>
+        ) : actionIsRerun ? (
+          /* ROADMAP 2.102: this was an inert <span> carrying `cursor-pointer`
+             — "Rerun analysis", styled as a live link, dispatching nothing.
+             It is now the real control, on the SAME canonical run the footer's
+             Rerun and the composer use (threaded from OutputsDock), never a
+             second pipeline. */
+          <button
+            type="button"
+            data-testid="compare-hero-rerun"
+            onClick={onRunAnalysis}
+            className={`${typography.panelHeader} text-info hover:underline cursor-pointer bg-transparent border-none p-0`}
+          >
+            {copy.actionLink}
+          </button>
         ) : (
           <span className={`${typography.panelHeader} text-info hover:underline cursor-pointer`}>
             {copy.actionLink}
