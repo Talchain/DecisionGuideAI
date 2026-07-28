@@ -12,10 +12,19 @@
  * re-derives and byte-compares so drift FAILS LOUD in CI instead of reading green.
  *
  * The source captures are the verbatim response bodies from
- * `POST https://cee-staging.onrender.com/assist/v1/draft-graph` on CEE build
- * `1b9d596`, run 2026-07-24 (probe lane
- * `parallel-briefs/STARTER-BRIEF-VALIDATION-2026-07-24.md`). They are committed
- * unmodified next to this script's output so anyone can re-derive and diff.
+ * `POST https://cee-staging.onrender.com/assist/v1/draft-graph`. They are
+ * committed unmodified next to this script's output so anyone can re-derive
+ * and diff.
+ *
+ * ⚠ THE SET SPANS TWO CEE BUILDS — do not restate one build for all five.
+ * `build-vs-buy` is the original `1b9d596` capture (2026-07-24, probe lane
+ * `parallel-briefs/STARTER-BRIEF-VALIDATION-2026-07-24.md`); the other four
+ * were recaptured on `cb54320` (2026-07-28) to clear near-duplicate label
+ * collisions — see the STARTERS table for the per-starter reason. The build is
+ * therefore recorded PER STARTER in `provenance.ceeBuild`, derived from the
+ * table rather than written once as a constant, because a single shared string
+ * is exactly the hand-maintained mirror that would go stale on the next
+ * recapture (CLAUDE.md trap 12).
  *
  * The ONLY transformation applied is deletion of two purely diagnostic
  * top-level keys (see STRIPPED_KEYS). Nothing is rewritten, reordered, padded
@@ -56,34 +65,73 @@ const STRIPPED_KEYS = ['trace', '_timings']
  * The five starters, each pinned to the ONE capture it is derived from.
  *
  * `capture` names a SUCCESSFUL probe (HTTP 200, structurally valid, complete
- * coaching). Selection rationale per starter is recorded in `note` and the
- * per-probe evidence is in raw/probe-results.jsonl.
+ * coaching). Selection rationale per starter is recorded in `note`, and
+ * `ceeBuild`/`capturedAt` are per-starter because the set is NOT single-build
+ * (see below) — a single hardcoded build string would have mislabelled four of
+ * the five the moment they were recaptured.
+ *
+ * ⚠ FOUR OF FIVE WERE RECAPTURED 2026-07-28, and the reason is the selection
+ * criterion — not a content refresh. The original captures (CEE `1b9d596`)
+ * shipped four NEAR-DUPLICATE LABEL COLLISIONS across four starters:
+ *
+ *   vendor-selection      factor "Data Team Capacity" ⊂ risk "Data Team Capacity Strain"
+ *   market-entry          factor "UK Financial Services Deepening" ⊂ option "… (Status Quo)"
+ *   headcount-allocation  goal "Achieve ARR Growth by Q3" ⊃ outcome "ARR Growth by Q3"
+ *   pricing-model         goal "Achieve Net Revenue Retention Above 110% …" ⊃ outcome "Net Revenue Retention"
+ *
+ * ROADMAP 1.320 established a clean 6/6 correlate between a near-duplicate
+ * label sibling and edits failing at a ~50% base rate, with the mechanism
+ * confirmed as `ENTITY_KIND_MISMATCH` at CEE's routing validator — the entity
+ * is found by LABEL and then rejected by KIND. The goal⊃outcome pairs are that
+ * shape exactly. A starter is the first graph a new user ever edits, so
+ * shipping one handed them the failing shape on their first attempt.
+ *
+ * THE BRIEFS ARE UNCHANGED. Every recapture re-sends the SAME brief bytes as
+ * before; only the draw differs. Rewording was tested and proved unnecessary:
+ * 11 fresh probes of the ORIGINAL briefs on CEE `cb54320` came back
+ * collision-free 6/11 (55%), i.e. the collision is draft NON-DETERMINISM, not
+ * a property of the brief. Evidence: raw/probe-results-2026-07-28.jsonl.
+ *
+ * ⚠ AND THAT 55% IS WHY THE FIX IS NOT THIS FILE. Recapturing is a one-off; the
+ * next recapture has a ~45% chance of reintroducing a collision. The durable
+ * guard is `src/canvas/starters/nearDuplicateLabels.ts`, asserted per-starter
+ * in starters.integrity.spec.ts — it fails loud on any capture that carries one.
  */
 const STARTERS = [
   {
     id: 'vendor-selection',
     capture: 'vendor-selection.capture.json',
-    note: 'probe idx 11 — 17n/33e/4opt, 61.4s, coaching complete (the other vendor pass ran coaching skipped_budget)',
+    ceeBuild: 'cb54320',
+    capturedAt: '2026-07-28',
+    note: 'RECAPTURED — original brief, 19n/39e/4opt, 56.7s, coaching complete, zero label collisions. Replaces the 1b9d596 draw whose factor "Data Team Capacity" was a token-subset of risk "Data Team Capacity Strain".',
   },
   {
     id: 'market-entry',
     capture: 'market-entry.capture.json',
-    note: 'probe idx 1 — 18n/35e/3opt, 60.8s, coaching complete. The ONLY market-entry pass in 5 attempts (1/5 live) — which is precisely why this starter ships pre-drafted.',
+    ceeBuild: 'cb54320',
+    capturedAt: '2026-07-28',
+    note: 'RECAPTURED — original brief, 18n/32e/3opt, 56.8s, coaching complete, zero label collisions. Replaces the 1b9d596 draw whose factor "UK Financial Services Deepening" was a token-subset of the option of the same name. Also drafts far more reliably on cb54320 (2/2) than the 1/5 recorded on 1b9d596.',
   },
   {
     id: 'build-vs-buy',
     capture: 'build-vs-buy.capture.json',
-    note: 'probe idx 12 — 19n/37e/4opt, 59.1s, coaching complete (the other build-vs-buy pass ran coaching skipped_budget)',
+    ceeBuild: '1b9d596',
+    capturedAt: '2026-07-24',
+    note: 'NOT recaptured — probe idx 12, 19n/37e/4opt, 59.1s, coaching complete. The only original capture already free of label collisions, so it is left exactly as it was rather than re-rolled for tidiness.',
   },
   {
     id: 'headcount-allocation',
     capture: 'headcount-allocation.capture.json',
-    note: 'probe idx 3 — 16n/26e/4opt, 49.4s, coaching complete. Most stable brief in the run (4/4).',
+    ceeBuild: 'cb54320',
+    capturedAt: '2026-07-28',
+    note: 'RECAPTURED — original brief, 16n/25e/4opt, 53.3s, coaching complete, zero label collisions. Replaces the 1b9d596 draw whose goal "Achieve ARR Growth by Q3" strictly contained outcome "ARR Growth by Q3". 1 of 3 fresh draws was collision-free.',
   },
   {
     id: 'pricing-model',
     capture: 'pricing-model.capture.json',
-    note: 'probe idx 14 — 16n/35e/4opt, 91.6s, coaching complete',
+    ceeBuild: 'cb54320',
+    capturedAt: '2026-07-28',
+    note: 'RECAPTURED — original brief, 15n/30e/4opt, 50.4s, coaching complete, zero label collisions. Replaces the 1b9d596 draw whose goal strictly contained outcome "Net Revenue Retention". 1 of 3 fresh draws was collision-free.',
   },
 ]
 
@@ -173,8 +221,10 @@ function build() {
       optionCount: options.length,
       provenance: {
         source: 'POST https://cee-staging.onrender.com/assist/v1/draft-graph',
-        ceeBuild: '1b9d596',
-        capturedAt: '2026-07-24',
+        // Per-starter, not a shared constant: the set spans two CEE builds
+        // since the 2026-07-28 collision recapture (see STARTERS above).
+        ceeBuild: s.ceeBuild,
+        capturedAt: s.capturedAt,
         requestId: capture.trace?.request_id ?? null,
         model: capture.trace?.pipeline?.llm_metadata?.model ?? null,
         promptVersion: capture.trace?.pipeline?.llm_metadata?.prompt_version ?? null,

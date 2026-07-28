@@ -8,9 +8,9 @@
       "provenance": "ai_inferred"
     },
     {
-      "id": "fac_arr_base",
+      "id": "fac_arr",
       "kind": "factor",
-      "label": "Current ARR Base",
+      "label": "Current ARR",
       "category": "external",
       "prior": {
         "distribution": "uniform",
@@ -48,7 +48,11 @@
         ]
       },
       "category": "controllable",
-      "display_value": "No Germany entry pursued yet (one-hot indicator)  ",
+      "encoding_map": {
+        "0": "Not pursued",
+        "1": "Pursued"
+      },
+      "display_value": "Low (0)",
       "provenance": "ai_inferred"
     },
     {
@@ -68,7 +72,7 @@
         ]
       },
       "category": "controllable",
-      "display_value": "Moderate (baseline unset — varies by market)  ",
+      "display_value": "0.5 scale",
       "provenance": "ai_inferred"
     },
     {
@@ -98,7 +102,11 @@
         ]
       },
       "category": "controllable",
-      "display_value": "No Nordics entry pursued yet (one-hot indicator)",
+      "encoding_map": {
+        "0": "Not pursued",
+        "1": "Pursued"
+      },
+      "display_value": "Low (0)",
       "provenance": "ai_inferred"
     },
     {
@@ -111,14 +119,14 @@
         "range_min": 0.25,
         "range_max": 0.75
       },
-      "extractionType": "explicit",
+      "extractionType": "inferred",
       "display_value": "0.25 to 0.75",
-      "provenance": "from_brief"
+      "provenance": "ai_inferred"
     },
     {
-      "id": "fac_uk_deepening",
+      "id": "fac_uk_deepdive",
       "kind": "factor",
-      "label": "UK Financial Services Deepening",
+      "label": "UK Financial Services Focus",
       "observed_state": {
         "value": 0,
         "source": "cee_inference",
@@ -129,13 +137,21 @@
         ]
       },
       "category": "controllable",
-      "display_value": "No UK FS deepening pursued yet (one-hot indicator)",
+      "encoding_map": {
+        "0": "Not pursued",
+        "1": "Pursued"
+      },
+      "display_value": "Low (0)",
       "provenance": "ai_inferred"
     },
     {
       "id": "goal_arr_growth",
       "kind": "goal",
       "label": "Grow Total ARR Materially Within 12 Months",
+      "goal_threshold": 0.73,
+      "goal_threshold_raw": 11,
+      "goal_threshold_unit": "£M ARR",
+      "goal_threshold_cap": 15,
       "provenance": "ai_inferred"
     },
     {
@@ -165,11 +181,11 @@
           "value_confidence": "high",
           "reasoning": "Direct from V4 prompt data.interventions"
         },
-        "fac_uk_deepening": {
+        "fac_uk_deepdive": {
           "value": 0,
           "source": "brief_extraction",
           "target_match": {
-            "node_id": "fac_uk_deepening",
+            "node_id": "fac_uk_deepdive",
             "match_type": "exact_id",
             "confidence": "high"
           },
@@ -207,11 +223,11 @@
           "value_confidence": "high",
           "reasoning": "Direct from V4 prompt data.interventions"
         },
-        "fac_uk_deepening": {
+        "fac_uk_deepdive": {
           "value": 0,
           "source": "brief_extraction",
           "target_match": {
-            "node_id": "fac_uk_deepening",
+            "node_id": "fac_uk_deepdive",
             "match_type": "exact_id",
             "confidence": "high"
           },
@@ -225,7 +241,7 @@
     {
       "id": "opt_uk_fs",
       "kind": "option",
-      "label": "UK Financial Services Deepening (Status Quo)",
+      "label": "UK Financial Services Deepdive (Status Quo)",
       "interventions": {
         "fac_germany": {
           "value": 0,
@@ -249,11 +265,11 @@
           "value_confidence": "high",
           "reasoning": "Direct from V4 prompt data.interventions"
         },
-        "fac_uk_deepening": {
+        "fac_uk_deepdive": {
           "value": 1,
           "source": "brief_extraction",
           "target_match": {
-            "node_id": "fac_uk_deepening",
+            "node_id": "fac_uk_deepdive",
             "match_type": "exact_id",
             "confidence": "high"
           },
@@ -265,27 +281,27 @@
       "provenance": "ai_inferred"
     },
     {
-      "id": "out_new_arr",
+      "id": "out_new_market_arr",
       "kind": "outcome",
-      "label": "New ARR from Target Market",
+      "label": "New Market ARR Growth",
       "provenance": "ai_inferred"
     },
     {
-      "id": "out_uk_growth_protection",
+      "id": "out_uk_arr_retention",
       "kind": "outcome",
-      "label": "UK Growth Momentum Maintained",
+      "label": "UK ARR Growth Maintained",
       "provenance": "ai_inferred"
     },
     {
-      "id": "risk_compliance_burden",
+      "id": "risk_localisation_drag",
       "kind": "risk",
-      "label": "Compliance and Regulatory Burden",
+      "label": "Localisation and Compliance Drag",
       "provenance": "ai_inferred"
     },
     {
-      "id": "risk_time_to_revenue",
+      "id": "risk_team_overstretch",
       "kind": "risk",
-      "label": "Time to First Revenue in New Market",
+      "label": "Team Overstretch Risk",
       "provenance": "ai_inferred"
     },
     {
@@ -342,13 +358,13 @@
       "origin": "ai"
     },
     {
-      "from": "fac_arr_base",
-      "to": "out_uk_growth_protection",
+      "from": "fac_arr",
+      "to": "out_uk_arr_retention",
       "strength": {
         "mean": 0.2,
-        "std": 0.1
+        "std": 0.09
       },
-      "exists_probability": 0.88,
+      "exists_probability": 0.9,
       "effect_direction": "positive",
       "provenance": {
         "source": "cee_hypothesis"
@@ -358,10 +374,10 @@
     },
     {
       "from": "fac_competitive_intensity",
-      "to": "out_new_arr",
+      "to": "out_new_market_arr",
       "strength": {
-        "mean": -0.10717948717948718,
-        "std": 0.05846153846153846
+        "mean": -0.09827586206896552,
+        "std": 0.0545977011494253
       },
       "exists_probability": 0.72,
       "effect_direction": "negative",
@@ -373,12 +389,12 @@
     },
     {
       "from": "fac_competitive_intensity",
-      "to": "risk_time_to_revenue",
+      "to": "risk_localisation_drag",
       "strength": {
-        "mean": 0.2,
-        "std": 0.12
+        "mean": 0.08976377952755905,
+        "std": 0.05984251968503937
       },
-      "exists_probability": 0.68,
+      "exists_probability": 0.6,
       "effect_direction": "positive",
       "provenance": {
         "source": "cee_hypothesis"
@@ -388,10 +404,10 @@
     },
     {
       "from": "fac_germany",
-      "to": "out_new_arr",
+      "to": "out_new_market_arr",
       "strength": {
-        "mean": 0.26794871794871794,
-        "std": 0.08769230769230768
+        "mean": 0.3002873563218391,
+        "std": 0.09827586206896552
       },
       "exists_probability": 0.72,
       "effect_direction": "positive",
@@ -403,27 +419,12 @@
     },
     {
       "from": "fac_germany",
-      "to": "risk_compliance_burden",
+      "to": "risk_localisation_drag",
       "strength": {
-        "mean": 0.5233050847457626,
-        "std": 0.12076271186440675
+        "mean": 0.44881889763779526,
+        "std": 0.11220472440944881
       },
-      "exists_probability": 0.9,
-      "effect_direction": "positive",
-      "provenance": {
-        "source": "cee_hypothesis"
-      },
-      "provenance_display": "ai_inferred",
-      "origin": "ai"
-    },
-    {
-      "from": "fac_germany",
-      "to": "risk_time_to_revenue",
-      "strength": {
-        "mean": 0.5,
-        "std": 0.18
-      },
-      "exists_probability": 0.85,
+      "exists_probability": 0.88,
       "effect_direction": "positive",
       "provenance": {
         "source": "cee_hypothesis"
@@ -435,8 +436,8 @@
       "from": "fac_germany",
       "to": "risk_uk_distraction",
       "strength": {
-        "mean": 0.3958333333333333,
-        "std": 0.13194444444444442
+        "mean": 0.35,
+        "std": 0.15
       },
       "exists_probability": 0.8,
       "effect_direction": "positive",
@@ -448,13 +449,13 @@
     },
     {
       "from": "fac_localisation_cost",
-      "to": "out_uk_growth_protection",
+      "to": "risk_localisation_drag",
       "strength": {
-        "mean": -0.2,
-        "std": 0.1
+        "mean": 0.18700787401574803,
+        "std": 0.08976377952755905
       },
-      "exists_probability": 0.78,
-      "effect_direction": "negative",
+      "exists_probability": 0.82,
+      "effect_direction": "positive",
       "provenance": {
         "source": "cee_hypothesis"
       },
@@ -463,10 +464,10 @@
     },
     {
       "from": "fac_localisation_cost",
-      "to": "risk_compliance_burden",
+      "to": "risk_team_overstretch",
       "strength": {
-        "mean": 0.20127118644067793,
-        "std": 0.0966101694915254
+        "mean": 0.3,
+        "std": 0.13
       },
       "exists_probability": 0.8,
       "effect_direction": "positive",
@@ -478,10 +479,10 @@
     },
     {
       "from": "fac_market_size",
-      "to": "out_new_arr",
+      "to": "out_new_market_arr",
       "strength": {
-        "mean": 0.1705128205128205,
-        "std": 0.07307692307692307
+        "mean": 0.13649425287356323,
+        "std": 0.06551724137931035
       },
       "exists_probability": 0.8,
       "effect_direction": "positive",
@@ -493,10 +494,10 @@
     },
     {
       "from": "fac_nordics",
-      "to": "out_new_arr",
+      "to": "out_new_market_arr",
       "strength": {
-        "mean": 0.18512820512820513,
-        "std": 0.07794871794871795
+        "mean": 0.20747126436781613,
+        "std": 0.08735632183908047
       },
       "exists_probability": 0.7,
       "effect_direction": "positive",
@@ -508,25 +509,10 @@
     },
     {
       "from": "fac_nordics",
-      "to": "risk_compliance_burden",
+      "to": "risk_localisation_drag",
       "strength": {
-        "mean": 0.2254237288135593,
-        "std": 0.0966101694915254
-      },
-      "exists_probability": 0.82,
-      "effect_direction": "positive",
-      "provenance": {
-        "source": "cee_hypothesis"
-      },
-      "provenance_display": "ai_inferred",
-      "origin": "ai"
-    },
-    {
-      "from": "fac_nordics",
-      "to": "risk_time_to_revenue",
-      "strength": {
-        "mean": 0.3,
-        "std": 0.14
+        "mean": 0.22440944881889763,
+        "std": 0.1047244094488189
       },
       "exists_probability": 0.78,
       "effect_direction": "positive",
@@ -540,8 +526,8 @@
       "from": "fac_nordics",
       "to": "risk_uk_distraction",
       "strength": {
-        "mean": 0.3078703703703703,
-        "std": 0.12314814814814815
+        "mean": 0.28,
+        "std": 0.14
       },
       "exists_probability": 0.75,
       "effect_direction": "positive",
@@ -553,10 +539,10 @@
     },
     {
       "from": "fac_team_capacity",
-      "to": "out_new_arr",
+      "to": "out_new_market_arr",
       "strength": {
-        "mean": 0.07307692307692307,
-        "std": 0.038974358974358976
+        "mean": 0.09827586206896552,
+        "std": 0.0545977011494253
       },
       "exists_probability": 0.85,
       "effect_direction": "positive",
@@ -568,12 +554,12 @@
     },
     {
       "from": "fac_team_capacity",
-      "to": "risk_uk_distraction",
+      "to": "risk_team_overstretch",
       "strength": {
-        "mean": -0.1583333333333333,
-        "std": 0.08796296296296297
+        "mean": -0.22,
+        "std": 0.1
       },
-      "exists_probability": 0.8,
+      "exists_probability": 0.82,
       "effect_direction": "negative",
       "provenance": {
         "source": "cee_hypothesis"
@@ -582,13 +568,13 @@
       "origin": "ai"
     },
     {
-      "from": "fac_uk_deepening",
-      "to": "out_new_arr",
+      "from": "fac_uk_deepdive",
+      "to": "out_new_market_arr",
       "strength": {
-        "mean": 0.14615384615384613,
-        "std": 0.06820512820512821
+        "mean": 0.1091954022988506,
+        "std": 0.06551724137931035
       },
-      "exists_probability": 0.8,
+      "exists_probability": 0.68,
       "effect_direction": "positive",
       "provenance": {
         "source": "cee_hypothesis"
@@ -597,28 +583,13 @@
       "origin": "ai"
     },
     {
-      "from": "fac_uk_deepening",
-      "to": "out_uk_growth_protection",
+      "from": "fac_uk_deepdive",
+      "to": "out_uk_arr_retention",
       "strength": {
-        "mean": 0.6,
+        "mean": 0.55,
         "std": 0.14
       },
-      "exists_probability": 0.88,
-      "effect_direction": "positive",
-      "provenance": {
-        "source": "cee_hypothesis"
-      },
-      "provenance_display": "ai_inferred",
-      "origin": "ai"
-    },
-    {
-      "from": "fac_uk_deepening",
-      "to": "risk_uk_distraction",
-      "strength": {
-        "mean": 0.08796296296296297,
-        "std": 0.07037037037037036
-      },
-      "exists_probability": 0.65,
+      "exists_probability": 0.85,
       "effect_direction": "positive",
       "provenance": {
         "source": "cee_hypothesis"
@@ -733,7 +704,7 @@
     },
     {
       "from": "opt_uk_fs",
-      "to": "fac_uk_deepening",
+      "to": "fac_uk_deepdive",
       "strength": {
         "mean": 1,
         "std": 0.01
@@ -747,7 +718,7 @@
       "origin": "ai"
     },
     {
-      "from": "out_new_arr",
+      "from": "out_new_market_arr",
       "to": "goal_arr_growth",
       "strength": {
         "mean": 0.55,
@@ -762,13 +733,13 @@
       "origin": "ai"
     },
     {
-      "from": "out_uk_growth_protection",
+      "from": "out_uk_arr_retention",
       "to": "goal_arr_growth",
       "strength": {
-        "mean": 0.35,
-        "std": 0.12
+        "mean": 0.45,
+        "std": 0.1
       },
-      "exists_probability": 0.9,
+      "exists_probability": 0.92,
       "effect_direction": "positive",
       "provenance": {
         "source": "cee_hypothesis"
@@ -777,11 +748,11 @@
       "origin": "ai"
     },
     {
-      "from": "risk_compliance_burden",
+      "from": "risk_localisation_drag",
       "to": "goal_arr_growth",
       "strength": {
         "mean": -0.3,
-        "std": 0.12
+        "std": 0.13
       },
       "exists_probability": 0.88,
       "effect_direction": "negative",
@@ -792,13 +763,13 @@
       "origin": "ai"
     },
     {
-      "from": "risk_time_to_revenue",
+      "from": "risk_team_overstretch",
       "to": "goal_arr_growth",
       "strength": {
-        "mean": -0.25,
-        "std": 0.12
+        "mean": -0.22,
+        "std": 0.11
       },
-      "exists_probability": 0.85,
+      "exists_probability": 0.8,
       "effect_direction": "negative",
       "provenance": {
         "source": "cee_hypothesis"
@@ -810,10 +781,10 @@
       "from": "risk_uk_distraction",
       "to": "goal_arr_growth",
       "strength": {
-        "mean": -0.4,
+        "mean": -0.35,
         "std": 0.14
       },
-      "exists_probability": 0.9,
+      "exists_probability": 0.85,
       "effect_direction": "negative",
       "provenance": {
         "source": "cee_hypothesis"
@@ -850,11 +821,11 @@
           "value_confidence": "high",
           "reasoning": "Direct from V4 prompt data.interventions"
         },
-        "fac_uk_deepening": {
+        "fac_uk_deepdive": {
           "value": 0,
           "source": "brief_extraction",
           "target_match": {
-            "node_id": "fac_uk_deepening",
+            "node_id": "fac_uk_deepdive",
             "match_type": "exact_id",
             "confidence": "high"
           },
@@ -894,11 +865,11 @@
           "value_confidence": "high",
           "reasoning": "Direct from V4 prompt data.interventions"
         },
-        "fac_uk_deepening": {
+        "fac_uk_deepdive": {
           "value": 0,
           "source": "brief_extraction",
           "target_match": {
-            "node_id": "fac_uk_deepening",
+            "node_id": "fac_uk_deepdive",
             "match_type": "exact_id",
             "confidence": "high"
           },
@@ -913,7 +884,7 @@
     },
     {
       "id": "opt_uk_fs",
-      "label": "UK Financial Services Deepening (Status Quo)",
+      "label": "UK Financial Services Deepdive (Status Quo)",
       "status": "ready",
       "interventions": {
         "fac_germany": {
@@ -938,11 +909,11 @@
           "value_confidence": "high",
           "reasoning": "Direct from V4 prompt data.interventions"
         },
-        "fac_uk_deepening": {
+        "fac_uk_deepdive": {
           "value": 1,
           "source": "brief_extraction",
           "target_match": {
-            "node_id": "fac_uk_deepening",
+            "node_id": "fac_uk_deepdive",
             "match_type": "exact_id",
             "confidence": "high"
           },
@@ -960,91 +931,129 @@
   "validation_warnings": [
     {
       "code": "EDGE_STRENGTH_NEGLIGIBLE",
-      "message": "Edge from \"fac_team_capacity\" to \"out_new_arr\" has negligible strength (0.073)",
+      "message": "Edge from \"fac_competitive_intensity\" to \"out_new_market_arr\" has negligible strength (-0.098)",
       "severity": "info",
-      "affected_node_id": "fac_team_capacity",
+      "affected_node_id": "fac_competitive_intensity",
       "suggestion": "Consider removing this edge or increasing its strength if the relationship is meaningful"
     },
     {
       "code": "EDGE_STRENGTH_NEGLIGIBLE",
-      "message": "Edge from \"fac_uk_deepening\" to \"risk_uk_distraction\" has negligible strength (0.088)",
+      "message": "Edge from \"fac_competitive_intensity\" to \"risk_localisation_drag\" has negligible strength (0.090)",
       "severity": "info",
-      "affected_node_id": "fac_uk_deepening",
+      "affected_node_id": "fac_competitive_intensity",
       "suggestion": "Consider removing this edge or increasing its strength if the relationship is meaningful"
     },
     {
-      "code": "CAUSAL_CLAIM_DROPPED",
-      "message": "Dropped 8 malformed causal claim(s)",
-      "severity": "warn",
-      "details": {
-        "count": 8,
-        "first_3_reasons": [
-          "type: Invalid discriminator value. Expected 'direct_effect' | 'mediation_only' | 'no_direct_effect' | 'unmeasured_confounder'",
-          "type: Invalid discriminator value. Expected 'direct_effect' | 'mediation_only' | 'no_direct_effect' | 'unmeasured_confounder'",
-          "type: Invalid discriminator value. Expected 'direct_effect' | 'mediation_only' | 'no_direct_effect' | 'unmeasured_confounder'"
-        ]
-      }
+      "code": "EDGE_STRENGTH_NEGLIGIBLE",
+      "message": "Edge from \"fac_team_capacity\" to \"out_new_market_arr\" has negligible strength (0.098)",
+      "severity": "info",
+      "affected_node_id": "fac_team_capacity",
+      "suggestion": "Consider removing this edge or increasing its strength if the relationship is meaningful"
     }
   ],
   "coaching": {
-    "summary": "The graph captures the core trade-off between market opportunity and execution drag, but the decision lacks a quantified threshold for what 'material ARR growth' means and misses the ICP-fit signal that would differentiate Germany from the Nordics in practice.",
+    "summary": "The decision is well-structured around three distinct paths, but the framing leans heavily toward international options and the constraint logic around team capacity and UK protection deserves sharper articulation before any analysis runs.",
     "strengthen_items": [
       {
-        "id": "quantify-arr-goal",
-        "label": "Define a numeric ARR target for the 12-month goal",
-        "detail": "Without a specific figure attached to Grow Total ARR Materially Within 12 Months, the board cannot objectively compare whether New ARR from Target Market from Germany vs. Nordics vs. UK FS deepening clears the bar, making the decision effectively unresolvable.",
-        "action_type": "quantify",
-        "bias_category": "ambiguity_aversion"
-      },
-      {
-        "id": "add-icp-fit-factor",
-        "label": "Add an ICP / product-market fit factor per option",
-        "detail": "Competitive Intensity in Target Market captures supply-side pressure but nothing in the graph represents how well the existing product fits German vs. Nordic buyer personas, which is the strongest predictor of Time to First Revenue in New Market and should be an explicit node influencing New ARR from Target Market.",
-        "action_type": "add_factor",
-        "bias_category": "availability"
-      },
-      {
-        "id": "add-team-split-constraint",
-        "label": "Make the six-person team capacity a hard constraint, not just a factor",
-        "detail": "New Market Team Capacity currently flows only to New ARR from Target Market and UK Growth Distraction Risk, but the brief states it is a binding budget constraint; modelling it as a constraint would force explicit trade-off logic between options rather than treating it as a soft influence.",
-        "action_type": "add_constraint",
+        "id": "add-sales-cycle-risk",
+        "label": "Add a risk for B2B sales cycle length in new markets",
+        "detail": "The goal is explicitly '12 months', yet no risk captures the likelihood that enterprise B2B sales cycles in Germany or the Nordics could consume most of that window before any ARR materialises — this gap could make the 12-month goal unachievable regardless of localisation effort.",
+        "action_type": "add_risk",
         "bias_category": "overconfidence"
       },
       {
-        "id": "add-edge-compliance-to-time",
-        "label": "Link compliance burden directly to time-to-revenue for each option",
-        "detail": "Compliance and Regulatory Burden currently flows to Grow Total ARR Materially Within 12 Months but not to Time to First Revenue in New Market, even though regulatory onboarding delays are the primary mechanism by which compliance slows first revenue—adding this edge makes the causal chain explicit.",
-        "action_type": "add_edge"
+        "id": "reframe-goal-dual",
+        "label": "Split the single ARR goal into its two distinct sub-goals",
+        "detail": "The brief states two separate success conditions — growing total ARR and not slowing UK growth — but they currently collapse into one goal, which obscures trade-offs between UK Financial Services Focus and international options when both outcomes feed the same node.",
+        "action_type": "reframe_goal",
+        "bias_category": "narrow_framing"
+      },
+      {
+        "id": "add-icp-fit-factor",
+        "label": "Add a factor for product-market fit or ICP presence in each target market",
+        "detail": "Market size (Target Market Size) and competitive intensity (Competitive Intensity in Target Market) are present, but there is no factor representing whether the company's existing B2B SaaS product already has a proven buyer profile in Germany or the Nordics, which is a distinct driver of new market ARR growth.",
+        "action_type": "add_constraint"
+      },
+      {
+        "id": "add-channel-partner-option",
+        "label": "Consider whether a partner-led entry option belongs alongside the three current paths",
+        "detail": "The brief constrains headcount to one six-person team, yet only direct-entry options are modelled; a channel or reseller route could alter both Localisation and Compliance Cost and New Market Team Capacity dynamics materially and should be explicitly included or consciously excluded.",
+        "action_type": "add_option",
+        "bias_category": "narrow_framing"
       }
     ],
     "widening_log": {
       "elements_added": [],
       "elements_considered_but_excluded": [
-        "Partner/channel availability per market — relevant but would duplicate Competitive Intensity in Target Market scope at this stage",
-        "FX/pricing risk — material for Nordics (multi-currency) but no currency node exists and adding it without a corresponding option edge would be orphaned",
-        "Hiring timeline for the new market team — important operationally but the brief treats headcount as already decided"
+        "Currency/FX risk — relevant for Nordics non-euro markets but not named in the brief",
+        "Regulatory approval timelines — subsumed under Localisation and Compliance Cost as described",
+        "Board approval as a constraint — implied by 'board wants' but not a decision variable"
       ],
       "brief_completeness": "partial"
     },
     "bias_signals": [
       {
-        "type": "availability",
-        "detail": "Germany and Nordics receive dedicated factor nodes while UK FS deepening shares Germany Market Entry and Nordics Market Entry as upstream nodes via UK Financial Services Deepening (Status Quo), suggesting the international options were modelled first and the status-quo option was retrofitted, potentially underweighting it.",
-        "target": "opt_uk_fs"
+        "type": "narrow_framing",
+        "detail": "The brief frames the choice as 'Germany first, the Nordics first, or staying UK-only', presenting exactly three options without acknowledging that hybrid sequencing or partner-led entry might exist — the word 'or' is used exclusively throughout.",
+        "target": "dec_expansion"
       },
       {
         "type": "overconfidence",
-        "detail": "Current ARR Base flows only to UK Growth Momentum Maintained with no path to UK Growth Distraction Risk, implying the current revenue base is treated as a safe floor rather than something that could erode if the new market team draws on UK-facing resources.",
-        "target": "fac_arr_base"
-      },
-      {
-        "type": "scope_insensitivity",
-        "detail": "Target Market Size is a single node shared across all options with no differentiation of absolute size or addressable segment per market, risking a generic 'bigger is better' heuristic rather than a segmented comparison.",
-        "target": "fac_market_size"
+        "detail": "The goal is stated as 'Grow Total ARR Materially Within 12 Months', asserting a specific and ambitious time horizon without acknowledging uncertainty about whether any international path can realistically close new ARR within that window.",
+        "target": "goal_arr_growth"
       }
     ]
   },
-  "causal_claims": [],
+  "causal_claims": [
+    {
+      "type": "direct_effect",
+      "from": "fac_germany",
+      "to": "risk_localisation_drag",
+      "stated_strength": "moderate"
+    },
+    {
+      "type": "direct_effect",
+      "from": "fac_nordics",
+      "to": "risk_localisation_drag",
+      "stated_strength": "moderate"
+    },
+    {
+      "type": "direct_effect",
+      "from": "fac_localisation_cost",
+      "to": "risk_localisation_drag",
+      "stated_strength": "moderate"
+    },
+    {
+      "type": "direct_effect",
+      "from": "fac_localisation_cost",
+      "to": "risk_team_overstretch",
+      "stated_strength": "moderate"
+    },
+    {
+      "type": "direct_effect",
+      "from": "fac_team_capacity",
+      "to": "risk_team_overstretch",
+      "stated_strength": "moderate"
+    },
+    {
+      "type": "direct_effect",
+      "from": "fac_market_size",
+      "to": "out_new_market_arr",
+      "stated_strength": "moderate"
+    },
+    {
+      "type": "direct_effect",
+      "from": "fac_uk_deepdive",
+      "to": "out_uk_arr_retention",
+      "stated_strength": "moderate"
+    },
+    {
+      "type": "direct_effect",
+      "from": "risk_uk_distraction",
+      "to": "goal_arr_growth",
+      "stated_strength": "moderate"
+    }
+  ],
   "topology_plan": [],
   "draft_warnings": [
     {
@@ -1073,21 +1082,21 @@
           "fac_germany": {
             "value": 1,
             "source": "brief_extraction",
-            "display_value": "No Germany entry pursued yet (one-hot indicator)  "
+            "display_value": "Low (0)"
           },
           "fac_nordics": {
             "value": 0,
             "source": "brief_extraction",
-            "display_value": "No Nordics entry pursued yet (one-hot indicator)"
+            "display_value": "Low (0)"
           },
-          "fac_uk_deepening": {
+          "fac_uk_deepdive": {
             "value": 0,
             "source": "brief_extraction",
-            "display_value": "No UK FS deepening pursued yet (one-hot indicator)"
+            "display_value": "Low (0)"
           },
           "fac_localisation_cost": {
             "value": 0.5,
-            "display_value": "Moderate (baseline unset — varies by market)  "
+            "display_value": "0.5 scale"
           }
         },
         "extraction_metadata": {
@@ -1097,19 +1106,19 @@
         },
         "intervention_details": {
           "fac_germany": {
-            "display_value": "No Germany entry pursued yet (one-hot indicator)  ",
+            "display_value": "Low (0)",
             "normalised_value": 1
           },
           "fac_nordics": {
-            "display_value": "No Nordics entry pursued yet (one-hot indicator)",
+            "display_value": "Low (0)",
             "normalised_value": 0
           },
-          "fac_uk_deepening": {
-            "display_value": "No UK FS deepening pursued yet (one-hot indicator)",
+          "fac_uk_deepdive": {
+            "display_value": "Low (0)",
             "normalised_value": 0
           },
           "fac_localisation_cost": {
-            "display_value": "Moderate (baseline unset — varies by market)  ",
+            "display_value": "0.5 scale",
             "normalised_value": 0.5,
             "raw_value": 0.5,
             "unit": "scale"
@@ -1125,21 +1134,21 @@
           "fac_germany": {
             "value": 0,
             "source": "brief_extraction",
-            "display_value": "No Germany entry pursued yet (one-hot indicator)  "
+            "display_value": "Low (0)"
           },
           "fac_nordics": {
             "value": 1,
             "source": "brief_extraction",
-            "display_value": "No Nordics entry pursued yet (one-hot indicator)"
+            "display_value": "Low (0)"
           },
-          "fac_uk_deepening": {
+          "fac_uk_deepdive": {
             "value": 0,
             "source": "brief_extraction",
-            "display_value": "No UK FS deepening pursued yet (one-hot indicator)"
+            "display_value": "Low (0)"
           },
           "fac_localisation_cost": {
             "value": 0.5,
-            "display_value": "Moderate (baseline unset — varies by market)  "
+            "display_value": "0.5 scale"
           }
         },
         "extraction_metadata": {
@@ -1149,19 +1158,19 @@
         },
         "intervention_details": {
           "fac_germany": {
-            "display_value": "No Germany entry pursued yet (one-hot indicator)  ",
+            "display_value": "Low (0)",
             "normalised_value": 0
           },
           "fac_nordics": {
-            "display_value": "No Nordics entry pursued yet (one-hot indicator)",
+            "display_value": "Low (0)",
             "normalised_value": 1
           },
-          "fac_uk_deepening": {
-            "display_value": "No UK FS deepening pursued yet (one-hot indicator)",
+          "fac_uk_deepdive": {
+            "display_value": "Low (0)",
             "normalised_value": 0
           },
           "fac_localisation_cost": {
-            "display_value": "Moderate (baseline unset — varies by market)  ",
+            "display_value": "0.5 scale",
             "normalised_value": 0.5,
             "raw_value": 0.5,
             "unit": "scale"
@@ -1170,28 +1179,28 @@
       },
       {
         "id": "opt_uk_fs",
-        "label": "UK Financial Services Deepening (Status Quo)",
+        "label": "UK Financial Services Deepdive (Status Quo)",
         "status": "ready",
         "status_reason": "3 intervention(s) ready for analysis",
         "interventions": {
           "fac_germany": {
             "value": 0,
             "source": "brief_extraction",
-            "display_value": "No Germany entry pursued yet (one-hot indicator)  "
+            "display_value": "Low (0)"
           },
           "fac_nordics": {
             "value": 0,
             "source": "brief_extraction",
-            "display_value": "No Nordics entry pursued yet (one-hot indicator)"
+            "display_value": "Low (0)"
           },
-          "fac_uk_deepening": {
+          "fac_uk_deepdive": {
             "value": 1,
             "source": "brief_extraction",
-            "display_value": "No UK FS deepening pursued yet (one-hot indicator)"
+            "display_value": "Low (0)"
           },
           "fac_localisation_cost": {
             "value": 0.5,
-            "display_value": "Moderate (baseline unset — varies by market)  "
+            "display_value": "0.5 scale"
           }
         },
         "extraction_metadata": {
@@ -1202,19 +1211,19 @@
         "is_baseline": true,
         "intervention_details": {
           "fac_germany": {
-            "display_value": "No Germany entry pursued yet (one-hot indicator)  ",
+            "display_value": "Low (0)",
             "normalised_value": 0
           },
           "fac_nordics": {
-            "display_value": "No Nordics entry pursued yet (one-hot indicator)",
+            "display_value": "Low (0)",
             "normalised_value": 0
           },
-          "fac_uk_deepening": {
-            "display_value": "No UK FS deepening pursued yet (one-hot indicator)",
+          "fac_uk_deepdive": {
+            "display_value": "Low (0)",
             "normalised_value": 1
           },
           "fac_localisation_cost": {
-            "display_value": "Moderate (baseline unset — varies by market)  ",
+            "display_value": "0.5 scale",
             "normalised_value": 0.5,
             "raw_value": 0.5,
             "unit": "scale"
@@ -1225,12 +1234,13 @@
     "goal_node_id": "goal_arr_growth",
     "status": "ready",
     "bias_findings": [],
+    "goal_threshold": 0.73,
     "model_adjustments": [
       {
         "code": "category_reclassified",
-        "node_id": "fac_arr_base",
-        "field": "nodes[fac_arr_base].category",
-        "reason": "Reclassified unreachable factor \"Current ARR Base\" to external with synthesised prior [0.265, 0.795]",
+        "node_id": "fac_arr",
+        "field": "nodes[fac_arr].category",
+        "reason": "Reclassified unreachable factor \"Current ARR\" to external with synthesised prior [0.265, 0.795]",
         "source": "deterministic_sweep"
       },
       {
@@ -1259,7 +1269,7 @@
   "meta": {
     "roots": [
       "dec_expansion",
-      "fac_arr_base",
+      "fac_arr",
       "fac_competitive_intensity",
       "fac_market_size",
       "fac_team_capacity"
@@ -1280,17 +1290,11 @@
     "graph_drafted": true,
     "graph_structurally_valid": true,
     "deterministic_sweep_violations": 0,
-    "verification_status": "failed_degraded",
+    "verification_status": "passed",
     "validation_status": "skipped",
     "enrichment_status": "complete",
     "coaching_status": "complete",
-    "warnings": [
-      {
-        "stage": "verification",
-        "error": "Response does not conform to expected schema",
-        "degraded": true
-      }
-    ],
+    "warnings": [],
     "rescue_score": 24,
     "factor_value_coverage": {
       "total": 8,
@@ -1298,7 +1302,7 @@
       "inferred_with_evidence": 3,
       "fallback_default": 5
     },
-    "edge_strength_unique_count": 23,
+    "edge_strength_unique_count": 18,
     "llm_repair": {
       "triggered": false,
       "outcome": "skipped",
@@ -1336,7 +1340,7 @@
       {
         "rule": "CONTROLLABLE_MISSING_DATA",
         "code": "CONTROLLABLE_MISSING_DATA",
-        "node_or_edge_id": "nodes[fac_uk_deepening].data",
+        "node_or_edge_id": "nodes[fac_uk_deepdive].data",
         "field": "graph",
         "before": null,
         "after": null,
@@ -1345,7 +1349,7 @@
       {
         "rule": "OBSERVABLE_EXTRA_DATA",
         "code": "OBSERVABLE_EXTRA_DATA",
-        "node_or_edge_id": "nodes[fac_arr_base].data",
+        "node_or_edge_id": "nodes[fac_arr].data",
         "field": "graph",
         "before": null,
         "after": null,
@@ -1363,7 +1367,7 @@
       {
         "rule": "UNREACHABLE_FACTOR_RECLASSIFIED",
         "code": "UNREACHABLE_FACTOR_RECLASSIFIED",
-        "node_or_edge_id": "nodes[fac_arr_base].category",
+        "node_or_edge_id": "nodes[fac_arr].category",
         "field": "graph",
         "before": null,
         "after": null,
@@ -1399,7 +1403,7 @@
       {
         "rule": "INBOUND_BUDGET_RESCALED",
         "code": "INBOUND_BUDGET_RESCALED",
-        "node_or_edge_id": "edges[*→out_new_arr]",
+        "node_or_edge_id": "edges[*→out_new_market_arr]",
         "field": "graph",
         "before": null,
         "after": null,
@@ -1408,16 +1412,7 @@
       {
         "rule": "INBOUND_BUDGET_RESCALED",
         "code": "INBOUND_BUDGET_RESCALED",
-        "node_or_edge_id": "edges[*→risk_compliance_burden]",
-        "field": "graph",
-        "before": null,
-        "after": null,
-        "source": "structure"
-      },
-      {
-        "rule": "INBOUND_BUDGET_RESCALED",
-        "code": "INBOUND_BUDGET_RESCALED",
-        "node_or_edge_id": "edges[*→risk_uk_distraction]",
+        "node_or_edge_id": "edges[*→risk_localisation_drag]",
         "field": "graph",
         "before": null,
         "after": null,

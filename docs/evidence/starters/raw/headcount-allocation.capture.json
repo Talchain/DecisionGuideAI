@@ -1,1 +1,1833 @@
-{"schema_version":"3.0","nodes":[{"id":"dec_hiring","kind":"decision","label":"Headcount Allocation Decision","provenance":"ai_inferred"},{"id":"fac_ae_headcount","kind":"factor","label":"Account Executive Headcount Added","observed_state":{"value":0,"source":"cee_inference","extractionType":"inferred","factor_type":"demand","uncertainty_drivers":["Not provided"]},"category":"controllable","display_value":"No AEs added (baseline)","provenance":"ai_inferred"},{"id":"fac_eng_attrition","kind":"factor","label":"Engineering Attrition Risk","category":"external","prior":{"distribution":"uniform","range_min":0.325,"range_max":0.9750000000000001},"extractionType":"inferred","display_value":"0.33 to 0.98","provenance":"ai_inferred"},{"id":"fac_eng_headcount","kind":"factor","label":"Platform Engineer Headcount Added","observed_state":{"value":0,"source":"cee_inference","extractionType":"inferred","factor_type":"quality","uncertainty_drivers":["Not provided"]},"category":"controllable","display_value":"No engineers added (baseline)","provenance":"ai_inferred"},{"id":"fac_market_demand","kind":"factor","label":"Market Demand for Product","category":"external","prior":{"distribution":"uniform","range_min":0.4,"range_max":0.8},"display_value":"0.4 to 0.8","provenance":"ai_inferred"},{"id":"fac_reliability_debt","kind":"factor","label":"Platform Reliability Debt","category":"external","prior":{"distribution":"uniform","range_min":0.375,"range_max":1},"extractionType":"inferred","display_value":"0.38 to 1","provenance":"ai_inferred"},{"id":"goal_arr","kind":"goal","label":"Achieve ARR Growth by Q3","goal_threshold_cap":1,"provenance":"ai_inferred"},{"id":"opt_eng","kind":"option","label":"Hire Four Platform Engineers","interventions":{"fac_ae_headcount":{"value":0,"source":"brief_extraction","target_match":{"node_id":"fac_ae_headcount","match_type":"exact_id","confidence":"high"},"value_confidence":"high","reasoning":"Direct from V4 prompt data.interventions"},"fac_eng_headcount":{"value":1,"source":"brief_extraction","target_match":{"node_id":"fac_eng_headcount","match_type":"exact_id","confidence":"high"},"value_confidence":"high","reasoning":"Direct from V4 prompt data.interventions"}},"is_baseline":false,"provenance":"ai_inferred"},{"id":"opt_sales","kind":"option","label":"Hire Three Account Executives","interventions":{"fac_ae_headcount":{"value":0.75,"source":"brief_extraction","target_match":{"node_id":"fac_ae_headcount","match_type":"exact_id","confidence":"high"},"value_confidence":"high","reasoning":"Direct from V4 prompt data.interventions"},"fac_eng_headcount":{"value":0,"source":"brief_extraction","target_match":{"node_id":"fac_eng_headcount","match_type":"exact_id","confidence":"high"},"value_confidence":"high","reasoning":"Direct from V4 prompt data.interventions"}},"is_baseline":false,"provenance":"ai_inferred"},{"id":"opt_split","kind":"option","label":"Two AEs and Two Engineers (Split)","interventions":{"fac_ae_headcount":{"value":0.5,"source":"brief_extraction","target_match":{"node_id":"fac_ae_headcount","match_type":"exact_id","confidence":"high"},"value_confidence":"high","reasoning":"Direct from V4 prompt data.interventions"},"fac_eng_headcount":{"value":0.5,"source":"brief_extraction","target_match":{"node_id":"fac_eng_headcount","match_type":"exact_id","confidence":"high"},"value_confidence":"high","reasoning":"Direct from V4 prompt data.interventions"}},"is_baseline":false,"provenance":"ai_inferred"},{"id":"opt_status_quo","kind":"option","label":"Defer All Hires (Status Quo)","interventions":{"fac_ae_headcount":{"value":0,"source":"brief_extraction","target_match":{"node_id":"fac_ae_headcount","match_type":"exact_id","confidence":"high"},"value_confidence":"high","reasoning":"Direct from V4 prompt data.interventions"},"fac_eng_headcount":{"value":0,"source":"brief_extraction","target_match":{"node_id":"fac_eng_headcount","match_type":"exact_id","confidence":"high"},"value_confidence":"high","reasoning":"Direct from V4 prompt data.interventions"}},"is_baseline":true,"provenance":"ai_inferred"},{"id":"out_arr_growth","kind":"outcome","label":"ARR Growth by Q3","provenance":"ai_inferred"},{"id":"out_reliability_improvement","kind":"outcome","label":"Platform Reliability Improvement","provenance":"ai_inferred"},{"id":"risk_churn","kind":"risk","label":"Customer Churn from Reliability Failures","provenance":"ai_inferred"},{"id":"risk_eng_attrition_loss","kind":"risk","label":"Engineering Team Attrition Loss","provenance":"ai_inferred"},{"id":"risk_quota_miss","kind":"risk","label":"Sales Quota Miss Due to Product Gaps","provenance":"ai_inferred"}],"edges":[{"from":"dec_hiring","to":"opt_eng","strength":{"mean":1,"std":0.01},"exists_probability":1,"effect_direction":"positive","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"dec_hiring","to":"opt_sales","strength":{"mean":1,"std":0.01},"exists_probability":1,"effect_direction":"positive","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"dec_hiring","to":"opt_split","strength":{"mean":1,"std":0.01},"exists_probability":1,"effect_direction":"positive","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"dec_hiring","to":"opt_status_quo","strength":{"mean":1,"std":0.01},"exists_probability":1,"effect_direction":"positive","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"fac_ae_headcount","to":"out_arr_growth","strength":{"mean":0.35,"std":0.18},"exists_probability":0.72,"effect_direction":"positive","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"fac_ae_headcount","to":"risk_quota_miss","strength":{"mean":-0.3,"std":0.15},"exists_probability":0.8,"effect_direction":"negative","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"fac_eng_attrition","to":"risk_eng_attrition_loss","strength":{"mean":0.55,"std":0.13},"exists_probability":0.88,"effect_direction":"positive","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"fac_eng_headcount","to":"out_reliability_improvement","strength":{"mean":0.55,"std":0.15},"exists_probability":0.82,"effect_direction":"positive","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"fac_eng_headcount","to":"risk_churn","strength":{"mean":-0.4071428571428571,"std":0.12666666666666668},"exists_probability":0.85,"effect_direction":"negative","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"fac_eng_headcount","to":"risk_eng_attrition_loss","strength":{"mean":-0.38,"std":0.16},"exists_probability":0.78,"effect_direction":"negative","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"fac_market_demand","to":"out_arr_growth","strength":{"mean":0.22,"std":0.12},"exists_probability":0.75,"effect_direction":"positive","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"fac_reliability_debt","to":"risk_churn","strength":{"mean":0.5428571428571428,"std":0.10857142857142855},"exists_probability":0.92,"effect_direction":"positive","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"fac_reliability_debt","to":"risk_quota_miss","strength":{"mean":0.5,"std":0.14},"exists_probability":0.9,"effect_direction":"positive","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"opt_eng","to":"fac_ae_headcount","strength":{"mean":1,"std":0.01},"exists_probability":1,"effect_direction":"positive","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"opt_eng","to":"fac_eng_headcount","strength":{"mean":1,"std":0.01},"exists_probability":1,"effect_direction":"positive","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"opt_sales","to":"fac_ae_headcount","strength":{"mean":1,"std":0.01},"exists_probability":1,"effect_direction":"positive","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"opt_sales","to":"fac_eng_headcount","strength":{"mean":1,"std":0.01},"exists_probability":1,"effect_direction":"positive","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"opt_split","to":"fac_ae_headcount","strength":{"mean":1,"std":0.01},"exists_probability":1,"effect_direction":"positive","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"opt_split","to":"fac_eng_headcount","strength":{"mean":1,"std":0.01},"exists_probability":1,"effect_direction":"positive","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"opt_status_quo","to":"fac_ae_headcount","strength":{"mean":1,"std":0.01},"exists_probability":1,"effect_direction":"positive","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"opt_status_quo","to":"fac_eng_headcount","strength":{"mean":1,"std":0.01},"exists_probability":1,"effect_direction":"positive","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"out_arr_growth","to":"goal_arr","strength":{"mean":0.65,"std":0.1},"exists_probability":0.95,"effect_direction":"positive","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"out_reliability_improvement","to":"goal_arr","strength":{"mean":0.3,"std":0.12},"exists_probability":0.88,"effect_direction":"positive","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"risk_churn","to":"goal_arr","strength":{"mean":-0.5,"std":0.12},"exists_probability":0.92,"effect_direction":"negative","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"risk_eng_attrition_loss","to":"goal_arr","strength":{"mean":-0.22,"std":0.12},"exists_probability":0.78,"effect_direction":"negative","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"},{"from":"risk_quota_miss","to":"goal_arr","strength":{"mean":-0.4,"std":0.14},"exists_probability":0.88,"effect_direction":"negative","provenance":{"source":"cee_hypothesis"},"provenance_display":"ai_inferred","origin":"ai"}],"options":[{"id":"opt_eng","label":"Hire Four Platform Engineers","status":"ready","interventions":{"fac_ae_headcount":{"value":0,"source":"brief_extraction","target_match":{"node_id":"fac_ae_headcount","match_type":"exact_id","confidence":"high"},"value_confidence":"high","reasoning":"Direct from V4 prompt data.interventions"},"fac_eng_headcount":{"value":1,"source":"brief_extraction","target_match":{"node_id":"fac_eng_headcount","match_type":"exact_id","confidence":"high"},"value_confidence":"high","reasoning":"Direct from V4 prompt data.interventions"}},"provenance":{"source":"brief_extraction"},"is_baseline":false},{"id":"opt_sales","label":"Hire Three Account Executives","status":"ready","interventions":{"fac_ae_headcount":{"value":0.75,"source":"brief_extraction","target_match":{"node_id":"fac_ae_headcount","match_type":"exact_id","confidence":"high"},"value_confidence":"high","reasoning":"Direct from V4 prompt data.interventions"},"fac_eng_headcount":{"value":0,"source":"brief_extraction","target_match":{"node_id":"fac_eng_headcount","match_type":"exact_id","confidence":"high"},"value_confidence":"high","reasoning":"Direct from V4 prompt data.interventions"}},"provenance":{"source":"brief_extraction"},"is_baseline":false},{"id":"opt_split","label":"Two AEs and Two Engineers (Split)","status":"ready","interventions":{"fac_ae_headcount":{"value":0.5,"source":"brief_extraction","target_match":{"node_id":"fac_ae_headcount","match_type":"exact_id","confidence":"high"},"value_confidence":"high","reasoning":"Direct from V4 prompt data.interventions"},"fac_eng_headcount":{"value":0.5,"source":"brief_extraction","target_match":{"node_id":"fac_eng_headcount","match_type":"exact_id","confidence":"high"},"value_confidence":"high","reasoning":"Direct from V4 prompt data.interventions"}},"provenance":{"source":"brief_extraction"},"is_baseline":false},{"id":"opt_status_quo","label":"Defer All Hires (Status Quo)","status":"ready","interventions":{"fac_ae_headcount":{"value":0,"source":"brief_extraction","target_match":{"node_id":"fac_ae_headcount","match_type":"exact_id","confidence":"high"},"value_confidence":"high","reasoning":"Direct from V4 prompt data.interventions"},"fac_eng_headcount":{"value":0,"source":"brief_extraction","target_match":{"node_id":"fac_eng_headcount","match_type":"exact_id","confidence":"high"},"value_confidence":"high","reasoning":"Direct from V4 prompt data.interventions"}},"provenance":{"source":"brief_extraction"},"is_baseline":true}],"goal_node_id":"goal_arr","validation_warnings":[{"code":"CAUSAL_CLAIM_DROPPED","message":"Dropped 8 malformed causal claim(s)","severity":"warn","details":{"count":8,"first_3_reasons":["type: Invalid discriminator value. Expected 'direct_effect' | 'mediation_only' | 'no_direct_effect' | 'unmeasured_confounder'","type: Invalid discriminator value. Expected 'direct_effect' | 'mediation_only' | 'no_direct_effect' | 'unmeasured_confounder'","type: Invalid discriminator value. Expected 'direct_effect' | 'mediation_only' | 'no_direct_effect' | 'unmeasured_confounder'"]}},{"code":"OPTION_SIMILARITY","message":"Options \"Hire Four Platform Engineers\" and \"Hire Three Account Executives\" affect the same factors (Jaccard 1.00). Consider whether they represent genuinely different approaches.","severity":"info","details":{"optionA":"opt_eng","optionB":"opt_sales","jaccard":1},"suggestion":"Options affect the same factors — consider whether they represent genuinely different approaches"},{"code":"OPTION_SIMILARITY","message":"Options \"Hire Four Platform Engineers\" and \"Two AEs and Two Engineers (Split)\" affect the same factors (Jaccard 1.00). Consider whether they represent genuinely different approaches.","severity":"info","details":{"optionA":"opt_eng","optionB":"opt_split","jaccard":1},"suggestion":"Options affect the same factors — consider whether they represent genuinely different approaches"}],"goal_constraints":[{"constraint_id":"constraint_goal_arr_max","node_id":"goal_arr","operator":"<=","value":2,"label":"Delivery deadline","unit":"months","source_quote":"by Q3","confidence":0.85,"provenance":"inferred","deadline_metadata":{"deadline_date":"2026-09-30","reference_date":"2026-07-24","assumed_reference_date":true}}],"coaching":{"summary":"The graph captures the core tension well but leaves the reliability-to-revenue causal chain underspecified, which is exactly the chain the board will interrogate. Strengthening the quantitative links and surfacing the time-lag between engineering hires and reliability improvement will sharpen the Q3 ARR argument.","strengthen_items":[{"id":"quantify-reliability-to-churn","label":"Quantify the reliability-debt-to-churn link","detail":"Attach a numeric estimate (e.g., current churn rate attributable to reliability failures) to the edge from Platform Reliability Debt to Customer Churn from Reliability Failures so the board can see the revenue-at-risk baseline before any hire is made.","action_type":"quantify","bias_category":"overconfidence"},{"id":"add-time-lag-constraint","label":"Add a time-to-impact constraint for engineering hires","detail":"Platform engineers hired in Q1 are unlikely to reduce reliability debt and churn before Q3; making this lag explicit as a constraint on Platform Reliability Improvement prevents the split or eng-only option from being oversold as a Q3 ARR lever.","action_type":"add_constraint","bias_category":"optimism_bias"},{"id":"clarify-arr-goal-metric","label":"Clarify what ARR growth threshold satisfies the board","detail":"Achieve ARR Growth by Q3 is currently binary; specifying a target percentage or dollar figure turns it into a testable criterion and reveals whether any option can realistically hit it by Q3 given current churn and quota-miss rates.","action_type":"clarify_goal"},{"id":"add-edge-reliability-to-quota","label":"Trace how reliability improvement reduces quota miss","detail":"Add an explicit edge from Platform Reliability Improvement to Sales Quota Miss Due to Product Gaps to capture the brief's stated fact that AEs already miss quota because of product reliability, making the indirect revenue benefit of engineering hires visible in the graph.","action_type":"add_edge","bias_category":"availability"}],"widening_log":{"elements_added":[],"elements_considered_but_excluded":["Recruiting timeline node — relevant but adds complexity without changing the option set","Competitive pressure node — mentioned implicitly via Market Demand for Product, not distinct enough to add"],"brief_completeness":"partial"},"bias_signals":[{"type":"optimism_bias","detail":"The graph treats Platform Reliability Improvement as a direct path to Achieve ARR Growth by Q3 without encoding the multi-month lag between hiring engineers and measurable reliability gains, risking an overly optimistic Q3 forecast.","target":"out_reliability_improvement"},{"type":"availability","detail":"The board's stated focus on ARR growth may anchor the decision toward Hire Three Account Executives even though the brief explicitly says AEs cannot close deals due to reliability issues, making the sales-only option less viable than it appears.","target":"opt_sales"},{"type":"false_dilemma","detail":"Framing the choice as three discrete options plus status quo may suppress hybrid sequencing strategies (e.g., two engineers now, two AEs in Q2 contingent on reliability milestones) that the current graph structure cannot represent.","target":"dec_hiring"}]},"causal_claims":[],"topology_plan":[],"draft_warnings":[{"id":"goal_no_baseline_value","severity":"low","node_ids":["goal_arr"],"edge_ids":[],"affected_node_ids":["goal_arr"],"affected_edge_ids":[],"explanation":"Goal node has no observed_state.value set.","fix_hint":"Set goal node's observed_state.value to establish baseline for comparison"}],"analysis_ready":{"options":[{"id":"opt_eng","label":"Hire Four Platform Engineers","status":"ready","status_reason":"2 intervention(s) ready for analysis","interventions":{"fac_ae_headcount":{"value":0,"source":"brief_extraction","display_value":"No AEs added (baseline)"},"fac_eng_headcount":{"value":1,"source":"brief_extraction","display_value":"No engineers added (baseline)"}},"extraction_metadata":{"source":"brief_extraction","confidence":"high","reasoning":"Direct from V4 prompt data.interventions"},"intervention_details":{"fac_ae_headcount":{"display_value":"No AEs added (baseline)","normalised_value":0},"fac_eng_headcount":{"display_value":"No engineers added (baseline)","normalised_value":1}}},{"id":"opt_sales","label":"Hire Three Account Executives","status":"ready","status_reason":"2 intervention(s) ready for analysis","interventions":{"fac_ae_headcount":{"value":0.75,"source":"brief_extraction","display_value":"No AEs added (baseline)"},"fac_eng_headcount":{"value":0,"source":"brief_extraction","display_value":"No engineers added (baseline)"}},"extraction_metadata":{"source":"brief_extraction","confidence":"high","reasoning":"Direct from V4 prompt data.interventions"},"intervention_details":{"fac_ae_headcount":{"display_value":"No AEs added (baseline)","normalised_value":0.75},"fac_eng_headcount":{"display_value":"No engineers added (baseline)","normalised_value":0}}},{"id":"opt_split","label":"Two AEs and Two Engineers (Split)","status":"ready","status_reason":"2 intervention(s) ready for analysis","interventions":{"fac_ae_headcount":{"value":0.5,"source":"brief_extraction","display_value":"No AEs added (baseline)"},"fac_eng_headcount":{"value":0.5,"source":"brief_extraction","display_value":"No engineers added (baseline)"}},"extraction_metadata":{"source":"brief_extraction","confidence":"high","reasoning":"Direct from V4 prompt data.interventions"},"intervention_details":{"fac_ae_headcount":{"display_value":"No AEs added (baseline)","normalised_value":0.5},"fac_eng_headcount":{"display_value":"No engineers added (baseline)","normalised_value":0.5}}},{"id":"opt_status_quo","label":"Defer All Hires (Status Quo)","status":"ready","status_reason":"2 intervention(s) ready for analysis","interventions":{"fac_ae_headcount":{"value":0,"source":"brief_extraction","display_value":"No AEs added (baseline)"},"fac_eng_headcount":{"value":0,"source":"brief_extraction","display_value":"No engineers added (baseline)"}},"extraction_metadata":{"source":"brief_extraction","confidence":"high","reasoning":"Direct from V4 prompt data.interventions"},"is_baseline":true,"intervention_details":{"fac_ae_headcount":{"display_value":"No AEs added (baseline)","normalised_value":0},"fac_eng_headcount":{"display_value":"No engineers added (baseline)","normalised_value":0}}}],"goal_node_id":"goal_arr","status":"ready","bias_findings":[{"id":"authority_high_degree_node","category":"other","severity":"medium","node_ids":["fac_ae_headcount","out_arr_growth","risk_quota_miss","opt_eng","opt_sales","opt_split","opt_status_quo"],"explanation":"One or more authority-labelled nodes are highly connected in the decision graph; this may overweight senior opinions.","code":"AUTHORITY_BIAS","targets":{"node_ids":["fac_ae_headcount","out_arr_growth","risk_quota_miss","opt_eng","opt_sales","opt_split","opt_status_quo"]},"structural_pattern":"Authority-labelled node has connections to three or more other nodes","confidence_band":"medium","mechanism":"Tendency to attribute greater accuracy to opinions of authority figures, regardless of content.","citation":"Milgram (1963) - Journal of Abnormal and Social Psychology","micro_intervention":{"steps":["Collect input anonymously before revealing who said what","Explicitly ask junior team members to share their view first"],"estimated_minutes":3}}],"model_adjustments":[{"code":"category_reclassified","node_id":"fac_eng_attrition","field":"nodes[fac_eng_attrition].category","reason":"Reclassified unreachable factor \"Engineering Attrition Risk\" to external with synthesised prior [0.325, 0.9750000000000001]","source":"deterministic_sweep"},{"code":"category_reclassified","node_id":"fac_market_demand","field":"nodes[fac_market_demand].category","reason":"Reclassified unreachable factor \"Market Demand for Product\" to external","source":"deterministic_sweep"},{"code":"category_reclassified","node_id":"fac_reliability_debt","field":"nodes[fac_reliability_debt].category","reason":"Reclassified unreachable factor \"Platform Reliability Debt\" to external with synthesised prior [0.375, 1]","source":"deterministic_sweep"}]},"meta":{"roots":["dec_hiring","fac_eng_attrition","fac_market_demand","fac_reliability_debt"],"leaves":["goal_arr"],"source":"assistant"},"quality":{"overall":9,"structure":8,"coverage":10,"structural_proxy":8,"safety":8},"trace":{"request_id":"256a604f-165a-41a9-ae39-23ab410ebee3","correlation_id":"256a604f-165a-41a9-ae39-23ab410ebee3","engine":{"provider":"anthropic","model":"claude-sonnet-4-6","version":"1.12.0"},"pipeline":{"status":"success","total_duration_ms":49099,"llm_call_count":1,"llm_quality":{"risk_coefficient_corrections":0},"llm_metadata":{"model":"claude-sonnet-4-6","prompt_version":"draft_graph_default@v195 (staging)","prompt_text_version":"v195","prompt_hash":"152998b447819c2e9e797b1727f8e05b34480486dca6f672a5d2839facd2353f","duration_ms":25981,"finish_reason":"end_turn","response_chars":6587,"token_usage":{"prompt_tokens":235,"completion_tokens":2145,"total_tokens":2380},"temperature":0,"max_tokens":8544,"seed":17,"instance_id":"7411d4e6","cache_age_ms":157789,"cache_status":"fresh","use_staging_mode":true,"structured_outputs_used":true},"validation_summary":{"status":"valid","required_kinds":["goal","decision","option"],"present_kinds":["decision","factor","goal","option","outcome","risk"],"missing_kinds":[]},"enrich":{"called_count":1,"extraction_mode":"v4_complete_skip","factors_added":0,"factors_enhanced":0,"factors_skipped":0,"source":"unified_pipeline"},"repair":{"deterministic_sweep":{"sweep_ran":true,"sweep_version":"v3","bucket_summary":{"a":0,"b":4,"c":0},"repairs_count":7,"unreachable_factors":{"reclassified":["fac_eng_attrition","fac_market_demand","fac_reliability_debt"],"marked_droppable":[]},"goal_threshold_stripped":0,"goal_threshold_possibly_inferred":0,"factor_goal_splits":0,"option_outcome_shortcuts_removed":0,"option_outcome_shortcuts_skipped":0,"option_risk_shortcuts_removed":0,"option_risk_shortcuts_rerouted":0,"option_risk_shortcuts_skipped":0,"option_goal_shortcuts_removed":0,"option_goal_shortcuts_rerouted":0,"option_goal_shortcuts_skipped":0,"remaining_forbidden_edges_removed":0,"disconnected_observables_pruned":[],"complexity_cap_pruned":0,"status_quo":{"fixed":false,"marked_droppable":false},"disconnected_options_before":[],"disconnected_options_after":[],"violations_before":4,"violations_after":0,"llm_repair_needed":false,"edge_format":"V1_FLAT","graph_delta":{"nodes_before":16,"nodes_after":16,"edges_before":26,"edges_after":26},"rescue_score":17},"edge_restore":{"restoredCount":0},"deterministic_enforcement":{"ran":true,"bridge_chains_removed":0,"bridge_goal_edges_added":0,"nodes_rescaled":1,"edges_skipped_non_finite":0,"total_repairs":1,"post_validation_error_count":0,"post_validation_warning_count":0,"blocked":false}},"repair_summary":{"deterministic_sweep_ran":true,"deterministic_sweep_version":"v3","bucket_summary":{"a":0,"b":4,"c":0},"status_quo_action":"none","llm_repair_needed":false,"deterministic_repairs_count":8,"deterministic_repairs":[{"code":"CONTROLLABLE_MISSING_DATA","path":"nodes[fac_ae_headcount].data","action":"Populated missing required fields with defaults"},{"code":"CONTROLLABLE_MISSING_DATA","path":"nodes[fac_eng_headcount].data","action":"Populated missing required fields with defaults"},{"code":"OBSERVABLE_EXTRA_DATA","path":"nodes[fac_eng_attrition].data","action":"Removed factor_type, uncertainty_drivers, and empty interventions sentinel (extra for observable)"},{"code":"OBSERVABLE_EXTRA_DATA","path":"nodes[fac_reliability_debt].data","action":"Removed factor_type, uncertainty_drivers, and empty interventions sentinel (extra for observable)"},{"code":"UNREACHABLE_FACTOR_RECLASSIFIED","path":"nodes[fac_eng_attrition].category","action":"Reclassified unreachable factor \"Engineering Attrition Risk\" to external with synthesised prior [0.325, 0.9750000000000001]","prior_synthesised":true,"synthesised_range":{"range_min":0.325,"range_max":0.9750000000000001}},{"code":"UNREACHABLE_FACTOR_RECLASSIFIED","path":"nodes[fac_market_demand].category","action":"Reclassified unreachable factor \"Market Demand for Product\" to external"},{"code":"UNREACHABLE_FACTOR_RECLASSIFIED","path":"nodes[fac_reliability_debt].category","action":"Reclassified unreachable factor \"Platform Reliability Debt\" to external with synthesised prior [0.375, 1]","prior_synthesised":true,"synthesised_range":{"range_min":0.375,"range_max":1}},{"code":"INBOUND_BUDGET_RESCALED","path":"edges[*→risk_churn]","action":"Rescaled 2 causal inbound edges from sum=1.050 to 0.95"}],"unreachable_factors":{"reclassified":["fac_eng_attrition","fac_market_demand","fac_reliability_debt"],"marked_droppable":[]},"status_quo":{"fixed":false,"marked_droppable":false},"llm_repair_called":false,"llm_repair_brief_included":false,"llm_repair_skipped_reason":"deterministic_sweep_sufficient","remaining_violations_count":0,"remaining_violation_codes":[],"edge_format_detected":"V1_FLAT","graph_delta":{"nodes_before":16,"nodes_after":16,"edges_before":26,"edges_after":26},"risk_coefficient_corrections":[]},"threshold_sweep":{"ran":true,"duration_ms":0,"goals_checked":1,"strips_applied":0,"warnings_emitted":0,"codes":[]},"field_deletions":{"count":6,"stages":["deterministic-sweep","unreachable-factors"],"reasons":["OBSERVABLE_EXTRA_DATA","UNREACHABLE_FACTOR_RECLASSIFIED"],"events":[{"stage":"deterministic-sweep","node_id":"fac_eng_attrition","field":"data.factor_type","reason":"OBSERVABLE_EXTRA_DATA"},{"stage":"deterministic-sweep","node_id":"fac_reliability_debt","field":"data.factor_type","reason":"OBSERVABLE_EXTRA_DATA"},{"stage":"unreachable-factors","node_id":"fac_eng_attrition","field":"data.value","reason":"UNREACHABLE_FACTOR_RECLASSIFIED"},{"stage":"unreachable-factors","node_id":"fac_eng_attrition","field":"data","reason":"UNREACHABLE_FACTOR_RECLASSIFIED"},{"stage":"unreachable-factors","node_id":"fac_reliability_debt","field":"data.value","reason":"UNREACHABLE_FACTOR_RECLASSIFIED"},{"stage":"unreachable-factors","node_id":"fac_reliability_debt","field":"data","reason":"UNREACHABLE_FACTOR_RECLASSIFIED"}]},"stage_snapshots":{"stage_1_parse":{"goal_node_id":"goal_arr","goal_threshold":"absent","goal_threshold_raw":"absent","goal_threshold_unit":"absent","goal_threshold_cap":1,"goal_constraints_count":0},"stage_3_enrich":{"goal_node_id":"goal_arr","goal_threshold":"absent","goal_threshold_raw":"absent","goal_threshold_unit":"absent","goal_threshold_cap":1,"goal_constraints_count":0},"stage_4_repair":{"goal_node_id":"goal_arr","goal_threshold":"absent","goal_threshold_raw":"absent","goal_threshold_unit":"absent","goal_threshold_cap":1,"goal_constraints_count":1},"stage_4b_threshold_sweep":{"goal_node_id":"goal_arr","goal_threshold":"absent","goal_threshold_raw":"absent","goal_threshold_unit":"absent","goal_threshold_cap":1,"goal_constraints_count":1},"stage_5_package":{"goal_node_id":"goal_arr","goal_threshold":"absent","goal_threshold_raw":"absent","goal_threshold_unit":"absent","goal_threshold_cap":1,"goal_constraints_count":1}},"plan_annotation":{"plan_id":"2ee11ea1-5dc6-406c-bc19-9b9863e2405f","plan_hash":"27b522c049aa","stage3_rationales":[],"confidence":{"overall":0.85,"structure":1,"parameters":1},"open_questions":[],"context_hash_v0":"c0b8ecc50e71","model_id":"claude-sonnet-4-6","prompt_version":"draft_graph_default@v195 (staging)"},"final_graph":{"node_count":16,"edge_count":26,"node_kinds":["decision","factor","goal","option","outcome","risk"]},"pipeline_checkpoints":[{"stage":"post_adapter_normalisation","node_count":16,"edge_count":26,"edge_field_presence":{"strength_mean":26,"strength_std":26,"belief_exists":26,"effect_direction":26,"weight":0},"node_field_presence":{"option_nodes_total":4,"options_with_interventions":4},"sample_edges":[{"from":"dec_hiring","to":"opt_eng","strength_mean":1,"strength_std":0.01,"belief_exists":1,"effect_direction":"positive"},{"from":"fac_ae_headcount","to":"out_arr_growth","strength_mean":0.35,"strength_std":0.18,"belief_exists":0.72,"effect_direction":"positive"},{"from":"out_arr_growth","to":"goal_arr","strength_mean":0.65,"strength_std":0.1,"belief_exists":0.95,"effect_direction":"positive"}],"nested_strength_detected":true},{"stage":"post_stabilisation","node_count":16,"edge_count":26,"edge_field_presence":{"strength_mean":26,"strength_std":26,"belief_exists":26,"effect_direction":26,"weight":26},"node_field_presence":{"option_nodes_total":4,"options_with_interventions":4},"sample_edges":[{"from":"dec_hiring","to":"opt_eng","strength_mean":1,"strength_std":0.01,"belief_exists":1,"effect_direction":"positive"},{"from":"fac_ae_headcount","to":"out_arr_growth","strength_mean":0.35,"strength_std":0.18,"belief_exists":0.72,"effect_direction":"positive"},{"from":"out_arr_growth","to":"goal_arr","strength_mean":0.65,"strength_std":0.1,"belief_exists":0.95,"effect_direction":"positive"}]},{"stage":"pre_boundary","node_count":16,"edge_count":26,"edge_field_presence":{"strength_mean":26,"strength_std":26,"belief_exists":26,"effect_direction":26,"weight":26},"node_field_presence":{"option_nodes_total":4,"options_with_interventions":4},"sample_edges":[{"from":"dec_hiring","to":"opt_eng","strength_mean":1,"strength_std":0.01,"belief_exists":1,"effect_direction":"positive"},{"from":"fac_ae_headcount","to":"out_arr_growth","strength_mean":0.35,"strength_std":0.18,"belief_exists":0.72,"effect_direction":"positive"},{"from":"out_arr_growth","to":"goal_arr","strength_mean":0.65,"strength_std":0.1,"belief_exists":0.95,"effect_direction":"positive"}]}],"pipeline_checkpoints_meta":{"enabled":true,"adapter_count":1,"pipeline_count":2,"total_count":3},"cee_provenance":{"commit":"1b9d596","version":"1.12.0","build_timestamp":"2026-07-24T20:17:35.074Z","prompt_version":"draft_graph_default@v195 (staging)","prompt_source":"supabase","prompt_override_active":false,"model":"claude-sonnet-4-6","pipeline_path":"unified","engine_base_url_configured":false,"model_override_active":false,"prompt_store_version":195,"context_hash":"887974e42e87","prompt_hash":"152998b447819c2e9e797b1727f8e05b34480486dca6f672a5d2839facd2353f","model_id":"claude-sonnet-4-6","capability":"draft_graph"},"llm_raw":{"text":"{\"nodes\":[{\"id\":\"dec_hiring\",\"kind\":\"decision\",\"label\":\"Headcount Allocation Decision\"},{\"id\":\"opt_sales\",\"kind\":\"option\",\"label\":\"Hire Three Account Executives\",\"data\":{\"value\":1.0,\"extractionType\":\"inferred\",\"factor_type\":\"other\",\"interventions\":[{\"factor_id\":\"fac_ae_headcount\",\"value\":0.75},{\"factor_id\":\"fac_eng_headcount\",\"value\":0.0}]},\"is_baseline\":false},{\"id\":\"opt_eng\",\"kind\":\"option\",\"label\":\"Hire Four Platform Engineers\",\"data\":{\"value\":1.0,\"extractionType\":\"inferred\",\"factor_type\":\"other\",\"interventions\":[{\"factor_id\":\"fac_ae_headcount\",\"value\":0.0},{\"factor_id\":\"fac_eng_headcount\",\"value\":1.0}]},\"is_baseline\":false},{\"id\":\"opt_split\",\"kind\":\"option\",\"label\":\"Two AEs and Two Engineers (Split)\",\"data\":{\"value\":1.0,\"extractionType\":\"inferred\",\"factor_type\":\"other\",\"interventions\":[{\"factor_id\":\"fac_ae_headcount\",\"value\":0.5},{\"factor_id\":\"fac_eng_headcount\",\"value\":0.5}]},\"is_baseline\":false},{\"id\":\"opt_status_quo\",\"kind\":\"option\",\"label\":\"Defer All Hires (Status Quo)\",\"data\":{\"value\":1.0,\"extractionType\":\"inferred\",\"factor_type\":\"other\",\"interventions\":[{\"factor_id\":\"fac_ae_headcount\",\"value\":0.0},{\"factor_id\":\"fac_eng_headcount\",\"value\":0.0}]},\"is_baseline\":true},{\"id\":\"fac_ae_headcount\",\"kind\":\"factor\",\"label\":\"Account Executive Headcount Added\",\"category\":\"controllable\",\"data\":{\"value\":0.0,\"extractionType\":\"inferred\",\"factor_type\":\"demand\",\"display_value\":\"No AEs added (baseline)\"},\"prior\":null},{\"id\":\"fac_eng_headcount\",\"kind\":\"factor\",\"label\":\"Platform Engineer Headcount Added\",\"category\":\"controllable\",\"data\":{\"value\":0.0,\"extractionType\":\"inferred\",\"factor_type\":\"quality\",\"display_value\":\"No engineers added (baseline)\"},\"prior\":null},{\"id\":\"fac_reliability_debt\",\"kind\":\"factor\",\"label\":\"Platform Reliability Debt\",\"category\":\"observable\",\"data\":{\"value\":0.75,\"extractionType\":\"inferred\",\"factor_type\":\"quality\",\"display_value\":\"High reliability debt (current state)\"},\"prior\":null},{\"id\":\"fac_eng_attrition\",\"kind\":\"factor\",\"label\":\"Engineering Attrition Risk\",\"category\":\"observable\",\"data\":{\"value\":0.65,\"extractionType\":\"inferred\",\"factor_type\":\"probability\",\"display_value\":\"Elevated attrition risk (rising)\"},\"prior\":null},{\"id\":\"fac_market_demand\",\"kind\":\"factor\",\"label\":\"Market Demand for Product\",\"category\":\"external\",\"prior\":{\"distribution\":\"uniform\",\"range_min\":0.4,\"range_max\":0.8}},{\"id\":\"out_arr_growth\",\"kind\":\"outcome\",\"label\":\"ARR Growth by Q3\"},{\"id\":\"out_reliability_improvement\",\"kind\":\"outcome\",\"label\":\"Platform Reliability Improvement\"},{\"id\":\"risk_churn\",\"kind\":\"risk\",\"label\":\"Customer Churn from Reliability Failures\"},{\"id\":\"risk_quota_miss\",\"kind\":\"risk\",\"label\":\"Sales Quota Miss Due to Product Gaps\"},{\"id\":\"risk_eng_attrition_loss\",\"kind\":\"risk\",\"label\":\"Engineering Team Attrition Loss\"},{\"id\":\"goal_arr\",\"kind\":\"goal\",\"label\":\"Achieve ARR Growth by Q3\",\"goal_threshold\":null,\"goal_threshold_raw\":null,\"goal_threshold_unit\":null,\"goal_threshold_cap\":1.0}],\"edges\":[{\"from\":\"dec_hiring\",\"to\":\"opt_sales\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"dec_hiring\",\"to\":\"opt_eng\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"dec_hiring\",\"to\":\"opt_split\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"dec_hiring\",\"to\":\"opt_status_quo\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"opt_sales\",\"to\":\"fac_ae_headcount\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"opt_sales\",\"to\":\"fac_eng_headcount\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"opt_eng\",\"to\":\"fac_ae_headcount\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"opt_eng\",\"to\":\"fac_eng_headcount\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"opt_split\",\"to\":\"fac_ae_headcount\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"opt_split\",\"to\":\"fac_eng_headcount\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"opt_status_quo\",\"to\":\"fac_ae_headcount\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"opt_status_quo\",\"to\":\"fac_eng_headcount\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"fac_ae_headcount\",\"to\":\"out_arr_growth\",\"strength\":{\"mean\":0.35,\"std\":0.18},\"exists_probability\":0.72,\"effect_direction\":\"positive\"},{\"from\":\"fac_ae_headcount\",\"to\":\"risk_quota_miss\",\"strength\":{\"mean\":-0.30,\"std\":0.15},\"exists_probability\":0.80,\"effect_direction\":\"negative\"},{\"from\":\"fac_eng_headcount\",\"to\":\"out_reliability_improvement\",\"strength\":{\"mean\":0.55,\"std\":0.15},\"exists_probability\":0.82,\"effect_direction\":\"positive\"},{\"from\":\"fac_eng_headcount\",\"to\":\"risk_churn\",\"strength\":{\"mean\":-0.45,\"std\":0.14},\"exists_probability\":0.85,\"effect_direction\":\"negative\"},{\"from\":\"fac_eng_headcount\",\"to\":\"risk_eng_attrition_loss\",\"strength\":{\"mean\":-0.38,\"std\":0.16},\"exists_probability\":0.78,\"effect_direction\":\"negative\"},{\"from\":\"fac_reliability_debt\",\"to\":\"risk_churn\",\"strength\":{\"mean\":0.60,\"std\":0.12},\"exists_probability\":0.92,\"effect_direction\":\"positive\"},{\"from\":\"fac_reliability_debt\",\"to\":\"risk_quota_miss\",\"strength\":{\"mean\":0.50,\"std\":0.14},\"exists_probability\":0.90,\"effect_direction\":\"positive\"},{\"from\":\"fac_eng_attrition\",\"to\":\"risk_eng_attrition_loss\",\"strength\":{\"mean\":0.55,\"std\":0.13},\"exists_probability\":0.88,\"effect_direction\":\"positive\"},{\"from\":\"fac_market_demand\",\"to\":\"out_arr_growth\",\"strength\":{\"mean\":0.22,\"std\":0.12},\"exists_probability\":0.75,\"effect_direction\":\"positive\"},{\"from\":\"out_arr_growth\",\"to\":\"goal_arr\",\"strength\":{\"mean\":0.65,\"std\":0.10},\"exists_probability\":0.95,\"effect_direction\":\"positive\"},{\"from\":\"out_reliability_improvement\",\"to\":\"goal_arr\",\"strength\":{\"mean\":0.30,\"std\":0.12},\"exists_probability\":0.88,\"effect_direction\":\"positive\"},{\"from\":\"risk_churn\",\"to\":\"goal_arr\",\"strength\":{\"mean\":-0.50,\"std\":0.12},\"exists_probability\":0.92,\"effect_direction\":\"negative\"},{\"from\":\"risk_quota_miss\",\"to\":\"goal_arr\",\"strength\":{\"mean\":-0.40,\"std\":0.14},\"exists_probability\":0.88,\"effect_direction\":\"negative\"},{\"from\":\"risk_eng_attrition_loss\",\"to\":\"goal_arr\",\"strength\":{\"mean\":-0.22,\"std\":0.12},\"exists_probability\":0.78,\"effect_direction\":\"negative\"}],\"goal_constraints\":[]}","output_preview":"{\"nodes\":[{\"id\":\"dec_hiring\",\"kind\":\"decision\",\"label\":\"Headcount Allocation Decision\"},{\"id\":\"opt_sales\",\"kind\":\"option\",\"label\":\"Hire Three Account Executives\",\"data\":{\"value\":1.0,\"extractionType\":\"inferred\",\"factor_type\":\"other\",\"interventions\":[{\"factor_id\":\"fac_ae_headcount\",\"value\":0.75},{\"factor_id\":\"fac_eng_headcount\",\"value\":0.0}]},\"is_baseline\":false},{\"id\":\"opt_eng\",\"kind\":\"option\",\"label\":\"Hire Four Platform Engineers\",\"data\":{\"value\":1.0,\"extractionType\":\"inferred\",\"factor_type\":\"other\",\"interventions\":[{\"factor_id\":\"fac_ae_headcount\",\"value\":0.0},{\"factor_id\":\"fac_eng_headcount\",\"value\":1.0}]},\"is_baseline\":false},{\"id\":\"opt_split\",\"kind\":\"option\",\"label\":\"Two AEs and Two Engineers (Split)\",\"data\":{\"value\":1.0,\"extractionType\":\"inferred\",\"factor_type\":\"other\",\"interventions\":[{\"factor_id\":\"fac_ae_headcount\",\"value\":0.5},{\"factor_id\":\"fac_eng_headcount\",\"value\":0.5}]},\"is_baseline\":false},{\"id\":\"opt_status_quo\",\"kind\":\"option\",\"label\":\"Defer All Hires (Status Quo)\",\"data\":{\"value\":1.0,\"extractionType\":\"inferred\",\"factor_type\":\"other\",\"interventions\":[{\"factor_id\":\"fac_ae_headcount\",\"value\":0.0},{\"factor_id\":\"fac_eng_headcount\",\"value\":0.0}]},\"is_baseline\":true},{\"id\":\"fac_ae_headcount\",\"kind\":\"factor\",\"label\":\"Account Executive Headcount Added\",\"category\":\"controllable\",\"data\":{\"value\":0.0,\"extractionType\":\"inferred\",\"factor_type\":\"demand\",\"display_value\":\"No AEs added (baseline)\"},\"prior\":null},{\"id\":\"fac_eng_headcount\",\"kind\":\"factor\",\"label\":\"Platform Engineer Headcount Added\",\"category\":\"controllable\",\"data\":{\"value\":0.0,\"extractionType\":\"inferred\",\"factor_type\":\"quality\",\"display_value\":\"No engineers added (baseline)\"},\"prior\":null},{\"id\":\"fac_reliability_debt\",\"kind\":\"factor\",\"label\":\"Platform Reliability Debt\",\"category\":\"observable\",\"data\":{\"value\":0.75,\"extractionType\":\"inferred\",\"factor_type\":\"quality\",\"display_value\":\"High reliability debt (current state)\"},\"prior\":null},{\"id\":\"fac_eng_attrition\",\"kind\":\"factor\",\"label\":\"Engineering Attrition","char_count":6587,"output_hash":"69b1be119d20aea4e36897ef255178e668a357eebdd1c8ee85f4c450a406737f","output_node_count":16,"output_edge_count":26,"truncated":true,"full_output_available":true},"diagnostic_checks":{"llm_raw_available":true,"cee_trace_present":true,"confidence_differentiated":true,"confidence_unique_values":[0.72,0.75,0.78,0.8,0.82,0.85,0.88,0.9,0.92,0.95],"intercept_populated":false,"is_baseline_present":true}},"repair_summary":{"deterministic_sweep_ran":true,"deterministic_sweep_version":"v3","bucket_summary":{"a":0,"b":4,"c":0},"status_quo_action":"none","llm_repair_needed":false,"deterministic_repairs_count":8,"deterministic_repairs":[{"code":"CONTROLLABLE_MISSING_DATA","path":"nodes[fac_ae_headcount].data","action":"Populated missing required fields with defaults"},{"code":"CONTROLLABLE_MISSING_DATA","path":"nodes[fac_eng_headcount].data","action":"Populated missing required fields with defaults"},{"code":"OBSERVABLE_EXTRA_DATA","path":"nodes[fac_eng_attrition].data","action":"Removed factor_type, uncertainty_drivers, and empty interventions sentinel (extra for observable)"},{"code":"OBSERVABLE_EXTRA_DATA","path":"nodes[fac_reliability_debt].data","action":"Removed factor_type, uncertainty_drivers, and empty interventions sentinel (extra for observable)"},{"code":"UNREACHABLE_FACTOR_RECLASSIFIED","path":"nodes[fac_eng_attrition].category","action":"Reclassified unreachable factor \"Engineering Attrition Risk\" to external with synthesised prior [0.325, 0.9750000000000001]","prior_synthesised":true,"synthesised_range":{"range_min":0.325,"range_max":0.9750000000000001}},{"code":"UNREACHABLE_FACTOR_RECLASSIFIED","path":"nodes[fac_market_demand].category","action":"Reclassified unreachable factor \"Market Demand for Product\" to external"},{"code":"UNREACHABLE_FACTOR_RECLASSIFIED","path":"nodes[fac_reliability_debt].category","action":"Reclassified unreachable factor \"Platform Reliability Debt\" to external with synthesised prior [0.375, 1]","prior_synthesised":true,"synthesised_range":{"range_min":0.375,"range_max":1}},{"code":"INBOUND_BUDGET_RESCALED","path":"edges[*→risk_churn]","action":"Rescaled 2 causal inbound edges from sum=1.050 to 0.95"}],"unreachable_factors":{"reclassified":["fac_eng_attrition","fac_market_demand","fac_reliability_debt"],"marked_droppable":[]},"status_quo":{"fixed":false,"marked_droppable":false},"llm_repair_called":false,"llm_repair_brief_included":false,"llm_repair_skipped_reason":"deterministic_sweep_sufficient","remaining_violations_count":0,"remaining_violation_codes":[],"edge_format_detected":"V1_FLAT","graph_delta":{"nodes_before":16,"nodes_after":16,"edges_before":26,"edges_after":26},"risk_coefficient_corrections":[]},"transform_defaults":{"defaulted_edge_count":0,"total_defaults":0,"defaults":[]}},"_pipeline_outcome":{"graph_drafted":true,"graph_structurally_valid":true,"deterministic_sweep_violations":0,"verification_status":"failed_degraded","validation_status":"skipped","enrichment_status":"complete","coaching_status":"complete","warnings":[{"stage":"verification","error":"Response does not conform to expected schema","degraded":true}],"rescue_score":17,"factor_value_coverage":{"total":5,"explicit":0,"inferred_with_evidence":2,"fallback_default":3},"edge_strength_unique_count":13,"llm_repair":{"triggered":false,"outcome":"skipped","fallback_reason":null,"attempts":0},"repair_provenance":[{"rule":"CONTROLLABLE_MISSING_DATA","code":"CONTROLLABLE_MISSING_DATA","node_or_edge_id":"nodes[fac_ae_headcount].data","field":"graph","before":null,"after":null,"source":"fallback_default"},{"rule":"CONTROLLABLE_MISSING_DATA","code":"CONTROLLABLE_MISSING_DATA","node_or_edge_id":"nodes[fac_eng_headcount].data","field":"graph","before":null,"after":null,"source":"fallback_default"},{"rule":"OBSERVABLE_EXTRA_DATA","code":"OBSERVABLE_EXTRA_DATA","node_or_edge_id":"nodes[fac_eng_attrition].data","field":"graph","before":null,"after":null,"source":"fallback_default"},{"rule":"OBSERVABLE_EXTRA_DATA","code":"OBSERVABLE_EXTRA_DATA","node_or_edge_id":"nodes[fac_reliability_debt].data","field":"graph","before":null,"after":null,"source":"fallback_default"},{"rule":"UNREACHABLE_FACTOR_RECLASSIFIED","code":"UNREACHABLE_FACTOR_RECLASSIFIED","node_or_edge_id":"nodes[fac_eng_attrition].category","field":"graph","before":null,"after":null,"source":"structure"},{"rule":"UNREACHABLE_FACTOR_RECLASSIFIED","code":"UNREACHABLE_FACTOR_RECLASSIFIED","node_or_edge_id":"nodes[fac_market_demand].category","field":"graph","before":null,"after":null,"source":"structure"},{"rule":"UNREACHABLE_FACTOR_RECLASSIFIED","code":"UNREACHABLE_FACTOR_RECLASSIFIED","node_or_edge_id":"nodes[fac_reliability_debt].category","field":"graph","before":null,"after":null,"source":"structure"},{"rule":"INBOUND_BUDGET_RESCALED","code":"INBOUND_BUDGET_RESCALED","node_or_edge_id":"edges[*→risk_churn]","field":"graph","before":null,"after":null,"source":"structure"}]},"_timings":{"draft_graph":{"parse_ms":26065,"normalise_ms":1,"enrich_ms":4,"repair_ms":28,"threshold_sweep_ms":0,"validation_pipeline_ms":1,"coaching_pass_ms":22983,"package_ms":9,"boundary_ms":7,"total_ms":49106,"repair_fired":false,"repair_attempts":0,"repair_reason":null,"parse_llm_ms":25981}}}
+{
+  "schema_version": "3.0",
+  "nodes": [
+    {
+      "id": "dec_hiring",
+      "kind": "decision",
+      "label": "Headcount Allocation Decision",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "fac_ae_headcount",
+      "kind": "factor",
+      "label": "Account Executive Headcount Added",
+      "observed_state": {
+        "value": 0,
+        "source": "cee_inference",
+        "extractionType": "inferred",
+        "factor_type": "demand",
+        "uncertainty_drivers": [
+          "Ramp time to quota varies by hire quality",
+          "Sales effectiveness constrained by product reliability"
+        ]
+      },
+      "category": "controllable",
+      "encoding_map": {
+        "0": "No AEs added",
+        "0.5": "Two AEs added",
+        "0.75": "Three AEs added"
+      },
+      "display_value": "Low (0)",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "fac_eng_attrition",
+      "kind": "factor",
+      "label": "Engineering Attrition Rate",
+      "category": "external",
+      "prior": {
+        "distribution": "uniform",
+        "range_min": 0.3,
+        "range_max": 0.8999999999999999
+      },
+      "extractionType": "inferred",
+      "display_value": "0.3 to 0.9",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "fac_eng_headcount",
+      "kind": "factor",
+      "label": "Platform Engineer Headcount Added",
+      "observed_state": {
+        "value": 0,
+        "source": "cee_inference",
+        "extractionType": "inferred",
+        "factor_type": "quality",
+        "uncertainty_drivers": [
+          "Reliability improvement timeline uncertain",
+          "Engineering attrition may offset new hires"
+        ]
+      },
+      "category": "controllable",
+      "encoding_map": {
+        "0": "No engineers added",
+        "0.5": "Two engineers added",
+        "1.0": "Four engineers added"
+      },
+      "display_value": "Low (0)",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "fac_market_demand",
+      "kind": "factor",
+      "label": "Market Demand for Product",
+      "category": "external",
+      "prior": {
+        "distribution": "uniform",
+        "range_min": 0.3,
+        "range_max": 0.8
+      },
+      "display_value": "0.3 to 0.8",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "fac_quota_attainment",
+      "kind": "factor",
+      "label": "Current Sales Quota Attainment",
+      "category": "external",
+      "prior": {
+        "distribution": "uniform",
+        "range_min": 0.25,
+        "range_max": 0.75
+      },
+      "extractionType": "inferred",
+      "display_value": "0.25 to 0.75",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "goal_arr",
+      "kind": "goal",
+      "label": "Achieve ARR Growth by Q3",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "opt_eng",
+      "kind": "option",
+      "label": "Hire Four Platform Engineers",
+      "interventions": {
+        "fac_ae_headcount": {
+          "value": 0,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_ae_headcount",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_eng_headcount": {
+          "value": 1,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_eng_headcount",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        }
+      },
+      "is_baseline": false,
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "opt_sales",
+      "kind": "option",
+      "label": "Hire Three Account Executives",
+      "interventions": {
+        "fac_ae_headcount": {
+          "value": 0.75,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_ae_headcount",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_eng_headcount": {
+          "value": 0,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_eng_headcount",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        }
+      },
+      "is_baseline": false,
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "opt_split",
+      "kind": "option",
+      "label": "Two-and-Two Split (AE + Engineer)",
+      "interventions": {
+        "fac_ae_headcount": {
+          "value": 0.5,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_ae_headcount",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_eng_headcount": {
+          "value": 0.5,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_eng_headcount",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        }
+      },
+      "is_baseline": false,
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "opt_status_quo",
+      "kind": "option",
+      "label": "Freeze Hiring (Status Quo)",
+      "interventions": {
+        "fac_ae_headcount": {
+          "value": 0,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_ae_headcount",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_eng_headcount": {
+          "value": 0,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_eng_headcount",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        }
+      },
+      "is_baseline": true,
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "out_new_arr",
+      "kind": "outcome",
+      "label": "New ARR Generated",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "out_reliability",
+      "kind": "outcome",
+      "label": "Platform Reliability Improvement",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "risk_churn",
+      "kind": "risk",
+      "label": "Customer Churn from Reliability Failures",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "risk_eng_attrition",
+      "kind": "risk",
+      "label": "Engineering Team Attrition",
+      "provenance": "ai_inferred"
+    },
+    {
+      "id": "risk_sales_miss",
+      "kind": "risk",
+      "label": "Sales Quota Miss Due to Product Gaps",
+      "provenance": "ai_inferred"
+    }
+  ],
+  "edges": [
+    {
+      "from": "dec_hiring",
+      "to": "opt_eng",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "dec_hiring",
+      "to": "opt_sales",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "dec_hiring",
+      "to": "opt_split",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "dec_hiring",
+      "to": "opt_status_quo",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_ae_headcount",
+      "to": "out_new_arr",
+      "strength": {
+        "mean": 0.38,
+        "std": 0.18
+      },
+      "exists_probability": 0.72,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_ae_headcount",
+      "to": "risk_sales_miss",
+      "strength": {
+        "mean": -0.22,
+        "std": 0.14
+      },
+      "exists_probability": 0.78,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_eng_attrition",
+      "to": "out_reliability",
+      "strength": {
+        "mean": -0.2,
+        "std": 0.1
+      },
+      "exists_probability": 0.8,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_eng_attrition",
+      "to": "risk_eng_attrition",
+      "strength": {
+        "mean": 0.4,
+        "std": 0.12
+      },
+      "exists_probability": 0.88,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_eng_headcount",
+      "to": "out_reliability",
+      "strength": {
+        "mean": 0.55,
+        "std": 0.15
+      },
+      "exists_probability": 0.82,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_eng_headcount",
+      "to": "risk_churn",
+      "strength": {
+        "mean": -0.45,
+        "std": 0.15
+      },
+      "exists_probability": 0.85,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_eng_headcount",
+      "to": "risk_eng_attrition",
+      "strength": {
+        "mean": -0.3,
+        "std": 0.14
+      },
+      "exists_probability": 0.75,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_market_demand",
+      "to": "out_new_arr",
+      "strength": {
+        "mean": 0.18,
+        "std": 0.1
+      },
+      "exists_probability": 0.7,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_quota_attainment",
+      "to": "out_new_arr",
+      "strength": {
+        "mean": 0.25,
+        "std": 0.1
+      },
+      "exists_probability": 0.88,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "fac_quota_attainment",
+      "to": "risk_sales_miss",
+      "strength": {
+        "mean": -0.35,
+        "std": 0.12
+      },
+      "exists_probability": 0.9,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_eng",
+      "to": "fac_eng_headcount",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_sales",
+      "to": "fac_ae_headcount",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_split",
+      "to": "fac_ae_headcount",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_split",
+      "to": "fac_eng_headcount",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_status_quo",
+      "to": "fac_ae_headcount",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "opt_status_quo",
+      "to": "fac_eng_headcount",
+      "strength": {
+        "mean": 1,
+        "std": 0.01
+      },
+      "exists_probability": 1,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "out_new_arr",
+      "to": "goal_arr",
+      "strength": {
+        "mean": 0.65,
+        "std": 0.1
+      },
+      "exists_probability": 0.92,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "out_reliability",
+      "to": "goal_arr",
+      "strength": {
+        "mean": 0.3,
+        "std": 0.12
+      },
+      "exists_probability": 0.85,
+      "effect_direction": "positive",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "risk_churn",
+      "to": "goal_arr",
+      "strength": {
+        "mean": -0.45,
+        "std": 0.12
+      },
+      "exists_probability": 0.9,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "risk_eng_attrition",
+      "to": "goal_arr",
+      "strength": {
+        "mean": -0.2,
+        "std": 0.1
+      },
+      "exists_probability": 0.78,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    },
+    {
+      "from": "risk_sales_miss",
+      "to": "goal_arr",
+      "strength": {
+        "mean": -0.35,
+        "std": 0.12
+      },
+      "exists_probability": 0.88,
+      "effect_direction": "negative",
+      "provenance": {
+        "source": "cee_hypothesis"
+      },
+      "provenance_display": "ai_inferred",
+      "origin": "ai"
+    }
+  ],
+  "options": [
+    {
+      "id": "opt_eng",
+      "label": "Hire Four Platform Engineers",
+      "status": "ready",
+      "interventions": {
+        "fac_ae_headcount": {
+          "value": 0,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_ae_headcount",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_eng_headcount": {
+          "value": 1,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_eng_headcount",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        }
+      },
+      "provenance": {
+        "source": "brief_extraction"
+      },
+      "is_baseline": false
+    },
+    {
+      "id": "opt_sales",
+      "label": "Hire Three Account Executives",
+      "status": "ready",
+      "interventions": {
+        "fac_ae_headcount": {
+          "value": 0.75,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_ae_headcount",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_eng_headcount": {
+          "value": 0,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_eng_headcount",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        }
+      },
+      "provenance": {
+        "source": "brief_extraction"
+      },
+      "is_baseline": false
+    },
+    {
+      "id": "opt_split",
+      "label": "Two-and-Two Split (AE + Engineer)",
+      "status": "ready",
+      "interventions": {
+        "fac_ae_headcount": {
+          "value": 0.5,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_ae_headcount",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_eng_headcount": {
+          "value": 0.5,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_eng_headcount",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        }
+      },
+      "provenance": {
+        "source": "brief_extraction"
+      },
+      "is_baseline": false
+    },
+    {
+      "id": "opt_status_quo",
+      "label": "Freeze Hiring (Status Quo)",
+      "status": "ready",
+      "interventions": {
+        "fac_ae_headcount": {
+          "value": 0,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_ae_headcount",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "fac_eng_headcount": {
+          "value": 0,
+          "source": "brief_extraction",
+          "target_match": {
+            "node_id": "fac_eng_headcount",
+            "match_type": "exact_id",
+            "confidence": "high"
+          },
+          "value_confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        }
+      },
+      "provenance": {
+        "source": "brief_extraction"
+      },
+      "is_baseline": true
+    }
+  ],
+  "goal_node_id": "goal_arr",
+  "validation_warnings": [
+    {
+      "code": "OPTION_SIMILARITY",
+      "message": "Options \"Two-and-Two Split (AE + Engineer)\" and \"Freeze Hiring (Status Quo)\" affect the same factors (Jaccard 1.00). Consider whether they represent genuinely different approaches.",
+      "severity": "info",
+      "details": {
+        "optionA": "opt_split",
+        "optionB": "opt_status_quo",
+        "jaccard": 1
+      },
+      "suggestion": "Options affect the same factors \u2014 consider whether they represent genuinely different approaches"
+    }
+  ],
+  "goal_constraints": [
+    {
+      "constraint_id": "constraint_goal_arr_max",
+      "node_id": "goal_arr",
+      "operator": "<=",
+      "value": 2,
+      "label": "Delivery deadline",
+      "unit": "months",
+      "source_quote": "by Q3",
+      "confidence": 0.85,
+      "provenance": "inferred",
+      "deadline_metadata": {
+        "deadline_date": "2026-09-30",
+        "reference_date": "2026-07-28",
+        "assumed_reference_date": true
+      }
+    }
+  ],
+  "coaching": {
+    "summary": "The decision sits at the intersection of two compounding problems \u2014 a reliability deficit that suppresses sales effectiveness and rising engineering attrition that worsens that deficit \u2014 making the causal chain from hiring choice to ARR growth non-trivial to trace. Strengthening the reasoning means surfacing missing links, testing the Q3 timeline assumption, and guarding against the framing that more sellers automatically means more revenue.",
+    "strengthen_items": [
+      {
+        "id": "link-reliability-to-quota",
+        "label": "Make the reliability-to-quota-attainment link explicit",
+        "detail": "The brief states the sales team 'already misses quota with the current product reliability,' yet the causal structure does not connect Platform Reliability Improvement back to Current Sales Quota Attainment \u2014 closing this loop would reveal whether fixing reliability is a prerequisite for any sales headcount to be effective.",
+        "action_type": "add_risk",
+        "bias_category": "narrow_framing"
+      },
+      {
+        "id": "add-time-lag-constraint",
+        "label": "Introduce a time-to-impact constraint for the Q3 deadline",
+        "detail": "Neither engineering ramp-up time nor sales ramp-to-productivity is represented, yet both affect whether any option can plausibly move New ARR Generated or Platform Reliability Improvement before the board's Q3 milestone.",
+        "action_type": "add_constraint",
+        "bias_category": "overconfidence"
+      },
+      {
+        "id": "link-attrition-to-reliability-loop",
+        "label": "Capture the attrition-reliability feedback loop",
+        "detail": "Rising engineering attrition degrades reliability, which in turn could accelerate further attrition \u2014 this self-reinforcing dynamic between Engineering Attrition Rate and Platform Reliability Improvement is present in the brief but not yet modelled as a feedback path.",
+        "action_type": "add_risk",
+        "bias_category": "overconfidence"
+      },
+      {
+        "id": "examine-status-quo-baseline",
+        "label": "Stress-test the status-quo option as a meaningful baseline",
+        "detail": "Freeze Hiring (Status Quo) is included but its downstream effects on Customer Churn from Reliability Failures and Engineering Team Attrition under a 'rising attrition' and ongoing reliability debt scenario deserve explicit articulation so the other options are compared against a realistic, not neutral, baseline.",
+        "action_type": "add_option",
+        "bias_category": "status_quo_bias"
+      }
+    ],
+    "widening_log": {
+      "elements_added": [],
+      "elements_considered_but_excluded": [
+        "A 'competitive landscape' factor was considered but the brief gives no signal about competitive dynamics, so adding it would be speculative.",
+        "A 'board confidence' outcome was considered but the brief treats ARR growth as the sole board metric, making a separate node redundant."
+      ],
+      "brief_completeness": "partial"
+    },
+    "bias_signals": [
+      {
+        "type": "narrow_framing",
+        "detail": "The brief frames the choice as 'three AEs to push revenue now' versus engineers, implying AE headcount directly drives ARR \u2014 yet it also states 'the sales team already misses quota with the current product reliability,' which suggests the revenue lever may be blocked regardless of seller count.",
+        "target": "opt_sales"
+      },
+      {
+        "type": "overconfidence",
+        "detail": "The brief anchors the goal to 'ARR growth by Q3' without acknowledging ramp time for either engineers or account executives, implying a confidence in speed-to-impact that the causal structure does not yet support.",
+        "target": "goal_arr"
+      },
+      {
+        "type": "anchoring",
+        "detail": "The framing opens with 'approved headcount for four hires,' which anchors the entire analysis to exactly four positions and may foreclose consideration of sequencing, contract, or other staffing forms that could address both constraints.",
+        "target": "dec_hiring"
+      }
+    ]
+  },
+  "causal_claims": [
+    {
+      "type": "direct_effect",
+      "from": "fac_ae_headcount",
+      "to": "out_new_arr",
+      "stated_strength": "moderate"
+    },
+    {
+      "type": "direct_effect",
+      "from": "fac_ae_headcount",
+      "to": "risk_sales_miss",
+      "stated_strength": "moderate"
+    },
+    {
+      "type": "direct_effect",
+      "from": "fac_eng_attrition",
+      "to": "out_reliability",
+      "stated_strength": "moderate"
+    },
+    {
+      "type": "direct_effect",
+      "from": "fac_eng_attrition",
+      "to": "risk_eng_attrition",
+      "stated_strength": "moderate"
+    },
+    {
+      "type": "direct_effect",
+      "from": "fac_eng_headcount",
+      "to": "out_reliability",
+      "stated_strength": "moderate"
+    },
+    {
+      "type": "direct_effect",
+      "from": "fac_eng_headcount",
+      "to": "risk_churn",
+      "stated_strength": "moderate"
+    },
+    {
+      "type": "direct_effect",
+      "from": "fac_quota_attainment",
+      "to": "out_new_arr",
+      "stated_strength": "moderate"
+    },
+    {
+      "type": "direct_effect",
+      "from": "fac_quota_attainment",
+      "to": "risk_sales_miss",
+      "stated_strength": "moderate"
+    }
+  ],
+  "topology_plan": [],
+  "draft_warnings": [
+    {
+      "id": "goal_no_baseline_value",
+      "severity": "low",
+      "node_ids": [
+        "goal_arr"
+      ],
+      "edge_ids": [],
+      "affected_node_ids": [
+        "goal_arr"
+      ],
+      "affected_edge_ids": [],
+      "explanation": "Goal node has no observed_state.value set.",
+      "fix_hint": "Set goal node's observed_state.value to establish baseline for comparison"
+    }
+  ],
+  "analysis_ready": {
+    "options": [
+      {
+        "id": "opt_eng",
+        "label": "Hire Four Platform Engineers",
+        "status": "ready",
+        "status_reason": "2 intervention(s) ready for analysis",
+        "interventions": {
+          "fac_ae_headcount": {
+            "value": 0,
+            "source": "brief_extraction",
+            "display_value": "Low (0)"
+          },
+          "fac_eng_headcount": {
+            "value": 1,
+            "source": "brief_extraction",
+            "display_value": "Low (0)"
+          }
+        },
+        "extraction_metadata": {
+          "source": "brief_extraction",
+          "confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "intervention_details": {
+          "fac_ae_headcount": {
+            "display_value": "Low (0)",
+            "normalised_value": 0
+          },
+          "fac_eng_headcount": {
+            "display_value": "Low (0)",
+            "normalised_value": 1
+          }
+        }
+      },
+      {
+        "id": "opt_sales",
+        "label": "Hire Three Account Executives",
+        "status": "ready",
+        "status_reason": "2 intervention(s) ready for analysis",
+        "interventions": {
+          "fac_ae_headcount": {
+            "value": 0.75,
+            "source": "brief_extraction",
+            "display_value": "Low (0)"
+          },
+          "fac_eng_headcount": {
+            "value": 0,
+            "source": "brief_extraction",
+            "display_value": "Low (0)"
+          }
+        },
+        "extraction_metadata": {
+          "source": "brief_extraction",
+          "confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "intervention_details": {
+          "fac_ae_headcount": {
+            "display_value": "Low (0)",
+            "normalised_value": 0.75
+          },
+          "fac_eng_headcount": {
+            "display_value": "Low (0)",
+            "normalised_value": 0
+          }
+        }
+      },
+      {
+        "id": "opt_split",
+        "label": "Two-and-Two Split (AE + Engineer)",
+        "status": "ready",
+        "status_reason": "2 intervention(s) ready for analysis",
+        "interventions": {
+          "fac_ae_headcount": {
+            "value": 0.5,
+            "source": "brief_extraction",
+            "display_value": "Low (0)"
+          },
+          "fac_eng_headcount": {
+            "value": 0.5,
+            "source": "brief_extraction",
+            "display_value": "Low (0)"
+          }
+        },
+        "extraction_metadata": {
+          "source": "brief_extraction",
+          "confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "intervention_details": {
+          "fac_ae_headcount": {
+            "display_value": "Low (0)",
+            "normalised_value": 0.5
+          },
+          "fac_eng_headcount": {
+            "display_value": "Low (0)",
+            "normalised_value": 0.5
+          }
+        }
+      },
+      {
+        "id": "opt_status_quo",
+        "label": "Freeze Hiring (Status Quo)",
+        "status": "ready",
+        "status_reason": "2 intervention(s) ready for analysis",
+        "interventions": {
+          "fac_ae_headcount": {
+            "value": 0,
+            "source": "brief_extraction",
+            "display_value": "Low (0)"
+          },
+          "fac_eng_headcount": {
+            "value": 0,
+            "source": "brief_extraction",
+            "display_value": "Low (0)"
+          }
+        },
+        "extraction_metadata": {
+          "source": "brief_extraction",
+          "confidence": "high",
+          "reasoning": "Direct from V4 prompt data.interventions"
+        },
+        "is_baseline": true,
+        "intervention_details": {
+          "fac_ae_headcount": {
+            "display_value": "Low (0)",
+            "normalised_value": 0
+          },
+          "fac_eng_headcount": {
+            "display_value": "Low (0)",
+            "normalised_value": 0
+          }
+        }
+      }
+    ],
+    "goal_node_id": "goal_arr",
+    "status": "ready",
+    "bias_findings": [
+      {
+        "id": "authority_high_degree_node",
+        "category": "other",
+        "severity": "medium",
+        "node_ids": [
+          "fac_ae_headcount",
+          "out_new_arr",
+          "risk_sales_miss",
+          "opt_sales",
+          "opt_split",
+          "opt_status_quo"
+        ],
+        "explanation": "One or more authority-labelled nodes are highly connected in the decision graph; this may overweight senior opinions.",
+        "code": "AUTHORITY_BIAS",
+        "targets": {
+          "node_ids": [
+            "fac_ae_headcount",
+            "out_new_arr",
+            "risk_sales_miss",
+            "opt_sales",
+            "opt_split",
+            "opt_status_quo"
+          ]
+        },
+        "structural_pattern": "Authority-labelled node has connections to three or more other nodes",
+        "confidence_band": "medium",
+        "mechanism": "Tendency to attribute greater accuracy to opinions of authority figures, regardless of content.",
+        "citation": "Milgram (1963) - Journal of Abnormal and Social Psychology",
+        "micro_intervention": {
+          "steps": [
+            "Collect input anonymously before revealing who said what",
+            "Explicitly ask junior team members to share their view first"
+          ],
+          "estimated_minutes": 3
+        }
+      }
+    ],
+    "model_adjustments": [
+      {
+        "code": "category_reclassified",
+        "node_id": "fac_eng_attrition",
+        "field": "nodes[fac_eng_attrition].category",
+        "reason": "Reclassified unreachable factor \"Engineering Attrition Rate\" to external with synthesised prior [0.3, 0.8999999999999999]",
+        "source": "deterministic_sweep"
+      },
+      {
+        "code": "category_reclassified",
+        "node_id": "fac_market_demand",
+        "field": "nodes[fac_market_demand].category",
+        "reason": "Reclassified unreachable factor \"Market Demand for Product\" to external",
+        "source": "deterministic_sweep"
+      },
+      {
+        "code": "category_reclassified",
+        "node_id": "fac_quota_attainment",
+        "field": "nodes[fac_quota_attainment].category",
+        "reason": "Reclassified unreachable factor \"Current Sales Quota Attainment\" to external with synthesised prior [0.25, 0.75]",
+        "source": "deterministic_sweep"
+      }
+    ]
+  },
+  "meta": {
+    "roots": [
+      "dec_hiring",
+      "fac_eng_attrition",
+      "fac_market_demand",
+      "fac_quota_attainment"
+    ],
+    "leaves": [
+      "goal_arr"
+    ],
+    "source": "assistant"
+  },
+  "quality": {
+    "overall": 9,
+    "structure": 8,
+    "coverage": 10,
+    "structural_proxy": 8,
+    "safety": 8
+  },
+  "trace": {
+    "request_id": "b62274b2-2f5f-45ea-ad2e-150bd0d34fa8",
+    "correlation_id": "b62274b2-2f5f-45ea-ad2e-150bd0d34fa8",
+    "engine": {
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-6",
+      "version": "1.12.0"
+    },
+    "pipeline": {
+      "status": "success",
+      "total_duration_ms": 52747,
+      "llm_call_count": 1,
+      "llm_quality": {
+        "risk_coefficient_corrections": 0
+      },
+      "llm_metadata": {
+        "model": "claude-sonnet-4-6",
+        "prompt_version": "draft_graph_default@v195 (staging)",
+        "prompt_text_version": "v195",
+        "prompt_hash": "152998b447819c2e9e797b1727f8e05b34480486dca6f672a5d2839facd2353f",
+        "duration_ms": 28046,
+        "finish_reason": "end_turn",
+        "response_chars": 6888,
+        "token_usage": {
+          "prompt_tokens": 235,
+          "completion_tokens": 2243,
+          "total_tokens": 2478
+        },
+        "temperature": 0,
+        "max_tokens": 8548,
+        "seed": 17,
+        "instance_id": "c5114e2a",
+        "cache_age_ms": 269079,
+        "cache_status": "fresh",
+        "use_staging_mode": true,
+        "structured_outputs_used": true,
+        "streamed": true,
+        "runaway_abort_count": 0,
+        "runaway_abort_triggers": [],
+        "time_to_edges_ms": 15798,
+        "salvaged_from_truncation": false
+      },
+      "validation_summary": {
+        "status": "valid",
+        "required_kinds": [
+          "goal",
+          "decision",
+          "option"
+        ],
+        "present_kinds": [
+          "decision",
+          "factor",
+          "goal",
+          "option",
+          "outcome",
+          "risk"
+        ],
+        "missing_kinds": []
+      },
+      "enrich": {
+        "called_count": 1,
+        "extraction_mode": "v4_complete_skip",
+        "factors_added": 0,
+        "factors_enhanced": 0,
+        "factors_skipped": 0,
+        "source": "unified_pipeline"
+      },
+      "repair": {
+        "deterministic_sweep": {
+          "sweep_ran": true,
+          "sweep_version": "v3",
+          "bucket_summary": {
+            "a": 0,
+            "b": 2,
+            "c": 0
+          },
+          "repairs_count": 5,
+          "unreachable_factors": {
+            "reclassified": [
+              "fac_eng_attrition",
+              "fac_market_demand",
+              "fac_quota_attainment"
+            ],
+            "marked_droppable": []
+          },
+          "goal_threshold_stripped": 0,
+          "goal_threshold_possibly_inferred": 0,
+          "factor_goal_splits": 0,
+          "option_outcome_shortcuts_removed": 0,
+          "option_outcome_shortcuts_skipped": 0,
+          "option_risk_shortcuts_removed": 0,
+          "option_risk_shortcuts_rerouted": 0,
+          "option_risk_shortcuts_skipped": 0,
+          "option_goal_shortcuts_removed": 0,
+          "option_goal_shortcuts_rerouted": 0,
+          "option_goal_shortcuts_skipped": 0,
+          "remaining_forbidden_edges_removed": 0,
+          "disconnected_observables_pruned": [],
+          "complexity_cap_pruned": 0,
+          "status_quo": {
+            "fixed": false,
+            "marked_droppable": false
+          },
+          "disconnected_options_before": [],
+          "disconnected_options_after": [],
+          "violations_before": 2,
+          "violations_after": 0,
+          "llm_repair_needed": false,
+          "edge_format": "V1_FLAT",
+          "graph_delta": {
+            "nodes_before": 16,
+            "nodes_after": 16,
+            "edges_before": 25,
+            "edges_after": 25
+          },
+          "rescue_score": 13
+        },
+        "edge_restore": {
+          "restoredCount": 0
+        },
+        "deterministic_enforcement": {
+          "ran": true,
+          "bridge_chains_removed": 0,
+          "bridge_goal_edges_added": 0,
+          "nodes_rescaled": 0,
+          "edges_skipped_non_finite": 0,
+          "total_repairs": 0,
+          "post_validation_error_count": 0,
+          "post_validation_warning_count": 0,
+          "blocked": false
+        }
+      },
+      "repair_summary": {
+        "deterministic_sweep_ran": true,
+        "deterministic_sweep_version": "v3",
+        "bucket_summary": {
+          "a": 0,
+          "b": 2,
+          "c": 0
+        },
+        "status_quo_action": "none",
+        "llm_repair_needed": false,
+        "deterministic_repairs_count": 5,
+        "deterministic_repairs": [
+          {
+            "code": "OBSERVABLE_EXTRA_DATA",
+            "path": "nodes[fac_eng_attrition].data",
+            "action": "Removed factor_type, uncertainty_drivers, and empty interventions sentinel (extra for observable)"
+          },
+          {
+            "code": "OBSERVABLE_EXTRA_DATA",
+            "path": "nodes[fac_quota_attainment].data",
+            "action": "Removed factor_type, uncertainty_drivers, and empty interventions sentinel (extra for observable)"
+          },
+          {
+            "code": "UNREACHABLE_FACTOR_RECLASSIFIED",
+            "path": "nodes[fac_eng_attrition].category",
+            "action": "Reclassified unreachable factor \"Engineering Attrition Rate\" to external with synthesised prior [0.3, 0.8999999999999999]",
+            "prior_synthesised": true,
+            "synthesised_range": {
+              "range_min": 0.3,
+              "range_max": 0.8999999999999999
+            }
+          },
+          {
+            "code": "UNREACHABLE_FACTOR_RECLASSIFIED",
+            "path": "nodes[fac_market_demand].category",
+            "action": "Reclassified unreachable factor \"Market Demand for Product\" to external"
+          },
+          {
+            "code": "UNREACHABLE_FACTOR_RECLASSIFIED",
+            "path": "nodes[fac_quota_attainment].category",
+            "action": "Reclassified unreachable factor \"Current Sales Quota Attainment\" to external with synthesised prior [0.25, 0.75]",
+            "prior_synthesised": true,
+            "synthesised_range": {
+              "range_min": 0.25,
+              "range_max": 0.75
+            }
+          }
+        ],
+        "unreachable_factors": {
+          "reclassified": [
+            "fac_eng_attrition",
+            "fac_market_demand",
+            "fac_quota_attainment"
+          ],
+          "marked_droppable": []
+        },
+        "status_quo": {
+          "fixed": false,
+          "marked_droppable": false
+        },
+        "llm_repair_called": false,
+        "llm_repair_brief_included": false,
+        "llm_repair_skipped_reason": "deterministic_sweep_sufficient",
+        "remaining_violations_count": 0,
+        "remaining_violation_codes": [],
+        "edge_format_detected": "V1_FLAT",
+        "graph_delta": {
+          "nodes_before": 16,
+          "nodes_after": 16,
+          "edges_before": 25,
+          "edges_after": 25
+        },
+        "risk_coefficient_corrections": []
+      },
+      "threshold_sweep": {
+        "ran": true,
+        "duration_ms": 0,
+        "goals_checked": 1,
+        "strips_applied": 0,
+        "warnings_emitted": 0,
+        "codes": []
+      },
+      "field_deletions": {
+        "count": 7,
+        "stages": [
+          "deterministic-sweep",
+          "unreachable-factors"
+        ],
+        "reasons": [
+          "OBSERVABLE_EXTRA_DATA",
+          "UNREACHABLE_FACTOR_RECLASSIFIED"
+        ],
+        "events": [
+          {
+            "stage": "deterministic-sweep",
+            "node_id": "fac_eng_attrition",
+            "field": "data.factor_type",
+            "reason": "OBSERVABLE_EXTRA_DATA"
+          },
+          {
+            "stage": "deterministic-sweep",
+            "node_id": "fac_eng_attrition",
+            "field": "data.uncertainty_drivers",
+            "reason": "OBSERVABLE_EXTRA_DATA"
+          },
+          {
+            "stage": "deterministic-sweep",
+            "node_id": "fac_quota_attainment",
+            "field": "data.factor_type",
+            "reason": "OBSERVABLE_EXTRA_DATA"
+          },
+          {
+            "stage": "unreachable-factors",
+            "node_id": "fac_eng_attrition",
+            "field": "data.value",
+            "reason": "UNREACHABLE_FACTOR_RECLASSIFIED"
+          },
+          {
+            "stage": "unreachable-factors",
+            "node_id": "fac_eng_attrition",
+            "field": "data",
+            "reason": "UNREACHABLE_FACTOR_RECLASSIFIED"
+          },
+          {
+            "stage": "unreachable-factors",
+            "node_id": "fac_quota_attainment",
+            "field": "data.value",
+            "reason": "UNREACHABLE_FACTOR_RECLASSIFIED"
+          },
+          {
+            "stage": "unreachable-factors",
+            "node_id": "fac_quota_attainment",
+            "field": "data",
+            "reason": "UNREACHABLE_FACTOR_RECLASSIFIED"
+          }
+        ]
+      },
+      "stage_snapshots": {
+        "stage_1_parse": {
+          "goal_node_id": "goal_arr",
+          "goal_threshold": "absent",
+          "goal_threshold_raw": "absent",
+          "goal_threshold_unit": "absent",
+          "goal_threshold_cap": "absent",
+          "goal_constraints_count": 0
+        },
+        "stage_3_enrich": {
+          "goal_node_id": "goal_arr",
+          "goal_threshold": "absent",
+          "goal_threshold_raw": "absent",
+          "goal_threshold_unit": "absent",
+          "goal_threshold_cap": "absent",
+          "goal_constraints_count": 0
+        },
+        "stage_4_repair": {
+          "goal_node_id": "goal_arr",
+          "goal_threshold": "absent",
+          "goal_threshold_raw": "absent",
+          "goal_threshold_unit": "absent",
+          "goal_threshold_cap": "absent",
+          "goal_constraints_count": 1
+        },
+        "stage_4b_threshold_sweep": {
+          "goal_node_id": "goal_arr",
+          "goal_threshold": "absent",
+          "goal_threshold_raw": "absent",
+          "goal_threshold_unit": "absent",
+          "goal_threshold_cap": "absent",
+          "goal_constraints_count": 1
+        },
+        "stage_5_package": {
+          "goal_node_id": "goal_arr",
+          "goal_threshold": "absent",
+          "goal_threshold_raw": "absent",
+          "goal_threshold_unit": "absent",
+          "goal_threshold_cap": "absent",
+          "goal_constraints_count": 1
+        }
+      },
+      "plan_annotation": {
+        "plan_id": "d6bb701c-5ac3-4c8a-8699-5bf19e276f49",
+        "plan_hash": "198caf5dd989",
+        "stage3_rationales": [],
+        "confidence": {
+          "overall": 0.85,
+          "structure": 1,
+          "parameters": 1
+        },
+        "open_questions": [],
+        "context_hash_v0": "c0b8ecc50e71",
+        "model_id": "claude-sonnet-4-6",
+        "prompt_version": "draft_graph_default@v195 (staging)"
+      },
+      "final_graph": {
+        "node_count": 16,
+        "edge_count": 25,
+        "node_kinds": [
+          "decision",
+          "factor",
+          "goal",
+          "option",
+          "outcome",
+          "risk"
+        ]
+      },
+      "pipeline_checkpoints": [
+        {
+          "stage": "post_adapter_normalisation",
+          "node_count": 16,
+          "edge_count": 26,
+          "edge_field_presence": {
+            "strength_mean": 26,
+            "strength_std": 26,
+            "belief_exists": 26,
+            "effect_direction": 26,
+            "weight": 0
+          },
+          "node_field_presence": {
+            "option_nodes_total": 4,
+            "options_with_interventions": 4
+          },
+          "sample_edges": [
+            {
+              "from": "dec_hiring",
+              "to": "opt_eng",
+              "strength_mean": 1,
+              "strength_std": 0.01,
+              "belief_exists": 1,
+              "effect_direction": "positive"
+            },
+            {
+              "from": "fac_ae_headcount",
+              "to": "out_new_arr",
+              "strength_mean": 0.38,
+              "strength_std": 0.18,
+              "belief_exists": 0.72,
+              "effect_direction": "positive"
+            },
+            {
+              "from": "out_new_arr",
+              "to": "goal_arr",
+              "strength_mean": 0.65,
+              "strength_std": 0.1,
+              "belief_exists": 0.92,
+              "effect_direction": "positive"
+            }
+          ],
+          "nested_strength_detected": true
+        },
+        {
+          "stage": "post_stabilisation",
+          "node_count": 16,
+          "edge_count": 25,
+          "edge_field_presence": {
+            "strength_mean": 25,
+            "strength_std": 25,
+            "belief_exists": 25,
+            "effect_direction": 25,
+            "weight": 25
+          },
+          "node_field_presence": {
+            "option_nodes_total": 4,
+            "options_with_interventions": 4
+          },
+          "sample_edges": [
+            {
+              "from": "dec_hiring",
+              "to": "opt_eng",
+              "strength_mean": 1,
+              "strength_std": 0.01,
+              "belief_exists": 1,
+              "effect_direction": "positive"
+            },
+            {
+              "from": "fac_ae_headcount",
+              "to": "out_new_arr",
+              "strength_mean": 0.38,
+              "strength_std": 0.18,
+              "belief_exists": 0.72,
+              "effect_direction": "positive"
+            },
+            {
+              "from": "out_new_arr",
+              "to": "goal_arr",
+              "strength_mean": 0.65,
+              "strength_std": 0.1,
+              "belief_exists": 0.92,
+              "effect_direction": "positive"
+            }
+          ]
+        },
+        {
+          "stage": "pre_boundary",
+          "node_count": 16,
+          "edge_count": 25,
+          "edge_field_presence": {
+            "strength_mean": 25,
+            "strength_std": 25,
+            "belief_exists": 25,
+            "effect_direction": 25,
+            "weight": 25
+          },
+          "node_field_presence": {
+            "option_nodes_total": 4,
+            "options_with_interventions": 4
+          },
+          "sample_edges": [
+            {
+              "from": "dec_hiring",
+              "to": "opt_eng",
+              "strength_mean": 1,
+              "strength_std": 0.01,
+              "belief_exists": 1,
+              "effect_direction": "positive"
+            },
+            {
+              "from": "fac_ae_headcount",
+              "to": "out_new_arr",
+              "strength_mean": 0.38,
+              "strength_std": 0.18,
+              "belief_exists": 0.72,
+              "effect_direction": "positive"
+            },
+            {
+              "from": "out_new_arr",
+              "to": "goal_arr",
+              "strength_mean": 0.65,
+              "strength_std": 0.1,
+              "belief_exists": 0.92,
+              "effect_direction": "positive"
+            }
+          ]
+        }
+      ],
+      "pipeline_checkpoints_meta": {
+        "enabled": true,
+        "adapter_count": 1,
+        "pipeline_count": 2,
+        "total_count": 3
+      },
+      "cee_provenance": {
+        "commit": "cb54320",
+        "version": "1.12.0",
+        "build_timestamp": "2026-07-27T23:24:54.318Z",
+        "prompt_version": "draft_graph_default@v195 (staging)",
+        "prompt_source": "supabase",
+        "prompt_override_active": false,
+        "model": "claude-sonnet-4-6",
+        "pipeline_path": "unified",
+        "engine_base_url_configured": false,
+        "model_override_active": false,
+        "prompt_store_version": 195,
+        "context_hash": "887974e42e87",
+        "prompt_hash": "152998b447819c2e9e797b1727f8e05b34480486dca6f672a5d2839facd2353f",
+        "model_id": "claude-sonnet-4-6",
+        "capability": "draft_graph"
+      },
+      "llm_raw": {
+        "text": "{\"nodes\":[{\"id\":\"dec_hiring\",\"kind\":\"decision\",\"label\":\"Headcount Allocation Decision\"},{\"id\":\"opt_sales\",\"kind\":\"option\",\"label\":\"Hire Three Account Executives\",\"data\":{\"value\":0,\"extractionType\":\"inferred\",\"factor_type\":\"other\",\"interventions\":[{\"factor_id\":\"fac_ae_headcount\",\"value\":0.75},{\"factor_id\":\"fac_eng_headcount\",\"value\":0.0}]},\"is_baseline\":false},{\"id\":\"opt_eng\",\"kind\":\"option\",\"label\":\"Hire Four Platform Engineers\",\"data\":{\"value\":0,\"extractionType\":\"inferred\",\"factor_type\":\"other\",\"interventions\":[{\"factor_id\":\"fac_ae_headcount\",\"value\":0.0},{\"factor_id\":\"fac_eng_headcount\",\"value\":1.0}]},\"is_baseline\":false},{\"id\":\"opt_split\",\"kind\":\"option\",\"label\":\"Two-and-Two Split (AE + Engineer)\",\"data\":{\"value\":0,\"extractionType\":\"inferred\",\"factor_type\":\"other\",\"interventions\":[{\"factor_id\":\"fac_ae_headcount\",\"value\":0.5},{\"factor_id\":\"fac_eng_headcount\",\"value\":0.5}]},\"is_baseline\":false},{\"id\":\"opt_status_quo\",\"kind\":\"option\",\"label\":\"Freeze Hiring (Status Quo)\",\"data\":{\"value\":0,\"extractionType\":\"inferred\",\"factor_type\":\"other\",\"interventions\":[{\"factor_id\":\"fac_ae_headcount\",\"value\":0.0},{\"factor_id\":\"fac_eng_headcount\",\"value\":0.0}]},\"is_baseline\":true},{\"id\":\"fac_ae_headcount\",\"kind\":\"factor\",\"label\":\"Account Executive Headcount Added\",\"category\":\"controllable\",\"data\":{\"value\":0.0,\"extractionType\":\"inferred\",\"factor_type\":\"demand\",\"uncertainty_drivers\":[\"Ramp time to quota varies by hire quality\",\"Sales effectiveness constrained by product reliability\"],\"encoding_map\":\"{\\\"0\\\": \\\"No AEs added\\\", \\\"0.5\\\": \\\"Two AEs added\\\", \\\"0.75\\\": \\\"Three AEs added\\\"}\"},\"is_baseline\":false,\"intercept\":null},{\"id\":\"fac_eng_headcount\",\"kind\":\"factor\",\"label\":\"Platform Engineer Headcount Added\",\"category\":\"controllable\",\"data\":{\"value\":0.0,\"extractionType\":\"inferred\",\"factor_type\":\"quality\",\"uncertainty_drivers\":[\"Reliability improvement timeline uncertain\",\"Engineering attrition may offset new hires\"],\"encoding_map\":\"{\\\"0\\\": \\\"No engineers added\\\", \\\"0.5\\\": \\\"Two engineers added\\\", \\\"1.0\\\": \\\"Four engineers added\\\"}\"},\"is_baseline\":false,\"intercept\":null},{\"id\":\"fac_eng_attrition\",\"kind\":\"factor\",\"label\":\"Engineering Attrition Rate\",\"category\":\"observable\",\"data\":{\"value\":0.6,\"extractionType\":\"inferred\",\"factor_type\":\"probability\",\"uncertainty_drivers\":[],\"raw_value\":60,\"unit\":\"%\",\"cap\":100,\"is_baseline\":true},\"is_baseline\":false},{\"id\":\"fac_quota_attainment\",\"kind\":\"factor\",\"label\":\"Current Sales Quota Attainment\",\"category\":\"observable\",\"data\":{\"value\":0.5,\"extractionType\":\"inferred\",\"factor_type\":\"probability\",\"raw_value\":50,\"unit\":\"%\",\"cap\":100},\"is_baseline\":false},{\"id\":\"fac_market_demand\",\"kind\":\"factor\",\"label\":\"Market Demand for Product\",\"category\":\"external\",\"prior\":{\"distribution\":\"uniform\",\"range_min\":0.3,\"range_max\":0.8},\"is_baseline\":false},{\"id\":\"out_new_arr\",\"kind\":\"outcome\",\"label\":\"New ARR Generated\"},{\"id\":\"out_reliability\",\"kind\":\"outcome\",\"label\":\"Platform Reliability Improvement\"},{\"id\":\"risk_churn\",\"kind\":\"risk\",\"label\":\"Customer Churn from Reliability Failures\"},{\"id\":\"risk_eng_attrition\",\"kind\":\"risk\",\"label\":\"Engineering Team Attrition\"},{\"id\":\"risk_sales_miss\",\"kind\":\"risk\",\"label\":\"Sales Quota Miss Due to Product Gaps\"},{\"id\":\"goal_arr\",\"kind\":\"goal\",\"label\":\"Achieve ARR Growth by Q3\"}],\"edges\":[{\"from\":\"dec_hiring\",\"to\":\"opt_sales\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"dec_hiring\",\"to\":\"opt_eng\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"dec_hiring\",\"to\":\"opt_split\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"dec_hiring\",\"to\":\"opt_status_quo\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"opt_sales\",\"to\":\"fac_ae_headcount\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"opt_eng\",\"to\":\"fac_eng_headcount\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"opt_split\",\"to\":\"fac_ae_headcount\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"opt_split\",\"to\":\"fac_eng_headcount\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"opt_status_quo\",\"to\":\"fac_ae_headcount\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"opt_status_quo\",\"to\":\"fac_eng_headcount\",\"strength\":{\"mean\":1.0,\"std\":0.01},\"exists_probability\":1.0,\"effect_direction\":\"positive\"},{\"from\":\"fac_ae_headcount\",\"to\":\"out_new_arr\",\"strength\":{\"mean\":0.38,\"std\":0.18},\"exists_probability\":0.72,\"effect_direction\":\"positive\"},{\"from\":\"fac_ae_headcount\",\"to\":\"risk_sales_miss\",\"strength\":{\"mean\":-0.22,\"std\":0.14},\"exists_probability\":0.78,\"effect_direction\":\"negative\"},{\"from\":\"fac_eng_headcount\",\"to\":\"out_reliability\",\"strength\":{\"mean\":0.55,\"std\":0.15},\"exists_probability\":0.82,\"effect_direction\":\"positive\"},{\"from\":\"fac_eng_headcount\",\"to\":\"risk_churn\",\"strength\":{\"mean\":-0.45,\"std\":0.15},\"exists_probability\":0.85,\"effect_direction\":\"negative\"},{\"from\":\"fac_eng_headcount\",\"to\":\"risk_eng_attrition\",\"strength\":{\"mean\":-0.30,\"std\":0.14},\"exists_probability\":0.75,\"effect_direction\":\"negative\"},{\"from\":\"fac_quota_attainment\",\"to\":\"out_new_arr\",\"strength\":{\"mean\":0.25,\"std\":0.10},\"exists_probability\":0.88,\"effect_direction\":\"positive\"},{\"from\":\"fac_quota_attainment\",\"to\":\"risk_sales_miss\",\"strength\":{\"mean\":-0.35,\"std\":0.12},\"exists_probability\":0.90,\"effect_direction\":\"negative\"},{\"from\":\"fac_eng_attrition\",\"to\":\"risk_eng_attrition\",\"strength\":{\"mean\":0.40,\"std\":0.12},\"exists_probability\":0.88,\"effect_direction\":\"positive\"},{\"from\":\"fac_eng_attrition\",\"to\":\"out_reliability\",\"strength\":{\"mean\":-0.20,\"std\":0.10},\"exists_probability\":0.80,\"effect_direction\":\"negative\"},{\"from\":\"fac_market_demand\",\"to\":\"out_new_arr\",\"strength\":{\"mean\":0.18,\"std\":0.10},\"exists_probability\":0.70,\"effect_direction\":\"positive\"},{\"from\":\"out_reliability\",\"to\":\"risk_churn\",\"strength\":{\"mean\":-0.35,\"std\":0.12},\"exists_probability\":0.85,\"effect_direction\":\"negative\"},{\"from\":\"out_new_arr\",\"to\":\"goal_arr\",\"strength\":{\"mean\":0.65,\"std\":0.10},\"exists_probability\":0.92,\"effect_direction\":\"positive\"},{\"from\":\"out_reliability\",\"to\":\"goal_arr\",\"strength\":{\"mean\":0.30,\"std\":0.12},\"exists_probability\":0.85,\"effect_direction\":\"positive\"},{\"from\":\"risk_churn\",\"to\":\"goal_arr\",\"strength\":{\"mean\":-0.45,\"std\":0.12},\"exists_probability\":0.90,\"effect_direction\":\"negative\"},{\"from\":\"risk_eng_attrition\",\"to\":\"goal_arr\",\"strength\":{\"mean\":-0.20,\"std\":0.10},\"exists_probability\":0.78,\"effect_direction\":\"negative\"},{\"from\":\"risk_sales_miss\",\"to\":\"goal_arr\",\"strength\":{\"mean\":-0.35,\"std\":0.12},\"exists_probability\":0.88,\"effect_direction\":\"negative\"}],\"goal_constraints\":[]}",
+        "output_preview": "{\"nodes\":[{\"id\":\"dec_hiring\",\"kind\":\"decision\",\"label\":\"Headcount Allocation Decision\"},{\"id\":\"opt_sales\",\"kind\":\"option\",\"label\":\"Hire Three Account Executives\",\"data\":{\"value\":0,\"extractionType\":\"inferred\",\"factor_type\":\"other\",\"interventions\":[{\"factor_id\":\"fac_ae_headcount\",\"value\":0.75},{\"factor_id\":\"fac_eng_headcount\",\"value\":0.0}]},\"is_baseline\":false},{\"id\":\"opt_eng\",\"kind\":\"option\",\"label\":\"Hire Four Platform Engineers\",\"data\":{\"value\":0,\"extractionType\":\"inferred\",\"factor_type\":\"other\",\"interventions\":[{\"factor_id\":\"fac_ae_headcount\",\"value\":0.0},{\"factor_id\":\"fac_eng_headcount\",\"value\":1.0}]},\"is_baseline\":false},{\"id\":\"opt_split\",\"kind\":\"option\",\"label\":\"Two-and-Two Split (AE + Engineer)\",\"data\":{\"value\":0,\"extractionType\":\"inferred\",\"factor_type\":\"other\",\"interventions\":[{\"factor_id\":\"fac_ae_headcount\",\"value\":0.5},{\"factor_id\":\"fac_eng_headcount\",\"value\":0.5}]},\"is_baseline\":false},{\"id\":\"opt_status_quo\",\"kind\":\"option\",\"label\":\"Freeze Hiring (Status Quo)\",\"data\":{\"value\":0,\"extractionType\":\"inferred\",\"factor_type\":\"other\",\"interventions\":[{\"factor_id\":\"fac_ae_headcount\",\"value\":0.0},{\"factor_id\":\"fac_eng_headcount\",\"value\":0.0}]},\"is_baseline\":true},{\"id\":\"fac_ae_headcount\",\"kind\":\"factor\",\"label\":\"Account Executive Headcount Added\",\"category\":\"controllable\",\"data\":{\"value\":0.0,\"extractionType\":\"inferred\",\"factor_type\":\"demand\",\"uncertainty_drivers\":[\"Ramp time to quota varies by hire quality\",\"Sales effectiveness constrained by product reliability\"],\"encoding_map\":\"{\\\"0\\\": \\\"No AEs added\\\", \\\"0.5\\\": \\\"Two AEs added\\\", \\\"0.75\\\": \\\"Three AEs added\\\"}\"},\"is_baseline\":false,\"intercept\":null},{\"id\":\"fac_eng_headcount\",\"kind\":\"factor\",\"label\":\"Platform Engineer Headcount Added\",\"category\":\"controllable\",\"data\":{\"value\":0.0,\"extractionType\":\"inferred\",\"factor_type\":\"quality\",\"uncertainty_drivers\":[\"Reliability improvement timeline uncertain\",\"Engineering attrition may offset new hires\"],\"encoding_map\":\"{\\\"0\\\": \\\"No engineers added\\\", \\\"0.5\\\": \\\"Two engineer",
+        "char_count": 6888,
+        "output_hash": "218514cd706986e107c738743aae279b779b010dcddbdb8c2af755de1642c42e",
+        "output_node_count": 16,
+        "output_edge_count": 25,
+        "truncated": true,
+        "full_output_available": true
+      },
+      "diagnostic_checks": {
+        "llm_raw_available": true,
+        "cee_trace_present": true,
+        "confidence_differentiated": true,
+        "confidence_unique_values": [
+          0.7,
+          0.72,
+          0.75,
+          0.78,
+          0.8,
+          0.82,
+          0.85,
+          0.88,
+          0.9,
+          0.92
+        ],
+        "intercept_populated": false,
+        "is_baseline_present": true
+      }
+    },
+    "repair_summary": {
+      "deterministic_sweep_ran": true,
+      "deterministic_sweep_version": "v3",
+      "bucket_summary": {
+        "a": 0,
+        "b": 2,
+        "c": 0
+      },
+      "status_quo_action": "none",
+      "llm_repair_needed": false,
+      "deterministic_repairs_count": 5,
+      "deterministic_repairs": [
+        {
+          "code": "OBSERVABLE_EXTRA_DATA",
+          "path": "nodes[fac_eng_attrition].data",
+          "action": "Removed factor_type, uncertainty_drivers, and empty interventions sentinel (extra for observable)"
+        },
+        {
+          "code": "OBSERVABLE_EXTRA_DATA",
+          "path": "nodes[fac_quota_attainment].data",
+          "action": "Removed factor_type, uncertainty_drivers, and empty interventions sentinel (extra for observable)"
+        },
+        {
+          "code": "UNREACHABLE_FACTOR_RECLASSIFIED",
+          "path": "nodes[fac_eng_attrition].category",
+          "action": "Reclassified unreachable factor \"Engineering Attrition Rate\" to external with synthesised prior [0.3, 0.8999999999999999]",
+          "prior_synthesised": true,
+          "synthesised_range": {
+            "range_min": 0.3,
+            "range_max": 0.8999999999999999
+          }
+        },
+        {
+          "code": "UNREACHABLE_FACTOR_RECLASSIFIED",
+          "path": "nodes[fac_market_demand].category",
+          "action": "Reclassified unreachable factor \"Market Demand for Product\" to external"
+        },
+        {
+          "code": "UNREACHABLE_FACTOR_RECLASSIFIED",
+          "path": "nodes[fac_quota_attainment].category",
+          "action": "Reclassified unreachable factor \"Current Sales Quota Attainment\" to external with synthesised prior [0.25, 0.75]",
+          "prior_synthesised": true,
+          "synthesised_range": {
+            "range_min": 0.25,
+            "range_max": 0.75
+          }
+        }
+      ],
+      "unreachable_factors": {
+        "reclassified": [
+          "fac_eng_attrition",
+          "fac_market_demand",
+          "fac_quota_attainment"
+        ],
+        "marked_droppable": []
+      },
+      "status_quo": {
+        "fixed": false,
+        "marked_droppable": false
+      },
+      "llm_repair_called": false,
+      "llm_repair_brief_included": false,
+      "llm_repair_skipped_reason": "deterministic_sweep_sufficient",
+      "remaining_violations_count": 0,
+      "remaining_violation_codes": [],
+      "edge_format_detected": "V1_FLAT",
+      "graph_delta": {
+        "nodes_before": 16,
+        "nodes_after": 16,
+        "edges_before": 25,
+        "edges_after": 25
+      },
+      "risk_coefficient_corrections": []
+    },
+    "transform_defaults": {
+      "defaulted_edge_count": 0,
+      "total_defaults": 0,
+      "defaults": []
+    }
+  },
+  "_pipeline_outcome": {
+    "graph_drafted": true,
+    "graph_structurally_valid": true,
+    "deterministic_sweep_violations": 0,
+    "verification_status": "passed",
+    "validation_status": "skipped",
+    "enrichment_status": "complete",
+    "coaching_status": "complete",
+    "warnings": [],
+    "rescue_score": 13,
+    "factor_value_coverage": {
+      "total": 5,
+      "explicit": 0,
+      "inferred_with_evidence": 2,
+      "fallback_default": 3
+    },
+    "edge_strength_unique_count": 12,
+    "llm_repair": {
+      "triggered": false,
+      "outcome": "skipped",
+      "fallback_reason": null,
+      "attempts": 0
+    },
+    "repair_provenance": [
+      {
+        "rule": "OBSERVABLE_EXTRA_DATA",
+        "code": "OBSERVABLE_EXTRA_DATA",
+        "node_or_edge_id": "nodes[fac_eng_attrition].data",
+        "field": "graph",
+        "before": null,
+        "after": null,
+        "source": "fallback_default"
+      },
+      {
+        "rule": "OBSERVABLE_EXTRA_DATA",
+        "code": "OBSERVABLE_EXTRA_DATA",
+        "node_or_edge_id": "nodes[fac_quota_attainment].data",
+        "field": "graph",
+        "before": null,
+        "after": null,
+        "source": "fallback_default"
+      },
+      {
+        "rule": "UNREACHABLE_FACTOR_RECLASSIFIED",
+        "code": "UNREACHABLE_FACTOR_RECLASSIFIED",
+        "node_or_edge_id": "nodes[fac_eng_attrition].category",
+        "field": "graph",
+        "before": null,
+        "after": null,
+        "source": "structure"
+      },
+      {
+        "rule": "UNREACHABLE_FACTOR_RECLASSIFIED",
+        "code": "UNREACHABLE_FACTOR_RECLASSIFIED",
+        "node_or_edge_id": "nodes[fac_market_demand].category",
+        "field": "graph",
+        "before": null,
+        "after": null,
+        "source": "structure"
+      },
+      {
+        "rule": "UNREACHABLE_FACTOR_RECLASSIFIED",
+        "code": "UNREACHABLE_FACTOR_RECLASSIFIED",
+        "node_or_edge_id": "nodes[fac_quota_attainment].category",
+        "field": "graph",
+        "before": null,
+        "after": null,
+        "source": "structure"
+      }
+    ]
+  },
+  "_timings": {
+    "draft_graph": {
+      "parse_ms": 28104,
+      "normalise_ms": 1,
+      "enrich_ms": 5,
+      "repair_ms": 23,
+      "threshold_sweep_ms": 0,
+      "validation_pipeline_ms": 1,
+      "coaching_pass_ms": 24597,
+      "package_ms": 6,
+      "boundary_ms": 5,
+      "total_ms": 52752,
+      "repair_fired": false,
+      "repair_attempts": 0,
+      "repair_reason": null,
+      "parse_llm_ms": 28046
+    }
+  }
+}
