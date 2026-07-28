@@ -241,8 +241,8 @@ interface InspectionEvaluation {
  *   - Any other value → disabled (`unknown_app_env_capture_disabled`)
  */
 function evaluatePayloadInspection(): InspectionEvaluation {
-  const rawAppEnv = import.meta.env.VITE_APP_ENV as string | undefined
-  const debugFlag = import.meta.env.VITE_ENABLE_PAYLOAD_INSPECTION as
+  const rawAppEnv = import.meta.env?.VITE_APP_ENV as string | undefined
+  const debugFlag = import.meta.env?.VITE_ENABLE_PAYLOAD_INSPECTION as
     | string
     | undefined
   const isDev = Boolean(import.meta.env.DEV)
@@ -513,7 +513,7 @@ export const usePayloadTraceStore = create<PayloadTraceStore>((set, get) => ({
     const inspection = getPayloadInspectionStatus()
     const exportData = {
       exportedAt: new Date().toISOString(),
-      environment: import.meta.env.VITE_APP_ENV || 'development',
+      environment: import.meta.env?.VITE_APP_ENV || 'development',
       // P1 fix (2026-05): inspection status mirrors the merged
       // diagnostic bundle. Reviewers reading a raw exportPayloads()
       // output can see WHY traces are missing without crossing into

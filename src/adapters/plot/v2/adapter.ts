@@ -1707,7 +1707,7 @@ export async function runV2(
   const startTime = Date.now()
   const requestId = request.request_id || `v2-${Date.now()}`
   const endpoint = '/v2/run'
-  const directPlotUrl = import.meta.env.VITE_PLOT_ENGINE_URL
+  const directPlotUrl = import.meta.env?.VITE_PLOT_ENGINE_URL
   const resolvedBaseUrl = typeof directPlotUrl === 'string' && directPlotUrl.trim().length > 0
     ? directPlotUrl.trim()
     : baseUrl

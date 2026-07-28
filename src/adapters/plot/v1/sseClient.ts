@@ -21,7 +21,7 @@ import { plotFetch } from '../../../lib/plotFetch'
 import { recordRequestPayload, recordResponsePayload } from '../../../lib/payload-trace-store'
 
 const getProxyBase = (): string => {
-  return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
+  return import.meta.env?.VITE_PLOT_PROXY_BASE || '/bff/engine'
 }
 
 /**

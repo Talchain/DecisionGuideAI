@@ -1690,7 +1690,7 @@ export function PreAnalysisPanel({
   const pickedKey = startHereSignal ? `${startHereSignal.kind}:${startHereSignal.id}` : null
   const signalCount = allReviewNextSignals.length
   useEffect(() => {
-    if (import.meta.env.VITE_DEBUG_PREANALYSIS !== '1') return
+    if (import.meta.env?.VITE_DEBUG_PREANALYSIS !== '1') return
     // eslint-disable-next-line no-console
     console.debug('[PreAnalysis] pickStartHere', {
       signalCount,

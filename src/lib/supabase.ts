@@ -21,13 +21,13 @@ try {
 // Gated env logging (URL only - never log credentials, even prefixes)
 // Enable via VITE_DEBUG_SUPABASE=true (OFF by default, even in DEV)
 // —————————————————————————————————————————————————————————————————————————————
-debugLog('logSupabase', '[Supabase ENV] URL=', import.meta.env.VITE_SUPABASE_URL)
+debugLog('logSupabase', '[Supabase ENV] URL=', import.meta.env?.VITE_SUPABASE_URL)
 
 // —————————————————————————————————————————————————————————————————————————————
 // Validate environment variables
 // —————————————————————————————————————————————————————————————————————————————
-let supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
-let supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+let supabaseUrl = import.meta.env?.VITE_SUPABASE_URL as string | undefined
+let supabaseKey = import.meta.env?.VITE_SUPABASE_ANON_KEY as string | undefined
 // E2E test-mode: allow safe fallbacks to avoid blocking UI mounting
 if ((!supabaseUrl || !supabaseKey) && isE2EEnabled()) {
   supabaseUrl = supabaseUrl || 'http://localhost:54321'

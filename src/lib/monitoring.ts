@@ -5,8 +5,38 @@ import { logger } from './logger'
 import type { MonitoringConfig, HotjarWindow, SentryContext } from '../types/monitoring'
 import { initPostHog } from './posthog'
 
-export function resolveMonitoringConfig(env = import.meta.env): MonitoringConfig {
-  const environment = env.MODE || 'production'
+/**
+ * The named env values this module reads, captured as LITERAL
+ * `import.meta.env?.VITE_…` reads.
+ *
+ * ⚠ Do NOT collapse this back to a bare `import.meta.env` reference (the previous
+ * default parameter was `env = import.meta.env`). Vite cannot statically narrow a
+ * bare reference, so it inlined the ENTIRE env object — every `VITE_*` the deploy
+ * defines, with its value — into this module's chunk. Named reads are narrowed to
+ * exactly the five values below. Pinned by
+ * `scripts/ci/assert-bundle-env-allowlist.mjs`.
+ *
+ * The injectable `env` parameter is preserved verbatim: it is the unit-test seam
+ * (`resolveMonitoringConfig({ MODE: 'production', … })`), and callers that pass an
+ * explicit env are unaffected.
+ */
+function monitoringEnvDefaults(): Record<string, unknown> {
+  return {
+    MODE: import.meta.env?.MODE,
+    VITE_SENTRY_DSN: import.meta.env?.VITE_SENTRY_DSN,
+    VITE_HOTJAR_ID: import.meta.env?.VITE_HOTJAR_ID,
+    VITE_ENABLE_WEB_VITALS: import.meta.env?.VITE_ENABLE_WEB_VITALS,
+    VITE_RELEASE_VERSION: import.meta.env?.VITE_RELEASE_VERSION,
+  }
+}
+
+export function resolveMonitoringConfig(
+  env: Record<string, unknown> = monitoringEnvDefaults(),
+): MonitoringConfig {
+  // Cast, not a behaviour change: the parameter type widened from Vite's
+  // `ImportMetaEnv` to `Record<string, unknown>` when the bare-`import.meta.env`
+  // default was replaced with named reads. `|| 'production'` is preserved verbatim.
+  const environment = (env.MODE as string | undefined) || 'production'
   const isProdLike = environment !== 'development' && environment !== 'test'
   const dsn = env.VITE_SENTRY_DSN as string | undefined
   const hotjarId = env.VITE_HOTJAR_ID as string | undefined

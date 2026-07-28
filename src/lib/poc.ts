@@ -4,7 +4,7 @@
 import { isRequireLoginEnabled } from '../flags'
 
 export const isPocOnly =
-  (import.meta.env.VITE_POC_ONLY ?? '0') === '1'
+  (import.meta.env?.VITE_POC_ONLY ?? '0') === '1'
 
 // Login 3.4 UI half: VITE_REQUIRE_LOGIN (default off) retires the guest
 // branch — when ON, no guest user is minted regardless of PoC/guest env,
@@ -15,6 +15,6 @@ export const isPocOnly =
 export const isGuestAuth =
   !isRequireLoginEnabled() && (
     isPocOnly ||
-    (import.meta.env.VITE_AUTH_MODE ?? 'guest') === 'guest' ||
-    String(import.meta.env.VITE_SUPABASE_URL || '').includes('/dummy')
+    (import.meta.env?.VITE_AUTH_MODE ?? 'guest') === 'guest' ||
+    String(import.meta.env?.VITE_SUPABASE_URL || '').includes('/dummy')
   )

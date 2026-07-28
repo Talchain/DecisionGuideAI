@@ -44,7 +44,7 @@ function useOrchestratorV2Flag(): boolean {
     if (ls != null) return !(ls === '0' || ls === 'false')
   } catch {}
   // Direct env access with literal key — Vite can resolve this
-  const env = import.meta.env.VITE_ENABLE_ORCHESTRATOR_V2
+  const env = import.meta.env?.VITE_ENABLE_ORCHESTRATOR_V2
   return env === 'true' || env === '1' || env === true
 }
 

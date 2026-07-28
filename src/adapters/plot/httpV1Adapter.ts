@@ -32,10 +32,14 @@ import { graphToV1Request, computeClientHash, toCanonicalRun, type ReactFlowGrap
 import { shouldUseSync, isRetryableErrorCode, isRetryableStatus } from './v1/constants'
 import { getDiagnosticsFromCompleteEvent, getGraphCaps } from './v1/sdkHelpers'
 
+// ⚠ NAMED, LITERAL env reads only. This was `(import.meta as any)?.env || {}` —
+// a bare reference Vite cannot statically narrow, so it inlined the ENTIRE env
+// object (every VITE_* the deploy defines, with values) into this chunk. The two
+// named reads below are narrowed to exactly two literals. Pinned by
+// `scripts/ci/assert-bundle-env-allowlist.mjs`.
 const ENABLE_HTTPV1_DEBUG: boolean = (() => {
   try {
-    const env: any = (import.meta as any)?.env || {}
-    return !!(env?.DEV) && String(env?.VITE_DEBUG_HTTPV1) === '1'
+    return !!import.meta.env?.DEV && String(import.meta.env?.VITE_DEBUG_HTTPV1) === '1'
   } catch {
     return false
   }
@@ -465,8 +469,10 @@ export const httpV1Adapter = {
       // Add debug flag based on request flag or feature flag (VITE_FEATURE_COMPARE_DEBUG)
       let includeDebug = input.include_debug
       try {
-        const env: any = (import.meta as any)?.env || {}
-        if (includeDebug === undefined && String(env?.VITE_FEATURE_COMPARE_DEBUG) === '1') {
+        // ⚠ NAMED, LITERAL read. `(import.meta as any)?.env || {}` puts `env` in
+        // VALUE position, which Vite cannot narrow — it inlined the whole env
+        // object here. See `src/lib/plotAuthHeaders.ts` for the measurement.
+        if (includeDebug === undefined && String(import.meta.env?.VITE_FEATURE_COMPARE_DEBUG) === '1') {
           includeDebug = true
         }
       } catch {

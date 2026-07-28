@@ -43,6 +43,6 @@ export function isV5Eligible(input: V5EligibilityInput): V5EligibilityResult {
 export function isV5CanonicalRunPath(): boolean {
   return (
     isV5CanonicalAnalysisEnabled() &&
-    isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
+    isV5Eligible({ flag: import.meta.env?.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
   )
 }

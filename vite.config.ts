@@ -5,6 +5,10 @@ import { execSync } from 'node:child_process';
 // Single source of truth for the Supabase-stub decision (unit-tested in
 // tests/ci-guards/vite.supabase-stub-decoupling.spec.ts).
 import { shouldStubSupabase } from './scripts/supabase-stub-decision.mjs';
+// Derives every VITE_* the source reads, so each one gets an explicit define and
+// no read can fall back to inlining the WHOLE env object. See the header of
+// scripts/derive-vite-env-reads.mjs for the measured mechanism.
+import { buildNarrowEnvDefines } from './scripts/derive-vite-env-reads.mjs';
 
 // ⚠️  CRITICAL: DO NOT ADD use-sync-external-store shim aliases!
 // The custom shim causes React #185 infinite loops because useCallback dependencies
@@ -81,6 +85,22 @@ export default defineConfig(({ mode, command }) => {
   return {
   plugins: [react()],
   define: {
+    // ⚠ SECURITY-LOAD-BEARING. Pins every VITE_* the source READS but that is NOT
+    // SET in this build to literal `undefined`.
+    //
+    // Without these, Vite has no specific define for an unset variable, so the
+    // longest match esbuild can make is `import.meta.env` — and it substitutes the
+    // ENTIRE env object, with every variable's VALUE, into that chunk. ONE read of
+    // ONE unset variable poisons a whole chunk, with either `.` or `?.`. Measured
+    // 2026-07-28: four chunks were each carrying all 40 build-time variables
+    // because of a single unset read (`VITE_PLOT_PROXY_BASE` — unset on the real
+    // deploy too — plus `VITE_DEBUG_BUNDLE_V2` and `VITE_FEATURE_COMPARE_DEBUG`).
+    //
+    // `undefined` (not `''`) is what those reads already evaluate to at runtime, so
+    // this changes NO behaviour — including under `??`, where `''` would differ.
+    // Verified by `pnpm run ci:guard:bundle-env`, which reds if any VITE_* key is
+    // baked into the bundle that no source file reads.
+    ...buildNarrowEnvDefines(path.resolve(__dirname, 'src'), env),
     __BUILD_ID__: JSON.stringify(process.env.BUILD_ID || new Date().toISOString()),
     __GIT_SHA__: JSON.stringify(
       (() => { try { return execSync('git rev-parse --short=7 HEAD', { encoding: 'utf-8' }).trim() } catch { return 'unknown' } })()

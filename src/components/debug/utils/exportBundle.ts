@@ -26,6 +26,7 @@ import type {
   CEEObservabilityData,
 } from '../hooks/useDebugData'
 import { getVersionInfo, getClientBuild } from '../../../lib/version-cache'
+import { FLAG_ENV } from '../../../lib/flagEnv'
 import { TALCHAIN_SCHEMAS_VENDORED_VERSION } from '../../../lib/talchainSchemasVersion'
 import {
   getDroppedContentSnapshot,
@@ -151,12 +152,12 @@ import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
  */
 export function isDebugBundleV2Enabled(): boolean {
   try {
-    const explicit = import.meta.env.VITE_DEBUG_BUNDLE_V2
+    const explicit = import.meta.env?.VITE_DEBUG_BUNDLE_V2
     if (explicit !== undefined) {
       return explicit === 'true' || explicit === '1' || explicit === true
     }
     // Default: ON in dev/staging, OFF in production
-    const env = import.meta.env.VITE_APP_ENV || import.meta.env.MODE || 'development'
+    const env = import.meta.env?.VITE_APP_ENV || import.meta.env.MODE || 'development'
     return env !== 'production'
   } catch {
     return false
@@ -1927,7 +1928,7 @@ export interface ExportOptions {
 // =============================================================================
 
 function getEnvironment(): string {
-  return import.meta.env.VITE_APP_ENV || 'development'
+  return import.meta.env?.VITE_APP_ENV || 'development'
 }
 
 function formatTimestamp(): string {
@@ -2178,14 +2179,28 @@ function detectTruncation(value: unknown, visited = new WeakSet<object>()): bool
 /**
  * Snapshot all VITE_ENABLE_ and VITE_FEATURE_ env vars at export time.
  * Returns a flat boolean map.
+ *
+ * ⚠ SOURCE IS `FLAG_ENV`, NOT `import.meta.env`. This read `const env =
+ * import.meta.env` — a bare reference Vite cannot statically narrow, so it
+ * inlined the ENTIRE env object (every `VITE_*` the deploy defines, WITH ITS
+ * VALUE, including credentials) into this chunk purely to enumerate two prefixes.
+ * `FLAG_ENV` is generated from `src/flags.ts` + `netlify.toml`, so the same
+ * enumeration now runs over named, literal reads.
+ *
+ * KNOWN, DELIBERATE NARROWING: a `VITE_FEATURE_*` / `VITE_ENABLE_*` variable set
+ * ONLY in the Netlify dashboard and declared in neither `src/flags.ts` nor
+ * `netlify.toml` no longer appears in this debug snapshot. That is the intended
+ * trade — enumerating the whole env is precisely the defect being fixed — and the
+ * remedy is to declare the variable in `netlify.toml`, which `pnpm flags:check`
+ * already pushes towards. The `undefined` filter preserves the previous
+ * behaviour exactly for keys that are unset (they were absent from the spread).
  */
 function collectFeatureFlagsSnapshot(): Record<string, boolean> {
   const flags: Record<string, boolean> = {}
   try {
-    const env = import.meta.env
-    for (const key of Object.keys(env)) {
+    for (const [key, val] of Object.entries(FLAG_ENV)) {
+      if (val === undefined) continue
       if (key.startsWith('VITE_ENABLE_') || key.startsWith('VITE_FEATURE_')) {
-        const val = env[key]
         flags[key] = val === '1' || val === 'true' || val === true
       }
     }

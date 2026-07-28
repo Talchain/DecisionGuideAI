@@ -94,14 +94,14 @@ export function isSafari(): boolean {
  * Check if EventSource fallback is enabled
  */
 export function isEventSourceFallbackEnabled(): boolean {
-  return String(import.meta.env.VITE_PLOT_STREAM_EVENTSOURCE_FALLBACK) === '1'
+  return String(import.meta.env?.VITE_PLOT_STREAM_EVENTSOURCE_FALLBACK) === '1'
 }
 
 /**
  * Check if reconnection is enabled
  */
 export function isReconnectionEnabled(): boolean {
-  return String(import.meta.env.VITE_PLOT_STREAM_RECONNECT) === '1'
+  return String(import.meta.env?.VITE_PLOT_STREAM_RECONNECT) === '1'
 }
 
 /**

@@ -19,7 +19,7 @@ export function resolvePlcOverride(win: Window | undefined): PlcOverrideResult {
   // SSR default → env
   if (!win) {
     return {
-      usePlc: parseBool(import.meta.env.VITE_FEATURE_PLOT_USES_PLC_CANVAS as string),
+      usePlc: parseBool(import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS as string),
       source: 'env',
     }
   }
@@ -39,7 +39,7 @@ export function resolvePlcOverride(win: Window | undefined): PlcOverrideResult {
 
   // 3) env
   return {
-    usePlc: parseBool(import.meta.env.VITE_FEATURE_PLOT_USES_PLC_CANVAS as string),
+    usePlc: parseBool(import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS as string),
     source: 'env',
   }
 }

@@ -3066,7 +3066,7 @@ export function useConversation(): UseConversationReturn {
         /would leave a node that/i,
       ]
       if (STRUCTURAL_VIOLATION_PATTERNS.some((p) => p.test(assistantText))) {
-        if (import.meta.env.DEV || import.meta.env.VITE_VERBOSE_LOG === 'true') {
+        if (import.meta.env.DEV || import.meta.env?.VITE_VERBOSE_LOG === 'true') {
           console.warn('[useConversation] Task4: Suppressed raw structural violation text:', assistantText.slice(0, 200))
         }
         assistantText = "I wasn't able to make that change safely. Let me try a simpler approach."
@@ -3333,7 +3333,7 @@ export function useConversation(): UseConversationReturn {
       // captures its own token at dispatch and only clears the lock in
       // its finally if its token still matches the current generation.
       if (inFlightRef.current) {
-        const v5FlagOn = import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR === 'true'
+        const v5FlagOn = import.meta.env?.VITE_ENABLE_V5_ORCHESTRATOR === 'true'
         const isUserPreempt =
           v5FlagOn
           && opts.mode === 'user'
@@ -3414,7 +3414,7 @@ export function useConversation(): UseConversationReturn {
       // events never render a user bubble — enforced via
       // `mode === 'system'`, not the incidental `hidden` flag.
       const v5Eligibility = isV5Eligible({
-        flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR,
+        flag: import.meta.env?.VITE_ENABLE_V5_ORCHESTRATOR,
       })
       if (v5Eligibility.eligible) {
         const isSystemEvent = mode === 'system'

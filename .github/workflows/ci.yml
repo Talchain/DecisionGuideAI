@@ -368,6 +368,19 @@ jobs:
       - name: Bundle Policy (safe chunks React-free)
         run: pnpm run ci:bundle-policy
 
+      # Reds if the built bundle bakes a VITE_* variable that no source file
+      # reads (the signature of a wholesale `import.meta.env` inline), or one
+      # that is not in the declared allow-list. Deliberately NOT part of
+      # `build:ci`: that is what Netlify runs, and a false red there would break
+      # staging deploys for every lane. This gates the MERGE, not the DEPLOY.
+      - name: Bundle env allow-list (no unread VITE_* baked into the bundle)
+        run: pnpm run ci:guard:bundle-env
+
+      # Reds if src/lib/flagEnv.ts has fallen behind src/flags.ts — a missing
+      # key would make that flag silently resolve to its defaultValue.
+      - name: flagEnv freshness (derived from src/flags.ts + netlify.toml)
+        run: pnpm run ci:guard:flag-env
+
   # ── E2E Chromium (sharded across 4 runners) ───────────────────────────
   e2e-chromium:
     name: E2E Chromium (${{ matrix.shard }})

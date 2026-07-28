@@ -102,17 +102,20 @@ function allowedPlotOrigins(): Set<string> {
   if (typeof location !== 'undefined' && location.origin && location.origin !== 'null') {
     origins.add(location.origin)
   }
-  let env: Record<string, unknown> = {}
-  try {
-    env = { ...import.meta.env }
-  } catch {
-    // SSR/test env where import.meta.env is unavailable.
-  }
   // The three env tokens the PLoT-direct seams derive their base from. Only
   // ABSOLUTE bases contribute an origin; the relative default ('/bff/engine') is
   // same-origin and is already covered by location.origin above.
-  for (const key of ['VITE_PLOT_PROXY_BASE', 'VITE_BFF_BASE', 'VITE_PLOT_ENGINE_URL']) {
-    const val = env[key]
+  //
+  // ⚠ These MUST stay NAMED, LITERAL reads. This list was previously indexed out
+  // of `{ ...import.meta.env }`; Vite cannot narrow a spread, so it inlined the
+  // whole env object — every VITE_* the deploy defines — into this chunk. See the
+  // header comment in `./plotAuthHeaders` for the measurement and the CI pin.
+  const bases: unknown[] = [
+    import.meta.env?.VITE_PLOT_PROXY_BASE,
+    import.meta.env?.VITE_BFF_BASE,
+    import.meta.env?.VITE_PLOT_ENGINE_URL,
+  ]
+  for (const val of bases) {
     if (typeof val === 'string' && /^https?:\/\//i.test(val)) {
       try {
         origins.add(new URL(val).origin)

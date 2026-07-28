@@ -11,7 +11,7 @@ import {
 } from '@/lib/observability-headers'
 
 const getBffBase = (): string => {
-  return import.meta.env.VITE_BFF_BASE || '/bff/assist'
+  return import.meta.env?.VITE_BFF_BASE || '/bff/assist'
 }
 
 const nowIso = () => new Date().toISOString()

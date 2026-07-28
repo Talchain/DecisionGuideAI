@@ -67,8 +67,8 @@ import { isUUID, stripTurnType, validateTurnRequestBoundary, type TurnRequestPay
 // In dev, Vite's proxy config forwards /bff/orchestrate to the CEE backend.
 // Only fall back to direct URL if VITE_ORCHESTRATOR_BASE is explicitly set.
 const ORCHESTRATOR_URL =
-  import.meta.env.VITE_ORCHESTRATOR_BASE
-    ? `${import.meta.env.VITE_ORCHESTRATOR_BASE}/orchestrate/v1/turn`
+  import.meta.env?.VITE_ORCHESTRATOR_BASE
+    ? `${import.meta.env?.VITE_ORCHESTRATOR_BASE}/orchestrate/v1/turn`
     : '/bff/orchestrate/v1/turn'
 
 // Safety-net timeout — UI-layer dynamic timeout (60s/130s) fires first.
@@ -80,7 +80,7 @@ const STREAM_HEARTBEAT_MS = 30_000
 
 // Streaming endpoint: override via env, or derive from base by appending /stream
 const ORCHESTRATOR_STREAM_URL =
-  import.meta.env.VITE_ORCHESTRATOR_STREAM_BASE || `${ORCHESTRATOR_URL}/stream`
+  import.meta.env?.VITE_ORCHESTRATOR_STREAM_BASE || `${ORCHESTRATOR_URL}/stream`
 
 const LOG_PREFIX = '[turnService]'
 

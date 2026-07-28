@@ -423,7 +423,7 @@ export async function createDiagnosticBundle(): Promise<DiagnosticBundle> {
       branch: versionInfo?.branch,
       commit: versionInfo?.commit,
       builtAt: versionInfo?.timestamp,
-      environment: String(import.meta.env.VITE_APP_ENV || 'development'),
+      environment: String(import.meta.env?.VITE_APP_ENV || 'development'),
     },
     environment: getEnvironmentInfo(),
     gates,
@@ -991,7 +991,7 @@ export async function createMergedDebugExport(extras?: {
   return {
     meta: {
       timestamp: new Date().toISOString(),
-      environment: String(import.meta.env.VITE_APP_ENV || 'development'),
+      environment: String(import.meta.env?.VITE_APP_ENV || 'development'),
       uiBuild: clientBuild,
       branch: versionInfo?.branch,
       request_id: requestIds.ui_correlation_id,
