@@ -107,6 +107,47 @@
   # `[build.environment]`. See src/flags.ts `heroFixtureGallery`.
   VITE_FEATURE_HERO_FIXTURE_GALLERY = "1"
 
+  # ---------------------------------------------------------------------------
+  # Dashboard-set flags recorded 2026-07-28 (ROADMAP 2.107).
+  #
+  # These three were set through the NETLIFY DASHBOARD and appeared nowhere in
+  # this file, while all three default OFF in src/flags.ts. Any lane reading
+  # flags.ts or netlify.toml to decide what a staging tester sees therefore got
+  # the wrong answer, and the flag-off code paths looked DEAD when they were
+  # LIVE — that mis-scoped two dispatches on 2026-07-28.
+  #
+  # The values below are TRANSCRIBED FROM THE SERVED BUNDLE, not assumed:
+  # staging--olumi.netlify.app/assets/flags-BOFkajto.js (deploy of tip
+  # c86da6a4), which carries Vite's baked `import.meta.env` literal. They are
+  # byte-identical to what is already deployed, so recording them changes no
+  # behaviour — it only stops the repo lying about it.
+  #
+  # ⚠ Recording a flag here does NOT make this file authoritative. Dashboard
+  # variables still override it and remain invisible to this repo. Derive the
+  # truth instead of trusting these lines: `pnpm flags:check`.
+  # (tools/ci-guards/flag-deployment-drift.mjs — reads the deployed bundle.)
+  #
+  # That check found 13 dashboard-set divergences on 2026-07-28, not 3. The
+  # other 10 are deliberately NOT transcribed here: hand-copying them would
+  # rebuild the mirror this work exists to retire. Run `pnpm flags:check` for
+  # the current derived list.
+  #
+  # Promote any of these to production by adding to [build.environment] ONLY
+  # after sign-off.
+  # ---------------------------------------------------------------------------
+
+  # V5 canonical analysis path — routes every user-visible analysis trigger
+  # through the V5 chip-action dispatch so CEE persists a run_analysis fact.
+  # See src/flags.ts `v5CanonicalAnalysis`.
+  VITE_V5_CANONICAL_ANALYSIS = "true"
+
+  # Compare tab — renders live on staging today. See src/flags.ts `compareTab`.
+  VITE_FEATURE_COMPARE_TAB = "1"
+
+  # Pre-analysis v3 — `pre-analysis-v3-analyse` is the live pre-run CTA on
+  # staging today. See src/flags.ts `preAnalysisV3`.
+  VITE_FEATURE_PRE_ANALYSIS_V3 = "1"
+
 # =============================================================================
 # Security Headers (P0 - Enterprise Compliance)
 # =============================================================================

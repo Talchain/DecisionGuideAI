@@ -197,6 +197,63 @@ jobs:
         # high/critical advisory. Moderate/low surfaced but non-blocking.
         run: pnpm run security:audit
 
+  # ── Flag deployment drift (REPORTING ONLY — never blocks) ─────────────
+  # Reads the DEPLOYED staging bundle and prints which feature flags actually
+  # resolve ON there, versus what src/flags.ts and netlify.toml claim. Netlify
+  # DASHBOARD variables override both and are invisible to this repo, which is
+  # why the repo files cannot answer "what does a tester see?" — on 2026-07-28
+  # that gap mis-scoped two dispatches, and the check found 13 divergences.
+  #
+  # ⚠ THIS JOB MUST NEVER BLOCK, and is deliberately absent from the
+  # "Staging Gate" aggregator's required-results list at the end of this file.
+  # Flipping a dashboard flag is a NORMAL operation; reddening the gate for it
+  # would turn this into the broken alarm it exists to replace — a red everyone
+  # learns to ignore (trap 7). The script exits 0 on divergences by design, and
+  # continue-on-error covers even a crash or a network blip.
+  #
+  # ⚠ SCOPE: it reports the CURRENTLY-DEPLOYED staging site. On a PR that is the
+  # PRE-MERGE state — it is NOT a prediction of what this PR will deploy.
+  flag-drift:
+    name: Flag Deployment Drift (report only)
+    needs: install
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      # If staging is unreachable the script reports UNVERIFIED and names every
+      # flag it could not check. It never prints a green it has not earned.
+      - name: Compare deployed flags against repo config
+        run: |
+          pnpm run flags:check | tee flag-drift.txt
+          {
+            echo '### Flag deployment drift — deployed staging vs repo config'
+            echo ''
+            echo 'The **DEPLOYED** column is the truth. `flags.ts` / `netlify.toml` are advisory:'
+            echo 'Netlify dashboard variables override both and this repo cannot see them.'
+            echo ''
+            echo '```'
+            cat flag-drift.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # ── Full test suite (sharded 4-way) ───────────────────────────────────
   vitest:
     name: Full Test Suite (shard ${{ matrix.shard }}/${{ strategy.job-total }})

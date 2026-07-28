@@ -72,6 +72,7 @@
     "ci:no-console": "sh -c \"if (grep -R -n -E --exclude='*.map' --exclude='dist/assets/vendor-*.js' --exclude='dist/assets/auth-*.js' 'console\\.[A-Za-z]+\\(' dist || grep -R -n -E --exclude='*.map' '(^|[^A-Za-z])debugger(;|$)' dist); then echo 'Found console or debugger in production build'; exit 1; else echo 'OK: no console/debugger in dist'; fi\"",
     "ci:guard:sandbox": "node tools/ci-guards/check-gotosandbox.mjs",
     "ci:guard:flags": "node tools/ci-guards/check-flags-drift.mjs",
+    "flags:check": "node tools/ci-guards/flag-deployment-drift.mjs",
     "ci:guard:zustand": "node tools/ci-guards/check-zustand-selectors.mjs",
     "ci:guard:starters": "node scripts/build-starter-fixtures.mjs --check",
     "ci:guard:duplicates": "node tools/ci-guards/check-duplicates.mjs",
