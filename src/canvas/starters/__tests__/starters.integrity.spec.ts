@@ -19,6 +19,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { STARTERS, loadStarterPayload, getStarter } from '../loadStarter'
+import { findNearDuplicateLabels, formatCollision } from '../nearDuplicateLabels'
 
 interface DraftFixture {
   nodes: Array<{ id: string; kind: string; label: string }>
@@ -91,6 +92,74 @@ describe('starter fixtures', () => {
       const g = (await loadStarterPayload(id)) as Record<string, unknown>
       expect(g).not.toHaveProperty('trace')
       expect(g).not.toHaveProperty('_timings')
+    })
+
+    it('carries no near-duplicate label pair (the 1.320 edit-failure shape)', async () => {
+      const g = (await loadStarterPayload(id)) as DraftFixture
+      const collisions = findNearDuplicateLabels(g.nodes)
+      // ROADMAP 1.320: a clean 6/6 correlate — every graph whose edits failed
+      // carried a near-duplicate label sibling, every graph whose edits landed
+      // carried none. A starter is the first graph a new user ever edits, so
+      // shipping one with a collision hands them the ~50%-failure shape on
+      // their first attempt. The message lists the offenders so a recapture
+      // that reintroduces one says which labels to reword.
+      expect(collisions.map(formatCollision)).toEqual([])
+    })
+  })
+
+  /**
+   * POSITIVE CONTROL (CLAUDE.md trap 13: an absence assertion must first prove
+   * it can see a presence).
+   *
+   * Without this, `findNearDuplicateLabels` could return `[]` unconditionally —
+   * a detector that never fires, silently converting all five per-starter
+   * assertions above into assertions about nothing. Each clause of the rule is
+   * exercised against the shape it was written for, including the exact
+   * exemplar ROADMAP 1.320 recorded.
+   */
+  describe('the collision detector can SEE a collision', () => {
+    const node = (id: string, kind: string, label: string) => ({ id, kind, label })
+
+    it('fires on SUBSET — the shape shipped in vendor-selection and market-entry', () => {
+      const found = findNearDuplicateLabels([
+        node('a', 'factor', 'Data Team Capacity'),
+        node('b', 'risk', 'Data Team Capacity Strain'),
+      ])
+      expect(found).toHaveLength(1)
+      expect(found[0].rule).toBe('SUBSET')
+    })
+
+    it('fires on JACCARD — 1.320’s own `Three-Year TCO {…}` exemplar', () => {
+      const found = findNearDuplicateLabels([
+        node('a', 'factor', 'Three-Year TCO Multiplier'),
+        node('b', 'factor', 'Three-Year TCO Pressure'),
+      ])
+      expect(found).toHaveLength(1)
+      expect(found[0].rule).toBe('JACCARD')
+      expect(found[0].score).toBeGreaterThanOrEqual(0.6)
+    })
+
+    it('fires on EQUAL — same tokens, different punctuation and case', () => {
+      const found = findNearDuplicateLabels([
+        node('a', 'option', 'Adopt Segment'),
+        node('b', 'outcome', 'adopt — segment'),
+      ])
+      expect(found).toHaveLength(1)
+      expect(found[0].rule).toBe('EQUAL')
+    })
+
+    it('does NOT fire on genuinely distinct labels (the rule is not "always red")', () => {
+      // A detector that flagged everything would pass the three tests above and
+      // still be useless — it would just make the per-starter assertion
+      // unsatisfiable. These are real labels from the shipped fixtures.
+      expect(
+        findNearDuplicateLabels([
+          node('a', 'option', 'Germany First'),
+          node('b', 'option', 'Nordics First'),
+          node('c', 'goal', 'Achieve ARR Growth by Q3'),
+          node('d', 'risk', 'Localisation Cost Overrun'),
+        ]),
+      ).toEqual([])
     })
   })
 })

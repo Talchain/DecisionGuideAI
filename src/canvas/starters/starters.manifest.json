@@ -8,22 +8,22 @@
     {
       "id": "vendor-selection",
       "title": "Customer Data Platform Selection",
-      "summary": "Replace CDP Within Budget, Deadline, and GDPR Constraints",
+      "summary": "Replace CDP Within Budget and Compliance Constraints",
       "brief": "We need to replace our customer data platform before the current contract renews in March. The shortlist is Segment, RudderStack, or building on our existing Snowflake warehouse with Fivetran. Our constraint is a £120k annual budget and a two-person data team who can't absorb much operational overhead. We also have GDPR obligations that rule out any vendor without EU data residency.",
-      "nodeCount": 17,
-      "edgeCount": 33,
+      "nodeCount": 19,
+      "edgeCount": 39,
       "optionCount": 4,
       "provenance": {
         "source": "POST https://cee-staging.onrender.com/assist/v1/draft-graph",
-        "ceeBuild": "1b9d596",
-        "capturedAt": "2026-07-24",
-        "requestId": "26594773-dff4-48c1-aad5-7f9d0283e9c7",
+        "ceeBuild": "cb54320",
+        "capturedAt": "2026-07-28",
+        "requestId": "001f1c38-5781-483e-99de-435b55d7e5e4",
         "model": "claude-sonnet-4-6",
         "promptVersion": "draft_graph_default@v195 (staging)",
         "coachingStatus": "complete",
         "captureFile": "docs/evidence/starters/raw/vendor-selection.capture.json",
-        "captureSha256": "8bf07d9591fe04a644b26d4a64d316042e5ce7dbf770abc02ab5f81bc8196720",
-        "note": "probe idx 11 — 17n/33e/4opt, 61.4s, coaching complete (the other vendor pass ran coaching skipped_budget)"
+        "captureSha256": "83ce8f226f79500eef8fa04a5dc91e4c26997adbd191a294615cdf7d7120a2e8",
+        "note": "RECAPTURED — original brief, 19n/39e/4opt, 56.7s, coaching complete, zero label collisions. Replaces the 1b9d596 draw whose factor \"Data Team Capacity\" was a token-subset of risk \"Data Team Capacity Strain\"."
       }
     },
     {
@@ -32,19 +32,19 @@
       "summary": "Grow Total ARR Materially Within 12 Months",
       "brief": "We're a UK B2B SaaS company at £8M ARR and the board wants international expansion next year. The options are Germany first, the Nordics first, or staying UK-only and going deeper into financial services. We have budget for one new market team of about six people, and we can't afford to slow UK growth while we do it. Localisation and compliance effort differ a lot between these markets and we're not sure how to weigh that against market size.",
       "nodeCount": 18,
-      "edgeCount": 35,
+      "edgeCount": 32,
       "optionCount": 3,
       "provenance": {
         "source": "POST https://cee-staging.onrender.com/assist/v1/draft-graph",
-        "ceeBuild": "1b9d596",
-        "capturedAt": "2026-07-24",
-        "requestId": "c17771c1-89a0-4839-bfb6-b269c21783e6",
+        "ceeBuild": "cb54320",
+        "capturedAt": "2026-07-28",
+        "requestId": "1d4393ee-20ee-43d9-af73-38aee8de9227",
         "model": "claude-sonnet-4-6",
         "promptVersion": "draft_graph_default@v195 (staging)",
         "coachingStatus": "complete",
         "captureFile": "docs/evidence/starters/raw/market-entry.capture.json",
-        "captureSha256": "3eb1e71a1144944a0e9e7deb0027f3cc83b193b4e6c89552a6be005b0f59af93",
-        "note": "probe idx 1 — 18n/35e/3opt, 60.8s, coaching complete. The ONLY market-entry pass in 5 attempts (1/5 live) — which is precisely why this starter ships pre-drafted."
+        "captureSha256": "38f1901e04d420fbed666096a2476f83cd830b32d566a3f530b8e62c980c2a23",
+        "note": "RECAPTURED — original brief, 18n/32e/3opt, 56.8s, coaching complete, zero label collisions. Replaces the 1b9d596 draw whose factor \"UK Financial Services Deepening\" was a token-subset of the option of the same name. Also drafts far more reliably on cb54320 (2/2) than the 1/5 recorded on 1b9d596."
       }
     },
     {
@@ -65,7 +65,7 @@
         "coachingStatus": "complete",
         "captureFile": "docs/evidence/starters/raw/build-vs-buy.capture.json",
         "captureSha256": "c8b6cb0a801207dc886350af3e3121965df80977a3c5c5401b5e7c2ba43c156a",
-        "note": "probe idx 12 — 19n/37e/4opt, 59.1s, coaching complete (the other build-vs-buy pass ran coaching skipped_budget)"
+        "note": "NOT recaptured — probe idx 12, 19n/37e/4opt, 59.1s, coaching complete. The only original capture already free of label collisions, so it is left exactly as it was rather than re-rolled for tidiness."
       }
     },
     {
@@ -74,40 +74,40 @@
       "summary": "Achieve ARR Growth by Q3",
       "brief": "We have approved headcount for four hires next year but not the money for six. The choice is three account executives to push revenue now, four platform engineers to pay down the reliability debt driving our biggest churn complaints, or a two-and-two split. Our constraint is that the sales team already misses quota with the current product reliability, and engineering attrition is rising. The board wants to see ARR growth by Q3.",
       "nodeCount": 16,
-      "edgeCount": 26,
+      "edgeCount": 25,
       "optionCount": 4,
       "provenance": {
         "source": "POST https://cee-staging.onrender.com/assist/v1/draft-graph",
-        "ceeBuild": "1b9d596",
-        "capturedAt": "2026-07-24",
-        "requestId": "256a604f-165a-41a9-ae39-23ab410ebee3",
+        "ceeBuild": "cb54320",
+        "capturedAt": "2026-07-28",
+        "requestId": "b62274b2-2f5f-45ea-ad2e-150bd0d34fa8",
         "model": "claude-sonnet-4-6",
         "promptVersion": "draft_graph_default@v195 (staging)",
         "coachingStatus": "complete",
         "captureFile": "docs/evidence/starters/raw/headcount-allocation.capture.json",
-        "captureSha256": "6ba32538f1b1f622cf8557140e124391a859d09e4e7353e97fa78da19755ebf3",
-        "note": "probe idx 3 — 16n/26e/4opt, 49.4s, coaching complete. Most stable brief in the run (4/4)."
+        "captureSha256": "e76efae944e70af5d5ad2f74fe53668c6b0045645e9a79b07f71d38635599fbd",
+        "note": "RECAPTURED — original brief, 16n/25e/4opt, 53.3s, coaching complete, zero label collisions. Replaces the 1b9d596 draw whose goal \"Achieve ARR Growth by Q3\" strictly contained outcome \"ARR Growth by Q3\". 1 of 3 fresh draws was collision-free."
       }
     },
     {
       "id": "pricing-model",
       "title": "Pricing Model Transition Strategy",
-      "summary": "Achieve Net Revenue Retention Above 110% While Enabling Bottom-Up Adoption",
+      "summary": "Achieve NRR Above 110% While Enabling Bottom-Up Adoption",
       "brief": "We're considering moving from per-seat pricing to usage-based pricing across our whole customer base. The options are a full switch at renewal, a hybrid platform-fee-plus-usage model, or leaving existing customers on seats and only selling usage to new logos. Our largest ten accounts are 40% of revenue and several of them would pay less under usage pricing. We need to protect net revenue retention above 110% while making the product easier to adopt bottom-up.",
-      "nodeCount": 16,
-      "edgeCount": 35,
+      "nodeCount": 15,
+      "edgeCount": 30,
       "optionCount": 4,
       "provenance": {
         "source": "POST https://cee-staging.onrender.com/assist/v1/draft-graph",
-        "ceeBuild": "1b9d596",
-        "capturedAt": "2026-07-24",
-        "requestId": "e659509d-aad2-43c8-8dfc-933dd79d5e4d",
+        "ceeBuild": "cb54320",
+        "capturedAt": "2026-07-28",
+        "requestId": "5b7154de-e54c-4163-afc6-b62b060360b0",
         "model": "claude-sonnet-4-6",
         "promptVersion": "draft_graph_default@v195 (staging)",
         "coachingStatus": "complete",
         "captureFile": "docs/evidence/starters/raw/pricing-model.capture.json",
-        "captureSha256": "97d60506a2154554b51b8ac833a3dc092d14b4786e3f7197213044941b3839d1",
-        "note": "probe idx 14 — 16n/35e/4opt, 91.6s, coaching complete"
+        "captureSha256": "1fdbe700b34dc2433ca02daaaa8b86f1c76a1de2b8dd1adfb9d984c7953a4136",
+        "note": "RECAPTURED — original brief, 15n/30e/4opt, 50.4s, coaching complete, zero label collisions. Replaces the 1b9d596 draw whose goal strictly contained outcome \"Net Revenue Retention\". 1 of 3 fresh draws was collision-free."
       }
     }
   ]
