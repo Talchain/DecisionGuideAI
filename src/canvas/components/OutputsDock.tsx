@@ -360,7 +360,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const { showDebug } = useDebugShortcut()
 
   // Phase 2 Sprint 1B: Slow-run UX feedback (20s/40s thresholds)
-  const [slowRunMessage, setSlowRunMessage] = useState<string | null>(null)
   const runStartTimeRef = useRef<number | null>(null)
 
   // Transition bridge: snapshot of pre-analysis review progress captured at run time
@@ -788,15 +787,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
   const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
 
-  // Wave1-L2 (seam D-M): exactly ONE run-status live region. Both the
-  // slow-run message and the running banner render role=status
-  // aria-live=polite, and they used to stack from ~20s with opposing
-  // progress claims. This single decision drives both render sites.
-  const runStatus = runStatusRegion({
-    isRunning,
-    hasReport: Boolean(report),
-    slowRunMessage,
-  })
+  // Wave1-L2 (seam D-M): exactly ONE run-status region, now mounted for
+  // EVERY in-flight run rather than only when a previous report is on
+  // screen — a first run used to be silent until 20s. See
+  // analysisRunStatus.ts for why the dock's own slow-run copy was deleted
+  // rather than kept alongside it.
+  const runStatus = runStatusRegion({ isRunning })
 
   const { readiness } = useGraphReadiness()
 
@@ -1487,39 +1483,25 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     setShowComparePanel(false)
   }, [showComparePanel, setState, setShowComparePanel])
 
-  // Phase 2 Sprint 1B: Track elapsed time and show slow-run messages at 20s/40s
-  // Cleanup ensures timers are always cleared on unmount or status change
+  // Run-duration clock, kept ONLY for the `duration_ms` telemetry on the
+  // completed/failed event below.
+  //
+  // The 20s/40s slow-run MESSAGE this effect used to set is gone.
+  // AnalysisRunningBanner is now the single narration for every run (see
+  // analysisRunStatus.ts) and derives its own elapsed time from the store's
+  // true run start, so a second interval here would be a second stage table
+  // to keep in sync — exactly the drift that left the first-run copy saying
+  // "Taking longer than expected..." at 20s, a wait that is entirely typical.
   useEffect(() => {
     const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
 
     if (isRunning) {
-      // Start tracking time when run begins
       if (runStartTimeRef.current === null) {
         runStartTimeRef.current = Date.now()
-        setSlowRunMessage(null)
       }
-
-      // Check elapsed time every 5 seconds
-      const intervalId = setInterval(() => {
-        if (runStartTimeRef.current === null) return
-
-        const elapsedMs = Date.now() - runStartTimeRef.current
-        const elapsedSeconds = Math.floor(elapsedMs / 1000)
-
-        if (elapsedSeconds >= 40) {
-          setSlowRunMessage('Still working...')
-        } else if (elapsedSeconds >= 20) {
-          setSlowRunMessage('Taking longer than expected...')
-        }
-      }, 5000)
-
-      // Cleanup: always clear interval on unmount or status change
-      return () => clearInterval(intervalId)
     } else {
       // Clear tracking when run completes/errors/cancels/navigates away
       runStartTimeRef.current = null
-      setSlowRunMessage(null)
-      // No cleanup function needed when not running (no interval to clear)
     }
   }, [resultsStatus])
 
@@ -2185,23 +2167,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     </div>
                   )
                 )}
-                {/* Phase 2 Sprint 1B: Slow-run UX feedback. Wave1-L2: yields
-                    to the running banner, whose stage table subsumes these
-                    same 20s/40s thresholds — never both live regions at once. */}
-                {runStatus === 'slow-run' && slowRunMessage && (
-                  <div
-                    className="flex items-center gap-2 px-3 py-2 bg-panel border border-info/30 rounded text-text-header"
-                    role="status"
-                    aria-live="polite"
-                    data-testid="slow-run-message"
-                  >
-                    <Clock className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                    <span className={`${typography.caption} text-text-header`}>{slowRunMessage}</span>
-                  </div>
-                )}
-                {/* 1.16i: visible processing while an analysis turn runs and
-                    the previous report is still on screen (the skeleton
-                    below covers the no-report case) */}
+                {/* 1.16i + first-five-minutes: visible staged processing for
+                    the WHOLE analysis turn, on every run. It renders above
+                    the retained report when there is one and above the
+                    results skeleton when there is not — a first run is no
+                    longer silent for its first 20 seconds. The skeleton
+                    below is decorative so this stays the one live region. */}
                 {runStatus === 'banner' && <AnalysisRunningBanner startedAt={resultsStartedAt} />}
                 {/* I.2b: Cancel button during active analysis — gated on the
                     V2 hook's own in-flight flag (1.16i): cancelRun only

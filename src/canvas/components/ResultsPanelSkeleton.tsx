@@ -8,6 +8,19 @@
  * - Next steps section
  *
  * Rule: No blank white blocks while awaiting results.
+ *
+ * DECORATIVE BY DESIGN (first-five-minutes cluster). Every shape here is
+ * aria-hidden and none is a live region. This file used to carry SIX
+ * role=status regions plus an sr-only "Loading analysis results" line, all
+ * announcing at once on the no-report path — the stacked-narration class
+ * analysisRunStatus.ts exists to prevent, simply never counted because it
+ * lived in the skeleton rather than in the dock.
+ *
+ * AnalysisRunningBanner now mounts for every in-flight run, including the
+ * first, and is the single voice for run status. It renders directly above
+ * this skeleton at the only call site (OutputsDock, `isRunning && !report`),
+ * so nothing here needs to speak — and if it did, it would speak over the
+ * banner's staged copy with a static line.
  */
 
 interface SkeletonLineProps {
@@ -51,8 +64,7 @@ export function HeadlineResultSkeleton() {
     <div
       className="bg-paper-50 border border-sand-200 rounded-xl overflow-hidden animate-pulse"
       data-testid="headline-skeleton"
-      role="status"
-      aria-label="Loading decision summary"
+      aria-hidden="true"
     >
       {/* Main outcome area */}
       <div className="px-4 py-4 border-b border-sand-100">
@@ -107,8 +119,7 @@ export function TrustReadinessSkeleton() {
     <div
       className="bg-paper-50 border border-sand-200 rounded-xl p-4 animate-pulse"
       data-testid="trust-skeleton"
-      role="status"
-      aria-label="Loading trust indicators"
+      aria-hidden="true"
     >
       <div className="flex items-center gap-2 mb-3">
         <div className="w-4 h-4 bg-sand-200 rounded" />
@@ -136,8 +147,7 @@ export function DriversInsightSkeleton() {
     <div
       className="bg-paper-50 border border-sand-200 rounded-xl overflow-hidden animate-pulse"
       data-testid="drivers-skeleton"
-      role="status"
-      aria-label="Loading drivers"
+      aria-hidden="true"
     >
       {/* Header */}
       <div className="px-4 py-3 border-b border-sand-100">
@@ -179,8 +189,7 @@ export function KeyInsightSkeleton() {
     <div
       className="rounded-lg border border-sky-200 bg-sky-50/50 px-3 py-3 animate-pulse"
       data-testid="insight-skeleton"
-      role="status"
-      aria-label="Loading insight"
+      aria-hidden="true"
     >
       <div className="flex items-start gap-2">
         <div className="w-5 h-5 bg-sky-200 rounded flex-shrink-0" />
@@ -203,8 +212,7 @@ export function NextStepsSkeleton() {
     <div
       className="bg-paper-50 border border-sand-200 rounded-xl p-4 animate-pulse"
       data-testid="next-steps-skeleton"
-      role="status"
-      aria-label="Loading next steps"
+      aria-hidden="true"
     >
       <div className="flex items-center gap-2 mb-3">
         <div className="w-4 h-4 bg-sand-200 rounded" />
@@ -228,14 +236,12 @@ export function NextStepsSkeleton() {
  */
 export function ResultsPanelSkeleton() {
   return (
-    <div className="space-y-4 p-4" role="status" aria-label="Loading results">
+    <div className="space-y-4 p-4" data-testid="results-panel-skeleton" aria-hidden="true">
       <HeadlineResultSkeleton />
       <KeyInsightSkeleton />
       <DriversInsightSkeleton />
       <NextStepsSkeleton />
 
-      {/* Screen reader announcement */}
-      <span className="sr-only">Loading analysis results, please wait...</span>
     </div>
   )
 }
