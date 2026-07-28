@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { BookmarkCheck, X } from 'lucide-react'
 import { useCanvasStore } from '../store'
+import { useShowToastSafe } from '../ToastContext'
 import { useConversationContext } from '../conversation/ConversationContext'
 import { getStarter, resolveStarterId } from '../starters/loadStarter'
 import { typography } from '../../styles/typography'
@@ -32,12 +33,13 @@ import { typography } from '../../styles/typography'
 export function StarterProvenanceBanner() {
   const [dismissed, setDismissed] = useState(false)
   const { sendMessage } = useConversationContext()
+  const showToast = useShowToastSafe()
 
   // `resolveStarterId` is the single shape for this question, shared with the
   // run gate — see its docstring for why reading nodes[0] alone was wrong.
   const starterId = useCanvasStore((s) => resolveStarterId(s.nodes))
 
-  const handleRedraft = useCallback(() => {
+  const handleRedraft = useCallback(async () => {
     if (!starterId) return
     const starter = getStarter(starterId)
     if (!starter) return
@@ -46,12 +48,14 @@ export function StarterProvenanceBanner() {
     // and on the shapes these starters use it succeeds roughly 36–57% of the
     // time (STARTER-BRIEF-VALIDATION-2026-07-24.md) — so "you may not get a
     // model back" is a real outcome the user is entitled to know about first,
-    // not a surprise.
+    // not a surprise. The last line states the RECOVERY the code below now
+    // actually performs; it previously promised only the brief back.
     const confirmed = window.confirm(
       'Re-draft this example live?\n\n' +
         'Olumi will send the original brief to the model and build a fresh graph. ' +
         'This clears the saved example and replaces it with whatever the live draft returns. ' +
-        'Live drafting can fail or time out; if it does, your brief comes back in the composer so you can retry.',
+        'Live drafting can fail or time out; if it does, the saved example is put back and ' +
+        'your brief comes back in the composer so you can retry.',
     )
     if (!confirmed) return
 
@@ -62,22 +66,57 @@ export function StarterProvenanceBanner() {
     // structurally instead: `resetCanvas` empties the graph, `starterId` goes
     // null, and the early return below unmounts the banner and its button.
     {
+      // The example as it stands, captured BEFORE the reset destroys it.
+      const { nodes, edges } = useCanvasStore.getState()
+
       // Reset FIRST so the canvas is genuinely empty: the composer treats an
       // empty canvas as "draft a model" rather than "chat about this one", and
       // the first-use hero re-engages to show thinking state and — on failure —
       // the existing transport-honest failure copy with the brief restored.
       useCanvasStore.getState().resetCanvas()
 
+      // Arm the restore AFTER the reset, not before: `resetCanvas` itself sets
+      // `draftChatPreDraftSnapshot: null` (store.ts, "A.5+: Clear draft
+      // snapshot"), so a snapshot taken earlier would be wiped by the very
+      // call it exists to survive. Reusing the existing snapshot + `undoDraft`
+      // pair rather than a second restore mechanism also means the "Undo
+      // draft" chip reverts a SUCCESSFUL re-draft back to the example, which
+      // is the behaviour DraftChat already gives every other draft.
+      useCanvasStore.getState().setDraftChatPreDraftSnapshot({ nodes, edges })
+
       // The verbatim brief that produced this example, from the same generated
       // manifest as the graph. It cannot drift into a different brief than the
       // one the user was just looking at.
-      sendMessage(starter.brief, {
+      await sendMessage(starter.brief, {
         turnType: 'explicit_generate',
         debugSource: 'generate_model',
         debugSourceSurface: 'starter_redraft',
       })
+
+      // ⚠ WHY THIS TESTS THE CANVAS AND NOT AN ERROR.
+      //
+      // A failed user turn does NOT reject. `sendTurn` catches the dispatch
+      // error, renders the transport-honest failure bubble, and returns
+      // normally — `systemSendFailure` is set for `mode === 'system'` ONLY
+      // ("User turns never set it", useConversation.ts). So there is no error
+      // channel here to catch, and a `.catch()` on this await would be exactly
+      // the guarantee-theatre this programme hunts: machinery that reads as a
+      // safety net and can never fire.
+      //
+      // So the check is the OBSERVABLE OUTCOME: the reset emptied the canvas,
+      // and if the turn produced no graph it is still empty. That also makes
+      // the restore fail-SAFE — if anything DID land (a drafted graph, or a
+      // node the user added while the draft was in flight) we leave it alone
+      // rather than clobbering it with the old example.
+      if (useCanvasStore.getState().nodes.length === 0) {
+        useCanvasStore.getState().undoDraft()
+        showToast(
+          'The live re-draft didn’t return a model, so your saved example has been put back. Your brief is in the composer if you want to try again.',
+          'warning',
+        )
+      }
     }
-  }, [starterId, sendMessage])
+  }, [starterId, sendMessage, showToast])
 
   if (!starterId || dismissed) return null
   const starter = getStarter(starterId)
