@@ -162,7 +162,12 @@ function buildSummary(acc: DiffAccumulator): string {
  * @param sendSystemEvent - The sendSystemEvent function from useConversation
  */
 export function useGraphEditEvents(
-  sendSystemEvent: (event: WireSystemEvent) => Promise<void>,
+  // Returns `unknown` rather than `void`: `sendSystemEvent` now resolves to a
+  // SEND_DEFERRED sentinel when the in-flight lock queued the send. This hook
+  // is a fire-and-forget notification emitter and does not act on the outcome,
+  // so it only needs to accept a resolving promise of any shape — widening here
+  // avoids forcing the sentinel type through every unrelated consumer.
+  sendSystemEvent: (event: WireSystemEvent) => Promise<unknown>,
 ): void {
   const snapshotRef = useRef<GraphSnapshot | null>(null)
   const accRef = useRef<DiffAccumulator | null>(null)

@@ -708,13 +708,33 @@ export const DRAFT_BIAS_SIGNAL_CARD_CAP = 2
 // § 4 — System events (type-defined now, wired in follow-up PR)
 // ---------------------------------------------------------------------------
 
+/**
+ * Event types accepted by CEE's v3 Zod schema — safe to send over the wire.
+ *
+ * DERIVED, NOT MIRRORED (CLAUDE.md trap 12). This const array is the SINGLE
+ * source: the `WireSystemEventType` union below is derived from it, and
+ * `systemEvents.ts` builds its send-allowlist Set from the same array rather
+ * than re-typing the members. Before ROADMAP 1.346 those were two hand-kept
+ * lists, and the runtime one was the silent one — an event type present in the
+ * union but missing from the Set is dropped BEFORE the network by
+ * `serializeSystemEvent`, with a DEV-only console warning and no test failure.
+ * That is precisely the drift that reads as green. One array, one truth.
+ */
+export const WIRE_SYSTEM_EVENT_TYPES = [
+  'direct_graph_edit',
+  'direct_analysis_run',
+  'patch_accepted',
+  'patch_dismissed',
+  'feedback_submitted',
+  // ROADMAP 1.346 — the value-carrying inspector edit. A SIBLING of
+  // direct_graph_edit, not a value on it: direct_graph_edit's target_id is a
+  // representative singular (the first changed id in a batch), so keying a
+  // mutation on it would mutate whichever node sorted first.
+  'factor_value_edit',
+] as const
+
 /** Event types accepted by CEE's v3 Zod schema — safe to send over the wire. */
-export type WireSystemEventType =
-  | 'direct_graph_edit'
-  | 'direct_analysis_run'
-  | 'patch_accepted'
-  | 'patch_dismissed'
-  | 'feedback_submitted'
+export type WireSystemEventType = (typeof WIRE_SYSTEM_EVENT_TYPES)[number]
 
 /** Event types used only within the UI — never sent to CEE. */
 export type InternalSystemEventType = 'session_resume' | 'undo_draft'

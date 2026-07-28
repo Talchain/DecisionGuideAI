@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2517
+# count=2516
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -239,7 +239,6 @@
 3	src/canvas/conversation/__tests__/systemEvents.spec.ts
 7	src/canvas/conversation/__tests__/turnRequestShape.spec.ts
 1	src/canvas/conversation/__tests__/useConversation.hook.spec.ts
-1	src/canvas/conversation/__tests__/useConversation.systemEvents.spec.ts
 1	src/canvas/conversation/__tests__/useSmartScroll.spec.ts
 1	src/canvas/conversation/__tests__/validateResponse.spec.ts
 4	src/canvas/conversation/turnService.ts

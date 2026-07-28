@@ -22,6 +22,7 @@ import { describe, it, expect } from 'vitest'
 import { SystemEventKind } from '@talchain/schemas/boundary'
 import { buildV5Payload } from '../buildPayload'
 import type { WireSystemEventType } from '../../canvas/conversation/types'
+import { WIRE_SYSTEM_EVENT_TYPES } from '../../canvas/conversation/types'
 
 const TURN_ID = '11111111-1111-4111-8111-111111111111'
 const SCENARIO_ID = '22222222-2222-4222-8222-222222222222'
@@ -36,7 +37,16 @@ const UI_WIRE_EVENT_TYPES = [
   'patch_accepted',
   'patch_dismissed',
   'feedback_submitted',
+  'factor_value_edit',
 ] as const satisfies readonly WireSystemEventType[]
+
+// The `satisfies` above is ONE-DIRECTIONAL: it proves every listed member is a
+// real WireSystemEventType, but NOT that every WireSystemEventType is listed —
+// so a new union member could be added and silently skip this entire file,
+// which is how a wire event ships with no parity coverage at all. The other
+// direction is closed by a RUNTIME assertion below ('the coverage table covers
+// every wire event type'), not by a type annotation: a type-level assignment
+// here would be satisfied by any subset and would fail nothing.
 
 // v0.7.0 SystemEventKind values (authoritative wire surface).
 const V5_EVENT_KINDS = SystemEventKind.options
@@ -84,6 +94,17 @@ const UI_COVERAGE: Record<
     eventKind: 'feedback',
     payload: { turn_id: TURN_ID, rating: 'up' },
   },
+  // ROADMAP 1.346: the value-CARRYING inspector edit. `factor_value_edit`
+  // joined SystemEventKind in 0.29.0 and CEE (build 74d997a6, pin >=0.29.0) is
+  // deploy-verified, so the reader-first hold is LIFTED and the UI emits it.
+  // Reader-first is mandatory for this union, not a preference: every member is
+  // `.strict()` inside a discriminatedUnion on `kind`, so a consumer pinned
+  // below 0.29.0 that receives this member rejects the WHOLE turn.
+  factor_value_edit: {
+    kind: 'system_event',
+    eventKind: 'factor_value_edit',
+    payload: { target_id: 'fac_monthly_eng_cost', value: 0.5, raw_value: 15000, unit: '£' },
+  },
 }
 
 describe('UI ↔ V5 system event parity', () => {
@@ -91,6 +112,12 @@ describe('UI ↔ V5 system event parity', () => {
     for (const uiType of UI_WIRE_EVENT_TYPES) {
       expect(UI_COVERAGE[uiType], `missing UI_COVERAGE entry for "${uiType}"`).toBeDefined()
     }
+  })
+
+  it('the coverage table covers EVERY wire event type (no member can skip this file)', () => {
+    // Derived from the union's own source array, so adding a wire event type
+    // without a coverage entry fails HERE rather than shipping uncovered.
+    expect([...UI_WIRE_EVENT_TYPES].sort()).toEqual([...WIRE_SYSTEM_EVENT_TYPES].sort())
   })
 
   it.each(UI_WIRE_EVENT_TYPES)(
@@ -184,17 +211,19 @@ describe('UI ↔ V5 system event parity', () => {
     }
   })
 
-  it('locks UI emission count at 4 of 8 V5 SystemEventKind values', () => {
+  it('locks UI emission count at 5 of 9 V5 SystemEventKind values', () => {
     // Explicit canary: if someone adds a new UI emission (extending the
     // system_event branch of UI_COVERAGE) without updating this test, the
     // count will drift and flag for docs reconciliation.
     // 0.22.0 grew the wire union to 8 (added `feedback`); F7 wired feedback
-    // emission, so UI emission count is now 4 (patch_accepted, patch_dismissed,
-    // direct_graph_edit, feedback).
+    // emission. 0.29.0 grew it to 9 (added `factor_value_edit`) and ROADMAP
+    // 1.346 wired its emission, so UI emission count is now 5
+    // (patch_accepted, patch_dismissed, direct_graph_edit, feedback,
+    // factor_value_edit).
     const uiEmittedCount = Object.values(UI_COVERAGE).filter(
       (c) => c.kind === 'system_event',
     ).length
-    expect(uiEmittedCount).toBe(4)
-    expect(V5_EVENT_KINDS).toHaveLength(8)
+    expect(uiEmittedCount).toBe(5)
+    expect(V5_EVENT_KINDS).toHaveLength(9)
   })
 })

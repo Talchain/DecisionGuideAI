@@ -239,6 +239,11 @@ function systemEventToPayload(args: {
       if (event === null) return null
       return { ...base, event }
     }
+    case 'factor_value_edit': {
+      const event = adaptFactorValueEdit(eventPayload)
+      if (event === null) return null
+      return { ...base, event }
+    }
     case 'feedback_submitted': {
       // F7 (feedback thumbs = wire): map the UI's optimistic thumbs event onto
       // the typed 0.22 `feedback` system event. The emitter
@@ -318,6 +323,30 @@ type DirectGraphEditWireEvent = Extract<
   { kind: 'direct_graph_edit' }
 >
 
+// The wire `factor_value_edit` event (0.29), derived from the vendored schema
+// for the same reason — NEVER hand-rolled. The union is a discriminated union of
+// `.strict()` members, so a hand-typed shape that drifted by one field name
+// would be rejected wholesale at CEE's ingress rather than partially accepted.
+type FactorValueEditWireEvent = Extract<
+  SystemEventTurnPayload['event'],
+  { kind: 'factor_value_edit' }
+>
+
+// Narrow an optional unknown field to a FINITE number, or undefined.
+// Deliberately NOT `Number(x) || 0`: a 0 fallback is indistinguishable from a
+// genuine 0 on the wire, and for this event absence and zero mean different
+// things (see adaptFactorValueEdit). NaN/Infinity are treated as absent, never
+// serialised — `JSON.stringify(NaN)` is `null`, which would reach CEE as a type
+// error rather than as the omission it actually is.
+function finiteNumberField(
+  src: Record<string, unknown> | undefined,
+  key: string,
+): number | undefined {
+  if (!src) return undefined
+  const val = src[key]
+  return typeof val === 'number' && Number.isFinite(val) ? val : undefined
+}
+
 // `fields_changed` arrives from the real emitter (useGraphEditEvents.ts) as a
 // MAP (element id → touched field names). The 0.22 wire types `fields_changed`
 // as a flat string[] that "names the touched fields" — no id association.
@@ -396,6 +425,56 @@ function adaptDirectGraphEdit(
   if (operations.length > 0) event.operations = operations
   if (fieldsChanged.length > 0) event.fields_changed = fieldsChanged
   if (summary) event.summary = summary
+  return event
+}
+
+/**
+ * `factor_value_edit` (ROADMAP 1.346) — the value-CARRYING inspector edit.
+ *
+ * Unlike `adaptDirectGraphEdit` above, there is NO representative-singular
+ * inference here and there must never be one: this event MUTATES the node it
+ * names, so a fabricated or inferred `target_id` would write someone's number
+ * onto the wrong factor. Every field is taken verbatim from the emitter or
+ * omitted.
+ *
+ * Fail CLOSED to `null` (a RETRYABLE unencodable, surfaced by the caller)
+ * whenever the identity or the value is missing or non-finite. `null` is a
+ * visible "nothing happened"; a fabricated value is a silent wrong mutation.
+ *
+ * ABSENCE IS MEANINGFUL for `raw_value` and `unit` — the contract states that a
+ * missing `raw_value` means "the client did not state a user-unit magnitude"
+ * (the server then derives one from `value` and its own stored cap), and a
+ * missing `unit` means "the client did not say", NOT "no unit". So neither is
+ * defaulted here: a `raw_value: 0` fallback would assert a magnitude the user
+ * never typed, and CEE would persist it.
+ */
+function adaptFactorValueEdit(
+  eventPayload: Record<string, unknown> | undefined,
+): FactorValueEditWireEvent | null {
+  const target_id = stringField(eventPayload, 'target_id')
+  const value = finiteNumberField(eventPayload, 'value')
+  if (!target_id || value === undefined) return null
+
+  const event: FactorValueEditWireEvent = { kind: 'factor_value_edit', target_id, value }
+
+  const raw_value = finiteNumberField(eventPayload, 'raw_value')
+  if (raw_value !== undefined) event.raw_value = raw_value
+
+  const unit = stringField(eventPayload, 'unit')
+  if (unit) event.unit = unit
+
+  // `field` is a LITERAL in the contract ('value' is the only member) and
+  // absence means the same thing as presence. Forward it only when it is
+  // exactly that literal: anything else is a producer the wire should refuse,
+  // and dropping it here would launder a wrong field into a silently-accepted
+  // value edit. Refusing the whole event on a bad `field` keeps the contract's
+  // loud-widening property intact at this hop too.
+  const field = stringField(eventPayload, 'field')
+  if (field) {
+    if (field !== 'value') return null
+    event.field = 'value'
+  }
+
   return event
 }
 

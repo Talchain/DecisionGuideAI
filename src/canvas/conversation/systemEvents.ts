@@ -11,6 +11,7 @@
  */
 
 import type { SystemEvent, WireSystemEventType } from './types'
+import { WIRE_SYSTEM_EVENT_TYPES } from './types'
 
 /**
  * Alias for WireSystemEventType — the subset accepted by CEE's v3 Zod schema.
@@ -31,14 +32,18 @@ export interface SystemEventWire {
  * (not sent) to avoid 400 errors from CEE's strict Zod validation.
  *
  * session_resume and undo_draft are internal UI events only.
+ *
+ * DERIVED from `WIRE_SYSTEM_EVENT_TYPES` (CLAUDE.md trap 12). This used to be a
+ * second hand-written list beside the `WireSystemEventType` union, and it was
+ * the DANGEROUS half of the pair: a type present in the union but absent here
+ * is dropped before the network by `serializeSystemEvent` below, with only a
+ * DEV console warning — the send silently becomes a no-op and every test that
+ * does not assert on the wire stays green. Deriving it makes that drift
+ * impossible to express rather than merely discouraged.
  */
-const CEE_V3_KNOWN_TYPES = new Set<CeeV3EventType>([
-  'patch_accepted',
-  'patch_dismissed',
-  'direct_graph_edit',
-  'direct_analysis_run',
-  'feedback_submitted',
-])
+const CEE_V3_KNOWN_TYPES: ReadonlySet<CeeV3EventType> = new Set<CeeV3EventType>(
+  WIRE_SYSTEM_EVENT_TYPES,
+)
 
 /**
  * UUID fallback for test environments where crypto.randomUUID may not exist.

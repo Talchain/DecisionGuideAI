@@ -35,7 +35,9 @@ export const NODE_SETTER_FIELDS = {
   setLabel: ['label'],
   setDescription: ['description'],
   setThreshold: ['goal_threshold_raw', 'goal_threshold_unit'],
-  setObservedValue: ['observedState'],
+  // Also clears the top-level `display_value` — CEE writes that key at either
+  // level, and a value commit invalidates BOTH copies of the old prose.
+  setObservedValue: ['observedState', 'display_value'],
   setIntervention: ['interventions'],
   removeIntervention: ['interventions'],
   setPriorRange: ['prior'],
@@ -115,14 +117,44 @@ export function useNodeMutations(nodeId: string) {
     })
   }, [nodeId, updateNode, getNode])
 
-  const setObservedValue = useCallback((value: number) => {
+  /**
+   * Write `observedState.value` — ALWAYS the MODEL-scale number (for a capped
+   * factor, raw/cap), never a display magnitude. The advanced editors bind
+   * straight to it as "Normalised value" (0-1), which is why this setter does
+   * NO normalising of its own: it stores exactly what it is given.
+   *
+   * `rawValue` (ROADMAP 1.346) is the OPTIONAL user-unit magnitude that
+   * produced `value`. It exists so the panel's number input — which shows the
+   * user-unit magnitude — can commit BOTH halves in ONE `updateNode`. Two
+   * separate setter calls would push two history entries and fire two
+   * freshness invalidations for a single user edit, and would leave a window in
+   * which `value` and `raw_value` disagree about the same number. Callers that
+   * genuinely edit only the normalised value (the advanced editors) pass one
+   * argument and are unaffected.
+   */
+  const setObservedValue = useCallback((value: number, rawValue?: number) => {
     const node = getNode()
     if (!node) return
     const existing = (node.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
     updateNode(nodeId, {
       data: {
         ...node.data,
-        observedState: { ...existing, value },
+        // `display_value` is CEE-authored prose for the PREVIOUS value ("£30k").
+        // The formatter only lets a fresh raw_value outrank it when the unit is
+        // a meaningful one — so after a commit with no raw_value, or with a
+        // unitless/"scale" unit, a stale display_value keeps rendering verbatim
+        // on the canvas node. Clearing both locations (CEE writes it at the top
+        // level, the canonical home is inside observedState) drops the renderer
+        // to its live fallback until the server's graph_patch supplies a fresh
+        // one. Clearing is right and re-deriving here would be wrong: this
+        // string is the server's to author.
+        display_value: undefined,
+        observedState: {
+          ...existing,
+          value,
+          ...(typeof rawValue === 'number' && Number.isFinite(rawValue) ? { raw_value: rawValue } : {}),
+          display_value: undefined,
+        },
       },
     })
   }, [nodeId, updateNode, getNode])
