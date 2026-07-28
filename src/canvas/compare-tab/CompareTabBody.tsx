@@ -161,7 +161,12 @@ export function CompareTabBody({ onRunAnalysis }: CompareTabBodyProps) {
         className="flex-1 min-h-0 overflow-y-auto"
         aria-busy={trust.isRunning || undefined}
       >
-        <Hero state={compareState} snapshots={snapshots} showExpert={showExpert} />
+        <Hero
+          state={compareState}
+          snapshots={snapshots}
+          showExpert={showExpert}
+          onRunAnalysis={onRunAnalysis}
+        />
         <TrajectorySection snapshots={snapshots} showExpert={showExpert} />
         <TransitionsSection
           transitions={visibleTransitions}
