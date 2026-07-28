@@ -916,12 +916,43 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
         // flows, so every plain rerun silently dropped the saved target
         // (live wire evidence 2026-07-13: strip Rerun with target 60 saved
         // dispatched no parameters, making the goal node's "rerun to
-        // update" advice futile). When the caller supplies no parameters,
+        // update" advice futile). When the caller supplies no threshold,
         // resolve the store threshold through the same fail-closed
         // normaliser (cap chain + saved-measure unit, UI-SEM-081) and
-        // attach it. Explicit caller parameters always win.
+        // attach it. An explicit caller `goal_threshold` always wins.
+        //
+        // The test is PER-KEY, not "did the caller pass any parameters at
+        // all". It used to be `if (!parameters)`, which made the parameters
+        // channel all-or-nothing: a caller carrying an UNRELATED parameter
+        // (e.g. a node chip's `chip_id` provenance) suppressed the store
+        // threshold along with it.
+        //
+        // SCOPE THAT HONESTLY — this is forward-safety, not a live-defect
+        // fix (review 2026-07-28, from a COMPLETE manifest of every non-test
+        // read of `chip.parameters` in CEE `src/`). Nothing in CEE reads
+        // parameters for `run_analysis`: the handler builds `{ scenario_id }`
+        // alone (`run-analysis.ts:255`), and CEE says so itself at
+        // `typed-chip-mutation-proposal.ts:39-43` — "NOT WIRED HERE … the
+        // run-canonical `goal_threshold` parameter … write-only today with a
+        // server-side `goal_threshold_raw` fallback deriving the same value".
+        // The user's target actually reaches CEE through the GRAPH
+        // (`goal_threshold_raw`, persisted at `useInspectorMutations.ts:114`,
+        // read at `turn-executor.ts:9200`). So the suppression changed
+        // nothing a user could observe, and this block is defence-in-depth
+        // for when that fallback is retired. DO NOT build a "the chip
+        // carries the user's target" premise on this comment without
+        // re-deriving the CEE reader manifest first.
+        //
+        // Boundary, stated so it is not later rediscovered as a bug: "run
+        // with NO threshold" is not expressible — `{}` and
+        // `{ goal_threshold: undefined }` both take the re-attach arm. No
+        // caller uses either spelling, and `null` / `0` are preserved (both
+        // are !== undefined). Behaviour is unchanged for every caller that
+        // passes a defined `goal_threshold` or passes no parameters — the
+        // only two that pass any are `DefineSuccessModal.tsx:223` and the
+        // apply-threshold path at `OutputsDock.tsx:1099`.
         let parameters = opts?.parameters
-        if (!parameters) {
+        if (parameters?.goal_threshold === undefined) {
           const savedMeasure = selectSuccessMeasure(
             useSuccessMeasureStore.getState(),
             resolveScenarioKey(storeState.currentScenarioId),
@@ -943,7 +974,9 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
             representation: storeState.goalThresholdRepresentation,
           })
           if (storeThreshold !== undefined) {
-            parameters = { goal_threshold: storeThreshold }
+            // Merge, never replace: the caller's other parameters (chip_id
+            // provenance) must survive the threshold re-attachment.
+            parameters = { ...parameters, goal_threshold: storeThreshold }
           }
         }
         // Fire-and-forget — the dispatcher streams the response and

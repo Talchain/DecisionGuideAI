@@ -527,6 +527,45 @@ describe('OutputsDock analyse convergence', () => {
       })
     })
 
+    it('an UNRELATED caller parameter (chip_id) does NOT suppress the store threshold — both ride', async () => {
+      // The threshold re-attachment used to be gated on `if (!parameters)`,
+      // i.e. the parameters channel was all-or-nothing. A caller carrying
+      // only provenance (node chips ship `chip_id`) therefore silently
+      // dropped the user's saved success target — the V-P0-1 defect
+      // re-created through the very channel added to carry it. The test is
+      // now PER-KEY: no caller `goal_threshold` → resolve from the store and
+      // MERGE, so provenance and target both reach the wire.
+      const dispatchAction = vi.fn()
+      mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() } as any)
+      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
+      mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
+      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+      useCanvasStore.setState({ goalThreshold: 60 } as any)
+      useSuccessMeasureStore.getState()._reset()
+      useSuccessMeasureStore.getState().saveMeasure(
+        resolveScenarioKey(useCanvasStore.getState().currentScenarioId),
+        {
+          metric: 'Conversion',
+          direction: 'reach_at_least',
+          threshold: 60,
+          unit: '%',
+          timeframe: '6 months',
+          baseline: null,
+          savedAt: 0,
+        },
+      )
+
+      renderOutputsDock()
+      const runner = getCanonicalRunner()
+      await runner!({ source: 'node-chip', parameters: { chip_id: 'goal_run_analysis' } })
+
+      expect(dispatchAction).toHaveBeenCalledTimes(1)
+      expect(dispatchAction.mock.calls[0][0]).toMatchObject({
+        action_type: 'run_analysis',
+        parameters: { chip_id: 'goal_run_analysis', goal_threshold: 0.6 },
+      })
+    })
+
     it('Lane 1b: an unprovable store threshold stays OMITTED on a plain run (fail closed)', async () => {
       const dispatchAction = vi.fn()
       mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() } as any)
