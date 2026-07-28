@@ -260,6 +260,19 @@ export interface GraphReadiness {
    * `allowed = can_run_analysis`, byte-identical to pre-scaffold behaviour.
    */
   scaffold_plan?: ScaffoldPlan
+  /**
+   * V3 structured verdict fields. The blocked-state copy is composed from
+   * THESE, never from `confidence_explanation` prose — see
+   * `utils/composeBlockedReason.ts` for why (the guard-degrades-to-a-false-fact
+   * defect, Paul 28 Jul).
+   *
+   * All optional: absent on older CEE builds, on the legacy V1/V2 response, and
+   * on the local 404/429 fallback. Every reader must degrade to LESS SPECIFIC
+   * TRUE copy when they are missing, never to a different claim.
+   */
+  options_ready?: number
+  options_total?: number
+  goal_node_valid?: boolean
 }
 
 // ── Hook (thin wrapper) ────────────────────────────────────────────

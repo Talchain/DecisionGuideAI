@@ -452,6 +452,18 @@ async function fetchReadiness(): Promise<void> {
                   : {}),
               }
             : undefined,
+        // Structured V3 verdict fields — the SAME schema-skew hazard as
+        // scaffold_plan above: this normaliser builds an explicit object, so a
+        // field not named here is silently dropped before any UI code can see
+        // it. The blocked-state copy is composed from these three (see
+        // utils/composeBlockedReason.ts); without the explicit forward it would
+        // have only the engine's prose to work from, which is precisely the
+        // defect being fixed. Wrong type ⇒ undefined ⇒ the composer degrades to
+        // less specific TRUE copy.
+        options_ready: typeof data.options_ready === 'number' ? data.options_ready : undefined,
+        options_total: typeof data.options_total === 'number' ? data.options_total : undefined,
+        goal_node_valid:
+          typeof data.goal_node_valid === 'boolean' ? data.goal_node_valid : undefined,
       }
 
       // Only cache the payload hash after a successful fetch — failed fetches

@@ -79,6 +79,7 @@ import {
 const PreAnalysisPanelV3 = lazy(() => import('./pre-analysis-v3'))
 import { useConversation } from '../conversation/useConversation'
 import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip, computeCeeCannotSeeModel } from '../utils/canRunAnalysis'
+import { selectOptionsNeedingValues } from '../utils/composeBlockedReason'
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
@@ -827,6 +828,22 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     s.graphHealth?.issues?.some((i: { severity: string }) => i.severity === 'error' || i.severity === 'blocker') ?? false
   )
 
+  // Options the readiness verdict graded as not-yet-ready, joined to the labels
+  // the user actually sees. Feeds ONLY the blocked-state COPY (never `allowed`)
+  // so the panel can name the real remedy instead of showing the engine's
+  // refusal sentence. `ceeAnalysisReady` is the very payload readinessStore
+  // sends as `analysis_ready`, so this is the verdict's own input, not a second
+  // source of truth.
+  const ceeAnalysisReadyForCopy = useCanvasStore(s => s.ceeAnalysisReady)
+  const optionsNeedingValues = useMemo(() => {
+    const labelById = new Map<string, string>()
+    for (const n of nodes) {
+      const data = n.data as Record<string, unknown> | undefined
+      if (typeof data?.label === 'string') labelById.set(n.id, data.label)
+    }
+    return selectOptionsNeedingValues(ceeAnalysisReadyForCopy, labelById)
+  }, [ceeAnalysisReadyForCopy, nodes])
+
   const runGateResult = canRunAnalysisUtil({
     graphHealth: graphHealth ?? null,
     readiness,
@@ -834,6 +851,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     nodeCount: nodes.length,
     isRunning,
     ceeCannotSeeModel: computeCeeCannotSeeModel(nodes),
+    optionsNeedingValues,
   })
   const canRunAnalysis = runGateResult.allowed
   const runBlockedTooltip = getRunButtonTooltip(runGateResult)

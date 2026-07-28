@@ -11,6 +11,7 @@ import {
   CEE_DRAFT_FIRST_REFUSAL,
   type CanRunAnalysisParams,
 } from '../canRunAnalysis'
+import { BLOCKED_REASON_COPY } from '../composeBlockedReason'
 
 
 const isV5CanonicalRunPathMock = vi.fn(() => true)
@@ -170,7 +171,16 @@ describe('canRunAnalysis', () => {
       })
 
       expect(result.allowed).toBe(false)
-      expect(result.blockingReasons).toContain('Graph needs more structure')
+      // ⚠ Contract change, 28 Jul: this asserted `toContain('Graph needs more
+      // structure')` — the engine's own sentence, verbatim. That is exactly what
+      // reached the user, and CEE's real refusals carry glossary-banned terms and
+      // internal node ids, so every surface either degraded to a FALSE fallback
+      // or leaked the id. The gate now emits COMPOSED copy derived from the
+      // verdict's structured fields; the readiness dimension still gates
+      // identically. See utils/composeBlockedReason.ts.
+      expect(result.blockingReasons).not.toContain('Graph needs more structure')
+      expect(result.blockingReasons).toHaveLength(1)
+      expect(result.reason).toBe(BLOCKED_REASON_COPY.unspecified)
     })
 
     it('combines multiple blocking reasons', () => {
@@ -317,7 +327,11 @@ describe('canRunAnalysis', () => {
       })
 
       expect(result.allowed).toBe(false)
-      expect(result.blockingReasons).toContain('Two options still need to be drafted.')
+      // Contract change 28 Jul (see 'blocks when readiness can_run_analysis=false'
+      // above): a readiness refusal registers a COMPOSED blocker, never the
+      // engine's sentence. The gating behaviour under test is unchanged.
+      expect(result.blockingReasons).toHaveLength(1)
+      expect(result.blockingReasons).not.toContain('Two options still need to be drafted.')
     })
 
     // Positive control (fail-safe): absent scaffold_plan ⇒ byte-identical to
@@ -326,7 +340,8 @@ describe('canRunAnalysis', () => {
       const result = canRunAnalysis({ ...defaultParams, readiness: notRunnable })
 
       expect(result.allowed).toBe(false)
-      expect(result.blockingReasons).toContain('Two options still need to be drafted.')
+      expect(result.blockingReasons).toHaveLength(1)
+      expect(result.blockingReasons).not.toContain('Two options still need to be drafted.')
     })
 
     // The OR is scoped to the readiness dimension only — real structural
