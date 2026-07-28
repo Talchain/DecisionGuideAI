@@ -26,7 +26,7 @@
 
 import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, fireEvent, cleanup, screen, waitFor } from '@testing-library/react'
+import { render, fireEvent, cleanup, screen, waitFor, act } from '@testing-library/react'
 
 import { NodeChip } from '../NodeChip'
 import { ToastProvider } from '../../../ToastContext'
@@ -145,6 +145,48 @@ describe('node run chips → the registered canonical runner', () => {
     expect(alert).toHaveTextContent(RUNNER_UNAVAILABLE_MESSAGE)
     expect(dispatchAction).not.toHaveBeenCalled()
     expect(sendMessage).not.toHaveBeenCalled()
+  })
+
+  it('the direct-V2 arm is announced — a canvas click never looks like nothing happened', async () => {
+    // Review amendment, 2026-07-28. When the canonical path is off (or V5 is
+    // ineligible at runtime) runCanonicalAnalysis returns {status:'v2'}: the
+    // run started, but via direct PLoT, so there is NO chat turn. Pre-fix the
+    // chip always produced a V5 chip turn, so without this arm the fix would
+    // have traded one silence for another on that branch.
+    //
+    // Derived from the DEPLOYED staging bundle (assets/flags-BOFkajto.js,
+    // 2026-07-28): VITE_V5_CANONICAL_ANALYSIS:"true" and
+    // VITE_ENABLE_V5_ORCHESTRATOR:"true" — so staging takes the 'dispatched'
+    // arm today and this is belt-and-braces. It is still reachable there:
+    // isV5CanonicalRunPath() ALSO requires isV5Eligible(), which can fail at
+    // runtime. Note the flag is absent from netlify.toml and defaults OFF in
+    // flags.ts — repo config is not evidence of what is deployed.
+    registerBridge()
+    registerCanonicalRunner(async () => ({ status: 'v2' }))
+
+    clickRunChip('goal_run_analysis')
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Running analysis…')
+  })
+
+  it('the dispatched arm stays quiet — its V5 chip turn is the acknowledgement', async () => {
+    // Guards against double-announcing: a toast here would sit on top of the
+    // conversation bubble the dispatch already produces.
+    //
+    // NOT a vacuous absence (trap 13): the absence is asserted only AFTER the
+    // runner has demonstrably been called and the outcome promise has been
+    // flushed — the same point at which every other arm in this file has its
+    // alert on screen. A mutant that toasts here turns it RED.
+    registerBridge()
+    const runner = runnerSpy({ status: 'dispatched' })
+    registerCanonicalRunner(runner)
+
+    clickRunChip('goal_run_analysis')
+
+    await waitFor(() => expect(runner).toHaveBeenCalledTimes(1))
+    await act(async () => { await Promise.resolve(); await Promise.resolve() })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('already-running is reported, not swallowed', async () => {

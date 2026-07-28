@@ -76,6 +76,14 @@ export function NodeChip({ label, message, chipId, actionType }: NodeChipProps) 
           showToast(outcome.reason, 'error')
         } else if (outcome.status === 'already-running') {
           showToast('An analysis is already running.', 'info')
+        } else if (outcome.status === 'v2') {
+          // The direct-V2 arm (canonical path off, or V5 ineligible at
+          // runtime) starts the run but produces NO chat turn, so a click
+          // from the canvas — where the dock and its spinner may not even be
+          // open — would otherwise look like nothing happened. The
+          // 'dispatched' arm needs no toast: its V5 chip turn is itself
+          // visible in the conversation.
+          showToast('Running analysis…', 'info')
         }
       }).catch((err: unknown) => {
         console.error('[NodeChip] canonical run failed:', err)
