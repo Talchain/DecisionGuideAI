@@ -71,7 +71,7 @@ export default function ProfileSettingsPage() {
         return
       }
 
-      const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`
+      const fnUrl = `${import.meta.env?.VITE_SUPABASE_URL}/functions/v1/delete-account`
       const res = await fetch(fnUrl, {
         method: 'POST',
         headers: {
@@ -100,7 +100,7 @@ export default function ProfileSettingsPage() {
   const deleteEnabled = deleteConfirmText === 'DELETE'
 
   // Check if Edge Function is likely deployed
-  const edgeFunctionAvailable = !!import.meta.env.VITE_SUPABASE_URL
+  const edgeFunctionAvailable = !!import.meta.env?.VITE_SUPABASE_URL
 
   return (
     <div className="min-h-screen bg-canvas">

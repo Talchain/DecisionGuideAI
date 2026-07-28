@@ -17,7 +17,7 @@ import { useEffect, useState } from 'react'
  */
 export function shouldShowDebugPanel(): boolean {
   // Only in staging or development environment
-  const env = import.meta.env.VITE_APP_ENV || 'development'
+  const env = import.meta.env?.VITE_APP_ENV || 'development'
   const allowedEnvs = ['staging', 'development']
   if (!allowedEnvs.includes(env)) return false
 

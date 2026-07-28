@@ -52,7 +52,7 @@ function isValidShareHash(hash: string): boolean {
  * Check if hash is allowlisted (when feature enabled)
  */
 async function checkAllowlist(hash: string): Promise<boolean> {
-  const allowlistEnabled = String(import.meta.env.VITE_FEATURE_SHARE_ALLOWLIST) === '1'
+  const allowlistEnabled = String(import.meta.env?.VITE_FEATURE_SHARE_ALLOWLIST) === '1'
 
   if (!allowlistEnabled) {
     // Allowlist disabled - all hashes allowed
@@ -124,7 +124,7 @@ export default function ShareView() {
 
   // P0-B Security: Feature gate - route is disabled until backend is implemented
   // Set VITE_FEATURE_SHARE_VIEW=1 to enable (dev/staging only)
-  const isShareViewEnabled = String(import.meta.env.VITE_FEATURE_SHARE_VIEW) === '1'
+  const isShareViewEnabled = String(import.meta.env?.VITE_FEATURE_SHARE_VIEW) === '1'
 
   // Fail-closed: if feature flag not enabled, show "coming soon" immediately
   if (!isShareViewEnabled) {

@@ -22,6 +22,7 @@
 // ============================================================================
 
 import { makeFlag, diagnoseFlagState } from './lib/flagFactory'
+import { FLAG_ENV } from './lib/flagEnv'
 
 // ============================================================================
 // FLAG CONFIGURATIONS (centralized, type-safe)
@@ -585,29 +586,39 @@ export const isStrengthenPanelEnabled = flags.strengthenPanel
 // ============================================================================
 
 // PoC-aware flags system - defaults to ON when VITE_POC_ONLY=1
-const env = (import.meta as any)?.env
-const isPoc = env?.VITE_POC_ONLY === '1'
+//
+// ⚠ NAMED, LITERAL env reads only. This was `const env = (import.meta as any)?.env`,
+// which puts the env object in VALUE position — Vite cannot statically narrow that,
+// so it inlined the ENTIRE env object (every VITE_* the deploy defines, with its
+// value) into the flags chunk. See `src/lib/plotAuthHeaders.ts` for the measurement
+// and `scripts/ci/assert-bundle-env-allowlist.mjs` for the regression pin.
+const isPoc = import.meta.env?.VITE_POC_ONLY === '1'
 
 // Helper: returns true if explicitly enabled OR (PoC mode AND not explicitly disabled)
 const on = (v?: string) => v === '1' || (isPoc && v !== '0')
 
 // PoC-aware flags - default to ON in PoC mode
 export const pocFlags = {
-  sse: on(env?.VITE_FEATURE_SSE),
-  orchestratorStreaming: on(env?.VITE_FEATURE_ORCHESTRATOR_STREAMING),
-  scenarioSandbox: on(env?.VITE_FEATURE_SCENARIO_SANDBOX),
+  sse: on(import.meta.env?.VITE_FEATURE_SSE),
+  orchestratorStreaming: on(import.meta.env?.VITE_FEATURE_ORCHESTRATOR_STREAMING),
+  scenarioSandbox: on(import.meta.env?.VITE_FEATURE_SCENARIO_SANDBOX),
 }
 
-// Debug helper: dump all flags for inspection
+// Debug helper: dump the DECLARED FLAG env for inspection.
+//
+// ⚠ `raw` is FLAG_ENV (the declared flag keys), NOT the whole environment. It
+// used to be `{ ...env }` over `(import.meta as any)?.env` — which both forced
+// Vite to inline every VITE_* the deploy defines into this chunk AND handed the
+// caller every one of those values, credentials included, from a debug helper.
 export function dumpFlags() {
-  const isPoc = env?.VITE_POC_ONLY === '1'
-  const on = (v?: string) => v === '1' || (isPoc && v !== '0')
+  const isPocNow = import.meta.env?.VITE_POC_ONLY === '1'
+  const onNow = (v?: unknown) => v === '1' || (isPocNow && v !== '0')
   return {
-    raw: { ...env },
+    raw: { ...FLAG_ENV },
     resolved: {
-      isPoc,
-      sse: on(env?.VITE_FEATURE_SSE),
-      sandbox: on(env?.VITE_FEATURE_SCENARIO_SANDBOX),
+      isPoc: isPocNow,
+      sse: onNow(FLAG_ENV.VITE_FEATURE_SSE),
+      sandbox: onNow(FLAG_ENV.VITE_FEATURE_SCENARIO_SANDBOX),
     }
   }
 }

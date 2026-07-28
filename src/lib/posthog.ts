@@ -7,8 +7,8 @@ import posthog from 'posthog-js'
 let initialised = false
 
 export function initPostHog(): void {
-  const key = import.meta.env.VITE_POSTHOG_KEY as string | undefined
-  const host = import.meta.env.VITE_POSTHOG_HOST as string | undefined
+  const key = import.meta.env?.VITE_POSTHOG_KEY as string | undefined
+  const host = import.meta.env?.VITE_POSTHOG_HOST as string | undefined
   if (!key || !host) return
 
   posthog.init(key, {

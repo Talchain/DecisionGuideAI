@@ -13,7 +13,7 @@ const PROBE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
  * Get proxy base URL from environment
  */
 function getProxyBase(): string {
-  return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
+  return import.meta.env?.VITE_PLOT_PROXY_BASE || '/bff/engine'
 }
 
 export interface ProbeResult {

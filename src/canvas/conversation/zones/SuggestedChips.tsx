@@ -178,7 +178,7 @@ export function SuggestedChips({
   // Evaluate V5 eligibility per-render so test env overrides (vi.stubEnv)
   // are picked up correctly. import.meta.env is Vite-inlined at build time,
   // but the check is cheap and correctness matters more here.
-  const v5Active = isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
+  const v5Active = isV5Eligible({ flag: import.meta.env?.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
 
   // Compute the run-analysis product state ONCE, then both the V5
   // readiness gate (below) AND the polish-map step downstream branch on

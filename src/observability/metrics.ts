@@ -91,8 +91,8 @@ function isEnabled(): boolean {
   if (import.meta.env.DEV) return true
 
   // Staging/Prod: require API keys
-  const hasPostHog = Boolean(import.meta.env.VITE_POSTHOG_API_KEY)
-  const hasSentry = Boolean(import.meta.env.VITE_SENTRY_DSN)
+  const hasPostHog = Boolean(import.meta.env?.VITE_POSTHOG_API_KEY)
+  const hasSentry = Boolean(import.meta.env?.VITE_SENTRY_DSN)
 
   return hasPostHog || hasSentry
 }
@@ -232,7 +232,7 @@ export const runMetrics = {
     track('run_started', {
       template_id: templateId,
       seed,
-      feature_streaming: import.meta.env.VITE_FEATURE_PLOT_STREAM === '1'
+      feature_streaming: import.meta.env?.VITE_FEATURE_PLOT_STREAM === '1'
     })
   },
 

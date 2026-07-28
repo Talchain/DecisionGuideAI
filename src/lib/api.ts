@@ -9,11 +9,11 @@ import { fetchWithTimeout, FetchTimeoutError } from '../utils/fetchWithTimeout'
 // —————————————————————————————————————————————————————————————————————————————
 // SECURITY: OpenAI proxy endpoint (server-side key, no client exposure)
 // —————————————————————————————————————————————————————————————————————————————
-const OPENAI_PROXY_URL = import.meta.env.VITE_SUPABASE_URL
-  ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/openai-proxy`
+const OPENAI_PROXY_URL = import.meta.env?.VITE_SUPABASE_URL
+  ? `${import.meta.env?.VITE_SUPABASE_URL}/functions/v1/openai-proxy`
   : 'http://localhost:54321/functions/v1/openai-proxy'
 
-const OPENAI_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+const OPENAI_ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY
 
 if (!OPENAI_ANON_KEY) {
   console.error('⚠️ VITE_SUPABASE_ANON_KEY not set - OpenAI proxy will not work')

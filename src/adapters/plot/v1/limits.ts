@@ -14,7 +14,7 @@ import { plotFetch } from '../../../lib/plotFetch'
  * Defaults to /bff/engine to go through hardened proxy (CORS, auth, rate limits)
  */
 const getProxyBase = (): string => {
-  return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
+  return import.meta.env?.VITE_PLOT_PROXY_BASE || '/bff/engine'
 }
 
 const CACHE_KEY = 'plot_limits_cache'

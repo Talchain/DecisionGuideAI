@@ -45,7 +45,7 @@ const LOG_LEVELS: Record<LogLevel, number> = {
 
 // Determine current log level from env
 const getLogLevel = (): LogLevel => {
-  const envLevel = import.meta.env.VITE_LOG_LEVEL as LogLevel | undefined
+  const envLevel = import.meta.env?.VITE_LOG_LEVEL as LogLevel | undefined
   if (envLevel && envLevel in LOG_LEVELS) {
     return envLevel
   }

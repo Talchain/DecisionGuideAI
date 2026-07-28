@@ -36,8 +36,8 @@
 import { authLogger } from './authLogger';
 
 // Constants
-const ACCESS_CODES = (import.meta.env.VITE_ACCESS_CODES || 'DGAIV01').split(',');
-const SALT = import.meta.env.VITE_ACCESS_SALT || 'dga_v1_'; // Fallback for development
+const ACCESS_CODES = (import.meta.env?.VITE_ACCESS_CODES || 'DGAIV01').split(',');
+const SALT = import.meta.env?.VITE_ACCESS_SALT || 'dga_v1_'; // Fallback for development
 export const ACCESS_VALIDATION_KEY = 'dga_access_validated';
 export const ACCESS_TIMESTAMP_KEY = 'dga_access_validation_time';
 export const ACCESS_CODE_KEY = 'dga_access_code';

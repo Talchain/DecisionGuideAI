@@ -15,7 +15,7 @@
  */
 
 // Key derivation from environment
-const STORAGE_KEY_ENV = import.meta.env.VITE_STORAGE_KEY as string | undefined
+const STORAGE_KEY_ENV = import.meta.env?.VITE_STORAGE_KEY as string | undefined
 
 // Prefix for encrypted values to distinguish from plaintext
 const ENCRYPTED_PREFIX = 'enc:v1:'

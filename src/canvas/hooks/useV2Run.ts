@@ -490,7 +490,7 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
     try {
       // Get V2 adapter config
       const config: V2AdapterConfig = {
-        baseUrl: import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine',
+        baseUrl: import.meta.env?.VITE_PLOT_PROXY_BASE || '/bff/engine',
         timeout: 120000,
         signal: controller.signal,
       }

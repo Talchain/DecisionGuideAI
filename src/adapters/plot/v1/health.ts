@@ -7,7 +7,7 @@
 import { plotFetch } from '../../../lib/plotFetch'
 
 const getProxyBase = (): string => {
-  return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
+  return import.meta.env?.VITE_PLOT_PROXY_BASE || '/bff/engine'
 }
 
 export type HealthStatus = 'healthy' | 'unhealthy'

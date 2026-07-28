@@ -42,16 +42,16 @@ export const isTest = mode === 'test'
  */
 export const features = {
   /** Enable streaming SSE mode for run requests */
-  streaming: import.meta.env.VITE_FEATURE_PLOT_STREAM === '1',
+  streaming: import.meta.env?.VITE_FEATURE_PLOT_STREAM === '1',
 
   /** Enable verdict card UI feature */
-  verdictCard: import.meta.env.VITE_SHOW_VERDICT_CARD === 'true',
+  verdictCard: import.meta.env?.VITE_SHOW_VERDICT_CARD === 'true',
 
   /** Enable edge function invites */
-  edgeInvites: import.meta.env.VITE_USE_EDGE_INVITES === 'true',
+  edgeInvites: import.meta.env?.VITE_USE_EDGE_INVITES === 'true',
 
   /** Brief 5.7: Enable EdgeV2 dual belief model and functional forms */
-  edgeV2: import.meta.env.VITE_FEATURE_EDGE_V2 === '1',
+  edgeV2: import.meta.env?.VITE_FEATURE_EDGE_V2 === '1',
 } as const
 
 // ============================================================================
@@ -72,11 +72,11 @@ export function getGatewayBaseUrl(): string {
   } catch {}
   // In test runs, Vitest/Vite may inject a default dev URL. Treat that as no override.
   try {
-    const injected = import.meta.env.VITE_EDGE_GATEWAY_URL
+    const injected = import.meta.env?.VITE_EDGE_GATEWAY_URL
     if (isTest && injected === 'http://127.0.0.1:4311') return ''
   } catch {}
   try {
-    const env = import.meta.env.VITE_EDGE_GATEWAY_URL
+    const env = import.meta.env?.VITE_EDGE_GATEWAY_URL
     if (typeof env === 'string' && env.trim().length > 0) return env.trim()
   } catch {}
   // Empty means relative
@@ -84,7 +84,7 @@ export function getGatewayBaseUrl(): string {
 }
 
 /** Plot engine proxy base URL */
-export const plotProxyBase = import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
+export const plotProxyBase = import.meta.env?.VITE_PLOT_PROXY_BASE || '/bff/engine'
 
 // ============================================================================
 // Observability Configuration
@@ -95,16 +95,16 @@ export const plotProxyBase = import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engin
  */
 export const observability = {
   /** PostHog API key for analytics (empty = disabled) */
-  postHogKey: import.meta.env.VITE_POSTHOG_API_KEY || '',
+  postHogKey: import.meta.env?.VITE_POSTHOG_API_KEY || '',
 
   /** Sentry DSN for error tracking (empty = disabled) */
-  sentryDsn: import.meta.env.VITE_SENTRY_DSN || '',
+  sentryDsn: import.meta.env?.VITE_SENTRY_DSN || '',
 
   /** Whether PostHog is configured */
-  hasPostHog: Boolean(import.meta.env.VITE_POSTHOG_API_KEY),
+  hasPostHog: Boolean(import.meta.env?.VITE_POSTHOG_API_KEY),
 
   /** Whether Sentry is configured */
-  hasSentry: Boolean(import.meta.env.VITE_SENTRY_DSN),
+  hasSentry: Boolean(import.meta.env?.VITE_SENTRY_DSN),
 } as const
 
 // ============================================================================
@@ -116,10 +116,10 @@ export const observability = {
  */
 export const timeouts = {
   /** Sync request timeout */
-  syncRequest: parseInt(import.meta.env.VITE_PLOT_SYNC_TIMEOUT_MS || '30000', 10),
+  syncRequest: parseInt(import.meta.env?.VITE_PLOT_SYNC_TIMEOUT_MS || '30000', 10),
 
   /** Stream request timeout (4x sync by default) */
-  streamRequest: parseInt(import.meta.env.VITE_PLOT_STREAM_TIMEOUT_MS || '120000', 10),
+  streamRequest: parseInt(import.meta.env?.VITE_PLOT_STREAM_TIMEOUT_MS || '120000', 10),
 } as const
 
 // ============================================================================
@@ -131,7 +131,7 @@ export const timeouts = {
  */
 export const debug = {
   /** Enable verbose HTTP adapter logging */
-  httpV1Adapter: isDev && import.meta.env.VITE_DEBUG_HTTPV1 === '1',
+  httpV1Adapter: isDev && import.meta.env?.VITE_DEBUG_HTTPV1 === '1',
 
   /** Enable localStorage debug logging */
   logging: isDev && (
