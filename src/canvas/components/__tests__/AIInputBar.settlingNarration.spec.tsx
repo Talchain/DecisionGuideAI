@@ -33,15 +33,44 @@ vi.mock('../../utils/markdown', () => ({
   sanitiseMarkdown: (s: string) => s,
 }))
 
-const canvasMockState: { nodes: Array<{ id: string }> } = { nodes: [] }
+/**
+ * ROADMAP 2.134: the composer now reads the phase THROUGH `draftStreamPhaseFor`
+ * (review F2 — scoped to the open scenario) instead of the raw store field, so
+ * these two mock states carry the scenario id the real helper compares. The
+ * narration cases below all model a draft owned by the scenario that is open,
+ * which is the state they always meant.
+ */
+const SCENARIO = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa'
+
+const canvasMockState: { nodes: Array<{ id: string }>; currentScenarioId: string | null } = {
+  nodes: [],
+  currentScenarioId: SCENARIO,
+}
 vi.mock('../../store', () => ({
   useCanvasStore: (selector: (s: unknown) => unknown) => selector(canvasMockState),
 }))
 
-const draftMockState: { draftStreamPhase: string } = { draftStreamPhase: 'idle' }
-vi.mock('../../stores/draftStore', () => ({
-  useDraftStore: (selector: (s: unknown) => unknown) => selector(draftMockState),
-}))
+const draftMockState: { draftStreamPhase: string; draftStreamScenarioId: string | null } = {
+  draftStreamPhase: 'idle',
+  draftStreamScenarioId: SCENARIO,
+}
+/**
+ * Only the HOOK is stubbed — `importOriginal` keeps every other export real.
+ *
+ * The previous factory listed `useDraftStore` alone, which REPLACES the module:
+ * the moment the component imported a second symbol from it, the spec died at
+ * render with "No draftStreamPhaseFor export is defined on the mock". That is
+ * trap 12 in a `vi.mock` factory, the same shape that once killed 51 tests here.
+ * Spreading the original also means the derived ownership rule under test is the
+ * one the component ships with, not a copy.
+ */
+vi.mock('../../stores/draftStore', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../stores/draftStore')>()
+  return {
+    ...actual,
+    useDraftStore: (selector: (s: unknown) => unknown) => selector(draftMockState),
+  }
+})
 
 vi.mock('../../hooks/useStageAwarePlaceholder', () => ({
   useStageAwarePlaceholder: () => 'Ask about this model…',
@@ -88,7 +117,9 @@ const SETTLING_LINE = SETTLING_STAGES[0].message
 
 beforeEach(() => {
   canvasMockState.nodes = []
+  canvasMockState.currentScenarioId = SCENARIO
   draftMockState.draftStreamPhase = 'idle'
+  draftMockState.draftStreamScenarioId = SCENARIO
   conversationMockState.isThinking = false
   conversationMockState.messages = []
 })

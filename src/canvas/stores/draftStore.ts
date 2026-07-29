@@ -261,6 +261,33 @@ export function draftValuesAreUnsettled(phase: DraftStreamPhase): boolean {
 }
 
 /**
+ * The phases in which a streamed draft turn is STILL RUNNING — so the user can
+ * still stop it, and a Stop affordance is honest (ROADMAP 2.134).
+ *
+ * Note this is NOT the complement of `draftValuesAreUnsettled`, and the overlap
+ * is the whole point: `settling` is both *unsettled* (its numbers are the
+ * frame's `in_progress` ones, so the run gate stays shut) and *in flight* (the
+ * turn runs on to ~61 s, so Stop still means something). `unsettled` is the
+ * terminal state a stop PRODUCES — a Stop control offered over it would be a
+ * control that stops nothing.
+ *
+ * Exhaustive over the union rather than expressed as a two-clause boolean at the
+ * call site, for the reason the M15 survivor taught: a derivation that lives in
+ * a component is a derivation no test can see, and a mutant that drops a clause
+ * from it survives. A fifth phase is a compile error here.
+ */
+export function draftStreamInFlight(phase: DraftStreamPhase): boolean {
+  switch (phase) {
+    case 'drafting':
+    case 'settling':
+      return true
+    case 'idle':
+    case 'unsettled':
+      return false
+  }
+}
+
+/**
  * May the UI persist `scenarios.graph` for this scenario right now?
  *
  * **NO while its streamed draft's values are in progress** (review F1).
