@@ -179,14 +179,20 @@ function contestedStyleSignature(s: React.CSSProperties) {
   return { stroke: s.stroke, strokeDasharray: s.strokeDasharray }
 }
 
+/** The same edge data with its `validation` key removed — the control render. */
+function withoutValidation(data: Record<string, unknown>): Record<string, unknown> {
+  const copy = { ...data }
+  delete copy.validation
+  return copy
+}
+
 /**
  * Assert `data` renders IDENTICALLY to the same data with `validation` removed.
  * Returns both signatures so a caller can add a sharper assertion on top.
  */
 function expectStyledAsIfNoValidation(data: Record<string, unknown>) {
   const withValidation = contestedStyleSignature(renderEdge(data))
-  const { validation: _dropped, ...withoutValidation } = data
-  const control = contestedStyleSignature(renderEdge(withoutValidation))
+  const control = contestedStyleSignature(renderEdge(withoutValidation(data)))
   expect(withValidation).toEqual(control)
   return { withValidation, control }
 }
@@ -242,8 +248,7 @@ describe('StyledEdge — contested visual styling', () => {
       validation: makeValidation({ max_divergence: 0.6 }),
     }
     const withValidation = contestedStyleSignature(renderEdge(data))
-    const { validation: _dropped, ...bare } = data
-    const control = contestedStyleSignature(renderEdge(bare))
+    const control = contestedStyleSignature(renderEdge(withoutValidation(data)))
 
     expect(withValidation).not.toEqual(control)
     expect(withValidation.stroke).toContain('--semantic-warning')

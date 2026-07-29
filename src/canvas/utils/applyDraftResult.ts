@@ -18,6 +18,7 @@ import { saveAutosave } from '../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
 import { hasAnalysisReady } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEGoalConstraint, CEEv2Response, CEEv3Response, EffectDirection } from '../../adapters/cee/types'
+import type { ValidationMetadata } from '../domain/validation'
 import { commitDraftCoachingToStore, edgeProvenanceDisplayPatch } from './draftIngestion'
 import { logger } from '../../lib/logger'
 import { validateNodesBatch } from '../domain/nodes'
@@ -139,8 +140,19 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
   // DEFAULT_EDGE_DATA: `overlayEdge` treats a mapped value equal to the mapper
   // baseline as "the wire did not supply this", so a non-undefined default here
   // would silently stop validation metadata overlaying onto an existing edge.
+  //
+  // The cast is a DECLARED BOUNDARY ASSUMPTION, not a validated narrowing (see
+  // the identical note in the hop-2 twin): the wire schema is
+  // `z.unknown().optional()` on purpose while the canvas `data` bag types it
+  // `ValidationMetadata`, and every consumer null-guards. Written the same way in
+  // both mappers on purpose — the two are supposed to be byte-equivalent, and a
+  // difference here would be the first crack in the mirror this comment warns
+  // about. (This function's declared return type is `any`, so TypeScript would
+  // NOT have flagged an inconsistency; the hop-2 twin is typed and does.)
   const validation =
-    e.validation !== undefined && e.validation !== null ? e.validation : undefined
+    e.validation !== undefined && e.validation !== null
+      ? (e.validation as ValidationMetadata)
+      : undefined
 
   return {
     id,
