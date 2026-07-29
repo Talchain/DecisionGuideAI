@@ -531,9 +531,19 @@ function readEnrichmentFactors(report: ResultsReport): unknown[] | null {
  * wrapper rather than a bare array, so callers unwrap with `safeArray` or
  * validate for themselves. Never throws, never defaults to `[]` — an absent
  * key must stay distinguishable from an empty one.
+ *
+ * The top-level read is plain (the key is declared on `ResultsReport`). The
+ * legacy nested slot keeps ONE narrow cast, deliberately: declaring a member on
+ * `ResultsReport['robustness']` — an inline object type — changes the
+ * elided-member counter tsc prints inside four unrelated baselined diagnostics
+ * in this file, which trips `typecheck:selftest`'s clean-tree control. See the
+ * note at that slot in `types.ts`.
  */
 function readInferenceWarnings(report: ResultsReport | null | undefined): unknown {
-  return report?.inference_warnings ?? report?.robustness?.inference_warnings
+  return (
+    report?.inference_warnings ??
+    (report?.robustness as { inference_warnings?: unknown } | undefined)?.inference_warnings
+  )
 }
 
 /** Labels play no part in policy keys/metrics (getFactorKey resolves ids

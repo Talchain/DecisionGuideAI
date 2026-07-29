@@ -1067,14 +1067,18 @@ export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
     display_verdict?: string
     display_verdict_reason?: string
     flip_thresholds?: Array<Record<string, unknown>>
-    /**
-     * LEGACY slot for `inference_warnings`. The V4/V2 mapper nests them here
-     * (`adapters/plot/v2/responseMapper.ts`); the V5 mapper writes the ROOT key
-     * above. Measured over all 773 live non-noop `run_analysis` facts on staging
-     * (2026-07-29): root 773/773, robustness 0/773 — see
-     * `canvas/stores/persistedRunSnapshotFactory.ts`. Both are read, root first.
-     */
-    inference_warnings?: unknown[]
+    // ⚠ `inference_warnings` is DELIBERATELY NOT DECLARED HERE, even though the
+    // V4/V2 mapper nests it in this slot. Adding a member to this INLINE object
+    // type changes the elided-member counter TypeScript prints inside four
+    // unrelated baselined diagnostics in `useResultsSectionData.ts`
+    // ("… 8 more …" → "… 9 more …"), which makes the typecheck gate emit its
+    // identity-diff notice on a clean tree — and `typecheck:selftest`'s green
+    // control asserts that notice does NOT appear on a clean tree. So declaring
+    // it here reds a required check for a purely cosmetic reason.
+    // `readInferenceWarnings()` in `useResultsSectionData.ts` reads this slot
+    // through one narrow cast instead, and it is the LEGACY slot regardless:
+    // measured 0/773 on live staging facts (root 773/773) — see
+    // `canvas/stores/persistedRunSnapshotFactory.ts`.
     _truncation?: {
       fragile_truncated: boolean
       fragile_total: number
