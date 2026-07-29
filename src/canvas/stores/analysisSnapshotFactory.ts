@@ -20,9 +20,27 @@ import {
 
 export interface BuildSnapshotParams {
   rawV2Response: V2RunResponse
-  report: ReportV1
-  nodes: Node[]
-  edges: Edge[]
+  /**
+   * Unused by this factory (kept in the signature only because every live
+   * caller already holds it and dropping it from the call sites would be
+   * churn). Optional so a caller rebuilding a PAST run from a persisted fact
+   * — which has no ReportV1 — is not forced to invent one.
+   */
+  report?: ReportV1 | null
+  /**
+   * The graph the analysis was computed over.
+   *
+   * `null` when the caller does not HAVE it — the persisted-run rebuild path
+   * (`persistedRunSnapshotFactory`): a `run_analysis` fact stores the
+   * analysis, not the model. Passing `[]` instead would be a fabrication with
+   * three separate consequences, all silent: `generateGraphHash([], [])` is a
+   * real hash of an empty graph (so two rebuilt runs would compare EQUAL and
+   * assert "structure unchanged"), `nodeCount`/`edgeCount` would read 0, and
+   * `evidenceCoverage` would read "0/0" — a verdict of "no evidence anywhere"
+   * that nobody measured. Absence is preserved as null instead (T2b).
+   */
+  nodes: Node[] | null
+  edges: Edge[] | null
   runNumber: number
   events: ScenarioEvent[]
   previousSnapshotTimestamp: string | null
@@ -112,15 +130,17 @@ function extractConditionalWinners(
 
 function extractEdgeEValues(
   robustness: V2RunResponse['robustness'],
-  nodes: Node[],
-  _edges: Edge[],
+  nodes: Node[] | null,
+  _edges: Edge[] | null,
 ): AnalysisSnapshot['edgeEValues'] {
   const raw = (robustness as Record<string, unknown> | undefined)?.edge_e_values
   if (!Array.isArray(raw)) return []
 
-  // Build node label lookup
+  // Build node label lookup. Absent nodes (persisted-run rebuild) degrade to
+  // the raw edge ids below — the same fallback an unlabelled node already
+  // takes, so no branch is added and no label is invented.
   const nodeLabels = new Map<string, string>()
-  for (const n of nodes) {
+  for (const n of nodes ?? []) {
     const data = n.data as Record<string, unknown> | undefined
     if (data?.label) nodeLabels.set(n.id, String(data.label))
   }
@@ -295,9 +315,13 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
     runId: crypto.randomUUID(),
     runNumber,
     timestamp: new Date().toISOString(),
-    graphHash: generateGraphHash(nodes, edges),
-    nodeCount: nodes.length,
-    edgeCount: edges.length,
+    // The graph-derived block. All four fields stand or fall together with
+    // `nodes`/`edges`: they are facts ABOUT THE MODEL, and a caller rebuilding
+    // a past ANALYSIS does not have the model. See BuildSnapshotParams.nodes.
+    source: 'session',
+    graphHash: nodes != null && edges != null ? generateGraphHash(nodes, edges) : null,
+    nodeCount: nodes != null ? nodes.length : null,
+    edgeCount: edges != null ? edges.length : null,
 
     winnerId: winner?.option_id ?? '',
     winnerLabel: winner?.option_label ?? '',
@@ -319,7 +343,7 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
       ? robustness.fragile_edges.length
       : null,
 
-    evidenceCoverage: computeEvidenceCoverage(nodes),
+    evidenceCoverage: nodes != null ? computeEvidenceCoverage(nodes) : null,
 
     topFactors,
     influenceConcentration: computeInfluenceConcentration(factors),

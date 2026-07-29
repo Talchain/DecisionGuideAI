@@ -19,7 +19,15 @@ function stabilityImproving(from: string | null, to: string | null): boolean {
   return order.indexOf(to) > order.indexOf(from)
 }
 
-function coverageImproving(from: string, to: string): boolean {
+/**
+ * T2b, same rule as `stabilityImproving` above: coverage that was never
+ * measured at one end cannot be "improving". A run rebuilt from a persisted
+ * `run_analysis` fact has no graph, so it has no coverage — and `parseInt`
+ * over a null (or the "0/0" a fabricating factory would have produced) would
+ * manufacture a rise out of that absence.
+ */
+function coverageImproving(from: string | null, to: string | null): boolean {
+  if (from == null || to == null) return false
   // "3/5" format — compare numerators
   const fromNum = parseInt(from.split('/')[0], 10) || 0
   const toNum = parseInt(to.split('/')[0], 10) || 0
@@ -38,8 +46,11 @@ export function HealthIndicators({ first, latest }: HealthIndicatorsProps) {
     },
     {
       label: 'Evidence coverage',
-      from: first.evidenceCoverage,
-      to: latest.evidenceCoverage,
+      // T2b: null means the run carries no graph to count factor evidence
+      // over (a run rebuilt from a persisted analysis fact). Say so, exactly
+      // as the stability row above does.
+      from: first.evidenceCoverage ?? 'Not assessed',
+      to: latest.evidenceCoverage ?? 'Not assessed',
       up: coverageImproving(first.evidenceCoverage, latest.evidenceCoverage),
     },
     {

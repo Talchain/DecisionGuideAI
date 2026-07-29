@@ -11,6 +11,7 @@ function makeSnapshot(overrides: Partial<AnalysisSnapshot> & { runNumber: number
     runId: `run-${overrides.runNumber}`,
     runNumber: overrides.runNumber,
     timestamp: new Date().toISOString(),
+    source: 'session',
     graphHash: 'hash-default',
     nodeCount: 5,
     edgeCount: 4,

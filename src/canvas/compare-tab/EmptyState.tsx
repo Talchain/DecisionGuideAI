@@ -7,7 +7,7 @@ interface EmptyStateProps {
 
 export function EmptyState({ onViewResults }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center px-6 py-10 text-center">
+    <div className="flex flex-col items-center px-6 py-10 text-center" data-testid="compare-empty-state">
       <TrendingUp size={36} className="text-panel-border" />
       <div className={`${typography.panelHeader} text-text-body mt-3 mb-1.5`}>
         Refine your model and run the analysis again

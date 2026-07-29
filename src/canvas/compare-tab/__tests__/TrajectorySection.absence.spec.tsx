@@ -23,6 +23,7 @@ function snapshot(overrides: Partial<AnalysisSnapshot> = {}): AnalysisSnapshot {
     runId: 'run-1',
     runNumber: 1,
     timestamp: '2026-02-20T10:00:00Z',
+    source: 'session',
     graphHash: 'hash-1',
     nodeCount: 2,
     edgeCount: 1,

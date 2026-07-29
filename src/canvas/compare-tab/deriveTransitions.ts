@@ -95,12 +95,37 @@ function deriveDeterministicAnchor(
 // Structure change detection
 // ---------------------------------------------------------------------------
 
-function detectStructureChange(from: AnalysisSnapshot, to: AnalysisSnapshot): boolean {
+/**
+ * Can these two snapshots' `graphHash` values be compared at all?
+ *
+ * ⚠ HASH REGIMES NEVER COMPARE. A session snapshot's hash is the UI's
+ * `generateGraphHash(nodes, edges)`; a persisted run's is CEE's
+ * analysis-affecting `aag_v1` (`result.graph_hash_at_run`). Two hashes from
+ * different regimes are ALWAYS unequal, so an unguarded `!==` would assert
+ * "structure changed" on every transition from a rebuilt run into a
+ * session-captured one — a claim about the user's model manufactured entirely
+ * out of a provenance boundary. Absence is likewise not evidence: 55 of the
+ * 773 live persisted runs carry no hash at all.
+ */
+function hashesAreComparable(from: AnalysisSnapshot, to: AnalysisSnapshot): boolean {
   return (
-    from.graphHash !== to.graphHash ||
-    from.nodeCount !== to.nodeCount ||
-    from.edgeCount !== to.edgeCount
+    from.graphHash != null &&
+    to.graphHash != null &&
+    from.source === to.source
   )
+}
+
+/**
+ * T2b: a structure CHANGE is only claimable from a signal that was actually
+ * measured at BOTH ends. Where no comparable signal exists the answer is
+ * "no evidence of a change" — the same posture `robustnessChanged` already
+ * takes — not "changed".
+ */
+function detectStructureChange(from: AnalysisSnapshot, to: AnalysisSnapshot): boolean {
+  if (hashesAreComparable(from, to) && from.graphHash !== to.graphHash) return true
+  if (from.nodeCount != null && to.nodeCount != null && from.nodeCount !== to.nodeCount) return true
+  if (from.edgeCount != null && to.edgeCount != null && from.edgeCount !== to.edgeCount) return true
+  return false
 }
 
 // ---------------------------------------------------------------------------
@@ -242,9 +267,10 @@ export function buildCumulativeTransition(snapshots: AnalysisSnapshot[]): Transi
     caveats.push(`Result flipped ${flipCount === 1 ? 'once' : `${flipCount} times`}`)
   }
 
-  // Check for any structure changes
+  // Check for any structure changes. Same regime guard as the pairwise case —
+  // a cross-source or absent-ended hash pair is no evidence, not a change.
   const structureChanged = snapshots.slice(1).some((s, i) =>
-    s.graphHash !== snapshots[i].graphHash
+    hashesAreComparable(snapshots[i], s) && s.graphHash !== snapshots[i].graphHash
   )
   if (structureChanged) {
     caveats.push('Structure changed during this period')

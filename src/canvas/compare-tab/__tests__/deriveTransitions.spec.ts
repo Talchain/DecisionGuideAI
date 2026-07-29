@@ -21,6 +21,7 @@ function makeSnapshot(overrides: Partial<AnalysisSnapshot> & { runNumber: number
     runId: `run-${overrides.runNumber}`,
     runNumber: overrides.runNumber,
     timestamp: new Date().toISOString(),
+    source: 'session',
     graphHash: 'hash-default',
     nodeCount: 5,
     edgeCount: 4,
@@ -195,6 +196,54 @@ describe('deriveTransitions', () => {
         makeSnapshot({ runNumber: 2 }),
       ]
       expect(deriveTransitions(snapshots)[0].structureChanged).toBe(false)
+    })
+
+    // ⚠ HASH REGIMES NEVER COMPARE (ROADMAP 2.113a slice 1).
+    // A session snapshot's graphHash is the UI's generateGraphHash; a
+    // persisted run's is CEE's analysis-affecting aag_v1. They are ALWAYS
+    // unequal, so an unguarded `!==` would assert "structure changed" on
+    // every transition across the provenance boundary — a claim about the
+    // user's model manufactured out of where the data was read from.
+    it('does NOT claim a structure change across two different hash regimes', () => {
+      const snapshots = [
+        makeSnapshot({ runNumber: 1, source: 'persisted', graphHash: 'aag_v1_abc' }),
+        makeSnapshot({ runNumber: 2, source: 'session', graphHash: 'ui_hash_xyz' }),
+      ]
+      expect(deriveTransitions(snapshots)[0].structureChanged).toBe(false)
+    })
+
+    it('DOES compare hashes within one regime (the guard is not a blanket off-switch)', () => {
+      const snapshots = [
+        makeSnapshot({ runNumber: 1, source: 'persisted', graphHash: 'aag-1' }),
+        makeSnapshot({ runNumber: 2, source: 'persisted', graphHash: 'aag-2' }),
+      ]
+      expect(deriveTransitions(snapshots)[0].structureChanged).toBe(true)
+    })
+
+    it('an absent hash at either end is no evidence, not a change', () => {
+      const snapshots = [
+        makeSnapshot({ runNumber: 1, source: 'persisted', graphHash: null }),
+        makeSnapshot({ runNumber: 2, source: 'persisted', graphHash: 'aag-2' }),
+      ]
+      expect(deriveTransitions(snapshots)[0].structureChanged).toBe(false)
+    })
+
+    it('null node/edge counts are no evidence, not a change (persisted runs carry no graph)', () => {
+      const snapshots = [
+        makeSnapshot({ runNumber: 1, source: 'persisted', graphHash: 'aag-1', nodeCount: null, edgeCount: null }),
+        makeSnapshot({ runNumber: 2, source: 'persisted', graphHash: 'aag-1', nodeCount: null, edgeCount: null }),
+      ]
+      expect(deriveTransitions(snapshots)[0].structureChanged).toBe(false)
+    })
+
+    it('cumulative caveat: no cross-regime "Structure changed during this period"', () => {
+      const snapshots = [
+        makeSnapshot({ runNumber: 1, source: 'persisted', graphHash: 'aag-1' }),
+        makeSnapshot({ runNumber: 2, source: 'persisted', graphHash: 'aag-1' }),
+        makeSnapshot({ runNumber: 3, source: 'session', graphHash: 'ui-hash' }),
+      ]
+      const cumulative = buildCumulativeTransition(snapshots)!
+      expect(cumulative.cumulativeCaveats).not.toContain('Structure changed during this period')
     })
   })
 

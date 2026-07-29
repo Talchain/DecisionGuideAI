@@ -19,17 +19,59 @@ export interface FactorSensitivitySummary {
   attributionStability: string
 }
 
+/**
+ * Where a snapshot came from, and — inseparably — which HASH REGIME its
+ * `graphHash` belongs to. The two are one fact, so they are one field:
+ * a second `graphHashFamily` field would be a hand-maintained mirror of this
+ * one (CLAUDE.md trap 12).
+ *
+ *   • 'session'   captured in this browser session at `resultsComplete` from
+ *                 the live canvas. `graphHash` is the UI's own
+ *                 `generateGraphHash(nodes, edges)`.
+ *   • 'persisted' rebuilt from a `v5_handler_facts` `run_analysis` row.
+ *                 `graphHash` is CEE's ANALYSIS-AFFECTING hash (`aag_v1`)
+ *                 as stored in `result.graph_hash_at_run`.
+ *
+ * ⚠ THE REGIMES NEVER COMPARE. Three different hashes over "the graph" exist
+ * in this estate (UI `generateGraphHash`, CEE identity, CEE `aag_v1`); the
+ * `model_versions` and `decision_records` DDL both say so explicitly. Any
+ * code comparing two `graphHash` values MUST first check that both snapshots
+ * share a `source` — see `detectStructureChange` in deriveTransitions.ts.
+ */
+export type SnapshotSource = 'session' | 'persisted'
+
 export interface AnalysisSnapshot {
   runId: string
   /** Sequential, 1-indexed */
   runNumber: number
   /** ISO 8601 */
   timestamp: string
-  /** From generateGraphHash(nodes, edges) */
-  graphHash: string
-  /** For structure-change detection alongside graphHash */
-  nodeCount: number
-  edgeCount: number
+  /**
+   * Provenance AND hash regime. See {@link SnapshotSource} — comparing
+   * `graphHash` across two different sources is meaningless.
+   */
+  source: SnapshotSource
+  /**
+   * 'session': `generateGraphHash(nodes, edges)`.
+   * 'persisted': `result.graph_hash_at_run` (`aag_v1`).
+   *
+   * T2b absence-preserving: null when the run carries no hash at all. 55 of
+   * the 773 live persisted runs have no `graph_hash_at_run`; a fabricated ''
+   * would make two such runs compare EQUAL and silently assert "structure
+   * unchanged" about two runs nobody measured.
+   */
+  graphHash: string | null
+  /**
+   * For structure-change detection alongside graphHash.
+   *
+   * T2b absence-preserving: null when the graph the run was computed over is
+   * not available. A run rebuilt from a persisted fact has no graph — the
+   * fact stores the analysis, not the model — so these are null there. A
+   * fabricated 0 would report "the model lost every node" on the first
+   * transition into a session snapshot.
+   */
+  nodeCount: number | null
+  edgeCount: number | null
 
   // Winner/runner-up (from option_comparison sorted by win_probability desc)
   winnerId: string
@@ -54,8 +96,17 @@ export interface AnalysisSnapshot {
   fragileEdgeCount: number | null
 
   // Evidence
-  /** "3/5" format */
-  evidenceCoverage: string
+  /**
+   * "3/5" format — factor nodes carrying observed data, over all factor nodes.
+   *
+   * T2b absence-preserving: null when the run was rebuilt from a persisted
+   * fact, because the quantity is derived from the GRAPH and the fact stores
+   * only the analysis. "0/0" would be a fabricated verdict ("no evidence
+   * anywhere"), and `coverageImproving` would then read a rise out of it.
+   * Renders as "Not assessed", the same treatment `recommendationStability`
+   * and `fragileEdgeCount` already get.
+   */
+  evidenceCoverage: string | null
 
   // Factor sensitivity — top 5 for transition derivation
   topFactors: FactorSensitivitySummary[]
