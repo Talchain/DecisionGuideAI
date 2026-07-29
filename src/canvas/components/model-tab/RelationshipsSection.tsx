@@ -26,6 +26,7 @@ import type { Edge, Node } from '@xyflow/react'
 import { AlertTriangle, Link as LinkIcon, MessageCircle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
+import { useEdgeMutations } from '../../ui/inspector-v2/useInspectorMutations'
 import { SectionErrorBoundary } from '../GraphTextView'
 import { Accordion } from '../../../components/results/Accordion'
 import { getDisplayEdgeId } from '../../utils/edgeIdentity'
@@ -108,10 +109,16 @@ function EdgeCard({
     }
   }, [isSelected])
   const { showDetail } = useContext(DetailToggleContext)
-  const updateEdge = useCanvasStore(s => s.updateEdge)
 
   const edgeId = getDisplayEdgeId(edge)
   const data = edge.data as Record<string, unknown>
+
+  // ROADMAP 2.121 slice 1 — sanctioned edge setters (`EDGE_SETTER_FIELDS`),
+  // not hand-rolled `updateEdge` calls spreading a render-time `data`. The
+  // `*Source` provenance markers ride along inside the setters, in the same
+  // update as the value they describe, which is the property the old handlers
+  // maintained by convention and these maintain by construction.
+  const mutations = useEdgeMutations(edgeId)
 
   // Bidirectional row → graph hover highlight. Unmount cleanup guards against
   // tab-switch-while-hovered where onMouseLeave never fires.
@@ -191,24 +198,37 @@ function EdgeCard({
     return !isNaN(n) && n >= 0 && n <= 100
   }, [])
 
+  /**
+   * The weight chip edits the MAGNITUDE (0–2); direction is the separate toggle
+   * beside it. So the write says exactly that: `preserveDirection` — never a
+   * direction re-derived from a sign this chip does not own.
+   *
+   * The first version of this fix DID smuggle the direction through the sign
+   * (`safeDirection === 'negative' ? -n : n`) and that was a proven regression:
+   * `-0 >= 0` is `true`, so committing weight `0` on a negative edge flipped it
+   * positive, and `safeDirection` coerces an ABSENT direction to 'positive', so
+   * a magnitude-only edit fabricated a direction claim on an edge that carried
+   * none. Both are gone because the sign is no longer load-bearing here.
+   *
+   * The user typed this number, so it stops being a default (see
+   * canvas/domain/edgeValueProvenance.ts); `setStrength` writes
+   * `weightSource: 'user'` in the same update as the value.
+   */
   const handleWeightSave = useCallback((val: string) => {
     const n = parseFloat(val)
     if (isNaN(n) || n < 0 || n > 2) return
-    // The user typed this number, so it stops being a default (see
-    // canvas/domain/edgeValueProvenance.ts) — stamped in the same update as the
-    // value so the marker can never lag the number it describes.
-    updateEdge(edgeId, { data: { ...data, weight: n, weightSource: 'user' } })
-  }, [edgeId, data, updateEdge])
+    mutations.setStrength(n, { preserveDirection: true })
+  }, [mutations])
 
   const handleDirectionToggle = useCallback((dir: 'positive' | 'negative') => {
-    updateEdge(edgeId, { data: { ...data, direction: dir } })
-  }, [edgeId, data, updateEdge])
+    mutations.setDirection(dir)
+  }, [mutations])
 
   const handleLikelihoodSave = useCallback((val: string) => {
     const pct = parseFloat(val)
     if (isNaN(pct) || pct < 0 || pct > 100) return
-    updateEdge(edgeId, { data: { ...data, beliefExists: pct / 100, beliefExistsSource: 'user' } })
-  }, [edgeId, data, updateEdge])
+    mutations.setExistsProbability(pct / 100)
+  }, [mutations])
 
   return (
     <div

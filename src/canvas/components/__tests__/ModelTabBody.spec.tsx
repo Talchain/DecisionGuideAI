@@ -35,8 +35,17 @@ let mockCeePipelineTrace: unknown = null
 const mockSetHighlightedNodes = vi.fn()
 const mockSetHighlightedEdges = vi.fn()
 
+// ROADMAP 2.121 slice 1: the section components commit through
+// `useNodeMutations` / `useEdgeMutations`, which read the element back out of
+// `useCanvasStore.getState()` before writing — that read is what stops a commit
+// resurrecting a stale render-time `data` blob. A test that drives an edit must
+// put the element here as well as passing it as a prop.
+const mockGraph: { nodes: unknown[]; edges: unknown[] } = { nodes: [], edges: [] }
+
 function getMockState() {
   return {
+    nodes: mockGraph.nodes,
+    edges: mockGraph.edges,
     updateNode: mockUpdateNode,
     updateEdge: mockUpdateEdge,
     ceePipelineTrace: mockCeePipelineTrace,
@@ -195,7 +204,9 @@ describe('Inline edit — Enter/Escape/blur (value field)', () => {
   // Use factor value field for inline edit tests
 
   it('commits on blur', () => {
+    mockUpdateNode.mockClear()
     const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5 })]
+    mockGraph.nodes = nodes
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
 
     const displayEl = screen.getByTestId('factor-f1-value-display')
@@ -216,7 +227,9 @@ describe('Inline edit — Enter/Escape/blur (value field)', () => {
   })
 
   it('commits on Enter', () => {
+    mockUpdateNode.mockClear()
     const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5 })]
+    mockGraph.nodes = nodes
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
 
     const displayEl = screen.getByTestId('factor-f1-value-display')
@@ -230,7 +243,9 @@ describe('Inline edit — Enter/Escape/blur (value field)', () => {
   })
 
   it('cancels on Escape without calling updateNode', () => {
+    mockUpdateNode.mockClear()
     const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5 })]
+    mockGraph.nodes = nodes
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
 
     const displayEl = screen.getByTestId('factor-f1-value-display')

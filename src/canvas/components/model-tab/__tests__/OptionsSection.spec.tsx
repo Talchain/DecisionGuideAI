@@ -9,11 +9,21 @@ import type { Node } from '@xyflow/react'
 
 const mockUpdateNode = vi.fn()
 
-vi.mock('../../../store', () => ({
-  useCanvasStore: vi.fn((selector: (s: unknown) => unknown) =>
-    selector({ updateNode: mockUpdateNode })
-  ),
-}))
+// ROADMAP 2.121 slice 1: intervention targets commit through
+// `useNodeMutations(...).setIntervention`, which reads the node back out of
+// `useCanvasStore.getState()` before writing (that read is why the setter cannot
+// resurrect a stale render-time `data` blob the way the hand-rolled handler
+// could). The mock therefore needs a `getState`, and any test that drives an
+// edit must put the node in `mockGraph`.
+const mockGraph: { nodes: unknown[]; edges: unknown[] } = { nodes: [], edges: [] }
+
+vi.mock('../../../store', () => {
+  const useCanvasStore = Object.assign(
+    vi.fn((selector: (s: unknown) => unknown) => selector({ updateNode: mockUpdateNode })),
+    { getState: () => ({ ...mockGraph, updateNode: mockUpdateNode }) },
+  )
+  return { useCanvasStore }
+})
 
 vi.mock('../../../utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
@@ -112,9 +122,11 @@ describe('OptionsSection', () => {
     expect(screen.getByText(/Run analysis to see when each option leads and lags/)).toBeInTheDocument()
   })
 
-  it('calls updateNode when intervention value is edited', () => {
+  it('writes the intervention through the sanctioned setter when the value is edited', () => {
+    mockUpdateNode.mockClear()
     const factor = makeFactorNode('f1', 'Revenue', 100000)
     const option = makeOptionNode('opt1', 'Option', { f1: 50000 })
+    mockGraph.nodes = [factor, option]
     render(<OptionsSection optionNodes={[option]} allNodes={[factor]} />)
 
     const displayEl = screen.getByTestId('intervention-opt1-f1-display')

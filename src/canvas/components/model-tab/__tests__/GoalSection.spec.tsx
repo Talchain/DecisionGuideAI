@@ -7,11 +7,16 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { GoalSection } from '../GoalSection'
 import type { Node } from '@xyflow/react'
 
-const mockUpdateNode = vi.fn()
+// ROADMAP 2.121 slice 1: the target commit no longer hand-rolls an
+// `updateNode` — it goes through `setGoalThresholdAndUpdateNode`, the atomic
+// store+node action every other success-target editor already uses (it writes
+// the global scalar, `success_threshold`, `threshold_source` and
+// `threshold_confirmed` together, and invalidates analysis readiness).
+const mockSetGoalThresholdAndUpdateNode = vi.fn()
 
 vi.mock('../../../store', () => ({
   useCanvasStore: vi.fn((selector: (s: unknown) => unknown) =>
-    selector({ updateNode: mockUpdateNode })
+    selector({ setGoalThresholdAndUpdateNode: mockSetGoalThresholdAndUpdateNode })
   ),
 }))
 
@@ -143,7 +148,8 @@ describe('GoalSection', () => {
     expect(screen.getByTestId('model-goal-section')).toBeInTheDocument()
   })
 
-  it('calls updateNode with source: user when threshold is edited', () => {
+  it('commits the target through the canonical user-target action', () => {
+    mockSetGoalThresholdAndUpdateNode.mockClear()
     render(<GoalSection goalNode={makeGoalNode({ success_threshold: 0.75 })} />)
 
     const displayEl = screen.getByTestId('goal-threshold-display')
@@ -153,18 +159,15 @@ describe('GoalSection', () => {
     fireEvent.change(input, { target: { value: '80' } })
     fireEvent.blur(input)
 
-    expect(mockUpdateNode).toHaveBeenCalledWith(
-      'goal-1',
-      expect.objectContaining({
-        data: expect.objectContaining({
-          threshold_source: 'user',
-        }),
-      })
-    )
+    // The action is what stamps `threshold_source: 'user'` — AND moves
+    // `success_threshold` and the global scalar with it. The hand-rolled write
+    // this replaces stamped the source while leaving both numbers behind, so a
+    // stale value outranked the one the user had just typed.
+    expect(mockSetGoalThresholdAndUpdateNode).toHaveBeenCalledWith('goal-1', 80)
   })
 
-  it('persists goal_threshold_raw as the raw numeric value without conversion', () => {
-    mockUpdateNode.mockClear()
+  it('persists the target as the raw numeric value without conversion', () => {
+    mockSetGoalThresholdAndUpdateNode.mockClear()
     render(<GoalSection goalNode={makeGoalNode({
       goal_threshold_raw: 500000,
       goal_threshold_unit: '£',
@@ -177,18 +180,8 @@ describe('GoalSection', () => {
     fireEvent.change(input, { target: { value: '750000' } })
     fireEvent.blur(input)
 
-    expect(mockUpdateNode).toHaveBeenCalledWith(
-      'goal-1',
-      expect.objectContaining({
-        data: expect.objectContaining({
-          goal_threshold_raw: 750000,
-          threshold_source: 'user',
-        }),
-      })
-    )
-    // Verify no unit conversion happened — raw value is exactly what user entered
-    const writtenData = mockUpdateNode.mock.calls[0][1].data
-    expect(writtenData.goal_threshold_raw).toBe(750000)
+    // No unit conversion — exactly what the user entered, on their scale.
+    expect(mockSetGoalThresholdAndUpdateNode).toHaveBeenCalledWith('goal-1', 750000)
   })
 
   // ── Goal feasibility warning tests ──────────────────────────────────────────

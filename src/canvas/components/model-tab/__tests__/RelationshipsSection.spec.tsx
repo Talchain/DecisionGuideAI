@@ -26,6 +26,12 @@ const { mockUpdateEdge, mockStoreState } = vi.hoisted(() => {
       setHighlightedEdges,
       setHighlightedNodes,
       highlightedEdges,
+      // ROADMAP 2.121 slice 1: edge edits commit through
+      // `useEdgeMutations`, which reads the edge back out of
+      // `useCanvasStore.getState().edges` before writing — that read is what
+      // stops a commit resurrecting a stale render-time `data` blob. Any test
+      // that drives an edge edit must put the edge here.
+      edges: [] as unknown[],
     },
   }
 })
@@ -302,8 +308,10 @@ describe('RelationshipsSection', () => {
     expect(screen.getByTestId('edge-e1-likelihood-display')).toHaveTextContent('85')
   })
 
-  it('calls updateEdge when likelihood is edited', () => {
+  it('writes the belief through the sanctioned setter when likelihood is edited', () => {
+    mockUpdateEdge.mockClear()
     const edges = [makeEdge('e1', 'f1', 'f2', { beliefExists: 0.7 })]
+    mockStoreState.edges = edges
     render(<RelationshipsSection edges={edges} nodes={nodes} />)
     // Click to expand card (progressive disclosure)
     fireEvent.click(screen.getByTestId('edge-card-e1'))

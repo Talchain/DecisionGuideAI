@@ -11,7 +11,7 @@ import { useCallback, useContext, useMemo } from 'react'
 import type { Node } from '@xyflow/react'
 import { ArrowRight, MessageCircle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
-import { useCanvasStore } from '../../store'
+import { useNodeMutations } from '../../ui/inspector-v2/useInspectorMutations'
 import { SectionErrorBoundary } from '../GraphTextView'
 import { Accordion } from '../../../components/results/Accordion'
 import { focusNodeById } from '../../utils/focusHelpers'
@@ -169,7 +169,9 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
   hasAnalysisData?: boolean
 }) {
   const { showDetail } = useContext(DetailToggleContext)
-  const updateNode = useCanvasStore(s => s.updateNode)
+  // ROADMAP 2.121 slice 1 — sanctioned setter (`NODE_SETTER_FIELDS.setIntervention`),
+  // not a hand-rolled updateNode that spread a render-time `option.data`.
+  const mutations = useNodeMutations(option.id)
 
   const label = String(option.data?.label ?? option.id)
   const interventions = buildInterventions(option, allNodes)
@@ -188,17 +190,17 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
     return Math.abs(iv.currentValue - baseline) < 0.001
   })
 
+  // An intervention target is not a factor value, so there is no
+  // value-carrying wire event for it: `factor_value_edit.field` is the literal
+  // `'value'` and it is the only value-bearing edit the contract supports. This
+  // edit therefore reaches CEE only as the debounced `direct_graph_edit` ping —
+  // stated here rather than implied, and rowed as open question 1 in the design
+  // doc. What slice 1 fixes is the WRITE: it goes through the manifest setter.
   const handleInterventionSave = useCallback((factorId: string, val: string) => {
     const num = parseFloat(val)
     if (isNaN(num)) return
-    const existing = (option.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
-    updateNode(option.id, {
-      data: {
-        ...option.data,
-        interventions: { ...existing, [factorId]: num },
-      },
-    })
-  }, [option, updateNode])
+    mutations.setIntervention(factorId, num)
+  }, [mutations])
 
   return (
     <div className="bg-panel-hover rounded-lg p-2.5 mb-2 last:mb-0" data-testid={`option-card-${option.id}`}>

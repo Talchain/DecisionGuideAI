@@ -16,8 +16,10 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'r
 import type { Node } from '@xyflow/react'
 import { Check, MessageCircle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
-import { useCanvasStore } from '../../store'
 import { SectionErrorBoundary } from '../GraphTextView'
+import { useNodeMutations } from '../../ui/inspector-v2/useInspectorMutations'
+import { useOptionalConversationContext } from '../../conversation/ConversationContext'
+import { buildFactorValueEditEvent } from '../../conversation/factorValueEdit'
 import { Accordion } from '../../../components/results/Accordion'
 import { focusNodeById } from '../../utils/focusHelpers'
 import { formatSmartNumber, formatValueWithUnit, getPrimaryValue, countFactorsToVerify } from './utils'
@@ -152,7 +154,26 @@ function FactorCard({
   }, [isSelected])
   const { showDetail } = useContext(DetailToggleContext)
   const [cardExpanded, setCardExpanded] = useState(false)
-  const updateNode = useCanvasStore(s => s.updateNode)
+
+  // ROADMAP 2.121 slice 1 — the Model tab writes through the SANCTIONED setters
+  // (the `NODE_SETTER_FIELDS` manifest the writtenFields guard spec enforces),
+  // never a hand-rolled `updateNode`. The four hand-rolled handlers that used to
+  // live below spread a `data` object captured at RENDER time back over the node
+  // on every commit, and one of them (`handleRawValueSave`) wrote `raw_value`
+  // without recomputing the model-scale `value`.
+  const mutations = useNodeMutations(node.id)
+
+  // ROADMAP 2.121 slice 1 / #513 — a Model-tab value commit is a REAL TURN.
+  //
+  // Optional by design, exactly as `FactorControllablePanel` does it: the Model
+  // tab renders in surfaces that are not inside the ConversationProvider (and in
+  // unit tests), and a missing provider must degrade to "local edit only", never
+  // throw. Routing through the context's `sendSystemEvent` is also what puts
+  // these edits behind `useConversation`'s deferral buffer — an edit committed
+  // during a running analysis is queued and flushed when the in-flight lock
+  // clears, identically to an inspector edit. A private transport here would
+  // have bypassed that.
+  const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
 
   const data = node.data as Record<string, unknown>
   const label = String(data?.label ?? node.id)
@@ -179,47 +200,92 @@ function FactorCard({
 
   const validateNumeric = useCallback((s: string) => !isNaN(parseFloat(s)), [])
 
-  const handleValueSave = useCallback((val: string) => {
+  /**
+   * ONE commit path for BOTH value inputs — the raw-value chip and the
+   * normalised-value chip. It used to be two handlers, and that duplication was
+   * the split-brain: the raw one wrote `raw_value` and left the model-scale
+   * `value` at its old number, so the card showed the new figure while the
+   * engine kept consuming the old one.
+   *
+   * `buildFactorValueEditEvent` owns the scale contract (`resolveValueInputSeed`
+   * decides, from the node's OWN cap/unit, whether the typed number is a
+   * user-unit magnitude or an already-model-scale one; `normaliseRawFactorValue`
+   * does the conversion). That is why one handler can serve both chips: the
+   * scale is derived from the node, not from which chip was clicked. Building
+   * the event FIRST and feeding both the store write and the wire from it is
+   * what makes the two structurally unable to disagree.
+   */
+  const handleValueCommit = useCallback((val: string) => {
     const num = parseFloat(val)
     if (isNaN(num)) return
-    updateNode(node.id, {
-      data: { ...data, observedState: { ...obs, value: num, source: 'user' } },
-    })
-  }, [node.id, data, obs, updateNode])
 
-  const handleRawValueSave = useCallback((val: string) => {
-    const num = parseFloat(val)
-    if (isNaN(num)) return
-    updateNode(node.id, {
-      data: { ...data, observedState: { ...obs, raw_value: num, source: 'user' } },
+    const event = buildFactorValueEditEvent({
+      nodeId: node.id,
+      typedValue: num,
+      // The node's data as it is BEFORE the local write — its cap/unit is what
+      // decides the scale of what the user typed.
+      nodeData: data,
     })
-  }, [node.id, data, obs, updateNode])
+    // Fail CLOSED: an unencodable edit (no id, non-finite number) writes
+    // nothing rather than committing a number the wire cannot carry.
+    if (!event) return
+    const { value: modelValue, raw_value: rawMagnitude } = event.payload as {
+      value: number
+      raw_value?: number
+    }
 
+    // Local write first, in ONE update: value + raw_value + the provenance
+    // stamp. `source: 'user'` is preserved from the old handlers — it is what
+    // flips the pill to "User edited" and drops the factor out of the
+    // "N to verify" count.
+    mutations.setObservedValue(modelValue, rawMagnitude, { source: 'user' })
+
+    // Then the wire. Before this, the chain ENDED at the store write: the edit
+    // never reached CEE, its graph_hash never moved, and the re-run the
+    // freshness strip invited could not possibly reflect the change.
+    if (!sendSystemEvent) return
+    void Promise.resolve(sendSystemEvent(event)).catch(() => {
+      // Swallowed deliberately: a genuine send failure is already recorded by
+      // the conversation's own failure channel (see FactorControllablePanel for
+      // why this catch is NOT what protects an edit made during a running
+      // analysis — the dispatcher's deferral buffer is).
+    })
+  }, [node.id, data, mutations, sendSystemEvent])
+
+  /**
+   * Baseline is NOT the value, and no longer pretends to be.
+   *
+   * The old handler stamped `observedState.source = 'user'` on a baseline edit.
+   * `source` describes the provenance of the observed VALUE — it drives the
+   * "AI estimate" pill and the "N to verify" count — so stamping it here
+   * asserted that the user had confirmed a number they never touched. The
+   * sanctioned setter writes the baseline and nothing else, which is the honest
+   * write; the false provenance claim goes with the handler.
+   */
   const handleBaselineSave = useCallback((val: string) => {
     const num = parseFloat(val)
     if (isNaN(num)) return
-    updateNode(node.id, {
-      data: { ...data, observedState: { ...obs, baseline: num, source: 'user' } },
-    })
-  }, [node.id, data, obs, updateNode])
+    mutations.setObservedBaseline(num)
+  }, [mutations])
 
+  // `setPriorRange` commits BOTH bounds, which also closes a latent bug in the
+  // old per-bound handlers: on a SYNTHESISED prior (the displayed bounds come
+  // from the repair map, not from `data.prior`) writing one bound left
+  // `hasExplicitPrior` false, so the card kept rendering the synthesised pair
+  // and the user's edit was invisible. Both chips only render when both bounds
+  // are known, and the guard below fails closed if that ever stops holding
+  // rather than writing an `undefined` bound.
   const handlePriorMinSave = useCallback((val: string) => {
     const num = parseFloat(val)
-    if (isNaN(num)) return
-    const prior = (data?.prior as Record<string, unknown>) ?? {}
-    updateNode(node.id, {
-      data: { ...data, prior: { ...prior, range_min: num } },
-    })
-  }, [node.id, data, updateNode])
+    if (isNaN(num) || priorRangeMax === undefined) return
+    mutations.setPriorRange(num, priorRangeMax)
+  }, [mutations, priorRangeMax])
 
   const handlePriorMaxSave = useCallback((val: string) => {
     const num = parseFloat(val)
-    if (isNaN(num)) return
-    const prior = (data?.prior as Record<string, unknown>) ?? {}
-    updateNode(node.id, {
-      data: { ...data, prior: { ...prior, range_max: num } },
-    })
-  }, [node.id, data, updateNode])
+    if (isNaN(num) || priorRangeMin === undefined) return
+    mutations.setPriorRange(priorRangeMin, num)
+  }, [mutations, priorRangeMin])
 
   // Task 7: Coaching on defaulted controllable factors
   const isDefaultedControllable =
@@ -243,11 +309,14 @@ function FactorCard({
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (flashTimerRef.current) clearTimeout(flashTimerRef.current) }, [])
 
+  // Confirm changes the PROVENANCE of the existing number, not the number. It
+  // therefore has no value to put on the wire (`factor_value_edit.field` is the
+  // literal `'value'` and the contract carries no confirm event), and routes
+  // through the sanctioned source setter only. Stated plainly rather than
+  // hidden: a confirm is a local annotation today, not a turn.
   const handleConfirmValue = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
-    updateNode(node.id, {
-      data: { ...data, observedState: { ...obs, source: 'user' } },
-    })
+    mutations.setObservedSource('user')
     // Flash success
     setConfirmFlash(true)
     flashTimerRef.current = setTimeout(() => setConfirmFlash(false), 300)
@@ -256,7 +325,7 @@ function FactorCard({
       sessionStorage.setItem(coachingDismissKey, '1')
       setCoachingDismissed(true)
     }
-  }, [node.id, data, obs, updateNode, isDefaultedControllable, coachingDismissed, coachingDismissKey])
+  }, [mutations, isDefaultedControllable, coachingDismissed, coachingDismissKey])
 
   const uncertaintyDrivers = obs.uncertainty_drivers
 
@@ -344,7 +413,7 @@ function FactorCard({
               <InlineEdit
                 value={String(obs.raw_value ?? obs.value ?? '')}
                 displayValue={primaryValue}
-                onSave={handleRawValueSave}
+                onSave={handleValueCommit}
                 validate={validateNumeric}
                 maxWidth="max-w-[100px]"
                 numeric
@@ -356,7 +425,7 @@ function FactorCard({
                 <InlineEdit
                   value={String(obs.value ?? '')}
                   displayValue={normalisedValue}
-                  onSave={handleValueSave}
+                  onSave={handleValueCommit}
                   validate={validateNumeric}
                   maxWidth="max-w-[80px]"
                   numeric

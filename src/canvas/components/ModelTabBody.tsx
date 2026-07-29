@@ -531,7 +531,28 @@ export const ModelTabBody = memo(function ModelTabBody({
   }, [causalEdges])
 
   // ── Contested edge resolution ─────────────────────────────────────────────
-
+  //
+  // ROADMAP 2.121 slice 1 — THE ONE HANDLER THAT DELIBERATELY STAYS A RAW WRITE,
+  // stated here rather than quietly excepted in the guard spec.
+  //
+  // Slice 1 moved every Model-tab edit onto the sanctioned mutation setters.
+  // This one cannot go with them, for two independent reasons:
+  //
+  //   1. No sanctioned setter writes edge `validation`. It is not in
+  //      `EDGE_SETTER_FIELDS` — it is UI-domain metadata carried by passthrough,
+  //      not a contract-declared edge field — and the overlay below (user_action,
+  //      resolved_by, resolved_value) is the whole point of the action.
+  //   2. `useEdgeMutations().setStrength` hard-codes `weightSource: 'user'`. The
+  //      `accepted_pass2` branch commits the PRODUCER's pass-2 estimate, whose
+  //      honest marker is 'cee'. Routing it through setStrength would stamp a
+  //      producer number as a user number — provenance laundering, the exact
+  //      class the F11 guard exists to prevent. A wrong marker here is worse
+  //      than a raw write.
+  //
+  // So it stays, rowed as an honest deviation rather than forced through a third
+  // write path. Making it sanctioned needs a setter that writes validation and
+  // takes the provenance marker as an argument — a change to the shared arc, not
+  // a slice-1 rerouting. The guard spec's scope is named accordingly.
   const handleResolveContested = useCallback((edgeId: string, action: UserAction, customMean?: number) => {
     const edge = edges.find(e => e.id === edgeId)
     if (!edge?.data) return
