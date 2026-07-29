@@ -24,6 +24,7 @@
  * make every case render the empty state and all of them would "pass".
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { StrictMode } from 'react'
 import { render, screen, waitFor, cleanup } from '@testing-library/react'
 import { makePersistedRunFactRow } from './__fixtures__/persistedRunFact'
 
@@ -190,6 +191,32 @@ describe('Compare tab hydrates from persisted analysis runs (2.113a slice 1)', (
     await waitFor(() => expect(listPersistedAnalysisRuns).toHaveBeenCalled())
     expect(emptyState()).toBeTruthy()
     expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('MOUNT/UNMOUNT/REMOUNT WITHOUT A DEP CHANGE STILL HYDRATES (StrictMode double-invoke)', async () => {
+    // The trap this pins: a dedupe key marked when the read STARTS. React can
+    // mount, tear down and re-mount an effect with unchanged deps — exactly
+    // what StrictMode does in development. The first pass would claim the key,
+    // its cleanup would cancel the in-flight read, and the second pass would
+    // see the key claimed and do nothing: a tab permanently empty, with no
+    // error anywhere. Marking the key on COMPLETION cannot produce that.
+    // (StrictMode is not enabled in src/main.tsx today; this keeps enabling it
+    // from silently switching the feature off.)
+    listPersistedAnalysisRuns.mockResolvedValue([
+      makePersistedRunFactRow({ id: 'f1', createdAt: '2026-07-20T10:00:00.000Z', responseHash: 'h1' }),
+      makePersistedRunFactRow({ id: 'f2', createdAt: '2026-07-20T11:00:00.000Z', responseHash: 'h2' }),
+    ])
+
+    render(
+      <StrictMode>
+        <CompareTabBody onRunAnalysis={vi.fn()} />
+      </StrictMode>,
+    )
+
+    await waitFor(() => {
+      expect(useAnalysisSnapshotStore.getState().snapshots).toHaveLength(2)
+    })
+    expect(emptyState()).toBeNull()
   })
 
   it('a guest scenario id of null makes no read at all', async () => {
