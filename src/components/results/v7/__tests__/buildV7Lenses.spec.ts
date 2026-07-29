@@ -44,6 +44,7 @@ function data(partial: {
   drivers?: unknown[]
   challengeFragileEdges?: unknown[]
   conditionalWinners?: unknown[]
+  voiRanking?: unknown
 }): ResultsSectionDataReturn {
   const recommendedOption = partial.allOptions.find((o) => o.id === partial.recommendedId) ?? null
   return {
@@ -59,6 +60,7 @@ function data(partial: {
       challengeFragileEdges: partial.challengeFragileEdges ?? [],
       conditionalWinners: partial.conditionalWinners ?? [],
     },
+    voiRanking: partial.voiRanking ?? null,
   } as unknown as ResultsSectionDataReturn
 }
 
@@ -192,5 +194,67 @@ describe('buildV7Lenses — passthrough lens + evidence model (V7 L5)', () => {
       expect(m.evidence.flipRisks).toEqual([])
       expect(m.evidence.tradeOffs).toEqual([])
     })
+  })
+})
+
+/**
+ * V7-C slice 1 (ROADMAP 2.141) — `evidence.resolveNext` is a PASSTHROUGH.
+ *
+ * The one authority on what the ranking says is `voi/voiRanking.ts`, and it is
+ * pinned there. What matters here is that this builder adds NOTHING: no
+ * re-sort, no re-group, no filter, no derived fallback. A second derivation in
+ * this file would be the hand-maintained mirror trap 12 warns about, and a
+ * re-sort is the exact defect the producer-order doctrine forbids.
+ */
+describe('buildV7Lenses — resolveNext passthrough (V7-C slice 1)', () => {
+  const RANKING = {
+    resolved: [
+      { factorId: 'n_comp', label: 'Competitor response', canFocus: true },
+      { factorId: 'n_market', label: 'Market receptivity', canFocus: true },
+    ],
+    belowResolution: [{ factorId: 'n_hiring', label: 'Hiring pace', canFocus: true }],
+    someFactorsUnassessed: true,
+  }
+
+  it('carries the hook verdict through REFERENCE-IDENTICAL — nothing re-derived', () => {
+    const m = buildV7Lenses(data({ allOptions: [], voiRanking: RANKING }))
+    // Reference identity is the strongest available proof that no copy, filter
+    // or re-sort happened between the hook and the view.
+    expect(m.evidence.resolveNext).toBe(RANKING)
+  })
+
+  it('carries a deliberately MIS-SORTED order verbatim', () => {
+    const m = buildV7Lenses(data({ allOptions: [], voiRanking: RANKING }))
+    expect(m.evidence.resolveNext?.resolved.map((r) => r.label)).toEqual([
+      'Competitor response',
+      'Market receptivity',
+    ])
+  })
+
+  it('carries the honest-gate verdict (null) rather than inventing an empty ranking', () => {
+    const m = buildV7Lenses(data({ allOptions: [], voiRanking: null }))
+    expect(m.evidence.resolveNext).toBeNull()
+  })
+
+  it('never substitutes a driver-derived ranking when the hook returned null', () => {
+    // The retired regime built a "most valuable next step" from a heuristic
+    // when the real estimator was absent. That fallback must not exist here.
+    const m = buildV7Lenses(
+      data({
+        allOptions: [],
+        voiRanking: null,
+        drivers: [
+          { factorKey: 'n_market', factorLabel: 'Market receptivity', direction: 'positive' },
+          { factorKey: 'n_comp', factorLabel: 'Competitor response', direction: 'negative' },
+        ],
+      }),
+    )
+    expect(m.evidence.resolveNext).toBeNull()
+    // POSITIVE CONTROL: those drivers really are present on the model, so the
+    // null above is a refusal to substitute — not an empty fixture.
+    expect(m.evidence.drivers.map((d) => d.label)).toEqual([
+      'Market receptivity',
+      'Competitor response',
+    ])
   })
 })

@@ -7,7 +7,62 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.29.0.tgz` ← THE CURRENT PIN
+### `talchain-schemas-0.30.0.tgz` ← THE CURRENT PIN
+
+**Provenance: the PUBLISHED REGISTRY ARTEFACT, obtained via CEE rather than
+re-packed here — and byte-verified, not assumed.** olumi-schemas PR #29 merged
+`f5815a34`, tagged `v0.30.0`, publish run `30445606038` green; CEE #754 vendored
+that release artefact with `npm pack @talchain/schemas@0.30.0` from GitHub
+Packages. This copy was fetched from CEE `staging` and its SHA-256 compared to
+CEE's own manifest:
+
+```
+this repo : cd3746369b26da20e079c8d8ec323294edcc46a32df6830b657aed2cd465a0cc
+CEE staging: cd3746369b26da20e079c8d8ec323294edcc46a32df6830b657aed2cd465a0cc   ✅ identical
+```
+
+So CEE and the UI now run BYTE-IDENTICAL schemas, which is the strongest
+available answer to the schema-skew hazard. Registry integrity recorded in
+`pnpm-lock.yaml` after install:
+`sha512-6qF6M0Gkt6/WQ4/2nxZWU0hau93g/fhH4+0c/3mZTA+I5U8LY9mxLjZsgf980cPbjYJeBEKwdbMUX9HQhCXmrg==`.
+⚠ **Honest limit:** the "is the registry release" half is inherited from CEE's
+own vendor README, not independently re-packed here (no GitHub-Packages token in
+the build environment). What IS verified here is byte-identity with the artefact
+CEE deployed.
+
+**What it adds (ROADMAP 2.141, V7-C slice 1a):** the **VOI family** on
+`CEE_UI_ENRICHMENT_KEEP_LIST` — `factor_evppi`, `decision_evpi`,
+`p_win_sensitivity`, `correlation_model` — plus the new exported
+`EnrichmentFactorEvppiEntrySchema` (open/passthrough, only `factor_id`
+required). **FOUR keys, not the three the design's slice table first listed:**
+`correlation_model` is the discriminator for an absent `p_win_sensitivity`
+(suppressed under active correlation and named in
+`correlation_model.suppressed_attributions`), so transporting three would carry
+the question and leave the answer behind. Verified at the RESOLVED bytes, not
+from the release notes: importing `CEE_UI_ENRICHMENT_KEEP_LIST` from the
+installed `dist/boundary/enrichment.js` returns all four.
+
+**Absorption cost 0.29.0 → 0.30.0: ZERO new typecheck errors.** The gate's
+per-file ratchet and total both held at the baseline (622 files / 2510 errors)
+across the re-vendor; the four new UI errors that appeared during the lane were
+this lane's own code and fixtures, and were fixed at source rather than
+baselined. 0.30.0 is a keep-list plus one entry schema and nothing else, so
+there is no removed export or renamed field for an older consumer to drop.
+
+⚠ **SEQUENCING: THERE ISN'T ANY, AND THAT IS DERIVED.** Unlike the 0.29.0
+`factor_value_edit` train (a `.strict()` discriminated-union member, where a
+below-pin consumer rejects the WHOLE turn), this release adds only ENRICHMENT
+keys. `AnalysisResultBlockSchema.enrichment` is
+`z.record(z.string(), z.unknown()).optional()` (checked in the installed
+`dist/boundary/blocks.js:53`) and the typed envelope is `.passthrough()`, so an
+additive enrichment key parses at every pinned validator. No outage window, no
+forced landing order, no flag; rollback is a revert.
+
+`src/lib/talchainSchemasVersion.ts` is bumped to `0.30.0` in lockstep (its spec
+derives the expected value from the `file:` pin in `package.json` and fails on
+drift).
+
+### `talchain-schemas-0.29.0.tgz` (historical — no longer vendored)
 
 **Provenance: the PUBLISHED REGISTRY ARTEFACT, not a locally-packed branch.**
 Fetched with `npm pack @talchain/schemas@0.29.0 --registry=https://npm.pkg.github.com`

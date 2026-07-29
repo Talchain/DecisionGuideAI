@@ -87,6 +87,11 @@ function evidenceModel(designationsWithheld: boolean): V7EvidenceModel {
     tradeOffs: [
       { factorLabel: 'Team capacity', factorId: 'fac_capacity', splitValue: 30, splitUnit: '%', highWinnerLabel: HIGH_LABEL, lowWinnerLabel: MID_LABEL },
     ],
+    // V7-C slice 1 (ROADMAP 2.141): the Resolve next view names factors, never
+    // an option, so it carries no leader claim for the withheld-prose sweep to
+    // catch. `null` keeps this fixture's scope unchanged — the ranking's own
+    // withheld behaviour is pinned in its dedicated spec.
+    resolveNext: null,
     designationsWithheld,
   }
 }

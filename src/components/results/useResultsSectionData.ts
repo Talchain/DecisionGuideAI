@@ -63,6 +63,7 @@ import { deriveStabilityLevel } from '../../lib/stability'
 import { deriveResultCompleteness, type ResultCompleteness } from './useResultCompleteness'
 import { computeNormalisedInfluences, selectDriverDisplayModel } from './driverDisplayModel'
 import { classifyUnit } from '../../utils/unitClassifier'
+import { buildVoiRanking, type VoiRanking } from './voi/voiRanking'
 
 // =============================================================================
 // Winner Selection Helper
@@ -1106,6 +1107,16 @@ export interface ResultsSectionDataReturn {
    * no longer resolves on this canvas (caption suppressed, fail-closed).
    */
   sensitivityReference: { optionId: string; optionLabel: string | null } | null
+  /**
+   * V7-C slice 1 (ROADMAP 2.141): the value-of-information ranking read from
+   * `enrichment.factor_evppi` — ISL's real Strong–Oakley regression EVPPI,
+   * carried as PRODUCER RANK ORDER plus the `below_resolution` band and
+   * NOTHING ELSE. `null` means the honest gate renders: the block was absent,
+   * null, empty, malformed, or its rank-1 row could not be named. Never a
+   * heuristic substitute — this replaces the retired `gap.voi` regime, it does
+   * not fall back to it. See `voi/voiRanking.ts` for why so little is carried.
+   */
+  voiRanking: VoiRanking | null
 }
 
 export function useResultsSectionData(): ResultsSectionDataReturn {
@@ -1342,6 +1353,37 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     })
     return map
   }, [nodes])
+
+  /**
+   * V7-C slice 1 (ROADMAP 2.141) — the value-of-information ranking.
+   *
+   * `report.factor_evppi` is the mapper's verbatim carry of the wire array
+   * (`src/v5/mapV5AnalysisToReport.ts`). Everything the surface is licensed to
+   * show is decided in `buildVoiRanking`, a pure function; this memo supplies
+   * only the canvas label resolution it cannot do itself.
+   *
+   * Label resolution is `nodeLabelMap` — an EXACT id lookup that already drops
+   * blank labels. Deliberately NOT the drivers' `findNodeMatches` fuzzy-label
+   * fallback: a `factor_evppi` row carries no `factor_label` at all (design
+   * §1a), so there is nothing to fuzzy-match, and inventing a match from an id
+   * is how a raw id becomes an id-shaped name. An id we cannot resolve is a row
+   * we drop.
+   */
+  const voiRanking = useMemo(
+    () =>
+      buildVoiRanking({
+        rows: (report as unknown as Record<string, unknown> | null | undefined)?.factor_evppi,
+        inferenceWarnings:
+          (report as unknown as Record<string, unknown> | null | undefined)?.inference_warnings ??
+          (report as { robustness?: { inference_warnings?: unknown } } | null | undefined)
+            ?.robustness?.inference_warnings,
+        resolveLabel: (factorId) => {
+          const label = nodeLabelMap.get(factorId)
+          return label === undefined ? null : { label, canFocus: true }
+        },
+      }),
+    [report, nodeLabelMap],
+  )
 
   // Lane UI-W5 (reference-option disclosure): resolve the disclosed
   // reference-option ID to its canvas label for the shared
@@ -3193,6 +3235,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       completeness,
       autoNoiseProvenance,
       sensitivityReference,
+      voiRanking,
     }),
     [
       recommendation,
@@ -3206,6 +3249,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       completeness,
       autoNoiseProvenance,
       sensitivityReference,
+      voiRanking,
     ],
   )
 }

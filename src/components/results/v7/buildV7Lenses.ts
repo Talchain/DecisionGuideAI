@@ -29,6 +29,7 @@
 
 import type { OptionResult, DriverItem, ConditionalWinner } from '../types'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
+import type { VoiRanking } from '../voi/voiRanking'
 import { computeOptionScale } from '../shared/OptionRangeBar'
 
 /** One flip-risk row — the challengeFragileEdges slice, unchanged. */
@@ -95,6 +96,18 @@ export interface V7EvidenceModel {
   flipRisks: V7FlipRisk[]
   tradeOffs: V7TradeOff[]
   /**
+   * V7-C slice 1 (ROADMAP 2.141) — the "Resolve next" view's model: ISL's real
+   * per-factor EVPPI as a RANKING plus the below-resolution band, carried
+   * straight through from the hook's `voiRanking`.
+   *
+   * Deliberately NOT recomputed, re-sorted, filtered or grouped here. The one
+   * verdict lives in `voi/voiRanking.ts` (pure, unit-pinned); a second
+   * derivation in this file would be the hand-maintained mirror trap 12 warns
+   * about, and re-sorting is the specific defect the producer-order doctrine
+   * exists to prevent. `null` ⇒ the view renders its honest gate.
+   */
+  resolveNext: VoiRanking | null
+  /**
    * ROADMAP 1.267. The evidence ROWS are producer data and always render;
    * the two lead-in NOTES above them ("…can change the leading option",
    * "Where the leading option depends on an assumption") are claims that
@@ -116,7 +129,7 @@ function driverDirection(d: DriverItem): 'positive' | 'negative' | null {
 }
 
 export function buildV7Lenses(data: ResultsSectionDataReturn): V7LensesModel {
-  const { recommendation, drivers, confidence } = data
+  const { recommendation, drivers, confidence, voiRanking } = data
   const options = recommendation.allOptions ?? []
   // ROADMAP 1.267. `winnerId` drives the ONLY thing the V7 rows do with a
   // leader: bold + darken that row's label and readout
@@ -215,6 +228,13 @@ export function buildV7Lenses(data: ResultsSectionDataReturn): V7LensesModel {
   return {
     outcome,
     goal,
-    evidence: { drivers: evidenceDrivers, flipRisks, tradeOffs, designationsWithheld },
+    evidence: {
+      drivers: evidenceDrivers,
+      flipRisks,
+      tradeOffs,
+      // Passthrough of the hook's single verdict — never re-derived here.
+      resolveNext: voiRanking,
+      designationsWithheld,
+    },
   }
 }
