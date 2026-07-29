@@ -28,6 +28,37 @@ export type AnalysisFreshnessValue = 'fresh' | 'stale' | 'unknown' | 'none'
  */
 export const RUN_COMPLETED_WITHOUT_VERDICT = 'run_completed_without_verdict'
 
+/**
+ * Reason code written by THIS reducer (not by CEE): a present `analysis_ready`
+ * carried NO `freshness` field at all — readiness only. It is the provenance
+ * marker that separates the UI's own degradation-of-silence from a verdict CEE
+ * actually stated, and it exists because conflating the two shipped an inverted
+ * freshness strip (ROADMAP 2.129 (a), live-proven on staging `98aae72e`).
+ *
+ * A `graph_patch: applied` reply looks exactly like this on the wire:
+ *
+ *   { options: [...], goal_node_id: 'goal_x', status: 'ready', computed_at: <newer> }
+ *
+ * — readiness, a newer `computed_at`, and total silence on freshness. Degrading
+ * that to `'unknown'` is right (never absence→fresh). Letting the degraded value
+ * then IMPERSONATE a CEE-stated `'unknown'` was not: `'unknown'` reads as
+ * cannot-confirm, so an accepted edit stopped showing "Model changed" — and with
+ * it the Model tab's only re-analyse control — while a REJECTED edit (no
+ * `analysis_ready` at all → retain) still did. The strip fired when the edit had
+ * not taken and went silent when it had.
+ *
+ * Two rules key on this marker; both are about not over-claiming from silence:
+ *   - the store's `setAnalysisFreshness` does NOT clear the local dirty overlay
+ *     for such a payload (silence is not a re-verification — same argument the
+ *     `pendingEmittedEdits` hold already makes for an undispatched edit);
+ *   - `classifyFreshnessForDisplay` reads it WITH the dirty overlay as 'changed'
+ *     (the user demonstrably edited since CEE last spoke), and WITHOUT the
+ *     overlay as cannot-confirm (silence alone never claims "you changed it").
+ *
+ * Never user copy. Deterministic, so the echo guard's `sameVerdict` still works.
+ */
+export const VERDICT_ABSENT_FROM_PAYLOAD = 'payload_carried_no_freshness_verdict'
+
 export interface AnalysisFreshnessState {
   freshness: AnalysisFreshnessValue
   /** Technical reason code from CEE (e.g. 'graph_hash_match') — debug only, never user copy. */
@@ -95,6 +126,15 @@ export function deriveAnalysisFreshnessUpdate(
       ? (fRaw as AnalysisFreshnessValue)
       : 'unknown'
 
+  // ...but record WHY it is 'unknown' when the field was simply ABSENT. That is
+  // a different fact from CEE stating 'unknown', and from CEE sending a value we
+  // could not parse: absence means the payload said nothing about freshness at
+  // all. See VERDICT_ABSENT_FROM_PAYLOAD for what keys on the distinction and
+  // the live defect that conflating them shipped. Deliberately NOT stamped when
+  // the payload carried its own `freshness_reason` — CEE's reason is not ours to
+  // overwrite.
+  const verdictAbsent = fRaw === undefined || fRaw === null
+
   const computedAt = nonEmptyString(o.computed_at)
 
   // Order by computed_at: ignore a strictly-older (or equal) payload when both
@@ -106,7 +146,8 @@ export function deriveAnalysisFreshnessUpdate(
 
   const next: AnalysisFreshnessState = {
     freshness,
-    freshnessReason: nonEmptyString(o.freshness_reason),
+    freshnessReason:
+      nonEmptyString(o.freshness_reason) ?? (verdictAbsent ? VERDICT_ABSENT_FROM_PAYLOAD : undefined),
     graphHashAtRun: nonEmptyString(o.graph_hash_at_run),
     currentGraphHash: nonEmptyString(o.current_graph_hash),
     computedAt,
@@ -222,9 +263,26 @@ export function classifyFreshnessForDisplay(
   if (displayed === null || displayed === 'none') return 'none'
   if (displayed === 'fresh') return 'current'
   if (displayed === 'stale') return 'changed'
-  // displayed === 'unknown': only the dirty-overlay downgrade of a retained
-  // 'fresh' verdict means the user definitely changed the model since the run.
-  // A CEE-sourced 'unknown' (state.freshness === 'unknown') is cannot-confirm.
-  if (state?.freshness === 'fresh' && dirty) return 'changed'
+  // displayed === 'unknown': it means the user definitely changed the model
+  // since the run in exactly two cases, both of which require the local dirty
+  // overlay (the UI's own first-hand knowledge that an analysis-affecting edit
+  // happened) — never the verdict alone:
+  //
+  //   1. the dirty-overlay downgrade of a retained CEE 'fresh' verdict;
+  //   2. the dirty overlay over a verdict that is 'unknown' ONLY because the
+  //      payload carried no freshness field (VERDICT_ABSENT_FROM_PAYLOAD). CEE
+  //      said nothing about freshness, and the user has edited since CEE last
+  //      spoke — "Model changed. Results may be out of date." is a true claim,
+  //      and this is the state a `graph_patch: applied` reply lands the UI in
+  //      (ROADMAP 2.129 (a): treating it as cannot-confirm hid the staleness AND
+  //      the Model tab's only re-analyse control after an ACCEPTED edit).
+  //
+  // Everything else is cannot-confirm, and deliberately so: a CEE-STATED
+  // 'unknown', the orphan synthesis (ORPHANED_RESULT) and the run-completion
+  // write (RUN_COMPLETED_WITHOUT_VERDICT) must never be dressed up as a factual
+  // "you edited" claim.
+  if (dirty && (state?.freshness === 'fresh' || state?.freshnessReason === VERDICT_ABSENT_FROM_PAYLOAD)) {
+    return 'changed'
+  }
   return 'cannot_confirm'
 }

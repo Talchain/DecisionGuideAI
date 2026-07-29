@@ -21,7 +21,7 @@ import {
 } from '../components/results/utils/selectGoalProbability'
 import { trackResultsViewed, trackIssuesOpened } from './utils/sandboxTelemetry'
 import { addRun, generateGraphHash, loadRuns, type StoredRun, type RestorableRun } from './store/runHistory'
-import { RUN_COMPLETED_WITHOUT_VERDICT, deriveAnalysisFreshnessUpdate, type AnalysisFreshnessState } from './store/analysisFreshness'
+import { RUN_COMPLETED_WITHOUT_VERDICT, VERDICT_ABSENT_FROM_PAYLOAD, deriveAnalysisFreshnessUpdate, type AnalysisFreshnessState } from './store/analysisFreshness'
 import * as scenarios from './store/scenarios'
 import type { ScenarioFraming } from './store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore, analysisSnapshotFromStore } from './store/autosaveProjection'
@@ -4043,7 +4043,22 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // would affirm "reflects the current model" over a change the server has
       // never seen. Keep the verdict (it is the newest thing the server said)
       // but hold the overlay until the edit actually reaches the wire.
-      if (state.analysisFreshnessDirty && state.pendingEmittedEdits === 0) {
+      //
+      // ...OR unless the payload never mentioned freshness at all
+      // (VERDICT_ABSENT_FROM_PAYLOAD — a readiness-only `analysis_ready`, which
+      // is exactly what a `graph_patch: applied` reply carries). Same argument,
+      // weaker premise: the overlay records that the user changed the model since
+      // the last verdict, and SILENCE about freshness is not evidence the server
+      // re-verified anything. Clearing it there is what inverted the freshness
+      // strip — bar present when CEE REJECTED the edit, absent when it APPLIED
+      // it, taking the tab's only re-analyse control with it (ROADMAP 2.129 (a),
+      // live-proven on staging `98aae72e`).
+      const verdictIsSilentOnFreshness = next?.freshnessReason === VERDICT_ABSENT_FROM_PAYLOAD
+      if (
+        state.analysisFreshnessDirty &&
+        state.pendingEmittedEdits === 0 &&
+        !verdictIsSilentOnFreshness
+      ) {
         updates.analysisFreshnessDirty = false
       }
       return updates
