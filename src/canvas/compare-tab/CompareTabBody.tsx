@@ -9,6 +9,7 @@ import { useCanvasStore } from '../store'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { AnalysisRunStateCover } from '../components/AnalysisRunStateCover'
 import { useAnalysisSnapshotStore, selectSnapshots } from '../stores/analysisSnapshotStore'
+import { useCompareHistoryHydration } from './useCompareHistoryHydration'
 import { useUIStore } from '../../stores/uiStore'
 import { deriveCompareState } from './deriveCompareState'
 import { deriveTransitions, buildCumulativeTransition } from './deriveTransitions'
@@ -28,6 +29,14 @@ interface CompareTabBodyProps {
 const EXPERT_STORAGE_KEY = 'feature.compareExpert'
 
 export function CompareTabBody({ onRunAnalysis }: CompareTabBodyProps) {
+  // ROADMAP 2.113a slice 1: seed the journey from PERSISTED `run_analysis`
+  // facts. The session capture gate (canvas/store.ts `resultsComplete`)
+  // requires a `rawV2Response`, and the deployed V5 results-hydration path
+  // passes null for it — so before this hook the tab had no data source on
+  // the live wire at all, reload or no reload. Everything below is unchanged:
+  // this fills the same store the tab already read.
+  useCompareHistoryHydration()
+
   // Snapshot data
   const snapshots = useAnalysisSnapshotStore(selectSnapshots)
   // One trust surface (F10/F11): staleness AND run state both come from the

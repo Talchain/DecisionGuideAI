@@ -48,7 +48,7 @@ function ExpertTable({ snapshots }: { snapshots: AnalysisSnapshot[] }) {
                 s.recommendationStability != null
                   ? `${Math.round(s.recommendationStability * 100)}%`
                   : NOT_ASSESSED,
-                s.evidenceCoverage,
+                s.evidenceCoverage ?? NOT_ASSESSED,
                 `${s.influenceConcentration}%`,
                 s.rankFlipRate.toFixed(2),
                 s.fragileEdgeCount ?? NOT_ASSESSED,
