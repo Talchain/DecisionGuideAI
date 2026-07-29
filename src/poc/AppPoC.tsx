@@ -3,10 +3,11 @@
 
 import { StrictMode, useState, useEffect, Suspense, useMemo, useCallback, useRef, lazy } from 'react'
 import type React from 'react'
-import { HashRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { simulateTokens, getJSON } from './adapters/StreamAdapter'
 import { feature } from '../lib/pocFlags'
+import { isDevRoutesEnabled } from '../flags'
 import { fetchFlow as fetchFlowEngine, openSSE } from '../lib/pocEngine'
 import { initMonitoring } from '../lib/monitoring'
 import GraphCanvas from '../components/GraphCanvas'
@@ -102,6 +103,41 @@ const queryClient: any = (QueryClient && typeof QueryClient === 'function')
       },
     })
   : {}
+
+/**
+ * TESTER-SAFE ROUTING — the developer scaffolding is behind one condition.
+ *
+ * `/plot`, `/plot-legacy`, `/plc`, `/sandbox-v1` and `/dev/hero-gallery` are
+ * developer surfaces, not product. They shipped reachable-by-URL and outside
+ * both `AuthGuard` and any flag (UI-SURFACE-CENSUS-2026-07-30, finding R1);
+ * `/dev/hero-gallery` alone self-gated inside its component. This wrapper puts
+ * all of them — plus `/test` and the catch-all, which render the same POC
+ * sandbox — behind the single declared `devRoutes` flag, which is OFF in every
+ * deployed build.
+ *
+ * ⚠ THE REDIRECT TARGET IS `/`, NOT `/canvas`, AND THAT IS DELIBERATE.
+ * `/` is the scenario list; `/canvas` opens a blank "Untitled decision". Two
+ * reasons, in order of weight:
+ *   1. `/canvas` is a SIDE-EFFECT-PRODUCING landing. An open canvas tab is a
+ *      live writer — it is the known staging hazard where an open canvas
+ *      recreates deleted scenario rows. A mistyped URL must not start writing.
+ *   2. It matches the one in-repo precedent for this shape, which this gate is
+ *      modelled on: `HeroGallery.tsx:30` → `<Navigate to="/" replace />`.
+ * `AppPoC.routing.spec.tsx` pins the destination as `/` and asserts the canvas
+ * is NOT rendered, so a drift back to `/canvas` reds.
+ *
+ * The scaffolds are NOT deleted and NOT unmounted from the bundle: each is a
+ * `React.lazy` chunk, and building the element here does not fetch it — only
+ * rendering does. Flag on, the route mounts exactly what it always mounted.
+ *
+ * Reach them in your own browser, on any environment:
+ *   localStorage.setItem('feature.devRoutes', '1')   // then reload
+ */
+function DevRoute({ children }: { children: React.ReactNode }) {
+  // Read at RENDER time, not module load, so the localStorage override and the
+  // test suite both take effect without a module reset.
+  return isDevRoutesEnabled() ? <>{children}</> : <Navigate to="/" replace />
+}
 
 export default function AppPoC() {
   // P1: the single, gated DebugPanel mount lives here (the app shell).
@@ -915,17 +951,30 @@ export default function AppPoC() {
                   <Route path="/templates" element={<DecisionTemplates />} />
                 </Route>
 
-                {/* Dev/POC routes */}
+                {/* Dev/POC routes — ALL behind the `devRoutes` flag (see the
+                    DevRoute comment above). Off in every deployed build, so a
+                    tester cannot reach developer scaffolding by URL. */}
                 {/* Internal fixture gallery for the analysis hero — typed
                     example states only (visible fixture banner on every
-                    panel); flag-gated (staging-on/prod-off) and unlinked. */}
-                <Route path="/dev/hero-gallery" element={<HeroGallery />} />
-                <Route path="/plot" element={<PlotWorkspace />} />
-                <Route path="/plot-legacy" element={<PlotShowcase />} />
-                <Route path="/plc" element={<PlcLab />} />
-                <Route path="/sandbox-v1" element={<SandboxV1 />} />
-                <Route path="/test" element={<MainSandboxContent />} />
-                <Route path="*" element={<MainSandboxContent />} />
+                    panel); ALSO self-gated on `heroFixtureGallery`
+                    (staging-on/prod-off) inside the component, and unlinked. */}
+                <Route path="/dev/hero-gallery" element={<DevRoute><HeroGallery /></DevRoute>} />
+                <Route path="/plot" element={<DevRoute><PlotWorkspace /></DevRoute>} />
+                <Route path="/plot-legacy" element={<DevRoute><PlotShowcase /></DevRoute>} />
+                <Route path="/plc" element={<DevRoute><PlcLab /></DevRoute>} />
+                <Route path="/sandbox-v1" element={<DevRoute><SandboxV1 /></DevRoute>} />
+                <Route path="/test" element={<DevRoute><MainSandboxContent /></DevRoute>} />
+                {/* Catch-all. This used to render the POC sandbox, so a tester
+                    who mistyped a URL landed on developer scaffolding. It now
+                    lands on the scenario list — somewhere real, and read-only.
+                    The sandbox remains the catch-all only when `devRoutes` is
+                    on, which is what the Playwright suite runs with
+                    (playwright.config.ts webServer): 74 of 165 e2e specs reach
+                    a gated route, and `gotoSandbox()` plus
+                    `#/sandbox&scenario=<b64>` can ONLY be served by the
+                    catch-all — that hash is a single path segment, so no
+                    explicit route can ever match it. */}
+                <Route path="*" element={<DevRoute><MainSandboxContent /></DevRoute>} />
                 </Routes>
               </CanvasErrorBoundary>
             </Suspense>

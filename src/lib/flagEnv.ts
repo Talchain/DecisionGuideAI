@@ -11,7 +11,7 @@
  * value, into the flags chunk. Each entry below is narrowed by Vite to that one
  * value, so the chunk now carries only keys the app actually declares.
  *
- * DERIVED, NOT HAND-LISTED: 66 flag keys from `src/flags.ts` FLAGS_CONFIG
+ * DERIVED, NOT HAND-LISTED: 67 flag keys from `src/flags.ts` FLAGS_CONFIG
  * (via the same AST walker `pnpm flags:check` uses) + 21 `VITE_FEATURE_*`/
  * `VITE_ENABLE_*` keys declared in `netlify.toml`. Adding a flag and re-running the
  * generator is the whole workflow; `--check` reds if this file falls behind.
@@ -33,6 +33,7 @@ export const FLAG_ENV: Record<string, unknown> = {
   PROD: import.meta.env?.PROD,
   SSR: import.meta.env?.SSR,
   VITE_E2E: import.meta.env?.VITE_E2E,
+  VITE_ENABLE_DEV_ROUTES: import.meta.env?.VITE_ENABLE_DEV_ROUTES,
   VITE_ENABLE_LEGACY_DIRECT_RUN: import.meta.env?.VITE_ENABLE_LEGACY_DIRECT_RUN,
   VITE_ENABLE_ORCHESTRATOR_V2: import.meta.env?.VITE_ENABLE_ORCHESTRATOR_V2,
   VITE_FEATURE_AI_PANEL_V2: import.meta.env?.VITE_FEATURE_AI_PANEL_V2,
