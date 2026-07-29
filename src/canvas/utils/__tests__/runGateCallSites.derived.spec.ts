@@ -203,6 +203,23 @@ describe('the graph-write choke point consumes the persistence predicate (review
     expect(body).toMatch(/if\s*\(\s*!shouldPersistGraphForScenario\(/)
   })
 
+  it('reports whether it wrote, and the save indicator gates on that (R2-N1)', () => {
+    // A suppressed no-op used to resolve indistinguishably from a real write, so
+    // the caller ran setSaveStatus('saved') + a timestamp for a write that
+    // deliberately did not happen. Cosmetic during the 25 s window; during a
+    // terminal `unsettled` state a signed-in user sees "saved" on every edit
+    // while nothing persists, then loses all of it on reload. A false indicator
+    // is the honesty class this whole lane polices.
+    expect(source).toMatch(/async function persistGraphNow\([^)]*\):\s*Promise<boolean>/)
+    // Both status-setting call sites must gate on the returned flag.
+    const gated = source.match(/const (?:wrote|retryWrote) = await/g) ?? []
+    expect(gated.length).toBe(2)
+    expect(source).toMatch(/mountedRef\.current && wrote/)
+    expect(source).toMatch(/mountedRef\.current && retryWrote/)
+    // …and no ungated "saved" write survives.
+    expect(source).not.toMatch(/await p\n\s*if \(mountedRef\.current\) \{\n\s*setSaveStatus\('saved'\)/)
+  })
+
   it('still calls the real write when permitted (positive control)', () => {
     // A mutation that suppressed every write would also satisfy the assertions
     // above; this keeps the guard from blessing a broken save path.

@@ -396,9 +396,16 @@ export function streamedDraftEligible(p: StreamedDraftEligibility): boolean {
 class PreviewNotApplicableError extends Error {}
 
 /**
- * Thrown when a streamed draft is ABORTED (Stop button, 130 s client timeout, or
- * a preempting turn) after GRAPH_READY had already put a preview on the canvas
- * — adversarial review F1.
+ * Thrown when a streamed draft ENDS WITHOUT A TERMINAL INGEST while a
+ * GRAPH_READY preview is standing on the canvas — adversarial review F1, and its
+ * round-2 residual R2-F1.
+ *
+ * Two entry points, one meaning:
+ *   · the STREAM is aborted after GRAPH_READY (Stop button, the 130 s client
+ *     timeout, or a preempting turn);
+ *   · the buffered FALLBACK is aborted or fails after the stream already
+ *     rendered — the residual the round-2 review found, whose dominant trigger
+ *     (the 130 s budget killing a ~55 s fallback) needs no user action at all.
  *
  * `name` is deliberately `'AbortError'` so every existing abort handler in
  * `sendTurn` keeps treating it as the abort it is (silent, no transport-failure
@@ -527,7 +534,52 @@ async function runStreamedDraftTurn(args: {
     if (import.meta.env.DEV) {
       console.warn(`[sendTurn V5] streamed draft abandoned (${reason}); falling back to the buffered turn`)
     }
-    const result = await callV5Turn(payload, { signal, headers })
+
+    // ═══ ROUND-2 RE-REVIEW, R2-F1 ═══════════════════════════════════════════
+    // The fallback itself can be killed, and until this branch existed that
+    // resurrected the ORIGINAL F1 fabrication one level deeper.
+    //
+    // Sequence: the stream dies post-GRAPH_READY on any transport blip in the
+    // ~25 s window → this fallback issues a ~55 s buffered turn → the turn is
+    // aborted mid-flight. The AbortError propagated PLAIN, so
+    // `abortedWithPreview` was never set, the outer catch stayed silent by
+    // design, and the finally's ownership guard saw phase `settling` (not
+    // `unsettled`) and actively cleared it to `idle` — preview standing, gate
+    // OPEN, nothing said.
+    //
+    // ⚠ AND THE DOMINANT TRIGGER NEEDS NO USER ACTION: the 130 s wall-clock
+    // budget kills the fallback by itself whenever the stream dies at ≥75 s,
+    // because a ~55 s buffered turn cannot fit in what is left. On that path the
+    // round-2 timeout-copy suppression fires correctly and makes the outcome
+    // MORE silent, not less — no timeout copy, no notice, no phase.
+    //
+    // Routed to the SAME `unsettled` + notice path the stream-abort branch takes,
+    // for the same reason: the structure on the canvas is real, its values never
+    // arrived, and that is true whichever of the two aborts killed the fallback.
+    //
+    // The catch is deliberately not narrowed to `AbortError`. `callV5Turn`
+    // converts network failures into a `parse_error` RESULT rather than a throw,
+    // so a non-abort throw here is near-unreachable — but if one ever occurs the
+    // honest statement is identical (drafting ended, values never arrived), and
+    // an unmarked standing preview would be the very defect this branch exists
+    // to close. Fail-closed toward honesty.
+    let result: V5CallResult
+    try {
+      result = await callV5Turn(payload, { signal, headers })
+    } catch (e) {
+      if (previewOnCanvas) {
+        useDraftStore
+          .getState()
+          .setDraftStreamPhase('unsettled', turnClientId, scenarioIdAtDispatch)
+        throw new StreamedDraftAbortedWithPreviewError(
+          `buffered fallback ended without a terminal ingest: ${(e as Error)?.message ?? 'unknown'}`,
+        )
+      }
+      // Nothing rendered, so there is nothing to mark and nothing to say.
+      useDraftStore.getState().setDraftStreamPhase('idle', null, null)
+      throw e
+    }
+
     const drafted = resultCarriesDraftGraph(result)
     if (drafted) {
       // Outcome 1. The buffered body carries the whole graph, so the terminal

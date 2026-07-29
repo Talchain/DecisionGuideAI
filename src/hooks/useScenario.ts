@@ -129,14 +129,14 @@ function isAutosaveOwner(id: string): boolean {
 // pre-analysis flush and the debounced autosave agree on "clean" and never
 // double-write. Reset when the last mount unmounts (see the ownership effect).
 let sharedLastSavedGraphKey = ''
-let inFlightGraphSave: Promise<void> | null = null
+let inFlightGraphSave: Promise<unknown> | null = null
 
 // Record the in-flight save so the flush barrier can await it, and self-clear
 // when it settles. The housekeeping `.finally` chain swallows its own rejection
 // (`.catch`) so it never surfaces as an unhandled rejection — the ACTUAL result
 // is always awaited by the caller (the autosave try/catch, or the flush
 // barrier), which is where a real failure is handled.
-function trackInFlightGraphSave(p: Promise<void>): void {
+function trackInFlightGraphSave(p: Promise<unknown>): void {
   inFlightGraphSave = p
   void p
     .finally(() => {
@@ -150,8 +150,16 @@ function trackInFlightGraphSave(p: Promise<void>): void {
  * Shared by the debounced autosave, its retry, and the flush barrier so there is
  * ONE write code path. Updates the shared "already persisted" key and marks the
  * store clean on success. Rejects (propagates) on failure — callers decide.
+ *
+ * @returns `true` when a write was performed, `false` when it was SUPPRESSED
+ * because the scenario's streamed draft has unsettled values (round-2 review
+ * R2-N1). Callers that surface a save indicator must not report "saved" for a
+ * write that deliberately did not happen — a false indicator is precisely the
+ * honesty class this lane polices, and during a terminal `unsettled` state a
+ * signed-in user would otherwise see "saved" on every edit while nothing
+ * persists, then lose all of it on reload to CEE's commit.
  */
-async function persistGraphNow(sid: string): Promise<void> {
+async function persistGraphNow(sid: string): Promise<boolean> {
   // ROADMAP 2.122 round 2 (adversarial review F1) — never persist a graph whose
   // values the UI KNOWS are in progress.
   //
@@ -172,7 +180,7 @@ async function persistGraphNow(sid: string): Promise<void> {
   // cannot need this flush, because the run gate is shut for exactly these phases.
   // The store stays dirty, so the debounce re-fires and the settled graph is
   // written the moment the phase clears.
-  if (!shouldPersistGraphForScenario(sid)) return
+  if (!shouldPersistGraphForScenario(sid)) return false
   const state = useCanvasStore.getState()
   const key = graphSaveKey(state)
   await scenarioService.saveGraphViaGatedPath(
@@ -186,6 +194,7 @@ async function persistGraphNow(sid: string): Promise<void> {
   const now = Date.now()
   useCanvasStore.getState().markClean()
   useCanvasStore.setState({ lastSavedAt: now })
+  return true
 }
 
 /**
@@ -341,8 +350,12 @@ export function useScenario(): UseScenarioReturn {
         try {
           const p = persistGraphNow(saveSid)
           trackInFlightGraphSave(p)
-          await p
-          if (mountedRef.current) {
+          const wrote = await p
+          // R2-N1: a suppressed no-op must not read as "saved". Left at 'saving'
+          // rather than invented as a new status: the write really is still
+          // pending, the store stays dirty, and the debounce re-fires and
+          // succeeds the moment the draft settles.
+          if (mountedRef.current && wrote) {
             setSaveStatus('saved')
             setLastSavedAt(Date.now())
             setSaveError(null)
@@ -359,8 +372,8 @@ export function useScenario(): UseScenarioReturn {
             try {
               const rp = persistGraphNow(retrySid)
               trackInFlightGraphSave(rp)
-              await rp
-              if (mountedRef.current) {
+              const retryWrote = await rp
+              if (mountedRef.current && retryWrote) {
                 setSaveStatus('saved')
                 setLastSavedAt(Date.now())
                 setSaveError(null)

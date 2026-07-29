@@ -1028,3 +1028,118 @@ describe('F3 — the recovery affordance can actually deliver what it promises',
     expect(useDraftStore.getState().draftStreamPhase).not.toBe('unsettled')
   })
 })
+
+// ===========================================================================
+// ROUND-2 RE-REVIEW — R2-F1: abort of the FALLBACK, not of the stream
+// ===========================================================================
+//
+// The round-2 review found F1's fix covered abort-of-the-STREAM and not
+// abort-of-the-FALLBACK, and reproduced the ORIGINAL F1 end state one level
+// deeper (preview standing, phase `idle`, gate OPEN, nothing said).
+//
+// Why the round-1 battery could not see it: N1 mutates the stream-abort branch
+// only, and every fallback test resolves `callV5Turn`. Nothing ever aborted a
+// turn while the buffered fallback was in flight.
+//
+// ⚠ The timeout variant needs NO USER ACTION. The stream dies late (any blip in
+// the ~25 s window), the fallback issues a ~55 s buffered turn, and the 130 s
+// wall-clock budget kills it mid-flight — guaranteed for any stream death at
+// ≥75 s. On that path the round-2 timeout-copy suppression fires correctly and
+// makes the outcome MORE silent, not less: no timeout copy, no stopped notice,
+// no phase, open gate.
+describe('R2-F1 — the turn is aborted while the buffered fallback is in flight', () => {
+  /** `callV5Turn` that hangs until the turn's own signal aborts, then rejects as the real one does. */
+  function hangingUntilAbort() {
+    mockCallV5Turn.mockImplementation(
+      (_payload: unknown, opts: { signal?: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          opts.signal?.addEventListener('abort', () => {
+            const e = new Error('The operation was aborted')
+            e.name = 'AbortError'
+            reject(e)
+          })
+        }),
+    )
+  }
+
+  async function streamDiesThenAbort(
+    result: { current: ReturnType<typeof useConversation> },
+    abort: () => void,
+  ) {
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    hangingUntilAbort()
+    let sent!: Promise<void>
+    await act(async () => {
+      sent = result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
+    })
+    await stream.push(F_DRAFTING + F_GRAPH_READY)
+    expect(useDraftStore.getState().draftStreamPhase).toBe('settling')
+    // A genuine transport blip in the settling window — the fallback fires.
+    await stream.fail()
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    // …and the turn is killed while that buffered request is still open.
+    await act(async () => {
+      abort()
+    })
+    await act(async () => {
+      await sent.catch(() => {})
+    })
+  }
+
+  it('Stop during the fallback does not resurrect the original fabrication', async () => {
+    const { result } = renderHook(() => useConversation())
+    await streamDiesThenAbort(result, () => result.current.cancelTurn())
+
+    // The exact end state R2-P4 found: preview standing, phase idle, gate open,
+    // silence. Every one of these must now be the honest counterpart.
+    expect(useCanvasStore.getState().nodes).toHaveLength(TERMINAL_NODE_IDS.length)
+    expect(useDraftStore.getState().draftStreamPhase).toBe('unsettled')
+    expect(runGate().allowed).toBe(false)
+    expect(runGate().reason).toBe(DRAFT_VALUES_UNSETTLED_REFUSAL)
+    expect(result.current.messages.map((m) => m.content)).toContain(STOPPED_DRAFT_NOTICE)
+  })
+
+  it('the 130 s timeout during the fallback does the same — and this one needs no user action', async () => {
+    // Driven through the same abort seam the timeout uses (`controller.abort()`),
+    // because the alternative is a 130-second wall clock in a jsdom test. The
+    // timeout's OWN copy-suppression is pinned separately at
+    // `streamedPreviewStandingFor`; what is under test here is that the abort
+    // arriving mid-fallback still reaches the honest path.
+    const { result } = renderHook(() => useConversation())
+    await streamDiesThenAbort(result, () => result.current.cancelTurn())
+    expect(useDraftStore.getState().draftStreamPhase).toBe('unsettled')
+    expect(runGate().allowed).toBe(false)
+  })
+
+  it('does not fire a SECOND buffered turn — the abort is honoured, not worked around', async () => {
+    const { result } = renderHook(() => useConversation())
+    await streamDiesThenAbort(result, () => result.current.cancelTurn())
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+  })
+
+  it('an abort mid-fallback with NO preview stays silent — nothing to mark', async () => {
+    // Negative control, matching the stream-abort branch's own: the fallback can
+    // also be in flight after a failure that preceded GRAPH_READY, and there the
+    // canvas holds nothing. Inventing a notice would be its own fabrication.
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    hangingUntilAbort()
+    const { result } = renderHook(() => useConversation())
+    let sent!: Promise<void>
+    await act(async () => {
+      sent = result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
+    })
+    await stream.push(F_DRAFTING)
+    await stream.fail()
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    await act(async () => {
+      await sent.catch(() => {})
+    })
+    expect(useCanvasStore.getState().nodes).toHaveLength(0)
+    expect(useDraftStore.getState().draftStreamPhase).toBe('idle')
+    expect(result.current.messages.map((m) => m.content)).not.toContain(STOPPED_DRAFT_NOTICE)
+  })
+})
