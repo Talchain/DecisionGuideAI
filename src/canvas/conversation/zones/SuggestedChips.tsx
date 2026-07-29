@@ -24,6 +24,7 @@ import { useAnalysisStatus } from '../../hooks/useAnalysisReady'
 import { useCanvasStore } from '../../store'
 import { type FreshnessDisplaySemantic } from '../../store/analysisFreshness'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
+import { isChipRenderable } from '../chipDispatch'
 import type { ActionChip } from '../types'
 
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
@@ -264,7 +265,12 @@ export function SuggestedChips({
   // Ruled doctrine D-K (closed 15 Jul): 0-3 suggested action chips — render
   // up to 3 when offered, none when none offered (no filler). Supersedes the
   // DS v5 §21.4 "max 2" cap; the DS doc amendment is owned by the DS-1 lane.
-  const visible = polished.filter(c => !!(c.message || c.prompt)).slice(0, 3)
+  //
+  // ROADMAP 2.138: the dispatchability guard is `isChipRenderable`, shared with
+  // ActionChipRow and ChatThread. It used to be an inline `!!(message || prompt)`
+  // here, which dropped the terminal notices' `start_new_draft` chip — a chip
+  // ConversationPanel routes by id and which therefore carries no message.
+  const visible = polished.filter(isChipRenderable).slice(0, 3)
   if (visible.length === 0) return null
 
   const disabled = isThinking || isHistorical

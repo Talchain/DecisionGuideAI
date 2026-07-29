@@ -15,6 +15,7 @@ import { ChatMessage } from './ChatMessage'
 import { SessionDivider } from '../primitives/SessionDivider'
 import { ThinkingIndicator } from './ThinkingIndicator'
 import { SuggestedChips } from './SuggestedChips'
+import { isChipRenderable } from '../chipDispatch'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
 import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
 
@@ -120,9 +121,11 @@ export const ChatThread = memo(function ChatThread({
   // Get suggested chips from last assistant message
   const suggestedChips = lastAssistantMsg?.actionChips ?? []
   // Only hide inline chips when SuggestedChips will actually render something.
-  // SuggestedChips filters out chips without a message field (e.g. retry chips),
-  // so hideChips must mirror that filter — otherwise retry chips vanish entirely.
-  const suggestedChipsWillRender = suggestedChips.some(c => !!c.message)
+  // ROADMAP 2.138: this used to be a THIRD hand-written copy of the render rule
+  // (`!!c.message`) that had already drifted from SuggestedChips' own copy
+  // (`message || prompt`). It now calls the same predicate the row calls, so the
+  // mirror cannot drift again.
+  const suggestedChipsWillRender = suggestedChips.some(isChipRenderable)
 
   return (
     <div
