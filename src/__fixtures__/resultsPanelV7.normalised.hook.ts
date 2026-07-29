@@ -181,6 +181,9 @@ export const normalisedFixture: ResultsSectionDataReturn = {
   isError: false,
   goalLabel: 'Revenue growth',
   goalNodeId: 'goal-revenue',
+  // V7-C slice 1 (ROADMAP 2.141): `null` is the honest-gate verdict — this
+  // fixture predates the Resolve next view and asserts nothing about it.
+  voiRanking: null,
 }
 
 /** Tornado data derived from the normalised fixture */

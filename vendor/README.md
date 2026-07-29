@@ -7,17 +7,91 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.29.0.tgz` ← THE CURRENT PIN
+### `talchain-schemas-0.30.0.tgz` ← THE CURRENT PIN
 
-**Provenance: the PUBLISHED REGISTRY ARTEFACT, not a locally-packed branch.**
-Fetched with `npm pack @talchain/schemas@0.29.0 --registry=https://npm.pkg.github.com`
-from olumi-schemas #28 (merged `80c52743`). This matters: a merge can publish
-something other than the reviewed branch, so the artefact that ships is the one
-that was fetched from the registry, and the integrity recorded in
-`pnpm-lock.yaml` after install
-(`sha512-BAHbxcy/mIlCc+GNiOxvS4zadrl+0Kwecx4va886b6gicbTPwAzciuhQiPe3YU7kUj+FSclK10ApMf9NNk89qg==`)
-is the registry's own. SHA256 manifest alongside as
-`talchain-schemas-0.29.0.tgz.sha256`.
+**Provenance: the PUBLISHED REGISTRY ARTEFACT, obtained via CEE rather than
+re-packed here — and byte-verified, not assumed.** olumi-schemas PR #29 merged
+`f5815a34`, tagged `v0.30.0`, publish run `30445606038` green; CEE #754 vendored
+that release artefact with `npm pack @talchain/schemas@0.30.0` from GitHub
+Packages. This copy was fetched from CEE `staging` and its SHA-256 compared to
+CEE's own manifest:
+
+```
+this repo : cd3746369b26da20e079c8d8ec323294edcc46a32df6830b657aed2cd465a0cc
+CEE staging: cd3746369b26da20e079c8d8ec323294edcc46a32df6830b657aed2cd465a0cc   ✅ identical
+```
+
+So CEE and the UI now run BYTE-IDENTICAL schemas, which is the strongest
+available answer to the schema-skew hazard.
+
+⚠ **WHAT IS PROVEN HERE, AND WHAT IS NOT — read before citing any hash in this
+file as provenance.** A `file:` pin makes pnpm hash the LOCAL tarball, so no hash
+recorded here or in the lockfile can say anything about a registry.
+
+| Claim | Status |
+|---|---|
+| the sidecar matches the checked-in bytes | ✅ proven — `shasum -a 256 -c vendor/talchain-schemas-0.30.0.tgz.sha256` |
+| **byte-identical to the artefact CEE deployed** | ✅ proven — sha256 above matches CEE `staging`'s own sidecar, and the two repos hold the same git blob at the same length |
+| **"is the published registry release"** | ⚠️ **NOT PROVEN HERE.** Inherited from CEE's `vendor/README.md`, which records `npm pack @talchain/schemas@0.30.0` from GitHub Packages (olumi-schemas #29 → `f5815a34`, tag `v0.30.0`, publish run `30445606038`). This lane did not re-pack: the scope is 401 on GitHub Packages and 404 on public npm, and no token was used. |
+
+The `pnpm-lock.yaml` entry records
+`sha512-6qF6M0Gkt6/WQ4/2nxZWU0hau93g/fhH4+0c/3mZTA+I5U8LY9mxLjZsgf980cPbjYJeBEKwdbMUX9HQhCXmrg==`
+against `tarball: file:vendor/talchain-schemas-0.30.0.tgz` — i.e. **pnpm hashing the
+local file**, reproducible with
+`openssl dgst -sha512 -binary vendor/talchain-schemas-0.30.0.tgz | base64`. It is
+**local integrity, not registry evidence**, and an earlier draft of this section
+cited it as though it were the latter. Corrected after an adversarial review of
+PR #531 recomputed it and showed the citation was self-referential.
+
+**What it adds (ROADMAP 2.141, V7-C slice 1a):** the **VOI family** on
+`CEE_UI_ENRICHMENT_KEEP_LIST` — `factor_evppi`, `decision_evpi`,
+`p_win_sensitivity`, `correlation_model` — plus the new exported
+`EnrichmentFactorEvppiEntrySchema` (open/passthrough, only `factor_id`
+required). **FOUR keys, not the three the design's slice table first listed:**
+`correlation_model` is the discriminator for an absent `p_win_sensitivity`
+(suppressed under active correlation and named in
+`correlation_model.suppressed_attributions`), so transporting three would carry
+the question and leave the answer behind. Verified at the RESOLVED bytes, not
+from the release notes: importing `CEE_UI_ENRICHMENT_KEEP_LIST` from the
+installed `dist/boundary/enrichment.js` returns all four.
+
+**Absorption cost 0.29.0 → 0.30.0: ZERO new typecheck errors.** The gate's
+per-file ratchet and total both held at the baseline (622 files / 2510 errors)
+across the re-vendor; the four new UI errors that appeared during the lane were
+this lane's own code and fixtures, and were fixed at source rather than
+baselined. 0.30.0 is a keep-list plus one entry schema and nothing else, so
+there is no removed export or renamed field for an older consumer to drop.
+
+⚠ **SEQUENCING: THERE ISN'T ANY, AND THAT IS DERIVED.** Unlike the 0.29.0
+`factor_value_edit` train (a `.strict()` discriminated-union member, where a
+below-pin consumer rejects the WHOLE turn), this release adds only ENRICHMENT
+keys. `AnalysisResultBlockSchema.enrichment` is
+`z.record(z.string(), z.unknown()).optional()` (checked in the installed
+`dist/boundary/blocks.js:53`) and the typed envelope is `.passthrough()`, so an
+additive enrichment key parses at every pinned validator. No outage window, no
+forced landing order, no flag; rollback is a revert.
+
+`src/lib/talchainSchemasVersion.ts` is bumped to `0.30.0` in lockstep (its spec
+derives the expected value from the `file:` pin in `package.json` and fails on
+drift).
+
+### `talchain-schemas-0.29.0.tgz` (historical — no longer vendored)
+
+**Recorded provenance: fetched with
+`npm pack @talchain/schemas@0.29.0 --registry=https://npm.pkg.github.com` from
+olumi-schemas #28 (merged `80c52743`), i.e. the registry artefact rather than a
+locally-packed branch.** That distinction matters — a merge can publish something
+other than the reviewed branch — but it is a record of what the vendoring lane
+did, **not something any artefact in this repo can prove.**
+
+⚠ **CORRECTED (adversarial review of PR #531).** This section previously cited
+`sha512-BAHbxcy/mIlCc+GNiOxvS4zadrl+0Kwecx4va886b6gicbTPwAzciuhQiPe3YU7kUj+FSclK10ApMf9NNk89qg==`
+from `pnpm-lock.yaml` and asserted it **"is the registry's own"**. That was
+**false**: the pin is `file:./vendor/...`, so pnpm hashed the LOCAL tarball and
+the string is reproducible offline from the checked-in bytes. It was zero evidence
+about the registry. What the lockfile hash and the `.sha256` sidecar actually
+attest is **local integrity of the checked-in file** — nothing more. Same defect,
+same correction, as the 0.30.0 section above.
 
 **What it adds (ROADMAP 1.346):** the `factor_value_edit` system-event kind —
 the VALUE-CARRYING inspector edit `{target_id, value (model scale), raw_value?,

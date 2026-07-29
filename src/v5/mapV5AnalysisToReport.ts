@@ -914,6 +914,41 @@ export function mapV5AnalysisToReport(
     ? (enrichment!.inference_warnings as unknown[])
     : undefined
 
+  // V7-C slice 1 (ROADMAP 2.141): the VOI family. schemas 0.30.0 adds these
+  // FOUR keys to `CEE_UI_ENRICHMENT_KEEP_LIST` and CEE #754 mirrors them onto
+  // `P0B_SAFE_TRANSPORT_ENRICHMENT_KEEP`, so they now arrive on
+  // `blocks[0].enrichment` at the browser (live-probed 30 Jul). Until this read
+  // existed they died one hop before the store.
+  //
+  // FOUR, NOT THREE: `correlation_model` is the DISCRIMINATOR for an absent
+  // `p_win_sensitivity` — ISL suppresses that array under active correlation
+  // and names it in `correlation_model.suppressed_attributions` ("absent from
+  // the response, not null"). Carrying the question without the answer is the
+  // shape the design's §6 correction exists to prevent.
+  //
+  // Slice 1 DISPLAYS `factor_evppi` only, as a ranking with no magnitudes; the
+  // other three are transported and unread so the display half needs no second
+  // cross-repo train. Transport is claim-inert — the claim cage is the reader
+  // (`components/results/voi/voiRanking.ts`), which carries no number at all.
+  //
+  // Verbatim + absence-preserving, exactly like `inference_warnings` above: a
+  // producer-sent `[]` is an honest "no factor survived" and is carried as
+  // such, while absent/null/malformed stays OFF the report so the reader's
+  // honest gate fires instead of a fabricated ranking. Rows are NOT narrowed
+  // here — the audit legs (`noise_floor`, `clamped_*`, `method`, the utility
+  // legs) reach the debug bundle intact, and the reader decides what it is
+  // licensed to use.
+  const factorEvppi = Array.isArray(enrichment?.factor_evppi)
+    ? (enrichment!.factor_evppi as unknown[])
+    : undefined
+  const decisionEvpi = safeFiniteNumber(enrichment?.decision_evpi)
+  const pWinSensitivity = Array.isArray(enrichment?.p_win_sensitivity)
+    ? (enrichment!.p_win_sensitivity as unknown[])
+    : undefined
+  const correlationModel = isPlainObject(enrichment?.correlation_model)
+    ? enrichment!.correlation_model
+    : undefined
+
   // Display-honesty (ROADMAP 1.6b; producer PLoT #202): top-level
   // producer-classified confidence tier. ON-WIRE on Seam A (`confidence_tier`
   // is one of the 11 keys in CEE's P0B_SAFE_TRANSPORT_ENRICHMENT_KEEP
@@ -1067,6 +1102,11 @@ export function mapV5AnalysisToReport(
   if (confidenceTier !== undefined) widened.confidence_tier = confidenceTier
   if (constraintsStatus !== undefined) widened.constraints_status = constraintsStatus
   if (inferenceWarnings) widened.inference_warnings = inferenceWarnings
+  // VOI family (V7-C slice 1) — see the derivation block above.
+  if (factorEvppi) widened.factor_evppi = factorEvppi
+  if (decisionEvpi !== undefined) widened.decision_evpi = decisionEvpi
+  if (pWinSensitivity) widened.p_win_sensitivity = pWinSensitivity
+  if (correlationModel !== undefined) widened.correlation_model = correlationModel
   if (conditionalProbabilities !== undefined) {
     widened.conditional_probabilities = conditionalProbabilities
   }

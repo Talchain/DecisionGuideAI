@@ -124,6 +124,45 @@ export const V7_LENS_COPY = {
         ? 'Where the comparison between options depends on an assumption.'
         : 'Where the leading option depends on an assumption.',
     tradeOffsGate: 'No trade-offs to show for this run.',
+
+    // ── Resolve next (V7-C slice 1, ROADMAP 2.141) ───────────────────────
+    //
+    // The five licensed sentences of V7C-EVPPI-RANKING-DESIGN-2026-07-30 §4,
+    // plus that table's honest gate, reproduced VERBATIM. Paul's sign-off is
+    // pending (design §8 Q2); verbatim use is what keeps his review meaningful,
+    // so a deviation here gets flagged in the PR, never silently improved.
+    //
+    // WHAT LICENSES EACH SENTENCE (design §4):
+    //   · resolveNextLead  ← rank-1 of the `status: 'resolved'` rows, in wire
+    //     order, its label resolved from the canvas node for `factor_id`.
+    //   · resolveNextThen  ← ranks 2..n of the resolved rows, wire order.
+    //   · resolveNextBelow ← `status: 'below_resolution'`. NEVER "zero value"
+    //     and never "not worth resolving": below-resolution means
+    //     indistinguishable from noise AT THIS RUN'S RESOLUTION.
+    //   · resolveNextNote  ← `method: 'regression_evppi_v1'` on every row. The
+    //     honesty disclosure IS that we name the basis and the restraint. The
+    //     em dash is the design's, kept against this file's own no-em-dash rule
+    //     for the same reason the What-changed empty state keeps its one: the
+    //     wording is ratified elsewhere and mirroring it inexactly is worse.
+    //   · resolveNextPartial ← `inference_warnings[].code ===
+    //     'FACTOR_EVPPI_PARTIAL'`, or any row this reader had to drop. It never
+    //     names WHICH factors: the id lists are dropped at the PLoT hop and
+    //     id-shaped names are banned anyway.
+    //   · resolveNextGate  ← `factor_evppi` absent/null/empty/unusable. An
+    //     honest gate, never a fabricated ranking and never a heuristic
+    //     substitute (this surface exists to retire the `gap.voi` regime).
+    //
+    // NOT LICENSED, and absent from this deck by construction: any magnitude
+    // (`evppi` and `decision_evpi` are in OUTCOME units), any percentage-point
+    // figure, and any band beyond below-resolution.
+    resolveNextTab: 'Resolve next',
+    resolveNextNote:
+      'Ranked by value of information — what a run says it is worth learning before deciding. No amounts shown.',
+    resolveNextLead: 'Most worth resolving next',
+    resolveNextThen: 'then',
+    resolveNextBelow: (labels: string) => `Below resolution on this run: ${labels}`,
+    resolveNextPartial: "Some factors couldn't be assessed for this ranking.",
+    resolveNextGate: "Value-of-information ranking wasn't produced for this run.",
     /** Conditional-winner narration — all values are producer-supplied
      * (factor label, split value/unit, winner labels); nothing invented. */
     tradeOffSplit: (factor: string, value: string, high: string, low: string) =>

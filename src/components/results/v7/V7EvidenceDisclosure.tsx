@@ -13,6 +13,18 @@
  *     switch probability as row meta.
  *   · Trade-offs — conditional_winners narrated verbatim from producer values
  *     (factor label, split value/unit, winner labels); nothing invented.
+ *   · Resolve next — ISL's per-factor EVPPI as a RANKING ONLY (V7-C slice 1,
+ *     ROADMAP 2.141): producer wire order, rank-1 annotated as the one most
+ *     worth resolving, below-resolution factors demoted to a muted line, and
+ *     NO magnitude anywhere. The numbers are in the decision's OUTCOME units
+ *     and have no licensed rendering, so no CLAIM this view makes contains a
+ *     digit — the ranking is carried structurally by an ordered list. (The one
+ *     digit-bearing string is the "Show N more" row-clamp counter shared with
+ *     Drivers: a count of hidden rows, not a value of information. It is carved
+ *     out of the no-digit assertion and pinned exactly, so the carve-out cannot
+ *     widen.) An absent or unusable block renders the honest gate; it never
+ *     falls back to the retired `gap.voi` heuristic this view exists to
+ *     replace.
  *
  * Each tab renders its live rows or an honest gate — never a fabricated list.
  * Tabs use aria-pressed toggle buttons (not role=tab): the disclosure body is
@@ -24,7 +36,7 @@
  */
 
 import { useMemo, useState } from 'react'
-import { ChevronDown, AlertTriangle, Crosshair, GitBranch } from 'lucide-react'
+import { ChevronDown, AlertTriangle, Crosshair, GitBranch, Info } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { formatPercent } from '@/utils/formatPercent'
 import { formatRangeValue } from '../utils/formatRangeValue'
@@ -34,8 +46,10 @@ import { useAnalysisProjection } from '@/canvas/highlighting/useAnalysisProjecti
 
 const E = V7_LENS_COPY.evidence
 const VISIBLE_DRIVERS = 3
+/** Same clamp as Drivers — one number, one meaning, across the disclosure. */
+const VISIBLE_RESOLVE_NEXT = 3
 
-type EvidenceView = 'drivers' | 'flipRisks' | 'tradeOffs'
+type EvidenceView = 'drivers' | 'flipRisks' | 'tradeOffs' | 'resolveNext'
 
 export interface V7EvidenceDisclosureProps {
   evidence: V7EvidenceModel
@@ -61,6 +75,7 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<EvidenceView>('drivers')
   const [showAllDrivers, setShowAllDrivers] = useState(false)
+  const [showAllResolveNext, setShowAllResolveNext] = useState(false)
 
   // Analysis-graph projection: while this disclosure is open on the Flip-risks
   // or Drivers view, mark the resolvable canvas elements it names (fragile edges
@@ -79,18 +94,31 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
   const hasDrivers = evidence.drivers.length > 0
   const hasFlipRisks = evidence.flipRisks.length > 0
   const hasTradeOffs = evidence.tradeOffs.length > 0
+  // `resolveNext === null` is the honest-gate verdict, already decided by the
+  // one authority (`voi/voiRanking.ts`) — never re-derived here. A ranking
+  // alone is enough to disclose, so it joins the guard below; leaving it out
+  // would render nothing on a run whose only evidence is the ranking.
+  const hasResolveNext = evidence.resolveNext != null
 
   // Nothing to disclose at all → render nothing (never an empty shell).
-  if (!hasDrivers && !hasFlipRisks && !hasTradeOffs) return null
+  if (!hasDrivers && !hasFlipRisks && !hasTradeOffs && !hasResolveNext) return null
 
   const views: Array<{ key: EvidenceView; label: string }> = [
     { key: 'drivers', label: E.driversTab },
     { key: 'flipRisks', label: E.flipRisksTab },
     { key: 'tradeOffs', label: E.tradeOffsTab },
+    { key: 'resolveNext', label: E.resolveNextTab },
   ]
 
   const visibleDrivers = showAllDrivers ? evidence.drivers : evidence.drivers.slice(0, VISIBLE_DRIVERS)
   const moreCount = evidence.drivers.length - VISIBLE_DRIVERS
+
+  const resolveNext = evidence.resolveNext
+  const resolvedRows = resolveNext?.resolved ?? []
+  const visibleResolveNext = showAllResolveNext
+    ? resolvedRows
+    : resolvedRows.slice(0, VISIBLE_RESOLVE_NEXT)
+  const resolveNextMoreCount = resolvedRows.length - VISIBLE_RESOLVE_NEXT
 
   return (
     <section
@@ -268,6 +296,113 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
                 </>
               ) : (
                 <EvidenceGate testId="v7-evidence-trade-offs-gate">{E.tradeOffsGate}</EvidenceGate>
+              )}
+            </div>
+          )}
+
+          {/*
+            Resolve next (V7-C slice 1, ROADMAP 2.141).
+
+            RANKING ONLY. Rows arrive from `voi/voiRanking.ts` already
+            label-resolved, validated, split by producer status and in PRODUCER
+            WIRE ORDER — this block maps them and adds nothing. No sort, no
+            filter, no re-group: a view that "fixes" the order is a view that
+            can invert it, and the order is the only thing the surface shows.
+
+            The ranks are an ORDERED LIST rather than narrated numerals, so the
+            rendering carries the ordinal structurally and the view's rendered
+            text carries no digit in any CLAIM it makes — only the shared
+            "Show N more" clamp counter, which is pinned exactly. That is not
+            cosmetic: `evppi` is in
+            the decision's OUTCOME units with no licensed display, so the
+            safest surface is one with no numeric text to mis-read.
+          */}
+          {view === 'resolveNext' && (
+            <div className="space-y-1.5" data-testid="v7-evidence-resolve-next">
+              {resolveNext ? (
+                <>
+                  <EvidenceNote>{E.resolveNextNote}</EvidenceNote>
+                  {resolvedRows.length > 0 && (
+                    <ol className="ml-4 list-decimal space-y-1.5 marker:text-text-light">
+                      {visibleResolveNext.map((r, i) => {
+                        const canFocus = Boolean(r.canFocus && onFocusNode)
+                        // Rank 1 leads; every later rank is a "then". The
+                        // annotation is the design's licensed sentence carried
+                        // as row meta (§2: "rank 1 gets the headline copy …
+                        // ranks 2-3 listed beneath"). `visibleResolveNext` is
+                        // always a PREFIX slice of `resolvedRows`, so the
+                        // visible index is the producer rank — expanding the
+                        // list cannot move the leader.
+                        const isLead = i === 0
+                        const body = (
+                          <>
+                            <span className={`${typography.panelBody} flex min-w-0 items-center gap-1.5 text-left text-text-body`}>
+                              {canFocus && <Crosshair aria-hidden="true" className="h-3 w-3 flex-none text-info" />}
+                              <span className="min-w-0 truncate">{r.label}</span>
+                            </span>
+                            <span
+                              data-testid={isLead ? 'v7-resolve-next-lead' : 'v7-resolve-next-then'}
+                              className={`${typography.panelMeta} whitespace-nowrap text-right text-text-light`}
+                            >
+                              {isLead ? E.resolveNextLead : E.resolveNextThen}
+                            </span>
+                          </>
+                        )
+                        const grid = 'grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2'
+                        return (
+                          <li key={`${r.factorId}-${i}`} data-testid="v7-resolve-next-row">
+                            {canFocus ? (
+                              <button
+                                type="button"
+                                onClick={() => onFocusNode?.(r.factorId)}
+                                className={`${grid} rounded py-0.5 text-left transition-colors hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                              >
+                                {body}
+                              </button>
+                            ) : (
+                              <div className={`${grid} py-0.5`}>{body}</div>
+                            )}
+                          </li>
+                        )
+                      })}
+                    </ol>
+                  )}
+                  {resolveNextMoreCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllResolveNext((s) => !s)}
+                      data-testid="v7-resolve-next-toggle"
+                      className={`${typography.panelMeta} text-info hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                    >
+                      {showAllResolveNext ? E.showFewer : E.seeMore(resolveNextMoreCount)}
+                    </button>
+                  )}
+                  {/* Demoted, never ranked. Below-resolution means
+                      indistinguishable from noise AT THIS RUN'S RESOLUTION —
+                      not zero value, and not "not worth resolving". */}
+                  {resolveNext.belowResolution.length > 0 && (
+                    <p
+                      className={`${typography.panelMeta} text-text-light`}
+                      data-testid="v7-resolve-next-below"
+                    >
+                      {E.resolveNextBelow(resolveNext.belowResolution.map((r) => r.label).join(', '))}
+                    </p>
+                  )}
+                  {/* Disclosed without naming which factors: the producer's id
+                      lists are dropped at the PLoT hop, and an id-shaped name
+                      is banned regardless. */}
+                  {resolveNext.someFactorsUnassessed && (
+                    <p
+                      className={`${typography.panelMeta} flex items-start gap-1.5 text-text-light`}
+                      data-testid="v7-resolve-next-partial"
+                    >
+                      <Info aria-hidden="true" className="mt-0.5 h-3 w-3 flex-none" />
+                      <span>{E.resolveNextPartial}</span>
+                    </p>
+                  )}
+                </>
+              ) : (
+                <EvidenceGate testId="v7-evidence-resolve-next-gate">{E.resolveNextGate}</EvidenceGate>
               )}
             </div>
           )}

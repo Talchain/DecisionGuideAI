@@ -18,6 +18,9 @@ function model(partial: Partial<V7EvidenceModel>): V7EvidenceModel {
     drivers: partial.drivers ?? [],
     flipRisks: partial.flipRisks ?? [],
     tradeOffs: partial.tradeOffs ?? [],
+    // V7-C slice 1 (ROADMAP 2.141): null is the honest-gate verdict — these
+    // suites predate the Resolve next view and assert nothing about it.
+    resolveNext: partial.resolveNext ?? null,
     designationsWithheld: partial.designationsWithheld ?? false,
   }
 }
