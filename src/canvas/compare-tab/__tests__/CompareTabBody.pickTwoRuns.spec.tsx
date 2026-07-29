@@ -267,6 +267,33 @@ describe('pick-two-runs side-by-side (2.113a slice 2)', () => {
     expect(screen.getByTestId('run-pair-compare').textContent).not.toContain('0.18')
   })
 
+  // ADVERSARIAL REVIEW OF #526, FINDING 1 — reproduced at the render, which is
+  // where the reviewer saw it: "Option X | 55% | 0% | -55pp".
+  it('an option the LATER run carries WITHOUT a win probability is membership, not a 0% and a -55pp fall', async () => {
+    await renderWithRuns([
+      run(1, '10', 0.45, {
+        optionComparison: [
+          { option_id: 'opt-a', option_label: 'Option A', win_probability: 0.45 },
+          { option_id: 'opt-x', option_label: 'Option X', win_probability: 0.55 },
+        ],
+      }),
+      run(2, '11', 0.62, {
+        optionComparison: [
+          { option_id: 'opt-a', option_label: 'Option A', win_probability: 0.62 },
+          // Same option, producer sent no probability for it this time.
+          { option_id: 'opt-x', option_label: 'Option X' },
+        ],
+      }),
+    ])
+    openPicker()
+
+    const rowX = within(screen.getByTestId('option-row-opt-x'))
+    expect(rowX.getByText('55%')).toBeTruthy()          // run 1's real measurement
+    expect(rowX.getByText('Only in run 1')).toBeTruthy() // run 2: absence, stated
+    expect(rowX.queryByText('0%')).toBeNull()            // the fabricated baseline
+    expect(rowX.queryByText('-55pp')).toBeNull()         // the delta measured against it
+  })
+
   it('GUEST UNCHANGED: no session ⇒ no read, no picker, no side-by-side, no error', async () => {
     getSessionIdentity.mockResolvedValue({ userId: null, accessToken: null })
 

@@ -69,6 +69,102 @@ describe('snapshot.options — every option, not just the top two', () => {
   it('is [] when the producer sent no option comparison — not a phantom option', () => {
     expect(build({}).options).toEqual([])
   })
+
+  // ── ADVERSARIAL REVIEW OF #526, FINDING 1 ────────────────────────────────
+  //
+  // `parseRunFact`'s slice-1 guards require the option ARRAY to be non-empty;
+  // they say nothing about the ITEMS. So an item with an id and a label but NO
+  // `win_probability` reached this function, and `?? 0` scored it at zero.
+  // Reviewer's reproduction in the pair table, at `1a08cca9`:
+  //
+  //     ROW X RENDERS: "Option X | 55% | 0% | -55pp"
+  //
+  // — a 0% the producer never sent, AND a −55pp delta measured against it, in
+  // the table whose own header says "no baseline, no default and no
+  // re-derivation anywhere in this file". The sharp edge is that the SAME
+  // commit already handled this absence honestly twice: `extractOptions` drops
+  // an option with no usable ID, and `deriveRunLeaderVerdict` maps the missing
+  // probability to `null` so the verdict never sees a fabricated number. Only
+  // the probability on THIS line got the `?? 0`.
+  //
+  // Live incidence: 0 — 2,850/2,850 live option items carry `win_probability`.
+  // Producer-drift insurance, and the drift is now loud by OMISSION (the option
+  // disappears from the run, so the pair table reads "Only in run N") instead of
+  // publishing a zero the engine never measured.
+  it('DROPS an option with NO win_probability — a fabricated 0% is worse than an absent row', () => {
+    const snapshot = build({
+      option_comparison: [
+        { option_id: 'opt-a', option_label: 'A', win_probability: 0.55 },
+        { option_id: 'opt-x', option_label: 'Option X' },
+      ],
+    } as unknown as Partial<V2RunResponse>)
+
+    expect(snapshot.options.map(o => o.id)).toEqual(['opt-a'])
+    expect(snapshot.options.find(o => o.id === 'opt-x')).toBeUndefined()
+  })
+
+  it('DROPS a NaN / Infinity / non-numeric win_probability too', () => {
+    const snapshot = build({
+      option_comparison: [
+        { option_id: 'opt-a', option_label: 'A', win_probability: 0.55 },
+        { option_id: 'opt-nan', option_label: 'NaN', win_probability: Number.NaN },
+        { option_id: 'opt-inf', option_label: 'Inf', win_probability: Number.POSITIVE_INFINITY },
+        { option_id: 'opt-str', option_label: 'Str', win_probability: '0.4' },
+        { option_id: 'opt-null', option_label: 'Null', win_probability: null },
+      ],
+    } as unknown as Partial<V2RunResponse>)
+
+    expect(snapshot.options.map(o => o.id)).toEqual(['opt-a'])
+  })
+
+  it('a producer-sent ZERO is an honest measurement and is KEPT', () => {
+    // The whole point of the guard is absent ≠ zero. A real 0 must survive it,
+    // or the fix has quietly become "drop the losers".
+    const snapshot = build({
+      option_comparison: [
+        { option_id: 'opt-a', option_label: 'A', win_probability: 1 },
+        { option_id: 'opt-z', option_label: 'Z', win_probability: 0 },
+      ],
+    } as unknown as Partial<V2RunResponse>)
+
+    expect(snapshot.options).toEqual([
+      { id: 'opt-a', label: 'A', winProbability: 100 },
+      { id: 'opt-z', label: 'Z', winProbability: 0 },
+    ])
+  })
+
+  it('a malformed item does not CONSUME its id — well-shaped twin FIRST', () => {
+    const snapshot = build({
+      option_comparison: [
+        { option_id: 'opt-a', option_label: 'Real', win_probability: 0.6 },
+        { option_id: 'opt-a', option_label: 'Malformed twin' },
+      ],
+    } as unknown as Partial<V2RunResponse>)
+
+    expect(snapshot.options).toEqual([{ id: 'opt-a', label: 'Real', winProbability: 60 }])
+  })
+
+  // ⚠ THE ORDER OF THE TWO CHECKS IS LOAD-BEARING, and the test above cannot
+  // see it: with the good twin first, marking the id `seen` early or late gives
+  // the same answer. Mutant M18 (move `seen.add` above the probability check)
+  // was GREEN against that test alone — an unpinned claim in a comment.
+  //
+  // This is the ordering that separates them. The factory sorts by
+  // `(b.win_probability ?? 0) - (a.win_probability ?? 0)`, so a malformed item
+  // sorts as 0 and can only precede its twin when that twin is an honest 0 —
+  // the comparator returns 0 for the pair and `Array.prototype.sort` is stable
+  // (ES2019), so input order survives. Marking the id early would then let the
+  // MALFORMED item consume it and delete a real, producer-sent measurement.
+  it('a malformed item does not CONSUME its id — malformed FIRST, honest 0 twin second', () => {
+    const snapshot = build({
+      option_comparison: [
+        { option_id: 'opt-a', option_label: 'Malformed twin' },
+        { option_id: 'opt-a', option_label: 'Real', win_probability: 0 },
+      ],
+    } as unknown as Partial<V2RunResponse>)
+
+    expect(snapshot.options).toEqual([{ id: 'opt-a', label: 'Real', winProbability: 0 }])
+  })
 })
 
 describe('snapshot.leaderVerdict — quoted from the producer, never derived', () => {

@@ -245,12 +245,41 @@ function deriveEditSummary(
 // ---------------------------------------------------------------------------
 
 /**
- * Every option the run scored, in the order the winner/runner-up pair is
- * already chosen from. No new quantity: the same array, kept whole.
+ * Every option the run ACTUALLY SCORED, in the order the winner/runner-up pair
+ * is already chosen from. No new quantity: the same array, kept whole.
  *
- * Options with no usable id are dropped rather than keyed on `''` — two such
- * options would collide into one row in the side-by-side table and report a
- * delta between two different options.
+ * TWO DROP RULES, and they are the same rule twice.
+ *
+ * 1. **No usable id** — two id-less options would collide into one row in the
+ *    side-by-side table and report a delta between two different options.
+ *
+ * 2. **No usable `win_probability`** — ⚠ ADDED BY THE ADVERSARIAL REVIEW OF
+ *    #526 (finding 1), and it closes a live fabrication path. `parseRunFact`'s
+ *    slice-1 guards require the option ARRAY to be non-empty; they say nothing
+ *    about the ITEMS. So an item with an id and a label but no probability
+ *    reached this function and `?? 0` scored it at zero. Reproduced in the pair
+ *    table at `1a08cca9`:
+ *
+ *        ROW X RENDERS: "Option X | 55% | 0% | -55pp"
+ *
+ *    — a 0% the producer never sent, and a **−55pp delta measured against it**,
+ *    inside the table whose own header says "no baseline, no default and no
+ *    re-derivation anywhere in this file". The absence was already handled
+ *    honestly twice in this same commit — rule 1 above, and
+ *    `deriveRunLeaderVerdict` mapping the missing probability to `null` so the
+ *    verdict never sees a fabricated number. Only this line had the `?? 0`.
+ *
+ * A dropped option is not silence: it becomes a MEMBERSHIP row in the pair view
+ * ("Only in run N"), so producer drift is loud by omission instead of being
+ * published as a measurement the engine never made. Live cost is zero —
+ * 2,850/2,850 live option items carry `win_probability`.
+ *
+ * ⚠ A PRODUCER-SENT `0` IS AN HONEST MEASUREMENT AND SURVIVES. The guard is on
+ * ABSENCE (and on NaN / Infinity / non-numbers), never on the value; a control
+ * test pins that, so tightening this into "drop the losers" cannot pass.
+ *
+ * Order matters: a malformed item is skipped WITHOUT claiming its id, so a
+ * well-shaped entry carrying the same id still lands.
  */
 function extractOptions(sorted: readonly V2OptionComparison[]): SnapshotOption[] {
   const out: SnapshotOption[] = []
@@ -258,11 +287,13 @@ function extractOptions(sorted: readonly V2OptionComparison[]): SnapshotOption[]
   for (const o of sorted) {
     const id = typeof o?.option_id === 'string' ? o.option_id : ''
     if (id.length === 0 || seen.has(id)) continue
+    const win = o.win_probability
+    if (typeof win !== 'number' || !Number.isFinite(win)) continue
     seen.add(id)
     out.push({
       id,
       label: typeof o.option_label === 'string' ? o.option_label : '',
-      winProbability: Math.round((o.win_probability ?? 0) * 100),
+      winProbability: Math.round(win * 100),
     })
   }
   return out
