@@ -45,11 +45,25 @@ import { V7_LENS_COPY } from './v7LensCopy'
 import { useAnalysisProjection } from '@/canvas/highlighting/useAnalysisProjection'
 
 const E = V7_LENS_COPY.evidence
-const VISIBLE_DRIVERS = 3
-/** Same clamp as Drivers — one number, one meaning, across the disclosure. */
-const VISIBLE_RESOLVE_NEXT = 3
+
+/**
+ * The row clamp — ONE number, ONE meaning, across every clamped view in this
+ * disclosure (Drivers and Resolve next today). It was two constants whose
+ * equality lived in a comment: a comment cannot fail, so the day one of them
+ * moved the two views would have silently disagreed about "top N".
+ */
+const VISIBLE_EVIDENCE_ROWS = 3
 
 type EvidenceView = 'drivers' | 'flipRisks' | 'tradeOffs' | 'resolveNext'
+
+/** The four view chips, in render order. Static — every label is a module
+ * constant, so this is built once rather than on every render. */
+const VIEWS: ReadonlyArray<{ key: EvidenceView; label: string }> = [
+  { key: 'drivers', label: E.driversTab },
+  { key: 'flipRisks', label: E.flipRisksTab },
+  { key: 'tradeOffs', label: E.tradeOffsTab },
+  { key: 'resolveNext', label: E.resolveNextTab },
+]
 
 export interface V7EvidenceDisclosureProps {
   evidence: V7EvidenceModel
@@ -69,6 +83,43 @@ function EvidenceGate({ testId, children }: { testId: string; children: React.Re
 /** The muted lead-in note above a view's rows — three identical copies. */
 function EvidenceNote({ children }: { children: React.ReactNode }) {
   return <p className={`${typography.panelMeta} text-text-light`}>{children}</p>
+}
+
+/**
+ * The row-clamp toggle — one leaf for the two verbatim copies (Drivers and
+ * Resolve next), down to the focus-ring class string.
+ *
+ * `hiddenCount` is the number of rows the clamp HIDES and does not change when
+ * the list expands, so the affordance stays mounted as "Show fewer" — the
+ * behaviour both suites pin. Renders nothing when the clamp hides nothing.
+ *
+ * ⚠ That counter is the ONLY digit-bearing string in the Resolve next view, and
+ * it is a count of HIDDEN ROWS — never a value of information. It is the string
+ * that view's no-digit assertion carves out and then pins exactly, so the
+ * carve-out cannot widen into a hole a magnitude arrives through.
+ */
+function ClampToggle({
+  testId,
+  hiddenCount,
+  expanded,
+  onToggle,
+}: {
+  testId: string
+  hiddenCount: number
+  expanded: boolean
+  onToggle: () => void
+}) {
+  if (hiddenCount <= 0) return null
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      data-testid={testId}
+      className={`${typography.panelMeta} text-info hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+    >
+      {expanded ? E.showFewer : E.seeMore(hiddenCount)}
+    </button>
+  )
 }
 
 export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclosureProps) {
@@ -103,22 +154,15 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
   // Nothing to disclose at all → render nothing (never an empty shell).
   if (!hasDrivers && !hasFlipRisks && !hasTradeOffs && !hasResolveNext) return null
 
-  const views: Array<{ key: EvidenceView; label: string }> = [
-    { key: 'drivers', label: E.driversTab },
-    { key: 'flipRisks', label: E.flipRisksTab },
-    { key: 'tradeOffs', label: E.tradeOffsTab },
-    { key: 'resolveNext', label: E.resolveNextTab },
-  ]
-
-  const visibleDrivers = showAllDrivers ? evidence.drivers : evidence.drivers.slice(0, VISIBLE_DRIVERS)
-  const moreCount = evidence.drivers.length - VISIBLE_DRIVERS
+  const visibleDrivers = showAllDrivers ? evidence.drivers : evidence.drivers.slice(0, VISIBLE_EVIDENCE_ROWS)
+  const moreCount = evidence.drivers.length - VISIBLE_EVIDENCE_ROWS
 
   const resolveNext = evidence.resolveNext
   const resolvedRows = resolveNext?.resolved ?? []
   const visibleResolveNext = showAllResolveNext
     ? resolvedRows
-    : resolvedRows.slice(0, VISIBLE_RESOLVE_NEXT)
-  const resolveNextMoreCount = resolvedRows.length - VISIBLE_RESOLVE_NEXT
+    : resolvedRows.slice(0, VISIBLE_EVIDENCE_ROWS)
+  const resolveNextMoreCount = resolvedRows.length - VISIBLE_EVIDENCE_ROWS
 
   return (
     <section
@@ -144,7 +188,7 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
       {open && (
         <div className="mt-1 space-y-2 pb-2">
           <div className="flex flex-wrap gap-1" role="group" aria-label="Evidence view">
-            {views.map((v) => (
+            {VIEWS.map((v) => (
               <button
                 key={v.key}
                 type="button"
@@ -213,16 +257,12 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
                       </div>
                     )
                   })}
-                  {moreCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowAllDrivers((s) => !s)}
-                      data-testid="v7-drivers-toggle"
-                      className={`${typography.panelMeta} text-info hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-                    >
-                      {showAllDrivers ? E.showFewer : E.seeMore(moreCount)}
-                    </button>
-                  )}
+                  <ClampToggle
+                    testId="v7-drivers-toggle"
+                    hiddenCount={moreCount}
+                    expanded={showAllDrivers}
+                    onToggle={() => setShowAllDrivers((s) => !s)}
+                  />
                 </>
               ) : (
                 <EvidenceGate testId="v7-evidence-drivers-gate">{E.driversGate}</EvidenceGate>
@@ -367,16 +407,12 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
                       })}
                     </ol>
                   )}
-                  {resolveNextMoreCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowAllResolveNext((s) => !s)}
-                      data-testid="v7-resolve-next-toggle"
-                      className={`${typography.panelMeta} text-info hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-                    >
-                      {showAllResolveNext ? E.showFewer : E.seeMore(resolveNextMoreCount)}
-                    </button>
-                  )}
+                  <ClampToggle
+                    testId="v7-resolve-next-toggle"
+                    hiddenCount={resolveNextMoreCount}
+                    expanded={showAllResolveNext}
+                    onToggle={() => setShowAllResolveNext((s) => !s)}
+                  />
                   {/* Demoted, never ranked. Below-resolution means
                       indistinguishable from noise AT THIS RUN'S RESOLUTION —
                       not zero value, and not "not worth resolving". */}

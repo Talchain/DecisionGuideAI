@@ -71,7 +71,8 @@ import AppPoC from '../AppPoC'
 // Every gated path, paired with the testid that proves its scaffold mounted.
 // `/test` renders MainSandboxContent, whose stub marker is `poc-sandbox` — the
 // same marker the catch-all uses, because they render the same POC sandbox.
-// MUST stay in step with the <DevRoute>-wrapped routes in AppPoC.tsx.
+// MUST stay in step with the children of the `<Route element={<DevRoutesGuard/>}>`
+// layout route in AppPoC.tsx.
 const DEV_ROUTE_PATHS = [
   ['/plot', 'route-plot'],
   ['/plot-legacy', 'route-plot-legacy'],

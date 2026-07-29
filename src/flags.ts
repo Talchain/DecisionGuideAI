@@ -441,10 +441,15 @@ const FLAGS_CONFIG = {
     storageKey: 'feature.strengthenPanel',
   },
   // Developer route estate — the scaffolding surfaces in src/poc/AppPoC.tsx
-  // that are NOT the product: /plot, /plot-legacy, /plc, /sandbox-v1,
-  // /dev/hero-gallery, and the router catch-all's POC-sandbox fallback.
-  // When OFF, every one of those URLs renders <Navigate to="/canvas" replace/>,
-  // so a tester who mistypes a URL lands on the canvas instead of on a sandbox.
+  // that are NOT the product. The authoritative list is the children of the
+  // one `<Route element={<DevRoutesGuard/>}>` layout route there; do not mirror
+  // it here (a second copy of the list is the trap-12 defect, and this comment
+  // has already drifted once).
+  //
+  // When OFF, every one of those URLs renders <Navigate to="/" replace/> — the
+  // SCENARIO LIST, deliberately not /canvas, because an open canvas is a live
+  // writer. A tester who mistypes a URL lands somewhere real and read-only.
+  // (This line said `/canvas` while the code said `/` — corrected 30 Jul.)
   //
   // ⚠ DELIBERATELY OFF IN EVERY DEPLOYED BUILD. `VITE_ENABLE_DEV_ROUTES` is not
   // set in netlify.toml for any context and must not be — staging IS the tester
@@ -607,7 +612,6 @@ export const isRequireLoginEnabled = flags.requireLogin
 export const isDecisionOverviewEnabled = flags.decisionOverview
 export const isStrengthenPanelEnabled = flags.strengthenPanel
 export const isDevRoutesEnabled = flags.devRoutes
-export const diagnoseDevRoutes = () => diagnoseFlagState(FLAGS_CONFIG.devRoutes)
 
 
 // ============================================================================

@@ -11,18 +11,7 @@ import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { V7EvidenceDisclosure } from '../V7EvidenceDisclosure'
 import type { V7EvidenceModel } from '../buildV7Lenses'
-
-function model(partial: Partial<V7EvidenceModel>): V7EvidenceModel {
-  return {
-    drivers: partial.drivers ?? [],
-    flipRisks: partial.flipRisks ?? [],
-    tradeOffs: partial.tradeOffs ?? [],
-    // V7-C slice 1 (ROADMAP 2.141): null is the honest-gate verdict — these
-    // suites predate the Resolve next view and assert nothing about it.
-    resolveNext: partial.resolveNext ?? null,
-    designationsWithheld: partial.designationsWithheld ?? false,
-  }
-}
+import { v7EvidenceModel as model } from '@/__fixtures__/v7EvidenceModel'
 
 const FIVE_DRIVERS: V7EvidenceModel['drivers'] = [
   { factorKey: 'f1', label: 'Price', direction: 'negative', isEstimate: true },

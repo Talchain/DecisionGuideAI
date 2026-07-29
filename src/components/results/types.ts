@@ -1067,6 +1067,14 @@ export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
     display_verdict?: string
     display_verdict_reason?: string
     flip_thresholds?: Array<Record<string, unknown>>
+    /**
+     * LEGACY slot for `inference_warnings`. The V4/V2 mapper nests them here
+     * (`adapters/plot/v2/responseMapper.ts`); the V5 mapper writes the ROOT key
+     * above. Measured over all 773 live non-noop `run_analysis` facts on staging
+     * (2026-07-29): root 773/773, robustness 0/773 — see
+     * `canvas/stores/persistedRunSnapshotFactory.ts`. Both are read, root first.
+     */
+    inference_warnings?: unknown[]
     _truncation?: {
       fragile_truncated: boolean
       fragile_total: number
@@ -1109,6 +1117,27 @@ export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
   downstream_calls?: unknown
   factors?: Array<Record<string, unknown>>
   factor_enrichments?: Array<Record<string, unknown>>
+  /**
+   * V7-C slice 1 (ROADMAP 2.141): the mapper's verbatim carry of
+   * `enrichment.factor_evppi` (`src/v5/mapV5AnalysisToReport.ts`).
+   *
+   * `unknown[]` ON PURPOSE — the ROW shape is validated at the one reader
+   * (`voi/voiRanking.ts`) against the pinned `EnrichmentFactorEvppiEntrySchema`,
+   * never here. What matters is that the KEY is declared: while it was absent,
+   * every read of it needed `(report as unknown as Record<string, unknown>)`,
+   * and a mistyped key inside that cast yields `undefined` — so the honest gate
+   * would render forever with nothing red anywhere. Declaring the key is what
+   * makes the typo a compile error instead of a silent permanent gate.
+   */
+  factor_evppi?: unknown[]
+  /**
+   * ISL `inference_warnings[]` — the enrichment-ROOT slot. Same reasoning as
+   * `factor_evppi`: declared so readers do not cast, entries left `unknown`
+   * because each reader validates the codes it cares about. Read it through
+   * `readInferenceWarnings()` in `useResultsSectionData.ts`, which also covers
+   * the legacy `robustness.inference_warnings` slot.
+   */
+  inference_warnings?: unknown[]
 }
 
 /**

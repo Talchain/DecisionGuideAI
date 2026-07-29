@@ -27,16 +27,20 @@ import { render, screen } from '@testing-library/react'
 import { ConfidenceSection } from '../ConfidenceSection'
 import { TriageCard } from '../../shared/TriageCard'
 import type { ConfidenceSectionData } from '../types'
+// Any "<n>pp" token, and the prose that used to carry it — ONE definition,
+// shared with `evpiSurfacesRemoved.resolveNext.honesty.spec.tsx`, which pins the
+// same absence on the NEW "Resolve next" surface. While each file held its own
+// copy, narrowing one would have left the other passing.
+import {
+  PP_TOKEN,
+  RESOLVING_CLAIM,
+  WORTH_CLAIM,
+} from './helpers/refutedEvpiClaimMatchers'
 
 vi.mock('../../../canvas/utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
   focusByTarget: vi.fn(),
 }))
-
-/** Any "<n>pp" token, and the prose that used to carry it. */
-const PP_TOKEN = /\d+(\.\d+)?\s*pp\b/i
-const RESOLVING_CLAIM = /resolving could improve confidence/i
-const WORTH_CLAIM = /worth\s+\d+(\.\d+)?pp if resolved/i
 
 /**
  * Inject a prop the component no longer declares. The removal only means

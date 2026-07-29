@@ -514,6 +514,28 @@ function readEnrichmentFactors(report: ResultsReport): unknown[] | null {
   return Array.isArray(factors) ? factors : null
 }
 
+/**
+ * ISL `inference_warnings[]`, from BOTH slots a mapper may use — ROOT first,
+ * then the legacy `robustness` nesting.
+ *
+ * ONE reader because this file needed the identical dual read twice (the VOI
+ * ranking's PARTIAL disclosure and the Analysis-tab warning strip) and had it
+ * in two DIVERGENT cast styles. Two copies of a two-slot fallback is two
+ * chances for the next copy to read only one slot and render permanently empty
+ * with nothing red — which is exactly what the design doc's §2 mapping table
+ * would have caused had it been implemented verbatim (measured over all 773
+ * live non-noop `run_analysis` facts on staging, 2026-07-29: root 773/773,
+ * robustness 0/773 — see `canvas/stores/persistedRunSnapshotFactory.ts`).
+ *
+ * Returns `unknown`: payload redaction may deliver a `{__truncated, items}`
+ * wrapper rather than a bare array, so callers unwrap with `safeArray` or
+ * validate for themselves. Never throws, never defaults to `[]` — an absent
+ * key must stay distinguishable from an empty one.
+ */
+function readInferenceWarnings(report: ResultsReport | null | undefined): unknown {
+  return report?.inference_warnings ?? report?.robustness?.inference_warnings
+}
+
 /** Labels play no part in policy keys/metrics (getFactorKey resolves ids
  * before labels, and the label-map fallback needs an id anyway), so the feed
  * normalises with an empty map; the panel re-normalises with the real
@@ -1372,11 +1394,20 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   const voiRanking = useMemo(
     () =>
       buildVoiRanking({
-        rows: (report as unknown as Record<string, unknown> | null | undefined)?.factor_evppi,
-        inferenceWarnings:
-          (report as unknown as Record<string, unknown> | null | undefined)?.inference_warnings ??
-          (report as { robustness?: { inference_warnings?: unknown } } | null | undefined)
-            ?.robustness?.inference_warnings,
+        rows: report?.factor_evppi,
+        inferenceWarnings: readInferenceWarnings(report),
+        // ⚠ THIS PRODUCER CANNOT YET EMIT `canFocus: false`, AND THAT IS AN
+        // HONEST LIMITATION, NOT A BUG. `nodeLabelMap` is built FROM the canvas
+        // nodes, so any id it resolves is by construction a node that exists and
+        // can be focused — the two outcomes here are "a focusable label" or
+        // `null` (row dropped). The field is kept rather than collapsed because
+        // it genuinely varies for the disclosure's OTHER row families (drivers
+        // and flip risks both compute `canFocus` from a target that may be
+        // absent), and because a second label source — a resolver that names a
+        // factor it cannot focus — is the case slice 2+ introduces. Until then,
+        // the `canFocus: false` branch in the reader and the view is UNEXERCISED
+        // BY THIS CALLER: it is covered only by the unit fixtures that pass
+        // `false` directly. Do not read its render-level pin as live-path proof.
         resolveLabel: (factorId) => {
           const label = nodeLabelMap.get(factorId)
           return label === undefined ? null : { label, canFocus: true }
@@ -3068,7 +3099,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         }))
       })(),
       inferenceWarnings: (() => {
-        const raw = safeArray((report as any)?.inference_warnings ?? (report as any)?.robustness?.inference_warnings)
+        const raw = safeArray(readInferenceWarnings(report))
         // Surface all inference warnings (previously gated on specific codes)
         const relevant = raw.filter((w: any) => typeof w?.code === 'string')
         if (relevant.length === 0) return undefined
