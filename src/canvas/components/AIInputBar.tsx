@@ -149,7 +149,7 @@ export const AIInputBar = memo(
     // Empty canvas + isThinking === a model-generation turn is in flight.
     // The composer freezes and shows a gently-pulsing, time-escalating status
     // line where the placeholder normally sits. Tick once a second so the
-    // message advances through PROGRESSIVE_STAGES (0/15/30/45/60s).
+    // message advances through PROGRESSIVE_STAGES (0/20/45s).
     const isGenerating = isThinking && nodeCount === 0
     // Store the resolved MESSAGE (not raw seconds): the 1s tick then only
     // triggers a re-render when the stage actually advances — React bails on an
