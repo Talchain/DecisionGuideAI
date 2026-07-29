@@ -9,7 +9,7 @@ import {
   useState,
   type KeyboardEvent,
 } from 'react'
-import { ArrowUp, ChevronUp, Settings } from 'lucide-react'
+import { ArrowUp, ChevronUp, Settings, Square } from 'lucide-react'
 import { typo } from '../../styles/typography'
 import { useCanvasStore } from '../store'
 import { useConversationContext } from '../conversation/ConversationContext'
@@ -24,7 +24,7 @@ import {
   type AddOptionChange,
 } from '../conversation/addOptionRequest'
 import { messageForElapsed, messageForSettling } from './DraftLoadingAnimation'
-import { useDraftStore } from '../stores/draftStore'
+import { useDraftStore, draftStreamPhaseFor, draftStreamInFlight } from '../stores/draftStore'
 
 export type AIInputBarVariant = 'strip' | 'docked-tab' | 'floating' | 'first-use' | 'welcome'
 
@@ -133,7 +133,7 @@ export const AIInputBar = memo(
     },
     ref,
   ) {
-    const { draft, setDraft, clearDraft, sendMessage, dispatchAction, isThinking } =
+    const { draft, setDraft, clearDraft, sendMessage, dispatchAction, isThinking, cancelTurn } =
       useConversationContext()
     const stagePlaceholder = useStageAwarePlaceholder()
     const textareaRef = useRef<HTMLTextAreaElement | null>(null)
@@ -166,9 +166,37 @@ export const AIInputBar = memo(
     // measured-ABSENT on the wire), after it the client holds a frame that says
     // the graph exists and its numbers are `in_progress`. See
     // DraftLoadingAnimation's SETTLING_STAGES docstring.
-    const draftStreamPhase = useDraftStore((s) => s.draftStreamPhase)
+    //
+    // ── THE READ IS SCOPED TO THE OPEN SCENARIO (review F2) ─────────────────
+    // This was `useDraftStore((s) => s.draftStreamPhase)` — the raw, global read
+    // the review found blocking every other scenario with one scenario's state.
+    // `draftStreamPhaseFor` is the one place that decides ownership, and it is
+    // read ONCE here: the narration gate below and the Stop control (2.134) both
+    // derive from this single value rather than each taking their own copy.
+    const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+    const draftStreamPhase = useDraftStore((s) => draftStreamPhaseFor(s, currentScenarioId))
     const isSettling = draftStreamPhase === 'settling'
     const isGenerating = isThinking && (nodeCount === 0 || isSettling)
+
+    // ── ROADMAP 2.134: THE STOP CONTROL ─────────────────────────────────────
+    // The M1-L2 streamed-draft lane's abort machinery (PR 525) was correct,
+    // reviewed three times and mutation-pinned — and DORMANT: the only
+    // `stop-button` in the codebase lives in `ChatComposer`, whose sole host
+    // (`DraftChat`) is unmounted whenever AI Panel v2 is on — and the
+    // deployed staging build forces it on
+    // (`netlify.toml:50`). Measured: zero stop/cancel/abort controls at eight
+    // stages of the live journey, with a positive control proving the detector
+    // was not blind. Trace: PHASE0-EVIDENCE-2026-07-28/fix-2134-stop.md §1.
+    //
+    // BOTH conjuncts are load-bearing:
+    //   - `isThinking` is the canonical in-flight signal, but it is true for
+    //     EVERY turn — an analysis run included. Alone it would offer Stop over
+    //     an abort that has none of the draft's semantics and nothing to mark.
+    //   - the phase alone would leave a dead button behind if one were ever
+    //     stranded.
+    // `draftStreamInFlight` is exhaustive over the phase union in the store, so
+    // this call site does not re-derive a two-clause predicate (trap 12).
+    const showStopControl = isThinking && draftStreamInFlight(draftStreamPhase)
     // Store the resolved MESSAGE (not raw seconds): the 1s tick then only
     // triggers a re-render when the stage actually advances — React bails on an
     // unchanged string — instead of re-rendering the composer every second for
@@ -461,17 +489,36 @@ export const AIInputBar = memo(
                 <Settings className={cogIconSize} aria-hidden="true" />
               </button>
             ) : null}
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={!canSend}
-              aria-disabled={!canSend}
-              className={`inline-flex items-center justify-center ${sendBtnSize} rounded-full bg-info text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-30 disabled:hover:opacity-30`}
-              aria-label="Send"
-              data-testid={`${testId ?? `ai-input-bar-${variant}`}-send`}
-            >
-              <ArrowUp className={sendIconSize} aria-hidden="true" />
-            </button>
+            {/* Send / Stop — ONE control in this slot, never two (ROADMAP
+                2.134). Mirrors `ChatComposer`'s own swap, which is the shape
+                PR 525's abort path was written against. Send is `disabled` for
+                the whole of this window anyway (`canSend` requires
+                `!isThinking`), so the swap costs the user nothing and removes
+                the chance of reading a live Stop as a live Send. */}
+            {showStopControl ? (
+              <button
+                type="button"
+                onClick={cancelTurn}
+                className={`inline-flex items-center justify-center ${sendBtnSize} rounded-full bg-panel-hover text-text-body border border-panel-border hover:bg-panel-border focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                aria-label="Stop drafting"
+                title="Stop drafting"
+                data-testid={`${testId ?? `ai-input-bar-${variant}`}-stop`}
+              >
+                <Square className={sendIconSize} fill="currentColor" aria-hidden="true" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSend}
+                disabled={!canSend}
+                aria-disabled={!canSend}
+                className={`inline-flex items-center justify-center ${sendBtnSize} rounded-full bg-info text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-30 disabled:hover:opacity-30`}
+                aria-label="Send"
+                data-testid={`${testId ?? `ai-input-bar-${variant}`}-send`}
+              >
+                <ArrowUp className={sendIconSize} aria-hidden="true" />
+              </button>
+            )}
           </div>
         </div>
         {variant === 'strip' && !hideChevron && onChevronClick ? (
