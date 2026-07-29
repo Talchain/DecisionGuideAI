@@ -21,10 +21,18 @@
  *
  * WHAT IT ASSERTS, precisely
  * --------------------------
- * SCOPE: every non-test `.ts`/`.tsx` file directly under
- * `src/canvas/components/model-tab/`. That is the complete set of Model-tab
- * section components — 22 files at the time of writing, enumerated at run time,
- * not quoted here.
+ * SCOPE: every non-test `.ts`/`.tsx` file under
+ * `src/canvas/components/model-tab/`, **recursively**. That is the complete set
+ * of Model-tab section components — enumerated at run time, never quoted here.
+ *
+ * The walk was FLAT in the first version of this guard, and the adversarial
+ * review proved the hole: a scratch `model-tab/subsections/EvilSection.tsx`
+ * carrying a raw `updateNode(` call passed silently, in the same run where the
+ * same call in `StatusBar.tsx` correctly turned the guard RED. The scope
+ * sentence was honest about "directly under" — but a section added one directory
+ * down would have re-opened the raw-write door unwatched, which is the whole
+ * failure mode this guard exists to prevent. Recursive now, with a control
+ * (below) that fails if the recursion is ever removed.
  *
  * CLAIM: none of those files contains a call to `updateNode(`, `updateEdge(` or
  * `updateEdgeData(` — the three store mutators that accept an arbitrary `data`
@@ -43,7 +51,8 @@
  * regex typo would report "zero raw writes" by testing nothing.
  */
 import { describe, it, expect } from 'vitest'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join, dirname, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { blankNonCode } from '../../../../../tests/helpers/stripSourceComments'
@@ -58,12 +67,22 @@ const MODEL_TAB_DIR = join(dirname(fileURLToPath(import.meta.url)), '..')
  */
 const BANNED_CALL = /\b(updateNode|updateEdge|updateEdgeData)\s*\(/g
 
+const EXCLUDED_DIR_NAMES = new Set(['__tests__', '__fixtures__', '__mocks__', '__snapshots__'])
+
+/** Recursive walk — a section one directory down is in scope (review F3). */
 function sourceFilesIn(dir: string): string[] {
-  return readdirSync(dir)
-    .map(entry => join(dir, entry))
-    .filter(full => statSync(full).isFile())
-    .filter(full => /\.(ts|tsx)$/.test(full))
-    .filter(full => !/\.(spec|test)\.(ts|tsx)$/.test(full))
+  const out: string[] = []
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry)
+    if (statSync(full).isDirectory()) {
+      if (!EXCLUDED_DIR_NAMES.has(entry)) out.push(...sourceFilesIn(full))
+      continue
+    }
+    if (!/\.(ts|tsx)$/.test(entry)) continue
+    if (/\.(spec|test)\.(ts|tsx)$/.test(entry)) continue
+    out.push(full)
+  }
+  return out
 }
 
 function bannedCallsIn(src: string): string[] {
@@ -86,6 +105,26 @@ describe('Model-tab sections never write the canvas store directly (2.121 slice 
       'RelationshipsSection.tsx',
     ]) {
       expect(names).toContain(required)
+    }
+  })
+
+  it('POSITIVE CONTROL: the walk RECURSES — a section one directory down is in scope', () => {
+    // Hermetic: a scratch tree, so the control proves the walker's behaviour
+    // without writing a decoy into the repo. Reverting to a flat `readdirSync`
+    // drops `sub/Nested.tsx` and fails this — which is the exact hole the
+    // adversarial review proved with a `model-tab/subsections/` probe.
+    const root = mkdtempSync(join(tmpdir(), 'modeltab-scan-'))
+    try {
+      writeFileSync(join(root, 'Top.tsx'), 'export const a = 1\n')
+      mkdirSync(join(root, 'sub'))
+      writeFileSync(join(root, 'sub', 'Nested.tsx'), 'export const b = 2\n')
+      mkdirSync(join(root, '__tests__'))
+      writeFileSync(join(root, '__tests__', 'Ignored.spec.tsx'), 'export const c = 3\n')
+      writeFileSync(join(root, 'Ignored.spec.tsx'), 'export const d = 4\n')
+
+      expect(sourceFilesIn(root).map(f => basename(f)).sort()).toEqual(['Nested.tsx', 'Top.tsx'])
+    } finally {
+      rmSync(root, { recursive: true, force: true })
     }
   })
 

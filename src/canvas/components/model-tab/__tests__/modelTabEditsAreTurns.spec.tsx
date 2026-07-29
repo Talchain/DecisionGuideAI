@@ -167,6 +167,41 @@ function negativeEdge(): Edge {
   } as unknown as Edge
 }
 
+/** The same edge, POSITIVE — so the zero probe is run on both signs. */
+function positiveEdge(): Edge {
+  const e = negativeEdge() as unknown as { data: Record<string, unknown> }
+  e.data.direction = 'positive'
+  return e as unknown as Edge
+}
+
+/**
+ * An edge whose direction is ABSENT — the F2 fixture. `safeDirection` DISPLAYS
+ * 'positive' for such an edge, which is exactly why a write derived from the
+ * displayed direction would fabricate a claim the data never carried.
+ */
+function directionlessEdge(): Edge {
+  const e = negativeEdge() as unknown as { data: Record<string, unknown> }
+  delete e.data.direction
+  return e as unknown as Edge
+}
+
+/**
+ * Put ONE edge in the store and render its card, expanded and ready to edit.
+ * The store copy is what the sanctioned setters read back, so it must be the
+ * same edge the section is rendering.
+ */
+function renderEdgeCard(edge: Edge) {
+  useCanvasStore.setState({ edges: [edge] } as never, false)
+  render(
+    <RelationshipsSection
+      edges={[edge]}
+      nodes={[cappedFactorNode(), goalNode()]}
+      isExpanded
+    />,
+  )
+  fireEvent.click(screen.getByTestId(`edge-${EDGE_ID}-summary`))
+}
+
 function seed() {
   useCanvasStore.setState(
     {
@@ -256,6 +291,17 @@ describe('Model-tab edits are real turns (ROADMAP 2.121 slice 1)', () => {
     expect(sendSystemEvent).not.toHaveBeenCalled()
   })
 
+  it('NEGATIVE CONTROL: the same number in another lexical form is still no change (review F4)', () => {
+    render(<FactorsSection factorNodes={[cappedFactorNode()]} />)
+    // `3e4` IS 30000. A string compare called this an edit, emitted a turn
+    // claiming a change that never happened, and flipped `source` to 'user' —
+    // while the inspector, which compares parsed numbers, stayed silent.
+    commitInline(`factor-${FACTOR_ID}-raw-value`, '3e4')
+
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+    expect(observed(FACTOR_ID).source).toBe('cee_inference')
+  })
+
   // ── 2. THE SPLIT-BRAIN ──────────────────────────────────────────────────
 
   it('a raw-value commit updates BOTH halves of the number, atomically', () => {
@@ -321,14 +367,7 @@ describe('Model-tab edits are real turns (ROADMAP 2.121 slice 1)', () => {
   // ── 5. RELATIONSHIPS ────────────────────────────────────────────────────
 
   it('an edge weight commit preserves the edge DIRECTION (setStrength sign control)', () => {
-    render(
-      <RelationshipsSection
-        edges={[negativeEdge()]}
-        nodes={[cappedFactorNode(), goalNode()]}
-        isExpanded
-      />,
-    )
-    fireEvent.click(screen.getByTestId(`edge-${EDGE_ID}-summary`))
+    renderEdgeCard(negativeEdge())
     commitInline(`edge-${EDGE_ID}-weight`, '0.9')
 
     const data = edgeData(EDGE_ID)
@@ -339,15 +378,84 @@ describe('Model-tab edits are real turns (ROADMAP 2.121 slice 1)', () => {
     expect(data.weightSource).toBe('user')
   })
 
+  /**
+   * THE ZERO PROBE (adversarial review F1, adopted verbatim as the failing
+   * scenario it was reported with).
+   *
+   * The first version of this fix smuggled the direction through the SIGN of
+   * the number handed to `setStrength` — `safeDirection === 'negative' ? -n : n`
+   * — and `setStrength` re-derived it with `mean >= 0`. **`-0 >= 0` is `true` in
+   * JavaScript.** So zeroing the weight of a negative edge (a value the
+   * validator explicitly invites: `n < 0 || n > 2` rejects, `0` passes) wrote
+   * `direction: 'positive'`. The toggle beside the chip moved on its own, and a
+   * user who later restored the magnitude got +0.5 where they had had −0.4.
+   *
+   * That was a REGRESSION against the raw write this PR deletes, which left
+   * `direction` untouched at any weight. `toBe('negative')` is the assertion
+   * that was RED; `Object.is` on the weight additionally refuses a `-0` slipping
+   * into the stored magnitude, since `0 === -0` would not notice.
+   *
+   * The near-zero rows are there because a fix that special-cased the literal
+   * `0` and nothing else would leave the same class one keystroke away.
+   */
+  describe('zeroing a weight never re-derives the direction (review F1)', () => {
+    it('a NEGATIVE edge zeroed stays negative', () => {
+      renderEdgeCard(negativeEdge())
+      commitInline(`edge-${EDGE_ID}-weight`, '0')
+
+      const data = edgeData(EDGE_ID)
+      expect(data.direction).toBe('negative')
+      expect(Object.is(data.weight, 0)).toBe(true)
+      expect(data.weightSource).toBe('user')
+    })
+
+    it('a POSITIVE edge zeroed stays positive', () => {
+      renderEdgeCard(positiveEdge())
+      commitInline(`edge-${EDGE_ID}-weight`, '0')
+
+      expect(edgeData(EDGE_ID).direction).toBe('positive')
+      expect(Object.is(edgeData(EDGE_ID).weight, 0)).toBe(true)
+    })
+
+    it('a NEGATIVE edge set to a near-zero magnitude stays negative', () => {
+      renderEdgeCard(negativeEdge())
+      commitInline(`edge-${EDGE_ID}-weight`, '0.001')
+
+      expect(edgeData(EDGE_ID).direction).toBe('negative')
+      expect(edgeData(EDGE_ID).weight).toBe(0.001)
+    })
+
+    it('a POSITIVE edge set to a near-zero magnitude stays positive', () => {
+      renderEdgeCard(positiveEdge())
+      commitInline(`edge-${EDGE_ID}-weight`, '0.001')
+
+      expect(edgeData(EDGE_ID).direction).toBe('positive')
+    })
+  })
+
+  /**
+   * F2 — the same root, at the other end: an edge with NO direction.
+   *
+   * `safeDirection` coerces absent/unknown to 'positive' for DISPLAY. Deriving
+   * the write from it turned a magnitude-only edit into a direction CLAIM the
+   * data never carried — and edges are in the canonical graph-hash keep-list, so
+   * that claim is analysis-relevant state, not decoration. The raw write this PR
+   * deletes preserved the absence; so must the sanctioned one.
+   */
+  it('a weight commit on a direction-less edge does not fabricate a direction (review F2)', () => {
+    renderEdgeCard(directionlessEdge())
+    commitInline(`edge-${EDGE_ID}-weight`, '0.9')
+
+    const data = edgeData(EDGE_ID)
+    expect(data.weight).toBe(0.9)
+    expect(data.weightSource).toBe('user')
+    // `in`, not `=== undefined`: the point is that no direction key is asserted
+    // at all, which is what the old write did and what serialisation sees.
+    expect('direction' in data).toBe(false)
+  })
+
   it('a likelihood commit writes the belief and stamps its provenance', () => {
-    render(
-      <RelationshipsSection
-        edges={[negativeEdge()]}
-        nodes={[cappedFactorNode(), goalNode()]}
-        isExpanded
-      />,
-    )
-    fireEvent.click(screen.getByTestId(`edge-${EDGE_ID}-summary`))
+    renderEdgeCard(negativeEdge())
     commitInline(`edge-${EDGE_ID}-likelihood`, '55')
 
     const data = edgeData(EDGE_ID)
@@ -356,14 +464,7 @@ describe('Model-tab edits are real turns (ROADMAP 2.121 slice 1)', () => {
   })
 
   it('a direction toggle writes the direction', () => {
-    render(
-      <RelationshipsSection
-        edges={[negativeEdge()]}
-        nodes={[cappedFactorNode(), goalNode()]}
-        isExpanded
-      />,
-    )
-    fireEvent.click(screen.getByTestId(`edge-${EDGE_ID}-summary`))
+    renderEdgeCard(negativeEdge())
     fireEvent.click(screen.getByTestId(`edge-${EDGE_ID}-dir-positive`))
 
     expect(edgeData(EDGE_ID).direction).toBe('positive')

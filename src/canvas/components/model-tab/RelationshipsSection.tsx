@@ -199,11 +199,16 @@ function EdgeCard({
   }, [])
 
   /**
-   * The weight chip edits the MAGNITUDE (0–2); direction is the separate
-   * toggle beside it. `setStrength` takes a SIGNED mean and derives both — so
-   * the current direction has to be re-applied as the sign, or editing the
-   * weight of a negative edge would silently flip it positive. The spec's
-   * negative-edge control is what keeps that true.
+   * The weight chip edits the MAGNITUDE (0–2); direction is the separate toggle
+   * beside it. So the write says exactly that: `preserveDirection` — never a
+   * direction re-derived from a sign this chip does not own.
+   *
+   * The first version of this fix DID smuggle the direction through the sign
+   * (`safeDirection === 'negative' ? -n : n`) and that was a proven regression:
+   * `-0 >= 0` is `true`, so committing weight `0` on a negative edge flipped it
+   * positive, and `safeDirection` coerces an ABSENT direction to 'positive', so
+   * a magnitude-only edit fabricated a direction claim on an edge that carried
+   * none. Both are gone because the sign is no longer load-bearing here.
    *
    * The user typed this number, so it stops being a default (see
    * canvas/domain/edgeValueProvenance.ts); `setStrength` writes
@@ -212,8 +217,8 @@ function EdgeCard({
   const handleWeightSave = useCallback((val: string) => {
     const n = parseFloat(val)
     if (isNaN(n) || n < 0 || n > 2) return
-    mutations.setStrength(safeDirection === 'negative' ? -n : n)
-  }, [mutations, safeDirection])
+    mutations.setStrength(n, { preserveDirection: true })
+  }, [mutations])
 
   const handleDirectionToggle = useCallback((dir: 'positive' | 'negative') => {
     mutations.setDirection(dir)

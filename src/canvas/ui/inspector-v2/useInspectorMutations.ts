@@ -63,6 +63,10 @@ export const EDGE_SETTER_FIELDS = {
   // user moving the slider is the ONLY thing that turns a defaulted number
   // into a set one, so the stamp is written in the same update as the value
   // and can never lag behind it.
+  // `direction` is the SIGNED-mean path, which is the default and what the
+  // guard spec drives. A caller passing `{ preserveDirection: true }` writes
+  // `weight` + `weightSource` only, deliberately leaving `direction` alone —
+  // see the setter's own header for why a magnitude cannot carry a sign.
   setStrength: ['weight', 'direction', 'weightSource'],
   setStd: ['strengthStd', 'strengthStdSource'],
   setExistsProbability: ['beliefExists', 'beliefExistsSource'],
@@ -315,13 +319,56 @@ export function useEdgeMutations(edgeId: string) {
     return useCanvasStore.getState().edges.find(e => e.id === edgeId)
   }, [edgeId])
 
-  const setStrength = useCallback((mean: number) => {
+  /**
+   * `mean` is a SIGNED strength: the magnitude is `|mean|` and, by default, the
+   * direction is derived from its sign. That is the right contract for a signed
+   * control (`EdgePanel`, `EdgeAdvancedEditor` both drive a signed slider).
+   *
+   * `opts.preserveDirection` (adversarial review F1/F2) writes the MAGNITUDE
+   * ONLY and leaves the edge's `direction` exactly as it is — including ABSENT.
+   *
+   * WHY THIS LIVES HERE AND NOT IN THE CALLER. A magnitude cannot encode a
+   * direction, so no arithmetic at a call site can express "set the size, leave
+   * the sign alone" through a signed parameter:
+   *
+   *   - AT ZERO the sign is not ambiguous, it is UNREPRESENTABLE. `-0 >= 0` is
+   *     `true` in JavaScript, so a caller re-applying a negative direction as
+   *     `-n` hands over `-0` and this rule reads it as POSITIVE. That is the
+   *     proven regression: zeroing a negative edge's weight flipped its
+   *     direction, silently, and a later magnitude restore came back with the
+   *     wrong sign.
+   *   - ABSENCE has no encoding at all. An edge with no `direction` would have
+   *     one FABRICATED by any sign-derived write — and edges are in the
+   *     canonical graph-hash keep-list, so that is analysis-relevant state.
+   *
+   * A caller-side patch could only skip the write (dropping the user's edit) or
+   * invent a non-zero magnitude, and would leave the identical trap armed for
+   * the next magnitude-only editor. What was missing is an interface, not a
+   * calculation. The sign rule itself is left alone: for a genuinely signed
+   * control `-0` and `0` are the same number and neither direction is more
+   * honest than the other, which is precisely why zero must be preserved rather
+   * than re-derived.
+   *
+   * With `preserveDirection` the emitted patch is `{...edge.data, weight,
+   * weightSource}` — byte-identical in shape to the hand-rolled write the Model
+   * tab used to do, now inside the manifest.
+   */
+  const setStrength = useCallback((mean: number, opts?: { preserveDirection?: boolean }) => {
     const edge = getEdge()
     if (!edge) return
     const absWeight = Math.abs(mean)
-    const direction = mean >= 0 ? 'positive' : 'negative'
     updateEdge(edgeId, {
-      data: { ...edge.data, weight: absWeight, direction, weightSource: 'user' },
+      data: {
+        ...edge.data,
+        weight: absWeight,
+        // The key is OMITTED, not set to undefined: the store merges
+        // `{...e.data, ...updates.data}`, so an explicit `direction: undefined`
+        // would overwrite a real direction with nothing.
+        ...(opts?.preserveDirection
+          ? {}
+          : { direction: mean >= 0 ? 'positive' : 'negative' }),
+        weightSource: 'user',
+      },
     })
   }, [edgeId, updateEdge, getEdge])
 

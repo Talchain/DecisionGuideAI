@@ -171,4 +171,33 @@ describe('Model-tab and inspector value edits are the SAME turn (2.121 slice 1)'
     commitFromModelTab(COMMITTED_RAW)
     expect(sendSystemEvent).not.toHaveBeenCalled()
   })
+
+  /**
+   * Adversarial review F4 — the two surfaces must speak at the SAME MOMENTS, not
+   * merely say the same thing when they do.
+   *
+   * The inspector's commit guard compares PARSED NUMBERS; the Model tab's
+   * `InlineEdit` compared strings. `3e4` is exactly 30000, so re-typing it that
+   * way was a no-op in the inspector and a full turn on the Model tab — an
+   * emitted change claim over an unchanged number, plus a `source` flip to
+   * 'user'. CEE's noop dedup would have absorbed the wire event, which is
+   * precisely why this needed a test rather than a backstop: the divergence was
+   * invisible downstream.
+   */
+  it('neither surface speaks when the same number is re-typed in another form (review F4)', () => {
+    commitFromInspector(30000)
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+
+    cleanup()
+    seed()
+
+    // Same magnitude, different lexical form, on the SAME fixture.
+    render(<FactorsSection factorNodes={[factorNode()]} />)
+    fireEvent.click(screen.getByTestId(`factor-${NODE_ID}-raw-value-display`))
+    const input = screen.getByTestId(`factor-${NODE_ID}-raw-value`)
+    fireEvent.change(input, { target: { value: '3e4' } })
+    fireEvent.blur(input)
+
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+  })
 })
