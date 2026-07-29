@@ -30,6 +30,30 @@ export interface DraftErrorState {
   code?: string
 }
 
+/**
+ * Where a STREAMED draft turn currently is (ROADMAP 2.122 / 1.204 M1).
+ *
+ * Only ever non-`idle` on the streamed path — the buffered turn has no phase
+ * to report, which is the whole reason 2.122 exists.
+ *
+ *   `drafting`  — the turn is open, DRAFTING acknowledged, no graph yet. The
+ *                 client holds one frame and elapsed time (PROGRESS frames are
+ *                 measured-ABSENT on the wire), so narration stays
+ *                 elapsed-time-only here.
+ *   `settling`  — GRAPH_READY has landed and the structure is on the canvas,
+ *                 but the frame is `status: in_progress`: its NUMBERS are not
+ *                 final and coaching has not arrived. Every claim-bearing
+ *                 affordance must stay shut in this phase — see
+ *                 `canRunAnalysis`'s `draftValuesSettling` rung.
+ *   `unsettled` — terminal, and the honest failure state. The stream died after
+ *                 GRAPH_READY and the buffered fallback found the turn already
+ *                 committed, so CEE declined to re-draft: the structure on
+ *                 screen is real, its numbers are the in-progress ones, and
+ *                 this session will not receive the settled set. Narrating
+ *                 anything else would be a fabrication.
+ */
+export type DraftStreamPhase = 'idle' | 'drafting' | 'settling' | 'unsettled'
+
 export interface DraftState {
   /** Null = use default model. Session-only, not persisted. */
   selectedGenerationModel: string | null
@@ -43,6 +67,15 @@ export interface DraftState {
   lastDraftError: DraftErrorState | null
   /** Task 2: Signal for AI panel auto-collapse. Set when a full_draft auto_apply patch is applied. */
   fullDraftAppliedAt: number | null
+  /** ROADMAP 2.122 — the streamed draft turn's phase. See DraftStreamPhase. */
+  draftStreamPhase: DraftStreamPhase
+  /**
+   * The `client_turn_id` that owns `draftStreamPhase`. Load-bearing: a stale
+   * turn's frames must never move a newer turn's phase, and the COMPLETE ingest
+   * uses this to recognise ITS OWN GRAPH_READY preview on the canvas (see
+   * `useConversation`'s two-phase apply).
+   */
+  draftStreamTurnId: string | null
 }
 
 export interface DraftActions {
@@ -57,6 +90,11 @@ export interface DraftActions {
   setLastDraftDescription: (description: string) => void
   setLastDraftError: (error: DraftErrorState | null) => void
   setFullDraftAppliedAt: (ts: number) => void
+  /**
+   * Move the streamed draft's phase. `turnId` is the owning `client_turn_id`;
+   * pass `null` alongside `'idle'` to release ownership.
+   */
+  setDraftStreamPhase: (phase: DraftStreamPhase, turnId: string | null) => void
   /** Reset every field to initial values. Called from canvas-store resetCanvas. */
   resetDraft: () => void
 }
@@ -69,6 +107,8 @@ const initialDraftState: DraftState = {
   lastDraftDescription: '',
   lastDraftError: null,
   fullDraftAppliedAt: null,
+  draftStreamPhase: 'idle',
+  draftStreamTurnId: null,
 }
 
 export const useDraftStore = create<DraftState & DraftActions>((set) => ({
@@ -125,6 +165,10 @@ export const useDraftStore = create<DraftState & DraftActions>((set) => ({
 
   setFullDraftAppliedAt: (ts) => {
     set({ fullDraftAppliedAt: ts })
+  },
+
+  setDraftStreamPhase: (phase, turnId) => {
+    set({ draftStreamPhase: phase, draftStreamTurnId: phase === 'idle' ? null : turnId })
   },
 
   resetDraft: () => {

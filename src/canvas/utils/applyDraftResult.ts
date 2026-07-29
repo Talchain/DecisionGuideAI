@@ -158,9 +158,24 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
  * This function replaces all existing nodes/edges, pushes history, triggers
  * layout, selects the goal node, and stores analysis_ready + quality from
  * the response.
+ *
+ * ── ROADMAP 2.122: the streamed draft calls this TWICE for one turn ────────
+ * The staged V5 turn renders GRAPH_READY's structure at ~36 s and the terminal
+ * payload at ~61 s, and both go through here — the second call's wholesale
+ * replacement is what makes "the renderer never shows a node the terminal
+ * payload lacks" true by construction rather than by a diff.
+ *
+ * `opts.skipHistory` exists for exactly that second call. Two applies would
+ * otherwise push two history entries, so undo would step to the intermediate
+ * preview graph and only then to the pre-draft canvas — one step deeper than
+ * the buffered path. The PREVIEW pushes (capturing the pre-draft state, exactly
+ * as a buffered draft does) and the terminal apply skips, so the undo stack
+ * ends up identical. Default `false` reproduces today's behaviour byte for byte
+ * for every other caller.
  */
 export function applyDraftResult(
-  draftData: CEEDraftResponse | CEEv2Response | CEEv3Response
+  draftData: CEEDraftResponse | CEEv2Response | CEEv3Response,
+  opts: { skipHistory?: boolean } = {},
 ): { nodeCount: number; edgeCount: number } {
   const rawNodes = draftData?.nodes ?? (draftData as any)?.graph?.nodes ?? []
   const rawEdges = draftData?.edges ?? (draftData as any)?.graph?.edges ?? []
@@ -175,7 +190,7 @@ export function applyDraftResult(
 
   // --- Apply to store ---
   const store = useCanvasStore.getState()
-  store.pushHistory()
+  if (!opts.skipHistory) store.pushHistory()
   useCanvasStore.setState({
     nodes,
     edges,

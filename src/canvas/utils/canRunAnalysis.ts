@@ -36,6 +36,7 @@
  * Combines validation state, readiness checks, and blocker detection.
  */
 
+import type { DraftStreamPhase } from '../stores/draftStore'
 import type { GraphReadiness } from '../hooks/useGraphReadiness'
 import { isV5CanonicalRunPath } from '../../v5/eligibility'
 import {
@@ -49,6 +50,20 @@ import {
  * refusal, this constant (and the spec pinning the raw literal) must follow.
  */
 export const CEE_DRAFT_FIRST_REFUSAL = 'Draft or save a model first, then run analysis.'
+
+/**
+ * ROADMAP 2.122 — the refusal shown while a STREAMED draft's structure is on
+ * the canvas but its numbers have not settled.
+ *
+ * Held to the same honesty bar as the wait narration (`DraftLoadingAnimation`,
+ * `AnalysisRunningBanner`): it claims only what the client genuinely holds. The
+ * client holds a GRAPH_READY frame stamped `status: in_progress`, so "still
+ * being drafted" and "values are still settling" are facts read off the frame,
+ * not a guess off a clock. It forecasts no duration and asserts nothing about
+ * the user's decision.
+ */
+export const DRAFT_VALUES_SETTLING_REFUSAL =
+  'Your model is still being drafted — its values are still settling. Run analysis once drafting finishes.'
 
 /**
  * Provenance stamps that mark a graph as INJECTED CLIENT-SIDE rather than
@@ -126,6 +141,33 @@ export interface CanRunAnalysisParams {
    *  the run routes through CEE, so the engine would refuse it (#343). */
   ceeCannotSeeModel?: boolean
   /**
+   * ROADMAP 2.122 — the streamed draft's phase, passed THROUGH rather than
+   * pre-derived by the caller.
+   *
+   * ⚠ This started life as a `draftValuesSettling: boolean` that `OutputsDock`
+   * computed. A mutation that dropped `'unsettled'` from that expression
+   * **SURVIVED the battery**, because the derivation sat in a component nothing
+   * tests while every test computed its own copy — a hand-maintained mirror of a
+   * two-clause predicate (trap 12, in miniature, in the honesty guard itself).
+   * Taking the raw phase removes the derivation from the call site entirely:
+   * there is now exactly one place that decides what "unsettled" means, and it
+   * is this function, which is tested.
+   *
+   * `settling` — GRAPH_READY has landed and the structure is on the canvas, but
+   * the turn has not completed, so the numbers are the frame's `in_progress`
+   * ones and the scenario commit has not landed.
+   * `unsettled` — terminal: the stream died after GRAPH_READY and CEE declined
+   * to re-draft, so those numbers will not settle in this session.
+   *
+   * This is a HONESTY rung, and it is the one the streamed path made necessary:
+   * the run gate is otherwise driven by `nodeCount` + readiness, neither of which
+   * knows the difference between a settled graph and a 25-second-old preview.
+   * Without it a tester is handed a live Run button at 36 s, and the run either
+   * computes on values CEE is about to change or returns `analysis_not_ready`
+   * because the commit has not happened yet.
+   */
+  draftStreamPhase?: DraftStreamPhase
+  /**
    * Options the readiness verdict graded as not-yet-ready, with their labels
    * (build with `selectOptionsNeedingValues`). Used ONLY to compose the
    * user-facing reason — it never affects `allowed`. Omitted ⇒ the reason
@@ -158,7 +200,7 @@ export function readinessWillScaffold(readiness: GraphReadiness | null | undefin
  * @returns CanRunAnalysisResult with allowed status and reason
  */
 export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResult {
-  const { graphHealth, readiness, hasBlockers, nodeCount, isRunning = false, ceeCannotSeeModel = false, optionsNeedingValues } = params
+  const { graphHealth, readiness, hasBlockers, nodeCount, isRunning = false, ceeCannotSeeModel = false, draftStreamPhase = 'idle', optionsNeedingValues } = params
 
   const blockingReasons: string[] = []
 
@@ -177,6 +219,19 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
       allowed: false,
       reason: 'Add some nodes to get started',
       blockingReasons: ['No nodes in graph'],
+    }
+  }
+
+  // 2.4 A streamed draft's structure is on screen but its VALUES are not
+  // settled (ROADMAP 2.122). Ordered BEFORE ceeCannotSeeModel deliberately: a
+  // GRAPH_READY preview is also not yet in CEE's scenario state, so both rungs
+  // apply, and this one names the actual situation instead of telling the user
+  // to "draft a model first" while a model is visibly being drafted.
+  if (draftStreamPhase === 'settling' || draftStreamPhase === 'unsettled') {
+    return {
+      allowed: false,
+      reason: DRAFT_VALUES_SETTLING_REFUSAL,
+      blockingReasons: ['Streamed draft has not finished — values are still settling'],
     }
   }
 

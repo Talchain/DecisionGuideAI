@@ -50,6 +50,26 @@ vi.mock('../turnService', () => ({
   },
 }))
 
+// ROADMAP 2.122 — `sendMessage` on an EMPTY canvas is now dispatched to the
+// STREAMED turn sibling first (`<endpoint>/stream`, CEE #751), with a
+// transparent fallback to the buffered turn on any stream failure.
+//
+// This spec's subject is the BUFFERED chain, so the streamed sibling is stubbed
+// unreachable — which is not an artificial construction: it is exactly the state
+// of a deployment where the streamed route is absent or refusing, and the
+// fallback it triggers is the behaviour under test elsewhere
+// (`streamedDraftTurn.spec.ts`). With the sibling unreachable the buffered path
+// runs exactly once, which is what this spec's request-count pins measure.
+vi.mock('../../../v5/streamedTurnTransport', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../v5/streamedTurnTransport')>()
+  return {
+    ...actual,
+    openV5TurnStream: async () => {
+      throw new TypeError('Failed to fetch')
+    },
+  }
+})
+
 vi.mock('../../../lib/supabase', () => ({
   getUserId: async () => null,
   getSessionIdentity: async () => ({ userId: null, accessToken: null }),

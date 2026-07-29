@@ -10,6 +10,7 @@
 
 import { useRef, useState, useEffect, useCallback, useMemo, memo } from 'react'
 import { useCanvasStore, selectResultsStatus } from '../store'
+import { useDraftStore } from '../stores/draftStore'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import type { ActionChip, GraphPatchBlock } from './types'
 import type { UseConversationReturn } from './useConversation'
@@ -459,6 +460,14 @@ export const ConversationPanel = memo(function ConversationPanel({
   // flip. Same honest gate as OutputsDock — without it this surface's run
   // button re-created the exact panel-vs-engine contradiction #343 fixed.
   const ceeCannotSeeModel = useCanvasStore((s) => computeCeeCannotSeeModel(s.nodes))
+  // ROADMAP 2.122 — this surface is a run affordance too, so it needs the
+  // streamed-draft honesty rung for the same reason OutputsDock does: between
+  // GRAPH_READY (~36 s) and COMPLETE (~61 s) the canvas holds a graph whose
+  // numbers are the frame's `in_progress` ones and whose scenario commit has not
+  // landed. Missing it here would have re-created, on a second surface, exactly
+  // the panel-vs-engine contradiction the comment above records #343 fixing.
+  // Found by a surviving mutant, not by me.
+  const draftStreamPhase = useDraftStore((s) => s.draftStreamPhase)
   const runGateResult = useMemo(() => canRunAnalysisUtil({
     graphHealth: graphHealth ?? null,
     readiness,
@@ -466,7 +475,8 @@ export const ConversationPanel = memo(function ConversationPanel({
     nodeCount,
     isRunning: isAnalysisRunning,
     ceeCannotSeeModel,
-  }), [graphHealth, readiness, hasBlockers, nodeCount, isAnalysisRunning, ceeCannotSeeModel])
+    draftStreamPhase,
+  }), [graphHealth, readiness, hasBlockers, nodeCount, isAnalysisRunning, ceeCannotSeeModel, draftStreamPhase])
 
   // In-flight takes priority over structural reasons: the composer button
   // is disabled for either cause, but the user-visible tooltip should explain

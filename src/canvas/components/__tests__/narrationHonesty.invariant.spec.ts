@@ -50,7 +50,13 @@
 import { describe, it, expect } from 'vitest'
 
 import { NARRATION_STAGES } from '../AnalysisRunningBanner'
-import { PROGRESSIVE_STAGES } from '../DraftLoadingAnimation'
+import {
+  NARRATION_TABLES,
+  PROGRESSIVE_STAGES,
+  SETTLING_STAGES,
+  UNSETTLED_DRAFT_NOTICE,
+} from '../DraftLoadingAnimation'
+import { DRAFT_VALUES_SETTLING_REFUSAL } from '../../utils/canRunAnalysis'
 
 interface Stage {
   readonly afterSeconds: number
@@ -111,18 +117,36 @@ function violations(message: string): string[] {
 }
 
 /**
- * Both live tables. The analysis table doubles as a NEGATIVE control on the
+ * Every live table. The analysis table doubles as a NEGATIVE control on the
  * rules themselves: it is the already-ratified copy, so if a rule ever flags
  * it, the rule is over-strict rather than the copy being dishonest.
+ *
+ * ⚠ AMENDED 29 Jul (ROADMAP 2.122). This used to be a HAND-LISTED array, and
+ * that was trap 12 sitting inside the guard written to prevent trap 12: adding
+ * a narration table without also adding it here would leave the new copy
+ * completely ungoverned, and the omission would read as GREEN. The draft-side
+ * entries are now DERIVED from `DraftLoadingAnimation.NARRATION_TABLES`, so a
+ * table added to that module is governed the moment it exists. The analysis
+ * banner stays named explicitly because it lives in a different module and
+ * exports exactly one table.
  */
 const LIVE_TABLES: ReadonlyArray<readonly [string, readonly Stage[]]> = [
   ['AnalysisRunningBanner.NARRATION_STAGES', NARRATION_STAGES],
-  ['DraftLoadingAnimation.PROGRESSIVE_STAGES', PROGRESSIVE_STAGES],
+  ...(Object.entries(NARRATION_TABLES) as Array<[string, readonly Stage[]]>),
 ]
 
 describe('narration honesty — one bar for every wait surface', () => {
   describe.each(LIVE_TABLES)('%s', (_label, stages) => {
-    it('asserts nothing the client cannot know from elapsed time alone', () => {
+    // ⚠ RENAMED 29 Jul (ROADMAP 2.122). This test used to be titled "asserts
+    // nothing the client cannot know from elapsed time alone", which was exactly
+    // right while every table was elapsed-time-licensed — and became an
+    // OVERCLAIM the moment `SETTLING_STAGES` joined, because that table is
+    // licensed by a held GRAPH_READY frame and legitimately says the graph
+    // exists. What this test actually checks, and all it ever checked, is that
+    // no table reproduces one of the retired fabrication CLASSES. The
+    // per-surface licence is asserted separately below. Correcting the title
+    // rather than the assertion, because the assertion was never the problem.
+    it('reproduces none of the retired fabrication classes', () => {
       const offenders = stages
         .map((s) => ({ message: s.message, broke: violations(s.message) }))
         .filter((r) => r.broke.length > 0)
@@ -192,5 +216,126 @@ describe('positive control — the guard can SEE a violation', () => {
     for (const fabricated of retiredFabrications) {
       expect(liveMessages).not.toContain(fabricated)
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROADMAP 2.122 — the FRAME-LICENSED surfaces
+// ---------------------------------------------------------------------------
+//
+// `PROGRESSIVE_STAGES` is licensed by elapsed time alone, so it cannot name a
+// phase. `SETTLING_STAGES` (and the two standing notices) are licensed by a
+// GRAPH_READY frame the client is HOLDING — so they may say the graph exists
+// and that its values are still in flight, because the frame is stamped
+// `status: "in_progress"` and its contract says the numbers get refined.
+//
+// That extra licence is exactly where a fabrication would slip in, so it comes
+// with an extra rule set. The claim these surfaces may NOT make is any claim
+// ABOUT the graph now visible: a verdict, a leader, a probability, a freshness
+// judgement, a recommendation. Those are what the dispatch's honesty
+// constraint forbids, and this is where they would be written.
+
+const FRAME_LICENCE_RULES: readonly Rule[] = [
+  {
+    name: 'no analysis verdict or recommendation',
+    pattern:
+      /\b(recommend|recommended|recommendation|best option|optimal|you should|we suggest|verdict|conclusion)\b/i,
+    control: 'Your model is ready — we recommend the build option.',
+  },
+  {
+    name: 'no leader or ranking language',
+    pattern: /\b(lead(s|ing)?|ahead|winner|winning|wins|front[- ]runner|top option|ranked)\b/i,
+    control: 'Build in-house is leading so far…',
+  },
+  {
+    name: 'no probability or confidence claim',
+    pattern: /\b(probability|likelihood|confidence|\d+\s*%\s*(chance|likely)|odds)\b/i,
+    control: 'Build in-house has a 62% probability of winning…',
+  },
+  {
+    name: 'no freshness or up-to-date verdict',
+    pattern: /\b(up to date|current results|fresh|stale|reflects the current model)\b/i,
+    control: 'Results are fresh and reflect the current model.',
+  },
+  {
+    name: 'no claim the model is finished',
+    pattern: /\b(ready to run|analysis ready|complete|finished|done)\b/i,
+    control: 'Your model is complete and ready to run.',
+  },
+]
+
+function frameLicenceViolations(message: string): string[] {
+  return FRAME_LICENCE_RULES.filter((r) => r.pattern.test(message)).map((r) => r.name)
+}
+
+/**
+ * Every string shown while a GRAPH_READY preview is on the canvas. Includes the
+ * run-gate refusal, because a blocked Run button whose tooltip made a claim
+ * would be exactly as dishonest as a status line that did.
+ */
+const FRAME_LICENSED_STRINGS: ReadonlyArray<readonly [string, string]> = [
+  ...SETTLING_STAGES.map((s) => [`SETTLING_STAGES@${s.afterSeconds}s`, s.message] as const),
+  ['UNSETTLED_DRAFT_NOTICE', UNSETTLED_DRAFT_NOTICE],
+  ['DRAFT_VALUES_SETTLING_REFUSAL', DRAFT_VALUES_SETTLING_REFUSAL],
+]
+
+describe('frame-licensed narration — may say the graph exists, may not judge it', () => {
+  it.each(FRAME_LICENSED_STRINGS)('%s makes no claim the frame does not license', (_label, message) => {
+    expect(frameLicenceViolations(message)).toEqual([])
+  })
+
+  it.each(FRAME_LICENSED_STRINGS)('%s also obeys every elapsed-time-table rule', (_label, message) => {
+    // The extra licence is additive, not a waiver: a settling line still may not
+    // forecast a duration, compare against a baseline, or claim proximity.
+    expect(violations(message)).toEqual([])
+  })
+
+  it('the settling table is non-empty, starts at 0 and escalates strictly', () => {
+    expect(SETTLING_STAGES.length).toBeGreaterThan(0)
+    expect(SETTLING_STAGES[0].afterSeconds).toBe(0)
+    for (let i = 1; i < SETTLING_STAGES.length; i++) {
+      expect(SETTLING_STAGES[i].afterSeconds).toBeGreaterThan(SETTLING_STAGES[i - 1].afterSeconds)
+    }
+  })
+})
+
+describe('positive control — the frame-licence rules can SEE a violation', () => {
+  it.each(FRAME_LICENCE_RULES.map((r) => [r.name, r] as const))(
+    '%s fires on its control string',
+    (_name, rule) => {
+      expect(rule.pattern.test(rule.control)).toBe(true)
+      expect(frameLicenceViolations(rule.control)).toContain(rule.name)
+    },
+  )
+
+  it('an honest settling line trips no frame-licence rule', () => {
+    expect(frameLicenceViolations('Still finishing the values and coaching…')).toEqual([])
+  })
+
+  it('the elapsed-time table would FAIL the frame-licence rules if shown post-GRAPH_READY', () => {
+    // Not a defect — it proves the two rule sets are genuinely different and
+    // that the frame-licence set is the STRICTER one. "Still drafting your
+    // decision model…" is true before GRAPH_READY and misleading after it, so
+    // the phase switch in AIInputBar is load-bearing rather than cosmetic.
+    const escalated = PROGRESSIVE_STAGES[PROGRESSIVE_STAGES.length - 1].message
+    expect(violations(escalated)).toEqual([])
+    expect(FRAME_LICENSED_STRINGS.map(([, m]) => m)).not.toContain(escalated)
+  })
+})
+
+describe('the derived table registry cannot silently miss a surface (trap 12)', () => {
+  it('governs every table DraftLoadingAnimation exports, without a hand-listed copy', () => {
+    const governed = LIVE_TABLES.map(([label]) => label)
+    for (const label of Object.keys(NARRATION_TABLES)) {
+      expect(governed).toContain(label)
+    }
+    // And the registry really does carry both draft tables — a registry that
+    // had quietly lost one would make the loop above vacuous.
+    expect(Object.keys(NARRATION_TABLES)).toEqual([
+      'DraftLoadingAnimation.PROGRESSIVE_STAGES',
+      'DraftLoadingAnimation.SETTLING_STAGES',
+    ])
+    expect(NARRATION_TABLES['DraftLoadingAnimation.PROGRESSIVE_STAGES']).toBe(PROGRESSIVE_STAGES)
+    expect(NARRATION_TABLES['DraftLoadingAnimation.SETTLING_STAGES']).toBe(SETTLING_STAGES)
   })
 })

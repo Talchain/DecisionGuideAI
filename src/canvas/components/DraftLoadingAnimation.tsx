@@ -41,12 +41,28 @@
  * surface. `__tests__/narrationHonesty.invariant.spec.ts` now enforces it
  * over BOTH tables, so the two cannot drift apart again.
  *
- * ⚠ This table is an HONEST INTERIM, not the destination. M1's real cure is
- * server-driven narration: once CEE-2 ships the staged turn route
- * (`POST /orchestrate/v2/turn/stream`), this file should be driven by real
+ * ⚠ AMENDED 29 Jul (ROADMAP 2.122) — CEE-2 LANDED, AND THE TABLE STILL CANNOT
+ * BE DELETED. The note here used to say this file "should be driven by real
  * GRAPH_READY / COACHING_READY frames and the elapsed-time table deleted
- * outright. Until that route exists the client has nothing real to narrate,
- * and the correct behaviour is to claim less — not to guess more.
+ * outright" once the streamed turn route existed. That route now exists (#751,
+ * `POST /proxy/v5/turn/stream`) and the UI consumes it — and the deletion would
+ * be a REGRESSION, for a measured reason:
+ *
+ *   the wire carries **no PROGRESS frames at all**. Zero observed across three
+ *   live runs on deployed staging (`PHASE0-EVIDENCE-2026-07-28/
+ *   cee2-live-latency.md` honest note 4 — "the route emits the frame class;
+ *   nothing feeds it"; it needs the Anthropic streaming adapter, #745's
+ *   inherited LOW and #751's rowed item 5).
+ *
+ * So between DRAFTING (271 ms) and GRAPH_READY (35.8 s median, 39.9 s on the
+ * cold run) the client holds ONE frame and a clock. Deleting this table would
+ * convert 36 seconds of honest escalating acknowledgement into 36 seconds of
+ * silence. It stays until PROGRESS frames actually arrive — see the 2.122
+ * PROGRESS row.
+ *
+ * What DID change: there is now a second table, `SETTLING_STAGES`, for the
+ * window after GRAPH_READY. It is licensed differently and that difference is
+ * the point — see its own docstring.
  */
 
 import { useEffect, useState, useRef } from 'react'
@@ -68,15 +84,90 @@ export const PROGRESSIVE_STAGES = [
   { afterSeconds: 45, message: 'Still drafting — complex decisions can take a while…' },
 ] as const
 
+/**
+ * The post-GRAPH_READY table (ROADMAP 2.122). Shown only when the client HOLDS
+ * a GRAPH_READY frame, i.e. the graph is on the canvas and the turn is still
+ * running (live: a ~25 s window, 35.8 s → 60.9 s).
+ *
+ * ── WHY THIS TABLE IS ALLOWED TO SAY MORE ────────────────────────────────
+ * `PROGRESSIVE_STAGES` above is licensed by ELAPSED TIME ALONE, which is why it
+ * cannot name a phase. This table is licensed by A FRAME THE CLIENT IS HOLDING:
+ *
+ *   - "your model is on the canvas" — the client rendered it; it can see it.
+ *   - "values are still settling"   — the frame is stamped `status:
+ *     "in_progress"`, and the route's contract states that
+ *     `graph-data-integrity` refines the numeric values after the transform.
+ *     Saying so is reading the frame, not guessing at a pipeline.
+ *   - "coaching is still arriving"  — COACHING_READY is a distinct later frame
+ *     (live: 59.2 s) which has not arrived.
+ *
+ * Every rule that governs the elapsed-time table still applies here (no
+ * comparative, no duration forecast, no completion-proximity, no claim about
+ * the user's decision, no fabricated number) AND one more that is specific to
+ * this phase, because this is the phase where a graph is visible and the
+ * temptation to say something ABOUT it is highest: **no claim the frame does
+ * not license** — no verdict, no leader, no win probability, no freshness, no
+ * recommendation. Enforced by `narrationHonesty.invariant.spec.ts`.
+ *
+ * Thresholds are 0/12 s against the measured ~25 s settling window.
+ */
+export const SETTLING_STAGES = [
+  { afterSeconds: 0, message: 'Your model is on the canvas. Values and coaching are still arriving…' },
+  // ⚠ My first draft of this line read "Still finishing the values and
+  // coaching…" and the honesty suite REJECTED it on the completion-proximity
+  // rule — correctly: "finishing" tells the user the wait is nearly over, and
+  // the client has no frame that says so. The guard caught its author.
+  { afterSeconds: 12, message: 'Still waiting on the values and coaching…' },
+] as const
+
+/**
+ * The terminal honest line for a draft whose values will NOT settle in this
+ * session (`draftStreamPhase === 'unsettled'`): the stream died after
+ * GRAPH_READY and the buffered fallback found the turn already committed, so
+ * CEE declined to re-draft and there is no second copy of the settled numbers
+ * to fetch. Saying the model is ready would be a fabrication; saying nothing
+ * would leave a silently-blocked Run button unexplained.
+ */
+export const UNSETTLED_DRAFT_NOTICE =
+  'Your model is on the canvas, but the connection dropped before its values arrived. Draft again to get its final numbers.'
+
+/**
+ * Every narration table this module owns, keyed by name.
+ *
+ * DERIVED, so the cross-surface honesty suite cannot miss one. The suite used
+ * to consume a HAND-LISTED array of tables — which is trap 12: adding a table
+ * without also adding it to the list would leave the new copy ungoverned, and
+ * the omission would read as green. It now iterates this record instead.
+ */
+export const NARRATION_TABLES = {
+  'DraftLoadingAnimation.PROGRESSIVE_STAGES': PROGRESSIVE_STAGES,
+  'DraftLoadingAnimation.SETTLING_STAGES': SETTLING_STAGES,
+} as const
+
+function resolveStage(
+  stages: readonly { readonly afterSeconds: number; readonly message: string }[],
+  elapsedSeconds: number,
+): string {
+  // Walk stages in reverse to find the highest threshold that applies
+  for (let i = stages.length - 1; i >= 0; i--) {
+    if (elapsedSeconds >= stages[i].afterSeconds) return stages[i].message
+  }
+  return stages[0].message
+}
+
 /** Resolve the current message for a given elapsed time (seconds) */
 export function messageForElapsed(elapsedSeconds: number): string {
-  // Walk stages in reverse to find the highest threshold that applies
-  for (let i = PROGRESSIVE_STAGES.length - 1; i >= 0; i--) {
-    if (elapsedSeconds >= PROGRESSIVE_STAGES[i].afterSeconds) {
-      return PROGRESSIVE_STAGES[i].message
-    }
-  }
-  return PROGRESSIVE_STAGES[0].message
+  return resolveStage(PROGRESSIVE_STAGES, elapsedSeconds)
+}
+
+/**
+ * Resolve the post-GRAPH_READY message. `elapsedSeconds` is measured from the
+ * moment the graph landed, not from the start of the turn — the client knows
+ * when it rendered, and re-using the turn's clock here would put the escalated
+ * line up immediately on every draft.
+ */
+export function messageForSettling(elapsedSeconds: number): string {
+  return resolveStage(SETTLING_STAGES, elapsedSeconds)
 }
 
 export function DraftLoadingAnimation() {

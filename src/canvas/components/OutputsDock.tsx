@@ -101,6 +101,7 @@ import type { TornadoRow } from '../../components/results/TornadoChart'
 import { useCanvasResultsSync } from '../../components/results/useCanvasResultsSync'
 import { ResultsBody } from '../../components/results/ResultsBody'
 import { useGuidanceStore } from '../stores/guidanceStore'
+import { useDraftStore } from '../stores/draftStore'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
 import { getStrengthCorrections } from '../../adapters/plot/v2/adapter'
 // P0.6: User-friendly error messages
@@ -844,6 +845,15 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     return selectOptionsNeedingValues(ceeAnalysisReadyForCopy, labelById)
   }, [ceeAnalysisReadyForCopy, nodes])
 
+  // ROADMAP 2.122 — the run gate must stay shut while a streamed draft's
+  // structure is on the canvas but its numbers have not settled. The PHASE is
+  // handed to the gate unexamined: which phases count as unsettled is
+  // `canRunAnalysis`'s decision to make, in one tested place, not a two-clause
+  // expression re-derived at every call site. (A mutant that dropped one clause
+  // from an earlier version of that expression, right here, survived the
+  // battery — nothing tested this component's copy of the rule.)
+  const draftStreamPhase = useDraftStore((s) => s.draftStreamPhase)
+
   const runGateResult = canRunAnalysisUtil({
     graphHealth: graphHealth ?? null,
     readiness,
@@ -851,6 +861,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     nodeCount: nodes.length,
     isRunning,
     ceeCannotSeeModel: computeCeeCannotSeeModel(nodes),
+    draftStreamPhase,
     optionsNeedingValues,
   })
   const canRunAnalysis = runGateResult.allowed
