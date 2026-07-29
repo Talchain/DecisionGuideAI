@@ -90,8 +90,13 @@ function isEnabled(): boolean {
   // Dev: console only
   if (import.meta.env.DEV) return true
 
-  // Staging/Prod: require API keys
-  const hasPostHog = Boolean(import.meta.env?.VITE_POSTHOG_API_KEY)
+  // Staging/Prod: require API keys.
+  // ROADMAP 2.111: ONE PostHog key name repo-wide — `VITE_POSTHOG_KEY`, the
+  // name `src/lib/posthog.ts` gates `posthog.init` on. This previously read
+  // `VITE_POSTHOG_API_KEY`, so setting either name on activation day left one
+  // consumer dark. Retired name removed, not aliased. Pinned by
+  // `src/lib/__tests__/posthogKeyUnify.spec.ts`.
+  const hasPostHog = Boolean(import.meta.env?.VITE_POSTHOG_KEY)
   const hasSentry = Boolean(import.meta.env?.VITE_SENTRY_DSN)
 
   return hasPostHog || hasSentry
