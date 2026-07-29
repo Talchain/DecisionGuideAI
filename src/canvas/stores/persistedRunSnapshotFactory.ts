@@ -45,6 +45,10 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null
 }
 
+function isNonEmptyArray(value: unknown): value is unknown[] {
+  return Array.isArray(value) && value.length > 0
+}
+
 /**
  * The CEE-owned half of the fact, plus the PLoT envelope it wraps.
  * Everything here is untrusted JSONB — `null` means "this row cannot be read
@@ -52,6 +56,15 @@ function asRecord(value: unknown): Record<string, unknown> | null {
  */
 interface ParsedRunFact {
   enrichment: Record<string, unknown>
+  /**
+   * The two arrays every DECIDING snapshot field comes from, carried out of the
+   * parser already proven non-empty. They are surfaced here rather than re-read
+   * downstream so that `toV2ResponseShape` has no `?? []` arm to reach for —
+   * the defaulting path finding 1 exploited cannot be written back in without
+   * deleting a field from this type.
+   */
+  optionComparison: unknown[]
+  factorSensitivity: unknown[]
   computedAt: string | null
   graphHashAtRun: string | null
 }
@@ -72,8 +85,47 @@ function parseRunFact(payload: unknown): ParsedRunFact | null {
   // from the journey, not to render a run with every field blank.
   if (!enrichment) return null
 
+  // ⚠ A PRESENT ENVELOPE IS NOT A READABLE RUN. Found by the adversarial
+  // review of PR #523 (finding 1) and closed here pre-merge.
+  //
+  // Until this guard existed, `parseRunFact` accepted any row with
+  // {object, fact_type, result, enrichment} and `toV2ResponseShape` DEFAULTED a
+  // missing or empty `option_comparison` to `[]`. `buildAnalysisSnapshot`'s
+  // pre-existing `winner?.win_probability ?? 0` then produced a fully
+  // renderable snapshot. The reviewer's probe, reproduced verbatim here before
+  // the fix:
+  //
+  //   RESULT:  {"winnerId":"","winnerLabel":"","winnerProbability":0,
+  //             "goalProbability":null,"runnerUpProbability":null}
+  //   FACTORS: {"topElasticity":0,"rankFlipRate":0,
+  //             "influenceConcentration":0,"topCalibrationFactor":""}
+  //
+  // i.e. a run plotted on the trajectory at 0% with an empty winner label, and
+  // a hero inviting the user to "Calibrate " at "0% influence" — three
+  // fabricated measurements in one sentence. That is the absent≠zero class, on
+  // the very path this module documents as "dropped, never defaulted": the
+  // original three drop tests (non-object payload / wrong fact_type / no
+  // enrichment) could not see this shape.
+  //
+  // Both arrays are non-empty in 773/773 live facts, so this costs nothing on
+  // real data — it is a guard against PRODUCER DRIFT, and it makes that drift
+  // loud by omission (a run vanishes from the journey) instead of silently
+  // publishing zeros the engine never measured. The write surface is
+  // service-role-only, so this was never reachable by a client.
+  //
+  // These are the two arrays the snapshot's DECIDING fields come from —
+  // `option_comparison` for winner/runner-up/probabilities/goal, and
+  // `factor_sensitivity` for the whole top-factor and calibration block. Every
+  // OTHER producer field stays absence-preserving rather than drop-worthy
+  // (`recommendation_stability` is legitimately absent in 426/773 runs and must
+  // render "Not assessed", not delete the run).
+  if (!isNonEmptyArray(enrichment.option_comparison)) return null
+  if (!isNonEmptyArray(enrichment.factor_sensitivity)) return null
+
   return {
     enrichment,
+    optionComparison: enrichment.option_comparison,
+    factorSensitivity: enrichment.factor_sensitivity,
     computedAt: typeof result.computed_at === 'string' ? result.computed_at : null,
     graphHashAtRun:
       typeof result.graph_hash_at_run === 'string' && result.graph_hash_at_run.length > 0
@@ -103,20 +155,23 @@ function composeRobustness(enrichment: Record<string, unknown>): V2RunResponse['
 }
 
 /**
- * Shape the persisted envelope into the `V2RunResponse` slot the factory
- * consumes. No value is invented: absent producer fields stay absent, and the
- * factory's own absence-preserving branches then fire.
+ * Shape the parsed fact into the `V2RunResponse` slot the factory consumes. No
+ * value is invented: absent producer fields stay absent, and the factory's own
+ * absence-preserving branches then fire.
+ *
+ * ⚠ It takes the PARSED fact, not the raw enrichment, and that is the fix for
+ * finding 1 rather than a refactor. The two deciding arrays arrive already
+ * proven non-empty by `parseRunFact`, so there is no `Array.isArray(...) ?? []`
+ * arm here to silently manufacture an empty comparison — which is exactly what
+ * turned a shape-broken fact into a 0%-winner run on the trajectory. Restoring
+ * a default would now require deleting a field from `ParsedRunFact`.
  */
-function toV2ResponseShape(enrichment: Record<string, unknown>): V2RunResponse {
+function toV2ResponseShape(fact: ParsedRunFact): V2RunResponse {
   return {
-    ...enrichment,
-    option_comparison: Array.isArray(enrichment.option_comparison)
-      ? enrichment.option_comparison
-      : [],
-    factor_sensitivity: Array.isArray(enrichment.factor_sensitivity)
-      ? enrichment.factor_sensitivity
-      : [],
-    robustness: composeRobustness(enrichment),
+    ...fact.enrichment,
+    option_comparison: fact.optionComparison,
+    factor_sensitivity: fact.factorSensitivity,
+    robustness: composeRobustness(fact.enrichment),
   } as unknown as V2RunResponse
 }
 
@@ -141,7 +196,7 @@ export function buildSnapshotFromPersistedRun(
   if (!fact) return null
 
   const base = buildAnalysisSnapshot({
-    rawV2Response: toV2ResponseShape(fact.enrichment),
+    rawV2Response: toV2ResponseShape(fact),
     // No graph-at-run in a run_analysis fact. Passing null (not []) is what
     // makes graphHash / nodeCount / edgeCount / evidenceCoverage report
     // honest absence instead of a fabricated empty graph.

@@ -169,6 +169,84 @@ describe('persistedRunSnapshotFactory — unreadable rows are DROPPED, never def
     ).toBeNull()
   })
 
+  // -------------------------------------------------------------------------
+  // Adversarial review of PR #523, finding 1 (MODERATE, fabrication-class).
+  //
+  // `parseRunFact` accepted any row with {object, fact_type, result,
+  // enrichment}, and `toV2ResponseShape` then DEFAULTED an empty/absent
+  // `option_comparison` to []. The factory's pre-existing
+  // `winner?.win_probability ?? 0` turned that into a renderable snapshot.
+  // The reviewer's probe output, verbatim:
+  //
+  //   RESULT: {"winnerId":"","winnerLabel":"","winnerProbability":0,
+  //            "goalProbability":null,"runnerUpProbability":null}
+  //
+  // A run plotted at 0% with an empty winner label — absent rendered as zero,
+  // on the exact path this module claims is "dropped, never defaulted". The
+  // three original drop tests covered {non-object payload, wrong fact_type, no
+  // enrichment} and could not see this shape.
+  //
+  // Live incidence 0/773 (both arrays non-empty in every live fact, twice
+  // confirmed), so this is producer-drift class, not an exploit. The write
+  // surface is service-role-only. The guard makes drift LOUD-by-omission
+  // instead of silently fabricating a 0% run.
+  // -------------------------------------------------------------------------
+
+  it('drops a fact whose enrichment carries an EMPTY option_comparison (no 0% phantom run)', () => {
+    const row = makePersistedRunFactRow({ optionComparison: [] })
+    expect(build(row)).toBeNull()
+  })
+
+  it('drops a fact whose enrichment has NO option_comparison key at all', () => {
+    const row = makePersistedRunFactRow()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (row.payload as any).result.enrichment.option_comparison
+    expect(build(row)).toBeNull()
+  })
+
+  it('drops a fact whose option_comparison is present but not an array', () => {
+    const row = makePersistedRunFactRow()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(row.payload as any).result.enrichment.option_comparison = { opt: 1 }
+    expect(build(row)).toBeNull()
+  })
+
+  it('drops a fact whose enrichment carries an EMPTY factor_sensitivity (no measured-looking 0s)', () => {
+    // Same hole, second array: empty factors yield topElasticity 0,
+    // rankFlipRate 0, influenceConcentration 0 and topCalibrationFactor '',
+    // which the hero prints as "Calibrate " / "0% influence" — three
+    // fabricated measurements in one sentence.
+    expect(build(makePersistedRunFactRow({ factorSensitivity: [] }))).toBeNull()
+  })
+
+  it('drops a fact whose factor_sensitivity is absent or not an array', () => {
+    const noKey = makePersistedRunFactRow()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (noKey.payload as any).result.enrichment.factor_sensitivity
+    expect(build(noKey)).toBeNull()
+
+    const notArray = makePersistedRunFactRow()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(notArray.payload as any).result.enrichment.factor_sensitivity = 'nope'
+    expect(build(notArray)).toBeNull()
+  })
+
+  it('POSITIVE CONTROL: the guard drops ONLY the degenerate shapes — a one-option, one-factor run still builds', () => {
+    // Without this, tightening the guard until everything is dropped would
+    // "pass" every test above. 773/773 live facts carry both arrays non-empty,
+    // so the guard must cost nothing on real data.
+    const s = build(
+      makePersistedRunFactRow({
+        runnerUp: null,
+        factorSensitivity: [{ factor_id: 'f1', factor_label: 'F1', elasticity: 0.5 }],
+      }),
+    )
+    expect(s).not.toBeNull()
+    expect(s!.winnerId).toBe('opt-a')
+    expect(s!.runnerUpId).toBeNull()
+    expect(s!.topFactors).toHaveLength(1)
+  })
+
   it('drops a row with no result.enrichment', () => {
     expect(
       build(

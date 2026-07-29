@@ -34,6 +34,14 @@ export interface PersistedRunFactFixtureOptions {
   graphHashAtRun?: string | null
   winner?: OptionSpec
   runnerUp?: OptionSpec | null
+  /**
+   * Replaces the `winner`/`runnerUp`-derived array outright. Exists for the
+   * producer-shape holes the adversarial review of #523 found: a fact with a
+   * present `enrichment` but an EMPTY `option_comparison` must be dropped, not
+   * rendered as a 0% run with an empty winner label. 0/773 live rows are
+   * shaped this way today — the guard is against producer drift.
+   */
+  optionComparison?: Array<Record<string, unknown>>
   /** Present in only 45% of live runs — omit to exercise the honest-absence path. */
   recommendationStability?: number
   fragileEdges?: unknown[] | null
@@ -57,6 +65,7 @@ export function makePersistedRunFactRow(
     graphHashAtRun = 'aag-hash-1',
     winner = { option_id: 'opt-a', option_label: 'Option A', win_probability: 0.62 },
     runnerUp = { option_id: 'opt-b', option_label: 'Option B', win_probability: 0.38 },
+    optionComparison,
     recommendationStability,
     fragileEdges = [],
     factorSensitivity = [
@@ -86,7 +95,8 @@ export function makePersistedRunFactRow(
     return { id, createdAt, payload: payloadOverride, turnId: 'turn-1' }
   }
 
-  const optionComparison = [winner, ...(runnerUp ? [runnerUp] : [])]
+  const options: unknown[] =
+    optionComparison ?? [winner, ...(runnerUp ? [runnerUp] : [])]
 
   return {
     id,
@@ -111,7 +121,7 @@ export function makePersistedRunFactRow(
           robustness_status: 'computed',
           drivers_status: 'computed',
           response_hash: responseHash,
-          option_comparison: optionComparison,
+          option_comparison: options,
           factor_sensitivity: factorSensitivity,
           robustness: {
             level: 'moderate',
