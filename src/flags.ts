@@ -354,6 +354,13 @@ const FLAGS_CONFIG = {
   // or at hero GA sign-off, whichever comes first — the gallery either
   // retires or its states graduate to live coverage.
   // Enable locally: localStorage.setItem('feature.heroFixtureGallery', '1')
+  //
+  // ⚠ SINCE tester-safe routing: this flag alone NO LONGER makes the route
+  // reachable. `/dev/hero-gallery` now sits behind `devRoutes` at the ROUTE
+  // (src/poc/AppPoC.tsx) as well as behind this flag inside the component, so
+  // the netlify staging `VITE_FEATURE_HERO_FIXTURE_GALLERY = "1"` is necessary
+  // but not sufficient. To open the gallery on staging:
+  //   localStorage.setItem('feature.devRoutes', '1')   // then reload
   heroFixtureGallery: {
     envKey: 'VITE_FEATURE_HERO_FIXTURE_GALLERY',
     storageKey: 'feature.heroFixtureGallery',
@@ -433,6 +440,25 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_STRENGTHEN_PANEL',
     storageKey: 'feature.strengthenPanel',
   },
+  // Developer route estate — the scaffolding surfaces in src/poc/AppPoC.tsx
+  // that are NOT the product: /plot, /plot-legacy, /plc, /sandbox-v1,
+  // /dev/hero-gallery, and the router catch-all's POC-sandbox fallback.
+  // When OFF, every one of those URLs renders <Navigate to="/canvas" replace/>,
+  // so a tester who mistypes a URL lands on the canvas instead of on a sandbox.
+  //
+  // ⚠ DELIBERATELY OFF IN EVERY DEPLOYED BUILD. `VITE_ENABLE_DEV_ROUTES` is not
+  // set in netlify.toml for any context and must not be — staging IS the tester
+  // surface. The env key exists because it is how this repo's flags are shaped,
+  // and because the Playwright suite needs it (playwright.config.ts webServer),
+  // not because a deploy should ever set it.
+  //
+  // To reach the scaffolding in YOUR OWN browser, on any environment:
+  //   localStorage.setItem('feature.devRoutes', '1')   // then reload
+  // That override is per-browser, so it cannot leak to a tester.
+  devRoutes: {
+    envKey: 'VITE_ENABLE_DEV_ROUTES',
+    storageKey: 'feature.devRoutes',
+  },
 } as const
 
 // ============================================================================
@@ -507,6 +533,7 @@ const flags = {
   requireLogin: makeFlag(FLAGS_CONFIG.requireLogin),
   decisionOverview: makeFlag(FLAGS_CONFIG.decisionOverview),
   strengthenPanel: makeFlag(FLAGS_CONFIG.strengthenPanel),
+  devRoutes: makeFlag(FLAGS_CONFIG.devRoutes),
 }
 
 // Export with original naming convention for backward compatibility
@@ -579,6 +606,8 @@ export const isReasoningDisclosureEnabled = flags.reasoningDisclosure
 export const isRequireLoginEnabled = flags.requireLogin
 export const isDecisionOverviewEnabled = flags.decisionOverview
 export const isStrengthenPanelEnabled = flags.strengthenPanel
+export const isDevRoutesEnabled = flags.devRoutes
+export const diagnoseDevRoutes = () => diagnoseFlagState(FLAGS_CONFIG.devRoutes)
 
 
 // ============================================================================
