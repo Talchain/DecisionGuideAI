@@ -13,6 +13,16 @@
  * whose order matches accidental iteration order proves nothing, so one pin
  * feeds a deliberately MIS-SORTED wire and asserts the reader preserves it.
  *
+ * ⚠ A STRUCTURAL BLINDNESS THIS SUITE ONCE HAD (adversarial review of PR #531).
+ * Every one of the ten defensive-validation cases below was written as
+ * `build([wireRows()[0], bad])` — a VALID row always FIRST, the bad row always
+ * SECOND. That shape cannot see what happens when the dropped row is the
+ * producer's RANK 1, and a real defect lived in exactly that blind spot: the
+ * validation `continue` ran before `sawFirstResolvedRow` was set, so a dropped
+ * rank-1 silently promoted rank 2 into "Most worth resolving next". The table is
+ * therefore run in BOTH POSITIONS now, and the position is asserted rather than
+ * assumed (`POSITIONAL CONTROL`), so the class cannot go unpinned again.
+ *
  * CLAIM TYPE: pure-function behaviour. No rendering, no wire claim.
  */
 
@@ -226,5 +236,188 @@ describe('buildVoiRanking — what it deliberately does NOT carry', () => {
     const plain = build(wireRows())
     const correlated = build(wireRows().map(r => ({ ...r, correlation_active: true })))
     expect(correlated).toEqual(plain)
+  })
+})
+
+/**
+ * AMENDMENT A1 (adversarial review of PR #531, blocking — fabrication class).
+ *
+ * Two failure modes, ONE principle. Design §2's final row says the surface falls
+ * back to the honest gate when the rank-1 resolved row cannot be NAMED — "never
+ * rank around a factor you cannot name". The same reasoning governs a rank-1 row
+ * we cannot READ: rows arrive sorted by `evppi` descending, so if the top row is
+ * dropped, whatever survives first is rank 2 wearing rank 1's licensed sentence.
+ *
+ * This is reachable on a SCHEMA-VALID payload, which is what makes it a
+ * fabrication risk rather than a malformed-input curiosity: `evppi` is
+ * `z.number().optional()` at schemas 0.30.0, so `{factor_id, status:'resolved'}`
+ * with no `evppi` passes every validator on the wire and is dropped here.
+ */
+describe('buildVoiRanking — a dropped RANK-1 row reaches the gate (A1)', () => {
+  /** The ten defensive-validation payloads, reused in BOTH positions. */
+  const BAD_ROWS: Array<[string, unknown]> = [
+    ['factor_id non-string', { factor_id: 42, evppi: 0.5, status: 'resolved' }],
+    ['factor_id empty', { factor_id: '', evppi: 0.5, status: 'resolved' }],
+    ['evppi absent (SCHEMA-VALID on the wire)', { factor_id: 'n_comp', status: 'resolved' }],
+    ['evppi null', { factor_id: 'n_comp', evppi: null, status: 'resolved' }],
+    ['evppi NaN', { factor_id: 'n_comp', evppi: Number.NaN, status: 'resolved' }],
+    ['evppi Infinity', { factor_id: 'n_comp', evppi: Number.POSITIVE_INFINITY, status: 'resolved' }],
+    ['evppi a string', { factor_id: 'n_comp', evppi: '0.5', status: 'resolved' }],
+    ['status unknown', { factor_id: 'n_comp', evppi: 0.5, status: 'partially_resolved' }],
+    ['status absent', { factor_id: 'n_comp', evppi: 0.5 }],
+    ['row not an object', 'n_comp'],
+    ['row null', null],
+  ]
+
+  it('POSITIONAL CONTROL: the fixtures really do place the bad row FIRST', () => {
+    // Without this the suite below could be re-running the old blind shape and
+    // passing for the wrong reason. Assert the SHAPE, not just the verdict.
+    for (const [, bad] of BAD_ROWS) {
+      const rows = [bad, wireRows()[0]]
+      expect(rows[0]).toBe(bad)
+      expect(rows[1]).toEqual(wireRows()[0])
+      // …and the trailing row is, on its own, a perfectly renderable ranking —
+      // so a `null` below can only be caused by the bad row's POSITION.
+      expect(build([wireRows()[0]])).not.toBeNull()
+    }
+  })
+
+  it.each(BAD_ROWS)(
+    'gates instead of promoting rank 2 when the FIRST row is dropped — %s',
+    (_name, bad) => {
+      expect(build([bad, wireRows()[0]])).toBeNull()
+    },
+  )
+
+  it('the exact schema-valid payload from the review: rank-1 omits evppi', () => {
+    // The reviewer's PROBE B. Before the fix this returned
+    // resolved: [Competitor response, Regulatory timeline] with the FIRST of
+    // those annotated "Most worth resolving next".
+    const m = build([
+      { factor_id: 'n_market', status: 'resolved' },
+      { factor_id: 'n_comp', evppi: 0.44, status: 'resolved' },
+      { factor_id: 'n_reg', evppi: 0.12, status: 'resolved' },
+    ])
+    expect(m).toBeNull()
+  })
+
+  it('BOTH rank-1 failure modes agree — unnameable and unreadable', () => {
+    const unnameable = build([
+      { factor_id: 'n_not_on_canvas', evppi: 0.9, status: 'resolved' },
+      { factor_id: 'n_market', evppi: 0.5, status: 'resolved' },
+    ])
+    const unreadable = build([
+      { factor_id: 'n_market', status: 'resolved' },
+      { factor_id: 'n_comp', evppi: 0.5, status: 'resolved' },
+    ])
+    expect(unnameable).toBeNull()
+    expect(unreadable).toBeNull()
+  })
+
+  it('THE OTHER DIRECTION: a dropped rank-2 still ranks, and still discloses', () => {
+    // The gate must not swallow a ranking whose rank 1 is intact — otherwise
+    // A1 would have traded a fabrication for an over-suppression.
+    const m = build([
+      wireRows()[0],
+      { factor_id: 'n_comp', status: 'resolved' },
+      { factor_id: 'n_reg', evppi: 0.12, status: 'resolved' },
+    ])
+    expect(m).not.toBeNull()
+    expect(m!.resolved.map((r) => r.label)).toEqual(['Market receptivity', 'Regulatory timeline'])
+    expect(m!.someFactorsUnassessed).toBe(true)
+  })
+
+  it('a dropped BELOW-RESOLUTION-only leader still gates (conservative, deliberate)', () => {
+    // We cannot tell whether the lost row was a resolved one, so the ranking is
+    // withheld rather than guessed. Pinned so the trade-off is visible, not
+    // accidental.
+    expect(build([{ factor_id: 'n_hiring', evppi: null }, wireRows()[4]])).toBeNull()
+    // …whereas a clean all-below-resolution run is untouched by A1.
+    const clean = build([wireRows()[4], wireRows()[5]])
+    expect(clean!.resolved).toEqual([])
+    expect(clean!.belowResolution.map((r) => r.label)).toEqual(['Hiring pace', 'Brand halo'])
+  })
+
+  it('a valid rank-1 followed by ANY number of drops keeps its rank', () => {
+    const m = build([wireRows()[0], null, 'nope', { factor_id: 'n_comp' }, wireRows()[3]])
+    expect(m!.resolved[0].label).toBe('Market receptivity')
+    expect(m!.someFactorsUnassessed).toBe(true)
+  })
+})
+
+/**
+ * AMENDMENT B1 (adversarial review of PR #531).
+ *
+ * A repeated `factor_id` used to render the SAME factor at two ranks with
+ * `someFactorsUnassessed: false` — the only payload in the adversarial family
+ * that misrepresented SILENTLY. First occurrence wins (producer order untouched,
+ * and under the descending sort the first occurrence is the higher-EVPPI one),
+ * and the extra row is disclosed as the defensive-validation drop it is.
+ */
+describe('buildVoiRanking — a repeated factor_id is ONE factor (B1)', () => {
+  it('renders the factor once and DISCLOSES the dropped duplicate', () => {
+    const m = build([
+      { factor_id: 'n_market', evppi: 5, status: 'resolved' },
+      { factor_id: 'n_market', evppi: 4, status: 'resolved' },
+    ])
+    expect(m!.resolved.map((r) => r.label)).toEqual(['Market receptivity'])
+    expect(m!.someFactorsUnassessed).toBe(true)
+  })
+
+  it('keeps the FIRST occurrence, so producer rank order is untouched', () => {
+    const m = build([
+      { factor_id: 'n_market', evppi: 0.91, status: 'resolved' },
+      { factor_id: 'n_comp', evppi: 0.44, status: 'resolved' },
+      { factor_id: 'n_market', evppi: 0.02, status: 'resolved' },
+      { factor_id: 'n_reg', evppi: 0.12, status: 'resolved' },
+    ])
+    expect(m!.resolved.map((r) => r.label)).toEqual([
+      'Market receptivity',
+      'Competitor response',
+      'Regulatory timeline',
+    ])
+    expect(m!.resolved.filter((r) => r.factorId === 'n_market')).toHaveLength(1)
+    expect(m!.someFactorsUnassessed).toBe(true)
+  })
+
+  it('dedupes ACROSS the two status groups — never one factor in both', () => {
+    const m = build([
+      { factor_id: 'n_market', evppi: 0.91, status: 'resolved' },
+      { factor_id: 'n_market', evppi: 0.001, status: 'below_resolution' },
+    ])
+    expect(m!.resolved.map((r) => r.factorId)).toEqual(['n_market'])
+    expect(m!.belowResolution).toEqual([])
+    expect(m!.someFactorsUnassessed).toBe(true)
+  })
+
+  it('a triple id collapses to one row', () => {
+    const m = build([
+      { factor_id: 'n_market', evppi: 3, status: 'resolved' },
+      { factor_id: 'n_market', evppi: 2, status: 'resolved' },
+      { factor_id: 'n_market', evppi: 1, status: 'resolved' },
+    ])
+    expect(m!.resolved).toHaveLength(1)
+    expect(m!.someFactorsUnassessed).toBe(true)
+  })
+
+  it('POSITIVE CONTROL: two DISTINCT ids still produce two rows, undisclosed', () => {
+    // Without this, the dedup could be collapsing everything and the tests
+    // above would pass for the wrong reason.
+    const m = build([
+      { factor_id: 'n_market', evppi: 0.91, status: 'resolved' },
+      { factor_id: 'n_comp', evppi: 0.44, status: 'resolved' },
+    ])
+    expect(m!.resolved.map((r) => r.label)).toEqual(['Market receptivity', 'Competitor response'])
+    expect(m!.someFactorsUnassessed).toBe(false)
+  })
+
+  it('a duplicate can never mask rank 1 (it always has a predecessor)', () => {
+    const m = build([
+      { factor_id: 'n_market', evppi: 0.91, status: 'resolved' },
+      { factor_id: 'n_market', evppi: 0.9, status: 'resolved' },
+      { factor_id: 'n_comp', evppi: 0.44, status: 'resolved' },
+    ])
+    expect(m).not.toBeNull()
+    expect(m!.resolved[0].label).toBe('Market receptivity')
   })
 })

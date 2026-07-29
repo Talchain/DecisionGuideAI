@@ -158,6 +158,49 @@ describe('V7EvidenceDisclosure — Resolve next: the ranking', () => {
   })
 })
 
+/**
+ * AMENDMENTS A1 + B1 at the RENDER level (adversarial review of PR #531).
+ *
+ * The reader is the authority on both verdicts and is pinned in
+ * `voi/__tests__/voiRanking.spec.ts`. These two prove the consequence a USER
+ * would have seen: the sentence that would have been attached to the wrong
+ * factor, and the label that would have appeared at two ranks.
+ */
+describe('V7EvidenceDisclosure — Resolve next: the amended verdicts', () => {
+  it('A1: the gate renders, so no factor wears "Most worth resolving next"', () => {
+    // The reader returns null for a dropped rank-1; what matters here is that
+    // the view then makes NO rank claim at all.
+    openResolveNext(
+      model({
+        resolveNext: null,
+        drivers: [{ factorKey: 'f1', label: 'Price', direction: null, isEstimate: false }],
+      }),
+    )
+    expect(screen.getByTestId('v7-evidence-resolve-next-gate')).toBeInTheDocument()
+    expect(screen.queryByTestId('v7-resolve-next-lead')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('v7-resolve-next-then')).not.toBeInTheDocument()
+    expect(screen.getByTestId('v7-evidence-resolve-next').textContent).toBe(E.resolveNextGate)
+  })
+
+  it('B1: a deduped ranking shows the factor at exactly one rank', () => {
+    // The React key was `${factorId}-${i}`, which quietly accommodated a
+    // duplicated id. Post-dedup the model cannot carry one — this asserts the
+    // rendered consequence, so a regression upstream is visible here too.
+    openResolveNext(
+      model({
+        resolveNext: ranking({
+          resolved: [row('n_market', 'Market receptivity'), row('n_comp', 'Competitor response')],
+          belowResolution: [],
+          someFactorsUnassessed: true,
+        }),
+      }),
+    )
+    expect(screen.getAllByText('Market receptivity')).toHaveLength(1)
+    expect(screen.getAllByTestId('v7-resolve-next-lead')).toHaveLength(1)
+    expect(screen.getByTestId('v7-resolve-next-partial')).toHaveTextContent(E.resolveNextPartial)
+  })
+})
+
 describe('V7EvidenceDisclosure — Resolve next: below-resolution demotion', () => {
   it('demotes below-resolution factors to their own line, never into the ranks', () => {
     openResolveNext(model({ resolveNext: ranking() }))

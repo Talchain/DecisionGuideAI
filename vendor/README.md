@@ -22,13 +22,26 @@ CEE staging: cd3746369b26da20e079c8d8ec323294edcc46a32df6830b657aed2cd465a0cc   
 ```
 
 So CEE and the UI now run BYTE-IDENTICAL schemas, which is the strongest
-available answer to the schema-skew hazard. Registry integrity recorded in
-`pnpm-lock.yaml` after install:
-`sha512-6qF6M0Gkt6/WQ4/2nxZWU0hau93g/fhH4+0c/3mZTA+I5U8LY9mxLjZsgf980cPbjYJeBEKwdbMUX9HQhCXmrg==`.
-⚠ **Honest limit:** the "is the registry release" half is inherited from CEE's
-own vendor README, not independently re-packed here (no GitHub-Packages token in
-the build environment). What IS verified here is byte-identity with the artefact
-CEE deployed.
+available answer to the schema-skew hazard.
+
+⚠ **WHAT IS PROVEN HERE, AND WHAT IS NOT — read before citing any hash in this
+file as provenance.** A `file:` pin makes pnpm hash the LOCAL tarball, so no hash
+recorded here or in the lockfile can say anything about a registry.
+
+| Claim | Status |
+|---|---|
+| the sidecar matches the checked-in bytes | ✅ proven — `shasum -a 256 -c vendor/talchain-schemas-0.30.0.tgz.sha256` |
+| **byte-identical to the artefact CEE deployed** | ✅ proven — sha256 above matches CEE `staging`'s own sidecar, and the two repos hold the same git blob at the same length |
+| **"is the published registry release"** | ⚠️ **NOT PROVEN HERE.** Inherited from CEE's `vendor/README.md`, which records `npm pack @talchain/schemas@0.30.0` from GitHub Packages (olumi-schemas #29 → `f5815a34`, tag `v0.30.0`, publish run `30445606038`). This lane did not re-pack: the scope is 401 on GitHub Packages and 404 on public npm, and no token was used. |
+
+The `pnpm-lock.yaml` entry records
+`sha512-6qF6M0Gkt6/WQ4/2nxZWU0hau93g/fhH4+0c/3mZTA+I5U8LY9mxLjZsgf980cPbjYJeBEKwdbMUX9HQhCXmrg==`
+against `tarball: file:vendor/talchain-schemas-0.30.0.tgz` — i.e. **pnpm hashing the
+local file**, reproducible with
+`openssl dgst -sha512 -binary vendor/talchain-schemas-0.30.0.tgz | base64`. It is
+**local integrity, not registry evidence**, and an earlier draft of this section
+cited it as though it were the latter. Corrected after an adversarial review of
+PR #531 recomputed it and showed the citation was self-referential.
 
 **What it adds (ROADMAP 2.141, V7-C slice 1a):** the **VOI family** on
 `CEE_UI_ENRICHMENT_KEEP_LIST` — `factor_evppi`, `decision_evpi`,
@@ -64,15 +77,21 @@ drift).
 
 ### `talchain-schemas-0.29.0.tgz` (historical — no longer vendored)
 
-**Provenance: the PUBLISHED REGISTRY ARTEFACT, not a locally-packed branch.**
-Fetched with `npm pack @talchain/schemas@0.29.0 --registry=https://npm.pkg.github.com`
-from olumi-schemas #28 (merged `80c52743`). This matters: a merge can publish
-something other than the reviewed branch, so the artefact that ships is the one
-that was fetched from the registry, and the integrity recorded in
-`pnpm-lock.yaml` after install
-(`sha512-BAHbxcy/mIlCc+GNiOxvS4zadrl+0Kwecx4va886b6gicbTPwAzciuhQiPe3YU7kUj+FSclK10ApMf9NNk89qg==`)
-is the registry's own. SHA256 manifest alongside as
-`talchain-schemas-0.29.0.tgz.sha256`.
+**Recorded provenance: fetched with
+`npm pack @talchain/schemas@0.29.0 --registry=https://npm.pkg.github.com` from
+olumi-schemas #28 (merged `80c52743`), i.e. the registry artefact rather than a
+locally-packed branch.** That distinction matters — a merge can publish something
+other than the reviewed branch — but it is a record of what the vendoring lane
+did, **not something any artefact in this repo can prove.**
+
+⚠ **CORRECTED (adversarial review of PR #531).** This section previously cited
+`sha512-BAHbxcy/mIlCc+GNiOxvS4zadrl+0Kwecx4va886b6gicbTPwAzciuhQiPe3YU7kUj+FSclK10ApMf9NNk89qg==`
+from `pnpm-lock.yaml` and asserted it **"is the registry's own"**. That was
+**false**: the pin is `file:./vendor/...`, so pnpm hashed the LOCAL tarball and
+the string is reproducible offline from the checked-in bytes. It was zero evidence
+about the registry. What the lockfile hash and the `.sha256` sidecar actually
+attest is **local integrity of the checked-in file** — nothing more. Same defect,
+same correction, as the 0.30.0 section above.
 
 **What it adds (ROADMAP 1.346):** the `factor_value_edit` system-event kind —
 the VALUE-CARRYING inspector edit `{target_id, value (model scale), raw_value?,

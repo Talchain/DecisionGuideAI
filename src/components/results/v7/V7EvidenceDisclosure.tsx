@@ -17,10 +17,14 @@
  *     ROADMAP 2.141): producer wire order, rank-1 annotated as the one most
  *     worth resolving, below-resolution factors demoted to a muted line, and
  *     NO magnitude anywhere. The numbers are in the decision's OUTCOME units
- *     and have no licensed rendering, so the view renders no digit at all —
- *     the ranking is carried structurally by an ordered list. An absent or
- *     unusable block renders the honest gate; it never falls back to the
- *     retired `gap.voi` heuristic this view exists to replace.
+ *     and have no licensed rendering, so no CLAIM this view makes contains a
+ *     digit — the ranking is carried structurally by an ordered list. (The one
+ *     digit-bearing string is the "Show N more" row-clamp counter shared with
+ *     Drivers: a count of hidden rows, not a value of information. It is carved
+ *     out of the no-digit assertion and pinned exactly, so the carve-out cannot
+ *     widen.) An absent or unusable block renders the honest gate; it never
+ *     falls back to the retired `gap.voi` heuristic this view exists to
+ *     replace.
  *
  * Each tab renders its live rows or an honest gate — never a fabricated list.
  * Tabs use aria-pressed toggle buttons (not role=tab): the disclosure body is
@@ -307,7 +311,9 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
 
             The ranks are an ORDERED LIST rather than narrated numerals, so the
             rendering carries the ordinal structurally and the view's rendered
-            text contains no digit at all. That is not cosmetic: `evppi` is in
+            text carries no digit in any CLAIM it makes — only the shared
+            "Show N more" clamp counter, which is pinned exactly. That is not
+            cosmetic: `evppi` is in
             the decision's OUTCOME units with no licensed display, so the
             safest surface is one with no numeric text to mis-read.
           */}
