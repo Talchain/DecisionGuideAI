@@ -5,6 +5,8 @@
  * and transition derivation.
  */
 
+import type { DecisionVerdict } from '../../lib/decisionVerdict'
+
 // ---------------------------------------------------------------------------
 // Snapshot types
 // ---------------------------------------------------------------------------
@@ -40,6 +42,22 @@ export interface FactorSensitivitySummary {
  */
 export type SnapshotSource = 'session' | 'persisted'
 
+/**
+ * One option as the run scored it. ROADMAP 2.113a slice 2.
+ *
+ * The snapshot already kept the top TWO options (winner / runner-up); the
+ * side-by-side compare needs every option, because "win probabilities per
+ * option" is a per-option table. No new quantity is introduced: this is the
+ * SAME `option_comparison` array `winnerId` and `runnerUpId` are already
+ * taken from, kept whole instead of truncated at two.
+ */
+export interface SnapshotOption {
+  id: string
+  label: string
+  /** 0-100, rounded — the same convention as `winnerProbability`. */
+  winProbability: number
+}
+
 export interface AnalysisSnapshot {
   runId: string
   /** Sequential, 1-indexed */
@@ -72,6 +90,29 @@ export interface AnalysisSnapshot {
    */
   nodeCount: number | null
   edgeCount: number | null
+
+  /**
+   * Every option this run scored, sorted by win probability descending.
+   * `[]` when the producer sent no option comparison at all (a persisted run
+   * in that shape is DROPPED upstream by `parseRunFact`, so `[]` here can only
+   * come from a session capture).
+   */
+  options: SnapshotOption[]
+
+  /**
+   * THIS RUN'S OWN leader verdict — `deriveDecisionVerdict` over the run's own
+   * producer signals (`robustness.near_tie`, `decision_brief.headline_banded`,
+   * `robustness.recommended_option_id`).
+   *
+   * ⚠ IT IS NOT `winnerId`. `winnerId`/`winnerLabel` below are a client-side
+   * ARGMAX over `option_comparison` — precisely the deleted "Authority 3" that
+   * `src/lib/decisionVerdict.ts` exists to prevent, kept here only because the
+   * pre-existing hero/trajectory copy is built on them. Any surface that says
+   * "leads" / "leading option" / "winner" must read THIS field and honour
+   * `hasLeadingOption`; `separation: 'unknown'` licenses silence, never a
+   * denial. See that module's header for why the two are different questions.
+   */
+  leaderVerdict: DecisionVerdict
 
   // Winner/runner-up (from option_comparison sorted by win_probability desc)
   winnerId: string
@@ -168,7 +209,128 @@ export type CompareState = 'improving' | 'noWinner' | 'converged' | 'flipped' | 
 // Run selector
 // ---------------------------------------------------------------------------
 
-export type RunPreset = 'prev' | 'first' | 'all'
+/**
+ * `'pick'` (ROADMAP 2.113a slice 2) is the explicit A/B choice: any two runs,
+ * side by side. The other three are the pre-existing presets.
+ */
+export type RunPreset = 'prev' | 'first' | 'all' | 'pick'
+
+/** The two runs a `'pick'` comparison is over, by `runNumber`, from < to. */
+export interface RunPair {
+  from: number
+  to: number
+}
+
+// ---------------------------------------------------------------------------
+// Pick-two-runs comparison (ROADMAP 2.113a slice 2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Whether a quantity was measured on BOTH sides of the pair.
+ *
+ * `'only_from'` / `'only_to'` are the draft-variance case (ROADMAP 2.127): two
+ * runs of the same scenario may score DIFFERENT option or factor sets. The one
+ * thing that must never happen there is a numeric delta — subtracting against
+ * an absent side means inventing a baseline of 0 and publishing it as a
+ * measurement. Live incidence today is 0 of 83 consecutive owned run pairs;
+ * this is producer-drift insurance, and it is pinned.
+ */
+export type PairPresence = 'both' | 'only_from' | 'only_to'
+
+export interface OptionDelta {
+  optionId: string
+  /** The later run's label when both carry the option; otherwise the only one. */
+  label: string
+  /** Set only when both runs carry the option under DIFFERENT labels. */
+  previousLabel: string | null
+  /** 0-100. null ⇒ this run did not score the option. */
+  fromProbability: number | null
+  toProbability: number | null
+  /** Percentage points. **null unless `presence === 'both'`.** */
+  deltaPp: number | null
+  presence: PairPresence
+}
+
+/**
+ * A factor's movement between two runs, expressed as its INFLUENCE RANK.
+ *
+ * ⚠ NOT its elasticity, and the reason is a house rule rather than a
+ * preference. `elasticity` / `sensitivity_score` are a registered claim family
+ * with **no owner selector** — every surface normalises, signs and thresholds
+ * them for itself — so the family's debt is FROZEN shrink-only
+ * (`src/components/results/utils/elasticityClaimDebt.ts`), and the compliant
+ * route for new code is stated there in so many words: *"do not add a raw read.
+ * Consume an already-derived value from a surface that has one."* A new
+ * `.elasticity` read here is a hard RED in `claim-ownership.drift.spec.ts`, and
+ * it was — this shape is the fix, not a workaround.
+ *
+ * Rank IS an already-derived value: `extractTopFactors` sorts each run's
+ * factors by |elasticity| descending, so a factor's position in that run's own
+ * list is that run's own answer to "how influential was this?". Comparing two
+ * positions makes no normalisation choice and introduces no threshold — which
+ * is precisely what the unowned family cannot yet sanction.
+ */
+export interface FactorDelta {
+  factorId: string
+  label: string
+  /** 1-indexed within that run's own top factors. null ⇒ not in that run's list. */
+  fromRank: number | null
+  toRank: number | null
+  /** Places gained (positive = more influential). **null unless `presence === 'both'`.** */
+  rankDelta: number | null
+  presence: PairPresence
+}
+
+/**
+ * Model-structure comparison between two runs.
+ *
+ * `'unchanged'` is only ever licensed by a SAME-REGIME hash EQUALITY. Equal
+ * node/edge counts do not license it (a rewired graph keeps its counts), and a
+ * cross-regime or absent-ended pair licenses nothing at all — see
+ * `compareStructure` in deriveTransitions.ts.
+ */
+export type StructureComparison = 'changed' | 'unchanged' | 'not_comparable'
+
+/**
+ * What one run's OWN producer verdict entitles a surface to say about a leader.
+ *
+ *   • `'named'`     — the producer said there is a leading option, and named it
+ *   • `'tied'`      — the producer said there is no clear leading option
+ *   • `'unclaimed'` — no applicable producer signal ⇒ SILENCE. Not a denial:
+ *                     `deriveDecisionVerdict` returns `separation: 'unknown'`
+ *                     precisely so no surface asserts *or* denies a leader.
+ */
+export interface LeaderClaim {
+  kind: 'named' | 'tied' | 'unclaimed'
+  optionId: string | null
+  label: string | null
+}
+
+export interface RunPairComparison {
+  from: AnalysisSnapshot
+  to: AnalysisSnapshot
+  /** Union of both runs' options, ordered by the strongest probability seen. */
+  options: OptionDelta[]
+  /** Union of both runs' top factors, ordered by the strongest |elasticity|. */
+  factors: FactorDelta[]
+  structure: StructureComparison
+  fromLeader: LeaderClaim
+  toLeader: LeaderClaim
+  /**
+   * Whether the leading option CHANGED. `'not_comparable'` unless BOTH runs
+   * named one — two runs that both declined to name a leader have no leader to
+   * report as unchanged.
+   */
+  leaderChange: 'changed' | 'unchanged' | 'not_comparable'
+  /** Percentage points; null unless both runs carry a goal probability. */
+  goalProbabilityDeltaPp: number | null
+  /** Each side's evidence coverage, null-preserving ("Not assessed"). */
+  fromEvidenceCoverage: string | null
+  toEvidenceCoverage: string | null
+  /** Inference warnings present in `from` and gone in `to`, and vice versa. */
+  warningsResolved: string[]
+  warningsIntroduced: string[]
+}
 
 // ---------------------------------------------------------------------------
 // Transition types

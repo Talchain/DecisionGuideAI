@@ -12,15 +12,18 @@ import { useAnalysisSnapshotStore, selectSnapshots } from '../stores/analysisSna
 import { useCompareHistoryHydration } from './useCompareHistoryHydration'
 import { useUIStore } from '../../stores/uiStore'
 import { deriveCompareState } from './deriveCompareState'
-import { deriveTransitions, buildCumulativeTransition } from './deriveTransitions'
+import { deriveTransitions, buildCumulativeTransition, buildRangeTransition } from './deriveTransitions'
+import { deriveRunPairComparison } from './deriveRunPairComparison'
+import { applyRunPairChange, normaliseRunPair } from './runPairSelection'
 import { TabHeader } from './TabHeader'
 import { RunSelector } from './RunSelector'
+import { RunPairCompare } from './RunPairCompare'
 import { Hero } from './Hero'
 import { TrajectorySection } from './TrajectorySection'
 import { TransitionsSection } from './TransitionsSection'
 import { CompareFooter } from './CompareFooter'
 import { EmptyState } from './EmptyState'
-import type { RunPreset, Transition } from './types'
+import type { RunPair, RunPreset, Transition } from './types'
 
 interface CompareTabBodyProps {
   onRunAnalysis: () => void
@@ -50,6 +53,13 @@ export function CompareTabBody({ onRunAnalysis }: CompareTabBodyProps) {
 
   // UI state
   const [preset, setPreset] = useState<RunPreset>('prev')
+  /**
+   * ROADMAP 2.113a slice 2 — the runs the user picked, BY RUN NUMBER, exactly
+   * as requested. It is deliberately NOT clamped in state: re-hydration
+   * renumbers the journey, and clamping on write would silently rewrite a
+   * choice the user could still get back. `pair` below is the resolved value.
+   */
+  const [requestedPair, setRequestedPair] = useState<RunPair | null>(null)
   const [showExpert, setShowExpert] = useState(() => {
     try { return localStorage.getItem(EXPERT_STORAGE_KEY) === '1' } catch { return false }
   })
@@ -71,8 +81,68 @@ export function CompareTabBody({ onRunAnalysis }: CompareTabBodyProps) {
     [snapshots],
   )
 
+  // ── Pick-two-runs (slice 2) ────────────────────────────────────────────
+  const runs = useMemo(
+    () => snapshots.map(s => ({ runNumber: s.runNumber, timestamp: s.timestamp })),
+    [snapshots],
+  )
+  const pair = useMemo(
+    () => normaliseRunPair(snapshots.map(s => s.runNumber), requestedPair),
+    [snapshots, requestedPair],
+  )
+  /**
+   * Positions of the picked pair in the SAME ordered list every other
+   * derivation here reads, resolved by run number rather than assuming
+   * `runNumber - 1`. Null whenever the pair cannot be resolved to two distinct
+   * runs in forward order — and then nothing pair-shaped renders at all,
+   * rather than a comparison of a run with itself.
+   */
+  const pairIndices = useMemo(() => {
+    if (!pair) return null
+    const fromIndex = snapshots.findIndex(s => s.runNumber === pair.from)
+    const toIndex = snapshots.findIndex(s => s.runNumber === pair.to)
+    if (fromIndex < 0 || toIndex < 0 || fromIndex >= toIndex) return null
+    return { fromIndex, toIndex }
+  }, [pair, snapshots])
+  /**
+   * Derived ONLY while the pair view is the one being looked at — and this is
+   * the SINGLE gate on the pair view, deliberately.
+   *
+   * ⚠ There was a second one: the JSX below also tested `preset === 'pick'`.
+   * Mutation-checking found it inert — removing it REDs nothing, because this
+   * memo already returns null under every other preset. A redundant condition
+   * that reads like a control and cannot fail is the guarantee-theatre this
+   * estate keeps paying for, so it is gone and this one carries the whole
+   * decision: deleting it REDs both the "other presets are untouched" test and
+   * the two pre-existing CompareTabBody specs, whose deliberately-partial
+   * snapshot fixtures a comparison nobody asked for would crash on.
+   */
+  const pairComparison = useMemo(
+    () => preset === 'pick' && pairIndices
+      ? deriveRunPairComparison(snapshots[pairIndices.fromIndex], snapshots[pairIndices.toIndex])
+      : null,
+    [preset, pairIndices, snapshots],
+  )
+  const handlePairChange = useCallback(
+    (endpoint: 'from' | 'to', runNumber: number) => {
+      if (!pair) return
+      setRequestedPair(applyRunPairChange(pair, endpoint, runNumber))
+    },
+    [pair],
+  )
+
   // Visible transitions based on preset
   const visibleTransitions = useMemo((): Transition[] => {
+    if (preset === 'pick') {
+      // The narrative half of the pair view is the EXISTING TransitionsSection
+      // / TransitionCard, fed the picked pair's own transition — the design's
+      // "render the existing TransitionCard machinery for the chosen pair",
+      // with no copy of it.
+      const paired = pairIndices
+        ? buildRangeTransition(snapshots, pairIndices.fromIndex, pairIndices.toIndex)
+        : null
+      return paired ? [paired] : []
+    }
     if (preset === 'all') {
       return [...allTransitions].reverse()
     }
@@ -84,7 +154,7 @@ export function CompareTabBody({ onRunAnalysis }: CompareTabBodyProps) {
     return allTransitions.length > 0
       ? [allTransitions[allTransitions.length - 1]]
       : []
-  }, [preset, allTransitions, snapshots])
+  }, [preset, allTransitions, snapshots, pairIndices])
 
   // Reset to 'prev' if "first" preset becomes unavailable
   useEffect(() => {
@@ -158,6 +228,9 @@ export function CompareTabBody({ onRunAnalysis }: CompareTabBodyProps) {
         onChange={setPreset}
         runCount={snapshots.length}
         showExpert={showExpert}
+        runs={runs}
+        pair={pair}
+        onPairChange={handlePairChange}
       />
       {/* F9: run in flight over retained snapshots — banner above, content
           marked busy below, never blanked (v6 doctrine). */}
@@ -176,6 +249,7 @@ export function CompareTabBody({ onRunAnalysis }: CompareTabBodyProps) {
           showExpert={showExpert}
           onRunAnalysis={onRunAnalysis}
         />
+        {pairComparison && <RunPairCompare comparison={pairComparison} />}
         <TrajectorySection snapshots={snapshots} showExpert={showExpert} />
         <TransitionsSection
           transitions={visibleTransitions}

@@ -1,46 +1,15 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useAnalysisSnapshotStore } from '../../stores/analysisSnapshotStore'
 import type { AnalysisSnapshot } from '../types'
+import { makeAnalysisSnapshot } from './__fixtures__/analysisSnapshot'
 
 // ---------------------------------------------------------------------------
 // Fixture
 // ---------------------------------------------------------------------------
 
+// Delegates to the ONE shared snapshot fixture (trap 12 — see its header).
 function makeSnapshot(runNumber: number, overrides?: Partial<AnalysisSnapshot>): AnalysisSnapshot {
-  return {
-    runId: `run-${runNumber}`,
-    runNumber,
-    timestamp: new Date().toISOString(),
-    source: 'session',
-    graphHash: 'hash-default',
-    nodeCount: 5,
-    edgeCount: 4,
-    winnerId: 'opt-a',
-    winnerLabel: 'Option A',
-    winnerProbability: 65,
-    runnerUpId: 'opt-b',
-    runnerUpLabel: 'Option B',
-    runnerUpProbability: 35,
-    recommendationStability: 0.7,
-    stabilityLabel: 'stable',
-    fragileEdgeCount: 0,
-    evidenceCoverage: '3/5',
-    topFactors: [],
-    influenceConcentration: 40,
-    topCalibrationFactor: 'Factor A',
-    topCalibrationFactorId: 'fac-a',
-    topElasticity: 30,
-    rankFlipRate: 0.05,
-    goalProbability: null,
-    jointGoalProbability: null,
-    inferenceWarnings: [],
-    conditionalWinners: [],
-    edgeEValues: [],
-    seedUsed: 12345,
-    responseHash: 'abc123',
-    editSummary: 'Test edit',
-    ...overrides,
-  }
+  return makeAnalysisSnapshot({ runNumber, ...overrides })
 }
 
 // ---------------------------------------------------------------------------

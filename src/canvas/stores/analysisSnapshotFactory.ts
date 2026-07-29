@@ -10,9 +10,10 @@ import type { V2RunResponse, V2FactorSensitivity, V2OptionComparison } from '../
 import type { ReportV1 } from '../../adapters/plot/types'
 import type { ScenarioEvent, ScenarioEventType } from '../../types/scenario'
 import { SYSTEM_MARKER_EVENT_TYPES } from '../../types/scenario'
-import type { AnalysisSnapshot, FactorSensitivitySummary } from '../compare-tab/types'
+import type { AnalysisSnapshot, FactorSensitivitySummary, SnapshotOption } from '../compare-tab/types'
 import { generateGraphHash } from '../utils/graphHash'
 import { hasObservedData } from '../utils/observedStateHelpers'
+import { deriveDecisionVerdict, type DecisionVerdict } from '../../lib/decisionVerdict'
 import {
   selectGoalProbability,
   type GoalProbabilityInput,
@@ -240,6 +241,76 @@ function deriveEditSummary(
 }
 
 // ---------------------------------------------------------------------------
+// Per-option summary + the run's OWN leader verdict (ROADMAP 2.113a slice 2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Every option the run scored, in the order the winner/runner-up pair is
+ * already chosen from. No new quantity: the same array, kept whole.
+ *
+ * Options with no usable id are dropped rather than keyed on `''` — two such
+ * options would collide into one row in the side-by-side table and report a
+ * delta between two different options.
+ */
+function extractOptions(sorted: readonly V2OptionComparison[]): SnapshotOption[] {
+  const out: SnapshotOption[] = []
+  const seen = new Set<string>()
+  for (const o of sorted) {
+    const id = typeof o?.option_id === 'string' ? o.option_id : ''
+    if (id.length === 0 || seen.has(id)) continue
+    seen.add(id)
+    out.push({
+      id,
+      label: typeof o.option_label === 'string' ? o.option_label : '',
+      winProbability: Math.round((o.win_probability ?? 0) * 100),
+    })
+  }
+  return out
+}
+
+/**
+ * The run's own leader verdict, from the ONE module entitled to produce it.
+ *
+ * ⚠ THIS IS NOT A SECOND WINNER DERIVATION. `deriveDecisionVerdict` reads only
+ * PRODUCER signals (`robustness.near_tie`, `decision_brief.headline_banded`,
+ * `robustness.recommended_option_id`) and returns the no-claim verdict when
+ * none applies — its whole reason for existing is that sixteen surfaces were
+ * each classifying a leader for themselves. Compare must not become the
+ * seventeenth, so it quotes this one.
+ *
+ * `option_probabilities` is the shape that module reads win probabilities out
+ * of, and the PLoT envelope does not carry it (**0 of 790 live persisted
+ * facts**, probed read-only 2026-07-29). It is RESHAPED here from
+ * `option_comparison` — the identical move `persistedRunSnapshotFactory`
+ * already makes to feed this factory — never recomputed. Options without an id
+ * are omitted, so a malformed entry cannot become the `''` key and be picked
+ * as a leader.
+ */
+function deriveRunLeaderVerdict(
+  rawV2Response: V2RunResponse,
+  sorted: readonly V2OptionComparison[],
+): DecisionVerdict {
+  const optionProbabilities: Record<string, { win_probability?: number | null }> = {}
+  for (const o of sorted) {
+    const id = typeof o?.option_id === 'string' ? o.option_id : ''
+    if (id.length === 0 || id in optionProbabilities) continue
+    optionProbabilities[id] = { win_probability: o.win_probability ?? null }
+  }
+
+  return deriveDecisionVerdict({
+    option_probabilities: optionProbabilities,
+    robustness: rawV2Response.robustness
+      ? {
+          recommended_option_id: rawV2Response.robustness.recommended_option_id ?? null,
+          near_tie: rawV2Response.robustness.near_tie,
+          nearTie: rawV2Response.robustness.nearTie,
+        }
+      : null,
+    decision_brief: rawV2Response.decision_brief ?? null,
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Main factory function
 // ---------------------------------------------------------------------------
 
@@ -322,6 +393,9 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
     graphHash: nodes != null && edges != null ? generateGraphHash(nodes, edges) : null,
     nodeCount: nodes != null ? nodes.length : null,
     edgeCount: edges != null ? edges.length : null,
+
+    options: extractOptions(options as V2OptionComparison[]),
+    leaderVerdict: deriveRunLeaderVerdict(rawV2Response, options as V2OptionComparison[]),
 
     winnerId: winner?.option_id ?? '',
     winnerLabel: winner?.option_label ?? '',
