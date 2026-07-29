@@ -58,10 +58,9 @@ interface ParsedRunFact {
   enrichment: Record<string, unknown>
   /**
    * The two arrays every DECIDING snapshot field comes from, carried out of the
-   * parser already proven non-empty. They are surfaced here rather than re-read
-   * downstream so that `toV2ResponseShape` has no `?? []` arm to reach for —
-   * the defaulting path finding 1 exploited cannot be written back in without
-   * deleting a field from this type.
+   * parser already proven non-empty, so `toV2ResponseShape` has no `?? []` arm
+   * that reads like sanctioned defaulting. Readability only — see that
+   * function's header for why this is NOT a second line of defence.
    */
   optionComparison: unknown[]
   factorSensitivity: unknown[]
@@ -159,12 +158,20 @@ function composeRobustness(enrichment: Record<string, unknown>): V2RunResponse['
  * value is invented: absent producer fields stay absent, and the factory's own
  * absence-preserving branches then fire.
  *
- * ⚠ It takes the PARSED fact, not the raw enrichment, and that is the fix for
- * finding 1 rather than a refactor. The two deciding arrays arrive already
- * proven non-empty by `parseRunFact`, so there is no `Array.isArray(...) ?? []`
- * arm here to silently manufacture an empty comparison — which is exactly what
- * turned a shape-broken fact into a 0%-winner run on the trajectory. Restoring
- * a default would now require deleting a field from `ParsedRunFact`.
+ * It takes the PARSED fact rather than the raw enrichment so that the two
+ * deciding arrays arrive already proven non-empty and this function has no
+ * `Array.isArray(...) : []` arm that READS like sanctioned defaulting.
+ *
+ * ⚠ BE CLEAR ABOUT WHAT THIS IS NOT. It is **not** a second line of defence,
+ * and the earlier draft of this comment implied it was. `buildAnalysisSnapshot`
+ * has its own `rawV2Response.option_comparison ?? []` and
+ * `factor_sensitivity ?? []` (analysisSnapshotFactory.ts:250,257), so deleting
+ * the `parseRunFact` guards would re-create finding 1 exactly, whatever this
+ * function passes through. Mutation-checked: restoring the defaulting arm here
+ * with the guards intact REDs nothing (28/28 green — M13), while deleting
+ * either guard REDs immediately (M10/M11). **The guards in `parseRunFact` are
+ * the whole fix; this is readability, and it must not be mistaken for a
+ * guarantee.**
  */
 function toV2ResponseShape(fact: ParsedRunFact): V2RunResponse {
   return {
