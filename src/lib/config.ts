@@ -94,14 +94,23 @@ export const plotProxyBase = import.meta.env?.VITE_PLOT_PROXY_BASE || '/bff/engi
  * Observability service configuration
  */
 export const observability = {
-  /** PostHog API key for analytics (empty = disabled) */
-  postHogKey: import.meta.env?.VITE_POSTHOG_API_KEY || '',
+  /**
+   * PostHog project key for analytics (empty = disabled).
+   *
+   * ROADMAP 2.111 — ONE key name across the whole repo: `VITE_POSTHOG_KEY`.
+   * This used to read `VITE_POSTHOG_API_KEY` while `src/lib/posthog.ts` (the
+   * only module that actually calls `posthog.init`) read `VITE_POSTHOG_KEY`,
+   * so whichever name got set on activation day left the other consumer dark.
+   * The retired name is REMOVED, not aliased — an alias is a hand-maintained
+   * mirror. Pinned by `src/lib/__tests__/posthogKeyUnify.spec.ts`.
+   */
+  postHogKey: import.meta.env?.VITE_POSTHOG_KEY || '',
 
   /** Sentry DSN for error tracking (empty = disabled) */
   sentryDsn: import.meta.env?.VITE_SENTRY_DSN || '',
 
-  /** Whether PostHog is configured */
-  hasPostHog: Boolean(import.meta.env?.VITE_POSTHOG_API_KEY),
+  /** Whether PostHog is configured (same single key name — see postHogKey above) */
+  hasPostHog: Boolean(import.meta.env?.VITE_POSTHOG_KEY),
 
   /** Whether Sentry is configured */
   hasSentry: Boolean(import.meta.env?.VITE_SENTRY_DSN),

@@ -78,7 +78,9 @@ interface ImportMetaEnv {
 
   // --- Observability ---
   readonly VITE_SENTRY_DSN?: string
-  readonly VITE_POSTHOG_API_KEY?: string
+  // ROADMAP 2.111 — ONE PostHog key name. `VITE_POSTHOG_API_KEY` was deleted
+  // from this declaration deliberately: with `strict` env typing, re-introducing
+  // the divergent read becomes a compile error rather than a silent split-brain.
   readonly VITE_POSTHOG_HOST?: string
   readonly VITE_POSTHOG_KEY?: string
   readonly VITE_HOTJAR_ID?: string

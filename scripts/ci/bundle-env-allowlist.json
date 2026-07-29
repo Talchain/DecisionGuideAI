@@ -81,9 +81,8 @@
     },
     "VITE_ACCESS_CODES": "Credential-shaped name read by src/lib/auth/accessValidation.ts. Not present in the measured build (unset), so not currently exposed \u2014 listed here so that setting it is a loud event rather than a silent one.",
     "VITE_ACCESS_SALT": "As above \u2014 a salt in a client bundle provides no secrecy. Review before this is ever set.",
-    "VITE_POSTHOG_API_KEY": "PostHog project keys are write-only and intended to be public, but the name is credential-shaped; kept visible here deliberately.",
-    "VITE_POSTHOG_KEY": "As above.",
-    "VITE_POSTHOG_HOST": "Public endpoint; grouped with the PostHog pair for review.",
+    "VITE_POSTHOG_KEY": "PostHog project keys are write-only and intended to be public, but the name is credential-shaped; kept visible here deliberately. ROADMAP 2.111: this is now the ONLY PostHog key name in the repo — the former second name VITE_POSTHOG_API_KEY was removed (not aliased) so activation cannot leave one consumer dark.",
+    "VITE_POSTHOG_HOST": "Public endpoint; grouped with the PostHog key for review.",
     "VITE_STORAGE_KEY": "Read by src/lib/secureStorage.ts. A client-side encryption key in the bundle is not a secret from the user; review what it is protecting.",
     "VITE_OPENAI_API_KEY": "Was baked as the literal \"placeholder\" before this change and is no longer in the bundle. If a REAL key is ever set here it would be published to every visitor; the guard will red on it."
   }
