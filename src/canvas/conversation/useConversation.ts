@@ -55,6 +55,7 @@ import {
 // recordDroppedContent never throws and never changes composition output.
 import { recordDroppedContent } from '../../lib/droppedContentCounter'
 import { buildChipMeta, toLegacyChipMetadata, type ChipMeta } from './chipMeta'
+import { START_NEW_DRAFT_CHIP_ID } from './chipDispatch'
 import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled, isPreAnalysisEnrichedEnabled, isReasoningDisclosureEnabled } from '../../flags'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { extractAnswerShapeSidecar } from './answerShape'
@@ -345,8 +346,14 @@ export function inferLoadingHint(message: string, _nodeCount: number, turnType?:
  * Once a scenario has a committed turn, the ONLY thing that can produce settled
  * numbers is a draft on a FRESH scenario. That is what `startNewDraft` does, and
  * it is what the copy now promises.
+ *
+ * ROADMAP 2.138: the id now lives in `chipDispatch.ts`, beside the render
+ * predicate that has to know about it — the chip carries no `message` (there is
+ * nothing to send; `startNewDraft` sends `lastUserInputRef` on a fresh scenario),
+ * so every chip row filtered it out and the notice named a remedy it gave no
+ * button for. Re-exported here so existing importers are unaffected.
  */
-export const START_NEW_DRAFT_CHIP_ID = 'start_new_draft'
+export { START_NEW_DRAFT_CHIP_ID, RETRY_CHIP_ID } from './chipDispatch'
 
 export interface StreamedDraftEligibility {
   turnType: TurnType

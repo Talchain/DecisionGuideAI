@@ -13,7 +13,11 @@ import { useCanvasStore, selectResultsStatus } from '../store'
 import { useDraftStore, draftStreamPhaseFor } from '../stores/draftStore'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import type { ActionChip, GraphPatchBlock } from './types'
-import { START_NEW_DRAFT_CHIP_ID } from './useConversation'
+import {
+  RETRY_CHIP_ID,
+  START_NEW_DRAFT_CHIP_ID,
+  type LocallyRoutedChipId,
+} from './chipDispatch'
 import type { UseConversationReturn } from './useConversation'
 import { applyAutoApplyPatch, applyValidatedGraph } from './utils/applyPatch'
 import { buildAnalysisReadyPatch, applyAnalysisReadyPatch } from './utils/mirrorAnalysisReady'
@@ -134,11 +138,24 @@ export const ConversationPanel = memo(function ConversationPanel({
   // ── Chip handler ──────────────────────────────────────────────────────
   const handleChipClick = useCallback(
     async (chip: ActionChip): Promise<void> => {
-      if (chip.id === 'retry') { retryLast(); return }
-      // ROADMAP 2.122 round 2 (review F3): the unsettled-draft recovery chip.
-      // Routed to a handler that CAN deliver what its label says — `retryLast`
-      // provably cannot, because CEE declines to re-draft a committed scenario.
-      if (chip.id === START_NEW_DRAFT_CHIP_ID) { await startNewDraft(); return }
+      // Chips routed BY ID to a local handler. These never reach `sendChip`, so
+      // they carry no `message` — which is why the chip rows have to be told
+      // about them (`isChipRenderable`, ROADMAP 2.138); before that, the
+      // `start_new_draft` chip existed on every terminal notice and rendered on
+      // none of them.
+      //
+      // Typed as `Record<LocallyRoutedChipId, …>` deliberately: adding an id to
+      // that union without wiring a handler here is a TYPECHECK ERROR, not a
+      // chip that silently does nothing. (ROADMAP 2.122 round 2 / review F3:
+      // `start_new_draft` goes to a handler that CAN deliver what its label
+      // says — `retryLast` provably cannot, because CEE declines to re-draft a
+      // committed scenario.)
+      const localRoutes: Record<LocallyRoutedChipId, () => void | Promise<void>> = {
+        [RETRY_CHIP_ID]: retryLast,
+        [START_NEW_DRAFT_CHIP_ID]: startNewDraft,
+      }
+      const localRoute = (localRoutes as Record<string, (() => void | Promise<void>) | undefined>)[chip.id]
+      if (localRoute) { await localRoute(); return }
       await sendChip(chip)
 
       // Track 2: mark suggested action as taken

@@ -10,6 +10,7 @@
  */
 
 import { memo } from 'react'
+import { isChipRenderable } from './chipDispatch'
 import type { ActionChip } from './types'
 import styles from './Conversation.module.css'
 
@@ -34,8 +35,12 @@ export const ActionChipRow = memo(function ActionChipRow({
   onChipClick,
   disabled = false,
 }: ActionChipRowProps) {
-  // Central guard: only render chips that can actually dispatch
-  const dispatchable = chips.filter(c => c.intent === 'undo' || !!c.message)
+  // Central guard: only render chips that can actually dispatch.
+  // ROADMAP 2.138 — shared with SuggestedChips and ChatThread (`chipDispatch.ts`).
+  // The guard used to be inlined here as `intent === 'undo' || !!c.message`,
+  // one of three divergent copies of the same rule; none of them knew about
+  // chips ConversationPanel routes by id, which carry no message by design.
+  const dispatchable = chips.filter(isChipRenderable)
   if (dispatchable.length === 0) return null
 
   return (
