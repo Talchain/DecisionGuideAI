@@ -44,6 +44,23 @@ export interface PersistedRunFactFixtureOptions {
   optionComparison?: Array<Record<string, unknown>>
   /** Present in only 45% of live runs — omit to exercise the honest-absence path. */
   recommendationStability?: number
+  /**
+   * ⚠ SLICE 2 CORRECTION. This fixture used to set `robustness.near_tie:
+   * false` — a BOOLEAN. Live it is an OBJECT carrying a boolean `is_tie`, in
+   * **790 / 790** non-noop `run_analysis` facts (probed read-only 2026-07-29).
+   * `readNearTie` (src/lib/decisionVerdict.ts) returns null for a boolean, so
+   * every test built on the old shape exercised the NO-PRODUCER-SIGNAL path
+   * and would have "proved" that a persisted run cannot name a leader — the
+   * exact inverse of the live truth.
+   *
+   * Default is the live shape. `nearTie: false` (the literal boolean) is still
+   * reachable via `nearTieOverride`, so the fail-closed branch stays pinned.
+   */
+  nearTie?: { is_tie: boolean; top_option_id?: string; gap?: number }
+  /** Escape hatch for malformed / legacy producer shapes. */
+  nearTieOverride?: unknown
+  /** `decision_brief.headline_banded`, present in 440/790 live facts. */
+  headlineBanded?: Record<string, unknown> | null
   fragileEdges?: unknown[] | null
   factorSensitivity?: Array<Record<string, unknown>>
   inferenceWarnings?: unknown[]
@@ -67,6 +84,9 @@ export function makePersistedRunFactRow(
     runnerUp = { option_id: 'opt-b', option_label: 'Option B', win_probability: 0.38 },
     optionComparison,
     recommendationStability,
+    nearTie,
+    nearTieOverride,
+    headlineBanded = null,
     fragileEdges = [],
     factorSensitivity = [
       {
@@ -126,7 +146,10 @@ export function makePersistedRunFactRow(
           robustness: {
             level: 'moderate',
             is_robust: true,
-            near_tie: false,
+            // Live shape: an OBJECT with a boolean `is_tie` (790/790).
+            near_tie: nearTieOverride !== undefined
+              ? nearTieOverride
+              : (nearTie ?? { is_tie: false, top_option_id: winner.option_id, gap: 0.24 }),
             confidence: 0.7,
             robust_edges: [],
             ...(fragileEdges != null ? { fragile_edges: fragileEdges } : {}),
@@ -136,6 +159,9 @@ export function makePersistedRunFactRow(
             recommended_option_id: winner.option_id,
             recommended_option_label: winner.option_label,
           },
+          ...(headlineBanded != null
+            ? { decision_brief: { headline_banded: headlineBanded } }
+            : {}),
           // ⚠ ROOT-level siblings of `robustness` — this is where the live
           // bytes put them.
           inference_warnings: inferenceWarnings,

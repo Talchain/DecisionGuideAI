@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2512
+# count=2510
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -116,8 +116,6 @@
 8	src/canvas/adapters/islRequestAdapter.ts
 10	src/canvas/analysis/__tests__/assembleAnalysisInputsSummary.spec.ts
 3	src/canvas/analysis/assembleAnalysisInputsSummary.ts
-1	src/canvas/compare-tab/__tests__/deriveCompareState.spec.ts
-1	src/canvas/compare-tab/__tests__/deriveTransitions.spec.ts
 6	src/canvas/compare/EdgeDiffTable.tsx
 3	src/canvas/components/AdvancedSettingsPanel.tsx
 2	src/canvas/components/BeliefInput.tsx

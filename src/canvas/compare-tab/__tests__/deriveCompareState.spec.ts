@@ -1,46 +1,15 @@
 import { describe, it, expect } from 'vitest'
 import { deriveCompareState, isNarrowFlip } from '../deriveCompareState'
+import { makeAnalysisSnapshot } from './__fixtures__/analysisSnapshot'
 import type { AnalysisSnapshot } from '../types'
 
 // ---------------------------------------------------------------------------
 // Fixture factory
 // ---------------------------------------------------------------------------
 
+// Delegates to the ONE shared snapshot fixture (trap 12 — see its header).
 function makeSnapshot(overrides: Partial<AnalysisSnapshot> & { runNumber: number }): AnalysisSnapshot {
-  return {
-    runId: `run-${overrides.runNumber}`,
-    runNumber: overrides.runNumber,
-    timestamp: new Date().toISOString(),
-    source: 'session',
-    graphHash: 'hash-default',
-    nodeCount: 5,
-    edgeCount: 4,
-    winnerId: 'opt-a',
-    winnerLabel: 'Option A',
-    winnerProbability: 65,
-    runnerUpId: 'opt-b',
-    runnerUpLabel: 'Option B',
-    runnerUpProbability: 35,
-    recommendationStability: 0.7,
-    stabilityLabel: 'stable',
-    fragileEdgeCount: 0,
-    evidenceCoverage: '3/5',
-    topFactors: [],
-    influenceConcentration: 40,
-    topCalibrationFactor: 'Factor A',
-    topCalibrationFactorId: 'fac-a',
-    topElasticity: 30,
-    rankFlipRate: 0.05,
-    goalProbability: null,
-    jointGoalProbability: null,
-    inferenceWarnings: [],
-    conditionalWinners: [],
-    edgeEValues: [],
-    seedUsed: 12345,
-    responseHash: 'abc123',
-    editSummary: 'Test edit',
-    ...overrides,
-  }
+  return makeAnalysisSnapshot(overrides)
 }
 
 // ---------------------------------------------------------------------------

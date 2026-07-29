@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2512
+# count=2510
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -286,8 +286,6 @@
 1	src/canvas/analysis/assembleAnalysisInputsSummary.ts	TS2322	Type 'AnalysisInputsSummary | null' is not assignable to type 'AnalysisInputsSummary'.
 1	src/canvas/analysis/assembleAnalysisInputsSummary.ts	TS2345	Argument of type 'V2RobustnessActual | undefined' is not assignable to parameter of type 'V2RobustnessActual'.
 1	src/canvas/analysis/assembleAnalysisInputsSummary.ts	TS2352	Conversion of type 'DecisionQualityV3' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
-1	src/canvas/compare-tab/__tests__/deriveCompareState.spec.ts	TS2783	'runNumber' is specified more than once, so this usage will be overwritten.
-1	src/canvas/compare-tab/__tests__/deriveTransitions.spec.ts	TS2783	'runNumber' is specified more than once, so this usage will be overwritten.
 2	src/canvas/compare/EdgeDiffTable.tsx	TS2322	Type '{ weight: {}; belief: {}; provenance: unknown; } | undefined' is not assignable to type '{ weight: number; belief: number; provenance?: string | undefined; } | undefined'.
 2	src/canvas/compare/EdgeDiffTable.tsx	TS2362	The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
 2	src/canvas/compare/EdgeDiffTable.tsx	TS2363	The right-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.

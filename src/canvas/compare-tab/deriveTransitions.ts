@@ -5,7 +5,12 @@
  * AnalysisSnapshot pairs. Handles both regular and cumulative
  * (synthetic first→latest) transitions.
  */
-import type { AnalysisSnapshot, Transition, FactorSensitivitySummary } from './types'
+import type {
+  AnalysisSnapshot,
+  Transition,
+  FactorSensitivitySummary,
+  StructureComparison,
+} from './types'
 
 // ---------------------------------------------------------------------------
 // Magnitude classification
@@ -116,16 +121,49 @@ function hashesAreComparable(from: AnalysisSnapshot, to: AnalysisSnapshot): bool
 }
 
 /**
+ * The THREE-valued structure comparison (ROADMAP 2.113a slice 2).
+ *
+ * `Transition.structureChanged` is a boolean because a transition card only
+ * ever *warns*; the side-by-side pair view has a row to fill, and "we could not
+ * compare these two models" is a different answer from "they are the same".
+ * Collapsing the two is how a provenance boundary becomes a claim about the
+ * user's graph, which is the defect the regime guard above exists to stop.
+ *
+ * WHAT LICENSES WHAT:
+ *  · `'changed'`        — a same-regime hash INEQUALITY, or a node/edge count
+ *                         that differs with both ends measured.
+ *  · `'unchanged'`      — ONLY a same-regime hash EQUALITY. Equal counts do
+ *                         NOT license it: a rewired graph keeps its counts, so
+ *                         "unchanged" from counts alone would be a claim the
+ *                         evidence cannot support.
+ *  · `'not_comparable'` — cross-regime, or a hash absent at either end
+ *                         (`graph_hash_at_run` was absent in 55 of the 773
+ *                         persisted runs measured for slice 1).
+ *
+ * `detectStructureChange` is defined as `=== 'changed'`, so the boolean the
+ * existing transition cards render is unchanged by construction — there is one
+ * regime rule in this file, not two.
+ */
+export function compareStructure(
+  from: AnalysisSnapshot,
+  to: AnalysisSnapshot,
+): StructureComparison {
+  const hashComparable = hashesAreComparable(from, to)
+  if (hashComparable && from.graphHash !== to.graphHash) return 'changed'
+  if (from.nodeCount != null && to.nodeCount != null && from.nodeCount !== to.nodeCount) return 'changed'
+  if (from.edgeCount != null && to.edgeCount != null && from.edgeCount !== to.edgeCount) return 'changed'
+  if (hashComparable) return 'unchanged'
+  return 'not_comparable'
+}
+
+/**
  * T2b: a structure CHANGE is only claimable from a signal that was actually
  * measured at BOTH ends. Where no comparable signal exists the answer is
  * "no evidence of a change" — the same posture `robustnessChanged` already
  * takes — not "changed".
  */
 function detectStructureChange(from: AnalysisSnapshot, to: AnalysisSnapshot): boolean {
-  if (hashesAreComparable(from, to) && from.graphHash !== to.graphHash) return true
-  if (from.nodeCount != null && to.nodeCount != null && from.nodeCount !== to.nodeCount) return true
-  if (from.edgeCount != null && to.edgeCount != null && from.edgeCount !== to.edgeCount) return true
-  return false
+  return compareStructure(from, to) === 'changed'
 }
 
 // ---------------------------------------------------------------------------
@@ -247,42 +285,75 @@ export function deriveTransitions(snapshots: AnalysisSnapshot[]): Transition[] {
   return transitions
 }
 
-/** Build a synthetic cumulative transition from first to latest */
-export function buildCumulativeTransition(snapshots: AnalysisSnapshot[]): Transition | null {
-  if (snapshots.length < 3) return null // meaningless at 2 runs (same as prev)
+/**
+ * Build the transition for an ARBITRARY ordered pair of runs (ROADMAP 2.113a
+ * slice 2), indices into the same ordered snapshot list the tab renders.
+ *
+ * ⚠ WHY THIS IS NOT `buildTransition(a, b)` FOR A NON-ADJACENT PAIR. A
+ * snapshot's `editSummary` describes the edits made since the run IMMEDIATELY
+ * BEFORE it — that is how `deriveEditSummary` builds it, from the scenario
+ * events between two consecutive run timestamps. Handing `buildTransition` a
+ * pair three runs apart would print run B's *last-leg* edit summary under a
+ * heading claiming it covers A→B: a true sentence attached to the wrong
+ * interval, which is a fabrication even though every character of it is real.
+ * So the edits for a span are the CONCATENATION of the per-leg summaries in
+ * `(fromIndex, toIndex]` — the derivation `buildCumulativeTransition` already
+ * used for first→latest, generalised rather than mirrored (CLAUDE.md trap 12).
+ *
+ * Returns null for an out-of-range or non-forward pair; an adjacent pair
+ * returns exactly the plain pairwise card.
+ */
+export function buildRangeTransition(
+  snapshots: AnalysisSnapshot[],
+  fromIndex: number,
+  toIndex: number,
+): Transition | null {
+  if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex)) return null
+  if (fromIndex < 0 || toIndex > snapshots.length - 1) return null
+  if (fromIndex >= toIndex) return null
 
-  const first = snapshots[0]
-  const latest = snapshots[snapshots.length - 1]
-  const base = buildTransition(first, latest)
+  const base = buildTransition(snapshots[fromIndex], snapshots[toIndex])
 
-  // Caveats from intermediate snapshots
-  const caveats: string[] = []
-  caveats.push(`Includes ${snapshots.length - 2} intermediate refinement${snapshots.length - 2 > 1 ? 's' : ''}`)
+  // Adjacent: there is nothing between the two runs, so there is no cumulative
+  // caveat to make and the card is the ordinary pairwise one.
+  const span = toIndex - fromIndex
+  if (span === 1) return base
 
-  // Check for any intermediate flips
-  const flipCount = snapshots.slice(1).filter((s, i) =>
-    s.winnerId !== snapshots[i].winnerId
+  const intermediates = span - 1
+  const caveats: string[] = [
+    `Includes ${intermediates} intermediate refinement${intermediates > 1 ? 's' : ''}`,
+  ]
+
+  // Legs strictly inside the range: each compares a snapshot with the one
+  // before it, so the window starts at fromIndex + 1.
+  const legs = snapshots.slice(fromIndex + 1, toIndex + 1)
+
+  const flipCount = legs.filter((s, i) =>
+    s.winnerId !== snapshots[fromIndex + i].winnerId
   ).length
   if (flipCount > 0) {
     caveats.push(`Result flipped ${flipCount === 1 ? 'once' : `${flipCount} times`}`)
   }
 
-  // Check for any structure changes. Same regime guard as the pairwise case —
-  // a cross-source or absent-ended hash pair is no evidence, not a change.
-  const structureChanged = snapshots.slice(1).some((s, i) =>
-    hashesAreComparable(snapshots[i], s) && s.graphHash !== snapshots[i].graphHash
+  // Same regime guard as the pairwise case — a cross-source or absent-ended
+  // hash pair is no evidence, not a change.
+  const structureChanged = legs.some((s, i) =>
+    hashesAreComparable(snapshots[fromIndex + i], s) && s.graphHash !== snapshots[fromIndex + i].graphHash
   )
   if (structureChanged) {
     caveats.push('Structure changed during this period')
   }
 
-  // Collect all edits across all transitions
-  const allEdits = snapshots.slice(1).map(s => s.editSummary).filter(Boolean)
-
   return {
     ...base,
-    edits: allEdits,
+    edits: legs.map(s => s.editSummary).filter(Boolean),
     isCumulative: true,
     cumulativeCaveats: caveats,
   }
+}
+
+/** Build a synthetic cumulative transition from first to latest */
+export function buildCumulativeTransition(snapshots: AnalysisSnapshot[]): Transition | null {
+  if (snapshots.length < 3) return null // meaningless at 2 runs (same as prev)
+  return buildRangeTransition(snapshots, 0, snapshots.length - 1)
 }

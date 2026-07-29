@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { deriveTransitions, buildCumulativeTransition } from '../deriveTransitions'
+import {
+  deriveTransitions,
+  buildCumulativeTransition,
+  buildRangeTransition,
+  compareStructure,
+} from '../deriveTransitions'
+import { makeAnalysisSnapshot } from './__fixtures__/analysisSnapshot'
 import type { AnalysisSnapshot, FactorSensitivitySummary } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -16,41 +22,14 @@ function makeFactor(overrides: Partial<FactorSensitivitySummary> & { id: string 
   }
 }
 
+// Delegates to the ONE shared snapshot fixture (see that file's header on why
+// six hand-kept copies of this literal were a trap-12 mirror). This spec's own
+// default — a single top factor — is preserved by spreading over it.
 function makeSnapshot(overrides: Partial<AnalysisSnapshot> & { runNumber: number }): AnalysisSnapshot {
-  return {
-    runId: `run-${overrides.runNumber}`,
-    runNumber: overrides.runNumber,
-    timestamp: new Date().toISOString(),
-    source: 'session',
-    graphHash: 'hash-default',
-    nodeCount: 5,
-    edgeCount: 4,
-    winnerId: 'opt-a',
-    winnerLabel: 'Option A',
-    winnerProbability: 65,
-    runnerUpId: 'opt-b',
-    runnerUpLabel: 'Option B',
-    runnerUpProbability: 35,
-    recommendationStability: 0.7,
-    stabilityLabel: 'stable',
-    fragileEdgeCount: 0,
-    evidenceCoverage: '3/5',
+  return makeAnalysisSnapshot({
     topFactors: [makeFactor({ id: 'fac-a', label: 'Churn', elasticity: 0.4 })],
-    influenceConcentration: 40,
-    topCalibrationFactor: 'Factor A',
-    topCalibrationFactorId: 'fac-a',
-    topElasticity: 30,
-    rankFlipRate: 0.05,
-    goalProbability: null,
-    jointGoalProbability: null,
-    inferenceWarnings: [],
-    conditionalWinners: [],
-    edgeEValues: [],
-    seedUsed: 12345,
-    responseHash: 'abc123',
-    editSummary: 'Test edit',
     ...overrides,
-  }
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -443,5 +422,127 @@ describe('buildCumulativeTransition', () => {
     ]
     const result = buildCumulativeTransition(snapshots)!
     expect(result.edits).toEqual(['Tightened churn', 'Added regulatory risk'])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROADMAP 2.113a slice 2 — the three-valued structure comparison
+// ---------------------------------------------------------------------------
+
+describe('compareStructure', () => {
+  it('same regime, different hash ⇒ changed', () => {
+    expect(compareStructure(
+      makeSnapshot({ runNumber: 1, source: 'persisted', graphHash: 'aag-1' }),
+      makeSnapshot({ runNumber: 2, source: 'persisted', graphHash: 'aag-2' }),
+    )).toBe('changed')
+  })
+
+  it('same regime, same hash ⇒ unchanged', () => {
+    expect(compareStructure(
+      makeSnapshot({ runNumber: 1, source: 'persisted', graphHash: 'aag-1' }),
+      makeSnapshot({ runNumber: 2, source: 'persisted', graphHash: 'aag-1' }),
+    )).toBe('unchanged')
+  })
+
+  it('CROSS-REGIME ⇒ not_comparable, never "changed"', () => {
+    // A session snapshot hashes with the UI\'s generateGraphHash; a persisted
+    // run carries CEE\'s aag_v1. They are ALWAYS unequal, so an unguarded
+    // comparison manufactures a structure change out of a provenance boundary.
+    expect(compareStructure(
+      makeSnapshot({ runNumber: 1, source: 'session', graphHash: 'ui-hash', nodeCount: null, edgeCount: null }),
+      makeSnapshot({ runNumber: 2, source: 'persisted', graphHash: 'aag-1', nodeCount: null, edgeCount: null }),
+    )).toBe('not_comparable')
+  })
+
+  it('an absent hash at either end ⇒ not_comparable', () => {
+    expect(compareStructure(
+      makeSnapshot({ runNumber: 1, graphHash: null, nodeCount: null, edgeCount: null }),
+      makeSnapshot({ runNumber: 2, graphHash: 'h', nodeCount: null, edgeCount: null }),
+    )).toBe('not_comparable')
+  })
+
+  it('EQUAL COUNTS DO NOT LICENSE "unchanged" — a rewired graph keeps its counts', () => {
+    expect(compareStructure(
+      makeSnapshot({ runNumber: 1, graphHash: null, nodeCount: 5, edgeCount: 4 }),
+      makeSnapshot({ runNumber: 2, graphHash: null, nodeCount: 5, edgeCount: 4 }),
+    )).toBe('not_comparable')
+  })
+
+  it('differing counts DO license "changed" even without a comparable hash', () => {
+    expect(compareStructure(
+      makeSnapshot({ runNumber: 1, graphHash: null, nodeCount: 5, edgeCount: 4 }),
+      makeSnapshot({ runNumber: 2, graphHash: null, nodeCount: 6, edgeCount: 4 }),
+    )).toBe('changed')
+  })
+
+  it('agrees with the boolean the transition cards render — one regime rule, not two', () => {
+    const pairs: Array<[AnalysisSnapshot, AnalysisSnapshot]> = [
+      [makeSnapshot({ runNumber: 1, graphHash: 'a' }), makeSnapshot({ runNumber: 2, graphHash: 'b' })],
+      [makeSnapshot({ runNumber: 1, graphHash: 'a' }), makeSnapshot({ runNumber: 2, graphHash: 'a' })],
+      [makeSnapshot({ runNumber: 1, source: 'session', graphHash: 'a' }),
+       makeSnapshot({ runNumber: 2, source: 'persisted', graphHash: 'b' })],
+    ]
+    for (const [from, to] of pairs) {
+      expect(deriveTransitions([from, to])[0].structureChanged)
+        .toBe(compareStructure(from, to) === 'changed')
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROADMAP 2.113a slice 2 — arbitrary-pair transitions
+// ---------------------------------------------------------------------------
+
+describe('buildRangeTransition', () => {
+  const four = () => [
+    makeSnapshot({ runNumber: 1, winnerProbability: 50, editSummary: 'Initial analysis' }),
+    makeSnapshot({ runNumber: 2, winnerProbability: 55, editSummary: 'Tightened churn' }),
+    makeSnapshot({ runNumber: 3, winnerProbability: 61, editSummary: 'Added risk' }),
+    makeSnapshot({ runNumber: 4, winnerProbability: 74, editSummary: 'Reweighted price' }),
+  ]
+
+  it('an ADJACENT pair is exactly the plain pairwise card', () => {
+    const result = buildRangeTransition(four(), 1, 2)!
+    expect(result.isCumulative).toBe(false)
+    expect(result.fromRunNumber).toBe(2)
+    expect(result.toRunNumber).toBe(3)
+    expect(result.winnerProbDelta).toBe(6)
+    expect(result.edits).toEqual(['Added risk'])
+  })
+
+  // ⚠ The defect this pins: `editSummary` describes the edits since the run
+  // IMMEDIATELY BEFORE. Handing buildTransition a non-adjacent pair would print
+  // run 4\'s last-leg summary under a heading claiming it covers runs 1→4 —
+  // every character true, attached to the wrong interval.
+  it('a NON-ADJACENT pair collects the edit summary of every leg inside the range', () => {
+    const result = buildRangeTransition(four(), 0, 3)!
+    expect(result.edits).toEqual(['Tightened churn', 'Added risk', 'Reweighted price'])
+    expect(result.isCumulative).toBe(true)
+    expect(result.cumulativeCaveats).toContainEqual(expect.stringContaining('2 intermediate refinements'))
+  })
+
+  it('counts flips only INSIDE the picked range', () => {
+    const snapshots = [
+      makeSnapshot({ runNumber: 1, winnerId: 'opt-a' }),
+      makeSnapshot({ runNumber: 2, winnerId: 'opt-b' }), // flip is outside 2..4
+      makeSnapshot({ runNumber: 3, winnerId: 'opt-b' }),
+      makeSnapshot({ runNumber: 4, winnerId: 'opt-b' }),
+    ]
+    expect(buildRangeTransition(snapshots, 1, 3)!.cumulativeCaveats.join(' ')).not.toContain('flipped')
+    expect(buildRangeTransition(snapshots, 0, 3)!.cumulativeCaveats.join(' ')).toContain('flipped')
+  })
+
+  it('refuses a non-forward or out-of-range pair rather than inventing one', () => {
+    const snapshots = four()
+    expect(buildRangeTransition(snapshots, 2, 2)).toBeNull()
+    expect(buildRangeTransition(snapshots, 3, 1)).toBeNull()
+    expect(buildRangeTransition(snapshots, -1, 2)).toBeNull()
+    expect(buildRangeTransition(snapshots, 0, 9)).toBeNull()
+  })
+
+  it('buildCumulativeTransition is the (first, latest) case of it — unchanged behaviour', () => {
+    const snapshots = four()
+    expect(buildCumulativeTransition(snapshots))
+      .toEqual(buildRangeTransition(snapshots, 0, snapshots.length - 1))
   })
 })
