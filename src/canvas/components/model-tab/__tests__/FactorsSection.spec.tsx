@@ -15,11 +15,19 @@ beforeAll(() => {
 
 const mockUpdateNode = vi.fn()
 
-vi.mock('../../../store', () => ({
-  useCanvasStore: vi.fn((selector: (s: unknown) => unknown) =>
-    selector({ updateNode: mockUpdateNode })
-  ),
-}))
+// ROADMAP 2.121 slice 1: factor edits commit through `useNodeMutations`, which
+// reads the node back out of `useCanvasStore.getState()` before writing — that
+// read is what stops a commit resurrecting a stale render-time `data` blob. Any
+// test that drives an edit must put the node in `mockGraph`.
+const mockGraph: { nodes: unknown[]; edges: unknown[] } = { nodes: [], edges: [] }
+
+vi.mock('../../../store', () => {
+  const useCanvasStore = Object.assign(
+    vi.fn((selector: (s: unknown) => unknown) => selector({ updateNode: mockUpdateNode })),
+    { getState: () => ({ ...mockGraph, updateNode: mockUpdateNode }) },
+  )
+  return { useCanvasStore }
+})
 
 vi.mock('../../../utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
@@ -133,7 +141,9 @@ describe('FactorsSection', () => {
   })
 
   it('auto-tags source: user when value is edited', () => {
+    mockUpdateNode.mockClear()
     const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5 })]
+    mockGraph.nodes = nodes
     render(<FactorsSection factorNodes={nodes} />)
 
     const displayEl = screen.getByTestId('factor-f1-value-display')
@@ -467,9 +477,10 @@ describe('FactorsSection', () => {
     expect(screen.getByTestId('factor-f1-confirm')).toBeInTheDocument()
   })
 
-  it('calls updateNode with source: user on confirm click', () => {
+  it('writes source: user on confirm click', () => {
     mockUpdateNode.mockClear()
     const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5, source: 'cee_inference' })]
+    mockGraph.nodes = nodes
     render(<FactorsSection factorNodes={nodes} />)
     fireEvent.click(screen.getByTestId('factor-f1-confirm'))
     expect(mockUpdateNode).toHaveBeenCalledWith(
@@ -485,6 +496,7 @@ describe('FactorsSection', () => {
   it('auto-dismisses coaching when confirm is clicked on defaulted factor', () => {
     mockStorage.clear()
     const nodes = [makeFactorNode('f1', 'Tech Lead', { value: 0, source: 'cee_inference', category: 'controllable' })]
+    mockGraph.nodes = nodes
     render(<FactorsSection factorNodes={nodes} />)
     expect(screen.getByTestId('factor-f1-coaching')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('factor-f1-confirm'))

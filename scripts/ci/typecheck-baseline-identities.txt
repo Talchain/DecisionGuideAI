@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2516
+# count=2513
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -431,9 +431,6 @@
 1	src/canvas/components/__tests__/ValidationPanel.spec.tsx	TS6133	'beforeEach' is declared but its value is never read.
 1	src/canvas/components/__tests__/ValidationPanel.spec.tsx	TS6133	'waitFor' is declared but its value is never read.
 1	src/canvas/components/model-tab/InlineEdit.tsx	TS6133	'cancel' is declared but its value is never read.
-1	src/canvas/components/model-tab/RelationshipsSection.tsx	TS2322	Type '{ beliefExists: number; beliefExistsSource: "user"; }' is not assignable to type 'EdgeData'.
-1	src/canvas/components/model-tab/RelationshipsSection.tsx	TS2322	Type '{ direction: "negative" | "positive"; }' is not assignable to type 'EdgeData'.
-1	src/canvas/components/model-tab/RelationshipsSection.tsx	TS2322	Type '{ weight: number; weightSource: "user"; }' is not assignable to type 'EdgeData'.
 1	src/canvas/components/model-tab/__tests__/ContestedEdgeCard.spec.tsx	TS2322	Type '{ status: "agreed" | "contested"; contested_reasons: ContestedReason[]; pass1: { strength_mean: number; strength_std: number; exists_probability: number; }; ... 9 more ...; resolved_by: "default" | "user"; }' is not assignable to type 'ValidationMetadata'.
 1	src/canvas/components/model-tab/__tests__/RelationshipsSection.spec.tsx	TS2322	Type '{ status: "agreed" | "contested"; contested_reasons: ContestedReason[]; pass1: { strength_mean: number; strength_std: number; exists_probability: number; }; ... 9 more ...; resolved_by: "default" | "user"; }' is not assignable to type 'ValidationMetadata'.
 1	src/canvas/components/pre-analysis-v3/hooks/__tests__/useSensitivityRanking.plotBearer.spec.tsx	TS2493	Tuple type '[]' of length '0' has no element at index '1'.

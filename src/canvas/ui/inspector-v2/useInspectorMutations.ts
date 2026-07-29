@@ -131,8 +131,18 @@ export function useNodeMutations(nodeId: string) {
    * which `value` and `raw_value` disagree about the same number. Callers that
    * genuinely edit only the normalised value (the advanced editors) pass one
    * argument and are unaffected.
+   *
+   * `opts.source` (ROADMAP 2.121 slice 1) is the OPTIONAL provenance stamp for
+   * the number being committed, written in the SAME update for the same reason
+   * `rawValue` is: `observedState.source` gates the "AI estimate" / "User
+   * edited" pill and the "N to verify" count, so a marker committed in a second
+   * `updateNode` would lag the number it describes by one history entry. It is
+   * OPT-IN and defaults to no write — existing callers (the inspector panels and
+   * advanced editors) are byte-identical without it, so this widening adds a
+   * capability to the #513 arc rather than changing its behaviour. Callers that
+   * want it pass the marker they can justify; nothing is defaulted to 'user'.
    */
-  const setObservedValue = useCallback((value: number, rawValue?: number) => {
+  const setObservedValue = useCallback((value: number, rawValue?: number, opts?: { source?: string }) => {
     const node = getNode()
     if (!node) return
     const existing = (node.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
@@ -153,6 +163,7 @@ export function useNodeMutations(nodeId: string) {
           ...existing,
           value,
           ...(typeof rawValue === 'number' && Number.isFinite(rawValue) ? { raw_value: rawValue } : {}),
+          ...(opts?.source ? { source: opts.source } : {}),
           display_value: undefined,
         },
       },

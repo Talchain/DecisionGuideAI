@@ -25,7 +25,11 @@ interface GoalSectionProps {
 
 function GoalSectionInner({ goalNode, onSendMessage }: GoalSectionProps) {
   const { showDetail } = useContext(DetailToggleContext)
-  const updateNode = useCanvasStore(s => s.updateNode)
+  // ROADMAP 2.121 slice 1 — the ONE production writer of a user success target
+  // (this file's own comment below has always named it). Every other
+  // success-target editor in the product already commits through it:
+  // GoalThresholdEditor, HeroSection, PreAnalysisPanel, OutputsDock.
+  const setGoalThresholdAndUpdateNode = useCanvasStore(s => s.setGoalThresholdAndUpdateNode)
 
   if (!goalNode) return null
 
@@ -66,20 +70,32 @@ function GoalSectionInner({ goalNode, onSendMessage }: GoalSectionProps) {
   const showFeasibilityWarning = effectiveRaw !== undefined && thresholdCap !== undefined
     && thresholdCap > 0 && effectiveRaw > thresholdCap * 0.85
 
+  /**
+   * ROADMAP 2.121 slice 1 — a target edit here now moves the number the run
+   * path actually forwards.
+   *
+   * The hand-rolled write this replaces set `goal_threshold_raw` and stamped
+   * `threshold_source: 'user'` — and stopped there. Two consequences, both live:
+   *
+   *   1. The GLOBAL `goalThreshold` scalar never moved, so the number the run
+   *      path forwards was still the pre-edit one.
+   *   2. `success_threshold` never moved either — and the display priority
+   *      twelve lines above prefers `success_threshold` the moment
+   *      `threshold_source` is 'user'. Stamping the source while leaving the
+   *      number made a STALE value OUTRANK the one the user had just typed. The
+   *      edit could render as no change at all.
+   *
+   * `setGoalThresholdAndUpdateNode` is the atomic store+node pair: scalar,
+   * `success_threshold`, `threshold_source`, `threshold_confirmed: false`, and
+   * `invalidateAnalysisReady` in one action. No `opts.unit` is passed — the old
+   * handler did not touch the unit and neither does this one; the action leaves
+   * an existing (CEE-backfilled) unit alone.
+   */
   const handleThresholdSave = useCallback((val: string) => {
     const num = parseFloat(val)
     if (isNaN(num)) return
-    // Store the raw value directly — no conversion here.
-    // The V2 adapter is responsible for deriving normalised values from raw_value + unit.
-    updateNode(goalNode.id, {
-      data: {
-        ...data,
-        goal_threshold_raw: num,
-        threshold_source: 'user',
-        threshold_confirmed: false,
-      },
-    })
-  }, [goalNode.id, data, updateNode])
+    setGoalThresholdAndUpdateNode(goalNode.id, num)
+  }, [goalNode.id, setGoalThresholdAndUpdateNode])
 
   const validateThreshold = useCallback((s: string) => {
     const n = parseFloat(s)
