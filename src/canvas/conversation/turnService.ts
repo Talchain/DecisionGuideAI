@@ -59,6 +59,7 @@ import { validateEnvelopeShape, validateStreamEventShape } from './validateRespo
 import { computePayloadHash } from '../../lib/canonical-hash'
 import { recordRequest, recordResponse } from '../../lib/debug-state'
 import { recordRequestPayload, recordResponsePayload } from '../../lib/payload-trace-store'
+import { parseSSELines } from '../../lib/sse/parseSSELines'
 import { isUUID, stripTurnType, validateTurnRequestBoundary, type TurnRequestPayload } from '../../services/turn-request-builder'
 
 // In production/staging, route through Netlify edge function proxy at /bff/orchestrate
@@ -332,62 +333,15 @@ interface StreamTelemetry {
 }
 
 /**
- * Parse a raw SSE text chunk into structured events.
+ * Re-exported from the app's single SSE line parser (`lib/sse/parseSSELines`).
  *
- * Handles multi-line `data:` fields per the SSE spec (consecutive data lines
- * joined with `\n`) and `:` comment lines as heartbeat signals.
- *
- * @returns An array of parsed events and a boolean indicating heartbeat activity
+ * ROADMAP 2.122: the staged V5 turn consumer (`v5/streamedDraftFrames`) needs
+ * the same parser, and writing a second one would be trap 12 with a silent
+ * failure mode (a drift on multi-line `data:` or CRLF would read as green in
+ * both suites). The body moved; this name stays so
+ * `__tests__/streamEventParsing.spec.ts` keeps covering it unchanged.
  */
-export function parseSSELines(
-  lines: string[],
-  /** When true, flush any buffered event at the end even without a trailing
-   *  blank line. Only set this when processing the final chunk of a stream. */
-  flush = false,
-): { events: Array<{ eventType: string; data: string }>; hadActivity: boolean } {
-  const events: Array<{ eventType: string; data: string }> = []
-  let currentEventType = ''
-  let dataLines: string[] = []
-  let hadActivity = false
-
-  for (const rawLine of lines) {
-    // Normalise CRLF / bare CR — servers may use \r\n line endings
-    const line = rawLine.replace(/\r$/, '')
-
-    if (line === '') {
-      // Empty line = event boundary per SSE spec
-      if (dataLines.length > 0) {
-        events.push({ eventType: currentEventType, data: dataLines.join('\n') })
-        dataLines = []
-        currentEventType = ''
-      }
-      continue
-    }
-    if (line.startsWith(':')) {
-      // Comment line = heartbeat signal
-      hadActivity = true
-      continue
-    }
-    if (line.startsWith('event: ')) {
-      currentEventType = line.slice(7).trim()
-      hadActivity = true
-    } else if (line.startsWith('data: ')) {
-      dataLines.push(line.slice(6))
-      hadActivity = true
-    } else if (line.startsWith('data:')) {
-      // `data:` with no space — still valid per SSE spec
-      dataLines.push(line.slice(5))
-      hadActivity = true
-    }
-  }
-
-  // Flush trailing buffered event on EOF (stream ended without final blank line)
-  if (flush && dataLines.length > 0) {
-    events.push({ eventType: currentEventType, data: dataLines.join('\n') })
-  }
-
-  return { events, hadActivity }
-}
+export { parseSSELines }
 
 /**
  * Stream an orchestrator turn via SSE (POST /orchestrate/v1/turn/stream).

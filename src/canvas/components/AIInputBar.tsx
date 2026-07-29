@@ -23,7 +23,8 @@ import {
   type AddOptionCanvasTargets,
   type AddOptionChange,
 } from '../conversation/addOptionRequest'
-import { messageForElapsed } from './DraftLoadingAnimation'
+import { messageForElapsed, messageForSettling } from './DraftLoadingAnimation'
+import { useDraftStore } from '../stores/draftStore'
 
 export type AIInputBarVariant = 'strip' | 'docked-tab' | 'floating' | 'first-use' | 'welcome'
 
@@ -150,23 +151,46 @@ export const AIInputBar = memo(
     // The composer freezes and shows a gently-pulsing, time-escalating status
     // line where the placeholder normally sits. Tick once a second so the
     // message advances through PROGRESSIVE_STAGES (0/20/45s).
-    const isGenerating = isThinking && nodeCount === 0
+    //
+    // ── ROADMAP 2.122: `nodeCount === 0` ALONE IS NOW A 25-SECOND SILENCE ────
+    // On the streamed draft path the graph lands on the canvas at ~36 s
+    // (GRAPH_READY) while the turn keeps running to ~61 s (coaching). The
+    // original gate goes false the instant those nodes appear — so the composer
+    // would stay FROZEN (`isThinking` is still true) with no status line at all
+    // for the remaining ~25 s. That is a worse wait than the one this lane
+    // exists to shorten, so the gate widens to include the settling phase, and
+    // the copy switches to the frame-licensed table for it.
+    //
+    // The two tables are licensed differently and must not be interchanged:
+    // before GRAPH_READY the client holds only a clock (PROGRESS frames are
+    // measured-ABSENT on the wire), after it the client holds a frame that says
+    // the graph exists and its numbers are `in_progress`. See
+    // DraftLoadingAnimation's SETTLING_STAGES docstring.
+    const draftStreamPhase = useDraftStore((s) => s.draftStreamPhase)
+    const isSettling = draftStreamPhase === 'settling'
+    const isGenerating = isThinking && (nodeCount === 0 || isSettling)
     // Store the resolved MESSAGE (not raw seconds): the 1s tick then only
     // triggers a re-render when the stage actually advances — React bails on an
     // unchanged string — instead of re-rendering the composer every second for
     // up to two minutes.
     const [generatingMessage, setGeneratingMessage] = useState(() => messageForElapsed(0))
     useEffect(() => {
+      // `isSettling` is in the dep list so the clock RESTARTS when the graph
+      // lands: the settling table's thresholds are measured from the render, not
+      // from the start of the turn. Sharing the turn's clock would put the
+      // escalated settling line up immediately on every single draft.
+      const resolve = isSettling ? messageForSettling : messageForElapsed
       if (!isGenerating) {
-        setGeneratingMessage(messageForElapsed(0))
+        setGeneratingMessage(resolve(0))
         return
       }
+      setGeneratingMessage(resolve(0))
       const start = Date.now()
       const id = window.setInterval(() => {
-        setGeneratingMessage(messageForElapsed(Math.floor((Date.now() - start) / 1000)))
+        setGeneratingMessage(resolve(Math.floor((Date.now() - start) / 1000)))
       }, 1000)
       return () => window.clearInterval(id)
-    }, [isGenerating])
+    }, [isGenerating, isSettling])
 
     useImperativeHandle(
       ref,
