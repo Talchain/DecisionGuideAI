@@ -111,9 +111,20 @@ const queryClient: any = (QueryClient && typeof QueryClient === 'function')
  * developer surfaces, not product. They shipped reachable-by-URL and outside
  * both `AuthGuard` and any flag (UI-SURFACE-CENSUS-2026-07-30, finding R1);
  * `/dev/hero-gallery` alone self-gated inside its component. This wrapper puts
- * all five behind the single declared `devRoutes` flag, which is OFF in every
- * deployed build. When it is off the visitor is sent to the canvas — the same
- * `<Navigate replace />` shape `HeroGallery` already used.
+ * all of them — plus `/test` and the catch-all, which render the same POC
+ * sandbox — behind the single declared `devRoutes` flag, which is OFF in every
+ * deployed build.
+ *
+ * ⚠ THE REDIRECT TARGET IS `/`, NOT `/canvas`, AND THAT IS DELIBERATE.
+ * `/` is the scenario list; `/canvas` opens a blank "Untitled decision". Two
+ * reasons, in order of weight:
+ *   1. `/canvas` is a SIDE-EFFECT-PRODUCING landing. An open canvas tab is a
+ *      live writer — it is the known staging hazard where an open canvas
+ *      recreates deleted scenario rows. A mistyped URL must not start writing.
+ *   2. It matches the one in-repo precedent for this shape, which this gate is
+ *      modelled on: `HeroGallery.tsx:30` → `<Navigate to="/" replace />`.
+ * `AppPoC.routing.spec.tsx` pins the destination as `/` and asserts the canvas
+ * is NOT rendered, so a drift back to `/canvas` reds.
  *
  * The scaffolds are NOT deleted and NOT unmounted from the bundle: each is a
  * `React.lazy` chunk, and building the element here does not fetch it — only
@@ -125,7 +136,7 @@ const queryClient: any = (QueryClient && typeof QueryClient === 'function')
 function DevRoute({ children }: { children: React.ReactNode }) {
   // Read at RENDER time, not module load, so the localStorage override and the
   // test suite both take effect without a module reset.
-  return isDevRoutesEnabled() ? <>{children}</> : <Navigate to="/canvas" replace />
+  return isDevRoutesEnabled() ? <>{children}</> : <Navigate to="/" replace />
 }
 
 export default function AppPoC() {
@@ -955,11 +966,14 @@ export default function AppPoC() {
                 <Route path="/test" element={<DevRoute><MainSandboxContent /></DevRoute>} />
                 {/* Catch-all. This used to render the POC sandbox, so a tester
                     who mistyped a URL landed on developer scaffolding. It now
-                    lands on the canvas — somewhere real. The sandbox remains
-                    the catch-all only when `devRoutes` is on, which is what the
-                    Playwright suite runs with (playwright.config.ts webServer):
-                    several specs navigate to `#/sandbox&scenario=<b64>`, an
-                    arbitrary hash no explicit route can match. */}
+                    lands on the scenario list — somewhere real, and read-only.
+                    The sandbox remains the catch-all only when `devRoutes` is
+                    on, which is what the Playwright suite runs with
+                    (playwright.config.ts webServer): 74 of 165 e2e specs reach
+                    a gated route, and `gotoSandbox()` plus
+                    `#/sandbox&scenario=<b64>` can ONLY be served by the
+                    catch-all — that hash is a single path segment, so no
+                    explicit route can ever match it. */}
                 <Route path="*" element={<DevRoute><MainSandboxContent /></DevRoute>} />
                 </Routes>
               </CanvasErrorBoundary>
