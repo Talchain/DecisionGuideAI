@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2513
+# count=2512
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -518,7 +518,6 @@
 3	src/canvas/conversation/__tests__/blockSchemaAlignment.spec.ts	TS2352	Conversion of type 'ConversationBlock' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
 1	src/canvas/conversation/__tests__/cee-request-contracts.spec.ts	TS2345	Argument of type '{ factor_sensitivity: { factor_id: string; importance_rank: number; }[]; analysis_status: string; option_comparison_status: string; robustness_status: string; drivers_status: string; response_hash: string; ... 6 more ...; meta: { ...; }; }' is not assignable to parameter of type '{ analysis_status: string; option_comparison_status: string; robustness_status: string; drivers_status: string; response_hash: string; option_comparison: { option_id: string; option_label: string; expected_value: number; rank: number; }[]; ... 6 more ...; meta: { ...; }; }'.
 1	src/canvas/conversation/__tests__/conversation-flow.spec.ts	TS2352	Conversion of type 'ConversationBlock' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
-1	src/canvas/conversation/__tests__/conversationPanel.systemEventFailure.spec.tsx	TS2322	Type 'Mock<any[], unknown>' is not assignable to type '(event: WireSystemEvent, opts?: { debugSource?: string | undefined; debugVisibleText?: null | string | undefined; debugParentChainId?: null | string | undefined; debugInitiatedBy?: "user" | ... 1 more ... | undefined; debugSourceSurface?: string | undefined; } | undefined) => Promise<...>'.
 2	src/canvas/conversation/__tests__/conversationPanel.systemEventFailure.spec.tsx	TS2741	Property 'onAttach' is missing in type '{ conversation: UseConversationReturn; onCollapse: Mock<[], void>; }' but required in type 'ConversationPanelProps'.
 1	src/canvas/conversation/__tests__/envelopeAnalysisPersistence.spec.ts	TS2352	Conversion of type 'undefined' to type '{ response_hash?: string | undefined; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
 1	src/canvas/conversation/__tests__/envelopeAnalysisPersistence.spec.ts	TS2493	Tuple type '[]' of length '0' has no element at index '0'.

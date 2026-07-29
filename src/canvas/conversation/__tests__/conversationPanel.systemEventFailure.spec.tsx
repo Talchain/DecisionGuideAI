@@ -102,7 +102,13 @@ function makeMockConversation(
     dispatchAction: vi.fn().mockResolvedValue(undefined),
     cancelTurn: vi.fn(),
     sendMessage: vi.fn().mockResolvedValue(undefined),
-    sendSystemEvent,
+    // `vi.fn()` is `Mock<any[], unknown>`, which does not structurally satisfy
+    // the typed `sendSystemEvent` signature (and drifted again when its `opts`
+    // gained `optimisticFactorEdit` in 2.129). The double is deliberate and
+    // behaviourally complete for these tests — the cast states that, rather than
+    // leaving a standing diagnostic for the ratchet to re-render on every
+    // signature change.
+    sendSystemEvent: sendSystemEvent as unknown as UseConversationReturn['sendSystemEvent'],
     sendChip: vi.fn().mockResolvedValue(undefined),
     clearHistory: vi.fn(),
     retryLast: vi.fn().mockResolvedValue(undefined),

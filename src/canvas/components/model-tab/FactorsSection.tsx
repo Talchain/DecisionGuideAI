@@ -20,6 +20,7 @@ import { SectionErrorBoundary } from '../GraphTextView'
 import { useNodeMutations } from '../../ui/inspector-v2/useInspectorMutations'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
 import { buildFactorValueEditEvent } from '../../conversation/factorValueEdit'
+import { captureOptimisticFactorEdit } from '../../conversation/optimisticFactorEdit'
 import { Accordion } from '../../../components/results/Accordion'
 import { focusNodeById } from '../../utils/focusHelpers'
 import { formatSmartNumber, formatValueWithUnit, getPrimaryValue, countFactorsToVerify } from './utils'
@@ -234,6 +235,13 @@ function FactorCard({
       raw_value?: number
     }
 
+    // ROADMAP 2.129 (b) — capture the undo BEFORE the write, from the same
+    // pre-write `data` the event was built from. The optimistic write below is
+    // what makes the canvas responsive; this is what stops it becoming a lie when
+    // CEE refuses the number (out-of-cap, live-proven: canvas showed 25 months
+    // and stamped "User edited" while the engine held 3).
+    const undo = captureOptimisticFactorEdit(node.id, modelValue, data)
+
     // Local write first, in ONE update: value + raw_value + the provenance
     // stamp. `source: 'user'` is preserved from the old handlers — it is what
     // flips the pill to "User edited" and drops the factor out of the
@@ -244,11 +252,18 @@ function FactorCard({
     // never reached CEE, its graph_hash never moved, and the re-run the
     // freshness strip invited could not possibly reflect the change.
     if (!sendSystemEvent) return
-    void Promise.resolve(sendSystemEvent(event)).catch(() => {
+    void Promise.resolve(
+      // The undo travels WITH the send, not around it: the dispatcher owns the
+      // reply (and the deferral buffer, so an edit made mid-analysis is resolved
+      // by the same path). A `.then` here could not see a DEFERRED edit's reply
+      // at all — that promise resolves with SEND_DEFERRED before the turn exists.
+      sendSystemEvent(event, undo ? { optimisticFactorEdit: undo } : undefined),
+    ).catch(() => {
       // Swallowed deliberately: a genuine send failure is already recorded by
       // the conversation's own failure channel (see FactorControllablePanel for
       // why this catch is NOT what protects an edit made during a running
-      // analysis — the dispatcher's deferral buffer is).
+      // analysis — the dispatcher's deferral buffer is). A server REFUSAL is not
+      // a failure and never reaches here; the dispatcher's revert handles it.
     })
   }, [node.id, data, mutations, sendSystemEvent])
 

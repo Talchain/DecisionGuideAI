@@ -39,6 +39,7 @@ import { FactorControllableEditor } from '../editors/FactorControllableEditor'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import { useOptionalConversationContext } from '../../../conversation/ConversationContext'
 import { buildFactorValueEditEvent, resolveValueInputSeed } from '../../../conversation/factorValueEdit'
+import { captureOptimisticFactorEdit } from '../../../conversation/optimisticFactorEdit'
 
 /**
  * Extract a non-empty string intervention value, accepting either a bare
@@ -159,6 +160,13 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       raw_value?: number
     }
 
+    // ROADMAP 2.129 (b) — the undo for the optimistic write, captured from the
+    // pre-write node data. The defect was live-proven on the Model tab, but this
+    // is the same fire-and-forget shape against the same endpoint: a refusal
+    // leaves the panel showing a number the engine declined. Fixing one twin and
+    // leaving the other armed is how this class keeps coming back.
+    const undo = captureOptimisticFactorEdit(nodeId ?? '', modelValue, node?.data)
+
     // Local store write first, so the canvas and the freshness overlay reflect
     // the edit immediately even if the turn is slow or fails. Note this writes
     // the MODEL-scale number into `value` — the live defect wrote the display
@@ -185,11 +193,14 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
     // buffer, which queues the send and flushes it when the lock clears (and
     // holds the freshness overlay dirty until it does). See
     // `useConversation`'s `deferredSystemSendsRef`.
-    void Promise.resolve(sendSystemEvent(event)).catch(() => {
+    void Promise.resolve(
+      sendSystemEvent(event, undo ? { optimisticFactorEdit: undo } : undefined),
+    ).catch(() => {
       // Swallowed deliberately: a genuine send failure is already recorded by
       // the conversation's own failure channel. Re-throwing from a blur handler
       // would surface as an unhandled rejection and tell the user nothing they
-      // are not already being told.
+      // are not already being told. A server REFUSAL is not a failure and never
+      // reaches here — the dispatcher reverts the optimistic write instead.
     })
   }, [draftValue, inputDisplayValue, mutations, confirmEdit, sendSystemEvent, nodeId, node?.data])
 

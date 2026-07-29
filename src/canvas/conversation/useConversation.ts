@@ -107,6 +107,12 @@ import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
 import { getSessionIdentity } from '../../lib/supabase'
 import { trackEvent } from '../../lib/posthog'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
+import {
+  mergeOptimisticFactorEdit,
+  responseAppliedFactorEdit,
+  revertOptimisticFactorEdit,
+  type OptimisticFactorEdit,
+} from './optimisticFactorEdit'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import { validateResponse, stripRepairLogLines, FALLBACK_TEXT } from './validateResponse'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
@@ -1672,6 +1678,17 @@ export interface SendTurnOpts {
   chipMeta?: ChipMeta
   /** When true, render the user bubble as a compact action indicator */
   chipInitiated?: boolean
+  /**
+   * ROADMAP 2.129 (b) — how to UNDO the optimistic local write this system event
+   * announces, if the server refuses it.
+   *
+   * NOT part of the wire payload. It rides here because the deferral buffer holds
+   * a `SendTurnOpts` verbatim, so an edit queued behind a running analysis is
+   * resolved by the same code path as one dispatched immediately — a refusal of a
+   * DEFERRED edit must revert too, and the caller's promise resolved with
+   * `SEND_DEFERRED` long before the reply existed.
+   */
+  optimisticFactorEdit?: OptimisticFactorEdit
 }
 
 /** One send held back by the in-flight lock. */
@@ -1769,6 +1786,14 @@ export interface UseConversationReturn {
     debugParentChainId?: string | null
     debugInitiatedBy?: 'user' | 'automatic'
     debugSourceSurface?: string
+    /**
+     * ROADMAP 2.129 (b) — the undo for the optimistic local write that
+     * accompanies a `factor_value_edit`. The dispatcher reverts it when the
+     * reply carries no applied patch receipt for the target. Callers that write
+     * optimistically MUST pass this; without it a server refusal leaves the
+     * canvas showing a number (and a "User edited" stamp) the engine declined.
+     */
+    optimisticFactorEdit?: OptimisticFactorEdit
     // Resolves to SEND_DEFERRED when the in-flight lock queued the send instead
     // of dispatching it, so a caller can tell "queued" from "sent" — the old
     // `Promise<void>` made those two indistinguishable, which is how an
@@ -3251,6 +3276,19 @@ export function useConversation(): UseConversationReturn {
       // moving the entry to the tail would reorder edits to other factors.
       // `attempts` resets deliberately: this is a NEW value, not a retry of the
       // failed one, so it deserves a full set of attempts.
+      //
+      // ROADMAP 2.129 (b): the revert SNAPSHOT does NOT follow last-write-wins.
+      // 3→25 then 25→30, both still undispatched, means the server has seen
+      // neither and still holds 3 — so a refusal of 30 must restore 3, not the
+      // intermediate 25 the server never held. The value being sent is the new
+      // one; the state to restore is the ORIGINAL one.
+      entry.opts = {
+        ...entry.opts,
+        optimisticFactorEdit: mergeOptimisticFactorEdit(
+          deferredSystemSendsRef.current[existing].opts.optimisticFactorEdit,
+          entry.opts.optimisticFactorEdit,
+        ),
+      }
       deferredSystemSendsRef.current[existing] = entry
     } else {
       deferredSystemSendsRef.current.push(entry)
@@ -3695,6 +3733,45 @@ export function useConversation(): UseConversationReturn {
           }
 
           const target = routeV5Response(v5Result)
+
+          // ROADMAP 2.129 (b) — resolve the OPTIMISTIC value write against what
+          // the server actually did with it.
+          //
+          // A refusal is not a failure: CEE answers 200 with plain prose ("Value
+          // 25 months exceeds the factor's cap of 6 months. I haven't changed
+          // anything."), `blocks: []`, no `analysis_ready`, no `graph_hash`. The
+          // promise resolves, so no `catch` anywhere can see it — which is why
+          // the canvas kept showing 25 months, stamped "User edited", while the
+          // engine held 3 and every re-run returned byte-identical numbers.
+          //
+          // Guards, in order of what they protect:
+          //   • a response body must exist — a `typed_error` is a FAILURE, and
+          //     failures are the deferral buffer's business (it retries and, at
+          //     the attempt cap, raises an honest transcript notice). Reverting
+          //     here would race that.
+          //   • the turn must still be the active one. A response whose turn has
+          //     been superseded must not write state — the same stale-turn rule
+          //     `applyV5State` enforces, and a late revert is a silent overwrite
+          //     of newer truth.
+          //   • the revert itself stands down unless the node still holds the
+          //     number this turn sent (see `revertOptimisticFactorEdit`).
+          const optimisticEdit = opts.optimisticFactorEdit
+          if (
+            optimisticEdit &&
+            systemEvent?.type === 'factor_value_edit' &&
+            target.kind !== 'typed_error' &&
+            activeV5TurnIdRef.current === turnClientId
+          ) {
+            const applied = responseAppliedFactorEdit(target.response, optimisticEdit.nodeId)
+            if (!applied) {
+              const outcome = revertOptimisticFactorEdit(optimisticEdit)
+              if (import.meta.env.DEV) {
+                console.warn(
+                  `[sendTurn] CEE did not apply the edit to ${optimisticEdit.nodeId}; optimistic write ${outcome}`,
+                )
+              }
+            }
+          }
 
           // Transcript honesty: resolve this turn's user bubble. Any server
           // response (including an empty one) means the send was delivered;
@@ -4918,6 +4995,7 @@ export function useConversation(): UseConversationReturn {
       debugParentChainId?: string | null
       debugInitiatedBy?: 'user' | 'automatic'
       debugSourceSurface?: string
+      optimisticFactorEdit?: OptimisticFactorEdit
     }) => {
       // No-op when orchestrator V2 is OFF
       if (!isOrchestratorV2Enabled()) return
@@ -4952,6 +5030,7 @@ export function useConversation(): UseConversationReturn {
         parentChainId: opts?.debugParentChainId,
         initiatedBy: opts?.debugInitiatedBy ?? 'automatic',
         sourceSurface: opts?.debugSourceSurface,
+        optimisticFactorEdit: opts?.optimisticFactorEdit,
       })
     },
     [sendTurn],

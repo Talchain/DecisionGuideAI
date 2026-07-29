@@ -58,6 +58,32 @@ describe('ReanalyseBar', () => {
     expect(screen.getByTestId('reanalyse-bar')).toBeInTheDocument()
   })
 
+  /**
+   * ROADMAP 2.129 (a). Live-proven FAIL: after CEE APPLIED a Model-tab edit the
+   * bar was ABSENT (15 samples / 70 s), so the tab offered NO re-analyse control
+   * at all — while a REJECTED edit did render it. The applied reply's
+   * `analysis_ready` is readiness-only (`{status, computed_at, options,
+   * goal_node_id}`), which the slice degrades to 'unknown' — and an 'unknown'
+   * that came from SILENCE, over a model the user just changed, is "changed",
+   * not "can't confirm". See store/__tests__/freshnessOnAppliedEdit.spec.ts for
+   * the store-level replay of the captured payloads.
+   */
+  it('renders the bar AND the re-run control after an applied edit (silent verdict + local edit)', () => {
+    mockFreshness = { freshness: 'unknown', freshnessReason: 'payload_carried_no_freshness_verdict' }
+    mockDirty = true
+    render(<ReanalyseBar />)
+    expect(screen.getByTestId('reanalyse-bar')).toBeInTheDocument()
+    expect(screen.getByTestId('reanalyse-button')).toBeInTheDocument()
+    expect(screen.getByText(/Model changed/)).toBeInTheDocument()
+  })
+
+  it('still renders nothing for that same silent verdict with NO local edit', () => {
+    mockFreshness = { freshness: 'unknown', freshnessReason: 'payload_carried_no_freshness_verdict' }
+    mockDirty = false
+    const { container } = render(<ReanalyseBar />)
+    expect(container.firstChild).toBeNull()
+  })
+
   it('calls onReanalyse when button is clicked', () => {
     mockFreshness = { freshness: 'stale' }
     mockDirty = false
