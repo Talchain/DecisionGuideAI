@@ -120,6 +120,28 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
       ? Math.max(0, Math.min(1, e.exists_probability))
       : undefined
 
+  // Two-pass validation metadata from CEE's validation pipeline (ROADMAP 2.146).
+  //
+  // ⚠ THIS IS HOP 1 OF 3, AND THE OTHER TWO MUST STAY IN STEP. `buildEdge` in
+  // src/canvas/conversation/utils/applyPatch.ts is a HAND-MIRRORED copy of this
+  // function — a field added only here is present after a full draft and VANISHES
+  // on the next graph patch that touches the edge. `overlayEdge` in
+  // mergeAppliedGraph.ts derives its baseline FROM this function, so it follows
+  // automatically. The lockstep is pinned by
+  // src/canvas/utils/__tests__/edgeValidationMapperMirror.spec.ts.
+  //
+  // Carried as an OPAQUE OBJECT on purpose. It is `z.unknown()` at the UI's edge
+  // schema boundary (domain/edges.ts:273) with a typed overlay in
+  // types/validation.ts, so field-level extraction here would be a THIRD mirror
+  // of a shape this layer has no business knowing. Consumers narrow it.
+  //
+  // Omitted (not defaulted) when absent, and deliberately given NO entry in
+  // DEFAULT_EDGE_DATA: `overlayEdge` treats a mapped value equal to the mapper
+  // baseline as "the wire did not supply this", so a non-undefined default here
+  // would silently stop validation metadata overlaying onto an existing edge.
+  const validation =
+    e.validation !== undefined && e.validation !== null ? e.validation : undefined
+
   return {
     id,
     source: e.from,
@@ -136,6 +158,7 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
       ...(edgeType !== undefined ? { edge_type: edgeType } : {}),
       ...(provenanceSource !== undefined ? { provenance_source: provenanceSource } : {}),
       ...(existsProbability !== undefined ? { exists_probability: existsProbability } : {}),
+      ...(validation !== undefined ? { validation } : {}),
       // Set-vs-defaulted markers. Derived from the resolved values themselves,
       // never from "we are in the CEE mapper so it must be CEE": when the wire
       // carried no belief at all, `beliefExists` is `undefined` here and the

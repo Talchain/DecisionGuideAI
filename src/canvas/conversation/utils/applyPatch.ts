@@ -146,6 +146,16 @@ function buildEdge(op: PatchOperation) {
       ? Math.max(0, Math.min(1, d.exists_probability as number))
       : undefined
 
+  // Two-pass validation metadata (ROADMAP 2.146) — HOP 2 OF 3, and the reason
+  // this line exists at all is that this function is the hand-mirrored twin of
+  // mapDraftEdgeToCanvas. Adding `validation` only there would have produced the
+  // worst kind of bug: contested markers present after a fresh draft and silently
+  // GONE after the next `edit_graph` receipt touching the edge, with no error
+  // anywhere. Kept byte-for-byte equivalent to hop 1's extraction, and pinned in
+  // lockstep by src/canvas/utils/__tests__/edgeValidationMapperMirror.spec.ts.
+  const validation =
+    d.validation !== undefined && d.validation !== null ? d.validation : undefined
+
   return {
     id: op.target_id,
     source,
@@ -162,6 +172,7 @@ function buildEdge(op: PatchOperation) {
       ...(edgeType !== undefined ? { edge_type: edgeType } : {}),
       ...(provenanceSource !== undefined ? { provenance_source: provenanceSource } : {}),
       ...(existsProbability !== undefined ? { exists_probability: existsProbability } : {}),
+      ...(validation !== undefined ? { validation } : {}),
       // Set-vs-defaulted markers — see domain/edgeValueProvenance.ts. Omitted
       // when the patch carried no value, so an operation that supplies neither
       // leaves the edge honestly marked as unset rather than claiming a
