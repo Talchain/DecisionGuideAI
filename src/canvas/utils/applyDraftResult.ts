@@ -175,7 +175,7 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
  */
 export function applyDraftResult(
   draftData: CEEDraftResponse | CEEv2Response | CEEv3Response,
-  opts: { skipHistory?: boolean } = {},
+  opts: { skipHistory?: boolean; skipAutosave?: boolean } = {},
 ): { nodeCount: number; edgeCount: number } {
   const rawNodes = draftData?.nodes ?? (draftData as any)?.graph?.nodes ?? []
   const rawEdges = draftData?.edges ?? (draftData as any)?.graph?.edges ?? []
@@ -232,8 +232,17 @@ export function applyDraftResult(
   // or after a 500 ms safety fallback.
   store.setPendingLayout(true)
 
-  // Immediate autosave for crash resilience
-  try {
+  // Immediate autosave for crash resilience.
+  //
+  // ⚠ SKIPPED for a streamed GRAPH_READY preview (ROADMAP 2.122 round 2, review
+  // F1). The autosave is localStorage and survives a reload, while
+  // `draftStreamPhase` is in-memory and does not — so a guest who closed the tab
+  // during the ~25 s settling window came back to the unsettled graph with NO
+  // marker and an OPEN run gate: the same dishonest state as the abort hole, with
+  // no Stop click needed. The terminal apply autosaves normally, so nothing is
+  // lost once the values settle; before then there is deliberately nothing on
+  // disk to restore, which is the honest state.
+  if (!opts.skipAutosave) try {
     // Shared projection — previously this literal omitted ceeAnalysisReady and
     // selectedGoalNode. NOTE: this runs BEFORE setCeeAnalysisReady below, so
     // the value persisted here is the pre-draft one; the 30s timer corrects it.

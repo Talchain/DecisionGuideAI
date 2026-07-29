@@ -50,13 +50,18 @@
 import { describe, it, expect } from 'vitest'
 
 import { NARRATION_STAGES } from '../AnalysisRunningBanner'
+import * as narration from '../DraftLoadingAnimation'
 import {
   NARRATION_TABLES,
   PROGRESSIVE_STAGES,
   SETTLING_STAGES,
   UNSETTLED_DRAFT_NOTICE,
+  STOPPED_DRAFT_NOTICE,
 } from '../DraftLoadingAnimation'
-import { DRAFT_VALUES_SETTLING_REFUSAL } from '../../utils/canRunAnalysis'
+import {
+  DRAFT_VALUES_SETTLING_REFUSAL,
+  DRAFT_VALUES_UNSETTLED_REFUSAL,
+} from '../../utils/canRunAnalysis'
 
 interface Stage {
   readonly afterSeconds: number
@@ -276,7 +281,9 @@ function frameLicenceViolations(message: string): string[] {
 const FRAME_LICENSED_STRINGS: ReadonlyArray<readonly [string, string]> = [
   ...SETTLING_STAGES.map((s) => [`SETTLING_STAGES@${s.afterSeconds}s`, s.message] as const),
   ['UNSETTLED_DRAFT_NOTICE', UNSETTLED_DRAFT_NOTICE],
+  ['STOPPED_DRAFT_NOTICE', STOPPED_DRAFT_NOTICE],
   ['DRAFT_VALUES_SETTLING_REFUSAL', DRAFT_VALUES_SETTLING_REFUSAL],
+  ['DRAFT_VALUES_UNSETTLED_REFUSAL', DRAFT_VALUES_UNSETTLED_REFUSAL],
 ]
 
 describe('frame-licensed narration — may say the graph exists, may not judge it', () => {
@@ -337,5 +344,56 @@ describe('the derived table registry cannot silently miss a surface (trap 12)', 
     ])
     expect(NARRATION_TABLES['DraftLoadingAnimation.PROGRESSIVE_STAGES']).toBe(PROGRESSIVE_STAGES)
     expect(NARRATION_TABLES['DraftLoadingAnimation.SETTLING_STAGES']).toBe(SETTLING_STAGES)
+  })
+})
+
+describe('every notice this module exports is governed (trap 12, round 2)', () => {
+  /**
+   * `FRAME_LICENSED_STRINGS` is hand-listed, which is the shape that let a table
+   * escape the guard once already. Round 2 added TWO more notices
+   * (`STOPPED_DRAFT_NOTICE` for the abort path, and a second refusal string), so
+   * this DERIVES the completeness check: every `*_NOTICE` export of the narration
+   * module must be under the frame-licence rules.
+   *
+   * Scoped to that module on purpose. The gate module also exports
+   * `CEE_DRAFT_FIRST_REFUSAL`, which is CEE's own words quoted verbatim and
+   * predates this lane — holding someone else's copy to this lane's licence model
+   * would be the wrong claim, so the two refusals this lane owns are listed
+   * explicitly above and asserted here by name.
+   */
+  it('covers every *_NOTICE the narration module exports', () => {
+    const exportedNotices = Object.keys(narration).filter((k) => k.endsWith('_NOTICE'))
+    // Trap 13: if this finds nothing the loop below is vacuous.
+    expect(exportedNotices.length).toBeGreaterThan(0)
+    const governed = FRAME_LICENSED_STRINGS.map(([label]) => label)
+    for (const name of exportedNotices) {
+      expect(governed).toContain(name)
+    }
+    // And the manifest is named, so a reviewer sees what was actually covered.
+    expect(exportedNotices.sort()).toEqual(['STOPPED_DRAFT_NOTICE', 'UNSETTLED_DRAFT_NOTICE'])
+  })
+
+  it('covers both refusal strings this lane owns', () => {
+    const governed = FRAME_LICENSED_STRINGS.map(([label]) => label)
+    expect(governed).toContain('DRAFT_VALUES_SETTLING_REFUSAL')
+    expect(governed).toContain('DRAFT_VALUES_UNSETTLED_REFUSAL')
+  })
+
+  it('the two notices differ — one cause cannot describe both truthfully', () => {
+    // A dead connection and a user pressing Stop are different facts. One
+    // sentence asserting "the connection dropped" would be false for the Stop and
+    // timeout paths (review F1).
+    expect(UNSETTLED_DRAFT_NOTICE).not.toBe(STOPPED_DRAFT_NOTICE)
+    expect(UNSETTLED_DRAFT_NOTICE).toMatch(/connection dropped/i)
+    expect(STOPPED_DRAFT_NOTICE).not.toMatch(/connection dropped/i)
+  })
+
+  it('neither notice promises an action the handler cannot perform (F3)', () => {
+    // Both used to say "Draft again", wired to `retryLast`, which CEE declines on
+    // a committed scenario. The copy now names the action that works.
+    for (const notice of [UNSETTLED_DRAFT_NOTICE, STOPPED_DRAFT_NOTICE]) {
+      expect(notice).toMatch(/start a new draft/i)
+      expect(notice).not.toMatch(/draft again/i)
+    }
   })
 })

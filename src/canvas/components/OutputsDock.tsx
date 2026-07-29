@@ -101,7 +101,7 @@ import type { TornadoRow } from '../../components/results/TornadoChart'
 import { useCanvasResultsSync } from '../../components/results/useCanvasResultsSync'
 import { ResultsBody } from '../../components/results/ResultsBody'
 import { useGuidanceStore } from '../stores/guidanceStore'
-import { useDraftStore } from '../stores/draftStore'
+import { useDraftStore, draftStreamPhaseFor } from '../stores/draftStore'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
 import { getStrengthCorrections } from '../../adapters/plot/v2/adapter'
 // P0.6: User-friendly error messages
@@ -852,7 +852,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // expression re-derived at every call site. (A mutant that dropped one clause
   // from an earlier version of that expression, right here, survived the
   // battery — nothing tested this component's copy of the rule.)
-  const draftStreamPhase = useDraftStore((s) => s.draftStreamPhase)
+  // Review F2: scoped to the OPEN scenario — an unsettled draft on another
+  // scenario must not reach this gate at all. `draftStreamPhaseFor` owns that
+  // decision; re-deriving it here is what M15/M16 punished.
+  const draftStreamPhase = useDraftStore((s) => draftStreamPhaseFor(s, overviewScenarioId))
 
   const runGateResult = canRunAnalysisUtil({
     graphHealth: graphHealth ?? null,

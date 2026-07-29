@@ -10,9 +10,10 @@
 
 import { useRef, useState, useEffect, useCallback, useMemo, memo } from 'react'
 import { useCanvasStore, selectResultsStatus } from '../store'
-import { useDraftStore } from '../stores/draftStore'
+import { useDraftStore, draftStreamPhaseFor } from '../stores/draftStore'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import type { ActionChip, GraphPatchBlock } from './types'
+import { START_NEW_DRAFT_CHIP_ID } from './useConversation'
 import type { UseConversationReturn } from './useConversation'
 import { applyAutoApplyPatch, applyValidatedGraph } from './utils/applyPatch'
 import { buildAnalysisReadyPatch, applyAnalysisReadyPatch } from './utils/mirrorAnalysisReady'
@@ -108,7 +109,7 @@ export const ConversationPanel = memo(function ConversationPanel({
 }: ConversationPanelProps) {
   const {
     messages, isThinking, longRunningHint,
-    sendMessage, sendSystemEvent, sendChip, dispatchAction, retryLast,
+    sendMessage, sendSystemEvent, sendChip, dispatchAction, retryLast, startNewDraft,
     patchBlockStates, setPatchBlockState,
     patchRejections, setPatchRejection,
   } = conversation
@@ -134,6 +135,10 @@ export const ConversationPanel = memo(function ConversationPanel({
   const handleChipClick = useCallback(
     async (chip: ActionChip): Promise<void> => {
       if (chip.id === 'retry') { retryLast(); return }
+      // ROADMAP 2.122 round 2 (review F3): the unsettled-draft recovery chip.
+      // Routed to a handler that CAN deliver what its label says — `retryLast`
+      // provably cannot, because CEE declines to re-draft a committed scenario.
+      if (chip.id === START_NEW_DRAFT_CHIP_ID) { await startNewDraft(); return }
       await sendChip(chip)
 
       // Track 2: mark suggested action as taken
@@ -145,7 +150,7 @@ export const ConversationPanel = memo(function ConversationPanel({
         onChipTaken(lastAssistant.id, chip.id)
       }
     },
-    [sendChip, retryLast, messages, onChipTaken],
+    [sendChip, retryLast, startNewDraft, messages, onChipTaken],
   )
 
   // ── Artefact action handler ─────────────────────────────────────────
@@ -467,7 +472,10 @@ export const ConversationPanel = memo(function ConversationPanel({
   // landed. Missing it here would have re-created, on a second surface, exactly
   // the panel-vs-engine contradiction the comment above records #343 fixing.
   // Found by a surviving mutant, not by me.
-  const draftStreamPhase = useDraftStore((s) => s.draftStreamPhase)
+  // Review F2: scoped to the OPEN scenario. An unsettled draft on scenario A used
+  // to block Run on every other scenario with a false reason. `draftStreamPhaseFor`
+  // is the one place that decides ownership — never re-derived at a call site.
+  const draftStreamPhase = useDraftStore((s) => draftStreamPhaseFor(s, scenarioId))
   const runGateResult = useMemo(() => canRunAnalysisUtil({
     graphHealth: graphHealth ?? null,
     readiness,

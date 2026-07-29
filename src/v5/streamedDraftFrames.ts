@@ -31,6 +31,24 @@
  * behaviour may depend on it** — which is exactly why the elapsed-time
  * narration table in `DraftLoadingAnimation` still has to exist.
  *
+ * ── ⚠ A LATENT LIMIT, RECORDED SO IT IS NOT A MYSTERY LATER (review F8) ──
+ * `streamStageFrames` hands each chunk's COMPLETE LINES to the stateless
+ * `parseSSELines`, and a batch ending at a newline always synthesises an event
+ * boundary (the trailing `''` from `split('\n')`). So a MULTI-LINE `data:` event
+ * split across a TCP chunk boundary would be dispatched in halves and rejected as
+ * `malformed_frame` — abandoning a healthy stream and costing one buffered turn
+ * (never a dead end, but a pointless ~55 s).
+ *
+ * **Unreachable today, by construction of the producer:** every frame is a single
+ * `JSON.stringify` line, and the live capture confirms it (the 10,471-byte
+ * GRAPH_READY frame arrived as eight sub-frame TCP segments and reassembled
+ * correctly, because the split was mid-LINE, not between lines — which the
+ * last-newline buffering handles and a test pins).
+ *
+ * If CEE ever pretty-prints a frame or emits multi-line `data:`, THIS is the
+ * cause of the sudden fallback storm. The fix would be to carry the partial-event
+ * state across chunks rather than re-entering a stateless parser per chunk.
+ *
  * ── WHAT IS DELIBERATELY *NOT* IMPLEMENTED ───────────────────────────────
  * #745's consumer rules include "discard the GRAPH_READY graph if COMPLETE
  * carries `salvaged_from_truncation: true`". #751 then established at the

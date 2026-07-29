@@ -36,7 +36,7 @@
  * Combines validation state, readiness checks, and blocker detection.
  */
 
-import type { DraftStreamPhase } from '../stores/draftStore'
+import { draftValuesAreUnsettled, type DraftStreamPhase } from '../stores/draftStore'
 import type { GraphReadiness } from '../hooks/useGraphReadiness'
 import { isV5CanonicalRunPath } from '../../v5/eligibility'
 import {
@@ -64,6 +64,24 @@ export const CEE_DRAFT_FIRST_REFUSAL = 'Draft or save a model first, then run an
  */
 export const DRAFT_VALUES_SETTLING_REFUSAL =
   'Your model is still being drafted — its values are still settling. Run analysis once drafting finishes.'
+
+/**
+ * ROADMAP 2.122 round 2 (adversarial review F5) — the refusal for the TERMINAL
+ * `unsettled` state, which is a different fact and needs a different sentence.
+ *
+ * Both phases used to share `DRAFT_VALUES_SETTLING_REFUSAL`, and in `unsettled`
+ * its closing clause — *"Run analysis once drafting finishes"* — **forecasts a
+ * finish that will never come**: the phase's own docstring says the values will
+ * not settle in this session. It also contradicted the transcript notice sitting
+ * directly beside it. One string, two phases, one of them false — the same
+ * honesty bar this lane applied to its own narration lines, failed in a different
+ * file.
+ *
+ * This one states the terminal fact and points at the affordance that actually
+ * works (see F3: a fresh draft, not a retry of a turn CEE will decline).
+ */
+export const DRAFT_VALUES_UNSETTLED_REFUSAL =
+  'Drafting ended before this model\u2019s values arrived, so they are not final. Start a new draft to analyse it.'
 
 /**
  * Provenance stamps that mark a graph as INJECTED CLIENT-SIDE rather than
@@ -227,11 +245,22 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
   // GRAPH_READY preview is also not yet in CEE's scenario state, so both rungs
   // apply, and this one names the actual situation instead of telling the user
   // to "draft a model first" while a model is visibly being drafted.
-  if (draftStreamPhase === 'settling' || draftStreamPhase === 'unsettled') {
+  // The two in-progress phases block for the same reason and say DIFFERENT things
+  // about it, because one is still in flight and one has terminally ended (F5).
+  // `draftValuesAreUnsettled` is the single classifier — a new phase must be
+  // classified there rather than defaulting to "settled".
+  if (draftValuesAreUnsettled(draftStreamPhase)) {
     return {
       allowed: false,
-      reason: DRAFT_VALUES_SETTLING_REFUSAL,
-      blockingReasons: ['Streamed draft has not finished — values are still settling'],
+      reason:
+        draftStreamPhase === 'unsettled'
+          ? DRAFT_VALUES_UNSETTLED_REFUSAL
+          : DRAFT_VALUES_SETTLING_REFUSAL,
+      blockingReasons: [
+        draftStreamPhase === 'unsettled'
+          ? 'Streamed draft ended without its final values'
+          : 'Streamed draft has not finished — values are still settling',
+      ],
     }
   }
 

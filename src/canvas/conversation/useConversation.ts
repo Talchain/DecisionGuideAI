@@ -9,7 +9,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useCanvasStore } from '../store'
 import { setCurrentScenarioId } from '../store/scenarios'
-import { useDraftStore } from '../stores/draftStore'
+import { useDraftStore, streamedPreviewStandingFor } from '../stores/draftStore'
 import { generateGraphHash } from '../utils/graphHash'
 import { callOrchestratorTurn, streamOrchestratorTurn, OrchestratorError } from './turnService'
 import {
@@ -107,7 +107,7 @@ import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPa
 import { applyAnalysisReadyPatch } from './utils/mirrorAnalysisReady'
 import { loadScenario as loadScenarioFromDb, storeAnalysis } from '../../services/scenarioService'
 import { applyDraftResult, backfillGoalThresholdOntoGoalNode } from '../utils/applyDraftResult'
-import { UNSETTLED_DRAFT_NOTICE } from '../components/DraftLoadingAnimation'
+import { UNSETTLED_DRAFT_NOTICE, STOPPED_DRAFT_NOTICE } from '../components/DraftLoadingAnimation'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
 import { getSessionIdentity } from '../../lib/supabase'
 import { trackEvent } from '../../lib/posthog'
@@ -330,6 +330,24 @@ export function inferLoadingHint(message: string, _nodeCount: number, turnType?:
 // ROADMAP 2.122 / 1.204 M1 \u2014 the streamed cold draft
 // ---------------------------------------------------------------------------
 
+/**
+ * The recovery chip on the two unsettled-draft notices (adversarial review F3).
+ *
+ * Deliberately NOT `retry`. `retryLast` re-sends the same message onto the SAME
+ * scenario, whose canvas is now non-empty — so it is a buffered turn, and CEE's
+ * continuation guard (live-proven to key on the scenario's committed state)
+ * DECLINES to re-draft it: prose, no `draft_graph`. Each click removed the
+ * notice, re-sent, received "already drafted with four options…" and left the gate
+ * shut. The Supabase re-fetch branch cannot rescue it either — it additionally
+ * requires `stage:analyse` in the applied set, which a decline's prose does not
+ * produce, so signed-in users were no better off than guests.
+ *
+ * Once a scenario has a committed turn, the ONLY thing that can produce settled
+ * numbers is a draft on a FRESH scenario. That is what `startNewDraft` does, and
+ * it is what the copy now promises.
+ */
+export const START_NEW_DRAFT_CHIP_ID = 'start_new_draft'
+
 export interface StreamedDraftEligibility {
   turnType: TurnType
   derivedStage: string
@@ -376,6 +394,22 @@ export function streamedDraftEligible(p: StreamedDraftEligibility): boolean {
 
 /** Thrown inside `onGraphReady` when the user has switched scenario mid-draft. */
 class PreviewNotApplicableError extends Error {}
+
+/**
+ * Thrown when a streamed draft is ABORTED (Stop button, 130 s client timeout, or
+ * a preempting turn) after GRAPH_READY had already put a preview on the canvas
+ * — adversarial review F1.
+ *
+ * `name` is deliberately `'AbortError'` so every existing abort handler in
+ * `sendTurn` keeps treating it as the abort it is (silent, no transport-failure
+ * bubble, no `deliveryState: 'failed'` on a message that genuinely reached the
+ * server). The marker property is what lets the catch add the ONE thing the abort
+ * path was missing: an honest notice about the graph now sitting on the canvas.
+ */
+class StreamedDraftAbortedWithPreviewError extends Error {
+  readonly name = 'AbortError'
+  readonly abortedWithPreview = true
+}
 
 /** Does a parsed turn result carry a draft graph with anything in it? */
 function resultCarriesDraftGraph(result: V5CallResult): boolean {
@@ -474,7 +508,7 @@ async function runStreamedDraftTurn(args: {
   signal: AbortSignal
 }): Promise<StreamedDraftTurnResult> {
   const { payload, turnClientId, scenarioIdAtDispatch, headers, signal } = args
-  useDraftStore.getState().setDraftStreamPhase('drafting', turnClientId)
+  useDraftStore.getState().setDraftStreamPhase('drafting', turnClientId, scenarioIdAtDispatch)
 
   // ⚠ THERE IS DELIBERATELY NO LOCAL `previewRendered` FLAG.
   //
@@ -498,18 +532,20 @@ async function runStreamedDraftTurn(args: {
     if (drafted) {
       // Outcome 1. The buffered body carries the whole graph, so the terminal
       // ingest replaces whatever the preview put up.
-      useDraftStore.getState().setDraftStreamPhase('idle', null)
+      useDraftStore.getState().setDraftStreamPhase('idle', null, null)
       return { result, previewOwnsCanvas: previewOnCanvas, unsettled: false }
     }
     if (previewOnCanvas) {
       // Outcome 2 — the honest failure. Phase stays non-idle so the run gate
       // stays shut; `previewOwnsCanvas` is false because there is no graph in
       // this response to apply over the preview.
-      useDraftStore.getState().setDraftStreamPhase('unsettled', turnClientId)
+      useDraftStore
+        .getState()
+        .setDraftStreamPhase('unsettled', turnClientId, scenarioIdAtDispatch)
       return { result, previewOwnsCanvas: false, unsettled: true }
     }
     // Outcome 3.
-    useDraftStore.getState().setDraftStreamPhase('idle', null)
+    useDraftStore.getState().setDraftStreamPhase('idle', null, null)
     return { result, previewOwnsCanvas: false, unsettled: false }
   }
 
@@ -519,7 +555,7 @@ async function runStreamedDraftTurn(args: {
   } catch (e) {
     // The stream never opened, so nothing ran server-side and nothing committed.
     if ((e as Error)?.name === 'AbortError' || signal.aborted) {
-      useDraftStore.getState().setDraftStreamPhase('idle', null)
+      useDraftStore.getState().setDraftStreamPhase('idle', null, null)
       throw e
     }
     // Nothing streamed, so no preview can exist.
@@ -540,14 +576,60 @@ async function runStreamedDraftTurn(args: {
       // `hasAnalysisReady` gate skips every analysis side-effect: no readiness,
       // no freshness verdict, no coaching, no quality, no interventions. The
       // honesty constraint holds by construction of a gate that already existed.
-      applyDraftResult({ nodes: graph.nodes ?? [], edges: graph.edges ?? [] } as never)
-      useDraftStore.getState().setDraftStreamPhase('settling', turnClientId)
+      // `skipAutosave` (review F1): the preview must not reach localStorage. The
+      // phase that marks it unsettled is in-memory and does not survive a reload,
+      // so a persisted preview would come back unmarked with an open gate.
+      applyDraftResult({ nodes: graph.nodes ?? [], edges: graph.edges ?? [] } as never, {
+        skipAutosave: true,
+      })
+      useDraftStore
+        .getState()
+        .setDraftStreamPhase('settling', turnClientId, scenarioIdAtDispatch)
     },
   })
 
   if (outcome.kind === 'abandoned') {
     if (outcome.reason === 'aborted' || signal.aborted) {
-      useDraftStore.getState().setDraftStreamPhase('idle', null)
+      // ═══ ADVERSARIAL REVIEW F1 — the abort hole ═══════════════════════════
+      //
+      // This branch used to set the phase to `idle` and rethrow, and the outer
+      // catch is silent for aborts by design. So a Stop click after GRAPH_READY
+      // left every preview node on the canvas with the run gate OPEN, the phase
+      // `idle` and no notice — an unsettled draft presented as a finished model,
+      // one click from the exact fabrication M4/M7 exist to prevent, on an
+      // affordance rendered for the whole settling window.
+      //
+      // The fix is `unsettled`, and the two alternatives were both rejected on
+      // evidence rather than taste (full reasoning in the evidence file):
+      //
+      //   · re-using the DIED-STREAM FALLBACK is wrong for the dominant abort
+      //     causes. Stop is a user instruction not to continue and preempt means
+      //     a newer turn owns the canvas — issuing a fresh ~55 s buffered request
+      //     in either case contradicts the user's own action or races the newer
+      //     turn. It would also require minting a new AbortController to defeat
+      //     the very abort that was requested.
+      //   · DISCARDING the preview can destroy a committed model. Per #751 the
+      //     server turn runs to completion and commits at ~61 s, so on the 130 s
+      //     timeout path a discard's echo save would write an EMPTY graph AFTER
+      //     that commit — trading a fabrication for data loss. It also asserts
+      //     something false to the user ("you have no model") about a graph CEE
+      //     genuinely validated.
+      //
+      // `unsettled` says exactly what happened: the structure is real, its
+      // numbers are the frame's in-progress ones, they will not settle in this
+      // session, and the gate is shut until a new draft. The stranded-row half of
+      // the review's finding is answered separately and more strongly, at
+      // `shouldPersistGraphForScenario` — the UI never writes an unsettled graph
+      // to either store, so there is no row to strand.
+      if (outcome.renderedGraph !== null) {
+        useDraftStore
+          .getState()
+          .setDraftStreamPhase('unsettled', turnClientId, scenarioIdAtDispatch)
+        throw new StreamedDraftAbortedWithPreviewError('streamed draft aborted after GRAPH_READY')
+      }
+      // Nothing was rendered, so there is nothing to mark and nothing to say.
+      // Inventing a marker here would be its own fabrication.
+      useDraftStore.getState().setDraftStreamPhase('idle', null, null)
       const abort = new Error('streamed draft aborted')
       abort.name = 'AbortError'
       throw abort
@@ -576,7 +658,27 @@ async function runStreamedDraftTurn(args: {
   const result = await parseV5Response(
     streamTransport.terminalPayloadToResponse(outcome.terminalPayload, outcome.statusCode),
   )
-  useDraftStore.getState().setDraftStreamPhase('idle', null)
+
+  // ═══ ADVERSARIAL REVIEW F4 ══════════════════════════════════════════════
+  // A 200 terminal frame that carries NO extractable `draft_graph` while a
+  // preview is standing is the FAILURE path, not a success. `discardPreview`
+  // only fires on `status_code >= 400`, so this used to leave a phantom preview
+  // on the canvas with the gate OPEN, the phase `idle` and no notice.
+  //
+  // It is not a malice-only shape: it is the client shadow of the ROWED server
+  // salvage gap — a truncation-salvaged turn is precisely a 200 whose graph may
+  // be absent or reduced. Node-level divergence was already handled well
+  // (wholesale replace); graph-ABSENT divergence was the unhandled rung.
+  //
+  // Treated as `unsettled` rather than discarded, for the same reason as F1: the
+  // rendered structure came from a validated GRAPH_READY frame and is real, so
+  // deleting it asserts something false while marking it states the truth.
+  if (previewOwnsCanvas && !resultCarriesDraftGraph(result)) {
+    useDraftStore.getState().setDraftStreamPhase('unsettled', turnClientId, scenarioIdAtDispatch)
+    return { result, previewOwnsCanvas: false, unsettled: true }
+  }
+
+  useDraftStore.getState().setDraftStreamPhase('idle', null, null)
   return { result, previewOwnsCanvas, unsettled: false }
 }
 
@@ -2070,6 +2172,11 @@ export interface UseConversationReturn {
    * accept, reject, or mutate any patch state.
    */
   cancelTurn: () => void
+  /**
+   * Start a fresh draft on a fresh scenario — the recovery affordance for an
+   * unsettled streamed draft (review F3). See `START_NEW_DRAFT_CHIP_ID`.
+   */
+  startNewDraft: () => Promise<void>
   /** GraphPatchBlock state map (keyed by `${turnId}:${patchId}`) */
   patchBlockStates: Map<string, PatchBlockState>
   setPatchBlockState: (key: string, state: PatchBlockState) => void
@@ -3913,7 +4020,20 @@ export function useConversation(): UseConversationReturn {
           setIsThinking(false)
           useDraftStore.getState().setIsGenerating(false)
           setLongRunningHint(null)
-          if (mode === 'user' && !hidden) {
+          // ROADMAP 2.122 round 2 (review F1, adjacent) — a streamed draft that
+          // already put a graph on the canvas must NOT be told "your message has
+          // not gone through". It did go through: the server produced and
+          // validated a graph, and per #751 the turn continues and commits. The
+          // generic timeout copy, the `deliveryState: 'failed'` marker and the
+          // timeout send-failure would all be false here, and would contradict
+          // the honest notice the abort path is about to add. Derived from the
+          // store, so it cannot disagree with the phase machine.
+          const streamedPreviewStanding = streamedPreviewStandingFor(
+            useDraftStore.getState(),
+            turnClientId,
+            currentScenarioId,
+          )
+          if (mode === 'user' && !hidden && !streamedPreviewStanding) {
             // Transcript honesty: we stopped waiting — the turn produced no
             // response, so the bubble must not read as delivered.
             if (userBubbleIdForTurn) {
@@ -4489,16 +4609,6 @@ export function useConversation(): UseConversationReturn {
             // dropped before the values arrived, drafting again gets them. No
             // duration forecast, no verdict — held to the same bar as the wait
             // narration and pinned by `narrationHonesty.invariant.spec.ts`.
-            if (streamedUnsettled) {
-              addMessage({
-                id: crypto.randomUUID(),
-                role: 'assistant',
-                synthetic: true,
-                content: UNSETTLED_DRAFT_NOTICE,
-                actionChips: [{ id: 'retry', label: 'Draft again', intent: 'primary' }],
-                timestamp: new Date(),
-              })
-            }
           } else if (target.kind === 'empty') {
             // Blank-response guard: no text, no blocks, no chips from CEE.
             addMessage({
@@ -4611,9 +4721,65 @@ export function useConversation(): UseConversationReturn {
               )
             }
           }
+
+          // ═══ ROADMAP 2.122 round 2 — the unsettled-draft notice ═══════════
+          //
+          // Emitted for EVERY response class, deliberately outside the
+          // `target.kind` chain. It was inside the text_only/blocks branch, and
+          // review F4 exposed why that is wrong: a terminal frame that fails
+          // strict validation routes to `typed_error`, so the canvas kept a
+          // standing preview and a shut gate with NOTHING said — the same
+          // silently-blocked Run button F1 is about. The notice is a statement
+          // about the CANVAS, not about the response's shape, so it belongs where
+          // every branch reaches it.
+          //
+          // Says only what is known: the structure is visible, drafting ended
+          // before its values arrived, a new draft gets the finished model. No
+          // duration forecast, no verdict — held to the same bar as the wait
+          // narration and pinned by `narrationHonesty.invariant.spec.ts`.
+          if (streamedUnsettled && mode === 'user' && !hidden) {
+            addMessage({
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              synthetic: true,
+              content: UNSETTLED_DRAFT_NOTICE,
+              // F3: NOT `retry`. `retryLast` re-sends onto the SAME scenario,
+              // whose canvas is now non-empty, so it is a buffered turn CEE's
+              // continuation guard DECLINES — the old chip could not deliver the
+              // numbers its own copy promised, on any auth tier.
+              actionChips: [
+                { id: START_NEW_DRAFT_CHIP_ID, label: 'Start a new draft', intent: 'primary' },
+              ],
+              timestamp: new Date(),
+            })
+          }
         } catch (err) {
           clearLifecycleTimers()
           const isAbort = (err as Error).name === 'AbortError'
+
+          // ═══ ADVERSARIAL REVIEW F1 ════════════════════════════════════════
+          // An abort that left a GRAPH_READY preview standing is the ONE abort
+          // that must not be silent: the canvas now holds real structure whose
+          // numbers are not final, and without a word the user reads it as a
+          // finished model beside a Run button. `runStreamedDraftTurn` has already
+          // moved the phase to `unsettled` (so the gate is shut); this adds the
+          // sentence, and the affordance that can actually deliver on it (F3 —
+          // `retryLast` provably cannot, because CEE's continuation guard declines
+          // to re-draft a committed scenario).
+          if (
+            (err as { abortedWithPreview?: boolean })?.abortedWithPreview &&
+            mode === 'user' &&
+            !hidden
+          ) {
+            addMessage({
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              synthetic: true,
+              content: STOPPED_DRAFT_NOTICE,
+              actionChips: [{ id: START_NEW_DRAFT_CHIP_ID, label: 'Start a new draft', intent: 'primary' }],
+              timestamp: new Date(),
+            })
+          }
           // Timeout-triggered aborts render their own bubble (above). User
           // stops and concurrent cancellations are silent by design.
           if (!isAbort && mode === 'user' && !hidden) {
@@ -4668,7 +4834,7 @@ export function useConversation(): UseConversationReturn {
               draftState.draftStreamTurnId === turnClientId &&
               draftState.draftStreamPhase !== 'unsettled'
             ) {
-              draftState.setDraftStreamPhase('idle', null)
+              draftState.setDraftStreamPhase('idle', null, null)
             }
           }
           releaseInFlightLockIfOwned()
@@ -5529,6 +5695,47 @@ export function useConversation(): UseConversationReturn {
     }
   }, [sendTurn])
 
+  /**
+   * ROADMAP 2.122 round 2 (adversarial review F3) — start a genuinely FRESH
+   * draft, on a fresh scenario.
+   *
+   * The recovery affordance on an unsettled draft. `retryLast` cannot serve this
+   * role: the old scenario has a committed turn, so CEE's continuation guard
+   * declines to re-draft it no matter how many times it is asked. `resetCanvas`
+   * clears the graph AND `currentScenarioId` (`store.ts` →
+   * `scenarios.clearCurrentScenarioId()`), so `sendTurn` mints a fresh UUID and
+   * CEE sees a scenario with no prior turns — the one condition under which it
+   * will draft.
+   *
+   * The phase is released explicitly rather than left to the new turn: the new
+   * scenario must not inherit the old one's `unsettled` gate even for the moment
+   * before its own `drafting` write lands.
+   */
+  const startNewDraft = useCallback(async () => {
+    const last = lastUserInputRef.current
+    if (!last.message) return
+    recordUserAction({
+      actionType: 'clicked chip',
+      payloadSummary: { raw_message: last.message, chip_id: START_NEW_DRAFT_CHIP_ID },
+    })
+    // Drop the notice bubble the chip came from (same rule as retryLast).
+    setMessages((prev) => {
+      const tail = prev[prev.length - 1]
+      const next = tail?.synthetic ? prev.slice(0, -1) : prev
+      messagesRef.current = next
+      return next
+    })
+    useCanvasStore.getState().resetCanvas()
+    useDraftStore.getState().setDraftStreamPhase('idle', null, null)
+    await sendTurn({
+      message: last.message,
+      mode: 'user',
+      skipUserBubble: true,
+      turnType: 'explicit_generate',
+      source: 'retry',
+    })
+  }, [sendTurn])
+
   const clearHistory = useCallback(() => {
     messagesRef.current = []
     sessionStateRef.current = null
@@ -5616,6 +5823,7 @@ export function useConversation(): UseConversationReturn {
     clearHistory,
     retryLast,
     cancelTurn,
+    startNewDraft,
     patchBlockStates,
     setPatchBlockState,
     patchRejections,

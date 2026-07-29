@@ -101,6 +101,8 @@ function makeMockConversation(
     lastSendFailure: null,
     dispatchAction: vi.fn().mockResolvedValue(undefined),
     cancelTurn: vi.fn(),
+    // ROADMAP 2.122 round 2 (review F3): the unsettled-draft recovery handler.
+    startNewDraft: vi.fn(async () => {}),
     sendMessage: vi.fn().mockResolvedValue(undefined),
     // `vi.fn()` is `Mock<any[], unknown>`, which does not structurally satisfy
     // the typed `sendSystemEvent` signature (and drifted again when its `opts`

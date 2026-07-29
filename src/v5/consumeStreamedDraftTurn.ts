@@ -24,9 +24,18 @@
  *     `hasAnalysisReady(...)`, which a GRAPH_READY frame cannot satisfy, so the
  *     honesty constraint holds by construction of the pre-existing gate.
  *  3. **Terminal frame wins, always.** Identity drift between the preview and
- *     the terminal payload is REPORTED, and the caller is told to replace
- *     rather than merge — so "the renderer never shows a node the terminal
- *     payload lacks" is guaranteed by a wholesale replacement, not by a diff.
+ *     the terminal payload is REPORTED (with the exact offending ids), and the
+ *     caller replaces wholesale rather than merging — so "the renderer never
+ *     shows a node the terminal payload lacks" is guaranteed by the replacement,
+ *     not by a diff that could miss a case.
+ *
+ *     ⚠ This used to ALSO return a `replaceRenderedGraph: boolean`, and the
+ *     adversarial review found it had **zero consumers** (repo-wide grep): the
+ *     replacement actually happens through `useConversation`'s
+ *     `canvasIsEmpty || streamedPreviewOwnsCanvas` route. An outcome field that
+ *     reads as a guarantee and drives nothing is the guarantee-theatre class in
+ *     miniature — inside a lane whose whole subject is that class. Deleted rather
+ *     than wired, because the route that does the work is already pinned.
  *  4. **A failure is never a dead end.** Any abandonment returns the reason
  *     AND whether a graph is already on screen, because the fallback branch
  *     the caller must take depends on that. See `useConversation`'s
@@ -70,8 +79,6 @@ export type StreamedDraftOutcome =
       discardPreview: boolean
       /** Non-null when the preview and the terminal graph disagree on identity. */
       identityDrift: IdentityDrift | null
-      /** True when the caller must REPLACE the rendered graph wholesale. */
-      replaceRenderedGraph: boolean
     }
   | {
       kind: 'abandoned'
@@ -214,11 +221,6 @@ export async function consumeStreamedDraftTurn(
             renderedGraph,
             discardPreview,
             identityDrift,
-            // Always true when a preview exists: the terminal frame is
-            // authoritative, and a wholesale replace is what makes "never shows
-            // a node the terminal payload lacks" true by construction rather
-            // than by a diff that could miss a case.
-            replaceRenderedGraph: renderedGraph !== null,
           }
         }
 

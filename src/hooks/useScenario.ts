@@ -26,6 +26,7 @@ import type { Edge } from '@xyflow/react'
 import { DEFAULT_EDGE_DATA, type EdgeData } from '../canvas/domain/edges'
 import { readPersistedGoalConstraints } from '../canvas/utils/persistedGraph'
 import { isPersistenceActive as computeIsPersistenceActive } from '../lib/persistenceActive'
+import { shouldPersistGraphForScenario } from '../canvas/stores/draftStore'
 
 export type SaveStatus = 'saved' | 'saving' | 'error'
 
@@ -151,6 +152,27 @@ function trackInFlightGraphSave(p: Promise<void>): void {
  * store clean on success. Rejects (propagates) on failure — callers decide.
  */
 async function persistGraphNow(sid: string): Promise<void> {
+  // ROADMAP 2.122 round 2 (adversarial review F1) — never persist a graph whose
+  // values the UI KNOWS are in progress.
+  //
+  // A streamed draft renders its structure at ~36 s from a frame stamped
+  // `status: in_progress`, ~25 s before the settled values arrive. Writing that
+  // graph here creates an unsettled row in `scenarios.graph`; and if drafting then
+  // ends without a terminal ingest (Stop, the 130 s timeout, a dead stream), the
+  // row is never replaced and the next canvas edit's debounced echo save — which
+  // re-reads the store at fire time — writes it back OVER CEE's own settled
+  // commit. The review proved that path executable and voided the "bounded to
+  // ~24 s" claim it was rowed under.
+  //
+  // Suppressing at THIS function is deliberate: its own header declares it the ONE
+  // write code path, shared by the debounced autosave, its retry and the flush
+  // barrier. One derived choke point, no list of call sites to keep in step.
+  //
+  // Resolves rather than rejects, so the flush barrier treats it as a no-op: a run
+  // cannot need this flush, because the run gate is shut for exactly these phases.
+  // The store stays dirty, so the debounce re-fires and the settled graph is
+  // written the moment the phase clears.
+  if (!shouldPersistGraphForScenario(sid)) return
   const state = useCanvasStore.getState()
   const key = graphSaveKey(state)
   await scenarioService.saveGraphViaGatedPath(

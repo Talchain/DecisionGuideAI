@@ -154,6 +154,8 @@ function makeMockConversation(): {
     lastSendFailure: null,
     dispatchAction: vi.fn().mockResolvedValue(undefined),
     cancelTurn: vi.fn(),
+    // ROADMAP 2.122 round 2 (review F3): the unsettled-draft recovery handler.
+    startNewDraft: vi.fn(async () => {}),
     sendMessage,
     sendSystemEvent: vi.fn().mockResolvedValue(undefined),
     sendChip: vi.fn().mockResolvedValue(undefined),

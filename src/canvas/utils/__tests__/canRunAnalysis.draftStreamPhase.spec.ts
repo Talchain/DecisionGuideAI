@@ -9,7 +9,11 @@
  */
 import { describe, it, expect } from 'vitest'
 
-import { canRunAnalysis, DRAFT_VALUES_SETTLING_REFUSAL } from '../canRunAnalysis'
+import {
+  canRunAnalysis,
+  DRAFT_VALUES_SETTLING_REFUSAL,
+  DRAFT_VALUES_UNSETTLED_REFUSAL,
+} from '../canRunAnalysis'
 import type { DraftStreamPhase } from '../../stores/draftStore'
 
 /** A graph that would otherwise pass the gate's structural rungs. */
@@ -21,25 +25,48 @@ const OPEN_GATE_INPUTS = {
 } as const
 
 const ALL_PHASES: readonly DraftStreamPhase[] = ['idle', 'drafting', 'settling', 'unsettled']
-const MUST_BLOCK: readonly DraftStreamPhase[] = ['settling', 'unsettled']
+
+/**
+ * The blocking phases AND the sentence each must produce.
+ *
+ * ⚠ These used to share one string, and adversarial review F5 found that in the
+ * TERMINAL `unsettled` state its closing clause — "Run analysis once drafting
+ * finishes" — forecasts a finish that will never come, contradicting the
+ * transcript notice beside it. Same block, two different truths.
+ */
+const MUST_BLOCK: ReadonlyArray<readonly [DraftStreamPhase, string]> = [
+  ['settling', DRAFT_VALUES_SETTLING_REFUSAL],
+  ['unsettled', DRAFT_VALUES_UNSETTLED_REFUSAL],
+]
+const BLOCKING_PHASES = MUST_BLOCK.map(([p]) => p)
 
 describe('canRunAnalysis — draftStreamPhase rung, exhaustive', () => {
-  it.each(MUST_BLOCK)('BLOCKS on phase "%s", with the honest reason', (phase) => {
+  it.each(MUST_BLOCK)('BLOCKS on phase "%s" with its OWN honest reason', (phase, reason) => {
     const r = canRunAnalysis({ ...OPEN_GATE_INPUTS, draftStreamPhase: phase })
     expect(r.allowed).toBe(false)
-    expect(r.reason).toBe(DRAFT_VALUES_SETTLING_REFUSAL)
+    expect(r.reason).toBe(reason)
   })
 
-  it.each(ALL_PHASES.filter((p) => !MUST_BLOCK.includes(p)))(
+  it('the two blocking phases do not share a sentence (F5)', () => {
+    const reasons = MUST_BLOCK.map(([phase]) =>
+      canRunAnalysis({ ...OPEN_GATE_INPUTS, draftStreamPhase: phase }).reason,
+    )
+    expect(new Set(reasons).size).toBe(reasons.length)
+  })
+
+  it.each(ALL_PHASES.filter((p) => !BLOCKING_PHASES.includes(p)))(
     'does NOT block on phase "%s" — the rung is not a blanket refusal',
     (phase) => {
       const r = canRunAnalysis({ ...OPEN_GATE_INPUTS, draftStreamPhase: phase })
       expect(r.reason).not.toBe(DRAFT_VALUES_SETTLING_REFUSAL)
+      expect(r.reason).not.toBe(DRAFT_VALUES_UNSETTLED_REFUSAL)
     },
   )
 
   it('defaults to not-blocking when the phase is omitted (every other caller)', () => {
-    expect(canRunAnalysis(OPEN_GATE_INPUTS).reason).not.toBe(DRAFT_VALUES_SETTLING_REFUSAL)
+    const r = canRunAnalysis(OPEN_GATE_INPUTS)
+    expect(r.reason).not.toBe(DRAFT_VALUES_SETTLING_REFUSAL)
+    expect(r.reason).not.toBe(DRAFT_VALUES_UNSETTLED_REFUSAL)
   })
 
   it('enumerates the WHOLE phase union — a new phase must be classified here', () => {
@@ -56,10 +83,13 @@ describe('canRunAnalysis — draftStreamPhase rung, exhaustive', () => {
           return 'allow'
       }
     }
+    const blockingReasons = new Set<string>([
+      DRAFT_VALUES_SETTLING_REFUSAL,
+      DRAFT_VALUES_UNSETTLED_REFUSAL,
+    ])
     for (const p of ALL_PHASES) {
-      const blocked = canRunAnalysis({ ...OPEN_GATE_INPUTS, draftStreamPhase: p }).reason ===
-        DRAFT_VALUES_SETTLING_REFUSAL
-      expect(blocked).toBe(classify(p) === 'block')
+      const reason = canRunAnalysis({ ...OPEN_GATE_INPUTS, draftStreamPhase: p }).reason
+      expect(blockingReasons.has(reason ?? '')).toBe(classify(p) === 'block')
     }
   })
 })

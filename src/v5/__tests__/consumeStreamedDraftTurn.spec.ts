@@ -206,9 +206,13 @@ describe('CROSS-FRAME IDENTITY — the graph rendered at 36 s IS the graph commi
       edgesOnlyInPreview: ['fac_cost->opt_build'],
       edgesOnlyInTerminal: [],
     })
-    // And the caller is told to replace, not merge — which is what
-    // `applyDraftResult`'s wholesale replacement does at COMPLETE.
-    expect((outcome as { replaceRenderedGraph: boolean }).replaceRenderedGraph).toBe(true)
+    // The caller replaces wholesale rather than merging — which is what
+    // `applyDraftResult` does at COMPLETE, and which is what makes the guarantee
+    // hold by construction. (The outcome no longer carries a
+    // `replaceRenderedGraph` flag: the review found it had zero consumers, so it
+    // was guarantee-theatre and is deleted. The replacement itself is pinned in
+    // `streamedDraftTurn.spec.ts`, on the route that actually performs it.)
+    expect((outcome as { renderedGraph: unknown }).renderedGraph).not.toBeNull()
   })
 
   it('reports no drift when identity holds', async () => {

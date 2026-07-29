@@ -121,15 +121,41 @@ export const SETTLING_STAGES = [
 ] as const
 
 /**
- * The terminal honest line for a draft whose values will NOT settle in this
- * session (`draftStreamPhase === 'unsettled'`): the stream died after
- * GRAPH_READY and the buffered fallback found the turn already committed, so
- * CEE declined to re-draft and there is no second copy of the settled numbers
- * to fetch. Saying the model is ready would be a fabrication; saying nothing
- * would leave a silently-blocked Run button unexplained.
+ * The terminal honest lines for a draft whose values will NOT settle in this
+ * session (`draftStreamPhase === 'unsettled'`). Two, because there are two
+ * genuinely different causes and one sentence cannot state both truthfully.
+ *
+ * ── WHY THE OFFER CHANGED (adversarial review F3) ────────────────────────
+ * These used to say *"Draft again to get its final numbers"* and shipped a
+ * "Draft again" chip wired to `retryLast()`. **The chip could not do it on any
+ * auth tier.** `retryLast` re-sends the same message on the same scenario, whose
+ * canvas is now non-empty, so it is a BUFFERED turn — and CEE's continuation
+ * guard, live-proven to key on the scenario's committed state, DECLINES to
+ * re-draft (prose, no `draft_graph`). Each click removed the notice, re-sent,
+ * received "already drafted with four options…", and left the gate shut. The
+ * Supabase re-fetch branch cannot rescue it either: it additionally requires
+ * `stage:analyse` in the applied set, which a decline's prose does not produce.
+ *
+ * So the copy now promises the action that genuinely works — a NEW draft, on a
+ * fresh scenario, which is the only thing that can produce settled numbers once
+ * the old scenario has a committed turn — and the chip is wired to a handler that
+ * actually does that (`startNewDraft`). No promise the handler cannot keep.
  */
+// ⚠ My first wording of BOTH notices ended "…to get the finished model", and the
+// honesty suite rejected it on the model-is-finished rule. Third time this guard
+// has caught its own author; rewording rather than loosening the rule.
 export const UNSETTLED_DRAFT_NOTICE =
-  'Your model is on the canvas, but the connection dropped before its values arrived. Draft again to get its final numbers.'
+  'Your model is on the canvas, but the connection dropped before its values arrived, so they are not final. Start a new draft to get a model with settled values.'
+
+/**
+ * The same terminal state, reached because drafting was STOPPED rather than
+ * because the connection failed — the Stop button, or the 130 s client timeout
+ * (review F1). Worded to be true of both without asserting which: "drafting
+ * ended" covers a user stop, a timeout and a preempt, where "you stopped it"
+ * would be false for two of the three.
+ */
+export const STOPPED_DRAFT_NOTICE =
+  'Drafting ended before your model\u2019s values arrived, so they are not final. The structure is still here \u2014 start a new draft to get a model with settled values.'
 
 /**
  * Every narration table this module owns, keyed by name.

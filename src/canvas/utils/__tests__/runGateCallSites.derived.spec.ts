@@ -115,11 +115,99 @@ describe('run-gate call sites — derived manifest', () => {
     expect(/\bdraftStreamPhase\b/.test(withoutIt)).toBe(false)
   })
 
+  it.each(CALL_SITES.map((c) => [c.file, c] as const))(
+    '%s scopes the phase to the open scenario (review F2)',
+    (_file, site) => {
+      // Passing the RAW store field would re-create F2: an unsettled draft on one
+      // scenario blocked Run on every other, with a false reason. The phase must
+      // arrive through `draftStreamPhaseFor`, which is the one place that decides
+      // ownership. A structural check, like its sibling above — the behaviour is
+      // pinned in `draftStreamOwnership.spec.ts` and `streamedDraftTurn.spec.ts`.
+      const source = readFileSync(join(SRC, site.file), 'utf8')
+      expect(source).toMatch(/draftStreamPhaseFor\s*\(/)
+      // …and NOT the unscoped read that caused the finding.
+      expect(source).not.toMatch(/useDraftStore\(\s*\(s\)\s*=>\s*s\.draftStreamPhase\s*\)/)
+    },
+  )
+
+  it('the F2 matcher would CATCH an unscoped read (positive control)', () => {
+    const unscoped = 'const draftStreamPhase = useDraftStore((s) => s.draftStreamPhase)'
+    expect(/useDraftStore\(\s*\(s\)\s*=>\s*s\.draftStreamPhase\s*\)/.test(unscoped)).toBe(true)
+    const scoped = 'const draftStreamPhase = useDraftStore((s) => draftStreamPhaseFor(s, sid))'
+    expect(/useDraftStore\(\s*\(s\)\s*=>\s*s\.draftStreamPhase\s*\)/.test(scoped)).toBe(false)
+    expect(/draftStreamPhaseFor\s*\(/.test(scoped)).toBe(true)
+  })
+
   it('the matcher recognises the aliased import name, not just the exported one', () => {
     // Both live callers import the gate as `canRunAnalysisUtil`. A pattern that
     // only matched `canRunAnalysis(` would find nothing and the suite would be
     // decorative.
     expect(CALL_SITES.every((c) => /canRunAnalysis(?:Util)?\s*\(\s*\{/.test(c.args))).toBe(true)
     expect(CALL_SITES.some((c) => c.args.startsWith('canRunAnalysisUtil'))).toBe(true)
+  })
+})
+
+describe('the 130 s timeout handler consumes the preview predicate (review F1, adjacent)', () => {
+  /**
+   * Structural, and for the same reason as the run-gate guard above: the timeout is
+   * a 130-second wall-clock branch, which is exactly the code that ships untested.
+   * The DECISION it makes is pinned exhaustively in
+   * `stores/__tests__/draftStreamOwnership.spec.ts`; this asserts the branch
+   * actually asks.
+   *
+   * Without it, the handler tells a user whose graph is visibly on the canvas that
+   * "your message has not gone through" — and marks the delivered bubble failed —
+   * directly contradicting the honest notice the abort path adds beside it.
+   */
+  const source = readFileSync(join(SRC, 'canvas/conversation/useConversation.ts'), 'utf8')
+
+  it('asks streamedPreviewStandingFor before rendering the generic timeout copy', () => {
+    expect(source).toMatch(/streamedPreviewStandingFor\(/)
+    // The generic copy must be gated on it.
+    expect(source).toMatch(/!streamedPreviewStanding/)
+  })
+
+  it('still contains the generic copy — the fix suppresses it, it does not delete it', () => {
+    // Positive control: a non-streamed turn's timeout must keep saying the true
+    // thing. A mutation that removed the copy entirely would be a different defect.
+    expect(source).toMatch(/your message has not gone through/i)
+  })
+})
+
+describe('the graph-write choke point consumes the persistence predicate (review F1)', () => {
+  /**
+   * ⚠ ADDED BECAUSE A MUTANT SURVIVED. Removing the `shouldPersistGraphForScenario`
+   * guard from `persistGraphNow` stayed GREEN: the DECISION is pinned exhaustively
+   * in `stores/__tests__/draftStreamOwnership.spec.ts`, but nothing asserted the
+   * writer asks. That is the third time in this lane a correct, well-tested rule
+   * turned out to have an unwired consumer — the same shape as M15/M16 in round 1.
+   *
+   * Structural, deliberately: driving a real Supabase write through the debounced
+   * autosave in jsdom would test the harness, not the rule. The behaviour that
+   * matters (which phases suppress) is pinned at the predicate.
+   */
+  const source = readFileSync(join(SRC, 'hooks/useScenario.ts'), 'utf8')
+
+  it('asks shouldPersistGraphForScenario before writing scenarios.graph', () => {
+    expect(source).toMatch(/shouldPersistGraphForScenario\(/)
+  })
+
+  it('asks inside persistGraphNow — the ONE write path, not some other branch', () => {
+    // `persistGraphNow`'s own header declares it the single write code path shared
+    // by the debounced autosave, its retry and the flush barrier. The guard has to
+    // be there, or one of those three bypasses it.
+    const fn = source.slice(source.indexOf('async function persistGraphNow'))
+    const body = fn.slice(0, fn.indexOf('\n}\n'))
+    expect(body).toMatch(/shouldPersistGraphForScenario\(/)
+    // …and it must GUARD, not merely be mentioned.
+    expect(body).toMatch(/if\s*\(\s*!shouldPersistGraphForScenario\(/)
+  })
+
+  it('still calls the real write when permitted (positive control)', () => {
+    // A mutation that suppressed every write would also satisfy the assertions
+    // above; this keeps the guard from blessing a broken save path.
+    const fn = source.slice(source.indexOf('async function persistGraphNow'))
+    const body = fn.slice(0, fn.indexOf('\n}\n'))
+    expect(body).toMatch(/saveGraphViaGatedPath\(/)
   })
 })

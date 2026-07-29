@@ -23,11 +23,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 
-import { useConversation, streamedDraftEligible } from '../useConversation'
+import { useConversation, streamedDraftEligible, START_NEW_DRAFT_CHIP_ID } from '../useConversation'
 import { useCanvasStore } from '../../store'
 import { useDraftStore } from '../../stores/draftStore'
-import { canRunAnalysis, DRAFT_VALUES_SETTLING_REFUSAL } from '../../utils/canRunAnalysis'
-import { UNSETTLED_DRAFT_NOTICE } from '../../components/DraftLoadingAnimation'
+import {
+  canRunAnalysis,
+  DRAFT_VALUES_SETTLING_REFUSAL,
+  DRAFT_VALUES_UNSETTLED_REFUSAL,
+} from '../../utils/canRunAnalysis'
+import { shouldPersistGraphForScenario, draftStreamPhaseFor } from '../../stores/draftStore'
+import {
+  UNSETTLED_DRAFT_NOTICE,
+  STOPPED_DRAFT_NOTICE,
+} from '../../components/DraftLoadingAnimation'
+import * as scenariosModule from '../../store/scenarios'
 import wireFixture from './fixtures/cee-draft-goal-constraints-wire.json'
 
 // ---------------------------------------------------------------------------
@@ -189,12 +198,15 @@ const BRIEF = 'Should we build or buy a billing system for our new SaaS product?
  * rule SURVIVE the mutation battery.
  */
 function runGate() {
+  const currentScenarioId = useCanvasStore.getState().currentScenarioId
   return canRunAnalysis({
     graphHealth: null,
     readiness: null,
     hasBlockers: false,
     nodeCount: useCanvasStore.getState().nodes.length,
-    draftStreamPhase: useDraftStore.getState().draftStreamPhase,
+    // Scoped exactly as both live call sites scope it (F2): a phase belonging to
+    // another scenario must not reach this gate at all.
+    draftStreamPhase: draftStreamPhaseFor(useDraftStore.getState(), currentScenarioId),
   })
 }
 
@@ -500,9 +512,11 @@ describe('FAILURE HONESTY — never a dead end, never a double-commit', () => {
 
     // The graph is KEPT — throwing away a correct structure would be worse.
     expect(useCanvasStore.getState().nodes).toHaveLength(TERMINAL_NODE_IDS.length)
-    // The phase is terminal-unsettled, so the run gate stays shut …
+    // The phase is terminal-unsettled, so the run gate stays shut — with the
+    // TERMINAL refusal, not the settling one (review F5: the settling string
+    // forecasts a finish that will never come in this state).
     expect(useDraftStore.getState().draftStreamPhase).toBe('unsettled')
-    expect(runGate().reason).toBe(DRAFT_VALUES_SETTLING_REFUSAL)
+    expect(runGate().reason).toBe(DRAFT_VALUES_UNSETTLED_REFUSAL)
     // … and the transcript says why, rather than leaving a silently dead button.
     const contents = result.current.messages.map((m) => m.content)
     expect(contents).toContain(UNSETTLED_DRAFT_NOTICE)
@@ -654,5 +668,363 @@ describe('the buffered path is untouched for everything else', () => {
     expect(mockOpenStream).not.toHaveBeenCalled()
     expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
     expect(useDraftStore.getState().draftStreamPhase).toBe('idle')
+  })
+})
+
+// ===========================================================================
+// ADVERSARIAL REVIEW OF PR #525 — the reviewer's probes, adopted verbatim in
+// intent (ROADMAP 2.122, round 2)
+// ===========================================================================
+//
+// The review returned BLOCKED on two findings, both in the phase machine's
+// BOUNDARY states, both proven executable at `bb0338e9`, neither covered by the
+// 24-mutant battery. The core construction survived every attack — which is
+// exactly why these matter: an "honest no-claim window" is either true at every
+// edge or it is not a guarantee.
+//
+// Each probe below is written as the reviewer executed it, and each went RED
+// before the fix.
+
+describe('F1 — abort after GRAPH_READY (Stop button / 130 s timeout)', () => {
+  /**
+   * The reviewer's probe, verbatim in intent: after GRAPH_READY + Stop, the head
+   * left the canvas holding every preview node, `draftStreamPhase === 'idle'`,
+   * `canRunAnalysis(...).allowed === true` with NO reason, and no notice in the
+   * transcript — an unsettled draft presented as a finished model with a live
+   * Run affordance, one click away from the fabrication M4/M7 exist to prevent.
+   *
+   * The Stop button is rendered for the whole settling window (`isThinking`), and
+   * the natural tester is the one who sees the graph land at 36 s and concludes
+   * the spinner is vestigial.
+   */
+  it('does NOT present the unsettled preview as a finished model', async () => {
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    const { result } = renderHook(() => useConversation())
+
+    let sent!: Promise<void>
+    await act(async () => {
+      sent = result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
+    })
+    await stream.push(F_DRAFTING + F_GRAPH_READY)
+    expect(useCanvasStore.getState().nodes).toHaveLength(TERMINAL_NODE_IDS.length)
+    expect(useDraftStore.getState().draftStreamPhase).toBe('settling')
+
+    // The user presses Stop.
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    await stream.fail()
+    await act(async () => {
+      await sent.catch(() => {})
+    })
+
+    // The structure is REAL and is kept — deleting it would assert something
+    // false ("you have no model") about a graph CEE actually validated.
+    expect(useCanvasStore.getState().nodes).toHaveLength(TERMINAL_NODE_IDS.length)
+    // …but it is MARKED, so the run gate stays shut with the honest reason.
+    expect(useDraftStore.getState().draftStreamPhase).toBe('unsettled')
+    expect(runGate().allowed).toBe(false)
+    expect(runGate().reason).toBe(DRAFT_VALUES_UNSETTLED_REFUSAL)
+    // …and the transcript says what happened rather than leaving a silently
+    // dead Run button next to a "values are still arriving" line.
+    expect(result.current.messages.map((m) => m.content)).toContain(STOPPED_DRAFT_NOTICE)
+  })
+
+  it('never issues a second network request after an explicit Stop', async () => {
+    // The abort must NOT reuse the died-stream fallback: Stop is a user
+    // instruction not to continue, and preempt means a newer turn owns the
+    // canvas. Firing a fresh ~55 s buffered turn would contradict the user's own
+    // click. See the F1 design note in the evidence file.
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    const { result } = renderHook(() => useConversation())
+    let sent!: Promise<void>
+    await act(async () => {
+      sent = result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
+    })
+    await stream.push(F_DRAFTING + F_GRAPH_READY)
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    await stream.fail()
+    await act(async () => {
+      await sent.catch(() => {})
+    })
+    expect(mockCallV5Turn).not.toHaveBeenCalled()
+  })
+
+  it('an abort BEFORE GRAPH_READY stays silent — no notice, no phase, nothing to mark', async () => {
+    // Negative control on the fix: without it, "abort ⇒ unsettled" would fire on
+    // every cancelled draft and invent a marker for a canvas that holds nothing.
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    const { result } = renderHook(() => useConversation())
+    let sent!: Promise<void>
+    await act(async () => {
+      sent = result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
+    })
+    await stream.push(F_DRAFTING)
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    await stream.fail()
+    await act(async () => {
+      await sent.catch(() => {})
+    })
+    expect(useCanvasStore.getState().nodes).toHaveLength(0)
+    expect(useDraftStore.getState().draftStreamPhase).toBe('idle')
+    expect(result.current.messages.map((m) => m.content)).not.toContain(STOPPED_DRAFT_NOTICE)
+  })
+})
+
+describe('F1 — the autosave bound: the UI never persists a graph it knows is unsettled', () => {
+  /**
+   * The reviewer VOIDED rowed item 9's premise for the abort path: with no
+   * terminal ingest the unsettled values persist indefinitely, and the next
+   * canvas edit's debounced echo save (which re-reads the store at fire time)
+   * writes the unsettled graph back OVER CEE's settled commit.
+   *
+   * The fix is stronger than the bound the row claimed: the write is suppressed
+   * for BOTH in-progress phases at the single shared write choke point, so an
+   * unsettled row is never written in the first place — not merely bounded.
+   */
+  it('suppresses the Supabase graph write while values are settling or unsettled', () => {
+    for (const phase of ['settling', 'unsettled'] as const) {
+      useDraftStore.getState().setDraftStreamPhase(phase, 'turn-1', SCENARIO)
+      expect(shouldPersistGraphForScenario(SCENARIO)).toBe(false)
+    }
+  })
+
+  it('permits it again the moment the draft settles — the suppression is not a one-way door', () => {
+    useDraftStore.getState().setDraftStreamPhase('settling', 'turn-1', SCENARIO)
+    expect(shouldPersistGraphForScenario(SCENARIO)).toBe(false)
+    useDraftStore.getState().setDraftStreamPhase('idle', null, null)
+    expect(shouldPersistGraphForScenario(SCENARIO)).toBe(true)
+  })
+
+  it('does not suppress writes for a DIFFERENT scenario', () => {
+    useDraftStore.getState().setDraftStreamPhase('unsettled', 'turn-1', SCENARIO)
+    expect(shouldPersistGraphForScenario('other-scenario-id')).toBe(true)
+  })
+
+  it('the GRAPH_READY preview does not write the local autosave either', async () => {
+    // A guest tab-close during the window otherwise restores the unsettled graph
+    // on reload with no marker and an OPEN gate — the same dishonest state with
+    // no Stop click needed (the reviewer's second F1 vector).
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    const { result } = renderHook(() => useConversation())
+    let sent!: Promise<void>
+    await act(async () => {
+      sent = result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
+    })
+    const autosaveSpy = vi.spyOn(scenariosModule, 'saveAutosave')
+    await stream.push(F_DRAFTING + F_GRAPH_READY)
+    expect(autosaveSpy).not.toHaveBeenCalled()
+
+    // …and the terminal apply DOES autosave, so the settled graph is preserved.
+    await stream.push(F_COACHING + fComplete())
+    await stream.close()
+    await act(async () => {
+      await sent
+    })
+    expect(autosaveSpy).toHaveBeenCalled()
+    autosaveSpy.mockRestore()
+  })
+})
+
+describe('F2 — the phase is scoped to its own scenario', () => {
+  /**
+   * Reviewer probe: drive scenario A to `unsettled`, switch to scenario B with a
+   * populated settled canvas → the gate returned blocked with
+   * "Your model is still being drafted…" about a model that was never streamed.
+   * The phase was global, deliberately never cleared, and nothing reset it at any
+   * scenario boundary; recovery was a new streamed draft (needs an empty canvas)
+   * or a page reload.
+   */
+  it('does not block a DIFFERENT scenario with another scenario\'s unsettled draft', () => {
+    useDraftStore.getState().setDraftStreamPhase('unsettled', 'turn-A', SCENARIO)
+    // Scenario B, its own settled canvas.
+    useCanvasStore.setState({
+      currentScenarioId: 'b1b1b1b1-c2c2-4d3d-8e4e-f5f5f5f5f5f5',
+      nodes: [{ id: 'n1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'G' } }],
+    } as never)
+    const gate = runGate()
+    expect(gate.reason).not.toBe(DRAFT_VALUES_UNSETTLED_REFUSAL)
+    expect(gate.reason).not.toBe(DRAFT_VALUES_SETTLING_REFUSAL)
+  })
+
+  it('still blocks the OWNING scenario — the scoping is not a blanket release', () => {
+    // Positive control. Without it the test above could pass because the rung
+    // stopped firing at all.
+    useDraftStore.getState().setDraftStreamPhase('unsettled', 'turn-A', SCENARIO)
+    useCanvasStore.setState({
+      currentScenarioId: SCENARIO,
+      nodes: [{ id: 'n1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'G' } }],
+    } as never)
+    expect(runGate().reason).toBe(DRAFT_VALUES_UNSETTLED_REFUSAL)
+  })
+
+  it('a settled draft landing on the owning scenario clears the unsettled state', async () => {
+    // The other half of the recovery: an `unsettled` phase must not outlive a
+    // draft that actually completed for that scenario.
+    useDraftStore.getState().setDraftStreamPhase('unsettled', 'turn-A', SCENARIO)
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    useCanvasStore.setState({ currentScenarioId: SCENARIO, nodes: [] } as never)
+    const { result } = renderHook(() => useConversation())
+    let sent!: Promise<void>
+    await act(async () => {
+      sent = result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
+    })
+    await stream.push(F_DRAFTING + F_GRAPH_READY + F_COACHING + fComplete())
+    await stream.close()
+    await act(async () => {
+      await sent
+    })
+    expect(useDraftStore.getState().draftStreamPhase).toBe('idle')
+    expect(runGate().reason).not.toBe(DRAFT_VALUES_UNSETTLED_REFUSAL)
+  })
+})
+
+describe('F4 — a 200 COMPLETE with no draft_graph after GRAPH_READY is the FAILURE path', () => {
+  /**
+   * Reviewer probe: GRAPH_READY, then a 200 terminal carrying valid prose,
+   * `blocks: []` and no graph → the preview nodes stayed, phase `idle`, gate
+   * OPEN, no notice. Not purely a malice shape: it is the client shadow of the
+   * ROWED server salvage gap — a truncation-salvaged turn is precisely a 200
+   * whose graph may be absent or reduced. Node-level divergence was handled well
+   * (wholesale replace); graph-ABSENT divergence was the unhandled rung.
+   */
+  it('never leaves a phantom preview standing with an open gate', async () => {
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    const { result } = renderHook(() => useConversation())
+    let sent!: Promise<void>
+    await act(async () => {
+      sent = result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
+    })
+    await stream.push(F_DRAFTING + F_GRAPH_READY)
+    expect(useCanvasStore.getState().nodes).toHaveLength(TERMINAL_NODE_IDS.length)
+
+    await stream.push(
+      fComplete(200, {
+        response_version: 2,
+        assistant_text: 'I could not finish assembling the model. Try again.',
+        blocks: [],
+      }),
+    )
+    await stream.close()
+    await act(async () => {
+      await sent
+    })
+
+    // Either state is honest; a standing graph with an OPEN gate is not.
+    expect(runGate().allowed).toBe(false)
+    expect(useDraftStore.getState().draftStreamPhase).not.toBe('idle')
+    expect(result.current.messages.map((m) => m.content)).toContain(UNSETTLED_DRAFT_NOTICE)
+  })
+})
+
+describe('F5 — the two in-progress phases do not share one refusal string', () => {
+  it('says something DIFFERENT, and true, for settling vs unsettled', () => {
+    // `settling` legitimately forecasts a finish ("once drafting finishes").
+    // `unsettled` must not: its own docstring says the values will not settle in
+    // this session, so the same sentence there forecasts a finish that will never
+    // come — contradicting the transcript notice sitting beside it.
+    expect(DRAFT_VALUES_SETTLING_REFUSAL).not.toBe(DRAFT_VALUES_UNSETTLED_REFUSAL)
+    expect(DRAFT_VALUES_SETTLING_REFUSAL).toMatch(/once drafting finishes/i)
+    expect(DRAFT_VALUES_UNSETTLED_REFUSAL).not.toMatch(/once drafting finishes|finishes|will finish/i)
+  })
+})
+
+describe('F3 — the recovery affordance can actually deliver what it promises', () => {
+  /**
+   * The review: chip id `retry` → `retryLast()` → re-sends the SAME message on the
+   * SAME scenario, whose canvas is now non-empty → BUFFERED turn → CEE's
+   * continuation guard DECLINES to re-draft (prose, no `draft_graph`). Each click
+   * removed the notice, re-sent, got "already drafted with four options…", kept the
+   * phase `unsettled` and kept the gate shut. The Supabase re-fetch branch cannot
+   * rescue it either — it additionally requires `stage:analyse` in the applied set,
+   * which a decline's prose does not produce. The notice promised final numbers the
+   * chip could not obtain on any auth tier.
+   */
+  async function driveToUnsettled(result: { current: ReturnType<typeof useConversation> }) {
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    mockCallV5Turn.mockResolvedValue({
+      kind: 'response',
+      response: {
+        response_version: 2,
+        assistant_text: 'Your billing system decision model is already drafted with four options.',
+        blocks: [],
+      },
+    })
+    let sent!: Promise<void>
+    await act(async () => {
+      sent = result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
+    })
+    await stream.push(F_DRAFTING + F_GRAPH_READY)
+    await stream.fail()
+    await act(async () => {
+      await sent.catch(() => {})
+    })
+  }
+
+  it('offers the new-draft chip, NOT the retry chip that CEE declines', async () => {
+    const { result } = renderHook(() => useConversation())
+    await driveToUnsettled(result)
+    const notice = result.current.messages.find((m) => m.content === UNSETTLED_DRAFT_NOTICE)
+    expect(notice).toBeDefined()
+    expect(notice!.actionChips?.map((c) => c.id)).toEqual([START_NEW_DRAFT_CHIP_ID])
+    expect(notice!.actionChips?.map((c) => c.id)).not.toContain('retry')
+  })
+
+  it('startNewDraft clears the canvas, mints a FRESH scenario, and drafts', async () => {
+    const { result } = renderHook(() => useConversation())
+    await driveToUnsettled(result)
+    const staleScenario = useCanvasStore.getState().currentScenarioId
+    expect(useDraftStore.getState().draftStreamPhase).toBe('unsettled')
+
+    // The chip's handler. A second stream is offered for the fresh draft.
+    const fresh = controllableStream()
+    mockOpenStream.mockResolvedValue(fresh.response)
+    let restarted!: Promise<void>
+    await act(async () => {
+      restarted = result.current.startNewDraft()
+    })
+
+    // A NEW scenario — the only condition under which CEE will draft again, since
+    // the old one now has a committed turn.
+    const newScenario = useCanvasStore.getState().currentScenarioId
+    expect(newScenario).not.toBe(staleScenario)
+    expect(newScenario).toBeTruthy()
+    // …and it really is dispatched to the draft stream, not silently dropped.
+    expect(mockOpenStream).toHaveBeenCalledTimes(2)
+
+    await fresh.push(F_DRAFTING + F_GRAPH_READY + F_COACHING + fComplete())
+    await fresh.close()
+    await act(async () => {
+      await restarted
+    })
+
+    // The recovery completed: settled values, phase released, gate open again.
+    expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+    expect(useDraftStore.getState().draftStreamPhase).toBe('idle')
+    expect(runGate().reason).not.toBe(DRAFT_VALUES_UNSETTLED_REFUSAL)
+  })
+
+  it('releases the stale scenario\'s unsettled gate immediately, not only on success', async () => {
+    // Otherwise the fresh scenario would inherit the old one's blocked gate for the
+    // moment before its own `drafting` write lands.
+    const { result } = renderHook(() => useConversation())
+    await driveToUnsettled(result)
+    const stalled = controllableStream()
+    mockOpenStream.mockResolvedValue(stalled.response)
+    await act(async () => {
+      void result.current.startNewDraft()
+    })
+    expect(useDraftStore.getState().draftStreamPhase).not.toBe('unsettled')
   })
 })
