@@ -300,9 +300,12 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
                     Stability factors
                   </p>
                   <ul className="list-disc pl-4">
-                    {review030.robustness_explanation.stability_factors.map((f) => (
+                    {review030.robustness_explanation.stability_factors.map((f, i) => (
                       <li
-                        key={f}
+                        // Index key: the LLM can legitimately repeat a factor
+                        // string, and this list is display-only — never
+                        // reordered, filtered or keyed on by anything else.
+                        key={`${i}-${f}`}
                         className={typography.panelBody}
                         data-testid="v5-analysis-result-stability-factor"
                       >
@@ -318,9 +321,12 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
                     Fragility factors
                   </p>
                   <ul className="list-disc pl-4">
-                    {review030.robustness_explanation.fragility_factors.map((f) => (
+                    {review030.robustness_explanation.fragility_factors.map((f, i) => (
                       <li
-                        key={f}
+                        // Index key: the LLM can legitimately repeat a factor
+                        // string, and this list is display-only — never
+                        // reordered, filtered or keyed on by anything else.
+                        key={`${i}-${f}`}
                         className={typography.panelBody}
                         data-testid="v5-analysis-result-fragility-factor"
                       >
