@@ -26,12 +26,26 @@
  *     inference_warnings    root 773/773   robustness 0/773
  *
  * They are enrichment-ROOT siblings of `robustness`, never members of it.
- * `buildAnalysisSnapshot` reads all three off the object handed to it in the
- * `robustness` slot, so this module FOLDS the root-level values into that
- * object — root wins, an existing nested value is preserved as a fallback so
- * a future producer that moves them cannot silently blank the fields. Had the
- * doc been implemented verbatim, all three would render permanently empty
- * with no error to notice.
+ * Had the doc been implemented verbatim, all three would render permanently
+ * empty with no error to notice.
+ *
+ * HISTORY OF THE COMPENSATION (kept, not deleted — trap 14). The factory's
+ * three extractors used to read ONLY the `robustness` slot, so this module
+ * FOLDED the root-level values into that object (root wins, nested kept as a
+ * forward-compat fallback). That compensated THIS path while the live-capture
+ * caller (store.ts, raw response unfolded) stayed blank — the same Compare
+ * surface was populated or `[]` depending on which caller built the snapshot.
+ * ROADMAP 2.173 (PR #540, inference_warnings) and 2.177 (conditional_winners
+ * / edge_e_values) moved the root-wins dual read INTO the extractors, so both
+ * callers agree and the fold became redundant: `toV2ResponseShape` spreads
+ * `...fact.enrichment`, so the root slot survives onto the object the factory
+ * reads, and the extractors' nested arm keeps the forward-compat fallback the
+ * fold used to provide. The fold was therefore DELETED, proven
+ * byte-identity-preserving over every constructible shape class (root-bearing,
+ * nested-only, both-absent, root-[] shadowing nested, malformed non-array
+ * root, mixed slots) — see
+ * PHASE0-EVIDENCE-2026-07-28/sibling-extractors-fix.md. The nested-only and
+ * both-absent classes stay pinned in this module's spec.
  */
 import type { V2RunResponse } from '../../adapters/plot/v2/types'
 import type { ScenarioEvent } from '../../types/scenario'
@@ -134,23 +148,22 @@ function parseRunFact(payload: unknown): ParsedRunFact | null {
 }
 
 /**
- * Fold the enrichment-ROOT robustness siblings into the `robustness` object,
- * because that is the slot `buildAnalysisSnapshot`'s three extractors read.
- * Root wins; a nested value is kept as a fallback (forward-compatible if a
- * future PLoT build ever nests them).
+ * The `robustness` slot, read off the untrusted envelope.
+ *
+ * This was `composeRobustness`, the root→robustness fold — deleted as
+ * redundant once all three extractors adopted the root-wins dual read
+ * (ROADMAP 2.173 / 2.177; see the module header's HISTORY block for the full
+ * story and the byte-identity proof). What remains is only the slot read,
+ * with `{}` — not undefined — preserved for an absent or malformed
+ * `robustness`, exactly as the fold-era code behaved.
  */
-function composeRobustness(enrichment: Record<string, unknown>): V2RunResponse['robustness'] {
-  const nested = asRecord(enrichment.robustness) ?? {}
-  const folded: Record<string, unknown> = { ...nested }
-  for (const key of ['inference_warnings', 'conditional_winners', 'edge_e_values'] as const) {
-    if (Array.isArray(enrichment[key])) folded[key] = enrichment[key]
-  }
-  // Double cast, deliberately: the folded object is untrusted JSONB, not a
-  // validated V2RobustnessActual. The factory's extractors already re-read
-  // every field off it defensively (`as Record<string, unknown>` + type
-  // guards), so widening through `unknown` is honest about what is known —
-  // asserting the nominal type directly would claim a validation nobody did.
-  return folded as unknown as V2RunResponse['robustness']
+function readRobustnessSlot(enrichment: Record<string, unknown>): V2RunResponse['robustness'] {
+  // Double cast, deliberately: the object is untrusted JSONB, not a validated
+  // V2RobustnessActual. The factory's extractors already re-read every field
+  // off it defensively (`as Record<string, unknown>` + type guards), so
+  // widening through `unknown` is honest about what is known — asserting the
+  // nominal type directly would claim a validation nobody did.
+  return (asRecord(enrichment.robustness) ?? {}) as unknown as V2RunResponse['robustness']
 }
 
 /**
@@ -178,7 +191,7 @@ function toV2ResponseShape(fact: ParsedRunFact): V2RunResponse {
     ...fact.enrichment,
     option_comparison: fact.optionComparison,
     factor_sensitivity: fact.factorSensitivity,
-    robustness: composeRobustness(fact.enrichment),
+    robustness: readRobustnessSlot(fact.enrichment),
   } as unknown as V2RunResponse
 }
 
