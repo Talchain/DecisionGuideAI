@@ -12,15 +12,30 @@
  *
  * 2. **The M1 REST shape** (`CeeDecisionReviewPayloadV1`:
  *    `intent`/`analysis_state`/`readiness`/`blocks`). Still a LIVE shape *in
- *    this codebase* — `runMeta.ceeReviewV1` is populated by four producers, one
- *    of which delivers REAL (non-synthesised) M1 payloads:
- *    `useResultsRun.ts:113` reads `report.ceeReview` off the PLoT v1 SSE
- *    stream; `useV2Run.ts:906`, `hydrateAnalysis.ts:125` and
- *    `useConversation.ts:3105` synthesise it via `synthesizeCeeReviewFromV2`.
- *    (CEE also serves this shape from `POST /assist/v1/review`, but **no UI
- *    code calls that route** — complete manifest over `src/`, with a positive
- *    control showing the sweep does find `/assist/v1/{draft-graph,ask,
- *    graph-readiness,draft-flows}` — so it is irrelevant to this module.)
+ *    this codebase*.
+ *
+ *    ⚠ **The producer manifest below was wrong TWICE — it named a dead site as
+ *    live and omitted the real writer.** Corrected by tracing each candidate to
+ *    the store boundary rather than to a variable name (A6). What actually
+ *    reaches `runMeta.ceeReviewV1`:
+ *
+ *    | site | route | reaches runMeta? | payload |
+ *    |---|---|---|---|
+ *    | `useResultsRun.ts:159` (value from `:113`) | `setRunMeta` | **YES** | **REAL M1**, off the PLoT v1 SSE stream — the only non-synthesised source |
+ *    | `useV2Run.ts:1055` (value from `:906`) | `setRunMeta` | **YES** | synthesised |
+ *    | `hydrateAnalysis.ts:154` | → `useScenario.ts:673` → `resultsHydrateFromSupabase` → the `...hydratedRunMeta` spread at `store.ts:3466` | **YES** | synthesised, from persisted V2 |
+ *    | `useConversation.ts:3112` | `resultsComplete` | **NO — DEAD** | discarded at `store.ts:3012`: destructured `ceeReviewV1: _ceeReviewV1` and never read |
+ *    | `useV2Run.ts:994` | `resultsComplete` | **NO — DEAD** | same boundary. Note `useV2Run` writes on BOTH lists — dead at `:994`, live at `:1055` |
+ *
+ *    So: **three live producers, one of them real** — not the "four" an earlier
+ *    revision claimed, and not the set it named. `useResultsRun.ts:60` and
+ *    `useV2Run.ts:483` also write via `setRunMeta`, but only `null` (resets).
+ *
+ *    (CEE also serves this shape from `POST /assist/v1/review`, but **no UI code
+ *    calls that route** — complete manifest over `src/`, where it appears only in
+ *    comments, with a positive control showing the sweep does find
+ *    `/assist/v1/{draft-graph,ask,graph-readiness,draft-flows}`. True
+ *    server-side; inert here.)
  *
  *    What no producer does is emit the M1 shape **into a V5 turn's block
  *    enrichment**, at either upstream tip (PLoT `3d13e0ac`: complete manifest,
@@ -61,24 +76,29 @@
  * was claimed — it SUPPRESSES eviction for that case**, retaining the payload
  * into `ceeReviewV1` instead of discarding it.
  *
- * The honest rationale is therefore **defensive retention**, and it is weaker
- * than the withdrawn one — recorded as such rather than dressed up:
+ * **The rationale reduces to ONE reason, and it is weak.** The completion
+ * reviewer went further than reading the code — they DELETED this branch and ran
+ * the suites: **every eviction test stayed green**, confirming eviction lives
+ * entirely in the `v0_30` arm and the caller's `else` arm. So the following are
+ * NOT reasons to keep it, and are recorded here only so nobody re-derives them
+ * as such:
+ *   - *not* eviction (disproved above, twice);
+ *   - *not* "the type and its consumers are live" — true (`ceeDataAdapter`,
+ *     `useResultsSectionData`, `buildV7Bias`, `DecisionQuality`,
+ *     `DecisionSummary`, `store`), but they are fed by the producers listed
+ *     above, none of which route through this branch. Deleting the branch would
+ *     not have touched any of them.
  *
- * 1. The branch is inert on live payloads, so keeping it costs nothing
- *    observable, and deleting it would also change nothing observable.
- * 2. What deleting it *would* change is the handling of a shape that is still
- *    live in this codebase (four `ceeReviewV1` producers, one of them real —
- *    see above) if it ever reached this seam: instead of being retained, it
- *    would be discarded, `ceeReviewV1` cleared, and only an `aria-hidden`
- *    operator marker would record it. Given that the one residual gap in the
- *    producer sweep is CEE *computed-key* writers into `fact.result.enrichment`
- *    — which a `decision_review\s*:` manifest cannot see — retaining is the
- *    conservative side of an acknowledged unknown.
- * 3. The type and its consumers are what is unambiguously live:
- *    `ceeDataAdapter`, `useResultsSectionData`, `buildV7Bias`,
- *    `DecisionQuality`, `DecisionSummary`, `store`. Retiring this *branch*
- *    would not have retired any of that, so a "retire the dead thing" framing
- *    would have overstated its own scope.
+ * **The one reason that survives:** the producer sweep has a named residual gap —
+ * CEE *computed-key* writers into `fact.result.enrichment` (`enrichment[someVar]
+ * = …`), which a `decision_review\s*:` pattern manifest cannot see. If such a
+ * writer exists and emits the M1 shape, this branch retains the payload; without
+ * it the payload would be discarded, `ceeReviewV1` cleared, and the only record
+ * would be an `aria-hidden` operator marker. Retention is the conservative side
+ * of an acknowledged unknown — and that is the whole of the argument.
+ *
+ * If that gap is ever closed and comes back empty, **delete this branch**; the
+ * reviewer has already demonstrated the deletion is clean.
  *
  * The branch's danger was never the code; it was the false docstring above and
  * a test fixture that made the dead shape look like the only shape. Both are
@@ -111,24 +131,51 @@ const VALID_ANALYSIS_STATES = new Set(['not_run', 'ran', 'partial', 'stale'])
 const VALID_READINESS_LEVELS = new Set(['ready', 'caution', 'not_ready'])
 
 /**
- * The ten non-timestamp keys of the 0.30 payload, as captured on the live wire
- * (2/2 runs, identical order). Used ONLY as the shape discriminator: a bare
- * `{produced_at}` is a timestamp, not a review, so at least one of these must
- * be present. Five of them are surfaced by this view-model; the other five
- * already reach the UI as `decision_review_enricher` wire blocks and are
- * deliberately NOT re-projected here (they would render twice).
+ * The five 0.30 fields THIS view-model projects and renders — the orphans that
+ * no other wire block delivers.
  */
-const V0_30_CONTENT_KEYS = [
+export const V0_30_PROJECTED_KEYS = [
   'narrative_summary',
   'story_headlines',
   'robustness_explanation',
   'readiness_rationale',
-  'evidence_enhancements',
   'scenario_contexts',
+] as const
+
+/**
+ * The five 0.30 fields that already reach the UI as `decision_review_enricher`
+ * wire blocks (5 × `review_card`, 4 × `coaching`, 2 × `evidence` on the captured
+ * runs). **This module must never render them** — they would appear twice.
+ *
+ * Exported so the non-duplication guard can be DERIVED from this list rather
+ * than from a hand-typed set of example strings. An earlier version of that
+ * guard named three literal strings from one fixture while its title claimed
+ * six fields, and `flip_thresholds`/`bias_findings` — `[]` in both live
+ * fixtures — were unguarded entirely: planting a render of them stayed green.
+ * A guard that names examples tests the examples; a guard that iterates the
+ * list tests the rule.
+ */
+export const V0_30_ENRICHER_OWNED_KEYS = [
+  'evidence_enhancements',
   'flip_thresholds',
   'bias_findings',
   'key_assumptions',
   'decision_quality_prompts',
+] as const
+
+/**
+ * The ten non-timestamp keys of the 0.30 payload, as captured on the live wire
+ * (2/2 runs). Used ONLY as the shape discriminator: a bare `{produced_at}` is a
+ * timestamp, not a review, so at least one of these must be present.
+ *
+ * COMPOSED from the two halves above rather than listed a third time, so a key
+ * cannot be a content key while belonging to neither half — a new 0.30 field
+ * has to be classified as projected-here or owned-elsewhere before it can
+ * participate in the discriminator at all.
+ */
+const V0_30_CONTENT_KEYS = [
+  ...V0_30_PROJECTED_KEYS,
+  ...V0_30_ENRICHER_OWNED_KEYS,
 ] as const
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -159,10 +206,20 @@ function stringList(v: unknown): string[] {
  * content is unrenderable). The `V0_30_CONTENT_KEYS.some(k => raw[k] !==
  * undefined)` shape gate admits both, so a payload whose five prose fields
  * were ALL wrong-typed classified as a perfectly healthy
- * `v0_30 { hasProse: false }` and mounted **no marker** — five fields
- * silently discarded with the lamp dark, which is the very defect 2.154
- * exists to fix, reappearing for the type-error case. Meanwhile a merely
+ * `v0_30 { hasProse: false }` and mounted **no marker** — the very defect
+ * 2.154 exists to fix, reappearing for the type-error case. Meanwhile a merely
  * missing `produced_at` — which costs the user nothing — lit it.
+ *
+ * **Precisely what was and was not silent** (an earlier version of this note
+ * said "silently discarded", which over-claimed): the USER still got a signal
+ * either way, because `hasProse: false` leaves
+ * `decision_review_unavailable` firing in `useResultCompleteness` — "Decision
+ * coaching is still being prepared for this analysis". What went dark was the
+ * **operator** marker, which is the only witness that distinguishes "the
+ * producer sent nothing" from "the producer sent something broken". So the
+ * defect was a *misdiagnosis* signal, not a wholly absent one: the user was
+ * told the review was still coming when it had in fact arrived malformed, and
+ * nothing anywhere recorded the contract break.
  *
  * So a read of a SINGLETON field now returns one of three answers, and
  * `readV0_30` routes the third to `malformed`.

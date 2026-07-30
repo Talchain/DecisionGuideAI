@@ -234,6 +234,19 @@ describe('deriveResultCompleteness — partial source coverage', () => {
       const result = deriveResultCompleteness(inputs({ decisionReview030: null }))
       expect(result.missing).not.toContain('decision_review')
     })
+
+    it('A1 framing — a MALFORMED review still fires the signal for the user', () => {
+      // Recorded because the A1 write-up first over-claimed "silently
+      // discarded". On the wrong-typed path `applyV5State` writes
+      // `decisionReview030: null`, so the user DOES get a signal here. What went
+      // dark was the OPERATOR marker — the only witness distinguishing "the
+      // producer sent nothing" from "the producer sent something broken". The
+      // user was told the review was still coming when it had arrived malformed.
+      const result = deriveResultCompleteness(
+        inputs({ ceeReviewV1: null, decisionReview030: null }),
+      )
+      expect(result.reasons).toContain('decision_review_unavailable')
+    })
   })
 
   it('multiple gaps → status=partial with all reasons surfaced', () => {

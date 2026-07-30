@@ -38,6 +38,10 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen, cleanup, within } from '@testing-library/react'
 import { V5AnalysisResultBlock } from '../V5AnalysisResultBlock'
 import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../../canvas/conversation/types'
+import {
+  V0_30_ENRICHER_OWNED_KEYS,
+  V0_30_PROJECTED_KEYS,
+} from '../../decisionReviewAdapter'
 import r1Block from '../../__tests__/fixtures/live-decision-review-0_30.r1-cee-76d2e1c.json'
 import r3Block from '../../__tests__/fixtures/live-decision-review-0_30.r3-cee-76d2e1c.json'
 
@@ -212,24 +216,222 @@ describe('the five orphaned prose fields reach the DOM on a live payload', () =>
     expect(a).toBeTruthy()
   })
 
-  it('the six fields that already arrive via enricher blocks are NOT rendered here again', () => {
-    // Guard against duplicating what the 11 `decision_review_enricher` wire
-    // blocks already deliver. r1's key_assumptions / evidence_enhancements /
-    // decision_quality_prompts prose must NOT appear in this card.
+  it('the live payload does not re-render the enricher-owned prose it carries', () => {
+    // The real-bytes half. r1's own key_assumptions / decision_quality_prompts /
+    // evidence_enhancements text must not appear in this card. Necessary but
+    // NOT sufficient — see the structural block below for why.
     render(<V5AnalysisResultBlock block={R1} />)
-    const card = screen.getByTestId('v5-analysis-result')
-    const text = card.textContent ?? ''
+    const text = screen.getByTestId('v5-analysis-result').textContent ?? ''
     const dr = reviewOf(r1Block)
     const assumption = (dr.key_assumptions as string[])[0]
     const prompt = (dr.decision_quality_prompts as Array<Record<string, string>>)[0].question
     const evidence = (
       dr.evidence_enhancements as Record<string, Record<string, string>>
     ).fac_team_size.specific_action
-    expect(assumption).toBeTruthy()
-    expect(text).not.toContain(assumption)
-    expect(text).not.toContain(prompt)
-    expect(text).not.toContain(evidence)
-    expect(screen.queryByTestId('v5-analysis-result-key-assumptions')).toBeNull()
+    for (const s of [assumption, prompt, evidence]) {
+      expect(s).toBeTruthy()
+      expect(text).not.toContain(s)
+    }
+  })
+})
+
+describe('prose wrapping — the producer’s own line breaks survive, long tokens wrap', () => {
+  const AT = '2026-07-30T00:00:00.000Z'
+
+  /**
+   * ⚠ SCOPE. These assert the emitted CLASSES. jsdom does not lay out or paint,
+   * so this proves the component ASKS for pre-wrap and break-words — NOT that
+   * paragraph breaks visibly survive or that a long token actually wraps. That
+   * needs the live-browser probe, which this lane declares undone.
+   */
+  const EVERY_PROSE_TESTID = [
+    'v5-analysis-result-narrative-summary',
+    'v5-analysis-result-readiness-rationale',
+    'v5-analysis-result-robustness-summary',
+    'v5-analysis-result-robustness-primary-risk',
+    'v5-analysis-result-stability-factor',
+    'v5-analysis-result-fragility-factor',
+    'v5-analysis-result-story-headline',
+    'v5-analysis-result-scenario-context',
+  ]
+
+  function fullPayload() {
+    return {
+      produced_at: AT,
+      narrative_summary: 'Line one.\nLine two after a break.',
+      readiness_rationale: 'Ready.\n\nAfter a paragraph break.',
+      robustness_explanation: {
+        summary: 'Stable.',
+        primary_risk: 'A risk.',
+        stability_factors: ['Holds.'],
+        fragility_factors: ['Could shift.'],
+      },
+      story_headlines: { opt_a: 'A headline.' },
+      scenario_contexts: { s1: { trigger_description: 'If X,', consequence: 'then Y.' } },
+    }
+  }
+
+  it.each(EVERY_PROSE_TESTID)('%s asks for pre-wrap and break-words', (testid) => {
+    render(<V5AnalysisResultBlock block={blockWithReview(fullPayload())} />)
+    const nodes = screen.getAllByTestId(testid)
+    expect(nodes.length).toBeGreaterThan(0)
+    for (const n of nodes) {
+      expect(n.className).toContain('whitespace-pre-wrap')
+      expect(n.className).toContain('break-words')
+    }
+  })
+
+  it('the newline characters are preserved in the DOM text, not stripped', () => {
+    // Independent of CSS: the text node itself must still contain the breaks.
+    // (`toHaveTextContent` normalises whitespace, so this reads textContent
+    // directly — the assertion would otherwise pass on flattened text.)
+    render(<V5AnalysisResultBlock block={blockWithReview(fullPayload())} />)
+    expect(screen.getByTestId('v5-analysis-result-narrative-summary').textContent).toBe(
+      'Line one.\nLine two after a break.',
+    )
+    expect(screen.getByTestId('v5-analysis-result-readiness-rationale').textContent).toBe(
+      'Ready.\n\nAfter a paragraph break.',
+    )
+  })
+
+  it('BYTE-EXACT — a live field’s text node equals the wire string exactly', () => {
+    // The render assertions elsewhere in this file use `toHaveTextContent`,
+    // which is SUBSTRING + whitespace-normalised. These two are the byte-exact
+    // render pins; full byte-exactness per field is pinned at the ADAPTER.
+    render(<V5AnalysisResultBlock block={R1} />)
+    const dr = reviewOf(r1Block)
+    expect(screen.getByTestId('v5-analysis-result-narrative-summary').textContent).toBe(
+      dr.narrative_summary as string,
+    )
+    expect(screen.getByTestId('v5-analysis-result-readiness-rationale').textContent).toBe(
+      dr.readiness_rationale as string,
+    )
+  })
+})
+
+// ───────────────────────────────────────────────────────────────────────────
+// ⭐ NON-DUPLICATION, STRUCTURALLY — one plant-control per enricher-owned field.
+//
+// The completion review showed the first version of this guard was only
+// STRUCTURALLY PARTIAL: it named three literal strings taken from r1 while its
+// title claimed six fields, and `flip_thresholds` / `bias_findings` are `[]` in
+// BOTH live fixtures, so they carried no strings to look for. Planting a
+// `bias_findings` + `flip_thresholds` render into the new section left the suite
+// 33/33 GREEN. A guard that names examples tests the examples.
+//
+// So this iterates the DERIVED list (`V0_30_ENRICHER_OWNED_KEYS`, which the
+// adapter composes into `V0_30_CONTENT_KEYS` so a new field must be classified
+// before it can exist), plants a unique sentinel inside each field, and asserts
+// the sentinel never reaches the card. The obvious follow-up lane — "also show
+// bias_findings here" — must turn this RED rather than ship a duplicate.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('non-duplication — derived, one plant-control per enricher-owned field', () => {
+  const AT = '2026-07-30T00:00:00.000Z'
+  /** Distinctive enough that an accidental substring match is implausible. */
+  const S = (k: string) => `SENTINEL_DO_NOT_RENDER_${k.toUpperCase()}_7Q3X`
+
+  /**
+   * A payload placing a sentinel string inside each enricher-owned field, in
+   * the shape the live wire uses for that field (array of strings, array of
+   * objects, or record of objects).
+   */
+  const PLANTS: Record<string, () => Record<string, unknown>> = {
+    evidence_enhancements: () => ({
+      evidence_enhancements: {
+        fac_x: {
+          specific_action: S('evidence_enhancements'),
+          rationale: S('evidence_enhancements'),
+          evidence_type: 'internal_data',
+          decision_hygiene: S('evidence_enhancements'),
+        },
+      },
+    }),
+    flip_thresholds: () => ({
+      flip_thresholds: [
+        { id: 'ft1', label: S('flip_thresholds'), description: S('flip_thresholds') },
+      ],
+    }),
+    bias_findings: () => ({
+      bias_findings: [{ id: 'b1', bias: S('bias_findings'), description: S('bias_findings') }],
+    }),
+    key_assumptions: () => ({ key_assumptions: [S('key_assumptions')] }),
+    decision_quality_prompts: () => ({
+      decision_quality_prompts: [
+        {
+          question: S('decision_quality_prompts'),
+          principle: S('decision_quality_prompts'),
+          applies_because: S('decision_quality_prompts'),
+        },
+      ],
+    }),
+  }
+
+  it('FAIL-LOUD ON DRIFT — every derived enricher-owned key has a plant', () => {
+    // Without this, adding a sixth enricher-owned field to the adapter would
+    // silently go unguarded — the hand-maintained-mirror defect this whole
+    // block exists to avoid.
+    expect(Object.keys(PLANTS).sort()).toEqual([...V0_30_ENRICHER_OWNED_KEYS].sort())
+    expect(V0_30_ENRICHER_OWNED_KEYS.length).toBe(5)
+  })
+
+  it('the two halves are disjoint and neither is empty', () => {
+    const overlap = (V0_30_PROJECTED_KEYS as readonly string[]).filter((k) =>
+      (V0_30_ENRICHER_OWNED_KEYS as readonly string[]).includes(k),
+    )
+    expect(overlap).toEqual([])
+    expect(V0_30_PROJECTED_KEYS.length).toBe(5)
+  })
+
+  it.each(V0_30_ENRICHER_OWNED_KEYS)(
+    'PLANT-CONTROL — a sentinel inside %s never reaches this card',
+    (key) => {
+      render(
+        <V5AnalysisResultBlock
+          block={blockWithReview({
+            produced_at: AT,
+            // Real prose so the card DOES render its section — otherwise the
+            // absence below would be satisfied by an empty card.
+            narrative_summary: 'Genuine narrative that must render.',
+            ...PLANTS[key](),
+          })}
+        />,
+      )
+      const card = screen.getByTestId('v5-analysis-result')
+      expect(screen.getByTestId('v5-analysis-result-narrative-summary')).toBeTruthy()
+      expect(card.textContent ?? '').not.toContain(S(key))
+    },
+  )
+
+  it('⭐ POSITIVE CONTROL — the sentinel scan CAN see a planted string', () => {
+    // Trap 13: an absence assertion must first prove it can detect a presence.
+    // Same sentinel form, same scan, but planted in a field the card DOES render.
+    const sentinel = S('positive_control')
+    render(
+      <V5AnalysisResultBlock
+        block={blockWithReview({ produced_at: AT, narrative_summary: sentinel })}
+      />,
+    )
+    expect(screen.getByTestId('v5-analysis-result').textContent ?? '').toContain(sentinel)
+  })
+
+  it('all five planted at once — no mount point and no sentinel for any of them', () => {
+    // A second, independent witness: even if a render escaped the text scan
+    // (e.g. via an aria-label), it would still need a mount point.
+    render(
+      <V5AnalysisResultBlock
+        block={blockWithReview({
+          produced_at: AT,
+          narrative_summary: 'Genuine narrative.',
+          ...Object.values(PLANTS).reduce((acc, f) => ({ ...acc, ...f() }), {}),
+        })}
+      />,
+    )
+    const text = screen.getByTestId('v5-analysis-result').textContent ?? ''
+    for (const key of V0_30_ENRICHER_OWNED_KEYS) {
+      expect(screen.queryByTestId(`v5-analysis-result-${key.replace(/_/g, '-')}`)).toBeNull()
+      expect(text).not.toContain(S(key))
+    }
   })
 })
 

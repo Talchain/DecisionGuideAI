@@ -494,10 +494,13 @@ function normaliseStage(
  * `decisionReviewAdapter.ts`'s header for the honest (weaker) rationale.
  *
  * The eviction itself is still worth having and is unaffected by any of that:
- * `runMeta.ceeReviewV1` has four producers outside this path — `useResultsRun`
- * (real M1 off the PLoT v1 SSE stream) plus `useV2Run` / `hydrateAnalysis` /
- * `useConversation` (synthesised) — so a stale review from one of them must not
- * outlive the turn that replaced it.
+ * `runMeta.ceeReviewV1` has THREE live producers outside this path —
+ * `useResultsRun.ts:159` (REAL M1 off the PLoT v1 SSE stream),
+ * `useV2Run.ts:1055` and `hydrateAnalysis.ts:154` (both synthesised) — so a
+ * stale review from one of them must not outlive the turn that replaced it.
+ * (`useConversation.ts:3112` and `useV2Run.ts:994` also pass a `ceeReviewV1`,
+ * but through `resultsComplete`, which discards it — see the manifest table in
+ * `decisionReviewAdapter.ts`. Naming those as live was the earlier error.)
  */
 function applyDecisionReviewToRunMeta(
   enrichment: Record<string, unknown> | undefined,

@@ -55,6 +55,25 @@ function formatProbability(p: number): string {
   return `${Math.round(p * 100)}%`
 }
 
+/**
+ * ROADMAP 2.154 rider — every CEE-authored prose node gets this.
+ *
+ * `whitespace-pre-wrap`: the model's prose can carry its own newlines and
+ * paragraph breaks. Default HTML collapsing silently flattened them into one
+ * run-on block, which is a rewrite of the producer's text by omission — the
+ * one thing this card promises not to do.
+ *
+ * `break-words` + `min-w-0`: a single long unbroken token (a URL, an
+ * identifier, a long option label) otherwise refuses to wrap and overflows the
+ * card in a narrow column. `min-w-0` is required on the flex/grid children for
+ * `break-words` to take effect at all.
+ *
+ * ⚠ Both are emitted CLASSES. jsdom asserts they are present; it does NOT
+ * render them, so this lane does not prove the wrapping BEHAVES — that needs
+ * the live-browser probe, which is declared undone.
+ */
+const PROSE_WRAP = 'whitespace-pre-wrap break-words min-w-0'
+
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return v != null && typeof v === 'object' && !Array.isArray(v)
 }
@@ -241,7 +260,7 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
         >
           {review030.narrative_summary !== null && (
             <p
-              className={typography.panelBody}
+              className={`${typography.panelBody} ${PROSE_WRAP}`}
               data-testid="v5-analysis-result-narrative-summary"
             >
               {review030.narrative_summary}
@@ -253,7 +272,7 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
               {review030.story_headlines.map((h) => (
                 <li
                   key={h.optionId}
-                  className={typography.panelBody}
+                  className={`${typography.panelBody} ${PROSE_WRAP}`}
                   data-testid="v5-analysis-result-story-headline"
                   data-option-id={h.optionId}
                 >
@@ -279,7 +298,7 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
             >
               {review030.robustness_explanation.summary !== null && (
                 <p
-                  className={typography.panelBody}
+                  className={`${typography.panelBody} ${PROSE_WRAP}`}
                   data-testid="v5-analysis-result-robustness-summary"
                 >
                   {review030.robustness_explanation.summary}
@@ -287,7 +306,7 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
               )}
               {review030.robustness_explanation.primary_risk !== null && (
                 <p
-                  className={`${typography.panelBody} text-text-light`}
+                  className={`${typography.panelBody} text-text-light ${PROSE_WRAP}`}
                   data-testid="v5-analysis-result-robustness-primary-risk"
                 >
                   <span className="font-medium">Primary risk: </span>
@@ -306,7 +325,7 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
                         // string, and this list is display-only — never
                         // reordered, filtered or keyed on by anything else.
                         key={`${i}-${f}`}
-                        className={typography.panelBody}
+                        className={`${typography.panelBody} ${PROSE_WRAP}`}
                         data-testid="v5-analysis-result-stability-factor"
                       >
                         {f}
@@ -327,7 +346,7 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
                         // string, and this list is display-only — never
                         // reordered, filtered or keyed on by anything else.
                         key={`${i}-${f}`}
-                        className={typography.panelBody}
+                        className={`${typography.panelBody} ${PROSE_WRAP}`}
                         data-testid="v5-analysis-result-fragility-factor"
                       >
                         {f}
@@ -341,7 +360,7 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
 
           {review030.readiness_rationale !== null && (
             <p
-              className={typography.panelBody}
+              className={`${typography.panelBody} ${PROSE_WRAP}`}
               data-testid="v5-analysis-result-readiness-rationale"
             >
               {review030.readiness_rationale}
@@ -353,7 +372,7 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
               {review030.scenario_contexts.map((s) => (
                 <li
                   key={s.id}
-                  className={`${typography.panelBody} text-text-light`}
+                  className={`${typography.panelBody} text-text-light ${PROSE_WRAP}`}
                   data-testid="v5-analysis-result-scenario-context"
                   data-scenario-id={s.id}
                 >
