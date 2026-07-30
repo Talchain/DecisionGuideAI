@@ -71,7 +71,7 @@ pnpm run test:full    # Full suite with increased memory (NODE_OPTIONS=--max-old
 
 ### Pre-push validation — two scripts, different scopes
 
-- **`.git/hooks/pre-push`** (git hook, auto-runs on `git push`) delegates to `scripts/validate-prepush.sh`. This is the **fast gate** (~3 min): branch guard, typecheck, lint (changed files only), 8-file smoke suite, stale-.js detection, dependency audit with `@talchain/schemas` allowlist + vendored-tarball SHA manifest check. Blocks the push on failure.
+- **`.git/hooks/pre-push`** (git hook, auto-runs on `git push`) delegates to `scripts/validate-prepush.sh`. This is the **fast gate** (~3 min): branch guard, typecheck, lint (changed files only), 9-file smoke suite, stale-.js detection, dependency audit with `@talchain/schemas` allowlist + vendored-tarball SHA manifest check. Blocks the push on failure. The smoke list is derived, not mirrored: a `SMOKE_FILES` entry naming a spec that no longer exists is a gate FAILURE, never a silent skip (this doc said "8-file" while the list named 9 — the gate had been running 8 of 9 since 2026-04-21).
 - **`bash scripts/pre-push-validate.sh`** (manual, optional) is the **full gate** (~15 min): runs the same checks but replaces the smoke suite with the full ~6,284-test vitest run. Used only when you want the full suite locally. Not invoked automatically — CI covers the full suite via `.github/workflows/staging-full-tests.yml` (7 GB heap, dedicated runner).
 - **`@talchain/schemas` file: dependency is allowlisted** deliberately (v5 A1 policy, commit `b6b1222a`). Both pre-push scripts pair the allowlist with a tarball SHA manifest check that fails on drift. Any OTHER `file:` reference fails either gate.
 

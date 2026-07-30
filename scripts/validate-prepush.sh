@@ -121,24 +121,52 @@ SMOKE_FILES=(
   "src/utils/__tests__/nodeIdNormalisation.spec.ts"
   "src/components/results/__tests__/buildResultsVM.spec.ts"
   "src/components/results/__tests__/useResultsSectionData.spec.ts"
-  "src/components/results/__tests__/HeroSection.spec.tsx"
+  # Hero render path. This line read
+  # `src/components/results/__tests__/HeroSection.spec.tsx` until f2596f1d
+  # (2026-04-21) deleted that spec as dead code — the component itself had
+  # already gone in Brief 5.4 Phase 2, and vitest.config.ts records the same
+  # deletion. Nobody updated THIS list, so from that day the existence filter
+  # below silently ran 8 of 9 files and still printed "Smoke tests passed".
+  # Re-pointed at the hero surface that is actually live on staging:
+  # netlify.toml [context.staging.environment] sets
+  # VITE_FEATURE_ANALYSIS_HERO_PANEL=1 (the analysis-hero/ family), while
+  # analysisHeroV17 is enabled in no netlify context. buildHeroModel is that
+  # surface's view-model builder — the data-flow node, matching this list's
+  # stated purpose and its buildResultsVM sibling above.
+  "src/components/results/analysis-hero/__tests__/buildHeroModel.spec.ts"
   "tests/ci-guards/css-var-resolution.spec.ts"
 )
 
-# Filter to files that exist
-EXISTING_SMOKE=""
+# A missing entry FAILS — it must never silently shrink the suite.
+# The old filter dropped non-existent paths without a word, which is the
+# hand-maintained-mirror defect this repo keeps paying for: a named critical
+# path stops being checked and the gate still reports success. If an entry
+# above no longer exists, repoint it at the successor spec or delete the line
+# deliberately — both are one-line edits, and both are visible in review.
+EXISTING_SMOKE=()
+MISSING_SMOKE=()
 for f in "${SMOKE_FILES[@]}"; do
-  [ -f "$REPO_ROOT/$f" ] && EXISTING_SMOKE="$EXISTING_SMOKE $f"
+  if [ -f "$REPO_ROOT/$f" ]; then
+    EXISTING_SMOKE+=("$f")
+  else
+    MISSING_SMOKE+=("$f")
+  fi
 done
 
-if [ -z "$EXISTING_SMOKE" ]; then
-  skip "No smoke test files found — skipped"
+if [ "${#MISSING_SMOKE[@]}" -ne 0 ]; then
+  echo "    SMOKE_FILES names ${#MISSING_SMOKE[@]} spec file(s) that do not exist:"
+  for f in "${MISSING_SMOKE[@]}"; do echo "      $f"; done
+  fail "SMOKE_FILES is stale — a named critical path would go unchecked. Repoint each entry at its successor spec, or delete the line deliberately."
+fi
+
+if [ "${#EXISTING_SMOKE[@]}" -eq 0 ]; then
+  fail "No smoke test files found — the smoke list must never be empty"
+elif npx vitest run --bail=1 "${EXISTING_SMOKE[@]}" 2>&1; then
+  # Report ran-of-named, both derived. A shrink is then visible in the summary
+  # line itself, not only in the failure above it.
+  pass "Smoke tests passed (${#EXISTING_SMOKE[@]} of ${#SMOKE_FILES[@]} named critical data-flow path(s))"
 else
-  if npx vitest run --bail=1 $EXISTING_SMOKE 2>&1; then
-    pass "Smoke tests passed (critical data-flow paths)"
-  else
-    fail "Smoke tests failed"
-  fi
+  fail "Smoke tests failed"
 fi
 
 # ─── Check 5: Stale .js detection ─────────────────────────────────────
@@ -187,24 +215,28 @@ fi
 header "Check 6a — V5 vendored schemas tarball SHA manifest"
 
 # A1: guard against drift between vendored tarball bytes and the committed
-# SHA manifest. If someone rebuilds the tarball without updating the
-# manifest, push is blocked.
-# Derive tarball filename from package.json (single source of truth).
-TARBALL_NAME=$(grep -o 'vendor/[^"]*\.tgz' "$REPO_ROOT/package.json" | head -1)
-TARBALL="$REPO_ROOT/$TARBALL_NAME"
-MANIFEST="$TARBALL.sha256"
-if [ ! -f "$TARBALL" ] || [ ! -f "$MANIFEST" ]; then
-  fail "vendored tarball or SHA manifest missing"
+# SHA manifest. If someone rebuilds the tarball without updating the manifest,
+# push is blocked.
+#
+# DELEGATED, deliberately — do not re-implement the comparison here.
+# This check used to hash the tarball and parse the manifest in bash, and the
+# parse was wrong: `tr -d '[:space:]' < "$MANIFEST"` collapses the standard
+# two-column shasum format (`<hash>  <filename>`) into the hash CONCATENATED
+# with the filename, which can never equal a bare 64-char hash. Check 6a
+# therefore could not pass on ANY tree whose manifest carried the filename
+# column — i.e. every push from schemas 0.29.0 (2026-07-28, #513) onward.
+# A supply-chain guard that always fails is worse than no guard: it teaches
+# every lane to `--no-verify` past the checks that do work.
+#
+# scripts/check-vendor-sha.mjs is the single source of truth. It derives the
+# tarball name from package.json's dependency field, accepts BOTH manifest
+# formats (`<hash>` and `<hash>  <filename>`), asserts the hash is 64 hex
+# chars, and prints a remediation block on mismatch. It is the same script
+# `pnpm run check:vendor` and `pnpm run dev` already run.
+if node "$REPO_ROOT/scripts/check-vendor-sha.mjs"; then
+  pass "V5 vendored schemas tarball SHA matches manifest"
 else
-  ACTUAL="$(shasum -a 256 "$TARBALL" | awk '{print $1}')"
-  EXPECTED="$(tr -d '[:space:]' < "$MANIFEST")"
-  if [ "$ACTUAL" != "$EXPECTED" ]; then
-    echo "    manifest: $EXPECTED"
-    echo "    actual:   $ACTUAL"
-    fail "Vendored schemas tarball changed without manifest update. Rebuild and commit both."
-  else
-    pass "V5 vendored schemas tarball SHA matches manifest"
-  fi
+  fail "Vendored schemas tarball changed without manifest update, or manifest is unreadable (see above). Rebuild and commit both."
 fi
 
 # Also verify the fork directory doesn't exist
