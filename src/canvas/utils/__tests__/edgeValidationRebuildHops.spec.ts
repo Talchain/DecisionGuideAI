@@ -27,9 +27,18 @@
  * scenario resume** with a fully green suite. On the one journey every tester takes
  * daily.
  *
- * So this file pins the CLASS, at the four sites it can drive end-to-end, with the
- * absence arm alongside each presence arm (trap 13: an assertion that a field
- * survived must sit next to proof the harness can see it missing).
+ * So this file pins the CLASS at ALL FIVE sites — the amendment strictly required
+ * only the persistence hop, but the five share one failure mode and pinning three
+ * would have left the class open behind a spec that looks complete. Each presence
+ * arm sits next to its absence arm (trap 13: an assertion that a field SURVIVED
+ * proves nothing unless the harness can also see it missing).
+ *
+ * Mutation-proven at three distinct sites, not one: converting the wholesale spread
+ * to a named-field copy at `useScenario.ts:596`, at `store.ts:3538`, or at
+ * `store.ts:4327` each turns this file RED — and in the first case 139 pre-existing
+ * tests across 8 files (including both `useScenario` specs, which exercise that very
+ * function) stay GREEN. That green figure is the finding: the defect is invisible to
+ * every other test in the repo.
  *
  * ── NOT PINNED HERE, CLEARED WITH REASONING BY THE REVIEW ───────────────────
  * `ReactFlowGraph.tsx:1160-1191` (`insertBlueprint` → `commitTemplateGraphReplace`)
