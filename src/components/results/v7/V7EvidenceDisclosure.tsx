@@ -35,7 +35,7 @@
  * flagless. COMPLETE borders only (L1 guard).
  */
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, AlertTriangle, Crosshair, GitBranch, Info } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { formatPercent } from '@/utils/formatPercent'
@@ -44,6 +44,8 @@ import type { V7EvidenceModel } from './buildV7Lenses'
 import { V7_LENS_COPY } from './v7LensCopy'
 import { ClampToggle } from './ClampToggle'
 import { useAnalysisProjection } from '@/canvas/highlighting/useAnalysisProjection'
+import { useCanvasStore } from '@/canvas/store'
+import { trackMeasurement } from '@/telemetry/measurementEvents'
 
 const E = V7_LENS_COPY.evidence
 
@@ -113,6 +115,55 @@ export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclo
     flipRisks: evidence.flipRisks,
     driverFocusIds,
   })
+
+  // ── evidence_view_opened (ROADMAP 1.68) ────────────────────────────────────
+  //
+  // WHY THIS SITE. It captures what the product TOLD the user, at the moment it
+  // told them — and for the resolve-next ranking that is the only moment at
+  // which it is the truth. The ranking is recomputed every run, so reading it
+  // back afterwards answers a different question from the one the user saw.
+  //
+  // ON TRANSITION, NOT ON RENDER. The effect's deps are exactly [open, view],
+  // so React fires it when the disclosure OPENS and when the view CHANGES, and
+  // not on any other re-render. Closing and reopening on the same view does
+  // re-emit — that is a new opening, and counting it as one is the point.
+  //
+  // The hook is unconditional and sits ABOVE the nothing-to-disclose early
+  // return below, so hook order is stable.
+  //
+  // NEVER-CAPTURE: ids and counts only. `r.label` and `d.label` are rendered
+  // two lines from here and are user/model-authored text — the payload takes
+  // `factorId`, never `label`. See measurementEvents.ts.
+  const resolveNextForEvent = evidence.resolveNext
+  useEffect(() => {
+    if (!open) return
+    const state = useCanvasStore.getState()
+    const isResolveNext = view === 'resolveNext'
+    const ranked = resolveNextForEvent?.resolved ?? []
+    trackMeasurement('evidence_view_opened', {
+      view,
+      scenario_id: state.currentScenarioId ?? null,
+      gated:
+        view === 'drivers' ? evidence.drivers.length === 0
+        : view === 'flipRisks' ? evidence.flipRisks.length === 0
+        : view === 'tradeOffs' ? evidence.tradeOffs.length === 0
+        : resolveNextForEvent == null,
+      // PREFIX ONLY — a full run id is a cross-session linking token.
+      ...(state.results?.runId ? { run_id_prefix: state.results.runId.slice(0, 8) } : {}),
+      ...(isResolveNext && resolveNextForEvent
+        ? {
+            // ID ONLY. NEVER ranked[0].label.
+            ...(ranked[0] ? { rank1_factor_id: ranked[0].factorId } : {}),
+            ranked_count: ranked.length,
+            below_resolution_count: resolveNextForEvent.belowResolution.length,
+            some_factors_unassessed: resolveNextForEvent.someFactorsUnassessed,
+          }
+        : {}),
+    })
+    // `evidence` is intentionally NOT a dep: a new model object on the same
+    // open view is a re-render, not a new opening.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, view])
 
   const hasDrivers = evidence.drivers.length > 0
   const hasFlipRisks = evidence.flipRisks.length > 0

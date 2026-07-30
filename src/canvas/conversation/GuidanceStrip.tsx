@@ -12,6 +12,7 @@ import { useGuidanceStore, selectTopItem, compareGuidanceDisplayOrder, type Guid
 import { isDecisionOverviewEnabled } from '@/flags'
 import styles from './Conversation.module.css'
 import { trackGuidance, type GuidanceEventPayload } from '../../telemetry/guidanceEvents'
+import { bucketDwellMs } from '../../telemetry/measurementConfig'
 import { useCanvasStore } from '../store'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { scrollToField } from './utils/scrollToField'
@@ -145,10 +146,18 @@ export const GuidanceStrip = memo(function GuidanceStrip({
 
   // Telemetry: deduplicate COACHING_SHOWN — fire once per item_id per session
   const shownIdsRef = useRef<Set<string>>(new Set())
+  /**
+   * When the CURRENTLY-shown item was first shown. Keyed by item_id so a dwell
+   * is never attributed to a different item than the one it was timed on — the
+   * strip swaps its top item as coaching changes.
+   */
+  const shownAtRef = useRef<{ itemId: string; at: number } | null>(null)
   useEffect(() => {
     if (!topItem || topItem.item_id === dismissedId) return
     if (shownIdsRef.current.has(topItem.item_id)) return
     shownIdsRef.current.add(topItem.item_id)
+    // ROADMAP 1.68: the clock the dwell on CLICKED/DISMISSED is measured from.
+    shownAtRef.current = { itemId: topItem.item_id, at: Date.now() }
     const state = useCanvasStore.getState()
     trackGuidance('COACHING_SHOWN', {
       item_id: topItem.item_id,
@@ -192,6 +201,10 @@ export const GuidanceStrip = memo(function GuidanceStrip({
       surface: 'guidance_panel',
       scenario_id: state.currentScenarioId ?? undefined,
       profile_stage: (state.currentStage ?? undefined) as GuidanceEventPayload['profile_stage'] | undefined,
+      // Only when the dwell belongs to THIS item — never carried across a swap.
+      ...(shownAtRef.current?.itemId === topItem.item_id
+        ? { dwell_ms: bucketDwellMs(Date.now() - shownAtRef.current.at) }
+        : {}),
     })
     setDismissedId(topItem.item_id)
     onSetActive(null)
@@ -207,6 +220,10 @@ export const GuidanceStrip = memo(function GuidanceStrip({
       surface: 'guidance_panel',
       scenario_id: state.currentScenarioId ?? undefined,
       profile_stage: (state.currentStage ?? undefined) as GuidanceEventPayload['profile_stage'] | undefined,
+      // Only when the dwell belongs to THIS item — never carried across a swap.
+      ...(shownAtRef.current?.itemId === topItem.item_id
+        ? { dwell_ms: bucketDwellMs(Date.now() - shownAtRef.current.at) }
+        : {}),
     })
     onSetActive(topItem.item_id)
 
