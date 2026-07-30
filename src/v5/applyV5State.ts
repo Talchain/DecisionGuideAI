@@ -480,11 +480,24 @@ function normaliseStage(
  * when the key is absent, degraded (`null`) or malformed.
  *
  * ROADMAP 2.154 — two shapes share this key and they go to two different
- * runMeta fields. Both are written on every call so neither can go stale
- * behind the other: a turn carrying a 0.30 review must evict a prior turn's
- * M1 review, and vice versa. `ceeReviewV1` in particular has live non-V5
- * producers (`synthesizeCeeReviewFromV2` via `useV2Run` / `hydrateAnalysis` /
- * `useConversation`), so the eviction is load-bearing, not hygiene.
+ * runMeta fields. Both are written on every call so neither can go stale behind
+ * the other: a turn carrying a 0.30 review evicts a prior turn's M1 review via
+ * the `: null` ternary below, and vice versa.
+ *
+ * ⚠ A previous version of this comment claimed the eviction was "load-bearing,
+ * not hygiene" and that it justified keeping the adapter's M1 branch. The
+ * second half was **backwards and is withdrawn** (A3): eviction here does not
+ * depend on that branch. Returning `false` sends the caller to its `else` arm,
+ * which clears BOTH fields unconditionally — so if the M1 branch did not exist,
+ * an M1-shaped payload would be evicted MORE aggressively, not less. The branch
+ * SUPPRESSES eviction for that case by retaining the payload. See
+ * `decisionReviewAdapter.ts`'s header for the honest (weaker) rationale.
+ *
+ * The eviction itself is still worth having and is unaffected by any of that:
+ * `runMeta.ceeReviewV1` has four producers outside this path — `useResultsRun`
+ * (real M1 off the PLoT v1 SSE stream) plus `useV2Run` / `hydrateAnalysis` /
+ * `useConversation` (synthesised) — so a stale review from one of them must not
+ * outlive the turn that replaced it.
  */
 function applyDecisionReviewToRunMeta(
   enrichment: Record<string, unknown> | undefined,

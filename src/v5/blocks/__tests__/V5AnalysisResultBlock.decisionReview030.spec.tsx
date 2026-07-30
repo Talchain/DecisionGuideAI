@@ -287,6 +287,124 @@ describe('the marker mounts on malformed input ONLY (absence arms)', () => {
   })
 })
 
+// ───────────────────────────────────────────────────────────────────────────
+// ⭐ A1 AT THE RENDER — the alarm was INVERTED, proven here on the DOM.
+//
+// The adversarial review of PR #535 showed the first cut lit the lamp on a
+// merely missing `produced_at` (no user content lost) while staying DARK on an
+// all-wrong-typed payload whose five fields were therefore all discarded. The
+// dark half is the original 2.154 defect returning for the type-error case, so
+// it gets render-level proof, not just adapter-level: the marker in the DOM,
+// and the five fields absent from it.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('A1 — a wrong-typed payload lights the marker AND renders no prose', () => {
+  const AT = '2026-07-30T00:00:00.000Z'
+
+  const WELL_TYPED = {
+    narrative_summary: 'Status quo leads.',
+    readiness_rationale: 'Readiness is high.',
+    robustness_explanation: { summary: 'Stable.' },
+    story_headlines: { opt_a: 'A headline.' },
+    scenario_contexts: { s1: { trigger_description: 'If X,', consequence: 'then Y.' } },
+  }
+
+  /** Every node the five fields would occupy. */
+  const PROSE_TESTIDS = [
+    'v5-analysis-result-decision-review',
+    'v5-analysis-result-narrative-summary',
+    'v5-analysis-result-readiness-rationale',
+    'v5-analysis-result-robustness-explanation',
+    'v5-analysis-result-story-headline',
+    'v5-analysis-result-scenario-context',
+  ]
+
+  it.each([
+    ['narrative_summary as a nested object (the case A1 named)', { narrative_summary: { nested: 'object' } }],
+    ['readiness_rationale as a number', { readiness_rationale: 42 }],
+    ['robustness_explanation as a string', { robustness_explanation: 'not an object' }],
+    ['story_headlines as an array', { story_headlines: ['not a record'] }],
+    ['scenario_contexts as a number', { scenario_contexts: 3 }],
+  ])(
+    'POSITIVE CONTROL — the marker fires on %s, and no prose is rendered',
+    (_label, wrong) => {
+      render(
+        <V5AnalysisResultBlock
+          block={blockWithReview({ produced_at: AT, ...WELL_TYPED, ...wrong })}
+        />,
+      )
+      expect(screen.getByTestId('v5-analysis-result-enrichment-invalid')).toBeTruthy()
+      expect(screen.getByTestId('v5-analysis-result')).toHaveAttribute(
+        'data-decision-review-state',
+        'malformed',
+      )
+      for (const id of PROSE_TESTIDS) expect(screen.queryByTestId(id)).toBeNull()
+    },
+  )
+
+  it('ALL FIVE wrong-typed → marker fires and all five fields are absent from the DOM', () => {
+    render(
+      <V5AnalysisResultBlock
+        block={blockWithReview({
+          produced_at: AT,
+          narrative_summary: { nested: 'object' },
+          readiness_rationale: 42,
+          robustness_explanation: 'not an object',
+          story_headlines: ['not a record'],
+          scenario_contexts: 3,
+        })}
+      />,
+    )
+    expect(screen.getByTestId('v5-analysis-result-enrichment-invalid')).toBeTruthy()
+    for (const id of PROSE_TESTIDS) expect(screen.queryByTestId(id)).toBeNull()
+    // The summary card is untouched — the alarm does not blank the card.
+    expect(screen.getByTestId('v5-analysis-result-summary')).toBeTruthy()
+  })
+
+  it('NEGATIVE CONTROL — the same payload WELL-typed renders all five and no marker', () => {
+    // Without this, the block above would pass on a component that had simply
+    // stopped rendering prose at all.
+    render(<V5AnalysisResultBlock block={blockWithReview({ produced_at: AT, ...WELL_TYPED })} />)
+    expect(screen.queryByTestId('v5-analysis-result-enrichment-invalid')).toBeNull()
+    expect(screen.getByTestId('v5-analysis-result-narrative-summary')).toHaveTextContent(
+      'Status quo leads.',
+    )
+    expect(screen.getByTestId('v5-analysis-result-readiness-rationale')).toHaveTextContent(
+      'Readiness is high.',
+    )
+    expect(screen.getByTestId('v5-analysis-result-robustness-summary')).toHaveTextContent(
+      'Stable.',
+    )
+    expect(screen.getAllByTestId('v5-analysis-result-story-headline')).toHaveLength(1)
+    expect(screen.getAllByTestId('v5-analysis-result-scenario-context')).toHaveLength(1)
+  })
+
+  it('an ABSENT field is not an alarm — four present, one missing, no marker', () => {
+    const rest = Object.fromEntries(
+      Object.entries(WELL_TYPED).filter(([k]) => k !== 'narrative_summary'),
+    )
+    render(<V5AnalysisResultBlock block={blockWithReview({ produced_at: AT, ...rest })} />)
+    expect(screen.queryByTestId('v5-analysis-result-enrichment-invalid')).toBeNull()
+    expect(screen.queryByTestId('v5-analysis-result-narrative-summary')).toBeNull()
+    expect(screen.getByTestId('v5-analysis-result-readiness-rationale')).toBeTruthy()
+  })
+
+  it('absent + wrong-typed in one payload → marker fires (wrong-typed dominates)', () => {
+    render(
+      <V5AnalysisResultBlock
+        block={blockWithReview({
+          produced_at: AT,
+          // narrative_summary ABSENT
+          readiness_rationale: 'Readiness is high.',
+          robustness_explanation: 'not an object', // WRONG-TYPED
+        })}
+      />,
+    )
+    expect(screen.getByTestId('v5-analysis-result-enrichment-invalid')).toBeTruthy()
+    expect(screen.queryByTestId('v5-analysis-result-readiness-rationale')).toBeNull()
+  })
+})
+
 describe('per-field absence arms — a missing field renders nothing, never a placeholder', () => {
   const AT = '2026-07-30T00:00:00.000Z'
 

@@ -29,6 +29,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   readDecisionReviewWireState,
+  extractDecisionReview,
   type DecisionReview030,
 } from '../decisionReviewAdapter'
 import r1Block from './fixtures/live-decision-review-0_30.r1-cee-76d2e1c.json'
@@ -262,27 +263,6 @@ describe('readDecisionReviewWireState — partial 0.30 payloads are honest, not 
     expect(state.review.scenario_contexts).toEqual([])
   })
 
-  it('wrong-typed prose fields are dropped to null, never coerced or defaulted', () => {
-    const state = readDecisionReviewWireState({
-      decision_review: {
-        narrative_summary: 42,
-        readiness_rationale: { not: 'a string' },
-        robustness_explanation: 'not an object',
-        story_headlines: ['not a record'],
-        scenario_contexts: 3,
-        produced_at: AT,
-      },
-    })
-    expect(state.kind).toBe('v0_30')
-    if (state.kind !== 'v0_30') return
-    expect(state.review.narrative_summary).toBeNull()
-    expect(state.review.readiness_rationale).toBeNull()
-    expect(state.review.robustness_explanation).toBeNull()
-    expect(state.review.story_headlines).toEqual([])
-    expect(state.review.scenario_contexts).toEqual([])
-    expect(state.review.hasProse).toBe(false)
-  })
-
   it('a robustness_explanation with only a summary keeps the summary and empties the arrays', () => {
     const state = readDecisionReviewWireState({
       decision_review: { produced_at: AT, robustness_explanation: { summary: 'Stable.' } },
@@ -298,13 +278,16 @@ describe('readDecisionReviewWireState — partial 0.30 payloads are honest, not 
   })
 
   it('non-string members inside the factor arrays are dropped, not stringified', () => {
+    // MEMBERS are lenient on purpose: a dropped bullet is a partial loss and
+    // the remaining bullets still render, so the payload is degraded rather
+    // than mute. Contrast the CONTAINER, which is strict — see the
+    // absent-vs-wrong-typed block below.
     const state = readDecisionReviewWireState({
       decision_review: {
         produced_at: AT,
         robustness_explanation: {
           summary: 'S',
           stability_factors: ['keep', 5, null, { a: 1 }, 'also keep'],
-          fragility_factors: 'not an array',
         },
       },
     })
@@ -347,4 +330,329 @@ describe('readDecisionReviewWireState — partial 0.30 payloads are honest, not 
     expect(state.review.readiness_rationale).toBeNull()
     expect(state.review.hasProse).toBe(false)
   })
+
+  it('an explicit null on a prose field reads as ABSENT, not as a type error', () => {
+    // `null` is the idiomatic JSON "no value here". Treating it as a contract
+    // break would light the lamp on a routine payload.
+    const state = readDecisionReviewWireState({
+      decision_review: {
+        produced_at: AT,
+        narrative_summary: null,
+        robustness_explanation: null,
+        story_headlines: null,
+        readiness_rationale: 'Present.',
+      },
+    })
+    expect(state.kind).toBe('v0_30')
+    if (state.kind !== 'v0_30') return
+    expect(state.review.narrative_summary).toBeNull()
+    expect(state.review.readiness_rationale).toBe('Present.')
+    expect(state.review.hasProse).toBe(true)
+  })
 })
+
+// ───────────────────────────────────────────────────────────────────────────
+// ⭐ A1 — ABSENT vs PRESENT-BUT-WRONG-TYPED. The adversarial review of PR #535
+// demonstrated on 17 payloads that the first cut of this module INVERTED the
+// alarm: a merely missing `produced_at` (costs the user nothing) lit the lamp,
+// while all five prose fields arriving wrong-typed (the entire payload
+// unreadable) classified as a healthy `v0_30 { hasProse: false }` and lit
+// NOTHING — five fields discarded in silence, i.e. the original 2.154 defect
+// reappearing for the type-error case.
+//
+// ⚠ MY OWN SPEC CERTIFIED THE DEFECT. The case that used to sit above, "wrong-
+// typed prose fields are dropped to null, never coerced or defaulted", asserted
+// `kind === 'v0_30'` on an all-wrong-typed payload. It passed, and it was
+// pinning exactly the behaviour A1 identified as wrong. It is deleted, not
+// edited around — the rows below replace it.
+//
+// The `produced_at` rows are deliberately NOT changed. The asymmetry between
+// the two halves WAS the finding, and the conservative half of it (a missing or
+// wrong-typed `produced_at` → `malformed`) is defensible on its own: without a
+// timestamp the payload fails the SHAPE discriminator, so it is not a 0.30
+// review being judged broken, it is not a 0.30 review at all.
+// ───────────────────────────────────────────────────────────────────────────
+
+// ───────────────────────────────────────────────────────────────────────────
+// ⭐ A2 — SHAPE PRECEDENCE. Pinned because the docstring used to claim it was
+// NOT load-bearing, and that claim was false.
+//
+// `CeeDecisionReviewPayloadV1` has an OPEN INDEX SIGNATURE, and the UI's own
+// consumers depend on real M1 payloads carrying extra keys —
+// `useResultsSectionData.ts:2780-2782` reads `ceeReviewV1.bias_findings`,
+// `.quality_factors`, `.improvement_guidance`. **`bias_findings` is one of the
+// ten V0_30_CONTENT_KEYS.** Under the original 0.30-first order, an M1 payload
+// carrying `bias_findings` plus any top-level `produced_at` satisfied the 0.30
+// shape gate → classified `v0_30` → `extractDecisionReview` returned `null` →
+// a REAL M1 review silently dropped. That is this module's headline defect
+// arriving through a different door, and it is reachable: `useResultsRun.ts:113`
+// (`report.ceeReview` off the PLoT v1 SSE stream) is a live producer of real,
+// non-synthesised M1 payloads.
+//
+// Strict M1 is now checked FIRST. These cases pin BOTH directions — that M1
+// wins when it should, and that M1-first cannot steal a live 0.30 payload.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('A2 — shape precedence is strict-M1-first, and it is pinned', () => {
+  const AT = '2026-07-30T00:00:00.000Z'
+
+  /** A structurally valid M1 REST payload. */
+  const M1 = {
+    intent: 'selection',
+    analysis_state: 'ran',
+    readiness: { level: 'ready', headline: 'You are ready to decide.', factors: [] },
+    blocks: [
+      { id: 'recommendation', status: 'ok', source: 'cee', summary: 'Option A.', priority: 1 },
+    ],
+  }
+
+  it('an M1 payload carrying bias_findings (a V0_30_CONTENT_KEY) classifies m1, NOT v0_30', () => {
+    const state = readDecisionReviewWireState({
+      decision_review: { ...M1, bias_findings: [{ id: 'b1' }] },
+    })
+    expect(state.kind).toBe('m1')
+  })
+
+  it('⭐ THE A2 CASE — M1 + a content key + produced_at → m1, and the review survives', () => {
+    // The recorded winner. Under 0.30-first this was `v0_30`, and
+    // extractDecisionReview returned null — dropping a real M1 review.
+    const state = readDecisionReviewWireState({
+      decision_review: { ...M1, bias_findings: [{ id: 'b1' }], produced_at: AT },
+    })
+    expect(state.kind).toBe('m1')
+    if (state.kind !== 'm1') return
+    expect(state.review.intent).toBe('selection')
+    expect(state.review.readiness?.level).toBe('ready')
+    // The consumer-facing regression guard: the payload must reach ceeReviewV1.
+    expect(
+      extractDecisionReview({
+        decision_review: { ...M1, bias_findings: [{ id: 'b1' }], produced_at: AT },
+      }),
+    ).not.toBeNull()
+  })
+
+  it.each([
+    'bias_findings',
+    'key_assumptions',
+    'flip_thresholds',
+    'decision_quality_prompts',
+    'evidence_enhancements',
+  ])('M1 + produced_at + the content key %s → m1 (every overlapping key)', (key) => {
+    const state = readDecisionReviewWireState({
+      decision_review: { ...M1, produced_at: AT, [key]: [] },
+    })
+    expect(state.kind).toBe('m1')
+  })
+
+  it('the reverse direction — M1-first must NOT steal the LIVE 0.30 payloads', () => {
+    // The structural reason it cannot: the live payloads carry none of M1's
+    // four discriminators. Asserted directly rather than assumed.
+    for (const [, block] of LIVE_BLOCKS) {
+      const dr = enrichmentOf(block).decision_review as Record<string, unknown>
+      expect(dr.intent).toBeUndefined()
+      expect(dr.analysis_state).toBeUndefined()
+      expect(dr.readiness).toBeUndefined()
+      expect(dr.blocks).toBeUndefined()
+      expect(readDecisionReviewWireState(enrichmentOf(block)).kind).toBe('v0_30')
+    }
+  })
+
+  it('a PARTIAL M1 payload does not win — it falls through to the 0.30 read', () => {
+    // Strictness of the M1 gate is what makes M1-first safe. A payload with
+    // M1-ish keys but a broken `blocks` must not be claimed as m1.
+    const state = readDecisionReviewWireState({
+      decision_review: {
+        ...M1,
+        blocks: 'not-an-array',
+        produced_at: AT,
+        narrative_summary: 'Real 0.30 prose.',
+      },
+    })
+    expect(state.kind).toBe('v0_30')
+    if (state.kind !== 'v0_30') return
+    expect(state.review.narrative_summary).toBe('Real 0.30 prose.')
+  })
+
+  it('a partial M1 payload with NO 0.30 content either → malformed', () => {
+    expect(
+      readDecisionReviewWireState({
+        decision_review: { ...M1, blocks: 'not-an-array' },
+      }).kind,
+    ).toBe('malformed')
+  })
+})
+
+describe('A1 — absent is not the same answer as present-but-wrong-typed', () => {
+  const AT = '2026-07-30T00:00:00.000Z'
+  const FIVE = [
+    'narrative_summary',
+    'readiness_rationale',
+    'robustness_explanation',
+    'story_headlines',
+    'scenario_contexts',
+  ] as const
+
+  /** A well-typed value for each of the five, so a row varies ONE thing. */
+  const WELL_TYPED: Record<string, unknown> = {
+    narrative_summary: 'Status quo leads.',
+    readiness_rationale: 'Readiness is high.',
+    robustness_explanation: { summary: 'Stable.' },
+    story_headlines: { opt_a: 'A headline.' },
+    scenario_contexts: { s1: { trigger_description: 'If X,', consequence: 'then Y.' } },
+  }
+  /** A WRONG-typed value for each of the five (kind mismatch, not blankness). */
+  const WRONG_TYPED: Record<string, unknown> = {
+    narrative_summary: { nested: 'object' }, // the exact case A1 named
+    readiness_rationale: 42,
+    robustness_explanation: 'not an object',
+    story_headlines: ['not a record'],
+    scenario_contexts: 3,
+  }
+
+  // ── ROW 1 — a single wrong-typed field ──────────────────────────────────
+  it.each(FIVE)(
+    'ROW 1 — %s alone arriving wrong-typed → malformed (the lamp lights)',
+    (field) => {
+      const state = readDecisionReviewWireState({
+        decision_review: { produced_at: AT, ...WELL_TYPED, [field]: WRONG_TYPED[field] },
+      })
+      expect(state.kind).toBe('malformed')
+    },
+  )
+
+  it('ROW 1 control — the same payload with that field WELL-typed is v0_30 with prose', () => {
+    const state = readDecisionReviewWireState({
+      decision_review: { produced_at: AT, ...WELL_TYPED },
+    })
+    expect(state.kind).toBe('v0_30')
+    if (state.kind !== 'v0_30') return
+    expect(state.review.hasProse).toBe(true)
+  })
+
+  // ── ROW 2 — ALL FIVE wrong-typed: the case that used to be silent ────────
+  it('ROW 2 — all five wrong-typed → malformed, NOT v0_30(hasProse=false)', () => {
+    const state = readDecisionReviewWireState({
+      decision_review: { produced_at: AT, ...WRONG_TYPED },
+    })
+    expect(state.kind).toBe('malformed')
+    // The regression guard, stated as the negative it is: this must never
+    // again be a "healthy review that happens to carry no prose".
+    expect(state.kind).not.toBe('v0_30')
+  })
+
+  // ── ROW 3 — fields simply absent ────────────────────────────────────────
+  it('ROW 3 — the five absent (only a non-projected content key) → v0_30, no alarm', () => {
+    const state = readDecisionReviewWireState({
+      decision_review: { produced_at: AT, bias_findings: [], flip_thresholds: [] },
+    })
+    expect(state.kind).toBe('v0_30')
+    if (state.kind !== 'v0_30') return
+    expect(state.review.hasProse).toBe(false)
+  })
+
+  it.each(FIVE)('ROW 3 — %s absent while the others are present → v0_30', (field) => {
+    const dr: Record<string, unknown> = { produced_at: AT, ...WELL_TYPED }
+    delete dr[field]
+    expect(readDecisionReviewWireState({ decision_review: dr }).kind).toBe('v0_30')
+  })
+
+  // ── ROW 4 — absent AND wrong-typed in the same payload ───────────────────
+  it('ROW 4 — one absent + one wrong-typed → malformed (wrong-typed dominates)', () => {
+    const state = readDecisionReviewWireState({
+      decision_review: {
+        produced_at: AT,
+        // narrative_summary deliberately ABSENT
+        readiness_rationale: 'Readiness is high.',
+        robustness_explanation: 'not an object', // WRONG-TYPED
+        story_headlines: { opt_a: 'A headline.' },
+      },
+    })
+    expect(state.kind).toBe('malformed')
+  })
+
+  it('ROW 4 control — the same payload with the wrong-typed field REMOVED is v0_30', () => {
+    // Proves ROW 4's verdict comes from the wrong TYPE, not from the absence.
+    const state = readDecisionReviewWireState({
+      decision_review: {
+        produced_at: AT,
+        readiness_rationale: 'Readiness is high.',
+        story_headlines: { opt_a: 'A headline.' },
+      },
+    })
+    expect(state.kind).toBe('v0_30')
+    if (state.kind !== 'v0_30') return
+    expect(state.review.readiness_rationale).toBe('Readiness is high.')
+  })
+
+  // ── Bounded strictness — stated, and pinned both ways ────────────────────
+  it('robustness_explanation’s OWN scalars are strict (a singleton loss is silent)', () => {
+    expect(
+      readDecisionReviewWireState({
+        decision_review: { produced_at: AT, robustness_explanation: { summary: 42 } },
+      }).kind,
+    ).toBe('malformed')
+    expect(
+      readDecisionReviewWireState({
+        decision_review: {
+          produced_at: AT,
+          robustness_explanation: { summary: 'S', stability_factors: 'not an array' },
+        },
+      }).kind,
+    ).toBe('malformed')
+  })
+
+  it('per-ITEM collection members stay lenient (a dropped row is partial and countable)', () => {
+    const state = readDecisionReviewWireState({
+      decision_review: {
+        produced_at: AT,
+        story_headlines: { opt_a: 'kept', opt_b: 99 },
+        scenario_contexts: { s1: { trigger_description: 'T' }, s2: 'not an object' },
+      },
+    })
+    expect(state.kind).toBe('v0_30')
+    if (state.kind !== 'v0_30') return
+    expect(state.review.story_headlines).toHaveLength(1)
+    expect(state.review.scenario_contexts).toHaveLength(1)
+  })
+
+  it('the five 0.30 keys this view-model does NOT project are never validated here', () => {
+    // They reach the UI via the enricher wire blocks. Validating a field this
+    // module neither reads nor renders would light the lamp for a surface it
+    // does not own.
+    const state = readDecisionReviewWireState({
+      decision_review: {
+        produced_at: AT,
+        narrative_summary: 'Present.',
+        evidence_enhancements: 'wrong type',
+        flip_thresholds: 'wrong type',
+        bias_findings: 'wrong type',
+        key_assumptions: 'wrong type',
+        decision_quality_prompts: 'wrong type',
+      },
+    })
+    expect(state.kind).toBe('v0_30')
+    if (state.kind !== 'v0_30') return
+    expect(state.review.narrative_summary).toBe('Present.')
+  })
+
+  it('UNCHANGED by this fix — produced_at missing or wrong-typed stays malformed', () => {
+    expect(
+      readDecisionReviewWireState({ decision_review: { ...WELL_TYPED } }).kind,
+    ).toBe('malformed')
+    expect(
+      readDecisionReviewWireState({
+        decision_review: { produced_at: 123, ...WELL_TYPED },
+      }).kind,
+    ).toBe('malformed')
+  })
+
+  it('the LIVE payloads are unaffected — still v0_30 with prose', () => {
+    for (const [, block] of LIVE_BLOCKS) {
+      const state = readDecisionReviewWireState(enrichmentOf(block))
+      expect(state.kind).toBe('v0_30')
+      if (state.kind !== 'v0_30') continue
+      expect(state.review.hasProse).toBe(true)
+    }
+  })
+})
+

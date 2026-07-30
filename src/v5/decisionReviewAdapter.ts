@@ -11,13 +11,23 @@
  *    object, no `blocks` array. `readDecisionReviewWireState` handles it.
  *
  * 2. **The M1 REST shape** (`CeeDecisionReviewPayloadV1`:
- *    `intent`/`analysis_state`/`readiness`/`blocks`). Still a LIVE platform
- *    shape — CEE serves it from `POST /assist/v1/review` — but **nothing emits
- *    it into a V5 turn's block enrichment**, at either upstream tip
- *    (PLoT `3d13e0ac`: complete manifest, PLoT never writes a `decision_review`
- *    key at all; CEE `2180702`/#758: exactly two writers of the wire key, the
- *    0.30 enricher and a `null` patch). `extractDecisionReview` handles it and
- *    is therefore INERT on live payloads.
+ *    `intent`/`analysis_state`/`readiness`/`blocks`). Still a LIVE shape *in
+ *    this codebase* — `runMeta.ceeReviewV1` is populated by four producers, one
+ *    of which delivers REAL (non-synthesised) M1 payloads:
+ *    `useResultsRun.ts:113` reads `report.ceeReview` off the PLoT v1 SSE
+ *    stream; `useV2Run.ts:906`, `hydrateAnalysis.ts:125` and
+ *    `useConversation.ts:3105` synthesise it via `synthesizeCeeReviewFromV2`.
+ *    (CEE also serves this shape from `POST /assist/v1/review`, but **no UI
+ *    code calls that route** — complete manifest over `src/`, with a positive
+ *    control showing the sweep does find `/assist/v1/{draft-graph,ask,
+ *    graph-readiness,draft-flows}` — so it is irrelevant to this module.)
+ *
+ *    What no producer does is emit the M1 shape **into a V5 turn's block
+ *    enrichment**, at either upstream tip (PLoT `3d13e0ac`: complete manifest,
+ *    PLoT never writes a `decision_review` key at all; CEE `2180702`/#758:
+ *    exactly two writers of the wire key, the 0.30 enricher and a `null`
+ *    patch). `extractDecisionReview` handles it and is therefore INERT on live
+ *    payloads.
  *
  * ## THE FALSE LABEL THIS DOCSTRING REPLACES (ROADMAP 2.154)
  *
@@ -34,16 +44,45 @@
  *
  * ## Why the M1 branch is KEPT rather than deleted
  *
- * It is inert on live payloads, so deleting it would change nothing live — but
- * deleting it is not free. `applyV5State` uses this adapter to decide whether
- * to CLEAR `runMeta.ceeReviewV1`, and that clear IS load-bearing: `ceeReviewV1`
- * has live non-V5 producers (`synthesizeCeeReviewFromV2` via `useV2Run`,
- * `hydrateAnalysis`, `useConversation`), so a V5 analysis turn must be able to
- * evict a prior direct/V2 run's real M1 review. Removing the branch would mean
- * replacing that with an unconditional null-write — a behaviour change with no
- * defect motivating it. The branch's danger was never the code; it was the
- * false docstring above and a test fixture that made the dead shape look like
- * the only shape. Both are fixed, together, in this change.
+ * ⚠ **A PREVIOUS VERSION OF THIS SECTION HAD THE ARGUMENT BACKWARDS** and is
+ * withdrawn (A3). It claimed the branch was needed because `applyV5State` uses
+ * this adapter to decide whether to CLEAR `runMeta.ceeReviewV1`, and *"a V5
+ * analysis turn must be able to evict a prior run's M1 review"*. **Contradicted
+ * at the bytes:** eviction does not depend on this branch at all. It happens in
+ * two places, both unconditional —
+ *   - `applyV5State.ts` `applyDecisionReviewToRunMeta`: on a `v0_30` result,
+ *     `ceeReviewV1` is written `null` by the ternary; and
+ *   - the caller's `else` arm: when NOTHING is recognised, BOTH review fields
+ *     are cleared.
+ *
+ * Deleting the M1 branch would make eviction **MORE** aggressive, not less: an
+ * M1-shaped payload in block enrichment would become `malformed`, fall to the
+ * `else` arm, and be cleared. **The branch's real effect is the opposite of what
+ * was claimed — it SUPPRESSES eviction for that case**, retaining the payload
+ * into `ceeReviewV1` instead of discarding it.
+ *
+ * The honest rationale is therefore **defensive retention**, and it is weaker
+ * than the withdrawn one — recorded as such rather than dressed up:
+ *
+ * 1. The branch is inert on live payloads, so keeping it costs nothing
+ *    observable, and deleting it would also change nothing observable.
+ * 2. What deleting it *would* change is the handling of a shape that is still
+ *    live in this codebase (four `ceeReviewV1` producers, one of them real —
+ *    see above) if it ever reached this seam: instead of being retained, it
+ *    would be discarded, `ceeReviewV1` cleared, and only an `aria-hidden`
+ *    operator marker would record it. Given that the one residual gap in the
+ *    producer sweep is CEE *computed-key* writers into `fact.result.enrichment`
+ *    — which a `decision_review\s*:` manifest cannot see — retaining is the
+ *    conservative side of an acknowledged unknown.
+ * 3. The type and its consumers are what is unambiguously live:
+ *    `ceeDataAdapter`, `useResultsSectionData`, `buildV7Bias`,
+ *    `DecisionQuality`, `DecisionSummary`, `store`. Retiring this *branch*
+ *    would not have retired any of that, so a "retire the dead thing" framing
+ *    would have overstated its own scope.
+ *
+ * The branch's danger was never the code; it was the false docstring above and
+ * a test fixture that made the dead shape look like the only shape. Both are
+ * fixed, together, in this change.
  *
  * ## The wire has FOUR states, not two
  *
@@ -106,6 +145,80 @@ function prose(v: unknown): string | null {
 function stringList(v: unknown): string[] {
   if (!Array.isArray(v)) return []
   return v.filter((x): x is string => typeof x === 'string' && x.trim() !== '')
+}
+
+/**
+ * ⭐ ABSENT AND WRONG-TYPED ARE DIFFERENT ANSWERS — the adversarial review of
+ * PR #535 (finding A1) demonstrated on 17 payloads that conflating them
+ * INVERTS the alarm.
+ *
+ * The first cut of this module mapped every unusable value to `null` via
+ * `prose()`. That made "the producer did not send this field" (routine,
+ * by design, nothing lost) indistinguishable from "the producer sent this
+ * field with the wrong type" (a contract break, and the field's entire
+ * content is unrenderable). The `V0_30_CONTENT_KEYS.some(k => raw[k] !==
+ * undefined)` shape gate admits both, so a payload whose five prose fields
+ * were ALL wrong-typed classified as a perfectly healthy
+ * `v0_30 { hasProse: false }` and mounted **no marker** — five fields
+ * silently discarded with the lamp dark, which is the very defect 2.154
+ * exists to fix, reappearing for the type-error case. Meanwhile a merely
+ * missing `produced_at` — which costs the user nothing — lit it.
+ *
+ * So a read of a SINGLETON field now returns one of three answers, and
+ * `readV0_30` routes the third to `malformed`.
+ *
+ * Scope of the strictness, deliberately bounded:
+ *   - **Strict** at the five fields this view-model surfaces and at
+ *     `robustness_explanation`'s own four fields. Every one is a singleton,
+ *     so dropping it is a TOTAL, SILENT loss of that field with no signal
+ *     left on screen.
+ *   - **Lenient** inside the per-item collections (`story_headlines` values,
+ *     `scenario_contexts` entries, and the factor-array members): a dropped
+ *     item is a PARTIAL loss and it is countable — the remaining rows still
+ *     render, so the payload is degraded rather than mute. One malformed
+ *     headline out of four must not blank the other three.
+ *   - **Silent** for the five 0.30 keys this view-model does NOT project
+ *     (`evidence_enhancements`, `flip_thresholds`, `bias_findings`,
+ *     `key_assumptions`, `decision_quality_prompts`). They reach the UI via
+ *     the enricher wire blocks, and validating a field this module neither
+ *     reads nor renders would light the lamp for a surface it does not own.
+ *
+ * `undefined` AND `null` both count as ABSENT: explicit `null` is the
+ * idiomatic JSON way to say "no value here", not a type error. A present,
+ * correctly-typed but blank/whitespace string is likewise NOT a type error —
+ * it is a producer emitting no content, so it reads as absent content.
+ */
+type FieldRead<T> =
+  /** Key not sent (or explicitly null) — legitimate. */
+  | { ok: true; value: null }
+  /** Key sent and well-typed. */
+  | { ok: true; value: T }
+  /** Key sent with the WRONG TYPE — a contract break; caller → malformed. */
+  | { ok: false }
+
+function absent(v: unknown): v is undefined | null {
+  return v === undefined || v === null
+}
+
+/** Strict singleton string. */
+function readProseField(v: unknown): FieldRead<string> {
+  if (absent(v)) return { ok: true, value: null }
+  if (typeof v !== 'string') return { ok: false }
+  return { ok: true, value: v.trim() === '' ? null : v }
+}
+
+/** Strict singleton record (container kind only — members stay lenient). */
+function readRecordField(v: unknown): FieldRead<Record<string, unknown>> {
+  if (absent(v)) return { ok: true, value: null }
+  if (!isRecord(v)) return { ok: false }
+  return { ok: true, value: v }
+}
+
+/** Strict array container; its MEMBERS are filtered leniently. */
+function readStringListField(v: unknown): FieldRead<string[]> {
+  if (absent(v)) return { ok: true, value: null }
+  if (!Array.isArray(v)) return { ok: false }
+  return { ok: true, value: stringList(v) }
 }
 
 // ── The 0.30 view-model ────────────────────────────────────────────────────
@@ -174,39 +287,74 @@ export type DecisionReviewWireState =
   /** The M1 REST shape. Inert on live payloads — see the header. */
   | { kind: 'm1'; review: CeeDecisionReviewPayloadV1 }
 
-function readRobustnessExplanation(v: unknown): DecisionReviewRobustnessExplanation | null {
-  if (!isRecord(v)) return null
-  const summary = prose(v.summary)
-  const primaryRisk = prose(v.primary_risk)
-  const stability = stringList(v.stability_factors)
-  const fragility = stringList(v.fragility_factors)
-  if (summary === null && primaryRisk === null && stability.length === 0 && fragility.length === 0) {
-    return null
+/**
+ * Strict on the container kind AND on its own four singleton fields; lenient
+ * on the factor-array MEMBERS. A wrong-typed `summary` is a silent total loss
+ * of that line, so it is a contract break; a wrong-typed member of
+ * `stability_factors` costs one bullet out of several and the rest still
+ * render.
+ */
+function readRobustnessExplanation(
+  v: unknown,
+): FieldRead<DecisionReviewRobustnessExplanation> {
+  const container = readRecordField(v)
+  if (!container.ok) return { ok: false }
+  if (container.value === null) return { ok: true, value: null }
+
+  const summary = readProseField(container.value.summary)
+  const primaryRisk = readProseField(container.value.primary_risk)
+  const stability = readStringListField(container.value.stability_factors)
+  const fragility = readStringListField(container.value.fragility_factors)
+  if (!summary.ok || !primaryRisk.ok || !stability.ok || !fragility.ok) {
+    return { ok: false }
+  }
+
+  const stabilityList = stability.value ?? []
+  const fragilityList = fragility.value ?? []
+  if (
+    summary.value === null &&
+    primaryRisk.value === null &&
+    stabilityList.length === 0 &&
+    fragilityList.length === 0
+  ) {
+    // Well-typed but carrying nothing — absent content, not a contract break.
+    return { ok: true, value: null }
   }
   return {
-    summary,
-    primary_risk: primaryRisk,
-    stability_factors: stability,
-    fragility_factors: fragility,
+    ok: true,
+    value: {
+      summary: summary.value,
+      primary_risk: primaryRisk.value,
+      stability_factors: stabilityList,
+      fragility_factors: fragilityList,
+    },
   }
 }
 
-function readStoryHeadlines(v: unknown): DecisionReviewStoryHeadline[] {
-  if (!isRecord(v)) return []
+/** Strict on the container kind; lenient per item (a dropped row is countable). */
+function readStoryHeadlines(v: unknown): FieldRead<DecisionReviewStoryHeadline[]> {
+  const container = readRecordField(v)
+  if (!container.ok) return { ok: false }
+  if (container.value === null) return { ok: true, value: null }
+
   const out: DecisionReviewStoryHeadline[] = []
   // Object key order is the wire order. Not sorted: any reordering would be a
   // UI transform over producer-ranked data.
-  for (const [optionId, headline] of Object.entries(v)) {
+  for (const [optionId, headline] of Object.entries(container.value)) {
     const text = prose(headline)
     if (text !== null) out.push({ optionId, headline: text })
   }
-  return out
+  return { ok: true, value: out }
 }
 
-function readScenarioContexts(v: unknown): DecisionReviewScenarioContext[] {
-  if (!isRecord(v)) return []
+/** Strict on the container kind; lenient per entry. */
+function readScenarioContexts(v: unknown): FieldRead<DecisionReviewScenarioContext[]> {
+  const container = readRecordField(v)
+  if (!container.ok) return { ok: false }
+  if (container.value === null) return { ok: true, value: null }
+
   const out: DecisionReviewScenarioContext[] = []
-  for (const [id, entry] of Object.entries(v)) {
+  for (const [id, entry] of Object.entries(container.value)) {
     if (!isRecord(entry)) continue
     const trigger = prose(entry.trigger_description)
     const consequence = prose(entry.consequence)
@@ -215,33 +363,66 @@ function readScenarioContexts(v: unknown): DecisionReviewScenarioContext[] {
     if (trigger === null && consequence === null) continue
     out.push({ id, trigger_description: trigger, consequence })
   }
-  return out
+  return { ok: true, value: out }
 }
 
-function readV0_30(raw: Record<string, unknown>): DecisionReview030 | null {
-  const producedAt = prose(raw.produced_at)
-  if (producedAt === null) return null
-  if (!V0_30_CONTENT_KEYS.some((k) => raw[k] !== undefined)) return null
+/**
+ * Three outcomes, not two — see the `FieldRead` header for why conflating the
+ * last two inverts the alarm.
+ *
+ *   `not_v0_30`   — does not look like a 0.30 payload; caller may try M1.
+ *   `type_error`  — IS 0.30-shaped, but a field this view-model renders was
+ *                   sent with the wrong type. Caller → `malformed`.
+ *   the review    — usable, though possibly carrying no prose.
+ */
+type V0_30Read =
+  | { outcome: 'ok'; review: DecisionReview030 }
+  | { outcome: 'not_v0_30' }
+  | { outcome: 'type_error' }
 
-  const narrative = prose(raw.narrative_summary)
-  const readiness = prose(raw.readiness_rationale)
+function readV0_30(raw: Record<string, unknown>): V0_30Read {
+  // The produced_at + content-key pair is the SHAPE discriminator, and it is
+  // deliberately unchanged by the A1 fix: a payload that fails it is not being
+  // judged as a broken 0.30 review, it is being judged as not a 0.30 review at
+  // all, which is what lets the M1 branch still get a look.
+  const producedAt = prose(raw.produced_at)
+  if (producedAt === null) return { outcome: 'not_v0_30' }
+  if (!V0_30_CONTENT_KEYS.some((k) => raw[k] !== undefined)) {
+    return { outcome: 'not_v0_30' }
+  }
+
+  const narrative = readProseField(raw.narrative_summary)
+  const readiness = readProseField(raw.readiness_rationale)
   const robustness = readRobustnessExplanation(raw.robustness_explanation)
   const headlines = readStoryHeadlines(raw.story_headlines)
   const scenarios = readScenarioContexts(raw.scenario_contexts)
 
+  // ANY of the five sent with the wrong type is a contract break. Failing here
+  // rather than nulling the field is the whole point: a null would render as
+  // "the producer sent nothing", with no alarm, and the field's content would
+  // be lost in silence.
+  if (!narrative.ok || !readiness.ok || !robustness.ok || !headlines.ok || !scenarios.ok) {
+    return { outcome: 'type_error' }
+  }
+
+  const headlineList = headlines.value ?? []
+  const scenarioList = scenarios.value ?? []
   return {
-    narrative_summary: narrative,
-    story_headlines: headlines,
-    robustness_explanation: robustness,
-    readiness_rationale: readiness,
-    scenario_contexts: scenarios,
-    produced_at: producedAt,
-    hasProse:
-      narrative !== null ||
-      readiness !== null ||
-      robustness !== null ||
-      headlines.length > 0 ||
-      scenarios.length > 0,
+    outcome: 'ok',
+    review: {
+      narrative_summary: narrative.value,
+      story_headlines: headlineList,
+      robustness_explanation: robustness.value,
+      readiness_rationale: readiness.value,
+      scenario_contexts: scenarioList,
+      produced_at: producedAt,
+      hasProse:
+        narrative.value !== null ||
+        readiness.value !== null ||
+        robustness.value !== null ||
+        headlineList.length > 0 ||
+        scenarioList.length > 0,
+    },
   }
 }
 
@@ -251,9 +432,33 @@ function readV0_30(raw: Record<string, unknown>): DecisionReview030 | null {
  * genuine alarm, which the previous `extractDecisionReview`-returns-null API
  * could not express.
  *
- * The 0.30 branch is tried first. The two shapes are disjoint in practice (the
- * M1 payload carries no top-level `produced_at`), so the order is not
- * load-bearing — but 0.30 is the live shape, so it is checked first.
+ * ## ⭐ SHAPE PRECEDENCE IS STRICT-M1-FIRST, AND IT IS LOAD-BEARING (A2)
+ *
+ * An earlier revision of this docstring claimed *"the two shapes are disjoint
+ * in practice (the M1 payload carries no top-level `produced_at`), so the order
+ * is not load-bearing"*. That claim was **withdrawn — it was exactly the claim
+ * that needed a pin, and it was false.**
+ *
+ * `CeeDecisionReviewPayloadV1` has an **open index signature**, and the UI's own
+ * consumers rely on real M1 payloads carrying extra keys —
+ * `useResultsSectionData.ts:2780-2782` reads `ceeReviewV1.bias_findings`,
+ * `.quality_factors`, `.improvement_guidance`. **`bias_findings` is one of the
+ * ten `V0_30_CONTENT_KEYS`.** So under 0.30-first, an M1 payload carrying
+ * `bias_findings` plus *any* top-level `produced_at` satisfied the 0.30 shape
+ * gate, classified `v0_30`, and made `extractDecisionReview` return `null` —
+ * **silently dropping a real M1 review.** That is this module's own headline
+ * defect reappearing through a different door.
+ *
+ * Strict M1 is therefore checked FIRST, because its structure is far more
+ * specific and is implausible for a 0.30 payload: it requires `intent` in a
+ * three-value enum, `analysis_state` in a four-value enum, a `readiness` record
+ * with a string `level` in a three-value enum plus a string `headline` plus an
+ * array `factors`, AND a `blocks` array whose every member carries string
+ * `id`/`status`/`source`/`summary` and a numeric `priority`. **Verified at the
+ * bytes rather than assumed:** the two captured live 0.30 payloads carry
+ * `intent`, `analysis_state`, `readiness` and `blocks` all `undefined` (pinned
+ * in `decisionReviewAdapter.wire030.spec.ts`), so M1-first cannot steal a live
+ * 0.30 payload. Both directions of the precedence are pinned there.
  */
 export function readDecisionReviewWireState(
   enrichment: Record<string, unknown> | undefined,
@@ -268,11 +473,16 @@ export function readDecisionReviewWireState(
   if (raw === null) return { kind: 'degraded' }
   if (!isRecord(raw)) return { kind: 'malformed' }
 
-  const v030 = readV0_30(raw)
-  if (v030) return { kind: 'v0_30', review: v030 }
-
+  // STRICT M1 FIRST — see the precedence section above. Do not reorder these
+  // two blocks without re-reading it; the order is the fix for A2.
   const m1 = validateM1Payload(raw)
   if (m1) return { kind: 'm1', review: m1 }
+
+  const v030 = readV0_30(raw)
+  if (v030.outcome === 'ok') return { kind: 'v0_30', review: v030.review }
+  // 0.30-shaped but type-broken → the alarm. M1 has already been tried and
+  // failed above, so there is nothing left to fall through to.
+  if (v030.outcome === 'type_error') return { kind: 'malformed' }
 
   return { kind: 'malformed' }
 }
