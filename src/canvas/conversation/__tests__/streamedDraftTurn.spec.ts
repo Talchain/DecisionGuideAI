@@ -35,6 +35,8 @@ import { shouldPersistGraphForScenario, draftStreamPhaseFor } from '../../stores
 import {
   UNSETTLED_DRAFT_NOTICE,
   STOPPED_DRAFT_NOTICE,
+  EARLY_STOP_NOT_SAVED_NOTICE,
+  EARLY_STOP_ALREADY_SAVED_NOTICE,
 } from '../../components/DraftLoadingAnimation'
 import * as scenariosModule from '../../store/scenarios'
 import wireFixture from './fixtures/cee-draft-goal-constraints-wire.json'
@@ -45,6 +47,15 @@ import wireFixture from './fixtures/cee-draft-goal-constraints-wire.json'
 
 const mockOpenStream = vi.fn()
 const mockCallV5Turn = vi.fn()
+// Stop-fence (Codex P0): the server-visible Stop. Mocked at the same network
+// seam as the rest of this file — the point of these tests is which NOTICE the
+// real abort path produces, not the HTTP call.
+const mockStopV5Turn = vi.fn(async () => ({ kind: 'not_saved' as const }))
+vi.mock('../../../v5/stopTurn', () => ({
+  stopV5Turn: (...args: unknown[]) => mockStopV5Turn(...args),
+  getV5StopEndpoint: () => 'https://cee.test/proxy/v5/turn/stop',
+  STOP_ACK_BUDGET_MS: 5000,
+}))
 
 vi.mock('../../../v5/streamedTurnTransport', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../v5/streamedTurnTransport')>()
@@ -728,7 +739,49 @@ describe('F1 — abort after GRAPH_READY (Stop button / 130 s timeout)', () => {
     expect(runGate().reason).toBe(DRAFT_VALUES_UNSETTLED_REFUSAL)
     // …and the transcript says what happened rather than leaving a silently
     // dead Run button next to a "values are still arriving" line.
-    expect(result.current.messages.map((m) => m.content)).toContain(STOPPED_DRAFT_NOTICE)
+    //
+    // ⚠ AMENDED by the stop-fence lane (Codex P0). This used to assert
+    // STOPPED_DRAFT_NOTICE, whose copy is deliberately true of a user stop, a
+    // 130 s timeout AND a preempt without saying which. An explicit user Stop now
+    // has a server answer behind it, so it gets the notice that can name what
+    // happened — and STOPPED_DRAFT_NOTICE stays for the two aborts that send no
+    // stop request. EXACTLY ONE notice, which is the assertion that would have
+    // caught a double-notice regression (it survived a mutation until it moved
+    // here from the hook spec, where the abort seam is not driven at all).
+    const contents = result.current.messages.map((m) => m.content)
+    expect(contents).toContain(EARLY_STOP_NOT_SAVED_NOTICE)
+    expect(contents).not.toContain(STOPPED_DRAFT_NOTICE)
+    const notices = result.current.messages.filter((m) => m.synthetic)
+    expect(notices).toHaveLength(1)
+    expect(notices[0].actionChips?.map((c) => c.id)).toEqual([START_NEW_DRAFT_CHIP_ID])
+    // The server was told, with the ids that went on the wire.
+    expect(mockStopV5Turn).toHaveBeenCalledTimes(1)
+  })
+
+  it('says the draft had ALREADY been saved when the server says so — same abort path', async () => {
+    // The copy is chosen by the server's answer, on the REAL abort path rather
+    // than a hook-level stand-in. `already_committed` is derived server-side from
+    // v5_conversation_turns, so this is the state where "nothing was saved" would
+    // be a lie.
+    mockStopV5Turn.mockResolvedValueOnce({ kind: 'already_saved' } as never)
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    const { result } = renderHook(() => useConversation())
+    let sent!: Promise<void>
+    await act(async () => {
+      sent = result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
+    })
+    await stream.push(F_DRAFTING + F_GRAPH_READY)
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    await stream.fail()
+    await act(async () => {
+      await sent.catch(() => {})
+    })
+    const notices = result.current.messages.filter((m) => m.synthetic)
+    expect(notices).toHaveLength(1)
+    expect(notices[0].content).toBe(EARLY_STOP_ALREADY_SAVED_NOTICE)
   })
 
   it('never issues a second network request after an explicit Stop', async () => {
@@ -1097,7 +1150,11 @@ describe('R2-F1 — the turn is aborted while the buffered fallback is in flight
     expect(useDraftStore.getState().draftStreamPhase).toBe('unsettled')
     expect(runGate().allowed).toBe(false)
     expect(runGate().reason).toBe(DRAFT_VALUES_UNSETTLED_REFUSAL)
-    expect(result.current.messages.map((m) => m.content)).toContain(STOPPED_DRAFT_NOTICE)
+    // Stop-fence: an explicit Stop mid-fallback gets the stop-fence notice, once
+    // (see the amendment note on the stream-abort case above).
+    const fallbackNotices = result.current.messages.filter((m) => m.synthetic)
+    expect(fallbackNotices).toHaveLength(1)
+    expect(fallbackNotices[0].content).toBe(EARLY_STOP_NOT_SAVED_NOTICE)
   })
 
   it('the 130 s timeout during the fallback does the same — and this one needs no user action', async () => {

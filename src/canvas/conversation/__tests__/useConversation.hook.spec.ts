@@ -2904,47 +2904,17 @@ describe('cancelTurn — stop-fence: the server is told, and so is the user', ()
     expect(synthetic[0].content).toBe(EARLY_STOP_UNCONFIRMED_NOTICE)
   })
 
-  it('emits EXACTLY ONE terminal notice when a graph preview was already standing', async () => {
-    // Two notices were the risk here: sendTurn's abortedWithPreview branch has
-    // emitted STOPPED_DRAFT_NOTICE since #529, and cancelTurn now emits its own.
-    // The turn id set is what keeps them from both firing.
-    mockStopV5Turn.mockResolvedValue({ kind: 'not_saved' })
-    mockStreamTurn.mockImplementation(async function* (_req: unknown, signal: AbortSignal) {
-      yield { type: 'text_delta' as const, delta: 'Working on it' }
-      await new Promise<never>((_, reject) => {
-        signal.addEventListener('abort', () => {
-          reject(Object.assign(new Error('aborted'), {
-            name: 'AbortError',
-            abortedWithPreview: true,
-          }))
-        }, { once: true })
-      })
-    })
-    const { result } = renderHook(() => useConversation())
-    await act(async () => {
-      result.current.sendMessage('Draft a model for the on-call rotation decision')
-    })
-    await act(async () => {
-      await Promise.resolve()
-      await Promise.resolve()
-    })
-    await act(async () => {
-      result.current.cancelTurn()
-    })
-    await act(async () => {
-      await Promise.resolve()
-      await Promise.resolve()
-      await Promise.resolve()
-    })
-    const notices = result.current.messages.filter(
-      (m) => m.synthetic && typeof m.content === 'string',
-    )
-    expect(notices).toHaveLength(1)
-    expect(notices[0].content).toBe(EARLY_STOP_NOT_SAVED_NOTICE)
-    // And the STOPPED_DRAFT_NOTICE the abort branch would have added is absent —
-    // it is still correct for a TIMEOUT or a preempt, which is why it stays.
-    expect(notices[0].content).not.toBe(STOPPED_DRAFT_NOTICE)
-  })
+  // ⚠ THE "EXACTLY ONE NOTICE" PIN IS NOT HERE, AND THAT IS A CORRECTION.
+  //   I wrote it here first, attaching `abortedWithPreview` to the AbortError this
+  //   file's mocked `streamOrchestratorTurn` throws. It passed — and then SURVIVED
+  //   the mutation that makes sendTurn's abort branch fire unconditionally
+  //   (U6 in the lane's mutation table). The reason: this harness drives the
+  //   LEGACY streaming seam, and the `abortedWithPreview` catch lives on the V5
+  //   streamed path, so the flag was never read. A green test asserting nothing —
+  //   trap 13, in the test written to prevent a double notice.
+  //   The real pin lives in `streamedDraftTurn.spec.ts`, which drives the V5
+  //   stream through `openV5TurnStream` and therefore reaches that branch. It
+  //   bites U6.
 
   it('an idle Stop click never contacts the server', async () => {
     // cancelTurn's isThinking guard: no turn, no tombstone. A stop request for a
