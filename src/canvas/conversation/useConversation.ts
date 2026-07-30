@@ -4875,6 +4875,24 @@ export function useConversation(): UseConversationReturn {
             !hidden &&
             !explicitlyStoppedTurnIdsRef.current.has(turnClientId)
           ) {
+            // ⚠ ROWED RESIDUAL — THIS SET IS ADD-ONLY AND `retryLast` REUSES IDS.
+            //   Complete manifest of `explicitlyStoppedTurnIdsRef` at this commit:
+            //   one `new`, this read, one `add` in cancelTurn. No `delete`. So once
+            //   a turn id has been explicitly stopped, a LATER attempt with the
+            //   SAME id (retryLast reuses client_turn_id — :2096 / :3867 / :5791)
+            //   stays marked, and an abort of that attempt that was NOT a user
+            //   stop — the 130 s timeout, a preempt — has its STOPPED_DRAFT_NOTICE
+            //   suppressed here: preview standing, run gate shut, nothing said.
+            //
+            //   NOT FIXED IN THIS COMMIT, DELIBERATELY. I wrote the one-line
+            //   `delete(turnClientId)` at dispatch and could not pin it: in this
+            //   harness a stream that dies without a user stop routes to the
+            //   BUFFERED FALLBACK, not to this branch, so my first test for it
+            //   asserted a notice that path never emits. Shipping an unpinnable
+            //   line is the defect this lane has already been caught on twice
+            //   (CEE #759 A1; the guard removed above), so the hazard is rowed with
+            //   its mechanism instead of patched blind. A pin needs a preempt or a
+            //   real timeout driving the abort seam without cancelTurn.
             addMessage({
               id: crypto.randomUUID(),
               role: 'assistant',
@@ -5949,33 +5967,41 @@ export function useConversation(): UseConversationReturn {
       })
       return
     }
-    // ⚠ EXACTLY-ONCE IS KEYED ON THE TURN ID — AMENDMENT A2 (adversarial review
-    //   of PR #534), and the empirics matter here.
+    // ⚠ NO `has(...)` EARLY RETURN HERE, AND THE HISTORY MATTERS — AMENDMENT A2
+    //   (#534 review, round 2).
     //
-    //   MEASURED BEFORE FIXING (four probes, recorded in
-    //   PHASE0-EVIDENCE-2026-07-28/fix-stop-fence.md): a double press does NOT
-    //   re-fire today — not two synchronous presses, not two separated by the
-    //   round trip, and not the stale-identity path either. The blocker is the
-    //   handler's own `if (!isThinkingRef.current) return` above (guard F/G), NOT
-    //   the Stop button unmounting, and `inFlightTurnIdentityRef` is refreshed at
-    //   dispatch (:3883) BEFORE `setIsThinking(true)` (:4100), so there is no
-    //   window where a live `isThinking` pairs with a previous turn's identity.
+    //   The #534 review asked for
+    //   `if (explicitlyStoppedTurnIdsRef.current.has(identity.turnId)) return`.
+    //   I added it, then argued it should be declined, then REPORTED it as
+    //   declined — and the removal never shipped: my own mutation harness ran
+    //   `git checkout -- .` and reverted the edit plus its test, so the guard was
+    //   live at 2462a689 while the record said it was gone. The round-2 verify
+    //   caught that. The argument was right; the code now matches it.
     //
-    //   So why guard at all? Because that guard answers "is a turn in flight?",
-    //   and the contract this lane owes is "has THIS turn's stop already fired?".
-    //   Those coincide today only because of how the isThinking lifecycle happens
-    //   to be sequenced — a coincidence, not a property, and the cost of it
-    //   breaking is a second tombstone POST plus a second terminal notice against
-    //   an "exactly one" promise. Keying on the id makes it a property of the
-    //   handler, which is what the review asked for; `explicitlyStoppedTurnIdsRef`
-    //   already holds exactly the fact needed and was previously read only by
-    //   `sendTurn`.
-    if (explicitlyStoppedTurnIdsRef.current.has(identity.turnId)) return
+    //   WHY IT IS OUT, not merely unnecessary. `retryLast` re-sends with the SAME
+    //   `client_turn_id` for idempotent replay (:2096 / :3867 / :5791), and this
+    //   set is add-only — nothing ever deleted from it. So with the guard,
+    //   stop → retry → stop hits `has(...)` and returns early: NO tombstone and
+    //   NO terminal notice. A user who stops a retried draft gets exactly the
+    //   silence this P0 exists to eliminate, and the stopped turn's write is then
+    //   never fenced.
+    //
+    //   WHY NOT "keep the guard and delete the id on reuse" instead: that makes
+    //   the guard unreachable again (any dispatch that re-arms `isThinking` also
+    //   refreshes the identity, so `identity.turnId` is never already in the set),
+    //   i.e. an unpinnable line that reads as a guarantee — CEE #759's finding A1,
+    //   reproduced on purpose. Removing it keeps every remaining line reachable
+    //   and pinned.
+    //
+    //   WHAT ACTUALLY PROVIDES EXACTLY-ONCE, both measured, both pinned:
+    //     · double press → `if (!isThinkingRef.current) return` at the top of this
+    //       handler (guard F/G), synchronously set false before any await;
+    //     · a stale identity → the clear below.
     explicitlyStoppedTurnIdsRef.current.add(identity.turnId)
-    // Clear the captured identity now it has been used. Not load-bearing for the
-    // guard above, but it stops a stale (scenario, turn) pair outliving the turn
-    // it describes — the hazard the review reasoned from, closed at its source
-    // rather than only at the symptom.
+    // Clear the captured identity now it has been used, so a stale
+    // (scenario, turn) pair cannot outlive the turn it describes and be
+    // tombstoned in a later turn's name. Pinned by "a turn dispatched with NO
+    // scenario id never tombstones the PREVIOUS turn".
     inFlightTurnIdentityRef.current = null
     void stopV5Turn(identity).then((result) => {
       addMessage({

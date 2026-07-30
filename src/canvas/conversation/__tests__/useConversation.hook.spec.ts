@@ -2980,12 +2980,18 @@ describe('cancelTurn — stop-fence: the server is told, and so is the user', ()
     expect(result.current.messages.filter((m) => m.synthetic)).toHaveLength(1)
   })
 
-  it('the guard is the HANDLER\'s, not the lifecycle\'s: a re-entrant press with the turn still live is refused', async () => {
-    // THIS is the test the id guard exists for, and the only one that isolates it.
-    // `isThinkingRef` is forced back to `true` between the two presses, which is
-    // exactly the state a future refactor of the isThinking sequencing could
-    // reintroduce: a live turn whose stop has ALREADY fired. Without the id guard
-    // the second press re-reads the identity and fires again.
+  // ══ PIN 1 (#534 round-2 verify) — THE RETRY PATH, WHICH WAS SILENT AT HEAD ══
+  //
+  // This test was written in round 2, reported as shipped, and then DESTROYED by
+  // my own mutation harness (`git checkout -- .`) along with the guard removal it
+  // justified. The round-2 verify found the guard still live at 2462a689 and this
+  // hazard with it. It is the pin for the guard's ABSENCE: restore the
+  // `has(...)` early return and this goes RED.
+  //
+  // `retryLast` re-sends with the SAME client_turn_id (:2096 / :3867 / :5791), so
+  // with the guard the second Stop hits `has(...)` and returns early — no
+  // tombstone, no notice, and the stopped turn's write never fenced.
+  it('stop → retryLast → stop: the tombstone AND the notice both fire again', async () => {
     configureSilentHangingStream()
     const { result } = renderHook(() => useConversation())
     await act(async () => {
@@ -2997,10 +3003,19 @@ describe('cancelTurn — stop-fence: the server is told, and so is the user', ()
     await act(async () => {
       await Promise.resolve()
       await Promise.resolve()
+      await Promise.resolve()
     })
-    // Re-arm the in-flight condition WITHOUT starting a new turn, then press again.
+    expect(mockStopV5Turn).toHaveBeenCalledTimes(1)
+    const firstId = (mockStopV5Turn.mock.calls[0][0] as { turnId: string }).turnId
+
+    // The retry reuses the id — that is the whole point of the hazard.
+    configureSilentHangingStream()
     await act(async () => {
-      result.current.sendMessage('a second turn, so isThinking is live again')
+      void result.current.retryLast()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
     })
     await act(async () => {
       result.current.cancelTurn()
@@ -3010,12 +3025,62 @@ describe('cancelTurn — stop-fence: the server is told, and so is the user', ()
       await Promise.resolve()
       await Promise.resolve()
     })
-    // The SECOND turn has its own id, so it may legitimately be stopped — what
-    // must never happen is the FIRST turn's id being stopped twice.
+
+    // (a) the server IS told, with the same id, a second time.
+    expect(mockStopV5Turn).toHaveBeenCalledTimes(2)
+    expect((mockStopV5Turn.mock.calls[1][0] as { turnId: string }).turnId).toBe(firstId)
+    // (b) and the user IS told. ONE notice is visible rather than two because
+    // `retryLast` deliberately drops the trailing synthetic message it was
+    // retried FROM — measured, then checked, before this assertion was written.
+    const notices = result.current.messages.filter((m) => m.synthetic)
+    expect(notices).toHaveLength(1)
+    expect(notices[0].content).toBe(EARLY_STOP_NOT_SAVED_NOTICE)
+    expect(notices[0].actionChips?.map((c) => c.id)).toEqual([START_NEW_DRAFT_CHIP_ID])
+  })
+
+  // ══ PIN 3 — THE IDENTITY CLEAR ═════════════════════════════════════════════
+  //
+  // The clear was also unpinned at 2462a689 (removing it reddened nothing). This
+  // is the case it protects: a turn that reaches dispatch with NO scenario id
+  // captures no identity, so a Stop must fall to the "cannot confirm" branch —
+  // NOT tombstone the PREVIOUS turn, which is what a stale ref would name.
+  it('a turn dispatched with NO scenario id never tombstones the PREVIOUS turn', async () => {
+    configureSilentHangingStream()
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      result.current.sendMessage('first turn, has a scenario')
+    })
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    const firstId = (mockStopV5Turn.mock.calls[0][0] as { turnId: string }).turnId
+    expect(mockStopV5Turn).toHaveBeenCalledTimes(1)
+
+    // Second turn dispatches with the canvas holding no scenario id.
+    useCanvasStore.setState({ currentScenarioId: null } as never)
+    configureSilentHangingStream()
+    await act(async () => {
+      result.current.sendMessage('second turn, no scenario id at dispatch')
+    })
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    // Whatever else happens, the FIRST turn must not be tombstoned twice.
     const stoppedIds = mockStopV5Turn.mock.calls.map(
       (c) => (c[0] as { turnId: string }).turnId,
     )
-    expect(new Set(stoppedIds).size).toBe(stoppedIds.length)
+    expect(stoppedIds.filter((id) => id === firstId)).toHaveLength(1)
   })
 
   it('an idle Stop click never contacts the server', async () => {
