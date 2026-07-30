@@ -24,6 +24,7 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
+import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
 import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
 import { getStabilityClassification } from '../../lib/stability'
 import { isCurrencyUnit, classifyUnit } from '../utils/labelUtils'
@@ -112,7 +113,12 @@ export const GoalNode = memo((props: NodeProps) => {
 
   const hasConstraintDefaultWarning = useMemo(() => {
     if (!isPostAnalysis || !report) return false
-    const warnings = (report as any)?.inference_warnings ?? (report as any)?.robustness?.inference_warnings
+    // R-6: the ONE dual-slot reader (root first, then the legacy `robustness`
+    // nesting). This was a fourth private copy of that fallback, in its own cast
+    // style; the shared reader carries the 773-fact measurement showing the
+    // legacy slot is 0/773, which is why reading only one slot renders
+    // permanently empty with nothing red.
+    const warnings = readInferenceWarnings(report as never)
     if (!Array.isArray(warnings)) return false
     return warnings.some((w: any) => w.code === 'CONSTRAINT_NODE_DEFAULT_BASE')
   }, [report, isPostAnalysis])

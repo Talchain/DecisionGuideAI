@@ -41,7 +41,7 @@
  *    enrichment**, at either upstream tip (PLoT `3d13e0ac`: complete manifest,
  *    PLoT never writes a `decision_review` key at all; CEE `2180702`/#758:
  *    exactly two writers of the wire key, the 0.30 enricher and a `null`
- *    patch). `extractDecisionReview` handles it and is therefore INERT on live
+ *    patch). `validateM1Payload` below handles it and is therefore INERT on live
  *    payloads.
  *
  * ## THE FALSE LABEL THIS DOCSTRING REPLACES (ROADMAP 2.154)
@@ -124,7 +124,9 @@
  * and a wrong-typed array member is dropped. The prose is CEE-authored and has
  * already passed CEE's egress gate — the UI renders it, never edits it.
  */
+import { EnrichmentDecisionReviewSchema } from '@talchain/schemas/boundary'
 import type { CeeDecisionReviewPayloadV1, ReviewBlock } from '../types/cee'
+import { isRecord } from '../lib/guards'
 
 const VALID_INTENTS = new Set(['selection', 'prediction', 'validation'])
 const VALID_ANALYSIS_STATES = new Set(['not_run', 'ran', 'partial', 'stale'])
@@ -178,9 +180,39 @@ const V0_30_CONTENT_KEYS = [
   ...V0_30_ENRICHER_OWNED_KEYS,
 ] as const
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
+/**
+ * ⭐ A-1 — THE SHAPE DISCRIMINATOR IS BOUND TO THE CONTRACT, NOT HAND-ROLLED.
+ *
+ * `produced_at` is this module's discriminator: it is the field that decides
+ * whether a payload is judged as a 0.30 review at all (`readV0_30`). A
+ * hand-rolled `typeof raw.produced_at === 'string'` would keep compiling if the
+ * contract renamed or retyped the pin, and the failure would be SILENT and
+ * TOTAL — every live payload reclassified `not_v0_30`, then `malformed`, which
+ * is precisely the whole-payload drop ROADMAP 2.154 exists to have fixed. The
+ * repo's #1 hazard is schema skew (CLAUDE.md hazard 1), and a discriminator is
+ * the worst possible place to carry a second, private declaration of it.
+ *
+ * `.pick({produced_at: true})` binds it: a rename or retype upstream becomes a
+ * COMPILE error here rather than a behavioural one. Follows the live precedent
+ * in `voi/voiRanking.ts` (`EnrichmentFactorEvppiEntrySchema.pick`), whose own
+ * docstring names hand-rolled `typeof` checks "a SECOND definition of the row
+ * contract in a repo whose #1 hazard is schema skew".
+ *
+ * ⚠ SCOPE, AND WHY IT IS THIS NARROW. `EnrichmentDecisionReviewSchema` declares
+ * `produced_at` and NOTHING ELSE — it is `.passthrough()`, so the five prose
+ * fields this view-model renders have nothing to bind to and their hand-rolled
+ * readers below are FORCED, not a choice. The trichotomy (absent / `null` /
+ * record) is likewise already declared by the contract, at the parent:
+ * `decision_review: EnrichmentDecisionReviewSchema.nullable().optional()`. So
+ * this binding buys exactly one thing — the discriminator — and claims no more.
+ *
+ * The parse is deliberately `safeParse` at the call site rather than a throw:
+ * a missing/blank `produced_at` is a legitimate "not a 0.30 payload" answer that
+ * must still let the M1 branch have its look, not an exception.
+ */
+const DecisionReviewDiscriminatorSchema = EnrichmentDecisionReviewSchema.pick({
+  produced_at: true,
+})
 
 /** A non-blank string, verbatim; `null` for anything else. Never coerces. */
 function prose(v: unknown): string | null {
@@ -253,15 +285,35 @@ type FieldRead<T> =
   /** Key sent with the WRONG TYPE — a contract break; caller → malformed. */
   | { ok: false }
 
+/**
+ * A COLLECTION read. Deliberately NOT `FieldRead<T[]>`: there is no null arm,
+ * because no consumer of these three readers distinguishes "the key was absent"
+ * from "the key held an empty list" — every one of them asks only `.length > 0`,
+ * and the render surface treats both as "no rows".
+ *
+ * The null arm used to exist and was paid for FOUR times, once per call site, as
+ * a `?? []` coalesce. Every coalesce is a place where a future reader could
+ * forget it and get `null.length`; collapsing the arm makes that unrepresentable
+ * rather than merely currently-correct. The strictness that MATTERS is untouched:
+ * a wrong-typed CONTAINER is still `{ok: false}` → `malformed`, which is the
+ * whole point of the `FieldRead` header above. What went is a distinction nobody
+ * consumed, not a distinction that guarded anything.
+ */
+type ListRead<T> = { ok: true; value: T[] } | { ok: false }
+
 function absent(v: unknown): v is undefined | null {
   return v === undefined || v === null
 }
 
-/** Strict singleton string. */
+/**
+ * Strict singleton string. The blankness rule is `prose()`'s, not restated:
+ * "present, correctly-typed but blank reads as absent content" is one policy and
+ * it belongs to one function.
+ */
 function readProseField(v: unknown): FieldRead<string> {
   if (absent(v)) return { ok: true, value: null }
   if (typeof v !== 'string') return { ok: false }
-  return { ok: true, value: v.trim() === '' ? null : v }
+  return { ok: true, value: prose(v) }
 }
 
 /** Strict singleton record (container kind only — members stay lenient). */
@@ -272,8 +324,8 @@ function readRecordField(v: unknown): FieldRead<Record<string, unknown>> {
 }
 
 /** Strict array container; its MEMBERS are filtered leniently. */
-function readStringListField(v: unknown): FieldRead<string[]> {
-  if (absent(v)) return { ok: true, value: null }
+function readStringListField(v: unknown): ListRead<string> {
+  if (absent(v)) return { ok: true, value: [] }
   if (!Array.isArray(v)) return { ok: false }
   return { ok: true, value: stringList(v) }
 }
@@ -366,13 +418,11 @@ function readRobustnessExplanation(
     return { ok: false }
   }
 
-  const stabilityList = stability.value ?? []
-  const fragilityList = fragility.value ?? []
   if (
     summary.value === null &&
     primaryRisk.value === null &&
-    stabilityList.length === 0 &&
-    fragilityList.length === 0
+    stability.value.length === 0 &&
+    fragility.value.length === 0
   ) {
     // Well-typed but carrying nothing — absent content, not a contract break.
     return { ok: true, value: null }
@@ -382,17 +432,17 @@ function readRobustnessExplanation(
     value: {
       summary: summary.value,
       primary_risk: primaryRisk.value,
-      stability_factors: stabilityList,
-      fragility_factors: fragilityList,
+      stability_factors: stability.value,
+      fragility_factors: fragility.value,
     },
   }
 }
 
 /** Strict on the container kind; lenient per item (a dropped row is countable). */
-function readStoryHeadlines(v: unknown): FieldRead<DecisionReviewStoryHeadline[]> {
+function readStoryHeadlines(v: unknown): ListRead<DecisionReviewStoryHeadline> {
   const container = readRecordField(v)
   if (!container.ok) return { ok: false }
-  if (container.value === null) return { ok: true, value: null }
+  if (container.value === null) return { ok: true, value: [] }
 
   const out: DecisionReviewStoryHeadline[] = []
   // Object key order is the wire order. Not sorted: any reordering would be a
@@ -405,10 +455,10 @@ function readStoryHeadlines(v: unknown): FieldRead<DecisionReviewStoryHeadline[]
 }
 
 /** Strict on the container kind; lenient per entry. */
-function readScenarioContexts(v: unknown): FieldRead<DecisionReviewScenarioContext[]> {
+function readScenarioContexts(v: unknown): ListRead<DecisionReviewScenarioContext> {
   const container = readRecordField(v)
   if (!container.ok) return { ok: false }
-  if (container.value === null) return { ok: true, value: null }
+  if (container.value === null) return { ok: true, value: [] }
 
   const out: DecisionReviewScenarioContext[] = []
   for (const [id, entry] of Object.entries(container.value)) {
@@ -424,29 +474,32 @@ function readScenarioContexts(v: unknown): FieldRead<DecisionReviewScenarioConte
 }
 
 /**
- * Three outcomes, not two — see the `FieldRead` header for why conflating the
- * last two inverts the alarm.
+ * The 0.30 view-model, or `null` when this payload is not a usable 0.30 review.
  *
- *   `not_v0_30`   — does not look like a 0.30 payload; caller may try M1.
- *   `type_error`  — IS 0.30-shaped, but a field this view-model renders was
- *                   sent with the wrong type. Caller → `malformed`.
- *   the review    — usable, though possibly carrying no prose.
+ * ⚠ THIS USED TO RETURN A THREE-OUTCOME UNION (`ok` / `not_v0_30` /
+ * `type_error`) AND THE THIRD ARM WAS PURE OVERHEAD BY THE TIME IT LANDED.
+ * The union was written when 0.30 was tried FIRST, so a caller genuinely had to
+ * tell "not this shape, go try M1" from "this shape, broken". The A2 fix moved
+ * M1 ahead of 0.30 (`readDecisionReviewWireState`, see its precedence section)
+ * and the sole caller has mapped BOTH non-ok arms to `malformed` ever since —
+ * two names, three lines of dispatch, one behaviour.
+ *
+ * ⚠ WHAT IS NOT LOST, because it would matter if it were: the STRICTNESS is
+ * untouched. A field this view-model renders arriving wrong-typed still refuses
+ * the whole payload and still lights the operator marker, which is the A1 fix and
+ * the reason `FieldRead` distinguishes absent from wrong-typed at all (see its
+ * header). Only the caller-facing LABEL on the refusal is gone, and the caller
+ * never branched on it.
  */
-type V0_30Read =
-  | { outcome: 'ok'; review: DecisionReview030 }
-  | { outcome: 'not_v0_30' }
-  | { outcome: 'type_error' }
-
-function readV0_30(raw: Record<string, unknown>): V0_30Read {
-  // The produced_at + content-key pair is the SHAPE discriminator, and it is
-  // deliberately unchanged by the A1 fix: a payload that fails it is not being
-  // judged as a broken 0.30 review, it is being judged as not a 0.30 review at
-  // all, which is what lets the M1 branch still get a look.
-  const producedAt = prose(raw.produced_at)
-  if (producedAt === null) return { outcome: 'not_v0_30' }
-  if (!V0_30_CONTENT_KEYS.some((k) => raw[k] !== undefined)) {
-    return { outcome: 'not_v0_30' }
-  }
+function readV0_30(raw: Record<string, unknown>): DecisionReview030 | null {
+  // The produced_at + content-key pair is the SHAPE discriminator: it decides
+  // whether this payload is judged as a 0.30 review at all, rather than judged
+  // as a broken one. `produced_at` is read through the CONTRACT (see
+  // `DecisionReviewDiscriminatorSchema`), not a hand-rolled typeof.
+  const parsed = DecisionReviewDiscriminatorSchema.safeParse(raw)
+  const producedAt = parsed.success ? prose(parsed.data.produced_at) : null
+  if (producedAt === null) return null
+  if (!V0_30_CONTENT_KEYS.some((k) => raw[k] !== undefined)) return null
 
   const narrative = readProseField(raw.narrative_summary)
   const readiness = readProseField(raw.readiness_rationale)
@@ -454,32 +507,27 @@ function readV0_30(raw: Record<string, unknown>): V0_30Read {
   const headlines = readStoryHeadlines(raw.story_headlines)
   const scenarios = readScenarioContexts(raw.scenario_contexts)
 
-  // ANY of the five sent with the wrong type is a contract break. Failing here
-  // rather than nulling the field is the whole point: a null would render as
-  // "the producer sent nothing", with no alarm, and the field's content would
+  // ANY of the five sent with the wrong type is a contract break. Refusing the
+  // payload rather than nulling the field is the whole point: a null would render
+  // as "the producer sent nothing", with no alarm, and the field's content would
   // be lost in silence.
   if (!narrative.ok || !readiness.ok || !robustness.ok || !headlines.ok || !scenarios.ok) {
-    return { outcome: 'type_error' }
+    return null
   }
 
-  const headlineList = headlines.value ?? []
-  const scenarioList = scenarios.value ?? []
   return {
-    outcome: 'ok',
-    review: {
-      narrative_summary: narrative.value,
-      story_headlines: headlineList,
-      robustness_explanation: robustness.value,
-      readiness_rationale: readiness.value,
-      scenario_contexts: scenarioList,
-      produced_at: producedAt,
-      hasProse:
-        narrative.value !== null ||
-        readiness.value !== null ||
-        robustness.value !== null ||
-        headlineList.length > 0 ||
-        scenarioList.length > 0,
-    },
+    narrative_summary: narrative.value,
+    story_headlines: headlines.value,
+    robustness_explanation: robustness.value,
+    readiness_rationale: readiness.value,
+    scenario_contexts: scenarios.value,
+    produced_at: producedAt,
+    hasProse:
+      narrative.value !== null ||
+      readiness.value !== null ||
+      robustness.value !== null ||
+      headlines.value.length > 0 ||
+      scenarios.value.length > 0,
   }
 }
 
@@ -536,11 +584,13 @@ export function readDecisionReviewWireState(
   if (m1) return { kind: 'm1', review: m1 }
 
   const v030 = readV0_30(raw)
-  if (v030.outcome === 'ok') return { kind: 'v0_30', review: v030.review }
-  // 0.30-shaped but type-broken → the alarm. M1 has already been tried and
-  // failed above, so there is nothing left to fall through to.
-  if (v030.outcome === 'type_error') return { kind: 'malformed' }
+  if (v030) return { kind: 'v0_30', review: v030 }
 
+  // A record on the key that neither branch could use. M1 has already been tried
+  // and failed above, so there is nothing left to fall through to — and BOTH
+  // reasons `readV0_30` can refuse (not 0.30-shaped, or 0.30-shaped but
+  // type-broken) land here identically. That is why it returns a nullable rather
+  // than a labelled union: this line is the only consumer, and it never branched.
   return { kind: 'malformed' }
 }
 
@@ -588,23 +638,29 @@ function validateM1Payload(raw: Record<string, unknown>): CeeDecisionReviewPaylo
   }
 }
 
-/**
- * Return a validated `CeeDecisionReviewPayloadV1` when
- * `enrichment.decision_review` carries the **M1 REST** shape; `null`
- * otherwise — including on the 0.30 payload CEE actually sends today, which
- * is a different payload and is read by `readDecisionReviewWireState`.
+/*
+ * ⚠ `extractDecisionReview` USED TO BE EXPORTED FROM HERE AND IS DELETED.
  *
- * Validation is deliberately lenient: each field is checked for presence and
- * primitive type, not exhaustive schema conformance.
+ * It was a one-line projection of `readDecisionReviewWireState` —
+ * `state.kind === 'm1' ? state.review : null` — with **zero production callers**
+ * at the tip that removed it (complete manifest over `src/`: the only remaining
+ * mentions are prose in this file, in `V5AnalysisResultBlock.tsx`, and in
+ * `ContractIntegrityTab.tsx`'s note about the same-named local it renamed away
+ * from). Its two specs kept calling it, which is what made it look live.
  *
- * ⚠ A `null` from this function means "no M1 payload here". It does **not**
- * mean the turn carried no decision review, and it must **not** be used to
- * mount an invalid-enrichment marker — that inference is exactly the bug
- * ROADMAP 2.154 fixed. Use `readDecisionReviewWireState` for that question.
+ * ⚠ THE DANGER IT CARRIED IS THE REASON IT IS GONE, NOT ITS LINE COUNT. Its own
+ * docstring had to warn, in bold, that a `null` from it must NEVER be read as
+ * "the turn carried no decision review" — because that exact inference IS the
+ * ROADMAP 2.154 defect: the card mounted an invalid-enrichment marker on every
+ * live turn by treating this function's `null` as malformed-ness. A zero-caller
+ * export whose contract needs a warning about the bug it already caused once is
+ * a loaded gun in a drawer.
+ *
+ * The M1 BRANCH ITSELF STAYS (`validateM1Payload` above, reached by
+ * `readDecisionReviewWireState`). That branch is a documented conservative call
+ * against a named residual gap in the producer sweep — see the header's
+ * "Why the M1 branch is KEPT" section — and the M1 coverage that used to run
+ * through this wrapper now runs through a one-line local helper in
+ * `__tests__/decisionReviewAdapter.test.ts`, so the branch is tested through the
+ * public API every real caller uses.
  */
-export function extractDecisionReview(
-  enrichment: Record<string, unknown> | undefined,
-): CeeDecisionReviewPayloadV1 | null {
-  const state = readDecisionReviewWireState(enrichment)
-  return state.kind === 'm1' ? state.review : null
-}

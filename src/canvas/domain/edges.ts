@@ -296,6 +296,51 @@ export type EdgeData = z.infer<typeof EdgeDataSchema> & {
 }
 
 /**
+ * S2-7 — read `validation` off a wire edge, for BOTH hand-mirrored ingestion
+ * mappers. ONE implementation, so the lockstep is structural for this field.
+ *
+ * WHY IT LIVES HERE. This module owns the two halves the read depends on: the
+ * schema slot (`validation: z.unknown().optional()` above — the UI deliberately
+ * does not re-declare CEE's shape), and `DEFAULT_EDGE_DATA`, whose deliberate
+ * ABSENCE of a `validation` entry is load-bearing (`overlayEdge` in
+ * mergeAppliedGraph.ts treats a mapped value equal to the mapper baseline as "the
+ * wire did not supply this", so a non-undefined default here would silently stop
+ * validation metadata from ever overlaying onto an existing edge). A reader of
+ * that slot belongs beside the slot.
+ *
+ * WHAT IT REPLACES. `mapDraftEdgeToCanvas` (applyDraftResult.ts, hop 1) and
+ * `buildEdge` (conversation/utils/applyPatch.ts, hop 2) are hand-mirrored twins,
+ * and each carried its own copy of this four-line extraction under its own
+ * ~15-line comment explaining that the copies must stay byte-equivalent. Both
+ * comments were right about the hazard and both were the hazard: two copies of a
+ * rule whose whole content is "these two must agree" (CLAUDE.md trap 12). The
+ * mirror spec (`edgeValidationMapperMirror.spec.ts`) STAYS as belt — it pins the
+ * two hops through their public entry points, and it now also pins whole-`data`
+ * parity, so it catches the NEXT field to drift rather than only this one.
+ *
+ * ⚠ THE CAST IS A DECLARED BOUNDARY ASSUMPTION, NOT A VALIDATED NARROWING, and
+ * centralising it does not upgrade it. The wire schema is `z.unknown().optional()`
+ * on purpose while the canvas `data` bag types the field `ValidationMetadata` so
+ * consumers can read it; every consumer null-guards before use (`StyledEdge`
+ * requires `status`, `user_action` AND a non-null `max_divergence` before it
+ * styles anything; `RelationshipsSection` requires `status` + `user_action`), so a
+ * malformed payload degrades to "not contested" rather than throwing.
+ * Runtime-validating the shape here would be a mirror of a contract that already
+ * lives in two repos.
+ *
+ * ⚠ `null` IS ABSENT, NOT A VALUE. A cleared field must OMIT the key rather than
+ * write `null`, for the `DEFAULT_EDGE_DATA` reason above — `undefined` is what
+ * both mappers then spread away.
+ */
+export function readValidationMetadata(
+  wireValidation: unknown,
+): ValidationMetadata | undefined {
+  return wireValidation !== undefined && wireValidation !== null
+    ? (wireValidation as ValidationMetadata)
+    : undefined
+}
+
+/**
  * Default edge data for new edges (used by adapters, CEE, PLoT as fallback).
  * Keep weight at 0.5 for backward compatibility with downstream services.
  *

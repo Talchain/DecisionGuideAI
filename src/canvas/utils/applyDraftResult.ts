@@ -12,13 +12,12 @@
  */
 
 import { useCanvasStore } from '../store'
-import { DEFAULT_EDGE_DATA } from '../domain/edges'
+import { DEFAULT_EDGE_DATA, readValidationMetadata } from '../domain/edges'
 import { edgeValueSourcePatch } from '../domain/edgeValueProvenance'
 import { saveAutosave } from '../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
 import { hasAnalysisReady } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEGoalConstraint, CEEv2Response, CEEv3Response, EffectDirection } from '../../adapters/cee/types'
-import type { ValidationMetadata } from '../domain/validation'
 import { commitDraftCoachingToStore, edgeProvenanceDisplayPatch } from './draftIngestion'
 import { logger } from '../../lib/logger'
 import { validateNodesBatch } from '../domain/nodes'
@@ -131,28 +130,13 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
   // automatically. The lockstep is pinned by
   // src/canvas/utils/__tests__/edgeValidationMapperMirror.spec.ts.
   //
-  // Carried as an OPAQUE OBJECT on purpose. It is `z.unknown()` at the UI's edge
-  // schema boundary (domain/edges.ts:273) with a typed overlay in
-  // types/validation.ts, so field-level extraction here would be a THIRD mirror
-  // of a shape this layer has no business knowing. Consumers narrow it.
-  //
-  // Omitted (not defaulted) when absent, and deliberately given NO entry in
-  // DEFAULT_EDGE_DATA: `overlayEdge` treats a mapped value equal to the mapper
-  // baseline as "the wire did not supply this", so a non-undefined default here
-  // would silently stop validation metadata overlaying onto an existing edge.
-  //
-  // The cast is a DECLARED BOUNDARY ASSUMPTION, not a validated narrowing (see
-  // the identical note in the hop-2 twin): the wire schema is
-  // `z.unknown().optional()` on purpose while the canvas `data` bag types it
-  // `ValidationMetadata`, and every consumer null-guards. Written the same way in
-  // both mappers on purpose — the two are supposed to be byte-equivalent, and a
-  // difference here would be the first crack in the mirror this comment warns
-  // about. (This function's declared return type is `any`, so TypeScript would
-  // NOT have flagged an inconsistency; the hop-2 twin is typed and does.)
-  const validation =
-    e.validation !== undefined && e.validation !== null
-      ? (e.validation as ValidationMetadata)
-      : undefined
+  // For THIS field the lockstep is now STRUCTURAL rather than pinned: hop 2 calls
+  // the same `readValidationMetadata` (S2-7). Both hops previously carried a copy
+  // of the extraction under a copy of the reasoning — the opaque-passthrough
+  // rationale, the "omitted not defaulted" rule and the boundary-cast disclosure
+  // all lived twice. That reasoning now lives once, with the schema slot and
+  // DEFAULT_EDGE_DATA it depends on, in domain/edges.ts. Read it there.
+  const validation = readValidationMetadata(e.validation)
 
   return {
     id,

@@ -12,6 +12,8 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { V7EvidenceDisclosure } from '../V7EvidenceDisclosure'
 import type { V7EvidenceModel } from '../buildV7Lenses'
 import { v7EvidenceModel as model } from '@/__fixtures__/v7EvidenceModel'
+// R-12: the disclosure open/switch sequence — one definition, see the helper.
+import { openDisclosureHeader, switchEvidenceView } from '../../../../test/helpers/resolveNextView'
 
 const FIVE_DRIVERS: V7EvidenceModel['drivers'] = [
   { factorKey: 'f1', label: 'Price', direction: 'negative', isEstimate: true },
@@ -29,7 +31,7 @@ describe('V7EvidenceDisclosure (V7 L5)', () => {
 
   it('expands to the Drivers view, clamps to three, and shows "Show N more"', () => {
     render(<V7EvidenceDisclosure evidence={model({ drivers: FIVE_DRIVERS })} />)
-    fireEvent.click(screen.getByRole('button', { name: /Why, and what could change it/i }))
+    openDisclosureHeader()
     expect(screen.getByTestId('v7-evidence-drivers')).toBeInTheDocument()
     expect(screen.getByText('Price')).toBeInTheDocument()
     expect(screen.getByText('Cost')).toBeInTheDocument()
@@ -42,7 +44,7 @@ describe('V7EvidenceDisclosure (V7 L5)', () => {
 
   it('shows the "est." tag on a defaulted (low-confidence) driver', () => {
     render(<V7EvidenceDisclosure evidence={model({ drivers: FIVE_DRIVERS })} />)
-    fireEvent.click(screen.getByRole('button', { name: /Why, and what could change it/i }))
+    openDisclosureHeader()
     const est = screen.getAllByTestId('v7-driver-est')
     expect(est).toHaveLength(1)
     expect(est[0]).toHaveTextContent('est.')
@@ -56,8 +58,8 @@ describe('V7EvidenceDisclosure (V7 L5)', () => {
         })}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: /Why, and what could change it/i }))
-    fireEvent.click(screen.getByTestId('v7-evidence-tab-flipRisks'))
+    openDisclosureHeader()
+    switchEvidenceView('flipRisks')
     expect(screen.getByTestId('v7-evidence-flip-risks')).toBeInTheDocument()
     expect(screen.getByText(/Price → Profit/)).toBeInTheDocument()
     expect(screen.getByText(/48% switch/)).toBeInTheDocument()
@@ -80,8 +82,8 @@ describe('V7EvidenceDisclosure (V7 L5)', () => {
         })}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: /Why, and what could change it/i }))
-    fireEvent.click(screen.getByTestId('v7-evidence-tab-tradeOffs'))
+    openDisclosureHeader()
+    switchEvidenceView('tradeOffs')
     expect(screen.getByTestId('v7-evidence-trade-offs')).toBeInTheDocument()
     expect(screen.getByText(/If Interest rate is above 5 %, Rent leads; below it, Buy leads\./)).toBeInTheDocument()
   })

@@ -8,10 +8,12 @@
  * graph with no evidence produces zero marks.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { render, cleanup } from '@testing-library/react'
 import { V7EvidenceDisclosure } from '../V7EvidenceDisclosure'
 import { useCanvasStore } from '@/canvas/store'
 import { v7EvidenceModel as model } from '@/__fixtures__/v7EvidenceModel'
+// R-12: the disclosure open/switch sequence — one definition, see the helper.
+import { openDisclosureHeader, switchEvidenceView } from '../../../../test/helpers/resolveNextView'
 
 // A minimal canvas: two factors → one outcome, plus a second outgoing edge from
 // fac_price so a bare from_id would be ambiguous.
@@ -32,7 +34,7 @@ function seedCanvas() {
 }
 
 const openDisclosure = () =>
-  fireEvent.click(screen.getByRole('button', { name: /Why, and what could change it/i }))
+  openDisclosureHeader()
 
 const highlight = () => useCanvasStore.getState().analysisHighlight
 
@@ -55,7 +57,7 @@ describe('V7EvidenceDisclosure — analysis-graph projection', () => {
       />,
     )
     openDisclosure()
-    fireEvent.click(screen.getByTestId('v7-evidence-tab-flipRisks'))
+    switchEvidenceView('flipRisks')
 
     const h = highlight()
     expect(h.source).toBe('flip_risks')
@@ -96,7 +98,7 @@ describe('V7EvidenceDisclosure — analysis-graph projection', () => {
     expect(highlight().source).toBe('drivers')
     expect([...highlight().nodeIds]).toEqual(['fac_price'])
 
-    fireEvent.click(screen.getByTestId('v7-evidence-tab-flipRisks'))
+    switchEvidenceView('flipRisks')
     const h = highlight()
     expect(h.source).toBe('flip_risks')
     expect([...h.edgeIds]).toEqual(['e3'])
@@ -135,7 +137,7 @@ describe('V7EvidenceDisclosure — analysis-graph projection', () => {
     openDisclosure()
     expect(highlight().source).toBe('drivers')
 
-    fireEvent.click(screen.getByTestId('v7-evidence-tab-tradeOffs'))
+    switchEvidenceView('tradeOffs')
     expect(highlight().source).toBeNull()
   })
 
@@ -153,7 +155,7 @@ describe('V7EvidenceDisclosure — analysis-graph projection', () => {
       />,
     )
     openDisclosure()
-    fireEvent.click(screen.getByTestId('v7-evidence-tab-flipRisks'))
+    switchEvidenceView('flipRisks')
 
     const h = highlight()
     expect(h.source).toBe('flip_risks')

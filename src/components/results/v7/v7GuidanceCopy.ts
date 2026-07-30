@@ -13,6 +13,8 @@
  * Copy only — no thresholds, no data, no inference lives here.
  */
 
+import { clampRevealLabel, clampCollapseLabel } from './ClampToggle'
+
 /** The single model-limit caveat, shared verbatim with V7SharpenLine. */
 export const V7_MODEL_LIMIT_CAVEAT =
   'Olumi can point to what the model implies, but not guarantee the real world behaves the same.'
@@ -28,9 +30,18 @@ export const V7_GUIDANCE_COPY = {
       could_fix: 'Could fix',
       technique: 'Technique',
     } as const,
-    /** One item is shown open; the rest are counted behind this toggle. */
-    showMore: (n: number) => `Show ${n} more`,
-    showFewer: 'Show fewer',
+    /**
+     * One item is shown open; the rest are counted behind this toggle.
+     *
+     * ⚠ R-11 — REFERENCES the shared definition rather than re-declaring the
+     * string. This and `v7LensCopy.evidence.seeMore` were two differently-NAMED
+     * functions returning the byte-identical `Show ${n} more`, in this directory,
+     * for the same affordance — so a copy change would have landed in whichever
+     * one the author opened. The property name stays (its consumers and copy
+     * manifests are unchanged); the second definition of the string is gone.
+     */
+    showMore: clampRevealLabel,
+    showFewer: clampCollapseLabel,
     /** Honest action affordances (spec row 9). Each maps to ONE action type;
      * an unknown action type renders none of these (fail closed). */
     action: {

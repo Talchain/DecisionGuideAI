@@ -200,3 +200,215 @@ describe('edge.validation — the two hand-mirrored mappers stay in lockstep', (
     expect('validation' in drafted.data).toBe('validation' in storeEdges[0].data)
   })
 })
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A-3b — WHOLE-`data` PARITY, NOT ONE FIELD'S PARITY
+//
+// Everything above pins `validation`, because `validation` was the field that
+// went missing. That is one field of a bag the two mappers claim to build
+// identically, so the suite would have been just as green if the NEXT field had
+// been added to one hop only — which is the same defect, one field along, and the
+// reason this section exists.
+//
+// ⚠ THIS ASSERTION FOUND TWO REAL DIVERGENCES ON ITS FIRST RUN, AND BOTH WERE
+// DEFECTS. `strengthStdSource` (hop 2 omitted `strengthStd` from
+// `edgeValueSourcePatch`, so a receipt wrote a provenanced VALUE with no stamp)
+// and `provenanceDisplay` (hop 2 never applied `edgeProvenanceDisplayPatch`, so
+// the field was dropped outright). Both were adjudicated at the bytes and FIXED in
+// the same change — see the two describes at the bottom of this file for the
+// evidence, the RED-first pins, and why the receipt is not structurally incapable
+// of carrying `provenance_display`.
+//
+// The two hops now build a BYTE-IDENTICAL `data` bag for the full wire edge, so
+// the difference set below is EMPTY, and that is the assertion — not a
+// disclosure of tolerated gaps.
+//
+// ⚠ IT FAILS LOUD IN BOTH DIRECTIONS (CLAUDE.md trap 12): a NEW divergence reds
+// because it is not in the set, and a STALE entry reds because the set would then
+// over-state. Do NOT add an entry to make a red go away — a new entry means a
+// mapper drifted, and the honest move is to fix the hop or to record, in the
+// entry's reason string, the derived evidence that the difference is structural.
+// (That second arm has already earned its keep: it caught this very file's first
+// draft recording `provenanceDisplay` as differing while its fixture used a
+// provenance value outside the closed vocabulary, so neither hop emitted the key
+// and the "divergence" was an artefact of the fixture.)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Keys the two hops are KNOWN to disagree on, with the reason each is here.
+ *
+ * EMPTY, and meant to stay empty. An entry is a defect awaiting its own change or
+ * a structural difference with derived evidence in its reason string — never a
+ * sanctioned exception, and never a way to quiet this test.
+ */
+const KNOWN_HOP_DIVERGENCES: ReadonlyArray<readonly [string, string]> = []
+
+/** The full wire edge, with every field either mapper reads. */
+const WIRE_EDGE_FULL = {
+  from: 'factor-1',
+  to: 'goal-1',
+  strength: { mean: 0.42, std: 0.11 },
+  exists_probability: 0.77,
+  belief: 0.66,
+  belief_exists: 0.55,
+  effect_direction: 'negative',
+  edge_type: 'directed',
+  provenance_source: 'cee_draft',
+  // Must be one of `PROVENANCE_VALUES` (`from_brief` / `ai_inferred` /
+  // `user_set`) or `edgeProvenanceDisplayPatch` emits nothing and hop 1 agrees
+  // with hop 2 by both producing no key — a fixture that would make divergence
+  // #2 look already-fixed. The stale-disclosure arm below caught exactly that on
+  // this test's first run, which is the arm earning its place.
+  provenance_display: 'ai_inferred',
+  validation: WIRE_VALIDATION,
+}
+
+describe('edge data — the two hand-mirrored mappers build the SAME bag', () => {
+  beforeEach(() => {
+    seedPatchStore()
+  })
+
+  it('every key of the rebuilt data bag agrees, except the recorded divergences', () => {
+    const drafted = mapDraftEdgeToCanvas({ ...WIRE_EDGE_FULL }, 0)
+    applyAutoApplyPatch(addEdgePatch({ ...WIRE_EDGE_FULL }) as any)
+    const patched = storeEdges[0]
+
+    // POSITIVE CONTROL for the comparison itself (trap 13): a bag with nothing in
+    // it, or a comparison over an empty key set, would make every assertion below
+    // vacuous. The live payload above must actually populate the bag.
+    const keys = new Set([...Object.keys(drafted.data), ...Object.keys(patched.data)])
+    expect(keys.size).toBeGreaterThan(10)
+    expect(keys.has('validation')).toBe(true)
+
+    const known = new Set(KNOWN_HOP_DIVERGENCES.map(([k]) => k))
+    const differing = [...keys]
+      .filter((k) => JSON.stringify(drafted.data[k]) !== JSON.stringify(patched.data[k]))
+      .sort()
+
+    // No UNDISCLOSED divergence.
+    expect(differing.filter((k) => !known.has(k))).toEqual([])
+
+    // …and no STALE disclosure: every recorded divergence must still be real. A
+    // fix that closes one has to shrink this list in the same change, so the
+    // record can never outlive the defect it describes.
+    const stale = KNOWN_HOP_DIVERGENCES.filter(([k]) => !differing.includes(k)).map(
+      ([k, why]) => `${k} (recorded as: ${why}) no longer differs — delete this entry`,
+    )
+    expect(stale).toEqual([])
+  })
+
+  it('the recorded divergences are exactly the ones listed', () => {
+    // Pinned separately so the SIZE of the exception set is itself visible in a
+    // diff. Growing it is a decision someone has to make on purpose. It is EMPTY:
+    // both divergences this assertion originally recorded were adjudicated as
+    // defects and fixed in the same change — see the two describes below.
+    expect(KNOWN_HOP_DIVERGENCES.map(([k]) => k)).toEqual([])
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE TWO DIVERGENCES THE PARITY ASSERTION FOUND, ADJUDICATED AND FIXED
+//
+// Both were real field loss on the `edit_graph` receipt path, and both are the
+// 2.154 class: a producer value the UI paid for and then dropped at an ingestion
+// boundary, silently, with the whole suite green.
+//
+// ⚠ ADJUDICATION EVIDENCE FOR `provenanceDisplay` — the question was whether the
+// receipt can even CARRY the field, because if it structurally could not, hop 2
+// omitting the patch would be correct rather than a defect. Derived at the bytes,
+// not assumed:
+//   · `provenance_display` appears NOWHERE in `@talchain/schemas` 0.30.0 (the
+//     pinned vendored tarball) — zero matches across the whole package. So the
+//     contract neither declares nor forbids it.
+//   · `DraftGraphBlockSchema.edges` is `z.array(z.unknown())` (boundary/blocks
+//     :209) — the DRAFT edge hop 1 reads it from is itself untyped by the
+//     contract, so the field's only declaration is the UI's own
+//     `adapters/cee/types.ts:74` / `:135`.
+//   · the receipt's carrier, `PatchOperation.data`, is
+//     `Record<string, unknown>` (`canvas/conversation/types.ts:464`) — fully OPEN.
+// So the receipt is NOT structurally incapable of carrying it. Both hops read an
+// open bag; only one of them looked. → DEFECT, fixed.
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('divergence 1 — strengthStdSource is stamped on a receipt, not just a draft', () => {
+  beforeEach(() => {
+    seedPatchStore()
+  })
+
+  it('an add_edge receipt carrying strength.std stamps strengthStdSource', () => {
+    // `strengthStd` is one of the three `EDGE_PROVENANCED_FIELDS`
+    // (domain/edgeValueProvenance.ts:75). Hop 2 wrote the VALUE while omitting the
+    // stamp, so every display surface that reads the stamp treated a real CEE
+    // estimate as never set — the exact inverse of the laundering
+    // `edgeProvenanceLaundering.sourceScan.spec.ts` guards.
+    applyAutoApplyPatch(
+      addEdgePatch({ from: 'factor-1', to: 'goal-1', strength: { mean: 0.42, std: 0.11 } }) as any,
+    )
+    const data = storeEdges[0].data
+    expect(data.strengthStd).toBeCloseTo(0.11)
+    expect(data.strengthStdSource).toBe('cee')
+  })
+
+  it('a receipt WITHOUT strength.std stamps nothing (the absence arm)', () => {
+    // POSITIVE CONTROL for this absence is the test above: the same path DOES
+    // stamp when the receipt supplies the value, so this measures a real absence
+    // rather than measuring nothing. An unconditional stamp would be the opposite
+    // defect — claiming a producer estimate that was never sent.
+    applyAutoApplyPatch(addEdgePatch({ from: 'factor-1', to: 'goal-1', weight: 0.5 }) as any)
+    const data = storeEdges[0].data
+    expect(data).not.toHaveProperty('strengthStd')
+    expect(data).not.toHaveProperty('strengthStdSource')
+  })
+
+  it('the draft hop already did this — the two now agree', () => {
+    const drafted = mapDraftEdgeToCanvas(
+      { from: 'factor-1', to: 'goal-1', strength: { mean: 0.42, std: 0.11 } },
+      0,
+    )
+    applyAutoApplyPatch(
+      addEdgePatch({ from: 'factor-1', to: 'goal-1', strength: { mean: 0.42, std: 0.11 } }) as any,
+    )
+    expect(drafted.data.strengthStdSource).toBe('cee')
+    expect(storeEdges[0].data.strengthStdSource).toBe(drafted.data.strengthStdSource)
+  })
+})
+
+describe('divergence 2 — provenanceDisplay survives a receipt, not just a draft', () => {
+  beforeEach(() => {
+    seedPatchStore()
+  })
+
+  it('an add_edge receipt carrying provenance_display maps it to provenanceDisplay', () => {
+    applyAutoApplyPatch(
+      addEdgePatch({ from: 'factor-1', to: 'goal-1', provenance_display: 'ai_inferred' }) as any,
+    )
+    expect(storeEdges[0].data.provenanceDisplay).toBe('ai_inferred')
+  })
+
+  it('an UNRECOGNISED provenance value is not mapped (the closed vocabulary holds)', () => {
+    // `edgeProvenanceDisplayPatch` admits only `from_brief` / `ai_inferred` /
+    // `user_set`. Sharing hop 1's helper means sharing that gate, which is the
+    // point of reusing it rather than writing a second read.
+    applyAutoApplyPatch(
+      addEdgePatch({ from: 'factor-1', to: 'goal-1', provenance_display: 'made_up' }) as any,
+    )
+    expect(storeEdges[0].data).not.toHaveProperty('provenanceDisplay')
+  })
+
+  it('a receipt carrying no provenance_display gains no key (the absence arm)', () => {
+    applyAutoApplyPatch(addEdgePatch({ from: 'factor-1', to: 'goal-1', weight: 0.5 }) as any)
+    expect(storeEdges[0].data).not.toHaveProperty('provenanceDisplay')
+  })
+
+  it('the draft hop already did this — the two now agree', () => {
+    const drafted = mapDraftEdgeToCanvas(
+      { from: 'factor-1', to: 'goal-1', provenance_display: 'ai_inferred' },
+      0,
+    )
+    applyAutoApplyPatch(
+      addEdgePatch({ from: 'factor-1', to: 'goal-1', provenance_display: 'ai_inferred' }) as any,
+    )
+    expect(drafted.data.provenanceDisplay).toBe('ai_inferred')
+    expect(storeEdges[0].data.provenanceDisplay).toBe(drafted.data.provenanceDisplay)
+  })
+})

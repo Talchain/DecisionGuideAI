@@ -72,14 +72,22 @@ const LIVE: Array<[string, V5AnalysisResultBlockType, Record<string, unknown>]> 
   ['r3', R3, reviewOf(r3Block)],
 ]
 
-/** A block whose enrichment carries the given decision_review, nothing else. */
-function blockWithReview(decision_review: unknown): V5AnalysisResultBlockType {
+/**
+ * A block whose enrichment carries the given decision_review, nothing else.
+ *
+ * `extraEnrichment` overlays the default `{option_comparison: []}` — used by the
+ * R-4 cases, which need to control what the label chain can resolve.
+ */
+function blockWithReview(
+  decision_review: unknown,
+  extraEnrichment: Record<string, unknown> = {},
+): V5AnalysisResultBlockType {
   return {
     type: 'analysis_result',
     summary: 'Analysis summary from the parent block.',
     leading_option_id: 'opt_a',
     win_probabilities: { 'Option A': 0.6, 'Option B': 0.4 },
-    enrichment: { decision_review, option_comparison: [] },
+    enrichment: { decision_review, option_comparison: [], ...extraEnrichment },
   } as unknown as V5AnalysisResultBlockType
 }
 
@@ -162,10 +170,34 @@ describe('the five orphaned prose fields reach the DOM on a live payload', () =>
     },
   )
 
-  it('a story headline is keyed by option LABEL when the payload resolves one, else the raw id', () => {
-    // Identity resolution over the SAME payload (`enrichment.option_comparison`,
-    // falling back to `enrichment.decision_brief.options`) — the chain the pills
-    // already use. Not a second hand-maintained mapping, and not invented copy.
+  // ─────────────────────────────────────────────────────────────────────────
+  // ⭐ R-4 — THE OPTION-LABEL POLICY. A BEHAVIOUR FIX, WITH THE OLD BEHAVIOUR'S
+  // PIN REPLACED RATHER THAN DELETED.
+  //
+  // These two cases used to read "…else the raw id" and "falls back to the raw
+  // id RATHER THAN RENDERING NOTHING". That was a real pin on real behaviour:
+  // when `option_comparison` missed, this card printed `opt_status_quo` to the
+  // user as copy. It can miss — the wire ships a sibling
+  // `option_comparison_status` field precisely because the array is not
+  // guaranteed — and the live payloads' `story_headlines` keys are exactly the
+  // `opt_*` shape `RAW_ID_PATTERN` exists to catch.
+  //
+  // Both sibling blocks in `src/v5/blocks` already refuse to print an
+  // identifier, through the shared `resolveCanvasLabel` policy that returns
+  // `null` instead of the id. This card is now the third consumer of that one
+  // policy rather than a third policy.
+  //
+  // The absence assertion below is paired with the presence it denies (trap 13):
+  // the labelled case immediately above proves the same harness DOES render a
+  // label when one resolves, so "no raw id in the DOM" measures a real absence.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  it('a story headline is keyed by option LABEL when the payload resolves one', () => {
+    // THE LABELLED CONTROL for the two absence cases below. Identity resolution
+    // over the SAME payload (`enrichment.option_comparison`, falling back to
+    // `enrichment.decision_brief.options`, then to the canvas store) — the chain
+    // the pills already use. Not a second hand-maintained mapping, and not
+    // invented copy.
     render(<V5AnalysisResultBlock block={R1} />)
     const rows = screen.getAllByTestId('v5-analysis-result-story-headline')
     const first = rows.find((n) => n.getAttribute('data-option-id') === 'opt_status_quo')
@@ -173,7 +205,7 @@ describe('the five orphaned prose fields reach the DOM on a live payload', () =>
     expect(first!).toHaveTextContent('Keep Current Setup (Status Quo)')
   })
 
-  it('an unresolvable option id falls back to the raw id rather than rendering nothing', () => {
+  it('⭐ an unresolvable option id renders NO raw id — the headline stands alone', () => {
     render(
       <V5AnalysisResultBlock
         block={blockWithReview({
@@ -183,9 +215,43 @@ describe('the five orphaned prose fields reach the DOM on a live payload', () =>
       />,
     )
     const row = screen.getByTestId('v5-analysis-result-story-headline')
+    // The id survives as the MACHINE reference — the use the field-coverage
+    // allowlist permits, and what the two sibling blocks also keep.
     expect(row).toHaveAttribute('data-option-id', 'opt_unknown')
-    expect(row).toHaveTextContent('opt_unknown')
+    // …and nowhere in the user-visible text.
+    expect(row.textContent).not.toContain('opt_unknown')
+    // Nothing the producer paid for is dropped: the headline still renders. This
+    // is why the row is kept rather than omitted (the `V5FlipAnalysisBlock`
+    // reason), while the unnameable LABEL is omitted (the `V5ExplanationBlock`
+    // reason). No substitute copy is invented either.
     expect(row).toHaveTextContent('A headline with no matching option entry.')
+    expect(row.textContent).not.toContain('—')
+  })
+
+  it('⭐ rejects a resolved label that is ITSELF a raw id (RAW_ID_PATTERN)', () => {
+    // The leak one hop upstream. Upstream sometimes seeds an option's label from
+    // its own id; without the pattern guard inside `resolveCanvasLabel` the raw
+    // id would arrive as a "resolved label" and print anyway. This is the half of
+    // the shared policy a bespoke `map.get(id) ?? id` cannot express at all.
+    render(
+      <V5AnalysisResultBlock
+        block={blockWithReview(
+          {
+            produced_at: '2026-07-30T00:00:00.000Z',
+            story_headlines: { opt_status_quo: 'A headline whose option is labelled by its id.' },
+          },
+          {
+            option_comparison: [
+              { id: 'opt_status_quo', option_label: 'opt_status_quo', win_probability: 0.5 },
+            ],
+          },
+        )}
+      />,
+    )
+    const row = screen.getByTestId('v5-analysis-result-story-headline')
+    expect(row).toHaveAttribute('data-option-id', 'opt_status_quo')
+    expect(row.textContent).not.toContain('opt_status_quo')
+    expect(row).toHaveTextContent('A headline whose option is labelled by its id.')
   })
 
   it.each(LIVE)('%s marks the card as carrying a 0.30 review', (_tag, block) => {

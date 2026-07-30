@@ -17,6 +17,13 @@ import { describe, it, expect, beforeEach } from 'vitest'
 
 import { reconcileAppliedGraph } from '../mergeAppliedGraph'
 import { useCanvasStore } from '../../store'
+// R-10: the store-seeding field set (incl. the `lastAuthoritativeGraph` leak
+// guard) and `counts()` come from the harness shared with
+// `mergeAppliedGraph.spec.ts`. Both were re-declared here — and `counts()` was
+// SKIPPED, so the overlay path asserted 2 of 6 counters while the sibling's own
+// docstring states that an unasserted counter is how an unintended removal slips
+// through. Importing it restores the stronger rule as well as removing the copy.
+import { counts, seedCanvas as seedStore } from './__helpers__/mergeAppliedGraphHarness'
 
 const WIRE_VALIDATION = {
   status: 'contested',
@@ -56,15 +63,8 @@ const EXISTING_EDGES = [
   },
 ]
 
-function seedCanvas(edges = EXISTING_EDGES) {
-  useCanvasStore.setState({
-    currentScenarioId: 'scenario-1',
-    nodes: structuredClone(EXISTING_NODES) as any,
-    edges: structuredClone(edges) as any,
-    ceeAnalysisReady: null,
-    lastAuthoritativeGraph: null,
-    history: { past: [], future: [] },
-  } as any)
+function seedCanvas(edges: unknown[] = EXISTING_EDGES) {
+  seedStore(EXISTING_NODES, edges)
 }
 
 function receipt(edgeExtras: Record<string, unknown>) {
@@ -91,9 +91,14 @@ describe('reconcileAppliedGraph — edge.validation overlay (hop 3)', () => {
   it('overlays validation onto an existing edge that had none', () => {
     const result = reconcileAppliedGraph(receipt({ validation: WIRE_VALIDATION }))
 
-    // The overlay is an UPDATE, not an add — the edge already existed.
-    expect(result.addedEdgeCount).toBe(0)
-    expect(result.updatedEdgeCount).toBe(1)
+    // R-10 — ALL SIX counters, via the shared `counts()`. This case used to assert
+    // `addedEdgeCount` and `updatedEdgeCount` only, which is the exact weakening
+    // that helper's docstring warns about: an unasserted counter is how an
+    // unintended REMOVAL slips through, and this receipt names both existing nodes
+    // and the existing edge, so a spurious removal here is a live possibility
+    // rather than a hypothetical. The overlay is an UPDATE, not an add — the edge
+    // already existed.
+    expect(result).toEqual(counts({ updatedEdgeCount: 1 }))
     expect(overlaidEdge().data.validation).toEqual(WIRE_VALIDATION)
   })
 

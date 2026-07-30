@@ -39,6 +39,7 @@ import { openAskOlumi } from '../coaching/askOlumiStore'
 import { buildV7Guidance, deriveGuidanceAffordance } from './buildV7Guidance'
 import { V7_GUIDANCE_COPY } from './v7GuidanceCopy'
 import { V7HeldProposalCard } from './V7HeldProposalCard'
+import { ClampToggle } from './ClampToggle'
 
 const C = V7_GUIDANCE_COPY.guidance
 
@@ -217,14 +218,21 @@ export function V7GuidanceSection({ onFocusNode, onSendMessage }: V7GuidanceSect
                   ))}
                 </div>
               )}
-              <button
-                type="button"
-                data-testid="v7-guidance-toggle"
-                onClick={() => setShowAll((s) => !s)}
-                className={`${typography.panelMeta} text-info hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-              >
-                {showAll ? C.showFewer : C.showMore(moreCount)}
-              </button>
+              {/*
+                R-11 — the THIRD copy of this affordance, now the third consumer
+                of the one `ClampToggle`. It was byte-identical to the two in
+                `V7EvidenceDisclosure.tsx` (className included, down to the
+                focus-ring) and could not consume the extraction there because it
+                was module-private. `hiddenCount` is `moreCount`, which the
+                enclosing `moreCount > 0` gate already guarantees is positive —
+                the component's own `<= 0` guard is then simply consistent.
+              */}
+              <ClampToggle
+                testId="v7-guidance-toggle"
+                hiddenCount={moreCount}
+                expanded={showAll}
+                onToggle={() => setShowAll((s) => !s)}
+              />
             </>
           )}
         </div>

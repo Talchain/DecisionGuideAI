@@ -7,8 +7,9 @@
  */
 
 import { useCanvasStore } from '../../store'
-import { DEFAULT_EDGE_DATA } from '../../domain/edges'
+import { DEFAULT_EDGE_DATA, readValidationMetadata } from '../../domain/edges'
 import { edgeValueSourcePatch } from '../../domain/edgeValueProvenance'
+import { edgeProvenanceDisplayPatch } from '../../utils/draftIngestion'
 import { saveAutosave } from '../../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../../store/autosaveProjection'
 import { pulseAppliedTargets } from '../../utils/appliedEditPulse'
@@ -17,7 +18,6 @@ import { validateNodesBatch } from '../../domain/nodes'
 import { hasAnalyticalNodeChange, hasAnalyticalEdgeChange } from '../../domain/analyticalChange'
 import type { PatchOperation, GraphPatchBlock } from '../types'
 import type { EffectDirection, CEEAnalysisReady, CEEInterventionV3 } from '../../../adapters/cee/types'
-import type { ValidationMetadata } from '../../domain/validation'
 
 // ---------------------------------------------------------------------------
 // Operation sort order — ensures nodes exist before edges reference them,
@@ -152,24 +152,15 @@ function buildEdge(op: PatchOperation) {
   // mapDraftEdgeToCanvas. Adding `validation` only there would have produced the
   // worst kind of bug: contested markers present after a fresh draft and silently
   // GONE after the next `edit_graph` receipt touching the edge, with no error
-  // anywhere. Kept byte-for-byte equivalent to hop 1's extraction, and pinned in
-  // lockstep by src/canvas/utils/__tests__/edgeValidationMapperMirror.spec.ts.
+  // anywhere.
   //
-  // The cast is a DECLARED BOUNDARY ASSUMPTION, not a validated narrowing, and it
-  // matches how every existing reader and the one existing writer of this field
-  // already treat it: the wire schema is `z.unknown().optional()` on purpose
-  // (`domain/edges.ts:270-273` — the UI deliberately does not re-declare CEE's
-  // shape), while the canvas `data` bag types it `ValidationMetadata`
-  // (`domain/edges.ts:293-296`) so consumers can read it. Every consumer
-  // null-guards before use — `StyledEdge` requires `status`, `user_action` AND a
-  // non-null `max_divergence` before it styles anything, and `RelationshipsSection`
-  // requires `status` + `user_action` — so a malformed payload degrades to "not
-  // contested" rather than throwing. Runtime-validating the shape here would be a
-  // fourth mirror of a contract that already lives in two repos.
-  const validation =
-    d.validation !== undefined && d.validation !== null
-      ? (d.validation as ValidationMetadata)
-      : undefined
+  // For THIS field the twins can no longer disagree: both call the one
+  // `readValidationMetadata` (S2-7), which lives with the schema slot and
+  // DEFAULT_EDGE_DATA it depends on and carries the opaque-passthrough rationale
+  // and the boundary-cast disclosure that used to be duplicated here. The mirror
+  // spec (edgeValidationMapperMirror.spec.ts) stays as belt for the fields that
+  // are still extracted twice.
+  const validation = readValidationMetadata(d.validation)
 
   return {
     id: op.target_id,
@@ -192,10 +183,36 @@ function buildEdge(op: PatchOperation) {
       // when the patch carried no value, so an operation that supplies neither
       // leaves the edge honestly marked as unset rather than claiming a
       // producer estimate.
+      //
+      // ⚠ `strengthStd` WAS MISSING FROM THIS CALL and hop 1 passed it. Found by
+      // the whole-`data` parity assertion in
+      // src/canvas/utils/__tests__/edgeValidationMapperMirror.spec.ts, which was
+      // written because pinning ONE field's lockstep says nothing about the next
+      // field — and this was the next field. `strengthStd` is one of the three
+      // `EDGE_PROVENANCED_FIELDS` (domain/edgeValueProvenance.ts:75), so a receipt
+      // carrying `strength.std` wrote the VALUE with no stamp and every display
+      // surface that reads the stamp treated a real CEE estimate as never set:
+      // the inverse of the laundering `edgeProvenanceLaundering.sourceScan.spec.ts`
+      // guards, arriving through the mirror instead of through a spread.
       ...edgeValueSourcePatch({
         beliefExists: beliefExists !== undefined ? 'cee' : undefined,
         weight: wireSuppliedStrength ? 'cee' : undefined,
+        strengthStd: strengthStd !== undefined ? 'cee' : undefined,
       }),
+      // CEE display provenance (snake_case → camelCase). Distinct from
+      // `provenance_source` above.
+      //
+      // ⚠ ALSO MISSING FROM THIS HOP, found by the same parity assertion: hop 1
+      // applied this patch and hop 2 did not, so a receipt's `provenance_display`
+      // was dropped outright. Adjudicated at the bytes rather than waved through
+      // as "the receipt cannot carry it": `provenance_display` appears NOWHERE in
+      // the pinned @talchain/schemas 0.30.0, `DraftGraphBlockSchema.edges` is
+      // `z.array(z.unknown())`, and this hop's carrier `PatchOperation.data` is
+      // `Record<string, unknown>` (canvas/conversation/types.ts:464). Both hops
+      // read an open bag; only one of them looked. Sharing hop 1's helper also
+      // shares its CLOSED vocabulary gate (from_brief / ai_inferred / user_set),
+      // so an unrecognised value still maps to nothing.
+      ...edgeProvenanceDisplayPatch(d),
     },
   }
 }

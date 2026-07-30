@@ -194,9 +194,40 @@ function edgeMapperDefaults(): Record<string, unknown> {
   return edgeMapperDefaultsCache
 }
 
-/** Stable deep-equality for plain JSON-ish canvas data. */
+/**
+ * Stable deep-equality for plain JSON-ish canvas data.
+ *
+ * E-2 — THE `undefined` SHORT-CIRCUIT IS A REAL COST, NOT A MICRO-OPTIMISATION.
+ * The dominant call pattern is `sameValue(mappedValue, baseline[key])` where the
+ * baseline (`edgeMapperDefaults`) has NO entry for the key — the deliberate case
+ * for `validation`, which carries no `DEFAULT_EDGE_DATA` default by design. So
+ * `b` is `undefined` while `a` is the whole validation bag: two `pass` objects,
+ * `contested_reasons`, the evoi legs. `JSON.stringify(a)` then serialises that
+ * entire bag, per edge, only to compare it against the literal `undefined` —
+ * which `JSON.stringify` renders as `undefined` (not a string), so the comparison
+ * was already decided before the work began.
+ *
+ * On an applied-edit receipt over a contested graph that is ~150-250KB of string
+ * allocation and immediate garbage per receipt.
+ *
+ * BEHAVIOUR-IDENTICAL ON EVERY REACHABLE INPUT, and the one unreachable exception
+ * is named rather than glossed. When exactly one side is `undefined` the two
+ * `JSON.stringify` results cannot match — `undefined` against any string — and
+ * `a === b` above already answered the both-`undefined` case. The exception is a
+ * value `JSON.stringify` ALSO renders as `undefined`: a function or a symbol,
+ * which the old code therefore reported as EQUAL to `undefined`. Both sides of
+ * every call site are mapper output over parsed wire JSON
+ * (`mapDraftNodeToCanvas` / `mapDraftEdgeToCanvas`, and `edgeMapperDefaults`
+ * which is itself one of those calls), so neither can be a function or a symbol.
+ * Were one to arrive, the new answer ("different") sends the key down the
+ * wire-supplied path — the OVER-applying direction this module already declares
+ * fail-safe two comments up, rather than silently dropping an update.
+ */
 function sameValue(a: unknown, b: unknown): boolean {
   if (a === b) return true
+  // Exactly one side is `undefined` (both-undefined was caught above), so they
+  // cannot be equal and there is nothing to serialise.
+  if (a === undefined || b === undefined) return false
   try {
     return JSON.stringify(a) === JSON.stringify(b)
   } catch {

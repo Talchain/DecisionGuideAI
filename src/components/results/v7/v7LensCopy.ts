@@ -11,6 +11,8 @@
  * surfaces can never disagree about what "not produced yet" means.
  */
 
+import { clampRevealLabel, clampCollapseLabel } from './ClampToggle'
+
 export const V7_LENS_COPY = {
   /** Accessible name for the lens tablist. */
   tablistAria: 'Results lens',
@@ -95,8 +97,15 @@ export const V7_LENS_COPY = {
      * (an estimate), a direct producer read (never a threshold). */
     estimateTag: 'est.',
     estimateTagAria: 'estimated value',
-    seeMore: (n: number) => `Show ${n} more`,
-    showFewer: 'Show fewer',
+    /**
+     * ⚠ R-11 — REFERENCES the shared definition rather than re-declaring the
+     * string. See the twin note at `v7GuidanceCopy.showMore`: two differently
+     * named functions returned this byte-identical label for the same affordance
+     * in the same directory. `seeMore` keeps its name (the resolve-next spec
+     * asserts through it); only the duplicate definition is gone.
+     */
+    seeMore: clampRevealLabel,
+    showFewer: clampCollapseLabel,
     driversGate: 'No drivers to show for this run.',
     /**
      * ROADMAP 1.267 — the note is a CLAIM, the rows beneath it are DATA.

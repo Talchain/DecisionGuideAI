@@ -30,22 +30,21 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import type { AnalysisResultBlock } from '@talchain/schemas/boundary'
 import { V7EvidenceDisclosure } from '../v7/V7EvidenceDisclosure'
 import type { V7EvidenceModel } from '../v7/buildV7Lenses'
 import { buildVoiRanking } from '../voi/voiRanking'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import {
-  PP_TOKEN,
-  RESOLVING_CLAIM,
-  WORTH_CLAIM,
   REFUTED_CLAIM_CONTROLS,
 } from './helpers/refutedEvpiClaimMatchers'
 import { v7EvidenceModel } from '../../../__fixtures__/v7EvidenceModel'
 import {
   voiRankingFixture,
   openResolveNextExpanded as renderResolveNext,
+  openDisclosureHeader,
+  switchEvidenceView,
 } from '../../../test/helpers/resolveNextView'
 
 /**
@@ -77,24 +76,32 @@ describe('Resolve next — the refuted EVPI claim does not come back here', () =
     // this file, so this control also proves the import resolved to real
     // patterns rather than to `undefined` (a bad import would otherwise make
     // every `.not.toMatch` below throw, but an over-broad one would not).
-    expect(REFUTED_CLAIM_CONTROLS).toHaveLength(3)
+    expect(REFUTED_CLAIM_CONTROLS.length).toBeGreaterThanOrEqual(6)
     for (const [re, original] of REFUTED_CLAIM_CONTROLS) {
       expect(re.test(original), `matcher must see: ${original}`).toBe(true)
     }
   })
 
-  it('renders no percentage-point token', () => {
-    expect(renderResolveNext(populated())).not.toMatch(PP_TOKEN)
-  })
-
-  it('renders neither removed sentence', () => {
+  /**
+   * ⭐ R-1 — ITERATE THE VOCABULARY, DO NOT NAME PATTERNS.
+   *
+   * These four assertions used to be three named-pattern checks (`PP_TOKEN`,
+   * `RESOLVING_CLAIM`, `WORTH_CLAIM`) plus an INLINE `/ranked by EVPI/i` — a
+   * SEVENTH copy of the banned vocabulary, written here because the pattern was
+   * not in the table this file imported. Unifying the two tables made the fix
+   * available: the DOM projection now carries all six patterns, so sweeping it in
+   * a loop applies every one of them and a pattern added anywhere in the
+   * vocabulary extends this sweep automatically.
+   *
+   * The positive control immediately above is what keeps this non-vacuous: each
+   * pattern is proven to fire on the string it was written to catch, so a
+   * `not.toMatch` here measures a real absence rather than an inert regex.
+   */
+  it('renders NONE of the banned value-of-information vocabulary', () => {
     const text = renderResolveNext(populated())
-    expect(text).not.toMatch(RESOLVING_CLAIM)
-    expect(text).not.toMatch(WORTH_CLAIM)
-  })
-
-  it('renders no "ranked by EVPI" label (the removed factor-list sort note)', () => {
-    expect(renderResolveNext(populated())).not.toMatch(/ranked by EVPI/i)
+    for (const [re, original] of REFUTED_CLAIM_CONTROLS) {
+      expect(text, `banned pattern resurfaced (control: ${original})`).not.toMatch(re)
+    }
   })
 
   it('the honest-gate state is equally clean', () => {
@@ -113,12 +120,13 @@ describe('Resolve next — the refuted EVPI claim does not come back here', () =
         })}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: /Why, and what could change it/i }))
-    fireEvent.click(screen.getByTestId('v7-evidence-tab-resolveNext'))
+    openDisclosureHeader()
+    switchEvidenceView('resolveNext')
     const text = screen.getByTestId('v7-evidence-resolve-next').textContent ?? ''
-    expect(text).not.toMatch(PP_TOKEN)
-    expect(text).not.toMatch(RESOLVING_CLAIM)
-    expect(text).not.toMatch(WORTH_CLAIM)
+    // R-1: the whole vocabulary, iterated. See the note on the populated sweep.
+    for (const [re, original] of REFUTED_CLAIM_CONTROLS) {
+      expect(text, `banned pattern in the GATE state (control: ${original})`).not.toMatch(re)
+    }
     // POSITIVE CONTROL: the gate really did render (not an empty subtree).
     expect(screen.getByTestId('v7-evidence-resolve-next-gate')).toBeInTheDocument()
   })
@@ -186,8 +194,8 @@ describe('Resolve next — a pp-bearing wire fixture reaches the DOM with no fig
         evidence={{ drivers: [], flipRisks: [], tradeOffs: [], resolveNext, designationsWithheld: false }}
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: /Why, and what could change it/i }))
-    fireEvent.click(screen.getByTestId('v7-evidence-tab-resolveNext'))
+    openDisclosureHeader()
+    switchEvidenceView('resolveNext')
     return { report, rendered: document.body.textContent ?? '' }
   }
 
@@ -205,11 +213,13 @@ describe('Resolve next — a pp-bearing wire fixture reaches the DOM with no fig
     expect(screen.getByTestId('v7-resolve-next-below')).toHaveTextContent('Hiring pace')
   })
 
-  it('no pp token, and neither removed sentence, reaches the DOM', () => {
+  it('none of the banned vocabulary reaches the DOM from real wire bytes', () => {
+    // R-1: iterated, not named — same reason as the two sweeps above. This is the
+    // strongest of the three: the input is captured producer bytes, not a fixture.
     const { rendered } = renderFromWire()
-    expect(rendered).not.toMatch(PP_TOKEN)
-    expect(rendered).not.toMatch(RESOLVING_CLAIM)
-    expect(rendered).not.toMatch(WORTH_CLAIM)
+    for (const [re, original] of REFUTED_CLAIM_CONTROLS) {
+      expect(rendered, `banned pattern from live bytes (control: ${original})`).not.toMatch(re)
+    }
   })
 
   it('none of the seeded magnitudes reaches the DOM in any form', () => {

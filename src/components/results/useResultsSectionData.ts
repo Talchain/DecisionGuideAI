@@ -59,6 +59,7 @@ import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactor
 import { humaniseCritique } from './utils/humaniseCritique'
 import { selectGoalProbability, type GoalProbabilityInput } from './utils/selectGoalProbability'
 import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
+import { readInferenceWarnings } from './utils/readInferenceWarnings'
 import { deriveStabilityLevel } from '../../lib/stability'
 import { deriveResultCompleteness, type ResultCompleteness } from './useResultCompleteness'
 import { computeNormalisedInfluences, selectDriverDisplayModel } from './driverDisplayModel'
@@ -514,37 +515,14 @@ function readEnrichmentFactors(report: ResultsReport): unknown[] | null {
   return Array.isArray(factors) ? factors : null
 }
 
-/**
- * ISL `inference_warnings[]`, from BOTH slots a mapper may use — ROOT first,
- * then the legacy `robustness` nesting.
- *
- * ONE reader because this file needed the identical dual read twice (the VOI
- * ranking's PARTIAL disclosure and the Analysis-tab warning strip) and had it
- * in two DIVERGENT cast styles. Two copies of a two-slot fallback is two
- * chances for the next copy to read only one slot and render permanently empty
- * with nothing red — which is exactly what the design doc's §2 mapping table
- * would have caused had it been implemented verbatim (measured over all 773
- * live non-noop `run_analysis` facts on staging, 2026-07-29: root 773/773,
- * robustness 0/773 — see `canvas/stores/persistedRunSnapshotFactory.ts`).
- *
- * Returns `unknown`: payload redaction may deliver a `{__truncated, items}`
- * wrapper rather than a bare array, so callers unwrap with `safeArray` or
- * validate for themselves. Never throws, never defaults to `[]` — an absent
- * key must stay distinguishable from an empty one.
- *
- * The top-level read is plain (the key is declared on `ResultsReport`). The
- * legacy nested slot keeps ONE narrow cast, deliberately: declaring a member on
- * `ResultsReport['robustness']` — an inline object type — changes the
- * elided-member counter tsc prints inside four unrelated baselined diagnostics
- * in this file, which trips `typecheck:selftest`'s clean-tree control. See the
- * note at that slot in `types.ts`.
+/*
+ * `readInferenceWarnings` — the dual-slot reader this file introduced — now lives
+ * at `./utils/readInferenceWarnings.ts` and is IMPORTED above (R-6). It was
+ * file-private here, which meant the three copies in `src/canvas` could not adopt
+ * it even though the reason it exists is the hazard those copies embody. Its full
+ * rationale, the 773-fact measurement, the load-bearing-cast warning and the note
+ * on which copies were deliberately NOT migrated all moved with it.
  */
-function readInferenceWarnings(report: ResultsReport | null | undefined): unknown {
-  return (
-    report?.inference_warnings ??
-    (report?.robustness as { inference_warnings?: unknown } | undefined)?.inference_warnings
-  )
-}
 
 /** Labels play no part in policy keys/metrics (getFactorKey resolves ids
  * before labels, and the label-map fallback needs an id anyway), so the feed
