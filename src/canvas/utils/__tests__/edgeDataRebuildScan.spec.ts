@@ -48,14 +48,36 @@
  * assert a vacuous truth — the same reasoning `edgeValidationRebuildHops.spec.ts`
  * applies to the same sites, reached here structurally instead of by hand.
  *
+ * ── WHAT IS ASSERTED: TWO PROPERTIES, NOT ONE ───────────────────────────────
+ *   1. every rebuild spreads the existing edge's `data` WHOLESALE; and
+ *   2. NOTHING is written after that spread.
+ *
+ * Property 2 was added by the adversarial review of PR #539, which seeded
+ * `{...DEFAULT_EDGE_DATA, ...(edge.data ?? {}), validation: undefined}` and found
+ * the guard GREEN. Property 1 alone reads as "persisted edge data survives the
+ * rebuild" while permitting the single line that guarantees it does not.
+ *
  * ── SCOPE OF THE CLAIM ──────────────────────────────────────────────────────
- * This scans `src/` for the SYNTACTIC shape above. It does not prove that every
- * conceivable edge-data rebuild takes that shape — a rebuild written with
- * `Object.assign`, or one that spreads a variable holding `DEFAULT_EDGE_DATA`
- * under another name, is outside the detector. The claim is: every rebuild
- * written in the repo's own idiom is covered, and a new one written in that idiom
- * is covered automatically. The detector's reach is pinned by the positive
- * control below rather than asserted.
+ * This scans `src/` for the SYNTACTIC shapes above. It does not prove that every
+ * conceivable edge-data rebuild takes one of them. Known outside the detector,
+ * disclosed rather than discovered later:
+ *
+ *   · `Object.assign(...)` in place of an object literal;
+ *   · a rebuild that spreads a variable holding `DEFAULT_EDGE_DATA` under another
+ *     name (the `rebuiltDataBody` gate looks for that identifier by name);
+ *   · a `data:` opener sitting more than `DATA_WINDOW` characters after the outer
+ *     spread;
+ *   · a rebuild assembled across statements (`const d = {...}; return {...edge,
+ *     data: d}`) rather than in one literal.
+ *
+ * Two shapes that WERE outside it and are now inside, both from the #539 review:
+ * a member-expression outer spread (`...edges[i],`) and an override after the
+ * wholesale spread. Two that were already covered and are pinned so they stay
+ * covered: multiline and comment-interleaved named copies.
+ *
+ * The claim is: every rebuild written in the repo's own idiom is covered, a new
+ * one written in that idiom is covered automatically, and the detector's reach is
+ * PINNED by the three positive controls below rather than asserted.
  */
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
@@ -89,9 +111,17 @@ function sourceFiles(dir: string): string[] {
 }
 
 /**
- * The rebuild opener: a spread of an identifier, then (allowing intervening
- * members) a `data:` object. Capturing the identifier is what lets the check
- * below demand a spread of THAT edge's `data` rather than of any `.data`.
+ * The rebuild opener: a spread of a REFERENCE EXPRESSION, then (allowing
+ * intervening members) a `data:` object. Capturing the expression is what lets
+ * the check below demand a spread of THAT edge's `data` rather than of any
+ * `.data`.
+ *
+ * ⚠ THE EXPRESSION IS NOT JUST A BARE IDENTIFIER — that was blind spot (ii) from
+ * the adversarial review of PR #539. The first version matched
+ * `[A-Za-z_$][\w$]*` only, so an index or member rebuild — `...edges[i],`,
+ * `...pair.edge,` — was **invisible**, and a named-field copy at such a site
+ * passed the scan silently. A `for (let i…)` rebuild loop is an entirely ordinary
+ * way to write one of these, so this was not an exotic gap.
  *
  * `blankNonCode` runs first, so this file's own prose above — which quotes the
  * very shape being hunted — cannot read as a call site. That is not theoretical
@@ -99,34 +129,76 @@ function sourceFiles(dir: string): string[] {
  * example inside a JSDoc block, and without the blanking it would be scanned as
  * code.
  */
-const REBUILD_OPENER = /\.\.\.\s*([A-Za-z_$][\w$]*)\s*,/g
+const REBUILD_OPENER =
+  /\.\.\.\s*([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*|\s*\[\s*[\w$]+\s*\])*)\s*,/g
 
 /** How far after the outer spread the `data:` opener may sit. */
 const DATA_WINDOW = 400
 
+/** Whitespace-insensitive comparison, so `edges [ i ] .data` reads as `edges[i].data`. */
+function squash(s: string): string {
+  return s.replace(/\s+/g, '')
+}
+
 interface Finding {
   file: string
-  /** The identifier spread by the outer literal — the existing edge. */
+  /** The reference expression spread by the outer literal — the existing edge. */
   identifier: string
   /** Does the rebuilt `data` bag wholesale-spread `<identifier>.data`? */
   wholesale: boolean
+  /**
+   * Members written AFTER the wholesale spread. Each one can override a field the
+   * spread just carried through — blind spot (i) from the same review.
+   */
+  overridesAfterSpread: string[]
 }
 
 /**
- * Find the `data: {` that belongs to this outer spread and return its literal
- * body, or `null` when the spread is not an edge rebuild.
+ * Find the `data: {` that is a SIBLING MEMBER of the same object literal as this
+ * outer spread, and return its body — or `null` when the spread is not an edge
+ * rebuild.
+ *
+ * ⚠ THE SIBLING TEST IS NOT COSMETIC; A PLAIN LOOKAHEAD WINDOW PRODUCED A FALSE
+ * POSITIVE THE MOMENT THE OPENER WAS WIDENED. `OutputsDock.tsx` spreads
+ * `...newNode.data` inside a NODE data literal, and a few lines later — inside a
+ * *different* literal, in a `addEdge({...})` call — writes
+ * `data: { ...DEFAULT_EDGE_DATA, confidence: 0 }`. A window that only looks
+ * FORWARD walked out of the node literal, found the edge literal, and reported a
+ * rebuild of `...newNode.data` that does not exist. Requiring the `data:` opener
+ * to sit at depth 0 RELATIVE TO THE SPREAD — i.e. to be a member of the same
+ * literal, not merely nearby — is the structural version of the question, and it
+ * costs nothing.
  */
 function rebuiltDataBody(code: string, afterSpread: number): string | null {
-  const window = code.slice(afterSpread, afterSpread + DATA_WINDOW)
-  const dataAt = window.search(/\bdata\s*:\s*\{/)
-  if (dataAt === -1) return null
-  const open = afterSpread + window.indexOf('{', dataAt)
+  // Walk forward from the spread, tracking nesting. Depth < 0 means we have left
+  // the literal the spread belongs to: any `data:` beyond that is a sibling of
+  // something else.
   let depth = 0
-  for (let i = open; i < code.length; i++) {
-    if (code[i] === '{') depth++
-    else if (code[i] === '}') {
+  let open = -1
+  for (let i = afterSpread; i < code.length && i < afterSpread + DATA_WINDOW; i++) {
+    const c = code[i]
+    if (c === '{' || c === '(' || c === '[') {
+      depth++
+      continue
+    }
+    if (c === '}' || c === ')' || c === ']') {
       depth--
-      if (depth === 0) {
+      if (depth < 0) return null // left the enclosing literal
+      continue
+    }
+    if (depth === 0 && /^data\s*:\s*\{/.test(code.slice(i))) {
+      open = code.indexOf('{', i)
+      break
+    }
+  }
+  if (open === -1) return null
+
+  let d = 0
+  for (let i = open; i < code.length; i++) {
+    if (code[i] === '{') d++
+    else if (code[i] === '}') {
+      d--
+      if (d === 0) {
         const body = code.slice(open, i + 1)
         // Only a bag rebuilt over the mapper defaults is a REBUILD. A `data:`
         // that merely patches named keys onto an existing bag is a different
@@ -139,8 +211,8 @@ function rebuiltDataBody(code: string, afterSpread: number): string | null {
 }
 
 /**
- * The SPREAD ELEMENTS of an object literal body — each `...expr`, where `expr`
- * runs to the member-separating comma at depth 0.
+ * The TOP-LEVEL MEMBERS of an object literal body, in source order — each spread
+ * and each named key, split at depth-0 commas.
  *
  * ⚠ THIS REPLACES A REGEX THAT MADE THIS WHOLE GUARD VACUOUS, and the failure is
  * worth recording because it is the guard-theatre shape this file exists to
@@ -154,27 +226,25 @@ function rebuiltDataBody(code: string, afterSpread: number): string | null {
  * which is the only thing that could have caught it (CLAUDE.md trap 15: your own
  * script is not exempt; trap 13: prove the detector can see a PRESENCE).
  *
- * Splitting into actual spread elements makes the question the right one: is
- * `<identifier>.data` inside a SPREAD, rather than merely somewhere in the bag.
+ * Parsing MEMBERS (rather than only spreads) makes both questions answerable: is
+ * `<identifier>.data` inside a SPREAD, and is anything written AFTER it.
  */
-function spreadElements(body: string): string[] {
+function topLevelMembers(body: string): string[] {
+  const inner = body.slice(1, -1) // strip the braces
   const out: string[] = []
-  for (let i = 0; i < body.length - 2; i++) {
-    if (body.slice(i, i + 3) !== '...') continue
-    let depth = 0
-    let j = i + 3
-    for (; j < body.length; j++) {
-      const c = body[j]
-      if (c === '(' || c === '[' || c === '{') depth++
-      else if (c === ')' || c === ']') depth--
-      else if (c === '}') {
-        if (depth === 0) break
-        depth--
-      } else if (c === ',' && depth === 0) break
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < inner.length; i++) {
+    const c = inner[i]
+    if (c === '(' || c === '[' || c === '{') depth++
+    else if (c === ')' || c === ']' || c === '}') depth--
+    else if (c === ',' && depth === 0) {
+      out.push(inner.slice(start, i))
+      start = i + 1
     }
-    out.push(body.slice(i + 3, j))
   }
-  return out
+  out.push(inner.slice(start))
+  return out.map((s) => s.trim()).filter((s) => s !== '')
 }
 
 function scan(): Finding[] {
@@ -186,16 +256,69 @@ function scan(): Finding[] {
       const after = (match.index ?? 0) + match[0].length
       const body = rebuiltDataBody(code, after)
       if (body === null) continue
+
+      const members = topLevelMembers(body)
       // The required shape: a SPREAD whose expression reads `<identifier>.data`.
       // Every real site wraps it (`...(edge.data as Partial<EdgeData> | undefined
       // ?? {})`), so the test is on the spread's CONTENT, not on an exact form.
-      const dataRead = new RegExp(`\\b${identifier}\\s*\\.\\s*data\\b`)
-      const wholesale = spreadElements(body).some((e) => dataRead.test(e))
-      findings.push({ file: relative(SRC_ROOT, file), identifier, wholesale })
+      // Compared whitespace-squashed so a member expression spanning line breaks
+      // still matches.
+      const wanted = squash(identifier) + '.data'
+      const spreadIdx = members.findIndex(
+        (m) => m.startsWith('...') && squash(m).includes(wanted),
+      )
+      // ⚠ ANYTHING AFTER THE WHOLESALE SPREAD CAN UNDO IT — blind spot (i). The
+      // guard used to assert only that the spread was PRESENT, so
+      // `{...DEFAULT_EDGE_DATA, ...(edge.data ?? {}), validation: undefined}`
+      // passed while destroying exactly the user-decision field this file's
+      // WHY-IT-MATTERS section is about. Both named keys and further spreads
+      // count: either can overwrite a field the spread just carried through, and
+      // a rebuild whose whole purpose is "carry everything through" has no
+      // business writing after it. A site that genuinely must force a field
+      // should have to argue for it against a RED, not do it silently.
+      const overridesAfterSpread =
+        spreadIdx === -1
+          ? []
+          : members.slice(spreadIdx + 1).map((m) => m.split(/[:(]/)[0].trim())
+
+      findings.push({
+        file: relative(SRC_ROOT, file),
+        identifier,
+        wholesale: spreadIdx !== -1,
+        overridesAfterSpread,
+      })
     }
   }
   return findings
 }
+
+/**
+ * Overrides after the wholesale spread that are ADJUDICATED DELIBERATE, each with
+ * the reason it is here. Keyed `<file>:<key>`.
+ *
+ * ⚠ NOT A SUPPRESSION LIST. It fails loud in BOTH directions — an undisclosed
+ * override reds because it is absent here, and a disclosed one that stops
+ * existing reds because this list would then over-state. Adding an entry is a
+ * decision someone has to make in a diff, with a reason, against a RED. That is
+ * the only honest way to hold "nothing is written after the spread" as a property
+ * when one legitimate exception genuinely exists: the alternative — a clever
+ * predicate that tries to tell a good override from a bad one — is how a guard
+ * trades one vacuity for another.
+ *
+ * The single entry is a v1→v2 MIGRATION, not a rebuild-in-flight:
+ * `migrateEdgeV1ToV2` hoists the legacy TOP-LEVEL `edge.label` into `data.label`,
+ * and "top-level edge.label takes precedence over edge.data.label" IS the
+ * migration's documented purpose (its own docstring says so). The override reads
+ * FROM the same edge — it moves data within the edge rather than discarding it —
+ * which is the opposite of the seeded `validation: undefined` this pin exists to
+ * catch.
+ */
+const KNOWN_POST_SPREAD_OVERRIDES: ReadonlyArray<readonly [string, string]> = [
+  [
+    'canvas/domain/migrations.ts:label',
+    'migrateEdgeV1ToV2 hoists the legacy top-level edge.label into data.label — the documented purpose of the v1→v2 migration, and it reads from the same edge',
+  ],
+]
 
 describe('edge-data rebuilds — derived source guard (A-3a)', () => {
   const findings = scan()
@@ -230,6 +353,31 @@ describe('edge-data rebuilds — derived source guard (A-3a)', () => {
     expect(findings.some((f) => f.file === 'canvas/domain/edgeValueProvenance.ts')).toBe(false)
   })
 
+  /**
+   * THIRD POSITIVE CONTROL — the widened opener must actually see a
+   * member-expression spread, or blind spot (ii) is only nominally closed.
+   *
+   * There is no member-expression rebuild in `src/` today, so this control is on
+   * the DETECTOR rather than on the tree: it runs the opener over a fixture of
+   * each shape the review named and requires each to be recognised. A control
+   * pinned to "whatever is in the tree" would silently become vacuous the moment
+   * the tree changed (CLAUDE.md trap 12b), which is exactly the wrong property for
+   * a control guarding a widened regex.
+   */
+  it('the widened opener recognises index, member and bare-identifier spreads', () => {
+    const cases: Array<[string, string]> = [
+      ['...edge,', 'edge'],
+      ['...edges[i],', 'edges[i]'],
+      ['...pair.edge,', 'pair.edge'],
+      ['...state.edges[0],', 'state.edges[0]'],
+    ]
+    for (const [src, expected] of cases) {
+      const m = [...src.matchAll(REBUILD_OPENER)]
+      expect(m.length, `opener must see ${src}`).toBe(1)
+      expect(squash(m[0][1])).toBe(expected)
+    }
+  })
+
   it('every edge-data rebuild spreads the existing edge data wholesale', () => {
     // THE PIN. Converting any one of these to a named-field copy — the exact
     // discipline the two INGESTION mappers deliberately use, and therefore the
@@ -238,5 +386,47 @@ describe('edge-data rebuilds — derived source guard (A-3a)', () => {
     // across 8 files stay green through it, including both `useScenario` specs.
     const named = findings.filter((f) => !f.wholesale)
     expect(named.map((f) => `${f.file}: rebuild of ...${f.identifier}`)).toEqual([])
+  })
+
+  /**
+   * ⭐ THE SECOND PIN — added by the adversarial review of PR #539 (blind spot i).
+   *
+   * The pin above asks whether the wholesale spread is PRESENT. It does not ask
+   * whether anything UNDOES it. So
+   *
+   *     { ...DEFAULT_EDGE_DATA, ...(edge.data ?? {}), validation: undefined }
+   *
+   * passed the guard while destroying exactly the `validation` user-decision field
+   * this file's WHY-IT-MATTERS section is written about — the resolve-contested
+   * writer's `user_action` / `resolved_value` / `resolved_by`. A guard that reads
+   * as "persisted edge data survives the rebuild" while permitting the one line
+   * that guarantees it does not is worse than no guard, because it is cited.
+   */
+  it('nothing is written AFTER the wholesale spread (an override undoes it)', () => {
+    const found = findings
+      .flatMap((f) => f.overridesAfterSpread.map((k) => `${f.file}:${k}`))
+      .sort()
+    const known = KNOWN_POST_SPREAD_OVERRIDES.map(([k]) => k).sort()
+
+    // No UNDISCLOSED override.
+    expect(found.filter((k) => !known.includes(k))).toEqual([])
+
+    // …and no STALE disclosure: an entry whose override has since been removed
+    // must be deleted in the same change, so the record cannot outlive the thing
+    // it describes. Same both-directions rule as `KNOWN_HOP_DIVERGENCES` in
+    // `edgeValidationMapperMirror.spec.ts` — which has already caught a wrong
+    // entry once.
+    expect(
+      KNOWN_POST_SPREAD_OVERRIDES.filter(([k]) => !found.includes(k)).map(
+        ([k, why]) => `${k} (recorded as: ${why}) no longer overrides — delete this entry`,
+      ),
+    ).toEqual([])
+  })
+
+  it('the disclosed override set is exactly the one documented migration hoist', () => {
+    // Pinned separately so the SIZE of the exception set is visible in a diff.
+    expect(KNOWN_POST_SPREAD_OVERRIDES.map(([k]) => k)).toEqual([
+      'canvas/domain/migrations.ts:label',
+    ])
   })
 })

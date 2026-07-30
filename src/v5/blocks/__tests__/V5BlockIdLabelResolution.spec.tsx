@@ -180,16 +180,20 @@ describe('V5FlipAnalysisBlock — factor ids', () => {
 // V5AnalysisResultBlock.decisionReview030.spec.tsx.
 // ═══════════════════════════════════════════════════════════════════════════
 
-function analysisResult(storyHeadlines: Record<string, string>) {
+function analysisResult(
+  storyHeadlines: Record<string, string>,
+  optionComparison: unknown[] = [],
+) {
   return {
     type: 'analysis_result' as const,
     summary: 'Analysis summary.',
     leading_option_id: null,
     win_probabilities: {},
-    // Deliberately EMPTY: the payload label chain resolves nothing, so what these
-    // cases measure is the canvas-store tier alone.
+    // `option_comparison` defaults to EMPTY so the payload label chain resolves
+    // nothing and the case measures the canvas-store tier alone. The
+    // tier-masking cases below supply it.
     enrichment: {
-      option_comparison: [],
+      option_comparison: optionComparison,
       decision_review: {
         produced_at: '2026-07-30T00:00:00.000Z',
         story_headlines: storyHeadlines,
@@ -243,5 +247,89 @@ describe('V5AnalysisResultBlock — story-headline option ids', () => {
     const row = screen.getByTestId('v5-analysis-result-story-headline')
     expect(row.textContent).not.toContain('opt_london')
     expect(row).toHaveTextContent('London absorbs the demand spike.')
+  })
+
+  /**
+   * ⭐ A1 (adversarial review of #539) — A RAW-ID PAYLOAD LABEL MUST NOT MASK A
+   * HUMAN STORE LABEL.
+   *
+   * The first cut of this two-tier resolver merged both tiers into one map with
+   * "payload wins", then applied the null-refusing policy ONCE at the end. That
+   * ordering had a hole the reviewer witnessed as live behaviour: when the
+   * producer seeds an option's `option_label` from its own id — the exact upstream
+   * behaviour `useCanvasLabels`' docstring warns about — the raw-id-shaped payload
+   * label OVERWROTE a perfectly good store label, and only THEN did
+   * `resolveCanvasLabel` reject it. Result: nothing rendered, although an honest
+   * human label was sitting in the fallback tier. **The fallback tier was dead
+   * exactly when it was needed.**
+   *
+   * Not a regression — the pre-#539 code printed `opt_hubspot` here, so any of
+   * these outcomes beats the base. But it was an incomplete fix measured against
+   * this resolver's own stated two-tier intent, which is what makes it an
+   * amendment rather than a nice-to-have.
+   *
+   * The fix applies the policy PER TIER, so a tier can only win with a label that
+   * already survived it.
+   */
+  describe('A1 — tier masking', () => {
+    const HUBSPOT_HEADLINE = 'HubSpot closes the integration gap.'
+
+    it('⭐ a raw-id-shaped PAYLOAD label does not mask a human STORE label', () => {
+      mockNodes = [{ id: 'opt_hubspot', data: { label: 'HubSpot CRM' } }]
+      render(
+        <V5AnalysisResultBlock
+          block={
+            analysisResult({ opt_hubspot: HUBSPOT_HEADLINE }, [
+              // The producer seeded the label from the id.
+              { id: 'opt_hubspot', label: 'opt_hubspot' },
+            ]) as never
+          }
+        />,
+      )
+
+      const row = screen.getByTestId('v5-analysis-result-story-headline')
+      // The store's human label serves, because the payload's did not survive
+      // the policy and therefore never got to win.
+      expect(row).toHaveTextContent('HubSpot CRM')
+      expect(row).toHaveTextContent(HUBSPOT_HEADLINE)
+      expect(row.textContent).not.toContain('opt_hubspot')
+    })
+
+    it('an HONEST payload label still wins over the store label (precedence intact)', () => {
+      // The other direction, so the fix cannot be satisfied by simply demoting
+      // the payload tier. Payload-first is deliberate: it is the producer's own
+      // naming for the very payload being rendered.
+      mockNodes = [{ id: 'opt_hubspot', data: { label: 'Stale store label' } }]
+      render(
+        <V5AnalysisResultBlock
+          block={
+            analysisResult({ opt_hubspot: HUBSPOT_HEADLINE }, [
+              { id: 'opt_hubspot', label: 'HubSpot CRM (payload)' },
+            ]) as never
+          }
+        />,
+      )
+
+      const row = screen.getByTestId('v5-analysis-result-story-headline')
+      expect(row).toHaveTextContent('HubSpot CRM (payload)')
+      expect(row.textContent).not.toContain('Stale store label')
+    })
+
+    it('both tiers raw-id-shaped → nothing renders but the headline (no leak either way)', () => {
+      mockNodes = [{ id: 'opt_hubspot', data: { label: 'opt_hubspot' } }]
+      render(
+        <V5AnalysisResultBlock
+          block={
+            analysisResult({ opt_hubspot: HUBSPOT_HEADLINE }, [
+              { id: 'opt_hubspot', label: 'opt_hubspot' },
+            ]) as never
+          }
+        />,
+      )
+
+      const row = screen.getByTestId('v5-analysis-result-story-headline')
+      expect(row.textContent).not.toContain('opt_hubspot')
+      expect(row).toHaveTextContent(HUBSPOT_HEADLINE)
+    })
   })
 })

@@ -205,13 +205,33 @@ function useOptionLabelResolver(
   const canvasLabels = useCanvasNodeLabels()
   const merged = useMemo(() => {
     const map = new Map<string, string>(canvasLabels)
-    // Payload wins: written after the store copy, so it overwrites.
+    // ⚠ THE POLICY IS APPLIED PER TIER, NOT ONCE AT THE END. This is the A1 fix
+    // from the adversarial review of PR #539, and the ordering is the whole point.
+    //
+    // The first cut merged both tiers with "payload wins" and resolved ONCE
+    // afterwards. When the producer seeds `option_label` from the option's own id
+    // — the exact upstream behaviour `useCanvasLabels` warns about — that
+    // raw-id-shaped payload label OVERWROTE a good store label, and only then was
+    // it rejected. Nothing rendered, though an honest label sat in the fallback
+    // tier: the fallback was dead precisely when it was needed.
+    //
+    // So a tier may only WIN with a label that has already survived the policy.
+    // `resolveCanvasLabel` is applied to the payload map itself, which reuses the
+    // one null-refusing + RAW_ID_PATTERN policy rather than re-implementing half
+    // of it here.
+    //
     // `resolveOptionLabelById` builds a fresh Map per call, so it is invoked
     // INSIDE the memo and keyed on `enrichment` — calling it outside would make
     // the dependency change on every render and the memo a no-op.
-    for (const [id, label] of resolveOptionLabelById(enrichment)) map.set(id, label)
+    const payloadLabels = resolveOptionLabelById(enrichment)
+    for (const id of payloadLabels.keys()) {
+      const honest = resolveCanvasLabel(id, payloadLabels)
+      if (honest !== null) map.set(id, honest)
+    }
     return map as ReadonlyMap<string, string>
   }, [canvasLabels, enrichment])
+  // Applied a final time so there is ONE exit point for the policy. Idempotent by
+  // construction: every entry in `merged` already survived it.
   return (optionId: string) => resolveCanvasLabel(optionId, merged)
 }
 
