@@ -180,7 +180,7 @@ describe('the removed prose templates appear nowhere in a rendered results surfa
     // Iterating the shared table closes that by construction: a pattern cannot be
     // added to the vocabulary without acquiring a control here, and the length
     // assertion means a SHRUNK table reds rather than quietly checking less.
-    expect(REFUTED_CLAIM_CONTROLS).toHaveLength(3)
+    expect(REFUTED_CLAIM_CONTROLS.length).toBeGreaterThanOrEqual(6)
     for (const [re, original] of REFUTED_CLAIM_CONTROLS) {
       expect(re.test(original), `matcher must see: ${original}`).toBe(true)
     }

@@ -59,6 +59,8 @@ import {
   PERMITTED_VERDICT,
   WITHHELD_VERDICT,
 } from '../__fixtures__/withheldDesignations.fixtures'
+// R-12: the disclosure open/switch sequence — one definition, see the helper.
+import { openDisclosureHeader, switchEvidenceView } from '../../../test/helpers/resolveNextView'
 
 /**
  * Anything that asserts, or presupposes, that one option is out in front.
@@ -96,14 +98,21 @@ function evidenceModel(designationsWithheld: boolean): V7EvidenceModel {
   }
 }
 
-/** Open the disclosure and switch to one of its three views. */
+/**
+ * Build THIS spec's evidence model, then open the disclosure on one of its views.
+ *
+ * R-12: the two-click sequence is no longer written here — `openDisclosureHeader`
+ * / `switchEvidenceView` come from `src/test/helpers/resolveNextView.tsx`, along
+ * with the `fireEvent`-not-`node.click()` rationale this copy used to be the sole
+ * carrier of (the raw DOM call escapes React's `act()`, the disclosure never
+ * re-renders, and every assertion afterwards reads a COLLAPSED section — a false
+ * green that looks exactly like a real one). What stays local is the part that is
+ * genuinely local: the `designationsWithheld` model this file is about.
+ */
 function openEvidence(designationsWithheld: boolean, view: 'flipRisks' | 'tradeOffs') {
   const utils = render(<V7EvidenceDisclosure evidence={evidenceModel(designationsWithheld)} />)
-  // fireEvent, not node.click(): the raw DOM call escapes React's act() and
-  // the disclosure never re-renders, which makes every assertion below read a
-  // collapsed section — a false green that looks exactly like a real one.
-  fireEvent.click(screen.getByRole('button', { name: /Why, and what could change it/i }))
-  fireEvent.click(screen.getByTestId(`v7-evidence-tab-${view}`))
+  openDisclosureHeader()
+  switchEvidenceView(view)
   return utils
 }
 

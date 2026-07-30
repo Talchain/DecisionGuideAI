@@ -30,13 +30,15 @@ import {
   voiRankingFixture as ranking,
   openResolveNext,
 } from '@/test/helpers/resolveNextView'
+// R-12: the disclosure open/switch sequence — one definition, see the helper.
+import { openDisclosureHeader } from '../../../../test/helpers/resolveNextView'
 
 const E = V7_LENS_COPY.evidence
 
 describe('V7EvidenceDisclosure — Resolve next: the ranking', () => {
   it('exposes a fourth view chip beside the existing three', () => {
     render(<V7EvidenceDisclosure evidence={model({ resolveNext: ranking() })} />)
-    fireEvent.click(screen.getByRole('button', { name: /Why, and what could change it/i }))
+    openDisclosureHeader()
     for (const key of ['drivers', 'flipRisks', 'tradeOffs', 'resolveNext']) {
       expect(screen.getByTestId(`v7-evidence-tab-${key}`)).toBeInTheDocument()
     }

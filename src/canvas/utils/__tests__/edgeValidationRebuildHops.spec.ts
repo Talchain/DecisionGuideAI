@@ -60,32 +60,30 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 
 // ── Mocks for hop 4 (the Supabase scenario-load path) ───────────────────────
-// Same harness shape as src/hooks/__tests__/useScenario.goalConstraints.lifecycle
-// .spec.ts, which pins the sibling property (goal_constraints) on this same hop.
-const mockRpc = vi.fn()
-const mockSingle = vi.fn()
-let mockRowsById: Record<string, Record<string, unknown>> = {}
+// R-3: the harness is IMPORTED, not copied. It was copied line-for-line from
+// src/hooks/__tests__/useScenario.goalConstraints.lifecycle.spec.ts — which pins
+// the sibling property (goal_constraints) on this same hop — and this file's own
+// header said so while copying anyway, because no shared home existed. It does
+// now: src/test/helpers/useScenarioSupabaseHarness.ts.
+//
+// ⚠ THIS IMPORT MUST STAY ABOVE the imports of the code under test below: the
+// `vi.mock` factories close over the harness, and ESM evaluates static imports in
+// source order. See the harness header.
+import {
+  HARNESS_NODES,
+  supabaseMockModule,
+  authMockModule,
+  routerMockModule,
+  resetScenarioHarness,
+  setScenarioRow,
+  scenarioRowWithEdges,
+} from '../../../test/helpers/useScenarioSupabaseHarness'
 
-vi.mock('../../../lib/supabase', () => ({
-  supabase: {
-    from: () => ({
-      select: () => ({
-        eq: (_col: string, id: string) => ({
-          single: () => mockSingle(id),
-        }),
-      }),
-      update: () => ({ eq: vi.fn().mockResolvedValue({ error: null }) }),
-    }),
-    rpc: (...args: unknown[]) => mockRpc(...args),
-  },
-}))
-
-vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }))
-
-const REAL_USER_ID = '550e8400-e29b-41d4-a716-446655440000'
-vi.mock('../../../contexts/AuthContext', () => ({
-  useAuth: () => ({ user: { id: REAL_USER_ID }, authenticated: true }),
-}))
+// Only the SPECIFIERS stay here — they resolve relative to this file, so they
+// cannot move into the harness. The factory bodies did.
+vi.mock('../../../lib/supabase', () => supabaseMockModule())
+vi.mock('react-router-dom', () => routerMockModule())
+vi.mock('../../../contexts/AuthContext', () => authMockModule())
 
 // ── Mock for hop 5 (the store's own localStorage-backed scenario load) ──────
 // importOriginal-spread, overriding ONLY `getScenario`. A hand-written stand-in
@@ -131,10 +129,8 @@ const WIRE_VALIDATION = {
   resolved_by: 'default',
 } as unknown as ValidationMetadata
 
-const NODES = [
-  { id: 'goal-1', type: 'goal', position: { x: 0, y: 0 }, data: { kind: 'goal', label: 'Revenue' } },
-  { id: 'factor-1', type: 'factor', position: { x: 0, y: 100 }, data: { kind: 'factor', label: 'Spend' } },
-]
+/** R-3: the two canvas nodes both suites seed, from the shared harness. */
+const NODES = HARNESS_NODES
 
 const EDGE_ID = 'factor-1::goal-1::0'
 
@@ -153,21 +149,13 @@ function persistedEdge(withValidation: boolean) {
   }
 }
 
-function scenarioRow(id: string, edges: unknown[]): Record<string, unknown> {
-  return {
-    id,
-    graph: { nodes: NODES, edges },
-    framing: null,
-    stage: 'analyse',
-    updated_at: new Date().toISOString(),
-    analysis_status: 'none',
-    analysis: null,
-    analysis_provenance: null,
-    analysis_error: null,
-    thread: null,
-    events: null,
-  }
-}
+/*
+ * R-3: `scenarioRow` came from the shared harness as `scenarioRowWithEdges`. The
+ * local copy had ALREADY DIVERGED from the original in the direction that loses
+ * reach — it took `(id, edges)` with `graph` hard-wired, so this suite could not
+ * vary nodes or framing. The harness keeps the original's `(id, graph)` signature
+ * and offers this nodes-plus-edges convenience on top.
+ */
 
 /** The rebuilt edge as it ended up in the canvas store. */
 function storeEdgeData(): Record<string, unknown> {
@@ -189,14 +177,11 @@ function seedCanvas(withValidation: boolean) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockRowsById = {}
   mockScenariosById.clear()
-  mockSingle.mockImplementation(async (id: string) =>
-    mockRowsById[id]
-      ? { data: mockRowsById[id], error: null }
-      : { data: null, error: { code: 'PGRST116' } },
-  )
-  mockRpc.mockResolvedValue({ data: {}, error: null })
+  // R-3: clears the served rows and RE-ARMS both spies — `vi.clearAllMocks()`
+  // above strips the implementations, including the `PGRST116` "no rows" arm that
+  // `useScenario` branches on. Must run after it.
+  resetScenarioHarness()
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -207,7 +192,7 @@ beforeEach(() => {
 
 describe('hop 4 — validation survives a Supabase scenario resume', () => {
   it('an edge persisted WITH validation still carries it after loadScenario', async () => {
-    mockRowsById['scenario-A'] = scenarioRow('scenario-A', [persistedEdge(true)])
+    setScenarioRow('scenario-A', scenarioRowWithEdges('scenario-A', [persistedEdge(true)]))
     const { result } = renderHook(() => useScenario())
 
     await act(async () => {
@@ -223,7 +208,7 @@ describe('hop 4 — validation survives a Supabase scenario resume', () => {
     // POSITIVE CONTROL for the assertion below is the test above: the same code
     // path DOES produce the key when the record carries it, so this measures a
     // real absence rather than measuring nothing.
-    mockRowsById['scenario-B'] = scenarioRow('scenario-B', [persistedEdge(false)])
+    setScenarioRow('scenario-B', scenarioRowWithEdges('scenario-B', [persistedEdge(false)]))
     const { result } = renderHook(() => useScenario())
 
     await act(async () => {

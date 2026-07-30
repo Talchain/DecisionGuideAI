@@ -494,13 +494,19 @@ function normaliseStage(
  * `decisionReviewAdapter.ts`'s header for the honest (weaker) rationale.
  *
  * The eviction itself is still worth having and is unaffected by any of that:
- * `runMeta.ceeReviewV1` has THREE live producers outside this path —
- * `useResultsRun.ts:159` (REAL M1 off the PLoT v1 SSE stream),
- * `useV2Run.ts:1055` and `hydrateAnalysis.ts:154` (both synthesised) — so a
- * stale review from one of them must not outlive the turn that replaced it.
- * (`useConversation.ts:3112` and `useV2Run.ts:994` also pass a `ceeReviewV1`,
- * but through `resultsComplete`, which discards it — see the manifest table in
- * `decisionReviewAdapter.ts`. Naming those as live was the earlier error.)
+ * `runMeta.ceeReviewV1` has live producers OUTSIDE this path, so a stale review
+ * from one of them must not outlive the turn that replaced it.
+ *
+ * ⚠ THE PRODUCER MANIFEST IS NOT REPEATED HERE. It lives in exactly one place —
+ * the `| site | route | reaches runMeta? | payload |` table in
+ * `decisionReviewAdapter.ts`'s header — and this comment holds a POINTER, not a
+ * copy. That is not tidiness: that manifest was **wrong twice**, once naming a
+ * dead site as live and once omitting the real writer, and it was only corrected
+ * by tracing each candidate to the store boundary. A second copy with its own
+ * line numbers is a hand-maintained mirror of a list whose entire history is
+ * silent drift (CLAUDE.md trap 12), and it would drift in the direction that
+ * reads as green — a reader consulting the nearer copy and finding it plausible.
+ * If you need to know which sites reach `runMeta`, read the table.
  */
 function applyDecisionReviewToRunMeta(
   enrichment: Record<string, unknown> | undefined,

@@ -29,7 +29,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   readDecisionReviewWireState,
-  extractDecisionReview,
   type DecisionReview030,
 } from '../decisionReviewAdapter'
 import r1Block from './fixtures/live-decision-review-0_30.r1-cee-76d2e1c.json'
@@ -414,8 +413,9 @@ describe('A2 — shape precedence is strict-M1-first, and it is pinned', () => {
   })
 
   it('⭐ THE A2 CASE — M1 + a content key + produced_at → m1, and the review survives', () => {
-    // The recorded winner. Under 0.30-first this was `v0_30`, and
-    // extractDecisionReview returned null — dropping a real M1 review.
+    // The recorded winner. Under 0.30-first this was `v0_30`, so the M1
+    // projection saw a non-`m1` kind and yielded null — dropping a real M1
+    // review.
     const state = readDecisionReviewWireState({
       decision_review: { ...M1, bias_findings: [{ id: 'b1' }], produced_at: AT },
     })
@@ -424,11 +424,13 @@ describe('A2 — shape precedence is strict-M1-first, and it is pinned', () => {
     expect(state.review.intent).toBe('selection')
     expect(state.review.readiness?.level).toBe('ready')
     // The consumer-facing regression guard: the payload must reach ceeReviewV1.
-    expect(
-      extractDecisionReview({
-        decision_review: { ...M1, bias_findings: [{ id: 'b1' }], produced_at: AT },
-      }),
-    ).not.toBeNull()
+    // That projection is `state.kind === 'm1' ? state.review : null`, performed
+    // in `applyV5State.applyDecisionReviewToRunMeta` — so the two assertions
+    // above ARE the guard, applied to the real consumer's own predicate. This
+    // used to be re-checked through an `extractDecisionReview` export that
+    // performed exactly that ternary and had no production callers; the export
+    // is gone and the assertion is unchanged in substance.
+    expect(state.review).not.toBeNull()
   })
 
   it.each([

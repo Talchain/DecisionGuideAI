@@ -50,6 +50,7 @@ import { describe, it, expect } from 'vitest'
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import { refutedClaimsForScope } from '../../src/components/results/__tests__/helpers/refutedEvpiClaimMatchers'
 
 const REPO_ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..')
 
@@ -243,24 +244,43 @@ describe('no EVPI figure reaches a display module', () => {
  * EVPI identifier sat on an enclosing line). Two guards keyed on different
  * things is the point: one on the quantity, one on the sentence.
  */
-const FORBIDDEN_COPY: Array<[RegExp, string]> = [
-  [/would improve confidence by/i, 'the "Worth Xpp if resolved" factor chip'],
-  [/resolving could improve confidence/i, 'the "Resolving could improve confidence by up to Xpp" line'],
-  [/pp via EVPI/i, 'the StatusBar chip that SUMMED three refuted figures'],
-  [/ranked by EVPI/i, 'the visible factor-list sort label'],
-]
+/**
+ * ⭐ R-1 — DERIVED FROM THE SHARED VOCABULARY, NOT DECLARED HERE.
+ *
+ * This used to be a hand-written table plus a hand-written parallel array of
+ * control strings, positionally zipped. `src/components/results/__tests__/helpers/
+ * refutedEvpiClaimMatchers.ts` held a SECOND table of the same vocabulary, whose
+ * own header claimed to be "the ONE definition of the banned
+ * value-of-information vocabulary" — and the two had already drifted apart in
+ * BOTH directions: this table had `/would improve confidence by/i`,
+ * `/pp via EVPI/i` and `/ranked by EVPI/i` that the render-time guard lacked,
+ * while that one had `PP_TOKEN` and `WORTH_CLAIM` that this scan lacked. The
+ * StatusBar sentence was therefore outside the render vocabulary and the refuted
+ * quantity's own token was outside this one. Both guards green.
+ *
+ * There is now one table, and each row declares which consumers may apply it.
+ * `PP_TOKEN` is deliberately NOT in the `'source'` scope — see the scope
+ * docstring there; a bare "5pp" is legitimate in comparison-threshold code.
+ *
+ * The control strings come with the patterns, so the positional zip is gone: a
+ * new pattern cannot arrive without the string it must match.
+ */
+const FORBIDDEN_COPY: Array<[RegExp, string]> = refutedClaimsForScope('source').map(
+  (r) => [r.pattern, r.what],
+)
 
 describe('the removed user-facing copy does not come back under another name', () => {
   it('POSITIVE CONTROL: every pattern fires on the string it was written to catch', () => {
-    const originals = [
-      'Worth {evpiPp}pp if resolved: your knowledge of {label} would improve confidence by {evpiPp} percentage points',
-      'Resolving could improve confidence by up to {Math.round(actionItem.evpiPp)}pp',
-      'label: `${Math.round(top3Sum)}pp via EVPI`,',
-      "sortNote={hasRobustnessData && evpiMap.size > 0 ? 'ranked by EVPI' : undefined}",
-    ]
-    originals.forEach((s, i) => {
-      expect(FORBIDDEN_COPY[i][0].test(s), `pattern ${i} must see: ${s}`).toBe(true)
-    })
+    const rows = refutedClaimsForScope('source')
+    // A SHRUNK vocabulary must red rather than quietly check less — the same rule
+    // the two honesty specs apply to their own projection.
+    expect(rows.length).toBeGreaterThanOrEqual(5)
+    // Zipped BY ROW, not by index into a second array. The previous form paired
+    // `FORBIDDEN_COPY[i]` with `originals[i]`, so reordering either list silently
+    // controlled the wrong pattern.
+    for (const { pattern, control, what } of rows) {
+      expect(pattern.test(control), `[${what}] must see: ${control}`).toBe(true)
+    }
   })
 
   it('no display source contains any of the removed sentences', () => {

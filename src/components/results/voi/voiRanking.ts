@@ -117,6 +117,20 @@ const FactorEvppiRowSchema = EnrichmentFactorEvppiEntrySchema.pick({
 type FactorEvppiRow = ReturnType<typeof FactorEvppiRowSchema.parse>
 
 /**
+ * The two bands this reader knows how to render, CLOSED here on purpose while the
+ * wire types `status` OPEN (`z.string()`) so an unknown status cannot fail
+ * transport.
+ *
+ * Named rather than written as two inline literals because the docstring below
+ * calls this "a CLOSED enum" and a pair of `||`-ed strings is not one: a third
+ * band would be added to the predicate by whoever needed it and nothing would
+ * connect it to the `isResolvedRow` branch downstream that also reads this
+ * vocabulary. One declaration, so "which statuses does this reader accept" has a
+ * single answer.
+ */
+const RENDERABLE_STATUSES = ['resolved', 'below_resolution'] as const
+
+/**
  * The three deliberate CONSUMER tightenings on top of the wire shape, each
  * stricter than the schema on purpose:
  *
@@ -127,18 +141,22 @@ type FactorEvppiRow = ReturnType<typeof FactorEvppiRowSchema.parse>
  *     a row whose status we decline to trust, and the fail-safe direction is to
  *     drop it and disclose rather than to rank it. The value itself goes no
  *     further than this check — it is never stored, compared, or used to order.
- *   · `status` a CLOSED enum — the wire types it OPEN (`z.string()`) so an
- *     unknown status cannot fail transport. Here it must be one of the two bands
- *     we know how to render, because the only other thing we could do with an
- *     unrecognised band is guess which one it means.
+ *     (`Number.isFinite` is the ES2015 static, NOT the coercing global: it
+ *     returns false for a non-number without converting, so it carries the
+ *     PRESENT half of this check as well. A preceding `typeof === 'number'` guard
+ *     used to sit here and could not fail independently of it.)
+ *   · `status` one of `RENDERABLE_STATUSES` — the only other thing we could do
+ *     with an unrecognised band is guess which one it means.
  */
 function isUsableRow(row: FactorEvppiRow | null): row is FactorEvppiRow {
   return (
     row !== null &&
     row.factor_id.length > 0 &&
-    typeof row.evppi === 'number' &&
     Number.isFinite(row.evppi) &&
-    (row.status === 'resolved' || row.status === 'below_resolution')
+    // `status` is `z.string().optional()` on the wire, so the presence check is
+    // explicit rather than implied by a literal comparison.
+    row.status !== undefined &&
+    (RENDERABLE_STATUSES as readonly string[]).includes(row.status)
   )
 }
 
@@ -221,6 +239,8 @@ export function buildVoiRanking({
     }
 
     const factorId = wireRow.factor_id
+    // `isUsableRow` has already restricted `status` to RENDERABLE_STATUSES, so the
+    // two bands are exhaustive here: not-resolved IS below_resolution.
     const isResolvedRow = wireRow.status === 'resolved'
     const isFirstResolvedRow = isResolvedRow && !sawFirstResolvedRow
     if (isResolvedRow) sawFirstResolvedRow = true

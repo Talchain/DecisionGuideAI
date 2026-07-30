@@ -1,5 +1,13 @@
 /**
- * `extractDecisionReview` — the M1 REST branch ONLY.
+ * The M1 REST branch of `readDecisionReviewWireState` — ONLY that branch.
+ *
+ * ⚠ THE SUBJECT OF THIS FILE USED TO BE AN EXPORT CALLED `extractDecisionReview`
+ * AND IT NO LONGER EXISTS. It was a one-line projection of
+ * `readDecisionReviewWireState` with zero production callers, and these specs
+ * were the only thing keeping it alive — the shape of dead code that reads as
+ * live. It is now the local `extractM1Review` below: same projection, same
+ * coverage of the M1 validator, but reached through the public API every real
+ * caller uses, so this file can no longer be the reason an export survives.
  *
  * ⚠ READ THIS BEFORE TRUSTING A GREEN RUN OF THIS FILE (ROADMAP 2.154).
  *
@@ -26,8 +34,21 @@
  * one fact that matters about it: it does not fire on the live payload.
  */
 import { describe, it, expect } from 'vitest'
-import { extractDecisionReview } from '../decisionReviewAdapter'
+import type { CeeDecisionReviewPayloadV1 } from '../../types/cee'
+import { readDecisionReviewWireState } from '../decisionReviewAdapter'
 import r1Block from './fixtures/live-decision-review-0_30.r1-cee-76d2e1c.json'
+
+/**
+ * The projection the deleted `extractDecisionReview` export performed, kept
+ * local to the one file that wanted it: "the M1 payload, or null if this wire
+ * state is anything else". Local on purpose — see the header.
+ */
+function extractM1Review(
+  enrichment: Record<string, unknown> | undefined,
+): CeeDecisionReviewPayloadV1 | null {
+  const state = readDecisionReviewWireState(enrichment)
+  return state.kind === 'm1' ? state.review : null
+}
 
 const validDR = {
   intent: 'selection',
@@ -48,23 +69,23 @@ const validDR = {
   ],
 }
 
-describe('extractDecisionReview — the M1 REST branch (inert on live payloads)', () => {
+describe('the M1 REST branch (inert on live payloads)', () => {
   it('returns null for undefined enrichment', () => {
-    expect(extractDecisionReview(undefined)).toBeNull()
+    expect(extractM1Review(undefined)).toBeNull()
   })
 
   it('returns null when enrichment has no decision_review key', () => {
-    expect(extractDecisionReview({ something_else: 'x' })).toBeNull()
+    expect(extractM1Review({ something_else: 'x' })).toBeNull()
   })
 
   it('returns null when decision_review is not an object', () => {
-    expect(extractDecisionReview({ decision_review: 'string' })).toBeNull()
-    expect(extractDecisionReview({ decision_review: [] })).toBeNull()
-    expect(extractDecisionReview({ decision_review: null })).toBeNull()
+    expect(extractM1Review({ decision_review: 'string' })).toBeNull()
+    expect(extractM1Review({ decision_review: [] })).toBeNull()
+    expect(extractM1Review({ decision_review: null })).toBeNull()
   })
 
   it('returns a valid payload when shape is well-formed', () => {
-    const r = extractDecisionReview({ decision_review: validDR })
+    const r = extractM1Review({ decision_review: validDR })
     expect(r).not.toBeNull()
     expect(r?.intent).toBe('selection')
     expect(r?.readiness?.level).toBe('ready')
@@ -73,19 +94,19 @@ describe('extractDecisionReview — the M1 REST branch (inert on live payloads)'
 
   it('returns null for invalid intent', () => {
     expect(
-      extractDecisionReview({ decision_review: { ...validDR, intent: 'bogus' } }),
+      extractM1Review({ decision_review: { ...validDR, intent: 'bogus' } }),
     ).toBeNull()
   })
 
   it('returns null for invalid analysis_state', () => {
     expect(
-      extractDecisionReview({ decision_review: { ...validDR, analysis_state: 'bogus' } }),
+      extractM1Review({ decision_review: { ...validDR, analysis_state: 'bogus' } }),
     ).toBeNull()
   })
 
   it('returns null for invalid readiness.level', () => {
     expect(
-      extractDecisionReview({
+      extractM1Review({
         decision_review: { ...validDR, readiness: { ...validDR.readiness, level: 'nope' } },
       }),
     ).toBeNull()
@@ -93,13 +114,13 @@ describe('extractDecisionReview — the M1 REST branch (inert on live payloads)'
 
   it('returns null when blocks is not an array', () => {
     expect(
-      extractDecisionReview({ decision_review: { ...validDR, blocks: 'not-array' } }),
+      extractM1Review({ decision_review: { ...validDR, blocks: 'not-array' } }),
     ).toBeNull()
   })
 
   it('returns null when any block is missing required fields', () => {
     expect(
-      extractDecisionReview({
+      extractM1Review({
         decision_review: {
           ...validDR,
           blocks: [{ id: 'x', status: 'ok' /* missing source, summary, priority */ }],
@@ -109,7 +130,7 @@ describe('extractDecisionReview — the M1 REST branch (inert on live payloads)'
   })
 
   it('preserves extra keys via index signature', () => {
-    const r = extractDecisionReview({
+    const r = extractM1Review({
       decision_review: { ...validDR, meta: { produced_at: '2026-04-21' } },
     })
     expect(r).not.toBeNull()
@@ -125,6 +146,6 @@ describe('extractDecisionReview — the M1 REST branch (inert on live payloads)'
   it('returns null on the LIVE 0.30 payload — this branch is not the live path', () => {
     const enrichment = (r1Block as unknown as { enrichment: Record<string, unknown> }).enrichment
     expect(enrichment.decision_review).toBeTruthy()
-    expect(extractDecisionReview(enrichment)).toBeNull()
+    expect(extractM1Review(enrichment)).toBeNull()
   })
 })

@@ -32,30 +32,30 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 
 // --- supabase (the real boundary) ------------------------------------------
-const mockRpc = vi.fn()
-let mockRowsById: Record<string, Record<string, unknown>> = {}
+// R-3: the harness now lives at src/test/helpers/useScenarioSupabaseHarness.ts,
+// shared with canvas/utils/__tests__/edgeValidationRebuildHops.spec.ts, which had
+// copied it from here line-for-line (~135 lines) and had already narrowed
+// `scenarioRow` to `(id, edges)` with `graph` hard-wired. The harness keeps THIS
+// file's `(id, graph)` signature, so nothing here loses reach.
+//
+// ⚠ THIS IMPORT MUST STAY ABOVE the imports of the code under test below — the
+// `vi.mock` factories close over the harness. See the harness header.
+import {
+  HARNESS_NODES,
+  supabaseMockModule,
+  authMockModule,
+  routerMockModule,
+  resetScenarioHarness,
+  setScenarioRow,
+  scenarioRow,
+  mockRpc,
+  lastWrittenGraph,
+} from '../../test/helpers/useScenarioSupabaseHarness'
 
-const mockSingle = vi.fn()
-vi.mock('../../lib/supabase', () => ({
-  supabase: {
-    from: () => ({
-      select: () => ({
-        eq: (_col: string, id: string) => ({
-          single: () => mockSingle(id),
-        }),
-      }),
-      update: () => ({ eq: vi.fn().mockResolvedValue({ error: null }) }),
-    }),
-    rpc: (...args: unknown[]) => mockRpc(...args),
-  },
-}))
-
-vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }))
-
-const REAL_USER_ID = '550e8400-e29b-41d4-a716-446655440000'
-vi.mock('../../contexts/AuthContext', () => ({
-  useAuth: () => ({ user: { id: REAL_USER_ID }, authenticated: true }),
-}))
+// Only the SPECIFIERS stay here — they resolve relative to this file.
+vi.mock('../../lib/supabase', () => supabaseMockModule())
+vi.mock('react-router-dom', () => routerMockModule())
+vi.mock('../../contexts/AuthContext', () => authMockModule())
 
 import { useScenario } from '../useScenario'
 import { useCanvasStore } from '../../canvas/store'
@@ -74,44 +74,20 @@ const CAP_50K = [
   },
 ]
 
-const NODES = [
-  { id: 'goal-1', type: 'goal', position: { x: 0, y: 0 }, data: { kind: 'goal', label: 'Revenue' } },
-  { id: 'factor-1', type: 'factor', position: { x: 0, y: 100 }, data: { kind: 'factor', label: 'Spend' } },
-]
+/** R-3: from the shared harness — `scenarioRow` and `lastWrittenGraph` too. */
+const NODES = HARNESS_NODES
 
-function scenarioRow(id: string, graph: unknown): Record<string, unknown> {
-  return {
-    id,
-    graph,
-    framing: null,
-    stage: 'analyse',
-    updated_at: new Date().toISOString(),
-    analysis_status: 'none',
-    analysis: null,
-    analysis_provenance: null,
-    analysis_error: null,
-    thread: null,
-    events: null,
-  }
-}
-
-/** The `p_graph` of the most recent gated write. */
-function lastWrittenGraph(): Record<string, unknown> | null {
-  const calls = mockRpc.mock.calls.filter((c) => c[0] === 'apply_patch_and_log')
-  if (calls.length === 0) return null
-  return (calls[calls.length - 1][1] as Record<string, unknown>)
-    .p_graph as Record<string, unknown>
+/** Make the faked Supabase serve a scenario row holding this graph. */
+function seedRow(id: string, graph: unknown): void {
+  setScenarioRow(id, scenarioRow(id, graph))
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mockRowsById = {}
-  mockSingle.mockImplementation(async (id: string) =>
-    mockRowsById[id]
-      ? { data: mockRowsById[id], error: null }
-      : { data: null, error: { code: 'PGRST116' } },
-  )
-  mockRpc.mockResolvedValue({ data: {}, error: null })
+  // Re-arms both spies, including the `PGRST116` "no rows" arm `useScenario`
+  // branches on — `vi.clearAllMocks()` above strips the implementations, so this
+  // must run after it.
+  resetScenarioHarness()
   useCanvasStore.getState().setGoalConstraints(null)
 })
 
@@ -125,14 +101,14 @@ afterEach(() => {
 
 describe('B3 — goal_constraints do not leak across a scenario switch', () => {
   it('switching from a scenario WITH a constraint to one WITHOUT clears it', async () => {
-    mockRowsById['scenario-A'] = scenarioRow('scenario-A', {
+    seedRow('scenario-A', {
       nodes: NODES,
       edges: [],
       goal_constraints: CAP_50K,
     })
     // B genuinely has no constraint — the key is absent, as it is for every
     // scenario created before this lane.
-    mockRowsById['scenario-B'] = scenarioRow('scenario-B', {
+    seedRow('scenario-B', {
       nodes: NODES,
       edges: [],
     })
@@ -160,12 +136,12 @@ describe('B3 — goal_constraints do not leak across a scenario switch', () => {
   it('switching between two scenarios that BOTH have constraints installs the new one', () => {
     // Guards against "fixed the leak by always clearing" — a clear-only fix
     // would pass the case above and still lose every real constraint.
-    mockRowsById['scenario-A'] = scenarioRow('scenario-A', {
+    seedRow('scenario-A', {
       nodes: NODES,
       edges: [],
       goal_constraints: CAP_50K,
     })
-    mockRowsById['scenario-C'] = scenarioRow('scenario-C', {
+    seedRow('scenario-C', {
       nodes: NODES,
       edges: [],
       goal_constraints: [{ ...CAP_50K[0], constraint_id: 'c_other', value: 120000 }],
@@ -193,7 +169,7 @@ describe('B3 — goal_constraints survive save → cold load', () => {
 
     // Cold-load a constraint-free scenario, then have CEE deliver a
     // constraint into the store (what applyDraftResult does on a real turn).
-    mockRowsById['scenario-A'] = scenarioRow('scenario-A', { nodes: NODES, edges: [] })
+    seedRow('scenario-A', { nodes: NODES, edges: [] })
 
     const { result, unmount } = renderHook(() => useScenario())
 
@@ -231,7 +207,7 @@ describe('B3 — goal_constraints survive save → cold load', () => {
     // memory, so anything present afterwards came out of the column.
     vi.useRealTimers()
     useCanvasStore.getState().setGoalConstraints(null)
-    mockRowsById['scenario-A'] = scenarioRow('scenario-A', written)
+    seedRow('scenario-A', written)
 
     const reloaded = renderHook(() => useScenario())
     await act(async () => {
@@ -245,7 +221,7 @@ describe('B3 — goal_constraints survive save → cold load', () => {
 
   it('a malformed persisted constraint degrades to null rather than reaching a run', async () => {
     // The column is untyped JSONB and this value feeds the run request.
-    mockRowsById['scenario-junk'] = scenarioRow('scenario-junk', {
+    seedRow('scenario-junk', {
       nodes: NODES,
       edges: [],
       goal_constraints: [{ label: 'no operator, no value' }, 'not an object'],

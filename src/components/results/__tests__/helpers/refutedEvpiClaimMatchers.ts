@@ -60,6 +60,57 @@
  * trust-surface guard, so it is left to a reviewer rather than taken here.
  */
 
+/**
+ * ⭐ R-1 — THERE WERE TWO TABLES OF THIS VOCABULARY AND THEY HAD ALREADY
+ * DIVERGED. THIS IS NOW THE ONE.
+ *
+ * `tests/contracts/no-evpi-display.contract.test.ts` held a second table,
+ * `FORBIDDEN_COPY`, with its own hand-written positive-control loop of the same
+ * construct. It was not a copy of this one — it had drifted in BOTH directions
+ * before anyone noticed:
+ *
+ *   · the contract table carried `/would improve confidence by/i`,
+ *     `/pp via EVPI/i` and `/ranked by EVPI/i`, which THIS file lacked;
+ *   · this file carried `PP_TOKEN` and `WORTH_CLAIM`, which IT lacked;
+ *   · `RESOLVING_CLAIM` was byte-identical in both.
+ *
+ * So the sentence the StatusBar chip actually wore (`Npp via EVPI`) was outside
+ * the render-time vocabulary, and the token the refuted quantity wore everywhere
+ * (`Npp`) was outside the source-scan vocabulary. Two guards, each blind to the
+ * other's patterns, both green, each file's header claiming to hold "the ONE
+ * definition". The header above was written against exactly this hazard and was
+ * itself an instance of it.
+ *
+ * One table, two consumer projections, each derived by SCOPE (below) rather than
+ * by hand.
+ */
+
+/**
+ * Where a pattern is safe to apply. Not decoration — the two consumers ask
+ * genuinely different questions and one pattern is legitimately not for both:
+ *
+ *   · `'dom'` — matched against RENDERED TEXT by the two honesty specs. Anything
+ *     the user could read is in scope, including bare tokens.
+ *   · `'source'` — matched against SOURCE LINES by the no-EVPI-display contract,
+ *     after comment stripping. A pattern here must be specific enough that a hit
+ *     IS a re-introduction: `PP_TOKEN` is deliberately absent, because "5pp" is
+ *     legitimate in a comparison threshold's code (`within 5pp of the leader`)
+ *     and reddening on it would teach the next lane to widen the exemption list,
+ *     which is how a real violation gets an exception written for it.
+ */
+export type RefutedClaimScope = 'dom' | 'source'
+
+export interface RefutedClaimPattern {
+  /** The matcher. */
+  readonly pattern: RegExp
+  /** A string it MUST match — its positive control. */
+  readonly control: string
+  /** The surface or claim it names, quoted in failure messages. */
+  readonly what: string
+  /** Which consumers may apply it. See `RefutedClaimScope`. */
+  readonly scopes: ReadonlyArray<RefutedClaimScope>
+}
+
 /** Any "<n>pp" token — the shape the refuted quantity wore on every surface. */
 export const PP_TOKEN = /\d+(\.\d+)?\s*pp\b/i
 
@@ -69,19 +120,75 @@ export const RESOLVING_CLAIM = /resolving could improve confidence/i
 /** The per-factor "worth Npp if resolved" claim. */
 export const WORTH_CLAIM = /worth\s+\d+(\.\d+)?pp if resolved/i
 
+/** The factor chip's improvement clause — was contract-table-only. */
+export const IMPROVE_CONFIDENCE_CLAIM = /would improve confidence by/i
+
+/** The StatusBar chip that SUMMED three refuted figures — was contract-only. */
+export const PP_VIA_EVPI = /pp via EVPI/i
+
+/** The visible factor-list sort label — was contract-only. */
+export const RANKED_BY_EVPI = /ranked by EVPI/i
+
 /**
- * Each matcher paired with a string it MUST match — the positive-control table
- * both honesty specs drive, so the controls cannot drift apart from the patterns
- * they guard.
+ * ⭐ THE VOCABULARY. Every pattern, its positive control, and its scopes.
  *
- * ⚠ EVERY PATTERN EXPORTED ABOVE MUST HAVE A ROW HERE. That is what makes the
- * controls derived rather than remembered: a fourth banned pattern added above
- * without a row here is a pattern with no control in either spec, which is how
- * `PP_TOKEN` went uncontrolled in one of them (see the header). Both specs assert
- * this table's LENGTH, so shrinking it reds instead of quietly checking less.
+ * ⚠ EVERY PATTERN EXPORTED ABOVE MUST HAVE A ROW HERE, and every row must carry a
+ * control. That is what makes the controls derived rather than remembered: a
+ * pattern added above without a row here is a pattern with no control in any
+ * consumer, which is how `PP_TOKEN` went uncontrolled in one spec (see the
+ * header). Every consumer asserts the LENGTH of the projection it drives, so a
+ * SHRUNK table reds instead of quietly checking less.
  */
-export const REFUTED_CLAIM_CONTROLS: ReadonlyArray<readonly [RegExp, string]> = [
-  [PP_TOKEN, 'Worth 12.3pp if resolved'],
-  [RESOLVING_CLAIM, 'Resolving could improve confidence by up to 10pp'],
-  [WORTH_CLAIM, 'Worth 6.6pp if resolved'],
+export const REFUTED_CLAIM_VOCABULARY: ReadonlyArray<RefutedClaimPattern> = [
+  {
+    pattern: PP_TOKEN,
+    control: 'Worth 12.3pp if resolved',
+    what: 'any percentage-point token for the refuted quantity',
+    scopes: ['dom'],
+  },
+  {
+    pattern: RESOLVING_CLAIM,
+    control: 'Resolving could improve confidence by up to 10pp',
+    what: 'the "Resolving could improve confidence by up to Xpp" line',
+    scopes: ['dom', 'source'],
+  },
+  {
+    pattern: WORTH_CLAIM,
+    control: 'Worth 6.6pp if resolved',
+    what: 'the per-factor "Worth Npp if resolved" claim',
+    scopes: ['dom', 'source'],
+  },
+  {
+    pattern: IMPROVE_CONFIDENCE_CLAIM,
+    control:
+      'Worth {evpiPp}pp if resolved: your knowledge of {label} would improve confidence by {evpiPp} percentage points',
+    what: 'the "Worth Xpp if resolved" factor chip',
+    scopes: ['dom', 'source'],
+  },
+  {
+    pattern: PP_VIA_EVPI,
+    control: 'label: `${Math.round(top3Sum)}pp via EVPI`,',
+    what: 'the StatusBar chip that SUMMED three refuted figures',
+    scopes: ['dom', 'source'],
+  },
+  {
+    pattern: RANKED_BY_EVPI,
+    control: "sortNote={hasRobustnessData && evpiMap.size > 0 ? 'ranked by EVPI' : undefined}",
+    what: 'the visible factor-list sort label',
+    scopes: ['dom', 'source'],
+  },
 ] as const
+
+/** The rows a given consumer may apply. Derived — never hand-listed. */
+export function refutedClaimsForScope(
+  scope: RefutedClaimScope,
+): ReadonlyArray<RefutedClaimPattern> {
+  return REFUTED_CLAIM_VOCABULARY.filter((r) => r.scopes.includes(scope))
+}
+
+/**
+ * The DOM projection, in the `[pattern, control]` shape the two honesty specs
+ * already drive. Kept as a named export so those specs' loops are unchanged.
+ */
+export const REFUTED_CLAIM_CONTROLS: ReadonlyArray<readonly [RegExp, string]> =
+  refutedClaimsForScope('dom').map((r) => [r.pattern, r.control] as const)

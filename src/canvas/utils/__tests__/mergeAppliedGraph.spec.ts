@@ -17,31 +17,18 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { reconcileAppliedGraph, type ReconcileAppliedGraphResult } from '../mergeAppliedGraph'
+import { reconcileAppliedGraph } from '../mergeAppliedGraph'
 import { useCanvasStore } from '../../store'
 import { logger } from '../../../lib/logger'
 // Derived, never hardcoded: the pair separator is a NUL, which is invisible
 // in source and unwritable as a literal without corrupting the file.
 import { edgePairKey } from '../graphIdentity'
 
-/**
- * Fill the counters a case does not mention with 0, so every assertion checks
- * ALL SIX exactly. Deliberately not `objectContaining`: an unasserted counter
- * is how an unintended removal would slip through.
- */
-function counts(
-  p: Partial<ReconcileAppliedGraphResult> = {},
-): ReconcileAppliedGraphResult {
-  return {
-    addedNodeCount: 0,
-    addedEdgeCount: 0,
-    updatedNodeCount: 0,
-    updatedEdgeCount: 0,
-    removedNodeCount: 0,
-    removedEdgeCount: 0,
-    ...p,
-  }
-}
+// R-10: `counts()` and the store-seeding field set now live in
+// `./__helpers__/mergeAppliedGraphHarness.ts`, shared with
+// `mergeAppliedGraph.validation.spec.ts` — which had re-declared both, and had
+// then asserted only 2 of the 6 counters because it skipped this `counts()`.
+import { counts, seedCanvas as seedStore } from './__helpers__/mergeAppliedGraphHarness'
 
 const EXISTING_NODES = [
   {
@@ -69,17 +56,7 @@ const EXISTING_EDGES = [
 ]
 
 function seedCanvas() {
-  useCanvasStore.setState({
-    currentScenarioId: 'scenario-1',
-    nodes: structuredClone(EXISTING_NODES) as any,
-    edges: structuredClone(EXISTING_EDGES) as any,
-    ceeAnalysisReady: null,
-    // B2: default to "CEE has acknowledged nothing" so the deletion path is
-    // OFF unless a case opts in. Without this reset the field would leak
-    // between cases and a later test could delete the seed graph.
-    lastAuthoritativeGraph: null,
-    history: { past: [], future: [] },
-  } as any)
+  seedStore(EXISTING_NODES, EXISTING_EDGES)
 }
 
 beforeEach(() => {

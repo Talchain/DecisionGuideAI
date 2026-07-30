@@ -34,7 +34,7 @@
  *   - Body: typography.panelBody (12px)
  *   - Pills: bg-transparent border-{semantic}/30 text-text-body
  */
-import { type ReactElement } from 'react'
+import { memo, useMemo, type ReactElement } from 'react'
 import { typography } from '../../styles/typography'
 import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../canvas/conversation/types'
 import { readDecisionReviewWireState } from '../decisionReviewAdapter'
@@ -43,7 +43,9 @@ import {
   resolveLeaderKeys,
   resolveOptionLabelById,
 } from '../mapV5AnalysisToReport'
+import { useCanvasNodeLabels, resolveCanvasLabel } from './useCanvasLabels'
 import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
+import { isRecord } from '../../lib/guards'
 import { calibrateUncertaintyCopy } from '../../components/results/utils/uncertaintyCalibration'
 
 export interface V5AnalysisResultBlockProps {
@@ -74,12 +76,55 @@ function formatProbability(p: number): string {
  */
 const PROSE_WRAP = 'whitespace-pre-wrap break-words min-w-0'
 
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return v != null && typeof v === 'object' && !Array.isArray(v)
-}
-
 function finiteNumber(v: unknown): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v : null
+}
+
+/**
+ * One labelled bullet list of factor strings — `stability_factors` and
+ * `fragility_factors` render identically and used to do so as two byte-identical
+ * JSX blocks differing only in a title, two test ids and the array.
+ *
+ * This is the exact duplication class `ClampToggle` was extracted for one PR
+ * earlier in the same sprint: two copies where the SECOND copy is what makes a
+ * change to the first silently partial. The index-key rationale in particular
+ * existed twice, verbatim, so a reader had no way to know whether the two were
+ * meant to agree.
+ *
+ * Renders nothing for an empty list — every field on this card carries its own
+ * absence arm and never a placeholder.
+ */
+function FactorList({
+  title,
+  factors,
+  sectionTestId,
+  itemTestId,
+}: {
+  title: string
+  factors: ReadonlyArray<string>
+  sectionTestId: string
+  itemTestId: string
+}): ReactElement | null {
+  if (factors.length === 0) return null
+  return (
+    <div data-testid={sectionTestId}>
+      <p className={`${typography.panelMeta} text-text-light font-medium`}>{title}</p>
+      <ul className="list-disc pl-4">
+        {factors.map((f, i) => (
+          <li
+            // Index key: the LLM can legitimately repeat a factor string, and
+            // this list is display-only — never reordered, filtered or keyed on
+            // by anything else.
+            key={`${i}-${f}`}
+            className={`${typography.panelBody} ${PROSE_WRAP}`}
+            data-testid={itemTestId}
+          >
+            {f}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
 }
 
 /**
@@ -94,17 +139,17 @@ function resolveUncertaintyInputs(
   enrichment: Record<string, unknown> | undefined,
   leadingOptionId: string | null,
 ): { robustnessLevel?: string; robustnessLabel?: string; p10: number | null; p90: number | null } {
-  const robustness = isPlainObject(enrichment?.robustness) ? enrichment!.robustness : undefined
+  const robustness = isRecord(enrichment?.robustness) ? enrichment!.robustness : undefined
   const robustnessLevel = typeof robustness?.level === 'string' ? robustness.level : undefined
   const robustnessLabel = typeof robustness?.label === 'string' ? robustness.label : undefined
 
   const comparisons = Array.isArray(enrichment?.option_comparison)
     ? (enrichment!.option_comparison as unknown[])
     : []
-  const entries = comparisons.filter(isPlainObject) as Array<Record<string, unknown>>
+  const entries = comparisons.filter(isRecord) as Array<Record<string, unknown>>
   const headline =
     entries.find((e) => (e.id ?? e.option_id) === leadingOptionId) ?? entries[0]
-  const outcome = isPlainObject(headline?.outcome) ? headline!.outcome : undefined
+  const outcome = isRecord(headline?.outcome) ? headline!.outcome : undefined
 
   return {
     robustnessLevel,
@@ -114,7 +159,83 @@ function resolveUncertaintyInputs(
   }
 }
 
-export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): ReactElement {
+/**
+ * ⭐ R-4 — ONE OPTION-LABEL POLICY FOR src/v5/blocks, AND IT REFUSES RAW IDS.
+ *
+ * WHAT THIS REPLACED, AND WHY IT WAS A DEFECT AND NOT A STYLE CHOICE. The story
+ * headlines used to resolve their label as `optionLabels.get(id) ?? id`, under a
+ * comment arguing *"showing the raw id is honest; showing nothing would silently
+ * drop a headline the producer paid for"*. The first clause is false and the
+ * second is a false dilemma:
+ *
+ *   · The live payloads' `story_headlines` keys are `opt_status_quo` /
+ *     `opt_hubspot` — a direct `RAW_ID_PATTERN` match. So the fallthrough is not
+ *     a hypothetical: it prints a wire identifier to the user as copy, in a card
+ *     whose own docstring promises no UI-authored copy, exactly when
+ *     `option_comparison` misses. And it CAN miss — the wire ships a sibling
+ *     `option_comparison_status` field precisely because that array is not
+ *     guaranteed.
+ *   · Both sibling blocks in this directory already refuse to do it, through
+ *     ONE shared policy: `resolveCanvasLabel` returns `null` rather than the id
+ *     ("that is the whole point … there is no way to accidentally fall through
+ *     to the identifier") and additionally rejects a stored label that is ITSELF
+ *     a raw id, because upstream sometimes seeds a node's label from its id.
+ *     This card was a THIRD policy in the same folder, and the weakest of the
+ *     three.
+ *   · Nothing is dropped. The headline still renders; only the unresolvable
+ *     LABEL is omitted. That is the `V5ExplanationBlock` rule (omit what cannot
+ *     be named) applied where `V5FlipAnalysisBlock`'s reason to keep the row
+ *     also holds (the row carries producer content that would be lost with it).
+ *     The id survives as the `data-option-id` machine reference, which is the
+ *     use CEE's field-coverage allowlist permits and the siblings also keep.
+ *
+ * THE CANVAS-STORE TIER IS A SECOND, SEPARATE FIX. The old path consulted only
+ * the payload, so an option whose label WAS in the canvas store went unlabelled
+ * anyway. Both tiers now feed one map and both pass through the null-refusing
+ * resolver, so a raw-id-shaped label is rejected whichever tier supplied it.
+ *
+ * Payload FIRST, canvas store second: the payload's `option_comparison` label is
+ * the producer's own naming for the very payload being rendered, and preferring
+ * it keeps every currently-labelled headline byte-identical. The store is a
+ * fallback, not an override.
+ */
+function useOptionLabelResolver(
+  enrichment: Record<string, unknown> | undefined,
+): (optionId: string) => string | null {
+  const canvasLabels = useCanvasNodeLabels()
+  const merged = useMemo(() => {
+    const map = new Map<string, string>(canvasLabels)
+    // ⚠ THE POLICY IS APPLIED PER TIER, NOT ONCE AT THE END. This is the A1 fix
+    // from the adversarial review of PR #539, and the ordering is the whole point.
+    //
+    // The first cut merged both tiers with "payload wins" and resolved ONCE
+    // afterwards. When the producer seeds `option_label` from the option's own id
+    // — the exact upstream behaviour `useCanvasLabels` warns about — that
+    // raw-id-shaped payload label OVERWROTE a good store label, and only then was
+    // it rejected. Nothing rendered, though an honest label sat in the fallback
+    // tier: the fallback was dead precisely when it was needed.
+    //
+    // So a tier may only WIN with a label that has already survived the policy.
+    // `resolveCanvasLabel` is applied to the payload map itself, which reuses the
+    // one null-refusing + RAW_ID_PATTERN policy rather than re-implementing half
+    // of it here.
+    //
+    // `resolveOptionLabelById` builds a fresh Map per call, so it is invoked
+    // INSIDE the memo and keyed on `enrichment` — calling it outside would make
+    // the dependency change on every render and the memo a no-op.
+    const payloadLabels = resolveOptionLabelById(enrichment)
+    for (const id of payloadLabels.keys()) {
+      const honest = resolveCanvasLabel(id, payloadLabels)
+      if (honest !== null) map.set(id, honest)
+    }
+    return map as ReadonlyMap<string, string>
+  }, [canvasLabels, enrichment])
+  // Applied a final time so there is ONE exit point for the policy. Idempotent by
+  // construction: every entry in `merged` already survived it.
+  return (optionId: string) => resolveCanvasLabel(optionId, merged)
+}
+
+function V5AnalysisResultBlockImpl({ block }: V5AnalysisResultBlockProps): ReactElement {
   // ROADMAP 2.154 — the wire has FOUR states and only ONE of them is an alarm.
   // `absent` (the enricher's soft-fail skips) and `degraded`
   // (`decision_review: null`, CEE's "attempted, degraded at the call site")
@@ -126,7 +247,7 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
   // section is worse than no section.
   const showProse = review030?.hasProse === true
   const hasReview = reviewState.kind === 'v0_30' || reviewState.kind === 'm1'
-  const optionLabels = resolveOptionLabelById(block.enrichment)
+  const resolveOptionLabel = useOptionLabelResolver(block.enrichment)
   const hasProbs =
     block.win_probabilities && Object.keys(block.win_probabilities).length > 0
 
@@ -269,25 +390,30 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
 
           {review030.story_headlines.length > 0 && (
             <ul className="space-y-1" data-testid="v5-analysis-result-story-headlines">
-              {review030.story_headlines.map((h) => (
-                <li
-                  key={h.optionId}
-                  className={`${typography.panelBody} ${PROSE_WRAP}`}
-                  data-testid="v5-analysis-result-story-headline"
-                  data-option-id={h.optionId}
-                >
-                  {/*
-                    The label when the payload resolves one for this id, else
-                    the raw id. Showing the raw id is honest; showing nothing
-                    would silently drop a headline the producer paid for.
-                  */}
-                  <span className="font-medium text-text-body">
-                    {optionLabels.get(h.optionId) ?? h.optionId}
-                  </span>
-                  <span className="text-text-light"> — </span>
-                  <span>{h.headline}</span>
-                </li>
-              ))}
+              {review030.story_headlines.map((h) => {
+                // R-4: the shared null-refusing policy. `null` means no honest
+                // label exists for this id — the label and its separator are
+                // then omitted and the producer's headline renders alone. The id
+                // never becomes user copy; it stays a machine reference on
+                // `data-option-id`. See `useOptionLabelResolver` above.
+                const label = resolveOptionLabel(h.optionId)
+                return (
+                  <li
+                    key={h.optionId}
+                    className={`${typography.panelBody} ${PROSE_WRAP}`}
+                    data-testid="v5-analysis-result-story-headline"
+                    data-option-id={h.optionId}
+                  >
+                    {label !== null && (
+                      <>
+                        <span className="font-medium text-text-body">{label}</span>
+                        <span className="text-text-light"> — </span>
+                      </>
+                    )}
+                    <span>{h.headline}</span>
+                  </li>
+                )
+              })}
             </ul>
           )}
 
@@ -313,48 +439,18 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
                   {review030.robustness_explanation.primary_risk}
                 </p>
               )}
-              {review030.robustness_explanation.stability_factors.length > 0 && (
-                <div data-testid="v5-analysis-result-stability-factors">
-                  <p className={`${typography.panelMeta} text-text-light font-medium`}>
-                    Stability factors
-                  </p>
-                  <ul className="list-disc pl-4">
-                    {review030.robustness_explanation.stability_factors.map((f, i) => (
-                      <li
-                        // Index key: the LLM can legitimately repeat a factor
-                        // string, and this list is display-only — never
-                        // reordered, filtered or keyed on by anything else.
-                        key={`${i}-${f}`}
-                        className={`${typography.panelBody} ${PROSE_WRAP}`}
-                        data-testid="v5-analysis-result-stability-factor"
-                      >
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {review030.robustness_explanation.fragility_factors.length > 0 && (
-                <div data-testid="v5-analysis-result-fragility-factors">
-                  <p className={`${typography.panelMeta} text-text-light font-medium`}>
-                    Fragility factors
-                  </p>
-                  <ul className="list-disc pl-4">
-                    {review030.robustness_explanation.fragility_factors.map((f, i) => (
-                      <li
-                        // Index key: the LLM can legitimately repeat a factor
-                        // string, and this list is display-only — never
-                        // reordered, filtered or keyed on by anything else.
-                        key={`${i}-${f}`}
-                        className={`${typography.panelBody} ${PROSE_WRAP}`}
-                        data-testid="v5-analysis-result-fragility-factor"
-                      >
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              <FactorList
+                title="Stability factors"
+                factors={review030.robustness_explanation.stability_factors}
+                sectionTestId="v5-analysis-result-stability-factors"
+                itemTestId="v5-analysis-result-stability-factor"
+              />
+              <FactorList
+                title="Fragility factors"
+                factors={review030.robustness_explanation.fragility_factors}
+                sectionTestId="v5-analysis-result-fragility-factors"
+                itemTestId="v5-analysis-result-fragility-factor"
+              />
             </div>
           )}
 
@@ -408,5 +504,27 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
     </div>
   )
 }
+
+/**
+ * E-1 — memoised on `block`, following the house convention.
+ *
+ * This card lives in the streamed conversation panel, so it re-renders whenever
+ * ANY sibling block or message arrives — roughly ten times on a single analysis
+ * turn. Each render re-does the whole render-body projection from the untyped
+ * `enrichment` passthrough: the four-state wire classification with its two shape
+ * validators, the uncertainty-input walk over `option_comparison`, the verdict
+ * derivation, the leader-key resolution and the probability sort. Post-#535 that
+ * is roughly an order more work per render than it was before, for a `block` prop
+ * that does not change between those renders.
+ *
+ * `memo` with the default shallow compare is exactly right here: `block` is the
+ * one prop, and it is a wire object the panel holds by reference for the life of
+ * the turn. The three sibling cards doing comparable derivation
+ * (`DecisionConfidencePanel`, `AnalysisHeroV17`, `StressTestSection`) already use
+ * this convention, including its `memo(function Name(...))` form so the component
+ * keeps its name in React DevTools and in test output.
+ */
+export const V5AnalysisResultBlock = memo(V5AnalysisResultBlockImpl)
+V5AnalysisResultBlock.displayName = 'V5AnalysisResultBlock'
 
 export default V5AnalysisResultBlock

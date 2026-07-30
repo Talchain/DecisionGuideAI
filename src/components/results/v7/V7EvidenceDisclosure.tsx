@@ -42,6 +42,7 @@ import { formatPercent } from '@/utils/formatPercent'
 import { formatRangeValue } from '../utils/formatRangeValue'
 import type { V7EvidenceModel } from './buildV7Lenses'
 import { V7_LENS_COPY } from './v7LensCopy'
+import { ClampToggle } from './ClampToggle'
 import { useAnalysisProjection } from '@/canvas/highlighting/useAnalysisProjection'
 
 const E = V7_LENS_COPY.evidence
@@ -85,42 +86,13 @@ function EvidenceNote({ children }: { children: React.ReactNode }) {
   return <p className={`${typography.panelMeta} text-text-light`}>{children}</p>
 }
 
-/**
- * The row-clamp toggle — one leaf for the two verbatim copies (Drivers and
- * Resolve next), down to the focus-ring class string.
- *
- * `hiddenCount` is the number of rows the clamp HIDES and does not change when
- * the list expands, so the affordance stays mounted as "Show fewer" — the
- * behaviour both suites pin. Renders nothing when the clamp hides nothing.
- *
- * ⚠ That counter is the ONLY digit-bearing string in the Resolve next view, and
- * it is a count of HIDDEN ROWS — never a value of information. It is the string
- * that view's no-digit assertion carves out and then pins exactly, so the
- * carve-out cannot widen into a hole a magnitude arrives through.
+/*
+ * `ClampToggle` moved to `./ClampToggle.tsx` (R-11). It was extracted here for
+ * "the two verbatim copies" while a THIRD lived one file away in
+ * `V7GuidanceSection.tsx`, unable to consume it because it was module-private.
+ * Its full rationale — including the hidden-row-counter property that the
+ * Resolve-next no-digit assertion carves out — moved with it.
  */
-function ClampToggle({
-  testId,
-  hiddenCount,
-  expanded,
-  onToggle,
-}: {
-  testId: string
-  hiddenCount: number
-  expanded: boolean
-  onToggle: () => void
-}) {
-  if (hiddenCount <= 0) return null
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      data-testid={testId}
-      className={`${typography.panelMeta} text-info hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-    >
-      {expanded ? E.showFewer : E.seeMore(hiddenCount)}
-    </button>
-  )
-}
 
 export function V7EvidenceDisclosure({ evidence, onFocusNode }: V7EvidenceDisclosureProps) {
   const [open, setOpen] = useState(false)
