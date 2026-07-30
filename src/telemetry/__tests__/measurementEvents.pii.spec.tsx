@@ -36,11 +36,21 @@
 // the emitters that actually exist, so a NEW uncovered emitter REDs this file
 // instead of silently shrinking the claim.
 //
-//   RENDER-DRIVEN — a real component renders, the canary is proven present in
-//   the DOM, and only then may the absence assertion run:
+//   RENDER-DRIVEN — a real component renders IN THIS FILE, the canary is proven
+//   present in the DOM, and only then may the absence assertion run:
 //     · V7EvidenceDisclosure, all four views     → evidence_view_opened
-//     · ContestedEdgeCard, mount + unmount       → contested_edge_viewed
 //     · FeedbackRow, thumbs                      → turn_feedback
+//
+//   ⚠ THIS LIST PREVIOUSLY INCLUDED "ContestedEdgeCard, mount + unmount". THIS
+//   FILE NEVER IMPORTS OR RENDERS THAT COMPONENT — the renders live in
+//   `measurementBehaviour.spec.tsx` and `measurementEvents.neverThrow.spec.tsx`.
+//   The line even contradicted the paragraph 15 lines above it, which says in
+//   terms that no test here rendered it. That is trap 14's THIRD recurrence in
+//   this one header: written false, corrected, and reintroduced by the
+//   correction. Recorded rather than quietly deleted, because three occurrences
+//   is no longer carelessness — it is evidence that prose describing coverage
+//   drifts faster than anyone re-reads it, which is exactly why § 4's
+//   completeness check is BEHAVIOURAL and this block is only navigation.
 //
 //   DIRECT-DRIVEN — the sender is called with a canary-laden payload. There is
 //   no render because these senders' inputs are not rendered text; they are
@@ -57,13 +67,20 @@
 //     · GuidanceStrip's dwell CLOCK. The payload it produces is covered above
 //       (dwell_ms is driven through trackGuidance), but WHEN the clock starts
 //       and whether it is correctly keyed to item_id is component behaviour
-//       with no test. It is a timing bug risk, not a PII risk — a bucketed
+//       with no test. It is a timing-bug risk, not a PII risk — a bucketed
 //       integer cannot carry a label — so it is out of scope for a LEAK
 //       detector, and it is named here so nobody reads this file's silence as
-//       coverage. Closing it needs a GuidanceStrip render harness with the
-//       guidance store assembled; rowed, not done.
+//       coverage.
 //     · session_started's call site inside `initMonitoring` (as opposed to its
 //       payload, which IS driven above).
+//     · OutputsDock's store-transition emit (run_completed / run_failed,
+//       including the isErrorReport branch) — pinned SOURCE-DERIVED in
+//       `src/lib/__tests__/runSettleClassification.spec.ts`, not behaviourally.
+//
+//   All three are **ROADMAP 2.192** (dwell-clock behavioural test + an
+//   OutputsDock store-transition spec). An earlier version of this comment said
+//   the first was "rowed" when no row existed — the row exists now, and it is
+//   named here rather than gestured at.
 //
 //   ⚠ This block previously listed session_started and the GuidanceStrip dwell
 //   as "STATIC-DERIVED", implying an assertion about the source existed. NO

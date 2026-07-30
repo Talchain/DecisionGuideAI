@@ -62,7 +62,7 @@ describe('1.68 · exactly one emitter per run-spine event', () => {
   })
 
   it('POSITIVE CONTROL — the counter can SEE a call before it reports none', () => {
-    // OutputsDock is the canonical emitter, so it MUST show calls. If this is
+    // OutputsDock is the canonical emitter, so it MUST show calls. If these are
     // zero the matcher is broken and the absence assertions are vacuous.
     expect(
       countCalls(read(OUTPUTS_DOCK), 'trackRunCompleted'),
@@ -70,7 +70,28 @@ describe('1.68 · exactly one emitter per run-spine event', () => {
         'the canonical emitter (in which case run_completed now fires NOWHERE) or this ' +
         'matcher has broken and the assertions below are testing nothing',
     ).toBe(1)
-    expect(countCalls(read(OUTPUTS_DOCK), 'trackRunFailed')).toBe(1)
+
+    // TWO trackRunFailed call sites, and both are load-bearing — this count went
+    // 1 → 2 when the HTTP-200-but-failed regression was fixed, and the number is
+    // stated with its reason so a THIRD still reds rather than being waved
+    // through as "the count moved again":
+    //
+    //   1. the ERROR-STATUS transition — covers the four failure paths that
+    //      settle through `resultsError` (useV2Run :662, :824, :1114, :1185, plus
+    //      useResultsRun, applyV5State and useConversation);
+    //   2. the COMPLETE transition whose report `isErrorReport()` identifies —
+    //      the fifth path (`useV2Run.ts:846-866`), which settles a FAILURE via
+    //      `resultsComplete` because that is what renders the critique list.
+    //
+    // They are mutually exclusive by construction: (2) is the else-less branch
+    // of the complete-transition, (1) is the error-transition. So exactly one
+    // event still fires per settle.
+    expect(
+      countCalls(read(OUTPUTS_DOCK), 'trackRunFailed'),
+      'the number of trackRunFailed call sites in OutputsDock changed. Two are expected — ' +
+        'the error-status transition, and the complete-transition whose report is an error ' +
+        'report. A third would mean a settle can emit run_failed twice.',
+    ).toBe(2)
   })
 
   for (const fn of ['trackRunCompleted', 'trackRunFailed'] as const) {

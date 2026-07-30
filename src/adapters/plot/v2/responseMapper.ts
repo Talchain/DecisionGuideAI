@@ -1255,6 +1255,39 @@ export function createEnrichmentFromV2Response(v2Response: V2RunResponse): {
 /**
  * Create error report for blocked/failed responses.
  */
+/**
+ * The sentinel `response_id` stamped on a report that represents a FAILED
+ * analysis rather than a successful one.
+ *
+ * ⚠ It is exported, and `isErrorReport` below is the ONLY sanctioned way to
+ * read it. Do not compare against the literal `'error'` in a consumer: a string
+ * copied into another module is a hand-maintained mirror (CLAUDE.md trap 12),
+ * and the day this sentinel changes the copy keeps compiling and starts lying.
+ * The producer owns the predicate.
+ */
+export const ERROR_REPORT_RESPONSE_ID = 'error'
+
+/**
+ * Is this report the product of `createErrorReport` — i.e. does it represent a
+ * FAILED analysis?
+ *
+ * WHY THIS EXISTS (ROADMAP 1.68). `useV2Run.ts`'s HTTP-200-but-failed branch
+ * settles a failure through `resultsComplete`, because the results panel must
+ * render the critique list and that is the action which renders it. So "status
+ * is complete" does NOT mean "the run succeeded", and any consumer that assumes
+ * it does will record a whole failure class as a success. `OutputsDock` — the
+ * single canonical emitter of run_completed/run_failed — asks this question
+ * before choosing which event to emit.
+ *
+ * ⚠ NOT a confidence check. `confidence.level === 'low'` is a legitimate
+ * outcome of a SUCCESSFUL run; classifying on it would relabel every genuinely
+ * uncertain result as a failure. Pinned both ways in
+ * `src/lib/__tests__/runSettleClassification.spec.ts`.
+ */
+export function isErrorReport(report: ReportV1 | null | undefined): boolean {
+  return report?.meta?.response_id === ERROR_REPORT_RESPONSE_ID
+}
+
 export function createErrorReport(
   statusReason: string,
   critiques: V2Critique[],
@@ -1264,7 +1297,7 @@ export function createErrorReport(
     schema: 'report.v1',
     meta: {
       seed: meta.seed,
-      response_id: 'error',
+      response_id: ERROR_REPORT_RESPONSE_ID,
       elapsed_ms: 0,
     },
     model_card: {
