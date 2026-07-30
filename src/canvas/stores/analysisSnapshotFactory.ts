@@ -164,9 +164,22 @@ function extractEdgeEValues(
 }
 
 function extractInferenceWarnings(
-  robustness: V2RunResponse['robustness'],
+  response: V2RunResponse,
 ): string[] {
-  const raw = (robustness as Record<string, unknown> | undefined)?.inference_warnings
+  // ROADMAP 2.173 (Paul-ratified 2026-07-30): root-wins dual read, the same
+  // precedence `persistedRunSnapshotFactory`'s `composeRobustness` applies.
+  // This extractor read ONLY `robustness.inference_warnings` — empty on every
+  // live run (0/827 measured 2026-07-30; response ROOT 419/827 non-empty) —
+  // while the persisted-rebuild caller folded root→robustness before calling,
+  // so live-captured snapshots carried `[]` and rehydrated ones carried data:
+  // the same Compare diff was blank or populated depending on capture path.
+  // Reading the root here makes both callers agree without double-folding the
+  // already-compensated rehydrate path (root wins in both). See the coherence
+  // pin in __tests__/analysisSnapshotFactory.inferenceWarnings.spec.ts and
+  // readInferenceWarnings' header for the adoption history.
+  const root = (response as unknown as Record<string, unknown> | undefined)?.inference_warnings
+  const nested = (response?.robustness as Record<string, unknown> | undefined)?.inference_warnings
+  const raw = Array.isArray(root) ? root : nested
   if (!Array.isArray(raw)) return []
   return raw
     .map((w: unknown) => {
@@ -462,7 +475,7 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
     goalProbability,
     jointGoalProbability,
 
-    inferenceWarnings: extractInferenceWarnings(robustness),
+    inferenceWarnings: extractInferenceWarnings(rawV2Response),
     conditionalWinners: extractConditionalWinners(robustness),
     edgeEValues: extractEdgeEValues(robustness, nodes, edges),
 
