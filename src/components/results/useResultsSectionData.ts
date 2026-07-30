@@ -954,20 +954,11 @@ function getConfidenceTier(
 // B2 Deprecation Fallbacks — Remove after 2026-05-12
 // =============================================================================
 
-/**
- * Classify fragile edge severity from switch_probability thresholds.
- * UI-SEM-012: >0.7 critical, >0.5 error, else warning.
- * @deprecated Remove after 2026-05-12 — PLoT B1 now provides severity on fragile_edges items.
- */
-function classifySeverityLegacy(
-  flipProbability: number | undefined | null
-): 'critical' | 'error' | 'warning' {
-  if (typeof flipProbability === 'number') {
-    if (flipProbability > 0.7) return 'critical'
-    if (flipProbability > 0.5) return 'error'
-  }
-  return 'warning'
-}
+// classifySeverityLegacy (B2 severity fallback, "Remove after 2026-05-12")
+// DELETED with its expired call site: the 0.30.0 contract requires severity
+// to be OMITTED when the producer omits it, never re-derived locally — least
+// of all from `switch ?? marginal_switch_probability`, which classified a
+// verdict from a substituted quantity.
 
 /**
  * Detect dominant factor via local heuristic: top driver influence > 0.5
@@ -2067,13 +2058,20 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     fragileEdgesRaw.forEach((fe: any) => {
       const fromId = fe.from_id ?? fe.fromId ?? fe.source
       if (fromId) {
-        // Bug fix: use switch_probability as primary (direct flip probability from ISL)
-        // Fall back to marginal_switch_probability only if switch_probability missing
+        // Presence branch (schemas 0.30.0; same class as #543): ONLY a
+        // measured switch_probability populates switchProbability.
+        // marginal_switch_probability is a DIFFERENT Monte Carlo, never a
+        // fallback — the coalesce here fed buildHeroModel's "NN% switch"
+        // meta + MagnitudeBar (staging-ON analysis hero) a marginal value
+        // under switch-probability wording (#543 adv-review F1). Absence
+        // propagates: the hero flip row renders its sentence with no meta
+        // and no bar, and the topFlipRisk quick link / DriversSection
+        // microline gates simply don't fire. The invariant mirror
+        // (src/test/__tests__/invariants/ui/fragile-edge-selection.test.ts)
+        // already documents exactly these semantics.
         const newProb = typeof fe.switch_probability === 'number'
           ? fe.switch_probability
-          : typeof fe.marginal_switch_probability === 'number'
-            ? fe.marginal_switch_probability
-            : undefined
+          : undefined
         const existing = fragileEdgesMap.get(fromId)
         const existingProb = existing?.switchProbability
 
@@ -2509,10 +2507,27 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Only show stable template when fragile_edges is genuinely empty (length === 0)
     // =========================================================================
     const topFragileEdgeData = (() => {
-      // Sort ALL fragile edges by switch_probability descending, pick top one
+      // Sort ALL fragile edges: measured switch_probability desc; unmeasured
+      // LAST, producer order preserved.
+      //
+      // ADJUDICATED (#543 adv-review F2, marginal-quantity honesty batch):
+      // selection is presence-first. The contract (schemas 0.30.0,
+      // EnrichmentRobustnessEdgeSchema.switch_probability) requires consumers
+      // to "omit any value derived from it (severity, visible, RANKING
+      // POSITION) rather than derive one from a substitute", and
+      // plot-lite-service#294 shipped this exact comparator for the coaching
+      // fragile-edge rank — same doctrine, same shape, cross-service.
+      // Previously the marginal quantity could PICK the top edge (`switch ??
+      // marginal ?? -Infinity`) even though every render surface now refuses
+      // to display it (#543): with {marginal-only 0.9, measured 0.4} the 0.9
+      // edge won and rendered numberless while a displayable measurement sat
+      // on the sibling. A measured value — including a measured 0 — outranks
+      // any unmeasured edge; -Infinity is an ordering sentinel only and never
+      // leaves the comparator (two unmeasured edges compare NaN → treated as
+      // equal, so the stable sort keeps producer order).
       const allSortedByRisk = [...dedupedFragileEdges].sort((a: any, b: any) => {
-        const bProb = b.switch_probability ?? b.marginal_switch_probability ?? -Infinity
-        const aProb = a.switch_probability ?? a.marginal_switch_probability ?? -Infinity
+        const aProb = typeof a.switch_probability === 'number' ? a.switch_probability : Number.NEGATIVE_INFINITY
+        const bProb = typeof b.switch_probability === 'number' ? b.switch_probability : Number.NEGATIVE_INFINITY
         return bProb - aProb
       })
       const fe = allSortedByRisk[0]
@@ -2707,13 +2722,21 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const friendlyMessage = fe.description ||
         `If "${edgeLabel}" changes significantly, "${alternativeWinnerLabel}" could become the better choice`
 
-      // UI-SEM-012: Read PLoT-classified severity (B1+); fall back to local heuristic for pre-B1 cached results.
-      const severity: 'critical' | 'error' | 'warning' =
+      // UI-SEM-012: PLoT-classified severity (B1+), carried VERBATIM or
+      // omitted. Contract (schemas 0.30.0, EnrichmentRobustnessEdgeSchema):
+      // severity is "ABSENT when switch_probability is absent — a severity
+      // derived from a substituted probability is a fabricated verdict, so
+      // the producer omits both together". Absence propagates: no local
+      // reclassification. (The expired pre-B1 deprecation fallback — window
+      // ended 2026-05-12 — classified locally from
+      // `switch ?? marginal_switch_probability` and rendered the fabricated
+      // verdict as ConfidenceSection's "Critical assumption" label; an
+      // absent severity now gets that section's default styling and no
+      // verdict text.)
+      const severity: 'critical' | 'error' | 'warning' | undefined =
         (fe.severity === 'critical' || fe.severity === 'error' || fe.severity === 'warning')
           ? fe.severity
-          // DEPRECATION FALLBACK: Remove after 2026-05-12
-          // Pre-B1 cached results lack severity field; compute locally via classifySeverityLegacy.
-          : classifySeverityLegacy(fe.switch_probability ?? fe.marginal_switch_probability)
+          : undefined
 
       // Look up factor confidence from driver items for confidence pill display
       const factorConfidence = (() => {
@@ -3307,7 +3330,6 @@ export {
   mapConfidenceLevel,
   getConfidenceTier,
   deriveConfidenceTierLegacy,
-  classifySeverityLegacy,
   detectDominantFactorLegacy,
   normaliseImprovements,
 }

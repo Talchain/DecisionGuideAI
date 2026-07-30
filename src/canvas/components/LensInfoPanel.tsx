@@ -158,22 +158,44 @@ function RobustnessPanel() {
     const rawFragile = (rob?.fragile_edges ?? []) as Array<Record<string, unknown>>
     const nodeMap = new Map(nodes.map(n => [n.id, (n.data as Record<string, unknown>)?.label as string ?? n.id]))
 
-    // Build ranked fragile list sorted by switch_probability desc
-    const list: Array<{ from: string; to: string; switchProb: number; altWinner: string | null }> = []
+    // Build ranked fragile list. Presence branch (schemas 0.30.0, the same
+    // class #543 closed on the results surfaces): `switch_probability` ABSENT
+    // means NOT COMPUTED — never zero — and `marginal_switch_probability` is a
+    // DIFFERENT Monte Carlo (P(flip | only this edge varies)), never a
+    // fallback. Only a MEASURED switch probability earns a rendered percentage
+    // or a threshold pass on its own account; an unmeasured edge the marginal
+    // MC evidences as fragile is listed qualitatively (em dash, after every
+    // measured edge — the contract forbids deriving a ranking position from a
+    // substitute).
+    const list: Array<{ from: string; to: string; switchProb: number | undefined; altWinner: string | null }> = []
     for (const fe of rawFragile) {
-      const sp = (fe.switch_probability ?? fe.switchProbability ?? fe.marginal_switch_probability) as number | undefined
-      if (typeof sp !== 'number' || sp <= 0.3) continue
+      const measuredRaw = (fe.switch_probability ?? fe.switchProbability) as number | undefined
+      const measured = typeof measuredRaw === 'number' ? measuredRaw : undefined
+      const marginal = (fe.marginal_switch_probability ?? fe.marginalSwitchProbability) as number | undefined
+      // A present measurement — including 0 — decides eligibility itself; the
+      // marginal MC qualifies an edge only when NO measurement exists.
+      const eligible = measured !== undefined
+        ? measured > 0.3
+        : typeof marginal === 'number' && marginal > 0.3
+      if (!eligible) continue
       const fromId = (fe.from_id ?? fe.fromId ?? fe.source) as string
       const toId = (fe.to_id ?? fe.toId ?? fe.target) as string
       const altWinner = (fe.alternative_winner_label ?? fe.alternativeWinnerLabel) as string | null ?? null
       list.push({
         from: nodeMap.get(fromId) ?? fromId,
         to: nodeMap.get(toId) ?? toId,
-        switchProb: sp,
+        switchProb: measured,
         altWinner,
       })
     }
-    list.sort((a, b) => b.switchProb - a.switchProb)
+    // Measured desc; unmeasured last with producer order preserved
+    // (-Infinity is an ordering sentinel only — the comparator
+    // plot-lite-service#294 shipped — and never renders).
+    list.sort((a, b) => {
+      const av = typeof a.switchProb === 'number' ? a.switchProb : Number.NEGATIVE_INFINITY
+      const bv = typeof b.switchProb === 'number' ? b.switchProb : Number.NEGATIVE_INFINITY
+      return bv - av
+    })
 
     return {
       stability: typeof rob?.recommendation_stability === 'number'
@@ -202,7 +224,14 @@ function RobustnessPanel() {
         <div className="mt-2 space-y-1" style={{ fontSize: 11 }}>
           {fragileList.map((fe, i) => (
             <div key={i} className="flex items-center gap-1">
-              <span className="text-danger font-semibold" style={{ minWidth: 32 }}>{Math.round(fe.switchProb * 100)}%</span>
+              {typeof fe.switchProb === 'number' ? (
+                <span className="text-danger font-semibold" style={{ minWidth: 32 }}>{Math.round(fe.switchProb * 100)}%</span>
+              ) : (
+                // Not computed — the file's own absent-quantity mark (the
+                // causal table's Std / P(exists) cells): an em dash, never a
+                // number derived from the marginal quantity.
+                <span style={{ minWidth: 32, color: 'var(--text-light, #6E6B6B)' }}>{'\u2014'}</span>
+              )}
               <span className="text-text-body truncate" title={`${fe.from} \u2192 ${fe.to}`}>
                 {fe.from} \u2192 {fe.to}
               </span>

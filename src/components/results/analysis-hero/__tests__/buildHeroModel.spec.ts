@@ -1368,6 +1368,39 @@ describe('Wave 2 (§6.6): evidence disclosure model', () => {
     expect(m.evidence.flipRisks[0].magnitude).toBe(0.48)
   })
 
+  it('flip rows with NO measured switch probability render no meta and no bar — the sentence still reads (schemas 0.30.0)', () => {
+    // Presence branch: fragileEdgesMap now leaves switchProbability absent for
+    // marginal-only edges (never the marginal substitute), and this mapper's
+    // own guard must degrade honestly — no "NN% switch", no empty "( )", no
+    // zero-width bar, sentence intact. Pinned end-to-end (hook → model) in
+    // switchProbabilityPresence.spec.tsx; this is the mapper-level guarantee.
+    const unmeasured = {
+      ...makeDriver('Team capacity'),
+      factorKey: 'fac_capacity',
+      canFocus: true,
+      matchedNodeId: 'fac_capacity',
+      fragileEdgeInfo: { alternativeWinnerLabel: 'Two developers' },
+    }
+    const m = chart(buildHeroModel(makeHeroData({ drivers: { drivers: [unmeasured] } })))
+    expect(m.evidence.flipRisks).toHaveLength(1)
+    expect(m.evidence.flipRisks[0].text).toContain('Team capacity')
+    expect(m.evidence.flipRisks[0].switchMeta).toBeNull()
+    expect(m.evidence.flipRisks[0].magnitude).toBeNull()
+  })
+
+  it('a measured 0 still renders "0% switch" (0 is a measurement, not absence)', () => {
+    const zeroMeasured = {
+      ...makeDriver('Team capacity'),
+      factorKey: 'fac_capacity',
+      canFocus: true,
+      matchedNodeId: 'fac_capacity',
+      fragileEdgeInfo: { switchProbability: 0 },
+    }
+    const m = chart(buildHeroModel(makeHeroData({ drivers: { drivers: [zeroMeasured] } })))
+    expect(m.evidence.flipRisks[0].switchMeta).toBe('0% switch')
+    expect(m.evidence.flipRisks[0].magnitude).toBe(0)
+  })
+
   it('flip-risk focus pre-gate: a node absent from the canvas yields a null target (fail-closed)', () => {
     // With canvas knowledge supplied, fac_capacity not on the canvas → text
     // row (null target); present → target passes through. The sentence and
