@@ -877,14 +877,45 @@ function main() {
     }
   }
 
-  if (summary.errors.length) process.exit(2)
+  // ---------------------------------------------------------------- exit
+  //
+  // `process.exitCode = n`, NEVER `process.exit(n)`.
+  //
+  // When stdout is a PIPE, Node's writes are asynchronous: `console.log`
+  // hands the buffer to libuv, which write(2)s what the pipe will accept and
+  // QUEUES the rest. `process.exit()` tears the process down without
+  // draining that queue, so everything past the pipe's capacity is lost —
+  // silently, with the exit status still correct.
+  //
+  // That made this script's OWN GUARD self-defeating. Its only consumer,
+  // tests/ci-guards/css-var-resolution.spec.ts, reads `--json` through
+  // execFileSync (a pipe), and the exit path taken WHENEVER THERE ARE
+  // FINDINGS was the one that truncated. A guard that works until it has
+  // something to say is not a guard.
+  //
+  // Measured on this platform (darwin, node 22): a `console.log` followed by
+  // `process.exit()` delivers at most 65,536 bytes — 10/10 runs truncated at
+  // exactly that offset for any larger payload, while `exitCode` + natural
+  // drain delivered 2 MB intact, 10/10. Exit STATUS is identical either way.
+  // tests/ci-guards/css-var-resolution.spec.ts pins both halves of that
+  // measurement as an executable control, so the cliff is derived at your
+  // platform rather than trusted from this comment.
+  //
+  // Setting exitCode is sufficient because nothing here holds the event loop
+  // open (no timers, sockets or watchers) — the process ends as soon as the
+  // write drains. Do not "fix" a future hang by reinstating process.exit();
+  // find the handle.
+  if (summary.errors.length) {
+    process.exitCode = 2
+    return
+  }
   if (
     summary.undefinedRefs.length ||
     summary.unresolvable.length ||
     summary.cssUndefined.length ||
     summary.fallbackDrift.length
   ) {
-    process.exit(1)
+    process.exitCode = 1
   }
 }
 

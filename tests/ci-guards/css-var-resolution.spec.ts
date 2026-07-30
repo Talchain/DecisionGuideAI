@@ -31,7 +31,10 @@
  */
 import { describe, it, expect } from 'vitest'
 import { execFileSync } from 'node:child_process'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
+import ts from 'typescript'
 
 const SCRIPT = path.resolve(__dirname, '../../scripts/css-var-census.mjs')
 
@@ -58,17 +61,176 @@ interface Census {
   selfTest: { ok: boolean; failures: string[] }
 }
 
-function runCensus(): Census {
+interface CensusRun {
+  census: Census
+  /** Exit status of the census process. 0 clean · 1 findings · 2 census error. */
+  status: number
+  /** Byte length of the JSON that actually arrived down the pipe. */
+  bytes: number
+}
+
+/**
+ * Run the census and parse its `--json` payload.
+ *
+ * THE HAZARD THIS FUNCTION IS WRITTEN AROUND: stdout here is a PIPE, so the
+ * census's writes are asynchronous. A `process.exit()` in the census would
+ * discard everything past the pipe's capacity and still exit with the right
+ * status — a truncated payload that looks like a crashing JSON parser. That
+ * bug lived on the FINDINGS path, i.e. the only path this guard cares about,
+ * so the guard would have broken precisely when it had something to report.
+ * See the exit block at the foot of scripts/css-var-census.mjs, and the two
+ * drain controls below that pin the mechanism at your platform.
+ *
+ * A parse failure therefore reports the byte count and the tail of what
+ * arrived, so truncation is diagnosed on sight instead of being read as
+ * "the census emits invalid JSON".
+ */
+function runCensus(): CensusRun {
   // The census exits 1 when it finds defects; that is a finding, not a
   // crash, so a non-zero status must not abort the spec run.
+  let out: string
+  let status = 0
   try {
-    const out = execFileSync('node', [SCRIPT, '--json'], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 })
-    return JSON.parse(out) as Census
+    out = execFileSync('node', [SCRIPT, '--json'], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 })
   } catch (err) {
-    const e = err as { stdout?: string }
-    if (e.stdout) return JSON.parse(e.stdout) as Census
-    throw err
+    const e = err as { stdout?: string; status?: number; message?: string }
+    if (typeof e.stdout !== 'string') throw err
+    out = e.stdout
+    status = typeof e.status === 'number' ? e.status : -1
   }
+
+  const bytes = Buffer.byteLength(out, 'utf8')
+  let census: Census
+  try {
+    census = JSON.parse(out) as Census
+  } catch (parseErr) {
+    throw new Error(
+      `the census's --json payload did not parse: ${(parseErr as Error).message}\n` +
+        `  bytes received: ${bytes} · exit status: ${status}\n` +
+        `  If the payload ends mid-token, it was TRUNCATED in transit, not malformed: the census\n` +
+        `  wrote it to a pipe and exited before the write drained. Fix by setting process.exitCode\n` +
+        `  in scripts/css-var-census.mjs instead of calling process.exit() — never by shrinking\n` +
+        `  what the census reports.\n` +
+        `  tail: …${out.slice(-120)}`,
+    )
+  }
+  return { census, status, bytes }
+}
+
+/**
+ * Every top-level key this spec reads, with a shape predicate. Parsing
+ * without this proved nothing: `JSON.parse('{}')` succeeds, and every
+ * `toEqual([])` absence assertion below would then pass on `undefined`
+ * — trap 13, in the one place the whole guard funnels through.
+ *
+ * This IS a hand-maintained mirror of the Census interface above — a TS
+ * interface is erased at runtime, so there is nothing to derive it from. It
+ * is therefore written in the only safe form (trap 12): EXACT in both
+ * directions, so it FAILS LOUD on drift rather than assuming good. An
+ * unknown key means the census grew a field this spec is blind to; a missing
+ * one means it lost a field this spec still reads. Either way somebody
+ * looks. It earned its keep on the first run, catching the Census interface
+ * declaring `definitions` at the top level when it is a `counts` key.
+ */
+const EXPECTED_CENSUS_KEYS: Record<string, (v: unknown) => boolean> = {
+  errors: (v) => Array.isArray(v),
+  counts: (v) => typeof v === 'object' && v !== null && !Array.isArray(v),
+  undefinedRefs: (v) => Array.isArray(v),
+  unresolvable: (v) => Array.isArray(v),
+  cssUndefined: (v) => Array.isArray(v),
+  fallbackDrift: (v) => Array.isArray(v),
+  fallbackUncomparable: (v) => Array.isArray(v),
+  resolvedDynamicNameList: (v) => Array.isArray(v),
+  dynamicSiteFiles: (v) => Array.isArray(v),
+  selfTest: (v) => typeof v === 'object' && v !== null && !Array.isArray(v),
+}
+
+const EXPECTED_COUNT_KEYS = [
+  'cssFiles',
+  'definitions',
+  'dynamicSites',
+  'fallbackUses',
+  'markupFiles',
+  'proseMentions',
+  'references',
+  'resolvedDynamicNames',
+  'scriptFiles',
+].sort()
+
+/**
+ * Spawn a fixture that writes `bytes` of JSON to stdout and then ends the
+ * process the given way, through the SAME pipe mechanism runCensus uses.
+ * Returns how much of it survived.
+ */
+function drainProbe(mode: 'exit' | 'exitCode', bytes: number): { received: number; status: number } {
+  const dir = mkdtempSync(path.join(tmpdir(), 'css-var-drain-'))
+  try {
+    const fixture = path.join(dir, 'emit.mjs')
+    writeFileSync(
+      fixture,
+      `console.log(JSON.stringify({ pad: 'x'.repeat(${bytes}) }))\n` +
+        (mode === 'exit' ? 'process.exit(1)\n' : 'process.exitCode = 1\n'),
+    )
+    let out = ''
+    let status = 0
+    try {
+      out = execFileSync('node', [fixture], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+    } catch (err) {
+      const e = err as { stdout?: string; status?: number }
+      out = e.stdout ?? ''
+      status = typeof e.status === 'number' ? e.status : -1
+    }
+    return { received: Buffer.byteLength(out, 'utf8'), status }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+/** Well past any plausible pipe buffer, so the probe is not a coin-flip. */
+const DRAIN_PROBE_BYTES = 1024 * 1024
+
+/** `process.exit(...)` call sites in a source file, comments excluded by AST. */
+function processExitCalls(file: string): string[] {
+  const src = readFileSync(file, 'utf8')
+  const sf = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS)
+  const hits: string[] = []
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      ts.isIdentifier(node.expression.expression) &&
+      node.expression.expression.text === 'process' &&
+      node.expression.name.text === 'exit'
+    ) {
+      hits.push(`${path.basename(file)}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return hits
+}
+
+/** Literal values assigned to `process.exitCode` in a source file. */
+function processExitCodeAssignments(file: string): number[] {
+  const src = readFileSync(file, 'utf8')
+  const sf = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS)
+  const values: number[] = []
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+      ts.isPropertyAccessExpression(node.left) &&
+      ts.isIdentifier(node.left.expression) &&
+      node.left.expression.text === 'process' &&
+      node.left.name.text === 'exitCode' &&
+      ts.isNumericLiteral(node.right)
+    ) {
+      values.push(Number(node.right.text))
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return values
 }
 
 /**
@@ -257,7 +419,110 @@ const EXPECTED_DYNAMIC_SITE_FILES = ['src/styles/evaluative.ts'].sort()
 const EXPECTED_DYNAMIC_NAMES = ['--danger', '--success', '--warning'].sort()
 
 describe('css custom-property resolution guard', () => {
-  const census = runCensus()
+  const run = runCensus()
+  const census = run.census
+
+  /**
+   * THE TRANSPORT CONTROLS. This guard was self-defeating for its whole life
+   * and nothing noticed, because it had no control over the one channel every
+   * assertion in this file arrives through.
+   *
+   * `vitest --changed` can never select this spec — it has no static `src/`
+   * import, it shells out — so it runs only from the pre-push smoke list.
+   * And the census's findings path (the ONLY path that matters here) ended in
+   * `process.exit(1)`, which discards whatever of an async pipe write has not
+   * drained. So the guard's payload was intact only while the census had
+   * little to say: it would have broken exactly when it started catching
+   * something, and reported it as invalid JSON rather than as a defect.
+   *
+   * Both halves are pinned, and both are DERIVED at your platform rather than
+   * asserted from a remembered byte count:
+   *   · the hazard is REAL here — `process.exit()` loses part of a large
+   *     payload (trap 13: an absence assertion must first prove it can see a
+   *     presence);
+   *   · the drain path this script now uses delivers that same payload whole.
+   */
+  it('a process.exit() after a large stdout write LOSES data on this platform (positive control)', () => {
+    const probe = drainProbe('exit', DRAIN_PROBE_BYTES)
+    expect(
+      probe.received,
+      `process.exit() delivered all ${probe.received} bytes on this platform, so this control ` +
+        'proved nothing and the drain assertion below is vacuous here. The hazard is still real on ' +
+        'platforms that buffer less (measured: darwin/node 22 truncates at 65,536 bytes) — keep the ' +
+        'exitCode pattern, and work out why this platform differs before relaxing anything.',
+    ).toBeLessThan(DRAIN_PROBE_BYTES)
+    // The status survives the truncation — which is precisely why this was
+    // invisible: the caller sees a correct exit code and a short payload.
+    expect(probe.status).toBe(1)
+  })
+
+  it('setting process.exitCode instead delivers the whole payload', () => {
+    const probe = drainProbe('exitCode', DRAIN_PROBE_BYTES)
+    expect(
+      probe.received,
+      `the drain path lost data (${probe.received} of >= ${DRAIN_PROBE_BYTES} bytes). Everything ` +
+        'this spec asserts travels this way, so a loss here makes every absence assertion below ' +
+        'unsafe.',
+    ).toBeGreaterThan(DRAIN_PROBE_BYTES)
+    expect(probe.status).toBe(1)
+  })
+
+  it('the census reaches its findings exit path WITHOUT process.exit (guards the guard)', () => {
+    // Comments are trivia in the AST, so the prose in the census that
+    // discusses process.exit cannot satisfy or defeat this — the same reason
+    // the census itself walks the AST rather than grepping text.
+    expect(
+      processExitCalls(SCRIPT),
+      'scripts/css-var-census.mjs calls process.exit(). On the findings path that truncates the ' +
+        '--json payload this spec reads (see the exit block at the foot of the script). Set ' +
+        'process.exitCode and return instead.',
+    ).toEqual([])
+    // Both documented non-zero codes must still be reachable: 1 for findings,
+    // 2 for a census that could not run. An exact set, so deleting the exit
+    // logic altogether fails here rather than turning the gate green.
+    expect(
+      // Numeric comparator: the default sort is lexicographic, so a future
+      // two-digit code would compare wrong and this control would misreport.
+      [...new Set(processExitCodeAssignments(SCRIPT))].sort((a, b) => a - b),
+      'the census no longer sets both documented non-zero exit codes (1 = findings, 2 = census ' +
+        'error). A findings run that exits 0 makes this whole guard advisory.',
+    ).toEqual([1, 2])
+  })
+
+  it('the payload is a complete census object, not merely parseable JSON', () => {
+    // `JSON.parse('{}')` succeeds and every toEqual([]) below would then pass
+    // on undefined. Exact in both directions: a new top-level key means the
+    // census reports something this spec is blind to.
+    expect(Object.keys(census as unknown as Record<string, unknown>).sort()).toEqual(
+      Object.keys(EXPECTED_CENSUS_KEYS).sort(),
+    )
+    for (const [key, ok] of Object.entries(EXPECTED_CENSUS_KEYS)) {
+      const value = (census as unknown as Record<string, unknown>)[key]
+      expect(ok(value), `census.${key} has the wrong shape: ${JSON.stringify(value)?.slice(0, 80)}`).toBe(true)
+    }
+    expect(Object.keys(census.counts).sort()).toEqual(EXPECTED_COUNT_KEYS)
+    for (const [key, value] of Object.entries(census.counts)) {
+      expect(typeof value, `census.counts.${key} is not a number`).toBe('number')
+    }
+    expect(typeof census.selfTest.ok).toBe('boolean')
+    expect(Array.isArray(census.selfTest.failures)).toBe(true)
+  })
+
+  it('this run exercised the findings exit path (not the clean one)', () => {
+    // The path that used to truncate is the non-zero one. If a run never
+    // takes it, the transport is never proven end-to-end on real data —
+    // so DERIVE the expectation from the pins rather than hardcoding 1.
+    const pinnedFindings = KNOWN_UNDEFINED_CSS_PALETTE.length + KNOWN_FALLBACK_DRIFT.length
+    expect(
+      pinnedFindings,
+      'every pinned finding has been repaired, so the census now exits 0 and this spec no longer ' +
+        'exercises the exit path that once truncated its own payload. Keep the transport covered ' +
+        'another way before deleting this.',
+    ).toBeGreaterThan(0)
+    expect(census.cssUndefined.length + census.fallbackDrift.length).toBeGreaterThan(0)
+    expect(run.status, `census exit status ${run.status} with ${pinnedFindings} pinned findings`).toBe(1)
+    expect(run.bytes).toBeGreaterThan(0)
+  })
 
   it('the census can SEE the code it is asserting about (positive control)', () => {
     // Self-test first: proves the scanner detects an undefined reference in
