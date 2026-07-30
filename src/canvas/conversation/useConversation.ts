@@ -3879,6 +3879,15 @@ export function useConversation(): UseConversationReturn {
       // indistinguishable from a real outage. Caught by the hook spec, which
       // drives the streaming path.
       {
+        // ── `inFlightTurnIdentityRef` — COMPLETE MANIFEST (#534 round-3, F5b) ──
+        //   :2325-ish  new  useRef<{scenarioId,turnId} | null>(null)
+        //   :3883      WRITE  here — every turn kind, before setIsThinking(true)
+        //   :4027      WRITE  the V5 refinement (may mint a scenario id). ⚠ THAT
+        //              SITE HAS ZERO COVERAGE IN THIS PR: every stop-fence test in
+        //              this branch drives the LEGACY streaming seam, so only the
+        //              write here is exercised. Stated rather than implied.
+        //   :~5990     READ   cancelTurn, the only reader.
+        //   No other reference. There is no delete: this write is the reset.
         const scenarioAtDispatch = useCanvasStore.getState().currentScenarioId
         inFlightTurnIdentityRef.current = scenarioAtDispatch
           ? { scenarioId: scenarioAtDispatch, turnId: turnClientId }
@@ -5980,7 +5989,18 @@ export function useConversation(): UseConversationReturn {
     //
     //   WHY IT IS OUT, not merely unnecessary. `retryLast` re-sends with the SAME
     //   `client_turn_id` for idempotent replay (:2096 / :3867 / :5791), and this
-    //   set is add-only — nothing ever deleted from it. So with the guard,
+    //   set is add-only — nothing ever deleted from it.
+    //
+    //   `explicitlyStoppedTurnIdsRef` — COMPLETE MANIFEST, derived at THIS head
+    //   (#534 round-3, F5a; the round-2 record said "two reads", which was true of
+    //   the pre-fix tree and stale the moment the guard came out):
+    //     :2325  new Set()
+    //     :4885  READ — sendTurn's abort branch, suppressing STOPPED_DRAFT_NOTICE
+    //            for a turn cancelTurn has already spoken for. The ONE read.
+    //     :6011  ADD  — cancelTurn.
+    //   No delete, no reset, and now only one reader.
+    //
+    //   So with the guard,
     //   stop → retry → stop hits `has(...)` and returns early: NO tombstone and
     //   NO terminal notice. A user who stops a retried draft gets exactly the
     //   silence this P0 exists to eliminate, and the stopped turn's write is then
@@ -5993,10 +6013,12 @@ export function useConversation(): UseConversationReturn {
     //   reproduced on purpose. Removing it keeps every remaining line reachable
     //   and pinned.
     //
-    //   WHAT ACTUALLY PROVIDES EXACTLY-ONCE, both measured, both pinned:
+    //   WHAT ACTUALLY PROVIDES EXACTLY-ONCE, measured and pinned:
     //     · double press → `if (!isThinkingRef.current) return` at the top of this
-    //       handler (guard F/G), synchronously set false before any await;
-    //     · a stale identity → the clear below.
+    //       handler (guard F/G), synchronously set false before any await.
+    //   (An earlier version of this list also named "the clear below" — which the
+    //   very next comment says is GONE. Self-contradicting; removed on the round-3
+    //   verify. What guards a stale identity is the dispatch-time refresh, below.)
     explicitlyStoppedTurnIdsRef.current.add(identity.turnId)
     //   ⚠ AND THE `inFlightTurnIdentityRef.current = null` CLEAR IS ALSO GONE,
     //   BY THE SAME RULE. The round-2 verify asked me to pin it. I could not:
@@ -6006,12 +6028,21 @@ export function useConversation(): UseConversationReturn {
     //   structurally impossible and the clear had no independent effect.
     //
     //   It was harmless, unlike the guard. But "harmless and inert" is the shape
-    //   that has now cost this lane three review findings, and keeping a line that
-    //   reads as a protection while doing nothing is what a reader would later
-    //   trust. The INVARIANT it was meant to serve — a Stop never tombstones a
-    //   previous turn's id — is real and IS pinned, on the mechanism that actually
-    //   provides it: the dispatch-time refresh. Breaking THAT reds
-    //   "a turn dispatched with NO scenario id never tombstones the PREVIOUS turn".
+    //   that has now cost this lane several review findings, and keeping a line
+    //   that reads as a protection while doing nothing is what a reader would later
+    //   trust.
+    //
+    //   ⚠ THE "IS PINNED" CLAIM I MADE HERE WAS FALSE WHEN WRITTEN. It cited a test
+    //   that the round-3 verify proved VACUOUS: under a write-only-if-empty mutant
+    //   (the exact stale-pair hazard) it stayed green, because its
+    //   `setState({currentScenarioId: null})` tripped the scenario-change effect
+    //   that clears the conversation, so its second Stop never ran and the
+    //   assertion passed by ABSENCE. The deletion was still correct; the
+    //   justification was not.
+    //   It is now real: the invariant — a Stop never tombstones a PREVIOUS turn's
+    //   id — is pinned on the mechanism that provides it, the dispatch-time refresh
+    //   at :3883, by "stop A → send B → stop B: the second tombstone names B, never
+    //   A", in which BOTH stops are asserted to have executed.
     void stopV5Turn(identity).then((result) => {
       addMessage({
         id: crypto.randomUUID(),

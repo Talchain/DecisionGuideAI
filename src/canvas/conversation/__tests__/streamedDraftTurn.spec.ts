@@ -764,6 +764,54 @@ describe('F1 — abort after GRAPH_READY (Stop button / 130 s timeout)', () => {
     expect(mockStopV5Turn).toHaveBeenCalledTimes(1)
   })
 
+  // ══ F3 (#534 round-3) — A POSITIVE PIN FOR STOPPED_DRAFT_NOTICE ════════════
+  //
+  // ⚠ MY ROUND-2 DIFF FLIPPED BOTH SURVIVING POSITIVE ASSERTIONS FOR THIS NOTICE
+  //   TO NEGATIVE. One became `not.toContain(STOPPED_DRAFT_NOTICE)`, the other was
+  //   replaced by an EARLY_STOP assertion — so the emission branch I deliberately
+  //   RETAINED "for the two aborts that send no stop request" had no positive
+  //   coverage anywhere. The verifier neutered it (`if (false && …)`) and 177 tests
+  //   across the complete two-manifest scope stayed GREEN: the retained emission
+  //   was deletable under a green suite. Removing coverage while arguing to keep the
+  //   thing it covered is the same defect class as the source-text pins.
+  //
+  // Driving it needs an abort with a preview standing and NO user stop, which the
+  // fallback path provides: the stream dies after GRAPH_READY, the buffered
+  // fallback is issued, and the FALLBACK ITSELF fails — `previewOnCanvas` is true,
+  // so :588 throws StreamedDraftAbortedWithPreviewError and the catch must speak.
+  // This is the case my round-2 note wrongly called unpinnable; it wanted a
+  // preempt or a real timeout, and a failing fallback does it without either.
+  it('a stream death whose FALLBACK also fails emits STOPPED_DRAFT_NOTICE — no user stop involved', async () => {
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    // The fallback rejects rather than hanging — that is what reaches :588 with
+    // previewOnCanvas true.
+    mockCallV5Turn.mockRejectedValue(new Error('buffered fallback transport failed'))
+    const { result } = renderHook(() => useConversation())
+    let sent!: Promise<void>
+    await act(async () => {
+      sent = result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
+    })
+    await stream.push(F_DRAFTING + F_GRAPH_READY)
+    // Preview is real and standing.
+    expect(useCanvasStore.getState().nodes).toHaveLength(TERMINAL_NODE_IDS.length)
+    await stream.fail()
+    await act(async () => {
+      await sent.catch(() => {})
+    })
+
+    // NOBODY pressed Stop — so cancelTurn's notice is not in play and this branch
+    // is the only thing that can speak.
+    expect(mockStopV5Turn).not.toHaveBeenCalled()
+    // THE POSITIVE ASSERTION. Its absence is what let the branch become deletable.
+    expect(result.current.messages.map((m) => m.content)).toContain(STOPPED_DRAFT_NOTICE)
+    // …with the affordance that can actually deliver on the copy.
+    const notice = result.current.messages.find((m) => m.content === STOPPED_DRAFT_NOTICE)
+    expect(notice?.actionChips?.map((c) => c.id)).toEqual([START_NEW_DRAFT_CHIP_ID])
+    // And the canvas is marked, not silently left open.
+    expect(useDraftStore.getState().draftStreamPhase).toBe('unsettled')
+  })
+
   it('says the draft had ALREADY been saved when the server says so — same abort path', async () => {
     // The copy is chosen by the server's answer, on the REAL abort path rather
     // than a hook-level stand-in. `already_committed` is derived server-side from

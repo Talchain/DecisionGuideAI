@@ -3038,17 +3038,24 @@ describe('cancelTurn — stop-fence: the server is told, and so is the user', ()
     expect(notices[0].actionChips?.map((c) => c.id)).toEqual([START_NEW_DRAFT_CHIP_ID])
   })
 
-  // ══ PIN 3 — THE IDENTITY CLEAR ═════════════════════════════════════════════
+  // ══ PIN 3 (rebuilt, #534 round-3) — THE DISPATCH-TIME IDENTITY REFRESH ══════
   //
-  // The clear was also unpinned at 2462a689 (removing it reddened nothing). This
-  // is the case it protects: a turn that reaches dispatch with NO scenario id
-  // captures no identity, so a Stop must fall to the "cannot confirm" branch —
-  // NOT tombstone the PREVIOUS turn, which is what a stale ref would name.
-  it('a turn dispatched with NO scenario id never tombstones the PREVIOUS turn', async () => {
+  // ⚠ MY PREVIOUS VERSION OF THIS TEST WAS VACUOUS, and the round-3 verify proved
+  //   it: under a "write only-if-empty" mutant — the exact stale-pair hazard — it
+  //   stayed green, because `useCanvasStore.setState({currentScenarioId: null})`
+  //   trips the scenario-change effect that CLEARS the conversation, so the second
+  //   Stop never executed at all and my assertion passed BY ABSENCE. Third
+  //   generation of trap 13 in this lane, in the pin I offered as justification for
+  //   a deletion.
+  //
+  // Rebuilt so BOTH stops actually happen, with a real scenario id throughout, and
+  // the assertion is about which turn the second tombstone NAMES. Under the
+  // only-if-empty mutant the second stop names turn A and this REDs.
+  it('stop A → send B → stop B: the second tombstone names B, never A', async () => {
     configureSilentHangingStream()
     const { result } = renderHook(() => useConversation())
     await act(async () => {
-      result.current.sendMessage('first turn, has a scenario')
+      result.current.sendMessage('turn A — the on-call rotation decision')
     })
     await act(async () => {
       result.current.cancelTurn()
@@ -3058,14 +3065,13 @@ describe('cancelTurn — stop-fence: the server is told, and so is the user', ()
       await Promise.resolve()
       await Promise.resolve()
     })
-    const firstId = (mockStopV5Turn.mock.calls[0][0] as { turnId: string }).turnId
     expect(mockStopV5Turn).toHaveBeenCalledTimes(1)
 
-    // Second turn dispatches with the canvas holding no scenario id.
-    useCanvasStore.setState({ currentScenarioId: null } as never)
+    // Turn B, same scenario, dispatched normally. Nothing is reset between them —
+    // the refresh at dispatch is the only thing that can move the identity.
     configureSilentHangingStream()
     await act(async () => {
-      result.current.sendMessage('second turn, no scenario id at dispatch')
+      result.current.sendMessage('turn B — a different question entirely')
     })
     await act(async () => {
       result.current.cancelTurn()
@@ -3076,11 +3082,14 @@ describe('cancelTurn — stop-fence: the server is told, and so is the user', ()
       await Promise.resolve()
     })
 
-    // Whatever else happens, the FIRST turn must not be tombstoned twice.
-    const stoppedIds = mockStopV5Turn.mock.calls.map(
-      (c) => (c[0] as { turnId: string }).turnId,
+    // Both stops happened — asserted explicitly, because "the second one silently
+    // never ran" is precisely how the previous version of this test passed.
+    expect(mockStopV5Turn).toHaveBeenCalledTimes(2)
+    const [first, second] = mockStopV5Turn.mock.calls.map(
+      (c) => c[0] as { scenarioId: string; turnId: string },
     )
-    expect(stoppedIds.filter((id) => id === firstId)).toHaveLength(1)
+    expect(second.turnId).not.toBe(first.turnId)
+    expect(second.scenarioId).toBe(first.scenarioId)
   })
 
   it('an idle Stop click never contacts the server', async () => {
