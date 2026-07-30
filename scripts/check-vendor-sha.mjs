@@ -8,8 +8,8 @@
  * exits non-zero.
  *
  * The tarball filename is derived from package.json so there is exactly one
- * source of truth for the version. The bash pre-push scripts do the same
- * derivation via grep + sed.
+ * source of truth for the version. The bash pre-push gates delegate to this
+ * script — do not re-implement the comparison there.
  */
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
@@ -41,11 +41,11 @@ function recoveryBlock(expected, actual) {
     `  actual:   ${actual}`,
     `  manifest: vendor/${TARBALL_NAME}.sha256`,
     '',
-    'Recovery (use the package manager already in use for this working copy; npm is the documented default):',
+    'Recovery (this repo is pnpm-only — package.json "packageManager" pins pnpm):',
     `  git checkout -- vendor/${TARBALL_NAME}`,
     '  rm -rf node_modules/.vite node_modules/@talchain',
-    '  npm install      # or: pnpm install',
-    '  npm run dev -- --force   # or: pnpm dev --force',
+    '  pnpm install',
+    '  pnpm dev --force   # restart dev with a fresh Vite cache',
   ].join('\n')
 }
 
