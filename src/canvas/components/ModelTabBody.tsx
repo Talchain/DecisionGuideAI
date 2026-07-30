@@ -34,8 +34,9 @@ import { RelationshipsSection } from './model-tab/RelationshipsSection'
 import type { UserAction, ValidationMetadata } from '../domain/validation'
 import type { EdgeData } from '../domain/edges'
 import { RisksSection } from './model-tab/RisksSection'
-import { ModelHealthSection } from './model-tab/ModelHealthSection'
+import { ModelHealthSection, type AuditTrailData } from './model-tab/ModelHealthSection'
 import { normalizeAutoNoiseProvenance } from '../../components/results/types'
+import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
 import { ModelTabHeader } from './model-tab/ModelTabHeader'
 import { ReanalyseBar } from './model-tab/ReanalyseBar'
 import { ModelFooter } from './model-tab/ModelFooter'
@@ -315,8 +316,16 @@ export const ModelTabBody = memo(function ModelTabBody({
     nSamples: rawV2Response?.meta?.n_samples ?? null,
     repairsApplied: repairsApplied ?? null,
     inferenceWarnings: (() => {
-      const raw = (results?.report as any)?.robustness?.inference_warnings
-      return Array.isArray(raw) ? raw : null
+      // ROADMAP 2.173 (Paul-ratified 2026-07-30): shared dual read — ROOT
+      // slot first, then the legacy `robustness` nesting. This read was
+      // robustness-only, which is empty on every live run (0/827 measured
+      // 2026-07-30; root 419/827 non-empty), so the ModelHealthSection
+      // banner and audit row were permanently blank. See
+      // readInferenceWarnings' header for the adoption history.
+      const raw = readInferenceWarnings(results?.report as never)
+      return Array.isArray(raw)
+        ? (raw as NonNullable<AuditTrailData['inferenceWarnings']>)
+        : null
     })(),
     recommendationStability: robustness?.recommendationStability ?? null,
     // Legacy fallback: older PLoT builds emitted the flag under `_meta`

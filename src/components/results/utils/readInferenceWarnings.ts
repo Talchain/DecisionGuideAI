@@ -20,21 +20,24 @@
  * `humaniseInferenceWarning` and the other leaves `GoalNode` already imports
  * from. Hook and canvas both import it; there is one definition.
  *
- * ⚠ TWO COPIES DELIBERATELY NOT MIGRATED, because doing so is a BEHAVIOUR CHANGE
- * and not a refactor. Both read the `robustness` slot ONLY, so on live data
- * (0/773) they are permanently blank; giving them this dual read makes them start
- * populating:
+ * HISTORY — TWO COPIES WERE DELIBERATELY NOT MIGRATED, THEN ADOPTED. When this
+ * module was extracted (R-6), two `robustness`-slot-only readers were left in
+ * place and recorded here rather than silently migrated, because populating a
+ * previously-blank surface is a BEHAVIOUR CHANGE and a product judgement, not a
+ * refactor:
  *   · `canvas/components/ModelTabBody.tsx` — the Model card's audit-trail
- *     `inferenceWarnings` row. Reads `results.report.robustness.inference_warnings`
- *     off the SAME `ResultsReport` this function takes, so adoption is a one-line
- *     swap — and would surface an audit row that is empty today.
+ *     `inferenceWarnings` (ModelHealthSection banner + codes-only audit row);
  *   · `canvas/stores/analysisSnapshotFactory.ts` `extractInferenceWarnings` —
- *     takes only `V2RunResponse['robustness']` as its parameter (it has no root
- *     object in scope) and normalises members to `string[]`, so adoption needs a
- *     call-site change as well.
- * Both are real findings and neither is a drive-by: what appears in an audit row
- * is a product judgement and wants its own RED-first pin. Recorded, not silently
- * left behind.
+ *     the Compare-tab snapshot (its persisted-rebuild caller compensated via
+ *     `composeRobustness`'s root-wins fold; the live-capture caller did not, so
+ *     the same Compare surface was blank or populated by capture path).
+ * That judgement was settled: BOTH SITES ADOPTED 2026-07-30, Paul-ratified
+ * (ROADMAP 2.173, decision 2), each behind its own RED-first pin. Evidence:
+ * `PHASE0-EVIDENCE-2026-07-28/inference-warnings-derivation.md` — root slot
+ * 419/827 live facts non-empty, robustness slot 0/827, and the identical items
+ * already displayed on the Analysis tab via this reader. ModelTabBody imports
+ * this function; the snapshot factory mirrors the root-wins precedence inline
+ * (its input is a `V2RunResponse`, not a `ResultsReport`).
  *
  * Returns `unknown`: payload redaction may deliver a `{__truncated, items}`
  * wrapper rather than a bare array, so callers unwrap with `safeArray` or
