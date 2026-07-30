@@ -50,7 +50,13 @@ const mockCallV5Turn = vi.fn()
 // Stop-fence (Codex P0): the server-visible Stop. Mocked at the same network
 // seam as the rest of this file — the point of these tests is which NOTICE the
 // real abort path produces, not the HTTP call.
-const mockStopV5Turn = vi.fn(async () => ({ kind: 'not_saved' as const }))
+type StopFenceResult = {
+  kind: 'not_saved' | 'already_saved' | 'unconfirmed'
+  reason?: string
+}
+const mockStopV5Turn = vi.fn(
+  (..._args: unknown[]): Promise<StopFenceResult> => Promise.resolve({ kind: 'not_saved' }),
+)
 vi.mock('../../../v5/stopTurn', () => ({
   stopV5Turn: (...args: unknown[]) => mockStopV5Turn(...args),
   getV5StopEndpoint: () => 'https://cee.test/proxy/v5/turn/stop',
@@ -763,7 +769,7 @@ describe('F1 — abort after GRAPH_READY (Stop button / 130 s timeout)', () => {
     // than a hook-level stand-in. `already_committed` is derived server-side from
     // v5_conversation_turns, so this is the state where "nothing was saved" would
     // be a lie.
-    mockStopV5Turn.mockResolvedValueOnce({ kind: 'already_saved' } as never)
+    mockStopV5Turn.mockResolvedValueOnce({ kind: 'already_saved' })
     const stream = controllableStream()
     mockOpenStream.mockResolvedValue(stream.response)
     const { result } = renderHook(() => useConversation())

@@ -14,7 +14,6 @@ import {
   EARLY_STOP_NOT_SAVED_NOTICE,
   EARLY_STOP_ALREADY_SAVED_NOTICE,
   EARLY_STOP_UNCONFIRMED_NOTICE,
-  STOPPED_DRAFT_NOTICE,
 } from '../../components/DraftLoadingAnimation'
 import { START_NEW_DRAFT_CHIP_ID } from '../chipDispatch'
 import { useCanvasStore } from '../../store'
@@ -78,7 +77,13 @@ vi.mock('../../../v5/v5Adapter', () => ({
 // Stop-fence (Codex P0): the server-visible explicit Stop. Mocked here so the
 // notice-copy assertions below drive off the OUTCOME rather than a live fetch —
 // which is the whole point of the three-state answer.
-const mockStopV5Turn = vi.fn(async () => ({ kind: 'not_saved' as const }))
+type StopFenceResult = {
+  kind: 'not_saved' | 'already_saved' | 'unconfirmed'
+  reason?: string
+}
+const mockStopV5Turn = vi.fn(
+  (..._args: unknown[]): Promise<StopFenceResult> => Promise.resolve({ kind: 'not_saved' }),
+)
 vi.mock('../../../v5/stopTurn', () => ({
   stopV5Turn: (...args: unknown[]) => mockStopV5Turn(...args),
   getV5StopEndpoint: () => 'https://cee.test/proxy/v5/turn/stop',
@@ -2833,6 +2838,9 @@ describe('cancelTurn — stop-fence: the server is told, and so is the user', ()
    *  liveproof recorded as "silent by design", and the case that made the
    *  corruption reachable. */
   function configureSilentHangingStream() {
+    // Yielding NOTHING is the case under test: an early Stop, before a single
+    // frame has arrived. A decoy yield would make it a different scenario.
+    // eslint-disable-next-line require-yield -- see above; the empty stream IS the case
     mockStreamTurn.mockImplementation(async function* (_req: unknown, signal: AbortSignal) {
       await new Promise<never>((_, reject) => {
         if (signal.aborted) {
@@ -2846,7 +2854,7 @@ describe('cancelTurn — stop-fence: the server is told, and so is the user', ()
     })
   }
 
-  async function stopAnEarlyDraft(outcome: { kind: string }) {
+  async function stopAnEarlyDraft(outcome: StopFenceResult) {
     mockStopV5Turn.mockResolvedValue(outcome)
     configureSilentHangingStream()
     const { result } = renderHook(() => useConversation())

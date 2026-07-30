@@ -30,6 +30,9 @@ import { START_NEW_DRAFT_CHIP_ID } from '../useConversation'
 import {
   STOPPED_DRAFT_NOTICE,
   UNSETTLED_DRAFT_NOTICE,
+  EARLY_STOP_NOT_SAVED_NOTICE,
+  EARLY_STOP_ALREADY_SAVED_NOTICE,
+  EARLY_STOP_UNCONFIRMED_NOTICE,
 } from '../../components/DraftLoadingAnimation'
 import type { ActionChip, ConversationMessage } from '../types'
 import type { UseConversationReturn } from '../useConversation'
@@ -105,6 +108,37 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
+
+/**
+ * The positive control, DERIVED from whichever notice is under test.
+ *
+ * It used to be a hardcoded clause ("start a new draft to get a model with
+ * settled values") true of the two original notices and of nothing else — so
+ * widening the table to the three stop-fence notices failed here immediately.
+ * That is the GOOD failure: a hand-written needle silently pins one copy string,
+ * and the next author either widens the table and gets a red they do not
+ * understand, or quietly drops the control (trap 13).
+ *
+ * · Longest em-dash-free run: the live chat renderer rewrites em dashes
+ *   (2.134 §2c), so a needle spanning one fails on punctuation rather than on
+ *   the button this file exists to pin.
+ * · `getAllByText` + non-empty rather than `getByText`: the needle matches every
+ *   ancestor whose textContent contains it.
+ * · This proves the harness can SEE the bubble. It is NOT a visibility claim —
+ *   jsdom cannot make one (CLAUDE.md trap 3).
+ */
+function expectNoticeVisible(notice: string): void {
+  const needle = notice
+    .split('\u2014')
+    .map((part) => part.trim())
+    .sort((a, b) => b.length - a.length)[0]
+  expect(
+    screen.getAllByText((_text, node) => node?.textContent?.includes(needle) === true, {
+      selector: 'p,div,span',
+    }).length,
+  ).toBeGreaterThan(0)
+}
+
 // ---------------------------------------------------------------------------
 // The pin, for BOTH terminal notices
 // ---------------------------------------------------------------------------
@@ -112,6 +146,15 @@ afterEach(() => {
 describe.each([
   ['stopped-draft notice', STOPPED_DRAFT_NOTICE],
   ['connection-drop (unsettled) notice', UNSETTLED_DRAFT_NOTICE],
+  // Stop-fence (Codex P0). All three explicit-Stop notices mint the SAME chip at
+  // the SAME site, and every one of them can now be reached with an EMPTY canvas
+  // (an early Stop, before GRAPH_READY) — which the two originals never could.
+  // A chip nobody can click is exactly the guarantee-theatre 2.134's live probe
+  // found on the first two, so the new copy joins the same render-level pin
+  // rather than settling for "the chip is on the message object".
+  ['early-stop: cancelled before saved', EARLY_STOP_NOT_SAVED_NOTICE],
+  ['early-stop: already saved', EARLY_STOP_ALREADY_SAVED_NOTICE],
+  ['early-stop: could not confirm', EARLY_STOP_UNCONFIRMED_NOTICE],
 ])('2.138 — %s renders a clickable "Start a new draft" chip', (_name, notice) => {
   it('renders the notice AND a button for its remedy', () => {
     const { conversation } = makeMockConversation([
@@ -124,8 +167,7 @@ describe.each([
     // Matched on a distinctive clause rather than the whole string — the live
     // chat renderer rewrites the em dash (2.134 §2c), and this test must pin the
     // BUTTON, not punctuation.
-    expect(screen.getByText(/start a new draft to get a model with settled values/i))
-      .toBeInTheDocument()
+    expectNoticeVisible(notice)
 
     const button = screen.getByRole('button', { name: 'Start a new draft' })
     expect(button).toBeInTheDocument()
@@ -166,8 +208,7 @@ describe('2.138 — the render guard is widened, not removed', () => {
     render(<ConversationPanel conversation={conversation} onCollapse={vi.fn()} onAttach={vi.fn()} />)
 
     // The bubble is on screen (positive control) …
-    expect(screen.getByText(/start a new draft to get a model with settled values/i))
-      .toBeInTheDocument()
+    expectNoticeVisible(STOPPED_DRAFT_NOTICE)
     // … and the undispatchable chip is not.
     expect(screen.queryByRole('button', { name: 'Do a thing' })).not.toBeInTheDocument()
   })
