@@ -189,6 +189,68 @@ describe('buildVoiRanking — defensive row validation (drop, never coerce)', ()
     expect(m!.belowResolution.map(r => r.factorId)).toContain('n_brand')
     expect(m!.resolved.map(r => r.factorId)).not.toContain('n_brand')
   })
+
+  /**
+   * THE VALIDATION SCOPE IS DELIBERATE, AND THIS IS THE PIN THAT SAYS SO.
+   *
+   * The reader validates rows against `EnrichmentFactorEvppiEntrySchema.pick({
+   * factor_id, evppi, status })` — the three fields it READS — and not against the
+   * full entry schema. A row whose UNREAD audit legs are mistyped (`units`,
+   * `noise_floor`, `method`, `evppi_raw`, `n_samples`, the clamp booleans,
+   * `correlation_active`) therefore still ranks: those fields never reach the DOM
+   * and never affect order, so a producer typo in one of them must not cost the
+   * user the ranking.
+   *
+   * ⚠ WHY THIS TEST EXISTS AT ALL. Swapping the `.pick` for the FULL schema passed
+   * every committed test — adversarial review of PR #533 swapped it and got
+   * voiRanking 55/55, resolveNext.honesty 10/10, resolveNext.spec 25/25 all green.
+   * So the choice was held by a COMMENT, not by a test, and the fail-safe framing
+   * hid how sharp the difference is: under the full schema this row is DROPPED,
+   * and because it is rank 1, the reader's own rank-1 doctrine then collapses the
+   * WHOLE ranking to the honest gate. A user loses the entire surface to a typo in
+   * a field nobody displays.
+   *
+   * If a future lane decides that IS the right trade, this test is the place to
+   * make that decision visible — it should be changed deliberately, not discovered.
+   */
+  it('a row with a MISTYPED UNREAD audit leg still ranks (the .pick scope, pinned)', () => {
+    const m = build([
+      // Every unread audit leg wrong-typed at once, on the RANK-1 row.
+      {
+        factor_id: 'n_market',
+        evppi: 0.91,
+        status: 'resolved',
+        units: 9,
+        noise_floor: 'x',
+        method: 3,
+        evppi_raw: 'x',
+        n_samples: 'x',
+        clamped_low: 'yes',
+        clamped_high: 'no',
+        correlation_active: 'x',
+      },
+      { factor_id: 'n_comp', evppi: 0.44, status: 'resolved' },
+    ])
+    expect(m).not.toBeNull()
+    expect(m!.resolved.map(r => r.label)).toEqual(['Market receptivity', 'Competitor response'])
+    // Nothing was dropped, so nothing is disclosed as unassessed.
+    expect(m!.someFactorsUnassessed).toBe(false)
+    // …and the malformed values still reach neither the model nor a magnitude.
+    expect(JSON.stringify(m)).not.toContain('noise_floor')
+    expect(JSON.stringify(m)).not.toContain('0.91')
+  })
+
+  it('POSITIVE CONTROL: a mistyped READ field on that same row DOES drop it', () => {
+    // Without this, the test above could be passing because the reader validates
+    // nothing at all. The only difference here is that the broken field is one of
+    // the three the reader reads — and a dropped rank-1 gates the whole ranking.
+    expect(
+      build([
+        { factor_id: 'n_market', evppi: 'nope', status: 'resolved', units: 9 },
+        { factor_id: 'n_comp', evppi: 0.44, status: 'resolved' },
+      ]),
+    ).toBeNull()
+  })
 })
 
 describe('buildVoiRanking — the PARTIAL disclosure', () => {

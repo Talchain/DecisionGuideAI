@@ -20,7 +20,26 @@
  *
  * ⚠ These are DEFINITIONS, not assertions. A regex that never fires proves
  * nothing, so every importing spec pairs them with a POSITIVE CONTROL that
- * shows each pattern still matches the string it was written to catch.
+ * shows each pattern still matches the string it was written to catch — by
+ * iterating `REFUTED_CLAIM_CONTROLS` below, never by hand-listing patterns.
+ *
+ * ⚠⚠ THAT SENTENCE WAS FALSE WHEN IT WAS FIRST WRITTEN, AND THE FALSEHOOD IS THE
+ * REASON THE RULE IS NOW "ITERATE THE TABLE". At the first commit of this
+ * extraction (PR #533), `evpiSurfacesRemoved.honesty.spec.tsx` imported the three
+ * regexes but HAND-LISTED controls for only two of them — `WORTH_CLAIM` and
+ * `RESOLVING_CLAIM`. `PP_TOKEN` had none, in a file that uses it in three
+ * absence assertions. Adversarial review proved the consequence by mutation:
+ * neutering the shared `PP_TOKEN` left that spec **6/6 GREEN**, while neutering
+ * either other pattern RED-ed it. So moving the definitions here had removed
+ * duplicate-drift and introduced a SINGLE POINT OF VACUITY about a refuted
+ * quantity — the same trap-13 class the extraction existed to close, arriving
+ * from the other direction.
+ *
+ * Both sentences flagged in that review (this one, and "the table both honesty
+ * specs drive" below) are now TRUE, and are kept rather than softened: the fix
+ * was to make the code match the claim. The history stays because a header that
+ * silently becomes true reads exactly like one that was never wrong — and
+ * "hand-listed two of three" is the mistake this file will invite again.
  *
  * ⚠ WHY THIS LIVES IN `__tests__/helpers/` AND NOT IN `src/test/helpers/`.
  * `tests/contracts/no-evpi-display.contract.test.ts` scans every tracked
@@ -52,8 +71,14 @@ export const WORTH_CLAIM = /worth\s+\d+(\.\d+)?pp if resolved/i
 
 /**
  * Each matcher paired with a string it MUST match — the positive-control table
- * both honesty specs drive, so the controls cannot drift apart from the
- * patterns they guard.
+ * both honesty specs drive, so the controls cannot drift apart from the patterns
+ * they guard.
+ *
+ * ⚠ EVERY PATTERN EXPORTED ABOVE MUST HAVE A ROW HERE. That is what makes the
+ * controls derived rather than remembered: a fourth banned pattern added above
+ * without a row here is a pattern with no control in either spec, which is how
+ * `PP_TOKEN` went uncontrolled in one of them (see the header). Both specs assert
+ * this table's LENGTH, so shrinking it reds instead of quietly checking less.
  */
 export const REFUTED_CLAIM_CONTROLS: ReadonlyArray<readonly [RegExp, string]> = [
   [PP_TOKEN, 'Worth 12.3pp if resolved'],
