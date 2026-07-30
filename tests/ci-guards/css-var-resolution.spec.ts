@@ -123,9 +123,14 @@ function runCensus(): CensusRun {
  * `toEqual([])` absence assertion below would then pass on `undefined`
  * — trap 13, in the one place the whole guard funnels through.
  *
- * DERIVED from the Census interface's own contract, and EXACT in both
- * directions: an unknown key means the census grew a field this spec is
- * blind to, which is exactly when somebody should look.
+ * This IS a hand-maintained mirror of the Census interface above — a TS
+ * interface is erased at runtime, so there is nothing to derive it from. It
+ * is therefore written in the only safe form (trap 12): EXACT in both
+ * directions, so it FAILS LOUD on drift rather than assuming good. An
+ * unknown key means the census grew a field this spec is blind to; a missing
+ * one means it lost a field this spec still reads. Either way somebody
+ * looks. It earned its keep on the first run, catching the Census interface
+ * declaring `definitions` at the top level when it is a `counts` key.
  */
 const EXPECTED_CENSUS_KEYS: Record<string, (v: unknown) => boolean> = {
   errors: (v) => Array.isArray(v),
@@ -476,7 +481,9 @@ describe('css custom-property resolution guard', () => {
     // 2 for a census that could not run. An exact set, so deleting the exit
     // logic altogether fails here rather than turning the gate green.
     expect(
-      [...new Set(processExitCodeAssignments(SCRIPT))].sort(),
+      // Numeric comparator: the default sort is lexicographic, so a future
+      // two-digit code would compare wrong and this control would misreport.
+      [...new Set(processExitCodeAssignments(SCRIPT))].sort((a, b) => a - b),
       'the census no longer sets both documented non-zero exit codes (1 = findings, 2 = census ' +
         'error). A findings run that exits 0 makes this whole guard advisory.',
     ).toEqual([1, 2])
