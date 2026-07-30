@@ -14,7 +14,7 @@
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
 # count=2510
-1	e2e/_helpers.ts	TS9999	'expect' is declared but its value is never read.
+1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
 1	e2e/canvas-panel-unified.spec.ts	TS2345	Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
