@@ -148,24 +148,27 @@ fi
 header "Check 5a — V5 vendored schemas tarball SHA manifest"
 
 # A1: guard against drift between vendored tarball bytes and the committed
-# SHA manifest. If someone rebuilds the tarball without updating the
-# manifest, push is blocked. Mirrors scripts/validate-prepush.sh Check 6a.
-# Derive tarball filename from package.json (single source of truth).
-TARBALL_NAME=$(grep -o 'vendor/[^"]*\.tgz' "$REPO_ROOT/package.json" | head -1)
-TARBALL="$REPO_ROOT/$TARBALL_NAME"
-MANIFEST="$TARBALL.sha256"
-if [ ! -f "$TARBALL" ] || [ ! -f "$MANIFEST" ]; then
-  fail "vendored tarball or SHA manifest missing"
+# SHA manifest. If someone rebuilds the tarball without updating the manifest,
+# push is blocked.
+#
+# DELEGATED, deliberately — do not re-implement the comparison here.
+# This check previously duplicated validate-prepush.sh Check 6a line for line,
+# including its defect: `tr -d '[:space:]' < "$MANIFEST"` collapses the
+# standard two-column shasum format (`<hash>  <filename>`) into the hash
+# CONCATENATED with the filename, which can never equal a bare 64-char hash.
+# Both copies therefore always failed once the manifest gained the filename
+# column — every push from schemas 0.29.0 (2026-07-28, #513) onward. The
+# duplication is what let one defect break two gates, so the two now share
+# ONE implementation instead of mirroring each other.
+#
+# scripts/check-vendor-sha.mjs is the single source of truth. It derives the
+# tarball name from package.json's dependency field, accepts BOTH manifest
+# formats (`<hash>` and `<hash>  <filename>`), asserts the hash is 64 hex
+# chars, and prints a remediation block on mismatch.
+if node "$REPO_ROOT/scripts/check-vendor-sha.mjs"; then
+  pass "V5 vendored schemas tarball SHA matches manifest"
 else
-  ACTUAL="$(shasum -a 256 "$TARBALL" | awk '{print $1}')"
-  EXPECTED="$(tr -d '[:space:]' < "$MANIFEST")"
-  if [ "$ACTUAL" != "$EXPECTED" ]; then
-    echo "    manifest: $EXPECTED"
-    echo "    actual:   $ACTUAL"
-    fail "Vendored schemas tarball changed without manifest update. Rebuild and commit both."
-  else
-    pass "V5 vendored schemas tarball SHA matches manifest"
-  fi
+  fail "Vendored schemas tarball changed without manifest update, or manifest is unreadable (see above). Rebuild and commit both."
 fi
 
 # Also verify the fork directory doesn't exist
