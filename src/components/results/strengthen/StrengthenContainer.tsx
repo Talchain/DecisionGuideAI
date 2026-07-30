@@ -103,12 +103,19 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
       // Undefined when a legacy caller supplies no verdict; the engine's read
       // is strict (`=== false`), so only an explicit withheld claim suppresses.
       hasLeadingOption: data.recommendation.verdict?.hasLeadingOption,
+      // Presence branch (schemas 0.30.0; UI half of plot-lite-service#294):
+      // only a MEASURED switch_probability may feed the engine's rendered
+      // "% chance the result flips" claim and the switch_probability wire
+      // param. marginal_switch_probability is a DIFFERENT Monte Carlo
+      // (P(flip | only this edge varies)) and was previously PREFERRED here —
+      // a mislabel whenever both quantities arrived. An unmeasured edge
+      // produces no flip recommendation (absence renders nothing).
       fragileEdges: fragile
-        .filter((fe) => typeof (fe.marginal_switch_probability ?? fe.switch_probability) === 'number')
+        .filter((fe) => typeof fe.switch_probability === 'number')
         .map((fe) => ({
           edgeId: String(fe.edge_id ?? `${fe.from_id ?? fe.from_label}->${fe.to_label}`),
           factorLabel: String(fe.from_label ?? 'this factor'),
-          switchProbability: Number(fe.marginal_switch_probability ?? fe.switch_probability),
+          switchProbability: Number(fe.switch_probability),
           alternativeWinnerLabel:
             typeof fe.alternative_winner_label === 'string' ? fe.alternative_winner_label : undefined,
         })),

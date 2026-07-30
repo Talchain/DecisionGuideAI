@@ -288,8 +288,10 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
 
   // ── Evaluate: the single top flip risk (producer fragile_edges) ──────────
   // 1.243 GATE. A "flip" is a change in the ORDERING, so this rec is
-  // comparative in all three of its parts: the SELECTION (argmax over
-  // `marginal_switch_probability` — "most likely to change the leader"), the
+  // comparative in all three of its parts: the SELECTION (argmax over the
+  // MEASURED `switch_probability` — StrengthenContainer's presence branch
+  // admits no other quantity; `marginal_switch_probability` is a different
+  // Monte Carlo and never substitutes), the
   // TITLE, and the SIGNAL, which names `alternative_winner_label` and so
   // designates by elimination (the #494 residual-1 argument: naming what the
   // result would flip TO asserts that something else is currently ahead).
