@@ -5998,11 +5998,20 @@ export function useConversation(): UseConversationReturn {
     //       handler (guard F/G), synchronously set false before any await;
     //     · a stale identity → the clear below.
     explicitlyStoppedTurnIdsRef.current.add(identity.turnId)
-    // Clear the captured identity now it has been used, so a stale
-    // (scenario, turn) pair cannot outlive the turn it describes and be
-    // tombstoned in a later turn's name. Pinned by "a turn dispatched with NO
-    // scenario id never tombstones the PREVIOUS turn".
-    inFlightTurnIdentityRef.current = null
+    //   ⚠ AND THE `inFlightTurnIdentityRef.current = null` CLEAR IS ALSO GONE,
+    //   BY THE SAME RULE. The round-2 verify asked me to pin it. I could not:
+    //   removing it REDs nothing, measured, because the identity is REFRESHED at
+    //   the top of every dispatch (:3883) to either this turn's pair or `null`
+    //   before anything can read it — so a stale PREVIOUS-turn pair is
+    //   structurally impossible and the clear had no independent effect.
+    //
+    //   It was harmless, unlike the guard. But "harmless and inert" is the shape
+    //   that has now cost this lane three review findings, and keeping a line that
+    //   reads as a protection while doing nothing is what a reader would later
+    //   trust. The INVARIANT it was meant to serve — a Stop never tombstones a
+    //   previous turn's id — is real and IS pinned, on the mechanism that actually
+    //   provides it: the dispatch-time refresh. Breaking THAT reds
+    //   "a turn dispatched with NO scenario id never tombstones the PREVIOUS turn".
     void stopV5Turn(identity).then((result) => {
       addMessage({
         id: crypto.randomUUID(),
