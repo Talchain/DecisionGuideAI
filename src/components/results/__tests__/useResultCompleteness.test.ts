@@ -82,7 +82,24 @@ function inputs(
     resultsStatus: 'complete',
     report: makeFullReport(),
     ceeReviewV1: makeReview(),
+    decisionReview030: null,
     driversPayload: null,
+    ...overrides,
+  }
+}
+
+/** A 0.30 review view-model carrying prose (ROADMAP 2.154). */
+function makeReview030(
+  overrides?: Partial<NonNullable<ResultCompletenessInputs['decisionReview030']>>,
+): ResultCompletenessInputs['decisionReview030'] {
+  return {
+    narrative_summary: 'Status quo leads by a wide margin.',
+    story_headlines: [],
+    robustness_explanation: null,
+    readiness_rationale: null,
+    scenario_contexts: [],
+    produced_at: '2026-07-29T23:06:30.954Z',
+    hasProse: true,
     ...overrides,
   }
 }
@@ -173,6 +190,63 @@ describe('deriveResultCompleteness — partial source coverage', () => {
     )
     expect(result.status).toBe('partial')
     expect(result.missing).toContain('decision_review')
+  })
+
+  // ── ROADMAP 2.154 — the signal used to fire on EVERY turn ────────────────
+  //
+  // It tested `ceeReviewV1.m1_coaching.executive_summary`, a key the live V5
+  // wire does not carry at all, so `decision_review_unavailable` was true on
+  // every analysis and the user was told "Decision coaching is still being
+  // prepared for this analysis" while a real ~8-9s gpt-4.1 review sat in the
+  // same response. These cases pin that a 0.30 review now clears it, and — the
+  // half that keeps the signal non-vacuous — that it STILL fires when nothing
+  // arrived.
+  describe('the decision_review signal is satisfied by a 0.30 review too', () => {
+    it('a 0.30 review with prose clears the signal even with NO m1_coaching', () => {
+      const result = deriveResultCompleteness(
+        inputs({ ceeReviewV1: null, decisionReview030: makeReview030() }),
+      )
+      expect(result.missing).not.toContain('decision_review')
+      expect(result.reasons).not.toContain('decision_review_unavailable')
+      expect(result.status).toBe('full')
+    })
+
+    it('a 0.30 review with NO prose does NOT clear it (nothing to show is unavailable)', () => {
+      const result = deriveResultCompleteness(
+        inputs({
+          ceeReviewV1: null,
+          decisionReview030: makeReview030({ narrative_summary: null, hasProse: false }),
+        }),
+      )
+      expect(result.missing).toContain('decision_review')
+      expect(result.reasons).toContain('decision_review_unavailable')
+    })
+
+    it('NEGATIVE CONTROL — both witnesses absent still fires the signal', () => {
+      const result = deriveResultCompleteness(
+        inputs({ ceeReviewV1: null, decisionReview030: null }),
+      )
+      expect(result.missing).toContain('decision_review')
+      expect(result.reasons).toContain('decision_review_unavailable')
+    })
+
+    it('m1_coaching alone still clears it (the M1 path is untouched)', () => {
+      const result = deriveResultCompleteness(inputs({ decisionReview030: null }))
+      expect(result.missing).not.toContain('decision_review')
+    })
+
+    it('A1 framing — a MALFORMED review still fires the signal for the user', () => {
+      // Recorded because the A1 write-up first over-claimed "silently
+      // discarded". On the wrong-typed path `applyV5State` writes
+      // `decisionReview030: null`, so the user DOES get a signal here. What went
+      // dark was the OPERATOR marker — the only witness distinguishing "the
+      // producer sent nothing" from "the producer sent something broken". The
+      // user was told the review was still coming when it had arrived malformed.
+      const result = deriveResultCompleteness(
+        inputs({ ceeReviewV1: null, decisionReview030: null }),
+      )
+      expect(result.reasons).toContain('decision_review_unavailable')
+    })
   })
 
   it('multiple gaps → status=partial with all reasons surfaced', () => {

@@ -617,6 +617,35 @@ export function resolveLeaderKeys(
   return keys
 }
 
+/**
+ * option_id → human label, derived from the SAME payload the caller is
+ * rendering: `enrichment.option_comparison` first, falling back to
+ * `enrichment.decision_brief.options` (that array is not guaranteed — the wire
+ * carries a sibling `option_comparison_status` precisely because of it).
+ *
+ * Reuses the two resolvers `resolveLeaderKeys` uses, so this is one derivation
+ * chain over producer data with two callers, NOT a second hand-maintained
+ * mapping. Ids with no resolvable label are simply absent from the map; the
+ * caller decides what to show instead (ROADMAP 2.154 renders the raw id, which
+ * is honest rather than blank).
+ */
+export function resolveOptionLabelById(
+  enrichment: Record<string, unknown> | undefined,
+): ReadonlyMap<string, string> {
+  const out = new Map<string, string>()
+  const fromComparison = resolveOptionEntries(enrichment)
+  const identities: ResolvedOptionIdentity[] =
+    fromComparison.length > 0
+      ? fromComparison.map((r) => ({ optionId: r.optionId, label: r.optionLabel }))
+      : resolveDecisionBriefOptions(enrichment)
+  for (const identity of identities) {
+    if (identity.label !== undefined && identity.label !== '' && !out.has(identity.optionId)) {
+      out.set(identity.optionId, identity.label)
+    }
+  }
+  return out
+}
+
 // ─── Public mapper ─────────────────────────────────────────────────────
 
 export interface MapV5AnalysisOptions {

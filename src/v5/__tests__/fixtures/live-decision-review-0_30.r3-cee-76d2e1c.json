@@ -1,0 +1,979 @@
+{
+  "__source__": "PHASE0-EVIDENCE-2026-07-28/adjudicate-decision-review-raw/r3-bodies.json [1].body -> blocks[0]  (sha256 of source file: 65c4ea6ee4728b42b618fbef964f65de3dd9d5c8c817d9e024e9143b816f671b)",
+  "__captured_at__": "2026-07-29T23:12:18.484Z",
+  "__captured_against__": "staging--olumi.netlify.app UI 1e320e5c / cee-staging.onrender.com CEE 76d2e1c (guest session, no credentials)",
+  "__notes__": "Run r3 of the same capture — an INDEPENDENT gpt-4.1 invocation (9532 in / 960 out / 9237 ms), not a replay of r1: distinct token counts, latency, produced_at and prose. Structurally identical to r1 (same 11 keys in the same order, same 13 enrichment siblings) while differing in content, which is what makes the pair evidence of a stable shape rather than of one lucky payload. Note decision_quality_prompts[0] here carries NO dsk_claim_id / dsk_protocol_id / evidence_strength (r1 does) — those sub-fields are optional on the wire. Pinned to the historical artefact (trap 12b); do not refresh.",
+  "type": "analysis_result",
+  "summary": "Keep Current Setup (Status Quo) currently leads by 88 percentage points.",
+  "leading_option_id": "opt_status_quo",
+  "win_probabilities": {
+    "HubSpot": 0.047375,
+    "Pipedrive": 0.009625,
+    "Salesforce": 0.012875,
+    "Keep Current Setup (Status Quo)": 0.930125
+  },
+  "enrichment": {
+    "option_comparison": [
+      {
+        "option_id": "opt_hubspot",
+        "option_label": "HubSpot",
+        "id": "opt_hubspot",
+        "label": "HubSpot",
+        "outcome": {
+          "mean": -0.10870220196956067,
+          "std": 0.09811714629227718,
+          "p10": -0.23640724104210628,
+          "p50": -0.10759774939136531,
+          "p90": 0.015146234346846074,
+          "n_samples": 4000,
+          "n_valid_samples": 4000,
+          "validity_ratio": 1
+        },
+        "status": "computed",
+        "win_probability": 0.047375
+      },
+      {
+        "option_id": "opt_pipedrive",
+        "option_label": "Pipedrive",
+        "id": "opt_pipedrive",
+        "label": "Pipedrive",
+        "outcome": {
+          "mean": -0.04698320166416109,
+          "std": 0.0579182413716131,
+          "p10": -0.12164066273489266,
+          "p50": -0.045492413617473304,
+          "p90": 0.025921685103214676,
+          "n_samples": 4000,
+          "n_valid_samples": 4000,
+          "validity_ratio": 1
+        },
+        "status": "computed",
+        "win_probability": 0.009625
+      },
+      {
+        "option_id": "opt_salesforce",
+        "option_label": "Salesforce",
+        "id": "opt_salesforce",
+        "label": "Salesforce",
+        "outcome": {
+          "mean": -0.27498965554955007,
+          "std": 0.16518771724713113,
+          "p10": -0.4905074440752868,
+          "p50": -0.27310439394746394,
+          "p90": -0.06983571497425153,
+          "n_samples": 4000,
+          "n_valid_samples": 4000,
+          "validity_ratio": 1
+        },
+        "status": "computed",
+        "win_probability": 0.012875
+      },
+      {
+        "option_id": "opt_status_quo",
+        "option_label": "Keep Current Setup (Status Quo)",
+        "id": "opt_status_quo",
+        "label": "Keep Current Setup (Status Quo)",
+        "outcome": {
+          "mean": 0.00927607114500214,
+          "std": 0.03151195402048348,
+          "p10": -0.03060335150458224,
+          "p50": 0.00965381090126476,
+          "p90": 0.04770859147965276,
+          "n_samples": 4000,
+          "n_valid_samples": 4000,
+          "validity_ratio": 1
+        },
+        "status": "computed",
+        "win_probability": 0.930125
+      }
+    ],
+    "factor_sensitivity": [
+      {
+        "factor_id": "fac_team_size",
+        "factor_label": "Sales Team Size",
+        "influence_score": 0.40606060606060607,
+        "influence_rank": 4,
+        "sensitivity_score": -0.134,
+        "elasticity": 0.40606060606060607,
+        "direction": "negative",
+        "importance_rank": 1,
+        "value_of_information": 0,
+        "confidence": 0.45489999999999997,
+        "confidence_source": "plot_unified_from_isl_bootstrap",
+        "confidence_provenance": {
+          "computation_source": "plot_unified_from_isl_bootstrap",
+          "formula_version": "plot_unified_v3",
+          "is_provisional": true,
+          "calibration_status": "provisional_pending_pilot_calibration",
+          "input_quality": "standard"
+        },
+        "confidence_components": {
+          "structural_certainty": 0.5,
+          "sampling_stability": 0.25
+        },
+        "source": "graph",
+        "flip_risk_category": "correlated",
+        "attribution_stability": "low",
+        "elasticity_std": 0.00474508,
+        "rank_flip_rate": 0.05,
+        "stability_method": "bootstrap_20",
+        "value_defaulted": true,
+        "importance_basis": "graph_structural",
+        "driver_label": "biggest",
+        "evpi_percentage_points": 0,
+        "evpi_method": "heuristic",
+        "evidence_hint": false
+      },
+      {
+        "factor_id": "fac_adoption_risk",
+        "factor_label": "User Adoption Risk",
+        "influence_score": 0.2727272727272727,
+        "influence_rank": 5,
+        "sensitivity_score": -0.09,
+        "elasticity": 0.2727272727272727,
+        "direction": "negative",
+        "importance_rank": 2,
+        "value_of_information": 0,
+        "confidence": 0.4253,
+        "confidence_source": "plot_unified_from_isl_bootstrap",
+        "confidence_provenance": {
+          "computation_source": "plot_unified_from_isl_bootstrap",
+          "formula_version": "plot_unified_v3",
+          "is_provisional": true,
+          "calibration_status": "provisional_pending_pilot_calibration",
+          "input_quality": "standard"
+        },
+        "confidence_components": {
+          "structural_certainty": 0.5,
+          "sampling_stability": 0.25
+        },
+        "source": "graph",
+        "flip_risk_category": "correlated",
+        "attribution_stability": "low",
+        "elasticity_std": 0.00558393,
+        "rank_flip_rate": 0.35,
+        "stability_method": "bootstrap_20",
+        "value_defaulted": true,
+        "importance_basis": "graph_structural",
+        "driver_label": "moderate",
+        "evpi_percentage_points": 0,
+        "evpi_method": "heuristic",
+        "evidence_hint": false
+      },
+      {
+        "factor_id": "fac_license_cost",
+        "factor_label": "3-Year Licence and Implementation Cost",
+        "influence_score": 1,
+        "influence_rank": 1,
+        "sensitivity_score": 0,
+        "elasticity": 0,
+        "direction": "negative",
+        "importance_rank": 3,
+        "value_of_information": 0,
+        "confidence": 0.3,
+        "confidence_source": "plot_unified_from_isl_bootstrap",
+        "confidence_provenance": {
+          "computation_source": "plot_unified_from_isl_bootstrap",
+          "formula_version": "plot_unified_v3",
+          "is_provisional": true,
+          "calibration_status": "provisional_pending_pilot_calibration",
+          "input_quality": "standard"
+        },
+        "confidence_components": {
+          "structural_certainty": 0.5,
+          "sampling_stability": 0
+        },
+        "zero_reason": "intervention_override",
+        "source": "graph",
+        "flip_risk_category": "negligible",
+        "attribution_stability": "negligible",
+        "elasticity_std": 0,
+        "rank_flip_rate": 0.05,
+        "stability_method": "bootstrap_20",
+        "importance_basis": "graph_structural",
+        "driver_label": "strong",
+        "range_derivation_source": "default"
+      },
+      {
+        "factor_id": "fac_onboarding_time",
+        "factor_label": "Team Onboarding Speed",
+        "influence_score": 0.9924242424242424,
+        "influence_rank": 2,
+        "sensitivity_score": 0,
+        "elasticity": 0,
+        "direction": "negative",
+        "importance_rank": 4,
+        "value_of_information": 0,
+        "confidence": 0.3,
+        "confidence_source": "plot_unified_from_isl_bootstrap",
+        "confidence_provenance": {
+          "computation_source": "plot_unified_from_isl_bootstrap",
+          "formula_version": "plot_unified_v3",
+          "is_provisional": true,
+          "calibration_status": "provisional_pending_pilot_calibration",
+          "input_quality": "standard"
+        },
+        "confidence_components": {
+          "structural_certainty": 0.5,
+          "sampling_stability": 0
+        },
+        "zero_reason": "intervention_override",
+        "source": "graph",
+        "flip_risk_category": "correlated",
+        "attribution_stability": "negligible",
+        "elasticity_std": 0,
+        "rank_flip_rate": 0.05,
+        "stability_method": "bootstrap_20",
+        "importance_basis": "graph_structural",
+        "driver_label": "strong",
+        "range_derivation_source": "default"
+      },
+      {
+        "factor_id": "fac_integration_depth",
+        "factor_label": "Integration Depth with Existing Tooling",
+        "influence_score": 0.7196969696969696,
+        "influence_rank": 3,
+        "sensitivity_score": 0,
+        "elasticity": 0,
+        "direction": "positive",
+        "importance_rank": 5,
+        "value_of_information": 0,
+        "confidence": 0.3,
+        "confidence_source": "plot_unified_from_isl_bootstrap",
+        "confidence_provenance": {
+          "computation_source": "plot_unified_from_isl_bootstrap",
+          "formula_version": "plot_unified_v3",
+          "is_provisional": true,
+          "calibration_status": "provisional_pending_pilot_calibration",
+          "input_quality": "standard"
+        },
+        "confidence_components": {
+          "structural_certainty": 0.5,
+          "sampling_stability": 0
+        },
+        "zero_reason": "intervention_override",
+        "source": "graph",
+        "flip_risk_category": "negligible",
+        "attribution_stability": "negligible",
+        "elasticity_std": 0,
+        "rank_flip_rate": 0.05,
+        "stability_method": "bootstrap_20",
+        "importance_basis": "graph_structural",
+        "driver_label": "strong",
+        "range_derivation_source": "default"
+      }
+    ],
+    "robustness": {
+      "fragile_edges": [
+        {
+          "edge_id": "out_cost_efficiency->goal_crm_value",
+          "from_id": "out_cost_efficiency",
+          "to_id": "goal_crm_value",
+          "switch_probability": 0.104,
+          "marginal_switch_probability": 0,
+          "alternative_winner_id": "opt_hubspot",
+          "from_label": "3-Year Total Cost of Ownership Efficiency",
+          "to_label": "Maximise CRM Value Over Three Years",
+          "severity": "warning",
+          "visible": false,
+          "alternative_winner_label": "HubSpot"
+        },
+        {
+          "edge_id": "fac_onboarding_time->risk_adoption_failure",
+          "from_id": "fac_onboarding_time",
+          "to_id": "risk_adoption_failure",
+          "switch_probability": 0.078,
+          "marginal_switch_probability": 0,
+          "alternative_winner_id": "opt_hubspot",
+          "from_label": "Team Onboarding Speed",
+          "to_label": "Low User Adoption and Productivity Loss",
+          "severity": "warning",
+          "visible": false,
+          "alternative_winner_label": "HubSpot"
+        },
+        {
+          "edge_id": "fac_team_size->out_cost_efficiency",
+          "from_id": "fac_team_size",
+          "to_id": "out_cost_efficiency",
+          "switch_probability": 0.055,
+          "marginal_switch_probability": 0,
+          "alternative_winner_id": "opt_hubspot",
+          "from_label": "Sales Team Size",
+          "to_label": "3-Year Total Cost of Ownership Efficiency",
+          "severity": "warning",
+          "visible": false,
+          "alternative_winner_label": "HubSpot"
+        },
+        {
+          "edge_id": "fac_adoption_risk->risk_adoption_failure",
+          "from_id": "fac_adoption_risk",
+          "to_id": "risk_adoption_failure",
+          "switch_probability": 0.054771784232365145,
+          "marginal_switch_probability": 0,
+          "alternative_winner_id": "opt_hubspot",
+          "from_label": "User Adoption Risk",
+          "to_label": "Low User Adoption and Productivity Loss",
+          "severity": "warning",
+          "visible": false,
+          "alternative_winner_label": "HubSpot"
+        },
+        {
+          "edge_id": "out_productivity_gain->goal_crm_value",
+          "from_id": "out_productivity_gain",
+          "to_id": "goal_crm_value",
+          "switch_probability": 0.045,
+          "marginal_switch_probability": 0,
+          "alternative_winner_id": "opt_hubspot",
+          "from_label": "Sales Team Productivity Gain",
+          "to_label": "Maximise CRM Value Over Three Years",
+          "severity": "warning",
+          "visible": false,
+          "alternative_winner_label": "HubSpot"
+        },
+        {
+          "edge_id": "risk_adoption_failure->goal_crm_value",
+          "from_id": "risk_adoption_failure",
+          "to_id": "goal_crm_value",
+          "switch_probability": 0.032,
+          "marginal_switch_probability": 0,
+          "alternative_winner_id": "opt_hubspot",
+          "from_label": "Low User Adoption and Productivity Loss",
+          "to_label": "Maximise CRM Value Over Three Years",
+          "severity": "warning",
+          "visible": false,
+          "alternative_winner_label": "HubSpot"
+        },
+        {
+          "edge_id": "fac_integration_depth->out_productivity_gain",
+          "from_id": "fac_integration_depth",
+          "to_id": "out_productivity_gain",
+          "switch_probability": 0.025,
+          "marginal_switch_probability": 0,
+          "alternative_winner_id": "opt_hubspot",
+          "from_label": "Integration Depth with Existing Tooling",
+          "to_label": "Sales Team Productivity Gain",
+          "severity": "warning",
+          "visible": false,
+          "alternative_winner_label": "HubSpot"
+        },
+        {
+          "edge_id": "risk_switching_cost->goal_crm_value",
+          "from_id": "risk_switching_cost",
+          "to_id": "goal_crm_value",
+          "switch_probability": 0.023,
+          "marginal_switch_probability": 0,
+          "alternative_winner_id": "opt_hubspot",
+          "from_label": "Future Switching Cost and Lock-in",
+          "to_label": "Maximise CRM Value Over Three Years",
+          "severity": "warning",
+          "visible": false,
+          "alternative_winner_label": "HubSpot"
+        },
+        {
+          "edge_id": "fac_onboarding_time->out_productivity_gain",
+          "from_id": "fac_onboarding_time",
+          "to_id": "out_productivity_gain",
+          "switch_probability": 0.021,
+          "marginal_switch_probability": 0,
+          "alternative_winner_id": "opt_hubspot",
+          "from_label": "Team Onboarding Speed",
+          "to_label": "Sales Team Productivity Gain",
+          "severity": "warning",
+          "visible": false,
+          "alternative_winner_label": "HubSpot"
+        },
+        {
+          "edge_id": "fac_integration_depth->out_integration_value",
+          "from_id": "fac_integration_depth",
+          "to_id": "out_integration_value",
+          "switch_probability": 0.019,
+          "marginal_switch_probability": 0,
+          "alternative_winner_id": "opt_hubspot",
+          "from_label": "Integration Depth with Existing Tooling",
+          "to_label": "Integration and Workflow Value",
+          "severity": "warning",
+          "visible": false,
+          "alternative_winner_label": "HubSpot"
+        },
+        {
+          "edge_id": "fac_license_cost->out_cost_efficiency",
+          "from_id": "fac_license_cost",
+          "to_id": "out_cost_efficiency",
+          "switch_probability": 0.017,
+          "marginal_switch_probability": 0,
+          "alternative_winner_id": "opt_hubspot",
+          "from_label": "3-Year Licence and Implementation Cost",
+          "to_label": "3-Year Total Cost of Ownership Efficiency",
+          "severity": "warning",
+          "visible": false,
+          "alternative_winner_label": "HubSpot"
+        },
+        {
+          "edge_id": "out_integration_value->goal_crm_value",
+          "from_id": "out_integration_value",
+          "to_id": "goal_crm_value",
+          "switch_probability": 0.007,
+          "marginal_switch_probability": 0,
+          "alternative_winner_id": "opt_hubspot",
+          "from_label": "Integration and Workflow Value",
+          "to_label": "Maximise CRM Value Over Three Years",
+          "severity": "warning",
+          "visible": false,
+          "alternative_winner_label": "HubSpot"
+        }
+      ],
+      "robust_edges": [
+        {
+          "edge_id": "fac_team_size->risk_adoption_failure",
+          "from_id": "fac_team_size",
+          "to_id": "risk_adoption_failure",
+          "switch_probability": 1,
+          "from_label": "Sales Team Size",
+          "to_label": "Low User Adoption and Productivity Loss",
+          "alternative_winner_id": null,
+          "alternative_winner_label": null
+        }
+      ],
+      "is_robust": true,
+      "level": "high",
+      "confidence": 0.930125,
+      "confidence_basis": "recommendation_stability_uncalibrated",
+      "recommended_option_id": "opt_status_quo",
+      "recommended_option_label": "Keep Current Setup (Status Quo)",
+      "near_tie": {
+        "is_tie": false,
+        "top_option_id": "opt_status_quo",
+        "second_option_id": "opt_hubspot",
+        "tied_option_ids": [
+          "opt_status_quo"
+        ],
+        "gap": 0.8827499999999999,
+        "threshold": 0.1
+      },
+      "display_verdict": "robust",
+      "display_verdict_reason": "this result held up under the changes we tested"
+    },
+    "decision_review": {
+      "narrative_summary": "Keep Current Setup (Status Quo) leads by a wide margin—about 88 percentage points ahead of HubSpot in modelled scenarios. This lead is anchored in current assumptions on sales team size and user adoption risk, but both factors have provisional data.",
+      "story_headlines": {
+        "opt_status_quo": "Leads as it avoids new user adoption risks and extra costs given current team size.",
+        "opt_hubspot": "Could overtake if HubSpot reduces perceived user adoption risk or proves easier to onboard.",
+        "opt_salesforce": "Does not close the gap due to implementation cost and onboarding uncertainties.",
+        "opt_pipedrive": "Lags mainly from concerns over integration and fit for a team of this size."
+      },
+      "robustness_explanation": {
+        "summary": "The result is stable: Keep Current Setup (Status Quo) holds the lead in about 93% of simulations.",
+        "primary_risk": "Current estimates for \"Sales Team Size\" and \"User Adoption Risk\" are provisional and not yet backed by strong evidence.",
+        "stability_factors": [
+          "Keeps familiar tools, avoiding disruption linked with onboarding new systems.",
+          "No additional licence or integration costs incurred over the next three years."
+        ],
+        "fragility_factors": [
+          "If the sales team size or user adoption risk diverge from estimates, a switch to HubSpot could become viable.",
+          "If efficiency or integration needs grow beyond current expectations, a new CRM may overtake the status quo."
+        ]
+      },
+      "readiness_rationale": "The analysis points to a stable lead for the Status Quo; however, the confidence in the team size and user adoption risk inputs is provisional. Firming up these numbers would strengthen decision certainty.",
+      "evidence_enhancements": {
+        "fac_team_size": {
+          "specific_action": "Collate updated data on current and projected sales team size from HR and headcount plans.",
+          "rationale": "Accurate sizing affects both total cost and adoption dynamics, directly influencing model stability.",
+          "evidence_type": "internal_data",
+          "decision_hygiene": "Estimate expected size before gathering HR data to avoid unconscious anchoring."
+        },
+        "fac_adoption_risk": {
+          "specific_action": "Survey or interview sales staff about confidence in adopting a new CRM and likely barriers.",
+          "rationale": "Direct input clarifies adoption risks, which could shift the relative attractiveness of the leading options.",
+          "evidence_type": "customer_research",
+          "decision_hygiene": "Make a private prediction for adoption rates before reviewing feedback to reduce confirmation bias."
+        }
+      },
+      "scenario_contexts": {
+        "out_cost_efficiency->goal_crm_value": {
+          "trigger_description": "If the 3-Year Total Cost of Ownership Efficiency for HubSpot surpasses current estimates while maintaining value,",
+          "consequence": "then HubSpot overtakes Keep Current Setup (Status Quo)."
+        },
+        "fac_onboarding_time->risk_adoption_failure": {
+          "trigger_description": "If HubSpot proves significantly faster for team onboarding than anticipated and reduces adoption barriers,",
+          "consequence": "then HubSpot overtakes Keep Current Setup (Status Quo)."
+        }
+      },
+      "flip_thresholds": [],
+      "bias_findings": [],
+      "key_assumptions": [
+        "The link from Sales Team Size to total cost assumes headcount won’t grow unexpectedly.",
+        "User Adoption Risk is assumed based on provisional perceptions rather than measured staff sentiment.",
+        "Integration Depth with Existing Tooling is expected to remain as currently experienced with the status quo."
+      ],
+      "decision_quality_prompts": [
+        {
+          "question": "What would make you seriously consider switching from Keep Current Setup (Status Quo) to HubSpot?",
+          "principle": "Consider-the-opposite",
+          "applies_because": "HubSpot is the only challenger under plausible conditions, so challenging the default sharpens reasoning."
+        },
+        {
+          "question": "What is the base rate for user adoption success when mid-size teams move from status quo systems to new CRMs?",
+          "principle": "Outside view and reference class forecasting",
+          "applies_because": "Confidence in adoption risk is provisional; anchoring to real-world rates reduces optimism bias.",
+          "dsk_claim_id": "DSK-T-002",
+          "evidence_strength": "strong",
+          "dsk_protocol_id": "DSK-P-002"
+        }
+      ],
+      "produced_at": "2026-07-29T23:12:18.484Z"
+    },
+    "option_comparison_status": "computed",
+    "edge_e_values": [
+      {
+        "edge_id": "fac_license_cost::out_cost_efficiency",
+        "from_id": "fac_license_cost",
+        "to_id": "out_cost_efficiency",
+        "from_label": "3-Year Licence and Implementation Cost",
+        "to_label": "3-Year Total Cost of Ownership Efficiency",
+        "e_value": 1,
+        "flip_direction": "increase",
+        "current_mean": -0.65,
+        "flip_mean": 0.168958,
+        "stability": {
+          "n_seeds": 10,
+          "n_seeds_flipped": 9,
+          "band_min": -0.216984,
+          "band_median": 0.144501,
+          "band_max": 0.822121,
+          "band_width": 1.039105,
+          "seed_flip_means": [
+            null,
+            0.144501,
+            0.822121,
+            0.465475,
+            0.735854,
+            -0.216984,
+            -0.201738,
+            0.378857,
+            -0.03294,
+            -0.196027
+          ]
+        }
+      },
+      {
+        "edge_id": "fac_onboarding_time::out_productivity_gain",
+        "from_id": "fac_onboarding_time",
+        "to_id": "out_productivity_gain",
+        "from_label": "Team Onboarding Speed",
+        "to_label": "Sales Team Productivity Gain",
+        "e_value": 1,
+        "flip_direction": "increase",
+        "current_mean": -0.55,
+        "flip_mean": 0.42253,
+        "stability": {
+          "n_seeds": 10,
+          "n_seeds_flipped": 7,
+          "band_min": -0.20063,
+          "band_median": 0.433553,
+          "band_max": 0.966121,
+          "band_width": 1.166751,
+          "seed_flip_means": [
+            null,
+            null,
+            0.86042,
+            null,
+            0.433553,
+            0.122084,
+            -0.20063,
+            0.843858,
+            0.384771,
+            0.966121
+          ]
+        }
+      },
+      {
+        "edge_id": "fac_onboarding_time::risk_adoption_failure",
+        "from_id": "fac_onboarding_time",
+        "to_id": "risk_adoption_failure",
+        "from_label": "Team Onboarding Speed",
+        "to_label": "Low User Adoption and Productivity Loss",
+        "e_value": 1.8895,
+        "flip_direction": "decrease",
+        "current_mean": 0.45,
+        "flip_mean": -0.850296,
+        "stability": {
+          "n_seeds": 10,
+          "n_seeds_flipped": 4,
+          "band_min": -0.906778,
+          "band_median": -0.779658,
+          "band_max": 0.553785,
+          "band_width": 1.460563,
+          "seed_flip_means": [
+            0.553785,
+            null,
+            -0.869414,
+            null,
+            null,
+            -0.689902,
+            null,
+            null,
+            null,
+            -0.906778
+          ]
+        }
+      },
+      {
+        "edge_id": "out_cost_efficiency::goal_crm_value",
+        "from_id": "out_cost_efficiency",
+        "to_id": "goal_crm_value",
+        "from_label": "3-Year Total Cost of Ownership Efficiency",
+        "to_label": "Maximise CRM Value Over Three Years",
+        "e_value": 1,
+        "flip_direction": "decrease",
+        "current_mean": 0.4,
+        "flip_mean": -0.103974,
+        "stability": {
+          "n_seeds": 10,
+          "n_seeds_flipped": 10,
+          "band_min": -0.711965,
+          "band_median": -0.030937,
+          "band_max": 0.256687,
+          "band_width": 0.968652,
+          "seed_flip_means": [
+            0.256687,
+            -0.082354,
+            -0.711965,
+            -0.34162,
+            -0.412004,
+            0.075384,
+            0.109188,
+            -0.376557,
+            0.020479,
+            0.17256
+          ]
+        }
+      },
+      {
+        "edge_id": "out_integration_value::goal_crm_value",
+        "from_id": "out_integration_value",
+        "to_id": "goal_crm_value",
+        "from_label": "Integration and Workflow Value",
+        "to_label": "Maximise CRM Value Over Three Years",
+        "e_value": 3.2623,
+        "flip_direction": "increase",
+        "current_mean": 0.25,
+        "flip_mean": 0.815587,
+        "stability": {
+          "n_seeds": 10,
+          "n_seeds_flipped": 8,
+          "band_min": 0.235542,
+          "band_median": 0.708605,
+          "band_max": 0.914295,
+          "band_width": 0.678753,
+          "seed_flip_means": [
+            0.235542,
+            0.838932,
+            null,
+            0.914295,
+            0.579686,
+            0.469483,
+            0.468849,
+            null,
+            0.890507,
+            0.837523
+          ]
+        }
+      },
+      {
+        "edge_id": "out_productivity_gain::goal_crm_value",
+        "from_id": "out_productivity_gain",
+        "to_id": "goal_crm_value",
+        "from_label": "Sales Team Productivity Gain",
+        "to_label": "Maximise CRM Value Over Three Years",
+        "e_value": 1.967,
+        "flip_direction": "decrease",
+        "current_mean": 0.35,
+        "flip_mean": -0.688464,
+        "stability": {
+          "n_seeds": 10,
+          "n_seeds_flipped": 6,
+          "band_min": -0.816926,
+          "band_median": -0.259169,
+          "band_max": 0.455687,
+          "band_width": 1.272613,
+          "seed_flip_means": [
+            0.455687,
+            null,
+            -0.816926,
+            null,
+            null,
+            -0.057888,
+            -0.166212,
+            -0.352126,
+            null,
+            -0.759587
+          ]
+        }
+      },
+      {
+        "edge_id": "risk_adoption_failure::goal_crm_value",
+        "from_id": "risk_adoption_failure",
+        "to_id": "goal_crm_value",
+        "from_label": "Low User Adoption and Productivity Loss",
+        "to_label": "Maximise CRM Value Over Three Years",
+        "e_value": 1.8895,
+        "flip_direction": "increase",
+        "current_mean": -0.3,
+        "flip_mean": 0.566864,
+        "stability": {
+          "n_seeds": 10,
+          "n_seeds_flipped": 8,
+          "band_min": -0.866781,
+          "band_median": 0.510127,
+          "band_max": 0.740118,
+          "band_width": 1.606899,
+          "seed_flip_means": [
+            -0.866781,
+            0.740118,
+            null,
+            0.503597,
+            0.508846,
+            0.370329,
+            0.514744,
+            null,
+            0.709882,
+            0.511408
+          ]
+        }
+      }
+    ],
+    "inference_warnings": [
+      {
+        "code": "EDGE_E_VALUE_NON_FINITE_DROPPED",
+        "message": "7 edge E-value entries were omitted from edge_e_values: 7 carried no finite E-value from the analysis engine (an unflippable edge, whose current and flip means coincide, has no evidence ratio). edge_e_values is shorter because those entries could not be represented, not because they were computed empty. All other analyses are unaffected.",
+        "severity": "info"
+      }
+    ],
+    "confidence_tier": "strong",
+    "flip_thresholds": [],
+    "decision_brief": {
+      "brief_id": "4907645b-6eb1-4353-8f1b-7218a24161fa",
+      "version": "1",
+      "created_at": "2026-07-29T23:12:09.218Z",
+      "headline": "Keep Current Setup (Status Quo) currently leads by 88 points, but the model is not yet strong enough for an unqualified decision. Treat this as a provisional lead until the fragile assumptions are checked. Validate the fragile assumptions before treating this as a decision.",
+      "options": [
+        {
+          "option_id": "opt_status_quo",
+          "label": "Keep Current Setup (Status Quo)",
+          "win_probability": 0.930125,
+          "rank": 1
+        },
+        {
+          "option_id": "opt_hubspot",
+          "label": "HubSpot",
+          "win_probability": 0.047375,
+          "rank": 2
+        },
+        {
+          "option_id": "opt_salesforce",
+          "label": "Salesforce",
+          "win_probability": 0.012875,
+          "rank": 3
+        },
+        {
+          "option_id": "opt_pipedrive",
+          "label": "Pipedrive",
+          "win_probability": 0.009625,
+          "rank": 4
+        }
+      ],
+      "top_drivers": [
+        {
+          "factor_label": "Sales Team Size",
+          "sensitivity": 0.40606060606060607,
+          "direction": "negative"
+        },
+        {
+          "factor_label": "User Adoption Risk",
+          "sensitivity": 0.2727272727272727,
+          "direction": "negative"
+        }
+      ],
+      "key_assumptions": [
+        "Sales Team Size",
+        "User Adoption Risk"
+      ],
+      "what_would_change": [
+        "3-Year Total Cost of Ownership Efficiency → Maximise CRM Value Over Three Years",
+        "Sales Team Size → 3-Year Total Cost of Ownership Efficiency",
+        "User Adoption Risk → Low User Adoption and Productivity Loss",
+        "Sales Team Productivity Gain → Maximise CRM Value Over Three Years",
+        "Low User Adoption and Productivity Loss → Maximise CRM Value Over Three Years",
+        "Future Switching Cost and Lock-in → Maximise CRM Value Over Three Years",
+        "Integration and Workflow Value → Maximise CRM Value Over Three Years"
+      ],
+      "robustness": "robust",
+      "warnings": [
+        {
+          "code": "DOMINANT_FACTOR",
+          "message": "One factor dominates. What would change if Sales Team Size had less influence?",
+          "severity": "warning"
+        },
+        {
+          "code": "INFLUENTIAL_EXTERNALS",
+          "message": "External factors Sales Team Size, User Adoption Risk significantly affect your outcome but are inherently uncertain. How might you bound these?",
+          "severity": "warning"
+        },
+        {
+          "code": "M2_UNAVAILABLE",
+          "message": "Decision review was unavailable; brief uses deterministic coaching fallback",
+          "severity": "warning"
+        }
+      ],
+      "headline_banded": {
+        "text": "Keep Current Setup (Status Quo) is clearly ahead.",
+        "band": "clearly_ahead",
+        "leader_option_id": "opt_status_quo",
+        "leader_label": "Keep Current Setup (Status Quo)",
+        "runner_up_option_id": "opt_hubspot",
+        "runner_up_label": "HubSpot",
+        "win_probability_gap": 0.8827499999999999,
+        "robustness_gated": false,
+        "doctrine": "provisional_doctrine_v0"
+      },
+      "defaulted_assumptions": [
+        {
+          "factor_label": "User Adoption Risk",
+          "note": "No starting value was provided for \"User Adoption Risk\" — the analysis used a default. Setting a real value or range would make this result more trustworthy.",
+          "source": "value_defaulted",
+          "doctrine": "provisional_doctrine_v0"
+        },
+        {
+          "factor_label": "Sales Team Size",
+          "note": "No starting value was provided for \"Sales Team Size\" — the analysis used a default. Setting a real value or range would make this result more trustworthy.",
+          "source": "value_defaulted",
+          "doctrine": "provisional_doctrine_v0"
+        }
+      ],
+      "robustness_caveat": {
+        "text": "This ranking held up under the perturbations tested. That is not a guarantee — defaulted or uncertain inputs can still change the result.",
+        "basis": "is_robust",
+        "doctrine": "provisional_doctrine_v0"
+      },
+      "warning_codes": [],
+      "analysis_summary": {
+        "leading_option": "Keep Current Setup (Status Quo)",
+        "win_probability": 0.930125,
+        "robustness_band": "robust"
+      }
+    },
+    "factor_evppi": [
+      {
+        "factor_id": "fac_adoption_risk",
+        "evppi": 0,
+        "evppi_raw": 0,
+        "baseline_max_expected_utility": 0.009276,
+        "conditional_max_expected_utility": 0.009276,
+        "units": "outcome",
+        "method": "regression_evppi_v1",
+        "regression_degree": 4,
+        "n_samples": 4000,
+        "clamped_low": true,
+        "clamped_high": false,
+        "noise_floor": 0,
+        "status": "below_resolution",
+        "correlation_active": false
+      },
+      {
+        "factor_id": "fac_team_size",
+        "evppi": 0,
+        "evppi_raw": 0,
+        "baseline_max_expected_utility": 0.009276,
+        "conditional_max_expected_utility": 0.009276,
+        "units": "outcome",
+        "method": "regression_evppi_v1",
+        "regression_degree": 4,
+        "n_samples": 4000,
+        "clamped_low": false,
+        "clamped_high": false,
+        "noise_floor": 0,
+        "status": "resolved",
+        "correlation_active": false
+      }
+    ],
+    "decision_evpi": 0.0025884598066408643,
+    "p_win_sensitivity": [
+      {
+        "factor_id": "fac_integration_depth",
+        "p_win_delta": 0.009125,
+        "p_win_delta_percentage_points": 0.91,
+        "current_metric": 0.9285,
+        "perfect_metric": 0.937625,
+        "metric_type": "p_win_recommended",
+        "method": "p_win_delta_at_mean_v1",
+        "n_samples": 2000,
+        "status": "below_resolution",
+        "clamped": false,
+        "noise_floor": 0.03099,
+        "noise_floor_method": "z95_worst_case_bernoulli_diff",
+        "labelling_doctrine": "provisional_doctrine_v0"
+      },
+      {
+        "factor_id": "fac_adoption_risk",
+        "p_win_delta": 0.002,
+        "p_win_delta_percentage_points": 0.2,
+        "current_metric": 0.9285,
+        "perfect_metric": 0.9305,
+        "metric_type": "p_win_recommended",
+        "method": "p_win_delta_at_mean_v1",
+        "n_samples": 2000,
+        "status": "below_resolution",
+        "clamped": false,
+        "noise_floor": 0.03099,
+        "noise_floor_method": "z95_worst_case_bernoulli_diff",
+        "labelling_doctrine": "provisional_doctrine_v0"
+      },
+      {
+        "factor_id": "fac_license_cost",
+        "p_win_delta": 0,
+        "p_win_delta_percentage_points": 0,
+        "current_metric": 0.9285,
+        "perfect_metric": 0.923,
+        "metric_type": "p_win_recommended",
+        "method": "p_win_delta_at_mean_v1",
+        "n_samples": 2000,
+        "status": "below_resolution",
+        "clamped": true,
+        "noise_floor": 0.03099,
+        "noise_floor_method": "z95_worst_case_bernoulli_diff",
+        "labelling_doctrine": "provisional_doctrine_v0"
+      },
+      {
+        "factor_id": "fac_onboarding_time",
+        "p_win_delta": 0,
+        "p_win_delta_percentage_points": 0,
+        "current_metric": 0.9285,
+        "perfect_metric": 0.925,
+        "metric_type": "p_win_recommended",
+        "method": "p_win_delta_at_mean_v1",
+        "n_samples": 2000,
+        "status": "below_resolution",
+        "clamped": true,
+        "noise_floor": 0.03099,
+        "noise_floor_method": "z95_worst_case_bernoulli_diff",
+        "labelling_doctrine": "provisional_doctrine_v0"
+      },
+      {
+        "factor_id": "fac_team_size",
+        "p_win_delta": 0,
+        "p_win_delta_percentage_points": 0,
+        "current_metric": 0.9285,
+        "perfect_metric": 0.927375,
+        "metric_type": "p_win_recommended",
+        "method": "p_win_delta_at_mean_v1",
+        "n_samples": 2000,
+        "status": "below_resolution",
+        "clamped": true,
+        "noise_floor": 0.03099,
+        "noise_floor_method": "z95_worst_case_bernoulli_diff",
+        "labelling_doctrine": "provisional_doctrine_v0"
+      }
+    ]
+  },
+  "computed_against_hash": "7a7784bca87f5a87"
+}

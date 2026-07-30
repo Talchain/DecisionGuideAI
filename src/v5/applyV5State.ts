@@ -22,7 +22,12 @@
  *      normalisation) writes nothing. Also: ui_directive verbs
  *      (highlight / focus / open_inspector) — the AI's "point at the graph"
  *      gestures, each reusing the seam its user-driven equivalent uses.
- *   3. analysis_result.enrichment.decision_review → runMeta.ceeReviewV1.
+ *   3. analysis_result.enrichment.decision_review → runMeta. TWO different
+ *      payloads share that key and go to two different fields: the live 0.30
+ *      shape → `runMeta.decisionReview030`, the M1 REST shape →
+ *      `runMeta.ceeReviewV1` (inert on live turns — see decisionReviewAdapter).
+ *      BOTH are written on every analysis turn, value or null, so neither can
+ *      go stale behind the other (ROADMAP 2.154).
  *      Block enrichment is the canonical source. A secondary check on a
  *      non-schema top-level enrichment field (future CEE extension) is
  *      gated behind a runtime presence check so it safely no-ops today.
@@ -46,7 +51,10 @@ import type { ScenarioStage } from '../types/scenario'
 import { logV5StateStep } from './debugLog'
 import { pulseAppliedTargets } from '../canvas/utils/appliedEditPulse'
 import { focusNodeById, focusEdgeById } from '../canvas/utils/focusHelpers'
-import { extractDecisionReview } from './decisionReviewAdapter'
+import {
+  readDecisionReviewWireState,
+  type DecisionReview030,
+} from './decisionReviewAdapter'
 import { mapV5AnalysisToReport } from './mapV5AnalysisToReport'
 import { v5StageToScenarioStage } from './stageMapper'
 
@@ -63,7 +71,11 @@ export interface V5ApplicatorStore {
   nodes: Node[]
   edges: Edge[]
   /** Partial merge into runMeta — only provided fields are updated. */
-  setRunMeta: (meta: { ceeReviewV1: CeeDecisionReviewPayloadV1 | null }) => void
+  setRunMeta: (meta: {
+    ceeReviewV1: CeeDecisionReviewPayloadV1 | null
+    /** ROADMAP 2.154 — the 0.30 review view-model, or null to evict. */
+    decisionReview030: DecisionReview030 | null
+  }) => void
   /** Write (or clear) the CEE analysis_ready payload that gates the run. */
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
   /**
@@ -464,7 +476,31 @@ function normaliseStage(
 
 /**
  * Extract and apply decision_review from an enrichment dict to runMeta.
- * Returns true when applied; false when enrichment is absent or invalid.
+ * Returns true when a review of EITHER recognised shape was applied; false
+ * when the key is absent, degraded (`null`) or malformed.
+ *
+ * ROADMAP 2.154 — two shapes share this key and they go to two different
+ * runMeta fields. Both are written on every call so neither can go stale behind
+ * the other: a turn carrying a 0.30 review evicts a prior turn's M1 review via
+ * the `: null` ternary below, and vice versa.
+ *
+ * ⚠ A previous version of this comment claimed the eviction was "load-bearing,
+ * not hygiene" and that it justified keeping the adapter's M1 branch. The
+ * second half was **backwards and is withdrawn** (A3): eviction here does not
+ * depend on that branch. Returning `false` sends the caller to its `else` arm,
+ * which clears BOTH fields unconditionally — so if the M1 branch did not exist,
+ * an M1-shaped payload would be evicted MORE aggressively, not less. The branch
+ * SUPPRESSES eviction for that case by retaining the payload. See
+ * `decisionReviewAdapter.ts`'s header for the honest (weaker) rationale.
+ *
+ * The eviction itself is still worth having and is unaffected by any of that:
+ * `runMeta.ceeReviewV1` has THREE live producers outside this path —
+ * `useResultsRun.ts:159` (REAL M1 off the PLoT v1 SSE stream),
+ * `useV2Run.ts:1055` and `hydrateAnalysis.ts:154` (both synthesised) — so a
+ * stale review from one of them must not outlive the turn that replaced it.
+ * (`useConversation.ts:3112` and `useV2Run.ts:994` also pass a `ceeReviewV1`,
+ * but through `resultsComplete`, which discards it — see the manifest table in
+ * `decisionReviewAdapter.ts`. Naming those as live was the earlier error.)
  */
 function applyDecisionReviewToRunMeta(
   enrichment: Record<string, unknown> | undefined,
@@ -472,9 +508,12 @@ function applyDecisionReviewToRunMeta(
   source: 'block' | 'top-level',
 ): boolean {
   if (!enrichment) return false
-  const reviewV1 = extractDecisionReview(enrichment)
-  if (!reviewV1) return false
-  store.setRunMeta({ ceeReviewV1: reviewV1 })
+  const state = readDecisionReviewWireState(enrichment)
+  if (state.kind !== 'v0_30' && state.kind !== 'm1') return false
+  store.setRunMeta({
+    ceeReviewV1: state.kind === 'm1' ? state.review : null,
+    decisionReview030: state.kind === 'v0_30' ? state.review : null,
+  })
   if (source === 'top-level' && import.meta.env.DEV) {
     console.warn('[V5] decision_review applied from top-level enrichment fallback')
   }
@@ -785,8 +824,8 @@ export function applyV5State(
       }
     } else if (block.type === 'analysis_result') {
       // Block-level enrichment is the canonical source for decision_review.
-      // Always write ceeReviewV1 — either the extracted value or null — so
-      // stale review content from a prior turn cannot persist when the new
+      // Always write BOTH review fields — either the extracted value or null —
+      // so stale review content from a prior turn cannot persist when the new
       // response carries no valid decision_review. The top-level fallback
       // below may still overwrite null if top-level enrichment is present.
       const blockEnrichment = block.enrichment
@@ -794,13 +833,15 @@ export function applyV5State(
       if (appliedFromBlock) {
         applied.push('analysis_result:decision_review:block')
       } else {
-        // No valid review in block enrichment — clear explicitly so stale
-        // data from a previous analysis turn is not shown.
-        store.setRunMeta({ ceeReviewV1: null })
+        // No review of either recognised shape in block enrichment — clear
+        // explicitly so data from a previous analysis turn is not shown. This
+        // is the by-design path for the enricher's soft-fail skips and for
+        // CEE's `decision_review: null` degraded marker; it is not an error.
+        store.setRunMeta({ ceeReviewV1: null, decisionReview030: null })
         deferred.push({
           reason: 'analysis_result_no_decision_review_in_block',
           block,
-          detail: 'No valid decision_review in block enrichment; ceeReviewV1 cleared (top-level fallback may still apply).',
+          detail: 'No valid decision_review in block enrichment; ceeReviewV1 and decisionReview030 cleared (top-level fallback may still apply).',
         })
       }
     }
@@ -834,7 +875,9 @@ export function applyV5State(
     step_name: 'graph_patches_and_block_effects',
     input_keys: Object.keys(blockTypeCounts),
     output_keys:
-      blockAppliedCount > 0 ? ['nodes', 'edges', 'runMeta.ceeReviewV1'] : [],
+      blockAppliedCount > 0
+        ? ['nodes', 'edges', 'runMeta.ceeReviewV1', 'runMeta.decisionReview030']
+        : [],
     applied: blockAppliedCount > 0,
     skip_reason: blockAppliedCount === 0 ? 'no_applicable_blocks' : undefined,
   })
@@ -857,7 +900,7 @@ export function applyV5State(
         step_number: 3,
         step_name: 'top_level_enrichment_fallback',
         input_keys: ['enrichment.decision_review'],
-        output_keys: ok ? ['runMeta.ceeReviewV1'] : [],
+        output_keys: ok ? ['runMeta.ceeReviewV1', 'runMeta.decisionReview030'] : [],
         applied: ok,
         skip_reason: ok ? undefined : 'decision_review_extraction_failed',
       })

@@ -3223,9 +3223,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         resultsStatus,
         report: report ?? null,
         ceeReviewV1: runMeta?.ceeReviewV1 ?? null,
+        // ROADMAP 2.154 — a genuine input, and a genuine dep: the 0.30 review
+        // lands via setRunMeta AFTER `report` is written (shallow merge, same
+        // `report` identity), so omitting it from the dep list would leave the
+        // `decision_review_unavailable` qualifier stuck on until the next
+        // unrelated report change.
+        decisionReview030: runMeta?.decisionReview030 ?? null,
         driversPayload: report?.drivers_payload ?? null,
       }),
-    [resultsStatus, report, runMeta?.ceeReviewV1],
+    [resultsStatus, report, runMeta?.ceeReviewV1, runMeta?.decisionReview030],
   )
 
   // Wave F-A: register option ids for identity-anchored ordinals the first
