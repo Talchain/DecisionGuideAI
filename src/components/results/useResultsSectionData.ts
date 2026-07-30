@@ -2583,7 +2583,14 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         toLabel: targetName,
         alternativeWinnerLabel,
         alternativeWinnerId: altWinnerId,
-        switchProbability: fe.switch_probability ?? fe.marginal_switch_probability,
+        // Presence branch (schemas 0.30.0; UI half of plot-lite-service#294):
+        // switch_probability ABSENT means NOT COMPUTED — the producer omits it
+        // rather than derive one from a substitute. marginal_switch_probability
+        // is a DIFFERENT Monte Carlo (P(flip | only this edge varies)), never a
+        // fallback: coalescing it here rendered a fabricated "(NN% probability)"
+        // in T1FlipRiskCallout, whose own `!= null` branch already degrades
+        // honestly when the number is absent.
+        switchProbability: typeof fe.switch_probability === 'number' ? fe.switch_probability : undefined,
         // Task C: Flag for HeroSection to show generic bullet when labels unresolved
         labelsResolved,
       }
