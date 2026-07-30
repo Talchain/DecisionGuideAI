@@ -17,6 +17,8 @@
  * Nothing in this module or `measurementEvents.ts` changes either way.
  */
 
+import { trackEvent } from '../lib/posthog'
+
 export const MEASUREMENT_CONFIG = {
   /**
    * Which measures the testing window is scoped to. Informational — no code
@@ -26,13 +28,25 @@ export const MEASUREMENT_CONFIG = {
   measuresInScope: ['M1', 'M2', 'M3', 'M5'] as const,
 
   /**
-   * Participant-tag vocabulary. `[]` = untagged, which is the shipped state:
-   * no tag is emitted, and `session_started.participant_tag` is `null`.
+   * Participant tag — **DEPLOY-WIDE, EXACTLY ZERO OR ONE ENTRY.**
    *
-   * ⚠ PARKED. Populating this is a deliberate act with a PII consequence, and
-   * it is coupled to `participantTagsArePseudonymous` below. Do not populate it
-   * with anything that identifies a person (no names, no emails, no initials) —
-   * a tag is a pseudonym or it is identity, and identity has its own channel.
+   * ⚠ READ THIS BEFORE POPULATING IT. This is NOT a roster. There is no
+   * per-session selection mechanism anywhere in the app: nothing maps a browser
+   * session to one entry of a list. So the only meanings that exist are:
+   *
+   *   []            → untagged. The shipped state. `participant_tag` is null.
+   *   ['P3']        → THIS DEPLOY tags every session 'P3'.
+   *   ['P1','P2',…] → **NOT SUPPORTED.** There is nothing to choose between
+   *                   them, so a list cannot silently "work".
+   *
+   * The natural reading of the word "vocabulary" is a roster, and acting on
+   * that reading would run the whole testing window untagged with nothing red —
+   * and per-participant attribution is UNRECOVERABLE after the window closes.
+   * So `resolveParticipantTag()` FAILS LOUD on length > 1 rather than returning
+   * null: it warns and emits a visible violation event. See below.
+   *
+   * Also: a tag is a pseudonym or it is identity. No names, no emails, no
+   * initials — identity has its own deliberate channel (`posthog.identify`).
    */
   participantTags: [] as readonly string[],
 
@@ -83,15 +97,55 @@ export function bucketDwellMs(rawMs: number): number {
   return floor
 }
 
+/** Emitted when `participantTags` is configured in a way that cannot work. */
+export const MEASUREMENT_CONFIG_VIOLATION_EVENT = 'ui.measurement_config_violation'
+
 /**
  * The participant tag to attach to `session_started`, or `null` when untagged.
  *
- * Reads the vocabulary only — it never derives a tag from the user, the
- * account, or the URL. An empty vocabulary means untagged, which is the
- * shipped state.
+ * Reads the configured value only — it never derives a tag from the user, the
+ * account, or the URL.
+ *
+ * ⚠ THIS USED TO RETURN `null` SILENTLY FOR ANY LENGTH OTHER THAN 1. That made
+ * the single most likely misconfiguration — populating it as a roster,
+ * `['P1'..'P8']` — indistinguishable from "deliberately untagged": no error, no
+ * warning, a green build, and an entire testing window recorded with no
+ * per-participant attribution. That attribution cannot be reconstructed
+ * afterwards, so a silent failure here is not a degraded measurement, it is a
+ * destroyed one.
+ *
+ * It now fails LOUD: a console warning plus a
+ * `ui.measurement_config_violation` event carrying the COUNT (never the tags —
+ * a tag is a pseudonym and the violation report is not a place to publish the
+ * roster). It still returns null, because emitting an arbitrary element of a
+ * list nobody can choose between would be worse than emitting nothing.
+ *
+ * Pinned by `src/telemetry/__tests__/measurementConfig.spec.ts`.
  */
 export function resolveParticipantTag(): string | null {
-  return MEASUREMENT_CONFIG.participantTags.length === 1
-    ? MEASUREMENT_CONFIG.participantTags[0]
-    : null
+  const tags = MEASUREMENT_CONFIG.participantTags
+  if (tags.length === 1) return tags[0]
+  if (tags.length > 1) {
+    const message =
+      `[measurement] participantTags has ${tags.length} entries. It is DEPLOY-WIDE and ` +
+      'supports exactly 0 or 1 — there is no per-session selection mechanism, so a list ' +
+      'cannot be applied. Every session in this deploy will be recorded UNTAGGED, and ' +
+      'per-participant attribution is unrecoverable once the window closes. Set exactly ' +
+      'one tag per deploy, or leave it empty deliberately.'
+    try {
+      console.warn(message)
+    } catch {
+      /* never break the app over a warning */
+    }
+    try {
+      trackEvent(MEASUREMENT_CONFIG_VIOLATION_EVENT, {
+        setting: 'participantTags',
+        // COUNT ONLY. The tags themselves are pseudonyms, not diagnostics.
+        configured_count: tags.length,
+      })
+    } catch {
+      /* telemetry must never break the app */
+    }
+  }
+  return null
 }

@@ -22,18 +22,61 @@
 //      allowed to run. A fixture that silently stopped rendering the canary
 //      would otherwise make the whole file pass by driving nothing.
 //
-// WHAT THE CANARY IS ON
-// ---------------------
-// Every user- or model-authored string the instrumented surfaces can reach:
-// driver labels, flip-risk from/to labels, trade-off factor labels and winner
-// labels, resolve-next row labels, contested-edge node labels. These are the
-// exact names on `measurementEvents.ts`'s never-capture list, and `factor_label`
-// in particular is RENDERED by the resolve-next surface — one spread from the
-// payload.
+// WHAT THE CANARY IS ON, AND THE EXACT SCOPE OF THE GUARANTEE
+// -----------------------------------------------------------
+// ⚠ THIS HEADER PREVIOUSLY CLAIMED THE CANARY WAS ON "contested-edge node
+// labels" WHILE NO TEST IN THIS FILE RENDERED ContestedEdgeCard AT ALL. That is
+// CLAUDE.md trap 14 in its sharpest form — a false label inside the very file
+// whose job is to BE a guarantee — and it is corrected here rather than quietly
+// deleted. The original scope was TWO surface groups out of ~7, and the real
+// leak (option labels and node labels reaching `run_failed`) sat in the
+// uncovered set and shipped.
+//
+// The guarantee is now a MANIFEST, and § 3 DERIVES a completeness check from
+// the emitters that actually exist, so a NEW uncovered emitter REDs this file
+// instead of silently shrinking the claim.
+//
+//   RENDER-DRIVEN — a real component renders, the canary is proven present in
+//   the DOM, and only then may the absence assertion run:
+//     · V7EvidenceDisclosure, all four views     → evidence_view_opened
+//     · ContestedEdgeCard, mount + unmount       → contested_edge_viewed
+//     · FeedbackRow, thumbs                      → turn_feedback
+//
+//   DIRECT-DRIVEN — the sender is called with a canary-laden payload. There is
+//   no render because these senders' inputs are not rendered text; they are
+//   strings assembled in hooks:
+//     · every run-spine sender                   → run_started, run_completed,
+//                                                  run_failed,
+//                                                  plot.empty_computed_results
+//     · trackGuidance, all 12 guidance_* events
+//     · trackMeasurement, every declared event
+//
+//   STATIC-DERIVED — asserted ABOUT THE SOURCE rather than by driving it,
+//   because the emitter runs at app boot or needs a store this harness cannot
+//   honestly assemble. THE CLAIM TYPE IS WEAKER AND IS NAMED AS SUCH; do not
+//   read these as behavioural proof:
+//     · session_started (C5, emitted from initMonitoring)
+//     · GuidanceStrip's dwell_ms additions
+//
+// The canary is placed on every user- or model-authored string those surfaces
+// can reach: driver labels, flip-risk from/to labels, trade-off factor and
+// winner labels, resolve-next row labels, contested-edge node/edge labels, and
+// every free-text field on the run-spine payloads. `factor_label` in particular
+// is RENDERED by the resolve-next surface — one spread from the payload.
 // =============================================================================
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+
+/**
+ * Every event name this file has caused to be emitted, across ALL tests.
+ *
+ * § 4's completeness check reads THIS, not the spec's source text. An earlier
+ * version grepped the source — which passes the moment an event name appears in
+ * a comment, so the header's own prose would have satisfied it. A coverage
+ * claim that a doc comment can satisfy is not a coverage claim.
+ */
+const EMITTED_EVENTS = new Set<string>()
 
 const trackEventSpy = vi.fn()
 vi.mock('../../lib/posthog', () => ({
@@ -43,10 +86,15 @@ vi.mock('../../lib/posthog', () => ({
   resetPostHog: vi.fn(),
 }))
 
+const captureMessageSpy = vi.fn()
+vi.mock('@sentry/react', () => ({ captureMessage: (...a: unknown[]) => captureMessageSpy(...a) }))
+
+import * as runSpine from '../../lib/resultsInstrumentation'
+import { GUIDANCE_EVENTS, trackGuidance } from '../guidanceEvents'
 import { V7EvidenceDisclosure } from '../../components/results/v7/V7EvidenceDisclosure'
 import { FeedbackRow } from '../../canvas/conversation/FeedbackRow'
 import { v7EvidenceModel } from '../../__fixtures__/v7EvidenceModel'
-import { trackMeasurement } from '../measurementEvents'
+import { trackMeasurement, MEASUREMENT_EVENT_SCHEMAS } from '../measurementEvents'
 
 const CANARY = 'PII_CANARY_do_not_ship_7f3a'
 
@@ -108,6 +156,9 @@ function canaryEvidenceModel() {
 
 beforeEach(() => {
   trackEventSpy.mockClear()
+  trackEventSpy.mockImplementation((name: string) => {
+    EMITTED_EVENTS.add(String(name))
+  })
 })
 
 afterEach(() => {
@@ -244,5 +295,216 @@ describe('1.68 · S2 — no user-authored content reaches a measurement payload'
     const violation = trackEventSpy.mock.calls.find((c) => c[0] === 'ui.measurement_schema_violation')
     expect(violation, 'the undeclared property was dropped silently').toBeTruthy()
     expect((violation![1] as { undeclared_keys: string[] }).undeclared_keys).toEqual(['assistant_text'])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// § 3 — THE RUN SPINE. This is where the real leak was, and it shipped because
+//       the original version of this file did not look here.
+// ---------------------------------------------------------------------------
+//
+// `useV2Run.ts` builds `message` by interpolating OPTION LABELS and NODE LABELS
+// (`targetName` → `labelByNodeId` → `n.data.label`) and passed it as
+// `error_message`. `OutputsDock.tsx` passed the store's `error.message`, which
+// is the same text. Both reached `trackEvent('run_failed', payload)` verbatim
+// AND Sentry's `extra`. Before the re-route the sender was DEAD, so the leak was
+// latent; the re-route would have made it live on activation day.
+//
+// The fix is at the SEAM, not at the call sites: the transport payload is built
+// from a DECLARED ALLOWLIST inside `resultsInstrumentation.ts`, so a future
+// caller that passes free text is safe by construction rather than by review.
+
+describe('1.68 · S2 — the RUN SPINE carries no user-authored text', () => {
+  it('run_failed drops error_message entirely — it is never transported', () => {
+    runSpine.trackRunFailed({
+      error_code: 'MISSING_INTERVENTIONS',
+      // Verbatim shape of what useV2Run.ts:607-620 assembles.
+      error_message: `Option "${CANARY} Expand to EU" has effects on "${CANARY} CAC" with no usable value.`,
+    })
+
+    const failed = trackEventSpy.mock.calls.filter((c) => c[0] === 'run_failed')
+    expect(failed.length, 'run_failed did not fire').toBe(1)
+    expect(
+      Object.keys(failed[0][1] as object),
+      'run_failed still transports error_message. That string is assembled from option ' +
+        'labels and node labels in useV2Run.ts — user-authored content, banned outright by ' +
+        "measurementEvents.ts's never-capture list and by posthog.ts's own file header.",
+    ).not.toContain('error_message')
+    assertNoCanary(trackEventSpy.mock.calls)
+  })
+
+  it('run_failed carries a DERIVED categorical instead, so the signal survives', () => {
+    runSpine.trackRunFailed({ error_code: 'MISSING_INTERVENTIONS', error_message: CANARY })
+    const props = trackEventSpy.mock.calls.find((c) => c[0] === 'run_failed')![1] as Record<string, unknown>
+    expect(props.error_code).toBe('MISSING_INTERVENTIONS')
+    expect(
+      props.error_category,
+      'run_failed lost its categorical. Dropping error_message without replacing it with a ' +
+        'closed derived category would trade a PII leak for a measurement hole.',
+    ).toBe('input_incomplete')
+  })
+
+  it('the SENTRY extra is scrubbed too — a third party is still a third party', () => {
+    runSpine.trackRunFailed({ error_code: 'MISSING_INTERVENTIONS', error_message: CANARY })
+    expect(captureMessageSpy, 'Sentry was not called at all').toHaveBeenCalledTimes(1)
+    expect(
+      JSON.stringify(captureMessageSpy.mock.calls[0]),
+      'the Sentry extra still carries error_message. Sentry is an ingest endpoint at a ' +
+        'third party exactly as PostHog is; the never-capture list does not stop at one vendor.',
+    ).not.toContain(CANARY)
+  })
+
+  it('plot.empty_computed_results drops the anomaly MESSAGE, keeps field + status', () => {
+    runSpine.trackEmptyComputedResults({
+      request_id: 'req-1',
+      anomalies: [{ field: 'drivers', status: 'empty', message: `${CANARY} for node "X"` }],
+    })
+    assertNoCanary(trackEventSpy.mock.calls)
+    const props = trackEventSpy.mock.calls.find((c) => c[0] === 'plot.empty_computed_results')![1] as {
+      anomalies: Array<Record<string, unknown>>
+    }
+    expect(Object.keys(props.anomalies[0]).sort()).toEqual(['field', 'status'])
+  })
+
+  it('run_completed carries only bands and counts — never a label or a raw figure', () => {
+    runSpine.trackRunCompleted({
+      confidence_level: 'high',
+      drivers_informative: true,
+      trace_id: 'trace-abc',
+      duration_ms: 1234,
+      // @ts-expect-error the shape useV2Run used to pass — undeclared, and it
+      // reached PostHog anyway because a TS type is not a runtime filter.
+      option_count: 3,
+    })
+    const props = trackEventSpy.mock.calls.find((c) => c[0] === 'run_completed')![1] as object
+    expect(Object.keys(props).sort()).toEqual([
+      'confidence_level',
+      'drivers_informative',
+      'duration_ms',
+      'trace_id',
+    ])
+    assertNoCanary(trackEventSpy.mock.calls)
+  })
+
+  it('UNDECLARED properties are dropped from every run-spine sender', () => {
+    // useV2Run passed duration_ms/request_id/option_count/has_drivers, none of
+    // which are on the declared payload types. They reached PostHog anyway,
+    // because a TypeScript type is not a runtime filter.
+    runSpine.trackRunStarted({
+      option_count: 3,
+      // @ts-expect-error deliberately undeclared — the accident under test
+      scenario_title: CANARY,
+    })
+    assertNoCanary(trackEventSpy.mock.calls)
+  })
+
+  it('session_started carries a tag, a build id and an auth mode — nothing derived from a user', () => {
+    // STATIC-DERIVED in the manifest becomes DIRECT-DRIVEN here: the real
+    // emitter runs at app boot from `initMonitoring`, which this harness cannot
+    // honestly assemble, but the PAYLOAD SHAPE is drivable and is what the
+    // never-capture list constrains.
+    trackMeasurement('session_started', {
+      participant_tag: null,
+      build_id: 'abc1234',
+      auth_mode: 'guest',
+    })
+    const props = trackEventSpy.mock.calls.find((c) => c[0] === 'session_started')![1] as object
+    expect(Object.keys(props).sort()).toEqual(['auth_mode', 'build_id', 'participant_tag'])
+    assertNoCanary(trackEventSpy.mock.calls)
+  })
+
+  it('contested_edge_viewed carries an id and a band — never an edge or node label', () => {
+    trackMeasurement('contested_edge_viewed', {
+      edge_id: 'e1',
+      dwell_ms: 5_000,
+      strength_band: 'strong',
+      scenario_id: 'sc-1',
+      // @ts-expect-error the accident: the rendered edge label spread in
+      edge_label: `${CANARY} Marketing spend → CAC`,
+    })
+    assertNoCanary(trackEventSpy.mock.calls)
+  })
+
+  it('ALL 12 guidance_* events carry no free text', () => {
+    for (const key of Object.keys(GUIDANCE_EVENTS) as Array<keyof typeof GUIDANCE_EVENTS>) {
+      trackGuidance(key, {
+        item_id: `item-${key}`,
+        item_type: 'bias_alert',
+        surface: 'guidance_panel',
+        scenario_id: 'sc-1',
+        profile_stage: 'ideate',
+        dwell_ms: 5_000,
+      })
+    }
+    const names = trackEventSpy.mock.calls.map((c) => c[0])
+    expect(
+      names.filter((n) => String(n).startsWith('guidance_')).length,
+      'not every guidance event fired — the loop is not driving the taxonomy it claims to',
+    ).toBe(Object.keys(GUIDANCE_EVENTS).length)
+    assertNoCanary(trackEventSpy.mock.calls)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// § 4 — COMPLETENESS. The manifest must not be allowed to fall behind reality.
+// ---------------------------------------------------------------------------
+
+describe('1.68 · S2 — the coverage manifest is BEHAVIOURAL, not a source grep', () => {
+  // ⚠ ORDER MATTERS. These run last in the file, so `EMITTED_EVENTS` has been
+  // filled by every test above. That is the point: the claim is "this suite
+  // actually caused each of these events to be emitted", which a comment cannot
+  // satisfy and a renamed-but-undriven sender cannot fake.
+
+  it('every exported run-spine sender was actually DRIVEN by this file', () => {
+    const senders = Object.keys(runSpine).filter((k) => k.startsWith('track')).sort()
+    expect(
+      senders.length,
+      'the run-spine export walk found nothing — every claim in § 3 is vacuous',
+    ).toBeGreaterThanOrEqual(4)
+
+    const RUN_SPINE_EVENT_BY_SENDER: Record<string, string> = {
+      trackRunStarted: 'run_started',
+      trackRunCompleted: 'run_completed',
+      trackRunFailed: 'run_failed',
+      trackEmptyComputedResults: 'plot.empty_computed_results',
+    }
+    // A NEW sender with no entry here is an unmapped sender — fail loudly
+    // rather than skip it, which is how a gap becomes invisible.
+    const unmapped = senders.filter((s2) => !(s2 in RUN_SPINE_EVENT_BY_SENDER))
+    expect(
+      unmapped,
+      'these run-spine senders have no event mapping in this spec, so the completeness ' +
+        'check silently ignores them. Map them and drive them.',
+    ).toEqual([])
+
+    const undriven = senders.filter((s2) => !EMITTED_EVENTS.has(RUN_SPINE_EVENT_BY_SENDER[s2]))
+    expect(
+      undriven,
+      'these run-spine senders were never actually made to emit by this file. That is ' +
+        'exactly how the run_failed leak shipped: the guarantee file did not look at the ' +
+        'surface the leak was on.',
+    ).toEqual([])
+  })
+
+  it('every DECLARED measurement event was actually emitted by this file', () => {
+    const declared = Object.keys(MEASUREMENT_EVENT_SCHEMAS).sort()
+    expect(declared.length, 'schema walk empty — this check would pass over nothing').toBeGreaterThanOrEqual(4)
+    const uncovered = declared.filter((e) => !EMITTED_EVENTS.has(e))
+    expect(
+      uncovered,
+      'these events are declared in measurementEvents.ts but this PII spec never caused ' +
+        'one to be emitted, so nothing here proves they are canary-free.',
+    ).toEqual([])
+  })
+
+  it('ANTI-VACUITY — the accumulator is not empty and is not everything', () => {
+    // If the recorder broke, `EMITTED_EVENTS` would be empty and both checks
+    // above would report "uncovered: [everything]" — loud. But if someone
+    // "fixed" that by seeding it, they would go green over nothing. Pin both ends.
+    expect(EMITTED_EVENTS.size, 'the emission recorder captured nothing').toBeGreaterThan(5)
+    expect(
+      EMITTED_EVENTS.has('an_event_that_does_not_exist'),
+      'the accumulator contains an event nothing emits — it has been seeded rather than filled',
+    ).toBe(false)
   })
 })

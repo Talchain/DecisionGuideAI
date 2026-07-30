@@ -277,6 +277,29 @@ export function trackMeasurement<K extends MeasurementEventName>(
   event: K,
   payload: MeasurementPayloadMap[K],
 ): void {
+  // ⚠ NEVER-THROW. This wrapper is not defensive decoration.
+  //
+  // The design promised the deleted `metrics.ts`'s never-throw discipline would
+  // "reappear in the new schema module", and it did not — this function was
+  // unguarded while its own doc comment claimed telemetry must never break the
+  // product. Meanwhile `ContestedEdgeCard` emits from a `useEffect` CLEANUP: a
+  // throw there propagates out of React's unmount path and takes down the
+  // canvas subtree. A third-party SDK throwing inside `posthog.capture` would
+  // have unmounted the user's decision canvas.
+  //
+  // Pinned by `measurementEvents.neverThrow.spec.tsx`, driven from the real
+  // ContestedEdgeCard unmount, not from a synthetic call.
+  try {
+    emitMeasurement(event, payload)
+  } catch {
+    /* telemetry must never break the product */
+  }
+}
+
+function emitMeasurement<K extends MeasurementEventName>(
+  event: K,
+  payload: MeasurementPayloadMap[K],
+): void {
   const schema = MEASUREMENT_EVENT_SCHEMAS[event]
   const declared = new Set<string>([...schema.required, ...schema.optional])
 

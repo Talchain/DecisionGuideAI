@@ -63,10 +63,6 @@ const ARGS: Record<string, unknown[]> = {
   trackRunStarted: [{ option_count: 3, node_count: 9, edge_count: 12 }],
   trackRunCompleted: [{ confidence_level: 'high', drivers_informative: true, duration_ms: 1234 }],
   trackRunFailed: [{ error_code: 'E_TIMEOUT' }],
-  trackCompareOpened: [],
-  trackRetryClicked: [],
-  trackRemediationClicked: [{ code: 'add_factor', source: 'drivers' }],
-  trackCTAClicked: ['run_again'],
   trackEmptyComputedResults: [{ anomalies: [{ field: 'drivers', status: 'empty', message: 'none' }] }],
 }
 
@@ -75,10 +71,6 @@ const EVENT_NAMES: Record<string, string> = {
   trackRunStarted: 'run_started',
   trackRunCompleted: 'run_completed',
   trackRunFailed: 'run_failed',
-  trackCompareOpened: 'compare_opened',
-  trackRetryClicked: 'retry_clicked',
-  trackRemediationClicked: 'remediation_clicked',
-  trackCTAClicked: 'cta_clicked',
   trackEmptyComputedResults: 'plot.empty_computed_results',
 }
 
@@ -86,8 +78,24 @@ const SENDERS = Object.keys(instrumentation)
   .filter((k) => k.startsWith('track'))
   .sort()
 
-/** The count at tip 4709d4f0. A walker that sees fewer has broken, not shrunk. */
-const EXPECTED_SENDER_FLOOR = 8
+/**
+ * The count after the ROADMAP 1.68 review pass. It was 8; it is now 4, and the
+ * reduction is DELIBERATE — recorded here because the assertion below asks for
+ * exactly that justification rather than a silent edit:
+ *
+ *   · trackRetryClicked, trackRemediationClicked, trackCTAClicked — DELETED.
+ *     Zero product call sites repo-wide. Dead exports that read as
+ *     instrumentation are the defect this module exists to remove, not a
+ *     placeholder to keep warm.
+ *   · trackCompareOpened — MOVED to canvas/utils/sandboxTelemetry.ts, which is
+ *     where the real compare-open actions already call a same-named twin
+ *     (OutputsDock.tsx:1698, CompactOptionSpread.tsx:86). Two same-named
+ *     senders with different sinks is the hazard; one function driving both
+ *     sinks is the fix. Pinned by runSpineSingleEmission.spec.ts.
+ *
+ * A walker that sees fewer than 4 has BROKEN, not shrunk.
+ */
+const EXPECTED_SENDER_FLOOR = 4
 
 let fakeGlobalCapture: ReturnType<typeof vi.fn>
 

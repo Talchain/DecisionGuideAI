@@ -32,7 +32,36 @@ import {
   synthesizeCeeReviewFromV2,
   synthesizeCeeTraceFromV2,
 } from '../../adapters/plot/v2/responseMapper'
-import { trackRunCompleted, trackRunFailed, trackEmptyComputedResults } from '../../lib/resultsInstrumentation'
+// ⚠ RUN-SPINE TELEMETRY DELIBERATELY DOES NOT LIVE HERE — ROADMAP 1.68.
+//
+// This hook used to call `trackRunCompleted` once and `trackRunFailed` four
+// times. `OutputsDock.tsx` ALSO emits both, from a store-status-transition
+// effect — and OutputsDock consumes this very hook (`OutputsDock.tsx:696`), so
+// both always fired: TWO `run_completed` per run, with two DISJOINT payload
+// shapes (this hook sent `{duration_ms, option_count, has_drivers, request_id}`;
+// OutputsDock sends the declared `{confidence_level, drivers_informative,
+// trace_id, duration_ms}`). One event name with two shapes is the precise
+// defect the measurement design rejected `metrics.ts` for, and it was live.
+//
+// OutputsDock won as the single canonical emitter, on COVERAGE — not on
+// seniority. It observes the results STORE, so it fires for every run path:
+// this hook, `useResultsRun.ts`, `applyV5State.ts:1064` and
+// `useConversation.ts:3144/:3251`. The last two are the CEE-driven analysis
+// path, which never goes through this hook — so deleting OutputsDock's emitters
+// instead would have silently dropped the platform's primary analysis path.
+// `<OutputsDock />` is mounted unconditionally at `ReactFlowGraph.tsx:2243` and
+// collapses via CSS, so its effect is always live.
+//
+// A per-run dedup latch inside the seam was considered and REJECTED: there is
+// no reliable per-run identity in the store to key it on. `results.runId` is
+// written only by `resultsConnecting`, whose sole caller is
+// `useResultsRun.ts:85`; `results.startedAt` is written only by `resultsStart`,
+// called from this hook and `useResultsRun` but NOT from the CEE path. Keying a
+// latch on either would work in tests and fail silently on the path that
+// matters most.
+//
+// Pinned by `src/lib/__tests__/runSpineSingleEmission.spec.ts`.
+import { trackEmptyComputedResults } from '../../lib/resultsInstrumentation'
 import { generateGraphHash } from '../store/runHistory'
 import { trackTypedError } from '../../lib/telemetry'
 import { ApiError, NetworkError, ProcessingError, isApiError } from '../../lib/api-errors'
@@ -630,13 +659,6 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
             })
           }
 
-          trackRunFailed({
-            error_code: 'MISSING_INTERVENTIONS',
-            error_message: message,
-            duration_ms: Date.now() - startTime,
-            request_id: requestId,
-          })
-
           resultsError({
             code: 'MISSING_INTERVENTIONS',
             message,
@@ -798,12 +820,6 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
               ? 'GRAPH_TOO_COMPLEX'
               : 'VALIDATION_BLOCKED'
 
-        trackRunFailed({
-          error_code: promotedCode,
-          error_message: errorResult.status_reason,
-          duration_ms: elapsed_ms,
-          request_id: requestId,
-        })
 
         resultsError({
           code: promotedCode,
@@ -836,12 +852,6 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
           })
         }
 
-        trackRunFailed({
-          error_code: 'ANALYSIS_FAILED',
-          error_message: 'Analysis could not complete',
-          duration_ms: elapsed_ms,
-          request_id: requestId,
-        })
 
         // Create error report with critiques
         const errorReport = createErrorReport(
@@ -976,14 +986,6 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
             })
           }
         }
-
-        trackRunCompleted({
-          duration_ms: elapsed_ms,
-          option_count: successResult.option_comparison?.length ?? 0,
-          // Check edge_sensitivity since that's what PLoT actually returns
-          has_drivers: (successResult.edge_sensitivity?.length ?? successResult.drivers?.length ?? 0) > 0,
-          request_id: requestId,
-        })
 
         // Pass synthesized CEE V1 data to store so Decision Review panel can display content
         resultsComplete({
@@ -1136,12 +1138,17 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       }
 
       // P0 race fix: If this run was superseded, do not mutate shared state.
-      // Telemetry tracking (trackRunFailed, trackTypedError) is still safe — it's fire-and-forget.
+      // `trackTypedError` below is still safe — it's fire-and-forget. (The
+      // `trackRunFailed` this comment used to name moved to OutputsDock; see
+      // the run-spine note at the top of this file.)
       if (!isActiveRun) {
         return
       }
 
-      const elapsed_ms = Date.now() - startTime
+      // `elapsed_ms` was computed here only to be passed to `trackRunFailed`,
+      // which no longer emits from this hook. Removed rather than left unused:
+      // a dead duration is how a future reader concludes the timing is still
+      // being measured here when it is measured in OutputsDock.
       const message = err instanceof Error ? err.message : 'Unknown error'
 
       if (import.meta.env.DEV) {
@@ -1174,12 +1181,6 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       // Track typed error for observability
       trackTypedError(typedError)
 
-      trackRunFailed({
-        error_code: errorCode,
-        error_message: message,
-        duration_ms: elapsed_ms,
-        request_id: requestId,
-      })
 
       resultsError({
         code: errorCode,

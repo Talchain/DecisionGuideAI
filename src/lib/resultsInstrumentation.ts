@@ -5,11 +5,17 @@
  * - run_started: User clicks Run
  * - run_completed: Results received
  * - run_failed: Error returned
- * - compare_opened: Compare tab/view opened
- * - retry_clicked: Retry button clicked
- * - remediation_clicked: Remediation action clicked
- * - cta_clicked: A results CTA was pressed
  * - plot.empty_computed_results: backend claimed "computed", results were empty
+ *
+ * ⚠ FOUR SENDERS WERE DELETED HERE, and the reason is the same defect this
+ * module exists to fix. `trackRetryClicked`, `trackRemediationClicked` and
+ * `trackCTAClicked` had **ZERO product call sites** — dead exports that read as
+ * instrumentation. `trackCompareOpened` had call sites, but not these: the real
+ * compare-open actions (`OutputsDock.tsx:1698`, `CompactOptionSpread.tsx:86`)
+ * call a **same-named twin** in `canvas/utils/sandboxTelemetry.ts`. Two
+ * same-named senders with different sinks is the hazard, not the fix, so
+ * `compare_opened` now lives in that twin — one name, one function, both sinks.
+ * See `canvas/utils/sandboxTelemetry.ts`.
  *
  * ⚠ TRANSPORT — ROADMAP 2.150. Every sender below used to read
  * `(window as any).posthog` and fire only `if (posthog?.capture)`.
@@ -61,13 +67,99 @@ export type RunCompletedPayload = {
 }
 
 export type RunFailedPayload = {
+  /** A CODE, not a sentence. Transported. */
   error_code: string
+  /**
+   * ⚠ ACCEPTED BUT **NEVER TRANSPORTED**. Kept on the parameter type because
+   * callers legitimately have it (the store's `error.message`, the run
+   * validator's assembled sentence) and rewriting five call sites to drop it
+   * would only move the hazard to whoever adds the sixth.
+   *
+   * `useV2Run.ts` builds this by interpolating OPTION LABELS and NODE LABELS
+   * (`targetName` → `labelByNodeId` → `n.data.label`); `OutputsDock.tsx` passes
+   * the store's `error.message`, which is the same text. That is user-authored
+   * content, banned outright. `trackRunFailed` drops it and sends the derived
+   * `error_category` instead — see RUN_FAILED_TRANSPORT_KEYS below.
+   */
   error_message?: string
 }
 
-export type RemediationClickedPayload = {
-  code: string
-  source: 'drivers' | 'actions' | 'next_steps'
+/**
+ * The closed categorical that REPLACES `error_message` on the wire.
+ *
+ * Derived from `error_code`, never from the message text. `other` is the
+ * deliberate fail-open default: an unmapped code shows up as a visible spike in
+ * `other` rather than as a silent miscategorisation, so the mapping's drift is
+ * legible in the data itself.
+ */
+export type RunFailedCategory =
+  | 'input_incomplete'
+  | 'graph_rejected'
+  | 'upstream_failed'
+  | 'network'
+  | 'client_error'
+  | 'other'
+
+const ERROR_CATEGORY_BY_CODE: Record<string, RunFailedCategory> = {
+  MISSING_INTERVENTIONS: 'input_incomplete',
+  MISSING_GOAL: 'input_incomplete',
+  GRAPH_TOO_COMPLEX: 'graph_rejected',
+  VALIDATION_BLOCKED: 'graph_rejected',
+  ANALYSIS_FAILED: 'upstream_failed',
+  NETWORK_ERROR: 'network',
+  TIMEOUT: 'network',
+  PROCESSING_ERROR: 'client_error',
+}
+
+export function deriveErrorCategory(code: string): RunFailedCategory {
+  return ERROR_CATEGORY_BY_CODE[code] ?? 'other'
+}
+
+
+// =============================================================================
+// The transport seam — a DECLARED ALLOWLIST, not a type
+// =============================================================================
+//
+// WHY THIS EXISTS. A TypeScript payload type is not a runtime filter. Four call
+// sites in `useV2Run.ts` passed `duration_ms`, `request_id`, `option_count` and
+// `has_drivers` — none of which are on the declared payload types — and every
+// one of them reached PostHog, because excess-property checking does not
+// survive to runtime. The same hole is what let `error_message` through.
+//
+// So the seam builds the transport object from an explicit key list per event.
+// Anything not listed is DROPPED, and the dropped key NAMES (never their
+// values — a leak report must not re-leak) are reported as a contract-health
+// event. A future caller is then safe BY CONSTRUCTION rather than by review.
+//
+// This mirrors `src/telemetry/measurementEvents.ts`'s `trackMeasurement`
+// deliberately: one discipline, two modules, so a reader who learns it once
+// knows it everywhere.
+
+const RUN_SPINE_TRANSPORT_KEYS = {
+  run_started: ['option_count', 'node_count', 'edge_count'],
+  run_completed: ['confidence_level', 'drivers_informative', 'trace_id', 'duration_ms'],
+  run_failed: ['error_code', 'error_category'],
+  'plot.empty_computed_results': ['request_id', 'anomalies'],
+} as const satisfies Record<string, readonly string[]>
+
+export const RUN_SPINE_SCHEMA_VIOLATION_EVENT = 'ui.run_spine_schema_violation'
+
+function emitScrubbed(
+  event: keyof typeof RUN_SPINE_TRANSPORT_KEYS,
+  payload: Record<string, unknown>,
+): Record<string, unknown> {
+  const declared = new Set<string>(RUN_SPINE_TRANSPORT_KEYS[event])
+  const safe: Record<string, unknown> = {}
+  const undeclared: string[] = []
+  for (const [key, value] of Object.entries(payload)) {
+    if (declared.has(key)) safe[key] = value
+    else undeclared.push(key)
+  }
+  if (undeclared.length > 0) {
+    trackEvent(RUN_SPINE_SCHEMA_VIOLATION_EVENT, { event, undeclared_keys: undeclared.sort() })
+  }
+  trackEvent(event, safe)
+  return safe
 }
 
 // =============================================================================
@@ -82,7 +174,7 @@ export function trackRunStarted(payload: RunStartedPayload): void {
   if (typeof window === 'undefined') return
 
   try {
-    trackEvent('run_started', payload)
+    emitScrubbed('run_started', payload)
 
     // Dev logging
     if (import.meta.env.DEV) {
@@ -100,7 +192,7 @@ export function trackRunCompleted(payload: RunCompletedPayload): void {
   if (typeof window === 'undefined') return
 
   try {
-    trackEvent('run_completed', payload)
+    emitScrubbed('run_completed', payload)
 
     if (import.meta.env.DEV) {
       console.log('[Instrumentation] run_completed', payload)
@@ -117,85 +209,26 @@ export function trackRunFailed(payload: RunFailedPayload): void {
   if (typeof window === 'undefined') return
 
   try {
-    trackEvent('run_failed', payload)
+    // `error_message` is deliberately absent from the object handed to the
+    // seam: the categorical replaces it, and the seam's allowlist would drop it
+    // anyway. Both belts, because this is the property that actually leaked.
+    const safe = emitScrubbed('run_failed', {
+      error_code: payload.error_code,
+      error_category: deriveErrorCategory(payload.error_code),
+    })
 
-    // Sentry: the IMPORTED channel. `window.Sentry` is never assigned by any
-    // code in src/ and index.html loads no Sentry CDN snippet.
+    // Sentry: the IMPORTED channel (`window.Sentry` is never assigned by any
+    // code in src/ and index.html loads no Sentry CDN snippet) — and it gets
+    // the SCRUBBED object, not `payload`. Sentry is an ingest endpoint at a
+    // third party exactly as PostHog is; the never-capture list does not stop
+    // at one vendor.
     captureMessage(`Run failed: ${payload.error_code}`, {
       level: 'warning',
-      extra: payload,
+      extra: safe,
     })
 
     if (import.meta.env.DEV) {
       console.log('[Instrumentation] run_failed', payload)
-    }
-  } catch (e) {
-    // Silent fail
-  }
-}
-
-/**
- * Track compare_opened event
- */
-export function trackCompareOpened(): void {
-  if (typeof window === 'undefined') return
-
-  try {
-    trackEvent('compare_opened')
-
-    if (import.meta.env.DEV) {
-      console.log('[Instrumentation] compare_opened')
-    }
-  } catch (e) {
-    // Silent fail
-  }
-}
-
-/**
- * Track retry_clicked event
- */
-export function trackRetryClicked(): void {
-  if (typeof window === 'undefined') return
-
-  try {
-    trackEvent('retry_clicked')
-
-    if (import.meta.env.DEV) {
-      console.log('[Instrumentation] retry_clicked')
-    }
-  } catch (e) {
-    // Silent fail
-  }
-}
-
-/**
- * Track remediation_clicked event
- */
-export function trackRemediationClicked(payload: RemediationClickedPayload): void {
-  if (typeof window === 'undefined') return
-
-  try {
-    trackEvent('remediation_clicked', payload)
-
-    if (import.meta.env.DEV) {
-      console.log('[Instrumentation] remediation_clicked', payload)
-    }
-  } catch (e) {
-    // Silent fail
-  }
-}
-
-/**
- * Track CTA button clicked
- */
-export function trackCTAClicked(ctaType: string): void {
-  if (typeof window === 'undefined') return
-
-  try {
-    trackEvent('cta_clicked', { cta_type: ctaType })
-
-    if (import.meta.env.DEV) {
-      console.log('[Instrumentation] cta_clicked', { cta_type: ctaType })
     }
   } catch (e) {
     // Silent fail
@@ -217,7 +250,12 @@ export function trackEmptyComputedResults(payload: {
   if (typeof window === 'undefined') return
 
   try {
-    trackEvent('plot.empty_computed_results', payload)
+    // The anomaly MESSAGE is producer-authored prose that can embed a node or
+    // option label. Only the field and the status band cross the wire.
+    emitScrubbed('plot.empty_computed_results', {
+      ...(payload.request_id ? { request_id: payload.request_id } : {}),
+      anomalies: payload.anomalies.map((a) => ({ field: a.field, status: a.status })),
+    })
 
     // Sentry: the IMPORTED channel — this is a backend bug we want to track.
     captureMessage('Backend returned computed status with empty results', {
