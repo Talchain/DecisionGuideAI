@@ -22,7 +22,6 @@ import {
   mapConfidenceLevel,
   getConfidenceTier,
   deriveConfidenceTierLegacy,
-  classifySeverityLegacy,
   detectDominantFactorLegacy,
   normaliseImprovements,
   normalizeOutcomeValues,
@@ -597,34 +596,11 @@ describe('getConfidenceTier', () => {
 })
 
 // =============================================================================
-// B2: classifySeverityLegacy
+// B2: classifySeverityLegacy — DELETED with the expired severity fallback
+// (marginal-quantity honesty batch): the 0.30.0 contract omits severity when
+// switch_probability is absent; the hook no longer classifies locally. The
+// live severity behaviour is pinned in switchProbabilityPresence.spec.tsx.
 // =============================================================================
-
-describe('classifySeverityLegacy', () => {
-  it('returns critical for switch_probability > 0.7', () => {
-    expect(classifySeverityLegacy(0.71)).toBe('critical')
-    expect(classifySeverityLegacy(0.9)).toBe('critical')
-  })
-
-  it('returns error for switch_probability > 0.5 and <= 0.7', () => {
-    expect(classifySeverityLegacy(0.51)).toBe('error')
-    expect(classifySeverityLegacy(0.7)).toBe('error')
-  })
-
-  it('returns warning for switch_probability <= 0.5', () => {
-    expect(classifySeverityLegacy(0.5)).toBe('warning')
-    expect(classifySeverityLegacy(0.3)).toBe('warning')
-    expect(classifySeverityLegacy(0)).toBe('warning')
-  })
-
-  it('returns warning when flipProbability is undefined', () => {
-    expect(classifySeverityLegacy(undefined)).toBe('warning')
-  })
-
-  it('returns warning when flipProbability is null', () => {
-    expect(classifySeverityLegacy(null)).toBe('warning')
-  })
-})
 
 // =============================================================================
 // B2: deriveConfidenceTierLegacy
@@ -954,14 +930,9 @@ describe('switch_probability filtering (primary over marginal)', () => {
     expect(filtered).toHaveLength(0)
   })
 
-  it('severity derivation uses switch_probability via classifySeverityLegacy', () => {
-    // B2: Tests the actual exported legacy function (replaces stale blocker-taxonomy mirror)
-    // switch_probability is the primary field; classifySeverityLegacy receives the resolved value
-    expect(classifySeverityLegacy(0.8)).toBe('critical')  // >0.7
-    expect(classifySeverityLegacy(0.6)).toBe('error')     // >0.5
-    expect(classifySeverityLegacy(0.75)).toBe('critical')  // marginal fallback resolved by caller
-    expect(classifySeverityLegacy(0.3)).toBe('warning')   // <=0.5
-  })
+  // 'severity derivation via classifySeverityLegacy' test DELETED with the
+  // function (marginal-quantity honesty batch): severity is producer-verbatim
+  // or absent — pinned in switchProbabilityPresence.spec.tsx.
 })
 
 // =============================================================================
@@ -1600,7 +1571,10 @@ describe('B2: hook-level fragile edge severity', () => {
     expect(saEdge?.severity).toBe('critical')
   })
 
-  it('falls back to legacy severity when PLoT severity absent', () => {
+  it('omits severity when PLoT severity absent (no local reclassification — schemas 0.30.0)', () => {
+    // Formerly 'falls back to legacy severity when PLoT severity absent':
+    // the expired B2 fallback classified locally (0.71 → 'critical'). The
+    // contract omits severity with the quantity — absence propagates.
     useCanvasStore.setState({
       results: {
         status: 'complete',
@@ -1615,7 +1589,7 @@ describe('B2: hook-level fragile edge severity', () => {
                 from_id: 'fac_b', to_id: 'goal_1',
                 from_label: 'Factor B', to_label: 'Goal',
                 switch_probability: 0.71,
-                // No severity field — pre-B1 cached result
+                // No severity field — producer omitted it
               },
             ],
           },
@@ -1633,8 +1607,8 @@ describe('B2: hook-level fragile edge severity', () => {
     const { result } = renderHook(() => useResultsSectionData())
     const uncertainties = result.current.confidence.uncertainties
     const saEdge = uncertainties.find((u: any) => u.code === 'SENSITIVE_ASSUMPTION')
-    // 0.71 > 0.7 → legacy classifies as 'critical'
-    expect(saEdge?.severity).toBe('critical')
+    expect(saEdge).toBeDefined()
+    expect(saEdge?.severity).toBeUndefined()
   })
 
   it('challengeFragileEdges carries from_id AND to_id through (analysis-graph projection endpoint resolution)', () => {
