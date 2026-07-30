@@ -42,9 +42,13 @@
 //      src/ is exactly {VITE_POSTHOG_KEY, VITE_POSTHOG_HOST}. This is NOT a
 //      hand-maintained list of consumers — it is derived by walking src/, so a
 //      future third consumer that re-diverges reds this without anyone
-//      remembering to add it. It also covers src/observability/metrics.ts,
-//      whose isEnabled() short-circuits on MODE === 'test' and therefore cannot
-//      be exercised behaviourally from vitest.
+//      remembering to add it. (It USED to cover src/observability/metrics.ts,
+//      whose isEnabled() short-circuited on MODE === 'test' and so could not be
+//      exercised behaviourally from vitest. ROADMAP 2.150 DELETED that file —
+//      dead module, dead mechanism — and this invariant needed no edit to
+//      absorb that: it walks src/, so a removed file simply stops contributing
+//      hits. That is the derived design working as intended, and it is the
+//      reason the §2 positive control was the only thing that had to change.)
 //   3. NAMED PER-CONSUMER PINS, so a mutation in either specific file bites by
 //      name and the failure message says which file regressed.
 //
@@ -247,10 +251,37 @@ describe('2.111 · derived invariant: exactly one PostHog key name exists in src
     // extension filter) would report "zero occurrences of the retired name"
     // by scanning nothing at all, and every assertion below would pass vacuously.
     expect(files.length, 'source walk collected suspiciously few files').toBeGreaterThan(300)
-    expect(
-      hits.filter((h) => h.name === CHOSEN).length,
-      `scan found no ${CHOSEN} occurrences — the walker is not seeing the real source`,
-    ).toBeGreaterThanOrEqual(3)
+
+    // ⚠ THIS CONTROL WAS A REPO-WIDE COUNT (`>= 3`) UNTIL ROADMAP 2.150.
+    //
+    // At the time it was written the reads were config.ts ×2, posthog.ts ×1 and
+    // src/observability/metrics.ts ×1 = 4, so `>= 3` had one unit of margin.
+    // 2.150 deleted metrics.ts (dead module, dead mechanism — window.posthog
+    // never exists), taking the count to EXACTLY 3: the floor, with zero margin.
+    // It still passed — and that is the problem. A floor pinned to "however many
+    // reads there happen to be today" is CLAUDE.md trap 12b: a control whose
+    // reference is the current snapshot silently hollows out the first time the
+    // snapshot moves, and the NEXT legitimate removal would have gutted this
+    // walker's only proof-of-life while staying green.
+    //
+    // Replaced with a DERIVED PER-CONSUMER assertion. It names what must be
+    // true rather than counting what happens to be there: the walker must see a
+    // read in EACH of the two runtime consumers the split-brain pin is about —
+    // Consumer A (src/lib/posthog.ts, the only module that calls posthog.init)
+    // and Consumer B (src/lib/config.ts's `observability`). Adding or removing
+    // an unrelated third reader cannot move it in either direction.
+    // Both legs are mutation-proven independently; see
+    // PHASE0-EVIDENCE-2026-07-28/measurement-seam-build.md § B2.
+    const CONTROL_CONSUMERS = ['src/lib/posthog.ts', 'src/lib/config.ts'] as const
+    for (const consumer of CONTROL_CONSUMERS) {
+      expect(
+        hits.filter((h) => h.name === CHOSEN && h.file === consumer).length,
+        `the source walk found no ${CHOSEN} read in ${consumer}. Either the walker ` +
+          'is not seeing the real source (in which case every absence assertion below ' +
+          `is vacuous), or ${consumer} genuinely stopped reading ${CHOSEN} and will be ` +
+          'dark on activation day. Both are failures; neither is acceptable silently.',
+      ).toBeGreaterThanOrEqual(1)
+    }
   })
 
   it(`the retired name ${RETIRED} appears NOWHERE in non-test src/`, () => {
@@ -274,11 +305,14 @@ describe('2.111 · derived invariant: exactly one PostHog key name exists in src
 // ---------------------------------------------------------------------------
 
 describe('2.111 · per-consumer pins', () => {
-  const CONSUMERS = [
-    'src/lib/posthog.ts',
-    'src/lib/config.ts',
-    'src/observability/metrics.ts',
-  ] as const
+  // ROADMAP 2.150 removed `src/observability/metrics.ts` from this list because
+  // the FILE is gone, not because the pin was inconvenient. It was a dead module
+  // behind a dead mechanism: its senders gated on `'posthog' in window`, and
+  // `window.posthog` never exists on this app (posthog-js resolves
+  // `dist/module.js`, which assigns no such global; the snippet build
+  // `dist/array.full.js` does, which is the positive control that the search can
+  // see a presence). It had zero importers repo-wide.
+  const CONSUMERS = ['src/lib/posthog.ts', 'src/lib/config.ts'] as const
 
   for (const relative of CONSUMERS) {
     it(`${relative} reads ${CHOSEN} and not ${RETIRED}`, () => {

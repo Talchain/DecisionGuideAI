@@ -4,11 +4,15 @@
  * All event names are snake_case and prefixed with `guidance_`.
  * No PII — only IDs, types, and counts.
  *
- * Events fire only when isTelemetryEnabled() is ON (checked inside trackGuidance).
+ * Events fire whenever PostHog is initialised. There is NO feature-flag gate:
+ * `VITE_FEATURE_TELEMETRY` used to be checked here and defaulted FALSE with no
+ * deploy entry, so all 12 guidance_* events were dark independently of the
+ * keys — a dark launch of the exact coaching-disposition signal ROADMAP 1.68
+ * needs. Standing doctrine is no env-var gates and no dark launches: the
+ * capability ships ON, and rollback is a code revert.
  */
 
 import { trackEvent } from '../lib/posthog'
-import { isTelemetryEnabled } from '../flags'
 
 // ---------------------------------------------------------------------------
 // § 1 — Event name constants
@@ -53,6 +57,17 @@ export interface GuidanceEventPayload {
   scenario_id?: string
   /** Decision lifecycle stage */
   profile_stage?: 'frame' | 'ideate' | 'evaluate' | 'decide'
+  /**
+   * ROADMAP 1.68 — how long the item had been SHOWN when it was clicked or
+   * dismissed, BUCKETED via `measurementConfig.bucketDwellMs`. This is 1.68's
+   * "time on contested edges" in the second place it is measurable: a coaching
+   * item dismissed in under a second is a different disposition from one
+   * dismissed after fifteen.
+   *
+   * Never a raw duration (a high-resolution dwell is a behavioural
+   * fingerprint), and only meaningful on COACHING_CLICKED / COACHING_DISMISSED.
+   */
+  dwell_ms?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -62,16 +77,24 @@ export interface GuidanceEventPayload {
 /**
  * Fire a guidance telemetry event via PostHog.
  *
- * No-ops when:
- * - isTelemetryEnabled() is false
- * - PostHog is not initialised
+ * No-ops only when PostHog is not initialised (`trackEvent` returns early).
  *
- * Payload is validated to contain no PII fields (content, brief, message).
+ * ROADMAP 1.68 removed the `if (!isTelemetryEnabled()) return` gate that used
+ * to sit on the first line. `flags.telemetry` reads `VITE_FEATURE_TELEMETRY`,
+ * which has no `defaultValue` and therefore defaults FALSE
+ * (`src/lib/flagFactory.ts`), and the variable is absent from netlify.toml. So
+ * this gate was permanently closed on staging: every event below was dark for
+ * reasons unrelated to whether analytics was configured. Do not add it back.
+ *
+ * `flags.ts`'s `telemetry` entry and the `isTelemetryEnabled` export are
+ * deliberately LEFT IN PLACE — removing an export is a separate sweep with its
+ * own consumer manifest, and doing it here would bundle an unrelated change.
+ *
+ * Payload is a CLOSED interface (no index signature) — see GuidanceEventPayload.
  */
 export function trackGuidance(
   event: keyof typeof GUIDANCE_EVENTS,
   payload: GuidanceEventPayload,
 ): void {
-  if (!isTelemetryEnabled()) return
   trackEvent(GUIDANCE_EVENTS[event], payload as Record<string, unknown>)
 }

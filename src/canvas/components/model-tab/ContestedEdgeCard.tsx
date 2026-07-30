@@ -18,6 +18,8 @@ import { focusNodeById, focusEdgeById } from '../../utils/focusHelpers'
 import { useCanvasStore } from '../../store'
 import { getDisplayEdgeId } from '../../utils/edgeIdentity'
 import { NON_EVIDENCE_PROVENANCE } from '../../utils/evidenceCoverage'
+import { trackMeasurement } from '../../../telemetry/measurementEvents'
+import { bucketDwellMs } from '../../../telemetry/measurementConfig'
 import type { ValidationMetadata, UserAction } from '../../domain/validation'
 import { SignedStrengthSlider } from '../../ui/inspector/SignedStrengthSlider'
 import {
@@ -88,6 +90,40 @@ export function ContestedEdgeCard({
       if (state.highlightedEdges?.has(displayEdgeId)) {
         state.setHighlightedEdges([])
       }
+    }
+  }, [displayEdgeId])
+
+  // ── contested_edge_viewed (ROADMAP 1.68) ───────────────────────────────────
+  //
+  // "Time on contested edges" is one of 1.68's named signals, and this card is
+  // the surface the phrase literally refers to. Emitted on UNMOUNT, because the
+  // dwell is only known then.
+  //
+  // ⚠ CLAIM SCOPE, stated honestly: this measures MOUNTED-IN-THE-DOM time, not
+  // proven visibility. jsdom cannot prove visibility (CLAUDE.md trap 3) and
+  // neither can this event — a card scrolled off-screen still counts. Read it
+  // as "the card was in the rendered tree for about this long", and do not let
+  // a dashboard label promote it to "the user looked at it".
+  //
+  // `dwell_ms` is BUCKETED (measurementConfig.dwellBucketsMs). A raw ms dwell
+  // is a high-resolution behavioural fingerprint and the measures need the band.
+  //
+  // NEVER-CAPTURE: the edge ID and the strength BAND (an enum member from the
+  // existing strengthBands vocabulary) — never the edge label, never
+  // `pass1.strength_mean` itself, which is a model-authored number the card
+  // renders three decimal places of.
+  const dwellStartRef = useRef<number>(Date.now())
+  const bandForDwellRef = useRef<StrengthBand>(getStrengthBand(validation.pass1.strength_mean))
+  bandForDwellRef.current = getStrengthBand(validation.pass1.strength_mean)
+  useEffect(() => {
+    dwellStartRef.current = Date.now()
+    return () => {
+      trackMeasurement('contested_edge_viewed', {
+        edge_id: displayEdgeId,
+        dwell_ms: bucketDwellMs(Date.now() - dwellStartRef.current),
+        strength_band: bandForDwellRef.current,
+        scenario_id: useCanvasStore.getState().currentScenarioId ?? null,
+      })
     }
   }, [displayEdgeId])
 

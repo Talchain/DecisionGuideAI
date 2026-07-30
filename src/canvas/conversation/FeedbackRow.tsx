@@ -11,6 +11,8 @@
  */
 
 import { useState, memo } from 'react'
+import { useCanvasStore } from '../store'
+import { trackMeasurement } from '../../telemetry/measurementEvents'
 
 const feedbackBtnFocusClass = 'feedback-btn'
 
@@ -29,6 +31,26 @@ export const FeedbackRow = memo(function FeedbackRow({ turnId, onFeedback }: Fee
   const handleVote = async (rating: 'up' | 'down') => {
     if (voted !== null) return // Already voted
     setVoted(rating) // Optimistic: disable the buttons immediately.
+
+    // ── turn_feedback (ROADMAP 1.68) ────────────────────────────────────────
+    //
+    // These thumbs already route a feedback turn to CEE and reach PostHog
+    // NEVER — so the closest existing proxy for turn-level endorsement or
+    // rejection has been invisible to measurement. Mirrored here, alongside
+    // the existing send, not instead of it.
+    //
+    // Emitted on the USER'S ACT, before the network call, so a failed send is
+    // still a recorded judgement — reverting the optimistic vote reverts the
+    // BUTTON, not the fact that the tester pressed it.
+    //
+    // NEVER-CAPTURE: no turnId (it joins to the stored transcript, and the
+    // transcript is the user's text) and no message content — the rating and
+    // the scenario ID only.
+    trackMeasurement('turn_feedback', {
+      rating,
+      scenario_id: useCanvasStore.getState().currentScenarioId ?? null,
+    })
+
     try {
       await onFeedback(turnId, rating)
     } catch {

@@ -4,6 +4,8 @@ import { onCLS, onLCP, onINP, type Metric } from 'web-vitals'
 import { logger } from './logger'
 import type { MonitoringConfig, HotjarWindow, SentryContext } from '../types/monitoring'
 import { initPostHog } from './posthog'
+import { trackMeasurement } from '../telemetry/measurementEvents'
+import { resolveParticipantTag } from '../telemetry/measurementConfig'
 
 /**
  * The named env values this module reads, captured as LITERAL
@@ -174,6 +176,25 @@ export function initMonitoring(): void {
   initWebVitals()
   initHotjar()
   initPostHog()
+
+  // ── session_started (ROADMAP 1.68) ──────────────────────────────────────
+  //
+  // The anchor every duration measure is relative to. Paired with the
+  // re-routed `run_completed` it gives time-to-first-insight for free.
+  //
+  // Emitted AFTER initPostHog so the SDK is initialised — `trackEvent` returns
+  // early otherwise and this would be the first event silently lost.
+  //
+  // NEVER-CAPTURE: no user id, no email, no display name. `participant_tag` is
+  // a pseudonym from `measurementConfig` (null while the vocabulary is empty,
+  // which is the shipped state), and the two env values are non-secret deploy
+  // labels already on the bundle allowlist. Named LITERAL reads, per this
+  // module's own narrowing rule above.
+  trackMeasurement('session_started', {
+    participant_tag: resolveParticipantTag(),
+    build_id: (import.meta.env?.VITE_BUILD_ID as string | undefined) ?? 'unknown',
+    auth_mode: (import.meta.env?.VITE_AUTH_MODE as string | undefined) ?? 'unknown',
+  })
 }
 
 export function isMonitoringEnabled(): boolean {

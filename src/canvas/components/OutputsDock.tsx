@@ -112,6 +112,7 @@ import { useDegeneracyDismissal } from './DegeneracyWarning'
 import { ResultsPanelSkeleton } from './ResultsPanelSkeleton'
 // P0.8: Instrumentation
 import { trackRunStarted, trackRunCompleted, trackRunFailed } from '../../lib/resultsInstrumentation'
+import { isErrorReport } from '../../adapters/plot/v2/responseMapper'
 import { useScenarioComparison } from '../hooks/useScenarioComparison'
 import { useRobustness } from '../hooks/useRobustness'
 import { mapRobustness } from '../../lib/mappers/mapRobustness'
@@ -1585,12 +1586,32 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       report &&
       !useCanvasStore.getState().results.settledWithoutNewReport
     ) {
-      trackRunCompleted({
-        confidence_level: report.confidence?.level as 'high' | 'medium' | 'low' ?? 'medium',
-        drivers_informative: areDriversInformative(report.drivers_payload),
-        trace_id: runMeta?.correlationIdHeader ?? undefined,
-        duration_ms: runStartTimeRef.current ? Date.now() - runStartTimeRef.current : undefined,
-      })
+      // ⚠ 'complete' DOES NOT MEAN 'succeeded' — ROADMAP 1.68.
+      //
+      // `useV2Run.ts:846-866` (the HTTP-200-but-failed branch) settles a
+      // FAILURE through `resultsComplete`, because that is the action which
+      // renders the critique list the user needs to see. Emitting
+      // run_completed here unconditionally recorded a whole failure class as a
+      // success — while the same block persisted `ANALYSIS_FAILED` to Supabase,
+      // so the database and the analytics disagreed.
+      //
+      // `isErrorReport` is owned by the module that BUILDS the error report,
+      // so no sentinel string is copied into this file. Exactly one event still
+      // fires per settle, so the single-emitter invariant is unchanged.
+      if (isErrorReport(report)) {
+        // The code is exact, not inferred: `useV2Run`'s branch is the only
+        // producer of error reports and it declares ANALYSIS_FAILED. A second
+        // producer reds `runSettleClassification.spec.ts`, which is the signal
+        // to carry the code on the report instead.
+        trackRunFailed({ error_code: 'ANALYSIS_FAILED' })
+      } else {
+        trackRunCompleted({
+          confidence_level: report.confidence?.level as 'high' | 'medium' | 'low' ?? 'medium',
+          drivers_informative: areDriversInformative(report.drivers_payload),
+          trace_id: runMeta?.correlationIdHeader ?? undefined,
+          duration_ms: runStartTimeRef.current ? Date.now() - runStartTimeRef.current : undefined,
+        })
+      }
     }
 
     // Detect transition to 'error'

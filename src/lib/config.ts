@@ -92,6 +92,21 @@ export const plotProxyBase = import.meta.env?.VITE_PLOT_PROXY_BASE || '/bff/engi
 
 /**
  * Observability service configuration
+ *
+ * ⚠ DO NOT DELETE THIS EXPORT IN A DEAD-CODE SWEEP — it is LOAD-BEARING AS A
+ * CONTROL, not as a caller.
+ *
+ * It has zero product importers today, and ROADMAP 2.150's sweep noticed that.
+ * But `src/lib/__tests__/posthogKeyUnify.spec.ts` §1 uses it as **Consumer B**
+ * in the split-brain assertion: with only `VITE_POSTHOG_KEY` set, BOTH
+ * `src/lib/posthog.ts` (Consumer A, which calls `posthog.init`) and this object
+ * must light up; with only the retired name set, BOTH must stay dark. Never
+ * one-lit-one-dark. Delete this and the pin ROADMAP 2.111 exists to hold has
+ * nothing left to compare against — the spec would keep passing while measuring
+ * one consumer, which is precisely the shape of failure it was written for.
+ *
+ * An export with no callers that survives *as a control* is legitimate. This
+ * comment exists so the next sweep does not have to re-derive that.
  */
 export const observability = {
   /**
