@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { OlumiResponse } from '@talchain/schemas/boundary'
 import { applyV5State, type V5ApplicatorStore } from '../applyV5State'
+import liveBlockR1 from './fixtures/live-decision-review-0_30.r1-cee-76d2e1c.json'
 
 function baseResponse(overrides: Partial<OlumiResponse> = {}): OlumiResponse {
   return {
@@ -183,6 +184,19 @@ describe('applyV5State — graph_patch:adjust_edge_strength', () => {
 })
 
 describe('applyV5State — analysis_result: decision_review wiring', () => {
+  /**
+   * The verbatim captured `enrichment` of a real live analysis turn (r1 of the
+   * 2.154 wire capture; see the fixture's `__source__`). Used instead of a
+   * hand-written object precisely because a hand-written one is what hid the
+   * defect this block now covers.
+   */
+  function liveEnrichment(): Record<string, unknown> {
+    return (liveBlockR1 as unknown as { enrichment: Record<string, unknown> }).enrichment
+  }
+  function liveReview(): Record<string, unknown> {
+    return liveEnrichment().decision_review as Record<string, unknown>
+  }
+
   const validEnrichment = {
     decision_review: {
       intent: 'selection',
@@ -240,9 +254,12 @@ describe('applyV5State — analysis_result: decision_review wiring', () => {
       }),
       store,
     )
-    // Must write null so stale review from a prior turn is not shown
+    // Must write null so stale review from a prior turn is not shown.
+    // ROADMAP 2.154 — BOTH review fields are cleared, not just ceeReviewV1:
+    // two different payloads share the `decision_review` key and land in two
+    // different runMeta fields, so clearing one would leave the other stale.
     expect(setRunMeta).toHaveBeenCalledOnce()
-    expect(setRunMeta).toHaveBeenCalledWith({ ceeReviewV1: null })
+    expect(setRunMeta).toHaveBeenCalledWith({ ceeReviewV1: null, decisionReview030: null })
     expect(result.deferred[0]?.reason).toBe('analysis_result_no_decision_review_in_block')
   })
 
@@ -268,6 +285,68 @@ describe('applyV5State — analysis_result: decision_review wiring', () => {
     )
     expect(result.applied).toContain('analysis_result:decision_review:block')
     expect(result.applied).not.toContain('analysis_result:decision_review:top-level')
+  })
+
+  // ── ROADMAP 2.154 — the LIVE 0.30 shape ─────────────────────────────────
+  //
+  // Everything above this line feeds a hand-written M1 REST fixture, which no
+  // live producer emits into block enrichment. These cases feed the verbatim
+  // captured bytes of a real analysis turn instead, and they are the ones that
+  // would have caught the original defect: before this lane the block below
+  // took the `else` branch and cleared both fields on every live turn.
+  it('applies the live 0.30 decision_review to runMeta.decisionReview030', () => {
+    const { store, setRunMeta } = makeStore()
+    const result = applyV5State(
+      baseResponse({
+        blocks: [
+          {
+            type: 'analysis_result',
+            summary: 'Keep Current Setup (Status Quo) currently leads by 79 percentage points.',
+            leading_option_id: 'opt_status_quo',
+            win_probabilities: { 'Keep Current Setup (Status Quo)': 0.87 },
+            enrichment: liveEnrichment(),
+          },
+        ],
+      }),
+      store,
+    )
+    expect(result.applied).toContain('analysis_result:decision_review:block')
+    expect(result.deferred.map((d) => d.reason)).not.toContain(
+      'analysis_result_no_decision_review_in_block',
+    )
+    expect(setRunMeta).toHaveBeenCalledOnce()
+    const written = setRunMeta.mock.calls[0]![0] as {
+      ceeReviewV1: unknown
+      decisionReview030: { narrative_summary: string | null; hasProse: boolean } | null
+    }
+    // The 0.30 payload is NOT written to ceeReviewV1 — different payload,
+    // different type, and store.ts sanitises that field as M1.
+    expect(written.ceeReviewV1).toBeNull()
+    expect(written.decisionReview030).not.toBeNull()
+    expect(written.decisionReview030!.hasProse).toBe(true)
+    expect(written.decisionReview030!.narrative_summary).toBe(
+      liveReview().narrative_summary as string,
+    )
+  })
+
+  it('clears BOTH review fields when decision_review is null (CEE degraded marker)', () => {
+    const { store, setRunMeta } = makeStore()
+    const result = applyV5State(
+      baseResponse({
+        blocks: [
+          {
+            type: 'analysis_result',
+            summary: 'A leads',
+            leading_option_id: 'opt-a',
+            win_probabilities: {},
+            enrichment: { decision_review: null },
+          },
+        ],
+      }),
+      store,
+    )
+    expect(setRunMeta).toHaveBeenCalledWith({ ceeReviewV1: null, decisionReview030: null })
+    expect(result.applied).not.toContain('analysis_result:decision_review:block')
   })
 })
 

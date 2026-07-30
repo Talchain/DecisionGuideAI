@@ -31,6 +31,7 @@ import type { Document, Citation } from './share/types'
 import type { ComparisonResult } from './snapshots/types'
 import type { CeeDecisionReviewPayload, CeeTraceMeta, CeeErrorViewModel } from './decisionReview/types'
 import type { CeeDecisionReviewPayloadV1, CeeTrace, CeeError, M1Review, M1Coaching, ErrorDetail } from '../types/cee'
+import type { DecisionReview030 } from '../v5/decisionReviewAdapter'
 import { sanitizeCeeReviewPayload, sanitizeM1Review } from './utils/ceeDataAdapter'
 import type {
   CEEAnalysisReady,
@@ -267,6 +268,17 @@ export type RunMetaState = {
   ceeReviewV1?: CeeDecisionReviewPayloadV1 | null
   ceeTraceV1?: CeeTrace | null
   ceeErrorV1?: CeeError | null
+  /**
+   * ROADMAP 2.154 — the 0.30 `enrichment.decision_review` view-model from a V5
+   * analysis turn. A SEPARATE field from `ceeReviewV1` on purpose: the two are
+   * different payloads with different producers (`ceeReviewV1` is the M1 REST
+   * shape, still produced live by `synthesizeCeeReviewFromV2`), and
+   * `sanitizeCeeReviewPayload` below is M1-specific, so putting a 0.30 object
+   * in `ceeReviewV1` would both lie about the type and be mangled on ingest.
+   * Written by `applyV5State` on every V5 analysis turn — value or null, never
+   * left stale.
+   */
+  decisionReview030?: DecisionReview030 | null
   // M1 Review - CEE enrichment from /v2/run (rationale, robustness synthesis, etc.)
   m1Review?: M1Review | null
   // M1 Coaching - deterministic coaching fields from /v2/run (not LLM-generated)
@@ -3498,6 +3510,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         ceeReviewV1: null,
         ceeTraceV1: null,
         ceeErrorV1: null,
+        decisionReview030: null,
         ceeDebugHeaders: undefined,
       },
     })

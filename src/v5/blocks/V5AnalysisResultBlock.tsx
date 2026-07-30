@@ -1,12 +1,32 @@
 /**
  * V5AnalysisResultBlock — renders V5 OlumiResponse.analysis_result.
  *
- * Two render modes:
- *   1. Enrichment contains a valid decision_review → caller routes the
- *      payload to DecisionReviewPanel (not rendered here; this block stays
- *      inline in chat with a summary card).
- *   2. Enrichment missing / malformed → inline summary card with
- *      summary text and win_probabilities as pills.
+ * Card content:
+ *   - Always: summary text, uncertainty calibration copy, win_probabilities
+ *     as pills.
+ *   - When the turn carries a 0.30 `decision_review` with prose: the five
+ *     fields no other wire block delivers — `narrative_summary`,
+ *     `story_headlines`, `robustness_explanation`, `readiness_rationale`,
+ *     `scenario_contexts` (ROADMAP 2.154). This is where the analysis
+ *     EXPLANATION lives, so it renders here beside the summary it explains.
+ *   - When the payload on that key is genuinely malformed: a hidden operator
+ *     marker, and nothing else changes.
+ *
+ * ⚠ ROADMAP 2.154 — WHAT THIS CARD USED TO DO. It called
+ * `extractDecisionReview`, which validated the retired M1 REST shape, so
+ * `review` was `null` on EVERY live turn. Two consequences, both live: the
+ * five prose fields above were dropped after CEE had paid a real ~8-9s
+ * gpt-4.1 call for them, and the `enrichment-invalid` marker below mounted on
+ * every single analysis turn (`review === null && block.enrichment` — and
+ * `block.enrichment` is always truthy, it carries 13 keys). The card now asks
+ * the adapter WHICH state the wire is in rather than inferring malformed-ness
+ * from a null.
+ *
+ * The prose is CEE-authored and has already passed CEE's own egress gate. It
+ * is rendered verbatim — no summarising, truncating, re-ordering or
+ * re-wording, and no UI-authored copy is added to it. The only UI-side
+ * resolution is option_id → option label, taken from the same payload's
+ * `option_comparison` (the chain the pills already use).
  *
  * Design tokens (DS v5 §21.2):
  *   - Card frame: bg-panel + rounded-xl + border-panel-border
@@ -17,8 +37,12 @@
 import { type ReactElement } from 'react'
 import { typography } from '../../styles/typography'
 import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../canvas/conversation/types'
-import { extractDecisionReview } from '../decisionReviewAdapter'
-import { buildV5VerdictReportLike, resolveLeaderKeys } from '../mapV5AnalysisToReport'
+import { readDecisionReviewWireState } from '../decisionReviewAdapter'
+import {
+  buildV5VerdictReportLike,
+  resolveLeaderKeys,
+  resolveOptionLabelById,
+} from '../mapV5AnalysisToReport'
 import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
 import { calibrateUncertaintyCopy } from '../../components/results/utils/uncertaintyCalibration'
 
@@ -72,7 +96,18 @@ function resolveUncertaintyInputs(
 }
 
 export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): ReactElement {
-  const review = extractDecisionReview(block.enrichment)
+  // ROADMAP 2.154 — the wire has FOUR states and only ONE of them is an alarm.
+  // `absent` (the enricher's soft-fail skips) and `degraded`
+  // (`decision_review: null`, CEE's "attempted, degraded at the call site")
+  // are both by design; `malformed` is the alarm; `v0_30` is the live shape.
+  const reviewState = readDecisionReviewWireState(block.enrichment)
+  const review030 = reviewState.kind === 'v0_30' ? reviewState.review : null
+  // Gate on hasProse, not on validity: a valid 0.30 review can legitimately
+  // carry no prose (the LLM may return empty collections), and an empty
+  // section is worse than no section.
+  const showProse = review030?.hasProse === true
+  const hasReview = reviewState.kind === 'v0_30' || reviewState.kind === 'm1'
+  const optionLabels = resolveOptionLabelById(block.enrichment)
   const hasProbs =
     block.win_probabilities && Object.keys(block.win_probabilities).length > 0
 
@@ -126,7 +161,8 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
   return (
     <div
       data-testid="v5-analysis-result"
-      data-has-decision-review={review ? 'true' : 'false'}
+      data-has-decision-review={hasReview ? 'true' : 'false'}
+      data-decision-review-state={reviewState.kind}
       className="rounded-xl border border-panel-border bg-panel p-4 space-y-3"
     >
       <h3
@@ -184,9 +220,160 @@ export function V5AnalysisResultBlock({ block }: V5AnalysisResultBlockProps): Re
         </div>
       )}
 
-      {review === null && block.enrichment && (
-        // DEV diagnostic — enrichment present but decision_review malformed.
+      {/*
+        ROADMAP 2.154 — the five orphaned prose fields. Rendered in the
+        producer's own wire order (narrative → per-option headlines →
+        robustness → readiness → scenarios); no re-ordering, no re-wording.
+        Every field carries its own absence arm, so a partial payload renders
+        exactly what it carries and nothing else — never a placeholder.
+
+        The only labels below ("Primary risk", "Stability factors",
+        "Fragility factors") name the wire fields they introduce, in sentence
+        case. They are structural: two unlabelled string lists would be
+        unreadable. No label interprets, summarises or qualifies the model's
+        prose.
+      */}
+      {showProse && review030 && (
+        <div
+          className="space-y-3 border-t border-panel-border pt-3"
+          data-testid="v5-analysis-result-decision-review"
+          data-produced-at={review030.produced_at}
+        >
+          {review030.narrative_summary !== null && (
+            <p
+              className={typography.panelBody}
+              data-testid="v5-analysis-result-narrative-summary"
+            >
+              {review030.narrative_summary}
+            </p>
+          )}
+
+          {review030.story_headlines.length > 0 && (
+            <ul className="space-y-1" data-testid="v5-analysis-result-story-headlines">
+              {review030.story_headlines.map((h) => (
+                <li
+                  key={h.optionId}
+                  className={typography.panelBody}
+                  data-testid="v5-analysis-result-story-headline"
+                  data-option-id={h.optionId}
+                >
+                  {/*
+                    The label when the payload resolves one for this id, else
+                    the raw id. Showing the raw id is honest; showing nothing
+                    would silently drop a headline the producer paid for.
+                  */}
+                  <span className="font-medium text-text-body">
+                    {optionLabels.get(h.optionId) ?? h.optionId}
+                  </span>
+                  <span className="text-text-light"> — </span>
+                  <span>{h.headline}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {review030.robustness_explanation !== null && (
+            <div
+              className="space-y-1"
+              data-testid="v5-analysis-result-robustness-explanation"
+            >
+              {review030.robustness_explanation.summary !== null && (
+                <p
+                  className={typography.panelBody}
+                  data-testid="v5-analysis-result-robustness-summary"
+                >
+                  {review030.robustness_explanation.summary}
+                </p>
+              )}
+              {review030.robustness_explanation.primary_risk !== null && (
+                <p
+                  className={`${typography.panelBody} text-text-light`}
+                  data-testid="v5-analysis-result-robustness-primary-risk"
+                >
+                  <span className="font-medium">Primary risk: </span>
+                  {review030.robustness_explanation.primary_risk}
+                </p>
+              )}
+              {review030.robustness_explanation.stability_factors.length > 0 && (
+                <div data-testid="v5-analysis-result-stability-factors">
+                  <p className={`${typography.panelMeta} text-text-light font-medium`}>
+                    Stability factors
+                  </p>
+                  <ul className="list-disc pl-4">
+                    {review030.robustness_explanation.stability_factors.map((f) => (
+                      <li
+                        key={f}
+                        className={typography.panelBody}
+                        data-testid="v5-analysis-result-stability-factor"
+                      >
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {review030.robustness_explanation.fragility_factors.length > 0 && (
+                <div data-testid="v5-analysis-result-fragility-factors">
+                  <p className={`${typography.panelMeta} text-text-light font-medium`}>
+                    Fragility factors
+                  </p>
+                  <ul className="list-disc pl-4">
+                    {review030.robustness_explanation.fragility_factors.map((f) => (
+                      <li
+                        key={f}
+                        className={typography.panelBody}
+                        data-testid="v5-analysis-result-fragility-factor"
+                      >
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {review030.readiness_rationale !== null && (
+            <p
+              className={typography.panelBody}
+              data-testid="v5-analysis-result-readiness-rationale"
+            >
+              {review030.readiness_rationale}
+            </p>
+          )}
+
+          {review030.scenario_contexts.length > 0 && (
+            <ul className="space-y-1" data-testid="v5-analysis-result-scenario-contexts">
+              {review030.scenario_contexts.map((s) => (
+                <li
+                  key={s.id}
+                  className={`${typography.panelBody} text-text-light`}
+                  data-testid="v5-analysis-result-scenario-context"
+                  data-scenario-id={s.id}
+                >
+                  {s.trigger_description !== null && <span>{s.trigger_description}</span>}
+                  {s.trigger_description !== null && s.consequence !== null && <span> </span>}
+                  {s.consequence !== null && <span>{s.consequence}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {reviewState.kind === 'malformed' && (
+        // DEV diagnostic — a record IS present on `enrichment.decision_review`
+        // but it matches neither the live 0.30 shape nor the M1 REST shape.
         // Users see only the summary card; operators see this in the DOM.
+        //
+        // ⚠ This condition used to be `review === null && block.enrichment`,
+        // which mounted on EVERY live analysis turn (the adapter validated a
+        // retired shape, so `review` was always null, and `block.enrichment`
+        // is always truthy). A marker that fires every time is not an alarm,
+        // it is noise — and it taught a derivation to conclude the payload was
+        // being dropped by the untyped PLoT→CEE seam when it was being dropped
+        // right here. It now fires only on genuinely unrecognisable content;
+        // `absent` and `degraded` are by-design states and mount nothing.
         <div
           className="hidden"
           data-testid="v5-analysis-result-enrichment-invalid"
