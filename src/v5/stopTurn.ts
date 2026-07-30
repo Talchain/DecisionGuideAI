@@ -2,8 +2,9 @@
  * stopTurn — telling the SERVER that the user pressed Stop.
  *
  * Until this existed, Stop aborted our own `AbortController` and nothing else.
- * CEE deliberately does not cancel a turn when the client hangs up
- * (`streamed-turn-sse.ts:71-78`), so the turn ran to completion and COMMITTED.
+ * CEE deliberately does not cancel a turn when the client hangs up (the
+ * deliberate no-cancel-on-disconnect block in CEE's `streamed-turn-sse.ts`),
+ * so the turn ran to completion and COMMITTED.
  * Reproduced end-to-end on staging (`PHASE0-EVIDENCE-2026-07-28/fix-stop-fence.md`):
  * a draft stopped at +4.0s ran its full 52.7s, committed, and overwrote the graph
  * of a different turn the user had sent at +5.0s. The user saw an empty composer,
@@ -42,6 +43,7 @@
  * A single boolean would have collapsed 'already_saved' and 'unconfirmed' into
  * the same silence, which is exactly the state this whole lane is about.
  */
+import { recordRequestPayload, recordResponsePayload } from '../lib/payload-trace-store'
 import { __internals as adapterInternals } from './v5Adapter'
 
 export type TurnStopOutcomeKind = 'not_saved' | 'already_saved' | 'unconfirmed'
@@ -69,6 +71,14 @@ export function getV5StopEndpoint(): string {
 export interface StopTurnOptions {
   fetchImpl?: typeof fetch
   timeoutMs?: number
+  /**
+   * Extra headers, merged after Content-Type — the auth seam (R-9, fence rider
+   * on #534). Mirrors `V5CallOptions.headers` on `callV5Turn`. No production
+   * caller passes any today; when CEE's JWT half lands (LOGIN-CEE-HALF-SPEC),
+   * the stop call carries the same `buildTurnAuthHeaders(...)` output as the
+   * turn it stops.
+   */
+  headers?: Record<string, string>
 }
 
 /**
@@ -85,17 +95,53 @@ export async function stopV5Turn(
   const budget = opts.timeoutMs ?? STOP_ACK_BUDGET_MS
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), budget)
+  const url = getV5StopEndpoint()
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers ?? {}) }
+  const wireBody = { scenario_id: identity.scenarioId, turn_id: identity.turnId }
+  // ── R-9: trace capture, mirroring `callV5Turn` ─────────────────────────────
+  // Until this existed the stop POST was the ONLY outbound call invisible to
+  // the debug bundle. Auth headers are redacted downstream: the trace store
+  // runs headers through redactPayload (default sensitiveKeys include
+  // 'authorization') plus free-form Bearer/JWT scrubbing — the same guarantee
+  // the PR #268 review verified for the buffered turn. Capture sits before the
+  // try, exactly where the sibling puts it.
+  const requestId = crypto.randomUUID()
+  const requestedAt = Date.now()
+  recordRequestPayload({
+    id: requestId,
+    endpoint: url,
+    method: 'POST',
+    headers,
+    body: wireBody,
+  })
   try {
-    const res = await fetchFn(getV5StopEndpoint(), {
+    const res = await fetchFn(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scenario_id: identity.scenarioId, turn_id: identity.turnId }),
+      headers,
+      body: JSON.stringify(wireBody),
       signal: controller.signal,
     })
     if (!res.ok) {
+      recordResponsePayload({
+        id: requestId,
+        status: res.status,
+        headers: Object.fromEntries(res.headers.entries()),
+        body: null,
+        duration: Date.now() - requestedAt,
+        error: `http_${res.status}`,
+      })
       return { kind: 'unconfirmed', reason: `http_${res.status}` }
     }
     const body: unknown = await res.json().catch(() => null)
+    // One capture for every 2xx path — the trace records the WIRE (status,
+    // headers, raw body), never the classification verdict below.
+    recordResponsePayload({
+      id: requestId,
+      status: res.status,
+      headers: Object.fromEntries(res.headers.entries()),
+      body,
+      duration: Date.now() - requestedAt,
+    })
     if (body === null || typeof body !== 'object') {
       return { kind: 'unconfirmed', reason: 'unparseable_body' }
     }
@@ -127,6 +173,21 @@ export async function stopV5Turn(
     return { kind: 'unconfirmed', reason: 'already_committed_unrecognised' }
   } catch (err) {
     const name = (err as { name?: string } | null)?.name
+    recordResponsePayload({
+      id: requestId,
+      status: 0,
+      headers: {},
+      body: null,
+      duration: Date.now() - requestedAt,
+      error: err instanceof Error ? err.message : String(err),
+      errorName: name ?? 'Error',
+      // AbortError here is OUR ack-budget timer, not the user's Stop — the
+      // sibling's classification for its own aborts. Other throws keep their
+      // errorName + message, which is enough to tell preflight/DNS apart in
+      // the bundle without copying v5Adapter's message-sniffing classifier
+      // (a second copy of that would be the trap-12 mirror).
+      source: name === 'AbortError' ? 'browser_timeout' : 'unknown',
+    })
     return { kind: 'unconfirmed', reason: name === 'AbortError' ? 'timeout' : 'transport' }
   } finally {
     clearTimeout(timer)

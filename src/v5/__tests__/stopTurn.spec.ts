@@ -21,6 +21,20 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 import { stopV5Turn, getV5StopEndpoint } from '../stopTurn'
 
+// ---------------------------------------------------------------------------
+// Payload trace store mock — spy on recording calls without real Zustand.
+// Same pattern as v5Adapter.test.ts, whose production twin stopTurn mirrors
+// (R-9: until that rider the stop POST was the only outbound call invisible
+// to the debug bundle).
+// ---------------------------------------------------------------------------
+const mockRecordRequest = vi.fn()
+const mockRecordResponse = vi.fn()
+
+vi.mock('../../lib/payload-trace-store', () => ({
+  recordRequestPayload: (...args: unknown[]) => mockRecordRequest(...args),
+  recordResponsePayload: (...args: unknown[]) => mockRecordResponse(...args),
+}))
+
 const IDENTITY = {
   scenarioId: 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c',
   turnId: 'dcfc3b50-03b0-4b74-bc56-6dd0ce1531d7',
@@ -174,5 +188,103 @@ describe('stopV5Turn — classifying the server’s answer', () => {
       timeoutMs: 10,
     })
     expect(r).toEqual({ kind: 'unconfirmed', reason: 'timeout' })
+  })
+})
+
+// ══ R-9 (fence rider on #534) — THE DEBUG BUNDLE SEES THE STOP CALL ══════════
+//
+// Every other outbound call records request + response through the payload
+// trace store; the stop POST recorded nothing, so a stop that misbehaved on
+// the wire was invisible to the diagnostic bundle. These pins assert the
+// capture on each path the classifier can take, plus the `opts.headers` seam
+// (mirrors `V5CallOptions.headers`) that CEE's JWT half will wire.
+describe('stopV5Turn — R-9: trace capture + the headers seam', () => {
+  let fetchImpl: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    fetchImpl = vi.fn()
+    mockRecordRequest.mockReset()
+    mockRecordResponse.mockReset()
+  })
+
+  it('captures the request payload — endpoint, method, and the tombstone key', async () => {
+    fetchImpl.mockResolvedValue(jsonResponse({ stopped: true, already_committed: false }))
+    await stopV5Turn(IDENTITY, { fetchImpl: fetchImpl as unknown as typeof fetch })
+    expect(mockRecordRequest).toHaveBeenCalledTimes(1)
+    const captured = mockRecordRequest.mock.calls[0][0] as Record<string, unknown>
+    expect(captured.endpoint).toBe(getV5StopEndpoint())
+    expect(captured.method).toBe('POST')
+    expect(captured.body).toEqual({
+      scenario_id: IDENTITY.scenarioId,
+      turn_id: IDENTITY.turnId,
+    })
+  })
+
+  it('captures the 2xx response — status and the raw body the classifier read', async () => {
+    fetchImpl.mockResolvedValue(jsonResponse({ stopped: true, already_committed: true }))
+    await stopV5Turn(IDENTITY, { fetchImpl: fetchImpl as unknown as typeof fetch })
+    expect(mockRecordResponse).toHaveBeenCalledTimes(1)
+    const captured = mockRecordResponse.mock.calls[0][0] as Record<string, unknown>
+    expect(captured.status).toBe(200)
+    expect(captured.body).toEqual({ stopped: true, already_committed: true })
+    // Same id as the request capture — the bundle correlates the pair.
+    expect(captured.id).toBe((mockRecordRequest.mock.calls[0][0] as { id: string }).id)
+  })
+
+  it('captures a non-2xx with the status the classifier turned into unconfirmed', async () => {
+    fetchImpl.mockResolvedValue(jsonResponse({ error: { code: 'TURN_STOP_NOT_RECORDED' } }, 502))
+    await stopV5Turn(IDENTITY, { fetchImpl: fetchImpl as unknown as typeof fetch })
+    expect(mockRecordResponse).toHaveBeenCalledTimes(1)
+    const captured = mockRecordResponse.mock.calls[0][0] as Record<string, unknown>
+    expect(captured.status).toBe(502)
+    expect(captured.error).toBe('http_502')
+  })
+
+  it('captures a transport failure with status 0 + errorName', async () => {
+    fetchImpl.mockRejectedValue(new TypeError('Failed to fetch'))
+    await stopV5Turn(IDENTITY, { fetchImpl: fetchImpl as unknown as typeof fetch })
+    expect(mockRecordResponse).toHaveBeenCalledTimes(1)
+    const captured = mockRecordResponse.mock.calls[0][0] as Record<string, unknown>
+    expect(captured.status).toBe(0)
+    expect(captured.errorName).toBe('TypeError')
+  })
+
+  it('captures the ack-budget timeout as browser_timeout, exactly once', async () => {
+    fetchImpl.mockImplementation(
+      (_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => {
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+          })
+        }),
+    )
+    await stopV5Turn(IDENTITY, { fetchImpl: fetchImpl as unknown as typeof fetch, timeoutMs: 10 })
+    expect(mockRecordResponse).toHaveBeenCalledTimes(1)
+    const captured = mockRecordResponse.mock.calls[0][0] as Record<string, unknown>
+    expect(captured.source).toBe('browser_timeout')
+  })
+
+  it('the headers seam: opts.headers merge after Content-Type, on the wire AND in the capture', async () => {
+    fetchImpl.mockResolvedValue(jsonResponse({ stopped: true, already_committed: false }))
+    await stopV5Turn(IDENTITY, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      headers: { 'X-User-Id': 'user-1', Authorization: 'Bearer tok' },
+    })
+    const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit]
+    const expected = {
+      'Content-Type': 'application/json',
+      'X-User-Id': 'user-1',
+      Authorization: 'Bearer tok',
+    }
+    expect(init.headers).toEqual(expected)
+    const captured = mockRecordRequest.mock.calls[0][0] as { headers: Record<string, string> }
+    expect(captured.headers).toEqual(expected)
+  })
+
+  it('no headers passed → the wire carries exactly Content-Type (byte-identical to pre-seam)', async () => {
+    fetchImpl.mockResolvedValue(jsonResponse({ stopped: true, already_committed: false }))
+    await stopV5Turn(IDENTITY, { fetchImpl: fetchImpl as unknown as typeof fetch })
+    const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit]
+    expect(init.headers).toEqual({ 'Content-Type': 'application/json' })
   })
 })

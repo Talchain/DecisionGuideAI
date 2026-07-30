@@ -115,7 +115,7 @@ import {
   EARLY_STOP_ALREADY_SAVED_NOTICE,
   EARLY_STOP_UNCONFIRMED_NOTICE,
 } from '../components/DraftLoadingAnimation'
-import { stopV5Turn } from '../../v5/stopTurn'
+import { stopV5Turn, type TurnStopOutcomeKind } from '../../v5/stopTurn'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
 import { getSessionIdentity } from '../../lib/supabase'
 import { trackEvent } from '../../lib/posthog'
@@ -361,6 +361,22 @@ export function inferLoadingHint(message: string, _nodeCount: number, turnType?:
  * button for. Re-exported here so existing importers are unaffected.
  */
 export { START_NEW_DRAFT_CHIP_ID, RETRY_CHIP_ID } from './chipDispatch'
+
+/**
+ * Terminal stop-notice copy, keyed by the server-derived outcome (R-16, fence
+ * rider on #534). A RECORD, not a ternary chain: when a fourth
+ * `TurnStopOutcomeKind` arrives, this table is a COMPILE ERROR until the new
+ * outcome names its copy — the nested ternary it replaces would have silently
+ * routed a fourth kind to its final else branch. The three constants stay
+ * individually exported from `DraftLoadingAnimation`:
+ * `narrationHonesty.invariant.spec.ts` derives its manifest from that module's
+ * `*_NOTICE` exports, and this table only CONSUMES them.
+ */
+const EARLY_STOP_NOTICE_BY_OUTCOME: Record<TurnStopOutcomeKind, string> = {
+  not_saved: EARLY_STOP_NOT_SAVED_NOTICE,
+  already_saved: EARLY_STOP_ALREADY_SAVED_NOTICE,
+  unconfirmed: EARLY_STOP_UNCONFIRMED_NOTICE,
+}
 
 export interface StreamedDraftEligibility {
   turnType: TurnType
@@ -3879,14 +3895,21 @@ export function useConversation(): UseConversationReturn {
       // indistinguishable from a real outage. Caught by the hook spec, which
       // drives the streaming path.
       {
-        // ── `inFlightTurnIdentityRef` — COMPLETE MANIFEST (#534 round-3, F5b) ──
-        //   :2325-ish  new  useRef<{scenarioId,turnId} | null>(null)
-        //   :3883      WRITE  here — every turn kind, before setIsThinking(true)
-        //   :4027      WRITE  the V5 refinement (may mint a scenario id). ⚠ THAT
-        //              SITE HAS ZERO COVERAGE IN THIS PR: every stop-fence test in
-        //              this branch drives the LEGACY streaming seam, so only the
-        //              write here is exercised. Stated rather than implied.
-        //   :~5990     READ   cancelTurn, the only reader.
+        // ── `inFlightTurnIdentityRef` — COMPLETE MANIFEST (#534 round-3, F5b;
+        //    R-17: sites named by SYMBOL, not line number — line refs drift with
+        //    every edit above them, symbols don't) ──
+        //   new    the `useRef<{ scenarioId, turnId } | null>(null)` declaration,
+        //          directly above `explicitlyStoppedTurnIdsRef`
+        //   WRITE  here — the dispatch-time capture, every turn kind, before
+        //          setIsThinking(true)
+        //   WRITE  the V5 refinement (the `Stop-fence: refine the dispatch-time
+        //          capture` block just before `buildV5Payload` — may mint a
+        //          scenario id). ⚠ THAT SITE HAS ZERO COVERAGE IN THIS PR: every
+        //          stop-fence test in this branch drives the LEGACY streaming
+        //          seam, so only the write here is exercised. Stated rather than
+        //          implied.
+        //   READ   cancelTurn (`const identity = inFlightTurnIdentityRef.current`),
+        //          the only reader.
         //   No other reference. There is no delete: this write is the reset.
         const scenarioAtDispatch = useCanvasStore.getState().currentScenarioId
         inFlightTurnIdentityRef.current = scenarioAtDispatch
@@ -4888,8 +4911,10 @@ export function useConversation(): UseConversationReturn {
             //   Complete manifest of `explicitlyStoppedTurnIdsRef` at this commit:
             //   one `new`, this read, one `add` in cancelTurn. No `delete`. So once
             //   a turn id has been explicitly stopped, a LATER attempt with the
-            //   SAME id (retryLast reuses client_turn_id — :2096 / :3867 / :5791)
-            //   stays marked, and an abort of that attempt that was NOT a user
+            //   SAME id (retryLast reuses client_turn_id via the
+            //   `retryClientTurnId` send option, consumed at sendTurn's
+            //   `turnClientId` mint) stays marked, and an abort of that attempt
+            //   that was NOT a user
             //   stop — the 130 s timeout, a preempt — has its STOPPED_DRAFT_NOTICE
             //   suppressed here: preview standing, run gate shut, nothing said.
             //
@@ -5944,7 +5969,8 @@ export function useConversation(): UseConversationReturn {
     // ═══ STOP-FENCE (Codex P0) — TELL THE SERVER, THEN TELL THE USER ════════
     //
     // The abort above is local and always was. CEE deliberately does not cancel
-    // a turn when the client hangs up (`streamed-turn-sse.ts:71-78`), so until
+    // a turn when the client hangs up (the deliberate no-cancel-on-disconnect
+    // block in CEE's `streamed-turn-sse.ts`), so until
     // this call existed the stopped turn ran to completion and COMMITTED.
     // Reproduced on staging: a draft stopped at +4.0s ran its full 52.7s,
     // committed, and overwrote the graph of a different turn the user sent at
@@ -5962,18 +5988,28 @@ export function useConversation(): UseConversationReturn {
     //   not deliver says so; a turn that had already committed says so. The one
     //   thing none of the three does is predict what the fence will do.
     const identity = inFlightTurnIdentityRef.current
-    if (!identity) {
-      // No wire identity means the turn never reached dispatch (or the scenario
-      // id was absent), so there is nothing the server could tombstone. Still
-      // say something — a Stop the user pressed is never silent.
+    // One helper for both stop notices (R-15, fence rider on #534): the two
+    // emit sites were byte-identical apart from the copy, with the chip
+    // rationale on only one of them. The rationale, ONCE, for both (review F3,
+    // unchanged): the chip is `Start a new draft`, NOT `retry` — `retryLast`
+    // re-sends onto the SAME scenario, which CEE's continuation guard declines
+    // once that scenario has a committed turn, and after a stop we may not
+    // know whether it has one.
+    const emitStopNotice = (content: string) => {
       addMessage({
         id: crypto.randomUUID(),
         role: 'assistant',
         synthetic: true,
-        content: EARLY_STOP_UNCONFIRMED_NOTICE,
+        content,
         actionChips: [{ id: START_NEW_DRAFT_CHIP_ID, label: 'Start a new draft', intent: 'primary' }],
         timestamp: new Date(),
       })
+    }
+    if (!identity) {
+      // No wire identity means the turn never reached dispatch (or the scenario
+      // id was absent), so there is nothing the server could tombstone. Still
+      // say something — a Stop the user pressed is never silent.
+      emitStopNotice(EARLY_STOP_UNCONFIRMED_NOTICE)
       return
     }
     // ⚠ NO `has(...)` EARLY RETURN HERE, AND THE HISTORY MATTERS — AMENDMENT A2
@@ -5988,16 +6024,24 @@ export function useConversation(): UseConversationReturn {
     //   caught that. The argument was right; the code now matches it.
     //
     //   WHY IT IS OUT, not merely unnecessary. `retryLast` re-sends with the SAME
-    //   `client_turn_id` for idempotent replay (:2096 / :3867 / :5791), and this
+    //   `client_turn_id` for idempotent replay (the `retryClientTurnId` send
+    //   option, consumed at sendTurn's `turnClientId` mint), and this
     //   set is add-only — nothing ever deleted from it.
     //
     //   `explicitlyStoppedTurnIdsRef` — COMPLETE MANIFEST, derived at THIS head
     //   (#534 round-3, F5a; the round-2 record said "two reads", which was true of
-    //   the pre-fix tree and stale the moment the guard came out):
-    //     :2325  new Set()
-    //     :4885  READ — sendTurn's abort branch, suppressing STOPPED_DRAFT_NOTICE
-    //            for a turn cancelTurn has already spoken for. The ONE read.
-    //     :6011  ADD  — cancelTurn.
+    //   the pre-fix tree and stale the moment the guard came out. R-17: sites
+    //   named by SYMBOL — the old ":6011 ADD" line ref had ALREADY drifted to a
+    //   different line by the time it was replaced, which is the rider's whole
+    //   argument):
+    //     new   the `useRef<Set<string>>(new Set())` declaration
+    //     READ  sendTurn's abort branch — the
+    //           `!explicitlyStoppedTurnIdsRef.current.has(turnClientId)`
+    //           conjunct of the `abortedWithPreview` guard, suppressing
+    //           STOPPED_DRAFT_NOTICE for a turn cancelTurn has already spoken
+    //           for. The ONE read.
+    //     ADD   the `.add(identity.turnId)` directly below this comment, in
+    //           cancelTurn.
     //   No delete, no reset, and now only one reader.
     //
     //   So with the guard,
@@ -6023,7 +6067,8 @@ export function useConversation(): UseConversationReturn {
     //   ⚠ AND THE `inFlightTurnIdentityRef.current = null` CLEAR IS ALSO GONE,
     //   BY THE SAME RULE. The round-2 verify asked me to pin it. I could not:
     //   removing it REDs nothing, measured, because the identity is REFRESHED at
-    //   the top of every dispatch (:3883) to either this turn's pair or `null`
+    //   the top of every dispatch (the dispatch-time capture in sendTurn — the
+    //   F5b manifest's "WRITE here" site) to either this turn's pair or `null`
     //   before anything can read it — so a stale PREVIOUS-turn pair is
     //   structurally impossible and the clear had no independent effect.
     //
@@ -6040,27 +6085,15 @@ export function useConversation(): UseConversationReturn {
     //   assertion passed by ABSENCE. The deletion was still correct; the
     //   justification was not.
     //   It is now real: the invariant — a Stop never tombstones a PREVIOUS turn's
-    //   id — is pinned on the mechanism that provides it, the dispatch-time refresh
-    //   at :3883, by "stop A → send B → stop B: the second tombstone names B, never
+    //   id — is pinned on the mechanism that provides it, the dispatch-time
+    //   refresh in sendTurn (the F5b manifest's "WRITE here" site), by "stop A →
+    //   send B → stop B: the second tombstone names B, never
     //   A", in which BOTH stops are asserted to have executed.
     void stopV5Turn(identity).then((result) => {
-      addMessage({
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        synthetic: true,
-        content:
-          result.kind === 'not_saved'
-            ? EARLY_STOP_NOT_SAVED_NOTICE
-            : result.kind === 'already_saved'
-              ? EARLY_STOP_ALREADY_SAVED_NOTICE
-              : EARLY_STOP_UNCONFIRMED_NOTICE,
-        // F3's reasoning, unchanged and now doubly true: NOT `retry`.
-        // `retryLast` re-sends onto the SAME scenario, which CEE's continuation
-        // guard declines once that scenario has a committed turn — and after a
-        // stop we may not know whether it has one.
-        actionChips: [{ id: START_NEW_DRAFT_CHIP_ID, label: 'Start a new draft', intent: 'primary' }],
-        timestamp: new Date(),
-      })
+      // R-16: copy chosen by TABLE lookup — `EARLY_STOP_NOTICE_BY_OUTCOME`
+      // (module scope) is `Record<TurnStopOutcomeKind, string>`, so a fourth
+      // outcome kind is a compile error here, never a silent fallthrough.
+      emitStopNotice(EARLY_STOP_NOTICE_BY_OUTCOME[result.kind])
     })
   }, [updateMessage, cleanupStreamRefs, addMessage])
 
