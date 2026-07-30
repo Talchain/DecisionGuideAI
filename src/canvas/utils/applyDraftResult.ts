@@ -18,6 +18,7 @@ import { saveAutosave } from '../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
 import { hasAnalysisReady } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEGoalConstraint, CEEv2Response, CEEv3Response, EffectDirection } from '../../adapters/cee/types'
+import type { ValidationMetadata } from '../domain/validation'
 import { commitDraftCoachingToStore, edgeProvenanceDisplayPatch } from './draftIngestion'
 import { logger } from '../../lib/logger'
 import { validateNodesBatch } from '../domain/nodes'
@@ -120,6 +121,39 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
       ? Math.max(0, Math.min(1, e.exists_probability))
       : undefined
 
+  // Two-pass validation metadata from CEE's validation pipeline (ROADMAP 2.146).
+  //
+  // ⚠ THIS IS HOP 1 OF 3, AND THE OTHER TWO MUST STAY IN STEP. `buildEdge` in
+  // src/canvas/conversation/utils/applyPatch.ts is a HAND-MIRRORED copy of this
+  // function — a field added only here is present after a full draft and VANISHES
+  // on the next graph patch that touches the edge. `overlayEdge` in
+  // mergeAppliedGraph.ts derives its baseline FROM this function, so it follows
+  // automatically. The lockstep is pinned by
+  // src/canvas/utils/__tests__/edgeValidationMapperMirror.spec.ts.
+  //
+  // Carried as an OPAQUE OBJECT on purpose. It is `z.unknown()` at the UI's edge
+  // schema boundary (domain/edges.ts:273) with a typed overlay in
+  // types/validation.ts, so field-level extraction here would be a THIRD mirror
+  // of a shape this layer has no business knowing. Consumers narrow it.
+  //
+  // Omitted (not defaulted) when absent, and deliberately given NO entry in
+  // DEFAULT_EDGE_DATA: `overlayEdge` treats a mapped value equal to the mapper
+  // baseline as "the wire did not supply this", so a non-undefined default here
+  // would silently stop validation metadata overlaying onto an existing edge.
+  //
+  // The cast is a DECLARED BOUNDARY ASSUMPTION, not a validated narrowing (see
+  // the identical note in the hop-2 twin): the wire schema is
+  // `z.unknown().optional()` on purpose while the canvas `data` bag types it
+  // `ValidationMetadata`, and every consumer null-guards. Written the same way in
+  // both mappers on purpose — the two are supposed to be byte-equivalent, and a
+  // difference here would be the first crack in the mirror this comment warns
+  // about. (This function's declared return type is `any`, so TypeScript would
+  // NOT have flagged an inconsistency; the hop-2 twin is typed and does.)
+  const validation =
+    e.validation !== undefined && e.validation !== null
+      ? (e.validation as ValidationMetadata)
+      : undefined
+
   return {
     id,
     source: e.from,
@@ -136,6 +170,7 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
       ...(edgeType !== undefined ? { edge_type: edgeType } : {}),
       ...(provenanceSource !== undefined ? { provenance_source: provenanceSource } : {}),
       ...(existsProbability !== undefined ? { exists_probability: existsProbability } : {}),
+      ...(validation !== undefined ? { validation } : {}),
       // Set-vs-defaulted markers. Derived from the resolved values themselves,
       // never from "we are in the CEE mapper so it must be CEE": when the wire
       // carried no belief at all, `beliefExists` is `undefined` here and the

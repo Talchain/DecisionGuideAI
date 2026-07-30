@@ -17,6 +17,7 @@ import { validateNodesBatch } from '../../domain/nodes'
 import { hasAnalyticalNodeChange, hasAnalyticalEdgeChange } from '../../domain/analyticalChange'
 import type { PatchOperation, GraphPatchBlock } from '../types'
 import type { EffectDirection, CEEAnalysisReady, CEEInterventionV3 } from '../../../adapters/cee/types'
+import type { ValidationMetadata } from '../../domain/validation'
 
 // ---------------------------------------------------------------------------
 // Operation sort order — ensures nodes exist before edges reference them,
@@ -146,6 +147,30 @@ function buildEdge(op: PatchOperation) {
       ? Math.max(0, Math.min(1, d.exists_probability as number))
       : undefined
 
+  // Two-pass validation metadata (ROADMAP 2.146) — HOP 2 OF 3, and the reason
+  // this line exists at all is that this function is the hand-mirrored twin of
+  // mapDraftEdgeToCanvas. Adding `validation` only there would have produced the
+  // worst kind of bug: contested markers present after a fresh draft and silently
+  // GONE after the next `edit_graph` receipt touching the edge, with no error
+  // anywhere. Kept byte-for-byte equivalent to hop 1's extraction, and pinned in
+  // lockstep by src/canvas/utils/__tests__/edgeValidationMapperMirror.spec.ts.
+  //
+  // The cast is a DECLARED BOUNDARY ASSUMPTION, not a validated narrowing, and it
+  // matches how every existing reader and the one existing writer of this field
+  // already treat it: the wire schema is `z.unknown().optional()` on purpose
+  // (`domain/edges.ts:270-273` — the UI deliberately does not re-declare CEE's
+  // shape), while the canvas `data` bag types it `ValidationMetadata`
+  // (`domain/edges.ts:293-296`) so consumers can read it. Every consumer
+  // null-guards before use — `StyledEdge` requires `status`, `user_action` AND a
+  // non-null `max_divergence` before it styles anything, and `RelationshipsSection`
+  // requires `status` + `user_action` — so a malformed payload degrades to "not
+  // contested" rather than throwing. Runtime-validating the shape here would be a
+  // fourth mirror of a contract that already lives in two repos.
+  const validation =
+    d.validation !== undefined && d.validation !== null
+      ? (d.validation as ValidationMetadata)
+      : undefined
+
   return {
     id: op.target_id,
     source,
@@ -162,6 +187,7 @@ function buildEdge(op: PatchOperation) {
       ...(edgeType !== undefined ? { edge_type: edgeType } : {}),
       ...(provenanceSource !== undefined ? { provenance_source: provenanceSource } : {}),
       ...(existsProbability !== undefined ? { exists_probability: existsProbability } : {}),
+      ...(validation !== undefined ? { validation } : {}),
       // Set-vs-defaulted markers — see domain/edgeValueProvenance.ts. Omitted
       // when the patch carried no value, so an operation that supplies neither
       // leaves the edge honestly marked as unset rather than claiming a
