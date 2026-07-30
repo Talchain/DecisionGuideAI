@@ -28,8 +28,16 @@
  *   'already_saved' — the turn had ALREADY committed (server-derived from
  *                     v5_conversation_turns). No tombstone can unsave it, and
  *                     telling the user "nothing was saved" here would be a lie.
- *   'unconfirmed'   — we could not reach the server, it answered non-2xx, or we
- *                     ran out of patience. We do not know, and the copy says so.
+ *   'unconfirmed'   — we could not reach the server, it answered non-2xx, we ran
+ *                     out of patience, OR the body did not carry a RECOGNISABLE
+ *                     answer. We do not know, and the copy says so.
+ *
+ * ⚠ EVERY UNRECOGNISED SHAPE RESOLVES TO 'unconfirmed', INCLUDING FOR
+ *   `already_committed`. Neither of the other two kinds is ever the fallback,
+ *   because both are positive claims about the user's data: `not_saved` says
+ *   their canvas is unchanged and `already_saved` says it changed. A fallback
+ *   that asserts either one on an unreadable signal is a fabrication, and the
+ *   shape table in `stopTurn.spec.ts` pins all of them.
  *
  * A single boolean would have collapsed 'already_saved' and 'unconfirmed' into
  * the same silence, which is exactly the state this whole lane is about.
@@ -98,9 +106,25 @@ export async function stopV5Turn(
     if (parsed.stopped !== true) {
       return { kind: 'unconfirmed', reason: 'not_acknowledged' }
     }
-    return parsed.already_committed === true
-      ? { kind: 'already_saved' }
-      : { kind: 'not_saved' }
+    // ⚠ THREE-WAY, NOT A BOOLEAN COERCION — AMENDMENT A1 (adversarial review of
+    //   PR #534). This was `already_committed === true ? already_saved :
+    //   not_saved`, and that fell UNSAFE: an ABSENT field, `"true"`, `1` or
+    //   `"yes"` all landed on `not_saved`, which tells the user *"it was
+    //   cancelled before it was saved"* — a positive claim about their data, made
+    //   on a server signal that may mean the exact opposite. That is the lie this
+    //   module's own header forbids, and it contradicted its own premise: the body
+    //   is parsed as `unknown` precisely because it is untrusted, so reading an
+    //   UNRECOGNISED value as `false` was treating untrusted input as a fact.
+    //
+    //   `stopped` was already strict-with-a-fallback (anything unexpected →
+    //   `unconfirmed`); this makes `already_committed` behave the same way, which
+    //   is also what makes the three-state design actually three-state:
+    //     literal true  → already_saved
+    //     literal false → not_saved
+    //     anything else → unconfirmed   ("we cannot tell", which is TRUE)
+    if (parsed.already_committed === true) return { kind: 'already_saved' }
+    if (parsed.already_committed === false) return { kind: 'not_saved' }
+    return { kind: 'unconfirmed', reason: 'already_committed_unrecognised' }
   } catch (err) {
     const name = (err as { name?: string } | null)?.name
     return { kind: 'unconfirmed', reason: name === 'AbortError' ? 'timeout' : 'transport' }

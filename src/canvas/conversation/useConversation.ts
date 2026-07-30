@@ -5949,7 +5949,34 @@ export function useConversation(): UseConversationReturn {
       })
       return
     }
+    // ⚠ EXACTLY-ONCE IS KEYED ON THE TURN ID — AMENDMENT A2 (adversarial review
+    //   of PR #534), and the empirics matter here.
+    //
+    //   MEASURED BEFORE FIXING (four probes, recorded in
+    //   PHASE0-EVIDENCE-2026-07-28/fix-stop-fence.md): a double press does NOT
+    //   re-fire today — not two synchronous presses, not two separated by the
+    //   round trip, and not the stale-identity path either. The blocker is the
+    //   handler's own `if (!isThinkingRef.current) return` above (guard F/G), NOT
+    //   the Stop button unmounting, and `inFlightTurnIdentityRef` is refreshed at
+    //   dispatch (:3883) BEFORE `setIsThinking(true)` (:4100), so there is no
+    //   window where a live `isThinking` pairs with a previous turn's identity.
+    //
+    //   So why guard at all? Because that guard answers "is a turn in flight?",
+    //   and the contract this lane owes is "has THIS turn's stop already fired?".
+    //   Those coincide today only because of how the isThinking lifecycle happens
+    //   to be sequenced — a coincidence, not a property, and the cost of it
+    //   breaking is a second tombstone POST plus a second terminal notice against
+    //   an "exactly one" promise. Keying on the id makes it a property of the
+    //   handler, which is what the review asked for; `explicitlyStoppedTurnIdsRef`
+    //   already holds exactly the fact needed and was previously read only by
+    //   `sendTurn`.
+    if (explicitlyStoppedTurnIdsRef.current.has(identity.turnId)) return
     explicitlyStoppedTurnIdsRef.current.add(identity.turnId)
+    // Clear the captured identity now it has been used. Not load-bearing for the
+    // guard above, but it stops a stale (scenario, turn) pair outliving the turn
+    // it describes — the hazard the review reasoned from, closed at its source
+    // rather than only at the symptom.
+    inFlightTurnIdentityRef.current = null
     void stopV5Turn(identity).then((result) => {
       addMessage({
         id: crypto.randomUUID(),

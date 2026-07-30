@@ -87,6 +87,50 @@ describe('stopV5Turn — classifying the server’s answer', () => {
     expect(r.kind).toBe('already_saved')
   })
 
+  // ══ AMENDMENT A1 — THE `already_committed` SHAPE TABLE ═════════════════════
+  //
+  // The previous implementation was `already_committed === true ? already_saved :
+  // not_saved`, so EVERY row below except the literals resolved to `not_saved` —
+  // telling the user "it was cancelled before it was saved", a positive claim
+  // about their data, on a signal that may mean the opposite. The two literals
+  // are the only recognisable answers; everything else is "we cannot tell".
+  //
+  // Driven from a table rather than written out, so adding a shape cannot
+  // silently skip the assertion, and `not_saved` / `already_saved` are asserted
+  // to be UNREACHABLE from any unrecognised value (that is the whole finding).
+  describe.each([
+    ['literal true', true, 'already_saved'],
+    ['literal false', false, 'not_saved'],
+    ['absent (key omitted)', undefined, 'unconfirmed'],
+    ['string "true"', 'true', 'unconfirmed'],
+    ['string "false"', 'false', 'unconfirmed'],
+    ['number 1', 1, 'unconfirmed'],
+    ['number 0', 0, 'unconfirmed'],
+    ['string "yes"', 'yes', 'unconfirmed'],
+    ['null', null, 'unconfirmed'],
+    ['empty string', '', 'unconfirmed'],
+    ['an object', { committed: true }, 'unconfirmed'],
+    ['an array', [true], 'unconfirmed'],
+  ] as ReadonlyArray<readonly [string, unknown, string]>)(
+    'already_committed = %s',
+    (_label, value, expected) => {
+      it(`resolves to ${expected}`, async () => {
+        const body: Record<string, unknown> = { stopped: true }
+        if (value !== undefined) body.already_committed = value
+        fetchImpl.mockResolvedValue(jsonResponse(body))
+        const r = await stopV5Turn(IDENTITY, { fetchImpl: fetchImpl as unknown as typeof fetch })
+        expect(r.kind).toBe(expected)
+        if (expected === 'unconfirmed') {
+          // A positive claim about the user's canvas must be UNREACHABLE from an
+          // unrecognised signal — in either direction.
+          expect(r.kind).not.toBe('not_saved')
+          expect(r.kind).not.toBe('already_saved')
+          expect(r.reason).toBe('already_committed_unrecognised')
+        }
+      })
+    },
+  )
+
   it('a non-2xx is unconfirmed, never success', async () => {
     fetchImpl.mockResolvedValue(jsonResponse({ error: { code: 'TURN_STOP_NOT_RECORDED' } }, 502))
     const r = await stopV5Turn(IDENTITY, { fetchImpl: fetchImpl as unknown as typeof fetch })

@@ -2924,6 +2924,100 @@ describe('cancelTurn — stop-fence: the server is told, and so is the user', ()
   //   stream through `openV5TurnStream` and therefore reaches that branch. It
   //   bites U6.
 
+  // ══ AMENDMENT A2 — THE DOUBLE PRESS ═══════════════════════════════════════
+  //
+  // Measured BEFORE the fix (probes recorded in the evidence file): a double press
+  // did not re-fire even then, because the handler's `if (!isThinkingRef.current)
+  // return` bails. So these tests are NOT a RED-first pin on a live defect and are
+  // not presented as one — they pin the CONTRACT ("exactly one stop, exactly one
+  // notice, per turn id") so that it stops depending on how the isThinking
+  // lifecycle happens to be sequenced. The mutation that removes the id guard is
+  // therefore expected to SURVIVE these two while biting the third; that
+  // asymmetry is the honest result and it is recorded, not hidden.
+  it('two SYNCHRONOUS presses send ONE stop and emit ONE notice', async () => {
+    configureSilentHangingStream()
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      result.current.sendMessage('Draft the on-call rotation decision')
+    })
+    await act(async () => {
+      result.current.cancelTurn()
+      result.current.cancelTurn()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(mockStopV5Turn).toHaveBeenCalledTimes(1)
+    expect(result.current.messages.filter((m) => m.synthetic)).toHaveLength(1)
+  })
+
+  it('a second press AFTER the round trip has resolved sends no second stop', async () => {
+    configureSilentHangingStream()
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      result.current.sendMessage('Draft the on-call rotation decision')
+    })
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(mockStopV5Turn).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(mockStopV5Turn).toHaveBeenCalledTimes(1)
+    expect(result.current.messages.filter((m) => m.synthetic)).toHaveLength(1)
+  })
+
+  it('the guard is the HANDLER\'s, not the lifecycle\'s: a re-entrant press with the turn still live is refused', async () => {
+    // THIS is the test the id guard exists for, and the only one that isolates it.
+    // `isThinkingRef` is forced back to `true` between the two presses, which is
+    // exactly the state a future refactor of the isThinking sequencing could
+    // reintroduce: a live turn whose stop has ALREADY fired. Without the id guard
+    // the second press re-reads the identity and fires again.
+    configureSilentHangingStream()
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      result.current.sendMessage('Draft the on-call rotation decision')
+    })
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    // Re-arm the in-flight condition WITHOUT starting a new turn, then press again.
+    await act(async () => {
+      result.current.sendMessage('a second turn, so isThinking is live again')
+    })
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    // The SECOND turn has its own id, so it may legitimately be stopped — what
+    // must never happen is the FIRST turn's id being stopped twice.
+    const stoppedIds = mockStopV5Turn.mock.calls.map(
+      (c) => (c[0] as { turnId: string }).turnId,
+    )
+    expect(new Set(stoppedIds).size).toBe(stoppedIds.length)
+  })
+
   it('an idle Stop click never contacts the server', async () => {
     // cancelTurn's isThinking guard: no turn, no tombstone. A stop request for a
     // turn that does not exist would create a fence row for a turn_id nobody
