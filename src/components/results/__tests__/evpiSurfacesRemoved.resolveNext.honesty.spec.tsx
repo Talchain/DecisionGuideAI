@@ -2,11 +2,14 @@
  * EVPI display surfaces — the NEW "Resolve next" view must not reopen them.
  *
  * A SIBLING of `evpiSurfacesRemoved.honesty.spec.tsx`, deliberately not an edit
- * to it. That file imports and renders the ARCHIVED `ConfidenceSection` as one
- * of its harnesses, which makes the archived component load-bearing evidence;
- * touching either is out of scope for this lane (recon
- * `PHASE0-EVIDENCE-2026-07-28/confidencesection-recon.md`). This file carries
- * the SAME THREE MATCHERS, verbatim, against the new surface.
+ * to it: that file imports and renders the ARCHIVED `ConfidenceSection` as one
+ * of its harnesses, which makes the archived component load-bearing evidence
+ * (recon `PHASE0-EVIDENCE-2026-07-28/confidencesection-recon.md`). This file
+ * asserts the SAME THREE MATCHERS against the new surface — and now imports them
+ * from `./helpers/refutedEvpiClaimMatchers.ts` rather than re-declaring them, so
+ * the banned vocabulary has ONE definition. Two copies of an absence assertion's
+ * own definition is trap 13 with a delay fuse: narrow one and the other keeps
+ * passing.
  *
  * WHY THE NEW SURFACE NEEDS ITS OWN ENTRY IN THIS FAMILY
  * ─────────────────────────────────────────────────────
@@ -33,44 +36,27 @@ import { V7EvidenceDisclosure } from '../v7/V7EvidenceDisclosure'
 import type { V7EvidenceModel } from '../v7/buildV7Lenses'
 import { buildVoiRanking } from '../voi/voiRanking'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
+import {
+  PP_TOKEN,
+  RESOLVING_CLAIM,
+  WORTH_CLAIM,
+  REFUTED_CLAIM_CONTROLS,
+} from './helpers/refutedEvpiClaimMatchers'
+import { v7EvidenceModel } from '../../../__fixtures__/v7EvidenceModel'
+import {
+  voiRankingFixture,
+  openResolveNextExpanded as renderResolveNext,
+} from '../../../test/helpers/resolveNextView'
 
-/** The three matchers of `evpiSurfacesRemoved.honesty.spec.tsx`, verbatim. */
-const PP_TOKEN = /\d+(\.\d+)?\s*pp\b/i
-const RESOLVING_CLAIM = /resolving could improve confidence/i
-const WORTH_CLAIM = /worth\s+\d+(\.\d+)?pp if resolved/i
-
-function row(factorId: string, label: string) {
-  return { factorId, label, canFocus: true }
-}
-
-/** A POPULATED ranking — the honest-gate state would prove nothing here. */
+/**
+ * A POPULATED ranking — the honest-gate state would prove nothing here. Four
+ * resolved rows (so the clamp has something to hide), two below-resolution rows,
+ * and the PARTIAL disclosure on, from the shared non-degenerate fixture.
+ */
 function populated(): V7EvidenceModel {
-  return {
-    drivers: [],
-    flipRisks: [],
-    tradeOffs: [],
-    resolveNext: {
-      resolved: [
-        row('n_market', 'Market receptivity'),
-        row('n_comp', 'Competitor response'),
-        row('n_reg', 'Regulatory timeline'),
-        row('n_supply', 'Supply lead time'),
-      ],
-      belowResolution: [row('n_hiring', 'Hiring pace'), row('n_brand', 'Brand halo')],
-      someFactorsUnassessed: true,
-    },
-    designationsWithheld: false,
-  }
-}
-
-function renderResolveNext(evidence: V7EvidenceModel) {
-  render(<V7EvidenceDisclosure evidence={evidence} />)
-  fireEvent.click(screen.getByRole('button', { name: /Why, and what could change it/i }))
-  fireEvent.click(screen.getByTestId('v7-evidence-tab-resolveNext'))
-  // Expand, so the clamped rows are in the DOM too — a claim hiding behind
-  // "Show N more" is still a claim.
-  fireEvent.click(screen.getByTestId('v7-resolve-next-toggle'))
-  return document.body.textContent ?? ''
+  return v7EvidenceModel({
+    resolveNext: voiRankingFixture({ someFactorsUnassessed: true }),
+  })
 }
 
 describe('Resolve next — the refuted EVPI claim does not come back here', () => {
@@ -87,11 +73,12 @@ describe('Resolve next — the refuted EVPI claim does not come back here', () =
   })
 
   it('POSITIVE CONTROL: each matcher fires on the string it was written to catch', () => {
-    for (const [re, original] of [
-      [PP_TOKEN, 'Worth 12.3pp if resolved'],
-      [RESOLVING_CLAIM, 'Resolving could improve confidence by up to 10pp'],
-      [WORTH_CLAIM, 'Worth 6.6pp if resolved'],
-    ] as Array<[RegExp, string]>) {
+    // Trap 13, applied to the matchers' NEW HOME: the definitions moved out of
+    // this file, so this control also proves the import resolved to real
+    // patterns rather than to `undefined` (a bad import would otherwise make
+    // every `.not.toMatch` below throw, but an over-broad one would not).
+    expect(REFUTED_CLAIM_CONTROLS).toHaveLength(3)
+    for (const [re, original] of REFUTED_CLAIM_CONTROLS) {
       expect(re.test(original), `matcher must see: ${original}`).toBe(true)
     }
   })
@@ -111,17 +98,7 @@ describe('Resolve next — the refuted EVPI claim does not come back here', () =
   })
 
   it('the honest-gate state is equally clean', () => {
-    render(
-      <V7EvidenceDisclosure
-        evidence={{
-          drivers: [],
-          flipRisks: [],
-          tradeOffs: [],
-          resolveNext: null,
-          designationsWithheld: false,
-        }}
-      />,
-    )
+    render(<V7EvidenceDisclosure evidence={v7EvidenceModel({ resolveNext: null })} />)
     // Nothing at all to disclose → the whole section is absent, which is itself
     // the honest outcome (never an empty shell).
     expect(screen.queryByTestId('v7-evidence-disclosure')).not.toBeInTheDocument()
@@ -130,13 +107,10 @@ describe('Resolve next — the refuted EVPI claim does not come back here', () =
   it('the gate renders clean when a sibling view has data', () => {
     render(
       <V7EvidenceDisclosure
-        evidence={{
+        evidence={v7EvidenceModel({
           drivers: [{ factorKey: 'f1', label: 'Price', direction: null, isEstimate: false }],
-          flipRisks: [],
-          tradeOffs: [],
           resolveNext: null,
-          designationsWithheld: false,
-        }}
+        })}
       />,
     )
     fireEvent.click(screen.getByRole('button', { name: /Why, and what could change it/i }))

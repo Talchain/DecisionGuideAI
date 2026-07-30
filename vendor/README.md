@@ -77,55 +77,22 @@ drift).
 
 ### `talchain-schemas-0.29.0.tgz` (historical — no longer vendored)
 
-**Recorded provenance: fetched with
-`npm pack @talchain/schemas@0.29.0 --registry=https://npm.pkg.github.com` from
-olumi-schemas #28 (merged `80c52743`), i.e. the registry artefact rather than a
-locally-packed branch.** That distinction matters — a merge can publish something
-other than the reviewed branch — but it is a record of what the vendoring lane
-did, **not something any artefact in this repo can prove.**
+The absorption measurements, silent-drop census and reader-first sequencing notes
+for this pin are gone with the pin: it is no longer vendored, nothing resolves
+against it, and prose about a tarball that is not here is the drift this file
+already warns about. Its git history has them if a future lane needs them.
+
+What is kept is the CORRECTION, because the defect it records recurs:
 
 ⚠ **CORRECTED (adversarial review of PR #531).** This section previously cited
 `sha512-BAHbxcy/mIlCc+GNiOxvS4zadrl+0Kwecx4va886b6gicbTPwAzciuhQiPe3YU7kUj+FSclK10ApMf9NNk89qg==`
 from `pnpm-lock.yaml` and asserted it **"is the registry's own"**. That was
 **false**: the pin is `file:./vendor/...`, so pnpm hashed the LOCAL tarball and
 the string is reproducible offline from the checked-in bytes. It was zero evidence
-about the registry. What the lockfile hash and the `.sha256` sidecar actually
-attest is **local integrity of the checked-in file** — nothing more. Same defect,
-same correction, as the 0.30.0 section above.
-
-**What it adds (ROADMAP 1.346):** the `factor_value_edit` system-event kind —
-the VALUE-CARRYING inspector edit `{target_id, value (model scale), raw_value?,
-unit?, field? (literal 'value')}`. A sibling of `direct_graph_edit`, not a value
-on it.
-
-**Absorption cost 0.22.0 → 0.29.0, MEASURED at this tip rather than estimated:
-ZERO.** Both gate projects were compiled at each pin and the sorted diagnostic
-text diffed — **byte-identical** (`tsconfig.app.json` 2178, `tsconfig.tooling.json`
-596; gate ratchet 626 files / 2517 errors either way). Counts alone would not
-have been enough: the per-file ratchet is blind to a within-file swap, so the
-comparison is on the diagnostic TEXT.
-
-The zero is not vacuous — a positive control was run in both directions: a file
-typing `{kind: 'factor_value_edit', …}` as `SystemEventTurnPayload['event']`
-raises TS2322 at 0.22.0 and compiles clean at 0.29.0, so the instrument
-demonstrably discriminates between the two pins.
-
-Silent-drop census (hazard 1 — a consumer on an older pin drops fields it does
-not know): **0 exports removed** from the `dist/boundary` surface and **0 field
-names removed** from `olumi-response.d.ts`, `turn-payload.d.ts` or `enums.d.ts`.
-`turn-payload` gains only additive members (the `graph_state` node/edge shape and
-the `factor_value_edit` fields).
-
-⚠ **Reader-first is mandatory for this member, not a preference.** `SystemEventSchema`
-is a `discriminatedUnion` on `kind` whose members are all `.strict()`, so a
-consumer pinned below 0.29.0 that receives `factor_value_edit` rejects the WHOLE
-turn — not just the unknown field. The order is publish → CEE re-vendors → CEE
-deploys → only then the UI emitter ships. CEE build `74d997a6` (pin ≥0.29.0) was
-deploy-verified before this pin landed.
-
-`src/lib/talchainSchemasVersion.ts` is bumped to `0.29.0` in lockstep (its spec
-derives the expected value from the `file:` pin in `package.json` and fails on
-drift).
+about the registry. What a lockfile hash and a `.sha256` sidecar actually attest
+is **local integrity of the checked-in file** — nothing more. Same defect, same
+correction, as the 0.30.0 section above: **no hash in this file can say anything
+about a registry while the pin is `file:`.**
 
 ### `talchain-schemas-0.21.0.tgz` (historical — no longer vendored)
 

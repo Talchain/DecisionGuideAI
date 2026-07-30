@@ -206,8 +206,6 @@ function makeGoldenData(): ResultsSectionDataReturn {
     isLoading: false,
     isError: false,
     goalLabel: 'Revenue',
-    // V7-C slice 1 (ROADMAP 2.141): `null` is the honest-gate verdict — this
-    // fixture predates the Resolve next view and asserts nothing about it.
     voiRanking: null,
   }
 }

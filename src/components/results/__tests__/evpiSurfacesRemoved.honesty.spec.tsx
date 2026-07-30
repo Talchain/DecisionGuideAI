@@ -27,16 +27,21 @@ import { render, screen } from '@testing-library/react'
 import { ConfidenceSection } from '../ConfidenceSection'
 import { TriageCard } from '../../shared/TriageCard'
 import type { ConfidenceSectionData } from '../types'
+// Any "<n>pp" token, and the prose that used to carry it — ONE definition,
+// shared with `evpiSurfacesRemoved.resolveNext.honesty.spec.tsx`, which pins the
+// same absence on the NEW "Resolve next" surface. While each file held its own
+// copy, narrowing one would have left the other passing.
+import {
+  PP_TOKEN,
+  RESOLVING_CLAIM,
+  WORTH_CLAIM,
+  REFUTED_CLAIM_CONTROLS,
+} from './helpers/refutedEvpiClaimMatchers'
 
 vi.mock('../../../canvas/utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
   focusByTarget: vi.fn(),
 }))
-
-/** Any "<n>pp" token, and the prose that used to carry it. */
-const PP_TOKEN = /\d+(\.\d+)?\s*pp\b/i
-const RESOLVING_CLAIM = /resolving could improve confidence/i
-const WORTH_CLAIM = /worth\s+\d+(\.\d+)?pp if resolved/i
 
 /**
  * Inject a prop the component no longer declares. The removal only means
@@ -160,9 +165,25 @@ describe('the removed prose templates appear nowhere in a rendered results surfa
     const { container } = render(<ConfidenceSection data={data} />)
     const text = container.textContent ?? ''
 
-    // Positive control on the matcher itself: it CAN fire.
-    expect('Worth 12.3pp if resolved: …').toMatch(WORTH_CLAIM)
-    expect('Resolving could improve confidence by up to 12pp').toMatch(RESOLVING_CLAIM)
+    // POSITIVE CONTROL on the matchers themselves: they CAN fire.
+    //
+    // ⚠ DRIVEN FROM THE SHARED TABLE, AND NOT HAND-LISTED, BECAUSE HAND-LISTING
+    // LEFT A HOLE HERE. Until the adversarial review of PR #533 this block named
+    // WORTH_CLAIM and RESOLVING_CLAIM only — but this file uses PP_TOKEN in three
+    // absence assertions above, and PP_TOKEN had no control at all. Once the
+    // definitions moved to a shared module (item 13 of the /simplify sweep),
+    // neutering the shared PP_TOKEN left this spec 6/6 GREEN while those three
+    // assertions silently stopped testing anything, about a REFUTED quantity.
+    // Mutation-proven both ways: neutering WORTH_CLAIM or RESOLVING_CLAIM RED-ed
+    // this file, neutering PP_TOKEN did not.
+    //
+    // Iterating the shared table closes that by construction: a pattern cannot be
+    // added to the vocabulary without acquiring a control here, and the length
+    // assertion means a SHRUNK table reds rather than quietly checking less.
+    expect(REFUTED_CLAIM_CONTROLS).toHaveLength(3)
+    for (const [re, original] of REFUTED_CLAIM_CONTROLS) {
+      expect(re.test(original), `matcher must see: ${original}`).toBe(true)
+    }
 
     expect(text).not.toMatch(WORTH_CLAIM)
     expect(text).not.toMatch(RESOLVING_CLAIM)

@@ -43,6 +43,13 @@
  * produce rows, the view says so.
  */
 
+import { EnrichmentFactorEvppiEntrySchema } from '@talchain/schemas/boundary'
+// The repo's one EXPORTED plain-object guard. `transportFailure.ts` already
+// carried a byte-identical private copy and was folded onto this one; a seventh
+// copy here would have been the same trap-12 mirror. (The six pre-existing
+// private copies in src/v5 and src/lib are a separate, rowed migration.)
+import { isRecord } from '../../../canvas/conversation/ceeRecovery'
+
 /** A canvas label resolution for a producer `factor_id`. `null` = unlabelable. */
 export interface VoiLabelResolution {
   label: string
@@ -78,15 +85,68 @@ export interface VoiRanking {
 
 const PARTIAL_WARNING_CODE = 'FACTOR_EVPPI_PARTIAL'
 
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return v != null && typeof v === 'object' && !Array.isArray(v)
+/**
+ * THE ROW CONTRACT, DERIVED FROM THE PINNED SCHEMA — not a second copy of it.
+ *
+ * The three fields this reader actually reads, picked off
+ * `EnrichmentFactorEvppiEntrySchema` (@talchain/schemas 0.30.0, the schema
+ * written for exactly this row). Hand-rolled `typeof` checks over the same three
+ * fields were a SECOND definition of the row contract in a repo whose #1 hazard
+ * is schema skew: the pin can move and a hand-rolled check cannot notice.
+ * `.pick()` binds these three to the schema, so a rename or retype of any of
+ * them is a compile error here rather than rows silently dropping in production.
+ *
+ * ⚠ WHY `.pick(…)` AND NOT THE WHOLE SCHEMA. Parsing the FULL entry would also
+ * validate the audit legs this reader never reads (`units`, `noise_floor`,
+ * `method`, `evppi_raw`, `n_samples`, the clamp booleans, `correlation_active`).
+ * A producer that sent one of those with the wrong type would then have its row
+ * DROPPED — and if it were rank 1, the whole ranking would collapse to the
+ * honest gate. That is a real behaviour change (measured: 3 of 33 probe payloads
+ * flip), it is a product judgement about unread fields, and it is not this
+ * reader's to make silently. Keeping the pick makes the swap provably
+ * behaviour-identical to the checks it replaces.
+ *
+ * Passthrough survives `.pick()`, so unknown/extra producer keys still parse.
+ */
+const FactorEvppiRowSchema = EnrichmentFactorEvppiEntrySchema.pick({
+  factor_id: true,
+  evppi: true,
+  status: true,
+})
+
+type FactorEvppiRow = ReturnType<typeof FactorEvppiRowSchema.parse>
+
+/**
+ * The three deliberate CONSUMER tightenings on top of the wire shape, each
+ * stricter than the schema on purpose:
+ *
+ *   · `factor_id` NON-EMPTY — the wire types it `z.string()`, which admits `''`;
+ *     an empty id resolves to no canvas node and can name nothing.
+ *   · `evppi` PRESENT and FINITE — the wire types it `z.number().optional()`,
+ *     and `z.number()` admits `Infinity`. A row whose magnitude is unreadable is
+ *     a row whose status we decline to trust, and the fail-safe direction is to
+ *     drop it and disclose rather than to rank it. The value itself goes no
+ *     further than this check — it is never stored, compared, or used to order.
+ *   · `status` a CLOSED enum — the wire types it OPEN (`z.string()`) so an
+ *     unknown status cannot fail transport. Here it must be one of the two bands
+ *     we know how to render, because the only other thing we could do with an
+ *     unrecognised band is guess which one it means.
+ */
+function isUsableRow(row: FactorEvppiRow | null): row is FactorEvppiRow {
+  return (
+    row !== null &&
+    row.factor_id.length > 0 &&
+    typeof row.evppi === 'number' &&
+    Number.isFinite(row.evppi) &&
+    (row.status === 'resolved' || row.status === 'below_resolution')
+  )
 }
 
 /** True when the producer disclosed a partial per-factor assessment. */
 function hasPartialWarning(inferenceWarnings: unknown): boolean {
   if (!Array.isArray(inferenceWarnings)) return false
   return inferenceWarnings.some(
-    (w) => isPlainObject(w) && w.code === PARTIAL_WARNING_CODE,
+    (w) => isRecord(w) && w.code === PARTIAL_WARNING_CODE,
   )
 }
 
@@ -127,20 +187,12 @@ export function buildVoiRanking({
 
   for (const raw of rows) {
     // Defensive validation, fail-safe: drop THAT row, never coerce a value.
-    // `evppi` is required to be a finite number here even though the wire
-    // schema types it optional — a row whose magnitude is unreadable is a row
-    // whose status we decline to trust, and the fail-safe direction is to drop
-    // it and disclose rather than to rank it. The value itself goes no further
-    // than this check.
-    const isRowUsable =
-      isPlainObject(raw) &&
-      typeof raw.factor_id === 'string' &&
-      raw.factor_id.length > 0 &&
-      typeof raw.evppi === 'number' &&
-      Number.isFinite(raw.evppi) &&
-      (raw.status === 'resolved' || raw.status === 'below_resolution')
+    // Shape from the PINNED SCHEMA (`FactorEvppiRowSchema`), then the three
+    // consumer tightenings (`isUsableRow`) — both documented above.
+    const parsed = FactorEvppiRowSchema.safeParse(raw)
+    const wireRow = parsed.success ? parsed.data : null
 
-    if (!isRowUsable) {
+    if (!isUsableRow(wireRow)) {
       droppedAnyRow = true
       // A row we declined to VALIDATE is a row whose `status` we cannot trust
       // either — the status may be the very field that failed. So we cannot
@@ -168,8 +220,8 @@ export function buildVoiRanking({
       continue
     }
 
-    const factorId = raw.factor_id as string
-    const isResolvedRow = raw.status === 'resolved'
+    const factorId = wireRow.factor_id
+    const isResolvedRow = wireRow.status === 'resolved'
     const isFirstResolvedRow = isResolvedRow && !sawFirstResolvedRow
     if (isResolvedRow) sawFirstResolvedRow = true
 

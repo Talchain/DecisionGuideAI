@@ -1067,6 +1067,18 @@ export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
     display_verdict?: string
     display_verdict_reason?: string
     flip_thresholds?: Array<Record<string, unknown>>
+    // ⚠ `inference_warnings` is DELIBERATELY NOT DECLARED HERE, even though the
+    // V4/V2 mapper nests it in this slot. Adding a member to this INLINE object
+    // type changes the elided-member counter TypeScript prints inside four
+    // unrelated baselined diagnostics in `useResultsSectionData.ts`
+    // ("… 8 more …" → "… 9 more …"), which makes the typecheck gate emit its
+    // identity-diff notice on a clean tree — and `typecheck:selftest`'s green
+    // control asserts that notice does NOT appear on a clean tree. So declaring
+    // it here reds a required check for a purely cosmetic reason.
+    // `readInferenceWarnings()` in `useResultsSectionData.ts` reads this slot
+    // through one narrow cast instead, and it is the LEGACY slot regardless:
+    // measured 0/773 on live staging facts (root 773/773) — see
+    // `canvas/stores/persistedRunSnapshotFactory.ts`.
     _truncation?: {
       fragile_truncated: boolean
       fragile_total: number
@@ -1109,6 +1121,27 @@ export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
   downstream_calls?: unknown
   factors?: Array<Record<string, unknown>>
   factor_enrichments?: Array<Record<string, unknown>>
+  /**
+   * V7-C slice 1 (ROADMAP 2.141): the mapper's verbatim carry of
+   * `enrichment.factor_evppi` (`src/v5/mapV5AnalysisToReport.ts`).
+   *
+   * `unknown[]` ON PURPOSE — the ROW shape is validated at the one reader
+   * (`voi/voiRanking.ts`) against the pinned `EnrichmentFactorEvppiEntrySchema`,
+   * never here. What matters is that the KEY is declared: while it was absent,
+   * every read of it needed `(report as unknown as Record<string, unknown>)`,
+   * and a mistyped key inside that cast yields `undefined` — so the honest gate
+   * would render forever with nothing red anywhere. Declaring the key is what
+   * makes the typo a compile error instead of a silent permanent gate.
+   */
+  factor_evppi?: unknown[]
+  /**
+   * ISL `inference_warnings[]` — the enrichment-ROOT slot. Same reasoning as
+   * `factor_evppi`: declared so readers do not cast, entries left `unknown`
+   * because each reader validates the codes it cares about. Read it through
+   * `readInferenceWarnings()` in `useResultsSectionData.ts`, which also covers
+   * the legacy `robustness.inference_warnings` slot.
+   */
+  inference_warnings?: unknown[]
 }
 
 /**

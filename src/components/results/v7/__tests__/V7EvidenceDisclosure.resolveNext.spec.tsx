@@ -4,10 +4,18 @@
  *
  * NON-DEGENERATE FIXTURE (ROADMAP 2.141 probe limit i). The live 30 Jul probe's
  * rank-order pin was VACUOUS because the run returned two zero-EVPPI factors, so
- * any order passed. This fixture therefore carries FOUR resolved rows with three
- * DISTINCT producer positions, a TIE PAIR at ranks 2-3, TWO below-resolution
- * rows, and a canvas factor deliberately absent from the wire. One pin feeds a
- * deliberately MIS-SORTED wire so accidental iteration order cannot pass.
+ * any order passed. The fixture therefore carries FOUR resolved rows with three
+ * DISTINCT producer positions, a TIE PAIR at ranks 2-3, and TWO below-resolution
+ * rows. One pin feeds a deliberately MIS-SORTED wire so accidental iteration
+ * order cannot pass.
+ *
+ * The fixture, the row builder and the open-and-switch helper live in
+ * `src/test/helpers/resolveNextView.tsx`, SHARED with
+ * `results/__tests__/evpiSurfacesRemoved.resolveNext.honesty.spec.tsx`. Both
+ * suites arrived in the same PR with private copies that had already diverged
+ * (two `row()` signatures, two fixtures with different labels), so the two were
+ * asserting against subtly different surfaces while reading as if they shared
+ * one.
  *
  * CLAIM TYPE: rendered text / DOM presence within jsdom (trap 3). Nothing here
  * is a visibility or layout claim — the live check owns those.
@@ -15,53 +23,15 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { V7EvidenceDisclosure } from '../V7EvidenceDisclosure'
-import type { V7EvidenceModel } from '../buildV7Lenses'
-import type { VoiRanking } from '../../voi/voiRanking'
 import { V7_LENS_COPY } from '../v7LensCopy'
+import { v7EvidenceModel as model } from '@/__fixtures__/v7EvidenceModel'
+import {
+  voiRow as row,
+  voiRankingFixture as ranking,
+  openResolveNext,
+} from '@/test/helpers/resolveNextView'
 
 const E = V7_LENS_COPY.evidence
-
-function model(partial: Partial<V7EvidenceModel>): V7EvidenceModel {
-  return {
-    drivers: partial.drivers ?? [],
-    flipRisks: partial.flipRisks ?? [],
-    tradeOffs: partial.tradeOffs ?? [],
-    resolveNext: partial.resolveNext ?? null,
-    designationsWithheld: partial.designationsWithheld ?? false,
-  }
-}
-
-function row(factorId: string, label: string, canFocus = true) {
-  return { factorId, label, canFocus }
-}
-
-/**
- * Producer wire order. Ranks 2 and 3 are a TIE on the wire (identical evppi
- * upstream) — the reader keeps producer order and so must the view.
- */
-function ranking(partial: Partial<VoiRanking> = {}): VoiRanking {
-  return {
-    resolved: partial.resolved ?? [
-      row('n_market', 'Market receptivity'),
-      row('n_comp', 'Competitor response'),
-      row('n_comp_eu', 'Competitor response (Europe)'),
-      row('n_reg', 'Regulatory timeline'),
-    ],
-    belowResolution: partial.belowResolution ?? [
-      row('n_hiring', 'Hiring pace'),
-      row('n_brand', 'Brand halo'),
-    ],
-    someFactorsUnassessed: partial.someFactorsUnassessed ?? false,
-  }
-}
-
-/** Open the disclosure and switch to the Resolve next view. */
-function openResolveNext(evidence: V7EvidenceModel, onFocusNode?: (id: string) => void) {
-  const utils = render(<V7EvidenceDisclosure evidence={evidence} onFocusNode={onFocusNode} />)
-  fireEvent.click(screen.getByRole('button', { name: /Why, and what could change it/i }))
-  fireEvent.click(screen.getByTestId('v7-evidence-tab-resolveNext'))
-  return utils
-}
 
 describe('V7EvidenceDisclosure — Resolve next: the ranking', () => {
   it('exposes a fourth view chip beside the existing three', () => {
@@ -88,7 +58,9 @@ describe('V7EvidenceDisclosure — Resolve next: the ranking', () => {
       expect.stringContaining('Competitor response'),
       expect.stringContaining('Competitor response (Europe)'),
     ])
-    // Rank 4 is clamped until expanded (mirrors Drivers' VISIBLE_DRIVERS = 3).
+    // Rank 4 is clamped until expanded — the disclosure's shared row clamp,
+    // VISIBLE_EVIDENCE_ROWS = 3 (the SAME constant Drivers uses, which is why
+    // "mirrors Drivers'" is no longer a claim anyone has to keep true).
     expect(screen.queryByText('Regulatory timeline')).not.toBeInTheDocument()
     fireEvent.click(screen.getByTestId('v7-resolve-next-toggle'))
     expect(screen.getByText('Regulatory timeline')).toBeInTheDocument()
