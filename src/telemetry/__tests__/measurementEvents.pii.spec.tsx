@@ -44,19 +44,34 @@
 //
 //   DIRECT-DRIVEN — the sender is called with a canary-laden payload. There is
 //   no render because these senders' inputs are not rendered text; they are
-//   strings assembled in hooks:
+//   strings assembled in hooks or read from config:
 //     · every run-spine sender                   → run_started, run_completed,
 //                                                  run_failed,
 //                                                  plot.empty_computed_results
-//     · trackGuidance, all 12 guidance_* events
-//     · trackMeasurement, every declared event
+//     · trackGuidance, all 12 guidance_* events, dwell_ms included
+//     · trackMeasurement, EVERY declared event — including session_started and
+//       contested_edge_viewed, whose real emitters (app boot, and a component
+//       unmount) this file drives by payload rather than by their call site
 //
-//   STATIC-DERIVED — asserted ABOUT THE SOURCE rather than by driving it,
-//   because the emitter runs at app boot or needs a store this harness cannot
-//   honestly assemble. THE CLAIM TYPE IS WEAKER AND IS NAMED AS SUCH; do not
-//   read these as behavioural proof:
-//     · session_started (C5, emitted from initMonitoring)
-//     · GuidanceStrip's dwell_ms additions
+//   ⚠ NOT COVERED BY THIS FILE — stated plainly rather than implied:
+//     · GuidanceStrip's dwell CLOCK. The payload it produces is covered above
+//       (dwell_ms is driven through trackGuidance), but WHEN the clock starts
+//       and whether it is correctly keyed to item_id is component behaviour
+//       with no test. It is a timing bug risk, not a PII risk — a bucketed
+//       integer cannot carry a label — so it is out of scope for a LEAK
+//       detector, and it is named here so nobody reads this file's silence as
+//       coverage. Closing it needs a GuidanceStrip render harness with the
+//       guidance store assembled; rowed, not done.
+//     · session_started's call site inside `initMonitoring` (as opposed to its
+//       payload, which IS driven above).
+//
+//   ⚠ This block previously listed session_started and the GuidanceStrip dwell
+//   as "STATIC-DERIVED", implying an assertion about the source existed. NO
+//   SUCH ASSERTION EXISTED. That is the same defect — a header describing
+//   coverage the file does not have — that this very header was rewritten to
+//   fix, reintroduced within the same change. Corrected here; the lesson is
+//   that a manifest is only honest if every line of it is re-checked against
+//   the file AFTER the file stops changing.
 //
 // The canary is placed on every user- or model-authored string those surfaces
 // can reach: driver labels, flip-risk from/to labels, trade-off factor and

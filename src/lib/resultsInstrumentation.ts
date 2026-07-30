@@ -228,6 +228,10 @@ export function trackRunFailed(payload: RunFailedPayload): void {
     })
 
     if (import.meta.env.DEV) {
+      // DEV console only — never the wire. The full payload, message included,
+      // is genuinely useful locally, and a developer's own console is not a
+      // third-party ingest endpoint. The distinction is the whole point of the
+      // seam above: what leaves the browser is `safe`, not `payload`.
       console.log('[Instrumentation] run_failed', payload)
     }
   } catch (e) {
