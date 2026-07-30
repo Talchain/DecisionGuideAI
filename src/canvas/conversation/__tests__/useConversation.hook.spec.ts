@@ -10,6 +10,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useConversation } from '../useConversation'
+import {
+  EARLY_STOP_NOT_SAVED_NOTICE,
+  EARLY_STOP_ALREADY_SAVED_NOTICE,
+  EARLY_STOP_UNCONFIRMED_NOTICE,
+  STOPPED_DRAFT_NOTICE,
+} from '../../components/DraftLoadingAnimation'
+import { START_NEW_DRAFT_CHIP_ID } from '../chipDispatch'
 import { useCanvasStore } from '../../store'
 import { getCurrentScenarioId } from '../../store/scenarios'
 import { useResultsStore } from '../../stores/resultsStore'
@@ -66,6 +73,16 @@ vi.mock('../../../v5/v5Adapter', () => ({
   // same pattern fixed in the sibling useConversation.reasoning.spec.ts
   // (5bc479cf).
   getV5Endpoint: () => 'https://cee.test/orchestrate/v2/turn',
+}))
+
+// Stop-fence (Codex P0): the server-visible explicit Stop. Mocked here so the
+// notice-copy assertions below drive off the OUTCOME rather than a live fetch —
+// which is the whole point of the three-state answer.
+const mockStopV5Turn = vi.fn(async () => ({ kind: 'not_saved' as const }))
+vi.mock('../../../v5/stopTurn', () => ({
+  stopV5Turn: (...args: unknown[]) => mockStopV5Turn(...args),
+  getV5StopEndpoint: () => 'https://cee.test/proxy/v5/turn/stop',
+  STOP_ACK_BUDGET_MS: 5000,
 }))
 
 // Mock V5 eligibility so the V5-specific describe blocks below (which
@@ -1915,18 +1932,35 @@ describe('cancelTurn — T6 Stop button', () => {
 
     const assistantMessages = result.current.messages.filter((m) => m.role === 'assistant')
     expect(assistantMessages.length).toBeGreaterThan(0)
-    const last = assistantMessages[assistantMessages.length - 1]
+    // AMENDED by the stop-fence lane (Codex P0): `cancelTurn` now ALWAYS appends
+    // one terminal notice, so "the last assistant message" is the NOTICE, not the
+    // stopped stream. This test is about the stopped stream, so it names it —
+    // asserting against `last` would have silently started testing the notice's
+    // fields and passed while N8 itself regressed.
+    const stopped = assistantMessages.find((m) => m.stoppedByUser === true)
+    expect(stopped, 'the stopped streaming message must still be present').toBeDefined()
 
     // N8 regression: content must NOT be overwritten with the stuck-stream
     // recovery placeholder. The partial text the user saw must be preserved.
-    expect(last.content).not.toContain('The response was interrupted')
+    expect(stopped!.content).not.toContain('The response was interrupted')
+    // NOT asserting the partial text is present: I added that and it FAILED —
+    // in this harness the streamed text is still in the RAF buffer when Stop
+    // lands, so `content` is ''. The original test only ever claimed the
+    // negative, and inventing the positive here would have been a guarantee the
+    // code does not make.
     // No Try again chip — the user intentionally stopped.
-    const retryChip = last.actionChips?.find((c) => c.id === 'retry')
-    expect(retryChip).toBeUndefined()
+    expect(stopped!.actionChips?.find((c) => c.id === 'retry')).toBeUndefined()
     // Stopped indicator marker intact.
-    expect(last.stoppedByUser).toBe(true)
-    expect(last.isStreaming).toBe(false)
-    expect(last.isProvisional).toBe(false)
+    expect(stopped!.isStreaming).toBe(false)
+    expect(stopped!.isProvisional).toBe(false)
+
+    // And the terminal notice sits AFTER it, exactly once — the stopped stream
+    // and the notice are two different messages doing two different jobs.
+    const notices = assistantMessages.filter((m) => m.synthetic)
+    expect(notices).toHaveLength(1)
+    expect(assistantMessages.indexOf(notices[0])).toBeGreaterThan(
+      assistantMessages.indexOf(stopped!),
+    )
   })
 
   it('F: cancelTurn is idempotent when isThinking is false (not a no-op after first turn)', async () => {
@@ -2765,5 +2799,162 @@ describe('1.16i — rerun UX integrity', () => {
     await act(async () => { await runA })
 
     vi.unstubAllEnvs()
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STOP-FENCE (Codex P0) — the explicit Stop is server-visible, and never silent
+//
+// The defect this closes, reproduced on staging
+// (PHASE0-EVIDENCE-2026-07-28/fix-stop-fence.md): Stop aborted only the local
+// controller, CEE ran the turn to completion and committed it, and the user —
+// who saw an empty composer and assumed nothing had happened — sent another turn
+// on the same scenario. The stopped draft committed 163ms after the new one and
+// overwrote its graph.
+//
+// So there are two claims here, and they are separate tests because they can
+// regress independently:
+//   1. the server is TOLD (with the ids that went on the wire);
+//   2. the user is TOLD, ALWAYS, exactly once, in words chosen by the answer.
+// ═══════════════════════════════════════════════════════════════════════════
+describe('cancelTurn — stop-fence: the server is told, and so is the user', () => {
+  beforeEach(() => {
+    localStorage.setItem('feature.orchestratorStreaming', '1')
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult())
+    mockStopV5Turn.mockReset()
+    mockStopV5Turn.mockResolvedValue({ kind: 'not_saved' })
+  })
+  afterEach(() => {
+    localStorage.removeItem('feature.orchestratorStreaming')
+  })
+
+  /** A stream that yields nothing at all, then hangs — an EARLY stop, before
+   *  any streaming message or graph preview exists. This is the case #527's
+   *  liveproof recorded as "silent by design", and the case that made the
+   *  corruption reachable. */
+  function configureSilentHangingStream() {
+    mockStreamTurn.mockImplementation(async function* (_req: unknown, signal: AbortSignal) {
+      await new Promise<never>((_, reject) => {
+        if (signal.aborted) {
+          reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+          return
+        }
+        signal.addEventListener('abort', () => {
+          reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+        }, { once: true })
+      })
+    })
+  }
+
+  async function stopAnEarlyDraft(outcome: { kind: string }) {
+    mockStopV5Turn.mockResolvedValue(outcome)
+    configureSilentHangingStream()
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      result.current.sendMessage('Should we restructure the on-call rotation next quarter?')
+    })
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    return result
+  }
+
+  it('sends the stop to the server with the ids that went ON THE WIRE', async () => {
+    const result = await stopAnEarlyDraft({ kind: 'not_saved' })
+    expect(mockStopV5Turn).toHaveBeenCalledTimes(1)
+    const identity = mockStopV5Turn.mock.calls[0][0] as { scenarioId: string; turnId: string }
+    // The tombstone is keyed on (scenario_id, turn_id); a stop naming any other
+    // pair fences nothing and still reports success.
+    expect(typeof identity.scenarioId).toBe('string')
+    expect(identity.scenarioId.length).toBeGreaterThan(0)
+    expect(typeof identity.turnId).toBe('string')
+    expect(identity.turnId.length).toBeGreaterThan(0)
+    expect(result.current.messages.length).toBeGreaterThan(0)
+  })
+
+  it('an EARLY stop is NOT silent — one terminal notice + a working chip, with no preview on the canvas', async () => {
+    const result = await stopAnEarlyDraft({ kind: 'not_saved' })
+    const synthetic = result.current.messages.filter((m) => m.synthetic)
+    expect(synthetic).toHaveLength(1)
+    expect(synthetic[0].content).toBe(EARLY_STOP_NOT_SAVED_NOTICE)
+    expect(synthetic[0].actionChips?.map((c) => c.id)).toEqual([START_NEW_DRAFT_CHIP_ID])
+    // NOT `retry`: retryLast re-sends onto the same scenario, which CEE's
+    // continuation guard declines once that scenario has a committed turn.
+    expect(synthetic[0].actionChips?.some((c) => c.id === 'retry')).toBe(false)
+  })
+
+  it('says the draft had ALREADY been saved when the server says so', async () => {
+    const result = await stopAnEarlyDraft({ kind: 'already_saved' })
+    const synthetic = result.current.messages.filter((m) => m.synthetic)
+    expect(synthetic).toHaveLength(1)
+    expect(synthetic[0].content).toBe(EARLY_STOP_ALREADY_SAVED_NOTICE)
+  })
+
+  it('admits it cannot tell when the stop was not acknowledged', async () => {
+    // A 200-only boolean would have collapsed this state into "cancelled", which
+    // is the one thing the copy must never claim without evidence.
+    const result = await stopAnEarlyDraft({ kind: 'unconfirmed', reason: 'transport' })
+    const synthetic = result.current.messages.filter((m) => m.synthetic)
+    expect(synthetic).toHaveLength(1)
+    expect(synthetic[0].content).toBe(EARLY_STOP_UNCONFIRMED_NOTICE)
+  })
+
+  it('emits EXACTLY ONE terminal notice when a graph preview was already standing', async () => {
+    // Two notices were the risk here: sendTurn's abortedWithPreview branch has
+    // emitted STOPPED_DRAFT_NOTICE since #529, and cancelTurn now emits its own.
+    // The turn id set is what keeps them from both firing.
+    mockStopV5Turn.mockResolvedValue({ kind: 'not_saved' })
+    mockStreamTurn.mockImplementation(async function* (_req: unknown, signal: AbortSignal) {
+      yield { type: 'text_delta' as const, delta: 'Working on it' }
+      await new Promise<never>((_, reject) => {
+        signal.addEventListener('abort', () => {
+          reject(Object.assign(new Error('aborted'), {
+            name: 'AbortError',
+            abortedWithPreview: true,
+          }))
+        }, { once: true })
+      })
+    })
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      result.current.sendMessage('Draft a model for the on-call rotation decision')
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    const notices = result.current.messages.filter(
+      (m) => m.synthetic && typeof m.content === 'string',
+    )
+    expect(notices).toHaveLength(1)
+    expect(notices[0].content).toBe(EARLY_STOP_NOT_SAVED_NOTICE)
+    // And the STOPPED_DRAFT_NOTICE the abort branch would have added is absent —
+    // it is still correct for a TIMEOUT or a preempt, which is why it stays.
+    expect(notices[0].content).not.toBe(STOPPED_DRAFT_NOTICE)
+  })
+
+  it('an idle Stop click never contacts the server', async () => {
+    // cancelTurn's isThinking guard: no turn, no tombstone. A stop request for a
+    // turn that does not exist would create a fence row for a turn_id nobody
+    // claimed.
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    expect(mockStopV5Turn).not.toHaveBeenCalled()
+    expect(result.current.messages).toEqual([])
   })
 })

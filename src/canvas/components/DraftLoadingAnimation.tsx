@@ -158,6 +158,41 @@ export const STOPPED_DRAFT_NOTICE =
   'Drafting ended before your model\u2019s values arrived, so they are not final. The structure is still here \u2014 start a new draft to get a model with settled values.'
 
 /**
+ * ── THE THREE EARLY-STOP NOTICES ────────────────────────────────────────────
+ *
+ * Emitted on EVERY explicit user Stop, including one pressed before any
+ * streaming message or graph preview exists. That supersedes the "early Stop is
+ * silent by design" record in #527's liveproof, and the reason is the P0 this
+ * lane closes: a user who stopped early saw an empty composer, assumed nothing
+ * had happened, and typed again on the same scenario — while the turn they
+ * cancelled was still running and about to commit over the top of the new one
+ * (`PHASE0-EVIDENCE-2026-07-28/fix-stop-fence.md`). Silence was the thing that
+ * made the corruption reachable.
+ *
+ * ⚠ THREE STRINGS, NOT ONE, AND THAT IS THE HONESTY. The server now answers a
+ *   Stop with what it RECORDED, so the notice can describe the past instead of
+ *   predicting the commit. One string would have to cover a turn that was
+ *   cancelled in time, a turn that had already been saved, and a Stop we could
+ *   not deliver — and any wording true of all three says nothing.
+ *
+ * ⚠ NONE OF THEM PROMISES AN OUTCOME. "was cancelled before it was saved" is a
+ *   statement about a tombstone that exists and a commit that had not happened;
+ *   the unconfirmed line says "may still be saved" rather than guessing. No
+ *   forecast, no verdict — the same bar as the wait narration, and governed by
+ *   the same suite (`narrationHonesty.invariant.spec.ts` derives its manifest
+ *   from this module's `*_NOTICE` exports, so these are covered the moment they
+ *   exist).
+ */
+export const EARLY_STOP_NOT_SAVED_NOTICE =
+  'You stopped this draft, and it was cancelled before it was saved. Your canvas is unchanged \u2014 start a new draft when you are ready.'
+
+export const EARLY_STOP_ALREADY_SAVED_NOTICE =
+  'You stopped this draft, but it had already been saved to your canvas. Start a new draft to replace it.'
+
+export const EARLY_STOP_UNCONFIRMED_NOTICE =
+  'You stopped this draft. We could not reach the server to cancel it, so it may still be saved \u2014 reload to see what your canvas holds.'
+
+/**
  * Every narration table this module owns, keyed by name.
  *
  * DERIVED, so the cross-surface honesty suite cannot miss one. The suite used

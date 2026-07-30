@@ -57,6 +57,9 @@ import {
   SETTLING_STAGES,
   UNSETTLED_DRAFT_NOTICE,
   STOPPED_DRAFT_NOTICE,
+  EARLY_STOP_NOT_SAVED_NOTICE,
+  EARLY_STOP_ALREADY_SAVED_NOTICE,
+  EARLY_STOP_UNCONFIRMED_NOTICE,
 } from '../DraftLoadingAnimation'
 import {
   DRAFT_VALUES_SETTLING_REFUSAL,
@@ -282,6 +285,13 @@ const FRAME_LICENSED_STRINGS: ReadonlyArray<readonly [string, string]> = [
   ...SETTLING_STAGES.map((s) => [`SETTLING_STAGES@${s.afterSeconds}s`, s.message] as const),
   ['UNSETTLED_DRAFT_NOTICE', UNSETTLED_DRAFT_NOTICE],
   ['STOPPED_DRAFT_NOTICE', STOPPED_DRAFT_NOTICE],
+  // The three explicit-Stop notices (Codex P0 stop-fence). They are shown when
+  // drafting has ENDED rather than while it runs, but they are held to the same
+  // bar: the frame licence lets them say the canvas is or is not changed, never
+  // that a model is finished or worth acting on.
+  ['EARLY_STOP_NOT_SAVED_NOTICE', EARLY_STOP_NOT_SAVED_NOTICE],
+  ['EARLY_STOP_ALREADY_SAVED_NOTICE', EARLY_STOP_ALREADY_SAVED_NOTICE],
+  ['EARLY_STOP_UNCONFIRMED_NOTICE', EARLY_STOP_UNCONFIRMED_NOTICE],
   ['DRAFT_VALUES_SETTLING_REFUSAL', DRAFT_VALUES_SETTLING_REFUSAL],
   ['DRAFT_VALUES_UNSETTLED_REFUSAL', DRAFT_VALUES_UNSETTLED_REFUSAL],
 ]
@@ -370,7 +380,13 @@ describe('every notice this module exports is governed (trap 12, round 2)', () =
       expect(governed).toContain(name)
     }
     // And the manifest is named, so a reviewer sees what was actually covered.
-    expect(exportedNotices.sort()).toEqual(['STOPPED_DRAFT_NOTICE', 'UNSETTLED_DRAFT_NOTICE'])
+    expect(exportedNotices.sort()).toEqual([
+      'EARLY_STOP_ALREADY_SAVED_NOTICE',
+      'EARLY_STOP_NOT_SAVED_NOTICE',
+      'EARLY_STOP_UNCONFIRMED_NOTICE',
+      'STOPPED_DRAFT_NOTICE',
+      'UNSETTLED_DRAFT_NOTICE',
+    ])
   })
 
   it('covers both refusal strings this lane owns', () => {

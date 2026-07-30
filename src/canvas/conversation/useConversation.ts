@@ -108,7 +108,14 @@ import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPa
 import { applyAnalysisReadyPatch } from './utils/mirrorAnalysisReady'
 import { loadScenario as loadScenarioFromDb, storeAnalysis } from '../../services/scenarioService'
 import { applyDraftResult, backfillGoalThresholdOntoGoalNode } from '../utils/applyDraftResult'
-import { UNSETTLED_DRAFT_NOTICE, STOPPED_DRAFT_NOTICE } from '../components/DraftLoadingAnimation'
+import {
+  UNSETTLED_DRAFT_NOTICE,
+  STOPPED_DRAFT_NOTICE,
+  EARLY_STOP_NOT_SAVED_NOTICE,
+  EARLY_STOP_ALREADY_SAVED_NOTICE,
+  EARLY_STOP_UNCONFIRMED_NOTICE,
+} from '../components/DraftLoadingAnimation'
+import { stopV5Turn } from '../../v5/stopTurn'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
 import { getSessionIdentity } from '../../lib/supabase'
 import { trackEvent } from '../../lib/posthog'
@@ -2303,6 +2310,19 @@ export function useConversation(): UseConversationReturn {
   // swallow guard so a run re-click neither preempt-aborts the running
   // analysis nor mints a fresh turn id (which would defeat CEE's coalescing).
   const activeRunTurnIdRef = useRef<string | null>(null)
+  // Stop-fence (Codex P0): the ids that went ON THE WIRE for the in-flight turn.
+  // Captured at dispatch rather than re-derived in cancelTurn, because the
+  // server tombstone is keyed on (scenario_id, turn_id) and re-deriving would
+  // name the CURRENT scenario — which may no longer be the one this turn was
+  // sent for. A tombstone written against the wrong pair fences nothing and
+  // reports success.
+  const inFlightTurnIdentityRef = useRef<{ scenarioId: string; turnId: string } | null>(null)
+  // The turn ids the user EXPLICITLY stopped. This is what distinguishes a user
+  // Stop from an internal cancellation (timeout, preempt, scenario switch):
+  // cancelTurn owns the terminal notice for these, and sendTurn's abort branch
+  // must not add a second one. Without the distinction, either the early Stop
+  // stays silent (the defect) or a stop-with-preview gets two notices.
+  const explicitlyStoppedTurnIdsRef = useRef<Set<string>>(new Set())
   // Mirror messages state into a ref so buildRequest always reads the latest
   // committed value — avoids stale closure when addMessage + buildRequest run
   // in the same synchronous block (React batches the state update).
@@ -3850,6 +3870,20 @@ export function useConversation(): UseConversationReturn {
       // reads this ref, not lastUserInputRef, so hidden/system responses
       // are not dropped just because the user did not type.
       activeV5TurnIdRef.current = turnClientId
+      // Stop-fence: capture the stop identity HERE, at the point every turn kind
+      // passes through, not only in the V5 branch. The V5 branch refines it below
+      // once `currentScenarioId` is definitively resolved (it can MINT a scenario
+      // id), but a capture that only existed there would leave the legacy
+      // streaming path unable to name its turn to the server — and the symptom
+      // would be the honest-but-useless "could not confirm" notice on every stop,
+      // indistinguishable from a real outage. Caught by the hook spec, which
+      // drives the streaming path.
+      {
+        const scenarioAtDispatch = useCanvasStore.getState().currentScenarioId
+        inFlightTurnIdentityRef.current = scenarioAtDispatch
+          ? { scenarioId: scenarioAtDispatch, turnId: turnClientId }
+          : null
+      }
       const triggerSurface = pendingContext?.triggerSurface ?? mapTriggerSurface(source, mode, hidden === true, systemEvent)
       const resolvedSourceSurface = sourceSurface ?? pendingContext?.sourceSurface ?? mapSourceSurface(triggerSurface, mode)
       const interactionStateBefore = pendingContext?.stateBefore ?? createInteractionSnapshot(messages.length)
@@ -3988,6 +4022,11 @@ export function useConversation(): UseConversationReturn {
           isAnalysisComplete:
             canvasSnap.results.status === 'complete' || canvasSnap.hasCompletedFirstRun,
         })
+        // Stop-fence: refine the dispatch-time capture with the id that is
+        // actually going on the wire — this branch may have minted a scenario.
+        inFlightTurnIdentityRef.current = currentScenarioId
+          ? { scenarioId: currentScenarioId, turnId: turnClientId }
+          : inFlightTurnIdentityRef.current
         const build = buildV5Payload({
           turnId: turnClientId,
           scenarioId: currentScenarioId,
@@ -4825,10 +4864,16 @@ export function useConversation(): UseConversationReturn {
           // sentence, and the affordance that can actually deliver on it (F3 —
           // `retryLast` provably cannot, because CEE's continuation guard declines
           // to re-draft a committed scenario).
+          // Stop-fence: an EXPLICIT user Stop is handled by `cancelTurn`, which
+          // emits exactly one terminal notice keyed on the server's answer. This
+          // branch keeps its own notice for the aborts that are NOT a user stop
+          // — the 130 s client timeout and preempts — where "you stopped this"
+          // would be false and no stop request was ever sent.
           if (
             (err as { abortedWithPreview?: boolean })?.abortedWithPreview &&
             mode === 'user' &&
-            !hidden
+            !hidden &&
+            !explicitlyStoppedTurnIdsRef.current.has(turnClientId)
           ) {
             addMessage({
               id: crypto.randomUUID(),
@@ -5868,7 +5913,63 @@ export function useConversation(): UseConversationReturn {
     setIsThinking(false)
     useDraftStore.getState().setIsGenerating(false)
     setLongRunningHint(null)
-  }, [updateMessage, cleanupStreamRefs])
+
+    // ═══ STOP-FENCE (Codex P0) — TELL THE SERVER, THEN TELL THE USER ════════
+    //
+    // The abort above is local and always was. CEE deliberately does not cancel
+    // a turn when the client hangs up (`streamed-turn-sse.ts:71-78`), so until
+    // this call existed the stopped turn ran to completion and COMMITTED.
+    // Reproduced on staging: a draft stopped at +4.0s ran its full 52.7s,
+    // committed, and overwrote the graph of a different turn the user sent at
+    // +5.0s (`PHASE0-EVIDENCE-2026-07-28/fix-stop-fence.md`).
+    //
+    // ⚠ THE NOTICE IS UNCONDITIONAL. It is emitted whether or not a streaming
+    //   message or a graph preview exists yet — which supersedes the "early Stop
+    //   is silent by design" record in #527's liveproof. The silence WAS the
+    //   mechanism: an empty composer after Stop reads as "nothing happened", so
+    //   the user types again on the same scenario while the cancelled turn is
+    //   still in flight. Exactly one notice is emitted per stop; sendTurn's
+    //   abort branch stands down for these turn ids.
+    //
+    // ⚠ THE COPY IS CHOSEN BY THE SERVER'S ANSWER, NOT GUESSED. A stop we could
+    //   not deliver says so; a turn that had already committed says so. The one
+    //   thing none of the three does is predict what the fence will do.
+    const identity = inFlightTurnIdentityRef.current
+    if (!identity) {
+      // No wire identity means the turn never reached dispatch (or the scenario
+      // id was absent), so there is nothing the server could tombstone. Still
+      // say something — a Stop the user pressed is never silent.
+      addMessage({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        synthetic: true,
+        content: EARLY_STOP_UNCONFIRMED_NOTICE,
+        actionChips: [{ id: START_NEW_DRAFT_CHIP_ID, label: 'Start a new draft', intent: 'primary' }],
+        timestamp: new Date(),
+      })
+      return
+    }
+    explicitlyStoppedTurnIdsRef.current.add(identity.turnId)
+    void stopV5Turn(identity).then((result) => {
+      addMessage({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        synthetic: true,
+        content:
+          result.kind === 'not_saved'
+            ? EARLY_STOP_NOT_SAVED_NOTICE
+            : result.kind === 'already_saved'
+              ? EARLY_STOP_ALREADY_SAVED_NOTICE
+              : EARLY_STOP_UNCONFIRMED_NOTICE,
+        // F3's reasoning, unchanged and now doubly true: NOT `retry`.
+        // `retryLast` re-sends onto the SAME scenario, which CEE's continuation
+        // guard declines once that scenario has a committed turn — and after a
+        // stop we may not know whether it has one.
+        actionChips: [{ id: START_NEW_DRAFT_CHIP_ID, label: 'Start a new draft', intent: 'primary' }],
+        timestamp: new Date(),
+      })
+    })
+  }, [updateMessage, cleanupStreamRefs, addMessage])
 
   return {
     messages,
