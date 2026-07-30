@@ -21,6 +21,15 @@
  * persisted rebuild) produce the SAME snapshot warnings for the SAME
  * enrichment — including that the rehydrate path's existing fold is not
  * double-applied.
+ *
+ * ROADMAP 2.177 extension: the coherence pin now covers ALL THREE enrichment
+ * root siblings (`inference_warnings`, `conditional_winners`,
+ * `edge_e_values`) — the other two extractors adopted the same root-wins dual
+ * read, and `composeRobustness`'s root→robustness fold arms were deleted as
+ * redundant. Edge ids here resolve to NO node on purpose: the persisted path
+ * has `nodes: null`, so byte-equality on `edgeLabel` is only honest on ids
+ * both paths degrade identically (the designed divergence is pinned in
+ * analysisSnapshotFactory.rootSiblings.spec.ts).
  */
 import { describe, it, expect } from 'vitest'
 import type { Node, Edge } from '@xyflow/react'
@@ -107,10 +116,23 @@ describe('buildAnalysisSnapshot — inference_warnings root-wins dual read (ROAD
     expect(cmp.warningsIntroduced).toEqual(['introduced now'])
   })
 
-  it('COHERENCE: live capture and persisted rebuild produce the same warnings for the same enrichment', () => {
+  it('COHERENCE: live capture and persisted rebuild produce the same warnings, conditional winners and edge E-values for the same enrichment', () => {
     // One enrichment, byte-shaped from the live fact fixture, fed to BOTH
     // buildAnalysisSnapshot callers' input shapes.
-    const row = makePersistedRunFactRow({ inferenceWarnings: ROOT_ITEMS })
+    const row = makePersistedRunFactRow({
+      inferenceWarnings: ROOT_ITEMS,
+      conditionalWinners: [
+        {
+          factor_id: 'factor-1',
+          factor_label: 'Factor One',
+          split_value: 12,
+          high_bucket: { winner_label: 'Option B' },
+        },
+      ],
+      // Ids no node resolves — both paths degrade the label identically, so
+      // the equality below is byte-honest (see the header note).
+      edgeEValues: [{ edge_id: 'x1->x2', e_value: 1.8 }],
+    })
     const enrichment = (row.payload as any).result.enrichment
 
     // Live-capture path: store.ts passes the raw response UNFOLDED.
@@ -124,7 +146,7 @@ describe('buildAnalysisSnapshot — inference_warnings root-wins dual read (ROAD
       previousSnapshotTimestamp: null,
     })
 
-    // Persisted rebuild path: composeRobustness folds root→robustness first.
+    // Persisted rebuild path (toV2ResponseShape → the same factory).
     const persisted = buildSnapshotFromPersistedRun({
       row,
       runNumber: 1,
@@ -132,12 +154,26 @@ describe('buildAnalysisSnapshot — inference_warnings root-wins dual read (ROAD
       previousSnapshotTimestamp: null,
     })
 
-    // Trap-13 guard: the equality below must not hold vacuously ([] === []).
+    // Trap-13 guards: none of the equalities below may hold vacuously
+    // ([] === []) — each field must be SEEN populated on the live path first.
     expect(live.inferenceWarnings).toEqual([
       'Root node defaulted to 0.0',
       'Target withheld for this run',
     ])
+    expect(live.conditionalWinners).toEqual([
+      {
+        factorId: 'factor-1',
+        factorLabel: 'Factor One',
+        winner: 'Option B',
+        condition: 'When Factor One exceeds 12',
+      },
+    ])
+    expect(live.edgeEValues).toEqual([
+      { edgeId: 'x1->x2', edgeLabel: 'x1 → x2', eValue: 1.8 },
+    ])
     expect(persisted).not.toBeNull()
     expect(persisted!.inferenceWarnings).toEqual(live.inferenceWarnings)
+    expect(persisted!.conditionalWinners).toEqual(live.conditionalWinners)
+    expect(persisted!.edgeEValues).toEqual(live.edgeEValues)
   })
 })

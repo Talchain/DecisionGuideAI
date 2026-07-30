@@ -100,12 +100,56 @@ describe('persistedRunSnapshotFactory — field mapping', () => {
   })
 
   it('MUTATION GUARD for that deviation: values nested under robustness are still read (forward-compat)', () => {
+    // ROADMAP 2.177: extended from inference_warnings to ALL THREE root
+    // siblings when the extractors adopted the root-wins dual read and
+    // composeRobustness's fold arms were deleted — the nested arm now lives
+    // in the extractors, and this guard is what keeps it alive.
     const row = makePersistedRunFactRow()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const enrichment = (row.payload as any).result.enrichment
     delete enrichment.inference_warnings
+    delete enrichment.conditional_winners
+    delete enrichment.edge_e_values
     enrichment.robustness.inference_warnings = ['nested warning']
-    expect(build(row)!.inferenceWarnings).toEqual(['nested warning'])
+    enrichment.robustness.conditional_winners = [
+      {
+        factor_id: 'factor-1',
+        factor_label: 'Factor One',
+        split_value: 12,
+        high_bucket: { winner_label: 'Option B' },
+      },
+    ]
+    enrichment.robustness.edge_e_values = [{ edge_id: 'factor-1->goal', e_value: 1.8 }]
+    const s = build(row)!
+    expect(s.inferenceWarnings).toEqual(['nested warning'])
+    expect(s.conditionalWinners).toEqual([
+      {
+        factorId: 'factor-1',
+        factorLabel: 'Factor One',
+        winner: 'Option B',
+        condition: 'When Factor One exceeds 12',
+      },
+    ])
+    expect(s.edgeEValues).toEqual([
+      { edgeId: 'factor-1->goal', edgeLabel: 'factor-1 → goal', eValue: 1.8 },
+    ])
+  })
+
+  it('BOTH-ABSENT: none of the three fields in either slot → [] for all three, run still builds', () => {
+    // The fixture default is `[]` AT THE ROOT (present-but-empty, the live
+    // sentinel shape). This pin removes the keys entirely from both slots —
+    // absence must stay [] with the run intact, never a drop and never a
+    // fabricated value.
+    const row = makePersistedRunFactRow()
+    const enrichment = (row.payload as any).result.enrichment
+    delete enrichment.inference_warnings
+    delete enrichment.conditional_winners
+    delete enrichment.edge_e_values
+    const s = build(row)
+    expect(s).not.toBeNull()
+    expect(s!.inferenceWarnings).toEqual([])
+    expect(s!.conditionalWinners).toEqual([])
+    expect(s!.edgeEValues).toEqual([])
   })
 
   // -------------------------------------------------------------------------

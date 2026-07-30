@@ -107,13 +107,23 @@ function computeInfluenceConcentration(factors: V2FactorSensitivity[]): number {
 }
 
 // ---------------------------------------------------------------------------
-// ISL field extraction (pass-through from robustness, all optional)
+// ISL field extraction (root-wins dual read off the full response, all
+// optional — live wire puts these at the response ROOT, legacy nested under
+// `robustness`)
 // ---------------------------------------------------------------------------
 
 function extractConditionalWinners(
-  robustness: V2RunResponse['robustness'],
+  response: V2RunResponse,
 ): AnalysisSnapshot['conditionalWinners'] {
-  const raw = (robustness as Record<string, unknown> | undefined)?.conditional_winners
+  // ROADMAP 2.177: root-wins dual read — the same precedence #540 gave
+  // `extractInferenceWarnings` (see its comment below for the full story).
+  // This extractor read ONLY `robustness.conditional_winners`, while the live
+  // wire puts the field at the response ROOT (773/773 live facts root, 0/773
+  // nested), so live-captured snapshots carried `[]` where rehydrated ones
+  // carried data.
+  const root = (response as unknown as Record<string, unknown> | undefined)?.conditional_winners
+  const nested = (response?.robustness as Record<string, unknown> | undefined)?.conditional_winners
+  const raw = Array.isArray(root) ? root : nested
   if (!Array.isArray(raw)) return []
   return raw
     .filter((w: Record<string, unknown>) => w && typeof w === 'object')
@@ -130,11 +140,17 @@ function extractConditionalWinners(
 }
 
 function extractEdgeEValues(
-  robustness: V2RunResponse['robustness'],
+  response: V2RunResponse,
   nodes: Node[] | null,
   _edges: Edge[] | null,
 ): AnalysisSnapshot['edgeEValues'] {
-  const raw = (robustness as Record<string, unknown> | undefined)?.edge_e_values
+  // ROADMAP 2.177: root-wins dual read — same defect and same fix as
+  // `extractConditionalWinners` above. The nodes/edges parameters stay: label
+  // resolution is this extractor's own concern, independent of which slot the
+  // values arrive in.
+  const root = (response as unknown as Record<string, unknown> | undefined)?.edge_e_values
+  const nested = (response?.robustness as Record<string, unknown> | undefined)?.edge_e_values
+  const raw = Array.isArray(root) ? root : nested
   if (!Array.isArray(raw)) return []
 
   // Build node label lookup. Absent nodes (persisted-run rebuild) degrade to
@@ -167,15 +183,16 @@ function extractInferenceWarnings(
   response: V2RunResponse,
 ): string[] {
   // ROADMAP 2.173 (Paul-ratified 2026-07-30): root-wins dual read, the same
-  // precedence `persistedRunSnapshotFactory`'s `composeRobustness` applies.
-  // This extractor read ONLY `robustness.inference_warnings` — empty on every
-  // live run (0/827 measured 2026-07-30; response ROOT 419/827 non-empty) —
-  // while the persisted-rebuild caller folded root→robustness before calling,
-  // so live-captured snapshots carried `[]` and rehydrated ones carried data:
-  // the same Compare diff was blank or populated depending on capture path.
-  // Reading the root here makes both callers agree without double-folding the
-  // already-compensated rehydrate path (root wins in both). See the coherence
-  // pin in __tests__/analysisSnapshotFactory.inferenceWarnings.spec.ts and
+  // precedence `persistedRunSnapshotFactory`'s `composeRobustness` fold
+  // applied (that fold compensated the persisted-rebuild path only, and was
+  // deleted as redundant under ROADMAP 2.177 once all three extractors here
+  // adopted this read — see that module's HISTORY block). This extractor read
+  // ONLY `robustness.inference_warnings` — empty on every live run (0/827
+  // measured 2026-07-30; response ROOT 419/827 non-empty) — so live-captured
+  // snapshots carried `[]` and rehydrated ones carried data: the same Compare
+  // diff was blank or populated depending on capture path. Reading the root
+  // here makes both callers agree. See the coherence pin in
+  // __tests__/analysisSnapshotFactory.inferenceWarnings.spec.ts and
   // readInferenceWarnings' header for the adoption history.
   const root = (response as unknown as Record<string, unknown> | undefined)?.inference_warnings
   const nested = (response?.robustness as Record<string, unknown> | undefined)?.inference_warnings
@@ -476,8 +493,8 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
     jointGoalProbability,
 
     inferenceWarnings: extractInferenceWarnings(rawV2Response),
-    conditionalWinners: extractConditionalWinners(robustness),
-    edgeEValues: extractEdgeEValues(robustness, nodes, edges),
+    conditionalWinners: extractConditionalWinners(rawV2Response),
+    edgeEValues: extractEdgeEValues(rawV2Response, nodes, edges),
 
     seedUsed,
     responseHash: rawV2Response.response_hash ?? '',
