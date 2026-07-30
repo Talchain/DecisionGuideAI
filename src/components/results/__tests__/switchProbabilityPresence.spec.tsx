@@ -30,8 +30,6 @@ import { useResultsSectionData } from '../useResultsSectionData'
 import { TriageActionCardsBody } from '../TriageActionCardsBody'
 import { StrengthenContainer } from '../strengthen/StrengthenContainer'
 import { ConfidenceSection } from '../ConfidenceSection'
-import { buildHeroModel } from '../analysis-hero/buildHeroModel'
-import type { HeroChartModel } from '../analysis-hero/heroTypes'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { ConfidenceSectionData } from '../types'
 import { useCanvasStore } from '../../../canvas/store'
@@ -231,12 +229,15 @@ describe('chain B — Strengthen flip trigger presence-branches on switch_probab
   })
 })
 
-// ─── fragileEdgesMap → driver fragileEdgeInfo → hero switchMeta / bar ───────
+// ─── fragileEdgesMap → driver fragileEdgeInfo (hero switchMeta producer) ────
 //
 // Adv-review #543 F1: the map's marginal fallback fed buildHeroModel's
 // switchProbByNodeId, so a marginal-only fragile edge rendered a
 // marginal-derived "NN% switch" + MagnitudeBar on the staging-ON analysis
 // hero. buildHeroModel is already presence-guarded — the defect is the map.
+// The hook→buildHeroModel integration pins live in
+// analysis-hero/__tests__/switchMetaPresence.spec.tsx (module-internal —
+// the hero inertness guard forbids hero imports from THIS file).
 
 function seedReportForHero(fragileEdges: Array<Record<string, unknown>>): void {
   useCanvasStore.setState({
@@ -272,12 +273,6 @@ function seedReportForHero(fragileEdges: Array<Record<string, unknown>>): void {
   } as never)
 }
 
-const heroChart = (data: ResultsSectionDataReturn): HeroChartModel => {
-  const model = buildHeroModel(data)
-  expect(model.kind).toBe('chart')
-  return model as HeroChartModel
-}
-
 describe('fragileEdgesMap presence-branches on switch_probability (hero switchMeta feed)', () => {
   beforeEach(() => {
     useCanvasStore.setState({
@@ -302,19 +297,7 @@ describe('fragileEdgesMap presence-branches on switch_probability (hero switchMe
     expect(driver!.fragileEdgeInfo?.switchProbability).toBeUndefined()
   })
 
-  it('PIN (hero): a marginal-only edge renders NO switchMeta and NO magnitude bar — the sentence still reads', () => {
-    seedReportForHero([
-      { edge_id: 'a::b', from_id: 'fac_a', to_id: 'out_b', marginal_switch_probability: 0.6, alternative_winner_label: 'Plan B' },
-    ])
-    const { result } = renderHook(() => useResultsSectionData())
-    const m = heroChart(result.current)
-    expect(m.evidence.flipRisks).toHaveLength(1)
-    expect(m.evidence.flipRisks[0].text).toContain('Factor A')
-    expect(m.evidence.flipRisks[0].switchMeta).toBeNull()
-    expect(m.evidence.flipRisks[0].magnitude).toBeNull()
-  })
-
-  it('CONTROL (hero): a measured switch_probability still renders its switchMeta and magnitude', () => {
+  it('CONTROL: a measured switch_probability passes through the map verbatim, never displaced by marginal', () => {
     seedReportForHero([
       {
         edge_id: 'a::b',
@@ -326,12 +309,11 @@ describe('fragileEdgesMap presence-branches on switch_probability (hero switchMe
       },
     ])
     const { result } = renderHook(() => useResultsSectionData())
-    const m = heroChart(result.current)
-    expect(m.evidence.flipRisks[0].switchMeta).toBe('48% switch')
-    expect(m.evidence.flipRisks[0].magnitude).toBe(0.48)
+    const driver = result.current.drivers.drivers.find((d) => d.factorKey === 'fac_a')
+    expect(driver!.fragileEdgeInfo?.switchProbability).toBe(0.48)
   })
 
-  it('CONTROL (hero): a measured 0 survives as "0% switch" (0 is a measurement, not absence)', () => {
+  it('CONTROL: a measured 0 survives the map (0 is a measurement, not absence)', () => {
     seedReportForHero([
       {
         edge_id: 'a::b',
@@ -343,9 +325,8 @@ describe('fragileEdgesMap presence-branches on switch_probability (hero switchMe
       },
     ])
     const { result } = renderHook(() => useResultsSectionData())
-    const m = heroChart(result.current)
-    expect(m.evidence.flipRisks[0].switchMeta).toBe('0% switch')
-    expect(m.evidence.flipRisks[0].magnitude).toBe(0)
+    const driver = result.current.drivers.drivers.find((d) => d.factorKey === 'fac_a')
+    expect(driver!.fragileEdgeInfo?.switchProbability).toBe(0)
   })
 })
 

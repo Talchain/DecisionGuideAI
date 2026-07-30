@@ -78,6 +78,47 @@ describe('getFragileEdgeSwitchProbability', () => {
   })
 })
 
+// ─── Presence branch (schemas 0.30.0; marginal-quantity honesty batch) ──────
+//
+// getFragileEdgeSwitchProbability is a DISPLAY accessor: its value renders as
+// "NN% flip risk" (EdgePanel context + tech disclosure) and "Sensitive · NN%"
+// (StyledEdge badge/popover). switch_probability ABSENT means NOT COMPUTED,
+// and marginal_switch_probability is a DIFFERENT Monte Carlo — never a
+// fallback for a rendered number. The MATCHING tier (isEdgeFragile /
+// isTopFragileEdge) deliberately keeps marginal eligibility — that is
+// visibility, not a displayed quantity (rowed follow-up).
+
+describe('getFragileEdgeSwitchProbability — presence branch on the MEASURED quantity', () => {
+  it('PIN: a marginal-only entry yields NO display value (never the marginal substitute)', () => {
+    const fragile: FragileEdgeCandidate[] = [{ edge_id: 'e1', marginal_switch_probability: 0.42 }]
+    expect(getFragileEdgeSwitchProbability('e1', 'a', 'b', fragile)).toBeNull()
+  })
+
+  it('PIN: a camelCase marginal-only entry yields NO display value either', () => {
+    const fragile: FragileEdgeCandidate[] = [{ edgeId: 'e1', marginalSwitchProbability: 0.42 }]
+    expect(getFragileEdgeSwitchProbability('e1', 'a', 'b', fragile)).toBeNull()
+  })
+
+  it('CONTROL: a measured value renders, never displaced by a larger marginal', () => {
+    const fragile: FragileEdgeCandidate[] = [
+      { edge_id: 'e1', switch_probability: 0.42, marginal_switch_probability: 0.99 },
+    ]
+    expect(getFragileEdgeSwitchProbability('e1', 'a', 'b', fragile)).toBeCloseTo(0.42)
+  })
+
+  it('CONTROL: a measured 0 is a measurement below the floor — null, and never falls through to marginal', () => {
+    const fragile: FragileEdgeCandidate[] = [
+      { edge_id: 'e1', switch_probability: 0, marginal_switch_probability: 0.9 },
+    ]
+    expect(getFragileEdgeSwitchProbability('e1', 'a', 'b', fragile)).toBeNull()
+  })
+
+  it('CONTROL: the camelCase MEASURED shape still renders', () => {
+    const fragile: FragileEdgeCandidate[] = [{ edgeId: 'e1', switchProbability: 0.42 }]
+    expect(getFragileEdgeSwitchProbability('e1', 'a', 'b', fragile)).toBeCloseTo(0.42)
+  })
+})
+
 // ---------------------------------------------------------------------------
 // QA Brief G-series — fragile edge threshold boundary cases
 // ---------------------------------------------------------------------------
