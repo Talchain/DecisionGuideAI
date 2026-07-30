@@ -108,7 +108,14 @@ import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPa
 import { applyAnalysisReadyPatch } from './utils/mirrorAnalysisReady'
 import { loadScenario as loadScenarioFromDb, storeAnalysis } from '../../services/scenarioService'
 import { applyDraftResult, backfillGoalThresholdOntoGoalNode } from '../utils/applyDraftResult'
-import { UNSETTLED_DRAFT_NOTICE, STOPPED_DRAFT_NOTICE } from '../components/DraftLoadingAnimation'
+import {
+  UNSETTLED_DRAFT_NOTICE,
+  STOPPED_DRAFT_NOTICE,
+  EARLY_STOP_NOT_SAVED_NOTICE,
+  EARLY_STOP_ALREADY_SAVED_NOTICE,
+  EARLY_STOP_UNCONFIRMED_NOTICE,
+} from '../components/DraftLoadingAnimation'
+import { stopV5Turn } from '../../v5/stopTurn'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
 import { getSessionIdentity } from '../../lib/supabase'
 import { trackEvent } from '../../lib/posthog'
@@ -2303,6 +2310,19 @@ export function useConversation(): UseConversationReturn {
   // swallow guard so a run re-click neither preempt-aborts the running
   // analysis nor mints a fresh turn id (which would defeat CEE's coalescing).
   const activeRunTurnIdRef = useRef<string | null>(null)
+  // Stop-fence (Codex P0): the ids that went ON THE WIRE for the in-flight turn.
+  // Captured at dispatch rather than re-derived in cancelTurn, because the
+  // server tombstone is keyed on (scenario_id, turn_id) and re-deriving would
+  // name the CURRENT scenario — which may no longer be the one this turn was
+  // sent for. A tombstone written against the wrong pair fences nothing and
+  // reports success.
+  const inFlightTurnIdentityRef = useRef<{ scenarioId: string; turnId: string } | null>(null)
+  // The turn ids the user EXPLICITLY stopped. This is what distinguishes a user
+  // Stop from an internal cancellation (timeout, preempt, scenario switch):
+  // cancelTurn owns the terminal notice for these, and sendTurn's abort branch
+  // must not add a second one. Without the distinction, either the early Stop
+  // stays silent (the defect) or a stop-with-preview gets two notices.
+  const explicitlyStoppedTurnIdsRef = useRef<Set<string>>(new Set())
   // Mirror messages state into a ref so buildRequest always reads the latest
   // committed value — avoids stale closure when addMessage + buildRequest run
   // in the same synchronous block (React batches the state update).
@@ -3850,6 +3870,29 @@ export function useConversation(): UseConversationReturn {
       // reads this ref, not lastUserInputRef, so hidden/system responses
       // are not dropped just because the user did not type.
       activeV5TurnIdRef.current = turnClientId
+      // Stop-fence: capture the stop identity HERE, at the point every turn kind
+      // passes through, not only in the V5 branch. The V5 branch refines it below
+      // once `currentScenarioId` is definitively resolved (it can MINT a scenario
+      // id), but a capture that only existed there would leave the legacy
+      // streaming path unable to name its turn to the server — and the symptom
+      // would be the honest-but-useless "could not confirm" notice on every stop,
+      // indistinguishable from a real outage. Caught by the hook spec, which
+      // drives the streaming path.
+      {
+        // ── `inFlightTurnIdentityRef` — COMPLETE MANIFEST (#534 round-3, F5b) ──
+        //   :2325-ish  new  useRef<{scenarioId,turnId} | null>(null)
+        //   :3883      WRITE  here — every turn kind, before setIsThinking(true)
+        //   :4027      WRITE  the V5 refinement (may mint a scenario id). ⚠ THAT
+        //              SITE HAS ZERO COVERAGE IN THIS PR: every stop-fence test in
+        //              this branch drives the LEGACY streaming seam, so only the
+        //              write here is exercised. Stated rather than implied.
+        //   :~5990     READ   cancelTurn, the only reader.
+        //   No other reference. There is no delete: this write is the reset.
+        const scenarioAtDispatch = useCanvasStore.getState().currentScenarioId
+        inFlightTurnIdentityRef.current = scenarioAtDispatch
+          ? { scenarioId: scenarioAtDispatch, turnId: turnClientId }
+          : null
+      }
       const triggerSurface = pendingContext?.triggerSurface ?? mapTriggerSurface(source, mode, hidden === true, systemEvent)
       const resolvedSourceSurface = sourceSurface ?? pendingContext?.sourceSurface ?? mapSourceSurface(triggerSurface, mode)
       const interactionStateBefore = pendingContext?.stateBefore ?? createInteractionSnapshot(messages.length)
@@ -3988,6 +4031,11 @@ export function useConversation(): UseConversationReturn {
           isAnalysisComplete:
             canvasSnap.results.status === 'complete' || canvasSnap.hasCompletedFirstRun,
         })
+        // Stop-fence: refine the dispatch-time capture with the id that is
+        // actually going on the wire — this branch may have minted a scenario.
+        inFlightTurnIdentityRef.current = currentScenarioId
+          ? { scenarioId: currentScenarioId, turnId: turnClientId }
+          : inFlightTurnIdentityRef.current
         const build = buildV5Payload({
           turnId: turnClientId,
           scenarioId: currentScenarioId,
@@ -4825,11 +4873,35 @@ export function useConversation(): UseConversationReturn {
           // sentence, and the affordance that can actually deliver on it (F3 —
           // `retryLast` provably cannot, because CEE's continuation guard declines
           // to re-draft a committed scenario).
+          // Stop-fence: an EXPLICIT user Stop is handled by `cancelTurn`, which
+          // emits exactly one terminal notice keyed on the server's answer. This
+          // branch keeps its own notice for the aborts that are NOT a user stop
+          // — the 130 s client timeout and preempts — where "you stopped this"
+          // would be false and no stop request was ever sent.
           if (
             (err as { abortedWithPreview?: boolean })?.abortedWithPreview &&
             mode === 'user' &&
-            !hidden
+            !hidden &&
+            !explicitlyStoppedTurnIdsRef.current.has(turnClientId)
           ) {
+            // ⚠ ROWED RESIDUAL — THIS SET IS ADD-ONLY AND `retryLast` REUSES IDS.
+            //   Complete manifest of `explicitlyStoppedTurnIdsRef` at this commit:
+            //   one `new`, this read, one `add` in cancelTurn. No `delete`. So once
+            //   a turn id has been explicitly stopped, a LATER attempt with the
+            //   SAME id (retryLast reuses client_turn_id — :2096 / :3867 / :5791)
+            //   stays marked, and an abort of that attempt that was NOT a user
+            //   stop — the 130 s timeout, a preempt — has its STOPPED_DRAFT_NOTICE
+            //   suppressed here: preview standing, run gate shut, nothing said.
+            //
+            //   NOT FIXED IN THIS COMMIT, DELIBERATELY. I wrote the one-line
+            //   `delete(turnClientId)` at dispatch and could not pin it: in this
+            //   harness a stream that dies without a user stop routes to the
+            //   BUFFERED FALLBACK, not to this branch, so my first test for it
+            //   asserted a notice that path never emits. Shipping an unpinnable
+            //   line is the defect this lane has already been caught on twice
+            //   (CEE #759 A1; the guard removed above), so the hazard is rowed with
+            //   its mechanism instead of patched blind. A pin needs a preempt or a
+            //   real timeout driving the abort seam without cancelTurn.
             addMessage({
               id: crypto.randomUUID(),
               role: 'assistant',
@@ -5868,7 +5940,129 @@ export function useConversation(): UseConversationReturn {
     setIsThinking(false)
     useDraftStore.getState().setIsGenerating(false)
     setLongRunningHint(null)
-  }, [updateMessage, cleanupStreamRefs])
+
+    // ═══ STOP-FENCE (Codex P0) — TELL THE SERVER, THEN TELL THE USER ════════
+    //
+    // The abort above is local and always was. CEE deliberately does not cancel
+    // a turn when the client hangs up (`streamed-turn-sse.ts:71-78`), so until
+    // this call existed the stopped turn ran to completion and COMMITTED.
+    // Reproduced on staging: a draft stopped at +4.0s ran its full 52.7s,
+    // committed, and overwrote the graph of a different turn the user sent at
+    // +5.0s (`PHASE0-EVIDENCE-2026-07-28/fix-stop-fence.md`).
+    //
+    // ⚠ THE NOTICE IS UNCONDITIONAL. It is emitted whether or not a streaming
+    //   message or a graph preview exists yet — which supersedes the "early Stop
+    //   is silent by design" record in #527's liveproof. The silence WAS the
+    //   mechanism: an empty composer after Stop reads as "nothing happened", so
+    //   the user types again on the same scenario while the cancelled turn is
+    //   still in flight. Exactly one notice is emitted per stop; sendTurn's
+    //   abort branch stands down for these turn ids.
+    //
+    // ⚠ THE COPY IS CHOSEN BY THE SERVER'S ANSWER, NOT GUESSED. A stop we could
+    //   not deliver says so; a turn that had already committed says so. The one
+    //   thing none of the three does is predict what the fence will do.
+    const identity = inFlightTurnIdentityRef.current
+    if (!identity) {
+      // No wire identity means the turn never reached dispatch (or the scenario
+      // id was absent), so there is nothing the server could tombstone. Still
+      // say something — a Stop the user pressed is never silent.
+      addMessage({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        synthetic: true,
+        content: EARLY_STOP_UNCONFIRMED_NOTICE,
+        actionChips: [{ id: START_NEW_DRAFT_CHIP_ID, label: 'Start a new draft', intent: 'primary' }],
+        timestamp: new Date(),
+      })
+      return
+    }
+    // ⚠ NO `has(...)` EARLY RETURN HERE, AND THE HISTORY MATTERS — AMENDMENT A2
+    //   (#534 review, round 2).
+    //
+    //   The #534 review asked for
+    //   `if (explicitlyStoppedTurnIdsRef.current.has(identity.turnId)) return`.
+    //   I added it, then argued it should be declined, then REPORTED it as
+    //   declined — and the removal never shipped: my own mutation harness ran
+    //   `git checkout -- .` and reverted the edit plus its test, so the guard was
+    //   live at 2462a689 while the record said it was gone. The round-2 verify
+    //   caught that. The argument was right; the code now matches it.
+    //
+    //   WHY IT IS OUT, not merely unnecessary. `retryLast` re-sends with the SAME
+    //   `client_turn_id` for idempotent replay (:2096 / :3867 / :5791), and this
+    //   set is add-only — nothing ever deleted from it.
+    //
+    //   `explicitlyStoppedTurnIdsRef` — COMPLETE MANIFEST, derived at THIS head
+    //   (#534 round-3, F5a; the round-2 record said "two reads", which was true of
+    //   the pre-fix tree and stale the moment the guard came out):
+    //     :2325  new Set()
+    //     :4885  READ — sendTurn's abort branch, suppressing STOPPED_DRAFT_NOTICE
+    //            for a turn cancelTurn has already spoken for. The ONE read.
+    //     :6011  ADD  — cancelTurn.
+    //   No delete, no reset, and now only one reader.
+    //
+    //   So with the guard,
+    //   stop → retry → stop hits `has(...)` and returns early: NO tombstone and
+    //   NO terminal notice. A user who stops a retried draft gets exactly the
+    //   silence this P0 exists to eliminate, and the stopped turn's write is then
+    //   never fenced.
+    //
+    //   WHY NOT "keep the guard and delete the id on reuse" instead: that makes
+    //   the guard unreachable again (any dispatch that re-arms `isThinking` also
+    //   refreshes the identity, so `identity.turnId` is never already in the set),
+    //   i.e. an unpinnable line that reads as a guarantee — CEE #759's finding A1,
+    //   reproduced on purpose. Removing it keeps every remaining line reachable
+    //   and pinned.
+    //
+    //   WHAT ACTUALLY PROVIDES EXACTLY-ONCE, measured and pinned:
+    //     · double press → `if (!isThinkingRef.current) return` at the top of this
+    //       handler (guard F/G), synchronously set false before any await.
+    //   (An earlier version of this list also named "the clear below" — which the
+    //   very next comment says is GONE. Self-contradicting; removed on the round-3
+    //   verify. What guards a stale identity is the dispatch-time refresh, below.)
+    explicitlyStoppedTurnIdsRef.current.add(identity.turnId)
+    //   ⚠ AND THE `inFlightTurnIdentityRef.current = null` CLEAR IS ALSO GONE,
+    //   BY THE SAME RULE. The round-2 verify asked me to pin it. I could not:
+    //   removing it REDs nothing, measured, because the identity is REFRESHED at
+    //   the top of every dispatch (:3883) to either this turn's pair or `null`
+    //   before anything can read it — so a stale PREVIOUS-turn pair is
+    //   structurally impossible and the clear had no independent effect.
+    //
+    //   It was harmless, unlike the guard. But "harmless and inert" is the shape
+    //   that has now cost this lane several review findings, and keeping a line
+    //   that reads as a protection while doing nothing is what a reader would later
+    //   trust.
+    //
+    //   ⚠ THE "IS PINNED" CLAIM I MADE HERE WAS FALSE WHEN WRITTEN. It cited a test
+    //   that the round-3 verify proved VACUOUS: under a write-only-if-empty mutant
+    //   (the exact stale-pair hazard) it stayed green, because its
+    //   `setState({currentScenarioId: null})` tripped the scenario-change effect
+    //   that clears the conversation, so its second Stop never ran and the
+    //   assertion passed by ABSENCE. The deletion was still correct; the
+    //   justification was not.
+    //   It is now real: the invariant — a Stop never tombstones a PREVIOUS turn's
+    //   id — is pinned on the mechanism that provides it, the dispatch-time refresh
+    //   at :3883, by "stop A → send B → stop B: the second tombstone names B, never
+    //   A", in which BOTH stops are asserted to have executed.
+    void stopV5Turn(identity).then((result) => {
+      addMessage({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        synthetic: true,
+        content:
+          result.kind === 'not_saved'
+            ? EARLY_STOP_NOT_SAVED_NOTICE
+            : result.kind === 'already_saved'
+              ? EARLY_STOP_ALREADY_SAVED_NOTICE
+              : EARLY_STOP_UNCONFIRMED_NOTICE,
+        // F3's reasoning, unchanged and now doubly true: NOT `retry`.
+        // `retryLast` re-sends onto the SAME scenario, which CEE's continuation
+        // guard declines once that scenario has a committed turn — and after a
+        // stop we may not know whether it has one.
+        actionChips: [{ id: START_NEW_DRAFT_CHIP_ID, label: 'Start a new draft', intent: 'primary' }],
+        timestamp: new Date(),
+      })
+    })
+  }, [updateMessage, cleanupStreamRefs, addMessage])
 
   return {
     messages,
