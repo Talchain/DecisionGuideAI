@@ -331,6 +331,84 @@ describe('ROADMAP 2.204 — the run returns the user to the surface it produced'
     expect(screen.getByTestId('olumi-tab-wrapper')).toHaveClass('hidden')
   })
 
+  it('NEVER YANK: a user SCROLL-READING the Analysis tab during the run is left there', () => {
+    // AMENDMENT A1. A pointerdown/keydown pair cannot see a trackpad or wheel
+    // scroll, and the dock body is `overflow-y-auto` — so the most likely
+    // waiting behaviour of all (scroll-reading the Analysis tab while the run
+    // finishes) read as "passive" and got yanked mid-read when the block landed.
+    //
+    // ⚠ The fix is `onWheelCapture`, NOT `onScrollCapture`: ChatThread's
+    // useSmartScroll calls `scrollIntoView` programmatically
+    // (useSmartScroll.ts:33), which emits a `scroll` event with no user behind
+    // it — listening for `scroll` would suppress the return for exactly the
+    // passive tester this whole row exists to serve.
+    seedDockOnOlumi()
+    const { rerender } = render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+    startRun()
+    expect(olumiTabIsFronted()).toBe(false)
+
+    // Fired on the dock BODY, not the root: the scrollable region the user
+    // actually reads in, which also proves the capture reaches a descendant.
+    act(() => {
+      fireEvent.wheel(screen.getByTestId('outputs-dock-body'))
+    })
+
+    landAnalysisTurn(rerender)
+
+    expect(olumiTabIsFronted()).toBe(false)
+    expect(screen.getByTestId('olumi-tab-wrapper')).toHaveClass('hidden')
+  })
+
+  it('NEVER YANK: a run that landed nothing must not arm the NEXT run\'s return', async () => {
+    // AMENDMENT A2. The auto-switch record was only ever SET true, never
+    // cleared, so it survived a run that produced no block (error / cancel /
+    // the useV2Run path). The user then sat on Analysis, ran again FROM
+    // Analysis — a run that switched nothing and therefore earns no return —
+    // and was yanked on the new arrival by run ONE's stale record. That
+    // contradicts runReturnSignal.ts's own stated invariant.
+    //
+    // Reachability is exact, not hypothetical: `resultsSettle` acts only from
+    // 'preparing' and, with no report to restore, lands on **'idle'**
+    // (store.ts:3343-3365). 'idle' is what makes the SECOND run's
+    // `wasInactive` true, so the record site is genuinely re-entered.
+    seedDockOnOlumi()
+    const { rerender } = render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+
+    // Run 1 — moves them to Analysis (record armed), then settles with no
+    // report: the failure/cancel shape.
+    startRun()
+    expect(olumiTabIsFronted()).toBe(false)
+    act(() => {
+      useCanvasStore.getState().resultsSettle()
+    })
+    expect(useCanvasStore.getState().results.status).toBe('idle')
+
+    // The merged effect debounces re-entry within 50ms (its React #185 fix),
+    // so a second run dispatched in the same millisecond would never reach the
+    // record at all and this test would pass by testing nothing. The wait is
+    // what makes it exercise the line it names.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 60))
+    })
+
+    // Run 2 — dispatched while they are ALREADY on Analysis (e.g. the canvas
+    // toolbar / palette, outside the dock, so no interaction event fires).
+    // This run switches nothing, so it must NOT earn a return.
+    startRun()
+    landAnalysisTurn(rerender)
+
+    expect(olumiTabIsFronted()).toBe(false)
+    expect(screen.getByTestId('olumi-tab-wrapper')).toHaveClass('hidden')
+  })
+
   it('RERUN: the return waits for the NEW analysis, and does not fire on the old one', () => {
     // ⚠ This test exists because a mutant SURVIVED without it. Changing the
     // trigger from "a new analysis-result block ARRIVED"

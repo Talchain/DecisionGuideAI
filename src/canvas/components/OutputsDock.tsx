@@ -1536,11 +1536,18 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     // did not happen. A run start also CLEARS the interaction record — the Run
     // control is itself a click inside the dock, and the click that started the
     // run must not be read as "the user is busy on this tab".
+    // ⚠ An ASSIGNMENT, never a conditional set. As an `if` this record was
+    // only ever raised and never lowered, so it survived a run that produced
+    // no block (error / cancel / the useV2Run path): the user sat on Analysis,
+    // ran again FROM Analysis — a run that switched nothing and earns no
+    // return — and was yanked on the new arrival by the FIRST run's stale
+    // record, contradicting this record's own stated invariant. Reachable
+    // because `resultsSettle` lands a reportless run on 'idle'
+    // (store.ts:3359-3365), which makes the next run's `wasInactive` true.
+    // Assigning both ways means the record always describes THIS run.
     if (statusTransitioned) {
       userInteractedSinceRunRef.current = false
-      if (activeTabRef.current !== 'results') {
-        runAutoSwitchedToAnalysisRef.current = true
-      }
+      runAutoSwitchedToAnalysisRef.current = activeTabRef.current !== 'results'
     }
 
     // Task F: Auto-open results — close overlay panels so OutputsDock becomes visible
@@ -1927,15 +1934,27 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       aria-label="Outputs dock"
       data-testid="outputs-dock"
       // ROADMAP 2.204: the honest "the user is engaged here" signal for the
-      // post-run return. Capture phase on the dock ROOT, so any pointerdown or
-      // keydown anywhere inside it counts — the tab strip, every Analysis-tab
-      // control, the composer. DERIVED from real events rather than an
-      // enumerated list of controls, which would rot the moment one is added
-      // and read green while it did (trap 12). Passive waiting fires neither,
-      // so the tester who clicks Run and watches is still returned. Read-only
-      // ref writes: no state, no re-render, no interference with any handler.
+      // post-run return. Capture phase on the dock ROOT, so any pointerdown,
+      // keydown or wheel anywhere inside it counts — the tab strip, every
+      // Analysis-tab control, the composer, and the scroll region. DERIVED
+      // from real events rather than an enumerated list of controls, which
+      // would rot the moment one is added and read green while it did
+      // (trap 12). Read-only ref writes: no state, no re-render, no
+      // interference with any handler.
+      //
+      // ⚠ WHEEL, NOT SCROLL — and the distinction is load-bearing. The dock
+      // body is `overflow-y-auto`, so scroll-reading the Analysis tab while a
+      // run finishes is the most likely waiting behaviour there is, and a
+      // pointer/key pair cannot see it: that user was yanked mid-read.
+      // `onScrollCapture` would be the wrong repair — ChatThread's
+      // useSmartScroll fires `scrollIntoView` programmatically
+      // (useSmartScroll.ts:33), emitting a `scroll` event with no user behind
+      // it, which would stand the return down for exactly the passive tester
+      // this row exists to serve. `wheel` only fires for a real gesture, so
+      // passive waiting still fires nothing.
       onPointerDownCapture={markDockInteraction}
       onKeyDownCapture={markDockInteraction}
+      onWheelCapture={markDockInteraction}
     >
       {/* Parity P7a: the Work-through-it-with-Olumi drawer mounts ONCE at the
           dock root (fixed-position overlay) so asks routed from ANY tab —

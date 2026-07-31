@@ -93,6 +93,12 @@ export interface RunReturnSignalInput {
    * honest: a user who was ALREADY on Analysis when they pressed Run chose that
    * tab, so they are never moved off it. Cleared by any manual tab click and by
    * the return itself, so it can only ever spend once per run.
+   *
+   * The caller ASSIGNS this on every run start rather than only raising it. As
+   * a raise-only flag it survived a run that produced no block (error / cancel
+   * / the non-conversational path) and armed the NEXT run — so a user who
+   * errored, stayed on Analysis and re-ran from there was yanked by the first
+   * run's record, in direct contradiction of the invariant this field states.
    */
   runAutoSwitchedToAnalysis: boolean
   /** The dock's currently selected tab. */
@@ -105,14 +111,21 @@ export interface RunReturnSignalInput {
   dockEffectiveOpen: boolean
   /**
    * The user has deliberately interacted with the dock since this run started —
-   * any pointerdown or keydown anywhere inside it (which includes the tab strip
-   * and every Analysis-tab control).
+   * any pointerdown, keydown or WHEEL anywhere inside it (which includes the
+   * tab strip, every Analysis-tab control, and the scroll region).
    *
    * DERIVED FROM REAL EVENTS, not from an enumerated list of "controls that
    * count" (trap 12: such a list rots the moment a control is added and reads
-   * green while it does). Passive waiting produces neither event, so the tester
+   * green while it does). Passive waiting produces none of them, so the tester
    * the probes measured — who clicks Run and watches — is returned; a tester
    * who is reading and clicking around the Analysis tab is left alone.
+   *
+   * `wheel` is in that set and `scroll` deliberately is NOT: the dock body is
+   * `overflow-y-auto`, so scroll-reading while waiting is the likeliest waiting
+   * behaviour of all and a pointer/key pair could not see it — but `scroll` is
+   * also emitted by ChatThread's own programmatic `scrollIntoView`, with no
+   * user behind it, which would stand the return down for the very tester it
+   * exists to serve.
    */
   userInteractedSinceRun: boolean
   /**
