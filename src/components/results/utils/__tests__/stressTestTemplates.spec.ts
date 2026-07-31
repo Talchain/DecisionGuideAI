@@ -38,7 +38,7 @@ describe('buildDisconfirmationCard', () => {
   it('emits the approved question with winner + alternative interpolated', () => {
     const card = buildDisconfirmationCard({ ...base, topDriverConfidence: cleared(0.8) })
     expect(card.question).toBe(
-      'What could make you switch your recommendation from Option A to Option B?',
+      'What would have to change for Option B to become more likely than Option A to hit your goal?',
     )
   })
 

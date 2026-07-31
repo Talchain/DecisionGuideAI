@@ -684,7 +684,9 @@ export function buildHeroModel(
       leaderBand === 'strong'
         ? HERO_COPY.headline.mostLikelyStrongest(
             safeLabel(headlineRow),
-            winReadoutById[headlineRow.id] ?? HERO_COPY.readout.missing,
+            // null, NOT the missing glyph: the sentence drops its magnitude
+            // clause rather than printing '—' where a quantity should be.
+            winReadoutById[headlineRow.id] ?? null,
           )
         : leaderBand === 'ahead'
           ? HERO_COPY.headline.slightlyAhead(safeLabel(headlineRow))

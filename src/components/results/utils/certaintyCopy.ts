@@ -190,7 +190,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
   const aheadHeadline =
     typeof winProbability === 'number' && Number.isFinite(winProbability)
       ? `${winnerLabel} ${COMPARATIVE_COPY.phrase(formatPercent(winProbability, { fromDecimal: true }))}`
-      : `${winnerLabel} came out ahead most often across simulated scenarios`
+      : `${winnerLabel} ${COMPARATIVE_COPY.phraseNoMagnitude}`
 
   if (analysisStatus === 'partial') {
     return {

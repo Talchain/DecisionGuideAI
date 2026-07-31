@@ -1,4 +1,12 @@
 /**
+ * ⚠ THIS FILE MUST NOT IMPORT `analysis-hero/heroCopy`. The hero module is
+ * under a mount guard (`analysis-hero/__tests__/inertness.spec.ts`) that
+ * allows exactly two importers repo-wide. An earlier draft of this spec
+ * imported `HERO_COPY` to assert the delegation and RED the guard — a real
+ * architecture violation, caught by the guard doing its job. The delegation
+ * assertions now live in `analysis-hero/__tests__/heroCopyDelegation.spec.ts`,
+ * inside the module, which is where a claim ABOUT `heroCopy` belongs.
+ *
  * goalAnchorCopy — the two-register A copy and the house comparative
  * register (Paul's re-anchoring ruling, 2026-07-31).
  *
@@ -18,7 +26,6 @@
 
 import { describe, expect, it } from 'vitest'
 import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY } from '../goalAnchorCopy'
-import { HERO_COPY } from '../../analysis-hero/heroCopy'
 
 const N = '72%'
 
@@ -47,15 +54,6 @@ describe('GOAL_ANCHOR_COPY — the possessive gate', () => {
 })
 
 describe('GOAL_ANCHOR_COPY — forms cannot drift apart', () => {
-  it.each([true, false])(
-    'sentence() IS the shipped hero register (substituted=%s)',
-    (substituted) => {
-      expect(GOAL_ANCHOR_COPY.sentence(N, substituted)).toBe(
-        substituted ? HERO_COPY.detail.goalFitJointBasis(N) : HERO_COPY.detail.goalFit(N),
-      )
-    },
-  )
-
   it.each([true, false])(
     'sentence() is phrase() plus a full stop, and nothing else (substituted=%s)',
     (substituted) => {
@@ -92,9 +90,6 @@ describe('GOAL_ANCHOR_COPY — the no-target state is an invitation, not a wall'
     }
   })
 
-  it('reuses the hero panel own unlock action rather than inventing a second one', () => {
-    expect(GOAL_ANCHOR_COPY.noTargetCta).toBe(HERO_COPY.lensUnavailable.goalDefineSuccess)
-  })
 })
 
 describe('COMPARATIVE_COPY — says what it measures, never what to choose', () => {

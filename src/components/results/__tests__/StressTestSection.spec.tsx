@@ -217,7 +217,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
       )
       const card = screen.getByTestId('stress-test-disconfirmation')
       expect(card).toHaveTextContent(
-        'What could make you switch your recommendation from Option A to Option B?',
+        'What would have to change for Option B to become more likely than Option A to hit your goal?',
       )
       expect(card).toHaveTextContent('Explore this challenge')
     })
@@ -252,7 +252,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
       const card = screen.getByTestId('stress-test-disconfirmation')
       // NON-VACUOUS: the card renders and still asks its question…
       expect(card).toHaveTextContent(
-        'What could make you switch your recommendation from Option A to Option B?',
+        'What would have to change for Option B to become more likely than Option A to hit your goal?',
       )
       // …it just no longer characterises the evidence behind the top driver.
       expect(card).not.toHaveTextContent('limited evidence')

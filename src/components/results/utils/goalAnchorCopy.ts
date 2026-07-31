@@ -133,6 +133,33 @@ export const COMPARATIVE_COPY = {
   label: 'Came out ahead across scenarios',
   /** Compact readout, number first, no full stop. */
   phrase: (formatted: string): string => `Came out ahead in ${formatted} of simulated scenarios`,
+  /**
+   * The same claim with NO magnitude — for the runs that carry the
+   * comparative RANK but not a displayable probability for the leader.
+   *
+   * ⚠ This arm exists because the first draft did not have it, and the
+   * builder fell back to the missing-value glyph INSIDE the sentence:
+   * "came out ahead in — of simulated scenarios". A placeholder rendered as
+   * though it were a quantity is worse than saying less, and the honesty bar
+   * this whole change serves forbids it. Caught by an existing readout-tie
+   * spec, not by a new one.
+   */
+  phraseNoMagnitude: 'came out ahead most often across simulated scenarios',
+  /**
+   * Mid-sentence form — `phrase()` with a lower-case initial, for when the
+   * claim follows an option label rather than opening a line.
+   *
+   * ⚠ Exists because two call sites were doing
+   * `phrase(x).charAt(0).toLowerCase() + phrase(x).slice(1)` inline, and one
+   * of them (`buildV7Headline`) did NOT, shipping "Option A Came out ahead in
+   * 71% of simulated scenarios" with a capital mid-sentence. String surgery
+   * repeated at call sites is how one of them ends up different; the register
+   * owns the casing.
+   */
+  clause: (formatted: string): string =>
+    `${COMPARATIVE_COPY.phrase(formatted).charAt(0).toLowerCase()}${COMPARATIVE_COPY.phrase(formatted).slice(1)}`,
+  /** Mid-sentence honest-absence form, parallel to `clause`. */
+  unavailableClause: 'comparative ranking is unavailable for this run',
   /** Sentence form. */
   sentence: (formatted: string): string => `${COMPARATIVE_COPY.phrase(formatted)}.`,
   /** Aria form for the distribution chart. */

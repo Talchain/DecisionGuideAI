@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest'
 import { buildHeroModel } from '../buildHeroModel'
 import { sortOptionsForDisplay } from '../../utils/optionDisplayOrder'
 import { HERO_COPY } from '../heroCopy'
+import { COMPARATIVE_COPY } from '../../utils/goalAnchorCopy'
 import type { HeroChartModel } from '../heroTypes'
 import {
   FULL_COMPLETENESS,
@@ -68,10 +69,21 @@ const producerVerdict = (
  * (does the builder select the right copy for the right row?) and do not
  * quietly become string fixtures that pass whatever the builder emits.
  */
-function winReadoutOf(m: { rows: Array<{ label: string; comparativeReadout?: string | null }> }, label: string): string {
+function winReadoutOf(
+  m: { rows: Array<{ label: string; comparativeReadout?: string | null }> },
+  label: string,
+): string | null {
   const row = m.rows.find((r) => r.label === label)
-  if (!row?.comparativeReadout) throw new Error(`no comparative readout for ${label}`)
-  return row.comparativeReadout
+  if (!row) throw new Error(`no row for ${label}`)
+  // Mirrors the builder exactly: a row with no comparative probability yields
+  // null, and the copy drops its magnitude clause rather than printing a
+  // placeholder glyph inside the sentence.
+  return row.comparativeReadout ?? null
+}
+function goalReadoutOf(m: { rows: Array<{ label: string; goal: { readout: string } }> }, label: string): string {
+  const row = m.rows.find((r) => r.label === label)
+  if (!row) throw new Error(`no row for ${label}`)
+  return row.goal.readout
 }
 function outcomeReadoutOf(m: { rows: Array<{ label: string; outcome: { readout: string } }> }, label: string): string {
   const row = m.rows.find((r) => r.label === label)
@@ -131,7 +143,7 @@ describe('buildHeroModel — leaders and headline', () => {
     // (lane 35; live staging crowned a 4% fit over 7%/6%).
     const a = makeOption({ ...OPTION_A, goalProbability: 0.9 })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, OPTION_B] })))
-    expect(m.headline).toBe('Two developers is most likely to meet every target this run scored.')
+    expect(m.headline).toBe(HERO_COPY.headline.goalOnly('Two developers', goalReadoutOf(m, 'Two developers')))
     expect(m.leaders.goal).toBe('opt_a')
   })
 
@@ -148,8 +160,8 @@ describe('buildHeroModel — leaders and headline', () => {
 
   it('diverged leaders produce the tension subline naming the outcome leader', () => {
     const m = chart(buildHeroModel(makeHeroData()))
-    expect(m.subline).toBe('Two developers has the highest expected outcome.')
-    expect(m.headline).toBe('Upskill the team is most likely to meet every target this run scored.')
+    expect(m.subline).toBe(HERO_COPY.subline.highestOutcome('Two developers', outcomeReadoutOf(m, 'Two developers')))
+    expect(m.headline).toBe(HERO_COPY.headline.goalOnly('Upskill the team', goalReadoutOf(m, 'Upskill the team')))
   })
 
   it('constraint presence switches the headline to goal-and-limits wording', () => {
@@ -158,9 +170,9 @@ describe('buildHeroModel — leaders and headline', () => {
     const b = makeOption({ ...OPTION_B, constraintAnalysis: CONSTRAINT })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
     expect(m.hasConstraints).toBe(true)
-    expect(m.headline).toBe('Upskill the team best meets the goal and your limits.')
+    expect(m.headline).toBe(HERO_COPY.headline.goalWithLimits('Upskill the team', goalReadoutOf(m, 'Upskill the team')))
     // The tension subline stays the single outcome-leader sentence.
-    expect(m.subline).toBe('Two developers has the highest expected outcome.')
+    expect(m.subline).toBe(HERO_COPY.subline.highestOutcome('Two developers', outcomeReadoutOf(m, 'Two developers')))
   })
 
   it('mixed constraint coverage falls back to goal-alone wording (never overstates)', () => {
@@ -171,7 +183,7 @@ describe('buildHeroModel — leaders and headline', () => {
     const b = makeOption({ ...OPTION_B, constraintAnalysis: CONSTRAINT })
     const m = chart(buildHeroModel(makeHeroData({ options: [OPTION_A, b] })))
     expect(m.hasConstraints).toBe(false)
-    expect(m.headline).toBe('Upskill the team is most likely to meet every target this run scored.')
+    expect(m.headline).toBe(HERO_COPY.headline.goalOnly('Upskill the team', goalReadoutOf(m, 'Upskill the team')))
   })
 
   it('does not goal-headline a recommended option that lacks its own goal value', () => {
@@ -274,7 +286,7 @@ describe('buildHeroModel — leaders and headline', () => {
     const b = makeOption({ ...OPTION_B, goalProbability: 0 })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
     expect(m.headline).toBe('No option is currently on track to meet every target this run scored.')
-    expect(m.subline).toBe('Two developers has the highest expected outcome.')
+    expect(m.subline).toBe(HERO_COPY.subline.highestOutcome('Two developers', outcomeReadoutOf(m, 'Two developers')))
     expect(m.leaders.goal).toBeNull()
     // Goal lens stays available AND default — the "< 1%" rows ARE the story.
     expect(m.defaultLens).toBe('goal')
@@ -297,7 +309,7 @@ describe('buildHeroModel — leaders and headline', () => {
     expect(m.lenses).toEqual(['goal'])
     expect(m.subline).toBeNull()
     // The goal-fit headline itself is still honest and allowed.
-    expect(m.headline).toBe('Upskill the team is most likely to meet every target this run scored.')
+    expect(m.headline).toBe(HERO_COPY.headline.goalOnly('Upskill the team', goalReadoutOf(m, 'Upskill the team')))
   })
 
   it('equal leaders produce the aligned subline', () => {
@@ -323,8 +335,8 @@ describe('buildHeroModel — leaders and headline', () => {
       ),
     )
     expect(m.leaders.goal).toBe('opt_b')
-    expect(m.headline).toBe('Upskill the team is most likely to meet every target this run scored.')
-    expect(m.subline).toBe('Two developers has the highest expected outcome.')
+    expect(m.headline).toBe(HERO_COPY.headline.goalOnly('Upskill the team', goalReadoutOf(m, 'Upskill the team')))
+    expect(m.subline).toBe(HERO_COPY.subline.highestOutcome('Two developers', outcomeReadoutOf(m, 'Two developers')))
   })
 
   it('recommended id missing from analysed rows claims no analysis leader when no goal crown exists', () => {
@@ -344,7 +356,7 @@ describe('buildHeroModel — leaders and headline', () => {
       ),
     )
     expect(m.leaders.goal).toBeNull()
-    expect(m.headline).toBe('Two developers has the highest expected outcome.')
+    expect(m.headline).toBe(HERO_COPY.headline.outcomeLeader('Two developers', outcomeReadoutOf(m, 'Two developers')))
     expect(m.subline).toBeNull()
   })
 
@@ -529,7 +541,7 @@ describe('buildHeroModel — producer band consumption (PLoT decision_brief.head
         headlineBanded: { band: 'clearly_ahead', leaderOptionId: 'opt_b', robustnessGated: false },
       },
     })))
-    expect(m.headline).toBe('Upskill the team is most likely to be strongest overall.')
+    expect(m.headline).toBe(HERO_COPY.headline.mostLikelyStrongest('Upskill the team', winReadoutOf(m, 'Upskill the team')))
   })
 
   it('producer very_close → no-clear-leader claim on a run whose leader wins 80%', () => {
@@ -605,7 +617,7 @@ describe('buildHeroModel — producer band consumption (PLoT decision_brief.head
         verdict: { leaderId: 'opt_b', separation: 'clear', hasLeadingOption: true, gapPp: 52, source: 'producer_near_tie' },
       },
     })))
-    expect(m.headline).toBe('Upskill the team is most likely to be strongest overall.')
+    expect(m.headline).toBe(HERO_COPY.headline.mostLikelyStrongest('Upskill the team', winReadoutOf(m, 'Upskill the team')))
   })
 
   it('SINGLE VERDICT identity gate: a verdict naming a different leader is not applied (→ NO claim)', () => {
@@ -641,7 +653,7 @@ describe('buildHeroModel — producer band consumption (PLoT decision_brief.head
         headlineBanded: { band: 'very_close', leaderOptionId: 'opt_b', robustnessGated: false },
       },
     })))
-    expect(m.headline).toBe('Upskill the team is most likely to meet every target this run scored.')
+    expect(m.headline).toBe(HERO_COPY.headline.goalOnly('Upskill the team', goalReadoutOf(m, 'Upskill the team')))
   })
 })
 
@@ -1108,7 +1120,7 @@ describe('buildHeroModel — detail lines and footer (sourced or omitted)', () =
 
   it('formats win probability with the display-honesty formatter', () => {
     const m = chart(buildHeroModel(makeHeroData()))
-    expect(m.rows[0].detail.winChance).toBe('30% chance it is the strongest option overall.')
+    expect(m.rows[0].detail.winChance).toBe(COMPARATIVE_COPY.sentence('30%'))
   })
 
   it('omits the win line when winProbability is absent', () => {
@@ -1168,14 +1180,14 @@ describe('buildHeroModel — goal-fit crown follows the goal argmax (UI-SEM-072)
   it('crowns the max goal probability, never the win-probability leader (live 4/7/6 shape)', () => {
     const m = chart(buildHeroModel(makeHeroData({ options: [relocate, statusQuo, hybrid] })))
     expect(m.leaders.goal).toBe('opt_status_quo')
-    expect(m.headline).toBe('Stay in London is most likely to meet every target this run scored.')
+    expect(m.headline).toBe(HERO_COPY.headline.goalOnly('Stay in London', goalReadoutOf(m, 'Stay in London')))
   })
 
   it('states the tension against the crowned row, not the recommended option', () => {
     // Crowned Status Quo (7%) is not the outcome leader (Relocate is): the
     // persistent divergence subline names the outcome leader.
     const m = chart(buildHeroModel(makeHeroData({ options: [relocate, statusQuo, hybrid] })))
-    expect(m.subline).toBe('Relocate to Manchester has the highest expected outcome.')
+    expect(m.subline).toBe(HERO_COPY.subline.highestOutcome('Relocate to Manchester', outcomeReadoutOf(m, 'Relocate to Manchester')))
   })
 
   it('uniform fits crown nobody (no crown rather than a wrong crown)', () => {
@@ -1183,7 +1195,7 @@ describe('buildHeroModel — goal-fit crown follows the goal argmax (UI-SEM-072)
     const b = makeOption({ ...OPTION_B, goalProbability: 0.34 })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
     expect(m.leaders.goal).toBeNull()
-    expect(m.headline).not.toContain('is most likely to meet every target this run scored')
+    expect(m.headline).not.toContain('has the highest chance of meeting every target this run scored')
   })
 
   it('a tie at the max crowns nobody even when other fits differ', () => {
@@ -1199,7 +1211,7 @@ describe('buildHeroModel — goal-fit crown follows the goal argmax (UI-SEM-072)
     })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b, c] })))
     expect(m.leaders.goal).toBeNull()
-    expect(m.headline).not.toContain('is most likely to meet every target this run scored')
+    expect(m.headline).not.toContain('has the highest chance of meeting every target this run scored')
   })
 
   it('partial fit coverage crowns nobody (a max over unmeasured rivals is not "best")', () => {
@@ -1207,7 +1219,7 @@ describe('buildHeroModel — goal-fit crown follows the goal argmax (UI-SEM-072)
     const b = makeOption({ ...OPTION_B, goalProbability: undefined })
     const m = chart(buildHeroModel(makeHeroData({ options: [a, b] })))
     expect(m.leaders.goal).toBeNull()
-    expect(m.headline).not.toContain('is most likely to meet every target this run scored')
+    expect(m.headline).not.toContain('has the highest chance of meeting every target this run scored')
   })
 
   it('a unique max still gets no crown below the sub-1% floor', () => {

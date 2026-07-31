@@ -223,7 +223,11 @@ export function noRecommendationFixtureOptions(): OptionResult[] {
  *   · 'The top options are close on expected outcome.'
  */
 export const HERO_CLAIM_RE =
-  /\b(highest|strongest|most likely|slightly ahead|leads|leading|winner|best)\b/i
+  // SUPERSEDED 2026-07-31: the re-anchored leader headline says "came out
+  // ahead in {N}% of simulated scenarios" — a claim, and this probe must be
+  // able to SEE it. Left at the old alternation the PERMITTED-side
+  // over-suppression controls would pass by matching nothing (trap 13).
+  /\b(highest|strongest|most likely|slightly ahead|leads|leading|winner|best|came out ahead)\b/i
 
 /**
  * Every string a screen reader can reach that is NOT ordinary body text:

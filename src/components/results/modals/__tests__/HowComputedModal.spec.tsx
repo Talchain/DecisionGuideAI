@@ -97,8 +97,8 @@ describe('HowComputedCard — real capture 2026-04-05 (partial provenance)', () 
     expect(uncertainty.getByText(/assumptions, not findings/i)).toBeInTheDocument()
   })
 
-  it('describes wins as a share of simulated scenarios, not a prediction', () => {
-    expect(screen.getByText(/not a prediction that it will win/i)).toBeInTheDocument()
+  it('anchors the comparative number to what it measures, and says it is not a goal claim (re-anchored: was "not a prediction that it will win")', () => {
+    expect(screen.getByText(/says nothing about your goal/i)).toBeInTheDocument()
   })
 })
 

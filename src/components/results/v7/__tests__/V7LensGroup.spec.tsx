@@ -80,13 +80,13 @@ describe('V7LensGroup (V7 L5)', () => {
     // ROADMAP 1.239: the readout is relabelled from the leader VERB to the
     // metric NOUN, per #493's WinGauge precedent. The number is unchanged —
     // this is a wording fix, and the data it carries is the point of the test.
-    expect(screen.getByText(/70% win probability/)).toBeInTheDocument()
+    expect(screen.getByText(/Came out ahead in 70% of simulated scenarios/)).toBeInTheDocument()
   })
 
   it('shows the no-target gate on the Goal fit lens when no success target is set', () => {
     render(<V7LensGroup model={buildV7Lenses(WITH_RANGE)} />)
     fireEvent.click(screen.getByTestId('v7-lens-tab-goal'))
-    expect(screen.getByTestId('v7-lens-goal-gate')).toHaveTextContent('Set a success target to unlock Goal fit.')
+    expect(screen.getByTestId('v7-lens-goal-gate')).toHaveTextContent('Set a success target to see which option is most likely to reach it.')
   })
 
   it('shows per-option goal bars on the Goal fit lens when a target and probabilities exist', () => {
@@ -102,7 +102,7 @@ describe('V7LensGroup (V7 L5)', () => {
     fireEvent.click(screen.getByTestId('v7-lens-tab-goal'))
     expect(screen.getByTestId('v7-lens-goal')).toBeInTheDocument()
     expect(screen.getAllByTestId('v7-goal-row').length).toBe(2)
-    expect(screen.getByText(/60% hit target/)).toBeInTheDocument()
+    expect(screen.getByText(/60% chance of hitting your goal/)).toBeInTheDocument()
   })
 
   it('always shows the honest gap on the Stability lens', () => {

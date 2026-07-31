@@ -190,7 +190,7 @@ describe('ResultsBody — Analysis hero placement + flag regression', () => {
   it('flag ON: hero consumes the same data (headline names the recommended option)', () => {
     vi.mocked(isAnalysisHeroPanelEnabled).mockReturnValue(true)
     renderBody()
-    expect(screen.getByTestId('hero-headline')).toHaveTextContent('Option A is most likely to meet every target this run scored.')
+    expect(screen.getByTestId('hero-headline')).toHaveTextContent(/Option A has the highest chance of meeting every target this run scored: .+\./)
   })
 
   it('flag ON + stale: hero authors NO rerun and NO stale surface — the strip owns recovery (C1)', () => {
@@ -208,7 +208,7 @@ describe('ResultsBody — Analysis hero placement + flag regression', () => {
     // its subtree for a run control of any name/testid.
     expect(collectRerunControls(screen.getByTestId('analysis-hero-panel'))).toEqual(new Set())
     // Content stays readable and interactive (no dim/lock regression).
-    expect(screen.getByTestId('hero-headline')).toHaveTextContent('Option A is most likely to meet every target this run scored.')
+    expect(screen.getByTestId('hero-headline')).toHaveTextContent(/Option A has the highest chance of meeting every target this run scored: .+\./)
     // Wave F-B: the freshness strip mounts in OutputsDock ABOVE the dim
     // wrapper (review a) — ResultsBody itself authors NO stale surface,
     // and the hero authors no stale banner either.
@@ -269,12 +269,14 @@ describe("Paul's ruling (2026-07-12): risk appetite is an explicitly-labelled le
     useCanvasStore.setState({ analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: false })
     renderBody()
     expect(screen.queryByTestId('risk-lens-label')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Aggressive' }))
-    expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/strongest upside/i)
-    expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/recommendation above is unchanged/i)
-    fireEvent.click(screen.getByRole('button', { name: 'Conservative' }))
-    expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/strongest downside/i)
-    fireEvent.click(screen.getByRole('button', { name: 'Neutral' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Optimistic (p90)' }))
+    expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/ranked by the high end \(p90\)/i)
+    // SUPERSEDED 2026-07-31: the un-anchored noun "the recommendation" is
+    // retired; the lens sentence now names the quantity that is unchanged.
+    expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/goal ranking above is unchanged/i)
+    fireEvent.click(screen.getByRole('button', { name: 'Cautious (p10)' }))
+    expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/ranked by the low end \(p10\)/i)
+    fireEvent.click(screen.getByRole('button', { name: 'Middle (p50)' }))
     expect(screen.queryByTestId('risk-lens-label')).not.toBeInTheDocument()
   })
 
@@ -282,7 +284,7 @@ describe("Paul's ruling (2026-07-12): risk appetite is an explicitly-labelled le
     useCanvasStore.setState({ analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: false })
     renderBody()
     const heroBefore = screen.getByTestId('decision-confidence-panel').textContent
-    fireEvent.click(screen.getByRole('button', { name: 'Conservative' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cautious (p10)' }))
     // Strict: the lens label renders OUTSIDE this panel, so any drift here
     // is real contamination.
     expect(screen.getByTestId('decision-confidence-panel').textContent).toBe(heroBefore)

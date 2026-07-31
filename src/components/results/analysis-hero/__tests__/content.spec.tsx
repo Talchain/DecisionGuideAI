@@ -32,10 +32,10 @@ describe('AnalysisHeroPanel — content', () => {
   it('renders the headline, tension subline, and goal readouts from response values', () => {
     renderPanel(chartModel())
     expect(screen.getByTestId('hero-headline')).toHaveTextContent(
-      'Upskill the team is most likely to meet every target this run scored.',
+      'Upskill the team has the highest chance of meeting every target this run scored: 49%.',
     )
     expect(screen.getByTestId('hero-subline')).toHaveTextContent(
-      'Two developers has the highest expected outcome.',
+      'Two developers has the highest expected outcome: 68.',
     )
     // Goal-fit is the default lens: rendered joint probabilities equal the
     // response values (0.34 → 34%, 0.49 → 49%).
@@ -50,12 +50,12 @@ describe('AnalysisHeroPanel — content', () => {
     expect(within(screen.getByTestId('hero-option-row-2')).getByText('62')).toBeInTheDocument()
   })
 
-  it('shows win probability ONLY inside an opened option detail', () => {
+  it('shows the comparative readout ONLY inside an opened option detail', () => {
     renderPanel(chartModel())
-    expect(screen.queryByText(/chance it is the strongest option overall/)).toBeNull()
+    expect(screen.queryByText(/Came out ahead in .+ of simulated scenarios/)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /Two developers/ }))
     expect(screen.getByTestId('hero-detail-win')).toHaveTextContent(
-      '30% chance it is the strongest option overall.',
+      'Came out ahead in 30% of simulated scenarios.',
     )
   })
 
@@ -123,7 +123,7 @@ describe('AnalysisHeroPanel — content', () => {
     )
   })
 
-  it('win-only rows are not expandable and keep the win line as persistent meta', () => {
+  it('comparative-only rows are not expandable and keep the comparative line as persistent meta', () => {
     // Strip everything except winProbability from B; A keeps its range so
     // the outcome lens stays available.
     const winOnly = makeOption({
@@ -145,7 +145,7 @@ describe('AnalysisHeroPanel — content', () => {
     // B has no disclosure button; its win probability is persistent meta.
     expect(screen.queryByRole('button', { name: /Upskill the team/ })).toBeNull()
     expect(screen.getByTestId('hero-win-meta')).toHaveTextContent(
-      '29% chance it is the strongest option overall.',
+      'Came out ahead in 29% of simulated scenarios.',
     )
     // A (range detail exists) is still expandable.
     expect(screen.getByRole('button', { name: /Two developers/ })).toBeInTheDocument()

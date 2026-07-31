@@ -128,7 +128,7 @@ describe('staging scenario — model truth', () => {
   it('states the goal truth: no option on track, outcome leader named in the subline', () => {
     const m = stagingModel()
     expect(m.headline).toBe('No option is currently on track to meet every target this run scored.')
-    expect(m.subline).toBe('Use Virtual Assistant Service has the highest expected outcome.')
+    expect(m.subline).toBe('Use Virtual Assistant Service has the highest expected outcome: 0.4%.')
     // No goal-fit leader ring; the outcome highlight stays factual.
     expect(m.leaders.goal).toBeNull()
     expect(m.leaders.outcome).toBe('opt_virtual')

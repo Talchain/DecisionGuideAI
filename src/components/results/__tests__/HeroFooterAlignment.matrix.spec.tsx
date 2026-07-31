@@ -160,7 +160,10 @@ const matrix: MatrixCase[] = [
     tier: 'strong',
     readiness: 'ready',
     stability: 0.95,
-    expectHeroContains: 'Option A is the leading option',
+    // SUPERSEDED 2026-07-31: `"{winner} is the leading option"` is retired —
+    // an endorsement noun with no basis and no number. The ROW is unchanged;
+    // only the sentence it expects moved to the comparative register.
+    expectHeroContains: 'Option A came out ahead',
     expectFooterContains: 'Stable result',
     forbidFooter: ['Stability sensitive'],
   },
@@ -215,7 +218,10 @@ const matrix: MatrixCase[] = [
     tier: 'strong',
     readiness: 'close_call',
     stability: 0.90,
-    expectHeroContains: 'Option A is the leading option',
+    // SUPERSEDED 2026-07-31: `"{winner} is the leading option"` is retired —
+    // an endorsement noun with no basis and no number. The ROW is unchanged;
+    // only the sentence it expects moved to the comparative register.
+    expectHeroContains: 'Option A came out ahead',
     forbidHero: ['Option A currently leads'],
     expectFooterContains: 'Stable result',
     forbidFooter: ['Stability sensitive'],

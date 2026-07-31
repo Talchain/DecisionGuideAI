@@ -359,6 +359,22 @@ describe('DecisionConfidencePanel — TriageActionCardsBody extraction regressio
   //     can no longer support, plus the lede's superlative ("would most improve
   //     confidence" → "Inputs worth confirming").
   // Not an extraction regression.
+  //
+  // RE-CAPTURED AGAIN for the win-terminology RE-ANCHORING (Paul's ruling,
+  // 2026-07-31, §6). The diff against the previous baseline is EXACTLY TWO
+  // TEXT NODES in each fixture — derived by diffing the captures, not assumed:
+  //   · the ring caption `<p>win probability</p>` → `<p>Chance of hitting your
+  //     goal</p>` (map row 3 — the ring now reads the GOAL quantity, and its
+  //     caption moves WITH the score, never independently)
+  //   · the checks-footer label `<span>Winner</span>` → `<span>Has leading
+  //     option</span>` (§6.2g — the legacy arm is deleted, so the compliant
+  //     label renders on every path)
+  // NO structural change: not one element, attribute or nesting level moved,
+  // which is precisely what this guard exists to detect. Note the ring SCORE
+  // reads 70% in both captures — this fixture's option carries the same value
+  // for both quantities, so the score move is invisible HERE; it is pinned on a
+  // fixture built to make them diverge in reanchor.confidenceRing.spec.tsx.
+  // Not an extraction regression.
 
   it('rich state: current rendering matches the literal pre-extraction baseline fixture', () => {
     const { container } = render(<DecisionConfidencePanel data={makeData()} onSendMessage={() => {}} />)

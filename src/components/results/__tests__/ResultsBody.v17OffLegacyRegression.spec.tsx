@@ -207,10 +207,17 @@ describe('ResultsBody — V17 power pass: V17-off legacy regression', () => {
     // T1ChecksFooter — always renders under legacy mode.
     const checksFooter = screen.getByTestId('t1-checks-footer')
     expect(checksFooter).toBeInTheDocument()
-    // Legacy copy reads "Winner" / "No winner"; v17 mode would have rewritten
+    // Legacy copy reads "Winner" / "No clear leader"; v17 mode would have rewritten
     // these to "Has leading option" / "No clear leader". The presence of the
     // legacy literal inside the footer confirms useV17Copy did NOT activate.
-    expect(checksFooter.textContent).toMatch(/Winner|No winner/)
+    // ⭐ SUPERSEDED 2026-07-31 (§6.2g). This line existed to prove `useV17Copy`
+    // had NOT been applied on the V17-off path, by spotting the LEGACY literal
+    // "Winner" / "No winner" in the footer. That legacy arm is now DELETED —
+    // the footer renders the compliant labels on every path and no longer
+    // takes a `useV17Copy` prop at all. There is no legacy literal left to
+    // detect, so the original assertion cannot be repaired; it is replaced by
+    // the claim that survives: the footer renders, with a verdict label.
+    expect(checksFooter.textContent).toMatch(/Has leading option|No clear leader/)
   })
 
   it('V17 power pass logic never activates: rowRanking + readiness strip + compact spread all bypassed', () => {

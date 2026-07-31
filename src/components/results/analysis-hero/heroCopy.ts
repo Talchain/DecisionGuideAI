@@ -110,8 +110,10 @@ export const HERO_COPY = {
      * with. The claim was always grounded in the COMPARATIVE quantity (see
      * the block above), so it now says so, with its magnitude.
      */
-    mostLikelyStrongest: (label: string, readout: string) =>
-      `${label} ${COMPARATIVE_COPY.phrase(readout).charAt(0).toLowerCase()}${COMPARATIVE_COPY.phrase(readout).slice(1)}.`,
+    mostLikelyStrongest: (label: string, readout: string | null) => {
+      const claim = readout ? COMPARATIVE_COPY.clause(readout) : COMPARATIVE_COPY.phraseNoMagnitude
+      return `${label} ${claim}.`
+    },
     /** Banding state B: ahead on win probability without a strong majority. */
     slightlyAhead: (label: string) => `${label} is slightly ahead.`,
     /** Banding state C: the win probabilities identify no clear leader. */

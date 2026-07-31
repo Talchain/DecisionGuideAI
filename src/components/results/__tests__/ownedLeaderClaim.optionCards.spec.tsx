@@ -75,7 +75,7 @@ function renderCards(hasLeadingOption: boolean | undefined) {
 /** Comparative phrases that presuppose, assert, or deny a unique leader. */
 const LEADER_LANGUAGE: ReadonlyArray<[string, RegExp]> = [
   ['Top-performing option', /top-performing option/i],
-  ['Highest leading-option likelihood', /highest leading-option likelihood/i],
+  ['Highest leading-option likelihood', /came out ahead in .+ of simulated scenarios/i],
   ['Behind by N percentage points', /behind by \d+ percentage point/i],
   ['Statistically tied with the leading option', /statistically tied with the leading option/i],
   ['Compare against the leading option', /compare against the leading option/i],
@@ -119,7 +119,7 @@ describe('OptionCards — permitted leader claim (over-suppression controls)', (
   it('keeps the winner and runner-up sentences', () => {
     const { container } = renderCards(true)
     const text = container.textContent ?? ''
-    expect(text).toMatch(/highest leading-option likelihood/i)
+    expect(text).toMatch(/came out ahead in .+ of simulated scenarios/i)
     expect(text).toMatch(/behind by \d+ percentage point/i)
   })
 
@@ -140,7 +140,7 @@ describe('OptionCards — permitted leader claim (over-suppression controls)', (
     // the default cannot drift to silence and quietly blank every legacy
     // caller's cards.
     const { container } = renderCards(undefined)
-    expect(container.textContent ?? '').toMatch(/highest leading-option likelihood/i)
+    expect(container.textContent ?? '').toMatch(/came out ahead in .+ of simulated scenarios/i)
   })
 })
 

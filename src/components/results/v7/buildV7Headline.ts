@@ -159,8 +159,8 @@ export function buildV7Headline(
           winner?.goalFitIsSubstitutedJoint === true,
         )
       : winProbability != null
-        ? `${winnerLabel} ${COMPARATIVE_COPY.phrase(formatPct(winProbability, { fromDecimal: true }))}`
-        : `${winnerLabel} ${COMPARATIVE_COPY.unavailable.charAt(0).toLowerCase()}${COMPARATIVE_COPY.unavailable.slice(1)}`
+        ? `${winnerLabel} ${COMPARATIVE_COPY.clause(formatPct(winProbability, { fromDecimal: true }))}`
+        : `${winnerLabel} — ${COMPARATIVE_COPY.unavailableClause}`
 
   return {
     headline,
