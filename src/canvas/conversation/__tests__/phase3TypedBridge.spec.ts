@@ -475,6 +475,43 @@ describe('composePhase3BridgedBlocks — typed path (slice 2: evidence / exercis
     expect((out[2] as V5ReviewCardBlock).block_id).toBe('rc-b')
   })
 
+  it('ROADMAP 2.211 §2 EDGE-A: the anchor sees review cards that were DEDUPED into mappedBlocks', () => {
+    // The turn emits the same review card twice — once as a top-level block
+    // (already adapted into mappedBlocks by mapV5Blocks) and once in the phase-3
+    // sidecar. The dedupe by block_id keeps the raw one OUT of `typed`, so an
+    // anchor scan that looked only at `typed` would find nothing, fall back to
+    // +Infinity, and put the exercise back behind coaching — the exact 2.211
+    // defect, restored by omission on precisely the turns carrying the most
+    // review content. The anchor is derived across BOTH sources.
+    const mappedWithReviewCard: ConversationBlock[] = [
+      ...MAPPED,
+      {
+        type: 'v5_review_card',
+        block_id: 'rc-typed-1',
+        title: 'A load-bearing assumption',
+        body: 'The relationship between X and Y remains stable.',
+        severity: 'info',
+        card_kind: 'assumption',
+        target_refs: [],
+        priority_rank: 71,
+        freshness: 'fresh',
+      } as V5ReviewCardBlock,
+    ]
+    const out = composePhase3BridgedBlocks(
+      true,
+      [typedReviewCardRaw(), typedCoachingRaw(), typedExerciseRaw()],
+      mappedWithReviewCard,
+    )
+    // The duplicate raw review card is suppressed — one card, from mappedBlocks.
+    expect(out.filter((b) => b.type === 'v5_review_card')).toHaveLength(1)
+    expect(out.map((b) => b.type)).toEqual([
+      'v5_analysis_result',
+      'v5_review_card',
+      'v5_exercise',
+      'v5_coaching',
+    ])
+  })
+
   it('ROADMAP 2.211 §2: NO review card on the turn → the contract convention is kept, no rank invented', () => {
     // The exercise derives its permission from a surviving review card
     // (LENS-EMISSION-2211 §3), so an exercise with no review card beside it is

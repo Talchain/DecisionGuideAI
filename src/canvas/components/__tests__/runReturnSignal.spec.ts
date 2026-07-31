@@ -20,7 +20,6 @@ import type { ConversationMessage } from '../../conversation/types'
 import {
   countAnalysisReviewBlocks,
   shouldReturnToOlumiAfterRun,
-  shouldScrollAnalysisResultIntoView,
   type RunReturnSignalInput,
 } from '../runReturnSignal'
 
@@ -131,75 +130,5 @@ describe('shouldReturnToOlumiAfterRun', () => {
     // nothing in the Olumi tab; returning a user to an empty surface is worse
     // than leaving them on the numbers.
     expect(shouldReturnToOlumiAfterRun({ ...RETURNS, reviewContentArrived: false })).toBe(false)
-  })
-})
-
-/**
- * ROADMAP 2.204-R3 — the scroll signal.
- *
- * The design claim is that this is NOT a second policy: it is the return's own
- * discipline with exactly one clause widened (the tab may already be Olumi). So
- * the table below is deliberately the SAME table — every never-yank clause
- * re-asserted against the scroll — plus the one case where the two answers
- * legitimately differ. If the shared predicate is ever copied rather than shared,
- * a clause added to one and not the other REDs here.
- */
-describe('shouldScrollAnalysisResultIntoView', () => {
-  it('scrolls for the passive tester the return is about to move', () => {
-    expect(shouldScrollAnalysisResultIntoView(RETURNS)).toBe(true)
-  })
-
-  it('THE WIDENED CLAUSE: also scrolls when the tab is ALREADY Olumi', () => {
-    // The one input on which the two signals differ. Reachable when the run's
-    // auto-switch was debounced out (OutputsDock's 50 ms React-#185 guard) and
-    // never moved them: the card still lands below the fold of a thread they are
-    // looking at, and the return itself has nothing to do.
-    const alreadyThere: RunReturnSignalInput = { ...RETURNS, dockTab: 'olumi' }
-    expect(shouldReturnToOlumiAfterRun(alreadyThere)).toBe(false)
-    expect(shouldScrollAnalysisResultIntoView(alreadyThere)).toBe(true)
-  })
-
-  it('MUTANT — drop the flag gate: stands down with aiPanelV2 OFF', () => {
-    expect(shouldScrollAnalysisResultIntoView({ ...RETURNS, aiPanelV2On: false })).toBe(false)
-  })
-
-  it('MUTANT — drop the we-moved-them gate: a RETURNING SESSION is not scrolled onto its own history', () => {
-    // This clause is what keeps a reload off the scroll. Hydration puts an old
-    // analysis onto a fronted Olumi tab: the arrival check reads true (0 → 1) and
-    // nobody has interacted, so without the we-moved-them record the widened tab
-    // clause above would scroll the user onto a result from a previous session.
-    expect(
-      shouldScrollAnalysisResultIntoView({
-        ...RETURNS,
-        runAutoSwitchedToAnalysis: false,
-        dockTab: 'olumi',
-      }),
-    ).toBe(false)
-  })
-
-  it('MUTANT — drop the tab gate: stands down on the tabs that do not host the card', () => {
-    // Widened to {results, olumi} — NOT removed. A user reading Model or Compare
-    // must not be scrolled by content in a tab they are not looking at.
-    expect(shouldScrollAnalysisResultIntoView({ ...RETURNS, dockTab: 'diagnostics' })).toBe(false)
-    expect(shouldScrollAnalysisResultIntoView({ ...RETURNS, dockTab: 'compare' })).toBe(false)
-  })
-
-  it('MUTANT — drop the dock-open gate: stands down while the dock is the collapsed rail', () => {
-    expect(shouldScrollAnalysisResultIntoView({ ...RETURNS, dockEffectiveOpen: false })).toBe(false)
-  })
-
-  it('MUTANT — drop the interaction gate: stands down for a user who is doing something', () => {
-    expect(shouldScrollAnalysisResultIntoView({ ...RETURNS, userInteractedSinceRun: true })).toBe(false)
-    expect(
-      shouldScrollAnalysisResultIntoView({
-        ...RETURNS,
-        dockTab: 'olumi',
-        userInteractedSinceRun: true,
-      }),
-    ).toBe(false)
-  })
-
-  it('MUTANT — drop the content gate: stands down when nothing arrived to scroll TO', () => {
-    expect(shouldScrollAnalysisResultIntoView({ ...RETURNS, reviewContentArrived: false })).toBe(false)
   })
 })

@@ -2,10 +2,10 @@
  * scrollAnalysisResultIntoView — ROADMAP 2.204-R3.
  *
  * Brings the TOP of the most recently rendered `v5_analysis_result` card to the
- * top of its scroll container. The decision to call this lives in
- * `runReturnSignal.ts` (`shouldScrollAnalysisResultIntoView`); this file only
- * performs it, so the policy stays testable without a DOM and the DOM work stays
- * testable without the dock.
+ * top of its scroll container. The decision to call this is 2.204's own
+ * `shouldReturnToOlumiAfterRun`, taken verbatim at the OutputsDock call site —
+ * this file only performs it, so the DOM work stays testable without the dock
+ * and the policy stays a single, already-adjudicated predicate.
  *
  * ## Why a document query rather than a ref
  * The card is rendered by `V5AnalysisResultBlock` inside `InlineBlocks` inside

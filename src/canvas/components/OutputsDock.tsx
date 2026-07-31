@@ -64,7 +64,6 @@ import {
 import {
   countAnalysisReviewBlocks,
   shouldReturnToOlumiAfterRun,
-  shouldScrollAnalysisResultIntoView,
 } from './runReturnSignal'
 import { scrollAnalysisResultIntoView } from './scrollAnalysisResultIntoView'
 import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
@@ -1597,21 +1596,27 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   useEffect(() => {
     const previousCount = prevReviewBlockCountRef.current
     prevReviewBlockCountRef.current = reviewBlockCount
-    const signal = {
+    const shouldReturn = shouldReturnToOlumiAfterRun({
       aiPanelV2On,
       runAutoSwitchedToAnalysis: runAutoSwitchedToAnalysisRef.current,
       dockTab: state.activeTab,
       dockEffectiveOpen: effectiveIsOpen,
       userInteractedSinceRun: userInteractedSinceRunRef.current,
       reviewContentArrived: reviewBlockCount > previousCount,
-    }
-    const shouldReturn = shouldReturnToOlumiAfterRun(signal)
-    // Read BEFORE the return spends `runAutoSwitchedToAnalysisRef` below —
-    // both signals are gated on that same record.
-    if (shouldScrollAnalysisResultIntoView(signal)) {
-      setResultScrollToken((token) => token + 1)
-    }
+    })
     if (!shouldReturn) return
+    // ROADMAP 2.204-R3 — the scroll rides the RETURN's own decision, verbatim.
+    //
+    // It was briefly a second predicate that widened the tab clause to admit
+    // `dockTab === 'olumi'`. That widening was withdrawn: derived at the bytes,
+    // the we-moved-them record has exactly ONE raise (the merged auto-switch
+    // effect above, which in the same breath schedules `activeTab: 'results'`),
+    // and every other write clears or spends it. So "record true AND tab already
+    // Olumi" is reachable only through a stale render closure — the batched
+    // flush pinned by this file's ADV-3 spec — where it is harmful, not
+    // beneficial. There is no shape in which the widened clause helps, so there
+    // is no clause. One decision, no mirror to drift.
+    setResultScrollToken((token) => token + 1)
     // Spend the record: one return per run, never a repeat.
     runAutoSwitchedToAnalysisRef.current = false
     setState(prev => ({ ...prev, isOpen: true, activeTab: 'olumi' }))
@@ -1651,15 +1656,29 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // the card — a yank, and exactly the failure mode 2.204's discipline exists to
   // prevent. The token is raised only by an arrival that passed that discipline,
   // and each token scrolls at most once.
+  //
+  // ## ⚠ Why the token is marked handled BEFORE the tab guard, not after
+  // Because a never-yank verdict has a SHELF LIFE. Every gate the raise passed —
+  // "the user has not interacted", "we moved them here" — was true in the commit
+  // that raised the token and says nothing about any later commit. So a token
+  // that cannot be spent on the very next commit must be DISCARDED, never
+  // carried: parked, it would discharge on the user's own next visit to the
+  // Olumi tab, minutes later, possibly in a different scenario, after they had
+  // wheeled and toured tabs. Marking first makes the token strictly
+  // single-shot — spent by being used, or spent by expiring — so its verdict can
+  // never outlive the flush it was formed in.
+  //
+  // Reachability of the unspendable case is not hypothetical: React 18 batches
+  // the block's arrival and the results completion into ONE flush, and the
+  // merged auto-switch effect above runs first within it, so this effect can see
+  // a tab value that is already superseded. Pinned by the ADV-3 / ADV-4 cases in
+  // OutputsDock.runReturnsToOlumi.spec.tsx.
   const handledResultScrollTokenRef = useRef(0)
   useEffect(() => {
     if (resultScrollToken === 0) return
     if (handledResultScrollTokenRef.current === resultScrollToken) return
-    // Wait for the tab to be fronted. Reached on the very next commit whenever
-    // the return fired (the token's other raiser is a tab that is ALREADY
-    // 'olumi'), so this is a guard, not a poll.
-    if (state.activeTab !== 'olumi') return
     handledResultScrollTokenRef.current = resultScrollToken
+    if (state.activeTab !== 'olumi') return
     scrollAnalysisResultIntoView()
   }, [resultScrollToken, state.activeTab])
 

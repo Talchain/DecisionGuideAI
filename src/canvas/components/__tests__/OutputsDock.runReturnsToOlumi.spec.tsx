@@ -694,6 +694,122 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
     }
   })
 
+  /**
+   * ADV-3 — the arrival and the results completion in ONE commit.
+   *
+   * `landAnalysisTurn` above delivers them in two: the store update re-renders
+   * OutputsDock, and the new message list only reaches it on the following
+   * `rerender`. React 18 auto-batching collapses that into a single flush
+   * whenever both land inside one `act`, which is the shape `applyV5State`
+   * produces when it flips the results store off the same turn whose blocks
+   * become the message.
+   *
+   * In that flush the merged auto-switch effect runs FIRST (it is declared
+   * first), raises the we-moved-them record and SCHEDULES `activeTab: 'results'`.
+   * The arrival effect then runs in the same flush against the render's
+   * `state.activeTab` — still `'olumi'`. Every tab-dependent decision in that
+   * effect is therefore reading a value that is already superseded.
+   */
+  function landAnalysisTurnBatched(
+    rerender: (ui: React.ReactElement) => void,
+    id = 'm-batched',
+  ) {
+    act(() => {
+      convState.messages = [...convState.messages, analysisTurnMessage(id)]
+      useCanvasStore.getState().resultsComplete({
+        report: minimalReport(),
+        hash: `${RESPONSE_HASH}-${id}`,
+        resultsSource: 'conversation',
+      })
+      rerender(
+        <Wrapper>
+          <OutputsDock />
+        </Wrapper>,
+      )
+    })
+  }
+
+  it('BATCHED ARRIVAL (ADV-3): a scroll that cannot be performed is DISCARDED, never parked for a later click', () => {
+    // The defect this pins: a scroll request raised against a stale tab value
+    // that is then unspendable. If it is merely left pending rather than
+    // discarded, it discharges on the user's OWN next visit to the Olumi tab —
+    // minutes later, with no analysis arriving, and with every never-yank gate
+    // evaluated back when the request was raised rather than now.
+    //
+    // ⚠ TWO independent defences make this green, and the mutation matrix says
+    // so plainly rather than implying one of them carries it:
+    //   (a) the request is raised only by the RETURN's own decision, which
+    //       requires `dockTab === 'results'` — so the stale-'olumi' read raises
+    //       nothing;
+    //   (b) the token is marked handled BEFORE the tab guard, so any request
+    //       that cannot be spent on the next commit expires instead of parking.
+    // Reverting either alone leaves this test GREEN; reverting BOTH turns it
+    // RED. (a) removes today's only reachable raise; (b) is the structural
+    // guarantee that keeps a future widening of the raise condition from
+    // silently re-introducing the park. Neither is redundant, and neither is
+    // claimed to bite alone.
+    seedDockOnOlumi()
+    const { rerender } = render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+    expect(olumiTabIsFronted()).toBe(true)
+
+    const probe = recordScrollIntoView()
+    try {
+      landAnalysisTurnBatched(rerender)
+
+      // The auto-switch wins the flush: the user ends on Analysis.
+      expect(olumiTabIsFronted()).toBe(false)
+      const card = screen.getByTestId('v5-analysis-result')
+      expect(probe.calls.filter((c) => c.target === card)).toHaveLength(0)
+
+      // …and the user's own later click back to Olumi is THEIRS. Nothing may
+      // ride in on it.
+      act(() => {
+        fireEvent.click(screen.getByRole('button', { name: 'Olumi' }))
+      })
+      expect(olumiTabIsFronted()).toBe(true)
+      expect(probe.calls.filter((c) => c.target === card)).toHaveLength(0)
+    } finally {
+      probe.restore()
+    }
+  })
+
+  it('POST-ARRIVAL INTERACTION (ADV-4): a user who engages AFTER the arrival can never be overridden', () => {
+    // The interaction record is read when a scroll is REQUESTED, never when one
+    // is performed. So any request that survives the commit it was made in
+    // carries a stale never-yank verdict: this user wheeled and toured tabs
+    // after the arrival, and a surviving request would still scroll them.
+    seedDockOnOlumi()
+    const { rerender } = render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+    const probe = recordScrollIntoView()
+    try {
+      landAnalysisTurnBatched(rerender)
+      const card = screen.getByTestId('v5-analysis-result')
+
+      act(() => {
+        fireEvent.wheel(screen.getByTestId('outputs-dock-body'))
+      })
+      act(() => {
+        fireEvent.click(screen.getByRole('button', { name: 'Analysis' }))
+      })
+      act(() => {
+        fireEvent.click(screen.getByRole('button', { name: 'Olumi' }))
+      })
+
+      expect(olumiTabIsFronted()).toBe(true)
+      expect(probe.calls.filter((c) => c.target === card)).toHaveLength(0)
+    } finally {
+      probe.restore()
+    }
+  })
+
   it('RERUN: the SECOND analysis card is the one scrolled to, not the first', () => {
     // The scroll must follow the arrival, not the transcript: a rerun leaves the
     // previous run's card in the thread, and scrolling to that one would park the

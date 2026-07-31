@@ -1678,10 +1678,21 @@ export function composePhase3BridgedBlocks(
   // EXERCISE_RANK_AFTER_REVIEW_CARDS.
   if (exercises.length > 0) {
     let reviewAnchor: number | null = null
+    const raiseAnchor = (rank: number): void => {
+      if (!Number.isFinite(rank)) return
+      if (reviewAnchor === null || rank > reviewAnchor) reviewAnchor = rank
+    }
+    // BOTH sources, not just `typed`. A review card the turn also emitted as a
+    // top-level block is already in mappedBlocks, and the block_id dedupe above
+    // keeps the raw copy OUT of `typed` — so a `typed`-only scan would find no
+    // anchor on exactly the turns carrying the most review content, fall back
+    // to +Infinity, and put the exercise back behind coaching. That is the
+    // 2.211 defect restored by omission (EDGE-A, review 1 Aug).
+    for (const block of mappedBlocks) {
+      if (block.type === 'v5_review_card') raiseAnchor(block.priority_rank)
+    }
     for (const t of typed) {
-      if (t.block.type !== 'v5_review_card') continue
-      if (!Number.isFinite(t.rank)) continue
-      if (reviewAnchor === null || t.rank > reviewAnchor) reviewAnchor = t.rank
+      if (t.block.type === 'v5_review_card') raiseAnchor(t.rank)
     }
     const exerciseRank =
       reviewAnchor === null
