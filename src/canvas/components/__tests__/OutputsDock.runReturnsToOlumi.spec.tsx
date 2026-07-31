@@ -157,6 +157,43 @@ function ensureScrollIntoView() {
   }
 }
 
+/**
+ * ROADMAP 2.204-R3 — a recorder, not a counter.
+ *
+ * The residual is not "was a scroll requested" (one always is) but "WHICH
+ * element, with WHICH alignment, and was the tab still `hidden` when it was
+ * asked". Recording the receiver and the wrapper's state at call time is what
+ * separates the pre-existing no-op from the fix; a bare `toHaveBeenCalled()`
+ * would have passed against the defect.
+ */
+interface RecordedScroll {
+  target: Element
+  opts: ScrollIntoViewOptions | boolean | undefined
+  wrapperHidden: boolean
+}
+
+function recordScrollIntoView(): { calls: RecordedScroll[]; restore: () => void } {
+  const proto = Element.prototype as unknown as {
+    scrollIntoView?: (arg?: ScrollIntoViewOptions | boolean) => void
+  }
+  const previous = proto.scrollIntoView
+  const calls: RecordedScroll[] = []
+  proto.scrollIntoView = function (this: Element, opts?: ScrollIntoViewOptions | boolean) {
+    const wrapper = document.querySelector('[data-testid="olumi-tab-wrapper"]')
+    calls.push({
+      target: this,
+      opts,
+      wrapperHidden: wrapper ? wrapper.classList.contains('hidden') : true,
+    })
+  }
+  return {
+    calls,
+    restore: () => {
+      proto.scrollIntoView = previous
+    },
+  }
+}
+
 function ensureMatchMedia() {
   if (typeof window.matchMedia !== 'function') {
     Object.defineProperty(window, 'matchMedia', {
@@ -474,5 +511,224 @@ describe('ROADMAP 2.204 — the run returns the user to the surface it produced'
 
     expect(olumiTabIsFronted()).toBe(false)
     expect(screen.getByTestId('olumi-tab-wrapper')).toHaveClass('hidden')
+  })
+})
+
+/**
+ * ROADMAP 2.204-R3 — the return must land ON the card, not 2,248 px above it.
+ *
+ * ## The residual, live-measured
+ * `probe-2204-pixel-walk.md` §7: the return fires (2/2 passive runs), the card
+ * renders (`area` 0 → ~300,000 px²) — and the thread is left `scrollTop 843`,
+ * `distFromBottom 2248`, byte-stable for 60 s, with the card's top 47.5 px below
+ * the `chat-thread` fold and all five 2.154 prose fields at 0 clipped-visible
+ * area. `new-messages-pill` reads FALSE, so nothing signals content below.
+ *
+ * ## The cause — the walk's recorded lead is REFUTED
+ * The lead was "the result arrives as `blocks[]` on an EXISTING message, so
+ * `messageCount` never changes and the scroll effect never fires". False on the
+ * live path: `useConversation.ts:4717` calls `addMessage` with the turn's blocks
+ * attached — a NEW message. (Blocks-onto-an-existing-message is the STREAMING
+ * route, `useConversation.ts:5247`, which the walk's single non-streaming
+ * `POST /proxy/v5/turn` per leg did not take.)
+ *
+ * The real cause is ORDERING. React runs child effects before parent effects, so
+ * `ChatThread`'s smart-scroll effect fires in the commit that lands the message —
+ * while the thread is still inside the Olumi wrapper's `hidden` (`display: none`)
+ * subtree, where an element has no layout box and `scrollIntoView` is a no-op.
+ * `OutputsDock`'s 2.204 return un-hides the tab in a LATER commit, and nothing
+ * re-issues the scroll. Measured directly by the first test below.
+ *
+ * ## What these tests pin, and what they CANNOT
+ * jsdom implements no layout (platform trap 3), so nothing here claims a pixel.
+ * They pin the STATE that decides the pixels: which element the scroll targets,
+ * with which alignment, and whether the tab was fronted when it was asked. The
+ * pixel proof rides the post-deploy walk leg.
+ */
+describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
+  beforeEach(() => {
+    ensureMatchMedia()
+    ensureScrollIntoView()
+    convState.messages = []
+    try { sessionStorage.clear() } catch { /* private mode */ }
+    try { localStorage.clear() } catch { /* private mode */ }
+    useFloatingPanelState.getState().reset()
+    useCanvasStore.getState().resetCanvas()
+    useCanvasStore.getState().addNode(undefined, 'decision')
+    useCanvasStore.setState({ results: { status: 'idle', progress: 0 } })
+    useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
+  })
+
+  it('THE CAUSE: the thread\'s own scroll-to-bottom is issued while the tab is STILL hidden', () => {
+    // The diagnosis, pinned as a test rather than left in a document — this is
+    // the input that makes the fix necessary, and a future change to
+    // useSmartScroll that invalidates it SHOULD force this file to be re-read.
+    seedDockOnOlumi()
+    const { rerender } = render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+    startRun()
+
+    const probe = recordScrollIntoView()
+    try {
+      landAnalysisTurn(rerender)
+
+      // useSmartScroll took its scrollToBottom branch: the listEndRef sentinel
+      // (ChatThread.tsx:213), `{ behavior: 'smooth' }`, no `block`.
+      const bottomPin = probe.calls.find(
+        (c) =>
+          c.target.getAttribute('data-testid') === null &&
+          typeof c.opts === 'object' &&
+          c.opts !== null &&
+          (c.opts as ScrollIntoViewOptions).block === undefined,
+      )
+      expect(bottomPin).toBeDefined()
+      // …and it was asked for while the wrapper still carried `hidden`. In a
+      // real browser that subtree has no layout box, so this call does nothing.
+      expect(bottomPin?.wrapperHidden).toBe(true)
+      // The tab is fronted only AFTERWARDS, by the 2.204 return.
+      expect(olumiTabIsFronted()).toBe(true)
+    } finally {
+      probe.restore()
+    }
+  })
+
+  it('THE RESIDUAL: the arriving card\'s TOP is scrolled into view, after the tab is fronted', () => {
+    seedDockOnOlumi()
+    const { rerender } = render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+    startRun()
+    expect(olumiTabIsFronted()).toBe(false)
+
+    const probe = recordScrollIntoView()
+    try {
+      landAnalysisTurn(rerender)
+
+      expect(olumiTabIsFronted()).toBe(true)
+      const card = screen.getByTestId('v5-analysis-result')
+      const cardScrolls = probe.calls.filter((c) => c.target === card)
+
+      // The card itself is the target — not the thread's end sentinel, whose
+      // bottom-pin would land the tester PAST a 1,218 px card in a 676 px
+      // scrollport (measured geometry, pixel walk §7).
+      expect(cardScrolls).toHaveLength(1)
+      // `block: 'start'` — its TOP, which is where the five 2.154 prose fields
+      // begin. Any other alignment leaves them below the fold again.
+      expect(cardScrolls[0].opts).toMatchObject({ block: 'start' })
+      // And it is asked for only once the wrapper has dropped `hidden`, so the
+      // element has a layout box to scroll. This is the whole fix.
+      expect(cardScrolls[0].wrapperHidden).toBe(false)
+    } finally {
+      probe.restore()
+    }
+  })
+
+  it('NEVER YANK: a user interacting with the Analysis tab is neither returned NOR scrolled', () => {
+    // The scroll inherits 2.204's interaction discipline wholesale rather than
+    // carrying a second, drifting copy of it: same record, same gates. Without
+    // this case the fix could over-fire on exactly the user 2.204 protects.
+    seedDockOnOlumi()
+    const { rerender } = render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+    startRun()
+    act(() => {
+      fireEvent.wheel(screen.getByTestId('outputs-dock-body'))
+    })
+
+    const probe = recordScrollIntoView()
+    try {
+      landAnalysisTurn(rerender)
+
+      expect(olumiTabIsFronted()).toBe(false)
+      // The card is in the DOM (inside the hidden wrapper) — so this absence is
+      // an absence of SCROLLING, not an absence of the element (trap 13).
+      const card = screen.getByTestId('v5-analysis-result')
+      expect(card).toBeInTheDocument()
+      expect(probe.calls.filter((c) => c.target === card)).toHaveLength(0)
+    } finally {
+      probe.restore()
+    }
+  })
+
+  it('ONE SCROLL PER ARRIVAL: navigating away and back does not re-scroll the user onto the card', () => {
+    // The scroll effect has to wait for `state.activeTab` to become 'olumi',
+    // which is also what every manual tab click produces. Without a token that
+    // is SPENT, each later return to the Olumi tab would drag the user back onto
+    // the card and away from wherever they had scrolled — a yank, delivered by
+    // the fix meant to prevent one.
+    seedDockOnOlumi()
+    const { rerender } = render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+    startRun()
+    landAnalysisTurn(rerender)
+    expect(olumiTabIsFronted()).toBe(true)
+
+    const probe = recordScrollIntoView()
+    try {
+      const card = screen.getByTestId('v5-analysis-result')
+      act(() => {
+        fireEvent.click(screen.getByRole('button', { name: 'Analysis' }))
+      })
+      expect(olumiTabIsFronted()).toBe(false)
+      act(() => {
+        fireEvent.click(screen.getByRole('button', { name: 'Olumi' }))
+      })
+      expect(olumiTabIsFronted()).toBe(true)
+
+      // The arrival's scroll already happened, before this recorder was
+      // installed. Nothing new may be issued at the card.
+      expect(probe.calls.filter((c) => c.target === card)).toHaveLength(0)
+    } finally {
+      probe.restore()
+    }
+  })
+
+  it('RERUN: the SECOND analysis card is the one scrolled to, not the first', () => {
+    // The scroll must follow the arrival, not the transcript: a rerun leaves the
+    // previous run's card in the thread, and scrolling to that one would park the
+    // tester on stale numbers. Pins that the target is derived from the DOM at
+    // scroll time (last card), not from a remembered element.
+    //
+    // The previous run's card is SEEDED into the transcript rather than produced
+    // by a second live run: `resultsComplete` leaves the store on 'complete', so
+    // the merged auto-switch effect's `wasInactive` gate never re-arms within one
+    // test and a second `startRun()` would switch nothing. Same construction, for
+    // the same reason, as the 2.204 RERUN case above.
+    convState.messages = [analysisTurnMessage('m-previous-run')]
+    seedDockOnOlumi()
+    const { rerender } = render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+    expect(olumiTabIsFronted()).toBe(true)
+
+    startRun()
+    expect(olumiTabIsFronted()).toBe(false)
+
+    const probe = recordScrollIntoView()
+    try {
+      landAnalysisTurn(rerender, 'm-rerun')
+
+      expect(olumiTabIsFronted()).toBe(true)
+      const cards = screen.getAllByTestId('v5-analysis-result')
+      expect(cards).toHaveLength(2)
+      const scrolled = probe.calls.filter((c) => cards.includes(c.target as HTMLElement))
+      expect(scrolled).toHaveLength(1)
+      expect(scrolled[0].target).toBe(cards[1])
+    } finally {
+      probe.restore()
+    }
   })
 })

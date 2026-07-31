@@ -64,7 +64,9 @@ import {
 import {
   countAnalysisReviewBlocks,
   shouldReturnToOlumiAfterRun,
+  shouldScrollAnalysisResultIntoView,
 } from './runReturnSignal'
+import { scrollAnalysisResultIntoView } from './scrollAnalysisResultIntoView'
 import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { focusFloating } from '../hooks/useFloatingFocus'
 import { isV5CanonicalRunPath } from '../../v5/eligibility'
@@ -1588,17 +1590,27 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     [conversationCtxForFirstUse?.messages],
   )
   const prevReviewBlockCountRef = useRef(reviewBlockCount)
+  // ROADMAP 2.204-R3 — the arrival raises a token here; the effect BELOW spends
+  // it, once the tab is actually fronted. See that effect for why it cannot be
+  // done in this one.
+  const [resultScrollToken, setResultScrollToken] = useState(0)
   useEffect(() => {
     const previousCount = prevReviewBlockCountRef.current
     prevReviewBlockCountRef.current = reviewBlockCount
-    const shouldReturn = shouldReturnToOlumiAfterRun({
+    const signal = {
       aiPanelV2On,
       runAutoSwitchedToAnalysis: runAutoSwitchedToAnalysisRef.current,
       dockTab: state.activeTab,
       dockEffectiveOpen: effectiveIsOpen,
       userInteractedSinceRun: userInteractedSinceRunRef.current,
       reviewContentArrived: reviewBlockCount > previousCount,
-    })
+    }
+    const shouldReturn = shouldReturnToOlumiAfterRun(signal)
+    // Read BEFORE the return spends `runAutoSwitchedToAnalysisRef` below —
+    // both signals are gated on that same record.
+    if (shouldScrollAnalysisResultIntoView(signal)) {
+      setResultScrollToken((token) => token + 1)
+    }
     if (!shouldReturn) return
     // Spend the record: one return per run, never a repeat.
     runAutoSwitchedToAnalysisRef.current = false
@@ -1618,6 +1630,38 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     setShowResultsPanel,
     setState,
   ])
+
+  // ROADMAP 2.204-R3 — land the returned tester ON the card, not 2,248 px above
+  // it.
+  //
+  // ## Why this is a SECOND effect and not two lines in the one above
+  // The effect above decides to return and calls `setState({activeTab:'olumi'})`.
+  // At that moment the DOM still has `hidden` (`display: none`) on the Olumi
+  // wrapper — React has not re-rendered yet — and an element inside a
+  // `display: none` subtree has no layout box, so a `scrollIntoView` issued there
+  // does nothing. That is precisely the defect being fixed: ChatThread's own
+  // smart-scroll already fires in that commit and is silently swallowed (see
+  // runReturnSignal.ts and the spec's THE CAUSE test, which measures it). This
+  // effect depends on `state.activeTab`, so it runs after the commit that
+  // REMOVED `hidden` — the first moment the card can actually be scrolled.
+  //
+  // ## Why a token, spent once
+  // `state.activeTab` changes on every manual tab click too. Without a token
+  // that is spent, every later click back to Olumi would re-scroll the user onto
+  // the card — a yank, and exactly the failure mode 2.204's discipline exists to
+  // prevent. The token is raised only by an arrival that passed that discipline,
+  // and each token scrolls at most once.
+  const handledResultScrollTokenRef = useRef(0)
+  useEffect(() => {
+    if (resultScrollToken === 0) return
+    if (handledResultScrollTokenRef.current === resultScrollToken) return
+    // Wait for the tab to be fronted. Reached on the very next commit whenever
+    // the return fired (the token's other raiser is a tab that is ALREADY
+    // 'olumi'), so this is a guard, not a poll.
+    if (state.activeTab !== 'olumi') return
+    handledResultScrollTokenRef.current = resultScrollToken
+    scrollAnalysisResultIntoView()
+  }, [resultScrollToken, state.activeTab])
 
   // Effect: Switch to compare tab when showComparePanel flag is set
   useEffect(() => {

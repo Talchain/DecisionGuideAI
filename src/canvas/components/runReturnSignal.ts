@@ -144,6 +144,26 @@ export interface RunReturnSignalInput {
 }
 
 /**
+ * THE discipline both signals below share, expressed once.
+ *
+ * Everything except "which tab are they on". Extracted rather than copied
+ * because a second hand-written conjunction is a hand-maintained mirror
+ * (platform trap 12): the scroll must inherit every never-yank guarantee the
+ * return has — including the ones added later — and a copy would drift silently
+ * and read green while it did. The two exported predicates differ in exactly one
+ * clause, and that clause is visible on one line each.
+ */
+function passesRunReturnDiscipline(input: RunReturnSignalInput): boolean {
+  return (
+    input.aiPanelV2On &&
+    input.runAutoSwitchedToAnalysis &&
+    input.dockEffectiveOpen &&
+    !input.userInteractedSinceRun &&
+    input.reviewContentArrived
+  )
+}
+
+/**
  * Whether a completed analysis must return the dock to the Olumi tab.
  *
  * Every gate must hold. The two that carry the ruling are
@@ -153,12 +173,55 @@ export interface RunReturnSignalInput {
  * never against a deliberate choice.
  */
 export function shouldReturnToOlumiAfterRun(input: RunReturnSignalInput): boolean {
+  return passesRunReturnDiscipline(input) && input.dockTab === 'results'
+}
+
+/**
+ * ROADMAP 2.204-R3 — whether the arriving analysis-result card must be scrolled
+ * into view.
+ *
+ * ## The residual this closes
+ * 2.204 returns the tester to the Olumi tab, and the pixel walk proved it does
+ * (2/2 passive runs, wrapper 0 → 292,232 px²). It then measured them landing
+ * **2,248 px above the card**: `scrollTop 843`, the card's top 47.5 px below the
+ * `chat-thread` fold, all five 2.154 prose fields at 0 clipped-visible area,
+ * byte-stable for 60 s, with `new-messages-pill` FALSE so nothing signalled the
+ * content below (`probe-2204-pixel-walk.md` §7).
+ *
+ * ## Why the thread cannot fix this itself
+ * The walk's recorded lead — "the result arrives as `blocks[]` on an existing
+ * message, so `messageCount` never changes" — is REFUTED on the live path:
+ * `useConversation.ts:4717` calls `addMessage` with the turn's blocks attached, a
+ * NEW message, and `useSmartScroll`'s effect does fire. (Blocks-onto-an-existing-
+ * message is the STREAMING route, `useConversation.ts:5247`.)
+ *
+ * The defect is ORDERING. React runs child effects before parent effects, so
+ * `ChatThread`'s scroll fires in the commit that lands the message — while the
+ * thread is still inside the Olumi wrapper's `hidden` (`display: none`) subtree,
+ * where an element has no layout box and `scrollIntoView` is a no-op — and the
+ * return un-hides the tab only in a LATER commit. Nothing re-issues the scroll.
+ * So the repair has to live on the side that knows when the tab became visible.
+ *
+ * ## Why the card's TOP, and not the thread's bottom
+ * Measured geometry: the card is 1,218.8 px tall in a 676 px scrollport. Pinning
+ * the thread to its bottom would land the tester PAST all five prose fields —
+ * a different way of not showing them.
+ *
+ * ## Why this is not a second policy
+ * It is `shouldReturnToOlumiAfterRun`'s own discipline with exactly one clause
+ * widened: the card is in the Olumi tab, so the tester must either be about to be
+ * returned there (`'results'`, the live path) or already be there (`'olumi'`, the
+ * case where the run's auto-switch was debounced out and never moved them). Every
+ * other gate — the flag, the we-moved-them record, the dock-open check, the
+ * interaction record, the arrival check — is the shared predicate above, so the
+ * scroll can never fire for a user the return would have left alone. In
+ * particular the `runAutoSwitchedToAnalysis` record keeps a RETURNING session,
+ * whose transcript hydrates an old analysis onto a fronted Olumi tab, from being
+ * scrolled onto its own history.
+ */
+export function shouldScrollAnalysisResultIntoView(input: RunReturnSignalInput): boolean {
   return (
-    input.aiPanelV2On &&
-    input.runAutoSwitchedToAnalysis &&
-    input.dockTab === 'results' &&
-    input.dockEffectiveOpen &&
-    !input.userInteractedSinceRun &&
-    input.reviewContentArrived
+    passesRunReturnDiscipline(input) &&
+    (input.dockTab === 'results' || input.dockTab === 'olumi')
   )
 }
