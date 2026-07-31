@@ -159,7 +159,7 @@ export function fragileEdgeGroupHeader({
 export function fragileEdgeConsequence({ designationsWithheld }: FragileEdgeVerdictInput): string {
   return designationsWithheld
     ? `${FRAGILE_NEUTRAL_OBJECT} could change`
-    : 'the recommendation could change'
+    : 'which option is most likely to hit your goal could change'
 }
 
 /**
@@ -173,7 +173,7 @@ export function fragileEValueNote({
   const v = eValue.toFixed(1)
   return designationsWithheld
     ? `E-value ${v}: assumptions would only need to be ${v}x wrong to change ${FRAGILE_NEUTRAL_OBJECT}.`
-    : `E-value ${v}: assumptions would only need to be ${v}x wrong to flip the recommendation.`
+    : `E-value ${v}: assumptions would only need to be ${v}x wrong to change which option is most likely to hit your goal.`
 }
 
 /**

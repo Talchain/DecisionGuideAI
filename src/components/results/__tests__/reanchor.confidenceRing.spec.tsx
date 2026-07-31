@@ -53,7 +53,7 @@ function makeData(opts: Opts = {}): ResultsSectionDataReturn {
     winProbability: 'winProbability' in opts ? opts.winProbability : 0.7,
     goalProbability: 'goalProbability' in opts ? opts.goalProbability : 0.2,
     goalFitIsSubstitutedJoint: opts.goalFitIsSubstitutedJoint ?? false,
-  } as OptionResult
+  } as unknown as OptionResult
 
   const recommendation: DecisionResultData = {
     recommendedOption: winner,

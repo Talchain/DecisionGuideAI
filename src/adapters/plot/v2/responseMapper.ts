@@ -1479,7 +1479,7 @@ function buildRecommendationBlock(v2Response: V2RunResponse): ReviewBlock | null
       status: 'cannot_compute',
       status_reason: 'No options to compare',
       source: 'engine',
-      summary: 'Unable to determine recommendation',
+      summary: 'Not enough data to rank the options',
       priority: 1,
     }
   }

@@ -12,6 +12,8 @@
  * rewritten where it appears verbatim).
  */
 
+import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
+
 export const HERO_COPY = {
   panelAria: 'Analysis',
   tablistAria: 'Results lens',
@@ -48,7 +50,7 @@ export const HERO_COPY = {
     goalNoTarget: 'Set a success target to unlock Goal fit.',
     /** Inline unlock action beside goalNoTarget — rendered ONLY when a
      * define-success route is wired (never a dead control). */
-    goalDefineSuccess: 'Define success',
+    goalDefineSuccess: GOAL_ANCHOR_COPY.noTargetCta,
     goalProducerGap: 'Goal fit is not available for this run.',
     outcome: 'Likely outcome is not available for this run.',
     stability:
@@ -64,7 +66,8 @@ export const HERO_COPY = {
   } as const,
 
   headline: {
-    goalWithLimits: (label: string) => `${label} best meets the goal and your limits.`,
+    goalWithLimits: (label: string, readout: string) =>
+      `${label} has the highest chance of meeting your goal and limits: ${readout}.`,
     /**
      * GOAL-ATTAINMENT IDENTITY, interim wording (family 2, slice −1) — the
      * same claim, in the same words, as `caption.goalOnly` and
@@ -78,7 +81,8 @@ export const HERO_COPY = {
      * a possessive over a number that, when the user has set constraints, does
      * not involve the goal at all.
      */
-    goalOnly: (label: string) => `${label} is most likely to meet every target this run scored.`,
+    goalOnly: (label: string, readout: string) =>
+      `${label} has the highest chance of meeting every target this run scored: ${readout}.`,
     // DELETED 2026-07-26 (ROADMAP 1.223): `analysisLeads` — "{label} currently
     // leads the overall analysis." It was the UNBANDED leader claim, reached
     // only when no band could be resolved. Once the UI stopped banding win
@@ -99,13 +103,22 @@ export const HERO_COPY = {
      * manufacture a closeness claim; it only appends the overlap advisory
      * to the state-A subline.
      */
-    mostLikelyStrongest: (label: string) => `${label} is most likely to be strongest overall.`,
+    /**
+     * ⭐ RE-ANCHORED 2026-07-31. Was `"{label} is most likely to be strongest
+     * overall."` — a bare superlative over an unnamed basis: a reader could
+     * not tell what it was strongest AT, and it carried no number to argue
+     * with. The claim was always grounded in the COMPARATIVE quantity (see
+     * the block above), so it now says so, with its magnitude.
+     */
+    mostLikelyStrongest: (label: string, readout: string) =>
+      `${label} ${COMPARATIVE_COPY.phrase(readout).charAt(0).toLowerCase()}${COMPARATIVE_COPY.phrase(readout).slice(1)}.`,
     /** Banding state B: ahead on win probability without a strong majority. */
     slightlyAhead: (label: string) => `${label} is slightly ahead.`,
     /** Banding state C: the win probabilities identify no clear leader. */
     noClearLeader: 'No option is clearly ahead.',
     /** Fallback when no recommended option exists among the rows: headline the outcome fact itself. */
-    outcomeLeader: (label: string) => `${label} has the highest expected outcome.`,
+    outcomeLeader: (label: string, readout: string) =>
+      `${label} has the highest expected outcome: ${readout}.`,
     /**
      * Goal honesty: every option's goal probability sits below the sub-1%
      * floor (UI-SEM-057) — crowning any option would be false, so the headline
@@ -155,7 +168,8 @@ export const HERO_COPY = {
      * the expected-outcome leader (goal basis or not), the tension is
      * stated in one plain sentence naming the outcome leader.
      */
-    highestOutcome: (label: string) => `${label} has the highest expected outcome.`,
+    highestOutcome: (label: string, readout: string) =>
+      `${label} has the highest expected outcome: ${readout}.`,
     aligned: (label: string) => `${label} also has the strongest expected outcome.`,
     /**
      * Banding state B subline (producer band or UI-SEM-060 fallback): the
@@ -253,10 +267,15 @@ export const HERO_COPY = {
     watchLabel: 'Watch',
     tradeOffLabel: 'Trade-off',
     couldChangeIf: (factor: string, value: string) => `${factor} crosses ${value}.`,
-    winChance: (formatted: string) => `${formatted} chance it is the strongest option overall.`,
+    /**
+     * RE-ANCHORED: was `"{N}% chance it is the strongest option overall."` —
+     * "strongest overall" named no basis. Aligned to the house comparative
+     * register, which says exactly what the number measures.
+     */
+    winChance: (formatted: string) => COMPARATIVE_COPY.sentence(formatted),
     /** Grounded lines from existing adapted fields — never authored prose. */
     range: (low: string, high: string) => `Realistic range: ${low} to ${high}.`,
-    goalFit: (readout: string) => `${readout} chance of hitting your goal.`,
+    goalFit: (readout: string) => GOAL_ANCHOR_COPY.sentence(readout, false),
     goalFitWithLimits: (readout: string) => `${readout} chance of meeting your goal and limits.`,
     /**
      * Goal-probability IDENTITY: used when the row's number is
@@ -276,7 +295,7 @@ export const HERO_COPY = {
      * no count — and no possessive, which would be false when the user HAS
      * set constraints and PLoT discards the goal threshold.
      */
-    goalFitJointBasis: (readout: string) => `${readout} chance of meeting every target this run scored.`,
+    goalFitJointBasis: (readout: string) => GOAL_ANCHOR_COPY.sentence(readout, true),
   },
 
   /**

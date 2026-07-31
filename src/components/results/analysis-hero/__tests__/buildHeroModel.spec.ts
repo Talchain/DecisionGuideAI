@@ -62,6 +62,23 @@ const producerVerdict = (
   source: 'producer_near_tie' as const,
 })
 
+/**
+ * The magnitudes the re-anchored leader sentences carry, read back off the
+ * MODEL rather than hard-coded — so these assertions stay template checks
+ * (does the builder select the right copy for the right row?) and do not
+ * quietly become string fixtures that pass whatever the builder emits.
+ */
+function winReadoutOf(m: { rows: Array<{ label: string; comparativeReadout?: string | null }> }, label: string): string {
+  const row = m.rows.find((r) => r.label === label)
+  if (!row?.comparativeReadout) throw new Error(`no comparative readout for ${label}`)
+  return row.comparativeReadout
+}
+function outcomeReadoutOf(m: { rows: Array<{ label: string; outcome: { readout: string } }> }, label: string): string {
+  const row = m.rows.find((r) => r.label === label)
+  if (!row) throw new Error(`no row for ${label}`)
+  return row.outcome.readout
+}
+
 describe('buildHeroModel — boundary values', () => {
   it('goal-fit values equal the adapted goalProbability exactly', () => {
     const m = chart(buildHeroModel(makeHeroData()))
@@ -178,7 +195,12 @@ describe('buildHeroModel — leaders and headline', () => {
     expect(m.lenses).toContain('goal')
     expect(m.leaders.goal).toBeNull()
     expect(m.headline).toBe(HERO_COPY.headline.slightlyAhead('Upskill the team'))
-    expect(m.subline).toBe(HERO_COPY.subline.highestOutcome('Two developers'))
+    expect(m.subline).toBe(
+      HERO_COPY.subline.highestOutcome(
+        'Two developers',
+        m.rows.find((r) => r.label === 'Two developers')!.outcome.readout,
+      ),
+    )
   })
 
   it('does not goal-headline a recommended option whose goal value floors below 1% (mixed coverage)', () => {
@@ -358,9 +380,11 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
       options: [a, b],
       recommendation: { verdict: producerVerdict('clear', 57) },
     })))
-    expect(m.headline).toBe(HERO_COPY.headline.mostLikelyStrongest('Upskill the team'))
+    expect(m.headline).toBe(
+      HERO_COPY.headline.mostLikelyStrongest('Upskill the team', winReadoutOf(m, 'Upskill the team')),
+    )
     expect(m.subline).toBe(
-      `${HERO_COPY.subline.highestOutcome('Upskill the team')} ${HERO_COPY.subline.overlapAdvisory}`,
+      `${HERO_COPY.subline.highestOutcome('Upskill the team', outcomeReadoutOf(m, 'Upskill the team'))} ${HERO_COPY.subline.overlapAdvisory}`,
     )
     expect(`${m.headline} ${m.subline}`).not.toMatch(/close/i)
   })
@@ -373,8 +397,12 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
       options: [a, b],
       recommendation: { verdict: producerVerdict('clear', 60) },
     })))
-    expect(m.headline).toBe(HERO_COPY.headline.mostLikelyStrongest('Upskill the team'))
-    expect(m.subline).toBe(HERO_COPY.subline.highestOutcome('Upskill the team'))
+    expect(m.headline).toBe(
+      HERO_COPY.headline.mostLikelyStrongest('Upskill the team', winReadoutOf(m, 'Upskill the team')),
+    )
+    expect(m.subline).toBe(
+      HERO_COPY.subline.highestOutcome('Upskill the team', outcomeReadoutOf(m, 'Upskill the team')),
+    )
   })
 
   it('strong but diverged leader keeps the persistent divergence subline', () => {
@@ -385,8 +413,15 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
       options: [a, b],
       recommendation: { verdict: producerVerdict('clear', 60) },
     })))
-    expect(m.headline).toBe(HERO_COPY.headline.mostLikelyStrongest('Upskill the team'))
-    expect(m.subline).toBe(HERO_COPY.subline.highestOutcome('Two developers'))
+    expect(m.headline).toBe(
+      HERO_COPY.headline.mostLikelyStrongest('Upskill the team', winReadoutOf(m, 'Upskill the team')),
+    )
+    expect(m.subline).toBe(
+      HERO_COPY.subline.highestOutcome(
+        'Two developers',
+        m.rows.find((r) => r.label === 'Two developers')!.outcome.readout,
+      ),
+    )
   })
 
   it('sub-strong majority leader is "slightly ahead", naming the runner-up ONLY when the outcome gap is genuinely small', () => {
@@ -536,8 +571,12 @@ describe('buildHeroModel — producer band consumption (PLoT decision_brief.head
       },
     })))
     expect(m.headline).toBe(HERO_COPY.headline.noLeader)
-    expect(m.headline).not.toBe(HERO_COPY.headline.mostLikelyStrongest('Upskill the team'))
-    expect(m.headline).not.toBe(HERO_COPY.headline.mostLikelyStrongest('Two developers'))
+    // Negative assertions: no comparative leader sentence for EITHER label at
+    // ANY magnitude. Asserting against one interpolation would pass simply
+    // because the number differed, which is not what is being denied.
+    for (const label of ['Upskill the team', 'Two developers']) {
+      expect(m.headline).not.toContain(`${label} came out ahead in`)
+    }
     expect(m.subline).toBe(HERO_COPY.subline.compareTop)
   })
 
@@ -653,7 +692,12 @@ describe('buildHeroModel — readout-tie coherence (UI-SEM-070) and span floor (
     // panel's recommended leader (no cross-surface contradiction); only the
     // over-claiming subline is gated.
     const m = chart(buildHeroModel(tiedRun({ verdict: producerVerdict('clear', 12, 'opt_contractor') })))
-    expect(m.headline).toBe(HERO_COPY.headline.mostLikelyStrongest('Outsourced Contractor Team'))
+    expect(m.headline).toBe(
+      HERO_COPY.headline.mostLikelyStrongest(
+        'Outsourced Contractor Team',
+        winReadoutOf(m, 'Outsourced Contractor Team'),
+      ),
+    )
     expect(m.subline).toBe(HERO_COPY.subline.outcomesClose)
     expect(m.subline).not.toMatch(/strongest|highest/i)
   })

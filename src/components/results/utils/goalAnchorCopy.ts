@@ -29,11 +29,21 @@
  * `useResultsSectionData`, never re-derived at a render site), so every
  * caller here passes it straight through.
  *
- * The two permitted registers ALREADY EXIST, as `HERO_COPY.detail.goalFit`
- * and `HERO_COPY.detail.goalFitJointBasis`. `sentence()` below CALLS them
- * rather than restating them, so there is exactly one copy of each sentence
- * in the repo. `phrase()` is the same wording without the full stop, for
- * compact readouts that are not sentences; `goalAnchorCopy.spec.ts` pins
+ * The two permitted registers ALREADY SHIPPED, as `HERO_COPY.detail.goalFit`
+ * and `HERO_COPY.detail.goalFitJointBasis`. Their wording is unchanged and it
+ * now lives HERE, with `heroCopy` delegating to `sentence()` — so there is
+ * exactly one copy of each sentence in the repo and every surface reads the
+ * same one.
+ *
+ * ⚠ THE DIRECTION OF THAT DELEGATION IS LOAD-BEARING. It was written the
+ * other way first (this module importing `HERO_COPY`) and `heroCopy` also
+ * needs `COMPARATIVE_COPY` for its own comparative lines — which made the two
+ * modules a cycle, and nine hero specs failed at COLLECTION rather than on an
+ * assertion. This module is therefore a LEAF: it imports nothing. Do not add
+ * an import here.
+ *
+ * `phrase()` is the same wording without the full stop, for compact readouts
+ * that are not sentences; `goalAnchorCopy.spec.ts` pins
  * `sentence === phrase + '.'` so the two cannot drift — a derived guard, not
  * a hand-maintained mirror (CLAUDE.md trap 12).
  *
@@ -41,8 +51,6 @@
  * do not cover, the fix is upstream in `selectGoalProbability`'s basis, not
  * a new string here.
  */
-
-import { HERO_COPY } from '../analysis-hero/heroCopy'
 
 /**
  * The A-register: goal attainment per option, in the two permitted voices.
@@ -73,13 +81,11 @@ export const GOAL_ANCHOR_COPY = {
       : `${formatted} chance of hitting your goal`,
 
   /**
-   * Sentence form. Delegates to the shipped hero registers so the sentence
-   * exists once in the repo (see the header).
+   * Sentence form — the shipped hero wording, verbatim. `HERO_COPY.detail`
+   * calls this; nothing restates it.
    */
   sentence: (formatted: string, isSubstitutedJoint: boolean): string =>
-    isSubstitutedJoint
-      ? HERO_COPY.detail.goalFitJointBasis(formatted)
-      : HERO_COPY.detail.goalFit(formatted),
+    `${GOAL_ANCHOR_COPY.phrase(formatted, isSubstitutedJoint)}.`,
 
   /**
    * Headline form (deck A4) — names the option, the basis AND the magnitude.
@@ -109,8 +115,8 @@ export const GOAL_ANCHOR_COPY = {
    * would add.
    */
   noTarget: 'Set a success target to see which option is most likely to reach it.',
-  /** Inline unlock action beside `noTarget`. Reuses the hero's own wording. */
-  noTargetCta: HERO_COPY.lensUnavailable.goalDefineSuccess,
+  /** Inline unlock action beside `noTarget`. `HERO_COPY` re-exports this. */
+  noTargetCta: 'Define success',
 } as const
 
 /**

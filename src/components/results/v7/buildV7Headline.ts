@@ -26,6 +26,8 @@
  */
 
 import type { DecisionResultData, DecisionState } from '../types'
+import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY } from '../utils/goalAnchorCopy'
+import { formatPercent as formatPct } from '../../../utils/formatPercent'
 
 export interface V7HeadlineModel {
   /** Main headline. Empty string when there is no winner to headline. */
@@ -134,8 +136,34 @@ export function buildV7Headline(
       ? `Leads by ${gapPoints} point${gapPoints === 1 ? '' : 's'}`
       : null
 
+  /**
+   * ⭐ RE-ANCHORED 2026-07-31 (§6.2c, RETIRE). Was `"{winner} performs best"`
+   * — the closest sentence in the product to "choose this": an unqualified
+   * superlative with no stated basis, no number and no timeframe, which a
+   * reader cannot argue with because it drops the figure that would let them.
+   *
+   * The A form is used whenever the run carries a goal number, with the
+   * possessive gated on the winner's own basis flag. Without a target there
+   * is no goal number at all (ISL computes one only against a threshold), so
+   * the claim falls back to the COMPARATIVE quantity, named as such.
+   */
+  const goalProbability =
+    typeof winner?.goalProbability === 'number' && Number.isFinite(winner.goalProbability)
+      ? winner.goalProbability
+      : null
+  const headline =
+    goalProbability != null
+      ? GOAL_ANCHOR_COPY.headline(
+          winnerLabel,
+          formatPct(goalProbability, { fromDecimal: true }),
+          winner?.goalFitIsSubstitutedJoint === true,
+        )
+      : winProbability != null
+        ? `${winnerLabel} ${COMPARATIVE_COPY.phrase(formatPct(winProbability, { fromDecimal: true }))}`
+        : `${winnerLabel} ${COMPARATIVE_COPY.unavailable.charAt(0).toLowerCase()}${COMPARATIVE_COPY.unavailable.slice(1)}`
+
   return {
-    headline: `${winnerLabel} performs best`,
+    headline,
     subline,
     winProbability,
     winnerLabel,

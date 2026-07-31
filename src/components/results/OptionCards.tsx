@@ -17,6 +17,7 @@
 
 import { useRef, useState, useCallback, type RefObject } from 'react'
 import { typography } from '../../styles/typography'
+import { COMPARATIVE_COPY } from './utils/goalAnchorCopy'
 import {
   formatPercent as formatPct,
   formatProbabilityWithResolution,
@@ -191,7 +192,7 @@ function hingeAwareDescription(
   // The lens branch stays ABOVE the gate — the one carve-out, and the reason
   // this is not simply the first line of the function.
   if (isWinner && lensActive) {
-    return 'Strongest under this lens. The overall recommendation is unchanged.'
+    return 'Ahead on this outcome view. The goal ranking above is unchanged.'
   }
   if (noLeader) return ''
 
@@ -202,7 +203,9 @@ function hingeAwareDescription(
     if (hinge?.reason === 'heuristic' || hinge?.reason === 'voi') {
       return `Highest leading-option likelihood. ${hinge.label} has the widest uncertainty.`
     }
-    return 'Highest leading-option likelihood across simulated scenarios'
+    return COMPARATIVE_COPY.phrase(
+      formatProbabilityWithResolution(option.winProbability ?? 0, option.nValidSamples),
+    )
   }
   if (isRunnerUp) {
     // ROADMAP 1.239: reachable only on a permitted turn now — see the gate
@@ -485,7 +488,14 @@ function OptionCard({
         <div
           className="w-full rounded-full overflow-hidden"
           style={{ height: 5, backgroundColor: 'var(--border-default, #EEE6D8)' }}
-          title={`Win probability: ${formatProbabilityWithResolution(option.winProbability, option.nValidSamples)}`}
+          // Re-anchored: this bar is drawn from the COMPARATIVE quantity, so
+          // it takes the comparative register. The §6 map proposed the A
+          // register here on the grounds that `goalProbability` is in scope —
+          // but the BAR is not the goal number, and a goal caption over a
+          // comparative fill is the mislabel map row 3 forbids.
+          title={COMPARATIVE_COPY.phrase(
+            formatProbabilityWithResolution(option.winProbability, option.nValidSamples),
+          )}
         >
           <div
             className="h-full rounded-full transition-all duration-300"

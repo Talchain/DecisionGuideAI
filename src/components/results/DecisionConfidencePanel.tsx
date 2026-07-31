@@ -176,7 +176,6 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       ? { value: winProbability, caption: COMPARATIVE_COPY.label }
       : null
 
-  const hasWinProbability = ringClaim != null
   const winProbabilityScore = ringClaim ? Math.round(ringClaim.value * 100) : null
 
   // ringDimensions is required by the DecisionHealthRing prop contract even

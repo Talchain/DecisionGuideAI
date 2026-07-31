@@ -12,6 +12,10 @@ import { HERO_COPY } from '../heroCopy'
 
 // Neutral placeholders so template output — not the arguments — is scanned.
 const L = 'Option Alpha'
+// Neutral MAGNITUDE placeholders — the re-anchored leader sentences carry
+// their number, and the scan must see the template, not the argument.
+const N = '72%'
+const V = '£1.2m'
 
 /**
  * Lens-NAMING copy — the only sanctioned "stability" occurrences: the
@@ -48,17 +52,17 @@ const UI_COPY: string[] = [
   HERO_COPY.srLensUnavailable,
   HERO_COPY.fixtureBanner,
   HERO_COPY.ghostLegend,
-  HERO_COPY.headline.goalWithLimits(L),
-  HERO_COPY.headline.goalOnly(L),
-  HERO_COPY.headline.mostLikelyStrongest(L),
+  HERO_COPY.headline.goalWithLimits(L, N),
+  HERO_COPY.headline.goalOnly(L, N),
+  HERO_COPY.headline.mostLikelyStrongest(L, N),
   HERO_COPY.headline.slightlyAhead(L),
   HERO_COPY.headline.noClearLeader,
-  HERO_COPY.headline.outcomeLeader(L),
+  HERO_COPY.headline.outcomeLeader(L, V),
   HERO_COPY.headline.noneOnTrack,
   HERO_COPY.headline.noneOnTrackWithLimits,
   HERO_COPY.headline.singleOption(L),
   HERO_COPY.headline.noLeader,
-  HERO_COPY.subline.highestOutcome(L),
+  HERO_COPY.subline.highestOutcome(L, V),
   HERO_COPY.subline.aligned(L),
   HERO_COPY.subline.closeOnOutcome(L),
   HERO_COPY.subline.outcomesClose,

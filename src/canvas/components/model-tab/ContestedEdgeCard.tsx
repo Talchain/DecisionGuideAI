@@ -292,7 +292,7 @@ export function ContestedEdgeCard({
       {/* ── EVOI impact statement (only when not null) ───────────────────────── */}
       {hasEvoiImpact && !isResolved && (
         <p className={`${typography.panelBody} text-text-body mb-2`} data-testid={`contested-evoi-${edgeId}`}>
-          Resolving this is worth ~{validation.evoi_impact} percentage points of confidence in the recommendation.
+          Resolving this is worth ~{validation.evoi_impact} percentage points of confidence in which option is most likely to hit your goal.
         </p>
       )}
 

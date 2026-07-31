@@ -43,7 +43,7 @@ describe('v7LensCopy.outcome.winReadout (ROADMAP 1.239)', () => {
 
   it('stays one voice with its sibling readout in the same lens group', () => {
     // `goal.hitReadout` is number-first; the outcome lens now matches it.
-    expect(V7_LENS_COPY.goal.hitReadout('40%')).toBe('40% hit target')
+    expect(V7_LENS_COPY.goal.hitReadout('40%', false)).toBe('40% chance of hitting your goal')
   })
 })
 

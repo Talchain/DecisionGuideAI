@@ -125,6 +125,20 @@ export interface HeroRowVM {
    * verbatim. The live adapter NEVER sets this; fixture-only today.
    */
   stability?: { value: number | null; readout: string }
+  /**
+   * The formatted COMPARATIVE magnitude for this option ('72%'), or null when
+   * the run carried no comparative probability for it.
+   *
+   * Published because the re-anchored leader headline NAMES this magnitude
+   * (§6.2c: bare superlatives retire in favour of basis + number). Before
+   * this, the only place the formatted value appeared on the model was inside
+   * `detail.winChance`, as part of a sentence — so a caller (or a test)
+   * wanting the number had to parse a string built from the same register it
+   * was checking. The value is the SAME one `detail.winChance` interpolates,
+   * captured once, so the headline and the row detail cannot print two
+   * different numbers for one quantity.
+   */
+  comparativeReadout?: string | null
   /** Sourced-or-omitted detail lines; an all-empty detail makes the row static. */
   detail: HeroRowDetail
 }

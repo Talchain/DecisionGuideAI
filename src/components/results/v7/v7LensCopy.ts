@@ -13,6 +13,8 @@
 
 import { clampRevealLabel, clampCollapseLabel } from './ClampToggle'
 
+import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY } from '../utils/goalAnchorCopy'
+
 export const V7_LENS_COPY = {
   /** Accessible name for the lens tablist. */
   tablistAria: 'Results lens',
@@ -50,16 +52,17 @@ export const V7_LENS_COPY = {
      * ring caption already say it. Number-first matches `goal.hitReadout`
      * below, so the two lenses stay one voice.
      */
-    winReadout: (formatted: string) => `${formatted} win probability`,
+    winReadout: (formatted: string) => COMPARATIVE_COPY.phrase(formatted),
   },
 
   goal: {
     caption: 'Each value is the chance that option reaches your success target.',
     /** No user target set — user-actionable, distinct from the producer gap. */
-    gateNoTarget: 'Set a success target to unlock Goal fit.',
+    gateNoTarget: GOAL_ANCHOR_COPY.noTarget,
     /** A target is set but the engine returned no per-option goal probabilities. */
     gateProducerGap: 'Goal fit unlocks when the engine returns per-option goal probabilities for this run.',
-    hitReadout: (formatted: string) => `${formatted} hit target`,
+    hitReadout: (formatted: string, isSubstitutedJoint: boolean) =>
+      GOAL_ANCHOR_COPY.phrase(formatted, isSubstitutedJoint),
     /** Mirrors OptionCards' sub-1% display-honesty affordance (UI-SEM-057). */
     subOnePercent: '< 1%',
   },

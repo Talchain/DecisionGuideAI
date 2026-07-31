@@ -450,8 +450,8 @@ export const ResultsBody = memo(function ResultsBody({
                 {!lensComparison.comparable
                   ? 'Not enough range data to compare options under this lens.'
                   : riskAppetite === 'conservative'
-                    ? 'Lens: cautious view, highlighting the option with the strongest downside. The recommendation above is unchanged.'
-                    : 'Lens: bold view, highlighting the option with the strongest upside. The recommendation above is unchanged.'}
+                    ? 'Cautious view: ranked by the low end (p10) of each outcome range. The goal ranking above is unchanged.'
+                    : 'Optimistic view: ranked by the high end (p90) of each outcome range. The goal ranking above is unchanged.'}
               </p>
             )}
             {/* WinGauge — moved from hero to top of options section */}

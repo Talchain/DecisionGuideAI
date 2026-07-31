@@ -285,6 +285,15 @@ export function buildHeroModel(
     (ft) => ft.flip_value != null,
   )
 
+  /**
+   * Formatted COMPARATIVE readout per option id, captured while the rows are
+   * built. The re-anchored leader headline names its magnitude, and taking it
+   * from the row pass rather than re-formatting it downstream means the
+   * headline and the row detail cannot print two different numbers for the
+   * same quantity.
+   */
+  const winReadoutById: Record<string, string> = {}
+
   // One row per option, preserving the display order established above.
   const rows: HeroRowVM[] = options.map((o, i) => {
     // UI-SEM-071: without a USER target the goal slot is suppressed at
@@ -298,12 +307,16 @@ export function buildHeroModel(
     const p90 = outcomeP90(o)
     const why = recommendation.storyHeadlines?.[o.id]
     const couldChangeIf = couldChangeIfLine(o, o.id === recommendedId, usableFlips)
-    const winChance =
+    const winReadout =
       typeof o.winProbability === 'number'
-        ? HERO_COPY.detail.winChance(
-            formatProbabilityWithResolution(o.winProbability, o.nValidSamples),
-          )
+        ? formatProbabilityWithResolution(o.winProbability, o.nValidSamples)
         : undefined
+    // Re-anchoring: the headline branches below need the comparative
+    // MAGNITUDE, not just its sentence. Captured here from the same
+    // formatter the detail line uses, so the headline and the row detail
+    // can never print two different numbers for one quantity.
+    if (winReadout != null) winReadoutById[o.id] = winReadout
+    const winChance = winReadout != null ? HERO_COPY.detail.winChance(winReadout) : undefined
     // Grounded detail lines from the row's OWN existing fields (same
     // formatters as the readouts) — never authored prose, omitted when the
     // sourcing fields are absent.
@@ -369,6 +382,7 @@ export function buildHeroModel(
             ? formatThreshold(centre, outcomeUnit, outcomeUnitSymbol, isNormalised)
             : HERO_COPY.readout.missing,
       },
+      comparativeReadout: winReadout ?? null,
       detail: { why, couldChangeIf, winChance, range, goalFit, goalFitCaveat },
     }
   })
@@ -646,8 +660,8 @@ export function buildHeroModel(
       : HERO_COPY.headline.noneOnTrack
   } else if (goalLeaderRow) {
     headline = hasConstraints
-      ? HERO_COPY.headline.goalWithLimits(safeLabel(goalLeaderRow))
-      : HERO_COPY.headline.goalOnly(safeLabel(goalLeaderRow))
+      ? HERO_COPY.headline.goalWithLimits(safeLabel(goalLeaderRow), goalLeaderRow.goal.readout)
+      : HERO_COPY.headline.goalOnly(safeLabel(goalLeaderRow), goalLeaderRow.goal.readout)
   } else if (headlineRow) {
     // No goal basis: the leader claim names the canonical analysis leader
     // (recommendedOption — proven to equal the Results Panel/producer
@@ -668,7 +682,10 @@ export function buildHeroModel(
     // never a denial.
     headline =
       leaderBand === 'strong'
-        ? HERO_COPY.headline.mostLikelyStrongest(safeLabel(headlineRow))
+        ? HERO_COPY.headline.mostLikelyStrongest(
+            safeLabel(headlineRow),
+            winReadoutById[headlineRow.id] ?? HERO_COPY.readout.missing,
+          )
         : leaderBand === 'ahead'
           ? HERO_COPY.headline.slightlyAhead(safeLabel(headlineRow))
           : leaderBand === 'none'
@@ -694,7 +711,10 @@ export function buildHeroModel(
     // differ (UI-SEM-070: identical readouts show no winner to crown — this
     // falls through to the neutral "here is how your options compare"
     // headline, with the "top options are close" subline below).
-    headline = HERO_COPY.headline.outcomeLeader(safeLabel(outcomeLeaderRow))
+    headline = HERO_COPY.headline.outcomeLeader(
+      safeLabel(outcomeLeaderRow),
+      outcomeLeaderRow.outcome.readout,
+    )
   } else {
     headline = HERO_COPY.headline.noLeader
   }
@@ -753,7 +773,10 @@ export function buildHeroModel(
       subline = HERO_COPY.subline.compareTop
     } else if (allGoalBelowFloor) {
       // No leader was claimed; the outcome fact is the one honest pointer.
-      subline = HERO_COPY.subline.highestOutcome(safeLabel(outcomeLeaderRow))
+      subline = HERO_COPY.subline.highestOutcome(
+        safeLabel(outcomeLeaderRow),
+        outcomeLeaderRow.outcome.readout,
+      )
     } else if (claimedRow) {
       // Aligned case per band (producer band or UI-SEM-060 fallback —
       // whichever sourced leaderBand above): state B names the runner-up as
@@ -765,7 +788,10 @@ export function buildHeroModel(
       // fire on bandedNoGoalClaim, which implies claimedRow === headlineRow.)
       const alignedLeaders = claimedRow.id === outcomeLeaderRow.id
       if (!alignedLeaders) {
-        subline = HERO_COPY.subline.highestOutcome(safeLabel(outcomeLeaderRow))
+        subline = HERO_COPY.subline.highestOutcome(
+          safeLabel(outcomeLeaderRow),
+          outcomeLeaderRow.outcome.readout,
+        )
       } else if (
         bandedNoGoalClaim &&
         leaderBand === 'ahead' &&
@@ -774,7 +800,7 @@ export function buildHeroModel(
       ) {
         subline = HERO_COPY.subline.closeOnOutcome(safeLabel(outcomeRunnerUpRow))
       } else if (bandedNoGoalClaim && leaderBand === 'strong') {
-        subline = HERO_COPY.subline.highestOutcome(safeLabel(claimedRow))
+        subline = HERO_COPY.subline.highestOutcome(safeLabel(claimedRow), claimedRow.outcome.readout)
       } else {
         subline = HERO_COPY.subline.aligned(safeLabel(claimedRow))
       }

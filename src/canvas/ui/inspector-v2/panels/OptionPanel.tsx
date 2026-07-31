@@ -10,6 +10,7 @@ import type { NodeType, OptionNodeData } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
+import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { useNodeMutations } from '../useInspectorMutations'
 import {
   GROUP_LABELS,
@@ -358,7 +359,11 @@ export const OptionPanel = memo(function OptionPanel({
                   // so it could assert a leader in the same session where the
                   // results panel said "no clear leading option".
                   if (verdict.hasLeadingOption === false) return null
-                  return <p className={`${typography.panelBody} text-success mt-1`}>Currently the leading option.</p>
+                  return (
+                    <p className={`${typography.panelBody} text-success mt-1`}>
+                      {COMPARATIVE_COPY.sentence(`${myPct}%`)}
+                    </p>
+                  )
                 }
                 // ROADMAP 1.223: both remaining branches presuppose a leading
                 // option — one names it ("the leading option"), one names the

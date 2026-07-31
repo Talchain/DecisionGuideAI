@@ -99,10 +99,13 @@ function GoalRow({
   label,
   probability,
   isWinner,
+  isSubstitutedJoint,
 }: {
   label: string
   probability: number
   isWinner: boolean
+  /** Possessive gate — see `goalAnchorCopy`. Read from the model, never re-derived. */
+  isSubstitutedJoint: boolean
 }) {
   const readout =
     probability < SUB_ONE_PERCENT_FLOOR
@@ -119,7 +122,7 @@ function GoalRow({
           {label}
         </span>
         <span className={`${typography.panelMeta} whitespace-nowrap ${isWinner ? 'text-text-header' : 'text-text-light'}`}>
-          {V7_LENS_COPY.goal.hitReadout(readout)}
+          {V7_LENS_COPY.goal.hitReadout(readout, isSubstitutedJoint)}
         </span>
       </div>
       <div className="w-full rounded-full overflow-hidden" style={{ height: 5, background: 'var(--border-default)' }}>
@@ -258,7 +261,13 @@ export function V7LensGroup({ model }: V7LensGroupProps) {
           (model.goal.available ? (
             <div className="space-y-2.5" data-testid="v7-lens-goal">
               {model.goal.options.map((o) => (
-                <GoalRow key={o.id} label={o.label} probability={o.goalProbability} isWinner={o.isWinner} />
+                <GoalRow
+                  key={o.id}
+                  label={o.label}
+                  probability={o.goalProbability}
+                  isWinner={o.isWinner}
+                  isSubstitutedJoint={o.goalFitIsSubstitutedJoint}
+                />
               ))}
               <p className={`${typography.panelMeta} text-text-light`}>{V7_LENS_COPY.goal.caption}</p>
             </div>

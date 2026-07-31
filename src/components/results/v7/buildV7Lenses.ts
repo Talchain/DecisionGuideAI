@@ -88,7 +88,14 @@ export interface V7GoalLens {
   /** Which honest gate to render when unavailable. */
   gate: 'none' | 'no_target' | 'producer_gap'
   goalThreshold: number | null
-  options: Array<{ id: string; label: string; goalProbability: number; isWinner: boolean }>
+  options: Array<{
+    id: string
+    label: string
+    goalProbability: number
+    isWinner: boolean
+    /** Possessive gate (`selectGoalProbability` basis), carried to the copy layer. */
+    goalFitIsSubstitutedJoint: boolean
+  }>
 }
 
 export interface V7EvidenceModel {
@@ -188,6 +195,7 @@ export function buildV7Lenses(data: ResultsSectionDataReturn): V7LensesModel {
           id: o.id,
           label: o.label,
           goalProbability: o.goalProbability as number,
+          goalFitIsSubstitutedJoint: o.goalFitIsSubstitutedJoint === true,
           isWinner: o.id === winnerId,
         }))
       : [],

@@ -64,6 +64,8 @@
 import type { M1CoachingReadiness } from '../../../types/cee'
 import type { DecisionVerdict } from '../../../lib/decisionVerdict'
 import type { ConfidenceTier } from '../types'
+import { COMPARATIVE_COPY } from './goalAnchorCopy'
+import { formatPercent } from '../../../utils/formatPercent'
 
 export interface CertaintyCopyInput {
   winnerLabel: string
@@ -79,6 +81,18 @@ export interface CertaintyCopyInput {
    * without over-confident language.
    */
   winProbabilityGap?: number
+  /**
+   * The leader's OWN comparative probability (0-1), not the gap.
+   *
+   * ⭐ ADDED 2026-07-31 (§6.2c RETIRE). The three `"{winner} is the leading
+   * option"` branches were endorsement nouns with no basis and no number —
+   * a reader could not tell what the claim rested on or argue with it. The
+   * replacement names the quantity and its magnitude, which needs the
+   * absolute probability; only the GAP was in scope before, which is why the
+   * bare noun survived. Optional: absent ⇒ the branches fall back to the
+   * magnitude-free comparative sentence rather than to the retired noun.
+   */
+  winProbability?: number | null
   /**
    * SINGLE VERDICT: the shared answer to "is there a leading option?"
    * (`src/lib/decisionVerdict.ts`), derived from the same PLoT report the
@@ -154,6 +168,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
     analysisStatus,
     optionCount,
     winProbabilityGap,
+    winProbability,
     verdict,
   } = input
 
@@ -166,6 +181,16 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
     && winProbabilityGap > 0
       ? ` by ${Math.round(winProbabilityGap)} point${Math.round(winProbabilityGap) === 1 ? '' : 's'}`
       : ''
+
+  /**
+   * The re-anchored leader sentence: the comparative quantity, named, with
+   * its magnitude when the run carries one. Replaces
+   * `"{winner} is the leading option"` at all three sites.
+   */
+  const aheadHeadline =
+    typeof winProbability === 'number' && Number.isFinite(winProbability)
+      ? `${winnerLabel} ${COMPARATIVE_COPY.phrase(formatPercent(winProbability, { fromDecimal: true }))}`
+      : `${winnerLabel} came out ahead most often across simulated scenarios`
 
   if (analysisStatus === 'partial') {
     return {
@@ -285,7 +310,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
   // headline, but conservative (coaching overrides still blocked).
   if (coachingReadiness === 'close_call') {
     return {
-      headline: `${winnerLabel} is the leading option`,
+      headline: aheadHeadline,
       sub: null,
       caveat: null,
       conservative: true,
@@ -294,7 +319,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
 
   if (confidenceTier === 'strong' && coachingReadiness === 'ready') {
     return {
-      headline: `${winnerLabel} is the leading option`,
+      headline: aheadHeadline,
       sub: null,
       caveat: null,
       conservative: false,
@@ -304,7 +329,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
   // When a gap is available, "leads by N points" gives the numeric lead.
   // When no gap, fall back to the definitive form to avoid the bare "leads".
   return {
-    headline: gapSuffix ? `${winnerLabel} leads${gapSuffix}` : `${winnerLabel} is the leading option`,
+    headline: gapSuffix ? `${winnerLabel} leads${gapSuffix}` : aheadHeadline,
     sub: null,
     caveat: null,
     conservative: true,

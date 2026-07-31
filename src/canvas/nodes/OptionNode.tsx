@@ -21,6 +21,7 @@ import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodeChip, ActionIcons, BriefIcon, NodePopover, ScienceIcon } from './shared'
 import { selectGoalProbability } from '../../components/results/utils/selectGoalProbability'
+import { COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 
@@ -871,7 +872,7 @@ export const OptionNode = memo((props: NodeProps) => {
         // Baseline chips already pre-existed inside layer2Content; keep them.
         return (
           <div className="flex gap-1 flex-wrap mt-1.5">
-            <NodeChip chipId="option_why_win_lose" actionType="explain_results" label="Why does this win/lose?" message={`Why does the status quo (${optionLabel}) win or lose compared to other options?`} />
+            <NodeChip chipId="option_why_win_lose" actionType="explain_results" label="Why is this ahead or behind on your goal?" message={`Why does the status quo (${optionLabel}) do better or worse against my goal than the other options?`} />
             <NodeChip chipId="option_risks_of_inaction" actionType={null} label="Risks of inaction" message="What are the risks of choosing to do nothing?" />
           </div>
         )
@@ -1169,7 +1170,7 @@ export const OptionNode = memo((props: NodeProps) => {
             className={`mt-1.5 mb-1`}
           >
             <div className={`${typography.nodeLabel} text-text-body`}>
-              {formatWinProbability(displayMetadata.winRate)} win probability
+              {COMPARATIVE_COPY.phrase(formatWinProbability(displayMetadata.winRate))}
             </div>
             <div className="h-1 bg-panel-border rounded-full overflow-hidden mt-0.5">
               <div
