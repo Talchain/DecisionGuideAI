@@ -84,7 +84,13 @@ describe('visual-regression scaffold (Brief 5)', () => {
     //   · the arm labels name their percentile instead of a mood, because
     //     the middle arm now ranks p50 rather than the comparative quantity.
     expect(snap).toContain('Rank by outcome:')
-    expect(snap).toContain('A view lens over the outcome range. The goal ranking above is unchanged.')
+    // F3: the sentence names what the lens leaves unchanged, and that depends
+    // on whether the run HAS a goal ranking. This render passes no
+    // `hasGoalNumbers`, so it exercises the safe default — the neutral
+    // wording. The goal-bearing arm is asserted immediately below, so both
+    // sides of the gate are covered here rather than one being assumed.
+    expect(snap).toContain('A view lens over the outcome range. The comparative ranking above is unchanged.')
+    expect(snap).not.toContain('goal ranking')
     expect(snap).toContain('Cautious (p10)')
     expect(snap).toContain('Middle (p50)')
     expect(snap).toContain('Optimistic (p90)')
@@ -92,6 +98,17 @@ describe('visual-regression scaffold (Brief 5)', () => {
     expect(snap).not.toContain('Winner by:')
     // Legacy copy absent from rendered output.
     expect(snap).not.toContain('Risk appetite:')
+
+    // The other side of the F3 gate: with goal numbers present the sentence
+    // names the goal ranking. Without this the assertion above would pass on
+    // a component that had simply lost the goal wording altogether.
+    const withGoal = captureByTestId(
+      render(
+        React.createElement(RiskAppetiteFilter, { value: 'neutral', onChange, hasGoalNumbers: true }),
+      ).container,
+      'winner-by-control',
+    )
+    expect(withGoal).toContain('A view lens over the outcome range. The goal ranking above is unchanged.')
 
     // Wiring sanity: clicking a pill fires the change handler with the key.
     fireEvent.click(within(container).getByRole('button', { name: /optimistic/i }))

@@ -17,7 +17,7 @@
 
 import { useRef, useState, useCallback, type RefObject } from 'react'
 import { typography } from '../../styles/typography'
-import { COMPARATIVE_COPY } from './utils/goalAnchorCopy'
+import { COMPARATIVE_COPY, LENS_COPY, runHasGoalNumbers } from './utils/goalAnchorCopy'
 import {
   formatPercent as formatPct,
   formatProbabilityWithResolution,
@@ -146,6 +146,8 @@ function hingeAwareDescription(
   winnerWinProbability?: number | null,
   lensActive = false,
   hasLeadingOption?: boolean,
+  /** Run-level: does ANY option carry a goal number? Gates the lens sentence. */
+  hasGoalNumbers = false,
 ): string {
   // ROADMAP 1.223: every string in this function is comparative — it either
   // names an option as the leader ("Highest leading-option likelihood"),
@@ -192,20 +194,44 @@ function hingeAwareDescription(
   // The lens branch stays ABOVE the gate — the one carve-out, and the reason
   // this is not simply the first line of the function.
   if (isWinner && lensActive) {
-    return 'Ahead on this outcome view. The goal ranking above is unchanged.'
+    return `Ahead on this outcome view. ${LENS_COPY.unchanged(hasGoalNumbers)}`
   }
   if (noLeader) return ''
 
   if (isWinner) {
+    /**
+     * The winner's comparative claim, in ONE place for all three variants.
+     *
+     * ⚠ F1 — an ABSENT comparative probability must never become a measured
+     * one. This read `option.winProbability ?? 0` and then applied the
+     * simulation-resolution floor, so a designated leader carrying no
+     * comparative probability got "Came out ahead in <0.02% of simulated
+     * scenarios" — a precise-looking, entirely invented measurement, on the
+     * card the user trusts most. Reachable: the `decisionState` arm at the
+     * render site calls this with no presence check (its sibling arm does).
+     *
+     * Same class as the two defects the previous pass fixed, and the same
+     * remedy — `phraseNoMagnitude`, built for exactly this. Derived once here
+     * so a fourth variant cannot be born ungated.
+     */
+    const claim =
+      typeof option.winProbability === 'number' && Number.isFinite(option.winProbability)
+        ? COMPARATIVE_COPY.phrase(
+            formatProbabilityWithResolution(option.winProbability, option.nValidSamples),
+          )
+        : COMPARATIVE_COPY.leadNoMagnitude
+
+    // F2 — both hinge variants carried the retired un-anchored superlative
+    // ("Highest leading-option likelihood"): no basis, no number. Only the
+    // third sibling had been re-anchored. They keep the hinge clause, which
+    // is the whole point of the variant.
     if (hinge?.reason === 'fragile_edge') {
-      return `Highest leading-option likelihood but depends on ${hinge.label}`
+      return `${claim}, but this depends on ${hinge.label}`
     }
     if (hinge?.reason === 'heuristic' || hinge?.reason === 'voi') {
-      return `Highest leading-option likelihood. ${hinge.label} has the widest uncertainty.`
+      return `${claim}. ${hinge.label} has the widest uncertainty.`
     }
-    return COMPARATIVE_COPY.phrase(
-      formatProbabilityWithResolution(option.winProbability ?? 0, option.nValidSamples),
-    )
+    return claim
   }
   if (isRunnerUp) {
     // ROADMAP 1.239: reachable only on a permitted turn now — see the gate
@@ -697,6 +723,10 @@ export function OptionCards({
   // (winner / non-winner) hierarchy, so `buildSegmentBorderClassMap` /
   // `WIN_GAUGE_BORDER_CLASSES` are no longer consumed here. The segment
   // colour map below is still used for coloured fill bars (Task 6b).
+  // F3: run-level goal presence, derived ONCE from the rendered option set —
+  // not re-derived per card, so no two cards can disagree about whether a
+  // goal ranking exists.
+  const hasGoalNumbers = runHasGoalNumbers(options)
   const segmentColorMap = buildSegmentColorMap(options, winnerId, decisionState)
 
   // Brief 3 ST2: Truncate to top 2 whenever there are more than 2 options
@@ -743,13 +773,13 @@ export function OptionCards({
         // the lens crown is a separate identity that only restyles + relabels.
         const isLensCrowned = lensActive && option.id === (lensHighlightedId ?? winnerId)
         const description = isLensCrowned
-          ? hingeAwareDescription(option, true, isRunnerUp, hinge, winnerOpt?.winProbability, true, hasLeadingOption)
+          ? hingeAwareDescription(option, true, isRunnerUp, hinge, winnerOpt?.winProbability, true, hasLeadingOption, hasGoalNumbers)
           : decisionState
-            ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, false, hasLeadingOption)
+            ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, false, hasLeadingOption, hasGoalNumbers)
             : headline
               ? headline
               : (winnerOpt?.winProbability != null || option.winProbability != null)
-                ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, false, hasLeadingOption)
+                ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability, false, hasLeadingOption, hasGoalNumbers)
                 : fallbackDescription(option, options.length, hasLeadingOption)
 
         // ROADMAP 1.267: the fill bar's LENGTH is the win probability (data,

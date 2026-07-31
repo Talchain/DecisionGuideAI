@@ -207,7 +207,11 @@ describe('ResultsBody — V17 power pass: V17-off legacy regression', () => {
     // T1ChecksFooter — always renders under legacy mode.
     const checksFooter = screen.getByTestId('t1-checks-footer')
     expect(checksFooter).toBeInTheDocument()
-    // Legacy copy reads "Winner" / "No clear leader"; v17 mode would have rewritten
+    // ⚠ THIS COMMENT CONTRADICTED THE LINE BELOW IT. It said the legacy copy
+    // "reads Winner" while the assertion it introduces now expects the
+    // compliant labels — a stale label surviving its own correction, which is
+    // the defect CLAUDE.md trap 14 exists to catch, one comment away from the
+    // fix. There is no longer ANY legacy copy: v17 mode would have rewritten
     // these to "Has leading option" / "No clear leader". The presence of the
     // legacy literal inside the footer confirms useV17Copy did NOT activate.
     // ⭐ SUPERSEDED 2026-07-31 (§6.2g). This line existed to prove `useV17Copy`

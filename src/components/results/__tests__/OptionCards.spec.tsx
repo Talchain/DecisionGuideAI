@@ -493,7 +493,13 @@ describe('OptionCards', () => {
         />
       )
 
-      expect(screen.getByText('Highest leading-option likelihood but depends on Customer churn')).toBeInTheDocument()
+      // SUPERSEDED 2026-07-31 (F2): the variant used to open with the retired
+      // un-anchored superlative "Highest leading-option likelihood". The hinge
+      // clause it exists to surface is unchanged; only the claim before it
+      // moved to the house comparative register, with its magnitude.
+      expect(
+        screen.getByText(/came out ahead in .+ of simulated scenarios, but this depends on Customer churn/i),
+      ).toBeInTheDocument()
     })
 
     it('winner: heuristic hinge shows "{label} has the widest uncertainty"', () => {
@@ -507,7 +513,11 @@ describe('OptionCards', () => {
         />
       )
 
-      expect(screen.getByText('Highest leading-option likelihood. Market size has the widest uncertainty.')).toBeInTheDocument()
+      // SUPERSEDED 2026-07-31 (F2) — same retired superlative, same unchanged
+      // hinge clause.
+      expect(
+        screen.getByText(/came out ahead in .+ of simulated scenarios\. Market size has the widest uncertainty\./i),
+      ).toBeInTheDocument()
     })
 
     it('winner: no hinge shows generic description', () => {
@@ -602,7 +612,13 @@ describe('OptionCards', () => {
       )
 
       // VM description wins when decisionState is set
-      expect(screen.getByText('Highest leading-option likelihood but depends on Customer churn')).toBeInTheDocument()
+      // SUPERSEDED 2026-07-31 (F2): the variant used to open with the retired
+      // un-anchored superlative "Highest leading-option likelihood". The hinge
+      // clause it exists to surface is unchanged; only the claim before it
+      // moved to the house comparative register, with its magnitude.
+      expect(
+        screen.getByText(/came out ahead in .+ of simulated scenarios, but this depends on Customer churn/i),
+      ).toBeInTheDocument()
       expect(screen.queryByText('Custom headline for winner.')).not.toBeInTheDocument()
     })
 

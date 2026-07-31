@@ -19,6 +19,7 @@ import { useRiskProfile, RISK_PRESETS } from '../../canvas/hooks/useRiskProfile'
 import { derivePostFooterStatus } from '../../canvas/components/utils/postAnalysisFooter'
 import type { RobustnessDisplayVerdict } from './types'
 import type { LensAppetite } from './utils/selectLensOption'
+import { LENS_COPY } from './utils/goalAnchorCopy'
 
 type RiskPresetKey = keyof typeof RISK_PRESETS
 
@@ -526,6 +527,13 @@ export function AdvancedSection({
 export interface RiskAppetiteFilterProps {
   value: RiskAppetite
   onChange: (next: RiskAppetite) => void
+  /**
+   * F3: does this run carry a goal ranking at all? Defaults FALSE — the safe
+   * direction. A caller that omits it gets the neutral wording rather than an
+   * assertion that a goal ranking exists, so forgetting the prop under-claims
+   * instead of over-claiming.
+   */
+  hasGoalNumbers?: boolean
 }
 
 /**
@@ -552,7 +560,11 @@ const LENS_ARM_LABEL: Record<RiskAppetite, string> = {
   aggressive: 'Optimistic (p90)',
 }
 
-export function RiskAppetiteFilter({ value, onChange }: RiskAppetiteFilterProps) {
+export function RiskAppetiteFilter({
+  value,
+  onChange,
+  hasGoalNumbers = false,
+}: RiskAppetiteFilterProps) {
   return (
     <div data-testid="winner-by-control">
       <div className="flex items-center gap-1.5">
@@ -583,7 +595,7 @@ export function RiskAppetiteFilter({ value, onChange }: RiskAppetiteFilterProps)
           un-anchored noun "the overall recommendation" is replaced by the
           thing that is actually unchanged, named as a quantity. */}
       <p className={`${typography.panelMeta} text-text-light italic mt-1`}>
-        A view lens over the outcome range. The goal ranking above is unchanged.
+        A view lens over the outcome range. {LENS_COPY.unchanged(hasGoalNumbers)}
       </p>
     </div>
   )

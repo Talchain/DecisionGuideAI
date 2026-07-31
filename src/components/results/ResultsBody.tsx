@@ -24,6 +24,7 @@ import { OptionCards } from './OptionCards'
 import { WinGauge } from './WinGauge'
 import { AdvancedSection, RiskAppetiteFilter, LENS_ARM, type RiskAppetite } from './AdvancedSection'
 import { selectLensOption } from './utils/selectLensOption'
+import { LENS_COPY, runHasGoalNumbers } from './utils/goalAnchorCopy'
 import { StressTestSection } from './StressTestSection'
 import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBoundary'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
@@ -182,6 +183,14 @@ export const ResultsBody = memo(function ResultsBody({
    * other two would also flip the `decisionState` / `hinge` gating that keys
    * off the same value, which is a separate change.
    */
+  // F3: whether this run has a goal ranking at all. The lens sentences and
+  // the filter's own disclaimer both name what the lens leaves unchanged, and
+  // on a no-target run that is NOT a goal ranking — ISL computes goal
+  // probabilities only against a threshold.
+  const lensRunHasGoalNumbers = runHasGoalNumbers(
+    resultsSectionData.recommendation.allOptions,
+  )
+
   const lensComparison = useMemo(
     () => selectLensOption(resultsSectionData.recommendation.allOptions, LENS_ARM[riskAppetite]),
     [riskAppetite, resultsSectionData.recommendation],
@@ -437,7 +446,11 @@ export const ResultsBody = memo(function ResultsBody({
                 relocated here from Advanced. Keeps the option-level toggle
                 co-located with the option cards it reweights. */}
             {resultsSectionData.recommendation.allOptions.some(o => (o.outcome?.p10 ?? o.p10) != null) && (
-              <RiskAppetiteFilter value={riskAppetite} onChange={setRiskAppetite} />
+              <RiskAppetiteFilter
+                value={riskAppetite}
+                onChange={setRiskAppetite}
+                hasGoalNumbers={lensRunHasGoalNumbers}
+              />
             )}
             {/* Paul's ruling 2026-07-12: the risk-appetite view is an
                 EXPLICITLY-LABELLED lens — it re-ranks only this section and
@@ -450,8 +463,8 @@ export const ResultsBody = memo(function ResultsBody({
                 {!lensComparison.comparable
                   ? 'Not enough range data to compare options under this lens.'
                   : riskAppetite === 'conservative'
-                    ? 'Cautious view: ranked by the low end (p10) of each outcome range. The goal ranking above is unchanged.'
-                    : 'Optimistic view: ranked by the high end (p90) of each outcome range. The goal ranking above is unchanged.'}
+                    ? `Cautious view: ranked by the low end (p10) of each outcome range. ${LENS_COPY.unchanged(lensRunHasGoalNumbers)}`
+                    : `Optimistic view: ranked by the high end (p90) of each outcome range. ${LENS_COPY.unchanged(lensRunHasGoalNumbers)}`}
               </p>
             )}
             {/* WinGauge — moved from hero to top of options section */}

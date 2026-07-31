@@ -414,11 +414,27 @@ describe('AdvancedSection — the default-estimate disclosure (F10)', () => {
 // alone is enforced rather than merely asserted. If this sentence ever goes,
 // the label needs re-adjudicating, and now it will say so.
 describe('RiskAppetiteFilter — the lens disclaimer is load-bearing (1.243 item 4)', () => {
-  it('renders the "Rank by outcome:" label AND the sentence that makes it a lens', () => {
+  /**
+   * F3: the sentence names what the lens leaves UNCHANGED, and that depends on
+   * whether the run has a goal ranking at all — on a no-target run there is
+   * none, so naming one would assert something the panel is simultaneously
+   * offering to unlock. Both arms are asserted here; pinning only one would
+   * let the gate be deleted in either direction without a red.
+   */
+  it('no goal numbers: the lens sentence names the comparative ranking, not a goal one', () => {
     render(<RiskAppetiteFilter value="neutral" onChange={vi.fn()} />)
     // Positive control: the component mounted, so the assertion below is not
     // passing against an empty render.
     expect(screen.getByText('Rank by outcome:')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'A view lens over the outcome range. The comparative ranking above is unchanged.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('goal numbers present: the lens sentence names the goal ranking', () => {
+    render(<RiskAppetiteFilter value="neutral" onChange={vi.fn()} hasGoalNumbers />)
     expect(
       screen.getByText('A view lens over the outcome range. The goal ranking above is unchanged.'),
     ).toBeInTheDocument()

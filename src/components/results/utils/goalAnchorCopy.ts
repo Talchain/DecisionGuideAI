@@ -146,6 +146,17 @@ export const COMPARATIVE_COPY = {
    */
   phraseNoMagnitude: 'came out ahead most often across simulated scenarios',
   /**
+   * The magnitude-free claim in SENTENCE-INITIAL position.
+   *
+   * ⚠ Added because the F1 fix opened by writing
+   * `phraseNoMagnitude.charAt(0).toUpperCase() + …slice(1)` inline at the call
+   * site — which is EXACTLY the duplicated string surgery that produced the
+   * §10.2 casing defect, reintroduced two sections after being named. The
+   * register owns casing; call sites never do it. `goalAnchorCopy.spec.ts`
+   * pins this against `phraseNoMagnitude` so the two cannot drift.
+   */
+  leadNoMagnitude: 'Came out ahead most often across simulated scenarios',
+  /**
    * Mid-sentence form — `phrase()` with a lower-case initial, for when the
    * claim follows an option label rather than opening a line.
    *
@@ -166,4 +177,38 @@ export const COMPARATIVE_COPY = {
   byOptionAria: 'Share of simulated scenarios each option came out ahead in',
   /** Honest absence (deck C3). */
   unavailable: 'Comparative ranking unavailable for this run',
+} as const
+
+/**
+ * True when this run carries a goal number for at least one option.
+ *
+ * ISL computes a goal probability ONLY against a success threshold, so on a
+ * no-target run there is no goal ranking AT ALL — not an empty one. Any copy
+ * that names "the goal ranking" must ask this first.
+ */
+export function runHasGoalNumbers(
+  options: ReadonlyArray<{ goalProbability?: number | null }> | null | undefined,
+): boolean {
+  return (options ?? []).some(
+    (o) => typeof o.goalProbability === 'number' && Number.isFinite(o.goalProbability),
+  )
+}
+
+/**
+ * Copy for the outcome-view lens — the sentence that says what the lens does
+ * NOT change.
+ *
+ * ⚠ F3. The re-anchoring replaced the un-anchored noun "the overall
+ * recommendation" with "the goal ranking above" at three sites, and left it
+ * UNCONDITIONAL. On a no-target run that asserts the existence of a ranking
+ * the same panel is offering to unlock — the exact no-target branch this
+ * change added to `WinGauge`, the confidence ring and the V7 goal lens, not
+ * applied to these three strings. One function, three callers, so a fourth
+ * lens sentence cannot be born ungated.
+ */
+export const LENS_COPY = {
+  unchanged: (hasGoalNumbers: boolean): string =>
+    hasGoalNumbers
+      ? 'The goal ranking above is unchanged.'
+      : 'The comparative ranking above is unchanged.',
 } as const

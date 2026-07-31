@@ -73,7 +73,22 @@ import { openDisclosureHeader, switchEvidenceView } from '../../../test/helpers/
  * This matcher targets the unconditional leader NOUN and the possessive
  * "your recommendation", which are the claims the verdict withholds.
  */
-const LEADER_PRESUPPOSITION_RE = /leading option|likely leader|more likely than .+ to hit your goal/i
+/**
+ * ⚠ F6 — UNION, NEVER REPLACE. This alternation is a BLINDNESS probe: the
+ * withheld-branch assertions below prove a sweep of rendered text contains
+ * NO leader presupposition, and the probe can only prove that for the shapes
+ * it knows. The re-anchoring pass REPLACED `your recommendation` with the new
+ * shape instead of adding to it, which silently made every withheld sweep
+ * blind to the retired vocabulary — so a reintroduced legacy string would
+ * have sailed through the very guard written to catch it.
+ *
+ * Retired shapes stay in the alternation permanently. They cost one token
+ * each and they are the only thing standing between a reverted file and a
+ * green suite. (`HERO_CLAIM_RE` was correctly unioned in the same pass; these
+ * two were not — the inconsistency is the tell.)
+ */
+const LEADER_PRESUPPOSITION_RE =
+  /leading option|likely leader|more likely than .+ to hit your goal|your recommendation|the recommendation/i
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SURFACE 1 — the V7 evidence disclosure notes (flagless)
@@ -315,11 +330,15 @@ describe('StressTestSection — the UI-authored thinking patterns', () => {
  * exists to be flipped.
  */
 // SUPERSEDED 2026-07-31: `the recommendation` is retired as an un-anchored
-// noun. This probe must name the wording the PERMITTED branch emits TODAY —
-// left pointing at the retired string it would pass by testing nothing, which
-// is exactly the vacuity these controls exist to prevent (trap 13).
+// noun, so this probe must name the wording the PERMITTED branch emits TODAY
+// or it would pass by testing nothing (trap 13).
+//
+// ⚠ F6 — but the retired shapes are KEPT in the alternation, not swapped out.
+// This probe's job in the WITHHELD assertions is to prove an absence, and a
+// probe that has forgotten the old vocabulary cannot see it come back. Union;
+// never replace.
 const FRAGILE_CLAIM_RE =
-  /flip the result to|result could flip to|which option is most likely to hit your goal/i
+  /flip the result to|result could flip to|which option is most likely to hit your goal|the recommendation/i
 
 const FRAGILE_FROM = 'Team capacity'
 const FRAGILE_FROM_2 = 'Delivery risk'

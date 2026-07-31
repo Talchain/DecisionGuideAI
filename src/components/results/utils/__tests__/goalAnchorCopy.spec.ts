@@ -118,6 +118,17 @@ describe('COMPARATIVE_COPY — says what it measures, never what to choose', () 
     }
   })
 
+  it('the sentence-initial form IS the mid-sentence form, capitalised', () => {
+    // Casing lives in the register, never at a call site. Two call sites doing
+    // this inline is what produced the §10.2 defect, and the F1 fix briefly
+    // reintroduced the pattern.
+    const p = COMPARATIVE_COPY.phraseNoMagnitude
+    expect(COMPARATIVE_COPY.leadNoMagnitude).toBe(`${p.charAt(0).toUpperCase()}${p.slice(1)}`)
+    expect(COMPARATIVE_COPY.clause('60%')).toBe(
+      `${COMPARATIVE_COPY.phrase('60%').charAt(0).toLowerCase()}${COMPARATIVE_COPY.phrase('60%').slice(1)}`,
+    )
+  })
+
   it('never claims the comparative number says anything about the goal', () => {
     expect(COMPARATIVE_COPY.phrase('60%').toLowerCase()).not.toContain('goal')
     expect(COMPARATIVE_COPY.label.toLowerCase()).not.toContain('goal')

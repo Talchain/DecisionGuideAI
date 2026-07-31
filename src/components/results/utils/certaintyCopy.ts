@@ -65,7 +65,6 @@ import type { M1CoachingReadiness } from '../../../types/cee'
 import type { DecisionVerdict } from '../../../lib/decisionVerdict'
 import type { ConfidenceTier } from '../types'
 import { COMPARATIVE_COPY } from './goalAnchorCopy'
-import { formatPercent } from '../../../utils/formatPercent'
 
 export interface CertaintyCopyInput {
   winnerLabel: string
@@ -81,18 +80,6 @@ export interface CertaintyCopyInput {
    * without over-confident language.
    */
   winProbabilityGap?: number
-  /**
-   * The leader's OWN comparative probability (0-1), not the gap.
-   *
-   * ⭐ ADDED 2026-07-31 (§6.2c RETIRE). The three `"{winner} is the leading
-   * option"` branches were endorsement nouns with no basis and no number —
-   * a reader could not tell what the claim rested on or argue with it. The
-   * replacement names the quantity and its magnitude, which needs the
-   * absolute probability; only the GAP was in scope before, which is why the
-   * bare noun survived. Optional: absent ⇒ the branches fall back to the
-   * magnitude-free comparative sentence rather than to the retired noun.
-   */
-  winProbability?: number | null
   /**
    * SINGLE VERDICT: the shared answer to "is there a leading option?"
    * (`src/lib/decisionVerdict.ts`), derived from the same PLoT report the
@@ -168,7 +155,6 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
     analysisStatus,
     optionCount,
     winProbabilityGap,
-    winProbability,
     verdict,
   } = input
 
@@ -183,14 +169,26 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
       : ''
 
   /**
-   * The re-anchored leader sentence: the comparative quantity, named, with
-   * its magnitude when the run carries one. Replaces
-   * `"{winner} is the leading option"` at all three sites.
+   * The re-anchored leader sentence — the comparative quantity, named, with
+   * NO magnitude. Replaces `"{winner} is the leading option"` at all three
+   * sites (an endorsement noun with no basis and no number).
+   *
+   * ⚠ F4 — WHY THERE IS NO MAGNITUDE-BEARING ARM HERE, adjudicated.
+   * The first draft added `winProbability` to this input and branched on it.
+   * That arm was DEAD: the sole caller (`DecisionConfidencePanel`) passes
+   * only `winProbabilityGap`, never the absolute probability, so the branch
+   * could not execute on any live path — and it carried the mid-sentence
+   * casing defect (§10.2) precisely because nothing exercised it. Its spec
+   * even advertised coverage that did not exist.
+   *
+   * Deleted rather than wired: Paul's ruling DEMOTES the comparative number
+   * below the goal number, so a magnitude-free comparative sentence on this
+   * surface is the CORRECT behaviour, not a gap. Threading the probability
+   * here would have added a live claim the ruling does not want. Where the
+   * magnitude IS wanted (`OptionCards`, the hero headline) the register's
+   * `phrase`/`clause` forms supply it.
    */
-  const aheadHeadline =
-    typeof winProbability === 'number' && Number.isFinite(winProbability)
-      ? `${winnerLabel} ${COMPARATIVE_COPY.phrase(formatPercent(winProbability, { fromDecimal: true }))}`
-      : `${winnerLabel} ${COMPARATIVE_COPY.phraseNoMagnitude}`
+  const aheadHeadline = `${winnerLabel} ${COMPARATIVE_COPY.phraseNoMagnitude}`
 
   if (analysisStatus === 'partial') {
     return {

@@ -8,7 +8,7 @@
  *     strong tier with weak readiness must never soften.
  *   - Rule 4 caveat remains scoped to `needs_work` (fair is not an
  *     evidence-weak signal; its soft-headline fires without the caveat).
- *   - Rule 5 (close_call) retains the definitive the definitive leader headline (re-anchored)
+ *   - Rule 5 (close_call) retains the definitive leader headline (re-anchored)
  *     headline, conservative: true. Fair / close_call share the Brief 5.2
  *     coaching-override block.
  *   - Rule 7 fallback: with gap emits "{winner} leads by N points"; without
@@ -38,9 +38,17 @@ const WINNER = 'Option A'
  * here". Only the wording of that headline moved, to the house comparative
  * register.
  *
- * This fixture supplies no `winProbability`, so `buildCertaintyCopy` takes
- * the magnitude-free arm of the register. The magnitude-bearing arm is
- * covered separately below.
+ * ⚠ THIS COMMENT PREVIOUSLY SAID "the magnitude-bearing arm is covered
+ * separately below". THAT WAS FALSE — there was no such coverage, and (F4)
+ * there is now no such arm: it was dead on the live path, since the sole
+ * caller passes only `winProbabilityGap` and never the absolute probability.
+ * It has been deleted rather than wired, because Paul's ruling demotes the
+ * comparative number and a magnitude-free sentence here is the CORRECT
+ * behaviour. A spec comment advertising coverage that does not exist is the
+ * same defect class as a register that drifts from its callers, so it is
+ * corrected in place rather than quietly dropped.
+ *
+ * `buildCertaintyCopy` therefore emits exactly one form of this sentence.
  */
 const AHEAD = `${WINNER} came out ahead most often across simulated scenarios`
 
