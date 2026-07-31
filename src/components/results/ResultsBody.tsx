@@ -22,7 +22,8 @@ import { Accordion } from './Accordion'
 import { SectionHeader } from './SectionHeader'
 import { OptionCards } from './OptionCards'
 import { WinGauge } from './WinGauge'
-import { AdvancedSection, RiskAppetiteFilter, type RiskAppetite } from './AdvancedSection'
+import { AdvancedSection, RiskAppetiteFilter, LENS_ARM, type RiskAppetite } from './AdvancedSection'
+import { selectLensOption } from './utils/selectLensOption'
 import { StressTestSection } from './StressTestSection'
 import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBoundary'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
@@ -155,25 +156,36 @@ export const ResultsBody = memo(function ResultsBody({
     resultsSectionData.recommendation.verdict != null
     && !resultsSectionData.recommendation.verdict.hasLeadingOption
 
-  // Risk appetite toggle — Conservative: highest p10, Neutral: highest win prob, Aggressive: highest p90
+  // Outcome-view lens — all three arms rank the SAME quantity family.
   const [riskAppetite, setRiskAppetite] = useState<RiskAppetite>('neutral')
 
-  // Codex R3-SF3: a lens comparison needs DATA — options missing the lens
-  // metric are excluded (never defaulted to 0, which let a data-less option
-  // "win" the cautious view), and with fewer than two comparable options the
-  // lens states that comparison is unavailable instead of crowning anyone.
-  const lensComparison = useMemo(() => {
-    const opts = resultsSectionData.recommendation.allOptions
-    const metric = (o: (typeof opts)[number]) =>
-      riskAppetite === 'conservative' ? (o.outcome?.p10 ?? o.p10) : (o.outcome?.p90 ?? o.p90)
-    if (riskAppetite === 'neutral' || opts.length <= 1) {
-      return { id: resultsSectionData.recommendation.recommendedOption?.id, comparable: true }
-    }
-    const withData = opts.filter((o) => Number.isFinite(metric(o)))
-    if (withData.length < 2) return { id: undefined, comparable: false }
-    const best = [...withData].sort((a, b) => (metric(b) as number) - (metric(a) as number))[0]
-    return { id: best?.id, comparable: true }
-  }, [riskAppetite, resultsSectionData.recommendation])
+  /**
+   * ⭐ BEHAVIOUR CHANGE, accepted by Paul (§6.5 item 5). The middle arm used
+   * to feature whichever option led on the COMPARATIVE quantity while the
+   * other two arms ranked the outcome distribution — three quantities under
+   * one control that said it was one view. It now ranks p50, so cautious /
+   * middle / optimistic are p10 / p50 / p90 and nothing else.
+   *
+   * On runs where the p50 leader is not the comparative leader this changes
+   * which option the middle arm features. That is the accepted change;
+   * `utils/__tests__/selectLensOption.spec.ts` pins it on a fixture built to
+   * make the two disagree.
+   *
+   * The Codex R3-SF3 discipline is preserved inside `selectLensOption`: a
+   * missing metric is never defaulted to 0 (which let a data-less option
+   * place in the ranking), and fewer than two comparable options reports
+   * `comparable: false` rather than crowning anyone.
+   *
+   * ⚠ WHAT DID NOT CHANGE: the middle arm is still the default, un-overlaid
+   * view — `lensActive` remains `riskAppetite !== 'neutral'` below, so the
+   * middle arm's pick is derived but not painted. Making it overlay like the
+   * other two would also flip the `decisionState` / `hinge` gating that keys
+   * off the same value, which is a separate change.
+   */
+  const lensComparison = useMemo(
+    () => selectLensOption(resultsSectionData.recommendation.allOptions, LENS_ARM[riskAppetite]),
+    [riskAppetite, resultsSectionData.recommendation],
+  )
 
   // Wave 2 (§6.4): identity-anchored ordinals for the option cards — the
   // SAME store map the hero badges consume, provided all-or-nothing (a
@@ -451,6 +463,15 @@ export const ResultsBody = memo(function ResultsBody({
                   label: o.label,
                   winProbability: o.winProbability,
                   isWinner: o.isRecommended,
+                  // Re-anchoring (§6 map row 1): the figure headlines the GOAL
+                  // number and demotes the comparative one. Both anchors are
+                  // already on `OptionResult` — the gauge's prop shape simply
+                  // did not carry them, which is why it could only draw the
+                  // comparative quantity. The possessive gate travels with the
+                  // number so the label cannot assert "your goal" over a
+                  // substituted joint value.
+                  goalProbability: o.goalProbability,
+                  goalFitIsSubstitutedJoint: o.goalFitIsSubstitutedJoint,
                 }))}
               decisionState={vm.decisionState}
               designationsWithheld={

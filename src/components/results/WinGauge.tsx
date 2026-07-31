@@ -1,5 +1,34 @@
 /**
- * WinGauge — stacked horizontal bar showing win probability per option.
+ * WinGauge — the option-comparison figure at the top of the options block.
+ *
+ * ⭐ RE-ANCHORED 2026-07-31 (Paul's ruling; §6 map row 1). It used to
+ * headline the COMPARATIVE quantity under the label "Win probability across
+ * scenarios" — a number that is neither of the two questions the product is
+ * allowed to answer. It is the share of Monte-Carlo runs in which an option
+ * out-ranked the others: not "will this reach my goal" and not "what is most
+ * likely to happen".
+ *
+ * The figure now carries BOTH blocks, in this order:
+ *
+ *   1. THE GOAL BLOCK (question A) — per-option `goalProbability`, the
+ *      quantity the user asked about, ranked by that quantity. Absent when
+ *      the run had no success target, because ISL computes a goal
+ *      probability only when a threshold was supplied.
+ *   2. THE COMPARATIVE BLOCK — the same stacked distribution as before,
+ *      DEMOTED beneath the goal block and labelled by what it measures.
+ *
+ * ⚠ WHY THE GOAL BLOCK IS NOT A STACKED BAR. The comparative shares are a
+ * distribution: they partition the runs and sum to 1, so a stacked bar is an
+ * honest picture of them. Goal probabilities are INDEPENDENT per-option
+ * probabilities — they do not sum to anything. Stacking them would draw a
+ * share-of-a-whole that does not exist. The goal block is therefore a plain
+ * ranked readout, sharing the comparative block's colour assignment so the
+ * two read as one figure.
+ *
+ * ⚠ THE NO-TARGET STATE NEVER BLOCKS. Without a target the goal block is
+ * replaced by an invitation naming the action, and the comparative
+ * distribution keeps rendering — the absent target hides nothing that was
+ * computed.
  *
  * Extracted from HeroSection to be shared between hero (removed) and
  * options section (Task 2). Includes shared colour palette constants
@@ -8,6 +37,7 @@
 
 import { typography } from '../../styles/typography'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY } from './utils/goalAnchorCopy'
 import Tooltip from '../Tooltip'
 import type { DecisionState } from './types'
 
@@ -15,12 +45,30 @@ import type { DecisionState } from './types'
 // Types
 // =============================================================================
 
-/** Win probability per option for the win gauge */
+/** Per-option input to the comparison figure. */
 export interface OptionWinShare {
   id: string
   label: string
+  /**
+   * The COMPARATIVE quantity — share of simulated scenarios this option came
+   * out ahead in. Kept, demoted, and always described by what it measures.
+   */
   winProbability: number
   isWinner: boolean
+  /**
+   * QUESTION A — this option's goal-attainment probability, as chosen by
+   * `selectGoalProbability` and carried on `OptionResult.goalProbability`.
+   * Null/undefined on a run with no success target, which is the ordinary
+   * case rather than an error.
+   */
+  goalProbability?: number | null
+  /**
+   * THE POSSESSIVE GATE — `OptionResult.goalFitIsSubstitutedJoint`, i.e.
+   * `selectGoalProbability(...).basis === 'joint_goal_substituted'`. True ⇒
+   * the number answers a different question from the one "your goal"
+   * asserts, so the A copy drops the possessive. Read, never re-derived.
+   */
+  goalFitIsSubstitutedJoint?: boolean
 }
 
 // =============================================================================
@@ -124,9 +172,14 @@ export function buildSegmentColorMap(
 // Component
 // =============================================================================
 
+/** Finite check shared by both blocks — never treats a missing number as 0. */
+function finite(v: number | null | undefined): v is number {
+  return typeof v === 'number' && Number.isFinite(v)
+}
+
 /**
- * WinGauge — stacked horizontal bar showing win probability per option.
- * "Wins across scenarios" label + segmented bar.
+ * The two-block comparison figure: the goal readout (question A) above the
+ * comparative distribution.
  */
 export function WinGauge({
   shares,
@@ -166,21 +219,114 @@ export function WinGauge({
 
   const isDeemphasised = decisionState === 'indeterminate'
 
+  // Colour by option id, derived from the comparative block's own segment
+  // order so the goal block's dots match the bar beneath it. One map, so the
+  // two blocks cannot assign different colours to the same option.
+  const colorById: Record<string, string> = {}
+  sorted.forEach((s, i) => {
+    colorById[s.id] = colors[Math.min(i, colors.length - 1)]
+  })
+
+  // ── The goal block (question A) ────────────────────────────────────────
+  // Ranked by the goal quantity itself, independently of the comparative
+  // sort above — the two rankings disagree on real runs, and that
+  // disagreement is exactly what the user needs to see.
+  const goalRows = shares
+    .filter((s) => finite(s.goalProbability))
+    .sort((a, b) => (b.goalProbability as number) - (a.goalProbability as number))
+  const hasGoalNumbers = goalRows.length > 0
+  // The possessive gate is a property of the RUN, not of a row: every row is
+  // scored on the same basis. Any substituted row withholds the possessive
+  // for the whole block — the safe direction, and it cannot produce a block
+  // that says "your goal" over a number that does not answer it.
+  const substituted = goalRows.some((s) => s.goalFitIsSubstitutedJoint === true)
+
   return (
-    <div className={`mb-4${isDeemphasised ? ' opacity-70' : ''}`} role="figure" aria-label="Win probability distribution across options">
+    <div
+      className={`mb-4${isDeemphasised ? ' opacity-70' : ''}`}
+      role="figure"
+      aria-label={
+        hasGoalNumbers ? GOAL_ANCHOR_COPY.byOptionAria(substituted) : COMPARATIVE_COPY.byOptionAria
+      }
+    >
+      {hasGoalNumbers ? (
+        <div className="mb-3" data-testid="win-gauge-goal-block">
+          <p
+            className={`${typography.panelMeta} text-text-light mb-1`}
+            data-testid="win-gauge-goal-heading"
+          >
+            {GOAL_ANCHOR_COPY.label(substituted)}
+          </p>
+          <div className="flex flex-col gap-1">
+            {goalRows.map((share) => {
+              const pct = Math.round(Math.max(0, Math.min(1, share.goalProbability as number)) * 100)
+              return (
+                <div
+                  key={share.id}
+                  className="flex items-center gap-2"
+                  data-testid={`goal-row-${share.id}`}
+                >
+                  <span
+                    className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: colorById[share.id] ?? 'var(--border-default)' }}
+                    aria-hidden="true"
+                  />
+                  <span
+                    className={`${typography.panelMeta} text-text-body truncate max-w-[160px]`}
+                  >
+                    {stripEncodingNotation(share.label)}
+                  </span>
+                  {/* Each option's own track: an INDEPENDENT probability
+                      drawn against a full-width rail, never a share of a
+                      stacked whole (see the module header). */}
+                  <span className="flex-1 h-1.5 rounded-full overflow-hidden bg-[var(--border-default)] min-w-[24px]">
+                    <span
+                      className="block h-full rounded-full"
+                      style={{
+                        width: `${pct}%`,
+                        backgroundColor: colorById[share.id] ?? 'var(--border-default)',
+                      }}
+                    />
+                  </span>
+                  <span
+                    className={`${typography.panelMeta} text-text-body tabular-nums flex-shrink-0`}
+                    data-testid={`goal-pct-${share.id}`}
+                  >
+                    {pct}%
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ) : (
+        // A5 — an invitation with its route, not a wall. The comparative
+        // block below keeps rendering.
+        <p
+          className={`${typography.panelMeta} text-text-light mb-2`}
+          data-testid="win-gauge-no-target"
+        >
+          {GOAL_ANCHOR_COPY.noTarget}{' '}
+          <span className="text-info">{GOAL_ANCHOR_COPY.noTargetCta}</span>
+        </p>
+      )}
+
+      <div data-testid="win-gauge-comparative-block">
       <Tooltip content="Share of Monte Carlo simulations in which each option came out ahead">
-        {/* ROADMAP 1.223: was "Leads across scenarios". The bar is a
-            DISTRIBUTION over options — it shows a share per option, and it is
-            drawn on every completed run, including turns where the producer
-            withheld the leader claim. The old label read as a designation
-            ("who leads"), which is the one thing this chart does not say.
-            Relabelled rather than gated: the DATA is honest on every run, and
-            a carve-out list of "leader words that are actually fine" is the
-            hand-maintained mirror CLAUDE.md trap 12 is about. The wording now
-            names the metric the product already uses elsewhere (the
-            confidence panel's ring caption reads "win probability"). */}
-        <p className={`${typography.panelMeta} text-text-light mb-1`}>
-          Win probability across scenarios
+        {/* ROADMAP 1.223 relabelled this away from a leader VERB ("Leads
+            across scenarios"); the 2026-07-31 re-anchoring finishes the job.
+            "Win probability across scenarios" named the metric but anchored
+            it to neither question the product answers, and it sat at the top
+            of the panel as the most prominent number on the screen. The
+            label now says what the number MEASURES, and the block sits below
+            the goal readout rather than above it. The DATA is untouched —
+            this chart is a distribution, and the distribution is honest on
+            every completed run including withheld ones. */}
+        <p
+          className={`${typography.panelMeta} text-text-light mb-1`}
+          data-testid="win-gauge-comparative-heading"
+        >
+          {COMPARATIVE_COPY.label}
         </p>
       </Tooltip>
       {/* Stacked bar — use clamped raw percentage for width to avoid rounding gaps */}
@@ -221,6 +367,7 @@ export function WinGauge({
             </span>
           )
         })}
+      </div>
       </div>
     </div>
   )

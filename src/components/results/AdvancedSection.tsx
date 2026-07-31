@@ -18,6 +18,7 @@ import { selectHumanisedInferenceWarnings } from './utils/humaniseInferenceWarni
 import { useRiskProfile, RISK_PRESETS } from '../../canvas/hooks/useRiskProfile'
 import { derivePostFooterStatus } from '../../canvas/components/utils/postAnalysisFooter'
 import type { RobustnessDisplayVerdict } from './types'
+import type { LensAppetite } from './utils/selectLensOption'
 
 type RiskPresetKey = keyof typeof RISK_PRESETS
 
@@ -520,11 +521,35 @@ export function AdvancedSection({
 
 // ── RiskAppetiteFilter ──────────────────────────────────────────────────────
 // D3: Moved here from ResultsBody to avoid circular imports. Transient display
-// filter — reweights which option is surfaced as winner (p10 / win prob / p90).
+// filter over the OUTCOME DISTRIBUTION — p10 / p50 / p90.
 
 export interface RiskAppetiteFilterProps {
   value: RiskAppetite
   onChange: (next: RiskAppetite) => void
+}
+
+/**
+ * The stored arm values are unchanged (`conservative` / `neutral` /
+ * `aggressive`) — renaming them would churn every consumer for nothing. This
+ * maps each to the quantity it ranks, which is what the re-anchoring
+ * actually changed: the middle arm used to rank the comparative quantity and
+ * now ranks p50, so all three arms are one quantity family (§6.5 item 5).
+ */
+export const LENS_ARM = {
+  conservative: 'cautious',
+  neutral: 'middle',
+  aggressive: 'optimistic',
+} as const satisfies Record<RiskAppetite, LensAppetite>
+
+/**
+ * Arm labels NAME THE QUANTITY. "Conservative / Neutral / Aggressive"
+ * described a mood; the control ranks percentiles of the outcome
+ * distribution, and saying so is what lets a reader tell the arms apart.
+ */
+const LENS_ARM_LABEL: Record<RiskAppetite, string> = {
+  conservative: 'Cautious (p10)',
+  neutral: 'Middle (p50)',
+  aggressive: 'Optimistic (p90)',
 }
 
 export function RiskAppetiteFilter({ value, onChange }: RiskAppetiteFilterProps) {
@@ -534,26 +559,31 @@ export function RiskAppetiteFilter({ value, onChange }: RiskAppetiteFilterProps)
         {/* Eye icon signals "view filter" (what you see right now), distinguishing
             this display-only control from the persistent "Risk profile" above. */}
         <Eye size={12} className="text-text-light flex-shrink-0" aria-hidden="true" />
-        <span className={`${typography.panelMeta} text-text-light`}>Winner by:</span>
+        {/* Re-anchored (§6 map): "Winner by:" named an endorsement the control
+            does not confer — it re-ranks a view, and now every arm re-ranks it
+            on the same quantity. The label says which. */}
+        <span className={`${typography.panelMeta} text-text-light`}>Rank by outcome:</span>
         {(['conservative', 'neutral', 'aggressive'] as const).map(appetite => (
           <button
             key={appetite}
             type="button"
             onClick={() => onChange(appetite)}
-            className={`px-2 py-0.5 rounded-full ${typography.panelMeta} border cursor-pointer capitalize ${
+            className={`px-2 py-0.5 rounded-full ${typography.panelMeta} border cursor-pointer ${
               value === appetite
                 ? 'border-info/60 text-info bg-transparent'
                 : 'border-panel-border text-text-light bg-transparent hover:border-info/30 hover:text-text-body'
             }`}
           >
-            {appetite.charAt(0).toUpperCase() + appetite.slice(1)}
+            {LENS_ARM_LABEL[appetite]}
           </button>
         ))}
       </div>
       {/* Paul's ruling 2026-07-12: honest lens framing — this control is a
-          view lens over the option cards only, never the recommendation. */}
+          view lens over the option cards only. Re-anchored 2026-07-31: the
+          un-anchored noun "the overall recommendation" is replaced by the
+          thing that is actually unchanged, named as a quantity. */}
       <p className={`${typography.panelMeta} text-text-light italic mt-1`}>
-        A view lens for the option cards below. The overall recommendation is unchanged.
+        A view lens over the outcome range. The goal ranking above is unchanged.
       </p>
     </div>
   )
