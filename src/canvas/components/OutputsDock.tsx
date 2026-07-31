@@ -61,6 +61,10 @@ import {
   latestRealMessageIsAssistantReply,
   latestRealMessageIsFailedTurn,
 } from './collapsedResponseSignal'
+import {
+  countAnalysisReviewBlocks,
+  shouldReturnToOlumiAfterRun,
+} from './runReturnSignal'
 import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { focusFloating } from '../hooks/useFloatingFocus'
 import { isV5CanonicalRunPath } from '../../v5/eligibility'
@@ -1487,6 +1491,21 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const lastDockOpenRef = useRef<number>(0)
   const prevAutoSwitchStatusRef = useRef(resultsStatus)
 
+  // ROADMAP 2.204 — the bookkeeping the post-run RETURN effect below reads.
+  // Kept next to the effect that creates the situation, so the two halves of
+  // "we moved them / we move them back" are read together.
+  //   - activeTabRef mirrors the selected tab for the effects that carry an
+  //     exhaustive-deps disable (their closures over `state` are stale by
+  //     construction; the ref is not).
+  //   - runAutoSwitchedToAnalysisRef records that THIS run is what moved the
+  //     user off their tab. Only a run that actually switched earns a return.
+  //   - userInteractedSinceRunRef records deliberate engagement with the dock
+  //     since the run started (see the capture handlers on the <aside>).
+  const activeTabRef = useRef(state.activeTab)
+  activeTabRef.current = state.activeTab
+  const runAutoSwitchedToAnalysisRef = useRef(false)
+  const userInteractedSinceRunRef = useRef(false)
+
   useEffect(() => {
     const prevStatus = prevAutoSwitchStatusRef.current
     prevAutoSwitchStatusRef.current = resultsStatus
@@ -1512,6 +1531,18 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     }
     lastDockOpenRef.current = now
 
+    // ROADMAP 2.204: record the navigation this effect is ABOUT to perform.
+    // Placed after the debounce so the record can never claim a switch that
+    // did not happen. A run start also CLEARS the interaction record — the Run
+    // control is itself a click inside the dock, and the click that started the
+    // run must not be read as "the user is busy on this tab".
+    if (statusTransitioned) {
+      userInteractedSinceRunRef.current = false
+      if (activeTabRef.current !== 'results') {
+        runAutoSwitchedToAnalysisRef.current = true
+      }
+    }
+
     // Task F: Auto-open results — close overlay panels so OutputsDock becomes visible
     useUIStore.getState().openRightPanel('results')
 
@@ -1529,6 +1560,57 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     // We intentionally depend on both triggers. setState from useDockState is stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resultsStatus, showResultsPanel])
+
+  // ROADMAP 2.204 — RETURN the user to the surface the run produced.
+  //
+  // The effect above navigates AWAY on run start; this one is its counterpart.
+  // The turn that completes the analysis puts its output — the decision-review
+  // card and the turn's review/coaching cards — in the OLUMI tab, whose wrapper
+  // is `hidden` while Analysis is fronted (see the wrapper at the bottom of this
+  // file). Live-proven 31 Jul: it stayed at 0 px² for a 180 s poll with the
+  // analysis complete and never self-revealed, so a tester who clicks Run and
+  // stays put never sees it.
+  //
+  // The trigger is the ARRIVAL of a new analysis-result block, not
+  // `resultsStatus === 'complete'`: the non-conversational run path completes
+  // the results store while putting nothing in the Olumi tab, and returning a
+  // user to an empty surface is worse than leaving them. Decision rules and the
+  // full rationale live in runReturnSignal.ts; this effect only gathers inputs.
+  const reviewBlockCount = useMemo(
+    () => countAnalysisReviewBlocks(conversationCtxForFirstUse?.messages),
+    [conversationCtxForFirstUse?.messages],
+  )
+  const prevReviewBlockCountRef = useRef(reviewBlockCount)
+  useEffect(() => {
+    const previousCount = prevReviewBlockCountRef.current
+    prevReviewBlockCountRef.current = reviewBlockCount
+    const shouldReturn = shouldReturnToOlumiAfterRun({
+      aiPanelV2On,
+      runAutoSwitchedToAnalysis: runAutoSwitchedToAnalysisRef.current,
+      dockTab: state.activeTab,
+      dockEffectiveOpen: effectiveIsOpen,
+      userInteractedSinceRun: userInteractedSinceRunRef.current,
+      reviewContentArrived: reviewBlockCount > previousCount,
+    })
+    if (!shouldReturn) return
+    // Spend the record: one return per run, never a repeat.
+    runAutoSwitchedToAnalysisRef.current = false
+    setState(prev => ({ ...prev, isOpen: true, activeTab: 'olumi' }))
+    useUIStore.getState().setActiveOutputTab('olumi' as OutputTab)
+    // The same bookkeeping handleTabClick performs for any non-Results tab.
+    // `showResultsPanel` is the merged effect's SECOND trigger, so leaving it
+    // true here would let that effect pull the user straight back on the next
+    // results-status change.
+    if (showResultsPanel) setShowResultsPanel(false)
+  }, [
+    reviewBlockCount,
+    aiPanelV2On,
+    state.activeTab,
+    effectiveIsOpen,
+    showResultsPanel,
+    setShowResultsPanel,
+    setState,
+  ])
 
   // Effect: Switch to compare tab when showComparePanel flag is set
   useEffect(() => {
@@ -1692,7 +1774,20 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     })
   }
 
+  // ROADMAP 2.204: any deliberate interaction inside the dock stands the
+  // post-run return down. Ref-only — deliberately not state, so it cannot
+  // re-render the dock on every keystroke.
+  const markDockInteraction = useCallback(() => {
+    userInteractedSinceRunRef.current = true
+  }, [])
+
   const handleTabClick = (tab: OutputsDockTab) => {
+    // ROADMAP 2.204: an explicit tab choice is the strongest "leave me where I
+    // put myself" signal there is, so it spends the auto-switch record outright
+    // rather than relying on the pointer/key capture above (which a keyboard
+    // activation via click() would not produce).
+    runAutoSwitchedToAnalysisRef.current = false
+    userInteractedSinceRunRef.current = true
     // UX correction (round 3): clicking the Olumi tab ALWAYS docks the
     // conversation into the right panel. If the floating panel is open,
     // close it first so the conversation surface is unambiguous. The
@@ -1831,6 +1926,16 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       style={asideStyle}
       aria-label="Outputs dock"
       data-testid="outputs-dock"
+      // ROADMAP 2.204: the honest "the user is engaged here" signal for the
+      // post-run return. Capture phase on the dock ROOT, so any pointerdown or
+      // keydown anywhere inside it counts — the tab strip, every Analysis-tab
+      // control, the composer. DERIVED from real events rather than an
+      // enumerated list of controls, which would rot the moment one is added
+      // and read green while it did (trap 12). Passive waiting fires neither,
+      // so the tester who clicks Run and watches is still returned. Read-only
+      // ref writes: no state, no re-render, no interference with any handler.
+      onPointerDownCapture={markDockInteraction}
+      onKeyDownCapture={markDockInteraction}
     >
       {/* Parity P7a: the Work-through-it-with-Olumi drawer mounts ONCE at the
           dock root (fixed-position overlay) so asks routed from ANY tab —
