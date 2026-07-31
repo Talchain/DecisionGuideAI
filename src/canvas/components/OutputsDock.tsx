@@ -65,6 +65,7 @@ import {
   countAnalysisReviewBlocks,
   shouldReturnToOlumiAfterRun,
 } from './runReturnSignal'
+import { scrollAnalysisResultIntoView } from './scrollAnalysisResultIntoView'
 import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { focusFloating } from '../hooks/useFloatingFocus'
 import { isV5CanonicalRunPath } from '../../v5/eligibility'
@@ -1588,6 +1589,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     [conversationCtxForFirstUse?.messages],
   )
   const prevReviewBlockCountRef = useRef(reviewBlockCount)
+  // ROADMAP 2.204-R3 — the arrival raises a token here; the effect BELOW spends
+  // it, once the tab is actually fronted. See that effect for why it cannot be
+  // done in this one.
+  const [resultScrollToken, setResultScrollToken] = useState(0)
   useEffect(() => {
     const previousCount = prevReviewBlockCountRef.current
     prevReviewBlockCountRef.current = reviewBlockCount
@@ -1600,6 +1605,18 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       reviewContentArrived: reviewBlockCount > previousCount,
     })
     if (!shouldReturn) return
+    // ROADMAP 2.204-R3 — the scroll rides the RETURN's own decision, verbatim.
+    //
+    // It was briefly a second predicate that widened the tab clause to admit
+    // `dockTab === 'olumi'`. That widening was withdrawn: derived at the bytes,
+    // the we-moved-them record has exactly ONE raise (the merged auto-switch
+    // effect above, which in the same breath schedules `activeTab: 'results'`),
+    // and every other write clears or spends it. So "record true AND tab already
+    // Olumi" is reachable only through a stale render closure — the batched
+    // flush pinned by this file's ADV-3 spec — where it is harmful, not
+    // beneficial. There is no shape in which the widened clause helps, so there
+    // is no clause. One decision, no mirror to drift.
+    setResultScrollToken((token) => token + 1)
     // Spend the record: one return per run, never a repeat.
     runAutoSwitchedToAnalysisRef.current = false
     setState(prev => ({ ...prev, isOpen: true, activeTab: 'olumi' }))
@@ -1618,6 +1635,52 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     setShowResultsPanel,
     setState,
   ])
+
+  // ROADMAP 2.204-R3 — land the returned tester ON the card, not 2,248 px above
+  // it.
+  //
+  // ## Why this is a SECOND effect and not two lines in the one above
+  // The effect above decides to return and calls `setState({activeTab:'olumi'})`.
+  // At that moment the DOM still has `hidden` (`display: none`) on the Olumi
+  // wrapper — React has not re-rendered yet — and an element inside a
+  // `display: none` subtree has no layout box, so a `scrollIntoView` issued there
+  // does nothing. That is precisely the defect being fixed: ChatThread's own
+  // smart-scroll already fires in that commit and is silently swallowed (see
+  // runReturnSignal.ts and the spec's THE CAUSE test, which measures it). This
+  // effect depends on `state.activeTab`, so it runs after the commit that
+  // REMOVED `hidden` — the first moment the card can actually be scrolled.
+  //
+  // ## Why a token, spent once
+  // `state.activeTab` changes on every manual tab click too. Without a token
+  // that is spent, every later click back to Olumi would re-scroll the user onto
+  // the card — a yank, and exactly the failure mode 2.204's discipline exists to
+  // prevent. The token is raised only by an arrival that passed that discipline,
+  // and each token scrolls at most once.
+  //
+  // ## ⚠ Why the token is marked handled BEFORE the tab guard, not after
+  // Because a never-yank verdict has a SHELF LIFE. Every gate the raise passed —
+  // "the user has not interacted", "we moved them here" — was true in the commit
+  // that raised the token and says nothing about any later commit. So a token
+  // that cannot be spent on the very next commit must be DISCARDED, never
+  // carried: parked, it would discharge on the user's own next visit to the
+  // Olumi tab, minutes later, possibly in a different scenario, after they had
+  // wheeled and toured tabs. Marking first makes the token strictly
+  // single-shot — spent by being used, or spent by expiring — so its verdict can
+  // never outlive the flush it was formed in.
+  //
+  // Reachability of the unspendable case is not hypothetical: React 18 batches
+  // the block's arrival and the results completion into ONE flush, and the
+  // merged auto-switch effect above runs first within it, so this effect can see
+  // a tab value that is already superseded. Pinned by the ADV-3 / ADV-4 cases in
+  // OutputsDock.runReturnsToOlumi.spec.tsx.
+  const handledResultScrollTokenRef = useRef(0)
+  useEffect(() => {
+    if (resultScrollToken === 0) return
+    if (handledResultScrollTokenRef.current === resultScrollToken) return
+    handledResultScrollTokenRef.current = resultScrollToken
+    if (state.activeTab !== 'olumi') return
+    scrollAnalysisResultIntoView()
+  }, [resultScrollToken, state.activeTab])
 
   // Effect: Switch to compare tab when showComparePanel flag is set
   useEffect(() => {

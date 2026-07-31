@@ -1531,9 +1531,8 @@ export function selectTopPhase3ReviewCard(
  *
  * Ordering: producer priority_rank ascending across all typed blocks.
  * The exercise type carries NO priority_rank per the v1.3 contract (not
- * hero eligible), so exercises take rank +Infinity — after every ranked
- * block, preserving harvest order among themselves (the same missing-rank
- * convention as selectTopPhase3ReviewCard).
+ * hero eligible). ROADMAP 2.211 §2 gives it a DERIVED position instead of
+ * the +Infinity it used to take — see EXERCISE_RANK_AFTER_REVIEW_CARDS.
  *
  * Legacy fallback (unchanged behaviour): review_card blocks that are NOT
  * 0.13.x-shaped go through the original bridge — factPresent gate, top-1
@@ -1541,6 +1540,45 @@ export function selectTopPhase3ReviewCard(
  * existing legacy review_card in mappedBlocks. Legacy cards not surfaced
  * are counted ('legacy_review_card_suppressed').
  */
+/**
+ * ROADMAP 2.211 §2 — where the turn's selected lens exercise sits.
+ *
+ * ## The defect
+ * The exercise is the companion card the capability layer's selected lens
+ * emits. It carries no `priority_rank` (the v1.3 contract declares the type
+ * not hero-eligible), so composition gave it +Infinity and it sorted LAST —
+ * behind the `Show N more` affordance in a phase-3 stack measured live at
+ * 8-14 cards (`probe-premortem-live.md` §4 Q2), where a collapsed card
+ * renders `null` and is not in the DOM at all. Two clicks from view on the
+ * turns where it was emitted at all.
+ *
+ * ## The adjudication (orchestrator, 1 Aug; `LENS-EMISSION-2211` §2)
+ * The turn's SELECTED lens is by definition the system's chosen most-useful
+ * insight, so it ranks directly after the review cards — a finite rank, and
+ * explicitly NOT a change to `PHASE3_DEFAULT_EXPANDED` or to the lens set.
+ *
+ * ## Why DERIVED from the turn, and not a constant
+ * This file's standing doctrine is producer-owned ordering — "No new ranking
+ * is invented" (`selectTopPhase3ReviewCard`), "ties preserve harvest order.
+ * No new ranking is invented" (the sort below). A hard-coded UI rank would
+ * invent one, and would be a hand-maintained mirror of CEE's live bands
+ * (measured: evidence 41 < review_card 71-74 < coaching 101-202): the day a
+ * band moved, the constant would silently invert the ruling and every test
+ * would stay green (platform trap 12). Anchoring to THIS TURN's highest
+ * review-card rank expresses the ruling's own words — *directly after the
+ * review cards* — in the producer's units, and cannot drift.
+ *
+ * The offset only has to break the tie with the anchor itself; producer ranks
+ * are integers on every observed payload, so a half-step lands strictly
+ * between the last review card and whatever the producer ranked next.
+ *
+ * When the turn carries no review card there is no anchor, and the v1.3
+ * convention stands unchanged rather than a number being made up. That is not
+ * a live case: the exercise derives its permission from a surviving review
+ * card (`LENS-EMISSION-2211` §3).
+ */
+export const EXERCISE_RANK_AFTER_REVIEW_CARDS = 0.5
+
 export function composePhase3BridgedBlocks(
   factPresent: boolean,
   phase3RawBlocks: readonly Phase3RawBlock[],
@@ -1550,6 +1588,11 @@ export function composePhase3BridgedBlocks(
 
   // ── Typed path: 0.13.x coaching + review_card + evidence + exercise ───
   const typed: Array<{ block: ConversationBlock; rank: number; order: number }> = []
+  // Exercises are held back until every review card on the turn has been
+  // adapted — their rank is derived from the set, so it cannot be known while
+  // the set is still being built. `order` is taken from the same counter, so
+  // harvest order among them is preserved exactly as before.
+  const exercises: Array<{ block: ConversationBlock; order: number }> = []
   const legacyReviewCandidates: Phase3RawBlock[] = []
   const seenTypedBlockIds = new Set<string>(
     mappedBlocks.flatMap((b) =>
@@ -1610,15 +1653,14 @@ export function composePhase3BridgedBlocks(
     if (rb.type === 'exercise') {
       // Slice 2 (Lane UI-W4 C): exercise renders first-class. The v1.3
       // contract declares NO priority_rank on this type (not hero
-      // eligible), so exercises take +Infinity — after every ranked
-      // block, harvest order among themselves (the selectTopPhase3
-      // missing-rank convention). Content-less blocks fail closed in the
-      // adapter and are counted like any other malformed block.
+      // eligible); ROADMAP 2.211 §2 derives its position from the turn's
+      // review cards after this loop. Content-less blocks fail closed in
+      // the adapter and are counted like any other malformed block.
       const adapted = adaptTypedExerciseBlock(rb.raw)
       if (adapted) {
         if (!seenTypedBlockIds.has(adapted.block_id)) {
           seenTypedBlockIds.add(adapted.block_id)
-          typed.push({ block: adapted, rank: Number.POSITIVE_INFINITY, order: order++ })
+          exercises.push({ block: adapted, order: order++ })
         }
         continue
       }
@@ -1630,6 +1672,37 @@ export function composePhase3BridgedBlocks(
       continue
     }
   }
+  // ROADMAP 2.211 §2: place the turn's exercise(s) directly after its review
+  // cards, in the producer's own units. Derived from the adapted set at this
+  // point, never from a remembered or hard-coded number — see
+  // EXERCISE_RANK_AFTER_REVIEW_CARDS.
+  if (exercises.length > 0) {
+    let reviewAnchor: number | null = null
+    const raiseAnchor = (rank: number): void => {
+      if (!Number.isFinite(rank)) return
+      if (reviewAnchor === null || rank > reviewAnchor) reviewAnchor = rank
+    }
+    // BOTH sources, not just `typed`. A review card the turn also emitted as a
+    // top-level block is already in mappedBlocks, and the block_id dedupe above
+    // keeps the raw copy OUT of `typed` — so a `typed`-only scan would find no
+    // anchor on exactly the turns carrying the most review content, fall back
+    // to +Infinity, and put the exercise back behind coaching. That is the
+    // 2.211 defect restored by omission (EDGE-A, review 1 Aug).
+    for (const block of mappedBlocks) {
+      if (block.type === 'v5_review_card') raiseAnchor(block.priority_rank)
+    }
+    for (const t of typed) {
+      if (t.block.type === 'v5_review_card') raiseAnchor(t.rank)
+    }
+    const exerciseRank =
+      reviewAnchor === null
+        ? Number.POSITIVE_INFINITY
+        : reviewAnchor + EXERCISE_RANK_AFTER_REVIEW_CARDS
+    for (const exercise of exercises) {
+      typed.push({ block: exercise.block, rank: exerciseRank, order: exercise.order })
+    }
+  }
+
   // Producer-owned ordering: priority_rank ascending (lower = higher
   // priority, per CEE v1.3 §0); ties preserve harvest order. No new
   // ranking is invented.

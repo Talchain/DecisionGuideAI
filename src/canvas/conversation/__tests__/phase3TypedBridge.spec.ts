@@ -14,9 +14,15 @@
  *      0.13.1-valid evidence / exercise raw blocks now render as typed
  *      v5_evidence / v5_exercise blocks. Evidence participates in the
  *      shared priority_rank ordering; exercise carries NO priority_rank
- *      per the v1.3 contract, so it sorts after every ranked block in
- *      harvest order. Malformed/content-less blocks are counted
+ *      per the v1.3 contract. Malformed/content-less blocks are counted
  *      ('malformed_phase3_block_suppressed') and suppressed.
+ *   4b. ROADMAP 2.211 §2 (supersedes slice 2's PLACEMENT only): the
+ *      unranked exercise no longer sorts last. It takes a rank DERIVED
+ *      from the turn's review cards, so it sits directly after them and
+ *      ahead of coaching — the selected lens is the turn's chosen
+ *      most-useful insight, and last put it behind `Show N more`. Harvest
+ *      order among multiple exercises, the fail-closed rules and dedupe
+ *      are unchanged.
  *   5. Legacy-shaped review_card falls back to the ORIGINAL bridge rules
  *      (factPresent gate + top-1 cap + adaptPhase3ReviewCard) — locked in
  *      detail by phase3ReviewCardBridge.spec.ts; spot-checked here.
@@ -319,9 +325,17 @@ function typedExerciseRaw(overrides: Record<string, unknown> = {}): Phase3RawBlo
 }
 
 describe('composePhase3BridgedBlocks — typed path (slice 2: evidence / exercise)', () => {
-  it('renders schema-valid evidence AND exercise as typed blocks; evidence shares the rank ordering, unranked exercise sorts last', () => {
-    // Ranks: evidence 41 < review 71 < coaching 101; exercise has NO
-    // priority_rank per the v1.3 contract → after every ranked block.
+  it('renders schema-valid evidence AND exercise as typed blocks; evidence shares the rank ordering, exercise follows the review cards', () => {
+    // Ranks: evidence 41 < review 71 < coaching 101.
+    //
+    // ⚠ SUPERSEDED EXPECTATION, recorded rather than quietly rewritten. This
+    // test read `[…, 'v5_review_card', 'v5_coaching', 'v5_exercise']` — the
+    // exercise LAST, on the slice-2 +Infinity convention. ROADMAP 2.211 §2
+    // changes that deliberately (the selected lens is the turn's chosen
+    // most-useful insight, and last meant behind `Show N more`). The exercise
+    // now sits directly after the review cards. Nothing else about slice 2
+    // moves: evidence still carries its own producer rank, malformed and
+    // content-less blocks still fail closed, dedupe is unchanged.
     const out = composePhase3BridgedBlocks(
       true,
       [typedExerciseRaw(), typedCoachingRaw(), typedEvidenceRaw(), typedReviewCardRaw()],
@@ -331,14 +345,14 @@ describe('composePhase3BridgedBlocks — typed path (slice 2: evidence / exercis
       'v5_analysis_result',
       'v5_evidence',
       'v5_review_card',
-      'v5_coaching',
       'v5_exercise',
+      'v5_coaching',
     ])
     const evidence = out[1] as V5EvidenceBlock
     expect(evidence.evidence_gap).toBe(
       'The conversion rate estimate is based on a single week of data.',
     )
-    const exercise = out[4] as V5ExerciseBlock
+    const exercise = out[3] as V5ExerciseBlock
     expect(exercise.failure_scenario).toBe('The migration stalls on undocumented edge cases.')
   })
 
@@ -391,6 +405,125 @@ describe('composePhase3BridgedBlocks — typed path (slice 2: evidence / exercis
       block_type: 'exercise',
       rationale: 'malformed_phase3_block_suppressed',
     })
+  })
+
+  it('ROADMAP 2.211 §2: the lens exercise ranks directly AFTER the review cards, ahead of coaching', () => {
+    // THE ADJUDICATION (ROADMAP 2.211 + parallel-briefs/LENS-EMISSION-2211,
+    // orchestrator 1 Aug). The turn's selected lens is by definition the
+    // system's chosen most-useful insight, and at +Infinity it sorted LAST —
+    // behind `Show N more` in a phase-3 stack measured at 8-14 cards, where a
+    // collapsed card returns `null` and is not in the DOM at all. Two clicks
+    // from view even when emitted.
+    //
+    // The rank is DERIVED from this turn's review cards, not a UI-invented
+    // number: the file's standing doctrine is producer-owned ordering ("No new
+    // ranking is invented", selectTopPhase3ReviewCard). Expressing the position
+    // RELATIVE to the producer's own ranks survives a CEE band change that any
+    // hard-coded constant would silently invert (platform trap 12).
+    const out = composePhase3BridgedBlocks(
+      true,
+      [
+        typedCoachingRaw({ block_id: 'co-late', priority_rank: 202 }),
+        typedExerciseRaw(),
+        typedCoachingRaw({ block_id: 'co-first', priority_rank: 101 }),
+        typedEvidenceRaw(),
+        typedReviewCardRaw({ block_id: 'rc-last', priority_rank: 74 }),
+        typedReviewCardRaw({ block_id: 'rc-top', priority_rank: 71 }),
+      ],
+      MAPPED,
+    )
+    // Live bands, from the staging capture the fixtures mirror
+    // (cee-response-b82c89dd): evidence 41 < review 71-74 < coaching 101-202.
+    expect(out.map((b) => b.type)).toEqual([
+      'v5_analysis_result',
+      'v5_evidence',
+      'v5_review_card',
+      'v5_review_card',
+      'v5_exercise',
+      'v5_coaching',
+      'v5_coaching',
+    ])
+    // Named explicitly, because "directly after the review cards" is the whole
+    // ruling: the LAST review card precedes it and the FIRST coaching follows.
+    expect((out[3] as V5ReviewCardBlock).block_id).toBe('rc-last')
+    expect((out[4] as V5ExerciseBlock).block_id).toBe('ex-typed-1')
+    expect((out[5] as V5CoachingBlock).block_id).toBe('co-first')
+  })
+
+  it('ROADMAP 2.211 §2: the anchor is DERIVED — a shifted review band carries the exercise with it', () => {
+    // The mutant a constant cannot survive. If CEE's review_card band ever moves
+    // above the coaching band, a hard-coded UI rank would silently invert the
+    // ruling ("after the review cards") while every other test stayed green.
+    // Here review cards sit at 301-302 and coaching at 101: the exercise must
+    // still land immediately after the review cards, which now means LAST.
+    const out = composePhase3BridgedBlocks(
+      true,
+      [
+        typedExerciseRaw(),
+        typedCoachingRaw({ block_id: 'co-1', priority_rank: 101 }),
+        typedReviewCardRaw({ block_id: 'rc-a', priority_rank: 301 }),
+        typedReviewCardRaw({ block_id: 'rc-b', priority_rank: 302 }),
+      ],
+      [],
+    )
+    expect(out.map((b) => b.type)).toEqual([
+      'v5_coaching',
+      'v5_review_card',
+      'v5_review_card',
+      'v5_exercise',
+    ])
+    expect((out[2] as V5ReviewCardBlock).block_id).toBe('rc-b')
+  })
+
+  it('ROADMAP 2.211 §2 EDGE-A: the anchor sees review cards that were DEDUPED into mappedBlocks', () => {
+    // The turn emits the same review card twice — once as a top-level block
+    // (already adapted into mappedBlocks by mapV5Blocks) and once in the phase-3
+    // sidecar. The dedupe by block_id keeps the raw one OUT of `typed`, so an
+    // anchor scan that looked only at `typed` would find nothing, fall back to
+    // +Infinity, and put the exercise back behind coaching — the exact 2.211
+    // defect, restored by omission on precisely the turns carrying the most
+    // review content. The anchor is derived across BOTH sources.
+    const mappedWithReviewCard: ConversationBlock[] = [
+      ...MAPPED,
+      {
+        type: 'v5_review_card',
+        block_id: 'rc-typed-1',
+        title: 'A load-bearing assumption',
+        body: 'The relationship between X and Y remains stable.',
+        severity: 'info',
+        card_kind: 'assumption',
+        target_refs: [],
+        priority_rank: 71,
+        freshness: 'fresh',
+      } as V5ReviewCardBlock,
+    ]
+    const out = composePhase3BridgedBlocks(
+      true,
+      [typedReviewCardRaw(), typedCoachingRaw(), typedExerciseRaw()],
+      mappedWithReviewCard,
+    )
+    // The duplicate raw review card is suppressed — one card, from mappedBlocks.
+    expect(out.filter((b) => b.type === 'v5_review_card')).toHaveLength(1)
+    expect(out.map((b) => b.type)).toEqual([
+      'v5_analysis_result',
+      'v5_review_card',
+      'v5_exercise',
+      'v5_coaching',
+    ])
+  })
+
+  it('ROADMAP 2.211 §2: NO review card on the turn → the contract convention is kept, no rank invented', () => {
+    // The exercise derives its permission from a surviving review card
+    // (LENS-EMISSION-2211 §3), so an exercise with no review card beside it is
+    // not the case this row is about. With no anchor to sit after, the v1.3
+    // convention stands unchanged (+Infinity, harvest order) rather than a
+    // number being made up. Pre-2.211 behaviour, preserved deliberately.
+    const out = composePhase3BridgedBlocks(
+      true,
+      [typedExerciseRaw(), typedCoachingRaw(), typedEvidenceRaw()],
+      [],
+    )
+    expect(out.map((b) => b.type)).toEqual(['v5_evidence', 'v5_coaching', 'v5_exercise'])
   })
 
   it('dedupes typed evidence/exercise by block_id (same block harvested twice renders once)', () => {
