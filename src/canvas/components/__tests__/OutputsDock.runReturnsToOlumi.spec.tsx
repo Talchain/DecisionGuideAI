@@ -331,9 +331,53 @@ describe('ROADMAP 2.204 — the run returns the user to the surface it produced'
     expect(screen.getByTestId('olumi-tab-wrapper')).toHaveClass('hidden')
   })
 
+  it('RERUN: the return waits for the NEW analysis, and does not fire on the old one', () => {
+    // ⚠ This test exists because a mutant SURVIVED without it. Changing the
+    // trigger from "a new analysis-result block ARRIVED"
+    // (`reviewBlockCount > previousCount`) to "one EXISTS"
+    // (`reviewBlockCount > 0`) left every other test green — the reload test
+    // below is gated by the auto-switch record, not by the arrival check, so
+    // it could not see the difference. On a RERUN the two come apart: the
+    // transcript already holds the previous run's block, so a presence check
+    // would return the user the instant they pressed Rerun, mid-analysis,
+    // before anything new had landed.
+    convState.messages = [analysisTurnMessage('m-previous-run')]
+    seedDockOnOlumi()
+    const { rerender } = render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+    expect(olumiTabIsFronted()).toBe(true)
+
+    // Rerun pressed: the dock moves to Analysis, and the previous run's block
+    // is still sitting in the transcript.
+    startRun()
+    expect(olumiTabIsFronted()).toBe(false)
+
+    // Mid-run re-render with NOTHING new: the user must stay on the numbers
+    // they are waiting for.
+    act(() => {
+      rerender(
+        <Wrapper>
+          <OutputsDock />
+        </Wrapper>,
+      )
+    })
+    expect(olumiTabIsFronted()).toBe(false)
+    expect(screen.getByTestId('olumi-tab-wrapper')).toHaveClass('hidden')
+
+    // The NEW analysis lands — now the return fires.
+    landAnalysisTurn(rerender, 'm-rerun')
+    expect(olumiTabIsFronted()).toBe(true)
+  })
+
   it('NEVER YANK: a returning session whose transcript already holds an analysis is not moved', () => {
     // A page reload with a completed analysis in the conversation must not
-    // re-fire the return: the count does not INCREASE, so nothing arrived.
+    // fire the return. Honest note on what guards this: no run happened, so
+    // the auto-switch record is false and the conjunction fails there — the
+    // arrival check is NOT what this case exercises (see the rerun test
+    // above, which is the one that isolates it).
     convState.messages = [analysisTurnMessage('m-historical')]
     seedDockOnAnalysis()
     const { rerender } = render(
