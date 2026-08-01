@@ -693,9 +693,25 @@ describe('OptionCards', () => {
     })
   })
 })
+/**
+ * ⭐ BOTH FIXTURES COMPLETED 2026-08-01 (ROADMAP 2.238). They rendered
+ * `lensActive` with NO `lensHighlightedId`, and therefore only passed via the
+ * `?? winnerId` fallback — i.e. they were pinning the defect: a crown labelled
+ * "Ahead on this outcome view" on the COMPARATIVE winner, in the exact state
+ * where the panel above prints "Not enough range data to compare options under
+ * this lens."
+ *
+ * The claims these tests were WRITTEN to make (the crowned card says
+ * lens-strongest rather than THE recommendation; the lens copy outranks a
+ * coaching headline) are unchanged and still correct — they just need the lens
+ * to have actually picked something. `lensHighlightedId` is now passed
+ * explicitly, which is what the live path does whenever the lens is comparable.
+ */
 describe("Paul's ruling (2026-07-12): lens-aware winner copy", () => {
-  it('lensActive winner card presents as lens-strongest, not THE recommendation', () => {
-    render(<OptionCards options={mockOptions} winnerId="option-1" lensActive />)
+  it('lens-crowned card presents as lens-strongest, not THE recommendation', () => {
+    render(
+      <OptionCards options={mockOptions} winnerId="option-1" lensActive lensHighlightedId="option-1" />,
+    )
     const card = screen.getByTestId('option-card-option-1')
     expect(card).toHaveTextContent('Ahead on this outcome view. The goal ranking above is unchanged.')
     expect(card.textContent).not.toMatch(/Highest leading-option likelihood/)
@@ -707,6 +723,7 @@ describe("Paul's ruling (2026-07-12): lens-aware winner copy", () => {
         options={mockOptions}
         winnerId="option-1"
         lensActive
+        lensHighlightedId="option-1"
         storyHeadlines={{ 'option-1': 'Best placed once the goal and limits are both counted.' }}
       />,
     )

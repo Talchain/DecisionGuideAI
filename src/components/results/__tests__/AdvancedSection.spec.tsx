@@ -398,14 +398,26 @@ describe('AdvancedSection — the default-estimate disclosure (F10)', () => {
   })
 })
 
-// ── ROADMAP 1.243 item 4 — the "Rank by outcome:" lens label ──────────────────────
+// ── ROADMAP 1.243 item 4 — the lens label ────────────────────────────────────
 //
-// ADJUDICATED: LEAVE the label, do NOT relabel. "Rank by outcome:" takes no option as
-// its object — it names the SORT KEY of a display filter, unlike the two
-// strings #493/#494 relabelled ("Leads across scenarios", "Leads NN%"), which
-// rendered ON an option so the ordinal read straight off them. The test is not
-// "is 'winner' a permitted word" (that would be the trap-12 carve-out list); it
-// is "does the string designate an option", which is derivable.
+// ⛔ THE ADJUDICATION BELOW WAS FALSE AT THE BYTES, AND IS WITHDRAWN
+//    (ROADMAP 2.237, 2026-08-01).
+//
+// It read: "LEAVE the label, do NOT relabel. 'Rank by outcome:' takes no option
+// as its object — it names the SORT KEY of a display filter."
+//
+// **There is no lens sort key.** `sortOptionsForDisplay` takes no lens argument;
+// the list is ordered by `winProbability`, truncated by that order, and stamped
+// with ordinals from it. The lens reaches the cards only as a CROWN on one card.
+// So the adjudication cleared the label by asserting a mechanism that does not
+// exist — and because it was written as a settled verdict, it is exactly the
+// sentence nobody re-checked. (CLAUDE.md trap 14: an honest label can be
+// overwritten by a false one; the most rhetorically useful sentence in an
+// argument is the one nobody checks.)
+//
+// The label is now "Highlight by outcome:", which names what the control does.
+// The reasoning below about the DISCLAIMER being load-bearing is untouched and
+// still correct — it is the only part of this block that survived checking.
 //
 // But that verdict RESTS ON the disclaimer beneath it (Paul's ruling
 // 2026-07-12), and the disclaimer had ZERO test references at a79683e4 — the
@@ -425,7 +437,7 @@ describe('RiskAppetiteFilter — the lens disclaimer is load-bearing (1.243 item
     render(<RiskAppetiteFilter value="neutral" onChange={vi.fn()} />)
     // Positive control: the component mounted, so the assertion below is not
     // passing against an empty render.
-    expect(screen.getByText('Rank by outcome:')).toBeInTheDocument()
+    expect(screen.getByText('Highlight by outcome:')).toBeInTheDocument()
     expect(
       screen.getByText(
         'A view lens over the outcome range. The comparative ranking above is unchanged.',

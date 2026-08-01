@@ -468,11 +468,35 @@ export const ResultsBody = memo(function ResultsBody({
                 data-testid="risk-lens-label"
                 className={`${typography.panelMeta} text-text-light`}
               >
+                {/*
+                  ⭐ RE-ANCHORED 2026-08-01 (ROADMAP 2.237, P1-1) — "ranked by"
+                  → "highlights".
+
+                  The sentence claimed a RE-RANKING that never happens. The
+                  option list below is ordered by `sortOptionsForDisplay`, which
+                  takes NO lens argument and sorts by `winProbability`, and the
+                  cards stamp that order as explicit ordinals. The lens reaches
+                  the cards only as a CROWN on one card. So on
+                  A(win .50, p10 10) B(win .30, p10 50) C(win .20, p10 90),
+                  clicking "Cautious (p10)" printed "ranked by the low end
+                  (p10)" over a list reading A(1), B(2) — identical to neutral —
+                  with C, the p10 leader and the lens's OWN pick, not rendered
+                  at all behind "Show all (1 more)". The user was told a ranking
+                  existed and then could not see its result.
+
+                  The copy is corrected to what the code does rather than the
+                  code changed to match the copy: highlighting IS the shipped
+                  behaviour and is a coherent feature, whereas threading the
+                  lens through the comparator would change ordering, truncation
+                  and the ordinal stamps together — a much larger behavioural
+                  change than a false sentence warrants. `LENS_COPY.unchanged`
+                  keeps its job of saying what the lens does NOT touch.
+                */}
                 {!lensComparison.comparable
                   ? 'Not enough range data to compare options under this lens.'
                   : riskAppetite === 'conservative'
-                    ? `Cautious view: ranked by the low end (p10) of each outcome range. ${LENS_COPY.unchanged(lensRunHasGoalNumbers)}`
-                    : `Optimistic view: ranked by the high end (p90) of each outcome range. ${LENS_COPY.unchanged(lensRunHasGoalNumbers)}`}
+                    ? `Cautious view: highlights the option with the strongest low end (p10). Order below is unchanged. ${LENS_COPY.unchanged(lensRunHasGoalNumbers)}`
+                    : `Optimistic view: highlights the option with the strongest high end (p90). Order below is unchanged. ${LENS_COPY.unchanged(lensRunHasGoalNumbers)}`}
               </p>
             )}
             {/* WinGauge — moved from hero to top of options section */}
