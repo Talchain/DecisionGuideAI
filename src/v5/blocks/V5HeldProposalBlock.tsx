@@ -41,6 +41,7 @@ import { type ReactElement, useCallback, useState } from 'react'
 import { Hand } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
+import { CHIP_CLASS } from './chipClass'
 import type { V5HeldProposalBlock as V5HeldProposalBlockType } from '../../canvas/conversation/types'
 import {
   heldProposalReasonText,
@@ -53,19 +54,6 @@ import {
 export interface V5HeldProposalBlockProps {
   block: V5HeldProposalBlockType
 }
-
-/** Ratified suggested-action chip idiom (SuggestedChips.tsx), verbatim. */
-const CHIP_CLASS = [
-  'inline-flex items-center gap-1.5',
-  'bg-panel border border-panel-border rounded-full',
-  'px-4 py-2 min-h-[44px]',
-  'hover:bg-panel-hover active:bg-panel-border/30',
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2',
-  'text-text-body cursor-pointer font-sans',
-  typography.bodySmall,
-  'disabled:opacity-40 disabled:pointer-events-none',
-  'transition-colors duration-200',
-].join(' ')
 
 export function V5HeldProposalBlock({ block }: V5HeldProposalBlockProps): ReactElement {
   const sendChip = useGuidanceStore((s) => s._sendChip)

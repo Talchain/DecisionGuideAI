@@ -13,8 +13,19 @@
  *     attributes only — never rendered as copy. (`freshness` is optional:
  *     the UI-side bias bridge builds blocks without it — the attribute is
  *     simply absent then.)
- *   - `action_label` renders as a display-only outlined pill this slice;
- *     wiring `action_intent` to turn dispatch is a recorded follow-up.
+ *   - The action pill is ACTIONABLE when, and only when, the producer
+ *     authored the turn text (ROADMAP 2.225; schemas 0.31.0
+ *     `CoachingBlockSchema.action_prompt`):
+ *       · `action_label` + `action_prompt` → a real <button> (ActionChip)
+ *         that dispatches `action_prompt` VERBATIM through the existing
+ *         `_sendChip` seam.
+ *       · `action_label` alone → the display-only outlined pill, unchanged.
+ *     The second arm is deliberate and is the contract's stated failure
+ *     semantics: the UI must NOT fall back to dispatching `action_label` (a
+ *     button CAPTION, bounded at 40 chars) or `action_intent` (a machine
+ *     enum) as turn text. "That fallback IS the defect" — a card with a
+ *     label and no prompt is a non-interactive card, which is the honest
+ *     degradation. See ActionChip.tsx for the full no-invention rule.
  *   - target_refs pills are click-to-focus (seamlessness R1): clickable only
  *     while the target exists on the canvas (fail-closed in TargetRefPill),
  *     label copy verbatim either way.
@@ -34,6 +45,7 @@ import { type ReactElement } from 'react'
 import { Lightbulb } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { TargetRefPill } from '../../canvas/conversation/components/TargetRefPill'
+import { ActionChip } from './ActionChip'
 import type { V5CoachingBlock as V5CoachingBlockType } from '../../canvas/conversation/types'
 
 export interface V5CoachingBlockProps {
@@ -91,17 +103,26 @@ export function V5CoachingBlock({ block, variant = 'default' }: V5CoachingBlockP
       )}
       {block.action_label && (
         <div className="flex">
-          <span
-            data-testid={`${testIdPrefix}-action`}
-            {...(block.action_intent ? { 'data-action-intent': block.action_intent } : {})}
-            className={[
-              'inline-flex items-center rounded-full px-2.5 py-0.5',
-              'bg-transparent border border-info/30 text-text-body',
-              typography.panelMeta,
-            ].join(' ')}
-          >
-            {block.action_label}
-          </span>
+          {block.action_prompt ? (
+            <ActionChip
+              label={block.action_label}
+              message={block.action_prompt}
+              testId={`${testIdPrefix}-action`}
+              intent={block.action_intent}
+            />
+          ) : (
+            <span
+              data-testid={`${testIdPrefix}-action`}
+              {...(block.action_intent ? { 'data-action-intent': block.action_intent } : {})}
+              className={[
+                'inline-flex items-center rounded-full px-2.5 py-0.5',
+                'bg-transparent border border-info/30 text-text-body',
+                typography.panelMeta,
+              ].join(' ')}
+            >
+              {block.action_label}
+            </span>
+          )}
         </div>
       )}
     </div>
