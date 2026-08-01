@@ -7,6 +7,7 @@
  * "Coaching over gates" philosophy - users see clear decision guidance.
  */
 
+import type { FactorDirection } from '../../lib/factorDirection'
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import type { ConstraintAnalysis } from '../../types/constraints'
 import type { M1CoachingReadiness } from '../../types/cee'
@@ -347,10 +348,20 @@ export interface DecisionResultData {
 export type DriverSemanticLabel = 'biggest' | 'strong' | 'moderate' | 'minor'
 
 /**
- * Canonical direction after normalisation.
- * 'positive' = increases goal, 'negative' = decreases goal
+ * Canonical direction after normalisation — the PRODUCER's full documented
+ * domain (`src/lib/factorDirection.ts`).
+ *
+ * 'positive' = increases goal · 'negative' = decreases goal ·
+ * 'mixed' / 'unknown' = the producer measured the factor but declined to
+ * assert a single direction.
+ *
+ * ⚠ WIDENED 2026-08-01 (ROADMAP 2.234). This was `'positive' | 'negative'`,
+ * and that narrowing is what turned `mixed`/`unknown`/absent into "up" arrows
+ * and the sentence "increases the outcome". Only the two directional members
+ * license directional rendering — ask `isDirectionalFactor`, never
+ * `direction != null`.
  */
-export type DriverDirection = 'positive' | 'negative'
+export type DriverDirection = FactorDirection
 
 // =============================================================================
 // Confidence Provenance (audit A1-PRIMARY)
@@ -920,7 +931,12 @@ export interface UiFactorSensitivity {
   factorId: string
   label: string
   elasticity: number
-  direction: 'positive' | 'negative'
+  /**
+   * The producer's direction across its full domain, or `null` when the
+   * producer sent none (ROADMAP 2.234). Was `'positive' | 'negative'`, which
+   * could only be satisfied by inventing one.
+   */
+  direction: FactorDirection | null
   confidence: number | null
   importanceRank: number
   /** ISL influence_score (0-1) - structural causal influence */

@@ -49,6 +49,8 @@ import { stripEncodingNotation } from '../utils/cleanFactorLabel'
 import { THRESHOLDS } from '../../../lib/mappers/constants'
 import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 import { SUB_ONE_PERCENT_FLOOR } from '../utils/displayFloors'
+import { hasAnyGoalValue, selectGoalLeader } from '../utils/selectGoalLeader'
+import { isDirectionalFactor } from '../../../lib/factorDirection'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../utils/goalFitBasisCaveatCopy'
 import {
   getExpectedValue,
@@ -379,7 +381,19 @@ export function buildHeroModel(
   // target exists, but the explicit `hasUserTarget` term keeps the gate
   // visible and future-proof (value presence alone must never re-enable
   // the lens for synthesized values).
-  const goalAvailable = hasUserTarget && rows.some((r) => r.goal.value != null)
+  //
+  // ⭐ ROADMAP 2.233 — AVAILABILITY, kept as `.some`, now NAMED.
+  //
+  // This is `hasUserTarget && rows.some(...)` exactly as before; only the
+  // predicate's home and name changed. A revision of 2.233 briefly tightened it
+  // to `.every` to "match" the V7 lens, and that was a mistake worth recording:
+  // it conflated what we may DISPLAY with what we may CLAIM. The crown was
+  // ALREADY withheld on partial coverage by `selectGoalLeader`'s complete-field
+  // gate, so tightening this bought no claim-safety — it only hid goal values
+  // the producer HAD measured, on a surface that renders the missing ones as
+  // `'—'` (`goalReadout`). Data is not a claim; an honest gap marker is not a
+  // reason to blank the row beside it.
+  const goalAvailable = hasAnyGoalValue(rows, (r) => r.goal.value, { hasUserTarget })
   const outcomeAvailable = rows.some(
     (r) => r.outcome.p10 != null && r.outcome.p90 != null,
   )
@@ -612,24 +626,20 @@ export function buildHeroModel(
   // rather than one of its three readers is the single change point — and it
   // removes the hand-maintained mirror in which each new reader has to
   // remember to re-apply the rule.
-  let goalLeaderRow: HeroRowVM | null = null
-  if (!designationsWithheld && hasUserTarget && rows.every((r) => r.goal.value != null)) {
-    let best: HeroRowVM | null = null
-    let bestValue = -Infinity
-    let tiedAtMax = false
-    for (const r of rows) {
-      const v = r.goal.value as number
-      if (v > bestValue) {
-        bestValue = v
-        best = r
-        tiedAtMax = false
-      } else if (v === bestValue) {
-        tiedAtMax = true
-      }
-    }
-    goalLeaderRow =
-      best != null && !tiedAtMax && bestValue >= SUB_ONE_PERCENT_FLOOR ? best : null
-  }
+  //
+  // ⭐ EXTRACTED 2026-08-01 (ROADMAP 2.233). The loop that used to sit here is
+  // now `utils/selectGoalLeader.ts`, unchanged in behaviour except that the
+  // completeness check is `Number.isFinite` rather than `!= null` (a NaN row
+  // passed the old check while losing every comparison, so one NaN could let a
+  // rival be crowned on an "complete" set). It moved because `buildV7Headline`
+  // made the identical claim with NO rule at all and crowned the COMPARATIVE
+  // leader on the goal metric — the second copy of a rule is where the defect
+  // lives, so there is now one copy and both surfaces select through it.
+  const goalLeaderRow: HeroRowVM | null = selectGoalLeader(
+    rows,
+    (r) => r.goal.value,
+    { designationsWithheld, hasUserTarget },
+  )
 
   const safeLabel = (row: HeroRowVM) =>
     safeInterpolatedLabel(row.label, HERO_COPY.labelFallback)
@@ -927,7 +937,14 @@ export function buildHeroModel(
             targetId: d.canFocus ? d.matchedNodeId ?? d.factorKey : null,
             // Producer-normalised direction, passed through; absent stays
             // absent (the sign glyph is omitted, never guessed).
-            direction: d.direction ?? null,
+            //
+            // ROADMAP 2.234: `DriverItem.direction` now carries the producer's
+            // FULL domain, so the narrowing happens HERE — at the boundary of a
+            // render model that can only draw two states. `isDirectionalFactor`
+            // is the shared gate: `'mixed'` and `'unknown'` are PRESENT values
+            // that still forbid a directional glyph, so `!= null` is the wrong
+            // question and this is the right one.
+            direction: isDirectionalFactor(d.direction) ? d.direction : null,
             influence: typeof influenceValue === 'number' && Number.isFinite(influenceValue)
               ? influenceValue
               : null,

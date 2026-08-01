@@ -186,6 +186,28 @@ describe('buildHeroModel — leaders and headline', () => {
     expect(m.headline).toBe(HERO_COPY.headline.goalOnly('Upskill the team', goalReadoutOf(m, 'Upskill the team')))
   })
 
+  /**
+   * ⭐ UNCHANGED, AND DELIBERATELY SO (ROADMAP 2.233).
+   *
+   * This test is the PARTIAL-COVERAGE case, and it pins BOTH directions at
+   * once: the goal lens is AVAILABLE (option A's measured value is shown, B's
+   * absence renders as `'—'`) while the goal crown is ABSENT (`leaders.goal`
+   * null, the headline reframed to the analysis basis).
+   *
+   * A revision of 2.233 briefly flipped the first assertion to `not.toContain`
+   * by tightening availability to `.every` — and this test is what caught it.
+   * The reasoning behind that tightening was about protecting the CLAIM, but
+   * the claim was already protected by `selectGoalLeader`'s complete-field
+   * gate, as the `leaders.goal` assertion below has always shown. So the
+   * tightening bought no honesty and cost real data: it blanked the whole goal
+   * view, including the option the producer HAD measured, on a surface that
+   * discloses the gap with `'—'`.
+   *
+   * The two questions are now named apart (`hasAnyGoalValue` for display,
+   * `hasCompleteGoalField` inside `selectGoalLeader` for the claim). This pair
+   * of assertions is what stops them being re-merged: any future change that
+   * conflates them must break one of these two lines.
+   */
   it('does not goal-headline a recommended option that lacks its own goal value', () => {
     // Recommended option B has no goalProbability while A has one: the hero
     // must not claim B "is most likely to meet every target this run scored" beside a "—" readout for B.
@@ -204,7 +226,11 @@ describe('buildHeroModel — leaders and headline', () => {
         }),
       ),
     )
+    // ① AVAILABILITY — the lens IS shown. B's missing value is disclosed as
+    //    '—' (goalReadout), not hidden by blanking the whole view.
     expect(m.lenses).toContain('goal')
+    // ② ENTITLEMENT — and yet NO crown. This is the pair; neither line means
+    //    much without the other.
     expect(m.leaders.goal).toBeNull()
     expect(m.headline).toBe(HERO_COPY.headline.slightlyAhead('Upskill the team'))
     expect(m.subline).toBe(

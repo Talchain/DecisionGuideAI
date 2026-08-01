@@ -46,15 +46,26 @@ import {
 import { useCanvasNodeLabels, resolveCanvasLabel } from './useCanvasLabels'
 import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
 import { isRecord } from '../../lib/guards'
+import { formatProbabilityWithResolution } from '../../utils/formatPercent'
 import { calibrateUncertaintyCopy } from '../../components/results/utils/uncertaintyCalibration'
 
 export interface V5AnalysisResultBlockProps {
   block: V5AnalysisResultBlockType
 }
 
+/**
+ * ⭐ ROADMAP 2.236 — the Olumi decision-review chips now apply the shared floor.
+ *
+ * This was `${Math.round(p * 100)}%`, a fourth private percentage rule, and it
+ * is what a real-browser walk photographed printing
+ * `Phased Hub-and-Spoke Pilot · 0%` for `win_probability = 0.002675` — in the
+ * SAME capture where the CEE prose immediately above the chips read "each has
+ * less than a 1% chance" (walk-548-pixels.md F5). The chip and the sentence
+ * above it now agree.
+ */
 function formatProbability(p: number): string {
   if (!Number.isFinite(p)) return '—'
-  return `${Math.round(p * 100)}%`
+  return formatProbabilityWithResolution(p, undefined)
 }
 
 /**

@@ -31,6 +31,7 @@ import type { OptionResult, DriverItem, ConditionalWinner } from '../types'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { VoiRanking } from '../voi/voiRanking'
 import { computeOptionScale } from '../shared/OptionRangeBar'
+import { hasCompleteGoalField, selectGoalLeader } from '../utils/selectGoalLeader'
 
 /** One flip-risk row — the challengeFragileEdges slice, unchanged. */
 export interface V7FlipRisk {
@@ -182,10 +183,30 @@ export function buildV7Lenses(data: ResultsSectionDataReturn): V7LensesModel {
     typeof recommendation.goalThreshold === 'number' && Number.isFinite(recommendation.goalThreshold)
       ? recommendation.goalThreshold
       : null
-  const everyGoalProb =
-    options.length > 0 &&
-    options.every((o) => typeof o.goalProbability === 'number' && Number.isFinite(o.goalProbability))
-  const goalAvailable = goalThreshold != null && everyGoalProb
+  // ⭐ ROADMAP 2.233 — UNCHANGED IN BEHAVIOUR (`.every`), and deliberately NOT
+  // moved to `hasAnyGoalValue` like the analysis hero was.
+  //
+  // The hero asks the AVAILABILITY question and answers it with `.some`,
+  // because its row VM types the goal slot `number | null` and renders an
+  // absent value as `'—'`. This lens cannot do that yet: `V7GoalLens.options[]
+  // .goalProbability` is a NON-NULLABLE `number` reached by an `as number`
+  // cast, and `V7LensGroup`'s `GoalRow` does arithmetic on it
+  // (`probability < FLOOR`, `Math.round(probability * 100)`). A missing value
+  // would render `NaN%` behind a NaN-width bar — a placeholder presented as a
+  // measurement.
+  //
+  // So this is the COMPLETE-FIELD question for a concrete reason about THIS
+  // model, not a second opinion about availability. Teaching the model
+  // `number | null` and the row `'—'` would let it join the hero on `.some`;
+  // that is a typed change to a rendered contract and is rowed separately.
+  const goalAvailable = hasCompleteGoalField(options, (o) => o.goalProbability, {
+    hasUserTarget: goalThreshold != null,
+  })
+  // R1: the goal view's own leader — the same selection the headline crowns.
+  const goalRowLeader = selectGoalLeader(options, (o) => o.goalProbability, {
+    designationsWithheld,
+    hasUserTarget: goalThreshold != null,
+  })
   const goal: V7GoalLens = {
     available: goalAvailable,
     gate: goalAvailable ? 'none' : goalThreshold == null ? 'no_target' : 'producer_gap',
@@ -196,7 +217,21 @@ export function buildV7Lenses(data: ResultsSectionDataReturn): V7LensesModel {
           label: o.label,
           goalProbability: o.goalProbability as number,
           goalFitIsSubstitutedJoint: o.goalFitIsSubstitutedJoint === true,
-          isWinner: o.id === winnerId,
+          // ⭐ R1 (ROADMAP 2.233 review) — THE GOAL LENS DESIGNATES THE GOAL
+          // LEADER, not the comparative one.
+          //
+          // This read `o.id === winnerId`, and `winnerId` (`:154`) is
+          // `recommendation.recommendedOption?.id` — the COMPARATIVE leader. At
+          // base that was consistently wrong: headline and lens both said A.
+          // Fixing the headline alone made the pair CONTRADICTORY — "Option B
+          // has the highest chance of hitting your goal: 80%" printed directly
+          // above a goal row bolding Option A. That is the exact defect 2.233
+          // exists to remove, moved one element to the left.
+          //
+          // Same selector as the headline, so the two cannot disagree; it
+          // carries the withheld/target/complete/unique/floor gates and returns
+          // null rather than a wrong designation, in which case no row is marked.
+          isWinner: goalRowLeader != null && o.id === goalRowLeader.id,
         }))
       : [],
   }

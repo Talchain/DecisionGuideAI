@@ -52,6 +52,11 @@ import type {
   ConfidenceProvenance,
 } from './types'
 import { normalizeAutoNoiseProvenance, normalizeHeadlineBanded } from './types'
+import {
+  normaliseFactorDirection,
+  polarityToFactorDirection,
+  type FactorDirection,
+} from '../../lib/factorDirection'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
@@ -314,7 +319,9 @@ export function isValidConfidenceProvenance(value: unknown): value is {
 export { isDefaultedConfidenceFromRaw }
 
 export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, string>): UiFactorSensitivity {
-  if (raw == null || typeof raw !== 'object') return { factorId: '', label: 'Unknown factor', elasticity: 0, direction: 'positive' as const, confidence: null, importanceRank: 0 }
+  // ROADMAP 2.234: the empty row's direction is `null`, not `'positive'` — a
+  // row with no producer data at all cannot carry a causal claim.
+  if (raw == null || typeof raw !== 'object') return { factorId: '', label: 'Unknown factor', elasticity: 0, direction: null, confidence: null, importanceRank: 0 }
   const typed = raw as Record<string, unknown>
   const nf = normaliseFactorFields(typed)
   const rawId = nf.node_id
@@ -330,9 +337,14 @@ export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<strin
   const confidence = typeof typed.confidence === 'number'
     ? typed.confidence
     : null
-  const direction = typed.direction
-    ? (String(typed.direction).toLowerCase() === 'negative' ? 'negative' : 'positive')
-    : elasticity >= 0 ? 'positive' : 'negative'
+  // ROADMAP 2.234 — THE DUPLICATE COLLAPSE, REMOVED. This read
+  //   `typed.direction ? (lower === 'negative' ? 'negative' : 'positive')
+  //                    : elasticity >= 0 ? 'positive' : 'negative'`
+  // — the same two-value narrowing `mapV5AnalysisToReport` had, written a
+  // second time, so `mixed` and `unknown` became `positive` HERE TOO and a fix
+  // in one file would have left the other lying. Both now call the one shared
+  // normalizer, and neither infers a direction from a magnitude.
+  const direction = normaliseFactorDirection(typed.direction)
 
   // ISL influence_score (0-1) - structural causal influence
   const influenceScore = typeof typed.influence_score === 'number' ? typed.influence_score : undefined
@@ -588,7 +600,11 @@ export function selectDriverPolicyFeed(
       id: (d as { id?: string }).id,
       label: d.label,
       sensitivity: d.contribution,
-      direction: d.polarity === 'down' ? 'negative' : 'positive',
+      // ROADMAP 2.234: `neutral` must come back as a NON-directional value.
+      // `d.polarity === 'down' ? 'negative' : 'positive'` turned every neutral
+      // driver into a positive causal claim on the way back through this
+      // legacy reconstruction.
+      direction: polarityToFactorDirection(d.polarity) ?? undefined,
     }
     const key = getFactorKey(candidate, rawFactors.length + idx)
     if (!seenKeys.has(key)) {
@@ -760,24 +776,18 @@ function normalizeOutcomeValues(
 // =============================================================================
 
 /**
- * Normalise direction variants to canonical enum.
+ * Normalise direction variants to the canonical domain.
+ *
+ * ⚠ ROADMAP 2.234: delegates to the one shared normalizer. It used to hold its
+ * own alias table and return `undefined` for `mixed`/`unknown` — which read as
+ * "no direction" and was harmless HERE, but meant this file and
+ * `mapV5AnalysisToReport` each owned a private answer to the same question.
+ * The alias sets are unchanged (they were merged into the shared module), so
+ * no payload that used to normalise stops normalising; what changes is that
+ * `mixed` and `unknown` now survive as themselves instead of being flattened.
  */
 function normaliseDirection(direction: string | undefined): DriverDirection | undefined {
-  if (!direction) return undefined
-
-  const normalised = String(direction).toLowerCase().trim()
-
-  // Positive variants
-  if (['positive', 'increases', '+', 'increase', 'up'].includes(normalised)) {
-    return 'positive'
-  }
-
-  // Negative variants
-  if (['negative', 'decreases', '-', 'decrease', 'down'].includes(normalised)) {
-    return 'negative'
-  }
-
-  return undefined
+  return normaliseFactorDirection(direction) ?? undefined
 }
 
 /**
@@ -810,13 +820,19 @@ function getFactorDirection(
   edges: EdgeForDirection[],
   goalNodeId: string | undefined,
   outcomeNodeIds: string[],
-  factorDirection?: string
+  // ROADMAP 2.234: the caller now passes an already-normalised
+  // `FactorDirection | null`, and `string` is still accepted for the canvas-edge
+  // and legacy callers. Note the priority rule is UNCHANGED and is now
+  // load-bearing in a second way: a producer that said `mixed` or `unknown` is
+  // an ANSWER, so it short-circuits here and the canvas-edge fallbacks below do
+  // NOT run. Only genuine absence falls through to the graph's own metadata.
+  factorDirection?: FactorDirection | string | null
 ): DriverDirection | undefined {
   // 1. API factor_sensitivity.direction (PRIMARY SOURCE)
   // The analysis engine computes direction based on sensitivity analysis,
   // which is more accurate than static canvas edge metadata.
   if (factorDirection) {
-    return normaliseDirection(factorDirection)
+    return normaliseFactorDirection(factorDirection) ?? undefined
   }
 
   // 2. Canvas edge to goal (FALLBACK when API direction unavailable)

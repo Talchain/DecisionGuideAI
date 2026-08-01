@@ -699,7 +699,18 @@ function RelationshipsSectionInner({
       {/* Coaching: fragile relationships warning */}
       {fragileEdgeIds.size > 0 && (
         <CoachingCard sectionId="relationships-fragile">
-          Fragile relationships could change the recommendation. Review the strongest ones first.
+          {/*
+            ⭐ RE-ANCHORED 2026-08-01 (ROADMAP 2.213 / walk finding F2). Read
+            "Fragile relationships could change the recommendation." — "the
+            recommendation" is the exact noun the no-recommendations doctrine
+            retires, and this line survived PR 548's sweep because it is UI static
+            copy on the Model tab (0 occurrences in the wire) rather than
+            anything the producer sends. Witnessed rendering in BOTH walk
+            scenarios. The replacement states the same fact about the data
+            without the retired noun: what fragility can change is which option
+            comes out ahead, not an endorsement the product does not make.
+          */}
+          Fragile relationships could change which option leads. Review the strongest ones first.
         </CoachingCard>
       )}
 
