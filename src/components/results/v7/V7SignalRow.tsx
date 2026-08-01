@@ -59,6 +59,12 @@ export function V7SignalRow({ topDrivers, fragileEdges, flipThresholds, onFocusN
   //
   // `selectFlipRisk` owns the gate, the floor and the ranking, and it ranks by
   // the SAME metric this chip prints. Never re-rank here.
+  //
+  // NOT a no-op on payloads carrying no flip thresholds: this chip previously
+  // applied NO visibility floor, so one whose every fragile edge sits at or
+  // below UI-SEM-013 (0.15) now renders nothing where it used to render a
+  // chip. Intended — the witnessed "15%" was itself 0.1485, i.e. below the
+  // floor every sibling fragile-edge surface already honours.
   const flipSelection = selectFlipRisk(
     flipThresholds,
     (fragileEdges ?? []).map((e) => ({

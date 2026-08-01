@@ -50,9 +50,24 @@
  *                             wrong factor on a genuinely flip-bearing turn.
  *   • `no_producer_flip_data` no `flip_thresholds` array at all. Absence of
  *                             evidence is NOT evidence of absence: older /
- *                             partial payloads must not be silently blinded,
- *                             so legacy behaviour (rank by switch probability)
- *                             is preserved verbatim.
+ *                             partial payloads keep a named flip risk rather
+ *                             than being silently blinded.
+ *
+ * ⚠ "LEGACY BEHAVIOUR IS PRESERVED" WOULD BE FALSE — say what actually changed.
+ * On `no_producer_flip_data` the flip-risk GATE is unchanged, but two things
+ * about the V7 chip's SELECTION deliberately are not (both corrected here, both
+ * defects in their own right):
+ *   1. The chip used to take `challengeFragileEdges[0]` POSITIONALLY. That
+ *      array is ordered by `marginal_switch_probability`, while the chip
+ *      RENDERS `switch_probability` — so it printed a number that had not
+ *      determined its own rank. Ranking now uses the metric that is displayed.
+ *   2. The chip applied NO visibility floor. It now shares the UI-SEM-013
+ *      floor every other fragile-edge surface uses.
+ * KNOWN DELTA from (2): a legacy payload whose every fragile edge sits at or
+ * below 0.15 now renders NO chip where it previously rendered one. That is
+ * intended — a sub-threshold edge is exactly what the floor exists to silence,
+ * and the witnessed "15%" chip (0.1485) was itself below it — but it IS a
+ * behaviour change on payloads carrying no flip thresholds, not a no-op.
  *
  * Gating on `flip_value == null` and NOT on `flip_reason`: the UI's
  * `FlipReason` union (`'no_bracket' | 'timeout' | 'isl_error'`) does not
@@ -106,6 +121,15 @@ export interface FlipThresholdLike {
  * Classify the producer's flip evidence for a run. Exported so surfaces that
  * only need the gate (and have no candidate list) cannot be tempted to
  * re-derive it.
+ *
+ * ⚠ DELIBERATELY derived from the ROWS, ignoring `flipThresholdsStatus`
+ * (`'computed' | 'all_no_effect' | 'partial_no_effect' | 'unresolved' |
+ * 'unavailable'`). That field is a producer SUMMARY of the same array and is
+ * optional — older builds omit it entirely. Keying the gate on it would make
+ * the status and the rows two independent answers to one question, which is
+ * the two-choosers defect this module exists to end. Do not add a status-keyed
+ * branch here or anywhere else: if the status and the rows ever disagree, the
+ * rows are the evidence.
  */
 export function classifyFlipEvidence(
   flipThresholds: readonly FlipThresholdLike[] | null | undefined,

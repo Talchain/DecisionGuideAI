@@ -12,7 +12,8 @@
  *     Platform Fit" (switch 0.314) — two statements, two factors, one screen.
  *   · witness-2265-raw/runB-66251a40-turn.json — flips ARE real
  *     (`fac_op_readiness`, flip_value 0.772182) and the only flipping factor
- *     is NOT the top fragile edge (`fac_launch_timing` 0.4125 outranks it).
+ *     is NOT the top fragile edge (`fac_launch_timing` 0.41247002398081534
+ *     outranks it).
  */
 
 import { describe, it, expect } from 'vitest'
@@ -57,10 +58,24 @@ const RUNB_FLIP_BEARING_THRESHOLDS = [
   { node_id: 'fac_op_readiness', flip_value: 0.772182 },
 ]
 
+/**
+ * Verbatim captured values. Each factor appears on several fragile edges; the
+ * value below is the HIGHEST `switch_probability` for that `from_id`, which is
+ * what `useResultsSectionData`'s fragile-edge map keeps per factor.
+ *
+ *   fac_launch_timing  0.41247002398081534 · 0.293
+ *   fac_capital_invest 0.327 · 0.2869910625620655 · 0.278
+ *   fac_op_readiness   0.259 · 0.22975352112676056 · 0.223
+ *
+ * (An earlier revision of this file carried 0.4125 / 0.24 and the label
+ * "Operational Readiness" — rounded and mis-transcribed. Corrected to the
+ * capture after adversarial review: a fixture that paraphrases its source
+ * cannot witness anything.)
+ */
 const RUNB_CANDIDATES = [
-  { label: 'Launch Timing Urgency', switchProbability: 0.4125, joinId: 'fac_launch_timing', targetId: 'fac_launch_timing' },
+  { label: 'Launch Timing Urgency', switchProbability: 0.41247002398081534, joinId: 'fac_launch_timing', targetId: 'fac_launch_timing' },
   { label: 'Capital Investment Committed', switchProbability: 0.327, joinId: 'fac_capital_invest', targetId: 'fac_capital_invest' },
-  { label: 'Operational Readiness', switchProbability: 0.24, joinId: 'fac_op_readiness', targetId: 'fac_op_readiness' },
+  { label: 'Operational Readiness Level', switchProbability: 0.259, joinId: 'fac_op_readiness', targetId: 'fac_op_readiness' },
 ]
 
 // ── The honest-absence arm (ROADMAP 2.276, witness §4b / §10) ───────────────
@@ -108,10 +123,11 @@ describe('selectFlipRisk — correct attribution when flips are real', () => {
 
     expect(sel.evidence).toBe('flips_present')
     expect(sel.mayNameFlipRisk).toBe(true)
-    // Launch Timing Urgency has the HIGHER switch probability (0.4125) and is
-    // what the pre-fix selector named — but it does not flip.
-    expect(sel.topFlipRisk?.label).toBe('Operational Readiness')
-    expect(sel.topFlipRisk?.switchProbability).toBe(0.24)
+    // Launch Timing Urgency has the HIGHER switch probability
+    // (0.41247002398081534) and is what the pre-fix selector named — but it
+    // does not flip.
+    expect(sel.topFlipRisk?.label).toBe('Operational Readiness Level')
+    expect(sel.topFlipRisk?.switchProbability).toBe(0.259)
   })
 
   it('renders the SAME metric it ranked by (no marginal-vs-switch mismatch)', () => {
@@ -122,8 +138,9 @@ describe('selectFlipRisk — correct attribution when flips are real', () => {
 
   it('yields no named risk when the flipping factor is below the visibility floor', () => {
     const sel = selectFlipRisk(RUNB_FLIP_BEARING_THRESHOLDS, [
-      { label: 'Launch Timing Urgency', switchProbability: 0.4125, joinId: 'fac_launch_timing' },
-      { label: 'Operational Readiness', switchProbability: 0.15, joinId: 'fac_op_readiness' },
+      { label: 'Launch Timing Urgency', switchProbability: 0.41247002398081534, joinId: 'fac_launch_timing' },
+      // CONSTRUCTED boundary value (not captured): exactly the UI-SEM-013 floor.
+      { label: 'Operational Readiness Level', switchProbability: 0.15, joinId: 'fac_op_readiness' },
     ])
     // 0.15 is not > 0.15 (UI-SEM-013 floor), and no other candidate flips.
     expect(sel.topFlipRisk).toBeNull()
