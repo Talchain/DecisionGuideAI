@@ -8,6 +8,7 @@ import { ContestedEdgeCard } from '../ContestedEdgeCard'
 import type { Edge, Node } from '@xyflow/react'
 import type { ValidationMetadata } from '../../../domain/validation'
 import { DetailToggleContext } from '../DetailToggleContext'
+import { edgeValueSourcePatch } from '../../../domain/edgeValueProvenance'
 
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn()
@@ -270,6 +271,63 @@ describe('ContestedEdgeCard', () => {
     expect(screen.getByTestId('contested-quickset-strong-e1')).toBeInTheDocument()
   })
 
+  /**
+   * ROADMAP 2.263 S7 — WHOSE CLAIM IS THE SIGN?
+   *
+   * The quick-set pills set a MAGNITUDE ("this effect is moderate"). They say
+   * nothing about direction, yet they emit a SIGNED number that the writer
+   * turns into a stored `direction`. Stamping that as `'user'` would record the
+   * producer's sign as the user's own statement — the same laundering this row
+   * exists to remove, one layer further in (a WRITE, not a render).
+   */
+  describe('quick-set: the sign carries the PRODUCER\'s provenance, not the user\'s', () => {
+    function edgeWith(data: Record<string, unknown>): Edge {
+      return {
+        id: 'e1', source: 'n1', target: 'n2',
+        data: { weight: 0.6, beliefExists: 0.7, provenance: 'assumption',
+                validation: makeValidation(), ...data },
+      } as Edge
+    }
+
+    it("stamps 'cee' when the sign came from the producer's pass-2 mean", () => {
+      const onResolve = vi.fn()
+      // No stated direction: the defaulted `direction: 'positive'` carries no
+      // stamp, so the sign falls back to pass2.strength_mean (+0.35).
+      render(
+        <ContestedEdgeCard edge={edgeWith({ direction: 'positive' })} nodes={nodes}
+          validation={makeValidation()} isFragile={false} onResolve={onResolve} />
+      )
+      fireEvent.click(screen.getByTestId('contested-quickset-moderate-e1'))
+      expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', 0.40, 'cee')
+    })
+
+    it("carries 'user' through when the USER had stated the direction", () => {
+      const onResolve = vi.fn()
+      render(
+        <ContestedEdgeCard
+          edge={edgeWith({ direction: 'negative', ...edgeValueSourcePatch({ direction: 'user' }) })}
+          nodes={nodes} validation={makeValidation()} isFragile={false} onResolve={onResolve} />
+      )
+      fireEvent.click(screen.getByTestId('contested-quickset-moderate-e1'))
+      expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', -0.40, 'user')
+    })
+
+    it('writes NO direction at all when nothing states one (non-finite pass-2 mean)', () => {
+      const onResolve = vi.fn()
+      const vm = makeValidation({
+        pass2: { ...makeValidation().pass2, strength_mean: Number.NaN },
+      })
+      render(
+        <ContestedEdgeCard edge={edgeWith({ direction: 'positive', validation: vm })}
+          nodes={nodes} validation={vm} isFragile={false} onResolve={onResolve} />
+      )
+      fireEvent.click(screen.getByTestId('contested-quickset-moderate-e1'))
+      // UNSIGNED midpoint + an explicit `null`: the old code emitted a signed
+      // +0.40 built from a constant 'positive'.
+      expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', 0.40, null)
+    })
+  })
+
   it('hides quick-set pills once resolved', () => {
     const resolved = makeValidation({ user_action: 'accepted_pass1' })
     render(
@@ -296,7 +354,7 @@ describe('ContestedEdgeCard', () => {
       />
     )
     fireEvent.click(screen.getByTestId('contested-quickset-weak-e1'))
-    expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', 0.15)
+    expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', 0.15, 'cee')
   })
 
   it('quick-set Strong fires onResolve with overridden + negative midpoint when direction=negative', () => {
@@ -311,6 +369,12 @@ describe('ContestedEdgeCard', () => {
         beliefExists: 0.7,
         provenance: 'assumption',
         validation: makeValidation(),
+        // ROADMAP 2.263 — the quick-set sign now comes from
+        // `resolveEdgeDirectionDisplay`, so the fixture must STATE the
+        // direction it is asserting about. Unstamped, this edge falls back to
+        // the sign of the producer's own pass-2 mean (+0.35 → positive), which
+        // is the honest behaviour and is covered separately below.
+        ...edgeValueSourcePatch({ direction: 'cee' }),
       },
     }
     render(
@@ -323,7 +387,7 @@ describe('ContestedEdgeCard', () => {
       />
     )
     fireEvent.click(screen.getByTestId('contested-quickset-strong-e1'))
-    expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', -0.7)
+    expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', -0.7, 'cee')
   })
 
   it('calls onResolve with dismissed when "Dismiss" clicked', () => {
@@ -371,7 +435,8 @@ describe('ContestedEdgeCard', () => {
     // Drive the slider to -0.45 via the captured onChange; wrap in act to flush state
     act(() => { sliderOnChange!(-0.45) })
     fireEvent.click(screen.getByTestId('contested-custom-confirm-e1'))
-    expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', -0.45)
+    // 'user': the signed slider IS a direction statement, unlike the band pills.
+    expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', -0.45, 'user')
   })
 
   it('shows resolved confirmation with check icon when resolved', () => {

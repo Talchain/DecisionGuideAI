@@ -10,6 +10,7 @@
  */
 
 import type { ObservedState } from './types'
+import type { EdgeDirectionDisplay } from '../../domain/edgeValueProvenance'
 import { selectDriverDisplayModel, extractPolicyRow } from '../../../components/results/driverDisplayModel'
 import {
   GENERIC_PLACEHOLDER_UNITS,
@@ -106,7 +107,41 @@ export function countFactorsToVerify(factorNodes: ReadonlyArray<{ data: unknown 
 
 // ── Strength semantic labels ──────────────────────────────────────────────────
 // Re-export from strengthBands.ts (canonical thresholds from validation_ui_data_contract_v1.1).
-export { getStrengthLabel as strengthSemanticLabel } from './strengthBands'
+export { getDirectionalStrengthLabel as strengthSemanticLabel } from './strengthBands'
+
+// ── Direction-gated display helpers (ROADMAP 2.263) ──────────────────────────
+//
+// The COLOUR and the LEADING SIGN are direction claims that carry no words, and
+// they leaked the same fabrication the label did: `signedMean >= 0` painted an
+// undirected edge green and printed `+0.30`, because `resolveEdgeSignedStrength
+// Display` hands back `+|weight|` when nothing states a direction. Both now ask
+// the resolver, so an unstated direction reads as a plain neutral magnitude.
+
+/**
+ * Tone class for a direction claim. Neutral unless the direction is STATED —
+ * green/red are verdicts and an unstated direction has no verdict to report.
+ */
+export function directionToneClass(direction: EdgeDirectionDisplay): string {
+  if (!direction.show) return 'text-text-light'
+  return direction.direction === 'negative' ? 'text-danger' : 'text-success'
+}
+
+/**
+ * A signed scalar rendered only as signed as the evidence allows.
+ *
+ * Stated direction → the sign is meaningful, so `+0.30` / `-0.30`.
+ * Unstated        → print the MAGNITUDE with no sign at all. A bare `+` is a
+ *                   claim, and `-` would be a different one; the honest render
+ *                   of "we have a size but not a direction" is the size.
+ */
+export function signedScalarText(
+  value: number,
+  direction: EdgeDirectionDisplay,
+  digits: number,
+): string {
+  if (!direction.show) return Math.abs(value).toFixed(digits)
+  return `${value >= 0 ? '+' : ''}${value.toFixed(digits)}`
+}
 
 // ── Factor influence (model-tab factor cards) ───────────────────────────────
 

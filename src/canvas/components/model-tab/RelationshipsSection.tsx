@@ -32,7 +32,7 @@ import { Accordion } from '../../../components/results/Accordion'
 import { getDisplayEdgeId } from '../../utils/edgeIdentity'
 import { focusEdgeById } from '../../utils/focusHelpers'
 import { NON_EVIDENCE_PROVENANCE } from '../../utils/evidenceCoverage'
-import { strengthSemanticLabel } from './utils'
+import { strengthSemanticLabel, directionToneClass, signedScalarText } from './utils'
 import { InlineEdit } from './InlineEdit'
 import { DetailToggleContext } from './DetailToggleContext'
 import { StrengthBar } from '../../ui/inspector/StrengthBar'
@@ -42,7 +42,9 @@ import type { ValidationMetadata, UserAction } from '../../domain/validation'
 import {
   resolveEdgeValueDisplay,
   resolveEdgeSignedStrengthDisplay,
+  resolveEdgeDirectionDisplay,
   compareEdgeValueDisplays,
+  type EdgeValueSource,
 } from '../../domain/edgeValueProvenance'
 
 /** Repair display entry for edge detail */
@@ -65,7 +67,7 @@ interface RelationshipsSectionProps {
   /** Whether robustness data is available (analysis has run) */
   hasRobustnessData?: boolean
   /** Called when user resolves a contested edge. Provided by ModelTabBody. */
-  onResolveContested?: (edgeId: string, action: UserAction, customMean?: number) => void
+  onResolveContested?: (edgeId: string, action: UserAction, customMean?: number, directionSource?: EdgeValueSource | null) => void
   /** Map of edge ID → E-value from ISL robustness */
   edgeEValueMap?: Map<string, number>
   /** Map of edge ID → repairs applied from PLoT */
@@ -162,9 +164,22 @@ function EdgeCard({
   const strengthDisplay = resolveEdgeSignedStrengthDisplay(data)
   const likelihoodDisplay = resolveEdgeValueDisplay(data, 'beliefExists')
 
-  const rawDirection = data?.direction as string | undefined
-  const safeDirection: 'positive' | 'negative' =
-    rawDirection === 'negative' ? 'negative' : rawDirection === 'positive' ? 'positive' : 'positive'
+  /**
+   * ROADMAP 2.263. This was:
+   *
+   *   const safeDirection = rawDirection === 'negative' ? 'negative'
+   *                       : rawDirection === 'positive' ? 'positive' : 'positive'
+   *
+   * — a three-branch ternary whose two live branches both ended at
+   * `'positive'`, so an edge whose producer said `'unknown'` or said nothing
+   * rendered as a positive effect: green label, green `+`, green half of the
+   * StrengthBar, and the `+` toggle lit as though someone had chosen it.
+   *
+   * `resolveEdgeDirectionDisplay` is the one owner of that answer, and its
+   * `show: false` arm has no direction to read, so no surface below can fall
+   * back to `'positive'` by accident.
+   */
+  const directionDisplay = resolveEdgeDirectionDisplay(data)
   const strengthStd = data?.strengthStd ?? data?.strength_std
 
   const hasStrength = strengthDisplay.show
@@ -279,13 +294,13 @@ function EdgeCard({
       {!cardExpanded && (
         <div className="flex items-center gap-2 flex-wrap" data-testid={`edge-${edgeId}-summary`}>
           {signedMean !== undefined && (
-            <span className={`${typography.panelMeta} ${signedMean >= 0 ? 'text-success' : 'text-danger'}`}>
-              {strengthSemanticLabel(signedMean)}
+            <span className={`${typography.panelMeta} ${directionToneClass(directionDisplay)}`}>
+              {strengthSemanticLabel(signedMean, directionDisplay)}
             </span>
           )}
           {signedMean !== undefined && (
             <span className={`${typography.panelMeta} text-text-body font-mono`}>
-              {signedMean >= 0 ? '+' : ''}{signedMean.toFixed(2)}
+              {signedScalarText(signedMean, directionDisplay, 2)}
             </span>
           )}
           {showDetail && strengthStd !== undefined && (
@@ -329,7 +344,7 @@ function EdgeCard({
                     type="button"
                     onClick={(e) => { e.stopPropagation(); handleDirectionToggle('positive') }}
                     className={`px-2 py-0.5 ${typography.panelMeta} transition-colors ${
-                      safeDirection === 'positive'
+                      directionDisplay.show && directionDisplay.direction === 'positive'
                         ? 'bg-success/20 text-success border-r border-panel-border'
                         : 'text-text-light hover:bg-panel border-r border-panel-border'
                     }`}
@@ -341,7 +356,7 @@ function EdgeCard({
                     type="button"
                     onClick={(e) => { e.stopPropagation(); handleDirectionToggle('negative') }}
                     className={`px-2 py-0.5 ${typography.panelMeta} transition-colors ${
-                      safeDirection === 'negative'
+                      directionDisplay.show && directionDisplay.direction === 'negative'
                         ? 'bg-danger/20 text-danger'
                         : 'text-text-light hover:bg-panel'
                     }`}
@@ -350,7 +365,10 @@ function EdgeCard({
                     −
                   </button>
                 </div>
-                <StrengthBar weight={rawWeight!} direction={safeDirection} />
+                <StrengthBar
+                  weight={rawWeight!}
+                  direction={directionDisplay.show ? directionDisplay.direction : undefined}
+                />
               </>
             ) : (
               <span
@@ -363,8 +381,8 @@ function EdgeCard({
           </div>
           {signedMean !== undefined && (
             <div className="mt-1">
-              <span className={`${typography.panelMeta} ${signedMean >= 0 ? 'text-success' : 'text-danger'}`}>
-                {strengthSemanticLabel(signedMean)}
+              <span className={`${typography.panelMeta} ${directionToneClass(directionDisplay)}`}>
+                {strengthSemanticLabel(signedMean, directionDisplay)}
               </span>
               {strengthStd !== undefined && (
                 <span className={`${typography.panelMeta} text-text-light ml-1`}>
@@ -428,7 +446,7 @@ function EdgeCard({
                   <>
                     <span className={`${typography.panelMeta} text-text-light`}>Signed effect</span>
                     <span className={`${typography.panelBody} text-text-body font-mono text-right`}>
-                      {signedMean >= 0 ? '+' : ''}{signedMean.toFixed(3)}
+                      {signedScalarText(signedMean, directionDisplay, 3)}
                     </span>
                   </>
                 )}

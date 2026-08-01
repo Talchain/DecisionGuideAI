@@ -113,8 +113,9 @@ function makeEdge(
       direction: opts.direction ?? 'positive',
       // A characterised edge is a STAMPED edge — the RelationshipsSection card
       // is provenance-gated, so an unstamped fixture renders "Not set" no
-      // matter what numbers it carries.
-      ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user' }),
+      // matter what numbers it carries. ROADMAP 2.263 put `direction` under the
+      // same gate: unstamped, it renders "direction not stated".
+      ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user', direction: 'user' }),
     },
   }
 }

@@ -18,6 +18,7 @@ import {
   withLiveEdgeValue,
   EDGE_VALUE_BAND_CUTS,
   EDGE_PROVENANCED_FIELDS,
+  EDGE_NUMERIC_PROVENANCED_FIELDS,
   EDGE_VALUE_SOURCE_KEYS,
   edgeSourceKey,
   stripEdgeValueSourceKeys,
@@ -42,9 +43,16 @@ describe('edgeValueProvenance — the UI defaults are NOT a source', () => {
   )
 
   it.each(EDGE_PROVENANCED_FIELDS)(
-    'USER_EDGE_DEFAULTS carries a number for %s but no source, so it reads as NOT SET',
+    'USER_EDGE_DEFAULTS carries a value for %s but no source, so it reads as NOT SET',
     (field) => {
-      expect(typeof (USER_EDGE_DEFAULTS as Record<string, unknown>)[field]).toBe('number')
+      const raw = (USER_EDGE_DEFAULTS as Record<string, unknown>)[field]
+      // The value IS present — that is the trap this whole module exists for.
+      // `direction` joined the registry in ROADMAP 2.263 and is an ENUM, not a
+      // number ('positive'), so the assertion is on PRESENCE; the numeric
+      // fields keep their stronger type check.
+      expect(raw).toBeDefined()
+      if (field !== 'direction') expect(typeof raw).toBe('number')
+      else expect(raw).toBe('positive')
       expect(isEdgeValueSet(USER_EDGE_DEFAULTS as Record<string, unknown>, field)).toBe(false)
     },
   )
@@ -141,7 +149,11 @@ describe('EdgeDataSchema — the markers survive a parse', () => {
 // hidden assertions would pass on a resolver that returned `show: false`
 // unconditionally.
 describe('resolveEdgeValueDisplay', () => {
-  it.each(EDGE_PROVENANCED_FIELDS)(
+  // NUMERIC fields only: `resolveEdgeValueDisplay` resolves numbers, and
+  // ROADMAP 2.263 narrowed its parameter type so `'direction'` cannot be passed
+  // at all. Direction's own resolver is covered in
+  // `model-tab/__tests__/edgeDirectionHonesty.spec.tsx`.
+  it.each(EDGE_NUMERIC_PROVENANCED_FIELDS)(
     'hides %s on a freshly drawn edge — the number is there, the source is not',
     (field) => {
       const drawn = { ...USER_EDGE_DEFAULTS } as Record<string, unknown>
@@ -150,7 +162,7 @@ describe('resolveEdgeValueDisplay', () => {
     },
   )
 
-  it.each(EDGE_PROVENANCED_FIELDS)('POSITIVE CONTROL: shows %s once stamped', (field) => {
+  it.each(EDGE_NUMERIC_PROVENANCED_FIELDS)('POSITIVE CONTROL: shows %s once stamped', (field) => {
     const stamped = {
       ...USER_EDGE_DEFAULTS,
       ...edgeValueSourcePatch({ [field]: 'user' } as never),
@@ -190,7 +202,7 @@ describe('resolveEdgeValueDisplay', () => {
       {},
     ]
     for (const sample of samples) {
-      for (const field of EDGE_PROVENANCED_FIELDS) {
+      for (const field of EDGE_NUMERIC_PROVENANCED_FIELDS) {
         const got = resolveEdgeValueDisplay(sample, field)
         if (got.show) expect(got.source).toBeTruthy()
       }

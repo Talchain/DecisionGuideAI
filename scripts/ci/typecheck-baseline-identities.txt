@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2510
+# count=2505
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -649,8 +649,6 @@
 4	src/canvas/hooks/useV2Run.ts	TS2339	Property 'scenario_id' does not exist on type 'ScenarioFraming'.
 1	src/canvas/hooks/useV2Run.ts	TS2339	Property 'seed' does not exist on type 'ScenarioFraming'.
 1	src/canvas/hooks/useV2Run.ts	TS2345	Argument of type '"computed" | "error" | "skipped" | "unavailable"' is not assignable to parameter of type '"computed" | "error" | "unavailable" | undefined'.
-4	src/canvas/hooks/useV2Run.ts	TS2353	Object literal may only specify known properties, and 'duration_ms' does not exist in type 'RunFailedPayload'.
-1	src/canvas/hooks/useV2Run.ts	TS2353	Object literal may only specify known properties, and 'option_count' does not exist in type 'RunCompletedPayload'.
 1	src/canvas/hooks/useV2Run.ts	TS6133	'hashStackTrace' is declared but its value is never read.
 1	src/canvas/hooks/useV2Run.ts	TS6133	'updateRobustnessGate' is declared but its value is never read.
 1	src/canvas/hooks/useV2Run.ts	TS6192	All imports in import declaration are unused.
@@ -744,7 +742,7 @@
 1	src/canvas/snapshots/snapshots.ts	TS2322	Type '{ id: string; source: string; target: string; data: { label: string | undefined; weight: number | undefined; }; }[]' is not assignable to type 'Edge<EdgeData>[]'.
 1	src/canvas/snapshots/useVisualDiff.ts	TS2552	Cannot find name 'setDiffEnabled'. Did you mean 'setIsDiffEnabled'?
 3	src/canvas/store/__tests__/analysisReady.invalidation.spec.ts	TS2322	Type 'number' is not assignable to type 'CEEInterventionV3'.
-1	src/canvas/store/__tests__/analysisReady.invalidation.spec.ts	TS2322	Type '{ data: { weight: number; style?: "dashed" | "dotted" | "solid" | undefined; curvature?: number | undefined; pathType?: "bezier" | "smoothstep" | "straight" | undefined; kind?: "decision-probability" | "deterministic" | "influence-weight" | "risk-likelihood" | undefined; ... 25 more ...; userReviewedStrength?: boole...' is not assignable to type 'Edge<EdgeData>[]'.
+1	src/canvas/store/__tests__/analysisReady.invalidation.spec.ts	TS2322	Type '{ data: { weight: number; style?: "dashed" | "dotted" | "solid" | undefined; curvature?: number | undefined; pathType?: "bezier" | "smoothstep" | "straight" | undefined; kind?: "decision-probability" | "deterministic" | "influence-weight" | "risk-likelihood" | undefined; ... 26 more ...; userReviewedStrength?: boole...' is not assignable to type 'Edge<EdgeData>[]'.
 1	src/canvas/store/__tests__/analysisReady.invalidation.spec.ts	TS6133	'newEdge' is declared but its value is never read.
 1	src/canvas/store/__tests__/documents.spec.ts	TS6133	'ValidationError' is declared but its value is never read.
 2	src/canvas/store/__tests__/resultsSettle.spec.ts	TS2322	Type 'undefined' is not assignable to type 'number'.
@@ -833,11 +831,11 @@
 1	src/canvas/ui/inspector-v2/shared/IntelligenceSection.tsx	TS2339	Property 'status' does not exist on type 'ResultsStoreState & ResultsActions'.
 1	src/canvas/ui/inspector-v2/shared/IntelligenceSection.tsx	TS7006	Parameter 'd' implicitly has an 'any' type.
 1	src/canvas/ui/inspector-v2/types.ts	TS6196	'FactorCategory' is declared but never used.
-1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ beliefExists: number; beliefExistsSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; curvature?: number | undefined; pathType?: "bezier" | "smoothstep" | "straight" | undefined; ... 24 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
-1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ direction: "negative" | "positive"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; curvature?: number | undefined; pathType?: "bezier" | "smoothstep" | "straight" | undefined; ... 25 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
-1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ label: string | undefined; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; curvature?: number | undefined; pathType?: "bezier" | "smoothstep" | "straight" | undefined; ... 25 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
-1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ strengthStd: number; strengthStdSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; curvature?: number | undefined; pathType?: "bezier" | "smoothstep" | "straight" | undefined; ... 24 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
-1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ weightSource: "user"; direction?: "negative" | "positive" | undefined; weight: number; style?: "dashed" | "dotted" | "solid" | undefined; curvature?: number | undefined; pathType?: "bezier" | ... 2 more ... | undefined; ... 24 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
+1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ beliefExists: number; beliefExistsSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; curvature?: number | undefined; pathType?: "bezier" | "smoothstep" | "straight" | undefined; ... 25 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
+1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ direction: "negative" | "positive"; directionSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; curvature?: number | undefined; pathType?: "bezier" | ... 2 more ... | undefined; ... 25 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
+1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ label: string | undefined; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; curvature?: number | undefined; pathType?: "bezier" | "smoothstep" | "straight" | undefined; ... 26 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
+1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ strengthStd: number; strengthStdSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; curvature?: number | undefined; pathType?: "bezier" | "smoothstep" | "straight" | undefined; ... 25 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
+1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ weightSource: "user"; direction?: "negative" | "positive" | undefined; directionSource?: "cee" | "template" | "user" | undefined; weight: number; style?: "dashed" | "dotted" | "solid" | undefined; ... 26 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
 1	src/canvas/ui/inspector/SignedStrengthSlider.stories.tsx	TS2307	Cannot find module '@storybook/react' or its corresponding type declarations.
 1	src/canvas/ui/inspector/SignedStrengthSlider.tsx	TS6133	'displayColor' is declared but its value is never read.
 1	src/canvas/ui/inspector/SignedStrengthSlider.tsx	TS6133	'effectCoaching' is declared but its value is never read.

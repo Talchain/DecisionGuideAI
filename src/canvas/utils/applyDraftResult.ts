@@ -160,10 +160,13 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
       // carried no belief at all, `beliefExists` is `undefined` here and the
       // stamp is omitted, so the edge reads as NOT SET rather than claiming a
       // producer estimate that was never sent.
+      // `direction` stamped only when the producer stated one — ROADMAP 2.263.
+      // See the twin site in `DraftChat`.
       ...edgeValueSourcePatch({
         beliefExists: beliefExists !== undefined ? 'cee' : undefined,
         weight: wireSuppliedStrength ? 'cee' : undefined,
         strengthStd: strengthStd !== undefined ? 'cee' : undefined,
+        direction: directionFromEdge !== undefined ? 'cee' : undefined,
       }),
       // CEE display provenance (snake_case → camelCase). Distinct from `provenance_source`.
       ...edgeProvenanceDisplayPatch(e),
