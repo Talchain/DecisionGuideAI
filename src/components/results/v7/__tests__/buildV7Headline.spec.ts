@@ -168,49 +168,86 @@ describe('buildV7Headline — SINGLE VERDICT gate', () => {
 // through `SUB_ONE_PERCENT_FLOOR`.
 //
 // RED-first: the "< 1%" assertion fails on `48adda75` (it reads "0%").
+//
+// ⭐ FIXTURES COMPLETED + ONE EXPECTATION SUPERSEDED, 2026-08-01 (ROADMAP 2.233).
+//
+// TWO changes, and the distinction matters when reading this block.
+//
+// (1) THE FIXTURES WERE INCOMPLETE, and that incompleteness is exactly what
+//     hid the crowning defect. Every case gave the goal probability to the
+//     RECOMMENDED option ALONE and set no `goalThreshold`, so no rival could
+//     ever contradict the superlative and the audit's disagreement case was
+//     unreachable from this file. The rows now carry a user target and a goal
+//     value for BOTH options — which is what `selectGoalLeader` requires
+//     before it will crown anything at all.
+//
+// (2) THE SUB-1% EXPECTATION IS SUPERSEDED. This block used to assert that a
+//     0.4% goal probability produces "…highest chance of hitting your goal:
+//     < 1%". Rendering "< 1%" instead of "0%" was the right fix to the
+//     FORMATTING half, and that half is unchanged and still pinned below. But
+//     crowning at all in that state was the wrong answer to a question this
+//     block was not asking: the sibling hero (`buildHeroModel`, same
+//     UI-SEM-057 floor) WITHHOLDS the crown when nothing clears the floor and
+//     switches to its no-option-on-track headline. The two render on the same
+//     screen, so a crown here was a fresh contradiction of the kind 2.233
+//     exists to remove. The withheld behaviour is pinned in
+//     `buildV7Headline.goalLeader.spec.ts`; what remains here is the FORMATTER
+//     claim, tested across the range where a crown is legitimately earned.
 describe('buildV7Headline — the goal magnitude honours the shared sub-1% floor', () => {
-  function goalWinner(goalProbability: number): OptionResult {
-    return {
+  /** A complete goal fixture: both options measured, A ahead, user target set. */
+  function goalRun(winnerGoal: number, rivalGoal = 0.001): DecisionResultData {
+    const winner = {
       id: 'a',
       label: 'Option A',
       winProbability: 0.71,
       isRecommended: true,
-      goalProbability,
+      goalProbability: winnerGoal,
       goalFitIsSubstitutedJoint: false,
     } as unknown as OptionResult
+    const rival = {
+      id: 'b',
+      label: 'Option B',
+      winProbability: 0.29,
+      goalProbability: rivalGoal,
+      goalFitIsSubstitutedJoint: false,
+    } as unknown as OptionResult
+    return rec({
+      recommendedOption: winner,
+      allOptions: [winner, rival],
+      goalThreshold: 100,
+    })
   }
 
-  it('renders a non-zero sub-1% goal probability as "< 1%", never a bare "0%"', () => {
-    const winner = goalWinner(0.004)
-    const model = buildV7Headline(
-      rec({ recommendedOption: winner, allOptions: [winner, opt('b', 'Option B', 0.29)] }),
-      'robust',
-    )
-    expect(model.headline).toBe(
-      GOAL_ANCHOR_COPY.headline('Option A', SUB_ONE_PERCENT_READOUT, false),
-    )
+  it('SUPERSEDED — a sub-1% maximum is no longer crowned at all (it is not re-labelled "0%" either)', () => {
+    const model = buildV7Headline(goalRun(0.004, 0.001), 'robust')
+    // The old expectation was GOAL_ANCHOR_COPY.headline('Option A', '< 1%', false).
+    expect(model.headline).not.toContain('highest chance')
+    // The defect the original test was written against stays dead: no bare
+    // "0%" is printed for a non-zero probability anywhere in this headline.
     expect(model.headline).not.toContain(': 0%')
+    expect(model.headline).not.toContain('0%')
   })
 
-  it('uses the SAME floored formatter the sibling goal surfaces use', () => {
-    for (const v of [0.004, 0.0099, 0.01, 0.5]) {
-      const winner = goalWinner(v)
-      const model = buildV7Headline(
-        rec({ recommendedOption: winner, allOptions: [winner, opt('b', 'Option B', 0.29)] }),
-        'robust',
-      )
+  it('uses the SAME floored formatter the sibling goal surfaces use, across the crownable range', () => {
+    // 0.01 is the floor itself (inclusive — `value < FLOOR` is the predicate).
+    for (const v of [0.01, 0.012, 0.5, 0.9]) {
+      const model = buildV7Headline(goalRun(v), 'robust')
       expect(model.headline).toBe(
         GOAL_ANCHOR_COPY.headline('Option A', formatGoalProbability(v), false),
       )
     }
   })
 
+  it('CONTROL — the readout constant is still reachable from the shared formatter', () => {
+    // The "< 1%" string has not been deleted or re-defined; it is simply no
+    // longer something a HEADLINE can crown on. Proving the constant and the
+    // formatter still agree keeps the supersession above honest — the claim is
+    // "not crowned", not "the floor was removed".
+    expect(formatGoalProbability(0.004)).toBe(SUB_ONE_PERCENT_READOUT)
+  })
+
   it('CONTROL — the top of the range is unchanged: no ceiling rule the siblings do not have', () => {
-    const winner = goalWinner(0.995)
-    const model = buildV7Headline(
-      rec({ recommendedOption: winner, allOptions: [winner, opt('b', 'Option B', 0.29)] }),
-      'robust',
-    )
+    const model = buildV7Headline(goalRun(0.995), 'robust')
     expect(model.headline).toBe(GOAL_ANCHOR_COPY.headline('Option A', '100%', false))
   })
 })

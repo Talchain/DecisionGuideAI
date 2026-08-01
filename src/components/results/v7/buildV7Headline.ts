@@ -26,9 +26,10 @@
  */
 
 import type { DecisionResultData, DecisionState } from '../types'
-import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY, isFiniteProbability } from '../utils/goalAnchorCopy'
+import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY } from '../utils/goalAnchorCopy'
 import { formatGoalProbability } from '../utils/displayFloors'
-import { formatPercent as formatPct } from '../../../utils/formatPercent'
+import { goalLeadPoints, selectGoalLeader } from '../utils/selectGoalLeader'
+import { formatProbabilityWithResolution } from '../../../utils/formatPercent'
 
 export interface V7HeadlineModel {
   /** Main headline. Empty string when there is no winner to headline. */
@@ -121,9 +122,71 @@ export function buildV7Headline(
     }
   }
 
-  // Clear winner — "performs best". Subline names the lead in points when the
-  // runner-up carries a win probability we can difference against (store-derived,
-  // never fabricated).
+  /**
+   * ⭐ THE GOAL CROWN (ROADMAP 2.233). This used to read the goal probability
+   * off `winner` — the COMPARATIVE leader — and print "has the highest chance
+   * of hitting your goal" without ever consulting a rival. The superlative was
+   * unearned by construction: A(win .70, goal .40) beside B(win .30, goal .80)
+   * crowned A at 40% while the goal block on the same screen ranked B first at
+   * 80%. Headline identity, headline number and subline gap came from two
+   * different questions.
+   *
+   * The entitlement now comes from `selectGoalLeader` — the rule
+   * `buildHeroModel` (UI-SEM-072) already held and which the hero now shares,
+   * so the two surfaces cannot disagree about who leads on the goal view. It
+   * returns null rather than a wrong crown whenever the claim is not earned
+   * (designations withheld, no user target, an unmeasured rival, a tie at the
+   * top, or nothing clearing the sub-1% floor), and the headline then falls
+   * through to the honest COMPARATIVE arm below — the hero's own fallback.
+   *
+   * ONE SUBJECT, ONE METRIC. When the crown lands, every field of this model
+   * describes the CROWNED option: `V7Hero` paints `winProbability` into a
+   * gauge immediately beside the headline, so carrying the comparative
+   * leader's number under the goal leader's name would recreate the defect one
+   * element to the left. The subline likewise measures the GOAL gap, not the
+   * comparative one.
+   */
+  const goalLeader = selectGoalLeader(allOptions, (o) => o.goalProbability, {
+    // Always false by this point — the `noLeadingOption` gate above returns
+    // early on a withheld verdict. Passed explicitly anyway: the entitlement
+    // belongs to the selector, so a future change to that gate cannot silently
+    // re-open the crown.
+    designationsWithheld: verdict != null && !verdict.hasLeadingOption,
+    hasUserTarget: recommendation.goalThreshold != null,
+  })
+
+  if (goalLeader && goalLeader.label) {
+    const leadPoints = goalLeadPoints(allOptions, (o) => o.goalProbability, goalLeader)
+    return {
+      headline: GOAL_ANCHOR_COPY.headline(
+        goalLeader.label,
+        // UI-SEM-057: the shared floor, so a 1.2% goal probability reads the
+        // same here as on the option card beside it.
+        formatGoalProbability(goalLeader.goalProbability as number),
+        goalLeader.goalFitIsSubstitutedJoint === true,
+      ),
+      subline: leadSubline(leadPoints),
+      winProbability:
+        typeof goalLeader.winProbability === 'number' && Number.isFinite(goalLeader.winProbability)
+          ? goalLeader.winProbability
+          : null,
+      winnerLabel: goalLeader.label,
+    }
+  }
+
+  /**
+   * The COMPARATIVE arm — the analysis leader, named by the quantity that
+   * actually ranks it.
+   *
+   * ⭐ RE-ANCHORED 2026-07-31 (§6.2c, RETIRE). Was `"{winner} performs best"`
+   * — the closest sentence in the product to "choose this": an unqualified
+   * superlative with no stated basis, no number and no timeframe, which a
+   * reader cannot argue with because it drops the figure that would let them.
+   *
+   * Subline names the lead in points when the runner-up carries a win
+   * probability we can difference against (store-derived, never fabricated).
+   * Same metric as the headline above it, same subject.
+   */
   const runnerUp = allOptions
     .filter(o => o.id !== winner?.id)
     .filter((o): o is typeof o & { winProbability: number } => typeof o.winProbability === 'number')
@@ -132,44 +195,31 @@ export function buildV7Headline(
     winProbability != null && runnerUp
       ? Math.round((winProbability - runnerUp.winProbability) * 100)
       : null
-  const subline =
-    gapPoints != null && gapPoints > 0
-      ? `Leads by ${gapPoints} point${gapPoints === 1 ? '' : 's'}`
-      : null
 
-  /**
-   * ⭐ RE-ANCHORED 2026-07-31 (§6.2c, RETIRE). Was `"{winner} performs best"`
-   * — the closest sentence in the product to "choose this": an unqualified
-   * superlative with no stated basis, no number and no timeframe, which a
-   * reader cannot argue with because it drops the figure that would let them.
-   *
-   * The A form is used whenever the run carries a goal number, with the
-   * possessive gated on the winner's own basis flag. Without a target there
-   * is no goal number at all (ISL computes one only against a threshold), so
-   * the claim falls back to the COMPARATIVE quantity, named as such.
-   */
-  const goalProbability = isFiniteProbability(winner?.goalProbability)
-    ? winner.goalProbability
-    : null
   const headline =
-    goalProbability != null
-      ? GOAL_ANCHOR_COPY.headline(
-          winnerLabel,
-          // UI-SEM-057: the shared floor, so a 0.4% goal probability reads
-          // "< 1%" here rather than crowning an option on a number the same
-          // headline prints as "0%" — the option card beside it already says
-          // "< 1%" about the identical value.
-          formatGoalProbability(goalProbability),
-          winner?.goalFitIsSubstitutedJoint === true,
-        )
-      : winProbability != null
-        ? `${winnerLabel} ${COMPARATIVE_COPY.clause(formatPct(winProbability, { fromDecimal: true }))}`
-        : `${winnerLabel} — ${COMPARATIVE_COPY.unavailableClause}`
+    winProbability != null
+      // ROADMAP 2.236: the shared FLOORED comparative formatter, not a bare
+      // `formatPercent`. Same rule as the option card and the canvas node, so
+      // this sentence cannot say "came out ahead in 0% of simulated scenarios"
+      // about a measured non-zero probability while they say "< 1%".
+      ? `${winnerLabel} ${COMPARATIVE_COPY.clause(formatProbabilityWithResolution(winProbability, null))}`
+      : `${winnerLabel} — ${COMPARATIVE_COPY.unavailableClause}`
 
   return {
     headline,
-    subline,
+    subline: leadSubline(gapPoints),
     winProbability,
     winnerLabel,
   }
+}
+
+/**
+ * The shipped lead-in-points subline (certaintyCopy.ts rule 4), built in ONE
+ * place so the goal arm and the comparative arm cannot render the same claim
+ * with different pluralisation. A non-positive or absent gap yields no
+ * subline — silence rather than "Leads by 0 points".
+ */
+function leadSubline(points: number | null): string | null {
+  if (points == null || points <= 0) return null
+  return `Leads by ${points} point${points === 1 ? '' : 's'}`
 }

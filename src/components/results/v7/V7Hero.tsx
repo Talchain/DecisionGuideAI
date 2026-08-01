@@ -15,7 +15,8 @@
  */
 
 import { typography } from '@/styles/typography'
-import { formatPercent } from '@/utils/formatPercent'
+import { formatProbabilityWithResolution } from '@/utils/formatPercent'
+import { COMPARATIVE_COPY } from '../utils/goalAnchorCopy'
 import type { DecisionResultData, DecisionState, DriverItem } from '../types'
 import { buildV7Headline } from './buildV7Headline'
 import { V7SignalRow } from './V7SignalRow'
@@ -66,8 +67,13 @@ export function V7Hero({
     >
       <div className="flex items-start gap-3">
         {winPct != null && dash && (
-          <div className="relative h-[52px] w-[52px] flex-none" data-testid="v7-hero-gauge">
-            <svg viewBox="0 0 52 52" className="h-[52px] w-[52px]">
+          <div
+            className="relative h-[52px] w-[52px] flex-none"
+            data-testid="v7-hero-gauge"
+            role="img"
+            aria-label={`${COMPARATIVE_COPY.label}: ${formatProbabilityWithResolution(winPct, null)}`}
+          >
+            <svg viewBox="0 0 52 52" className="h-[52px] w-[52px]" aria-hidden="true">
               <circle cx="26" cy="26" r={GAUGE_R} fill="none" stroke="currentColor" strokeWidth="5" className="text-panel-border" />
               <circle
                 cx="26"
@@ -84,9 +90,34 @@ export function V7Hero({
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
               <span className={`${typography.panelHeader} text-text-header`}>
-                {formatPercent(winPct, { fromDecimal: true })}
+                {/*
+                  ROADMAP 2.236: the shared floored comparative formatter. This
+                  was a bare `formatPercent(...)`, so the ring printed "0%" for
+                  a measured sub-1% probability while the canvas node said
+                  "< 1%".
+                */}
+                {formatProbabilityWithResolution(winPct, null)}
               </span>
-              <span className="text-[8.5px] text-text-light">wins</span>
+              {/*
+                ⭐ RETIRED 2026-08-01 (ROADMAP 2.214 / walk finding F4). The
+                caption here was the bare word "wins" under a large percentage
+                — an un-anchored name for the COMPARATIVE quantity, exactly what
+                `COMPARATIVE_COPY` exists to retire. It survived PR 548's sweep
+                because the retired-string list covered "winning" / "winner" /
+                "Win probability" and not "wins".
+
+                It is REMOVED rather than replaced, for two reasons. The
+                register's own label ("Came out ahead across scenarios") is 30
+                characters and this ring is 52px wide — it would wrap to four
+                lines and burst the circle. And the label is redundant: the
+                headline sitting immediately to the right of this ring already
+                reads "{option} came out ahead in {n}% of simulated scenarios",
+                which names the quantity in full. The quantity keeps its name on
+                screen; the gauge stops asserting a second, un-anchored one.
+
+                The register's label is attached to the ring as its accessible
+                name, so a screen-reader user is not left with a bare number.
+              */}
             </div>
           </div>
         )}

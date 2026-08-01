@@ -39,6 +39,7 @@ import { typography } from '../../styles/typography'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY, isFiniteProbability } from './utils/goalAnchorCopy'
 import { formatGoalProbability } from './utils/displayFloors'
+import { formatProbabilityWithResolution } from '../../utils/formatPercent'
 import Tooltip from '../Tooltip'
 import type { DecisionState } from './types'
 
@@ -361,7 +362,10 @@ export function WinGauge({
                   backgroundColor: colorById[share.id],
                 }}
                 role="img"
-                aria-label={`${stripEncodingNotation(share.label)}: ${displayPct}%`}
+                // ROADMAP 2.236: a segment that IS drawn is labelled with the
+                // shared floored readout, so the screen reader hears what the
+                // legend below prints.
+                aria-label={`${stripEncodingNotation(share.label)}: ${formatProbabilityWithResolution(clamped, null)}`}
               />
             )
           })}
@@ -369,8 +373,18 @@ export function WinGauge({
         {/* Legend — coloured dot + truncated name + percentage */}
         <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
           {sorted.map((share) => {
-            const displayPct = Math.round(Math.max(0, Math.min(1, share.winProbability)) * 100)
-            if (displayPct <= 0) return null
+            const clamped = Math.max(0, Math.min(1, share.winProbability))
+            // ⭐ ROADMAP 2.236 — TWO defects on this line, both from rounding
+            // before deciding.
+            //
+            // It read `Math.round(clamped * 100)` and then `if (displayPct <= 0)
+            // return null`. So an option with a real, measured 0.19% chance was
+            // not merely printed as "0%" — it was DELETED from the legend
+            // entirely, while the canvas node beside it said "< 1%". The skip is
+            // now on the RAW value, so only a genuine zero is omitted, and the
+            // readout goes through the shared floored formatter.
+            if (clamped <= 0) return null
+            const displayReadout = formatProbabilityWithResolution(clamped, null)
             return (
               <span key={share.id} className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-light`}>
                 <span
@@ -379,7 +393,7 @@ export function WinGauge({
                   aria-hidden="true"
                 />
                 <span className="truncate max-w-[120px]">{stripEncodingNotation(share.label)}</span>
-                <span className="tabular-nums">{displayPct}%</span>
+                <span className="tabular-nums">{displayReadout}</span>
               </span>
             )
           })}

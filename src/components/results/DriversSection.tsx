@@ -278,6 +278,52 @@ function ContestedDriverQuickSelect({ driver }: { driver: DriverItem }) {
 }
 
 // Individual driver row - Compact 2-line structure
+/**
+ * The elasticity tooltip sentence — the ONE place deciding whether a driver's
+ * magnitude is presented WITH a direction (ROADMAP 2.234, R3).
+ *
+ * Exported and pure so the rule can be pinned directly. It previously lived
+ * inline inside a hover-only `Tooltip`, which is exactly why it went on
+ * rendering `mixed`/`unknown`/absent identically to `positive` long after the
+ * mapper stopped fabricating directions: nothing could see it without a hover.
+ *
+ * ⚠ THIS IS THE ONLY LIVE DRIVER SURFACE. `factorDirection.ts` used to justify
+ * "the renderers already handle neutral" by citing `KeyDriversPanel`,
+ * `DriverChips` and `InsightsPanel` — all three have ZERO non-test JSX mounts.
+ * `DriversSection` (`ResultsBody.tsx:559`) is the one a tester sees.
+ *
+ * UI-SEM-046: the ×10 / floor-1 scaling is presentational amplification of the
+ * 0-1 elasticity, unchanged.
+ */
+export function elasticityShiftCopy(driver: DriverItem): string | null {
+  if (!(driver.rawElasticity > 0.001)) return null
+  const shiftPercent = Math.max(1, Math.round(driver.rawElasticity * 10))
+  const binary = isBinaryFactor(driver.factorLabel)
+
+  // Only the two directional states license a signed claim. `mixed`, `unknown`
+  // and absence are PRESENT answers that withhold a direction, so `!= null`
+  // would be the wrong question here.
+  const directional = driver.direction === 'positive' || driver.direction === 'negative'
+  if (!directional) {
+    // ⚠ NEW COPY — TWO STRINGS, both for founder sign-off (an earlier note said
+    // "one string"; they share the ` — direction not reported` suffix but are
+    // two distinct user-visible sentences, and the em-dash is U+2014):
+    //   1. `Higher values tend to shift outcome by {N}% — direction not reported`
+    //   2. `When true, outcome tends to shift by {N}% — direction not reported`
+    // No existing register covers a magnitude whose direction the producer
+    // declined to assert. The magnitude is producer data and stays; only the
+    // implied sign goes.
+    return binary
+      ? `When true, outcome tends to shift by ${shiftPercent}% — direction not reported`
+      : `Higher values tend to shift outcome by ${shiftPercent}% — direction not reported`
+  }
+
+  const sign = driver.direction === 'negative' ? '-' : ''
+  return binary
+    ? `When true, outcome tends to shift by ${sign}${shiftPercent}%`
+    : `Higher values tend to shift outcome by ${sign}${shiftPercent}%`
+}
+
 function DriverRow({
   driver,
   onFocus,
@@ -390,19 +436,10 @@ function DriverRow({
     if (!hasTooltipContent && isTooltipOpen) setIsTooltipOpen(false)
   }, [hasTooltipContent, isTooltipOpen])
 
-  // v7.5 T7: Softened tooltip copy
-  const tooltipElasticityCopy = driver.rawElasticity > 0.001
-    ? (() => {
-        // UI-SEM-046: elasticity display scaling (×10, floor 1) — presentational
-        // amplification of the 0-1 elasticity into a "shift by N%" tooltip.
-        const shiftPercent = Math.max(1, Math.round(driver.rawElasticity * 10))
-        const sign = driver.direction === 'negative' ? '-' : ''
-        if (isBinaryFactor(driver.factorLabel)) {
-          return `When true, outcome tends to shift by ${sign}${shiftPercent}%`
-        }
-        return `Higher values tend to shift outcome by ${sign}${shiftPercent}%`
-      })()
-    : null
+  // v7.5 T7: Softened tooltip copy. The RULE lives in `elasticityShiftCopy`
+  // (exported, unit-pinned) — it was previously reachable only through a
+  // hover-only Tooltip, which is how it kept a fabricated direction so long.
+  const tooltipElasticityCopy = elasticityShiftCopy(driver)
 
   // Task 7c: ranking shift and technique suggestion for tooltip
   const rankingShiftWarn = (() => {

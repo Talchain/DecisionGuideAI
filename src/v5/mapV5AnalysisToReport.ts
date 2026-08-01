@@ -33,6 +33,11 @@ import type { AnalysisResultBlock } from '@talchain/schemas/boundary'
 
 import type { ReportV1, ConfidenceLevel } from '../adapters/plot/types'
 import type { DecisionVerdictReportLike } from '../lib/decisionVerdict'
+import {
+  factorDirectionToPolarity,
+  normaliseFactorDirection,
+  type FactorDirection,
+} from '../lib/factorDirection'
 
 // ─── Helpers ───────────────────────────────────────────────────────────
 
@@ -77,7 +82,17 @@ interface NormalisedFactor {
   factor_id: string
   factor_label: string
   sensitivity: number // absolute magnitude
-  direction: 'positive' | 'negative'
+  /**
+   * The producer's direction, carried VERBATIM across the contract's full
+   * domain, or `null` when the producer sent none (ROADMAP 2.234).
+   *
+   * ⚠ This used to be `'positive' | 'negative'` with a sign fallback, and the
+   * narrowing was a false-claim generator: `sensitivity` above is an absolute
+   * magnitude, so `mixed`, `unknown` and absent all collapsed to `'positive'`
+   * → `polarity: 'up'` → "increases the outcome". Never infer direction from
+   * a magnitude; see `src/lib/factorDirection.ts`.
+   */
+  direction: FactorDirection | null
   /**
    * Producer influence_score (0-1) — structural causal influence, a DISTINCT
    * measure from sensitivity (roadmap 1.7; provisional_doctrine_v0:
@@ -142,12 +157,14 @@ function normaliseFactorEntry(entry: unknown): NormalisedFactor | null {
   const factorLabel =
     safeString(entry.factor_label) ?? safeString(entry.label) ?? factorId
 
-  const explicitDirection =
-    entry.direction === 'positive' || entry.direction === 'negative'
-      ? entry.direction
-      : undefined
-  const direction: 'positive' | 'negative' =
-    explicitDirection ?? (rawMagnitude >= 0 ? 'positive' : 'negative')
+  // ROADMAP 2.234 — the producer's direction, or nothing. The line that used
+  // to sit here read
+  //   `explicitDirection ?? (rawMagnitude >= 0 ? 'positive' : 'negative')`
+  // and `rawMagnitude` is picked from `sensitivity_score ?? sensitivity ??
+  // elasticity ?? importance_score`, which are ordinarily NON-NEGATIVE — so
+  // every `mixed`, every `unknown` and every absent direction silently became
+  // a positive causal claim. There is no inference here any more.
+  const direction = normaliseFactorDirection(entry.direction)
 
   // Roadmap 1.7 (provisional_doctrine_v0): influence_score / influence_rank /
   // zero_reason are producer-owned fields carried through verbatim. No
@@ -214,11 +231,32 @@ function collectFactors(enrichment: Record<string, unknown>): NormalisedFactor[]
     }
   }
 
-  return Array.from(byId.values()).sort((a, b) => {
-    const diff = b.sensitivity - a.sensitivity
-    if (diff !== 0) return diff
-    return a.factor_id.localeCompare(b.factor_id)
-  })
+  // ⭐ PRODUCER ORDER IS PRESERVED (ROADMAP 2.235, cheap half).
+  //
+  // This used to end with
+  //   `.sort((a, b) => b.sensitivity - a.sensitivity || a.factor_id.localeCompare(b.factor_id))`
+  // and that sort was a claim the UI is not entitled to make. PLoT owns the
+  // one canonical order and says so in its own source: "ISL measures · PLoT
+  // orders + attests · CEE permits + projects · UI renders WITHOUT reordering"
+  // (`plot-lite-service/src/lib/driver-order.ts:1-14`). The emitted
+  // `factor_sensitivity[]` order IS the ranking, and on a mixed graph/ISL run
+  // PLoT appends the ISL-only rows WITHOUT a global re-sort precisely because
+  // `influence_score`, `sensitivity_score` and `elasticity` are
+  // incommensurable — so re-sorting by magnitude ranked unlike quantities
+  // against each other and then crowned the top five as Drivers. The audit's
+  // payload `[graph A=.2, graph B=.1, ISL-only C=.9]` rendered `C, A, B`.
+  //
+  // A `Map` preserves INSERTION order, and `set` on an existing key does not
+  // move it — so the de-dupe above keeps a row at its top-level position even
+  // when a per-result copy wins on magnitude. Insertion order here is
+  // top-level rows first, then per-result rows, which is the producer's own
+  // precedence.
+  //
+  // ⚠ SCOPE. This preserves the order; it does not VERIFY it. Typing and
+  // transporting `driver_order` and failing closed when `ranked_factor_ids`
+  // disagrees with the transported rows is a schemas → CEE → UI train, rowed
+  // separately. Nothing here checks the producer's attestation.
+  return Array.from(byId.values())
 }
 
 // ─── Confidence derivation ─────────────────────────────────────────────
@@ -687,12 +725,15 @@ export function mapV5AnalysisToReport(
   const seed = options.seed ?? null
   const enrichment = isPlainObject(block.enrichment) ? block.enrichment : undefined
 
-  // Factor sensitivity — collected and ranked once; reused for drivers + factor_sensitivity passthrough.
+  // Factor sensitivity — collected once IN PRODUCER ORDER (ROADMAP 2.235);
+  // reused for drivers + factor_sensitivity passthrough.
   const factors = enrichment ? collectFactors(enrichment) : []
   const drivers = factors.slice(0, 5).map((f) => ({
     label: f.factor_label,
-    polarity:
-      f.direction === 'positive' ? ('up' as const) : ('down' as const),
+    // ROADMAP 2.234: `mixed` / `unknown` / absent take the neutral affordance
+    // the driver surfaces already ship, never the "up" arrow they used to get
+    // from a magnitude's sign.
+    polarity: factorDirectionToPolarity(f.direction),
     strength:
       f.sensitivity >= 0.7
         ? ('high' as const)
@@ -1105,7 +1146,11 @@ export function mapV5AnalysisToReport(
       factor_id: f.factor_id,
       factor_label: f.factor_label,
       sensitivity: f.sensitivity,
-      direction: f.direction,
+      // ROADMAP 2.234: absence stays absence — the key is omitted rather than
+      // written as a default, exactly like the additive passthroughs below, so
+      // a consumer can still tell "the producer said nothing" from "the
+      // producer said unknown".
+      ...(f.direction !== null ? { direction: f.direction } : {}),
       // Roadmap 1.7 additive passthrough (provisional_doctrine_v0):
       // influence_score / influence_rank / zero_reason reach the store so
       // the DriversSection "Influence" column renders the PRODUCER's

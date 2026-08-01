@@ -164,10 +164,23 @@ export function compactFactorLabel(label: string, maxLength = 15): string {
  */
 export function formatWinProbability(rawProb: number): string {
   if (!Number.isFinite(rawProb)) return '—'
-  if (rawProb <= 0) return '0%'
-  if (rawProb < 0.01) return '< 1%'
-  if (rawProb >= 0.995) return '100%'
-  return `${Math.round(rawProb * 100)}%`
+  // ⭐ ROADMAP 2.236 — DELEGATES; it no longer owns a private copy of the rule.
+  //
+  // This function was CORRECT and the dock was wrong, but it was correct by
+  // holding its own literal `0.01` and its own `'< 1%'` — a second
+  // implementation of the shared floor, invisible to anyone reading
+  // `displayFloors.ts`. That invisibility is exactly how the dock came to ship
+  // without it: one option, one instant, "< 1%" here and "0%" on the option
+  // card (walk-548-pixels.md F5). The threshold and the readout now come from
+  // the one owner.
+  //
+  // ⚠ CORRECTED (2.236 review): this claimed "same behaviour as before for every
+  // input". Not quite — OUT OF DOMAIN it differs: the old local rule clamped
+  // anything >= 0.995 to "100%", so 1.5 rendered "100%" and now renders "150%".
+  // No caller can supply a probability above 1, so there is no live regression —
+  // but "every input" was an overclaim, and an overclaim in a comment is the
+  // same defect class as one in copy.
+  return formatProbabilityWithResolution(rawProb, undefined)
 }
 
 /**
@@ -306,6 +319,7 @@ export {
 } from '@/utils/unitClassifier'
 export type { UnitClass } from '@/utils/unitClassifier'
 
+import { formatProbabilityWithResolution } from '@/utils/formatPercent'
 import { GENERIC_PLACEHOLDER_UNITS, classifyUnit } from '@/utils/unitClassifier'
 import { interventionNumericValue } from '@/utils/interventionValue'
 

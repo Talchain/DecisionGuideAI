@@ -374,6 +374,18 @@ function UncertaintyRow({
                 <div className={`${typography.panelBody} text-text-light mt-1`}>
                   {item.threshold.variable && (
                     <p>
+                      {/*
+                        ⚠ LATENT TRAP ARMED BY THE 2.234 WIDENING (R8). This is a
+                        BINARY read of `threshold.direction`, whose type is now
+                        `DriverDirection` = the producer's full domain — so
+                        `mixed`/`unknown` would render "rises above", a
+                        directional claim the producer declined to make. BLAST
+                        RADIUS IS ZERO TODAY: this component has no non-test
+                        mounts and its sole producer
+                        (`useResultsSectionData:2770`) still coerces with
+                        `?? 'positive'`. Both rowed. Recorded so whoever mounts
+                        this does not inherit the defect silently.
+                      */}
                       If {stripEncodingNotation(item.threshold.variable)}{' '}
                       {item.threshold.direction === 'positive' ? 'drops below' : 'rises above'}{' '}
                       {item.threshold.value}

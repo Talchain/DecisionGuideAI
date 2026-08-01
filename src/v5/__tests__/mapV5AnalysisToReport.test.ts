@@ -195,7 +195,20 @@ describe('mapV5AnalysisToReport — factor sensitivity (dual shape, alias set)',
     expect(byLabel.get('ISL')?.factor_id).toBe('fac_isl')
   })
 
-  it('direction defaults to sign of magnitude when missing', () => {
+  /**
+   * ⭐ SUPERSEDED 2026-08-01 (ROADMAP 2.234). This test was titled "direction
+   * defaults to sign of magnitude when missing" and it PINNED THE DEFECT: the
+   * mapper inferred a causal direction from `rawMagnitude >= 0`, and because
+   * the magnitude fields it picks from are ordinarily non-negative, every
+   * `mixed`, `unknown` and absent direction became a positive claim — an "up"
+   * arrow and the sentence "increases the outcome" over a direction the
+   * producer never asserted.
+   *
+   * There is no default any more. The MAGNITUDE half of the old assertions is
+   * unchanged and kept, because that half was always right and this must not
+   * read as "the mapper stopped carrying the values".
+   */
+  it('direction is NOT inferred from the sign of a magnitude (absence stays absence)', () => {
     const block = baseBlock({
       enrichment: {
         factor_sensitivity: [
@@ -206,13 +219,17 @@ describe('mapV5AnalysisToReport — factor sensitivity (dual shape, alias set)',
     })
 
     const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
-      factor_sensitivity?: Array<{ factor_id: string; sensitivity: number; direction: string }>
+      factor_sensitivity?: Array<{ factor_id: string; sensitivity: number; direction?: string }>
     }
     const byId = new Map(report.factor_sensitivity!.map((f) => [f.factor_id, f]))
-    expect(byId.get('fac_pos')?.direction).toBe('positive')
-    expect(byId.get('fac_pos')?.sensitivity).toBe(0.3) // absolute value
-    expect(byId.get('fac_neg')?.direction).toBe('negative')
-    expect(byId.get('fac_neg')?.sensitivity).toBe(0.2) // absolute value
+    // Neither row carried a producer direction, so neither gets one.
+    expect(byId.get('fac_pos')?.direction ?? null).toBeNull()
+    expect(byId.get('fac_neg')?.direction ?? null).toBeNull()
+    // UNCHANGED — magnitudes are still carried, still absolute.
+    expect(byId.get('fac_pos')?.sensitivity).toBe(0.3)
+    expect(byId.get('fac_neg')?.sensitivity).toBe(0.2)
+    // And neither becomes a directional driver glyph.
+    expect(report.drivers.map((d) => d.polarity)).toEqual(['neutral', 'neutral'])
   })
 
   it('entries missing both id and magnitude are dropped, never defaulted', () => {
@@ -245,13 +262,24 @@ describe('mapV5AnalysisToReport — factor sensitivity (dual shape, alias set)',
 })
 
 describe('mapV5AnalysisToReport — drivers + confidence derivation', () => {
-  it('drivers derived from top 5 factors by absolute sensitivity', () => {
+  /**
+   * ⭐ SUPERSEDED 2026-08-01 (ROADMAP 2.235). Was "drivers derived from top 5
+   * factors by absolute sensitivity", asserting `drivers[0]` is `fac_7` — the
+   * BIGGEST number. That is a ranking the UI is not entitled to compute: PLoT
+   * owns the canonical order, attests it, and appends ISL-only rows without a
+   * global re-sort precisely because the magnitudes are incommensurable.
+   *
+   * The drivers are still the FIRST FIVE and their strengths/polarities are
+   * unchanged; only the question "first five of what order?" is answered
+   * differently — the producer's, not ours.
+   */
+  it('drivers are the producer\'s first five rows, in the producer\'s order', () => {
     const block = baseBlock({
       enrichment: {
         factor_sensitivity: Array.from({ length: 8 }, (_, i) => ({
           factor_id: `fac_${i}`,
           factor_label: `Factor ${i}`,
-          sensitivity: 0.1 + i * 0.1, // 0.1, 0.2, ..., 0.8
+          sensitivity: 0.1 + i * 0.1, // 0.1, 0.2, ..., 0.8 — ASCENDING on the wire
           direction: 'positive',
         })),
       },
@@ -259,11 +287,16 @@ describe('mapV5AnalysisToReport — drivers + confidence derivation', () => {
 
     const report = mapV5AnalysisToReport(block)
     expect(report.drivers).toHaveLength(5)
-    // Sorted descending by sensitivity, so top driver is fac_7
-    expect(report.drivers[0].label).toBe('Factor 7')
+    // The producer sent fac_0 first, so fac_0 is the top driver — even though
+    // it carries the SMALLEST magnitude. That is the whole point.
+    expect(report.drivers[0].label).toBe('Factor 0')
+    expect(report.drivers[0].nodeId).toBe('fac_0')
+    expect(report.drivers.map((d) => d.nodeId)).toEqual([
+      'fac_0', 'fac_1', 'fac_2', 'fac_3', 'fac_4',
+    ])
+    // UNCHANGED — direction and strength still derive from the row itself.
     expect(report.drivers[0].polarity).toBe('up')
-    expect(report.drivers[0].strength).toBe('high') // 0.8 >= 0.7
-    expect(report.drivers[0].nodeId).toBe('fac_7')
+    expect(report.drivers[0].strength).toBe('low') // 0.1 < 0.3
   })
 
   it('confidence level "high" when robust:fragile edge ratio >= 0.7', () => {

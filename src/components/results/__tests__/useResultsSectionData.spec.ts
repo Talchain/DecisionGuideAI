@@ -31,6 +31,7 @@ import {
 import { useCanvasStore } from '../../../canvas/store'
 import { formatFlipRiskMessage } from '../utils/formatScenarioRatio'
 import type { RawFactorSensitivity, EdgeForDirection } from '../types'
+import { isDirectionalFactor } from '../../../lib/factorDirection'
 
 // =============================================================================
 // 1. Dynamic Normalisation Tests
@@ -423,9 +424,28 @@ describe('normaliseDirection', () => {
     expect(normaliseDirection('Negative')).toBe('negative')
   })
 
-  it('returns undefined for unknown variants', () => {
-    expect(normaliseDirection('unknown')).toBeUndefined()
-    expect(normaliseDirection('mixed')).toBeUndefined()
+  /**
+   * ⭐ SUPERSEDED 2026-08-01 (ROADMAP 2.234). Was "returns undefined for
+   * unknown variants", flattening `mixed` and `unknown` to `undefined`.
+   *
+   * That was harmless HERE — undefined reads as "no direction", and no
+   * directional glyph is drawn for it — but it meant this file and
+   * `mapV5AnalysisToReport` each owned a private answer to the same question,
+   * and the mapper's answer was to call them BOTH `'positive'`. The producer's
+   * documented domain now survives end to end; what a surface may DRAW is
+   * decided by `isDirectionalFactor`, not by whether the value is null.
+   */
+  it('carries the producer domain: `mixed` and `unknown` survive as themselves', () => {
+    expect(normaliseDirection('unknown')).toBe('unknown')
+    expect(normaliseDirection('mixed')).toBe('mixed')
+    // Neither is directional, which is what actually governs rendering.
+    expect(isDirectionalFactor(normaliseDirection('mixed'))).toBe(false)
+    expect(isDirectionalFactor(normaliseDirection('unknown'))).toBe(false)
+  })
+
+  it('an UNRECOGNISED value fails closed to `unknown`, never to a directional claim', () => {
+    expect(normaliseDirection('sideways')).toBe('unknown')
+    expect(isDirectionalFactor(normaliseDirection('sideways'))).toBe(false)
   })
 
   it('returns undefined for undefined/empty', () => {

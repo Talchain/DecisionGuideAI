@@ -32,10 +32,24 @@ describe('normaliseDirection', () => {
     expect(normaliseDirection('NEGATIVE')).toBe('negative') // Case insensitive
   })
 
-  it('returns undefined for unrecognised values', () => {
+  /**
+   * ⭐ ONE ASSERTION SUPERSEDED 2026-08-01 (ROADMAP 2.234). `'unknown'` is not
+   * an unrecognised value — it is a MEMBER of the producer's documented domain
+   * (`positive | negative | mixed | unknown`), and flattening it to `undefined`
+   * here is the same narrowing that let `mapV5AnalysisToReport` turn it into a
+   * positive causal claim. ABSENCE (undefined / empty) still returns undefined;
+   * that half is unchanged and still pinned.
+   */
+  it('returns undefined for ABSENCE, and carries `unknown` as the domain member it is', () => {
     expect(normaliseDirection(undefined)).toBeUndefined()
-    expect(normaliseDirection('unknown')).toBeUndefined()
     expect(normaliseDirection('')).toBeUndefined()
+    // SUPERSEDED (was `toBeUndefined`): the producer said "unknown"; the UI
+    // records that it was told, and renders no direction either way.
+    expect(normaliseDirection('unknown')).toBe('unknown')
+  })
+
+  it('an UNRECOGNISED value fails closed to `unknown`, never to a directional claim', () => {
+    expect(normaliseDirection('sideways')).toBe('unknown')
   })
 })
 
