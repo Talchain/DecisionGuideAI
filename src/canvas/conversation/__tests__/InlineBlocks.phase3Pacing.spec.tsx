@@ -6,13 +6,21 @@
  * 5 review_card + 4 coaching + 1 evidence) with no pacing — a card flood.
  * These pins hold the ratified pacing contract at the RENDER layer
  * (InlineBlocks): the store/message keeps ALL blocks; the panel defaults to
- * the top 3 phase-3 cards expanded, the remainder behind exactly ONE count
- * affordance, order preserved exactly, collapsed count announced to screen
- * readers. A small "What do these terms mean?" affordance offers the graph
- * vocabulary legend near the cards.
+ * the top PHASE3_DEFAULT_EXPANDED phase-3 cards expanded, the remainder
+ * behind exactly ONE count affordance, order preserved exactly, collapsed
+ * count announced to screen readers. A small "What do these terms mean?"
+ * affordance offers the graph vocabulary legend near the cards.
+ *
+ * ⚠ COUNTS UPDATED — ROADMAP 2.211-② (founder ruling, 1 Aug): the
+ * default-expanded cap moved 3 → 6. Every count below that used to read 3
+ * expanded / 7 collapsed now reads 6 / 4; nothing else about the contract
+ * changed and the Show-more affordance is deliberately KEPT. The counts are
+ * spelled out literally rather than imported from PHASE3_DEFAULT_EXPANDED
+ * on purpose: a pin computed from the constant it is pinning cannot fail
+ * when the constant moves (platform trap 12b).
  *
  * Flood pin (mutation check): reverting the grouping renders 4 cards by the
- * legacy per-turn cap instead of 3 → the default-expanded pin goes RED.
+ * legacy per-turn cap instead of 6 → the default-expanded pin goes RED.
  */
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -127,18 +135,21 @@ function renderedCardTitles(container: HTMLElement): string[] {
 // ─── Pins ────────────────────────────────────────────────────────────────
 
 describe('InlineBlocks — phase-3 card pacing (F16)', () => {
-  it('FLOOD PIN: a 10-block phase-3 flood defaults to exactly 3 expanded cards', () => {
+  it('FLOOD PIN: a 10-block phase-3 flood defaults to exactly 6 expanded cards (2.211-②)', () => {
     const { container } = render(<InlineBlocks blocks={floodBlocks()} />)
     expect(renderedCardTitles(container)).toEqual([
       'Review card 1',
       'Review card 2',
       'Review card 3',
+      'Review card 4',
+      'Review card 5',
+      'Coaching card 1',
     ])
   })
 
   it('the remainder sits behind exactly ONE count affordance announcing the collapsed count', () => {
     render(<InlineBlocks blocks={floodBlocks()} />)
-    const toggles = screen.getAllByRole('button', { name: /show 7 more/i })
+    const toggles = screen.getAllByRole('button', { name: /show 4 more/i })
     expect(toggles).toHaveLength(1)
     expect(toggles[0]).toHaveAttribute('aria-expanded', 'false')
     // No competing second overflow affordance for the same turn.
@@ -147,7 +158,7 @@ describe('InlineBlocks — phase-3 card pacing (F16)', () => {
 
   it('a static sr-only summary carries the collapsed count (no nested live region — review-folds C4)', () => {
     const { container } = render(<InlineBlocks blocks={floodBlocks()} />)
-    expect(screen.getByText(/7 more coaching and review cards collapsed/i)).toBeInTheDocument()
+    expect(screen.getByText(/4 more coaching and review cards collapsed/i)).toBeInTheDocument()
     // The toggle's accessible name already carries the count; InlineBlocks
     // must contribute no live region of its own (the old role="status"
     // replayed on unhide and double-announced every toggle).
@@ -156,7 +167,7 @@ describe('InlineBlocks — phase-3 card pacing (F16)', () => {
 
   it('ONE interaction reveals all 10 cards with order preserved exactly', () => {
     const { container } = render(<InlineBlocks blocks={floodBlocks()} />)
-    fireEvent.click(screen.getByRole('button', { name: /show 7 more/i }))
+    fireEvent.click(screen.getByRole('button', { name: /show 4 more/i }))
     expect(renderedCardTitles(container)).toEqual([
       'Review card 1',
       'Review card 2',
@@ -175,14 +186,17 @@ describe('InlineBlocks — phase-3 card pacing (F16)', () => {
     const { container } = render(
       <InlineBlocks blocks={[factBlock, ...floodBlocks()]} />,
     )
-    // The fact block renders alongside the 3 default-expanded cards.
+    // The fact block renders alongside the 6 default-expanded cards.
     expect(screen.getByTestId('block-fact')).toBeInTheDocument()
     expect(renderedCardTitles(container)).toEqual([
       'Review card 1',
       'Review card 2',
       'Review card 3',
+      'Review card 4',
+      'Review card 5',
+      'Coaching card 1',
     ])
-    expect(screen.getByRole('button', { name: /show 7 more/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /show 4 more/i })).toBeInTheDocument()
   })
 
   it('no pacing affordance when the turn carries 3 or fewer phase-3 cards', () => {
@@ -191,6 +205,44 @@ describe('InlineBlocks — phase-3 card pacing (F16)', () => {
     )
     expect(renderedCardTitles(container)).toHaveLength(3)
     expect(screen.queryByRole('button', { name: /show \d+ more/i })).not.toBeInTheDocument()
+  })
+
+  // ── ROADMAP 2.211-② boundary pins ───────────────────────────────────────
+  // The ruled number is 6, so pin it from BOTH sides at the boundary itself.
+  // Both go RED at the old cap of 3: at 3 the 6-card turn paces ("Show 3
+  // more") and the 7-card turn reads "Show 4 more", not "Show 1 more".
+  // The 3-card case above cannot see the difference between 3 and 6 — it
+  // passes under either cap — so these carry the ruling, not that one.
+
+  it('2.211-② BOUNDARY: exactly 6 phase-3 cards render with NO affordance', () => {
+    const six: ConversationBlock[] = [
+      reviewCard(1), reviewCard(2), reviewCard(3), reviewCard(4), reviewCard(5), coaching(1),
+    ]
+    const { container } = render(<InlineBlocks blocks={six} />)
+    expect(renderedCardTitles(container)).toHaveLength(6)
+    expect(screen.queryByRole('button', { name: /show \d+ more/i })).not.toBeInTheDocument()
+  })
+
+  it('2.211-② BOUNDARY: the 7th phase-3 card is the first to collapse ("Show 1 more")', () => {
+    const seven: ConversationBlock[] = [
+      reviewCard(1), reviewCard(2), reviewCard(3), reviewCard(4), reviewCard(5),
+      coaching(1), coaching(2),
+    ]
+    const { container } = render(<InlineBlocks blocks={seven} />)
+    expect(renderedCardTitles(container)).toEqual([
+      'Review card 1',
+      'Review card 2',
+      'Review card 3',
+      'Review card 4',
+      'Review card 5',
+      'Coaching card 1',
+    ])
+    const toggle = screen.getByRole('button', { name: /show 1 more coaching and review card/i })
+    expect(toggle).toBeInTheDocument()
+    // Singular copy at a collapsed count of exactly 1.
+    expect(toggle).toHaveAccessibleName('Show 1 more coaching and review card')
+    fireEvent.click(toggle)
+    expect(renderedCardTitles(container)).toHaveLength(7)
   })
 })
 

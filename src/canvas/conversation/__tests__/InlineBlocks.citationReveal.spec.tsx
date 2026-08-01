@@ -12,6 +12,9 @@
  *        rendered for a turn whose ONLY phase-3 card was hidden behind the
  *        legacy "Show 1 more" budget (a legend for invisible cards). It
  *        now gates on at least one phase-3 card CURRENTLY RENDERED.
+ *        ⚠ See the note on the C13 describe below: ROADMAP 2.211-② made
+ *        that construction unreachable, and the pin was rewritten to say so
+ *        rather than left passing for a reason that no longer exists.
  *   C4:  the pacing count span was role="status" nested inside the block
  *        container — a live region that replayed on unhide and
  *        double-announced with the toggle's accessible name. The sr-only
@@ -95,48 +98,53 @@ afterEach(() => {
 
 describe('C11 — citation to collapsed content reveals and scrolls', () => {
   it('a citation targeting a pacing-collapsed phase-3 card expands the collapse and scrolls to it', () => {
-    // blocks[0] commentary with a citation at index 6 → blocks[5] (rc_5),
-    // which sits behind the phase-3 pacing collapse (5 phase-3 cards,
-    // default-expanded 3).
+    // blocks[0] commentary with a citation at index 8 → blocks[7] (rc_7),
+    // which sits behind the phase-3 pacing collapse (7 phase-3 cards,
+    // default-expanded 6). Fixture resized for ROADMAP 2.211-② (was 5 cards
+    // against a cap of 3); same one-card-past-the-cap shape, same assertion.
     const commentary: CommentaryBlock = {
       type: 'commentary',
-      text: 'The verdict rests on the last review card. [6]',
-      citations: [{ index: 6, source: 'Model review' }],
+      text: 'The verdict rests on the last review card. [8]',
+      citations: [{ index: 8, source: 'Model review' }],
     }
     const blocks: ConversationBlock[] = [
       commentary,
-      reviewCard(1),
-      reviewCard(2),
-      reviewCard(3),
-      reviewCard(4),
-      reviewCard(5),
+      ...[1, 2, 3, 4, 5, 6, 7].map(reviewCard),
     ]
     render(<InlineBlocks blocks={blocks} />)
     // The target card is collapsed (not rendered).
-    expect(screen.queryByText('Review card 5')).not.toBeInTheDocument()
+    expect(screen.queryByText('Review card 7')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /citation 6/i }))
+    fireEvent.click(screen.getByRole('button', { name: /citation 8/i }))
 
     // Revealed and scrolled — not a silent no-op.
-    expect(screen.getByText('Review card 5')).toBeInTheDocument()
+    expect(screen.getByText('Review card 7')).toBeInTheDocument()
     expect(scrollSpy).toHaveBeenCalled()
   })
 
   it('a citation targeting a budget-hidden block expands "Show more" and scrolls to it', () => {
-    // Pacing inactive (1 phase-3 card); the 5th block (index 4, citation
-    // target 5) hides behind the legacy per-turn budget of 4.
+    // The 5th block (index 4, citation target 5) hides behind the legacy
+    // per-turn budget of 4.
+    //
+    // ⚠ The hidden block used to be a v5_coaching card. ROADMAP 2.211-②
+    // removed phase-3 cards from the legacy budget entirely (they are
+    // governed by the pacing group alone), so a phase-3 card can no longer
+    // BE budget-hidden — the old fixture would have proved nothing. The
+    // target is now a non-phase-3 block, which is what the legacy budget
+    // still governs, so this pin keeps testing the reveal path it names.
+    const secondBrief: BriefBlock = { type: 'brief', title: 'Second brief', summary: 'More.' }
     const commentary: CommentaryBlock = {
       type: 'commentary',
-      text: 'See the coaching card. [5]',
-      citations: [{ index: 5, source: 'Model coaching' }],
+      text: 'See the second brief. [5]',
+      citations: [{ index: 5, source: 'Model brief' }],
     }
-    const blocks: ConversationBlock[] = [commentary, fact, framing, brief, coaching(1)]
+    const blocks: ConversationBlock[] = [commentary, fact, framing, brief, secondBrief]
     render(<InlineBlocks blocks={blocks} />)
-    expect(screen.queryByText('Coaching card 1')).not.toBeInTheDocument()
+    expect(screen.queryByText('Second brief')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /citation 5/i }))
 
-    expect(screen.getByText('Coaching card 1')).toBeInTheDocument()
+    expect(screen.getByText('Second brief')).toBeInTheDocument()
     expect(scrollSpy).toHaveBeenCalled()
   })
 
@@ -159,40 +167,54 @@ describe('C11 — citation to collapsed content reveals and scrolls', () => {
       text: 'See the fact. [2]',
       citations: [{ index: 2, source: 'Lift' }],
     }
+    // 7 phase-3 cards against the 2.211-② cap of 6 → rc_7 stays collapsed
+    // (was 4 cards against a cap of 3).
     const blocks: ConversationBlock[] = [
       commentary,
       fact,
-      reviewCard(1),
-      reviewCard(2),
-      reviewCard(3),
-      reviewCard(4),
+      ...[1, 2, 3, 4, 5, 6, 7].map(reviewCard),
     ]
     render(<InlineBlocks blocks={blocks} />)
     fireEvent.click(screen.getByRole('button', { name: /citation 2/i }))
     expect(scrollSpy).toHaveBeenCalled()
-    // The pacing collapse stays collapsed (rc_4 remains hidden).
-    expect(screen.queryByText('Review card 4')).not.toBeInTheDocument()
+    // The pacing collapse stays collapsed (rc_7 remains hidden).
+    expect(screen.queryByText('Review card 7')).not.toBeInTheDocument()
   })
 })
 
 describe('C13 — legend gates on a phase-3 card being CURRENTLY RENDERED', () => {
-  it('verifier construction: [commentary, fact, framing, brief, v5_coaching] → no legend until "Show 1 more"', () => {
+  /**
+   * ⚠ ROADMAP 2.211-② CHANGED WHAT THIS CAN PROVE — recorded, not papered over.
+   *
+   * The original verifier was [commentary, fact, framing, brief, v5_coaching]:
+   * the turn's ONLY phase-3 card sat behind the legacy "Show 1 more" budget,
+   * so the legend had to stay away until it was revealed. 2.211-② removed
+   * phase-3 cards from the legacy budget, and the pacing group always renders
+   * its first PHASE3_DEFAULT_EXPANDED cards — so **a turn that carries a
+   * phase-3 card now always renders at least one**, and the "every phase-3
+   * card hidden" state is unreachable through either budget.
+   *
+   * The C13 guard in InlineBlocks is deliberately KEPT (it is still the
+   * correct predicate, and it is what makes the reachability argument true
+   * rather than accidental), but no fixture can drive it to false while a
+   * phase-3 card is present. So this pin now asserts the reachability claim
+   * itself — the same construction, opposite expectation — and the live
+   * negative case is "no phase-3 cards at all", pinned below and in
+   * InlineBlocks.phase3Pacing.spec.tsx. Anything else here would be a test
+   * that passes by testing nothing (platform trap 13).
+   */
+  it('2.211-②: the sole phase-3 card is no longer budget-hidden, so the legend renders at once', () => {
     const commentary: CommentaryBlock = { type: 'commentary', text: 'Some commentary.' }
     const blocks: ConversationBlock[] = [commentary, fact, framing, brief, coaching(1)]
     render(<InlineBlocks blocks={blocks} />)
-    // The only phase-3 card is hidden behind the legacy budget — a legend
-    // for invisible cards must not render.
-    expect(screen.queryByText('Coaching card 1')).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: /what do these terms mean/i }),
-    ).not.toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: /show 1 more/i }))
-
+    // The card is rendered — the legacy budget no longer governs phase-3 cards.
     expect(screen.getByText('Coaching card 1')).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: /what do these terms mean/i }),
     ).toBeInTheDocument()
+    // …and the legacy budget still governs the four non-phase-3 blocks, which
+    // fit exactly, so it contributes no overflow toggle of its own.
+    expect(screen.queryByRole('button', { name: /more block/i })).not.toBeInTheDocument()
   })
 
   it('legend renders alongside default-expanded phase-3 cards (unchanged happy path)', () => {
@@ -205,7 +227,11 @@ describe('C13 — legend gates on a phase-3 card being CURRENTLY RENDERED', () =
 
 describe('C4 — the pacing count is static sr-only text, not a nested live region', () => {
   it('renders the collapsed-count text without role="status" (the toggle name already carries the count)', () => {
-    const blocks: ConversationBlock[] = [1, 2, 3, 4, 5].map(reviewCard)
+    // 8 cards against the 2.211-② default-expanded cap of 6 → 2 collapsed.
+    // This fixture was 5 cards while the cap was 3 (same 2-collapsed shape);
+    // it was resized, NOT re-expected, so the assertion below is byte-identical
+    // to the one this pin has always made.
+    const blocks: ConversationBlock[] = [1, 2, 3, 4, 5, 6, 7, 8].map(reviewCard)
     const { container } = render(<InlineBlocks blocks={blocks} />)
     // The sr-only summary text is still present…
     expect(screen.getByText(/2 more coaching and review cards collapsed/i)).toBeInTheDocument()
