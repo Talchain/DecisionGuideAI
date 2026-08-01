@@ -399,7 +399,20 @@ export const GoalPanel = memo(function GoalPanel({
                     </div>
                   )
                 })}
-                {typeof probJoint === 'number' && (
+                {/* ROADMAP 2.283 — THE SAME SUPPRESSION #556 APPLIED TO THE
+                    IMPACT BLOCK, APPLIED HERE. This line is gated on the
+                    STORE-level `goalConstraints` (the user having defined
+                    constraints at all), which is INDEPENDENT of the basis — so
+                    on the live posture where a user HAS defined constraints and
+                    the run is substituted, it restated the very number the
+                    Impact block now suppresses, one section down. Under
+                    substitution `goalProbability === jointGoalProbability` BY
+                    CONSTRUCTION, so this was one-number-twice ACROSS sections:
+                    the reader saw two findings where the producer sent one
+                    measurement, and only one of the two framings was true.
+                    Same flag, same reason, same arm. On every other basis the
+                    two are genuinely different quantities and this line stays. */}
+                {typeof probJoint === 'number' && !goalFitSubstituted && (
                   <p className={`${typography.panelBody} text-text-body mt-1`}>
                     {GOAL_CONSTRAINT_COPY.jointProbability}: <strong>{Math.round(probJoint * 100)}%</strong>
                   </p>
@@ -550,7 +563,14 @@ export const GoalPanel = memo(function GoalPanel({
                       and this line stays. */}
                   {typeof probJoint === 'number' && !goalFitSubstituted && (
                     <div className={`${typography.panelBody} text-text-body mt-1.5`}>
-                      Chance of hitting every target: <strong>{Math.round(probJoint * 100)}%</strong>
+                      {/* ROADMAP 2.283: was a hand-typed duplicate of the string
+                          the register already renders in the Constraints section
+                          above. Two copies of one sentence in ONE file is how the
+                          two halves end up different — the defect COMPARATIVE_COPY
+                          .clause and .leadNoMagnitude were both added to prevent.
+                          The register owns the wording; call sites never re-type
+                          it. */}
+                      {GOAL_CONSTRAINT_COPY.jointProbability}: <strong>{Math.round(probJoint * 100)}%</strong>
                     </div>
                   )}
                   {techMode && (

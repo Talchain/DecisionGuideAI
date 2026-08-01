@@ -35,6 +35,7 @@ import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { buildRichGraphPayload, getRecommendedOptionInterventions } from '../utils/graphPayload'
 import { type OutcomeUnits } from '../../lib/format'
 import { typography } from '../../styles/typography'
+import { GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { computeBaselineComparison } from '../utils/baselineComparison'
 // P0.2: Precision display for confidence-aware outcome formatting
 import { getPrecisionDisplay } from '../../lib/precisionDisplay'
@@ -69,6 +70,15 @@ interface GoalProbabilityData {
   winProbability?: number
   /** Success threshold (when provided by user) */
   threshold?: number
+  /**
+   * ROADMAP 2.283 — the possessive gate, same basis and same register as the
+   * six surfaces #556 gated and the seventh (GoalNode) gated here.
+   * True ⇔ `selectGoalProbability(...).basis === 'joint_goal_substituted'`,
+   * i.e. the number is P(all constraints jointly satisfied) STANDING IN for an
+   * absent `probability_of_goal`, so "chance of reaching X for YOUR GOAL"
+   * names a question it does not answer.
+   */
+  isSubstitutedJoint: boolean
 }
 
 /** P0.5: Comparative delta between options */
@@ -294,6 +304,9 @@ export function DecisionSummary({
                 goalLabel,
                 winProbability: prob.win_probability,
                 threshold: goalThreshold ?? undefined,
+                // Read off the same decision the number came from — never
+                // re-derived, and never inferred from the value.
+                isSubstitutedJoint: decision.basis === 'joint_goal_substituted',
               }
             : null
       }
@@ -418,6 +431,20 @@ export function DecisionSummary({
         {summaryData.goalProbability && (
           <div className="space-y-1 mb-2">
             <p className={`${typography.bodySmall} text-ink-600`}>
+              {/* ROADMAP 2.283 — THE POSSESSIVE GATE. Under substitution BOTH
+                  permitted arms below name the user's goal ("… for {goal}",
+                  "achieving {goal}") over a number that is not a goal
+                  probability, so the whole sentence is replaced by the shared
+                  register's phrase form — the same wording seven sibling
+                  surfaces render for this basis. No copy invented here; the
+                  permitted arms are byte-identical to what they replaced. */}
+              {summaryData.goalProbability.isSubstitutedJoint ? (
+                GOAL_ANCHOR_COPY.phrase(
+                  `${Math.round(summaryData.goalProbability.probability * 100)}%`,
+                  true,
+                )
+              ) : (
+                <>
               <span className="font-semibold">
                 {Math.round(summaryData.goalProbability.probability * 100)}%
               </span>{' '}
@@ -433,6 +460,8 @@ export function DecisionSummary({
                 <>
                   achieving{' '}
                   <span className="font-medium">{summaryData.goalProbability.goalLabel}</span>
+                </>
+              )}
                 </>
               )}
               {summaryData.goalProbability.confidence < 0.7 && (

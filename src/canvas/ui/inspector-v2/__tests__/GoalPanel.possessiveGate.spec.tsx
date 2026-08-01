@@ -48,6 +48,7 @@ import { useCanvasStore } from '../../../store'
 import { useAuth } from '../../../../contexts/AuthContext'
 import { selectGoalProbability } from '../../../../components/results/utils/selectGoalProbability'
 import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAnchorCopy'
+import { GOAL_CONSTRAINT_COPY } from '../inspectorStrings'
 
 vi.mock('../../../../contexts/AuthContext', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../../contexts/AuthContext')>()
@@ -200,5 +201,97 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (ROAD
 
     expect(text).toContain('probability_of_joint_goal (substituted for absent probability_of_goal)')
     expect(text).not.toContain('System: probability_of_goal:')
+  })
+})
+
+/**
+ * ROADMAP 2.283 — the #556 review rowables, in the same file.
+ *
+ * #556 suppressed the Impact block's duplicate under substitution. It did NOT
+ * touch the SAME sentence in the Constraints section, which is gated on the
+ * STORE-level `goalConstraints` — i.e. on the user having defined constraints
+ * at all — a condition entirely INDEPENDENT of the basis. So on the live
+ * posture (user constraints defined, run substituted) the panel still stated
+ * the suppressed number, one section down: one-number-twice ACROSS sections
+ * rather than within one.
+ */
+describe('GoalPanel — the Constraints-section restatement (ROADMAP 2.283)', () => {
+  /** The same store shape, but with the user's own constraints defined. */
+  function setStoreWithConstraints(report: Record<string, unknown>) {
+    const state = useCanvasStore.getState()
+    useCanvasStore.setState({
+      ...state,
+      nodes: [GOAL_NODE],
+      edges: [],
+      goalThreshold: 0.8,
+      goalConstraints: [{ id: 'c1', label: 'Stay under budget', value: 100 }],
+      results: { status: 'complete', report },
+    } as any)
+  }
+
+  const JOINT_LINE = GOAL_CONSTRAINT_COPY.jointProbability
+
+  beforeEach(() => {
+    useCanvasStore.setState(useCanvasStore.getState(), true)
+    vi.mocked(useAuth).mockReset()
+    vi.mocked(useAuth).mockReturnValue(REAL_AUTH as unknown as ReturnType<typeof useAuth>)
+  })
+
+  it('control: the Constraints section actually renders for these fixtures', () => {
+    // Anti-vacuity (trap 13). The absence assertion below is worthless unless
+    // this store shape genuinely opens the `goalConstraints` gate — otherwise
+    // "the line is gone" would just mean "the section never rendered".
+    setStoreWithConstraints(REAL_GOAL_REPORT)
+    const { container } = renderPanel()
+    expect(container.textContent ?? '').toContain('Stay under budget')
+  })
+
+  it('RED-first: the Constraints section does NOT restate the substituted joint figure', () => {
+    setStoreWithConstraints(SUBSTITUTED_REPORT)
+    const { container } = renderPanel()
+    const text = container.textContent ?? ''
+
+    // The section is open (the constraint label proves it) and the sentence is
+    // nonetheless withheld — because the number it would state is the one the
+    // Impact block just suppressed.
+    expect(text).toContain('Stay under budget')
+    expect(text).not.toContain(JOINT_LINE)
+  })
+
+  it('positive control: with constraints defined, a REAL probability_of_goal KEEPS the Constraints line', () => {
+    setStoreWithConstraints(REAL_GOAL_REPORT)
+    expect(renderPanel().container.textContent ?? '').toContain(JOINT_LINE)
+  })
+
+  it('positive control: the CONSTRAINED basis KEEPS the Constraints line (basis-scoped, not joint-scoped)', () => {
+    // ROADMAP 1.49: the user's own goal AND their own limits. The figure is
+    // joint, and the framing is earned. A gate widened to "the figure is joint"
+    // REDs here.
+    setStoreWithConstraints(CONSTRAINED_REPORT)
+    expect(renderPanel().container.textContent ?? '').toContain(JOINT_LINE)
+  })
+
+  it('DEDUP: both sites render the REGISTER string — neither re-types the literal', () => {
+    // `GoalPanel:553` hand-typed "Chance of hitting every target:" — a second
+    // copy, in the same file, of a sentence the register already owned and
+    // rendered at `:404`. Two copies of one sentence is how the halves end up
+    // different; COMPARATIVE_COPY.clause and .leadNoMagnitude both exist
+    // because that already happened elsewhere in this estate.
+    //
+    // This is a DERIVED guard, not a mirror (trap 12): the expectation is the
+    // REGISTER VALUE, never a literal. Re-type either site with different
+    // wording and the count drops to 1 and this REDs; change the register and
+    // both sites move together and it stays green.
+    //
+    // ⚠ STATED HONESTLY: this test is NOT RED-first, and it does not prove the
+    // deduplication happened. At pristine `e5d2111c` the hand-typed literal was
+    // byte-identical to the register's value, so the count was already 2 and
+    // this passed. It is a DRIFT pin, not a defect pin — it catches the failure
+    // the duplicate makes possible (the two copies diverging), which is the
+    // only thing a test CAN catch here. Its bite is proven by mutation, not by
+    // RED-first: re-typing `:553` with different wording REDs it.
+    setStoreWithConstraints(REAL_GOAL_REPORT)
+    const text = renderPanel().container.textContent ?? ''
+    expect(text.split(JOINT_LINE).length - 1).toBe(2)
   })
 })

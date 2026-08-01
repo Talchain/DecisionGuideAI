@@ -108,6 +108,11 @@ const baseProps = {
   positionAbsoluteY: 0,
   dragging: false,
   zIndex: 0,
+  // Required by `NodeProps` — `GoalNode.spec.tsx`'s older harness omits them,
+  // but this file is new, so it carries no baselined diagnostic to hide behind.
+  deletable: true,
+  selectable: true,
+  draggable: true,
 }
 
 /** A USER-set target — UI-SEM-082 gates the whole block on it. */
