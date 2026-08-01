@@ -16,6 +16,10 @@
  *   - Every later phase-3 card collapses behind ONE affordance, placed at
  *     the position of the first collapsed card so reading order is
  *     preserved exactly on reveal.
+ *   - ONE of those default-expanded slots is RESERVED for the turn's lens
+ *     companion card when producer order would otherwise bury it
+ *     (ROADMAP 2.242 — see RESERVED_COMPANION_SLOTS below). The reservation
+ *     DISPLACES the last default-expanded slot; it never adds a seventh.
  *   - Non-phase-3 blocks are untouched: they keep their own legacy per-turn
  *     budget, counted WITHOUT the phase-3 cards (the pacing group is the
  *     phase-3 budget — always, not only while pacing is active; see the
@@ -48,6 +52,53 @@ export const PHASE3_CARD_TYPES: ReadonlySet<ConversationBlock['type']> = new Set
  * default, it does not remove pacing.
  */
 export const PHASE3_DEFAULT_EXPANDED = 6
+
+/**
+ * ROADMAP 2.242 — how many default-expanded slots are RESERVED for the turn's
+ * lens companion card. One. It is a reservation WITHIN
+ * PHASE3_DEFAULT_EXPANDED, never an addition to it: the companion displaces
+ * the last card that would otherwise have been expanded, so the total number
+ * of default-expanded phase-3 cards is unchanged on every turn.
+ *
+ * ## Why the ruling needed this and not a bigger cap
+ * Measured over 12 real captured analysis payloads replayed through the
+ * shipped pipeline at staging tip `db795411`, the companion card lands at
+ * phase-3 position 5-11 — behind the cap on 10 of the 12 — because two card
+ * families outrank the entire review-card group it is anchored to: producer
+ * `evidence` (ranks 1-3) and the deterministic `strengthen` coaching card
+ * (rank 15) sort ahead of review cards (ranks 10-73), and the companion's
+ * derived rank is `max(review_card rank) + 0.5`
+ * (EXERCISE_RANK_AFTER_REVIEW_CARDS, ROADMAP 2.211 §2). Raising the cap far
+ * enough to reach position 11 renders nearly the whole turn, which is what
+ * pacing exists to prevent. Reserving one slot is the smallest change that
+ * shows the single card the lens selector CHOSE, and it reorders nothing:
+ * producer order is untouched, the card renders exactly where the producer
+ * put it, it is merely not collapsed.
+ */
+export const RESERVED_COMPANION_SLOTS = 1
+
+/**
+ * THE lens-companion predicate — one definition, every surface.
+ *
+ * Derived at the CEE bytes (`olumi-assistants-service` tip `6766b540`,
+ * `compose/phase3-blocks.ts::buildLensCompanionBlocks`): the companion
+ * artefact attached beside the turn's SELECTED lens is typed
+ * `readonly ExerciseBlock[]`, and the switch over `LensId` is
+ * compile-exhaustive — `pre_mortem` returns exactly one block or none, every
+ * other lens returns none. So on the wire "the card the lens selector chose"
+ * IS the turn's exercise block, and there is at most one.
+ *
+ * This function is deliberately narrow (the block TYPE, not a lens id or a
+ * `source_handler` string): the UI must not mirror CEE's lens vocabulary — a
+ * hand-listed set of lens ids here would drift silently the day CEE adds one
+ * (platform trap 12). If a future lens declares a companion of a different
+ * block type, this predicate is the single place that has to change, and the
+ * reservation below caps the promotion at RESERVED_COMPANION_SLOTS whatever
+ * the producer emits.
+ */
+export function isLensCompanionBlock(block: ConversationBlock): boolean {
+  return block.type === 'v5_exercise'
+}
 
 export interface Phase3Pacing {
   /** True when the turn carries more phase-3 cards than the default cap. */
@@ -107,6 +158,57 @@ function computeBiasSignalExemptIndices(
   return exempt
 }
 
+/**
+ * ROADMAP 2.242 — which of a paced turn's phase-3 cards default to expanded.
+ *
+ * The base rule is unchanged: the first PHASE3_DEFAULT_EXPANDED cards in
+ * PRODUCER order. The reservation is a SWAP inside that set, never a growth
+ * of it:
+ *
+ *   - Only fires when the turn's lens companion card is in the OVERFLOW. A
+ *     companion already inside the default set needs no slot, and taking one
+ *     for it would displace a card for nothing.
+ *   - Displaces the LAST default-expanded card, so the affordance moves one
+ *     position earlier and reading order on reveal is still exact.
+ *   - Promotes at most RESERVED_COMPANION_SLOTS companions — the first in
+ *     producer order. CEE emits at most one; a turn that somehow carried two
+ *     must not open a seventh card.
+ *
+ * Returned as a set (rather than a spliced array) so the caller derives
+ * `collapsed` as the exact complement over `phase3Indices` — the two can
+ * never disagree about a card's fate, and the ordering of `collapsed` stays
+ * ascending by construction, which is what puts the affordance at the first
+ * collapsed card.
+ *
+ * INVARIANT (asserted by the spec, across 468 enumerated shapes): the
+ * returned set always has exactly PHASE3_DEFAULT_EXPANDED members when
+ * `phase3Indices.length > PHASE3_DEFAULT_EXPANDED`.
+ */
+function defaultExpandedIndices(
+  blocks: readonly ConversationBlock[],
+  phase3Indices: readonly number[],
+): ReadonlySet<number> {
+  const expanded = new Set(phase3Indices.slice(0, PHASE3_DEFAULT_EXPANDED))
+  const overflow = phase3Indices.slice(PHASE3_DEFAULT_EXPANDED)
+  // A reservation can never exceed the cap it lives inside: without this a
+  // mis-set RESERVED_COMPANION_SLOTS would index past the front of the
+  // default set, delete nothing, and quietly GROW the expanded count — the
+  // one thing the ruling forbids.
+  const reservable = Math.min(RESERVED_COMPANION_SLOTS, PHASE3_DEFAULT_EXPANDED)
+  let promoted = 0
+  for (const i of overflow) {
+    if (promoted >= reservable) break
+    if (!isLensCompanionBlock(blocks[i])) continue
+    // Displace from the END of the default set — the lowest-priority card
+    // that was going to be expanded — and only ever one-for-one.
+    const displaced = phase3Indices[PHASE3_DEFAULT_EXPANDED - 1 - promoted]
+    expanded.delete(displaced)
+    expanded.add(i)
+    promoted++
+  }
+  return expanded
+}
+
 /** Pure pacing computation over a turn's full block list. */
 export function computePhase3Pacing(blocks: readonly ConversationBlock[]): Phase3Pacing {
   const biasSignalExemptIndices = computeBiasSignalExemptIndices(blocks)
@@ -124,7 +226,8 @@ export function computePhase3Pacing(blocks: readonly ConversationBlock[]): Phase
       biasSignalExemptIndices,
     }
   }
-  const collapsed = phase3Indices.slice(PHASE3_DEFAULT_EXPANDED)
+  const expanded = defaultExpandedIndices(blocks, phase3Indices)
+  const collapsed = phase3Indices.filter((i) => !expanded.has(i))
   return {
     pacingActive: true,
     phase3Count: phase3Indices.length,
