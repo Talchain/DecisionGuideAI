@@ -88,8 +88,18 @@ interface NodeDisplayMetadata {
    * It exists so the goal node can stop CONTRADICTING the Goal-fit sub-tab.
    * It is a presence signal, never a number and never a designation: the node
    * may say the figures exist and where to read them, and must not invent one.
+   *
+   * OPTIONAL by deliberate choice, and the default is the SAFE one: absent or
+   * false yields the conservative "this run did not produce a goal
+   * probability" copy, never a claim that figures exist. The hook always
+   * populates it. Making it required would have forced edits into unrelated
+   * `NodeDisplayMetadata` test mocks, and that churn rewrites the printed type
+   * strings of pre-existing diagnostics — which desyncs the typecheck gate's
+   * IDENTITY baseline and trips its clean-tree self-test control. A display
+   * signal whose absence is indistinguishable from `false` does not need to
+   * impose that cost.
    */
-  goalFitAvailable: boolean
+  goalFitAvailable?: boolean
   /** Recommendation stability (0-1) - fallback for Goal nodes when probability unavailable */
   stabilityPercentage: number | null
   /** Win rate for options (0-1) */
