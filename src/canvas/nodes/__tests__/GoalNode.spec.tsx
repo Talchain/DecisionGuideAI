@@ -737,6 +737,68 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     expect(screen.queryByText('Help me set a target')).toBeNull()
   })
 
+  /**
+   * ROADMAP 2.275 — the witnessed same-screen contradiction.
+   *
+   * On staging `a27cadf7` (witness-2267 §6b, pixels confirmed in §11a) this
+   * node rendered "Target set. This run did not produce a goal probability."
+   * while the Analysis→Goal-fit sub-tab rendered "< 1%" for all four options,
+   * both in viewport at 1280×800. The per-option figures were real
+   * (`probability_of_joint_goal` + `goal_fit_basis`); only the NODE-level
+   * figure was absent, because the run designates no leading option.
+   *
+   * The node must stop denying what the same report holds — without inventing
+   * a number and without designating an option.
+   */
+  it('target SET + no node-level probability BUT per-option goal fit exists: acknowledges it, never denies it', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      goalFitAvailable: true,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    } as any)
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: {} },
+        analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' },
+        analysisFreshnessDirty: false,
+      }) as any)
+    )
+    renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
+
+    // The flat denial is the defect — it must be gone.
+    expect(screen.queryByText('Target set. This run did not produce a goal probability.')).toBeNull()
+    expect(
+      screen.getByText(/No overall goal probability for this run — see Goal fit for each option/),
+    ).toBeDefined()
+    // No fabricated number, no designated option.
+    expect(screen.queryByText(/% chance of reaching target/)).toBeNull()
+    expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
+  })
+
+  it('keeps the flat absent-state copy when the run really carries no goal figure anywhere', () => {
+    // Negative control for the branch above: goalFitAvailable false ⇒ the
+    // original honest denial is still correct and must survive.
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: {} },
+        analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' },
+        analysisFreshnessDirty: false,
+      }) as any)
+    )
+    renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
+    expect(screen.getByText('Target set. This run did not produce a goal probability.')).toBeDefined()
+    expect(screen.queryByText(/see Goal fit/)).toBeNull()
+  })
+
   // Positive control: a GENUINELY stale/changed model (freshness 'stale' →
   // 'changed' semantic) DOES warrant the rerun prompt.
   it('target SET + no probability + CHANGED model: shows the rerun demand', () => {

@@ -1311,7 +1311,21 @@ describe('Wave 2 (§6.5): quick evidence links', () => {
     expect(m.mainReason).toBe('Main driver: Developer capacity.')
   })
 
-  it('topFlipRisk picks the highest switch-probability fragile driver above the visibility floor', () => {
+  /**
+   * ROADMAP 2.276 — CONTRACT CHANGE, recorded rather than absorbed.
+   *
+   * This test previously asserted `topFlipRisk` = 'Salary cost' purely because
+   * it carried the highest `switchProbability` (0.62). That is the defect
+   * witnessed on staging `a27cadf7`: a fragile-edge switch probability is a
+   * robustness marginal, NOT flip evidence, so ranking it alone named factors
+   * the producer never said could flip. The fixture's only flip-bearing
+   * threshold is `fac_capacity` — so on this data 'Salary cost' must NOT be
+   * named, however fragile its edge is.
+   *
+   * The rank rule itself is unchanged and still pinned below: among factors
+   * that DO flip, the highest switch probability wins.
+   */
+  it('topFlipRisk is not named for a fragile driver the producer says cannot flip', () => {
     const weaker = {
       ...makeDriver('Hiring speed'),
       factorKey: 'fac_hiring',
@@ -1320,7 +1334,80 @@ describe('Wave 2 (§6.5): quick evidence links', () => {
       fragileEdgeInfo: { switchProbability: 0.3 },
     }
     const m = chart(buildHeroModel(makeHeroData({ drivers: { topDrivers: [focusableTop], drivers: [focusableTop, weaker, fragile] } })))
+    // 'Salary cost' has the highest switch probability and no flip threshold.
+    expect(m.quickLinks.topFlipRisk).toBeNull()
+  })
+
+  it('topFlipRisk picks the highest switch-probability driver AMONG the factors that actually flip', () => {
+    const flipsWeaker = {
+      ...makeDriver('Team capacity'),
+      factorKey: 'fac_capacity',
+      canFocus: true,
+      matchedNodeId: 'fac_capacity',
+      fragileEdgeInfo: { switchProbability: 0.31 },
+    }
+    const flipsStronger = {
+      ...makeDriver('Hiring speed'),
+      factorKey: 'fac_hiring',
+      canFocus: true,
+      matchedNodeId: 'fac_hiring',
+      fragileEdgeInfo: { switchProbability: 0.55 },
+    }
+    const m = chart(
+      buildHeroModel(
+        makeHeroData({
+          recommendation: {
+            flipThresholds: [
+              { label: 'Team capacity', node_id: 'fac_capacity', current_value: 40, flip_value: 30, unit: '%' },
+              { label: 'Hiring speed', node_id: 'fac_hiring', current_value: 10, flip_value: 14 },
+            ],
+          },
+          drivers: { topDrivers: [focusableTop], drivers: [focusableTop, flipsWeaker, flipsStronger, fragile] },
+        }),
+      ),
+    )
+    // Both flip; the stronger switch probability wins. 'Salary cost' (0.62,
+    // no flip threshold) is still excluded.
+    expect(m.quickLinks.topFlipRisk).toEqual({ label: 'Hiring speed', targetId: 'fac_hiring' })
+  })
+
+  it('topFlipRisk falls back to switch-probability ranking when the producer sent no flip thresholds', () => {
+    const weaker = {
+      ...makeDriver('Hiring speed'),
+      factorKey: 'fac_hiring',
+      canFocus: true,
+      matchedNodeId: 'node_hiring',
+      fragileEdgeInfo: { switchProbability: 0.3 },
+    }
+    const m = chart(
+      buildHeroModel(
+        makeHeroData({
+          recommendation: { flipThresholds: undefined },
+          drivers: { topDrivers: [focusableTop], drivers: [focusableTop, weaker, fragile] },
+        }),
+      ),
+    )
+    // Absence of evidence is not evidence of absence — legacy payloads keep
+    // the old behaviour rather than being silently blinded.
     expect(m.quickLinks.topFlipRisk).toEqual({ label: 'Salary cost', targetId: 'node_salary' })
+  })
+
+  it('topFlipRisk is withheld entirely when every producer flip threshold is non-flipping', () => {
+    // The witnessed zero-flip turn (witness-2267 §4b): all thresholds
+    // `structurally_invariant`, yet the screen named a "Top flip risk".
+    const m = chart(
+      buildHeroModel(
+        makeHeroData({
+          recommendation: {
+            flipThresholds: [
+              { label: 'Salary cost', node_id: 'node_salary', current_value: 40, flip_value: null },
+            ],
+          },
+          drivers: { topDrivers: [focusableTop], drivers: [focusableTop, fragile] },
+        }),
+      ),
+    )
+    expect(m.quickLinks.topFlipRisk).toBeNull()
   })
 
   it('topFlipRisk is null when no fragile driver clears the floor or can focus', () => {

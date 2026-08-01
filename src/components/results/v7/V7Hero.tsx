@@ -133,7 +133,12 @@ export function V7Hero({
         </div>
       </div>
 
-      <V7SignalRow topDrivers={topDrivers} fragileEdges={fragileEdges} onFocusNode={onFocusNode} />
+      <V7SignalRow
+        topDrivers={topDrivers}
+        fragileEdges={fragileEdges}
+        flipThresholds={recommendation.flipThresholds}
+        onFocusNode={onFocusNode}
+      />
       <V7SuggestedChips onSendMessage={onSendMessage} />
     </section>
   )
