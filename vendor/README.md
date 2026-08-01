@@ -7,7 +7,84 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.30.0.tgz` ← THE CURRENT PIN
+### `talchain-schemas-0.31.0.tgz` ← THE CURRENT PIN
+
+**Provenance: byte-identical to the artefact PLoT `staging` DEPLOYS.**
+olumi-schemas carries tag `v0.31.0`; PLoT PR #301 vendored
+`talchain-schemas-0.31.0.tgz` and **merged 2026-08-01T17:16:26Z** as
+`7133bba1`, which is PLoT's `staging` tip. This copy is that blob, and its
+SHA-256 was computed here and compared to PLoT's own sidecar **at the merged
+staging tip**:
+
+```
+this repo      : a9efa0fdb390faed86e53867024141cd86813b5d33379c2d21cb213b612de1ad
+PLoT staging   : a9efa0fdb390faed86e53867024141cd86813b5d33379c2d21cb213b612de1ad   ✅ identical
+  (7133bba1)
+```
+
+⚠ **THIS SECTION WAS WRITTEN AGAINST AN OPEN PR AND UPGRADED IN THE SAME PR.**
+It first recorded byte-identity with PLoT #301 while that PR was still open,
+and said so — *"byte-identity with a sibling lane's PROPOSED pin, not with
+anything deployed"*. #301 merged **during this lane's run**, so the caveat was
+true when written and stale within the hour. Corrected here rather than left to
+rot, which is the failure mode this file keeps cataloguing. Note the direction:
+the claim got STRONGER, and a stale caveat that understates provenance is still
+a stale caveat — drift is not only the optimistic kind.
+
+⚠ **WHAT IS PROVEN HERE, AND WHAT IS NOT.** Same rule as always: a `file:` pin
+makes pnpm hash the LOCAL tarball, so no hash in this file says anything about a
+registry.
+
+| Claim | Status |
+|---|---|
+| the sidecar matches the checked-in bytes | ✅ proven — `shasum -a 256 -c vendor/talchain-schemas-0.31.0.tgz.sha256` |
+| **byte-identical to the artefact PLoT `staging` DEPLOYS** | ✅ **proven** — sha256 above matches PLoT's own sidecar at the merged staging tip `7133bba1`, and PLoT `staging`'s `package.json` pins `file:./vendor/talchain-schemas-0.31.0.tgz`. Re-derive, don't trust this row: `gh api "repos/Talchain/plot-lite-service/contents/vendor/talchain-schemas-0.31.0.tgz.sha256?ref=staging"`. |
+| byte-identical to what **CEE** deploys | ❌ **NO — CEE `staging` still pins 0.30.0.** The skew is deliberate, one optional additive field wide, and reader-first (see below). It IS skew: hazard 1 says never assume parity, so check each repo's pin. |
+| **"is the published registry release"** | ⚠️ **NOT PROVEN HERE.** Inherited from PLoT #301. This lane did not re-pack: the scope is 401 on GitHub Packages and 404 on public npm, and no token was used. |
+
+**Is that safe? Yes, and it is derived, not asserted.** 0.31.0 adds exactly ONE
+thing: an OPTIONAL `action_prompt` string on `CoachingBlockSchema`. Adopting it
+ahead of CEE cannot break anyone, because *nothing else consumes the UI's pin* —
+the UI is a leaf. And the field is reader-first by construction:
+the schema's own adoption note says a UI on an older pin drops the key and
+renders today's non-interactive card, while a UI that adopts before CEE emits
+simply never sees one. **Neither side blocks the other, so there is no landing
+order and no outage window.** Rollback is a revert.
+
+**What it adds (ROADMAP 2.225):** `CoachingBlockSchema.action_prompt`,
+`z.string().min(1).max(300).optional()` — the producer-authored turn text a
+coaching chip dispatches VERBATIM. Verified at the RESOLVED bytes, not from
+release notes: `dist/boundary/blocks.js:516` and `dist/boundary/blocks.d.ts:873`
+in the vendored tarball both carry it.
+
+⚠ **THE FIELD CARRIES BINDING CONSUMER DOCTRINE IN ITS OWN DOC COMMENT — read it
+before wiring anything to it.** Two clauses bite:
+1. **VERBATIM MEANS VERBATIM** — dispatch the string unmodified; no templating,
+   interpolation, appended context or "improving". Wording fixes belong at the
+   producer.
+2. **FAIL CLOSED, AND SILENTLY** — absence means the producer authored no
+   prompt, so the consumer renders **NO dispatching chip**, and *"It must not
+   fall back to composing one from `action_intent` or `action_label`: that
+   fallback IS the defect."*
+
+**SCOPE ASYMMETRY, stated in the contract so it is not mistaken for an
+oversight:** `ReviewCardBlockSchema` and `EvidenceBlockSchema` also carry
+`action_intent`/`action_label` and **deliberately do NOT get `action_prompt` in
+0.31.0**. They are `.strict()`, so a producer *cannot* emit one on them.
+Consequence for this repo: only the COACHING card can become interactive at this
+pin — wiring the review-card or evidence pills would be dead code today.
+
+**Absorption cost 0.30.0 → 0.31.0: ZERO new typecheck errors.** Measured on the
+re-vendor commit alone, before any code change: the gate's per-file ratchet and
+total both held at the baseline (**622 files / 2505 errors**), coverage 3128 /
+3168. 0.31.0 is one optional string and nothing else, so there is no removed
+export or renamed field for a consumer to drop.
+
+`src/lib/talchainSchemasVersion.ts` is bumped to `0.31.0` in lockstep (its spec
+derives the expected value from the `file:` pin in `package.json` and fails on
+drift).
+
+### `talchain-schemas-0.30.0.tgz` (historical — no longer vendored)
 
 **Provenance: the PUBLISHED REGISTRY ARTEFACT, obtained via CEE rather than
 re-packed here — and byte-verified, not assumed.** olumi-schemas PR #29 merged
@@ -21,8 +98,14 @@ this repo : cd3746369b26da20e079c8d8ec323294edcc46a32df6830b657aed2cd465a0cc
 CEE staging: cd3746369b26da20e079c8d8ec323294edcc46a32df6830b657aed2cd465a0cc   ✅ identical
 ```
 
-So CEE and the UI now run BYTE-IDENTICAL schemas, which is the strongest
-available answer to the schema-skew hazard.
+At the time that was written, CEE and the UI ran BYTE-IDENTICAL schemas — the
+strongest available answer to the schema-skew hazard.
+
+⚠ **NO LONGER TRUE, and corrected here rather than left to rot when the pin
+moved: the UI is on 0.31.0 and CEE `staging` is still on 0.30.0.** The skew is
+deliberate, one optional additive field wide, and reader-first (see the 0.31.0
+section) — but it IS skew, and hazard 1 says never assume parity. Check each
+repo's `package.json` pin.
 
 ⚠ **WHAT IS PROVEN HERE, AND WHAT IS NOT — read before citing any hash in this
 file as provenance.** A `file:` pin makes pnpm hash the LOCAL tarball, so no hash

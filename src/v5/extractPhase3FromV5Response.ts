@@ -460,9 +460,23 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
     }
   }
 
-  // primary_action — derived from action_intent + suggested follow-up
-  // prompt. Default to 'discuss' with the block's headline as the prompt.
-  const intentPrompt = safeString(r.action_intent) ?? safeString(r.suggested_prompt) ?? title
+  // primary_action.prompt — the text GuidanceStrip SUBMITS AS A TURN
+  // (`case 'discuss'` → `onSendMessage(action.prompt, ...)`). So every member
+  // of this chain must be producer-authored PROSE.
+  //
+  // ⚠ `action_intent` USED TO LEAD THIS CHAIN AND THAT WAS THE DEFECT
+  // (ROADMAP 2.225). It is a raw ENUM TOKEN — `gather_evidence`,
+  // `confirm_factor` — so clicking the guidance action sent the literal
+  // string "gather_evidence" to CEE as if the user had typed it. Machine
+  // tokens ride as data-* in this codebase; they are never user copy, and
+  // never user speech. It is dropped from the chain entirely (it remains on
+  // the raw block for readers that legitimately want the token).
+  //
+  // `action_prompt` (schemas 0.31.0) now leads: producer-authored turn text,
+  // dispatched verbatim. `title` is REQUIRED, so the chain always resolves
+  // and `primary_action` stays required — no consumer needs an optional
+  // guard, and no item is silently stripped of its affordance.
+  const intentPrompt = safeString(r.action_prompt) ?? safeString(r.suggested_prompt) ?? title
 
   return {
     item_id: block.id,

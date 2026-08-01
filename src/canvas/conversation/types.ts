@@ -263,6 +263,15 @@ export interface V5CoachingBlock {
   freshness?: V5Phase3Freshness
   action_intent?: string
   action_label?: string
+  /**
+   * The PRODUCER-AUTHORED turn text this block's action chip dispatches
+   * VERBATIM (schemas 0.31.0 `CoachingBlockSchema.action_prompt`; ROADMAP
+   * 2.225). PRESENCE is what makes the pill interactive — absence renders
+   * the display-only pill, and the UI never composes a prompt from
+   * `action_label` or `action_intent`. Carried only on CoachingBlock:
+   * 0.31.0 deliberately withholds it from ReviewCardBlock/EvidenceBlock.
+   */
+  action_prompt?: string
 }
 
 /**

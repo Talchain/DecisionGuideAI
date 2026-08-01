@@ -163,6 +163,11 @@ export function adaptTypedCoachingBlock(
 
   const actionIntent = nonEmptyString(raw.action_intent)
   const actionLabel = nonEmptyString(raw.action_label)
+  // 0.31.0 / ROADMAP 2.225 — producer-authored turn text. Carried verbatim
+  // and only when the producer sent it: its PRESENCE is what makes the
+  // coaching action pill a dispatching button, so inventing or defaulting it
+  // here would manufacture an affordance the producer never authorised.
+  const actionPrompt = nonEmptyString(raw.action_prompt)
 
   return {
     type: 'v5_coaching',
@@ -176,6 +181,7 @@ export function adaptTypedCoachingBlock(
     freshness: fresh,
     ...(actionIntent ? { action_intent: actionIntent } : {}),
     ...(actionLabel ? { action_label: actionLabel } : {}),
+    ...(actionPrompt ? { action_prompt: actionPrompt } : {}),
   }
 }
 
