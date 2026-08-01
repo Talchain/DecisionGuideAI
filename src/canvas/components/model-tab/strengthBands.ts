@@ -51,6 +51,14 @@ export function getSignedMidpoint(
  * Full user-facing strength label, e.g. "Strong positive effect".
  * Negligible always returns "Negligible effect" (no direction qualifier).
  *
+ * ⚠ NAMED `getDirectionalStrengthLabel`, NOT `getStrengthLabel`, DELIBERATELY.
+ * `ui/inspector-v2/inspectorStrings.ts:98` already exports a `getStrengthLabel`
+ * — a MAGNITUDE-ONLY band namer (`'Very strong' | 'Strong' | 'Moderate' |
+ * 'Slight'`, different thresholds, no direction). This function briefly shared
+ * that name, which is the `generateGraphHash` twin-name trap forming in real
+ * time: two same-named functions with different domains, one of which quietly
+ * answers a question the other refuses to. The name now states the difference.
+ *
  * ⚠ THE DIRECTION IS AN ARGUMENT, NOT AN INFERENCE (ROADMAP 2.263).
  *
  * This function used to compute `const direction = mean >= 0 ? 'positive' :
@@ -67,7 +75,7 @@ export function getSignedMidpoint(
  *
  * `mean` is used ONLY for its magnitude here.
  */
-export function getStrengthLabel(mean: number, direction: EdgeDirectionDisplay): string {
+export function getDirectionalStrengthLabel(mean: number, direction: EdgeDirectionDisplay): string {
   const band = getStrengthBand(mean)
   if (band === 'negligible') return 'Negligible effect'
   const magnitude = band.charAt(0).toUpperCase() + band.slice(1)

@@ -44,6 +44,7 @@ import {
   resolveEdgeSignedStrengthDisplay,
   resolveEdgeDirectionDisplay,
   compareEdgeValueDisplays,
+  type EdgeValueSource,
 } from '../../domain/edgeValueProvenance'
 
 /** Repair display entry for edge detail */
@@ -66,7 +67,7 @@ interface RelationshipsSectionProps {
   /** Whether robustness data is available (analysis has run) */
   hasRobustnessData?: boolean
   /** Called when user resolves a contested edge. Provided by ModelTabBody. */
-  onResolveContested?: (edgeId: string, action: UserAction, customMean?: number) => void
+  onResolveContested?: (edgeId: string, action: UserAction, customMean?: number, directionSource?: EdgeValueSource | null) => void
   /** Map of edge ID → E-value from ISL robustness */
   edgeEValueMap?: Map<string, number>
   /** Map of edge ID → repairs applied from PLoT */

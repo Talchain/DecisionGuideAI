@@ -31,7 +31,7 @@ import { describe, it, expect, vi, beforeAll } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import type { Edge, Node } from '@xyflow/react'
 import { RelationshipsSection } from '../RelationshipsSection'
-import { getStrengthLabel } from '../strengthBands'
+import { getDirectionalStrengthLabel } from '../strengthBands'
 import {
   resolveEdgeDirectionDisplay,
   directionFromProducerSignedMean,
@@ -174,16 +174,16 @@ describe('resolveEdgeDirectionDisplay', () => {
 
 // ── The label — no direction may be read off a magnitude ─────────────────────
 
-describe('getStrengthLabel', () => {
+describe('getDirectionalStrengthLabel', () => {
   it('names the direction when it is stated (POSITIVE CONTROL)', () => {
-    expect(getStrengthLabel(0.7, { show: true, direction: 'positive', source: 'cee' }))
+    expect(getDirectionalStrengthLabel(0.7, { show: true, direction: 'positive', source: 'cee' }))
       .toBe('Strong positive effect')
-    expect(getStrengthLabel(-0.7, { show: true, direction: 'negative', source: 'cee' }))
+    expect(getDirectionalStrengthLabel(-0.7, { show: true, direction: 'negative', source: 'cee' }))
       .toBe('Strong negative effect')
   })
 
   it('says the direction was not stated rather than inferring one from the sign', () => {
-    const label = getStrengthLabel(0.7, { show: false, reason: 'unknown' })
+    const label = getDirectionalStrengthLabel(0.7, { show: false, reason: 'unknown' })
     expect(label).toBe('Strong effect, direction not stated')
     expect(label).not.toMatch(/positive|negative/)
   })
@@ -191,12 +191,12 @@ describe('getStrengthLabel', () => {
   it('does not invent a NEGATIVE direction from a negative magnitude either', () => {
     // The old code would have said "Strong negative effect" here purely because
     // the number was below zero. Absence is absence in both directions.
-    expect(getStrengthLabel(-0.7, { show: false, reason: 'absent' }))
+    expect(getDirectionalStrengthLabel(-0.7, { show: false, reason: 'absent' }))
       .toBe('Strong effect, direction not stated')
   })
 
   it('keeps the direction-free negligible label unchanged', () => {
-    expect(getStrengthLabel(0.01, { show: true, direction: 'positive', source: 'cee' }))
+    expect(getDirectionalStrengthLabel(0.01, { show: true, direction: 'positive', source: 'cee' }))
       .toBe('Negligible effect')
   })
 })

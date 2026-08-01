@@ -379,11 +379,23 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
  * ROADMAP 2.263 — the empty guard is NOT in this component any more.
  *
  * `if (optionNodes.length === 0) return null` sat above the two `useMemo`s
- * below, so the hook count went 0 → 2 the moment options arrived from the draft
- * and React threw `Rendered more hooks than during the previous render.` It is
- * now in the wrapper, which has no hooks, so the transition mounts this
+ * below, so the hook count went 0 → 2 the moment options arrived from the draft.
+ * It is now in the wrapper, which has no hooks, so the transition mounts this
  * component instead of bailing out mid-render. Do not reintroduce an early
  * return above a hook here.
+ *
+ * ⚠ THIS ONE WAS COMPLETELY SILENT, AND THAT IS THE ARGUMENT FOR THE LINT RULE.
+ * The 2.263 audit predicted a `Rendered more hooks than during the previous
+ * render.` throw. Measured by mutation on React 18.3.1: the defect produced NO
+ * throw, NO console warning, and a correct render, in BOTH directions. The
+ * reason is that ZERO hooks ran before the guard, so the earlier render
+ * recorded an empty hook list and React silently accepts hooks being added to
+ * it. (`GoalSection`, which called two hooks before its guard, at least warned.)
+ *
+ * So nothing at runtime could have told us this was here — no crash, no log, no
+ * failing test. `react-hooks/rules-of-hooks`, enabled as an error by this same
+ * row, is what makes this class of defect visible at all; it is a
+ * code-integrity guard, not crash prevention.
  */
 function OptionsSectionInner({ optionNodes, allNodes, conditionalWinners, hasAnalysisData, onSendMessage, isExpanded, onExpandChange }: OptionsSectionProps) {
   // Build per-option conditional winner lookup (match on option ID, not label)

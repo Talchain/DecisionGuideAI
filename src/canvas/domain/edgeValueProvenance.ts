@@ -147,10 +147,20 @@ export function edgeValueSource(
   if (field === 'weight' && typeof data.strength_mean === 'number') return 'cee'
   // `direction` — `effect_direction` is the raw CEE wire spelling and NOTHING in
   // the UI fabricates it: neither `DEFAULT_EDGE_DATA` nor `USER_EDGE_DEFAULTS`
-  // defines it, and no inspector setter writes it. It reaches `data` only from a
-  // producer (`DraftChat`'s `edgeRest` passthrough, `applyV5State`'s graph_patch
-  // spread, `adapters/cee/client`). Its presence therefore PROVES a producer
-  // stated a direction — the same argument as `exists_probability` above.
+  // defines it, and no inspector setter writes it. Its presence therefore PROVES
+  // a producer stated a direction — the same argument as `exists_probability`.
+  //
+  // ⚠ CORRECTED — this comment previously named `DraftChat`'s `edgeRest`
+  // passthrough as one of the writers. FALSE: `DraftChat.tsx:475` destructures
+  // `effect_direction: _effectDir` OUT before the spread, so NEITHER draft path
+  // preserves the raw spelling. The real writers are `v5/applyV5State.ts:653`
+  // (spreads a CEE graph_patch `after` verbatim) and `adapters/cee/client.ts`.
+  //
+  // Note the direction of that error and why it did not become a defect: it
+  // over-stated what this FALLBACK covers, while the explicit stamp written at
+  // all three ingestion sites is what actually does the work on the draft paths.
+  // Had the fix leaned on the fallback instead, the same wrong sentence would
+  // have been load-bearing.
   //
   // `'unknown'` is deliberately NOT evidence: it is the producer declining to
   // state one, which `resolveEdgeDirectionDisplay` reports as its own reason.
@@ -208,6 +218,33 @@ export function edgeValueSource(
  * stroke, pre-run validation — is unchanged by construction, and the display
  * surfaces gain the ability to tell a stated direction from a defaulted one,
  * which after the old collapse they could not do even in principle.
+ *
+ * THE WRITER MANIFEST — DERIVED, NOT ASSERTED
+ * -------------------------------------------
+ * "Three ingestion paths" is a claim that has to be checked, not repeated: the
+ * row's brief named TWO, and the third was found only when the full suite's
+ * hop-parity guard failed. So the manifest is the complete set of production
+ * `edgeValueSourcePatch(` call sites — `grep -rn 'edgeValueSourcePatch(' src/`,
+ * excluding tests and this file — SEVEN, and every one is accounted for:
+ *
+ *   STAMPS `direction` (a producer may state one on these paths):
+ *     · components/DraftChat.tsx:637            draft ingestion
+ *     · utils/applyDraftResult.ts:165           draft ingestion (alternate)
+ *     · conversation/utils/applyPatch.ts:205    graph_patch ingestion
+ *
+ *   DOES NOT, AND IS CORRECT BY CONSTRUCTION — these build edges from
+ *   `DEFAULT_EDGE_DATA`, which defines NO `direction` key, and none of them
+ *   writes one. `resolveEdgeDirectionDisplay` therefore returns
+ *   `{show:false, reason:'absent'}`, which is the honest answer: a template or
+ *   blueprint author supplied a weight, not a causal direction.
+ *     · ReactFlowGraph.tsx:1186                 template insert   (weight: 'template')
+ *     · store.ts:4877                           CEE apply         (weight: 'cee')
+ *     · store.ts:4968                           CEE apply         (weight: 'cee')
+ *     · hooks/useBlueprintInsert.ts:109         blueprint insert  (weight: 'template')
+ *
+ * If a future path starts writing `direction`, it belongs in the first group.
+ * Re-derive this list rather than trusting it — it is a hand-maintained mirror
+ * like any other, and it is only as good as the grep that produced it.
  */
 
 /**
@@ -477,8 +514,21 @@ export function resolveEdgeSignedStrengthDisplay(
     // Relationships +/− prefix and its success/danger colour) now ask that
     // resolver instead.
     //
-    // Known survivor, out of this lane's scope and rowed: `EdgePills.tsx:71`
-    // still does `direction: signed >= 0 ? 'up' : 'down'` off this value.
+    // KNOWN SURVIVORS of that boundary — out of this lane's scope, all rowed.
+    // Listed by name so the follow-up row is honest about its size rather than
+    // implying a single stray call site:
+    //   · nodes/shared/EdgePills.tsx:71        `direction: signed >= 0 ? 'up' : 'down'`
+    //   · inspector-v2/inspectorStrings.ts:106 `getStrengthDescription` — builds
+    //     the literal string "Strong positive" from `signedValue >= 0`, and is
+    //     rendered by `edges/StyledEdge.tsx:45`
+    //   · inspector-v2/shared/ConnectionRow.tsx:99   bar tone `signedValue >= 0 ? 'bg-success' : 'bg-danger'`
+    //   · inspector-v2/shared/ConnectionRow.tsx:106  `signedValue > 0 ? '+' : ''`
+    //   · inspector-v2/shared/ConnectionRow.tsx:110  `signedValue >= 0 ? '+' : '−'`
+    // Each reads a direction off a number this function may have signed from a
+    // defaulted `direction` — the same defect the Model tab just had, on the
+    // canvas and inspector surfaces. They need the same `EdgeDirectionDisplay`
+    // treatment; doing it here would repaint the canvas from a Model-tab lane
+    // with no coverage for those surfaces.
     const sign = data.direction === 'negative' || data.effect_direction === 'negative' ? -1 : 1
     return { show: true, value: sign * data.weight, source }
   }

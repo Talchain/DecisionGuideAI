@@ -107,7 +107,7 @@ export function countFactorsToVerify(factorNodes: ReadonlyArray<{ data: unknown 
 
 // ── Strength semantic labels ──────────────────────────────────────────────────
 // Re-export from strengthBands.ts (canonical thresholds from validation_ui_data_contract_v1.1).
-export { getStrengthLabel as strengthSemanticLabel } from './strengthBands'
+export { getDirectionalStrengthLabel as strengthSemanticLabel } from './strengthBands'
 
 // ── Direction-gated display helpers (ROADMAP 2.263) ──────────────────────────
 //

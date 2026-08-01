@@ -52,6 +52,62 @@ for (const result of results) {
 const expected = new Map(Object.entries(baseline.files))
 const problems = []
 
+/*
+ * SELF-CONSISTENCY OF THE BASELINE ITSELF, BEFORE IT IS TRUSTED.
+ *
+ * `_total` is a second copy of information already in `files`, so it is a
+ * mirror and will drift the moment someone edits one and not the other — and a
+ * wrong `_total` is quoted in this script's own failure output, which is how a
+ * misleading number reaches a reader. Deriving it here means the file cannot
+ * disagree with itself.
+ */
+const declaredTotal = baseline._total
+const summedTotal = [...expected.values()].reduce((a, b) => a + b, 0)
+if (declaredTotal !== summedTotal) {
+  problems.push(
+    `BASELINE   _total says ${declaredTotal}, but the per-file counts sum to ${summedTotal}.\n` +
+      `          These are the same fact written twice. Fix _total in\n` +
+      `          scripts/ci/rules-of-hooks-baseline.json.`,
+  )
+}
+
+for (const [file, count] of expected) {
+  if (!Number.isInteger(count) || count < 1) {
+    problems.push(
+      `BASELINE   ${file} has a non-positive or non-integer count (${JSON.stringify(count)}).\n` +
+        `          An entry exists to record REAL violations; zero means delete the entry.`,
+    )
+  }
+}
+
+/*
+ * THE GROWTH GUARD — the part that used to be only a sentence.
+ *
+ * The baseline's own README says "do NOT add the file to the baseline to get
+ * green", and until now that was prose: nothing stopped a future change from
+ * appending an entry and going green. `_recordedAtTip` / `_recordedOn` pin the
+ * measurement, and `_maxTotal` pins its ceiling, so ADDING a file or raising a
+ * count now requires deliberately editing the ceiling and the date in the same
+ * diff — visible in review, rather than a quiet append.
+ *
+ * The ceiling is a ratchet: it may be lowered freely as violations are fixed,
+ * and raising it is the thing a reviewer is meant to notice and question.
+ */
+const ceiling = baseline._maxTotal
+if (typeof ceiling !== 'number') {
+  problems.push(
+    `BASELINE   _maxTotal is missing. It is the enforced ceiling on total known\n` +
+      `          violations; without it, entries can be appended silently.`,
+  )
+} else if (summedTotal > ceiling) {
+  problems.push(
+    `CEILING    known violations total ${summedTotal}, above the recorded ceiling ${ceiling}.\n` +
+      `          Adding a file or raising a count is NOT how this goes green. Fix the\n` +
+      `          hooks. If a raise is genuinely intended, raise _maxTotal AND update\n` +
+      `          _recordedOn in the same diff so it is reviewed as a decision.`,
+  )
+}
+
 for (const [file, actualCount] of actual) {
   const expectedCount = expected.get(file)
   if (expectedCount === undefined) {

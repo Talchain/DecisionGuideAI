@@ -29,10 +29,17 @@ interface GoalSectionProps {
  * This component used to take `Node | undefined` and early-return `null` at the
  * top, ABOVE two `useCallback`s further down. React counts hooks per mounted
  * instance, so the moment the goal node arrived from the draft the count went
- * 2 → 4 and React threw `Rendered more hooks than during the previous render.`
- * — precisely when the model first appears, which is the worst moment for a
- * first-time tester and exactly when they are watching. It fired in reverse
- * (4 → 2) on scenario switch or clear.
+ * 2 → 4 — a Rules-of-Hooks violation on the exact transition every first-time
+ * tester sits through during the draft wait.
+ *
+ * ⚠ WHAT IT ACTUALLY DID, MEASURED — the 2.263 audit predicted React would THROW
+ * `Rendered more hooks than during the previous render.` It does not. On React
+ * 18.3.1 it logs `"React has detected a change in the order of Hooks called by
+ * X."` via console.error and RECOVERS, rendering the content; the reverse
+ * (4 → 2) transition produced no console output at all. So this was undefined
+ * behaviour on React's own terms, NOT the section-breaking crash the audit
+ * described — the fix is warranted, the crash story was not. Measured by
+ * mutation; see `__tests__/modelTabHooksOrderTransition.spec.tsx`.
  *
  * The guard moved UP into the wrapper, which has no hooks of its own, so the
  * unmount happens instead of a mid-render bail-out. Narrowing the prop is what

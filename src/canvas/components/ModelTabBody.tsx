@@ -22,7 +22,7 @@ import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { AnalysisRunStateCover } from './AnalysisRunStateCover'
 import { useUIStore } from '../../stores/uiStore'
 import { getDisplayEdgeId, buildFragileEdgeLookup } from '../utils/edgeIdentity'
-import { edgeValueSource, resolveEdgeValueDisplay, compareEdgeValueDisplays } from '../domain/edgeValueProvenance'
+import { edgeValueSource, resolveEdgeValueDisplay, compareEdgeValueDisplays, type EdgeValueSource } from '../domain/edgeValueProvenance'
 import { getCausalEdges } from '../domain/edgeUtils'
 import { SectionErrorBoundary } from './GraphTextView'
 import type { MappedRobustness } from '../../lib/mappers/types'
@@ -562,7 +562,16 @@ export const ModelTabBody = memo(function ModelTabBody({
   // write path. Making it sanctioned needs a setter that writes validation and
   // takes the provenance marker as an argument — a change to the shared arc, not
   // a slice-1 rerouting. The guard spec's scope is named accordingly.
-  const handleResolveContested = useCallback((edgeId: string, action: UserAction, customMean?: number) => {
+  const handleResolveContested = useCallback((
+    edgeId: string,
+    action: UserAction,
+    customMean?: number,
+    // ROADMAP 2.263 — the provenance of the SIGN in `customMean`, supplied by
+    // the control the user actually touched. `undefined` keeps the historical
+    // behaviour ('user'); `null` means nothing states a direction, so we must
+    // not derive one from the number.
+    directionSource?: EdgeValueSource | null,
+  ) => {
     const edge = edges.find(e => e.id === edgeId)
     if (!edge?.data) return
 
@@ -596,13 +605,22 @@ export const ModelTabBody = memo(function ModelTabBody({
     }
 
     if (action === 'overridden' && customMean !== undefined) {
+      // ROADMAP 2.263 — the MAGNITUDE is always the user's; the DIRECTION is
+      // only theirs if they actually stated it. The signed slider does
+      // ('user'); the band quick-set pills do not — their sign rides in from
+      // the edge's stated direction or the producer's pass-2 mean, and is
+      // stamped with THAT source. `null` means nothing states one, so both the
+      // direction and its stamp are omitted and the edge keeps reading "not
+      // stated" rather than being handed a sign taken off a magnitude.
       const patch: DataPatch = {
         weight: Math.abs(customMean),
-        direction: customMean >= 0 ? 'positive' : 'negative',
-        // The user overrode the producer with their own number — which they
-        // signed, so the direction is stated too (ROADMAP 2.263).
         weightSource: 'user',
-        directionSource: 'user',
+        ...(directionSource === null
+          ? {}
+          : {
+              direction: customMean >= 0 ? 'positive' : 'negative',
+              directionSource: directionSource ?? 'user',
+            }),
         validation: { ...updatedValidation, resolved_value: { strength_mean: customMean } },
       }
       updateEdge(edgeId, { data: patch as EdgeData })

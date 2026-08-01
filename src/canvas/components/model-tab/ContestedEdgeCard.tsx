@@ -23,18 +23,20 @@ import { bucketDwellMs } from '../../../telemetry/measurementConfig'
 import type { ValidationMetadata, UserAction } from '../../domain/validation'
 import { SignedStrengthSlider } from '../../ui/inspector/SignedStrengthSlider'
 import {
-  getStrengthLabel,
+  getDirectionalStrengthLabel,
   getStrengthBand,
   getConfidenceLabel,
   getExistenceLabel,
   getBasisLabel,
   getContestedReasonLabel,
   getSignedMidpoint,
+  STRENGTH_BAND_MIDPOINTS,
   type StrengthBand,
 } from './strengthBands'
 import {
   resolveEdgeDirectionDisplay,
   directionFromProducerSignedMean,
+  type EdgeValueSource,
 } from '../../domain/edgeValueProvenance'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -48,7 +50,19 @@ interface ContestedEdgeCardProps {
   hasRobustnessData?: boolean
   isSelected?: boolean
   /** Called when user resolves the edge. */
-  onResolve: (edgeId: string, action: UserAction, customMean?: number) => void
+  /**
+   * `directionSource` carries the PROVENANCE OF THE SIGN in `customMean`
+   * (ROADMAP 2.263): `'user'` when the user stated the direction themselves,
+   * `'cee'`/`'template'` when the sign rode along from a producer, and `null`
+   * when nothing states one — in which case the writer must leave `direction`
+   * and its stamp alone rather than deriving a direction from the number.
+   */
+  onResolve: (
+    edgeId: string,
+    action: UserAction,
+    customMean?: number,
+    directionSource?: EdgeValueSource | null,
+  ) => void
 }
 
 // ── Resolved confirmation copy ────────────────────────────────────────────────
@@ -183,30 +197,41 @@ export function ContestedEdgeCard({
   }, [])
 
   const handleSliderConfirm = useCallback(() => {
-    onResolve(edgeId, 'overridden', customSignedMean)
+    // The signed slider IS a direction statement — the user chose the sign.
+    onResolve(edgeId, 'overridden', customSignedMean, 'user')
     setShowCustomInput(false)
   }, [edgeId, customSignedMean, onResolve])
 
   // Quick-set: tap Weak/Moderate/Strong to resolve with the band midpoint.
-  // Sign is preserved from the canvas edge's existing direction (data.direction),
-  // not inferred from pass1.strength_mean's sign.
   //
   // ROADMAP 2.263 — this was `rawDirection === 'negative' ? 'negative' :
   // 'positive'`, so an edge with no stated direction quick-set to a POSITIVE
   // midpoint. That is worse than a bad label: `onResolve` WRITES the value, so
   // a fabricated direction became the user's own recorded resolution.
   //
-  // The fallback for an unstated direction is the sign of the producer's own
-  // pass-2 mean — the number this card is asking the user to adjudicate — and
-  // never a constant.
+  // ⚠ AND THE SIGN'S PROVENANCE IS NOT THE USER'S. These pills set a MAGNITUDE
+  // — "this effect is moderate" — and say nothing about direction. The sign
+  // comes from the edge's stated direction, or failing that from the producer's
+  // own pass-2 mean; either way it is the PRODUCER's claim riding along, so it
+  // is stamped with that source rather than 'user'. The weight is the user's;
+  // the direction is not. (The signed slider below IS a direction statement,
+  // and stamps 'user' accordingly.)
   const directionDisplay = resolveEdgeDirectionDisplay(data)
 
   const handleQuickSet = useCallback((band: Exclude<StrengthBand, 'negligible'>) => {
     const resolved = directionDisplay.show
       ? directionDisplay
       : directionFromProducerSignedMean(validation.pass2.strength_mean)
-    const signed = getSignedMidpoint(band, resolved.show ? resolved.direction : 'positive')
-    onResolve(edgeId, 'overridden', signed)
+
+    // Nothing states a direction — not the edge, and not a finite pass-2 mean.
+    // Write the MAGNITUDE alone and let the resolver keep reading "not stated";
+    // `null` tells the writer to touch neither `direction` nor its stamp. The
+    // old code wrote a constant 'positive' here.
+    if (!resolved.show) {
+      onResolve(edgeId, 'overridden', STRENGTH_BAND_MIDPOINTS[band], null)
+      return
+    }
+    onResolve(edgeId, 'overridden', getSignedMidpoint(band, resolved.direction), resolved.source)
   }, [edgeId, directionDisplay, validation.pass2.strength_mean, onResolve])
 
   // ── Derived display values ─────────────────────────────────────────────────
@@ -217,8 +242,8 @@ export function ContestedEdgeCard({
   // pass has no direction field of its own — the sign IS that pass's stated
   // direction. Reading it is not the banned magnitude inference; see
   // `directionFromProducerSignedMean`'s header for the distinction.
-  const pass1Label  = getStrengthLabel(pass1Mean, directionFromProducerSignedMean(pass1Mean))
-  const pass2Label  = getStrengthLabel(pass2Mean, directionFromProducerSignedMean(pass2Mean))
+  const pass1Label  = getDirectionalStrengthLabel(pass1Mean, directionFromProducerSignedMean(pass1Mean))
+  const pass2Label  = getDirectionalStrengthLabel(pass2Mean, directionFromProducerSignedMean(pass2Mean))
   const pass1Band   = getStrengthBand(pass1Mean)
   const pass2Band   = getStrengthBand(pass2Mean)
 

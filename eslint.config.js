@@ -216,19 +216,26 @@ export default [
       // TODO: Fix existing exhaustive-deps warnings (64 violations as of 2026-01-31)
       'react-hooks/exhaustive-deps': 'warn',
 
-      // ⭐ ROADMAP 2.263 — the rule that would have caught a live crash.
+      // ⭐ ROADMAP 2.263 — the rule that is the ONLY thing that can see this
+      // defect class at all.
       //
       // The plugin was registered above and this rule was never switched on, so
       // `rules-of-hooks` had ZERO enforcement in a codebase with ~1,900 hook
       // call sites. Two Model-tab sections (`GoalSection`, `OptionsSection`)
-      // early-returned above later hooks and threw `Rendered more hooks than
-      // during the previous render.` at the exact moment the drafted model
-      // arrived. A `SectionErrorBoundary` degraded it to a section-shaped hole
-      // rather than a white screen, which is why it survived unreported.
+      // early-returned above later hooks.
       //
-      // ERROR, not 'warn': a violation of this rule is a runtime crash, not a
-      // style opinion, and the repo's own lint job does not fail on warnings —
-      // a warn here would have been a broken alarm (trap 7).
+      // ⚠ AND NEITHER OF THEM CRASHED — measured, not assumed. On React 18.3.1
+      // `GoalSection` logged "React has detected a change in the order of Hooks
+      // called by X." and RECOVERED; `OptionsSection` produced no throw, no
+      // warning and a correct render in both directions, because zero hooks ran
+      // before its guard so React had an empty hook list to compare against.
+      // The 2.263 audit's "will THROW" prediction did not reproduce.
+      //
+      // ERROR, not 'warn', for that reason rather than despite it: when the
+      // runtime is silent, LINT IS THE ONLY DETECTOR. This is a code-integrity
+      // guard against behaviour React explicitly does not define — not crash
+      // prevention. And the repo's lint job does not fail on warnings, so a
+      // 'warn' here would be a broken alarm (trap 7).
       'react-hooks/rules-of-hooks': 'error',
 
       // Discourage direct console usage - prefer logger utility (src/lib/logger.ts)
