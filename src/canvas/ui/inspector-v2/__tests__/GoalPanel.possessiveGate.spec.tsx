@@ -265,10 +265,19 @@ describe('GoalPanel — the Constraints-section restatement (ROADMAP 2.283)', ()
 
   it('positive control: the CONSTRAINED basis KEEPS the Constraints line (basis-scoped, not joint-scoped)', () => {
     // ROADMAP 1.49: the user's own goal AND their own limits. The figure is
-    // joint, and the framing is earned. A gate widened to "the figure is joint"
-    // REDs here.
+    // joint, and the framing is earned. A gate widened from
+    // `!goalFitSubstituted` to `!goalProbabilityIsJoint` REDs here.
+    //
+    // ⚠ COUNTED, NOT `toContain` — AND THAT IS THE WHOLE TEST. The first
+    // version of this asserted `toContain(JOINT_LINE)`, which BOTH sites
+    // satisfy, so it could not tell which one had rendered: the widening mutant
+    // suppressed the Constraints line, the Impact line alone still matched, and
+    // the mutant survived with zero reds. Caught by the mutation matrix, not by
+    // review. On a constrained run with constraints defined BOTH sites must
+    // render, so the count is 2 and dropping either one REDs.
     setStoreWithConstraints(CONSTRAINED_REPORT)
-    expect(renderPanel().container.textContent ?? '').toContain(JOINT_LINE)
+    const text = renderPanel().container.textContent ?? ''
+    expect(text.split(JOINT_LINE).length - 1).toBe(2)
   })
 
   it('DEDUP: both sites render the REGISTER string — neither re-types the literal', () => {
