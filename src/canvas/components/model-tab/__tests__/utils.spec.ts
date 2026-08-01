@@ -13,58 +13,67 @@ import {
   isCurrencyUnit,
   isGenericUnit,
 } from '../utils'
+import { directionFromProducerSignedMean } from '../../../domain/edgeValueProvenance'
+
+/**
+ * ROADMAP 2.263 — the direction is now an explicit argument (see
+ * `strengthBands.spec.ts` for the same note). Band boundaries are what these
+ * cases pin; the direction comes from a named source so no assertion here
+ * depends on a magnitude's sign being read as a scientific claim.
+ */
+const dir = (mean: number) => directionFromProducerSignedMean(mean)
 
 describe('strengthSemanticLabel', () => {
   describe('band boundaries', () => {
     it('returns "Negligible effect" for |mean| < 0.05', () => {
-      expect(strengthSemanticLabel(0)).toBe('Negligible effect')
-      expect(strengthSemanticLabel(0.04)).toBe('Negligible effect')
-      expect(strengthSemanticLabel(-0.04)).toBe('Negligible effect')
+      expect(strengthSemanticLabel(0, dir(0))).toBe('Negligible effect')
+      expect(strengthSemanticLabel(0.04, dir(0.04))).toBe('Negligible effect')
+      expect(strengthSemanticLabel(-0.04, dir(-0.04))).toBe('Negligible effect')
     })
 
     it('returns "Weak positive effect" at lower Weak boundary (0.05)', () => {
-      expect(strengthSemanticLabel(0.05)).toBe('Weak positive effect')
+      expect(strengthSemanticLabel(0.05, dir(0.05))).toBe('Weak positive effect')
     })
 
     it('returns "Weak negative effect" at lower Weak boundary (-0.05)', () => {
-      expect(strengthSemanticLabel(-0.05)).toBe('Weak negative effect')
+      expect(strengthSemanticLabel(-0.05, dir(-0.05))).toBe('Weak negative effect')
     })
 
     it('returns "Weak positive effect" for 0.05 <= |mean| < 0.25', () => {
-      expect(strengthSemanticLabel(0.1)).toBe('Weak positive effect')
-      expect(strengthSemanticLabel(0.24)).toBe('Weak positive effect')
+      expect(strengthSemanticLabel(0.1, dir(0.1))).toBe('Weak positive effect')
+      expect(strengthSemanticLabel(0.24, dir(0.24))).toBe('Weak positive effect')
     })
 
     it('returns "Moderate positive effect" at lower Moderate boundary (0.25)', () => {
-      expect(strengthSemanticLabel(0.25)).toBe('Moderate positive effect')
+      expect(strengthSemanticLabel(0.25, dir(0.25))).toBe('Moderate positive effect')
     })
 
     it('returns "Moderate negative effect" at lower Moderate boundary (-0.25)', () => {
-      expect(strengthSemanticLabel(-0.25)).toBe('Moderate negative effect')
+      expect(strengthSemanticLabel(-0.25, dir(-0.25))).toBe('Moderate negative effect')
     })
 
     it('returns "Moderate positive effect" for 0.25 <= |mean| < 0.6', () => {
-      expect(strengthSemanticLabel(0.5)).toBe('Moderate positive effect')
-      expect(strengthSemanticLabel(0.59)).toBe('Moderate positive effect')
+      expect(strengthSemanticLabel(0.5, dir(0.5))).toBe('Moderate positive effect')
+      expect(strengthSemanticLabel(0.59, dir(0.59))).toBe('Moderate positive effect')
     })
 
     it('returns "Strong positive effect" at lower Strong boundary (0.6)', () => {
-      expect(strengthSemanticLabel(0.6)).toBe('Strong positive effect')
+      expect(strengthSemanticLabel(0.6, dir(0.6))).toBe('Strong positive effect')
     })
 
     it('returns "Strong negative effect" at lower Strong boundary (-0.6)', () => {
-      expect(strengthSemanticLabel(-0.6)).toBe('Strong negative effect')
+      expect(strengthSemanticLabel(-0.6, dir(-0.6))).toBe('Strong negative effect')
     })
 
     it('returns "Strong positive effect" for |mean| >= 0.6', () => {
-      expect(strengthSemanticLabel(0.8)).toBe('Strong positive effect')
-      expect(strengthSemanticLabel(1.0)).toBe('Strong positive effect')
-      expect(strengthSemanticLabel(2.0)).toBe('Strong positive effect')
+      expect(strengthSemanticLabel(0.8, dir(0.8))).toBe('Strong positive effect')
+      expect(strengthSemanticLabel(1.0, dir(1.0))).toBe('Strong positive effect')
+      expect(strengthSemanticLabel(2.0, dir(2.0))).toBe('Strong positive effect')
     })
 
     it('returns "Strong negative effect" for negative |mean| >= 0.6', () => {
-      expect(strengthSemanticLabel(-0.8)).toBe('Strong negative effect')
-      expect(strengthSemanticLabel(-1.0)).toBe('Strong negative effect')
+      expect(strengthSemanticLabel(-0.8, dir(-0.8))).toBe('Strong negative effect')
+      expect(strengthSemanticLabel(-1.0, dir(-1.0))).toBe('Strong negative effect')
     })
   })
 })

@@ -32,6 +32,10 @@ import {
   getSignedMidpoint,
   type StrengthBand,
 } from './strengthBands'
+import {
+  resolveEdgeDirectionDisplay,
+  directionFromProducerSignedMean,
+} from '../../domain/edgeValueProvenance'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -186,20 +190,35 @@ export function ContestedEdgeCard({
   // Quick-set: tap Weak/Moderate/Strong to resolve with the band midpoint.
   // Sign is preserved from the canvas edge's existing direction (data.direction),
   // not inferred from pass1.strength_mean's sign.
-  const rawDirection = data?.direction as string | undefined
-  const direction: 'positive' | 'negative' = rawDirection === 'negative' ? 'negative' : 'positive'
+  //
+  // ROADMAP 2.263 — this was `rawDirection === 'negative' ? 'negative' :
+  // 'positive'`, so an edge with no stated direction quick-set to a POSITIVE
+  // midpoint. That is worse than a bad label: `onResolve` WRITES the value, so
+  // a fabricated direction became the user's own recorded resolution.
+  //
+  // The fallback for an unstated direction is the sign of the producer's own
+  // pass-2 mean — the number this card is asking the user to adjudicate — and
+  // never a constant.
+  const directionDisplay = resolveEdgeDirectionDisplay(data)
 
   const handleQuickSet = useCallback((band: Exclude<StrengthBand, 'negligible'>) => {
-    const signed = getSignedMidpoint(band, direction)
+    const resolved = directionDisplay.show
+      ? directionDisplay
+      : directionFromProducerSignedMean(validation.pass2.strength_mean)
+    const signed = getSignedMidpoint(band, resolved.show ? resolved.direction : 'positive')
     onResolve(edgeId, 'overridden', signed)
-  }, [edgeId, direction, onResolve])
+  }, [edgeId, directionDisplay, validation.pass2.strength_mean, onResolve])
 
   // ── Derived display values ─────────────────────────────────────────────────
 
   const pass1Mean   = validation.pass1.strength_mean
   const pass2Mean   = validation.pass2.strength_mean
-  const pass1Label  = getStrengthLabel(pass1Mean)
-  const pass2Label  = getStrengthLabel(pass2Mean)
+  // Both pass means are PRODUCER-SIGNED by the CEE two-pass validator, and each
+  // pass has no direction field of its own — the sign IS that pass's stated
+  // direction. Reading it is not the banned magnitude inference; see
+  // `directionFromProducerSignedMean`'s header for the distinction.
+  const pass1Label  = getStrengthLabel(pass1Mean, directionFromProducerSignedMean(pass1Mean))
+  const pass2Label  = getStrengthLabel(pass2Mean, directionFromProducerSignedMean(pass2Mean))
   const pass1Band   = getStrengthBand(pass1Mean)
   const pass2Band   = getStrengthBand(pass2Mean)
 

@@ -67,11 +67,11 @@ export const EDGE_SETTER_FIELDS = {
   // guard spec drives. A caller passing `{ preserveDirection: true }` writes
   // `weight` + `weightSource` only, deliberately leaving `direction` alone —
   // see the setter's own header for why a magnitude cannot carry a sign.
-  setStrength: ['weight', 'direction', 'weightSource'],
+  setStrength: ['weight', 'direction', 'weightSource', 'directionSource'],
   setStd: ['strengthStd', 'strengthStdSource'],
   setExistsProbability: ['beliefExists', 'beliefExistsSource'],
   setLabel: ['label'],
-  setDirection: ['direction'],
+  setDirection: ['direction', 'directionSource'],
 } as const satisfies Record<string, readonly string[]>
 
 /**
@@ -364,9 +364,14 @@ export function useEdgeMutations(edgeId: string) {
         // The key is OMITTED, not set to undefined: the store merges
         // `{...e.data, ...updates.data}`, so an explicit `direction: undefined`
         // would overwrite a real direction with nothing.
+        // The direction stamp rides with the direction, exactly as
+        // `weightSource` rides with the weight: a user dragging the SIGNED
+        // slider IS stating a direction, so the value stops being a default in
+        // the same update. Under `preserveDirection` neither key is written —
+        // a magnitude edit must not mint a direction claim (ROADMAP 2.263).
         ...(opts?.preserveDirection
           ? {}
-          : { direction: mean >= 0 ? 'positive' : 'negative' }),
+          : { direction: mean >= 0 ? 'positive' : 'negative', directionSource: 'user' }),
         weightSource: 'user',
       },
     })
@@ -395,7 +400,9 @@ export function useEdgeMutations(edgeId: string) {
   const setDirection = useCallback((direction: 'positive' | 'negative') => {
     const edge = getEdge()
     if (!edge) return
-    updateEdge(edgeId, { data: { ...edge.data, direction } })
+    // The user picking +/− is the ONLY thing that turns the defaulted
+    // `direction: 'positive'` into a stated one (ROADMAP 2.263).
+    updateEdge(edgeId, { data: { ...edge.data, direction, directionSource: 'user' } })
   }, [edgeId, updateEdge, getEdge])
 
   return { setStrength, setStd, setExistsProbability, setLabel, setDirection }

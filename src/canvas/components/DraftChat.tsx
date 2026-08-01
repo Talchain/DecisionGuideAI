@@ -627,10 +627,18 @@ export function DraftChat() {
           // `weightSource` here is the LOCAL string above, which records which
           // wire probe won — 'default' means the UI filled it in, so that case
           // is deliberately NOT stamped.
+          // `direction` is stamped ONLY when the producer actually stated a
+          // direction (ROADMAP 2.263). `directionFromEdge` is `undefined` for
+          // BOTH the omitted case and the declared contract value `'unknown'`,
+          // which is exactly the set of edges the fallback below fabricates a
+          // `'positive'` for. The stored `direction` value is unchanged — see
+          // `resolveEdgeDirectionDisplay`'s header for why this is a read-side
+          // gate and not an ingestion rewrite.
           ...edgeValueSourcePatch({
             beliefExists: (beliefExistsValue ?? confidence) !== undefined ? 'cee' : undefined,
             weight: weightSource !== 'default' ? 'cee' : undefined,
             strengthStd: strengthStd !== undefined ? 'cee' : undefined,
+            direction: directionFromEdge !== undefined ? 'cee' : undefined,
           }),
           provenance: provenanceText,
           // Brief v2.2: New edge properties

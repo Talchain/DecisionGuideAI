@@ -247,6 +247,21 @@ export const EdgeDataSchema = z.object({
    * raw field to fall back on — see the note in `edgeValueSource`.
    */
   strengthStdSource: EdgeValueSourceEnum.optional(),
+  /**
+   * Where `direction` came from. Absent ⇒ nobody stated it (UI default).
+   *
+   * ROADMAP 2.263. `USER_EDGE_DEFAULTS.direction = 'positive'` below, and BOTH
+   * draft ingestion paths fall through to `'positive'` when the producer omits
+   * `effect_direction` or sends the declared contract value `'unknown'` — so
+   * the field is present and plausible on edges nobody characterised, which is
+   * exactly the trap the other three markers exist for. The Model tab rendered
+   * those as "Strong positive effect".
+   *
+   * The raw CEE spelling `effect_direction` serves as back-compat evidence for
+   * graphs saved before this marker (nothing in the UI fabricates it) — see
+   * `edgeValueSource`.
+   */
+  directionSource: EdgeValueSourceEnum.optional(),
 
   // Phase 3: Non-linear edge functions
   functionType: EdgeFunctionTypeEnum.default('linear'),   // How input transforms to output

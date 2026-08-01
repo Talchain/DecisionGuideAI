@@ -13,6 +13,17 @@ import noDangerousBrowser from './eslint-rules/no-dangerous-browser.js'
 import noCorsWildcard from './eslint-rules/no-cors-wildcard.js'
 import noOldImports from './eslint-rules/no-old-imports.js'
 import noUnsafeInnerhtml from './eslint-rules/no-unsafe-innerhtml.js'
+import { createRequire } from 'node:module'
+
+// ROADMAP 2.263 — the rules-of-hooks exception list is LOADED, never retyped.
+// `scripts/ci/rules-of-hooks-baseline.json` is the single list; the ratchet
+// script (`assert-rules-of-hooks-ratchet.mjs`) enforces that it matches what the
+// linter actually finds, in both directions. Deriving the override from the same
+// file means the config and the ratchet cannot drift apart — the failure mode of
+// two hand-kept copies is that one of them silently stops covering a file.
+const rulesOfHooksBaseline = createRequire(import.meta.url)(
+  './scripts/ci/rules-of-hooks-baseline.json',
+)
 
 export default [
   // Ignore artefacts, Node scripts, and E2E tests (use Playwright's own linting)
@@ -205,6 +216,21 @@ export default [
       // TODO: Fix existing exhaustive-deps warnings (64 violations as of 2026-01-31)
       'react-hooks/exhaustive-deps': 'warn',
 
+      // ⭐ ROADMAP 2.263 — the rule that would have caught a live crash.
+      //
+      // The plugin was registered above and this rule was never switched on, so
+      // `rules-of-hooks` had ZERO enforcement in a codebase with ~1,900 hook
+      // call sites. Two Model-tab sections (`GoalSection`, `OptionsSection`)
+      // early-returned above later hooks and threw `Rendered more hooks than
+      // during the previous render.` at the exact moment the drafted model
+      // arrived. A `SectionErrorBoundary` degraded it to a section-shaped hole
+      // rather than a white screen, which is why it survived unreported.
+      //
+      // ERROR, not 'warn': a violation of this rule is a runtime crash, not a
+      // style opinion, and the repo's own lint job does not fail on warnings —
+      // a warn here would have been a broken alarm (trap 7).
+      'react-hooks/rules-of-hooks': 'error',
+
       // Discourage direct console usage - prefer logger utility (src/lib/logger.ts)
       // Warn only to avoid blocking existing code; migrate gradually
       // Use eslint-disable-next-line no-console for justified exceptions
@@ -308,6 +334,22 @@ export default [
     files: ['**/*.stories.tsx', '**/*.stories.ts'],
     rules: {
       'storybook/no-renderer-packages': 'off',
+    },
+  },
+  // ⭐ ROADMAP 2.263 — the DATED exception list for react-hooks/rules-of-hooks.
+  //
+  // MUST STAY LAST: flat config applies later blocks over earlier ones, so this
+  // demotion has to win over the global 'error' set above.
+  //
+  // These files were already violating the rule when it was switched on. They
+  // are demoted to 'warn' — NOT 'off' — so the violations stay visible in every
+  // lint run, and `scripts/ci/assert-rules-of-hooks-ratchet.mjs` fails the build
+  // if any count moves in EITHER direction. Adding a file here does not make a
+  // problem go away; it makes you own a number that the linter re-derives.
+  {
+    files: Object.keys(rulesOfHooksBaseline.files),
+    rules: {
+      'react-hooks/rules-of-hooks': 'warn',
     },
   },
 ];

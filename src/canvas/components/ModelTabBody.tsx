@@ -583,8 +583,12 @@ export const ModelTabBody = memo(function ModelTabBody({
         weight: Math.abs(mean),
         direction: mean >= 0 ? 'positive' : 'negative',
         // The accepted value is the producer's pass-2 strength, so the edge
-        // now carries a real estimate rather than the UI default.
+        // now carries a real estimate rather than the UI default. The pass-2
+        // mean is PRODUCER-SIGNED, so its sign is the producer's own stated
+        // direction — stamping 'cee' here is reading it, not inferring it
+        // (ROADMAP 2.263; see `directionFromProducerSignedMean`).
         weightSource: 'cee',
+        directionSource: 'cee',
         validation: updatedValidation,
       }
       updateEdge(edgeId, { data: patch as EdgeData })
@@ -595,8 +599,10 @@ export const ModelTabBody = memo(function ModelTabBody({
       const patch: DataPatch = {
         weight: Math.abs(customMean),
         direction: customMean >= 0 ? 'positive' : 'negative',
-        // The user overrode the producer with their own number.
+        // The user overrode the producer with their own number — which they
+        // signed, so the direction is stated too (ROADMAP 2.263).
         weightSource: 'user',
+        directionSource: 'user',
         validation: { ...updatedValidation, resolved_value: { strength_mean: customMean } },
       }
       updateEdge(edgeId, { data: patch as EdgeData })

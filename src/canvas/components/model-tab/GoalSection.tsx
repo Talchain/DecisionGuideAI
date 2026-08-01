@@ -23,15 +23,28 @@ interface GoalSectionProps {
   onSendMessage?: (message: string) => void
 }
 
-function GoalSectionInner({ goalNode, onSendMessage }: GoalSectionProps) {
+/**
+ * ROADMAP 2.263 — `goalNode` is REQUIRED here, and that is the hooks fix.
+ *
+ * This component used to take `Node | undefined` and early-return `null` at the
+ * top, ABOVE two `useCallback`s further down. React counts hooks per mounted
+ * instance, so the moment the goal node arrived from the draft the count went
+ * 2 → 4 and React threw `Rendered more hooks than during the previous render.`
+ * — precisely when the model first appears, which is the worst moment for a
+ * first-time tester and exactly when they are watching. It fired in reverse
+ * (4 → 2) on scenario switch or clear.
+ *
+ * The guard moved UP into the wrapper, which has no hooks of its own, so the
+ * unmount happens instead of a mid-render bail-out. Narrowing the prop is what
+ * stops the guard being reintroduced here: there is no `undefined` left to test.
+ */
+function GoalSectionInner({ goalNode, onSendMessage }: GoalSectionProps & { goalNode: Node }) {
   const { showDetail } = useContext(DetailToggleContext)
   // ROADMAP 2.121 slice 1 — the ONE production writer of a user success target
   // (this file's own comment below has always named it). Every other
   // success-target editor in the product already commits through it:
   // GoalThresholdEditor, HeroSection, PreAnalysisPanel, OutputsDock.
   const setGoalThresholdAndUpdateNode = useCanvasStore(s => s.setGoalThresholdAndUpdateNode)
-
-  if (!goalNode) return null
 
   const data = goalNode.data as Record<string, unknown>
   const label = String(data.label ?? goalNode.id)
@@ -213,6 +226,10 @@ function GoalSectionInner({ goalNode, onSendMessage }: GoalSectionProps) {
 }
 
 export function GoalSection({ goalNode }: GoalSectionProps) {
+  // The absence guard lives HERE, in a component with no hooks, so an arriving
+  // or departing goal node mounts/unmounts the inner component rather than
+  // changing its hook count mid-render. See `GoalSectionInner`'s header.
+  if (!goalNode) return null
   return (
     <SectionErrorBoundary section="goal">
       <GoalSectionInner goalNode={goalNode} />

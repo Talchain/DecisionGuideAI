@@ -6,6 +6,7 @@
  */
 
 import type { EstimateBasis, ContestedReason } from '../../domain/validation'
+import type { EdgeDirectionDisplay } from '../../domain/edgeValueProvenance'
 
 // ── Strength bands ────────────────────────────────────────────────────────────
 
@@ -49,13 +50,31 @@ export function getSignedMidpoint(
 /**
  * Full user-facing strength label, e.g. "Strong positive effect".
  * Negligible always returns "Negligible effect" (no direction qualifier).
+ *
+ * ⚠ THE DIRECTION IS AN ARGUMENT, NOT AN INFERENCE (ROADMAP 2.263).
+ *
+ * This function used to compute `const direction = mean >= 0 ? 'positive' :
+ * 'negative'` — it read a scientific claim off the sign of a number the UI had
+ * itself signed from a DEFAULTED direction field. Every edge whose producer
+ * omitted `effect_direction`, or sent the declared contract value `'unknown'`,
+ * was rendered to the user as **"Strong positive effect"**.
+ *
+ * The parameter is REQUIRED so that every call site has to say where its
+ * direction came from; there is no overload that lets a caller fall back to the
+ * old inference. `resolveEdgeDirectionDisplay` is the owner of that answer for
+ * canvas edge data, and `directionFromProducerSignedMean` for a producer's
+ * pre-signed validator mean.
+ *
+ * `mean` is used ONLY for its magnitude here.
  */
-export function getStrengthLabel(mean: number): string {
+export function getStrengthLabel(mean: number, direction: EdgeDirectionDisplay): string {
   const band = getStrengthBand(mean)
   if (band === 'negligible') return 'Negligible effect'
-  const direction = mean >= 0 ? 'positive' : 'negative'
   const magnitude = band.charAt(0).toUpperCase() + band.slice(1)
-  return `${magnitude} ${direction} effect`
+  // Absence stays absence: name the magnitude, and say plainly that the
+  // direction was never stated rather than picking one.
+  if (!direction.show) return `${magnitude} effect, direction not stated`
+  return `${magnitude} ${direction.direction} effect`
 }
 
 // ── Confidence bands ──────────────────────────────────────────────────────────

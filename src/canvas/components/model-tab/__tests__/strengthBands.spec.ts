@@ -18,6 +18,7 @@ import {
   getSignedMidpoint,
   STRENGTH_BAND_MIDPOINTS,
 } from '../strengthBands'
+import { directionFromProducerSignedMean } from '../../../domain/edgeValueProvenance'
 import type { EstimateBasis, ContestedReason } from '../../../domain/validation'
 
 // ── Strength bands ─────────────────────────────────────────────────────────────
@@ -41,29 +42,39 @@ describe('getStrengthBand', () => {
   it('classifies 1 as strong', () => expect(getStrengthBand(1)).toBe('strong'))
 })
 
+/**
+ * ROADMAP 2.263 — `getStrengthLabel` no longer infers a direction from the sign
+ * of its own argument; the direction is a REQUIRED second parameter. These
+ * cases are about BAND BOUNDARIES, so they supply a direction from an explicit
+ * named source and the expected strings are unchanged. The honesty behaviour
+ * (unstated direction ⇒ no direction word) is covered in
+ * `edgeDirectionHonesty.spec.tsx`.
+ */
+const dir = (mean: number) => directionFromProducerSignedMean(mean)
+
 describe('getStrengthLabel', () => {
   it('returns "Strong positive effect" for +0.8', () =>
-    expect(getStrengthLabel(0.8)).toBe('Strong positive effect'))
+    expect(getStrengthLabel(0.8, dir(0.8))).toBe('Strong positive effect'))
   it('returns "Strong negative effect" for -0.8', () =>
-    expect(getStrengthLabel(-0.8)).toBe('Strong negative effect'))
+    expect(getStrengthLabel(-0.8, dir(-0.8))).toBe('Strong negative effect'))
   it('returns "Moderate positive effect" for +0.35', () =>
-    expect(getStrengthLabel(0.35)).toBe('Moderate positive effect'))
+    expect(getStrengthLabel(0.35, dir(0.35))).toBe('Moderate positive effect'))
   it('returns "Moderate negative effect" for -0.35', () =>
-    expect(getStrengthLabel(-0.35)).toBe('Moderate negative effect'))
+    expect(getStrengthLabel(-0.35, dir(-0.35))).toBe('Moderate negative effect'))
   it('returns "Weak positive effect" for +0.1', () =>
-    expect(getStrengthLabel(0.1)).toBe('Weak positive effect'))
+    expect(getStrengthLabel(0.1, dir(0.1))).toBe('Weak positive effect'))
   it('returns "Weak negative effect" for -0.1', () =>
-    expect(getStrengthLabel(-0.1)).toBe('Weak negative effect'))
+    expect(getStrengthLabel(-0.1, dir(-0.1))).toBe('Weak negative effect'))
   it('returns "Negligible effect" for 0', () =>
-    expect(getStrengthLabel(0)).toBe('Negligible effect'))
+    expect(getStrengthLabel(0, dir(0))).toBe('Negligible effect'))
   it('returns "Negligible effect" for -0.01 (no direction qualifier)', () =>
-    expect(getStrengthLabel(-0.01)).toBe('Negligible effect'))
+    expect(getStrengthLabel(-0.01, dir(-0.01))).toBe('Negligible effect'))
   it('returns "Strong positive effect" at exact boundary 0.6', () =>
-    expect(getStrengthLabel(0.6)).toBe('Strong positive effect'))
+    expect(getStrengthLabel(0.6, dir(0.6))).toBe('Strong positive effect'))
   it('returns "Moderate positive effect" at exact boundary 0.25', () =>
-    expect(getStrengthLabel(0.25)).toBe('Moderate positive effect'))
+    expect(getStrengthLabel(0.25, dir(0.25))).toBe('Moderate positive effect'))
   it('returns "Weak positive effect" at exact boundary 0.05', () =>
-    expect(getStrengthLabel(0.05)).toBe('Weak positive effect'))
+    expect(getStrengthLabel(0.05, dir(0.05))).toBe('Weak positive effect'))
 })
 
 // ── Confidence bands ───────────────────────────────────────────────────────────

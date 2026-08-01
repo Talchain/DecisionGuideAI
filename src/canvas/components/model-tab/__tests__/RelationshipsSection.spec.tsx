@@ -93,7 +93,14 @@ function makeEdge(id: string, source: string, target: string, opts: {
       direction: opts.direction ?? 'positive',
       beliefExists: opts.beliefExists ?? 0.7,
       provenance: opts.provenance ?? 'assumption',
-      ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user' }),
+      // ROADMAP 2.263 — `direction` joined the provenance registry, so this
+      // fixture stamps it for the same reason it stamps the other two: it
+      // models an edge somebody actually CHARACTERISED. Without the stamp the
+      // card correctly reports "direction not stated", which is the honest
+      // reading of a bare `direction: 'positive'` and exactly the defect the
+      // row fixed. The unstamped case has its own fixture below and its own
+      // spec in `edgeDirectionHonesty.spec.tsx`.
+      ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user', direction: 'user' }),
     },
   }
 }

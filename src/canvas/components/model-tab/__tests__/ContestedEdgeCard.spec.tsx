@@ -8,6 +8,7 @@ import { ContestedEdgeCard } from '../ContestedEdgeCard'
 import type { Edge, Node } from '@xyflow/react'
 import type { ValidationMetadata } from '../../../domain/validation'
 import { DetailToggleContext } from '../DetailToggleContext'
+import { edgeValueSourcePatch } from '../../../domain/edgeValueProvenance'
 
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn()
@@ -311,6 +312,12 @@ describe('ContestedEdgeCard', () => {
         beliefExists: 0.7,
         provenance: 'assumption',
         validation: makeValidation(),
+        // ROADMAP 2.263 — the quick-set sign now comes from
+        // `resolveEdgeDirectionDisplay`, so the fixture must STATE the
+        // direction it is asserting about. Unstamped, this edge falls back to
+        // the sign of the producer's own pass-2 mean (+0.35 → positive), which
+        // is the honest behaviour and is covered separately below.
+        ...edgeValueSourcePatch({ direction: 'cee' }),
       },
     }
     render(

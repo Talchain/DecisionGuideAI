@@ -72,8 +72,36 @@ export type EdgeValueSource = z.infer<typeof EdgeValueSourceEnum>
  * (the strip list) and `edgeValueSourcePatch`'s argument type automatically —
  * see `edgeSourceKey` below. Nothing about a provenanced field is hand-listed.
  */
-export const EDGE_PROVENANCED_FIELDS = ['beliefExists', 'weight', 'strengthStd'] as const
+export const EDGE_PROVENANCED_FIELDS = ['beliefExists', 'weight', 'strengthStd', 'direction'] as const
 export type EdgeProvenancedField = (typeof EDGE_PROVENANCED_FIELDS)[number]
+
+/**
+ * The provenanced fields whose value is a NUMBER.
+ *
+ * `direction` joined the registry (ROADMAP 2.263) because it defaults exactly
+ * like the numbers do — `USER_EDGE_DEFAULTS.direction: 'positive'`, and both
+ * draft ingestion paths fall through to `'positive'` when the producer states
+ * nothing — but it is an ENUM, not a number. `resolveEdgeValueDisplay` and the
+ * band/ordering helpers below all do `typeof data[field] === 'number'`, so
+ * handing them `'direction'` would silently resolve to `absent` FOREVER and
+ * read as "this edge has no direction" on an edge that has one.
+ *
+ * Narrowing their parameter to this type makes that a COMPILE error instead:
+ * `resolveEdgeValueDisplay(data, 'direction')` does not typecheck. Direction
+ * has its own resolver — `resolveEdgeDirectionDisplay` — and the type system
+ * is what routes callers to it, rather than a comment they might not read.
+ */
+export type EdgeNumericProvenancedField = Exclude<EdgeProvenancedField, 'direction'>
+
+/**
+ * The runtime companion to `EdgeNumericProvenancedField`, DERIVED by filtering
+ * the registry — never a second hand-typed list. Specs that exercise the
+ * numeric display resolver iterate this, so adding a numeric field extends
+ * their coverage automatically while a non-numeric one cannot leak in.
+ */
+export const EDGE_NUMERIC_PROVENANCED_FIELDS = EDGE_PROVENANCED_FIELDS.filter(
+  (f): f is EdgeNumericProvenancedField => f !== 'direction',
+)
 
 /**
  * The marker key for a provenanced field, DERIVED from its name.
@@ -117,6 +145,21 @@ export function edgeValueSource(
   // the marker existed. See the module header for why these two specifically.
   if (field === 'beliefExists' && typeof data.exists_probability === 'number') return 'cee'
   if (field === 'weight' && typeof data.strength_mean === 'number') return 'cee'
+  // `direction` — `effect_direction` is the raw CEE wire spelling and NOTHING in
+  // the UI fabricates it: neither `DEFAULT_EDGE_DATA` nor `USER_EDGE_DEFAULTS`
+  // defines it, and no inspector setter writes it. It reaches `data` only from a
+  // producer (`DraftChat`'s `edgeRest` passthrough, `applyV5State`'s graph_patch
+  // spread, `adapters/cee/client`). Its presence therefore PROVES a producer
+  // stated a direction — the same argument as `exists_probability` above.
+  //
+  // `'unknown'` is deliberately NOT evidence: it is the producer declining to
+  // state one, which `resolveEdgeDirectionDisplay` reports as its own reason.
+  if (
+    field === 'direction' &&
+    (data.effect_direction === 'positive' || data.effect_direction === 'negative')
+  ) {
+    return 'cee'
+  }
   // `strengthStd` has NO back-compat fallback. `DraftChat` destructures
   // `strength_std` OUT of its passthrough spread and `applyDraftResult` never
   // writes it, so no producer-only raw std survives into edge `data` to serve
@@ -125,6 +168,119 @@ export function edgeValueSource(
   // one failure mode this module exists to make impossible.
 
   return null
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * DIRECTION — the claim that survived every previous sweep (ROADMAP 2.263)
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * `@talchain/schemas` 0.30.0 declares
+ *     effect_direction: z.ZodOptional<z.ZodEnum<["positive","negative","unknown"]>>
+ * so the producer has THREE ways to say "I am not telling you the direction":
+ * omit the field, send `'unknown'`, or send a value we do not recognise. The UI
+ * collapsed all three to `'positive'` at both ingestion sites and then three
+ * Model-tab consumers re-collapsed independently, so the user read
+ * **"Strong positive effect"** on an edge whose producer declined to state a
+ * direction. That is the ROADMAP 2.234 defect class — a false scientific claim
+ * — on the surface whose entire job is trust.
+ *
+ * The rules are `src/lib/factorDirection.ts`'s, applied to EDGES:
+ *   1. NEVER INFER DIRECTION FROM A MAGNITUDE. A sign on a number nobody
+ *      characterised is not evidence; `strengthBands.getStrengthLabel` used to
+ *      do exactly this (`mean >= 0 ? 'positive' : 'negative'`).
+ *   2. ABSENCE STAYS ABSENCE.
+ *   3. AN UNRECOGNISED VALUE FAILS CLOSED.
+ *   4. ONE OWNER. This resolver is it.
+ *
+ * ⚠ WHY THIS IS A READ-SIDE GATE AND NOT AN INGESTION REWRITE — the seam was
+ * derived, not assumed. The stored `direction` field is PERSISTENCE-BEARING
+ * (`autosaveProjection` → `scenarios` localStorage and `buildPersistedGraph` →
+ * the Supabase `scenarios.graph` JSONB both serialise `edge.data` VERBATIM with
+ * no allowlist) and STALENESS-BEARING (`analyticalNodeFields.ts` registers
+ * `direction` with `purposes: ['stale']`, so a change to it marks the analysis
+ * stale). It is also read as a SIGN by four outbound adapters. Changing what
+ * ingestion STORES would therefore move persisted bytes, outbound bytes and a
+ * freshness verdict all at once.
+ *
+ * So ingestion keeps writing `direction` byte-for-byte as before, and instead
+ * records ONE additive fact it was throwing away: whether the producer actually
+ * said so. Everything downstream of the store — hash, persistence, wire, canvas
+ * stroke, pre-run validation — is unchanged by construction, and the display
+ * surfaces gain the ability to tell a stated direction from a defaulted one,
+ * which after the old collapse they could not do even in principle.
+ */
+
+/**
+ * What a DISPLAY surface should render for an edge's direction.
+ *
+ * Mirrors `EdgeValueDisplay`'s shape deliberately: there is no member of this
+ * union that carries a direction without also naming its source, so "render the
+ * default as fact" is not expressible. Forgetting to handle `show: false` is a
+ * type error rather than a silent fabrication.
+ */
+export type EdgeDirectionDisplay =
+  | { show: true; direction: 'positive' | 'negative'; source: EdgeValueSource }
+  | {
+      show: false
+      /**
+       * `unknown`  — the producer EXPLICITLY declined (`effect_direction:
+       *              'unknown'`, a declared 0.30.0 contract member).
+       * `not_set`  — a direction value is present but nothing proves anyone set
+       *              it; it is the `'positive'` UI default.
+       * `absent`   — there is no direction on this edge at all.
+       */
+      reason: 'unknown' | 'not_set' | 'absent'
+    }
+
+/**
+ * Resolve an edge's direction for display — THE read-side gate.
+ *
+ * Order matters. An explicit `'unknown'` is checked FIRST because it is the one
+ * case where the producer said something definite, and it must not be masked by
+ * the defaulted `direction: 'positive'` sitting beside it on the same edge.
+ */
+export function resolveEdgeDirectionDisplay(
+  data: Record<string, unknown> | undefined | null,
+): EdgeDirectionDisplay {
+  if (!data) return { show: false, reason: 'absent' }
+
+  // The producer explicitly declined to state a direction. Beats everything.
+  if (data.effect_direction === 'unknown') return { show: false, reason: 'unknown' }
+
+  const raw = data.direction ?? data.effect_direction
+  const hasValue = raw !== undefined && raw !== null
+
+  const source = edgeValueSource(data, 'direction')
+  if (source === null) return { show: false, reason: hasValue ? 'not_set' : 'absent' }
+
+  // Rule 3: an unrecognised value fails closed, even with a source stamp.
+  if (raw !== 'positive' && raw !== 'negative') return { show: false, reason: 'absent' }
+
+  return { show: true, direction: raw, source }
+}
+
+/**
+ * The direction encoded in a producer's PRE-SIGNED mean.
+ *
+ * ⚠ READ THIS BEFORE USING IT. This is NOT an exception to rule 1. The rule
+ * bans reading a direction off a magnitude the UI itself signed — which is what
+ * `resolveEdgeSignedStrengthDisplay` produces, because it applies a sign taken
+ * from the very `direction` field whose provenance is in question, so asking it
+ * for the direction back is circular.
+ *
+ * A CEE validator pass mean (`validation.pass1.strength_mean`) is different in
+ * kind: the producer signed it, the sign IS the producer's stated direction,
+ * and there is no separate direction field for that pass to consult. Using it
+ * is reading the producer, not inferring from a magnitude.
+ *
+ * Only call this on a number a PRODUCER signed. If you are holding a value the
+ * UI signed, you want `resolveEdgeDirectionDisplay`.
+ */
+export function directionFromProducerSignedMean(mean: number): EdgeDirectionDisplay {
+  if (typeof mean !== 'number' || !Number.isFinite(mean)) {
+    return { show: false, reason: 'absent' }
+  }
+  return { show: true, direction: mean >= 0 ? 'positive' : 'negative', source: 'cee' }
 }
 
 /** True when the field's value was set by someone rather than defaulted. */
@@ -185,7 +341,9 @@ export type EdgeValueDisplay =
  */
 export function resolveEdgeValueDisplay(
   data: Record<string, unknown> | undefined | null,
-  field: EdgeProvenancedField,
+  // NUMERIC fields only — see `EdgeNumericProvenancedField`. Passing
+  // `'direction'` is a compile error, not a silent permanent `absent`.
+  field: EdgeNumericProvenancedField,
 ): EdgeValueDisplay {
   if (!data) return { show: false, reason: 'absent' }
 
@@ -303,6 +461,24 @@ export function resolveEdgeSignedStrengthDisplay(
     return { show: true, value: data.strength_mean, source }
   }
   if (typeof data.weight === 'number' && Number.isFinite(data.weight)) {
+    // ⚠ THIS SIGN IS NOT A DIRECTION CLAIM, AND NOTHING MAY READ IT AS ONE.
+    //
+    // An unstated direction lands here as `+1`, so the returned number is a
+    // MAGNITUDE that happens to be positive — not a verdict that the effect is
+    // positive. Its consumers use it for stroke width and for the printed
+    // scalar, both of which want `Math.abs` anyway.
+    //
+    // The numeric contract is deliberately UNCHANGED by ROADMAP 2.263: this
+    // value is read by the canvas (`StyledEdge` stroke), `EdgePills` and
+    // `ConnectionRow`, so re-signing it would repaint the canvas from a lane
+    // scoped to the Model tab. Instead the DIRECTION CLAIM moved to
+    // `resolveEdgeDirectionDisplay`, and the surfaces that used to re-derive a
+    // direction from this sign (`strengthBands.getStrengthLabel`, the
+    // Relationships +/− prefix and its success/danger colour) now ask that
+    // resolver instead.
+    //
+    // Known survivor, out of this lane's scope and rowed: `EdgePills.tsx:71`
+    // still does `direction: signed >= 0 ? 'up' : 'down'` off this value.
     const sign = data.direction === 'negative' || data.effect_direction === 'negative' ? -1 : 1
     return { show: true, value: sign * data.weight, source }
   }
