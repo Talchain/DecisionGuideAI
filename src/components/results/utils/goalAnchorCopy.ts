@@ -167,8 +167,13 @@ export const COMPARATIVE_COPY = {
    * repeated at call sites is how one of them ends up different; the register
    * owns the casing.
    */
-  clause: (formatted: string): string =>
-    `${COMPARATIVE_COPY.phrase(formatted).charAt(0).toLowerCase()}${COMPARATIVE_COPY.phrase(formatted).slice(1)}`,
+  clause: (formatted: string): string => {
+    // Built ONCE. Calling `phrase()` twice and slicing each result is two
+    // chances for the halves to come from different strings if the register
+    // ever grows a branch.
+    const phrase = COMPARATIVE_COPY.phrase(formatted)
+    return `${phrase.charAt(0).toLowerCase()}${phrase.slice(1)}`
+  },
   /** Mid-sentence honest-absence form, parallel to `clause`. */
   unavailableClause: 'comparative ranking is unavailable for this run',
   /** Sentence form. */
@@ -180,6 +185,23 @@ export const COMPARATIVE_COPY = {
 } as const
 
 /**
+ * THE presence test for a producer probability — never treats a missing
+ * number as 0.
+ *
+ * `Number.isFinite` and not `!= null`: a NaN passes the null check, and a NaN
+ * that reaches a comparator or a formatter produces an arbitrary order or a
+ * "NaN%" readout. Exported from here because `runHasGoalNumbers` below needs
+ * it anyway, and because four surfaces had each written their own copy
+ * (`WinGauge`'s `finite`, `DecisionConfidencePanel`'s `isFiniteProb`, an
+ * inline expression in `OptionCards`, another in `buildV7Headline`) — four
+ * chances for one of them to drift to `!= null` and start rendering a hole as
+ * a measurement.
+ */
+export function isFiniteProbability(value: number | null | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
+/**
  * True when this run carries a goal number for at least one option.
  *
  * ISL computes a goal probability ONLY against a success threshold, so on a
@@ -189,9 +211,7 @@ export const COMPARATIVE_COPY = {
 export function runHasGoalNumbers(
   options: ReadonlyArray<{ goalProbability?: number | null }> | null | undefined,
 ): boolean {
-  return (options ?? []).some(
-    (o) => typeof o.goalProbability === 'number' && Number.isFinite(o.goalProbability),
-  )
+  return (options ?? []).some((o) => isFiniteProbability(o.goalProbability))
 }
 
 /**

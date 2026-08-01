@@ -35,6 +35,38 @@ describe('HERO_COPY.detail — the A register exists once', () => {
   })
 })
 
+describe('HERO_COPY.headline — the A register exists once here too', () => {
+  const L = 'Option A'
+
+  /**
+   * The ONE-COPY guarantee above covered `detail.*` and missed the HEADLINES,
+   * which is where the same claim is loudest: `headline.goalOnly` restated
+   * `GOAL_ANCHOR_COPY.headline(_, _, true)` byte-for-byte plus a full stop.
+   */
+  it.each([
+    ['goalOnly', true, (label: string, r: string) => HERO_COPY.headline.goalOnly(label, r)],
+  ])('%s IS GOAL_ANCHOR_COPY.headline(_, _, %s) plus a full stop', (_name, substituted, build) => {
+    expect(build(L, N)).toBe(`${GOAL_ANCHOR_COPY.headline(L, N, substituted as boolean)}.`)
+  })
+
+  /**
+   * `goalWithLimits` is the SAME SHAPE but names a third basis — goal AND
+   * limits — and the register is a two-arm boolean by design ("Do not invent a
+   * third A-register"). It therefore cannot delegate today. This asserts the
+   * GAP rather than assuming it: if the register ever grows that arm, this
+   * goes RED and the string above must delegate instead of sitting as a quiet
+   * duplicate.
+   */
+  it('goalWithLimits cannot delegate — the register carries no goal-and-limits arm', () => {
+    const withLimits = HERO_COPY.headline.goalWithLimits(L, N)
+    for (const substituted of [true, false]) {
+      expect(withLimits).not.toBe(`${GOAL_ANCHOR_COPY.headline(L, N, substituted)}.`)
+    }
+    // It is still the register's SHAPE, so a reader sees one voice.
+    expect(withLimits).toMatch(/^Option A has the highest chance of .+: 72%\.$/)
+  })
+})
+
 describe('HERO_COPY — the comparative register exists once', () => {
   it('detail.winChance IS the comparative sentence', () => {
     expect(HERO_COPY.detail.winChance(N)).toBe(COMPARATIVE_COPY.sentence(N))

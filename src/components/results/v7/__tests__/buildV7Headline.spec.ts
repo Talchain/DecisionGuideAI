@@ -7,7 +7,8 @@
  * win probability.
  */
 import { describe, it, expect } from 'vitest'
-import { COMPARATIVE_COPY } from '../../utils/goalAnchorCopy'
+import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../../utils/goalAnchorCopy'
+import { SUB_ONE_PERCENT_READOUT, formatGoalProbability } from '../../utils/displayFloors'
 import { buildV7Headline } from '../buildV7Headline'
 import type { DecisionResultData, OptionResult } from '../../types'
 
@@ -153,5 +154,63 @@ describe('buildV7Headline — SINGLE VERDICT gate', () => {
       'robust',
     )
     expect(model.headline).toBe('Too close to call')
+  })
+})
+
+// ─── THE SUB-1% DISPLAY FLOOR (UI-SEM-057) ──────────────────────────────────
+//
+// The re-anchored goal headline formats its magnitude with
+// `formatPercent(v, { fromDecimal: true })` and NO floor, so a 0.4% goal
+// probability produced "Option A has the highest chance of hitting your goal:
+// 0%" — a headline that crowns an option on a number it simultaneously prints
+// as zero, while the option card for the same option says "< 1%". Every other
+// goal surface (OptionCards, the V7 goal lens, the analysis hero) routes
+// through `SUB_ONE_PERCENT_FLOOR`.
+//
+// RED-first: the "< 1%" assertion fails on `48adda75` (it reads "0%").
+describe('buildV7Headline — the goal magnitude honours the shared sub-1% floor', () => {
+  function goalWinner(goalProbability: number): OptionResult {
+    return {
+      id: 'a',
+      label: 'Option A',
+      winProbability: 0.71,
+      isRecommended: true,
+      goalProbability,
+      goalFitIsSubstitutedJoint: false,
+    } as unknown as OptionResult
+  }
+
+  it('renders a non-zero sub-1% goal probability as "< 1%", never a bare "0%"', () => {
+    const winner = goalWinner(0.004)
+    const model = buildV7Headline(
+      rec({ recommendedOption: winner, allOptions: [winner, opt('b', 'Option B', 0.29)] }),
+      'robust',
+    )
+    expect(model.headline).toBe(
+      GOAL_ANCHOR_COPY.headline('Option A', SUB_ONE_PERCENT_READOUT, false),
+    )
+    expect(model.headline).not.toContain(': 0%')
+  })
+
+  it('uses the SAME floored formatter the sibling goal surfaces use', () => {
+    for (const v of [0.004, 0.0099, 0.01, 0.5]) {
+      const winner = goalWinner(v)
+      const model = buildV7Headline(
+        rec({ recommendedOption: winner, allOptions: [winner, opt('b', 'Option B', 0.29)] }),
+        'robust',
+      )
+      expect(model.headline).toBe(
+        GOAL_ANCHOR_COPY.headline('Option A', formatGoalProbability(v), false),
+      )
+    }
+  })
+
+  it('CONTROL — the top of the range is unchanged: no ceiling rule the siblings do not have', () => {
+    const winner = goalWinner(0.995)
+    const model = buildV7Headline(
+      rec({ recommendedOption: winner, allOptions: [winner, opt('b', 'Option B', 0.29)] }),
+      'robust',
+    )
+    expect(model.headline).toBe(GOAL_ANCHOR_COPY.headline('Option A', '100%', false))
   })
 })

@@ -19,7 +19,7 @@ import { HeroQualifier } from './HeroQualifier'
 import { useCanvasStore } from '@/canvas/store'
 import { resolveDisplayedFreshness } from '@/canvas/store/analysisFreshness'
 import { buildCertaintyCopy } from './utils/certaintyCopy'
-import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY } from './utils/goalAnchorCopy'
+import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY, isFiniteProbability } from './utils/goalAnchorCopy'
 import { NO_CLAIM_VERDICT } from '@/lib/decisionVerdict'
 import { calibrateUncertaintyCopy } from './utils/uncertaintyCalibration'
 import { typography } from '@/styles/typography'
@@ -164,15 +164,13 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   const ringWinner = data.recommendation.recommendedOption
   const goalProbability = ringWinner?.goalProbability
   const winProbability = ringWinner?.winProbability
-  const isFiniteProb = (v: number | null | undefined): v is number =>
-    typeof v === 'number' && Number.isFinite(v)
 
-  const ringClaim: { value: number; caption: string } | null = isFiniteProb(goalProbability)
+  const ringClaim: { value: number; caption: string } | null = isFiniteProbability(goalProbability)
     ? {
         value: goalProbability,
         caption: GOAL_ANCHOR_COPY.label(ringWinner?.goalFitIsSubstitutedJoint === true),
       }
-    : isFiniteProb(winProbability)
+    : isFiniteProbability(winProbability)
       ? { value: winProbability, caption: COMPARATIVE_COPY.label }
       : null
 

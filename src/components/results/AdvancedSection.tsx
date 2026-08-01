@@ -575,7 +575,13 @@ export function RiskAppetiteFilter({
             does not confer — it re-ranks a view, and now every arm re-ranks it
             on the same quantity. The label says which. */}
         <span className={`${typography.panelMeta} text-text-light`}>Rank by outcome:</span>
-        {(['conservative', 'neutral', 'aggressive'] as const).map(appetite => (
+        {/* Driven off LENS_ARM's own keys — this was a THIRD hardcoded arm
+            list beside LENS_ARM and LENS_ARM_LABEL, and a fourth arm added to
+            those two would have rendered nowhere. `satisfies
+            Record<RiskAppetite, LensAppetite>` on LENS_ARM makes the cast a
+            derived fact rather than an assertion: the keys ARE RiskAppetite,
+            Object.keys just loses that. */}
+        {(Object.keys(LENS_ARM) as RiskAppetite[]).map(appetite => (
           <button
             key={appetite}
             type="button"

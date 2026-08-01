@@ -42,6 +42,16 @@ export interface LensOption {
  * The one quantity each arm reads. Returns null — never 0 — when the option
  * does not carry it, because a zero default let a data-less option place in
  * the ranking (Codex R3-SF3, the reason the original memo filtered first).
+ *
+ * ⚠ NOT DELEGATED to `getExpectedValue.ts`'s `getPessimistic` / `getMedian` /
+ * `getOptimistic`, and the reason is a BEHAVIOUR difference, not a type one.
+ * Those three read `option.outcome?.pNN` and nothing else; this one falls back
+ * to the DEPRECATED FLAT fields (`option.p10` / `p50` / `p90`) that "some
+ * mappers still populate" — the same fallback `ResultsBody` uses to decide
+ * whether to render the lens control at all (`(o.outcome?.p10 ?? o.p10) !=
+ * null`). Delegating would therefore make the lens silently uncomparable on
+ * exactly the option shapes the control was shown for. Widening the parameter
+ * type would not close that gap, so the local metric stays.
  */
 export function lensMetric(option: LensOption, appetite: LensAppetite): number | null {
   const raw =
@@ -64,14 +74,36 @@ export interface LensSelection {
   comparable: boolean
 }
 
+/**
+ * ONE LINEAR PASS. This was a filter, then a spread, then a sort whose
+ * comparator re-derived `lensMetric` twice per comparison — so a metric that
+ * is read once per option here was previously read O(n log n) times, and the
+ * only value the sort produced was its first element.
+ *
+ * The semantics are unchanged and deliberately so: the metric is derived
+ * ONCE per option (never defaulted to 0 — Codex R3-SF3), fewer than two
+ * options carrying it reports `comparable: false` rather than crowning
+ * anyone, and ties keep the CALLER'S order because the accumulator only
+ * changes on a strict improvement — the same tie-break `Array.prototype.sort`
+ * gave by being stable.
+ */
 export function selectLensOption(
   options: readonly LensOption[],
   appetite: LensAppetite,
 ): LensSelection {
-  const withData = options.filter((o) => lensMetric(o, appetite) != null)
-  if (withData.length < 2) return { id: undefined, comparable: false }
-  const best = [...withData].sort(
-    (a, b) => (lensMetric(b, appetite) as number) - (lensMetric(a, appetite) as number),
-  )[0]
-  return { id: best?.id, comparable: true }
+  const { id, count } = options.reduce<{ id: string | undefined; best: number; count: number }>(
+    (acc, option) => {
+      const metric = lensMetric(option, appetite)
+      if (metric == null) return acc
+      acc.count += 1
+      if (acc.id === undefined || metric > acc.best) {
+        acc.id = option.id
+        acc.best = metric
+      }
+      return acc
+    },
+    { id: undefined, best: -Infinity, count: 0 },
+  )
+  if (count < 2) return { id: undefined, comparable: false }
+  return { id, comparable: true }
 }

@@ -26,7 +26,8 @@
  */
 
 import type { DecisionResultData, DecisionState } from '../types'
-import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY } from '../utils/goalAnchorCopy'
+import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY, isFiniteProbability } from '../utils/goalAnchorCopy'
+import { formatGoalProbability } from '../utils/displayFloors'
 import { formatPercent as formatPct } from '../../../utils/formatPercent'
 
 export interface V7HeadlineModel {
@@ -147,15 +148,18 @@ export function buildV7Headline(
    * is no goal number at all (ISL computes one only against a threshold), so
    * the claim falls back to the COMPARATIVE quantity, named as such.
    */
-  const goalProbability =
-    typeof winner?.goalProbability === 'number' && Number.isFinite(winner.goalProbability)
-      ? winner.goalProbability
-      : null
+  const goalProbability = isFiniteProbability(winner?.goalProbability)
+    ? winner.goalProbability
+    : null
   const headline =
     goalProbability != null
       ? GOAL_ANCHOR_COPY.headline(
           winnerLabel,
-          formatPct(goalProbability, { fromDecimal: true }),
+          // UI-SEM-057: the shared floor, so a 0.4% goal probability reads
+          // "< 1%" here rather than crowning an option on a number the same
+          // headline prints as "0%" — the option card beside it already says
+          // "< 1%" about the identical value.
+          formatGoalProbability(goalProbability),
           winner?.goalFitIsSubstitutedJoint === true,
         )
       : winProbability != null

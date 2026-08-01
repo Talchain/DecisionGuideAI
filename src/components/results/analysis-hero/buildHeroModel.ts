@@ -285,15 +285,6 @@ export function buildHeroModel(
     (ft) => ft.flip_value != null,
   )
 
-  /**
-   * Formatted COMPARATIVE readout per option id, captured while the rows are
-   * built. The re-anchored leader headline names its magnitude, and taking it
-   * from the row pass rather than re-formatting it downstream means the
-   * headline and the row detail cannot print two different numbers for the
-   * same quantity.
-   */
-  const winReadoutById: Record<string, string> = {}
-
   // One row per option, preserving the display order established above.
   const rows: HeroRowVM[] = options.map((o, i) => {
     // UI-SEM-071: without a USER target the goal slot is suppressed at
@@ -311,11 +302,6 @@ export function buildHeroModel(
       typeof o.winProbability === 'number'
         ? formatProbabilityWithResolution(o.winProbability, o.nValidSamples)
         : undefined
-    // Re-anchoring: the headline branches below need the comparative
-    // MAGNITUDE, not just its sentence. Captured here from the same
-    // formatter the detail line uses, so the headline and the row detail
-    // can never print two different numbers for one quantity.
-    if (winReadout != null) winReadoutById[o.id] = winReadout
     const winChance = winReadout != null ? HERO_COPY.detail.winChance(winReadout) : undefined
     // Grounded detail lines from the row's OWN existing fields (same
     // formatters as the readouts) — never authored prose, omitted when the
@@ -686,7 +672,13 @@ export function buildHeroModel(
             safeLabel(headlineRow),
             // null, NOT the missing glyph: the sentence drops its magnitude
             // clause rather than printing '—' where a quantity should be.
-            winReadoutById[headlineRow.id] ?? null,
+            //
+            // Read straight off the ROW. This used to come from a
+            // `winReadoutById` side-table populated by a mutation inside the
+            // row `.map()` — a second store of a value the row already
+            // carries, written in one place and read in another, which is the
+            // shape every drift defect in this file has taken.
+            headlineRow.comparativeReadout ?? null,
           )
         : leaderBand === 'ahead'
           ? HERO_COPY.headline.slightlyAhead(safeLabel(headlineRow))

@@ -17,7 +17,12 @@
 
 import { useRef, useState, useCallback, type RefObject } from 'react'
 import { typography } from '../../styles/typography'
-import { COMPARATIVE_COPY, LENS_COPY, runHasGoalNumbers } from './utils/goalAnchorCopy'
+import {
+  COMPARATIVE_COPY,
+  LENS_COPY,
+  isFiniteProbability,
+  runHasGoalNumbers,
+} from './utils/goalAnchorCopy'
 import {
   formatPercent as formatPct,
   formatProbabilityWithResolution,
@@ -84,6 +89,20 @@ export interface OptionCardsProps {
   stableNumbers?: Readonly<Record<string, number | null>>
   /** Whether a goal threshold is set (controls "Hits target" row visibility) */
   hasGoalThreshold?: boolean
+  /**
+   * F3 — whether this run carries a goal ranking at all, threaded from the
+   * caller rather than re-derived here. `ResultsBody` already derives it once
+   * for `RiskAppetiteFilter` and the lens sentences; taking the SAME answer
+   * means the card's lens copy and the disclaimer above it cannot disagree
+   * about whether a goal ranking exists.
+   *
+   * Optional, and OMITTED falls back to deriving it from `options` — the same
+   * legacy concession `hasLeadingOption` above documents. Direct-render
+   * callers (specs, and any surface predating this prop) keep byte-identical
+   * behaviour; a hard `false` default would have silently swapped the lens
+   * sentence on them.
+   */
+  hasGoalNumbers?: boolean
   /** Story headlines keyed by option ID (M1 coaching) */
   storyHeadlines?: Record<string, string>
   /** Ref map for flash animation: optionId → ref */
@@ -215,7 +234,7 @@ function hingeAwareDescription(
      * so a fourth variant cannot be born ungated.
      */
     const claim =
-      typeof option.winProbability === 'number' && Number.isFinite(option.winProbability)
+      isFiniteProbability(option.winProbability)
         ? COMPARATIVE_COPY.phrase(
             formatProbabilityWithResolution(option.winProbability, option.nValidSamples),
           )
@@ -487,7 +506,9 @@ function OptionCard({
                 ? 'This option did not lead in any of the simulation runs, so its true chance may be below the current resolution.'
                 : isAboveSimulationResolution(option.winProbability, option.nValidSamples)
                   ? 'This option led in every simulation run, so its display value reflects the current simulation resolution.'
-                  : `Came out ahead in ${formatProbabilityWithResolution(option.winProbability, option.nValidSamples)} of simulated scenarios`
+                  : COMPARATIVE_COPY.phrase(
+                      formatProbabilityWithResolution(option.winProbability, option.nValidSamples),
+                    )
             }
           >
             <span
@@ -670,6 +691,7 @@ export function OptionCards({
   lensHighlightedId,
   stableNumbers,
   hasGoalThreshold = false,
+  hasGoalNumbers: hasGoalNumbersProp,
   storyHeadlines,
   cardRefMap,
   decisionState,
@@ -723,10 +745,11 @@ export function OptionCards({
   // (winner / non-winner) hierarchy, so `buildSegmentBorderClassMap` /
   // `WIN_GAUGE_BORDER_CLASSES` are no longer consumed here. The segment
   // colour map below is still used for coloured fill bars (Task 6b).
-  // F3: run-level goal presence, derived ONCE from the rendered option set —
-  // not re-derived per card, so no two cards can disagree about whether a
-  // goal ranking exists.
-  const hasGoalNumbers = runHasGoalNumbers(options)
+  // F3: run-level goal presence. Taken from the CALLER when it has one
+  // (ResultsBody derives it once for the filter disclaimer and the lens
+  // sentences), so the card copy and the sentence above it read one answer.
+  // Only a caller that supplies none falls back to deriving it here.
+  const hasGoalNumbers = hasGoalNumbersProp ?? runHasGoalNumbers(options)
   const segmentColorMap = buildSegmentColorMap(options, winnerId, decisionState)
 
   // Brief 3 ST2: Truncate to top 2 whenever there are more than 2 options

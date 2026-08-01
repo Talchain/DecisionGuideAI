@@ -187,12 +187,20 @@ export const ResultsBody = memo(function ResultsBody({
   // the filter's own disclaimer both name what the lens leaves unchanged, and
   // on a no-target run that is NOT a goal ranking — ISL computes goal
   // probabilities only against a threshold.
-  const lensRunHasGoalNumbers = runHasGoalNumbers(
-    resultsSectionData.recommendation.allOptions,
-  )
-
-  const lensComparison = useMemo(
-    () => selectLensOption(resultsSectionData.recommendation.allOptions, LENS_ARM[riskAppetite]),
+  //
+  // Derived INSIDE the lens memo, off the same dependency, rather than beside
+  // it on every render: both are functions of the one option array, and the
+  // one answer is then threaded to every consumer (the filter's disclaimer,
+  // the lens sentences, and OptionCards) so no surface can re-derive a
+  // different one.
+  const { lensComparison, lensRunHasGoalNumbers } = useMemo(
+    () => ({
+      lensComparison: selectLensOption(
+        resultsSectionData.recommendation.allOptions,
+        LENS_ARM[riskAppetite],
+      ),
+      lensRunHasGoalNumbers: runHasGoalNumbers(resultsSectionData.recommendation.allOptions),
+    }),
     [riskAppetite, resultsSectionData.recommendation],
   )
 
@@ -512,6 +520,9 @@ export const ResultsBody = memo(function ResultsBody({
               stableNumbers={stableNumbersForCards}
               onSendMessage={onSendMessage}
               hasGoalThreshold={resultsSectionData.recommendation.goalThreshold != null}
+              // F3: the SAME derivation the filter disclaimer and the lens
+              // sentences above use — threaded, never re-derived downstream.
+              hasGoalNumbers={lensRunHasGoalNumbers}
               storyHeadlines={resultsSectionData.recommendation.storyHeadlines}
               cardRefMap={optionCardRefs}
               decisionState={riskAppetite === 'neutral' ? vm.decisionState : undefined}

@@ -66,6 +66,19 @@ export const HERO_COPY = {
   } as const,
 
   headline: {
+    /**
+     * ⚠ NOT DELEGATED, deliberately — and the gap is pinned, not assumed.
+     *
+     * This is the same SHAPE as `GOAL_ANCHOR_COPY.headline` ("{label} has the
+     * highest chance of {clause}: {readout}.") but it names a THIRD basis —
+     * goal AND limits — and the register carries exactly two arms, selected by
+     * one boolean (`isSubstitutedJoint`). Delegating would mean inventing a
+     * third A-register arm, which that module's own header forbids in terms:
+     * "Do not invent a third A-register. If a surface needs wording these two
+     * do not cover, the fix is upstream in `selectGoalProbability`'s basis."
+     * `heroCopyDelegation.spec.ts` asserts the gap, so the day the register
+     * gains the arm this string goes RED instead of staying a quiet duplicate.
+     */
     goalWithLimits: (label: string, readout: string) =>
       `${label} has the highest chance of meeting your goal and limits: ${readout}.`,
     /**
@@ -82,7 +95,12 @@ export const HERO_COPY = {
      * not involve the goal at all.
      */
     goalOnly: (label: string, readout: string) =>
-      `${label} has the highest chance of meeting every target this run scored: ${readout}.`,
+      // DELEGATED — this restated `GOAL_ANCHOR_COPY.headline(_, _, true)`
+      // byte-for-byte plus a full stop, which is the second copy of one claim
+      // the re-anchoring exists to remove. `sentence()` is `phrase()` plus a
+      // full stop for the same reason; this is the headline form of the same
+      // relationship, pinned in `__tests__/heroCopyDelegation.spec.ts`.
+      `${GOAL_ANCHOR_COPY.headline(label, readout, true)}.`,
     // DELETED 2026-07-26 (ROADMAP 1.223): `analysisLeads` — "{label} currently
     // leads the overall analysis." It was the UNBANDED leader claim, reached
     // only when no band could be resolved. Once the UI stopped banding win
@@ -171,7 +189,11 @@ export const HERO_COPY = {
      * stated in one plain sentence naming the outcome leader.
      */
     highestOutcome: (label: string, readout: string) =>
-      `${label} has the highest expected outcome: ${readout}.`,
+      // DELEGATED — this and `headline.outcomeLeader` were byte-identical
+      // twins: the same sentence, authored twice, one used as a headline and
+      // one as a subline. Two copies of one claim is how the four goal
+      // surfaces drifted apart in the first place.
+      HERO_COPY.headline.outcomeLeader(label, readout),
     aligned: (label: string) => `${label} also has the strongest expected outcome.`,
     /**
      * Banding state B subline (producer band or UI-SEM-060 fallback): the

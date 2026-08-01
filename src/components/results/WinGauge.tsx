@@ -37,7 +37,8 @@
 
 import { typography } from '../../styles/typography'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
-import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY } from './utils/goalAnchorCopy'
+import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY, isFiniteProbability } from './utils/goalAnchorCopy'
+import { formatGoalProbability } from './utils/displayFloors'
 import Tooltip from '../Tooltip'
 import type { DecisionState } from './types'
 
@@ -172,11 +173,6 @@ export function buildSegmentColorMap(
 // Component
 // =============================================================================
 
-/** Finite check shared by both blocks — never treats a missing number as 0. */
-function finite(v: number | null | undefined): v is number {
-  return typeof v === 'number' && Number.isFinite(v)
-}
-
 /**
  * The two-block comparison figure: the goal readout (question A) above the
  * comparative distribution.
@@ -231,9 +227,23 @@ export function WinGauge({
   // Ranked by the goal quantity itself, independently of the comparative
   // sort above — the two rankings disagree on real runs, and that
   // disagreement is exactly what the user needs to see.
-  const goalRows = shares
-    .filter((s) => finite(s.goalProbability))
-    .sort((a, b) => (b.goalProbability as number) - (a.goalProbability as number))
+  //
+  // ⚠ EXCEPT WHEN THE VERDICT WITHHOLDS. Order IS a designation
+  // (`optionDisplayOrder`'s header, ratified in ROADMAP row 1.306 — "the
+  // G-UI-1 closure treated client-side ordering as benign when it is the
+  // designation channel"), which is why `sortOptionsForDisplay`'s second
+  // parameter is mandatory rather than defaulted. This block ranked
+  // unconditionally, so on a withheld run it put an option first inside a
+  // figure whose every other ordering had just been de-designated — the
+  // segments above already take the `[...shares]` branch for this reason.
+  // Withheld ⇒ the goal rows follow `sorted`, i.e. the same display order the
+  // rest of the gauge uses. The PROBABILITIES are untouched: the claim is
+  // withheld, the data is not.
+  const goalRows = designationsWithheld
+    ? sorted.filter((s) => isFiniteProbability(s.goalProbability))
+    : shares
+        .filter((s) => isFiniteProbability(s.goalProbability))
+        .sort((a, b) => (b.goalProbability as number) - (a.goalProbability as number))
   const hasGoalNumbers = goalRows.length > 0
   // The possessive gate is a property of the RUN, not of a row: every row is
   // scored on the same basis. Any substituted row withholds the possessive
@@ -259,7 +269,13 @@ export function WinGauge({
           </p>
           <div className="flex flex-col gap-1">
             {goalRows.map((share) => {
-              const pct = Math.round(Math.max(0, Math.min(1, share.goalProbability as number)) * 100)
+              const clamped = Math.max(0, Math.min(1, share.goalProbability as number))
+              // Width is geometry; the READOUT goes through the shared floored
+              // formatter (UI-SEM-057) so a 0.4% probability reads "< 1%" here
+              // exactly as it does on the option card beside it, instead of a
+              // bare "0%" the same panel contradicts.
+              const pct = Math.round(clamped * 100)
+              const readout = formatGoalProbability(clamped)
               return (
                 <div
                   key={share.id}
@@ -292,7 +308,7 @@ export function WinGauge({
                     className={`${typography.panelMeta} text-text-body tabular-nums flex-shrink-0`}
                     data-testid={`goal-pct-${share.id}`}
                   >
-                    {pct}%
+                    {readout}
                   </span>
                 </div>
               )
@@ -312,62 +328,62 @@ export function WinGauge({
       )}
 
       <div data-testid="win-gauge-comparative-block">
-      <Tooltip content="Share of Monte Carlo simulations in which each option came out ahead">
-        {/* ROADMAP 1.223 relabelled this away from a leader VERB ("Leads
-            across scenarios"); the 2026-07-31 re-anchoring finishes the job.
-            "Win probability across scenarios" named the metric but anchored
-            it to neither question the product answers, and it sat at the top
-            of the panel as the most prominent number on the screen. The
-            label now says what the number MEASURES, and the block sits below
-            the goal readout rather than above it. The DATA is untouched —
-            this chart is a distribution, and the distribution is honest on
-            every completed run including withheld ones. */}
-        <p
-          className={`${typography.panelMeta} text-text-light mb-1`}
-          data-testid="win-gauge-comparative-heading"
-        >
-          {COMPARATIVE_COPY.label}
-        </p>
-      </Tooltip>
-      {/* Stacked bar — use clamped raw percentage for width to avoid rounding gaps */}
-      <div className={`flex rounded-full overflow-hidden gap-0.5${isDeemphasised ? ' h-2' : ' h-3'}`}>
-        {sorted.map((share, i) => {
-          const clamped = Math.max(0, Math.min(1, share.winProbability))
-          const widthPct = clamped * 100
-          const displayPct = Math.round(widthPct)
-          if (displayPct <= 0) return null
-          return (
-            <div
-              key={share.id}
-              className="h-full rounded-full"
-              style={{
-                width: `${widthPct}%`,
-                backgroundColor: colors[Math.min(i, colors.length - 1)],
-              }}
-              role="img"
-              aria-label={`${stripEncodingNotation(share.label)}: ${displayPct}%`}
-            />
-          )
-        })}
-      </div>
-      {/* Legend — coloured dot + truncated name + percentage */}
-      <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
-        {sorted.map((share, i) => {
-          const displayPct = Math.round(Math.max(0, Math.min(1, share.winProbability)) * 100)
-          if (displayPct <= 0) return null
-          return (
-            <span key={share.id} className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-light`}>
-              <span
-                className="inline-block w-2 h-2 rounded-full flex-shrink-0"
-                style={{ backgroundColor: colors[Math.min(i, colors.length - 1)] }}
-                aria-hidden="true"
+        <Tooltip content="Share of Monte Carlo simulations in which each option came out ahead">
+          {/* ROADMAP 1.223 relabelled this away from a leader VERB ("Leads
+              across scenarios"); the 2026-07-31 re-anchoring finishes the job.
+              "Win probability across scenarios" named the metric but anchored
+              it to neither question the product answers, and it sat at the top
+              of the panel as the most prominent number on the screen. The
+              label now says what the number MEASURES, and the block sits below
+              the goal readout rather than above it. The DATA is untouched —
+              this chart is a distribution, and the distribution is honest on
+              every completed run including withheld ones. */}
+          <p
+            className={`${typography.panelMeta} text-text-light mb-1`}
+            data-testid="win-gauge-comparative-heading"
+          >
+            {COMPARATIVE_COPY.label}
+          </p>
+        </Tooltip>
+        {/* Stacked bar — use clamped raw percentage for width to avoid rounding gaps */}
+        <div className={`flex rounded-full overflow-hidden gap-0.5${isDeemphasised ? ' h-2' : ' h-3'}`}>
+          {sorted.map((share) => {
+            const clamped = Math.max(0, Math.min(1, share.winProbability))
+            const widthPct = clamped * 100
+            const displayPct = Math.round(widthPct)
+            if (displayPct <= 0) return null
+            return (
+              <div
+                key={share.id}
+                className="h-full rounded-full"
+                style={{
+                  width: `${widthPct}%`,
+                  backgroundColor: colorById[share.id],
+                }}
+                role="img"
+                aria-label={`${stripEncodingNotation(share.label)}: ${displayPct}%`}
               />
-              <span className="truncate max-w-[120px]">{stripEncodingNotation(share.label)}</span>
-              <span className="tabular-nums">{displayPct}%</span>
-            </span>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+        {/* Legend — coloured dot + truncated name + percentage */}
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
+          {sorted.map((share) => {
+            const displayPct = Math.round(Math.max(0, Math.min(1, share.winProbability)) * 100)
+            if (displayPct <= 0) return null
+            return (
+              <span key={share.id} className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-light`}>
+                <span
+                  className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: colorById[share.id] }}
+                  aria-hidden="true"
+                />
+                <span className="truncate max-w-[120px]">{stripEncodingNotation(share.label)}</span>
+                <span className="tabular-nums">{displayPct}%</span>
+              </span>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

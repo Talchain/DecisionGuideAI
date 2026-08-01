@@ -269,7 +269,16 @@ export function V7LensGroup({ model }: V7LensGroupProps) {
                   isSubstitutedJoint={o.goalFitIsSubstitutedJoint}
                 />
               ))}
-              <p className={`${typography.panelMeta} text-text-light`}>{V7_LENS_COPY.goal.caption}</p>
+              {/* The caption takes the SAME flag the rows do. It is a
+                  property of the RUN, not of a row (every row is scored on
+                  one basis), and any substituted row withholds the possessive
+                  for the whole block — the safe direction, and the identical
+                  derivation `WinGauge`'s goal block uses. */}
+              <p className={`${typography.panelMeta} text-text-light`}>
+                {V7_LENS_COPY.goal.caption(
+                  model.goal.options.some((o) => o.goalFitIsSubstitutedJoint === true),
+                )}
+              </p>
             </div>
           ) : (
             <GateLine testId="v7-lens-goal-gate">
