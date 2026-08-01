@@ -18,6 +18,7 @@ import { resolveFactorConfidenceDisplay } from '../../components/results/driverC
 import {
   selectGoalProbability,
   type GoalProbabilityInput,
+  type GoalProbabilityBasis,
 } from '../../components/results/utils/selectGoalProbability'
 import type { ResultsReport } from '../../components/results/types'
 
@@ -79,6 +80,37 @@ interface NodeDisplayMetadata {
    * `GOAL_FIT_BASIS_CAVEAT_COPY` alongside it when this is true.
    */
   achievementProbabilityIsModelledBasis: boolean
+  /**
+   * ROADMAP 2.283 — WHICH QUANTITY `achievementProbability` ACTUALLY IS.
+   *
+   * The selector publishes a `basis` precisely so no consumer has to infer the
+   * identity of the number from the number. This hook used to read that basis,
+   * take `goalFitIsModelledBasis` off it, and DISCARD the rest — which left
+   * `GoalNode` structurally unable to tell `probability_of_goal` apart from
+   * `probability_of_joint_goal` STANDING IN for it, and so it rendered the
+   * substituted figure in the possessive voice ("chance of reaching target")
+   * that #556 withheld on every sibling surface. The basis is the missing
+   * datum, not a new decision: it is forwarded verbatim from
+   * `selectGoalProbability`, never re-derived here, and never recomputed at a
+   * render site.
+   *
+   * ⚠ CARRY THE BASIS, NOT A BOOLEAN. A `goalFitIsSubstitutedJoint` field here
+   * would be a SECOND copy of a fact the selector already owns — the
+   * hand-maintained-mirror defect class (CLAUDE.md trap 12), and the exact
+   * shape of the two `generateGraphHash` twins. Consumers narrow it themselves
+   * with `=== 'joint_goal_substituted'`, which is byte-for-byte the expression
+   * `OptionNode` already uses, so the canvas has ONE vocabulary for this test.
+   *
+   * OPTIONAL, for the reason `goalFitAvailable` below is optional (mock churn
+   * rewrites printed type strings across unrelated suites). ⚠ Note the polarity
+   * honestly: absent ⇒ not substituted ⇒ the possessive is PERMITTED, which is
+   * the pre-2.283 behaviour and therefore safe as a default, but it is NOT the
+   * conservative direction. The real hook always populates it whenever
+   * `achievementProbability` is non-null, and
+   * `useNodeDisplayMetadata.goalBasis.spec.ts` PINS that invariant through the
+   * real hook so "optional in the type" cannot decay into "absent in practice".
+   */
+  achievementProbabilityBasis?: GoalProbabilityBasis | null
   /**
    * ROADMAP 2.275. True when this run carries an admissible per-option goal
    * figure (per `selectGoalProbability`) even though no single probability is
@@ -147,6 +179,7 @@ export function useNodeDisplayMetadata(
         inSensitivityAnalysis: false,
         achievementProbability: null,
         achievementProbabilityIsModelledBasis: false,
+        achievementProbabilityBasis: null,
         goalFitAvailable: false,
         stabilityPercentage: null,
         winRate: null,
@@ -258,6 +291,7 @@ export function useNodeDisplayMetadata(
     // Read from option_probabilities (the field the responseMapper actually populates)
     let achievementProbability: number | null = null
     let achievementProbabilityIsModelledBasis = false
+    let achievementProbabilityBasis: GoalProbabilityBasis | null = null
     let stabilityPercentage: number | null = null
     let goalFitAvailable = false
 
@@ -288,6 +322,9 @@ export function useNodeDisplayMetadata(
           const decision = selectGoalProbability(rec)
           achievementProbability = decision.goalProbability
           achievementProbabilityIsModelledBasis = decision.goalFitIsModelledBasis
+          // ROADMAP 2.283. Forwarded, not interpreted: the one place the basis
+          // was previously read and thrown away.
+          achievementProbabilityBasis = decision.basis
         }
       }
 
@@ -363,6 +400,7 @@ export function useNodeDisplayMetadata(
       inSensitivityAnalysis,
       achievementProbability,
       achievementProbabilityIsModelledBasis,
+      achievementProbabilityBasis,
       goalFitAvailable,
       stabilityPercentage,
       winRate,
