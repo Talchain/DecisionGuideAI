@@ -34,7 +34,7 @@
  * jsdom cannot prove visibility or layout (trap 3), and nothing here tries to.
  */
 
-import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import type { Node } from '@xyflow/react'
 import { GoalSection } from '../GoalSection'
@@ -105,9 +105,19 @@ function optionNode(id: string, label: string): Node {
 const HOOKS_ORDER_WARNING =
   /change in the order of Hooks|Rendered more hooks|Rendered fewer hooks|Rules of Hooks/i
 
-/** React logs the hooks-order warning via console.error. */
+/**
+ * React logs the hooks-order warning via console.error.
+ *
+ * ⚠ `beforeEach`, NOT `beforeAll` — and that distinction is the whole spec.
+ * `vitest.config.ts` sets `restoreMocks: true`, which tears every spy down
+ * BEFORE each test. A `beforeAll` spy is therefore already gone by the time the
+ * first test body runs, `consoleErrors` stays empty forever, and every
+ * assertion below passes against a defect it never observed. That is exactly
+ * how the first version of this spec came out green with both defects restored.
+ */
 let consoleErrors: string[] = []
-beforeAll(() => {
+beforeEach(() => {
+  consoleErrors = []
   vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
     consoleErrors.push(args.map(String).join(' '))
   })
