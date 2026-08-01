@@ -92,6 +92,11 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { useLayoutStore } from '../../layoutStore'
+// ROADMAP 2.282 — the REAL chooser and the REAL copy register, so the
+// possessive-gate tests below pin the shipped predicate and the shipped
+// wording rather than a restatement of either.
+import { selectGoalProbability } from '../../../components/results/utils/selectGoalProbability'
+import { GOAL_ANCHOR_COPY } from '../../../components/results/utils/goalAnchorCopy'
 
 const baseProps = {
   id: 'option-1',
@@ -1204,6 +1209,93 @@ describe('OptionNode', () => {
     // 5% < 10% threshold → the warning line renders with the joint value,
     // matching what OptionCards/hero derive via useResultsSectionData.
     expect(screen.getByText(/5% chance of target\./)).toBeDefined()
+  })
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // THE POSSESSIVE GATE (ROADMAP 2.282)
+  //
+  // The two tests above are the CONSTRAINED case (`constraint_analysis`
+  // present ⇒ basis `joint_goal_constrained`), where the joint figure covers
+  // the user's own goal AND their own limits and the possessive "chance of
+  // target" is EARNED. The tests below are the SUBSTITUTED case — the same
+  // joint number with no constraint analysis, standing in for a
+  // `probability_of_goal` ISL refused to compute (witnessed live on staging
+  // 2026-08-01: unstamped `goal_threshold_frame`). There the possessive names
+  // a question the number does not answer, and the selector says so with
+  // `mayUsePossessiveGoalFraming: false`.
+  //
+  // The pair is the point: the SAME 0.05-ish joint value must keep the
+  // possessive in one fixture and lose it in the other, so a fix that simply
+  // deleted the possessive copy fails the constrained test above.
+  //
+  // RED-first: both fail at `fef179ce`.
+  const makeSubstitutedJointStore = () =>
+    makeStoreState({
+      goalThreshold: 0.8, // UI-SEM-082: a user target is set
+      results: {
+        status: 'complete',
+        report: {
+          option_probabilities: {
+            'option-1': {
+              confidence: 0.5,
+              win_probability: 0.5,
+              // The witnessed shape: the joint figure arrives, the goal
+              // figure does not, and there is NO constraint_analysis — so the
+              // selector's third branch fires and substitutes.
+              probability_of_joint_goal: 0.0054,
+              goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
+            },
+          },
+        },
+      },
+      nodes: [{ id: 'option-1', type: 'option', data: { type: 'option' } }],
+    })
+
+  it('control: the substituted fixture really does drive the selector to `joint_goal_substituted` (not `joint_goal_constrained`)', () => {
+    // Anti-vacuity (trap 13). If this fixture ever stopped being the
+    // substituted case, the two copy tests below would pass by testing
+    // nothing — and they would be indistinguishable from a real fix.
+    mockTrust.suspect = false
+    const substituted = selectGoalProbability({
+      probability_of_joint_goal: 0.0054,
+      goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
+    })
+    expect(substituted.basis).toBe('joint_goal_substituted')
+    expect(substituted.mayUsePossessiveGoalFraming).toBe(false)
+
+    // …and the neighbouring fixture is genuinely the OTHER basis.
+    const constrained = selectGoalProbability({
+      probability_of_joint_goal: 0.05,
+      constraint_analysis: { constraints: [{ id: 'c1' }] },
+    })
+    expect(constrained.basis).toBe('joint_goal_constrained')
+    expect(constrained.mayUsePossessiveGoalFraming).toBe(true)
+  })
+
+  it('RED-first: WITHHOLDS the possessive "chance of target." when the joint figure is SUBSTITUTED for an absent goal probability', () => {
+    mockTrust.suspect = false
+    mockResultsModeMetadata()
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeSubstitutedJointStore() as any)
+    )
+    renderOption()
+    expect(screen.queryByText(/chance of target\./)).toBeNull()
+    // The number is NOT suppressed — it is renamed. Same value, honest voice,
+    // in the shared register's sentence form.
+    expect(screen.getByText(new RegExp(GOAL_ANCHOR_COPY.sentence('< 1%', true).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))))
+      .toBeDefined()
+  })
+
+  it('positive control: the CONSTRAINED joint figure KEEPS the possessive wording (the gate is basis-scoped, not joint-scoped)', () => {
+    mockTrust.suspect = false
+    mockResultsModeMetadata()
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeConstrainedJointOnlyStore() as any)
+    )
+    renderOption()
+    expect(screen.getByText(/5% chance of target\./)).toBeDefined()
+    expect(screen.queryByText(new RegExp(GOAL_ANCHOR_COPY.label(true).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))))
+      .toBeNull()
   })
 
   // Lane 4 fold (UI-SEM-082, extends UI-SEM-071): the "chance of target" badge

@@ -96,6 +96,26 @@ function adaptedGoalProbabilities(): Record<string, number | null | undefined> {
   return out
 }
 
+/**
+ * ROADMAP 2.282 — the same hook render, reading the OTHER field the adapter
+ * publishes for each option.
+ *
+ * Every assertion above reads `goalProbability` and none reads
+ * `goalFitIsSubstitutedJoint`, so `useResultsSectionData.ts:1593` — the SOLE
+ * production expression that decides whether OptionCards may use possessive
+ * goal framing — was never executed by any spec on a substituted or a
+ * constrained payload. The surface tests pin the render given the flag; this
+ * pins the flag itself, through the real hook and the real adapter.
+ */
+function adaptedSubstitutedFlags(): Record<string, boolean | undefined> {
+  const { result } = renderHook(() => useResultsSectionData())
+  const out: Record<string, boolean | undefined> = {}
+  for (const o of result.current.recommendation?.allOptions ?? []) {
+    out[o.id] = o.goalFitIsSubstitutedJoint
+  }
+  return out
+}
+
 describe('useResultsSectionData — goalProbability collapse — gate ON (default)', () => {
   beforeEach(() => {
     mockTrust.suspect = true
@@ -204,5 +224,97 @@ describe('useResultsSectionData — goalProbability collapse — POSITIVE CONTRO
     const probs = adaptedGoalProbabilities()
     expect(probs.opt_a).toBe(0.2)
     expect(probs.opt_b).toBe(0.7)
+  })
+})
+
+/**
+ * ROADMAP 2.282 — THE POSSESSIVE GATE'S SOURCE EXPRESSION.
+ *
+ * `useResultsSectionData.ts:1593` is:
+ *
+ *   goalFitIsSubstitutedJoint: goalDecision.basis === 'joint_goal_substituted'
+ *
+ * It is the ONLY production expression that sets the flag OptionCards gates
+ * its goal copy on, and before this block no spec executed it on either of
+ * the two bases that discriminate. The surface specs
+ * (`substitutedJointGate.optionCards.spec.tsx`) necessarily REBUILD this
+ * expression in their fixture factory to construct an `OptionResult`, so they
+ * would keep passing if `:1593` were widened or inverted — the textual-mirror
+ * failure mode #555 hit in this repo the same day (CLAUDE.md trap 11: test
+ * the real thing, not a restatement of its predicate).
+ *
+ * The gate must be ON-substituted and OFF-constrained, and NOTHING else
+ * distinguishes those two payloads but `constraint_analysis`. Both arms run
+ * with `mockTrust.suspect = false`, because while the UI-SEM-088 honesty gate
+ * is ON the selector never substitutes at all and every assertion here would
+ * pass by testing nothing (trap 13) — the first test pins exactly that.
+ */
+describe('useResultsSectionData — goalFitIsSubstitutedJoint (ROADMAP 2.282, the gate OptionCards reads)', () => {
+  beforeEach(() => {
+    mockTrust.suspect = false
+    useCanvasStore.setState({
+      results: null,
+      rawV2Response: null,
+      nodes: [],
+      edges: [],
+      hasCompletedFirstRun: false,
+    } as any)
+  })
+
+  it('control: with the UI-SEM-088 gate ON no option is ever flagged substituted (so the arms below are not vacuous)', () => {
+    mockTrust.suspect = true
+    setStoreWithMappedReport(makeV2Response(
+      { probability_of_joint_goal: 0.0054 },
+      { probability_of_joint_goal: 0.0018 },
+    ))
+    const flags = adaptedSubstitutedFlags()
+    expect(flags.opt_a).toBe(false)
+    expect(flags.opt_b).toBe(false)
+    // …and the reason is that nothing was substituted, not that the flag lies.
+    expect(adaptedGoalProbabilities().opt_a).toBeNull()
+  })
+
+  it('SUBSTITUTED: joint present, goal_probability absent, no constraint_analysis → flag TRUE', () => {
+    // The witnessed staging shape (2026-08-01): ISL refused
+    // `probability_of_goal` because `goal_threshold_frame` was never
+    // stamped, and the auto-materialised constraint's joint figure stands in.
+    setStoreWithMappedReport(makeV2Response(
+      { probability_of_joint_goal: 0.0054 },
+      { probability_of_joint_goal: 0.0018 },
+    ))
+    const flags = adaptedSubstitutedFlags()
+    expect(flags.opt_a).toBe(true)
+    expect(flags.opt_b).toBe(true)
+    // The VALUE is still published — the withhold is on the framing only.
+    expect(adaptedGoalProbabilities().opt_a).toBe(0.0054)
+  })
+
+  it('CONSTRAINED: the same joint figure WITH constraint_analysis → flag FALSE (possessive earned)', () => {
+    setStoreWithMappedReport(makeV2Response(
+      {
+        probability_of_joint_goal: 0.2,
+        constraint_analysis: {
+          constraints: [{ constraint_id: 'c1', node_id: 'n1', direction: 'max', threshold: 1 }],
+          joint_probability: 0.2,
+        },
+      },
+      { probability_of_joint_goal: 0.2 },
+    ))
+    const flags = adaptedSubstitutedFlags()
+    // opt_a carries its own constraints → 'joint_goal_constrained'.
+    expect(flags.opt_a).toBe(false)
+    // opt_b has the identical joint number and NO constraints → substituted.
+    // The pair is the discriminator: one payload shape apart, opposite flags.
+    expect(flags.opt_b).toBe(true)
+  })
+
+  it('REAL goal probability → flag FALSE', () => {
+    setStoreWithMappedReport(makeV2Response(
+      { probability_of_goal: 0.55, probability_of_joint_goal: 0.0054 },
+      { probability_of_goal: 0.7 },
+    ))
+    const flags = adaptedSubstitutedFlags()
+    expect(flags.opt_a).toBe(false)
+    expect(flags.opt_b).toBe(false)
   })
 })

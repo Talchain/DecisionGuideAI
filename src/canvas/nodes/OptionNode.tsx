@@ -21,7 +21,7 @@ import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodeChip, ActionIcons, BriefIcon, NodePopover, ScienceIcon } from './shared'
 import { selectGoalProbability } from '../../components/results/utils/selectGoalProbability'
-import { COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
+import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 
@@ -773,6 +773,27 @@ export const OptionNode = memo((props: NodeProps) => {
   }, [isPostAnalysis, resultsReport, props.id])
   const goalProbability = goalDecision?.goalProbability ?? null
 
+  // THE POSSESSIVE GATE (ROADMAP 2.282). `basis === 'joint_goal_substituted'`
+  // means this number is P(all constraints jointly satisfied) STANDING IN for
+  // an absent `probability_of_goal`, so the possessive "chance of target"
+  // names a question it does not answer. Read off the owner's own published
+  // decision — the same expression `useResultsSectionData` uses to set
+  // `OptionResult.goalFitIsSubstitutedJoint` — never re-derived here.
+  //
+  // ⚠ SCOPED TO `joint_goal_substituted`, NOT to "the figure is joint".
+  // `joint_goal_constrained` is the user's own goal AND the user's own
+  // limits, where the possessive is EARNED and stays. `OptionNode.spec.tsx`'s
+  // ROADMAP 1.49 positive control is exactly that constrained case and must
+  // keep rendering "chance of target."
+  const goalFitSubstituted = goalDecision?.basis === 'joint_goal_substituted'
+  // The badge readout, built ONCE above both arms so the withheld and
+  // permitted wordings cannot show different numbers for the same option.
+  // Byte-identical to the literal it replaces (`'< '` + digits + `%`).
+  const goalBadgeReadout =
+    goalProbability !== null && goalProbability < 0.10
+      ? `< ${goalProbability < 0.01 ? '1' : Math.round(goalProbability * 100)}%`
+      : null
+
   // "Behind:" reason for non-winner options (including status quo).
   // Computed via the pure helper so this option's reason can be compared
   // against its non-leading siblings: an identical reason on multiple losers
@@ -920,10 +941,15 @@ export const OptionNode = memo((props: NodeProps) => {
       {/* Goal probability warning (< 10%) -- post-analysis only.
           UI-SEM-082: gated on a USER target (goalThreshold != null) so it never
           crowns a target the user never set, matching GoalNode + OptionCards. */}
-      {goalThreshold != null && isPostAnalysis && goalProbability !== null && goalProbability < 0.10 && (
+      {goalThreshold != null && isPostAnalysis && goalBadgeReadout != null && (
         <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-          {'< '}
-          {goalProbability < 0.01 ? '1' : Math.round(goalProbability * 100)}% chance of target.{' '}
+          {/* ROADMAP 2.282: the withheld arm is the shared register's SENTENCE
+              form verbatim (phrase + full stop) — the same wording the results
+              panel, the hero and the V7 goal lens render for this basis. The
+              permitted arm is byte-identical to the string it replaced. */}
+          {goalFitSubstituted
+            ? GOAL_ANCHOR_COPY.sentence(goalBadgeReadout, goalFitSubstituted)
+            : `${goalBadgeReadout} chance of target.`}{' '}
           <button
             type="button"
             className={`${typography.edgeLabel} text-danger underline cursor-pointer nodrag nopan`}
@@ -1059,7 +1085,7 @@ export const OptionNode = memo((props: NodeProps) => {
           in this inline layer-2 block. Body never renders chips directly. */}
       {optionChips}
     </>
-  ), [isPostAnalysis, goalThreshold, goalProbability, goalDecision, props.id, handleGoalReviewClick, allInterventionChips, isBaselineOption, baselineOptionInterventions, isOptionFromCee, props.data, totalInterventionCount, optionChips])
+  ), [isPostAnalysis, goalThreshold, goalProbability, goalBadgeReadout, goalFitSubstituted, goalDecision, props.id, handleGoalReviewClick, allInterventionChips, isBaselineOption, baselineOptionInterventions, isOptionFromCee, props.data, totalInterventionCount, optionChips])
 
   // ----- Pre-analysis popover content -----
   const preAnalysisPopoverContent = useMemo(() => {

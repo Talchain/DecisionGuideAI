@@ -45,6 +45,7 @@ import {
   selectGoalProbability,
   type GoalProbabilityInput,
 } from '../../../../components/results/utils/selectGoalProbability'
+import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 
 export const GoalPanel = memo(function GoalPanel({
   nodeId,
@@ -72,6 +73,22 @@ export const GoalPanel = memo(function GoalPanel({
   )
   const probGoal = goalDecision.goalProbability
   const probJoint = goalDecision.jointGoalProbability
+  // THE POSSESSIVE GATE (ROADMAP 2.282). The panel already refuses to be a
+  // chooser; it was still being a NARRATOR — rendering the owner's number in
+  // possessive wording the owner had explicitly forbidden
+  // (`mayUsePossessiveGoalFraming: false`). `basis` was published for exactly
+  // this and was the one field this panel destructured past.
+  //
+  // ⚠ SCOPED TO `joint_goal_substituted` ONLY. `joint_goal_constrained` is
+  // the user's own goal AND their own limits — the possessive is earned there
+  // and is untouched.
+  //
+  // ⚠ AND THE TWO CLAIMS BELOW ARE THE SAME NUMBER. Under substitution the
+  // selector returns `goalProbability === jointGoalProbability` by
+  // construction, so the Impact block was stating one value twice in two
+  // different voices: "N% chance of success" over "Chance of hitting every
+  // target: N%". One of those was false. They are collapsed to the honest one.
+  const goalFitSubstituted = goalDecision.basis === 'joint_goal_substituted'
   // Passthrough: the REAL Monte Carlo sample count from this run's meta.n_samples
   // (canonical reader — same source AdvancedSection's "Simulation quality" row
   // uses). Null on the V5 conversational path (meta stripped upstream), in which
@@ -275,7 +292,15 @@ export const GoalPanel = memo(function GoalPanel({
               {/* Contextual probability when analysis exists */}
               {typeof probGoal === 'number' ? (
                 <p className={`${typography.panelBody} text-text-body mt-1`}>
-                  {Math.round(probGoal * 100)}% chance of reaching this target based on the current model.
+                  {/* ROADMAP 2.282. Withheld arm: the shared register's
+                      compact readout verbatim, with the existing
+                      "current model" qualifier kept as a trailing clause —
+                      the only adaptation is the joining comma, which the
+                      register's own no-full-stop `phrase()` form is designed
+                      to accept. Permitted arm byte-identical. */}
+                  {goalFitSubstituted
+                    ? `${GOAL_ANCHOR_COPY.phrase(`${Math.round(probGoal * 100)}%`, goalFitSubstituted)}, based on the current model.`
+                    : `${Math.round(probGoal * 100)}% chance of reaching this target based on the current model.`}
                 </p>
               ) : (
                 <p className={`${typography.panelMeta} text-text-light mt-1`}>
@@ -502,22 +527,46 @@ export const GoalPanel = memo(function GoalPanel({
               <div className="flex items-center gap-4 py-2">
                 <ProbabilityArc value={probGoal} color="var(--success)" />
                 <div>
-                  <div className={`${typography.panelHeader}`}>{Math.round(probGoal * 100)}% chance of success</div>
+                  {/* ROADMAP 2.282 — "chance of success" is a goal-attainment
+                      claim; over a substituted joint figure it takes the
+                      register's compact readout instead. */}
+                  <div className={`${typography.panelHeader}`}>
+                    {goalFitSubstituted
+                      ? GOAL_ANCHOR_COPY.phrase(`${Math.round(probGoal * 100)}%`, goalFitSubstituted)
+                      : `${Math.round(probGoal * 100)}% chance of success`}
+                  </div>
                   {scenarioCount != null && (
                     <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
                       Based on {scenarioCount.toLocaleString('en-GB')} simulations
                     </div>
                   )}
                   <div className="mt-1"><ResultsLink label="View full results" tab="results" /></div>
-                  {typeof probJoint === 'number' && (
+                  {/* ROADMAP 2.282: suppressed under substitution because the
+                      readout above IS this number \u2014 the selector returns
+                      `goalProbability === jointGoalProbability` on that basis
+                      \u2014 and now says so in these exact words. Rendering it
+                      again would restate one value as two findings. On every
+                      other basis the two are genuinely different quantities
+                      and this line stays. */}
+                  {typeof probJoint === 'number' && !goalFitSubstituted && (
                     <div className={`${typography.panelBody} text-text-body mt-1.5`}>
                       Chance of hitting every target: <strong>{Math.round(probJoint * 100)}%</strong>
                     </div>
                   )}
                   {techMode && (
                     <div className={`${typography.panelMeta} text-text-light mt-1`}>
-                      System: probability_of_goal: {probGoal.toFixed(2)}
-                      {typeof probJoint === 'number' && ` \u00B7 probability_of_joint_goal: ${probJoint.toFixed(2)}`}
+                      {/* The diagnostic named the field `probability_of_goal`
+                          for a value that, under substitution, is NOT that
+                          field \u2014 the most literally false line in the block,
+                          and the one a tech-mode reader would trust most. */}
+                      {goalFitSubstituted ? (
+                        <>System: probability_of_joint_goal (substituted for absent probability_of_goal): {probGoal.toFixed(2)}</>
+                      ) : (
+                        <>
+                          System: probability_of_goal: {probGoal.toFixed(2)}
+                          {typeof probJoint === 'number' && ` \u00B7 probability_of_joint_goal: ${probJoint.toFixed(2)}`}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
