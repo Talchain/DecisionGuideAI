@@ -3,8 +3,11 @@
  *
  * Supports all ConversationBlock types. Unknown block_type values render
  * a neutral fallback card — never crash.
- * Max 4 visible per turn with "Show more" toggle (graph_patch proposed blocks
- * always stay visible — budget is enforced upstream in useConversation).
+ * Max 4 NON-phase-3 blocks visible per turn with "Show more" toggle
+ * (graph_patch proposed blocks always stay visible — budget is enforced
+ * upstream in useConversation). Phase-3 cards are governed instead by the
+ * pacing group in phase3Pacing.ts (PHASE3_DEFAULT_EXPANDED, 6 since
+ * ROADMAP 2.211-②), never by the legacy budget.
  */
 
 import { useState, useCallback, useMemo, memo, useRef } from 'react'
@@ -140,25 +143,40 @@ export const InlineBlocks = memo(function InlineBlocks({
   assistantTextWordCount = 0,
 }: InlineBlocksProps) {
   const [showAll, setShowAll] = useState(false)
-  // F16: phase-3 card pacing — flood turns default to the top 3 phase-3
-  // cards expanded, the remainder behind ONE count affordance.
+  // F16: phase-3 card pacing — flood turns default to the top
+  // PHASE3_DEFAULT_EXPANDED phase-3 cards expanded (6 since ROADMAP
+  // 2.211-②), the remainder behind ONE count affordance.
   const [showAllPhase3, setShowAllPhase3] = useState(false)
 
   const pacing = useMemo(() => computePhase3Pacing(blocks), [blocks])
 
-  // Legacy per-turn budget. When phase-3 pacing is active, the phase-3
-  // cards carry their own budget (the pacing group), so the legacy cap
-  // counts only the non-phase-3 blocks; otherwise behaviour is unchanged
-  // (cap across all blocks, as before F16). Bias-signal cards are exempt
-  // (review-folds C1) — but only the FIRST DRAFT_BIAS_SIGNAL_CARD_CAP of
-  // them (/simplify item 5), from the ONE exempt set computePhase3Pacing
-  // already derived, so this budget and the pacing budget cannot disagree.
-  // Bias cards beyond the cap fall through to the normal budget path.
+  // Legacy per-turn budget over the NON-phase-3 blocks only: the phase-3
+  // cards always carry their own budget (the pacing group), exactly as this
+  // module's header declares ("the pacing group is the phase-3 budget").
+  //
+  // ⚠ The exclusion used to be conditional on `pacing.pacingActive`, and
+  // ROADMAP 2.211-② turned that into a DEAD BAND. The legacy cap is 4
+  // (MAX_VISIBLE_BLOCKS_PER_TURN). While the default-expanded cap was 3 the
+  // two could not collide — pacing switched on at 4 phase-3 cards, and any
+  // smaller group fitted inside the legacy 4. At a cap of 6, turns carrying
+  // 5 or 6 phase-3 cards no longer activate pacing, fell back into the
+  // legacy budget, and rendered FOUR cards behind "Show N more blocks" —
+  // i.e. the ruled constant would read 6 while the user saw 4, on precisely
+  // the turn sizes the ruling was meant to open up. Making the exclusion
+  // unconditional is what makes the ruled number true; it is monotone
+  // (a block can only become visible, never hidden), and it raises no flood
+  // ceiling, because the pacing group caps phase-3 cards at 6 regardless.
+  //
+  // Bias-signal cards are exempt (review-folds C1) — but only the FIRST
+  // DRAFT_BIAS_SIGNAL_CARD_CAP of them (/simplify item 5), from the ONE
+  // exempt set computePhase3Pacing already derived, so this budget and the
+  // pacing budget cannot disagree. Bias cards beyond the cap fall through to
+  // the normal budget path.
   const { hiddenByBudget, hasOverflow, hiddenCount } = useMemo(() => {
     const budgetIndices: number[] = []
     for (let i = 0; i < blocks.length; i++) {
       if (pacing.biasSignalExemptIndices.has(i)) continue
-      if (pacing.pacingActive && isPhase3CardBlock(blocks[i])) continue
+      if (isPhase3CardBlock(blocks[i])) continue
       budgetIndices.push(i)
     }
     return {

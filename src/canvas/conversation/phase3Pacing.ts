@@ -16,9 +16,10 @@
  *   - Every later phase-3 card collapses behind ONE affordance, placed at
  *     the position of the first collapsed card so reading order is
  *     preserved exactly on reveal.
- *   - Non-phase-3 blocks are untouched: when pacing is active they keep
- *     their own legacy per-turn budget, counted WITHOUT the phase-3 cards
- *     (the pacing group is the phase-3 budget).
+ *   - Non-phase-3 blocks are untouched: they keep their own legacy per-turn
+ *     budget, counted WITHOUT the phase-3 cards (the pacing group is the
+ *     phase-3 budget — always, not only while pacing is active; see the
+ *     dead-band note in InlineBlocks, ROADMAP 2.211-②).
  */
 import { DRAFT_BIAS_SIGNAL_CARD_CAP } from './types'
 import type { ConversationBlock } from './types'
@@ -31,8 +32,22 @@ export const PHASE3_CARD_TYPES: ReadonlySet<ConversationBlock['type']> = new Set
   'v5_exercise',
 ] as const)
 
-/** Ratified default-expanded cap: at most 3 phase-3 cards open by default. */
-export const PHASE3_DEFAULT_EXPANDED = 3
+/**
+ * Ratified default-expanded cap: at most 6 phase-3 cards open by default.
+ *
+ * ROADMAP 2.211-② (founder ruling, 1 Aug) raised this from 3 to 6. The
+ * live walk proved rank ≠ visibility: the selected-lens exercise card ranks
+ * correctly (2.211 §2 put it directly after the review cards — see
+ * EXERCISE_RANK_AFTER_REVIEW_CARDS in useConversation.ts) yet still sat
+ * behind `Show N more`, because a collapsed card renders `null` and is not
+ * in the DOM at all. Measured phase-3 counts on the walk's analysis turns
+ * were 8, 8, 8, 11, 13, 14 — so a cap of 3 collapsed everything below the
+ * third card on every single turn.
+ *
+ * The Show-more affordance is deliberately KEPT: the ruling raises the
+ * default, it does not remove pacing.
+ */
+export const PHASE3_DEFAULT_EXPANDED = 6
 
 export interface Phase3Pacing {
   /** True when the turn carries more phase-3 cards than the default cap. */
