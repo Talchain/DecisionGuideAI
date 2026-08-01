@@ -14,6 +14,18 @@
  * past the default-expanded cap of 6 and renders `null` — not merely below
  * the fold, but absent from the DOM.
  *
+ * ⚠ THAT RANK IS UI-INVENTED, NOT THE PRODUCER'S. CEE emits this block with
+ * NO `priority_rank` field — `buildPreMortemExerciseBlock` builds exactly
+ * twelve keys and none is a rank — and appends it LAST in its own phase-3
+ * array (`compose.ts`, `[...built, ...lensCompanions]`); the contract
+ * reserves the 200+ band for calibration prompts / exercises. The
+ * `max(review)+0.5` position is `EXERCISE_RANK_AFTER_REVIEW_CARDS` in
+ * `useConversation.ts`, a UI derivation that HOISTS the card above the
+ * coaching band. Naming it "the producer's rank" would be the false-label
+ * defect (platform traps 12/14). Direction of that correction: it
+ * UNDERSTATES the burial — producer-positional order puts the card last,
+ * 16 of 16, not 11. The 2.242 premise holds under either number.
+ *
  * ## Measured, not assumed — 12 REAL captured analysis payloads
  * Replayed through the shipped parse -> extract -> compose -> pace pipeline
  * at staging tip `db795411` (the measurement is recorded in the PR body).
@@ -26,7 +38,8 @@
  * CEE `5fe615b`), byte-identical to
  * `PHASE0-EVIDENCE-2026-07-28/probe-2154-shots/decisive-turn-wire-body.json`
  * (sha256 f1563dde…). Every card, every producer `priority_rank` and the
- * whole enrichment record in it are the producer's.
+ * whole enrichment record in it are the producer's. (The companion spliced
+ * into it below carries no rank of its own — see the warning above.)
  *
  * ⚠ THE ONE SYNTHETIC ELEMENT, DISCLOSED: no captured payload in the
  * programme's evidence corpus carries a producer-emitted `exercise` block —
@@ -36,8 +49,8 @@
  * a fixture built to demonstrate a property cannot hunt for its absence. What
  * that splice does NOT invent is the thing being measured: the companion's
  * POSITION is a function of the real cards' real producer ranks and the
- * shipped derivation rule, not of the spliced block. The splice supplies the
- * card's existence; the real capture supplies everything that buries it.
+ * shipped (UI) derivation rule, not of the spliced block. The splice supplies
+ * the card's existence; the real capture supplies everything that buries it.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -156,13 +169,15 @@ describe('2.242 — the real capture buries the lens companion card', () => {
     expect(blocks.some(isLensCompanionBlock)).toBe(false)
   })
 
-  it('RED-FIRST: with the lens companion emitted, producer order puts it at phase-3 position 11 — past the cap of 6', async () => {
+  it('RED-FIRST: with the lens companion emitted, the composed order puts it at phase-3 position 11 — past the cap of 6', async () => {
     const body = readCapture(REAL_CAPTURE)
     const blocks = await runPipeline({ ...body, blocks: [...body.blocks, PRODUCER_EXERCISE] })
     const ci = companionIndex(blocks)
     expect(ci).toBeGreaterThan(-1)
-    // Position is the producer's, not ours: it is what the shipped rank
-    // derivation puts it at, over the capture's real ranks.
+    // The position is not chosen by this test: it is where the shipped rank
+    // derivation lands the card over the capture's real producer ranks. (The
+    // derivation itself is the UI's — see the header. Under CEE's own
+    // append-last order the card would be 16 of 16.)
     expect(phase3Position(blocks, ci)).toBe(11)
     expect(phase3Position(blocks, ci)).toBeGreaterThan(PHASE3_DEFAULT_EXPANDED)
     // …and the fix is what keeps it out of the collapsed set.
@@ -199,8 +214,8 @@ describe('2.242 — the real capture buries the lens companion card', () => {
     )
     expect(expandedPhase3).toHaveLength(PHASE3_DEFAULT_EXPANDED)
     expect(expandedPhase3.filter(isLensCompanionBlock)).toHaveLength(RESERVED_COMPANION_SLOTS)
-    // Producer order is untouched — the companion is still exactly where the
-    // producer's rank put it (position 11), it is merely not collapsed.
+    // Composed order is untouched — the companion is still exactly where
+    // composition put it (position 11), it is merely not collapsed.
     expect(phase3Position(withCompanion, companionIndex(withCompanion))).toBe(11)
     // The card that lost its slot is the 6th, so the affordance moves from
     // the 7th card to the 6th and reading order on reveal is still exact.

@@ -17,7 +17,7 @@
  *     the position of the first collapsed card so reading order is
  *     preserved exactly on reveal.
  *   - ONE of those default-expanded slots is RESERVED for the turn's lens
- *     companion card when producer order would otherwise bury it
+ *     companion card when the composed order would otherwise bury it
  *     (ROADMAP 2.242 — see RESERVED_COMPANION_SLOTS below). The reservation
  *     DISPLACES the last default-expanded slot; it never adds a seventh.
  *   - Non-phase-3 blocks are untouched: they keep their own legacy per-turn
@@ -64,16 +64,34 @@ export const PHASE3_DEFAULT_EXPANDED = 6
  * Measured over 12 real captured analysis payloads replayed through the
  * shipped pipeline at staging tip `db795411`, the companion card lands at
  * phase-3 position 5-11 — behind the cap on 10 of the 12 — because two card
- * families outrank the entire review-card group it is anchored to: producer
- * `evidence` (ranks 1-3) and the deterministic `strengthen` coaching card
- * (rank 15) sort ahead of review cards (ranks 10-73), and the companion's
- * derived rank is `max(review_card rank) + 0.5`
- * (EXERCISE_RANK_AFTER_REVIEW_CARDS, ROADMAP 2.211 §2). Raising the cap far
- * enough to reach position 11 renders nearly the whole turn, which is what
- * pacing exists to prevent. Reserving one slot is the smallest change that
- * shows the single card the lens selector CHOSE, and it reorders nothing:
- * producer order is untouched, the card renders exactly where the producer
- * put it, it is merely not collapsed.
+ * families sort ahead of the entire review-card group it is anchored to:
+ * `evidence` (producer ranks 1-3) and the deterministic `strengthen`
+ * coaching card (producer rank 15), against review cards at producer ranks
+ * 10-73.
+ *
+ * ⚠ THE COMPANION'S OWN RANK IS UI-INVENTED, NOT THE PRODUCER'S. CEE emits
+ * this block with NO `priority_rank` field at all — `buildPreMortemExerciseBlock`
+ * (`compose/phase3-blocks.ts`) builds exactly twelve keys, none of them a
+ * rank — and appends the companion LAST in its own phase-3 array
+ * (`compose.ts`, `return [...built, ...lensCompanions]`). The contract
+ * reserves the 200+ band for calibration prompts / exercises (vendored
+ * `@talchain/schemas` 0.30.0, `boundary/blocks.js`). The
+ * `max(review_card rank) + 0.5` position is invented HERE, in the UI, by
+ * `EXERCISE_RANK_AFTER_REVIEW_CARDS` (`useConversation.ts`, ROADMAP 2.211
+ * §2) — which HOISTS the card above the coaching band (101-202) it would
+ * otherwise sit behind. Calling that "the producer's rank" would be the
+ * false-label defect (platform traps 12/14), so it is not called that here.
+ *
+ * Direction of the correction, stated because it matters: the mistake
+ * UNDERSTATED the burial. Under the producer's own positional order the card
+ * would be LAST — 16 of 16 on the real capture, not 11. The 2.242 premise is
+ * unaffected either way; 11 and 16 are both past a cap of 6.
+ *
+ * Raising the cap far enough to reach position 11 renders nearly the whole
+ * turn, which is what pacing exists to prevent. Reserving one slot is the
+ * smallest change that shows the single card the lens selector CHOSE, and it
+ * reorders nothing: the composed order is untouched, the card renders exactly
+ * where composition put it, it is merely not collapsed.
  */
 export const RESERVED_COMPANION_SLOTS = 1
 
@@ -161,9 +179,11 @@ function computeBiasSignalExemptIndices(
 /**
  * ROADMAP 2.242 — which of a paced turn's phase-3 cards default to expanded.
  *
- * The base rule is unchanged: the first PHASE3_DEFAULT_EXPANDED cards in
- * PRODUCER order. The reservation is a SWAP inside that set, never a growth
- * of it:
+ * The base rule is unchanged: the first PHASE3_DEFAULT_EXPANDED cards in the
+ * order composePhase3BridgedBlocks produced (producer `priority_rank`
+ * ascending for every ranked block; the companion's slot in that order is the
+ * UI-derived one described on RESERVED_COMPANION_SLOTS above). The
+ * reservation is a SWAP inside that set, never a growth of it:
  *
  *   - Only fires when the turn's lens companion card is in the OVERFLOW. A
  *     companion already inside the default set needs no slot, and taking one
@@ -171,7 +191,7 @@ function computeBiasSignalExemptIndices(
  *   - Displaces the LAST default-expanded card, so the affordance moves one
  *     position earlier and reading order on reveal is still exact.
  *   - Promotes at most RESERVED_COMPANION_SLOTS companions — the first in
- *     producer order. CEE emits at most one; a turn that somehow carried two
+ *     composed order. CEE emits at most one; a turn that somehow carried two
  *     must not open a seventh card.
  *
  * Returned as a set (rather than a spliced array) so the caller derives
