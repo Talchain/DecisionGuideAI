@@ -9,16 +9,27 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ### `talchain-schemas-0.31.0.tgz` ← THE CURRENT PIN
 
-**Provenance: byte-identical to the tarball PLoT PR #301 vendors — and that is
-a WEAKER claim than the 0.30.0 line below, deliberately stated as such.**
-olumi-schemas carries tag `v0.31.0`; PLoT's `feat/2.258-plot-goal-probability-frame`
-(head `e747ea59`, PR #301) vendors `talchain-schemas-0.31.0.tgz`. This copy is
-that blob, and its SHA-256 was computed here and compared to PLoT's own sidecar:
+**Provenance: byte-identical to the artefact PLoT `staging` DEPLOYS.**
+olumi-schemas carries tag `v0.31.0`; PLoT PR #301 vendored
+`talchain-schemas-0.31.0.tgz` and **merged 2026-08-01T17:16:26Z** as
+`7133bba1`, which is PLoT's `staging` tip. This copy is that blob, and its
+SHA-256 was computed here and compared to PLoT's own sidecar **at the merged
+staging tip**:
 
 ```
-this repo  : a9efa0fdb390faed86e53867024141cd86813b5d33379c2d21cb213b612de1ad
-PLoT #301  : a9efa0fdb390faed86e53867024141cd86813b5d33379c2d21cb213b612de1ad   ✅ identical
+this repo      : a9efa0fdb390faed86e53867024141cd86813b5d33379c2d21cb213b612de1ad
+PLoT staging   : a9efa0fdb390faed86e53867024141cd86813b5d33379c2d21cb213b612de1ad   ✅ identical
+  (7133bba1)
 ```
+
+⚠ **THIS SECTION WAS WRITTEN AGAINST AN OPEN PR AND UPGRADED IN THE SAME PR.**
+It first recorded byte-identity with PLoT #301 while that PR was still open,
+and said so — *"byte-identity with a sibling lane's PROPOSED pin, not with
+anything deployed"*. #301 merged **during this lane's run**, so the caveat was
+true when written and stale within the hour. Corrected here rather than left to
+rot, which is the failure mode this file keeps cataloguing. Note the direction:
+the claim got STRONGER, and a stale caveat that understates provenance is still
+a stale caveat — drift is not only the optimistic kind.
 
 ⚠ **WHAT IS PROVEN HERE, AND WHAT IS NOT.** Same rule as always: a `file:` pin
 makes pnpm hash the LOCAL tarball, so no hash in this file says anything about a
@@ -27,14 +38,14 @@ registry.
 | Claim | Status |
 |---|---|
 | the sidecar matches the checked-in bytes | ✅ proven — `shasum -a 256 -c vendor/talchain-schemas-0.31.0.tgz.sha256` |
-| byte-identical to the tarball PLoT #301 vendors | ✅ proven — sha256 above matches PLoT's own sidecar at `e747ea59` |
-| **byte-identical to the artefact any service DEPLOYS** | ❌ **NOT PROVEN, AND CURRENTLY FALSE.** PLoT #301 is an **OPEN PR**, not merged. At the time of writing **both CEE `staging` and PLoT `staging` still pin 0.30.0.** So this is byte-identity with a sibling lane's PROPOSED pin, not with anything deployed — strictly weaker than the 0.30.0 section's CEE-staging comparison. **The UI is the first repo to carry 0.31.0 on a merge-track branch.** |
+| **byte-identical to the artefact PLoT `staging` DEPLOYS** | ✅ **proven** — sha256 above matches PLoT's own sidecar at the merged staging tip `7133bba1`, and PLoT `staging`'s `package.json` pins `file:./vendor/talchain-schemas-0.31.0.tgz`. Re-derive, don't trust this row: `gh api "repos/Talchain/plot-lite-service/contents/vendor/talchain-schemas-0.31.0.tgz.sha256?ref=staging"`. |
+| byte-identical to what **CEE** deploys | ❌ **NO — CEE `staging` still pins 0.30.0.** The skew is deliberate, one optional additive field wide, and reader-first (see below). It IS skew: hazard 1 says never assume parity, so check each repo's pin. |
 | **"is the published registry release"** | ⚠️ **NOT PROVEN HERE.** Inherited from PLoT #301. This lane did not re-pack: the scope is 401 on GitHub Packages and 404 on public npm, and no token was used. |
 
 **Is that safe? Yes, and it is derived, not asserted.** 0.31.0 adds exactly ONE
 thing: an OPTIONAL `action_prompt` string on `CoachingBlockSchema`. Adopting it
-ahead of every other repo cannot break anyone, because *nothing else consumes
-the UI's pin* — the UI is a leaf. And the field is reader-first by construction:
+ahead of CEE cannot break anyone, because *nothing else consumes the UI's pin* —
+the UI is a leaf. And the field is reader-first by construction:
 the schema's own adoption note says a UI on an older pin drops the key and
 renders today's non-interactive card, while a UI that adopts before CEE emits
 simply never sees one. **Neither side blocks the other, so there is no landing
