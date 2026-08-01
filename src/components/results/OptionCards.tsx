@@ -212,6 +212,30 @@ function hingeAwareDescription(
   //
   // The lens branch stays ABOVE the gate — the one carve-out, and the reason
   // this is not simply the first line of the function.
+  //
+  // ⭐ CHALLENGED AND UPHELD, 2026-08-01 (ROADMAP 2.238 review). A reviewer read
+  // `:436-437`'s "a withheld run crowns nothing. The lens crown goes too" as
+  // governing THIS sentence, making the carve-out look like a live
+  // self-contradiction, and I agreed and moved the gate above this branch. That
+  // was WRONG, and the check that settles it is the `designationsWithheld` prop
+  // doc introduced by the very same commit (#501, ROADMAP 1.267), which
+  // enumerates its own scope: "the ordinal rank swatch, the crowned border, and
+  // the leader colour on the 'Hits target' bar. NEVER THE VALUES THEMSELVES."
+  // That comment annotates `const crowned` — the styling designation. It never
+  // reached this sentence.
+  //
+  // So the two rulings do not conflict; they govern different channels:
+  //   · #501 / 1.267 — STYLING designations derived from the producer's
+  //     ordering (border, rank swatch, bar colour) go on a withheld run.
+  //   · #494 / 1.239 — THIS sentence stays, because it is a per-view argmax
+  //     over outcome values already on screen, not the producer's designation,
+  //     and its companion clause explicitly disclaims the main ranking. #494
+  //     also names the risk of gating it: the over-suppression class this arc
+  //     had already had to fix once in DecisionNode.
+  //
+  // `residualComparative.optionCards.spec.ts` pins the carve-out deliberately
+  // and is what caught the attempted removal. Do not gate this branch without
+  // re-adjudicating 1.239 on the record.
   if (isWinner && lensActive) {
     return `Ahead on this outcome view. ${LENS_COPY.unchanged(hasGoalNumbers)}`
   }
@@ -435,6 +459,19 @@ function OptionCard({
   // canonical leader keeps every SEMANTIC leader predicate below regardless.
   // ROADMAP 1.267: a withheld run crowns nothing. The lens crown goes too —
   // it is a second designation, not an exemption from the first.
+  //
+  // ⭐ SCOPE MADE EXPLICIT, 2026-08-01 (ROADMAP 2.238 review). "The lens crown"
+  // here means THE STYLING — this `crowned` flag and the `rank` swatch below —
+  // exactly as the `designationsWithheld` prop doc from the same commit states:
+  // "the ordinal rank swatch, the crowned border, and the leader colour on the
+  // 'Hits target' bar. Never the values themselves."
+  //
+  // It does NOT govern the lens SENTENCE in `hingeAwareDescription`, which is
+  // deliberately exempt under ROADMAP 1.239 (#494) as a per-view argmax over
+  // on-screen values. A reviewer and I both read this comment as covering the
+  // sentence and briefly "fixed" a contradiction that does not exist; the note
+  // is added here so the next reader does not repeat it. The two rulings
+  // co-exist because they govern different channels.
   const crowned = designationsWithheld ? false : cardLensActive ? isLensCrowned : isWinner
   const borderClass = neutralised || !crowned
     ? 'border border-panel-border'
@@ -756,8 +793,55 @@ export function OptionCards({
   const TOP_N = 2
   const shouldTruncate = sorted.length > TOP_N
   const [showAllOptions, setShowAllOptions] = useState(false)
-  const visibleOptions = shouldTruncate && !showAllOptions ? sorted.slice(0, TOP_N) : sorted
-  const hiddenCount = sorted.length - TOP_N
+  const truncated = shouldTruncate && !showAllOptions ? sorted.slice(0, TOP_N) : sorted
+  //
+  // ⭐ ROADMAP 2.237 — THE LENS PICK IS ALWAYS RENDERED.
+  //
+  // The panel above says "highlights the option with the strongest low end
+  // (p10)". The list is ordered by `winProbability`, so the lens's own pick
+  // routinely sits OUTSIDE the top 2 — on the sweep's fixture the p10 leader
+  // was third and rendered nowhere, behind "Show all (1 more)". The user was
+  // told which option the lens picked and then could not see it: a claim that
+  // cannot be checked is the same defect as a claim that is wrong.
+  //
+  // Appended rather than promoted: promoting it would re-order the list, which
+  // is precisely the ranking the copy must NOT claim.
+  const lensPickHidden =
+    lensActive &&
+    lensHighlightedId != null &&
+    !truncated.some((o) => o.id === lensHighlightedId) &&
+    sorted.some((o) => o.id === lensHighlightedId)
+  const visibleOptions = lensPickHidden
+    ? [...truncated, ...sorted.filter((o) => o.id === lensHighlightedId)]
+    : truncated
+  // Derived from what is actually rendered — `sorted.length - TOP_N` would say
+  // "1 more" while that one was already on screen.
+  const hiddenCount = sorted.length - visibleOptions.length
+
+  // ⭐ B1 (ROADMAP 2.237) — THE TOGGLE MUST NOT PROMISE WHAT IT CANNOT DELIVER.
+  //
+  // Re-deriving `hiddenCount` above was necessary but not sufficient: the
+  // button's own render condition was still `shouldTruncate`, so on the
+  // three-option appended state it rendered "Show all (0 more)" — and clicking
+  // it changed nothing, because the card set was already complete; only the
+  // label flipped to "Show fewer". A control claiming to reveal something and
+  // revealing nothing is exactly the defect class this PR exists to remove,
+  // freshly created BY this PR, on its own headline fixture.
+  //
+  // `showAllOptions ||` is load-bearing and is the reason this is not simply
+  // `hiddenCount > 0`: once expanded, `hiddenCount` is 0 by construction, so
+  // the bare predicate would delete the "Show fewer" control and strand the
+  // user in the expanded state with no way back.
+  const canRevealMore = hiddenCount > 0
+  const showToggle = shouldTruncate && (showAllOptions || canRevealMore)
+
+  // ⚠ TRUE rank, not the render position. `sortedRank` used to be the map index
+  // (`index + 1`), which was correct only while `visibleOptions` was always a
+  // PREFIX of `sorted`. It no longer is: an appended lens pick would have been
+  // stamped "3" whatever its real standing, i.e. a fabricated ordinal — the
+  // exact placeholder-where-a-quantity-belongs class. The rank now comes from
+  // the ordering itself.
+  const rankById = new Map(sorted.map((o, i) => [o.id, i + 1]))
 
   // Graph Lens: reverse panel sync — click option card to toggle lens isolation
   const lensEnabled = isGraphLensEnabled()
@@ -794,7 +878,28 @@ export function OptionCards({
         const winnerOpt = options.find(o => o.id === winnerId)
         // Codex B1: isWinner = the CANONICAL leader (drives leader predicates);
         // the lens crown is a separate identity that only restyles + relabels.
-        const isLensCrowned = lensActive && option.id === (lensHighlightedId ?? winnerId)
+        //
+        // ⭐ ROADMAP 2.238 (P1-2) — THE `?? winnerId` FALLBACK IS REMOVED.
+        //
+        // It read `lensActive && option.id === (lensHighlightedId ?? winnerId)`.
+        // `lensHighlightedId` is null exactly when the lens has no comparable
+        // data — the same memo that makes the panel above print "Not enough
+        // range data to compare options under this lens." So on any run whose
+        // bands carry p10/p50 but no p90, clicking "Optimistic (p90)" printed
+        // that sentence AND crowned the COMPARATIVE winner with "Ahead on this
+        // outcome view" plus the success border: a comparative result
+        // attributed to an outcome view that had just declared itself
+        // unavailable. Both lines read one memo, so it was deterministic, not a
+        // race.
+        //
+        // This is `buildV7Headline`'s defect exactly — the SUBJECT of the claim
+        // is not the SOURCE of the number — and the rule is the same one
+        // `selectGoalLeader` enforces for the goal crown: if the metric a claim
+        // NAMES has no complete data, do not crown. `selectLensOption` already
+        // documents this at `:69-73` ("an absence, never a fallback to a
+        // different quantity"); the doctrine was written and then not applied
+        // at the one call site that mattered.
+        const isLensCrowned = lensActive && lensHighlightedId != null && option.id === lensHighlightedId
         const description = isLensCrowned
           ? hingeAwareDescription(option, true, isRunnerUp, hinge, winnerOpt?.winProbability, true, hasLeadingOption, hasGoalNumbers)
           : decisionState
@@ -825,7 +930,7 @@ export function OptionCards({
             description={description}
             neutralised={neutralised}
             designationsWithheld={designationsWithheld}
-            sortedRank={index + 1}
+            sortedRank={rankById.get(option.id) ?? index + 1}
             stableNumber={stableNumbers?.[option.id] ?? null}
             segmentFillColor={segmentFillColor}
             globalMin={globalMin}
@@ -852,10 +957,10 @@ export function OptionCards({
       })}
       {/* Brief 5.8B hotfix: wrap disclosure + approach link in flex-col so they
           never collapse onto the same visual line. gap-1 = 4px (mt-1 equivalent). */}
-      {(shouldTruncate || onSendMessage) && (
+      {(showToggle || onSendMessage) && (
         <div className="flex flex-col gap-1">
           {/* Brief 3 ST2: Show all / show fewer toggle (when 3+ options) */}
-          {shouldTruncate && (
+          {showToggle && (
             <button
               type="button"
               onClick={() => setShowAllOptions(prev => !prev)}

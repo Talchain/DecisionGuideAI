@@ -574,7 +574,15 @@ export function RiskAppetiteFilter({
         {/* Re-anchored (§6 map): "Winner by:" named an endorsement the control
             does not confer — it re-ranks a view, and now every arm re-ranks it
             on the same quantity. The label says which. */}
-        <span className={`${typography.panelMeta} text-text-light`}>Rank by outcome:</span>
+        {/*
+          ⭐ RE-ANCHORED 2026-08-01 (ROADMAP 2.237, P1-1). "Rank by outcome:"
+          replaced "Winner by:" — correctly retiring an endorsement noun — but
+          substituted a second false claim: the control does NOT rank. It
+          highlights one card; `sortOptionsForDisplay` takes no lens argument
+          and the list order, its truncation and its ordinals are all
+          winProbability's. The label now names what the control actually does.
+        */}
+        <span className={`${typography.panelMeta} text-text-light`}>Highlight by outcome:</span>
         {/* Driven off LENS_ARM's own keys — this was a THIRD hardcoded arm
             list beside LENS_ARM and LENS_ARM_LABEL, and a fourth arm added to
             those two would have rendered nowhere. `satisfies

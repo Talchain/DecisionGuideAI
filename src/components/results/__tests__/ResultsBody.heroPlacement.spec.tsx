@@ -270,12 +270,12 @@ describe("Paul's ruling (2026-07-12): risk appetite is an explicitly-labelled le
     renderBody()
     expect(screen.queryByTestId('risk-lens-label')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Optimistic (p90)' }))
-    expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/ranked by the high end \(p90\)/i)
+    expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/highlights the option with the strongest high end \(p90\)/i)
     // SUPERSEDED 2026-07-31: the un-anchored noun "the recommendation" is
     // retired; the lens sentence now names the quantity that is unchanged.
     expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/goal ranking above is unchanged/i)
     fireEvent.click(screen.getByRole('button', { name: 'Cautious (p10)' }))
-    expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/ranked by the low end \(p10\)/i)
+    expect(screen.getByTestId('risk-lens-label')).toHaveTextContent(/highlights the option with the strongest low end \(p10\)/i)
     fireEvent.click(screen.getByRole('button', { name: 'Middle (p50)' }))
     expect(screen.queryByTestId('risk-lens-label')).not.toBeInTheDocument()
   })

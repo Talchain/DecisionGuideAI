@@ -79,11 +79,20 @@ describe('visual-regression scaffold (Brief 5)', () => {
     //   · 'Winner by:'  → 'Rank by outcome:'  — the control confers no
     //     endorsement; it re-ranks a view, and now every arm re-ranks it on
     //     the SAME quantity.
+    //     ⛔ SUPERSEDED AGAIN 2026-08-01 (ROADMAP 2.237): 'Rank by outcome:'
+    //     → 'Highlight by outcome:'. The 2026-07-31 note above is wrong on the
+    //     facts — the control does NOT re-rank anything.
+    //     `sortOptionsForDisplay` takes no lens argument; the list is ordered,
+    //     truncated and numbered by `winProbability`, and the lens reaches the
+    //     cards only as a crown on one card. The first re-anchoring correctly
+    //     retired an endorsement noun and substituted a second false claim.
     //   · the lens sentence drops the un-anchored noun 'the overall
     //     recommendation' for the quantity that is actually unchanged.
     //   · the arm labels name their percentile instead of a mood, because
     //     the middle arm now ranks p50 rather than the comparative quantity.
-    expect(snap).toContain('Rank by outcome:')
+    expect(snap).toContain('Highlight by outcome:')
+    // The twice-retired labels must not survive anywhere in this control.
+    expect(snap).not.toContain('Rank by outcome:')
     // F3: the sentence names what the lens leaves unchanged, and that depends
     // on whether the run HAS a goal ranking. This render passes no
     // `hasGoalNumbers`, so it exercises the safe default — the neutral
