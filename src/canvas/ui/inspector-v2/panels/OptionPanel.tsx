@@ -10,6 +10,7 @@ import type { NodeType, OptionNodeData } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
+import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { useNodeMutations } from '../useInspectorMutations'
 import {
   GROUP_LABELS,
@@ -347,7 +348,14 @@ export const OptionPanel = memo(function OptionPanel({
 
               {/* Comparative context */}
               {displayMetadata.winRate !== null && allOptions.length > 1 && (() => {
+                // The NUMBER, for the pp arithmetic below.
                 const myPct = Math.round(displayMetadata.winRate * 100)
+                // The STRING, from the shared formatter the hero readout at
+                // the top of this panel already uses. Hand-formatting it a
+                // second time is how one surface came to print "0%" where the
+                // other printed "< 1%" for the same win rate, three lines
+                // apart in one panel.
+                const myReadout = formatWinProbability(displayMetadata.winRate)
                 const leader = allOptions.reduce((best, o) => (o.winPct ?? 0) > (best.winPct ?? 0) ? o : best, allOptions[0])
                 const leaderPct = leader.winPct ?? 0
                 const gap = leaderPct - myPct
@@ -358,7 +366,11 @@ export const OptionPanel = memo(function OptionPanel({
                   // so it could assert a leader in the same session where the
                   // results panel said "no clear leading option".
                   if (verdict.hasLeadingOption === false) return null
-                  return <p className={`${typography.panelBody} text-success mt-1`}>Currently the leading option.</p>
+                  return (
+                    <p className={`${typography.panelBody} text-success mt-1`}>
+                      {COMPARATIVE_COPY.sentence(myReadout)}
+                    </p>
+                  )
                 }
                 // ROADMAP 1.223: both remaining branches presuppose a leading
                 // option — one names it ("the leading option"), one names the

@@ -172,7 +172,7 @@ describe('StressTestSection — factor_sensitivity → DriverItem.confidence int
     const card = screen.getByTestId('stress-test-disconfirmation')
     // NON-VACUOUS: the card is present and asks its question.
     expect(card).toHaveTextContent(
-      'What could make you switch your recommendation from Option A to Option B?',
+      'What would have to change for Option B to become more likely than Option A to hit your goal?',
     )
     expect(card).not.toHaveTextContent('limited evidence')
   })

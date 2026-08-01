@@ -419,11 +419,9 @@ function T1DominantNudge({
 function T1ChecksFooter({
   data,
   aiAffordance,
-  useV17Copy = false,
 }: {
   data: ResultsSectionDataReturn
   aiAffordance?: ReactNode
-  useV17Copy?: boolean
 }) {
   // SINGLE VERDICT (2026-07-25): this check used to be presence-only
   // (`!!recommendedOption`), and `determineWinnerSelection` always returns a
@@ -458,10 +456,14 @@ function T1ChecksFooter({
   const addressed = gaps.filter(g => typeof g.confidence === 'number' && g.confidence >= 50).length
   const total = gaps.length
 
-  // v17 mode uses glossary-compliant labels; legacy mode keeps the original
-  // copy so the eight pre-existing DCP spec files still pass.
-  const winnerOkLabel = useV17Copy ? 'Has leading option' : 'Winner'
-  const winnerNotOkLabel = useV17Copy ? 'No clear leader' : 'No winner'
+  // §6.2g: the legacy arm ("Winner" / "No winner") is DELETED, not
+  // re-anchored. `useV17Copy` already selected the glossary-compliant labels
+  // on every live path; the legacy strings survived only as the false arm of
+  // a ternary, and dead copy beside a live selector is an invitation to
+  // re-wire it. `useV17Copy` itself is left in place — it gates more than
+  // these two labels.
+  const winnerOkLabel = 'Has leading option'
+  const winnerNotOkLabel = 'No clear leader'
 
   return (
     <div className="border-t border-panel-border pt-3" data-testid="t1-checks-footer">
@@ -821,7 +823,12 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
       />
 
       {/* 4. T1 checks footer — Brief 5.8B D2c step 3. */}
-      <T1ChecksFooter data={data} aiAffordance={aiAffordance} useV17Copy={useV17Copy} />
+      {/* §6.2g: the footer no longer takes `useV17Copy` — its only use was
+          selecting between the v17 labels and the legacy "Winner" / "No
+          winner" pair, and the legacy arm is deleted. The prop is dropped
+          rather than left unread: an unused gate is the next reader's
+          invitation to re-wire the dead branch. */}
+      <T1ChecksFooter data={data} aiAffordance={aiAffordance} />
     </>
   )
 })

@@ -28,7 +28,7 @@ import type { OptionResult } from '../types'
 
 describe('v7LensCopy.outcome.winReadout (ROADMAP 1.239)', () => {
   it('reads as a noun, not a leader verb', () => {
-    expect(V7_LENS_COPY.outcome.winReadout('52%')).toBe('52% win probability')
+    expect(V7_LENS_COPY.outcome.winReadout('52%')).toBe('Came out ahead in 52% of simulated scenarios')
   })
 
   it('carries no leader verb at all', () => {
@@ -43,7 +43,7 @@ describe('v7LensCopy.outcome.winReadout (ROADMAP 1.239)', () => {
 
   it('stays one voice with its sibling readout in the same lens group', () => {
     // `goal.hitReadout` is number-first; the outcome lens now matches it.
-    expect(V7_LENS_COPY.goal.hitReadout('40%')).toBe('40% hit target')
+    expect(V7_LENS_COPY.goal.hitReadout('40%', false)).toBe('40% chance of hitting your goal')
   })
 })
 
@@ -77,8 +77,8 @@ const OPTIONS: OptionResult[] = [
 describe('RangeVisualization per-option probability text (ROADMAP 1.239)', () => {
   it('reads as a noun, not a leader verb', () => {
     const { container } = render(<RangeVisualization options={OPTIONS} winnerId="opt_mac" />)
-    expect(screen.getByText('66% win probability')).toBeDefined()
-    expect(screen.getByText('31% win probability')).toBeDefined()
+    expect(screen.getByText('Came out ahead in 66% of simulated scenarios')).toBeDefined()
+    expect(screen.getByText('Came out ahead in 31% of simulated scenarios')).toBeDefined()
     expect(/\bleads\b/i.test(container.textContent ?? '')).toBe(false)
   })
 
@@ -86,6 +86,6 @@ describe('RangeVisualization per-option probability text (ROADMAP 1.239)', () =>
     // Over-suppression control: only the win-probability readout is relabelled,
     // and only when no goal threshold is in play.
     render(<RangeVisualization options={OPTIONS} winnerId="opt_mac" goalThreshold={50} />)
-    expect(screen.getByText('40% hit target')).toBeDefined()
+    expect(screen.getByText('40% chance of hitting your goal')).toBeDefined()
   })
 })

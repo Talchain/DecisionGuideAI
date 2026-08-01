@@ -8,11 +8,11 @@
  *     strong tier with weak readiness must never soften.
  *   - Rule 4 caveat remains scoped to `needs_work` (fair is not an
  *     evidence-weak signal; its soft-headline fires without the caveat).
- *   - Rule 5 (close_call) retains the definitive "is the leading option"
+ *   - Rule 5 (close_call) retains the definitive leader headline (re-anchored)
  *     headline, conservative: true. Fair / close_call share the Brief 5.2
  *     coaching-override block.
  *   - Rule 7 fallback: with gap emits "{winner} leads by N points"; without
- *     gap emits "{winner} is the leading option" (avoids bare "leads")
+ *     gap emits the definitive leader headline (avoids bare "leads")
  *     (the word "currently" is the softening marker and no longer appears
  *     in confident paths).
  *
@@ -25,6 +25,32 @@ import { buildCertaintyCopy, shouldSoftenPhrasing } from '../certaintyCopy'
 import { NO_CLAIM_VERDICT, type DecisionVerdict } from '../../../../lib/decisionVerdict'
 
 const WINNER = 'Option A'
+
+/**
+ * ⭐ SUPERSEDED EXPECTATION — re-anchoring, 2026-07-31 (the #547 disclosure
+ * pattern: the old expectation is named and explained, not silently swapped).
+ *
+ * These rows used to expect `"{WINNER} is the leading option"`. That sentence
+ * is RETIRED under Paul's ruling: an endorsement noun with no stated basis
+ * and no number, which a reader cannot argue with. The DECISION TABLE IS
+ * UNCHANGED — every row still fires exactly where it fired before, and each
+ * row still asserts "the definitive, non-softened leader headline fires
+ * here". Only the wording of that headline moved, to the house comparative
+ * register.
+ *
+ * ⚠ THIS COMMENT PREVIOUSLY SAID "the magnitude-bearing arm is covered
+ * separately below". THAT WAS FALSE — there was no such coverage, and (F4)
+ * there is now no such arm: it was dead on the live path, since the sole
+ * caller passes only `winProbabilityGap` and never the absolute probability.
+ * It has been deleted rather than wired, because Paul's ruling demotes the
+ * comparative number and a magnitude-free sentence here is the CORRECT
+ * behaviour. A spec comment advertising coverage that does not exist is the
+ * same defect class as a register that drifts from its callers, so it is
+ * corrected in place rather than quietly dropped.
+ *
+ * `buildCertaintyCopy` therefore emits exactly one form of this sentence.
+ */
+const AHEAD = `${WINNER} came out ahead most often across simulated scenarios`
 
 // SINGLE VERDICT helpers — the shape `deriveDecisionVerdict` returns. Built by
 // hand here ONLY because this is a unit spec of the copy function; the
@@ -234,14 +260,14 @@ describe('buildCertaintyCopy — decision table', () => {
   })
 
   describe('stability override (tier ∈ {needs_work, fair} AND stability ≥ 0.85)', () => {
-    it('needs_work + 0.85 → confident fallback "is the leading option", no caveat', () => {
+    it('needs_work + 0.85 → confident fallback the definitive leader headline (re-anchored), no caveat', () => {
       const result = buildCertaintyCopy({
         verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'needs_work',
         recommendationStability: 0.85,
       })
-      expect(result.headline).toBe(`${WINNER} is the leading option`)
+      expect(result.headline).toBe(AHEAD)
       expect(result.caveat).toBeNull()
       expect(result.conservative).toBe(true)
     })
@@ -253,7 +279,7 @@ describe('buildCertaintyCopy — decision table', () => {
         confidenceTier: 'needs_work',
         recommendationStability: 0.95,
       })
-      expect(result.headline).toBe(`${WINNER} is the leading option`)
+      expect(result.headline).toBe(AHEAD)
       expect(result.caveat).toBeNull()
     })
 
@@ -264,7 +290,7 @@ describe('buildCertaintyCopy — decision table', () => {
         confidenceTier: 'fair',
         recommendationStability: 0.87,
       })
-      expect(result.headline).toBe(`${WINNER} is the leading option`)
+      expect(result.headline).toBe(AHEAD)
       expect(result.caveat).toBeNull()
     })
   })
@@ -275,7 +301,7 @@ describe('buildCertaintyCopy — decision table', () => {
       ['needs_framing'],
       ['low'],
       ['not_ready'],
-    ] as const)('strong + weak readiness %s + stability 0.75 → confident "is the leading option" (readiness never softens strong)', (readiness) => {
+    ] as const)('strong + weak readiness %s + stability 0.75 → confident the definitive leader headline (re-anchored) (readiness never softens strong)', (readiness) => {
       const result = buildCertaintyCopy({
         verdict: clearVerdict(),
         winnerLabel: WINNER,
@@ -283,7 +309,7 @@ describe('buildCertaintyCopy — decision table', () => {
         coachingReadiness: readiness,
         recommendationStability: 0.75,
       })
-      expect(result.headline).toBe(`${WINNER} is the leading option`)
+      expect(result.headline).toBe(AHEAD)
       expect(result.caveat).toBeNull()
     })
 
@@ -307,7 +333,7 @@ describe('buildCertaintyCopy — decision table', () => {
         coachingReadiness: 'needs_evidence',
         recommendationStability: 0.90,
       })
-      expect(result.headline).toBe(`${WINNER} is the leading option`)
+      expect(result.headline).toBe(AHEAD)
       expect(result.caveat).toBeNull()
     })
 
@@ -325,7 +351,7 @@ describe('buildCertaintyCopy — decision table', () => {
   })
 
   describe('row 5 — close_call (orthogonal to the tier × stability gate)', () => {
-    it('close_call + unknown tier → definitive "is the leading option", conservative: true', () => {
+    it('close_call + unknown tier → definitive the definitive leader headline (re-anchored), conservative: true', () => {
       expect(
         buildCertaintyCopy({
           verdict: clearVerdict(),
@@ -334,7 +360,7 @@ describe('buildCertaintyCopy — decision table', () => {
           coachingReadiness: 'close_call',
         }),
       ).toEqual({
-        headline: `${WINNER} is the leading option`,
+        headline: AHEAD,
         sub: null,
         caveat: null,
         conservative: true,
@@ -349,12 +375,12 @@ describe('buildCertaintyCopy — decision table', () => {
         confidenceTier: 'strong',
         coachingReadiness: 'close_call',
       })
-      expect(result.headline).toBe(`${WINNER} is the leading option`)
+      expect(result.headline).toBe(AHEAD)
       expect(result.conservative).toBe(true)
     })
   })
 
-  it('row 6: strong + ready → "is the leading option" (only path allowing coaching override)', () => {
+  it('row 6: strong + ready → the definitive leader headline (re-anchored) (only path allowing coaching override)', () => {
     expect(
       buildCertaintyCopy({
         verdict: clearVerdict(),
@@ -363,7 +389,7 @@ describe('buildCertaintyCopy — decision table', () => {
         coachingReadiness: 'ready',
       }),
     ).toEqual({
-      headline: `${WINNER} is the leading option`,
+      headline: AHEAD,
       sub: null,
       caveat: null,
       conservative: false,
@@ -371,22 +397,22 @@ describe('buildCertaintyCopy — decision table', () => {
   })
 
   describe('row 7 — confident fallback', () => {
-    it('no tier + no readiness + no gap → "is the leading option" (avoids bare "leads")', () => {
+    it('no tier + no readiness + no gap → the definitive leader headline (re-anchored) (avoids bare "leads")', () => {
       expect(buildCertaintyCopy({ verdict: clearVerdict(), winnerLabel: WINNER })).toEqual({
-        headline: `${WINNER} is the leading option`,
+        headline: AHEAD,
         sub: null,
         caveat: null,
         conservative: true,
       })
     })
 
-    it('strong + no readiness + no gap → "is the leading option"', () => {
+    it('strong + no readiness + no gap → the definitive leader headline (re-anchored)', () => {
       const result = buildCertaintyCopy({
         verdict: clearVerdict(),
         winnerLabel: WINNER,
         confidenceTier: 'strong',
       })
-      expect(result.headline).toBe(`${WINNER} is the leading option`)
+      expect(result.headline).toBe(AHEAD)
       expect(result.conservative).toBe(true)
     })
   })
@@ -492,7 +518,7 @@ describe('buildCertaintyCopy — decision table', () => {
         coachingReadiness: 'close_call',
         winProbabilityGap: 5,
       })
-      expect(result.headline).toBe(`${WINNER} is the leading option`)
+      expect(result.headline).toBe(AHEAD)
     })
 
     it('row 6 (strong + ready): does NOT append suffix — reserved definitive phrasing', () => {
@@ -503,7 +529,7 @@ describe('buildCertaintyCopy — decision table', () => {
         coachingReadiness: 'ready',
         winProbabilityGap: 50,
       })
-      expect(result.headline).toBe(`${WINNER} is the leading option`)
+      expect(result.headline).toBe(AHEAD)
     })
 
     it('confident fallback: appends suffix as "{winner} leads by N points"', () => {
@@ -534,15 +560,15 @@ describe('buildCertaintyCopy — decision table', () => {
       expect(result.headline).toBe(`${WINNER} leads by 5 points`)
     })
 
-    it('omits suffix when gap is 0, negative, or non-finite — confident fallback emits "is the leading option"', () => {
+    it('omits suffix when gap is 0, negative, or non-finite — confident fallback emits the definitive leader headline (re-anchored)', () => {
       for (const gap of [0, -1, NaN, Infinity, -Infinity]) {
-        // Use confident fallback path. No gap → no suffix → "is the leading option".
+        // Use confident fallback path. No gap → no suffix → the definitive leader headline (re-anchored).
         const result = buildCertaintyCopy({
           verdict: clearVerdict(),
           winnerLabel: WINNER,
           winProbabilityGap: gap,
         })
-        expect(result.headline).toBe(`${WINNER} is the leading option`)
+        expect(result.headline).toBe(AHEAD)
       }
     })
 

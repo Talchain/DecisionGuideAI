@@ -23,6 +23,7 @@
  * fix — it would cost the user the product's single most useful sentence.
  */
 import { describe, expect, it } from 'vitest'
+import { COMPARATIVE_COPY } from '../utils/goalAnchorCopy'
 import { deriveDecisionVerdict } from '../../../lib/decisionVerdict'
 import {
   LEADER_ID,
@@ -51,7 +52,9 @@ const LEADER_LANGUAGE: ReadonlyArray<[string, RegExp]> = [
   ['is slightly ahead', /is slightly ahead/i],
   ['is clearly/most likely strongest', /most likely to be strongest|clearly ahead of/i],
   ['currently leads', /currently leads/i],
-  ['performs best', /performs best/i],
+  // SUPERSEDED 2026-07-31: 'performs best' is retired; the leader surface
+  // now emits the comparative claim with its magnitude.
+  ['the re-anchored leader headline', /came out ahead in .+ of simulated scenarios/i],
   ['leading option', /leading option/i],
   ['leads by N points', /leads by \d+ point/i],
   ['leads in N% of scenarios', /leads in \d+% of scenarios/i],
@@ -77,7 +80,7 @@ function v7(verdict: ReturnType<typeof deriveDecisionVerdict>) {
   )
 }
 
-describe('V7 hero — "performs best" / "Leads by N points"', () => {
+describe('V7 hero — the re-anchored leader headline / "Leads by N points" (SUPERSEDED: "performs best" retired 2026-07-31)', () => {
   it('WITHHELD: renders nothing rather than asserting or denying a leader', () => {
     const m = v7(WITHHELD_VERDICT)
     expectNoLeaderLanguage('v7 hero', m.headline, m.subline)
@@ -89,7 +92,7 @@ describe('V7 hero — "performs best" / "Leads by N points"', () => {
 
   it('PERMITTED: both the headline and the numeric subline survive', () => {
     const m = v7(PERMITTED_VERDICT)
-    expect(m.headline).toBe(`${LEADER_LABEL} performs best`)
+    expect(m.headline).toBe(`${LEADER_LABEL} ${COMPARATIVE_COPY.clause('66%')}`)
     expect(m.subline).toBe('Leads by 35 points')
   })
 })
@@ -119,7 +122,7 @@ describe('results-panel certainty headline', () => {
 
   it('PERMITTED: the definitive leader headline still fires', () => {
     const c = certainty(PERMITTED_VERDICT)
-    expect(c.headline).toBe(`${LEADER_LABEL} is the leading option`)
+    expect(c.headline).toBe(`${LEADER_LABEL} ${COMPARATIVE_COPY.phraseNoMagnitude}`)
   })
 
   it('PERMITTED: a producer TIE still gets its denial — withholding is not tying', () => {

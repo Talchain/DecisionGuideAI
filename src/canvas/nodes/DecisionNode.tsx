@@ -291,7 +291,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
 
   const postAnalysisCoachingChips = useMemo(() => (
     <div className="flex gap-1 flex-wrap mt-1.5">
-      <NodeChip chipId="decision_challenge_result" actionType="what_would_flip" label="Challenge this result" message="What assumptions would need to change for a different option to win?" />
+      <NodeChip chipId="decision_challenge_result" actionType="what_would_flip" label="Challenge this result" message="What assumptions would need to change for a different option to be most likely to hit my goal?" />
       <NodeChip chipId="decision_compare_options" actionType="compare_options" label="Compare options" message="Compare the options side by side" />
     </div>
   ), [])

@@ -64,6 +64,7 @@
 import type { M1CoachingReadiness } from '../../../types/cee'
 import type { DecisionVerdict } from '../../../lib/decisionVerdict'
 import type { ConfidenceTier } from '../types'
+import { COMPARATIVE_COPY } from './goalAnchorCopy'
 
 export interface CertaintyCopyInput {
   winnerLabel: string
@@ -166,6 +167,28 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
     && winProbabilityGap > 0
       ? ` by ${Math.round(winProbabilityGap)} point${Math.round(winProbabilityGap) === 1 ? '' : 's'}`
       : ''
+
+  /**
+   * The re-anchored leader sentence — the comparative quantity, named, with
+   * NO magnitude. Replaces `"{winner} is the leading option"` at all three
+   * sites (an endorsement noun with no basis and no number).
+   *
+   * ⚠ F4 — WHY THERE IS NO MAGNITUDE-BEARING ARM HERE, adjudicated.
+   * The first draft added `winProbability` to this input and branched on it.
+   * That arm was DEAD: the sole caller (`DecisionConfidencePanel`) passes
+   * only `winProbabilityGap`, never the absolute probability, so the branch
+   * could not execute on any live path — and it carried the mid-sentence
+   * casing defect (§10.2) precisely because nothing exercised it. Its spec
+   * even advertised coverage that did not exist.
+   *
+   * Deleted rather than wired: Paul's ruling DEMOTES the comparative number
+   * below the goal number, so a magnitude-free comparative sentence on this
+   * surface is the CORRECT behaviour, not a gap. Threading the probability
+   * here would have added a live claim the ruling does not want. Where the
+   * magnitude IS wanted (`OptionCards`, the hero headline) the register's
+   * `phrase`/`clause` forms supply it.
+   */
+  const aheadHeadline = `${winnerLabel} ${COMPARATIVE_COPY.phraseNoMagnitude}`
 
   if (analysisStatus === 'partial') {
     return {
@@ -285,7 +308,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
   // headline, but conservative (coaching overrides still blocked).
   if (coachingReadiness === 'close_call') {
     return {
-      headline: `${winnerLabel} is the leading option`,
+      headline: aheadHeadline,
       sub: null,
       caveat: null,
       conservative: true,
@@ -294,7 +317,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
 
   if (confidenceTier === 'strong' && coachingReadiness === 'ready') {
     return {
-      headline: `${winnerLabel} is the leading option`,
+      headline: aheadHeadline,
       sub: null,
       caveat: null,
       conservative: false,
@@ -304,7 +327,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
   // When a gap is available, "leads by N points" gives the numeric lead.
   // When no gap, fall back to the definitive form to avoid the bare "leads".
   return {
-    headline: gapSuffix ? `${winnerLabel} leads${gapSuffix}` : `${winnerLabel} is the leading option`,
+    headline: gapSuffix ? `${winnerLabel} leads${gapSuffix}` : aheadHeadline,
     sub: null,
     caveat: null,
     conservative: true,

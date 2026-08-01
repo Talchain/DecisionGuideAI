@@ -111,7 +111,7 @@ describe('OptionCards', () => {
       render(<OptionCards options={mockOptions} winnerId="option-1" />)
 
       // With win probabilities available, hingeAwareDescription provides gap-based text
-      expect(screen.getByText('Highest leading-option likelihood across simulated scenarios')).toBeInTheDocument()
+      expect(screen.getAllByText(/Came out ahead in .+ of simulated scenarios/)[0]).toBeInTheDocument()
       expect(screen.getByText('Behind by 30 percentage points')).toBeInTheDocument()
     })
 
@@ -493,7 +493,13 @@ describe('OptionCards', () => {
         />
       )
 
-      expect(screen.getByText('Highest leading-option likelihood but depends on Customer churn')).toBeInTheDocument()
+      // SUPERSEDED 2026-07-31 (F2): the variant used to open with the retired
+      // un-anchored superlative "Highest leading-option likelihood". The hinge
+      // clause it exists to surface is unchanged; only the claim before it
+      // moved to the house comparative register, with its magnitude.
+      expect(
+        screen.getByText(/came out ahead in .+ of simulated scenarios, but this depends on Customer churn/i),
+      ).toBeInTheDocument()
     })
 
     it('winner: heuristic hinge shows "{label} has the widest uncertainty"', () => {
@@ -507,7 +513,11 @@ describe('OptionCards', () => {
         />
       )
 
-      expect(screen.getByText('Highest leading-option likelihood. Market size has the widest uncertainty.')).toBeInTheDocument()
+      // SUPERSEDED 2026-07-31 (F2) — same retired superlative, same unchanged
+      // hinge clause.
+      expect(
+        screen.getByText(/came out ahead in .+ of simulated scenarios\. Market size has the widest uncertainty\./i),
+      ).toBeInTheDocument()
     })
 
     it('winner: no hinge shows generic description', () => {
@@ -521,7 +531,7 @@ describe('OptionCards', () => {
         />
       )
 
-      expect(screen.getByText('Highest leading-option likelihood across simulated scenarios')).toBeInTheDocument()
+      expect(screen.getAllByText(/Came out ahead in .+ of simulated scenarios/)[0]).toBeInTheDocument()
     })
 
     it('runner-up: matched alternate winner shows overtake description', () => {
@@ -602,7 +612,13 @@ describe('OptionCards', () => {
       )
 
       // VM description wins when decisionState is set
-      expect(screen.getByText('Highest leading-option likelihood but depends on Customer churn')).toBeInTheDocument()
+      // SUPERSEDED 2026-07-31 (F2): the variant used to open with the retired
+      // un-anchored superlative "Highest leading-option likelihood". The hinge
+      // clause it exists to surface is unchanged; only the claim before it
+      // moved to the house comparative register, with its magnitude.
+      expect(
+        screen.getByText(/came out ahead in .+ of simulated scenarios, but this depends on Customer churn/i),
+      ).toBeInTheDocument()
       expect(screen.queryByText('Custom headline for winner.')).not.toBeInTheDocument()
     })
 
@@ -622,7 +638,7 @@ describe('OptionCards', () => {
       render(<OptionCards options={mockOptions} winnerId="option-1" />)
 
       // Win probabilities trigger hingeAwareDescription even without decisionState
-      expect(screen.getByText('Highest leading-option likelihood across simulated scenarios')).toBeInTheDocument()
+      expect(screen.getAllByText(/Came out ahead in .+ of simulated scenarios/)[0]).toBeInTheDocument()
     })
 
     it('V11.2: renders pre-sanitized story_headline (sanitization at data layer)', () => {
@@ -681,7 +697,7 @@ describe("Paul's ruling (2026-07-12): lens-aware winner copy", () => {
   it('lensActive winner card presents as lens-strongest, not THE recommendation', () => {
     render(<OptionCards options={mockOptions} winnerId="option-1" lensActive />)
     const card = screen.getByTestId('option-card-option-1')
-    expect(card).toHaveTextContent('Strongest under this lens. The overall recommendation is unchanged.')
+    expect(card).toHaveTextContent('Ahead on this outcome view. The goal ranking above is unchanged.')
     expect(card.textContent).not.toMatch(/Highest leading-option likelihood/)
   })
 
@@ -695,7 +711,7 @@ describe("Paul's ruling (2026-07-12): lens-aware winner copy", () => {
       />,
     )
     const card = screen.getByTestId('option-card-option-1')
-    expect(card).toHaveTextContent('Strongest under this lens. The overall recommendation is unchanged.')
+    expect(card).toHaveTextContent('Ahead on this outcome view. The goal ranking above is unchanged.')
     expect(card.textContent).not.toMatch(/Best placed once the goal/)
   })
 
@@ -734,7 +750,7 @@ describe('Codex B1 — a lens never re-crowns leader SEMANTICS', () => {
     const lensCard = screen.getByTestId('option-card-option-2')
     const canonicalCard = screen.getByTestId('option-card-option-1')
     // Lens card: lens copy, NO leader downside predicate, NO leader CTA.
-    expect(lensCard).toHaveTextContent('Strongest under this lens. The overall recommendation is unchanged.')
+    expect(lensCard).toHaveTextContent('Ahead on this outcome view. The goal ranking above is unchanged.')
     expect(lensCard.textContent).not.toMatch(/currently leads/i)
     expect(lensCard.textContent).not.toMatch(/What makes this/i)
     // Canonical card: keeps the leader predicates even without the crown styling.

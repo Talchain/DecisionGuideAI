@@ -96,7 +96,7 @@ describe('FragileEdgeGroupCard — Brief 5.2 Task 6 fragile-row layout', () => {
       />,
     )
 
-    expect(screen.getByText(/the recommendation could change/)).toBeInTheDocument()
+    expect(screen.getByText(/which option is most likely to hit your goal could change/)).toBeInTheDocument()
     expect(screen.queryByTestId('fragile-alt-winner')).not.toBeInTheDocument()
   })
 

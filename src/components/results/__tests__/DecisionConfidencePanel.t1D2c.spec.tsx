@@ -332,7 +332,7 @@ describe('DecisionConfidencePanel — Brief 5.8B D2c T1 flip-risk + nudge + chec
       />,
     )
     expect(screen.getByTestId('t1-checks-footer')).toBeInTheDocument()
-    expect(screen.getByTestId('checks-winner')).toHaveTextContent('Winner')
+    expect(screen.getByTestId('checks-winner')).toHaveTextContent('Has leading option')
     expect(screen.getByTestId('checks-robust')).toHaveTextContent('Robust')
     expect(screen.getByTestId('checks-evidence')).toHaveTextContent('Evidence covered')
     expect(screen.getByTestId('checks-addressed')).toHaveTextContent('1/1 addressed')

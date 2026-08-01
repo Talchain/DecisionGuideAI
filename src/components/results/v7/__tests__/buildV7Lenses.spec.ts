@@ -120,8 +120,8 @@ describe('buildV7Lenses — passthrough lens + evidence model (V7 L5)', () => {
       expect(m.goal.available).toBe(true)
       expect(m.goal.gate).toBe('none')
       expect(m.goal.options).toEqual([
-        { id: 'a', label: 'A', goalProbability: 0.6, isWinner: true },
-        { id: 'b', label: 'B', goalProbability: 0.2, isWinner: false },
+        { id: 'a', label: 'A', goalProbability: 0.6, isWinner: true, goalFitIsSubstitutedJoint: false },
+        { id: 'b', label: 'B', goalProbability: 0.2, isWinner: false, goalFitIsSubstitutedJoint: false },
       ])
     })
   })

@@ -35,10 +35,32 @@ export const HOW_COMPUTED_COPY = {
 
   whatItDoesHeading: 'What the analysis does',
   whatItDoes: [
+    /**
+     * ⭐ THE TWO-QUESTION EXPLAINER — the anchor document for every
+     * comparative label in the product (Paul's ruling, 2026-07-31).
+     *
+     * Modelled on CEE's own `TARGET_FIT_DEFINITION` register, which was
+     * written after a live defect: an 89% comparative figure narrated as
+     * target attainment on a run whose scored target fit was 29.3%
+     * (scenario 90385279). CEE states it as "an option can win most often
+     * yet still be unlikely to meet the target"; these two entries say the
+     * same thing to the user, in the user's words.
+     *
+     * The order is load-bearing. The goal question comes first because it
+     * is the one the user asked; the comparison comes second because it is
+     * a fact about the option set, not about the goal. Every other string
+     * in the change inherits this wording — if these two entries and a
+     * label disagree, the label is wrong.
+     */
     {
-      heading: 'It tests your options against uncertainty',
+      heading: 'It answers two questions, and they are not the same question',
       body:
-        'We run the model on your canvas many times over. Each run draws a different plausible value for every input you left a range on. "Win probability across scenarios" is simply the share of those runs in which an option came out ahead — not a prediction that it will win.',
+        'We run the model on your canvas many times over. Each run draws a different plausible value for every input you left a range on. Two readings come out of those runs. "Chance of hitting your goal" is the share of runs in which an option reached the success target you set. "Most likely outcome" is the middle of the results an option produced — half the runs landed above it, half below. An option can be ahead on one and behind on the other, so both are shown.',
+    },
+    {
+      heading: 'It also counts which option came out ahead most often',
+      body:
+        'Separately from either question above, we count the runs in which each option scored higher than the rest. That is what "came out ahead in 60% of simulated scenarios" means. It compares your options with each other; it says nothing about your goal. An option can come out ahead most often and still be unlikely to reach the target you set — which is why this figure is shown below the goal figure, not above it.',
     },
     {
       heading: 'It finds what actually moves the result',
@@ -54,6 +76,14 @@ export const HOW_COMPUTED_COPY = {
 
   whatItDoesNotHeading: 'What it does not do',
   whatItDoesNot: [
+    /**
+     * The A-anchor's availability condition, stated where the user can find
+     * it. ISL computes a goal probability ONLY when a success threshold was
+     * supplied, so on a run with no target there is no goal figure at all —
+     * not a zero, not a fallback. Saying so here is what makes the panel's
+     * "Set a success target…" line an invitation rather than an error.
+     */
+    'It does not produce a goal figure without a success target. "Chance of hitting your goal" needs a target to measure against. Without one, the panel shows how the options compare with each other and nothing about your goal.',
     'It does not look anything up. No external data, research, literature or web sources feed these numbers. Everything comes from the model you and Olumi built on the canvas — so there are no sources to cite here.',
     'It does not forecast what will happen. It compares options under the uncertainty you described; it has no view on the world beyond your model.',
     'It does not check whether your model is right. Wrong inputs produce confident-looking wrong answers, which is why the drivers list exists.',

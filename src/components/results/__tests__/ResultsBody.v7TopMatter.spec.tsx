@@ -225,8 +225,10 @@ describe('ResultsBody — V7 L4 top matter', () => {
 
   it('(e) no invented content: hero headline is composed only from the fixture winner', () => {
     renderBody()
-    // Robust fixture (stability 0.92, clear gap) → the "performs best" form.
-    expect(screen.getByTestId('v7-hero-headline')).toHaveTextContent(`${WINNER_LABEL} performs best`)
+    // Robust fixture (stability 0.92, clear gap) → the re-anchored leader
+    // headline. SUPERSEDED 2026-07-31: was the "performs best" form, a bare
+    // superlative retired under §6.2c. The BRANCH is unchanged.
+    expect(screen.getByTestId('v7-hero-headline')).toHaveTextContent(new RegExp(`${WINNER_LABEL} came out ahead in .+ of simulated scenarios`))
     // Signal chips echo the fixture's fragile edge + top driver, verbatim.
     expect(screen.getByTestId('v7-signal-flip-risk')).toHaveTextContent('22% flip risk · Tech lead hired')
     expect(screen.getByTestId('v7-signal-main-driver')).toHaveTextContent('Main driver · Tech lead hired')

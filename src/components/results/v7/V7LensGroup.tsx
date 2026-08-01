@@ -99,10 +99,13 @@ function GoalRow({
   label,
   probability,
   isWinner,
+  isSubstitutedJoint,
 }: {
   label: string
   probability: number
   isWinner: boolean
+  /** Possessive gate — see `goalAnchorCopy`. Read from the model, never re-derived. */
+  isSubstitutedJoint: boolean
 }) {
   const readout =
     probability < SUB_ONE_PERCENT_FLOOR
@@ -119,7 +122,7 @@ function GoalRow({
           {label}
         </span>
         <span className={`${typography.panelMeta} whitespace-nowrap ${isWinner ? 'text-text-header' : 'text-text-light'}`}>
-          {V7_LENS_COPY.goal.hitReadout(readout)}
+          {V7_LENS_COPY.goal.hitReadout(readout, isSubstitutedJoint)}
         </span>
       </div>
       <div className="w-full rounded-full overflow-hidden" style={{ height: 5, background: 'var(--border-default)' }}>
@@ -258,9 +261,24 @@ export function V7LensGroup({ model }: V7LensGroupProps) {
           (model.goal.available ? (
             <div className="space-y-2.5" data-testid="v7-lens-goal">
               {model.goal.options.map((o) => (
-                <GoalRow key={o.id} label={o.label} probability={o.goalProbability} isWinner={o.isWinner} />
+                <GoalRow
+                  key={o.id}
+                  label={o.label}
+                  probability={o.goalProbability}
+                  isWinner={o.isWinner}
+                  isSubstitutedJoint={o.goalFitIsSubstitutedJoint}
+                />
               ))}
-              <p className={`${typography.panelMeta} text-text-light`}>{V7_LENS_COPY.goal.caption}</p>
+              {/* The caption takes the SAME flag the rows do. It is a
+                  property of the RUN, not of a row (every row is scored on
+                  one basis), and any substituted row withholds the possessive
+                  for the whole block — the safe direction, and the identical
+                  derivation `WinGauge`'s goal block uses. */}
+              <p className={`${typography.panelMeta} text-text-light`}>
+                {V7_LENS_COPY.goal.caption(
+                  model.goal.options.some((o) => o.goalFitIsSubstitutedJoint === true),
+                )}
+              </p>
             </div>
           ) : (
             <GateLine testId="v7-lens-goal-gate">

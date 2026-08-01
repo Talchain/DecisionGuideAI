@@ -17,6 +17,7 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
+import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY } from './utils/goalAnchorCopy'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { formatRangeValue } from './utils/formatRangeValue'
@@ -128,15 +129,21 @@ function OptionRangeBar({
   // C10: Per-option probability text with fallback
   const probabilityText = (() => {
     if (option.goalProbability != null && goalThreshold != null) {
-      return `${formatPct(option.goalProbability, { fromDecimal: true })} hit target`
+      // Question A, in the house register — "hit target" named the right
+      // quantity but not the question it answers.
+      return GOAL_ANCHOR_COPY.phrase(
+        formatPct(option.goalProbability, { fromDecimal: true }),
+        option.goalFitIsSubstitutedJoint === true,
+      )
     }
     if (option.winProbability != null) {
-      // ROADMAP 1.239: was `Leads {pct}`. Same relabel as
-      // `V7_LENS_COPY.outcome.winReadout` and #493's WinGauge header — this
-      // readout is drawn for every option on every completed run, so the
-      // leader VERB was the problem, not the metric. Kept byte-identical to
-      // the lens copy so the two surfaces cannot drift apart.
-      return `${formatPct(option.winProbability, { fromDecimal: true })} win probability`
+      // ROADMAP 1.239 relabelled this away from the leader VERB (`Leads
+      // {pct}`); the 2026-07-31 re-anchoring drops the un-anchored noun too.
+      // This branch renders the COMPARATIVE quantity, so it takes the
+      // comparative register — NOT the A register. Labelling it "chance of
+      // hitting your goal" would put a goal caption on a comparative number,
+      // which is the defect the confidence-ring pin exists to catch.
+      return COMPARATIVE_COPY.phrase(formatPct(option.winProbability, { fromDecimal: true }))
     }
     // C10: Omit suffix entirely when both missing
     return null

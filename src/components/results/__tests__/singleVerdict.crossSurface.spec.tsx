@@ -194,7 +194,8 @@ function canvasAssertsLeadingOption(): boolean {
 /**
  * What the PANEL says. Two independent claims live in this one component:
  *  - the headline, which may DENY a leading option ("no clear leading option")
- *  - the T1 checks footer, which ticks "Winner" / "No winner"
+ *  - the T1 checks footer, which ticks "Has leading option" / "No clear
+ *    leader" (the legacy "Winner" / "No winner" arm was deleted, §6.2g)
  * They must agree with each other and with the canvas.
  */
 function readPanel(): { denies: boolean; footerTicksWinner: boolean; text: string } {
@@ -206,8 +207,15 @@ function readPanel(): { denies: boolean; footerTicksWinner: boolean; text: strin
   return {
     denies: /no clear leading option/i.test(text),
     // Legacy copy (analysisHeroV17 off, which is staging's posture): the tick
-    // reads "Winner"; the failing state reads "No winner".
-    footerTicksWinner: /(^|[^o])Winner/.test(text) && !/No winner/i.test(text),
+    // reads "Has leading option"; the failing state reads "No clear leader".
+    // SUPERSEDED 2026-07-31 (§6.2g): the footer's legacy "Winner" / "No
+    // winner" arm is DELETED — `useV17Copy` already selected the compliant
+    // labels on every live path, and the legacy strings survived only as the
+    // false arm of a ternary. The probe reads the labels the footer actually
+    // renders now. The GUARD is unchanged: footer and headline must still
+    // agree inside one panel.
+    footerTicksWinner:
+      /Has leading option/.test(text) && !/No clear leader/i.test(text),
     text,
   }
 }

@@ -12,6 +12,8 @@
  * rewritten where it appears verbatim).
  */
 
+import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
+
 export const HERO_COPY = {
   panelAria: 'Analysis',
   tablistAria: 'Results lens',
@@ -48,7 +50,7 @@ export const HERO_COPY = {
     goalNoTarget: 'Set a success target to unlock Goal fit.',
     /** Inline unlock action beside goalNoTarget — rendered ONLY when a
      * define-success route is wired (never a dead control). */
-    goalDefineSuccess: 'Define success',
+    goalDefineSuccess: GOAL_ANCHOR_COPY.noTargetCta,
     goalProducerGap: 'Goal fit is not available for this run.',
     outcome: 'Likely outcome is not available for this run.',
     stability:
@@ -64,7 +66,21 @@ export const HERO_COPY = {
   } as const,
 
   headline: {
-    goalWithLimits: (label: string) => `${label} best meets the goal and your limits.`,
+    /**
+     * ⚠ NOT DELEGATED, deliberately — and the gap is pinned, not assumed.
+     *
+     * This is the same SHAPE as `GOAL_ANCHOR_COPY.headline` ("{label} has the
+     * highest chance of {clause}: {readout}.") but it names a THIRD basis —
+     * goal AND limits — and the register carries exactly two arms, selected by
+     * one boolean (`isSubstitutedJoint`). Delegating would mean inventing a
+     * third A-register arm, which that module's own header forbids in terms:
+     * "Do not invent a third A-register. If a surface needs wording these two
+     * do not cover, the fix is upstream in `selectGoalProbability`'s basis."
+     * `heroCopyDelegation.spec.ts` asserts the gap, so the day the register
+     * gains the arm this string goes RED instead of staying a quiet duplicate.
+     */
+    goalWithLimits: (label: string, readout: string) =>
+      `${label} has the highest chance of meeting your goal and limits: ${readout}.`,
     /**
      * GOAL-ATTAINMENT IDENTITY, interim wording (family 2, slice −1) — the
      * same claim, in the same words, as `caption.goalOnly` and
@@ -78,7 +94,13 @@ export const HERO_COPY = {
      * a possessive over a number that, when the user has set constraints, does
      * not involve the goal at all.
      */
-    goalOnly: (label: string) => `${label} is most likely to meet every target this run scored.`,
+    goalOnly: (label: string, readout: string) =>
+      // DELEGATED — this restated `GOAL_ANCHOR_COPY.headline(_, _, true)`
+      // byte-for-byte plus a full stop, which is the second copy of one claim
+      // the re-anchoring exists to remove. `sentence()` is `phrase()` plus a
+      // full stop for the same reason; this is the headline form of the same
+      // relationship, pinned in `__tests__/heroCopyDelegation.spec.ts`.
+      `${GOAL_ANCHOR_COPY.headline(label, readout, true)}.`,
     // DELETED 2026-07-26 (ROADMAP 1.223): `analysisLeads` — "{label} currently
     // leads the overall analysis." It was the UNBANDED leader claim, reached
     // only when no band could be resolved. Once the UI stopped banding win
@@ -99,13 +121,24 @@ export const HERO_COPY = {
      * manufacture a closeness claim; it only appends the overlap advisory
      * to the state-A subline.
      */
-    mostLikelyStrongest: (label: string) => `${label} is most likely to be strongest overall.`,
+    /**
+     * ⭐ RE-ANCHORED 2026-07-31. Was `"{label} is most likely to be strongest
+     * overall."` — a bare superlative over an unnamed basis: a reader could
+     * not tell what it was strongest AT, and it carried no number to argue
+     * with. The claim was always grounded in the COMPARATIVE quantity (see
+     * the block above), so it now says so, with its magnitude.
+     */
+    mostLikelyStrongest: (label: string, readout: string | null) => {
+      const claim = readout ? COMPARATIVE_COPY.clause(readout) : COMPARATIVE_COPY.phraseNoMagnitude
+      return `${label} ${claim}.`
+    },
     /** Banding state B: ahead on win probability without a strong majority. */
     slightlyAhead: (label: string) => `${label} is slightly ahead.`,
     /** Banding state C: the win probabilities identify no clear leader. */
     noClearLeader: 'No option is clearly ahead.',
     /** Fallback when no recommended option exists among the rows: headline the outcome fact itself. */
-    outcomeLeader: (label: string) => `${label} has the highest expected outcome.`,
+    outcomeLeader: (label: string, readout: string) =>
+      `${label} has the highest expected outcome: ${readout}.`,
     /**
      * Goal honesty: every option's goal probability sits below the sub-1%
      * floor (UI-SEM-057) — crowning any option would be false, so the headline
@@ -155,7 +188,12 @@ export const HERO_COPY = {
      * the expected-outcome leader (goal basis or not), the tension is
      * stated in one plain sentence naming the outcome leader.
      */
-    highestOutcome: (label: string) => `${label} has the highest expected outcome.`,
+    highestOutcome: (label: string, readout: string) =>
+      // DELEGATED — this and `headline.outcomeLeader` were byte-identical
+      // twins: the same sentence, authored twice, one used as a headline and
+      // one as a subline. Two copies of one claim is how the four goal
+      // surfaces drifted apart in the first place.
+      HERO_COPY.headline.outcomeLeader(label, readout),
     aligned: (label: string) => `${label} also has the strongest expected outcome.`,
     /**
      * Banding state B subline (producer band or UI-SEM-060 fallback): the
@@ -253,10 +291,15 @@ export const HERO_COPY = {
     watchLabel: 'Watch',
     tradeOffLabel: 'Trade-off',
     couldChangeIf: (factor: string, value: string) => `${factor} crosses ${value}.`,
-    winChance: (formatted: string) => `${formatted} chance it is the strongest option overall.`,
+    /**
+     * RE-ANCHORED: was `"{N}% chance it is the strongest option overall."` —
+     * "strongest overall" named no basis. Aligned to the house comparative
+     * register, which says exactly what the number measures.
+     */
+    winChance: (formatted: string) => COMPARATIVE_COPY.sentence(formatted),
     /** Grounded lines from existing adapted fields — never authored prose. */
     range: (low: string, high: string) => `Realistic range: ${low} to ${high}.`,
-    goalFit: (readout: string) => `${readout} chance of hitting your goal.`,
+    goalFit: (readout: string) => GOAL_ANCHOR_COPY.sentence(readout, false),
     goalFitWithLimits: (readout: string) => `${readout} chance of meeting your goal and limits.`,
     /**
      * Goal-probability IDENTITY: used when the row's number is
@@ -276,7 +319,7 @@ export const HERO_COPY = {
      * no count — and no possessive, which would be false when the user HAS
      * set constraints and PLoT discards the goal threshold.
      */
-    goalFitJointBasis: (readout: string) => `${readout} chance of meeting every target this run scored.`,
+    goalFitJointBasis: (readout: string) => GOAL_ANCHOR_COPY.sentence(readout, true),
   },
 
   /**

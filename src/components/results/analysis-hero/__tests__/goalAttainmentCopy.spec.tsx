@@ -311,7 +311,7 @@ describe('hero goal-attainment copy — the copy lives in the central module', (
     const s = readSurfaces(m)
     const leader = m.rows.find((r) => r.id === m.leaders.goal)
     expect(leader, 'a goal leader is crowned in this fixture').toBeTruthy()
-    expect(s.headline).toBe(HERO_COPY.headline.goalOnly(leader!.label))
+    expect(s.headline).toBe(HERO_COPY.headline.goalOnly(leader!.label, leader!.goal.readout))
     expect(s.caption).toBe(HERO_COPY.caption.goalOnly)
     m.rows.forEach((row, i) => {
       expect(s.rowDetails[i]).toBe(HERO_COPY.detail.goalFitJointBasis(row.goal.readout))

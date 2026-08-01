@@ -7,8 +7,27 @@
  * win probability.
  */
 import { describe, it, expect } from 'vitest'
+import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../../utils/goalAnchorCopy'
+import { SUB_ONE_PERCENT_READOUT, formatGoalProbability } from '../../utils/displayFloors'
 import { buildV7Headline } from '../buildV7Headline'
 import type { DecisionResultData, OptionResult } from '../../types'
+
+/**
+ * ⭐ SUPERSEDED EXPECTATION — re-anchoring, 2026-07-31.
+ *
+ * Every row below used to expect `"{winner} performs best"`. §6.2c RETIRES
+ * that sentence: an unqualified superlative with no stated basis and no
+ * number, and the closest thing in the product to "choose this". Which BRANCH
+ * fires is unchanged — the SINGLE VERDICT gate, the indeterminate-state rule
+ * and the null-gauge rule all behave exactly as before. Only the sentence the
+ * clear-winner branch emits moved.
+ *
+ * With no goal probability in these fixtures the headline takes the
+ * comparative arm; with no comparative probability either, it states the
+ * absence rather than inventing a claim.
+ */
+const AHEAD = (pct: string) => `Option A ${COMPARATIVE_COPY.clause(pct)}`
+const NO_RANKING = `Option A — ${COMPARATIVE_COPY.unavailableClause}`
 
 function opt(id: string, label: string, winProbability: number, isRecommended = false): OptionResult {
   return { id, label, winProbability, isRecommended } as unknown as OptionResult
@@ -19,13 +38,13 @@ function rec(partial: Partial<DecisionResultData>): DecisionResultData {
 }
 
 describe('buildV7Headline — passthrough hero copy (V7 L4)', () => {
-  it('clear winner → "{winner} performs best", gauge = winner win probability', () => {
+  it('clear winner → the re-anchored comparative headline with its magnitude, gauge = winner win probability (SUPERSEDED: was "{winner} performs best" — a bare superlative naming no basis, retired 2026-07-31)', () => {
     const winner = opt('a', 'Option A', 0.71, true)
     const model = buildV7Headline(
       rec({ recommendedOption: winner, allOptions: [winner, opt('b', 'Option B', 0.3)] }),
       'robust',
     )
-    expect(model.headline).toBe('Option A performs best')
+    expect(model.headline).toBe(AHEAD('71%'))
     expect(model.winProbability).toBe(0.71)
     expect(model.winnerLabel).toBe('Option A')
   })
@@ -85,7 +104,10 @@ describe('buildV7Headline — passthrough hero copy (V7 L4)', () => {
     const winner = { id: 'a', label: 'Option A', isRecommended: true } as unknown as OptionResult
     const model = buildV7Headline(rec({ recommendedOption: winner, allOptions: [winner, opt('b', 'Option B', 0.3)] }), 'robust')
     expect(model.winProbability).toBeNull()
-    expect(model.headline).toBe('Option A performs best')
+    // No comparative probability ⇒ the headline states the ABSENCE rather
+    // than inventing a claim. (Was `"{winner} performs best"`, which asserted
+    // a verdict on a run that produced no number to back it.)
+    expect(model.headline).toBe(NO_RANKING)
     // No runner-up gap is claimed when the winner carries no probability.
     expect(model.subline).toBeNull()
   })
@@ -109,7 +131,7 @@ describe('buildV7Headline — SINGLE VERDICT gate', () => {
       'indeterminate',
     )
     expect(model.headline).not.toContain('No clear leading option')
-    expect(model.headline).toBe('Option A performs best')
+    expect(model.headline).toBe(AHEAD('70%'))
   })
 
   it('DOES deny one when the shared verdict says the top two are tied', () => {
@@ -132,5 +154,63 @@ describe('buildV7Headline — SINGLE VERDICT gate', () => {
       'robust',
     )
     expect(model.headline).toBe('Too close to call')
+  })
+})
+
+// ─── THE SUB-1% DISPLAY FLOOR (UI-SEM-057) ──────────────────────────────────
+//
+// The re-anchored goal headline formats its magnitude with
+// `formatPercent(v, { fromDecimal: true })` and NO floor, so a 0.4% goal
+// probability produced "Option A has the highest chance of hitting your goal:
+// 0%" — a headline that crowns an option on a number it simultaneously prints
+// as zero, while the option card for the same option says "< 1%". Every other
+// goal surface (OptionCards, the V7 goal lens, the analysis hero) routes
+// through `SUB_ONE_PERCENT_FLOOR`.
+//
+// RED-first: the "< 1%" assertion fails on `48adda75` (it reads "0%").
+describe('buildV7Headline — the goal magnitude honours the shared sub-1% floor', () => {
+  function goalWinner(goalProbability: number): OptionResult {
+    return {
+      id: 'a',
+      label: 'Option A',
+      winProbability: 0.71,
+      isRecommended: true,
+      goalProbability,
+      goalFitIsSubstitutedJoint: false,
+    } as unknown as OptionResult
+  }
+
+  it('renders a non-zero sub-1% goal probability as "< 1%", never a bare "0%"', () => {
+    const winner = goalWinner(0.004)
+    const model = buildV7Headline(
+      rec({ recommendedOption: winner, allOptions: [winner, opt('b', 'Option B', 0.29)] }),
+      'robust',
+    )
+    expect(model.headline).toBe(
+      GOAL_ANCHOR_COPY.headline('Option A', SUB_ONE_PERCENT_READOUT, false),
+    )
+    expect(model.headline).not.toContain(': 0%')
+  })
+
+  it('uses the SAME floored formatter the sibling goal surfaces use', () => {
+    for (const v of [0.004, 0.0099, 0.01, 0.5]) {
+      const winner = goalWinner(v)
+      const model = buildV7Headline(
+        rec({ recommendedOption: winner, allOptions: [winner, opt('b', 'Option B', 0.29)] }),
+        'robust',
+      )
+      expect(model.headline).toBe(
+        GOAL_ANCHOR_COPY.headline('Option A', formatGoalProbability(v), false),
+      )
+    }
+  })
+
+  it('CONTROL — the top of the range is unchanged: no ceiling rule the siblings do not have', () => {
+    const winner = goalWinner(0.995)
+    const model = buildV7Headline(
+      rec({ recommendedOption: winner, allOptions: [winner, opt('b', 'Option B', 0.29)] }),
+      'robust',
+    )
+    expect(model.headline).toBe(GOAL_ANCHOR_COPY.headline('Option A', '100%', false))
   })
 })

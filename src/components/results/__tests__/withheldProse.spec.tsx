@@ -35,6 +35,7 @@
  * visual order. Nothing here claims a visual property.
  */
 import { describe, expect, it } from 'vitest'
+import { COMPARATIVE_COPY } from '../utils/goalAnchorCopy'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { useAskOlumiStore } from '../coaching/askOlumiStore'
 import { V7EvidenceDisclosure } from '../v7/V7EvidenceDisclosure'
@@ -72,7 +73,22 @@ import { openDisclosureHeader, switchEvidenceView } from '../../../test/helpers/
  * This matcher targets the unconditional leader NOUN and the possessive
  * "your recommendation", which are the claims the verdict withholds.
  */
-const LEADER_PRESUPPOSITION_RE = /leading option|likely leader|your recommendation/i
+/**
+ * ⚠ F6 — UNION, NEVER REPLACE. This alternation is a BLINDNESS probe: the
+ * withheld-branch assertions below prove a sweep of rendered text contains
+ * NO leader presupposition, and the probe can only prove that for the shapes
+ * it knows. The re-anchoring pass REPLACED `your recommendation` with the new
+ * shape instead of adding to it, which silently made every withheld sweep
+ * blind to the retired vocabulary — so a reintroduced legacy string would
+ * have sailed through the very guard written to catch it.
+ *
+ * Retired shapes stay in the alternation permanently. They cost one token
+ * each and they are the only thing standing between a reverted file and a
+ * green suite. (`HERO_CLAIM_RE` was correctly unioned in the same pass; these
+ * two were not — the inconsistency is the tell.)
+ */
+const LEADER_PRESUPPOSITION_RE =
+  /leading option|likely leader|more likely than .+ to hit your goal|your recommendation|the recommendation/i
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SURFACE 1 — the V7 evidence disclosure notes (flagless)
@@ -250,7 +266,7 @@ describe('StressTestSection — the UI-authored thinking patterns', () => {
     const { container } = renderStressTest(false)
     const text = container.textContent ?? ''
     expect(text).toMatch(LEADER_PRESUPPOSITION_RE)
-    expect(text).toContain(`switch your recommendation from ${HIGH_LABEL} to ${MID_LABEL}`)
+    expect(text).toContain(`What would have to change for ${MID_LABEL} to become more likely than ${HIGH_LABEL} to hit your goal?`)
     expect(text).toContain(`does ${HIGH_LABEL} usually outperform ${MID_LABEL}`)
     expect(screen.getByTestId('stress-test-thinking-subsection')).toBeInTheDocument()
   })
@@ -313,7 +329,16 @@ describe('StressTestSection — the UI-authored thinking patterns', () => {
  * result to" are the claims: both presuppose that a result/recommendation
  * exists to be flipped.
  */
-const FRAGILE_CLAIM_RE = /flip the result to|result could flip to|the recommendation/i
+// SUPERSEDED 2026-07-31: `the recommendation` is retired as an un-anchored
+// noun, so this probe must name the wording the PERMITTED branch emits TODAY
+// or it would pass by testing nothing (trap 13).
+//
+// ⚠ F6 — but the retired shapes are KEPT in the alternation, not swapped out.
+// This probe's job in the WITHHELD assertions is to prove an absence, and a
+// probe that has forgotten the old vocabulary cannot see it come back. Union;
+// never replace.
+const FRAGILE_CLAIM_RE =
+  /flip the result to|result could flip to|which option is most likely to hit your goal|the recommendation/i
 
 const FRAGILE_FROM = 'Team capacity'
 const FRAGILE_FROM_2 = 'Delivery risk'
@@ -447,9 +472,9 @@ describe('StressTestSection fragile factors — STRING 3: the per-edge consequen
   // Rendered only when the group has NO named alt-winner.
   const orphanEdge = [fragileEdge({ alternative_winner_id: undefined, alternative_winner_label: undefined })]
 
-  it('ANTI-VACUITY: the PERMITTED clause names the recommendation', () => {
+  it('ANTI-VACUITY: the PERMITTED clause names the re-anchored object (SUPERSEDED: was "the recommendation")', () => {
     const text = fragileText(false, orphanEdge)
-    expect(text).toContain('the recommendation could change')
+    expect(text).toContain('which option is most likely to hit your goal could change')
     expect(text).toMatch(FRAGILE_CLAIM_RE)
   })
 
@@ -460,7 +485,7 @@ describe('StressTestSection fragile factors — STRING 3: the per-edge consequen
   })
 
   it('PERMITTED: the clause is byte-identical to today', () => {
-    expect(fragileEdgeConsequence({ designationsWithheld: false })).toBe('the recommendation could change')
+    expect(fragileEdgeConsequence({ designationsWithheld: false })).toBe('which option is most likely to hit your goal could change')
   })
 })
 
@@ -489,9 +514,9 @@ describe('StressTestSection fragile factors — STRING 4: the expert E-value not
     )
   }
 
-  it('ANTI-VACUITY: the PERMITTED note says "flip the recommendation"', () => {
+  it('ANTI-VACUITY: the PERMITTED note says "change which option is most likely to hit your goal"', () => {
     const { container } = renderCard(false)
-    expect(container.textContent ?? '').toContain('2.0x wrong to flip the recommendation.')
+    expect(container.textContent ?? '').toContain('2.0x wrong to change which option is most likely to hit your goal.')
     expect(container.textContent ?? '').toMatch(FRAGILE_CLAIM_RE)
   })
 
@@ -508,7 +533,7 @@ describe('StressTestSection fragile factors — STRING 4: the expert E-value not
 
   it('PERMITTED: the note is byte-identical to today', () => {
     expect(fragileEValueNote({ eValue: 2.0, designationsWithheld: false }))
-      .toBe('E-value 2.0: assumptions would only need to be 2.0x wrong to flip the recommendation.')
+      .toBe('E-value 2.0: assumptions would only need to be 2.0x wrong to change which option is most likely to hit your goal.')
   })
 })
 
@@ -644,7 +669,7 @@ describe('buildCertaintyCopy — no caller can reach the leader rules without a 
 
   it('ANTI-VACUITY: a PERMITTED verdict still reaches the leader-asserting rule', () => {
     expect(buildCertaintyCopy({ ...base, verdict: PERMITTED_VERDICT }).headline)
-      .toBe(`${HIGH_LABEL} is the leading option`)
+      .toBe(`${HIGH_LABEL} ${COMPARATIVE_COPY.phraseNoMagnitude}`)
   })
 
   it('the explicit no-claim verdict lands on the withheld headline, not a leader claim', () => {

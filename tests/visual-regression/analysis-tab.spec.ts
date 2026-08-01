@@ -73,16 +73,45 @@ describe('visual-regression scaffold (Brief 5)', () => {
     const snap = captureByTestId(container, 'winner-by-control')
 
     // Updated copy (Paul's ruling 2026-07-12: explicitly-labelled lens) + testid present.
-    expect(snap).toContain('Winner by:')
-    expect(snap).toContain('A view lens for the option cards below. The overall recommendation is unchanged.')
-    expect(snap).toContain('Conservative')
-    expect(snap).toContain('Neutral')
-    expect(snap).toContain('Aggressive')
+    //
+    // ⭐ SUPERSEDED 2026-07-31 (re-anchoring, §6.2a + §6.5 item 5). Three
+    // expectations moved, and each names what it replaced:
+    //   · 'Winner by:'  → 'Rank by outcome:'  — the control confers no
+    //     endorsement; it re-ranks a view, and now every arm re-ranks it on
+    //     the SAME quantity.
+    //   · the lens sentence drops the un-anchored noun 'the overall
+    //     recommendation' for the quantity that is actually unchanged.
+    //   · the arm labels name their percentile instead of a mood, because
+    //     the middle arm now ranks p50 rather than the comparative quantity.
+    expect(snap).toContain('Rank by outcome:')
+    // F3: the sentence names what the lens leaves unchanged, and that depends
+    // on whether the run HAS a goal ranking. This render passes no
+    // `hasGoalNumbers`, so it exercises the safe default — the neutral
+    // wording. The goal-bearing arm is asserted immediately below, so both
+    // sides of the gate are covered here rather than one being assumed.
+    expect(snap).toContain('A view lens over the outcome range. The comparative ranking above is unchanged.')
+    expect(snap).not.toContain('goal ranking')
+    expect(snap).toContain('Cautious (p10)')
+    expect(snap).toContain('Middle (p50)')
+    expect(snap).toContain('Optimistic (p90)')
+    // The retired label must not survive anywhere in this control.
+    expect(snap).not.toContain('Winner by:')
     // Legacy copy absent from rendered output.
     expect(snap).not.toContain('Risk appetite:')
 
+    // The other side of the F3 gate: with goal numbers present the sentence
+    // names the goal ranking. Without this the assertion above would pass on
+    // a component that had simply lost the goal wording altogether.
+    const withGoal = captureByTestId(
+      render(
+        React.createElement(RiskAppetiteFilter, { value: 'neutral', onChange, hasGoalNumbers: true }),
+      ).container,
+      'winner-by-control',
+    )
+    expect(withGoal).toContain('A view lens over the outcome range. The goal ranking above is unchanged.')
+
     // Wiring sanity: clicking a pill fires the change handler with the key.
-    fireEvent.click(within(container).getByRole('button', { name: /aggressive/i }))
+    fireEvent.click(within(container).getByRole('button', { name: /optimistic/i }))
     expect(onChange).toHaveBeenCalledWith('aggressive')
   })
 

@@ -151,7 +151,7 @@ describe('OptionNode', () => {
     expect(screen.queryByText(/win probability/)).toBeNull()
   })
 
-  it('shows win probability in results mode', () => {
+  it('shows the comparative readout in results mode (re-anchored: was "{N}% win probability")', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -166,7 +166,7 @@ describe('OptionNode', () => {
       voiRank: null,
     })
     renderOption()
-    expect(screen.getByText('72% win probability')).toBeDefined()
+    expect(screen.getByText('Came out ahead in 72% of simulated scenarios')).toBeDefined()
   })
 
   // T7: Leading option badge. Post-1.223 this is the POSITIVE CONTROL against
@@ -512,7 +512,7 @@ describe('OptionNode', () => {
   })
 
   // V2: Win probability number uses text-text-body (neutral, no coloured text in node body)
-  it('win probability text uses text-text-body class (not text-success or text-option)', () => {
+  it('comparative readout uses text-text-body class (not text-success or text-option)', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -544,7 +544,7 @@ describe('OptionNode', () => {
       }) as any)
     )
     renderOption()
-    const percentEl = screen.getByText('72% win probability')
+    const percentEl = screen.getByText('Came out ahead in 72% of simulated scenarios')
     expect(percentEl.className).toContain('text-text-body')
     expect(percentEl.className).not.toContain('text-success')
     expect(percentEl.className).not.toContain('text-option')
@@ -1884,7 +1884,7 @@ describe('OptionNode — display coherence (audit §8)', () => {
   })
 
   // Item 3a: duplicate win-rate phrasing removed from the status-quo card
-  it('status-quo card renders "win probability" once and never "win rate across simulations"', () => {
+  it('status-quo card renders the comparative readout once and never "win rate across simulations"', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.28))
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
@@ -1892,7 +1892,7 @@ describe('OptionNode — display coherence (audit §8)', () => {
       }) as any)
     )
     renderOption({ label: 'Status Quo', is_baseline: true })
-    expect(screen.getByText('28% win probability')).toBeDefined()
+    expect(screen.getByText('Came out ahead in 28% of simulated scenarios')).toBeDefined()
     expect(screen.queryByText(/win rate across simulations/i)).toBeNull()
     expect(screen.getByText('Current baseline. No changes to factors.')).toBeDefined()
   })

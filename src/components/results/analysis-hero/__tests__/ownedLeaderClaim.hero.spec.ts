@@ -105,7 +105,12 @@ describe('analysis hero — headline + subline', () => {
 
   it('PERMITTED: the producer-owned band still selects the leader headline', () => {
     const m = hero(PERMITTED_VERDICT)
-    expect(m.headline).toBe(HERO_COPY.headline.mostLikelyStrongest(LEADER_LABEL))
+    expect(m.headline).toBe(
+      HERO_COPY.headline.mostLikelyStrongest(
+        LEADER_LABEL,
+        m.rows.find((r) => r.label === LEADER_LABEL)!.comparativeReadout!,
+      ),
+    )
   })
 
   it('WITHHELD: the win probabilities are still rendered — we suppress the CLAIM, not the data', () => {

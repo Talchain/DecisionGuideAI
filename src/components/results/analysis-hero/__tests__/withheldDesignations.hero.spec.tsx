@@ -311,7 +311,7 @@ describe('analysis hero — PERMITTED prose (over-suppression controls)', () => 
     const model = heroModel(PERMITTED_VERDICT)
     expect(model.designationsWithheld).toBe(false)
     expect(model.headline).toBe(
-      'Hire two developers is most likely to meet every target this run scored.',
+      'Hire two developers has the highest chance of meeting every target this run scored: 80%.',
     )
     expect(model.subline).toBe('Hire two developers also has the strongest expected outcome.')
   })
@@ -322,7 +322,7 @@ describe('analysis hero — PERMITTED prose (over-suppression controls)', () => 
     expect(model.headline).toBe(
       'No option is currently on track to meet every target this run scored.',
     )
-    expect(model.subline).toBe('Hire two developers has the highest expected outcome.')
+    expect(model.subline).toBe('Hire two developers has the highest expected outcome: 70.')
   })
 
   it('producer band: still bands the recommended option by name', () => {

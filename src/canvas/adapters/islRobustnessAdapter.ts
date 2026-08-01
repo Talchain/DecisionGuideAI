@@ -307,6 +307,6 @@ export function generateFallbackRobustness(): RobustnessResult {
     robustness_bounds: [],
     value_of_information: [],
     narrative:
-      'Robustness analysis could not be completed. Run analysis again to assess recommendation stability.',
+      'Robustness analysis could not be completed. Run analysis again to assess how stable the ranking is.',
   }
 }

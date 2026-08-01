@@ -179,6 +179,6 @@ describe('OptionCards — the lens carve-out survives (ROADMAP 1.239)', () => {
         onSendMessage={() => {}}
       />,
     )
-    expect(screen.getByText(/Strongest under this lens/i)).toBeDefined()
+    expect(screen.getByText(/Ahead on this outcome view/i)).toBeDefined()
   })
 })

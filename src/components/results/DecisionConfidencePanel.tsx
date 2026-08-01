@@ -19,6 +19,7 @@ import { HeroQualifier } from './HeroQualifier'
 import { useCanvasStore } from '@/canvas/store'
 import { resolveDisplayedFreshness } from '@/canvas/store/analysisFreshness'
 import { buildCertaintyCopy } from './utils/certaintyCopy'
+import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY, isFiniteProbability } from './utils/goalAnchorCopy'
 import { NO_CLAIM_VERDICT } from '@/lib/decisionVerdict'
 import { calibrateUncertaintyCopy } from './utils/uncertaintyCalibration'
 import { typography } from '@/styles/typography'
@@ -142,21 +143,48 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
     </Tooltip>
   ) : undefined
 
-  // Post-analysis ring shows winner's win probability directly. The readiness
-  // composite (Structure/Evidence/Coverage/Verified) is pre-analysis-only.
-  const winProbability = data.recommendation.recommendedOption?.winProbability
-  const hasWinProbability = typeof winProbability === 'number' && Number.isFinite(winProbability)
-  const winProbabilityScore = hasWinProbability ? Math.round(winProbability! * 100) : null
+  // ── Post-analysis ring: ONE quantity, and its caption names THAT quantity
+  //
+  // ⭐ RE-ANCHORED 2026-07-31 (§6 map row 3). The ring was filled from the
+  // winner's COMPARATIVE number and captioned "win probability" — a number
+  // that answers neither of the two questions the product may answer, given
+  // the most prominent position on the panel.
+  //
+  // It now prefers the GOAL number (question A). The comparative number is
+  // the fallback when the run carried no success target, because ISL
+  // computes a goal probability only when a threshold was supplied.
+  //
+  // ⚠ THE SCORE AND THE CAPTION MOVE TOGETHER, ALWAYS. They are derived from
+  // one `ringClaim` object below rather than from two independent
+  // expressions, so it is not possible to relabel the caption while the arc
+  // stays filled from the other quantity — which would have a user reading a
+  // goal figure off a comparative arc, strictly worse than the defect being
+  // fixed. `__tests__/reanchor.confidenceRing.spec.tsx` is the pin, and the
+  // lane's mutation-check reverts exactly that pairing.
+  const ringWinner = data.recommendation.recommendedOption
+  const goalProbability = ringWinner?.goalProbability
+  const winProbability = ringWinner?.winProbability
+
+  const ringClaim: { value: number; caption: string } | null = isFiniteProbability(goalProbability)
+    ? {
+        value: goalProbability,
+        caption: GOAL_ANCHOR_COPY.label(ringWinner?.goalFitIsSubstitutedJoint === true),
+      }
+    : isFiniteProbability(winProbability)
+      ? { value: winProbability, caption: COMPARATIVE_COPY.label }
+      : null
+
+  const winProbabilityScore = ringClaim ? Math.round(ringClaim.value * 100) : null
 
   // ringDimensions is required by the DecisionHealthRing prop contract even
   // in 'single' mode (it's used for the composite fallback / a11y label).
-  // Pass the win-probability value across so any aria-label computation is
-  // consistent with the score shown.
+  // Pass the SAME value the arc is filled from across, so any aria-label
+  // computation is consistent with the score shown.
   const ringDimensions: DecisionHealthRingDimensions = {
-    structure: hasWinProbability ? winProbability! : 0,
-    evidence: hasWinProbability ? winProbability! : 0,
-    coverage: hasWinProbability ? winProbability! : 0,
-    verified: hasWinProbability ? winProbability! : 0,
+    structure: ringClaim?.value ?? 0,
+    evidence: ringClaim?.value ?? 0,
+    coverage: ringClaim?.value ?? 0,
+    verified: ringClaim?.value ?? 0,
   }
 
   // Headline from coaching data, with a tier-calibrated fallback so the
@@ -269,7 +297,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
     ]
   }, [readinessDimensions])
 
-  // Stability indicator renders adjacent to the win-probability ring. Suppressed
+  // Stability indicator renders adjacent to the ring. Suppressed
   // when the field is missing — never emits "Stability: NaN%".
   const stabilityScore = data.recommendation.recommendationStability
   const stabilityIndicator = useMemo(() => {
@@ -329,7 +357,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
           coaching={healthHeaderCoaching}
           overrideScore={winProbabilityScore}
           mode="single"
-          ringCaption={hasWinProbability ? 'win probability' : undefined}
+          ringCaption={ringClaim?.caption}
           secondaryIndicator={stabilityIndicator}
           qualifier={
             // Qualifier precedence: a genuine CEE 'stale' verdict is the

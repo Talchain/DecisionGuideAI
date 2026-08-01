@@ -65,7 +65,7 @@ export function buildDisconfirmationCard({
   // threshold below is unreachable for a confidence the policy hides.
   const showContext = topDriverConfidence.show && topDriverConfidence.value < 0.5
   return {
-    question: `What could make you switch your recommendation from ${winnerLabel} to ${alternativeLabel}?`,
+    question: `What would have to change for ${alternativeLabel} to become more likely than ${winnerLabel} to hit your goal?`,
     context: showContext
       ? `The analysis depends on ${topDriverLabel}, which has limited evidence.`
       : undefined,
