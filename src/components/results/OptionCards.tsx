@@ -3,7 +3,10 @@
  *
  * - Ordinal colour marker + option name + win percentage text (D17: "#N of M" prefix removed)
  * - 1-2 line contextual description (story headline or fallback)
- * - "Hits target" stat row: horizontal bar + percentage (conditional on target set)
+ * - "Hits target" stat row: horizontal bar + percentage (conditional on target set).
+ *   ROADMAP 2.282: that possessive wording is WITHHELD when the number is a
+ *   substituted joint figure (`goalFitIsSubstitutedJoint`) — see the possessive
+ *   gate in `OptionCard`.
  * V12.4: Per-card "Wins" bars removed; win % shown as text in card header.
  * Brief 5.8B D3: per-rank palette (V14.2: border-2 border-success/60 / border-info/60 /
  *   border-option/60) collapsed to a 2-state hierarchy — winner cards carry
@@ -19,6 +22,7 @@ import { useRef, useState, useCallback, type RefObject } from 'react'
 import { typography } from '../../styles/typography'
 import {
   COMPARATIVE_COPY,
+  GOAL_ANCHOR_COPY,
   LENS_COPY,
   isFiniteProbability,
   runHasGoalNumbers,
@@ -323,7 +327,18 @@ function StatBar({
   segmentColor,
 }: {
   value: number | null | undefined
-  label: string
+  /**
+   * Inline label for the 72px caption column, or `null` for none.
+   *
+   * ROADMAP 2.282: `null` is how the goal row renders its WITHHELD state. The
+   * withheld label (`GOAL_ANCHOR_COPY.label(true)`, 45 characters) cannot live
+   * in a fixed 72px column at 11px — it would wrap to four or five lines — so
+   * that state hoists the label to a full-width caption ABOVE the bar, which
+   * is exactly the shape `WinGauge`'s goal block already uses for the same
+   * register string. The column is omitted rather than emptied so no blank
+   * 72px gutter is left behind.
+   */
+  label: string | null
   isLeader: boolean
   color: 'success' | 'info'
   /** V11: When true, use stone colours for all bars (indeterminate state) */
@@ -349,9 +364,11 @@ function StatBar({
 
   return (
     <div className="flex items-center gap-2">
-      <span className={`${typography.panelMeta} text-text-light w-[72px] flex-shrink-0`}>
-        {label}
-      </span>
+      {label != null && (
+        <span className={`${typography.panelMeta} text-text-light w-[72px] flex-shrink-0`}>
+          {label}
+        </span>
+      )}
       <div className="flex-1 h-2 bg-panel-border/30 rounded-full overflow-hidden">
         <div
           className={`h-2 rounded-full transition-all ${barColorClass}`}
@@ -486,6 +503,43 @@ function OptionCard({
     ? undefined
     : sortedRank ?? option.rank ?? (isWinner ? 1 : undefined)
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // THE POSSESSIVE GATE (ROADMAP 2.282) — this card was the one unwired
+  // consumer of a mitigation six sibling surfaces already honour.
+  //
+  // `selectGoalProbability` publishes `basis`. When it is
+  // `'joint_goal_substituted'` the number in `option.goalProbability` is
+  // P(all constraints jointly satisfied) STANDING IN for an absent
+  // `probability_of_goal` — it answers a DIFFERENT question from the one
+  // "target" asserts, and the selector's `mayUsePossessiveGoalFraming` is
+  // false. `useResultsSectionData` carries that decision here as
+  // `goalFitIsSubstitutedJoint`; it is READ, never re-derived at this render
+  // site (types.ts states the rule; `WinGauge`, `DecisionConfidencePanel`,
+  // `RangeVisualization`, `buildHeroModel`, `buildV7Headline` and
+  // `V7LensGroup` all read it the same way).
+  //
+  // Witnessed live on staging 2026-08-01: with the frame unstamped, this card
+  // rendered "Hits target" / "< 1% likely to reach target" over the joint
+  // figure while the V7 goal lens BESIDE IT rendered the withheld wording for
+  // the same number — two contradictory claims about one value in one render.
+  // The withheld number is 0.0054 (answers "is the uplift >= £6M?") where the
+  // user asked "is the uplift >= £2M?" (~0.55).
+  //
+  // This is a COPY switch, never a value transform: the bar length, the
+  // percentage readout and the leader colour are all untouched.
+  const goalFitSubstituted = option.goalFitIsSubstitutedJoint === true
+  // Built ONCE, above both arms, so the withheld and permitted wordings can
+  // never show a different number for the same option — the register modules
+  // make the same argument about casing, for the same reason. Byte-identical
+  // to the two literals it replaces: `< 1%` below the shared floor, otherwise
+  // the rounded percent.
+  const lowGoalReadout =
+    typeof option.goalProbability === 'number' && option.goalProbability < 0.10
+      ? option.goalProbability < SUB_ONE_PERCENT_FLOOR
+        ? '< 1%'
+        : `${Math.round(option.goalProbability * 100)}%`
+      : null
+
   return (
     <div
       ref={cardRef}
@@ -607,25 +661,51 @@ function OptionCard({
       {/* Stat rows */}
       {hasGoalThreshold && (
         <div className="space-y-1.5">
+          {/* ROADMAP 2.282 — the withheld arm of the goal-row caption. The
+              register string is 45 characters, so it is hoisted to a
+              full-width line above the bar instead of the StatBar's 72px
+              column; `WinGauge`'s goal block renders the SAME register string
+              in the SAME shape (`win-gauge-goal-heading`), so this is the
+              established layout for this copy, not a new one. Rendered only
+              when the basis is substituted — the permitted arm keeps the
+              card's shipped inline "Hits target" label unchanged. */}
+          {goalFitSubstituted && option.goalProbability != null && (
+            <p
+              className={`${typography.panelMeta} text-text-light`}
+              data-testid={`goal-fit-substituted-label-${option.id}`}
+            >
+              {GOAL_ANCHOR_COPY.label(goalFitSubstituted)}
+            </p>
+          )}
           <StatBar
             value={option.goalProbability}
-            label="Hits target"
+            // The possessive "Hits target" names the user's OWN target, which
+            // a substituted joint figure does not answer — so that arm is
+            // withheld and the caption above carries the honest name instead.
+            // `null` omits the column rather than emptying it (see StatBar).
+            label={goalFitSubstituted ? null : 'Hits target'}
             // ROADMAP 1.267: the bar length stays (it is the goal
             // probability); only the leader COLOUR is withheld.
             isLeader={isWinner && !designationsWithheld}
             color="info"
             neutralised={neutralised}
           />
-          {/* T6 fix: Warning badge when goal probability is very low (<10%) */}
-          {typeof option.goalProbability === 'number' && option.goalProbability < 0.10 && (
+          {/* T6 fix: Warning badge when goal probability is very low (<10%).
+              ROADMAP 2.282: the badge is the register's COMPACT READOUT slot
+              — "number first, no full stop" — so the withheld arm is
+              `GOAL_ANCHOR_COPY.phrase(...)` verbatim, no adapted wording. The
+              permitted arm keeps the shipped sentence byte-for-byte. The two
+              arms are mutually exclusive by construction: one boolean, one
+              ternary, one readout. */}
+          {lowGoalReadout != null && (
             <div className="flex items-center gap-1.5">
               <span
                 className={`${typography.panelMeta} inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border border-danger/30 text-text-body`}
                 data-testid={`low-goal-warning-${option.id}`}
               >
-                {option.goalProbability < SUB_ONE_PERCENT_FLOOR
-                  ? '< 1% likely to reach target'
-                  : `${Math.round(option.goalProbability * 100)}% likely to reach target`}
+                {goalFitSubstituted
+                  ? GOAL_ANCHOR_COPY.phrase(lowGoalReadout, goalFitSubstituted)
+                  : `${lowGoalReadout} likely to reach target`}
               </span>
             </div>
           )}
