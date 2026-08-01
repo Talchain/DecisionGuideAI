@@ -46,7 +46,7 @@ import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { FlipThreshold, OptionResult } from '../types'
 import { formatThreshold } from '../RangeVisualization'
 import { stripEncodingNotation } from '../utils/cleanFactorLabel'
-import { THRESHOLDS } from '../../../lib/mappers/constants'
+import { selectFlipRisk } from '../utils/selectFlipRisk'
 import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 import { SUB_ONE_PERCENT_FLOOR } from '../utils/displayFloors'
 import { hasAnyGoalValue, selectGoalLeader } from '../utils/selectGoalLeader'
@@ -887,29 +887,31 @@ export function buildHeroModel(
           targetId: topDriverItem.matchedNodeId ?? topDriverItem.factorKey,
         }
       : null
-  // UI-SEM-013 fragile-edge visibility floor — the CANONICAL constant every
-  // fragile-edge surface shares; a local literal would silently desync.
-  const FLIP_RISK_FLOOR = THRESHOLDS.FRAGILE_EDGE_FILTER
-  const flipCandidate = (drivers?.drivers ?? [])
-    .filter(
-      (d) =>
-        d.canFocus &&
-        typeof d.fragileEdgeInfo?.switchProbability === 'number' &&
-        d.fragileEdgeInfo.switchProbability > FLIP_RISK_FLOOR,
-    )
-    .sort(
-      (a, b) =>
-        (b.fragileEdgeInfo?.switchProbability ?? 0) -
-        (a.fragileEdgeInfo?.switchProbability ?? 0),
-    )[0]
-  const flipLabel = flipCandidate
-    ? stripEncodingNotation(flipCandidate.factorLabel)
-    : null
+  // ROADMAP 2.276 — the flip-risk quick link is chosen by `selectFlipRisk`,
+  // never here. This block used to rank `fragileEdgeInfo.switchProbability`
+  // alone and never consulted `flip_thresholds`, so on a turn whose thresholds
+  // were 100 % non-flipping it still named a "Top flip risk" (witness §4b:
+  // "Leeds Site Activation Effectiveness", `rank_flip_rate` 0). The owner
+  // holds the honest-absence gate, the UI-SEM-013 floor and the attribution
+  // rule; adding a second chooser here is what produced the two-statements-
+  // disagree defect in the first place.
+  const flipSelection = selectFlipRisk(
+    recommendation.flipThresholds,
+    (drivers?.drivers ?? [])
+      .filter((d) => d.canFocus)
+      .map((d) => ({
+        label: stripEncodingNotation(d.factorLabel),
+        switchProbability: d.fragileEdgeInfo?.switchProbability,
+        targetId: d.matchedNodeId ?? d.factorKey,
+        joinId: d.matchedNodeId ?? d.factorKey,
+      })),
+  )
+  const flipLabel = flipSelection.topFlipRisk?.label ?? null
   const topFlipRisk =
-    flipCandidate && flipLabel && !containsBannedTerm(flipLabel)
+    flipSelection.topFlipRisk && flipLabel && !containsBannedTerm(flipLabel)
       ? {
           label: flipLabel,
-          targetId: flipCandidate.matchedNodeId ?? flipCandidate.factorKey,
+          targetId: flipSelection.topFlipRisk.targetId ?? '',
         }
       : null
 

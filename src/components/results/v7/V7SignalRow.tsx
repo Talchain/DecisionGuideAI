@@ -18,6 +18,7 @@ import { AlertTriangle, Zap } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { formatPercent } from '@/utils/formatPercent'
 import type { DriverItem } from '../types'
+import { selectFlipRisk, type FlipThresholdLike } from '../utils/selectFlipRisk'
 
 type FragileEdge = {
   edge_id?: string
@@ -32,23 +33,50 @@ export interface V7SignalRowProps {
   topDrivers?: DriverItem[]
   /** Fragile edges — `resultsSectionData.confidence.challengeFragileEdges`. */
   fragileEdges?: FragileEdge[]
+  /**
+   * Producer flip thresholds — `recommendation.flipThresholds`. The honest-
+   * absence gate (ROADMAP 2.276): without them this chip cannot know whether
+   * the run produced any flip at all.
+   */
+  flipThresholds?: FlipThresholdLike[]
   /** Focus the matching canvas element when a chip is clicked. */
   onFocusNode?: (nodeId: string) => void
 }
 
-export function V7SignalRow({ topDrivers, fragileEdges, onFocusNode }: V7SignalRowProps) {
-  const flip = fragileEdges?.[0]
-  const flipPct =
-    flip && typeof flip.switch_probability === 'number' && Number.isFinite(flip.switch_probability)
-      ? flip.switch_probability
-      : null
+export function V7SignalRow({ topDrivers, fragileEdges, flipThresholds, onFocusNode }: V7SignalRowProps) {
+  // ROADMAP 2.276 — TWO defects closed here, both witnessed on staging
+  // `a27cadf7` (witness-2267 §10):
+  //
+  //  1. This chip took `fragileEdges[0]` POSITIONALLY. That array is sorted by
+  //     `marginal_switch_probability` desc, but the chip RENDERS
+  //     `switch_probability` — so it printed a number that had not determined
+  //     its own rank. On run 3 it read "15% flip risk · Hybrid Delivery
+  //     Approach": ranked on marginal 0.33, displayed switch 0.1485, while the
+  //     displayed metric's own maximum on that turn was 0.519.
+  //  2. It never consulted `flip_thresholds`, so it named a flip risk on a
+  //     turn whose six thresholds were ALL non-flipping — disagreeing, on the
+  //     same screen, with the hero's "Top flip risk: Vendor Platform Fit".
+  //
+  // `selectFlipRisk` owns the gate, the floor and the ranking, and it ranks by
+  // the SAME metric this chip prints. Never re-rank here.
+  const flipSelection = selectFlipRisk(
+    flipThresholds,
+    (fragileEdges ?? []).map((e) => ({
+      label: e.from_label,
+      switchProbability: e.switch_probability,
+      targetId: e.from_id,
+      joinId: e.from_id,
+    })),
+  )
+  const flip = flipSelection.topFlipRisk
+  const flipPct = flip?.switchProbability ?? null
   const mainDriver = topDrivers?.[0]
 
   const chips: React.ReactNode[] = []
 
-  // Flip-risk chip — only when a fragile edge with a finite switch probability exists.
+  // Flip-risk chip — only when the producer's flip evidence permits naming one.
   if (flip && flipPct != null) {
-    const focusId = flip.from_id
+    const focusId = flip.targetId
     chips.push(
       <button
         key="flip"
@@ -63,7 +91,7 @@ export function V7SignalRow({ topDrivers, fragileEdges, onFocusNode }: V7SignalR
           <span className="font-semibold text-text-header">
             {formatPercent(flipPct, { fromDecimal: true })}
           </span>{' '}
-          flip risk · {flip.from_label}
+          flip risk · {flip.label}
         </span>
       </button>,
     )

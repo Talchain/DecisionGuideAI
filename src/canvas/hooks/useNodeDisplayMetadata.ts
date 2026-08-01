@@ -79,6 +79,17 @@ interface NodeDisplayMetadata {
    * `GOAL_FIT_BASIS_CAVEAT_COPY` alongside it when this is true.
    */
   achievementProbabilityIsModelledBasis: boolean
+  /**
+   * ROADMAP 2.275. True when this run carries an admissible per-option goal
+   * figure (per `selectGoalProbability`) even though no single probability is
+   * attributable to the goal node itself — the live case where
+   * `recommended_option_id` is absent.
+   *
+   * It exists so the goal node can stop CONTRADICTING the Goal-fit sub-tab.
+   * It is a presence signal, never a number and never a designation: the node
+   * may say the figures exist and where to read them, and must not invent one.
+   */
+  goalFitAvailable: boolean
   /** Recommendation stability (0-1) - fallback for Goal nodes when probability unavailable */
   stabilityPercentage: number | null
   /** Win rate for options (0-1) */
@@ -126,6 +137,7 @@ export function useNodeDisplayMetadata(
         inSensitivityAnalysis: false,
         achievementProbability: null,
         achievementProbabilityIsModelledBasis: false,
+        goalFitAvailable: false,
         stabilityPercentage: null,
         winRate: null,
         predictedOutcome: null,
@@ -237,6 +249,7 @@ export function useNodeDisplayMetadata(
     let achievementProbability: number | null = null
     let achievementProbabilityIsModelledBasis = false
     let stabilityPercentage: number | null = null
+    let goalFitAvailable = false
 
     if (nodeType === 'outcome' || nodeType === 'goal') {
       const optionProbabilities = report.option_probabilities ?? {}
@@ -267,6 +280,40 @@ export function useNodeDisplayMetadata(
           achievementProbabilityIsModelledBasis = decision.goalFitIsModelledBasis
         }
       }
+
+      // ROADMAP 2.275 — WHY THIS EXISTS, and why it is not a fourth chooser.
+      //
+      // Witnessed on staging `a27cadf7` (witness-2267 §6b / §11a): the canvas
+      // goal node said "Target set. This run did not produce a goal
+      // probability." while the Analysis→Goal-fit sub-tab rendered "< 1%" four
+      // times, simultaneously visible, from the SAME report.
+      //
+      // The cause is NOT the chooser — `selectGoalProbability` is correct and
+      // both surfaces call it. The cause is the POINTER above: this hook can
+      // only read `option_probabilities[recommendedOptionId]`, and the live V5
+      // payload carries neither `robustness.recommended_option_id` nor a
+      // non-null `leading_option_id` (verified in f-turn-2.json / r4-turn-2.json).
+      // So the `if (recommendedOptionId)` gate never opens, the selector is
+      // never called, and the node denies a figure the very same report holds
+      // for every option.
+      //
+      // This flag reports ONLY whether the report carries an admissible
+      // per-option goal figure, and it answers that by asking the SAME owner —
+      // no re-derivation, no second rule. It deliberately does NOT pick an
+      // option: naming a leader the producer did not designate is exactly the
+      // fabrication this estate forbids.
+      let goalFitAvailableForOptions = false
+      if (nodeType === 'goal' && achievementProbability === null) {
+        for (const entry of Object.values(optionProbabilities)) {
+          if (!entry) continue
+          if (selectGoalProbability(entry as GoalProbabilityInput).goalProbability != null) {
+            goalFitAvailableForOptions = true
+            break
+          }
+        }
+      }
+
+      goalFitAvailable = goalFitAvailableForOptions
 
       // Task B: Fallback for Goal nodes - use recommendation_stability if probability unavailable
       if (nodeType === 'goal' && achievementProbability === null && report.robustness) {
@@ -306,6 +353,7 @@ export function useNodeDisplayMetadata(
       inSensitivityAnalysis,
       achievementProbability,
       achievementProbabilityIsModelledBasis,
+      goalFitAvailable,
       stabilityPercentage,
       winRate,
       predictedOutcome,

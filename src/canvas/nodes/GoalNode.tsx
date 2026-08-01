@@ -312,11 +312,26 @@ export const GoalNode = memo((props: NodeProps) => {
             probability shows the honest absent-state copy (never a rerun demand
             that would contradict the panel's "reflects the current model"); only
             a genuinely changed model prompts a rerun. */}
+        {/* ROADMAP 2.275: the third arm. Witnessed on staging `a27cadf7`
+            (witness-2267 §6b/§11a) — this node asserted "This run did not
+            produce a goal probability" while the Analysis→Goal-fit sub-tab
+            rendered "< 1%" for all four options from the same report, both
+            simultaneously visible at 1280×800.
+
+            Both statements were individually defensible: no goal probability
+            is attributable to the NODE (the run designates no leading option),
+            yet per-option goal-fit figures genuinely exist. The defect was
+            that the node spoke as though "goal probability" were one thing and
+            flatly denied it. It now acknowledges the figures it can see and
+            says where to read them — no number is invented here, and no option
+            is designated. */}
         {hasThreshold && isPostAnalysis && displayMetadata.achievementProbability === null && (
           <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>
             {analysisChanged
               ? 'Target set. Rerun the analysis to update your results.'
-              : 'Target set. This run did not produce a goal probability.'}
+              : displayMetadata.goalFitAvailable
+                ? 'Target set. No overall goal probability for this run — see Goal fit for each option’s chance.'
+                : 'Target set. This run did not produce a goal probability.'}
           </p>
         )}
 
