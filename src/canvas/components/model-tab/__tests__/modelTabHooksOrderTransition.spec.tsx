@@ -10,15 +10,33 @@
  * arrived the counts went 2→4 and 0→2 — a Rules-of-Hooks violation on the exact
  * transition every first-time tester sits through during the ~42s draft wait.
  *
- * ⚠ SEVERITY, MEASURED RATHER THAN INHERITED. The 2.263 audit predicted React
- * would THROW "Rendered more hooks than during the previous render." It does
- * not, on React 18.3.1 in jsdom: it logs
- *     "Warning: React has detected a change in the order of Hooks called by X."
- * and RECOVERS — the section still renders its content. The reverse (N→0)
- * transition produced no console output at all in the same probe. So this is a
- * real Rules-of-Hooks violation with undefined behaviour on React's own terms,
- * NOT the section-breaking crash the audit described. Both facts are in the PR
- * body; the fix stands, the severity claim was corrected.
+ * ⚠ SEVERITY, MEASURED RATHER THAN INHERITED — AND IT DIFFERS PER SECTION.
+ *
+ * The 2.263 audit predicted React would THROW "Rendered more hooks than during
+ * the previous render." for BOTH sections. Neither does, on React 18.3.1 in
+ * jsdom. Measured by mutation (defect restored, one section at a time):
+ *
+ *   GoalSection    0→N  logs "React has detected a change in the order of
+ *                       Hooks called by X." and RECOVERS. Detectable, and the
+ *                       assertions below are what detect it.
+ *                  N→0  no console output at all.
+ *   OptionsSection 0→N  NO throw, NO warning, correct render.
+ *                  N→0  likewise.
+ *
+ * The asymmetry has a cause: `GoalSection` calls two hooks BEFORE its guard, so
+ * the hook at index 2 changes identity between renders and React's order check
+ * sees it. `OptionsSection` called ZERO hooks before its guard, so the earlier
+ * render recorded an EMPTY hook list and React silently accepts hooks being
+ * added to it.
+ *
+ * CONSEQUENCE FOR THIS FILE, STATED PLAINLY: the OptionsSection block below
+ * CANNOT detect the defect it is named after — it passed with the defect fully
+ * restored. It is kept as a behavioural regression guard on the transition (and
+ * would catch a future React that tightens the check), NOT as proof of the fix.
+ * The real guard for OptionsSection is `react-hooks/rules-of-hooks`, enabled as
+ * an error by this same row: with the defect restored it reports two hard
+ * errors and the ratchet fails 234→236. That is the mutation evidence for that
+ * half, and it lives in the lint gate rather than here.
  *
  * WHAT THIS SPEC PROVES AND WHAT IT DOES NOT
  * ------------------------------------------
@@ -161,7 +179,11 @@ describe('GoalSection — the goal node ARRIVING must not change the hook count'
   })
 })
 
-describe('OptionsSection — options ARRIVING must not change the hook count', () => {
+// ⚠ NON-DISCRIMINATING FOR THE HOOKS DEFECT — see the file header. These three
+// passed with the guard restored above the two useMemos. They pin the
+// transition's rendered BEHAVIOUR; `react-hooks/rules-of-hooks` pins the hooks
+// rule itself.
+describe('OptionsSection — the empty→populated transition renders correctly', () => {
   it('survives empty → populated on the SAME mounted instance', () => {
     const { rerender } = render(<OptionsSection optionNodes={[]} allNodes={[]} isExpanded />)
 
