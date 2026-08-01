@@ -106,10 +106,15 @@ describe('EDGE_PROVENANCED_FIELDS — the registry, not a call site', () => {
     for (const field of EDGE_PROVENANCED_FIELDS) {
       expect(edgeSourceKey(field)).toBe(`${field}Source`)
     }
+    // `directionSource` joined in ROADMAP 2.263: `direction` defaults exactly
+    // like the numbers do (`USER_EDGE_DEFAULTS.direction: 'positive'`, and all
+    // three ingestion paths fall through to `'positive'`), and the Model tab
+    // was rendering that default as "Strong positive effect".
     expect([...EDGE_VALUE_SOURCE_KEYS]).toEqual([
       'beliefExistsSource',
       'weightSource',
       'strengthStdSource',
+      'directionSource',
     ])
   })
 

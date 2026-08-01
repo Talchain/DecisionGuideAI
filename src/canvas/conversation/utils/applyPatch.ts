@@ -194,10 +194,19 @@ function buildEdge(op: PatchOperation) {
       // surface that reads the stamp treated a real CEE estimate as never set:
       // the inverse of the laundering `edgeProvenanceLaundering.sourceScan.spec.ts`
       // guards, arriving through the mirror instead of through a spread.
+      // ROADMAP 2.263 — the THIRD ingestion path, and the one that nearly got
+      // away. The row's brief named two (`DraftChat`, `applyDraftResult`); this
+      // graph_patch hop carries a byte-identical `directionFromData ?? (rawWeight
+      // < 0 ? 'negative' : 'positive')` collapse and was found only because
+      // `edgeValidationMapperMirror.spec.ts` flagged `directionSource` as an
+      // undisclosed divergence between the two hops in the FULL suite. Scoped
+      // runs never touched it. Exactly the "never say ALL consumers" hazard
+      // `src/lib/factorDirection.ts`'s own rule 5 warns about.
       ...edgeValueSourcePatch({
         beliefExists: beliefExists !== undefined ? 'cee' : undefined,
         weight: wireSuppliedStrength ? 'cee' : undefined,
         strengthStd: strengthStd !== undefined ? 'cee' : undefined,
+        direction: directionFromData !== undefined ? 'cee' : undefined,
       }),
       // CEE display provenance (snake_case → camelCase). Distinct from
       // `provenance_source` above.
