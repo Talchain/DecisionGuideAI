@@ -19,6 +19,11 @@ import { typography } from '@/styles/typography'
 import { formatPercent } from '@/utils/formatPercent'
 import type { DriverItem } from '../types'
 import { selectFlipRisk, type FlipThresholdLike } from '../utils/selectFlipRisk'
+import {
+  FLIP_THRESHOLD_COPY,
+  flipDirectionWording,
+  formatFlipValue,
+} from '../utils/flipThresholdDisplay'
 
 type FragileEdge = {
   edge_id?: string
@@ -39,11 +44,25 @@ export interface V7SignalRowProps {
    * the run produced any flip at all.
    */
   flipThresholds?: FlipThresholdLike[]
+  /**
+   * `!DecisionVerdict.hasLeadingOption`, QUOTED from the caller (V7Hero
+   * derives it with the panel-canonical expression) — never re-derived here,
+   * per the `fragileEdgeCopy` pattern. Chooses the withheld arm of the
+   * register's flip sentences: on a withheld run the threshold statement may
+   * not presuppose a leader exists to flip from.
+   */
+  designationsWithheld?: boolean
   /** Focus the matching canvas element when a chip is clicked. */
   onFocusNode?: (nodeId: string) => void
 }
 
-export function V7SignalRow({ topDrivers, fragileEdges, flipThresholds, onFocusNode }: V7SignalRowProps) {
+export function V7SignalRow({
+  topDrivers,
+  fragileEdges,
+  flipThresholds,
+  designationsWithheld = false,
+  onFocusNode,
+}: V7SignalRowProps) {
   // ROADMAP 2.276 — TWO defects closed here, both witnessed on staging
   // `a27cadf7` (witness-2267 §10):
   //
@@ -72,6 +91,7 @@ export function V7SignalRow({ topDrivers, fragileEdges, flipThresholds, onFocusN
       switchProbability: e.switch_probability,
       targetId: e.from_id,
       joinId: e.from_id,
+      toLabel: e.to_label,
     })),
   )
   const flip = flipSelection.topFlipRisk
@@ -80,9 +100,25 @@ export function V7SignalRow({ topDrivers, fragileEdges, flipThresholds, onFocusN
 
   const chips: React.ReactNode[] = []
 
-  // Flip-risk chip — only when the producer's flip evidence permits naming one.
+  // Flip chip — only when the producer's flip evidence permits naming one.
+  //
+  // ROADMAP 2.291 (Codex A8) — the number this chip used to print,
+  // `switch_probability`, is PLoT's probability that flipping an EDGE
+  // switches the recommendation. Rendering it as "N% flip risk · {factor}"
+  // attributed an edge statistic to a factor and called it flip evidence.
+  // Two honest arms now:
+  //   · `flips_present` — the selector supplies the named factor's OWN
+  //     threshold row, and the chip states THAT: threshold, direction and
+  //     alternative winner, through the same register sentences and the same
+  //     formatter the hero uses (one threshold never renders two ways on one
+  //     panel). The edge percentage is not mixed into the factor statement.
+  //   · `no_producer_flip_data` — the percentage is the only signal, so it is
+  //     retained, but under the register's own name for the quantity
+  //     ("N% switch") and attributed to the EDGE it belongs to, named
+  //     "{from} → {to}". The words "flip risk" leave this arm.
   if (flip && flipPct != null) {
     const focusId = flip.targetId
+    const ft = flip.flipThreshold
     chips.push(
       <button
         key="flip"
@@ -93,12 +129,33 @@ export function V7SignalRow({ topDrivers, fragileEdges, flipThresholds, onFocusN
         className={`inline-flex items-center gap-1.5 rounded-full border border-panel-border bg-transparent px-2 py-0.5 ${typography.panelMeta} text-text-body enabled:hover:bg-panel-hover disabled:cursor-default`}
       >
         <AlertTriangle className="h-3 w-3 flex-none text-warning" aria-hidden />
-        <span>
-          <span className="font-semibold text-text-header">
-            {formatPercent(flipPct, { fromDecimal: true })}
-          </span>{' '}
-          flip risk · {flip.label}
-        </span>
+        {ft && typeof ft.flip_value === 'number' ? (
+          <span>
+            {ft.alternative_winner_label
+              ? FLIP_THRESHOLD_COPY.flipRiskWithAlternative(
+                  flip.label,
+                  flipDirectionWording(ft.current_value, ft.flip_value),
+                  formatFlipValue(ft.flip_value, ft.unit ?? undefined),
+                  ft.alternative_winner_label,
+                  designationsWithheld,
+                )
+              : FLIP_THRESHOLD_COPY.flipRiskNoAlternative(
+                  flip.label,
+                  flipDirectionWording(ft.current_value, ft.flip_value),
+                  formatFlipValue(ft.flip_value, ft.unit ?? undefined),
+                  designationsWithheld,
+                )}
+          </span>
+        ) : (
+          <span>
+            <span className="font-semibold text-text-header">
+              {FLIP_THRESHOLD_COPY.switchMeta(formatPercent(flipPct, { fromDecimal: true }))}
+            </span>
+            {' · '}
+            {flip.label}
+            {flip.toLabel ? ` → ${flip.toLabel}` : ''}
+          </span>
+        )}
       </button>,
     )
   }

@@ -18,6 +18,7 @@
 import { describe, expect, it } from 'vitest'
 import { HERO_COPY } from '../heroCopy'
 import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY } from '../../utils/goalAnchorCopy'
+import { FLIP_THRESHOLD_COPY } from '../../utils/flipThresholdDisplay'
 
 const N = '72%'
 
@@ -109,5 +110,26 @@ describe('HERO_COPY.headline.mostLikelyStrongest — no magnitude, no placeholde
 
   it('carries the magnitude when there is one', () => {
     expect(HERO_COPY.headline.mostLikelyStrongest('Option A', N)).toContain(N)
+  })
+})
+
+describe('HERO_COPY.evidence — the flip-threshold register exists once (ROADMAP 2.291)', () => {
+  /**
+   * The flip sentences moved to `utils/flipThresholdDisplay` so the V7 signal
+   * chip — outside this mount-guarded module — can render the same producer
+   * rows with the same words. `HERO_COPY.evidence` delegates BY REFERENCE:
+   * these are identity assertions, so re-inlining any of them here (a second
+   * voice for one claim) goes RED even if the restated string starts out
+   * byte-identical.
+   */
+  it.each([
+    ['switchMeta'],
+    ['flipRiskWithAlternative'],
+    ['flipRiskNoAlternative'],
+    ['fallsBelow'],
+    ['risesAbove'],
+    ['crosses'],
+  ] as const)('%s IS the shared register member', (name) => {
+    expect(HERO_COPY.evidence[name]).toBe(FLIP_THRESHOLD_COPY[name])
   })
 })

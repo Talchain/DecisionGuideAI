@@ -60,7 +60,7 @@ import {
 } from '../utils/getExpectedValue'
 import { safeInterpolatedLabel, containsBannedTerm } from '../analysisHeroV17/glossaryCheck'
 import { formatPercent, formatProbabilityWithResolution } from '@/utils/formatPercent'
-import { classifyUnit } from '@/utils/unitClassifier'
+import { flipDirectionWording, formatFlipValue } from '../utils/flipThresholdDisplay'
 import { HERO_COPY } from './heroCopy'
 import type { HeroChartModel, HeroLens, HeroModel, HeroRowVM, HeroStatusModel } from './heroTypes'
 
@@ -156,24 +156,10 @@ function goalReadout(value: number | null): string {
   return formatPercent(value, { fromDecimal: true })
 }
 
-/**
- * Format a flip-threshold factor value with its OWN unit string (factor
- * space, not outcome space). Unit placement follows the app-wide
- * classifyUnit convention (symbol prefix, ISO space-prefix, % suffix,
- * generic space-suffix) — but unlike formatValueWithUnit, the value ALWAYS
- * renders as a number: a "crosses <value>" sentence must never substitute
- * a qualitative word for the producer's numeric threshold. Display
- * formatting only; the value itself is unchanged.
- */
-function formatFlipValue(value: number, unit?: string): string {
-  const rendered = value.toLocaleString('en-GB', { maximumFractionDigits: 1 })
-  const { kind, canonical } = classifyUnit(unit ?? null)
-  if (kind === 'symbol') return `${canonical}${rendered}`
-  if (kind === 'iso') return `${canonical} ${rendered}`
-  if (kind === 'percent') return `${rendered}%`
-  if (kind === 'none' || kind === 'placeholder') return rendered
-  return `${rendered} ${canonical}`
-}
+// formatFlipValue moved VERBATIM to `../utils/flipThresholdDisplay` (ROADMAP
+// 2.291) so the V7 signal chip renders the same producer rows through the
+// same formatter — "one threshold must never render two ways in one panel"
+// now holds across surfaces, not just within this module.
 
 // ─── Main mapper ─────────────────────────────────────────────────────────────
 
@@ -984,13 +970,10 @@ export function buildHeroModel(
       if (!label || containsBannedTerm(label)) return null
       // UI-SEM-074 (Codex B3 tightened): a direction claim needs BOTH values —
       // with no producer baseline the direction is unknowable, so the
-      // neutral 'crosses' wording is the only honest option.
-      const direction =
-        typeof ft.current_value === 'number' && ft.flip_value < ft.current_value
-          ? HERO_COPY.evidence.fallsBelow
-          : typeof ft.current_value === 'number' && ft.flip_value > ft.current_value
-            ? HERO_COPY.evidence.risesAbove
-            : HERO_COPY.evidence.crosses
+      // neutral 'crosses' wording is the only honest option. The rule lives
+      // in the shared `flipThresholdDisplay` module (2.291) so the V7 chip
+      // cannot state a different direction for the same row.
+      const direction = flipDirectionWording(ft.current_value, ft.flip_value)
       const value = formatFlipValue(ft.flip_value, ft.unit)
       const alt = ft.alternative_winner_label
         ? stripEncodingNotation(ft.alternative_winner_label)
