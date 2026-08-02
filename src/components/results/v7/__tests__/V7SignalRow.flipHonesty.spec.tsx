@@ -34,12 +34,12 @@ const WITNESSED_FRAGILE_EDGES = [
 ]
 
 const ALL_INVARIANT_THRESHOLDS = [
-  { node_id: 'fac_build_indicator', flip_value: null },
-  { node_id: 'fac_buy_indicator', flip_value: null },
-  { node_id: 'fac_eng_productivity', flip_value: null },
-  { node_id: 'fac_hybrid_indicator', flip_value: null },
-  { node_id: 'fac_req_change_rate', flip_value: null },
-  { node_id: 'fac_vendor_fit', flip_value: null },
+  { node_id: 'fac_build_indicator', flip_value: null, flip_reason: 'structurally_invariant' },
+  { node_id: 'fac_buy_indicator', flip_value: null, flip_reason: 'structurally_invariant' },
+  { node_id: 'fac_eng_productivity', flip_value: null, flip_reason: 'structurally_invariant' },
+  { node_id: 'fac_hybrid_indicator', flip_value: null, flip_reason: 'structurally_invariant' },
+  { node_id: 'fac_req_change_rate', flip_value: null, flip_reason: 'structurally_invariant' },
+  { node_id: 'fac_vendor_fit', flip_value: null, flip_reason: 'structurally_invariant' },
 ]
 
 describe('V7SignalRow — flip-risk chip honesty', () => {
@@ -88,8 +88,8 @@ describe('V7SignalRow — flip-risk chip honesty', () => {
           { from_id: 'fac_buy_indicator', from_label: 'Vendor Platform Purchase', to_label: 'y', switch_probability: 0.31 },
         ]}
         flipThresholds={[
-          { node_id: 'fac_vendor_fit', flip_value: null },
-          { node_id: 'fac_buy_indicator', flip_value: 0.4 },
+          { node_id: 'fac_vendor_fit', flip_value: null, flip_reason: 'structurally_invariant' },
+          { node_id: 'fac_buy_indicator', flip_value: 0.4, flip_reason: 'found' },
         ]}
         topDrivers={[]}
       />,

@@ -69,16 +69,35 @@
  * and the witnessed "15%" chip (0.1485) was itself below it — but it IS a
  * behaviour change on payloads carrying no flip thresholds, not a no-op.
  *
- * Gating on `flip_value == null` and NOT on `flip_reason`: the UI's
- * `FlipReason` union (`'no_bracket' | 'timeout' | 'isl_error'`) does not
- * contain ANY of the values the live producer actually sends
- * (`structurally_invariant`, `no_effect_within_bounds`, `found`), so a
- * reason-string test would be a contract-skew trap. `flip_value` is the
- * quantity the producer computes and the one the rest of the panel already
- * keys off.
+ * ⚠ CORRECTED 2026-08-02 (ROADMAP 2.280) — THE PARAGRAPH THAT WAS HERE IS NOW
+ * HALF FALSE, AND ITS SECOND HALF WAS LOAD-BEARING. It read:
+ *
+ *   "Gating on `flip_value == null` and NOT on `flip_reason`: the UI's
+ *    `FlipReason` union (`'no_bracket' | 'timeout' | 'isl_error'`) does not
+ *    contain ANY of the values the live producer actually sends
+ *    (`structurally_invariant`, `no_effect_within_bounds`, `found`), so a
+ *    reason-string test would be a contract-skew trap."
+ *
+ * The DIAGNOSIS was exactly right and is why 2.280 exists — that union was
+ * fiction (`no_bracket`: zero occurrences in the producer; `isl_error`: a
+ * transport field, never a flip reason). But the CONCLUSION drawn from it —
+ * never read `flip_reason` — is what left this classifier unable to tell an
+ * attested no-flip from a probe that never ran, and therefore reporting the
+ * second as the first. The skew was a reason to FIX THE UNION, not to discard
+ * the only field that carries the distinction.
+ *
+ * So, precisely:
+ *   · WHETHER A FLIP EXISTS is still keyed on `flip_value`, exactly as before.
+ *     `flip_reason` is never consulted to claim a flip.
+ *   · WHETHER AN ABSENCE MAY BE ASSERTED is keyed on `flip_reason`, through
+ *     `flipReasonVocabulary`'s allow-list, because `flip_value: null` alone
+ *     genuinely does not distinguish the two cases.
+ * The union is now derived from the producer and left OPEN, and every
+ * predicate is written so an unrecognised token fails toward "we do not know".
  */
 
 import { THRESHOLDS } from '../../../lib/mappers/constants'
+import { isAttestedNoFlipReason } from './flipReasonVocabulary'
 
 /** What the producer's flip evidence says about this run. */
 export type FlipEvidence = 'no_producer_flip_data' | 'flips_absent' | 'flips_present'
@@ -115,6 +134,13 @@ export interface FlipRiskSelection {
 export interface FlipThresholdLike {
   node_id?: string | null
   flip_value?: number | null
+  /**
+   * ROADMAP 2.280. Read ONLY to tell an attested no-flip apart from a probe
+   * that established nothing — never to decide that a flip exists (that stays
+   * keyed on `flip_value`). Typed as a bare string because the producer's
+   * vocabulary is open; `flipReasonVocabulary` does the classification.
+   */
+  flip_reason?: string | null
 }
 
 /**
@@ -137,9 +163,35 @@ export function classifyFlipEvidence(
   if (!Array.isArray(flipThresholds) || flipThresholds.length === 0) {
     return 'no_producer_flip_data'
   }
-  return flipThresholds.some((ft) => typeof ft?.flip_value === 'number')
-    ? 'flips_present'
-    : 'flips_absent'
+  if (flipThresholds.some((ft) => typeof ft?.flip_value === 'number')) {
+    return 'flips_present'
+  }
+  // ROADMAP 2.280 — NO ROW CARRIES A FLIP VALUE. That is NOT yet enough to
+  // state an absence.
+  //
+  // Until now this returned `flips_absent` here unconditionally, which asserts
+  // that the producer PROVED nothing flips. But a null `flip_value` has two
+  // completely different meanings: "the probe ran and found no flip"
+  // (`no_effect_within_bounds`, `structurally_invariant`) and "the probe never
+  // established anything" (`timeout`, `candidate_cap_exceeded`,
+  // `insufficient_precision`, `heuristic`, `unattested`, … and every token this
+  // build has never seen). Collapsing the second into the first turns an
+  // unmeasured factor into an attested safety claim — the precise inversion
+  // this module's own header forbids ("absence of evidence is NOT evidence of
+  // absence").
+  //
+  // ⚠ THE READ IS STILL OFF THE ROWS, not off `flipThresholdsStatus` — the
+  // two-choosers rule in this file's header is intact. `flip_reason` is a
+  // per-row field of the same rows, not a producer summary of them.
+  //
+  // EVERY row must attest. `isAttestedNoFlipReason` is an allow-list of the two
+  // substantive no-flip tokens, so an unknown token, a missing reason or a
+  // probe failure all fail it and the run degrades to `no_producer_flip_data`
+  // — the arm that keeps the gate OPEN. Fail toward "we do not know".
+  const everyRowAttestsNoFlip = flipThresholds.every((ft) =>
+    isAttestedNoFlipReason(ft?.flip_reason),
+  )
+  return everyRowAttestsNoFlip ? 'flips_absent' : 'no_producer_flip_data'
 }
 
 export function selectFlipRisk(

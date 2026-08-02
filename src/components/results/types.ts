@@ -14,6 +14,7 @@ import type { M1CoachingReadiness } from '../../types/cee'
 import type { DecisionVerdict } from '../../lib/decisionVerdict'
 import type { ReportV1, OptionProbability } from '../../adapters/plot/types'
 import type { V2FactorSensitivity, V2OptionComparison } from '../../adapters/plot/v2/types'
+import type { KnownFlipReason } from './utils/flipReasonVocabulary'
 
 // Re-export M1 coaching type for component use
 export type { M1CoachingReadiness }
@@ -65,8 +66,30 @@ export interface GoalConstraint {
 // Flip Threshold Types (Task 6 — Tipping Points)
 // =============================================================================
 
-/** Reason why a flip value could not be determined */
-export type FlipReason = 'no_bracket' | 'timeout' | 'isl_error'
+/**
+ * Why a flip value is what it is (ROADMAP 2.280).
+ *
+ * ⚠ THIS WAS `'no_bracket' | 'timeout' | 'isl_error'` AND HAD ESSENTIALLY ZERO
+ * OVERLAP WITH THE WIRE. `no_bracket` has zero occurrences in the producer;
+ * `isl_error` exists there only as a transport-error envelope field, never as a
+ * flip reason; only `timeout` was real. The tokens the live wire actually
+ * carries (`found`, `no_effect_within_bounds`, `structurally_invariant`) were
+ * absent from the union entirely — so anything narrowing on this type was
+ * narrowing on fiction.
+ *
+ * ⚠ AND IT STAYS OPEN. The pinned contract types this field as a bare string
+ * and warns against matching it, and PLoT passes unknown ISL tokens through
+ * verbatim. A closed union here would re-commit the same error with a longer
+ * list. `KnownFlipReason` gives call sites autocomplete and exhaustiveness over
+ * what this build KNOWS; the `(string & {})` arm keeps every other token
+ * assignable, so an unrecognised value is a runtime classification question —
+ * answered conservatively in `flipReasonVocabulary` — and never a type error
+ * that tempts someone to cast it away.
+ *
+ * Never test this string inline. Use `flipReasonVocabulary`'s predicates: they
+ * are written so an unknown token lands on the safe side.
+ */
+export type FlipReason = KnownFlipReason | (string & {})
 
 /** A single tipping-point entry from PLoT's robustness.flip_thresholds */
 export interface FlipThreshold {

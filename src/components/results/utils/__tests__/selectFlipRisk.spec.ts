@@ -23,10 +23,10 @@ import { selectFlipRisk, classifyFlipEvidence } from '../selectFlipRisk'
 
 /** witness-2267 run 1: every row `structurally_invariant` → flip_value null. */
 const RUN1_ZERO_FLIP_THRESHOLDS = [
-  { node_id: 'fac_bristol_activation', flip_value: null },
-  { node_id: 'fac_capex', flip_value: null },
-  { node_id: 'fac_demand_growth', flip_value: null },
-  { node_id: 'fac_leeds_activation', flip_value: null },
+  { node_id: 'fac_bristol_activation', flip_value: null, flip_reason: 'structurally_invariant' },
+  { node_id: 'fac_capex', flip_value: null, flip_reason: 'structurally_invariant' },
+  { node_id: 'fac_demand_growth', flip_value: null, flip_reason: 'structurally_invariant' },
+  { node_id: 'fac_leeds_activation', flip_value: null, flip_reason: 'structurally_invariant' },
 ]
 
 /** witness-2267 run 1 fragile edges, grouped by from_id (max switch kept). */
@@ -39,12 +39,12 @@ const RUN1_CANDIDATES = [
 
 /** witness-2267 run 3: 6 rows, all non-flipping. */
 const RUN3_ZERO_FLIP_THRESHOLDS = [
-  { node_id: 'fac_build_indicator', flip_value: null },
-  { node_id: 'fac_buy_indicator', flip_value: null },
-  { node_id: 'fac_eng_productivity', flip_value: null },
-  { node_id: 'fac_hybrid_indicator', flip_value: null },
-  { node_id: 'fac_req_change_rate', flip_value: null },
-  { node_id: 'fac_vendor_fit', flip_value: null },
+  { node_id: 'fac_build_indicator', flip_value: null, flip_reason: 'structurally_invariant' },
+  { node_id: 'fac_buy_indicator', flip_value: null, flip_reason: 'structurally_invariant' },
+  { node_id: 'fac_eng_productivity', flip_value: null, flip_reason: 'structurally_invariant' },
+  { node_id: 'fac_hybrid_indicator', flip_value: null, flip_reason: 'structurally_invariant' },
+  { node_id: 'fac_req_change_rate', flip_value: null, flip_reason: 'structurally_invariant' },
+  { node_id: 'fac_vendor_fit', flip_value: null, flip_reason: 'structurally_invariant' },
 ]
 
 /**
@@ -52,10 +52,10 @@ const RUN3_ZERO_FLIP_THRESHOLDS = [
  * carries a LOWER switch probability than two factors that do not flip.
  */
 const RUNB_FLIP_BEARING_THRESHOLDS = [
-  { node_id: 'fac_capital_invest', flip_value: null },
-  { node_id: 'fac_launch_timing', flip_value: null },
-  { node_id: 'fac_local_demand', flip_value: null },
-  { node_id: 'fac_op_readiness', flip_value: 0.772182 },
+  { node_id: 'fac_capital_invest', flip_value: null, flip_reason: 'structurally_invariant' },
+  { node_id: 'fac_launch_timing', flip_value: null, flip_reason: 'structurally_invariant' },
+  { node_id: 'fac_local_demand', flip_value: null, flip_reason: 'structurally_invariant' },
+  { node_id: 'fac_op_readiness', flip_value: 0.772182, flip_reason: 'found' },
 ]
 
 /**
@@ -162,9 +162,15 @@ describe('selectFlipRisk — legacy payloads are not silently blinded', () => {
     expect(classifyFlipEvidence([])).toBe('no_producer_flip_data')
   })
 
-  it('does not read flip_reason — the UI union omits every value the producer sends', () => {
-    // `structurally_invariant` is not in the UI FlipReason union; classification
-    // must survive that skew by keying on flip_value alone.
+  it('never consults flip_reason to CLAIM a flip — presence stays keyed on flip_value (ROADMAP 2.280)', () => {
+    // ⚠ RENAMED. This test used to be called "does not read flip_reason — the
+    // UI union omits every value the producer sends", and both halves of that
+    // name are now wrong: 2.280 derived the union from the producer, and
+    // `classifyFlipEvidence` DOES read `flip_reason` — but only to decide
+    // whether an ABSENCE may be asserted, never to claim a flip exists.
+    // The assertion below was always about the second thing, and it still
+    // holds exactly: a row with a real `flip_value` yields `flips_present`
+    // whatever its reason says (here, none at all).
     const sel = selectFlipRisk(
       [{ node_id: 'f1', flip_value: null }, { node_id: 'f2', flip_value: 0.5 }],
       [{ label: 'F2', switchProbability: 0.4, joinId: 'f2' }],

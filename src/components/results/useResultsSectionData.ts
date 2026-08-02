@@ -1794,7 +1794,51 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           alternative_winner_label: ft.alternative_winner_label ?? ft.alt_winner_label,
         }
       })
-      .filter((ft: FlipThreshold) => ft.flip_reason !== 'timeout' && ft.flip_reason !== 'isl_error')
+      // ROADMAP 2.280 — THE REASON FILTER THAT USED TO SIT HERE IS DELETED.
+      //
+      // It was `.filter(ft => ft.flip_reason !== 'timeout' && ft.flip_reason
+      // !== 'isl_error')`, and it was believed dead ("the union has no overlap
+      // with live tokens"). Half true: `isl_error` is never emitted as a flip
+      // reason, so that arm was inert — but `timeout` IS a real producer token
+      // (`flip-threshold-status.ts:86`), so this line fires on the LIVE
+      // VOCABULARY.
+      //
+      // ⚠ PRECISION, because the difference matters to anyone re-deriving this:
+      // that is a claim about the token set the producer can emit, established
+      // at the bytes in PLoT. It is NOT a witnessed capture — none of the
+      // captures in `PHASE0-EVIDENCE-2026-07-28/` carries a `timeout` row (all
+      // witnessed zero-flip rows are `structurally_invariant`). So the
+      // corruption below is REACHABLE, not observed. Do not restate it as
+      // "witnessed on staging".
+      //
+      // And firing was worse than not firing. It deleted probe-failure rows
+      // BEFORE `classifyFlipEvidence` could count them, so a run of one
+      // `timeout` plus two `no_effect_within_bounds` lost the timeout row and
+      // the remainder — all null-valued, all attesting — classified as
+      // `flips_absent`. The panel then stated that the producer had PROVED no
+      // flip exists, on a run where one factor was never measured at all.
+      //
+      // Removing it is display-neutral. THE COMPLETE CONSUMER MANIFEST of
+      // `recommendation.flipThresholds`, each verified at the bytes — an
+      // absence claim needs the whole list, and a PARTIAL manifest is the
+      // trap-14 seed (this comment shipped review with two of the four
+      // missing):
+      //   · `ConfidenceSection.tsx:1061` (`FlipThresholdCards`) — already
+      //     applies its own `.filter(ft => ft.flip_value != null)`, so it never
+      //     rendered these rows.
+      //   · `buildHeroModel.ts:286` — `usableFlips`, filters `flip_value != null`.
+      //   · `buildHeroModel.ts:983` — `evidenceFlipRisks`, returns null on
+      //     `flip_value == null`.
+      //   · `TornadoChart` — accepts `flipThresholds` and deliberately renders
+      //     none (`TornadoChart.tsx:135-138`: the flip marker was removed as an
+      //     invalid coordinate mapping).
+      // Every one of them already drops null-valued rows, so the rows this
+      // filter used to delete were invisible to all four. The ONLY consumer
+      // whose answer changes is the classifier, which is the one that was wrong.
+      //
+      // Probe-failure rows are now routed away from attested absence by
+      // `flipReasonVocabulary`, which does it by MEANING and covers the
+      // unknown-token case this filter's hard-coded pair never could.
 
     return {
       recommendedOption,

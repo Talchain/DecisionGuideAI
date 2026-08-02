@@ -24,6 +24,7 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
+import { GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
 import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
 import { getStabilityClassification } from '../../lib/stability'
@@ -122,6 +123,36 @@ export const GoalNode = memo((props: NodeProps) => {
     if (!Array.isArray(warnings)) return false
     return warnings.some((w: any) => w.code === 'CONSTRAINT_NODE_DEFAULT_BASE')
   }, [report, isPostAnalysis])
+
+  // THE POSSESSIVE GATE (ROADMAP 2.283) — the last live un-gated possessive
+  // surface in the estate.
+  //
+  // `basis === 'joint_goal_substituted'` means this number is P(all
+  // constraints jointly satisfied) STANDING IN for an absent
+  // `probability_of_goal`. "chance of reaching target" then names a question
+  // the number does not answer — witnessed on staging as a ~100x
+  // understatement rendered in the possessive voice (#556). Six sibling
+  // surfaces already withhold the possessive in this state; this node could
+  // not, because `useNodeDisplayMetadata` read the basis and discarded it.
+  // 2.283 forwards it; this is the consumer.
+  //
+  // ⚠ SCOPED TO `joint_goal_substituted`, NEVER to "the figure is joint".
+  // `joint_goal_constrained` is the user's own goal AND their own limits —
+  // the possessive is EARNED there and is untouched (the ROADMAP 1.49 case).
+  // The expression is byte-identical to `OptionNode`'s, deliberately.
+  const goalFitSubstituted =
+    displayMetadata.achievementProbabilityBasis === 'joint_goal_substituted'
+  // The readout, built ONCE above both arms so the withheld and permitted
+  // wordings can never show different numbers for the same run. Byte-identical
+  // to the literal it replaces (`'< 1'` or rounded percent, then `'%'`).
+  const achievementReadout =
+    displayMetadata.achievementProbability === null
+      ? null
+      : `${
+          displayMetadata.achievementProbability > 0 && displayMetadata.achievementProbability < 0.01
+            ? '< 1'
+            : Math.round(displayMetadata.achievementProbability * 100)
+        }%`
 
   // Border: dashed warning for no target, dashed by stability for post-analysis
   const goalBorderOverride = useMemo(() => {
@@ -348,9 +379,15 @@ export const GoalNode = memo((props: NodeProps) => {
           <div className={`${typography.nodeLabel} mt-1 ${
             displayMetadata.achievementProbability < 0.10 ? 'text-danger' : 'text-text-body'
           }`}>
-            {displayMetadata.achievementProbability > 0 && displayMetadata.achievementProbability < 0.01
-              ? '< 1'
-              : Math.round(displayMetadata.achievementProbability * 100)}% chance of reaching target
+            {/* ROADMAP 2.283: the withheld arm is the shared register's PHRASE
+                form verbatim — the same wording the results panel, the hero,
+                the V7 goal lens and OptionNode render for this basis. The
+                permitted arm is byte-identical to the string it replaced;
+                migrating the healthy path off "reaching target" is a separate
+                copy decision and is NOT smuggled in here. */}
+            {goalFitSubstituted
+              ? GOAL_ANCHOR_COPY.phrase(achievementReadout ?? '', goalFitSubstituted)
+              : `${achievementReadout} chance of reaching target`}
             {hasConstraintDefaultWarning && (
               <span
                 className={`${typography.edgeLabel} ml-1 bg-panel border border-factor/30 text-text-body rounded-full w-4 h-4 inline-flex items-center justify-center`}
