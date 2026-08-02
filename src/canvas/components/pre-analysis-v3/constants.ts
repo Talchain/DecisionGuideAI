@@ -272,6 +272,16 @@ export const FIELD_FEEDBACK_COPY = {
   olumiUnavailable: 'Olumi is unavailable right now. Open the Olumi panel and try again.',
   addValue: 'Add value',
   check: 'Check',
+  edit: 'Edit',
+  /**
+   * Range refusal for normalised-scale-only factors (journey-walk gap #3):
+   * no cap, no unit, no raw-value anchor — the committed number IS the
+   * model-scale value, so a magnitude like £60,000 would paint 6000000%.
+   * Mirrors the NL path's honest refusal vocabulary ("recorded without a
+   * unit").
+   */
+  normalisedRangeHint:
+    'This factor is recorded without a unit on a 0–1 scale. Enter a value between 0 and 1.',
 } as const
 
 export const HERO_COPY = {

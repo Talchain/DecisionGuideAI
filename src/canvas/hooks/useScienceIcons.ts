@@ -16,6 +16,7 @@ import type { ComponentType } from 'react'
 import type { NodeType } from '../domain/nodes'
 import { computeSignedMean } from '../domain/edges'
 import { unwrapInterventionValue } from '../utils/labelUtils'
+import { isReviewedSource } from '../components/pre-analysis/utils/isReviewedByUser'
 
 export interface ScienceIconDef {
   id: string
@@ -61,8 +62,16 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
         })
       }
 
-      // 2. Olumi estimate
-      if (extractionType === 'inferred') {
+      // 2. Olumi estimate — journey-walk gap #3 (third contradicting
+      // surface): gating on `extractionType === 'inferred'` ALONE kept this
+      // claim alive after a user override (commitValue sets source
+      // 'user_override' but never touches extractionType), so the canvas said
+      // "Olumi estimated this value" about a factor the sidebar called
+      // "checked by you". The user-ownership question is answered by the
+      // canonical reviewed-source predicate — the SAME one the sidebar pill
+      // derives from — never a second hand-kept source list (trap 12).
+      const source = observedState?.source as string | undefined
+      if (extractionType === 'inferred' && !isReviewedSource(source)) {
         icons.push({
           id: 'olumi-estimate',
           icon: Sparkles,

@@ -368,7 +368,11 @@ export const YourDecisionSection = memo(function YourDecisionSection({
                   setExpandedEstimate(current => (current === nodeId ? null : nodeId))
                 }
               />
-              {expandedEstimate === row.nodeId && !row.reviewed && (
+              {/* Walk gap #3 (dead-end half): the old `&& !row.reviewed` guard
+                  locked a wrong checked value out of the editor that accepted
+                  it. Reviewed rows now reopen the same drill-in via the row's
+                  Edit affordance. */}
+              {expandedEstimate === row.nodeId && (
                 <CalibrateDrillIn row={row} onDone={() => setExpandedEstimate(null)} />
               )}
             </div>
