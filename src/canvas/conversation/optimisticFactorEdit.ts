@@ -41,8 +41,8 @@
 
 import { useCanvasStore } from '../store'
 import { withObservedStateUpdate, type ObservedStateData } from '../utils/observedStateHelpers'
-import { unwrapInterventionValue } from '../utils/labelUtils'
-import { formatValueWithUnit } from '../utils/formatValueWithUnit'
+import { unwrapInterventionValue, classifyUnit } from '../utils/labelUtils'
+import { formatValueWithUnit, formatNumber } from '../utils/formatValueWithUnit'
 
 /**
  * Everything needed to undo one optimistic value write, captured BEFORE it.
@@ -210,6 +210,19 @@ export function responseAppliedFactorEdit(response: unknown, targetId: string): 
  * base the operator did not see, and nothing anywhere says so. That is a
  * data-integrity defect on the canonical graph, not a rendering one.
  *
+ * ⚠ WHAT THE RECEIPT PROVES IS A DIFFERENCE, NOT A DIRECTION — and the copy
+ * must not exceed it. The stale-boot walk above is the case that MOTIVATED this
+ * guard, but it is not the only way the two bases part company, and the receipt
+ * cannot tell them apart. The CANVAS-AHEAD case is live and ungated: a factor
+ * with no `raw_value` on either side, written locally via a one-argument
+ * `setObservedValue(0.6)` over a server-held `0.4`, produces exactly the same
+ * evidence as a stale canvas. An earlier draft of this module asserted "Your
+ * canvas was out of date" and would have reported that case — canvas AHEAD of
+ * the engine — as the canvas being behind. Diagnosing a cause the evidence does
+ * not carry is the same defect class as the silence it replaces, so the
+ * disclosure now states only what the receipt witnesses: the engine applied the
+ * change on top of one number, and a different number was on screen.
+ *
  * WHY DETECTION AND DISCLOSURE, RATHER THAN PREVENTION.
  * Prevention needs the operator's base ON THE WIRE and a server that refuses a
  * mismatch — a CEE-side change, and a bigger piece of work. What the UI can do
@@ -225,9 +238,9 @@ export function responseAppliedFactorEdit(response: unknown, targetId: string): 
  * reverting it would replace one lie with another. The defect is the SILENCE.
  * Correspondingly the reviewed stamp is NOT withheld: "checked by you" is a
  * claim about the number now on the engine, and that claim survives — what does
- * not survive is the implicit claim that the canvas the operator was reading
- * matched the engine. So the value stands, the stamp stands, and the divergence
- * is SAID.
+ * not survive is the implicit claim that the number on screen was the one the
+ * change was applied to. So the value stands, the stamp stands, and the
+ * divergence is SAID.
  *
  * FAIL-SAFE DIRECTION, and it is the opposite of `responseAppliedFactorEdit`'s.
  * That predicate assumes APPLIED when it cannot tell, because a false revert
@@ -238,13 +251,17 @@ export function responseAppliedFactorEdit(response: unknown, targetId: string): 
  * scale-ambiguous case returns null.
  */
 
-/** A proven mismatch between the base the user saw and the base the server had. */
+/**
+ * A proven DIFFERENCE between the base the user saw and the base the server
+ * applied to. Deliberately not a claim about which of the two is older — see
+ * the direction note above.
+ */
 export interface RebaseDivergence {
   /** The factor the receipt and the snapshot agree they are both talking about. */
   nodeId: string
-  /** The magnitude the operator was looking at when they typed. */
+  /** The magnitude that was on the operator's screen when they typed. */
   shownBase: number
-  /** The magnitude the engine actually held, per its own receipt. */
+  /** The magnitude the engine applied the change to, per its own receipt. */
   serverBase: number
   /**
    * Which field the two sides were compared on. `raw_value` is a user-unit
@@ -252,7 +269,14 @@ export interface RebaseDivergence {
    * `value` is model scale and is used only when neither side states a raw one.
    */
   basis: 'raw_value' | 'value'
-  /** The unit both sides agreed on, when either stated one. */
+  /**
+   * The unit to render these magnitudes in: the SERVER's when it states one,
+   * otherwise the snapshot's. Not an agreed value — a disagreement between the
+   * two units means the magnitudes are not comparable at all and
+   * `detectSilentRebase` has already returned null, so the only case where the
+   * two differ here is one side saying nothing. CEE is the unit authority, so
+   * its answer wins when both are present.
+   */
   unit?: string
 }
 
@@ -389,10 +413,31 @@ export function detectSilentRebase(
  * THE MAGNITUDES ARE RENDERED, NOT PRINTED RAW. `formatValueWithUnit` is the
  * repo's single source of truth for "a raw value with its unit" (£3,500, not
  * 3500), so the numbers in this sentence read the same as the ones on the row
- * the user was just looking at. It is applied ONLY on the `raw_value` basis: on
- * the model-scale `value` basis that helper maps 0–1 to a qualitative word
- * ("moderate"), which would turn a precise statement about two specific numbers
- * into an unfalsifiable one.
+ * the user was just looking at.
+ *
+ * ⚠ BUT IT IS NOT SAFE TO CALL UNCONDITIONALLY, AND THE BASIS ALONE DOES NOT
+ * MAKE IT SAFE. An earlier draft of this comment claimed the `raw_value` basis
+ * was enough. It is not: `formatValueWithUnit` keys its qualitative branch on
+ * `classifyUnit(unit).kind ∈ {none, placeholder}` AND `0 ≤ v ≤ 1`
+ * (`formatValueWithUnit.ts:51-53`) — the BASIS is not part of that test. A
+ * raw-basis 0–1 magnitude with no unit therefore rendered as a word, and the
+ * sentence refuted itself:
+ *
+ *   "it showed Team morale as low, but the model held low.
+ *    Your change has been applied on top of low."
+ *
+ * That is reachable, not hypothetical: an UNCAPPED factor stores the same
+ * number in `value` and `raw_value` (CEE `normalise-factor-value.ts:12-16`,
+ * `:138-141`) and `snapshotObservedState` (`set-factor-value.ts:194-203`)
+ * copies it into `before` verbatim, so both sides carry a raw magnitude that
+ * can sit in 0–1 with no unit attached.
+ *
+ * So the guard is the CONDITION ITSELF, derived from the same `classifyUnit`
+ * the formatter uses rather than mirrored from its behaviour (CLAUDE.md trap
+ * 12): whenever the unit is one the formatter would treat as absent or
+ * placeholder, render a bare number instead. The model-scale `value` basis
+ * takes the same bare-number path for a different reason — a normalised
+ * fraction has no unit to wear, so attaching the factor's would print "£0.8".
  *
  * NO REMEDY IS OFFERED THAT DOES NOT WORK. "Reload to get the current figures"
  * is the obvious closing line and it is FALSE — the boot path restores
@@ -406,14 +451,22 @@ export function describeRebaseDivergence(
   divergence: RebaseDivergence,
   factorLabel: string,
 ): string {
-  const render = (n: number): string =>
-    divergence.basis === 'raw_value' ? formatValueWithUnit(n, divergence.unit) : String(n)
+  const render = (n: number): string => {
+    // Model scale wears no unit, so it never goes near the unit-aware helper.
+    if (divergence.basis !== 'raw_value') return formatNumber(n)
+    // Otherwise: only hand it to the formatter when the formatter's qualitative
+    // branch CANNOT fire — i.e. when the unit is a real one. Same predicate the
+    // formatter consults, not a copy of its output.
+    const { kind } = classifyUnit(divergence.unit ?? null)
+    if (kind === 'none' || kind === 'placeholder') return formatNumber(n)
+    return formatValueWithUnit(n, divergence.unit)
+  }
   const shown = render(divergence.shownBase)
   const server = render(divergence.serverBase)
   return (
-    `Your canvas was out of date: it showed ${factorLabel} as ${shown}, but the model held ${server}. ` +
-    `Your change has been applied on top of ${server}. ` +
-    `Other values on this canvas may also be stale — ask me and I'll tell you what the model currently holds.`
+    `The engine applied your change to ${factorLabel} on top of ${server}, ` +
+    `not the ${shown} shown on your canvas. ` +
+    `Other values on this canvas may also differ from the model — ask me and I'll tell you what the model currently holds.`
   )
 }
 

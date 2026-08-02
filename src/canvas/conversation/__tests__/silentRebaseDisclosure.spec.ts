@@ -221,6 +221,13 @@ afterEach(() => {
   clearAutosave()
 })
 
+/**
+ * The phrase only the divergence disclosure emits. Deliberately a fragment of
+ * the SENTENCE and not a word like "stale" — the copy makes no claim about
+ * which side moved, so there is no directional word to key off.
+ */
+const DISCLOSURE_MARK = 'on top of'
+
 /** Every synthetic assistant line the turn produced. */
 function syntheticLines(messages: ReadonlyArray<Record<string, unknown>>): string[] {
   return messages
@@ -296,7 +303,7 @@ describe('an edit made against a STALE canvas is no longer silently rebased', ()
     await flush()
 
     const lines = syntheticLines(result.current.messages as never)
-    expect(lines.filter((l) => l.includes('out of date'))).toEqual([])
+    expect(lines.filter((l) => l.includes(DISCLOSURE_MARK))).toEqual([])
   })
 
   it('CONTROL — a REFUSED edit discloses no base and still reverts', async () => {
@@ -319,6 +326,84 @@ describe('an edit made against a STALE canvas is no longer silently rebased', ()
     ).observedState as Record<string, unknown>
     expect(observed.raw_value, 'the refused value is rolled back').toBe(4000)
     const lines = syntheticLines(result.current.messages as never)
-    expect(lines.filter((l) => l.includes('out of date'))).toEqual([])
+    expect(lines.filter((l) => l.includes(DISCLOSURE_MARK))).toEqual([])
+  })
+
+  /**
+   * CANVAS AHEAD — the same evidence, the opposite cause, and no techMode gate.
+   *
+   * A factor with no `raw_value` on EITHER side, written locally over a
+   * server-held value, produces a receipt indistinguishable from the stale-boot
+   * walk: two bases that differ. Here the canvas is AHEAD of the engine, not
+   * behind it. An earlier draft opened the disclosure with "Your canvas was out
+   * of date" and reported this case as the canvas being stale — a diagnosis the
+   * receipt cannot support, in a message whose entire purpose is to stop the
+   * product asserting things it has not established.
+   */
+  it('CONTROL — a CANVAS-AHEAD divergence is disclosed without blaming either side', async () => {
+    const MORALE = 'fac_team_morale'
+    useCanvasStore.setState({
+      nodes: [
+        {
+          id: MORALE,
+          type: 'factor',
+          position: { x: 0, y: 0 },
+          data: {
+            label: 'Team morale',
+            category: 'controllable',
+            // No raw_value, no unit, no cap — the uncapped/unitless shape.
+            // The canvas already sits AHEAD at 0.6 from an earlier local write
+            // the engine never took; the engine still holds 0.4.
+            observedState: { value: 0.6, source: 'user' },
+          },
+        },
+      ],
+    } as never)
+
+    const { result } = renderHook(() => useConversation())
+    const node = useCanvasStore.getState().nodes.find((n) => n.id === MORALE)!
+    const undo = captureOptimisticFactorEdit(MORALE, 0.7, node.data)!
+    useCanvasStore.getState().updateNode(MORALE, {
+      data: {
+        ...(node.data as Record<string, unknown>),
+        observedState: { value: 0.7, source: 'user' },
+      },
+    } as never)
+
+    replies.push({
+      assistant_text: 'Updated Team morale.',
+      blocks: [
+        {
+          type: 'graph_patch',
+          status: 'applied',
+          operation: 'set_factor_value',
+          target_id: MORALE,
+          before: { value: 0.4 },
+          after: { value: 0.7 },
+        },
+      ],
+    })
+    await act(async () => {
+      await result.current.sendSystemEvent(
+        { type: 'factor_value_edit', payload: { target_id: MORALE, value: 0.7, field: 'value' } },
+        { optimisticFactorEdit: undo },
+      )
+    })
+    await flush()
+
+    const disclosure = syntheticLines(result.current.messages as never).find((l) =>
+      l.includes(DISCLOSURE_MARK),
+    )
+    expect(disclosure, 'the divergence is still disclosed').toBeDefined()
+    expect(disclosure).toContain('Team morale')
+    expect(disclosure).toContain('0.4')
+    expect(disclosure).toContain('0.6')
+    // RED before the amendment: the sentence opened "Your canvas was out of
+    // date" over a canvas that was ahead.
+    for (const causal of ['out of date', 'stale', 'behind']) {
+      expect(disclosure!.toLowerCase(), `must not diagnose "${causal}"`).not.toContain(causal)
+    }
+    // And the magnitudes must be numbers, not "low"/"moderate".
+    expect(disclosure).not.toMatch(/\b(very low|low|moderate|high|very high)\b/)
   })
 })

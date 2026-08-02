@@ -232,15 +232,41 @@ describe('describeRebaseDivergence', () => {
   })
 
   it('says the change was applied on top of the ENGINE’s base, not the shown one', () => {
+    const msg = describeRebaseDivergence(divergence, 'Spend')
+    expect(msg).toContain('on top of £3,500')
+    expect(msg).toContain('not the £4,000 shown on your canvas')
+  })
+
+  it('warns that other values may also differ from the model', () => {
+    // Nothing scopes a divergence to the one factor that happened to be edited.
     expect(describeRebaseDivergence(divergence, 'Spend')).toContain(
-      'applied on top of £3,500',
+      'may also differ from the model',
     )
   })
 
-  it('warns that the rest of the canvas may be stale too', () => {
-    // The divergence proves the local copy is behind the engine — and nothing
-    // scopes that staleness to the one factor that happened to be edited.
-    expect(describeRebaseDivergence(divergence, 'Spend').toLowerCase()).toContain('stale')
+  it('makes NO claim about which side is out of date', () => {
+    // The receipt proves the two bases DIFFER. It does not prove a direction,
+    // and the canvas-ahead case below produces identical evidence. An earlier
+    // draft opened with "Your canvas was out of date" and would have reported
+    // a canvas that was AHEAD of the engine as one that was behind.
+    const msg = describeRebaseDivergence(divergence, 'Spend').toLowerCase()
+    for (const causal of ['out of date', 'stale', 'behind', 'outdated', 'older']) {
+      expect(msg, `must not diagnose "${causal}"`).not.toContain(causal)
+    }
+  })
+
+  it('reads the same when the CANVAS is the side that moved', () => {
+    // Same sentence, no accusation either way — the operator is told which
+    // number the change landed on, which is all the receipt witnesses.
+    const canvasAhead: RebaseDivergence = {
+      nodeId: TARGET,
+      shownBase: 0.6,
+      serverBase: 0.4,
+      basis: 'value',
+    }
+    const msg = describeRebaseDivergence(canvasAhead, 'Team morale')
+    expect(msg).toContain('on top of 0.4')
+    expect(msg).toContain('not the 0.6 shown on your canvas')
   })
 
   it('offers no remedy that does not work', () => {
@@ -264,5 +290,59 @@ describe('describeRebaseDivergence', () => {
     expect(msg).toContain('0.8')
     expect(msg).toContain('0.7')
     expect(msg).not.toMatch(/moderate|very high|\bhigh\b/)
+  })
+
+  // -------------------------------------------------------------------------
+  // The RAW basis is NOT self-protecting — this is where the sentence refuted
+  // itself. `formatValueWithUnit` keys its qualitative branch on the UNIT and
+  // the 0–1 bound, never on the basis, so a raw magnitude in 0–1 with no real
+  // unit rendered as a word: "it showed Team morale as low, but the model held
+  // low". Reachable because an UNCAPPED factor stores the same number in
+  // `value` and `raw_value` (CEE `normalise-factor-value.ts:12-16`, `:138-141`)
+  // and `snapshotObservedState` copies it into `before` verbatim.
+  // -------------------------------------------------------------------------
+  it.each([
+    ['no unit at all', undefined],
+    ['an empty unit', ''],
+    ['the placeholder unit "scale"', 'scale'],
+    ['the placeholder unit "score"', 'score'],
+    ['the placeholder unit "index"', 'index'],
+  ])('states RAW-basis 0–1 magnitudes as numbers with %s', (_label, unit) => {
+    const msg = describeRebaseDivergence(
+      {
+        nodeId: TARGET,
+        shownBase: 0.6,
+        serverBase: 0.4,
+        basis: 'raw_value',
+        ...(unit === undefined ? {} : { unit }),
+      },
+      'Team morale',
+    )
+    expect(msg).toContain('0.6')
+    expect(msg).toContain('0.4')
+    expect(msg).not.toMatch(/\b(very low|low|moderate|high|very high)\b/)
+    // The self-refuting shape, pinned directly: the two magnitudes must never
+    // render to the SAME string in a sentence that exists to contrast them.
+    expect(msg).not.toMatch(/on top of (\S+), not the \1 shown/)
+  })
+
+  it('still wears a REAL unit on the raw basis', () => {
+    // The guard must not have been bought by dropping units everywhere.
+    const msg = describeRebaseDivergence(
+      { nodeId: TARGET, shownBase: 4000, serverBase: 3500, basis: 'raw_value', unit: '£' },
+      'Spend',
+    )
+    expect(msg).toContain('£4,000')
+    expect(msg).toContain('£3,500')
+  })
+
+  it('does not attach a unit to a model-scale magnitude', () => {
+    // `unit` is carried on the divergence even when the comparison fell back to
+    // model scale; printing "£0.8" would be a fabricated magnitude.
+    const msg = describeRebaseDivergence(
+      { nodeId: TARGET, shownBase: 0.8, serverBase: 0.7, basis: 'value', unit: '£' },
+      'Spend',
+    )
+    expect(msg).not.toContain('£')
   })
 })
