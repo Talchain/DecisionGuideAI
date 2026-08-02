@@ -1,6 +1,27 @@
 # BFF proxies (must come BEFORE SPA catch-all)
-# Note: /bff/isl/* handled by edge function (isl-proxy.ts) for auth header injection
-# Note: /bff/cee/* handled by netlify.toml redirect with header injection
+#
+# ORDERING RULE — the one thing to know before adding a proxy path here.
+# Netlify processes THIS FILE BEFORE netlify.toml's [[redirects]]. This file
+# ends in the SPA catch-all `/*  /index.html  200`, so a proxy path declared
+# ONLY in netlify.toml [[redirects]] is dead — the catch-all answers it with
+# the SPA index (HTTP 200 text/html) and the request never leaves Netlify.
+# A proxy path is reachable only if it is declared ABOVE the catch-all in this
+# file, or bound to an [[edge_functions]] path (edge functions run first).
+# tests/ci-guards/netlify-bff-route-precedence.spec.ts fails on any /bff/*
+# path that satisfies neither.
+#
+# Seams NOT declared in this file, because each needs a request header injected
+# and this file cannot inject headers — they are edge functions instead:
+#   /bff/isl/*         → netlify/edge-functions/isl-proxy.ts        (ISL_API_KEY)
+#   /bff/orchestrate/* → netlify/edge-functions/orchestrator-proxy.ts (ASSIST_API_KEY)
+#   /bff/cee/*         → netlify/edge-functions/cee-proxy.ts        (ASSIST_API_KEY)
+#
+# Until ROADMAP 2.317 the third line above read "/bff/cee/* handled by
+# netlify.toml redirect with header injection". That was false, and the line
+# directly below it was what made it false: the catch-all outranked the
+# netlify.toml rule, so /bff/cee/* served SPA HTML on every deploy. A comment
+# asserting a guarantee that the adjacent config defeats is the defect class
+# here — hence the guard, which derives reachability instead of trusting prose.
 /bff/engine/*  https://plot-lite-service-staging.onrender.com/:splat  200!
 
 # Legacy engine proxy (VITE_EDGE_GATEWAY_URL=/engine uses this)
