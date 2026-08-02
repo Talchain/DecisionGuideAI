@@ -123,6 +123,8 @@ import { trackEvent } from '../../lib/posthog'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
 import {
   confirmOptimisticFactorEdit,
+  describeRebaseDivergence,
+  detectSilentRebase,
   mergeOptimisticFactorEdit,
   responseAppliedFactorEdit,
   revertOptimisticFactorEdit,
@@ -4460,6 +4462,40 @@ export function useConversation(): UseConversationReturn {
                 console.warn(
                   `[sendTurn] receipt for ${optimisticEdit.nodeId} arrived after the value moved on; reviewed stamp withheld`,
                 )
+              }
+
+              // ROADMAP 2.312 — THE SILENT REBASE, said out loud.
+              //
+              // The canvas does not hydrate from the server on boot (measured:
+              // the whole boot manifest fetches no graph), so the number the
+              // user typed over can be one the engine stopped holding. The
+              // receipt is the first and only moment the engine's OWN base for
+              // this edit becomes visible to the client — so it is the moment
+              // the divergence is checkable, and it is checked here.
+              //
+              // AFTER the confirm, deliberately. The value and its "checked by
+              // you" stamp are both TRUE — the engine applied the number the
+              // user chose — so neither is withheld. What was untrue is the
+              // implicit claim that the canvas matched the engine, and that is
+              // what this corrects. Reverting instead would swap a silent wrong
+              // base for a silently discarded edit.
+              //
+              // `detectSilentRebase` reports only what it can prove and returns
+              // null otherwise, so the common case (canvas in step with the
+              // engine) adds no message and no behaviour change at all.
+              const divergence = detectSilentRebase(optimisticEdit, target.response)
+              if (divergence) {
+                const factorLabel = String(
+                  useCanvasStore.getState().nodes.find((n) => n.id === divergence.nodeId)?.data
+                    ?.label ?? divergence.nodeId,
+                )
+                addMessage({
+                  id: crypto.randomUUID(),
+                  role: 'assistant',
+                  synthetic: true,
+                  timestamp: new Date(),
+                  content: describeRebaseDivergence(divergence, factorLabel),
+                })
               }
             }
           }
