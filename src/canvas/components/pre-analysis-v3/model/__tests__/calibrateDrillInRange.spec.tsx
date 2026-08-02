@@ -128,7 +128,14 @@ describe('CalibrateDrillIn — normalised-scale-only factors refuse magnitude en
     )
     expect(os.raw_value).toBe(0.6)
     expect(os.value).toBe(0.6)
-    expect(os.source).toBe('user_override')
+    // ROADMAP 2.304 slice 1 — the `user_override` stamp is now RECEIPT-gated.
+    // This spec renders the drill-in with NO ConversationProvider, so no turn
+    // is dispatched and no receipt can arrive; the pre-edit provenance
+    // therefore stands. That is the fix, not a regression: the stamp is a claim
+    // about what the engine holds, and nothing here has told the engine
+    // anything. The receipt-gated stamp is pinned in
+    // `calibrateDrillInReceipt.spec.tsx`, which drives the real dispatcher.
+    expect(os.source).toBe('cee_inference')
     expect(onDone).toHaveBeenCalled()
   })
 

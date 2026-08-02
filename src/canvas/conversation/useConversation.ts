@@ -122,6 +122,7 @@ import { getSessionIdentity } from '../../lib/supabase'
 import { trackEvent } from '../../lib/posthog'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
 import {
+  confirmOptimisticFactorEdit,
   mergeOptimisticFactorEdit,
   responseAppliedFactorEdit,
   revertOptimisticFactorEdit,
@@ -4445,6 +4446,19 @@ export function useConversation(): UseConversationReturn {
               if (import.meta.env.DEV) {
                 console.warn(
                   `[sendTurn] CEE did not apply the edit to ${optimisticEdit.nodeId}; optimistic write ${outcome}`,
+                )
+              }
+            } else {
+              // ROADMAP 2.304 — the OTHER half of the same decision. The
+              // reviewed stamp ("checked by you") is a claim about what the
+              // ENGINE holds, so it is written here, against the receipt, and
+              // nowhere else. Callers that pass no stamp (Model tab, inspector)
+              // are unaffected: `confirmOptimisticFactorEdit` returns
+              // 'no_stamp' and writes nothing.
+              const outcome = confirmOptimisticFactorEdit(optimisticEdit)
+              if (import.meta.env.DEV && outcome === 'value_moved_on') {
+                console.warn(
+                  `[sendTurn] receipt for ${optimisticEdit.nodeId} arrived after the value moved on; reviewed stamp withheld`,
                 )
               }
             }

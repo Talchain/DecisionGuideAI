@@ -40,6 +40,7 @@
  */
 
 import { useCanvasStore } from '../store'
+import { withObservedStateUpdate, type ObservedStateData } from '../utils/observedStateHelpers'
 
 /**
  * Everything needed to undo one optimistic value write, captured BEFORE it.
@@ -66,6 +67,22 @@ export interface OptimisticFactorEdit {
    * its live fallback instead of the server's own string.
    */
   prevDisplayValue: unknown
+  /**
+   * ROADMAP 2.304 — the provenance patch to apply ONLY when the reply carries
+   * an APPLIED receipt for this target. Optional: a caller that supplies none
+   * keeps the pre-2.304 behaviour (revert-on-refusal, nothing on acceptance).
+   *
+   * WHY THE STAMP TRAVELS WITH THE UNDO rather than being written at commit.
+   * `observedState.source` is a TRUST CLAIM — it is what paints "checked by
+   * you" and drops the factor out of the "N to verify" count. Written at commit
+   * or at dispatch it asserts a review the engine has not acknowledged, which
+   * is the 2.304 defect verbatim (the pre-analysis drill-in stamped
+   * `user_override` on a write that never left the browser). Riding on the same
+   * `SendTurnOpts` as the undo means ONE code path resolves BOTH directions —
+   * refusal reverts, acceptance stamps — for the immediate dispatch and for a
+   * deferred flush alike, rather than two that have to stay in sync.
+   */
+  reviewedStamp?: Partial<ObservedStateData>
 }
 
 /**
@@ -90,6 +107,7 @@ export function captureOptimisticFactorEdit(
   nodeId: string,
   sentValue: number,
   nodeData: unknown,
+  reviewedStamp?: Partial<ObservedStateData>,
 ): OptimisticFactorEdit | null {
   if (!nodeId) return null
   if (typeof sentValue !== 'number' || !Number.isFinite(sentValue)) return null
@@ -99,6 +117,7 @@ export function captureOptimisticFactorEdit(
     sentValue,
     prevObservedState: readObservedState(nodeData),
     prevDisplayValue: d.display_value,
+    ...(reviewedStamp ? { reviewedStamp } : {}),
   }
 }
 
@@ -118,8 +137,11 @@ export function mergeOptimisticFactorEdit(
   if (!incoming) return queued
   if (queued.nodeId !== incoming.nodeId) return incoming
   // Keep the ORIGINAL pre-edit state; adopt the NEW value being sent, because
-  // that is the number whose fate the reply will decide.
-  return { ...queued, sentValue: incoming.sentValue }
+  // that is the number whose fate the reply will decide — and with it the
+  // INCOMING stamp, which describes the commit that is actually going to be
+  // sent (a value edit and a "confirm as is" stamp different provenance, and
+  // the reply decides the later one's fate, not the superseded one's).
+  return { ...queued, sentValue: incoming.sentValue, reviewedStamp: incoming.reviewedStamp }
 }
 
 /** Collect every target id a graph_patch block can be read to address. */
@@ -167,6 +189,44 @@ export function responseAppliedFactorEdit(response: unknown, targetId: string): 
 
 /** What `revertOptimisticFactorEdit` did, for tests and DEV logging. */
 export type RevertOutcome = 'reverted' | 'node_gone' | 'value_moved_on'
+
+/** What `confirmOptimisticFactorEdit` did, for tests and DEV logging. */
+export type ConfirmOutcome = 'stamped' | 'no_stamp' | 'node_gone' | 'value_moved_on'
+
+/**
+ * Write the provenance stamp the RECEIPT has now earned (ROADMAP 2.304).
+ *
+ * The mirror image of `revertOptimisticFactorEdit`, and deliberately built from
+ * the same parts: same snapshot, same `updateNode` chokepoint, same
+ * still-holds-`sentValue` precondition. The precondition is the whole safety
+ * story in this direction too — a late receipt for a value that has since been
+ * re-edited, undone, or overwritten by a server patch must NOT stamp the
+ * CURRENT number as reviewed, because the user reviewed a different one.
+ *
+ * Writes through `withObservedStateUpdate`, which writes BOTH the camelCase and
+ * snake_case keys. That is not decoration: `isReviewedByUser` — the predicate
+ * that paints "checked by you" — resolves `observed_state.source` BEFORE
+ * `observedState.source`, the opposite precedence to `getObservedState`. On a
+ * node carrying both keys (every node any `withObservedStateUpdate` call site
+ * has ever touched), a camelCase-only stamp would be read straight past.
+ *
+ * Returns `'no_stamp'` when the edit carries none — the pre-2.304 callers
+ * (Model tab, inspector) pass no stamp and are byte-identical through here.
+ */
+export function confirmOptimisticFactorEdit(edit: OptimisticFactorEdit): ConfirmOutcome {
+  if (!edit.reviewedStamp) return 'no_stamp'
+  const store = useCanvasStore.getState()
+  const node = store.nodes.find((n) => n.id === edit.nodeId)
+  if (!node) return 'node_gone'
+
+  const obs = (readObservedState(node.data) ?? {}) as Record<string, unknown>
+  if (obs.value !== edit.sentValue) return 'value_moved_on'
+
+  store.updateNode(edit.nodeId, {
+    data: withObservedStateUpdate(node.data, edit.reviewedStamp),
+  } as never)
+  return 'stamped'
+}
 
 /**
  * Put the pre-edit value (and its provenance stamp) back.
