@@ -51,6 +51,27 @@
  * - Uses explicit origin allow-list (no wildcard CORS)
  * - The API key is never returned to the client and never enters the bundle
  * See SECURITY.md for compliance requirements.
+ *
+ * ── COMPLETE DIVERGENCE SET FROM THE SIBLING PROXIES ────────────────────────
+ * This function is a clone of `orchestrator-proxy.ts` and differs from it in
+ * exactly two ways. Both are deliberate; neither is an accident of copying.
+ *
+ * 1. MISSING `Origin` IS ALLOWED (the siblings reject it). See the comment at
+ *    the origin check below. `Origin` was never an auth control here: these
+ *    functions carry no ambient credential (no cookies are forwarded, and
+ *    `Access-Control-Allow-Credentials` is never set), and browsers omit the
+ *    header on same-origin GET/HEAD — which is precisely the shape
+ *    `service-health.ts` sends. The siblings' rejection is the defect, and it
+ *    is why `GET /bff/isl/health` 403s the app's own health check.
+ *
+ * 2. METHOD SET IS `GET/HEAD/POST/OPTIONS` (orchestrator-proxy is POST-only;
+ *    isl-proxy restricts nothing at all). This seam needs GET for
+ *    `/health` and POST for `graph-readiness` / `prompts/warm` / `ask`, so
+ *    neither sibling's rule fits. What must NOT happen is isl-proxy's posture:
+ *    forwarding every verb while carrying an injected credential. The enforced
+ *    set below and the advertised `Access-Control-Allow-Methods` are kept
+ *    identical on purpose — an allow-list that advertises less than it enforces
+ *    is a false guarantee, which is the defect class this whole change is about.
  */
 
 import type { Config, Context } from '@netlify/edge-functions'
@@ -77,10 +98,18 @@ function isOriginAllowed(origin: string): boolean {
   return NETLIFY_PREVIEW_PATTERN.test(origin)
 }
 
+/**
+ * The verbs this seam forwards. GET/HEAD for `/health`, POST for
+ * `graph-readiness` / `prompts/warm` / `ask`, OPTIONS for preflight.
+ * ENFORCED below and ADVERTISED verbatim in Access-Control-Allow-Methods —
+ * the two must not drift apart.
+ */
+const ALLOWED_METHODS = ['GET', 'HEAD', 'POST', 'OPTIONS'] as const
+
 function getCorsHeaders(requestOrigin: string): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': requestOrigin,
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': ALLOWED_METHODS.join(', '),
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-correlation-id, x-request-id, x-user-id',
     'Vary': 'Origin, Access-Control-Request-Headers',
   }
@@ -122,6 +151,25 @@ export default async function handler(request: Request, _context: Context) {
   // Handle preflight OPTIONS requests
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders ?? {} })
+  }
+
+  // SECURITY: refuse any verb outside the advertised set. This function injects
+  // a caller-auth credential on every request it forwards, so an unrestricted
+  // verb set would hand an authenticated PUT/DELETE/PATCH to CEE from anywhere
+  // the origin check lets through. `orchestrator-proxy.ts` guards this (POST
+  // only); `isl-proxy.ts` does not, and that gap is the one not to copy.
+  if (!(ALLOWED_METHODS as readonly string[]).includes(request.method)) {
+    return new Response(
+      JSON.stringify({ error: 'Method not allowed' }),
+      {
+        status: 405,
+        headers: {
+          ...(corsHeaders ?? {}),
+          'Content-Type': 'application/json',
+          Allow: ALLOWED_METHODS.join(', '),
+        },
+      }
+    )
   }
 
   // Extract the path after /bff/cee/
