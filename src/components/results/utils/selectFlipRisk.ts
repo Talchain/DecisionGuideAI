@@ -117,6 +117,14 @@ export interface FlipRiskCandidate {
   targetId?: string | null
   /** Producer factor / node id, joined to `flip_thresholds[].node_id`. */
   joinId?: string | null
+  /**
+   * ROADMAP 2.291: the EDGE's target-node label, carried verbatim so a
+   * surface that retains the edge statistic (`switch_probability`) can NAME
+   * the edge it belongs to ("{label} → {toLabel}") instead of attributing an
+   * edge number to a bare factor. Optional — callers with no edge to name
+   * omit it.
+   */
+  toLabel?: string | null
 }
 
 export interface FlipRiskSelection {
@@ -127,7 +135,25 @@ export interface FlipRiskSelection {
    */
   mayNameFlipRisk: boolean
   /** The one factor that may be named, or null. Never fabricated. */
-  topFlipRisk: { label: string; switchProbability: number; targetId?: string } | null
+  topFlipRisk: {
+    label: string
+    switchProbability: number
+    targetId?: string
+    /** The named candidate's edge target label, passed through verbatim. */
+    toLabel?: string
+    /**
+     * ROADMAP 2.291 — the producer's OWN flip evidence for the named factor:
+     * the `flip_thresholds` row (numeric `flip_value`) whose `node_id` is the
+     * candidate's join id. Present ONLY on `flips_present`, where the
+     * candidate set is already restricted to factors that flip, so a surface
+     * can state the factor's threshold / direction / alternative winner
+     * rather than dressing the edge's `switch_probability` up as "flip risk".
+     * The join lives HERE because this module already owns the id gate — a
+     * surface re-deriving "which row is my factor's" would be a second
+     * chooser, the defect this module exists to end.
+     */
+    flipThreshold?: FlipThresholdLike
+  } | null
 }
 
 /** Minimal shape read off a mapped flip threshold. */
@@ -141,6 +167,16 @@ export interface FlipThresholdLike {
    * vocabulary is open; `flipReasonVocabulary` does the classification.
    */
   flip_reason?: string | null
+  /**
+   * ROADMAP 2.291 — display fields carried VERBATIM off the mapped
+   * `FlipThreshold` row so the joined `topFlipRisk.flipThreshold` can drive
+   * the factor's own threshold statement. Never read by the gate, the floor
+   * or the ranking.
+   */
+  label?: string | null
+  current_value?: number | null
+  unit?: string | null
+  alternative_winner_label?: string | null
 }
 
 /**
@@ -234,6 +270,19 @@ export function selectFlipRisk(
     (c.switchProbability as number) > (best.switchProbability as number) ? c : best,
   )
 
+  // ROADMAP 2.291 — join the named factor's OWN flip evidence. Only on
+  // `flips_present` (eligibility already guarantees the join id flips), and
+  // only a row that actually carries the numeric `flip_value` — the same
+  // predicate `flippingIds` was built from, so the joined row is the evidence
+  // that admitted the candidate, never a sibling no-flip row for the same
+  // node.
+  const joinedThreshold =
+    evidence === 'flips_present' && top.joinId
+      ? (flipThresholds ?? []).find(
+          (ft) => ft?.node_id === top.joinId && typeof ft?.flip_value === 'number',
+        )
+      : undefined
+
   return {
     evidence,
     mayNameFlipRisk: true,
@@ -241,6 +290,8 @@ export function selectFlipRisk(
       label: top.label,
       switchProbability: top.switchProbability as number,
       ...(top.targetId ? { targetId: top.targetId } : {}),
+      ...(top.toLabel ? { toLabel: top.toLabel } : {}),
+      ...(joinedThreshold ? { flipThreshold: joinedThreshold } : {}),
     },
   }
 }

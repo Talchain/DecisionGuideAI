@@ -18,6 +18,7 @@
 import { describe, expect, it } from 'vitest'
 import { HERO_COPY } from '../heroCopy'
 import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY } from '../../utils/goalAnchorCopy'
+import { FLIP_THRESHOLD_COPY } from '../../utils/flipThresholdDisplay'
 
 const N = '72%'
 
@@ -109,5 +110,37 @@ describe('HERO_COPY.headline.mostLikelyStrongest — no magnitude, no placeholde
 
   it('carries the magnitude when there is one', () => {
     expect(HERO_COPY.headline.mostLikelyStrongest('Option A', N)).toContain(N)
+  })
+})
+
+describe('HERO_COPY.evidence — the flip-threshold register exists once (ROADMAP 2.291)', () => {
+  /**
+   * The flip sentences moved to `utils/flipThresholdDisplay` so the V7 signal
+   * chip — outside this mount-guarded module — can render the same producer
+   * rows with the same words. `HERO_COPY.evidence` delegates BY REFERENCE.
+   *
+   * ⚠ STATED HONESTLY, the guarantee is two-tier (adversarial-review finding
+   * on #558). For the three FUNCTION members (`switchMeta`,
+   * `flipRiskWithAlternative`, `flipRiskNoAlternative`) `toBe` is reference
+   * identity: re-inlining one here goes RED even if the restated body starts
+   * out byte-identical. For the three PRIMITIVE tokens (`fallsBelow`,
+   * `risesAbove`, `crosses`) `toBe` is value equality: a byte-identical
+   * re-inline passes today and this pin catches it only at the FIRST
+   * DIVERGENCE — a drift pin, not a re-inline pin, exactly like the
+   * possessiveGate DEDUP test. That trade is deliberate: making the tokens
+   * functions to buy reference identity would churn every consumer (they are
+   * interpolated as strings by the sentence builders and returned by
+   * `flipDirectionWording`), and the failure that matters — the two copies
+   * saying different words — is the one the equality pin already REDs on.
+   */
+  it.each([
+    ['switchMeta'],
+    ['flipRiskWithAlternative'],
+    ['flipRiskNoAlternative'],
+    ['fallsBelow'],
+    ['risesAbove'],
+    ['crosses'],
+  ] as const)('%s IS the shared register member', (name) => {
+    expect(HERO_COPY.evidence[name]).toBe(FLIP_THRESHOLD_COPY[name])
   })
 })

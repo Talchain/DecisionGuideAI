@@ -396,11 +396,17 @@ import { DetailToggleContext } from '../DetailToggleContext'
 
 describe('RelationshipsSection — expert inline data', () => {
   it('shows σ and p on compact row when expert mode ON', () => {
+    // ROADMAP 2.296 C4: `strengthStd` joined the provenance gate, so this
+    // fixture now stamps it — the same evolution this file's own header
+    // documents for weight/belief ("the stamps are what make this fixture a
+    // model of a real edge"). Unstamped, 0.15 is the USER_EDGE_DEFAULTS
+    // fallthrough and correctly renders nothing; the unstamped case has its
+    // own spec in `relationshipsSectionStdProvenance.spec.tsx`.
     const edgeWithStd: Edge = {
       id: 'e1', source: 'f1', target: 'f2',
       data: {
         weight: 0.5, direction: 'positive', beliefExists: 0.8, strengthStd: 0.15, provenance: 'assumption',
-        ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user' }),
+        ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user', strengthStd: 'user' }),
       },
     }
     render(

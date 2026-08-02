@@ -230,7 +230,14 @@ describe('ResultsBody — V7 L4 top matter', () => {
     // superlative retired under §6.2c. The BRANCH is unchanged.
     expect(screen.getByTestId('v7-hero-headline')).toHaveTextContent(new RegExp(`${WINNER_LABEL} came out ahead in .+ of simulated scenarios`))
     // Signal chips echo the fixture's fragile edge + top driver, verbatim.
-    expect(screen.getByTestId('v7-signal-flip-risk')).toHaveTextContent('22% flip risk · Tech lead hired')
+    // ROADMAP 2.296 / 2.291: this fixture carries NO flip thresholds, so the
+    // chip is on the legacy arm — the retained percentage is an EDGE statistic
+    // (switch_probability) and is now labelled with the register's own name
+    // for the quantity ("N% switch") and attributed to the edge it belongs
+    // to, named "{from} → {to}". The previous pin ("22% flip risk · Tech lead
+    // hired") asserted the defect: an edge number dressed as the factor's
+    // flip evidence.
+    expect(screen.getByTestId('v7-signal-flip-risk')).toHaveTextContent('22% switch · Tech lead hired → Outsource')
     expect(screen.getByTestId('v7-signal-main-driver')).toHaveTextContent('Main driver · Tech lead hired')
     // Sharpen line quotes Paul's own brief wording.
     expect(screen.getByTestId('v7-sharpen-quote')).toHaveTextContent('Ship the Q4 migration without blowing the budget')

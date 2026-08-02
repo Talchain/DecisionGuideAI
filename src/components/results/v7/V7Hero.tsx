@@ -137,6 +137,12 @@ export function V7Hero({
         topDrivers={topDrivers}
         fragileEdges={fragileEdges}
         flipThresholds={recommendation.flipThresholds}
+        // The panel-canonical withheld expression (same spelling as
+        // buildV7Headline / buildV7Lenses); the chip QUOTES it, never
+        // re-derives it (ROADMAP 2.291).
+        designationsWithheld={
+          recommendation.verdict != null && !recommendation.verdict.hasLeadingOption
+        }
         onFocusNode={onFocusNode}
       />
       <V7SuggestedChips onSendMessage={onSendMessage} />

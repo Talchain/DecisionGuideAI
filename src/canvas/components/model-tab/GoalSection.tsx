@@ -232,14 +232,22 @@ function GoalSectionInner({ goalNode, onSendMessage }: GoalSectionProps & { goal
   )
 }
 
-export function GoalSection({ goalNode }: GoalSectionProps) {
+export function GoalSection({ goalNode, onSendMessage }: GoalSectionProps) {
   // The absence guard lives HERE, in a component with no hooks, so an arriving
   // or departing goal node mounts/unmounts the inner component rather than
   // changing its hook count mid-render. See `GoalSectionInner`'s header.
+  //
+  // ROADMAP 2.296 C1: this wrapper MUST forward every prop the inner
+  // component renders on. The #553 rewrite narrowed it to `goalNode` alone,
+  // and because `GoalSectionInner` gates the "Discuss with AI" action on
+  // `onSendMessage`, the action silently vanished from the goal card while
+  // ModelTabBody kept supplying the callback. Pinned by
+  // `__tests__/ModelTabBody.goalDiscuss.spec.tsx` through the REAL
+  // ModelTabBody→GoalSection path — the hop this defect lived in.
   if (!goalNode) return null
   return (
     <SectionErrorBoundary section="goal">
-      <GoalSectionInner goalNode={goalNode} />
+      <GoalSectionInner goalNode={goalNode} onSendMessage={onSendMessage} />
     </SectionErrorBoundary>
   )
 }

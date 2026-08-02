@@ -13,6 +13,7 @@
  */
 
 import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
+import { FLIP_THRESHOLD_COPY } from '../utils/flipThresholdDisplay'
 
 export const HERO_COPY = {
   panelAria: 'Analysis',
@@ -434,41 +435,24 @@ export const HERO_COPY = {
       designationsWithheld
         ? 'Chance the comparison between options changes when a relationship is varied within its plausible range.'
         : 'Chance the leading option changes when a relationship is varied within its plausible range.',
-    /** Switch-probability meta beside a flip row, e.g. "48% switch". */
-    switchMeta: (pct: string) => `${pct} switch`,
+    /**
+     * ROADMAP 2.291 — the flip-threshold sentences and tokens DELEGATE to
+     * `utils/flipThresholdDisplay`'s register (one-copy guarantee, same
+     * pattern as the A/comparative registers above; pinned by
+     * `heroCopyDelegation.spec.ts`). The V7 signal chip renders the same
+     * producer rows, and the hero module is mount-guarded, so the shared
+     * spelling has to live OUTSIDE it. The 1.267 discipline is the
+     * register's: the alternative-winner NAME survives a withheld run; only
+     * the designation verb changes.
+     */
+    switchMeta: FLIP_THRESHOLD_COPY.switchMeta,
     seeAllFactors: 'See all factors',
     showFewer: 'Show fewer',
-    /**
-     * ROADMAP 1.267. The producer's `alternative_winner_label` SURVIVES on a
-     * withheld run — it is data, and dropping it would be the
-     * over-suppression the ruling forbids. What goes is the designation
-     * verb: "becomes the likely leader" both asserts a leader exists after
-     * the flip and implies a different one exists now.
-     */
-    flipRiskWithAlternative: (
-      factor: string,
-      direction: string,
-      value: string,
-      alternative: string,
-      designationsWithheld: boolean,
-    ) =>
-      designationsWithheld
-        ? `If ${factor} ${direction} ${value}, the comparison shifts towards ${alternative}.`
-        : `If ${factor} ${direction} ${value}, ${alternative} becomes the likely leader.`,
-    flipRiskNoAlternative: (
-      factor: string,
-      direction: string,
-      value: string,
-      designationsWithheld: boolean,
-    ) =>
-      designationsWithheld
-        ? `If ${factor} ${direction} ${value}, the comparison is likely to change.`
-        : `If ${factor} ${direction} ${value}, the leading option is likely to change.`,
-    fallsBelow: 'falls below',
-    risesAbove: 'rises above',
-    // Direction-neutral fallback (UI-SEM-074): used when flip_value equals
-    // current_value — a direction claim would not be honestly determinable.
-    crosses: 'crosses',
+    flipRiskWithAlternative: FLIP_THRESHOLD_COPY.flipRiskWithAlternative,
+    flipRiskNoAlternative: FLIP_THRESHOLD_COPY.flipRiskNoAlternative,
+    fallsBelow: FLIP_THRESHOLD_COPY.fallsBelow,
+    risesAbove: FLIP_THRESHOLD_COPY.risesAbove,
+    crosses: FLIP_THRESHOLD_COPY.crosses,
     tradeOffGain: 'You gain',
     tradeOffGiveUp: 'You give up',
     tradeOffDependsOn: 'Depends on',

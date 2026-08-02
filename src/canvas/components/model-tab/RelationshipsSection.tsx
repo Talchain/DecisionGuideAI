@@ -180,7 +180,22 @@ function EdgeCard({
    * back to `'positive'` by accident.
    */
   const directionDisplay = resolveEdgeDirectionDisplay(data)
-  const strengthStd = data?.strengthStd ?? data?.strength_std
+  /**
+   * ROADMAP 2.296 C4 — the σ/±/Std surfaces are PROVENANCE-GATED, like every
+   * other number on this card. The raw read this replaces
+   * (`data?.strengthStd ?? data?.strength_std`) displayed
+   * `USER_EDGE_DEFAULTS.strengthStd = 0.15` — a constant nobody measured — as
+   * a measured uncertainty on three surfaces (inline σ, ±, the detail Std
+   * row). The registry (`edgeValueProvenance.ts`) names `strengthStd` as
+   * exactly this gap and deliberately declares NO back-compat fallback for a
+   * raw `strength_std`: a producer std is displayable only once its ingestion
+   * site stamps it (as `applyDraftResult` and the inspector's `setStd`
+   * already do). Consequence, stated openly: the legacy raw-spelling read leg
+   * is gone — an unstamped `strength_std` renders nothing rather than
+   * laundering the default.
+   */
+  const strengthStdDisplay = resolveEdgeValueDisplay(data, 'strengthStd')
+  const strengthStd = strengthStdDisplay.show ? strengthStdDisplay.value : undefined
 
   const hasStrength = strengthDisplay.show
   const rawWeight = strengthDisplay.show ? Math.abs(strengthDisplay.value) : undefined

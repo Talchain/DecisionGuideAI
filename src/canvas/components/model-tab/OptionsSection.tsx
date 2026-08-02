@@ -241,14 +241,27 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
       </div>
 
       {/* Conditional winner card (post-analysis only).
-          Cards are attached to the lowBucket winner (overall winner).
-          The highBucket winner is who takes over when the factor exceeds splitValue. */}
+          ROADMAP 2.296 C3 — NO "overall" CLAIM MAY BE MINTED HERE. This card
+          used to attach every entry to the LOW-bucket winner and print "Leads
+          overall, but when {factor} exceeds {split}, {other} takes over". ISL's
+          conditional winners establish ONLY which option wins below and above a
+          median split of one factor; neither bucket winner is necessarily the
+          global leader, so "Leads overall" was a claim the producer never made,
+          handed to whichever option won the low bucket. Each winner's card now
+          states its own bucket's fact, neutrally, and nothing else. */}
       {hasAnalysisData && conditionalWinners && conditionalWinners.map((cw, i) => {
-        // Determine which option takes over: it's the one NOT on this card
-        const takesOverLabel = cw.lowBucket.winnerId === option.id
-          ? cw.highBucket.winnerLabel
-          : cw.lowBucket.winnerLabel
-        if (!takesOverLabel) return null
+        const splitDisplay = cw.splitUnit
+          ? formatValueWithUnit(cw.splitValue, cw.splitUnit)
+          : formatSmartNumber(cw.splitValue)
+        // Exactly one of these holds per card: same-winner entries are
+        // filtered out at the map (they state nothing about leadership
+        // change), and the map only attaches an entry to its bucket winners.
+        const statement = cw.lowBucket.winnerId === option.id
+          ? `Leads when ${cw.factorLabel} is below ${splitDisplay}`
+          : cw.highBucket.winnerId === option.id
+            ? `Leads when ${cw.factorLabel} is above ${splitDisplay}`
+            : null
+        if (!statement) return null
         return (
           <div
             key={`cw-${i}`}
@@ -256,7 +269,7 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
             data-testid={`conditional-winner-${option.id}`}
           >
             <span className={`${typography.panelMeta} text-warning leading-relaxed`}>
-              Leads overall, but when {cw.factorLabel} exceeds {cw.splitUnit ? formatValueWithUnit(cw.splitValue, cw.splitUnit) : formatSmartNumber(cw.splitValue)}, {takesOverLabel} takes over
+              {statement}
             </span>
           </div>
         )
@@ -398,18 +411,28 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
  * code-integrity guard, not crash prevention.
  */
 function OptionsSectionInner({ optionNodes, allNodes, conditionalWinners, hasAnalysisData, onSendMessage, isExpanded, onExpandChange }: OptionsSectionProps) {
-  // Build per-option conditional winner lookup (match on option ID, not label)
+  // Build per-option conditional winner lookup (match on option ID, not label).
+  //
+  // ROADMAP 2.296 C3 — attach each entry to BOTH bucket winners, not to the
+  // low-bucket winner as a fabricated "default option". Each option's card
+  // then states the one conditional fact the producer established about IT
+  // ("leads below the split" / "leads above the split"). Entries whose two
+  // buckets name the SAME winner are skipped: they state nothing about
+  // leadership change (the same filter the results panel's
+  // ConditionalWinnerCards applies).
   const optionWinnerMap = useMemo(() => {
     if (!conditionalWinners) return new Map<string, ConditionalWinner[]>()
     const map = new Map<string, ConditionalWinner[]>()
+    const attach = (winnerOptionId: string | undefined, cw: ConditionalWinner) => {
+      if (!winnerOptionId) return
+      const existing = map.get(winnerOptionId) ?? []
+      existing.push(cw)
+      map.set(winnerOptionId, existing)
+    }
     for (const cw of conditionalWinners) {
-      // Attach to the option that wins in the low bucket (the "default" winner)
-      const winnerOptionId = cw.lowBucket.winnerId
-      if (winnerOptionId) {
-        const existing = map.get(winnerOptionId) ?? []
-        existing.push(cw)
-        map.set(winnerOptionId, existing)
-      }
+      if (cw.lowBucket.winnerId === cw.highBucket.winnerId) continue
+      attach(cw.lowBucket.winnerId, cw)
+      attach(cw.highBucket.winnerId, cw)
     }
     return map
   }, [conditionalWinners])
