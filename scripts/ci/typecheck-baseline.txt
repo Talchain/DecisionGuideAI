@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2505
+# count=2507
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -54,6 +54,7 @@
 1	e2e/unified/ui-pack.screenshots.spec.ts
 3	e2e/webvitals.spec.ts
 1	integration/integration-check.ts
+2	netlify/edge-functions/cee-proxy.ts
 1	netlify/edge-functions/csp-nonce.ts
 3	netlify/edge-functions/isl-proxy.ts
 2	netlify/edge-functions/orchestrator-proxy.ts

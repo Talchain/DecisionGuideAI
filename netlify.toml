@@ -197,24 +197,25 @@
   status = 200
   force = true
 
-# CEE (Assistants) Service - graph-readiness endpoint
-# Routes /bff/cee/* → https://olumi-assistants-service.onrender.com/assist/v1/*
-# Required for Results Panel confidence tier display
-[[redirects]]
-  from = "/bff/cee/*"
-  to = "https://olumi-assistants-service.onrender.com/assist/v1/:splat"
-  status = 200
-  force = true
-  headers = {X-Olumi-Assist-Key = "${ASSIST_API_KEY}"}
-
-# CEE fallback route for /v1/cee/* path pattern
-# Handles requests when VITE_CEE_BFF_BASE points to /v1/cee instead of /bff/cee
-[[redirects]]
-  from = "/v1/cee/*"
-  to = "https://olumi-assistants-service.onrender.com/assist/v1/:splat"
-  status = 200
-  force = true
-  headers = {X-Olumi-Assist-Key = "${ASSIST_API_KEY}"}
+# CEE (Assistants) Service — ROADMAP 2.317.
+#
+# There is deliberately NO [[redirects]] rule for /bff/cee/* here. Two used to
+# live at this spot (/bff/cee/* and a /v1/cee/* "fallback"), both pointing at
+# olumi-assistants-service.onrender.com with a header-injection block. BOTH WERE
+# UNREACHABLE ON EVERY DEPLOY: Netlify processes public/_redirects before
+# netlify.toml redirects, and public/_redirects ends in the SPA catch-all
+# `/*  /index.html  200`, so /bff/cee/health returned HTTP 200 text/html — the
+# SPA index — instead of reaching CEE. They also named a host running a
+# different, older build than CEE staging, so they were wrong twice over.
+#
+# The seam is now served by the `cee-proxy` edge function (registered below),
+# which outranks the _redirects catch-all and can inject the auth header that a
+# redirect rule cannot inject without putting the key somewhere the browser can
+# read. Do not re-add a redirect rule here: it would be dead on arrival, and a
+# second declaration of the same path in a second config file is exactly how
+# this defect was born. See tests/ci-guards/netlify-bff-route-precedence.spec.ts,
+# which fails if any /bff/* proxy path is declared only in a place the catch-all
+# outranks.
 
 # =============================================================================
 # Edge Functions (security-critical functions listed first for audit clarity)
@@ -238,3 +239,12 @@
 [[edge_functions]]
   function = "orchestrator-proxy"
   path = "/bff/orchestrate/*"
+
+# CEE (Assistants) proxy - handles auth header injection for /bff/cee/*
+# Requires ASSIST_API_KEY env var in Netlify dashboard (already provisioned;
+# the same var orchestrator-proxy reads). An edge function rather than a
+# redirect because _redirects cannot inject request headers and a netlify.toml
+# redirect is outranked by the _redirects SPA catch-all — see ROADMAP 2.317.
+[[edge_functions]]
+  function = "cee-proxy"
+  path = "/bff/cee/*"
