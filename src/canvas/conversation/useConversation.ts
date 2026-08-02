@@ -33,7 +33,7 @@ import {
   extractReason as extractV5ErrorReason,
   resolveGuidance as resolveV5ErrorGuidance,
   resolveRetryable as resolveV5Retryable,
-  resolveFailureBaseCopy,
+  resolveFailureCopyForError,
 } from '../../v5/failureTypeRetryability'
 import { mapV5Blocks } from '../../v5/blocks/mapV5Blocks'
 import { buildSuggestedActionChips } from '../../v5/blocks/suggestedActionChips'
@@ -4904,7 +4904,15 @@ export function useConversation(): UseConversationReturn {
               //   4. generic code-keyed guidance only when no specific
               //      suggestion filled the what-next slot (non-retryable codes
               //      only — the Try again chip serves that role otherwise).
-              const baseCopy = resolveFailureBaseCopy(target.code, retryable)
+              // Fence-aware (journey-walk gap #2): a fence-class GRAPH_DIVERGED
+              // (details.conflict_category 'turn_fence_*') is a write refusal,
+              // never staleness — it gets honest "nothing changed" copy instead
+              // of the canonical re-run banner. See resolveFenceRefusalCopy.
+              const baseCopy = resolveFailureCopyForError(
+                target.code,
+                retryable,
+                target.boundaryError,
+              )
               const reason = extractV5ErrorReason(target.boundaryError)
               const reasonLayer =
                 recovery.suggestion === undefined && isDisplaySafeReason(reason) ? reason : ''

@@ -136,3 +136,55 @@ describe('TypedErrorRenderer — Phase 4 retryability + reason passthrough', () 
     expect(screen.queryByRole('button', { name: /try again/i })).toBeNull();
   });
 });
+
+describe('TypedErrorRenderer — fence-class GRAPH_DIVERGED (journey-walk gap #2)', () => {
+  it('a turn_fence conflict_category renders honest write-refusal copy, never the staleness banner', () => {
+    render(
+      <TypedErrorRenderer
+        code="GRAPH_DIVERGED"
+        boundaryError={{
+          error: 'GRAPH_DIVERGED',
+          boundary: 'B1',
+          direction: 'egress',
+          validator: 'turn_commit',
+          details: {
+            phase: 'commit',
+            fence_verdict: 'unclaimed',
+            conflict_category: 'turn_fence_unclaimed',
+            recovery_action: 'retry_later',
+          },
+          request_id: 'req-walk-409',
+          retryable: false,
+        }}
+      />,
+    );
+    const text = screen.getByTestId('typed-error-text').textContent ?? '';
+    expect(text).not.toContain('Your decision has changed');
+    expect(text).not.toContain('Re-run the analysis');
+    expect(text).toMatch(/nothing in your decision changed/i);
+  });
+
+  it('a non-fence GRAPH_DIVERGED keeps the canonical staleness copy (positive control)', () => {
+    render(
+      <TypedErrorRenderer
+        code="GRAPH_DIVERGED"
+        boundaryError={{
+          error: 'GRAPH_DIVERGED',
+          boundary: 'B1',
+          direction: 'egress',
+          validator: 'turn_commit',
+          details: {
+            phase: 'commit',
+            conflict_category: 'analysis_affecting_conflict',
+            recovery_action: 'refresh_and_reconfirm',
+          },
+          request_id: 'req-cas-409',
+          retryable: false,
+        }}
+      />,
+    );
+    expect(screen.getByTestId('typed-error-text').textContent).toBe(
+      FAILURE_USER_TEXT.GRAPH_DIVERGED,
+    );
+  });
+});

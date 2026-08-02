@@ -170,6 +170,31 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     description: "The direction of your target (whether higher or lower is better) wasn't confirmed, so it was assumed for this run. Goal-fit results for this option may be less reliable.",
     suggestion: `Confirm the target direction for ${label}`,
   }),
+  // ROADMAP 2.300 item 1 (extends 2.271) — ISL's two goal-threshold refusal
+  // codes (robustness_analyzer_v2.py `_resolve_goal_threshold`, fail-closed:
+  // probability_of_goal is OMITTED rather than guessed, the warning names
+  // why). Without templates these goal-level refusals fell to the generic
+  // FACTOR-framed fallback ("Review this factor's inputs"), mislabelling the
+  // condition. Both templates deliberately ignore the resolved label: the
+  // condition is about the GOAL's target/baseline, and the fallback label
+  // ("This factor") would be a category error when affectedNodes is absent.
+  //
+  // NOT_CONVERTIBLE's producer reasons include missing_goal_baseline (no
+  // recorded current level — the tester-reachable case) plus structural ones
+  // (goal pinned by an intervention, root goal, parameter uncertainty on the
+  // goal, auto-noise), so the description states the withhold factually and
+  // the suggestion names the user-actionable remedy without claiming it is
+  // the only cause.
+  GOAL_THRESHOLD_NOT_CONVERTIBLE: () => ({
+    title: "Your goal's target couldn't be measured for this run",
+    description: 'The target couldn\'t be compared with where the goal stands today — for example when no current level is recorded for it — so goal-fit results were withheld rather than guessed.',
+    suggestion: 'State the current level for your goal',
+  }),
+  GOAL_THRESHOLD_FRAME_UNSPECIFIED: () => ({
+    title: "Your goal's target could mean a level or a change",
+    description: "The target doesn't say whether it's a level to reach or a change from today, so goal-fit results were withheld for this run rather than guessed.",
+    suggestion: 'Restate the target as a level to reach or a change from your current level',
+  }),
 }
 
 // ─── Internal token detection ────────────────────────────────────────────────

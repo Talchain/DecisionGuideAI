@@ -18,7 +18,7 @@ import {
   type BoundaryError,
 } from '@talchain/schemas/boundary'
 
-import { extractReason, resolveGuidance } from './failureTypeRetryability'
+import { extractReason, resolveFenceRefusalCopy, resolveGuidance } from './failureTypeRetryability'
 
 export interface TypedErrorRendererProps {
   code: FailureTypeLiteral
@@ -57,7 +57,11 @@ function resolveUserText(code: FailureTypeLiteral): string {
 
 export function TypedErrorRenderer(props: TypedErrorRendererProps): ReactElement {
   const { code, requestId, severity = 'error', boundaryError } = props
-  const text = resolveUserText(code)
+  // Fence-aware (journey-walk gap #2): a fence-class GRAPH_DIVERGED
+  // (details.conflict_category 'turn_fence_*') is a write refusal, never
+  // staleness — same resolution as useConversation's typed_error branch.
+  const fenceCopy = code === 'GRAPH_DIVERGED' ? resolveFenceRefusalCopy(boundaryError) : null
+  const text = fenceCopy ?? resolveUserText(code)
   const guidance = resolveGuidance(code)
   const reason = extractReason(boundaryError)
 

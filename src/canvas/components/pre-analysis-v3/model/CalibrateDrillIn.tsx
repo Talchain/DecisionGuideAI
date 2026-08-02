@@ -17,7 +17,7 @@ import Tooltip from '../../../../components/Tooltip'
 import { typography, typo } from '../../../../styles/typography'
 import { FIELD_FEEDBACK_COPY } from '../constants'
 import { useCanvasStore } from '../../../store'
-import { normaliseRawFactorValue, withObservedStateUpdate } from '../../../utils/observedStateHelpers'
+import { getObservedState, normaliseRawFactorValue, withObservedStateUpdate } from '../../../utils/observedStateHelpers'
 import { PanelIconButton } from '../ui/PanelIconButton'
 import { parseSuccessTarget } from '../hero/parseSuccessTarget'
 import type { EstimateRowModel } from '../types'
@@ -39,6 +39,43 @@ function commitValue(nodeId: string, rawValue: number, cap: number | null): void
       source: 'user_override',
     }),
   })
+}
+
+/**
+ * Range guard for normalised-scale-only factors — journey-walk 2026-08-03
+ * gap #3 (ROADMAP 2.159/S1/S3 class), the witnessed `£60,000` → "6000000%"
+ * chain.
+ *
+ * When a factor carries NO cap, NO unit and NO raw-value display anchor but
+ * DOES carry a model-scale `value` in [0,1], the number this editor commits
+ * IS the model-scale value (normaliseRawFactorValue returns it verbatim
+ * without a cap) and every downstream surface treats it as 0–1 — the canvas
+ * painted the walk's 60000 as "6000000%". The NL edit path already refuses
+ * exactly this shape ("recorded without a unit … I haven't changed
+ * anything"); this guard gives the direct editor the same discipline.
+ *
+ * Validation reads ONLY what the node data genuinely carries
+ * (observedState value / raw_value / unit / cap) — ROADMAP 2.193: no
+ * structured bound crosses the wire, so no server contract is invented.
+ * Factors with a cap (raw/cap normalisation exists), a unit, a raw anchor,
+ * or no value at all keep today's behaviour: for those, the typed number is
+ * the factor's own display-scale anchor (pinned by
+ * calibrateDrillInParse.spec.tsx).
+ */
+function refusesNormalisedScaleEntry(
+  nodeData: unknown,
+  cap: number | null,
+  parsedValue: number,
+): boolean {
+  if (typeof cap === 'number' && Number.isFinite(cap) && cap > 0) return false
+  const observed = getObservedState(nodeData)
+  if (observed.unit != null && String(observed.unit).trim() !== '') return false
+  if (observed.raw_value != null) return false
+  const existing = observed.value
+  const declaredNormalised =
+    typeof existing === 'number' && Number.isFinite(existing) && existing >= 0 && existing <= 1
+  if (!declaredNormalised) return false
+  return parsedValue < 0 || parsedValue > 1
 }
 
 function commitConfirm(nodeId: string): void {
@@ -76,6 +113,14 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
     const parsed = parseSuccessTarget(draft)
     if (parsed === null) {
       setHint(FIELD_FEEDBACK_COPY.numberHint)
+      return
+    }
+    // Walk gap #3: on a normalised-scale-only factor the committed number IS
+    // the model-scale value — refuse out-of-range magnitudes at entry with
+    // honest copy instead of painting them as absurd percentages.
+    const node = useCanvasStore.getState().nodes.find(n => n.id === row.nodeId)
+    if (node && refusesNormalisedScaleEntry(node.data, row.cap, parsed.value)) {
+      setHint(FIELD_FEEDBACK_COPY.normalisedRangeHint)
       return
     }
     commitValue(row.nodeId, parsed.value, row.cap)

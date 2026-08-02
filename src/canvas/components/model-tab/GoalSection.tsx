@@ -17,10 +17,23 @@ import { SourceProvenancePill } from './SourceProvenancePill'
 import { InlineEdit } from './InlineEdit'
 import { formatSmartNumber, formatValueWithUnit } from './utils'
 import { DetailToggleContext } from './DetailToggleContext'
+import { GOAL_ANCHOR_COPY } from '../../../components/results/utils/goalAnchorCopy'
+import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../../components/results/utils/goalFitBasisCaveatCopy'
+import { formatGoalProbability } from '../../../components/results/utils/displayFloors'
+import type { GoalFitRow } from './buildGoalFitRows'
 
 interface GoalSectionProps {
   goalNode: Node | undefined
   onSendMessage?: (message: string) => void
+  /**
+   * Per-option goal-fit rows (journey-walk §10.4 tab parity). Built by
+   * `buildGoalFitRows` in ModelTabBody — complete-field gated (null unless
+   * EVERY option carries an admissible figure), one chooser
+   * (`selectGoalProbability`), producer order. Rendered only when the card
+   * also shows a target: the figures answer "chance of reaching the target",
+   * so they never render on a card that displays no target.
+   */
+  goalFitRows?: GoalFitRow[] | null
 }
 
 /**
@@ -45,7 +58,7 @@ interface GoalSectionProps {
  * unmount happens instead of a mid-render bail-out. Narrowing the prop is what
  * stops the guard being reintroduced here: there is no `undefined` left to test.
  */
-function GoalSectionInner({ goalNode, onSendMessage }: GoalSectionProps & { goalNode: Node }) {
+function GoalSectionInner({ goalNode, onSendMessage, goalFitRows }: GoalSectionProps & { goalNode: Node }) {
   const { showDetail } = useContext(DetailToggleContext)
   // ROADMAP 2.121 slice 1 — the ONE production writer of a user success target
   // (this file's own comment below has always named it). Every other
@@ -175,6 +188,37 @@ function GoalSectionInner({ goalNode, onSendMessage }: GoalSectionProps & { goal
         </div>
       )}
 
+      {/* Per-option goal fit (journey-walk §10.4 tab parity). Register-only
+          copy: GOAL_ANCHOR_COPY.phrase carries the possessive gate (the
+          substituted-joint basis withholds "your goal"); formatGoalProbability
+          is the shared floor+formatter (sub-1% renders "< 1%", never "0%");
+          the caveat is doctrine B — adjacent whenever a figure rides the
+          modelled-outcome-distribution basis. Rows are complete-field gated
+          upstream (buildGoalFitRows) and render only beside a displayed
+          target. */}
+      {displayThreshold !== null && goalFitRows && goalFitRows.length > 0 && (
+        <div className="mt-2 space-y-0.5" data-testid="goal-fit-parity">
+          {goalFitRows.map(row => (
+            <div key={row.id} className={`${typography.panelMeta} text-text-body`}>
+              <span className="text-text-header">{row.label}</span>
+              {' — '}
+              {GOAL_ANCHOR_COPY.phrase(
+                formatGoalProbability(row.probability),
+                row.isSubstitutedJoint,
+              )}
+            </div>
+          ))}
+          {goalFitRows.some(row => row.modelledBasis) && (
+            <p
+              className={`${typography.panelMeta} text-text-light`}
+              data-testid="goal-fit-modelled-caveat"
+            >
+              {GOAL_FIT_BASIS_CAVEAT_COPY}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Feasibility warning */}
       {showFeasibilityWarning && (
         <div
@@ -232,7 +276,7 @@ function GoalSectionInner({ goalNode, onSendMessage }: GoalSectionProps & { goal
   )
 }
 
-export function GoalSection({ goalNode, onSendMessage }: GoalSectionProps) {
+export function GoalSection({ goalNode, onSendMessage, goalFitRows }: GoalSectionProps) {
   // The absence guard lives HERE, in a component with no hooks, so an arriving
   // or departing goal node mounts/unmounts the inner component rather than
   // changing its hook count mid-render. See `GoalSectionInner`'s header.
@@ -244,10 +288,11 @@ export function GoalSection({ goalNode, onSendMessage }: GoalSectionProps) {
   // ModelTabBody kept supplying the callback. Pinned by
   // `__tests__/ModelTabBody.goalDiscuss.spec.tsx` through the REAL
   // ModelTabBody→GoalSection path — the hop this defect lived in.
+  // `goalFitRows` is pinned the same way by ModelTabBody.goalFitParity.spec.tsx.
   if (!goalNode) return null
   return (
     <SectionErrorBoundary section="goal">
-      <GoalSectionInner goalNode={goalNode} onSendMessage={onSendMessage} />
+      <GoalSectionInner goalNode={goalNode} onSendMessage={onSendMessage} goalFitRows={goalFitRows} />
     </SectionErrorBoundary>
   )
 }

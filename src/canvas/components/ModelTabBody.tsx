@@ -28,6 +28,7 @@ import { SectionErrorBoundary } from './GraphTextView'
 import type { MappedRobustness } from '../../lib/mappers/types'
 import { trackGuidance } from '../../telemetry/guidanceEvents'
 import { GoalSection } from './model-tab/GoalSection'
+import { buildGoalFitRows } from './model-tab/buildGoalFitRows'
 import { OptionsSection } from './model-tab/OptionsSection'
 import { FactorsSection } from './model-tab/FactorsSection'
 import { RelationshipsSection } from './model-tab/RelationshipsSection'
@@ -430,6 +431,16 @@ export const ModelTabBody = memo(function ModelTabBody({
     [nodes, edges]
   )
 
+  // Per-option goal-fit rows for the goal card (journey-walk §10.4 tab
+  // parity). Same source object the conditional-winners and e-value maps
+  // above already read (`results.report`); the chooser and the complete-field
+  // gate live in buildGoalFitRows.
+  const goalFitRows = useMemo(() => {
+    const report = (results as { report?: { option_probabilities?: Record<string, unknown> } } | null)
+      ?.report
+    return buildGoalFitRows(grouped.option, report?.option_probabilities)
+  }, [results, grouped.option])
+
   // ── Robustness data ───────────────────────────────────────────────────────
 
   // hasAnalysisData is true if either:
@@ -736,7 +747,7 @@ export const ModelTabBody = memo(function ModelTabBody({
 
         {/* ── Sections ───────────────────────────────────────────────── */}
         <div className="space-y-4">
-          <GoalSection goalNode={grouped.goal[0]} onSendMessage={onSendMessage} />
+          <GoalSection goalNode={grouped.goal[0]} onSendMessage={onSendMessage} goalFitRows={goalFitRows} />
 
           <OptionsSection
             optionNodes={grouped.option}
