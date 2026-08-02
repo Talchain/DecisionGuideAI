@@ -117,10 +117,21 @@ describe('HERO_COPY.evidence — the flip-threshold register exists once (ROADMA
   /**
    * The flip sentences moved to `utils/flipThresholdDisplay` so the V7 signal
    * chip — outside this mount-guarded module — can render the same producer
-   * rows with the same words. `HERO_COPY.evidence` delegates BY REFERENCE:
-   * these are identity assertions, so re-inlining any of them here (a second
-   * voice for one claim) goes RED even if the restated string starts out
-   * byte-identical.
+   * rows with the same words. `HERO_COPY.evidence` delegates BY REFERENCE.
+   *
+   * ⚠ STATED HONESTLY, the guarantee is two-tier (adversarial-review finding
+   * on #558). For the three FUNCTION members (`switchMeta`,
+   * `flipRiskWithAlternative`, `flipRiskNoAlternative`) `toBe` is reference
+   * identity: re-inlining one here goes RED even if the restated body starts
+   * out byte-identical. For the three PRIMITIVE tokens (`fallsBelow`,
+   * `risesAbove`, `crosses`) `toBe` is value equality: a byte-identical
+   * re-inline passes today and this pin catches it only at the FIRST
+   * DIVERGENCE — a drift pin, not a re-inline pin, exactly like the
+   * possessiveGate DEDUP test. That trade is deliberate: making the tokens
+   * functions to buy reference identity would churn every consumer (they are
+   * interpolated as strings by the sentence builders and returned by
+   * `flipDirectionWording`), and the failure that matters — the two copies
+   * saying different words — is the one the equality pin already REDs on.
    */
   it.each([
     ['switchMeta'],
