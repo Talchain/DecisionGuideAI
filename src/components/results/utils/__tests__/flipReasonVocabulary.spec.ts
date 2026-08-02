@@ -13,7 +13,11 @@
  *   · `isl_error` — never emitted as a flip reason (it is a transport-error
  *     envelope field in PLoT). That arm of the filter really was inert.
  *   · `timeout`   — a REAL producer token (`flip-threshold-status.ts:86`). That
- *     arm fired on live data.
+ *     arm fires on the LIVE VOCABULARY — a claim about what the producer can
+ *     emit, established at the bytes in PLoT, NOT a witnessed capture. No
+ *     capture in `PHASE0-EVIDENCE-2026-07-28/` carries a `timeout` row (every
+ *     witnessed zero-flip row is `structurally_invariant`). The corruption
+ *     below is REACHABLE, not observed; do not restate it as witnessed.
  *
  * And when it fired it destroyed evidence: it deleted probe-failure rows
  * BEFORE `classifyFlipEvidence` counted them, so a run of one `timeout` plus

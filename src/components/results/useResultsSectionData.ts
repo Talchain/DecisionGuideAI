@@ -1800,7 +1800,16 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // !== 'isl_error')`, and it was believed dead ("the union has no overlap
       // with live tokens"). Half true: `isl_error` is never emitted as a flip
       // reason, so that arm was inert — but `timeout` IS a real producer token
-      // (`flip-threshold-status.ts:86`), so this line DID fire on live data.
+      // (`flip-threshold-status.ts:86`), so this line fires on the LIVE
+      // VOCABULARY.
+      //
+      // ⚠ PRECISION, because the difference matters to anyone re-deriving this:
+      // that is a claim about the token set the producer can emit, established
+      // at the bytes in PLoT. It is NOT a witnessed capture — none of the
+      // captures in `PHASE0-EVIDENCE-2026-07-28/` carries a `timeout` row (all
+      // witnessed zero-flip rows are `structurally_invariant`). So the
+      // corruption below is REACHABLE, not observed. Do not restate it as
+      // "witnessed on staging".
       //
       // And firing was worse than not firing. It deleted probe-failure rows
       // BEFORE `classifyFlipEvidence` could count them, so a run of one
@@ -1809,14 +1818,23 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // `flips_absent`. The panel then stated that the producer had PROVED no
       // flip exists, on a run where one factor was never measured at all.
       //
-      // Removing it is display-neutral, verified at the bytes rather than
-      // assumed: `ConfidenceSection.tsx:1061` (`FlipThresholdCards`) already
-      // applies its own `.filter(ft => ft.flip_value != null)`, so it never
-      // rendered these rows anyway; and `TornadoChart` accepts `flipThresholds`
-      // but deliberately does not render them at all (`TornadoChart.tsx:135-138`
-      // — the flip marker was removed as an invalid coordinate mapping). The
-      // ONLY consumer whose answer changes is the classifier, which is the one
-      // that was wrong.
+      // Removing it is display-neutral. THE COMPLETE CONSUMER MANIFEST of
+      // `recommendation.flipThresholds`, each verified at the bytes — an
+      // absence claim needs the whole list, and a PARTIAL manifest is the
+      // trap-14 seed (this comment shipped review with two of the four
+      // missing):
+      //   · `ConfidenceSection.tsx:1061` (`FlipThresholdCards`) — already
+      //     applies its own `.filter(ft => ft.flip_value != null)`, so it never
+      //     rendered these rows.
+      //   · `buildHeroModel.ts:286` — `usableFlips`, filters `flip_value != null`.
+      //   · `buildHeroModel.ts:983` — `evidenceFlipRisks`, returns null on
+      //     `flip_value == null`.
+      //   · `TornadoChart` — accepts `flipThresholds` and deliberately renders
+      //     none (`TornadoChart.tsx:135-138`: the flip marker was removed as an
+      //     invalid coordinate mapping).
+      // Every one of them already drops null-valued rows, so the rows this
+      // filter used to delete were invisible to all four. The ONLY consumer
+      // whose answer changes is the classifier, which is the one that was wrong.
       //
       // Probe-failure rows are now routed away from attested absence by
       // `flipReasonVocabulary`, which does it by MEANING and covers the

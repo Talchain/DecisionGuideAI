@@ -212,8 +212,23 @@ describe('goal-probability identity — the rendered canvas text matches the dec
     // only the register changes, and the number is asserted through the shared
     // register rather than a re-typed literal, so this cannot drift from what
     // the node renders.
+    // The VOICE is derived from the selector, not hard-coded. Passing a literal
+    // `true` here would re-assert by hand the very thing this file exists to
+    // compare — if `JOINT_ONLY_RECORD` ever stopped classifying as substituted,
+    // a hard-coded `true` would keep demanding the withheld wording and the
+    // parity claim would quietly become a fiction. Asking the selector makes
+    // the comparison self-contained.
+    const decision = selectGoalProbability(JOINT_ONLY_RECORD)
+    const substituted = decision.basis === 'joint_goal_substituted'
+
+    // Anti-vacuity (trap 13): pin that the derivation actually yields the
+    // WITHHELD arm here, so the assertion below cannot pass by having silently
+    // flipped to the permitted one.
+    expect(substituted).toBe(true)
+    expect(decision.mayUsePossessiveGoalFraming).toBe(false)
+
     renderGoalNode()
-    expect(screen.getByText(GOAL_ANCHOR_COPY.phrase('62%', true))).toBeDefined()
+    expect(screen.getByText(GOAL_ANCHOR_COPY.phrase('62%', substituted))).toBeDefined()
     // And the possessive voice is gone, on this basis, at this surface.
     expect(screen.queryByText(/chance of reaching target/)).toBeNull()
   })
