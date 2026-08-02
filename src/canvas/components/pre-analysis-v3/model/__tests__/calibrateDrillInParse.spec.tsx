@@ -123,6 +123,29 @@ describe('CalibrateDrillIn — no fabricated numbers reach observedState', () =>
   })
 
   it('a cap normalises the PARSED value, not the digit-stripped one', () => {
+    // ROADMAP 2.304 slice 1 — the FIXTURE moved, the CLAIM did not. The cap now
+    // sits on the NODE, which is where production always put it:
+    // `buildEstimateRows` derives `row.cap` from `observedState.cap`, and the
+    // commit reads the factor's own cap through `buildFactorValueEditEvent`
+    // (one scale authority, not two). This fixture used to set `row.cap` while
+    // leaving the node capless — a decoupling the product cannot produce. The
+    // assertion below is unchanged: parsed 500000, normalised to 0.5 by a cap
+    // of 1,000,000.
+    useCanvasStore.setState({
+      nodes: [
+        {
+          id: 'f1',
+          type: 'factor',
+          position: { x: 0, y: 0 },
+          data: {
+            kind: 'factor',
+            label: 'Incremental ARR',
+            observedState: { cap: 1000000 },
+          },
+        } as Node,
+      ],
+      edges: [],
+    })
     render(<CalibrateDrillIn row={{ ...row, cap: 1000000 }} onDone={vi.fn()} />)
     fireEvent.change(screen.getByLabelText(`Your estimate for ${row.label}`), {
       target: { value: '£500k' },

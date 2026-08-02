@@ -327,8 +327,20 @@ describe('signal resolution', () => {
   })
 })
 
+/**
+ * ROADMAP 2.304 slice 1 — these two now pin the RECEIPT-GATED rule.
+ *
+ * The drill-in's commit is a `factor_value_edit` turn, and the reviewed stamp
+ * (`user_override` / `user_confirmed`) is written only when CEE's applied
+ * `graph_patch` receipt comes back. This panel is rendered here with NO
+ * ConversationProvider, so no turn is dispatched and no receipt can arrive:
+ * the NUMBER moves (optimistic write) and the CLAIM does not. That is the
+ * defect being closed — the old assertions passed against a stamp the engine
+ * had never seen. The receipt path itself is driven end-to-end, against the
+ * real dispatcher, in `model/__tests__/calibrateDrillInReceipt.spec.tsx`.
+ */
 describe('calibrate flow (canonical observed-state writes)', () => {
-  it('saving a value writes raw_value + user_override and moves the estimates bar', () => {
+  it('saving a value writes raw_value but withholds the reviewed stamp until a receipt', () => {
     renderPanel()
     fireEvent.click(screen.getByRole('button', { name: /Your decision/ }))
     fireEvent.click(screen.getByRole('button', { name: /What this depends on/ }))
@@ -341,14 +353,16 @@ describe('calibrate flow (canonical observed-state writes)', () => {
     const f1 = useCanvasStore.getState().nodes.find(n => n.id === 'f1')!
     const observed = (f1.data as { observedState?: Record<string, unknown> }).observedState!
     expect(observed.raw_value).toBe(40)
-    expect(observed.source).toBe('user_override')
+    expect(observed.source).toBe('cee_inference')
 
+    // The bar counts CHECKED rows, so it cannot move on an unreceipted commit
+    // either — the two now agree, which is the point.
     expect(screen.getByTestId('pre-analysis-v3-bar-estimates')).toHaveAccessibleName(
-      'Estimates: medium. 1 of 3 checked',
+      'Estimates: low. 0 of 3 checked',
     )
   })
 
-  it('confirm as is writes user_confirmed without touching the value', () => {
+  it('confirm as is leaves the value alone and withholds user_confirmed until a receipt', () => {
     renderPanel()
     fireEvent.click(screen.getByRole('button', { name: /Your decision/ }))
     fireEvent.click(screen.getByRole('button', { name: /What this depends on/ }))
@@ -357,7 +371,7 @@ describe('calibrate flow (canonical observed-state writes)', () => {
 
     const f1 = useCanvasStore.getState().nodes.find(n => n.id === 'f1')!
     const observed = (f1.data as { observedState?: Record<string, unknown> }).observedState!
-    expect(observed.source).toBe('user_confirmed')
+    expect(observed.source).toBe('cee_inference')
     expect(observed.raw_value).toBe(30)
   })
 })

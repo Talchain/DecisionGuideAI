@@ -51,6 +51,28 @@ function readNumber(field: unknown): number | undefined {
   return typeof n === 'number' && Number.isFinite(n) ? n : undefined
 }
 
+/**
+ * WHICH number the input the user typed into was DISPLAYING.
+ *
+ * The scale of a typed number is decided by what the field showed, not by what
+ * the node happens to store — so a surface whose input is seeded differently
+ * needs to say so HERE rather than grow its own rule. Two bases exist today:
+ *
+ * - `'raw_or_value'` (default) — the inspector panel and the Model-tab chips,
+ *   whose inputs display `raw_value ?? value`.
+ * - `'raw_only'` — the pre-analysis drill-in, whose prefill is
+ *   `EstimateRowModel.rawPrefill` (the node's `raw_value`, or an EMPTY field)
+ *   and which by design NEVER displays the normalised model-scale `value`
+ *   (`buildEstimateRows`: "The normalised model-scale `value` is never
+ *   displayed"). On that surface a stored `value` therefore says nothing about
+ *   the scale of what was typed, and reading it as the seed would classify a
+ *   `£60,000` entry on a capped factor as a model-scale number — the
+ *   6000000% class the #559 entry guard exists to stop, re-entered through the
+ *   scale module. `'raw_only'` falls through to the module's own EMPTY-input
+ *   rule instead (see `ValueInputSeed.inUserUnits`).
+ */
+export type ValueInputSeedBasis = 'raw_or_value' | 'raw_only'
+
 export interface ValueInputSeed {
   /** The number the input should display, or undefined for an empty input. */
   seed: number | undefined
@@ -72,12 +94,18 @@ export interface ValueInputSeed {
  * scale that number is in. Derived from the node's own observed state — never
  * from a hard-coded bound, because scales vary per draft.
  */
-export function resolveValueInputSeed(nodeData: unknown): ValueInputSeed {
+export function resolveValueInputSeed(
+  nodeData: unknown,
+  basis: ValueInputSeedBasis = 'raw_or_value',
+): ValueInputSeed {
   const obs = getObservedState(nodeData)
   const rawValue = readNumber(obs.raw_value)
   const value = readNumber(obs.value)
 
   if (rawValue != null) return { seed: rawValue, inUserUnits: true }
+  // A `raw_only` input never showed `value`, so the field the user typed into
+  // was EMPTY — which is the module's existing user-units case, not a new rule.
+  if (basis === 'raw_only') return { seed: undefined, inUserUnits: true }
   if (value != null) return { seed: value, inUserUnits: false }
   return { seed: undefined, inUserUnits: true }
 }
@@ -89,6 +117,11 @@ export interface FactorValueEditInput {
   typedValue: number
   /** The node's `data`, read for its OWN cap / unit. */
   nodeData: unknown
+  /**
+   * Which number the committing input was DISPLAYING. Omit for the
+   * `raw_value ?? value` inputs; see `ValueInputSeedBasis`.
+   */
+  seedBasis?: ValueInputSeedBasis
 }
 
 /**
@@ -101,14 +134,14 @@ export interface FactorValueEditInput {
 export function buildFactorValueEditEvent(
   input: FactorValueEditInput,
 ): WireSystemEvent | null {
-  const { nodeId, typedValue, nodeData } = input
+  const { nodeId, typedValue, nodeData, seedBasis } = input
   if (!nodeId) return null
   if (typeof typedValue !== 'number' || !Number.isFinite(typedValue)) return null
 
   const obs = getObservedState(nodeData)
   const cap = readNumber(obs.cap)
   const unit = typeof obs.unit === 'string' && obs.unit.length > 0 ? obs.unit : undefined
-  const { inUserUnits } = resolveValueInputSeed(nodeData)
+  const { inUserUnits } = resolveValueInputSeed(nodeData, seedBasis)
 
   // `value` is ALWAYS model scale. `normaliseRawFactorValue` is the canonical
   // rule (raw/cap, with the typed number passed through when no honest scale
