@@ -43,6 +43,7 @@ import {
 } from '../../../components/results/utils/selectGoalProbability'
 import { GoalNode } from '../../nodes/GoalNode'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../../components/results/utils/goalFitBasisCaveatCopy'
+import { GOAL_ANCHOR_COPY } from '../../../components/results/utils/goalAnchorCopy'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -194,8 +195,27 @@ describe('goal-probability identity — the rendered canvas text matches the dec
   // These assert what the node says, not where or whether it appears on screen.
 
   it('GoalNode states the same percentage the results panel does', () => {
+    // ⚠ ROADMAP 2.283 — THIS TEST WAS PINNING THE DEFECT.
+    //
+    // It asserted `/62% chance of reaching target/`, i.e. the POSSESSIVE voice,
+    // over `JOINT_ONLY_RECORD` — a SUBSTITUTED payload. This same file asserts
+    // twenty lines below that the selector publishes
+    // `mayUsePossessiveGoalFraming: false` for exactly this record, and that
+    // the possessive "is withheld when the joint value stands in for an absent
+    // goal value". So the file pinned the withholding at the SELECTOR and the
+    // possessive at the RENDER — a contradiction it could not detect, because
+    // no assertion compared the two. #556 recorded `GoalNode.tsx:353` as
+    // deliberately-not-gated; this expectation is where that gap was frozen.
+    //
+    // The test's PURPOSE is preserved exactly, and it is about the NUMBER: the
+    // canvas must state the same 62% the results panel states. It still does —
+    // only the register changes, and the number is asserted through the shared
+    // register rather than a re-typed literal, so this cannot drift from what
+    // the node renders.
     renderGoalNode()
-    expect(screen.getByText(/62% chance of reaching target/)).toBeDefined()
+    expect(screen.getByText(GOAL_ANCHOR_COPY.phrase('62%', true))).toBeDefined()
+    // And the possessive voice is gone, on this basis, at this surface.
+    expect(screen.queryByText(/chance of reaching target/)).toBeNull()
   })
 
   it('GoalNode does not simultaneously deny that a goal probability exists', () => {

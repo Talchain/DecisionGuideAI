@@ -1400,7 +1400,11 @@ describe('Wave 2 (§6.5): quick evidence links', () => {
         makeHeroData({
           recommendation: {
             flipThresholds: [
-              { label: 'Salary cost', node_id: 'node_salary', current_value: 40, flip_value: null },
+              // ROADMAP 2.280: `flip_reason` restored. This fixture's own comment
+              // above says the witnessed rows are `structurally_invariant`, but the
+              // field was omitted — so the row asserted "no flip" while carrying no
+              // evidence of it. Verified at the capture (witness-2267 f-turn-2.json).
+              { label: 'Salary cost', node_id: 'node_salary', current_value: 40, flip_value: null, flip_reason: 'structurally_invariant' },
             ],
           },
           drivers: { topDrivers: [focusableTop], drivers: [focusableTop, fragile] },
