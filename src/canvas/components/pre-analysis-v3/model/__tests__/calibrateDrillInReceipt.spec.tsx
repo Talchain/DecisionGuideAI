@@ -35,14 +35,40 @@
  * carries no value event for those (`factor_value_edit.field` is the literal
  * `'value'`).
  *
- * FENCE-409 POSTURE (verified, not assumed — see the last describe). A typed
- * 409 on a system-mode turn renders NO transcript bubble by design
- * (`useConversation`'s typed_error branch gates the bubble on `mode === 'user'`)
- * and does NOT revert (the resolution branch excludes `typed_error` so the
- * deferral buffer owns retries). That is the machinery's EXISTING posture,
- * shared byte-for-byte with the Model tab and the inspector; this surface
- * inherits it rather than growing a private one. The test pins that inheritance
- * so a future divergence on one surface goes RED.
+ * RED-FIRST, re-derived at pristine `704df8f7` out-of-repo (#560 review):
+ * **8 failed | 3 passed (11)**. `expected [] to have a length of 1` appears SIX
+ * times (no dispatch existed at all) alongside
+ * `expected 'user_confirmed' to be 'cee_inference'` and
+ * `expected document not to contain element, found <span` (the unreceipted
+ * "checked by you"). ⚠ An earlier record said "6 RED / 4 controls green" (=10);
+ * the file has 11 `it()` blocks at BOTH commits, so that figure described
+ * neither — it was taken against an earlier draft of this file and never
+ * re-derived. Corrected here rather than left to be inherited.
+ *
+ * FENCE-REFUSAL POSTURE — restated on MEASURED evidence (#560 review, live wire
+ * probe at `2aee5f13`). An earlier version of this docstring asserted that "a
+ * system-mode turn renders NO transcript bubble by design". ⚠ THAT PREMISE IS
+ * WITHDRAWN: the probe observed a `mode:'system'` turn rendering a full
+ * transcript receipt card ("… is already set to £3,300 / No change / Factor
+ * already at this value"). System turns DO reach the transcript; only the
+ * `typed_error` BRANCH is user-gated, which is a much narrower claim than the
+ * one recorded here.
+ *
+ * The conclusion survives, for a stronger reason the probe established: a
+ * CONTENDED commit on this path returns an UNTYPED HTTP 500 (`INTERNAL_ERROR`,
+ * `system_event_commit_failed`) — NOT a typed 409. `resolveFenceRefusalCopy`
+ * keys on `GRAPH_DIVERGED` + `details.conflict_category`, so it is unreachable
+ * here because **no typed 409 exists on this path at all**, on this surface or
+ * on the Model tab / inspector that share the machinery.
+ *
+ * ⚠ AND THIS FILE DOES NOT VERIFY THE `mode === 'user'` GATE. Mutating
+ * `if (mode === 'user')` → `if (true)` at `useConversation.ts:4953` leaves all
+ * 11 tests here GREEN. The spec that REDs on that mutant is the pre-existing
+ * `conversation/__tests__/useConversation.systemEventFailure.spec.ts:212` —
+ * cite that one, never this file, for the gating claim. The last describe below
+ * pins only what it drives: with a typed 409 injected at the transport, no
+ * fence copy renders, the optimistic value stands, and no reviewed stamp is
+ * written.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -202,7 +228,15 @@ const REFUSAL = {
   blocks: [],
 }
 
-/** A fence-class GRAPH_DIVERGED 409 — the typed refusal shape (#559). */
+/**
+ * A fence-class GRAPH_DIVERGED 409 — the typed refusal shape (#559).
+ *
+ * ⚠ SYNTHETIC. The #560 live probe measured a contended commit on this path
+ * returning an UNTYPED HTTP 500 (`INTERNAL_ERROR`, `system_event_commit_failed`)
+ * instead, so this shape is not what CEE emits here. It is injected anyway to
+ * pin the CLIENT's handling of a typed error on a system turn; do not cite this
+ * fixture as evidence that CEE sends a typed 409 on this path.
+ */
 const FENCE_409 = {
   error: 'GRAPH_DIVERGED',
   message: 'graph fence conflict',
@@ -458,8 +492,8 @@ describe('controls — the fix must not be satisfiable by something cheaper and 
   })
 })
 
-describe('fence-409 posture — INHERITED from the shared machinery, verified not assumed', () => {
-  it('a typed fence 409 renders no transcript bubble and does not revert (the deferral buffer owns retries)', async () => {
+describe('typed-error posture on this path — pins CURRENT behaviour, inherited from the shared machinery', () => {
+  it('a typed 409 injected at the transport surfaces no fence copy, leaves the optimistic value standing, and writes no reviewed stamp', async () => {
     boundaryErrors.push(FENCE_409)
     renderHarness()
     await act(async () => {
@@ -468,17 +502,31 @@ describe('fence-409 posture — INHERITED from the shared machinery, verified no
     })
 
     expect(factorValueEdits()).toHaveLength(1)
-    // System-mode turns render no synthetic bubble — `resolveFenceRefusalCopy`
-    // is reached only from the `mode === 'user'` branch and TypedErrorRenderer.
-    // The fence copy therefore does NOT appear on this path, exactly as it does
-    // not on the Model tab or the inspector.
+    // No fence copy. NOTE the reason, restated on measured evidence (#560 live
+    // probe): a contended commit on this path returns an UNTYPED HTTP 500
+    // (`INTERNAL_ERROR`, `system_event_commit_failed`), so the typed 409 this
+    // test injects does not occur in production at all — `resolveFenceRefusalCopy`
+    // keys on GRAPH_DIVERGED + `details.conflict_category` and is unreachable
+    // here for that reason, not because system turns are silent (they are not:
+    // the probe saw a system turn render a full receipt card). This assertion
+    // therefore pins the CLIENT's handling of the shape, not a claim about what
+    // CEE emits.
     expect(
       screen.queryByText(/wasn't saved because a newer change/i),
     ).not.toBeInTheDocument()
-    // And the optimistic write stands: a typed error is a FAILURE, excluded
-    // from the receipt-resolution branch by design.
+    // The optimistic write SURVIVES a typed error. ⚠ This pins CURRENT
+    // BEHAVIOUR — it is NOT a design guarantee, and an earlier version of this
+    // comment wrongly called it one. The stated justification ("failures are
+    // the deferral buffer's business") holds only for a DEFERRED send:
+    // `enqueueDeferredSystemSend` has exactly one call site
+    // (`useConversation.ts:3978`, the in-flight defer branch), so an IMMEDIATE
+    // send that fails is never enqueued and nothing retries or reverts it. That
+    // gap is disclosed in #560 and is pre-existing across all three
+    // value-committing surfaces; when it is fixed, THIS assertion is the one to
+    // change — it must not be read as a guarantee defending the current state.
     expect(observedNow().value).toBe(NEW_MODEL)
-    // The completion claim still requires a receipt, which never arrived.
+    // The completion claim still requires a receipt, which never arrived — this
+    // half IS the 2.304 guarantee, and it holds in the failure direction too.
     expect(observedNow().source).toBe('cee_inference')
     expect(screen.queryByText('checked by you')).not.toBeInTheDocument()
   })

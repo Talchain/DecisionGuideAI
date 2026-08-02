@@ -28,6 +28,18 @@
  * — it is an assertion about what the ENGINE holds, so it waits for the
  * engine's receipt. Writing it at commit, or at dispatch, is the 2.304 defect.
  *
+ * IN-FLIGHT PILL — the trade, and the alternative that was RULED OUT (#560).
+ * While the turn is unanswered the row shows the user's number beside its
+ * PRE-EXISTING pill (e.g. "Olumi estimate"), because `setObservedValue`
+ * preserves `source`. The obvious alternative — writing a neutral placeholder
+ * source ('not checked yet' / 'user_pending') for the in-flight window — was
+ * considered and REJECTED: `observedState` is spread wholesale into the PLoT
+ * payload by `extractObservedState` (`src/adapters/plot/v2/adapter.ts:913-937`),
+ * so a placeholder would cross the wire untraced, and it would become PERMANENT
+ * on every path where no receipt can arrive. If this window's presentation
+ * needs changing, change the RENDER — never the stored `source`. Do not
+ * re-propose the placeholder.
+ *
  * NO GUEST ARM, deliberately. The `factor_value_edit` machinery has none:
  * `sendSystemEvent` → `sendTurn` → `callV5Turn` carries no auth gate, and CEE
  * commits the mutation server-side regardless of auth tier. Guests therefore
