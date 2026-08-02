@@ -97,6 +97,89 @@ export function resolveFailureBaseCopy(
 }
 
 /**
+ * ── Fence-refusal copy (journey-walk 2026-08-03 gap #2) ────────────────────
+ *
+ * CEE rides turn-fence refusals on the SAME wire code as graph staleness —
+ * `GRAPH_DIVERGED` — deliberately (olumi-assistants-service
+ * `turn-executor.ts` at fee17e3a: "Rides the EXISTING 409-class envelope …
+ * rather than minting a wire code"), carrying the distinguisher in
+ * `details.conflict_category: 'turn_fence_${verdict}'` where verdict is the
+ * closed `TurnFenceVerdict` enum (stopped | superseded | unclaimed |
+ * unavailable; 'current' never refuses). Until this module read that field,
+ * every fence refusal rendered the canonical staleness banner ("Your
+ * decision has changed since this result was computed. Re-run the analysis
+ * to refresh it.") — witnessed FALSE on the walk: it fired on a scenario
+ * where nothing had ever been computed, and its remedy (Rerun) provably
+ * does not clear the fence.
+ *
+ * A fence refusal is a WRITE conflict, never staleness: the one truth shared
+ * by every verdict is "the change was not saved and the model is unchanged",
+ * so every entry below states exactly that plus the verdict's own cause.
+ *
+ * NOT a hand-kept mirror (trap 12): the gate is the producer's own naming
+ * scheme — the `turn_fence_` prefix is emitted as a template literal over
+ * the closed verdict enum — so an UNKNOWN future verdict still routes to the
+ * honest generic fence copy (fail closed against the staleness lie), never
+ * back to the banner. Non-fence conflict categories (the graph-CAS class,
+ * e.g. 'analysis_affecting_conflict') keep the canonical copy: for them the
+ * graph genuinely diverged.
+ */
+const FENCE_CONFLICT_PREFIX = 'turn_fence_'
+
+const FENCE_GENERIC_COPY =
+  "That change couldn't be saved, so nothing in your decision changed. Try it again in a moment."
+
+const FENCE_REFUSAL_COPY: Record<string, string> = {
+  turn_fence_stopped:
+    "That change wasn't saved because this turn was stopped. Nothing in your decision changed. Send the change again if you still want it.",
+  turn_fence_superseded:
+    "That change wasn't saved because a newer change to this decision got in first. Nothing was overwritten. Check the latest state, then make the edit again if it's still needed.",
+  turn_fence_unclaimed: FENCE_GENERIC_COPY,
+  turn_fence_unavailable: FENCE_GENERIC_COPY,
+}
+
+/**
+ * Read `details.conflict_category` off a BoundaryError. Fail closed: absent,
+ * non-string, or empty → ''. (details is a Zod passthrough object, so the
+ * field survives strict parsing when CEE sends it.)
+ */
+export function extractConflictCategory(err: BoundaryError | undefined): string {
+  const category = (err?.details as { conflict_category?: unknown } | undefined)
+    ?.conflict_category
+  return typeof category === 'string' ? category : ''
+}
+
+/**
+ * Honest copy for a fence-class GRAPH_DIVERGED, or null when the error is not
+ * fence-class (no conflict_category, or a non-fence category) — callers fall
+ * back to `resolveFailureBaseCopy` for those.
+ */
+export function resolveFenceRefusalCopy(err: BoundaryError | undefined): string | null {
+  const category = extractConflictCategory(err)
+  if (!category.startsWith(FENCE_CONFLICT_PREFIX)) return null
+  return FENCE_REFUSAL_COPY[category] ?? FENCE_GENERIC_COPY
+}
+
+/**
+ * Base failure copy resolved WITH the error envelope in hand: fence-class
+ * GRAPH_DIVERGED gets its honest write-refusal copy; everything else takes
+ * the canonical `resolveFailureBaseCopy` path unchanged. Both live typed-
+ * error surfaces (useConversation's V5 typed_error branch and
+ * TypedErrorRenderer) resolve through here so they cannot drift.
+ */
+export function resolveFailureCopyForError(
+  code: FailureTypeLiteral,
+  showRetry: boolean,
+  err: BoundaryError | undefined,
+): string {
+  if (code === 'GRAPH_DIVERGED') {
+    const fenceCopy = resolveFenceRefusalCopy(err)
+    if (fenceCopy !== null) return fenceCopy
+  }
+  return resolveFailureBaseCopy(code, showRetry)
+}
+
+/**
  * DEV-only check that server `retryable` agrees with the client table.
  * Fires a console.warn on disagreement so staging telemetry surfaces drift
  * between CEE and UI classifications. No-op in production builds.
