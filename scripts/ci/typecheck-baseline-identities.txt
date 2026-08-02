@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2505
+# count=2507
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -88,6 +88,8 @@
 1	e2e/unified/ui-pack.screenshots.spec.ts	TS6133	'expect' is declared but its value is never read.
 3	e2e/webvitals.spec.ts	TS18048	'window.__webVitals' is possibly 'undefined'.
 1	integration/integration-check.ts	TS2769	No overload matches this call.
+1	netlify/edge-functions/cee-proxy.ts	TS2304	Cannot find name 'Deno'.
+1	netlify/edge-functions/cee-proxy.ts	TS2307	Cannot find module '@netlify/edge-functions' or its corresponding type declarations.
 1	netlify/edge-functions/csp-nonce.ts	TS2307	Cannot find module '@netlify/edge-functions' or its corresponding type declarations.
 1	netlify/edge-functions/isl-proxy.ts	TS2304	Cannot find name 'Deno'.
 1	netlify/edge-functions/isl-proxy.ts	TS2307	Cannot find module '@netlify/edge-functions' or its corresponding type declarations.
