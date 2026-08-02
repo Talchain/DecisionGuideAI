@@ -41,10 +41,6 @@ import { GoalAdvancedEditor } from '../editors/GoalAdvancedEditor'
 import { useAuth } from '../../../../contexts/AuthContext'
 import { isPersistenceActive } from '../../../../lib/persistenceActive'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
-import {
-  selectGoalProbability,
-  type GoalProbabilityInput,
-} from '../../../../components/results/utils/selectGoalProbability'
 import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 
 export const GoalPanel = memo(function GoalPanel({
@@ -58,37 +54,24 @@ export const GoalPanel = memo(function GoalPanel({
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
   const goalThreshold = useCanvasStore(s => s.goalThreshold)
-  // GOAL-PROBABILITY IDENTITY: this panel used to read both producer fields
-  // straight off the store, which made it a chooser in its own right — the same
-  // reach-around #496 had to delete from `useNodeDisplayMetadata`, where the
-  // canvas and the results panel ended up stating different things about the
-  // same option in the same session. The owner decides which quantity may be
-  // shown; this panel renders what it is given. The store selector returns the
-  // report reference itself (no object literal, so no React #185 churn) and the
-  // decision is memoised on it.
-  const goalReport = useCanvasStore(s => s.results?.report)
-  const goalDecision = useMemo(
-    () => selectGoalProbability(goalReport as GoalProbabilityInput | undefined),
-    [goalReport],
-  )
-  const probGoal = goalDecision.goalProbability
-  const probJoint = goalDecision.jointGoalProbability
-  // THE POSSESSIVE GATE (ROADMAP 2.282). The panel already refuses to be a
-  // chooser; it was still being a NARRATOR — rendering the owner's number in
-  // possessive wording the owner had explicitly forbidden
-  // (`mayUsePossessiveGoalFraming: false`). `basis` was published for exactly
-  // this and was the one field this panel destructured past.
+  // GOAL-PROBABILITY IDENTITY (ROADMAP 2.296 item 5 / 2.282-C2): this panel
+  // used to read both producer fields straight off the store, which made it a
+  // chooser in its own right; #496 replaced that with a `selectGoalProbability`
+  // call — over the WHOLE REPORT. The selector expects ONE option-probability
+  // record, and the live V5 mapper stores every such record under
+  // `report.option_probabilities[optionId]`, so on every real V5 payload the
+  // read returned null and the #556 possessive gate below was DARK.
   //
-  // ⚠ SCOPED TO `joint_goal_substituted` ONLY. `joint_goal_constrained` is
-  // the user's own goal AND their own limits — the possessive is earned there
-  // and is untouched.
+  // The panel now renders what `useNodeDisplayMetadata` gives it — the
+  // established pointer-owner for the goal surface family (it resolves
+  // `robustness.recommended_option_id` and forwards the selector's decision
+  // verbatim). Same hop the canvas GoalNode uses, so the panel and the canvas
+  // cannot state different things about one report; and when the producer
+  // designates no option (the 2.275 pointer gap), BOTH honestly show no
+  // figure rather than the panel inventing a leader.
   //
-  // ⚠ AND THE TWO CLAIMS BELOW ARE THE SAME NUMBER. Under substitution the
-  // selector returns `goalProbability === jointGoalProbability` by
-  // construction, so the Impact block was stating one value twice in two
-  // different voices: "N% chance of success" over "Chance of hitting every
-  // target: N%". One of those was false. They are collapsed to the honest one.
-  const goalFitSubstituted = goalDecision.basis === 'joint_goal_substituted'
+  // The reads themselves sit just below `displayMetadata`'s declaration.
+  //
   // Passthrough: the REAL Monte Carlo sample count from this run's meta.n_samples
   // (canonical reader — same source AdvancedSection's "Simulation quality" row
   // uses). Null on the V5 conversational path (meta stripped upstream), in which
@@ -124,6 +107,30 @@ export const GoalPanel = memo(function GoalPanel({
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'goal')
+
+  // The owner's decision, forwarded (see the identity comment above): the
+  // number, the joint figure, and which quantity the number IS.
+  const probGoal = displayMetadata.achievementProbability
+  const probJoint = displayMetadata.jointGoalProbability ?? null
+  // THE POSSESSIVE GATE (ROADMAP 2.282). The panel already refuses to be a
+  // chooser; it was still being a NARRATOR — rendering the owner's number in
+  // possessive wording the owner had explicitly forbidden
+  // (`mayUsePossessiveGoalFraming: false`). `basis` was published for exactly
+  // this and was the one field this panel destructured past.
+  //
+  // ⚠ SCOPED TO `joint_goal_substituted` ONLY. `joint_goal_constrained` is
+  // the user's own goal AND their own limits — the possessive is earned there
+  // and is untouched. The `=== 'joint_goal_substituted'` narrowing is the
+  // canvas's one vocabulary for this test (OptionNode, GoalNode) — never a
+  // re-derivation.
+  //
+  // ⚠ AND THE TWO CLAIMS BELOW ARE THE SAME NUMBER. Under substitution the
+  // selector returns `goalProbability === jointGoalProbability` by
+  // construction, so the Impact block was stating one value twice in two
+  // different voices: "N% chance of success" over "Chance of hitting every
+  // target: N%". One of those was false. They are collapsed to the honest one.
+  const goalFitSubstituted =
+    displayMetadata.achievementProbabilityBasis === 'joint_goal_substituted'
 
   const thresholdUnit = (node?.data as Record<string, unknown>)?.goal_threshold_unit as string | undefined
   const thresholdRaw = (node?.data as Record<string, unknown>)?.goal_threshold_raw as string | number | null | undefined

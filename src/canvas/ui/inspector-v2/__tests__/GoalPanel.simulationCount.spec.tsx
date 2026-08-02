@@ -47,8 +47,23 @@ describe('GoalPanel — Impact "Based on N simulations"', () => {
     vi.mocked(useAuth).mockReturnValue(REAL_AUTH as unknown as ReturnType<typeof useAuth>)
   })
 
+  // ROADMAP 2.296 item 5: these fixtures previously fabricated a ROOT-LEVEL
+  // `probability_of_goal` — a shape no producer emits, which is exactly how
+  // the panel's dark whole-report read stayed green (the named lesson from
+  // `GoalPanel.possessiveGate.spec.tsx`). The probability now lives where the
+  // mappers put it — `option_probabilities[recommended_option_id]` — while
+  // `meta.n_samples` genuinely IS a root field (the V4 responseMapper emits
+  // it there; the V5 mapper strips it, which is the omission case below).
+  function reportWithGoal(meta: Record<string, unknown>) {
+    return {
+      option_probabilities: { opt_a: { probability_of_goal: 0.62, confidence: 0.5 } },
+      robustness: { recommended_option_id: 'opt_a', display_verdict: 'fragile' },
+      meta,
+    }
+  }
+
   it('renders the REAL sample count from meta.n_samples (not a fabricated 1,000)', () => {
-    setStore({ probability_of_goal: 0.62, meta: { n_samples: 5000 } })
+    setStore(reportWithGoal({ n_samples: 5000 }))
     const { getByText, queryByText } = renderPanel()
     expect(getByText('62% chance of success')).toBeTruthy()
     expect(getByText('Based on 5,000 simulations')).toBeTruthy()
@@ -58,7 +73,7 @@ describe('GoalPanel — Impact "Based on N simulations"', () => {
 
   it('OMITS the simulations line when the run carries no sample count (V5 path)', () => {
     // meta stripped upstream → scenarioCount null → line hidden, never fabricated.
-    setStore({ probability_of_goal: 0.62, meta: { seed: null } })
+    setStore(reportWithGoal({ seed: null }))
     const { getByText, queryByText } = renderPanel()
     // The probability itself still renders — only the count sentence is gated.
     expect(getByText('62% chance of success')).toBeTruthy()
