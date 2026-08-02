@@ -22,13 +22,12 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
+import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
 import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
 import { getStabilityClassification } from '../../lib/stability'
-import { isCurrencyUnit, classifyUnit } from '../utils/labelUtils'
 import { NodeChip, NodePopover, ScienceIcon } from './shared'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -165,23 +164,24 @@ export const GoalNode = memo((props: NodeProps) => {
     }
   }, [hasThreshold, robustnessData])
 
-  // Format threshold display
+  // Format threshold display.
+  //
+  // ROADMAP 2.315(c): the unit-string → unit-kind mapping that used to live
+  // inline here now lives in `formatGoalTarget`, unchanged in behaviour. It was
+  // moved because Inspector v2's GoalPanel needed the SAME mapping and had none
+  // (it interpolated the number bare with the unit as a suffix — "800000 £"),
+  // and the staging walk saw the two surfaces print different strings for one
+  // goal. Sharing the mapping makes agreement structural rather than a
+  // convention someone has to remember (CLAUDE.md #12). Percent rounding,
+  // 'count' suppression and currency prefixing are all as they were; the only
+  // behavioural difference is that a unit is now TRIMMED before classification,
+  // the same direction the U2 fix took when it retired this site's local
+  // `'%' | 'percent' | 'percentage'` copy.
   const thresholdDisplay = useMemo(() => {
     if (!hasThreshold) return null
     const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
     if (Number.isNaN(raw)) return String(thresholdRaw)
-    const u = typeof thresholdUnit === 'string' ? thresholdUnit.toLowerCase() : ''
-    // U2: percent recognition routed through classifyUnit (the single source of
-    // truth) instead of a local `'%' | 'percent' | 'percentage'` copy. Identical
-    // for those three literals; additionally correct for the whitespace and
-    // mixed-case forms this site used to miss (`.toLowerCase()` without `.trim()`
-    // meant `' percent'` rendered as "20  percent").
-    if (classifyUnit(thresholdUnit as string | null | undefined).kind === 'percent') {
-      return formatTargetValue(Math.round(raw), 'percent')
-    }
-    if (u === 'count' || u === '') return formatTargetValue(raw)
-    if (thresholdUnit && isCurrencyUnit(thresholdUnit)) return formatTargetValue(raw, 'currency', thresholdUnit)
-    return `${raw.toLocaleString()} ${thresholdUnit}`
+    return formatGoalTarget(raw, thresholdUnit) ?? String(thresholdRaw)
   }, [hasThreshold, thresholdRaw, thresholdUnit])
 
   // Science icons (spec Section 4.1)

@@ -42,6 +42,7 @@ import { useAuth } from '../../../../contexts/AuthContext'
 import { isPersistenceActive } from '../../../../lib/persistenceActive'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAnchorCopy'
+import { formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
 
 export const GoalPanel = memo(function GoalPanel({
   nodeId,
@@ -54,6 +55,7 @@ export const GoalPanel = memo(function GoalPanel({
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
   const goalThreshold = useCanvasStore(s => s.goalThreshold)
+  const goalThresholdRepresentation = useCanvasStore(s => s.goalThresholdRepresentation)
   // GOAL-PROBABILITY IDENTITY (ROADMAP 2.296 item 5 / 2.282-C2): this panel
   // used to read both producer fields straight off the store, which made it a
   // chooser in its own right; #496 replaced that with a `selectGoalProbability`
@@ -134,6 +136,51 @@ export const GoalPanel = memo(function GoalPanel({
 
   const thresholdUnit = (node?.data as Record<string, unknown>)?.goal_threshold_unit as string | undefined
   const thresholdRaw = (node?.data as Record<string, unknown>)?.goal_threshold_raw as string | number | null | undefined
+
+  /**
+   * The success-target string (ROADMAP 2.315(c)).
+   *
+   * TWO THINGS THIS FIXES, AND WHY THE SECOND IS NOT REDUNDANT.
+   *
+   * 1. FORMATTING. The number used to be interpolated bare with the unit as a
+   *    trailing suffix, so an £800,000 target rendered "≥ 800000 £" even on the
+   *    good path. It now goes through `formatGoalTarget` — the shared mapping
+   *    the canvas GoalNode also uses — so one goal cannot produce two strings.
+   *
+   * 2. PROVENANCE. The number comes from the STORE scalar and the unit from
+   *    NODE data, written by two different reducers. The store gate was widened
+   *    so an attested raw payload supersedes a stored normalised guess, but that
+   *    alone does not make the pair coherent: a payload carrying a unit and NO
+   *    raw still refreshes the unit while the number stays normalised. So the
+   *    unit is applied ONLY when the number is on the scale that unit describes.
+   *    A 'normalised' 0-1 magnitude renders bare — "≥ 0.8" is thin, "≥ 0.8 £" is
+   *    false, and this surface must not assert the second.
+   *
+   *    Untagged (null) representation is treated as raw, matching the request
+   *    boundary and every other reader of this scalar.
+   *
+   * ⚠ THIS GUARD IS PANEL-ONLY. IT IS NOT AN ESTATE-WIDE INVARIANT.
+   *    Every other reader of `store.goalThreshold` renders it with NO tag check
+   *    and would happily pair a normalised magnitude with a raw unit:
+   *      · NodeInspector.tsx:334-348      (legacy inspector target line)
+   *      · SuccessTargetRow.tsx           (0 references to the tag)
+   *      · BaselineTargetRow.tsx          (0 references to the tag)
+   *      · RangeVisualization, via `effectiveGoalThreshold`
+   *        (useResultsSectionData.ts:1338 — 0 references to the tag)
+   *    Harmless TODAY only because CEE #798 is raw-anchored, so a unit-bearing
+   *    payload with no raw is not representable on the wire. That is a producer
+   *    property, not a UI one. Do not read this guard as protection those
+   *    surfaces have — if the anchor ever loosens, they are the exposure.
+   *
+   * Null when the target is absent or not a finite number; the editor renders
+   * instead, rather than a sentence ending in "NaN".
+   */
+  const targetDisplay = goalThreshold == null
+    ? null
+    : formatGoalTarget(
+        goalThreshold,
+        goalThresholdRepresentation === 'normalised' ? null : thresholdUnit,
+      )
 
   // Description — conditional edit state for EmptyDescriptionPrompt pattern
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
@@ -291,10 +338,10 @@ export const GoalPanel = memo(function GoalPanel({
       <PanelGroup kind="input" label={GROUP_LABELS.input}>
         <PrimaryControlCard>
           {/* §4.2 Success target */}
-          {goalThreshold != null ? (
+          {targetDisplay != null ? (
             <div>
               <p className={`${typography.panelBody} text-text-body`}>
-                Success means reaching {'\u2265'} {goalThreshold}{thresholdUnit ? ` ${thresholdUnit}` : ''}
+                Success means reaching {'\u2265'} {targetDisplay}
               </p>
               {/* Contextual probability when analysis exists */}
               {typeof probGoal === 'number' ? (

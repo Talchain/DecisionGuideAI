@@ -3986,31 +3986,84 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // goal_threshold_raw FIRST: the store field's contract is user units (see
       // the goalThreshold field comment). goal_threshold is normalised 0-1 — syncing
       // it here painted the Results target line at 0.8 when the real target was
-      // 20% (staging trust review, 2026-07). When raw is absent but a cap exists,
-      // derive raw from the producer's own pair (norm × cap) — a genuine RAW
-      // value. When neither raw nor an analysis_ready cap exists, the value is
+      // 20% (staging trust review, 2026-07). When no raw arrives, the value is
       // bare NORMALISED 0-1 — Lane 5 (Codex P0-1) TAGS it 'normalised' rather
       // than storing it as raw: the old code assumed "capless ⇒ raw ≡
       // normalised", but the GOAL NODE can carry a cap the request boundary
       // then divides by (0.6 / 100 → 0.006 on the live wire). The explicit tag
       // makes the request boundary pass a normalised value through untouched.
+      //
+      // ROADMAP 2.315 PART 2 — THE CONSUMER DOES NOT RE-DERIVE AN ATTESTED VALUE.
+      // A `norm × cap` branch used to sit here: when a payload carried a cap but
+      // no raw, it multiplied them and TAGGED THE PRODUCT 'raw'. A value this
+      // consumer computed was then indistinguishable, downstream, from one the
+      // producer attested.
+      //
+      // ⚠ BE PRECISE ABOUT WHY IT IS GONE — an earlier draft of this comment said
+      // CEE #798 "makes it reachable", and that is FALSE in a dangerous
+      // direction. #798 is RAW-ANCHORED: a cap cannot reach the wire without a
+      // raw beside it, so `ceeRaw != null` always wins and the norm × cap branch
+      // stays UNREACHABLE. What #798 changed is that caps are emitted AT ALL —
+      // and its anchor is precisely what keeps the branch dead. Crediting #798
+      // with creating the hazard would invite a future reader to remove that
+      // anchor believing the UI defends itself. (The anchor was verified in the
+      // CEE repo by the paired review of #798/#563, not by this file's author.)
+      //
+      // The branch is removed as DEFENCE IN DEPTH against exactly that: the
+      // anchor lives in another repo on another schema pin, and a consumer must
+      // not be able to manufacture an attested magnitude if it ever loosens.
+      //
+      // Removing it does NOT reopen the double-normalisation that branch was
+      // added to prevent. The value is stored UNTOUCHED and tagged 'normalised',
+      // and `resolveChipGoalThreshold` (useV2Run.ts) short-circuits on that tag
+      // and never divides by a cap. Same value on the wire, nothing invented,
+      // and the display no longer claims a raw scale it cannot support.
       const ceeRaw = (analysisReady as any).goal_threshold_raw
       const ceeNorm = (analysisReady as any).goal_threshold
-      const ceeCap = (analysisReady as any).goal_threshold_cap
-      const hasCap = typeof ceeCap === 'number' && Number.isFinite(ceeCap) && ceeCap > 0
       let ceeThreshold: number | null | undefined
       let ceeRepresentation: 'raw' | 'normalised'
       if (ceeRaw != null) {
         ceeThreshold = ceeRaw
         ceeRepresentation = 'raw'
-      } else if (typeof ceeNorm === 'number' && hasCap) {
-        ceeThreshold = ceeNorm * ceeCap // derived raw from the producer's own pair
-        ceeRepresentation = 'raw'
       } else {
-        ceeThreshold = ceeNorm // bare, already 0-1
+        ceeThreshold = ceeNorm // bare, already 0-1 — stored as received, tagged
         ceeRepresentation = 'normalised'
       }
-      if (ceeThreshold != null && get().goalThreshold == null) {
+      // ROADMAP 2.315 PART 1 — ONE SENTENCE HAD TWO WRITERS AND TWO GATES.
+      // This write (the NUMBER) was gated on `goalThreshold == null`. The goal
+      // node's UNIT is written by `backfillGoalThresholdOntoGoalNode`, which is
+      // UNGATED and fires from the same payload on every accepted graph_patch
+      // (mirrorAnalysisReady) and every V5 turn carrying analysis_ready that
+      // does not flow through applyDraftResult (applyV5State's catch-all).
+      // READINESS_CLEAR_FIELDS clears neither. So a session that had already
+      // stored a bare NORMALISED 0.8 kept the 0.8 while taking the later
+      // payload's '£', and Inspector v2 rendered "≥ 0.8 £" — a magnitude on one
+      // scale wearing the other scale's unit.
+      //
+      // The gate now also lets an ATTESTED RAW value supersede the store's own
+      // un-attested normalised guess. It is safe against clobbering a user's
+      // target because 'normalised' has exactly ONE writer in the repo — the
+      // bare-sync branch immediately above.
+      //
+      // COMPLETE MANIFEST, 8 assignment sites (derive it again before relying on
+      // it — `grep -rn "goalThresholdRepresentation:" src --include='*.ts'
+      // --include='*.tsx'`, minus the three type declarations at :351/:1227/:1267):
+      //   store.ts :1173, :1520, :3950  → null (initial state / resets)
+      //   store.ts :1238, :1240         → deriveGoalThresholdFromNode: 'raw' | null
+      //   store.ts :2920                → setGoalThreshold: opts.representation ?? 'raw'
+      //                                   ← the ONLY site that can yield 'normalised',
+      //                                     and the bare-sync above is its only
+      //                                     non-test caller passing `representation:`
+      //   store.ts :2927                → setGoalThresholdAndUpdateNode: hard-coded 'raw'
+      //   applyDraftResult.ts :228      → null, written beside `goalThreshold: null`,
+      //                                   so it cannot arm this gate
+      // So the only state this can overwrite is a value this same reducer guessed.
+      //
+      // Untagged (null) is treated as raw here, as everywhere else in the
+      // estate, so legacy/restored state is left alone.
+      const supersedesOwnNormalisedGuess =
+        ceeRepresentation === 'raw' && get().goalThresholdRepresentation === 'normalised'
+      if (ceeThreshold != null && (get().goalThreshold == null || supersedesOwnNormalisedGuess)) {
         // Producer write (syncing the threshold FROM the analysis) — must not
         // self-dirty the freshness overlay.
         get().setGoalThreshold(
