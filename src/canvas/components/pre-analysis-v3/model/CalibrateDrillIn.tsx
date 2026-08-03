@@ -48,10 +48,44 @@
  *
  * Value-scale guard: rows with canEditValue=false render confirm-only (no
  * numeric input) because only a normalised model-scale value exists.
+ *
+ * ⭐ ROADMAP 2.364 — "SAY IT IN WORDS". The second affordance on this row runs
+ * the user's own phrase ("pretty likely") through CEE's DETERMINISTIC
+ * belief-elicitation engine and offers the number back. Accepting it takes THIS
+ * SAME `commit`, so the elicited value is persisted, receipted and stamped by
+ * exactly the machinery above — no second commit path, no second scale rule,
+ * no LLM anywhere on the accept.
+ *
+ * THE ONE THING THAT IS DIFFERENT, and the design correction it embodies.
+ * The number CEE returns is a PROBABILITY in [0,1] — already the model scale
+ * `observed_state.value` holds — not a display-scale magnitude. So the accept
+ * commits it with `seedBasis: 'model_scale'` and the wire carries `value` with
+ * NO `raw_value`/`unit`, which is the shape CEE's own `resolveUserUnitInput`
+ * inverts with the factor's STORED cap.
+ *
+ * The original design (design-elicitation-wiring.md §3/§4) said to commit
+ * `Math.round(suggested_value * 100)` "as if the user had typed 70%". That is
+ * wrong at this tip in BOTH directions and neither failure is silent-safe:
+ *   - on the WITNESSED walk row (capless, unitless, model value in [0,1]) a
+ *     typed `70` is REFUSED by `refusesNormalisedScaleEntry` — pinned today by
+ *     `calibrateDrillInRange.spec.tsx` ("60%" is refused). The elicited value
+ *     could never land on the very row the 2026-08-03 walk exercised.
+ *   - on a cap-bearing row (`cap: 20, unit: 'engineers'`, the shape CEE's own
+ *     draft fixtures carry) `raw_value: 70` asserts SEVENTY ENGINEERS, not 70%
+ *     of the scale — an above-cap refusal from CEE, or a 3.5x error if the cap
+ *     were larger. The honest magnitude is `0.7 * cap`, and that inversion is
+ *     the server's (see `factorValueEdit.ts`'s `'model_scale'` doc).
+ * The ×100 survives only where it was always correct: the DISPLAYED chance.
+ *
+ * `refusesNormalisedScaleEntry` is deliberately NOT consulted on this path. It
+ * refuses magnitudes outside [0,1] typed into a display-scale field; an
+ * elicited probability is bounded to [0,1] at the client boundary
+ * (`CEEClient.elicitBelief` throws otherwise), so the guard could not fire and
+ * calling it would be theatre.
  */
 
 import { memo, useCallback, useState } from 'react'
-import { Check } from 'lucide-react'
+import { Check, MessageSquare } from 'lucide-react'
 import Tooltip from '../../../../components/Tooltip'
 import { typography, typo } from '../../../../styles/typography'
 import { FIELD_FEEDBACK_COPY } from '../constants'
@@ -65,6 +99,10 @@ import {
 } from '../../../conversation/factorValueEdit'
 import { captureOptimisticFactorEdit } from '../../../conversation/optimisticFactorEdit'
 import { useNodeMutations } from '../../../ui/inspector-v2/useInspectorMutations'
+import {
+  useBeliefElicitation,
+  formatElicitedChance,
+} from '../../../hooks/useBeliefElicitation'
 import { PanelIconButton } from '../ui/PanelIconButton'
 import { parseSuccessTarget } from '../hero/parseSuccessTarget'
 import type { EstimateRowModel } from '../types'
@@ -125,6 +163,10 @@ function refusesNormalisedScaleEntry(
 export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: CalibrateDrillInProps) {
   const [draft, setDraft] = useState(row.rawPrefill != null ? String(row.rawPrefill) : '')
   const [hint, setHint] = useState<string | null>(null)
+  const [inWords, setInWords] = useState(false)
+  const [phrase, setPhrase] = useState('')
+
+  const elicitation = useBeliefElicitation({ nodeId: row.nodeId, nodeLabel: row.label })
 
   // The sanctioned setter (the `NODE_SETTER_FIELDS` manifest the writtenFields
   // guard spec enforces), not a hand-rolled `updateNode` — the same one both
@@ -280,8 +322,28 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
     commit(seed, CONFIRM_STAMP, { writeValue: false })
   }
 
+  /**
+   * Accept an elicited number — the SAME commit, the SAME stamp, the SAME wire
+   * event as the typed field. `user_override` is right here for the reason it
+   * is right there: the user chose this number, in their own words, over the
+   * one the model had. It is not an "AI value" — the engine did arithmetic on
+   * a phrase the user wrote.
+   *
+   * `writeValue: true` so the canvas moves at once, exactly as a typed commit
+   * does; the CLAIM still waits for the receipt.
+   */
+  const acceptElicited = useCallback(
+    (suggestedValue: number): void => {
+      commit(suggestedValue, VALUE_STAMP, { seedBasis: 'model_scale', writeValue: true })
+      elicitation.reset()
+      onDone()
+    },
+    [commit, elicitation, onDone],
+  )
+
   return (
-    <div className="mb-2 ml-6 flex items-center gap-2" data-testid="pre-analysis-v3-drill">
+    <div className="mb-2 ml-6 space-y-2" data-testid="pre-analysis-v3-drill">
+      <div className="flex items-center gap-2">
       {row.canEditValue && (
         <>
           <input
@@ -323,10 +385,115 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
           Confirm as is
         </button>
       )}
+      {row.canEditValue && (
+        <Tooltip content="Say what you think in plain words" delay={300}>
+          <PanelIconButton
+            variant="ghost"
+            aria-label={`Describe your estimate for ${row.label} in words`}
+            aria-pressed={inWords}
+            onClick={() => {
+              setInWords(open => {
+                if (open) {
+                  setPhrase('')
+                  elicitation.reset()
+                }
+                return !open
+              })
+            }}
+          >
+            <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+          </PanelIconButton>
+        </Tooltip>
+      )}
       {hint && (
         <span className={`${typography.panelMeta} text-warning`} role="status">
           {hint}
         </span>
+      )}
+      </div>
+
+      {/*
+        "Say it in words" — ROADMAP 2.364. Deliberately BELOW the number field
+        rather than replacing it: the two are alternatives, and hiding the
+        direct input behind a mode toggle would make the fast path slower for
+        anyone who already knows their number.
+      */}
+      {inWords && row.canEditValue && (
+        <div className="space-y-1" data-testid="pre-analysis-v3-in-words">
+          <input
+            aria-label={`Describe ${row.label} in words`}
+            className={`${typography.panelBody} h-7 w-56 rounded-lg border border-panel-border bg-panel px-2 text-text-header outline-none placeholder:text-text-light focus:border-info focus:ring-2 focus:ring-info/20`}
+            placeholder="e.g. pretty likely"
+            value={phrase}
+            onChange={e => {
+              setPhrase(e.target.value)
+              elicitation.request(e.target.value)
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Escape') onDone()
+            }}
+          />
+
+          {elicitation.error && (
+            <p className={`${typography.panelMeta} text-warning`} role="status">
+              {elicitation.error}
+            </p>
+          )}
+
+          {/*
+            AMBIGUOUS PHRASE — the engine's own question, verbatim, and its own
+            option labels. Not paraphrased: it names the factor and the reading
+            it is unsure about, and rewriting it here would put words in the
+            engine's mouth that the engine cannot stand behind.
+          */}
+          {elicitation.suggestion?.needs_clarification &&
+            elicitation.suggestion.options?.length ? (
+            <div className="space-y-1">
+              <p className={`${typography.panelMeta} text-text-body`}>
+                {elicitation.suggestion.clarifying_question}
+              </p>
+              <div className="flex flex-wrap gap-1.5" role="group" aria-label={`Readings for ${row.label}`}>
+                {elicitation.suggestion.options.map(opt => (
+                  <button
+                    key={opt.label}
+                    type="button"
+                    onClick={() => acceptElicited(opt.value)}
+                    className={typo(
+                      'panelMeta',
+                      'rounded-full border border-panel-border bg-transparent px-2.5 py-1 text-text-body outline-none transition-colors hover:bg-panel-hover focus-visible:bg-panel-hover focus-visible:ring-2 focus-visible:ring-info/40',
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : elicitation.suggestion ? (
+            <div className="flex items-center gap-2">
+              {/*
+                The number, as a chance, in plain words. The engine's REASONING
+                and CONFIDENCE are expert detail and stay behind the existing
+                progressive-disclosure affordance — inline they read as hedging.
+              */}
+              <Tooltip content={elicitation.suggestion.reasoning} delay={300}>
+                <span className={`${typography.panelMeta} text-text-body`}>
+                  That reads as {formatElicitedChance(elicitation.suggestion.suggested_value)}
+                </span>
+              </Tooltip>
+              <button
+                type="button"
+                onClick={() => acceptElicited(elicitation.suggestion!.suggested_value)}
+                aria-label={`Use ${formatElicitedChance(elicitation.suggestion.suggested_value)} for ${row.label}`}
+                className={typo(
+                  'panelMeta',
+                  'rounded-full border border-panel-border bg-transparent px-2.5 py-1 text-text-body outline-none transition-colors hover:bg-panel-hover focus-visible:bg-panel-hover focus-visible:ring-2 focus-visible:ring-info/40',
+                )}
+              >
+                Use this
+              </button>
+            </div>
+          ) : null}
+        </div>
       )}
     </div>
   )

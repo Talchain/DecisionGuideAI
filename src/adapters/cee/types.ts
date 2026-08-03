@@ -721,3 +721,42 @@ export function isCeePipelineTrace(value: unknown): value is CeePipelineTrace {
     Array.isArray(v.stages)
   )
 }
+
+// =============================================================================
+// Belief elicitation (ROADMAP 2.364)
+// =============================================================================
+
+/**
+ * One clarification chip CEE offers when a phrase is ambiguous
+ * ("good" → "Very likely (90%)" / "Quite likely (75%)" / "More likely than
+ * not (60%)"). `value` is a probability in [0,1], same scale as
+ * `suggested_value`.
+ */
+export interface BeliefElicitOption {
+  label: string
+  /** Probability in [0,1]. */
+  value: number
+}
+
+/**
+ * CEE's answer to "what number does this phrase mean?" — the UI-local mirror of
+ * CEE's `CEEElicitBeliefResponseV1T`.
+ *
+ * `suggested_value` is a PROBABILITY in [0,1] — i.e. already the MODEL scale
+ * `observed_state.value` holds. It is never a user-unit magnitude, and the UI
+ * must not convert it into one: see `factorValueEdit.ts` (`'model_scale'` seed
+ * basis) for why the inversion belongs to the server.
+ *
+ * The engine is deterministic (lexicon + regex, no LLM call) — so this is a
+ * sub-second preview, not a generation.
+ */
+export interface BeliefElicitSuggestion {
+  /** Probability in [0,1]. */
+  suggested_value: number
+  confidence: 'high' | 'medium' | 'low'
+  reasoning: string
+  needs_clarification: boolean
+  clarifying_question?: string
+  options?: BeliefElicitOption[]
+  provenance: 'cee'
+}

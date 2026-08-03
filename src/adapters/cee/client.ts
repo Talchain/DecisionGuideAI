@@ -7,11 +7,16 @@ import type {
   CEEv3Response,
   CeePipelineTrace,
   CEEDraftCoaching,
+  BeliefElicitSuggestion,
 } from './types'
 import { isCEEv2Response, isCEEv3Response, isCeePipelineTrace } from './types'
 import { withObservabilityHeaders, recordBffResponse, recordBffError, recordBffResponsePayload } from '../../lib/observability-headers'
 import { useGateStore } from '../../lib/gate-state'
-import { CEEDraftResponseSchema, warnOnInvalidApiResponse } from '../../lib/api-schemas'
+import {
+  CEEDraftResponseSchema,
+  CEEElicitBeliefResponseSchema,
+  warnOnInvalidApiResponse,
+} from '../../lib/api-schemas'
 import { withRetry } from '../../lib/fetchWithRetry'
 import { devWarn } from '../../utils/debugLog'
 import { plotAuthHeaders } from '../../lib/plotAuthHeaders'
@@ -834,6 +839,73 @@ export class CEEClient {
 
     // Fall back to v1 adaptation for legacy responses
     return adaptDraftResponse(raw)
+  }
+
+  /**
+   * Turn a phrase about a factor into a number — ROADMAP 2.364.
+   *
+   * Endpoint: `POST /elicit-belief` on this client's own base, which the
+   * `cee-proxy` edge function rewrites to `/assist/v1/elicit-belief` and signs
+   * with `X-Olumi-Assist-Key` server-side (`netlify/edge-functions/
+   * cee-proxy.ts`; `netlify.toml` binds it to `/bff/cee/*`). No absolute
+   * service URL is built here on purpose — the key lives in the Netlify
+   * dashboard, never in the bundle, and the same-origin path is what the live
+   * 2026-08-03 witness exercised.
+   *
+   * THE REQUEST IS A CONTRACT PIN, NOT A CONVENIENCE SHAPE. CEE's
+   * `CEEElicitBeliefInput` is `.strict()` (`olumi-assistants-service/
+   * src/schemas/cee.ts`, read at `staging`), so ONE unrecognised key 400s the
+   * whole call. The parameter list below is that schema, field for field, and
+   * the co-located spec asserts the emitted body's keys EXACTLY — an added key
+   * fails RED here before it can fail loudly in a user's face.
+   *
+   * NOT `fetchIdempotent`: the retry wrapper is for read-only endpoints, and
+   * this one is rate-limited per key (60/min). A debounced keystroke retrying
+   * itself three times burns the caller's budget on input they have already
+   * replaced.
+   *
+   * REFUSAL, not a warning, on an out-of-range `suggested_value`. The response
+   * is warn-parsed like every other CEE response, but a probability outside
+   * [0,1] is the one shape that must not reach `handleAccept` — it would be
+   * committed as `observed_state.value`, which is defined on [0,1]. So the
+   * bound is enforced HERE, at the boundary, by throwing.
+   */
+  async elicitBelief(input: {
+    /** The factor's id. ID-ADDRESSED, like every other mutation on this seam. */
+    node_id: string
+    node_label: string
+    /** The user's own words ("pretty likely", "about 70%", "3 in 4"). */
+    user_expression: string
+    target_type: 'prior' | 'edge_weight'
+    context_id?: string
+  }): Promise<BeliefElicitSuggestion> {
+    const body: Record<string, unknown> = {
+      node_id: input.node_id,
+      node_label: input.node_label,
+      user_expression: input.user_expression,
+      target_type: input.target_type,
+    }
+    // Omitted rather than sent as undefined: `JSON.stringify` drops undefined
+    // values, but building the key conditionally says so at the source.
+    if (input.context_id !== undefined) body.context_id = input.context_id
+
+    const raw = await this.fetch<unknown>('/elicit-belief', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+
+    warnOnInvalidApiResponse(CEEElicitBeliefResponseSchema, raw, 'CEE elicit-belief')
+
+    const suggested = (raw as { suggested_value?: unknown } | null)?.suggested_value
+    if (typeof suggested !== 'number' || !Number.isFinite(suggested) || suggested < 0 || suggested > 1) {
+      throw new CEEError(
+        'That estimate came back in a form we could not use, so nothing has changed.',
+        502,
+        raw,
+      )
+    }
+
+    return raw as BeliefElicitSuggestion
   }
 
   /**

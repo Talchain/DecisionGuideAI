@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2507
+# count=2504
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -131,7 +131,6 @@
 1	src/adapters/cee/client.ts	TS2352	Conversion of type 'CEEv2Response' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
 1	src/adapters/cee/client.ts	TS2352	Conversion of type 'CEEv3Response' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
 1	src/adapters/cee/client.ts	TS2677	A type predicate's type must be assignable to its parameter's type.
-1	src/adapters/cee/client.ts	TS6133	'fetch' is declared but its value is never read.
 4	src/adapters/plot/__tests__/autoDetectAdapter.streaming.test.ts	TS2741	Property 'template_id' is missing in type '{ graph: { nodes: { id: string; label: string; }[]; edges: never[]; }; seed: number; }' but required in type 'RunRequest'.
 1	src/adapters/plot/__tests__/autoDetectAdapter.streaming.test.ts	TS6133	'beforeEach' is declared but its value is never read.
 1	src/adapters/plot/__tests__/autoDetectAdapter.streaming.test.ts	TS6133	'completeCalled' is declared but its value is never read.
@@ -294,8 +293,6 @@
 1	src/canvas/components/AdvancedSettingsPanel.tsx	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfile'.
 1	src/canvas/components/AdvancedSettingsPanel.tsx	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfilePreset'.
 1	src/canvas/components/AdvancedSettingsPanel.tsx	TS6133	'isLast' is declared but its value is never read.
-1	src/canvas/components/BeliefInput.tsx	TS2305	Module '"../../adapters/plot/types"' has no exported member 'BeliefElicitResponse'.
-1	src/canvas/components/BeliefInput.tsx	TS2339	Property 'elicitBelief' does not exist on type '{ run(input: RunRequest): Promise<ReportV1>; templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; ... 4 more ...; stream: { ...; }; }'.
 1	src/canvas/components/CommandPalette.tsx	TS2322	Type 'Promise<boolean>' is not assignable to type 'Promise | void<void>'.
 1	src/canvas/components/CommandPalette.tsx	TS2322	Type 'boolean' is not assignable to type 'Promise | void<void>'.
 6	src/canvas/components/CommandPalette.tsx	TS2322	Type 'null | string' is not assignable to type 'Promise | void<void>'.

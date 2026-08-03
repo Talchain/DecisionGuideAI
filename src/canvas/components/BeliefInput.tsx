@@ -3,24 +3,42 @@
  *
  * Features:
  * - Slider mode: Direct numeric input with visual feedback
- * - Natural language mode: Text input parsed by CEE /v1/elicit/belief
- * - Shows SuggestionCard for AI-parsed values
+ * - Natural language mode: text parsed by CEE's belief-elicitation engine
+ * - Shows SuggestionCard for the parsed value
  * - Handles needs_clarification with clickable options
  * - Accept applies value, Override opens slider
  * - Accessible (keyboard, screen reader)
  *
  * Used in node/edge editing panels for belief/confidence values.
+ *
+ * ⭐ ROADMAP 2.364 — WIRED. What this file used to be: it called
+ * `httpV1Adapter.elicitBelief(...)` and imported
+ * `type { BeliefElicitResponse } from '../../adapters/plot/types'`. NEITHER
+ * EVER EXISTED. `httpV1Adapter` is the PLoT adapter and its method manifest is
+ * `run/templates/template/limits/health/validate/runBundle`; `git log -S
+ * BeliefElicitResponse -- src/adapters/plot/types.ts` is empty over the file's
+ * whole history. Both errors sat in the typecheck ratchet baseline
+ * (`typecheck-baseline-identities.txt`, TS2339 + TS2305) rather than in
+ * anyone's way, because the component has no render-tree import site — dead
+ * code calling a phantom API. The engines were built in CEE, not PLoT.
+ *
+ * The request shape changed with the destination and had to: CEE's
+ * `CEEElicitBeliefInput` is `.strict()` and wants
+ * `{node_id, node_label, user_expression, target_type}` — the old
+ * `{text, factor_context, scenario_name}` would have 400'd even once a method
+ * existed. `factorContext` is therefore REQUIRED here now, with `node_id`
+ * non-optional: CEE refuses an empty id, and a control that cannot name its
+ * factor cannot elicit for it.
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   MessageSquare,
   SlidersHorizontal,
   Loader2,
   AlertCircle,
 } from 'lucide-react'
-import { httpV1Adapter } from '../../adapters/plot/httpV1Adapter'
-import type { BeliefElicitResponse } from '../../adapters/plot/types'
+import { useBeliefElicitation } from '../hooks/useBeliefElicitation'
 import { SuggestionCard } from './SuggestionCard'
 import { typography } from '../../styles/typography'
 
@@ -31,13 +49,15 @@ interface BeliefInputProps {
   onChange: (value: number) => void
   /** Label for the input (e.g., "Confidence", "Probability") */
   label: string
-  /** Optional: context about the factor being estimated */
-  factorContext?: {
-    label: string
-    node_id?: string
+  /**
+   * The factor this belief is about. REQUIRED — CEE's elicit input refuses an
+   * empty `node_id`/`node_label`, and the id is what makes the suggestion
+   * addressable to a factor rather than to whatever is on screen.
+   */
+  factorContext: {
+    nodeId: string
+    nodeLabel: string
   }
-  /** Optional: scenario context for better interpretation */
-  scenarioName?: string
   /** Min value (default: 0) */
   min?: number
   /** Max value (default: 1) */
@@ -59,7 +79,6 @@ export function BeliefInput({
   onChange,
   label,
   factorContext,
-  scenarioName,
   min = 0,
   max = 1,
   step = 0.01,
@@ -69,83 +88,46 @@ export function BeliefInput({
 }: BeliefInputProps) {
   const [mode, setMode] = useState<InputMode>('slider')
   const [nlText, setNlText] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [suggestion, setSuggestion] = useState<BeliefElicitResponse | null>(null)
   const [isOverriding, setIsOverriding] = useState(false)
 
-  const textInputRef = useRef<HTMLInputElement>(null)
-  const debounceRef = useRef<NodeJS.Timeout | null>(null)
+  const [textInput, setTextInput] = useState<HTMLInputElement | null>(null)
+
+  const { suggestion, loading, error, request, reset } = useBeliefElicitation({
+    nodeId: factorContext.nodeId,
+    nodeLabel: factorContext.nodeLabel,
+  })
 
   // Focus text input when switching to natural language mode
   useEffect(() => {
-    if (mode === 'natural-language' && textInputRef.current) {
-      textInputRef.current.focus()
+    if (mode === 'natural-language' && textInput) {
+      textInput.focus()
     }
-  }, [mode])
+  }, [mode, textInput])
 
   // Clear suggestion when switching modes
   useEffect(() => {
     if (mode === 'slider') {
-      setSuggestion(null)
+      reset()
       setNlText('')
-      setError(null)
       setIsOverriding(false)
     }
-  }, [mode])
-
-  // Elicit belief from natural language
-  const elicitBelief = useCallback(async (text: string) => {
-    if (!text.trim() || text.trim().length < 3) {
-      setSuggestion(null)
-      return
-    }
-
-    setLoading(true)
-    setError(null)
-
-    try {
-      const response = await httpV1Adapter.elicitBelief({
-        text: text.trim(),
-        factor_context: factorContext,
-        scenario_name: scenarioName,
-      })
-
-      setSuggestion(response)
-    } catch (err: any) {
-      const errorMessage = err?.error || err?.message || 'Failed to parse input'
-      setError(errorMessage)
-      setSuggestion(null)
-    } finally {
-      setLoading(false)
-    }
-  }, [factorContext, scenarioName])
+  }, [mode, reset])
 
   // Debounced elicitation on text change
   const handleTextChange = useCallback((text: string) => {
     setNlText(text)
-    setError(null)
-
-    // Clear existing debounce
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current)
-    }
-
-    // Debounce API call (500ms after typing stops)
-    debounceRef.current = setTimeout(() => {
-      elicitBelief(text)
-    }, 500)
-  }, [elicitBelief])
+    request(text)
+  }, [request])
 
   // Handle accepting suggestion
   const handleAccept = useCallback((suggestedValue: number) => {
     // Clamp to min/max
     const clampedValue = Math.min(max, Math.max(min, suggestedValue))
     onChange(clampedValue)
-    setSuggestion(null)
+    reset()
     setNlText('')
     setMode('slider') // Return to slider after accepting
-  }, [onChange, min, max])
+  }, [onChange, min, max, reset])
 
   // Handle override (switch to slider mode)
   const handleOverride = useCallback(() => {
@@ -157,19 +139,19 @@ export function BeliefInput({
   const handleSelectOption = useCallback((optionValue: number) => {
     const clampedValue = Math.min(max, Math.max(min, optionValue))
     onChange(clampedValue)
-    setSuggestion(null)
+    reset()
     setNlText('')
     setMode('slider')
-  }, [onChange, min, max])
+  }, [onChange, min, max, reset])
 
   // Handle slider change
   const handleSliderChange = useCallback((newValue: number) => {
     onChange(newValue)
     if (isOverriding) {
-      setSuggestion(null)
+      reset()
       setIsOverriding(false)
     }
-  }, [onChange, isOverriding])
+  }, [onChange, isOverriding, reset])
 
   return (
     <div className="space-y-3" data-testid="belief-input">
@@ -248,7 +230,7 @@ export function BeliefInput({
           {/* Text input */}
           <div className="relative">
             <input
-              ref={textInputRef}
+              ref={setTextInput}
               type="text"
               value={nlText}
               onChange={(e) => handleTextChange(e.target.value)}
