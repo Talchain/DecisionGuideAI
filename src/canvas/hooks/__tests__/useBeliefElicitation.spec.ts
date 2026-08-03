@@ -76,7 +76,7 @@ afterEach(() => {
 })
 
 describe('useBeliefElicitation', () => {
-  it('does not call CEE until the debounce elapses, then calls it once', async () => {
+  it('does not call CEE until the FULL debounce elapses, then calls it once', async () => {
     const { result } = renderHook(() => useBeliefElicitation(TARGET))
 
     act(() => {
@@ -85,8 +85,19 @@ describe('useBeliefElicitation', () => {
     })
     expect(inFlight).toHaveLength(0)
 
+    // ONE TICK SHORT — this is the assertion that makes the debounce a real
+    // guarantee. Advancing the whole window in one step passes just as well
+    // with a 0 ms timer, so a "debounce" test that only does that proves the
+    // timer exists, never that it WAITS (measured: a `0`-ms mutant survived
+    // exactly that test).
     await act(async () => {
-      vi.advanceTimersByTime(BELIEF_ELICITATION_DEBOUNCE_MS)
+      vi.advanceTimersByTime(BELIEF_ELICITATION_DEBOUNCE_MS - 1)
+      await settle()
+    })
+    expect(inFlight).toHaveLength(0)
+
+    await act(async () => {
+      vi.advanceTimersByTime(1)
       await settle()
     })
 
