@@ -219,7 +219,20 @@ describe('OptionCards — possessive gate on a substituted joint goal figure (RO
     //
     // Derived by EXECUTING `formatGoalProbability(0.0054, 10000)` at this tip.
     // Do not hand-edit this string — re-execute if the fixture moves.
-    expect(text).toContain(GOAL_ANCHOR_COPY.phrase('1%', true))
+    //
+    // ⚠ BOUND BY IDENTITY AND EXACT EQUALITY, NOT `toContain` — and that is
+    // not stylistic. A `toContain(phrase('1%', true))` here is VACUOUS: the
+    // OLD string "< 1% chance of meeting every target this run scored"
+    // literally CONTAINS the new one as a substring, so the assertion passes
+    // whether or not the fix is present. Caught by mutation (dropping the
+    // nSamples delegation left this test green while the sibling specs went
+    // red), which is the only reason it is written this way.
+    const badge = container.querySelector('[data-testid="low-goal-warning-opt_hybrid"]')
+    expect(badge).not.toBeNull()
+    expect(badge?.textContent).toBe(GOAL_ANCHOR_COPY.phrase('1%', true))
+    // And the floor string is gone from the card entirely, so no substring
+    // relationship can hide a regression.
+    expect(text).not.toContain('< 1%')
   })
 
   it('RED-first: the goal bar does NOT carry the possessive "Hits target" label over a substituted joint figure', () => {
