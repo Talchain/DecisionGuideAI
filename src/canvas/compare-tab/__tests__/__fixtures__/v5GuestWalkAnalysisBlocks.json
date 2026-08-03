@@ -1,0 +1,2515 @@
+{
+ "runA": {
+  "computed_against_hash": "561785c952eb00bb",
+  "enrichment": {
+   "confidence_tier": "needs_work",
+   "decision_brief": {
+    "analysis_summary": {
+     "robustness_band": "fragile"
+    },
+    "brief_id": "b48e3d9f-3cb1-4ab5-b085-8b264fa5aef7",
+    "created_at": "2026-08-03T07:55:35.688Z",
+    "defaulted_assumptions": [
+     {
+      "doctrine": "provisional_doctrine_v0",
+      "factor_label": "Available Growth Budget",
+      "note": "No starting value was provided for \"Available Growth Budget\" \u2014 the analysis used a default. Setting a real value or range would make this result more trustworthy.",
+      "source": "value_defaulted"
+     },
+     {
+      "doctrine": "provisional_doctrine_v0",
+      "factor_label": "Current ARR",
+      "note": "No starting value was provided for \"Current ARR\" \u2014 the analysis used a default. Setting a real value or range would make this result more trustworthy.",
+      "source": "value_defaulted"
+     },
+     {
+      "doctrine": "provisional_doctrine_v0",
+      "factor_label": "B2B Market Demand",
+      "note": "No starting value was provided for \"B2B Market Demand\" \u2014 the analysis used a default. Setting a real value or range would make this result more trustworthy.",
+      "source": "value_defaulted"
+     }
+    ],
+    "key_assumptions": [
+     "B2B Market Demand",
+     "Current ARR",
+     "Available Growth Budget"
+    ],
+    "options": [
+     {
+      "label": "Invest in Content Marketing",
+      "option_id": "opt_content",
+      "win_probability": 0.5241916666666667
+     },
+     {
+      "label": "Hire Two Sales Reps",
+      "option_id": "opt_sales",
+      "win_probability": 0.2504416666666667
+     },
+     {
+      "label": "Build Self-Serve Tier",
+      "option_id": "opt_selfserve",
+      "win_probability": 0.2191916666666667
+     },
+     {
+      "label": "Continue Current Approach (Status Quo)",
+      "option_id": "opt_status_quo",
+      "win_probability": 0.006175
+     }
+    ],
+    "robustness": "fragile",
+    "top_drivers": [
+     {
+      "direction": "positive",
+      "factor_label": "B2B Market Demand",
+      "sensitivity": 0.8482420210272987
+     },
+     {
+      "direction": "positive",
+      "factor_label": "Current ARR",
+      "sensitivity": 0.256274292241524
+     },
+     {
+      "direction": "positive",
+      "factor_label": "Available Growth Budget",
+      "sensitivity": 0.16788993003539204
+     }
+    ],
+    "version": "1",
+    "warning_codes": [],
+    "warnings": [
+     {
+      "code": "DOMINANT_FACTOR",
+      "message": "One factor dominates. What would change if B2B Market Demand had less influence?",
+      "severity": "warning"
+     },
+     {
+      "code": "INFLUENTIAL_EXTERNALS",
+      "message": "External factors B2B Market Demand, Current ARR significantly affect your outcome but are inherently uncertain. How might you bound these?",
+      "severity": "warning"
+     },
+     {
+      "code": "M2_UNAVAILABLE",
+      "message": "Decision review was unavailable; brief uses deterministic coaching fallback",
+      "severity": "warning"
+     }
+    ],
+    "what_would_change": [
+     "Sales Pipeline Velocity \u2192 Reach \u00a31,000,000 ARR",
+     "New ARR Generated \u2192 Reach \u00a31,000,000 ARR",
+     "Current ARR \u2192 New ARR Generated",
+     "Customer Churn Rate \u2192 Reach \u00a31,000,000 ARR",
+     "Budget Overrun Risk \u2192 Reach \u00a31,000,000 ARR"
+    ]
+   },
+   "decision_evpi": 0.0789680300194515,
+   "edge_e_values": [
+    {
+     "current_mean": 0.20096153846153847,
+     "e_value": 1,
+     "edge_id": "fac_content_spend::out_new_arr",
+     "flip_direction": "decrease",
+     "flip_mean": -0.059105,
+     "from_id": "fac_content_spend",
+     "from_label": "Content Marketing Investment",
+     "stability": {
+      "band_max": 0.462748,
+      "band_median": 0.195803,
+      "band_min": -0.477219,
+      "band_width": 0.939967,
+      "n_seeds": 10,
+      "n_seeds_flipped": 9,
+      "seed_flip_means": [
+       0.325408,
+       0.462748,
+       0.237849,
+       -0.15376,
+       -0.209284,
+       -0.477219,
+       0.195803,
+       -0.102004,
+       null,
+       0.456533
+      ]
+     },
+     "to_id": "out_new_arr",
+     "to_label": "New ARR Generated"
+    },
+    {
+     "current_mean": 0.24181818181818182,
+     "e_value": 1,
+     "edge_id": "fac_content_spend::out_pipeline_velocity",
+     "flip_direction": "decrease",
+     "flip_mean": -0.035964,
+     "from_id": "fac_content_spend",
+     "from_label": "Content Marketing Investment",
+     "stability": {
+      "band_max": 0.788022,
+      "band_median": -0.025766,
+      "band_min": -0.928281,
+      "band_width": 1.716303,
+      "n_seeds": 10,
+      "n_seeds_flipped": 7,
+      "seed_flip_means": [
+       null,
+       null,
+       0.788022,
+       null,
+       -0.1799,
+       -0.928281,
+       -0.223916,
+       0.337558,
+       -0.025766,
+       0.227794
+      ]
+     },
+     "to_id": "out_pipeline_velocity",
+     "to_label": "Sales Pipeline Velocity"
+    },
+    {
+     "current_mean": -0.18,
+     "e_value": 1.6591,
+     "edge_id": "fac_content_spend::risk_churn",
+     "flip_direction": "increase",
+     "flip_mean": 0.29864,
+     "from_id": "fac_content_spend",
+     "from_label": "Content Marketing Investment",
+     "stability": {
+      "band_max": 0.660537,
+      "band_median": -0.201396,
+      "band_min": -0.991569,
+      "band_width": 1.652106,
+      "n_seeds": 10,
+      "n_seeds_flipped": 8,
+      "seed_flip_means": [
+       -0.991569,
+       -0.476531,
+       -0.686583,
+       1e-06,
+       -0.192852,
+       null,
+       0.080977,
+       null,
+       0.660537,
+       -0.209939
+      ]
+     },
+     "to_id": "risk_churn",
+     "to_label": "Customer Churn Rate"
+    },
+    {
+     "current_mean": 0.5354545454545454,
+     "e_value": 1.4394,
+     "edge_id": "fac_sales_headcount::out_pipeline_velocity",
+     "flip_direction": "increase",
+     "flip_mean": 0.770753,
+     "from_id": "fac_sales_headcount",
+     "from_label": "Sales Headcount Expansion",
+     "stability": {
+      "band_max": 0.913856,
+      "band_median": 0.719221,
+      "band_min": 0.469998,
+      "band_width": 0.443858,
+      "n_seeds": 10,
+      "n_seeds_flipped": 5,
+      "seed_flip_means": [
+       null,
+       null,
+       0.913856,
+       null,
+       0.469998,
+       null,
+       0.719221,
+       0.605374,
+       null,
+       0.860293
+      ]
+     },
+     "to_id": "out_pipeline_velocity",
+     "to_label": "Sales Pipeline Velocity"
+    },
+    {
+     "current_mean": 0.4114173228346457,
+     "e_value": 1,
+     "edge_id": "fac_sales_headcount::risk_budget_overrun",
+     "flip_direction": "decrease",
+     "flip_mean": -0.137612,
+     "from_id": "fac_sales_headcount",
+     "from_label": "Sales Headcount Expansion",
+     "stability": {
+      "band_max": 0.031344,
+      "band_median": -0.41362,
+      "band_min": -0.971601,
+      "band_width": 1.002945,
+      "n_seeds": 10,
+      "n_seeds_flipped": 7,
+      "seed_flip_means": [
+       -0.971601,
+       null,
+       -0.026175,
+       -0.41362,
+       null,
+       -0.877914,
+       -0.210318,
+       0.031344,
+       -0.432941,
+       null
+      ]
+     },
+     "to_id": "risk_budget_overrun",
+     "to_label": "Budget Overrun Risk"
+    },
+    {
+     "current_mean": 0.38,
+     "e_value": 1,
+     "edge_id": "fac_sales_headcount::risk_time_to_revenue",
+     "flip_direction": "decrease",
+     "flip_mean": -0.369567,
+     "from_id": "fac_sales_headcount",
+     "from_label": "Sales Headcount Expansion",
+     "stability": {
+      "band_max": 0.178327,
+      "band_median": -0.238368,
+      "band_min": -0.536397,
+      "band_width": 0.714724,
+      "n_seeds": 10,
+      "n_seeds_flipped": 5,
+      "seed_flip_means": [
+       null,
+       null,
+       null,
+       -0.536397,
+       0.178327,
+       null,
+       -0.238368,
+       -0.113725,
+       -0.490411,
+       null
+      ]
+     },
+     "to_id": "risk_time_to_revenue",
+     "to_label": "Time to Revenue Contribution"
+    },
+    {
+     "current_mean": 0.31971153846153844,
+     "e_value": 1.8589,
+     "edge_id": "fac_self_serve::out_new_arr",
+     "flip_direction": "increase",
+     "flip_mean": 0.594313,
+     "from_id": "fac_self_serve",
+     "from_label": "Self-Serve Product Tier",
+     "stability": {
+      "band_max": 0.638037,
+      "band_median": 0.506334,
+      "band_min": 0.231961,
+      "band_width": 0.406076,
+      "n_seeds": 10,
+      "n_seeds_flipped": 8,
+      "seed_flip_means": [
+       0.362607,
+       0.491428,
+       0.231961,
+       0.526535,
+       0.490332,
+       null,
+       0.615392,
+       0.638037,
+       null,
+       0.521241
+      ]
+     },
+     "to_id": "out_new_arr",
+     "to_label": "New ARR Generated"
+    },
+    {
+     "current_mean": 0.31417322834645667,
+     "e_value": 1.2895,
+     "edge_id": "fac_self_serve::risk_budget_overrun",
+     "flip_direction": "decrease",
+     "flip_mean": -0.405142,
+     "from_id": "fac_self_serve",
+     "from_label": "Self-Serve Product Tier",
+     "stability": {
+      "band_max": 0.818886,
+      "band_median": 0.351714,
+      "band_min": -0.947264,
+      "band_width": 1.76615,
+      "n_seeds": 10,
+      "n_seeds_flipped": 4,
+      "seed_flip_means": [
+       null,
+       0.818886,
+       0.719877,
+       null,
+       null,
+       null,
+       -0.947264,
+       -0.016449,
+       null,
+       null
+      ]
+     },
+     "to_id": "risk_budget_overrun",
+     "to_label": "Budget Overrun Risk"
+    },
+    {
+     "current_mean": -0.25,
+     "e_value": 3.0129,
+     "edge_id": "fac_self_serve::risk_churn",
+     "flip_direction": "decrease",
+     "flip_mean": -0.753224,
+     "from_id": "fac_self_serve",
+     "from_label": "Self-Serve Product Tier",
+     "stability": {
+      "band_max": 0.600563,
+      "band_median": -0.374515,
+      "band_min": -0.692356,
+      "band_width": 1.292919,
+      "n_seeds": 10,
+      "n_seeds_flipped": 7,
+      "seed_flip_means": [
+       0.600563,
+       -0.104182,
+       -0.374515,
+       -0.692356,
+       -0.617322,
+       null,
+       -0.644984,
+       null,
+       null,
+       -0.336295
+      ]
+     },
+     "to_id": "risk_churn",
+     "to_label": "Customer Churn Rate"
+    },
+    {
+     "current_mean": 0.45,
+     "e_value": 1.0393,
+     "edge_id": "fac_self_serve::risk_time_to_revenue",
+     "flip_direction": "decrease",
+     "flip_mean": -0.4677,
+     "from_id": "fac_self_serve",
+     "from_label": "Self-Serve Product Tier",
+     "stability": {
+      "band_max": 0.46807,
+      "band_median": -0.290988,
+      "band_min": -0.97937,
+      "band_width": 1.44744,
+      "n_seeds": 10,
+      "n_seeds_flipped": 5,
+      "seed_flip_means": [
+       null,
+       null,
+       null,
+       -0.290988,
+       -0.97937,
+       null,
+       -0.336359,
+       0.258458,
+       null,
+       0.46807
+      ]
+     },
+     "to_id": "risk_time_to_revenue",
+     "to_label": "Time to Revenue Contribution"
+    },
+    {
+     "current_mean": 0.75,
+     "e_value": 1,
+     "edge_id": "out_new_arr::goal_arr",
+     "flip_direction": "decrease",
+     "flip_mean": -0.220581,
+     "from_id": "out_new_arr",
+     "from_label": "New ARR Generated",
+     "stability": {
+      "band_max": 0.884165,
+      "band_median": 0.527852,
+      "band_min": -0.982939,
+      "band_width": 1.867104,
+      "n_seeds": 10,
+      "n_seeds_flipped": 6,
+      "seed_flip_means": [
+       0.405074,
+       0.65063,
+       0.72767,
+       null,
+       null,
+       -0.982939,
+       0.390005,
+       null,
+       null,
+       0.884165
+      ]
+     },
+     "to_id": "goal_arr",
+     "to_label": "Reach \u00a31,000,000 ARR"
+    },
+    {
+     "current_mean": 0.7,
+     "e_value": 1,
+     "edge_id": "out_pipeline_velocity::goal_arr",
+     "flip_direction": "decrease",
+     "flip_mean": -0.236451,
+     "from_id": "out_pipeline_velocity",
+     "from_label": "Sales Pipeline Velocity",
+     "stability": {
+      "band_max": 0.835971,
+      "band_median": 0.615772,
+      "band_min": -0.199766,
+      "band_width": 1.035737,
+      "n_seeds": 10,
+      "n_seeds_flipped": 8,
+      "seed_flip_means": [
+       0.588583,
+       0.111852,
+       0.714592,
+       0.259204,
+       null,
+       null,
+       0.835971,
+       0.642961,
+       -0.199766,
+       0.699232
+      ]
+     },
+     "to_id": "goal_arr",
+     "to_label": "Reach \u00a31,000,000 ARR"
+    },
+    {
+     "current_mean": -0.3,
+     "e_value": 1,
+     "edge_id": "risk_budget_overrun::goal_arr",
+     "flip_direction": "increase",
+     "flip_mean": 0.100345,
+     "from_id": "risk_budget_overrun",
+     "from_label": "Budget Overrun Risk",
+     "stability": {
+      "band_max": 0.851387,
+      "band_median": 0.065207,
+      "band_min": -0.942342,
+      "band_width": 1.793729,
+      "n_seeds": 10,
+      "n_seeds_flipped": 9,
+      "seed_flip_means": [
+       null,
+       -0.11365,
+       -0.942342,
+       0.260719,
+       0.31358,
+       0.851387,
+       0.065207,
+       -0.022498,
+       0.461287,
+       0.0011
+      ]
+     },
+     "to_id": "goal_arr",
+     "to_label": "Reach \u00a31,000,000 ARR"
+    },
+    {
+     "current_mean": -0.45,
+     "e_value": 1.6591,
+     "edge_id": "risk_churn::goal_arr",
+     "flip_direction": "increase",
+     "flip_mean": 0.746601,
+     "from_id": "risk_churn",
+     "from_label": "Customer Churn Rate",
+     "stability": {
+      "band_max": 0.526561,
+      "band_median": -0.186382,
+      "band_min": -0.443732,
+      "band_width": 0.970293,
+      "n_seeds": 10,
+      "n_seeds_flipped": 7,
+      "seed_flip_means": [
+       null,
+       -0.443732,
+       -0.353185,
+       1e-06,
+       -0.326169,
+       null,
+       0.16744,
+       -0.186382,
+       null,
+       0.526561
+      ]
+     },
+     "to_id": "goal_arr",
+     "to_label": "Reach \u00a31,000,000 ARR"
+    },
+    {
+     "current_mean": -0.25,
+     "e_value": 1,
+     "edge_id": "risk_time_to_revenue::goal_arr",
+     "flip_direction": "increase",
+     "flip_mean": 0.243135,
+     "from_id": "risk_time_to_revenue",
+     "from_label": "Time to Revenue Contribution",
+     "stability": {
+      "band_max": 0.647001,
+      "band_median": -0.055768,
+      "band_min": -0.942152,
+      "band_width": 1.589153,
+      "n_seeds": 10,
+      "n_seeds_flipped": 10,
+      "seed_flip_means": [
+       -0.942152,
+       -0.056075,
+       -0.383372,
+       0.149706,
+       -0.065396,
+       0.647001,
+       0.509538,
+       -0.098686,
+       0.261448,
+       -0.055461
+      ]
+     },
+     "to_id": "goal_arr",
+     "to_label": "Reach \u00a31,000,000 ARR"
+    }
+   ],
+   "factor_evppi": [
+    {
+     "baseline_max_expected_utility": 0.252812,
+     "clamped_high": false,
+     "clamped_low": false,
+     "conditional_max_expected_utility": 0.252812,
+     "correlation_active": false,
+     "evppi": 0,
+     "evppi_raw": 0,
+     "factor_id": "fac_budget",
+     "method": "regression_evppi_v1",
+     "n_samples": 10000,
+     "noise_floor": 0,
+     "regression_degree": 4,
+     "status": "below_resolution",
+     "units": "outcome"
+    },
+    {
+     "baseline_max_expected_utility": 0.252812,
+     "clamped_high": false,
+     "clamped_low": false,
+     "conditional_max_expected_utility": 0.252812,
+     "correlation_active": false,
+     "evppi": 0,
+     "evppi_raw": 0,
+     "factor_id": "fac_current_arr",
+     "method": "regression_evppi_v1",
+     "n_samples": 10000,
+     "noise_floor": 1.7e-05,
+     "regression_degree": 4,
+     "status": "below_resolution",
+     "units": "outcome"
+    },
+    {
+     "baseline_max_expected_utility": 0.252812,
+     "clamped_high": false,
+     "clamped_low": false,
+     "conditional_max_expected_utility": 0.252812,
+     "correlation_active": false,
+     "evppi": 0,
+     "evppi_raw": 0,
+     "factor_id": "fac_market_demand",
+     "method": "regression_evppi_v1",
+     "n_samples": 10000,
+     "noise_floor": 6e-06,
+     "regression_degree": 4,
+     "status": "below_resolution",
+     "units": "outcome"
+    }
+   ],
+   "factor_sensitivity": [
+    {
+     "attribution_stability": "low",
+     "confidence": 0.43879999999999997,
+     "confidence_components": {
+      "sampling_stability": 0.25,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap",
+      "formula_version": "plot_unified_v3",
+      "input_quality": "standard",
+      "is_provisional": true
+     },
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "direction": "positive",
+     "driver_label": "biggest",
+     "elasticity": 0.8482420210272987,
+     "elasticity_std": 0.00745838,
+     "evidence_hint": false,
+     "evpi_method": "heuristic",
+     "evpi_percentage_points": 0,
+     "factor_id": "fac_market_demand",
+     "factor_label": "B2B Market Demand",
+     "flip_risk_category": "negligible",
+     "importance_basis": "graph_structural",
+     "importance_rank": 1,
+     "influence_rank": 2,
+     "influence_score": 0.8482420210272987,
+     "rank_flip_rate": 0.15,
+     "sensitivity_score": 0.34013986013986014,
+     "source": "graph",
+     "stability_method": "bootstrap_20",
+     "value_defaulted": true,
+     "value_of_information": 0
+    },
+    {
+     "attribution_stability": "low",
+     "confidence": 0.4399,
+     "confidence_components": {
+      "sampling_stability": 0.25,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap",
+      "formula_version": "plot_unified_v3",
+      "input_quality": "standard",
+      "is_provisional": true
+     },
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "direction": "positive",
+     "driver_label": "moderate",
+     "elasticity": 0.256274292241524,
+     "elasticity_std": 0.00260559,
+     "evidence_hint": false,
+     "evpi_method": "heuristic",
+     "evpi_percentage_points": 0,
+     "factor_id": "fac_current_arr",
+     "factor_label": "Current ARR",
+     "flip_risk_category": "correlated",
+     "importance_basis": "graph_structural",
+     "importance_rank": 2,
+     "influence_rank": 5,
+     "influence_score": 0.256274292241524,
+     "rank_flip_rate": 0.05,
+     "sensitivity_score": 0.10276442307692307,
+     "source": "graph",
+     "stability_method": "bootstrap_20",
+     "value_defaulted": true,
+     "value_of_information": 0
+    },
+    {
+     "attribution_stability": "low",
+     "confidence": 0.4394,
+     "confidence_components": {
+      "sampling_stability": 0.25,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap",
+      "formula_version": "plot_unified_v3",
+      "input_quality": "standard",
+      "is_provisional": true
+     },
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "direction": "positive",
+     "driver_label": "minor",
+     "elasticity": 0.16788993003539204,
+     "elasticity_std": 0.00158312,
+     "evidence_hint": false,
+     "evpi_method": "heuristic",
+     "evpi_percentage_points": 0,
+     "factor_id": "fac_budget",
+     "factor_label": "Available Growth Budget",
+     "flip_risk_category": "negligible",
+     "importance_basis": "graph_structural",
+     "importance_rank": 3,
+     "influence_rank": 6,
+     "influence_score": 0.16788993003539204,
+     "rank_flip_rate": 0.2,
+     "sensitivity_score": 0.06732283464566928,
+     "source": "graph",
+     "stability_method": "bootstrap_20",
+     "value_defaulted": true,
+     "value_of_information": 0
+    },
+    {
+     "attribution_stability": "negligible",
+     "confidence": 0.3,
+     "confidence_components": {
+      "sampling_stability": 0,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap",
+      "formula_version": "plot_unified_v3",
+      "input_quality": "standard",
+      "is_provisional": true
+     },
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "direction": "positive",
+     "driver_label": "strong",
+     "elasticity": 0,
+     "elasticity_std": 0,
+     "factor_id": "fac_content_spend",
+     "factor_label": "Content Marketing Investment",
+     "flip_risk_category": "correlated",
+     "importance_basis": "graph_structural",
+     "importance_rank": 4,
+     "influence_rank": 1,
+     "influence_score": 1,
+     "range_derivation_source": "default",
+     "rank_flip_rate": 0,
+     "sensitivity_score": 0,
+     "source": "graph",
+     "stability_method": "bootstrap_20",
+     "value_of_information": 0,
+     "zero_reason": "intervention_override"
+    },
+    {
+     "attribution_stability": "negligible",
+     "confidence": 0.3,
+     "confidence_components": {
+      "sampling_stability": 0,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap",
+      "formula_version": "plot_unified_v3",
+      "input_quality": "standard",
+      "is_provisional": true
+     },
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "direction": "positive",
+     "driver_label": "moderate",
+     "elasticity": 0,
+     "elasticity_std": 0,
+     "factor_id": "fac_sales_headcount",
+     "factor_label": "Sales Headcount Expansion",
+     "flip_risk_category": "correlated",
+     "importance_basis": "graph_structural",
+     "importance_rank": 5,
+     "influence_rank": 3,
+     "influence_score": 0.3900133950458531,
+     "range_derivation_source": "default",
+     "rank_flip_rate": 0,
+     "sensitivity_score": 0,
+     "source": "graph",
+     "stability_method": "bootstrap_20",
+     "value_of_information": 0,
+     "zero_reason": "intervention_override"
+    },
+    {
+     "attribution_stability": "negligible",
+     "confidence": 0.3,
+     "confidence_components": {
+      "sampling_stability": 0,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap",
+      "formula_version": "plot_unified_v3",
+      "input_quality": "standard",
+      "is_provisional": true
+     },
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "direction": "positive",
+     "driver_label": "moderate",
+     "elasticity": 0,
+     "elasticity_std": 0,
+     "factor_id": "fac_self_serve",
+     "factor_label": "Self-Serve Product Tier",
+     "flip_risk_category": "isolated",
+     "importance_basis": "graph_structural",
+     "importance_rank": 6,
+     "influence_rank": 4,
+     "influence_score": 0.362927446514007,
+     "range_derivation_source": "default",
+     "rank_flip_rate": 0,
+     "sensitivity_score": 0,
+     "source": "graph",
+     "stability_method": "bootstrap_20",
+     "value_of_information": 0,
+     "zero_reason": "intervention_override"
+    }
+   ],
+   "flip_thresholds": [
+    {
+     "alternative_winner_id": null,
+     "alternative_winner_label": null,
+     "current_value": 0,
+     "factor_id": "fac_budget",
+     "factor_label": "Available Growth Budget",
+     "flip_reason": "structurally_invariant",
+     "flip_value": null,
+     "iterations_used": 0,
+     "no_flip_in_range": true,
+     "probes_used": 0
+    },
+    {
+     "alternative_winner_id": null,
+     "alternative_winner_label": null,
+     "current_value": 0,
+     "factor_id": "fac_content_spend",
+     "factor_label": "Content Marketing Investment",
+     "flip_reason": "structurally_invariant",
+     "flip_value": null,
+     "iterations_used": 0,
+     "no_flip_in_range": true,
+     "probes_used": 0
+    },
+    {
+     "alternative_winner_id": null,
+     "alternative_winner_label": null,
+     "current_value": 0,
+     "factor_id": "fac_current_arr",
+     "factor_label": "Current ARR",
+     "flip_reason": "structurally_invariant",
+     "flip_value": null,
+     "iterations_used": 0,
+     "no_flip_in_range": true,
+     "probes_used": 0
+    },
+    {
+     "alternative_winner_id": null,
+     "alternative_winner_label": null,
+     "current_value": 0,
+     "factor_id": "fac_market_demand",
+     "factor_label": "B2B Market Demand",
+     "flip_reason": "structurally_invariant",
+     "flip_value": null,
+     "iterations_used": 0,
+     "no_flip_in_range": true,
+     "probes_used": 0
+    },
+    {
+     "alternative_winner_id": null,
+     "alternative_winner_label": null,
+     "current_value": 0,
+     "factor_id": "fac_sales_headcount",
+     "factor_label": "Sales Headcount Expansion",
+     "flip_reason": "structurally_invariant",
+     "flip_value": null,
+     "iterations_used": 0,
+     "no_flip_in_range": true,
+     "probes_used": 0
+    },
+    {
+     "alternative_winner_id": null,
+     "alternative_winner_label": null,
+     "current_value": 0,
+     "factor_id": "fac_self_serve",
+     "factor_label": "Self-Serve Product Tier",
+     "flip_reason": "structurally_invariant",
+     "flip_value": null,
+     "iterations_used": 0,
+     "no_flip_in_range": true,
+     "probes_used": 0
+    }
+   ],
+   "inference_warnings": [
+    {
+     "code": "EDGE_E_VALUE_NON_FINITE_DROPPED",
+     "message": "4 edge E-value entries were omitted from edge_e_values: 4 carried no finite E-value from the analysis engine (an unflippable edge, whose current and flip means coincide, has no evidence ratio). edge_e_values is shorter because those entries could not be represented, not because they were computed empty. All other analyses are unaffected.",
+     "severity": "info"
+    }
+   ],
+   "option_comparison": [
+    {
+     "id": "opt_content",
+     "label": "Invest in Content Marketing",
+     "option_id": "opt_content",
+     "option_label": "Invest in Content Marketing",
+     "outcome": {
+      "mean": 0.2528118957615988,
+      "n_samples": 10000,
+      "n_valid_samples": 10000,
+      "p10": 0.03037713171723777,
+      "p50": 0.23852676873179696,
+      "p90": 0.4875847151319461,
+      "std": 0.17472785797427934,
+      "validity_ratio": 1
+     },
+     "probability_of_goal": 0.1835,
+     "status": "computed",
+     "win_probability": 0.5241916666666667
+    },
+    {
+     "id": "opt_sales",
+     "label": "Hire Two Sales Reps",
+     "option_id": "opt_sales",
+     "option_label": "Hire Two Sales Reps",
+     "outcome": {
+      "mean": 0.12685715009568935,
+      "n_samples": 10000,
+      "n_valid_samples": 10000,
+      "p10": -0.17811571886642125,
+      "p50": 0.15122496181528855,
+      "p90": 0.38682011242776504,
+      "std": 0.2148170176803424,
+      "validity_ratio": 1
+     },
+     "probability_of_goal": 0.121,
+     "status": "computed",
+     "win_probability": 0.2504416666666667
+    },
+    {
+     "id": "opt_selfserve",
+     "label": "Build Self-Serve Tier",
+     "option_id": "opt_selfserve",
+     "option_label": "Build Self-Serve Tier",
+     "outcome": {
+      "mean": 0.11025885801692778,
+      "n_samples": 10000,
+      "n_valid_samples": 10000,
+      "p10": -0.14669321694667276,
+      "p50": 0.10639281150191318,
+      "p90": 0.377809092739696,
+      "std": 0.20396522130231437,
+      "validity_ratio": 1
+     },
+     "probability_of_goal": 0.1046,
+     "status": "computed",
+     "win_probability": 0.2191916666666667
+    },
+    {
+     "id": "opt_status_quo",
+     "label": "Continue Current Approach (Status Quo)",
+     "option_id": "opt_status_quo",
+     "option_label": "Continue Current Approach (Status Quo)",
+     "outcome": {
+      "mean": 0.00026174114899919066,
+      "n_samples": 10000,
+      "n_valid_samples": 10000,
+      "p10": -0.04975089781846805,
+      "p50": -2.5101205930631518e-05,
+      "p90": 0.05184920405609029,
+      "std": 0.04420444818788763,
+      "validity_ratio": 1
+     },
+     "probability_of_goal": 0.0208,
+     "status": "computed",
+     "win_probability": 0.006175
+    }
+   ],
+   "option_comparison_status": "computed",
+   "p_win_sensitivity": [
+    {
+     "clamped": false,
+     "current_metric": 0.53275,
+     "factor_id": "fac_market_demand",
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "method": "p_win_delta_at_mean_v1",
+     "metric_type": "p_win_recommended",
+     "n_samples": 2000,
+     "noise_floor": 0.03099,
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta": 0.014708,
+     "p_win_delta_percentage_points": 1.47,
+     "perfect_metric": 0.547458,
+     "status": "below_resolution"
+    },
+    {
+     "clamped": false,
+     "current_metric": 0.53275,
+     "factor_id": "fac_content_spend",
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "method": "p_win_delta_at_mean_v1",
+     "metric_type": "p_win_recommended",
+     "n_samples": 2000,
+     "noise_floor": 0.03099,
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta": 0.00775,
+     "p_win_delta_percentage_points": 0.78,
+     "perfect_metric": 0.5405,
+     "status": "below_resolution"
+    },
+    {
+     "clamped": false,
+     "current_metric": 0.53275,
+     "factor_id": "fac_self_serve",
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "method": "p_win_delta_at_mean_v1",
+     "metric_type": "p_win_recommended",
+     "n_samples": 2000,
+     "noise_floor": 0.03099,
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta": 0.002667,
+     "p_win_delta_percentage_points": 0.27,
+     "perfect_metric": 0.535417,
+     "status": "below_resolution"
+    },
+    {
+     "clamped": false,
+     "current_metric": 0.53275,
+     "factor_id": "fac_current_arr",
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "method": "p_win_delta_at_mean_v1",
+     "metric_type": "p_win_recommended",
+     "n_samples": 2000,
+     "noise_floor": 0.03099,
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta": 0.0015,
+     "p_win_delta_percentage_points": 0.15,
+     "perfect_metric": 0.53425,
+     "status": "below_resolution"
+    },
+    {
+     "clamped": true,
+     "current_metric": 0.53275,
+     "factor_id": "fac_sales_headcount",
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "method": "p_win_delta_at_mean_v1",
+     "metric_type": "p_win_recommended",
+     "n_samples": 2000,
+     "noise_floor": 0.03099,
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta": 0,
+     "p_win_delta_percentage_points": 0,
+     "perfect_metric": 0.511333,
+     "status": "below_resolution"
+    },
+    {
+     "clamped": true,
+     "current_metric": 0.53275,
+     "factor_id": "fac_budget",
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "method": "p_win_delta_at_mean_v1",
+     "metric_type": "p_win_recommended",
+     "n_samples": 2000,
+     "noise_floor": 0.03099,
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta": 0,
+     "p_win_delta_percentage_points": 0,
+     "perfect_metric": 0.528542,
+     "status": "below_resolution"
+    }
+   ],
+   "robustness": {
+    "confidence": 0.5241916666666667,
+    "confidence_basis": "recommendation_stability_uncalibrated",
+    "display_verdict": "fragile",
+    "display_verdict_reason": "none of the factors we could test changed which option leads on its own, but this result scored low on our other robustness checks",
+    "fragile_edges": [
+     {
+      "alternative_winner_id": "opt_sales",
+      "alternative_winner_label": "Hire Two Sales Reps",
+      "edge_id": "fac_content_spend->out_pipeline_velocity",
+      "from_id": "fac_content_spend",
+      "from_label": "Content Marketing Investment",
+      "marginal_switch_probability": 0.01,
+      "severity": "warning",
+      "switch_probability": 0.37301038062283737,
+      "to_id": "out_pipeline_velocity",
+      "to_label": "Sales Pipeline Velocity",
+      "visible": true
+     },
+     {
+      "alternative_winner_id": "opt_selfserve",
+      "alternative_winner_label": "Build Self-Serve Tier",
+      "edge_id": "out_pipeline_velocity->goal_arr",
+      "from_id": "out_pipeline_velocity",
+      "from_label": "Sales Pipeline Velocity",
+      "marginal_switch_probability": 0,
+      "severity": "warning",
+      "switch_probability": 0.368,
+      "to_id": "goal_arr",
+      "to_label": "Reach \u00a31,000,000 ARR",
+      "visible": true
+     },
+     {
+      "alternative_winner_id": "opt_sales",
+      "alternative_winner_label": "Hire Two Sales Reps",
+      "edge_id": "fac_content_spend->out_new_arr",
+      "from_id": "fac_content_spend",
+      "from_label": "Content Marketing Investment",
+      "marginal_switch_probability": 0.04,
+      "severity": "warning",
+      "switch_probability": 0.35989159891598915,
+      "to_id": "out_new_arr",
+      "to_label": "New ARR Generated",
+      "visible": true
+     },
+     {
+      "alternative_winner_id": "opt_sales",
+      "alternative_winner_label": "Hire Two Sales Reps",
+      "edge_id": "fac_sales_headcount->risk_budget_overrun",
+      "from_id": "fac_sales_headcount",
+      "from_label": "Sales Headcount Expansion",
+      "marginal_switch_probability": 0,
+      "severity": "warning",
+      "switch_probability": 0.3228,
+      "to_id": "risk_budget_overrun",
+      "to_label": "Budget Overrun Risk",
+      "visible": true
+     },
+     {
+      "alternative_winner_id": "opt_sales",
+      "alternative_winner_label": "Hire Two Sales Reps",
+      "edge_id": "fac_self_serve->out_new_arr",
+      "from_id": "fac_self_serve",
+      "from_label": "Self-Serve Product Tier",
+      "marginal_switch_probability": 0.17,
+      "severity": "warning",
+      "switch_probability": 0.3083048919226394,
+      "to_id": "out_new_arr",
+      "to_label": "New ARR Generated",
+      "visible": true
+     },
+     {
+      "alternative_winner_id": "opt_sales",
+      "alternative_winner_label": "Hire Two Sales Reps",
+      "edge_id": "out_new_arr->goal_arr",
+      "from_id": "out_new_arr",
+      "from_label": "New ARR Generated",
+      "marginal_switch_probability": 0,
+      "severity": "warning",
+      "switch_probability": 0.3076,
+      "to_id": "goal_arr",
+      "to_label": "Reach \u00a31,000,000 ARR",
+      "visible": true
+     },
+     {
+      "alternative_winner_id": "opt_sales",
+      "alternative_winner_label": "Hire Two Sales Reps",
+      "edge_id": "fac_current_arr->out_new_arr",
+      "from_id": "fac_current_arr",
+      "from_label": "Current ARR",
+      "marginal_switch_probability": 0,
+      "severity": "warning",
+      "switch_probability": 0.2584,
+      "to_id": "out_new_arr",
+      "to_label": "New ARR Generated",
+      "visible": true
+     },
+     {
+      "alternative_winner_id": "opt_selfserve",
+      "alternative_winner_label": "Build Self-Serve Tier",
+      "edge_id": "risk_churn->goal_arr",
+      "from_id": "risk_churn",
+      "from_label": "Customer Churn Rate",
+      "marginal_switch_probability": 0,
+      "severity": "warning",
+      "switch_probability": 0.2508,
+      "to_id": "goal_arr",
+      "to_label": "Reach \u00a31,000,000 ARR",
+      "visible": true
+     },
+     {
+      "alternative_winner_id": "opt_selfserve",
+      "alternative_winner_label": "Build Self-Serve Tier",
+      "edge_id": "risk_budget_overrun->goal_arr",
+      "from_id": "risk_budget_overrun",
+      "from_label": "Budget Overrun Risk",
+      "marginal_switch_probability": 0,
+      "severity": "warning",
+      "switch_probability": 0.1904,
+      "to_id": "goal_arr",
+      "to_label": "Reach \u00a31,000,000 ARR",
+      "visible": true
+     },
+     {
+      "alternative_winner_id": "opt_sales",
+      "alternative_winner_label": "Hire Two Sales Reps",
+      "edge_id": "fac_content_spend->risk_churn",
+      "from_id": "fac_content_spend",
+      "from_label": "Content Marketing Investment",
+      "marginal_switch_probability": 0,
+      "severity": "warning",
+      "switch_probability": 0.1784,
+      "to_id": "risk_churn",
+      "to_label": "Customer Churn Rate",
+      "visible": true
+     }
+    ],
+    "is_robust": false,
+    "level": "low",
+    "near_tie": {
+     "gap": 0.27375000000000005,
+     "is_tie": false,
+     "threshold": 0.1
+    },
+    "robust_edges": [
+     {
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "edge_id": "fac_market_demand->out_pipeline_velocity",
+      "from_id": "fac_market_demand",
+      "from_label": "B2B Market Demand",
+      "to_id": "out_pipeline_velocity",
+      "to_label": "Sales Pipeline Velocity"
+     },
+     {
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "edge_id": "fac_sales_headcount->risk_time_to_revenue",
+      "from_id": "fac_sales_headcount",
+      "from_label": "Sales Headcount Expansion",
+      "to_id": "risk_time_to_revenue",
+      "to_label": "Time to Revenue Contribution"
+     },
+     {
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "edge_id": "fac_self_serve->risk_budget_overrun",
+      "from_id": "fac_self_serve",
+      "from_label": "Self-Serve Product Tier",
+      "to_id": "risk_budget_overrun",
+      "to_label": "Budget Overrun Risk"
+     }
+    ]
+   }
+  },
+  "leading_option_id": null,
+  "summary": "Ran analysis on your current scenario. One of the conditions you set was not checked: \u201cDelivery deadline\u201d. The analysis engine could not evaluate it against this model, so no option can be put forward yet. Re-state that limit against a measure recorded in the same units as the limit, then run the analysis again.",
+  "type": "analysis_result",
+  "win_probabilities": {
+   "Build Self-Serve Tier": 0.2191916666666667,
+   "Continue Current Approach (Status Quo)": 0.006175,
+   "Hire Two Sales Reps": 0.2504416666666667,
+   "Invest in Content Marketing": 0.5241916666666667
+  }
+ },
+ "runB": {
+  "computed_against_hash": "501a71bd3f3d7433",
+  "enrichment": {
+   "confidence_tier": "needs_work",
+   "decision_brief": {
+    "analysis_summary": {
+     "robustness_band": "fragile"
+    },
+    "brief_id": "079df4dd-2f40-4e13-b12c-833cf5f9f036",
+    "created_at": "2026-08-03T07:56:46.878Z",
+    "defaulted_assumptions": [
+     {
+      "doctrine": "provisional_doctrine_v0",
+      "factor_label": "Current ARR",
+      "note": "No starting value was provided for \"Current ARR\" \u2014 the analysis used a default. Setting a real value or range would make this result more trustworthy.",
+      "source": "value_defaulted"
+     },
+     {
+      "doctrine": "provisional_doctrine_v0",
+      "factor_label": "B2B Market Demand",
+      "note": "No starting value was provided for \"B2B Market Demand\" \u2014 the analysis used a default. Setting a real value or range would make this result more trustworthy.",
+      "source": "value_defaulted"
+     }
+    ],
+    "key_assumptions": [
+     "B2B Market Demand",
+     "Current ARR"
+    ],
+    "options": [
+     {
+      "label": "Invest in Content Marketing",
+      "option_id": "opt_content",
+      "win_probability": 0.564825
+     },
+     {
+      "label": "Hire Two Sales Reps",
+      "option_id": "opt_sales",
+      "win_probability": 0.2312083333333333
+     },
+     {
+      "label": "Build Self-Serve Tier",
+      "option_id": "opt_selfserve",
+      "win_probability": 0.20160833333333333
+     },
+     {
+      "label": "Continue Current Approach (Status Quo)",
+      "option_id": "opt_status_quo",
+      "win_probability": 0.0023583333333333334
+     }
+    ],
+    "robustness": "fragile",
+    "top_drivers": [
+     {
+      "direction": "positive",
+      "factor_label": "B2B Market Demand",
+      "sensitivity": 0.8482420210272987
+     },
+     {
+      "direction": "positive",
+      "factor_label": "Current ARR",
+      "sensitivity": 0.256274292241524
+     }
+    ],
+    "version": "1",
+    "warning_codes": [],
+    "warnings": [
+     {
+      "code": "DOMINANT_FACTOR",
+      "message": "One factor dominates. What would change if B2B Market Demand had less influence?",
+      "severity": "warning"
+     },
+     {
+      "code": "INFLUENTIAL_EXTERNALS",
+      "message": "External factors B2B Market Demand, Current ARR significantly affect your outcome but are inherently uncertain. How might you bound these?",
+      "severity": "warning"
+     },
+     {
+      "code": "M2_UNAVAILABLE",
+      "message": "Decision review was unavailable; brief uses deterministic coaching fallback",
+      "severity": "warning"
+     }
+    ],
+    "what_would_change": [
+     "Sales Pipeline Velocity \u2192 Reach \u00a31,000,000 ARR",
+     "New ARR Generated \u2192 Reach \u00a31,000,000 ARR",
+     "Current ARR \u2192 New ARR Generated",
+     "Customer Churn Rate \u2192 Reach \u00a31,000,000 ARR"
+    ]
+   },
+   "decision_evpi": 0.0699605311407617,
+   "edge_e_values": [
+    {
+     "current_mean": 0.20096153846153847,
+     "e_value": 1,
+     "edge_id": "fac_content_spend::out_new_arr",
+     "flip_direction": "decrease",
+     "flip_mean": -0.101624,
+     "from_id": "fac_content_spend",
+     "from_label": "Content Marketing Investment",
+     "stability": {
+      "band_max": 0.457797,
+      "band_median": 0.168432,
+      "band_min": -0.551597,
+      "band_width": 1.009394,
+      "n_seeds": 10,
+      "n_seeds_flipped": 9,
+      "seed_flip_means": [
+       0.280283,
+       0.457797,
+       0.210876,
+       -0.19168,
+       -0.209284,
+       -0.551597,
+       0.168432,
+       -0.102004,
+       null,
+       0.456533
+      ]
+     },
+     "to_id": "out_new_arr",
+     "to_label": "New ARR Generated"
+    },
+    {
+     "current_mean": 0.24181818181818182,
+     "e_value": 1,
+     "edge_id": "fac_content_spend::out_pipeline_velocity",
+     "flip_direction": "decrease",
+     "flip_mean": -0.081381,
+     "from_id": "fac_content_spend",
+     "from_label": "Content Marketing Investment",
+     "stability": {
+      "band_max": 0.743889,
+      "band_median": 0.101014,
+      "band_min": -0.257379,
+      "band_width": 1.001268,
+      "n_seeds": 10,
+      "n_seeds_flipped": 6,
+      "seed_flip_means": [
+       null,
+       null,
+       0.743889,
+       null,
+       -0.1799,
+       null,
+       -0.257379,
+       0.337558,
+       -0.025766,
+       0.227794
+      ]
+     },
+     "to_id": "out_pipeline_velocity",
+     "to_label": "Sales Pipeline Velocity"
+    },
+    {
+     "current_mean": -0.18,
+     "e_value": 2.0939,
+     "edge_id": "fac_content_spend::risk_churn",
+     "flip_direction": "increase",
+     "flip_mean": 0.376896,
+     "from_id": "fac_content_spend",
+     "from_label": "Content Marketing Investment",
+     "stability": {
+      "band_max": 0.660537,
+      "band_median": -0.201396,
+      "band_min": -0.913195,
+      "band_width": 1.573732,
+      "n_seeds": 10,
+      "n_seeds_flipped": 8,
+      "seed_flip_means": [
+       -0.913195,
+       -0.460822,
+       -0.629834,
+       0.050079,
+       -0.192852,
+       null,
+       0.128082,
+       null,
+       0.660537,
+       -0.209939
+      ]
+     },
+     "to_id": "risk_churn",
+     "to_label": "Customer Churn Rate"
+    },
+    {
+     "current_mean": 0.5354545454545454,
+     "e_value": 1.5113,
+     "edge_id": "fac_sales_headcount::out_pipeline_velocity",
+     "flip_direction": "increase",
+     "flip_mean": 0.809223,
+     "from_id": "fac_sales_headcount",
+     "from_label": "Sales Headcount Expansion",
+     "stability": {
+      "band_max": 0.913856,
+      "band_median": 0.747566,
+      "band_min": 0.469998,
+      "band_width": 0.443858,
+      "n_seeds": 10,
+      "n_seeds_flipped": 5,
+      "seed_flip_means": [
+       null,
+       null,
+       0.913856,
+       null,
+       0.469998,
+       null,
+       0.747566,
+       0.605374,
+       null,
+       0.860293
+      ]
+     },
+     "to_id": "out_pipeline_velocity",
+     "to_label": "Sales Pipeline Velocity"
+    },
+    {
+     "current_mean": 0.4114173228346457,
+     "e_value": 1,
+     "edge_id": "fac_sales_headcount::risk_budget_overrun",
+     "flip_direction": "decrease",
+     "flip_mean": -0.227375,
+     "from_id": "fac_sales_headcount",
+     "from_label": "Sales Headcount Expansion",
+     "stability": {
+      "band_max": 0.031344,
+      "band_median": -0.432941,
+      "band_min": -0.990846,
+      "band_width": 1.02219,
+      "n_seeds": 10,
+      "n_seeds_flipped": 7,
+      "seed_flip_means": [
+       -0.971601,
+       null,
+       -0.026175,
+       -0.51563,
+       null,
+       -0.990846,
+       -0.319072,
+       0.031344,
+       -0.432941,
+       null
+      ]
+     },
+     "to_id": "risk_budget_overrun",
+     "to_label": "Budget Overrun Risk"
+    },
+    {
+     "current_mean": 0.38,
+     "e_value": 1.295,
+     "edge_id": "fac_sales_headcount::risk_time_to_revenue",
+     "flip_direction": "decrease",
+     "flip_mean": -0.492117,
+     "from_id": "fac_sales_headcount",
+     "from_label": "Sales Headcount Expansion",
+     "stability": {
+      "band_max": 0.178327,
+      "band_median": -0.287085,
+      "band_min": -0.604662,
+      "band_width": 0.782989,
+      "n_seeds": 10,
+      "n_seeds_flipped": 5,
+      "seed_flip_means": [
+       null,
+       null,
+       null,
+       -0.604662,
+       0.178327,
+       null,
+       -0.287085,
+       -0.113725,
+       -0.490411,
+       null
+      ]
+     },
+     "to_id": "risk_time_to_revenue",
+     "to_label": "Time to Revenue Contribution"
+    },
+    {
+     "current_mean": 0.31971153846153844,
+     "e_value": 1.9795,
+     "edge_id": "fac_self_serve::out_new_arr",
+     "flip_direction": "increase",
+     "flip_mean": 0.632864,
+     "from_id": "fac_self_serve",
+     "from_label": "Self-Serve Product Tier",
+     "stability": {
+      "band_max": 0.640209,
+      "band_median": 0.508579,
+      "band_min": 0.231961,
+      "band_width": 0.408248,
+      "n_seeds": 10,
+      "n_seeds_flipped": 8,
+      "seed_flip_means": [
+       0.362607,
+       0.495918,
+       0.231961,
+       0.560916,
+       0.490332,
+       null,
+       0.640209,
+       0.638037,
+       null,
+       0.521241
+      ]
+     },
+     "to_id": "out_new_arr",
+     "to_label": "New ARR Generated"
+    },
+    {
+     "current_mean": 0.31417322834645667,
+     "e_value": 1.611,
+     "edge_id": "fac_self_serve::risk_budget_overrun",
+     "flip_direction": "decrease",
+     "flip_mean": -0.506126,
+     "from_id": "fac_self_serve",
+     "from_label": "Self-Serve Product Tier",
+     "stability": {
+      "band_max": 0.748242,
+      "band_median": 0.719877,
+      "band_min": -0.016449,
+      "band_width": 0.764691,
+      "n_seeds": 10,
+      "n_seeds_flipped": 3,
+      "seed_flip_means": [
+       null,
+       0.748242,
+       0.719877,
+       null,
+       null,
+       null,
+       null,
+       -0.016449,
+       null,
+       null
+      ]
+     },
+     "to_id": "risk_budget_overrun",
+     "to_label": "Budget Overrun Risk"
+    },
+    {
+     "current_mean": -0.25,
+     "e_value": 3.2955,
+     "edge_id": "fac_self_serve::risk_churn",
+     "flip_direction": "decrease",
+     "flip_mean": -0.823872,
+     "from_id": "fac_self_serve",
+     "from_label": "Self-Serve Product Tier",
+     "stability": {
+      "band_max": 0.600563,
+      "band_median": -0.374515,
+      "band_min": -0.737566,
+      "band_width": 1.338129,
+      "n_seeds": 10,
+      "n_seeds_flipped": 7,
+      "seed_flip_means": [
+       0.600563,
+       -0.118366,
+       -0.374515,
+       -0.737566,
+       -0.617322,
+       null,
+       -0.687509,
+       null,
+       null,
+       -0.336295
+      ]
+     },
+     "to_id": "risk_churn",
+     "to_label": "Customer Churn Rate"
+    },
+    {
+     "current_mean": 0.45,
+     "e_value": 1.3256,
+     "edge_id": "fac_self_serve::risk_time_to_revenue",
+     "flip_direction": "decrease",
+     "flip_mean": -0.596535,
+     "from_id": "fac_self_serve",
+     "from_label": "Self-Serve Product Tier",
+     "stability": {
+      "band_max": 0.46807,
+      "band_median": -0.362754,
+      "band_min": -0.97937,
+      "band_width": 1.44744,
+      "n_seeds": 10,
+      "n_seeds_flipped": 5,
+      "seed_flip_means": [
+       null,
+       null,
+       null,
+       -0.362754,
+       -0.97937,
+       null,
+       -0.387575,
+       0.258458,
+       null,
+       0.46807
+      ]
+     },
+     "to_id": "risk_time_to_revenue",
+     "to_label": "Time to Revenue Contribution"
+    },
+    {
+     "current_mean": 0.75,
+     "e_value": 1,
+     "edge_id": "out_new_arr::goal_arr",
+     "flip_direction": "decrease",
+     "flip_mean": -0.379268,
+     "from_id": "out_new_arr",
+     "from_label": "New ARR Generated",
+     "stability": {
+      "band_max": 0.884165,
+      "band_median": 0.680229,
+      "band_min": 0.335486,
+      "band_width": 0.548679,
+      "n_seeds": 10,
+      "n_seeds_flipped": 5,
+      "seed_flip_means": [
+       0.4106,
+       0.680229,
+       0.72767,
+       null,
+       null,
+       null,
+       0.335486,
+       null,
+       null,
+       0.884165
+      ]
+     },
+     "to_id": "goal_arr",
+     "to_label": "Reach \u00a31,000,000 ARR"
+    },
+    {
+     "current_mean": 0.7,
+     "e_value": 1,
+     "edge_id": "out_pipeline_velocity::goal_arr",
+     "flip_direction": "decrease",
+     "flip_mean": -0.36792,
+     "from_id": "out_pipeline_velocity",
+     "from_label": "Sales Pipeline Velocity",
+     "stability": {
+      "band_max": 0.868917,
+      "band_median": 0.615772,
+      "band_min": -0.199766,
+      "band_width": 1.068683,
+      "n_seeds": 10,
+      "n_seeds_flipped": 8,
+      "seed_flip_means": [
+       0.588583,
+       0.093125,
+       0.714592,
+       0.292192,
+       null,
+       null,
+       0.868917,
+       0.642961,
+       -0.199766,
+       0.699232
+      ]
+     },
+     "to_id": "goal_arr",
+     "to_label": "Reach \u00a31,000,000 ARR"
+    },
+    {
+     "current_mean": -0.3,
+     "e_value": 1,
+     "edge_id": "risk_budget_overrun::goal_arr",
+     "flip_direction": "increase",
+     "flip_mean": 0.082373,
+     "from_id": "risk_budget_overrun",
+     "from_label": "Budget Overrun Risk",
+     "stability": {
+      "band_max": 0.703501,
+      "band_median": 0.027311,
+      "band_min": -0.97103,
+      "band_width": 1.674531,
+      "n_seeds": 10,
+      "n_seeds_flipped": 10,
+      "seed_flip_means": [
+       -0.97103,
+       -0.096481,
+       -0.694341,
+       0.206435,
+       0.234821,
+       0.703501,
+       0.053882,
+       -0.022498,
+       0.461287,
+       0.00074
+      ]
+     },
+     "to_id": "goal_arr",
+     "to_label": "Reach \u00a31,000,000 ARR"
+    },
+    {
+     "current_mean": -0.45,
+     "e_value": 2.0939,
+     "edge_id": "risk_churn::goal_arr",
+     "flip_direction": "increase",
+     "flip_mean": 0.942239,
+     "from_id": "risk_churn",
+     "from_label": "Customer Churn Rate",
+     "stability": {
+      "band_max": 0.526561,
+      "band_median": -0.186382,
+      "band_min": -0.417652,
+      "band_width": 0.944213,
+      "n_seeds": 10,
+      "n_seeds_flipped": 7,
+      "seed_flip_means": [
+       null,
+       -0.417652,
+       -0.353185,
+       0.160644,
+       -0.326169,
+       null,
+       0.26484,
+       -0.186382,
+       null,
+       0.526561
+      ]
+     },
+     "to_id": "goal_arr",
+     "to_label": "Reach \u00a31,000,000 ARR"
+    },
+    {
+     "current_mean": -0.25,
+     "e_value": 1.295,
+     "edge_id": "risk_time_to_revenue::goal_arr",
+     "flip_direction": "increase",
+     "flip_mean": 0.323761,
+     "from_id": "risk_time_to_revenue",
+     "from_label": "Time to Revenue Contribution",
+     "stability": {
+      "band_max": 0.717078,
+      "band_median": -0.053285,
+      "band_min": -0.942152,
+      "band_width": 1.65923,
+      "n_seeds": 10,
+      "n_seeds_flipped": 10,
+      "seed_flip_means": [
+       -0.942152,
+       -0.051109,
+       -0.339898,
+       0.186628,
+       -0.065396,
+       0.717078,
+       0.587123,
+       -0.098686,
+       0.261448,
+       -0.055461
+      ]
+     },
+     "to_id": "goal_arr",
+     "to_label": "Reach \u00a31,000,000 ARR"
+    }
+   ],
+   "factor_evppi": [
+    {
+     "baseline_max_expected_utility": 0.274419,
+     "clamped_high": false,
+     "clamped_low": false,
+     "conditional_max_expected_utility": 0.274419,
+     "correlation_active": false,
+     "evppi": 0,
+     "evppi_raw": 0,
+     "factor_id": "fac_current_arr",
+     "method": "regression_evppi_v1",
+     "n_samples": 10000,
+     "noise_floor": 1e-05,
+     "regression_degree": 4,
+     "status": "below_resolution",
+     "units": "outcome"
+    },
+    {
+     "baseline_max_expected_utility": 0.274419,
+     "clamped_high": false,
+     "clamped_low": false,
+     "conditional_max_expected_utility": 0.274419,
+     "correlation_active": false,
+     "evppi": 0,
+     "evppi_raw": 0,
+     "factor_id": "fac_market_demand",
+     "method": "regression_evppi_v1",
+     "n_samples": 10000,
+     "noise_floor": 5e-06,
+     "regression_degree": 4,
+     "status": "below_resolution",
+     "units": "outcome"
+    }
+   ],
+   "factor_sensitivity": [
+    {
+     "attribution_stability": "low",
+     "confidence": 0.43879999999999997,
+     "confidence_components": {
+      "sampling_stability": 0.25,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap",
+      "formula_version": "plot_unified_v3",
+      "input_quality": "standard",
+      "is_provisional": true
+     },
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "direction": "positive",
+     "driver_label": "biggest",
+     "elasticity": 0.8482420210272987,
+     "elasticity_std": 0.00687112,
+     "evidence_hint": false,
+     "evpi_method": "heuristic",
+     "evpi_percentage_points": 0,
+     "factor_id": "fac_market_demand",
+     "factor_label": "B2B Market Demand",
+     "flip_risk_category": "negligible",
+     "importance_basis": "graph_structural",
+     "importance_rank": 1,
+     "influence_rank": 2,
+     "influence_score": 0.8482420210272987,
+     "rank_flip_rate": 0.1,
+     "sensitivity_score": 0.34013986013986014,
+     "source": "graph",
+     "stability_method": "bootstrap_20",
+     "value_defaulted": true,
+     "value_of_information": 0
+    },
+    {
+     "attribution_stability": "low",
+     "confidence": 0.4399,
+     "confidence_components": {
+      "sampling_stability": 0.25,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap",
+      "formula_version": "plot_unified_v3",
+      "input_quality": "standard",
+      "is_provisional": true
+     },
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "direction": "positive",
+     "driver_label": "moderate",
+     "elasticity": 0.256274292241524,
+     "elasticity_std": 0.00240043,
+     "evidence_hint": false,
+     "evpi_method": "heuristic",
+     "evpi_percentage_points": 0,
+     "factor_id": "fac_current_arr",
+     "factor_label": "Current ARR",
+     "flip_risk_category": "correlated",
+     "importance_basis": "graph_structural",
+     "importance_rank": 2,
+     "influence_rank": 5,
+     "influence_score": 0.256274292241524,
+     "rank_flip_rate": 0.05,
+     "sensitivity_score": 0.10276442307692307,
+     "source": "graph",
+     "stability_method": "bootstrap_20",
+     "value_defaulted": true,
+     "value_of_information": 0
+    },
+    {
+     "attribution_stability": "negligible",
+     "confidence": 0.3,
+     "confidence_components": {
+      "sampling_stability": 0,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap",
+      "formula_version": "plot_unified_v3",
+      "input_quality": "standard",
+      "is_provisional": true
+     },
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "direction": "positive",
+     "driver_label": "strong",
+     "elasticity": 0,
+     "elasticity_std": 0,
+     "factor_id": "fac_content_spend",
+     "factor_label": "Content Marketing Investment",
+     "flip_risk_category": "correlated",
+     "importance_basis": "graph_structural",
+     "importance_rank": 3,
+     "influence_rank": 1,
+     "influence_score": 1,
+     "range_derivation_source": "default",
+     "rank_flip_rate": 0,
+     "sensitivity_score": 0,
+     "source": "graph",
+     "stability_method": "bootstrap_20",
+     "value_of_information": 0,
+     "zero_reason": "intervention_override"
+    },
+    {
+     "attribution_stability": "negligible",
+     "confidence": 0.3,
+     "confidence_components": {
+      "sampling_stability": 0,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap",
+      "formula_version": "plot_unified_v3",
+      "input_quality": "standard",
+      "is_provisional": true
+     },
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "direction": "positive",
+     "driver_label": "moderate",
+     "elasticity": 0,
+     "elasticity_std": 0,
+     "factor_id": "fac_sales_headcount",
+     "factor_label": "Sales Headcount Expansion",
+     "flip_risk_category": "correlated",
+     "importance_basis": "graph_structural",
+     "importance_rank": 4,
+     "influence_rank": 3,
+     "influence_score": 0.3900133950458531,
+     "range_derivation_source": "default",
+     "rank_flip_rate": 0,
+     "sensitivity_score": 0,
+     "source": "graph",
+     "stability_method": "bootstrap_20",
+     "value_of_information": 0,
+     "zero_reason": "intervention_override"
+    },
+    {
+     "attribution_stability": "negligible",
+     "confidence": 0.3,
+     "confidence_components": {
+      "sampling_stability": 0,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap",
+      "formula_version": "plot_unified_v3",
+      "input_quality": "standard",
+      "is_provisional": true
+     },
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "direction": "positive",
+     "driver_label": "moderate",
+     "elasticity": 0,
+     "elasticity_std": 0,
+     "factor_id": "fac_self_serve",
+     "factor_label": "Self-Serve Product Tier",
+     "flip_risk_category": "negligible",
+     "importance_basis": "graph_structural",
+     "importance_rank": 5,
+     "influence_rank": 4,
+     "influence_score": 0.362927446514007,
+     "range_derivation_source": "default",
+     "rank_flip_rate": 0,
+     "sensitivity_score": 0,
+     "source": "graph",
+     "stability_method": "bootstrap_20",
+     "value_of_information": 0,
+     "zero_reason": "intervention_override"
+    },
+    {
+     "attribution_stability": "negligible",
+     "confidence": 0.3,
+     "confidence_components": {
+      "sampling_stability": 0,
+      "structural_certainty": 0.5
+     },
+     "confidence_provenance": {
+      "calibration_status": "provisional_pending_pilot_calibration",
+      "computation_source": "plot_unified_from_isl_bootstrap",
+      "formula_version": "plot_unified_v3",
+      "input_quality": "standard",
+      "is_provisional": true
+     },
+     "confidence_source": "plot_unified_from_isl_bootstrap",
+     "direction": "positive",
+     "driver_label": "minor",
+     "elasticity": 0,
+     "elasticity_std": 0,
+     "factor_id": "fac_budget",
+     "factor_label": "Available Growth Budget",
+     "flip_risk_category": "correlated",
+     "importance_basis": "graph_structural",
+     "importance_rank": 6,
+     "influence_rank": 6,
+     "influence_score": 0.16788993003539204,
+     "range_derivation_source": "default",
+     "rank_flip_rate": 0,
+     "sensitivity_score": 0,
+     "source": "graph",
+     "stability_method": "bootstrap_20",
+     "value_defaulted": true,
+     "value_of_information": 0,
+     "zero_reason": "intervention_override"
+    }
+   ],
+   "flip_thresholds": [
+    {
+     "alternative_winner_id": null,
+     "alternative_winner_label": null,
+     "current_value": 0,
+     "factor_id": "fac_budget",
+     "factor_label": "Available Growth Budget",
+     "flip_reason": "no_effect_within_bounds",
+     "flip_value": null,
+     "iterations_used": 0,
+     "no_flip_in_range": true,
+     "probes_used": 0
+    },
+    {
+     "alternative_winner_id": null,
+     "alternative_winner_label": null,
+     "current_value": 0,
+     "factor_id": "fac_content_spend",
+     "factor_label": "Content Marketing Investment",
+     "flip_reason": "structurally_invariant",
+     "flip_value": null,
+     "iterations_used": 0,
+     "no_flip_in_range": true,
+     "probes_used": 0
+    },
+    {
+     "alternative_winner_id": null,
+     "alternative_winner_label": null,
+     "current_value": 0,
+     "factor_id": "fac_current_arr",
+     "factor_label": "Current ARR",
+     "flip_reason": "structurally_invariant",
+     "flip_value": null,
+     "iterations_used": 0,
+     "no_flip_in_range": true,
+     "probes_used": 0
+    },
+    {
+     "alternative_winner_id": null,
+     "alternative_winner_label": null,
+     "current_value": 0,
+     "factor_id": "fac_market_demand",
+     "factor_label": "B2B Market Demand",
+     "flip_reason": "structurally_invariant",
+     "flip_value": null,
+     "iterations_used": 0,
+     "no_flip_in_range": true,
+     "probes_used": 0
+    },
+    {
+     "alternative_winner_id": null,
+     "alternative_winner_label": null,
+     "current_value": 0,
+     "factor_id": "fac_sales_headcount",
+     "factor_label": "Sales Headcount Expansion",
+     "flip_reason": "structurally_invariant",
+     "flip_value": null,
+     "iterations_used": 0,
+     "no_flip_in_range": true,
+     "probes_used": 0
+    },
+    {
+     "alternative_winner_id": null,
+     "alternative_winner_label": null,
+     "current_value": 0,
+     "factor_id": "fac_self_serve",
+     "factor_label": "Self-Serve Product Tier",
+     "flip_reason": "structurally_invariant",
+     "flip_value": null,
+     "iterations_used": 0,
+     "no_flip_in_range": true,
+     "probes_used": 0
+    }
+   ],
+   "inference_warnings": [
+    {
+     "code": "EDGE_E_VALUE_NON_FINITE_DROPPED",
+     "message": "4 edge E-value entries were omitted from edge_e_values: 4 carried no finite E-value from the analysis engine (an unflippable edge, whose current and flip means coincide, has no evidence ratio). edge_e_values is shorter because those entries could not be represented, not because they were computed empty. All other analyses are unaffected.",
+     "severity": "info"
+    }
+   ],
+   "option_comparison": [
+    {
+     "id": "opt_content",
+     "label": "Invest in Content Marketing",
+     "option_id": "opt_content",
+     "option_label": "Invest in Content Marketing",
+     "outcome": {
+      "mean": 0.2744190580486545,
+      "n_samples": 10000,
+      "n_valid_samples": 10000,
+      "p10": 0.05390856573619588,
+      "p50": 0.2615644336339719,
+      "p90": 0.5091059290268755,
+      "std": 0.17377733153715663,
+      "validity_ratio": 1
+     },
+     "probability_of_goal": 0.2042,
+     "status": "computed",
+     "win_probability": 0.564825
+    },
+    {
+     "id": "opt_sales",
+     "label": "Hire Two Sales Reps",
+     "option_id": "opt_sales",
+     "option_label": "Hire Two Sales Reps",
+     "outcome": {
+      "mean": 0.12721216213160386,
+      "n_samples": 10000,
+      "n_valid_samples": 10000,
+      "p10": -0.1753388377046899,
+      "p50": 0.14884762645586713,
+      "p90": 0.3888782789406791,
+      "std": 0.21556923428324987,
+      "validity_ratio": 1
+     },
+     "probability_of_goal": 0.1185,
+     "status": "computed",
+     "win_probability": 0.2312083333333333
+    },
+    {
+     "id": "opt_selfserve",
+     "label": "Build Self-Serve Tier",
+     "option_id": "opt_selfserve",
+     "option_label": "Build Self-Serve Tier",
+     "outcome": {
+      "mean": 0.1096933939999379,
+      "n_samples": 10000,
+      "n_valid_samples": 10000,
+      "p10": -0.14958099568006641,
+      "p50": 0.10632164816758027,
+      "p90": 0.3768093040748312,
+      "std": 0.20512553213370202,
+      "validity_ratio": 1
+     },
+     "probability_of_goal": 0.1068,
+     "status": "computed",
+     "win_probability": 0.20160833333333333
+    },
+    {
+     "id": "opt_status_quo",
+     "label": "Continue Current Approach (Status Quo)",
+     "option_id": "opt_status_quo",
+     "option_label": "Continue Current Approach (Status Quo)",
+     "outcome": {
+      "mean": 0.0005258091074057324,
+      "n_samples": 10000,
+      "n_valid_samples": 10000,
+      "p10": -0.05000110612009092,
+      "p50": 0,
+      "p90": 0.05111075974553971,
+      "std": 0.043812683869529606,
+      "validity_ratio": 1
+     },
+     "probability_of_goal": 0.0223,
+     "status": "computed",
+     "win_probability": 0.0023583333333333334
+    }
+   ],
+   "option_comparison_status": "computed",
+   "p_win_sensitivity": [
+    {
+     "clamped": false,
+     "current_metric": 0.57775,
+     "factor_id": "fac_market_demand",
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "method": "p_win_delta_at_mean_v1",
+     "metric_type": "p_win_recommended",
+     "n_samples": 2000,
+     "noise_floor": 0.03099,
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta": 0.011792,
+     "p_win_delta_percentage_points": 1.18,
+     "perfect_metric": 0.589542,
+     "status": "below_resolution"
+    },
+    {
+     "clamped": true,
+     "current_metric": 0.57775,
+     "factor_id": "fac_content_spend",
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "method": "p_win_delta_at_mean_v1",
+     "metric_type": "p_win_recommended",
+     "n_samples": 2000,
+     "noise_floor": 0.03099,
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta": 0,
+     "p_win_delta_percentage_points": 0,
+     "perfect_metric": 0.576083,
+     "status": "below_resolution"
+    },
+    {
+     "clamped": true,
+     "current_metric": 0.57775,
+     "factor_id": "fac_sales_headcount",
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "method": "p_win_delta_at_mean_v1",
+     "metric_type": "p_win_recommended",
+     "n_samples": 2000,
+     "noise_floor": 0.03099,
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta": 0,
+     "p_win_delta_percentage_points": 0,
+     "perfect_metric": 0.54675,
+     "status": "below_resolution"
+    },
+    {
+     "clamped": true,
+     "current_metric": 0.57775,
+     "factor_id": "fac_self_serve",
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "method": "p_win_delta_at_mean_v1",
+     "metric_type": "p_win_recommended",
+     "n_samples": 2000,
+     "noise_floor": 0.03099,
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta": 0,
+     "p_win_delta_percentage_points": 0,
+     "perfect_metric": 0.570333,
+     "status": "below_resolution"
+    },
+    {
+     "clamped": true,
+     "current_metric": 0.57775,
+     "factor_id": "fac_budget",
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "method": "p_win_delta_at_mean_v1",
+     "metric_type": "p_win_recommended",
+     "n_samples": 2000,
+     "noise_floor": 0.03099,
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta": 0,
+     "p_win_delta_percentage_points": 0,
+     "perfect_metric": 0.563625,
+     "status": "below_resolution"
+    },
+    {
+     "clamped": true,
+     "current_metric": 0.57775,
+     "factor_id": "fac_current_arr",
+     "labelling_doctrine": "provisional_doctrine_v0",
+     "method": "p_win_delta_at_mean_v1",
+     "metric_type": "p_win_recommended",
+     "n_samples": 2000,
+     "noise_floor": 0.03099,
+     "noise_floor_method": "z95_worst_case_bernoulli_diff",
+     "p_win_delta": 0,
+     "p_win_delta_percentage_points": 0,
+     "perfect_metric": 0.571917,
+     "status": "below_resolution"
+    }
+   ],
+   "robustness": {
+    "confidence": 0.564825,
+    "confidence_basis": "recommendation_stability_uncalibrated",
+    "display_verdict": "fragile",
+    "display_verdict_reason": "none of the factors we could test changed which option leads on its own, but this result scored low on our other robustness checks",
+    "fragile_edges": [
+     {
+      "alternative_winner_id": "opt_sales",
+      "alternative_winner_label": "Hire Two Sales Reps",
+      "edge_id": "fac_content_spend->out_pipeline_velocity",
+      "from_id": "fac_content_spend",
+      "from_label": "Content Marketing Investment",
+      "marginal_switch_probability": 0,
+      "severity": "warning",
+      "switch_probability": 0.36130374479889044,
+      "to_id": "out_pipeline_velocity",
+      "to_label": "Sales Pipeline Velocity",
+      "visible": true
+     },
+     {
+      "alternative_winner_id": "opt_sales",
+      "alternative_winner_label": "Hire Two Sales Reps",
+      "edge_id": "fac_content_spend->out_new_arr",
+      "from_id": "fac_content_spend",
+      "from_label": "Content Marketing Investment",
+      "marginal_switch_probability": 0.01,
+      "severity": "warning",
+      "switch_probability": 0.3327873327873328,
+      "to_id": "out_new_arr",
+      "to_label": "New ARR Generated",
+      "visible": true
+     },
+     {
+      "alternative_winner_id": "opt_selfserve",
+      "alternative_winner_label": "Build Self-Serve Tier",
+      "edge_id": "out_pipeline_velocity->goal_arr",
+      "from_id": "out_pipeline_velocity",
+      "from_label": "Sales Pipeline Velocity",
+      "marginal_switch_probability": 0,
+      "severity": "warning",
+      "switch_probability": 0.3284,
+      "to_id": "goal_arr",
+      "to_label": "Reach \u00a31,000,000 ARR",
+      "visible": true
+     },
+     {
+      "alternative_winner_id": "opt_sales",
+      "alternative_winner_label": "Hire Two Sales Reps",
+      "edge_id": "fac_sales_headcount->risk_budget_overrun",
+      "from_id": "fac_sales_headcount",
+      "from_label": "Sales Headcount Expansion",
+      "marginal_switch_probability": 0,
+      "severity": "warning",
+      "switch_probability": 0.2972,
+      "to_id": "risk_budget_overrun",
+      "to_label": "Budget Overrun Risk",
+      "visible": true
+     },
+     {
+      "alternative_winner_id": "opt_sales",
+      "alternative_winner_label": "Hire Two Sales Reps",
+      "edge_id": "out_new_arr->goal_arr",
+      "from_id": "out_new_arr",
+      "from_label": "New ARR Generated",
+      "marginal_switch_probability": 0,
+      "severity": "warning",
+      "switch_probability": 0.2872,
+      "to_id": "goal_arr",
+      "to_label": "Reach \u00a31,000,000 ARR",
+      "visible": true
+     },
+     {
+      "alternative_winner_id": "opt_sales",
+      "alternative_winner_label": "Hire Two Sales Reps",
+      "edge_id": "fac_budget->risk_budget_overrun",
+      "from_id": "fac_budget",
+      "from_label": "Available Growth Budget",
+      "marginal_switch_probability": 0,
+      "severity": "warning",
+      "switch_probability": 0.2364,
+      "to_id": "risk_budget_overrun",
+      "to_label": "Budget Overrun Risk",
+      "visible": true
+     },
+     {
+      "alternative_winner_id": "opt_sales",
+      "alternative_winner_label": "Hire Two Sales Reps",
+      "edge_id": "fac_current_arr->out_new_arr",
+      "from_id": "fac_current_arr",
+      "from_label": "Current ARR",
+      "marginal_switch_probability": 0,
+      "severity": "warning",
+      "switch_probability": 0.2328,
+      "to_id": "out_new_arr",
+      "to_label": "New ARR Generated",
+      "visible": true
+     },
+     {
+      "alternative_winner_id": "opt_selfserve",
+      "alternative_winner_label": "Build Self-Serve Tier",
+      "edge_id": "risk_churn->goal_arr",
+      "from_id": "risk_churn",
+      "from_label": "Customer Churn Rate",
+      "marginal_switch_probability": 0,
+      "severity": "warning",
+      "switch_probability": 0.232,
+      "to_id": "goal_arr",
+      "to_label": "Reach \u00a31,000,000 ARR",
+      "visible": true
+     },
+     {
+      "alternative_winner_id": "opt_sales",
+      "alternative_winner_label": "Hire Two Sales Reps",
+      "edge_id": "fac_content_spend->risk_churn",
+      "from_id": "fac_content_spend",
+      "from_label": "Content Marketing Investment",
+      "marginal_switch_probability": 0,
+      "severity": "warning",
+      "switch_probability": 0.1576,
+      "to_id": "risk_churn",
+      "to_label": "Customer Churn Rate",
+      "visible": true
+     }
+    ],
+    "is_robust": false,
+    "level": "low",
+    "near_tie": {
+     "gap": 0.33361666666666673,
+     "is_tie": false,
+     "threshold": 0.1
+    },
+    "robust_edges": [
+     {
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "edge_id": "fac_market_demand->out_pipeline_velocity",
+      "from_id": "fac_market_demand",
+      "from_label": "B2B Market Demand",
+      "to_id": "out_pipeline_velocity",
+      "to_label": "Sales Pipeline Velocity"
+     },
+     {
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "edge_id": "fac_sales_headcount->out_pipeline_velocity",
+      "from_id": "fac_sales_headcount",
+      "from_label": "Sales Headcount Expansion",
+      "to_id": "out_pipeline_velocity",
+      "to_label": "Sales Pipeline Velocity"
+     },
+     {
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "edge_id": "fac_sales_headcount->risk_time_to_revenue",
+      "from_id": "fac_sales_headcount",
+      "from_label": "Sales Headcount Expansion",
+      "to_id": "risk_time_to_revenue",
+      "to_label": "Time to Revenue Contribution"
+     },
+     {
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "edge_id": "fac_self_serve->risk_budget_overrun",
+      "from_id": "fac_self_serve",
+      "from_label": "Self-Serve Product Tier",
+      "to_id": "risk_budget_overrun",
+      "to_label": "Budget Overrun Risk"
+     },
+     {
+      "alternative_winner_id": null,
+      "alternative_winner_label": null,
+      "edge_id": "fac_self_serve->risk_churn",
+      "from_id": "fac_self_serve",
+      "from_label": "Self-Serve Product Tier",
+      "to_id": "risk_churn",
+      "to_label": "Customer Churn Rate"
+     }
+    ]
+   }
+  },
+  "leading_option_id": null,
+  "summary": "Ran analysis on your current scenario. One of the conditions you set was not checked: \u201cDelivery deadline\u201d. The analysis engine could not evaluate it against this model, so no option can be put forward yet. Re-state that limit against a measure recorded in the same units as the limit, then run the analysis again.",
+  "type": "analysis_result",
+  "win_probabilities": {
+   "Build Self-Serve Tier": 0.20160833333333333,
+   "Continue Current Approach (Status Quo)": 0.0023583333333333334,
+   "Hire Two Sales Reps": 0.2312083333333333,
+   "Invest in Content Marketing": 0.564825
+  }
+ }
+}

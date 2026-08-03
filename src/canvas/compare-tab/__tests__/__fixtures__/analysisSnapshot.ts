@@ -79,7 +79,20 @@ export function makeAnalysisSnapshot(
     conditionalWinners: [],
     edgeEValues: [],
     seedUsed: 12345,
-    responseHash: 'abc123',
+    /**
+     * ⚠ VARIES WITH `runNumber`, LIKE `runId` ABOVE — it used to be a constant
+     * `'abc123'`, which made every snapshot this fixture produced claim to be
+     * the SAME RUN.
+     *
+     * That was invisible until ROADMAP 2.350 made `addSnapshot`
+     * identity-idempotent: `makeSnapshot(1)`, `makeSnapshot(2)`,
+     * `makeSnapshot(3)` are meant to be three distinct runs, and every test
+     * that cares about identity already overrides this field explicitly, so
+     * only the tests that DON'T care were relying on the collision. A default
+     * that contradicts the fixture's own `runId: run-${runNumber}` is a trap
+     * for the next reader; deriving both from the same input removes it.
+     */
+    responseHash: `resp-hash-${overrides.runNumber}`,
     editSummary: 'Test edit',
     ...overrides,
   }

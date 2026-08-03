@@ -47,11 +47,15 @@
  * PHASE0-EVIDENCE-2026-07-28/sibling-extractors-fix.md. The nested-only and
  * both-absent classes stay pinned in this module's spec.
  */
-import type { V2RunResponse } from '../../adapters/plot/v2/types'
 import type { ScenarioEvent } from '../../types/scenario'
 import type { AnalysisSnapshot } from '../compare-tab/types'
 import type { PersistedAnalysisRunRow } from '../../services/analysisRunHistoryService'
 import { buildAnalysisSnapshot } from './analysisSnapshotFactory'
+import {
+  parseAnalysisEnrichment,
+  enrichmentToV2ResponseShape,
+  type ParsedAnalysisEnrichment,
+} from './analysisEnrichmentShape'
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -59,25 +63,20 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null
 }
 
-function isNonEmptyArray(value: unknown): value is unknown[] {
-  return Array.isArray(value) && value.length > 0
-}
-
 /**
  * The CEE-owned half of the fact, plus the PLoT envelope it wraps.
  * Everything here is untrusted JSONB — `null` means "this row cannot be read
  * as a completed analysis", and the caller DROPS it rather than defaulting it.
+ *
+ * ⚠ THE ENVELOPE HALF NOW LIVES IN `analysisEnrichmentShape.ts`, SHARED WITH
+ * THE LIVE V5 CAPTURE PATH (ROADMAP 2.350). A persisted fact's enrichment and
+ * a live `analysis_result` block's enrichment are the same bytes at two
+ * moments, so they get ONE reader — see that module's header for why a second
+ * copy of these guards would be the mirror defect this estate has already paid
+ * for twice (2.173 / 2.177). What stays here is only what is genuinely
+ * fact-ROW-shaped: the `fact_type` filter and the two row-level timestamps.
  */
-interface ParsedRunFact {
-  enrichment: Record<string, unknown>
-  /**
-   * The two arrays every DECIDING snapshot field comes from, carried out of the
-   * parser already proven non-empty, so `toV2ResponseShape` has no `?? []` arm
-   * that reads like sanctioned defaulting. Readability only — see that
-   * function's header for why this is NOT a second line of defence.
-   */
-  optionComparison: unknown[]
-  factorSensitivity: unknown[]
+interface ParsedRunFact extends ParsedAnalysisEnrichment {
   computedAt: string | null
   graphHashAtRun: string | null
 }
@@ -92,107 +91,22 @@ function parseRunFact(payload: unknown): ParsedRunFact | null {
   const result = asRecord(root.result)
   if (!result) return null
 
-  const enrichment = asRecord(result.enrichment)
-  // No envelope ⇒ nothing to render. 773/773 live rows carry one; a row that
-  // does not is a producer change, and the honest response is to omit the run
-  // from the journey, not to render a run with every field blank.
-  if (!enrichment) return null
-
-  // ⚠ A PRESENT ENVELOPE IS NOT A READABLE RUN. Found by the adversarial
-  // review of PR #523 (finding 1) and closed here pre-merge.
-  //
-  // Until this guard existed, `parseRunFact` accepted any row with
-  // {object, fact_type, result, enrichment} and `toV2ResponseShape` DEFAULTED a
-  // missing or empty `option_comparison` to `[]`. `buildAnalysisSnapshot`'s
-  // pre-existing `winner?.win_probability ?? 0` then produced a fully
-  // renderable snapshot. The reviewer's probe, reproduced verbatim here before
-  // the fix:
-  //
-  //   RESULT:  {"winnerId":"","winnerLabel":"","winnerProbability":0,
-  //             "goalProbability":null,"runnerUpProbability":null}
-  //   FACTORS: {"topElasticity":0,"rankFlipRate":0,
-  //             "influenceConcentration":0,"topCalibrationFactor":""}
-  //
-  // i.e. a run plotted on the trajectory at 0% with an empty winner label, and
-  // a hero inviting the user to "Calibrate " at "0% influence" — three
-  // fabricated measurements in one sentence. That is the absent≠zero class, on
-  // the very path this module documents as "dropped, never defaulted": the
-  // original three drop tests (non-object payload / wrong fact_type / no
-  // enrichment) could not see this shape.
-  //
-  // Both arrays are non-empty in 773/773 live facts, so this costs nothing on
-  // real data — it is a guard against PRODUCER DRIFT, and it makes that drift
-  // loud by omission (a run vanishes from the journey) instead of silently
-  // publishing zeros the engine never measured. The write surface is
-  // service-role-only, so this was never reachable by a client.
-  //
-  // These are the two arrays the snapshot's DECIDING fields come from —
-  // `option_comparison` for winner/runner-up/probabilities/goal, and
-  // `factor_sensitivity` for the whole top-factor and calibration block. Every
-  // OTHER producer field stays absence-preserving rather than drop-worthy
-  // (`recommendation_stability` is legitimately absent in 426/773 runs and must
-  // render "Not assessed", not delete the run).
-  if (!isNonEmptyArray(enrichment.option_comparison)) return null
-  if (!isNonEmptyArray(enrichment.factor_sensitivity)) return null
+  // Envelope validation + the two deciding-array guards: ONE reader, shared
+  // with the live V5 capture path. 773/773 live rows carry a readable
+  // envelope; a row that does not is a producer change, and the honest
+  // response is to omit the run from the journey, not to render a run with
+  // every field blank.
+  const parsed = parseAnalysisEnrichment(result.enrichment)
+  if (!parsed) return null
 
   return {
-    enrichment,
-    optionComparison: enrichment.option_comparison,
-    factorSensitivity: enrichment.factor_sensitivity,
+    ...parsed,
     computedAt: typeof result.computed_at === 'string' ? result.computed_at : null,
     graphHashAtRun:
       typeof result.graph_hash_at_run === 'string' && result.graph_hash_at_run.length > 0
         ? result.graph_hash_at_run
         : null,
   }
-}
-
-/**
- * The `robustness` slot, read off the untrusted envelope.
- *
- * This was `composeRobustness`, the root→robustness fold — deleted as
- * redundant once all three extractors adopted the root-wins dual read
- * (ROADMAP 2.173 / 2.177; see the module header's HISTORY block for the full
- * story and the byte-identity proof). What remains is only the slot read,
- * with `{}` — not undefined — preserved for an absent or malformed
- * `robustness`, exactly as the fold-era code behaved.
- */
-function readRobustnessSlot(enrichment: Record<string, unknown>): V2RunResponse['robustness'] {
-  // Double cast, deliberately: the object is untrusted JSONB, not a validated
-  // V2RobustnessActual. The factory's extractors already re-read every field
-  // off it defensively (`as Record<string, unknown>` + type guards), so
-  // widening through `unknown` is honest about what is known — asserting the
-  // nominal type directly would claim a validation nobody did.
-  return (asRecord(enrichment.robustness) ?? {}) as unknown as V2RunResponse['robustness']
-}
-
-/**
- * Shape the parsed fact into the `V2RunResponse` slot the factory consumes. No
- * value is invented: absent producer fields stay absent, and the factory's own
- * absence-preserving branches then fire.
- *
- * It takes the PARSED fact rather than the raw enrichment so that the two
- * deciding arrays arrive already proven non-empty and this function has no
- * `Array.isArray(...) : []` arm that READS like sanctioned defaulting.
- *
- * ⚠ BE CLEAR ABOUT WHAT THIS IS NOT. It is **not** a second line of defence,
- * and the earlier draft of this comment implied it was. `buildAnalysisSnapshot`
- * has its own `rawV2Response.option_comparison ?? []` and
- * `factor_sensitivity ?? []` (analysisSnapshotFactory.ts:250,257), so deleting
- * the `parseRunFact` guards would re-create finding 1 exactly, whatever this
- * function passes through. Mutation-checked: restoring the defaulting arm here
- * with the guards intact REDs nothing (28/28 green — M13), while deleting
- * either guard REDs immediately (M10/M11). **The guards in `parseRunFact` are
- * the whole fix; this is readability, and it must not be mistaken for a
- * guarantee.**
- */
-function toV2ResponseShape(fact: ParsedRunFact): V2RunResponse {
-  return {
-    ...fact.enrichment,
-    option_comparison: fact.optionComparison,
-    factor_sensitivity: fact.factorSensitivity,
-    robustness: readRobustnessSlot(fact.enrichment),
-  } as unknown as V2RunResponse
 }
 
 export interface BuildPersistedSnapshotParams {
@@ -216,7 +130,7 @@ export function buildSnapshotFromPersistedRun(
   if (!fact) return null
 
   const base = buildAnalysisSnapshot({
-    rawV2Response: toV2ResponseShape(fact),
+    rawV2Response: enrichmentToV2ResponseShape(fact),
     // No graph-at-run in a run_analysis fact. Passing null (not []) is what
     // makes graphHash / nodeCount / edgeCount / evidenceCoverage report
     // honest absence instead of a fabricated empty graph.
