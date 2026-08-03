@@ -151,6 +151,38 @@ let listenerRefCount = 0
  * `buildReadinessPayload`, so neither can drift from the payload.
  */
 let lastObservedPayload: string | null = null
+/**
+ * ROADMAP 2.345 — the payload the CURRENTLY ARMED debounce timer will ask
+ * about. Non-null exactly while `debounceTimer` is armed; cleared the instant
+ * the timer fires or is torn down.
+ *
+ * It answers a THIRD question, distinct from the two above: not "has anything
+ * changed since we last asked?" (`lastObservedPayload`) and not "do we already
+ * hold a verdict for this?" (`lastPayloadHash`), but "is this exact question
+ * ALREADY ON ITS WAY?".
+ *
+ * Without it the debounce could starve itself, and on the deployed canvas it
+ * always did. React Flow's ResizeObserver drives a permanent ~100–120 Hz storm
+ * of `nodes`-identity commits (measured live: max inter-commit gap 44 ms over
+ * 60 s). Every one of those commits rebuilds a payload that is IDENTICAL to
+ * the last — and after the cold-load zero-node arm returned without recording
+ * anything, `lastObservedPayload` was `null`, which equals no payload at all.
+ * So each commit read as a change and cleared + re-armed the 500 ms trailing
+ * timer ~100 times a second, forever. The fetch that would have ended the loop
+ * by recording `lastObservedPayload` sat behind the timer that never fired: a
+ * starvation deadlock, and the reason `graph-readiness` was requested ZERO
+ * times in three of four witnessed guest sessions.
+ *
+ * Tracking the SCHEDULED payload separately is what makes starvation
+ * structurally impossible: a given payload can re-arm the timer at most once,
+ * so the timer always reaches its deadline. It deliberately does NOT reuse
+ * `lastObservedPayload` — recording a payload as observed at SCHEDULE time is
+ * the pre-#566 shape, and it makes a question that was scheduled but never
+ * actually asked (rate-limit backoff, teardown) look answered forever. Both
+ * truths have to hold at once: an unattempted payload is not "asked", and a
+ * scheduled payload must not reset its own timer.
+ */
+let pendingScheduledPayload: string | null = null
 /** The payload of the last SUCCESSFUL request. Never written on failure. */
 let lastPayloadHash: string | null = null
 let fetchInFlight = false
@@ -371,6 +403,22 @@ async function fetchReadiness(): Promise<void> {
     } = canvasState
 
     if (currentNodes.length === 0) {
+      // ── ROADMAP 2.345: this arm ANSWERS the question, so record it ──
+      //
+      // The verdict below is composed locally, but it is still an answer to
+      // exactly this payload (the empty graph), which is why the arm can
+      // honestly clear `stale`. Leaving `lastObservedPayload` unrecorded here
+      // was half of the starvation deadlock: on a cold load this is the FIRST
+      // consumer's immediate fetch, so the marker stayed `null` — and `null`
+      // is equal to no payload, so every subsequent canvas emission read as a
+      // change no matter what it contained.
+      //
+      // Recording it also stops a `stale` flap on an empty canvas: payload-
+      // identical emissions (brief typing below the 20-character floor, a
+      // resize) would otherwise mark the verdict outgrown, fire the debounce,
+      // land back in this arm, and clear the mark again — once per pause,
+      // about a verdict that never changed.
+      lastObservedPayload = buildReadinessPayload(canvasState)
       useReadinessStore.setState({
         readiness: {
           readiness_score: 0,
@@ -856,14 +904,48 @@ export const useReadinessStore = create<ReadinessStoreState & ReadinessStoreActi
         const nextPayload = buildReadinessPayload(state as unknown as ReadinessPayloadInputs)
         if (nextPayload === lastObservedPayload) return
 
+        // ── ROADMAP 2.345: a question already in the timer cannot re-arm it ──
+        //
+        // Step 3. The two steps above ask whether anything CHANGED. Neither
+        // asks whether this exact change is already scheduled — and on the
+        // deployed canvas it always is, because React Flow re-emits a
+        // payload-identical `nodes` array ~100 times a second for the life of
+        // the graph. Each of those emissions used to clear and re-arm the
+        // trailing timer, so the deadline moved faster than time passed and
+        // the fetch was never made: zero `graph-readiness` requests per
+        // session, the gate composed from a cold-load local verdict, and every
+        // surface #566 built to be honest about an outage sitting behind a
+        // request that never went out.
+        //
+        // With the scheduled payload tracked, a payload can arm the timer at
+        // most once, so the deadline is always reached. Storm-independent by
+        // construction: it does not care how fast the churn is, only that the
+        // churn is asking the same question. A max-wait deadline was rejected
+        // as the primary fix — under permanent churn it re-fires forever and
+        // has to be tuned against the dedup window, where this cannot fire
+        // twice for one payload at all.
+        //
+        // The `stale` mark is not skipped by this return: it was set when this
+        // payload was first scheduled, and nothing between then and the timer
+        // firing can clear it (only a fresh verdict does, and a fresh verdict
+        // sets `lastObservedPayload`, which the step above catches first).
+        if (nextPayload === pendingScheduledPayload) return
+
         // The verdict currently on screen was not asked about this model.
         // Marked synchronously — before the debounce, before the request — so
         // there is no window in which an outgrown verdict looks current.
         useReadinessStore.setState({ stale: true })
 
+        pendingScheduledPayload = nextPayload
         if (debounceTimer) clearTimeout(debounceTimer)
         debounceTimer = setTimeout(() => {
           debounceTimer = null
+          // Cleared BEFORE the fetch: from here the question is being asked,
+          // not scheduled, and `lastObservedPayload` takes over as the record
+          // the moment the attempt runs. Left set, a payload that had been
+          // scheduled once could never be scheduled again — which is how a
+          // rate-limited or torn-down attempt would become permanently sticky.
+          pendingScheduledPayload = null
           fetchReadiness().catch(() => {
             // Swallow — fetchReadiness handles errors internally
           })
@@ -905,6 +987,10 @@ function stopListening(): void {
     clearTimeout(debounceTimer)
     debounceTimer = null
   }
+  // ROADMAP 2.345 — the timer is gone, so nothing is scheduled. Held past a
+  // teardown it would suppress the re-scheduling of that same payload after a
+  // remount, which is the shape the last consumer unmounting actually produces.
+  pendingScheduledPayload = null
   if (currentInflightEntry) {
     currentInflightEntry.refCount--
     if (currentInflightEntry.refCount <= 0) {
@@ -944,6 +1030,12 @@ export const __test__ = {
     listenerRefCount,
     hasSubscription: unsubCanvasStore !== null,
     hasDebounceTimer: debounceTimer !== null,
+    /**
+     * ROADMAP 2.345 — whether an armed timer is currently claiming a question.
+     * The invariant is `hasDebounceTimer === hasPendingScheduledPayload`; a
+     * claim outliving its timer is exactly what makes a payload unaskable.
+     */
+    hasPendingScheduledPayload: pendingScheduledPayload !== null,
   }),
   resetModuleState: () => {
     stopListening()
