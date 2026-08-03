@@ -147,6 +147,10 @@ const CAPPED_OBSERVED = {
   source: 'brief_extraction',
 }
 
+/** A factor CEE drafted with no number at all — "needs a value". */
+const EMPTY_ID = 'fac_brand_trust'
+const EMPTY_LABEL = 'Brand trust'
+
 /**
  * ⭐ THE THIRD SHAPE (#572 review blocker): staging-witnessed uncapped
  * unit-bearing factor. Model scale IS the magnitude, so a verbatim 0.7 would
@@ -552,6 +556,36 @@ describe('CalibrateDrillIn — "say it in words" (ROADMAP 2.364)', () => {
     // committed the value is still there to correct it.
     expect(row?.canEditValue).toBe(true)
     expect(row?.needsValue).toBe(false)
+  })
+
+  it('⭐ on a factor with NO value yet, the wire still carries value ONLY — no raw_value, no unit', async () => {
+    // WHY THIS EXISTS (mutation finding, second battery). Swapping the accept's
+    // basis to `'raw_or_value'` left all 101 tests green, because on every
+    // shape the gate admits there is NO CAP — and with no cap to divide by,
+    // the two bases produce the same number. The bases diverge only in what
+    // they ATTACH: on an empty factor `'raw_or_value'` classifies the input as
+    // user units and ships `raw_value: 0.7` alongside it, asserting a magnitude
+    // the user never gave and turning an "I did not state units" into a claim.
+    // That absence IS the contract this PR documents, so it is asserted rather
+    // than assumed — otherwise `'model_scale'` is decorative on this surface
+    // and the mutant is right that nothing notices.
+    seedFactor(EMPTY_ID, EMPTY_LABEL, {})
+    elicitReplies.push({ ...PRETTY_LIKELY })
+    holdTurn = true
+    renderFor(EMPTY_ID)
+
+    await sayInWords(EMPTY_LABEL, 'pretty likely')
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText(`Use about 70% for ${EMPTY_LABEL}`))
+      await flush()
+    })
+
+    const edits = factorValueEdits()
+    expect(edits).toHaveLength(1)
+    expect(edits[0].target_id).toBe(EMPTY_ID)
+    expect(edits[0].value).toBe(0.7)
+    expect(edits[0]).not.toHaveProperty('raw_value')
+    expect(edits[0]).not.toHaveProperty('unit')
   })
 
   it('a failed elicitation says so and commits NOTHING', async () => {
