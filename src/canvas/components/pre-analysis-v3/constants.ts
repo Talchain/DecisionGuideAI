@@ -242,6 +242,43 @@ export const FOOTER_COPY = {
   running: 'Analysis running',
   runningSub: 'Hold on while the first pass completes',
   analyse: 'Analyse first pass',
+
+  // ── ROADMAP 2.332 / 2.339 — the readiness check itself failed ─────
+  //
+  // Closing the interim #564 merged on record: "an unreachable or missing
+  // readiness service is invisible: no readiness assessment, no error, Run
+  // stays enabled." The store had been made honest — a transport failure, a
+  // 404 and a 5xx all publish no verdict and set a truthful `error` — but the
+  // only component rendering that state, `PreAnalysisHealth`, has zero
+  // non-test importers. Meanwhile THIS footer read the outage as good news and
+  // printed `ready` ("Analysis available") about a model nothing had assessed.
+  //
+  // These three lines are what the footer says instead. Each states only what
+  // we hold: that the check did not complete, and — where a prior server
+  // verdict is being retained — that it is being shown and when it was taken.
+  // None of them asserts anything about the model, and none of them changes
+  // the run gate: the verdict stays the server's, and visibility is the whole
+  // deliverable.
+  /** No timestamped server answer stands behind what is on screen. */
+  readinessUnchecked: 'Could not check readiness',
+  /** Something is on screen, but the latest check did not complete. */
+  readinessRecheckFailed: 'Could not re-check readiness',
+  /** A timestamped server answer is retained, and the model HAS moved since. */
+  readinessStale: 'Your model changed since this readiness check',
+  /**
+   * Every subline names the CAUSE — the store's own account of the failure,
+   * which is composed in this repo and never carries a response body. A footer
+   * that says only "could not check" tells the user nothing they can act on.
+   */
+  readinessSub: (reason: string) => `${reason}.`,
+  /**
+   * …and, where a timestamped SERVER answer is being retained, says so with
+   * the time it was taken. "Showing an older answer" is then a statement with
+   * a timestamp rather than a vague hedge.
+   */
+  readinessRetainedSub: (reason: string, takenAt: string) =>
+    `${reason}. Showing the check from ${takenAt}.`,
+  readinessRetry: 'Retry readiness check',
 } as const
 
 /**

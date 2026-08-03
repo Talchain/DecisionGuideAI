@@ -70,6 +70,9 @@ export {
   selectReadiness,
   selectReadinessLoading,
   selectReadinessError,
+  // ROADMAP 2.332 — the verdict's own freshness, alongside the verdict.
+  selectReadinessStale,
+  selectReadinessVerdictAtMs,
 } from './readinessStore'
 
 /**
