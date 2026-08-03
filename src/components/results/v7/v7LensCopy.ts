@@ -202,6 +202,31 @@ export const V7_LENS_COPY = {
     resolveNextBelow: (labels: string) => `Below resolution on this run: ${labels}`,
     resolveNextPartial: "Some factors couldn't be assessed for this ranking.",
     resolveNextGate: "Value-of-information ranking wasn't produced for this run.",
+    /**
+     * ⭐ L51 — THE ARRIVED-AND-ALL-SUB-RESOLUTION EMPTY STATE. Paul's ruling.
+     *
+     * LICENSED BY: a NON-NULL ranking whose `resolved` band is empty — i.e. the
+     * estimator ran, rows arrived and were label-resolved, and not one of them
+     * cleared its noise floor. It is NOT licensed by absent/empty/unusable
+     * `factor_evppi`: that is `resolveNextGate` above, and saying "no single
+     * unknown would change the recommendation" about factors nothing assessed
+     * would fabricate the assessment. The two are mutually exclusive by
+     * construction — `buildVoiRanking` returns `null` for exactly the gate's
+     * cases — and both directions are pinned in
+     * `V7EvidenceDisclosure.resolveNextAllBelowResolution.spec.tsx` §2/§3.
+     *
+     * PLAIN LANGUAGE, DELIBERATELY. "below_resolution", "noise floor" and
+     * "EVPPI" are the producer's vocabulary, not the user's; the one
+     * jargon-adjacent line on this surface (`resolveNextBelow`) is pre-existing
+     * ratified design copy and is left exactly where it was rather than
+     * relocated by this lane. "at this precision" is what carries the honest
+     * caveat that a longer run could resolve something — the sentence says
+     * nothing stands out YET, never that nothing matters.
+     *
+     * The em dash is deliberate and matches `resolveNextNote` above.
+     */
+    resolveNextNoneAboveResolution:
+      'Nothing stands out to resolve yet — at this precision, no single unknown would change the recommendation.',
     /** Conditional-winner narration — all values are producer-supplied
      * (factor label, split value/unit, winner labels); nothing invented. */
     tradeOffSplit: (factor: string, value: string, high: string, low: string) =>
