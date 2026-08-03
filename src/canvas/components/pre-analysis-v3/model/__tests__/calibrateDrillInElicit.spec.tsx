@@ -346,6 +346,94 @@ describe('CalibrateDrillIn — "say it in words" (ROADMAP 2.364)', () => {
     expect(observedOf(MAGNITUDE_ID).source).toBe('brief_extraction')
   })
 
+  it('⭐ A1 — the gate is REACTIVE: a factor that becomes an amount mid-drill-in loses the affordance before it can be accepted', async () => {
+    // This is what makes an accept-time re-check unnecessary, and it was
+    // MEASURED, not assumed: a first cut carried a duplicate predicate inside
+    // the accept handler, and the mutation battery showed no mutant could kill
+    // it — because the control it guards has already unmounted. The guard was
+    // removed and this pin put in its place.
+    seedFactor(WALK_ID, WALK_LABEL, { ...WALK_OBSERVED })
+    elicitReplies.push({ ...PRETTY_LIKELY })
+    renderFor(WALK_ID)
+
+    await sayInWords(WALK_LABEL, 'pretty likely')
+    expect(screen.getByLabelText(`Use about 70% for ${WALK_LABEL}`)).toBeInTheDocument()
+
+    // The factor becomes an uncapped £ amount.
+    act(() => {
+      useCanvasStore.setState({
+        nodes: [
+          {
+            id: WALK_ID,
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              kind: 'factor',
+              label: WALK_LABEL,
+              observedState: { value: 40000, unit: '£', raw_value: 40000, source: 'cee_inference' },
+            },
+          } as unknown as Node,
+        ],
+      } as never)
+    })
+
+    // The whole affordance is gone — no button to click, no panel to type in.
+    expect(
+      screen.queryByLabelText(`Use about 70% for ${WALK_LABEL}`),
+    ).toBeNull()
+    expect(
+      screen.queryByLabelText(`Describe your estimate for ${WALK_LABEL} in words`),
+    ).toBeNull()
+    expect(screen.queryByTestId('pre-analysis-v3-in-words')).not.toBeInTheDocument()
+
+    // And £40,000 is untouched, on the wire and in the store.
+    expect(factorValueEdits()).toHaveLength(0)
+    expect(observedOf(WALK_ID).value).toBe(40000)
+    expect(observedOf(WALK_ID).raw_value).toBe(40000)
+    expect(observedOf(WALK_ID).source).toBe('cee_inference')
+  })
+
+  it('⭐ A4 — an unsure response with NO options still suppresses the number offer', async () => {
+    seedFactor(WALK_ID, WALK_LABEL, { ...WALK_OBSERVED })
+    // needs_clarification true, options ABSENT — the shape that used to fall
+    // through to "That reads as about 70%" + Use this, offering a number the
+    // engine had just flagged as unsure.
+    elicitReplies.push({
+      suggested_value: 0.7,
+      confidence: 'low',
+      reasoning: 'unsure',
+      needs_clarification: true,
+      clarifying_question: 'Which reading did you mean?',
+      provenance: 'cee',
+    })
+    renderFor(WALK_ID)
+
+    await sayInWords(WALK_LABEL, 'good')
+
+    expect(screen.getByText('Which reading did you mean?')).toBeInTheDocument()
+    expect(screen.queryByText(/That reads as/)).not.toBeInTheDocument()
+    expect(
+      screen.queryByLabelText(`Use about 70% for ${WALK_LABEL}`),
+    ).toBeNull()
+  })
+
+  it('A4 — unsure with NO options and NO question falls back to honest copy, still offering no number', async () => {
+    seedFactor(WALK_ID, WALK_LABEL, { ...WALK_OBSERVED })
+    elicitReplies.push({
+      suggested_value: 0.7,
+      confidence: 'low',
+      reasoning: 'unsure',
+      needs_clarification: true,
+      provenance: 'cee',
+    })
+    renderFor(WALK_ID)
+
+    await sayInWords(WALK_LABEL, 'good')
+
+    expect(screen.getByText(/couldn't pin that down/i)).toBeInTheDocument()
+    expect(screen.queryByText(/That reads as/)).not.toBeInTheDocument()
+  })
+
   it('the affordance is also absent on a cap-bearing factor (commit is correct there; display is not)', async () => {
     seedFactor(CAPPED_ID, CAPPED_LABEL, { ...CAPPED_OBSERVED })
     renderFor(CAPPED_ID)

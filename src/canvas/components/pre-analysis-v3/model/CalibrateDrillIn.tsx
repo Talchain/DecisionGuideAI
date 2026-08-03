@@ -371,18 +371,21 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
    */
   const acceptElicited = useCallback(
     (suggestedValue: number): void => {
-      // BELT, not a duplicate of the affordance gate. The gate decides what to
-      // OFFER; this decides what to COMMIT, and it re-reads the factor's shape
-      // at accept time. If the gate ever drifts — or the node's shape changes
-      // under an open drill-in — the commit refuses with honest copy instead
-      // of turning £40,000 into £0.70. (`buildFactorValueEditEvent` refuses the
-      // same shape structurally; this exists so the refusal is VISIBLE rather
-      // than a silent no-op.)
-      const node = useCanvasStore.getState().nodes.find(n => n.id === row.nodeId)
-      if (!acceptsElicitedBelief(node?.data)) {
-        setHint(FIELD_FEEDBACK_COPY.elicitedNotAChanceHint)
-        return
-      }
+      // NO SHAPE RE-CHECK HERE, deliberately — and this is a correction, not an
+      // omission. An accept-time copy of the predicate was written first and
+      // then removed when the mutation battery showed it could not be reached
+      // OR killed: `canDescribeInWords` is a REACTIVE store selector, so the
+      // moment a factor stops being a chance the whole affordance unmounts and
+      // there is no button left to click (pinned by the shape-changes-under-an-
+      // open-drill-in test). An unreachable guard that no mutant can kill is
+      // the guarantee-theatre class this estate hunts; it does not get to sit
+      // here looking reassuring.
+      //
+      // The STRUCTURAL refusal is real and lives one layer down, where it
+      // covers every caller rather than this one call site:
+      // `buildFactorValueEditEvent` returns null for a `model_scale` commit on
+      // a magnitude factor, and `commit` fails closed on a null event — no
+      // local write, no wire, no receipt, no stamp.
       commit(suggestedValue, VALUE_STAMP, {
         seedBasis: 'model_scale',
         writeValue: true,
@@ -391,7 +394,7 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
       elicitation.reset()
       onDone()
     },
-    [commit, elicitation, onDone, row.nodeId],
+    [commit, elicitation, onDone],
   )
 
   return (
