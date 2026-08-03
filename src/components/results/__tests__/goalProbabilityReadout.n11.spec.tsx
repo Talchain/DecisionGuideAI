@@ -187,6 +187,36 @@ describe('T-2333-3 — the comparative register agrees with itself on one card',
   })
 })
 
+describe('absent ≠ zero — the readouts are computed eagerly, so pin what happens', () => {
+  /**
+   * `goalReadout` and `winsReadout` are hoisted to the top of `OptionCard` and
+   * computed for EVERY card, including one whose probability is absent. That is
+   * what makes them single-sourced, and it means `formatGoalProbability` is
+   * called with `undefined` on such a card — which would render "NaN%".
+   *
+   * It never reaches the DOM, and this pins WHY rather than asserting it
+   * happens to be fine: the goal row is behind a complete-field gate
+   * (`showHitsTarget = hasGoalThreshold && options.every(o => o.goalProbability
+   * != null)`) and the win readout behind `option.winProbability != null`. If a
+   * later change renders either readout outside its guard, this REDs.
+   */
+  it('renders no "NaN" when an option carries no goal probability', () => {
+    renderCards([
+      makeOption({ id: 'a', goalProbability: null, winProbability: 0.5, nValidSamples: WALK_N }),
+      makeOption({ id: 'b', goalProbability: 0.4, winProbability: 0.3, isRecommended: false, nValidSamples: WALK_N }),
+    ])
+    expect(document.body.textContent ?? '').not.toContain('NaN')
+  })
+
+  it('renders no "NaN" when an option carries no win probability', () => {
+    renderCards([
+      makeOption({ id: 'a', goalProbability: 0.4, winProbability: undefined, nValidSamples: WALK_N }),
+      makeOption({ id: 'b', goalProbability: 0.3, winProbability: undefined, isRecommended: false, nValidSamples: WALK_N }),
+    ])
+    expect(document.body.textContent ?? '').not.toContain('NaN')
+  })
+})
+
 describe('T-2334-1b — five sub-1% options render five DISTINCT card readouts', () => {
   it('makes the ordering legible on the option cards, not just the Model tab', () => {
     // PC4 on this surface: the walk's quintet collapsed to five identical
